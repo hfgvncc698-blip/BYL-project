@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://boostyourlife.coach/sitemap.xml
+

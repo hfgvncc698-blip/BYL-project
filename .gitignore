@@ -1,0 +1,34 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+backend/.env
+backend/serviceAccountKey.json
+backend/firebase-service-account.json
+backend/*.log
+backend/utils/*
+
+echo 'boost-your-life-f6b3e-firebase-adminsdk-fbsvc-f200c38fb3.json' >> .gitignore
+
+boost-your-life-f6b3e-firebase-adminsdk-fbsvc-f200c38fb3.json

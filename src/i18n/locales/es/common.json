@@ -1,0 +1,1227 @@
+{
+  "brand": "BoostYourLife.coach",
+
+  "nav": {
+    "home": "Inicio",
+    "dashboard": "Panel",
+    "programs": "Programas",
+    "logout": "Cerrar sesión",
+    "my_programs": "Mis programas",
+    "profile": "Perfil",
+    "settings": "Ajustes",
+    "all_programs": "Todos los programas",
+    "my_clients": "Mis clientes",
+    "statistics": "Estadísticas",
+    "exercise_bank": "Banco de ejercicios",
+    "login": "Iniciar sesión",
+    "register": "Registrarse",
+    "admin_view": "Admin",
+    "admin_view_mobile": "Vista Admin",
+    "open_menu": "Abrir menú",
+    "toggle_color_mode": "Cambiar tema",
+    "custom_program": "Programa a medida",
+    "new_program": "Nuevo programa",
+    "new_client": "Nuevo cliente",
+    "menu": "Menú",
+    "program_type": "Tipo de programa",
+    "create_manual": "Crear manual",
+    "guided_creation": "Creación guiada",
+    "build_my_program": "Construir mi programa"
+  },
+
+  "actions": {
+    "buy_now": "Comprar",
+    "subscribe": "Suscribirse",
+    "start_trial": "Comenzar prueba",
+    "view_details": "Ver detalles",
+    "close": "Cerrar",
+    "add": "Añadir",
+    "confirm": "Confirmar",
+    "delete": "Eliminar"
+  },
+
+  "common": {
+    "loading": "Cargando…",
+    "loading_details": "Cargando detalles…",
+    "view": "Ver",
+    "delete": "Eliminar",
+    "duplicate": "Duplicar",
+    "assign": "Asignar",
+    "add": "Añadir",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "back": "Volver",
+    "close": "Cerrar",
+    "edit": "Editar",
+    "ignore": "Ignorar",
+    "submit": "Enviar"
+  },
+
+  "form": {
+    "program": "Programa",
+    "client": "Cliente",
+    "session": "Sesión",
+    "datetime": "Fecha y hora",
+    "select_program": "Selecciona un programa",
+    "select_client": "Selecciona un cliente",
+    "select_session": "Selecciona una sesión"
+  },
+
+  "errors": {
+    "not_logged_in": "Usuario no conectado.",
+    "payment_failed": "Error de pago: "
+  },
+
+  "premium": {
+    "title": "Programas Premium",
+    "subtitle": "Programas listos para usar, diseñados por BoostYourLife.",
+    "free": "Gratis",
+    "free_badge": "1.º GRATIS",
+    "price_on_stripe": "Precio mostrado en Stripe",
+    "claim_free": "Obtener gratis",
+    "added_to_yours": "Programa añadido a tus programas 🎉",
+    "cannot_add_free": "No se puede añadir gratis: ",
+    "per_week_short": "/ sem",
+    "min": "min",
+    "weeks_short": "sem",
+    "card_title": "Programa Premium",
+    "default_desc": "Programa estructurado, listo para empezar."
+  },
+
+  "home": {
+    "hero_title": "Impulsa tu vida con el entrenamiento inteligente",
+    "hero_sub": "Herramientas sencillas para coaches y particulares.",
+    "cta_pro": "Para coaches",
+    "cta_client": "Para particulares"
+  },
+
+  "dashboard": {
+    "coach_title": "Panel del coach",
+    "client_title": "Mi panel",
+    "recent_clients": "Clientes recientes",
+    "view_all": "Ver todos",
+    "add_client": "Añadir cliente",
+    "assign": "Asignar",
+    "delete_client": "Eliminar cliente",
+    "delete_client_title": "Eliminar cliente",
+    "sessions": "Sesiones",
+    "col_client": "Cliente",
+    "col_last_session": "Última sesión",
+    "col_progress": "Progresión",
+    "col_program": "Programa",
+    "col_action": "Acción",
+    "latest_programs": "Últimos programas",
+    "col_name": "Nombre",
+    "col_assigned_to": "Asignado a",
+    "col_created_on": "Creado el",
+    "assign_program": "Asignar un programa",
+    "add_session": "Añadir sesión",
+    "edit_session": "Editar sesión",
+    "delete_program": "Eliminar programa",
+    "client": "CLIENTE",
+    "clients": "CLIENTES",
+    "trial_banner": {
+      "prefix": "Prueba gratuita — te quedan",
+      "suffix": ". Podrás elegir un plan al finalizar la prueba."
+    },
+    "calendar": "Calendario"
+  },
+
+  "calendar": {
+    "title": "Calendario",
+    "add_session": "Añadir sesión",
+    "program": "Programa",
+    "session": "Sesión",
+    "select_program": "Selecciona un programa",
+    "select_session": "Selecciona una sesión",
+    "start_datetime": "Fecha y hora de inicio",
+    "session_title": "Sesión",
+    "validate": "Validar",
+    "missed": "Perdida",
+    "move": "Mover…",
+    "new_datetime": "Nueva fecha y hora",
+    "today": "Hoy",
+    "prev": "Ant.",
+    "previous": "Anterior",
+    "next": "Sig.",
+    "month": "Mes",
+    "week": "Semana",
+    "day": "Día",
+    "agenda": "Agenda",
+    "show_more": "+ {{count}} más"
+  },
+
+  "time": {
+    "days_short": "d",
+    "hours_short": "h",
+    "minutes_short": "m"
+  },
+
+  "programs": {
+    "title": "Programas",
+    "empty": "Aún no hay programas.",
+    "create": "Crear un programa",
+    "open": "Abrir",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "new_program": "Nuevo programa"
+  },
+
+  "exercise": {
+    "name": "Ejercicio",
+    "reps": "rep",
+    "sets": "series",
+    "rest": "descanso",
+    "duration": "duración"
+  },
+
+  "confirm": {
+    "delete_program": "¿Seguro que quieres eliminar este programa?",
+    "delete_client": "¿Seguro que quieres eliminar este cliente?"
+  },
+
+  "greeting": {
+    "card_aria": "Tarjeta de bienvenida del coach",
+    "hello_name": "Hola {{name}}",
+    "coach": "Coach",
+    "add_logo": "Añadir logotipo",
+    "logo_alt": "Logotipo de {{name}}",
+    "subline": {
+      "night": "Buenas noches, acuérdate de descansar 🌙",
+      "morning": "Buenos días — ¿list@ para un nuevo día?",
+      "afternoon": "Encantado de verte — ¿list@ para entrenar?",
+      "evening": "Cerramos el día por todo lo alto 💪"
+    }
+  },
+
+  "units": {
+    "per_week_short": "/ sem",
+    "min": "min",
+    "weeks_short": "sem",
+    "cm": "cm",
+    "ftin": "ft/in",
+    "kg": "kg",
+    "lbs": "lbs",
+    "kmh": "km/h",
+    "mph": "mph"
+  },
+
+  "client_dash": {
+    "client": "Cliente",
+    "hello_name": "Hola {{name}}",
+    "logo_alt": "Logotipo del cliente",
+    "my_programs": "Mis programas",
+    "view_all": "Ver todos",
+    "view_program": "Ver programa",
+    "start_session": "Iniciar sesión",
+    "view": "Ver",
+    "start": "Iniciar",
+    "done_total_sessions": "{{done}}/{{total}} sesiones",
+    "session_n": "Sesión {{n}}",
+    "session_moved": "Sesión movida",
+    "sessions": "Sesiones",
+    "motivation": {
+      "none": "Aún no hay sesiones validadas este mes, ¡es hora de empezar!",
+      "one": "¡Bien hecho! Ya has comenzado con 1 sesión validada este mes.",
+      "many": "Genial, has realizado {{n}} sesiones validadas este mes. ¡Sigue así!"
+    },
+    "table": {
+      "program": "Programa",
+      "made_by": "Creado por",
+      "created_on": "Creado el",
+      "sessions": "N.º de sesiones",
+      "progress": "Progresión",
+      "action": "Acción"
+    }
+  },
+
+  "hero": {
+    "title1": "Da vida a tus objetivos con",
+    "title2": "BoostYourLife.coach",
+    "subtitle": "La plataforma todo-en-uno para crear, seguir y hacer evolucionar programas de entrenamiento, para particulares y profesionales.",
+    "ctaClient": "Acceder al espacio particular",
+    "clientHint": "100% gratis, seguimiento ilimitado, <strong>1 programa premium</strong> de regalo.",
+    "ctaCoach": "Suscripción Pro",
+    "coachHint": "Prueba gratuita de 14 días. No se requiere tarjeta para empezar.",
+    "ctaPremium": "Descubrir los programas premium"
+  },
+
+  "how": {
+    "title": "¿Cómo funciona?",
+    "coach": {
+      "title": "Para Coaches",
+      "l1": "Prueba gratuita de 14 días, sin compromiso.",
+      "l2": "Creación ilimitada, gestión ilimitada de clientes, herramientas de seguimiento avanzadas.",
+      "l3": "Personalización (logo), exportaciones PDF, espacio en línea para tus clientes."
+    },
+    "client": {
+      "title": "Para Particulares",
+      "l1": "Registro gratuito y espacio personal ilimitado.",
+      "l2": "1 programa <strong>premium</strong> de regalo al registrarte.",
+      "l3": "Seguimiento de tu progreso + catálogo de programas premium."
+    }
+  },
+
+  "plans": {
+    "title": "Elige tu plan",
+    "free": {
+      "badge": "100% GRATIS",
+      "title": "Espacio particular",
+      "desc": "Acceso completo y seguimiento gratuito. 1 <strong>premium</strong> de regalo. Desbloquea después programas premium a tu elección.",
+      "cta": "Acceder gratis"
+    },
+    "pro": {
+      "badge": "PRUEBA 14 DÍAS",
+      "title": "Espacio profesional",
+      "desc": "Todas las funciones Pro: clientes y programas ilimitados, banco de ejercicios, logo personalizado, seguimiento avanzado, exportaciones PDF, espacio cliente dedicado.",
+      "cta": "Suscribirse Pro"
+    },
+    "premium": {
+      "badge": "PREMIUM",
+      "title": "Programas premium",
+      "desc": "Desbloquea programas exclusivos o solicita un acompañamiento a medida (compra única o suscripción).",
+      "cta": "Descubrir programas premium"
+    }
+  },
+
+  "roles": {
+    "individual": "Particular",
+    "coach": "Coach"
+  },
+
+  "profile": {
+    "title": "Mi perfil",
+    "labels": {
+      "firstName": "Nombre",
+      "lastName": "Apellidos",
+      "email": "Email",
+      "phone": "Teléfono",
+      "logo": "Logotipo (PNG / JPG / WEBP)"
+    },
+    "placeholders": {
+      "firstName": "Tu nombre",
+      "lastName": "Tus apellidos",
+      "email": "tu@email.com",
+      "phone": "06 XX XX XX XX"
+    },
+    "actions": {
+      "save": "Guardar mis datos",
+      "chooseFile": "Elegir archivo"
+    },
+    "toasts": {
+      "load_error_title": "Error al cargar el perfil",
+      "load_error_desc": "No se ha podido cargar tu perfil.",
+      "updated_title": "Perfil actualizado",
+      "updated_desc": "Tu información se ha guardado correctamente.",
+      "update_error_title": "Error de actualización",
+      "update_error_desc": "La actualización de tu perfil ha fallado."
+    },
+    "alt": {
+      "logo": "Logotipo"
+    }
+  },
+
+  "legal": {
+    "cgu": "Términos",
+    "cgv": "Condiciones de venta",
+    "privacy": "Privacidad",
+    "privacy_title": "Política de privacidad",
+    "controller": "Responsable del tratamiento",
+    "intro": "En BoostYourLife damos gran importancia a la protección de tu privacidad. Esta política describe qué datos recogemos, cómo los usamos y tus derechos.",
+    "collected_data_title": "Datos recogidos",
+    "collected_data": {
+      "registration": "Información de registro: nombre, dirección de e-mail.",
+      "profile": "Datos de perfil: edad, sexo, nivel deportivo (opcional).",
+      "activity": "Actividades y rendimiento: historiales de entrenamiento, progresos.",
+      "tech": "Datos técnicos: dirección IP, tipo de navegador, datos de conexión."
+    },
+    "purposes_title": "Finalidades del tratamiento y base legal",
+    "purposes": {
+      "service": "Prestar y personalizar nuestros servicios de coaching (ejecución del contrato).",
+      "tracking": "Seguir tus progresos y generar informes (interés legítimo).",
+      "communication": "Comunicación de consejos y ofertas (consentimiento newsletters).",
+      "security": "Seguridad y prevención del fraude (interés legítimo)."
+    },
+    "sharing_title": "Compartición de datos",
+    "sharing_intro": "No vendemos ni alquilamos tus datos personales. Se pueden compartir con:",
+    "sharing": {
+      "providers": "Proveedores técnicos (alojamiento, e-mailing).",
+      "coaches": "Coaches con los que hayas contratado un programa.",
+      "authorities": "Autoridades legales en caso de obligación reglamentaria."
+    },
+    "retention_title": "Plazos de conservación",
+    "retention": {
+      "profile": "3 años tras el cierre de la cuenta para los datos de perfil.",
+      "logs": "13 meses para los registros técnicos.",
+      "newsletters": "Hasta la retirada del consentimiento para newsletters."
+    },
+    "transfer_title": "Transferencias fuera de la Unión Europea",
+    "transfer": "Si tus datos se transfieren fuera de la UE, utilizamos cláusulas contractuales tipo u otras garantías conformes al RGPD.",
+    "rights_title": "Tus derechos",
+    "rights": {
+      "access": "Derecho de acceso: solicitar una copia de tus datos.",
+      "rectification": "Derecho de rectificación: corregir información inexacta.",
+      "erasure": "Derecho de supresión: eliminar tu cuenta y tus datos.",
+      "objection": "Derecho de oposición: oponerte al tratamiento por motivos legítimos.",
+      "portability": "Derecho a la portabilidad: recuperar tus datos en un formato estructurado."
+    },
+    "rights_contact": "Para ejercer estos derechos, contáctanos en privacy@boostyourlife.coach o por correo postal a la dirección indicada.",
+    "cookies_title": "Cookies y rastreadores",
+    "cookies": "Usamos cookies para mejorar tu experiencia, analizar el tráfico y ofrecer anuncios personalizados. Puedes gestionar tus preferencias en tu navegador.",
+    "update_title": "Modificaciones de la política",
+    "update": "Podemos actualizar esta política. Los cambios se publicarán en esta página con una fecha de actualización.",
+    "last_update": "Fecha de última actualización: 1 de mayo de 2025",
+    "sales_title": "Política de venta",
+    "sales_intro": "La presente política de venta detalla las condiciones de precios, modalidades de pago, cancelación y reembolso aplicables a los servicios ofrecidos en <b>BoostYourLife</b>.",
+    "sales_pricing_title": "1. Precios y pagos",
+    "sales_pricing_li1": "Los precios de los programas y suscripciones se indican en euros (€), impuestos incluidos (TTC).",
+    "sales_pricing_li2": "El pago se efectúa en línea con tarjeta u otro medio ofrecido.",
+    "sales_pricing_li3": "La facturación es inmediata al confirmar tu pedido.",
+    "sales_withdrawal_title": "2. Derecho de desistimiento y reembolso",
+    "sales_withdrawal_p1": "De conformidad con el artículo L221-18 del Código del Consumo, dispones de un plazo de 14 días naturales para ejercer tu derecho de desistimiento, sin justificación ni penalización.",
+    "sales_withdrawal_p2": "Para los servicios de contenido digital entregados inmediatamente tras el pago, pierdes tu derecho de desistimiento desde que has dado tu consentimiento expreso para iniciar la prestación y reconocido la pérdida de ese derecho (art. L221-28). Si has comenzado a usar el servicio, ya no puedes desistir.",
+    "sales_withdrawal_p3": "Para ejercer tu derecho dentro del plazo, envía una declaración clara antes del vencimiento (e-mail a <b>support@boostyourlife.coach</b> o mediante el formulario de contacto). No es obligatorio enviar carta certificada, pero puede servir como prueba adicional.",
+    "sales_delivery_title": "3. Entrega de los servicios",
+    "sales_delivery_p1": "Los servicios son accesibles de inmediato en línea una vez validado el pago. Recibirás un e-mail de confirmación con las instrucciones para empezar tu programa.",
+    "sales_support_title": "4. Soporte al cliente",
+    "sales_support_p1": "Para cualquier duda sobre facturación o uso de los servicios, contacta con <b>support@boostyourlife.coach</b>. Respondemos en 48 horas.",
+    "sales_last_update": "Fecha de última actualización: 1 de mayo de 2025",
+    "tos": {
+      "title": "Condiciones generales de uso",
+      "intro": "Las presentes condiciones generales de uso (CGU) rigen el acceso y uso de la plataforma BoostYourLife por coaches y particulares. Al usar nuestros servicios, aceptas estas condiciones.",
+      "access_title": "1. Acceso al servicio",
+      "access_body": "El acceso a la plataforma requiere crear una cuenta con una dirección de e-mail válida. Eres responsable de la confidencialidad de tus credenciales.",
+      "account_title": "2. Cuenta de usuario",
+      "account_li1": "Garantizas la exactitud de la información proporcionada.",
+      "account_li2": "Puedes modificar o eliminar tu cuenta en cualquier momento.",
+      "account_li3": "En caso de uso indebido, nos reservamos el derecho a suspender tu acceso.",
+      "ip_title": "3. Propiedad intelectual",
+      "ip_body": "Todos los contenidos (textos, imágenes, programas, etc.) presentes en BoostYourLife están protegidos por derechos de autor. Cualquier reproducción está prohibida sin autorización.",
+      "liability_title": "4. Responsabilidades",
+      "liability_body": "BoostYourLife proporciona herramientas de apoyo y seguimiento, pero no puede garantizar resultados específicos. El usuario debe consultar a un profesional de la salud antes de comenzar cualquier programa intenso.",
+      "changes_title": "5. Modificación de las CGU",
+      "changes_body": "Podemos actualizar estas condiciones. Los cambios se notificarán en esta página con la fecha de última actualización.",
+      "last_update": "Fecha de última actualización: 1 de mayo de 2025"
+    }
+  },
+
+  "proPlans": {
+    "checking": "Verificando tu estado de prueba / suscripción…",
+    "title": "Nuestras fórmulas Profesionales",
+    "subtitle": "Tu prueba ha terminado. Elige un plan para seguir usando el espacio coach.",
+    "benefits": {
+      "title": "Lo que obtienes con BYL Pro",
+      "b1": "Creación ilimitada de programas personalizados",
+      "b2": "Banco de ejercicios ampliado y exportaciones PDF",
+      "b3": "Seguimiento en tiempo real de clientes",
+      "b4": "Paneles e informes",
+      "b5": "Soporte prioritario",
+      "b6": "Acceso seguro y multi-dispositivo"
+    },
+    "trial": {
+      "badge": "Prueba 14 d",
+      "title": "Prueba gratuita (finalizada)",
+      "desc": "Ya has disfrutado de la prueba gratuita. Suscríbete a uno de los planes para continuar.",
+      "cta": "Prueba ya utilizada"
+    },
+    "monthly": {
+      "title": "Suscripción mensual",
+      "price": "79 €",
+      "h1": "Sin permanencia: cancela cuando quieras",
+      "h2": "Acceso completo: creación, seguimiento, analítica",
+      "h3": "Soporte prioritario incluido",
+      "cta": "Suscribirse por 79 €/mes"
+    },
+    "yearly": {
+      "title": "Suscripción anual",
+      "price": "790 €",
+      "h1": "Mejor precio: 2 meses gratis",
+      "h2": "Acceso completo: creación, seguimiento, analítica",
+      "h3": "Soporte prioritario incluido",
+      "cta": "Suscribirse por 790 €/año",
+      "footnote": "Equivalente a 65,83 € / mes"
+    },
+    "badges": {
+      "popular": "Popular",
+      "savings": "Ahorro"
+    },
+    "cadence": {
+      "month": "mes",
+      "year": "año"
+    },
+    "trust": {
+      "secure": "Pago seguro",
+      "cancel": "Cancelable desde tu espacio",
+      "invoices": "Facturas disponibles"
+    },
+    "backToDashboard": "⟵ Volver al panel"
+  },
+
+  "payment": {
+    "checkout": {
+      "title": "Pago del programa",
+      "subtitle": "Valida tu compra para desbloquear el programa <b>{{productId}}</b>.",
+      "button": "Proceder al pago (demo)",
+      "note": "(En la versión final, serás redirigido automáticamente al pago seguro.)"
+    },
+    "cancel": {
+      "message": "Pago cancelado",
+      "subMessage": "Puedes intentar el pago de nuevo.",
+      "button": "Reintentar"
+    },
+    "success": {
+      "program_paid_creating": "¡Pago confirmado! Creando tu programa…",
+      "program_valid_creating": "Pago validado, creando tu programa…",
+      "paid": "¡Pago confirmado!",
+      "valid": "¡Pago validado!",
+      "redirect_when_ready": "Serás redirigid@ cuando el programa esté listo.",
+      "redirect_to_dashboard": "Vas a ser redirigid@ a tu panel.",
+      "finalizing": "Finalizando…",
+      "confirmed": "Pago confirmado",
+      "checked": "Pago verificado",
+      "go_now": "Ir ahora",
+      "please_wait": "Por favor, espera unos segundos…"
+    }
+  },
+
+  "myPrograms": {
+    "titleCoach": "Mis Programas (Coach)",
+    "untitled": "Sin título",
+    "created_on_short": "Creado el",
+    "last_activity": "Última actividad",
+    "progress": "Progresión",
+    "view_program": "Ver programa",
+    "preview": "Previsualizar",
+    "start_session": "Iniciar sesión",
+    "sessionsCount_one": "{{count}} sesión",
+    "sessionsCount_other": "{{count}} sesiones"
+  },
+
+  "profile_short": { "title": "Perfil" },
+
+  "settings": {
+    "title": "Ajustes",
+    "sections": {
+      "language": "Idioma por defecto",
+      "preferences": "Preferencias",
+      "email_notifications": "Notificaciones por e-mail",
+      "subscription": "Mi suscripción",
+      "my_subscription": "Mi suscripción",
+      "security": "Seguridad",
+      "danger_zone": "Zona peligrosa"
+    },
+    "fields": {
+      "default_language": "Idioma por defecto",
+      "dark_mode": "Modo oscuro",
+      "reminders": "Recordatorios de citas",
+      "newsletter": "Newsletter"
+    },
+    "subscription_hint": "Gestiona tu suscripción o accede a tu historial de facturas de Stripe.",
+    "reset_hint": "Se enviará un enlace de restablecimiento a tu dirección de e-mail.",
+    "delete_hint": "Eliminar definitivamente tu cuenta.",
+    "buttons": {
+      "open_stripe_portal": "Abrir portal de Stripe",
+      "send_reset": "Enviar enlace de restablecimiento",
+      "delete_account": "Eliminar mi cuenta"
+    },
+    "modal": {
+      "confirm_title": "Confirmación",
+      "confirm_body": "¿Seguro que quieres eliminar tu cuenta? Esta acción es irreversible."
+    },
+    "toasts": {
+      "lang_updated": "Idioma actualizado.",
+      "firestore_perm_denied": "Permiso de Firestore denegado (rules).",
+      "update_error": "Error de actualización.",
+      "reset_sent": "Si tu cuenta existe, se te ha enviado un e-mail.",
+      "reset_error": "Error al enviar el enlace.",
+      "stripe_comm_error": "Error de comunicación con el servidor.",
+      "stripe_url_error": "No se puede obtener la URL de Stripe.",
+      "stripe_redirect_error": "Error de redirección de Stripe.",
+      "account_deleted": "Cuenta eliminada."
+    }
+  },
+
+  "auth": {
+    "login": {
+      "title": "Iniciar sesión",
+      "emailPlaceholder": "Email",
+      "passwordPlaceholder": "Contraseña",
+      "showPassword": "Mostrar contraseña",
+      "hidePassword": "Ocultar contraseña",
+      "forgot": "¿Olvidaste la contraseña?",
+      "sending": "Enviando…",
+      "retryIn": "Reintentar en {{s}}s",
+      "signIn": "Iniciar sesión",
+      "signInWithGoogle": "Iniciar con Google",
+      "noAccount": "¿No tienes cuenta?",
+      "createAccount": "Crear una cuenta",
+      "errors": {
+        "missingEmail": "Introduce tu dirección de e-mail.",
+        "invalidEmail": "La dirección de e-mail no es válida.",
+        "userNotFound": "No se ha encontrado ninguna cuenta con ese e-mail.",
+        "wrongPassword": "Contraseña incorrecta.",
+        "tooMany": "Demasiados intentos. Inténtalo más tarde.",
+        "network": "Problema de red. Revisa tu conexión e inténtalo de nuevo.",
+        "generic": "Error al iniciar sesión."
+      },
+      "reset": {
+        "success": "Se te ha enviado un e-mail de restablecimiento. Revisa el spam.",
+        "genericError": "Se produjo un error al enviar el e-mail de restablecimiento."
+      }
+    },
+    "register": {
+      "title": "Registrarse",
+      "firstName": "Nombre",
+      "lastName": "Apellidos",
+      "birthDate": "Fecha de nacimiento",
+      "email": "Email",
+      "confirmEmail": "Confirmar e-mail",
+      "password": "Contraseña",
+      "confirmPassword": "Confirmar contraseña",
+      "togglePassword": "Mostrar/Ocultar contraseña",
+      "role": "Rol",
+      "role_individual": "Particular",
+      "role_coach": "Coach",
+      "adultConfirm": "Declaro tener <b>18 años o más</b>.",
+      "acceptTerms": "He leído y acepto las <cgu>CGU</cgu> y las <cgv>CGV</cgv>.",
+      "privacyHint": "Consulta también nuestra <privacy>Política de privacidad</privacy>.",
+      "signUp": "Crear cuenta",
+      "signUpWithGoogle": "Registrarse con Google",
+      "haveAccount": "¿Ya tienes cuenta?",
+      "goToLogin": "Iniciar sesión",
+      "ageWarning": "Edad calculada: {{age}} — debes tener al menos 18 años.",
+      "errors": {
+        "emailsMismatch": "Los e-mails no coinciden.",
+        "passwordsMismatch": "Las contraseñas no coinciden.",
+        "missingFields": "Rellena todos los campos.",
+        "mustBeAdult": "Debes tener al menos 18 años para crear una cuenta.",
+        "mustConfirmAndAccept": "Confirma ser mayor de 18 y acepta las CGU/CGV.",
+        "failed": "Registro fallido. Verifica tu información."
+      }
+    }
+  },
+
+  "stats": {
+    "title": "Estadísticas",
+    "subtitle": "Sigue tu progreso global, tus medidas corporales y compara tus sesiones para visualizar las mejoras.",
+    "kpis": {
+      "totalPrograms": "Total programas",
+      "percentDone": "% completado",
+      "sessionsPerWeek": "Sesiones / sem."
+    },
+    "hints": {
+      "programs": "Número de planes activos/archivados",
+      "basedOnSessions": "Basado en las sesiones realizadas",
+      "last7days": "En los últimos 7 días"
+    },
+    "compareSession": "Comparar una sesión",
+    "noPrograms": "Aún no se han encontrado programas.",
+    "bodyComp": "Datos corporales",
+    "addMeasure": "Añadir medida",
+    "modal": { "title": "Nueva medida" },
+    "fields": {
+      "date": "Fecha",
+      "height": "Altura (cm)",
+      "height_ftin": "Altura (ft/in)",
+      "weight": "Peso (kg)",
+      "weight_lbs": "Peso (lbs)",
+      "bmi": "IMC (kg/m²)",
+      "fat": "Grasa (%)",
+      "muscle": "Masa muscular (kg)",
+      "water": "Agua (%)",
+      "bone": "Masa ósea (kg)",
+      "metabolicAge": "Edad metabólica"
+    }
+  },
+
+  "months": {
+    "long": {
+      "0": "enero",
+      "1": "febrero",
+      "2": "marzo",
+      "3": "abril",
+      "4": "mayo",
+      "5": "junio",
+      "6": "julio",
+      "7": "agosto",
+      "8": "septiembre",
+      "9": "octubre",
+      "10": "noviembre",
+      "11": "diciembre"
+    }
+  },
+
+  "coachStats": {
+    "title": "Estadísticas",
+    "badge": "Coach",
+    "kpis": {
+      "total_clients": "Total clientes",
+      "total_programs": "Total programas",
+      "active_clients": "Clientes activos (30 d)",
+      "inactive_clients": "Clientes inactivos"
+    },
+    "hints": {
+      "see_clients": "Haz clic para ver la lista de clientes",
+      "see_programs": "Haz clic para ver los programas"
+    },
+    "retention": {
+      "title": "Tasa de retención (30 d)",
+      "caption": "{{active}} activo(s) de {{total}} cliente(s)."
+    },
+    "sessionsPerMonth": {
+      "title": "Sesiones realizadas / mes (últimos 6)",
+      "total": "{{n}} en total"
+    },
+    "objectives": {
+      "title": "Reparto de objetivos",
+      "empty": "Aún no hay datos de objetivos.",
+      "labels": {
+        "weight_loss": "Pérdida de peso",
+        "get_in_shape": "Puesta en forma",
+        "muscle_gain": "Ganancia muscular",
+        "endurance": "Resistencia",
+        "strength": "Fuerza",
+        "hypertrophy": "Hipertrofia",
+        "mobility": "Movilidad",
+        "rehab": "Rehabilitación",
+        "performance": "Rendimiento",
+        "health": "Salud",
+        "unknown": "No especificado"
+      }
+    },
+    "errors": {
+      "load_failed": "Error al cargar las estadísticas."
+    }
+  },
+
+  "autoPreview": {
+    "back": "Volver",
+    "edit": "Editar",
+    "start": "Iniciar sesión",
+    "downloadPdf": "Descargar PDF",
+    "pdfLang": "PDF: {{code}}",
+    "session": "Sesión",
+    "sessionN": "Sesión {{n}}",
+    "noProgram": "No hay programa para mostrar.",
+    "details": "Detalles",
+    "replace": "Reemplazar",
+    "exerciseDetails": "Detalles del ejercicio",
+    "replaceExercise": "Reemplazar ejercicio",
+    "exerciseBank": "Banco de ejercicios",
+    "close": "Cerrar",
+    "availableVariants": "Variantes disponibles:",
+    "advancedSets": "Series diferentes",
+    "notes": "Notas",
+    "noData": "Sin datos.",
+    "estimatedTotalTime": "Tiempo total estimado",
+    "sections": {
+      "warmup": "Calentamiento",
+      "main": "Cuerpo de la sesión",
+      "bonus": "Bonus",
+      "cooldown": "Vuelta a la calma"
+    }
+  },
+
+  "pdf": {
+    "sections": {
+      "warmup": "Calentamiento",
+      "main": "Cuerpo de la sesión",
+      "bonus": "Bonus",
+      "cooldown": "Vuelta a la calma"
+    },
+    "labels": {
+      "sets": "Series",
+      "reps": "Repeticiones",
+      "rest": "Descanso",
+      "duration": "Duración",
+      "load": "Carga (kg)",
+      "intensity": "Intensidad",
+      "watts": "Watts",
+      "incline": "Inclinación (%)",
+      "calories": "Objetivo Calorías",
+      "tempo": "Tempo",
+      "speed": "Velocidad",
+      "distance": "Distancia",
+      "effort": "Esfuerzo",
+      "pause": "Pausa"
+    },
+    "advancedSets": "Series diferentes",
+    "notes": "Notas",
+    "session": "Sesión",
+    "setN": "Set {{n}}",
+    "generatedWith": "Generado con Boost Your Life • {{host}}",
+    "date": "{{date, DD/MM/YYYY}}",
+    "fileProgram": "programa",
+    "fileClient": "cliente",
+    "estimatedTotalTime": "Tiempo total estimado",
+    "langNames": {
+      "fr": "Français",
+      "en": "English",
+      "de": "Deutsch",
+      "it": "Italiano",
+      "es": "Español",
+      "ru": "Русский",
+      "ar": "العربية"
+    },
+    "fileNamePattern": "{{program}}-{{client}}-BYL-{{lang}}.pdf"
+  },
+
+  "autoQ": {
+    "titleCoach": "Creación guiada",
+    "titleClient": "Programa a medida",
+    "gender": "Sexo",
+    "male": "Hombre",
+    "female": "Mujer",
+    "level": "Nivel",
+    "levels": { "beginner": "Principiante", "intermediate": "Intermedio", "advanced": "Avanzado" },
+    "frequency": "Frecuencia",
+    "sessionsPerWeek": "{{n}} sesión(es) / semana",
+    "goal": "Objetivo",
+    "goals": {
+      "massGain": "Ganancia muscular",
+      "weightLoss": "Pérdida de peso",
+      "strength": "Fuerza",
+      "endurance": "Resistencia",
+      "returnToSport": "Vuelta al deporte",
+      "posture": "Postural"
+    },
+    "selectPlaceholder": "Selecciona una opción",
+    "coachBanner": "Espacio coach — {{status}}",
+    "coachActive": "suscripción activa",
+    "coachNeeded": "suscripción requerida",
+    "bestChoice": "Mejor elección",
+    "redirecting": "Redirigiendo…",
+    "fillToContinue": "Rellena los campos de arriba para continuar.",
+    "creating": "Creando…",
+    "createProgram": "Crear programa",
+    "prices": {
+      "sub": {
+        "title": "Suscripción 39,99 €/mes",
+        "badge": "1.º mes 29,99 €",
+        "subtitle": "nuevo programa personalizado cada mes",
+        "cta": "Elegir suscripción"
+      },
+      "one": {
+        "title": "Compra única 89,99 €",
+        "subtitle": "Programa completo, sin renovación",
+        "cta": "Comprar una vez"
+      }
+    },
+    "connectingStripe": "Conectando con Stripe…",
+    "toasts": {
+      "missing": {
+        "title": "Faltan campos",
+        "desc": "Rellena los 4 campos para continuar.",
+        "create": "Rellena los 4 campos para crear el programa."
+      },
+      "paymentError": { "title": "Error de pago" },
+      "createError": { "title": "Error de creación" }
+    },
+    "errors": {
+      "savePrefs": "Error al guardar las preferencias.",
+      "checkout": "No se puede abrir la página de pago.",
+      "missingProgramId": "Respuesta inesperada (falta programId)."
+    }
+  },
+
+  "clientCreation": {
+    "title": "Añadir nuevo cliente",
+    "loginMethod": "Método de acceso",
+    "loginMethodEmail": "Email",
+    "loginMethodPhone": "Teléfono",
+    "firstName": "Nombre",
+    "lastName": "Apellidos",
+    "email": "Email",
+    "phone": "Teléfono",
+    "phoneOptional": "Teléfono (opcional)",
+    "birthDate": "Fecha de nacimiento",
+    "gender": "Sexo",
+    "genderMale": "Hombre",
+    "genderFemale": "Mujer",
+    "height": "Altura (cm)",
+    "weight": "Peso (kg)",
+    "level": "Nivel",
+    "levels": { "beginner": "Principiante", "intermediate": "Intermedio", "advanced": "Avanzado" },
+    "objective": "Objetivo",
+    "objectives": {
+      "gain": "Ganancia muscular",
+      "loss": "Pérdida de peso",
+      "strength": "Fuerza",
+      "endurance": "Resistencia",
+      "restart": "Vuelta al deporte",
+      "posture": "Postural"
+    },
+    "language": "Idioma",
+    "languages": {
+      "fr": "Français",
+      "en": "English",
+      "de": "Deutsch",
+      "it": "Italiano",
+      "es": "Español",
+      "ru": "Русский",
+      "ar": "العربية"
+    },
+    "notes": "Notas",
+    "save": "Guardar cliente",
+    "modalNoAccessTitle": "Acceso no disponible",
+    "modalNoAccessText": "No se ha indicado ninguna dirección de e-mail. El cliente no tendrá acceso a la plataforma hasta añadir un e-mail.",
+    "modalMergeTitle": "Cliente ya existente",
+    "modalMergeText": "Ya existe una ficha de cliente con este nombre y apellidos (sin e-mail). ¿Quieres actualizar la ficha existente con la nueva información?",
+    "modalConfirm": "Sí, actualizar",
+    "modalCancel": "Cancelar"
+  },
+
+  "clientView": {
+    "globalProgress": "Progresión global",
+    "assignedPrograms": "Programas asignados",
+    "lastShort": "Últ. sesión",
+    "unassign": "Desasignar",
+    "unassignConfirmTitle": "Confirmar desasignación",
+    "unassignConfirmBody": "¿Realmente quieres desasignar este programa?",
+    "editClient": "Editar cliente",
+    "totalPrograms": "Total programas",
+    "percentCompleted": "% completado",
+    "sessionsPerWeek": "Sesiones / sem.",
+    "progressionSessions": "Progresión — Sesiones",
+    "latestPrograms": "Últimos programas",
+    "createdOn": "Creado el",
+    "sessionsDonePlanned": "Sesiones (hechas/previstas)",
+    "compareSession": "Comparar una sesión",
+    "viewAll": "Ver todos",
+    "deleteProgram": "Eliminar programa"
+  },
+
+  "clientsList": {
+    "heading": "Mis clientes",
+    "filters": {
+      "active": "Activos (últimos {{days}} d)",
+      "inactive": "Inactivos",
+      "all": "Todos"
+    },
+    "searchPlaceholder": "Buscar cliente",
+    "table": {
+      "client": "Cliente",
+      "programs": "Programas",
+      "lastSession": "Última sesión",
+      "activity": "Actividad",
+      "subscription": "Suscripción",
+      "progress": "Progresión",
+      "action": "Acción"
+    },
+    "tooltip": {
+      "lastOn": "Última sesión el {{date}}",
+      "none": "No se encontraron sesiones"
+    },
+    "status": { "active": "Activo", "inactive": "Inactivo" },
+    "sub": {
+      "active": "Suscrito",
+      "inactive": "No suscrito",
+      "expired": "Expirado",
+      "trialing": "En prueba",
+      "canceled": "Cancelado",
+      "past_due": "Pago atrasado",
+      "unknown": "Desconocido"
+    },
+    "progress": {
+      "sessions": "{{done}}/{{total}} sesiones",
+      "perWeek": "Sesiones / sem.: {{n}}"
+    },
+    "actions": { "assign": "Asignar", "deleteAria": "Eliminar cliente" },
+    "badge": { "programsShort": "prog." },
+    "assignModal": { "title": "Asignar un programa", "placeholder": "Selecciona un programa" },
+    "deleteModal": { "title": "Eliminar cliente", "body": "¿Seguro que quieres eliminar este cliente?" }
+  },
+
+  "exerciseBank": {
+    "title": "Banco de ejercicios",
+    "searchPlaceholder": "Buscar…",
+    "clear": "Limpiar",
+    "toggleFilters": "Mostrar/ocultar filtros",
+    "addExercise": "Añadir ejercicio",
+    "reset": "Restablecer",
+    "options": {
+      "muscles": { "all": "Todos los músculos" },
+      "positions": { "all": "Todas las posiciones" },
+      "equipment": { "all": "Todo el material", "none": "Ninguno" },
+      "objectives": { "all": "Todos los objetivos" }
+    },
+    "labels": { "shoulders": "Hombros", "legs": "Piernas" },
+    "modal": {
+      "addTitle": "Añadir nuevo ejercicio",
+      "chooseSection": "Elegir sección",
+      "namePlaceholder": "Nombre del ejercicio",
+      "musclesPlaceholder": "Grupo(s) muscular(es) (separar por comas)",
+      "objectivesPlaceholder": "Objetivos (separar por comas)",
+      "equipmentPlaceholder": "Material (separar por comas)",
+      "positionPlaceholder": "Posición (separar por comas)",
+      "cues": "Indicaciones"
+    },
+    "sections": {
+      "warmup": "Calentamiento",
+      "training": "Cuerpo de la sesión",
+      "cooldown": "Vuelta a la calma",
+      "ergometer": "Ergómetro"
+    },
+    "toast": {
+      "missingSectionTitle": "Falta la sección",
+      "missingSectionDesc": "Selecciona la sección.",
+      "missingNameTitle": "Falta el nombre",
+      "missingNameDesc": "Rellena el nombre.",
+      "addedTitle": "Ejercicio añadido",
+      "addedDesc": "Añadido con ID {{id}}.",
+      "errorTitle": "Error"
+    },
+    "fabAria": "Banco de ejercicios"
+  },
+
+  "exerciseCard": {
+    "add": "Añadir",
+    "replace": "Reemplazar",
+    "cancel": "Cancelar",
+    "details": "Detalles",
+    "missing": "Datos faltantes",
+    "missingName": "Falta el nombre",
+    "noVariant": "No hay variantes disponibles",
+    "noConstraints": "Sin restricciones especificadas",
+    "fields": {
+      "mainGroup": "Grupo muscular",
+      "secondary": "Músculos secundarios",
+      "joints": "Articulaciones solicitadas",
+      "ligaments": "Ligamentos solicitados",
+      "variants": "Variantes",
+      "constraints": "Restricciones",
+      "cues": "Indicaciones de ejecución"
+    }
+  },
+
+  "footer": {
+    "about": "Acerca de",
+    "contact": "Contacto",
+    "privacy": "Política de privacidad",
+    "terms": "Condiciones generales",
+    "sales": "Política de venta",
+    "rights": "Todos los derechos reservados"
+  },
+
+  "programBuilder": {
+    "placeholders": {
+      "name": "Nombre del programa",
+      "goal": "Objetivo (ej.: Ganancia muscular)"
+    },
+    "status": {
+      "saved": "Guardado",
+      "saving": "Guardando...",
+      "unsaved": "Sin guardar"
+    },
+    "units": { "weight": "Peso", "speed": "Velocidad" },
+    "cta": {
+      "createShort": "Crear",
+      "saveShort": "Guardar",
+      "create": "Crear programa",
+      "save": "Guardar cambios"
+    },
+    "untitled": "Programa sin título",
+    "defaultSession": "Sesión 1",
+    "sessionN": "Sesión {{n}}",
+    "badge": { "sections": "SECCIONES" },
+    "actions": { "add": "+ Añadir", "duplicate": "Duplicar" },
+    "totalTime": "Tiempo total",
+    "enableSections": "Activar secciones",
+    "copySuffix": "(copia)",
+    "sections": {
+      "warmup": "Calentamiento",
+      "main": "Cuerpo de la sesión",
+      "bonus": "Bonus",
+      "cooldown": "Vuelta a la calma"
+    },
+    "options": { "title": "Opciones" },
+    "labels": {
+      "weightKg": "Carga (kg)",
+      "weightLbs": "Peso (lbs)",
+      "speedKmh": "Velocidad (km/h)",
+      "speedMph": "Velocidad (mph)"
+    },
+    "notes": { "title": "Notas", "placeholder": "Añadir una nota (indicación, recordatorio, etc.)" },
+    "advancedSets": {
+      "title": "Series diferentes (avanzadas)",
+      "fillFromGlobals": "Rellenar desde valores globales",
+      "addSet": "+ Añadir set",
+      "removeLast": "– Quitar el último set"
+    },
+    "sets": { "set": "Set" },
+    "aria": {
+      "deleteSession": "Eliminar sesión",
+      "replace": "Reemplazar",
+      "replaceThis": "Reemplazar este ejercicio",
+      "options": "Opciones",
+      "deleteExercise": "Eliminar ejercicio",
+      "deleteSet": "Eliminar set"
+    },
+    "modals": {
+      "savedTitle": "Programa guardado",
+      "savedBody": "Ahora puedes encontrar este programa en la página de inicio.",
+      "searchClient": "Buscar un cliente...",
+      "noClient": "No se encontró ningún cliente.",
+      "addClient": "Añadir cliente",
+      "assign": "Asignar",
+      "home": "Inicio",
+      "newClient": "Nuevo cliente"
+    },
+    "toasts": {
+      "createdTitle": "Programa creado",
+      "savedTitle": "Cambios guardados",
+      "saved": "Cambios guardados con éxito.",
+      "savedDesc": "Tu programa se ha guardado correctamente.",
+      "errorTitle": "Error",
+      "assigned": "Programa asignado"
+    }
+  },
+
+  "statsShort": { "compareSession": "Comparar una sesión" },
+
+  "compare": {
+    "pick": "Comparar:",
+    "with": "con",
+    "lastVsPrev": "Última vs anterior",
+    "occ": "Ocor.",
+    "field": "Campo",
+    "before": "Antes",
+    "now": "Ahora",
+    "delta": "Δ",
+    "needMore": "Aún no hay suficientes repeticiones para comparar esta sesión (se necesitan al menos 2 registros)."
+  },
+
+  "programView": {
+    "back": "Volver",
+    "edit": "Editar",
+    "startSession": "Iniciar sesión",
+    "downloadPdf": "Descargar PDF",
+    "pdfLang": "PDF: {{code}}",
+    "session": "Sesión",
+    "sessionN": "Sesión {{n}}",
+    "details": "Detalles",
+    "replace": "Reemplazar",
+    "exerciseDetails": "Detalles del ejercicio",
+    "replaceExercise": "Reemplazar ejercicio",
+    "exerciseBank": "Banco de ejercicios",
+    "close": "Cerrar",
+    "availableVariants": "Variantes disponibles:",
+    "advancedSets": "Series diferentes",
+    "notes": "Notas",
+    "noData": "Sin datos.",
+    "estimatedTotalTime": "Tiempo total estimado",
+    "sections": {
+      "warmup": "Calentamiento",
+      "main": "Cuerpo de la sesión",
+      "bonus": "Bonus",
+      "cooldown": "Vuelta a la calma"
+    }
+  },
+
+  "fields": {
+    "sets": "Series",
+    "reps": "Repeticiones",
+    "duration": "Duración",
+    "weight": "Carga (kg)",
+    "rest": "Descanso",
+    "speed": "Velocidad",
+    "intensity": "Intensidad",
+    "watts": "Watts",
+    "incline": "Inclinación (%)",
+    "calories": "Objetivo Calorías",
+    "tempo": "Tempo",
+    "distance": "Distancia"
+  },
+
+  "labels": {
+    "sets": "Series",
+    "repetitions": "Repeticiones",
+    "duration": "Duración",
+    "rest": "Descanso"
+  },
+
+  "sessionPlayer": {
+    "exerciseCounter": "Ejercicio {{i}} / {{n}}",
+    "program": "Programa",
+    "sessionN": "Sesión {{n}}",
+    "ready": "LISTO",
+    "work": "ESFUERZO",
+    "rest": "DESCANSO",
+    "setCounter": "Set {{i}}/{{n}}",
+    "start": "Iniciar",
+    "finishSet": "Terminar set",
+    "nextSet": "Siguiente set",
+    "nextExercise": "Siguiente ejercicio",
+    "done": "Terminado",
+    "prev": "Anterior",
+    "skip": "Saltar ejercicio",
+    "upNext": "A continuación",
+    "finishWorkout": "Terminar sesión",
+    "advSets": "Series diferentes",
+    "notes": "Notas",
+    "addNotePh": "Añadir una nota para este ejercicio…",
+    "constraints": "Restricciones",
+    "cues": "Indicaciones",
+    "currentSet": "Set actual:",
+    "setN": "Set {{n}}",
+    "empty": "Sesión no encontrada o vacía.",
+    "rateTitle": "Evalúa la dificultad"
+  },
+
+  "about": {
+    "title": "Acerca de",
+    "intro": "¡Bienvenido a <b>Boost Your Life</b>! Nuestra misión es hacer que el entrenamiento sea eficaz, claro y motivador para que avances cada semana, sin perderte en planes complicados.",
+    "mission": {
+      "title": "Nuestra misión",
+      "body": "Creamos programas personalizados que se adaptan a tu nivel, tiempo y objetivos (pérdida de grasa, ganancia muscular, rendimiento, volver a estar en forma). Todo está pensado para ser simple y sostenible: menos bla-bla, sesiones inteligentes y progresos medibles."
+    },
+    "features": {
+      "title": "Lo que obtienes",
+      "items": [
+        "Un programa personalizado que se ajusta automáticamente según tus comentarios (RPE, carga, notas)",
+        "Sesiones guiadas paso a paso con indicaciones, alternativas y tempos",
+        "Seguimiento inteligente de la dificultad y de la carga de entrenamiento",
+        "Temporizadores integrados (trabajo/descanso) y superseries automáticas",
+        "Estadísticas claras: progreso por movimiento y por sesión",
+        "Ejercicios adaptados a tu material (gimnasio, casa, mínimo)",
+        "Recordatorios y calendario: constancia sin fricción",
+        "Acceso a programas premium y soporte de coach si lo necesitas"
+      ]
+    },
+    "autonomy": {
+      "title": "Tu autonomía",
+      "body": "Mantienes el control: mueve una sesión, acorta otra, añade notas o pide una variante. La app te guía sin sobrecargarte: cada sesión cuenta para tus objetivos."
+    },
+    "why": {
+      "title": "¿Por qué funciona?",
+      "items": [
+        "Progresión planificada: la carga y la dificultad se ajustan automáticamente",
+        "Ejecución clara: sabes qué hacer, cuánto y cuándo descansar",
+        "Adaptación al contexto: gimnasio, casa o material mínimo",
+        "Constancia sin esfuerzo: recordatorios + calendario integrado",
+        "Progreso medible: tablas simples por sesión y por movimiento"
+      ]
+    },
+    "cta": "Empezar ahora"
+  },
+
+"contact": {
+  "title": "Contacto",
+  "intro": "¿Dudas o comentarios? Envíanos un mensaje.",
+  "fields": {
+    "name": { "label": "Nombre", "placeholder": "Tu nombre" },
+    "email": { "label": "Correo", "placeholder": "tu@correo.com" },
+    "message": { "label": "Mensaje", "placeholder": "Cuéntanos en qué podemos ayudarte…" }
+  },
+  "submit": "Enviar",
+  "success_title": "Mensaje enviado ✅",
+  "success_desc": "¡Gracias! Te responderemos pronto.",
+  "error_title": "No se pudo enviar",
+  "error_desc": "Algo salió mal. Inténtalo de nuevo.",
+  "validation": {
+    "required": "Este campo es obligatorio.",
+    "email": "Correo electrónico no válido.",
+    "min_message": "Tu mensaje debe tener al menos {{min}} caracteres."
+  }
+}
+}

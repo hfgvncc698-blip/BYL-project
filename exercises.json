@@ -1,0 +1,31 @@
+{
+  "deltoides": [
+    {
+      "id": "E001",
+      "nom": "Jumping Jacks",
+      "image": "url_image_jump",
+      "articulations_solicitees": ["Épaules"],
+      "categorie": "Cardio",
+      "consignes": {
+        "Mouvement": "Sautez en écartant les bras et les jambes...",
+        "Positionnement": "Debout, pieds joints...",
+        "Posture": "Dos droit, regard en avant...",
+        "Respiration": "Respirez naturellement..."
+      }
+    },
+    {
+      "id": "E002",
+      "nom": "Rotations des épaules",
+      "image": "url_image_rotation",
+      "articulations_solicitees": ["Épaules"],
+      "categorie": "Échauffement",
+      "consignes": {
+        "Mouvement": "Faites des cercles lents avec les épaules...",
+        "Positionnement": "Pieds largeur d'épaules...",
+        "Posture": "Dos droit, bras relâchés...",
+        "Respiration": "Respiration naturelle..."
+      }
+    }
+  ]
+}
+

@@ -1,0 +1,2514 @@
+[
+{
+  "id": "ER001",
+  "nom": "Rameur - Tirage complet",
+  "categorie_utilisation": ["training", "warmup", "cooldown", "hiit", "cardio"],
+  "groupe_musculaire": "Full Body",
+  "objectifs": ["Endurance", "Cardio", "Perte de poids", "Remise en forme", "Renforcement", "Prise de masse", "Postural", "Force"],
+  "muscles_secondaires": ["Dos", "Biceps", "Épaules", "Quadriceps", "Ischio-jambiers", "Fessiers", "Abdominaux"],
+  "articulations_solicitees": ["Épaules", "Coudes", "Genoux", "Hanches"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon des ischio-jambiers", "Tendon bicipital"],
+  "type": "Ergomètre - Cardio combiné",
+  "niveau": "Tous niveaux",
+  "materiel": ["Rameur"],
+  "position": "Assis",
+  "contraintes": ["Éviter en cas de lombalgie ou tendinite du coude"],
+  "variantes": ["Rameur sprints", "Rameur jambes seules", "Rameur intervalles"],
+  "consignes": {
+    "Positionnement": "S'asseoir sur le rameur, pieds bien fixés sur les cales.",
+    "Mouvement": "Pousser avec les jambes tout en tirant la poignée vers le bas du thorax.",
+    "Retour": "Étendre les bras puis fléchir les jambes pour revenir à la position initiale.",
+    "Respiration": "Inspirez au retour, expirez pendant la poussée.",
+    "Posture": "Dos droit, tronc gainé, épaules abaissées."
+  },
+  "parametres_objectif": {
+    "echauffement": {
+      "duree": [3, 5],
+      "intensite": "Faible",
+      "repos": 0
+    },
+    "cooldown": {
+      "duree": [3, 5],
+      "intensite": "Très faible",
+      "repos": 0
+    },
+    "hiit": {
+      "series": [4, 10],
+      "duree_effort": [20, 40],
+      "duree_repos": [20, 60],
+      "intensite": "Élevée"
+    },
+    "prise_de_masse": {
+      "series": [3, 5],
+      "duree_effort": [30, 45],
+      "duree_repos": [60, 90],
+      "intensite": "Modérée à soutenue"
+    },
+    "endurance": {
+      "series": [3, 6],
+      "duree_effort": [60, 120],
+      "duree_repos": [30, 60],
+      "intensite": "Modérée"
+    },
+    "force": {
+      "series": [4, 6],
+      "duree_effort": [20, 30],
+      "duree_repos": [90, 180],
+      "intensite": "Maximale (puissance sur courte durée)"
+    },
+    "postural": {
+      "series": [2, 4],
+      "duree_effort": [30, 60],
+      "duree_repos": [30, 60],
+      "intensite": "Modérée et contrôlée"
+    },
+    "remise_au_sport": {
+      "series": [2, 4],
+      "duree_effort": [30, 60],
+      "duree_repos": [45, 90],
+      "intensite": "Progressive (faible à modérée)"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Frameur-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Frameur-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER002",
+  "nom": "Rameur - Sprints",
+  "categorie_utilisation": ["training", "hiit", "cardio"],
+  "groupe_musculaire": "Full Body",
+  "objectifs": ["Endurance", "Cardio", "Perte de poids", "Force", "Remise en forme"],
+  "muscles_secondaires": ["Dos", "Biceps", "Épaules", "Quadriceps", "Fessiers", "Abdominaux"],
+  "articulations_solicitees": ["Épaules", "Coudes", "Genoux", "Hanches"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon des ischio-jambiers", "Tendon bicipital"],
+  "type": "Ergomètre - Sprint effort max",
+  "niveau": "Intermédiaire à confirmé",
+  "materiel": ["Rameur"],
+  "position": "Assis",
+  "contraintes": ["Éviter en cas de problèmes cardiovasculaires non stabilisés ou blessures lombaires"],
+  "variantes": ["Rameur intervalles longs", "Rameur sprint 100m", "Rameur pyramidal"],
+  "consignes": {
+    "Positionnement": "Même position que le rameur classique, pieds bien calés et dos droit.",
+    "Mouvement": "Effectuer un tirage explosif à pleine intensité avec les jambes et les bras.",
+    "Retour": "Contrôler la phase retour sans à-coups, récupération active.",
+    "Respiration": "Soufflez fort sur l’effort, inspirez profondément pendant le retour.",
+    "Posture": "Gardez le dos gainé, ne pas tirer uniquement avec les bras."
+  },
+  "parametres_objectif": {
+    "hiit": {
+      "series": [6, 12],
+      "duree_effort": [15, 30],
+      "duree_repos": [30, 90],
+      "intensite": "Très élevée (90-100%)"
+    },
+    "prise_de_masse": {
+      "series": [3, 5],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Explosif, puissance max"
+    },
+    "endurance": {
+      "series": [4, 8],
+      "duree_effort": [30, 45],
+      "duree_repos": [45, 60],
+      "intensite": "Soutenu"
+    },
+    "force": {
+      "series": [5, 8],
+      "duree_effort": [10, 20],
+      "duree_repos": [90, 180],
+      "intensite": "Maximale avec résistance élevée"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Modérée, contrôle du mouvement"
+    },
+    "remise_au_sport": {
+      "series": [3, 4],
+      "duree_effort": [15, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive, sous-max"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Frameur-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Frameur-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER003",
+  "nom": "Rameur - Jambes seules",
+  "categorie_utilisation": ["training", "warmup", "cooldown", "cardio"],
+  "groupe_musculaire": "Jambes",
+  "objectifs": ["Endurance", "Postural", "Remise en forme"],
+  "muscles_secondaires": ["Quadriceps", "Ischio-jambiers", "Fessiers"],
+  "articulations_solicitees": ["Genoux", "Hanches"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon des ischio-jambiers"],
+  "type": "Ergomètre - Isolation jambes",
+  "niveau": "Tous niveaux",
+  "materiel": ["Rameur"],
+  "position": "Assis",
+  "contraintes": ["Éviter si douleur au genou ou limitation de mobilité"],
+  "variantes": ["Rameur bras seuls", "Rameur complet", "Rameur unilatéral jambes"],
+  "consignes": {
+    "Positionnement": "Même position que le rameur complet, bras tendus sans tirage.",
+    "Mouvement": "Effectuer uniquement la poussée des jambes, bras immobiles.",
+    "Retour": "Fléchir les jambes sans tirer avec les bras, cadence fluide.",
+    "Respiration": "Inspirez à la flexion, expirez à la poussée.",
+    "Posture": "Dos droit, tronc engagé, bras relâchés mais fixés."
+  },
+  "parametres_objectif": {
+    "echauffement": {
+      "duree": [2, 4],
+      "intensite": "Faible",
+      "repos": 0
+    },
+    "cooldown": {
+      "duree": [2, 4],
+      "intensite": "Très faible",
+      "repos": 0
+    },
+    "prise_de_masse": {
+      "series": [3, 4],
+      "duree_effort": [30, 40],
+      "duree_repos": [60, 90],
+      "intensite": "Modérée"
+    },
+    "endurance": {
+      "series": [4, 6],
+      "duree_effort": [45, 60],
+      "duree_repos": [30, 45],
+      "intensite": "Modérée"
+    },
+    "force": {
+      "series": [3, 5],
+      "duree_effort": [20, 30],
+      "duree_repos": [90, 120],
+      "intensite": "Explosif sans bras"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [30, 45],
+      "duree_repos": [30, 60],
+      "intensite": "Contrôlé"
+    },
+    "remise_au_sport": {
+      "series": [2, 3],
+      "duree_effort": [30, 45],
+      "duree_repos": [45, 60],
+      "intensite": "Progressif"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Frameur-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Frameur-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER004",
+  "nom": "Rameur - Intervalles fractionnés",
+  "categorie_utilisation": ["training", "hiit", "cardio"],
+  "groupe_musculaire": "Full Body",
+  "objectifs": ["Endurance", "Cardio", "Perte de poids", "Remise en forme", "Force"],
+  "muscles_secondaires": ["Dos", "Biceps", "Épaules", "Quadriceps", "Fessiers", "Abdominaux"],
+  "articulations_solicitees": ["Épaules", "Coudes", "Genoux", "Hanches"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon des ischio-jambiers", "Tendon bicipital"],
+  "type": "Ergomètre - Fractionné",
+  "niveau": "Tous niveaux",
+  "materiel": ["Rameur"],
+  "position": "Assis",
+  "contraintes": ["Attention à la technique si la fatigue augmente, éviter chez les débutants non encadrés"],
+  "variantes": ["Rameur 30/30", "Rameur 45/15", "Rameur 20/40 inversé"],
+  "consignes": {
+    "Positionnement": "Installer les pieds correctement, poignée tenue avec les bras détendus.",
+    "Mouvement": "Alterner phases d’effort à haute intensité et récupération active.",
+    "Retour": "Ralentir volontairement lors des phases de récupération.",
+    "Respiration": "Soufflez fort à l’effort, respiration profonde pendant la récup.",
+    "Posture": "Rester gainé, ne pas s'effondrer en fin de série."
+  },
+  "parametres_objectif": {
+    "hiit": {
+      "series": [6, 12],
+      "duree_effort": [30, 45],
+      "duree_repos": [15, 30],
+      "intensite": "Haute intensité variable"
+    },
+    "prise_de_masse": {
+      "series": [3, 5],
+      "duree_effort": [30, 40],
+      "duree_repos": [45, 60],
+      "intensite": "Soutenue"
+    },
+    "endurance": {
+      "series": [4, 8],
+      "duree_effort": [60, 90],
+      "duree_repos": [30, 60],
+      "intensite": "Modérée à soutenue"
+    },
+    "force": {
+      "series": [4, 6],
+      "duree_effort": [20, 30],
+      "duree_repos": [90, 120],
+      "intensite": "Puissance maximale durant les phases de sprint"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [30, 45],
+      "duree_repos": [45, 60],
+      "intensite": "Contrôle de l'exécution"
+    },
+    "remise_au_sport": {
+      "series": [3, 4],
+      "duree_effort": [30, 40],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Frameur-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Frameur-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER005",
+  "nom": "Rameur - 30:30",
+  "categorie_utilisation": ["training", "hiit", "cardio"],
+  "groupe_musculaire": "Full Body",
+  "objectifs": ["Endurance", "Cardio", "Perte de poids", "Force", "Remise en forme"],
+  "muscles_secondaires": ["Dos", "Épaules", "Biceps", "Quadriceps", "Fessiers", "Ischio-jambiers", "Abdominaux"],
+  "articulations_solicitees": ["Épaules", "Coudes", "Genoux", "Hanches"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon des ischio-jambiers", "Tendon bicipital"],
+  "type": "Ergomètre - HIIT classique",
+  "niveau": "Tous niveaux",
+  "materiel": ["Rameur"],
+  "position": "Assis",
+  "contraintes": ["Éviter en cas de blessure non stabilisée ou début de reprise non encadrée"],
+  "variantes": ["Rameur 45/15", "Rameur 20/40 inversé", "Rameur intervalles fractionnés"],
+  "consignes": {
+    "Positionnement": "Pieds fixés, tronc gainé, prise de la poignée ferme.",
+    "Mouvement": "30 sec de tirages puissants suivis de 30 sec de repos complet ou actif.",
+    "Retour": "Sur les phases de repos, relâcher le rythme mais garder la technique.",
+    "Respiration": "Soufflez fort à chaque tirage, respiration active pendant la récup.",
+    "Posture": "Dos droit, ne pas compenser avec les lombaires ou les bras seuls."
+  },
+  "parametres_objectif": {
+    "hiit": {
+      "series": [6, 10],
+      "duree_effort": [30, 30],
+      "duree_repos": [30, 30],
+      "intensite": "Haute intensité régulière"
+    },
+    "prise_de_masse": {
+      "series": [4, 6],
+      "duree_effort": [30, 30],
+      "duree_repos": [45, 60],
+      "intensite": "Explosif, effort soutenu"
+    },
+    "endurance": {
+      "series": [6, 10],
+      "duree_effort": [30, 30],
+      "duree_repos": [30, 45],
+      "intensite": "Modérée à élevée"
+    },
+    "force": {
+      "series": [5, 8],
+      "duree_effort": [30, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Maximale (sur 30 sec)"
+    },
+    "postural": {
+      "series": [3, 4],
+      "duree_effort": [30, 30],
+      "duree_repos": [45, 60],
+      "intensite": "Contrôlée et stable"
+    },
+    "remise_au_sport": {
+      "series": [3, 5],
+      "duree_effort": [30, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive, non maximale"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Frameur-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Frameur-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER006",
+  "nom": "Rameur - 45:15",
+  "categorie_utilisation": ["training", "hiit", "cardio"],
+  "groupe_musculaire": "Full Body",
+  "objectifs": ["Cardio", "Endurance", "Perte de poids", "Force", "Remise en forme"],
+  "muscles_secondaires": ["Quadriceps", "Fessiers", "Ischio-jambiers", "Dos", "Épaules", "Biceps", "Abdominaux"],
+  "articulations_solicitees": ["Hanches", "Genoux", "Épaules", "Coudes"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon des ischio-jambiers", "Tendon bicipital"],
+  "type": "Ergomètre - HIIT intensif",
+  "niveau": "Intermédiaire à confirmé",
+  "materiel": ["Rameur"],
+  "position": "Assis",
+  "contraintes": ["À éviter en cas de condition physique faible ou de fatigue importante"],
+  "variantes": ["Rameur 30/30", "Rameur 20/40 inversé", "Rameur sprint"],
+  "consignes": {
+    "Positionnement": "Pieds calés, poignée en main, corps aligné et gainé.",
+    "Mouvement": "Effort intense pendant 45 sec, suivi de 15 sec de repos actif ou complet.",
+    "Retour": "Contrôle du retour même à haute intensité, relâchement progressif en récupération.",
+    "Respiration": "Expiration puissante sur le tirage, inspiration profonde au retour.",
+    "Posture": "Tronc engagé, dos neutre, amplitude complète sans extension excessive."
+  },
+  "parametres_objectif": {
+    "hiit": {
+      "series": [5, 10],
+      "duree_effort": [45, 45],
+      "duree_repos": [15, 15],
+      "intensite": "Très haute intensité"
+    },
+    "prise_de_masse": {
+      "series": [3, 5],
+      "duree_effort": [45, 45],
+      "duree_repos": [60, 90],
+      "intensite": "Effort soutenu, haute tension"
+    },
+    "endurance": {
+      "series": [4, 6],
+      "duree_effort": [45, 45],
+      "duree_repos": [30, 45],
+      "intensite": "Soutenu"
+    },
+    "force": {
+      "series": [4, 6],
+      "duree_effort": [45, 45],
+      "duree_repos": [90, 120],
+      "intensite": "Explosif, cadence maximale contrôlée"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [30, 45],
+      "duree_repos": [45, 60],
+      "intensite": "Modérée, accent sur le placement"
+    },
+    "remise_au_sport": {
+      "series": [3, 4],
+      "duree_effort": [30, 45],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive, effort court"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Frameur-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Frameur-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER007",
+  "nom": "Rameur - 20:40 inversé",
+  "categorie_utilisation": ["training", "hiit", "cardio", "remise en forme"],
+  "groupe_musculaire": "Full Body",
+  "objectifs": ["Endurance", "Cardio", "Remise en forme", "Perte de poids", "Postural"],
+  "muscles_secondaires": ["Quadriceps", "Ischio-jambiers", "Fessiers", "Dos", "Épaules", "Biceps", "Abdominaux"],
+  "articulations_solicitees": ["Genoux", "Hanches", "Épaules", "Coudes"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon des ischio-jambiers", "Tendon bicipital"],
+  "type": "Ergomètre - HIIT inversé",
+  "niveau": "Débutant à intermédiaire",
+  "materiel": ["Rameur"],
+  "position": "Assis",
+  "contraintes": ["À éviter en cas de trouble de rythme cardiaque ou si retour au sport non validé"],
+  "variantes": ["Rameur 30/30", "Rameur 45/15", "Rameur - Tirage complet"],
+  "consignes": {
+    "Positionnement": "Pieds bien ancrés, tronc stable, regard droit.",
+    "Mouvement": "Effort modéré pendant 20 sec suivi de 40 sec de repos ou récupération active.",
+    "Retour": "Phase retour très contrôlée, respiration profonde pendant la récupération.",
+    "Respiration": "Expirez sur chaque tirage, inspirez sur le retour.",
+    "Posture": "Accent sur la régularité et la qualité du mouvement plutôt que l’intensité."
+  },
+  "parametres_objectif": {
+    "hiit": {
+      "series": [6, 12],
+      "duree_effort": [20, 20],
+      "duree_repos": [40, 40],
+      "intensite": "Modérée, avec plus de récupération"
+    },
+    "prise_de_masse": {
+      "series": [3, 4],
+      "duree_effort": [20, 25],
+      "duree_repos": [60, 90],
+      "intensite": "Sous-maximale"
+    },
+    "endurance": {
+      "series": [4, 6],
+      "duree_effort": [20, 25],
+      "duree_repos": [40, 60],
+      "intensite": "Stable, effort dosé"
+    },
+    "force": {
+      "series": [4, 5],
+      "duree_effort": [20, 20],
+      "duree_repos": [90, 120],
+      "intensite": "Explosif mais court"
+    },
+    "postural": {
+      "series": [3, 4],
+      "duree_effort": [20, 25],
+      "duree_repos": [45, 60],
+      "intensite": "Lente, contrôlée"
+    },
+    "remise_au_sport": {
+      "series": [3, 5],
+      "duree_effort": [20, 20],
+      "duree_repos": [40, 60],
+      "intensite": "Douce et progressive"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Frameur-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Frameur-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER008",
+  "nom": "Rameur - Bras seuls",
+  "categorie_utilisation": ["training", "warmup", "cooldown", "cardio", "postural"],
+  "groupe_musculaire": "Haut du corps",
+  "objectifs": ["Postural", "Renforcement", "Remise en forme", "Endurance"],
+  "muscles_secondaires": ["Dos", "Épaules", "Biceps", "Avant-bras", "Abdominaux"],
+  "articulations_solicitees": ["Épaules", "Coudes", "Poignets"],
+  "tendons_solicites": ["Tendon bicipital", "Tendons de la coiffe des rotateurs"],
+  "type": "Ergomètre - Isolation haut du corps",
+  "niveau": "Tous niveaux",
+  "materiel": ["Rameur"],
+  "position": "Assis",
+  "contraintes": ["À éviter en cas de tendinite à l'épaule ou au coude"],
+  "variantes": ["Rameur jambes seules", "Rameur complet", "Rameur unilatéral bras"],
+  "consignes": {
+    "Positionnement": "Pieds fixés, jambes semi-fléchies et fixes, tronc droit.",
+    "Mouvement": "Tirer la poignée uniquement avec les bras sans utiliser les jambes.",
+    "Retour": "Étendre les bras complètement avant de recommencer un nouveau tirage.",
+    "Respiration": "Expirez sur le tirage, inspirez sur le retour.",
+    "Posture": "Garder le dos droit, éviter de hausser les épaules ou d'arrondir le dos."
+  },
+  "parametres_objectif": {
+    "echauffement": {
+      "duree": [2, 4],
+      "intensite": "Faible",
+      "repos": 0
+    },
+    "cooldown": {
+      "duree": [2, 3],
+      "intensite": "Très faible",
+      "repos": 0
+    },
+    "prise_de_masse": {
+      "series": [3, 4],
+      "duree_effort": [30, 40],
+      "duree_repos": [60, 90],
+      "intensite": "Contrôlée et localisée"
+    },
+    "endurance": {
+      "series": [4, 6],
+      "duree_effort": [45, 60],
+      "duree_repos": [30, 45],
+      "intensite": "Modérée"
+    },
+    "force": {
+      "series": [3, 5],
+      "duree_effort": [20, 30],
+      "duree_repos": [90, 120],
+      "intensite": "Explosif sur le tirage"
+    },
+    "postural": {
+      "series": [2, 4],
+      "duree_effort": [30, 45],
+      "duree_repos": [30, 60],
+      "intensite": "Modérée, focus posture"
+    },
+    "remise_au_sport": {
+      "series": [2, 3],
+      "duree_effort": [30, 40],
+      "duree_repos": [45, 60],
+      "intensite": "Faible à modérée"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Frameur-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Frameur-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER009",
+  "nom": "Rameur - Unilatéral jambes",
+  "categorie_utilisation": ["training", "rehab", "warmup", "postural"],
+  "groupe_musculaire": "Jambes",
+  "objectifs": ["Renforcement", "Postural", "Remise en forme", "Endurance", "Reprogrammation neuromusculaire"],
+  "muscles_secondaires": ["Quadriceps", "Ischio-jambiers", "Fessiers", "Mollets"],
+  "articulations_solicitees": ["Genoux", "Hanches", "Chevilles"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille", "Tendon des ischio-jambiers"],
+  "type": "Ergomètre - Travail unilatéral",
+  "niveau": "Intermédiaire à confirmé",
+  "materiel": ["Rameur"],
+  "position": "Assis",
+  "contraintes": ["À éviter en cas de déséquilibre important ou douleur articulaire aigüe"],
+  "variantes": ["Rameur jambes seules", "Rameur unilatéral bras", "Rameur complet"],
+  "consignes": {
+    "Positionnement": "Placer un seul pied dans la cale, l’autre en retrait ou posé au sol.",
+    "Mouvement": "Effectuer le tirage uniquement avec une jambe, bras impliqués normalement.",
+    "Retour": "Contrôler la descente pour maintenir le rythme et l’équilibre.",
+    "Respiration": "Expirez sur la poussée, inspirez au retour.",
+    "Posture": "Veiller à la stabilité du bassin et à une bonne symétrie du haut du corps."
+  },
+  "parametres_objectif": {
+    "echauffement": {
+      "duree": [2, 3],
+      "intensite": "Faible",
+      "repos": 0
+    },
+    "prise_de_masse": {
+      "series": [3, 4],
+      "duree_effort": [30, 40],
+      "duree_repos": [60, 90],
+      "intensite": "Modérée à soutenue (jambe dominante)"
+    },
+    "endurance": {
+      "series": [4, 6],
+      "duree_effort": [45, 60],
+      "duree_repos": [30, 45],
+      "intensite": "Modérée"
+    },
+    "force": {
+      "series": [3, 5],
+      "duree_effort": [20, 30],
+      "duree_repos": [90, 120],
+      "intensite": "Explosif, unilatéral"
+    },
+    "postural": {
+      "series": [2, 4],
+      "duree_effort": [30, 45],
+      "duree_repos": [45, 60],
+      "intensite": "Lente, contrôlée"
+    },
+    "remise_au_sport": {
+      "series": [2, 3],
+      "duree_effort": [30, 40],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive et ciblée"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Frameur-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Frameur-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER010",
+  "nom": "Vélo stationnaire - Pédalage continu",
+  "categorie_utilisation": ["training", "cardio", "warmup", "cooldown"],
+  "groupe_musculaire": "Jambes",
+  "objectifs": ["Endurance", "Cardio", "Perte de poids", "Remise en forme", "Postural"],
+  "muscles_secondaires": ["Quadriceps", "Ischio-jambiers", "Fessiers", "Mollets"],
+  "articulations_solicitees": ["Genoux", "Hanches", "Chevilles"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille", "Tendon des ischio-jambiers"],
+  "type": "Ergomètre - Cardio continu",
+  "niveau": "Tous niveaux",
+  "materiel": ["Vélo stationnaire"],
+  "position": "Assis",
+  "contraintes": ["Surveiller le genou en cas de pathologie articulaire ou prothèse"],
+  "variantes": ["Vélo sprint", "Vélo intervalles", "Vélo en côte"],
+  "consignes": {
+    "Positionnement": "Réglage de la selle à hauteur de hanche, dos droit, genoux légèrement fléchis.",
+    "Mouvement": "Pédaler de manière fluide à cadence modérée à soutenue.",
+    "Retour": "Pas de retour particulier : mouvement cyclique constant.",
+    "Respiration": "Respiration régulière, synchronisée avec l’effort.",
+    "Posture": "Garder les épaules basses, le tronc engagé, éviter les tensions cervicales."
+  },
+  "parametres_objectif": {
+    "echauffement": {
+      "duree": [4, 6],
+      "intensite": "Faible à modérée",
+      "repos": 0
+    },
+    "cooldown": {
+      "duree": [3, 5],
+      "intensite": "Très faible",
+      "repos": 0
+    },
+    "prise_de_masse": {
+      "series": [1, 1],
+      "duree": [10, 15],
+      "duree_repos": [0, 0],
+      "intensite": "Modérée en résistance"
+    },
+    "endurance": {
+      "series": [1, 1],
+      "duree": [20, 40],
+      "duree_repos": [0, 0],
+      "intensite": "Continue à 60-70% FC max"
+    },
+    "force": {
+      "series": [1, 1],
+      "duree": [8, 12],
+      "duree_repos": [0, 0],
+      "intensite": "Résistance forte, cadence lente"
+    },
+    "postural": {
+      "series": [1, 1],
+      "duree": [10, 15],
+      "duree_repos": [0, 0],
+      "intensite": "Contrôlée et fluide"
+    },
+    "remise_au_sport": {
+      "series": [1, 1],
+      "duree": [10, 20],
+      "duree_repos": [0, 0],
+      "intensite": "Progressive"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fvelo-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fvelo-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER011",
+  "nom": "Vélo sprint",
+  "categorie_utilisation": ["training", "hiit", "cardio"],
+  "groupe_musculaire": "Jambes",
+  "objectifs": ["Cardio", "Perte de poids", "Endurance", "Force", "Remise en forme"],
+  "muscles_secondaires": ["Quadriceps", "Ischio-jambiers", "Fessiers", "Mollets"],
+  "articulations_solicitees": ["Genoux", "Hanches", "Chevilles"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille", "Tendon des ischio-jambiers"],
+  "type": "Ergomètre - Effort explosif",
+  "niveau": "Intermédiaire à confirmé",
+  "materiel": ["Vélo stationnaire"],
+  "position": "Assis",
+  "contraintes": ["À éviter en cas de problèmes articulaires aigus ou troubles cardiaques non stabilisés"],
+  "variantes": ["Vélo intervalles", "Vélo en côte"],
+  "consignes": {
+    "Positionnement": "Réglage précis de la selle, posture stable, mains sur le guidon.",
+    "Mouvement": "Sprint à intensité maximale pendant un temps court.",
+    "Retour": "Repos actif ou passif après chaque sprint.",
+    "Respiration": "Expiration forcée pendant l’effort, récupération ventilatoire après.",
+    "Posture": "Dos droit, abdos engagés, ne pas tirer sur le guidon."
+  },
+  "parametres_objectif": {
+    "hiit": {
+      "series": [6, 12],
+      "duree_effort": [15, 30],
+      "duree_repos": [30, 90],
+      "intensite": "Maximale"
+    },
+    "prise_de_masse": {
+      "series": [3, 5],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Puissance élevée"
+    },
+    "endurance": {
+      "series": [4, 6],
+      "duree_effort": [30, 40],
+      "duree_repos": [45, 60],
+      "intensite": "Submaximale"
+    },
+    "force": {
+      "series": [4, 6],
+      "duree_effort": [15, 20],
+      "duree_repos": [90, 120],
+      "intensite": "Explosif avec résistance élevée"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [20, 30],
+      "duree_repos": [45, 60],
+      "intensite": "Contrôlée"
+    },
+    "remise_au_sport": {
+      "series": [3, 4],
+      "duree_effort": [20, 25],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fvelo-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fvelo-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER012",
+  "nom": "Vélo intervalles",
+  "categorie_utilisation": ["training", "hiit", "cardio", "remise en forme"],
+  "groupe_musculaire": "Jambes",
+  "objectifs": ["Endurance", "Cardio", "Perte de poids", "Remise en forme", "Force"],
+  "muscles_secondaires": ["Quadriceps", "Ischio-jambiers", "Fessiers", "Mollets"],
+  "articulations_solicitees": ["Genoux", "Hanches", "Chevilles"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille", "Tendon des ischio-jambiers"],
+  "type": "Ergomètre - Fractionné classique",
+  "niveau": "Tous niveaux",
+  "materiel": ["Vélo stationnaire"],
+  "position": "Assis",
+  "contraintes": ["Surveiller la récupération entre les séries chez les débutants ou en reprise"],
+  "variantes": ["Vélo sprint", "Vélo en côte"],
+  "consignes": {
+    "Positionnement": "Réglage correct de la selle, buste légèrement penché, mains au guidon.",
+    "Mouvement": "Alterner phases de pédalage rapide avec récupération lente ou arrêt.",
+    "Retour": "Ralentir progressivement entre les efforts.",
+    "Respiration": "Souffler activement pendant l’effort, inspiration contrôlée au repos.",
+    "Posture": "Conserver une posture stable malgré la variation d’intensité."
+  },
+  "parametres_objectif": {
+    "hiit": {
+      "series": [5, 10],
+      "duree_effort": [30, 60],
+      "duree_repos": [30, 60],
+      "intensite": "Variable selon bloc (modéré à élevé)"
+    },
+    "prise_de_masse": {
+      "series": [3, 4],
+      "duree_effort": [30, 45],
+      "duree_repos": [60, 90],
+      "intensite": "Soutenu avec résistance"
+    },
+    "endurance": {
+      "series": [4, 6],
+      "duree_effort": [60, 90],
+      "duree_repos": [30, 45],
+      "intensite": "Modérée"
+    },
+    "force": {
+      "series": [4, 5],
+      "duree_effort": [20, 30],
+      "duree_repos": [90, 120],
+      "intensite": "Haute résistance"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [30, 45],
+      "duree_repos": [45, 60],
+      "intensite": "Contrôlée"
+    },
+    "remise_au_sport": {
+      "series": [3, 4],
+      "duree_effort": [30, 40],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fvelo-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fvelo-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER013",
+  "nom": "Vélo en côte",
+  "categorie_utilisation": ["training", "cardio", "force", "endurance"],
+  "groupe_musculaire": "Jambes",
+  "objectifs": ["Force", "Endurance", "Cardio", "Remise en forme", "Prise de masse"],
+  "muscles_secondaires": ["Quadriceps", "Ischio-jambiers", "Fessiers", "Mollets"],
+  "articulations_solicitees": ["Genoux", "Hanches", "Chevilles"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille", "Tendon des ischio-jambiers"],
+  "type": "Ergomètre - Résistance élevée",
+  "niveau": "Intermédiaire à confirmé",
+  "materiel": ["Vélo stationnaire"],
+  "position": "Assis",
+  "contraintes": ["À éviter en cas de douleurs aux genoux ou lombaires non stabilisées"],
+  "variantes": ["Vélo sprint", "Vélo intervalles"],
+  "consignes": {
+    "Positionnement": "Réglage de la selle basculé légèrement vers l'arrière pour soutien lombaire.",
+    "Mouvement": "Pédalage en résistance élevée, soit en position assise, soit en danseuse.",
+    "Retour": "Pas de retour spécifique, effort continu en montée simulée.",
+    "Respiration": "Soufflez sur l'effort, inspirez profondément et régulièrement.",
+    "Posture": "Maintenir le tronc stable et gainé, éviter les mouvements parasites."
+  },
+  "parametres_objectif": {
+    "hiit": {
+      "series": [4, 8],
+      "duree_effort": [30, 60],
+      "duree_repos": [45, 90],
+      "intensite": "Élevée avec forte résistance"
+    },
+    "prise_de_masse": {
+      "series": [3, 5],
+      "duree_effort": [45, 60],
+      "duree_repos": [60, 90],
+      "intensite": "Lente avec résistance élevée"
+    },
+    "endurance": {
+      "series": [3, 5],
+      "duree_effort": [60, 120],
+      "duree_repos": [30, 60],
+      "intensite": "Modérée à soutenue"
+    },
+    "force": {
+      "series": [4, 6],
+      "duree_effort": [20, 40],
+      "duree_repos": [90, 120],
+      "intensite": "Explosif et lourd (faible cadence)"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [30, 45],
+      "duree_repos": [60, 90],
+      "intensite": "Contrôlée, focus gainage"
+    },
+    "remise_au_sport": {
+      "series": [2, 4],
+      "duree_effort": [30, 45],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive avec faible résistance"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fvelo-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fvelo-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER014",
+  "nom": "Tapis de course - Course continue",
+  "categorie_utilisation": ["training", "cardio", "warmup", "cooldown"],
+  "groupe_musculaire": "Jambes",
+  "objectifs": ["Endurance", "Cardio", "Perte de poids", "Remise en forme"],
+  "muscles_secondaires": ["Quadriceps", "Ischio-jambiers", "Fessiers", "Mollets"],
+  "articulations_solicitees": ["Genoux", "Hanches", "Chevilles"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille", "Tendon des ischio-jambiers"],
+  "type": "Ergomètre - Cardio linéaire",
+  "niveau": "Tous niveaux",
+  "materiel": ["Tapis de course"],
+  "position": "Debout",
+  "contraintes": ["Surveiller l’impact articulaire en cas de surpoids ou pathologies des genoux/lombaires"],
+  "variantes": ["Tapis sprints", "Tapis intervalles", "Tapis marche inclinée"],
+  "consignes": {
+    "Positionnement": "Posture droite, regard vers l’avant, foulée naturelle.",
+    "Mouvement": "Course à allure constante, cadence régulière.",
+    "Retour": "Finir par une marche lente ou un retour au calme progressif.",
+    "Respiration": "Régulière et contrôlée tout au long de la course.",
+    "Posture": "Conserver un bon alignement tête-tronc-bassin, éviter de talonner."
+  },
+  "parametres_objectif": {
+    "echauffement": {
+      "duree": [5, 8],
+      "intensite": "Faible à modérée",
+      "repos": 0
+    },
+    "cooldown": {
+      "duree": [3, 5],
+      "intensite": "Très faible",
+      "repos": 0
+    },
+    "prise_de_masse": {
+      "series": [1, 1],
+      "duree": [10, 15],
+      "duree_repos": [0, 0],
+      "intensite": "Modérée"
+    },
+    "endurance": {
+      "series": [1, 1],
+      "duree": [20, 40],
+      "duree_repos": [0, 0],
+      "intensite": "Continue à 60-75% FC max"
+    },
+    "force": {
+      "series": [1, 1],
+      "duree_effort": [8, 12],
+      "duree_repos": [0, 0],
+      "intensite": "Course lente avec pente"
+    },
+    "postural": {
+      "series": [1, 1],
+      "duree": [10, 15],
+      "duree_repos": [0, 0],
+      "intensite": "Fluide, axé sur le placement"
+    },
+    "remise_au_sport": {
+      "series": [1, 1],
+      "duree": [10, 20],
+      "duree_repos": [0, 0],
+      "intensite": "Progressive, effort modéré"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Ftapis-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Ftapis-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER015",
+  "nom": "Tapis sprints",
+  "categorie_utilisation": ["training", "hiit", "cardio"],
+  "groupe_musculaire": "Jambes",
+  "objectifs": ["Cardio", "Perte de poids", "Force", "Endurance", "Remise en forme"],
+  "muscles_secondaires": ["Quadriceps", "Ischio-jambiers", "Fessiers", "Mollets", "Abdominaux"],
+  "articulations_solicitees": ["Genoux", "Hanches", "Chevilles"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille", "Tendon des ischio-jambiers"],
+  "type": "Ergomètre - Effort maximal en course",
+  "niveau": "Intermédiaire à confirmé",
+  "materiel": ["Tapis de course"],
+  "position": "Debout",
+  "contraintes": ["À éviter en cas de douleurs articulaires ou pathologies cardiaques non stabilisées"],
+  "variantes": ["Tapis intervalles", "Tapis marche inclinée"],
+  "consignes": {
+    "Positionnement": "Position dynamique, légère inclinaison vers l’avant, bras mobiles.",
+    "Mouvement": "Sprints courts à vitesse maximale, foulée explosive et contrôlée.",
+    "Retour": "Phase de marche lente ou repos complet après chaque sprint.",
+    "Respiration": "Soufflez fort à l’effort, respiration profonde à la récupération.",
+    "Posture": "Alignement tête-tronc-bassin, éviter les talonnages excessifs."
+  },
+  "parametres_objectif": {
+    "hiit": {
+      "series": [6, 12],
+      "duree_effort": [10, 30],
+      "duree_repos": [30, 90],
+      "intensite": "Maximale (90-100%)"
+    },
+    "prise_de_masse": {
+      "series": [3, 4],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Explosif"
+    },
+    "endurance": {
+      "series": [4, 6],
+      "duree_effort": [20, 40],
+      "duree_repos": [45, 60],
+      "intensite": "Submaximale"
+    },
+    "force": {
+      "series": [4, 6],
+      "duree_effort": [10, 20],
+      "duree_repos": [90, 120],
+      "intensite": "Sprint court très intense"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [15, 20],
+      "duree_repos": [60, 90],
+      "intensite": "Contrôlée, sans perte de posture"
+    },
+    "remise_au_sport": {
+      "series": [3, 4],
+      "duree_effort": [15, 25],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive, effort court"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Ftapis-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Ftapis-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER016",
+  "nom": "Tapis intervalles",
+  "categorie_utilisation": ["training", "hiit", "cardio", "remise en forme"],
+  "groupe_musculaire": "Jambes",
+  "objectifs": ["Endurance", "Cardio", "Perte de poids", "Remise en forme", "Force"],
+  "muscles_secondaires": ["Quadriceps", "Ischio-jambiers", "Fessiers", "Mollets", "Abdominaux"],
+  "articulations_solicitees": ["Genoux", "Hanches", "Chevilles"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille", "Tendon des ischio-jambiers"],
+  "type": "Ergomètre - Fractionné en course",
+  "niveau": "Tous niveaux",
+  "materiel": ["Tapis de course"],
+  "position": "Debout",
+  "contraintes": ["Surveiller l’état articulaire et l'équilibre postural sur les transitions rapides"],
+  "variantes": ["Tapis sprints", "Tapis marche inclinée"],
+  "consignes": {
+    "Positionnement": "Départ en posture droite, pieds bien alignés, regard loin devant.",
+    "Mouvement": "Alterner phases de course rapide avec phases de marche ou course lente.",
+    "Retour": "Retour actif entre les sprints, cadence réduite.",
+    "Respiration": "Respiration soutenue durant les phases rapides, régulée à la récupération.",
+    "Posture": "Garder une foulée stable et fluide, sans tension excessive."
+  },
+  "parametres_objectif": {
+    "hiit": {
+      "series": [5, 10],
+      "duree_effort": [30, 60],
+      "duree_repos": [30, 60],
+      "intensite": "Élevée sur les sprints, modérée en récupération"
+    },
+    "prise_de_masse": {
+      "series": [3, 4],
+      "duree_effort": [30, 45],
+      "duree_repos": [60, 90],
+      "intensite": "Soutenu sur pente"
+    },
+    "endurance": {
+      "series": [4, 6],
+      "duree_effort": [60, 90],
+      "duree_repos": [30, 45],
+      "intensite": "Modérée"
+    },
+    "force": {
+      "series": [4, 5],
+      "duree_effort": [20, 30],
+      "duree_repos": [90, 120],
+      "intensite": "Haute résistance sur pente"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [30, 45],
+      "duree_repos": [45, 60],
+      "intensite": "Contrôlée"
+    },
+    "remise_au_sport": {
+      "series": [3, 4],
+      "duree_effort": [30, 40],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Ftapis-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Ftapis-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER017",
+  "nom": "Tapis marche inclinée",
+  "categorie_utilisation": ["training", "cardio", "warmup", "cooldown", "postural"],
+  "groupe_musculaire": "Jambes",
+  "objectifs": ["Endurance", "Perte de poids", "Remise en forme", "Postural", "Force"],
+  "muscles_secondaires": ["Fessiers", "Ischio-jambiers", "Quadriceps", "Mollets"],
+  "articulations_solicitees": ["Genoux", "Hanches", "Chevilles"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d'Achille", "Tendon des ischio-jambiers"],
+  "type": "Ergomètre - Marche en pente",
+  "niveau": "Tous niveaux",
+  "materiel": ["Tapis de course"],
+  "position": "Debout",
+  "contraintes": ["Surveiller l'inclinaison pour les personnes en surcharge pondérale ou avec faiblesse lombaire"],
+  "variantes": ["Tapis sprints", "Tapis intervalles"],
+  "consignes": {
+    "Positionnement": "Tronc légèrement incliné vers l'avant.",
+    "Mouvement": "Marche lente à modérée sur une pente élevée, foulée contrôlée.",
+    "Retour": "Baisser l'inclinaison progressivement en fin de séance.",
+    "Respiration": "Rythme respiratoire stable et profond.",
+    "Posture": "Conserver une posture droite, éviter de se pencher exagérément."
+  },
+  "parametres_objectif": {
+    "echauffement": {
+      "duree": [3, 5],
+      "inclinaison": [2, 5],
+      "intensite": "Faible à modérée",
+      "repos": 0
+    },
+    "cooldown": {
+      "duree": [3, 5],
+      "inclinaison": [2, 5],
+      "intensite": "Très faible",
+      "repos": 0
+    },
+    "prise_de_masse": {
+      "series": [2, 3],
+      "duree_effort": [10, 15],
+      "duree_repos": [60, 90],
+      "inclinaison": [6, 15],
+      "intensite": "Modérée avec résistance"
+    },
+    "endurance": {
+      "series": [1, 1],
+      "duree_effort": [20, 30],
+      "duree_repos": [0, 0],
+      "inclinaison": [4, 12],
+      "intensite": "Continue à 60% FC max"
+    },
+    "force": {
+      "series": [3, 4],
+      "duree_effort": [30, 60],
+      "duree_repos": [60, 90],
+      "inclinaison": [10, 15],
+      "intensite": "Haute résistance (pente forte)"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [10, 15],
+      "duree_repos": [45, 60],
+      "inclinaison": [5, 10],
+      "intensite": "Contrôlée, axée placement"
+    },
+    "remise_au_sport": {
+      "series": [2, 3],
+      "duree_effort": [15, 20],
+      "duree_repos": [60, 90],
+      "inclinaison": [3, 6],
+      "intensite": "Progressive, faible impact"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Ftapis-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Ftapis-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER018",
+  "nom": "Elliptique continu",
+  "categorie_utilisation": ["training", "cardio", "warmup", "cooldown"],
+  "groupe_musculaire": "Full Body",
+  "objectifs": ["Endurance", "Cardio", "Perte de poids", "Remise en forme"],
+  "muscles_secondaires": ["Quadriceps", "Ischio-jambiers", "Fessiers", "Mollets", "Dos", "Épaules", "Bras", "Abdominaux"],
+  "articulations_solicitees": ["Genoux", "Hanches", "Chevilles", "Épaules", "Coudes"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille", "Tendon bicipital"],
+  "type": "Ergomètre - Cardio fluide",
+  "niveau": "Tous niveaux",
+  "materiel": ["Elliptique"],
+  "position": "Debout",
+  "contraintes": ["Vigilance sur l’équilibre et la coordination, notamment en cas de reprise"],
+  "variantes": ["Elliptique sprint", "Elliptique inversé", "Elliptique intervalles"],
+  "consignes": {
+    "Positionnement": "Pieds stables sur les pédales, prise légère des poignées mobiles.",
+    "Mouvement": "Mouvement circulaire fluide avec coordination bras/jambes.",
+    "Retour": "Ralentir progressivement en fin de séance.",
+    "Respiration": "Régulière et contrôlée durant l’effort.",
+    "Posture": "Dos droit, tronc engagé, regard vers l’avant."
+  },
+  "parametres_objectif": {
+    "echauffement": {
+      "duree": [4, 6],
+      "intensite": "Faible à modérée",
+      "repos": 0
+    },
+    "cooldown": {
+      "duree": [3, 5],
+      "intensite": "Très faible",
+      "repos": 0
+    },
+    "prise_de_masse": {
+      "series": [1, 1],
+      "duree": [10, 15],
+      "duree_repos": [0, 0],
+      "intensite": "Modérée"
+    },
+    "endurance": {
+      "series": [1, 1],
+      "duree": [20, 40],
+      "duree_repos": [0, 0],
+      "intensite": "Continue à 60-70% FC max"
+    },
+    "force": {
+      "series": [1, 1],
+      "durée": [8, 12],
+      "duree_repos": [0, 0],
+      "intensite": "Résistance élevée, cadence lente"
+    },
+    "postural": {
+      "series": [1, 1],
+      "duree": [10, 15],
+      "duree_repos": [0, 0],
+      "intensite": "Fluide et contrôlée"
+    },
+    "remise_au_sport": {
+      "series": [1, 1],
+      "duree": [10, 20],
+      "duree_repos": [0, 0],
+      "intensite": "Progressive"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Felliptique-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Felliptique-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER019",
+  "nom": "Elliptique sprint",
+  "categorie_utilisation": ["training", "hiit", "cardio"],
+  "groupe_musculaire": "Full Body",
+  "objectifs": ["Cardio", "Perte de poids", "Endurance", "Force", "Remise en forme"],
+  "muscles_secondaires": ["Quadriceps", "Ischio-jambiers", "Fessiers", "Mollets", "Bras", "Épaules", "Abdominaux"],
+  "articulations_solicitees": ["Genoux", "Hanches", "Chevilles", "Épaules", "Coudes"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille", "Tendon bicipital"],
+  "type": "Ergomètre - Sprints fluides",
+  "niveau": "Intermédiaire à confirmé",
+  "materiel": ["Elliptique"],
+  "position": "Debout",
+  "contraintes": ["Nécessite une bonne coordination et un bon gainage"],
+  "variantes": ["Elliptique intervalles", "Elliptique inversé"],
+  "consignes": {
+    "Positionnement": "Pieds stables, tronc légèrement incliné vers l’avant.",
+    "Mouvement": "Effort explosif à haute vitesse durant les sprints.",
+    "Retour": "Phase de récupération à cadence très lente ou repos total.",
+    "Respiration": "Souffler fort à l’effort, inspiration profonde pendant la récup.",
+    "Posture": "Rester gainé, éviter les mouvements parasites."
+  },
+  "parametres_objectif": {
+    "hiit": {
+      "series": [6, 10],
+      "duree_effort": [15, 30],
+      "duree_repos": [30, 90],
+      "intensite": "Maximale"
+    },
+    "prise_de_masse": {
+      "series": [3, 4],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Explosif, haute résistance"
+    },
+    "endurance": {
+      "series": [4, 6],
+      "duree_effort": [30, 45],
+      "duree_repos": [30, 60],
+      "intensite": "Submaximale"
+    },
+    "force": {
+      "series": [4, 5],
+      "duree_effort": [15, 20],
+      "duree_repos": [90, 120],
+      "intensite": "Cadence rapide avec résistance importante"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Contrôlée, gainage permanent"
+    },
+    "remise_au_sport": {
+      "series": [3, 4],
+      "duree_effort": [20, 25],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Felliptique-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Felliptique-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER020",
+  "nom": "Elliptique intervalles",
+  "categorie_utilisation": ["training", "hiit", "cardio", "remise en forme"],
+  "groupe_musculaire": "Full Body",
+  "objectifs": ["Endurance", "Cardio", "Perte de poids", "Remise en forme", "Force"],
+  "muscles_secondaires": ["Quadriceps", "Ischio-jambiers", "Fessiers", "Mollets", "Épaules", "Bras", "Abdominaux"],
+  "articulations_solicitees": ["Genoux", "Hanches", "Chevilles", "Épaules", "Coudes"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille", "Tendon bicipital"],
+  "type": "Ergomètre - Fractionné fluide",
+  "niveau": "Tous niveaux",
+  "materiel": ["Elliptique"],
+  "position": "Debout",
+  "contraintes": ["Risque de perte de rythme si la coordination n’est pas maîtrisée"],
+  "variantes": ["Elliptique sprint", "Elliptique inversé"],
+  "consignes": {
+    "Positionnement": "Position stable, mains sur les poignées, tronc droit.",
+    "Mouvement": "Alterner effort soutenu et récupération lente ou active.",
+    "Retour": "Réduction progressive de la vitesse ou de la résistance.",
+    "Respiration": "Régulière et synchronisée avec l’effort.",
+    "Posture": "Maintenir un bon alignement du buste et un mouvement symétrique."
+  },
+  "parametres_objectif": {
+    "hiit": {
+      "series": [5, 10],
+      "duree_effort": [30, 60],
+      "duree_repos": [30, 60],
+      "intensite": "Élevée en effort, modérée en repos"
+    },
+    "prise_de_masse": {
+      "series": [3, 4],
+      "duree_effort": [30, 45],
+      "duree_repos": [60, 90],
+      "intensite": "Résistance modérée à forte"
+    },
+    "endurance": {
+      "series": [4, 6],
+      "duree_effort": [60, 90],
+      "duree_repos": [30, 45],
+      "intensite": "Modérée"
+    },
+    "force": {
+      "series": [4, 5],
+      "duree_effort": [20, 30],
+      "duree_repos": [90, 120],
+      "intensite": "Effort sur résistance maximale"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [30, 45],
+      "duree_repos": [45, 60],
+      "intensite": "Contrôlée et symétrique"
+    },
+    "remise_au_sport": {
+      "series": [3, 4],
+      "duree_effort": [30, 40],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Felliptique-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Felliptique-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER021",
+  "nom": "Elliptique inversé",
+  "categorie_utilisation": ["training", "postural", "rehab", "remise en forme"],
+  "groupe_musculaire": "Jambes",
+  "objectifs": ["Postural", "Renforcement", "Reprogrammation neuromusculaire", "Remise en forme"],
+  "muscles_secondaires": ["Ischio-jambiers", "Fessiers", "Quadriceps", "Mollets", "Abdominaux"],
+  "articulations_solicitees": ["Genoux", "Hanches", "Chevilles"],
+  "tendons_solicites": ["Tendon des ischio-jambiers", "Tendon d’Achille", "Tendon rotulien"],
+  "type": "Ergomètre - Mouvement arrière",
+  "niveau": "Tous niveaux",
+  "materiel": ["Elliptique"],
+  "position": "Debout",
+  "contraintes": ["Nécessite une bonne coordination, éviter chez les personnes très débutantes sans supervision"],
+  "variantes": ["Elliptique continu", "Elliptique sprint", "Elliptique intervalles"],
+  "consignes": {
+    "Positionnement": "Posture droite, regard loin devant, prise légère sur les poignées.",
+    "Mouvement": "Pédalage en arrière fluide, accent mis sur les ischios et les fessiers.",
+    "Retour": "Revenir à un mouvement avant ou terminer par une marche lente.",
+    "Respiration": "Respiration régulière et contrôlée.",
+    "Posture": "Tronc stable, éviter les bascules de bassin."
+  },
+  "parametres_objectif": {
+    "echauffement": {
+      "duree": [3, 5],
+      "intensite": "Modérée, activation postérieure",
+      "repos": 0
+    },
+    "cooldown": {
+      "duree": [3, 5],
+      "intensite": "Très faible",
+      "repos": 0
+    },
+    "prise_de_masse": {
+      "series": [2, 3],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Modérée avec résistance"
+    },
+    "endurance": {
+      "series": [3, 5],
+      "duree_effort": [30, 60],
+      "duree_repos": [30, 45],
+      "intensite": "Modérée et régulière"
+    },
+    "force": {
+      "series": [3, 4],
+      "duree_effort": [20, 30],
+      "duree_repos": [90, 120],
+      "intensite": "Haute résistance, poussée contrôlée"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [30, 45],
+      "duree_repos": [45, 60],
+      "intensite": "Lente, axée sur le contrôle moteur"
+    },
+    "remise_au_sport": {
+      "series": [2, 3],
+      "duree_effort": [30, 40],
+      "duree_repos": [60, 90],
+      "intensite": "Douce, progressive"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Felliptique-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Felliptique-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER022",
+  "nom": "SkiErg continu",
+  "categorie_utilisation": ["training", "cardio", "warmup", "cooldown"],
+  "groupe_musculaire": "Haut du corps",
+  "objectifs": ["Cardio", "Endurance", "Perte de poids", "Remise en forme"],
+  "muscles_secondaires": ["Épaules", "Dos", "Triceps", "Abdominaux", "Fessiers"],
+  "articulations_solicitees": ["Épaules", "Coudes", "Poignets", "Hanches"],
+  "tendons_solicites": ["Tendon tricipital", "Tendons de la coiffe des rotateurs", "Tendon bicipital"],
+  "type": "Ergomètre - Tirage vertical",
+  "niveau": "Tous niveaux",
+  "materiel": ["SkiErg"],
+  "position": "Debout",
+  "contraintes": ["À éviter en cas de douleurs aux épaules ou hernie discale non stabilisée"],
+  "variantes": ["SkiErg sprint", "SkiErg intervalles", "SkiErg unilatéral"],
+  "consignes": {
+    "Positionnement": "Debout, pieds largeur bassin, poignées en main bras tendus vers le haut.",
+    "Mouvement": "Tirer les poignées vers le bas en fléchissant les bras et les hanches.",
+    "Retour": "Remonter les bras de manière contrôlée.",
+    "Respiration": "Expirez en tirant, inspirez en remontant.",
+    "Posture": "Engager les abdos, garder le dos droit, ne pas tirer uniquement avec les bras."
+  },
+  "parametres_objectif": {
+    "echauffement": {
+      "duree": [3, 5],
+      "intensite": "Faible à modérée",
+      "repos": 0
+    },
+    "cooldown": {
+      "duree": [2, 4],
+      "intensite": "Très faible",
+      "repos": 0
+    },
+    "prise_de_masse": {
+      "series": [2, 3],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Modérée avec résistance"
+    },
+    "endurance": {
+      "series": [1, 1],
+      "duree": [20, 40],
+      "duree_repos": [0, 0],
+      "intensite": "Rythmée et fluide"
+    },
+    "force": {
+      "series": [3, 4],
+      "duree_effort": [15, 20],
+      "duree_repos": [90, 120],
+      "intensite": "Explosif avec résistance élevée"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [30, 45],
+      "duree_repos": [45, 60],
+      "intensite": "Contrôlée, accent sur la symétrie"
+    },
+    "remise_au_sport": {
+      "series": [2, 3],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive, basique"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fskierg-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fskierg-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER023",
+  "nom": "SkiErg sprint",
+  "categorie_utilisation": ["training", "hiit", "cardio"],
+  "groupe_musculaire": "Haut du corps",
+  "objectifs": ["Cardio", "Perte de poids", "Force", "Endurance", "Remise en forme"],
+  "muscles_secondaires": ["Épaules", "Dos", "Triceps", "Abdominaux", "Fessiers"],
+  "articulations_solicitees": ["Épaules", "Coudes", "Poignets", "Hanches"],
+  "tendons_solicites": ["Tendon tricipital", "Tendons de la coiffe des rotateurs", "Tendon bicipital"],
+  "type": "Ergomètre - Sprint vertical",
+  "niveau": "Intermédiaire à confirmé",
+  "materiel": ["SkiErg"],
+  "position": "Debout",
+  "contraintes": ["Peut aggraver une tendinopathie d'épaule si mal exécuté"],
+  "variantes": ["SkiErg intervalles", "SkiErg unilatéral"],
+  "consignes": {
+    "Positionnement": "Pieds fixes, bras levés, tronc légèrement engagé vers l’avant.",
+    "Mouvement": "Tirer rapidement vers le bas avec force et cadence élevée.",
+    "Retour": "Revenir en haut rapidement sans blocage musculaire.",
+    "Respiration": "Soufflez sur l'effort, inspirez en remontant.",
+    "Posture": "Maintenir le tronc stable, ne pas tirer uniquement avec les bras."
+  },
+  "parametres_objectif": {
+    "hiit": {
+      "series": [6, 10],
+      "duree_effort": [15, 30],
+      "duree_repos": [30, 90],
+      "intensite": "Maximale"
+    },
+    "prise_de_masse": {
+      "series": [3, 4],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Explosif, forte intensité"
+    },
+    "endurance": {
+      "series": [4, 6],
+      "duree_effort": [30, 45],
+      "duree_repos": [30, 60],
+      "intensite": "Submaximale"
+    },
+    "force": {
+      "series": [3, 5],
+      "duree_effort": [10, 20],
+      "duree_repos": [90, 120],
+      "intensite": "Explosif, cadence maximale"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Contrôlée malgré la vitesse"
+    },
+    "remise_au_sport": {
+      "series": [3, 4],
+      "duree_effort": [15, 25],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fskierg-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fskierg-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER024",
+  "nom": "SkiErg intervalles",
+  "categorie_utilisation": ["training", "hiit", "cardio", "remise en forme"],
+  "groupe_musculaire": "Haut du corps",
+  "objectifs": ["Endurance", "Cardio", "Perte de poids", "Remise en forme", "Force"],
+  "muscles_secondaires": ["Dos", "Triceps", "Épaules", "Abdominaux", "Fessiers"],
+  "articulations_solicitees": ["Épaules", "Coudes", "Poignets", "Hanches"],
+  "tendons_solicites": ["Tendon tricipital", "Tendon bicipital", "Tendons de la coiffe des rotateurs"],
+  "type": "Ergomètre - Fractionné vertical",
+  "niveau": "Tous niveaux",
+  "materiel": ["SkiErg"],
+  "position": "Debout",
+  "contraintes": ["Peut générer une fatigue posturale si mal contrôlé"],
+  "variantes": ["SkiErg sprint", "SkiErg unilatéral"],
+  "consignes": {
+    "Positionnement": "Poignées dans les mains, bras levés, pieds ancrés au sol.",
+    "Mouvement": "Alterner phases de tirage dynamique avec phases de récupération.",
+    "Retour": "Laisser les bras remonter de manière fluide, sans relâchement excessif.",
+    "Respiration": "Rythme rapide à l’effort, plus contrôlé à la récupération.",
+    "Posture": "Garder le dos droit, contraction des abdos tout au long de l'exercice."
+  },
+  "parametres_objectif": {
+    "hiit": {
+      "series": [5, 10],
+      "duree_effort": [30, 60],
+      "duree_repos": [30, 60],
+      "intensite": "Haute à modérée selon les blocs"
+    },
+    "prise_de_masse": {
+      "series": [3, 4],
+      "duree_effort": [30, 45],
+      "duree_repos": [60, 90],
+      "intensite": "Soutenu avec bonne résistance"
+    },
+    "endurance": {
+      "series": [4, 6],
+      "duree_effort": [60, 90],
+      "duree_repos": [30, 45],
+      "intensite": "Modérée"
+    },
+    "force": {
+      "series": [4, 5],
+      "duree_effort": [20, 30],
+      "duree_repos": [90, 120],
+      "intensite": "Haute résistance, faible cadence"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [30, 45],
+      "duree_repos": [45, 60],
+      "intensite": "Contrôlée, axée sur le maintien"
+    },
+    "remise_au_sport": {
+      "series": [3, 4],
+      "duree_effort": [30, 40],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fskierg-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fskierg-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER025",
+  "nom": "SkiErg unilatéral",
+  "categorie_utilisation": ["training", "postural", "rehab", "remise en forme"],
+  "groupe_musculaire": "Haut du corps",
+  "objectifs": ["Renforcement", "Postural", "Coordination", "Reprogrammation neuromusculaire"],
+  "muscles_secondaires": ["Triceps", "Épaules", "Abdominaux", "Fessiers", "Obliques"],
+  "articulations_solicitees": ["Épaule", "Coude", "Poignet", "Hanche"],
+  "tendons_solicites": ["Tendon tricipital", "Tendon bicipital", "Tendons de la coiffe des rotateurs"],
+  "type": "Ergomètre - Tirage unilatéral",
+  "niveau": "Tous niveaux",
+  "materiel": ["SkiErg"],
+  "position": "Debout",
+  "contraintes": ["Demande une bonne maîtrise du centre de gravité et de la posture"],
+  "variantes": ["SkiErg sprint", "SkiErg intervalles"],
+  "consignes": {
+    "Positionnement": "Une seule poignée en main, bras levé, position stable.",
+    "Mouvement": "Tirer la poignée vers le bas avec contrôle, tout en maintenant la symétrie du tronc.",
+    "Retour": "Revenir à la position initiale sans mouvement parasite.",
+    "Respiration": "Expirez à la traction, inspirez en remontant.",
+    "Posture": "Contracter les abdos, garder les hanches alignées et stables."
+  },
+  "parametres_objectif": {
+    "echauffement": {
+      "duree": [3, 4],
+      "intensite": "Modérée, en alternance gauche/droite",
+      "repos": 0
+    },
+    "cooldown": {
+      "duree": [2, 3],
+      "intensite": "Très faible",
+      "repos": 0
+    },
+    "prise_de_masse": {
+      "series": [2, 3],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Modérée, côté par côté"
+    },
+    "endurance": {
+      "series": [2, 4],
+      "duree_effort": [30, 60],
+      "duree_repos": [30, 45],
+      "intensite": "Rythmée, maintien symétrique"
+    },
+    "force": {
+      "series": [3, 4],
+      "duree_effort": [15, 25],
+      "duree_repos": [90, 120],
+      "intensite": "Résistance haute, faible cadence"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [30, 45],
+      "duree_repos": [45, 60],
+      "intensite": "Contrôlée, axée stabilité tronc"
+    },
+    "remise_au_sport": {
+      "series": [2, 3],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive, un côté à la fois"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fskierg-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fskierg-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER026",
+  "nom": "AirBike - Mouvement continu",
+  "categorie_utilisation": ["training", "cardio", "warmup", "cooldown"],
+  "groupe_musculaire": "Full Body",
+  "objectifs": ["Cardio", "Endurance", "Perte de poids", "Remise en forme"],
+  "muscles_secondaires": ["Quadriceps", "Ischio-jambiers", "Fessiers", "Mollets", "Dos", "Pectoraux", "Bras", "Épaules", "Abdominaux"],
+  "articulations_solicitees": ["Épaules", "Coudes", "Hanches", "Genoux", "Chevilles"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille", "Tendon bicipital", "Tendon tricipital"],
+  "type": "Ergomètre – Résistance à air",
+  "niveau": "Tous niveaux",
+  "materiel": ["AirBike"],
+  "position": "Assis",
+  "contraintes": ["Demande une coordination fluide bras/jambes – attention aux lombaires en cas de fatigue"],
+  "variantes": ["AirBike sprint", "AirBike intervalles", "AirBike bras seuls", "AirBike jambes seules"],
+  "consignes": {
+    "Positionnement": "Réglage de selle optimal, dos droit, mains sur les poignées mobiles.",
+    "Mouvement": "Pousser avec les jambes tout en tirant/poussant les bras pour un effort fluide.",
+    "Retour": "Ralentir progressivement, cadence souple.",
+    "Respiration": "Régulière, adaptée à l’intensité.",
+    "Posture": "Tronc gainé, mouvement symétrique, éviter de tirer uniquement avec les bras."
+  },
+  "parametres_objectif": {
+    "echauffement": {
+      "duree": [4, 6],
+      "intensite": "Faible à modérée",
+      "repos": 0
+    },
+    "cooldown": {
+      "duree": [3, 5],
+      "intensite": "Très faible",
+      "repos": 0
+    },
+    "prise_de_masse": {
+      "series": [1, 1],
+      "duree": [10, 15],
+      "duree_repos": [0, 0],
+      "intensite": "Modérée avec cadence constante"
+    },
+    "endurance": {
+      "series": [1, 1],
+      "duree": [20, 40],
+      "duree_repos": [0, 0],
+      "intensite": "Continue à 60-70% FC max"
+    },
+    "force": {
+      "series": [1, 1],
+      "duree": [8, 12],
+      "duree_repos": [0, 0],
+      "intensite": "Haute résistance avec faible cadence"
+    },
+    "postural": {
+      "series": [1, 1],
+      "dureet": [10, 15],
+      "duree_repos": [0, 0],
+      "intensite": "Fluide, accent sur le contrôle"
+    },
+    "remise_au_sport": {
+      "series": [1, 1],
+      "duree": [10, 20],
+      "duree_repos": [0, 0],
+      "intensite": "Progressive"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fairbike-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fairbike-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER027",
+  "nom": "AirBike sprint",
+  "categorie_utilisation": ["training", "hiit", "cardio"],
+  "groupe_musculaire": "Full Body",
+  "objectifs": ["Cardio", "Perte de poids", "Endurance", "Force", "Remise en forme"],
+  "muscles_secondaires": ["Quadriceps", "Fessiers", "Mollets", "Pectoraux", "Épaules", "Triceps", "Abdominaux"],
+  "articulations_solicitees": ["Hanches", "Genoux", "Chevilles", "Épaules", "Coudes"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille", "Tendon tricipital"],
+  "type": "Ergomètre – Effort explosif",
+  "niveau": "Intermédiaire à confirmé",
+  "materiel": ["AirBike"],
+  "position": "Assis",
+  "contraintes": ["Très intense – à éviter sans échauffement ou pour les pathologies cardiaques"],
+  "variantes": ["AirBike intervalles", "AirBike bras seuls", "AirBike jambes seules"],
+  "consignes": {
+    "Positionnement": "Selle bien réglée, mains sur poignées, buste légèrement penché en avant.",
+    "Mouvement": "Sprints à cadence maximale en synchronisation bras/jambes.",
+    "Retour": "Repos actif ou passif après chaque sprint.",
+    "Respiration": "Soufflez fortement à l’effort, récupération active en soufflant lentement.",
+    "Posture": "Restez gainé et stable, évitez les à-coups."
+  },
+  "parametres_objectif": {
+    "hiit": {
+      "series": [6, 12],
+      "duree_effort": [10, 30],
+      "duree_repos": [30, 90],
+      "intensite": "Maximale"
+    },
+    "prise_de_masse": {
+      "series": [3, 4],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Explosif avec résistance"
+    },
+    "endurance": {
+      "series": [4, 6],
+      "duree_effort": [30, 45],
+      "duree_repos": [30, 60],
+      "intensite": "Submaximale"
+    },
+    "force": {
+      "series": [3, 5],
+      "duree_effort": [10, 20],
+      "duree_repos": [90, 120],
+      "intensite": "Résistance élevée, effort court"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [15, 25],
+      "duree_repos": [60, 90],
+      "intensite": "Contrôle moteur sous fatigue"
+    },
+    "remise_au_sport": {
+      "series": [3, 4],
+      "duree_effort": [15, 25],
+      "duree_repos": [60, 90],
+      "intensite": "Progressif et contrôlé"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fairbike-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fairbike-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER028",
+  "nom": "AirBike intervalles",
+  "categorie_utilisation": ["training", "hiit", "cardio", "remise en forme"],
+  "groupe_musculaire": "Full Body",
+  "objectifs": ["Endurance", "Cardio", "Perte de poids", "Remise en forme", "Force"],
+  "muscles_secondaires": ["Quadriceps", "Fessiers", "Mollets", "Pectoraux", "Bras", "Épaules", "Abdominaux"],
+  "articulations_solicitees": ["Genoux", "Hanches", "Chevilles", "Épaules", "Coudes"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille", "Tendon bicipital", "Tendon tricipital"],
+  "type": "Ergomètre – Fractionné",
+  "niveau": "Tous niveaux",
+  "materiel": ["AirBike"],
+  "position": "Assis",
+  "contraintes": ["Fatigue rapide, nécessite une bonne récupération entre les blocs"],
+  "variantes": ["AirBike sprint", "AirBike bras seuls", "AirBike jambes seules"],
+  "consignes": {
+    "Positionnement": "Réglage de la selle en fonction de la taille, position stable.",
+    "Mouvement": "Alterner effort intense et récupération lente ou passive.",
+    "Retour": "Finir la dernière série par une récupération prolongée.",
+    "Respiration": "Rythme contrôlé, profond pendant la récupération.",
+    "Posture": "Tronc gainé, symétrie des mouvements bras/jambes."
+  },
+  "parametres_objectif": {
+    "hiit": {
+      "series": [5, 10],
+      "duree_effort": [30, 60],
+      "duree_repos": [30, 60],
+      "intensite": "Haute intensité sur l’effort, modérée sur la récup"
+    },
+    "prise_de_masse": {
+      "series": [3, 4],
+      "duree_effort": [30, 45],
+      "duree_repos": [60, 90],
+      "intensite": "Résistance moyenne à élevée"
+    },
+    "endurance": {
+      "series": [4, 6],
+      "duree_effort": [60, 90],
+      "duree_repos": [30, 45],
+      "intensite": "Continue, effort maîtrisé"
+    },
+    "force": {
+      "series": [4, 5],
+      "duree_effort": [20, 30],
+      "duree_repos": [90, 120],
+      "intensite": "Résistance élevée, effort puissant"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [30, 45],
+      "duree_repos": [45, 60],
+      "intensite": "Contrôlée, avec posture maîtrisée"
+    },
+    "remise_au_sport": {
+      "series": [3, 4],
+      "duree_effort": [30, 40],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive, effort régulé"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fairbike-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fairbike-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER029",
+  "nom": "AirBike bras seuls",
+  "categorie_utilisation": ["training", "postural", "rehab", "remise en forme"],
+  "groupe_musculaire": "Haut du corps",
+  "objectifs": ["Renforcement", "Cardio", "Postural", "Reprogrammation neuromusculaire"],
+  "muscles_secondaires": ["Épaules", "Triceps", "Dos", "Abdominaux"],
+  "articulations_solicitees": ["Épaules", "Coudes", "Poignets"],
+  "tendons_solicites": ["Tendon tricipital", "Tendon bicipital", "Tendons de la coiffe des rotateurs"],
+  "type": "Ergomètre – Bras uniquement",
+  "niveau": "Tous niveaux",
+  "materiel": ["AirBike"],
+  "position": "Assis",
+  "contraintes": ["Risque de déséquilibre postural si les jambes ne sont pas stabilisées"],
+  "variantes": ["AirBike jambes seules", "AirBike sprint", "AirBike intervalles"],
+  "consignes": {
+    "Positionnement": "Pieds posés au sol ou sur repose-pieds, mains sur les poignées mobiles.",
+    "Mouvement": "Mouvements alternés de poussée et de tirage uniquement avec les bras.",
+    "Retour": "Revenir au point neutre sans relâcher les épaules.",
+    "Respiration": "Souffler sur la poussée, inspirer au retour.",
+    "Posture": "Dos droit, abdos engagés, éviter les balancements."
+  },
+  "parametres_objectif": {
+    "echauffement": {
+      "duree": [3, 5],
+      "intensite": "Modérée, axée mobilité épaules",
+      "repos": 0
+    },
+    "cooldown": {
+      "duree": [2, 3],
+      "intensite": "Très faible",
+      "repos": 0
+    },
+    "prise_de_masse": {
+      "series": [2, 3],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Modérée à forte résistance"
+    },
+    "endurance": {
+      "series": [2, 4],
+      "duree_effort": [30, 60],
+      "duree_repos": [30, 45],
+      "intensite": "Continue et fluide"
+    },
+    "force": {
+      "series": [3, 4],
+      "duree_effort": [15, 25],
+      "duree_repos": [90, 120],
+      "intensite": "Explosif avec forte résistance"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [30, 45],
+      "duree_repos": [45, 60],
+      "intensite": "Contrôle moteur et gainage"
+    },
+    "remise_au_sport": {
+      "series": [2, 3],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive, effort isolé"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fairbike-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fairbike-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER030",
+  "nom": "AirBike jambes seules",
+  "categorie_utilisation": ["training", "postural", "rehab", "remise en forme"],
+  "groupe_musculaire": "Jambes",
+  "objectifs": ["Renforcement", "Cardio", "Endurance", "Postural", "Remise en forme"],
+  "muscles_secondaires": ["Quadriceps", "Ischio-jambiers", "Fessiers", "Mollets"],
+  "articulations_solicitees": ["Hanches", "Genoux", "Chevilles"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille", "Tendon des ischio-jambiers"],
+  "type": "Ergomètre – Jambes uniquement",
+  "niveau": "Tous niveaux",
+  "materiel": ["AirBike"],
+  "position": "Assis",
+  "contraintes": ["Désactiver les bras (immobiliser les poignées si possible) pour éviter les interférences"],
+  "variantes": ["AirBike bras seuls", "AirBike sprint", "AirBike intervalles"],
+  "consignes": {
+    "Positionnement": "Mains posées sur les cuisses ou fixes, dos droit.",
+    "Mouvement": "Pédalage fluide uniquement avec les jambes, cadence contrôlée.",
+    "Retour": "Ralentir progressivement à la fin du bloc.",
+    "Respiration": "Continue, profonde, sans blocage.",
+    "Posture": "Gainage actif, éviter les mouvements parasites du tronc."
+  },
+  "parametres_objectif": {
+    "echauffement": {
+      "duree": [3, 5],
+      "intensite": "Modérée, activation membres inférieurs",
+      "repos": 0
+    },
+    "cooldown": {
+      "duree": [2, 3],
+      "intensite": "Très faible",
+      "repos": 0
+    },
+    "prise_de_masse": {
+      "series": [2, 3],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Modérée à forte"
+    },
+    "endurance": {
+      "series": [2, 4],
+      "duree_effort": [30, 60],
+      "duree_repos": [30, 45],
+      "intensite": "Continue à cadence moyenne"
+    },
+    "force": {
+      "series": [3, 4],
+      "duree_effort": [15, 25],
+      "duree_repos": [90, 120],
+      "intensite": "Résistance élevée, cadence lente"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [30, 45],
+      "duree_repos": [45, 60],
+      "intensite": "Contrôle postural, fluidité"
+    },
+    "remise_au_sport": {
+      "series": [2, 3],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive, sans impact"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fairbike-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fairbike-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER031",
+  "nom": "Stepper - Mouvement continu",
+  "categorie_utilisation": ["training", "cardio", "warmup", "cooldown"],
+  "groupe_musculaire": "Jambes",
+  "objectifs": ["Cardio", "Endurance", "Perte de poids", "Remise en forme"],
+  "muscles_secondaires": ["Quadriceps", "Fessiers", "Ischio-jambiers", "Mollets", "Abdominaux"],
+  "articulations_solicitees": ["Genoux", "Hanches", "Chevilles"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille"],
+  "type": "Ergomètre – Montée rythmée",
+  "niveau": "Tous niveaux",
+  "materiel": ["Stepper"],
+  "position": "Debout",
+  "contraintes": ["Attention à la fatigue articulaire sur longue durée ou mauvaise posture lombaire"],
+  "variantes": ["Stepper sprint", "Stepper intervalles", "Stepper unilatéral"],
+  "consignes": {
+    "Positionnement": "Pieds bien posés sur les marches, mains sur les poignées si besoin.",
+    "Mouvement": "Montée alternée fluide, cadence constante.",
+    "Retour": "Ralentir progressivement en fin de session.",
+    "Respiration": "Continue et régulière.",
+    "Posture": "Dos droit, tronc engagé, ne pas s’appuyer excessivement sur les bras."
+  },
+  "parametres_objectif": {
+    "echauffement": {
+      "duree": [3, 5],
+      "intensite": "Faible à modérée",
+      "repos": 0
+    },
+    "cooldown": {
+      "duree": [3, 5],
+      "intensite": "Très faible",
+      "repos": 0
+    },
+    "prise_de_masse": {
+      "series": [1, 1],
+      "duree": [10, 15],
+      "duree_repos": [0, 0],
+      "intensite": "Modérée, sans pause"
+    },
+    "endurance": {
+      "series": [1, 1],
+      "duree": [20, 40],
+      "duree_repos": [0, 0],
+      "intensite": "Continue à 60-70% FC max"
+    },
+    "force": {
+      "series": [1, 1],
+      "duree": [8, 12],
+      "duree_repos": [0, 0],
+      "intensite": "Résistance élevée, cadence lente"
+    },
+    "postural": {
+      "series": [1, 1],
+      "duree": [10, 15],
+      "duree_repos": [0, 0],
+      "intensite": "Contrôle postural et fluidité"
+    },
+    "remise_au_sport": {
+      "series": [1, 1],
+      "duree": [10, 20],
+      "duree_repos": [0, 0],
+      "intensite": "Progressive, cadence moyenne"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fstepper-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fstepper-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER032",
+  "nom": "Stepper sprint",
+  "categorie_utilisation": ["training", "hiit", "cardio"],
+  "groupe_musculaire": "Jambes",
+  "objectifs": ["Cardio", "Perte de poids", "Endurance", "Force", "Remise en forme"],
+  "muscles_secondaires": ["Quadriceps", "Fessiers", "Ischio-jambiers", "Mollets", "Abdominaux"],
+  "articulations_solicitees": ["Genoux", "Hanches", "Chevilles"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille"],
+  "type": "Ergomètre – Sprint en montée",
+  "niveau": "Intermédiaire à confirmé",
+  "materiel": ["Stepper"],
+  "position": "Debout",
+  "contraintes": ["Très exigeant pour les articulations – déconseillé en cas de blessure au genou"],
+  "variantes": ["Stepper intervalles", "Stepper unilatéral"],
+  "consignes": {
+    "Positionnement": "Position verticale stable, mains sur les poignées uniquement pour l’équilibre.",
+    "Mouvement": "Montées explosives en cadence maximale.",
+    "Retour": "Phase de repos actif ou complet après chaque sprint.",
+    "Respiration": "Expirez puissamment à l’effort, inspirez en récupération.",
+    "Posture": "Tronc stable, regard droit, pas de rebond excessif."
+  },
+  "parametres_objectif": {
+    "hiit": {
+      "series": [6, 10],
+      "duree_effort": [15, 30],
+      "duree_repos": [30, 90],
+      "intensite": "Maximale"
+    },
+    "prise_de_masse": {
+      "series": [3, 4],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Haute cadence avec résistance"
+    },
+    "endurance": {
+      "series": [4, 6],
+      "duree_effort": [30, 45],
+      "duree_repos": [30, 60],
+      "intensite": "Submaximale"
+    },
+    "force": {
+      "series": [3, 5],
+      "duree_effort": [10, 20],
+      "duree_repos": [90, 120],
+      "intensite": "Cadence explosive avec résistance élevée"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [15, 25],
+      "duree_repos": [60, 90],
+      "intensite": "Contrôle sous fatigue"
+    },
+    "remise_au_sport": {
+      "series": [3, 4],
+      "duree_effort": [15, 25],
+      "duree_repos": [60, 90],
+      "intensite": "Progressif"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fstepper-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fstepper-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER033",
+  "nom": "Stepper intervalles",
+  "categorie_utilisation": ["training", "hiit", "cardio", "remise en forme"],
+  "groupe_musculaire": "Jambes",
+  "objectifs": ["Endurance", "Cardio", "Perte de poids", "Remise en forme", "Force"],
+  "muscles_secondaires": ["Quadriceps", "Fessiers", "Ischio-jambiers", "Mollets", "Abdominaux"],
+  "articulations_solicitees": ["Genoux", "Hanches", "Chevilles"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille"],
+  "type": "Ergomètre – Fractionné en montée",
+  "niveau": "Tous niveaux",
+  "materiel": ["Stepper"],
+  "position": "Debout",
+  "contraintes": ["Peut provoquer une fatigue importante des membres inférieurs si mauvaise gestion du rythme"],
+  "variantes": ["Stepper sprint", "Stepper unilatéral"],
+  "consignes": {
+    "Positionnement": "Position droite, mains posées légèrement sur les poignées.",
+    "Mouvement": "Alterner des phases d'effort soutenu avec des phases de récupération.",
+    "Retour": "Terminer par une phase de récupération prolongée.",
+    "Respiration": "Accélérée à l’effort, plus contrôlée pendant la récupération.",
+    "Posture": "Tronc droit, pas d’appui excessif sur les bras."
+  },
+  "parametres_objectif": {
+    "hiit": {
+      "series": [5, 10],
+      "duree_effort": [30, 60],
+      "duree_repos": [30, 60],
+      "intensite": "Haute à modérée"
+    },
+    "prise_de_masse": {
+      "series": [3, 4],
+      "duree_effort": [30, 45],
+      "duree_repos": [60, 90],
+      "intensite": "Résistance modérée à forte"
+    },
+    "endurance": {
+      "series": [4, 6],
+      "duree_effort": [60, 90],
+      "duree_repos": [30, 45],
+      "intensite": "Modérée et stable"
+    },
+    "force": {
+      "series": [4, 5],
+      "duree_effort": [20, 30],
+      "duree_repos": [90, 120],
+      "intensite": "Résistance importante, cadence lente"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [30, 45],
+      "duree_repos": [45, 60],
+      "intensite": "Contrôlée et régulière"
+    },
+    "remise_au_sport": {
+      "series": [3, 4],
+      "duree_effort": [30, 40],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive, sans impact"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fstepper-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fstepper-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER034",
+  "nom": "Stepper unilatéral",
+  "categorie_utilisation": ["training", "postural", "rehab", "remise en forme"],
+  "groupe_musculaire": "Jambes",
+  "objectifs": ["Renforcement", "Postural", "Coordination", "Reprogrammation neuromusculaire"],
+  "muscles_secondaires": ["Fessiers", "Quadriceps", "Mollets", "Ischio-jambiers", "Obliques"],
+  "articulations_solicitees": ["Hanches", "Genoux", "Chevilles"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille", "Tendon des ischio-jambiers"],
+  "type": "Ergomètre – Montée unilatérale",
+  "niveau": "Tous niveaux",
+  "materiel": ["Stepper"],
+  "position": "Debout",
+  "contraintes": ["Nécessite une bonne stabilité posturale et un appui fort sur la jambe active"],
+  "variantes": ["Stepper sprint", "Stepper intervalles"],
+  "consignes": {
+    "Positionnement": "Position droite, une jambe active, l’autre posée ou en suspension.",
+    "Mouvement": "Montée dynamique avec une seule jambe, enchaînée sur plusieurs répétitions.",
+    "Retour": "Repos complet ou changement de côté entre chaque série.",
+    "Respiration": "Continue et contrôlée.",
+    "Posture": "Hanches alignées, gainage actif, évitez les déséquilibres latéraux."
+  },
+  "parametres_objectif": {
+    "echauffement": {
+      "duree": [3, 4],
+      "intensite": "Modérée, jambe gauche/droite en alternance",
+      "repos": 0
+    },
+    "cooldown": {
+      "duree": [2, 3],
+      "intensite": "Très faible",
+      "repos": 0
+    },
+    "prise_de_masse": {
+      "series": [2, 3],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Modérée à forte, jambe par jambe"
+    },
+    "endurance": {
+      "series": [2, 4],
+      "duree_effort": [30, 60],
+      "duree_repos": [30, 45],
+      "intensite": "Continue et stable"
+    },
+    "force": {
+      "series": [3, 4],
+      "duree_effort": [15, 25],
+      "duree_repos": [90, 120],
+      "intensite": "Forte résistance, effort lent"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [30, 45],
+      "duree_repos": [45, 60],
+      "intensite": "Contrôle moteur unilatéral"
+    },
+    "remise_au_sport": {
+      "series": [2, 3],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive, jambe par jambe"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fstepper-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fstepper-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER035",
+  "nom": "Escaliers - Montée continue",
+  "categorie_utilisation": ["training", "cardio", "warmup", "cooldown"],
+  "groupe_musculaire": "Jambes",
+  "objectifs": ["Cardio", "Endurance", "Perte de poids", "Remise en forme"],
+  "muscles_secondaires": ["Quadriceps", "Fessiers", "Mollets", "Ischio-jambiers", "Abdominaux"],
+  "articulations_solicitees": ["Genoux", "Hanches", "Chevilles"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille", "Tendon des ischio-jambiers"],
+  "type": "Ergomètre – Escalier mécanique",
+  "niveau": "Tous niveaux",
+  "materiel": ["Escaliers mécaniques (Climbmill/Stepmill)"],
+  "position": "Debout",
+  "contraintes": ["Attention à la fatigue lombaire et au déséquilibre sur cadence rapide"],
+  "variantes": ["Escaliers sprint", "Escaliers intervalles", "Escaliers unilatéral"],
+  "consignes": {
+    "Positionnement": "Debout, pieds bien ancrés, mains posées légèrement si besoin.",
+    "Mouvement": "Enchaînement fluide de montées de marches sans impact.",
+    "Retour": "Ralentir la cadence en fin de bloc.",
+    "Respiration": "Régulière, adaptée à la montée.",
+    "Posture": "Dos droit, tronc engagé, ne pas s’effondrer sur les bras."
+  },
+  "parametres_objectif": {
+    "echauffement": {
+      "duree": [3, 5],
+      "intensite": "Faible à modérée",
+      "repos": 0
+    },
+    "cooldown": {
+      "duree": [3, 5],
+      "intensite": "Très faible",
+      "repos": 0
+    },
+    "prise_de_masse": {
+      "series": [1, 1],
+      "duree": [10, 15],
+      "duree_repos": [0, 0],
+      "intensite": "Modérée avec contrôle du tempo"
+    },
+    "endurance": {
+      "series": [1, 1],
+      "duree": [20, 40],
+      "duree_repos": [0, 0],
+      "intensite": "Continue à 60-70% FC max"
+    },
+    "force": {
+      "series": [1, 1],
+      "duree": [8, 12],
+      "duree_repos": [0, 0],
+      "intensite": "Résistance forte, montée lente"
+    },
+    "postural": {
+      "series": [1, 1],
+      "duree": [10, 15],
+      "duree_repos": [0, 0],
+      "intensite": "Contrôle postural permanent"
+    },
+    "remise_au_sport": {
+      "series": [1, 1],
+      "duree": [10, 20],
+      "duree_repos": [0, 0],
+      "intensite": "Progressive"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fescaliers-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fescaliers-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER036",
+  "nom": "Escaliers sprint",
+  "categorie_utilisation": ["training", "hiit", "cardio"],
+  "groupe_musculaire": "Jambes",
+  "objectifs": ["Cardio", "Perte de poids", "Endurance", "Force", "Remise en forme"],
+  "muscles_secondaires": ["Quadriceps", "Fessiers", "Mollets", "Ischio-jambiers", "Abdominaux"],
+  "articulations_solicitees": ["Genoux", "Hanches", "Chevilles"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille", "Tendon des ischio-jambiers"],
+  "type": "Ergomètre – Sprint en escalier",
+  "niveau": "Intermédiaire à confirmé",
+  "materiel": ["Escaliers mécaniques (Climbmill/Stepmill)"],
+  "position": "Debout",
+  "contraintes": ["Haute intensité – nécessite coordination et maîtrise posturale"],
+  "variantes": ["Escaliers intervalles", "Escaliers unilatéral"],
+  "consignes": {
+    "Positionnement": "Position droite, mains détendues ou posées légèrement pour l’équilibre.",
+    "Mouvement": "Sprint en cadence maximale sur marches successives.",
+    "Retour": "Repos actif (marche lente) ou complet entre les sprints.",
+    "Respiration": "Expirez sur la montée rapide, inspirez sur la récup.",
+    "Posture": "Tronc gainé, pas de bascule avant ou de prise excessive des bras."
+  },
+  "parametres_objectif": {
+    "hiit": {
+      "series": [6, 10],
+      "duree_effort": [15, 30],
+      "duree_repos": [30, 90],
+      "intensite": "Maximale"
+    },
+    "prise_de_masse": {
+      "series": [3, 4],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Explosif avec contrôle"
+    },
+    "endurance": {
+      "series": [4, 6],
+      "duree_effort": [30, 45],
+      "duree_repos": [30, 60],
+      "intensite": "Submaximale"
+    },
+    "force": {
+      "series": [3, 5],
+      "duree_effort": [10, 20],
+      "duree_repos": [90, 120],
+      "intensite": "Résistance élevée, montée rapide"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Contrôle moteur à haute intensité"
+    },
+    "remise_au_sport": {
+      "series": [3, 4],
+      "duree_effort": [15, 25],
+      "duree_repos": [60, 90],
+      "intensite": "Progressif, montée courte"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fescaliers-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fescaliers-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER037",
+  "nom": "Escaliers intervalles",
+  "categorie_utilisation": ["training", "hiit", "cardio", "remise en forme"],
+  "groupe_musculaire": "Jambes",
+  "objectifs": ["Endurance", "Cardio", "Perte de poids", "Remise en forme", "Force"],
+  "muscles_secondaires": ["Quadriceps", "Fessiers", "Mollets", "Ischio-jambiers", "Abdominaux"],
+  "articulations_solicitees": ["Genoux", "Hanches", "Chevilles"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille", "Tendon des ischio-jambiers"],
+  "type": "Ergomètre – Fractionné escalier",
+  "niveau": "Tous niveaux",
+  "materiel": ["Escaliers mécaniques (Climbmill/Stepmill)"],
+  "position": "Debout",
+  "contraintes": ["Peut générer une fatigue importante si rythme mal dosé"],
+  "variantes": ["Escaliers sprint", "Escaliers unilatéral"],
+  "consignes": {
+    "Positionnement": "Pieds stables, mains en soutien léger si nécessaire.",
+    "Mouvement": "Alterner séquences rapides et phases de récupération plus lentes.",
+    "Retour": "Finir sur une montée lente et fluide.",
+    "Respiration": "Contrôlée, profonde pendant la récup.",
+    "Posture": "Dos droit, abdominaux engagés, pas de bascule du bassin."
+  },
+  "parametres_objectif": {
+    "hiit": {
+      "series": [5, 10],
+      "duree_effort": [30, 60],
+      "duree_repos": [30, 60],
+      "intensite": "Haute en effort, modérée en récupération"
+    },
+    "prise_de_masse": {
+      "series": [3, 4],
+      "duree_effort": [30, 45],
+      "duree_repos": [60, 90],
+      "intensite": "Résistance constante à modérée"
+    },
+    "endurance": {
+      "series": [4, 6],
+      "duree_effort": [60, 90],
+      "duree_repos": [30, 45],
+      "intensite": "Effort long et contrôlé"
+    },
+    "force": {
+      "series": [4, 5],
+      "duree_effort": [20, 30],
+      "duree_repos": [90, 120],
+      "intensite": "Effort puissant, montée lente"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [30, 45],
+      "duree_repos": [45, 60],
+      "intensite": "Rythme modéré, axe vertical stable"
+    },
+    "remise_au_sport": {
+      "series": [3, 4],
+      "duree_effort": [30, 40],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive, sans à-coup"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fescaliers-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fescaliers-femme.jpg",
+  "mode_pro": true
+},
+{
+  "id": "ER038",
+  "nom": "Escaliers unilatéral",
+  "categorie_utilisation": ["training", "postural", "rehab", "remise en forme"],
+  "groupe_musculaire": "Jambes",
+  "objectifs": ["Renforcement", "Postural", "Coordination", "Reprogrammation neuromusculaire"],
+  "muscles_secondaires": ["Fessiers", "Quadriceps", "Mollets", "Ischio-jambiers", "Obliques"],
+  "articulations_solicitees": ["Hanches", "Genoux", "Chevilles"],
+  "tendons_solicites": ["Tendon rotulien", "Tendon d’Achille", "Tendon des ischio-jambiers"],
+  "type": "Ergomètre – Montée unilatérale",
+  "niveau": "Tous niveaux",
+  "materiel": ["Escaliers mécaniques (Climbmill/Stepmill)"],
+  "position": "Debout",
+  "contraintes": ["Exige stabilité et bon appui – à éviter en cas d'instabilité articulaire"],
+  "variantes": ["Escaliers sprint", "Escaliers intervalles"],
+  "consignes": {
+    "Positionnement": "Démarrer avec une seule jambe active, l’autre légèrement en appui ou suspendue.",
+    "Mouvement": "Effectuer une montée répétée avec la jambe active pendant toute la série.",
+    "Retour": "Changer de côté ou faire une pause après la série.",
+    "Respiration": "Continue, adaptée au rythme de montée.",
+    "Posture": "Tronc stable, hanches alignées, contrôle du bassin."
+  },
+  "parametres_objectif": {
+    "echauffement": {
+      "duree": [3, 4],
+      "intensite": "Modérée, alternée jambe droite/gauche",
+      "repos": 0
+    },
+    "cooldown": {
+      "duree": [2, 3],
+      "intensite": "Très faible",
+      "repos": 0
+    },
+    "prise_de_masse": {
+      "series": [2, 3],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Modérée à forte, côté par côté"
+    },
+    "endurance": {
+      "series": [2, 4],
+      "duree_effort": [30, 60],
+      "duree_repos": [30, 45],
+      "intensite": "Continue et fluide"
+    },
+    "force": {
+      "series": [3, 4],
+      "duree_effort": [15, 25],
+      "duree_repos": [90, 120],
+      "intensite": "Résistance élevée, montée lente"
+    },
+    "postural": {
+      "series": [2, 3],
+      "duree_effort": [30, 45],
+      "duree_repos": [45, 60],
+      "intensite": "Contrôle moteur unilatéral"
+    },
+    "remise_au_sport": {
+      "series": [2, 3],
+      "duree_effort": [20, 30],
+      "duree_repos": [60, 90],
+      "intensite": "Progressive, jambe par jambe"
+    }
+  },
+  "image_homme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fescaliers-homme.jpg",
+  "image_femme": "https://firebasestorage.googleapis.com/v0/b/mon-projet.appspot.com/o/exercices%2Fescaliers-femme.jpg",
+  "mode_pro": true
+}
+]
