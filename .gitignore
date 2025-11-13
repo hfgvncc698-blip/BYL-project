@@ -27,7 +27,6 @@ backend/.env
 backend/serviceAccountKey.json
 backend/firebase-service-account.json
 backend/*.log
-backend/utils/*
 
 echo 'boost-your-life-f6b3e-firebase-adminsdk-fbsvc-f200c38fb3.json' >> .gitignore
 
