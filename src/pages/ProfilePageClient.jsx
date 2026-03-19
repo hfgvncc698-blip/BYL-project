@@ -12,27 +12,16 @@ import {
   Spinner,
   Select,
   HStack,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  ModalCloseButton,
 } from "@chakra-ui/react";
 import { useAuth } from "../AuthContext";
 import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useTranslation } from "react-i18next";
 
-// 🔐 Firebase Auth (email + reauth)
-import {
-  getAuth,
-  updateEmail as updateAuthEmail,
-  reauthenticateWithCredential,
-  EmailAuthProvider,
-  sendEmailVerification,
-} from "firebase/auth";
+// 🔐 Firebase Auth (email + reset)
+import { getAuth, sendPasswordResetEmail } from "firebase/auth";
+// ☁️ Cloud Functions (changeClientEmail)
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 /* ---- conversions identiques à ClientCreation.jsx ---- */
 const KG_PER_LB = 0.45359237;
@@ -68,6 +57,8 @@ export default function ProfilePageClient() {
   const { user } = useAuth();
   const auth = getAuth();
   const toast = useToast();
+  const functions = getFunctions(undefined, "europe-west1");
+  const changeClientEmailFn = httpsCallable(functions, "changeClientEmail");
 
   const [isLoading, setLoading] = useState(true);
 
@@ -94,11 +85,6 @@ export default function ProfilePageClient() {
   });
 
   const [initialEmail, setInitialEmail] = useState("");
-
-  // Modal re-auth
-  const [reauthOpen, setReauthOpen] = useState(false);
-  const [reauthPwd, setReauthPwd] = useState("");
-  const [pendingNewEmail, setPendingNewEmail] = useState("");
 
   /* ---------- applyLanguage: change toute l'appli immédiatement ---------- */
   const applyLanguage = (code) => {
@@ -189,12 +175,12 @@ export default function ProfilePageClient() {
             lastName: prev.lastName || c.nom || "",
           }));
         } else {
-          // si pas de doc client, au moins synchroniser i18n sur users/defaultLanguage si dispo
           const next = codeFromAny(i18n.language);
           setLangCode(next);
           applyLanguage(next);
         }
       } catch (error) {
+        console.error("[PROFILE] load error", error);
         toast({
           title: t("profile.toasts.load_error_title"),
           description: error?.message || t("profile.toasts.load_error_desc"),
@@ -251,7 +237,7 @@ export default function ProfilePageClient() {
   const onLanguageChange = (e) => {
     const next = codeFromAny(e.target.value);
     setLangCode(next);
-    applyLanguage(next); // ⬅️ change immédiatement tout le site
+    applyLanguage(next);
   };
 
   /* ---------- Payload client (conversions) ---------- */
@@ -295,7 +281,7 @@ export default function ProfilePageClient() {
       settings: {
         units: { height: heightUnit, weight: weightUnit },
         defaultLanguage: langLabel,
-        langCode, // ✅ nouveau champ stable
+        langCode,
       },
       updatedAt: serverTimestamp(),
     };
@@ -330,43 +316,46 @@ export default function ProfilePageClient() {
     try {
       const newEmail = (form.email || "").trim();
       const emailChanged =
-        newEmail && initialEmail && newEmail.toLowerCase() !== initialEmail.toLowerCase();
+        newEmail &&
+        initialEmail &&
+        newEmail.toLowerCase() !== initialEmail.toLowerCase();
 
       if (emailChanged) {
-        try {
-          await updateAuthEmail(auth.currentUser, newEmail);
-          await sendEmailVerification(auth.currentUser).catch(() => {});
-          await updateFirestoreDocs(newEmail);
-          setInitialEmail(newEmail);
+        console.log("[PROF] email change via callable", {
+          initialEmail,
+          newEmail,
+        });
 
-          toast({
-            status: "success",
-            title: t("profile.toasts.updated_title", "Informations mises à jour"),
-            description: t(
-              "profile.toasts.email_changed",
-              "Votre email de connexion a été mis à jour. Vérifiez votre boîte mail pour confirmer."
-            ),
-          });
-        } catch (err) {
-          if (err?.code === "auth/requires-recent-login") {
-            setPendingNewEmail(newEmail);
-            setReauthPwd("");
-            setReauthOpen(true);
-            return;
-          }
-          let msg = t("profile.toasts.update_error_desc", "Veuillez réessayer.");
-          if (err?.code === "auth/email-already-in-use") {
-            msg = t("errors.email_in_use", "Cette adresse e-mail est déjà utilisée.");
-          } else if (err?.code === "auth/invalid-email") {
-            msg = t("errors.invalid_email", "Adresse e-mail invalide.");
-          }
-          throw new Error(msg);
-        }
+        // 1) Appel Cloud Function -> met à jour l'utilisateur dans Firebase Auth
+        const result = await changeClientEmailFn({ newEmail });
+        console.log("[PROF] changeClientEmail result:", result.data);
+
+        // 2) Envoi de l'email via Firebase Auth (pas Resend)
+        const actionCodeSettings = {
+          // en dev
+          url: `http://localhost:5173/login?from=email-change&lang=${langCode}`,
+          handleCodeInApp: false,
+        };
+
+        await sendPasswordResetEmail(auth, newEmail, actionCodeSettings);
+
+        // 3) Mise à jour Firestore (users + clients)
+        await updateFirestoreDocs(newEmail);
+        setInitialEmail(newEmail);
+
+        toast({
+          status: "success",
+          title: t("profile.toasts.updated_title", "Profil mis à jour"),
+          description: t(
+            "profile.toasts.email_changed",
+            "Un email de confirmation a été envoyé à votre nouvelle adresse. Le changement sera effectif après validation du lien."
+          ),
+        });
       } else {
         await updateFirestoreDocs();
         toast({
           status: "success",
-          title: t("profile.toasts.updated_title", "Informations mises à jour"),
+          title: t("profile.toasts.updated_title", "Profil mis à jour"),
           description: t(
             "profile.toasts.updated_desc",
             "Vos informations ont bien été enregistrées."
@@ -374,53 +363,23 @@ export default function ProfilePageClient() {
         });
       }
     } catch (error) {
+      console.error("[PROFILE] handleSubmit error", error);
+      let msg =
+        error?.message ||
+        t("profile.toasts.update_error_desc", "Veuillez réessayer.");
+
+      // On essaie d'interpréter les erreurs Firebase Auth les plus courantes
+      if (error?.code === "auth/email-already-in-use") {
+        msg = t("errors.email_in_use", "Cette adresse e-mail est déjà utilisée.");
+      } else if (error?.code === "auth/invalid-email") {
+        msg = t("errors.invalid_email", "Adresse e-mail invalide.");
+      }
+
       toast({
         status: "error",
         title: t("profile.toasts.update_error_title", "Échec de la mise à jour"),
-        description: error?.message || t("profile.toasts.update_error_desc", "Veuillez réessayer."),
+        description: msg,
       });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /* ---------- Reauth modal confirm ---------- */
-  const handleConfirmReauth = async () => {
-    if (!auth.currentUser || !pendingNewEmail) {
-      setReauthOpen(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      const cred = EmailAuthProvider.credential(initialEmail, reauthPwd);
-      await reauthenticateWithCredential(auth.currentUser, cred);
-      await updateAuthEmail(auth.currentUser, pendingNewEmail);
-      await sendEmailVerification(auth.currentUser).catch(() => {});
-      await updateFirestoreDocs(pendingNewEmail);
-      setInitialEmail(pendingNewEmail);
-      toast({
-        status: "success",
-        title: t("profile.toasts.updated_title", "Informations mises à jour"),
-        description: t(
-          "profile.toasts.email_changed",
-          "Votre email de connexion a été mis à jour. Vérifiez votre boîte mail pour confirmer."
-        ),
-      });
-      setReauthOpen(false);
-      setPendingNewEmail("");
-      setReauthPwd("");
-    } catch (err) {
-      let msg = t("profile.toasts.update_error_desc", "Veuillez réessayer.");
-      if (err?.code === "auth/wrong-password") {
-        msg = t("errors.wrong_password", "Mot de passe incorrect.");
-      } else if (err?.code === "auth/too-many-requests") {
-        msg = t("errors.too_many_requests", "Trop de tentatives, réessayez plus tard.");
-      } else if (err?.code === "auth/email-already-in-use") {
-        msg = t("errors.email_in_use", "Cette adresse e-mail est déjà utilisée.");
-      } else if (err?.code === "auth/invalid-email") {
-        msg = t("errors.invalid_email", "Adresse e-mail invalide.");
-      }
-      toast({ status: "error", title: t("profile.toasts.update_error_title"), description: msg });
     } finally {
       setLoading(false);
     }
@@ -510,8 +469,12 @@ export default function ProfilePageClient() {
               <FormLabel>{t("clientCreation.gender")}</FormLabel>
               <Select name="sexe" value={form.sexe} onChange={onField}>
                 <option value="">{t("common.select", "Sélectionner")}</option>
-                <option value="Homme">{t("clientCreation.genderMale")}</option>
-                <option value="Femme">{t("clientCreation.genderFemale")}</option>
+                <option value="Homme">
+                  {t("clientCreation.genderMale")}
+                </option>
+                <option value="Femme">
+                  {t("clientCreation.genderFemale")}
+                </option>
               </Select>
             </FormControl>
           </HStack>
@@ -574,11 +537,7 @@ export default function ProfilePageClient() {
             <HStack>
               <Input
                 name="poids"
-                placeholder={
-                  weightUnit === "kg"
-                    ? `${t("clientCreation.weight")} (kg)`
-                    : `${t("clientCreation.weight")} (lbs)`
-                }
+                placeholder={weightPlaceholder}
                 type="number"
                 inputMode="decimal"
                 step={weightUnit === "kg" ? "0.1" : "1"}
@@ -604,9 +563,15 @@ export default function ProfilePageClient() {
               onChange={onField}
               required
             >
-              <option value="Débutant">{t("clientCreation.levels.beginner")}</option>
-              <option value="Intermédiaire">{t("clientCreation.levels.intermediate")}</option>
-              <option value="Confirmé">{t("clientCreation.levels.advanced")}</option>
+              <option value="Débutant">
+                {t("clientCreation.levels.beginner")}
+              </option>
+              <option value="Intermédiaire">
+                {t("clientCreation.levels.intermediate")}
+              </option>
+              <option value="Confirmé">
+                {t("clientCreation.levels.advanced")}
+              </option>
             </Select>
           </FormControl>
 
@@ -618,16 +583,28 @@ export default function ProfilePageClient() {
               onChange={onField}
               required
             >
-              <option value="Prise de masse">{t("clientCreation.objectives.gain")}</option>
-              <option value="Perte de poids">{t("clientCreation.objectives.loss")}</option>
-              <option value="Force">{t("clientCreation.objectives.strength")}</option>
-              <option value="Endurance">{t("clientCreation.objectives.endurance")}</option>
-              <option value="Remise au sport">{t("clientCreation.objectives.restart")}</option>
-              <option value="Postural">{t("clientCreation.objectives.posture")}</option>
+              <option value="Prise de masse">
+                {t("clientCreation.objectives.gain")}
+              </option>
+              <option value="Perte de poids">
+                {t("clientCreation.objectives.loss")}
+              </option>
+              <option value="Force">
+                {t("clientCreation.objectives.strength")}
+              </option>
+              <option value="Endurance">
+                {t("clientCreation.objectives.endurance")}
+              </option>
+              <option value="Remise au sport">
+                {t("clientCreation.objectives.restart")}
+              </option>
+              <option value="Postural">
+                {t("clientCreation.objectives.posture")}
+              </option>
             </Select>
           </FormControl>
 
-          {/* 🔤 Langue (code) — change le site instantanément */}
+          {/* 🔤 Langue */}
           <FormControl>
             <FormLabel>{t("clientCreation.language")}</FormLabel>
             <Select value={langCode} onChange={onLanguageChange}>
@@ -654,42 +631,6 @@ export default function ProfilePageClient() {
           </Button>
         </Stack>
       </Box>
-
-      {/* Modal reauth pour changement d'email */}
-      <Modal isOpen={reauthOpen} onClose={() => setReauthOpen(false)} isCentered>
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>{t("profile.reauth.title", "Confirmer votre identité")}</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <Stack spacing={3}>
-              <Box fontSize="sm" color="gray.600">
-                {t(
-                  "profile.reauth.body",
-                  "Pour modifier votre adresse e-mail, entrez votre mot de passe actuel."
-                )}
-              </Box>
-              <FormControl>
-                <FormLabel>{t("auth.password", "Mot de passe")}</FormLabel>
-                <Input
-                  type="password"
-                  value={reauthPwd}
-                  onChange={(e) => setReauthPwd(e.target.value)}
-                  placeholder="••••••••"
-                />
-              </FormControl>
-            </Stack>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={() => setReauthOpen(false)}>
-              {t("common.cancel", "Annuler")}
-            </Button>
-            <Button colorScheme="blue" onClick={handleConfirmReauth} isLoading={isLoading}>
-              {t("common.confirm", "Confirmer")}
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
     </Box>
   );
 }

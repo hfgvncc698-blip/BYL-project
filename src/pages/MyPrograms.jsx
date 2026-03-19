@@ -1,5 +1,5 @@
 // src/pages/MyPrograms.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Box, Heading, Table, Thead, Tbody, Tr, Th, Td, Button, Spinner, Text,
   HStack, Stack, useColorModeValue, useBreakpointValue, Progress, Badge,
@@ -12,18 +12,28 @@ import {
 import { db } from "../firebaseConfig";
 import { useTranslation } from "react-i18next";
 
-/* ----------------- Helpers ----------------- */
+/* ----------------- Helpers date ----------------- */
 function toDateSafe(v) {
   if (!v) return null;
   if (typeof v.toDate === "function") return v.toDate();
   if (typeof v.seconds === "number") return new Date(v.seconds * 1000);
   return new Date(v);
 }
-const fmtFR = (d) =>
+function toMillis(v) {
+  if (!v) return 0;
+  if (typeof v.toDate === "function") return v.toDate().getTime();
+  if (typeof v.seconds === "number") return v.seconds * 1000;
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === "number") return v > 1e12 ? v : v * 1000;
+  if (typeof v === "string") return Date.parse(v) || 0;
+  return 0;
+}
+const fmtLocale = (d, locale = "fr-FR") =>
   d
-    ? d.toLocaleDateString("fr-FR", { year: "numeric", month: "2-digit", day: "2-digit" })
+    ? d.toLocaleDateString(locale, { year: "numeric", month: "2-digit", day: "2-digit" })
     : "—";
 
+/* ----------------- Helpers sessions ----------------- */
 function pickSessionTitle(s, sessionsArr) {
   const direct = s?.sessionName || s?.nomSeance || s?.title || s?.name || s?.nom || null;
   if (direct) return String(direct);
@@ -36,20 +46,76 @@ function pickSessionTitle(s, sessionsArr) {
       : null;
 
   if (Array.isArray(sessionsArr) && idx != null && sessionsArr[idx]) {
-    const fromArray =
-      sessionsArr[idx]?.title || sessionsArr[idx]?.name || sessionsArr[idx]?.nom;
+    const fromArray = sessionsArr[idx]?.title || sessionsArr[idx]?.name || sessionsArr[idx]?.nom;
     if (fromArray) return String(fromArray);
   }
   if (idx != null) return `Séance ${idx + 1}`;
   return null;
 }
 
-const isAutoProgramme = (p) =>
-  String(p?.origine || "").toLowerCase().includes("auto");
+const isAutoProgramme = (p) => String(p?.origine || "").toLowerCase().includes("auto");
+
+function getTotalSessionsFromProgrammeDoc(p) {
+  if (!p) return 0;
+  if (Array.isArray(p.sessions)) return p.sessions.length;
+  if (Array.isArray(p.seances)) return p.seances.length;
+  if (typeof p.totalSessions === "number") return p.totalSessions;
+  if (typeof p.nbSeances === "number") return p.nbSeances;
+  return 0;
+}
+
+/* ----------------- Helpers nom “joli” (même que ClientDashboard) ----------------- */
+const capitalizeFirst = (s = "") => {
+  const str = String(s || "").trim();
+  if (!str) return "";
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+const prettifyKey = (key = "") => {
+  const s = String(key || "").trim();
+  if (!s) return "";
+  return s.replace(/_/g, " ").replace(/\s+/g, " ").trim();
+};
+const normalizeNameForCompare = (s = "") =>
+  String(s || "")
+    .replace(/\u2014/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+function buildDefaultProgramName({ objectifUI, objectif, nbSeances }, prettyGoalFn) {
+  const n = Number(nbSeances) || 1;
+  const goalLabel =
+    (typeof prettyGoalFn === "function" && (objectifUI || objectif) ? prettyGoalFn(objectifUI || objectif) : "") ||
+    capitalizeFirst(prettifyKey(objectifUI || objectif || ""));
+  if (!goalLabel) return `Programme — ${n}x/Sem`;
+  return `${goalLabel} — ${n}x/Sem`;
+}
+
+function isLegacyAutoName(existingName, { objectifUI, objectif, nbSeances }, prettyGoalFn) {
+  const n = Number(nbSeances) || 1;
+  const candidateNew = normalizeNameForCompare(
+    buildDefaultProgramName({ objectifUI, objectif, nbSeances: n }, prettyGoalFn)
+  );
+
+  const oldA = normalizeNameForCompare(`${objectif || ""} — ${n}x/Sem`);
+  const oldB = normalizeNameForCompare(`${objectif || ""} - ${n}x/Sem`);
+  const oldC = normalizeNameForCompare(`${objectifUI || ""} — ${n}x/Sem`);
+  const oldD = normalizeNameForCompare(`${objectifUI || ""} - ${n}x/Sem`);
+
+  const cur = normalizeNameForCompare(existingName);
+  if (!cur) return true;
+  if (cur === candidateNew) return true;
+  if (cur === oldA || cur === oldB || cur === oldC || cur === oldD) return true;
+
+  if (objectif && cur === normalizeNameForCompare(objectif)) return true;
+  if (objectifUI && cur === normalizeNameForCompare(objectifUI)) return true;
+
+  return false;
+}
 
 /* --------------- Component --------------- */
 export default function MyPrograms() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -62,6 +128,48 @@ export default function MyPrograms() {
   const textColor = useColorModeValue("gray.800", "white");
   const hoverBg = useColorModeValue("gray.100", "gray.600");
   const isMobile = useBreakpointValue({ base: true, md: false });
+
+  // ✅ mapping objectif Firestore -> i18n key
+  const GOAL_LABEL_KEY = useMemo(
+    () => ({
+      prise_de_masse: "massGain",
+      perte_de_poids: "weightLoss",
+      force: "strength",
+      endurance: "endurance",
+      remise_au_sport: "returnToSport",
+      postural: "posture",
+    }),
+    []
+  );
+
+  const prettyGoal = (objectifLike) => {
+    if (!objectifLike) return "";
+    const key = String(objectifLike).trim();
+    const labelKey = GOAL_LABEL_KEY[key] || null;
+    if (!labelKey) return capitalizeFirst(prettifyKey(key));
+    return t(`autoQ.goals.${labelKey}`, key);
+  };
+
+  function getProgrammeDisplayName(p) {
+    if (!p) return t("programs.new_program");
+
+    const rawName =
+      (p.nomProgramme && typeof p.nomProgramme === "string" ? p.nomProgramme.trim() : "") ||
+      (p.name && typeof p.name === "string" ? p.name.trim() : "") ||
+      (p.title && typeof p.title === "string" ? p.title.trim() : "");
+
+    const objectif = p.objectif || p.goal || "";
+    const objectifUI = p.objectifUI || "";
+    const nbSeances = getTotalSessionsFromProgrammeDoc(p) || p.nbSeances || 1;
+
+    const defaultName = buildDefaultProgramName({ objectifUI, objectif, nbSeances }, prettyGoal);
+
+    // si c’est un vieux auto-name => on remplace par nom “joli”
+    if (rawName && isLegacyAutoName(rawName, { objectifUI, objectif, nbSeances }, prettyGoal)) return defaultName;
+    if (rawName) return rawName;
+
+    return defaultName || (objectifUI ? prettyGoal(objectifUI) : objectif ? prettyGoal(objectif) : t("programs.new_program"));
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -82,16 +190,13 @@ export default function MyPrograms() {
           const list = snap.docs.map((d) => {
             const data = d.data();
             const sessions = Array.isArray(data.sessions) ? data.sessions : [];
-            return {
-              id: d.id,            // id du programme base
+            const createdAtMs = toMillis(data.createdAt || data.createdOn || data.created_date);
+
+            const rowObj = {
+              id: d.id,
               baseId: d.id,
-              nomProgramme:
-                data.nomProgramme ||
-                data.name ||
-                data.title ||
-                data.objectif ||
-                t("programs.new_program"),
-              createdAtFormatted: fmtFR(toDateSafe(data.createdAt)),
+              ...data,
+              sessions,
               sessionCount: sessions.length,
               progressionPct: 0,
               lastActivityDate: null,
@@ -100,8 +205,19 @@ export default function MyPrograms() {
               origine: data.origine || "",
               _nextIndex: 0,
               doneCount: 0,
+              _createdAtMs: createdAtMs,
+              _lastSessionMs: 0,
+            };
+
+            return {
+              ...rowObj,
+              nomProgramme: getProgrammeDisplayName(rowObj),
+              createdAtFormatted: fmtLocale(toDateSafe(data.createdAt), i18n.language),
             };
           });
+
+          // tri coach: récent -> ancien
+          list.sort((a, b) => (b._createdAtMs || 0) - (a._createdAtMs || 0));
 
           setRows(list);
           setClientId(null);
@@ -135,7 +251,17 @@ export default function MyPrograms() {
           const sessionCount = sessions.length;
 
           const createdAtDate = toDateSafe(data.createdAt) || null;
-          const createdAtFormatted = fmtFR(createdAtDate);
+          const createdAtFormatted = fmtLocale(createdAtDate, i18n.language);
+
+          // ✅ date création/assignation robuste
+          const createdAtMs = toMillis(
+            data.assignedAt ||
+              data.dateAssignation ||
+              data.dateAffectation ||
+              data.createdAt ||
+              data.createdOn ||
+              data.created_date
+          );
 
           // 3) sessionsEffectuees
           const seSnap = await getDocs(
@@ -144,6 +270,7 @@ export default function MyPrograms() {
 
           let doneCount = 0;
           let lastDone = null;
+          let lastSessionMs = 0;
           const finishedIdx = new Set();
 
           seSnap.docs.forEach((dDoc) => {
@@ -161,8 +288,12 @@ export default function MyPrograms() {
               toDateSafe(s.timestamp) ||
               toDateSafe(s.date);
 
-            if (dt && (!lastDone || dt > lastDone.date)) {
-              lastDone = { date: dt, label: pickSessionTitle(s, sessions) };
+            if (dt) {
+              const ms = dt.getTime();
+              if (ms > lastSessionMs) lastSessionMs = ms;
+              if (!lastDone || dt > lastDone.date) {
+                lastDone = { date: dt, label: pickSessionTitle(s, sessions) };
+              }
             }
           });
           if (seSnap.size > 0 && doneCount === 0) doneCount = seSnap.size;
@@ -176,28 +307,46 @@ export default function MyPrograms() {
           const progressionPct =
             sessionCount > 0 ? Math.min(100, Math.round((doneCount / sessionCount) * 100)) : 0;
 
-          result.push({
-            id: p.id,           // id d'assignation
+          const rowObj = {
+            id: p.id, // id d'assignation
             baseId,
+            ...data,
+            sessions,
             origine: data.origine || data.source || "",
-            nomProgramme: data.nomProgramme || data.name || data.title || data.objectif || t("programs.new_program"),
             createdAtFormatted,
             sessionCount,
             progressionPct,
             lastActivityDate: lastDone?.date || null,
-            lastActivityStr: fmtFR(lastDone?.date),
+            lastActivityStr: fmtLocale(lastDone?.date, i18n.language),
             lastSessionLabel: lastDone?.label || null,
             _nextIndex: nextIndex,
             doneCount,
+            _createdAtMs: createdAtMs,
+            _lastSessionMs: lastSessionMs,
+          };
+
+          result.push({
+            ...rowObj,
+            nomProgramme: getProgrammeDisplayName(rowObj),
           });
         }
 
-        // 4) tri client
+        // ✅ TRI (comme demandé) :
+        // 1) Jamais joués -> en tête, triés par création/assignation (récent -> ancien)
+        // 2) Joués -> triés par dernière séance effectuée (récent -> ancien)
         result.sort((a, b) => {
-          const ad = a.lastActivityDate ? a.lastActivityDate.getTime() : 0;
-          const bd = b.lastActivityDate ? b.lastActivityDate.getTime() : 0;
-          if (bd !== ad) return bd - ad;
-          return (b.createdAtDate || 0) - (a.createdAtDate || 0);
+          const aLast = a._lastSessionMs || 0;
+          const bLast = b._lastSessionMs || 0;
+
+          const aNever = aLast <= 0;
+          const bNever = bLast <= 0;
+
+          if (aNever && !bNever) return -1;
+          if (!aNever && bNever) return 1;
+
+          if (aNever && bNever) return (b._createdAtMs || 0) - (a._createdAtMs || 0);
+
+          return bLast - aLast;
         });
 
         setRows(result);
@@ -210,7 +359,7 @@ export default function MyPrograms() {
     };
 
     run();
-  }, [user, t]);
+  }, [user, t, i18n.language]);
 
   /* ------------------ Navigation (mêmes routes que ClientDashboard) ------------------ */
   const goToProgram = (p) => {
@@ -274,8 +423,8 @@ export default function MyPrograms() {
                 <Text fontSize="md" fontWeight="bold" color={textColor}>
                   {p.nomProgramme}
                 </Text>
-                <Badge colorScheme={p.progressionPct >= 100 ? "green" : "blue"}>
-                  {p.progressionPct}%
+                <Badge colorScheme={(p.progressionPct ?? 0) >= 100 ? "green" : "blue"}>
+                  {p.progressionPct ?? 0}%
                 </Badge>
               </HStack>
 
@@ -298,7 +447,7 @@ export default function MyPrograms() {
               )}
 
               <Text color={textColor} mt={2}>{t("client_dash.table.progress")}</Text>
-              <Progress value={p.progressionPct} size="sm" borderRadius="md" />
+              <Progress value={p.progressionPct ?? 0} size="sm" borderRadius="md" />
               {user?.role !== "coach" && (
                 <Text color={textColor} fontSize="sm" mt={1}>
                   {t("client_dash.done_total_sessions", {
@@ -360,13 +509,13 @@ export default function MyPrograms() {
 
                   <Td color={textColor} minW="240px">
                     <HStack spacing={3}>
-                      <Progress value={p.progressionPct} flex="1" size="sm" borderRadius="md" />
+                      <Progress value={p.progressionPct ?? 0} flex="1" size="sm" borderRadius="md" />
                       <Badge
-                        colorScheme={p.progressionPct >= 100 ? "green" : "blue"}
+                        colorScheme={(p.progressionPct ?? 0) >= 100 ? "green" : "blue"}
                         minW="64px"
                         textAlign="center"
                       >
-                        {p.progressionPct}%
+                        {p.progressionPct ?? 0}%
                       </Badge>
                     </HStack>
                   </Td>

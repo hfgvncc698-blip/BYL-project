@@ -267,14 +267,14 @@
     "free": {
       "badge": "100% GRATUITO",
       "title": "Area privati",
-      "desc": "Accesso completo e monitoraggio gratuito. 1 <strong>premium</strong> incluso. Sblocca poi programmi premium a scelta.",
-      "cta": "Accedi gratuitamente"
+      "desc": "Accesso completo e monitoraggio gratuito. 1 <strong>programma premium</strong> incluso. Sblocca poi altri programmi premium a scelta.",
+      "cta": "Inizia la prova gratuita"
     },
     "pro": {
       "badge": "PROVA 14 GIORNI",
       "title": "Area professionale",
       "desc": "Tutte le funzionalità Pro: clienti e programmi illimitati, banca esercizi, logo personalizzato, monitoraggio avanzato, export PDF, area cliente dedicata.",
-      "cta": "Abbonati Pro"
+      "cta": "Inizia a 79 €/mese"
     },
     "premium": {
       "badge": "PREMIUM",
@@ -414,7 +414,7 @@
       "b1": "Creazione illimitata di programmi personalizzati",
       "b2": "Banca esercizi avanzata & export PDF",
       "b3": "Monitoraggio clienti in tempo reale",
-      "b4": "Dashboard & analytics",
+      "b4": "Dashboard & analisi",
       "b5": "Supporto prioritario",
       "b6": "Accesso sicuro e multi-dispositivo"
     },
@@ -428,17 +428,17 @@
       "title": "Abbonamento mensile",
       "price": "79 €",
       "h1": "Senza vincoli: annulla quando vuoi",
-      "h2": "Accesso completo: creazione, monitoraggio, analytics",
+      "h2": "Accesso completo: creazione, monitoraggio, analisi",
       "h3": "Supporto prioritario incluso",
-      "cta": "Sottoscrivi a 79 €/mese"
+      "cta": "Inizia a 79 €/mese"
     },
     "yearly": {
       "title": "Abbonamento annuale",
       "price": "790 €",
       "h1": "Miglior prezzo: 2 mesi inclusi",
-      "h2": "Accesso completo: creazione, monitoraggio, analytics",
+      "h2": "Accesso completo: creazione, monitoraggio, analisi",
       "h3": "Supporto prioritario incluso",
-      "cta": "Sottoscrivi a 790 €/anno",
+      "cta": "Risparmia con l’annuale",
       "footnote": "Equivalente a 65,83 € / mese"
     },
     "badges": {
@@ -1205,23 +1205,149 @@
     "cta": "Inizia ora"
   },
 
-"contact": {
-  "title": "Contatto",
-  "intro": "Domande o suggerimenti? Scrivici.",
-  "fields": {
-    "name": { "label": "Nome", "placeholder": "Il tuo nome" },
-    "email": { "label": "Email", "placeholder": "tu@email.com" },
-    "message": { "label": "Messaggio", "placeholder": "Come possiamo aiutarti?" }
+  "contact": {
+    "title": "Contatto",
+    "intro": "Domande o suggerimenti? Scrivici.",
+    "fields": {
+      "name": { "label": "Nome", "placeholder": "Il tuo nome" },
+      "email": { "label": "Email", "placeholder": "tu@email.com" },
+      "message": { "label": "Messaggio", "placeholder": "Come possiamo aiutarti?" }
+    },
+    "submit": "Invia",
+    "success_title": "Messaggio inviato ✅",
+    "success_desc": "Grazie! Ti risponderemo a breve.",
+    "error_title": "Invio non riuscito",
+    "error_desc": "Si è verificato un errore. Riprova più tardi.",
+    "validation": {
+      "required": "Campo obbligatorio.",
+      "email": "Email non valida.",
+      "min_message": "Il messaggio deve contenere almeno {{min}} caratteri."
+    }
   },
-  "submit": "Invia",
-  "success_title": "Messaggio inviato ✅",
-  "success_desc": "Grazie! Ti risponderemo a breve.",
-  "error_title": "Invio non riuscito",
-  "error_desc": "Si è verificato un errore. Riprova più tardi.",
-  "validation": {
-    "required": "Campo obbligatorio.",
-    "email": "Email non valida.",
-    "min_message": "Il messaggio deve contenere almeno {{min}} caratteri."
+
+  "homePro": {
+    "hero": {
+      "titleLine1": "Coach sportivo,",
+      "titleLine2": "Crea. Segui. Progredisci.",
+      "subtitle": "Crea programmi, pianificali in un calendario, avvia l’allenamento in diretta e monitora lo storico e i progressi dei tuoi clienti, tutto nello stesso posto.",
+      "proofs": {
+        "p1": { "title": "Programmi su misura", "desc": "Crea programmi professionali senza complicazioni." },
+        "p2": { "title": "Monitoraggio strutturato", "desc": "Storico, progressi e dati corporei centralizzati." },
+        "p3": { "title": "Spazio cliente incluso", "desc": "Il cliente segue la sessione, tu mantieni il controllo." }
+      },
+      "cta": "Prova lo spazio Pro (14 giorni, senza carta)",
+      "hint": "Configurazione in pochi minuti • Decidi dopo la prova",
+      "scroll": "Scopri cosa ottieni ↓"
+    },
+
+    "benefits": {
+      "title": "Cosa ottieni con lo spazio Pro",
+      "subtitle": "Uno strumento chiaro e professionale per creare programmi, organizzare i clienti e monitorare i loro progressi, senza Excel, note sparse o file che si accumulano.",
+      "cards": {
+        "c1": { "title": "Creare programmi professionali senza complessità", "desc": "Sessioni leggibili e strutturate: serie, ripetizioni, carichi, recuperi, tempi di lavoro, indicazioni, note… ed export puliti." },
+        "c2": { "title": "Calendario integrato", "desc": "Pianifica le sessioni, visualizza lo stato (in programma / svolta / mancata) e mantieni un’organizzazione sotto controllo." },
+        "c3": { "title": "Sessione guidata in diretta", "desc": "Avvia l’allenamento esercizio per esercizio: tutti i dati sono modificabili in tempo reale durante la sessione e restano sincronizzati." },
+        "c4": { "title": "Monitoraggio completo", "desc": "Storico delle sessioni, progressi e monitoraggio dei dati corporei (peso, misure, ecc.) centralizzati nello stesso posto." }
+      },
+      "cta": "Semplifica il mio coaching (prova 14 giorni)",
+      "hint": "Senza carta • Accesso completo immediato"
+    },
+
+    "mockup": {
+      "title": "Il coach costruisce, il cliente progredisce",
+      "p1": "Lo spazio Pro è pensato per la tua quotidianità da coach: crei i programmi, pianifichi, modifichi, monitori. Il cliente, invece, segue semplicemente la sessione sullo smartphone (in autonomia o con te). Risultato: un coaching più fluido, più chiaro, più professionale.",
+      "p2": "Tutti i dati restano centralizzati e pronti da modificare: serie, ripetizioni, carichi, tempi di lavoro, recuperi, note…",
+      "cta": "Centralizza i miei programmi (14 giorni)",
+      "hint": "Senza carta • Decidi dopo la prova",
+      "imageAlt": "Anteprima dello spazio Pro"
+    },
+
+    "how": {
+      "title": "Come funziona (in pratica)",
+      "coach": {
+        "title": "Lato coach",
+        "steps": {
+          "s1": "1) Crea un programma / una sessione in pochi minuti.",
+          "s2": "2) Pianifica nel calendario e assegna ai tuoi clienti.",
+          "s3": "3) Monitora allenamenti, progressi e dati corporei (peso, misure, ecc.)."
+        },
+        "gainTitle": "Cosa ci guadagni:",
+        "gains": {
+          "g1": "Un’organizzazione chiara e sotto controllo",
+          "g2": "Un risultato più professionale e credibile",
+          "g3": "Meno amministrazione, più coaching"
+        }
+      },
+      "student": {
+        "title": "Lato cliente",
+        "steps": {
+          "s1": "1) Vede le sue sessioni nel calendario.",
+          "s2": "2) Segue la sessione guidata sullo smartphone.",
+          "s3": "3) Convalida, e lo storico si aggiorna lato coach."
+        },
+        "benefitTitle": "Per il cliente:",
+        "benefits": {
+          "b1": "Una sessione chiara, senza confusione",
+          "b2": "Progressi visibili (più motivante)",
+          "b3": "Meno errori, più costanza"
+        }
+      }
+    },
+
+    "promise": {
+      "title": "La nostra promessa",
+      "subtitle": "Basta programmi su Excel o su carta: passi a uno strumento chiaro e professionale che semplifica il tuo lavoro, rafforza la tua credibilità e ti fa risparmiare tempo reale.",
+      "cards": {
+        "simplicity": { "title": "Semplicità", "desc": "Crei le sessioni con uno strumento chiaro e una banca esercizi organizzata e aggiornata. Meno improvvisazione, più coerenza." },
+        "speed": { "title": "Velocità", "desc": "Creare e modificare programmi su Excel/carta fa perdere tempo. In media, un coach può recuperare ~5–8 ore al mese centralizzando tutto qui." },
+        "centralized": { "title": "Tutto centralizzato", "desc": "Programmi, calendario, sessioni, progressi e dati corporei nello stesso posto, per un’organizzazione chiara e sotto controllo." }
+      },
+      "ctaBlock": {
+        "title": "Passa in modalità Pro, senza impegno",
+        "desc": "La prova di 14 giorni è senza carta. L’obiettivo è semplice: farti testare con clienti reali e verificare il guadagno di tempo e la chiarezza dell’organizzazione.",
+        "cta": "Prova lo spazio Pro (14 giorni, senza carta)",
+        "hint": "Accesso completo immediato • Decidi dopo la prova"
+      },
+      "forYouTitle": "È per te se…",
+      "forYou": {
+        "f1": "Vuoi smettere di “arrangiarti” con Excel / carta",
+        "f2": "Vuoi un’organizzazione chiara (calendario + monitoraggio)",
+        "f3": "Vuoi risparmiare tempo ogni settimana",
+        "f4": "Vuoi un risultato pro che rafforza la tua credibilità",
+        "f5": "Vuoi centralizzare il monitoraggio (sessioni + progressi + dati corporei)"
+      }
+    },
+
+    "faq": {
+      "title": "Domande frequenti",
+      "items": {
+        "q1": {
+          "q": "È facile da impostare e adattare al mio metodo di lavoro?",
+          "a": "Sì. Puoi iniziare in modo semplice (una sessione, un cliente) e strutturare man mano. Lo strumento si adatta al tuo modo di allenare: mantieni parametri, organizzazione e abitudini, ma con un quadro più chiaro e più professionale."
+        },
+        "q2": {
+          "q": "È davvero utile per i clienti?",
+          "a": "Sì, perché il cliente non deve capire la tua organizzazione: segue una sessione guidata, chiara e strutturata. Risultato: meno errori, più costanza e progressi più facili da visualizzare."
+        },
+        "q3": {
+          "q": "È compatibile con coaching a distanza, a casa e in palestra?",
+          "a": "Sì. Puoi allenare in presenza, in video o lasciare il cliente in autonomia. In ogni caso, calendario, storico e progressi restano centralizzati."
+        },
+        "q4": {
+          "q": "Cosa succede alla fine dei 14 giorni?",
+          "a": "Avrai il tempo di testare lo strumento nella tua routine reale. La prova è senza carta: scegli di continuare solo se vedi un valore concreto (risparmio di tempo, chiarezza, risultato professionale)."
+        },
+        "q5": {
+          "q": "Come mi aiuta a sembrare più professionale?",
+          "a": "I programmi diventano più leggibili e meglio strutturati, e il monitoraggio più chiaro. Meno improvvisazione, più controllo: è esattamente ciò che il cliente percepisce e ciò che rafforza la tua credibilità."
+        },
+        "q6": {
+          "q": "Posso monitorare altro oltre alle sessioni (misure, dati...)?",
+          "a": "Sì. Puoi centralizzare anche dati corporei come peso, misure e altri indicatori per completare il monitoraggio e visualizzare i progressi nel tempo."
+        }
+      },
+      "cta": "Prova lo spazio Pro (14 giorni, senza carta)",
+      "hint": "Accesso completo immediato • Decidi dopo la prova"
+    }
   }
-}
 }

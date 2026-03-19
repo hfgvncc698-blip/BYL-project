@@ -1,3 +1,4 @@
+// src/components/GeolocationBootstrap.jsx
 import React from "react";
 import useGeolocation from "../hooks/useGeolocation";
 import { useAuth } from "../AuthContext";
@@ -7,11 +8,21 @@ export default function GeolocationBootstrap() {
   const { user } = useAuth();
   const { prefs } = useConsent();
 
+  const analyticsOn = !!prefs?.analytics;
+
   useGeolocation({
-    uid: prefs.analytics && user?.uid ? user.uid : null,
-    enabled: !!user && !!prefs.analytics, // ne demande la position pour analytics que si consentement
+    uid: analyticsOn && user?.uid ? user.uid : null,
+
+    // ✅ On demande la géoloc uniquement si consentement analytics = true
+    enabled: analyticsOn,
+
     watch: false,
-    saveToFirestore: !!prefs.analytics,   // n’écrit que si analytics = true
+
+    // ✅ Ecrit users/{uid}.location seulement si connecté + analytics
+    saveUserLocation: analyticsOn && !!user?.uid,
+
+    // ✅ Ecrit analytics_geo + (et on va aussi pousser localStorage dans le hook)
+    saveAnalytics: analyticsOn,
   });
 
   return null;

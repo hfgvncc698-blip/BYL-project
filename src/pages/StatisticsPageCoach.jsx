@@ -1,6 +1,6 @@
 // src/pages/StatisticsPageCoach.jsx
 import React, { useEffect, useState, useMemo } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query, where, limit } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { db } from "../firebaseConfig";
 import { useAuth } from "../AuthContext";
@@ -23,6 +23,8 @@ import {
   Progress,
   Wrap,
   WrapItem,
+  Button,
+  Spacer,
 } from "@chakra-ui/react";
 import {
   MdPeople,
@@ -32,6 +34,7 @@ import {
   MdFitnessCenter,
   MdTrendingUp,
   MdCalendarMonth,
+  MdArrowForward,
 } from "react-icons/md";
 import { useTranslation } from "react-i18next";
 
@@ -46,18 +49,45 @@ function getDoneDate(s) {
   return null;
 }
 
+const toMillis = (ts) =>
+  ts?.toDate
+    ? ts.toDate().getTime()
+    : typeof ts === "number"
+    ? ts > 1e12
+      ? ts
+      : ts * 1000
+    : ts instanceof Date
+    ? ts.getTime()
+    : typeof ts === "string"
+    ? Date.parse(ts) || 0
+    : 0;
+
+function daysBetween(a, b) {
+  const ms = Math.abs((a?.getTime?.() || 0) - (b?.getTime?.() || 0));
+  return Math.floor(ms / (1000 * 60 * 60 * 24));
+}
+
+function formatDateShort(d, locale) {
+  if (!d) return "—";
+  try {
+    return d.toLocaleDateString(locale, { year: "numeric", month: "short", day: "2-digit" });
+  } catch {
+    return "—";
+  }
+}
+
 /* ---------------- normalization des objectifs ---------------- */
 const OBJECTIVE_ALIASES = {
-  weight_loss: ["weight_loss","weight loss","perte de poids","perte_de_poids","minceur","fat loss","fat_loss"],
-  get_in_shape: ["get_in_shape","get in shape","remise en forme","remise_en_forme","fitness","shape"],
-  muscle_gain: ["muscle_gain","muscle gain","prise de masse","prise_de_masse","bulk","gains"],
-  endurance: ["endurance","cardio","stamina"],
-  strength: ["strength","force","strong"],
-  hypertrophy: ["hypertrophy","hypertrophie"],
-  mobility: ["mobility","mobilité","mobilite","flexibility","souplesse"],
-  rehab: ["rehab","réhabilitation","rehabilitation","reeducation","rééducation","physio"],
-  performance: ["performance","sport performance","perf"],
-  health: ["health","santé","sante","wellness"],
+  weight_loss: ["weight_loss", "weight loss", "perte de poids", "perte_de_poids", "minceur", "fat loss", "fat_loss"],
+  get_in_shape: ["get_in_shape", "get in shape", "remise en forme", "remise_en_forme", "fitness", "shape"],
+  muscle_gain: ["muscle_gain", "muscle gain", "prise de masse", "prise_de_masse", "bulk", "gains"],
+  endurance: ["endurance", "cardio", "stamina"],
+  strength: ["strength", "force", "strong"],
+  hypertrophy: ["hypertrophy", "hypertrophie"],
+  mobility: ["mobility", "mobilité", "mobilite", "flexibility", "souplesse"],
+  rehab: ["rehab", "réhabilitation", "rehabilitation", "reeducation", "rééducation", "physio"],
+  performance: ["performance", "sport performance", "perf"],
+  health: ["health", "santé", "sante", "wellness"],
 };
 
 function normalizeObjective(raw) {
@@ -67,7 +97,7 @@ function normalizeObjective(raw) {
     .toLowerCase()
     .trim();
 
-  if (!s || ["unknown","unspecified","none","not set","not_set","na","n/a","-","null"].includes(s)) {
+  if (!s || ["unknown", "unspecified", "none", "not set", "not_set", "na", "n/a", "-", "null"].includes(s)) {
     return "unknown";
   }
   for (const [key, variants] of Object.entries(OBJECTIVE_ALIASES)) {
@@ -107,7 +137,7 @@ function Card({ children, onClick }) {
       borderRadius="2xl"
       p={5}
       boxShadow="sm"
-      _hover={{ boxShadow: "md", transform: "translateY(-2px)" }}
+      _hover={{ boxShadow: "md", transform: onClick ? "translateY(-2px)" : "none" }}
       transition="all .18s ease"
       cursor={onClick ? "pointer" : "default"}
       onClick={onClick}
@@ -163,16 +193,11 @@ function MiniBars({ data, monthTooltip }) {
     <HStack spacing={3} align="end" w="full">
       {data.map((d) => (
         <VStack key={d.label} spacing={1} flex="1">
-          <Text fontSize="sm" fontWeight="semibold">{d.count}</Text>
+          <Text fontSize="sm" fontWeight="semibold">
+            {d.count}
+          </Text>
           <Tooltip hasArrow label={monthTooltip(d.label, d.count)}>
-            <Box
-              h="100px"
-              w="100%"
-              bg={barBg}
-              borderRadius="lg"
-              overflow="hidden"
-              position="relative"
-            >
+            <Box h="100px" w="100%" bg={barBg} borderRadius="lg" overflow="hidden" position="relative">
               <Box
                 position="absolute"
                 bottom="0"
@@ -192,6 +217,103 @@ function MiniBars({ data, monthTooltip }) {
   );
 }
 
+/* Carte client actifs (même logique CoachDashboard: _lastInteractionMs) */
+function ActiveClientCard({ client, locale, t, onOpen }) {
+  const lastMs = Number(client?._lastInteractionMs || 0);
+  const last = lastMs > 0 ? new Date(lastMs) : null;
+  const now = new Date();
+  const days = last ? daysBetween(now, last) : null;
+
+  const name =
+    client?.displayName ||
+    [client?.prenom, client?.nom].filter(Boolean).join(" ").trim() ||
+    client?.name ||
+    client?.email ||
+    t("stats.client.unnamed", "Client");
+
+  const objKey = normalizeObjective(client?.objectifs);
+  const objLabel = objectiveLabel(objKey, t);
+
+  const activityPct = last ? Math.max(0, Math.min(100, Math.round(((30 - Math.min(30, days)) / 30) * 100))) : 0;
+
+  const soft = useColorModeValue("gray.500", "gray.400");
+  const border = useColorModeValue("gray.200", "gray.700");
+  const tagBg = useColorModeValue("green.50", "green.900");
+  const tagColor = useColorModeValue("green.700", "green.200");
+
+  return (
+    <Box
+      border="1px solid"
+      borderColor={border}
+      borderRadius="2xl"
+      p={4}
+      boxShadow="sm"
+      _hover={{ boxShadow: "md", transform: "translateY(-2px)" }}
+      transition="all .18s ease"
+      cursor="pointer"
+      onClick={onOpen}
+    >
+      <HStack align="flex-start" spacing={3}>
+        <Box
+          bg={tagBg}
+          color={tagColor}
+          borderRadius="xl"
+          p={2}
+          display="inline-flex"
+          alignItems="center"
+          justifyContent="center"
+          flexShrink={0}
+        >
+          <Icon as={MdCheckCircle} boxSize={5} />
+        </Box>
+
+        <VStack align="flex-start" spacing={1} flex={1}>
+          <HStack w="full" justify="space-between">
+            <Text fontWeight="semibold" noOfLines={1}>
+              {name}
+            </Text>
+            <Badge colorScheme="green" borderRadius="full">
+              {t("stats.client.active", "Actif")}
+            </Badge>
+          </HStack>
+
+          <Text fontSize="sm" color={soft} noOfLines={1}>
+            {t("stats.client.lastInteraction", "Dernière interaction")} : {formatDateShort(last, locale)}
+            {days != null ? ` · ${t("stats.client.daysAgo", "il y a {{n}}j", { n: days })}` : ""}
+          </Text>
+
+          <HStack spacing={2} pt={1} flexWrap="wrap">
+            <Badge variant="subtle" borderRadius="full" px={2}>
+              {objLabel}
+            </Badge>
+            {typeof client?.programCount === "number" && (
+              <Badge variant="subtle" borderRadius="full" px={2} colorScheme="purple">
+                {t("stats.client.programs", "{{n}} programme(s)", { n: client.programCount })}
+              </Badge>
+            )}
+          </HStack>
+
+          <Box w="full" pt={2}>
+            <HStack justify="space-between" mb={1}>
+              <Text fontSize="xs" color={soft}>
+                {t("stats.client.activity30", "Activité (30j)")}
+              </Text>
+              <Text fontSize="xs" color={soft}>
+                {activityPct}%
+              </Text>
+            </HStack>
+            <Progress value={activityPct} borderRadius="full" size="sm" colorScheme="green" />
+          </Box>
+        </VStack>
+
+        <Box color={soft} pt={1}>
+          <Icon as={MdArrowForward} />
+        </Box>
+      </HStack>
+    </Box>
+  );
+}
+
 /* ---------------- Page ---------------- */
 export default function StatisticsPageCoach() {
   const { user } = useAuth();
@@ -199,89 +321,181 @@ export default function StatisticsPageCoach() {
   const { t, i18n } = useTranslation("common");
 
   const [loading, setLoading] = useState(true);
+
   const [totalClients, setTotalClients] = useState(0);
   const [totalPrograms, setTotalPrograms] = useState(0);
+
   const [activeClients, setActiveClients] = useState(0);
   const [inactiveClients, setInactiveClients] = useState(0);
   const [retentionRate, setRetentionRate] = useState(0);
+
   const [objectivesDistribution, setObjectivesDistribution] = useState({});
   const [monthlySessions, setMonthlySessions] = useState([]);
+
+  const [activeClientList, setActiveClientList] = useState([]);
 
   const pageBg = useColorModeValue("gray.50", "gray.900");
   const locale = (i18n.language || "fr").toLowerCase().startsWith("en") ? "en-GB" : "fr-FR";
 
   useEffect(() => {
     (async () => {
-      if (!user) return;
+      if (!user?.uid) return;
 
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - 30);
+      setLoading(true);
 
-      // Clients du coach
-      const qClients = query(collection(db, "clients"), where("createdBy", "==", user.uid));
-      const clientSnap = await getDocs(qClients);
-      const clients = clientSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      try {
+        // -----------------
+        // 1) Clients du coach (createdBy ou coachId legacy) — EXACTEMENT comme CoachDashboard
+        // -----------------
+        const qCreatedBy = query(collection(db, "clients"), where("createdBy", "==", user.uid), limit(500));
+        const createdBySnap = await getDocs(qCreatedBy);
+        let mergedClients = createdBySnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-      const totalC = clients.length;
-      let active = 0;
-      const objDist = {};
-      clients.forEach((c) => {
-        const lastSession = c.lastSession?.toDate?.();
-        if (lastSession && lastSession >= cutoff) active++;
-        const objKey = normalizeObjective(c.objectifs);
-        objDist[objKey] = (objDist[objKey] || 0) + 1;
-      });
-      setTotalClients(totalC);
-      setActiveClients(active);
-      setInactiveClients(totalC - active);
-      setRetentionRate(totalC ? Math.round((active / totalC) * 100) : 0);
-      setObjectivesDistribution(objDist);
+        if (mergedClients.length === 0) {
+          const qCoach = query(collection(db, "clients"), where("coachId", "==", user.uid), limit(500));
+          const coachSnap = await getDocs(qCoach);
+          mergedClients = coachSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        }
 
-      // Programmes
-      const qProgs = query(collection(db, "programmes"), where("createdBy", "==", user.uid));
-      const progSnap = await getDocs(qProgs);
-      setTotalPrograms(progSnap.size);
+        // -----------------
+        // 2) Enrichissement: programmes assignés + sessionsEffectuees + _lastInteractionMs (même logique)
+        // -----------------
+        const clientsWithMeta = await Promise.all(
+          mergedClients.map(async (client) => {
+            const subSnap = await getDocs(collection(db, "clients", client.id, "programmes"));
 
-      // Sessions jouées / mois (6 derniers)
-      const now = new Date();
-      const perMonth = {};
-      const windowStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-      const windowEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+            let latestAssignMs = 0;
 
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const label = d.toLocaleString(locale, { month: "long", year: "numeric" });
-        perMonth[label] = 0;
-      }
+            const progsWithSessions = await Promise.all(
+              subSnap.docs.map(async (d) => {
+                const prog = d.data();
 
-      await Promise.all(
-        clients.map(async (c) => {
-          const progsSnap = await getDocs(collection(db, "clients", c.id, "programmes"));
-          await Promise.all(
-            progsSnap.docs.map(async (pDoc) => {
-              const doneSnap = await getDocs(
-                collection(db, "clients", c.id, "programmes", pDoc.id, "sessionsEffectuees")
-              );
-              doneSnap.docs.forEach((dDoc) => {
-                const s = dDoc.data();
-                const dt = getDoneDate(s);
-                if (!dt) return;
-                if (dt < windowStart || dt >= windowEnd) return;
-                const label = dt.toLocaleString(locale, { month: "long", year: "numeric" });
-                if (perMonth[label] !== undefined) perMonth[label] += 1;
+                const assignMs =
+                  toMillis(prog.assignedAt) ||
+                  toMillis(prog.dateAssignation) ||
+                  toMillis(prog.dateAffectation) ||
+                  toMillis(prog.createdAt) ||
+                  0;
+
+                if (assignMs > latestAssignMs) latestAssignMs = assignMs;
+
+                const sessSnap = await getDocs(
+                  collection(db, "clients", client.id, "programmes", d.id, "sessionsEffectuees")
+                );
+                const sessionsEffectuees = sessSnap.docs.map((docu) => ({ id: docu.id, ...docu.data() }));
+
+                return { id: d.id, ...prog, sessionsEffectuees };
+              })
+            );
+
+            let latestSessionMs = 0;
+            progsWithSessions.forEach((p) => {
+              (p.sessionsEffectuees || []).forEach((s) => {
+                const ms =
+                  toMillis(s.dateEffectuee) ||
+                  toMillis(s.completedAt) ||
+                  toMillis(s.playedAt) ||
+                  toMillis(s.timestamp);
+                if (ms > latestSessionMs) latestSessionMs = ms;
               });
-            })
-          );
-        })
-      );
+            });
 
-      setMonthlySessions(
-        Object.entries(perMonth).map(([label, count]) => ({ label, count }))
-      );
+            const lastClientUpdate = Math.max(
+              toMillis(client.updatedAt),
+              toMillis(client.lastActivityAt),
+              toMillis(client.createdAt)
+            );
 
-      setLoading(false);
+            const _lastInteractionMs = Math.max(latestSessionMs, latestAssignMs, lastClientUpdate);
+
+            return {
+              ...client,
+              programmesAssignes: progsWithSessions,
+              programCount: progsWithSessions.length,
+              _lastInteractionMs,
+            };
+          })
+        );
+
+        clientsWithMeta.sort((a, b) => (b._lastInteractionMs || 0) - (a._lastInteractionMs || 0));
+
+        // -----------------
+        // 3) Stats clients actifs (30j) — EXACTEMENT comme CoachDashboard
+        // -----------------
+        const totalC = clientsWithMeta.length;
+
+        const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+        const nowMs = Date.now();
+
+        const active30List = clientsWithMeta.filter((c) => {
+          const ms = Number(c._lastInteractionMs || 0);
+          return ms > 0 && nowMs - ms <= THIRTY_DAYS_MS;
+        });
+
+        const active30 = active30List.length;
+        const inactive = Math.max(0, totalC - active30);
+
+        setTotalClients(totalC);
+        setActiveClients(active30);
+        setInactiveClients(inactive);
+        setRetentionRate(totalC ? Math.round((active30 / totalC) * 100) : 0);
+
+        // liste cartes
+        setActiveClientList(active30List);
+
+        // -----------------
+        // 4) Répartition objectifs (on garde tes champs actuels)
+        // -----------------
+        const objDist = {};
+        clientsWithMeta.forEach((c) => {
+          const objKey = normalizeObjective(c.objectifs);
+          objDist[objKey] = (objDist[objKey] || 0) + 1;
+        });
+        setObjectivesDistribution(objDist);
+
+        // -----------------
+        // 5) Programmes base du coach
+        // -----------------
+        const qProgs = query(collection(db, "programmes"), where("createdBy", "==", user.uid), limit(500));
+        const progSnap = await getDocs(qProgs);
+        setTotalPrograms(progSnap.size);
+
+        // -----------------
+        // 6) Sessions par mois (6 derniers) — on réutilise sessionsEffectuees déjà chargées (plus fiable + moins de reads)
+        // -----------------
+        const now = new Date();
+        const perMonth = {};
+        const windowStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+        const windowEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const label = d.toLocaleString(locale, { month: "long", year: "numeric" });
+          perMonth[label] = 0;
+        }
+
+        clientsWithMeta.forEach((c) => {
+          (c.programmesAssignes || []).forEach((p) => {
+            (p.sessionsEffectuees || []).forEach((s) => {
+              const dt = getDoneDate(s);
+              if (!dt) return;
+              if (dt < windowStart || dt >= windowEnd) return;
+              const label = dt.toLocaleString(locale, { month: "long", year: "numeric" });
+              if (perMonth[label] !== undefined) perMonth[label] += 1;
+            });
+          });
+        });
+
+        setMonthlySessions(Object.entries(perMonth).map(([label, count]) => ({ label, count })));
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
     })();
-  }, [user, locale]);
+  }, [user?.uid, locale]);
+
+  const activePreview = useMemo(() => activeClientList.slice(0, 8), [activeClientList]);
 
   if (loading) {
     return (
@@ -347,8 +561,48 @@ export default function StatisticsPageCoach() {
         />
       </SimpleGrid>
 
+      {/* Clients actifs (liste) */}
+      <Card>
+        <HStack mb={4} spacing={2}>
+          <Icon as={MdPeople} />
+          <Text fontWeight="semibold">
+            {t("stats.activeClientsList.title", "Clients actifs (30 jours)")}
+          </Text>
+          <Badge colorScheme="green" borderRadius="full">
+            {t("stats.totalCount", "{{count}} total", { count: activeClientList.length })}
+          </Badge>
+          <Spacer />
+          <Button
+            size="sm"
+            variant="ghost"
+            rightIcon={<MdArrowForward />}
+            onClick={() => navigate("/clients?filter=active")}
+          >
+            {t("stats.activeClientsList.seeAll", "Voir tout")}
+          </Button>
+        </HStack>
+
+        {activeClientList.length === 0 ? (
+          <Text color="gray.500" fontSize="sm">
+            {t("stats.activeClientsList.empty", "Aucun client actif sur les 30 derniers jours.")}
+          </Text>
+        ) : (
+          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
+            {activePreview.map((c) => (
+              <ActiveClientCard
+                key={c.id}
+                client={c}
+                locale={locale}
+                t={t}
+                onOpen={() => navigate(`/clients/${c.id}`)}
+              />
+            ))}
+          </SimpleGrid>
+        )}
+      </Card>
+
       {/* Rétention + sessions */}
-      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5} mb={8}>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5} mb={8} mt={6}>
         <Card>
           <HStack justify="space-between" mb={3}>
             <HStack>
@@ -357,9 +611,7 @@ export default function StatisticsPageCoach() {
                 {t(["stats.retention30d", "stats.retention.title", "Taux de rétention (30j)"])}
               </Text>
             </HStack>
-            <Badge colorScheme={retentionRate >= 60 ? "green" : "orange"}>
-              {retentionRate}%
-            </Badge>
+            <Badge colorScheme={retentionRate >= 60 ? "green" : "orange"}>{retentionRate}%</Badge>
           </HStack>
           <Progress
             value={retentionRate}

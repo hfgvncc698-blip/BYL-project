@@ -3,12 +3,21 @@ module.exports = {
     {
       name: "byl-api",
       script: "app.js",
-      env: { NODE_ENV: "production", CRON_ENABLED: "false" }
+      cwd: "/var/www/byl-backend",
+      env: {
+        NODE_ENV: "production",
+        TZ: "Europe/Paris"
+      }
     },
     {
       name: "byl-cron",
       script: "cron.worker.js",
-      env: { NODE_ENV: "production", CRON_ENABLED: "true" }
+      cwd: "/var/www/byl-backend",
+      env: {
+        NODE_ENV: "production",
+        TZ: "Europe/Paris",
+        CRON_ENABLED: "true"
+      }
     }
   ]
 };

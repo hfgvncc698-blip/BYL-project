@@ -22,26 +22,35 @@ export function Footer() {
         px={{ base: 3, md: 4 }}
         textAlign="center"
       >
-        {/* Liens : compacts en 2 colonnes sur mobile, 5 colonnes sur desktop */}
+        {/* Liens : compacts en 2 colonnes sur mobile, 6 colonnes sur desktop */}
         <SimpleGrid
-          columns={{ base: 2, md: 5 }}
+          columns={{ base: 2, md: 6 }}
           spacing={{ base: 2, md: 4 }}
           mb={{ base: 3, md: 4 }}
           w="full"
-          maxW="700px"
+          maxW="900px"
         >
           <Link href="/about" color={linkColor} _hover={{ color: linkHover }} fontSize="sm">
             {t("footer.about")}
           </Link>
+
+          {/* ✅ Tarifs -> page Plan Pro (pricing centralisé) */}
+          <Link href="/plans/professionnel" color={linkColor} _hover={{ color: linkHover }} fontSize="sm">
+            {t("footer.pricing", "Tarifs")}
+          </Link>
+
           <Link href="/contact" color={linkColor} _hover={{ color: linkHover }} fontSize="sm">
             {t("footer.contact")}
           </Link>
+
           <Link href="/privacy" color={linkColor} _hover={{ color: linkHover }} fontSize="sm">
             {t("footer.privacy")}
           </Link>
+
           <Link href="/terms" color={linkColor} _hover={{ color: linkHover }} fontSize="sm">
             {t("footer.terms")}
           </Link>
+
           <Link href="/sales-policy" color={linkColor} _hover={{ color: linkHover }} fontSize="sm">
             {t("footer.sales")}
           </Link>
@@ -49,7 +58,7 @@ export function Footer() {
 
         {/* Copyright */}
         <Text fontSize={{ base: "xs", md: "sm" }} lineHeight="short">
-          © 2025 BoostYourLife — {t("footer.rights")}
+          © {new Date().getFullYear()} BoostYourLife — {t("footer.rights")}
         </Text>
       </Flex>
     </Box>
@@ -57,4 +66,3 @@ export function Footer() {
 }
 
 export default Footer;
-

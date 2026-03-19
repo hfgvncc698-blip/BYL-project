@@ -203,7 +203,8 @@
     "kg": "kg",
     "lbs": "lbs",
     "kmh": "km/h",
-    "mph": "mph"
+    "mph": "mph",
+    "sec": "s"
   },
 
   "client_dash": {
@@ -839,7 +840,7 @@
     "genderMale": "Hombre",
     "genderFemale": "Mujer",
     "height": "Altura (cm)",
-    "weight": "Peso (kg)",
+    "weight": "Weight (kg)",
     "level": "Nivel",
     "levels": { "beginner": "Principiante", "intermediate": "Intermedio", "advanced": "Avanzado" },
     "objective": "Objetivo",
@@ -1205,23 +1206,131 @@
     "cta": "Empezar ahora"
   },
 
-"contact": {
-  "title": "Contacto",
-  "intro": "¿Dudas o comentarios? Envíanos un mensaje.",
-  "fields": {
-    "name": { "label": "Nombre", "placeholder": "Tu nombre" },
-    "email": { "label": "Correo", "placeholder": "tu@correo.com" },
-    "message": { "label": "Mensaje", "placeholder": "Cuéntanos en qué podemos ayudarte…" }
+  "contact": {
+    "title": "Contacto",
+    "intro": "¿Dudas o comentarios? Envíanos un mensaje.",
+    "fields": {
+      "name": { "label": "Nombre", "placeholder": "Tu nombre" },
+      "email": { "label": "Correo", "placeholder": "tu@correo.com" },
+      "message": { "label": "Mensaje", "placeholder": "Cuéntanos en qué podemos ayudarte…" }
+    },
+    "submit": "Enviar",
+    "success_title": "Mensaje enviado ✅",
+    "success_desc": "¡Gracias! Te responderemos pronto.",
+    "error_title": "No se pudo enviar",
+    "error_desc": "Algo salió mal. Inténtalo de nuevo.",
+    "validation": {
+      "required": "Este campo es obligatorio.",
+      "email": "Correo electrónico no válido.",
+      "min_message": "Tu mensaje debe tener al menos {{min}} caracteres."
+    }
   },
-  "submit": "Enviar",
-  "success_title": "Mensaje enviado ✅",
-  "success_desc": "¡Gracias! Te responderemos pronto.",
-  "error_title": "No se pudo enviar",
-  "error_desc": "Algo salió mal. Inténtalo de nuevo.",
-  "validation": {
-    "required": "Este campo es obligatorio.",
-    "email": "Correo electrónico no válido.",
-    "min_message": "Tu mensaje debe tener al menos {{min}} caracteres."
+
+  "homePro": {
+    "hero": {
+      "titleLine1": "Entrenador deportivo,",
+      "titleLine2": "Crea. Sigue. Progresa.",
+      "subtitle": "Crea programas, planifícalos en un calendario, lanza entrenamientos en directo y sigue el historial y progreso de tus clientes, todo en un solo lugar.",
+      "proofs": {
+        "p1": { "title": "Programas a medida", "desc": "Crea programas profesionales sin complicaciones." },
+        "p2": { "title": "Seguimiento estructurado", "desc": "Historial, progreso y datos corporales centralizados." },
+        "p3": { "title": "Espacio para el cliente", "desc": "El cliente sigue la sesión, tú mantienes el control." }
+      },
+      "cta": "Probar el espacio Pro (14 días, sin tarjeta)",
+      "hint": "Configuración en minutos • Decide después",
+      "scroll": "Descubre lo que incluye ↓"
+    },
+
+    "benefits": {
+      "title": "Lo que obtienes con el espacio Pro",
+      "subtitle": "Una herramienta clara y profesional para crear programas, organizar clientes y seguir su progreso.",
+      "cards": {
+        "c1": { "title": "Programas profesionales sin complejidad", "desc": "Sesiones claras con series, repeticiones, cargas, descansos y notas." },
+        "c2": { "title": "Calendario integrado", "desc": "Planifica sesiones y controla su estado fácilmente." },
+        "c3": { "title": "Sesión guiada en directo", "desc": "Entrena ejercicio por ejercicio con datos editables en tiempo real." },
+        "c4": { "title": "Seguimiento completo", "desc": "Historial, progreso y métricas corporales en un solo lugar." }
+      },
+      "cta": "Simplificar mi coaching (14 días)",
+      "hint": "Sin tarjeta • Acceso completo inmediato"
+    },
+
+    "mockup": {
+      "title": "El entrenador construye, el cliente progresa",
+      "p1": "Diseñado para tu día a día como entrenador: programas, planificación, ajustes y seguimiento.",
+      "p2": "Todos los datos permanecen centralizados y listos para ajustarse.",
+      "cta": "Centralizar mis programas (14 días)",
+      "hint": "Sin tarjeta • Decide después",
+      "imageAlt": "Vista previa del espacio Pro"
+    },
+
+    "how": {
+      "title": "Cómo funciona (en la práctica)",
+      "coach": {
+        "title": "Lado entrenador",
+        "steps": {
+          "s1": "1) Crear una sesión en minutos.",
+          "s2": "2) Planificar y asignar en el calendario.",
+          "s3": "3) Seguir progreso y datos."
+        },
+        "gainTitle": "Ventajas:",
+        "gains": {
+          "g1": "Organización clara",
+          "g2": "Imagen más profesional",
+          "g3": "Menos administración"
+        }
+      },
+      "student": {
+        "title": "Lado cliente",
+        "steps": {
+          "s1": "1) Ver sesiones en el calendario.",
+          "s2": "2) Seguir la sesión guiada.",
+          "s3": "3) Validar y sincronizar."
+        },
+        "benefitTitle": "Para el cliente:",
+        "benefits": {
+          "b1": "Sesión clara",
+          "b2": "Progreso visible",
+          "b3": "Menos errores"
+        }
+      }
+    },
+
+    "promise": {
+      "title": "Nuestra promesa",
+      "subtitle": "Olvídate de Excel y papel. Gana claridad, profesionalidad y tiempo.",
+      "cards": {
+        "simplicity": { "title": "Simplicidad", "desc": "Menos improvisación, más coherencia." },
+        "speed": { "title": "Rapidez", "desc": "Ahorra hasta 5–8 horas al mes." },
+        "centralized": { "title": "Todo centralizado", "desc": "Programas, calendario y progreso en un solo lugar." }
+      },
+      "ctaBlock": {
+        "title": "Pásate a Pro sin compromiso",
+        "desc": "14 días de prueba sin tarjeta.",
+        "cta": "Probar el espacio Pro",
+        "hint": "Acceso inmediato"
+      },
+      "forYouTitle": "Es para ti si…",
+      "forYou": {
+        "f1": "Quieres dejar Excel/papel",
+        "f2": "Buscas orden",
+        "f3": "Quieres ahorrar tiempo",
+        "f4": "Quieres verte más profesional",
+        "f5": "Quieres centralizar el seguimiento"
+      }
+    },
+
+    "faq": {
+      "title": "Preguntas frecuentes",
+      "items": {
+        "q1": { "q": "¿Es fácil de usar?", "a": "Sí, se adapta a tu forma de trabajar." },
+        "q2": { "q": "¿Es útil para los clientes?", "a": "Sí, las sesiones son claras y guiadas." },
+        "q3": { "q": "¿Funciona en remoto y presencial?", "a": "Sí, en todos los casos." },
+        "q4": { "q": "¿Qué pasa tras los 14 días?", "a": "Decides solo si ves valor real." },
+        "q5": { "q": "¿Me hace parecer más profesional?", "a": "Sí, todo es más claro y estructurado." },
+        "q6": { "q": "¿Puedo seguir datos corporales?", "a": "Sí, peso, medidas y más." }
+      },
+      "cta": "Probar el espacio Pro",
+      "hint": "Sin tarjeta"
+    }
   }
-}
 }

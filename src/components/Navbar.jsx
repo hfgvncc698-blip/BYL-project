@@ -2,20 +2,45 @@
 import React from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
-  Flex, Box, Button, IconButton, Menu, MenuButton, MenuList,
-  MenuItem, useColorMode, useDisclosure, Modal, ModalOverlay,
-  ModalContent, ModalHeader, ModalCloseButton, ModalBody, VStack,
-  Drawer, DrawerOverlay, DrawerContent, DrawerCloseButton, DrawerHeader,
-  DrawerBody, useBreakpointValue, Divider, HStack, Switch,
-  FormControl, FormLabel, useToast, useColorModeValue
+  Flex,
+  Box,
+  Button,
+  IconButton,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  useColorMode,
+  useDisclosure,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalCloseButton,
+  ModalBody,
+  VStack,
+  Drawer,
+  DrawerOverlay,
+  DrawerContent,
+  DrawerCloseButton,
+  DrawerHeader,
+  DrawerBody,
+  useBreakpointValue,
+  Divider,
+  HStack,
+  Switch,
+  FormControl,
+  FormLabel,
+  useToast,
+  useColorModeValue,
+  Text,
 } from "@chakra-ui/react";
-import {
-  SunIcon, MoonIcon, ChevronDownIcon, AddIcon, HamburgerIcon,
-} from "@chakra-ui/icons";
+import { SunIcon, MoonIcon, AddIcon, HamburgerIcon } from "@chakra-ui/icons";
 import { useAuth } from "../AuthContext";
 import ClientCreation from "./ClientCreation";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "./LanguageSwitcher";
+import useAutoRevertColorMode from "../hooks/useAutoRevertColorMode";
 
 /* ========= ROUTES ========= */
 const ROUTES = {
@@ -42,46 +67,20 @@ const ROUTES = {
 };
 /* ========================= */
 
-function getIsNight(date = new Date()) {
-  const h = date.getHours();
-  return h < 7 || h >= 19; // Nuit: 19:00 → 06:59
-}
-
-function getMsUntilNextSwitch(now = new Date()) {
-  const isNight = getIsNight(now);
-  const next = new Date(now);
-
-  if (isNight) {
-    next.setHours(7, 0, 0, 0);
-    if (now >= next) next.setDate(next.getDate() + 1);
-  } else {
-    next.setHours(19, 0, 0, 0);
-    if (now >= next) next.setDate(next.getDate() + 1);
-  }
-  return next.getTime() - now.getTime();
-}
-
 export default function Navbar() {
   const toast = useToast();
   const { t, i18n } = useTranslation();
   const nav = (k, fb) => t(k, fb);
 
-  // 🔐 Auth (nouveau contexte)
-  const {
-    user,
-    logout,
-    isAdmin,
-    isCoach,              // rôle effectif === coach ?
-    effectiveRole,        // "admin" | "coach" | "particulier"
-    viewAs,               // "admin" | "coach" | null
-    setViewAs,            // bascule sécurisée
-  } = useAuth();
+  const { user, logout, isAdmin, effectiveRole, setViewAs } = useAuth();
 
-  const { colorMode, toggleColorMode } = useColorMode();
+  const { colorMode, setColorMode } = useColorMode();
+  const { markManualChoice } = useAutoRevertColorMode();
 
   const choiceModal = useDisclosure();
   const clientModal = useDisclosure();
   const mobileNav = useDisclosure();
+
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -89,12 +88,10 @@ export default function Navbar() {
   const isDesktop = useBreakpointValue({ base: false, md: true });
   const isHome = location.pathname === ROUTES.home;
 
-  // Détections de vue
-  const roleEffective = effectiveRole;                 // lisible
-  const showCoachUI = roleEffective === "coach";       // coach (ou admin en vue coach)
-  const isClient = user?.role === "particulier";       // client réel uniquement
+  const roleEffective = effectiveRole;
+  const showCoachUI = roleEffective === "coach";
+  const isClient = user?.role === "particulier";
 
-  // Toast quand la langue change
   React.useEffect(() => {
     const onLang = () => {
       toast({
@@ -106,29 +103,6 @@ export default function Navbar() {
     i18n.on("languageChanged", onLang);
     return () => i18n.off("languageChanged", onLang);
   }, [i18n, toast, t]);
-
-  // ===== Mode auto jour/nuit =====
-  React.useEffect(() => {
-    const night = getIsNight();
-    if (night && colorMode === "light") toggleColorMode();
-    if (!night && colorMode === "dark") toggleColorMode();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  React.useEffect(() => {
-    let timer = null;
-    const schedule = () => {
-      const ms = getMsUntilNextSwitch();
-      timer = setTimeout(() => {
-        const night = getIsNight();
-        if (night && colorMode === "light") toggleColorMode();
-        if (!night && colorMode === "dark") toggleColorMode();
-        schedule();
-      }, ms);
-    };
-    schedule();
-    return () => { if (timer) clearTimeout(timer); };
-  }, [colorMode, toggleColorMode]);
 
   const handleLogout = () => {
     logout();
@@ -148,21 +122,67 @@ export default function Navbar() {
     { label: nav("nav.statistics", "Statistiques"), to: ROUTES.clientStats },
   ];
 
-  // Si la vue effective est "coach" → liens coach ; sinon → liens client
   const linksToShow = showCoachUI ? coachLinks : clientLinks;
   const settingsTo = showCoachUI ? ROUTES.coachSettings : ROUTES.clientSettings;
 
-  // Couleurs réactives au mode
   const headerBg = useColorModeValue("blue.600", "blue.900");
   const headerFg = useColorModeValue("white", "white");
   const outlineBorder = useColorModeValue("whiteAlpha.800", "whiteAlpha.700");
 
-  const menuBg = useColorModeValue("white", "gray.700");
   const menuFg = useColorModeValue("gray.800", "white");
-  const menuBd = useColorModeValue("gray.200", "gray.600");
+  const menuBd = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
+  const menuItemHover = useColorModeValue("blackAlpha.50", "whiteAlpha.100");
 
-  // Libellé + état du switch Admin (uniquement si rôle réel admin)
-  const adminSwitchChecked = isAdmin && (roleEffective === "admin");
+  // ✅ fond OPAQUE en light, premium en dark
+  const menuPanelBg = useColorModeValue("white", "gray.900");
+
+  const adminSwitchChecked = isAdmin && roleEffective === "admin";
+
+  const compactBtn = isAdmin;
+  const actionBtnProps = compactBtn
+    ? {
+        size: "sm",
+        px: 4,
+        fontSize: "sm",
+        minW: "210px",
+        whiteSpace: "nowrap",
+        flexShrink: 0,
+      }
+    : { minW: 0, whiteSpace: "nowrap" };
+
+  const themeLabel =
+    colorMode === "light"
+      ? nav("nav.dark_mode", "Mode nuit")
+      : nav("nav.light_mode", "Mode jour");
+
+  const handleThemeToggle = () => {
+    const next = colorMode === "light" ? "dark" : "light";
+    setColorMode(next);
+    // ✅ marque le choix manuel, retour auto après 6h via le hook
+    markManualChoice(next);
+  };
+
+  // ✅ FIX UNIQUEMENT : rendre les boutons de langue visibles en mode jour
+  const langFixSx = useColorModeValue(
+    {
+      "& .chakra-button": {
+        bg: "blackAlpha.50",
+        color: "gray.800",
+        border: "1px solid",
+        borderColor: "blackAlpha.200",
+      },
+      "& .chakra-button:hover": {
+        bg: "blackAlpha.100",
+      },
+      "& .chakra-button[aria-pressed='true'], & .chakra-button[aria-current='true'], & .chakra-button[data-active='true']":
+        {
+          bg: "blue.600",
+          color: "white",
+          borderColor: "blue.600",
+        },
+    },
+    {}
+  );
 
   return (
     <>
@@ -190,7 +210,7 @@ export default function Navbar() {
         {/* ======= Desktop connecté ======= */}
         {isDesktop && !isAuthPage && user && (
           <Flex align="center" gap={4} minW={0} flexShrink={1}>
-            {/* Toggle Admin (réservé au vrai admin) */}
+            {/* Admin reste dans la navbar */}
             {isAdmin && (
               <FormControl display="flex" alignItems="center">
                 <FormLabel htmlFor="toggle-admin" mb="0" color="yellow.200">
@@ -200,7 +220,6 @@ export default function Navbar() {
                   id="toggle-admin"
                   isChecked={adminSwitchChecked}
                   onChange={() => {
-                    // si on est en vue admin → passer coach ; sinon → admin
                     const goAdmin = !adminSwitchChecked;
                     setViewAs(goAdmin ? "admin" : "coach");
                     navigate(goAdmin ? ROUTES.admin : ROUTES.coachDashboard);
@@ -210,7 +229,7 @@ export default function Navbar() {
               </FormControl>
             )}
 
-            {/* CTA client (réel) */}
+            {/* CTA client */}
             {isClient && (
               <Button
                 leftIcon={<AddIcon />}
@@ -218,12 +237,13 @@ export default function Navbar() {
                 borderColor={outlineBorder}
                 color={headerFg}
                 onClick={choiceModal.onOpen}
+                {...actionBtnProps}
               >
                 {nav("nav.custom_program", "Programme sur mesure")}
               </Button>
             )}
 
-            {/* Actions coach (coach réel OU admin en vue coach) */}
+            {/* Actions coach (reste dans la navbar) */}
             {showCoachUI && (
               <>
                 <Button
@@ -232,6 +252,7 @@ export default function Navbar() {
                   borderColor={outlineBorder}
                   color={headerFg}
                   onClick={choiceModal.onOpen}
+                  {...actionBtnProps}
                 >
                   {nav("nav.new_program", "Nouveau programme")}
                 </Button>
@@ -241,50 +262,107 @@ export default function Navbar() {
                   borderColor={outlineBorder}
                   color={headerFg}
                   onClick={clientModal.onOpen}
+                  {...actionBtnProps}
                 >
                   {nav("nav.new_client", "Nouveau client")}
                 </Button>
               </>
             )}
 
-            {/* Menu principal */}
-            <Menu>
+            {/* Burger desktop */}
+            <Menu placement="bottom-end" isLazy>
               <MenuButton
                 as={IconButton}
                 aria-label={nav("nav.open_menu", "Ouvrir le menu")}
-                icon={<ChevronDownIcon />}
+                icon={<HamburgerIcon />}
                 variant="outline"
                 borderColor={outlineBorder}
                 color={headerFg}
                 flexShrink={0}
               />
-              <MenuList bg={menuBg} color={menuFg} borderColor={menuBd}>
-                {linksToShow.map((link) => (
-                  <MenuItem as={Link} to={link.to} key={link.to}>
-                    {link.label}
+
+              <MenuList
+                bg={menuPanelBg}
+                color={menuFg}
+                borderColor={menuBd}
+                p={5}
+                w="320px"
+                maxW="90vw"
+                borderRadius="2xl"
+                boxShadow="2xl"
+              >
+                <VStack align="stretch" spacing={3}>
+                  {linksToShow.map((link) => (
+                    <MenuItem
+                      as={Link}
+                      to={link.to}
+                      key={link.to}
+                      bg="transparent"
+                      justifyContent="center"
+                      py={3}
+                      borderRadius="lg"
+                      fontWeight="semibold"
+                      _hover={{ bg: menuItemHover }}
+                      _focus={{ bg: menuItemHover }}
+                    >
+                      {link.label}
+                    </MenuItem>
+                  ))}
+
+                  <Divider borderColor={menuBd} />
+
+                  <MenuItem
+                    as={Link}
+                    to={settingsTo}
+                    bg="transparent"
+                    justifyContent="center"
+                    py={3}
+                    borderRadius="lg"
+                    fontWeight="semibold"
+                    _hover={{ bg: menuItemHover }}
+                    _focus={{ bg: menuItemHover }}
+                  >
+                    {nav("nav.settings", "Paramètres")}
                   </MenuItem>
-                ))}
-                <MenuItem as={Link} to={settingsTo}>
-                  {nav("nav.settings", "Paramètres")}
-                </MenuItem>
-                <MenuItem onClick={handleLogout}>
-                  {nav("nav.logout", "Déconnexion")}
-                </MenuItem>
+
+                  <MenuItem
+                    onClick={handleThemeToggle}
+                    bg="transparent"
+                    justifyContent="center"
+                    py={3}
+                    borderRadius="lg"
+                    fontWeight="semibold"
+                    _hover={{ bg: menuItemHover }}
+                    _focus={{ bg: menuItemHover }}
+                  >
+                    <HStack spacing={2}>
+                      {colorMode === "light" ? <MoonIcon /> : <SunIcon />}
+                      <Text>{themeLabel}</Text>
+                    </HStack>
+                  </MenuItem>
+
+                  {/* langues */}
+                  <Box pt={1} display="flex" justifyContent="center" sx={langFixSx}>
+                    <LanguageSwitcher />
+                  </Box>
+
+                  <Divider borderColor={menuBd} />
+
+                  <MenuItem
+                    onClick={handleLogout}
+                    bg="transparent"
+                    justifyContent="center"
+                    py={3}
+                    borderRadius="lg"
+                    fontWeight="semibold"
+                    _hover={{ bg: menuItemHover }}
+                    _focus={{ bg: menuItemHover }}
+                  >
+                    {nav("nav.logout", "Déconnexion")}
+                  </MenuItem>
+                </VStack>
               </MenuList>
             </Menu>
-
-            {/* Langue */}
-            <LanguageSwitcher />
-
-            {/* Thème (manuel dispo, même si l'auto gère jour/nuit) */}
-            <IconButton
-              aria-label={nav("nav.toggle_color_mode", "Changer le thème")}
-              icon={colorMode === "light" ? <MoonIcon /> : <SunIcon />}
-              onClick={toggleColorMode}
-              bg="transparent"
-              color={headerFg}
-              flexShrink={0}
-            />
           </Flex>
         )}
 
@@ -294,7 +372,14 @@ export default function Navbar() {
             <Button as={Link} to={ROUTES.login} variant="outline" borderColor={outlineBorder} color={headerFg} size="sm">
               {nav("nav.login", "Connexion")}
             </Button>
-            <Button as={Link} to={ROUTES.register} variant="outline" borderColor={outlineBorder} color={headerFg} size="sm">
+            <Button
+              as={Link}
+              to={ROUTES.register}
+              variant="outline"
+              borderColor={outlineBorder}
+              color={headerFg}
+              size="sm"
+            >
               {nav("nav.register", "Inscription")}
             </Button>
           </HStack>
@@ -304,26 +389,29 @@ export default function Navbar() {
         {!isDesktop && !isAuthPage && (
           <HStack spacing={2} flexShrink={0}>
             {user ? (
-              <>
-                <IconButton
-                  aria-label={nav("nav.open_menu", "Ouvrir le menu")}
-                  icon={<HamburgerIcon />}
-                  variant="outline"
-                  borderColor={outlineBorder}
-                  color={headerFg}
-                  onClick={mobileNav.onOpen}
-                />
-                <LanguageSwitcher />
-              </>
+              <IconButton
+                aria-label={nav("nav.open_menu", "Ouvrir le menu")}
+                icon={<HamburgerIcon />}
+                variant="outline"
+                borderColor={outlineBorder}
+                color={headerFg}
+                onClick={mobileNav.onOpen}
+              />
             ) : (
               <>
                 <Button as={Link} to={ROUTES.login} variant="outline" borderColor={outlineBorder} color={headerFg} size="sm">
                   {nav("nav.login", "Connexion")}
                 </Button>
-                <Button as={Link} to={ROUTES.register} variant="outline" borderColor={outlineBorder} color={headerFg} size="sm">
+                <Button
+                  as={Link}
+                  to={ROUTES.register}
+                  variant="outline"
+                  borderColor={outlineBorder}
+                  color={headerFg}
+                  size="sm"
+                >
                   {nav("nav.register", "Inscription")}
                 </Button>
-                {!isHome && <LanguageSwitcher />}
               </>
             )}
           </HStack>
@@ -339,19 +427,11 @@ export default function Navbar() {
           <DrawerBody>
             <VStack align="start" spacing={4} mt={4} w="full">
               {linksToShow.map((link) => (
-                <Button
-                  as={Link}
-                  to={link.to}
-                  variant="ghost"
-                  w="full"
-                  key={link.to}
-                  onClick={mobileNav.onClose}
-                >
+                <Button as={Link} to={link.to} variant="ghost" w="full" key={link.to} onClick={mobileNav.onClose}>
                   {link.label}
                 </Button>
               ))}
 
-              {/* Admin toggle (mobile) */}
               {isAdmin && (
                 <FormControl display="flex" alignItems="center" px={2}>
                   <FormLabel htmlFor="toggle-admin-mobile" mb="0">
@@ -380,31 +460,38 @@ export default function Navbar() {
               <Button
                 variant="ghost"
                 w="full"
-                onClick={() => { handleLogout(); mobileNav.onClose(); }}
+                onClick={() => {
+                  handleLogout();
+                  mobileNav.onClose();
+                }}
               >
                 {nav("nav.logout", "Déconnexion")}
               </Button>
 
-              {/* CTA client */}
               {isClient && (
                 <Button
                   leftIcon={<AddIcon />}
                   variant="ghost"
                   w="full"
-                  onClick={() => { choiceModal.onOpen(); mobileNav.onClose(); }}
+                  onClick={() => {
+                    choiceModal.onOpen();
+                    mobileNav.onClose();
+                  }}
                 >
                   {nav("nav.custom_program", "Programme sur mesure")}
                 </Button>
               )}
 
-              {/* Actions coach (coach ou admin en vue coach) */}
               {showCoachUI && (
                 <>
                   <Button
                     leftIcon={<AddIcon />}
                     variant="ghost"
                     w="full"
-                    onClick={() => { choiceModal.onOpen(); mobileNav.onClose(); }}
+                    onClick={() => {
+                      choiceModal.onOpen();
+                      mobileNav.onClose();
+                    }}
                   >
                     {nav("nav.new_program", "Nouveau programme")}
                   </Button>
@@ -412,28 +499,33 @@ export default function Navbar() {
                     leftIcon={<AddIcon />}
                     variant="ghost"
                     w="full"
-                    onClick={() => { clientModal.onOpen(); mobileNav.onClose(); }}
+                    onClick={() => {
+                      clientModal.onOpen();
+                      mobileNav.onClose();
+                    }}
                   >
                     {nav("nav.new_client", "Nouveau client")}
                   </Button>
                 </>
               )}
 
-              <IconButton
-                aria-label={nav("nav.toggle_color_mode", "Changer le thème")}
-                icon={colorMode === "light" ? <MoonIcon /> : <SunIcon />}
-                onClick={toggleColorMode}
+              <Button
+                leftIcon={colorMode === "light" ? <MoonIcon /> : <SunIcon />}
+                onClick={handleThemeToggle}
                 variant="ghost"
                 w="full"
-              />
+              >
+                {themeLabel}
+              </Button>
 
-              <LanguageSwitcher />
+              <Box w="full" display="flex" justifyContent="flex-start" sx={langFixSx}>
+                <LanguageSwitcher />
+              </Box>
             </VStack>
           </DrawerBody>
         </DrawerContent>
       </Drawer>
 
-      {/* ======= Modal nouveau client (coach ou admin en vue coach) ======= */}
       {showCoachUI && (
         <Modal isOpen={clientModal.isOpen} onClose={clientModal.onClose} isCentered>
           <ModalOverlay />
@@ -447,7 +539,6 @@ export default function Navbar() {
         </Modal>
       )}
 
-      {/* ======= Modal création / génération ======= */}
       <Modal isOpen={choiceModal.isOpen} onClose={choiceModal.onClose} isCentered>
         <ModalOverlay />
         <ModalContent>
@@ -462,7 +553,10 @@ export default function Navbar() {
                   <Button
                     colorScheme="blue"
                     w="full"
-                    onClick={() => { choiceModal.onClose(); navigate(ROUTES.coachBuilderNew); }}
+                    onClick={() => {
+                      choiceModal.onClose();
+                      navigate(ROUTES.coachBuilderNew);
+                    }}
                   >
                     {nav("nav.create_manual", "Créer manuel")}
                   </Button>
@@ -470,7 +564,10 @@ export default function Navbar() {
                     variant="outline"
                     colorScheme="blue"
                     w="full"
-                    onClick={() => { choiceModal.onClose(); navigate(ROUTES.autoQuestionnaire); }}
+                    onClick={() => {
+                      choiceModal.onClose();
+                      navigate(ROUTES.autoQuestionnaire);
+                    }}
                   >
                     {nav("nav.guided_creation", "Création guidée")}
                   </Button>
@@ -482,7 +579,10 @@ export default function Navbar() {
                   variant="solid"
                   colorScheme="blue"
                   w="full"
-                  onClick={() => { choiceModal.onClose(); navigate(ROUTES.autoQuestionnaire); }}
+                  onClick={() => {
+                    choiceModal.onClose();
+                    navigate(ROUTES.autoQuestionnaire);
+                  }}
                 >
                   {nav("nav.build_my_program", "Construire mon programme")}
                 </Button>

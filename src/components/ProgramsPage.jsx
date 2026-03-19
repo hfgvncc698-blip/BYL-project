@@ -1,18 +1,47 @@
 // src/components/ProgramsPage.jsx
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
-  Box, Heading, Table, Thead, Tbody, Tr, Th, Td, Button, useColorModeValue,
-  Spinner, Stack, IconButton, useDisclosure, Modal, ModalOverlay, ModalContent,
-  ModalHeader, ModalCloseButton, ModalBody, ModalFooter, VStack, Text, Badge,
-  HStack, useToast
+  Box,
+  Heading,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  Button,
+  useColorModeValue,
+  Spinner,
+  Stack,
+  IconButton,
+  useDisclosure,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalCloseButton,
+  ModalBody,
+  ModalFooter,
+  VStack,
+  Text,
+  Badge,
+  HStack,
+  useToast,
 } from "@chakra-ui/react";
 import { AddIcon, DeleteIcon, CopyIcon } from "@chakra-ui/icons";
 import { useNavigate, Link as RouterLink } from "react-router-dom";
 import {
-  collection, getDocs, deleteDoc, doc, getDoc, addDoc,
-  serverTimestamp, query, where
+  collection,
+  getDocs,
+  deleteDoc,
+  doc,
+  getDoc,
+  addDoc,
+  serverTimestamp,
+  query,
+  where,
 } from "firebase/firestore";
-import { db } from "../firebase"; // ← fix: chemin unifié
+import { db } from "../firebase";
 import { useAuth } from "../AuthContext";
 import { useTranslation } from "react-i18next";
 
@@ -24,6 +53,7 @@ function getSessionCount(p) {
   if (Array.isArray(p.seances)) return p.seances.length;
   return 0;
 }
+
 function formatCreatedAt(p, locale = "fr-FR") {
   try {
     if (p.createdAt?.toDate) return p.createdAt.toDate().toLocaleDateString(locale);
@@ -32,8 +62,60 @@ function formatCreatedAt(p, locale = "fr-FR") {
   return "–";
 }
 
+const capitalizeFirst = (s = "") => {
+  const str = String(s || "").trim();
+  if (!str) return "";
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
+const prettifyKey = (key = "") => {
+  const s = String(key || "").trim();
+  if (!s) return "";
+  return s.replace(/_/g, " ").replace(/\s+/g, " ").trim();
+};
+
+const makeDefaultProgramName = (objectifUIKey, objectifFallback, nbSeances) => {
+  const baseKey = objectifUIKey || objectifFallback || "";
+  const label = capitalizeFirst(prettifyKey(baseKey));
+  const n = Number(nbSeances) || 1;
+  if (!label) return `Programme — ${n}x/Sem`;
+  return `${label} — ${n}x/Sem`;
+};
+
+const normalizeNameForCompare = (s = "") =>
+  String(s || "")
+    .replace(/\u2014/g, "-") // — -> -
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+const isLegacyAutoName = (existingName, objectifUIKey, objectifFallback, nbSeances) => {
+  const n = Number(nbSeances) || 1;
+  const candidateNew = normalizeNameForCompare(
+    makeDefaultProgramName(objectifUIKey, objectifFallback, n)
+  );
+
+  const old1 = normalizeNameForCompare(`${objectifFallback || ""} — ${n}x/Sem`);
+  const old2 = normalizeNameForCompare(`${objectifFallback || ""} — ${n}x/sem`);
+  const old3 = normalizeNameForCompare(`${objectifFallback || ""} - ${n}x/Sem`);
+  const old4 = normalizeNameForCompare(`${objectifFallback || ""} - ${n}x/sem`);
+  const old5 = normalizeNameForCompare(`${objectifUIKey || ""} — ${n}x/Sem`);
+  const old6 = normalizeNameForCompare(`${objectifUIKey || ""} - ${n}x/Sem`);
+
+  const cur = normalizeNameForCompare(existingName);
+
+  if (!cur) return true;
+  if (cur === candidateNew) return true;
+  if (cur === old1 || cur === old2 || cur === old3 || cur === old4 || cur === old5 || cur === old6) return true;
+
+  if (objectifFallback && cur === normalizeNameForCompare(objectifFallback)) return true;
+  if (objectifUIKey && cur === normalizeNameForCompare(objectifUIKey)) return true;
+
+  return false;
+};
+
 export default function ProgramsPage() {
-  const { t, i18n } = useTranslation();
+  const { t, i18n } = useTranslation("common");
   const locale = i18n.language || "fr-FR";
 
   const navigate = useNavigate();
@@ -48,10 +130,10 @@ export default function ProgramsPage() {
   const confirmModal = useDisclosure();
   const [toDeleteId, setToDeleteId] = useState(null);
 
-  const pageBg     = useColorModeValue("gray.50", "gray.900");
-  const cardBg     = useColorModeValue("white", "gray.700");
-  const borderColor= useColorModeValue("gray.200", "gray.600");
-  const textMuted  = useColorModeValue("gray.600", "gray.300");
+  const pageBg = useColorModeValue("gray.50", "gray.900");
+  const cardBg = useColorModeValue("white", "gray.700");
+  const borderColor = useColorModeValue("gray.200", "gray.600");
+  const textMuted = useColorModeValue("gray.600", "gray.300");
   const titleColor = useColorModeValue("gray.800", "white");
 
   const getMillis = (p) => {
@@ -59,6 +141,65 @@ export default function ProgramsPage() {
     if (p.createdAt?.seconds) return p.createdAt.seconds * 1000;
     return 0;
   };
+
+  // ✅ mapping objectif Firestore -> i18n key
+  const GOAL_LABEL_KEY = useMemo(
+    () => ({
+      prise_de_masse: "massGain",
+      perte_de_poids: "weightLoss",
+      force: "strength",
+      endurance: "endurance",
+      remise_au_sport: "returnToSport",
+      postural: "posture",
+    }),
+    []
+  );
+
+  const prettyGoal = useCallback(
+    (objectif) => {
+      if (!objectif) return "";
+      const key = String(objectif).trim();
+      const labelKey = GOAL_LABEL_KEY[key] || null;
+      if (!labelKey) return capitalizeFirst(prettifyKey(key));
+      return t(`autoQ.goals.${labelKey}`, key);
+    },
+    [GOAL_LABEL_KEY, t]
+  );
+
+  /**
+   * ✅ Nom EXACT Builder:
+   * - priorité à nomProgramme si c'est un "vrai" nom custom
+   * - si nomProgramme ressemble à un auto-name legacy, on recalcule
+   * - sinon fallback sur objectifUI/objectif + Xx/Sem
+   */
+  const prettyProgramName = useCallback(
+    (p) => {
+      if (!p) return t("myPrograms.untitled", "Sans titre");
+
+      const objectifUiKey = p.objectifUI || "";
+      const objectifFallback = p.objectif || "";
+      const n = getSessionCount(p) || 1;
+
+      const defaultName = makeDefaultProgramName(objectifUiKey, objectifFallback, n);
+
+      const rawName = (p.nomProgramme && typeof p.nomProgramme === "string")
+        ? p.nomProgramme.trim()
+        : "";
+
+      // Si nomProgramme existe mais ressemble à un auto-name (ancien ou nouveau),
+      // on affiche le nom propre Builder (ObjectifUI capitalisé — Xx/Sem).
+      if (rawName && isLegacyAutoName(rawName, objectifUiKey, objectifFallback, n)) {
+        return defaultName;
+      }
+
+      // Si nomProgramme est un vrai nom custom, on le garde
+      if (rawName) return rawName;
+
+      // Sinon: construire le nom standard
+      return defaultName || t("myPrograms.untitled", "Sans titre");
+    },
+    [t]
+  );
 
   const fetchData = useCallback(async () => {
     if (!user?.uid) return;
@@ -91,7 +232,7 @@ export default function ProgramsPage() {
       toast({
         title: t("settings.toasts.update_error", "Erreur de chargement"),
         status: "error",
-        duration: 2500
+        duration: 2500,
       });
     } finally {
       setLoading(false);
@@ -113,7 +254,7 @@ export default function ProgramsPage() {
       toast({
         title: t("settings.toasts.update_error", "Erreur lors de la suppression"),
         status: "error",
-        duration: 2500
+        duration: 2500,
       });
     }
   };
@@ -127,10 +268,9 @@ export default function ProgramsPage() {
       }
       const data = snap.data();
 
-      const newName =
-        (data.nomProgramme ? `${data.nomProgramme} (copie)` : null) ||
-        (data.objectif ? `${data.objectif} (copie)` : null) ||
-        t("myPrograms.untitled", "Sans titre") + " (copy)";
+      // ✅ baseName = nom affiché (donc identique Builder)
+      const baseName = prettyProgramName(data);
+      const newName = `${baseName} (${t("common.copy", "copie")})`;
 
       await addDoc(collection(db, "programmes"), {
         ...data,
@@ -147,7 +287,7 @@ export default function ProgramsPage() {
       toast({
         title: t("settings.toasts.update_error", "Erreur lors de la duplication"),
         status: "error",
-        duration: 2500
+        duration: 2500,
       });
     }
   };
@@ -222,9 +362,7 @@ export default function ProgramsPage() {
           <ModalHeader>{t("settings.modal.confirm_title", "Confirmation")}</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            <Text>
-              {t("confirm.delete_program", "Êtes-vous sûr de vouloir supprimer ce programme ?")}
-            </Text>
+            <Text>{t("confirm.delete_program", "Êtes-vous sûr de vouloir supprimer ce programme ?")}</Text>
           </ModalBody>
           <ModalFooter>
             <Button variant="ghost" mr={3} onClick={confirmModal.onClose}>
@@ -265,35 +403,43 @@ export default function ProgramsPage() {
                     programmes.map((p) => {
                       const nbSessions = getSessionCount(p);
                       const nbAssigned = assignedCounts[p.id] || 0;
+                      const goalForSubtitle = p.objectifUI || p.objectif || "";
+
                       return (
                         <Tr key={p.id}>
                           <Td>
                             <Stack spacing={0}>
-                              <Text>{p.nomProgramme || p.objectif || t("myPrograms.untitled","Sans titre")}</Text>
-                              {p.objectif && (
+                              {/* ✅ Nom identique Builder */}
+                              <Text>{prettyProgramName(p)}</Text>
+
+                              {/* ✅ Sous-titre objectif (objectifUI en priorité) */}
+                              {goalForSubtitle && (
                                 <Text fontSize="sm" color={textMuted}>
-                                  {p.objectif}
+                                  {prettyGoal(goalForSubtitle)}
                                 </Text>
                               )}
                             </Stack>
                           </Td>
-                          <Td><Badge>{nbSessions}</Badge></Td>
+
+                          <Td>
+                            <Badge>{nbSessions}</Badge>
+                          </Td>
+
                           <Td>
                             <Badge colorScheme={nbAssigned > 0 ? "blue" : "gray"}>
-                              {nbAssigned} {t("clients", "client")}{nbAssigned > 1 ? "s" : ""}
+                              {nbAssigned} {t("clients", "client")}
+                              {nbAssigned > 1 ? "s" : ""}
                             </Badge>
                           </Td>
+
                           <Td>{formatCreatedAt(p, locale)}</Td>
+
                           <Td>
                             <Stack direction="row" spacing={2} align="center">
-                              <Button
-                                as={RouterLink}
-                                to={`/programmes/${p.id}`}
-                                colorScheme="blue"
-                                size="sm"
-                              >
+                              <Button as={RouterLink} to={`/programmes/${p.id}`} colorScheme="blue" size="sm">
                                 {t("client_dash.view_program", "Voir programme")}
                               </Button>
+
                               <IconButton
                                 aria-label={t("common.duplicate", "Dupliquer")}
                                 icon={<CopyIcon />}
@@ -301,6 +447,7 @@ export default function ProgramsPage() {
                                 colorScheme="teal"
                                 onClick={() => handleDuplicate(p.id)}
                               />
+
                               <IconButton
                                 aria-label={t("common.delete", "Supprimer")}
                                 icon={<DeleteIcon />}
@@ -334,6 +481,8 @@ export default function ProgramsPage() {
                   programmes.map((p) => {
                     const nbSessions = getSessionCount(p);
                     const nbAssigned = assignedCounts[p.id] || 0;
+                    const goalForSubtitle = p.objectifUI || p.objectif || "";
+
                     return (
                       <Box
                         key={p.id}
@@ -347,13 +496,10 @@ export default function ProgramsPage() {
                         shadow="sm"
                       >
                         <HStack position="absolute" top={3} right={3} spacing={2}>
-                          <Button
-                            size="sm"
-                            colorScheme="blue"
-                            onClick={() => navigate(`/programmes/${p.id}`)}
-                          >
+                          <Button size="sm" colorScheme="blue" onClick={() => navigate(`/programmes/${p.id}`)}>
                             {t("client_dash.view_program", "Voir programme")}
                           </Button>
+
                           <IconButton
                             aria-label={t("common.duplicate", "Dupliquer")}
                             icon={<CopyIcon />}
@@ -361,6 +507,7 @@ export default function ProgramsPage() {
                             colorScheme="teal"
                             onClick={() => handleDuplicate(p.id)}
                           />
+
                           <IconButton
                             aria-label={t("common.delete", "Supprimer")}
                             icon={<DeleteIcon />}
@@ -373,21 +520,28 @@ export default function ProgramsPage() {
                           />
                         </HStack>
 
+                        {/* ✅ Nom identique Builder */}
                         <Text fontWeight="bold" fontSize="md" pr="160px">
-                          {p.nomProgramme || p.objectif || t("myPrograms.untitled","Sans titre")}
+                          {prettyProgramName(p)}
                         </Text>
-                        {p.objectif && (
+
+                        {/* ✅ objectif joli (objectifUI en priorité) */}
+                        {goalForSubtitle && (
                           <Text fontSize="sm" color={textMuted} mt={0.5} mb={2}>
-                            {p.objectif}
+                            {prettyGoal(goalForSubtitle)}
                           </Text>
                         )}
+
                         <HStack spacing={2} mb={2}>
                           <Badge>
-                            {nbSessions} {t("client_dash.table.sessions","Nombre séances")}
+                            {nbSessions} {t("client_dash.table.sessions", "Nombre séances")}
                           </Badge>
+
                           <Badge colorScheme={nbAssigned > 0 ? "blue" : "gray"}>
-                            {nbAssigned} {t("clients", "client")}{nbAssigned > 1 ? "s" : ""}
+                            {nbAssigned} {t("clients", "client")}
+                            {nbAssigned > 1 ? "s" : ""}
                           </Badge>
+
                           <Badge variant="subtle" colorScheme="gray">
                             {formatCreatedAt(p, locale)}
                           </Badge>

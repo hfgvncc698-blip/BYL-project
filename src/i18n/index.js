@@ -20,17 +20,21 @@ const resources = {
   es: { common: es },
   de: { common: de },
   ru: { common: ru },
-  ar: { common: ar }
+  ar: { common: ar },
 };
 
-/* ---------- Helper direction LTR/RTL ---------- */
-const setDocumentDirection = (lng) => {
-  const rtlLangs = ["ar"];
-  const dir = rtlLangs.includes(lng) ? "rtl" : "ltr";
+/* ---------- Helpers (LTR/RTL + <html lang>) ---------- */
+const normalizeLng = (lng) => String(lng || "fr").split("-")[0]; // ex: fr-FR -> fr, ar-SA -> ar
+
+const applyDocumentLangAndDir = (lng) => {
+  if (typeof document === "undefined") return;
+
+  const base = normalizeLng(lng);
+  const dir = base === "ar" ? "rtl" : "ltr";
   const html = document.documentElement;
-  if (html.getAttribute("dir") !== dir) {
-    html.setAttribute("dir", dir);
-  }
+
+  if (html.getAttribute("dir") !== dir) html.setAttribute("dir", dir);
+  if (html.getAttribute("lang") !== base) html.setAttribute("lang", base);
 };
 
 i18n
@@ -38,7 +42,8 @@ i18n
   .use(initReactI18next)
   .init({
     resources,
-    // Si une clé manque dans la langue courante → essaie FR puis EN
+
+    // Si une clé manque -> retombe sur FR puis EN
     fallbackLng: ["fr", "en"],
 
     supportedLngs: ["fr", "en", "it", "es", "de", "ru", "ar"],
@@ -49,11 +54,24 @@ i18n
     defaultNS: "common",
 
     detection: {
-      // 1) /en 2) ?lng=en 3) localStorage 4) navigateur 5) <html lang="">
+      /**
+       * Ordre de détection :
+       * 1) /en/... (si tu utilises des routes avec prefix langue)
+       * 2) ?lng=en
+       * 3) localStorage
+       * 4) navigateur
+       * 5) <html lang="">
+       */
       order: ["path", "querystring", "localStorage", "navigator", "htmlTag"],
+
       lookupFromPathIndex: 0,
       lookupQuerystring: "lng",
-      caches: ["localStorage"]
+
+      // Important : évite qu'un segment d'URL comme "login" ou "coach-dashboard"
+      // soit pris pour une langue
+      checkWhitelist: true,
+
+      caches: ["localStorage"],
     },
 
     interpolation: { escapeValue: false },
@@ -64,16 +82,19 @@ i18n
     react: {
       transSupportBasicHtmlNodes: true,
       transKeepBasicHtmlNodesFor: ["b", "strong", "i", "br"],
-      useSuspense: false
-    }
+      useSuspense: false,
+    },
 
     // debug: true,
   });
 
-// Applique la bonne direction au chargement…
-setDocumentDirection(i18n.resolvedLanguage || i18n.language || "fr");
-// …et à chaque changement de langue
-i18n.on("languageChanged", (lng) => setDocumentDirection(lng));
+// Applique direction + lang au chargement
+applyDocumentLangAndDir(i18n.resolvedLanguage || i18n.language || "fr");
+
+// Et à chaque changement de langue
+i18n.on("languageChanged", (lng) => {
+  applyDocumentLangAndDir(lng);
+});
 
 export default i18n;
 

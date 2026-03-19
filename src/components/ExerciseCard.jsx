@@ -1,16 +1,95 @@
 // src/components/ExerciseCard.jsx
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback, useMemo } from "react";
 import {
-  Box, Button, Image, Text, Modal, ModalOverlay, ModalContent,
-  ModalHeader, ModalBody, ModalCloseButton, Grid, GridItem, List,
-  ListItem, ListIcon, useColorModeValue, HStack
+  Box,
+  Button,
+  Image,
+  Text,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalCloseButton,
+  Grid,
+  GridItem,
+  List,
+  ListItem,
+  ListIcon,
+  useColorModeValue,
+  HStack,
+  Tag,
+  TagLabel,
+  Icon,
 } from "@chakra-ui/react";
-import { InfoOutlineIcon } from "@chakra-ui/icons";
+import { InfoOutlineIcon, AddIcon } from "@chakra-ui/icons";
 import {
-  MdFitnessCenter, MdOutlineHealing, MdOutlineMenuBook, MdCheckCircle,
-  MdSwapHoriz, MdWarning, MdOutlineLink
+  MdFitnessCenter,
+  MdOutlineHealing,
+  MdOutlineMenuBook,
+  MdCheckCircle,
+  MdSwapHoriz,
+  MdWarning,
+  MdOutlineLink,
+  MdDirectionsRun,
+  MdAccessibilityNew,
+  MdAirlineSeatReclineNormal,
+  MdSportsGymnastics,
+  MdSelfImprovement,
+  MdBackHand,
+  MdFitnessCenter as MdArm,
+  MdAir,
 } from "react-icons/md";
+import { FaDumbbell } from "react-icons/fa";
+import { GiLeg, GiAbdominalArmor, GiShoulderArmor, GiChestArmor, GiSpineArrow } from "react-icons/gi";
 import { useTranslation } from "react-i18next";
+import { useLocation } from "react-router-dom";
+
+/* ================= helpers ================= */
+const safeArr = (v) => (Array.isArray(v) ? v : v ? [v] : []);
+const norm = (s) =>
+  String(s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+
+/* ✅ icône selon groupe musculaire */
+const muscleIconFromGroup = (groupRaw) => {
+  const g = norm(groupRaw);
+
+  // jambes
+  if (
+    ["jambes", "legs", "quadriceps", "quads", "ischio-jambiers", "ischio jambiers", "hamstrings", "adducteurs", "adductors", "fessiers", "glutes", "mollets", "calves"].some((k) =>
+      g.includes(k)
+    )
+  )
+    return GiLeg;
+
+  // abdos
+  if (["abdominaux", "abs", "core", "transverse", "obliques"].some((k) => g.includes(k))) return GiAbdominalArmor;
+
+  // pectoraux
+  if (["pectoraux", "chest", "pecs"].some((k) => g.includes(k))) return GiChestArmor;
+
+  // dos / dorsaux / trapèzes / lombaires
+  if (["dos", "back", "dorsaux", "lats", "trap", "trapezes", "trapèzes", "lombaires", "lower back"].some((k) => g.includes(k)))
+    return GiSpineArrow;
+
+  // épaules / deltoïdes
+  if (["epaules", "épaules", "shoulders", "deltoides", "deltoïdes", "delts"].some((k) => g.includes(k))) return GiShoulderArmor;
+
+  // bras (biceps / triceps / avant-bras)
+  if (["biceps", "triceps", "avant-bras", "avant bras", "forearms"].some((k) => g.includes(k))) return MdArm;
+
+  // cardio / full body
+  if (["cardio", "endurance", "hiit", "full body", "fullbody", "full-body"].some((k) => g.includes(k))) return MdDirectionsRun;
+
+  // mobilité / stretching
+  if (["mobilite", "mobilité", "mobility", "stretching", "etirement", "etirements"].some((k) => g.includes(k))) return MdSelfImprovement;
+
+  return FaDumbbell; // fallback
+};
 
 function ExerciseCardComponent({
   exercise,
@@ -18,26 +97,80 @@ function ExerciseCardComponent({
   onReplace,
   replaceMode = false,
   isTarget = false,
-  onCancelReplace
+  onCancelReplace,
 }) {
   const { t } = useTranslation();
+  const { pathname } = useLocation();
+  const isProgramBuilder = useMemo(() => pathname.includes("/program-builder"), [pathname]);
+
   const [isOpen, setIsOpen] = useState(false);
   const addingRef = useRef(false);
 
-  const cardBg = useColorModeValue("gray.100", "gray.700");
-  const textColor = useColorModeValue("gray.800", "gray.200");
-  const btnBg = useColorModeValue("white", "gray.600");
-  const btnTextColor = useColorModeValue("gray.800", "gray.100");
+  /* ================= UI ================= */
+  const bg = useColorModeValue("white", "gray.800");
+  const border = useColorModeValue("blackAlpha.100", "whiteAlpha.200");
+  const text = useColorModeValue("gray.900", "gray.50");
+  const muted = useColorModeValue("gray.600", "gray.300");
+  const chipBg = useColorModeValue("gray.100", "whiteAlpha.100");
 
-  // Texte & icône du bouton principal
+  const primaryBtnBg = useColorModeValue("blue.600", "blue.400");
+  const primaryBtnHover = useColorModeValue("blue.700", "blue.500");
+  const ghostBtnBg = useColorModeValue("gray.50", "whiteAlpha.100");
+  const ghostBtnHover = useColorModeValue("gray.100", "whiteAlpha.200");
+
+  /* ================= DATA ================= */
+  const missing = t("exerciseCard.missing", "Données manquantes");
+  const name = exercise?.nom || t("exerciseCard.missingName", "Nom manquant");
+
+  const gmArr = safeArr(exercise?.groupe_musculaire);
+  const groupe = gmArr.length ? gmArr[0] : missing;
+
+  const materielArr = safeArr(exercise?.materiel);
+  const materiel = materielArr.length ? materielArr[0] : t("exerciseCard.none", "Aucun");
+
+  const niveau =
+    typeof exercise?.niveau === "string" && exercise.niveau.trim()
+      ? exercise.niveau.trim()
+      : t("exerciseCard.allLevels", "Tous niveaux");
+
+  const articulationsList = exercise?.articulations_solicitees ?? exercise?.articulations_sollicitees;
+  const articulations =
+    Array.isArray(articulationsList) && articulationsList.length ? articulationsList.join(", ") : missing;
+
+  const ligaments =
+    Array.isArray(exercise?.tendons_solicites) && exercise.tendons_solicites.length
+      ? exercise.tendons_solicites.join(", ")
+      : missing;
+
+  const musclesSecondaires =
+    Array.isArray(exercise?.muscles_secondaires) && exercise.muscles_secondaires.length
+      ? exercise.muscles_secondaires.join(", ")
+      : missing;
+
+  const variantes =
+    Array.isArray(exercise?.variantes) && exercise.variantes.length
+      ? exercise.variantes.join(", ")
+      : t("exerciseCard.noVariant", "Aucune variante disponible");
+
+  const contraintes = Array.isArray(exercise?.contraintes)
+    ? exercise.contraintes.length
+      ? exercise.contraintes.join(", ")
+      : t("exerciseCard.noConstraints", "Aucune contrainte spécifiée")
+    : exercise?.contraintes || t("exerciseCard.noConstraints", "Aucune contrainte spécifiée");
+
+  const hasImage = Boolean(exercise?.image && String(exercise.image).trim());
+
+  // ✅ Icone dynamique
+  const MuscleIcon = useMemo(() => muscleIconFromGroup(groupe), [groupe]);
+
+  /* ================= ACTION BTN (builder only) ================= */
   let label = t("exerciseCard.add", "Ajouter");
-  let leftIcon = <span style={{ fontSize: "1.2em", color: btnTextColor }}>➕</span>;
+  let leftIcon = <AddIcon />; // ✅ plus clean que "+"
   if (replaceMode) {
     leftIcon = <MdSwapHoriz />;
     label = isTarget ? t("exerciseCard.cancel", "Annuler") : t("exerciseCard.replace", "Remplacer");
   }
 
-  // ——— Handler robuste: click + touch + pointer, anti double-tap ———
   const fireAction = useCallback(() => {
     if (addingRef.current) return;
     addingRef.current = true;
@@ -46,7 +179,7 @@ function ExerciseCardComponent({
         if (isTarget && onCancelReplace) onCancelReplace();
         else if (onReplace) onReplace(exercise);
       } else if (onAdd) {
-        onAdd({ ...exercise }); // éviter mutation partagée
+        onAdd({ ...exercise });
       }
     } finally {
       setTimeout(() => (addingRef.current = false), 150);
@@ -58,176 +191,210 @@ function ExerciseCardComponent({
     e.stopPropagation();
     fireAction();
   };
-
   const handlePointerUp = (e) => {
-    // iOS/Chrome mobile: certains onClick ne montent pas -> fallback pointer/touch
     e.preventDefault();
     e.stopPropagation();
     fireAction();
   };
-
-  const sharedButtonStyles = {
-    type: "button",
-    bg: btnBg,
-    color: btnTextColor,
-    borderRadius: "full",
-    size: "md",
-    minW: "110px",
-    fontWeight: "bold",
-    boxShadow: "md",
-    border: isTarget ? "2px solid #3182ce" : undefined,
-    variant: "ghost",
-    _hover: { bg: useColorModeValue("gray.50", "gray.500"), transform: "scale(1.04)" }
+  const openDetails = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsOpen(true);
   };
-
-  const missing = t("exerciseCard.missing", "Données manquantes");
-  const name = exercise.nom || t("exerciseCard.missingName", "Nom manquant");
-
-  const gmArr = Array.isArray(exercise.groupe_musculaire)
-    ? exercise.groupe_musculaire
-    : (exercise.groupe_musculaire ? [exercise.groupe_musculaire] : []);
-  const groupeMusculaire = gmArr.length ? gmArr.join(", ") : missing;
-
-  const musclesSecondaires = Array.isArray(exercise.muscles_secondaires) && exercise.muscles_secondaires.length
-    ? exercise.muscles_secondaires.join(", ")
-    : missing;
-
-  // différentes orthographes possibles dans la base
-  const articulationsList = exercise.articulations_solicitees ?? exercise.articulations_sollicitees;
-  const articulations = Array.isArray(articulationsList) && articulationsList.length
-    ? articulationsList.join(", ")
-    : missing;
-
-  const ligaments = Array.isArray(exercise.tendons_solicites) && exercise.tendons_solicites.length
-    ? exercise.tendons_solicites.join(", ")
-    : missing;
-
-  const variantes = Array.isArray(exercise.variantes) && exercise.variantes.length
-    ? exercise.variantes.join(", ")
-    : t("exerciseCard.noVariant", "Aucune variante disponible");
-
-  const contraintes = Array.isArray(exercise.contraintes)
-    ? (exercise.contraintes.length ? exercise.contraintes.join(", ") : t("exerciseCard.noConstraints", "Aucune contrainte spécifiée"))
-    : (exercise.contraintes || t("exerciseCard.noConstraints", "Aucune contrainte spécifiée"));
-
-  const cardMaxH = 300; // pour garder des cartes homogènes dans la grille
 
   return (
     <Box
-      borderWidth="2px"
+      bg={bg}
+      border="1px solid"
+      borderColor={border}
       borderRadius="xl"
-      borderColor={useColorModeValue("gray.300", "gray.600")}
-      bg={cardBg}
-      p={3}
-      textAlign="center"
-      color={textColor}
-      boxShadow="sm"
-      transition="all 0.2s"
-      _hover={{ boxShadow: "md", transform: "scale(1.02)" }}
-      display="flex"
-      flexDirection="column"
-      alignItems="center"
-      overflowY="auto"
-      maxHeight={`${cardMaxH}px`}
+      px={3}
+      py={2.5}
+      boxShadow="none"
+      transition="all .12s ease"
+      _hover={{ borderColor: useColorModeValue("blackAlpha.200", "whiteAlpha.300") }}
+      color={text}
     >
-      <Image
-        src={exercise.image || "placeholder.png"}
-        alt={name}
-        borderRadius="md"
-        mb={2}
-        boxSize="60px"
-        objectFit="contain"
-        draggable={false}
-        pointerEvents="none"
-      />
+      {/* ===== Ligne principale ultra compacte ===== */}
+      <HStack spacing={3} align="center">
+        {/* ✅ initiale => icône muscle (ou image si dispo) */}
+        <Box
+          w="34px"
+          h="34px"
+          borderRadius="lg"
+          bg={chipBg}
+          border="1px solid"
+          borderColor={border}
+          overflow="hidden"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          flex="0 0 auto"
+        >
+          {hasImage ? (
+            <Image
+              src={exercise.image}
+              alt={name}
+              boxSize="34px"
+              objectFit="cover"
+              draggable={false}
+              pointerEvents="none"
+            />
+          ) : (
+            <Icon as={MuscleIcon} boxSize={5} opacity={0.9} />
+          )}
+        </Box>
 
-      <Text fontWeight="bold" fontSize="md" mb={2} color={textColor} noOfLines={2}>
-        {name}
+        <Box flex="1" minW={0}>
+          {/* ✅ MODIF ICI : afficher le nom en entier (wrap) */}
+          <Text
+            fontWeight="800"
+            fontSize="sm"
+            whiteSpace="normal"
+            wordBreak="break-word"
+            lineHeight="1.2"
+          >
+            {name}
+          </Text>
+
+          <Text fontSize="xs" color={muted} noOfLines={1}>
+            {groupe}
+          </Text>
+        </Box>
+
+        {/* ✅ badge matériel à droite */}
+        <HStack spacing={2} flex="0 0 auto">
+          <Tag size="sm" borderRadius="full" bg={chipBg} border="1px solid" borderColor={border}>
+            <TagLabel noOfLines={1}>{materiel}</TagLabel>
+          </Tag>
+        </HStack>
+      </HStack>
+
+      {/* ===== Meta ===== */}
+      <Text mt={2} fontSize="xs" color={muted} noOfLines={1}>
+        {niveau} • {t("exerciseCard.meta.fast", "Voir détails pour consignes")}
       </Text>
 
-      <HStack mt={2} spacing={2} w="100%" maxW="260px" mx="auto" justifyContent="center">
-        <Button
-          {...sharedButtonStyles}
-          leftIcon={leftIcon}
-          onClick={handleClick}
-          onPointerUp={handlePointerUp}
-          onTouchEnd={handlePointerUp}
-          flex="1"
-        >
-          <span style={{ color: !replaceMode ? btnTextColor : undefined, fontWeight: "bold" }}>
+      {/* ===== Boutons ===== */}
+      <HStack spacing={2} mt={2.5}>
+        {isProgramBuilder && (
+          <Button
+            leftIcon={leftIcon}
+            onClick={handleClick}
+            onPointerUp={handlePointerUp}
+            onTouchEnd={handlePointerUp}
+            h="32px"
+            px={4}
+            borderRadius="full"
+            bg={primaryBtnBg}
+            color="white"
+            fontWeight="800"
+            fontSize="sm"
+            _hover={{ bg: primaryBtnHover }}
+            _active={{ transform: "scale(0.99)" }}
+            type="button"
+            flex="1"
+          >
             {label}
-          </span>
-        </Button>
+          </Button>
+        )}
 
         <Button
-          {...sharedButtonStyles}
           leftIcon={<InfoOutlineIcon boxSize={4} />}
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsOpen(true); }}
-          onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); setIsOpen(true); }}
-          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); setIsOpen(true); }}
+          onClick={openDetails}
+          onPointerUp={openDetails}
+          onTouchEnd={openDetails}
+          h="32px"
+          px={4}
+          borderRadius="full"
+          bg={ghostBtnBg}
+          fontWeight="800"
+          fontSize="sm"
+          _hover={{ bg: ghostBtnHover }}
+          _active={{ transform: "scale(0.99)" }}
+          type="button"
           flex="1"
         >
           {t("exerciseCard.details", "Détails")}
         </Button>
       </HStack>
 
-      <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} isCentered>
+      {/* ===== Modal ===== */}
+      <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} isCentered size="lg">
         <ModalOverlay />
-        <ModalContent borderRadius="xl" bg={cardBg} color={textColor}>
-          <ModalHeader>{name}</ModalHeader>
+        <ModalContent borderRadius="2xl" bg={bg} color={text} overflow="hidden">
+          <ModalHeader fontWeight="900">{name}</ModalHeader>
           <ModalCloseButton />
-          <ModalBody>
+          <ModalBody pb={6}>
             <Grid templateColumns="30px 1fr" gap={3}>
-              <GridItem><MdFitnessCenter size={20} /></GridItem>
               <GridItem>
-                <Text fontWeight="bold">{t("exerciseCard.fields.mainGroup", "Groupe musculaire")} :</Text>
-                <Text>{groupeMusculaire}</Text>
+                <MdFitnessCenter size={20} />
+              </GridItem>
+              <GridItem>
+                <Text fontWeight="800">{t("exerciseCard.fields.mainGroup", "Groupe musculaire")} :</Text>
+                <Text color={muted}>{gmArr.length ? gmArr.join(", ") : missing}</Text>
               </GridItem>
 
-              <GridItem><MdFitnessCenter size={20} /></GridItem>
               <GridItem>
-                <Text fontWeight="bold">{t("exerciseCard.fields.secondary", "Muscles secondaires")} :</Text>
-                <Text>{musclesSecondaires}</Text>
+                <MdFitnessCenter size={20} />
+              </GridItem>
+              <GridItem>
+                <Text fontWeight="800">{t("exerciseCard.fields.secondary", "Muscles secondaires")} :</Text>
+                <Text color={muted}>{musclesSecondaires}</Text>
               </GridItem>
 
-              <GridItem><MdOutlineHealing size={20} /></GridItem>
               <GridItem>
-                <Text fontWeight="bold">{t("exerciseCard.fields.joints", "Articulations sollicitées")} :</Text>
-                <Text>{articulations}</Text>
+                <MdOutlineHealing size={20} />
+              </GridItem>
+              <GridItem>
+                <Text fontWeight="800">{t("exerciseCard.fields.joints", "Articulations sollicitées")} :</Text>
+                <Text color={muted}>{articulations}</Text>
               </GridItem>
 
-              <GridItem><MdOutlineLink size={20} /></GridItem>
               <GridItem>
-                <Text fontWeight="bold">{t("exerciseCard.fields.ligaments", "Ligaments sollicités")} :</Text>
-                <Text>{ligaments}</Text>
+                <MdOutlineLink size={20} />
+              </GridItem>
+              <GridItem>
+                <Text fontWeight="800">{t("exerciseCard.fields.ligaments", "Ligaments sollicités")} :</Text>
+                <Text color={muted}>{ligaments}</Text>
               </GridItem>
 
-              <GridItem><MdSwapHoriz size={20} /></GridItem>
               <GridItem>
-                <Text fontWeight="bold">{t("exerciseCard.fields.variants", "Variantes")} :</Text>
-                <Text>{variantes}</Text>
+                <MdSwapHoriz size={20} />
+              </GridItem>
+              <GridItem>
+                <Text fontWeight="800">{t("exerciseCard.fields.variants", "Variantes")} :</Text>
+                <Text color={muted}>{variantes}</Text>
               </GridItem>
 
-              <GridItem><MdWarning size={20} color="red" /></GridItem>
               <GridItem>
-                <Text fontWeight="bold" color="red.500">{t("exerciseCard.fields.constraints", "Contraintes")} :</Text>
-                <Text>{contraintes}</Text>
+                <MdWarning size={20} />
+              </GridItem>
+              <GridItem>
+                <Text fontWeight="800" color="red.500">
+                  {t("exerciseCard.fields.constraints", "Contraintes")} :
+                </Text>
+                <Text color={muted}>{contraintes}</Text>
               </GridItem>
 
-              <GridItem><MdOutlineMenuBook size={20} /></GridItem>
               <GridItem>
-                <Text fontWeight="bold">{t("exerciseCard.fields.cues", "Consignes d'exécution")} :</Text>
-                {exercise.consignes && Object.keys(exercise.consignes).length > 0 ? (
+                <MdOutlineMenuBook size={20} />
+              </GridItem>
+              <GridItem>
+                <Text fontWeight="900">{t("exerciseCard.fields.cues", "Consignes d'exécution")} :</Text>
+                {exercise?.consignes && Object.keys(exercise.consignes).length > 0 ? (
                   <List spacing={2} mt={2}>
                     {Object.entries(exercise.consignes).map(([key, val], i) => (
-                      <ListItem key={i} display="flex" alignItems="center">
-                        <ListIcon as={MdCheckCircle} color="green.500" />
-                        <Text><strong>{key} :</strong> {val}</Text>
+                      <ListItem key={i} display="flex" alignItems="start">
+                        <ListIcon as={MdCheckCircle} color="green.500" mt="2px" />
+                        <Text>
+                          <strong>{key} :</strong> {val}
+                        </Text>
                       </ListItem>
                     ))}
                   </List>
                 ) : (
-                  <Text>{missing}</Text>
+                  <Text color={muted}>{missing}</Text>
                 )}
               </GridItem>
             </Grid>
@@ -241,8 +408,7 @@ function ExerciseCardComponent({
 export default React.memo(
   ExerciseCardComponent,
   (prev, next) =>
-    prev.exercise.id === next.exercise.id &&
+    prev.exercise?.id === next.exercise?.id &&
     prev.replaceMode === next.replaceMode &&
     prev.isTarget === next.isTarget
 );
-

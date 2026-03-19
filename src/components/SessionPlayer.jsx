@@ -11,8 +11,10 @@ import {
   Progress, Image, Grid, Flex, Modal, ModalOverlay,
   ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton, useDisclosure,
   Badge, CircularProgress, CircularProgressLabel, Divider, Input,
-  NumberInput, NumberInputField, useBreakpointValue, Switch, FormControl, FormLabel,
-  Table, Thead, Tbody, Tr, Th, Td, Tag, Textarea, Container, Wrap, Kbd
+  useBreakpointValue, Switch, FormControl, FormLabel,
+  Table, Thead, Tbody, Tr, Th, Td, Tag, Textarea, Container, Wrap, Kbd,
+  Spacer,
+  Tooltip,
 } from "@chakra-ui/react";
 import {
   ArrowBackIcon, AddIcon, MinusIcon,
@@ -44,11 +46,12 @@ const toSeconds = (v) => {
   }
   return Math.max(0, Number(s) || 0);
 };
+
 const toClockMMSS = (s) => {
-  const n = Math.max(0, Number(s) || 0);
+  const n = Math.max(0, Math.round(Number(s) || 0));
   const m = Math.floor(n / 60);
   const sec = n % 60;
-  return `${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+  return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 };
 
 function flattenSession(sess) {
@@ -104,6 +107,7 @@ const OPTION_FLAG = {
   distance:    "Distance",
   intensite:   "Intensité",
 };
+
 const FIELD_MAP = {
   series:      ["Séries", "series", "séries"],
   repetitions: ["Répétitions", "repetitions", "répétitions", "reps"],
@@ -113,9 +117,10 @@ const FIELD_MAP = {
   calories:    ["Objectif Calories", "calories", "objectif_calories", "kcal"],
   tempo:       ["Tempo", "tempo", "tempo_pattern", "cadence"],
   vitesse:     ["Vitesse", "vitesse", "speed", "kmh", "km/h"],
-  distance:    ["Distance", "distance", "metrage", "km", "m", "meters"],
+  distance:    ["Distance", "distance", "metrage", "m", "meters", "metres", "km"],
   intensite:   ["Intensité", "intensite", "intensity", "rpe", "percent_1rm"],
 };
+
 const METADATA = {
   series:      { step: 1,    isTime: false },
   repetitions: { step: 1,    isTime: false },
@@ -125,9 +130,10 @@ const METADATA = {
   calories:    { step: 1,    isTime: false },
   tempo:       { step: 1,    isTime: false },
   vitesse:     { step: 1,    isTime: false },
-  distance:    { step: 1,    isTime: false },
+  distance:    { step: 10,   isTime: false },
   intensite:   { step: 1,    isTime: false },
 };
+
 const getFieldValue = (obj, fieldKeys) => {
   for (const k of fieldKeys) if (obj?.[k] !== undefined && obj[k] !== null) return obj[k];
   return undefined;
@@ -155,26 +161,27 @@ const mergeBaseFromDetail0 = (ex) => {
 /* ---------------------- Units helpers ---------------------- */
 const KG_TO_LB = 2.2046226218;
 const KM_TO_MI = 0.6213711922;
-const DEFAULT_UNITS = { weight: "kg", distance: "km", speed: "kmh" };
+const M_TO_MI  = 0.0006213711922;
+
+const DEFAULT_UNITS = { weight: "kg", distance: "m", speed: "kmh" };
 
 function displayFromBase({ units, label, value }) {
   if (value == null) return 0;
   const v = Number(value) || 0;
   if (label === "Charge (kg)") return units.weight === "lb" ? +(v * KG_TO_LB).toFixed(2) : v;
-  if (label === "Distance")   return units.distance === "mi" ? +(v * KM_TO_MI).toFixed(2) : v;
-  if (label === "Vitesse")    return units.speed === "mph" ? +(v * KM_TO_MI).toFixed(2) : v; // km/h → mph
+  if (label === "Distance")   return units.distance === "miles" ? +(v * M_TO_MI).toFixed(2) : v;
+  if (label === "Vitesse")    return units.speed === "mph" ? +(v * KM_TO_MI).toFixed(2) : v;
   return v;
 }
 function baseFromDisplay({ units, label, value }) {
   if (value == null) return 0;
   const v = Number(value) || 0;
   if (label === "Charge (kg)") return units.weight === "lb" ? +(v / KG_TO_LB).toFixed(2) : v;
-  if (label === "Distance")    return units.distance === "mi" ? +(v / KM_TO_MI).toFixed(2) : v;
-  if (label === "Vitesse")     return units.speed === "mph" ? +(v / KM_TO_MI).toFixed(2) : v; // mph → km/h
+  if (label === "Distance")    return units.distance === "miles" ? +(v / M_TO_MI).toFixed(2) : v;
+  if (label === "Vitesse")     return units.speed === "mph" ? +(v / KM_TO_MI).toFixed(2) : v;
   return v;
 }
 
-// ✅ Libellés “safe” (jamais undefined)
 function labelWithUnit(units, label, t) {
   const tr = (key, fallback) => {
     try { return typeof t === "function" ? t(key, fallback) : fallback; }
@@ -186,9 +193,9 @@ function labelWithUnit(units, label, t) {
     return units.weight === "lb" ? tr("labels.loadLb", "Charge (lb)") : "Charge (kg)";
   }
   if (lb === "Distance") {
-    return units.distance === "mi"
-      ? tr("labels.distanceMi", "Distance (mi)")
-      : tr("labels.distanceKm", "Distance (km)");
+    return units.distance === "miles"
+      ? tr("labels.distanceMiles", "Distance (miles)")
+      : tr("labels.distanceM", "Distance (m)");
   }
   if (lb === "Vitesse") {
     return units.speed === "mph"
@@ -228,7 +235,7 @@ function buildChainInfo(sessionObj, flat, i) {
   const mode =
     flat[start]?.chainRestMode ||
     sessionObj?.chainRestMode ||
-    "both"; // "last" | "each" | "both"
+    "both";
 
   const refSeries =
     Number(getFieldValue(flat[start], FIELD_MAP.series) ?? 1) || 1;
@@ -243,7 +250,6 @@ const EditableMetric = ({ label, isTime = false, value, onChange, step = 1, comp
   const border   = useColorModeValue("gray.200", "gray.600");
   const textMute = useColorModeValue("gray.600", "gray.300");
 
-  // ❗️hooks toujours appelés
   const labelSizeBP = useBreakpointValue({ base: "sm", md: "xs" });
   const inputFontBP = useBreakpointValue({ base: "xl", md: "lg" });
   const btnSizeBP   = useBreakpointValue({ base: "md", md: "sm" });
@@ -257,8 +263,11 @@ const EditableMetric = ({ label, isTime = false, value, onChange, step = 1, comp
   const [text, setText] = useState(isTime ? toClockMMSS(value) : String(value ?? 0));
   useEffect(() => { setText(isTime ? toClockMMSS(value) : String(value ?? 0)); }, [value, isTime, label]);
 
+  const normalizeDecimalText = (s) => String(s ?? "").replace(/\s+/g, "").replace(",", ".");
+
   const commitNumber = () => {
-    const n = Number(text);
+    const normalized = normalizeDecimalText(text);
+    const n = Number(normalized);
     const sane = isFinite(n) && n >= 0 ? n : 0;
     setText(String(sane));
     onChange(sane);
@@ -284,7 +293,7 @@ const EditableMetric = ({ label, isTime = false, value, onChange, step = 1, comp
           aria-label={`- ${label}`}
           icon={<MinusIcon />}
           onClick={() => {
-            const next = Math.max(0, (isTime ? value : Number(value || 0)) - step);
+            const next = Math.max(0, (isTime ? Number(value || 0) : Number(value || 0)) - step);
             onChange(next);
             setText(isTime ? toClockMMSS(next) : String(next));
           }}
@@ -304,20 +313,19 @@ const EditableMetric = ({ label, isTime = false, value, onChange, step = 1, comp
             aria-label={`${label} en mm:ss`}
           />
         ) : (
-          <NumberInput
+          <Input
             value={text}
-            min={0}
-            onChange={(valStr) => setText(valStr)}
+            onChange={(e) => setText(e.target.value)}
             onBlur={commitNumber}
-            keepWithinRange={false}
-            clampValueOnBlur={false}
-            inputMode="decimal"
             onKeyDown={onEnter}
-            step={step}
+            textAlign="center"
+            fontSize={inputFont}
+            h={height}
             w="full"
-          >
-            <NumberInputField textAlign="center" fontSize={inputFont} h={height} />
-          </NumberInput>
+            inputMode="decimal"
+            pattern="[0-9]*[.,]?[0-9]*"
+            aria-label={label}
+          />
         )}
         <IconButton
           size={btnSize}
@@ -326,7 +334,7 @@ const EditableMetric = ({ label, isTime = false, value, onChange, step = 1, comp
           aria-label={`+ ${label}`}
           icon={<AddIcon />}
           onClick={() => {
-            const next = (isTime ? value : Number(value || 0)) + step;
+            const next = Number(value || 0) + step;
             onChange(next);
             setText(isTime ? toClockMMSS(next) : String(next));
           }}
@@ -374,6 +382,160 @@ const ListCard = ({ title, icon, accent, items }) => {
 /* ---------------------- Historique : helpers et refs ---------------------- */
 function randomId(n = 8) {
   return Math.random().toString(36).slice(2, 2 + n);
+}
+
+/* ====================== AUTO PROGRESSION (NEW) ====================== */
+
+// champs autorisés (aléa)
+const PROG_FIELDS = ["Charge (kg)", "Répétitions", "Repos (min:sec)", "Séries"];
+
+// arrondis charge au 0.25
+const roundTo = (v, step) => {
+  const n = Number(v) || 0;
+  const s = Number(step) || 1;
+  return Math.round(n / s) * s;
+};
+
+const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+
+function isTrainingLike(ex) {
+  const col = String(ex?.__collection || "").toLowerCase();
+  if (col.includes("warmup") || col.includes("cooldown") || col.includes("echauffement") || col.includes("retour")) return false;
+
+  const cu = ex?.categorie_utilisation;
+  const arr = Array.isArray(cu) ? cu : (typeof cu === "string" ? [cu] : []);
+  const norm = arr.map(x => String(x).toLowerCase());
+  if (norm.includes("warmup") || norm.includes("cooldown")) return false;
+  if (norm.includes("training") || norm.includes("bonus")) return true;
+
+  return true;
+}
+
+function pickRandom(arr) {
+  if (!Array.isArray(arr) || !arr.length) return null;
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function computeProgSignFromRating(r) {
+  // 1-2 => + (plus dur), 3 => 0, 4-5 => - (moins dur)
+  if (r == null) return 0;
+  if (r <= 2) return +1;
+  if (r === 3) return 0;
+  return -1;
+}
+
+// ✅ lit le bon champ (priorité au champ réel Firestore : auto_suivi / options.auto_suivi)
+function readAutoProgressionEnabled(programData) {
+  const pd = programData || {};
+  const v1 = pd?.auto_suivi;
+  if (typeof v1 === "boolean") return v1;
+
+  const v2 = pd?.options?.auto_suivi;
+  if (typeof v2 === "boolean") return v2;
+
+  const v3 = pd?.autoProgressionEnabled;
+  if (typeof v3 === "boolean") return v3;
+
+  // fallback historique: si rien n’existe -> activé
+  return true;
+}
+
+function availableProgressFields(ex, seriesDiff) {
+  const out = [];
+
+  const hasCharge = getFieldValue(ex, FIELD_MAP.charge) != null || (seriesDiff && getSeriesDetails(ex)?.[0]?.["Charge (kg)"] != null);
+  const hasReps   = getFieldValue(ex, FIELD_MAP.repetitions) != null || (seriesDiff && getSeriesDetails(ex)?.[0]?.["Répétitions"] != null);
+  const hasRest   = getFieldValue(ex, FIELD_MAP.repos) != null || (seriesDiff && getSeriesDetails(ex)?.[0]?.["Repos (min:sec)"] != null);
+  const hasSeries = getFieldValue(ex, FIELD_MAP.series) != null;
+
+  if (hasCharge) out.push("Charge (kg)");
+  if (hasReps)   out.push("Répétitions");
+  if (hasRest)   out.push("Repos (min:sec)");
+  if (hasSeries) out.push("Séries");
+
+  return out.filter((x) => PROG_FIELDS.includes(x));
+}
+
+// applique une modification sur ex (et retourne un ex modifié)
+function applyOneProgressChange({
+  ex,
+  sign,
+  currentSet,
+}) {
+  const out = structuredClone(ex || {});
+  const seriesDiff = getSeriesDiffFlag(out);
+  const details = getSeriesDetails(out);
+  const detIdx = Math.max(0, (Number(currentSet) || 1) - 1);
+
+  const fields = availableProgressFields(out, seriesDiff);
+  if (!fields.length) return { ex: out, changed: false, changedField: null };
+
+  const chosen = pickRandom(fields);
+  if (!chosen) return { ex: out, changed: false, changedField: null };
+
+  const isTime = chosen === "Repos (min:sec)";
+  const isCharge = chosen === "Charge (kg)";
+  const isReps = chosen === "Répétitions";
+  const isSeries = chosen === "Séries";
+
+  let cur;
+  if (seriesDiff && details && chosen !== "Séries") {
+    cur = details?.[detIdx]?.[chosen];
+    if (cur == null) {
+      if (isCharge) cur = getFieldValue(out, FIELD_MAP.charge);
+      else if (isReps) cur = getFieldValue(out, FIELD_MAP.repetitions);
+      else if (isTime) cur = getFieldValue(out, FIELD_MAP.repos);
+    }
+  } else {
+    cur = out[chosen];
+    if (cur == null) {
+      if (isCharge) cur = getFieldValue(out, FIELD_MAP.charge);
+      else if (isReps) cur = getFieldValue(out, FIELD_MAP.repetitions);
+      else if (isTime) cur = getFieldValue(out, FIELD_MAP.repos);
+      else if (isSeries) cur = getFieldValue(out, FIELD_MAP.series);
+    }
+  }
+
+  if (cur == null) return { ex: out, changed: false, changedField: null };
+
+  let next = cur;
+
+  if (isCharge) {
+    const n = Number(cur) || 0;
+    const delta = n * 0.025; // 2.5%
+    next = roundTo(Math.max(0, n + sign * delta), 0.25);
+    if (n === 0 && sign > 0) next = 0.25;
+  } else if (isReps) {
+    const n = Math.round(Number(cur) || 0);
+    next = Math.max(0, n + sign * 1);
+  } else if (isTime) {
+    const sec = toSeconds(cur);
+    next = Math.max(0, sec + sign * 15);
+  } else if (isSeries) {
+    const n = Math.round(Number(cur) || 1);
+    next = clamp(n + sign * 1, 1, 10);
+  }
+
+  if (String(next) === String(cur)) return { ex: out, changed: false, changedField: null };
+
+  if (seriesDiff && details && chosen !== "Séries") {
+    const seed = {};
+    Object.values(OPTION_FLAG).forEach(lbl => { if (out[lbl] != null) seed[lbl] = out[lbl]; });
+    const setsCount = Number(getFieldValue(out, FIELD_MAP.series) ?? 1) || 1;
+    const det = ensureDetailsLength(details, setsCount, seed);
+    det[detIdx] = { ...(det[detIdx] || {}), [chosen]: next };
+    out.seriesDetails = det;
+  } else {
+    out[chosen] = next;
+
+    if (chosen === "Séries") {
+      const setsCount = Number(next) || 1;
+      const baseForNew = mergeBaseFromDetail0(out);
+      out.seriesDetails = ensureDetailsLength(getSeriesDetails(out), setsCount, baseForNew);
+    }
+  }
+
+  return { ex: out, changed: true, changedField: chosen };
 }
 
 /* ---------------------- Component ---------------------- */
@@ -432,6 +594,9 @@ export default function SessionPlayer() {
     () => getProgrammeDocRef({ clientId, programId }),
     [clientId, programId]
   );
+
+  // ✅ Auto-progression enabled (read-only indicator) — lit auto_suivi / options.auto_suivi en priorité
+  const autoProgEnabled = useMemo(() => readAutoProgressionEnabled(programData), [programData]);
 
   // --- Historique : BUFFER + FLUSH à la fin ---
   const historyRunIdRef = useRef(randomId(10));
@@ -593,6 +758,70 @@ export default function SessionPlayer() {
     }
   }
 
+  /* ====================== AUTO PROGRESSION (NEW) ====================== */
+  async function applyAutoProgressionAfterRating(r) {
+    try {
+      if (!programDocRef) return;
+      if (!programData?.sessions?.length) return;
+      if (!sessionObj) return;
+
+      // ✅ respecte le vrai champ (auto_suivi / options.auto_suivi)
+      if (!readAutoProgressionEnabled(programData)) return;
+
+      const sign = computeProgSignFromRating(r);
+      if (sign === 0) return; // note 3 => rien
+
+      const sessionsCopy = structuredClone(programData.sessions || []);
+      const sessCopy = sessionsCopy[sessionIndex] || {};
+      let changedCount = 0;
+
+      if (sessCopy?.useSections || sessCopy?.echauffement || sessCopy?.corps || sessCopy?.bonus || sessCopy?.retourCalme) {
+        const keys = ["corps", "bonus"];
+        keys.forEach((key) => {
+          const arr = Array.isArray(sessCopy[key]) ? sessCopy[key] : [];
+          const nextArr = arr.map((exItem) => {
+            const { ex: nextEx, changed } = applyOneProgressChange({
+              ex: exItem,
+              sign,
+              currentSet: 1,
+            });
+            if (changed) changedCount += 1;
+            return nextEx;
+          });
+          sessCopy[key] = nextArr;
+        });
+      } else if (Array.isArray(sessCopy?.exercises)) {
+        const arr = sessCopy.exercises || [];
+        sessCopy.exercises = arr.map((exItem) => {
+          if (!isTrainingLike(exItem)) return exItem;
+          const { ex: nextEx, changed } = applyOneProgressChange({
+            ex: exItem,
+            sign,
+            currentSet: 1,
+          });
+          if (changed) changedCount += 1;
+          return nextEx;
+        });
+      }
+
+      if (!changedCount) return;
+
+      sessionsCopy[sessionIndex] = sessCopy;
+
+      await updateDoc(programDocRef, { sessions: sessionsCopy, updatedAt: serverTimestamp() });
+
+      setProgramData((prev) => ({ ...(prev || {}), sessions: sessionsCopy }));
+      setSessionObj(sessCopy);
+
+      const updated = flattenSession(sessCopy);
+      setFlat(updated.flat);
+      setMapIdx(updated.map);
+    } catch (e) {
+      console.error("applyAutoProgressionAfterRating error:", e);
+    }
+  }
+  /* ====================== END AUTO PROGRESSION ====================== */
+
   const handleSubmitRating = async () => {
     if (clientId && programId) {
       try {
@@ -602,12 +831,14 @@ export default function SessionPlayer() {
         );
       } catch (e) { console.error("rating add error", e); }
 
+      try { await applyAutoProgressionAfterRating(rating); } catch {}
       try { await saveSessionCompletion(100); } catch {}
       try { await flushHistory(); } catch {}
       try { await upsertCoachCalendarEvent(); } catch {}
     }
     onClose(); navigate(-1);
   };
+
   const handleIgnoreRating = async () => {
     if (clientId && programId) {
       try {
@@ -615,7 +846,7 @@ export default function SessionPlayer() {
           collection(db, "clients", clientId, "programmes", programId, "difficulté_notes"),
           { sessionIndex, rating: null, createdAt: serverTimestamp() }
         );
-      } catch (e) { console.error("rating ignore add error", e); }
+      } catch (e) { console.error("rating ignore add error:", e); }
 
       try {
         const pct = Math.round(((exIndex + 1) / (flat.length || 1)) * 100);
@@ -974,6 +1205,7 @@ export default function SessionPlayer() {
     setPhase("ready"); setCurrentSet(1);
     if (exIndex > 0) setExIndex((i) => i - 1);
   }
+
   function nextPhase() {
     if (phase === "effort") {
       effortTimer.stop();
@@ -982,9 +1214,23 @@ export default function SessionPlayer() {
     } else if (phase === "rest") {
       const info = buildChainInfo(sessionObj, flat, exIndex);
       restTimer.stop();
-      advanceInsideChain(info.inChain ? info : { inChain: false });
-    } else { setPhase("effort"); effortTimer.start(); }
+
+      if (info.inChain) {
+        advanceInsideChain(info);
+        return;
+      }
+
+      if (currentSet < totalSetsRef.current) {
+        goNextSet();
+      } else {
+        nextExercise();
+      }
+    } else {
+      setPhase("effort");
+      effortTimer.start();
+    }
   }
+
   async function awaitCompletionAndOpenModal() {
     try { await saveSessionCompletion(100); } catch {}
     try { await flushHistory(); } catch {}
@@ -1076,6 +1322,11 @@ export default function SessionPlayer() {
           : t("sessionPlayer.restIgnored","Ignoré (enchaînement)")))
     : null;
 
+  // ✅ UI minimaliste: petit "chip" avec point + tooltip
+  const autoProgTooltip = autoProgEnabled
+    ? t("sessionPlayer.autoProgressionOn","Activée pour ce programme.")
+    : t("sessionPlayer.autoProgressionOff","Désactivée pour ce programme.");
+
   return (
     <Box ref={topAnchorRef} minH="100vh" bg={pageBg} py={{ base: 3, md: 6 }}>
       <Container maxW="container.xl" px={{ base: 3, md: 8 }}>
@@ -1094,35 +1345,78 @@ export default function SessionPlayer() {
             </Heading>
           </HStack>
 
-          {/* Unit toggles */}
-          <HStack
-            spacing={4}
-            overflowX={{ base: "auto", md: "visible" }}
-            py={{ base: 1, md: 0 }}
-            css={{ WebkitOverflowScrolling: "touch" }}
+          {/* TOP BAR : auto-progression chip (minimal) + unit toggles */}
+          <Flex
+            direction={{ base: "column", md: "row" }}
+            gap={{ base: 2, md: 4 }}
+            align={{ base: "stretch", md: "center" }}
           >
-            <HStack spacing={2} flexShrink={0}>
-              <Tag size="sm" variant="subtle" colorScheme="gray">kg/lb</Tag>
-              <Switch size="sm" isChecked={units.weight === "lb"} onChange={(e)=>setUnits(u => ({...u, weight: e.target.checked ? "lb" : "kg"}))}/>
-              <Tag size="sm" variant="subtle" colorScheme="gray">{units.weight.toUpperCase()}</Tag>
+            {/* Auto-progression (minimaliste) */}
+            <HStack flex="1" minW={0}>
+              <Tooltip label={autoProgTooltip} placement="bottom-start" hasArrow>
+                <Tag
+                  size="sm"
+                  variant="subtle"
+                  borderRadius="full"
+                  px={3}
+                  py={1}
+                  cursor="default"
+                >
+                  <Box
+                    w="7px"
+                    h="7px"
+                    borderRadius="full"
+                    bg={autoProgEnabled ? "green.400" : "red.400"}
+                    mr={2}
+                    flexShrink={0}
+                  />
+                  <Text fontSize="xs" fontWeight={800} lineHeight="1">
+                    {t("sessionPlayer.autoProgression","Auto-progression")}
+                  </Text>
+                </Tag>
+              </Tooltip>
             </HStack>
 
-            <HStack spacing={2} flexShrink={0}>
-              <Tag size="sm" variant="subtle" colorScheme="gray">km/mi</Tag>
-              <Switch size="sm" isChecked={units.distance === "mi"} onChange={(e)=>setUnits(u => ({...u, distance: e.target.checked ? "mi" : "km"}))}/>
-              <Tag size="sm" variant="subtle" colorScheme="gray">{units.distance}</Tag>
-            </HStack>
+            {/* Unit toggles */}
+            <HStack
+              spacing={4}
+              overflowX={{ base: "auto", md: "visible" }}
+              py={{ base: 1, md: 0 }}
+              css={{ WebkitOverflowScrolling: "touch" }}
+              justify={{ base: "flex-start", md: "flex-end" }}
+              flexShrink={0}
+            >
+              <HStack spacing={2} flexShrink={0}>
+                <Tag size="sm" variant="subtle" colorScheme="gray">kg/lb</Tag>
+                <Switch
+                  size="sm"
+                  isChecked={units.weight === "lb"}
+                  onChange={(e)=>setUnits(u => ({...u, weight: e.target.checked ? "lb" : "kg"}))}
+                />
+                <Tag size="sm" variant="subtle" colorScheme="gray">{units.weight.toUpperCase()}</Tag>
+              </HStack>
 
-            <HStack spacing={2} flexShrink={0}>
-              <Tag size="sm" variant="subtle" colorScheme="gray">km/h·mph</Tag>
-              <Switch
-                size="sm"
-                isChecked={units.speed === "mph"}
-                onChange={(e) => setUnits((u) => ({ ...u, speed: e.target.checked ? "mph" : "kmh" }))}
-              />
-              <Tag size="sm" variant="subtle" colorScheme="gray">{units.speed}</Tag>
+              <HStack spacing={2} flexShrink={0}>
+                <Tag size="sm" variant="subtle" colorScheme="gray">m/miles</Tag>
+                <Switch
+                  size="sm"
+                  isChecked={units.distance === "miles"}
+                  onChange={(e)=>setUnits(u => ({...u, distance: e.target.checked ? "miles" : "m"}))}
+                />
+                <Tag size="sm" variant="subtle" colorScheme="gray">{units.distance}</Tag>
+              </HStack>
+
+              <HStack spacing={2} flexShrink={0}>
+                <Tag size="sm" variant="subtle" colorScheme="gray">km/h·mph</Tag>
+                <Switch
+                  size="sm"
+                  isChecked={units.speed === "mph"}
+                  onChange={(e) => setUnits((u) => ({ ...u, speed: e.target.checked ? "mph" : "kmh" }))}
+                />
+                <Tag size="sm" variant="subtle" colorScheme="gray">{units.speed}</Tag>
+              </HStack>
             </HStack>
-          </HStack>
+          </Flex>
 
           {/* Bandeau superset */}
           {chain.inChain && (
@@ -1174,6 +1468,17 @@ export default function SessionPlayer() {
               <Box flexBasis={{ base: "100%", md: "32%" }} position={{ base: "static", md: "sticky" }} top={{ md: 20 }} w="full" minW={0}>
                 <Box bg={cardBg} p={{ base: 4, md: 6 }} borderRadius="2xl" boxShadow="xl" border="1px solid" borderColor={border} textAlign="center" w="full" minW={0}>
                   <VStack spacing={4} w="full" minW={0}>
+                    <Box display={{ base: "block", md: "none" }} w="full">
+                      <Heading size="md" noOfLines={2}>
+                        {ex.nom || ex.name}
+                      </Heading>
+                      {chain.inChain && (
+                        <Tag mt={2} colorScheme="purple" variant="subtle">
+                          {String.fromCharCode(65 + chain.pos)} / {String.fromCharCode(65 + chain.size - 1)}
+                        </Tag>
+                      )}
+                    </Box>
+
                     <CircularProgress
                       value={
                         phase === "effort"
@@ -1254,7 +1559,7 @@ export default function SessionPlayer() {
                   <Image src={ex.imageUrl} alt={ex.nom} mb={4} borderRadius="xl" border="1px solid" borderColor={border} w="full" minW={0} />
                 )}
 
-                <HStack align="baseline" justify="space-between">
+                <HStack align="baseline" justify="space-between" display={{ base: "none", md: "flex" }}>
                   <Heading size="lg" mb={2} noOfLines={2}>{ex.nom || ex.name}</Heading>
                   {chain.inChain && (
                     <Tag colorScheme="purple" variant="subtle">
@@ -1288,13 +1593,13 @@ export default function SessionPlayer() {
                   w="full"
                   minW={0}
                 >
-                  {metrics.map(({ key, label, field, step, isTime, value }) => (
+                  {metrics.map(({ field, step, isTime, value }) => (
                     <EditableMetric
                       key={field}
                       label={
                         field === "Repos (min:sec)" && chain.inChain
-                          ? `${labelWithUnit(units, label, t)} ${restHint ? `— ${restHint}` : ""}`
-                          : labelWithUnit(units, label, t)
+                          ? `${labelWithUnit(units, field, t)} ${restHint ? `— ${restHint}` : ""}`
+                          : labelWithUnit(units, field, t)
                       }
                       isTime={isTime}
                       value={value}
@@ -1426,4 +1731,3 @@ export default function SessionPlayer() {
     </Box>
   );
 }
-

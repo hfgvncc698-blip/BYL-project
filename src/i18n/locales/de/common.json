@@ -1,6 +1,5 @@
 {
   "brand": "BoostYourLife.coach",
-
   "nav": {
     "home": "Startseite",
     "dashboard": "Dashboard",
@@ -28,7 +27,6 @@
     "guided_creation": "Geführte Erstellung",
     "build_my_program": "Mein Programm erstellen"
   },
-
   "actions": {
     "buy_now": "Jetzt kaufen",
     "subscribe": "Abonnieren",
@@ -39,7 +37,6 @@
     "confirm": "Bestätigen",
     "delete": "Löschen"
   },
-
   "common": {
     "loading": "Laden…",
     "loading_details": "Details werden geladen…",
@@ -56,7 +53,6 @@
     "ignore": "Ignorieren",
     "submit": "Senden"
   },
-
   "form": {
     "program": "Programm",
     "client": "Kunde",
@@ -66,12 +62,10 @@
     "select_client": "Kunden auswählen",
     "select_session": "Einheit auswählen"
   },
-
   "errors": {
     "not_logged_in": "Benutzer nicht angemeldet.",
     "payment_failed": "Zahlungsfehler: "
   },
-
   "premium": {
     "title": "Premium-Programme",
     "subtitle": "Einsatzbereite Programme, entwickelt von BoostYourLife.",
@@ -87,14 +81,12 @@
     "card_title": "Premium-Programm",
     "default_desc": "Strukturiertes Programm – startklar."
   },
-
   "home": {
     "hero_title": "Booste dein Leben mit intelligentem Training",
     "hero_sub": "Einfache Tools für Coaches und Kund:innen.",
     "cta_pro": "Für Coaches",
     "cta_client": "Für Privatpersonen"
   },
-
   "dashboard": {
     "coach_title": "Coach-Dashboard",
     "client_title": "Mein Dashboard",
@@ -126,7 +118,6 @@
     },
     "calendar": "Kalender"
   },
-
   "calendar": {
     "title": "Kalender",
     "add_session": "Einheit hinzufügen",
@@ -150,13 +141,11 @@
     "agenda": "Agenda",
     "show_more": "+ {{count}} mehr"
   },
-
   "time": {
     "days_short": "T",
     "hours_short": "Std",
     "minutes_short": "Min"
   },
-
   "programs": {
     "title": "Programme",
     "empty": "Noch keine Programme.",
@@ -166,7 +155,6 @@
     "delete": "Löschen",
     "new_program": "Neues Programm"
   },
-
   "exercise": {
     "name": "Übung",
     "reps": "Wdh",
@@ -174,12 +162,10 @@
     "rest": "Pause",
     "duration": "Dauer"
   },
-
   "confirm": {
     "delete_program": "Möchtest du dieses Programm wirklich löschen?",
     "delete_client": "Möchtest du diesen Kunden wirklich löschen?"
   },
-
   "greeting": {
     "card_aria": "Coach-Begrüßungskarte",
     "hello_name": "Hallo {{name}}",
@@ -193,7 +179,6 @@
       "evening": "Den Tag stark beenden 💪"
     }
   },
-
   "units": {
     "per_week_short": "/ Woche",
     "min": "Min",
@@ -205,7 +190,6 @@
     "kmh": "km/h",
     "mph": "mph"
   },
-
   "client_dash": {
     "client": "Kunde",
     "hello_name": "Hallo {{name}}",
@@ -234,7 +218,6 @@
       "action": "Aktion"
     }
   },
-
   "hero": {
     "title1": "Erwecke deine Ziele mit",
     "title2": "BoostYourLife.coach",
@@ -245,7 +228,6 @@
     "coachHint": "14 Tage gratis testen. Keine Karte nötig.",
     "ctaPremium": "Premium-Programme entdecken"
   },
-
   "how": {
     "title": "Wie funktioniert’s?",
     "coach": {
@@ -261,7 +243,6 @@
       "l3": "Verfolge deinen Fortschritt + Katalog an Premium-Programmen."
     }
   },
-
   "plans": {
     "title": "Wähle dein Paket",
     "free": {
@@ -283,12 +264,10 @@
       "cta": "Premium-Programme ansehen"
     }
   },
-
   "roles": {
     "individual": "Privatperson",
     "coach": "Coach"
   },
-
   "profile": {
     "title": "Mein Profil",
     "labels": {
@@ -320,7 +299,6 @@
       "logo": "Logo"
     }
   },
-
   "legal": {
     "cgu": "Nutzungsbedingungen",
     "cgv": "Verkaufsbedingungen",
@@ -404,7 +382,6 @@
       "last_update": "Letzte Aktualisierung: 1. Mai 2025"
     }
   },
-
   "proPlans": {
     "checking": "Prüfe deinen Probe-/Abo-Status…",
     "title": "Unsere Pro-Pakete",
@@ -456,7 +433,6 @@
     },
     "backToDashboard": "⟵ Zurück zum Dashboard"
   },
-
   "payment": {
     "checkout": {
       "title": "Programmkauf",
@@ -483,7 +459,6 @@
       "please_wait": "Bitte einige Sekunden warten…"
     }
   },
-
   "myPrograms": {
     "titleCoach": "Meine Programme (Coach)",
     "untitled": "Ohne Titel",
@@ -496,9 +471,9 @@
     "sessionsCount_one": "{{count}} Einheit",
     "sessionsCount_other": "{{count}} Einheiten"
   },
-
-  "profile_short": { "title": "Profil" },
-
+  "profile_short": {
+    "title": "Profil"
+  },
   "settings": {
     "title": "Einstellungen",
     "sections": {
@@ -540,7 +515,6 @@
       "account_deleted": "Konto gelöscht."
     }
   },
-
   "auth": {
     "login": {
       "title": "Anmeldung",
@@ -600,7 +574,6 @@
       }
     }
   },
-
   "stats": {
     "title": "Statistiken",
     "subtitle": "Verfolge deinen Gesamtfortschritt, Körpermaße und vergleiche Einheiten, um Fortschritte zu visualisieren.",
@@ -618,7 +591,9 @@
     "noPrograms": "Derzeit keine Programme gefunden.",
     "bodyComp": "Körperdaten",
     "addMeasure": "Messung hinzufügen",
-    "modal": { "title": "Neue Messung" },
+    "modal": {
+      "title": "Neue Messung"
+    },
     "fields": {
       "date": "Datum",
       "height": "Größe (cm)",
@@ -633,7 +608,6 @@
       "metabolicAge": "Metabolisches Alter"
     }
   },
-
   "months": {
     "long": {
       "0": "Januar",
@@ -650,7 +624,6 @@
       "11": "Dezember"
     }
   },
-
   "coachStats": {
     "title": "Statistiken",
     "badge": "Coach",
@@ -693,7 +666,6 @@
       "load_failed": "Statistiken konnten nicht geladen werden."
     }
   },
-
   "autoPreview": {
     "back": "Zurück",
     "edit": "Bearbeiten",
@@ -721,7 +693,6 @@
       "cooldown": "Cool-down"
     }
   },
-
   "pdf": {
     "sections": {
       "warmup": "Aufwärmen",
@@ -765,7 +736,6 @@
     },
     "fileNamePattern": "{{program}}-{{client}}-BYL-{{lang}}.pdf"
   },
-
   "autoQ": {
     "titleCoach": "Geführte Erstellung",
     "titleClient": "Maßgeschneidertes Programm",
@@ -773,7 +743,11 @@
     "male": "Mann",
     "female": "Frau",
     "level": "Niveau",
-    "levels": { "beginner": "Anfänger", "intermediate": "Fortgeschritten", "advanced": "Erfahren" },
+    "levels": {
+      "beginner": "Anfänger",
+      "intermediate": "Fortgeschritten",
+      "advanced": "Erfahren"
+    },
     "frequency": "Frequenz",
     "sessionsPerWeek": "{{n}} Einheit(en) / Woche",
     "goal": "Ziel",
@@ -814,8 +788,12 @@
         "desc": "Fülle alle 4 Felder aus, um fortzufahren.",
         "create": "Fülle alle 4 Felder aus, um das Programm zu erstellen."
       },
-      "paymentError": { "title": "Zahlungsfehler" },
-      "createError": { "title": "Erstellungsfehler" }
+      "paymentError": {
+        "title": "Zahlungsfehler"
+      },
+      "createError": {
+        "title": "Erstellungsfehler"
+      }
     },
     "errors": {
       "savePrefs": "Fehler beim Speichern der Präferenzen.",
@@ -823,7 +801,6 @@
       "missingProgramId": "Unerwartete Antwort (programId fehlt)."
     }
   },
-
   "clientCreation": {
     "title": "Neuen Kunden hinzufügen",
     "loginMethod": "Login-Methode",
@@ -841,7 +818,11 @@
     "height": "Größe (cm)",
     "weight": "Gewicht (kg)",
     "level": "Niveau",
-    "levels": { "beginner": "Anfänger", "intermediate": "Fortgeschritten", "advanced": "Erfahren" },
+    "levels": {
+      "beginner": "Anfänger",
+      "intermediate": "Fortgeschritten",
+      "advanced": "Erfahren"
+    },
     "objective": "Ziel",
     "objectives": {
       "gain": "Muskelaufbau",
@@ -870,7 +851,6 @@
     "modalConfirm": "Ja, aktualisieren",
     "modalCancel": "Abbrechen"
   },
-
   "clientView": {
     "globalProgress": "Globaler Fortschritt",
     "assignedPrograms": "Zugewiesene Programme",
@@ -890,7 +870,6 @@
     "viewAll": "Alle anzeigen",
     "deleteProgram": "Programm löschen"
   },
-
   "clientsList": {
     "heading": "Meine Kunden",
     "filters": {
@@ -912,7 +891,10 @@
       "lastOn": "Letzte Einheit am {{date}}",
       "none": "Keine Einheit gefunden"
     },
-    "status": { "active": "Aktiv", "inactive": "Inaktiv" },
+    "status": {
+      "active": "Aktiv",
+      "inactive": "Inaktiv"
+    },
     "sub": {
       "active": "Abonniert",
       "inactive": "Nicht abonniert",
@@ -926,12 +908,22 @@
       "sessions": "{{done}}/{{total}} Einheiten",
       "perWeek": "Einheiten/Woche: {{n}}"
     },
-    "actions": { "assign": "Zuweisen", "deleteAria": "Kunden löschen" },
-    "badge": { "programsShort": "Prog." },
-    "assignModal": { "title": "Programm zuweisen", "placeholder": "Programm auswählen" },
-    "deleteModal": { "title": "Kunden löschen", "body": "Möchtest du diesen Kunden wirklich löschen?" }
+    "actions": {
+      "assign": "Zuweisen",
+      "deleteAria": "Kunden löschen"
+    },
+    "badge": {
+      "programsShort": "Prog."
+    },
+    "assignModal": {
+      "title": "Programm zuweisen",
+      "placeholder": "Programm auswählen"
+    },
+    "deleteModal": {
+      "title": "Kunden löschen",
+      "body": "Möchtest du diesen Kunden wirklich löschen?"
+    }
   },
-
   "exerciseBank": {
     "title": "Übungsbank",
     "searchPlaceholder": "Suchen…",
@@ -940,12 +932,24 @@
     "addExercise": "Übung hinzufügen",
     "reset": "Zurücksetzen",
     "options": {
-      "muscles": { "all": "Alle Muskeln" },
-      "positions": { "all": "Alle Positionen" },
-      "equipment": { "all": "Alle Geräte", "none": "Keines" },
-      "objectives": { "all": "Alle Ziele" }
+      "muscles": {
+        "all": "Alle Muskeln"
+      },
+      "positions": {
+        "all": "Alle Positionen"
+      },
+      "equipment": {
+        "all": "Alle Geräte",
+        "none": "Keines"
+      },
+      "objectives": {
+        "all": "Alle Ziele"
+      }
     },
-    "labels": { "shoulders": "Schultern", "legs": "Beine" },
+    "labels": {
+      "shoulders": "Schultern",
+      "legs": "Beine"
+    },
     "modal": {
       "addTitle": "Neue Übung hinzufügen",
       "chooseSection": "Bereich wählen",
@@ -973,7 +977,6 @@
     },
     "fabAria": "Übungsbank"
   },
-
   "exerciseCard": {
     "add": "Hinzufügen",
     "replace": "Ersetzen",
@@ -993,7 +996,6 @@
       "cues": "Ausführungshinweise"
     }
   },
-
   "footer": {
     "about": "Über uns",
     "contact": "Kontakt",
@@ -1002,7 +1004,6 @@
     "sales": "Verkaufsrichtlinie",
     "rights": "Alle Rechte vorbehalten"
   },
-
   "programBuilder": {
     "placeholders": {
       "name": "Programmname",
@@ -1013,7 +1014,10 @@
       "saving": "Speichere…",
       "unsaved": "Nicht gespeichert"
     },
-    "units": { "weight": "Gewicht", "speed": "Geschwindigkeit" },
+    "units": {
+      "weight": "Gewicht",
+      "speed": "Geschwindigkeit"
+    },
     "cta": {
       "createShort": "Erstellen",
       "saveShort": "Speichern",
@@ -1023,8 +1027,13 @@
     "untitled": "Programm ohne Titel",
     "defaultSession": "Einheit 1",
     "sessionN": "Einheit {{n}}",
-    "badge": { "sections": "BEREICHE" },
-    "actions": { "add": "+ Hinzufügen", "duplicate": "Duplizieren" },
+    "badge": {
+      "sections": "BEREICHE"
+    },
+    "actions": {
+      "add": "+ Hinzufügen",
+      "duplicate": "Duplizieren"
+    },
     "totalTime": "Gesamtzeit",
     "enableSections": "Bereiche aktivieren",
     "copySuffix": "(Kopie)",
@@ -1034,21 +1043,28 @@
       "bonus": "Bonus",
       "cooldown": "Cool-down"
     },
-    "options": { "title": "Optionen" },
+    "options": {
+      "title": "Optionen"
+    },
     "labels": {
       "weightKg": "Last (kg)",
       "weightLbs": "Weight (lbs)",
       "speedKmh": "Geschwindigkeit (km/h)",
       "speedMph": "Speed (mph)"
     },
-    "notes": { "title": "Notizen", "placeholder": "Notiz hinzufügen (Hinweis, Erinnerung etc.)" },
+    "notes": {
+      "title": "Notizen",
+      "placeholder": "Notiz hinzufügen (Hinweis, Erinnerung etc.)"
+    },
     "advancedSets": {
       "title": "Unterschiedliche Sätze (fortgeschritten)",
       "fillFromGlobals": "Aus globalen Werten übernehmen",
       "addSet": "+ Satz hinzufügen",
       "removeLast": "– Letzten Satz entfernen"
     },
-    "sets": { "set": "Satz" },
+    "sets": {
+      "set": "Satz"
+    },
     "aria": {
       "deleteSession": "Einheit löschen",
       "replace": "Ersetzen",
@@ -1076,9 +1092,9 @@
       "assigned": "Programm zugewiesen"
     }
   },
-
-  "statsShort": { "compareSession": "Einheit vergleichen" },
-
+  "statsShort": {
+    "compareSession": "Einheit vergleichen"
+  },
   "compare": {
     "pick": "Vergleichen:",
     "with": "mit",
@@ -1090,7 +1106,6 @@
     "delta": "Δ",
     "needMore": "Noch nicht genug Vorkommen, um diese Einheit zu vergleichen (mind. 2 Aufzeichnungen erforderlich)."
   },
-
   "programView": {
     "back": "Zurück",
     "edit": "Bearbeiten",
@@ -1117,7 +1132,6 @@
       "cooldown": "Cool-down"
     }
   },
-
   "fields": {
     "sets": "Sätze",
     "reps": "Wiederholungen",
@@ -1132,14 +1146,12 @@
     "tempo": "Tempo",
     "distance": "Distanz"
   },
-
   "labels": {
     "sets": "Sätze",
     "repetitions": "Wiederholungen",
     "duration": "Dauer",
     "rest": "Pause"
   },
-
   "sessionPlayer": {
     "exerciseCounter": "Übung {{i}} / {{n}}",
     "program": "Programm",
@@ -1167,7 +1179,6 @@
     "empty": "Einheit nicht gefunden oder leer.",
     "rateTitle": "Schwierigkeit bewerten"
   },
-
   "about": {
     "title": "Über uns",
     "intro": "Willkommen bei <b>Boost Your Life</b>! Unsere Mission: Training wirksam, klar und motivierend machen, damit du Woche für Woche Fortschritte machst – ohne dich in komplizierten Plänen zu verlieren.",
@@ -1204,24 +1215,182 @@
     },
     "cta": "Jetzt starten"
   },
-
-"contact": {
-  "title": "Kontakt",
-  "intro": "Fragen oder Feedback? Schreib uns eine Nachricht.",
-  "fields": {
-    "name": { "label": "Name", "placeholder": "Ihr Name" },
-    "email": { "label": "E-Mail", "placeholder": "sie@mail.de" },
-    "message": { "label": "Nachricht", "placeholder": "Wobei können wir helfen?" }
+  "contact": {
+    "title": "Kontakt",
+    "intro": "Fragen oder Feedback? Schreib uns eine Nachricht.",
+    "fields": {
+      "name": {
+        "label": "Name",
+        "placeholder": "Ihr Name"
+      },
+      "email": {
+        "label": "E-Mail",
+        "placeholder": "sie@mail.de"
+      },
+      "message": {
+        "label": "Nachricht",
+        "placeholder": "Wobei können wir helfen?"
+      }
+    },
+    "submit": "Senden",
+    "success_title": "Nachricht gesendet ✅",
+    "success_desc": "Vielen Dank! Wir melden uns bald.",
+    "error_title": "Senden fehlgeschlagen",
+    "error_desc": "Etwas ist schiefgelaufen. Bitte erneut versuchen.",
+    "validation": {
+      "required": "Dieses Feld ist erforderlich.",
+      "email": "Ungültige E-Mail-Adresse.",
+      "min_message": "Ihre Nachricht muss mindestens {{min}} Zeichen enthalten."
+    }
   },
-  "submit": "Senden",
-  "success_title": "Nachricht gesendet ✅",
-  "success_desc": "Vielen Dank! Wir melden uns bald.",
-  "error_title": "Senden fehlgeschlagen",
-  "error_desc": "Etwas ist schiefgelaufen. Bitte erneut versuchen.",
-  "validation": {
-    "required": "Dieses Feld ist erforderlich.",
-    "email": "Ungültige E-Mail-Adresse.",
-    "min_message": "Ihre Nachricht muss mindestens {{min}} Zeichen enthalten."
+  "homePro": {
+    "hero": {
+      "titleLine1": "Fitnesscoach,",
+      "titleLine2": "Erstellen. Verfolgen. Fortschreiten.",
+      "subtitle": "Erstellen Sie Trainingsprogramme, planen Sie sie im Kalender, führen Sie Einheiten live durch und verfolgen Sie den Verlauf sowie den Fortschritt Ihrer Kunden – alles an einem Ort.",
+      "proofs": {
+        "p1": {
+          "title": "Individuelle Programme",
+          "desc": "Professionelle Programme ohne Komplexität erstellen."
+        },
+        "p2": {
+          "title": "Strukturiertes Tracking",
+          "desc": "Verlauf, Fortschritt und Körperdaten zentralisiert."
+        },
+        "p3": {
+          "title": "Kundenbereich inklusive",
+          "desc": "Der Kunde folgt der Einheit – Sie behalten die Kontrolle."
+        }
+      },
+      "cta": "Pro-Bereich testen (14 Tage, keine Karte)",
+      "hint": "In wenigen Minuten startklar • Entscheidung nach dem Test",
+      "scroll": "Entdecken, was enthalten ist ↓"
+    },
+    "benefits": {
+      "title": "Was Sie mit dem Pro-Bereich erhalten",
+      "subtitle": "Ein klares, professionelles Tool zur Programmerstellung, Organisation Ihrer Kunden und Verfolgung ihrer Fortschritte – ohne Excel oder verstreute Notizen.",
+      "cards": {
+        "c1": {
+          "title": "Professionelle Programme ohne Komplexität",
+          "desc": "Übersichtliche Einheiten: Sätze, Wiederholungen, Lasten, Pausen, Belastungszeit, Hinweise, Notizen… inklusive sauberer Exporte."
+        },
+        "c2": {
+          "title": "Integrierter Kalender",
+          "desc": "Einheiten planen, Status sehen (geplant / erledigt / verpasst) und organisiert bleiben."
+        },
+        "c3": {
+          "title": "Live geführte Einheit",
+          "desc": "Training Übung für Übung durchführen – alle Werte sind in Echtzeit anpassbar und bleiben synchronisiert."
+        },
+        "c4": {
+          "title": "Komplettes Tracking",
+          "desc": "Trainingsverlauf, Fortschritt und Körperdaten (Gewicht, Maße usw.) an einem Ort."
+        }
+      },
+      "cta": "Mein Coaching vereinfachen (14 Tage Test)",
+      "hint": "Keine Kreditkarte • Sofort voller Zugriff"
+    },
+    "mockup": {
+      "title": "Der Coach plant, der Kunde macht Fortschritte",
+      "p1": "Der Pro-Bereich ist für Ihren Coaching-Alltag konzipiert: Sie erstellen Programme, planen, passen an und verfolgen. Der Kunde folgt der Einheit einfach auf dem Smartphone. Ergebnis: flüssigeres, klareres und professionelleres Coaching.",
+      "p2": "Alle Daten bleiben zentralisiert und jederzeit anpassbar: Sätze, Wiederholungen, Lasten, Belastungszeit, Pausen, Notizen…",
+      "cta": "Meine Programme zentralisieren (14 Tage)",
+      "hint": "Keine Kreditkarte • Entscheidung nach dem Test",
+      "imageAlt": "Vorschau Pro-Bereich"
+    },
+    "how": {
+      "title": "So funktioniert es (praktisch)",
+      "coach": {
+        "title": "Coach-Seite",
+        "steps": {
+          "s1": "1) Programm oder Einheit in wenigen Minuten erstellen.",
+          "s2": "2) Im Kalender planen und Kunden zuweisen.",
+          "s3": "3) Training, Fortschritt und Körperdaten verfolgen."
+        },
+        "gainTitle": "Ihr Vorteil:",
+        "gains": {
+          "g1": "Klare und kontrollierte Organisation",
+          "g2": "Professionelleres und glaubwürdigeres Auftreten",
+          "g3": "Weniger Verwaltung, mehr Coaching"
+        }
+      },
+      "student": {
+        "title": "Kunden-Seite",
+        "steps": {
+          "s1": "1) Einheiten im Kalender sehen.",
+          "s2": "2) Geführte Einheit auf dem Smartphone absolvieren.",
+          "s3": "3) Bestätigen – der Verlauf wird synchronisiert."
+        },
+        "benefitTitle": "Für den Kunden:",
+        "benefits": {
+          "b1": "Klare Einheit ohne Verwirrung",
+          "b2": "Sichtbarer Fortschritt (motivierender)",
+          "b3": "Weniger Fehler, mehr Konstanz"
+        }
+      }
+    },
+    "promise": {
+      "title": "Unser Versprechen",
+      "subtitle": "Keine Excel- oder Papierprogramme mehr: Nutzen Sie ein klares, professionelles Tool, das Zeit spart und Ihre Glaubwürdigkeit stärkt.",
+      "cards": {
+        "simplicity": {
+          "title": "Einfachheit",
+          "desc": "Ein klares Tool mit strukturierter Übungsbibliothek – weniger Improvisation, mehr Konsistenz."
+        },
+        "speed": {
+          "title": "Zeitersparnis",
+          "desc": "Programme in Excel oder auf Papier kosten Zeit. Durchschnittlich gewinnen Coaches hier 5–8 Stunden pro Monat."
+        },
+        "centralized": {
+          "title": "Alles zentral",
+          "desc": "Programme, Kalender, Training, Fortschritt und Körperdaten an einem Ort."
+        }
+      },
+      "ctaBlock": {
+        "title": "Pro starten – ohne Verpflichtung",
+        "desc": "14 Tage testen, ohne Kreditkarte. Erleben Sie selbst die Zeitersparnis und Klarheit.",
+        "cta": "Pro-Bereich testen (14 Tage, keine Karte)",
+        "hint": "Sofort voller Zugriff • Entscheidung nach dem Test"
+      },
+      "forYouTitle": "Für Sie geeignet, wenn…",
+      "forYou": {
+        "f1": "Sie keine Excel-/Papierprogramme mehr wollen",
+        "f2": "Sie eine klare Organisation möchten",
+        "f3": "Sie jede Woche Zeit sparen wollen",
+        "f4": "Sie professioneller auftreten möchten",
+        "f5": "Sie Fortschritt und Daten zentralisieren wollen"
+      }
+    },
+    "faq": {
+      "title": "Häufige Fragen",
+      "items": {
+        "q1": {
+          "q": "Ist die Einrichtung einfach?",
+          "a": "Ja. Sie können klein starten und schrittweise strukturieren. Das Tool passt sich Ihrem Stil an."
+        },
+        "q2": {
+          "q": "Ist es für Kunden wirklich nützlich?",
+          "a": "Ja. Klare, geführte Einheiten reduzieren Fehler und erhöhen die Motivation."
+        },
+        "q3": {
+          "q": "Ist es für Online-, Zuhause- und Studio-Coaching geeignet?",
+          "a": "Ja. Egal ob vor Ort, online oder selbstständig – alles bleibt zentral."
+        },
+        "q4": {
+          "q": "Was passiert nach 14 Tagen?",
+          "a": "Sie entscheiden nur weiterzumachen, wenn Sie echten Mehrwert sehen."
+        },
+        "q5": {
+          "q": "Wie wirkt es professioneller?",
+          "a": "Bessere Struktur, klarere Programme und kontrolliertes Tracking."
+        },
+        "q6": {
+          "q": "Kann ich mehr als nur Training verfolgen?",
+          "a": "Ja. Körperdaten wie Gewicht oder Maße können ebenfalls verfolgt werden."
+        }
+      },
+      "cta": "Pro-Bereich testen (14 Tage, keine Karte)",
+      "hint": "Sofort voller Zugriff • Entscheidung nach dem Test"
+    }
   }
-}
 }

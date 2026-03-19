@@ -1168,69 +1168,190 @@
     "rateTitle": "Évaluez la difficulté"
   },
 
-"about": {
-  "title": "À propos",
-  "intro": "Bienvenue sur <b>Boost Your Life</b> ! Notre mission : rendre l’entraînement efficace, clair et motivant afin que vous progressiez semaine après semaine — sans vous perdre dans des plans compliqués.",
-  "mission": {
-    "title": "Notre mission",
-    "body": "Nous créons des programmes personnalisés qui s’adaptent à votre niveau, votre temps et vos objectifs (perte de poids, prise de muscle, performance, remise en forme). Tout est pensé pour être simple à suivre et durable : pas de blabla, des séances intelligentes et des progrès mesurables."
-  },
-  "features": {
-    "title": "Ce que vous obtenez",
-    "items": [
-      "Un programme personnalisé qui s’ajuste automatiquement selon vos retours (RPE, charge, feedbacks)",
-      "Des séances guidées pas à pas avec consignes, alternatives et tempos",
-      "Suivi intelligent de la difficulté et de la charge d’entraînement",
-      "Minuteries intégrées (effort / repos) et supersets automatiques",
-      "Statistiques claires : progression par mouvement et par séance",
-      "Exercices adaptés à votre matériel (salle, maison, minimal)",
-      "Rappels et calendrier — restez régulier sans y penser",
-      "Accès à des programmes premium et support coach si besoin"
-    ]
-  },
-  "autonomy": {
-    "title": "Votre autonomie",
-    "body": "Vous gardez la main sur votre rythme : déplacez une séance, raccourcissez-en une, ajoutez des notes ou demandez une variante. L’app vous accompagne sans surcharge — chaque séance compte pour vos objectifs."
-  },
-  "why": {
-    "title": "Pourquoi ça fonctionne ?",
-    "items": [
-      "Progression planifiée : la charge et la difficulté s’ajustent automatiquement",
-      "Clarté d’exécution : vous savez quoi faire, combien de temps, et quand vous reposer",
-      "Adaptation au contexte : salle, maison ou matériel minimal",
-      "Régularité sans friction : rappels + calendrier intégrés",
-      "Mesure des progrès : tableaux simples par séance et par mouvement"
-    ]
-  },
-  "cta": "Commencer maintenant"
-},
-
-"contact": {
-  "title": "Contact",
-  "intro": "Une question, une idée, un retour ? Écris-nous.",
-  "fields": {
-    "name": {
-      "label": "Nom",
-      "placeholder": "Votre nom"
+  "contact": {
+    "title": "Contact",
+    "intro": "Une question, une idée, un retour ? Écris-nous.",
+    "fields": {
+      "name": { "label": "Nom", "placeholder": "Votre nom" },
+      "email": { "label": "E-mail", "placeholder": "votre@email.com" },
+      "message": { "label": "Message", "placeholder": "Expliquez-nous votre demande…" }
     },
-    "email": {
-      "label": "E-mail",
-      "placeholder": "votre@email.com"
-    },
-    "message": {
-      "label": "Message",
-      "placeholder": "Expliquez-nous votre demande…"
+    "submit": "Envoyer",
+    "success_title": "Message envoyé ✅",
+    "success_desc": "Merci ! Nous revenons vers vous rapidement.",
+    "error_title": "Envoi impossible",
+    "error_desc": "Une erreur est survenue. Réessayez dans un instant.",
+    "validation": {
+      "required": "Ce champ est requis.",
+      "email": "Adresse e-mail invalide.",
+      "min_message": "Votre message doit contenir au moins {{min}} caractères."
     }
   },
-  "submit": "Envoyer",
-  "success_title": "Message envoyé ✅",
-  "success_desc": "Merci ! Nous revenons vers vous rapidement.",
-  "error_title": "Envoi impossible",
-  "error_desc": "Une erreur est survenue. Réessayez dans un instant.",
-  "validation": {
-    "required": "Ce champ est requis.",
-    "email": "Adresse e-mail invalide.",
-    "min_message": "Votre message doit contenir au moins {{min}} caractères."
+
+  "homePro": {
+    "hero": {
+      "titleLine1": "Coach sportif,",
+      "titleLine2": "Créez. Suivez. Progressez.",
+      "subtitle": "Créez des programmes, planifiez-les dans un calendrier, lancez l’entraînement en direct, et suivez l’historique ainsi que la progression de vos élèves, au même endroit.",
+      "proofs": {
+        "p1": { "title": "Programmes sur mesure", "desc": "Créez des programmes professionnels sans complexité." },
+        "p2": { "title": "Suivi structuré", "desc": "Historique, progression, données corporelles centralisées." },
+        "p3": { "title": "Espace élève inclus", "desc": "L’élève suit sa séance, vous gardez le pilotage." }
+      },
+      "cta": "Tester l’espace Pro (14 jours, sans carte)",
+      "hint": "Mise en place en quelques minutes • Vous décidez après l’essai",
+      "scroll": "Découvrir ce que vous obtenez ↓"
+    },
+
+    "benefits": {
+      "title": "Ce que vous obtenez avec l’espace Pro",
+      "subtitle": "Un outil clair et professionnel pour créer vos programmes, organiser vos élèves, et suivre leurs progrès, sans passer par Excel, des notes dispersées ou des fichiers qui s’accumulent.",
+      "cards": {
+        "c1": { "title": "Créer des programmes professionnels sans complexité", "desc": "Séances lisibles et structurées : séries, répétitions, charges, repos, temps d’effort, consignes, notes… et exports propres." },
+        "c2": { "title": "Calendrier intégré", "desc": "Planifiez vos séances, visualisez l’état (à venir / réalisé / manqué) et gardez une organisation maîtrisée." },
+        "c3": { "title": "Séance guidée en direct", "desc": "Lancez l’entraînement exercice par exercice : toutes les données sont modifiables en temps réel pendant la séance, et restent synchronisées." },
+        "c4": { "title": "Suivi complet", "desc": "Historique des séances, progression, et suivi des données corporelles (poids, mensurations, etc.) centralisés au même endroit." }
+      },
+      "cta": "Simplifier mon coaching (essai 14 jours)",
+      "hint": "Sans carte bancaire • Accès complet immédiatement"
+    },
+
+    "mockup": {
+      "title": "Le coach construit, l’élève progresse",
+      "p1": "L’espace Pro est pensé pour votre quotidien de coach : vous construisez les programmes, vous planifiez, vous ajustez, vous suivez. L’élève, de son côté, suit simplement la séance sur mobile (en autonomie ou avec vous si vous la faites ensemble). Résultat : un coaching plus fluide, plus clair, plus professionnel.",
+      "p2": "Toutes les données restent centralisées et prêtes à être ajustées : séries, répétitions, charges, temps d’effort, repos, notes…",
+      "cta": "Centraliser mes programmes (14 jours)",
+      "hint": "Sans carte bancaire • Vous décidez après l’essai",
+      "imageAlt": "Aperçu espace Pro"
+    },
+
+    "how": {
+      "title": "Comment ça marche (en pratique)",
+      "coach": {
+        "title": "Côté coach",
+        "steps": {
+          "s1": "1) Vous créez un programme / une séance en quelques minutes.",
+          "s2": "2) Vous planifiez dans le calendrier et assignez à vos élèves.",
+          "s3": "3) Vous suivez les entraînements, la progression et les données corporelles (poids, mensurations, etc.)."
+        },
+        "gainTitle": "Ce que vous gagnez :",
+        "gains": {
+          "g1": "Une organisation claire et maîtrisée",
+          "g2": "Un rendu plus professionnel, plus crédible",
+          "g3": "Moins d’administratif, plus de coaching"
+        }
+      },
+      "student": {
+        "title": "Côté élève",
+        "steps": {
+          "s1": "1) Il voit ses séances dans son calendrier.",
+          "s2": "2) Il suit la séance guidée sur mobile.",
+          "s3": "3) Il valide, et l’historique remonte côté coach."
+        },
+        "benefitTitle": "Pour l’élève :",
+        "benefits": {
+          "b1": "Une séance claire, sans confusion",
+          "b2": "Une progression visible (plus motivant)",
+          "b3": "Moins d’erreurs, plus de régularité"
+        }
+      }
+    },
+
+    "promise": {
+      "title": "Notre promesse",
+      "subtitle": "Finis les programmes sur Excel ou sur papier : vous passez sur un outil clair et professionnel, qui simplifie votre quotidien, renforce votre crédibilité, et vous fait gagner du temps réel.",
+      "cards": {
+        "simplicity": { "title": "Simplicité", "desc": "Vous créez vos séances avec un outil clair et une base d’exercices organisée et mise à jour. Moins de bricolage, plus de cohérence." },
+        "speed": { "title": "Rapidité", "desc": "Créer et modifier ses programmes sur Excel/papier prend vite du temps. En moyenne, un coach peut récupérer ~5 à 8 heures par mois en centralisant sa méthode ici." },
+        "centralized": { "title": "Tout centralisé", "desc": "Programmes, calendrier, séances, progression et données corporelles réunis au même endroit, pour une organisation claire et maîtrisée." }
+      },
+      "ctaBlock": {
+        "title": "Passez en mode Pro, sans engagement",
+        "desc": "L’essai de 14 jours est sans carte bancaire. L’objectif est simple : vous laisser tester avec vos vrais élèves, et constater le gain de temps et la clarté dans votre organisation.",
+        "cta": "Tester l’espace Pro (14 jours, sans carte)",
+        "hint": "Accès complet immédiatement • Vous décidez après l’essai"
+      },
+      "forYouTitle": "C’est pour vous si…",
+      "forYou": {
+        "f1": "Vous voulez arrêter de “bricoler” vos programmes sur Excel / papier",
+        "f2": "Vous voulez une organisation claire (calendrier + suivi)",
+        "f3": "Vous voulez gagner du temps chaque semaine",
+        "f4": "Vous voulez un rendu pro qui renforce votre crédibilité",
+        "f5": "Vous voulez centraliser le suivi (séances + progression + données corporelles)"
+      }
+    },
+
+    "faq": {
+      "title": "Questions fréquentes",
+      "items": {
+        "q1": {
+          "q": "Est-ce facile à mettre en place et à adapter à ma méthode de travail ?",
+          "a": "Oui. Vous pouvez démarrer simplement (une séance, un élève) puis structurer au fur et à mesure. L’outil s’adapte à votre façon de coacher : vous gardez vos paramètres, votre organisation et vos habitudes, mais avec un cadre plus clair et plus pro."
+        },
+        "q2": {
+          "q": "Est-ce vraiment utile pour les élèves ?",
+          "a": "Oui, parce que l’élève n’a pas besoin de comprendre votre organisation : il suit une séance guidée, claire et structurée. Résultat : moins d’erreurs, plus de régularité, et une progression plus facile à visualiser."
+        },
+        "q3": {
+          "q": "Est-ce compatible avec du coaching à distance, à domicile et en salle ?",
+          "a": "Oui. Vous pouvez coacher en présentiel, en visio ou laisser l’élève en autonomie. Dans tous les cas, le calendrier, l’historique et la progression restent centralisés."
+        },
+        "q4": {
+          "q": "Qu’est-ce qui se passe à la fin des 14 jours ?",
+          "a": "Vous aurez eu le temps de tester l’outil avec votre vraie routine. L’essai est sans carte bancaire : vous choisissez la suite uniquement si vous voyez une vraie valeur (gain de temps, clarté, rendu pro)."
+        },
+        "q5": {
+          "q": "Comment ça m’aide à paraître plus professionnel ?",
+          "a": "Vos programmes deviennent plus lisibles, mieux structurés, et votre suivi plus clair. Moins d’improvisation, plus de maîtrise : c’est exactement ce que l’élève ressent, et ce qui renforce votre crédibilité."
+        },
+        "q6": {
+          "q": "Puis-je suivre autre chose que les séances (mensurations, données...) ?",
+          "a": "Oui. Vous pouvez centraliser aussi des données corporelles comme le poids, les mensurations, et d’autres indicateurs pour compléter le suivi des séances et visualiser la progression dans le temps."
+        }
+      },
+      "cta": "Tester l’espace Pro (14 jours, sans carte)",
+      "hint": "Accès complet immédiatement • Vous décidez après l’essai"
+    }
+  },
+
+  "about": {
+    "title": "À propos",
+    "intro": "Boost Your Life est la plateforme pensée pour les coachs modernes, qu’ils accompagnent leurs clients en présentiel ou à distance.\n\nAujourd’hui, les clients attendent bien plus qu’un simple programme : ils veulent une progression structurée, un suivi clair et une expérience professionnelle.\n\nBoost Your Life vous permet d’offrir cela, simplement et efficacement.",
+    "mission": {
+      "title": "Pourquoi cette plateforme existe",
+      "body": "Le coaching évolue. Les attentes des clients aussi.\n\nBeaucoup de coachs travaillent encore avec des fichiers dispersés, des PDF envoyés manuellement ou des outils peu adaptés à la gestion de plusieurs clients.\n\nCela prend du temps, complexifie le suivi et limite la perception professionnelle.\n\nBoost Your Life a été conçu pour structurer le coaching moderne et apporter un système clair, cohérent et évolutif."
+    },
+    "features": {
+      "title": "Comment la plateforme vous accompagne",
+      "items": [
+        "Génération structurée de programmes personnalisés",
+        "Progression planifiée et ajustable automatiquement",
+        "Centralisation de tous vos clients au même endroit",
+        "Organisation claire des séances (temps, consignes, variantes)",
+        "Suivi précis des performances et de l’évolution",
+        "Un outil adapté au coaching en présentiel comme à distance"
+      ],
+      "empty": ""
+    },
+    "autonomy": {
+      "title": "Vous restez le coach",
+      "body": "Boost Your Life ne remplace pas votre expertise.\nIl la renforce.\n\nLa plateforme agit comme un assistant structurant : elle automatise certaines tâches, clarifie l’organisation et vous permet de vous concentrer sur l’essentiel — l’accompagnement et la relation avec vos clients.\n\nVous gardez le contrôle, la vision et la décision."
+    },
+    "vision": {
+      "title": "Notre vision",
+      "body": "Nous croyons que le coaching moderne doit s’appuyer sur des outils modernes.\n\nNotre ambition est de devenir une référence pour les coachs indépendants qui souhaitent structurer, professionnaliser et développer leur activité.\n\nLe coaching ne repose plus uniquement sur la compétence technique, mais aussi sur la capacité à offrir une expérience claire, mesurable et cohérente.\n\nBoost Your Life s’inscrit dans cette évolution.\n\nLa plateforme évolue continuellement afin de s’adapter aux besoins des coachs et aux réalités du terrain."
+    },
+    "why": {
+      "title": "Ce que cela change concrètement",
+      "items": [
+        "Un gain de temps sur la gestion administrative",
+        "Une progression plus claire et mesurable",
+        "Une image professionnelle et cohérente",
+        "Une structure qui renforce la confiance des clients",
+        "Un système adapté au coaching moderne"
+      ],
+      "empty": ""
+    },
+    "cta": "Découvrir la plateforme des coachs modernes"
   }
-}
 }

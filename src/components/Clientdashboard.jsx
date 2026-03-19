@@ -1,12 +1,12 @@
 // src/components/ClientDashboard.jsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box, Heading, Text, Button, Flex, HStack, useColorModeValue,
   Spinner, Table, Thead, Tbody, Tr, Th, Td,
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton,
   ModalBody, ModalFooter, FormControl, FormLabel, Select, Input,
   VStack, Progress, Image, Badge, useToast, Divider, Link as ChakraLink,
-  SimpleGrid
+  SimpleGrid, Icon, Tooltip,
 } from '@chakra-ui/react';
 import { AddIcon } from '@chakra-ui/icons';
 import { Link, useNavigate } from 'react-router-dom';
@@ -22,6 +22,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import { useAuth } from '../AuthContext';
 import { useTranslation } from 'react-i18next';
+import { FaStar, FaRegStar } from "react-icons/fa";
 
 // ✅ base centralisée
 import { getApiBase } from '../utils/apiBase';
@@ -50,7 +51,6 @@ async function postJson(url, body, opts = {}) {
   try { data = await res.json(); } catch {}
   return { ok: res.ok, status: res.status, data, text: data ? null : await res.text().catch(()=>'') };
 }
-
 async function tryPostWithFallback(urls, body) {
   let lastErr = null;
   for (const url of urls) {
@@ -73,9 +73,6 @@ const isAutoProgramme = (p) => {
   return o.includes('auto');
 };
 
-function getProgrammeDisplayName(p) {
-  return p?.nomProgramme || p?.nom || p?.name || p?.title || p?.objectif || 'Sans nom';
-}
 function getTotalSessionsFromProgrammeDoc(p) {
   if (!p) return 0;
   if (Array.isArray(p.sessions)) return p.sessions.length;
@@ -84,6 +81,7 @@ function getTotalSessionsFromProgrammeDoc(p) {
   if (typeof p.nbSeances === 'number') return p.nbSeances;
   return 0;
 }
+
 const isTouchDevice = () =>
   typeof window !== 'undefined' &&
   ('ontouchstart' in window || navigator.maxTouchPoints > 0);
@@ -115,6 +113,7 @@ async function resolveCoachDisplay(p) {
   return 'Coach';
 }
 
+/* ----------------------- Helpers temps ----------------------- */
 function toSeconds(val) {
   if (val == null) return 0;
   if (typeof val === 'number' && Number.isFinite(val)) {
@@ -171,6 +170,118 @@ function getAvgDurationRounded15FromSessions(sessions) {
   const avgSec = totalSec / count;
   const avgMin = Math.ceil(avgSec / 60);
   return Math.ceil(avgMin / 15) * 15;
+}
+
+/* ✅ Helper millis robuste (pour tri chrono) */
+const toMillis = (ts) => {
+  if (!ts) return 0;
+  if (ts?.toDate) return ts.toDate().getTime();
+  if (typeof ts?.seconds === "number") return ts.seconds * 1000;
+  if (typeof ts === "number") return ts > 1e12 ? ts : ts * 1000;
+  if (ts instanceof Date) return ts.getTime();
+  if (typeof ts === "string") return Date.parse(ts) || 0;
+  return 0;
+};
+
+/* ✅ Format date (lang) */
+const formatDate = (ms, lang) => {
+  if (!ms) return '';
+  try { return new Date(ms).toLocaleDateString(lang || 'fr'); }
+  catch { return new Date(ms).toLocaleDateString(); }
+};
+
+/* ----------------------- Stars UI (vide si pas noté) ----------------------- */
+function Stars({ rating, size = "14px" }) {
+  const filled = useColorModeValue("yellow.400", "yellow.300");
+  const empty  = useColorModeValue("gray.300", "gray.500");
+  const r = (typeof rating === "number" && isFinite(rating))
+    ? Math.max(0, Math.min(5, Math.round(rating)))
+    : 0;
+
+  return (
+    <HStack spacing={1}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Icon
+          key={i}
+          as={i < r ? FaStar : FaRegStar}
+          color={i < r ? filled : empty}
+          boxSize={size}
+        />
+      ))}
+    </HStack>
+  );
+}
+
+/* ✅ Calendar stars renderer (comme CoachDashboard) */
+const normRating = (v) => {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(1, Math.min(5, Math.round(n)));
+};
+const StarsInline = ({ rating, color = "white" }) => {
+  const r = normRating(rating);
+  if (!r) return null;
+  return (
+    <HStack spacing={0.5} ml={2} flexShrink={0}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Icon
+          key={i}
+          as={FaStar}
+          boxSize="11px"
+          color={i < r ? color : "whiteAlpha.500"}
+          opacity={i < r ? 0.95 : 0.7}
+        />
+      ))}
+    </HStack>
+  );
+};
+
+/* ----------------------- Nom Programme (même principe Builder) ----------------------- */
+const capitalizeFirst = (s = "") => {
+  const str = String(s || "").trim();
+  if (!str) return "";
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+const prettifyKey = (key = "") => {
+  const s = String(key || "").trim();
+  if (!s) return "";
+  return s.replace(/_/g, " ").replace(/\s+/g, " ").trim();
+};
+const normalizeNameForCompare = (s = "") =>
+  String(s || "")
+    .replace(/\u2014/g, "-") // — -> -
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+function buildDefaultProgramName({ objectifUI, objectif, nbSeances }, prettyGoalFn) {
+  const n = Number(nbSeances) || 1;
+  const goalLabel =
+    (typeof prettyGoalFn === "function" && (objectifUI || objectif) ? prettyGoalFn(objectifUI || objectif) : "") ||
+    capitalizeFirst(prettifyKey(objectifUI || objectif || ""));
+  if (!goalLabel) return `Programme — ${n}x/Sem`;
+  return `${goalLabel} — ${n}x/Sem`;
+}
+
+function isLegacyAutoName(existingName, { objectifUI, objectif, nbSeances }, prettyGoalFn) {
+  const n = Number(nbSeances) || 1;
+  const candidateNew = normalizeNameForCompare(buildDefaultProgramName({ objectifUI, objectif, nbSeances: n }, prettyGoalFn));
+
+  const oldA = normalizeNameForCompare(`${objectif || ""} — ${n}x/Sem`);
+  const oldB = normalizeNameForCompare(`${objectif || ""} - ${n}x/Sem`);
+  const oldC = normalizeNameForCompare(`${objectifUI || ""} — ${n}x/Sem`);
+  const oldD = normalizeNameForCompare(`${objectifUI || ""} - ${n}x/Sem`);
+
+  const cur = normalizeNameForCompare(existingName);
+  if (!cur) return true;
+  if (cur === candidateNew) return true;
+  if (cur === oldA || cur === oldB || cur === oldC || cur === oldD) return true;
+
+  if (objectif && cur === normalizeNameForCompare(objectif)) return true;
+  if (objectifUI && cur === normalizeNameForCompare(objectifUI)) return true;
+
+  return false;
 }
 
 /* ----------------------- Modal Premium ----------------------- */
@@ -265,10 +376,44 @@ export default function ClientDashboard() {
   const navigate = useNavigate();
   const toast = useToast();
 
+  // ✅ mapping objectif Firestore -> i18n key (même que ProgramsPage)
+  const GOAL_LABEL_KEY = useMemo(() => ({
+    prise_de_masse: "massGain",
+    perte_de_poids: "weightLoss",
+    force: "strength",
+    endurance: "endurance",
+    remise_au_sport: "returnToSport",
+    postural: "posture",
+  }), []);
+
+  const prettyGoal = (objectifLike) => {
+    if (!objectifLike) return "";
+    const key = String(objectifLike).trim();
+    const labelKey = GOAL_LABEL_KEY[key] || null;
+    if (!labelKey) return capitalizeFirst(prettifyKey(key));
+    return t(`autoQ.goals.${labelKey}`, key);
+  };
+
+  function getProgrammeDisplayName(p) {
+    if (!p) return 'Sans nom';
+
+    const rawName = (p.nomProgramme && typeof p.nomProgramme === "string") ? p.nomProgramme.trim() : "";
+    const objectif = p.objectif || "";
+    const objectifUI = p.objectifUI || "";
+    const nbSeances = getTotalSessionsFromProgrammeDoc(p) || p.nbSeances || 1;
+
+    const defaultName = buildDefaultProgramName({ objectifUI, objectif, nbSeances }, prettyGoal);
+
+    if (rawName && isLegacyAutoName(rawName, { objectifUI, objectif, nbSeances }, prettyGoal)) return defaultName;
+    if (rawName) return rawName;
+
+    return defaultName || (objectifUI ? prettyGoal(objectifUI) : objectif ? prettyGoal(objectif) : 'Sans nom');
+  }
+
   const [clientId, setClientId] = useState(null);
   const [programmes, setProgrammes] = useState([]);
   const [premiumPrograms, setPremiumPrograms] = useState([]);
-  const [sessions, setSessions] = useState([]);
+  const [sessionsRaw, setSessionsRaw] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingPremium, setLoadingPremium] = useState(true);
 
@@ -321,6 +466,59 @@ export default function ClientDashboard() {
     return null;
   }
 
+  /* -------- Notes (rating) : sous-collection difficulté_notes -------- */
+  async function fetchDifficultyMap({ cId, programmeId }) {
+    const tryCols = ['difficulté_notes', 'difficulte_notes']; // ✅ on tente les 2
+    let docs = [];
+
+    for (const colName of tryCols) {
+      try {
+        const snap = await getDocs(collection(db, 'clients', cId, 'programmes', programmeId, colName));
+        if (!snap.empty) {
+          docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          break;
+        }
+      } catch {}
+    }
+
+    if (!docs.length) return {};
+
+    // map sessionIndex -> dernier doc (createdAt)
+    const byIdx = {};
+    for (const d of docs) {
+      const idx = (typeof d.sessionIndex === "number") ? d.sessionIndex : Number(d.sessionIndex);
+      if (!Number.isFinite(idx)) continue;
+
+      const createdAtMs = toMillis(d.createdAt) || Date.now();
+      const rating = normRating(d.rating);
+      if (!rating) continue;
+
+      const prev = byIdx[idx];
+      if (!prev || createdAtMs > (prev.createdAtMs || 0)) {
+        byIdx[idx] = { rating, createdAtMs };
+      }
+    }
+    return byIdx;
+  }
+
+  function pickProgrammeRatingFromMap({ difficultyMap, preferSessionIndex = null }) {
+    if (!difficultyMap || typeof difficultyMap !== "object") return null;
+
+    if (preferSessionIndex != null) {
+      const idx = Number(preferSessionIndex);
+      if (Number.isFinite(idx) && difficultyMap[idx]?.rating) return difficultyMap[idx].rating;
+    }
+
+    let best = null;
+    Object.entries(difficultyMap).forEach(([_, v]) => {
+      if (!v?.rating) return;
+      if (!best || (v.createdAtMs || 0) > (best.createdAtMs || 0)) {
+        best = v;
+      }
+    });
+    return best?.rating ?? null;
+  }
+
   /* ---------------------- CHARGEMENT ---------------------- */
   useEffect(() => {
     if (!user) return;
@@ -352,8 +550,11 @@ export default function ClientDashboard() {
       }
     })();
 
-    // 2) Client + programmes + calendrier
+    // 2) Client + programmes + calendrier (en live)
     let unsubPrograms = null;
+    let unsubSessA = null;
+    let unsubSessB = null;
+
     (async () => {
       setLoading(true);
 
@@ -361,7 +562,7 @@ export default function ClientDashboard() {
       if (!clientDoc) {
         setClientId(null);
         setProgrammes([]);
-        setSessions([]);
+        setSessionsRaw([]);
         setHasPremiumOwned(false);
         setLoading(false);
         return;
@@ -370,6 +571,53 @@ export default function ClientDashboard() {
       const cId = clientDoc.id;
       setClientId(cId);
 
+      // ✅ sessions (calendar) EN LIVE : deux listeners + merge
+      const mergeSessions = (a = [], b = []) => {
+        const map = new Map();
+        [...a, ...b].forEach(s => map.set(s.id, s));
+        return Array.from(map.values())
+          .filter(s => (!s.visibility || s.visibility === 'client' || s.visibility === 'both'))
+          .map(s => {
+            const start = s.start?.toDate ? s.start.toDate() : new Date(s.start);
+            const end   = s.end?.toDate ? s.end.toDate()   : new Date(s.end);
+
+            const sessionIndex =
+              typeof s.sessionIndex === "number"
+                ? s.sessionIndex
+                : Number.isFinite(Number(s.sessionIndex))
+                ? Number(s.sessionIndex)
+                : null;
+
+            return {
+              id: s.id,
+              title: s.title,
+              start,
+              end,
+              status: s.status,
+              visibility: s.visibility || 'client',
+              dedupeKey: s.dedupeKey,
+              programmeId: s.programmeId || s.programId || s.programID || null,
+              sessionIndex,
+            };
+          });
+      };
+
+      let cacheA = [];
+      let cacheB = [];
+      const qA = query(collection(db, 'sessions'), where('clientId', '==', user.uid));
+      const qB = query(collection(db, 'sessions'), where('clientId', '==', cId));
+
+      unsubSessA = onSnapshot(qA, (snap) => {
+        cacheA = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setSessionsRaw(mergeSessions(cacheA, cacheB));
+      });
+
+      unsubSessB = onSnapshot(qB, (snap) => {
+        cacheB = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setSessionsRaw(mergeSessions(cacheA, cacheB));
+      });
+
+      // ✅ programmes (mes programmes)
       const progCol = collection(db, 'clients', cId, 'programmes');
       unsubPrograms = onSnapshot(progCol, async (snap) => {
         const items = await Promise.all(
@@ -380,17 +628,21 @@ export default function ClientDashboard() {
               p.assignedAt || p.dateAssignation || p.dateAffectation ||
               p.createdAt  || p.createdOn       || p.created_date;
 
-            let assignedAtMs = 0;
-            if (rawAssignTs?.toDate) assignedAtMs = rawAssignTs.toDate().getTime();
-            else if (typeof rawAssignTs?.seconds === 'number') assignedAtMs = rawAssignTs.seconds * 1000;
-            else if (typeof rawAssignTs === 'number') assignedAtMs = rawAssignTs > 1e12 ? rawAssignTs : rawAssignTs * 1000;
-            else if (typeof rawAssignTs === 'string') assignedAtMs = Date.parse(rawAssignTs) || 0;
+            const assignedAtMs = toMillis(rawAssignTs);
+
+            const createdAtMs =
+              toMillis(p.createdAt) ||
+              toMillis(p.createdOn) ||
+              toMillis(p.created_date) ||
+              0;
 
             const sessDoneSnap = await getDocs(
               collection(db, 'clients', cId, 'programmes', d.id, 'sessionsEffectuees')
             );
 
             let lastSessionMs = 0;
+            let lastCompletedIdx = null;
+
             const sessionsEffectuees = sessDoneSnap.docs.map(s => {
               const sd = s.data();
               const dt =
@@ -399,10 +651,20 @@ export default function ClientDashboard() {
                 sd.playedAt?.toDate?.() ||
                 sd.timestamp?.toDate?.() ||
                 null;
+
+              const pct = typeof sd.pourcentageTermine === 'number' ? sd.pourcentageTermine : 100;
+              const idx = (typeof sd.sessionIndex === 'number') ? sd.sessionIndex : Number(sd.sessionIndex);
+
               if (dt) {
                 const ms = dt.getTime();
+                const prevLast = lastSessionMs;
                 if (ms > lastSessionMs) lastSessionMs = ms;
+
+                if (pct >= 90 && Number.isFinite(idx) && ms >= prevLast && ms === lastSessionMs) {
+                  lastCompletedIdx = idx;
+                }
               }
+
               return { id: s.id, ...sd };
             });
 
@@ -413,10 +675,12 @@ export default function ClientDashboard() {
               const pct = typeof s.pourcentageTermine === 'number' ? s.pourcentageTermine : 100;
               if (pct >= 90) {
                 done += 1;
-                if (typeof s.sessionIndex === 'number') finishedIdx.add(Number(s.sessionIndex));
+                const idx = (typeof s.sessionIndex === 'number') ? s.sessionIndex : Number(s.sessionIndex);
+                if (Number.isFinite(idx)) finishedIdx.add(idx);
               }
             });
             if (sessionsEffectuees.length > 0 && done === 0) done = sessionsEffectuees.length;
+
             const percent = totalPrevues > 0 ? Math.min(100, Math.round((done / totalPrevues) * 100)) : 0;
 
             let nextIndex = 0;
@@ -426,28 +690,40 @@ export default function ClientDashboard() {
             }
 
             const nomProgramme = getProgrammeDisplayName(p);
-
-            let dateCre = '';
-            if (p.createdAt?.toDate) {
-              dateCre = p.createdAt.toDate().toLocaleDateString(i18n.language);
-            } else if (p.createdAt?.seconds) {
-              dateCre = new Date(p.createdAt.seconds*1000).toLocaleDateString(i18n.language);
-            }
-
             const coachDisplay = await resolveCoachDisplay(p);
+
+            // ✅ difficulty map (sessionIndex -> rating)
+            const difficultyMap = await fetchDifficultyMap({ cId, programmeId: d.id });
+
+            // ✅ NOTE table "Mes programmes": note dernière séance terminée (sinon dernière note)
+            const rating = pickProgrammeRatingFromMap({
+              difficultyMap,
+              preferSessionIndex: lastCompletedIdx,
+            });
+
+            // ✅ Date affichée : dernière séance effectuée si dispo, sinon assigned/created
+            const displayDateMs = lastSessionMs || assignedAtMs || createdAtMs || 0;
+            const displayDateLabel = displayDateMs ? formatDate(displayDateMs, i18n.language) : '';
+
+            // ✅ Pour tri chrono: le plus récent “joué OU assigné”
+            const lastOrAssignedMs = lastSessionMs || assignedAtMs || createdAtMs || 0;
 
             return {
               ...p,
               sessionsEffectuees,
               nomProgramme,
-              createdAtFormatted: dateCre,
               createdByName: coachDisplay,
               _done: done,
               _total: totalPrevues,
               _percent: percent,
               _nextIndex: nextIndex,
               _assignedAtMs: assignedAtMs,
+              _createdAtMs: createdAtMs,
               _lastSessionMs: lastSessionMs,
+              _lastOrAssignedMs: lastOrAssignedMs,
+              _displayDateFormatted: displayDateLabel,
+              _rating: (typeof rating === "number" && isFinite(rating)) ? rating : null,
+              _difficultyMap: difficultyMap || {},
             };
           })
         );
@@ -458,47 +734,18 @@ export default function ClientDashboard() {
         );
         setHasPremiumOwned(ownsPremium);
 
-        // 👉 tri: dernier programme utilisé en haut (puis par date d’assignation)
-        const sorted = items.sort((a, b) => {
-          const lb = b._lastSessionMs || 0;
-          const la = a._lastSessionMs || 0;
-          if (lb !== la) return lb - la;
-          return (b._assignedAtMs || 0) - (a._assignedAtMs || 0);
-        });
+        const sorted = items.sort((a, b) => (b._lastOrAssignedMs || 0) - (a._lastOrAssignedMs || 0));
         setProgrammes(sorted);
         setLoading(false);
       });
-
-      try {
-        const [byUid, byDoc] = await Promise.all([
-          getDocs(query(collection(db, 'sessions'), where('clientId', '==', user.uid))),
-          getDocs(query(collection(db, 'sessions'), where('clientId', '==', cId))),
-        ]);
-        const all = [...byUid.docs, ...byDoc.docs];
-        const seen = new Set();
-        const userSess = all
-          .map(d => ({ id: d.id, ...d.data() }))
-          .filter(s => {
-            if (seen.has(s.id)) return false; seen.add(s.id);
-            return (!s.visibility || s.visibility === 'client' || s.visibility === 'both');
-          })
-          .map(s => ({
-            id: s.id,
-            title: s.title,
-            start: s.start?.toDate ? s.start.toDate() : new Date(s.start),
-            end:   s.end?.toDate ? s.end.toDate()     : new Date(s.end),
-            status: s.status,
-            visibility: s.visibility || 'client'
-          }));
-        setSessions(userSess);
-      } catch (e) {
-        console.error('[ClientDashboard] sessions fetch error', e);
-        setSessions([]);
-      }
     })();
 
-    return () => { if (unsubPrograms) unsubPrograms(); };
-  }, [user, i18n.language]);
+    return () => {
+      if (unsubPrograms) unsubPrograms();
+      if (unsubSessA) unsubSessA();
+      if (unsubSessB) unsubSessB();
+    };
+  }, [user, i18n.language]); // eslint-disable-line
 
   /* ====== Auto ajout au calendrier quand séance validée ====== */
   const programmeIdsKey = useMemo(() => programmes.map(p => p.id).sort().join(','), [programmes]);
@@ -508,10 +755,21 @@ export default function ClientDashboard() {
 
     const unsubs = programmes.map(p => {
       const colRef = collection(db, 'clients', clientId, 'programmes', p.id, 'sessionsEffectuees');
+
       return onSnapshot(colRef, async (snap) => {
         for (const change of snap.docChanges()) {
-          if (change.type !== 'added') continue;
+          if (change.type !== 'added' && change.type !== 'modified') continue;
+
           const s = change.doc.data();
+
+          const pct = (typeof s.pourcentageTermine === 'number') ? s.pourcentageTermine : 100;
+          const isValidated =
+            pct >= 90 ||
+            s.status === 'validée' ||
+            s.validated === true ||
+            s.isValidated === true;
+
+          if (!isValidated) continue;
 
           const startDate =
             s.dateEffectuee?.toDate?.() ||
@@ -563,16 +821,29 @@ export default function ClientDashboard() {
             dedupeKey: `${user.uid}_${p.id}_${idx}_${dayKey}`,
           });
 
-          setSessions(prev => [
-            ...prev,
-            { id: newRef.id, title, start: startDate, end: endDate, status: 'validée', visibility: 'client' }
-          ]);
+          setSessionsRaw(prev => {
+            const already = prev.some(ev => ev.id === newRef.id);
+            if (already) return prev;
+            return [
+              ...prev,
+              {
+                id: newRef.id,
+                title,
+                start: startDate,
+                end: endDate,
+                status: 'validée',
+                visibility: 'client',
+                programmeId: p.id,
+                sessionIndex: idx,
+              }
+            ];
+          });
         }
       });
     });
 
     return () => { unsubs.forEach(u => u && u()); };
-  }, [clientId, programmeIdsKey, user?.uid, t]);
+  }, [clientId, programmeIdsKey, user?.uid, t]); // eslint-disable-line
 
   /* ------------------ Navigation ------------------ */
   const navigateToProgram = (p) => {
@@ -677,10 +948,12 @@ export default function ClientDashboard() {
     const start = new Date(startDateTime);
     const end   = new Date(start.getTime() + 60 * 60000);
 
+    // ✅ IMPORTANT : on stocke aussi sessionIndex (sinon pas d'étoiles possibles)
     await addDoc(collection(db, 'sessions'), {
       clientId: user.uid,
       clientDocId: clientId,
       programmeId,
+      sessionIndex,
       title,
       start: Timestamp.fromDate(start),
       end:   Timestamp.fromDate(end),
@@ -689,27 +962,6 @@ export default function ClientDashboard() {
       status: 'à venir'
     });
 
-    const [byUid, byDoc] = await Promise.all([
-      getDocs(query(collection(db, 'sessions'), where('clientId', '==', user.uid))),
-      getDocs(query(collection(db, 'sessions'), where('clientId', '==', clientId))),
-    ]);
-    const seen = new Set();
-    const us = [...byUid.docs, ...byDoc.docs]
-      .map(d => ({ id: d.id, ...d.data() }))
-      .filter(s => {
-        if (seen.has(s.id)) return false; seen.add(s.id);
-        return (!s.visibility || s.visibility === 'client' || s.visibility === 'both');
-      })
-      .map(s => ({
-        id: s.id,
-        title: s.title,
-        start: s.start.toDate(),
-        end: s.end.toDate(),
-        status: s.status,
-        visibility: s.visibility || 'client'
-      }));
-    setSessions(us);
-
     setAddOpen(false);
     setNewSession({ programmeId: '', sessionIndex: null, startDateTime: '' });
   };
@@ -717,19 +969,16 @@ export default function ClientDashboard() {
   const handleValidate = async () => {
     if (!selectedEvent) return;
     await updateDoc(doc(db, 'sessions', selectedEvent.id), { status: 'validée' });
-    setSessions(prev => prev.map(ev => ev.id === selectedEvent.id ? { ...ev, status: 'validée' } : ev));
     setEventOpen(false);
   };
   const handleMissed = async () => {
     if (!selectedEvent) return;
     await updateDoc(doc(db, 'sessions', selectedEvent.id), { status: 'manquée' });
-    setSessions(prev => prev.map(ev => ev.id === selectedEvent.id ? { ...ev, status: 'manquée' } : ev));
     setEventOpen(false);
   };
   const handleDelete = async () => {
     if (!selectedEvent) return;
     await deleteDoc(doc(db, 'sessions', selectedEvent.id));
-    setSessions(sessions.filter(s => s.id !== selectedEvent.id));
     setEventOpen(false);
   };
 
@@ -739,7 +988,6 @@ export default function ClientDashboard() {
       start: Timestamp.fromDate(start),
       end:   Timestamp.fromDate(end)
     });
-    setSessions(sessions.map(s => s.id === event.id ? { ...s, start, end } : s));
   };
 
   const openReschedule = () => {
@@ -757,7 +1005,6 @@ export default function ClientDashboard() {
       start: Timestamp.fromDate(start),
       end:   Timestamp.fromDate(end)
     });
-    setSessions(prev => prev.map(s => s.id === selectedEvent.id ? { ...s, start, end } : s));
     setRescheduleOpen(false);
     setEventOpen(false);
   };
@@ -773,23 +1020,165 @@ export default function ClientDashboard() {
   const offRangeBg   = useColorModeValue('#edf2f7','#1f2736');
   const todayBg      = useColorModeValue('#bee3f8','#2c5282');
 
+  // ⭐ map programmeId -> difficultyMap (sessionIndex -> {rating,...})
+  const difficultyByProgramme = useMemo(() => {
+    const m = {};
+    programmes.forEach(p => {
+      m[p.id] = p?._difficultyMap || {};
+    });
+    return m;
+  }, [programmes]);
+
+  // ⭐ sessions enrichies avec difficultyRating (pour calendrier)
+  const sessions = useMemo(() => {
+    return (sessionsRaw || []).map(ev => {
+      const pid = ev.programmeId || null;
+      const idx = (typeof ev.sessionIndex === "number")
+        ? ev.sessionIndex
+        : Number.isFinite(Number(ev.sessionIndex))
+        ? Number(ev.sessionIndex)
+        : null;
+
+      const rating = (pid && idx != null && difficultyByProgramme?.[pid]?.[idx]?.rating)
+        ? difficultyByProgramme[pid][idx].rating
+        : null;
+
+      return { ...ev, difficultyRating: rating };
+    });
+  }, [sessionsRaw, difficultyByProgramme]);
+
+  const CalendarEvent = useCallback(({ event }) => {
+    const r = normRating(event?.difficultyRating);
+    const showStars = event?.status === "validée" && !!r;
+
+    return (
+      <HStack spacing={1} align="center" minW={0}>
+        <Text fontSize="sm" noOfLines={1} minW={0} flex="1">
+          {event.title}
+        </Text>
+        {showStars && (
+          <Tooltip label={`${t("sessionPlayer.rateTitle", "Difficulté")} : ${r}/5`} hasArrow placement="top">
+            <Box>
+              <StarsInline rating={r} color="white" />
+            </Box>
+          </Tooltip>
+        )}
+      </HStack>
+    );
+  }, [t]);
+
   const eventPropGetter = (event) => {
-    let bg = '#3182CE';
+    let bg = primaryColor || '#3182CE';
     if (event.status === 'validée') bg = '#38A169';
     else if (event.status === 'manquée') bg = '#E53E3E';
-    return { style: { backgroundColor: bg, color: 'white', borderRadius: 6, border: 'none', padding: '2px 6px', fontSize: '0.9rem' } };
+
+    // ✅ Couleur basée sur la difficulté si noté
+    const r = normRating(event?.difficultyRating);
+    if (event.status === 'validée' && r) {
+      if (r <= 2) bg = '#2C7A7B';
+      else if (r === 3) bg = '#2B6CB0';
+      else bg = '#C05621';
+    }
+
+    return {
+      style: {
+        backgroundColor: bg,
+        color: 'white',
+        borderRadius: 6,
+        border: 'none',
+        padding: '2px 6px',
+        fontSize: '0.9rem'
+      }
+    };
   };
 
   const countThisMonth = useMemo(() => {
     const now = new Date();
     const m = now.getMonth(), y = now.getFullYear();
-    return sessions.filter(s => s.status === 'validée' && (s.start instanceof Date ? s.start : new Date(s.start)).getMonth() === m && (s.start instanceof Date ? s.start : new Date(s.start)).getFullYear() === y).length;
+    return sessions.filter(s => {
+      const st = (s.start instanceof Date) ? s.start : new Date(s.start);
+      return s.status === 'validée' && st.getMonth() === m && st.getFullYear() === y;
+    }).length;
   }, [sessions]);
 
   const motivationalText =
     countThisMonth === 0 ? t('client_dash.motivation.none')
   : countThisMonth === 1 ? t('client_dash.motivation.one')
   : t('client_dash.motivation.many', { n: countThisMonth });
+
+  // ✅ greetings subtitle (coachdashboard-like)
+  const greetingSubtitle = useMemo(() => {
+    const h = new Date().getHours();
+    const isNight = h >= 22 || h < 5;
+    if (isNight) return "Bonne nuit — pense à bien récupérer 🌙";
+    if (h < 12) return "Belle matinée — on lance la journée fort ?";
+    if (h < 18) return "Heureux de te revoir — objectif : une séance de plus 💪";
+    return "On termine la journée en beauté 🔥";
+  }, []);
+
+  // ✅ motivation stats block
+  const motivationStats = useMemo(() => {
+    const now = new Date();
+
+    const startOfWeek = new Date(now);
+    const day = (startOfWeek.getDay() + 6) % 7; // 0=lundi
+    startOfWeek.setDate(startOfWeek.getDate() - day);
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const validatedDates = sessions
+      .filter((e) => e?.status === "validée" && e?.start)
+      .map((e) => {
+        const d = e.start instanceof Date ? e.start : new Date(e.start);
+        return isNaN(d.getTime()) ? null : d;
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.getTime() - b.getTime());
+
+    const validatedThisWeek = validatedDates.filter((d) => d.getTime() >= startOfWeek.getTime()).length;
+    const validatedThisMonth = validatedDates.filter((d) => d.getTime() >= startOfMonth.getTime()).length;
+
+    // streak (jours consécutifs avec >=1 séance validée)
+    const dayKeys = Array.from(new Set(
+      validatedDates.map((d) => {
+        const x = new Date(d);
+        x.setHours(0, 0, 0, 0);
+        return x.getTime();
+      })
+    )).sort((a, b) => a - b);
+
+    let streak = 0;
+    const today0 = new Date(now);
+    today0.setHours(0, 0, 0, 0);
+    let cursor = today0.getTime();
+
+    const hasToday = dayKeys.includes(cursor);
+    if (!hasToday) cursor -= 24 * 60 * 60 * 1000;
+
+    while (dayKeys.includes(cursor)) {
+      streak += 1;
+      cursor -= 24 * 60 * 60 * 1000;
+    }
+
+    // prochaine séance
+    const upcoming = sessions
+      .filter((e) => e?.status !== "validée" && e?.status !== "manquée" && e?.start)
+      .map((e) => ({
+        ...e,
+        _start: e.start instanceof Date ? e.start : new Date(e.start),
+      }))
+      .filter((e) => e._start && !isNaN(e._start.getTime()) && e._start.getTime() >= now.getTime())
+      .sort((a, b) => a._start.getTime() - b._start.getTime())[0] || null;
+
+    // progress global
+    const totalAll = programmes.reduce((acc, p) => acc + (Number(p?._total) || 0), 0);
+    const doneAll = programmes.reduce((acc, p) => acc + (Number(p?._done) || 0), 0);
+    const percentAll = totalAll > 0 ? Math.min(100, Math.round((doneAll / totalAll) * 100)) : 0;
+
+    return { validatedThisWeek, validatedThisMonth, streak, upcoming, doneAll, totalAll, percentAll };
+  }, [sessions, programmes, i18n.language]);
 
   const displayedProgrammes = programmes.slice(0, 5);
 
@@ -805,9 +1194,113 @@ export default function ClientDashboard() {
         </HStack>
       </Flex>
 
-      {/* Bandeau motivation */}
-      <Box bg={cardBg} border="1px solid" borderColor={borderColor} p={{ base: 4, md: 5 }} borderRadius="xl" boxShadow="sm" mb={6}>
-        <Text fontSize="md">{motivationalText}</Text>
+      {/* Greetings / Motivation (coachdashboard-like) */}
+      <Box
+        bg={cardBg}
+        border="1px solid"
+        borderColor={borderColor}
+        p={{ base: 4, md: 5 }}
+        borderRadius="xl"
+        boxShadow="sm"
+        mb={6}
+      >
+        <VStack align="stretch" spacing={3}>
+          <Box>
+            <Text fontSize="sm" color={useColorModeValue("gray.600", "gray.300")}>
+              {greetingSubtitle}
+            </Text>
+            <Text fontSize="md" fontWeight="semibold" mt={1}>
+              {motivationalText}
+            </Text>
+          </Box>
+
+          <SimpleGrid columns={{ base: 2, md: 4 }} spacing={3}>
+            <Box
+              border="1px solid"
+              borderColor={borderColor}
+              borderRadius="lg"
+              p={3}
+              bg={useColorModeValue("gray.50", "whiteAlpha.50")}
+            >
+              <Text fontSize="xs" color={useColorModeValue("gray.600", "gray.300")}>
+                Cette semaine
+              </Text>
+              <Text fontSize="lg" fontWeight="bold">
+                {motivationStats.validatedThisWeek} séance{motivationStats.validatedThisWeek > 1 ? "s" : ""}
+              </Text>
+            </Box>
+
+            <Box
+              border="1px solid"
+              borderColor={borderColor}
+              borderRadius="lg"
+              p={3}
+              bg={useColorModeValue("gray.50", "whiteAlpha.50")}
+            >
+              <Text fontSize="xs" color={useColorModeValue("gray.600", "gray.300")}>
+                Ce mois-ci
+              </Text>
+              <Text fontSize="lg" fontWeight="bold">
+                {motivationStats.validatedThisMonth}
+              </Text>
+            </Box>
+
+            <Box
+              border="1px solid"
+              borderColor={borderColor}
+              borderRadius="lg"
+              p={3}
+              bg={useColorModeValue("gray.50", "whiteAlpha.50")}
+            >
+              <Text fontSize="xs" color={useColorModeValue("gray.600", "gray.300")}>
+                Série en cours
+              </Text>
+              <Text fontSize="lg" fontWeight="bold">
+                {motivationStats.streak > 0 ? `🔥 ${motivationStats.streak}j` : "—"}
+              </Text>
+            </Box>
+
+            <Box
+              border="1px solid"
+              borderColor={borderColor}
+              borderRadius="lg"
+              p={3}
+              bg={useColorModeValue("gray.50", "whiteAlpha.50")}
+            >
+              <Text fontSize="xs" color={useColorModeValue("gray.600", "gray.300")}>
+                Prochaine séance
+              </Text>
+              <Text fontSize="sm" fontWeight="bold" noOfLines={1}>
+                {motivationStats.upcoming?._start
+                  ? new Date(motivationStats.upcoming._start).toLocaleString(i18n.language || "fr", {
+                      weekday: "short",
+                      day: "2-digit",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : "Non planifiée"}
+              </Text>
+            </Box>
+          </SimpleGrid>
+
+          {motivationStats.totalAll > 0 && (
+            <Box pt={1}>
+              <HStack justify="space-between" mb={1}>
+                <Text fontSize="sm" color={useColorModeValue("gray.600", "gray.300")}>
+                  Progression globale
+                </Text>
+                <Text fontSize="sm" fontWeight="semibold">
+                  {motivationStats.percentAll}%
+                </Text>
+              </HStack>
+              <Progress value={motivationStats.percentAll} size="sm" borderRadius="md" />
+              <Text mt={1} fontSize="xs" color={useColorModeValue("gray.500", "gray.400")}>
+                {motivationStats.doneAll}/{motivationStats.totalAll} séances validées
+              </Text>
+            </Box>
+          )}
+        </VStack>
       </Box>
 
       {/* MES PROGRAMMES */}
@@ -832,9 +1325,10 @@ export default function ClientDashboard() {
                   <Tr>
                     <Th>{t('client_dash.table.program')}</Th>
                     <Th>{t('client_dash.table.made_by')}</Th>
-                    <Th>{t('client_dash.table.created_on')}</Th>
+                    <Th>{t('client_dash.table.last_session', 'Dernière séance')}</Th>
                     <Th>{t('client_dash.table.sessions')}</Th>
                     <Th>{t('client_dash.table.progress')}</Th>
+                    <Th>Note</Th>
                     <Th>{t('client_dash.table.action')}</Th>
                   </Tr>
                 </Thead>
@@ -851,7 +1345,18 @@ export default function ClientDashboard() {
                         </ChakraLink>
                       </Td>
                       <Td>{p.createdByName}</Td>
-                      <Td>{p.createdAtFormatted}</Td>
+
+                      <Td>
+                        <Tooltip
+                          label={p._lastSessionMs ? "Dernière séance effectuée" : "Aucune séance effectuée (fallback date programme)"}
+                          hasArrow
+                        >
+                          <Box display="inline-block">
+                            {p._displayDateFormatted}
+                          </Box>
+                        </Tooltip>
+                      </Td>
+
                       <Td>{p._done}/{p._total}</Td>
                       <Td>
                         <Box minW="220px">
@@ -864,6 +1369,16 @@ export default function ClientDashboard() {
                           <Progress value={p._percent} size="sm" borderRadius="md" />
                         </Box>
                       </Td>
+
+                      {/* ⭐️ Stars: vide si pas noté */}
+                      <Td>
+                        <Tooltip label={p._rating ? `${Math.round(p._rating)}/5` : "Pas encore noté"} hasArrow>
+                          <Box display="inline-block">
+                            <Stars rating={p._rating} size="14px" />
+                          </Box>
+                        </Tooltip>
+                      </Td>
+
                       <Td>
                         <HStack spacing={2}>
                           <Button variant="outline" size="sm" onClick={() => navigateToProgram(p)}>
@@ -891,19 +1406,29 @@ export default function ClientDashboard() {
                         {t('client_dash.start')}
                       </Button>
                     </HStack>
-                    <Text fontWeight="bold" fontSize="md" pr="140px">
-                      <ChakraLink
-                        as={Link}
-                        to={isAutoProgramme(p) ? `/auto-program-preview/${clientId}/${p.id}` : `/clients/${clientId}/programmes/${p.id}`}
-                        color="blue.400"
-                      >
-                        {getProgrammeDisplayName(p)}
-                      </ChakraLink>
-                    </Text>
+
+                    <HStack justify="space-between" align="start" spacing={3} mb={1}>
+                      <Text fontWeight="bold" fontSize="md" pr="10px">
+                        <ChakraLink
+                          as={Link}
+                          to={isAutoProgramme(p) ? `/auto-program-preview/${clientId}/${p.id}` : `/clients/${clientId}/programmes/${p.id}`}
+                          color="blue.400"
+                        >
+                          {getProgrammeDisplayName(p)}
+                        </ChakraLink>
+                      </Text>
+                      <Stars rating={p._rating} size="13px" />
+                    </HStack>
+
                     <HStack spacing={2} mb={2} mt={1}>
                       <Badge>{p.createdByName}</Badge>
-                      {p.createdAtFormatted && (<Badge variant="subtle" colorScheme="gray">{p.createdAtFormatted}</Badge>)}
+                      {p._displayDateFormatted && (
+                        <Badge variant="subtle" colorScheme="gray">
+                          {p._displayDateFormatted}
+                        </Badge>
+                      )}
                     </HStack>
+
                     <HStack justify="space-between" mb={1}>
                       <Text fontSize="sm" color={useColorModeValue('gray.600','gray.300')}>
                         {t('client_dash.done_total_sessions', { done: p._done, total: p._total })}
@@ -1057,6 +1582,7 @@ export default function ClientDashboard() {
           endAccessor="end"
           selectable
           onSelectEvent={(evt)=>{ setSelectedEvent(evt); setEventOpen(true); }}
+          components={{ event: CalendarEvent }}
           onEventDrop={isTouchDevice() ? undefined : moveEvent}
           resizable={!isTouchDevice()}
           onEventResize={isTouchDevice() ? undefined : moveEvent}
@@ -1180,4 +1706,3 @@ export default function ClientDashboard() {
     </Box>
   );
 }
-

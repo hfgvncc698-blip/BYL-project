@@ -28,7 +28,8 @@ function toArrayMaybe(v) {
     if (v && typeof v === "object") {
       // tri par clé numérique/alpha pour un ordre stable
       const keys = Object.keys(v).sort((a, b) => {
-        const na = +a, nb = +b;
+        const na = +a,
+          nb = +b;
         const aIsNum = String(na) === a;
         const bIsNum = String(nb) === b;
         if (aIsNum && bIsNum) return na - nb;
@@ -88,7 +89,9 @@ export default function AboutPage() {
             </Heading>
             <List spacing={2} pl={1}>
               {features.length === 0 ? (
-                <Text color="gray.500">{t("about.features.empty", { defaultValue: "" })}</Text>
+                <Text color="gray.500">
+                  {t("about.features.empty", { defaultValue: "" })}
+                </Text>
               ) : (
                 features.map((line, i) => (
                   <ListItem key={`f-${i}`}>
@@ -109,13 +112,23 @@ export default function AboutPage() {
             <Text color="gray.600">{t("about.autonomy.body")}</Text>
           </Box>
 
+          {/* ✅ Vision */}
+          <Box>
+            <Heading as="h2" size="md" mb={2}>
+              {t("about.vision.title")}
+            </Heading>
+            <Text color="gray.600">{t("about.vision.body")}</Text>
+          </Box>
+
           <Box>
             <Heading as="h2" size="md" mb={2}>
               {t("about.why.title")}
             </Heading>
             <List spacing={2} pl={1}>
               {why.length === 0 ? (
-                <Text color="gray.500">{t("about.why.empty", { defaultValue: "" })}</Text>
+                <Text color="gray.500">
+                  {t("about.why.empty", { defaultValue: "" })}
+                </Text>
               ) : (
                 why.map((line, i) => (
                   <ListItem key={`w-${i}`}>
@@ -143,4 +156,3 @@ export default function AboutPage() {
     </Box>
   );
 }
-

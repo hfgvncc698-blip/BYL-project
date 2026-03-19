@@ -10,7 +10,12 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+
 *.local
+.env
+.env.local
+.env.production
+*.tgz
 
 # Editor directories and files
 .vscode/*
@@ -28,6 +33,7 @@ backend/serviceAccountKey.json
 backend/firebase-service-account.json
 backend/*.log
 
-echo 'boost-your-life-f6b3e-firebase-adminsdk-fbsvc-f200c38fb3.json' >> .gitignore
 
 boost-your-life-f6b3e-firebase-adminsdk-fbsvc-f200c38fb3.json
+.xlsx
+*.xlsx

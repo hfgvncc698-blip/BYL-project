@@ -11,9 +11,12 @@ import {
 import { useConsent } from "../consent/ConsentContext";
 
 export default function CookieConsentBanner() {
-  const { asked, save } = useConsent();
+  const { asked, save, loaded } = useConsent();
   const bg = useColorModeValue("gray.50", "gray.800");
   const border = useColorModeValue("gray.200", "gray.700");
+
+  // ✅ on attend que le context soit hydraté
+  if (!loaded) return null;
   if (asked) return null;
 
   const acceptAll = () => save({ analytics: true, marketing: true });
@@ -67,6 +70,9 @@ export default function CookieConsentBanner() {
         <Stack direction="row" spacing={2}>
           <Button colorScheme="blue" onClick={acceptAll}>
             Tout accepter
+          </Button>
+          <Button variant="outline" onClick={refuseAll}>
+            Tout refuser
           </Button>
         </Stack>
       </Stack>

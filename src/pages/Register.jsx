@@ -1,14 +1,32 @@
+// src/pages/Register.jsx
 import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "../AuthContext";
 import { useNavigate, useLocation, Link as RouterLink } from "react-router-dom";
 import {
-  Box, Heading, Input, Button, Text, VStack, InputGroup,
-  InputLeftElement, InputRightElement, IconButton, Alert, AlertIcon,
-  Select, useColorModeValue, Checkbox, HStack, Link, Divider
+  Box,
+  Heading,
+  Input,
+  Button,
+  Text,
+  VStack,
+  InputGroup,
+  InputLeftElement,
+  InputRightElement,
+  IconButton,
+  Alert,
+  AlertIcon,
+  Select,
+  useColorModeValue,
+  Checkbox,
+  Link,
+  Divider,
 } from "@chakra-ui/react";
 import { LockIcon, ViewIcon, ViewOffIcon } from "@chakra-ui/icons";
 import { FcGoogle } from "react-icons/fc";
 import { useTranslation, Trans } from "react-i18next";
+
+import { getFunctions, httpsCallable } from "firebase/functions";
+import i18n from "../i18n"; // ✅ pour récupérer la langue active
 
 function calcAge(birthDateStr) {
   if (!birthDateStr) return 0;
@@ -31,16 +49,20 @@ const Register = () => {
   const forcedRole = params.get("role");
 
   const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName]   = useState("");
+  const [lastName, setLastName] = useState("");
   const [birthDate, setBirthDate] = useState("");
-  const [email, setEmail]         = useState("");
+  const [email, setEmail] = useState("");
   const [confirmEmail, setConfirmEmail] = useState("");
-  const [password, setPassword]   = useState("");
+  const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [role, setRole]           = useState("particulier");
+
+  // ✅ UI role: "coach" ou "eleve"
+  // Par défaut : coach
+  const [role, setRole] = useState("coach");
 
   useEffect(() => {
     if (forcedRole === "coach") setRole("coach");
+    if (forcedRole === "particulier" || forcedRole === "eleve") setRole("eleve");
   }, [forcedRole]);
 
   const [isAdultChecked, setIsAdultChecked] = useState(false);
@@ -61,14 +83,41 @@ const Register = () => {
 
   const clearError = () => errorMessage && setErrorMessage("");
 
+  // ✅ Mapping UI -> Firestore
+  // - coach => coach
+  // - eleve => particulier
+  const firestoreRole = useMemo(() => {
+    return role === "coach" ? "coach" : "particulier";
+  }, [role]);
+
+  // ✅ Langue active (détectée par i18next)
+  const activeLang = useMemo(() => {
+    const raw = i18n.resolvedLanguage || i18n.language || "fr";
+    return String(raw).split("-")[0]; // ex: "fr-FR" => "fr"
+  }, []);
+
+  const canSubmit =
+    firstName &&
+    lastName &&
+    birthDate &&
+    email &&
+    confirmEmail &&
+    password &&
+    confirmPassword &&
+    isAdult &&
+    isAdultChecked &&
+    acceptTermsChecked;
+
   const handleRegister = async (e) => {
     if (e) e.preventDefault();
 
     if (email !== confirmEmail) return setErrorMessage(t("auth.register.errors.emailsMismatch"));
     if (password !== confirmPassword) return setErrorMessage(t("auth.register.errors.passwordsMismatch"));
-    if (!firstName || !lastName || !birthDate || !email || !password) return setErrorMessage(t("auth.register.errors.missingFields"));
+    if (!firstName || !lastName || !birthDate || !email || !password)
+      return setErrorMessage(t("auth.register.errors.missingFields"));
     if (!isAdult) return setErrorMessage(t("auth.register.errors.mustBeAdult"));
-    if (!isAdultChecked || !acceptTermsChecked) return setErrorMessage(t("auth.register.errors.mustConfirmAndAccept"));
+    if (!isAdultChecked || !acceptTermsChecked)
+      return setErrorMessage(t("auth.register.errors.mustConfirmAndAccept"));
 
     try {
       await registerWithEmail(
@@ -76,7 +125,7 @@ const Register = () => {
         password,
         firstName,
         lastName,
-        role,
+        firestoreRole,
         birthDate,
         {
           ageVerified: true,
@@ -85,10 +134,35 @@ const Register = () => {
           acceptedAt: new Date().toISOString(),
           cguVersion: "v1.0",
           cgvVersion: "v1.0",
+          // ✅ utile si ton AuthContext le stocke en Firestore
+          preferredLanguage: activeLang,
         }
       );
-      if (redirect) navigate(redirect, { replace: true });
-      else navigate(role === "coach" ? "/coach-dashboard" : "/user-dashboard", { replace: true });
+
+      // ✅ Envoi email bienvenue (coach vs élève) via Functions (app default)
+      try {
+        const functions = getFunctions(undefined, "europe-west1");
+        const sendWelcomeEmail = httpsCallable(functions, "sendWelcomeEmail");
+
+        console.log("[Register] calling sendWelcomeEmail...", { lang: activeLang });
+        const res = await sendWelcomeEmail({
+          email,
+          firstName,
+          role: firestoreRole, // coach / particulier
+          lang: activeLang, // ✅ langue active détectée
+        });
+
+        console.log("[Register] sendWelcomeEmail OK:", res?.data);
+      } catch (mailErr) {
+        console.warn("[Register] sendWelcomeEmail failed:", mailErr);
+        // On n'empêche pas l'inscription si l'email échoue
+      }
+
+      if (redirect) {
+        navigate(redirect, { replace: true });
+      } else {
+        navigate(firestoreRole === "coach" ? "/coach-dashboard" : "/user-dashboard", { replace: true });
+      }
     } catch (err) {
       console.error(err);
       setErrorMessage(t("auth.register.errors.failed"));
@@ -100,14 +174,22 @@ const Register = () => {
     else navigate("/login");
   };
 
-  const canSubmit =
-    firstName && lastName && birthDate && email && confirmEmail && password && confirmPassword &&
-    isAdult && isAdultChecked && acceptTermsChecked;
-
   return (
-    <Box maxW="420px" mx="auto" mt={10} p={6} bg={bgColor} color={textColor}
-      boxShadow="lg" borderRadius="lg" borderWidth="1px" borderColor={borderColor}>
-      <Heading textAlign="center" mb={6}>{t("auth.register.title")}</Heading>
+    <Box
+      maxW="420px"
+      mx="auto"
+      mt={10}
+      p={6}
+      bg={bgColor}
+      color={textColor}
+      boxShadow="lg"
+      borderRadius="lg"
+      borderWidth="1px"
+      borderColor={borderColor}
+    >
+      <Heading textAlign="center" mb={6}>
+        {t("auth.register.title")}
+      </Heading>
 
       {errorMessage && (
         <Alert status="error" mb={4} borderRadius="md">
@@ -118,63 +200,166 @@ const Register = () => {
 
       <form onSubmit={handleRegister}>
         <VStack spacing={4} align="stretch">
-          <Input placeholder={t("auth.register.firstName")} type="text" value={firstName}
-            onChange={e => { setFirstName(e.target.value); clearError(); }} bg={inputBg} color={textColor} _placeholder={{ color: inputPlaceholderColor }} />
-          <Input placeholder={t("auth.register.lastName")} type="text" value={lastName}
-            onChange={e => { setLastName(e.target.value); clearError(); }} bg={inputBg} color={textColor} _placeholder={{ color: inputPlaceholderColor }} />
-          <Input placeholder={t("auth.register.birthDate")} type="date" value={birthDate}
-            onChange={e => { setBirthDate(e.target.value); clearError(); }} bg={inputBg} color={textColor} _placeholder={{ color: inputPlaceholderColor }} />
+          <Input
+            placeholder={t("auth.register.firstName")}
+            type="text"
+            value={firstName}
+            onChange={(e) => {
+              setFirstName(e.target.value);
+              clearError();
+            }}
+            bg={inputBg}
+            color={textColor}
+            _placeholder={{ color: inputPlaceholderColor }}
+          />
+          <Input
+            placeholder={t("auth.register.lastName")}
+            type="text"
+            value={lastName}
+            onChange={(e) => {
+              setLastName(e.target.value);
+              clearError();
+            }}
+            bg={inputBg}
+            color={textColor}
+            _placeholder={{ color: inputPlaceholderColor }}
+          />
+          <Input
+            placeholder={t("auth.register.birthDate")}
+            type="date"
+            value={birthDate}
+            onChange={(e) => {
+              setBirthDate(e.target.value);
+              clearError();
+            }}
+            bg={inputBg}
+            color={textColor}
+            _placeholder={{ color: inputPlaceholderColor }}
+          />
           {!isAdult && birthDate && (
             <Text fontSize="sm" color="red.400">
               {t("auth.register.ageWarning", { age })}
             </Text>
           )}
 
-          <Input placeholder={t("auth.register.email")} type="email" value={email}
-            onChange={e => { setEmail(e.target.value); clearError(); }} bg={inputBg} color={textColor} _placeholder={{ color: inputPlaceholderColor }} />
-          <Input placeholder={t("auth.register.confirmEmail")} type="email" value={confirmEmail}
-            onChange={e => { setConfirmEmail(e.target.value); clearError(); }} bg={inputBg} color={textColor} _placeholder={{ color: inputPlaceholderColor }} />
+          <Input
+            placeholder={t("auth.register.email")}
+            type="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              clearError();
+            }}
+            bg={inputBg}
+            color={textColor}
+            _placeholder={{ color: inputPlaceholderColor }}
+          />
+          <Input
+            placeholder={t("auth.register.confirmEmail")}
+            type="email"
+            value={confirmEmail}
+            onChange={(e) => {
+              setConfirmEmail(e.target.value);
+              clearError();
+            }}
+            bg={inputBg}
+            color={textColor}
+            _placeholder={{ color: inputPlaceholderColor }}
+          />
 
-          <Select value={role} onChange={e => { setRole(e.target.value); clearError(); }}
-            bg={inputBg} color={textColor} borderColor={borderColor}>
-            <option value="particulier">{t("roles.individual")}</option>
-            <option value="coach">{t("roles.coach")}</option>
+          <Select
+            value={role}
+            onChange={(e) => {
+              setRole(e.target.value);
+              clearError();
+            }}
+            bg={inputBg}
+            color={textColor}
+            borderColor={borderColor}
+          >
+            <option value="coach">Coach</option>
+            <option value="eleve">Élève</option>
           </Select>
 
           <InputGroup>
-            <InputLeftElement pointerEvents="none"><LockIcon color="gray.500" /></InputLeftElement>
-            <Input placeholder={t("auth.register.password")} type={showPassword ? "text" : "password"} value={password}
-              onChange={e => { setPassword(e.target.value); clearError(); }} bg={inputBg} color={textColor} _placeholder={{ color: inputPlaceholderColor }} />
+            <InputLeftElement pointerEvents="none">
+              <LockIcon color="gray.500" />
+            </InputLeftElement>
+            <Input
+              placeholder={t("auth.register.password")}
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                clearError();
+              }}
+              bg={inputBg}
+              color={textColor}
+              _placeholder={{ color: inputPlaceholderColor }}
+            />
             <InputRightElement>
-              <IconButton aria-label={t("auth.register.togglePassword")} icon={showPassword ? <ViewOffIcon /> : <ViewIcon />}
-                onClick={() => setShowPassword(!showPassword)} size="sm" variant="ghost" />
+              <IconButton
+                aria-label={t("auth.register.togglePassword")}
+                icon={showPassword ? <ViewOffIcon /> : <ViewIcon />}
+                onClick={() => setShowPassword(!showPassword)}
+                size="sm"
+                variant="ghost"
+              />
             </InputRightElement>
           </InputGroup>
 
           <InputGroup>
-            <InputLeftElement pointerEvents="none"><LockIcon color="gray.500" /></InputLeftElement>
-            <Input placeholder={t("auth.register.confirmPassword")} type={showConfirmPassword ? "text" : "password"} value={confirmPassword}
-              onChange={e => { setConfirmPassword(e.target.value); clearError(); }} bg={inputBg} color={textColor} _placeholder={{ color: inputPlaceholderColor }} />
+            <InputLeftElement pointerEvents="none">
+              <LockIcon color="gray.500" />
+            </InputLeftElement>
+            <Input
+              placeholder={t("auth.register.confirmPassword")}
+              type={showConfirmPassword ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(e) => {
+                setConfirmPassword(e.target.value);
+                clearError();
+              }}
+              bg={inputBg}
+              color={textColor}
+              _placeholder={{ color: inputPlaceholderColor }}
+            />
             <InputRightElement>
-              <IconButton aria-label={t("auth.register.togglePassword")} icon={showConfirmPassword ? <ViewOffIcon /> : <ViewIcon />}
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)} size="sm" variant="ghost" />
+              <IconButton
+                aria-label={t("auth.register.togglePassword")}
+                icon={showConfirmPassword ? <ViewOffIcon /> : <ViewIcon />}
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                size="sm"
+                variant="ghost"
+              />
             </InputRightElement>
           </InputGroup>
 
-          {/* Liens légaux */}
           <VStack align="start" spacing={2}>
-            <Checkbox isChecked={isAdultChecked} onChange={(e)=>{ setIsAdultChecked(e.target.checked); clearError(); }}>
+            <Checkbox
+              isChecked={isAdultChecked}
+              onChange={(e) => {
+                setIsAdultChecked(e.target.checked);
+                clearError();
+              }}
+            >
               <Trans i18nKey="auth.register.adultConfirm">
                 J’atteste avoir <b>18 ans ou plus</b>.
               </Trans>
             </Checkbox>
 
-            <Checkbox isChecked={acceptTermsChecked} onChange={(e)=>{ setAcceptTermsChecked(e.target.checked); clearError(); }}>
+            <Checkbox
+              isChecked={acceptTermsChecked}
+              onChange={(e) => {
+                setAcceptTermsChecked(e.target.checked);
+                clearError();
+              }}
+            >
               <Trans
                 i18nKey="auth.register.acceptTerms"
                 components={{
                   cgu: <Link as={RouterLink} to="/terms" color="blue.400" />,
-                  cgv: <Link as={RouterLink} to="/sales-policy" color="blue.400" />
+                  cgv: <Link as={RouterLink} to="/sales-policy" color="blue.400" />,
                 }}
               />
             </Checkbox>
@@ -187,15 +372,29 @@ const Register = () => {
             </Text>
           </VStack>
 
-          <Button w="full" bg={canSubmit ? "gray.500" : "gray.400"} color="white"
-            _hover={{ bg: canSubmit ? "gray.600" : "gray.400" }} type="submit" isDisabled={!canSubmit}>
+          <Button
+            w="full"
+            bg={canSubmit ? "gray.500" : "gray.400"}
+            color="white"
+            _hover={{ bg: canSubmit ? "gray.600" : "gray.400" }}
+            type="submit"
+            isDisabled={!canSubmit}
+          >
             {t("auth.register.signUp")}
           </Button>
 
           <Divider />
 
-          <Button w="full" leftIcon={<FcGoogle />} bg="white" color="black" _hover={{ bg: "gray.200" }}
-            onClick={() => loginWithGoogle()} borderWidth="1px" borderColor="gray.300">
+          <Button
+            w="full"
+            leftIcon={<FcGoogle />}
+            bg="white"
+            color="black"
+            _hover={{ bg: "gray.200" }}
+            onClick={() => loginWithGoogle()}
+            borderWidth="1px"
+            borderColor="gray.300"
+          >
             {t("auth.register.signUpWithGoogle")}
           </Button>
 

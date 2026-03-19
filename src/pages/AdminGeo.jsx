@@ -33,19 +33,14 @@ import {
   Switch,
   FormControl,
   FormLabel,
-  Tabs,
-  TabList,
-  TabPanels,
-  Tab,
-  TabPanel,
+  Select,
+  Stack,
+  Badge,
 } from "@chakra-ui/react";
 
 // ====== Carte 2D (Leaflet)
 import "leaflet/dist/leaflet.css";
 import { MapContainer, TileLayer, CircleMarker, Tooltip, useMap } from "react-leaflet";
-
-// ====== Globe 3D
-import Globe from "react-globe.gl";
 
 // Firestore
 import { collection, getDocs, updateDoc, doc } from "firebase/firestore";
@@ -53,6 +48,28 @@ import { db } from "../firebaseConfig";
 
 /* ------------------------------------ utils ------------------------------------ */
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function fmtDay(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function lastNDays(n) {
+  const out = [];
+  const now = new Date();
+  for (let i = 0; i < n; i += 1) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    out.push(fmtDay(d));
+  }
+  return out;
+}
+
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
 
 // Geocoding (Nominatim / OSM)
 async function geocodeCity(countryISO2, city) {
@@ -67,6 +84,7 @@ async function geocodeCity(countryISO2, city) {
   if (!res.ok) throw new Error(`Geocode failed ${res.status}`);
   const data = await res.json();
   if (!Array.isArray(data) || data.length === 0) return null;
+
   const best = data[0];
   const lat = parseFloat(best.lat);
   const lon = parseFloat(best.lon);
@@ -88,7 +106,7 @@ function FitToMarkers({ points }) {
   return null;
 }
 
-// Petit composant KPI
+// KPI card
 function StatCard({ title, value, help }) {
   const cardBg = useColorModeValue("white", "gray.800");
   return (
@@ -100,87 +118,240 @@ function StatCard({ title, value, help }) {
   );
 }
 
+const METRICS = [
+  { key: "pv", label: "Pages vues" },
+  { key: "uv", label: "Visiteurs uniques" }, // ✅ wording identique dashboard
+];
+
+const WINDOWS = [
+  { key: "today", label: "Aujourd’hui" },
+  { key: "7d", label: "7 jours" },
+  { key: "30d", label: "30 jours" },
+  { key: "all", label: "Toujours" },
+];
+
 /* ------------------------------------ Page ------------------------------------ */
 export default function AdminGeo() {
   const [loading, setLoading] = useState(true);
-  const [cities, setCities] = useState([]); // {id,country,city,pv,lat,lon}
-  const [minPv, setMinPv] = useState(1);
+
+  // base cities from analytics_geo
+  // { geoId, country, city, pv, users, lat, lon }
+  const [citiesBase, setCitiesBase] = useState([]);
+
+  // geo daily docs (analytics_geo_daily)
+  // { day, geoId, country, city, pv, uniqueVisitors }
+  const [geoDaily, setGeoDaily] = useState([]);
+
+  // geo hourly docs (analytics_geo_hourly)
+  // { day, hour, geoId, country, city, pv, uniqueVisitors }
+  const [geoHourly, setGeoHourly] = useState([]);
+
+  const [metric, setMetric] = useState("pv"); // pv | uv
+  const [windowKey, setWindowKey] = useState("30d"); // today | 7d | 30d | all
+
+  const [minVal, setMinVal] = useState(1);
   const [search, setSearch] = useState("");
+
   const [enriching, setEnriching] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [autoEnrich, setAutoEnrich] = useState(true); // auto à l’ouverture
+  const [autoEnrich, setAutoEnrich] = useState(true);
   const autoRanRef = useRef(false);
+
   const toast = useToast();
 
   const cardBg = useColorModeValue("white", "gray.800");
   const bubbleFill = useColorModeValue("#3182ce", "#63b3ed");
   const bubbleStroke = useColorModeValue("#1a365d", "#2a4365");
 
-  // charge analytics_geo
+  const todayKey = useMemo(() => fmtDay(new Date()), []);
+
+  // Load analytics_geo + analytics_geo_daily + analytics_geo_hourly
   useEffect(() => {
     let mounted = true;
+
     (async () => {
+      setLoading(true);
       try {
-        const snap = await getDocs(collection(db, "analytics_geo"));
-        const arr = [];
-        snap.forEach((d) => {
+        const [snapGeo, snapDaily, snapHourly] = await Promise.all([
+          getDocs(collection(db, "analytics_geo")),
+          getDocs(collection(db, "analytics_geo_daily")),
+          getDocs(collection(db, "analytics_geo_hourly")),
+        ]);
+
+        const baseArr = [];
+        snapGeo.forEach((d) => {
           const x = d.data() || {};
-          arr.push({
+          const country = (x.country || "UN").toUpperCase();
+          const city = x.city || "unknown";
+
+          baseArr.push({
             id: d.id,
-            country: (x.country || "UN").toUpperCase(),
-            city: x.city || "Unknown",
+            geoId: d.id,
+            country,
+            city,
             pv: x.pv || 0,
+            // ✅ all-time uniques per city
+            usersAllTime: x.users || 0,
             lat: typeof x.lat === "number" ? x.lat : null,
             lon: typeof x.lon === "number" ? x.lon : null,
           });
         });
-        if (mounted) setCities(arr.sort((a, b) => b.pv - a.pv));
+
+        const dailyArr = [];
+        snapDaily.forEach((d) => {
+          const x = d.data() || {};
+          dailyArr.push({
+            id: d.id,
+            day: x.day || null,
+            geoId: x.geoId || null,
+            country: (x.country || "UN").toUpperCase(),
+            city: x.city || "unknown",
+            pv: x.pv || 0,
+            uniqueVisitors: x.uniqueVisitors || 0,
+          });
+        });
+
+        const hourlyArr = [];
+        snapHourly.forEach((d) => {
+          const x = d.data() || {};
+          hourlyArr.push({
+            id: d.id,
+            day: x.day || null,
+            hour: typeof x.hour === "number" ? x.hour : null,
+            geoId: x.geoId || null,
+            country: (x.country || "UN").toUpperCase(),
+            city: x.city || "unknown",
+            pv: x.pv || 0,
+            uniqueVisitors: x.uniqueVisitors || 0,
+          });
+        });
+
+        if (mounted) {
+          setCitiesBase(baseArr);
+          setGeoDaily(dailyArr);
+          setGeoHourly(hourlyArr);
+        }
       } catch (e) {
-        console.error("analytics_geo fetch error:", e);
+        console.error("AdminGeo fetch error:", e);
+        toast({ status: "error", description: "Erreur de chargement analytics_geo / analytics_geo_daily / analytics_geo_hourly" });
       } finally {
         if (mounted) setLoading(false);
       }
     })();
-    return () => (mounted = false);
-  }, []);
 
-  // KPIs
+    return () => { mounted = false; };
+  }, [toast]);
+
+  // Compute day set for selected window
+  const daySet = useMemo(() => {
+    if (windowKey === "today") return new Set([fmtDay(new Date())]);
+    if (windowKey === "7d") return new Set(lastNDays(7));
+    if (windowKey === "30d") return new Set(lastNDays(30));
+    return null; // all-time
+  }, [windowKey]);
+
+  // Aggregate values per geoId depending on window + metric
+  const aggByGeoId = useMemo(() => {
+    // all-time comes from analytics_geo directly
+    if (windowKey === "all") {
+      const out = {};
+      citiesBase.forEach((c) => {
+        out[c.geoId] = metric === "pv" ? (c.pv || 0) : (c.usersAllTime || 0);
+      });
+      return out;
+    }
+
+    // otherwise use analytics_geo_daily
+    const out = {};
+    geoDaily.forEach((d) => {
+      if (!d.geoId || !d.day) return;
+      if (!daySet?.has(d.day)) return;
+
+      const val = metric === "pv" ? (d.pv || 0) : (d.uniqueVisitors || 0);
+      out[d.geoId] = (out[d.geoId] || 0) + val;
+    });
+    return out;
+  }, [windowKey, metric, citiesBase, geoDaily, daySet]);
+
+  // Merge base (coords/city) + aggregated value
+  const cities = useMemo(() => {
+    const arr = citiesBase.map((c) => ({
+      ...c,
+      value: aggByGeoId[c.geoId] || 0,
+    }));
+    return arr.sort((a, b) => (b.value || 0) - (a.value || 0));
+  }, [citiesBase, aggByGeoId]);
+
+  // KPI (global)
   const kpi = useMemo(() => {
-    const totalPv = cities.reduce((a, c) => a + (c.pv || 0), 0);
-    const nbCities = cities.length;
-    const byCountry = {};
-    cities.forEach((c) => (byCountry[c.country] = (byCountry[c.country] || 0) + (c.pv || 0)));
-    const top = Object.entries(byCountry)
-      .map(([k, v]) => ({ country: k, pv: v }))
-      .sort((a, b) => b.pv - a.pv)[0];
-    return { totalPv, nbCities, topCountry: top?.country || "-", topCountryPv: top?.pv || 0 };
-  }, [cities]);
+    const total = cities.reduce((a, c) => a + (c.value || 0), 0);
+    const nbCities = citiesBase.length;
 
-  // Filtrage
+    const byCountry = {};
+    cities.forEach((c) => {
+      byCountry[c.country] = (byCountry[c.country] || 0) + (c.value || 0);
+    });
+
+    const top = Object.entries(byCountry)
+      .map(([k, v]) => ({ country: k, value: v }))
+      .sort((a, b) => b.value - a.value)[0];
+
+    return {
+      total,
+      nbCities,
+      topCountry: top?.country || "-",
+      topCountryValue: top?.value || 0,
+    };
+  }, [cities, citiesBase.length]);
+
+  // Filter + search
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     return cities
-      .filter((c) => (c.pv || 0) >= (minPv || 0))
-      .filter((c) => (s ? (c.city || "").toLowerCase().includes(s) || c.country.toLowerCase().includes(s) : true))
-      .sort((a, b) => b.pv - a.pv);
-  }, [cities, minPv, search]);
+      .filter((c) => (c.value || 0) >= (minVal || 0))
+      .filter((c) =>
+        s
+          ? (c.city || "").toLowerCase().includes(s) || (c.country || "").toLowerCase().includes(s)
+          : true
+      )
+      .sort((a, b) => (b.value || 0) - (a.value || 0));
+  }, [cities, minVal, search]);
 
   const mapPoints = useMemo(
     () => filtered.filter((c) => typeof c.lat === "number" && typeof c.lon === "number"),
     [filtered]
   );
 
-  // Eligibilité géocodage
+  // Dernière heure active aujourd’hui par ville (selon métrique)
+  const lastHourByGeoIdToday = useMemo(() => {
+    const out = {}; // geoId -> { lastHour, lastValue }
+    geoHourly.forEach((h) => {
+      if (!h.geoId || !h.day || h.hour == null) return;
+      if (h.day !== todayKey) return;
+
+      const val = metric === "pv" ? (h.pv || 0) : (h.uniqueVisitors || 0);
+      if (val <= 0) return;
+
+      const prev = out[h.geoId];
+      if (!prev || h.hour > prev.lastHour) {
+        out[h.geoId] = { lastHour: h.hour, lastValue: val };
+      }
+    });
+    return out;
+  }, [geoHourly, todayKey, metric]);
+
+  // Eligible for geocoding
   const eligibleToGeocode = (c) =>
     (c.lat == null || c.lon == null) &&
     c.country &&
     c.country !== "UN" &&
     c.city &&
-    c.city.toLowerCase() !== "unknown";
+    String(c.city).toLowerCase() !== "unknown";
 
-  // Enrichissement (manuel / auto)
+  // Enrich coords
   const enrichMissingCoords = async (source = "manual") => {
     const missing = filtered.filter(eligibleToGeocode);
+
     if (missing.length === 0) {
       if (source === "manual") {
         toast({ status: "success", description: "Toutes les villes affichées ont des coordonnées." });
@@ -192,9 +363,8 @@ export default function AdminGeo() {
     setProgress(0);
 
     let done = 0;
-    const updated = [...cities];
+    const updated = [...citiesBase];
 
-    // en auto, on limite la première passe pour respecter Nominatim si la liste est longue
     const batch = source === "auto" ? Math.min(missing.length, 30) : missing.length;
     const toProcess = missing.slice(0, batch);
 
@@ -202,12 +372,12 @@ export default function AdminGeo() {
       try {
         const res = await geocodeCity(city.country, city.city);
         if (res) {
-          await updateDoc(doc(db, "analytics_geo", city.id), {
+          await updateDoc(doc(db, "analytics_geo", city.geoId), {
             lat: res.lat,
             lon: res.lon,
             updatedAt: new Date().toISOString(),
           });
-          const idx = updated.findIndex((c) => c.id === city.id);
+          const idx = updated.findIndex((c) => c.geoId === city.geoId);
           if (idx >= 0) updated[idx] = { ...updated[idx], lat: res.lat, lon: res.lon };
         }
       } catch (e) {
@@ -215,11 +385,11 @@ export default function AdminGeo() {
       } finally {
         done += 1;
         setProgress(Math.round((done / toProcess.length) * 100));
-        await sleep(1100); // ~1 req/s recommandé
+        await sleep(1100);
       }
     }
 
-    setCities(updated);
+    setCitiesBase(updated);
     setEnriching(false);
 
     if (source === "manual") {
@@ -227,11 +397,12 @@ export default function AdminGeo() {
     }
   };
 
-  // Auto-run une seule fois si activé
+  // Auto-run once
   useEffect(() => {
     if (loading) return;
     if (autoRanRef.current) return;
     if (!autoEnrich) return;
+
     const hasMissingEligible = filtered.some(eligibleToGeocode);
     if (!hasMissingEligible) {
       autoRanRef.current = true;
@@ -240,40 +411,109 @@ export default function AdminGeo() {
     autoRanRef.current = true;
     enrichMissingCoords("auto");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, filtered, autoEnrich]);
+  }, [loading, autoEnrich, filtered]);
 
-  /* ------------------------------------ UI ------------------------------------ */
+  const metricLabel = METRICS.find((m) => m.key === metric)?.label || "Pages vues";
+  const windowLabel = WINDOWS.find((w) => w.key === windowKey)?.label || "30 jours";
+
+  const maxVal = useMemo(() => {
+    const m = Math.max(1, ...cities.map((c) => c.value || 0));
+    return Math.max(10, Math.ceil(m));
+  }, [cities]);
+
+  // ✅ label UI clarifié pour la fenêtre "Toujours" en visiteurs uniques
+  const metricLabelUi = useMemo(() => {
+    if (metric !== "uv") return "Pages vues";
+    return windowKey === "all" ? "Visiteurs uniques (toujours)" : "Visiteurs uniques";
+  }, [metric, windowKey]);
+
   return (
     <Box p={6}>
       <Heading mb={6}>Géographie — trafic par villes</Heading>
 
       <SimpleGrid columns={{ base: 1, md: 4 }} spacing={4} mb={6}>
-        <StatCard title="Vues globales" value={kpi.totalPv} help="analytics_geo" />
+        <StatCard
+          title={`${metricLabelUi} (global)`}
+          value={kpi.total}
+          help={windowLabel}
+        />
         <StatCard title="Villes suivies" value={kpi.nbCities} help="docs uniques" />
-        <StatCard title="Pays top" value={kpi.topCountry} help={`${kpi.topCountryPv} vues`} />
+        <StatCard
+          title="Pays top"
+          value={kpi.topCountry}
+          help={`${kpi.topCountryValue} ${metric === "pv" ? "vues" : (windowKey === "all" ? "uniques (toujours)" : "visiteurs uniques")}`}
+        />
+
         <Card bg={cardBg} borderRadius="xl" shadow="sm">
           <CardBody>
-            <HStack spacing={3}>
-              <Tag size="md">Filtre PV ≥ {minPv}</Tag>
+            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+              <Box>
+                <Text fontSize="sm" color="gray.500" mb={1}>Métrique</Text>
+                <Select
+                  value={metric}
+                  onChange={(e) => { setMetric(e.target.value); setMinVal(1); }}
+                >
+                  {METRICS.map((m) => (
+                    <option key={m.key} value={m.key}>{m.label}</option>
+                  ))}
+                </Select>
+              </Box>
+              <Box>
+                <Text fontSize="sm" color="gray.500" mb={1}>Fenêtre</Text>
+                <Select
+                  value={windowKey}
+                  onChange={(e) => { setWindowKey(e.target.value); setMinVal(1); }}
+                >
+                  {WINDOWS.map((w) => (
+                    <option key={w.key} value={w.key}>{w.label}</option>
+                  ))}
+                </Select>
+              </Box>
+            </SimpleGrid>
+
+            {/* ✅ Clarification sémantique */}
+            {metric === "uv" && windowKey === "all" && (
+              <Box mt={3}>
+                <Badge colorScheme="purple" variant="subtle">
+                  “Toujours” = uniques all-time par ville (analytics_geo.users)
+                </Badge>
+              </Box>
+            )}
+            {metric === "uv" && windowKey !== "all" && (
+              <Box mt={3}>
+                <Badge colorScheme="blue" variant="subtle">
+                  {windowLabel} = somme des uniques journaliers (analytics_geo_daily.uniqueVisitors)
+                </Badge>
+              </Box>
+            )}
+
+            <HStack spacing={3} mt={4}>
+              <Tag size="md">
+                Filtre ≥ {minVal} {metric === "pv" ? "PV" : (windowKey === "all" ? "uniques" : "visiteurs uniques")}
+              </Tag>
               <Slider
-                aria-label="min-pv"
+                aria-label="min-val"
                 min={1}
-                max={Math.max(10, Math.ceil(Math.max(1, ...cities.map((c) => c.pv || 0))))}
-                value={minPv}
-                onChange={setMinPv}
+                max={maxVal}
+                value={minVal}
+                onChange={setMinVal}
               >
                 <SliderTrack><SliderFilledTrack /></SliderTrack>
                 <SliderThumb />
               </Slider>
             </HStack>
+
             <HStack mt={3}>
               <Input
                 placeholder="Recherche ville ou pays (ISO2)"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              <Button onClick={() => { setSearch(""); setMinPv(1); }}>Réinitialiser</Button>
+              <Button onClick={() => { setSearch(""); setMinVal(1); }}>
+                Réinitialiser
+              </Button>
             </HStack>
+
             <FormControl display="flex" alignItems="center" mt={4}>
               <FormLabel htmlFor="auto-enrich" mb="0">Auto-géocoder à l’ouverture</FormLabel>
               <Switch
@@ -283,162 +523,174 @@ export default function AdminGeo() {
                 colorScheme="blue"
               />
             </FormControl>
+
+            {/* Petit rappel heure locale */}
+            <Box mt={3}>
+              <Badge colorScheme="gray" variant="subtle">
+                Heures = heure locale du visiteur (analytics_geo_hourly)
+              </Badge>
+            </Box>
           </CardBody>
         </Card>
       </SimpleGrid>
 
-      <Tabs variant="enclosed" colorScheme="blue">
-        <TabList>
-          <Tab>Carte 2D</Tab>
-          <Tab>Globe 3D</Tab>
-        </TabList>
+      {/* ------------------------------ Carte 2D ------------------------------ */}
+      <Card mb={6}>
+        <CardHeader>
+          <HStack justify="space-between" align="center">
+            <Heading size="md">
+              Carte — {metricLabelUi} ({windowLabel})
+            </Heading>
+            <Button
+              size="sm"
+              colorScheme="blue"
+              onClick={() => enrichMissingCoords("manual")}
+              isLoading={enriching}
+              loadingText="Enrichissement…"
+            >
+              Enrichir coordonnées (admin)
+            </Button>
+          </HStack>
+        </CardHeader>
 
-        <TabPanels>
-          {/* ------------------------------ Carte 2D ------------------------------ */}
-          <TabPanel>
-            <Card mb={6}>
-              <CardHeader>
-                <HStack justify="space-between" align="center">
-                  <Heading size="md">Carte</Heading>
-                  <HStack>
-                    <Button
-                      size="sm"
-                      colorScheme="blue"
-                      onClick={() => enrichMissingCoords("manual")}
-                      isLoading={enriching}
-                      loadingText="Enrichissement…"
+        <CardBody>
+          {enriching && <Progress value={progress} size="sm" mb={3} />}
+          {loading ? (
+            <Box py={10} textAlign="center"><Spinner /></Box>
+          ) : (
+            <Box w="100%" h={{ base: "420px", md: "560px" }} borderRadius="lg" overflow="hidden">
+              <MapContainer
+                style={{ width: "100%", height: "100%" }}
+                center={[20, 0]}
+                zoom={2}
+                minZoom={2}
+                worldCopyJump
+                preferCanvas
+              >
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                />
+                <FitToMarkers points={mapPoints} />
+                {mapPoints.map((c) => {
+                  const v = Math.max(1, c.value || 0);
+                  const r = Math.max(4, Math.sqrt(v) * 2.2);
+
+                  const label =
+                    metric === "pv"
+                      ? `${c.value} vues`
+                      : (windowKey === "all"
+                          ? `${c.value} uniques (toujours)`
+                          : `${c.value} visiteurs uniques`);
+
+                  const last = lastHourByGeoIdToday[c.geoId];
+
+                  return (
+                    <CircleMarker
+                      key={c.geoId}
+                      center={[c.lat, c.lon]}
+                      radius={r}
+                      pathOptions={{
+                        color: bubbleStroke,
+                        weight: 1,
+                        fillColor: bubbleFill,
+                        fillOpacity: 0.75,
+                      }}
                     >
-                      Enrichir coordonnées (admin)
-                    </Button>
-                  </HStack>
-                </HStack>
-              </CardHeader>
-              <CardBody>
-                {enriching && <Progress value={progress} size="sm" mb={3} />}
-                {loading ? (
-                  <Box py={10} textAlign="center"><Spinner /></Box>
-                ) : (
-                  <Box w="100%" h={{ base: "420px", md: "560px" }} borderRadius="lg" overflow="hidden">
-                    <MapContainer
-                      style={{ width: "100%", height: "100%" }}
-                      center={[20, 0]}
-                      zoom={2}
-                      minZoom={2}
-                      worldCopyJump
-                      preferCanvas
-                    >
-                      <TileLayer
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                      />
-                      <FitToMarkers points={mapPoints} />
-                      {mapPoints.map((c) => {
-                        const r = Math.max(4, Math.sqrt(Math.max(1, c.pv)) * 2.2);
-                        return (
-                          <CircleMarker
-                            key={c.id}
-                            center={[c.lat, c.lon]}
-                            radius={r}
-                            pathOptions={{ color: bubbleStroke, weight: 1, fillColor: bubbleFill, fillOpacity: 0.75 }}
-                          >
-                            <Tooltip direction="top" offset={[0, -2]}>
-                              <strong>{c.city}</strong> ({c.country}) — {c.pv} vues
-                            </Tooltip>
-                          </CircleMarker>
-                        );
-                      })}
-                    </MapContainer>
-                  </Box>
-                )}
-              </CardBody>
-            </Card>
+                      <Tooltip direction="top" offset={[0, -2]}>
+                        <strong>{c.city}</strong> ({c.country}) — {label}
+                        <br />
+                        <span style={{ opacity: 0.85 }}>
+                          Dernière activité aujourd’hui : {last ? `${pad2(last.lastHour)}h` : "—"}
+                        </span>
+                      </Tooltip>
+                    </CircleMarker>
+                  );
+                })}
+              </MapContainer>
+            </Box>
+          )}
+        </CardBody>
+      </Card>
 
-            {/* Tableau Top villes */}
-            <Card>
-              <CardHeader>
-                <Heading size="md">Top villes</Heading>
-              </CardHeader>
-              <CardBody>
-                <Table size="sm" variant="striped">
-                  <Thead>
-                    <Tr>
-                      <Th>Ville</Th>
-                      <Th>Pays</Th>
-                      <Th isNumeric>PV</Th>
-                      <Th>Coordonnées</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {filtered.map((c) => (
-                      <Tr key={c.id}>
-                        <Td>{c.city}</Td>
-                        <Td>{c.country}</Td>
-                        <Td isNumeric>{c.pv}</Td>
-                        <Td>
-                          {typeof c.lat === "number" && typeof c.lon === "number"
-                            ? `${c.lat.toFixed(4)}, ${c.lon.toFixed(4)}`
-                            : <Text as="span" color="gray.500">— à géocoder —</Text>}
-                        </Td>
-                      </Tr>
-                    ))}
-                    {filtered.length === 0 && (
-                      <Tr><Td colSpan={4} color="gray.500">Aucune donnée.</Td></Tr>
-                    )}
-                  </Tbody>
-                </Table>
-                <Text mt={3} color="gray.500" fontSize="sm">
-                  L’enrichissement écrit <code>lat</code>/<code>lon</code> dans chaque doc <code>analytics_geo</code>
-                  (une fois pour toutes). Le mode auto ne lance qu’une passe limitée pour respecter Nominatim.
-                </Text>
-              </CardBody>
-            </Card>
-          </TabPanel>
+      {/* Tableau Top villes */}
+      <Card>
+        <CardHeader>
+          <HStack justify="space-between" align="center">
+            <Heading size="md">Top villes</Heading>
+            <Tag>
+              {metricLabelUi} • {windowLabel}
+            </Tag>
+          </HStack>
+        </CardHeader>
 
-          {/* ------------------------------ Globe 3D ------------------------------ */}
-          <TabPanel>
-            <Card>
-              <CardHeader>
-                <Heading size="md">Globe 3D</Heading>
-              </CardHeader>
-              <CardBody>
-                {loading ? (
-                  <Box py={10} textAlign="center"><Spinner /></Box>
-                ) : (
-                  <Box w="100%" h="680px">
-                    <Globe
-                      width={undefined}   // s’adapte au conteneur
-                      height={undefined}
-                      backgroundColor={useColorModeValue("#f8fafc", "#0b1220")}
-                      globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
-                      bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
-                      // Utilise uniquement les points géocodés
-                      labelsData={mapPoints.map((c) => ({
-                        lat: c.lat,
-                        lng: c.lon,
-                        city: c.city,
-                        country: c.country,
-                        pv: c.pv,
-                        size: Math.max(0.6, Math.log(c.pv || 1) + 0.8),
-                      }))}
-                      labelLat={(d) => d.lat}
-                      labelLng={(d) => d.lng}
-                      labelText={(d) => `${d.city} (${d.country}) : ${d.pv} vues`}
-                      labelSize={(d) => d.size * 1.2}
-                      labelDotRadius={(d) => d.size}
-                      labelColor={() => "rgba(0,150,255,0.8)"}
-                      atmosphereColor="lightskyblue"
-                      atmosphereAltitude={0.25}
-                    />
-                  </Box>
-                )}
-                {mapPoints.length === 0 && !loading && (
-                  <Text mt={3} color="gray.500">Pas encore de villes géocodées. Clique sur “Enrichir coordonnées (admin)” dans l’onglet Carte 2D.</Text>
-                )}
-              </CardBody>
-            </Card>
-          </TabPanel>
-        </TabPanels>
-      </Tabs>
+        <CardBody>
+          <Table size="sm" variant="striped">
+            <Thead>
+              <Tr>
+                <Th>Ville</Th>
+                <Th>Pays</Th>
+                <Th isNumeric>
+                  {metric === "pv"
+                    ? "PV"
+                    : (windowKey === "all" ? "Uniques (toujours)" : "Visiteurs uniques")}
+                </Th>
+                <Th>Dernière heure (aujourd’hui)</Th>
+                <Th>Coordonnées</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {filtered.slice(0, 50).map((c) => {
+                const last = lastHourByGeoIdToday[c.geoId];
+                return (
+                  <Tr key={c.geoId}>
+                    <Td>{c.city}</Td>
+                    <Td>{c.country}</Td>
+                    <Td isNumeric>{c.value}</Td>
+                    <Td>
+                      {last
+                        ? (
+                          <Text as="span">
+                            {pad2(last.lastHour)}h
+                            <Text as="span" color="gray.500"> (</Text>
+                            <Text as="span" color="gray.500">
+                              {metric === "pv" ? `${last.lastValue} PV` : `${last.lastValue} uniques`}
+                            </Text>
+                            <Text as="span" color="gray.500">)</Text>
+                          </Text>
+                        )
+                        : <Text as="span" color="gray.500">—</Text>}
+                    </Td>
+                    <Td>
+                      {typeof c.lat === "number" && typeof c.lon === "number"
+                        ? `${c.lat.toFixed(4)}, ${c.lon.toFixed(4)}`
+                        : <Text as="span" color="gray.500">— à géocoder —</Text>}
+                    </Td>
+                  </Tr>
+                );
+              })}
+              {filtered.length === 0 && (
+                <Tr><Td colSpan={5} color="gray.500">Aucune donnée.</Td></Tr>
+              )}
+            </Tbody>
+          </Table>
+
+          <Stack spacing={1} mt={3}>
+            <Text color="gray.500" fontSize="sm">
+              L’enrichissement écrit <code>lat</code>/<code>lon</code> dans <code>analytics_geo</code> (une fois pour toutes).
+            </Text>
+            <Text color="gray.500" fontSize="sm">
+              Aujourd’hui/7j/30j utilisent <code>analytics_geo_daily</code> (PV + <code>uniqueVisitors</code> par ville et par jour).
+            </Text>
+            <Text color="gray.500" fontSize="sm">
+              Toujours utilise <code>analytics_geo.pv</code> et <code>analytics_geo.users</code> (uniques all-time par ville).
+            </Text>
+            <Text color="gray.500" fontSize="sm">
+              Heures (aujourd’hui) utilisent <code>analytics_geo_hourly</code> (PV + <code>uniqueVisitors</code> par ville et par heure).
+            </Text>
+          </Stack>
+        </CardBody>
+      </Card>
     </Box>
   );
 }

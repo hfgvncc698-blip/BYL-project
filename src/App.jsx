@@ -8,20 +8,18 @@ import {
 } from "@chakra-ui/react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 
-import "./i18n"; // i18n initialisé
+import "./i18n";
 
 import { AuthProvider, useAuth } from "./AuthContext";
 import Navbar from "./components/Navbar";
 import { Footer } from "./components/Footer";
 import LanguageRouteSync from "./components/LanguageRouteSync.jsx";
 
-// ⬇️ Géoloc & cookies
-import GeolocationBootstrap from "./components/GeolocationBootstrap.jsx"; // écrit la position SEULEMENT si consentement + user
-import SunColorModeSync from "./components/SunColorModeSync.jsx";         // thème clair/sombre (utilise la géoloc, ne stocke rien)
-import { ConsentProvider } from "./consent/ConsentContext.jsx";           // contexte consentement
-import CookieConsentBanner from "./components/CookieConsentBanner.jsx";   // bannière cookies
+import GeolocationBootstrap from "./components/GeolocationBootstrap.jsx";
+import SunColorModeSync from "./components/SunColorModeSync.jsx";
+import { ConsentProvider, useConsent } from "./consent/ConsentContext.jsx";
+import CookieConsentBanner from "./components/CookieConsentBanner.jsx";
 
-// ✅ Listener analytics (log des pages / pays / rôles)
 import RouteAnalyticsListener from "./components/RouteAnalyticsListener.jsx";
 
 // Pages publiques & Offres
@@ -66,21 +64,29 @@ import Clients from "./components/Clients.jsx";
 import SessionPlayer from "./components/SessionPlayer.jsx";
 import ClientView from "./components/ClientView.jsx";
 
+// ✅ Nutrition
+import NutritionAssessmentEditor from "./components/NutritionAssessmentEditor.jsx";
+import FoodSurvey from "./components/FoodSurvey.jsx"; // ✅ Enquête alimentaire
+import NutritionRationPage from "./components/NutritionRationPage.jsx"; // ✅ Page Ration (Pro / Auto)
+
+// ✅ NOUVEAU : Menu journalier (CIQUAL) basé sur ration
+import NutritionMenuJournalierPage from "./components/MenuJournalierFromRation.jsx";
+
 // Paiement Stripe (pages retour)
 import Success from "./pages/Success";
 import Cancel from "./pages/Cancel";
 
-// ✅ Carte du monde admin
+// Admin
 import AdminGeo from "./pages/AdminGeo.jsx";
+import AdminClient from "./pages/AdminClient.jsx"; // ✅ client admin
+import AdminCoach from "./pages/AdminCoach.jsx"; // ✅ coach admin
 
 /* -------------------- Thème Chakra -------------------- */
 const theme = extendTheme({
   config: { initialColorMode: "light", useSystemColorMode: false },
 });
 
-/* -------------------- Gardes unifiées -------------------- */
-
-/** Auth requise (quel que soit le rôle) */
+/* -------------------- Gardes -------------------- */
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return null;
@@ -88,37 +94,23 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
-/** Accès “espace coach” :
- *  - Coach actif (abonnement ou essai)
- *  - OU Admin (peut toujours accéder, même sans abonnement/essai)
- */
 function CoachActiveRoute({ children }) {
-  const { user, loading, isAdmin } = useAuth();
+  const { user, loading, isAdmin, hasCoachAccess } = useAuth();
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
 
-  if (isAdmin) return children; // admin a accès aux routes coach
+  // Admin : accès OK
+  if (isAdmin) return children;
 
+  // Uniquement coach
   if (user.role !== "coach") return <Navigate to="/" replace />;
 
-  const toMs = (d) =>
-    d?.toDate
-      ? d.toDate().getTime()
-      : (typeof d === "string" || typeof d === "number")
-      ? new Date(d).getTime()
-      : 0;
-
-  const now = Date.now();
-  const end = toMs(user.trialEndsAt);
-  const trialing = user.subscriptionStatus === "trialing" && end && now < end;
-
-  const active = !!user.hasActiveSubscription || trialing;
-  if (!active) return <Navigate to="/plans/professionnel" replace />;
+  // ✅ ACCÈS COACH = PAYANT OU TRIAL ACTIF
+  if (!hasCoachAccess) return <Navigate to="/plans/professionnel" replace />;
 
   return children;
 }
 
-/** Accès Admin (rôle réel strict) */
 function AdminRoute({ children }) {
   const { user, loading, isAdmin } = useAuth();
   if (loading) return null;
@@ -127,53 +119,94 @@ function AdminRoute({ children }) {
   return children;
 }
 
-/* -------------------- Redirection d’accueil selon vue (viewAs) -------------------- */
-function HomeRoute() {
-  const { user, effectiveRole, isAdmin } = useAuth();
+/**
+ * ✅ routes "client" accessibles uniquement aux particuliers.
+ */
+function ClientOnlyRoute({ children }) {
+  const { user, loading, isAdmin, effectiveRole, hasCoachAccess } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
 
-  // Non connecté → page publique
-  if (!user) return <HomePage />;
-
-  // Admin : s’il “voit comme Admin” → /admin, sinon → /coach-dashboard
+  // Admin : jamais sur l'espace client
   if (isAdmin) {
-    return effectiveRole === "admin"
-      ? <Navigate to="/admin" replace />
-      : <Navigate to="/coach-dashboard" replace />;
+    return effectiveRole === "admin" ? (
+      <Navigate to="/admin" replace />
+    ) : (
+      <Navigate to="/coach-dashboard" replace />
+    );
   }
 
-  // Coach → dashboard coach
-  if (effectiveRole === "coach") return <Navigate to="/coach-dashboard" replace />;
+  // Coach : jamais sur l'espace client
+  if (effectiveRole === "coach") {
+    if (!hasCoachAccess) return <Navigate to="/plans/professionnel" replace />;
+    return <Navigate to="/coach-dashboard" replace />;
+  }
 
-  // Particulier → dashboard client
-  if (user.role === "particulier") return <Navigate to="/user-dashboard" replace />;
+  // Seulement particulier
+  if (user.role !== "particulier") return <Navigate to="/" replace />;
 
-  // Fallback
+  return children;
+}
+
+/* -------------------- Home route -------------------- */
+function HomeRoute() {
+  const { user, loading, effectiveRole, isAdmin, hasCoachAccess } = useAuth();
+
+  if (loading) return null;
+  if (!user) return <HomePage />;
+
+  if (isAdmin) {
+    return effectiveRole === "admin" ? (
+      <Navigate to="/admin" replace />
+    ) : (
+      <Navigate to="/coach-dashboard" replace />
+    );
+  }
+
+  // ✅ Coach : s'il n'a pas l'accès (trial/payant), on l'envoie au paywall
+  if (effectiveRole === "coach") {
+    if (!hasCoachAccess) return <Navigate to="/plans/professionnel" replace />;
+    return <Navigate to="/coach-dashboard" replace />;
+  }
+
+  if (user.role === "particulier")
+    return <Navigate to="/user-dashboard" replace />;
+
   return <HomePage />;
 }
 
-/* -------------------- Contenu de l’app (routes + footer) -------------------- */
+/* -------------------- App content -------------------- */
 function AppContent() {
   const location = useLocation();
   const noFooter = ["/login", "/register"].includes(location.pathname);
 
+  const { prefs } = useConsent();
+  const analyticsOn = !!prefs?.analytics;
+
   return (
     <>
-      {/* Synchronise la langue avec l’URL et applique LTR/RTL */}
       <LanguageRouteSync />
 
-      {/* Thème auto jour/nuit — utilise la géoloc mais ne stocke rien */}
       <SunColorModeSync />
-      {/* Géoloc côté analytics — s’active et écrit en base UNIQUEMENT si consentement + user connecté */}
       <GeolocationBootstrap />
 
       <Navbar />
-      {/* ✅ Analytics : log chaque navigation (pages/pays/rôles) */}
-      <RouteAnalyticsListener />
+
+      <RouteAnalyticsListener isAnalyticsOn={analyticsOn} />
 
       <Box as="main" flex="1" minH="0">
         <Routes>
-          {/* Accueil redirigé selon viewAs/role */}
           <Route path="/" element={<HomeRoute />} />
+
+          {/* ✅ Alias "Tarifs" (ancienne page Tarifs.jsx) -> Plan Pro */}
+          <Route
+            path="/tarifs"
+            element={<Navigate to="/plans/professionnel" replace />}
+          />
+          <Route
+            path="/pricing"
+            element={<Navigate to="/plans/professionnel" replace />}
+          />
 
           {/* Offres */}
           <Route path="/plans/professionnel" element={<PlanProfessionnel />} />
@@ -183,7 +216,7 @@ function AppContent() {
           <Route path="/programmes-premium" element={<PremiumPrograms />} />
           <Route path="/checkout/:productId" element={<Checkout />} />
 
-          {/* Routes de retour Stripe */}
+          {/* Retours Stripe */}
           <Route path="/success" element={<Success />} />
           <Route path="/cancel" element={<Cancel />} />
           <Route path="/payment-success" element={<Success />} />
@@ -198,7 +231,7 @@ function AppContent() {
             }
           />
 
-          {/* Pages publiques légales */}
+          {/* Légal */}
           <Route path="/about" element={<AboutPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
@@ -221,43 +254,43 @@ function AppContent() {
           <Route
             path="/user-dashboard"
             element={
-              <ProtectedRoute>
+              <ClientOnlyRoute>
                 <ClientDashboard />
-              </ProtectedRoute>
+              </ClientOnlyRoute>
             }
           />
 
-          {/* Profil Client */}
+          {/* Profil Client (✅ particuliers seulement) */}
           <Route
             path="/profile"
             element={
-              <ProtectedRoute>
+              <ClientOnlyRoute>
                 <ProfilePageClient />
-              </ProtectedRoute>
+              </ClientOnlyRoute>
             }
           />
           <Route
             path="/mes-programmes"
             element={
-              <ProtectedRoute>
+              <ClientOnlyRoute>
                 <MyPrograms />
-              </ProtectedRoute>
+              </ClientOnlyRoute>
             }
           />
           <Route
             path="/statistiques"
             element={
-              <ProtectedRoute>
+              <ClientOnlyRoute>
                 <Statistics />
-              </ProtectedRoute>
+              </ClientOnlyRoute>
             }
           />
           <Route
             path="/settings"
             element={
-              <ProtectedRoute>
+              <ClientOnlyRoute>
                 <SettingsPageClient />
-              </ProtectedRoute>
+              </ClientOnlyRoute>
             }
           />
 
@@ -287,7 +320,7 @@ function AppContent() {
             }
           />
 
-          {/* Banque d’exercices seule (coach/admin) */}
+          {/* Banque d’exercices */}
           <Route
             path="/exercise-bank"
             element={
@@ -297,7 +330,7 @@ function AppContent() {
             }
           />
 
-          {/* Builder – routes existantes (coach/admin) */}
+          {/* Builder */}
           <Route
             path="/exercise-bank/program-builder/:programId"
             element={
@@ -315,7 +348,7 @@ function AppContent() {
             }
           />
 
-          {/* Espace Coach : clients & programmes */}
+          {/* Espace Coach */}
           <Route
             path="/clients"
             element={
@@ -333,7 +366,47 @@ function AppContent() {
             }
           />
 
-          {/* Vues Programmes (coach/admin) */}
+          {/* ✅ Nutrition (Admin only) */}
+          <Route
+            path="/clients/:clientId/nutrition/:assessmentId"
+            element={
+              <AdminRoute>
+                <NutritionAssessmentEditor />
+              </AdminRoute>
+            }
+          />
+
+          {/* ✅ Enquête alimentaire (Admin only) */}
+          <Route
+            path="/clients/:clientId/nutrition/:assessmentId/food-survey"
+            element={
+              <AdminRoute>
+                <FoodSurvey />
+              </AdminRoute>
+            }
+          />
+
+          {/* ✅ Ration (Pro / Auto) (Admin only) */}
+          <Route
+            path="/clients/:clientId/nutrition/:assessmentId/ration"
+            element={
+              <AdminRoute>
+                <NutritionRationPage />
+              </AdminRoute>
+            }
+          />
+
+          {/* ✅ Menu journalier (CIQUAL) (Admin only) */}
+          <Route
+            path="/clients/:clientId/nutrition/:assessmentId/menu"
+            element={
+              <AdminRoute>
+                <NutritionMenuJournalierPage />
+              </AdminRoute>
+            }
+          />
+
+          {/* Programmes */}
           <Route
             path="/programmes"
             element={
@@ -351,7 +424,7 @@ function AppContent() {
             }
           />
 
-          {/* Vue programme côté client (assigné) */}
+          {/* Programme côté client */}
           <Route
             path="/clients/:clientId/programmes/:programId"
             element={
@@ -421,17 +494,15 @@ function AppContent() {
             }
           />
 
-          {/* Admin Dashboard (rôle réel admin uniquement) */}
+          {/* ✅ Admin (routes propres) */}
           <Route
-            path="/admin/*"
+            path="/admin"
             element={
               <AdminRoute>
                 <AdminDashboard />
               </AdminRoute>
             }
           />
-
-          {/* ✅ Carte du monde admin */}
           <Route
             path="/admin/geo"
             element={
@@ -440,23 +511,36 @@ function AppContent() {
               </AdminRoute>
             }
           />
+          <Route
+            path="/admin/client/:id"
+            element={
+              <AdminRoute>
+                <AdminClient />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/coach/:id"
+            element={
+              <AdminRoute>
+                <AdminCoach />
+              </AdminRoute>
+            }
+          />
 
-          {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Box>
 
       {!noFooter && <Footer />}
 
-      {/* Bannière cookies tant que non répondue */}
       <CookieConsentBanner />
     </>
   );
 }
 
-/* -------------------- Entrée de l’application -------------------- */
+/* -------------------- Entrée -------------------- */
 export default function App() {
-  // ⚠️ PAS de BrowserRouter ici (il est dans main.jsx)
   return (
     <AuthProvider>
       <ChakraProvider theme={theme}>
@@ -470,4 +554,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-

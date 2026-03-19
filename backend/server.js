@@ -3,7 +3,13 @@ require("dotenv").config();
 
 const express = require("express");
 const admin = require("firebase-admin");
-try { admin.app(); } catch { admin.initializeApp(); }
+
+// Init Firebase Admin
+try {
+  admin.app();
+} catch {
+  admin.initializeApp();
+}
 
 const app = express();
 
@@ -19,26 +25,43 @@ app.post(
 // Le reste en JSON
 app.use(express.json());
 
+/* =================== CORS (UNIQUEMENT ICI) =================== */
 // CORS simple pour /api/*
 const ALLOWED_ORIGINS = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
   "http://192.168.1.77:5173",
   "https://boostyourlife.coach",
+  "https://www.boostyourlife.coach",
 ];
+
 function setCors(req, res) {
   const origin = req.headers.origin;
+
   if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    // Renvoie UNE SEULE origine
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Credentials", "true");
   }
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+  );
+
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-Requested-With"
+  );
 }
+
+// Applique CORS uniquement sur /api/*
 app.use((req, res, next) => {
   if (req.path.startsWith("/api/")) {
     setCors(req, res);
+
+    // Preflight
     if (req.method === "OPTIONS") return res.status(204).send("");
   }
   next();
@@ -46,6 +69,15 @@ app.use((req, res, next) => {
 
 // Monte les routes paiements
 app.use("/api/payments", paymentsRouter);
+
+// ✅ Contact
+const contactRouter = require("./routes/contact");
+app.use("/api/contact", contactRouter);
+
+// ✅✅✅ PROGRAMS (génération auto)
+// IMPORTANT : c’est CE router qui doit gérer /api/programs/generate
+const programsRouter = require("./routes/programs");
+app.use("/api/programs", programsRouter);
 
 /* =================== Analytics (même que Functions) =================== */
 function getClientIp(req) {
@@ -57,6 +89,7 @@ function getClientIp(req) {
     "";
   return ip.replace("::ffff:", "");
 }
+
 function slug(s) {
   return (s || "unknown")
     .toString()
@@ -66,8 +99,6 @@ function slug(s) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
-
-app.options("/api/analytics/pageview", (req, res) => res.status(204).send(""));
 
 app.post("/api/analytics/pageview", async (req, res) => {
   try {
@@ -82,6 +113,7 @@ app.post("/api/analytics/pageview", async (req, res) => {
     const controller = new AbortController();
     const to = setTimeout(() => controller.abort(), 4000);
     let geo = null;
+
     try {
       const r = await fetch(`https://ipapi.co/${encodeURIComponent(ip)}/json/`, {
         signal: controller.signal,
@@ -113,6 +145,7 @@ app.post("/api/analytics/pageview", async (req, res) => {
 });
 
 app.get("/api/_healthz", (_req, res) => res.json({ ok: true }));
+app.get("/_healthz", (_req, res) => res.json({ ok: true }));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

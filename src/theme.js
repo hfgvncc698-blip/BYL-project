@@ -4,8 +4,8 @@ import { mode } from "@chakra-ui/theme-tools";
 
 const theme = extendTheme({
   config: {
-    initialColorMode: "system",  // tu peux laisser "system" ou mettre "light"
-    useSystemColorMode: false,   // <-- important: on ignore le système
+    initialColorMode: "system", // ✅ suit le thème appareil au chargement
+    useSystemColorMode: true,   // ✅ écoute le thème système (clair/sombre)
   },
   styles: {
     global: (props) => ({

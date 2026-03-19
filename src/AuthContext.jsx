@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useEffect, useRef, useState, useMemo } from "react";
+// src/AuthContext.jsx
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+} from "react";
 import { auth, db } from "./firebaseConfig";
 import {
   GoogleAuthProvider,
@@ -30,7 +38,17 @@ const VIEW_AS_KEY = "BYL_VIEW_AS"; // persistance de la vue choisie (admin/coach
 
 /* ----------------- Utils ----------------- */
 const toDate = (v) =>
-  v?.toDate ? v.toDate() : typeof v === "number" || typeof v === "string" ? new Date(v) : null;
+  v?.toDate
+    ? v.toDate()
+    : typeof v === "number" || typeof v === "string"
+    ? new Date(v)
+    : null;
+
+const safeTime = (d) => {
+  const dt = d instanceof Date ? d : null;
+  const t = dt ? dt.getTime() : NaN;
+  return Number.isFinite(t) ? t : null;
+};
 
 const normalizeUserDoc = (uid, data, fb) => ({
   uid,
@@ -38,26 +56,37 @@ const normalizeUserDoc = (uid, data, fb) => ({
   firstName: data?.firstName ?? "Utilisateur",
   lastName: data?.lastName ?? "",
   role: data?.role ?? "particulier", // "admin" | "coach" | "particulier"
-  preferredLang: data?.preferredLang ?? (navigator.language || "fr").slice(0, 2).toLowerCase(),
+
+  // ⚠️ harmonisation : parfois tu écris preferredLanguage, parfois preferredLang
+  preferredLang:
+    data?.preferredLang ??
+    data?.preferredLanguage ??
+    (navigator.language || "fr").slice(0, 2).toLowerCase(),
+
+  // ⚠️ IMPORTANT : ce flag doit refléter un abonnement PAYANT.
+  // Un coach en TRIAL doit avoir hasActiveSubscription=false (accès géré par trialEndsAt + subscriptionStatus).
   hasActiveSubscription: !!data?.hasActiveSubscription,
   subscriptionStatus: data?.subscriptionStatus ?? null,
+
   trialStartedAt: toDate(data?.trialStartedAt),
   trialEndsAt: toDate(data?.trialEndsAt),
   nextInvoiceAt: toDate(data?.nextInvoiceAt),
+
   stripeCustomerId: data?.stripeCustomerId ?? null,
   stripeSubscriptionId: data?.stripeSubscriptionId ?? null,
+
   logoUrl: data?.logoUrl ?? null,
   primaryColor: data?.primaryColor ?? null,
 });
 
 /* ----------------- Provider ----------------- */
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);        // <-- doc Firestore normalisé
+  const [user, setUser] = useState(null); // <-- doc Firestore normalisé
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
-  const unsubUserRef = useRef(null);             // pour nettoyer l’ancienne souscription
+  const unsubUserRef = useRef(null); // pour nettoyer l’ancienne souscription
 
-  /** Nouveau : viewAs = "admin" | "coach" | null (null = auto) */
+  /** viewAs = "admin" | "coach" | null (null = auto) */
   const [viewAs, _setViewAs] = useState(() => {
     try {
       return localStorage.getItem(VIEW_AS_KEY) || null;
@@ -68,23 +97,28 @@ export const AuthProvider = ({ children }) => {
 
   /* -- Sélecteur sécurisé pour changer de vue (sans changer les droits réels) -- */
   const setViewAs = (next) => {
-    // si pas d’utilisateur ou rôle inconnu, ignorer
     if (!user?.role) return;
 
     if (user.role === "admin") {
       // admin peut choisir "admin" ou "coach"
       if (next === "admin" || next === "coach") {
         _setViewAs(next);
-        try { localStorage.setItem(VIEW_AS_KEY, next); } catch {}
+        try {
+          localStorage.setItem(VIEW_AS_KEY, next);
+        } catch {}
       }
     } else if (user.role === "coach") {
       // coach reste coach
       _setViewAs("coach");
-      try { localStorage.setItem(VIEW_AS_KEY, "coach"); } catch {}
+      try {
+        localStorage.setItem(VIEW_AS_KEY, "coach");
+      } catch {}
     } else {
       // particulier/other : pas de viewAs
       _setViewAs(null);
-      try { localStorage.removeItem(VIEW_AS_KEY); } catch {}
+      try {
+        localStorage.removeItem(VIEW_AS_KEY);
+      } catch {}
     }
   };
 
@@ -99,8 +133,35 @@ export const AuthProvider = ({ children }) => {
   const isAdmin = user?.role === "admin";
   const isCoach = effectiveRole === "coach";
 
+  /* ----------------- ✅ TRIAL + ACCÈS PRO (FIX) ----------------- */
+  const isTrialActive = useMemo(() => {
+    if (!user) return false;
+    if (user.role !== "coach") return false;
+
+    // accepte trialing + endsAt futur
+    const endsAtMs = safeTime(user.trialEndsAt);
+    const now = Date.now();
+
+    return (
+      user.subscriptionStatus === "trialing" &&
+      !!endsAtMs &&
+      endsAtMs > now
+    );
+  }, [user]);
+
+  // accès coach = abonnement payant OU trial actif
+  const hasCoachAccess = useMemo(() => {
+    if (!user) return false;
+    if (user.role !== "coach" && user.role !== "admin") return false;
+
+    // admin a accès
+    if (user.role === "admin") return true;
+
+    return user.hasActiveSubscription === true || isTrialActive === true;
+  }, [user, isTrialActive]);
+
   /* -- Compat : ancien flag showAdminView/toggleAdminView (mappés sur viewAs) -- */
-  const showAdminView = isAdmin && (effectiveRole === "admin");
+  const showAdminView = isAdmin && effectiveRole === "admin";
   const toggleAdminView = () => {
     if (isAdmin) setViewAs(effectiveRole === "admin" ? "coach" : "admin");
   };
@@ -123,28 +184,44 @@ export const AuthProvider = ({ children }) => {
             userRef,
             async (snap) => {
               if (snap.exists()) {
-                const normalized = normalizeUserDoc(firebaseUser.uid, snap.data(), firebaseUser);
+                const normalized = normalizeUserDoc(
+                  firebaseUser.uid,
+                  snap.data(),
+                  firebaseUser
+                );
                 setUser(normalized);
-                try { localStorage.setItem("user", JSON.stringify(normalized)); } catch {}
+                try {
+                  localStorage.setItem("user", JSON.stringify(normalized));
+                } catch {}
 
                 // Ajuster viewAs en fonction du rôle réel
                 if (normalized.role === "admin") {
                   // admin : conserver la dernière vue ou défaut "admin"
                   if (viewAs === null) {
-                    const saved = (() => { try { return localStorage.getItem(VIEW_AS_KEY); } catch { return null; } })();
+                    const saved = (() => {
+                      try {
+                        return localStorage.getItem(VIEW_AS_KEY);
+                      } catch {
+                        return null;
+                      }
+                    })();
                     _setViewAs(saved === "coach" ? "coach" : "admin");
                   }
                 } else if (normalized.role === "coach") {
                   // coach : forcer coach
                   if (viewAs !== "coach") {
                     _setViewAs("coach");
-                    try { localStorage.setItem(VIEW_AS_KEY, "coach"); } catch {}
+                    try {
+                      localStorage.setItem(VIEW_AS_KEY, "coach");
+                    } catch {}
                   }
                 } else {
                   // particulier/other
                   if (viewAs !== null) {
                     _setViewAs(null);
-                    try { localStorage.removeItem(VIEW_AS_KEY); } catch {}
+                    try {
+                      localStorage.removeItem(VIEW_AS_KEY);
+                    } catch {}
                   }
                 }
               } else {
@@ -157,7 +234,9 @@ export const AuthProvider = ({ children }) => {
                   hasActiveSubscription: false,
                   stripeCustomerId: null,
                   stripeSubscriptionId: null,
-                  preferredLang: (navigator.language || "fr").slice(0, 2).toLowerCase(),
+                  preferredLang: (navigator.language || "fr")
+                    .slice(0, 2)
+                    .toLowerCase(),
                   createdAt: serverTimestamp(),
                   updatedAt: serverTimestamp(),
                 };
@@ -172,11 +251,15 @@ export const AuthProvider = ({ children }) => {
           );
         } else {
           setUser(null);
-          try { localStorage.removeItem("user"); } catch {}
+          try {
+            localStorage.removeItem("user");
+          } catch {}
           setLoading(false);
           // si déconnecté, on nettoie la vue
           _setViewAs(null);
-          try { localStorage.removeItem(VIEW_AS_KEY); } catch {}
+          try {
+            localStorage.removeItem(VIEW_AS_KEY);
+          } catch {}
         }
       } catch (err) {
         console.error(err);
@@ -210,7 +293,9 @@ export const AuthProvider = ({ children }) => {
               hasActiveSubscription: false,
               stripeCustomerId: null,
               stripeSubscriptionId: null,
-              preferredLang: (navigator.language || "fr").slice(0, 2).toLowerCase(),
+              preferredLang: (navigator.language || "fr")
+                .slice(0, 2)
+                .toLowerCase(),
               provider: "apple",
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
@@ -230,12 +315,26 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     setLoading(true);
     try {
-      const { user: fbUser } = await signInWithEmailAndPassword(auth, email, password);
+      const { user: fbUser } = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
       if (callback) {
         const ref = doc(db, "users", fbUser.uid);
         const snap = await getDoc(ref);
         const data = snap.data() || {};
-        callback(data.role || "particulier", !!data.hasActiveSubscription);
+
+        // ✅ callback historique mais inclut l'accès trial
+        const endsAt = toDate(data.trialEndsAt);
+        const endsAtMs = safeTime(endsAt);
+        const trialOk =
+          data.role === "coach" &&
+          data.subscriptionStatus === "trialing" &&
+          endsAtMs &&
+          endsAtMs > Date.now();
+
+        callback(data.role || "particulier", !!data.hasActiveSubscription || !!trialOk);
       }
     } catch (err) {
       console.error(err);
@@ -255,24 +354,39 @@ export const AuthProvider = ({ children }) => {
       const userRef = doc(db, "users", fbUser.uid);
       const userDoc = await getDoc(userRef);
       if (!userDoc.exists()) {
-        await setDoc(userRef, {
-          email: fbUser.email || null,
-          firstName: "Utilisateur",
-          lastName: "",
-          role: "particulier",
-          hasActiveSubscription: false,
-          stripeCustomerId: null,
-          stripeSubscriptionId: null,
-          preferredLang: (navigator.language || "fr").slice(0, 2).toLowerCase(),
-          provider: "google",
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
+        await setDoc(
+          userRef,
+          {
+            email: fbUser.email || null,
+            firstName: "Utilisateur",
+            lastName: "",
+            role: "particulier",
+            hasActiveSubscription: false,
+            stripeCustomerId: null,
+            stripeSubscriptionId: null,
+            preferredLang: (navigator.language || "fr")
+              .slice(0, 2)
+              .toLowerCase(),
+            provider: "google",
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
       }
       if (callback) {
         const snap = await getDoc(userRef);
         const data = snap.data() || {};
-        callback(data.role || "particulier", !!data.hasActiveSubscription);
+
+        const endsAt = toDate(data.trialEndsAt);
+        const endsAtMs = safeTime(endsAt);
+        const trialOk =
+          data.role === "coach" &&
+          data.subscriptionStatus === "trialing" &&
+          endsAtMs &&
+          endsAtMs > Date.now();
+
+        callback(data.role || "particulier", !!data.hasActiveSubscription || !!trialOk);
       }
     } catch (err) {
       console.error(err);
@@ -301,24 +415,39 @@ export const AuthProvider = ({ children }) => {
       const userRef = doc(db, "users", fbUser.uid);
       const userDoc = await getDoc(userRef);
       if (!userDoc.exists()) {
-        await setDoc(userRef, {
-          email: fbUser.email || null,
-          firstName: "Utilisateur",
-          lastName: "",
-          role: "particulier",
-          hasActiveSubscription: false,
-          stripeCustomerId: null,
-          stripeSubscriptionId: null,
-          preferredLang: (navigator.language || "fr").slice(0, 2).toLowerCase(),
-          provider: "apple",
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
+        await setDoc(
+          userRef,
+          {
+            email: fbUser.email || null,
+            firstName: "Utilisateur",
+            lastName: "",
+            role: "particulier",
+            hasActiveSubscription: false,
+            stripeCustomerId: null,
+            stripeSubscriptionId: null,
+            preferredLang: (navigator.language || "fr")
+              .slice(0, 2)
+              .toLowerCase(),
+            provider: "apple",
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
       }
       if (callback) {
         const snap = await getDoc(userRef);
         const data = snap.data() || {};
-        callback(data.role || "particulier", !!data.hasActiveSubscription);
+
+        const endsAt = toDate(data.trialEndsAt);
+        const endsAtMs = safeTime(endsAt);
+        const trialOk =
+          data.role === "coach" &&
+          data.subscriptionStatus === "trialing" &&
+          endsAtMs &&
+          endsAtMs > Date.now();
+
+        callback(data.role || "particulier", !!data.hasActiveSubscription || !!trialOk);
       }
     } catch (err) {
       console.error(err);
@@ -341,11 +470,17 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     setLoading(true);
     try {
-      const { user: fbUser } = await createUserWithEmailAndPassword(auth, email, password);
+      const { user: fbUser } = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
 
       // Facultatif: displayName côté Firebase Auth
       try {
-        await updateProfile(fbUser, { displayName: `${firstName || ""} ${lastName || ""}`.trim() });
+        await updateProfile(fbUser, {
+          displayName: `${firstName || ""} ${lastName || ""}`.trim(),
+        });
       } catch {}
 
       const userRef = doc(db, "users", fbUser.uid);
@@ -373,9 +508,14 @@ export const AuthProvider = ({ children }) => {
         trialPart = {
           subscriptionStatus: "trialing",
           trialStartedAt: Timestamp.fromDate(new Date(now)),
-          trialEndsAt: Timestamp.fromDate(new Date(now + TRIAL_DAYS * 24 * 60 * 60 * 1000)),
+          trialEndsAt: Timestamp.fromDate(
+            new Date(now + TRIAL_DAYS * 24 * 60 * 60 * 1000)
+          ),
           trialStatus: "running",
-          hasActiveSubscription: true,
+
+          // ✅ IMPORTANT : un trial n'est PAS un abonnement payant
+          hasActiveSubscription: false,
+
           stripeCustomerId: null,
           stripeSubscriptionId: null,
         };
@@ -409,9 +549,16 @@ export const AuthProvider = ({ children }) => {
         role: "coach",
         subscriptionStatus: "trialing",
         trialStartedAt: Timestamp.fromDate(new Date(now)),
-        trialEndsAt: Timestamp.fromDate(new Date(now + TRIAL_DAYS * 24 * 60 * 60 * 1000)),
+        trialEndsAt: Timestamp.fromDate(
+          new Date(now + TRIAL_DAYS * 24 * 60 * 60 * 1000)
+        ),
         trialStatus: "running",
-        hasActiveSubscription: true,
+
+        // ✅ IMPORTANT : un trial n'est PAS un abonnement payant
+        hasActiveSubscription: false,
+
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
         updatedAt: serverTimestamp(),
       },
       { merge: true }
@@ -423,12 +570,21 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     const browser = (navigator?.language || "en").slice(0, 2).toLowerCase();
     const supported = ["fr", "en", "de", "it", "es", "ru", "ar"];
-    const langCode = supported.includes(lang) ? lang : supported.includes(browser) ? browser : "en";
+    const langCode = supported.includes(lang)
+      ? lang
+      : supported.includes(browser)
+      ? browser
+      : "en";
     auth.languageCode = langCode;
 
     const origin =
-      typeof window !== "undefined" ? window.location.origin : "https://boost-your-life.com";
-    const actionCodeSettings = { url: `${origin}/login?reset=1`, handleCodeInApp: false };
+      typeof window !== "undefined"
+        ? window.location.origin
+        : "https://boost-your-life.com";
+    const actionCodeSettings = {
+      url: `${origin}/login?reset=1`,
+      handleCodeInApp: false,
+    };
 
     try {
       await sendPasswordResetEmail(auth, email, actionCodeSettings);
@@ -443,9 +599,13 @@ export const AuthProvider = ({ children }) => {
   const logout = async (navigate) => {
     await signOut(auth);
     setUser(null);
-    try { localStorage.removeItem("user"); } catch {}
+    try {
+      localStorage.removeItem("user");
+    } catch {}
     _setViewAs(null);
-    try { localStorage.removeItem(VIEW_AS_KEY); } catch {}
+    try {
+      localStorage.removeItem(VIEW_AS_KEY);
+    } catch {}
     if (navigate) navigate("/login");
   };
 
@@ -459,15 +619,19 @@ export const AuthProvider = ({ children }) => {
       error,
 
       // rôles / vues
-      viewAs,               // "admin" | "coach" | null
-      setViewAs,            // switch sécurisé
-      effectiveRole,        // rôle utilisé par l’UI (admin peut “voir comme” coach)
-      isAdmin,              // rôle réel === admin
-      isCoach,              // rôle effectif === coach
+      viewAs, // "admin" | "coach" | null
+      setViewAs, // switch sécurisé
+      effectiveRole, // rôle utilisé par l’UI (admin peut “voir comme” coach)
+      isAdmin, // rôle réel === admin
+      isCoach, // rôle effectif === coach
+
+      // ✅ accès pro
+      isTrialActive,
+      hasCoachAccess, // <= C'EST CE FLAG QU'IL FAUT UTILISER DANS LES GUARDS
 
       // compat (si du code existant l’utilise)
-      showAdminView,        // true quand l’admin est en vue Admin
-      toggleAdminView,      // bascule admin ↔ coach
+      showAdminView, // true quand l’admin est en vue Admin
+      toggleAdminView, // bascule admin ↔ coach
 
       // actions auth
       loginWithEmail,
@@ -488,6 +652,8 @@ export const AuthProvider = ({ children }) => {
       isAdmin,
       isCoach,
       showAdminView,
+      isTrialActive,
+      hasCoachAccess,
     ]
   );
 

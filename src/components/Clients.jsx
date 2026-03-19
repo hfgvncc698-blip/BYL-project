@@ -1,19 +1,65 @@
 // src/pages/Clients.jsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
-  Box, Heading, Flex, Table, Thead, Tbody, Tr, Th, Td, Button, Input,
-  useColorModeValue, Spinner, Modal, ModalOverlay, ModalContent, ModalHeader,
-  ModalCloseButton, ModalBody, ModalFooter, Select, Alert, AlertIcon,
-  IconButton, Badge, Link as ChakraLink, Progress, Text, HStack, Tooltip, VStack,
-  Container, ButtonGroup, FormControl, FormLabel, Wrap, WrapItem, Stack,
-  useDisclosure, useToast
+  Box,
+  Heading,
+  Flex,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  Button,
+  Input,
+  useColorModeValue,
+  Spinner,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalCloseButton,
+  ModalBody,
+  ModalFooter,
+  Select,
+  Alert,
+  AlertIcon,
+  IconButton,
+  Badge,
+  Link as ChakraLink,
+  Progress,
+  Text,
+  HStack,
+  Tooltip,
+  VStack,
+  Container,
+  ButtonGroup,
+  FormControl,
+  FormLabel,
+  Wrap,
+  WrapItem,
+  Stack,
+  useDisclosure,
+  useToast,
 } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "../AuthContext";
 import {
-  collection, getDocs, getDoc, updateDoc, doc, serverTimestamp,
-  arrayUnion, query, where, orderBy, limit, deleteDoc, setDoc, Timestamp
+  collection,
+  getDocs,
+  getDoc,
+  updateDoc,
+  doc,
+  serverTimestamp,
+  arrayUnion,
+  query,
+  where,
+  orderBy,
+  limit,
+  deleteDoc,
+  setDoc,
+  Timestamp,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { FiTrash2 } from "react-icons/fi";
@@ -24,143 +70,104 @@ const SUBCOLL_PROGRAMMES = "programmes";
 const SUBCOLL_SESSIONS_DONE = "sessionsEffectuees";
 const FIELD_DONE_DATE = "dateEffectuee";
 
-/* ---------------- Abonnement -> renvoie {key,color} pour i18n ---------------- */
-function getSubscriptionInfo(c) {
-  const now = Date.now();
-  if (typeof c?.abonnementActif === "boolean")
-    return c.abonnementActif
-      ? { key: "clientsList.sub.active", color: "green" }
-      : { key: "clientsList.sub.inactive", color: "red" };
-  if (typeof c?.subscriptionActive === "boolean")
-    return c.subscriptionActive
-      ? { key: "clientsList.sub.active", color: "green" }
-      : { key: "clientsList.sub.inactive", color: "red" };
-
-  const sub = c?.subscription || c?.stripe || null;
-  const status = sub?.status;
-  const endTs =
-    sub?.current_period_end?.toDate?.()?.getTime?.() ??
-    (typeof sub?.current_period_end === "number" ? sub.current_period_end * 1000 : null);
-
-  if (status) {
-    if (status === "active") {
-      return endTs && endTs < now
-        ? { key: "clientsList.sub.expired", color: "red" }
-        : { key: "clientsList.sub.active", color: "green" };
-    }
-    if (status === "trialing") return { key: "clientsList.sub.trialing", color: "purple" };
-    if (status === "canceled") return { key: "clientsList.sub.canceled", color: "gray" };
-    if (status === "past_due") return { key: "clientsList.sub.past_due", color: "orange" };
-    return { key: "clientsList.sub.unknown", color: "yellow" };
-  }
-
-  const subEnd =
-    c?.subscriptionEnd?.toDate?.() ??
-    (typeof c?.subscriptionEnd === "number" ? new Date(c.subscriptionEnd) : null);
-
-  if (subEnd) {
-    return subEnd.getTime() > now
-      ? { key: "clientsList.sub.active", color: "green" }
-      : { key: "clientsList.sub.expired", color: "red" };
-  }
-  return { key: "clientsList.sub.unknown", color: "yellow" };
-}
-
-/* ---------------- Progression (tous programmes) ---------------- */
-function getTotalSessionsFromProgrammeDoc(pData) {
-  if (!pData) return 0;
-  if (Array.isArray(pData.sessions)) return pData.sessions.length;
-  if (Array.isArray(pData.seances)) return pData.seances.length;
-  if (typeof pData.totalSessions === "number") return pData.totalSessions;
-  if (typeof pData.nbSeances === "number") return pData.nbSeances;
+/* -------------------- Utils (comme CoachDashboard) -------------------- */
+function getTotalSessionsFromProgrammeDoc(p) {
+  if (!p) return 0;
+  if (Array.isArray(p.sessions)) return p.sessions.length;
+  if (Array.isArray(p.seances)) return p.seances.length;
+  if (typeof p.totalSessions === "number") return p.totalSessions;
+  if (typeof p.nbSeances === "number") return p.nbSeances;
   return 0;
 }
 
-async function fetchClientProgressAllPrograms(clientId) {
-  const progSnap = await getDocs(collection(db, "clients", clientId, SUBCOLL_PROGRAMMES));
-  let total = 0, completed = 0;
-  for (const d of progSnap.docs) {
-    const progData = d.data();
-    total += getTotalSessionsFromProgrammeDoc(progData);
+const toMillis = (ts) =>
+  ts?.toDate
+    ? ts.toDate().getTime()
+    : typeof ts === "number"
+    ? ts > 1e12
+      ? ts
+      : ts * 1000
+    : ts instanceof Date
+    ? ts.getTime()
+    : typeof ts === "string"
+    ? Date.parse(ts) || 0
+    : 0;
 
-    const sessEffCol = collection(db, "clients", clientId, SUBCOLL_PROGRAMMES, d.id, SUBCOLL_SESSIONS_DONE);
-    const sessEffSnap = await getDocs(sessEffCol);
+// ✅ Helpers “nom identique Builder” (copié de CoachDashboard)
+const capitalizeFirst = (s = "") => {
+  const str = String(s || "").trim();
+  if (!str) return "";
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+const prettifyKey = (key = "") => {
+  const s = String(key || "").trim();
+  if (!s) return "";
+  return s.replace(/_/g, " ").replace(/\s+/g, " ").trim();
+};
+const makeDefaultProgramName = (objectifUIKey, objectifFallback, nbSeances) => {
+  const baseKey = objectifUIKey || objectifFallback || "";
+  const label = capitalizeFirst(prettifyKey(baseKey));
+  const n = Number(nbSeances) || 1;
+  if (!label) return `Programme — ${n}x/Sem`;
+  return `${label} — ${n}x/Sem`;
+};
+const normalizeNameForCompare = (s = "") =>
+  String(s || "")
+    .replace(/\u2014/g, "-") // — -> -
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 
-    let doneForProg = 0;
-    sessEffSnap.forEach(s => {
-      const data = s.data();
-      const pct = typeof data.pourcentageTermine === "number" ? data.pourcentageTermine : 100;
-      if (pct >= 90) doneForProg += 1;
-    });
+const isLegacyAutoName = (existingName, objectifUIKey, objectifFallback, nbSeances) => {
+  const n = Number(nbSeances) || 1;
+  const candidateNew = normalizeNameForCompare(
+    makeDefaultProgramName(objectifUIKey, objectifFallback, n)
+  );
 
-    if (sessEffSnap.size > 0 && doneForProg === 0) doneForProg = sessEffSnap.size;
-    completed += doneForProg;
+  const old1 = normalizeNameForCompare(`${objectifFallback || ""} — ${n}x/Sem`);
+  const old2 = normalizeNameForCompare(`${objectifFallback || ""} — ${n}x/sem`);
+  const old3 = normalizeNameForCompare(`${objectifFallback || ""} - ${n}x/Sem`);
+  const old4 = normalizeNameForCompare(`${objectifFallback || ""} - ${n}x/sem`);
+  const old5 = normalizeNameForCompare(`${objectifUIKey || ""} — ${n}x/Sem`);
+  const old6 = normalizeNameForCompare(`${objectifUIKey || ""} - ${n}x/Sem`);
+
+  const cur = normalizeNameForCompare(existingName);
+
+  if (!cur) return true;
+  if (cur === candidateNew) return true;
+  if (cur === old1 || cur === old2 || cur === old3 || cur === old4 || cur === old5 || cur === old6)
+    return true;
+
+  if (objectifFallback && cur === normalizeNameForCompare(objectifFallback)) return true;
+  if (objectifUIKey && cur === normalizeNameForCompare(objectifUIKey)) return true;
+
+  return false;
+};
+
+// ✅ Nom identique Builder (pour documents de la collection programmes)
+const prettyProgramNameBase = (p) => {
+  if (!p) return "—";
+
+  const objectifUiKey = p.objectifUI || "";
+  const objectifFallback = p.objectif || "";
+  const n = getTotalSessionsFromProgrammeDoc(p) || 1;
+
+  const defaultName = makeDefaultProgramName(objectifUiKey, objectifFallback, n);
+  const rawName =
+    p.nomProgramme && typeof p.nomProgramme === "string" ? p.nomProgramme.trim() : "";
+
+  if (rawName && isLegacyAutoName(rawName, objectifUiKey, objectifFallback, n)) {
+    return defaultName;
   }
-  const percent = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
-  return { percent, completed, total };
-}
+  if (rawName) return rawName;
 
-/* ---------------- Sessions / semaine ---------------- */
-async function fetchSessionsPerWeek(clientId) {
-  const since = new Date();
-  since.setDate(since.getDate() - 7);
-
-  const progSnap = await getDocs(collection(db, "clients", clientId, SUBCOLL_PROGRAMMES));
-  let count = 0;
-
-  for (const d of progSnap.docs) {
-    const sessEffCol = collection(db, "clients", clientId, SUBCOLL_PROGRAMMES, d.id, SUBCOLL_SESSIONS_DONE);
-    const sessEffSnap = await getDocs(sessEffCol);
-    sessEffSnap.forEach(s => {
-      const ts = s.data()?.[FIELD_DONE_DATE]?.toDate?.();
-      if (ts && ts >= since) count += 1;
-    });
-  }
-  return count;
-}
-
-/* ---------------- Dernière séance ---------------- */
-function pickDoneDate(s) {
-  const ts = s?.[FIELD_DONE_DATE]?.toDate?.() ?? null;
-  return ts instanceof Date ? ts : null;
-}
-async function computeLastSessionDateForClient(c) {
-  const clientId = c.id;
-  const cached = c?.lastSession?.toDate?.() ?? null;
-  if (cached) return cached;
-
-  let bestDate = null;
-  const progSnap = await getDocs(collection(db, "clients", clientId, SUBCOLL_PROGRAMMES));
-  for (const d of progSnap.docs) {
-    try {
-      const q1 = query(
-        collection(db, "clients", clientId, SUBCOLL_PROGRAMMES, d.id, SUBCOLL_SESSIONS_DONE),
-        orderBy(FIELD_DONE_DATE, "desc"),
-        limit(1)
-      );
-      const sSnap = await getDocs(q1);
-      if (!sSnap.empty) {
-        const ts = pickDoneDate(sSnap.docs[0].data());
-        if (ts && (!bestDate || ts > bestDate)) bestDate = ts;
-      }
-    } catch (_) {}
-  }
-  if (bestDate) await updateDoc(doc(db, "clients", clientId), { lastSession: bestDate });
-  return bestDate;
-}
-
-/* ---------------- Nombre de programmes ---------------- */
-async function fetchProgrammeCount(clientId) {
-  const snap = await getDocs(collection(db, "clients", clientId, SUBCOLL_PROGRAMMES));
-  return snap.size;
-}
+  return defaultName || "—";
+};
 
 /* ------------------- Helpers dates pour l'Input type=date ------------------- */
 function toDateInputValue(anyTs) {
   if (!anyTs) return "";
-  const d =
-    anyTs?.toDate?.() ??
-    (typeof anyTs === "number" ? new Date(anyTs) : new Date(anyTs));
+  const d = anyTs?.toDate?.() ?? (typeof anyTs === "number" ? new Date(anyTs) : new Date(anyTs));
   if (Number.isNaN(d.getTime())) return "";
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -177,15 +184,15 @@ function fromDateInputValue(v) {
 const GOALS = [
   { value: "weight_loss", fr: "Perte de poids", en: "Weight loss" },
   { value: "muscle_gain", fr: "Prise de masse", en: "Muscle gain" },
-  { value: "strength",    fr: "Force",          en: "Strength" },
-  { value: "endurance",   fr: "Endurance",      en: "Endurance" },
-  { value: "return_sport",fr: "Retour au sport",en: "Return to sport" },
-  { value: "postural",    fr: "Postural",       en: "Postural" },
+  { value: "strength", fr: "Force", en: "Strength" },
+  { value: "endurance", fr: "Endurance", en: "Endurance" },
+  { value: "return_sport", fr: "Retour au sport", en: "Return to sport" },
+  { value: "postural", fr: "Postural", en: "Postural" },
 ];
 const LEVELS = [
-  { value: "beginner",     fr: "Débutant",      en: "Beginner" },
+  { value: "beginner", fr: "Débutant", en: "Beginner" },
   { value: "intermediate", fr: "Intermédiaire", en: "Intermediate" },
-  { value: "advanced",     fr: "Avancé",        en: "Advanced" },
+  { value: "advanced", fr: "Avancé", en: "Advanced" },
 ];
 const LANGS = [
   { value: "fr", label: "Français" },
@@ -197,14 +204,97 @@ const LANGS = [
   { value: "ar", label: "العربية" },
 ];
 
-/* -------------------------------- Composant -------------------------------- */
+/* -------------------- ✅ Builder stats client en 1 seule passe -------------------- */
+/**
+ * Reconstruit:
+ * - progress (tous programmes) [percent, completed, total]
+ * - sessions par semaine (7j)
+ * - dernière séance (vraie) = max(dateEffectuee)
+ * - nb programmes
+ * - ✅ _lastInteractionMs (même logique CoachDashboard)
+ */
+async function buildClientComputedStats(client) {
+  const clientId = client.id;
+
+  const since7 = new Date();
+  since7.setDate(since7.getDate() - 7);
+
+  const progSnap = await getDocs(collection(db, "clients", clientId, SUBCOLL_PROGRAMMES));
+  const nbProg = progSnap.size;
+
+  let totalSessions = 0;
+  let completedSessions = 0;
+  let sessions7j = 0;
+
+  let latestDoneMs = 0;     // dernière séance effectuée
+  let latestAssignMs = 0;   // dernière assignation / création programme assigné
+
+  for (const d of progSnap.docs) {
+    const progData = d.data() || {};
+    totalSessions += getTotalSessionsFromProgrammeDoc(progData);
+
+    // assign ms (comme CoachDashboard)
+    const assignMs =
+      toMillis(progData.assignedAt) ||
+      toMillis(progData.dateAssignation) ||
+      toMillis(progData.dateAffectation) ||
+      toMillis(progData.createdAt) ||
+      0;
+    if (assignMs > latestAssignMs) latestAssignMs = assignMs;
+
+    // sessionsEffectuees
+    const sessEffCol = collection(db, "clients", clientId, SUBCOLL_PROGRAMMES, d.id, SUBCOLL_SESSIONS_DONE);
+    const sessEffSnap = await getDocs(sessEffCol);
+
+    let doneForProg = 0;
+
+    sessEffSnap.forEach((s) => {
+      const data = s.data() || {};
+      const pct = typeof data.pourcentageTermine === "number" ? data.pourcentageTermine : 100;
+      if (pct >= 90) doneForProg += 1;
+
+      const ts = data?.[FIELD_DONE_DATE]?.toDate?.();
+      if (ts instanceof Date) {
+        const ms = ts.getTime();
+        if (ms > latestDoneMs) latestDoneMs = ms;
+        if (ts >= since7) sessions7j += 1;
+      }
+    });
+
+    if (sessEffSnap.size > 0 && doneForProg === 0) doneForProg = sessEffSnap.size;
+    completedSessions += doneForProg;
+  }
+
+  const percent = totalSessions > 0 ? Math.min(100, Math.round((completedSessions / totalSessions) * 100)) : 0;
+
+  const lastSessionDate = latestDoneMs > 0 ? new Date(latestDoneMs) : null;
+
+  // client update timestamp (comme CoachDashboard)
+  const lastClientUpdate = Math.max(
+    toMillis(client.updatedAt),
+    toMillis(client.lastActivityAt),
+    toMillis(client.createdAt)
+  );
+
+  // ✅ _lastInteractionMs (comme CoachDashboard)
+  const _lastInteractionMs = Math.max(latestDoneMs, latestAssignMs, lastClientUpdate);
+
+  return {
+    progress: { percent, completed: completedSessions, total: totalSessions },
+    sessionsPerWeek: sessions7j,
+    lastSessionDate,
+    programmeCount: nbProg,
+    _lastInteractionMs: _lastInteractionMs || 0,
+  };
+}
+
 const Clients = () => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
 
-  const location = useLocation();
   const params = new URLSearchParams(location.search);
   const filter = params.get("filter");
 
@@ -221,55 +311,85 @@ const Clients = () => {
 
   const [searchQuery, setSearchQuery] = useState("");
 
-  const [subscriptionMap, setSubscriptionMap] = useState({});
   const [progressMap, setProgressMap] = useState({});
   const [sessionsPerWeekMap, setSessionsPerWeekMap] = useState({});
   const [lastSessionMap, setLastSessionMap] = useState({});
   const [programmeCountMap, setProgrammeCountMap] = useState({});
+  const [lastInteractionMap, setLastInteractionMap] = useState({}); // ✅ NEW
 
-  const [isClientModalOpen, setIsClientModalOpen] = useState(false); // édition
+  const createClientModal = useDisclosure();
+  const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [editClient, setEditClient] = useState(null);
-  const createClientModal = useDisclosure(); // création (ClientCreation)
 
-  const cutoff = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - DAYS_ACTIVE_CUTOFF);
-    return d;
+  const isFr = i18n.language?.startsWith?.("fr");
+
+  // ✅ cutoff en ms pour l'activité (30j) — basé sur _lastInteractionMs
+  const activeCutoffMs = useMemo(() => {
+    const now = Date.now();
+    return now - DAYS_ACTIVE_CUTOFF * 24 * 60 * 60 * 1000;
   }, []);
 
   const fetchData = useCallback(async () => {
     if (!user?.uid) return;
     setLoading(true);
+
     try {
-      // Affiche les clients que CE coach a créés (si tu veux multi-coachs: where("coachIds","array-contains", user.uid))
+      // 1) Clients du coach (createdBy ou legacy coachId)
       const cSnap = await getDocs(query(collection(db, "clients"), where("createdBy", "==", user.uid)));
       let list = cSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-      // Modèles de programmes de ce coach
-      const pSnap = await getDocs(query(collection(db, "programmes"), where("createdBy", "==", user.uid)));
-      setProgrammes(pSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      if (list.length === 0) {
+        const cSnap2 = await getDocs(query(collection(db, "clients"), where("coachId", "==", user.uid)));
+        list = cSnap2.docs.map((d) => ({ id: d.id, ...d.data() }));
+      }
 
-      const subEntries = {};
-      list.forEach((c) => (subEntries[c.id] = getSubscriptionInfo(c)));
-      setSubscriptionMap(subEntries);
+      // 2) Programmes (base) du coach -> comme CoachDashboard
+      let progs = [];
+      try {
+        const pQ = query(
+          collection(db, "programmes"),
+          where("createdBy", "==", user.uid),
+          orderBy("createdAt", "desc"),
+          limit(200)
+        );
+        const pSnap = await getDocs(pQ);
+        progs = pSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      } catch (e) {
+        const pSnap = await getDocs(
+          query(collection(db, "programmes"), where("createdBy", "==", user.uid), limit(200))
+        );
+        progs = pSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        progs.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+      }
+      progs.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+      setProgrammes(progs);
 
+      // 3) Stats client (✅ même logique dashboard via _lastInteractionMs)
       const progressEntries = {};
       const perWeekEntries = {};
       const lastEntries = {};
       const countEntries = {};
+      const interactionEntries = {};
 
-      await Promise.all(
+      const enriched = await Promise.all(
         list.map(async (c) => {
-          const [progressAll, perWeek, last, nb] = await Promise.all([
-            fetchClientProgressAllPrograms(c.id),
-            fetchSessionsPerWeek(c.id),
-            computeLastSessionDateForClient(c),
-            fetchProgrammeCount(c.id),
-          ]);
-          progressEntries[c.id] = progressAll;
-          perWeekEntries[c.id] = perWeek;
-          lastEntries[c.id] = last || null;
-          countEntries[c.id] = nb;
+          const computed = await buildClientComputedStats(c);
+
+          progressEntries[c.id] = computed.progress;
+          perWeekEntries[c.id] = computed.sessionsPerWeek;
+          lastEntries[c.id] = computed.lastSessionDate || null;
+          countEntries[c.id] = computed.programmeCount;
+          interactionEntries[c.id] = computed._lastInteractionMs || 0;
+
+          // (optionnel) cache lastSession dans doc client si vide
+          const cached = c?.lastSession?.toDate?.() ?? null;
+          if (!cached && computed.lastSessionDate) {
+            try {
+              await updateDoc(doc(db, "clients", c.id), { lastSession: computed.lastSessionDate });
+            } catch (_) {}
+          }
+
+          return { ...c, _lastInteractionMs: computed._lastInteractionMs || 0 };
         })
       );
 
@@ -277,28 +397,27 @@ const Clients = () => {
       setSessionsPerWeekMap(perWeekEntries);
       setLastSessionMap(lastEntries);
       setProgrammeCountMap(countEntries);
+      setLastInteractionMap(interactionEntries);
 
+      // ✅ filtre actif/inactif basé sur _lastInteractionMs (comme CoachDashboard)
+      let filtered = enriched;
       if (filter === "active") {
-        list = list.filter((c) => {
-          const d = lastEntries[c.id] || c.lastSession?.toDate?.();
-          return d && d >= cutoff;
-        });
+        filtered = enriched.filter((c) => (Number(c._lastInteractionMs || 0) || 0) >= activeCutoffMs);
       } else if (filter === "inactive") {
-        list = list.filter((c) => {
-          const d = lastEntries[c.id] || c.lastSession?.toDate?.();
-          return !(d && d >= cutoff);
-        });
+        filtered = enriched.filter((c) => !((Number(c._lastInteractionMs || 0) || 0) >= activeCutoffMs));
       }
 
-      setClients(list);
+      setClients(filtered);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [user, filter, cutoff]);
+  }, [user?.uid, filter, activeCutoffMs]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const openAssignModal = (clientId) => {
     setSelectedClient(clientId);
@@ -306,21 +425,20 @@ const Clients = () => {
     setIsModalOpen(true);
   };
 
-  // ➜ handleAssign : crée une instance de programme sous clients/{id}/programmes + toast
   const handleAssign = async () => {
     if (!selectedClient || !selectedProgramme) return;
+
     try {
-      // 1) Récupérer le modèle
       const tplRef = doc(db, "programmes", selectedProgramme);
       const tplSnap = await getDoc(tplRef);
       if (!tplSnap.exists()) throw new Error("Programme introuvable.");
       const tpl = tplSnap.data();
 
-      // 2) Créer l'instance sous le client
       const instRef = doc(collection(db, "clients", selectedClient, SUBCOLL_PROGRAMMES));
       const totalSessions = getTotalSessionsFromProgrammeDoc(tpl);
 
       await setDoc(instRef, {
+        programId: selectedProgramme,
         ...tpl,
         id: instRef.id,
         fromTemplateId: selectedProgramme,
@@ -331,30 +449,20 @@ const Clients = () => {
         totalSessions: typeof totalSessions === "number" ? totalSessions : null,
         progress: 0,
         status: "active",
+        origine: "coach-assign",
       });
 
-      // 3) Mettre à jour le client
       await updateDoc(doc(db, "clients", selectedClient), {
-        currentProgramme: instRef.id,   // l'instance, pas le template
+        currentProgramme: instRef.id,
         updatedAt: serverTimestamp(),
         coachIds: arrayUnion(user.uid),
       });
 
       setIsModalOpen(false);
 
-      // 4) Rafraîchir l’UI
-      const [res, count, cDocSnap] = await Promise.all([
-        fetchClientProgressAllPrograms(selectedClient),
-        fetchProgrammeCount(selectedClient),
-        getDoc(doc(db, "clients", selectedClient)),
-      ]);
-      setProgressMap((prev) => ({ ...prev, [selectedClient]: res }));
-      setProgrammeCountMap((prev) => ({ ...prev, [selectedClient]: count }));
-      const cData = { id: selectedClient, ...cDocSnap.data() };
-      const last = await computeLastSessionDateForClient(cData);
-      setLastSessionMap((prev) => ({ ...prev, [selectedClient]: last || null }));
+      // refresh complet (simple & cohérent)
+      await fetchData();
 
-      // ✅ Toast confirmation (en bas)
       toast({
         title: t("clientsList.assignModal.successTitle", "Programme assigné"),
         description: t("clientsList.assignModal.successDesc", "Le programme a bien été attribué au client."),
@@ -376,7 +484,10 @@ const Clients = () => {
     }
   };
 
-  const openDeleteModal = (id) => { setDeleteTarget(id); setIsDeleteOpen(true); };
+  const openDeleteModal = (id) => {
+    setDeleteTarget(id);
+    setIsDeleteOpen(true);
+  };
   const handleDelete = async () => {
     if (!deleteTarget) return;
     await deleteDoc(doc(db, "clients", deleteTarget));
@@ -384,14 +495,13 @@ const Clients = () => {
     setIsDeleteOpen(false);
   };
 
-  /* ---------------------- Formulaire client (create/edit) ---------------------- */
-  const isFr = i18n.language?.startsWith?.("fr");
+  /* ---------------------- Formulaire client (edit) ---------------------- */
   const goalOptions = useMemo(
-    () => GOALS.map(g => ({ value: g.value, label: isFr ? g.fr : g.en })),
+    () => GOALS.map((g) => ({ value: g.value, label: isFr ? g.fr : g.en })),
     [isFr]
   );
   const levelOptions = useMemo(
-    () => LEVELS.map(l => ({ value: l.value, label: isFr ? l.fr : l.en })),
+    () => LEVELS.map((l) => ({ value: l.value, label: isFr ? l.fr : l.en })),
     [isFr]
   );
 
@@ -407,7 +517,6 @@ const Clients = () => {
   const [cf_lang, setCfLang] = useState("fr");
 
   const openClientForm = (clientOrNull) => {
-    // édition uniquement
     setEditClient(clientOrNull);
     if (clientOrNull) {
       setCfFirst(clientOrNull.prenom ?? "");
@@ -444,16 +553,8 @@ const Clients = () => {
 
     if (editClient?.id) {
       await updateDoc(doc(db, "clients", editClient.id), payload);
-    } else {
-      // fallback (la création passe par ClientCreation)
-      const id = crypto.randomUUID();
-      await setDoc(doc(db, "clients", id), {
-        id,
-        createdBy: user.uid,
-        createdAt: serverTimestamp(),
-        ...payload,
-      });
     }
+
     setIsClientModalOpen(false);
     setEditClient(null);
     await fetchData();
@@ -462,8 +563,12 @@ const Clients = () => {
   if (loading) return <Spinner />;
 
   const filteredClients = clients
-    .filter((c) => `${c.prenom ?? ""} ${c.nom ?? ""}`.toLowerCase().includes(searchQuery.toLowerCase()))
-    .sort((a, b) => `${a.prenom ?? ""} ${a.nom ?? ""}`.localeCompare(`${b.prenom ?? ""} ${b.nom ?? ""}`));
+    .filter((c) =>
+      `${c.prenom ?? ""} ${c.nom ?? ""}`.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) =>
+      `${a.prenom ?? ""} ${a.nom ?? ""}`.localeCompare(`${b.prenom ?? ""} ${b.nom ?? ""}`)
+    );
 
   const bg = useColorModeValue("gray.50", "gray.900");
   const cardBg = useColorModeValue("white", "gray.800");
@@ -471,20 +576,35 @@ const Clients = () => {
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const muted = useColorModeValue("gray.600", "gray.300");
 
-  // Libellé “Nouveau client” avec fallback selon la langue
   const newClientLabel = t("clientsList.actions.newClient", isFr ? "Nouveau client" : "New client");
+
+  // ✅ helper statut actif basé _lastInteractionMs
+  const isActiveByInteraction = (clientId) => {
+    const ms = Number(lastInteractionMap[clientId] || 0) || 0;
+    return ms > 0 && ms >= activeCutoffMs;
+  };
 
   return (
     <Box bg={bg} minH="100vh">
       <Container maxW="7xl" py={{ base: 6, md: 10 }} px={{ base: 4, md: 6 }}>
-        <Heading mb={6} color={headColor}>{t("clientsList.heading")}</Heading>
+        <Heading mb={6} color={headColor}>
+          {t("clientsList.heading")}
+        </Heading>
 
         {/* Barre d'actions */}
         <Flex mb={4} gap={3} flexWrap="wrap" align="center">
-          <Button size="sm" colorScheme={filter === "active" ? "green" : "gray"} onClick={() => navigate("/clients?filter=active")}>
+          <Button
+            size="sm"
+            colorScheme={filter === "active" ? "green" : "gray"}
+            onClick={() => navigate("/clients?filter=active")}
+          >
             {t("clientsList.filters.active", { days: DAYS_ACTIVE_CUTOFF })}
           </Button>
-          <Button size="sm" colorScheme={filter === "inactive" ? "orange" : "gray"} onClick={() => navigate("/clients?filter=inactive")}>
+          <Button
+            size="sm"
+            colorScheme={filter === "inactive" ? "orange" : "gray"}
+            onClick={() => navigate("/clients?filter=inactive")}
+          >
             {t("clientsList.filters.inactive")}
           </Button>
           <Button size="sm" colorScheme={!filter ? "blue" : "gray"} onClick={() => navigate("/clients")}>
@@ -520,16 +640,14 @@ const Clients = () => {
                   <Th>{t("clientsList.table.programs")}</Th>
                   <Th>{t("clientsList.table.lastSession")}</Th>
                   <Th>{t("clientsList.table.activity")}</Th>
-                  <Th>{t("clientsList.table.subscription")}</Th>
                   <Th>{t("clientsList.table.progress")}</Th>
                   <Th isNumeric>{t("clientsList.table.action")}</Th>
                 </Tr>
               </Thead>
               <Tbody>
                 {filteredClients.map((c) => {
-                  const last = lastSessionMap[c.id] || c.lastSession?.toDate?.() || null;
-                  const isActive = !!(last && last >= cutoff);
-                  const sub = subscriptionMap[c.id] || { key: "clientsList.sub.unknown", color: "yellow" };
+                  const last = lastSessionMap[c.id] || c.lastSession?.toDate?.() || null; // vraie dernière séance
+                  const isActive = isActiveByInteraction(c.id); // ✅ même logique CoachDashboard
                   const progStat = progressMap[c.id] || { percent: 0, completed: 0, total: 0 };
                   const perWeek = sessionsPerWeekMap[c.id] ?? 0;
                   const nbProg = programmeCountMap[c.id] ?? 0;
@@ -541,23 +659,40 @@ const Clients = () => {
                           {c.prenom} {c.nom}
                         </ChakraLink>
                       </Td>
-                      <Td><Badge>{nbProg}</Badge></Td>
-                      <Td>{last ? last.toLocaleDateString() : "N/A"}</Td>
+
                       <Td>
-                        <Tooltip label={last ? t("clientsList.tooltip.lastOn", { date: last.toLocaleDateString() }) : t("clientsList.tooltip.none")} hasArrow>
+                        <Badge>{nbProg}</Badge>
+                      </Td>
+
+                      <Td>{last ? last.toLocaleDateString() : "N/A"}</Td>
+
+                      <Td>
+                        <Tooltip
+                          label={
+                            last
+                              ? t("clientsList.tooltip.lastOn", { date: last.toLocaleDateString() })
+                              : t("clientsList.tooltip.none")
+                          }
+                          hasArrow
+                        >
                           <Badge colorScheme={isActive ? "green" : "orange"}>
                             {t(isActive ? "clientsList.status.active" : "clientsList.status.inactive")}
                           </Badge>
                         </Tooltip>
                       </Td>
-                      <Td><Badge colorScheme={sub.color}>{t(sub.key)}</Badge></Td>
+
                       <Td>
                         <Box minW="240px">
                           <HStack justify="space-between" mb={1}>
                             <Text fontSize="sm" color="gray.500">
-                              {t("clientsList.progress.sessions", { done: progStat.completed, total: progStat.total })}
+                              {t("clientsList.progress.sessions", {
+                                done: progStat.completed,
+                                total: progStat.total,
+                              })}
                             </Text>
-                            <Text fontSize="sm" fontWeight="semibold">{progStat.percent}%</Text>
+                            <Text fontSize="sm" fontWeight="semibold">
+                              {progStat.percent}%
+                            </Text>
                           </HStack>
                           <Progress value={progStat.percent} size="sm" colorScheme="blue" borderRadius="md" />
                           <Text mt={1} fontSize="xs" color="gray.500">
@@ -565,6 +700,7 @@ const Clients = () => {
                           </Text>
                         </Box>
                       </Td>
+
                       <Td isNumeric>
                         <ButtonGroup spacing={2} display="inline-flex" whiteSpace="nowrap">
                           <Button size="sm" variant="outline" onClick={() => openClientForm(c)}>
@@ -595,8 +731,7 @@ const Clients = () => {
             <VStack spacing={3} align="stretch">
               {filteredClients.map((c) => {
                 const last = lastSessionMap[c.id] || c.lastSession?.toDate?.() || null;
-                const isActive = !!(last && last >= cutoff);
-                const sub = subscriptionMap[c.id] || { key: "clientsList.sub.unknown", color: "yellow" };
+                const isActive = isActiveByInteraction(c.id);
                 const progStat = progressMap[c.id] || { percent: 0, completed: 0, total: 0 };
                 const perWeek = sessionsPerWeekMap[c.id] ?? 0;
                 const nbProg = programmeCountMap[c.id] ?? 0;
@@ -641,11 +776,12 @@ const Clients = () => {
                     </Text>
 
                     <HStack spacing={2} mt={1} mb={2} wrap="wrap">
-                      <Badge>{nbProg} {t("clientsList.badge.programsShort")}</Badge>
+                      <Badge>
+                        {nbProg} {t("clientsList.badge.programsShort")}
+                      </Badge>
                       <Badge colorScheme={isActive ? "green" : "orange"}>
                         {t(isActive ? "clientsList.status.active" : "clientsList.status.inactive")}
                       </Badge>
-                      <Badge colorScheme={sub.color}>{t(sub.key)}</Badge>
                       <Badge variant="subtle" colorScheme="gray">
                         {last ? last.toLocaleDateString() : "N/A"}
                       </Badge>
@@ -653,9 +789,14 @@ const Clients = () => {
 
                     <HStack justify="space-between" mb={1}>
                       <Text fontSize="sm" color={muted}>
-                        {t("clientsList.progress.sessions", { done: progStat.completed, total: progStat.total })}
+                        {t("clientsList.progress.sessions", {
+                          done: progStat.completed,
+                          total: progStat.total,
+                        })}
                       </Text>
-                      <Text fontSize="sm" fontWeight="semibold">{progStat.percent}%</Text>
+                      <Text fontSize="sm" fontWeight="semibold">
+                        {progStat.percent}%
+                      </Text>
                     </HStack>
                     <Progress value={progStat.percent} size="sm" colorScheme="blue" borderRadius="md" />
                     <Text mt={1} fontSize="xs" color="gray.500">
@@ -672,27 +813,27 @@ const Clients = () => {
         <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} isCentered>
           <ModalOverlay />
           <ModalContent>
-            <ModalHeader>{t("clientsList.assignModal.title")}</ModalHeader>
+            <ModalHeader>{t("clientsList.assignModal.title", "Assigner un programme")}</ModalHeader>
             <ModalCloseButton />
             <ModalBody>
               <Select
-                placeholder={t("clientsList.assignModal.placeholder")}
+                placeholder={t("clientsList.assignModal.placeholder", "Sélectionnez un programme")}
                 value={selectedProgramme}
                 onChange={(e) => setSelectedProgramme(e.target.value)}
               >
-                {programmes.map((p, idx) => (
+                {programmes.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.nomProgramme || p.name || p.titre || p.title || `Programme ${idx + 1}`}
+                    {prettyProgramNameBase(p)}
                   </option>
                 ))}
               </Select>
             </ModalBody>
             <ModalFooter>
               <Button colorScheme="blue" mr={3} onClick={handleAssign} isDisabled={!selectedProgramme}>
-                {t("common.confirm")}
+                {t("common.confirm", "Confirmer")}
               </Button>
               <Button variant="ghost" onClick={() => setIsModalOpen(false)}>
-                {t("common.cancel")}
+                {t("common.cancel", "Annuler")}
               </Button>
             </ModalFooter>
           </ModalContent>
@@ -702,41 +843,43 @@ const Clients = () => {
         <Modal isOpen={isDeleteOpen} onClose={() => setIsDeleteOpen(false)} isCentered>
           <ModalOverlay />
           <ModalContent>
-            <ModalHeader>{t("clientsList.deleteModal.title")}</ModalHeader>
+            <ModalHeader>{t("clientsList.deleteModal.title", "Supprimer le client")}</ModalHeader>
             <ModalCloseButton />
             <ModalBody>
               <Alert status="warning">
                 <AlertIcon />
-                {t("clientsList.deleteModal.body")}
+                {t("clientsList.deleteModal.body", "Êtes-vous sûr de vouloir supprimer ce client ?")}
               </Alert>
             </ModalBody>
             <ModalFooter>
               <Button colorScheme="red" mr={3} onClick={handleDelete}>
-                {t("common.delete")}
+                {t("common.delete", "Supprimer")}
               </Button>
               <Button variant="ghost" onClick={() => setIsDeleteOpen(false)}>
-                {t("common.cancel")}
+                {t("common.cancel", "Annuler")}
               </Button>
             </ModalFooter>
           </ModalContent>
         </Modal>
 
-        {/* Nouveau client — même popup que la Navbar */}
+        {/* Nouveau client */}
         <Modal isOpen={createClientModal.isOpen} onClose={createClientModal.onClose} isCentered>
           <ModalOverlay />
           <ModalContent>
             <ModalHeader>{newClientLabel}</ModalHeader>
             <ModalCloseButton />
             <ModalBody>
-              <ClientCreation onClose={async () => { 
-                createClientModal.onClose();
-                await fetchData(); // refresh liste
-              }} />
+              <ClientCreation
+                onClose={async () => {
+                  createClientModal.onClose();
+                  await fetchData();
+                }}
+              />
             </ModalBody>
           </ModalContent>
         </Modal>
 
-        {/* Édition client uniquement */}
+        {/* Édition client */}
         <Modal
           isOpen={isClientModalOpen}
           onClose={() => setIsClientModalOpen(false)}
@@ -746,17 +889,17 @@ const Clients = () => {
         >
           <ModalOverlay />
           <ModalContent>
-            <ModalHeader>{t("Edit client")}</ModalHeader>
+            <ModalHeader>{t("Edit client", "Modifier le client")}</ModalHeader>
             <ModalCloseButton />
             <ModalBody>
               <Stack spacing={3}>
                 <Stack spacing={4} direction={{ base: "column", md: "row" }}>
                   <FormControl>
-                    <FormLabel>{t("First name")}</FormLabel>
+                    <FormLabel>{t("First name", "Prénom")}</FormLabel>
                     <Input value={cf_first} onChange={(e) => setCfFirst(e.target.value)} />
                   </FormControl>
                   <FormControl>
-                    <FormLabel>{t("Last name")}</FormLabel>
+                    <FormLabel>{t("Last name", "Nom")}</FormLabel>
                     <Input value={cf_last} onChange={(e) => setCfLast(e.target.value)} />
                   </FormControl>
                 </Stack>
@@ -767,55 +910,81 @@ const Clients = () => {
                     <Input type="email" value={cf_email} onChange={(e) => setCfEmail(e.target.value)} />
                   </FormControl>
                   <FormControl>
-                    <FormLabel>{t("Phone (optional)")}</FormLabel>
+                    <FormLabel>{t("Phone (optional)", "Téléphone (optionnel)")}</FormLabel>
                     <Input value={cf_phone} onChange={(e) => setCfPhone(e.target.value)} />
                   </FormControl>
                 </Stack>
 
                 <Stack spacing={4} direction={{ base: "column", md: "row" }}>
                   <FormControl>
-                    <FormLabel>{t("Birth date")}</FormLabel>
+                    <FormLabel>{t("Birth date", "Date de naissance")}</FormLabel>
                     <Input type="date" value={cf_birth} onChange={(e) => setCfBirth(e.target.value)} />
                   </FormControl>
                   <FormControl>
-                    <FormLabel>{t("Preferred language")}</FormLabel>
+                    <FormLabel>{t("Preferred language", "Langue préférée")}</FormLabel>
                     <Select value={cf_lang} onChange={(e) => setCfLang(e.target.value)}>
-                      {LANGS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+                      {LANGS.map((l) => (
+                        <option key={l.value} value={l.value}>
+                          {l.label}
+                        </option>
+                      ))}
                     </Select>
                   </FormControl>
                 </Stack>
 
                 <Stack spacing={4} direction={{ base: "column", md: "row" }}>
                   <FormControl>
-                    <FormLabel>{t("Level")}</FormLabel>
+                    <FormLabel>{t("Level", "Niveau")}</FormLabel>
                     <Select value={cf_level} onChange={(e) => setCfLevel(e.target.value)}>
-                      {levelOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                      {levelOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
                     </Select>
                   </FormControl>
                   <FormControl>
-                    <FormLabel>{t("Goal")}</FormLabel>
+                    <FormLabel>{t("Goal", "Objectif")}</FormLabel>
                     <Select value={cf_goal} onChange={(e) => setCfGoal(e.target.value)}>
-                      {goalOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                      {goalOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
                     </Select>
                   </FormControl>
                 </Stack>
 
                 <Stack spacing={4} direction={{ base: "column", md: "row" }}>
                   <FormControl>
-                    <FormLabel>{t("Height (cm)")}</FormLabel>
-                    <Input type="number" min="0" step="1" value={cf_height} onChange={(e) => setCfHeight(e.target.value)} />
+                    <FormLabel>{t("Height (cm)", "Taille (cm)")}</FormLabel>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={cf_height}
+                      onChange={(e) => setCfHeight(e.target.value)}
+                    />
                   </FormControl>
                   <FormControl>
-                    <FormLabel>{t("Weight (kg)")}</FormLabel>
-                    <Input type="number" min="0" step="0.1" value={cf_weight} onChange={(e) => setCfWeight(e.target.value)} />
+                    <FormLabel>{t("Weight (kg)", "Poids (kg)")}</FormLabel>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      value={cf_weight}
+                      onChange={(e) => setCfWeight(e.target.value)}
+                    />
                   </FormControl>
                 </Stack>
               </Stack>
             </ModalBody>
             <ModalFooter>
-              <Button mr={3} onClick={() => setIsClientModalOpen(false)}>{t("common.cancel")}</Button>
+              <Button mr={3} onClick={() => setIsClientModalOpen(false)}>
+                {t("common.cancel", "Annuler")}
+              </Button>
               <Button colorScheme="blue" onClick={saveClient}>
-                {t("common.save")}
+                {t("common.save", "Enregistrer")}
               </Button>
             </ModalFooter>
           </ModalContent>
@@ -826,4 +995,3 @@ const Clients = () => {
 };
 
 export default Clients;
-

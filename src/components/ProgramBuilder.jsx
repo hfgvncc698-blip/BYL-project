@@ -4,15 +4,14 @@ import React, {
   useCallback, useTransition, useDeferredValue, memo
 } from "react";
 import {
-  Box, Button, Input, VStack, Text, HStack, NumberInput,
-  NumberInputField, NumberInputStepper, NumberIncrementStepper,
-  NumberDecrementStepper, Flex, Collapse, Checkbox, Modal, ModalOverlay,
+  Box, Button, Input, VStack, Text, HStack,
+  Flex, Collapse, Checkbox, Modal, ModalOverlay,
   ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter,
   useDisclosure, List, ListItem, Spinner, IconButton, useColorModeValue,
   useToast, Tag, Switch, Badge, useBreakpointValue, Table, Thead, Tbody,
-  Tr, Th, Td, Divider, Textarea, Tooltip
+  Tr, Th, Td, Divider, Textarea, Tooltip,
 } from "@chakra-ui/react";
-import { CloseIcon } from "@chakra-ui/icons";
+import { CloseIcon, ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   doc, onSnapshot, updateDoc, addDoc, collection, getDocs,
@@ -61,20 +60,75 @@ const sectionDefs = [
   { key: "bonus",        labelKey: "programBuilder.sections.bonus" },
   { key: "retourCalme",  labelKey: "programBuilder.sections.cooldown" },
 ];
+
 const allOptions = [
   "Séries", "Répétitions", "Repos (min:sec)", "Durée (min:sec)", "Inclinaison (%)",
   "Résistance", "Watts", "Objectif Calories", "Charge (kg)", "Tempo", "Vitesse",
   "Distance", "Intensité"
 ];
+
+/**
+ * ✅ Defaults :
+ * - musculation : reps / séries / repos / charge
+ * - cardio + gainage + isométriques : durée / séries / repos (et on laisse le coach ajouter d’autres options si besoin)
+ */
 const defaultOptions = {
   musculation: ["Répétitions", "Séries", "Repos (min:sec)", "Charge (kg)"],
-  cardio: ["Durée (min:sec)", "Séries", "Repos (min:sec)", "Vitesse"],
+  cardio: ["Durée (min:sec)", "Séries", "Repos (min:sec)"],
   "mobilisation articulaire": ["Durée (min:sec)", "Séries", "Repos (min:sec)"],
   stretching: ["Durée (min:sec)", "Séries", "Repos (min:sec)"],
-  ergometre: ["Durée (min:sec)", "Séries", "Repos (min:sec)", "Watts", "Distance"]
+  ergometre: ["Durée (min:sec)", "Séries", "Repos (min:sec)", "Watts", "Distance"],
+  gainage: ["Durée (min:sec)", "Séries", "Repos (min:sec)"],
+  isometrique: ["Durée (min:sec)", "Séries", "Repos (min:sec)"],
 };
 
 const norm = (s="") => String(s).normalize("NFD").replace(/\p{Diacritic}/gu,"").toLowerCase();
+
+const capitalizeFirst = (s="") => {
+  const str = String(s || "").trim();
+  if (!str) return "";
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
+const prettifyKey = (key="") => {
+  const s = String(key || "").trim();
+  if (!s) return "";
+  return s.replace(/_/g, " ").replace(/\s+/g, " ").trim();
+};
+
+const makeDefaultProgramName = (objectifUIKey, objectifFallback, nbSeances) => {
+  const baseKey = objectifUIKey || objectifFallback || "";
+  const label = capitalizeFirst(prettifyKey(baseKey));
+  const n = Number(nbSeances) || 1;
+  if (!label) return `Programme — ${n}x/Sem`;
+  return `${label} — ${n}x/Sem`;
+};
+
+const normalizeNameForCompare = (s="") =>
+  String(s || "")
+    .replace(/\u2014/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+const isLegacyAutoName = (existingName, objectifUIKey, objectifFallback, nbSeances) => {
+  const n = Number(nbSeances) || 1;
+  const candidateNew = normalizeNameForCompare(makeDefaultProgramName(objectifUIKey, objectifFallback, n));
+
+  const old1 = normalizeNameForCompare(`${objectifFallback || ""} — ${n}x/Sem`);
+  const old2 = normalizeNameForCompare(`${objectifFallback || ""} — ${n}x/sem`);
+  const old3 = normalizeNameForCompare(`${objectifFallback || ""} - ${n}x/Sem`);
+  const old4 = normalizeNameForCompare(`${objectifFallback || ""} - ${n}x/sem`);
+
+  const cur = normalizeNameForCompare(existingName);
+
+  if (!cur) return true;
+  if (cur === candidateNew) return true;
+  if (cur === old1 || cur === old2 || cur === old3 || cur === old4) return true;
+  if (objectifFallback && cur === normalizeNameForCompare(objectifFallback)) return true;
+
+  return false;
+};
 
 /** nombre | "mm:ss" | "1 min 30 sec" => secondes */
 function toSeconds(val) {
@@ -88,13 +142,14 @@ function toSeconds(val) {
       const [mm, ss] = val.split(":").map(Number);
       return (mm || 0) * 60 + (ss || 0);
     }
-    const n = Number(val);
+    const n = Number(val.replace(",", "."));
     return isNaN(n) ? 0 : n;
   }
   return 0;
 }
+
 function formatMinSec(v) {
-  const n = Number(v) || 0;
+  const n = Math.max(0, Number(v) || 0);
   const m = Math.floor(n / 60), s = n % 60;
   return `${m ? m + " min " : ""}${s ? s + " sec" : (!m ? "0 sec" : "")}`.trim();
 }
@@ -108,81 +163,294 @@ const kmhToMph = (k) => +(((Number(k)||0) * KMH_TO_MPH).toFixed(2));
 const mphToKmh = (m) => +(((Number(m)||0) / KMH_TO_MPH).toFixed(2));
 const round  = (n, p=2) => Math.round((Number(n)||0) * 10**p)/10**p;
 
-/** migre des alias vers "Charge (kg)" */
+/* ======= distance conversions ======= */
+const M_TO_MI = 0.000621371192237334;
+const mToMi = (m) => +(((Number(m) || 0) * M_TO_MI).toFixed(3));
+const miToM = (mi) => +(((Number(mi) || 0) / M_TO_MI).toFixed(0));
+
+/* ===================== PATCH LECTURE DONNÉES (AutoProgram -> Builder) ===================== */
+
+/** parsing numérique robuste (accepte "10", "10,5", etc.) */
+const parseNumberish = (v) => {
+  if (v == null || v === "") return null;
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  const n = Number(String(v).replace(",", ".").trim());
+  return Number.isFinite(n) ? n : null;
+};
+
+/**
+ * ✅ Durée stockée parfois en minutes (ex: 8) dans certains vieux formats auto-programmes
+ * Heuristique:
+ * - string ("8 min", "08:00") => toSeconds()
+ * - number <= 30 sur un ex "timed-like" => minutes * 60
+ * - sinon => secondes
+ */
+function coerceDurationSeconds(val, exMaybe) {
+  if (val == null || val === "") return null;
+
+  if (typeof val === "string") {
+    const s = val.trim();
+    if (!s) return null;
+    return toSeconds(s);
+  }
+
+  if (typeof val === "number" && Number.isFinite(val)) {
+    const n = val;
+    // si c'est très petit et que l'exercice est typiquement en durée => minutes
+    if (n > 0 && n <= 30 && isTimedLike(exMaybe || {})) return Math.round(n * 60);
+    // sinon, on considère que c'est déjà des secondes
+    return Math.round(n);
+  }
+
+  const pn = parseNumberish(val);
+  if (pn == null) return null;
+  if (pn > 0 && pn <= 30 && isTimedLike(exMaybe || {})) return Math.round(pn * 60);
+  return Math.round(pn);
+}
+
+/** migre des alias vers les clés standard du builder */
 function migrateAliases(ex = {}) {
   const out = structuredClone(ex || {});
-  const aliases = ["Charge (kg)", "charge", "poids", "weight", "load"];
+
+  // helper: trouver une clé existante parmi des alias (insensible à la casse/accents)
+  const findAliasKey = (aliases = []) => {
+    const keys = Object.keys(out || {});
+    const map = new Map(keys.map(k => [norm(k), k]));
+    for (const a of aliases) {
+      const hit = map.get(norm(a));
+      if (hit) return hit;
+    }
+    return null;
+  };
+
+  // 1) Charge (kg)
   if (out["Charge (kg)"] == null) {
-    for (const k of aliases) {
-      if (k !== "Charge (kg)" && out[k] != null && out[k] !== "") {
-        const n = Number(out[k]);
-        if (!Number.isNaN(n)) {
-          out["Charge (kg)"] = n;
-          break;
-        }
-      }
+    const k = findAliasKey(["charge", "poids", "weight", "load", "Charge"]);
+    if (k) {
+      const n = parseNumberish(out[k]);
+      if (n != null) out["Charge (kg)"] = n;
     }
   }
+
+  // 2) Répétitions
+  if (out["Répétitions"] == null) {
+    const k = findAliasKey([
+      "repetitions", "répétitions", "reps", "rep", "nb_reps",
+      // ✅ possibles champs auto
+      "repetition", "répétition"
+    ]);
+    if (k) {
+      const n = parseNumberish(out[k]);
+      if (n != null) out["Répétitions"] = n;
+    }
+  }
+
+  // 3) Séries
+  if (out["Séries"] == null) {
+    const k = findAliasKey([
+      "series", "séries", "sets", "set", "nb_series",
+      // ✅ champ auto fréquent
+      "serie", "série"
+    ]);
+    if (k) {
+      const n = parseNumberish(out[k]);
+      if (n != null) out["Séries"] = n;
+    }
+  }
+
+  // 4) Repos => secondes
+  if (out["Repos (min:sec)"] == null) {
+    const k = findAliasKey([
+      "repos", "rest", "pause", "recup", "récup", "récupération", "recuperation",
+      // ✅ champs auto/Firestore
+      "temps_repos"
+    ]);
+    if (k) {
+      const sec = toSeconds(out[k]);
+      out["Repos (min:sec)"] = Number(sec) || 0;
+    }
+  } else {
+    // si déjà présent mais sous forme string, on normalise aussi
+    if (typeof out["Repos (min:sec)"] === "string") {
+      out["Repos (min:sec)"] = Number(toSeconds(out["Repos (min:sec)"])) || 0;
+    }
+  }
+
+  // 5) Durée => secondes (avec heuristique minutes)
+  if (out["Durée (min:sec)"] == null) {
+    const k = findAliasKey([
+      "durée", "duree", "duration", "time", "temps",
+      // ✅ champ Firestore vu dans ta capture
+      "temps_effort"
+    ]);
+    if (k) {
+      const sec = coerceDurationSeconds(out[k], out);
+      out["Durée (min:sec)"] = sec != null ? sec : 0;
+    }
+  } else {
+    const sec = coerceDurationSeconds(out["Durée (min:sec)"], out);
+    out["Durée (min:sec)"] = sec != null ? sec : 0;
+  }
+
+  // 6) Vitesse
+  if (out["Vitesse"] == null) {
+    const k = findAliasKey(["vitesse", "speed", "kmh", "km/h"]);
+    if (k) {
+      const n = parseNumberish(out[k]);
+      if (n != null) out["Vitesse"] = n;
+    }
+  }
+
+  // 7) Distance (stockée parfois en km -> on laisse, ton builder gère en m/mi côté affichage)
+  if (out["Distance"] == null) {
+    const k = findAliasKey(["distance", "dist"]);
+    if (k) {
+      const n = parseNumberish(out[k]);
+      if (n != null) out["Distance"] = n;
+    }
+  }
+
+  // 8) Inclinaison / Intensité / Watts / etc. (si présents)
+  const simpleNumberAliases = [
+    ["Inclinaison (%)", ["inclinaison", "incline", "slope"]],
+    ["Intensité", ["intensite", "intensity"]],
+    ["Watts", ["watt", "power", "puissance"]],
+    ["Résistance", ["resistance"]],
+    ["Objectif Calories", ["calories", "objectif_calories", "objectif calories"]],
+  ];
+  simpleNumberAliases.forEach(([canon, aliases]) => {
+    if (out[canon] == null) {
+      const k = findAliasKey(aliases);
+      if (k) {
+        const n = parseNumberish(out[k]);
+        if (n != null) out[canon] = n;
+      }
+    }
+  });
+
   return out;
 }
 
 /* --------- Sets helpers --------- */
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
-function makeEmptySets(n = 1) {
-  return Array.from({ length: Math.max(1, n) }, () => ({ _id: uid() }));
+function makeEmptySets(n = 0) {
+  const L = Math.max(0, Number(n) || 0);
+  return Array.from({ length: L }, () => ({ _id: uid() }));
 }
-function ensureSetsLength(ex) {
-  if (ex.useAdvancedSets) {
-    if (!Array.isArray(ex.sets) || ex.sets.length < 1) {
-      ex.sets = makeEmptySets(1);
-    } else {
-      ex.sets = ex.sets.map(s => s && s._id ? s : { _id: uid(), ...s });
-    }
-    ex["Séries"] = ex.sets.length;
-    return ex;
-  }
-  const n = Number(ex["Séries"]) || 1;
-  if (!Array.isArray(ex.sets)) ex.sets = makeEmptySets(n);
-  if (ex.sets.length < n) ex.sets = [...ex.sets, ...makeEmptySets(n - ex.sets.length)];
-  else if (ex.sets.length > n) ex.sets = ex.sets.slice(0, n);
-  ex.sets = ex.sets.map(s => s && s._id ? s : { _id: uid(), ...s });
-  return ex;
-}
-function fillSetsFromGlobals(ex) {
-  const reps = Number(ex["Répétitions"]) || 0;
-  const kg   = Number(ex["Charge (kg)"]) || 0;
-  const rest = toSeconds(ex["Repos (min:sec)"] || 0);
-  const dur  = toSeconds(ex["Durée (min:sec)"] || 0);
-  const vKmh = Number(ex["Vitesse"]) || 0;
 
-  ensureSetsLength(ex);
-  ex.sets = ex.sets.map((s, i) => ({
+/**
+ * ✅ IMPORTANT :
+ * - En mode normal : "Séries" peut être 0 => sets = []
+ * - En mode avancé : on force au moins 1 set
+ * - Fonction pure (ne mutile pas l’objet React en render)
+ */
+function ensureSetsLengthPure(ex) {
+  const out = { ...(ex || {}) };
+
+  const useAdv = !!out.useAdvancedSets;
+  const currentSets = Array.isArray(out.sets) ? out.sets.map(s => (s && s._id ? s : { _id: uid(), ...(s||{}) })) : [];
+
+  if (useAdv) {
+    const safeSets = currentSets.length ? currentSets : makeEmptySets(1);
+    out.sets = safeSets;
+    out["Séries"] = safeSets.length;
+    return out;
+  }
+
+  const n = Math.max(0, Number(out["Séries"]) || 0);
+  let sets = currentSets;
+
+  if (sets.length < n) sets = [...sets, ...makeEmptySets(n - sets.length)];
+  if (sets.length > n) sets = sets.slice(0, n);
+
+  out.sets = sets;
+  out["Séries"] = n;
+
+  return out;
+}
+
+function fillSetsFromGlobalsPure(ex) {
+  const out = ensureSetsLengthPure(ex);
+  const reps = Number(out["Répétitions"]) || 0;
+  const kg   = Number(out["Charge (kg)"]) || 0;
+  const rest = toSeconds(out["Repos (min:sec)"] || 0);
+  const dur  = toSeconds(out["Durée (min:sec)"] || 0);
+  const vKmh = Number(out["Vitesse"]) || 0;
+
+  out.sets = (out.sets || []).map((s, i) => ({
     _id: s._id || uid(),
     ...s,
     reps: reps || s.reps || 0,
     chargeKg: kg || s.chargeKg || 0,
-    restSec: i < ex.sets.length - 1 ? (rest || s.restSec || 0) : (s.restSec || 0),
+    restSec: i < (out.sets.length - 1) ? (rest || s.restSec || 0) : (s.restSec || 0),
     durationSec: dur || s.durationSec || 0,
     speedKmh: vKmh || s.speedKmh || 0,
   }));
-  return ex;
+  return out;
+}
+
+/* --------- SessionPlayer compatibility (seriesDiff / seriesDetails) --------- */
+const getSeriesDiffFlag = (ex) =>
+  !!(ex?.seriesDiff || ex?.series_differentes || ex?.seriesDifferentes || ex?.seriesDifferent || ex?.perSet);
+
+const getSeriesDetails = (ex) =>
+  Array.isArray(ex?.seriesDetails) ? ex.seriesDetails
+  : (Array.isArray(ex?.series_sets) ? ex.series_sets : null);
+
+function setsFromSeriesDetails(details = []) {
+  return (details || []).map((d) => ({
+    _id: uid(),
+    reps: Number(d?.["Répétitions"] ?? d?.reps ?? 0) || 0,
+    chargeKg: Number(d?.["Charge (kg)"] ?? d?.charge ?? d?.poids ?? 0) || 0,
+    restSec: toSeconds(d?.["Repos (min:sec)"] ?? d?.repos ?? d?.rest ?? 0) || 0,
+    durationSec: toSeconds(d?.["Durée (min:sec)"] ?? d?.duree ?? d?.temps ?? d?.time ?? 0) || 0,
+    speedKmh: Number(d?.["Vitesse"] ?? d?.vitesse ?? d?.speed ?? 0) || 0,
+  }));
+}
+
+function seriesDetailsFromSets(sets = []) {
+  return (sets || []).map((s) => ({
+    "Répétitions": Number(s?.reps ?? 0) || 0,
+    "Charge (kg)": Number(s?.chargeKg ?? 0) || 0,
+    "Repos (min:sec)": Number(s?.restSec ?? 0) || 0,      // en secondes
+    "Durée (min:sec)": Number(s?.durationSec ?? 0) || 0,  // en secondes
+    "Vitesse": Number(s?.speedKmh ?? 0) || 0,
+  }));
+}
+
+/** transforme un exercice en version "Firestore/Player-friendly" */
+function serializeExerciseForSave(ex) {
+  const out = structuredClone(ex || {});
+
+  if (out.useAdvancedSets) {
+    const safe = ensureSetsLengthPure(out);
+    out.sets = safe.sets || [];
+    out["Séries"] = out.sets.length;
+
+    out.seriesDiff = true;
+    out.seriesDetails = seriesDetailsFromSets(out.sets);
+  } else {
+    delete out.seriesDiff;
+    delete out.seriesDetails;
+    delete out.series_sets;
+    delete out.series_differentes;
+  }
+
+  return out;
 }
 
 /* --------- CHAÎNES (“lier au suivant”) --------- */
 function alphaIndex(n) { return String.fromCharCode(97 + (n % 26)); } // 0->a
 
-// Retourne une liste de blocs séquentiels : single ou chain {start, end, items}
 function groupLinked(list=[]) {
   const groups = [];
   let i = 0;
   while (i < list.length) {
     const start = i;
     const items = [list[i]];
-    // on allonge tant que l’élément courant est lié au suivant
     while (i < list.length - 1 && list[i]?.linkNext) {
       i += 1;
       items.push(list[i]);
-      // si l’élément i n’est pas lié au suivant, c’est la fin de la chaîne
       if (!list[i]?.linkNext) break;
     }
     const end = start + items.length - 1;
@@ -193,7 +461,6 @@ function groupLinked(list=[]) {
   return groups;
 }
 
-// effort + repos “après set” d’un exercice pour l’itération r
 function getEffortAndRestForSet(ex, setIdx) {
   const tpr = Number(ex.tempsParRep) || 1;
   const globalRest = toSeconds(ex["Repos (min:sec)"] || 0);
@@ -218,6 +485,30 @@ function getEffortAndRestForSet(ex, setIdx) {
 }
 
 /* --------- normalize --------- */
+function isTimedLike(ex) {
+  const n = norm(ex?.nom || ex?.name || "");
+  const t = norm(ex?.type_exercice || ex?.type || "");
+  const cat = norm(ex?.categorie || ex?.category || "");
+  const gm = norm(ex?.groupe_musculaire || ex?.groupeMusculaire || "");
+
+  // ✅ gainage + isométriques
+  const timedKeywords = [
+    "gainage", "planche", "plank", "hollow", "arch", "superman",
+    "chaise", "wall sit", "isomet", "isométr", "static",
+    "dead bug", "bird dog",
+  ];
+  if (timedKeywords.some(k => n.includes(k))) return true;
+
+  // ✅ cardio / mobilité / stretching
+  if (["cardio","ergometre","mobilisation articulaire","stretching"].includes(t)) return true;
+  if (["cardio","ergometre","mobilisation articulaire","stretching"].includes(cat)) return true;
+
+  // parfois en “abdos” mais c’est du gainage
+  if (gm.includes("abdo") && (n.includes("gainage") || n.includes("planche") || n.includes("plank"))) return true;
+
+  return false;
+}
+
 function detectType(ex) {
   if (!ex) return "musculation";
   if (
@@ -225,89 +516,117 @@ function detectType(ex) {
     ex.ergometre ||
     (ex.nom && /airbike|rameur|elliptique|vélo|ski|bike|ergomètre/i.test(ex.nom))
   ) return "ergometre";
+
+  if (isTimedLike(ex)) {
+    const n = norm(ex.nom || "");
+    if (n.includes("gainage") || n.includes("plank") || n.includes("planche")) return "gainage";
+    if (n.includes("isomet") || n.includes("isométr") || n.includes("wall sit") || n.includes("chaise")) return "isometrique";
+    if (ex.type_exercice && ["cardio","stretching","mobilisation articulaire"].includes(norm(ex.type_exercice))) return norm(ex.type_exercice);
+    return "cardio";
+  }
+
   if (ex.type_exercice === "stretching" || (ex.nom && /stretching/i.test(ex.nom)))
     return "stretching";
+
   if (ex.type_exercice) return "musculation" === ex.type_exercice ? "musculation" : ex.type_exercice;
+
   return "musculation";
 }
-function pickNumber(obj, keys) {
-  for (const k of keys) {
-    if (obj?.[k] != null) {
-      const v = obj[k];
-      if (typeof v === "number") return v;
-      const s = toSeconds(v);
-      if (!isNaN(s) && s > 0) return s;
-      const n = Number(v);
-      if (!isNaN(n)) return n;
-    }
-  }
-  return 0;
-}
-function paramsForGoal(ex, objectif) {
-  const po = ex?.parametres_objectif || {};
-  if (!po || typeof po !== "object") return null;
-  const keys = Object.keys(po);
-  if (!keys.length) return null;
-  const exact = keys.find((k) => norm(k) === norm(objectif));
-  if (exact) return po[exact];
-  return po[keys[0]];
-}
+
+/**
+ * ✅ IMPORTANT DEMANDE :
+ * Quand on ajoute un ex depuis la banque dans le builder :
+ * - on ne pré-remplit PAS reps/séries/repos/durée/charge
+ * - on met 0 partout
+ * - on garde juste des options cochées par défaut selon le type (muscu vs cardio/gainage)
+ *
+ * ✅ MAIS quand on LIT un programme existant (autoprogramquestionnaire),
+ * on doit récupérer TOUTES les valeurs (même si stockées sous d'autres clés/formats).
+ */
 function normalizeExercise(ex, objectif) {
+  // ✅ MIGRATION aliases + coercions (Durée/Repos etc)
   const base = migrateAliases(ex || {});
-  const id = uid();
   const type = detectType(base);
   const opts = defaultOptions[type] || ["Répétitions", "Séries", "Repos (min:sec)"];
 
-  const pGoal = paramsForGoal(base, objectif) || {};
-  const series = pickNumber(base, ["Séries","series","séries"])
-              || pickNumber(pGoal, ["Séries","series","séries"]);
-  const reps   = pickNumber(base, ["Répétitions","repetitions","r\u00e9p\u00e9titions","reps"])
-              || pickNumber(pGoal, ["Répétitions","repetitions","reps"]);
-  const restS  = pickNumber(base, ["Repos (min:sec)","repos","pause","duree_repos"])
-              || pickNumber(pGoal, ["Repos (min:sec)","repos","pause","duree_repos"]);
-  const durS   = pickNumber(base, ["Durée (min:sec)","duree","duree_effort","temps_effort","temps"])
-              || pickNumber(pGoal, ["Durée (min:sec)","duree","duree_effort","temps_effort","temps"]);
-  const charge = pickNumber(base, ["Charge (kg)","charge","poids","weight","load"])
-              || pickNumber(pGoal, ["Charge (kg)","charge","poids","weight","load"]);
+  // ✅ garder un id stable si déjà présent (évite des remounts et pertes d’édition)
+  const stableId = base.id || base._id || uid();
 
+  // init à 0 pour toutes les options par défaut
   const filled = {};
   (opts || []).forEach((opt) => (filled[opt] = 0));
 
-  if (type === "musculation") {
-    if (reps)   filled["Répétitions"]      = reps;
-    if (series) filled["Séries"]           = series;
-    if (restS)  filled["Repos (min:sec)"]  = restS;
-    if (Number.isFinite(charge) && charge > 0) filled["Charge (kg)"] = charge;
-  } else {
-    if (durS)   filled["Durée (min:sec)"]  = durS;
-    if (series) filled["Séries"]           = series;
-    if (restS)  filled["Repos (min:sec)"]  = restS;
-  }
+  // ✅ lecture robuste des valeurs existantes
+  const keepValue = (k) => {
+    if (base?.[k] == null) return;
+
+    // temps => secondes (et heuristique minutes pour Durée)
+    if (k === "Durée (min:sec)") {
+      const sec = coerceDurationSeconds(base[k], base);
+      if (sec != null) filled[k] = sec;
+      return;
+    }
+    if (k === "Repos (min:sec)") {
+      const sec = toSeconds(base[k]);
+      if (sec != null) filled[k] = Number(sec) || 0;
+      return;
+    }
+
+    // le reste => number
+    const n = parseNumberish(base[k]);
+    if (n != null) filled[k] = n;
+  };
+
+  // conservation si on ouvre un programme existant
+  (opts || []).forEach((k) => keepValue(k));
 
   const out = {
     ...structuredClone(base),
-    id,
+    id: stableId,
     tempsParRep: Number(base.tempsParRep) || 1,
     optionsOrder: Array.isArray(base.optionsOrder) && base.optionsOrder.length ? base.optionsOrder : opts,
     notesEnabled: Boolean(base.notesEnabled) || false,
     notes: typeof base.notes === "string" ? base.notes : "",
     useAdvancedSets: Boolean(base.useAdvancedSets) || false,
     sets: Array.isArray(base.sets) ? structuredClone(base.sets) : [],
-    // --- liaison vers l’exercice suivant ---
     linkNext: Boolean(base.linkNext) || false,
-    // --------------------------------------
     ...filled,
   };
-  ensureSetsLength(out);
-  return out;
+
+  // ✅ IMPORT SessionPlayer -> Builder (seriesDiff/seriesDetails -> useAdvancedSets/sets)
+  const hasPlayerSeriesDiff = getSeriesDiffFlag(base);
+  const playerDetails = getSeriesDetails(base);
+
+  if (hasPlayerSeriesDiff && Array.isArray(playerDetails) && playerDetails.length) {
+    out.useAdvancedSets = true;
+    out.sets = setsFromSeriesDetails(playerDetails);
+    out["Séries"] = out.sets.length;
+
+    // optionnel : si les globals sont vides, on prend le set 1
+    const d0 = playerDetails[0] || {};
+    if ((out["Répétitions"] ?? 0) === 0 && d0["Répétitions"] != null) out["Répétitions"] = Number(d0["Répétitions"]) || 0;
+    if ((out["Charge (kg)"] ?? 0) === 0 && d0["Charge (kg)"] != null) out["Charge (kg)"] = Number(d0["Charge (kg)"]) || 0;
+    if ((out["Repos (min:sec)"] ?? 0) === 0 && d0["Repos (min:sec)"] != null) out["Repos (min:sec)"] = toSeconds(d0["Repos (min:sec)"]) || 0;
+
+    if ((out["Durée (min:sec)"] ?? 0) === 0 && d0["Durée (min:sec)"] != null) {
+      out["Durée (min:sec)"] = coerceDurationSeconds(d0["Durée (min:sec)"], out) || 0;
+    }
+
+    if ((out["Vitesse"] ?? 0) === 0 && d0["Vitesse"] != null) out["Vitesse"] = Number(d0["Vitesse"]) || 0;
+  }
+
+  // ✅ sets cohérents avec "Séries" (0 possible)
+  return ensureSetsLengthPure(out);
 }
+
 function flattenFromSections(sess) {
   const out = [];
-  ["echauffement", "corps", "bonus", "retourCalme", "exercices"].forEach((k) => {
+  ["echauffement", "corps", "bonus", "retourCalme", "exercices", "exercises"].forEach((k) => {
     if (Array.isArray(sess?.[k])) out.push(...sess[k]);
   });
   return out;
 }
+
 function ensureSessionShape(session, objectif) {
   const hasSections = ["echauffement","corps","bonus","retourCalme"].some(k => Array.isArray(session?.[k]));
   if (hasSections) {
@@ -316,7 +635,7 @@ function ensureSessionShape(session, objectif) {
       clone[k] = (clone[k]||[]).map(e => normalizeExercise(migrateAliases(e), objectif));
     });
     return {
-      name: clone.name || clone.nom || clone.title || "Séance",
+      name: clone.name || clone.nom || clone.title || "",
       useSections: true,
       echauffement: clone.echauffement||[],
       corps: clone.corps||[],
@@ -324,15 +643,15 @@ function ensureSessionShape(session, objectif) {
       retourCalme: clone.retourCalme||[],
     };
   }
-  const list = Array.isArray(session.exercises) ? session.exercises : flattenFromSections(session);
+  const list = Array.isArray(session.exercises) ? session.exercises : (Array.isArray(session.exercices) ? session.exercices : flattenFromSections(session));
   return {
-    name: session.name || session.nom || session.title || "Séance",
+    name: session.name || session.nom || session.title || "",
     useSections: false,
     exercises: (list||[]).map(e => normalizeExercise(migrateAliases(e), objectif)),
   };
 }
 
-/* --------- temps total avec CHAÎNES --------- */
+/* --------- temps total avec CHAÎNES (0 série => 0 temps) --------- */
 function getTotalTime(sess) {
   const list = sess?.useSections ? flattenFromSections(sess)
     : (Array.isArray(sess?.exercises) ? sess.exercises : []);
@@ -343,7 +662,9 @@ function getTotalTime(sess) {
   const totalSec = groups.reduce((sum, grp) => {
     if (grp.type === "single") {
       const ex = grp.items[0];
-      const series = Math.max(1, Number(ex["Séries"]) || (ex.sets?.length || 1));
+      const series = Math.max(0, Number(ex["Séries"]) || (ex.sets?.length || 0));
+      if (series <= 0) return sum;
+
       let acc = 0;
       for (let r = 0; r < series; r++) {
         const { effortSec, restSecAfter } = getEffortAndRestForSet(ex, r);
@@ -353,10 +674,11 @@ function getTotalTime(sess) {
       return sum + acc;
     }
 
-    // Chaîne : on boucle sur le nb d’itérations = max des séries des exos de la chaîne
     const series = Math.max(
-      ...grp.items.map((ex) => Math.max(1, Number(ex["Séries"]) || (ex.sets?.length || 1)))
+      ...grp.items.map((ex) => Math.max(0, Number(ex["Séries"]) || (ex.sets?.length || 0)))
     );
+    if (series <= 0) return sum;
+
     let acc = 0;
     for (let r = 0; r < series; r++) {
       grp.items.forEach((ex, idx) => {
@@ -364,10 +686,8 @@ function getTotalTime(sess) {
         acc += effortSec;
         const isLast = (idx === grp.items.length - 1);
         if (!isLast) {
-          // repos interne (entre exos liés) : on utilise le repos de l’exo courant
           acc += restSecAfter;
         } else if (r < series - 1) {
-          // fin de tour : on applique le repos du DERNIER exo de la chaîne
           acc += restSecAfter;
         }
       });
@@ -378,13 +698,15 @@ function getTotalTime(sess) {
   return formatMinSec(totalSec);
 }
 
-function useProgramDocRef() {
+function useProgramDocRef(programIdState) {
   const { clientId, programId, id } = useParams();
   if (clientId && programId) return doc(db, "clients", clientId, "programmes", programId);
+  if (programIdState) return doc(db, "programmes", programIdState);
   if (id) return doc(db, "programmes", id);
   if (programId) return doc(db, "programmes", programId);
   return null;
 }
+
 function deepEqual(a, b) {
   try { return JSON.stringify(a) === JSON.stringify(b); }
   catch { return false; }
@@ -392,7 +714,7 @@ function deepEqual(a, b) {
 
 /* === Hook: hauteur du header pour mobile === */
 function useHeaderHeight() {
-  const [h, setH] = useState(56); // fallback
+  const [h, setH] = useState(56);
   useLayoutEffect(() => {
     const measure = () => {
       const el = document.querySelector("header, nav");
@@ -426,6 +748,7 @@ function updateExerciseAt(setSessions, sIdx, listKey, eIdx, updater) {
     return next;
   });
 }
+
 function updateSession(setSessions, sIdx, updater) {
   setSessions(prev => {
     const next = [...prev];
@@ -436,23 +759,188 @@ function updateSession(setSessions, sIdx, updater) {
   });
 }
 
+/* ===================== StepperInput (virgule + flèches + no ,00) ===================== */
+function toDisplayString(n, precision = null) {
+  if (n == null) return "";
+  const num = Number(n);
+  if (!Number.isFinite(num)) return "";
+  if (typeof precision !== "number") return String(num).replace(".", ",");
+
+  let s = num.toFixed(precision).replace(".", ",");
+  s = s.replace(/(,\d*?)0+$/g, "$1");
+  s = s.replace(/,$/, "");
+  if (s === "-0") s = "0";
+  return s;
+}
+
+function parseDisplayNumber(str) {
+  const s = String(str ?? "").trim();
+  if (!s) return 0; // ✅ vide => 0 (cohérent “0 partout”)
+  const normalized = s.replace(/\s+/g, "").replace(",", ".");
+  const n = Number(normalized);
+  if (!Number.isFinite(n)) return 0;
+  return n;
+}
+
+const StepperInput = memo(function StepperInput({
+  value,
+  onChange,
+  step = 1,
+  precision = null,
+  min = 0,
+  max = null,
+  disabled = false,
+  bg,
+  borderColor,
+  w = "full",
+}) {
+  const [txt, setTxt] = useState(toDisplayString(value, precision));
+
+  useEffect(() => {
+    setTxt(toDisplayString(value, precision));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, precision]);
+
+  const commit = useCallback((nextTxt) => {
+    let v = parseDisplayNumber(nextTxt);
+    if (min != null) v = Math.max(min, v);
+    if (max != null) v = Math.min(max, v);
+    if (typeof precision === "number") {
+      const p = 10 ** precision;
+      v = Math.round(v * p) / p;
+    }
+    onChange(v);
+  }, [max, min, onChange, precision]);
+
+  const bump = useCallback((dir) => {
+    const cur = Number(value) || 0;
+    let v = cur + (dir * step);
+    if (min != null) v = Math.max(min, v);
+    if (max != null) v = Math.min(max, v);
+    if (typeof precision === "number") {
+      const p = 10 ** precision;
+      v = Math.round(v * p) / p;
+    }
+    onChange(v);
+  }, [max, min, onChange, precision, step, value]);
+
+  return (
+    <HStack spacing={2} w={w}>
+      <Input
+        value={txt}
+        onChange={(e) => {
+          e.stopPropagation();
+          setTxt(e.target.value);
+          commit(e.target.value);
+        }}
+        onMouseDown={(e)=>e.stopPropagation()}
+        onTouchStart={(e)=>e.stopPropagation()}
+        onBlur={() => setTxt(toDisplayString(value, precision))}
+        bg={bg}
+        borderColor={borderColor}
+        isDisabled={disabled}
+        inputMode="decimal"
+      />
+      <Flex direction="column" gap={1} onMouseDown={(e)=>e.stopPropagation()} onTouchStart={(e)=>e.stopPropagation()}>
+        <IconButton
+          size="sm"
+          aria-label="plus"
+          icon={<ChevronUpIcon />}
+          onClick={() => bump(+1)}
+          isDisabled={disabled}
+        />
+        <IconButton
+          size="sm"
+          aria-label="minus"
+          icon={<ChevronDownIcon />}
+          onClick={() => bump(-1)}
+          isDisabled={disabled}
+        />
+      </Flex>
+    </HStack>
+  );
+});
+
+/* ===================== AUTO: Séance 1, Séance 2… ===================== */
+const GENERIC_SESSION_NAMES = new Set(["seance", "séance", "sance", "session", "workout", ""]);
+
+function normalizeTxt(s = "") {
+  return String(s || "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
+}
+
+function isGenericSessionName(name) {
+  const n = normalizeTxt(name);
+  return GENERIC_SESSION_NAMES.has(n);
+}
+
+function applyAutoSessionNumbering(sessions = [], t) {
+  const total = sessions.length || 1;
+  return sessions.map((s, idx) => {
+    const current = String(s?.name || "").trim();
+    if (!isGenericSessionName(current)) return s;
+    const label = t
+      ? t("programBuilder.sessionN", "Séance {{n}}", { n: idx + 1 })
+      : `Séance ${idx + 1}`;
+    return { ...s, name: label };
+  });
+}
+
+/* ===================== AUTO-SUIVI / AUTO-PROGRESSION (compat ProgramView + SessionPlayer) ===================== */
+/**
+ * ✅ Lecture multi-chemins :
+ * - auto_suivi
+ * - options.auto_suivi
+ * - autoProgressionEnabled (legacy)
+ */
+const readAutoFollowFlag = (data) => {
+  const cands = [
+    data?.auto_suivi,
+    data?.options?.auto_suivi,
+    data?.autoProgressionEnabled,
+  ];
+  const v = cands.find((x) => x === true || x === false);
+  return v === true;
+};
+
+/**
+ * ✅ Ecriture “comme ProgramView” + compat legacy
+ * (on conserve le reste de options)
+ */
+const buildAutoFollowUpdate = (nextVal, existingOptions = {}) => {
+  const v = !!nextVal;
+  return {
+    auto_suivi: v,
+    options: { ...(existingOptions || {}), auto_suivi: v },
+    autoProgressionEnabled: v, // compat tant que tout n'est pas migré
+  };
+};
+
 /* ===================== ExerciseCardRow ===================== */
 const ExerciseCardRow = memo(function ExerciseCardRow({
-  ex, index, displayLabel, sectionEnabled, sectionDefs, isCoach, weightUnit, speedUnit,
-  cardBg, border, subBg, textMute, hoverRow,
+  ex, index, displayLabel, sectionEnabled, sectionDefs, isCoach, weightUnit, speedUnit, distanceUnit,
+  cardBg, border, subBg, textMute,
   onMoveTo, onReplaceToggle, replaceIndex,
   onDelete, onToggleExpand, expanded, onOptionsToggle, onOptionsReorder,
   onGlobalChange, onToggleNotes, onChangeNotes,
   onToggleAdvanced, onFillFromGlobals, onAddSet, onRemoveLastSet,
   onDeleteSet, onSetChange, weightStep, speedStep, currentSection, t,
-  hasNext, onToggleLinkNext
+  hasNext, onToggleLinkNext,
+  dragHandleProps,
 }) {
   const displayWeight = weightUnit === "kg"
     ? (Number(ex["Charge (kg)"]) || 0)
     : round(kgToLb(ex["Charge (kg)"]), 2);
+
   const displaySpeed = speedUnit === "kmh"
     ? (Number(ex["Vitesse"]) || 0)
     : round(kmhToMph(ex["Vitesse"]), 2);
+
+  const displayDistance = distanceUnit === "m"
+    ? (Number(ex["Distance"]) || 0)
+    : mToMi(ex["Distance"]);
+
+  // ✅ IMPORTANT : pas de mutation en render
+  const safeEx = useMemo(() => ensureSetsLengthPure(ex), [ex]);
 
   return (
     <Box
@@ -464,19 +952,50 @@ const ExerciseCardRow = memo(function ExerciseCardRow({
       minW={0}
       border="1px solid"
       borderColor={border}
+      overflow="visible"
     >
-      <Flex justify="space-between" align="center" wrap="wrap" gap={3}>
-        <Text fontSize="lg" fontWeight="bold">
-          {displayLabel} {ex.nom}
-        </Text>
-        <HStack spacing={2}>
-          {/* Lier au suivant */}
+      <Flex
+        w="100%"
+        align={{ base: "flex-start", md: "center" }}
+        justify="space-between"
+        gap={3}
+        flexWrap={{ base: "wrap", md: "nowrap" }}
+      >
+        <Flex flex="1 1 auto" minW={0} align="center" gap={2}>
+          <Box
+            {...dragHandleProps}
+            cursor="grab"
+            color={textMute}
+            flex="0 0 auto"
+            userSelect="none"
+            onMouseDown={(e)=>e.stopPropagation()}
+            onTouchStart={(e)=>e.stopPropagation()}
+          >
+            <RxDragHandleDots2 size={22} />
+          </Box>
+
+          <Text fontSize="lg" fontWeight="bold" isTruncated>
+            {displayLabel} {ex.nom}
+          </Text>
+        </Flex>
+
+        <Flex
+          flex="0 0 auto"
+          w={{ base: "100%", md: "auto" }}
+          justify={{ base: "flex-end", md: "flex-end" }}
+          align="center"
+          gap={2}
+          flexWrap="wrap"
+        >
           {isCoach && (
             <Tooltip label={t("programBuilder.linkNext.tip", "Chaîner avec l’exercice suivant")}>
-              <HStack>
-                <Text fontSize="sm" color={textMute}>{t("programBuilder.linkNext.label","Lier au suivant")}</Text>
+              <HStack spacing={2} flexShrink={0}>
+                <Text fontSize="sm" color={textMute}>
+                  {t("programBuilder.linkNext.label","Lier au suivant")}
+                </Text>
                 <Switch
                   size="sm"
+                  flexShrink={0}
                   isDisabled={!hasNext}
                   isChecked={!!ex.linkNext}
                   onChange={(e)=> onToggleLinkNext(index, e.target.checked)}
@@ -486,40 +1005,57 @@ const ExerciseCardRow = memo(function ExerciseCardRow({
           )}
 
           {sectionEnabled && (
-            <HStack>
+            <Flex gap={1} flexWrap="wrap" justify="flex-end">
               {sectionDefs.filter(({key}) => key !== currentSection).map(({key, labelKey}) => (
-                <Button key={key} size="xs" variant="ghost" onClick={() => onMoveTo(currentSection, key, index)}>→ {t(labelKey)}</Button>
+                <Button
+                  key={key}
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => onMoveTo(currentSection, key, index)}
+                  flexShrink={0}
+                >
+                  → {t(labelKey)}
+                </Button>
               ))}
-            </HStack>
+            </Flex>
           )}
+
           {isCoach && (
             <IconButton
               icon={<MdSyncAlt />}
               variant={replaceIndex === index ? "solid" : "outline"}
               size="sm"
+              minW="36px"
+              flexShrink={0}
               colorScheme={replaceIndex === index ? "blue" : "gray"}
               aria-label={t("programBuilder.aria.replace", "Remplacer")}
               title={t("programBuilder.aria.replaceThis", "Remplacer cet exercice")}
               onClick={() => onReplaceToggle(index)}
             />
           )}
+
           <IconButton
             icon={<FiMoreVertical />}
             variant="ghost"
             size="sm"
+            minW="36px"
+            flexShrink={0}
             onClick={() => onToggleExpand(index)}
             aria-label={t("programBuilder.aria.options", "Options")}
           />
+
           {isCoach && (
             <IconButton
               icon={<MdDelete />}
               size="sm"
+              minW="36px"
+              flexShrink={0}
               colorScheme="red"
               onClick={() => onDelete(index)}
               aria-label={t("programBuilder.aria.deleteExercise", "Supprimer exercice")}
             />
           )}
-        </HStack>
+        </Flex>
       </Flex>
 
       <Collapse in={expanded} animateOpacity>
@@ -529,7 +1065,6 @@ const ExerciseCardRow = memo(function ExerciseCardRow({
             {t("programBuilder.options.title", "Options")}
           </Text>
 
-          {/* Sélecteurs d’options */}
           <Flex wrap="wrap" gap={4} mb={4}>
             {allOptions.map((opt) => (
               <Checkbox
@@ -542,7 +1077,6 @@ const ExerciseCardRow = memo(function ExerciseCardRow({
             ))}
           </Flex>
 
-          {/* DnD des options cochées */}
           <DragDropContext onDragEnd={(res) => onOptionsReorder(res, index)}>
             <Droppable droppableId={`options-${index}`} direction="horizontal">
               {(providedOpt) => (
@@ -581,70 +1115,97 @@ const ExerciseCardRow = memo(function ExerciseCardRow({
         </Box>
       </Collapse>
 
-      {/* Champs des options (globaux) */}
       <Flex wrap="wrap" gap={6} mt={4} w="100%" minW={0}>
         {(ex.optionsOrder || []).map((opt, oIdx) => {
           const isRestOrDur = ["Repos (min:sec)", "Durée (min:sec)"].includes(opt);
           const isWeight = opt === "Charge (kg)";
           const isSpeed  = opt === "Vitesse";
+          const isDistance = opt === "Distance";
 
           const label = isWeight
             ? (weightUnit === "kg" ? t("programBuilder.labels.weightKg", "Charge (kg)") : t("programBuilder.labels.weightLbs", "Weight (lbs)"))
             : isSpeed
               ? (speedUnit === "kmh" ? t("programBuilder.labels.speedKmh", "Vitesse (km/h)") : t("programBuilder.labels.speedMph", "Speed (mph)"))
-              : opt;
+              : isDistance
+                ? (distanceUnit === "m" ? t("programBuilder.labels.distanceM", "Distance (m)") : t("programBuilder.labels.distanceMi", "Distance (miles)"))
+                : opt;
 
-          let value = ex[opt] || 0;
+          let value = ex[opt] ?? 0;
           if (isWeight) value = displayWeight;
           if (isSpeed)  value = displaySpeed;
+          if (isDistance) value = displayDistance;
 
           return (
-            <Box key={`${opt}-${oIdx}`} minW="140px">
-              <Text fontSize="sm" color={textMute}>{label}</Text>
+            <Box key={`${opt}-${oIdx}`} minW="180px" flex="1 1 180px">
+              <Text fontSize="sm" color={textMute} mb={1}>{label}</Text>
 
               {isRestOrDur ? (
-                <NumberInput min={0} step={15} value={ex[opt] || 0} onChange={(_, val) => onGlobalChange(index, opt, isWeight, isSpeed, val)} isDisabled={!isCoach}>
-                  <NumberInputField bg={cardBg} borderColor={border} />
-                  <NumberInputStepper>
-                    <NumberIncrementStepper />
-                    <NumberDecrementStepper />
-                  </NumberInputStepper>
-                </NumberInput>
+                <StepperInput
+                  value={Number(ex[opt] ?? 0)}
+                  onChange={(val) => onGlobalChange(index, opt, false, false, val)}
+                  step={15}
+                  precision={0}
+                  min={0}
+                  disabled={!isCoach}
+                  bg={cardBg}
+                  borderColor={border}
+                />
               ) : isWeight ? (
-                <NumberInput min={0} step={weightStep} precision={2} value={value} onChange={(_, val) => onGlobalChange(index, opt, true, false, val)} isDisabled={!isCoach}>
-                  <NumberInputField bg={cardBg} borderColor={border} />
-                  <NumberInputStepper>
-                    <NumberIncrementStepper />
-                    <NumberDecrementStepper />
-                  </NumberInputStepper>
-                </NumberInput>
+                <StepperInput
+                  value={Number(value ?? 0)}
+                  onChange={(val) => onGlobalChange(index, opt, true, false, val)}
+                  step={weightStep}
+                  precision={2}
+                  min={0}
+                  disabled={!isCoach}
+                  bg={cardBg}
+                  borderColor={border}
+                />
               ) : isSpeed ? (
-                <NumberInput min={0} step={speedStep} precision={2} value={value} onChange={(_, val) => onGlobalChange(index, opt, false, true, val)} isDisabled={!isCoach}>
-                  <NumberInputField bg={cardBg} borderColor={border} />
-                  <NumberInputStepper>
-                    <NumberIncrementStepper />
-                    <NumberDecrementStepper />
-                  </NumberInputStepper>
-                </NumberInput>
+                <StepperInput
+                  value={Number(value ?? 0)}
+                  onChange={(val) => onGlobalChange(index, opt, false, true, val)}
+                  step={speedStep}
+                  precision={2}
+                  min={0}
+                  disabled={!isCoach}
+                  bg={cardBg}
+                  borderColor={border}
+                />
+              ) : isDistance ? (
+                <StepperInput
+                  value={Number(value ?? 0)}
+                  onChange={(raw) => {
+                    const meters = distanceUnit === "m" ? Number(raw || 0) : miToM(Number(raw || 0));
+                    onGlobalChange(index, opt, false, false, meters);
+                  }}
+                  step={distanceUnit === "m" ? 10 : 0.01}
+                  precision={distanceUnit === "m" ? 0 : 3}
+                  min={0}
+                  disabled={!isCoach}
+                  bg={cardBg}
+                  borderColor={border}
+                />
               ) : (
-                <NumberInput min={0} value={ex[opt] || 0} onChange={(_, val) => onGlobalChange(index, opt, false, false, val)} isDisabled={!isCoach}>
-                  <NumberInputField bg={cardBg} borderColor={border} />
-                  <NumberInputStepper>
-                    <NumberIncrementStepper />
-                    <NumberDecrementStepper />
-                  </NumberInputStepper>
-                </NumberInput>
+                <StepperInput
+                  value={Number(ex[opt] ?? 0)}
+                  onChange={(val) => onGlobalChange(index, opt, false, false, val)}
+                  step={1}
+                  precision={0}
+                  min={0}
+                  disabled={!isCoach}
+                  bg={cardBg}
+                  borderColor={border}
+                />
               )}
 
-              {isRestOrDur && <Text fontSize="xs">{formatMinSec(ex[opt])}</Text>}
+              {isRestOrDur && <Text fontSize="xs" mt={1}>{formatMinSec(ex[opt] ?? 0)}</Text>}
             </Box>
           );
         })}
       </Flex>
 
-      {/* Notes + Séries avancées */}
       <Box mt={6} p={4} bg={subBg} borderRadius="lg" border="1px solid" borderColor={border}>
-        {/* Notes */}
         <Box mb={4}>
           <HStack justify="space-between" mb={2}>
             <Text fontWeight="bold">{t("programBuilder.notes.title", "Notes")}</Text>
@@ -660,11 +1221,12 @@ const ExerciseCardRow = memo(function ExerciseCardRow({
               onChange={(e) => onChangeNotes(index, e.target.value)}
               bg={cardBg}
               borderColor={border}
+              onMouseDown={(e)=>e.stopPropagation()}
+              onTouchStart={(e)=>e.stopPropagation()}
             />
           </Collapse>
         </Box>
 
-        {/* Séries avancées */}
         <Box>
           <HStack justify="space-between" mb={3} wrap="wrap">
             <Text fontWeight="bold">{t("programBuilder.advancedSets.title", "Séries différentes (avancées)")}</Text>
@@ -689,7 +1251,6 @@ const ExerciseCardRow = memo(function ExerciseCardRow({
               </Button>
             </HStack>
 
-            {/* Table des sets */}
             <Box overflowX="auto" w="100%" maxW="100%">
               <Table size="sm" variant="simple" minW="560px">
                 <Thead>
@@ -707,72 +1268,109 @@ const ExerciseCardRow = memo(function ExerciseCardRow({
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {ensureSetsLength(ex) && (ex.sets || []).map((s, i) => {
+                  {(safeEx.sets || []).map((s, i) => {
                     const dispKg = weightUnit === "kg" ? (Number(s.chargeKg)||0) : round(kgToLb(s.chargeKg||0), 2);
                     const dispV  = speedUnit === "kmh" ? (Number(s.speedKmh)||0) : round(kmhToMph(s.speedKmh||0), 2);
 
                     return (
                       <Tr key={s._id}>
                         <Td>#{i+1}</Td>
+
                         {(ex.optionsOrder || []).filter(o => ["Répétitions","Charge (kg)","Repos (min:sec)","Durée (min:sec)","Vitesse"].includes(o))
                           .map((opt, cIdx) => {
                             if (opt === "Répétitions") {
                               return (
                                 <Td key={`reps-${s._id}-${cIdx}`}>
-                                  <NumberInput min={0} value={s.reps || 0}
-                                    onChange={(_, val) => onSetChange(index, i, "reps", +val)}>
-                                    <NumberInputField bg={cardBg} borderColor={border}/>
-                                    <NumberInputStepper><NumberIncrementStepper /><NumberDecrementStepper /></NumberInputStepper>
-                                  </NumberInput>
+                                  <StepperInput
+                                    value={Number(s.reps ?? 0)}
+                                    onChange={(val) => onSetChange(index, i, "reps", Number(val)||0)}
+                                    step={1}
+                                    precision={0}
+                                    min={0}
+                                    disabled={!isCoach}
+                                    bg={cardBg}
+                                    borderColor={border}
+                                  />
                                 </Td>
                               );
                             }
                             if (opt === "Charge (kg)") {
                               return (
                                 <Td key={`kg-${s._id}-${cIdx}`}>
-                                  <NumberInput min={0} step={weightStep} precision={2} value={dispKg}
-                                    onChange={(_, val) => onSetChange(index, i, "chargeKg", weightUnit === "kg" ? Number(val)||0 : lbToKg(Number(val)||0))}>
-                                    <NumberInputField bg={cardBg} borderColor={border}/>
-                                    <NumberInputStepper><NumberIncrementStepper /><NumberDecrementStepper /></NumberInputStepper>
-                                  </NumberInput>
+                                  <StepperInput
+                                    value={Number(dispKg ?? 0)}
+                                    onChange={(val) =>
+                                      onSetChange(
+                                        index, i, "chargeKg",
+                                        weightUnit === "kg" ? Number(val)||0 : lbToKg(Number(val)||0)
+                                      )
+                                    }
+                                    step={weightStep}
+                                    precision={2}
+                                    min={0}
+                                    disabled={!isCoach}
+                                    bg={cardBg}
+                                    borderColor={border}
+                                  />
                                 </Td>
                               );
                             }
                             if (opt === "Repos (min:sec)") {
                               return (
                                 <Td key={`rest-${s._id}-${cIdx}`}>
-                                  <NumberInput min={0} step={15} value={s.restSec || 0}
-                                    onChange={(_, val) => onSetChange(index, i, "restSec", +val)}>
-                                    <NumberInputField bg={cardBg} borderColor={border}/>
-                                    <NumberInputStepper><NumberIncrementStepper /><NumberDecrementStepper /></NumberInputStepper>
-                                  </NumberInput>
+                                  <StepperInput
+                                    value={Number(s.restSec ?? 0)}
+                                    onChange={(val) => onSetChange(index, i, "restSec", Number(val)||0)}
+                                    step={15}
+                                    precision={0}
+                                    min={0}
+                                    disabled={!isCoach}
+                                    bg={cardBg}
+                                    borderColor={border}
+                                  />
                                 </Td>
                               );
                             }
                             if (opt === "Durée (min:sec)") {
                               return (
                                 <Td key={`dur-${s._id}-${cIdx}`}>
-                                  <NumberInput min={0} step={15} value={s.durationSec || 0}
-                                    onChange={(_, val) => onSetChange(index, i, "durationSec", +val)}>
-                                    <NumberInputField bg={cardBg} borderColor={border}/>
-                                    <NumberInputStepper><NumberIncrementStepper /><NumberDecrementStepper /></NumberInputStepper>
-                                  </NumberInput>
+                                  <StepperInput
+                                    value={Number(s.durationSec ?? 0)}
+                                    onChange={(val) => onSetChange(index, i, "durationSec", Number(val)||0)}
+                                    step={15}
+                                    precision={0}
+                                    min={0}
+                                    disabled={!isCoach}
+                                    bg={cardBg}
+                                    borderColor={border}
+                                  />
                                 </Td>
                               );
                             }
                             if (opt === "Vitesse") {
                               return (
                                 <Td key={`spd-${s._id}-${cIdx}`}>
-                                  <NumberInput min={0} step={0.1} precision={2} value={dispV}
-                                    onChange={(_, val) => onSetChange(index, i, "speedKmh", speedUnit === "kmh" ? Number(val)||0 : mphToKmh(Number(val)||0))}>
-                                    <NumberInputField bg={cardBg} borderColor={border}/>
-                                    <NumberInputStepper><NumberIncrementStepper /><NumberDecrementStepper /></NumberInputStepper>
-                                  </NumberInput>
+                                  <StepperInput
+                                    value={Number(dispV ?? 0)}
+                                    onChange={(val) =>
+                                      onSetChange(
+                                        index, i, "speedKmh",
+                                        speedUnit === "kmh" ? Number(val)||0 : mphToKmh(Number(val)||0)
+                                      )
+                                    }
+                                    step={0.1}
+                                    precision={2}
+                                    min={0}
+                                    disabled={!isCoach}
+                                    bg={cardBg}
+                                    borderColor={border}
+                                  />
                                 </Td>
                               );
                             }
                             return <Td key={`noop-${s._id}-${cIdx}`} />;
                           })}
+
                         <Td isNumeric>
                           <IconButton
                             aria-label={t("programBuilder.aria.deleteSet", "Supprimer set")}
@@ -800,6 +1398,7 @@ const ExerciseCardRow = memo(function ExerciseCardRow({
     && prev.replaceIndex === next.replaceIndex
     && prev.weightUnit === next.weightUnit
     && prev.speedUnit === next.speedUnit
+    && prev.distanceUnit === next.distanceUnit
     && prev.sectionEnabled === next.sectionEnabled
     && prev.currentSection === next.currentSection
     && prev.displayLabel === next.displayLabel
@@ -822,6 +1421,12 @@ export default function ProgramBuilder({
   const textMute = useColorModeValue("gray.600", "gray.300");
   const hoverRow = useColorModeValue("gray.100", "gray.600");
 
+  // ✅ Fix “mode jour”: l’Input d’édition de séance doit FORCER une couleur visible
+  const sessionEditBg = useColorModeValue("white", "gray.800");
+  const sessionEditColor = useColorModeValue("gray.900", "white");
+  const sessionEditBorder = useColorModeValue("blue.300", "blue.200");
+  const sessionEditPlaceholder = useColorModeValue("gray.500", "gray.400");
+
   const toast = useToast();
   const { programId: routeId, clientId } = useParams();
   const navigate = useNavigate();
@@ -830,12 +1435,31 @@ export default function ProgramBuilder({
   const [programId, setProgramId] = useState(isNewRoute ? null : routeId);
   const { user } = useAuth();
   const isCoach = user?.role === "coach" || user?.role === "admin";
-  const programDocRef = useProgramDocRef();
+  const programDocRef = useProgramDocRef(programId);
   const [isPending, startTransition] = useTransition();
 
   const [programName, setProgramName] = useState("");
   const [programmeGoal, setProgrammeGoal] = useState("");
-  const [sessions, setSessions] = useState([{ name: t("programBuilder.defaultSession", "Séance 1"), useSections:false, exercises: [] }]);
+  const [objectifUI, setObjectifUI] = useState("");
+
+  // ✅ NEW: Progression auto (au niveau PROGRAMME) — compat ProgramView/SessionPlayer
+  const [autoProgressionEnabled, setAutoProgressionEnabled] = useState(true);
+
+  // ✅ NEW: on conserve les autres options du programme (pour ne pas écraser options.*)
+  const [programOptions, setProgramOptions] = useState({});
+
+  // ✅ par défaut : SECTIONS ON + séance avec sections initialisées
+  const [sessions, setSessions] = useState(() => ([
+    {
+      name: t("programBuilder.sessionN", "Séance {{n}}", { n: 1 }),
+      useSections: true,
+      echauffement: [],
+      corps: [],
+      bonus: [],
+      retourCalme: [],
+    }
+  ]));
+
   const [activeTab, setActiveTab] = useState(0);
   const [currentSection, setCurrentSection] = useState("corps");
   const [editIndex, setEditIndex] = useState(null);
@@ -844,11 +1468,17 @@ export default function ProgramBuilder({
   const [saving, setSaving] = useState(false);
   const [hasModifications, setHasModifications] = useState(false);
 
+  // "nom custom" => si l'user touche le champ, on n'auto-écrase plus
+  const nameTouchedRef = useRef(false);
+
   // préférences d’unités
   const [weightUnit, setWeightUnit] = useState(() => localStorage.getItem("byl_weight_unit") || "kg");
   const [speedUnit, setSpeedUnit]   = useState(() => localStorage.getItem("byl_speed_unit") || "kmh");
+  const [distanceUnit, setDistanceUnit] = useState(() => localStorage.getItem("byl_distance_unit") || "m");
+
   const setWU = useCallback((u) => { setWeightUnit(u); localStorage.setItem("byl_weight_unit", u); }, []);
   const setSU = useCallback((u) => { setSpeedUnit(u);  localStorage.setItem("byl_speed_unit", u);  }, []);
+  const setDU = useCallback((u) => { setDistanceUnit(u); localStorage.setItem("byl_distance_unit", u); }, []);
 
   const localEditTimeRef = useRef(0);
   const ignoreSnapsUntilRef = useRef(0);
@@ -874,49 +1504,97 @@ export default function ProgramBuilder({
   /* --------- Firestore sync --------- */
   useEffect(() => {
     if (!programDocRef) return;
-    const unsub = onSnapshot(
-      programDocRef,
-      (snap) => {
-        if (!snap.exists()) return;
 
-        const now = Date.now();
-        if (now < ignoreSnapsUntilRef.current) return;
+    const unsub = onSnapshot(programDocRef, (snap) => {
+      if (!snap.exists()) return;
 
-        const data = snap.data();
-        const rawSessions = Array.isArray(data.sessions) && data.sessions.length
-          ? data.sessions
-          : [{ name: t("programBuilder.defaultSession", "Séance 1"), useSections:false, exercises: [] }];
+      const now = Date.now();
+      if (now < ignoreSnapsUntilRef.current) return;
 
-        const normalized = rawSessions.map((s) => ensureSessionShape(s, data.objectif || ""));
+      // ✅ crucial : si on a des modifs locales non sauvées, on n’écrase PAS l’UI
+      if (hasModifications || saving) return;
 
-        const incomingState = {
-          nomProgramme: data.nomProgramme || "",
-          objectif: data.objectif || "",
-          sessions: normalized,
-        };
-        const currentState = {
-          nomProgramme: programName,
-          objectif: programmeGoal,
-          sessions,
-        };
-        if (deepEqual(incomingState, currentState)) {
-          isFirstLoad.current = false;
-          return;
-        }
+      const data = snap.data();
 
-        if (now - localEditTimeRef.current > 2000) {
-          setProgramName(incomingState.nomProgramme);
-          setProgrammeGoal(incomingState.objectif);
-          setSessions(incomingState.sessions);
-          setIsSaved(true);
-          setHasModifications(false);
-          isFirstLoad.current = false;
-        }
+      const rawSessions = Array.isArray(data.sessions) && data.sessions.length
+        ? data.sessions
+        : [{
+            name: "",
+            useSections: true,
+            echauffement: [],
+            corps: [],
+            bonus: [],
+            retourCalme: [],
+          }];
+
+      const objectifTech = data.objectif || "";
+      const objectifUiKey = data.objectifUI || "";
+
+      const normalized = rawSessions.map((s) => ensureSessionShape(s, objectifTech));
+
+      // ✅ si un doc existant n’a pas le flag, on force sections ON
+      const normalizedForcedSections = normalized.map((s) => {
+        if (typeof s.useSections !== "boolean") return { ...s, useSections: true };
+        return s;
+      });
+
+      const normalizedWithNames = applyAutoSessionNumbering(normalizedForcedSections, t);
+
+      const nbSeances = Number(data.nbSeances) || Number(normalizedWithNames?.length) || 1;
+      const defaultName = makeDefaultProgramName(objectifUiKey, objectifTech, nbSeances);
+
+      const incomingAuto = readAutoFollowFlag(data);
+
+      const incomingState = {
+        nomProgramme: data.nomProgramme || "",
+        objectif: objectifTech || "",
+        objectifUI: objectifUiKey || "",
+        autoProgressionEnabled: incomingAuto,
+        sessions: normalizedWithNames,
+        options: data.options || {},
+      };
+
+      const currentState = {
+        nomProgramme: programName,
+        objectif: programmeGoal,
+        objectifUI,
+        autoProgressionEnabled,
+        sessions,
+        options: programOptions || {},
+      };
+
+      if (deepEqual(incomingState, currentState)) {
+        isFirstLoad.current = false;
+        return;
       }
-    );
+
+      if (now - localEditTimeRef.current > 2000) {
+        setProgrammeGoal(objectifTech || "");
+        setObjectifUI(objectifUiKey || "");
+
+        if (!nameTouchedRef.current && isLegacyAutoName(incomingState.nomProgramme, objectifUiKey, objectifTech, nbSeances)) {
+          setProgramName(defaultName);
+        } else {
+          setProgramName(incomingState.nomProgramme || defaultName);
+        }
+
+        setProgramOptions(incomingState.options || {});
+        setAutoProgressionEnabled(!!incomingState.autoProgressionEnabled);
+
+        setSessions(incomingState.sessions);
+        setIsSaved(true);
+        setHasModifications(false);
+        isFirstLoad.current = false;
+      }
+    });
+
     return () => unsub();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [programDocRef]);
+  }, [
+    programDocRef, hasModifications, saving,
+    autoProgressionEnabled, programmeGoal, objectifUI, programName, sessions,
+    programOptions, t
+  ]);
 
   useEffect(() => {
     setLoadingClients(true);
@@ -944,11 +1622,17 @@ export default function ProgramBuilder({
       setSessions((prev) => {
         const next = [...prev];
         const s = { ...next[activeTab] };
-        const list = s.useSections ? (s[currentSection] ? [...s[currentSection]] : []) : (s.exercises ? [...s.exercises] : []);
+
+        const list = s.useSections
+          ? (s[currentSection] ? [...s[currentSection]] : [])
+          : (s.exercises ? [...s.exercises] : []);
+
         if (replaceIndex !== null && selectedExercises.length === 1) {
           const incoming = normalizeExercise(selectedExercises[0], programmeGoal);
+
           const prevEx = list[replaceIndex];
           if (prevEx) {
+            // conserver les options cochées / notes / sets si on remplace
             incoming.optionsOrder = prevEx.optionsOrder || incoming.optionsOrder;
             (incoming.optionsOrder || []).forEach((opt) => {
               if (prevEx[opt] != null) incoming[opt] = prevEx[opt];
@@ -957,9 +1641,13 @@ export default function ProgramBuilder({
             incoming.notes = prevEx.notes || "";
             incoming.useAdvancedSets = prevEx.useAdvancedSets || false;
             incoming.sets = structuredClone(prevEx.sets || []);
-            // conserver le chainage
             incoming.linkNext = !!prevEx.linkNext;
+
+            // ✅ reconcilier sets/series sans forcer à 1
+            Object.assign(incoming, ensureSetsLengthPure(incoming));
           }
+
+          // garder un id unique
           incoming.id = uid();
           list[replaceIndex] = incoming;
         } else {
@@ -969,32 +1657,59 @@ export default function ProgramBuilder({
             list.push(item);
           });
         }
+
         if (s.useSections) s[currentSection] = list; else s.exercises = list;
         next[activeTab] = s;
-        return next;
+        return applyAutoSessionNumbering(next, t);
       });
+
       setHasModifications(true);
       setIsSaved(false);
       localEditTimeRef.current = Date.now();
       ignoreSnapsUntilRef.current = Date.now() + 1500;
+
       if (replaceIndex !== null) setReplaceIndex && setReplaceIndex(null);
       setSelectedExercises([]);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedExercises]);
 
-  /* --------- Autosave --------- */
+  /* --------- Autosave (doc existant) --------- */
   useDebouncedCallback(async () => {
     if (hasModifications && !saving && programDocRef && !isFirstLoad.current) {
       try {
         setSaving(true);
+
+        const nbSeances = sessions?.length || 1;
+        const defaultName = makeDefaultProgramName(objectifUI, programmeGoal, nbSeances);
+
+        const finalName =
+          (!nameTouchedRef.current && isLegacyAutoName(programName, objectifUI, programmeGoal, nbSeances))
+            ? defaultName
+            : (programName || defaultName);
+
+        const sessionsToSave = applyAutoSessionNumbering(sessions, t).map((sess) => {
+          const s = structuredClone(sess);
+          if (s.useSections) {
+            sectionDefs.forEach(({ key }) => {
+              s[key] = (s[key] || []).map((ex) => serializeExerciseForSave(ex));
+            });
+          } else {
+            s.exercises = (s.exercises || []).map((ex) => serializeExerciseForSave(ex));
+          }
+          return s;
+        });
+
         await updateDoc(programDocRef, {
-          nomProgramme: programName || t("programBuilder.untitled", "Programme sans titre"),
+          nomProgramme: finalName,
           objectif: programmeGoal || "",
-          sessions,
+          ...(objectifUI ? { objectifUI } : {}),
+          ...buildAutoFollowUpdate(autoProgressionEnabled, programOptions || {}),
+          sessions: sessionsToSave,
           updatedAt: serverTimestamp(),
           _rev: Date.now()
         });
+
         setIsSaved(true);
         setHasModifications(false);
         ignoreSnapsUntilRef.current = Date.now() + 1500;
@@ -1004,50 +1719,84 @@ export default function ProgramBuilder({
         setSaving(false);
       }
     }
-  }, [programName, programmeGoal, sessions], 1200);
+  }, [programName, programmeGoal, objectifUI, autoProgressionEnabled, sessions, programOptions], 900);
 
   /* --------- Créer / Enregistrer --------- */
   const saveProgramme = useCallback(async () => {
     try {
       setSaving(true);
 
+      const nbSeances = sessions?.length || 1;
+      const defaultName = makeDefaultProgramName(objectifUI, programmeGoal, nbSeances);
+
+      const finalName =
+        (!nameTouchedRef.current && isLegacyAutoName(programName, objectifUI, programmeGoal, nbSeances))
+          ? defaultName
+          : (programName || defaultName);
+
+      const sessionsToSave = applyAutoSessionNumbering(sessions, t).map((sess) => {
+        const s = structuredClone(sess);
+        if (s.useSections) {
+          sectionDefs.forEach(({ key }) => {
+            s[key] = (s[key] || []).map((ex) => serializeExerciseForSave(ex));
+          });
+        } else {
+          s.exercises = (s.exercises || []).map((ex) => serializeExerciseForSave(ex));
+        }
+        return s;
+      });
+
+      // ✅ CREATION programme "global"
       if (!programId && !clientId) {
-        const ref = await addDoc(collection(db, "programmes"), {
-          nomProgramme: programName || t("programBuilder.untitled", "Programme sans titre"),
+        const payload = {
+          nomProgramme: finalName,
           objectif: programmeGoal || "",
-          sessions,
+          ...(objectifUI ? { objectifUI } : {}),
+          ...buildAutoFollowUpdate(autoProgressionEnabled, programOptions || {}),
+          sessions: sessionsToSave,
           createdAt: serverTimestamp(),
           createdBy: user?.uid || "unknown",
           assignedTo: null,
           _rev: Date.now()
-        });
+        };
+
+        const ref = await addDoc(collection(db, "programmes"), payload);
         setProgramId(ref.id);
+
         setIsSaved(true);
         setHasModifications(false);
+
         toast({
           title: t("programBuilder.toasts.createdTitle", "Programme créé"),
           description: t("programBuilder.toasts.saved", "Modifications enregistrées avec succès."),
           status: "success", duration: 1800, position: "bottom"
         });
+
         setTimeout(() => navigate(HOME_PATH, { replace: true }), 1200);
         return;
       }
 
+      // ✅ UPDATE (programmes/id ou clients/{clientId}/programmes/{programId})
       if (programDocRef) {
         await updateDoc(programDocRef, {
-          nomProgramme: programName || t("programBuilder.untitled", "Programme sans titre"),
+          nomProgramme: finalName,
           objectif: programmeGoal || "",
-          sessions,
+          ...(objectifUI ? { objectifUI } : {}),
+          ...buildAutoFollowUpdate(autoProgressionEnabled, programOptions || {}),
+          sessions: sessionsToSave,
           updatedAt: serverTimestamp(),
           _rev: Date.now()
         });
+
         setIsSaved(true);
         setHasModifications(false);
+
         toast({
           title: t("programBuilder.toasts.savedTitle", "Modifications enregistrées"),
           description: t("programBuilder.toasts.savedDesc", "Ton programme a bien été sauvegardé."),
           status: "success", duration: 1800, position: "bottom"
         });
+
         setTimeout(() => navigate(HOME_PATH, { replace: true }), 1200);
       }
     } catch (e) {
@@ -1059,7 +1808,12 @@ export default function ProgramBuilder({
     } finally {
       setSaving(false);
     }
-  }, [programDocRef, programId, clientId, programName, programmeGoal, sessions, user?.uid, navigate, HOME_PATH, t, toast]);
+  }, [
+    programDocRef, programId, clientId,
+    programName, programmeGoal, objectifUI,
+    autoProgressionEnabled, sessions, programOptions,
+    user?.uid, navigate, HOME_PATH, t, toast
+  ]);
 
   const handleAssign = useCallback(async () => {
     if (!selectedClient || !programId) return;
@@ -1083,13 +1837,13 @@ export default function ProgramBuilder({
       const copy = [...prev];
       const [m] = copy.splice(result.source.index, 1);
       copy.splice(result.destination.index, 0, m);
-      return copy;
+      return applyAutoSessionNumbering(copy, t);
     });
     setHasModifications(true);
     setIsSaved(false);
     localEditTimeRef.current = Date.now();
     ignoreSnapsUntilRef.current = Date.now() + 1500;
-  }, []);
+  }, [t]);
 
   const onDragEndOptions = useCallback((result, sIdx, eIdx, secKey = null) => {
     if (!result.destination) return;
@@ -1117,9 +1871,6 @@ export default function ProgramBuilder({
       const list = [...(sess[key] || [])];
       const [m] = list.splice(result.source.index, 1);
       list.splice(result.destination.index, 0, m);
-
-      // si on déplace, il est possible que des chaines soient coupées
-      // règle simple: si un élément devient le dernier, on force linkNext=false
       list.forEach((ex, i) => {
         if (i === list.length - 1) ex.linkNext = false;
       });
@@ -1139,9 +1890,7 @@ export default function ProgramBuilder({
       const to = [...sess[toKey]];
       const [m] = from.splice(idx, 1);
       if (m) {
-        // couper la chaîne côté source
         if (idx > 0) from[idx-1] = { ...from[idx-1], linkNext: false };
-        // coller en fin de destination => pas de lien vers suivant
         m.linkNext = false;
         to.push(m);
       }
@@ -1162,7 +1911,10 @@ export default function ProgramBuilder({
       else if (isWeight) item["Charge (kg)"] = round(weightUnit === "kg" ? Number(value)||0 : lbToKg(Number(value)||0), 2);
       else if (isSpeed)  item["Vitesse"]    = round(speedUnit === "kmh" ? Number(value)||0 : mphToKmh(Number(value)||0), 2);
       else item[opt] = +value;
-      if (!item.useAdvancedSets) ensureSetsLength(item);
+
+      // ✅ “Séries” peut rester 0 ; on aligne sets
+      const next = ensureSetsLengthPure(item);
+      Object.assign(item, next);
     });
     setIsSaved(false); setHasModifications(true);
     localEditTimeRef.current = Date.now();
@@ -1179,9 +1931,7 @@ export default function ProgramBuilder({
       const list = [...(sess[key] || [])];
       const prev = list[eIdx - 1];
       list.splice(eIdx, 1);
-      // si on supprime un maillon, couper le lien de l’élément précédent
       if (prev) prev.linkNext = false;
-      // et le dernier n’a jamais de lien
       if (list.length) list[list.length - 1].linkNext = false;
       sess[key] = list;
     });
@@ -1251,13 +2001,16 @@ export default function ProgramBuilder({
     updateExerciseAt(setSessions, activeTab, key, eIdx, (item) => {
       item.useAdvancedSets = checked;
       if (checked) {
+        // ✅ au moins 1 set en avancé
         if (!Array.isArray(item.sets) || item.sets.length === 0) {
-          item.sets = makeEmptySets(Number(item["Séries"]) || 1);
-          fillSetsFromGlobals(item);
+          item.sets = makeEmptySets(1);
         }
-        item["Séries"] = item.sets.length;
+        const next = ensureSetsLengthPure(item);
+        Object.assign(item, next);
       } else {
-        ensureSetsLength(item);
+        // ✅ revient sur sets = nb séries (0 possible)
+        const next = ensureSetsLengthPure(item);
+        Object.assign(item, next);
       }
     });
     setIsSaved(false); setHasModifications(true);
@@ -1267,7 +2020,10 @@ export default function ProgramBuilder({
 
   const onFillFromGlobals = useCallback((eIdx) => {
     const key = sessions[activeTab]?.useSections ? currentSection : "exercises";
-    updateExerciseAt(setSessions, activeTab, key, eIdx, (item) => { fillSetsFromGlobals(item); });
+    updateExerciseAt(setSessions, activeTab, key, eIdx, (item) => {
+      const next = fillSetsFromGlobalsPure(item);
+      Object.assign(item, next);
+    });
     setIsSaved(false); setHasModifications(true);
     localEditTimeRef.current = Date.now();
     ignoreSnapsUntilRef.current = Date.now() + 1500;
@@ -1331,17 +2087,15 @@ export default function ProgramBuilder({
   const onToggleLinkNext = useCallback((eIdx, checked) => {
     const key = sessions[activeTab]?.useSections ? currentSection : "exercises";
     updateExerciseAt(setSessions, activeTab, key, eIdx, (ex, list) => {
-      if (eIdx === list.length - 1 && checked) return; // impossible de lier le dernier
+      if (eIdx === list.length - 1 && checked) return;
       ex.linkNext = !!checked;
-      // si on désactive, rien d'autre
-      // si on active, on laisse le suivant tel quel (il pourra aussi lier au suivant, etc.)
     });
     setHasModifications(true); setIsSaved(false);
     localEditTimeRef.current = Date.now(); ignoreSnapsUntilRef.current = Date.now() + 1500;
   }, [sessions, activeTab, currentSection]);
 
   /* ---------------- Render ---------------- */
-  const headerH = useHeaderHeight(); // mobile
+  const headerH = useHeaderHeight();
   const currentSess = sessions[activeTab] || {};
   const visibleList = useMemo(() => (
     currentSess.useSections
@@ -1349,7 +2103,6 @@ export default function ProgramBuilder({
       : (currentSess.exercises || [])
   ), [currentSess, currentSection]);
 
-  // Labels "1a / 1b / …" en fonction des chaînes
   const labels = useMemo(() => {
     const res = [];
     const groups = groupLinked(visibleList);
@@ -1412,46 +2165,50 @@ export default function ProgramBuilder({
           px={{ base: 3, md: 6 }}
         >
           {/* --- Barre d’entête --- */}
-          <Flex
-            align="center"
-            justify="space-between"
-            gap={3}
-            mb={{ base: 3, md: 5 }}
-            wrap={{ base: "wrap", md: "nowrap" }}
-          >
-            {/* Bloc gauche : Nom + Objectif + Statut */}
-            <HStack spacing={3} align="center" flex="1 1 auto" minW={0}>
+          <Box mb={{ base: 3, md: 5 }}>
+            <Flex gap={3} wrap="wrap" align="center" mb={3}>
               <Input
                 placeholder={t("programBuilder.placeholders.name", "Nom du programme")}
                 value={programName}
                 onChange={(e) => {
+                  nameTouchedRef.current = true;
                   setProgramName(e.target.value);
-                  setIsSaved(false); setHasModifications(true);
+                  setIsSaved(false);
+                  setHasModifications(true);
                   localEditTimeRef.current = Date.now();
                   ignoreSnapsUntilRef.current = Date.now() + 1500;
                 }}
                 bg={cardBg}
                 borderRadius="xl"
                 borderColor={border}
-                maxW={{ base: "100%", md: "280px" }}
+                flex={{ base: "1 1 260px", md: "1 1 320px" }}
+                minW={{ base: "240px", md: "280px" }}
+                w={{ base: "100%", md: "auto" }}
                 isDisabled={!isCoach}
               />
+
               <Input
                 placeholder={t("programBuilder.placeholders.goal", "Objectif (ex: Prise de masse)")}
                 value={programmeGoal}
                 onChange={(e) => {
                   setProgrammeGoal(e.target.value);
-                  setIsSaved(false); setHasModifications(true);
+                  setIsSaved(false);
+                  setHasModifications(true);
                   localEditTimeRef.current = Date.now();
                   ignoreSnapsUntilRef.current = Date.now() + 1500;
                 }}
                 bg={cardBg}
                 borderRadius="xl"
                 borderColor={border}
-                maxW={{ base: "100%", md: "320px" }}
+                flex={{ base: "1 1 260px", md: "2 1 520px" }}
+                minW={{ base: "240px", md: "320px" }}
+                w={{ base: "100%", md: "auto" }}
                 isDisabled={!isCoach}
               />
-              <HStack spacing={2} align="center" flexShrink={0}>
+            </Flex>
+
+            <Flex align="center" justify="space-between" gap={3} wrap="wrap">
+              <HStack spacing={2} align="center" flex="0 0 auto">
                 <Box boxSize={2.5} bg={isSaved ? "green.400" : "orange.400"} borderRadius="full" />
                 <Text fontSize="sm" color={textMute} whiteSpace="nowrap">
                   {isSaved
@@ -1459,39 +2216,73 @@ export default function ProgramBuilder({
                     : (saving ? t("programBuilder.status.saving", "Sauvegarde...") : t("programBuilder.status.unsaved", "Non sauvé"))}
                 </Text>
               </HStack>
-            </HStack>
 
-            {/* Bloc milieu : unités */}
-            <HStack spacing={4} align="center" flex="0 0 auto" wrap="wrap" mr={{ md: 2 }}>
-              <HStack spacing={1}>
-                <Text fontSize="sm" color={textMute}>{t("programBuilder.units.weight", "Poids")}</Text>
-                <Button size="sm" variant={weightUnit==="kg"?"solid":"outline"} onClick={()=>setWU("kg")}>kg</Button>
-                <Button size="sm" variant={weightUnit==="lbs"?"solid":"outline"} onClick={()=>setWU("lbs")}>lbs</Button>
-              </HStack>
-              <Divider orientation="vertical" h="22px" display={{ base: "none", lg: "block" }} />
-              <HStack spacing={1}>
-                <Text fontSize="sm" color={textMute}>{t("programBuilder.units.speed", "Vitesse")}</Text>
-                <Button size="sm" variant={speedUnit==="kmh"?"solid":"outline"} onClick={()=>setSU("kmh")}>{t("units.kmh", "km/h")}</Button>
-                <Button size="sm" variant={speedUnit==="mph"?"solid":"outline"} onClick={()=>setSU("mph")}>{t("units.mph", "mph")}</Button>
-              </HStack>
-            </HStack>
+              <HStack spacing={4} align="center" flex="1 1 auto" wrap="wrap">
+                <HStack spacing={1}>
+                  <Text fontSize="sm" color={textMute}>{t("programBuilder.units.weight", "Poids")}</Text>
+                  <Button size="sm" variant={weightUnit==="kg"?"solid":"outline"} onClick={()=>setWU("kg")}>kg</Button>
+                  <Button size="sm" variant={weightUnit==="lbs"?"solid":"outline"} onClick={()=>setWU("lbs")}>lbs</Button>
+                </HStack>
 
-            {/* CTA */}
-            {isCoach && (
-              <Button
-                colorScheme="blue"
-                onClick={saveProgramme}
-                isLoading={saving}
-                size={ctaSize}
-                px={ctaPx}
-                borderRadius="xl"
-                whiteSpace="nowrap"
-                flexShrink={0}
-              >
-                {ctaLabel}
-              </Button>
-            )}
-          </Flex>
+                <Divider orientation="vertical" h="22px" display={{ base: "none", lg: "block" }} />
+
+                <HStack spacing={1}>
+                  <Text fontSize="sm" color={textMute}>{t("programBuilder.units.speed", "Vitesse")}</Text>
+                  <Button size="sm" variant={speedUnit==="kmh"?"solid":"outline"} onClick={()=>setSU("kmh")}>{t("units.kmh", "km/h")}</Button>
+                  <Button size="sm" variant={speedUnit==="mph"?"solid":"outline"} onClick={()=>setSU("mph")}>{t("units.mph", "mph")}</Button>
+                </HStack>
+
+                <Divider orientation="vertical" h="22px" display={{ base: "none", lg: "block" }} />
+
+                <HStack spacing={1}>
+                  <Text fontSize="sm" color={textMute}>{t("programBuilder.units.distance", "Distance")}</Text>
+                  <Button size="sm" variant={distanceUnit==="m"?"solid":"outline"} onClick={()=>setDU("m")}>m</Button>
+                  <Button size="sm" variant={distanceUnit==="mi"?"solid":"outline"} onClick={()=>setDU("mi")}>miles</Button>
+                </HStack>
+
+                {/* ✅ Switch progression auto (auto_suivi / options.auto_suivi) */}
+                <Divider orientation="vertical" h="22px" display={{ base: "none", lg: "block" }} />
+                <Tooltip
+                  label={t(
+                    "programBuilder.autoProgression.tip",
+                    "Si activé, le programme peut évoluer automatiquement selon les validations du client (si le coach ne gère pas manuellement)."
+                  )}
+                >
+                  <HStack spacing={2}>
+                    <Text fontSize="sm" color={textMute}>
+                      {t("programBuilder.autoProgression.label", "Progression auto")}
+                    </Text>
+                    <Switch
+                      isChecked={!!autoProgressionEnabled}
+                      onChange={(e) => {
+                        setAutoProgressionEnabled(e.target.checked);
+                        setIsSaved(false);
+                        setHasModifications(true);
+                        localEditTimeRef.current = Date.now();
+                        ignoreSnapsUntilRef.current = Date.now() + 1500;
+                      }}
+                      isDisabled={!isCoach}
+                    />
+                  </HStack>
+                </Tooltip>
+              </HStack>
+
+              {isCoach && (
+                <Button
+                  colorScheme="blue"
+                  onClick={saveProgramme}
+                  isLoading={saving}
+                  size={ctaSize}
+                  px={ctaPx}
+                  borderRadius="xl"
+                  whiteSpace="nowrap"
+                  flex="0 0 auto"
+                >
+                  {ctaLabel}
+                </Button>
+              )}
+            </Flex>
+          </Box>
 
           {/* Tabs séances */}
           <DragDropContext onDragEnd={onDragEndSessions}>
@@ -1511,12 +2302,16 @@ export default function ProgramBuilder({
                           cursor="pointer"
                           onClick={() => setActiveTab(i)}
                           bg={i === activeTab ? undefined : useColorModeValue("blue.50", "blue.900")}
+                          overflow="visible"
+                          maxW="100%"
                         >
-                          <HStack spacing={2}>
+                          <HStack spacing={2} maxW="100%">
                             {editIndex === i ? (
                               <Input
                                 size="xs"
                                 value={sessions[i].name}
+                                onMouseDown={(e)=>e.stopPropagation()}
+                                onTouchStart={(e)=>e.stopPropagation()}
                                 onChange={(e) => {
                                   setSessions(prev => {
                                     const next = [...prev];
@@ -1530,11 +2325,22 @@ export default function ProgramBuilder({
                                 onBlur={() => setEditIndex(null)}
                                 onKeyDown={(e) => e.key === "Enter" && setEditIndex(null)}
                                 autoFocus
-                                bg={cardBg}
-                                borderColor={border}
+                                bg={sessionEditBg}
+                                color={sessionEditColor}
+                                _placeholder={{ color: sessionEditPlaceholder }}
+                                borderColor={sessionEditBorder}
+                                focusBorderColor={sessionEditBorder}
+                                w={{ base: "220px", md: "260px" }}
+                                minW={{ base: "200px", md: "240px" }}
+                                maxW="80vw"
+                                borderRadius="md"
                               />
                             ) : (
-                              <Text onDoubleClick={() => isCoach && setEditIndex(i)}>
+                              <Text
+                                onDoubleClick={() => isCoach && setEditIndex(i)}
+                                maxW={{ base: "70vw", md: "360px" }}
+                                isTruncated
+                              >
                                 {s.name || t("programBuilder.sessionN", "Séance {{n}}", { n: i + 1 })}
                               </Text>
                             )}
@@ -1547,7 +2353,7 @@ export default function ProgramBuilder({
                                 aria-label={t("programBuilder.aria.deleteSession", "Supprimer séance")}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setSessions((prev) => prev.filter((_, idx) => idx !== i));
+                                  setSessions((prev) => applyAutoSessionNumbering(prev.filter((_, idx) => idx !== i), t));
                                   if (activeTab === i) setActiveTab(0);
                                   setIsSaved(false); setHasModifications(true);
                                   localEditTimeRef.current = Date.now();
@@ -1565,7 +2371,10 @@ export default function ProgramBuilder({
                     <Button
                       size="sm"
                       onClick={() => {
-                        setSessions((prev) => [...prev, { name: t("programBuilder.sessionN", "Séance {{n}}", { n: prev.length + 1 }), useSections:false, exercises: [] }]);
+                        setSessions((prev) => applyAutoSessionNumbering(
+                          [...prev, { name: "", useSections:true, echauffement:[], corps:[], bonus:[], retourCalme:[] }],
+                          t
+                        ));
                         setIsSaved(false); setHasModifications(true);
                         localEditTimeRef.current = Date.now();
                         ignoreSnapsUntilRef.current = Date.now() + 1500;
@@ -1607,7 +2416,7 @@ export default function ProgramBuilder({
                         }
                         s.useSections = checked;
                         next[activeTab] = s;
-                        return next;
+                        return applyAutoSessionNumbering(next, t);
                       });
                       setCurrentSection("corps");
                       setIsSaved(false); setHasModifications(true);
@@ -1624,14 +2433,14 @@ export default function ProgramBuilder({
                     leftIcon={<MdContentCopy />}
                     onClick={() => {
                       const clone = structuredClone(sessions[activeTab]);
-                      clone.name = (clone.name || t("programBuilder.sessionN", "Séance {{n}}", { n: activeTab + 1 })) + " " + t("programBuilder.copySuffix", "(copie)");
+                      clone.name = ""; // force auto naming
                       const regen = (arr=[]) => arr.map(ex => ({ ...ex, id: uid() }));
                       if (clone.useSections) {
                         sectionDefs.forEach(({key}) => { clone[key] = regen(clone[key] || []); });
                       } else {
                         clone.exercises = regen(clone.exercises || []);
                       }
-                      setSessions((prev) => [...prev, clone]);
+                      setSessions((prev) => applyAutoSessionNumbering([...prev, clone], t));
                       setIsSaved(false); setHasModifications(true);
                       localEditTimeRef.current = Date.now();
                       ignoreSnapsUntilRef.current = Date.now() + 1500;
@@ -1642,7 +2451,6 @@ export default function ProgramBuilder({
                 )}
               </HStack>
 
-              {/* Sélecteur de section */}
               {sessions[activeTab].useSections && (
                 <HStack spacing={2} mb={4} wrap="wrap">
                   {sectionDefs.map(({key, labelKey}) => (
@@ -1659,7 +2467,6 @@ export default function ProgramBuilder({
                 </HStack>
               )}
 
-              {/* Liste des exercices */}
               <DragDropContext onDragEnd={(res) => onDragEndExercises(res, activeTab, sessions[activeTab].useSections ? currentSection : null)}>
                 <Droppable droppableId={`ex-${activeTab}-${sessions[activeTab].useSections ? currentSection : "flat"}`}>
                   {(providedEx) => (
@@ -1667,7 +2474,7 @@ export default function ProgramBuilder({
                       {visibleList.map((ex, eIdx) => (
                         <Draggable key={ex.id} draggableId={ex.id} index={eIdx}>
                           {(drProv) => (
-                            <Box ref={drProv.innerRef} {...drProv.draggableProps} {...drProv.dragHandleProps}>
+                            <Box ref={drProv.innerRef} {...drProv.draggableProps}>
                               <ExerciseCardRow
                                 ex={ex}
                                 index={eIdx}
@@ -1677,11 +2484,11 @@ export default function ProgramBuilder({
                                 isCoach={isCoach}
                                 weightUnit={weightUnit}
                                 speedUnit={speedUnit}
+                                distanceUnit={distanceUnit}
                                 cardBg={cardBg}
                                 border={border}
                                 subBg={subBg}
                                 textMute={textMute}
-                                hoverRow={hoverRow}
                                 currentSection={currentSection}
                                 t={t}
                                 hasNext={eIdx < visibleList.length - 1}
@@ -1711,6 +2518,7 @@ export default function ProgramBuilder({
                                 }
                                 weightStep={weightStep}
                                 speedStep={speedStep}
+                                dragHandleProps={drProv.dragHandleProps}
                               />
                             </Box>
                           )}
@@ -1799,4 +2607,3 @@ export default function ProgramBuilder({
     </Box>
   );
 }
-

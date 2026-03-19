@@ -8,12 +8,37 @@ import React, {
   startTransition,
 } from "react";
 import {
-  Box, Input, Select, VStack, Text, IconButton, SimpleGrid, HStack,
-  useColorModeValue, Drawer, DrawerOverlay, DrawerContent, DrawerHeader,
-  DrawerBody, DrawerCloseButton, useDisclosure, useBreakpointValue, Button,
-  Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton,
-  ModalBody, ModalFooter, Textarea, Divider, Spinner, useToast,
-  InputGroup, InputRightElement
+  Box,
+  Input,
+  Select,
+  VStack,
+  Text,
+  IconButton,
+  SimpleGrid,
+  HStack,
+  useColorModeValue,
+  Drawer,
+  DrawerOverlay,
+  DrawerContent,
+  DrawerHeader,
+  DrawerBody,
+  DrawerCloseButton,
+  useDisclosure,
+  useBreakpointValue,
+  Button,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalCloseButton,
+  ModalBody,
+  ModalFooter,
+  Textarea,
+  Divider,
+  Spinner,
+  useToast,
+  InputGroup,
+  InputRightElement,
 } from "@chakra-ui/react";
 import { CloseIcon } from "@chakra-ui/icons";
 import { FaFilter, FaRedo, FaPlus } from "react-icons/fa";
@@ -26,11 +51,11 @@ import { useTranslation } from "react-i18next";
 
 /* ---------- helpers ---------- */
 const normalize = (s = "") =>
-  String(s)
+  String(s || "")
     .toLowerCase()
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -40,6 +65,26 @@ const tokens = (s = "") =>
     .filter((w) => w.length >= 2);
 
 const slug = (s = "") => normalize(s).replace(/\s+/g, "_");
+
+/** Robust: extrait strings / aplati arrays / map */
+const extractStrings = (value) => {
+  const out = [];
+  const walk = (v) => {
+    if (v == null) return;
+    if (Array.isArray(v)) return v.forEach(walk);
+    if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
+      const s = String(v).trim();
+      if (s) out.push(s);
+      return;
+    }
+    if (typeof v === "object") {
+      const maybe = v.nom ?? v.name ?? v.label ?? v.value ?? v.title ?? v.text ?? null;
+      if (maybe != null) walk(maybe);
+    }
+  };
+  walk(value);
+  return out;
+};
 
 // UID stable pour un doc (section + id)
 const uidFor = (ex) => `${ex.__collection || "unknown"}:${ex.id || slug(ex.nom)}`;
@@ -51,52 +96,407 @@ const dedupeByUid = (arr) => {
   return [...m.values()];
 };
 
+const keepFirstSorted = (arr, locale) => {
+  const first = arr[0];
+  const rest = arr.slice(1).slice().sort((a, b) => a.localeCompare(b, locale));
+  return [first, ...rest];
+};
+
 /* ---------- options affichage ---------- */
-const muscleOptionsFR = ["Tous les muscles","Quadriceps","Fessiers","Ischio-jambiers","Adducteurs","Pectoraux","Triceps","Biceps","Abdominaux","Dorsaux","Trapèzes","Deltoïdes","Lombaires","Dos","Épaules","Jambes"];
-const muscleOptionsEN = ["All muscles","Quadriceps","Glutes","Hamstrings","Adductors","Chest","Triceps","Biceps","Abs","Lats","Traps","Deltoids","Lower back","Back","Shoulders","Legs"];
-const positionOptionsFR = ["Toutes les positions","Debout","Assis","Allongé","Sur le dos","Sur le ventre","À genoux","Suspendu","Incliné"];
-const positionOptionsEN = ["All positions","Standing","Seated","Lying","Supine","Prone","Kneeling","Hanging","Inclined"];
-const equipmentOptionsFR = ["Tout le matériel","Aucun","Poids du corps","Barre","Haltères","Élastiques","Machines","TRX","Kettlebell","Corde à sauter","Medicine Ball","Anneaux de gym"];
-const equipmentOptionsEN = ["All equipment","None","Bodyweight","Barbell","Dumbbells","Bands","Machines","TRX","Kettlebell","Jump rope","Medicine ball","Gymnastic rings"];
-const objectiveOptionsFR = ["Tous les objectifs","Renforcement","Hypertrophie","Mobilité","Équilibre","Endurance","Force","Cardio","Perte de poids","Stretching","Échauffement"];
-const objectiveOptionsEN = ["All goals","Strengthening","Hypertrophy","Mobility","Balance","Endurance","Strength","Cardio","Weight loss","Stretching","Warm-up"];
+const muscleOptionsFR = [
+  "Tous les muscles",
+  "Quadriceps",
+  "Fessiers",
+  "Ischio-jambiers",
+  "Adducteurs",
+  "Mollets",
+  "Pectoraux",
+  "Triceps",
+  "Biceps",
+  "Avant-bras",
+  "Abdominaux",
+  "Obliques",
+  "Dorsaux",
+  "Trapèzes",
+  "Deltoïdes",
+  "Lombaires",
+  "Dos",
+  "Épaules",
+  "Jambes",
+  "Cardio",
+  "Full body",
+];
+const muscleOptionsEN = [
+  "All muscles",
+  "Quadriceps",
+  "Glutes",
+  "Hamstrings",
+  "Adductors",
+  "Calves",
+  "Chest",
+  "Triceps",
+  "Biceps",
+  "Forearms",
+  "Abs",
+  "Obliques",
+  "Lats",
+  "Traps",
+  "Deltoids",
+  "Lower back",
+  "Back",
+  "Shoulders",
+  "Legs",
+  "Cardio",
+  "Full body",
+];
 
-const DEFAULT_FILTERS = { muscle: null, position: null, equipment: null, objective: null };
+const secondaryMuscleOptionsFR = [
+  "Tous les muscles sollicités",
+  "Quadriceps",
+  "Fessiers",
+  "Ischio-jambiers",
+  "Adducteurs",
+  "Mollets",
+  "Pectoraux",
+  "Triceps",
+  "Biceps",
+  "Avant-bras",
+  "Abdominaux",
+  "Obliques",
+  "Dorsaux",
+  "Trapèzes",
+  "Deltoïdes",
+  "Lombaires",
+  "Dos",
+  "Épaules",
+  "Jambes",
+];
+const secondaryMuscleOptionsEN = [
+  "All trained muscles",
+  "Quadriceps",
+  "Glutes",
+  "Hamstrings",
+  "Adductors",
+  "Calves",
+  "Chest",
+  "Triceps",
+  "Biceps",
+  "Forearms",
+  "Abs",
+  "Obliques",
+  "Lats",
+  "Traps",
+  "Deltoids",
+  "Lower back",
+  "Back",
+  "Shoulders",
+  "Legs",
+];
 
-/* ---------- mapping canonique FR/EN -> clé interne ---------- */
+const jointOptionsFR = [
+  "Toutes les articulations",
+  "Chevilles",
+  "Genoux",
+  "Hanches",
+  "Colonne",
+  "Épaules",
+  "Coudes",
+  "Poignets",
+  "Cou",
+  "Scapulas",
+];
+const jointOptionsEN = [
+  "All joints",
+  "Ankles",
+  "Knees",
+  "Hips",
+  "Spine",
+  "Shoulders",
+  "Elbows",
+  "Wrists",
+  "Neck",
+  "Scapulae",
+];
+
+const positionOptionsFR = [
+  "Toutes les positions",
+  "Debout",
+  "Assis",
+  "Allongé",
+  "Sur le dos",
+  "Sur le ventre",
+  "À genoux",
+  "Suspendu",
+  "Incliné",
+];
+const positionOptionsEN = [
+  "All positions",
+  "Standing",
+  "Seated",
+  "Lying",
+  "Supine",
+  "Prone",
+  "Kneeling",
+  "Hanging",
+  "Inclined",
+];
+
+const equipmentOptionsFR = [
+  "Tout le matériel",
+  "Aucun",
+  "Poids du corps",
+  "Barre",
+  "Haltères",
+  "Élastiques",
+  "Machines",
+  "TRX",
+  "Kettlebell",
+  "Corde à sauter",
+  "Medicine Ball",
+  "Anneaux de gym",
+];
+const equipmentOptionsEN = [
+  "All equipment",
+  "None",
+  "Bodyweight",
+  "Barbell",
+  "Dumbbells",
+  "Bands",
+  "Machines",
+  "TRX",
+  "Kettlebell",
+  "Jump rope",
+  "Medicine ball",
+  "Gymnastic rings",
+];
+
+const objectiveOptionsFR = [
+  "Tous les objectifs",
+  "Renforcement",
+  "Hypertrophie",
+  "Mobilité",
+  "Équilibre",
+  "Endurance",
+  "Force",
+  "Cardio",
+  "Perte de poids",
+  "Stretching",
+  "Échauffement",
+  "Retour au calme",
+];
+const objectiveOptionsEN = [
+  "All goals",
+  "Strengthening",
+  "Hypertrophy",
+  "Mobility",
+  "Balance",
+  "Endurance",
+  "Strength",
+  "Cardio",
+  "Weight loss",
+  "Stretching",
+  "Warm-up",
+  "Cool-down",
+];
+
+/* ---------- canonisation ---------- */
 const CANON = {
   muscles: new Map([
-    ["quadriceps","quadriceps"],["fessiers","glutes"],["ischio jambiers","hamstrings"],["adducteurs","adductors"],
-    ["pectoraux","chest"],["triceps","triceps"],["biceps","biceps"],["abdominaux","abs"],
-    ["dorsaux","lats"],["trap ezes","traps"],["delto ides","deltoids"],["lombaires","lower_back"],
-    ["dos","back"],["epaules","shoulders"],["jambes","legs"],
-    ["quadriceps","quadriceps"],["glutes","glutes"],["hamstrings","hamstrings"],["adductors","adductors"],
-    ["chest","chest"],["triceps","triceps"],["biceps","biceps"],["abs","abs"],
-    ["lats","lats"],["traps","traps"],["deltoids","deltoids"],["lower back","lower_back"],
-    ["back","back"],["shoulders","shoulders"],["legs","legs"],
+    ["quadriceps", "quadriceps"],
+    ["quad", "quadriceps"],
+    ["fessier", "glutes"],
+    ["fessiers", "glutes"],
+    ["glute", "glutes"],
+    ["glutes", "glutes"],
+    ["ischio", "hamstrings"],
+    ["ischios", "hamstrings"],
+    ["ischio jambiers", "hamstrings"],
+    ["ischio-jambiers", "hamstrings"],
+    ["hamstring", "hamstrings"],
+    ["hamstrings", "hamstrings"],
+    ["adducteur", "adductors"],
+    ["adducteurs", "adductors"],
+    ["adductor", "adductors"],
+    ["adductors", "adductors"],
+    ["mollet", "calves"],
+    ["mollets", "calves"],
+    ["calf", "calves"],
+    ["calves", "calves"],
+    ["pectoraux", "chest"],
+    ["pecs", "chest"],
+    ["chest", "chest"],
+    ["triceps", "triceps"],
+    ["biceps", "biceps"],
+    ["avant bras", "forearms"],
+    ["avant-bras", "forearms"],
+    ["forearm", "forearms"],
+    ["forearms", "forearms"],
+    ["abdominaux", "abs"],
+    ["abdos", "abs"],
+    ["abs", "abs"],
+    ["oblique", "obliques"],
+    ["obliques", "obliques"],
+    ["dorsaux", "lats"],
+    ["lat", "lats"],
+    ["lats", "lats"],
+    ["trapeze", "traps"],
+    ["trapèze", "traps"],
+    ["trapèzes", "traps"],
+    ["traps", "traps"],
+    ["deltoide", "deltoids"],
+    ["deltoides", "deltoids"],
+    ["deltoïdes", "deltoids"],
+    ["deltoids", "deltoids"],
+    ["lombaires", "lower_back"],
+    ["lower back", "lower_back"],
+    ["lower_back", "lower_back"],
+    ["dos", "back"],
+    ["back", "back"],
+    ["epaules", "shoulders"],
+    ["épaules", "shoulders"],
+    ["shoulders", "shoulders"],
+    ["jambes", "legs"],
+    ["legs", "legs"],
+    ["cardio", "cardio"],
+    ["full body", "full_body"],
+    ["fullbody", "full_body"],
+    ["full_body", "full_body"],
+  ]),
+  secondaryMuscles: new Map(),
+  joints: new Map([
+    ["cheville", "ankles"],
+    ["chevilles", "ankles"],
+    ["ankle", "ankles"],
+    ["ankles", "ankles"],
+    ["genou", "knees"],
+    ["genoux", "knees"],
+    ["knee", "knees"],
+    ["knees", "knees"],
+    ["hanche", "hips"],
+    ["hanches", "hips"],
+    ["hip", "hips"],
+    ["hips", "hips"],
+    ["colonne", "spine"],
+    ["rachis", "spine"],
+    ["spine", "spine"],
+    ["epaule", "shoulders_joint"],
+    ["epaules", "shoulders_joint"],
+    ["épaules", "shoulders_joint"],
+    ["shoulder", "shoulders_joint"],
+    ["shoulders", "shoulders_joint"],
+    ["coude", "elbows"],
+    ["coudes", "elbows"],
+    ["elbow", "elbows"],
+    ["elbows", "elbows"],
+    ["poignet", "wrists"],
+    ["poignets", "wrists"],
+    ["wrist", "wrists"],
+    ["wrists", "wrists"],
+    ["cou", "neck"],
+    ["neck", "neck"],
+    ["scapula", "scapulae"],
+    ["scapulas", "scapulae"],
+    ["scapulae", "scapulae"],
   ]),
   positions: new Map([
-    ["debout","standing"],["assis","seated"],["allonge","lying"],["sur le dos","supine"],["sur le ventre","prone"],
-    ["a genoux","kneeling"],["suspendu","hanging"],["incline","inclined"],
-    ["standing","standing"],["seated","seated"],["lying","lying"],["supine","supine"],["prone","prone"],
-    ["kneeling","kneeling"],["hanging","hanging"],["inclined","inclined"],
+    ["debout", "standing"],
+    ["standing", "standing"],
+    ["assis", "seated"],
+    ["seated", "seated"],
+    ["allonge", "lying"],
+    ["allongé", "lying"],
+    ["allongee", "lying"],
+    ["lying", "lying"],
+    ["sur le dos", "supine"],
+    ["supine", "supine"],
+    ["sur le ventre", "prone"],
+    ["prone", "prone"],
+    ["a genoux", "kneeling"],
+    ["à genoux", "kneeling"],
+    ["kneeling", "kneeling"],
+    ["suspendu", "hanging"],
+    ["hanging", "hanging"],
+    ["incline", "inclined"],
+    ["incliné", "inclined"],
+    ["inclined", "inclined"],
   ]),
   equipment: new Map([
-    ["aucun","none"],["poids du corps","bodyweight"],["barre","barbell"],["halteres","dumbbells"],["elastiques","bands"],
-    ["machines","machines"],["trx","trx"],["kettlebell","kettlebell"],["corde a sauter","jump_rope"],
-    ["medicine ball","medicine_ball"],["anneaux de gym","rings"],
-    ["none","none"],["bodyweight","bodyweight"],["barbell","barbell"],["dumbbells","dumbbells"],["bands","bands"],
-    ["machines","machines"],["trx","trx"],["kettlebell","kettlebell"],["jump rope","jump_rope"],["medicine ball","medicine_ball"],["gymnastic rings","rings"],
+    ["aucun", "none"],
+    ["none", "none"],
+    ["poids du corps", "bodyweight"],
+    ["poidsducorps", "bodyweight"],
+    ["bodyweight", "bodyweight"],
+    ["barre", "barbell"],
+    ["barbell", "barbell"],
+    ["halteres", "dumbbells"],
+    ["haltères", "dumbbells"],
+    ["dumbbell", "dumbbells"],
+    ["dumbbells", "dumbbells"],
+    ["elastique", "bands"],
+    ["elastiques", "bands"],
+    ["élastique", "bands"],
+    ["élastiques", "bands"],
+    ["bands", "bands"],
+    ["machine", "machines"],
+    ["machines", "machines"],
+    ["trx", "trx"],
+    ["kettlebell", "kettlebell"],
+    ["corde a sauter", "jump_rope"],
+    ["corde à sauter", "jump_rope"],
+    ["jump rope", "jump_rope"],
+    ["jump_rope", "jump_rope"],
+    ["medicine ball", "medicine_ball"],
+    ["medicine_ball", "medicine_ball"],
+    ["anneaux", "rings"],
+    ["anneaux de gym", "rings"],
+    ["gymnastic rings", "rings"],
+    ["rings", "rings"],
   ]),
   objectives: new Map([
-    ["renforcement","strengthening"],["hypertrophie","hypertrophy"],["mobilite","mobility"],["equilibre","balance"],
-    ["endurance","endurance"],["force","strength"],["cardio","cardio"],["perte de poids","weight_loss"],
-    ["stretching","stretching"],["echauffement","warmup"],
-    ["strengthening","strengthening"],["hypertrophy","hypertrophy"],["mobility","mobility"],["balance","balance"],
-    ["endurance","endurance"],["strength","strength"],["cardio","cardio"],["weight loss","weight_loss"],["warm up","warmup"],["warm-up","warmup"],
+    ["renforcement", "strengthening"],
+    ["strengthening", "strengthening"],
+    ["hypertrophie", "hypertrophy"],
+    ["hypertrophy", "hypertrophy"],
+    ["mobilite", "mobility"],
+    ["mobilité", "mobility"],
+    ["mobility", "mobility"],
+    ["equilibre", "balance"],
+    ["équilibre", "balance"],
+    ["balance", "balance"],
+    ["endurance", "endurance"],
+    ["force", "strength"],
+    ["strength", "strength"],
+    ["cardio", "cardio"],
+    ["perte de poids", "weight_loss"],
+    ["weight loss", "weight_loss"],
+    ["weight_loss", "weight_loss"],
+    ["stretching", "stretching"],
+    ["echauffement", "warmup"],
+    ["échauffement", "warmup"],
+    ["warm up", "warmup"],
+    ["warm-up", "warmup"],
+    ["warmup", "warmup"],
+    ["retour au calme", "cooldown"],
+    ["cool down", "cooldown"],
+    ["cool-down", "cooldown"],
+    ["cooldown", "cooldown"],
   ]),
 };
-const canonize = (domain, value) => CANON[domain].get(normalize(value)) || null;
+CANON.secondaryMuscles = CANON.muscles;
+
+const canonize = (domain, value) => {
+  const n = normalize(value);
+  return CANON[domain]?.get(n) || null;
+};
+
+const DEFAULT_FILTERS = {
+  muscle: null,
+  secondaryMuscle: null,
+  joint: null,
+  position: null,
+  equipment: null,
+  objective: null,
+};
 
 /* ---------- modèle exercice ---------- */
 const defaultExercise = {
@@ -112,12 +512,26 @@ const defaultExercise = {
   position: [],
   contraintes: "",
   variantes: [],
-  consignes: { Positionnement: "", Mouvement: "", Retour: "", Respiration: "", Posture: "" }
+  consignes: { Positionnement: "", Mouvement: "", Retour: "", Respiration: "", Posture: "" },
 };
-const objectifsList = ["endurance","force","hypertrophie","prise_de_masse","postural","remise_au_sport","maintien_en_forme"];
-const generateDefaultParams = () => Object.fromEntries(
-  objectifsList.map(o => [o, { repetitions:[], series:[], repos:[], temps_effort:[], temps_par_repetition:null }])
-);
+
+const objectifsList = [
+  "endurance",
+  "force",
+  "hypertrophie",
+  "prise_de_masse",
+  "postural",
+  "remise_au_sport",
+  "maintien_en_forme",
+];
+
+const generateDefaultParams = () =>
+  Object.fromEntries(
+    objectifsList.map((o) => [
+      o,
+      { repetitions: [], series: [], repos: [], temps_effort: [], temps_par_repetition: null },
+    ])
+  );
 
 /* ===================================== */
 
@@ -129,6 +543,8 @@ export default function ExerciseBank({
 }) {
   const { i18n } = useTranslation();
   const L = i18n.language?.toLowerCase().startsWith("fr") ? "fr" : "en";
+  const locale = L === "fr" ? "fr" : "en";
+
   const TXT = {
     search: L === "fr" ? "Rechercher…" : "Search…",
     toggleFilters: L === "fr" ? "Afficher/masquer les filtres" : "Show/Hide filters",
@@ -141,7 +557,10 @@ export default function ExerciseBank({
     cooldown: L === "fr" ? "Retour au calme" : "Cool-down",
     ergometer: L === "fr" ? "Ergomètre" : "Ergometer",
     namePH: L === "fr" ? "Nom de l'exercice" : "Exercise name",
-    groupsPH: L === "fr" ? "Groupe(s) musculaire(s) (séparer par virgules)" : "Muscle group(s) (comma-separated)",
+    groupsPH:
+      L === "fr"
+        ? "Groupe(s) musculaire(s) (séparer par virgules)"
+        : "Muscle group(s) (comma-separated)",
     goalsPH: L === "fr" ? "Objectifs (séparer par virgules)" : "Goals (comma-separated)",
     equipPH: L === "fr" ? "Matériel (séparer par virgules)" : "Equipment (comma-separated)",
     posPH: L === "fr" ? "Position (séparer par virgules)" : "Position (comma-separated)",
@@ -153,7 +572,14 @@ export default function ExerciseBank({
     missingSection: L === "fr" ? "Section manquante" : "Missing section",
     missingSectionDesc: L === "fr" ? "Merci de choisir la section." : "Please choose a section.",
     missingName: L === "fr" ? "Nom manquant" : "Missing name",
-    missingNameDesc: L === "fr" ? "Merci de remplir le nom." : "Please enter a name."
+    missingNameDesc: L === "fr" ? "Merci de remplir le nom." : "Please enter a name.",
+
+    filterMuscle: L === "fr" ? "Groupe musculaire" : "Muscle group",
+    filterSecondaryMuscle: L === "fr" ? "Muscles sollicités" : "Trained muscles",
+    filterJoint: L === "fr" ? "Articulations" : "Joints",
+    filterPosition: L === "fr" ? "Position" : "Position",
+    filterEquipment: L === "fr" ? "Matériel" : "Equipment",
+    filterObjective: L === "fr" ? "Objectif / Catégorie" : "Goal / Category",
   };
 
   const isMobile = useBreakpointValue({ base: true, md: false }, { ssr: false });
@@ -163,8 +589,11 @@ export default function ExerciseBank({
   const toast = useToast();
 
   const [searchTermUI, setSearchTermUI] = useState("");
-  const [searchTerm, setSearchTerm] = useState(""); // debounced
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // filtres fermés par défaut
   const [showFilters, setShowFilters] = useState(false);
+
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -172,13 +601,9 @@ export default function ExerciseBank({
   const [section, setSection] = useState("");
   const [newExercise, setNewExercise] = useState(defaultExercise);
 
-  const {
-    isOpen: isAddOpen,
-    onOpen: onAddOpen,
-    onClose: onAddClose
-  } = useDisclosure();
+  const { isOpen: isAddOpen, onOpen: onAddOpen, onClose: onAddClose } = useDisclosure();
 
-  /* ---------- debounce recherche ---------- */
+  // ✅ startTransition OK pour la recherche (input)
   useEffect(() => {
     const id = setTimeout(() => {
       startTransition(() => setSearchTerm(searchTermUI));
@@ -186,18 +611,17 @@ export default function ExerciseBank({
     return () => clearTimeout(id);
   }, [searchTermUI]);
 
-  /* ---------- fetch banque : parallèle + déduplication forte ---------- */
   useEffect(() => {
     let alive = true;
     (async () => {
       setLoading(true);
       try {
-        const cols = ["warmup","training","cooldown","ergometre"];
-        const snaps = await Promise.all(cols.map(c => getDocs(collection(db, c))));
+        const cols = ["warmup", "training", "cooldown", "ergometre"];
+        const snaps = await Promise.all(cols.map((c) => getDocs(collection(db, c))));
         const all = snaps.flatMap((snap, idx) =>
-          snap.docs.map(d => ({ id: d.id, ...d.data(), __collection: cols[idx] }))
+          snap.docs.map((d) => ({ id: d.id, ...d.data(), __collection: cols[idx] }))
         );
-        const unique = dedupeByUid(all.filter(x => x.nom));
+        const unique = dedupeByUid(all.filter((x) => x.nom));
         if (alive) setExercises(unique);
       } catch (e) {
         toast({ status: "error", title: "Erreur de chargement", description: e.message });
@@ -205,104 +629,243 @@ export default function ExerciseBank({
         alive && setLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [toast]);
 
-  /* ---------- listes FR/EN d'affichage ---------- */
   const muscleOptions = L === "fr" ? muscleOptionsFR : muscleOptionsEN;
+  const secondaryMuscleOptions = L === "fr" ? secondaryMuscleOptionsFR : secondaryMuscleOptionsEN;
+  const jointOptions = L === "fr" ? jointOptionsFR : jointOptionsEN;
   const positionOptions = L === "fr" ? positionOptionsFR : positionOptionsEN;
   const equipmentOptions = L === "fr" ? equipmentOptionsFR : equipmentOptionsEN;
   const objectiveOptions = L === "fr" ? objectiveOptionsFR : objectiveOptionsEN;
 
-  /* ---------- index mémo ---------- */
+  /* ========= index ========= */
   const indexed = useMemo(() => {
     return exercises.map((ex) => {
       const nameNorm = normalize(ex.nom || "");
+      const idNorm = normalize(ex.id || "");
 
-      const muscles = [
-        ...(Array.isArray(ex.groupe_musculaire) ? ex.groupe_musculaire : ex.groupe_musculaire ? [ex.groupe_musculaire] : []),
-        ...(Array.isArray(ex.muscles_secondaires) ? ex.muscles_secondaires : []),
-      ].map(v => canonize("muscles", v)).filter(Boolean);
+      const musclesPrimaryRaw = extractStrings(ex.groupe_musculaire);
+      const musclesSecondaryRaw = extractStrings(ex.muscles_secondaires);
 
-      const positions = [
-        ...(Array.isArray(ex.position) ? ex.position : ex.position ? [ex.position] : []),
-        ...(Array.isArray(ex.positions) ? ex.positions : []),
-      ].map(v => canonize("positions", v)).filter(Boolean);
+      const jointsRaw = extractStrings(ex.articulations_sollicitees);
+      const positionsRaw = [...extractStrings(ex.position), ...extractStrings(ex.positions)];
 
-      const equipment = [
-        ...(Array.isArray(ex.materiel) ? ex.materiel : ex.materiel ? [ex.materiel] : []),
-        ...(Array.isArray(ex.equipement) ? ex.equipement : []),
-      ].map(v => canonize("equipment", v)).filter(Boolean);
+      const equipmentRaw = [
+        ...extractStrings(ex.materiel),
+        ...extractStrings(ex.equipement),
+        ...extractStrings(ex.equipements),
+      ];
 
-      const objectives = [
-        ...(Array.isArray(ex.objectifs) ? ex.objectifs : ex.objectifs ? [ex.objectifs] : []),
-        ...(Array.isArray(ex.objectif) ? ex.objectif : []),
-      ].map(v => canonize("objectives", v)).filter(Boolean);
+      const objectivesRaw = [
+        ...extractStrings(ex.objectifs),
+        ...extractStrings(ex.objectif),
+        ...extractStrings(ex.categorie),
+        ...extractStrings(ex.categorie_utilisation),
+        ex.__collection === "warmup" ? "échauffement" : null,
+        ex.__collection === "cooldown" ? "retour au calme" : null,
+      ].filter(Boolean);
 
-      const tagSet = new Set([...muscles, ...positions, ...equipment, ...objectives]);
+      const musclesPrimaryCanon = musclesPrimaryRaw.map((v) => canonize("muscles", v)).filter(Boolean);
+      const musclesSecondaryCanon = musclesSecondaryRaw.map((v) => canonize("secondaryMuscles", v)).filter(Boolean);
+      const jointsCanon = jointsRaw.map((v) => canonize("joints", v)).filter(Boolean);
+      const positionsCanon = positionsRaw.map((v) => canonize("positions", v)).filter(Boolean);
+      const equipmentCanon = equipmentRaw.map((v) => canonize("equipment", v)).filter(Boolean);
+      const objectivesCanon = objectivesRaw.map((v) => canonize("objectives", v)).filter(Boolean);
 
-      return { raw: ex, nameNorm, tagSet };
+      const primarySet = new Set(musclesPrimaryCanon);
+      const secondarySet = new Set(musclesSecondaryCanon);
+      const jointSet = new Set(jointsCanon);
+      const positionSet = new Set(positionsCanon);
+      const equipmentSet = new Set(equipmentCanon);
+      const objectiveSet = new Set(objectivesCanon);
+
+      const rawSet = new Set(
+        [
+          ...musclesPrimaryRaw,
+          ...musclesSecondaryRaw,
+          ...jointsRaw,
+          ...positionsRaw,
+          ...equipmentRaw,
+          ...objectivesRaw,
+        ]
+          .map((x) => normalize(x))
+          .filter(Boolean)
+      );
+
+      const blob = normalize(
+        [
+          ex.nom,
+          ex.id,
+          ex.__collection,
+          ex.niveau,
+          ...musclesPrimaryRaw,
+          ...musclesSecondaryRaw,
+          ...jointsRaw,
+          ...positionsRaw,
+          ...equipmentRaw,
+          ...objectivesRaw,
+        ]
+          .filter(Boolean)
+          .join(" ")
+      );
+
+      return {
+        raw: ex,
+        nameNorm,
+        idNorm,
+        primarySet,
+        secondarySet,
+        jointSet,
+        positionSet,
+        equipmentSet,
+        objectiveSet,
+        rawSet,
+        blob,
+      };
     });
   }, [exercises]);
 
-  /* ---------- recherche large + DÉDUP de secours ---------- */
+  /* ========= filtres + recherche ========= */
   const filtered = useMemo(() => {
+    const pickCanon = (domain, value) => (value ? canonize(domain, value) : null);
+    const isDefault = (val, firstOpt) => !val || val === firstOpt;
+
+    const wanted = {
+      muscle: isDefault(filters.muscle, muscleOptions[0]) ? null : filters.muscle,
+      secondaryMuscle: isDefault(filters.secondaryMuscle, secondaryMuscleOptions[0]) ? null : filters.secondaryMuscle,
+      joint: isDefault(filters.joint, jointOptions[0]) ? null : filters.joint,
+      position: isDefault(filters.position, positionOptions[0]) ? null : filters.position,
+      equipment: isDefault(filters.equipment, equipmentOptions[0]) ? null : filters.equipment,
+      objective: isDefault(filters.objective, objectiveOptions[0]) ? null : filters.objective,
+    };
+
     const canonFilter = {
-      muscle:   filters.muscle   && filters.muscle   !== muscleOptions[0]   ? canonize("muscles",    filters.muscle)   : null,
-      position: filters.position && filters.position !== positionOptions[0] ? canonize("positions",  filters.position) : null,
-      equipment:filters.equipment&& filters.equipment!== equipmentOptions[0]? canonize("equipment",  filters.equipment): null,
-      objective:filters.objective&& filters.objective!== objectiveOptions[0]? canonize("objectives", filters.objective): null,
+      muscle: wanted.muscle ? pickCanon("muscles", wanted.muscle) : null,
+      secondaryMuscle: wanted.secondaryMuscle ? pickCanon("secondaryMuscles", wanted.secondaryMuscle) : null,
+      joint: wanted.joint ? pickCanon("joints", wanted.joint) : null,
+      position: wanted.position ? pickCanon("positions", wanted.position) : null,
+      equipment: wanted.equipment ? pickCanon("equipment", wanted.equipment) : null,
+      objective: wanted.objective ? pickCanon("objectives", wanted.objective) : null,
+    };
+
+    const rawFilter = {
+      muscle: wanted.muscle ? normalize(wanted.muscle) : null,
+      secondaryMuscle: wanted.secondaryMuscle ? normalize(wanted.secondaryMuscle) : null,
+      joint: wanted.joint ? normalize(wanted.joint) : null,
+      position: wanted.position ? normalize(wanted.position) : null,
+      equipment: wanted.equipment ? normalize(wanted.equipment) : null,
+      objective: wanted.objective ? normalize(wanted.objective) : null,
     };
 
     const q = tokens(searchTerm);
     const results = [];
 
     for (const it of indexed) {
-      if (canonFilter.muscle    && !it.tagSet.has(canonFilter.muscle))       continue;
-      if (canonFilter.position  && !it.tagSet.has(canonFilter.position))     continue;
-      if (canonFilter.equipment && !it.tagSet.has(canonFilter.equipment))    continue;
-      if (canonFilter.objective && !it.tagSet.has(canonFilter.objective))    continue;
+      if (rawFilter.muscle) {
+        const ok = canonFilter.muscle
+          ? it.primarySet.has(canonFilter.muscle)
+          : it.rawSet.has(rawFilter.muscle) || it.blob.includes(rawFilter.muscle);
+        if (!ok) continue;
+      }
+
+      if (rawFilter.secondaryMuscle) {
+        const ok = canonFilter.secondaryMuscle
+          ? it.secondarySet.has(canonFilter.secondaryMuscle) || it.primarySet.has(canonFilter.secondaryMuscle)
+          : it.rawSet.has(rawFilter.secondaryMuscle) || it.blob.includes(rawFilter.secondaryMuscle);
+        if (!ok) continue;
+      }
+
+      if (rawFilter.joint) {
+        const ok = canonFilter.joint
+          ? it.jointSet.has(canonFilter.joint)
+          : it.rawSet.has(rawFilter.joint) || it.blob.includes(rawFilter.joint);
+        if (!ok) continue;
+      }
+
+      if (rawFilter.position) {
+        const ok = canonFilter.position
+          ? it.positionSet.has(canonFilter.position)
+          : it.rawSet.has(rawFilter.position) || it.blob.includes(rawFilter.position);
+        if (!ok) continue;
+      }
+
+      if (rawFilter.equipment) {
+        const ok = canonFilter.equipment
+          ? it.equipmentSet.has(canonFilter.equipment)
+          : it.rawSet.has(rawFilter.equipment) || it.blob.includes(rawFilter.equipment);
+        if (!ok) continue;
+      }
+
+      if (rawFilter.objective) {
+        const ok = canonFilter.objective
+          ? it.objectiveSet.has(canonFilter.objective)
+          : it.rawSet.has(rawFilter.objective) || it.blob.includes(rawFilter.objective);
+        if (!ok) continue;
+      }
 
       if (q.length) {
         let ok = true;
         for (const w of q) {
           const inName = it.nameNorm.includes(w);
-          const inTags = [...it.tagSet].some(tag => tag.includes(w));
-          if (!inName && !inTags) { ok = false; break; }
+          const inId = it.idNorm.includes(w);
+          const inBlob = it.blob.includes(w);
+          if (!inName && !inId && !inBlob) {
+            ok = false;
+            break;
+          }
         }
         if (!ok) continue;
       }
 
       let score = 0;
       for (const w of q) {
-        if (it.nameNorm.includes(w)) score += 3;
-        if ([...it.tagSet].some(tag => tag.includes(w))) score += 1;
+        if (it.nameNorm.includes(w)) score += 6;
+        if (it.idNorm.includes(w)) score += 4;
+        if (it.blob.includes(w)) score += 1;
       }
+
+      if (wanted.muscle) score += 1;
+      if (wanted.secondaryMuscle) score += 1;
+      if (wanted.joint) score += 1;
+      if (wanted.position) score += 1;
+      if (wanted.equipment) score += 1;
+      if (wanted.objective) score += 1;
+
       results.push({ score, ex: it.raw });
     }
 
-    results.sort((a,b) => b.score - a.score);
-    const uniq = dedupeByUid(results.map(r => r.ex)); // empêche toute duplication visuelle
-    return uniq;
-  }, [indexed, filters, searchTerm, muscleOptions, positionOptions, equipmentOptions, objectiveOptions]);
+    results.sort((a, b) => b.score - a.score);
+    return dedupeByUid(results.map((r) => r.ex));
+  }, [
+    indexed,
+    filters,
+    searchTerm,
+    muscleOptions,
+    secondaryMuscleOptions,
+    jointOptions,
+    positionOptions,
+    equipmentOptions,
+    objectiveOptions,
+  ]);
 
-  /* ---------- ID auto ---------- */
   async function generateNextId(sectionKey) {
     const prefix = { warmup: "W", training: "T", cooldown: "C", ergometre: "E" }[sectionKey];
     if (!prefix) return "";
     const snap = await getDocs(collection(db, sectionKey));
     let maxNum = 0;
-    snap.docs.forEach(d => {
+    snap.docs.forEach((d) => {
       const data = d.data();
       if (data.id && typeof data.id === "string" && data.id.startsWith(prefix)) {
-        const n = parseInt(data.id.slice(prefix.length));
+        const n = parseInt(data.id.slice(prefix.length), 10);
         if (!isNaN(n) && n > maxNum) maxNum = n;
       }
     });
     return prefix + String(maxNum + 1).padStart(3, "0");
   }
 
-  /* ---------- save nouvel exo ---------- */
   const handleSaveExercise = async () => {
     if (!section) {
       toast({ status: "warning", title: TXT.missingSection, description: TXT.missingSectionDesc });
@@ -321,7 +884,7 @@ export default function ExerciseBank({
         image_homme: "",
         image_femme: "",
         parametres_objectif: generateDefaultParams(),
-        id
+        id,
       };
       const docName = slug(newExercise.nom);
       await setDoc(doc(collection(db, section), docName), allFields);
@@ -330,12 +893,11 @@ export default function ExerciseBank({
       setNewExercise(defaultExercise);
       setSection("");
 
-      // recharge de la section ajoutée + dédup globale
       startTransition(() => {
         (async () => {
           const snap = await getDocs(collection(db, section));
-          const addeds = snap.docs.map(d => ({ id: d.id, ...d.data(), __collection: section }));
-          setExercises(prev => dedupeByUid([...prev.filter(e => e.__collection !== section), ...addeds]));
+          const addeds = snap.docs.map((d) => ({ id: d.id, ...d.data(), __collection: section }));
+          setExercises((prev) => dedupeByUid([...prev.filter((e) => e.__collection !== section), ...addeds]));
         })();
       });
     } catch (e) {
@@ -343,27 +905,33 @@ export default function ExerciseBank({
     }
   };
 
-  /* ---------- clics sécurisés ---------- */
   const addingRef = useRef(false);
-  const safeAdd = useCallback((item) => {
-    if (!onAdd || addingRef.current) return;
-    addingRef.current = true;
-    try {
-      onAdd(item);
+  const safeAdd = useCallback(
+    (item) => {
+      if (!onAdd || addingRef.current) return;
+      addingRef.current = true;
+      try {
+        onAdd(item);
+        if (isBuilder && isMobile) requestAnimationFrame(() => onClose?.());
+      } finally {
+        setTimeout(() => {
+          addingRef.current = false;
+        }, 120);
+      }
+    },
+    [onAdd, isBuilder, isMobile, onClose]
+  );
+
+  const safeReplace = useCallback(
+    (item) => {
+      onReplace && onReplace(item);
       if (isBuilder && isMobile) requestAnimationFrame(() => onClose?.());
-    } finally {
-      setTimeout(() => { addingRef.current = false; }, 120);
-    }
-  }, [onAdd, isBuilder, isMobile, onClose]);
+    },
+    [onReplace, isBuilder, isMobile, onClose]
+  );
 
-  const safeReplace = useCallback((item) => {
-    onReplace && onReplace(item);
-    if (isBuilder && isMobile) requestAnimationFrame(() => onClose?.());
-  }, [onReplace, isBuilder, isMobile, onClose]);
-
-  /* ---------- UI ---------- */
-  const cardBg = useColorModeValue("gray.100","gray.700");
-  const inputBg = useColorModeValue("white","gray.600");
+  const cardBg = useColorModeValue("gray.100", "gray.700");
+  const inputBg = useColorModeValue("white", "gray.600");
 
   const renderBank = () => (
     <Box
@@ -374,121 +942,195 @@ export default function ExerciseBank({
       p={4}
       w="100%"
       minW={{ base: "auto", md: "360px" }}
-      transition="width 0.2s"
       maxH="none"
-      onClick={(e)=>e.stopPropagation()}
-      onMouseDown={(e)=>e.stopPropagation()}
-      onTouchStart={(e)=>e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
     >
-      {/* Barre de recherche */}
-      <HStack spacing={2} mb={3} align="center" wrap="wrap">
-        <InputGroup>
-          <Input
-            value={searchTermUI}
-            onChange={(e) => setSearchTermUI(e.target.value)}
-            placeholder={TXT.search}
-            bg={inputBg}
-          />
-          {searchTermUI && (
-            <InputRightElement width="2.5rem">
-              <IconButton
-                aria-label="Clear"
-                size="sm"
-                variant="ghost"
-                icon={<CloseIcon boxSize={3} />}
-                onClick={() => {
-                  setSearchTermUI("");
-                  try { document.querySelector("#exercise-bank-scroll")?.scrollTo({ top: 0, behavior: "smooth" }); } catch {}
-                }}
-              />
-            </InputRightElement>
-          )}
-        </InputGroup>
+      <Box position="relative" zIndex={5}>
+        <HStack spacing={2} mb={3} align="center" wrap="wrap">
+          <InputGroup>
+            <Input
+              value={searchTermUI}
+              onChange={(e) => setSearchTermUI(e.target.value)}
+              placeholder={TXT.search}
+              bg={inputBg}
+            />
+            {searchTermUI && (
+              <InputRightElement width="2.5rem">
+                <IconButton
+                  aria-label="Clear"
+                  size="sm"
+                  variant="ghost"
+                  icon={<CloseIcon boxSize={3} />}
+                  onClick={() => {
+                    setSearchTermUI("");
+                    try {
+                      document
+                        .querySelector("#exercise-bank-scroll")
+                        ?.scrollTo({ top: 0, behavior: "smooth" });
+                    } catch {}
+                  }}
+                  type="button"
+                />
+              </InputRightElement>
+            )}
+          </InputGroup>
 
-        <IconButton
-          aria-label={TXT.toggleFilters}
-          icon={<FaFilter />}
-          onClick={() => setShowFilters(f => !f)}
-          variant="outline"
-          colorScheme="blue"
-          type="button"
-        />
+          <IconButton
+            aria-label={TXT.toggleFilters}
+            icon={<FaFilter />}
+            onClick={() => setShowFilters((f) => !f)}
+            variant={showFilters ? "solid" : "outline"}
+            colorScheme="blue"
+            type="button"
+          />
+
+          <Button
+            colorScheme="blue"
+            leftIcon={<FaPlus />}
+            onClick={onAddOpen}
+            minW="170px"
+            maxW="100%"
+            whiteSpace="normal"
+            fontWeight="bold"
+            fontSize="md"
+            type="button"
+          >
+            {TXT.addExercise}
+          </Button>
+        </HStack>
 
         <Button
+          leftIcon={<FaRedo />}
+          variant="outline"
           colorScheme="blue"
-          leftIcon={<FaPlus />}
-          onClick={onAddOpen}
-          minW="170px"
-          maxW="100%"
-          whiteSpace="normal"
-          fontWeight="bold"
-          fontSize="md"
-          type="button"
-        >
-          {TXT.addExercise}
-        </Button>
-      </HStack>
-
-      {/* Réinitialiser */}
-      <Button
-        leftIcon={<FaRedo />}
-        variant="outline"
-        colorScheme="blue"
-        mb={showFilters ? 3 : 4}
-        onClick={() => {
-          startTransition(() => {
+          mb={showFilters ? 3 : 4}
+          onClick={() => {
             setSearchTermUI("");
             setSearchTerm("");
             setFilters(DEFAULT_FILTERS);
-          });
-          try { document.querySelector("#exercise-bank-scroll")?.scrollTo({ top: 0, behavior: "smooth" }); } catch {}
-        }}
-        type="button"
-      >
-        {TXT.reset}
-      </Button>
+            try {
+              document.querySelector("#exercise-bank-scroll")?.scrollTo({ top: 0, behavior: "smooth" });
+            } catch {}
+          }}
+          type="button"
+        >
+          {TXT.reset}
+        </Button>
 
-      {showFilters && (
-        <VStack spacing={3} mb={4} align="stretch">
-          <Select
-            value={filters.muscle ?? muscleOptions[0]}
-            onChange={(e) => startTransition(() => setFilters(f => ({ ...f, muscle: e.target.value })))}
-            bg={inputBg}
-          >
-            {muscleOptions.slice().sort((a,b)=>a.localeCompare(b, L === "fr" ? "fr" : "en")).map((o) => <option key={o}>{o}</option>)}
-          </Select>
-          <Select
-            value={filters.position ?? positionOptions[0]}
-            onChange={(e) => startTransition(() => setFilters(f => ({ ...f, position: e.target.value })))}
-            bg={inputBg}
-          >
-            {positionOptions.slice().sort((a,b)=>a.localeCompare(b, L === "fr" ? "fr" : "en")).map((o) => <option key={o}>{o}</option>)}
-          </Select>
-          <Select
-            value={filters.equipment ?? equipmentOptions[0]}
-            onChange={(e) => startTransition(() => setFilters(f => ({ ...f, equipment: e.target.value })))}
-            bg={inputBg}
-          >
-            {equipmentOptions.slice().sort((a,b)=>a.localeCompare(b, L === "fr" ? "fr" : "en")).map((o) => <option key={o}>{o}</option>)}
-          </Select>
-          <Select
-            value={filters.objective ?? objectiveOptions[0]}
-            onChange={(e) => startTransition(() => setFilters(f => ({ ...f, objective: e.target.value })))}
-            bg={inputBg}
-          >
-            {objectiveOptions.slice().sort((a,b)=>a.localeCompare(b, L === "fr" ? "fr" : "en")).map((o) => <option key={o}>{o}</option>)}
-          </Select>
-        </VStack>
-      )}
+        {showFilters && (
+          <VStack spacing={3} mb={4} align="stretch">
+            <Text fontSize="sm" opacity={0.8} fontWeight="600">
+              {TXT.filterMuscle}
+            </Text>
+            <Select
+              value={filters.muscle ?? muscleOptions[0]}
+              onChange={(e) => setFilters((f) => ({ ...f, muscle: e.target.value }))}
+              bg={inputBg}
+            >
+              {keepFirstSorted(muscleOptions, locale).map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </Select>
+
+            <Text fontSize="sm" opacity={0.8} fontWeight="600">
+              {TXT.filterSecondaryMuscle}
+            </Text>
+            <Select
+              value={filters.secondaryMuscle ?? secondaryMuscleOptions[0]}
+              onChange={(e) => setFilters((f) => ({ ...f, secondaryMuscle: e.target.value }))}
+              bg={inputBg}
+            >
+              {keepFirstSorted(secondaryMuscleOptions, locale).map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </Select>
+
+            <Text fontSize="sm" opacity={0.8} fontWeight="600">
+              {TXT.filterJoint}
+            </Text>
+            <Select
+              value={filters.joint ?? jointOptions[0]}
+              onChange={(e) => setFilters((f) => ({ ...f, joint: e.target.value }))}
+              bg={inputBg}
+            >
+              {keepFirstSorted(jointOptions, locale).map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </Select>
+
+            <Text fontSize="sm" opacity={0.8} fontWeight="600">
+              {TXT.filterPosition}
+            </Text>
+            <Select
+              value={filters.position ?? positionOptions[0]}
+              onChange={(e) => setFilters((f) => ({ ...f, position: e.target.value }))}
+              bg={inputBg}
+            >
+              {keepFirstSorted(positionOptions, locale).map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </Select>
+
+            <Text fontSize="sm" opacity={0.8} fontWeight="600">
+              {TXT.filterEquipment}
+            </Text>
+            <Select
+              value={filters.equipment ?? equipmentOptions[0]}
+              onChange={(e) => setFilters((f) => ({ ...f, equipment: e.target.value }))}
+              bg={inputBg}
+            >
+              {keepFirstSorted(equipmentOptions, locale).map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </Select>
+
+            <Text fontSize="sm" opacity={0.8} fontWeight="600">
+              {TXT.filterObjective}
+            </Text>
+            <Select
+              value={filters.objective ?? objectiveOptions[0]}
+              onChange={(e) => setFilters((f) => ({ ...f, objective: e.target.value }))}
+              bg={inputBg}
+            >
+              {keepFirstSorted(objectiveOptions, locale).map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </Select>
+          </VStack>
+        )}
+      </Box>
 
       {loading ? (
         <Spinner size="xl" my={10} />
       ) : (
-        <Box id="exercise-bank-scroll" h="calc(100vh - 220px)" overflowY="auto" pr={1}>
+        <Box
+          id="exercise-bank-scroll"
+          position="relative"
+          zIndex={1}
+          mt={2}
+          h="calc(100vh - 260px)"
+          overflowY="auto"
+          pr={1}
+          sx={{ img: { display: "none !important" } }}
+        >
           <SimpleGrid minChildWidth="260px" spacing={4}>
             {filtered.map((ex) => (
               <ExerciseCard
-                key={uidFor(ex)}               // clé stable & unique
+                key={uidFor(ex)}
                 exercise={ex}
                 onAdd={(item) => safeAdd(item)}
                 onReplace={(item) => safeReplace(item)}
@@ -503,11 +1145,14 @@ export default function ExerciseBank({
     </Box>
   );
 
-  /* ---------- modal ajout exo ---------- */
   const renderAddModal = () => (
     <Modal
       isOpen={isAddOpen}
-      onClose={() => { onAddClose(); setNewExercise(defaultExercise); setSection(""); }}
+      onClose={() => {
+        onAddClose();
+        setNewExercise(defaultExercise);
+        setSection("");
+      }}
       size="xl"
       scrollBehavior="inside"
     >
@@ -522,7 +1167,7 @@ export default function ExerciseBank({
             <Select
               placeholder={TXT.chooseSection}
               value={section}
-              onChange={e => setSection(e.target.value)}
+              onChange={(e) => setSection(e.target.value)}
               isRequired
             >
               <option value="warmup">{TXT.warmup}</option>
@@ -534,54 +1179,64 @@ export default function ExerciseBank({
             <Input
               placeholder={TXT.namePH}
               value={newExercise.nom}
-              onChange={e => setNewExercise(x => ({ ...x, nom: e.target.value }))}
+              onChange={(e) => setNewExercise((x) => ({ ...x, nom: e.target.value }))}
               isRequired
             />
 
             <Input
               placeholder={TXT.groupsPH}
               value={Array.isArray(newExercise.groupe_musculaire) ? newExercise.groupe_musculaire.join(", ") : ""}
-              onChange={e => setNewExercise(x => ({
-                ...x,
-                groupe_musculaire: e.target.value.split(",").map(v => v.trim()).filter(Boolean)
-              }))}
+              onChange={(e) =>
+                setNewExercise((x) => ({
+                  ...x,
+                  groupe_musculaire: e.target.value.split(",").map((v) => v.trim()).filter(Boolean),
+                }))
+              }
             />
             <Input
               placeholder={TXT.goalsPH}
               value={Array.isArray(newExercise.objectifs) ? newExercise.objectifs.join(", ") : ""}
-              onChange={e => setNewExercise(x => ({
-                ...x,
-                objectifs: e.target.value.split(",").map(v => v.trim()).filter(Boolean)
-              }))}
+              onChange={(e) =>
+                setNewExercise((x) => ({
+                  ...x,
+                  objectifs: e.target.value.split(",").map((v) => v.trim()).filter(Boolean),
+                }))
+              }
             />
             <Input
               placeholder={TXT.equipPH}
               value={Array.isArray(newExercise.materiel) ? newExercise.materiel.join(", ") : ""}
-              onChange={e => setNewExercise(x => ({
-                ...x,
-                materiel: e.target.value.split(",").map(v => v.trim()).filter(Boolean)
-              }))}
+              onChange={(e) =>
+                setNewExercise((x) => ({
+                  ...x,
+                  materiel: e.target.value.split(",").map((v) => v.trim()).filter(Boolean),
+                }))
+              }
             />
             <Input
               placeholder={TXT.posPH}
               value={Array.isArray(newExercise.position) ? newExercise.position.join(", ") : ""}
-              onChange={e => setNewExercise(x => ({
-                ...x,
-                position: e.target.value.split(",").map(v => v.trim()).filter(Boolean)
-              }))}
+              onChange={(e) =>
+                setNewExercise((x) => ({
+                  ...x,
+                  position: e.target.value.split(",").map((v) => v.trim()).filter(Boolean),
+                }))
+              }
             />
 
             <Divider />
             <Text fontWeight="bold">{TXT.cues}</Text>
-            {["Positionnement","Mouvement","Retour","Respiration","Posture"].map(c => (
+            {["Positionnement", "Mouvement", "Retour", "Respiration", "Posture"].map((c) => (
               <Textarea
                 key={c}
                 placeholder={c}
                 value={newExercise.consignes?.[c] || ""}
-                onChange={e => setNewExercise(x => ({
-                  ...x,
-                  consignes: { ...(x.consignes || {}), [c]: e.target.value }
-                }))}
+                onChange={(e) =>
+                  setNewExercise((x) => ({
+                    ...x,
+                    consignes: { ...(x.consignes || {}), [c]: e.target.value },
+                  }))
+                }
               />
             ))}
           </VStack>
@@ -593,7 +1248,11 @@ export default function ExerciseBank({
           <Button
             variant="ghost"
             colorScheme="blue"
-            onClick={() => { onAddClose(); setNewExercise(defaultExercise); setSection(""); }}
+            onClick={() => {
+              onAddClose();
+              setNewExercise(defaultExercise);
+              setSection("");
+            }}
             type="button"
           >
             {TXT.cancel}
@@ -603,7 +1262,6 @@ export default function ExerciseBank({
     </Modal>
   );
 
-  /* ---------- rendu (drawer mobile) ---------- */
   if (isBuilder && isMobile) {
     return (
       <>
@@ -616,11 +1274,15 @@ export default function ExerciseBank({
           bottom="22px"
           right="20px"
           zIndex={1500}
-          bg={useColorModeValue("blue.400","blue.500")}
+          bg={useColorModeValue("blue.400", "blue.500")}
           color="white"
-          _hover={{ bg: useColorModeValue("blue.500","blue.600") }}
+          _hover={{ bg: useColorModeValue("blue.500", "blue.600") }}
           boxShadow="xl"
-          onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); onOpen(); }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onOpen();
+          }}
           type="button"
         />
         <Drawer
@@ -636,9 +1298,9 @@ export default function ExerciseBank({
         >
           <DrawerOverlay />
           <DrawerContent
-            onClick={(e)=>e.stopPropagation()}
-            onMouseDown={(e)=>e.stopPropagation()}
-            onTouchStart={(e)=>e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
           >
             <DrawerCloseButton />
             <DrawerHeader>{L === "fr" ? "Banque d'exercices" : "Exercise bank"}</DrawerHeader>
@@ -657,4 +1319,3 @@ export default function ExerciseBank({
     </>
   );
 }
-

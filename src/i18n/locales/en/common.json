@@ -498,7 +498,9 @@
     "sessionsCount_other": "{{count}} sessions"
   },
 
-  "profile_short": { "title": "Profile" },
+  "profile_short": {
+    "title": "Profile"
+  },
 
   "settings": {
     "title": "Settings",
@@ -619,7 +621,9 @@
     "noPrograms": "No programs found yet.",
     "bodyComp": "Body data",
     "addMeasure": "Add measurement",
-    "modal": { "title": "New measurement" },
+    "modal": {
+      "title": "New measurement"
+    },
     "fields": {
       "date": "Date",
       "height": "Height (cm)",
@@ -774,7 +778,11 @@
     "male": "Male",
     "female": "Female",
     "level": "Level",
-    "levels": { "beginner": "Beginner", "intermediate": "Intermediate", "advanced": "Advanced" },
+    "levels": {
+      "beginner": "Beginner",
+      "intermediate": "Intermediate",
+      "advanced": "Advanced"
+    },
     "frequency": "Frequency",
     "sessionsPerWeek": "{{n}} session(s) / week",
     "goal": "Goal",
@@ -815,8 +823,12 @@
         "desc": "Fill all 4 fields to continue.",
         "create": "Fill all 4 fields to create the program."
       },
-      "paymentError": { "title": "Payment error" },
-      "createError": { "title": "Creation error" }
+      "paymentError": {
+        "title": "Payment error"
+      },
+      "createError": {
+        "title": "Creation error"
+      }
     },
     "errors": {
       "savePrefs": "Error while saving preferences.",
@@ -917,7 +929,10 @@
       "lastOn": "Last session on {{date}}",
       "none": "No sessions found"
     },
-    "status": { "active": "Active", "inactive": "Inactive" },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
     "sub": {
       "active": "Subscribed",
       "inactive": "Not subscribed",
@@ -931,10 +946,21 @@
       "sessions": "{{done}}/{{total}} sessions",
       "perWeek": "Sessions / wk: {{n}}"
     },
-    "actions": { "assign": "Assign", "deleteAria": "Delete client" },
-    "badge": { "programsShort": "prog." },
-    "assignModal": { "title": "Assign a program", "placeholder": "Select a program" },
-    "deleteModal": { "title": "Delete client", "body": "Are you sure you want to delete this client?" }
+    "actions": {
+      "assign": "Assign",
+      "deleteAria": "Delete client"
+    },
+    "badge": {
+      "programsShort": "prog."
+    },
+    "assignModal": {
+      "title": "Assign a program",
+      "placeholder": "Select a program"
+    },
+    "deleteModal": {
+      "title": "Delete client",
+      "body": "Are you sure you want to delete this client?"
+    }
   },
 
   "exerciseBank": {
@@ -945,12 +971,24 @@
     "addExercise": "Add exercise",
     "reset": "Reset",
     "options": {
-      "muscles": { "all": "All muscles" },
-      "positions": { "all": "All positions" },
-      "equipment": { "all": "All equipment", "none": "None" },
-      "objectives": { "all": "All goals" }
+      "muscles": {
+        "all": "All muscles"
+      },
+      "positions": {
+        "all": "All positions"
+      },
+      "equipment": {
+        "all": "All equipment",
+        "none": "None"
+      },
+      "objectives": {
+        "all": "All goals"
+      }
     },
-    "labels": { "shoulders": "Shoulders", "legs": "Legs" },
+    "labels": {
+      "shoulders": "Shoulders",
+      "legs": "Legs"
+    },
     "modal": {
       "addTitle": "Add a new exercise",
       "chooseSection": "Choose section",
@@ -1018,7 +1056,10 @@
       "saving": "Saving...",
       "unsaved": "Unsaved"
     },
-    "units": { "weight": "Weight", "speed": "Speed" },
+    "units": {
+      "weight": "Weight",
+      "speed": "Speed"
+    },
     "cta": {
       "createShort": "Create",
       "saveShort": "Save",
@@ -1028,8 +1069,13 @@
     "untitled": "Untitled program",
     "defaultSession": "Session 1",
     "sessionN": "Session {{n}}",
-    "badge": { "sections": "SECTIONS" },
-    "actions": { "add": "+ Add", "duplicate": "Duplicate" },
+    "badge": {
+      "sections": "SECTIONS"
+    },
+    "actions": {
+      "add": "+ Add",
+      "duplicate": "Duplicate"
+    },
     "totalTime": "Total time",
     "enableSections": "Enable sections",
     "copySuffix": "(copy)",
@@ -1039,21 +1085,28 @@
       "bonus": "Bonus",
       "cooldown": "Cool-down"
     },
-    "options": { "title": "Options" },
+    "options": {
+      "title": "Options"
+    },
     "labels": {
       "weightKg": "Load (kg)",
       "weightLbs": "Weight (lbs)",
       "speedKmh": "Speed (km/h)",
       "speedMph": "Speed (mph)"
     },
-    "notes": { "title": "Notes", "placeholder": "Add a note (cue, reminder, etc.)" },
+    "notes": {
+      "title": "Notes",
+      "placeholder": "Add a note (cue, reminder, etc.)"
+    },
     "advancedSets": {
       "title": "Advanced sets (different per set)",
       "fillFromGlobals": "Fill from global values",
       "addSet": "+ Add a set",
       "removeLast": "– Remove last set"
     },
-    "sets": { "set": "Set" },
+    "sets": {
+      "set": "Set"
+    },
     "aria": {
       "deleteSession": "Delete session",
       "replace": "Replace",
@@ -1082,7 +1135,9 @@
     }
   },
 
-  "statsShort": { "compareSession": "Compare a session" },
+  "statsShort": {
+    "compareSession": "Compare a session"
+  },
 
   "compare": {
     "pick": "Compare:",
@@ -1149,11 +1204,9 @@
     "exerciseCounter": "Exercise {{i}} / {{n}}",
     "program": "Program",
     "sessionN": "Session {{n}}",
-
     "ready": "READY",
     "work": "WORK",
     "rest": "REST",
-
     "setCounter": "Set {{i}}/{{n}}",
     "start": "Start",
     "finishSet": "Finish set",
@@ -1164,75 +1217,236 @@
     "skip": "Skip exercise",
     "upNext": "Up next",
     "finishWorkout": "Finish workout",
-
     "advSets": "Different sets",
     "notes": "Notes",
     "addNotePh": "Add a note for this exercise…",
-
     "constraints": "Constraints",
     "cues": "Execution cues",
-
     "currentSet": "Current set:",
     "setN": "Set {{n}}",
-
     "empty": "Session not found or empty.",
     "rateTitle": "Rate the difficulty"
   },
 
-"about": {
-  "title": "About",
-  "intro": "Welcome to <b>Boost Your Life</b>! Our mission is to make training effective, clear and motivating so you progress every week — without getting lost in complicated plans.",
-  "mission": {
-    "title": "Our mission",
-    "body": "We build personalised programs that adapt to your level, time and goals (fat loss, muscle gain, performance, getting back in shape). Everything is designed to be simple to follow and sustainable."
+  "about": {
+    "title": "About",
+    "intro": "Welcome to <b>Boost Your Life</b>! Our mission is to make training effective, clear and motivating so you progress every week — without getting lost in complicated plans.",
+    "mission": {
+      "title": "Our mission",
+      "body": "We build personalised programs that adapt to your level, time and goals (fat loss, muscle gain, performance, getting back in shape). Everything is designed to be simple to follow and sustainable."
+    },
+    "features": {
+      "title": "What you get",
+      "items": [
+        "A personalised program that auto-adjusts from your feedback (RPE, load, notes)",
+        "Step-by-step workouts with cues, alternatives and tempos",
+        "Smart difficulty & training-load tracking",
+        "Built-in timers (work/rest) and automatic supersets",
+        "Clear stats: progress per movement and per workout",
+        "Exercises adapted to your equipment (gym, home, minimal)",
+        "Reminders and calendar — stay consistent without thinking about it",
+        "Access to premium programs and coach support if needed"
+      ]
+    },
+    "autonomy": {
+      "title": "Your autonomy",
+      "body": "You stay in control: move a session, shorten one, add notes or request a variant. The app guides you without overload — every session counts toward your goals."
+    },
+    "why": {
+      "title": "Why it works",
+      "items": [
+        "Planned progression: load & difficulty adjust automatically",
+        "Execution clarity: know exactly what to do and when to rest",
+        "Context-aware: gym, home or minimal equipment",
+        "Frictionless consistency: reminders + integrated calendar",
+        "Trackable progress: simple tables per session and movement"
+      ]
+    },
+    "cta": "Get started"
   },
-  "features": {
-    "title": "What you get",
-    "items": [
-      "A personalised program that auto-adjusts from your feedback (RPE, load, notes)",
-      "Step-by-step workouts with cues, alternatives and tempos",
-      "Smart difficulty & training-load tracking",
-      "Built-in timers (work/rest) and automatic supersets",
-      "Clear stats: progress per movement and per workout",
-      "Exercises adapted to your equipment (gym, home, minimal)",
-      "Reminders and calendar — stay consistent without thinking about it",
-      "Access to premium programs and coach support if needed"
-    ]
-  },
-  "autonomy": {
-    "title": "Your autonomy",
-    "body": "You stay in control: move a session, shorten one, add notes or request a variant. The app guides you without overload — every session counts toward your goals."
-  },
-  "why": {
-    "title": "Why it works",
-    "items": [
-      "Planned progression: load & difficulty adjust automatically",
-      "Execution clarity: know exactly what to do and when to rest",
-      "Context-aware: gym, home or minimal equipment",
-      "Frictionless consistency: reminders + integrated calendar",
-      "Trackable progress: simple tables per session and movement"
-    ]
-  },
-  "cta": "Get started"
-},
 
-"contact": {
-  "title": "Contact",
-  "intro": "Questions or feedback? Send us a message.",
-  "fields": {
-    "name": { "label": "Name", "placeholder": "Your name" },
-    "email": { "label": "Email", "placeholder": "you@email.com" },
-    "message": { "label": "Message", "placeholder": "Tell us how we can help…" }
+  "contact": {
+    "title": "Contact",
+    "intro": "Questions or feedback? Send us a message.",
+    "fields": {
+      "name": {
+        "label": "Name",
+        "placeholder": "Your name"
+      },
+      "email": {
+        "label": "Email",
+        "placeholder": "you@email.com"
+      },
+      "message": {
+        "label": "Message",
+        "placeholder": "Tell us how we can help…"
+      }
+    },
+    "submit": "Send",
+    "success_title": "Message sent ✅",
+    "success_desc": "Thanks! We’ll get back to you shortly.",
+    "error_title": "Couldn’t send",
+    "error_desc": "Something went wrong. Please try again.",
+    "validation": {
+      "required": "This field is required.",
+      "email": "Invalid email address.",
+      "min_message": "Your message must be at least {{min}} characters."
+    }
   },
-  "submit": "Send",
-  "success_title": "Message sent ✅",
-  "success_desc": "Thanks! We’ll get back to you shortly.",
-  "error_title": "Couldn’t send",
-  "error_desc": "Something went wrong. Please try again.",
-  "validation": {
-    "required": "This field is required.",
-    "email": "Invalid email address.",
-    "min_message": "Your message must be at least {{min}} characters."
+
+  "homePro": {
+    "hero": {
+      "titleLine1": "Fitness coach,",
+      "titleLine2": "Create. Track. Progress.",
+      "subtitle": "Create programs, schedule them in a calendar, run sessions live, and track your clients’ history and progress — all in one place.",
+      "proofs": {
+        "p1": {
+          "title": "Custom programs",
+          "desc": "Create professional programs without complexity."
+        },
+        "p2": {
+          "title": "Structured tracking",
+          "desc": "History, progress, and body metrics centralized."
+        },
+        "p3": {
+          "title": "Client space included",
+          "desc": "Clients follow the session; you stay in control."
+        }
+      },
+      "cta": "Try the Pro space (14 days, no card)",
+      "hint": "Setup in minutes • Decide after the trial",
+      "scroll": "See what you get ↓"
+    },
+
+    "benefits": {
+      "title": "What you get with the Pro space",
+      "subtitle": "A clear, professional tool to create programs, organize your clients, and track their progress — without Excel, scattered notes, or piling files.",
+      "cards": {
+        "c1": {
+          "title": "Create professional programs without complexity",
+          "desc": "Clean, structured sessions: sets, reps, loads, rest, work time, cues, notes… plus clean exports."
+        },
+        "c2": {
+          "title": "Built-in calendar",
+          "desc": "Schedule sessions, see status (upcoming / completed / missed), and stay fully organized."
+        },
+        "c3": {
+          "title": "Live guided session",
+          "desc": "Run sessions exercise by exercise: all values are editable in real time and stay synchronized."
+        },
+        "c4": {
+          "title": "Complete tracking",
+          "desc": "Session history, progress, and body tracking (weight, measurements, etc.) in one place."
+        }
+      },
+      "cta": "Simplify my coaching (14-day trial)",
+      "hint": "No card required • Full access instantly"
+    },
+
+    "mockup": {
+      "title": "The coach builds, the client progresses",
+      "p1": "The Pro space is built for your day-to-day coaching: you build programs, schedule, adjust, and track. On their side, clients simply follow the session on mobile (on their own or with you). Result: smoother, clearer, more professional coaching.",
+      "p2": "All data stays centralized and ready to adjust: sets, reps, loads, work time, rest, notes…",
+      "cta": "Centralize my programs (14 days)",
+      "hint": "No card required • Decide after the trial",
+      "imageAlt": "Pro space preview"
+    },
+
+    "how": {
+      "title": "How it works (in practice)",
+      "coach": {
+        "title": "Coach side",
+        "steps": {
+          "s1": "1) Create a program / session in minutes.",
+          "s2": "2) Schedule it in the calendar and assign it to your clients.",
+          "s3": "3) Track workouts, progress, and body metrics (weight, measurements, etc.)."
+        },
+        "gainTitle": "What you gain:",
+        "gains": {
+          "g1": "Clear, fully controlled organization",
+          "g2": "More professional, more credible results",
+          "g3": "Less admin, more coaching"
+        }
+      },
+      "student": {
+        "title": "Client side",
+        "steps": {
+          "s1": "1) They see their sessions in their calendar.",
+          "s2": "2) They follow a guided session on mobile.",
+          "s3": "3) They validate it, and history syncs back to you."
+        },
+        "benefitTitle": "For the client:",
+        "benefits": {
+          "b1": "A clear session, no confusion",
+          "b2": "Visible progress (more motivating)",
+          "b3": "Fewer mistakes, more consistency"
+        }
+      }
+    },
+
+    "promise": {
+      "title": "Our promise",
+      "subtitle": "No more Excel or paper programs: switch to a clear, professional tool that simplifies your day, strengthens your credibility, and saves real time.",
+      "cards": {
+        "simplicity": {
+          "title": "Simplicity",
+          "desc": "Build sessions with a clear tool and an organized, up-to-date exercise library. Less patchwork, more consistency."
+        },
+        "speed": {
+          "title": "Speed",
+          "desc": "Creating and updating programs in Excel/paper quickly becomes time-consuming. On average, a coach can get back ~5 to 8 hours per month by centralizing their method here."
+        },
+        "centralized": {
+          "title": "All centralized",
+          "desc": "Programs, calendar, sessions, progress and body metrics in one place — for a clear, controlled organization."
+        }
+      },
+      "ctaBlock": {
+        "title": "Go Pro, with no commitment",
+        "desc": "The 14-day trial requires no card. The goal is simple: let you test with your real clients and feel the time savings and clarity in your organization.",
+        "cta": "Try the Pro space (14 days, no card)",
+        "hint": "Full access instantly • Decide after the trial"
+      },
+      "forYouTitle": "This is for you if…",
+      "forYou": {
+        "f1": "You want to stop “patchworking” programs in Excel / on paper",
+        "f2": "You want a clear organization (calendar + tracking)",
+        "f3": "You want to save time every week",
+        "f4": "You want a pro result that strengthens your credibility",
+        "f5": "You want to centralize tracking (sessions + progress + body metrics)"
+      }
+    },
+
+    "faq": {
+      "title": "Frequently asked questions",
+      "items": {
+        "q1": {
+          "q": "Is it easy to set up and adapt to my coaching method?",
+          "a": "Yes. You can start simple (one session, one client) and structure progressively. The tool adapts to your coaching style: you keep your parameters, your organization and habits — with a clearer, more professional framework."
+        },
+        "q2": {
+          "q": "Is it really useful for clients?",
+          "a": "Yes, because clients don’t need to understand your back-office: they follow a guided session that’s clear and structured. Result: fewer mistakes, more consistency, and progress that’s easier to visualize."
+        },
+        "q3": {
+          "q": "Is it compatible with remote coaching, at-home, and in-gym coaching?",
+          "a": "Yes. You can coach in person, on video, or let clients train independently. In all cases, the calendar, history, and progress remain centralized."
+        },
+        "q4": {
+          "q": "What happens after the 14 days?",
+          "a": "You’ll have time to test the tool with your real routine. The trial is no-card: you choose what’s next only if you see real value (time saved, clarity, pro output)."
+        },
+        "q5": {
+          "q": "How does it help me look more professional?",
+          "a": "Your programs become clearer and better structured, and your tracking becomes easier to follow. Less improvisation, more control — that’s what clients feel, and what boosts your credibility."
+        },
+        "q6": {
+          "q": "Can I track more than just sessions (measurements, data…)?",
+          "a": "Yes. You can also centralize body metrics like weight, measurements, and other indicators to complement session tracking and visualize progress over time."
+        }
+      },
+      "cta": "Try the Pro space (14 days, no card)",
+      "hint": "Full access instantly • Decide after the trial"
+    }
   }
-}
 }
