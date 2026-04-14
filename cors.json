@@ -6,7 +6,7 @@
       "http://localhost:5173"
     ],
     "method": ["GET", "HEAD", "OPTIONS"],
-    "responseHeader": ["Content-Type"],
+    "responseHeader": ["Content-Type", "access-control-allow-origin"],
     "maxAgeSeconds": 3600
   }
 ]

@@ -79,6 +79,7 @@ import i18n from "../i18n";
 
 const localizer = momentLocalizer(moment);
 const MAX_DISPLAY = 5;
+const FORCE_SESSION_DURATION_MIN = 60;
 
 /* ---------- Utils ---------- */
 function getTotalSessionsFromProgrammeDoc(p) {
@@ -94,26 +95,27 @@ const toMillis = (ts) =>
   ts?.toDate
     ? ts.toDate().getTime()
     : typeof ts === "number"
-    ? ts > 1e12
-      ? ts
-      : ts * 1000
-    : ts instanceof Date
-    ? ts.getTime()
-    : typeof ts === "string"
-    ? Date.parse(ts) || 0
-    : 0;
+      ? ts > 1e12
+        ? ts
+        : ts * 1000
+      : ts instanceof Date
+        ? ts.getTime()
+        : typeof ts === "string"
+          ? Date.parse(ts) || 0
+          : 0;
 
-// ✅ Helpers “nom identique Builder”
 const capitalizeFirst = (s = "") => {
   const str = String(s || "").trim();
   if (!str) return "";
   return str.charAt(0).toUpperCase() + str.slice(1);
 };
+
 const prettifyKey = (key = "") => {
   const s = String(key || "").trim();
   if (!s) return "";
   return s.replace(/_/g, " ").replace(/\s+/g, " ").trim();
 };
+
 const makeDefaultProgramName = (objectifUIKey, objectifFallback, nbSeances) => {
   const baseKey = objectifUIKey || objectifFallback || "";
   const label = capitalizeFirst(prettifyKey(baseKey));
@@ -121,9 +123,10 @@ const makeDefaultProgramName = (objectifUIKey, objectifFallback, nbSeances) => {
   if (!label) return `Programme — ${n}x/Sem`;
   return `${label} — ${n}x/Sem`;
 };
+
 const normalizeNameForCompare = (s = "") =>
   String(s || "")
-    .replace(/\u2014/g, "-") // — -> -
+    .replace(/\u2014/g, "-")
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
@@ -145,9 +148,7 @@ const isLegacyAutoName = (existingName, objectifUIKey, objectifFallback, nbSeanc
 
   if (!cur) return true;
   if (cur === candidateNew) return true;
-  if (cur === old1 || cur === old2 || cur === old3 || cur === old4 || cur === old5 || cur === old6)
-    return true;
-
+  if (cur === old1 || cur === old2 || cur === old3 || cur === old4 || cur === old5 || cur === old6) return true;
   if (objectifFallback && cur === normalizeNameForCompare(objectifFallback)) return true;
   if (objectifUIKey && cur === normalizeNameForCompare(objectifUIKey)) return true;
 
@@ -159,33 +160,6 @@ const getClientFullName = (c) => {
   return n || "";
 };
 
-/**
- * ✅ FIX calendrier (séances effectuées “disparaissent”)
- * Le bug le + fréquent : sessionIndex manquant/null dans sessionsEffectuees (ou dans sessions planifiées),
- * donc _matchKey devient "...__?__?" et plusieurs séances se “dédupliquent” entre elles.
- *
- * => On fabrique une clé stable :
- * - si sessionIndex existe : on l’utilise
- * - sinon : on utilise un timeKey basé sur startMs (minute) + un fallbackId
- */
-const makeMatchKey = ({ clientId, programmeId, sessionIndex, startMs, fallbackId }) => {
-  const c = clientId || "?";
-  const p = programmeId || "?";
-
-  if (sessionIndex !== null && sessionIndex !== undefined && sessionIndex !== "" && Number.isFinite(Number(sessionIndex))) {
-    return `${c}__${p}__idx:${Number(sessionIndex)}`;
-  }
-
-  const ms = Number(startMs || 0);
-  const minuteKey = ms > 0 ? Math.floor(ms / 60000) : 0;
-  const fid = fallbackId ? String(fallbackId) : "?";
-  return `${c}__${p}__t:${minuteKey}__${fid}`;
-};
-
-/**
- * Essaie de récupérer une “date de complétion” dans une entrée sessionsEffectuees.
- * ✅ FIX: élargit la liste des champs possibles (selon tes historiques)
- */
 const getCompletedDate = (s) => {
   const d =
     s?.dateEffectuee?.toDate?.() ||
@@ -193,30 +167,31 @@ const getCompletedDate = (s) => {
     s?.playedAt?.toDate?.() ||
     s?.timestamp?.toDate?.() ||
     s?.date?.toDate?.() ||
-    s?.createdAt?.toDate?.() ||
-    s?.updatedAt?.toDate?.() ||
+    s?.validatedAt?.toDate?.() ||
+    s?.startedAt?.toDate?.() ||
     s?.endedAt?.toDate?.() ||
     s?.endAt?.toDate?.() ||
     s?.finishedAt?.toDate?.() ||
-    s?.validatedAt?.toDate?.() ||
+    s?.updatedAt?.toDate?.() ||
+    s?.createdAt?.toDate?.() ||
     (typeof s?.dateEffectuee === "string" ? new Date(s.dateEffectuee) : null) ||
     (typeof s?.completedAt === "string" ? new Date(s.completedAt) : null) ||
     (typeof s?.playedAt === "string" ? new Date(s.playedAt) : null) ||
     (typeof s?.timestamp === "string" ? new Date(s.timestamp) : null) ||
     (typeof s?.date === "string" ? new Date(s.date) : null) ||
-    (typeof s?.createdAt === "string" ? new Date(s.createdAt) : null) ||
-    (typeof s?.updatedAt === "string" ? new Date(s.updatedAt) : null) ||
+    (typeof s?.validatedAt === "string" ? new Date(s.validatedAt) : null) ||
+    (typeof s?.startedAt === "string" ? new Date(s.startedAt) : null) ||
     (typeof s?.endedAt === "string" ? new Date(s.endedAt) : null) ||
+    (typeof s?.endAt === "string" ? new Date(s.endAt) : null) ||
     (typeof s?.finishedAt === "string" ? new Date(s.finishedAt) : null) ||
+    (typeof s?.updatedAt === "string" ? new Date(s.updatedAt) : null) ||
+    (typeof s?.createdAt === "string" ? new Date(s.createdAt) : null) ||
     null;
 
   if (!d || Number.isNaN(d.getTime())) return null;
   return d;
 };
 
-/**
- * Déduit un index de séance si possible (selon ton historique de champs).
- */
 const getSessionIndex = (s) => {
   const v =
     s?.sessionIndex ??
@@ -226,16 +201,15 @@ const getSessionIndex = (s) => {
     s?.session_number ??
     s?.sessionNumber ??
     null;
+
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 };
 
-/**
- * Titre lisible d’une séance complétée.
- */
 const getCompletedTitle = (s, t) => {
   const idx = getSessionIndex(s);
   return (
+    s?.sessionTitle ||
     s?.title ||
     s?.name ||
     s?.nom ||
@@ -245,24 +219,13 @@ const getCompletedTitle = (s, t) => {
   );
 };
 
-/* -------------------- Difficulte (rating) helpers -------------------- */
-/**
- * Normalise un rating 1..5
- * ✅ IMPORTANT : si vide / null => null (pas de fallback à 1)
- */
 const normRating = (v) => {
   if (v === null || v === undefined || v === "") return null;
   const n = Number(v);
   if (!Number.isFinite(n)) return null;
-  const clamped = Math.max(1, Math.min(5, Math.round(n)));
-  return clamped;
+  return Math.max(1, Math.min(5, Math.round(n)));
 };
 
-/**
- * Construit un map { sessionIndex -> { rating, createdAtMs } } à partir des docs difficulté_notes
- * On garde le plus récent pour chaque sessionIndex.
- * ✅ Ignore les ratings null/undefined
- */
 const buildDifficultyMap = (notesDocs = []) => {
   const map = {};
   notesDocs.forEach((d) => {
@@ -304,14 +267,68 @@ const StarsInline = ({ rating, color = "white" }) => {
   );
 };
 
-/* ✅ Détection auto programme */
 const isAutoProgramme = (p) => {
   const o = String(p?.origine || "").toLowerCase();
   return o.includes("auto");
 };
 
-/* ✅ Durée: on force 60 min */
-const FORCE_SESSION_DURATION_MIN = 60;
+const sameCalendarDay = (a, b) => {
+  if (!a || !b) return false;
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+};
+
+const normalizeLooseText = (s = "") =>
+  String(s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\u2014/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+const sameProgramFamily = (a, b) => {
+  const aProg = String(a?.programmeId || "");
+  const bProg = String(b?.programmeId || "");
+  const aBase = String(a?.baseProgrammeId || "");
+  const bBase = String(b?.baseProgrammeId || "");
+
+  if (aProg && bProg && aProg === bProg) return true;
+  if (aBase && bBase && aBase === bBase) return true;
+  if (aProg && bBase && aProg === bBase) return true;
+  if (aBase && bProg && aBase === bProg) return true;
+  return false;
+};
+
+const isStrictSameSession = (plannedEvt, completedEvt) => {
+  if (!plannedEvt || !completedEvt) return false;
+  if (plannedEvt.clientId !== completedEvt.clientId) return false;
+  if (!sameProgramFamily(plannedEvt, completedEvt)) return false;
+  if (!sameCalendarDay(plannedEvt.start, completedEvt.start)) return false;
+
+  const pIdx =
+    plannedEvt.sessionIndex !== null &&
+    plannedEvt.sessionIndex !== undefined &&
+    Number.isFinite(Number(plannedEvt.sessionIndex))
+      ? Number(plannedEvt.sessionIndex)
+      : null;
+
+  const cIdx =
+    completedEvt.sessionIndex !== null &&
+    completedEvt.sessionIndex !== undefined &&
+    Number.isFinite(Number(completedEvt.sessionIndex))
+      ? Number(completedEvt.sessionIndex)
+      : null;
+
+  if (pIdx !== null && cIdx !== null) return pIdx === cIdx;
+
+  const pTitle = normalizeLooseText(plannedEvt._sessionTitle || plannedEvt.title || "");
+  const cTitle = normalizeLooseText(completedEvt._sessionTitle || completedEvt.title || "");
+  return !!pTitle && !!cTitle && pTitle === cTitle;
+};
 
 export default function CoachDashboard() {
   const { t } = useTranslation();
@@ -327,7 +344,6 @@ export default function CoachDashboard() {
 
   const { firstName, logoUrl, primaryColor } = user || {};
 
-  // Logo (Storage -> URL signée)
   const [resolvedLogoUrl, setResolvedLogoUrl] = useState(null);
   useEffect(() => {
     let alive = true;
@@ -340,12 +356,12 @@ export default function CoachDashboard() {
     };
   }, [logoUrl]);
 
-  /* ---------- Bandeau essai ---------- */
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const tmr = setInterval(() => setNow(Date.now()), 60 * 1000);
     return () => clearInterval(tmr);
   }, []);
+
   const trialInfo = useMemo(() => {
     if (!user || user.role !== "coach") return null;
     const end = user?.trialEndsAt
@@ -362,7 +378,6 @@ export default function CoachDashboard() {
     return { days, hours, minutes };
   }, [user, now]);
 
-  /* ---------- Disclosures ---------- */
   const clientModal = useDisclosure();
   const choiceModal = useDisclosure();
   const assignModal = useDisclosure();
@@ -372,7 +387,6 @@ export default function CoachDashboard() {
   const confirmProgramModal = useDisclosure();
   const assignedToModal = useDisclosure();
 
-  /* ---------- State ---------- */
   const [clients, setClients] = useState([]);
   const [programmesBase, setProgrammesBase] = useState([]);
   const [sessions, setSessions] = useState([]);
@@ -393,7 +407,6 @@ export default function CoachDashboard() {
   const [assignedClientsMap, setAssignedClientsMap] = useState({});
   const [selectedAssignedBaseProgramId, setSelectedAssignedBaseProgramId] = useState(null);
 
-  // ✅ mapping objectif Firestore -> i18n key
   const GOAL_LABEL_KEY = useMemo(
     () => ({
       prise_de_masse: "massGain",
@@ -417,7 +430,6 @@ export default function CoachDashboard() {
     [GOAL_LABEL_KEY, t]
   );
 
-  // ✅ Nom identique Builder (collection programmes)
   const prettyProgramNameBase = useCallback((p) => {
     if (!p) return "—";
     const objectifUiKey = p.objectifUI || "";
@@ -430,7 +442,6 @@ export default function CoachDashboard() {
     return defaultName || "—";
   }, []);
 
-  // ✅ Nom identique Builder (programmes assignés)
   const prettyAssignedProgramName = useCallback((p) => {
     if (!p) return "—";
     const objectifUiKey = p.objectifUI || "";
@@ -446,7 +457,6 @@ export default function CoachDashboard() {
     return defaultName || "—";
   }, []);
 
-  /* ✅ ROUTING ROBUSTE */
   const openBaseProgram = useCallback(
     (baseProg) => {
       if (!baseProg?.id) return;
@@ -484,13 +494,11 @@ export default function CoachDashboard() {
     [navigate]
   );
 
-  /* ---------- Load data (coach uniquement) ---------- */
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!user?.uid) return;
     setLoadingData(true);
 
     try {
-      // 1) Programmes du coach (base)
       const progsQ = query(
         collection(db, "programmes"),
         where("createdBy", "==", user.uid),
@@ -501,17 +509,16 @@ export default function CoachDashboard() {
       progs.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
       setProgrammesBase(progs);
 
-      // 2) Clients du coach
       const qCreatedBy = query(collection(db, "clients"), where("createdBy", "==", user.uid), limit(500));
       const createdBySnap = await getDocs(qCreatedBy);
       let mergedClients = createdBySnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
       if (mergedClients.length === 0) {
         const qCoach = query(collection(db, "clients"), where("coachId", "==", user.uid), limit(500));
         const coachSnap = await getDocs(qCoach);
         mergedClients = coachSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       }
 
-      // 2b) Ajoute programmes assignés + sessionsEffectuees + difficulté_notes + _lastInteractionMs
       const clientsWithProgs = await Promise.all(
         mergedClients.map(async (client) => {
           const subSnap = await getDocs(collection(db, "clients", client.id, "programmes"));
@@ -526,6 +533,7 @@ export default function CoachDashboard() {
                 toMillis(prog.dateAffectation) ||
                 toMillis(prog.createdAt) ||
                 0;
+
               if (assignMs > latestAssignMs) latestAssignMs = assignMs;
 
               const sessSnap = await getDocs(
@@ -533,7 +541,6 @@ export default function CoachDashboard() {
               );
               const sessionsEffectuees = sessSnap.docs.map((docu) => ({ id: docu.id, ...docu.data() }));
 
-              // difficulté_notes
               let difficultyNotes = [];
               try {
                 const diffSnap = await getDocs(
@@ -544,12 +551,19 @@ export default function CoachDashboard() {
                   )
                 );
                 difficultyNotes = diffSnap.docs.map((x) => ({ id: x.id, ...x.data() }));
-              } catch (e) {
+              } catch {
                 difficultyNotes = [];
               }
+
               const difficultyMap = buildDifficultyMap(difficultyNotes);
 
-              return { id: d.id, ...prog, sessionsEffectuees, difficultyNotes, difficultyMap };
+              return {
+                id: d.id,
+                ...prog,
+                sessionsEffectuees,
+                difficultyNotes,
+                difficultyMap,
+              };
             })
           );
 
@@ -577,7 +591,6 @@ export default function CoachDashboard() {
       clientsWithProgs.sort((a, b) => (b._lastInteractionMs || 0) - (a._lastInteractionMs || 0));
       setClients(clientsWithProgs);
 
-      // 2c) Compteur “assigné à” + map “assigné à qui”
       const counts = {};
       const map = {};
       clientsWithProgs.forEach((c) => {
@@ -600,32 +613,45 @@ export default function CoachDashboard() {
       setAssignedCounts(counts);
       setAssignedClientsMap(map);
 
-      // Index helper : clientId -> (assignedId -> assignedProg) + (baseId -> assigned list)
       const assignedIndexByClient = new Map();
       clientsWithProgs.forEach((c) => {
         const byAssignedId = new Map();
         const byBaseId = new Map();
+
         (c.programmesAssignes || []).forEach((p) => {
           byAssignedId.set(p.id, p);
+
           const baseId = p.programId || p.programID || p.baseId || null;
           if (baseId) {
             if (!byBaseId.has(baseId)) byBaseId.set(baseId, []);
             byBaseId.get(baseId).push(p);
           }
         });
+
         assignedIndexByClient.set(c.id, { byAssignedId, byBaseId });
       });
 
-      // 3) Sessions planifiées (collection sessions)
       const clientIdSet = new Set(clientsWithProgs.map((c) => c.id));
-      const sSnap = await getDocs(collection(db, "sessions"));
-      const all = sSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-      const plannedEventsRaw = all
+      /* ---------------- planned from root sessions ---------------- */
+      const sSnap = await getDocs(collection(db, "sessions"));
+      const allRootSessions = sSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+      const plannedEventsRaw = allRootSessions
         .filter((s) => clientIdSet.has(s.clientId))
         .map((s) => {
-          const start = s.start?.toDate ? s.start.toDate() : new Date(s.start);
-          const end = s.end?.toDate ? s.end.toDate() : new Date(s.end);
+          const start =
+            s.start?.toDate?.() ||
+            (typeof s.start === "string" ? new Date(s.start) : null) ||
+            (typeof s.start === "number" ? new Date(s.start) : null);
+
+          if (!start || Number.isNaN(start.getTime())) return null;
+
+          const end =
+            s.end?.toDate?.() ||
+            (typeof s.end === "string" ? new Date(s.end) : null) ||
+            (typeof s.end === "number" ? new Date(s.end) : null) ||
+            new Date(start.getTime() + FORCE_SESSION_DURATION_MIN * 60000);
 
           const rawProgrammeId = s.programmeId || s.programId || s.programID || null;
 
@@ -633,12 +659,11 @@ export default function CoachDashboard() {
             typeof s.sessionIndex === "number"
               ? s.sessionIndex
               : Number.isFinite(Number(s.sessionIndex))
-              ? Number(s.sessionIndex)
-              : null;
+                ? Number(s.sessionIndex)
+                : null;
 
           const clientName = String(s.clientName || "").trim();
 
-          // Résolution programme assigné
           let resolvedAssignedProg = null;
           let resolvedProgrammeId = rawProgrammeId;
           let baseProgrammeId = null;
@@ -662,73 +687,47 @@ export default function CoachDashboard() {
               resolvedAssignedProg.programID ||
               resolvedAssignedProg.baseId ||
               null;
-          } else {
-            baseProgrammeId = null;
           }
 
           const programmeName = resolvedAssignedProg ? prettyAssignedProgramName(resolvedAssignedProg) : "";
-          const sessionTitle = String(s.title || "").trim();
+          const sessionTitle = String(s.title || s.sessionTitle || "").trim();
 
           const titlePieces = [];
           if (clientName) titlePieces.push(clientName);
           if (programmeName) titlePieces.push(programmeName);
           if (sessionTitle) titlePieces.push(sessionTitle);
-          const title = titlePieces.join(" - ") || sessionTitle || t("dashboard.session_planned", "Séance planifiée");
-
-          const updatedMs = Math.max(toMillis(s.updatedAt), toMillis(s.createdAt), 0);
-          const startMs = start?.getTime?.() || 0;
 
           return {
-            id: s.id,
-            title,
+            id: `planned__${s.id}`,
+            title: titlePieces.join(" - ") || t("dashboard.session_planned", "Séance planifiée"),
             start,
             end,
-            status: s.status,
+            status: s.status || "à venir",
             visibility: s.visibility || "coach",
             clientId: s.clientId,
-            programmeId: resolvedProgrammeId, // IMPORTANT pour matcher avec completed
+            programmeId: resolvedProgrammeId,
             baseProgrammeId,
             sessionIndex,
             _kind: "planned",
-            _matchKey: makeMatchKey({
-              clientId: s.clientId,
-              programmeId: resolvedProgrammeId,
-              sessionIndex,
-              startMs,
-              fallbackId: s.id,
-            }),
-            difficultyRating: null,
-            difficultyAtMs: 0,
             _clientName: clientName,
             _programmeName: programmeName || "",
             _sessionTitle: sessionTitle || "",
-            _updatedMs: updatedMs,
+            _sourceId: s.id,
+            _updatedMs: Math.max(toMillis(s.updatedAt), toMillis(s.createdAt), 0),
+            difficultyRating: null,
+            difficultyAtMs: 0,
           };
         })
+        .filter(Boolean)
         .filter((ev) => ev.visibility === "coach" || ev.visibility === "both");
 
-      // DEDUPE planned : si plusieurs docs “sessions” pour la même séance → on garde le plus récent
-      const plannedByKey = new Map();
-      plannedEventsRaw.forEach((ev) => {
-        const key = ev._matchKey;
-        const prev = plannedByKey.get(key);
-        if (!prev) {
-          plannedByKey.set(key, ev);
-          return;
-        }
-        if ((ev._updatedMs || 0) >= (prev._updatedMs || 0)) {
-          plannedByKey.set(key, ev);
-        }
-      });
-      const plannedEvents = Array.from(plannedByKey.values());
-
-      // 4) Séances effectuées → événements calendrier
+      /* ---------------- completed from sessionsEffectuees ---------------- */
       const completedEvents = [];
       clientsWithProgs.forEach((c) => {
         const clientName = getClientFullName(c);
 
         (c.programmesAssignes || []).forEach((prog) => {
-          const programmeId = prog.id; // id du doc assigné
+          const assignedProgrammeId = prog.id;
           const baseProgrammeId = prog.programId || prog.programID || prog.baseId || null;
           const programmeName = prettyAssignedProgramName(prog);
 
@@ -737,8 +736,7 @@ export default function CoachDashboard() {
             if (!d) return;
 
             const start = new Date(d);
-            const end = new Date(start.getTime() + Math.max(10, FORCE_SESSION_DURATION_MIN) * 60000);
-
+            const end = new Date(start.getTime() + FORCE_SESSION_DURATION_MIN * 60000);
             const sessionIndex = getSessionIndex(sEff);
             const sessionTitle = getCompletedTitle(sEff, t);
 
@@ -753,63 +751,80 @@ export default function CoachDashboard() {
             if (clientName) titlePieces.push(clientName);
             if (programmeName) titlePieces.push(programmeName);
             if (sessionTitle) titlePieces.push(sessionTitle);
-            const title = titlePieces.join(" - ") || sessionTitle || t("dashboard.session_completed", "Séance effectuée");
-
-            const startMs = start.getTime();
 
             completedEvents.push({
-              id: `completed__${c.id}__${programmeId}__${sEff.id}`,
-              title,
+              id: `completed__${c.id}__${assignedProgrammeId}__${sEff.id}`,
+              title: titlePieces.join(" - ") || t("dashboard.session_completed", "Séance effectuée"),
               start,
               end,
               status: "validée",
               visibility: "coach",
               clientId: c.id,
-              programmeId, // assigned id
+              programmeId: assignedProgrammeId,
               baseProgrammeId,
               sessionIndex,
               _kind: "completed",
-              _matchKey: makeMatchKey({
-                clientId: c.id,
-                programmeId,
-                sessionIndex,
-                startMs,
-                fallbackId: sEff.id,
-              }),
-              _raw: sEff,
-              difficultyRating,
-              difficultyAtMs,
               _clientName: clientName,
               _programmeName: programmeName,
               _sessionTitle: sessionTitle,
+              _sourceId: sEff.id,
+              difficultyRating,
+              difficultyAtMs,
             });
           });
         });
       });
 
-      // 5) Fusion planned/completed (évite doublons + conserve l’event planifié s’il existe)
-      const plannedByKey2 = new Map();
-      plannedEvents.forEach((e) => plannedByKey2.set(e._matchKey, e));
+      /* ---------------- Dedup root planned docs themselves ---------------- */
+      const plannedByUnique = new Map();
+      plannedEventsRaw.forEach((ev) => {
+        const key = [
+          ev.clientId || "",
+          ev.programmeId || "",
+          ev.baseProgrammeId || "",
+          Number.isFinite(Number(ev.sessionIndex)) ? Number(ev.sessionIndex) : "x",
+          ev.start?.getFullYear?.(),
+          ev.start?.getMonth?.(),
+          ev.start?.getDate?.(),
+          normalizeLooseText(ev._sessionTitle || ev.title || ""),
+        ].join("__");
 
+        const prev = plannedByUnique.get(key);
+        if (!prev || (ev._updatedMs || 0) >= (prev._updatedMs || 0)) {
+          plannedByUnique.set(key, ev);
+        }
+      });
+      const plannedEvents = Array.from(plannedByUnique.values());
+
+      /* ---------------- Strict merge completed into planned only if exact same session/day ---------------- */
       const merged = [...plannedEvents];
-      completedEvents.forEach((ce) => {
-        const pe = plannedByKey2.get(ce._matchKey);
-        if (pe) {
-          pe.status = "validée";
-          pe.difficultyRating = ce.difficultyRating ?? pe.difficultyRating ?? null;
-          pe.difficultyAtMs = ce.difficultyAtMs ?? pe.difficultyAtMs ?? 0;
+      const usedCompletedIds = new Set();
 
-          // titre “completed”
-          pe.title = ce.title;
-          pe._kind = "planned"; // planifié mais affichage validé
-          pe._clientName = ce._clientName || pe._clientName;
-          pe._programmeName = ce._programmeName || pe._programmeName;
-          pe._sessionTitle = ce._sessionTitle || pe._sessionTitle;
+      plannedEvents.forEach((plannedEvt, idx) => {
+        const match = completedEvents.find((completedEvt) => {
+          if (usedCompletedIds.has(completedEvt.id)) return false;
+          return isStrictSameSession(plannedEvt, completedEvt);
+        });
 
-          // force 60min
-          pe.end = new Date(pe.start.getTime() + FORCE_SESSION_DURATION_MIN * 60000);
-        } else {
-          merged.push(ce);
+        if (match) {
+          merged[idx] = {
+            ...plannedEvt,
+            status: "validée",
+            title: match.title,
+            end: new Date(plannedEvt.start.getTime() + FORCE_SESSION_DURATION_MIN * 60000),
+            difficultyRating: match.difficultyRating ?? null,
+            difficultyAtMs: match.difficultyAtMs ?? 0,
+            _clientName: match._clientName || plannedEvt._clientName,
+            _programmeName: match._programmeName || plannedEvt._programmeName,
+            _sessionTitle: match._sessionTitle || plannedEvt._sessionTitle,
+          };
+          usedCompletedIds.add(match.id);
+        }
+      });
+
+      completedEvents.forEach((evt) => {
+        if (!usedCompletedIds.has(evt.id)) {
+          merged.push(evt);
         }
       });
 
@@ -817,17 +832,20 @@ export default function CoachDashboard() {
       setSessions(merged);
     } catch (error) {
       console.error(error);
-      toast({ title: t("common.loading", "Chargement"), status: "error", duration: 3000 });
+      toast({
+        title: t("common.loading", "Chargement"),
+        status: "error",
+        duration: 3000,
+      });
     } finally {
       setLoadingData(false);
     }
-  };
+  }, [prettyAssignedProgramName, prettyProgramNameBase, t, toast, user?.uid]);
 
   useEffect(() => {
-    fetchData(); // eslint-disable-next-line
-  }, [user?.uid]);
+    fetchData();
+  }, [fetchData]);
 
-  /* ---------- Actions ---------- */
   const handleAssign = async () => {
     if (!selectedClient || !selectedProgramme) return;
     setLoadingData(true);
@@ -899,7 +917,8 @@ export default function CoachDashboard() {
     const prog = client.programmesAssignes?.find((p) => p.id === newSession.programmeId);
     if (!prog) return;
 
-    const seance = prog.sessions?.[newSession.sessionIndex];
+    const sessionList = Array.isArray(prog.sessions) ? prog.sessions : Array.isArray(prog.seances) ? prog.seances : [];
+    const seance = sessionList?.[newSession.sessionIndex];
     if (!seance) return;
 
     const start = new Date(newSession.startDateTime);
@@ -908,7 +927,7 @@ export default function CoachDashboard() {
     await addDoc(collection(db, "sessions"), {
       clientId: client.id,
       clientName: getClientFullName(client),
-      programmeId: prog.id, // assigned programme id
+      programmeId: prog.id,
       sessionIndex: newSession.sessionIndex,
       title:
         seance?.name ||
@@ -941,7 +960,10 @@ export default function CoachDashboard() {
       return;
     }
 
-    await updateDoc(doc(db, "sessions", selectedEvent.id), { status, updatedAt: serverTimestamp() });
+    await updateDoc(doc(db, "sessions", selectedEvent._sourceId || selectedEvent.id.replace("planned__", "")), {
+      status,
+      updatedAt: serverTimestamp(),
+    });
     eventModal.onClose();
     fetchData();
   };
@@ -959,12 +981,11 @@ export default function CoachDashboard() {
       return;
     }
 
-    await deleteDoc(doc(db, "sessions", selectedEvent.id));
+    await deleteDoc(doc(db, "sessions", selectedEvent._sourceId || selectedEvent.id.replace("planned__", "")));
     eventModal.onClose();
     fetchData();
   };
 
-  /* ---------- Theme ---------- */
   const pageBg = useColorModeValue("gray.50", "gray.900");
   const cardBg = useColorModeValue("white", "gray.800");
   const textColor = useColorModeValue("gray.800", "gray.100");
@@ -1052,7 +1073,6 @@ export default function CoachDashboard() {
     );
   }, [selectedAssignedBaseProgramId, assignedClientsMap]);
 
-  // ✅ Calendar event renderer
   const CalendarEvent = useCallback(
     ({ event }) => {
       const r = normRating(event?.difficultyRating);
@@ -1161,7 +1181,6 @@ export default function CoachDashboard() {
         </Flex>
       </Box>
 
-      {/* Clients récents */}
       <Box bg={cardBg} p={6} rounded="xl" shadow="md" mb={4}>
         <HStack justify="space-between" mb={4}>
           <Heading size="md">{t("dashboard.recent_clients", "Clients récents")}</Heading>
@@ -1183,7 +1202,6 @@ export default function CoachDashboard() {
           <Spinner />
         ) : (
           <>
-            {/* Desktop */}
             <Box display={{ base: "none", md: "block" }} overflowX="auto">
               <Table variant="simple" size="md">
                 <Thead>
@@ -1199,7 +1217,6 @@ export default function CoachDashboard() {
                   {clients.slice(0, MAX_DISPLAY).map((c) => {
                     let nbTerminees = 0;
                     let nbTotalSessions = 0;
-
                     let lastCompletedMs = 0;
                     let lastCompletedDate = null;
                     let lastCompletedAssignedProg = null;
@@ -1233,8 +1250,8 @@ export default function CoachDashboard() {
                     const programmeForLastSession = lastCompletedAssignedProg
                       ? prettyAssignedProgramName(lastCompletedAssignedProg)
                       : c.programmesAssignes?.[0]
-                      ? prettyAssignedProgramName(c.programmesAssignes[0])
-                      : "—";
+                        ? prettyAssignedProgramName(c.programmesAssignes[0])
+                        : "—";
 
                     return (
                       <Tr key={c.id}>
@@ -1293,13 +1310,11 @@ export default function CoachDashboard() {
               </Table>
             </Box>
 
-            {/* Mobile */}
             <Box display={{ base: "block", md: "none" }}>
               <VStack spacing={3} align="stretch">
                 {clients.slice(0, MAX_DISPLAY).map((c) => {
                   let nbTerminees = 0;
                   let nbTotalSessions = 0;
-
                   let lastCompletedMs = 0;
                   let lastCompletedDate = null;
                   let lastCompletedAssignedProg = null;
@@ -1332,8 +1347,8 @@ export default function CoachDashboard() {
                   const programmeForLastSession = lastCompletedAssignedProg
                     ? prettyAssignedProgramName(lastCompletedAssignedProg)
                     : c.programmesAssignes?.[0]
-                    ? prettyAssignedProgramName(c.programmesAssignes[0])
-                    : "—";
+                      ? prettyAssignedProgramName(c.programmesAssignes[0])
+                      : "—";
 
                   return (
                     <Box
@@ -1401,7 +1416,6 @@ export default function CoachDashboard() {
         )}
       </Box>
 
-      {/* Assign programme modal */}
       <Modal isOpen={assignModal.isOpen} onClose={assignModal.onClose} isCentered>
         <ModalOverlay />
         <ModalContent>
@@ -1431,7 +1445,6 @@ export default function CoachDashboard() {
         </ModalContent>
       </Modal>
 
-      {/* Client creation */}
       <Modal isOpen={clientModal.isOpen} onClose={clientModal.onClose} isCentered>
         <ModalOverlay />
         <ModalContent>
@@ -1443,7 +1456,6 @@ export default function CoachDashboard() {
         </ModalContent>
       </Modal>
 
-      {/* Derniers programmes */}
       <Box bg={cardBg} p={6} rounded="xl" shadow="md" mb={4}>
         <HStack justify="space-between" mb={4}>
           <Heading size="md">{t("dashboard.latest_programs", "Derniers programmes")}</Heading>
@@ -1465,7 +1477,6 @@ export default function CoachDashboard() {
           <Spinner />
         ) : (
           <>
-            {/* Desktop */}
             <Box display={{ base: "none", md: "block" }} overflowX="auto">
               <Table variant="simple" size="md">
                 <Thead>
@@ -1548,7 +1559,6 @@ export default function CoachDashboard() {
               </Table>
             </Box>
 
-            {/* Mobile */}
             <Box display={{ base: "block", md: "none" }}>
               <VStack spacing={3} align="stretch">
                 {programmesBase.slice(0, MAX_DISPLAY).map((p) => {
@@ -1633,7 +1643,6 @@ export default function CoachDashboard() {
         )}
       </Box>
 
-      {/* Modal : liste des clients assignés */}
       <Modal
         isOpen={assignedToModal.isOpen}
         onClose={() => {
@@ -1710,7 +1719,6 @@ export default function CoachDashboard() {
         </ModalContent>
       </Modal>
 
-      {/* Confirm delete programme */}
       <Modal isOpen={confirmProgramModal.isOpen} onClose={confirmProgramModal.onClose} isCentered>
         <ModalOverlay />
         <ModalContent>
@@ -1728,7 +1736,6 @@ export default function CoachDashboard() {
         </ModalContent>
       </Modal>
 
-      {/* Choix création programme */}
       <Modal isOpen={choiceModal.isOpen} onClose={choiceModal.onClose} isCentered>
         <ModalOverlay />
         <ModalContent>
@@ -1760,7 +1767,6 @@ export default function CoachDashboard() {
         </ModalContent>
       </Modal>
 
-      {/* Calendrier */}
       <Box
         bg={cardBg}
         p={6}
@@ -1825,7 +1831,6 @@ export default function CoachDashboard() {
             if (evt.status === "manquée") bg = "#E53E3E";
             if (evt._kind === "completed") bg = "#2F855A";
 
-            // Couleur difficulté seulement si une note existe
             if (evt.status === "validée" && normRating(evt.difficultyRating)) {
               const r = normRating(evt.difficultyRating);
               if (r <= 2) bg = "#2C7A7B";
@@ -1854,7 +1859,6 @@ export default function CoachDashboard() {
         />
       </Box>
 
-      {/* Add Session modal */}
       <Modal isOpen={addSessionModal.isOpen} onClose={addSessionModal.onClose} isCentered>
         <ModalOverlay />
         <ModalContent>
@@ -1902,14 +1906,18 @@ export default function CoachDashboard() {
                     value={newSession.sessionIndex ?? ""}
                     onChange={(e) => setNewSession((prev) => ({ ...prev, sessionIndex: Number(e.target.value) }))}
                   >
-                    {clients
+                    {(clients
                       .find((c) => c.id === newSession.clientId)
-                      ?.programmesAssignes?.find((p) => p.id === newSession.programmeId)
-                      ?.sessions?.map((s, i) => (
-                        <option key={i} value={i}>
-                          {s.name || s.title || s.nom || `${t("form.session", "Séance")} ${i + 1}`}
-                        </option>
-                      ))}
+                      ?.programmesAssignes?.find((p) => p.id === newSession.programmeId)?.sessions ||
+                      clients
+                        .find((c) => c.id === newSession.clientId)
+                        ?.programmesAssignes?.find((p) => p.id === newSession.programmeId)?.seances ||
+                      []
+                    ).map((s, i) => (
+                      <option key={i} value={i}>
+                        {s.name || s.title || s.nom || `${t("form.session", "Séance")} ${i + 1}`}
+                      </option>
+                    ))}
                   </Select>
                 </FormControl>
               )}
@@ -1944,7 +1952,6 @@ export default function CoachDashboard() {
         </ModalContent>
       </Modal>
 
-      {/* Event details modal */}
       <Modal isOpen={eventModal.isOpen} onClose={eventModal.onClose} isCentered>
         <ModalOverlay />
         <ModalContent>
@@ -2005,7 +2012,6 @@ export default function CoachDashboard() {
         </ModalContent>
       </Modal>
 
-      {/* Confirm delete client */}
       <Modal isOpen={confirmClientModal.isOpen} onClose={confirmClientModal.onClose} isCentered>
         <ModalOverlay />
         <ModalContent>

@@ -5,16 +5,20 @@
 // - changeClientEmail      : changement d'email depuis CLIENT (Admin update)
 // - sendWelcomeEmail       : email de bienvenue via SMTP (Zimbra OVH)
 // - onProgramAssigned      : email auto quand un coach assigne un programme à un élève
+// - syncExerciseMediaFromStorage : synchro auto Storage -> Firestore pour les médias exercices
 // =======================================================
 
+const admin = require("firebase-admin");
 const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
-const { getFirestore } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onObjectFinalized } = require("firebase-functions/v2/storage");
 const { defineSecret } = require("firebase-functions/params");
 const nodemailer = require("nodemailer");
+const crypto = require("crypto");
 
 initializeApp();
 const db = getFirestore();
@@ -52,34 +56,225 @@ function normalizeSpaces(s = "") {
 }
 
 function normalizeLng(lng) {
-  const base = String(lng || "fr").trim().toLowerCase();
-  // fr-FR -> fr / ar-SA -> ar
-  return base.split("-")[0];
+  return String(lng || "").trim().toLowerCase();
 }
 
 function resolveLng(lng) {
+  const raw = normalizeLng(lng);
+  const base = raw.split("-")[0];
+
+  const aliases = {
+    fr: "fr",
+    francais: "fr",
+    français: "fr",
+    french: "fr",
+
+    en: "en",
+    english: "en",
+    anglais: "en",
+
+    it: "it",
+    italiano: "it",
+    italian: "it",
+
+    es: "es",
+    espanol: "es",
+    español: "es",
+    spanish: "es",
+    espagnol: "es",
+
+    de: "de",
+    deutsch: "de",
+    german: "de",
+    allemand: "de",
+
+    ru: "ru",
+    русский: "ru",
+    russian: "ru",
+    russe: "ru",
+
+    ar: "ar",
+    العربية: "ar",
+    arabic: "ar",
+    arabe: "ar",
+  };
+
+  if (aliases[raw]) return aliases[raw];
+  if (aliases[base]) return aliases[base];
+
   const supported = ["fr", "en", "it", "es", "de", "ru", "ar"];
-  const base = normalizeLng(lng);
   if (supported.includes(base)) return base;
+
   return "fr";
 }
 
 function getClientLngFromDoc(client) {
   const lng =
+    client?.settings?.langCode ||
+    client?.settings?.defaultLanguage ||
     client?.language ||
     client?.lang ||
     client?.locale ||
     client?.lng ||
     client?.defaultLanguage ||
-    "";
+    client?.langue ||
+    "fr";
+
   return resolveLng(lng);
 }
 
-/* ------------------------ i18n DICTS (EMAILS) ------------------------ */
+/* ------------------------ STORAGE -> EXERCISE MEDIA HELPERS ------------------------ */
+
+const EXERCISE_COLLECTIONS = ["training", "warmup", "cooldown"];
+
+function stepRank(stepKey) {
+  if (stepKey === "depart") return 0;
+  if (stepKey === "milieu") return 1;
+
+  const middleMatch = String(stepKey || "").match(/^milieu-(\d+)$/);
+  if (middleMatch) return 1 + Number(middleMatch[1]);
+
+  if (stepKey === "arrivee") return 100;
+  return 999;
+}
+
+function sortImages(images = []) {
+  return [...images].sort((a, b) => {
+    const diff = stepRank(a.key) - stepRank(b.key);
+    if (diff !== 0) return diff;
+    return String(a.key || "").localeCompare(String(b.key || ""));
+  });
+}
+
+function parseExerciseMediaPath(filePath) {
+  // Exemples acceptés :
+  // Exercices/T064/femme-depart.jpg
+  // Exercices/T064/femme-milieu.jpg
+  // Exercices/T064/femme-milieu-2.jpg
+  // Exercices/T064/femme-milieu-5.jpg
+  // Exercices/T064/femme-arrivee.png
+  // Exercices/T064/femme.mp4
+  // Exercices/T064/homme.mov
+
+  const parts = String(filePath || "").split("/");
+  if (parts.length !== 3) return null;
+
+  const [rootFolder, exerciseId, fileName] = parts;
+
+  if (rootFolder !== "Exercices") return null;
+  if (!exerciseId || !fileName) return null;
+
+  // Vidéo
+  const videoMatch = fileName.match(/^(femme|homme)\.(mp4|mov|webm)$/i);
+  if (videoMatch) {
+    return {
+      exerciseId,
+      sex: videoMatch[1].toLowerCase(),
+      type: "video",
+      stepKey: null,
+      path: filePath,
+    };
+  }
+
+  // Image
+  const imageMatch = fileName.match(
+    /^(femme|homme)-(depart|milieu(?:-\d+)?|arrivee)\.(jpg|jpeg|png|webp)$/i
+  );
+
+  if (imageMatch) {
+    return {
+      exerciseId,
+      sex: imageMatch[1].toLowerCase(),
+      type: "image",
+      stepKey: imageMatch[2].toLowerCase(),
+      path: filePath,
+    };
+  }
+
+  return null;
+}
+
+async function findExerciseDocRef(exerciseId) {
+  for (const collectionName of EXERCISE_COLLECTIONS) {
+    // Cas 1 : doc id = T064
+    const directRef = db.collection(collectionName).doc(exerciseId);
+    const directSnap = await directRef.get();
+    if (directSnap.exists) return directRef;
+
+    // Cas 2 : doc id différent, mais champ id = T064
+    const querySnap = await db
+      .collection(collectionName)
+      .where("id", "==", exerciseId)
+      .limit(1)
+      .get();
+
+    if (!querySnap.empty) {
+      return querySnap.docs[0].ref;
+    }
+  }
+
+  return null;
+}
+
 /**
- * On garde ici un mini-dico "backend" pour les emails (pas celui du front).
- * C’est plus robuste et indépendant.
+ * Retourne une vraie URL Firebase Storage téléchargeable.
+ * Si le fichier n'a pas de download token, on en crée un.
  */
+async function getFirebaseDownloadUrlForPath(filePath, bucketName) {
+  try {
+    const bucket = bucketName
+      ? admin.storage().bucket(bucketName)
+      : admin.storage().bucket();
+
+    const file = bucket.file(filePath);
+
+    const [exists] = await file.exists();
+    if (!exists) {
+      console.warn(
+        `[getFirebaseDownloadUrlForPath] Fichier introuvable dans Storage : ${filePath}`
+      );
+      return "";
+    }
+
+    const [metadata] = await file.getMetadata();
+    const currentMetadata = metadata?.metadata || {};
+
+    let token = currentMetadata.firebaseStorageDownloadTokens || "";
+
+    if (!token) {
+      token = crypto.randomUUID();
+
+      await file.setMetadata({
+        metadata: {
+          ...currentMetadata,
+          firebaseStorageDownloadTokens: token,
+        },
+      });
+
+      const [updatedMetadata] = await file.getMetadata();
+      token = updatedMetadata?.metadata?.firebaseStorageDownloadTokens || token;
+    }
+
+    const firstToken = String(token).split(",")[0].trim();
+    if (!firstToken) {
+      console.warn(
+        `[getFirebaseDownloadUrlForPath] Aucun token exploitable pour : ${filePath}`
+      );
+      return "";
+    }
+
+    const encodedPath = encodeURIComponent(filePath);
+    return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media&token=${firstToken}`;
+  } catch (error) {
+    console.error(
+      `[getFirebaseDownloadUrlForPath] Impossible de générer l'URL pour ${filePath}`,
+      error
+    );
+    return "";
+  }
+}
+
+/* ------------------------ i18n DICTS (EMAILS) ------------------------ */
 const EMAIL_I18N = {
   fr: {
     common: {
@@ -93,7 +288,8 @@ const EMAIL_I18N = {
       title: "Bienvenue {{firstName}} 👋",
       introCoach:
         "Ton compte coach a bien été créé. Tu peux désormais centraliser tes programmes, structurer tes suivis et piloter tes élèves depuis la plateforme.",
-      introClient: "Ton compte a bien été créé et ton espace personnel est désormais accessible.",
+      introClient:
+        "Ton compte a bien été créé et ton espace personnel est désormais accessible.",
       bulletsCoach: [
         "créer et organiser tes programmes en quelques minutes",
         "suivre tes élèves et leur progression séance après séance",
@@ -106,14 +302,17 @@ const EMAIL_I18N = {
       ],
       ctaCoach: "Accéder à mon espace coach",
       ctaClient: "Accéder à mon espace",
-      help: "Si tu as la moindre question, notre équipe reste disponible pour t’accompagner.",
+      help:
+        "Si tu as la moindre question, notre équipe reste disponible pour t’accompagner.",
       signature: "À très vite sur BoostYourLife,",
     },
     assigned: {
       subject: "Nouveau programme disponible : {{programName}}",
       title: "Bonjour {{firstName}} 👋",
-      introWithCoach: "{{coachName}} vient de t’assigner un nouveau programme sur BoostYourLife.",
-      introNoCoach: "Un nouveau programme vient de t’être assigné sur BoostYourLife.",
+      introWithCoach:
+        "{{coachName}} vient de t’assigner un nouveau programme sur BoostYourLife.",
+      introNoCoach:
+        "Un nouveau programme vient de t’être assigné sur BoostYourLife.",
       cta: "Voir mon programme",
       hint:
         "Tu peux retrouver ce programme dans ton espace, puis lancer ta séance quand tu es prêt(e).",
@@ -128,12 +327,14 @@ const EMAIL_I18N = {
       programLabel: "Program",
     },
     welcome: {
-      subjectCoach: "Welcome to BoostYourLife 👋 Your coach space is ready",
+      subjectCoach:
+        "Welcome to BoostYourLife 👋 Your coach space is ready",
       subjectClient: "Welcome to BoostYourLife 👋 Your space is ready",
       title: "Welcome {{firstName}} 👋",
       introCoach:
         "Your coach account has been created. You can now centralize your programs, structure your follow-ups, and manage your clients in one place.",
-      introClient: "Your account has been created and your personal space is now available.",
+      introClient:
+        "Your account has been created and your personal space is now available.",
       bulletsCoach: [
         "create and organize programs in minutes",
         "track clients and progress session by session",
@@ -152,10 +353,13 @@ const EMAIL_I18N = {
     assigned: {
       subject: "New program available: {{programName}}",
       title: "Hi {{firstName}} 👋",
-      introWithCoach: "{{coachName}} has assigned you a new program on BoostYourLife.",
-      introNoCoach: "A new program has been assigned to you on BoostYourLife.",
+      introWithCoach:
+        "{{coachName}} has assigned you a new program on BoostYourLife.",
+      introNoCoach:
+        "A new program has been assigned to you on BoostYourLife.",
       cta: "View my program",
-      hint: "You can find this program in your space and start your session when you’re ready.",
+      hint:
+        "You can find this program in your space and start your session when you’re ready.",
       closing: "See you soon,",
     },
   },
@@ -167,12 +371,14 @@ const EMAIL_I18N = {
       programLabel: "Programma",
     },
     welcome: {
-      subjectCoach: "Benvenuto su BoostYourLife 👋 Il tuo spazio coach è pronto",
+      subjectCoach:
+        "Benvenuto su BoostYourLife 👋 Il tuo spazio coach è pronto",
       subjectClient: "Benvenuto su BoostYourLife 👋 Il tuo spazio è pronto",
       title: "Benvenuto {{firstName}} 👋",
       introCoach:
         "Il tuo account coach è stato creato. Ora puoi centralizzare i programmi, strutturare i follow-up e gestire i tuoi allievi in un unico posto.",
-      introClient: "Il tuo account è stato creato e il tuo spazio personale è ora disponibile.",
+      introClient:
+        "Il tuo account è stato creato e il tuo spazio personale è ora disponibile.",
       bulletsCoach: [
         "creare e organizzare programmi in pochi minuti",
         "monitorare allievi e progressi sessione dopo sessione",
@@ -191,10 +397,13 @@ const EMAIL_I18N = {
     assigned: {
       subject: "Nuovo programma disponibile: {{programName}}",
       title: "Ciao {{firstName}} 👋",
-      introWithCoach: "{{coachName}} ti ha assegnato un nuovo programma su BoostYourLife.",
-      introNoCoach: "Ti è stato assegnato un nuovo programma su BoostYourLife.",
+      introWithCoach:
+        "{{coachName}} ti ha assegnato un nuovo programma su BoostYourLife.",
+      introNoCoach:
+        "Ti è stato assegnato un nuovo programma su BoostYourLife.",
       cta: "Vedi il mio programma",
-      hint: "Trovi il programma nel tuo spazio e puoi avviare la sessione quando vuoi.",
+      hint:
+        "Trovi il programma nel tuo spazio e puoi avviare la sessione quando vuoi.",
       closing: "A presto,",
     },
   },
@@ -206,12 +415,14 @@ const EMAIL_I18N = {
       programLabel: "Programa",
     },
     welcome: {
-      subjectCoach: "Bienvenido a BoostYourLife 👋 Tu espacio de coach está listo",
+      subjectCoach:
+        "Bienvenido a BoostYourLife 👋 Tu espacio de coach está listo",
       subjectClient: "Bienvenido a BoostYourLife 👋 Tu espacio está listo",
       title: "Bienvenido {{firstName}} 👋",
       introCoach:
         "Tu cuenta de coach ha sido creada. Ahora puedes centralizar tus programas, estructurar tus seguimientos y gestionar a tus alumnos en un solo lugar.",
-      introClient: "Tu cuenta ha sido creada y tu espacio personal ya está disponible.",
+      introClient:
+        "Tu cuenta ha sido creada y tu espacio personal ya está disponible.",
       bulletsCoach: [
         "crear y organizar programas en minutos",
         "seguir a tus alumnos y su progreso sesión a sesión",
@@ -224,16 +435,20 @@ const EMAIL_I18N = {
       ],
       ctaCoach: "Acceder a mi espacio de coach",
       ctaClient: "Acceder a mi espacio",
-      help: "Si tienes cualquier duda, nuestro equipo está disponible para ayudarte.",
+      help:
+        "Si tienes cualquier duda, nuestro equipo está disponible para ayudarte.",
       signature: "Hasta pronto en BoostYourLife,",
     },
     assigned: {
       subject: "Nuevo programa disponible: {{programName}}",
       title: "Hola {{firstName}} 👋",
-      introWithCoach: "{{coachName}} te ha asignado un nuevo programa en BoostYourLife.",
-      introNoCoach: "Se te ha asignado un nuevo programa en BoostYourLife.",
+      introWithCoach:
+        "{{coachName}} te ha asignado un nuevo programa en BoostYourLife.",
+      introNoCoach:
+        "Se te ha asignado un nuevo programa en BoostYourLife.",
       cta: "Ver mi programa",
-      hint: "Puedes encontrar este programa en tu espacio y empezar tu sesión cuando quieras.",
+      hint:
+        "Puedes encontrar este programa en tu espacio y empezar tu sesión cuando quieras.",
       closing: "Hasta pronto,",
     },
   },
@@ -245,12 +460,14 @@ const EMAIL_I18N = {
       programLabel: "Programm",
     },
     welcome: {
-      subjectCoach: "Willkommen bei BoostYourLife 👋 Dein Coach-Bereich ist bereit",
+      subjectCoach:
+        "Willkommen bei BoostYourLife 👋 Dein Coach-Bereich ist bereit",
       subjectClient: "Willkommen bei BoostYourLife 👋 Dein Bereich ist bereit",
       title: "Willkommen {{firstName}} 👋",
       introCoach:
         "Dein Coach-Konto wurde erstellt. Du kannst jetzt Programme zentral verwalten, Follow-ups strukturieren und deine Klienten an einem Ort betreuen.",
-      introClient: "Dein Konto wurde erstellt und dein persönlicher Bereich ist jetzt verfügbar.",
+      introClient:
+        "Dein Konto wurde erstellt und dein persönlicher Bereich ist jetzt verfügbar.",
       bulletsCoach: [
         "Programme in wenigen Minuten erstellen und organisieren",
         "Klienten und Fortschritt Training für Training verfolgen",
@@ -269,10 +486,13 @@ const EMAIL_I18N = {
     assigned: {
       subject: "Neues Programm verfügbar: {{programName}}",
       title: "Hallo {{firstName}} 👋",
-      introWithCoach: "{{coachName}} hat dir ein neues Programm auf BoostYourLife zugewiesen.",
-      introNoCoach: "Dir wurde ein neues Programm auf BoostYourLife zugewiesen.",
+      introWithCoach:
+        "{{coachName}} hat dir ein neues Programm auf BoostYourLife zugewiesen.",
+      introNoCoach:
+        "Dir wurde ein neues Programm auf BoostYourLife zugewiesen.",
       cta: "Mein Programm ansehen",
-      hint: "Du findest das Programm in deinem Bereich und kannst starten, sobald du bereit bist.",
+      hint:
+        "Du findest das Programm in deinem Bereich und kannst starten, sobald du bereit bist.",
       closing: "Bis bald,",
     },
   },
@@ -280,16 +500,20 @@ const EMAIL_I18N = {
   ru: {
     common: {
       brandTeam: "Команда BoostYourLife",
-      copyPaste: "Если кнопка не работает, скопируйте и вставьте эту ссылку:",
+      copyPaste:
+        "Если кнопка не работает, скопируйте и вставьте эту ссылку:",
       programLabel: "Программа",
     },
     welcome: {
-      subjectCoach: "Добро пожаловать в BoostYourLife 👋 Ваш кабинет тренера готов",
-      subjectClient: "Добро пожаловать в BoostYourLife 👋 Ваш кабинет готов",
+      subjectCoach:
+        "Добро пожаловать в BoostYourLife 👋 Ваш кабинет тренера готов",
+      subjectClient:
+        "Добро пожаловать в BoostYourLife 👋 Ваш кабинет готов",
       title: "Добро пожаловать, {{firstName}} 👋",
       introCoach:
         "Ваш аккаунт тренера создан. Теперь вы можете централизовать программы, структурировать сопровождение и управлять учениками в одном месте.",
-      introClient: "Ваш аккаунт создан, и ваш личный кабинет уже доступен.",
+      introClient:
+        "Ваш аккаунт создан, и ваш личный кабинет уже доступен.",
       bulletsCoach: [
         "создавать и организовывать программы за несколько минут",
         "отслеживать учеников и прогресс тренировка за тренировкой",
@@ -302,16 +526,20 @@ const EMAIL_I18N = {
       ],
       ctaCoach: "Перейти в кабинет тренера",
       ctaClient: "Перейти в кабинет",
-      help: "Если у вас есть вопросы — наша команда всегда готова помочь.",
+      help:
+        "Если у вас есть вопросы — наша команда всегда готова помочь.",
       signature: "До скорой встречи в BoostYourLife,",
     },
     assigned: {
       subject: "Доступна новая программа: {{programName}}",
       title: "Здравствуйте, {{firstName}} 👋",
-      introWithCoach: "{{coachName}} назначил(а) вам новую программу в BoostYourLife.",
-      introNoCoach: "Вам назначена новая программа в BoostYourLife.",
+      introWithCoach:
+        "{{coachName}} назначил(а) вам новую программу в BoostYourLife.",
+      introNoCoach:
+        "Вам назначена новая программа в BoostYourLife.",
       cta: "Посмотреть программу",
-      hint: "Вы найдете программу в своем кабинете и сможете начать тренировку, когда будете готовы.",
+      hint:
+        "Вы найдете программу в своем кабинете и сможете начать тренировку, когда будете готовы.",
       closing: "До скорой встречи,",
     },
   },
@@ -328,7 +556,8 @@ const EMAIL_I18N = {
       title: "مرحبًا {{firstName}} 👋",
       introCoach:
         "تم إنشاء حساب المدرب بنجاح. يمكنك الآن تنظيم برامجك، متابعة طلابك، وإدارة التقدم في مكان واحد.",
-      introClient: "تم إنشاء حسابك بنجاح وأصبح بإمكانك الوصول إلى مساحتك الشخصية الآن.",
+      introClient:
+        "تم إنشاء حسابك بنجاح وأصبح بإمكانك الوصول إلى مساحتك الشخصية الآن.",
       bulletsCoach: [
         "إنشاء وتنظيم البرامج خلال دقائق",
         "متابعة الطلاب والتقدم جلسة بعد جلسة",
@@ -347,10 +576,12 @@ const EMAIL_I18N = {
     assigned: {
       subject: "برنامج جديد متاح: {{programName}}",
       title: "مرحبًا {{firstName}} 👋",
-      introWithCoach: "قام {{coachName}} بتعيين برنامج جديد لك على BoostYourLife.",
+      introWithCoach:
+        "قام {{coachName}} بتعيين برنامج جديد لك على BoostYourLife.",
       introNoCoach: "تم تعيين برنامج جديد لك على BoostYourLife.",
       cta: "عرض برنامجي",
-      hint: "يمكنك العثور على البرنامج في مساحتك وبدء الجلسة عندما تكون جاهزًا.",
+      hint:
+        "يمكنك العثور على البرنامج في مساحتك وبدء الجلسة عندما تكون جاهزًا.",
       closing: "إلى اللقاء قريبًا،",
     },
   },
@@ -367,39 +598,41 @@ function getDict(lng) {
   return EMAIL_I18N[l] || EMAIL_I18N.fr;
 }
 
+function deepGet(obj, pathParts = []) {
+  return pathParts.reduce((acc, key) => {
+    if (acc == null) return undefined;
+    return acc[key];
+  }, obj);
+}
+
 /**
- * t("welcome.subjectCoach", {}, lng)
- * t("assigned.subject", { programName }, lng)
+ * Supporte :
+ * - t("assigned.subject", { programName }, lng)
+ * - t("common.programLabel", {}, lng)
+ * - t("welcome.subjectCoach", {}, lng)
  */
 function t(key, vars = {}, lng = "fr") {
-  const dict = getDict(lng);
-  const [ns, sub, leaf] = key.split(".");
-  if (!leaf) return key;
+  const parts = String(key || "").split(".");
+  const sources = [getDict(lng), EMAIL_I18N.fr, EMAIL_I18N.en];
 
-  const obj = dict?.[ns]?.[sub];
-  const value = obj?.[leaf];
-
-  // fallback fr then en (si besoin)
-  if (value === undefined) {
-    const frV = EMAIL_I18N.fr?.[ns]?.[sub]?.[leaf];
-    if (frV !== undefined) return Array.isArray(frV) ? frV : interpolate(frV, vars);
-    const enV = EMAIL_I18N.en?.[ns]?.[sub]?.[leaf];
-    if (enV !== undefined) return Array.isArray(enV) ? enV : interpolate(enV, vars);
-    return key;
+  for (const source of sources) {
+    const value = deepGet(source, parts);
+    if (value !== undefined) {
+      return Array.isArray(value) ? value : interpolate(value, vars);
+    }
   }
 
-  return Array.isArray(value) ? value : interpolate(value, vars);
+  return key;
 }
 
 function pickProgramName(progData = {}) {
-  // Priorité au nom visible
   const raw =
     (typeof progData.nomProgramme === "string" && progData.nomProgramme.trim()) ||
     (typeof progData.name === "string" && progData.name.trim()) ||
     (typeof progData.title === "string" && progData.title.trim());
+
   if (raw) return raw;
 
-  // Fallback : objectif + nb séances (si dispo)
   const objectif = progData.objectifUI || progData.objectif || "";
   const n =
     (Array.isArray(progData.sessions) && progData.sessions.length) ||
@@ -416,6 +649,7 @@ function pickProgramName(progData = {}) {
 
 /* ------------------------ SMTP transporter (cache) ------------------------ */
 let _cachedTransporter = null;
+
 function getTransporterFromSecrets() {
   const host = SMTP_HOST.value();
   const port = Number(SMTP_PORT.value());
@@ -443,8 +677,7 @@ function getTransporterFromSecrets() {
 }
 
 function getBaseUrlFromSecret() {
-  const baseUrl = (APP_BASE_URL.value() || "https://boostyourlife.coach").replace(/\/+$/, "");
-  return baseUrl;
+  return (APP_BASE_URL.value() || "https://boostyourlife.coach").replace(/\/+$/, "");
 }
 
 /* ------------------------ Templates (i18n) ------------------------ */
@@ -456,12 +689,18 @@ function buildWelcomeTemplate({ firstName, role, loginUrl, lng }) {
     : t("welcome.subjectClient", {}, lng);
 
   const title = t("welcome.title", { firstName: firstName || "" }, lng);
+  const intro = isCoach
+    ? t("welcome.introCoach", {}, lng)
+    : t("welcome.introClient", {}, lng);
 
-  const intro = isCoach ? t("welcome.introCoach", {}, lng) : t("welcome.introClient", {}, lng);
+  const bullets = isCoach
+    ? t("welcome.bulletsCoach", {}, lng)
+    : t("welcome.bulletsClient", {}, lng);
 
-  const bullets = isCoach ? t("welcome.bulletsCoach", {}, lng) : t("welcome.bulletsClient", {}, lng);
+  const cta = isCoach
+    ? t("welcome.ctaCoach", {}, lng)
+    : t("welcome.ctaClient", {}, lng);
 
-  const cta = isCoach ? t("welcome.ctaCoach", {}, lng) : t("welcome.ctaClient", {}, lng);
   const help = t("welcome.help", {}, lng);
   const signature = t("welcome.signature", {}, lng);
   const team = t("common.brandTeam", {}, lng);
@@ -476,7 +715,7 @@ function buildWelcomeTemplate({ firstName, role, loginUrl, lng }) {
       </p>
 
       <ul style="color:#374151; font-size:14px; line-height:1.7; padding-left:18px; margin:0 0 24px 0;">
-        ${bullets.map((b) => `<li>${b}</li>`).join("")}
+        ${Array.isArray(bullets) ? bullets.map((b) => `<li>${b}</li>`).join("") : ""}
       </ul>
 
       <div style="margin:26px 0 18px 0;">
@@ -508,7 +747,7 @@ function buildWelcomeTemplate({ firstName, role, loginUrl, lng }) {
 
 ${intro}
 
-- ${bullets.join("\n- ")}
+- ${Array.isArray(bullets) ? bullets.join("\n- ") : ""}
 
 ${cta} : ${loginUrl}
 
@@ -521,10 +760,16 @@ ${team}
   return { subject, html, text };
 }
 
-function buildProgramAssignedTemplate({ firstName, coachName, programName, dashboardUrl, lng }) {
+function buildProgramAssignedTemplate({
+  firstName,
+  coachName,
+  programName,
+  dashboardUrl,
+  lng,
+}) {
   const subject = t("assigned.subject", { programName }, lng);
-
   const title = t("assigned.title", { firstName: firstName || "" }, lng);
+
   const intro = coachName
     ? t("assigned.introWithCoach", { coachName }, lng)
     : t("assigned.introNoCoach", {}, lng);
@@ -538,7 +783,7 @@ function buildProgramAssignedTemplate({ firstName, coachName, programName, dashb
   const html = `
   <div style="font-family: Arial, Helvetica, sans-serif; background:#f7f9fc; padding:30px;">
     <div style="max-width:600px; margin:auto; background:#ffffff; border-radius:10px; padding:32px; border:1px solid #e5e7eb;">
-      
+
       <h2 style="color:#111827; margin:0 0 12px 0;">${title}</h2>
 
       <p style="color:#374151; font-size:15px; margin:0 0 14px 0;">
@@ -583,6 +828,8 @@ ${intro}
 ${programLabel} : ${programName}
 
 ${cta} : ${dashboardUrl}
+
+${hint}
 
 ${closing}
 ${team}
@@ -696,7 +943,9 @@ exports.changeClientEmail = onCall(
     }
 
     const newEmail = safeTrim(data.newEmail).toLowerCase();
-    if (!newEmail) throw new HttpsError("invalid-argument", "Nouvel e-mail requis.");
+    if (!newEmail) {
+      throw new HttpsError("invalid-argument", "Nouvel e-mail requis.");
+    }
 
     const auth = getAuth();
 
@@ -748,8 +997,6 @@ exports.sendWelcomeEmail = onCall(
     const email = safeTrim(data.email).toLowerCase();
     const firstName = safeTrim(data.firstName);
     const role = safeTrim(data.role) || "particulier";
-
-    // i18n: data.lang / data.language / data.locale / data.lng
     const lng = resolveLng(data.lang || data.language || data.locale || data.lng || "fr");
 
     if (!email) throw new HttpsError("invalid-argument", "Email requis.");
@@ -778,7 +1025,13 @@ exports.sendWelcomeEmail = onCall(
         replyTo: SMTP_USER.value(),
       });
 
-      console.log("[sendWelcomeEmail] OK", { email, role, lng, messageId: info.messageId });
+      console.log("[sendWelcomeEmail] OK", {
+        email,
+        role,
+        lng,
+        messageId: info.messageId,
+      });
+
       return { ok: true, email, role, lng };
     } catch (err) {
       return logAndThrowHttpsError("internal", "[sendWelcomeEmail] SMTP send failed", err);
@@ -788,8 +1041,6 @@ exports.sendWelcomeEmail = onCall(
 
 /* =======================================================================
  * 4) onProgramAssigned (TRIGGER Firestore)
- * - Envoie un email à l'élève quand un programme est créé dans:
- *   clients/{clientId}/programmes/{programmeId}
  * ======================================================================= */
 exports.onProgramAssigned = onDocumentCreated(
   {
@@ -813,7 +1064,6 @@ exports.onProgramAssigned = onDocumentCreated(
     }
 
     try {
-      // 1) Récupère le client
       const clientSnap = await db.doc(`clients/${clientId}`).get();
       const client = clientSnap.exists ? clientSnap.data() : null;
 
@@ -827,10 +1077,8 @@ exports.onProgramAssigned = onDocumentCreated(
         return;
       }
 
-      // i18n depuis la fiche client
       const lng = getClientLngFromDoc(client);
 
-      // 2) Récupère le coach (optionnel pour personnaliser)
       const coachUid =
         progData.assignedBy ||
         progData.coachId ||
@@ -850,12 +1098,10 @@ exports.onProgramAssigned = onDocumentCreated(
         // pas bloquant
       }
 
-      // 3) Nom du programme + lien
       const programName = pickProgramName(progData);
       const baseUrl = getBaseUrlFromSecret();
       const dashboardUrl = `${baseUrl}/user-dashboard`;
 
-      // 4) Envoi email
       const transporter = getTransporterFromSecrets();
       const from = `"BoostYourLife" <${SMTP_USER.value()}>`;
 
@@ -890,3 +1136,116 @@ exports.onProgramAssigned = onDocumentCreated(
   }
 );
 
+/* =======================================================================
+ * 5) syncExerciseMediaFromStorage
+ * ======================================================================= */
+exports.syncExerciseMediaFromStorage = onObjectFinalized(
+  {
+    region: "europe-west1",
+    timeoutSeconds: 60,
+    memory: "256MiB",
+  },
+  async (event) => {
+    try {
+      const filePath = event.data?.name;
+      const bucketName = event.data?.bucket;
+
+      if (!filePath) {
+        console.log("[syncExerciseMediaFromStorage] Aucun chemin reçu");
+        return;
+      }
+
+      const parsed = parseExerciseMediaPath(filePath);
+      if (!parsed) {
+        console.log("[syncExerciseMediaFromStorage] Fichier ignoré :", filePath);
+        return;
+      }
+
+      const { exerciseId, sex, type, stepKey, path } = parsed;
+
+      const docRef = await findExerciseDocRef(exerciseId);
+      if (!docRef) {
+        console.warn(
+          `[syncExerciseMediaFromStorage] Aucun exercice trouvé pour l'id ${exerciseId}`
+        );
+        return;
+      }
+
+      const snap = await docRef.get();
+      if (!snap.exists) {
+        console.warn(
+          `[syncExerciseMediaFromStorage] Doc introuvable après lookup pour ${exerciseId}`
+        );
+        return;
+      }
+
+      const currentData = snap.data() || {};
+      const media = currentData.media || {};
+      const sexMedia = media[sex] || {};
+      const currentImages = Array.isArray(sexMedia.images) ? sexMedia.images : [];
+
+      const url = await getFirebaseDownloadUrlForPath(path, bucketName);
+
+      if (!url) {
+        console.warn(
+          `[syncExerciseMediaFromStorage] URL vide générée pour ${path}`
+        );
+      }
+
+      if (type === "video") {
+        await docRef.set(
+          {
+            media: {
+              [sex]: {
+                ...sexMedia,
+                video: {
+                  path,
+                  url: url || "",
+                },
+              },
+            },
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        console.log(
+          `[syncExerciseMediaFromStorage] Vidéo synchronisée : ${exerciseId} / ${sex} / ${path} / url=${url || "EMPTY"}`
+        );
+        return;
+      }
+
+      if (type === "image") {
+        const filteredImages = currentImages.filter((img) => img?.key !== stepKey);
+
+        const updatedImages = sortImages([
+          ...filteredImages,
+          {
+            key: stepKey,
+            path,
+            url: url || "",
+          },
+        ]);
+
+        await docRef.set(
+          {
+            media: {
+              [sex]: {
+                ...sexMedia,
+                images: updatedImages,
+              },
+            },
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        console.log(
+          `[syncExerciseMediaFromStorage] Image synchronisée : ${exerciseId} / ${sex} / ${stepKey} / ${path} / url=${url || "EMPTY"}`
+        );
+      }
+    } catch (err) {
+      console.error("[syncExerciseMediaFromStorage] FAILED", err);
+    }
+  }
+);

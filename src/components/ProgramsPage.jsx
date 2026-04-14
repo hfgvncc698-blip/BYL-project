@@ -27,9 +27,12 @@ import {
   Badge,
   HStack,
   useToast,
+  Flex,
+  ChakraProvider,
+  Link as ChakraLink,
 } from "@chakra-ui/react";
 import { AddIcon, DeleteIcon, CopyIcon } from "@chakra-ui/icons";
-import { useNavigate, Link as RouterLink } from "react-router-dom";
+import { useNavigate, Link as RouterLink, Link } from "react-router-dom";
 import {
   collection,
   getDocs,
@@ -84,7 +87,7 @@ const makeDefaultProgramName = (objectifUIKey, objectifFallback, nbSeances) => {
 
 const normalizeNameForCompare = (s = "") =>
   String(s || "")
-    .replace(/\u2014/g, "-") // — -> -
+    .replace(/\u2014/g, "-")
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
@@ -107,11 +110,15 @@ const isLegacyAutoName = (existingName, objectifUIKey, objectifFallback, nbSeanc
   if (!cur) return true;
   if (cur === candidateNew) return true;
   if (cur === old1 || cur === old2 || cur === old3 || cur === old4 || cur === old5 || cur === old6) return true;
-
   if (objectifFallback && cur === normalizeNameForCompare(objectifFallback)) return true;
   if (objectifUIKey && cur === normalizeNameForCompare(objectifUIKey)) return true;
 
   return false;
+};
+
+const isAutoProgramme = (p) => {
+  const o = String(p?.origine || "").toLowerCase();
+  return o.includes("auto");
 };
 
 export default function ProgramsPage() {
@@ -124,11 +131,15 @@ export default function ProgramsPage() {
 
   const [programmes, setProgrammes] = useState([]);
   const [assignedCounts, setAssignedCounts] = useState({});
+  const [assignedClientsMap, setAssignedClientsMap] = useState({});
   const [loading, setLoading] = useState(true);
 
   const choiceModal = useDisclosure();
   const confirmModal = useDisclosure();
+  const assignedToModal = useDisclosure();
+
   const [toDeleteId, setToDeleteId] = useState(null);
+  const [selectedAssignedBaseProgramId, setSelectedAssignedBaseProgramId] = useState(null);
 
   const pageBg = useColorModeValue("gray.50", "gray.900");
   const cardBg = useColorModeValue("white", "gray.700");
@@ -142,7 +153,6 @@ export default function ProgramsPage() {
     return 0;
   };
 
-  // ✅ mapping objectif Firestore -> i18n key
   const GOAL_LABEL_KEY = useMemo(
     () => ({
       prise_de_masse: "massGain",
@@ -166,12 +176,6 @@ export default function ProgramsPage() {
     [GOAL_LABEL_KEY, t]
   );
 
-  /**
-   * ✅ Nom EXACT Builder:
-   * - priorité à nomProgramme si c'est un "vrai" nom custom
-   * - si nomProgramme ressemble à un auto-name legacy, on recalcule
-   * - sinon fallback sur objectifUI/objectif + Xx/Sem
-   */
   const prettyProgramName = useCallback(
     (p) => {
       if (!p) return t("myPrograms.untitled", "Sans titre");
@@ -182,23 +186,57 @@ export default function ProgramsPage() {
 
       const defaultName = makeDefaultProgramName(objectifUiKey, objectifFallback, n);
 
-      const rawName = (p.nomProgramme && typeof p.nomProgramme === "string")
-        ? p.nomProgramme.trim()
-        : "";
+      const rawName =
+        p.nomProgramme && typeof p.nomProgramme === "string"
+          ? p.nomProgramme.trim()
+          : "";
 
-      // Si nomProgramme existe mais ressemble à un auto-name (ancien ou nouveau),
-      // on affiche le nom propre Builder (ObjectifUI capitalisé — Xx/Sem).
       if (rawName && isLegacyAutoName(rawName, objectifUiKey, objectifFallback, n)) {
         return defaultName;
       }
 
-      // Si nomProgramme est un vrai nom custom, on le garde
       if (rawName) return rawName;
 
-      // Sinon: construire le nom standard
       return defaultName || t("myPrograms.untitled", "Sans titre");
     },
     [t]
+  );
+
+  const openBaseProgram = useCallback(
+    (baseProg) => {
+      if (!baseProg?.id) return;
+      const fallbackName = prettyProgramName(baseProg);
+
+      if (isAutoProgramme(baseProg)) {
+        navigate(`/auto-program-preview/${baseProg.id}`, {
+          state: { programmeName: fallbackName, from: "programsPage" },
+        });
+        return;
+      }
+
+      navigate(`/programmes/${baseProg.id}`, {
+        state: { programmeName: fallbackName, from: "programsPage" },
+      });
+    },
+    [navigate, prettyProgramName]
+  );
+
+  const openAssignedProgramForClient = useCallback(
+    ({ clientId, assignedProgramId, isAuto, fallbackName }) => {
+      if (!clientId || !assignedProgramId) return;
+
+      if (isAuto) {
+        navigate(`/auto-program-preview/${assignedProgramId}`, {
+          state: { programmeName: fallbackName || "", from: "programsPage" },
+        });
+        return;
+      }
+
+      navigate(`/clients/${clientId}/programmes/${assignedProgramId}`, {
+        state: { programmeName: fallbackName || "", from: "programsPage" },
+      });
+    },
+    [navigate]
   );
 
   const fetchData = useCallback(async () => {
@@ -206,27 +244,43 @@ export default function ProgramsPage() {
     try {
       setLoading(true);
 
-      // Programmes créés par ce coach
       const progQ = query(collection(db, "programmes"), where("createdBy", "==", user.uid));
       const pSnap = await getDocs(progQ);
       let progs = pSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       progs.sort((a, b) => getMillis(b) - getMillis(a));
       setProgrammes(progs);
 
-      // Compte des assignations sur les clients du coach
       const clientsQ = query(collection(db, "clients"), where("createdBy", "==", user.uid));
       const clientsSnap = await getDocs(clientsQ);
 
       const counts = {};
+      const map = {};
+
       for (const c of clientsSnap.docs) {
+        const clientData = c.data() || {};
+
         const subSnap = await getDocs(collection(db, "clients", c.id, "programmes"));
         subSnap.docs.forEach((d) => {
-          const pid = d.data()?.programId;
-          if (!pid) return;
-          counts[pid] = (counts[pid] || 0) + 1;
+          const prog = d.data() || {};
+          const baseId = prog.programId || prog.programID || prog.baseId;
+          if (!baseId) return;
+
+          counts[baseId] = (counts[baseId] || 0) + 1;
+          if (!map[baseId]) map[baseId] = [];
+
+          map[baseId].push({
+            clientId: c.id,
+            prenom: clientData.prenom || clientData.firstName || "",
+            nom: clientData.nom || clientData.lastName || "",
+            assignedProgramId: d.id,
+            isAuto: isAutoProgramme(prog),
+            fallbackName: prettyProgramName(prog),
+          });
         });
       }
+
       setAssignedCounts(counts);
+      setAssignedClientsMap(map);
     } catch (err) {
       console.error("Erreur chargement programmes:", err);
       toast({
@@ -237,13 +291,22 @@ export default function ProgramsPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast, user?.uid, t]);
+  }, [toast, user?.uid, t, prettyProgramName]);
 
   useEffect(() => {
     if (!authLoading && user?.uid) fetchData();
   }, [authLoading, user?.uid, fetchData]);
 
-  /* -------- actions -------- */
+  const selectedAssignedClients = useMemo(() => {
+    if (!selectedAssignedBaseProgramId) return [];
+    const arr = assignedClientsMap[selectedAssignedBaseProgramId] || [];
+    return [...arr].sort((a, b) =>
+      `${a.prenom} ${a.nom}`.trim().localeCompare(`${b.prenom} ${b.nom}`.trim(), "fr", {
+        sensitivity: "base",
+      })
+    );
+  }, [selectedAssignedBaseProgramId, assignedClientsMap]);
+
   const handleDelete = async (id) => {
     try {
       await deleteDoc(doc(db, "programmes", id));
@@ -268,7 +331,6 @@ export default function ProgramsPage() {
       }
       const data = snap.data();
 
-      // ✅ baseName = nom affiché (donc identique Builder)
       const baseName = prettyProgramName(data);
       const newName = `${baseName} (${t("common.copy", "copie")})`;
 
@@ -292,10 +354,12 @@ export default function ProgramsPage() {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || loading) {
     return (
-      <Box minH="50vh" display="flex" alignItems="center" justifyContent="center">
-        <Spinner />
+      <Box minH="100vh" bg={pageBg}>
+        <Flex minH="100vh" align="center" justify="center">
+          <Spinner size="xl" thickness="4px" />
+        </Flex>
       </Box>
     );
   }
@@ -381,123 +445,148 @@ export default function ProgramsPage() {
         </ModalContent>
       </Modal>
 
-      <Box bg={cardBg} p={{ base: 4, md: 6 }} borderRadius="xl" boxShadow="lg">
-        {loading ? (
-          <Spinner />
-        ) : (
-          <>
-            {/* Desktop */}
-            <Box display={{ base: "none", md: "block" }} overflowX="auto">
-              <Table variant="simple" minW="720px">
-                <Thead>
-                  <Tr>
-                    <Th>{t("dashboard.col_name", "Nom")}</Th>
-                    <Th>{t("client_dash.table.sessions", "Nombre séances")}</Th>
-                    <Th>{t("dashboard.col_assigned_to", "Assigné à")}</Th>
-                    <Th>{t("myPrograms.created_on_short", "Créé le")}</Th>
-                    <Th>{t("dashboard.col_action", "Action")}</Th>
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {programmes.length > 0 ? (
-                    programmes.map((p) => {
-                      const nbSessions = getSessionCount(p);
-                      const nbAssigned = assignedCounts[p.id] || 0;
-                      const goalForSubtitle = p.objectifUI || p.objectif || "";
-
-                      return (
-                        <Tr key={p.id}>
-                          <Td>
-                            <Stack spacing={0}>
-                              {/* ✅ Nom identique Builder */}
-                              <Text>{prettyProgramName(p)}</Text>
-
-                              {/* ✅ Sous-titre objectif (objectifUI en priorité) */}
-                              {goalForSubtitle && (
-                                <Text fontSize="sm" color={textMuted}>
-                                  {prettyGoal(goalForSubtitle)}
-                                </Text>
-                              )}
-                            </Stack>
-                          </Td>
-
-                          <Td>
-                            <Badge>{nbSessions}</Badge>
-                          </Td>
-
-                          <Td>
-                            <Badge colorScheme={nbAssigned > 0 ? "blue" : "gray"}>
-                              {nbAssigned} {t("clients", "client")}
-                              {nbAssigned > 1 ? "s" : ""}
-                            </Badge>
-                          </Td>
-
-                          <Td>{formatCreatedAt(p, locale)}</Td>
-
-                          <Td>
-                            <Stack direction="row" spacing={2} align="center">
-                              <Button as={RouterLink} to={`/programmes/${p.id}`} colorScheme="blue" size="sm">
-                                {t("client_dash.view_program", "Voir programme")}
-                              </Button>
-
-                              <IconButton
-                                aria-label={t("common.duplicate", "Dupliquer")}
-                                icon={<CopyIcon />}
-                                size="sm"
-                                colorScheme="teal"
-                                onClick={() => handleDuplicate(p.id)}
-                              />
-
-                              <IconButton
-                                aria-label={t("common.delete", "Supprimer")}
-                                icon={<DeleteIcon />}
-                                size="sm"
-                                colorScheme="red"
-                                onClick={() => {
-                                  setToDeleteId(p.id);
-                                  confirmModal.onOpen();
-                                }}
-                              />
-                            </Stack>
-                          </Td>
-                        </Tr>
-                      );
-                    })
-                  ) : (
-                    <Tr>
-                      <Td colSpan={5} textAlign="center">
-                        {t("programs.empty", "Aucun programme trouvé.")}
-                      </Td>
-                    </Tr>
-                  )}
-                </Tbody>
-              </Table>
-            </Box>
-
-            {/* Mobile */}
-            <Box display={{ base: "block", md: "none" }}>
-              <VStack spacing={3} align="stretch">
-                {programmes.length > 0 ? (
-                  programmes.map((p) => {
-                    const nbSessions = getSessionCount(p);
-                    const nbAssigned = assignedCounts[p.id] || 0;
-                    const goalForSubtitle = p.objectifUI || p.objectif || "";
-
-                    return (
-                      <Box
-                        key={p.id}
-                        position="relative"
-                        bg={cardBg}
-                        border="1px solid"
-                        borderColor={borderColor}
-                        borderRadius="xl"
-                        p={4}
-                        pt={12}
-                        shadow="sm"
+      {/* Modal assigné à */}
+      <Modal
+        isOpen={assignedToModal.isOpen}
+        onClose={() => {
+          assignedToModal.onClose();
+          setSelectedAssignedBaseProgramId(null);
+        }}
+        isCentered
+        size="md"
+      >
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>{t("dashboard.assigned_to_list", "Assigné à")}</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {selectedAssignedClients.length === 0 ? (
+              <Text color={textMuted}>
+                {t("dashboard.no_assigned_clients", "Aucun client n’a ce programme.")}
+              </Text>
+            ) : (
+              <VStack align="stretch" spacing={2}>
+                {selectedAssignedClients.map((c) => (
+                  <Box
+                    key={`${c.clientId}__${c.assignedProgramId}`}
+                    p={3}
+                    border="1px solid"
+                    borderColor={borderColor}
+                    borderRadius="lg"
+                    _hover={{ bg: useColorModeValue("gray.50", "whiteAlpha.50") }}
+                  >
+                    <HStack justify="space-between">
+                      <ChakraLink
+                        as={Link}
+                        to={`/clients/${c.clientId}`}
+                        color="blue.400"
+                        onClick={assignedToModal.onClose}
                       >
-                        <HStack position="absolute" top={3} right={3} spacing={2}>
-                          <Button size="sm" colorScheme="blue" onClick={() => navigate(`/programmes/${p.id}`)}>
-                            {t("client_dash.view_program", "Voir programme")}
+                        {(c.prenom + " " + c.nom).trim() || t("dashboard.client", "Client")}
+                      </ChakraLink>
+
+                      <Button
+                        size="xs"
+                        colorScheme="blue"
+                        onClick={() => {
+                          const fallbackName = c.fallbackName || "";
+                          assignedToModal.onClose();
+                          setSelectedAssignedBaseProgramId(null);
+                          openAssignedProgramForClient({
+                            clientId: c.clientId,
+                            assignedProgramId: c.assignedProgramId,
+                            isAuto: Boolean(c.isAuto),
+                            fallbackName,
+                          });
+                        }}
+                      >
+                        {t("common.view", "Voir")}
+                      </Button>
+                    </HStack>
+                  </Box>
+                ))}
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                assignedToModal.onClose();
+                setSelectedAssignedBaseProgramId(null);
+              }}
+            >
+              {t("common.close", "Fermer")}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <Box bg={cardBg} p={{ base: 4, md: 6 }} borderRadius="xl" boxShadow="lg">
+        {/* Desktop */}
+        <Box display={{ base: "none", md: "block" }} overflowX="auto">
+          <Table variant="simple" minW="720px">
+            <Thead>
+              <Tr>
+                <Th>{t("dashboard.col_name", "Nom")}</Th>
+                <Th>{t("client_dash.table.sessions", "Nombre séances")}</Th>
+                <Th>{t("dashboard.col_assigned_to", "Assigné à")}</Th>
+                <Th>{t("myPrograms.created_on_short", "Créé le")}</Th>
+                <Th>{t("dashboard.col_action", "Action")}</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {programmes.length > 0 ? (
+                programmes.map((p) => {
+                  const nbSessions = getSessionCount(p);
+                  const nbAssigned = assignedCounts[p.id] || 0;
+                  const goalForSubtitle = p.objectifUI || p.objectif || "";
+
+                  return (
+                    <Tr key={p.id}>
+                      <Td>
+                        <Stack spacing={0}>
+                          <Text>{prettyProgramName(p)}</Text>
+                          {goalForSubtitle && (
+                            <Text fontSize="sm" color={textMuted}>
+                              {prettyGoal(goalForSubtitle)}
+                            </Text>
+                          )}
+                        </Stack>
+                      </Td>
+
+                      <Td>
+                        <Badge>{nbSessions}</Badge>
+                      </Td>
+
+                      <Td>
+                        <Badge
+                          as="button"
+                          cursor={nbAssigned > 0 ? "pointer" : "default"}
+                          _hover={nbAssigned > 0 ? { opacity: 0.9 } : undefined}
+                          colorScheme={nbAssigned > 0 ? "blue" : "gray"}
+                          onClick={() => {
+                            if (nbAssigned <= 0) return;
+                            setSelectedAssignedBaseProgramId(p.id);
+                            assignedToModal.onOpen();
+                          }}
+                          title={nbAssigned > 0 ? t("dashboard.see_assigned_list", "Voir la liste") : ""}
+                        >
+                          {nbAssigned}{" "}
+                          {nbAssigned > 1 ? t("dashboard.clients", "clients") : t("dashboard.client", "client")}
+                        </Badge>
+                      </Td>
+
+                      <Td>{formatCreatedAt(p, locale)}</Td>
+
+                      <Td>
+                        <Stack direction="row" spacing={2} align="center">
+                          <Button
+                            size="sm"
+                            colorScheme="blue"
+                            onClick={() => openBaseProgram(p)}
+                          >
+                            {t("common.view", "Voir")}
                           </Button>
 
                           <IconButton
@@ -518,46 +607,116 @@ export default function ProgramsPage() {
                               confirmModal.onOpen();
                             }}
                           />
-                        </HStack>
+                        </Stack>
+                      </Td>
+                    </Tr>
+                  );
+                })
+              ) : (
+                <Tr>
+                  <Td colSpan={5} textAlign="center">
+                    {t("programs.empty", "Aucun programme trouvé.")}
+                  </Td>
+                </Tr>
+              )}
+            </Tbody>
+          </Table>
+        </Box>
 
-                        {/* ✅ Nom identique Builder */}
-                        <Text fontWeight="bold" fontSize="md" pr="160px">
-                          {prettyProgramName(p)}
-                        </Text>
+        {/* Mobile */}
+        <Box display={{ base: "block", md: "none" }}>
+          <VStack spacing={3} align="stretch">
+            {programmes.length > 0 ? (
+              programmes.map((p) => {
+                const nbSessions = getSessionCount(p);
+                const nbAssigned = assignedCounts[p.id] || 0;
+                const goalForSubtitle = p.objectifUI || p.objectif || "";
 
-                        {/* ✅ objectif joli (objectifUI en priorité) */}
-                        {goalForSubtitle && (
-                          <Text fontSize="sm" color={textMuted} mt={0.5} mb={2}>
-                            {prettyGoal(goalForSubtitle)}
-                          </Text>
-                        )}
+                return (
+                  <Box
+                    key={p.id}
+                    position="relative"
+                    bg={cardBg}
+                    border="1px solid"
+                    borderColor={borderColor}
+                    borderRadius="xl"
+                    p={4}
+                    pt={12}
+                    shadow="sm"
+                  >
+                    <HStack position="absolute" top={3} right={3} spacing={2}>
+                      <Button
+                        size="sm"
+                        colorScheme="blue"
+                        onClick={() => openBaseProgram(p)}
+                      >
+                        {t("common.view", "Voir")}
+                      </Button>
 
-                        <HStack spacing={2} mb={2}>
-                          <Badge>
-                            {nbSessions} {t("client_dash.table.sessions", "Nombre séances")}
-                          </Badge>
+                      <IconButton
+                        aria-label={t("common.duplicate", "Dupliquer")}
+                        icon={<CopyIcon />}
+                        size="sm"
+                        colorScheme="teal"
+                        onClick={() => handleDuplicate(p.id)}
+                      />
 
-                          <Badge colorScheme={nbAssigned > 0 ? "blue" : "gray"}>
-                            {nbAssigned} {t("clients", "client")}
-                            {nbAssigned > 1 ? "s" : ""}
-                          </Badge>
+                      <IconButton
+                        aria-label={t("common.delete", "Supprimer")}
+                        icon={<DeleteIcon />}
+                        size="sm"
+                        colorScheme="red"
+                        onClick={() => {
+                          setToDeleteId(p.id);
+                          confirmModal.onOpen();
+                        }}
+                      />
+                    </HStack>
 
-                          <Badge variant="subtle" colorScheme="gray">
-                            {formatCreatedAt(p, locale)}
-                          </Badge>
-                        </HStack>
-                      </Box>
-                    );
-                  })
-                ) : (
-                  <Text textAlign="center">{t("programs.empty", "Aucun programme trouvé.")}</Text>
-                )}
-              </VStack>
-            </Box>
-          </>
-        )}
+                    <Text fontWeight="bold" fontSize="md" pr="160px">
+                      {prettyProgramName(p)}
+                    </Text>
+
+                    {goalForSubtitle && (
+                      <Text fontSize="sm" color={textMuted} mt={0.5} mb={2}>
+                        {prettyGoal(goalForSubtitle)}
+                      </Text>
+                    )}
+
+                    <HStack spacing={2} mb={2} flexWrap="wrap">
+                      <Badge>
+                        {nbSessions} {t("client_dash.table.sessions", "Nombre séances")}
+                      </Badge>
+
+                      <Badge
+                        as="button"
+                        cursor={nbAssigned > 0 ? "pointer" : "default"}
+                        _hover={nbAssigned > 0 ? { opacity: 0.9 } : undefined}
+                        colorScheme={nbAssigned > 0 ? "blue" : "gray"}
+                        onClick={() => {
+                          if (nbAssigned <= 0) return;
+                          setSelectedAssignedBaseProgramId(p.id);
+                          assignedToModal.onOpen();
+                        }}
+                        title={nbAssigned > 0 ? t("dashboard.see_assigned_list", "Voir la liste") : ""}
+                      >
+                        {nbAssigned}{" "}
+                        {nbAssigned > 1 ? t("dashboard.clients", "clients") : t("dashboard.client", "client")}
+                      </Badge>
+
+                      <Badge variant="subtle" colorScheme="gray">
+                        {formatCreatedAt(p, locale)}
+                      </Badge>
+                    </HStack>
+                  </Box>
+                );
+              })
+            ) : (
+              <Text textAlign="center">{t("programs.empty", "Aucun programme trouvé.")}</Text>
+            )}
+          </VStack>
+        </Box>
       </Box>
     </Box>
   );
 }
-

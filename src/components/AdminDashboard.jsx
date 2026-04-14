@@ -1,5 +1,5 @@
 // src/components/AdminDashboard.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Box,
   Heading,
@@ -45,6 +45,20 @@ import {
   TabPanels,
   Tab,
   TabPanel,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalCloseButton,
+  ModalBody,
+  ModalFooter,
+  Textarea,
+  FormControl,
+  FormLabel,
+  Grid,
+  GridItem,
+  useDisclosure,
+  useToast,
 } from "@chakra-ui/react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
@@ -55,6 +69,8 @@ import {
   where,
   doc,
   getDoc,
+  updateDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useAuth } from "../AuthContext";
@@ -76,6 +92,8 @@ import {
   MdOutlineBadge,
   MdPeople,
   MdFitnessCenter,
+  MdChecklist,
+  MdPendingActions,
 } from "react-icons/md";
 
 /* ================= helpers ================= */
@@ -111,12 +129,11 @@ const toIso = (v) => {
     : typeof v === "string" || typeof v === "number"
     ? new Date(v)
     : null;
-  return d ? d.toLocaleString() : "—";
+  return d && !Number.isNaN(d.getTime()) ? d.toLocaleString() : "—";
 };
 
 const norm = (s) => String(s || "").toLowerCase();
 
-/** Détermine si un programme est "auto" */
 function isAutoProgram(p = {}) {
   const origine = norm(p.origine || p.origin || p.source || p.generatedBy);
   const type = norm(p.type || p.programType);
@@ -127,29 +144,272 @@ function isAutoProgram(p = {}) {
   return false;
 }
 
-/** Route view admin/coach selon auto vs manuel */
 function getProgramViewRoute({ programId, program }) {
   if (!programId) return null;
   if (isAutoProgram(program)) return `/auto-program-preview/${programId}`;
   return `/programmes/${programId}`;
 }
 
-/**
- * ✅ Route "ProgramView" côté coach pour un programme d'un client
- * FIX: pour manuel => /clients/{clientId}/programmes/{programId}
- * (et auto => preview)
- */
 function getCoachClientProgramRoute({ clientId, programId, program }) {
   if (!clientId || !programId) return null;
   if (isAutoProgram(program)) return `/auto-program-preview/${programId}`;
   return `/clients/${clientId}/programmes/${programId}`;
 }
 
-/** Route builder */
 function getBuilderRoute({ clientId, programId }) {
   if (!clientId || !programId) return null;
   return `/clients/${clientId}/programmes/${programId}/program-builder`;
 }
+
+const EXERCISE_COLLECTIONS = ["warmup", "training", "cooldown", "ergometre"];
+const MEDIA_IMAGE_KEYS = ["depart", "milieu", "milieu-2", "milieu-3", "arrivee"];
+
+const splitCsv = (value = "") =>
+  String(value || "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+
+const arrayToCsv = (arr) =>
+  Array.isArray(arr) ? arr.filter(Boolean).join(", ") : "";
+
+const emptyMediaSide = () => ({
+  images: [],
+  video: { path: "", url: "" },
+});
+
+const isPlainObject = (v) =>
+  v != null && typeof v === "object" && !Array.isArray(v);
+
+const extractPrimitiveStrings = (value) => {
+  const out = [];
+
+  const walk = (v) => {
+    if (v == null) return;
+
+    if (Array.isArray(v)) {
+      v.forEach(walk);
+      return;
+    }
+
+    if (
+      typeof v === "string" ||
+      typeof v === "number" ||
+      typeof v === "boolean"
+    ) {
+      const s = String(v).trim();
+      if (s) out.push(s);
+      return;
+    }
+
+    if (isPlainObject(v)) {
+      const preferred = [
+        v.nom,
+        v.name,
+        v.label,
+        v.value,
+        v.title,
+        v.text,
+      ].find((x) => x != null);
+
+      if (preferred != null) {
+        walk(preferred);
+        return;
+      }
+
+      Object.values(v).forEach(walk);
+    }
+  };
+
+  walk(value);
+
+  return [...new Set(out.filter(Boolean))];
+};
+
+const hasFieldValue = (value) => {
+  if (value == null) return false;
+  if (typeof value === "string") return value.trim().length > 0;
+  if (typeof value === "number" || typeof value === "boolean") return true;
+  if (Array.isArray(value)) return extractPrimitiveStrings(value).length > 0;
+  if (isPlainObject(value)) return extractPrimitiveStrings(value).length > 0;
+  return false;
+};
+
+const fieldToCsv = (value) => extractPrimitiveStrings(value).join(", ");
+
+const fieldToArray = (value) => extractPrimitiveStrings(value);
+
+const ensureMediaShape = (exercise = {}) => {
+  const media = exercise?.media || {};
+  const legacyHomme = exercise?.image_homme || "";
+  const legacyFemme = exercise?.image_femme || "";
+
+  const hommeImages =
+    Array.isArray(media?.homme?.images) && media.homme.images.length > 0
+      ? media.homme.images
+      : legacyHomme
+      ? [{ key: "depart", path: "", url: legacyHomme }]
+      : [];
+
+  const femmeImages =
+    Array.isArray(media?.femme?.images) && media.femme.images.length > 0
+      ? media.femme.images
+      : legacyFemme
+      ? [{ key: "depart", path: "", url: legacyFemme }]
+      : [];
+
+  return {
+    homme: {
+      images: hommeImages,
+      video:
+        media?.homme?.video && typeof media.homme.video === "object"
+          ? {
+              path: media.homme.video.path || "",
+              url: media.homme.video.url || "",
+            }
+          : { path: "", url: "" },
+    },
+    femme: {
+      images: femmeImages,
+      video:
+        media?.femme?.video && typeof media.femme.video === "object"
+          ? {
+              path: media.femme.video.path || "",
+              url: media.femme.video.url || "",
+            }
+          : { path: "", url: "" },
+    },
+  };
+};
+
+const getImageEntryByKey = (images = [], key = "") =>
+  (Array.isArray(images) ? images : []).find((img) => img?.key === key) || {
+    key,
+    path: "",
+    url: "",
+  };
+
+const exerciseToForm = (exercise = {}) => {
+  const media = ensureMediaShape(exercise);
+
+  return {
+    nom: exercise.nom || "",
+    groupe_musculaire: fieldToCsv(exercise.groupe_musculaire),
+    objectifs: fieldToCsv(exercise.objectifs),
+    muscles_secondaires: fieldToCsv(exercise.muscles_secondaires),
+    articulations_sollicitees: fieldToCsv(exercise.articulations_sollicitees),
+    tendons_sollicites: fieldToCsv(exercise.tendons_sollicites),
+    type: exercise.type || "",
+    niveau: exercise.niveau || "",
+    materiel: fieldToCsv(exercise.materiel),
+    position: fieldToCsv(exercise.position),
+    contraintes: fieldToCsv(exercise.contraintes),
+    variantes: fieldToCsv(exercise.variantes),
+    consignes: {
+      Positionnement: exercise.consignes?.Positionnement || "",
+      Mouvement: exercise.consignes?.Mouvement || "",
+      Retour: exercise.consignes?.Retour || "",
+      Respiration: exercise.consignes?.Respiration || "",
+      Posture: exercise.consignes?.Posture || "",
+    },
+    media: {
+      homme: {
+        images: MEDIA_IMAGE_KEYS.map((key) => getImageEntryByKey(media.homme.images, key)),
+        video: {
+          path: media.homme.video?.path || "",
+          url: media.homme.video?.url || "",
+        },
+      },
+      femme: {
+        images: MEDIA_IMAGE_KEYS.map((key) => getImageEntryByKey(media.femme.images, key)),
+        video: {
+          path: media.femme.video?.path || "",
+          url: media.femme.video?.url || "",
+        },
+      },
+    },
+  };
+};
+
+const formToExercisePayload = (form = {}) => {
+  const buildImages = (images = []) =>
+    (Array.isArray(images) ? images : [])
+      .map((img) => ({
+        key: img?.key || "",
+        path: String(img?.path || "").trim(),
+        url: String(img?.url || "").trim(),
+      }))
+      .filter((img) => img.key && (img.path || img.url));
+
+  return {
+    nom: String(form.nom || "").trim(),
+    groupe_musculaire: splitCsv(form.groupe_musculaire),
+    objectifs: splitCsv(form.objectifs),
+    muscles_secondaires: splitCsv(form.muscles_secondaires),
+    articulations_sollicitees: splitCsv(form.articulations_sollicitees),
+    tendons_sollicites: splitCsv(form.tendons_sollicites),
+    type: String(form.type || "").trim(),
+    niveau: String(form.niveau || "").trim(),
+    materiel: splitCsv(form.materiel),
+    position: splitCsv(form.position),
+    contraintes: splitCsv(form.contraintes),
+    variantes: splitCsv(form.variantes),
+    consignes: {
+      Positionnement: String(form.consignes?.Positionnement || "").trim(),
+      Mouvement: String(form.consignes?.Mouvement || "").trim(),
+      Retour: String(form.consignes?.Retour || "").trim(),
+      Respiration: String(form.consignes?.Respiration || "").trim(),
+      Posture: String(form.consignes?.Posture || "").trim(),
+    },
+    media: {
+      homme: {
+        images: buildImages(form.media?.homme?.images),
+        video: {
+          path: String(form.media?.homme?.video?.path || "").trim(),
+          url: String(form.media?.homme?.video?.url || "").trim(),
+        },
+      },
+      femme: {
+        images: buildImages(form.media?.femme?.images),
+        video: {
+          path: String(form.media?.femme?.video?.path || "").trim(),
+          url: String(form.media?.femme?.video?.url || "").trim(),
+        },
+      },
+    },
+  };
+};
+
+const getMissingExerciseFields = (exercise = {}) => {
+  const missing = [];
+  const media = ensureMediaShape(exercise);
+
+  if (!hasFieldValue(exercise.nom)) missing.push("nom");
+  if (!hasFieldValue(exercise.groupe_musculaire)) missing.push("groupe musculaire");
+  if (!hasFieldValue(exercise.articulations_sollicitees)) missing.push("articulations");
+  if (!hasFieldValue(exercise.tendons_sollicites)) missing.push("tendons");
+
+  if (!exercise.consignes?.Positionnement) missing.push("consigne: positionnement");
+  if (!exercise.consignes?.Mouvement) missing.push("consigne: mouvement");
+  if (!exercise.consignes?.Retour) missing.push("consigne: retour");
+  if (!exercise.consignes?.Respiration) missing.push("consigne: respiration");
+  if (!exercise.consignes?.Posture) missing.push("consigne: posture");
+
+  if (!hasFieldValue(exercise.type)) missing.push("type");
+  if (!hasFieldValue(exercise.niveau)) missing.push("niveau");
+  if (!hasFieldValue(exercise.muscles_secondaires)) missing.push("muscles secondaires");
+
+  const hommeImages = Array.isArray(media.homme.images) ? media.homme.images.length : 0;
+  const femmeImages = Array.isArray(media.femme.images) ? media.femme.images.length : 0;
+
+  if (hommeImages === 0) missing.push("images homme");
+  if (femmeImages === 0) missing.push("images femme");
+
+  return missing;
+};
+
+const isExerciseCompleteEnough = (exercise = {}) =>
+  getMissingExerciseFields(exercise).length === 0;
 
 /* ================= Page ================= */
 export default function AdminDashboard() {
@@ -160,38 +420,90 @@ export default function AdminDashboard() {
   const [totalClients, setTotalClients] = useState(0);
   const [totalPrograms, setTotalPrograms] = useState(0);
 
-  const [dailyDocs, setDailyDocs] = useState([]); // 30 jours normalisés
-  const [allDailyDocs, setAllDailyDocs] = useState([]); // toutes les journées
+  const [dailyDocs, setDailyDocs] = useState([]);
+  const [allDailyDocs, setAllDailyDocs] = useState([]);
   const days = useMemo(() => rangeDays(30), []);
 
-  // users.particulier + clients.fiches
   const [clientsRows, setClientsRows] = useState([]);
 
-  // search + drawer
   const [searchTerm, setSearchTerm] = useState("");
   const [results, setResults] = useState([]);
 
-  // Drawer (client/coach)
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [drawerData, setDrawerData] = useState(null);
 
-  // Programmes liés (drawer client)
   const [linkedPrograms, setLinkedPrograms] = useState([]);
   const [linkedLoading, setLinkedLoading] = useState(false);
 
-  // Coach drawer (clients/programmes)
   const [coachClients, setCoachClients] = useState([]);
   const [coachPrograms, setCoachPrograms] = useState([]);
   const [coachLinkedLoading, setCoachLinkedLoading] = useState(false);
 
-  // fenêtre Top pages
-  const [topPagesWindow, setTopPagesWindow] = useState("30d"); // today | 7d | 30d
+  const [topPagesWindow, setTopPagesWindow] = useState("30d");
+
+  /* ===== exercices ===== */
+  const [pendingExercises, setPendingExercises] = useState([]);
+  const [pendingExercisesLoading, setPendingExercisesLoading] = useState(false);
+  const [selectedExercise, setSelectedExercise] = useState(null);
+  const [exerciseForm, setExerciseForm] = useState(null);
+  const [exerciseSaving, setExerciseSaving] = useState(false);
+  const exerciseEditor = useDisclosure();
+  const toast = useToast();
 
   const navigate = useNavigate();
   const cardBg = useColorModeValue("white", "gray.800");
   const tableStickyBg = useColorModeValue("white", "gray.800");
   const rowHoverBg = useColorModeValue("gray.50", "whiteAlpha.100");
+
+  const loadPendingExercises = useCallback(async () => {
+    setPendingExercisesLoading(true);
+    try {
+      const snaps = await Promise.all(
+        EXERCISE_COLLECTIONS.map((colName) => getDocs(collection(db, colName)))
+      );
+
+      const all = [];
+      snaps.forEach((snap, index) => {
+        const colName = EXERCISE_COLLECTIONS[index];
+        snap.forEach((docSnap) => {
+          const data = docSnap.data() || {};
+          const enriched = {
+            ...data,
+            docId: docSnap.id,
+            __collection: colName,
+          };
+          const missingFields = getMissingExerciseFields(enriched);
+          const isPending = String(data.status || "").toLowerCase() === "pending";
+          const incomplete = missingFields.length > 0;
+
+          if (isPending || incomplete) {
+            all.push({
+              ...enriched,
+              missingFields,
+            });
+          }
+        });
+      });
+
+      all.sort((a, b) => {
+        const aMs = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+        const bMs = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+        return bMs - aMs;
+      });
+
+      setPendingExercises(all);
+    } catch (error) {
+      console.error("loadPendingExercises error:", error);
+      toast({
+        status: "error",
+        title: "Erreur",
+        description: "Impossible de charger les exercices à compléter.",
+      });
+    } finally {
+      setPendingExercisesLoading(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -199,7 +511,6 @@ export default function AdminDashboard() {
 
     (async () => {
       try {
-        // ---- Coaches
         const coachQ = query(collection(db, "users"), where("role", "==", "coach"));
         const coachDocs = await getDocs(coachQ);
         const coachList = [];
@@ -213,14 +524,12 @@ export default function AdminDashboard() {
           });
         });
 
-        // ---- Programmes / Clients (compteurs)
         const progCol = collection(db, "programmes");
         const progCountSnap = await getCountFromServer(progCol);
 
         const clientsCol = collection(db, "clients");
         const clientsCountSnap = await getCountFromServer(clientsCol);
 
-        // répartition par coach
         const clientCounts = Object.fromEntries(coachList.map((c) => [c.id, 0]));
         const progCounts = Object.fromEntries(coachList.map((c) => [c.id, 0]));
 
@@ -245,7 +554,6 @@ export default function AdminDashboard() {
           if (d.createdBy && progCounts[d.createdBy] !== undefined) progCounts[d.createdBy]++;
         });
 
-        // ---- Users particuliers (comptes)
         const particuliersQ = query(collection(db, "users"), where("role", "==", "particulier"));
         const partSnap = await getDocs(particuliersQ);
         const clientsComptes = [];
@@ -261,7 +569,6 @@ export default function AdminDashboard() {
           });
         });
 
-        // ---- Analytics
         const dailyCol = collection(db, "analytics_daily");
         const allDailySnap = await getDocs(dailyCol);
 
@@ -280,7 +587,6 @@ export default function AdminDashboard() {
         });
         allTemp.sort((a, b) => String(a.day).localeCompare(String(b.day)));
 
-        // 30 jours normalisés
         const startDay = days[0];
         const endDay = days[days.length - 1];
         const last30Temp = allTemp.filter((d) => d.day >= startDay && d.day <= endDay);
@@ -324,12 +630,13 @@ export default function AdminDashboard() {
       }
     })();
 
+    loadPendingExercises();
+
     return () => {
       mounted = false;
     };
-  }, [isAdmin, days]);
+  }, [isAdmin, days, loadPendingExercises]);
 
-  // KPI visiteurs uniques (jour / 7j / 30j)
   const visitorsKpi = useMemo(() => {
     const today = fmtDay(new Date());
     const set7 = new Set(lastNDays(7));
@@ -349,7 +656,6 @@ export default function AdminDashboard() {
     return { today, vToday, v7, v30 };
   }, [allDailyDocs]);
 
-  // agrégats 30 j
   const totals30 = useMemo(() => {
     const pageviews = dailyDocs.reduce((a, d) => a + (d.pageviews || 0), 0);
     const uniqueVisitors = dailyDocs.reduce((a, d) => a + (d.uniqueVisitors || 0), 0);
@@ -375,7 +681,6 @@ export default function AdminDashboard() {
     [dailyDocs]
   );
 
-  // TOP PAGES par fenêtre (today / 7d / 30d)
   const topPages = useMemo(() => {
     const today = fmtDay(new Date());
     const days7 = new Set(lastNDays(7));
@@ -401,7 +706,6 @@ export default function AdminDashboard() {
   const topPagesLabel =
     topPagesWindow === "today" ? "Aujourd’hui" : topPagesWindow === "7d" ? "7 jours" : "30 j";
 
-  /* ---------- recherche (client + coach) ---------- */
   const handleSearch = async () => {
     if (!searchTerm) return setResults([]);
     const term = searchTerm.toLowerCase();
@@ -447,12 +751,10 @@ export default function AdminDashboard() {
     setResults(matched);
   };
 
-  /* ---------- Programmes liés client ---------- */
   const loadLinkedPrograms = async (clientId) => {
     if (!clientId) return [];
     const out = [];
 
-    // 1) clients/{id}/programmes
     try {
       const subSnap = await getDocs(collection(db, "clients", clientId, "programmes"));
       subSnap.forEach((d) => {
@@ -470,7 +772,6 @@ export default function AdminDashboard() {
       console.warn("loadLinkedPrograms: subcollection error", e);
     }
 
-    // 2) programmes global (legacy)
     const tryQueries = [
       query(collection(db, "programmes"), where("assignedTo", "array-contains", clientId)),
       query(collection(db, "programmes"), where("clients", "array-contains", clientId)),
@@ -500,7 +801,6 @@ export default function AdminDashboard() {
     return out;
   };
 
-  /* ---------- Drawer client ---------- */
   const openClientDrawer = async (row) => {
     setDrawerOpen(true);
     setDrawerLoading(true);
@@ -509,7 +809,6 @@ export default function AdminDashboard() {
     setLinkedPrograms([]);
     setLinkedLoading(true);
 
-    // coach drawer lists reset
     setCoachClients([]);
     setCoachPrograms([]);
     setCoachLinkedLoading(false);
@@ -519,7 +818,6 @@ export default function AdminDashboard() {
       if (userDoc.exists()) {
         const u = userDoc.data() || {};
 
-        // si on clique sur un coach dans une zone client (rare), on bascule sur coach drawer
         if (u.role === "coach") {
           await openCoachDrawer({ id: row.id });
           return;
@@ -571,7 +869,6 @@ export default function AdminDashboard() {
     }
   };
 
-  /* ---------- Drawer coach ---------- */
   const openCoachDrawer = async ({ id }) => {
     if (!id) return;
 
@@ -579,11 +876,9 @@ export default function AdminDashboard() {
     setDrawerLoading(true);
     setDrawerData(null);
 
-    // reset client drawer lists
     setLinkedPrograms([]);
     setLinkedLoading(false);
 
-    // init coach lists
     setCoachClients([]);
     setCoachPrograms([]);
     setCoachLinkedLoading(true);
@@ -613,7 +908,6 @@ export default function AdminDashboard() {
         role: u.role || "coach",
       });
 
-      // 1) clients créés
       const clientsSnap = await getDocs(query(collection(db, "clients"), where("createdBy", "==", id)));
       const createdClients = [];
       clientsSnap.forEach((d) => {
@@ -627,7 +921,6 @@ export default function AdminDashboard() {
       });
       createdClients.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
-      // 2) programmes créés
       const progsSnap = await getDocs(query(collection(db, "programmes"), where("createdBy", "==", id)));
       const createdPrograms = [];
       progsSnap.forEach((d) => {
@@ -652,19 +945,135 @@ export default function AdminDashboard() {
     }
   };
 
-  if (!isAdmin)
+  const openExerciseEditor = (exercise) => {
+    setSelectedExercise(exercise);
+    setExerciseForm(exerciseToForm(exercise));
+    exerciseEditor.onOpen();
+  };
+
+  const updateExerciseForm = (field, value) => {
+    setExerciseForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const updateExerciseConsigne = (field, value) => {
+    setExerciseForm((prev) => ({
+      ...prev,
+      consignes: {
+        ...(prev?.consignes || {}),
+        [field]: value,
+      },
+    }));
+  };
+
+  const updateExerciseMediaImage = (sex, index, field, value) => {
+    setExerciseForm((prev) => {
+      const currentImages = Array.isArray(prev?.media?.[sex]?.images)
+        ? [...prev.media[sex].images]
+        : [];
+      const current = currentImages[index] || {
+        key: MEDIA_IMAGE_KEYS[index] || `img-${index}`,
+        path: "",
+        url: "",
+      };
+      currentImages[index] = {
+        ...current,
+        [field]: value,
+      };
+
+      return {
+        ...prev,
+        media: {
+          ...prev.media,
+          [sex]: {
+            ...prev.media[sex],
+            images: currentImages,
+          },
+        },
+      };
+    });
+  };
+
+  const updateExerciseMediaVideo = (sex, field, value) => {
+    setExerciseForm((prev) => ({
+      ...prev,
+      media: {
+        ...prev.media,
+        [sex]: {
+          ...prev.media[sex],
+          video: {
+            ...(prev?.media?.[sex]?.video || {}),
+            [field]: value,
+          },
+        },
+      },
+    }));
+  };
+
+  const handleSaveExercise = async ({ validate = false } = {}) => {
+    if (!selectedExercise || !exerciseForm) return;
+
+    try {
+      setExerciseSaving(true);
+
+      const payload = formToExercisePayload(exerciseForm);
+      const nextPreview = {
+        ...selectedExercise,
+        ...payload,
+      };
+
+      const nextStatus =
+        validate || isExerciseCompleteEnough(nextPreview) ? "validated" : "pending";
+
+      await updateDoc(doc(db, selectedExercise.__collection, selectedExercise.docId), {
+        ...payload,
+        status: nextStatus,
+        updatedAt: serverTimestamp(),
+        ...(nextStatus === "validated"
+          ? {
+              validatedAt: serverTimestamp(),
+            }
+          : {}),
+      });
+
+      toast({
+        status: "success",
+        title: validate ? "Exercice validé" : "Exercice enregistré",
+      });
+
+      exerciseEditor.onClose();
+      setSelectedExercise(null);
+      setExerciseForm(null);
+      await loadPendingExercises();
+    } catch (error) {
+      console.error("handleSaveExercise error:", error);
+      toast({
+        status: "error",
+        title: "Erreur",
+        description: "Impossible d’enregistrer cet exercice.",
+      });
+    } finally {
+      setExerciseSaving(false);
+    }
+  };
+
+  if (!isAdmin) {
     return (
       <Box p={6}>
         <Heading size="md">Accès réservé aux administrateurs.</Heading>
       </Box>
     );
+  }
 
-  if (loading)
+  if (loading) {
     return (
       <Box p={8} display="flex" alignItems="center" justifyContent="center">
         <Spinner size="lg" />
       </Box>
     );
+  }
 
   const linkedCount = linkedPrograms.length;
 
@@ -683,7 +1092,6 @@ export default function AdminDashboard() {
         </Button>
       </HStack>
 
-      {/* KPI */}
       <SimpleGrid columns={{ base: 1, md: 7 }} spacing={4} mb={6}>
         <Stat p={4} bg={cardBg} borderRadius="xl" shadow="sm">
           <StatLabel>Total coaches</StatLabel>
@@ -728,7 +1136,100 @@ export default function AdminDashboard() {
         </Stat>
       </SimpleGrid>
 
-      {/* Courbe */}
+      <Card mb={6}>
+        <CardHeader>
+          <HStack justify="space-between" flexWrap="wrap" gap={3}>
+            <HStack>
+              <Icon as={MdPendingActions} boxSize={5} />
+              <Heading size="md">Exercices à compléter</Heading>
+            </HStack>
+            <HStack>
+              <Badge colorScheme="orange" fontSize="0.9em">
+                {pendingExercises.length} à traiter
+              </Badge>
+              <Button
+                size="sm"
+                leftIcon={<Icon as={MdChecklist} />}
+                onClick={loadPendingExercises}
+                isLoading={pendingExercisesLoading}
+              >
+                Actualiser
+              </Button>
+            </HStack>
+          </HStack>
+        </CardHeader>
+        <CardBody>
+          {pendingExercisesLoading ? (
+            <Box py={8} textAlign="center">
+              <Spinner />
+            </Box>
+          ) : pendingExercises.length === 0 ? (
+            <Text color="gray.500">Aucun exercice en attente ou incomplet.</Text>
+          ) : (
+            <Box maxH="420px" overflowY="auto" borderRadius="md">
+              <Table size="sm" variant="simple">
+                <Thead position="sticky" top={0} bg={tableStickyBg} zIndex={1}>
+                  <Tr>
+                    <Th>Nom</Th>
+                    <Th>Collection</Th>
+                    <Th>Créé par</Th>
+                    <Th>Créé le</Th>
+                    <Th>Champs manquants</Th>
+                    <Th textAlign="right">Action</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {pendingExercises.map((ex) => (
+                    <Tr key={`${ex.__collection}-${ex.docId}`} _hover={{ bg: rowHoverBg }}>
+                      <Td maxW="220px">
+                        <Text fontWeight="semibold" noOfLines={1}>
+                          {ex.nom || ex.docId}
+                        </Text>
+                        <Text fontSize="xs" color="gray.500" noOfLines={1}>
+                          {ex.docId}
+                        </Text>
+                      </Td>
+                      <Td>
+                        <Badge colorScheme="blue">{ex.__collection}</Badge>
+                      </Td>
+                      <Td maxW="180px">
+                        <Text noOfLines={1}>{ex.createdByName || ex.createdBy || "—"}</Text>
+                      </Td>
+                      <Td>{toIso(ex.createdAt)}</Td>
+                      <Td maxW="320px">
+                        <Wrap>
+                          {ex.missingFields.slice(0, 5).map((m) => (
+                            <WrapItem key={m}>
+                              <Tag size="sm" colorScheme="orange">
+                                {m}
+                              </Tag>
+                            </WrapItem>
+                          ))}
+                          {ex.missingFields.length > 5 && (
+                            <WrapItem>
+                              <Tag size="sm" colorScheme="gray">
+                                +{ex.missingFields.length - 5}
+                              </Tag>
+                            </WrapItem>
+                          )}
+                        </Wrap>
+                      </Td>
+                      <Td>
+                        <Flex justify="flex-end">
+                          <Button size="sm" colorScheme="blue" onClick={() => openExerciseEditor(ex)}>
+                            Compléter
+                          </Button>
+                        </Flex>
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </Box>
+          )}
+        </CardBody>
+      </Card>
+
       <Card mb={6}>
         <CardHeader>
           <Heading size="md">Trafic 30 derniers jours</Heading>
@@ -747,7 +1248,6 @@ export default function AdminDashboard() {
         </CardBody>
       </Card>
 
-      {/* Coachs */}
       <Card mb={6}>
         <CardHeader>
           <HStack justify="space-between" gap={3} flexWrap="wrap">
@@ -805,7 +1305,6 @@ export default function AdminDashboard() {
         </CardBody>
       </Card>
 
-      {/* Top pages & pays */}
       <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6} mb={6}>
         <Card>
           <CardHeader>
@@ -886,7 +1385,6 @@ export default function AdminDashboard() {
         </Card>
       </SimpleGrid>
 
-      {/* Répartition rôle */}
       <Card mb={6}>
         <CardHeader>
           <Heading size="md">Répartition par rôle (30 j)</Heading>
@@ -909,7 +1407,6 @@ export default function AdminDashboard() {
         </CardBody>
       </Card>
 
-      {/* Clients */}
       <Card mb={6}>
         <CardHeader>
           <HStack justify="space-between" gap={3} flexWrap="wrap">
@@ -966,7 +1463,6 @@ export default function AdminDashboard() {
         </CardBody>
       </Card>
 
-      {/* Recherche */}
       <Card mb={6}>
         <CardHeader>
           <HStack justify="space-between" align="center" gap={3} flexWrap="wrap">
@@ -1044,7 +1540,6 @@ export default function AdminDashboard() {
         </CardBody>
       </Card>
 
-      {/* Drawer (client ou coach) */}
       <Drawer
         isOpen={drawerOpen}
         placement="right"
@@ -1061,10 +1556,8 @@ export default function AdminDashboard() {
           <DrawerBody>
             {drawerLoading && <Spinner />}
 
-            {/* ===================== DRAWER CLIENT ===================== */}
             {!drawerLoading && drawerData && drawerData.drawerKind !== "coach" && (
               <VStack align="stretch" spacing={4}>
-                {/* Header client */}
                 <Box>
                   <Heading size="md">{drawerData.name || drawerData.id}</Heading>
                   <Text color="gray.500" noOfLines={1}>
@@ -1072,7 +1565,6 @@ export default function AdminDashboard() {
                   </Text>
                 </Box>
 
-                {/* ✅ Actions juste sous le header */}
                 <HStack spacing={2} flexWrap="wrap">
                   <Button
                     size="sm"
@@ -1092,7 +1584,6 @@ export default function AdminDashboard() {
                   </Button>
                 </HStack>
 
-                {/* Badges */}
                 <HStack spacing={2} flexWrap="wrap">
                   <Badge
                     colorScheme={
@@ -1172,16 +1663,12 @@ export default function AdminDashboard() {
 
                         {!linkedLoading &&
                           linkedPrograms.map((p) => {
-                            // ✅ viewRoute = toujours la vue admin/preview
                             const viewRoute = getProgramViewRoute({ programId: p.id, program: p.raw });
-
-                            // ✅ coachRoute = ProgramView côté coach pour ce client
                             const coachRoute = getCoachClientProgramRoute({
                               clientId: drawerData.id,
                               programId: p.id,
                               program: p.raw,
                             });
-
                             const builderRoute = getBuilderRoute({ clientId: drawerData.id, programId: p.id });
 
                             return (
@@ -1219,7 +1706,6 @@ export default function AdminDashboard() {
                                       </Tooltip>
                                     )}
 
-                                    {/* ✅ FIX du bouton "ProgramView coach" : /clients/{clientId}/programmes/{programId} */}
                                     {coachRoute && (
                                       <Tooltip label="Voir (ProgramView coach)">
                                         <IconButton
@@ -1268,10 +1754,8 @@ export default function AdminDashboard() {
               </VStack>
             )}
 
-            {/* ===================== DRAWER COACH ===================== */}
             {!drawerLoading && drawerData && drawerData.drawerKind === "coach" && (
               <VStack align="stretch" spacing={4}>
-                {/* ✅ Header coach aligné sur celui des clients (même structure simple) */}
                 <Box>
                   <Heading size="md">{drawerData.name || drawerData.id}</Heading>
                   <Text color="gray.500" noOfLines={1}>
@@ -1282,7 +1766,6 @@ export default function AdminDashboard() {
                   </Text>
                 </Box>
 
-                {/* ✅ Actions juste sous le header (comme client) */}
                 <HStack spacing={2} flexWrap="wrap">
                   <Button
                     size="sm"
@@ -1302,7 +1785,6 @@ export default function AdminDashboard() {
                   </Button>
                 </HStack>
 
-                {/* Badges (même logique que client, + badge COACH) */}
                 <HStack spacing={2} flexWrap="wrap">
                   <Badge colorScheme="orange" display="inline-flex" alignItems="center" gap={1}>
                     <Icon as={MdOutlineBadge} /> COACH
@@ -1518,6 +2000,282 @@ export default function AdminDashboard() {
         </DrawerContent>
       </Drawer>
 
+      <Modal
+        isOpen={exerciseEditor.isOpen}
+        onClose={() => {
+          exerciseEditor.onClose();
+          setSelectedExercise(null);
+          setExerciseForm(null);
+        }}
+        size="6xl"
+        scrollBehavior="inside"
+      >
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            {selectedExercise ? `Compléter : ${selectedExercise.nom || selectedExercise.docId}` : "Éditeur exercice"}
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {!exerciseForm ? (
+              <Spinner />
+            ) : (
+              <VStack align="stretch" spacing={5}>
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                  <FormControl>
+                    <FormLabel>Nom</FormLabel>
+                    <Input
+                      value={exerciseForm.nom}
+                      onChange={(e) => updateExerciseForm("nom", e.target.value)}
+                    />
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>Collection</FormLabel>
+                    <Input value={selectedExercise?.__collection || ""} isReadOnly />
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>Groupe musculaire</FormLabel>
+                    <Input
+                      value={exerciseForm.groupe_musculaire}
+                      onChange={(e) => updateExerciseForm("groupe_musculaire", e.target.value)}
+                      placeholder="Ex: Pectoraux, Triceps"
+                    />
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>Objectifs</FormLabel>
+                    <Input
+                      value={exerciseForm.objectifs}
+                      onChange={(e) => updateExerciseForm("objectifs", e.target.value)}
+                    />
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>Muscles secondaires</FormLabel>
+                    <Input
+                      value={exerciseForm.muscles_secondaires}
+                      onChange={(e) => updateExerciseForm("muscles_secondaires", e.target.value)}
+                    />
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>Articulations sollicitées</FormLabel>
+                    <Input
+                      value={exerciseForm.articulations_sollicitees}
+                      onChange={(e) =>
+                        updateExerciseForm("articulations_sollicitees", e.target.value)
+                      }
+                    />
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>Tendons sollicités</FormLabel>
+                    <Input
+                      value={exerciseForm.tendons_sollicites}
+                      onChange={(e) => updateExerciseForm("tendons_sollicites", e.target.value)}
+                    />
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>Type</FormLabel>
+                    <Input
+                      value={exerciseForm.type}
+                      onChange={(e) => updateExerciseForm("type", e.target.value)}
+                    />
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>Niveau</FormLabel>
+                    <Input
+                      value={exerciseForm.niveau}
+                      onChange={(e) => updateExerciseForm("niveau", e.target.value)}
+                    />
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>Matériel</FormLabel>
+                    <Input
+                      value={exerciseForm.materiel}
+                      onChange={(e) => updateExerciseForm("materiel", e.target.value)}
+                    />
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>Position</FormLabel>
+                    <Input
+                      value={exerciseForm.position}
+                      onChange={(e) => updateExerciseForm("position", e.target.value)}
+                    />
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>Variantes</FormLabel>
+                    <Input
+                      value={exerciseForm.variantes}
+                      onChange={(e) => updateExerciseForm("variantes", e.target.value)}
+                    />
+                  </FormControl>
+                </SimpleGrid>
+
+                <FormControl>
+                  <FormLabel>Contraintes</FormLabel>
+                  <Textarea
+                    value={exerciseForm.contraintes}
+                    onChange={(e) => updateExerciseForm("contraintes", e.target.value)}
+                  />
+                </FormControl>
+
+                <Divider />
+
+                <Heading size="sm">Consignes</Heading>
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                  {["Positionnement", "Mouvement", "Retour", "Respiration", "Posture"].map((field) => (
+                    <FormControl key={field}>
+                      <FormLabel>{field}</FormLabel>
+                      <Textarea
+                        value={exerciseForm.consignes?.[field] || ""}
+                        onChange={(e) => updateExerciseConsigne(field, e.target.value)}
+                      />
+                    </FormControl>
+                  ))}
+                </SimpleGrid>
+
+                <Divider />
+
+                <Heading size="sm">Media homme</Heading>
+                <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap={4}>
+                  {exerciseForm.media.homme.images.map((img, idx) => (
+                    <React.Fragment key={`homme-${img.key}`}>
+                      <GridItem>
+                        <FormControl>
+                          <FormLabel>Homme image {img.key} - path</FormLabel>
+                          <Input
+                            value={img.path || ""}
+                            onChange={(e) =>
+                              updateExerciseMediaImage("homme", idx, "path", e.target.value)
+                            }
+                          />
+                        </FormControl>
+                      </GridItem>
+                      <GridItem>
+                        <FormControl>
+                          <FormLabel>Homme image {img.key} - url</FormLabel>
+                          <Input
+                            value={img.url || ""}
+                            onChange={(e) =>
+                              updateExerciseMediaImage("homme", idx, "url", e.target.value)
+                            }
+                          />
+                        </FormControl>
+                      </GridItem>
+                    </React.Fragment>
+                  ))}
+                  <GridItem>
+                    <FormControl>
+                      <FormLabel>Homme vidéo - path</FormLabel>
+                      <Input
+                        value={exerciseForm.media.homme.video.path || ""}
+                        onChange={(e) =>
+                          updateExerciseMediaVideo("homme", "path", e.target.value)
+                        }
+                      />
+                    </FormControl>
+                  </GridItem>
+                  <GridItem>
+                    <FormControl>
+                      <FormLabel>Homme vidéo - url</FormLabel>
+                      <Input
+                        value={exerciseForm.media.homme.video.url || ""}
+                        onChange={(e) =>
+                          updateExerciseMediaVideo("homme", "url", e.target.value)
+                        }
+                      />
+                    </FormControl>
+                  </GridItem>
+                </Grid>
+
+                <Divider />
+
+                <Heading size="sm">Media femme</Heading>
+                <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap={4}>
+                  {exerciseForm.media.femme.images.map((img, idx) => (
+                    <React.Fragment key={`femme-${img.key}`}>
+                      <GridItem>
+                        <FormControl>
+                          <FormLabel>Femme image {img.key} - path</FormLabel>
+                          <Input
+                            value={img.path || ""}
+                            onChange={(e) =>
+                              updateExerciseMediaImage("femme", idx, "path", e.target.value)
+                            }
+                          />
+                        </FormControl>
+                      </GridItem>
+                      <GridItem>
+                        <FormControl>
+                          <FormLabel>Femme image {img.key} - url</FormLabel>
+                          <Input
+                            value={img.url || ""}
+                            onChange={(e) =>
+                              updateExerciseMediaImage("femme", idx, "url", e.target.value)
+                            }
+                          />
+                        </FormControl>
+                      </GridItem>
+                    </React.Fragment>
+                  ))}
+                  <GridItem>
+                    <FormControl>
+                      <FormLabel>Femme vidéo - path</FormLabel>
+                      <Input
+                        value={exerciseForm.media.femme.video.path || ""}
+                        onChange={(e) =>
+                          updateExerciseMediaVideo("femme", "path", e.target.value)
+                        }
+                      />
+                    </FormControl>
+                  </GridItem>
+                  <GridItem>
+                    <FormControl>
+                      <FormLabel>Femme vidéo - url</FormLabel>
+                      <Input
+                        value={exerciseForm.media.femme.video.url || ""}
+                        onChange={(e) =>
+                          updateExerciseMediaVideo("femme", "url", e.target.value)
+                        }
+                      />
+                    </FormControl>
+                  </GridItem>
+                </Grid>
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <HStack>
+              <Button variant="ghost" onClick={exerciseEditor.onClose}>
+                Fermer
+              </Button>
+              <Button
+                onClick={() => handleSaveExercise({ validate: false })}
+                isLoading={exerciseSaving}
+                colorScheme="blue"
+              >
+                Enregistrer
+              </Button>
+              <Button
+                onClick={() => handleSaveExercise({ validate: true })}
+                isLoading={exerciseSaving}
+                colorScheme="green"
+              >
+                Valider
+              </Button>
+            </HStack>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
       <Heading size="md" mb={3}>
         À venir
       </Heading>
@@ -1525,4 +2283,3 @@ export default function AdminDashboard() {
     </Box>
   );
 }
-

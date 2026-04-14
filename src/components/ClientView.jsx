@@ -144,6 +144,7 @@ function getSessionName(s, prog) {
 /* --------- Conversions unités --------- */
 const kgToLbs = (kg) =>
   kg == null || isNaN(kg) ? "" : +(kg * 2.2046226218).toFixed(1);
+
 const lbsToKg = (lbs) =>
   lbs == null || isNaN(lbs) ? "" : +(lbs / 2.2046226218).toFixed(1);
 
@@ -163,11 +164,10 @@ const ftInToCm = (ft, inch) => {
   return +(totalIn * 2.54).toFixed(1);
 };
 
-/** ✅ Choisit la bonne date à afficher dans "Créé le" (robuste + fallback) */
+/** ✅ Choisit la bonne date d’assignation/création initiale (affichage secondaire / fallback) */
 function pickAssignedDate(p) {
   const origin = String(p?.origine || p?.origin || "").toLowerCase();
 
-  // ✅ Coach assign : priorise assignedAt, fallback createdAt
   if (origin.includes("coach")) {
     return (
       toJsDate(p?.assignedAt) ||
@@ -178,12 +178,10 @@ function pickAssignedDate(p) {
     );
   }
 
-  // ✅ Auto : createdAt
   if (origin.includes("auto")) {
     return toJsDate(p?.createdAt) || toJsDate(p?.created_at) || null;
   }
 
-  // ✅ Premium / achat
   if (
     origin.includes("premium") ||
     origin.includes("achat") ||
@@ -199,7 +197,6 @@ function pickAssignedDate(p) {
     );
   }
 
-  // ✅ fallback général
   return (
     toJsDate(p?.assignedAt) ||
     toJsDate(p?.createdAt) ||
@@ -225,11 +222,13 @@ const capitalizeFirst = (s = "") => {
   if (!str) return "";
   return str.charAt(0).toUpperCase() + str.slice(1);
 };
+
 const prettifyKey = (key = "") => {
   const s = String(key || "").trim();
   if (!s) return "";
   return s.replace(/_/g, " ").replace(/\s+/g, " ").trim();
 };
+
 const makeDefaultProgramName = (objectifUIKey, objectifFallback, nbSeances) => {
   const baseKey = objectifUIKey || objectifFallback || "";
   const label = capitalizeFirst(prettifyKey(baseKey));
@@ -237,9 +236,10 @@ const makeDefaultProgramName = (objectifUIKey, objectifFallback, nbSeances) => {
   if (!label) return `Programme — ${n}x/Sem`;
   return `${label} — ${n}x/Sem`;
 };
+
 const normalizeNameForCompare = (s = "") =>
   String(s || "")
-    .replace(/\u2014/g, "-") // — -> -
+    .replace(/\u2014/g, "-")
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
@@ -273,11 +273,11 @@ const isLegacyAutoName_FIXED = (
     cur === old4 ||
     cur === old5 ||
     cur === old6
-  )
+  ) {
     return true;
+  }
 
-  if (objectifFallback && cur === normalizeNameForCompare(objectifFallback))
-    return true;
+  if (objectifFallback && cur === normalizeNameForCompare(objectifFallback)) return true;
   if (objectifUIKey && cur === normalizeNameForCompare(objectifUIKey)) return true;
 
   return false;
@@ -299,18 +299,18 @@ const prettyProgramNameBase = (p) => {
       ? p.name.trim()
       : "";
 
-  if (rawName && isLegacyAutoName_FIXED(rawName, objectifUiKey, objectifFallback, n))
+  if (
+    rawName &&
+    isLegacyAutoName_FIXED(rawName, objectifUiKey, objectifFallback, n)
+  ) {
     return defaultName;
+  }
+
   if (rawName) return rawName;
 
   return defaultName || "—";
 };
 
-/**
- * ✅ ClientView doit prendre le même "chemin" que SessionComparator
- * => SessionComparator affiche: p.nomProgramme || p.name || p.id
- * Donc ici: on s'assure que p.nomProgramme est toujours bien rempli.
- */
 async function resolveProgrammeDisplayNameFromClientDoc(data, programmeId) {
   const existing = String(data?.nomProgramme || data?.name || "").trim();
   if (existing) return existing;
@@ -325,7 +325,6 @@ async function resolveProgrammeDisplayNameFromClientDoc(data, programmeId) {
     }
   }
 
-  // fallback robuste
   return prettyProgramNameBase(data) || programmeId || "Programme";
 }
 
@@ -346,33 +345,45 @@ function getSecondaryAuth() {
 function getLastDoneDateFromProgramme(prog) {
   const last = (prog?.sessionsEffectuees || [])
     .map((s) => {
-      const d = s?.[FIELD_DONE_DATE];
-      const js = d?.toDate ? d.toDate() : toJsDate(d);
+      const raw = s?.[FIELD_DONE_DATE];
+      const js = raw?.toDate ? raw.toDate() : toJsDate(raw);
       return js instanceof Date && !isNaN(js) ? js : null;
     })
     .filter(Boolean)
     .sort((a, b) => b - a)[0];
+
   return last || null;
 }
 
-/**
- * ✅ Tri voulu :
- * 1) programme coach assigné le plus récemment -> en premier
- * 2) sinon celui avec la dernière séance effectuée -> en premier
- * 3) sinon fallback (assignedAt/createdAt/purchasedAt)
- */
 function getProgrammeSortDate(prog) {
-  const origin = String(prog?.origine || prog?.origin || "").toLowerCase();
+  const assigned =
+    toJsDate(prog?.assignedAt) ||
+    toJsDate(prog?.assigned_at) ||
+    null;
 
-  const assigned = toJsDate(prog?.assignedAt) || toJsDate(prog?.assigned_at) || null;
   const lastDone = getLastDoneDateFromProgramme(prog);
-  const created = toJsDate(prog?.createdAt) || toJsDate(prog?.created_at) || null;
-  const purchased = toJsDate(prog?.purchasedAt) || null;
 
-  if (origin.includes("coach") && assigned) return assigned;
-  if (lastDone) return lastDone;
+  const created =
+    toJsDate(prog?.createdAt) ||
+    toJsDate(prog?.created_at) ||
+    null;
 
-  return assigned || created || purchased || null;
+  const purchased =
+    toJsDate(prog?.purchasedAt) ||
+    toJsDate(prog?.boughtAt) ||
+    toJsDate(prog?.order?.createdAt) ||
+    null;
+
+  const candidates = [assigned, lastDone, created, purchased].filter(
+    (d) => d instanceof Date && !isNaN(d)
+  );
+
+  if (!candidates.length) return null;
+  return candidates.sort((a, b) => b.getTime() - a.getTime())[0];
+}
+
+function getProgrammeLastActivityDate(prog) {
+  return getProgrammeSortDate(prog);
 }
 
 /* ===========================
@@ -383,13 +394,15 @@ class SafeBoundary extends React.Component {
     super(props);
     this.state = { hasError: false };
   }
+
   static getDerivedStateFromError() {
     return { hasError: true };
   }
+
   componentDidCatch(err) {
-    // eslint-disable-next-line no-console
     console.error("[ClientView] SafeBoundary caught error:", err);
   }
+
   render() {
     if (this.state.hasError) {
       return (
@@ -410,14 +423,12 @@ class SafeBoundary extends React.Component {
 }
 
 /* ===========================
-   ⭐ Stars Preview (DERNIÈRE note; si pas de note => étoiles vides)
+   ⭐ Stars Preview
    =========================== */
 function toStarValue0to5(n) {
-  // null/undefined/"": pas de note -> 0 étoile remplie (mais on affiche 5 vides)
   if (n == null || n === "") return 0;
   const x = Number(n);
   if (!isFinite(x)) return 0;
-  // notes attendues 1..5, mais on clamp au cas où
   return Math.max(0, Math.min(5, Math.round(x)));
 }
 
@@ -439,7 +450,6 @@ const StarsPreview = ({ value, tooltip }) => {
     </HStack>
   );
 
-  // Tooltip seulement si fourni (ex: dernière note). Sinon, juste les étoiles.
   if (!tooltip) return stars;
 
   return (
@@ -448,6 +458,101 @@ const StarsPreview = ({ value, tooltip }) => {
     </Tooltip>
   );
 };
+
+/* ===========================
+   Helpers duplication
+   =========================== */
+function safeDeepClone(value) {
+  try {
+    return structuredClone(value);
+  } catch {
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch {
+      return value;
+    }
+  }
+}
+
+function stripRootProgramMeta(data = {}) {
+  const {
+    sessionsEffectuees,
+    difficultyNotes,
+    difficultyMap,
+    assignedAt,
+    assigned_at,
+    createdAt,
+    created_at,
+    updatedAt,
+    updated_at,
+    progression,
+    pourcentageTermine,
+    clientId,
+    clientNom,
+    source,
+    origine,
+    origin,
+    duplicatedFrom,
+    duplicatedAt,
+    duplicatedFromProgramId,
+    duplicatedFromTemplateId,
+    duplicatedBaseId,
+    order,
+    lastPlayedAt,
+    assignedClients,
+    assignedClientIds,
+    lastAssignedAt,
+    programId,
+    fromTemplateId,
+    templateId,
+    ...rest
+  } = data || {};
+
+  return safeDeepClone(rest);
+}
+
+function buildAssignedProgramFromBase({
+  baseId,
+  baseData,
+  finalName,
+  clientId,
+  clientNom,
+}) {
+  const sessions = safeDeepClone(
+    Array.isArray(baseData?.sessions)
+      ? baseData.sessions
+      : Array.isArray(baseData?.seances)
+      ? baseData.seances
+      : []
+  );
+
+  return {
+    ...safeDeepClone(baseData),
+    id: baseId,
+    nomProgramme: finalName,
+    name: finalName,
+    programId: baseId,
+    fromTemplateId: baseId,
+    templateId: baseId,
+    origin: "coach-assign",
+    origine: "coach-assign",
+    source: "duplicate",
+    assignedAt: serverTimestamp(),
+    createdAt: serverTimestamp(),
+    assigned_at: serverTimestamp(),
+    created_at: serverTimestamp(),
+    clientId,
+    clientNom,
+    sessions,
+    seances: safeDeepClone(sessions),
+    objectif: baseData?.objectif || baseData?.objectifUI || "",
+    objectifUI: baseData?.objectifUI || "",
+    nbSeances: sessions.length || baseData?.nbSeances || baseData?.totalSessions || null,
+    totalSessions: sessions.length || baseData?.totalSessions || null,
+    progression: 0,
+    pourcentageTermine: 0,
+  };
+}
 
 export default function ClientView() {
   const { t } = useTranslation();
@@ -468,7 +573,6 @@ export default function ClientView() {
   const [duplicatingId, setDuplicatingId] = useState(null);
   const [isUnassigning, setIsUnassigning] = useState(false);
 
-  // ✅ Assigner un programme
   const assignProg = useDisclosure();
   const [baseProgrammes, setBaseProgrammes] = useState([]);
   const [loadingBaseProgrammes, setLoadingBaseProgrammes] = useState(false);
@@ -478,7 +582,6 @@ export default function ClientView() {
     customName: "",
   });
 
-  // Préférences d'unités
   const [heightUnit, setHeightUnit] = useState(
     () => localStorage.getItem("unit.height") || "cm"
   );
@@ -490,6 +593,7 @@ export default function ClientView() {
     setHeightUnit(u);
     localStorage.setItem("unit.height", u);
   };
+
   const onChangeWeightUnit = (u) => {
     setWeightUnit(u);
     localStorage.setItem("unit.weight", u);
@@ -510,10 +614,12 @@ export default function ClientView() {
 
   const [editData, setEditData] = useState({});
 
-  // Options (mêmes que ClientCreation)
   const levelOptions = [
     { value: "Débutant", label: t("clientCreation.levels.beginner", "Débutant") },
-    { value: "Intermédiaire", label: t("clientCreation.levels.intermediate", "Intermédiaire") },
+    {
+      value: "Intermédiaire",
+      label: t("clientCreation.levels.intermediate", "Intermédiaire"),
+    },
     { value: "Confirmé", label: t("clientCreation.levels.advanced", "Confirmé") },
   ];
 
@@ -522,7 +628,10 @@ export default function ClientView() {
     { value: "Perte de poids", label: t("clientCreation.objectives.loss", "Perte de poids") },
     { value: "Force", label: t("clientCreation.objectives.strength", "Force") },
     { value: "Endurance", label: t("clientCreation.objectives.endurance", "Endurance") },
-    { value: "Remise au sport", label: t("clientCreation.objectives.restart", "Remise au sport") },
+    {
+      value: "Remise au sport",
+      label: t("clientCreation.objectives.restart", "Remise au sport"),
+    },
     { value: "Postural", label: t("clientCreation.objectives.posture", "Postural") },
   ];
 
@@ -539,12 +648,12 @@ export default function ClientView() {
   const heightLabel =
     heightUnit === "cm"
       ? t("stats.fields.height", "Taille (cm)")
-      : `${t("stats.fields.height", "Taille").replace(/\s*\(.*?\)/, "")} (ft/in)`;
+      : `${t("stats.fields.height", "Taille").replace(/\s*$begin:math:text$\.\*\?$end:math:text$/, "")} (ft/in)`;
 
   const weightLabel =
     weightUnit === "kg"
       ? t("stats.fields.weight", "Poids (kg)")
-      : `${t("stats.fields.weight", "Poids").replace(/\s*\(.*?\)/, "")} (lbs)`;
+      : `${t("stats.fields.weight", "Poids").replace(/\s*$begin:math:text$\.\*\?$end:math:text$/, "")} (lbs)`;
 
   /* ------------------ Client ------------------ */
   useEffect(() => {
@@ -563,7 +672,6 @@ export default function ClientView() {
       progSnap.docs.map(async (d) => {
         const data = d.data();
 
-        // ✅ sessionsEffectuees
         const sessSnap = await getDocs(
           collection(db, "clients", clientId, SUBCOL_PROGRAMMES, d.id, SUBCOL_SESSIONS_DONE)
         );
@@ -572,7 +680,6 @@ export default function ClientView() {
           ...docu.data(),
         }));
 
-        // ✅ dernière note difficulté (PAS moyenne) : clients/{clientId}/programmes/{progId}/difficulté_notes
         let lastRating = null;
         let lastRatingSessionIndex = null;
         let lastRatingDate = null;
@@ -587,10 +694,14 @@ export default function ClientView() {
               const r = x.data() || {};
               const created = toJsDate(r.createdAt) || toJsDate(r.timestamp) || null;
               const idx =
-                Number.isInteger(r.sessionIndex) ? r.sessionIndex :
-                Number.isInteger(r.seanceIndex) ? r.seanceIndex :
-                Number.isInteger(r.index) ? r.index :
-                null;
+                Number.isInteger(r.sessionIndex)
+                  ? r.sessionIndex
+                  : Number.isInteger(r.seanceIndex)
+                  ? r.seanceIndex
+                  : Number.isInteger(r.index)
+                  ? r.index
+                  : null;
+
               return {
                 rating: r.rating,
                 createdAt: created,
@@ -599,9 +710,6 @@ export default function ClientView() {
             })
             .filter((x) => x.rating != null);
 
-          // 🔥 On prend la DERNIÈRE note :
-          // 1) createdAt la plus récente
-          // 2) sinon sessionIndex le plus grand
           notes.sort((a, b) => {
             const ta = a.createdAt ? a.createdAt.getTime() : -1;
             const tb = b.createdAt ? b.createdAt.getTime() : -1;
@@ -619,23 +727,17 @@ export default function ClientView() {
             lastRatingDate = last.createdAt;
           }
         } catch (_) {
-          // silencieux (pas bloquant)
+          // silencieux
         }
 
-        // ✅ IMPORTANT: on force ici "nomProgramme" pour matcher SessionComparator (p.nomProgramme || p.name || p.id)
         const resolvedName = await resolveProgrammeDisplayNameFromClientDoc(data, d.id);
 
         return {
           id: d.id,
           ...data,
-
-          // ✅ chemin SessionComparator
           nomProgramme: resolvedName,
           name: String(data?.name || "").trim() || resolvedName,
-
           sessionsEffectuees,
-
-          // ⭐ last note (pas moyenne)
           __lastRating: lastRating,
           __lastRatingSessionIndex: lastRatingSessionIndex,
           __lastRatingDate: lastRatingDate,
@@ -649,7 +751,6 @@ export default function ClientView() {
   useEffect(() => {
     if (!clientId) return;
     reloadProgrammes();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId]);
 
   const sortedProgrammes = useMemo(() => {
@@ -713,7 +814,6 @@ export default function ClientView() {
     addMeas.onClose();
   };
 
-  // 🔔 Invitation (email reset) si email ajouté/modifié
   const handleEdit = async () => {
     try {
       const oldEmail = (client?.email || "").trim().toLowerCase();
@@ -749,7 +849,6 @@ export default function ClientView() {
 
           authSec.languageCode = langCode;
 
-          // créer user si besoin
           try {
             const randomPw = Math.random().toString(36).slice(2, 10) + "Byl!";
             await createUserSecondary(authSec, newEmail, randomPw);
@@ -770,12 +869,14 @@ export default function ClientView() {
             ),
           });
         } catch (err) {
-          // eslint-disable-next-line no-console
           console.error("[ClientView] invite error:", err);
           toast({
             status: "error",
             title: t("errors.inviteFailed", "Échec de l’envoi de l’invitation"),
-            description: t("errors.tryAgain", "Vérifie la configuration Firebase Auth et réessaie."),
+            description: t(
+              "errors.tryAgain",
+              "Vérifie la configuration Firebase Auth et réessaie."
+            ),
           });
         }
       } else {
@@ -785,7 +886,6 @@ export default function ClientView() {
         });
       }
     } catch (e) {
-      // eslint-disable-next-line no-console
       console.error(e);
       toast({
         status: "error",
@@ -797,19 +897,19 @@ export default function ClientView() {
     }
   };
 
-  // ✅ Désassignation robuste (+ met à jour assignedClients du template)
   const handleConfirm = async () => {
     if (!toRemove || !clientId) return;
 
     setIsUnassigning(true);
     const removedProg = programmes.find((p) => p.id === toRemove) || null;
 
-    setProgrammes((prev) => (Array.isArray(prev) ? prev.filter((p) => p.id !== toRemove) : prev));
+    setProgrammes((prev) =>
+      Array.isArray(prev) ? prev.filter((p) => p.id !== toRemove) : prev
+    );
 
     try {
       await deleteDoc(doc(db, "clients", clientId, SUBCOL_PROGRAMMES, toRemove));
 
-      // ✅ IMPORTANT : retirer le client du vrai template (pour éviter "Assigné à" incohérent)
       const templateId =
         removedProg?.programId || removedProg?.fromTemplateId || removedProg?.templateId || null;
 
@@ -819,9 +919,7 @@ export default function ClientView() {
             assignedClients: arrayRemove(clientId),
             assignedClientIds: arrayRemove(clientId),
           });
-        } catch (_) {
-          // pas bloquant
-        }
+        } catch (_) {}
       }
 
       toast({
@@ -829,7 +927,6 @@ export default function ClientView() {
         title: `${t("clientView.unassign", "Désassigner")} ✅`,
       });
     } catch (e) {
-      // eslint-disable-next-line no-console
       console.error("[ClientView] unassign error:", e);
       toast({
         status: "error",
@@ -839,7 +936,6 @@ export default function ClientView() {
       try {
         await reloadProgrammes();
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.error("[ClientView] reload after unassign failed:", err);
       }
     } finally {
@@ -858,81 +954,120 @@ export default function ClientView() {
       const snap = await getDoc(srcRef);
 
       if (!snap.exists()) {
-        toast({ status: "error", title: t("programs.empty", "Programme introuvable") });
+        toast({
+          status: "error",
+          title: t("programs.empty", "Programme introuvable"),
+        });
         return;
       }
 
-      const src = snap.data();
+      const src = snap.data() || {};
+      const linkedBaseId =
+        src?.programId || src?.fromTemplateId || src?.templateId || null;
 
-      const {
-        sessionsEffectuees: _omitSessionsDone,
-        assigned_at: _omitAssignedAtLegacy,
-        created_at: _omitCreatedAtLegacy,
-        lastPlayedAt: _omitLastPlayed,
-        pourcentageTermine: _omitPct,
-        progression: _omitProg,
-        order: _omitOrder,
-        ...rest
-      } = src;
+      let rootSourceData = null;
 
-      // ✅ Nom basé sur le template si dispo (mais si le doc client a déjà un nom, on le garde)
-      let baseName = String(src?.nomProgramme || src?.name || "").trim();
-      if (!baseName) {
-        const baseId = src?.programId || src?.fromTemplateId || src?.templateId || null;
-        if (baseId) {
-          try {
-            const baseSnap = await getDoc(doc(db, "programmes", baseId));
-            if (baseSnap.exists()) baseName = prettyProgramNameBase(baseSnap.data());
-          } catch (_) {}
+      if (linkedBaseId) {
+        try {
+          const baseSnap = await getDoc(doc(db, "programmes", linkedBaseId));
+          if (baseSnap.exists()) {
+            rootSourceData = baseSnap.data();
+          }
+        } catch (_) {
+          // ignore
         }
-        if (!baseName) baseName = prettyProgramNameBase(src);
       }
 
-      const withCopy = (n) => {
-        const s = String(n || "").trim();
-        if (!s) return `${t("myPrograms.untitled", "Programme")} (copie)`;
-        if (s.toLowerCase().includes("(copie)")) return s;
-        return `${s} (copie)`;
-      };
+      const sourceForRoot = rootSourceData || src;
+      const baseName = prettyProgramNameBase(sourceForRoot || src);
+      const newName = `${baseName} (${t("common.copy", "copie")})`;
 
-      const nom = withCopy(baseName);
-      const fullName = `${client?.prenom || ""} ${client?.nom || ""}`.trim() || null;
+      // 1) créer une NOUVELLE base /programmes avec un nouvel ID Firestore
+      const cleanRoot = stripRootProgramMeta(sourceForRoot);
+      const clonedRootSessions = safeDeepClone(
+        Array.isArray(sourceForRoot?.sessions)
+          ? sourceForRoot.sessions
+          : Array.isArray(sourceForRoot?.seances)
+          ? sourceForRoot.seances
+          : []
+      );
 
-      const cloned = {
-        ...rest,
-        nomProgramme: nom, // ✅ important
-        name: String(src?.name || "").trim() || nom, // compat
-        origin: src?.origin || src?.origine || "coach",
-        origine: src?.origine || src?.origin || "coach",
+      const rootPayload = {
+        ...cleanRoot,
+        nomProgramme: newName,
+        name: newName,
+        sessions: clonedRootSessions,
+        seances: safeDeepClone(clonedRootSessions),
         createdAt: serverTimestamp(),
-        assignedAt: serverTimestamp(),
-        created_at: serverTimestamp(),
-        assigned_at: serverTimestamp(),
-        duplicatedFrom: programmeId,
         duplicatedAt: serverTimestamp(),
-        progression: 0,
-        pourcentageTermine: 0,
-        clientId,
-        clientNom: fullName,
+        duplicatedFrom: programmeId,
+        duplicatedBaseId: linkedBaseId || null,
         source: "duplicate",
       };
 
-      await addDoc(collection(db, "clients", clientId, SUBCOL_PROGRAMMES), cloned);
+      const newBaseRef = await addDoc(collection(db, "programmes"), rootPayload);
+      const newBaseId = newBaseRef.id;
 
-      toast({ status: "success", title: `${t("common.duplicate", "Dupliquer")} ✅` });
+      // important : réécrire le champ interne id avec le NOUVEL ID
+      await updateDoc(doc(db, "programmes", newBaseId), {
+        id: newBaseId,
+      });
+
+      // 2) créer la nouvelle assignation client qui pointe vers CE nouveau programme
+      const fullName = `${client?.prenom || ""} ${client?.nom || ""}`.trim() || null;
+
+      const assignedPayload = buildAssignedProgramFromBase({
+        baseId: newBaseId,
+        baseData: {
+          ...safeDeepClone(cleanRoot),
+          id: newBaseId,
+          nomProgramme: newName,
+          name: newName,
+          sessions: clonedRootSessions,
+          seances: safeDeepClone(clonedRootSessions),
+        },
+        finalName: newName,
+        clientId,
+        clientNom: fullName,
+      });
+
+      const newAssignedRef = await addDoc(
+        collection(db, "clients", clientId, SUBCOL_PROGRAMMES),
+        {
+          ...assignedPayload,
+          duplicatedFrom: programmeId,
+          duplicatedFromProgramId: linkedBaseId || null,
+          duplicatedAt: serverTimestamp(),
+        }
+      );
+
+      // pareil ici : le champ interne id doit matcher le nouveau doc client
+      await updateDoc(
+        doc(db, "clients", clientId, SUBCOL_PROGRAMMES, newAssignedRef.id),
+        {
+          id: newAssignedRef.id,
+        }
+      );
+
+      toast({
+        status: "success",
+        title: `${t("common.duplicate", "Dupliquer")} ✅`,
+      });
+
       await reloadProgrammes();
     } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error(e);
-      toast({ status: "error", title: t("errors.saveFailed", "Échec de l’enregistrement") });
+      console.error("[ClientView] duplicateProgramme error:", e);
+      toast({
+        status: "error",
+        title: t("errors.saveFailed", "Échec de l’enregistrement"),
+      });
     } finally {
       setDuplicatingId(null);
     }
   };
 
   /* =============================
-     ✅ Assignation directe programme (SANS duplication dashboard)
-     ✅ + copie des séances dans le doc client (fix programme "vide")
+     ✅ Assignation directe programme
      ============================= */
   const loadBaseProgrammes = async () => {
     try {
@@ -945,7 +1080,6 @@ export default function ClientView() {
         .sort((a, b) => String(a.__label || "").localeCompare(String(b.__label || "")));
       setBaseProgrammes(list);
     } catch (e) {
-      // eslint-disable-next-line no-console
       console.error("[ClientView] loadBaseProgrammes error:", e);
       toast({
         status: "error",
@@ -960,7 +1094,6 @@ export default function ClientView() {
   useEffect(() => {
     if (!assignProg.isOpen) return;
     loadBaseProgrammes();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignProg.isOpen]);
 
   const handleAssignProgramme = async () => {
@@ -969,7 +1102,7 @@ export default function ClientView() {
     if (!baseId) {
       toast({
         status: "warning",
-        title: t("errors.missingField", "Champ man"),
+        title: t("errors.missingField", "Champ manquant"),
         description: t("clientView.selectProgram", "Sélectionne un programme à assigner."),
       });
       return;
@@ -991,74 +1124,59 @@ export default function ClientView() {
       const base = baseSnap.data();
       const baseName = prettyProgramNameBase(base);
       const finalName =
-        (assignForm.customName || "").trim() || baseName || t("myPrograms.untitled", "Programme");
+        (assignForm.customName || "").trim() ||
+        baseName ||
+        t("myPrograms.untitled", "Programme");
 
       const fullName = `${client?.prenom || ""} ${client?.nom || ""}`.trim() || null;
 
-      // ✅ IMPORTANT: on copie les séances du template dans le doc client
       const baseSessions = Array.isArray(base?.sessions)
         ? base.sessions
         : Array.isArray(base?.seances)
         ? base.seances
         : [];
 
-      const safeClone = (x) => {
-        try {
-          return JSON.parse(JSON.stringify(x));
-        } catch {
-          return x;
-        }
-      };
-      const clonedSessions = safeClone(baseSessions || []);
+      const clonedSessions = safeDeepClone(baseSessions || []);
 
       const clientProgPayload = {
-        // ✅ chemin SessionComparator
         nomProgramme: finalName,
         name: finalName,
-
-        // lien template
+        id: baseId,
         programId: baseId,
         fromTemplateId: baseId,
         templateId: baseId,
-
-        // origine
         origin: "coach",
         origine: "coach",
-
-        // dates
         assignedAt: serverTimestamp(),
         createdAt: serverTimestamp(),
         assigned_at: serverTimestamp(),
         created_at: serverTimestamp(),
-
-        // client meta
         clientId,
         clientNom: fullName,
-
-        // ✅ contenu (fix programme vide)
         sessions: clonedSessions,
-        seances: clonedSessions, // compat si une page lit "seances"
-
-        // meta utile
+        seances: safeDeepClone(clonedSessions),
         objectif: base?.objectif || base?.objectifUI || "",
         objectifUI: base?.objectifUI || "",
         nbSeances: clonedSessions.length || base?.nbSeances || base?.totalSessions || null,
         totalSessions: clonedSessions.length || base?.totalSessions || null,
       };
 
-      await addDoc(collection(db, "clients", clientId, SUBCOL_PROGRAMMES), clientProgPayload);
+      const newRef = await addDoc(
+        collection(db, "clients", clientId, SUBCOL_PROGRAMMES),
+        clientProgPayload
+      );
 
-      // ✅ IMPORTANT: NE PAS créer un nouveau doc dans "programmes" (ça doublonne sur le dashboard)
-      // ✅ On met juste à jour le template pour le "Assigné à"
+      await updateDoc(doc(db, "clients", clientId, SUBCOL_PROGRAMMES, newRef.id), {
+        id: newRef.id,
+      });
+
       try {
         await updateDoc(doc(db, "programmes", baseId), {
           assignedClients: arrayUnion(clientId),
           assignedClientIds: arrayUnion(clientId),
           lastAssignedAt: serverTimestamp(),
         });
-      } catch (_) {
-        // pas bloquant si règles empêchent
-      }
+      } catch (_) {}
 
       toast({
         status: "success",
@@ -1070,7 +1188,6 @@ export default function ClientView() {
 
       await reloadProgrammes();
     } catch (e) {
-      // eslint-disable-next-line no-console
       console.error("[ClientView] assign error:", e);
       toast({
         status: "error",
@@ -1097,8 +1214,11 @@ export default function ClientView() {
     sessionsEff.forEach((s) => {
       const pct = typeof s.pourcentageTermine === "number" ? s.pourcentageTermine : 100;
       if (pct >= 90) doneThisProg += 1;
-      const d = s[FIELD_DONE_DATE]?.toDate ? s[FIELD_DONE_DATE].toDate() : null;
-      if (d) {
+
+      const rawDone = s?.[FIELD_DONE_DATE];
+      const d = rawDone?.toDate ? rawDone.toDate() : toJsDate(rawDone);
+
+      if (d instanceof Date && !isNaN(d)) {
         if (!lastGlobal || d > lastGlobal.date) {
           lastGlobal = { date: d, name: getSessionName(s, prog) || undefined };
         }
@@ -1117,8 +1237,9 @@ export default function ClientView() {
   let sessWeek = 0;
   programmes.forEach((prog) => {
     (prog.sessionsEffectuees || []).forEach((s) => {
-      const d = s[FIELD_DONE_DATE]?.toDate ? s[FIELD_DONE_DATE].toDate() : null;
-      if (d && d.getTime() >= weekAgo) sessWeek++;
+      const rawDone = s?.[FIELD_DONE_DATE];
+      const d = rawDone?.toDate ? rawDone.toDate() : toJsDate(rawDone);
+      if (d instanceof Date && !isNaN(d) && d.getTime() >= weekAgo) sessWeek++;
     });
   });
 
@@ -1133,8 +1254,10 @@ export default function ClientView() {
     metabolicAge: r.metabolicAge,
     visceralFatScore: r.visceralFatScore,
   };
-  if (latest.taille && latest.poids)
+
+  if (latest.taille && latest.poids) {
     latest.bmi = +(latest.poids / (latest.taille / 100) ** 2).toFixed(1);
+  }
 
   const pageBg = useColorModeValue("gray.50", "gray.800");
   const cardBg = useColorModeValue("white", "gray.700");
@@ -1163,7 +1286,6 @@ export default function ClientView() {
     return `${n} (surplus)`;
   };
 
-  // 🔒 Force remount comparator si liste change
   const comparatorKey = useMemo(
     () => (sortedProgrammes || []).map((p) => p.id).join("|") || "empty",
     [sortedProgrammes]
@@ -1171,7 +1293,6 @@ export default function ClientView() {
 
   return (
     <Box minH="100vh" bg={pageBg} px={{ base: 2, md: 6 }} py={6}>
-      {/* Header */}
       <Flex mb={4} align="center" justify="space-between">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           ← {t("common.back", "Retour")}
@@ -1277,7 +1398,7 @@ export default function ClientView() {
             <Thead>
               <Tr>
                 <Th>{t("dashboard.col_name", "Nom")}</Th>
-                <Th>{t("clientView.createdOn", "Créé le")}</Th>
+                <Th>{t("clientView.lastActivity", "Dernière activité")}</Th>
                 <Th>{t("clientView.sessionsDonePlanned", "Sessions (faites/prévues)")}</Th>
                 <Th>{t("clientView.lastShort", "Dern. séance")}</Th>
                 <Th>{t("dashboard.col_action", "Action")}</Th>
@@ -1286,6 +1407,7 @@ export default function ClientView() {
             <Tbody>
               {sortedProgrammes.map((p) => {
                 const totalPrevues = getTotalSessionsFromProgrammeDoc(p);
+
                 const nbSessEff =
                   (p.sessionsEffectuees || []).reduce((acc, s) => {
                     const pct =
@@ -1295,19 +1417,28 @@ export default function ClientView() {
 
                 const lastSessObj = (p.sessionsEffectuees || [])
                   .map((s) => {
-                    const d = s[FIELD_DONE_DATE]?.toDate ? s[FIELD_DONE_DATE].toDate() : null;
-                    return d ? { date: d, name: getSessionName(s, p) || undefined } : null;
+                    const rawDone = s?.[FIELD_DONE_DATE];
+                    const d = rawDone?.toDate ? rawDone.toDate() : toJsDate(rawDone);
+                    return d instanceof Date && !isNaN(d)
+                      ? { date: d, name: getSessionName(s, p) || undefined }
+                      : null;
                   })
                   .filter(Boolean)
                   .sort((a, b) => b.date - a.date)[0];
 
+                const lastActivityDate = getProgrammeLastActivityDate(p);
                 const assignedDate = pickAssignedDate(p);
 
                 const noteTooltip = (() => {
                   if (!p.__lastRating) return null;
-                  const idx =
-                    Number.isInteger(p.__lastRatingSessionIndex) ? p.__lastRatingSessionIndex + 1 : null;
-                  const d = p.__lastRatingDate instanceof Date ? p.__lastRatingDate.toLocaleDateString() : null;
+                  const idx = Number.isInteger(p.__lastRatingSessionIndex)
+                    ? p.__lastRatingSessionIndex + 1
+                    : null;
+                  const d =
+                    p.__lastRatingDate instanceof Date
+                      ? p.__lastRatingDate.toLocaleDateString()
+                      : null;
+
                   if (idx && d) return `Dernière note — Séance ${idx} (${d})`;
                   if (idx) return `Dernière note — Séance ${idx}`;
                   if (d) return `Dernière note (${d})`;
@@ -1319,14 +1450,23 @@ export default function ClientView() {
                     <Td>
                       <VStack align="start" spacing={1}>
                         <Text fontWeight="semibold">{p.nomProgramme || p.name || p.id}</Text>
-                        {/* ✅ Toujours 5 étoiles ; si pas de note => vides */}
                         <StarsPreview value={p.__lastRating} tooltip={noteTooltip} />
                       </VStack>
                     </Td>
-                    <Td>{assignedDate ? assignedDate.toLocaleDateString() : "—"}</Td>
+
+                    <Td>
+                      <VStack align="start" spacing={0}>
+                        <Text>{lastActivityDate ? lastActivityDate.toLocaleDateString() : "—"}</Text>
+                        <Text fontSize="xs" color={muted}>
+                          {assignedDate ? `Assigné/créé : ${assignedDate.toLocaleDateString()}` : "—"}
+                        </Text>
+                      </VStack>
+                    </Td>
+
                     <Td>
                       {nbSessEff}/{totalPrevues}
                     </Td>
+
                     <Td>
                       <VStack align="start" spacing={0}>
                         <Text>{lastSessObj ? lastSessObj.date.toLocaleDateString() : "—"}</Text>
@@ -1337,6 +1477,7 @@ export default function ClientView() {
                         )}
                       </VStack>
                     </Td>
+
                     <Td>
                       <HStack spacing={3}>
                         <Button
@@ -1347,6 +1488,7 @@ export default function ClientView() {
                         >
                           {t("common.view", "Voir")}
                         </Button>
+
                         <Button
                           size="sm"
                           variant="outline"
@@ -1356,6 +1498,7 @@ export default function ClientView() {
                         >
                           {t("common.duplicate", "Dupliquer")}
                         </Button>
+
                         <Button
                           size="sm"
                           colorScheme="red"
@@ -1372,6 +1515,7 @@ export default function ClientView() {
                   </Tr>
                 );
               })}
+
               {sortedProgrammes.length === 0 && (
                 <Tr>
                   <Td colSpan={5} textAlign="center">
@@ -1388,6 +1532,7 @@ export default function ClientView() {
           <VStack spacing={3} align="stretch">
             {sortedProgrammes.map((p) => {
               const totalPrevues = getTotalSessionsFromProgrammeDoc(p);
+
               const nbSessEff =
                 (p.sessionsEffectuees || []).reduce((acc, s) => {
                   const pct =
@@ -1397,21 +1542,31 @@ export default function ClientView() {
 
               const lastSessObj = (p.sessionsEffectuees || [])
                 .map((s) => {
-                  const d = s[FIELD_DONE_DATE]?.toDate ? s[FIELD_DONE_DATE].toDate() : null;
-                  return d ? { date: d, name: getSessionName(s, p) || undefined } : null;
+                  const rawDone = s?.[FIELD_DONE_DATE];
+                  const d = rawDone?.toDate ? rawDone.toDate() : toJsDate(rawDone);
+                  return d instanceof Date && !isNaN(d)
+                    ? { date: d, name: getSessionName(s, p) || undefined }
+                    : null;
                 })
                 .filter(Boolean)
                 .sort((a, b) => b.date - a.date)[0];
 
               const percent =
                 totalPrevues > 0 ? Math.min(100, Math.round((nbSessEff / totalPrevues) * 100)) : 0;
+
               const assignedDate = pickAssignedDate(p);
+              const lastActivityDate = getProgrammeLastActivityDate(p);
 
               const noteTooltip = (() => {
                 if (!p.__lastRating) return null;
-                const idx =
-                  Number.isInteger(p.__lastRatingSessionIndex) ? p.__lastRatingSessionIndex + 1 : null;
-                const d = p.__lastRatingDate instanceof Date ? p.__lastRatingDate.toLocaleDateString() : null;
+                const idx = Number.isInteger(p.__lastRatingSessionIndex)
+                  ? p.__lastRatingSessionIndex + 1
+                  : null;
+                const d =
+                  p.__lastRatingDate instanceof Date
+                    ? p.__lastRatingDate.toLocaleDateString()
+                    : null;
+
                 if (idx && d) return `Dernière note — Séance ${idx} (${d})`;
                 if (idx) return `Dernière note — Séance ${idx}`;
                 if (d) return `Dernière note (${d})`;
@@ -1432,17 +1587,24 @@ export default function ClientView() {
                     <Text fontWeight="bold" fontSize="md">
                       {p.nomProgramme || p.name || p.id}
                     </Text>
-                    {/* ✅ Toujours 5 étoiles ; si pas de note => vides */}
                     <StarsPreview value={p.__lastRating} tooltip={noteTooltip} />
                   </VStack>
 
                   <HStack spacing={2} mt={2} wrap="wrap">
                     <Badge variant="subtle" colorScheme="gray">
+                      {t("clientView.lastActivity", "Dernière activité")}:{" "}
+                      {lastActivityDate ? lastActivityDate.toLocaleDateString() : "—"}
+                    </Badge>
+
+                    <Badge variant="subtle" colorScheme="gray">
+                      {t("clientView.createdOn", "Créé le")}:{" "}
                       {assignedDate ? assignedDate.toLocaleDateString() : "—"}
                     </Badge>
+
                     <Badge>
                       {nbSessEff}/{totalPrevues} {t("dashboard.sessions", "Séances")}
                     </Badge>
+
                     <Badge variant="subtle" colorScheme="gray">
                       {t("clientView.lastShort", "Dern.")}:{" "}
                       {lastSessObj ? lastSessObj.date.toLocaleDateString() : "—"}
@@ -1469,6 +1631,7 @@ export default function ClientView() {
                     >
                       {t("common.view", "Voir")}
                     </Button>
+
                     <Button
                       size="sm"
                       variant="outline"
@@ -1478,6 +1641,7 @@ export default function ClientView() {
                     >
                       {t("common.duplicate", "Dupliquer")}
                     </Button>
+
                     <Button
                       size="sm"
                       colorScheme="red"
@@ -1513,8 +1677,11 @@ export default function ClientView() {
               {t("clientView.compareSession", "Comparer des séances")}
             </Text>
             <SafeBoundary>
-              {/* ✅ On passe sortedProgrammes : il contient maintenant "nomProgramme" résolu */}
-              <SessionComparator key={comparatorKey} clientId={clientId} programmes={sortedProgrammes} />
+              <SessionComparator
+                key={comparatorKey}
+                clientId={clientId}
+                programmes={sortedProgrammes}
+              />
             </SafeBoundary>
           </Box>
 
@@ -1535,7 +1702,11 @@ export default function ClientView() {
                 <ModalBody>
                   <Box bg={cardBg} p={4} borderRadius="xl" boxShadow="md" overflowX="auto">
                     <SafeBoundary>
-                      <SessionComparator key={comparatorKey} clientId={clientId} programmes={sortedProgrammes} />
+                      <SessionComparator
+                        key={comparatorKey}
+                        clientId={clientId}
+                        programmes={sortedProgrammes}
+                      />
                     </SafeBoundary>
                   </Box>
                 </ModalBody>
@@ -1586,18 +1757,29 @@ export default function ClientView() {
                 <Text fontSize="sm" color={muted}>
                   {t("stats.fields.height", "Taille").replace(/\s*\(.*?\)/, "")}
                 </Text>
-                <Select size="sm" value={heightUnit} onChange={(e) => onChangeHeightUnit(e.target.value)} w="90px">
+                <Select
+                  size="sm"
+                  value={heightUnit}
+                  onChange={(e) => onChangeHeightUnit(e.target.value)}
+                  w="90px"
+                >
                   <option value="cm">cm</option>
                   <option value="ftin">ft/in</option>
                 </Select>
               </HStack>
             </WrapItem>
+
             <WrapItem>
               <HStack>
                 <Text fontSize="sm" color={muted}>
                   {t("stats.fields.weight", "Poids").replace(/\s*\(.*?\)/, "")}
                 </Text>
-                <Select size="sm" value={weightUnit} onChange={(e) => onChangeWeightUnit(e.target.value)} w="90px">
+                <Select
+                  size="sm"
+                  value={weightUnit}
+                  onChange={(e) => onChangeWeightUnit(e.target.value)}
+                  w="90px"
+                >
                   <option value="kg">kg</option>
                   <option value="lbs">lbs</option>
                 </Select>
@@ -1627,6 +1809,7 @@ export default function ClientView() {
               {displayHeight(latest.taille)}
             </Text>
           </Box>
+
           <Box bg={subBg} p={3} borderRadius="md" textAlign="center">
             <Text fontSize="sm" color={muted}>
               {weightLabel}
@@ -1635,6 +1818,7 @@ export default function ClientView() {
               {displayWeight(latest.poids)}
             </Text>
           </Box>
+
           <Box bg={subBg} p={3} borderRadius="md" textAlign="center">
             <Text fontSize="sm" color={muted}>
               {t("stats.fields.bmi", "IMC")}
@@ -1643,6 +1827,7 @@ export default function ClientView() {
               {latest.bmi ?? "—"}
             </Text>
           </Box>
+
           <Box bg={subBg} p={3} borderRadius="md" textAlign="center">
             <Text fontSize="sm" color={muted}>
               {t("stats.fields.visceralFat", "Graisse viscérale")}
@@ -1655,7 +1840,11 @@ export default function ClientView() {
 
         <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap={6}>
           {[
-            { f: "poids", label: weightLabel, map: (v) => (weightUnit === "kg" ? v : kgToLbs(v)) },
+            {
+              f: "poids",
+              label: weightLabel,
+              map: (v) => (weightUnit === "kg" ? v : kgToLbs(v)),
+            },
             { f: "bmi", label: t("stats.fields.bmi", "IMC"), map: (v) => v },
             { f: "fatMass", label: t("stats.fields.fat", "Masse grasse"), map: (v) => v },
             {
@@ -1669,10 +1858,20 @@ export default function ClientView() {
               label: `${t("stats.fields.bone", "Masse osseuse")} (${weightUnit})`,
               map: (v) => (weightUnit === "kg" ? v : kgToLbs(v)),
             },
-            { f: "metabolicAge", label: t("stats.fields.metabolicAge", "Âge métabolique"), map: (v) => v },
-            { f: "visceralFatScore", label: t("stats.fields.visceralFat", "Graisse viscérale"), map: (v) => v },
+            {
+              f: "metabolicAge",
+              label: t("stats.fields.metabolicAge", "Âge métabolique"),
+              map: (v) => v,
+            },
+            {
+              f: "visceralFatScore",
+              label: t("stats.fields.visceralFat", "Graisse viscérale"),
+              map: (v) => v,
+            },
           ].map(({ f, label, map }) => {
-            let data = measures.filter((x) => x[f] != null).map((x) => ({ date: x.date, value: map(x[f]) }));
+            let data = measures
+              .filter((x) => x[f] != null)
+              .map((x) => ({ date: x.date, value: map(x[f]) }));
 
             if (f === "bmi") {
               data = measures
@@ -1711,7 +1910,9 @@ export default function ClientView() {
         <ModalContent>
           <ModalHeader>{t("clientView.unassignConfirmTitle", "Retirer le programme ?")}</ModalHeader>
           <ModalCloseButton />
-          <ModalBody>{t("clientView.unassignConfirmBody", "Cette action est irréversible.")}</ModalBody>
+          <ModalBody>
+            {t("clientView.unassignConfirmBody", "Cette action est irréversible.")}
+          </ModalBody>
           <ModalFooter>
             <Button variant="ghost" onClick={confirmDesassign.onClose}>
               {t("common.cancel", "Annuler")}
@@ -1770,12 +1971,18 @@ export default function ClientView() {
                       customName: e.target.value,
                     }))
                   }
-                  placeholder={t("clientView.programNamePlaceholder", "Laisser vide pour le nom par défaut")}
+                  placeholder={t(
+                    "clientView.programNamePlaceholder",
+                    "Laisser vide pour le nom par défaut"
+                  )}
                 />
               </FormControl>
 
               <Text fontSize="sm" color={muted}>
-                {t("clientView.assignInfo", "Le programme sera ajouté au client et disponible immédiatement.")}
+                {t(
+                  "clientView.assignInfo",
+                  "Le programme sera ajouté au client et disponible immédiatement."
+                )}
               </Text>
             </VStack>
           </ModalBody>
@@ -1816,7 +2023,12 @@ export default function ClientView() {
                 <FormControl>
                   <HStack justify="space-between">
                     <FormLabel mb={0}>{heightLabel}</FormLabel>
-                    <Select size="sm" w="100px" value={heightUnit} onChange={(e) => onChangeHeightUnit(e.target.value)}>
+                    <Select
+                      size="sm"
+                      w="100px"
+                      value={heightUnit}
+                      onChange={(e) => onChangeHeightUnit(e.target.value)}
+                    >
                       <option value="cm">cm</option>
                       <option value="ftin">ft/in</option>
                     </Select>
@@ -1867,7 +2079,12 @@ export default function ClientView() {
                 <FormControl>
                   <HStack justify="space-between">
                     <FormLabel mb={0}>{weightLabel}</FormLabel>
-                    <Select size="sm" w="100px" value={weightUnit} onChange={(e) => onChangeWeightUnit(e.target.value)}>
+                    <Select
+                      size="sm"
+                      w="100px"
+                      value={weightUnit}
+                      onChange={(e) => onChangeWeightUnit(e.target.value)}
+                    >
                       <option value="kg">kg</option>
                       <option value="lbs">lbs</option>
                     </Select>
@@ -1885,7 +2102,9 @@ export default function ClientView() {
                       type="number"
                       placeholder="154"
                       value={newMeas.poids === "" ? "" : kgToLbs(newMeas.poids)}
-                      onChange={(e) => setNewMeas((p) => ({ ...p, poids: lbsToKg(e.target.value) }))}
+                      onChange={(e) =>
+                        setNewMeas((p) => ({ ...p, poids: lbsToKg(e.target.value) }))
+                      }
                     />
                   )}
                 </FormControl>
@@ -1922,7 +2141,8 @@ export default function ClientView() {
                     onChange={(e) =>
                       setNewMeas((p) => ({
                         ...p,
-                        muscleMass: weightUnit === "kg" ? e.target.value : lbsToKg(e.target.value),
+                        muscleMass:
+                          weightUnit === "kg" ? e.target.value : lbsToKg(e.target.value),
                       }))
                     }
                   />
@@ -1971,7 +2191,9 @@ export default function ClientView() {
                   <Input
                     type="number"
                     value={newMeas.visceralFatScore ?? ""}
-                    onChange={(e) => setNewMeas((p) => ({ ...p, visceralFatScore: e.target.value }))}
+                    onChange={(e) =>
+                      setNewMeas((p) => ({ ...p, visceralFatScore: e.target.value }))
+                    }
                     placeholder="1..20+"
                   />
                 </FormControl>
@@ -2027,7 +2249,9 @@ export default function ClientView() {
                 <Input
                   type="date"
                   value={editData.dateNaissance ?? client?.dateNaissance ?? ""}
-                  onChange={(e) => setEditData((p) => ({ ...p, dateNaissance: e.target.value }))}
+                  onChange={(e) =>
+                    setEditData((p) => ({ ...p, dateNaissance: e.target.value }))
+                  }
                 />
               </FormControl>
 
@@ -2043,7 +2267,9 @@ export default function ClientView() {
                 <FormLabel>{t("clientCreation.level", "Niveau")}</FormLabel>
                 <Select
                   value={editData.niveauSportif ?? client?.niveauSportif ?? ""}
-                  onChange={(e) => setEditData((p) => ({ ...p, niveauSportif: e.target.value }))}
+                  onChange={(e) =>
+                    setEditData((p) => ({ ...p, niveauSportif: e.target.value }))
+                  }
                 >
                   {levelOptions.map((o) => (
                     <option key={o.value} value={o.value}>
@@ -2108,7 +2334,12 @@ export default function ClientView() {
               <FormControl>
                 <HStack justify="space-between">
                   <FormLabel mb={0}>{heightLabel}</FormLabel>
-                  <Select size="sm" w="100px" value={heightUnit} onChange={(e) => onChangeHeightUnit(e.target.value)}>
+                  <Select
+                    size="sm"
+                    w="100px"
+                    value={heightUnit}
+                    onChange={(e) => onChangeHeightUnit(e.target.value)}
+                  >
                     <option value="cm">cm</option>
                     <option value="ftin">ft/in</option>
                   </Select>
@@ -2132,7 +2363,10 @@ export default function ClientView() {
                             placeholder="ft"
                             value={ft === "" ? "" : ft}
                             onChange={(e) =>
-                              setEditData((p) => ({ ...p, taille: ftInToCm(e.target.value, inch) }))
+                              setEditData((p) => ({
+                                ...p,
+                                taille: ftInToCm(e.target.value, inch),
+                              }))
                             }
                           />
                           <Input
@@ -2140,7 +2374,10 @@ export default function ClientView() {
                             placeholder="in"
                             value={inch === "" ? "" : inch}
                             onChange={(e) =>
-                              setEditData((p) => ({ ...p, taille: ftInToCm(ft, e.target.value) }))
+                              setEditData((p) => ({
+                                ...p,
+                                taille: ftInToCm(ft, e.target.value),
+                              }))
                             }
                           />
                         </>
@@ -2153,7 +2390,12 @@ export default function ClientView() {
               <FormControl>
                 <HStack justify="space-between">
                   <FormLabel mb={0}>{weightLabel}</FormLabel>
-                  <Select size="sm" w="100px" value={weightUnit} onChange={(e) => onChangeWeightUnit(e.target.value)}>
+                  <Select
+                    size="sm"
+                    w="100px"
+                    value={weightUnit}
+                    onChange={(e) => onChangeWeightUnit(e.target.value)}
+                  >
                     <option value="kg">kg</option>
                     <option value="lbs">lbs</option>
                   </Select>
@@ -2168,8 +2410,14 @@ export default function ClientView() {
                 ) : (
                   <Input
                     type="number"
-                    value={(editData.poids ?? client?.poids ?? "") === "" ? "" : kgToLbs(editData.poids ?? client?.poids)}
-                    onChange={(e) => setEditData((p) => ({ ...p, poids: lbsToKg(e.target.value) }))}
+                    value={
+                      (editData.poids ?? client?.poids ?? "") === ""
+                        ? ""
+                        : kgToLbs(editData.poids ?? client?.poids)
+                    }
+                    onChange={(e) =>
+                      setEditData((p) => ({ ...p, poids: lbsToKg(e.target.value) }))
+                    }
                   />
                 )}
               </FormControl>

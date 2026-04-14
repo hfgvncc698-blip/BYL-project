@@ -6,6 +6,7 @@ import React, {
   useState,
   useCallback,
   startTransition,
+  useDeferredValue,
 } from "react";
 import {
   Box,
@@ -43,13 +44,22 @@ import {
 import { CloseIcon } from "@chakra-ui/icons";
 import { FaFilter, FaRedo, FaPlus } from "react-icons/fa";
 import { MdOutlineMenuBook } from "react-icons/md";
-import { collection, setDoc, doc, getDocs } from "firebase/firestore";
+import {
+  collection,
+  setDoc,
+  doc,
+  getDocs,
+  serverTimestamp,
+} from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 import { db } from "../firebase";
 import ExerciseCard from "./ExerciseCard";
 import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 /* ---------- helpers ---------- */
+const EXERCISE_COLLECTIONS = ["warmup", "training", "cooldown", "ergometre"];
+
 const normalize = (s = "") =>
   String(s || "")
     .toLowerCase()
@@ -66,30 +76,24 @@ const tokens = (s = "") =>
 
 const slug = (s = "") => normalize(s).replace(/\s+/g, "_");
 
-/** Robust: extrait strings / aplati arrays / map */
-const extractStrings = (value) => {
-  const out = [];
-  const walk = (v) => {
-    if (v == null) return;
-    if (Array.isArray(v)) return v.forEach(walk);
-    if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
-      const s = String(v).trim();
-      if (s) out.push(s);
-      return;
-    }
-    if (typeof v === "object") {
-      const maybe = v.nom ?? v.name ?? v.label ?? v.value ?? v.title ?? v.text ?? null;
-      if (maybe != null) walk(maybe);
-    }
-  };
-  walk(value);
-  return out;
-};
+const splitCommaValues = (value = "") =>
+  String(value || "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
 
-// UID stable pour un doc (section + id)
-const uidFor = (ex) => `${ex.__collection || "unknown"}:${ex.id || slug(ex.nom)}`;
+const sanitizeArrayValues = (arr = []) =>
+  [
+    ...new Set(
+      (Array.isArray(arr) ? arr : [])
+        .map((v) => String(v || "").trim())
+        .filter(Boolean)
+    ),
+  ];
 
-// déduplication par uid
+const uidFor = (ex) =>
+  `${ex.__collection || "unknown"}:${ex.id || slug(ex.nom)}`;
+
 const dedupeByUid = (arr) => {
   const m = new Map();
   for (const x of arr) m.set(uidFor(x), x);
@@ -97,9 +101,292 @@ const dedupeByUid = (arr) => {
 };
 
 const keepFirstSorted = (arr, locale) => {
+  if (!Array.isArray(arr) || !arr.length) return [];
   const first = arr[0];
-  const rest = arr.slice(1).slice().sort((a, b) => a.localeCompare(b, locale));
+  const rest = arr
+    .slice(1)
+    .slice()
+    .sort((a, b) => a.localeCompare(b, locale));
   return [first, ...rest];
+};
+
+const extractStrings = (value) => {
+  const out = [];
+  const walk = (v) => {
+    if (v == null) return;
+    if (Array.isArray(v)) return v.forEach(walk);
+    if (
+      typeof v === "string" ||
+      typeof v === "number" ||
+      typeof v === "boolean"
+    ) {
+      const s = String(v).trim();
+      if (s) out.push(s);
+      return;
+    }
+    if (typeof v === "object") {
+      const maybe =
+        v.nom ?? v.name ?? v.label ?? v.value ?? v.title ?? v.text ?? null;
+      if (maybe != null) walk(maybe);
+    }
+  };
+  walk(value);
+  return out;
+};
+
+const normalizeNameKey = (name = "") => normalize(name);
+const buildNameSlug = (name = "") => slug(name);
+
+/* ---------- anti-doublon robuste ---------- */
+
+const FAMILY_STOP_WORDS = new Set([
+  "avec",
+  "sans",
+  "sur",
+  "en",
+  "au",
+  "aux",
+  "a",
+  "la",
+  "le",
+  "les",
+  "de",
+  "du",
+  "des",
+  "d",
+  "un",
+  "une",
+  "l",
+  "et",
+  "ou",
+  "pour",
+  "par",
+]);
+
+const FAMILY_VARIANT_TERMS = new Set([
+  // matériel / outils
+  "haltere",
+  "halteres",
+  "dumbbell",
+  "dumbbells",
+  "barre",
+  "barbell",
+  "machine",
+  "machines",
+  "poulie",
+  "poulies",
+  "cable",
+  "cables",
+  "elastique",
+  "elastiques",
+  "band",
+  "bands",
+  "trx",
+  "anneau",
+  "anneaux",
+  "ring",
+  "rings",
+  "kettlebell",
+  "landmine",
+  "smith",
+
+  // positions / formes
+  "assis",
+  "assise",
+  "assises",
+  "debout",
+  "incline",
+  "inclinee",
+  "inclinees",
+  "decline",
+  "declinee",
+  "declinees",
+  "couche",
+  "couchee",
+  "couchees",
+  "allonge",
+  "allongee",
+  "allongees",
+  "seated",
+  "standing",
+  "lying",
+  "supine",
+  "prone",
+  "kneeling",
+  "sitting",
+
+  // variantes latérales / direction
+  "avant",
+  "arriere",
+  "laterale",
+  "laterales",
+  "lateral",
+  "lateraux",
+  "croise",
+  "croisee",
+  "croisees",
+  "croises",
+  "statique",
+  "statiques",
+  "marche",
+  "marchee",
+  "marchees",
+  "bulgare",
+  "profond",
+  "profonde",
+  "profondes",
+  "haute",
+  "haut",
+  "basse",
+  "bas",
+  "gauche",
+  "droite",
+
+  // unilatéral / bilatéral
+  "unilateral",
+  "unilaterale",
+  "unilaterales",
+  "bilateral",
+  "bilaterale",
+  "bilaterales",
+
+  // autres termes parasites fréquents
+  "alterne",
+  "alternes",
+  "alternating",
+  "alternate",
+  "marteau",
+  "hammer",
+  "ez",
+  "guide",
+  "guidee",
+  "guides",
+  "guided",
+  "main",
+  "mains",
+  "bras",
+  "jambe",
+  "jambes",
+]);
+
+const TOKEN_CANON_MAP = new Map([
+  ["haltères", "haltere"],
+  ["haltère", "haltere"],
+  ["dumbbells", "haltere"],
+  ["dumbbell", "haltere"],
+  ["barbell", "barre"],
+  ["bands", "elastique"],
+  ["band", "elastique"],
+  ["anneaux", "anneau"],
+  ["rings", "anneau"],
+  ["seated", "assis"],
+  ["standing", "debout"],
+  ["lying", "couche"],
+  ["guided", "guidee"],
+  ["alternating", "alterne"],
+  ["alternate", "alterne"],
+  ["hammer", "marteau"],
+  ["fentes", "fente"],
+  ["lunges", "fente"],
+  ["lunge", "fente"],
+]);
+
+const singularizeToken = (token = "") => {
+  let t = normalize(token);
+
+  if (!t) return "";
+
+  if (TOKEN_CANON_MAP.has(t)) return TOKEN_CANON_MAP.get(t);
+
+  if (t.endsWith("aux") && t.length > 4) {
+    return `${t.slice(0, -3)}al`;
+  }
+
+  if (t.endsWith("ees") && t.length > 4) {
+    return t.slice(0, -1);
+  }
+
+  if (t.endsWith("ees") && t.length > 3) {
+    return t.slice(0, -1);
+  }
+
+  if (t.endsWith("es") && t.length > 4) {
+    return t.slice(0, -1);
+  }
+
+  if (t.endsWith("s") && t.length > 3) {
+    return t.slice(0, -1);
+  }
+
+  if (t.endsWith("x") && t.length > 4) {
+    return t.slice(0, -1);
+  }
+
+  return t;
+};
+
+const canonicalToken = (token = "") => {
+  const singular = singularizeToken(token);
+  return TOKEN_CANON_MAP.get(singular) || singular;
+};
+
+const buildFamilyTokens = (name = "") => {
+  let s = normalize(name);
+
+  // retire le contenu entre parenthèses
+  s = s.replace(/\([^)]*\)/g, " ");
+
+  let parts = s
+    .split(" ")
+    .map(canonicalToken)
+    .filter(Boolean)
+    .filter((p) => p.length >= 2);
+
+  parts = parts.filter((p) => !FAMILY_STOP_WORDS.has(p));
+  parts = parts.filter((p) => !FAMILY_VARIANT_TERMS.has(p));
+
+  parts = [...new Set(parts)];
+
+  return parts;
+};
+
+const buildFamilyKey = (name = "") => buildFamilyTokens(name).join(" ").trim();
+
+const getExerciseNameNormalized = (exercise = {}) =>
+  normalizeNameKey(exercise.nom || exercise.id || exercise.docId || "");
+
+const getExerciseFamilyKey = (exercise = {}) => {
+  if (exercise.family_key) return normalize(exercise.family_key);
+  return buildFamilyKey(exercise.nom || exercise.id || exercise.docId || "");
+};
+
+const getExerciseFamilyTokens = (exercise = {}) => {
+  if (exercise.family_key) return buildFamilyTokens(exercise.family_key);
+  return buildFamilyTokens(exercise.nom || exercise.id || exercise.docId || "");
+};
+
+const isTokenSubset = (a = [], b = []) => {
+  if (!a.length || !b.length) return false;
+  const bSet = new Set(b);
+  return a.every((token) => bSet.has(token));
+};
+
+const areSameFamily = ({ normalizedName, familyKey, familyTokens }, exercise) => {
+  const existingName = getExerciseNameNormalized(exercise);
+  const existingFamily = getExerciseFamilyKey(exercise);
+  const existingTokens = getExerciseFamilyTokens(exercise);
+
+  if (normalizedName && existingName === normalizedName) return true;
+  if (normalizedName && existingFamily === normalizedName) return true;
+  if (familyKey && existingFamily === familyKey) return true;
+  if (familyKey && existingName === familyKey) return true;
+
+  if (familyTokens.length && existingTokens.length) {
+    if (isTokenSubset(familyTokens, existingTokens)) return true;
+    if (isTokenSubset(existingTokens, familyTokens)) return true;
+  }
+
+  return false;
 };
 
 /* ---------- options affichage ---------- */
@@ -498,21 +785,32 @@ const DEFAULT_FILTERS = {
   objective: null,
 };
 
-/* ---------- modèle exercice ---------- */
 const defaultExercise = {
   nom: "",
+  categorie: "",
   categorie_utilisation: [],
   groupe_musculaire: [],
   objectifs: [],
   muscles_secondaires: [],
   articulations_sollicitees: [],
   tendons_sollicites: [],
+  type: "",
   niveau: "",
   materiel: [],
   position: [],
   contraintes: "",
   variantes: [],
-  consignes: { Positionnement: "", Mouvement: "", Retour: "", Respiration: "", Posture: "" },
+  consignes: {
+    Positionnement: "",
+    Mouvement: "",
+    Retour: "",
+    Respiration: "",
+    Posture: "",
+  },
+  image: "",
+  image_homme: "",
+  image_femme: "",
+  mode_pro: true,
 };
 
 const objectifsList = [
@@ -529,11 +827,41 @@ const generateDefaultParams = () =>
   Object.fromEntries(
     objectifsList.map((o) => [
       o,
-      { repetitions: [], series: [], repos: [], temps_effort: [], temps_par_repetition: null },
+      {
+        repetitions: [],
+        series: [],
+        repos: [],
+        temps_effort: [],
+        temps_par_repetition: null,
+      },
     ])
   );
 
-/* ===================================== */
+const INITIAL_RENDER_COUNT = 20;
+const RENDER_BATCH_SIZE = 20;
+
+const FilterSelect = React.memo(function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+  bg,
+}) {
+  return (
+    <>
+      <Text fontSize="sm" opacity={0.8} fontWeight="600">
+        {label}
+      </Text>
+      <Select value={value} onChange={onChange} bg={bg}>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </Select>
+    </>
+  );
+});
 
 export default function ExerciseBank({
   onAdd,
@@ -547,10 +875,12 @@ export default function ExerciseBank({
 
   const TXT = {
     search: L === "fr" ? "Rechercher…" : "Search…",
-    toggleFilters: L === "fr" ? "Afficher/masquer les filtres" : "Show/Hide filters",
+    toggleFilters:
+      L === "fr" ? "Afficher/masquer les filtres" : "Show/Hide filters",
     addExercise: L === "fr" ? "Ajouter un exercice" : "Add exercise",
     reset: L === "fr" ? "Réinitialiser" : "Reset",
-    addNewTitle: L === "fr" ? "Ajouter un nouvel exercice" : "Add a new exercise",
+    addNewTitle:
+      L === "fr" ? "Ajouter un nouvel exercice" : "Add a new exercise",
     chooseSection: L === "fr" ? "Choisir la section" : "Choose section",
     warmup: L === "fr" ? "Échauffement" : "Warm-up",
     main: L === "fr" ? "Corps de séance" : "Main work",
@@ -559,28 +889,53 @@ export default function ExerciseBank({
     namePH: L === "fr" ? "Nom de l'exercice" : "Exercise name",
     groupsPH:
       L === "fr"
-        ? "Groupe(s) musculaire(s) (séparer par virgules)"
-        : "Muscle group(s) (comma-separated)",
-    goalsPH: L === "fr" ? "Objectifs (séparer par virgules)" : "Goals (comma-separated)",
-    equipPH: L === "fr" ? "Matériel (séparer par virgules)" : "Equipment (comma-separated)",
-    posPH: L === "fr" ? "Position (séparer par virgules)" : "Position (comma-separated)",
-    cues: L === "fr" ? "Consignes" : "Cues",
+        ? "Groupe(s) musculaire(s) (obligatoire)"
+        : "Muscle group(s) (required)",
+    goalsPH: L === "fr" ? "Objectifs (optionnel)" : "Goals (optional)",
+    equipPH: L === "fr" ? "Matériel (optionnel)" : "Equipment (optional)",
+    posPH: L === "fr" ? "Position (optionnel)" : "Position (optional)",
+    cuesTitle: L === "fr" ? "Consignes (optionnel)" : "Cues (optional)",
+    optionalBlock:
+      L === "fr" ? "Informations facultatives" : "Optional information",
     save: L === "fr" ? "Enregistrer" : "Save",
     cancel: L === "fr" ? "Annuler" : "Cancel",
     added: L === "fr" ? "Exercice ajouté" : "Exercise added",
-    addedWithId: (id) => (L === "fr" ? `Ajouté avec l'ID ${id}.` : `Added with ID ${id}.`),
+    addedWithId: (id) =>
+      L === "fr" ? `Ajouté sous ${id}.` : `Added as ${id}.`,
     missingSection: L === "fr" ? "Section manquante" : "Missing section",
-    missingSectionDesc: L === "fr" ? "Merci de choisir la section." : "Please choose a section.",
+    missingSectionDesc:
+      L === "fr" ? "Merci de choisir la section." : "Please choose a section.",
     missingName: L === "fr" ? "Nom manquant" : "Missing name",
-    missingNameDesc: L === "fr" ? "Merci de remplir le nom." : "Please enter a name.",
-
+    missingNameDesc:
+      L === "fr" ? "Merci de remplir le nom." : "Please enter a name.",
+    missingMuscles:
+      L === "fr" ? "Groupe musculaire manquant" : "Missing muscle group",
+    missingMusclesDesc:
+      L === "fr"
+        ? "Merci de renseigner au moins un groupe musculaire."
+        : "Please enter at least one muscle group.",
+    duplicateTitle:
+      L === "fr" ? "Exercice déjà existant" : "Exercise already exists",
+    duplicateDesc:
+      L === "fr"
+        ? "Un exercice de la même famille existe déjà dans la base."
+        : "An exercise from the same family already exists in the database.",
+    noResults: L === "fr" ? "Aucun exercice trouvé." : "No exercises found.",
     filterMuscle: L === "fr" ? "Groupe musculaire" : "Muscle group",
-    filterSecondaryMuscle: L === "fr" ? "Muscles sollicités" : "Trained muscles",
+    filterSecondaryMuscle:
+      L === "fr" ? "Muscles sollicités" : "Trained muscles",
     filterJoint: L === "fr" ? "Articulations" : "Joints",
     filterPosition: L === "fr" ? "Position" : "Position",
     filterEquipment: L === "fr" ? "Matériel" : "Equipment",
-    filterObjective: L === "fr" ? "Objectif / Catégorie" : "Goal / Category",
+    filterObjective:
+      L === "fr" ? "Objectif / Catégorie" : "Goal / Category",
+    loadErrorTitle: L === "fr" ? "Erreur de chargement" : "Loading error",
+    genericErrorTitle: L === "fr" ? "Erreur" : "Error",
+    bankTitle: L === "fr" ? "Banque d'exercices" : "Exercise bank",
   };
+
+  const auth = getAuth();
+  const currentUser = auth.currentUser;
 
   const isMobile = useBreakpointValue({ base: true, md: false }, { ssr: false });
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -589,69 +944,140 @@ export default function ExerciseBank({
   const toast = useToast();
 
   const [searchTermUI, setSearchTermUI] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
+  const deferredSearchTermUI = useDeferredValue(searchTermUI);
 
-  // filtres fermés par défaut
   const [showFilters, setShowFilters] = useState(false);
-
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const deferredFilters = useDeferredValue(filters);
+
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [savingExercise, setSavingExercise] = useState(false);
 
   const [section, setSection] = useState("");
   const [newExercise, setNewExercise] = useState(defaultExercise);
 
-  const { isOpen: isAddOpen, onOpen: onAddOpen, onClose: onAddClose } = useDisclosure();
+  const {
+    isOpen: isAddOpen,
+    onOpen: onAddOpen,
+    onClose: onAddClose,
+  } = useDisclosure();
 
-  // ✅ startTransition OK pour la recherche (input)
-  useEffect(() => {
-    const id = setTimeout(() => {
-      startTransition(() => setSearchTerm(searchTermUI));
-    }, 250);
-    return () => clearTimeout(id);
-  }, [searchTermUI]);
+  const scrollRef = useRef(null);
+  const sentinelRef = useRef(null);
+
+  const [visibleCount, setVisibleCount] = useState(INITIAL_RENDER_COUNT);
+
+  const cardBg = useColorModeValue("gray.100", "gray.700");
+  const inputBg = useColorModeValue("white", "gray.600");
+  const fabBg = useColorModeValue("blue.400", "blue.500");
+  const fabHoverBg = useColorModeValue("blue.500", "blue.600");
 
   useEffect(() => {
     let alive = true;
+
     (async () => {
       setLoading(true);
       try {
-        const cols = ["warmup", "training", "cooldown", "ergometre"];
-        const snaps = await Promise.all(cols.map((c) => getDocs(collection(db, c))));
-        const all = snaps.flatMap((snap, idx) =>
-          snap.docs.map((d) => ({ id: d.id, ...d.data(), __collection: cols[idx] }))
+        const snaps = await Promise.all(
+          EXERCISE_COLLECTIONS.map((c) => getDocs(collection(db, c)))
         );
+
+        const all = snaps.flatMap((snap, idx) =>
+          snap.docs.map((d) => ({
+            docId: d.id,
+            ...d.data(),
+            __collection: EXERCISE_COLLECTIONS[idx],
+          }))
+        );
+
         const unique = dedupeByUid(all.filter((x) => x.nom));
-        if (alive) setExercises(unique);
+
+        if (alive) {
+          startTransition(() => {
+            setExercises(unique);
+          });
+        }
       } catch (e) {
-        toast({ status: "error", title: "Erreur de chargement", description: e.message });
+        toast({
+          status: "error",
+          title: TXT.loadErrorTitle,
+          description: e.message,
+        });
       } finally {
-        alive && setLoading(false);
+        if (alive) setLoading(false);
       }
     })();
+
     return () => {
       alive = false;
     };
-  }, [toast]);
+  }, [toast, TXT.loadErrorTitle]);
 
-  const muscleOptions = L === "fr" ? muscleOptionsFR : muscleOptionsEN;
-  const secondaryMuscleOptions = L === "fr" ? secondaryMuscleOptionsFR : secondaryMuscleOptionsEN;
-  const jointOptions = L === "fr" ? jointOptionsFR : jointOptionsEN;
-  const positionOptions = L === "fr" ? positionOptionsFR : positionOptionsEN;
-  const equipmentOptions = L === "fr" ? equipmentOptionsFR : equipmentOptionsEN;
-  const objectiveOptions = L === "fr" ? objectiveOptionsFR : objectiveOptionsEN;
+  const muscleOptions = useMemo(
+    () => keepFirstSorted(L === "fr" ? muscleOptionsFR : muscleOptionsEN, locale),
+    [L, locale]
+  );
 
-  /* ========= index ========= */
+  const secondaryMuscleOptions = useMemo(
+    () =>
+      keepFirstSorted(
+        L === "fr" ? secondaryMuscleOptionsFR : secondaryMuscleOptionsEN,
+        locale
+      ),
+    [L, locale]
+  );
+
+  const jointOptions = useMemo(
+    () => keepFirstSorted(L === "fr" ? jointOptionsFR : jointOptionsEN, locale),
+    [L, locale]
+  );
+
+  const positionOptions = useMemo(
+    () =>
+      keepFirstSorted(
+        L === "fr" ? positionOptionsFR : positionOptionsEN,
+        locale
+      ),
+    [L, locale]
+  );
+
+  const equipmentOptions = useMemo(
+    () =>
+      keepFirstSorted(
+        L === "fr" ? equipmentOptionsFR : equipmentOptionsEN,
+        locale
+      ),
+    [L, locale]
+  );
+
+  const objectiveOptions = useMemo(
+    () =>
+      keepFirstSorted(
+        L === "fr" ? objectiveOptionsFR : objectiveOptionsEN,
+        locale
+      ),
+    [L, locale]
+  );
+
+  const searchTokens = useMemo(
+    () => tokens(deferredSearchTermUI),
+    [deferredSearchTermUI]
+  );
+
   const indexed = useMemo(() => {
     return exercises.map((ex) => {
       const nameNorm = normalize(ex.nom || "");
-      const idNorm = normalize(ex.id || "");
+      const idNorm = normalize(ex.id || ex.docId || "");
 
       const musclesPrimaryRaw = extractStrings(ex.groupe_musculaire);
       const musclesSecondaryRaw = extractStrings(ex.muscles_secondaires);
 
       const jointsRaw = extractStrings(ex.articulations_sollicitees);
-      const positionsRaw = [...extractStrings(ex.position), ...extractStrings(ex.positions)];
+      const positionsRaw = [
+        ...extractStrings(ex.position),
+        ...extractStrings(ex.positions),
+      ];
 
       const equipmentRaw = [
         ...extractStrings(ex.materiel),
@@ -668,12 +1094,26 @@ export default function ExerciseBank({
         ex.__collection === "cooldown" ? "retour au calme" : null,
       ].filter(Boolean);
 
-      const musclesPrimaryCanon = musclesPrimaryRaw.map((v) => canonize("muscles", v)).filter(Boolean);
-      const musclesSecondaryCanon = musclesSecondaryRaw.map((v) => canonize("secondaryMuscles", v)).filter(Boolean);
+      const musclesPrimaryCanon = musclesPrimaryRaw
+        .map((v) => canonize("muscles", v))
+        .filter(Boolean);
+
+      const musclesSecondaryCanon = musclesSecondaryRaw
+        .map((v) => canonize("secondaryMuscles", v))
+        .filter(Boolean);
+
       const jointsCanon = jointsRaw.map((v) => canonize("joints", v)).filter(Boolean);
-      const positionsCanon = positionsRaw.map((v) => canonize("positions", v)).filter(Boolean);
-      const equipmentCanon = equipmentRaw.map((v) => canonize("equipment", v)).filter(Boolean);
-      const objectivesCanon = objectivesRaw.map((v) => canonize("objectives", v)).filter(Boolean);
+      const positionsCanon = positionsRaw
+        .map((v) => canonize("positions", v))
+        .filter(Boolean);
+
+      const equipmentCanon = equipmentRaw
+        .map((v) => canonize("equipment", v))
+        .filter(Boolean);
+
+      const objectivesCanon = objectivesRaw
+        .map((v) => canonize("objectives", v))
+        .filter(Boolean);
 
       const primarySet = new Set(musclesPrimaryCanon);
       const secondarySet = new Set(musclesSecondaryCanon);
@@ -699,8 +1139,12 @@ export default function ExerciseBank({
         [
           ex.nom,
           ex.id,
+          ex.docId,
           ex.__collection,
           ex.niveau,
+          ex.type,
+          ex.categorie,
+          ex.family_key,
           ...musclesPrimaryRaw,
           ...musclesSecondaryRaw,
           ...jointsRaw,
@@ -728,23 +1172,41 @@ export default function ExerciseBank({
     });
   }, [exercises]);
 
-  /* ========= filtres + recherche ========= */
   const filtered = useMemo(() => {
-    const pickCanon = (domain, value) => (value ? canonize(domain, value) : null);
+    const pickCanon = (domain, value) =>
+      value ? canonize(domain, value) : null;
+
     const isDefault = (val, firstOpt) => !val || val === firstOpt;
 
     const wanted = {
-      muscle: isDefault(filters.muscle, muscleOptions[0]) ? null : filters.muscle,
-      secondaryMuscle: isDefault(filters.secondaryMuscle, secondaryMuscleOptions[0]) ? null : filters.secondaryMuscle,
-      joint: isDefault(filters.joint, jointOptions[0]) ? null : filters.joint,
-      position: isDefault(filters.position, positionOptions[0]) ? null : filters.position,
-      equipment: isDefault(filters.equipment, equipmentOptions[0]) ? null : filters.equipment,
-      objective: isDefault(filters.objective, objectiveOptions[0]) ? null : filters.objective,
+      muscle: isDefault(deferredFilters.muscle, muscleOptions[0])
+        ? null
+        : deferredFilters.muscle,
+      secondaryMuscle: isDefault(
+        deferredFilters.secondaryMuscle,
+        secondaryMuscleOptions[0]
+      )
+        ? null
+        : deferredFilters.secondaryMuscle,
+      joint: isDefault(deferredFilters.joint, jointOptions[0])
+        ? null
+        : deferredFilters.joint,
+      position: isDefault(deferredFilters.position, positionOptions[0])
+        ? null
+        : deferredFilters.position,
+      equipment: isDefault(deferredFilters.equipment, equipmentOptions[0])
+        ? null
+        : deferredFilters.equipment,
+      objective: isDefault(deferredFilters.objective, objectiveOptions[0])
+        ? null
+        : deferredFilters.objective,
     };
 
     const canonFilter = {
       muscle: wanted.muscle ? pickCanon("muscles", wanted.muscle) : null,
-      secondaryMuscle: wanted.secondaryMuscle ? pickCanon("secondaryMuscles", wanted.secondaryMuscle) : null,
+      secondaryMuscle: wanted.secondaryMuscle
+        ? pickCanon("secondaryMuscles", wanted.secondaryMuscle)
+        : null,
       joint: wanted.joint ? pickCanon("joints", wanted.joint) : null,
       position: wanted.position ? pickCanon("positions", wanted.position) : null,
       equipment: wanted.equipment ? pickCanon("equipment", wanted.equipment) : null,
@@ -753,14 +1215,15 @@ export default function ExerciseBank({
 
     const rawFilter = {
       muscle: wanted.muscle ? normalize(wanted.muscle) : null,
-      secondaryMuscle: wanted.secondaryMuscle ? normalize(wanted.secondaryMuscle) : null,
+      secondaryMuscle: wanted.secondaryMuscle
+        ? normalize(wanted.secondaryMuscle)
+        : null,
       joint: wanted.joint ? normalize(wanted.joint) : null,
       position: wanted.position ? normalize(wanted.position) : null,
       equipment: wanted.equipment ? normalize(wanted.equipment) : null,
       objective: wanted.objective ? normalize(wanted.objective) : null,
     };
 
-    const q = tokens(searchTerm);
     const results = [];
 
     for (const it of indexed) {
@@ -773,8 +1236,10 @@ export default function ExerciseBank({
 
       if (rawFilter.secondaryMuscle) {
         const ok = canonFilter.secondaryMuscle
-          ? it.secondarySet.has(canonFilter.secondaryMuscle) || it.primarySet.has(canonFilter.secondaryMuscle)
-          : it.rawSet.has(rawFilter.secondaryMuscle) || it.blob.includes(rawFilter.secondaryMuscle);
+          ? it.secondarySet.has(canonFilter.secondaryMuscle) ||
+            it.primarySet.has(canonFilter.secondaryMuscle)
+          : it.rawSet.has(rawFilter.secondaryMuscle) ||
+            it.blob.includes(rawFilter.secondaryMuscle);
         if (!ok) continue;
       }
 
@@ -788,27 +1253,30 @@ export default function ExerciseBank({
       if (rawFilter.position) {
         const ok = canonFilter.position
           ? it.positionSet.has(canonFilter.position)
-          : it.rawSet.has(rawFilter.position) || it.blob.includes(rawFilter.position);
+          : it.rawSet.has(rawFilter.position) ||
+            it.blob.includes(rawFilter.position);
         if (!ok) continue;
       }
 
       if (rawFilter.equipment) {
         const ok = canonFilter.equipment
           ? it.equipmentSet.has(canonFilter.equipment)
-          : it.rawSet.has(rawFilter.equipment) || it.blob.includes(rawFilter.equipment);
+          : it.rawSet.has(rawFilter.equipment) ||
+            it.blob.includes(rawFilter.equipment);
         if (!ok) continue;
       }
 
       if (rawFilter.objective) {
         const ok = canonFilter.objective
           ? it.objectiveSet.has(canonFilter.objective)
-          : it.rawSet.has(rawFilter.objective) || it.blob.includes(rawFilter.objective);
+          : it.rawSet.has(rawFilter.objective) ||
+            it.blob.includes(rawFilter.objective);
         if (!ok) continue;
       }
 
-      if (q.length) {
+      if (searchTokens.length) {
         let ok = true;
-        for (const w of q) {
+        for (const w of searchTokens) {
           const inName = it.nameNorm.includes(w);
           const inId = it.idNorm.includes(w);
           const inBlob = it.blob.includes(w);
@@ -821,7 +1289,7 @@ export default function ExerciseBank({
       }
 
       let score = 0;
-      for (const w of q) {
+      for (const w of searchTokens) {
         if (it.nameNorm.includes(w)) score += 6;
         if (it.idNorm.includes(w)) score += 4;
         if (it.blob.includes(w)) score += 1;
@@ -841,8 +1309,8 @@ export default function ExerciseBank({
     return dedupeByUid(results.map((r) => r.ex));
   }, [
     indexed,
-    filters,
-    searchTerm,
+    deferredFilters,
+    searchTokens,
     muscleOptions,
     secondaryMuscleOptions,
     jointOptions,
@@ -851,68 +1319,260 @@ export default function ExerciseBank({
     objectiveOptions,
   ]);
 
-  async function generateNextId(sectionKey) {
-    const prefix = { warmup: "W", training: "T", cooldown: "C", ergometre: "E" }[sectionKey];
-    if (!prefix) return "";
-    const snap = await getDocs(collection(db, sectionKey));
-    let maxNum = 0;
-    snap.docs.forEach((d) => {
-      const data = d.data();
-      if (data.id && typeof data.id === "string" && data.id.startsWith(prefix)) {
-        const n = parseInt(data.id.slice(prefix.length), 10);
-        if (!isNaN(n) && n > maxNum) maxNum = n;
+  useEffect(() => {
+    setVisibleCount(INITIAL_RENDER_COUNT);
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ top: 0, behavior: "auto" });
+    }
+  }, [deferredSearchTermUI, deferredFilters]);
+
+  useEffect(() => {
+    const root = scrollRef.current;
+    const target = sentinelRef.current;
+
+    if (!root || !target || loading) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (!first?.isIntersecting) return;
+
+        setVisibleCount((prev) =>
+          Math.min(prev + RENDER_BATCH_SIZE, filtered.length)
+        );
+      },
+      {
+        root,
+        rootMargin: "300px 0px",
+        threshold: 0.01,
       }
-    });
-    return prefix + String(maxNum + 1).padStart(3, "0");
-  }
+    );
+
+    observer.observe(target);
+
+    return () => observer.disconnect();
+  }, [filtered.length, loading]);
+
+  const renderedExercises = useMemo(
+    () => filtered.slice(0, visibleCount),
+    [filtered, visibleCount]
+  );
+
+  const exerciseExistsLocally = useCallback(
+    ({ normalizedName, familyKey, familyTokens }) => {
+      if (!normalizedName && !familyKey) return false;
+      return exercises.some((ex) =>
+        areSameFamily({ normalizedName, familyKey, familyTokens }, ex)
+      );
+    },
+    [exercises]
+  );
+
+  const exerciseExistsInFirestore = useCallback(
+    async ({ normalizedName, familyKey, familyTokens }) => {
+      for (const colName of EXERCISE_COLLECTIONS) {
+        const snap = await getDocs(collection(db, colName));
+        const exists = snap.docs.some((d) => {
+          const data = d.data() || {};
+          const exercise = {
+            docId: d.id,
+            ...data,
+          };
+          return areSameFamily(
+            { normalizedName, familyKey, familyTokens },
+            exercise
+          );
+        });
+        if (exists) return true;
+      }
+      return false;
+    },
+    []
+  );
+
+  const resetAddForm = useCallback(() => {
+    setNewExercise(defaultExercise);
+    setSection("");
+  }, []);
+
+  const closeAddModal = useCallback(() => {
+    onAddClose();
+    resetAddForm();
+  }, [onAddClose, resetAddForm]);
 
   const handleSaveExercise = async () => {
     if (!section) {
-      toast({ status: "warning", title: TXT.missingSection, description: TXT.missingSectionDesc });
+      toast({
+        status: "warning",
+        title: TXT.missingSection,
+        description: TXT.missingSectionDesc,
+      });
       return;
     }
-    if (!newExercise.nom) {
-      toast({ status: "warning", title: TXT.missingName, description: TXT.missingNameDesc });
+
+    if (!newExercise.nom?.trim()) {
+      toast({
+        status: "warning",
+        title: TXT.missingName,
+        description: TXT.missingNameDesc,
+      });
       return;
     }
+
+    if (
+      !Array.isArray(newExercise.groupe_musculaire) ||
+      newExercise.groupe_musculaire.length === 0
+    ) {
+      toast({
+        status: "warning",
+        title: TXT.missingMuscles,
+        description: TXT.missingMusclesDesc,
+      });
+      return;
+    }
+
+    const cleanName = String(newExercise.nom || "").trim();
+    const normalizedName = normalizeNameKey(cleanName);
+    const familyKey = buildFamilyKey(cleanName);
+    const familyTokens = buildFamilyTokens(cleanName);
+    const docName = buildNameSlug(cleanName);
+
+    if (!normalizedName || !docName) {
+      toast({
+        status: "error",
+        title: TXT.genericErrorTitle,
+        description: "Nom d'exercice invalide.",
+      });
+      return;
+    }
+
     try {
-      const id = await generateNextId(section);
+      setSavingExercise(true);
+
+      if (exerciseExistsLocally({ normalizedName, familyKey, familyTokens })) {
+        toast({
+          status: "warning",
+          title: TXT.duplicateTitle,
+          description: TXT.duplicateDesc,
+        });
+        return;
+      }
+
+      const existsInFirestore = await exerciseExistsInFirestore({
+        normalizedName,
+        familyKey,
+        familyTokens,
+      });
+
+      if (existsInFirestore) {
+        toast({
+          status: "warning",
+          title: TXT.duplicateTitle,
+          description: TXT.duplicateDesc,
+        });
+        return;
+      }
+
+      const createdByName =
+        currentUser?.displayName ||
+        currentUser?.email ||
+        currentUser?.providerData?.[0]?.displayName ||
+        currentUser?.providerData?.[0]?.email ||
+        "";
+
+      const normalizedUsage = [section];
+
       const allFields = {
         ...defaultExercise,
         ...newExercise,
-        niveau: newExercise.niveau || "",
+        id: docName,
+        nom: cleanName,
+        nom_normalized: normalizedName,
+        family_key: familyKey,
+        categorie: section,
+        categorie_utilisation: normalizedUsage,
+        groupe_musculaire: sanitizeArrayValues(newExercise.groupe_musculaire),
+        objectifs: sanitizeArrayValues(newExercise.objectifs),
+        muscles_secondaires: [],
+        articulations_sollicitees: [],
+        tendons_sollicites: [],
+        type: "",
+        niveau: "",
+        materiel: sanitizeArrayValues(newExercise.materiel),
+        position: sanitizeArrayValues(newExercise.position),
+        contraintes: "",
+        variantes: [],
+        consignes: {
+          Positionnement: String(
+            newExercise.consignes?.Positionnement || ""
+          ).trim(),
+          Mouvement: String(newExercise.consignes?.Mouvement || "").trim(),
+          Retour: String(newExercise.consignes?.Retour || "").trim(),
+          Respiration: String(newExercise.consignes?.Respiration || "").trim(),
+          Posture: String(newExercise.consignes?.Posture || "").trim(),
+        },
+        image: "",
         image_homme: "",
         image_femme: "",
         parametres_objectif: generateDefaultParams(),
-        id,
+        mode_pro: true,
+        status: "pending",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        createdBy: currentUser?.uid || null,
+        createdByName,
+        validatedAt: null,
+        validatedBy: null,
       };
-      const docName = slug(newExercise.nom);
+
       await setDoc(doc(collection(db, section), docName), allFields);
-      toast({ status: "success", title: TXT.added, description: TXT.addedWithId(id) });
-      onAddClose();
-      setNewExercise(defaultExercise);
-      setSection("");
+
+      toast({
+        status: "success",
+        title: TXT.added,
+        description: TXT.addedWithId(docName),
+      });
+
+      closeAddModal();
+
+      const snap = await getDocs(collection(db, section));
+      const addeds = snap.docs.map((d) => ({
+        docId: d.id,
+        ...d.data(),
+        __collection: section,
+      }));
 
       startTransition(() => {
-        (async () => {
-          const snap = await getDocs(collection(db, section));
-          const addeds = snap.docs.map((d) => ({ id: d.id, ...d.data(), __collection: section }));
-          setExercises((prev) => dedupeByUid([...prev.filter((e) => e.__collection !== section), ...addeds]));
-        })();
+        setExercises((prev) =>
+          dedupeByUid([
+            ...prev.filter((e) => e.__collection !== section),
+            ...addeds,
+          ])
+        );
       });
     } catch (e) {
-      toast({ status: "error", title: "Error", description: e.message });
+      toast({
+        status: "error",
+        title: TXT.genericErrorTitle,
+        description: e.message,
+      });
+    } finally {
+      setSavingExercise(false);
     }
   };
 
   const addingRef = useRef(false);
+
   const safeAdd = useCallback(
     (item) => {
       if (!onAdd || addingRef.current) return;
       addingRef.current = true;
+
       try {
         onAdd(item);
-        if (isBuilder && isMobile) requestAnimationFrame(() => onClose?.());
+        if (isBuilder && isMobile) {
+          requestAnimationFrame(() => onClose?.());
+        }
       } finally {
         setTimeout(() => {
           addingRef.current = false;
@@ -924,30 +1584,45 @@ export default function ExerciseBank({
 
   const safeReplace = useCallback(
     (item) => {
-      onReplace && onReplace(item);
-      if (isBuilder && isMobile) requestAnimationFrame(() => onClose?.());
+      if (onReplace) onReplace(item);
+      if (isBuilder && isMobile) {
+        requestAnimationFrame(() => onClose?.());
+      }
     },
     [onReplace, isBuilder, isMobile, onClose]
   );
 
-  const cardBg = useColorModeValue("gray.100", "gray.700");
-  const inputBg = useColorModeValue("white", "gray.600");
+  const resetAll = useCallback(() => {
+    setSearchTermUI("");
+    setFilters(DEFAULT_FILTERS);
+
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, []);
+
+  const handleFilterChange = useCallback((key, value) => {
+    setFilters((f) => ({ ...f, [key]: value }));
+  }, []);
 
   const renderBank = () => (
     <Box
-      flex="0 0 auto"
+      flex="1 1 auto"
+      minH={0}
+      display="flex"
+      flexDirection="column"
       bg={cardBg}
-      borderRadius="lg"
-      boxShadow="md"
+      borderRadius={{ base: "0", md: "lg" }}
+      boxShadow={{ base: "none", md: "md" }}
       p={4}
       w="100%"
+      h="100%"
       minW={{ base: "auto", md: "360px" }}
       maxH="none"
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
-      onTouchStart={(e) => e.stopPropagation()}
     >
-      <Box position="relative" zIndex={5}>
+      <Box position="relative" zIndex={5} flexShrink={0}>
         <HStack spacing={2} mb={3} align="center" wrap="wrap">
           <InputGroup>
             <Input
@@ -965,11 +1640,12 @@ export default function ExerciseBank({
                   icon={<CloseIcon boxSize={3} />}
                   onClick={() => {
                     setSearchTermUI("");
-                    try {
-                      document
-                        .querySelector("#exercise-bank-scroll")
-                        ?.scrollTo({ top: 0, behavior: "smooth" });
-                    } catch {}
+                    if (scrollRef.current) {
+                      scrollRef.current.scrollTo({
+                        top: 0,
+                        behavior: "smooth",
+                      });
+                    }
                   }}
                   type="button"
                 />
@@ -1006,14 +1682,7 @@ export default function ExerciseBank({
           variant="outline"
           colorScheme="blue"
           mb={showFilters ? 3 : 4}
-          onClick={() => {
-            setSearchTermUI("");
-            setSearchTerm("");
-            setFilters(DEFAULT_FILTERS);
-            try {
-              document.querySelector("#exercise-bank-scroll")?.scrollTo({ top: 0, behavior: "smooth" });
-            } catch {}
-          }}
+          onClick={resetAll}
           type="button"
         >
           {TXT.reset}
@@ -1021,125 +1690,112 @@ export default function ExerciseBank({
 
         {showFilters && (
           <VStack spacing={3} mb={4} align="stretch">
-            <Text fontSize="sm" opacity={0.8} fontWeight="600">
-              {TXT.filterMuscle}
-            </Text>
-            <Select
+            <FilterSelect
+              label={TXT.filterMuscle}
               value={filters.muscle ?? muscleOptions[0]}
-              onChange={(e) => setFilters((f) => ({ ...f, muscle: e.target.value }))}
+              onChange={(e) => handleFilterChange("muscle", e.target.value)}
+              options={muscleOptions}
               bg={inputBg}
-            >
-              {keepFirstSorted(muscleOptions, locale).map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </Select>
+            />
 
-            <Text fontSize="sm" opacity={0.8} fontWeight="600">
-              {TXT.filterSecondaryMuscle}
-            </Text>
-            <Select
+            <FilterSelect
+              label={TXT.filterSecondaryMuscle}
               value={filters.secondaryMuscle ?? secondaryMuscleOptions[0]}
-              onChange={(e) => setFilters((f) => ({ ...f, secondaryMuscle: e.target.value }))}
+              onChange={(e) =>
+                handleFilterChange("secondaryMuscle", e.target.value)
+              }
+              options={secondaryMuscleOptions}
               bg={inputBg}
-            >
-              {keepFirstSorted(secondaryMuscleOptions, locale).map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </Select>
+            />
 
-            <Text fontSize="sm" opacity={0.8} fontWeight="600">
-              {TXT.filterJoint}
-            </Text>
-            <Select
+            <FilterSelect
+              label={TXT.filterJoint}
               value={filters.joint ?? jointOptions[0]}
-              onChange={(e) => setFilters((f) => ({ ...f, joint: e.target.value }))}
+              onChange={(e) => handleFilterChange("joint", e.target.value)}
+              options={jointOptions}
               bg={inputBg}
-            >
-              {keepFirstSorted(jointOptions, locale).map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </Select>
+            />
 
-            <Text fontSize="sm" opacity={0.8} fontWeight="600">
-              {TXT.filterPosition}
-            </Text>
-            <Select
+            <FilterSelect
+              label={TXT.filterPosition}
               value={filters.position ?? positionOptions[0]}
-              onChange={(e) => setFilters((f) => ({ ...f, position: e.target.value }))}
+              onChange={(e) => handleFilterChange("position", e.target.value)}
+              options={positionOptions}
               bg={inputBg}
-            >
-              {keepFirstSorted(positionOptions, locale).map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </Select>
+            />
 
-            <Text fontSize="sm" opacity={0.8} fontWeight="600">
-              {TXT.filterEquipment}
-            </Text>
-            <Select
+            <FilterSelect
+              label={TXT.filterEquipment}
               value={filters.equipment ?? equipmentOptions[0]}
-              onChange={(e) => setFilters((f) => ({ ...f, equipment: e.target.value }))}
+              onChange={(e) => handleFilterChange("equipment", e.target.value)}
+              options={equipmentOptions}
               bg={inputBg}
-            >
-              {keepFirstSorted(equipmentOptions, locale).map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </Select>
+            />
 
-            <Text fontSize="sm" opacity={0.8} fontWeight="600">
-              {TXT.filterObjective}
-            </Text>
-            <Select
+            <FilterSelect
+              label={TXT.filterObjective}
               value={filters.objective ?? objectiveOptions[0]}
-              onChange={(e) => setFilters((f) => ({ ...f, objective: e.target.value }))}
+              onChange={(e) => handleFilterChange("objective", e.target.value)}
+              options={objectiveOptions}
               bg={inputBg}
-            >
-              {keepFirstSorted(objectiveOptions, locale).map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </Select>
+            />
           </VStack>
         )}
       </Box>
 
       {loading ? (
-        <Spinner size="xl" my={10} />
+        <Box py={10} display="flex" justifyContent="center" flex="1 1 auto" minH={0}>
+          <Spinner size="xl" />
+        </Box>
       ) : (
         <Box
           id="exercise-bank-scroll"
+          ref={scrollRef}
           position="relative"
           zIndex={1}
           mt={2}
-          h="calc(100vh - 260px)"
+          flex="1 1 auto"
+          minH={0}
+          h={{ base: "auto", md: "calc(100vh - 260px)" }}
           overflowY="auto"
+          overflowX="hidden"
           pr={1}
-          sx={{ img: { display: "none !important" } }}
+          pb={{ base: "max(env(safe-area-inset-bottom), 16px)", md: 2 }}
+          sx={{
+            WebkitOverflowScrolling: "touch",
+            overscrollBehavior: "contain",
+            touchAction: "pan-y",
+          }}
         >
-          <SimpleGrid minChildWidth="260px" spacing={4}>
-            {filtered.map((ex) => (
-              <ExerciseCard
-                key={uidFor(ex)}
-                exercise={ex}
-                onAdd={(item) => safeAdd(item)}
-                onReplace={(item) => safeReplace(item)}
-                onCancelReplace={onCancelReplace}
-                replaceMode={replaceMode}
-                isTarget={false}
-              />
-            ))}
-          </SimpleGrid>
+          {renderedExercises.length > 0 ? (
+            <>
+              <SimpleGrid minChildWidth="260px" spacing={4}>
+                {renderedExercises.map((ex) => (
+                  <ExerciseCard
+                    key={uidFor(ex)}
+                    exercise={ex}
+                    onAdd={safeAdd}
+                    onReplace={safeReplace}
+                    onCancelReplace={onCancelReplace}
+                    replaceMode={replaceMode}
+                    isTarget={false}
+                  />
+                ))}
+              </SimpleGrid>
+
+              <Box ref={sentinelRef} h="24px" />
+
+              {visibleCount < filtered.length && (
+                <Box py={4} display="flex" justifyContent="center">
+                  <Spinner size="md" />
+                </Box>
+              )}
+            </>
+          ) : (
+            <Box py={10} textAlign="center">
+              <Text opacity={0.7}>{TXT.noResults}</Text>
+            </Box>
+          )}
         </Box>
       )}
     </Box>
@@ -1148,12 +1804,8 @@ export default function ExerciseBank({
   const renderAddModal = () => (
     <Modal
       isOpen={isAddOpen}
-      onClose={() => {
-        onAddClose();
-        setNewExercise(defaultExercise);
-        setSection("");
-      }}
-      size="xl"
+      onClose={closeAddModal}
+      size="lg"
       scrollBehavior="inside"
     >
       <ModalOverlay />
@@ -1179,80 +1831,117 @@ export default function ExerciseBank({
             <Input
               placeholder={TXT.namePH}
               value={newExercise.nom}
-              onChange={(e) => setNewExercise((x) => ({ ...x, nom: e.target.value }))}
+              onChange={(e) =>
+                setNewExercise((x) => ({ ...x, nom: e.target.value }))
+              }
               isRequired
             />
 
             <Input
               placeholder={TXT.groupsPH}
-              value={Array.isArray(newExercise.groupe_musculaire) ? newExercise.groupe_musculaire.join(", ") : ""}
+              value={
+                Array.isArray(newExercise.groupe_musculaire)
+                  ? newExercise.groupe_musculaire.join(", ")
+                  : ""
+              }
               onChange={(e) =>
                 setNewExercise((x) => ({
                   ...x,
-                  groupe_musculaire: e.target.value.split(",").map((v) => v.trim()).filter(Boolean),
+                  groupe_musculaire: splitCommaValues(e.target.value),
                 }))
               }
+              isRequired
             />
+
+            <Divider />
+
+            <Text fontWeight="600" fontSize="sm" opacity={0.8}>
+              {TXT.optionalBlock}
+            </Text>
+
             <Input
               placeholder={TXT.goalsPH}
-              value={Array.isArray(newExercise.objectifs) ? newExercise.objectifs.join(", ") : ""}
+              value={
+                Array.isArray(newExercise.objectifs)
+                  ? newExercise.objectifs.join(", ")
+                  : ""
+              }
               onChange={(e) =>
                 setNewExercise((x) => ({
                   ...x,
-                  objectifs: e.target.value.split(",").map((v) => v.trim()).filter(Boolean),
+                  objectifs: splitCommaValues(e.target.value),
                 }))
               }
             />
+
             <Input
               placeholder={TXT.equipPH}
-              value={Array.isArray(newExercise.materiel) ? newExercise.materiel.join(", ") : ""}
+              value={
+                Array.isArray(newExercise.materiel)
+                  ? newExercise.materiel.join(", ")
+                  : ""
+              }
               onChange={(e) =>
                 setNewExercise((x) => ({
                   ...x,
-                  materiel: e.target.value.split(",").map((v) => v.trim()).filter(Boolean),
+                  materiel: splitCommaValues(e.target.value),
                 }))
               }
             />
+
             <Input
               placeholder={TXT.posPH}
-              value={Array.isArray(newExercise.position) ? newExercise.position.join(", ") : ""}
+              value={
+                Array.isArray(newExercise.position)
+                  ? newExercise.position.join(", ")
+                  : ""
+              }
               onChange={(e) =>
                 setNewExercise((x) => ({
                   ...x,
-                  position: e.target.value.split(",").map((v) => v.trim()).filter(Boolean),
+                  position: splitCommaValues(e.target.value),
                 }))
               }
             />
 
             <Divider />
-            <Text fontWeight="bold">{TXT.cues}</Text>
-            {["Positionnement", "Mouvement", "Retour", "Respiration", "Posture"].map((c) => (
-              <Textarea
-                key={c}
-                placeholder={c}
-                value={newExercise.consignes?.[c] || ""}
-                onChange={(e) =>
-                  setNewExercise((x) => ({
-                    ...x,
-                    consignes: { ...(x.consignes || {}), [c]: e.target.value },
-                  }))
-                }
-              />
-            ))}
+            <Text fontWeight="bold">{TXT.cuesTitle}</Text>
+
+            {["Positionnement", "Mouvement", "Retour", "Respiration", "Posture"].map(
+              (c) => (
+                <Textarea
+                  key={c}
+                  placeholder={c}
+                  value={newExercise.consignes?.[c] || ""}
+                  onChange={(e) =>
+                    setNewExercise((x) => ({
+                      ...x,
+                      consignes: {
+                        ...(x.consignes || {}),
+                        [c]: e.target.value,
+                      },
+                    }))
+                  }
+                />
+              )
+            )}
           </VStack>
         </ModalBody>
         <ModalFooter>
-          <Button colorScheme="blue" mr={3} onClick={handleSaveExercise} type="button">
+          <Button
+            colorScheme="blue"
+            mr={3}
+            onClick={handleSaveExercise}
+            isLoading={savingExercise}
+            loadingText={L === "fr" ? "Enregistrement..." : "Saving..."}
+            type="button"
+          >
             {TXT.save}
           </Button>
           <Button
             variant="ghost"
             colorScheme="blue"
-            onClick={() => {
-              onAddClose();
-              setNewExercise(defaultExercise);
-              setSection("");
-            }}
+            onClick={closeAddModal}
             type="button"
           >
             {TXT.cancel}
@@ -1274,9 +1963,9 @@ export default function ExerciseBank({
           bottom="22px"
           right="20px"
           zIndex={1500}
-          bg={useColorModeValue("blue.400", "blue.500")}
+          bg={fabBg}
           color="white"
-          _hover={{ bg: useColorModeValue("blue.500", "blue.600") }}
+          _hover={{ bg: fabHoverBg }}
           boxShadow="xl"
           onClick={(e) => {
             e.preventDefault();
@@ -1285,6 +1974,7 @@ export default function ExerciseBank({
           }}
           type="button"
         />
+
         <Drawer
           placement="left"
           isOpen={isOpen}
@@ -1294,19 +1984,30 @@ export default function ExerciseBank({
           trapFocus={false}
           isLazy
           lazyBehavior="keepMounted"
-          blockScrollOnMount={false}
+          blockScrollOnMount={true}
         >
           <DrawerOverlay />
           <DrawerContent
+            h="100dvh"
+            maxH="100dvh"
+            overflow="hidden"
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
-            onTouchStart={(e) => e.stopPropagation()}
           >
             <DrawerCloseButton />
-            <DrawerHeader>{L === "fr" ? "Banque d'exercices" : "Exercise bank"}</DrawerHeader>
-            <DrawerBody p={0}>{renderBank()}</DrawerBody>
+            <DrawerHeader flexShrink={0}>{TXT.bankTitle}</DrawerHeader>
+            <DrawerBody
+              p={0}
+              display="flex"
+              flexDirection="column"
+              minH={0}
+              overflow="visible"
+            >
+              {renderBank()}
+            </DrawerBody>
           </DrawerContent>
         </Drawer>
+
         {renderAddModal()}
       </>
     );
