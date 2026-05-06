@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { Box, Heading, Text, Button, useToast } from "@chakra-ui/react";
 import { useAuth } from "../AuthContext";
+import { getAuthHeaders } from "../utils/authHeaders";
 
 // ✅ base API centralisée
 import { getApiBase } from "../utils/apiBase";
@@ -21,7 +22,7 @@ export default function AccountBilling() {
     try {
       const response = await fetch(`${API_BASE}/stripe-portal/create-stripe-portal-session`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await getAuthHeaders()) },
         credentials: "include", // important si tu utilises des cookies de session
         body: JSON.stringify({ userId: user.uid }),
       });

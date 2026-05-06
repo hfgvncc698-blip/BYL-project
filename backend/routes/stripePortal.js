@@ -2,13 +2,17 @@
 const express = require("express");
 const Stripe = require("stripe");
 const admin = require("firebase-admin");
+const {
+  requireFirebaseAuth,
+  requireSelfOrAdmin,
+} = require("../utils/firebaseAuth");
 
 const router = express.Router();
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
-router.post("/session", async (req, res) => {
+async function createPortalSession(req, res) {
   try {
-    const { userId } = req.body;              // ou { uid } si tu préfères
+    const { userId } = req.body;
     if (!userId) return res.status(400).json({ error: "userId manquant" });
 
     const snap = await admin.firestore().collection("users").doc(userId).get();
@@ -32,7 +36,14 @@ router.post("/session", async (req, res) => {
     console.error("[STRIPE PORTAL] error:", err);
     res.status(500).json({ error: "Erreur serveur" });
   }
-});
+}
+
+router.post("/session", requireFirebaseAuth, requireSelfOrAdmin, createPortalSession);
+router.post(
+  "/create-stripe-portal-session",
+  requireFirebaseAuth,
+  requireSelfOrAdmin,
+  createPortalSession
+);
 
 module.exports = router;
-

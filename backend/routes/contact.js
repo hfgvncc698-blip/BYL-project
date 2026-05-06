@@ -4,6 +4,9 @@ const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
 
 const router = express.Router();
+const WINDOW_MS = 15 * 60 * 1000;
+const MAX_CONTACT_REQUESTS = 5;
+const contactHits = new Map();
 
 function asBool(v) {
   return String(v || "").toLowerCase() === "true";
@@ -37,17 +40,59 @@ function getTransporter() {
   });
 }
 
+function getRequesterKey(req) {
+  const fwd = req.headers["x-forwarded-for"];
+  const ip =
+    (Array.isArray(fwd) ? fwd[0] : fwd || "").split(",")[0].trim() ||
+    req.ip ||
+    req.socket?.remoteAddress ||
+    "unknown";
+  return ip.replace("::ffff:", "");
+}
+
+function checkContactRateLimit(req) {
+  const now = Date.now();
+  const key = getRequesterKey(req);
+  const entry = contactHits.get(key) || { count: 0, resetAt: now + WINDOW_MS };
+
+  if (entry.resetAt <= now) {
+    entry.count = 0;
+    entry.resetAt = now + WINDOW_MS;
+  }
+
+  entry.count += 1;
+  contactHits.set(key, entry);
+
+  return entry.count <= MAX_CONTACT_REQUESTS;
+}
+
+function isEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+}
+
 // POST /api/contact
 router.post("/", async (req, res) => {
   try {
+    if (!checkContactRateLimit(req)) {
+      return res.status(429).json({ error: "Too many requests" });
+    }
+
     const { name, email, message } = req.body || {};
     if (!name || !email || !message) {
       return res.status(400).json({ error: "Missing fields" });
     }
 
-    const cleanName = String(name).trim();
+    const cleanName = String(name).trim().slice(0, 120);
     const cleanEmail = String(email).trim().toLowerCase();
-    const cleanMessage = String(message).trim();
+    const cleanMessage = String(message).trim().slice(0, 4000);
+
+    if (!isEmail(cleanEmail)) {
+      return res.status(400).json({ error: "Invalid email" });
+    }
+
+    if (cleanName.length < 2 || cleanMessage.length < 10) {
+      return res.status(400).json({ error: "Invalid fields" });
+    }
 
     // 1) Stocke dans Firestore
     const docRef = await admin.firestore().collection("contact_messages").add({
@@ -113,4 +158,3 @@ router.post("/", async (req, res) => {
 });
 
 module.exports = router;
-

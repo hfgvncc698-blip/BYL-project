@@ -3,6 +3,7 @@ require("dotenv").config();
 
 const express = require("express");
 const admin = require("firebase-admin");
+const helmet = require("helmet");
 
 // Init Firebase Admin
 try {
@@ -12,6 +13,11 @@ try {
 }
 
 const app = express();
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+  })
+);
 
 /* =================== PAYMENTS (Stripe) =================== */
 // IMPORTANT : webhook en RAW AVANT express.json()
@@ -23,7 +29,7 @@ app.post(
 );
 
 // Le reste en JSON
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 
 /* =================== CORS (UNIQUEMENT ICI) =================== */
 // CORS simple pour /api/*
@@ -151,4 +157,3 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`[BYL] API listening on http://localhost:${PORT}`);
 });
-

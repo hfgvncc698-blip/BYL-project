@@ -63,6 +63,7 @@ import {
   MdPeople,
   MdFitnessCenter,
 } from "react-icons/md";
+import { getAuthHeaders } from "../utils/authHeaders";
 
 function toLocale(v) {
   const d = v?.toDate
@@ -267,7 +268,7 @@ export default function AdminCoach() {
     try {
       const r = await fetch(`${getApiBase()}/payments/create-stripe-portal-session`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await getAuthHeaders()) },
         credentials: "include",
         body: JSON.stringify({
           userId: userData?.id || id,

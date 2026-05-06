@@ -28,6 +28,7 @@ import { useTranslation } from "react-i18next";
 
 // ✅ base API centralisée (garantit .../api)
 import { getApiBase } from "../utils/apiBase";
+import { getAuthHeaders } from "../utils/authHeaders";
 const API_BASE = getApiBase();
 
 const SUPPORTED = ["fr", "en", "de", "it", "es", "ru", "ar"];
@@ -122,7 +123,7 @@ export default function SettingsPageCoach() {
     try {
       const res = await fetch(`${API_BASE}/payments/create-stripe-portal-session`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await getAuthHeaders()) },
         credentials: "include",
         body: JSON.stringify({
           userId: user.uid,

@@ -3,17 +3,215 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // This rule allows anyone with your Firestore database reference to view, edit,
-    // and delete all data in your Firestore database. It is useful for getting
-    // started, but it is configured to expire after 30 days because it
-    // leaves your app open to attackers. At that time, all client
-    // requests to your Firestore database will be denied.
-    //
-    // Make sure to write security rules for your app before that time, or else
-    // all client requests to your Firestore database will be denied until you Update
-    // your rules
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function clientPath(clientId) {
+      return /databases/$(database)/documents/clients/$(clientId);
+    }
+
+    function currentUser() {
+      return signedIn() && exists(userPath(request.auth.uid))
+        ? get(userPath(request.auth.uid)).data
+        : {};
+    }
+
+    function isAdmin() {
+      return signedIn() && currentUser().role == "admin";
+    }
+
+    function isCoach() {
+      return signedIn() && (
+        currentUser().role == "coach" ||
+        currentUser().role == "admin"
+      );
+    }
+
+    function hasKey(data, key) {
+      return data.keys().hasAny([key]);
+    }
+
+    function listHas(data, key, value) {
+      return hasKey(data, key) && data[key] is list && value in data[key];
+    }
+
+    function isOwnUser(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function isClientOwnerData(data, clientId) {
+      return signedIn() && (
+        clientId == request.auth.uid ||
+        data.uid == request.auth.uid ||
+        data.linkedUserId == request.auth.uid ||
+        data.email == request.auth.token.email ||
+        data.emailLower == request.auth.token.email
+      );
+    }
+
+    function isCoachForClientData(data) {
+      return signedIn() && (
+        data.createdBy == request.auth.uid ||
+        data.coachId == request.auth.uid ||
+        data.assignedCoachId == request.auth.uid ||
+        listHas(data, "coachIds", request.auth.uid)
+      );
+    }
+
+    function canAccessClient(clientId) {
+      return isAdmin() ||
+        (
+          signedIn() &&
+          exists(clientPath(clientId)) &&
+          (
+            isClientOwnerData(get(clientPath(clientId)).data, clientId) ||
+            isCoachForClientData(get(clientPath(clientId)).data)
+          )
+        );
+    }
+
+    function canCreateClient(clientId) {
+      return isAdmin() ||
+        isClientOwnerData(request.resource.data, clientId) ||
+        (isCoach() && isCoachForClientData(request.resource.data));
+    }
+
+    function isPublicProgramData(data) {
+      return data.isActive != false && (
+        data.visibility == "public" ||
+        data.origine == "premium" ||
+        data.source == "premium" ||
+        data.isPremiumOnly == true
+      );
+    }
+
+    function ownsProgramData(data) {
+      return signedIn() && (
+        data.createdBy == request.auth.uid ||
+        data.ownerId == request.auth.uid ||
+        data.coachId == request.auth.uid ||
+        data.assignedTo == request.auth.uid ||
+        listHas(data, "assignedTo", request.auth.uid) ||
+        listHas(data, "clients", request.auth.uid)
+      );
+    }
+
+    match /users/{uid} {
+      allow create: if isOwnUser(uid) || isAdmin();
+      allow read: if isOwnUser(uid) || isAdmin();
+      allow update: if isOwnUser(uid) || isAdmin();
+      allow delete: if isAdmin();
+
+      match /privacy/{document=**} {
+        allow read, write: if isOwnUser(uid) || isAdmin();
+      }
+    }
+
+    match /clients/{clientId} {
+      allow create: if signedIn() && canCreateClient(clientId);
+      allow read: if canAccessClient(clientId);
+      allow update: if canAccessClient(clientId);
+      allow delete: if isAdmin() || (isCoach() && isCoachForClientData(resource.data));
+
+      match /private/{document=**} {
+        allow read, write: if canAccessClient(clientId);
+      }
+
+      match /{subCollection}/{document=**} {
+        allow read, write: if canAccessClient(clientId);
+      }
+    }
+
+    match /programmes/{programId} {
+      allow read: if isPublicProgramData(resource.data) || isAdmin() || ownsProgramData(resource.data);
+      allow create: if isAdmin() || (isCoach() && ownsProgramData(request.resource.data));
+      allow update: if isAdmin() || (isCoach() && ownsProgramData(resource.data));
+      allow delete: if isAdmin() || (isCoach() && ownsProgramData(resource.data));
+
+      match /{subCollection}/{document=**} {
+        allow read, write: if isAdmin() || ownsProgramData(get(/databases/$(database)/documents/programmes/$(programId)).data);
+      }
+    }
+
+    match /sessions/{sessionId} {
+      allow read: if isAdmin() || ownsProgramData(resource.data);
+      allow create: if isAdmin() || ownsProgramData(request.resource.data);
+      allow update: if isAdmin() || ownsProgramData(resource.data);
+      allow delete: if isAdmin() || ownsProgramData(resource.data);
+    }
+
+    match /training/{exerciseId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /warmup/{exerciseId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /cooldown/{exerciseId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /ergometre/{exerciseId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /coachs/{coachId} {
+      allow read: if isAdmin() || isOwnUser(coachId);
+      allow write: if isAdmin() || isOwnUser(coachId);
+    }
+
+    match /analytics_geo/{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    match /analytics_daily/{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    match /analytics_geo_daily/{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    match /analytics_geo_hourly/{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    match /contact_messages/{messageId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /calendarSubscriptionTokens/{token} {
+      allow read, write: if isAdmin();
+    }
+
+    match /coachCalendarSubscriptions/{coachId} {
+      allow read, write: if isAdmin() || isOwnUser(coachId);
+    }
+
+    match /custom_program_orders/{orderId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /stripe_events/{eventId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /health/{document=**} {
+      allow read, write: if isAdmin();
+    }
+
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
   }
 }

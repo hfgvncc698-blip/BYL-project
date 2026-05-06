@@ -1,5 +1,6 @@
 // src/utils/api.js
 import { getApiBase } from './apiBase';
+import { getAuthHeaders } from './authHeaders';
 const API_BASE = getApiBase();
 
 export async function apiFetch(path, { json = true, ...opts } = {}) {
@@ -9,6 +10,10 @@ export async function apiFetch(path, { json = true, ...opts } = {}) {
 
   const headers = new Headers(opts.headers || {});
   if (json && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  if (!headers.has('Authorization')) {
+    const authHeaders = await getAuthHeaders();
+    Object.entries(authHeaders).forEach(([key, value]) => headers.set(key, value));
+  }
 
   const res = await fetch(url, { credentials: 'include', ...opts, headers });
   let data = null;
@@ -21,4 +26,3 @@ export async function apiFetch(path, { json = true, ...opts } = {}) {
   }
   return data ?? {};
 }
-

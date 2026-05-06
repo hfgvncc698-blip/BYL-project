@@ -6,6 +6,10 @@ const express = require("express");
 const router = express.Router();
 const Stripe = require("stripe");
 const admin = require("firebase-admin");
+const {
+  requireFirebaseAuth,
+  requireSelfOrAdmin,
+} = require("../utils/firebaseAuth");
 
 /* ============================================================
    FRONTEND base (URLs de retour Stripe)
@@ -26,13 +30,6 @@ function findStripeSecretFromEnv() {
   ];
   for (const k of candidates) {
     if (process.env[k]) return process.env[k];
-  }
-  for (const [, envVal] of Object.entries(process.env)) {
-    if (!envVal || typeof envVal !== "string") continue;
-    const v = envVal.trim();
-    if (/^sk_(live|test)_[A-Za-z0-9]+/.test(v)) {
-      return v;
-    }
   }
   return null;
 }
@@ -489,7 +486,11 @@ router.post("/admin/set-trial", requireAdminKey, async (req, res) => {
 /* ============================================================
    0) Portail client Stripe (Billing Portal)
 ============================================================ */
-router.post("/create-stripe-portal-session", async (req, res) => {
+router.post(
+  "/create-stripe-portal-session",
+  requireFirebaseAuth,
+  requireSelfOrAdmin,
+  async (req, res) => {
   try {
     const { userId, email, returnUrl } = req.body || {};
     if (!userId && !email) {
@@ -537,7 +538,8 @@ router.post("/create-stripe-portal-session", async (req, res) => {
     console.error("[PAYMENTS] create-stripe-portal-session error:", e);
     return res.status(500).json({ error: e.message || "server-error" });
   }
-});
+  }
+);
 
 /* ============================================================
    1) Sauvegarde prefs auto-program (optionnel) + ALIAS
@@ -1258,4 +1260,3 @@ router.get("/_diag/echo", (req, res) => {
 ============================================================ */
 module.exports = router;
 module.exports.webhookHandler = webhookHandler;
-
