@@ -2,6 +2,8 @@
 import React, { useState } from "react";
 import { Box, Heading, Text, Button, useToast } from "@chakra-ui/react";
 import { useAuth } from "../AuthContext";
+import { useAppTheme } from "../styles/appTheme";
+import { notify } from "../utils/notify";
 import { getAuthHeaders } from "../utils/authHeaders";
 
 // ✅ base API centralisée
@@ -10,12 +12,17 @@ const API_BASE = getApiBase();
 
 export default function AccountBilling() {
   const { user } = useAuth();
+  const theme = useAppTheme();
   const [loading, setLoading] = useState(false);
   const toast = useToast();
 
   const handleOpenPortal = async () => {
     if (!user) {
-      toast({ title: "Connexion requise", status: "warning" });
+      notify(toast, "saveError", {
+        status: "warning",
+        title: "Connexion requise",
+        description: "Connectez-vous pour gérer votre abonnement.",
+      });
       return;
     }
     setLoading(true);
@@ -31,17 +38,15 @@ export default function AccountBilling() {
       if (response.ok && data?.url) {
         window.location.href = data.url; // Redirection réelle Stripe
       } else {
-        toast({
+        notify(toast, "saveError", {
           title: "Erreur Stripe",
           description: data?.error || `HTTP ${response.status}`,
-          status: "error",
         });
       }
     } catch (e) {
-      toast({
+      notify(toast, "saveError", {
         title: "Erreur réseau",
         description: e?.message || String(e),
-        status: "error",
       });
     } finally {
       setLoading(false);
@@ -49,14 +54,14 @@ export default function AccountBilling() {
   };
 
   return (
-    <Box maxW="lg" mx="auto" py={16} px={4}>
+    <Box bg={theme.pageBg} minH="100vh" py={{ base: 6, md: 10 }} px={{ base: 4, md: 6 }}>
+    <Box {...theme.cardProps} maxW="lg" mx="auto" p={{ base: 6, md: 8 }}>
       <Heading size="lg" mb={6}>Gérer mon abonnement</Heading>
-      <Text mb={8} color="gray.600">
+      <Text mb={8} color={theme.mutedText}>
         Depuis cet espace, vous pouvez gérer votre abonnement, consulter vos factures et changer de formule.
       </Text>
       <Button
-        colorScheme="blue"
-        borderRadius="xl"
+        {...theme.primaryButtonProps}
         fontWeight="bold"
         onClick={handleOpenPortal}
         isLoading={loading}
@@ -65,6 +70,6 @@ export default function AccountBilling() {
         Accéder au portail de gestion Stripe
       </Button>
     </Box>
+    </Box>
   );
 }
-

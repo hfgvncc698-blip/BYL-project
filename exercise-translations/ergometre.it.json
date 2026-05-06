@@ -1,0 +1,1869 @@
+{
+  "ER001": {
+    "nom": "Vogatore: trazione completa",
+    "groupe_musculaire": "Corpo intero",
+    "objectifs": [
+      "Resistenza",
+      "Cardio",
+      "Perdita di peso",
+      "Forma fisica",
+      "Rinforzo",
+      "Guadagno di massa",
+      "Posturale",
+      "Forza"
+    ],
+    "muscles_secondaires": [
+      "Indietro",
+      "Bicipiti",
+      "Spalle",
+      "Quadricipiti",
+      "tendini del ginocchio",
+      "Glutei",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Spalle",
+      "Gomiti",
+      "Ginocchia",
+      "Fianchi"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine del tendine del ginocchio",
+      "Tendine bicipitale"
+    ],
+    "type": "Ergometro - Cardio combinato",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Vogatore"
+    ],
+    "position": "Seduto",
+    "contraintes": [
+      "Da evitare in caso di dolori lombari o tendiniti al gomito"
+    ],
+    "variantes": [
+      "Vogatore sprint",
+      "Vogatore a gamba singola",
+      "Intervalli di canottaggio"
+    ],
+    "consignes": {
+      "Positionnement": "Sedersi sul vogatore, i piedi fissati saldamente sui blocchi.",
+      "Mouvement": "Spingere con le gambe tirando la maniglia verso la parte inferiore del petto.",
+      "Retour": "Estendi le braccia quindi piega le gambe per tornare alla posizione iniziale.",
+      "Respiration": "Inspira durante la via del ritorno, espira durante la spinta.",
+      "Posture": "Schiena dritta, tronco centrale, spalle abbassate."
+    }
+  },
+  "ER002": {
+    "nom": "Vogatore - Sprint",
+    "groupe_musculaire": "Corpo intero",
+    "objectifs": [
+      "Resistenza",
+      "Cardio",
+      "Perdita di peso",
+      "Forza",
+      "Forma fisica"
+    ],
+    "muscles_secondaires": [
+      "Indietro",
+      "Bicipiti",
+      "Spalle",
+      "Quadricipiti",
+      "Glutei",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Spalle",
+      "Gomiti",
+      "Ginocchia",
+      "Fianchi"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine del tendine del ginocchio",
+      "Tendine bicipitale"
+    ],
+    "type": "Ergometro - Sforzo massimo dello sprint",
+    "niveau": "Da intermedio ad avanzato",
+    "materiel": [
+      "Vogatore"
+    ],
+    "position": "Seduto",
+    "contraintes": [
+      "Da evitare in caso di problemi cardiovascolari non stabilizzati o di lesioni lombari"
+    ],
+    "variantes": [
+      "Vogatore a lunghi intervalli",
+      "Vogatore sprint 100 metri",
+      "Vogatore piramidale"
+    ],
+    "consignes": {
+      "Positionnement": "Stessa posizione del vogatore classico, piedi ben piantati e schiena dritta.",
+      "Mouvement": "Esegui una trazione esplosiva a tutta intensità con le gambe e le braccia.",
+      "Retour": "Controllare la fase di ritorno senza intoppi, recupero attivo.",
+      "Respiration": "Respira forte durante lo sforzo, inspira profondamente durante il ritorno.",
+      "Posture": "Tieni la schiena ben sostenuta, non tirare solo con le braccia."
+    }
+  },
+  "ER003": {
+    "nom": "Vogatore: solo gambe",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Resistenza",
+      "Posturale",
+      "Forma fisica"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "tendini del ginocchio",
+      "Glutei"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine del tendine del ginocchio"
+    ],
+    "type": "Ergometro - Isolamento gambe",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Vogatore"
+    ],
+    "position": "Seduto",
+    "contraintes": [
+      "Evitare in caso di dolore al ginocchio o limitazione della mobilità"
+    ],
+    "variantes": [
+      "Vogatore a braccio singolo",
+      "Vogatore completo",
+      "Vogatore a gamba unilaterale"
+    ],
+    "consignes": {
+      "Positionnement": "Stessa posizione del vogatore completo, braccia tese senza tirare.",
+      "Mouvement": "Esegui solo la spinta delle gambe, con le braccia ferme.",
+      "Retour": "Piega le gambe senza tirare con le braccia, cadenza fluida.",
+      "Respiration": "Inspira quando ti pieghi, espira quando spingi.",
+      "Posture": "Schiena dritta, core impegnato, braccia rilassate ma fisse."
+    }
+  },
+  "ER004": {
+    "nom": "Vogatore - Intervalli suddivisi",
+    "groupe_musculaire": "Corpo intero",
+    "objectifs": [
+      "Resistenza",
+      "Cardio",
+      "Perdita di peso",
+      "Forma fisica",
+      "Forza"
+    ],
+    "muscles_secondaires": [
+      "Indietro",
+      "Bicipiti",
+      "Spalle",
+      "Quadricipiti",
+      "Glutei",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Spalle",
+      "Gomiti",
+      "Ginocchia",
+      "Fianchi"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine del tendine del ginocchio",
+      "Tendine bicipitale"
+    ],
+    "type": "Ergometro - Diviso",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Vogatore"
+    ],
+    "position": "Seduto",
+    "contraintes": [
+      "Prestare attenzione alla tecnica se la fatica aumenta, evitare i principianti senza supervisione"
+    ],
+    "variantes": [
+      "Vogatore 30/30",
+      "Vogatore 45/15",
+      "Vogatore inverso 20/40"
+    ],
+    "consignes": {
+      "Positionnement": "Installare i piedi correttamente, impugnare la maniglia con le braccia rilassate.",
+      "Mouvement": "Fasi alternate di sforzo ad alta intensità e di recupero attivo.",
+      "Retour": "Rallentare intenzionalmente durante le fasi di recupero.",
+      "Respiration": "Respira forte durante l'esercizio, respira profondamente durante il recupero.",
+      "Posture": "Sii forte, non crollare alla fine della serie."
+    }
+  },
+  "ER005": {
+    "nom": "Vogatore - 30:30",
+    "groupe_musculaire": "Corpo intero",
+    "objectifs": [
+      "Resistenza",
+      "Cardio",
+      "Perdita di peso",
+      "Forza",
+      "Forma fisica"
+    ],
+    "muscles_secondaires": [
+      "Indietro",
+      "Spalle",
+      "Bicipiti",
+      "Quadricipiti",
+      "Glutei",
+      "tendini del ginocchio",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Spalle",
+      "Gomiti",
+      "Ginocchia",
+      "Fianchi"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine del tendine del ginocchio",
+      "Tendine bicipitale"
+    ],
+    "type": "Ergometro: HIIT classico",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Vogatore"
+    ],
+    "position": "Seduto",
+    "contraintes": [
+      "Evitare in caso di infortunio non stabilizzato o di inizio del recupero senza supervisione"
+    ],
+    "variantes": [
+      "Vogatore 45/15",
+      "Vogatore inverso 20/40",
+      "Vogatore a intervalli suddivisi"
+    ],
+    "consignes": {
+      "Positionnement": "Piedi fissi, tronco coperto, presa salda.",
+      "Mouvement": "30 secondi di trazioni potenti seguiti da 30 secondi di riposo completo o attivo.",
+      "Retour": "Durante le fasi di riposo rilassare il ritmo ma mantenere la tecnica.",
+      "Respiration": "Respira forte ad ogni tiro, respirando attivamente durante il recupero.",
+      "Posture": "Schiena dritta, non compensare solo con la zona lombare o con le braccia."
+    }
+  },
+  "ER006": {
+    "nom": "Vogatore - 45:15",
+    "groupe_musculaire": "Corpo intero",
+    "objectifs": [
+      "Cardio",
+      "Resistenza",
+      "Perdita di peso",
+      "Forza",
+      "Forma fisica"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "Glutei",
+      "tendini del ginocchio",
+      "Indietro",
+      "Spalle",
+      "Bicipiti",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Fianchi",
+      "Ginocchia",
+      "Spalle",
+      "Gomiti"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine del tendine del ginocchio",
+      "Tendine bicipitale"
+    ],
+    "type": "Ergometro - HIIT intensivo",
+    "niveau": "Da intermedio ad avanzato",
+    "materiel": [
+      "Vogatore"
+    ],
+    "position": "Seduto",
+    "contraintes": [
+      "Da evitare in caso di cattive condizioni fisiche o di notevole affaticamento"
+    ],
+    "variantes": [
+      "Vogatore 30/30",
+      "Vogatore inverso 20/40",
+      "Vogatore sprint"
+    ],
+    "consignes": {
+      "Positionnement": "Piedi appoggiati, maniglia in mano, corpo allineato e inguainato.",
+      "Mouvement": "Sforzo intenso per 45 secondi, seguito da 15 secondi di riposo attivo o completo.",
+      "Retour": "Restituisce controllo anche ad alta intensità, rilascio graduale durante il recupero.",
+      "Respiration": "Espirazione potente all'estrazione, ispirazione profonda al ritorno.",
+      "Posture": "Nucleo impegnato, schiena neutra, gamma completa di movimento senza estensione eccessiva."
+    }
+  },
+  "ER007": {
+    "nom": "Canottaggio - 20:40 invertito",
+    "groupe_musculaire": "Corpo intero",
+    "objectifs": [
+      "Resistenza",
+      "Cardio",
+      "Forma fisica",
+      "Perdita di peso",
+      "Posturale"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "tendini del ginocchio",
+      "Glutei",
+      "Indietro",
+      "Spalle",
+      "Bicipiti",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi",
+      "Spalle",
+      "Gomiti"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine del tendine del ginocchio",
+      "Tendine bicipitale"
+    ],
+    "type": "Ergometro - HIIT inverso",
+    "niveau": "Da principiante a intermedio",
+    "materiel": [
+      "Vogatore"
+    ],
+    "position": "Seduto",
+    "contraintes": [
+      "Da evitare in caso di disturbi del ritmo cardiaco o se il ritorno allo sport non è convalidato"
+    ],
+    "variantes": [
+      "Vogatore 30/30",
+      "Vogatore 45/15",
+      "Vogatore: trazione completa"
+    ],
+    "consignes": {
+      "Positionnement": "Piedi ben ancorati, tronco stabile, sguardo dritto.",
+      "Mouvement": "Sforzo moderato per 20 secondi seguito da 40 secondi di riposo o recupero attivo.",
+      "Retour": "Fase di ritorno molto controllata, respirazione profonda durante il recupero.",
+      "Respiration": "Espira ad ogni tirata, inspira al ritorno.",
+      "Posture": "Enfasi sulla regolarità e sulla qualità del movimento piuttosto che sull’intensità."
+    }
+  },
+  "ER008": {
+    "nom": "Vogatore: solo braccia",
+    "groupe_musculaire": "Parte superiore del corpo",
+    "objectifs": [
+      "Posturale",
+      "Rinforzo",
+      "Forma fisica",
+      "Resistenza"
+    ],
+    "muscles_secondaires": [
+      "Indietro",
+      "Spalle",
+      "Bicipiti",
+      "Avambraccio",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Spalle",
+      "Gomiti",
+      "Polsini"
+    ],
+    "tendons_solicites": [
+      "Tendine bicipitale",
+      "Tendini della cuffia dei rotatori"
+    ],
+    "type": "Ergometro - Isolamento della parte superiore del corpo",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Vogatore"
+    ],
+    "position": "Seduto",
+    "contraintes": [
+      "Da evitare se si soffre di tendinite alla spalla o al gomito"
+    ],
+    "variantes": [
+      "Vogatore a gamba singola",
+      "Vogatore completo",
+      "Vogatore con braccio unilaterale"
+    ],
+    "consignes": {
+      "Positionnement": "Piedi fissi, gambe semiflesse e fisse, tronco diritto.",
+      "Mouvement": "Tirare la maniglia solo con le braccia senza usare le gambe.",
+      "Retour": "Estendi completamente le braccia prima di iniziare una nuova trazione.",
+      "Respiration": "Espira durante l'estrazione, inspira durante il ritorno.",
+      "Posture": "Tieni la schiena dritta, evita di alzare le spalle o di incurvare la schiena."
+    }
+  },
+  "ER009": {
+    "nom": "Vogatore: gambe unilaterali",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Rinforzo",
+      "Posturale",
+      "Forma fisica",
+      "Resistenza",
+      "Riprogrammazione neuromuscolare"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "tendini del ginocchio",
+      "Glutei",
+      "Vitelli"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi",
+      "Caviglie"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille",
+      "Tendine del tendine del ginocchio"
+    ],
+    "type": "Ergometro - Lavoro unilaterale",
+    "niveau": "Da intermedio ad avanzato",
+    "materiel": [
+      "Vogatore"
+    ],
+    "position": "Seduto",
+    "contraintes": [
+      "Evitare in caso di squilibrio significativo o dolori articolari acuti"
+    ],
+    "variantes": [
+      "Vogatore a gamba singola",
+      "Vogatore con braccio unilaterale",
+      "Vogatore completo"
+    ],
+    "consignes": {
+      "Positionnement": "Posizionare un solo piede in stiva, l'altro arretrato o appoggiato a terra.",
+      "Mouvement": "Eseguire la trazione con una sola gamba, con le braccia coinvolte normalmente.",
+      "Retour": "Controlla la discesa per mantenere il ritmo e l'equilibrio.",
+      "Respiration": "Espira durante la spinta, inspira durante il ritorno.",
+      "Posture": "Garantire la stabilità del bacino e una buona simmetria della parte superiore del corpo."
+    }
+  },
+  "ER010": {
+    "nom": "Cyclette - Pedalata continua",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Resistenza",
+      "Cardio",
+      "Perdita di peso",
+      "Forma fisica",
+      "Posturale"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "tendini del ginocchio",
+      "Glutei",
+      "Vitelli"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi",
+      "Caviglie"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille",
+      "Tendine del tendine del ginocchio"
+    ],
+    "type": "Ergometro - Cardio continuo",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Bicicletta stazionaria"
+    ],
+    "position": "Seduto",
+    "contraintes": [
+      "Monitorare il ginocchio in caso di patologia articolare o protesi"
+    ],
+    "variantes": [
+      "Bici da corsa",
+      "Intervalli di ciclismo",
+      "Pedalando in salita"
+    ],
+    "consignes": {
+      "Positionnement": "Regolazione della sella all'altezza dei fianchi, schiena dritta, ginocchia leggermente piegate.",
+      "Mouvement": "Pedalare dolcemente con una cadenza da moderata a vivace.",
+      "Retour": "Nessun rendimento particolare: movimento ciclico costante.",
+      "Respiration": "Respirazione regolare, sincronizzata con lo sforzo.",
+      "Posture": "Tieni le spalle basse, il core impegnato, evita la tensione del collo."
+    }
+  },
+  "ER011": {
+    "nom": "Bici da corsa",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Cardio",
+      "Perdita di peso",
+      "Resistenza",
+      "Forza",
+      "Forma fisica"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "tendini del ginocchio",
+      "Glutei",
+      "Vitelli"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi",
+      "Caviglie"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille",
+      "Tendine del tendine del ginocchio"
+    ],
+    "type": "Ergometro - Sforzo esplosivo",
+    "niveau": "Da intermedio ad avanzato",
+    "materiel": [
+      "Bicicletta stazionaria"
+    ],
+    "position": "Seduto",
+    "contraintes": [
+      "Da evitare in caso di problemi articolari acuti o di problemi cardiaci non stabilizzati"
+    ],
+    "variantes": [
+      "Intervalli di ciclismo",
+      "Pedalando in salita"
+    ],
+    "consignes": {
+      "Positionnement": "Regolazione precisa della sella, postura stabile, mani sul manubrio.",
+      "Mouvement": "Sprint alla massima intensità per un breve periodo.",
+      "Retour": "Riposo attivo o passivo dopo ogni sprint.",
+      "Respiration": "Espirazione forzata durante esercizio fisico, recupero ventilatorio successivo.",
+      "Posture": "Schiena dritta, addominali impegnati, non tirare il manubrio."
+    }
+  },
+  "ER012": {
+    "nom": "Intervalli di ciclismo",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Resistenza",
+      "Cardio",
+      "Perdita di peso",
+      "Forma fisica",
+      "Forza"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "tendini del ginocchio",
+      "Glutei",
+      "Vitelli"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi",
+      "Caviglie"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille",
+      "Tendine del tendine del ginocchio"
+    ],
+    "type": "Ergometro - Intervallo classico",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Bicicletta stazionaria"
+    ],
+    "position": "Seduto",
+    "contraintes": [
+      "Monitora il recupero tra le serie per principianti o ripetitori"
+    ],
+    "variantes": [
+      "Bici da corsa",
+      "Pedalando in salita"
+    ],
+    "consignes": {
+      "Positionnement": "Corretta regolazione della sella, busto leggermente inclinato, mani sul manubrio.",
+      "Mouvement": "Fasi alternate di pedalata veloce con recupero lento o arresto.",
+      "Retour": "Rallenta gradualmente tra uno sforzo e l'altro.",
+      "Respiration": "Respira attivamente durante l'esercizio, inspirazione controllata a riposo.",
+      "Posture": "Mantenere una postura stabile nonostante la variazione di intensità."
+    }
+  },
+  "ER013": {
+    "nom": "Pedalando in salita",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Forza",
+      "Resistenza",
+      "Cardio",
+      "Forma fisica",
+      "Guadagno di massa"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "tendini del ginocchio",
+      "Glutei",
+      "Vitelli"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi",
+      "Caviglie"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille",
+      "Tendine del tendine del ginocchio"
+    ],
+    "type": "Ergometro - Alta resistenza",
+    "niveau": "Da intermedio ad avanzato",
+    "materiel": [
+      "Bicicletta stazionaria"
+    ],
+    "position": "Seduto",
+    "contraintes": [
+      "Da evitare in caso di dolori alle ginocchia o alla parte bassa della schiena non stabilizzati"
+    ],
+    "variantes": [
+      "Bici da corsa",
+      "Intervalli di ciclismo"
+    ],
+    "consignes": {
+      "Positionnement": "Regolazione della sella leggermente inclinata all'indietro per il supporto lombare.",
+      "Mouvement": "Pedalare ad alta resistenza, sia in posizione seduta che in posizione di ballo.",
+      "Retour": "Nessun rendimento specifico, sforzo continuo in salita simulata.",
+      "Respiration": "Espira per lo sforzo, inspira profondamente e regolarmente.",
+      "Posture": "Mantenere il tronco stabile e forte, evitare movimenti indesiderati."
+    }
+  },
+  "ER014": {
+    "nom": "Tapis roulant: corsa continua",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Resistenza",
+      "Cardio",
+      "Perdita di peso",
+      "Forma fisica"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "tendini del ginocchio",
+      "Glutei",
+      "Vitelli"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi",
+      "Caviglie"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille",
+      "Tendine del tendine del ginocchio"
+    ],
+    "type": "Ergometro - Cardio lineare",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Tapis roulant"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Monitorare l'impatto articolare in caso di sovrappeso o patologie ginocchio/lombare"
+    ],
+    "variantes": [
+      "Tappetini da sprint",
+      "Tappetini a intervalli",
+      "Tapis roulant inclinato"
+    ],
+    "consignes": {
+      "Positionnement": "Postura eretta, sguardo in avanti, passo naturale.",
+      "Mouvement": "Correre a ritmo costante, cadenza regolare.",
+      "Retour": "Concludere con una camminata lenta o con un graduale ritorno alla calma.",
+      "Respiration": "Regolare e controllato per tutta la gara.",
+      "Posture": "Mantenere un buon allineamento testa-tronco-bacino, evitare di sbandare."
+    }
+  },
+  "ER015": {
+    "nom": "Tappetini da sprint",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Cardio",
+      "Perdita di peso",
+      "Forza",
+      "Resistenza",
+      "Forma fisica"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "tendini del ginocchio",
+      "Glutei",
+      "Vitelli",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi",
+      "Caviglie"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille",
+      "Tendine del tendine del ginocchio"
+    ],
+    "type": "Ergometro: massimo sforzo di corsa",
+    "niveau": "Da intermedio ad avanzato",
+    "materiel": [
+      "Tapis roulant"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Da evitare in caso di dolori articolari o patologie cardiache non stabilizzate"
+    ],
+    "variantes": [
+      "Tappetini a intervalli",
+      "Tapis roulant inclinato"
+    ],
+    "consignes": {
+      "Positionnement": "Posizione dinamica, leggera inclinazione in avanti, braccia mobili.",
+      "Mouvement": "Brevi sprint alla massima velocità, passo esplosivo e controllato.",
+      "Retour": "Fase di camminata lenta o riposo completo dopo ogni sprint.",
+      "Respiration": "Respira forte durante l'esercizio, respira profondamente durante il recupero.",
+      "Posture": "Allineamento testa-tronco-bacino, evitare eccessivi sbandamenti."
+    }
+  },
+  "ER016": {
+    "nom": "Tappetini a intervalli",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Resistenza",
+      "Cardio",
+      "Perdita di peso",
+      "Forma fisica",
+      "Forza"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "tendini del ginocchio",
+      "Glutei",
+      "Vitelli",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi",
+      "Caviglie"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille",
+      "Tendine del tendine del ginocchio"
+    ],
+    "type": "Ergometro: corsa divisa",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Tapis roulant"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Monitorare la condizione articolare e l'equilibrio posturale durante le transizioni rapide"
+    ],
+    "variantes": [
+      "Tappetini da sprint",
+      "Tapis roulant inclinato"
+    ],
+    "consignes": {
+      "Positionnement": "Inizia con una postura diritta, i piedi ben allineati, guardando lontano.",
+      "Mouvement": "Fasi alternate di corsa veloce con fasi di camminata o corsa lenta.",
+      "Retour": "Ritorno attivo tra gli sprint, cadenza ridotta.",
+      "Respiration": "Respirazione sostenuta durante le fasi rapide, regolata durante il recupero.",
+      "Posture": "Mantenere un passo stabile e fluido senza tensioni eccessive."
+    }
+  },
+  "ER017": {
+    "nom": "Tapis roulant inclinato",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Resistenza",
+      "Perdita di peso",
+      "Forma fisica",
+      "Posturale",
+      "Forza"
+    ],
+    "muscles_secondaires": [
+      "Glutei",
+      "tendini del ginocchio",
+      "Quadricipiti",
+      "Vitelli"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi",
+      "Caviglie"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille",
+      "Tendine del tendine del ginocchio"
+    ],
+    "type": "Ergometro - Camminata in pendenza",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Tapis roulant"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Monitorare l'inclinazione per le persone in sovrappeso o con debolezza lombare"
+    ],
+    "variantes": [
+      "Tappetini da sprint",
+      "Tappetini a intervalli"
+    ],
+    "consignes": {
+      "Positionnement": "Tronco leggermente inclinato in avanti.",
+      "Mouvement": "Camminata da lenta a moderata su un pendio ripido, passo controllato.",
+      "Retour": "Abbassare gradualmente l'inclinazione alla fine della sessione.",
+      "Respiration": "Ritmo respiratorio stabile e profondo.",
+      "Posture": "Mantenere una postura eretta ed evitare di piegarsi eccessivamente."
+    }
+  },
+  "ER018": {
+    "nom": "Ellittica continua",
+    "groupe_musculaire": "Corpo intero",
+    "objectifs": [
+      "Resistenza",
+      "Cardio",
+      "Perdita di peso",
+      "Forma fisica"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "tendini del ginocchio",
+      "Glutei",
+      "Vitelli",
+      "Indietro",
+      "Spalle",
+      "Braccio",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi",
+      "Caviglie",
+      "Spalle",
+      "Gomiti"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille",
+      "Tendine bicipitale"
+    ],
+    "type": "Ergometro: cardio fluido",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Ellittico"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Vigilanza sull'equilibrio e sulla coordinazione, soprattutto in caso di recupero"
+    ],
+    "variantes": [
+      "Sprint ellittico",
+      "Ellittica inversa",
+      "Intervalli ellittici"
+    ],
+    "consignes": {
+      "Positionnement": "Piedi stabili sui pedali, presa leggera sulle maniglie di movimento.",
+      "Mouvement": "Movimento circolare fluido con coordinazione braccio/gamba.",
+      "Retour": "Rallenta gradualmente alla fine della sessione.",
+      "Respiration": "Regolare e controllato durante l'esercizio.",
+      "Posture": "Schiena dritta, core impegnato, sguardo in avanti."
+    }
+  },
+  "ER019": {
+    "nom": "Sprint ellittico",
+    "groupe_musculaire": "Corpo intero",
+    "objectifs": [
+      "Cardio",
+      "Perdita di peso",
+      "Resistenza",
+      "Forza",
+      "Forma fisica"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "tendini del ginocchio",
+      "Glutei",
+      "Vitelli",
+      "Braccio",
+      "Spalle",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi",
+      "Caviglie",
+      "Spalle",
+      "Gomiti"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille",
+      "Tendine bicipitale"
+    ],
+    "type": "Ergometro: sprint fluidi",
+    "niveau": "Da intermedio ad avanzato",
+    "materiel": [
+      "Ellittico"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Richiede una buona coordinazione e una buona forza centrale"
+    ],
+    "variantes": [
+      "Intervalli ellittici",
+      "Ellittica inversa"
+    ],
+    "consignes": {
+      "Positionnement": "Piedi stabili, tronco leggermente inclinato in avanti.",
+      "Mouvement": "Sforzo esplosivo ad alta velocità durante gli sprint.",
+      "Retour": "Fase di recupero a ritmo molto lento o riposo totale.",
+      "Respiration": "Respira forte durante l'esercizio, inspira profondamente durante il recupero.",
+      "Posture": "Rimani coperto, evita movimenti indesiderati."
+    }
+  },
+  "ER020": {
+    "nom": "Intervalli ellittici",
+    "groupe_musculaire": "Corpo intero",
+    "objectifs": [
+      "Resistenza",
+      "Cardio",
+      "Perdita di peso",
+      "Forma fisica",
+      "Forza"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "tendini del ginocchio",
+      "Glutei",
+      "Vitelli",
+      "Spalle",
+      "Braccio",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi",
+      "Caviglie",
+      "Spalle",
+      "Gomiti"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille",
+      "Tendine bicipitale"
+    ],
+    "type": "Ergometro - Divisione del fluido",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Ellittico"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Rischio di perdita del ritmo se non si padroneggia la coordinazione"
+    ],
+    "variantes": [
+      "Sprint ellittico",
+      "Ellittica inversa"
+    ],
+    "consignes": {
+      "Positionnement": "Posizione stabile, mani sulle maniglie, tronco dritto.",
+      "Mouvement": "Alternare sforzo sostenuto e recupero lento o attivo.",
+      "Retour": "Riduzione graduale della velocità o della resistenza.",
+      "Respiration": "Regolare e sincronizzato con lo sforzo.",
+      "Posture": "Mantenere un buon allineamento del busto e movimenti simmetrici."
+    }
+  },
+  "ER021": {
+    "nom": "Ellittica inversa",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Posturale",
+      "Rinforzo",
+      "Riprogrammazione neuromuscolare",
+      "Forma fisica"
+    ],
+    "muscles_secondaires": [
+      "tendini del ginocchio",
+      "Glutei",
+      "Quadricipiti",
+      "Vitelli",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi",
+      "Caviglie"
+    ],
+    "tendons_solicites": [
+      "Tendine del tendine del ginocchio",
+      "Tendine d'Achille",
+      "Tendine rotuleo"
+    ],
+    "type": "Ergometro - Movimento all'indietro",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Ellittico"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Richiede una buona coordinazione, da evitare ai principianti senza supervisione"
+    ],
+    "variantes": [
+      "Ellittica continua",
+      "Sprint ellittico",
+      "Intervalli ellittici"
+    ],
+    "consignes": {
+      "Positionnement": "Postura diritta, sguardo lontano, presa leggera sulle maniglie.",
+      "Mouvement": "Pedalata fluida all'indietro, enfasi sui muscoli posteriori della coscia e sui glutei.",
+      "Retour": "Ritorna a un movimento in avanti o termina con una camminata lenta.",
+      "Respiration": "Respirazione regolare e controllata.",
+      "Posture": "Tronco stabile, evitare inclinazioni pelviche."
+    }
+  },
+  "ER022": {
+    "nom": "SkiErg continuo",
+    "groupe_musculaire": "Parte superiore del corpo",
+    "objectifs": [
+      "Cardio",
+      "Resistenza",
+      "Perdita di peso",
+      "Forma fisica"
+    ],
+    "muscles_secondaires": [
+      "Spalle",
+      "Indietro",
+      "Tricipiti",
+      "Addominali",
+      "Glutei"
+    ],
+    "articulations_solicitees": [
+      "Spalle",
+      "Gomiti",
+      "Polsini",
+      "Fianchi"
+    ],
+    "tendons_solicites": [
+      "Tendine tricipitale",
+      "Tendini della cuffia dei rotatori",
+      "Tendine bicipitale"
+    ],
+    "type": "Ergometro - Tirata verticale",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "SciErg"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Da evitare in caso di dolore alla spalla o ernia del disco non stabilizzata"
+    ],
+    "variantes": [
+      "Sprint con lo SkiErg",
+      "Intervalli SkiErg",
+      "SkiErg unilaterale"
+    ],
+    "consignes": {
+      "Positionnement": "In piedi, piedi divaricati alla larghezza dei fianchi, maniglie in mano, braccia tese verso l'alto.",
+      "Mouvement": "Abbassa le maniglie mentre pieghi le braccia e i fianchi.",
+      "Retour": "Alza le braccia in modo controllato.",
+      "Respiration": "Espira mentre tiri, inspira mentre sali.",
+      "Posture": "Coinvolgi gli addominali, mantieni la schiena dritta, non tirare solo con le braccia."
+    }
+  },
+  "ER023": {
+    "nom": "Sprint con lo SkiErg",
+    "groupe_musculaire": "Parte superiore del corpo",
+    "objectifs": [
+      "Cardio",
+      "Perdita di peso",
+      "Forza",
+      "Resistenza",
+      "Forma fisica"
+    ],
+    "muscles_secondaires": [
+      "Spalle",
+      "Indietro",
+      "Tricipiti",
+      "Addominali",
+      "Glutei"
+    ],
+    "articulations_solicitees": [
+      "Spalle",
+      "Gomiti",
+      "Polsini",
+      "Fianchi"
+    ],
+    "tendons_solicites": [
+      "Tendine tricipitale",
+      "Tendini della cuffia dei rotatori",
+      "Tendine bicipitale"
+    ],
+    "type": "Ergometro - Sprint verticale",
+    "niveau": "Da intermedio ad avanzato",
+    "materiel": [
+      "SciErg"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Può aggravare la tendinopatia della spalla se eseguita male"
+    ],
+    "variantes": [
+      "Intervalli SkiErg",
+      "SkiErg unilaterale"
+    ],
+    "consignes": {
+      "Positionnement": "Piedi fissi, braccia sollevate, tronco leggermente in avanti.",
+      "Mouvement": "Tirare verso il basso rapidamente con forza e cadenza elevata.",
+      "Retour": "Ritorna rapidamente in cima senza blocchi muscolari.",
+      "Respiration": "Espira durante lo sforzo, inspira mentre sali.",
+      "Posture": "Mantenere il tronco stabile, non tirare solo con le braccia."
+    }
+  },
+  "ER024": {
+    "nom": "Intervalli SkiErg",
+    "groupe_musculaire": "Parte superiore del corpo",
+    "objectifs": [
+      "Resistenza",
+      "Cardio",
+      "Perdita di peso",
+      "Forma fisica",
+      "Forza"
+    ],
+    "muscles_secondaires": [
+      "Indietro",
+      "Tricipiti",
+      "Spalle",
+      "Addominali",
+      "Glutei"
+    ],
+    "articulations_solicitees": [
+      "Spalle",
+      "Gomiti",
+      "Polsini",
+      "Fianchi"
+    ],
+    "tendons_solicites": [
+      "Tendine tricipitale",
+      "Tendine bicipitale",
+      "Tendini della cuffia dei rotatori"
+    ],
+    "type": "Ergometro - Divisione verticale",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "SciErg"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Può generare affaticamento posturale se scarsamente controllato"
+    ],
+    "variantes": [
+      "Sprint con lo SkiErg",
+      "SkiErg unilaterale"
+    ],
+    "consignes": {
+      "Positionnement": "Maniglie nelle mani, braccia alzate, piedi ancorati a terra.",
+      "Mouvement": "Fasi dinamiche alternate di trazione con fasi di recupero.",
+      "Retour": "Consentire alle braccia di sollevarsi in modo fluido, senza eccessivo rilassamento.",
+      "Respiration": "Ritmo sostenuto durante l'esercizio, più controllato durante il recupero.",
+      "Posture": "Tieni la schiena dritta, contraendo gli addominali durante l'esercizio."
+    }
+  },
+  "ER025": {
+    "nom": "SkiErg unilaterale",
+    "groupe_musculaire": "Parte superiore del corpo",
+    "objectifs": [
+      "Rinforzo",
+      "Posturale",
+      "Coordinamento",
+      "Riprogrammazione neuromuscolare"
+    ],
+    "muscles_secondaires": [
+      "Tricipiti",
+      "Spalle",
+      "Addominali",
+      "Glutei",
+      "Obliqui"
+    ],
+    "articulations_solicitees": [
+      "Spalla",
+      "Gomito",
+      "Polso",
+      "Anca"
+    ],
+    "tendons_solicites": [
+      "Tendine tricipitale",
+      "Tendine bicipitale",
+      "Tendini della cuffia dei rotatori"
+    ],
+    "type": "Ergometro - Pull-up unilaterale",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "SciErg"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Richiede un buon controllo del baricentro e della postura"
+    ],
+    "variantes": [
+      "Sprint con lo SkiErg",
+      "Intervalli SkiErg"
+    ],
+    "consignes": {
+      "Positionnement": "Una maniglia in mano, braccio alzato, posizione stabile.",
+      "Mouvement": "Abbassare la maniglia con controllo, mantenendo la simmetria del tronco.",
+      "Retour": "Ritorna alla posizione iniziale senza alcun movimento parassitario.",
+      "Respiration": "Espira durante la trazione, inspira durante la risalita.",
+      "Posture": "Contrai gli addominali, mantieni i fianchi allineati e stabili."
+    }
+  },
+  "ER026": {
+    "nom": "AirBike – Movimento continuo",
+    "groupe_musculaire": "Corpo intero",
+    "objectifs": [
+      "Cardio",
+      "Resistenza",
+      "Perdita di peso",
+      "Forma fisica"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "tendini del ginocchio",
+      "Glutei",
+      "Vitelli",
+      "Indietro",
+      "Pettorali",
+      "Braccio",
+      "Spalle",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Spalle",
+      "Gomiti",
+      "Fianchi",
+      "Ginocchia",
+      "Caviglie"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille",
+      "Tendine bicipitale",
+      "Tendine tricipitale"
+    ],
+    "type": "Ergometro – Resistenza dell'aria",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "AirBike"
+    ],
+    "position": "Seduto",
+    "contraintes": [
+      "Richiede una coordinazione fluida braccio/gamba: prestare attenzione alla parte bassa della schiena in caso di affaticamento"
+    ],
+    "variantes": [
+      "Sprint in AirBike",
+      "Intervalli AirBike",
+      "Solo bracci AirBike",
+      "Solo gambe AirBike"
+    ],
+    "consignes": {
+      "Positionnement": "Regolazione ottimale della sella, schiena dritta, mani sulle maniglie mobili.",
+      "Mouvement": "Spingi con le gambe mentre tiri/spingi le braccia per uno sforzo fluido.",
+      "Retour": "Rallenta gradualmente, a un ritmo flessibile.",
+      "Respiration": "Regolare, adattato all'intensità.",
+      "Posture": "Tronco inguainato, movimento simmetrico, evitare di tirare solo con le braccia."
+    }
+  },
+  "ER027": {
+    "nom": "Sprint in AirBike",
+    "groupe_musculaire": "Corpo intero",
+    "objectifs": [
+      "Cardio",
+      "Perdita di peso",
+      "Resistenza",
+      "Forza",
+      "Forma fisica"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "Glutei",
+      "Vitelli",
+      "Pettorali",
+      "Spalle",
+      "Tricipiti",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Fianchi",
+      "Ginocchia",
+      "Caviglie",
+      "Spalle",
+      "Gomiti"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille",
+      "Tendine tricipitale"
+    ],
+    "type": "Ergometro – Sforzo esplosivo",
+    "niveau": "Da intermedio ad avanzato",
+    "materiel": [
+      "AirBike"
+    ],
+    "position": "Seduto",
+    "contraintes": [
+      "Molto intenso – da evitare senza surriscaldamento o per patologie cardiache"
+    ],
+    "variantes": [
+      "Intervalli AirBike",
+      "Solo bracci AirBike",
+      "Solo gambe AirBike"
+    ],
+    "consignes": {
+      "Positionnement": "Sella ben regolata, mani sulle maniglie, busto leggermente inclinato in avanti.",
+      "Mouvement": "Sprint alla massima cadenza nella sincronizzazione braccio/gamba.",
+      "Retour": "Riposo attivo o passivo dopo ogni sprint.",
+      "Respiration": "Soffiare con forza durante l'esercizio, recuperare attivamente soffiando lentamente.",
+      "Posture": "Rimani forte e stabile, evita gli scatti."
+    }
+  },
+  "ER028": {
+    "nom": "Intervalli AirBike",
+    "groupe_musculaire": "Corpo intero",
+    "objectifs": [
+      "Resistenza",
+      "Cardio",
+      "Perdita di peso",
+      "Forma fisica",
+      "Forza"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "Glutei",
+      "Vitelli",
+      "Pettorali",
+      "Braccio",
+      "Spalle",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi",
+      "Caviglie",
+      "Spalle",
+      "Gomiti"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille",
+      "Tendine bicipitale",
+      "Tendine tricipitale"
+    ],
+    "type": "Ergometro – Diviso",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "AirBike"
+    ],
+    "position": "Seduto",
+    "contraintes": [
+      "Affaticamento rapido, richiede un buon recupero tra i blocchi"
+    ],
+    "variantes": [
+      "Sprint in AirBike",
+      "Solo bracci AirBike",
+      "Solo gambe AirBike"
+    ],
+    "consignes": {
+      "Positionnement": "Regolazione della sella in base alla taglia, posizione stabile.",
+      "Mouvement": "Alternare sforzo intenso e recupero lento o passivo.",
+      "Retour": "Concludere l'ultimo set con un recupero prolungato.",
+      "Respiration": "Ritmo controllato e profondo durante il recupero.",
+      "Posture": "Tronco inguainato, simmetria dei movimenti braccia/gambe."
+    }
+  },
+  "ER029": {
+    "nom": "Solo bracci AirBike",
+    "groupe_musculaire": "Parte superiore del corpo",
+    "objectifs": [
+      "Rinforzo",
+      "Cardio",
+      "Posturale",
+      "Riprogrammazione neuromuscolare"
+    ],
+    "muscles_secondaires": [
+      "Spalle",
+      "Tricipiti",
+      "Indietro",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Spalle",
+      "Gomiti",
+      "Polsini"
+    ],
+    "tendons_solicites": [
+      "Tendine tricipitale",
+      "Tendine bicipitale",
+      "Tendini della cuffia dei rotatori"
+    ],
+    "type": "Ergometro – Solo braccio",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "AirBike"
+    ],
+    "position": "Seduto",
+    "contraintes": [
+      "Rischio di squilibrio posturale se le gambe non sono stabilizzate"
+    ],
+    "variantes": [
+      "Solo gambe AirBike",
+      "Sprint in AirBike",
+      "Intervalli AirBike"
+    ],
+    "consignes": {
+      "Positionnement": "Piedi appoggiati a terra o su pedana, mani sulle maniglie mobili.",
+      "Mouvement": "Movimenti alternati di spinta e trazione solo con le braccia.",
+      "Retour": "Ritorna in posizione neutrale senza rilassare le spalle.",
+      "Respiration": "Espira durante la spinta, inspira durante il ritorno.",
+      "Posture": "Schiena dritta, addominali impegnati, evitare di oscillare."
+    }
+  },
+  "ER030": {
+    "nom": "Solo gambe AirBike",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Rinforzo",
+      "Cardio",
+      "Resistenza",
+      "Posturale",
+      "Forma fisica"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "tendini del ginocchio",
+      "Glutei",
+      "Vitelli"
+    ],
+    "articulations_solicitees": [
+      "Fianchi",
+      "Ginocchia",
+      "Caviglie"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille",
+      "Tendine del tendine del ginocchio"
+    ],
+    "type": "Ergometro – Solo gambe",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "AirBike"
+    ],
+    "position": "Seduto",
+    "contraintes": [
+      "Disabilitare le braccia (immobilizzare le maniglie se possibile) per evitare interferenze"
+    ],
+    "variantes": [
+      "Solo bracci AirBike",
+      "Sprint in AirBike",
+      "Intervalli AirBike"
+    ],
+    "consignes": {
+      "Positionnement": "Mani posizionate sulle cosce o fisse, schiena dritta.",
+      "Mouvement": "Pedalata fluida solo con le gambe, cadenza controllata.",
+      "Retour": "Rallenta gradualmente alla fine del blocco.",
+      "Respiration": "Continuo, profondo, senza blocchi.",
+      "Posture": "Guaina attiva, evita movimenti parassiti del tronco."
+    }
+  },
+  "ER031": {
+    "nom": "Stepper - Movimento continuo",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Cardio",
+      "Resistenza",
+      "Perdita di peso",
+      "Forma fisica"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "Glutei",
+      "tendini del ginocchio",
+      "Vitelli",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi",
+      "Caviglie"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille"
+    ],
+    "type": "Ergometro – Salita ritmica",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Passo passo"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Attenzione all'affaticamento articolare a lungo termine o alla cattiva postura lombare"
+    ],
+    "variantes": [
+      "Passo-passo di sprint",
+      "Intervalli passo-passo",
+      "Stepper unilaterale"
+    ],
+    "consignes": {
+      "Positionnement": "Piedi ben posizionati sui gradini, mani sulle maniglie se necessario.",
+      "Mouvement": "Salita alternata fluida, cadenza costante.",
+      "Retour": "Rallenta gradualmente alla fine della sessione.",
+      "Respiration": "Continuo e regolare.",
+      "Posture": "Schiena dritta, core impegnato, non fare eccessivo affidamento sulle braccia."
+    }
+  },
+  "ER032": {
+    "nom": "Passo-passo di sprint",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Cardio",
+      "Perdita di peso",
+      "Resistenza",
+      "Forza",
+      "Forma fisica"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "Glutei",
+      "tendini del ginocchio",
+      "Vitelli",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi",
+      "Caviglie"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille"
+    ],
+    "type": "Ergometro – Sprint in salita",
+    "niveau": "Da intermedio ad avanzato",
+    "materiel": [
+      "Passo passo"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Molto impegnativo per le articolazioni – sconsigliato in caso di lesioni al ginocchio"
+    ],
+    "variantes": [
+      "Intervalli passo-passo",
+      "Stepper unilaterale"
+    ],
+    "consignes": {
+      "Positionnement": "Posizione eretta stabile, mani sulle maniglie solo per l'equilibrio.",
+      "Mouvement": "Salite esplosive alla massima cadenza.",
+      "Retour": "Fase di riposo attivo o completo dopo ogni sprint.",
+      "Respiration": "Espirate con forza durante l'esercizio, inspirate durante il recupero.",
+      "Posture": "Tronco stabile, sguardo dritto, nessun rimbalzo eccessivo."
+    }
+  },
+  "ER033": {
+    "nom": "Intervalli passo-passo",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Resistenza",
+      "Cardio",
+      "Perdita di peso",
+      "Forma fisica",
+      "Forza"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "Glutei",
+      "tendini del ginocchio",
+      "Vitelli",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi",
+      "Caviglie"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille"
+    ],
+    "type": "Ergometro – Split in salita",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Passo passo"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Può causare un notevole affaticamento degli arti inferiori in caso di cattiva gestione del ritmo"
+    ],
+    "variantes": [
+      "Passo-passo di sprint",
+      "Stepper unilaterale"
+    ],
+    "consignes": {
+      "Positionnement": "Posizione eretta, mani appoggiate leggermente sulle maniglie.",
+      "Mouvement": "Fasi alternate di sforzo sostenuto a fasi di recupero.",
+      "Retour": "Terminare con una fase di recupero prolungata.",
+      "Respiration": "Accelerato durante l'esercizio, più controllato durante il recupero.",
+      "Posture": "Tronco diritto, senza eccessivo appoggio sulle braccia."
+    }
+  },
+  "ER034": {
+    "nom": "Stepper unilaterale",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Rinforzo",
+      "Posturale",
+      "Coordinamento",
+      "Riprogrammazione neuromuscolare"
+    ],
+    "muscles_secondaires": [
+      "Glutei",
+      "Quadricipiti",
+      "Vitelli",
+      "tendini del ginocchio",
+      "Obliqui"
+    ],
+    "articulations_solicitees": [
+      "Fianchi",
+      "Ginocchia",
+      "Caviglie"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille",
+      "Tendine del tendine del ginocchio"
+    ],
+    "type": "Ergometro – Salita unilaterale",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Passo passo"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Richiede una buona stabilità posturale e un forte sostegno sulla gamba attiva"
+    ],
+    "variantes": [
+      "Passo-passo di sprint",
+      "Intervalli passo-passo"
+    ],
+    "consignes": {
+      "Positionnement": "Posizione diritta, una gamba attiva, l'altra in posa o sospesa.",
+      "Mouvement": "Arrampicata dinamica con una gamba, concatenata per più ripetizioni.",
+      "Retour": "Riposo completo o cambio lato tra ogni serie.",
+      "Respiration": "Continuo e controllato.",
+      "Posture": "Fianchi allineati, core attivo, evita squilibri laterali."
+    }
+  },
+  "ER035": {
+    "nom": "Scale - Salita continua",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Cardio",
+      "Resistenza",
+      "Perdita di peso",
+      "Forma fisica"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "Glutei",
+      "Vitelli",
+      "tendini del ginocchio",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi",
+      "Caviglie"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille",
+      "Tendine del tendine del ginocchio"
+    ],
+    "type": "Ergometro – Scala mobile",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Scale mobili (Climbmill/Stepmill)"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Attenzione all'affaticamento della parte bassa della schiena e allo squilibrio a ritmo sostenuto"
+    ],
+    "variantes": [
+      "Scale Sprint",
+      "Intervalli di scale",
+      "Scale unilaterali"
+    ],
+    "consignes": {
+      "Positionnement": "Alzarsi in piedi, i piedi ben ancorati, le mani appoggiate leggermente se necessario.",
+      "Mouvement": "Sequenza fluida di salite senza impatto.",
+      "Retour": "Rallenta il ritmo alla fine del blocco.",
+      "Respiration": "Regolare, adatta all'arrampicata.",
+      "Posture": "Schiena dritta, core impegnato, non crollare sulle braccia."
+    }
+  },
+  "ER036": {
+    "nom": "Scale Sprint",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Cardio",
+      "Perdita di peso",
+      "Resistenza",
+      "Forza",
+      "Forma fisica"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "Glutei",
+      "Vitelli",
+      "tendini del ginocchio",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi",
+      "Caviglie"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille",
+      "Tendine del tendine del ginocchio"
+    ],
+    "type": "Ergometro – Sprint sulle scale",
+    "niveau": "Da intermedio ad avanzato",
+    "materiel": [
+      "Scale mobili (Climbmill/Stepmill)"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Alta intensità: richiede coordinazione e controllo posturale"
+    ],
+    "variantes": [
+      "Intervalli di scale",
+      "Scale unilaterali"
+    ],
+    "consignes": {
+      "Positionnement": "Posizione eretta, mani rilassate o leggermente posizionate per l'equilibrio.",
+      "Mouvement": "Sprint alla massima cadenza sui passaggi successivi.",
+      "Retour": "Riposo attivo (camminata lenta) o riposo completo tra gli sprint.",
+      "Respiration": "Espira durante la rapida ascesa, inspira durante la ripresa.",
+      "Posture": "Tronco inguainato, nessuna oscillazione in avanti o presa eccessiva del braccio."
+    }
+  },
+  "ER037": {
+    "nom": "Intervalli di scale",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Resistenza",
+      "Cardio",
+      "Perdita di peso",
+      "Forma fisica",
+      "Forza"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "Glutei",
+      "Vitelli",
+      "tendini del ginocchio",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi",
+      "Caviglie"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille",
+      "Tendine del tendine del ginocchio"
+    ],
+    "type": "Ergometro – Scala divisa",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Scale mobili (Climbmill/Stepmill)"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Può causare un notevole affaticamento se il ritmo è scarsamente misurato"
+    ],
+    "variantes": [
+      "Scale Sprint",
+      "Scale unilaterali"
+    ],
+    "consignes": {
+      "Positionnement": "Piedi stabili, mani che forniscono un leggero supporto se necessario.",
+      "Mouvement": "Alterna sequenze veloci e fasi di recupero più lente.",
+      "Retour": "Conclusione con una salita lenta e fluida.",
+      "Respiration": "Controllato, profondo durante il recupero.",
+      "Posture": "Schiena dritta, addominali impegnati, nessuna inclinazione pelvica."
+    }
+  },
+  "ER038": {
+    "nom": "Scale unilaterali",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Rinforzo",
+      "Posturale",
+      "Coordinamento",
+      "Riprogrammazione neuromuscolare"
+    ],
+    "muscles_secondaires": [
+      "Glutei",
+      "Quadricipiti",
+      "Vitelli",
+      "tendini del ginocchio",
+      "Obliqui"
+    ],
+    "articulations_solicitees": [
+      "Fianchi",
+      "Ginocchia",
+      "Caviglie"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille",
+      "Tendine del tendine del ginocchio"
+    ],
+    "type": "Ergometro – Salita unilaterale",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Scale mobili (Climbmill/Stepmill)"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Richiede stabilità e buon supporto – da evitare in caso di instabilità articolare"
+    ],
+    "variantes": [
+      "Scale Sprint",
+      "Intervalli di scale"
+    ],
+    "consignes": {
+      "Positionnement": "Inizia con una sola gamba attiva, l'altra leggermente in appoggio o sospesa.",
+      "Mouvement": "Esegui un rilancio ripetuto con la gamba attiva per tutta la serie.",
+      "Retour": "Cambia lato o fai una pausa dopo la serie.",
+      "Respiration": "Proseguire adattandosi al ritmo della salita.",
+      "Posture": "Nucleo stabile, anche allineate, controllo del bacino."
+    }
+  }
+}

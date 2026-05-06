@@ -4,15 +4,16 @@ import {
   Box,
   Grid,
   GridItem,
-  useColorModeValue,
 } from "@chakra-ui/react";
 import ExerciseBank from "../components/ExerciseBank.jsx";
 import ProgramBuilder from "../components/ProgramBuilder.jsx";
+import { useAppTheme } from "../styles/appTheme";
 
 export default function ProgramBuilderPage() {
   // Pont entre la Banque et le Builder
   const [selectedExercises, setSelectedExercises] = useState([]);
-  const pageBg = useColorModeValue("gray.50", "gray.900");
+  const theme = useAppTheme();
+  const pageBg = theme.pageBg;
 
   return (
     <Box bg={pageBg} w="100%" minH="calc(100vh - 0px)" /* Navbar/Footer gérés par App.jsx */>
@@ -57,4 +58,3 @@ export default function ProgramBuilderPage() {
     </Box>
   );
 }
-

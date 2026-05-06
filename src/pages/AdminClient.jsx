@@ -8,7 +8,6 @@ import {
   CardHeader,
   CardBody,
   SimpleGrid,
-  Spinner,
   Badge,
   HStack,
   VStack,
@@ -19,7 +18,6 @@ import {
   Tr,
   Th,
   Td,
-  useColorModeValue,
   Tag,
   Icon,
   Tabs,
@@ -52,6 +50,8 @@ import {
   MdPayment,
   MdReceipt,
 } from "react-icons/md";
+import AppLoading from "../components/ui/AppLoading";
+import { useAppTheme } from "../styles/appTheme";
 import { getAuthHeaders } from "../utils/authHeaders";
 
 function toLocale(v) {
@@ -163,10 +163,43 @@ export default function AdminClient() {
   const navigate = useNavigate();
   const toast = useToast();
 
-  const cardBg = useColorModeValue("white", "gray.800");
-  const borderCol = useColorModeValue("gray.200", "whiteAlpha.200");
-  const softBg = useColorModeValue("gray.50", "whiteAlpha.50");
-  const muted = useColorModeValue("gray.600", "gray.400");
+  const theme = useAppTheme();
+  const cardBg = theme.surfaceBg;
+  const borderCol = theme.borderColor;
+  const softBg = theme.surfaceSoft;
+  const muted = theme.mutedText;
+  const adminPageSx = {
+    ".chakra-card": {
+      bg: theme.surfaceBg,
+      border: "1px solid",
+      borderColor: theme.borderColor,
+      borderRadius: "2xl",
+      boxShadow: theme.cardProps.boxShadow,
+      overflow: "hidden",
+    },
+    ".chakra-card__header": {
+      borderBottom: "1px solid",
+      borderColor: theme.borderColor,
+    },
+    ".chakra-table th": {
+      color: theme.mutedText,
+      borderColor: theme.borderColor,
+      letterSpacing: "0.08em",
+      textTransform: "uppercase",
+      fontSize: "xs",
+    },
+    ".chakra-table td": { borderColor: theme.borderColor },
+    ".chakra-input, .chakra-select": {
+      bg: theme.surfaceSoft,
+      borderColor: theme.borderColor,
+    },
+    ".chakra-tabs__tablist": { borderColor: theme.borderColor },
+    ".chakra-tabs__tab[aria-selected=true]": {
+      bg: theme.surfaceSoft,
+      borderColor: theme.borderColor,
+      color: theme.textColor,
+    },
+  };
 
   const [loading, setLoading] = useState(true);
   const [kind, setKind] = useState(null); // "Compte" | "Fiche" | null
@@ -486,15 +519,12 @@ export default function AdminClient() {
   };
 
   if (loading) {
-    return (
-      <Box p={{ base: 4, md: 6 }} display="flex" justifyContent="center" alignItems="center" minH="60vh">
-        <Spinner size="lg" />
-      </Box>
-    );
+    return <AppLoading label="Chargement du client..." />;
   }
 
   return (
-    <Box p={{ base: 4, md: 6 }}>
+    <Box p={{ base: 4, md: 8 }} bg={theme.pageBg} color={theme.textColor} minH="calc(100vh - 112px)" sx={adminPageSx}>
+      <VStack align="stretch" spacing={6} maxW="1480px" mx="auto">
       <HStack justify="space-between" align="start" flexWrap="wrap" gap={3} mb={4}>
         <HStack flexWrap="wrap" gap={2}>
           <Button variant="outline" leftIcon={<Icon as={MdArrowBack} />} onClick={() => navigate("/admin")}>
@@ -504,7 +534,7 @@ export default function AdminClient() {
         </HStack>
 
         <HStack flexWrap="wrap" gap={2}>
-          <Button colorScheme="green" leftIcon={<Icon as={MdPlaylistAdd} />} onClick={() => navigate("/exercise-bank")}>
+          <Button {...theme.primaryButtonProps} leftIcon={<Icon as={MdPlaylistAdd} />} onClick={() => navigate("/exercise-bank")}>
             Assigner / créer depuis banque
           </Button>
         </HStack>
@@ -927,7 +957,7 @@ export default function AdminClient() {
           </TabPanel>
         </TabPanels>
       </Tabs>
+      </VStack>
     </Box>
   );
 }
-

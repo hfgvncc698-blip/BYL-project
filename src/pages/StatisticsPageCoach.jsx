@@ -11,13 +11,11 @@ import {
   Stat,
   StatLabel,
   StatNumber,
-  useColorModeValue,
   VStack,
   HStack,
   Icon,
   Text,
   Badge,
-  Skeleton,
   Tooltip,
   Divider,
   Progress,
@@ -37,6 +35,8 @@ import {
   MdArrowForward,
 } from "react-icons/md";
 import { useTranslation } from "react-i18next";
+import AppLoading from "../components/ui/AppLoading";
+import { useAppTheme } from "../styles/appTheme";
 
 /* ---------------- helpers: dates & sessions ---------------- */
 function getDoneDate(s) {
@@ -126,34 +126,43 @@ function objectiveLabel(key, t) {
 }
 
 /* ---------------- UI atoms ---------------- */
-function Card({ children, onClick }) {
-  const bg = useColorModeValue("white", "gray.800");
-  const b = useColorModeValue("gray.200", "gray.700");
+function Card({ children, onClick, glow = "rgba(59, 130, 246, 0.12)", ...props }) {
+  const theme = useAppTheme();
   return (
     <Box
-      bg={bg}
-      border="1px solid"
-      borderColor={b}
-      borderRadius="2xl"
-      p={5}
-      boxShadow="sm"
-      _hover={{ boxShadow: "md", transform: onClick ? "translateY(-2px)" : "none" }}
+      {...theme.cardProps}
+      position="relative"
+      overflow="hidden"
+      p={{ base: 5, md: 6 }}
+      _before={{
+        content: '""',
+        position: "absolute",
+        inset: 0,
+        pointerEvents: "none",
+        background: `radial-gradient(circle at 92% 12%, ${glow}, transparent 34%)`,
+      }}
+      _hover={{
+        ...theme.cardProps._hover,
+        transform: onClick ? "translateY(-2px)" : "none",
+      }}
       transition="all .18s ease"
       cursor={onClick ? "pointer" : "default"}
       onClick={onClick}
+      {...props}
     >
-      {children}
+      <Box position="relative">{children}</Box>
     </Box>
   );
 }
 
-function StatTile({ icon, label, value, accent = "blue.500", onClick, hint }) {
+function StatTile({ icon, label, value, accent = "blue.500", glow, onClick, hint }) {
+  const theme = useAppTheme();
   return (
-    <Card onClick={onClick}>
+    <Card onClick={onClick} glow={glow}>
       <HStack spacing={4} align="flex-start">
         <Box
-          bg={accent}
-          color="white"
+          bg={theme.surfaceSoft}
+          color={accent}
           borderRadius="xl"
           p={2.5}
           display="inline-flex"
@@ -165,14 +174,16 @@ function StatTile({ icon, label, value, accent = "blue.500", onClick, hint }) {
         <VStack align="flex-start" spacing={1} flex={1}>
           <HStack w="full" justify="space-between">
             <Stat>
-              <StatLabel fontSize="sm" color="gray.500">
+              <StatLabel fontSize="sm" color={theme.mutedText}>
                 {label}
               </StatLabel>
-              <StatNumber fontSize={{ base: "2xl", md: "3xl" }}>{value}</StatNumber>
+              <StatNumber fontSize={{ base: "2xl", md: "3xl" }} color={theme.textColor}>
+                {value}
+              </StatNumber>
             </Stat>
             {hint && (
               <Tooltip label={hint} hasArrow>
-                <Box color="gray.400">
+                <Box color={theme.subtleText}>
                   <Icon as={MdInsights} />
                 </Box>
               </Tooltip>
@@ -186,8 +197,7 @@ function StatTile({ icon, label, value, accent = "blue.500", onClick, hint }) {
 
 /* Mini bar (sessions par mois) */
 function MiniBars({ data, monthTooltip }) {
-  const barBg = useColorModeValue("gray.100", "gray.700");
-  const barFg = useColorModeValue("blue.500", "blue.400");
+  const theme = useAppTheme();
   const max = useMemo(() => Math.max(1, ...data.map((d) => d.count || 0)), [data]);
   return (
     <HStack spacing={3} align="end" w="full">
@@ -197,18 +207,18 @@ function MiniBars({ data, monthTooltip }) {
             {d.count}
           </Text>
           <Tooltip hasArrow label={monthTooltip(d.label, d.count)}>
-            <Box h="100px" w="100%" bg={barBg} borderRadius="lg" overflow="hidden" position="relative">
+            <Box h="100px" w="100%" bg={theme.surfaceSoft} borderRadius="lg" overflow="hidden" position="relative">
               <Box
                 position="absolute"
                 bottom="0"
                 left="0"
                 w="100%"
                 h={`${(d.count / max) * 100 || 0}%`}
-                bg={barFg}
+                bg={theme.primary}
               />
             </Box>
           </Tooltip>
-          <Text fontSize="xs" color="gray.500" textAlign="center">
+          <Text fontSize="xs" color={theme.mutedText} textAlign="center">
             {d.label}
           </Text>
         </VStack>
@@ -219,6 +229,7 @@ function MiniBars({ data, monthTooltip }) {
 
 /* Carte client actifs (même logique CoachDashboard: _lastInteractionMs) */
 function ActiveClientCard({ client, locale, t, onOpen }) {
+  const theme = useAppTheme();
   const lastMs = Number(client?._lastInteractionMs || 0);
   const last = lastMs > 0 ? new Date(lastMs) : null;
   const now = new Date();
@@ -236,27 +247,28 @@ function ActiveClientCard({ client, locale, t, onOpen }) {
 
   const activityPct = last ? Math.max(0, Math.min(100, Math.round(((30 - Math.min(30, days)) / 30) * 100))) : 0;
 
-  const soft = useColorModeValue("gray.500", "gray.400");
-  const border = useColorModeValue("gray.200", "gray.700");
-  const tagBg = useColorModeValue("green.50", "green.900");
-  const tagColor = useColorModeValue("green.700", "green.200");
-
   return (
     <Box
-      border="1px solid"
-      borderColor={border}
-      borderRadius="2xl"
+      {...theme.tileProps}
+      position="relative"
+      overflow="hidden"
       p={4}
-      boxShadow="sm"
-      _hover={{ boxShadow: "md", transform: "translateY(-2px)" }}
+      _before={{
+        content: '""',
+        position: "absolute",
+        inset: 0,
+        pointerEvents: "none",
+        background: "radial-gradient(circle at 92% 12%, rgba(16, 185, 129, 0.13), transparent 34%)",
+      }}
+      _hover={{ ...theme.tileProps._hover, transform: "translateY(-2px)" }}
       transition="all .18s ease"
       cursor="pointer"
       onClick={onOpen}
     >
-      <HStack align="flex-start" spacing={3}>
+      <HStack align="flex-start" spacing={3} position="relative">
         <Box
-          bg={tagBg}
-          color={tagColor}
+          bg={theme.surfaceSoft}
+          color={theme.accentGreen}
           borderRadius="xl"
           p={2}
           display="inline-flex"
@@ -269,7 +281,7 @@ function ActiveClientCard({ client, locale, t, onOpen }) {
 
         <VStack align="flex-start" spacing={1} flex={1}>
           <HStack w="full" justify="space-between">
-            <Text fontWeight="semibold" noOfLines={1}>
+            <Text fontWeight="semibold" color={theme.textColor} noOfLines={1}>
               {name}
             </Text>
             <Badge colorScheme="green" borderRadius="full">
@@ -277,7 +289,7 @@ function ActiveClientCard({ client, locale, t, onOpen }) {
             </Badge>
           </HStack>
 
-          <Text fontSize="sm" color={soft} noOfLines={1}>
+          <Text fontSize="sm" color={theme.mutedText} noOfLines={1}>
             {t("stats.client.lastInteraction", "Dernière interaction")} : {formatDateShort(last, locale)}
             {days != null ? ` · ${t("stats.client.daysAgo", "il y a {{n}}j", { n: days })}` : ""}
           </Text>
@@ -295,10 +307,10 @@ function ActiveClientCard({ client, locale, t, onOpen }) {
 
           <Box w="full" pt={2}>
             <HStack justify="space-between" mb={1}>
-              <Text fontSize="xs" color={soft}>
+              <Text fontSize="xs" color={theme.mutedText}>
                 {t("stats.client.activity30", "Activité (30j)")}
               </Text>
-              <Text fontSize="xs" color={soft}>
+              <Text fontSize="xs" color={theme.mutedText}>
                 {activityPct}%
               </Text>
             </HStack>
@@ -306,7 +318,7 @@ function ActiveClientCard({ client, locale, t, onOpen }) {
           </Box>
         </VStack>
 
-        <Box color={soft} pt={1}>
+        <Box color={theme.mutedText} pt={1}>
           <Icon as={MdArrowForward} />
         </Box>
       </HStack>
@@ -334,7 +346,11 @@ export default function StatisticsPageCoach() {
 
   const [activeClientList, setActiveClientList] = useState([]);
 
-  const pageBg = useColorModeValue("gray.50", "gray.900");
+  const theme = useAppTheme();
+  const pageBg = theme.pageBg;
+  const textColor = theme.textColor;
+  const mutedText = theme.mutedText;
+  const subtleText = theme.subtleText;
   const locale = (i18n.language || "fr").toLowerCase().startsWith("en") ? "en-GB" : "fr-FR";
 
   useEffect(() => {
@@ -498,18 +514,7 @@ export default function StatisticsPageCoach() {
   const activePreview = useMemo(() => activeClientList.slice(0, 8), [activeClientList]);
 
   if (loading) {
-    return (
-      <Box p={{ base: 5, md: 8 }}>
-        <Heading mb={6}>{t("stats.title", "Statistiques")}</Heading>
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={5} mb={6}>
-          <Skeleton h="120px" borderRadius="2xl" />
-          <Skeleton h="120px" borderRadius="2xl" />
-          <Skeleton h="120px" borderRadius="2xl" />
-          <Skeleton h="120px" borderRadius="2xl" />
-        </SimpleGrid>
-        <Skeleton h="200px" borderRadius="2xl" />
-      </Box>
-    );
+    return <AppLoading label={t("common.loading", "Chargement...")} />;
   }
 
   const entries = Object.entries(objectivesDistribution).sort((a, b) => b[1] - a[1]);
@@ -519,21 +524,48 @@ export default function StatisticsPageCoach() {
   const totalSessions6mo = monthlySessions.reduce((s, m) => s + (m.count || 0), 0);
 
   return (
-    <Box p={{ base: 5, md: 8 }} bg={pageBg} minH="calc(100vh - 112px)">
-      <HStack mb={6} spacing={3}>
-        <Heading letterSpacing="-0.02em">{t("stats.title", "Statistiques")}</Heading>
-        <Badge colorScheme="blue" borderRadius="full" px={3}>
-          {t("stats.coachTag", "Coach")}
-        </Badge>
-      </HStack>
+    <Box p={{ base: 5, md: 8 }} bg={pageBg} color={textColor} minH="calc(100vh - 112px)">
+      <VStack align="stretch" spacing={6} maxW="1680px" mx="auto">
+        <Card glow="rgba(16, 185, 129, 0.12)" p={{ base: 5, md: 7 }}>
+          <HStack align="center" spacing={5}>
+            <Box
+              bg={theme.surfaceSoft}
+              border="1px solid"
+              borderColor={theme.borderColor}
+              borderRadius="2xl"
+              p={3}
+              display="inline-flex"
+              color={theme.accentBlue}
+            >
+              <Icon as={MdInsights} boxSize={7} />
+            </Box>
+            <VStack align="flex-start" spacing={2} flex="1" minW={{ base: "100%", lg: 0 }}>
+              <HStack spacing={3} flexWrap="wrap">
+                <Heading letterSpacing="-0.04em" size={{ base: "lg", md: "xl" }}>
+                  {t("coachStats.title", "Statistiques")}
+                </Heading>
+                <Badge borderRadius="full" px={3}>
+                  {t("coachStats.badge", "Coach")}
+                </Badge>
+              </HStack>
+              <Text color={mutedText} maxW="760px">
+                {t(
+                  "coachStats.subtitle",
+                  "Une vue claire de vos clients, de l'activité récente et des objectifs qui structurent votre coaching."
+                )}
+              </Text>
+            </VStack>
+          </HStack>
+        </Card>
 
       {/* KPIs */}
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={5} mb={6}>
+      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={5}>
         <StatTile
           icon={MdPeople}
           label={t("stats.totalClients", "Total clients")}
           value={totalClients}
-          accent="blue.500"
+          accent={theme.accentBlue}
+          glow="rgba(59, 130, 246, 0.14)"
           onClick={() => navigate("/clients")}
           hint={t("stats.hints.clients", "Click to see the client list")}
         />
@@ -541,7 +573,8 @@ export default function StatisticsPageCoach() {
           icon={MdFitnessCenter}
           label={t("stats.totalPrograms", "Total programmes")}
           value={totalPrograms}
-          accent="purple.500"
+          accent="purple.300"
+          glow="rgba(139, 92, 246, 0.14)"
           onClick={() => navigate("/programmes")}
           hint={t("stats.hints.programs", "Click to view programs")}
         />
@@ -549,22 +582,26 @@ export default function StatisticsPageCoach() {
           icon={MdCheckCircle}
           label={t("stats.activeClients30", "Clients actifs (30j)")}
           value={activeClients}
-          accent="green.500"
+          accent={theme.accentGreen}
+          glow="rgba(16, 185, 129, 0.14)"
           onClick={() => navigate("/clients?filter=active")}
         />
         <StatTile
           icon={MdOutlinePauseCircle}
           label={t("stats.inactiveClients", "Clients inactifs")}
           value={inactiveClients}
-          accent="orange.400"
+          accent="orange.300"
+          glow="rgba(245, 158, 11, 0.14)"
           onClick={() => navigate("/clients?filter=inactive")}
         />
       </SimpleGrid>
 
       {/* Clients actifs (liste) */}
-      <Card>
+      <Card glow="rgba(59, 130, 246, 0.1)">
         <HStack mb={4} spacing={2}>
-          <Icon as={MdPeople} />
+          <Box bg={theme.surfaceSoft} color={theme.accentBlue} borderRadius="full" p={2} display="inline-flex">
+            <Icon as={MdPeople} />
+          </Box>
           <Text fontWeight="semibold">
             {t("stats.activeClientsList.title", "Clients actifs (30 jours)")}
           </Text>
@@ -583,7 +620,7 @@ export default function StatisticsPageCoach() {
         </HStack>
 
         {activeClientList.length === 0 ? (
-          <Text color="gray.500" fontSize="sm">
+          <Text color={mutedText} fontSize="sm">
             {t("stats.activeClientsList.empty", "Aucun client actif sur les 30 derniers jours.")}
           </Text>
         ) : (
@@ -602,13 +639,15 @@ export default function StatisticsPageCoach() {
       </Card>
 
       {/* Rétention + sessions */}
-      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5} mb={8} mt={6}>
-        <Card>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+        <Card glow="rgba(16, 185, 129, 0.12)">
           <HStack justify="space-between" mb={3}>
             <HStack>
-              <Icon as={MdTrendingUp} />
+              <Box bg={theme.surfaceSoft} color={theme.accentGreen} borderRadius="full" p={2} display="inline-flex">
+                <Icon as={MdTrendingUp} />
+              </Box>
               <Text fontWeight="semibold">
-                {t(["stats.retention30d", "stats.retention.title", "Taux de rétention (30j)"])}
+                {t("coachStats.retention.title", "Taux de rétention (30j)")}
               </Text>
             </HStack>
             <Badge colorScheme={retentionRate >= 60 ? "green" : "orange"}>{retentionRate}%</Badge>
@@ -619,7 +658,7 @@ export default function StatisticsPageCoach() {
             size="lg"
             colorScheme={retentionRate >= 60 ? "green" : "orange"}
           />
-          <Text mt={3} fontSize="sm" color="gray.500">
+          <Text mt={3} fontSize="sm" color={mutedText}>
             {t("stats.activeOutOfTotal", "{{active}} active out of {{total}} client(s).", {
               active: activeClients,
               total: totalClients,
@@ -627,13 +666,15 @@ export default function StatisticsPageCoach() {
           </Text>
         </Card>
 
-        <Card>
+        <Card glow="rgba(59, 130, 246, 0.12)">
           <HStack mb={3} spacing={2}>
-            <Icon as={MdCalendarMonth} />
+            <Box bg={theme.surfaceSoft} color={theme.accentBlue} borderRadius="full" p={2} display="inline-flex">
+              <Icon as={MdCalendarMonth} />
+            </Box>
             <Text fontWeight="semibold">
-              {t(["stats.sessionsPerMonth6", "stats.sessionsPerMonth", "Sessions par mois (6 derniers)"])}
+              {t("coachStats.sessionsPerMonth.title", "Sessions jouées / mois (6 derniers)")}
             </Text>
-            <Badge colorScheme="blue" borderRadius="full">
+            <Badge borderRadius="full">
               {t(["stats.totalCount", "{{count}} total"], { count: totalSessions6mo })}
             </Badge>
           </HStack>
@@ -650,16 +691,18 @@ export default function StatisticsPageCoach() {
       </SimpleGrid>
 
       {/* Objectifs */}
-      <Card>
+      <Card glow="rgba(139, 92, 246, 0.12)">
         <HStack mb={4}>
-          <Icon as={MdInsights} />
+          <Box bg={theme.surfaceSoft} color="purple.300" borderRadius="full" p={2} display="inline-flex">
+            <Icon as={MdInsights} />
+          </Box>
           <Text fontWeight="semibold">
             {t(["stats.objectivesSplit", "stats.objectives.title", "Répartition des objectifs"])}
           </Text>
         </HStack>
 
         {objectivesList.length === 0 ? (
-          <Text color="gray.500" fontSize="sm">
+          <Text color={mutedText} fontSize="sm">
             {t(["stats.noObjectives", "stats.objectives.empty", "Pas encore de données d’objectifs."])}
           </Text>
         ) : (
@@ -667,7 +710,7 @@ export default function StatisticsPageCoach() {
             <Wrap spacing={3} mb={4}>
               {objectivesList.map(([obj, count]) => (
                 <WrapItem key={obj}>
-                  <Badge px={3} py={1} borderRadius="full" colorScheme="blue" variant="subtle">
+                  <Badge px={3} py={1} borderRadius="full" variant="subtle">
                     {objectiveLabel(obj, t)} • {count}
                   </Badge>
                 </WrapItem>
@@ -680,10 +723,10 @@ export default function StatisticsPageCoach() {
                 return (
                   <Box key={obj}>
                     <HStack justify="space-between" mb={1}>
-                      <Text fontSize="sm" color="gray.600">
+                      <Text fontSize="sm" color={mutedText}>
                         {objectiveLabel(obj, t)}
                       </Text>
-                      <Text fontSize="sm" color="gray.500">
+                      <Text fontSize="sm" color={subtleText}>
                         {pct}%
                       </Text>
                     </HStack>
@@ -695,7 +738,7 @@ export default function StatisticsPageCoach() {
           </>
         )}
       </Card>
+      </VStack>
     </Box>
   );
 }
-

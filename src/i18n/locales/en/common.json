@@ -1,6 +1,5 @@
 {
   "brand": "BoostYourLife.coach",
-
   "nav": {
     "home": "Home",
     "dashboard": "Dashboard",
@@ -11,6 +10,7 @@
     "settings": "Settings",
     "all_programs": "All programs",
     "my_clients": "My clients",
+    "nutrition": "Nutrition",
     "statistics": "Statistics",
     "exercise_bank": "Exercise bank",
     "login": "Log in",
@@ -20,15 +20,18 @@
     "open_menu": "Open menu",
     "toggle_color_mode": "Toggle theme",
     "custom_program": "Custom program",
+    "new": "New",
     "new_program": "New program",
+    "new_program_manual": "New manual program",
+    "new_program_guided": "New guided program",
     "new_client": "New client",
+    "new_nutrition_followup": "New nutrition follow-up",
     "menu": "Menu",
     "program_type": "Program type",
     "create_manual": "Create manually",
     "guided_creation": "Guided creation",
     "build_my_program": "Build my program"
   },
-
   "actions": {
     "buy_now": "Buy",
     "subscribe": "Subscribe",
@@ -39,7 +42,6 @@
     "confirm": "Confirm",
     "delete": "Delete"
   },
-
   "common": {
     "loading": "Loading…",
     "loading_details": "Loading details…",
@@ -54,9 +56,16 @@
     "close": "Close",
     "edit": "Edit",
     "ignore": "Skip",
-    "submit": "Submit"
+    "submit": "Submit",
+    "copy": "Copy",
+    "error": "Error",
+    "missed": "Missed",
+    "none": "None",
+    "validate": "Validate",
+    "save": "Enregistrer",
+    "skip": "Ignorer",
+    "select": "Sélectionner"
   },
-
   "form": {
     "program": "Program",
     "client": "Client",
@@ -64,14 +73,25 @@
     "datetime": "Date & time",
     "select_program": "Select a program",
     "select_client": "Select a client",
-    "select_session": "Select a session"
+    "select_session": "Select a session",
+    "status": "Status"
   },
-
   "errors": {
     "not_logged_in": "User not logged in.",
-    "payment_failed": "Payment error: "
+    "payment_failed": "Payment error: ",
+    "update_error": "Erreur de mise à jour",
+    "missingPhone": "Numéro de téléphone requis",
+    "inviteFailed": "Échec de l’envoi de l’invitation",
+    "tryAgain": "Vérifie la configuration Firebase Auth et réessaie.",
+    "saveFailed": "Échec de l’enregistrement",
+    "loadFailed": "Erreur de chargement",
+    "missingField": "Champ manquant",
+    "notFound": "Introuvable",
+    "email_in_use": "Cette adresse e-mail est déjà utilisée.",
+    "invalid_email": "Adresse e-mail invalide.",
+    "wrong_password": "Mot de passe incorrect.",
+    "too_many_requests": "Trop de tentatives, réessayez plus tard."
   },
-
   "premium": {
     "title": "Premium Programs",
     "subtitle": "Ready-to-use programs designed by BoostYourLife.",
@@ -79,7 +99,7 @@
     "free_badge": "1ST FREE",
     "price_on_stripe": "Price shown on Stripe",
     "claim_free": "Claim for free",
-    "added_to_yours": "Program added to your programs 🎉",
+    "added_to_yours": "Program added to your programs 🎉 ",
     "cannot_add_free": "Unable to add for free: ",
     "per_week_short": "/ wk",
     "min": "min",
@@ -87,14 +107,12 @@
     "card_title": "Premium Program",
     "default_desc": "Structured program, ready to start."
   },
-
   "home": {
     "hero_title": "Boost your life with smart training",
     "hero_sub": "Simple tools for coaches and clients.",
     "cta_pro": "For coaches",
     "cta_client": "For individuals"
   },
-
   "dashboard": {
     "coach_title": "Coach dashboard",
     "client_title": "My dashboard",
@@ -124,9 +142,88 @@
       "prefix": "Free trial — you have",
       "suffix": " left. You can choose a plan at the end of your trial."
     },
-    "calendar": "Calendar"
+    "calendar": "Calendar",
+    "assigned_clients_count": "{{count}} assigned client",
+    "assigned_clients_count_other": "{{count}} assigned clients",
+    "assigned_to_list": "Assigned to",
+    "cant_delete_completed": "You can’t delete a session that has already been validated.",
+    "completed": "Validated",
+    "completed_info": "{{done}} / {{total}} validated sessions",
+    "connect_calendar": "Connect calendar",
+    "created_on": "Created on {{date}}",
+    "next_session_line": "Next: Session {{n}}",
+    "nutrition_clients_shared": "{{clients}} client(s) • {{shared}} shared",
+    "nutrition_drafts_full": "{{count}} assessment(s) still to finalize",
+    "nutrition_drafts_short": "{{count}} assessment(s) to finalize",
+    "no_assigned_clients": "No assigned clients",
+    "no_client_to_relaunch": "No clients to relaunch",
+    "no_program_available": "No program available",
+    "no_recent_action": "No recent action",
+    "no_upcoming_session": "No upcoming session",
+    "nothing_planned": "Nothing planned",
+    "plan_session": "Plan a session",
+    "resume_session": "Resume",
+    "readonly_completed": "This session has already been validated and can no longer be edited here.",
+    "session_completed": "Validated session",
+    "session_planned": "Planned session",
+    "stats_active_30": "Active (30d)",
+    "stats_inactive": "Inactive",
+    "stats_total_clients": "Clients",
+    "stats_total_programs": "Programs",
+    "weekly_execution_hint": "{{done}}/{{planned}} planned this week",
+    "banner": {
+      "birthdays_label": "Today’s birthdays",
+      "next_session_label": "Next session",
+      "planned_count": "Planned",
+      "today_label": "Today",
+      "validated_count": "Validated",
+      "today_summary": "{{validated}} validated · {{planned}} planned",
+      "today_missed": "{{count}} missed",
+      "today_no_missed": "No missed sessions",
+      "start_now": "Start session"
+    },
+    "cards": {
+      "active_status": "Active",
+      "calendar_subtitle": "Your coach sessions and recent validations.",
+      "eyebrow_actions": "Actions",
+      "eyebrow_nutrition": "Nutrition",
+      "eyebrow_planning": "Planning",
+      "eyebrow_priority": "Priority",
+      "eyebrow_tracking": "Tracking",
+      "inactive_status": "Inactive",
+      "latest_programs_subtitle": "Recently created programs, ready to use.",
+      "latest_programs_title": "Latest programs",
+      "popular_programs_subtitle": "The programs most often assigned to your clients.",
+      "popular_programs_title": "Most assigned programs",
+      "recent_actions_subtitle": "Latest validations and important activity.",
+      "recent_actions_title": "Recent actions",
+      "recent_clients_subtitle": "Your most recent or most active clients right now.",
+      "relaunch_title": "Clients to relaunch",
+      "shortcuts_title": "Shortcuts",
+      "upcoming_title": "Upcoming sessions",
+      "week_title": "Current week"
+    },
+    "calendar_link_modal": {
+      "description": "Copy this subscription link to sync sessions to your external calendar.",
+      "generate_copy": "Generate and copy link",
+      "help_google": "In Google Calendar: Add by URL.",
+      "help_ios": "On iPhone / Apple Calendar: Add a subscribed calendar.",
+      "subscription_link_label": "Subscription link"
+    },
+    "toasts": {
+      "calendar_link_copied_desc": "The subscription link was copied to the clipboard.",
+      "calendar_link_copied_title": "Calendar link copied",
+      "calendar_link_generate_error_desc": "Unable to generate the calendar link.",
+      "calendar_link_generated_title": "Calendar link generated",
+      "coach_not_found_title": "Coach not found",
+      "link_copied_title": "Link copied",
+      "link_copy_error_title": "Unable to copy link"
+    },
+    "weekly_planned_label": "Planned: {{count}}",
+    "weekly_validated_label": "Validated: {{count}}",
+    "completed_read_only": "Cette séance provient des séances effectuées (lecture seule).",
+    "see_assigned_list": "Voir la liste"
   },
-
   "calendar": {
     "title": "Calendar",
     "add_session": "Add a session",
@@ -150,13 +247,11 @@
     "agenda": "Agenda",
     "show_more": "+ {{count}} more"
   },
-
   "time": {
     "days_short": "d",
     "hours_short": "h",
     "minutes_short": "m"
   },
-
   "programs": {
     "title": "Programs",
     "empty": "No programs yet.",
@@ -164,22 +259,22 @@
     "open": "Open",
     "edit": "Edit",
     "delete": "Delete",
-    "new_program": "New program"
+    "new_program": "New program",
+    "not_found": "Programme introuvable",
+    "subtitle": "Retrouve, duplique et consulte rapidement tous tes programmes."
   },
-
   "exercise": {
     "name": "Exercise",
     "reps": "reps",
     "sets": "sets",
     "rest": "rest",
-    "duration": "duration"
+    "duration": "duration",
+    "instructions": "Execution cues:"
   },
-
   "confirm": {
     "delete_program": "Are you sure you want to delete this program?",
     "delete_client": "Are you sure you want to delete this client?"
   },
-
   "greeting": {
     "card_aria": "Coach welcome card",
     "hello_name": "Hello {{name}}",
@@ -187,13 +282,12 @@
     "add_logo": "Add a logo",
     "logo_alt": "{{name}}’s logo",
     "subline": {
-      "night": "Good night — remember to rest 🌙",
+      "night": "Good night — remember to rest 🌙 ",
       "morning": "Good morning — ready for a new day?",
       "afternoon": "Great to see you back — ready to coach?",
-      "evening": "Let’s wrap up the day strong 💪"
+      "evening": "Let’s wrap up the day strong 💪 "
     }
   },
-
   "units": {
     "per_week_short": "/ wk",
     "min": "min",
@@ -203,10 +297,8 @@
     "kg": "kg",
     "lbs": "lbs",
     "kmh": "km/h",
-    "mph": "mph",
-    "sec": "sec"
+    "mph": "mph"
   },
-
   "client_dash": {
     "client": "Client",
     "hello_name": "Hello {{name}}",
@@ -232,10 +324,10 @@
       "created_on": "Created on",
       "sessions": "Sessions count",
       "progress": "Progress",
-      "action": "Action"
+      "action": "Action",
+      "last_session": "Dernière séance"
     }
   },
-
   "hero": {
     "title1": "Bring your goals to life with",
     "title2": "BoostYourLife.coach",
@@ -246,7 +338,6 @@
     "coachHint": "14-day free trial. No card required to start.",
     "ctaPremium": "Explore premium programs"
   },
-
   "how": {
     "title": "How does it work?",
     "coach": {
@@ -262,13 +353,12 @@
       "l3": "Track your progress + browse premium program catalog."
     }
   },
-
   "plans": {
     "title": "Choose your plan",
     "free": {
       "badge": "100% FREE",
       "title": "Individual space",
-      "desc": "Full access and free tracking. 1 <strong>premium</strong> included. Unlock more premium programs anytime.",
+      "desc": "Full access and free tracking. 1 <strong>premium</ strong> included. Unlock more premium programs anytime.",
       "cta": "Get free access"
     },
     "pro": {
@@ -284,12 +374,10 @@
       "cta": "Discover premium programs"
     }
   },
-
   "roles": {
     "individual": "Individual",
     "coach": "Coach"
   },
-
   "profile": {
     "title": "My profile",
     "labels": {
@@ -307,7 +395,8 @@
     },
     "actions": {
       "save": "Save my info",
-      "chooseFile": "Choose a file"
+      "chooseFile": "Choose a file",
+      "saved": "Modifications enregistrées"
     },
     "toasts": {
       "load_error_title": "Profile load error",
@@ -315,13 +404,56 @@
       "updated_title": "Profile updated",
       "updated_desc": "Your information has been saved.",
       "update_error_title": "Update error",
-      "update_error_desc": "Profile update failed."
+      "update_error_desc": "Profile update failed.",
+      "email_changed": "Un email de confirmation a été envoyé à votre nouvelle adresse. Le changement sera effectif après validation du lien."
     },
     "alt": {
       "logo": "Logo"
+    },
+    "file": {
+      "none": "Aucun fichier"
+    },
+    "coach": {
+      "subtitle": "Mettez à jour vos informations visibles, votre logo et votre adresse de connexion depuis un espace plus clair et plus pro.",
+      "stats": {
+        "identity": "Identité",
+        "complete": "Complète",
+        "pending": "À finir",
+        "identityHelper": "Nom et prénom du coach",
+        "contact": "Contact",
+        "ready": "Prêt",
+        "add": "À ajouter",
+        "contactHelper": "Téléphone utilisé pour vos échanges",
+        "login": "Connexion",
+        "modified": "Modifié",
+        "synced": "Synchronisé",
+        "loginHelper": "Adresse e-mail de connexion"
+      },
+      "sections": {
+        "identity": "Informations du coach",
+        "identitySub": "Nom, prénom, e-mail et téléphone utilisés dans votre espace pro.",
+        "branding": "Logo et identité visuelle",
+        "brandingSub": "Ajoutez votre logo pour rendre votre espace encore plus professionnel.",
+        "security": "Sécurité de connexion",
+        "securitySub": "La modification d’e-mail peut demander une reconfirmation de votre identité."
+      },
+      "badges": {
+        "emailPending": "E-mail modifié, validation requise",
+        "savedState": "Coordonnées prêtes",
+        "newLogo": "Nouveau logo sélectionné",
+        "currentLogo": "Logo actuel"
+      },
+      "security": {
+        "emailTitle": "E-mail de connexion",
+        "nextEmailTitle": "Nouvelle adresse",
+        "helper": "Si votre session est jugée trop ancienne, une confirmation par mot de passe vous sera demandée au moment de l’enregistrement."
+      }
+    },
+    "reauth": {
+      "title": "Confirmer votre identité",
+      "body": "Pour modifier votre adresse e-mail, entrez votre mot de passe actuel."
     }
   },
-
   "legal": {
     "cgu": "TOS",
     "cgv": "Sales T&C",
@@ -405,7 +537,6 @@
       "last_update": "Last updated: May 1, 2025"
     }
   },
-
   "proPlans": {
     "checking": "Checking your trial/subscription status…",
     "title": "Our Professional plans",
@@ -423,7 +554,14 @@
       "badge": "14-day trial",
       "title": "Free trial (ended)",
       "desc": "You’ve already used the free trial. Subscribe to continue.",
-      "cta": "Trial already used"
+      "cta": "Trial already used",
+      "titleRunning": "Essai gratuit (en cours)",
+      "titleEnded": "Essai gratuit (terminé)",
+      "descLoggedOut": "Créez un compte coach pour activer votre essai et accéder à toutes les fonctionnalités.",
+      "descRunning": "Votre essai est en cours{{daysLabel}}.",
+      "descEnded": "Vous avez déjà bénéficié de l’essai gratuit. Souscrivez à l’une des formules pour continuer.",
+      "ctaGo": "Accéder à mon espace coach",
+      "ctaUsed": "Essai déjà utilisé"
     },
     "monthly": {
       "title": "Monthly subscription",
@@ -455,9 +593,28 @@
       "cancel": "Cancelable from your space",
       "invoices": "Invoices available"
     },
-    "backToDashboard": "⟵ Back to dashboard"
+    "backToDashboard": "⟵ Back to dashboard",
+    "cta": {
+      "createAccount": "Créer un compte",
+      "goClient": "Aller à mon espace",
+      "goCoach": "Accéder à mon espace coach",
+      "choosePlan": "Choisir une formule",
+      "alreadyHaveAccount": "J’ai déjà un compte",
+      "notEligible": "Réservé aux coachs"
+    },
+    "subtitleLoggedOut": "Créez un compte pour démarrer l’essai gratuit 14 jours et accéder à l’espace coach.",
+    "subtitleNotCoach": "Cette offre est réservée aux coachs. Vous pouvez continuer sur votre espace particulier.",
+    "subtitleTrial": "Votre essai est en cours{{daysLabel}}. Vous avez accès à l’espace coach.",
+    "subtitleActive": "Votre accès est actif. Vous pouvez utiliser l’espace coach.",
+    "subtitlePaywall": "Votre essai est terminé. Choisissez une formule pour continuer à utiliser l’espace coach.",
+    "status": {
+      "needAccount": "Compte requis",
+      "active": "Accès actif"
+    },
+    "loggedOutInfo": "Pour démarrer l’essai gratuit et accéder à l’espace coach, créez un compte (30 secondes).",
+    "notCoachInfo": "Cette offre est destinée aux coachs. Vous pouvez continuer sur votre espace particulier.",
+    "backHome": "⟵ Retour à l’accueil"
   },
-
   "payment": {
     "checkout": {
       "title": "Program payment",
@@ -484,7 +641,6 @@
       "please_wait": "Please wait a few seconds…"
     }
   },
-
   "myPrograms": {
     "titleCoach": "My Programs (Coach)",
     "untitled": "Untitled",
@@ -497,11 +653,9 @@
     "sessionsCount_one": "{{count}} session",
     "sessionsCount_other": "{{count}} sessions"
   },
-
   "profile_short": {
     "title": "Profile"
   },
-
   "settings": {
     "title": "Settings",
     "sections": {
@@ -543,7 +697,6 @@
       "account_deleted": "Account deleted."
     }
   },
-
   "auth": {
     "login": {
       "title": "Log in",
@@ -569,7 +722,16 @@
       },
       "reset": {
         "success": "We sent you a reset email. Check your spam folder too.",
-        "genericError": "An error occurred while sending the reset email."
+        "genericError": "An error occurred while sending the reset email.",
+        "errors": {
+          "missingEmail": "Veuillez entrer votre adresse e-mail.",
+          "invalidEmail": "L’adresse e-mail n’est pas valide.",
+          "userNotFound": "Aucun compte trouvé avec cet e-mail.",
+          "tooMany": "Trop de tentatives. Réessayez plus tard.",
+          "network": "Problème réseau. Vérifiez votre connexion et réessayez."
+        },
+        "sending": "Envoi en cours…",
+        "retryIn": "Réessayer dans {{s}}s"
       }
     },
     "register": {
@@ -585,9 +747,9 @@
       "role": "Role",
       "role_individual": "Individual",
       "role_coach": "Coach",
-      "adultConfirm": "I confirm I am <b>18 years old or older</b>.",
+      "adultConfirm": "I confirm I am <b>18 years old or older</ b>.",
       "acceptTerms": "I have read and accept the <cgu>TOS</cgu> & <cgv>Sales T&C</cgv>.",
-      "privacyHint": "See also our <privacy>Privacy Policy</privacy>.",
+      "privacyHint": "See also our <privacy>Privacy Policy</ privacy>.",
       "signUp": "Create account",
       "signUpWithGoogle": "Sign up with Google",
       "haveAccount": "Already have an account?",
@@ -601,9 +763,10 @@
         "mustConfirmAndAccept": "Please confirm you’re 18+ and accept the TOS/Sales T&C.",
         "failed": "Sign-up failed. Please check your details."
       }
-    }
+    },
+    "change_email_with_provider": "Votre compte est lié à un fournisseur externe. Changez votre e-mail depuis ce fournisseur ou contactez le support.",
+    "password": "Mot de passe"
   },
-
   "stats": {
     "title": "Statistics",
     "subtitle": "Track your overall progress, body metrics, and compare sessions to visualize improvements.",
@@ -615,7 +778,8 @@
     "hints": {
       "programs": "Number of active/archived plans",
       "basedOnSessions": "Based on completed sessions",
-      "last7days": "Over the last 7 days"
+      "last7days": "Over the last 7 days",
+      "clients": "Clique pour voir la liste des clients"
     },
     "compareSession": "Compare a session",
     "noPrograms": "No programs found yet.",
@@ -635,10 +799,46 @@
       "muscle": "Muscle mass (kg)",
       "water": "Water (%)",
       "bone": "Bone mass (kg)",
-      "metabolicAge": "Metabolic age"
+      "metabolicAge": "Metabolic age",
+      "visceralFat": "Graisse viscérale"
+    },
+    "objectives": {
+      "weight_loss": "Perte de poids",
+      "get_in_shape": "Remise en forme",
+      "muscle_gain": "Prise de masse",
+      "endurance": "Endurance",
+      "strength": "Force",
+      "hypertrophy": "Hypertrophie",
+      "mobility": "Mobilité",
+      "rehab": "Réhabilitation",
+      "performance": "Performance",
+      "health": "Santé",
+      "unknown": "Non spécifié"
+    },
+    "client": {
+      "unnamed": "Client",
+      "active": "Actif",
+      "lastInteraction": "Dernière interaction",
+      "daysAgo": "il y a {{n}}j",
+      "programs": "{{n}} programme(s)",
+      "activity30": "Activité (30j)"
+    },
+    "coachTag": "Coach",
+    "totalClients": "Total clients",
+    "totalPrograms": "Total programmes",
+    "activeClients30": "Clients actifs (30j)",
+    "inactiveClients": "Clients inactifs",
+    "activeClientsList": {
+      "title": "Clients actifs (30 jours)",
+      "seeAll": "Voir tout",
+      "empty": "Aucun client actif sur les 30 derniers jours."
+    },
+    "totalCount": "{{count}} au total",
+    "activeOutOfTotal": "{{active}} actif(s) sur {{total}} client(s).",
+    "sessionsPerMonth": {
+      "tooltip": "{{label}} · {{count}} séance(s)"
     }
   },
-
   "months": {
     "long": {
       "0": "January",
@@ -655,10 +855,10 @@
       "11": "December"
     }
   },
-
   "coachStats": {
     "title": "Statistics",
     "badge": "Coach",
+    "subtitle": "A clear view of your clients, recent activity, and the goals shaping your coaching.",
     "kpis": {
       "total_clients": "Total clients",
       "total_programs": "Total programs",
@@ -698,7 +898,6 @@
       "load_failed": "Failed to load statistics."
     }
   },
-
   "autoPreview": {
     "back": "Back",
     "edit": "Edit",
@@ -724,9 +923,22 @@
       "main": "Main work",
       "bonus": "Bonus",
       "cooldown": "Cool-down"
-    }
+    },
+    "generated": "Programme",
+    "autoFollowOn": "Suivi automatique activé",
+    "autoFollowOff": "Suivi automatique désactivé",
+    "variantNotFound": "Variante introuvable",
+    "pdfError": "Erreur lors de la génération du PDF",
+    "notFound": "Programme introuvable",
+    "notFoundHint": "Vérifie l’URL ou les droits d’accès.",
+    "chooseVariant": "Choisissez une variante",
+    "autoFollowHintOn": "IA activée : BYL ajuste automatiquement la progression (si disponible) selon tes séances validées.",
+    "autoFollowHintOff": "IA désactivée : aucune progression automatique n’est appliquée.",
+    "saving": "Sauvegarde",
+    "autoFollowShort": "Suivi",
+    "enabled": "Activé",
+    "disabled": "Désactivé"
   },
-
   "pdf": {
     "sections": {
       "warmup": "Warm-up",
@@ -766,11 +978,10 @@
       "it": "Italian",
       "es": "Spanish",
       "ru": "Russian",
-      "ar": "Arabic"
+      "ar": "العربية"
     },
     "fileNamePattern": "{{program}}-{{client}}-BYL-{{lang}}.pdf"
   },
-
   "autoQ": {
     "titleCoach": "Guided creation",
     "titleClient": "Custom program",
@@ -828,15 +1039,30 @@
       },
       "createError": {
         "title": "Creation error"
+      },
+      "authNeeded": {
+        "title": "Connexion requise",
+        "desc": "Connecte-toi pour poursuivre le paiement."
+      },
+      "emailNeeded": {
+        "title": "Adresse e-mail requise",
+        "desc": "Renseigne une adresse e-mail dans ton profil avant de payer."
       }
     },
     "errors": {
       "savePrefs": "Error while saving preferences.",
       "checkout": "Could not open checkout page.",
       "missingProgramId": "Unexpected response (missing programId)."
-    }
+    },
+    "adminBanner": "Admin — accès complet",
+    "proPaywall": {
+      "title": "Accès coach requis",
+      "desc": "Ton essai/abonnement n’est pas actif. Active l’accès pro pour générer automatiquement des programmes.",
+      "cta": "Voir l’offre Pro",
+      "hint": "Active l’offre Pro pour débloquer la génération automatique."
+    },
+    "noteClientPaywall": "Ces tarifs concernent l’espace client. L’espace coach se débloque via l’offre Pro."
   },
-
   "clientCreation": {
     "title": "Add a new client",
     "loginMethod": "Login method",
@@ -876,7 +1102,7 @@
       "it": "Italian",
       "es": "Spanish",
       "ru": "Russian",
-      "ar": "Arabic"
+      "ar": "العربية"
     },
     "notes": "Notes",
     "save": "Save client",
@@ -887,7 +1113,6 @@
     "modalConfirm": "Yes, update",
     "modalCancel": "Cancel"
   },
-
   "clientView": {
     "globalProgress": "Overall progress",
     "assignedPrograms": "Assigned programs",
@@ -905,9 +1130,20 @@
     "sessionsDonePlanned": "Sessions (done/planned)",
     "compareSession": "Compare a session",
     "viewAll": "View all",
-    "deleteProgram": "Delete program"
+    "deleteProgram": "Delete program",
+    "inviteSent": "Invitation envoyée",
+    "inviteSentDesc": "Un email a été envoyé à {{email}} pour créer ou réinitialiser son mot de passe.",
+    "selectProgram": "Sélectionne un programme à assigner.",
+    "programNotFound": "Le programme sélectionné n’existe pas.",
+    "assigned": "Programme assigné",
+    "assignProgram": "Assigner un programme",
+    "lastActivity": "Dernière activité",
+    "programTemplate": "Programme",
+    "programNameOptional": "Nom (optionnel)",
+    "programNamePlaceholder": "Laisser vide pour le nom par défaut",
+    "assignInfo": "Le programme sera ajouté au client et disponible immédiatement.",
+    "assign": "Assigner"
   },
-
   "clientsList": {
     "heading": "My Clients",
     "filters": {
@@ -948,21 +1184,25 @@
     },
     "actions": {
       "assign": "Assign",
-      "deleteAria": "Delete client"
+      "deleteAria": "Delete client",
+      "newClient": "Nouveau client"
     },
     "badge": {
       "programsShort": "prog."
     },
     "assignModal": {
       "title": "Assign a program",
-      "placeholder": "Select a program"
+      "placeholder": "Select a program",
+      "successTitle": "Programme assigné",
+      "successDesc": "Le programme a bien été attribué au client.",
+      "errorTitle": "Erreur",
+      "errorDesc": "Impossible d’assigner le programme."
     },
     "deleteModal": {
       "title": "Delete client",
       "body": "Are you sure you want to delete this client?"
     }
   },
-
   "exerciseBank": {
     "title": "Exercise Bank",
     "searchPlaceholder": "Search…",
@@ -1016,7 +1256,6 @@
     },
     "fabAria": "Exercise bank"
   },
-
   "exerciseCard": {
     "add": "Add",
     "replace": "Replace",
@@ -1034,18 +1273,35 @@
       "variants": "Variants",
       "constraints": "Constraints",
       "cues": "Execution cues"
+    },
+    "none": "None",
+    "allLevels": "All levels",
+    "images": {
+      "start": "Start position",
+      "end": "End position",
+      "badge": "Images",
+      "button": "Photos"
+    },
+    "video": {
+      "badge": "Video",
+      "button": "Video"
+    },
+    "meta": {
+      "fast": "Open details for cues, media and full information"
+    },
+    "media": {
+      "title": "Demonstration"
     }
   },
-
   "footer": {
     "about": "About",
     "contact": "Contact",
     "privacy": "Privacy Policy",
     "terms": "Terms & Conditions",
     "sales": "Sales Policy",
-    "rights": "All rights reserved"
+    "rights": "All rights reserved",
+    "pricing": "Tarifs"
   },
-
   "programBuilder": {
     "placeholders": {
       "name": "Program name",
@@ -1058,7 +1314,8 @@
     },
     "units": {
       "weight": "Weight",
-      "speed": "Speed"
+      "speed": "Speed",
+      "distance": "Distance"
     },
     "cta": {
       "createShort": "Create",
@@ -1092,7 +1349,9 @@
       "weightKg": "Load (kg)",
       "weightLbs": "Weight (lbs)",
       "speedKmh": "Speed (km/h)",
-      "speedMph": "Speed (mph)"
+      "speedMph": "Speed (mph)",
+      "distanceM": "Distance (m)",
+      "distanceMi": "Distance (miles)"
     },
     "notes": {
       "title": "Notes",
@@ -1132,13 +1391,22 @@
       "savedDesc": "Your program has been saved.",
       "errorTitle": "Error",
       "assigned": "Program assigned"
+    },
+    "exercise": {
+      "label": "Exercice"
+    },
+    "linkNext": {
+      "tip": "Chaîner avec l’exercice suivant",
+      "label": "Lier au suivant"
+    },
+    "autoProgression": {
+      "tip": "Si activé, le programme peut évoluer automatiquement selon les validations du client (si le coach ne gère pas manuellement).",
+      "label": "Progression auto"
     }
   },
-
   "statsShort": {
     "compareSession": "Compare a session"
   },
-
   "compare": {
     "pick": "Compare:",
     "with": "with",
@@ -1150,7 +1418,6 @@
     "delta": "Δ",
     "needMore": "Not enough occurrences yet to compare this session (need at least 2 records)."
   },
-
   "programView": {
     "back": "Back",
     "edit": "Edit",
@@ -1177,7 +1444,6 @@
       "cooldown": "Cool-down"
     }
   },
-
   "fields": {
     "sets": "Sets",
     "reps": "Repetitions",
@@ -1192,14 +1458,12 @@
     "tempo": "Tempo",
     "distance": "Distance"
   },
-
   "labels": {
     "sets": "Sets",
     "repetitions": "Reps",
     "duration": "Duration",
     "rest": "Rest"
   },
-
   "sessionPlayer": {
     "exerciseCounter": "Exercise {{i}} / {{n}}",
     "program": "Program",
@@ -1225,9 +1489,27 @@
     "currentSet": "Current set:",
     "setN": "Set {{n}}",
     "empty": "Session not found or empty.",
-    "rateTitle": "Rate the difficulty"
+    "rateTitle": "Rate the difficulty",
+    "restBetween": "Entre les exercices",
+    "restEndOfBlock": "Fin du bloc",
+    "restIgnored": "Ignoré (enchaînement)",
+    "autoProgressionOn": "Activée pour ce programme.",
+    "autoProgressionOff": "Désactivée pour ce programme.",
+    "autoProgression": "Auto-progression",
+    "chainOf": "Chaîne de {{n}} exercices",
+    "round": "Tour {{i}}/{{n}}",
+    "restMode": "Repos",
+    "restBoth": "entre + fin",
+    "restEach": "entre",
+    "restLast": "fin",
+    "shortcuts": "Raccourcis",
+    "effort": "EFFORT",
+    "roundShort": "Tour",
+    "set": "Set",
+    "nextRound": "Tour suivant",
+    "settings": "Paramètres de l’exercice",
+    "addNote": "Ajouter une note pour cet exercice…"
   },
-
   "about": {
     "title": "About",
     "intro": "Welcome to <b>Boost Your Life</b>! Our mission is to make training effective, clear and motivating so you progress every week — without getting lost in complicated plans.",
@@ -1246,7 +1528,8 @@
         "Exercises adapted to your equipment (gym, home, minimal)",
         "Reminders and calendar — stay consistent without thinking about it",
         "Access to premium programs and coach support if needed"
-      ]
+      ],
+      "empty": ""
     },
     "autonomy": {
       "title": "Your autonomy",
@@ -1260,11 +1543,15 @@
         "Context-aware: gym, home or minimal equipment",
         "Frictionless consistency: reminders + integrated calendar",
         "Trackable progress: simple tables per session and movement"
-      ]
+      ],
+      "empty": ""
     },
-    "cta": "Get started"
+    "cta": "Get started",
+    "vision": {
+      "title": "Our vision",
+      "body": "We believe modern coaching should rely on modern tools.\n\nOur ambition is to become a benchmark for independent coaches who want to structure, professionalize, and grow their business.\n\nCoaching no longer relies only on technical expertise, but also on the ability to deliver a clear, measurable, and consistent experience.\n\nBoost Your Life is part of this evolution.\n\nThe platform continuously evolves to adapt to coaches' needs and to the realities of the field."
+    }
   },
-
   "contact": {
     "title": "Contact",
     "intro": "Questions or feedback? Send us a message.",
@@ -1283,7 +1570,7 @@
       }
     },
     "submit": "Send",
-    "success_title": "Message sent ✅",
+    "success_title": "Message sent ✅ ",
     "success_desc": "Thanks! We’ll get back to you shortly.",
     "error_title": "Couldn’t send",
     "error_desc": "Something went wrong. Please try again.",
@@ -1291,9 +1578,18 @@
       "required": "This field is required.",
       "email": "Invalid email address.",
       "min_message": "Your message must be at least {{min}} characters."
+    },
+    "toast": {
+      "success": {
+        "title": "Message envoyé",
+        "desc": "Merci ! Nous vous répondrons rapidement."
+      },
+      "error": {
+        "title": "Erreur",
+        "desc": "Impossible d’envoyer le message. Réessayez."
+      }
     }
   },
-
   "homePro": {
     "hero": {
       "titleLine1": "Fitness coach,",
@@ -1317,7 +1613,6 @@
       "hint": "Setup in minutes • Decide after the trial",
       "scroll": "See what you get ↓"
     },
-
     "benefits": {
       "title": "What you get with the Pro space",
       "subtitle": "A clear, professional tool to create programs, organize your clients, and track their progress — without Excel, scattered notes, or piling files.",
@@ -1342,7 +1637,6 @@
       "cta": "Simplify my coaching (14-day trial)",
       "hint": "No card required • Full access instantly"
     },
-
     "mockup": {
       "title": "The coach builds, the client progresses",
       "p1": "The Pro space is built for your day-to-day coaching: you build programs, schedule, adjust, and track. On their side, clients simply follow the session on mobile (on their own or with you). Result: smoother, clearer, more professional coaching.",
@@ -1351,7 +1645,6 @@
       "hint": "No card required • Decide after the trial",
       "imageAlt": "Pro space preview"
     },
-
     "how": {
       "title": "How it works (in practice)",
       "coach": {
@@ -1383,7 +1676,6 @@
         }
       }
     },
-
     "promise": {
       "title": "Our promise",
       "subtitle": "No more Excel or paper programs: switch to a clear, professional tool that simplifies your day, strengthens your credibility, and saves real time.",
@@ -1416,7 +1708,6 @@
         "f5": "You want to centralize tracking (sessions + progress + body metrics)"
       }
     },
-
     "faq": {
       "title": "Frequently asked questions",
       "items": {
@@ -1448,5 +1739,13 @@
       "cta": "Try the Pro space (14 days, no card)",
       "hint": "Full access instantly • Decide after the trial"
     }
+  },
+  "status": {
+    "upcoming": "Upcoming",
+    "validated": "Validated",
+    "missed": "Missed"
+  },
+  "nutrition": {
+    "title": "Nutrition"
   }
 }

@@ -10,8 +10,8 @@ const normalize = (s = "") =>
 
 export async function loadCiqual() {
   if (_cache) return _cache;
-  const res = await fetch("/ciqual_2025_min.json", { cache: "force-cache" });
-  if (!res.ok) throw new Error("Impossible de charger ciqual_2025_min.json");
+  const res = await fetch("/ciqual_2025.json", { cache: "force-cache" });
+  if (!res.ok) throw new Error("Impossible de charger ciqual_2025.json");
   const data = await res.json();
   _cache = Array.isArray(data) ? data : [];
   return _cache;
@@ -29,4 +29,3 @@ export function searchCiqual(list, q, limit = 20) {
   }
   return hits;
 }
-

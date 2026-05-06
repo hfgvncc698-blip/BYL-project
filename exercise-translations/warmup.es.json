@@ -1,0 +1,1425 @@
+{
+  "E001": {
+    "nom": "saltos",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "Todos los músculos",
+    "objectifs": [
+      "cardio",
+      "Resistencia",
+      "Pérdida de peso",
+      "Movilidad",
+      "Saldo"
+    ],
+    "muscles_secondaires": [
+      "terneros",
+      "Hombros",
+      "Cuádriceps"
+    ],
+    "articulations_solicitees": [
+      "Tobillos",
+      "rodillas",
+      "Hombros"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles"
+    ],
+    "type": "Cardio / Activación muscular",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Evítalo si tienes dolor de rodilla o tobillo."
+    ],
+    "variantes": [
+      "Saltos lentos",
+      "Paso Jacks (sin salto)",
+      "Saltos ponderados"
+    ],
+    "consignes": {
+      "Positionnement": "Párese con los pies juntos y los brazos a lo largo del cuerpo.",
+      "Mouvement": "Salta, separando las piernas hacia los lados mientras levantas los brazos por encima de la cabeza.",
+      "Retour": "Regresa tus pies y brazos simultáneamente a la posición inicial.",
+      "Respiration": "Inhala mientras abres, exhala mientras cierras.",
+      "Posture": "Mantenga la espalda recta y contraiga ligeramente los abdominales."
+    }
+  },
+  "E002": {
+    "nom": "Saltos lentos",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "Todos los músculos",
+    "objectifs": [
+      "cardio",
+      "Movilidad",
+      "Saldo",
+      "Refuerzo ligero",
+      "Preparación física"
+    ],
+    "muscles_secondaires": [
+      "terneros",
+      "Hombros",
+      "Cuádriceps"
+    ],
+    "articulations_solicitees": [
+      "Tobillos",
+      "rodillas",
+      "Hombros"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles"
+    ],
+    "type": "cardio moderado",
+    "niveau": "Principiante - Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Ideal para personas con restricciones de impacto."
+    ],
+    "variantes": [
+      "saltos",
+      "Paso Jacks (sin salto)"
+    ],
+    "consignes": {
+      "Positionnement": "Párese con los pies juntos y los brazos a lo largo del cuerpo.",
+      "Mouvement": "Realiza un Jumping Jack a un ritmo más lento, controlando cada movimiento.",
+      "Retour": "Vuelve lentamente tus pies y brazos a la posición inicial.",
+      "Respiration": "Inhala mientras abres, exhala mientras cierras.",
+      "Posture": "Contrae tus abdominales y mantén la espalda recta."
+    }
+  },
+  "E003": {
+    "nom": "Paso Jacks (sin salto)",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "Todos los músculos",
+    "objectifs": [
+      "cardio",
+      "Movilidad",
+      "Saldo",
+      "Preparación conjunta",
+      "posturales"
+    ],
+    "muscles_secondaires": [
+      "terneros",
+      "Hombros",
+      "Cuádriceps"
+    ],
+    "articulations_solicitees": [
+      "Tobillos",
+      "rodillas",
+      "Hombros"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles"
+    ],
+    "type": "cardio moderado",
+    "niveau": "principiante",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Ideal para personas con restricciones de impacto."
+    ],
+    "variantes": [
+      "saltos",
+      "Saltos lentos"
+    ],
+    "consignes": {
+      "Positionnement": "Párese con los pies separados a la altura de los hombros y los brazos a lo largo del cuerpo.",
+      "Mouvement": "Da un paso lateral levantando los brazos y luego regresa a la posición inicial.",
+      "Retour": "Pasos alternos a derecha e izquierda sin impacto.",
+      "Respiration": "Inhala mientras abres, exhala mientras cierras.",
+      "Posture": "Mantenga la espalda recta y contraiga los abdominales."
+    }
+  },
+  "E004": {
+    "nom": "Saltos ponderados",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "Todos los músculos",
+    "objectifs": [
+      "Resistencia",
+      "Refuerzo",
+      "Cardio avanzado",
+      "Movilidad",
+      "posturales",
+      "Preparación física"
+    ],
+    "muscles_secondaires": [
+      "terneros",
+      "Hombros",
+      "Cuádriceps"
+    ],
+    "materiel": [
+      "mancuernas ligeras",
+      "chaleco ponderado"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Manténgase atento a los impactos en las rodillas."
+    ],
+    "variantes": [
+      "saltos",
+      "Paso Jacks (sin salto)"
+    ],
+    "consignes": {
+      "Positionnement": "Párese con los pies juntos, con mancuernas en la mano o con un chaleco con peso colocado.",
+      "Mouvement": "Realiza un Jumping Jack mientras controlas el peso extra.",
+      "Retour": "Regresa tus pies y brazos simultáneamente a la posición inicial.",
+      "Respiration": "Inhala mientras abres, exhala mientras cierras.",
+      "Posture": "Involucre su núcleo para evitar cualquier desequilibrio."
+    }
+  },
+  "E005": {
+    "nom": "Rotaciones de brazos",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "Hombros",
+    "objectifs": [
+      "Movilidad",
+      "Prevención de lesiones",
+      "Activación muscular"
+    ],
+    "muscles_secondaires": [
+      "Trapecios",
+      "deltoides"
+    ],
+    "articulations_solicitees": [
+      "Hombros"
+    ],
+    "tendons_solicites": [
+      "manguito rotador"
+    ],
+    "type": "Movilización conjunta",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie o sentado",
+    "contraintes": [
+      "No fuerces la amplitud si sientes dolor."
+    ],
+    "variantes": [
+      "Rotaciones hacia adelante",
+      "Rotaciones hacia atrás"
+    ],
+    "consignes": {
+      "Positionnement": "Párese con los pies separados a la altura de los hombros y los brazos extendidos a los costados.",
+      "Mouvement": "Haz círculos lentos con los brazos, hacia adelante y hacia atrás.",
+      "Respiration": "Respira naturalmente, sin bloqueos.",
+      "Posture": "Mantenga la espalda recta y el cuello relajado."
+    }
+  },
+  "E006": {
+    "nom": "Elevaciones frontales ligeras",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "Hombros",
+    "objectifs": [
+      "Activación muscular",
+      "Preparación conjunta",
+      "Refuerzo ligero"
+    ],
+    "muscles_secondaires": [
+      "deltoides anteriores",
+      "Trapecios"
+    ],
+    "articulations_solicitees": [
+      "Hombros"
+    ],
+    "tendons_solicites": [
+      "manguito rotador"
+    ],
+    "type": "Preparación muscular",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "mancuernas ligeras",
+      "Elástico"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Utilice una carga ligera para evitar una tensión excesiva."
+    ],
+    "variantes": [
+      "Elevaciones laterales ligeras"
+    ],
+    "consignes": {
+      "Positionnement": "Párese con los pies separados a la altura de los hombros y los brazos a los costados.",
+      "Mouvement": "Levante lentamente los brazos frente a usted hasta la altura de los hombros.",
+      "Retour": "Vuelve a bajar lentamente sin sacudidas.",
+      "Respiration": "Inhala al subir, exhala al bajar.",
+      "Posture": "Mantenga la espalda recta y contraiga los abdominales."
+    }
+  },
+  "E007": {
+    "nom": "Rotaciones hacia adelante",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "Hombros",
+    "objectifs": [
+      "Movilidad",
+      "Prevención de lesiones",
+      "Activación muscular"
+    ],
+    "muscles_secondaires": [
+      "Trapecios",
+      "deltoides"
+    ],
+    "articulations_solicitees": [
+      "Hombros"
+    ],
+    "tendons_solicites": [
+      "manguito rotador"
+    ],
+    "type": "Movilización conjunta",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie o sentado",
+    "contraintes": [
+      "No fuerces la amplitud si sientes dolor."
+    ],
+    "variantes": [
+      "Rotaciones hacia atrás"
+    ],
+    "consignes": {
+      "Positionnement": "Párese con los pies separados a la altura de los hombros y los brazos extendidos a los costados.",
+      "Mouvement": "Realice rotaciones lentas hacia adelante con los brazos.",
+      "Retour": "Mantenga una amplitud controlada y suave.",
+      "Respiration": "Respira naturalmente, sin bloqueos.",
+      "Posture": "Mantenga la espalda recta y el cuello relajado."
+    }
+  },
+  "E008": {
+    "nom": "Rotaciones hacia atrás",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "Hombros",
+    "objectifs": [
+      "Movilidad",
+      "Prevención de lesiones",
+      "Activación muscular"
+    ],
+    "muscles_secondaires": [
+      "Trapecios",
+      "deltoides"
+    ],
+    "articulations_solicitees": [
+      "Hombros"
+    ],
+    "tendons_solicites": [
+      "manguito rotador"
+    ],
+    "type": "Movilización conjunta",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie o sentado",
+    "contraintes": [
+      "No fuerces la amplitud si sientes dolor."
+    ],
+    "variantes": [
+      "Rotaciones hacia adelante"
+    ],
+    "consignes": {
+      "Positionnement": "Párese con los pies separados a la altura de los hombros y los brazos extendidos a los costados.",
+      "Mouvement": "Gire lentamente los brazos hacia atrás.",
+      "Retour": "Mantenga una amplitud controlada y suave.",
+      "Respiration": "Respira naturalmente, sin bloqueos.",
+      "Posture": "Mantenga la espalda recta y el cuello relajado."
+    }
+  },
+  "E009": {
+    "nom": "Elevaciones laterales ligeras",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "Hombros",
+    "objectifs": [
+      "Activación muscular",
+      "Preparación conjunta",
+      "Refuerzo ligero"
+    ],
+    "muscles_secondaires": [
+      "deltoides laterales",
+      "Trapecios"
+    ],
+    "articulations_solicitees": [
+      "Hombros"
+    ],
+    "tendons_solicites": [
+      "manguito rotador"
+    ],
+    "type": "Preparación muscular",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "mancuernas ligeras",
+      "Elástico"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Utilice una carga ligera para evitar una tensión excesiva."
+    ],
+    "variantes": [
+      "Elevaciones frontales ligeras"
+    ],
+    "consignes": {
+      "Positionnement": "Párese con los pies separados a la altura de los hombros y los brazos a los costados.",
+      "Mouvement": "Levante lentamente los brazos hacia los lados hasta la altura de los hombros.",
+      "Retour": "Vuelve a bajar lentamente sin sacudidas.",
+      "Respiration": "Inhala al subir, exhala al bajar.",
+      "Posture": "Mantenga la espalda recta y contraiga los abdominales."
+    }
+  },
+  "E010": {
+    "nom": "Rotación de muñeca",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "antebrazo",
+    "objectifs": [
+      "Preparación conjunta",
+      "Movilidad"
+    ],
+    "muscles_secondaires": [
+      "extensores de muñeca",
+      "Flexores de muñeca"
+    ],
+    "articulations_solicitees": [
+      "Puños"
+    ],
+    "tendons_solicites": [
+      "Tendones extensores y flexores"
+    ],
+    "type": "Preparación conjunta",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Evite movimientos bruscos"
+    ],
+    "variantes": [
+      "Rotación de las muñecas con banda elástica."
+    ],
+    "consignes": {
+      "Positionnement": "Párese, con los brazos relajados frente a usted y las manos entrelazadas.",
+      "Mouvement": "Haz círculos lentos con tus muñecas.",
+      "Retour": "Cambie de dirección después de algunas repeticiones.",
+      "Respiration": "Respira naturalmente, sin bloquearte.",
+      "Posture": "Mantenga los hombros relajados y la espalda recta."
+    }
+  },
+  "E011": {
+    "nom": "Flexión-Extensión de las muñecas.",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "antebrazo",
+    "objectifs": [
+      "Movilidad",
+      "Activación muscular"
+    ],
+    "muscles_secondaires": [
+      "extensores de muñeca",
+      "Flexores de muñeca"
+    ],
+    "articulations_solicitees": [
+      "Puños"
+    ],
+    "tendons_solicites": [
+      "Tendones flexores y extensores"
+    ],
+    "type": "Preparación conjunta",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Ninguno",
+      "mancuernas ligeras"
+    ],
+    "position": "Sentado o de pie",
+    "contraintes": [
+      "Movimiento lento y controlado."
+    ],
+    "variantes": [
+      "Flexión-extensión de muñeca con mancuernas ligeras"
+    ],
+    "consignes": {
+      "Positionnement": "Siéntese o párese, con los brazos doblados 90° frente a usted.",
+      "Mouvement": "Doble y extienda lentamente las muñecas.",
+      "Retour": "Alterne sin forzar la amplitud.",
+      "Respiration": "Inhala mientras te inclinas, exhala mientras te extiendes.",
+      "Posture": "Mantenga la espalda recta y los hombros relajados."
+    }
+  },
+  "E012": {
+    "nom": "Rotación del codo",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "Bíceps, tríceps",
+    "objectifs": [
+      "Preparación conjunta",
+      "Movilidad"
+    ],
+    "muscles_secondaires": [
+      "Bíceps",
+      "tríceps"
+    ],
+    "articulations_solicitees": [
+      "Codos"
+    ],
+    "tendons_solicites": [
+      "Tendones del bíceps y del tríceps"
+    ],
+    "type": "Preparación conjunta",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Movimiento fluido y progresivo."
+    ],
+    "variantes": [
+      "Rotación del codo con elástico."
+    ],
+    "consignes": {
+      "Positionnement": "Párate con los brazos levantados a 90°.",
+      "Mouvement": "Realice rotaciones lentas del codo.",
+      "Retour": "Rotación interna y externa alterna.",
+      "Respiration": "Respira profunda y naturalmente.",
+      "Posture": "Mantenga la espalda recta y los hombros alineados."
+    }
+  },
+  "E013": {
+    "nom": "Rotación de las muñecas con banda elástica.",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "antebrazo",
+    "objectifs": [
+      "Preparación conjunta",
+      "Movilidad"
+    ],
+    "muscles_secondaires": [
+      "extensores de muñeca",
+      "Flexores de muñeca"
+    ],
+    "articulations_solicitees": [
+      "Puños"
+    ],
+    "tendons_solicites": [
+      "Tendones extensores y flexores"
+    ],
+    "type": "Preparación conjunta",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Elástico"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Comprobar la tensión del elástico para evitar tensiones excesivas."
+    ],
+    "consignes": {
+      "Positionnement": "Párese, sosteniendo una banda elástica fijada frente a usted.",
+      "Mouvement": "Realice círculos lentos con las muñecas manteniendo una ligera resistencia.",
+      "Retour": "Cambie de dirección después de algunas repeticiones.",
+      "Respiration": "Respira naturalmente, sin bloquearte.",
+      "Posture": "Mantenga los hombros relajados y la espalda recta."
+    }
+  },
+  "E014": {
+    "nom": "Flexión-Extensión de las muñecas con elástico",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "antebrazo",
+    "objectifs": [
+      "Movilidad",
+      "Activación muscular"
+    ],
+    "muscles_secondaires": [
+      "extensores de muñeca",
+      "Flexores de muñeca"
+    ],
+    "articulations_solicitees": [
+      "Puños"
+    ],
+    "tendons_solicites": [
+      "Tendones flexores y extensores"
+    ],
+    "type": "Preparación conjunta",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Elástico"
+    ],
+    "position": "Sentado o de pie",
+    "contraintes": [
+      "No tire demasiado fuerte del elástico para evitar una tensión excesiva."
+    ],
+    "variantes": [
+      "Flexión-extensión de muñeca con mancuernas ligeras",
+      "Flexión-Extensión de las muñecas."
+    ],
+    "consignes": {
+      "Positionnement": "Siéntese o párese, sosteniendo una banda elástica fijada frente a usted.",
+      "Mouvement": "Doble y extienda lentamente las muñecas, manteniendo una ligera tensión.",
+      "Retour": "Alterne sin forzar la amplitud.",
+      "Respiration": "Inhala mientras te inclinas, exhala mientras te extiendes.",
+      "Posture": "Mantenga la espalda recta y los hombros relajados."
+    }
+  },
+  "E015": {
+    "nom": "Rotación de codo con mancuernas ligeras.",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "Bíceps, tríceps",
+    "objectifs": [
+      "Preparación conjunta",
+      "Movilidad"
+    ],
+    "muscles_secondaires": [
+      "Bíceps",
+      "tríceps"
+    ],
+    "articulations_solicitees": [
+      "Codos"
+    ],
+    "tendons_solicites": [
+      "Tendones del bíceps y del tríceps"
+    ],
+    "type": "Preparación conjunta",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "mancuernas ligeras"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Utilice una carga ligera para evitar una tensión excesiva."
+    ],
+    "variantes": [
+      "Rotación del codo con elástico.",
+      "Rotación del codo"
+    ],
+    "consignes": {
+      "Positionnement": "Párate sosteniendo una mancuerna liviana en cada mano.",
+      "Mouvement": "Realice rotaciones lentas del codo manteniendo un movimiento fluido.",
+      "Retour": "Rotación interna y externa alterna.",
+      "Respiration": "Respira profunda y naturalmente.",
+      "Posture": "Mantenga la espalda recta y los hombros alineados."
+    }
+  },
+  "E016": {
+    "nom": "Rotación del cuello",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "cuello",
+    "objectifs": [
+      "Movilidad",
+      "Prevención de lesiones"
+    ],
+    "muscles_secondaires": [
+      "Trapecios",
+      "esternocleidomastoideo"
+    ],
+    "articulations_solicitees": [
+      "cervicales"
+    ],
+    "tendons_solicites": [
+      "tendones cervicales"
+    ],
+    "type": "Movilización conjunta",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie o sentado",
+    "contraintes": [
+      "No fuerces la rotación si hay dolor."
+    ],
+    "variantes": [
+      "Inclinación lateral del cuello"
+    ],
+    "consignes": {
+      "Positionnement": "Párate derecho, con la cabeza alineada con tu cuerpo.",
+      "Mouvement": "Gire lentamente la cabeza hacia la derecha y luego hacia la izquierda.",
+      "Retour": "Regrese suavemente su cabeza a una posición neutral entre cada rotación.",
+      "Respiration": "Respira profunda y naturalmente.",
+      "Posture": "Relaja los hombros y mantén la espalda recta."
+    }
+  },
+  "E017": {
+    "nom": "Inclinación lateral del cuello",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "cuello",
+    "objectifs": [
+      "Movilidad",
+      "Prevención de lesiones"
+    ],
+    "muscles_secondaires": [
+      "Trapecios",
+      "esternocleidomastoideo"
+    ],
+    "articulations_solicitees": [
+      "cervicales"
+    ],
+    "tendons_solicites": [
+      "tendones cervicales"
+    ],
+    "type": "Movilización conjunta",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie o sentado",
+    "contraintes": [
+      "No fuerces la inclinación si sientes dolor."
+    ],
+    "variantes": [
+      "Rotación del cuello"
+    ],
+    "consignes": {
+      "Positionnement": "Párate derecho, con la cabeza alineada con tu cuerpo.",
+      "Mouvement": "Incline suavemente la cabeza hacia el hombro derecho y luego hacia el hombro izquierdo.",
+      "Retour": "Regrese la cabeza a una posición neutral entre cada inclinación.",
+      "Respiration": "Respira profunda y naturalmente.",
+      "Posture": "Relaja los hombros y mantén la espalda recta."
+    }
+  },
+  "E018": {
+    "nom": "Rotación del tronco",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "abdominales",
+    "objectifs": [
+      "Movilidad",
+      "Preparación conjunta",
+      "Activación muscular"
+    ],
+    "muscles_secondaires": [
+      "oblicuos",
+      "lumbares"
+    ],
+    "articulations_solicitees": [
+      "Caderas",
+      "columna vertebral"
+    ],
+    "tendons_solicites": [
+      "Ligamentos espinales"
+    ],
+    "type": "Movilización conjunta",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "No fuerces la amplitud si sientes dolor."
+    ],
+    "variantes": [
+      "Rotación del tronco con un palo."
+    ],
+    "consignes": {
+      "Positionnement": "Párese con los pies separados a la altura de los hombros y los brazos cruzados sobre el pecho o detrás de la cabeza.",
+      "Mouvement": "Gira lentamente tu tronco de izquierda a derecha sin mover la pelvis.",
+      "Retour": "Mantenga una amplitud controlada y suave.",
+      "Respiration": "Inhala en posición neutral, exhala mientras giras.",
+      "Posture": "Mantenga la espalda recta y contraiga los abdominales."
+    }
+  },
+  "E019": {
+    "nom": "Flexión-extensión del tronco",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "abdominales",
+    "objectifs": [
+      "Movilidad",
+      "Preparación conjunta",
+      "Refuerzo ligero"
+    ],
+    "muscles_secondaires": [
+      "lumbares",
+      "oblicuos"
+    ],
+    "articulations_solicitees": [
+      "columna vertebral",
+      "Caderas"
+    ],
+    "tendons_solicites": [
+      "Ligamentos espinales"
+    ],
+    "type": "Preparación conjunta",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "No baje demasiado si le duele la espalda baja."
+    ],
+    "variantes": [
+      "Flexión-extensión con bastón"
+    ],
+    "consignes": {
+      "Positionnement": "Párese con los pies separados a la altura de los hombros y las manos en las caderas o detrás de la cabeza.",
+      "Mouvement": "Incline lentamente el torso hacia adelante y luego levántese.",
+      "Retour": "Regresa a la posición inicial con control.",
+      "Respiration": "Inhala al bajar, exhala al subir.",
+      "Posture": "Mantenga los abdominales contraídos y la espalda recta."
+    }
+  },
+  "E020": {
+    "nom": "Rotación del tronco con un palo.",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "abdominales",
+    "objectifs": [
+      "Movilidad",
+      "Preparación conjunta",
+      "Activación muscular"
+    ],
+    "muscles_secondaires": [
+      "oblicuos",
+      "lumbares"
+    ],
+    "articulations_solicitees": [
+      "Caderas",
+      "columna vertebral"
+    ],
+    "tendons_solicites": [
+      "Ligamentos espinales"
+    ],
+    "type": "Movilización conjunta",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "palo"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "No fuerces la amplitud si sientes dolor."
+    ],
+    "variantes": [
+      "Rotación del tronco"
+    ],
+    "consignes": {
+      "Positionnement": "De pie, con los pies separados a la altura de los hombros, el bastón colocado detrás del cuello y sostenido por las manos.",
+      "Mouvement": "Gira lentamente tu tronco de izquierda a derecha sin mover la pelvis.",
+      "Retour": "Mantenga una amplitud controlada y suave.",
+      "Respiration": "Inhala en posición neutral, exhala mientras giras.",
+      "Posture": "Mantenga la espalda recta y contraiga los abdominales."
+    }
+  },
+  "E021": {
+    "nom": "Flexión-extensión con bastón",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "abdominales",
+    "objectifs": [
+      "Movilidad",
+      "Preparación conjunta",
+      "Refuerzo ligero"
+    ],
+    "muscles_secondaires": [
+      "lumbares",
+      "oblicuos"
+    ],
+    "articulations_solicitees": [
+      "columna vertebral",
+      "Caderas"
+    ],
+    "tendons_solicites": [
+      "Ligamentos espinales"
+    ],
+    "type": "Preparación conjunta",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "palo"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "No baje demasiado si le duele la espalda baja."
+    ],
+    "variantes": [
+      "Flexión-extensión del tronco"
+    ],
+    "consignes": {
+      "Positionnement": "Párese con los pies separados a la altura de los hombros, el bastón colocado sobre los hombros y sostenido con las manos.",
+      "Mouvement": "Incline lentamente el torso hacia adelante y luego levántese.",
+      "Retour": "Regresa a la posición inicial con control.",
+      "Respiration": "Inhala al bajar, exhala al subir.",
+      "Posture": "Mantenga los abdominales contraídos y la espalda recta."
+    }
+  },
+  "E022": {
+    "nom": "Tacones a tope",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "Isquiotibiales",
+    "objectifs": [
+      "Activación muscular",
+      "Preparación conjunta",
+      "cardio"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "terneros"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Tobillos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles"
+    ],
+    "type": "cardio moderado",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Evite impactos si le duele la rodilla."
+    ],
+    "consignes": {
+      "Positionnement": "Párese con los pies separados a la altura de los hombros.",
+      "Mouvement": "Alternativamente, lleve un talón hacia el glúteo, activando los isquiotibiales.",
+      "Retour": "Alternar sin impacto excesivo.",
+      "Respiration": "Inhala y exhala regularmente.",
+      "Posture": "Mantén la espalda recta y la mirada hacia adelante."
+    }
+  },
+  "E023": {
+    "nom": "Pequeño salto en el acto",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "terneros",
+    "objectifs": [
+      "Activación muscular",
+      "Preparación conjunta",
+      "cardio"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "Tobillos",
+      "rodillas"
+    ],
+    "tendons_solicites": [
+      "tendón de aquiles"
+    ],
+    "type": "cardio moderado",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Limite el impacto si le duele el tobillo."
+    ],
+    "variantes": [
+      "saltos alternos",
+      "Rebote ligero sin impacto."
+    ],
+    "consignes": {
+      "Positionnement": "Párese con los pies separados a la altura de los hombros.",
+      "Mouvement": "Realiza pequeños saltos mientras permaneces de puntillas.",
+      "Retour": "Mantenga un ritmo ligero y constante.",
+      "Respiration": "Respira naturalmente, no bloquees tu respiración.",
+      "Posture": "Mantenga sus abdominales contraídos y sus hombros relajados."
+    }
+  },
+  "E024": {
+    "nom": "saltos alternos",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "terneros",
+    "objectifs": [
+      "Activación muscular",
+      "Preparación conjunta",
+      "cardio"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "Tobillos",
+      "rodillas"
+    ],
+    "tendons_solicites": [
+      "tendón de aquiles"
+    ],
+    "type": "cardio moderado",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Limitar el impacto en caso de dolor de rodilla o tobillo."
+    ],
+    "variantes": [
+      "Pequeño salto en el acto",
+      "Rebote ligero sin impacto."
+    ],
+    "consignes": {
+      "Positionnement": "Párese con los pies separados a la altura de los hombros.",
+      "Mouvement": "Salta alternando los apoyos de los pies como si estuvieras corriendo en el mismo lugar.",
+      "Retour": "Mantenga un movimiento suave y controlado.",
+      "Respiration": "Respira naturalmente al ritmo de los saltos.",
+      "Posture": "Contrae tus abdominales y mantén el torso recto."
+    }
+  },
+  "E025": {
+    "nom": "Rebote ligero sin impacto.",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "terneros",
+    "objectifs": [
+      "Preparación conjunta",
+      "Activación muscular",
+      "cardio ligero"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "Tobillos",
+      "rodillas"
+    ],
+    "tendons_solicites": [
+      "tendón de aquiles"
+    ],
+    "type": "cardio ligero",
+    "niveau": "Principiante - Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Ideal para personas con restricciones de impacto."
+    ],
+    "variantes": [
+      "Pequeño salto en el acto",
+      "saltos alternos"
+    ],
+    "consignes": {
+      "Positionnement": "Párese con los pies separados a la altura de los hombros.",
+      "Mouvement": "Realice ligeros rebotes mientras permanece sobre las puntas de los pies, sin levantar demasiado.",
+      "Retour": "Manténgase moviéndose suave y ligeramente.",
+      "Respiration": "Respire con calma y regularidad.",
+      "Posture": "Mantenga las rodillas ligeramente flexionadas y la espalda recta."
+    }
+  },
+  "E026": {
+    "nom": "no perseguido",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "Activación muscular",
+      "Preparación conjunta",
+      "Agilidad"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Isquiotibiales",
+      "terneros"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendones isquiotibiales"
+    ],
+    "type": "Movilidad y coordinación",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Evite movimientos demasiado bruscos"
+    ],
+    "variantes": [
+      "No perseguido rápido",
+      "No perseguido con elástico"
+    ],
+    "consignes": {
+      "Positionnement": "Párate con los pies separados a la altura de los hombros y las rodillas ligeramente flexionadas.",
+      "Mouvement": "Muévase hacia los lados, acercando rápidamente el pie trasero al pie delantero.",
+      "Retour": "Repetir alternando lados.",
+      "Respiration": "Respira naturalmente al ritmo de los movimientos.",
+      "Posture": "Mantenga la espalda recta y contraiga los abdominales."
+    }
+  },
+  "E027": {
+    "nom": "Caminata con las rodillas altas",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "Activación muscular",
+      "Preparación conjunta",
+      "cardio ligero"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano"
+    ],
+    "type": "Movilización y activación",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "No fuerce la amplitud si le duele la cadera."
+    ],
+    "variantes": [
+      "Correr con las rodillas altas",
+      "Elevaciones de rodilla"
+    ],
+    "consignes": {
+      "Positionnement": "Párese con los pies separados a la altura de las caderas.",
+      "Mouvement": "Levante una rodilla hasta la altura de la cadera y luego alterne con la otra pierna.",
+      "Retour": "Realiza el movimiento de forma dinámica pero controlada.",
+      "Respiration": "Inhala mientras levantas la rodilla, exhala mientras la bajas.",
+      "Posture": "Contrae tus abdominales y mantén la espalda recta."
+    }
+  },
+  "E028": {
+    "nom": "Estocada hacia adelante",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "Preparación conjunta",
+      "Activación muscular",
+      "Saldo"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Glúteos",
+      "Isquiotibiales"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendones isquiotibiales"
+    ],
+    "type": "Movilización y activación",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "No bajes demasiado si te duelen las rodillas."
+    ],
+    "variantes": [
+      "Estocadas estáticas",
+      "Estocadas hacia atrás"
+    ],
+    "consignes": {
+      "Positionnement": "Párese con los pies separados a la altura de las caderas.",
+      "Mouvement": "Da un paso hacia adelante y baja para hacer una estocada hacia adelante, luego alterna las piernas.",
+      "Retour": "Mantenga su movimiento suave y controlado.",
+      "Respiration": "Inhala al bajar, exhala al subir.",
+      "Posture": "Mantenga el torso recto y contraiga los abdominales."
+    }
+  },
+  "E029": {
+    "nom": "No perseguido rápido",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "Activación muscular",
+      "Agilidad",
+      "Preparación conjunta"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "terneros",
+      "Isquiotibiales"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendones isquiotibiales"
+    ],
+    "type": "Movilidad y coordinación",
+    "niveau": "Intermedio - Avanzado",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Evite movimientos demasiado bruscos"
+    ],
+    "variantes": [
+      "no perseguido",
+      "No perseguido con elástico"
+    ],
+    "consignes": {
+      "Positionnement": "Párate con las rodillas ligeramente flexionadas.",
+      "Mouvement": "Muévase hacia los lados lo más rápido posible.",
+      "Retour": "Alterne los lados manteniendo un buen control del movimiento.",
+      "Respiration": "Respire naturalmente al ritmo del movimiento.",
+      "Posture": "Mantenga la espalda recta y contraiga los abdominales."
+    }
+  },
+  "E030": {
+    "nom": "No perseguido con elástico",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "Fortalecimiento muscular",
+      "Activación muscular",
+      "Calentamiento dinámico"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "terneros",
+      "Glúteos"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendones isquiotibiales"
+    ],
+    "type": "Movilidad y coordinación",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Resistencia elástica"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "No lleves un elástico demasiado rígido."
+    ],
+    "variantes": [
+      "no perseguido",
+      "No perseguido rápido"
+    ],
+    "consignes": {
+      "Positionnement": "Coloca una banda elástica alrededor de tus rodillas o tobillos.",
+      "Mouvement": "Da pasos de lado a lado mientras mantienes la tensión en el elástico.",
+      "Retour": "Repetir alternando lados.",
+      "Respiration": "Inhala mientras abres, exhala mientras cierras.",
+      "Posture": "Mantén las rodillas ligeramente flexionadas y activa los glúteos."
+    }
+  },
+  "E031": {
+    "nom": "Correr con las rodillas altas",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "cardio",
+      "Movilidad",
+      "Agilidad",
+      "Activación muscular"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "terneros",
+      "Glúteos"
+    ],
+    "articulations_solicitees": [
+      "Tobillos",
+      "rodillas",
+      "Caderas"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles"
+    ],
+    "type": "Cardio y coordinación",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Evítelo si le duele la rodilla o el tobillo."
+    ],
+    "variantes": [
+      "Elevaciones de rodilla",
+      "Corre en el acto"
+    ],
+    "consignes": {
+      "Positionnement": "Párese derecho con los pies separados a la altura de las caderas.",
+      "Mouvement": "Levanta las rodillas rápidamente de forma alternativa, manteniendo la espalda recta.",
+      "Retour": "Mantenga un ritmo constante y movimientos suaves.",
+      "Respiration": "Respira regularmente al ritmo de la carrera.",
+      "Posture": "Contrae tus abdominales y mantén tus brazos activos."
+    }
+  },
+  "E032": {
+    "nom": "Elevaciones de rodilla",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "Movilidad",
+      "Activación muscular",
+      "Preparación conjunta"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Glúteos",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano"
+    ],
+    "type": "Preparación conjunta",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "No fuerce la amplitud si le duele la cadera."
+    ],
+    "variantes": [
+      "Correr con las rodillas altas"
+    ],
+    "consignes": {
+      "Positionnement": "Párese derecho con los pies separados a la altura de las caderas.",
+      "Mouvement": "Levante una rodilla hacia el pecho y luego alterne con la otra pierna.",
+      "Retour": "Mantenga un ritmo controlado y constante.",
+      "Respiration": "Exhala mientras levantas la rodilla, inhala mientras la bajas.",
+      "Posture": "Contrae tus abdominales y mantén la mirada al frente."
+    }
+  },
+  "E033": {
+    "nom": "Estocadas estáticas",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "Refuerzo",
+      "Movilidad",
+      "Activación muscular"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Glúteos",
+      "Isquiotibiales"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano"
+    ],
+    "type": "Preparación muscular",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Mantenga las rodillas alineadas con los dedos de los pies para evitar tensiones."
+    ],
+    "variantes": [
+      "Estocadas frontales",
+      "Estocadas hacia atrás"
+    ],
+    "consignes": {
+      "Positionnement": "Párate derecho, un pie adelante y el otro atrás.",
+      "Mouvement": "Doble ambas rodillas para bajar en una estocada, sin tocar el suelo con la rodilla trasera.",
+      "Retour": "Vuelve a subir manteniendo la espalda recta y alternando las piernas.",
+      "Respiration": "Inhala al bajar, exhala al subir.",
+      "Posture": "Contrae tus abdominales y mantén la mirada al frente."
+    }
+  },
+  "E034": {
+    "nom": "Estocadas hacia atrás",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "Refuerzo",
+      "Saldo",
+      "Movilidad"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Glúteos",
+      "Isquiotibiales"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano"
+    ],
+    "type": "Preparación muscular",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Evite movimientos bruscos para preservar las articulaciones."
+    ],
+    "variantes": [
+      "Estocadas frontales",
+      "Estocadas estáticas"
+    ],
+    "consignes": {
+      "Positionnement": "Párese derecho con los pies separados a la altura de las caderas.",
+      "Mouvement": "Da un paso atrás con un pie y dobla las rodillas para descender en una estocada.",
+      "Retour": "Empuja la pierna delantera para volver a la posición inicial.",
+      "Respiration": "Inhala al bajar, exhala al subir.",
+      "Posture": "Mantén la espalda recta y la mirada hacia adelante."
+    }
+  },
+  "E035": {
+    "nom": "Corre en el acto",
+    "categorie": "Calentamiento",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "cardio",
+      "explosividad",
+      "Coordinación"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "terneros",
+      "Glúteos"
+    ],
+    "articulations_solicitees": [
+      "Tobillos",
+      "rodillas"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles"
+    ],
+    "type": "cardio intensivo",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Ninguno"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Controla la intensidad según el nivel y evita impactos excesivamente violentos."
+    ],
+    "variantes": [
+      "Correr con las rodillas altas"
+    ],
+    "consignes": {
+      "Positionnement": "Párese derecho con los pies separados a la altura de las caderas.",
+      "Mouvement": "Realice un trote rápido en su lugar mientras levanta las rodillas.",
+      "Retour": "Mantenga un ritmo constante y controlado.",
+      "Respiration": "Respira profunda y rítmicamente.",
+      "Posture": "Contrae tus abdominales y mantén la espalda recta."
+    }
+  }
+}

@@ -1,18 +1,23 @@
 // src/components/Footer.jsx
 import React from "react";
-import { Box, Flex, Link, Text, SimpleGrid, useColorModeValue } from "@chakra-ui/react";
+import { Box, Flex, Link, Text, SimpleGrid } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
+import { useAppTheme } from "../styles/appTheme";
 
 export function Footer() {
   const { t } = useTranslation();
-
-  const bg = useColorModeValue("gray.100", "gray.900");
-  const color = useColorModeValue("gray.600", "gray.300");
-  const linkColor = useColorModeValue("gray.700", "gray.200");
-  const linkHover = useColorModeValue("blue.600", "blue.300");
+  const theme = useAppTheme();
 
   return (
-    <Box as="footer" bg={bg} color={color} py={{ base: 4, md: 6 }} mt={{ base: 6, md: 8 }}>
+    <Box
+      as="footer"
+      {...theme.cardProps}
+      color={theme.mutedText}
+      py={{ base: 4, md: 6 }}
+      mt={{ base: 6, md: 8 }}
+      mx={{ base: 3, md: 6 }}
+      mb={{ base: 3, md: 5 }}
+    >
       <Flex
         maxW="1200px"
         mx="auto"
@@ -30,28 +35,28 @@ export function Footer() {
           w="full"
           maxW="900px"
         >
-          <Link href="/about" color={linkColor} _hover={{ color: linkHover }} fontSize="sm">
+          <Link href="/about" color={theme.textColor} _hover={{ color: theme.accentBlue }} fontSize="sm">
             {t("footer.about")}
           </Link>
 
           {/* ✅ Tarifs -> page Plan Pro (pricing centralisé) */}
-          <Link href="/plans/professionnel" color={linkColor} _hover={{ color: linkHover }} fontSize="sm">
+          <Link href="/plans/professionnel" color={theme.textColor} _hover={{ color: theme.accentBlue }} fontSize="sm">
             {t("footer.pricing", "Tarifs")}
           </Link>
 
-          <Link href="/contact" color={linkColor} _hover={{ color: linkHover }} fontSize="sm">
+          <Link href="/contact" color={theme.textColor} _hover={{ color: theme.accentBlue }} fontSize="sm">
             {t("footer.contact")}
           </Link>
 
-          <Link href="/privacy" color={linkColor} _hover={{ color: linkHover }} fontSize="sm">
+          <Link href="/privacy" color={theme.textColor} _hover={{ color: theme.accentBlue }} fontSize="sm">
             {t("footer.privacy")}
           </Link>
 
-          <Link href="/terms" color={linkColor} _hover={{ color: linkHover }} fontSize="sm">
+          <Link href="/terms" color={theme.textColor} _hover={{ color: theme.accentBlue }} fontSize="sm">
             {t("footer.terms")}
           </Link>
 
-          <Link href="/sales-policy" color={linkColor} _hover={{ color: linkHover }} fontSize="sm">
+          <Link href="/sales-policy" color={theme.textColor} _hover={{ color: theme.accentBlue }} fontSize="sm">
             {t("footer.sales")}
           </Link>
         </SimpleGrid>

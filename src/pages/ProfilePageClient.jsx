@@ -12,6 +12,16 @@ import {
   Spinner,
   Select,
   HStack,
+  Text,
+  VStack,
+  useColorModeValue,
+  SimpleGrid,
+  Badge,
+  Divider,
+  Circle,
+  Icon,
+  Textarea,
+  Flex,
 } from "@chakra-ui/react";
 import { useAuth } from "../AuthContext";
 import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
@@ -22,6 +32,17 @@ import { useTranslation } from "react-i18next";
 import { getAuth, sendPasswordResetEmail } from "firebase/auth";
 // ☁️ Cloud Functions (changeClientEmail)
 import { getFunctions, httpsCallable } from "firebase/functions";
+import {
+  MdOutlineFitnessCenter,
+  MdOutlineLanguage,
+  MdOutlinePerson,
+  MdOutlinePhone,
+  MdOutlineStraighten,
+  MdOutlineTrackChanges,
+} from "react-icons/md";
+import AppLoading from "../components/ui/AppLoading";
+import PageBackButton from "../components/ui/PageBackButton";
+import { notify } from "../utils/notify";
 
 /* ---- conversions identiques à ClientCreation.jsx ---- */
 const KG_PER_LB = 0.45359237;
@@ -51,6 +72,94 @@ const codeFromAny = (val) => {
 };
 const labelFromCode = (code) =>
   LANGS.find((l) => l.code === code)?.label || "Français";
+
+function StatMini({ label, value, helper, icon, accent, surfaceBg, borderColor, mutedText, subtleText, glassShadow }) {
+  return (
+    <Box
+      bg={surfaceBg}
+      border="1px solid"
+      borderColor={borderColor}
+      borderRadius="22px"
+      p={4}
+      position="relative"
+      overflow="hidden"
+      boxShadow={glassShadow}
+      _before={{
+        content: '""',
+        position: "absolute",
+        right: "-18px",
+        bottom: "-22px",
+        w: "110px",
+        h: "110px",
+        borderRadius: "full",
+        bg: `${accent}16`,
+        filter: "blur(24px)",
+      }}
+    >
+      <HStack justify="space-between" align="flex-start" position="relative" zIndex={1}>
+        <Box minW={0}>
+          <Text fontSize="sm" color={mutedText} fontWeight="600">
+            {label}
+          </Text>
+          <Text mt={2} fontSize={{ base: "xl", md: "2xl" }} fontWeight="900" letterSpacing="-0.03em">
+            {value}
+          </Text>
+          {helper ? (
+            <Text mt={2} fontSize="sm" color={subtleText}>
+              {helper}
+            </Text>
+          ) : null}
+        </Box>
+        <Circle size="42px" bg={`${accent}20`} color={accent} flexShrink={0}>
+          <Icon as={icon} boxSize="20px" />
+        </Circle>
+      </HStack>
+    </Box>
+  );
+}
+
+function SectionCard({ title, subtitle, icon, accent, children, cardBg, borderColor, glassShadow, subtleText }) {
+  return (
+    <Box
+      bg={cardBg}
+      borderRadius="22px"
+      p={{ base: 4, md: 5 }}
+      boxShadow={glassShadow}
+      border="1px solid"
+      borderColor={borderColor}
+      position="relative"
+      overflow="hidden"
+      _before={{
+        content: '""',
+        position: "absolute",
+        right: "-20px",
+        bottom: "-24px",
+        w: "140px",
+        h: "140px",
+        borderRadius: "full",
+        bg: `${accent}14`,
+        filter: "blur(30px)",
+      }}
+    >
+      <HStack justify="space-between" align="flex-start" mb={4} position="relative" zIndex={1}>
+        <HStack spacing={3} align="flex-start">
+          <Circle size="40px" bg={`${accent}20`} color={accent} flexShrink={0}>
+            <Icon as={icon} boxSize="20px" />
+          </Circle>
+          <Box>
+            <Heading size="md" letterSpacing="-0.02em">{title}</Heading>
+            {subtitle ? (
+              <Text mt={1} fontSize="sm" color={subtleText}>
+                {subtitle}
+              </Text>
+            ) : null}
+          </Box>
+        </HStack>
+      </HStack>
+      <Box position="relative" zIndex={1}>{children}</Box>
+    </Box>
+  );
+}
 
 export default function ProfilePageClient() {
   const { t, i18n } = useTranslation("common");
@@ -85,6 +194,27 @@ export default function ProfilePageClient() {
   });
 
   const [initialEmail, setInitialEmail] = useState("");
+  const pageBg = useColorModeValue("#F5F7FB", "#070B14");
+  const surfaceBg = useColorModeValue("rgba(255,255,255,0.85)", "rgba(15,21,35,0.86)");
+  const surfaceBgStrong = useColorModeValue("rgba(255,255,255,0.95)", "rgba(11,16,27,0.95)");
+  const cardBg = surfaceBg;
+  const borderColor = useColorModeValue("rgba(15,23,42,0.08)", "rgba(255,255,255,0.08)");
+  const borderStrong = useColorModeValue("rgba(15,23,42,0.12)", "rgba(255,255,255,0.12)");
+  const mutedText = useColorModeValue("rgba(17,24,39,0.68)", "rgba(255,255,255,0.68)");
+  const subtleText = useColorModeValue("rgba(17,24,39,0.52)", "rgba(255,255,255,0.46)");
+  const textColor = useColorModeValue("#111827", "white");
+  const glassShadow = useColorModeValue(
+    "0 20px 50px rgba(15,23,42,0.08)",
+    "0 20px 60px rgba(0,0,0,0.35)"
+  );
+  const topGlow = useColorModeValue("rgba(59,130,246,0.10)", "rgba(59,130,246,0.14)");
+  const bottomGlow = useColorModeValue("rgba(16,185,129,0.08)", "rgba(16,185,129,0.10)");
+  const heroGlow = useColorModeValue("rgba(59,130,246,0.08)", "rgba(59,130,246,0.10)");
+  const heroSecondaryGlow = useColorModeValue("rgba(16,185,129,0.08)", "rgba(16,185,129,0.10)");
+  const heroAvatarBg = useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)");
+  const activeBlue = "#3B82F6";
+  const activeGreen = "#10B981";
+  const activePurple = "#8B5CF6";
 
   /* ---------- applyLanguage: change toute l'appli immédiatement ---------- */
   const applyLanguage = (code) => {
@@ -343,8 +473,7 @@ export default function ProfilePageClient() {
         await updateFirestoreDocs(newEmail);
         setInitialEmail(newEmail);
 
-        toast({
-          status: "success",
+        notify(toast, "profileSaved", {
           title: t("profile.toasts.updated_title", "Profil mis à jour"),
           description: t(
             "profile.toasts.email_changed",
@@ -353,8 +482,7 @@ export default function ProfilePageClient() {
         });
       } else {
         await updateFirestoreDocs();
-        toast({
-          status: "success",
+        notify(toast, "profileSaved", {
           title: t("profile.toasts.updated_title", "Profil mis à jour"),
           description: t(
             "profile.toasts.updated_desc",
@@ -375,8 +503,7 @@ export default function ProfilePageClient() {
         msg = t("errors.invalid_email", "Adresse e-mail invalide.");
       }
 
-      toast({
-        status: "error",
+      notify(toast, "saveError", {
         title: t("profile.toasts.update_error_title", "Échec de la mise à jour"),
         description: msg,
       });
@@ -387,12 +514,7 @@ export default function ProfilePageClient() {
 
   /* ---------- UI ---------- */
   if (isLoading) {
-    return (
-      <Box p={8} textAlign="center">
-        <Spinner size="xl" />
-        <Box mt={3}>{t("common.loading", "Chargement…")}</Box>
-      </Box>
-    );
+    return <AppLoading label={t("common.loading", "Chargement...")} />;
   }
 
   const weightPlaceholder =
@@ -400,16 +522,247 @@ export default function ProfilePageClient() {
       ? `${t("clientCreation.weight")} (kg)`
       : `${t("clientCreation.weight")} (lbs)`;
   const heightPlaceholderCm = `${t("clientCreation.height")} (cm)`;
+  const profileCompletion = [
+    form.firstName,
+    form.lastName,
+    form.email,
+    form.phone,
+    form.dateNaissance,
+    form.sexe,
+    form.poids,
+    form.niveauSportif,
+    form.objectifs,
+  ].filter((v) => String(v || "").trim()).length;
+  const profileCompletionPct = Math.round((profileCompletion / 9) * 100);
+  const displayedHeight =
+    heightUnit === "cm"
+      ? (heightCm ? `${heightCm} cm` : "—")
+      : (heightFt || heightIn ? `${heightFt || 0} ft ${heightIn || 0} in` : "—");
+  const displayedWeight = form.poids ? `${form.poids} ${weightUnit}` : "—";
 
   return (
-    <Box p={8} maxW="720px" mx="auto">
-      <Heading as="h1" mb={6} textAlign="center">
-        {t("profile.title", "Mon profil")}
-      </Heading>
+    <Box p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
+      <Box position="absolute" top={{ base: 4, md: 6 }} left={{ base: 4, md: 6 }} zIndex={20}>
+        <PageBackButton />
+      </Box>
+      <Box
+        position="absolute"
+        top="-140px"
+        right="-100px"
+        w="420px"
+        h="420px"
+        borderRadius="full"
+        bg={topGlow}
+        filter="blur(90px)"
+        pointerEvents="none"
+      />
+      <Box
+        position="absolute"
+        bottom="-140px"
+        left="-100px"
+        w="380px"
+        h="380px"
+        borderRadius="full"
+        bg={bottomGlow}
+        filter="blur(90px)"
+        pointerEvents="none"
+      />
+      <VStack maxW="1120px" mx="auto" spacing={6} align="stretch" position="relative" zIndex={1}>
+        <Box
+          bg={surfaceBgStrong}
+          borderRadius="30px"
+          p={{ base: 4, md: 5 }}
+          boxShadow={glassShadow}
+          border="1px solid"
+          borderColor={borderStrong}
+          position="relative"
+          overflow="hidden"
+        >
+          <Box
+            position="absolute"
+            top="-40px"
+            right="-20px"
+            w="220px"
+            h="220px"
+            borderRadius="full"
+            bg={heroGlow}
+            filter="blur(38px)"
+          />
+          <Box
+            position="absolute"
+            bottom="-60px"
+            left="20%"
+            w="240px"
+            h="240px"
+            borderRadius="full"
+            bg={heroSecondaryGlow}
+            filter="blur(48px)"
+          />
+          <Flex
+            position="relative"
+            zIndex={1}
+            direction={{ base: "column", xl: "row" }}
+            justify="space-between"
+            align={{ base: "stretch", xl: "center" }}
+            gap={3}
+          >
+            <HStack spacing={3} align="center" minW={0} flex="1">
+              <Circle
+                size={{ base: "56px", md: "64px" }}
+                bg={heroAvatarBg}
+                border="1px solid"
+                borderColor={borderStrong}
+                color={textColor}
+                fontWeight="900"
+                fontSize="xl"
+                flexShrink={0}
+              >
+                {(form.firstName || user?.firstName || "U").slice(0, 1).toUpperCase()}
+              </Circle>
+              <Box minW={0}>
+                <Heading as="h1" size={{ base: "md", md: "lg" }} lineHeight="1.05" letterSpacing="-0.03em" color={textColor}>
+                  {t("profile.title", "Mon profil")}
+                </Heading>
+                <Text mt={2} color={mutedText}>
+                  Centralisez vos informations, vos objectifs et vos préférences de suivi dans un espace plus clair.
+                </Text>
+              </Box>
+            </HStack>
 
-      <Box as="form" onSubmit={handleSubmit}>
-        <Stack spacing={4}>
-          <HStack>
+            <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={3} minW={{ base: "100%", xl: "480px" }}>
+              <StatMini
+                label="Profil complété"
+                value={`${profileCompletionPct}%`}
+                helper="Informations remplies"
+                icon={MdOutlinePerson}
+                accent={activeBlue}
+                surfaceBg={surfaceBg}
+                borderColor={borderColor}
+                mutedText={mutedText}
+                subtleText={subtleText}
+                glassShadow={glassShadow}
+              />
+              <StatMini
+                label="Objectif"
+                value={form.objectifs || "—"}
+                helper={form.niveauSportif || "Niveau non défini"}
+                icon={MdOutlineTrackChanges}
+                accent={activeGreen}
+                surfaceBg={surfaceBg}
+                borderColor={borderColor}
+                mutedText={mutedText}
+                subtleText={subtleText}
+                glassShadow={glassShadow}
+              />
+              <StatMini
+                label="Préférences"
+                value={langCode.toUpperCase()}
+                helper={`${heightUnit}/${weightUnit}`}
+                icon={MdOutlineLanguage}
+                accent={activePurple}
+                surfaceBg={surfaceBg}
+                borderColor={borderColor}
+                mutedText={mutedText}
+                subtleText={subtleText}
+                glassShadow={glassShadow}
+              />
+            </SimpleGrid>
+          </Flex>
+        </Box>
+
+        <SimpleGrid columns={{ base: 1, xl: 12 }} spacing={6}>
+          <Box gridColumn={{ base: "span 1", xl: "span 4" }}>
+            <VStack spacing={6} align="stretch">
+              <SectionCard
+                title="Vue rapide"
+                subtitle="Les repères personnels les plus utiles au quotidien."
+                icon={MdOutlinePerson}
+                accent={activeBlue}
+                cardBg={cardBg}
+                borderColor={borderColor}
+                glassShadow={glassShadow}
+                subtleText={subtleText}
+              >
+                <VStack align="stretch" spacing={3}>
+                  <Box border="1px solid" borderColor={borderColor} borderRadius="18px" p={3.5}>
+                    <Text fontSize="xs" color={subtleText} mb={1}>Identité</Text>
+                    <Text fontWeight="800">{`${form.firstName || "—"} ${form.lastName || ""}`.trim() || "—"}</Text>
+                    <Text mt={1} fontSize="sm" color={mutedText}>{form.email || "—"}</Text>
+                  </Box>
+                  <Box border="1px solid" borderColor={borderColor} borderRadius="18px" p={3.5}>
+                    <Text fontSize="xs" color={subtleText} mb={1}>Mesure actuelle</Text>
+                    <Text fontWeight="800">{displayedWeight}</Text>
+                    <Text mt={1} fontSize="sm" color={mutedText}>Taille : {displayedHeight}</Text>
+                  </Box>
+                  <Box border="1px solid" borderColor={borderColor} borderRadius="18px" p={3.5}>
+                    <Text fontSize="xs" color={subtleText} mb={1}>Contact</Text>
+                    <Text fontWeight="800">{form.phone || "Numéro non renseigné"}</Text>
+                    <Text mt={1} fontSize="sm" color={mutedText}>
+                      {form.dateNaissance || "Date de naissance non renseignée"}
+                    </Text>
+                  </Box>
+                </VStack>
+              </SectionCard>
+
+              <SectionCard
+                title="Préférences"
+                subtitle="Unités, langue et contexte d'entraînement."
+                icon={MdOutlineLanguage}
+                accent={activePurple}
+                cardBg={cardBg}
+                borderColor={borderColor}
+                glassShadow={glassShadow}
+                subtleText={subtleText}
+              >
+                <VStack align="stretch" spacing={3}>
+                  <HStack justify="space-between">
+                    <Text color={mutedText}>Langue</Text>
+                    <Badge variant="subtle">{labelFromCode(langCode)}</Badge>
+                  </HStack>
+                  <Divider borderColor={borderColor} />
+                  <HStack justify="space-between">
+                    <Text color={mutedText}>Unités</Text>
+                    <Badge variant="subtle">{heightUnit} / {weightUnit}</Badge>
+                  </HStack>
+                  <Divider borderColor={borderColor} />
+                  <HStack justify="space-between">
+                    <Text color={mutedText}>Niveau</Text>
+                    <Badge variant="subtle">{form.niveauSportif || "—"}</Badge>
+                  </HStack>
+                  <Divider borderColor={borderColor} />
+                  <HStack justify="space-between">
+                    <Text color={mutedText}>Sexe</Text>
+                    <Badge variant="subtle">{form.sexe || "—"}</Badge>
+                  </HStack>
+                </VStack>
+              </SectionCard>
+            </VStack>
+          </Box>
+
+          <Box gridColumn={{ base: "span 1", xl: "span 8" }}>
+            <Box
+              as="form"
+              onSubmit={handleSubmit}
+              bg={cardBg}
+              borderRadius="22px"
+              p={{ base: 4, md: 5 }}
+              boxShadow={glassShadow}
+              border="1px solid"
+              borderColor={borderColor}
+            >
+              <VStack align="stretch" spacing={6}>
+                <SectionCard
+                  title="Informations personnelles"
+                  subtitle="Votre identité et vos coordonnées de contact."
+                  icon={MdOutlinePerson}
+                  accent={activeBlue}
+                  cardBg={cardBg}
+                  borderColor={borderColor}
+                  glassShadow={glassShadow}
+                  subtleText={subtleText}
+                >
+                  <Stack spacing={4}>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
             <FormControl isRequired>
               <FormLabel>{t("profile.labels.firstName")}</FormLabel>
               <Input
@@ -430,7 +783,7 @@ export default function ProfilePageClient() {
                 autoComplete="family-name"
               />
             </FormControl>
-          </HStack>
+                    </SimpleGrid>
 
           <FormControl isRequired>
             <FormLabel>{t("profile.labels.email")}</FormLabel>
@@ -454,8 +807,21 @@ export default function ProfilePageClient() {
               autoComplete="tel"
             />
           </FormControl>
+                  </Stack>
+                </SectionCard>
 
-          <HStack>
+                <SectionCard
+                  title="Données physiques"
+                  subtitle="Les informations utiles pour adapter le suivi à votre profil."
+                  icon={MdOutlineStraighten}
+                  accent={activeGreen}
+                  cardBg={cardBg}
+                  borderColor={borderColor}
+                  glassShadow={glassShadow}
+                  subtleText={subtleText}
+                >
+                  <Stack spacing={4}>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
             <FormControl>
               <FormLabel>{t("clientCreation.birthDate")}</FormLabel>
               <Input
@@ -477,7 +843,7 @@ export default function ProfilePageClient() {
                 </option>
               </Select>
             </FormControl>
-          </HStack>
+                    </SimpleGrid>
 
           {/* Taille */}
           <FormControl>
@@ -531,7 +897,6 @@ export default function ProfilePageClient() {
             )}
           </FormControl>
 
-          {/* Poids */}
           <FormControl>
             <FormLabel>{t("clientCreation.weight")}</FormLabel>
             <HStack>
@@ -554,84 +919,112 @@ export default function ProfilePageClient() {
               </Select>
             </HStack>
           </FormControl>
+                  </Stack>
+                </SectionCard>
 
-          <FormControl>
-            <FormLabel>{t("clientCreation.level")}</FormLabel>
-            <Select
-              name="niveauSportif"
-              value={form.niveauSportif}
-              onChange={onField}
-              required
-            >
-              <option value="Débutant">
-                {t("clientCreation.levels.beginner")}
-              </option>
-              <option value="Intermédiaire">
-                {t("clientCreation.levels.intermediate")}
-              </option>
-              <option value="Confirmé">
-                {t("clientCreation.levels.advanced")}
-              </option>
-            </Select>
-          </FormControl>
+                <SectionCard
+                  title="Objectifs et préférences"
+                  subtitle="Le cadre général de votre progression et de vos habitudes."
+                  icon={MdOutlineFitnessCenter}
+                  accent={activePurple}
+                  cardBg={cardBg}
+                  borderColor={borderColor}
+                  glassShadow={glassShadow}
+                  subtleText={subtleText}
+                >
+                  <Stack spacing={4}>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                      <FormControl>
+                        <FormLabel>{t("clientCreation.level")}</FormLabel>
+                        <Select
+                          name="niveauSportif"
+                          value={form.niveauSportif}
+                          onChange={onField}
+                          required
+                        >
+                          <option value="Débutant">
+                            {t("clientCreation.levels.beginner")}
+                          </option>
+                          <option value="Intermédiaire">
+                            {t("clientCreation.levels.intermediate")}
+                          </option>
+                          <option value="Confirmé">
+                            {t("clientCreation.levels.advanced")}
+                          </option>
+                        </Select>
+                      </FormControl>
 
-          <FormControl>
-            <FormLabel>{t("clientCreation.objective")}</FormLabel>
-            <Select
-              name="objectifs"
-              value={form.objectifs}
-              onChange={onField}
-              required
-            >
-              <option value="Prise de masse">
-                {t("clientCreation.objectives.gain")}
-              </option>
-              <option value="Perte de poids">
-                {t("clientCreation.objectives.loss")}
-              </option>
-              <option value="Force">
-                {t("clientCreation.objectives.strength")}
-              </option>
-              <option value="Endurance">
-                {t("clientCreation.objectives.endurance")}
-              </option>
-              <option value="Remise au sport">
-                {t("clientCreation.objectives.restart")}
-              </option>
-              <option value="Postural">
-                {t("clientCreation.objectives.posture")}
-              </option>
-            </Select>
-          </FormControl>
+                      <FormControl>
+                        <FormLabel>{t("clientCreation.objective")}</FormLabel>
+                        <Select
+                          name="objectifs"
+                          value={form.objectifs}
+                          onChange={onField}
+                          required
+                        >
+                          <option value="Prise de masse">
+                            {t("clientCreation.objectives.gain")}
+                          </option>
+                          <option value="Perte de poids">
+                            {t("clientCreation.objectives.loss")}
+                          </option>
+                          <option value="Force">
+                            {t("clientCreation.objectives.strength")}
+                          </option>
+                          <option value="Endurance">
+                            {t("clientCreation.objectives.endurance")}
+                          </option>
+                          <option value="Remise au sport">
+                            {t("clientCreation.objectives.restart")}
+                          </option>
+                          <option value="Postural">
+                            {t("clientCreation.objectives.posture")}
+                          </option>
+                        </Select>
+                      </FormControl>
+                    </SimpleGrid>
 
-          {/* 🔤 Langue */}
-          <FormControl>
-            <FormLabel>{t("clientCreation.language")}</FormLabel>
-            <Select value={langCode} onChange={onLanguageChange}>
-              {LANGS.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l.label}
-                </option>
-              ))}
-            </Select>
-          </FormControl>
+                    <FormControl maxW={{ base: "100%", md: "280px" }}>
+                      <FormLabel>{t("clientCreation.language")}</FormLabel>
+                      <Select value={langCode} onChange={onLanguageChange}>
+                        {LANGS.map((l) => (
+                          <option key={l.code} value={l.code}>
+                            {l.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </FormControl>
 
-          <FormControl>
-            <FormLabel>{t("clientCreation.notes")}</FormLabel>
-            <Input
-              name="notes"
-              value={form.notes}
-              onChange={onField}
-              placeholder={t("clientCreation.notes")}
-            />
-          </FormControl>
+                    <FormControl>
+                      <FormLabel>{t("clientCreation.notes")}</FormLabel>
+                      <Textarea
+                        name="notes"
+                        value={form.notes}
+                        onChange={onField}
+                        placeholder={t("clientCreation.notes")}
+                        minH="120px"
+                        resize="vertical"
+                      />
+                    </FormControl>
+                  </Stack>
+                </SectionCard>
 
-          <Button type="submit" colorScheme="blue" isLoading={isLoading}>
-            {t("profile.actions.save")}
-          </Button>
-        </Stack>
-      </Box>
+                <HStack justify="space-between" align={{ base: "stretch", md: "center" }} flexDirection={{ base: "column", md: "row" }} spacing={4}>
+                  <VStack align={{ base: "stretch", md: "flex-start" }} spacing={1}>
+                    <Text fontWeight="700" color={textColor}>Mise à jour du profil</Text>
+                    <Text fontSize="sm" color={mutedText}>
+                      Les modifications sont enregistrées sur votre compte et votre fiche client.
+                    </Text>
+                  </VStack>
+                  <Button type="submit" isLoading={isLoading} alignSelf={{ base: "stretch", md: "center" }}>
+                    {t("profile.actions.save")}
+                  </Button>
+                </HStack>
+              </VStack>
+            </Box>
+          </Box>
+        </SimpleGrid>
+      </VStack>
     </Box>
   );
 }
-

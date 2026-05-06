@@ -1,12 +1,12 @@
+/* eslint-disable react/prop-types */
 // src/components/ClientNutritionSection.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
   HStack,
   Heading,
   Text,
-  Spinner,
   Table,
   Thead,
   Tbody,
@@ -16,6 +16,8 @@ import {
   Badge,
   IconButton,
   useToast,
+  SimpleGrid,
+  Stack,
 } from "@chakra-ui/react";
 import { AddIcon } from "@chakra-ui/icons";
 import { useNavigate } from "react-router-dom";
@@ -30,6 +32,9 @@ import {
 import { db } from "../firebaseConfig";
 import { createNutritionAssessmentDraft } from "../utils/nutritionPrefill";
 import { useAuth } from "../AuthContext.jsx";
+import { useNutritionTheme } from "../styles/nutritionTheme";
+import AppLoading from "./ui/AppLoading";
+import { notify } from "../utils/notify";
 
 function formatDate(ts) {
   try {
@@ -41,9 +46,37 @@ function formatDate(ts) {
   }
 }
 
-export default function ClientNutritionSection({ clientId, isAdminOnly = true }) {
+function hasSharedSections(assessment) {
+  const sections = assessment?.clientShare?.sections || {};
+  return !!assessment?.clientShare?.enabled && Object.values(sections).some(Boolean);
+}
+
+function hasNutritionWork(assessment) {
+  const ration = assessment?.ration || {};
+  const hasMenu =
+    Array.isArray(assessment?.clientShare?.snapshot?.menuDays) && assessment.clientShare.snapshot.menuDays.length > 0;
+  const hasRation =
+    !!ration?.selectedType ||
+    !!ration?.mode ||
+    Object.keys(ration?.selected?.items || {}).length > 0 ||
+    Object.keys(ration?.manual || {}).length > 0 ||
+    Object.keys(ration?.auto || {}).length > 0;
+  return hasMenu || hasRation;
+}
+
+function getAssessmentStatus(assessment) {
+  if (hasSharedSections(assessment)) return { label: "Partagé", colorScheme: "green" };
+  if (assessment?.status === "final" || assessment?.validated || assessment?.inputs?.nutritionValidated) {
+    return { label: "Validé", colorScheme: "blue" };
+  }
+  if (hasNutritionWork(assessment)) return { label: "En cours", colorScheme: "orange" };
+  return { label: "Draft", colorScheme: "yellow" };
+}
+
+export default function ClientNutritionSection({ clientId, isAdminOnly = false }) {
   const toast = useToast();
   const navigate = useNavigate();
+  const theme = useNutritionTheme();
 
   // ✅ AuthContext expose "user" (profil Firestore normalisé). Pas de userData.
   const { user } = useAuth();
@@ -74,16 +107,18 @@ export default function ClientNutritionSection({ clientId, isAdminOnly = true })
   }, [clientId]);
 
   const canUse = !isAdminOnly || isAdmin;
+  const sharedCount = useMemo(() => assessments.filter((a) => hasSharedSections(a)).length, [assessments]);
+  const statusSummary = useMemo(() => {
+    if (assessments.some((a) => hasSharedSections(a))) return "Partagé";
+    if (assessments.some((a) => getAssessmentStatus(a).label === "Validé")) return "Validé";
+    if (assessments.some((a) => getAssessmentStatus(a).label === "En cours")) return "En cours";
+    return "Draft";
+  }, [assessments]);
 
   const onCreate = async () => {
     if (!canUse) {
-      toast({
-        title: "Accès réservé",
-        description:
-          "Cette fonctionnalité est disponible uniquement pour l’admin (pour le moment).",
-        status: "warning",
-        duration: 3000,
-        isClosable: true,
+      notify(toast, "accessReserved", {
+        description: "Cette fonctionnalité est disponible uniquement pour l’admin pour le moment.",
       });
       return;
     }
@@ -92,21 +127,12 @@ export default function ClientNutritionSection({ clientId, isAdminOnly = true })
         clientId,
         createdByUid: user?.uid,
       });
-      toast({
-        title: "Bilan créé",
-        description: "Draft nutrition pré-rempli avec les données disponibles.",
-        status: "success",
-        duration: 2500,
-        isClosable: true,
-      });
+      notify(toast, "nutritionDraftCreated");
       navigate(`/clients/${clientId}/nutrition/${assessmentId}`);
     } catch (e) {
-      toast({
-        title: "Erreur",
+      notify(toast, "saveError", {
+        title: "Création impossible",
         description: e?.message || "Impossible de créer le bilan.",
-        status: "error",
-        duration: 4000,
-        isClosable: true,
       });
     }
   };
@@ -121,30 +147,34 @@ export default function ClientNutritionSection({ clientId, isAdminOnly = true })
       await deleteDoc(
         doc(db, "clients", clientId, "nutrition_assessments", assessmentId)
       );
-      toast({
-        title: "Supprimé",
-        status: "success",
-        duration: 2000,
-        isClosable: true,
+      notify(toast, "saveSuccess", {
+        title: "Bilan supprimé",
+        description: "La liste nutrition est à jour.",
       });
     } catch (e) {
-      toast({
-        title: "Erreur",
+      notify(toast, "saveError", {
+        title: "Suppression impossible",
         description: e?.message || "Suppression impossible.",
-        status: "error",
-        duration: 4000,
-        isClosable: true,
       });
     }
   };
 
   return (
-    <Box mt={8} p={5} borderWidth="1px" borderRadius="lg">
-      <HStack justify="space-between" mb={4}>
-        <Heading size="md">Nutrition</Heading>
+    <Box mt={8} p={{ base: 4, md: 5 }} {...theme.cardProps}>
+      <HStack justify="space-between" mb={4} align="start" gap={3} flexWrap="wrap">
+        <Box>
+          <Text fontSize="xs" fontWeight="800" letterSpacing="0.12em" color={theme.subtleText}>
+            SUIVI CLIENT
+          </Text>
+          <Heading size="md" mt={1}>Nutrition</Heading>
+          <Text fontSize="sm" color={theme.mutedText} mt={1}>
+            Bilans, enquête alimentaire, ration et menu journalier au même endroit.
+          </Text>
+        </Box>
         <Button
           leftIcon={<AddIcon />}
-          colorScheme="blue"
+          {...theme.primaryButtonProps}
+          w={{ base: "full", md: "auto" }}
           onClick={onCreate}
           isDisabled={!canUse}
         >
@@ -159,53 +189,110 @@ export default function ClientNutritionSection({ clientId, isAdminOnly = true })
       )}
 
       {loading ? (
-        <HStack py={6} justify="center">
-          <Spinner />
-          <Text>Chargement…</Text>
-        </HStack>
+        <AppLoading label="Chargement..." minH="220px" />
       ) : assessments.length === 0 ? (
-        <Text opacity={0.7}>Aucun bilan nutrition pour ce client.</Text>
+        <Box {...theme.tileProps} p={4}>
+          <Text color={theme.mutedText}>Aucun bilan nutrition pour ce client.</Text>
+        </Box>
       ) : (
-        <Table size="sm">
-          <Thead>
-            <Tr>
-              <Th>Date</Th>
-              <Th>Statut</Th>
-              <Th>IMC</Th>
-              <Th isNumeric>Actions</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {assessments.map((a) => (
-              <Tr key={a.id}>
-                <Td>{formatDate(a.updatedAt || a.createdAt)}</Td>
-                <Td>
-                  <Badge colorScheme={a.status === "final" ? "green" : "yellow"}>
-                    {a.status === "final" ? "Final" : "Draft"}
-                  </Badge>
-                </Td>
-                <Td>{a?.computed?.imc ?? ""}</Td>
-                <Td isNumeric>
-                  <HStack justify="flex-end">
-                    <Button size="sm" onClick={() => onOpen(a.id)}>
+        <>
+          <SimpleGrid columns={{ base: 3, md: 3 }} spacing={{ base: 2, md: 3 }} mb={4}>
+            <Box {...theme.tileProps} p={4}>
+              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={theme.subtleText}>BILANS</Text>
+              <Text fontSize="2xl" fontWeight="900">{assessments.length}</Text>
+              <Text fontSize="sm" color={theme.mutedText}>dossier(s) nutrition</Text>
+            </Box>
+            <Box {...theme.tileProps} p={4}>
+              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={theme.subtleText}>PARTAGÉS</Text>
+              <Text fontSize="2xl" fontWeight="900">{sharedCount}</Text>
+              <Text fontSize="sm" color={theme.mutedText}>visible(s) côté client</Text>
+            </Box>
+            <Box {...theme.tileProps} p={4}>
+              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={theme.subtleText}>STATUT</Text>
+              <Text fontSize="2xl" fontWeight="900">{statusSummary}</Text>
+              <Text fontSize="sm" color={theme.mutedText}>avancement global</Text>
+            </Box>
+          </SimpleGrid>
+
+          <Stack spacing={3} display={{ base: "flex", md: "none" }}>
+            {assessments.map((a) => {
+              const status = getAssessmentStatus(a);
+              const shared = hasSharedSections(a);
+              const objective = a?.inputs?.objectif || a?.inputs?.objective || "Bilan nutrition";
+              return (
+                <Box key={a.id} {...theme.tileProps} p={3}>
+                  <HStack justify="space-between" align="start" gap={3}>
+                    <Box minW={0}>
+                      <Text fontWeight="900">{formatDate(a.updatedAt || a.createdAt) || "Bilan nutrition"}</Text>
+                      <Text fontSize="sm" color={theme.mutedText} noOfLines={2}>{objective}</Text>
+                      <HStack mt={2} spacing={2} flexWrap="wrap">
+                        <Badge colorScheme={status.colorScheme} borderRadius="full" px={2}>{status.label}</Badge>
+                        <Badge colorScheme={shared ? "green" : "gray"} borderRadius="full" px={2}>{shared ? "Client" : "Interne"}</Badge>
+                      </HStack>
+                    </Box>
+                    <Button size="sm" borderRadius="12px" onClick={() => onOpen(a.id)}>
                       Ouvrir
                     </Button>
-                    <IconButton
-                      size="sm"
-                      aria-label="Supprimer"
-                      colorScheme="red"
-                      icon={<span style={{ fontWeight: 700 }}>×</span>}
-                      onClick={() => onDelete(a.id)}
-                      isDisabled={!canUse}
-                    />
                   </HStack>
-                </Td>
-              </Tr>
-            ))}
-          </Tbody>
-        </Table>
+                </Box>
+              );
+            })}
+          </Stack>
+
+          <Box overflowX="auto" {...theme.tileProps} display={{ base: "none", md: "block" }}>
+            <Table size="sm">
+              <Thead>
+                <Tr>
+                  <Th>Date</Th>
+                  <Th>Statut</Th>
+                  <Th>Objectif</Th>
+                  <Th>Partage</Th>
+                  <Th isNumeric>Actions</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {assessments.map((a) => {
+                  const status = getAssessmentStatus(a);
+                  const shared = hasSharedSections(a);
+                  const objective = a?.inputs?.objectif || a?.inputs?.objective || "Bilan nutrition";
+                  return (
+                  <Tr key={a.id}>
+                    <Td>{formatDate(a.updatedAt || a.createdAt)}</Td>
+                    <Td>
+                      <Badge colorScheme={status.colorScheme} borderRadius="full" px={2}>
+                        {status.label}
+                      </Badge>
+                    </Td>
+                    <Td>{objective}</Td>
+                    <Td>
+                      <Badge colorScheme={shared ? "green" : "gray"} borderRadius="full" px={2}>
+                        {shared ? "Client" : "Interne"}
+                      </Badge>
+                    </Td>
+                    <Td isNumeric>
+                      <HStack justify="flex-end">
+                        <Button size="sm" borderRadius="12px" onClick={() => onOpen(a.id)}>
+                          Ouvrir
+                        </Button>
+                        <IconButton
+                          size="sm"
+                          aria-label="Supprimer"
+                          bg="rgba(239,68,68,0.14)"
+                          color="#EF4444"
+                          borderRadius="12px"
+                          icon={<span style={{ fontWeight: 700 }}>×</span>}
+                          onClick={() => onDelete(a.id)}
+                          isDisabled={!canUse}
+                        />
+                      </HStack>
+                    </Td>
+                  </Tr>
+                )})}
+              </Tbody>
+            </Table>
+          </Box>
+        </>
       )}
     </Box>
   );
 }
-

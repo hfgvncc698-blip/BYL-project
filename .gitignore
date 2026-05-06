@@ -33,6 +33,8 @@ backend/serviceAccountKey.json
 backend/firebase-service-account.json
 backend/*.log
 
+exercise-translations/.cache/
+
 
 boost-your-life-f6b3e-firebase-adminsdk-fbsvc-f200c38fb3.json
 .xlsx

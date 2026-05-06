@@ -43,6 +43,7 @@ import {
 } from "@chakra-ui/react";
 import { CloseIcon } from "@chakra-ui/icons";
 import { FaFilter, FaRedo, FaPlus } from "react-icons/fa";
+import AppLoading from "./ui/AppLoading";
 import { MdOutlineMenuBook } from "react-icons/md";
 import {
   collection,
@@ -132,6 +133,58 @@ const extractStrings = (value) => {
   };
   walk(value);
   return out;
+};
+
+const SEARCH_LANGS = ["fr", "en", "it", "es", "de", "ru", "ar"];
+const SEARCH_NAME_FIELDS = [
+  "nom",
+  "name",
+  "title",
+  "label",
+  "exercise",
+  "exerciseName",
+  "nom_exercice",
+];
+const SEARCH_VARIANT_FIELDS = ["variantes", "variants", "alternatives"];
+const LOCALIZED_CONTAINERS = ["translations", "i18n", "localized", "locales"];
+
+const collectExerciseSearchStrings = (ex = {}) => {
+  const out = [];
+  const push = (value) => {
+    extractStrings(value).forEach((item) => {
+      if (item) out.push(item);
+    });
+  };
+
+  SEARCH_NAME_FIELDS.forEach((field) => push(ex[field]));
+  SEARCH_VARIANT_FIELDS.forEach((field) => push(ex[field]));
+
+  for (const lang of SEARCH_LANGS) {
+    for (const field of [...SEARCH_NAME_FIELDS, ...SEARCH_VARIANT_FIELDS]) {
+      push(ex[`${field}_${lang}`]);
+      push(ex[`${field}${lang.toUpperCase()}`]);
+    }
+  }
+
+  for (const containerKey of LOCALIZED_CONTAINERS) {
+    const container = ex?.[containerKey];
+    if (!container || typeof container !== "object") continue;
+
+    for (const lang of SEARCH_LANGS) {
+      const localized = container?.[lang];
+      if (!localized || typeof localized !== "object") continue;
+      SEARCH_NAME_FIELDS.forEach((field) => push(localized[field]));
+      SEARCH_VARIANT_FIELDS.forEach((field) => push(localized[field]));
+    }
+
+    Object.values(container).forEach((localized) => {
+      if (!localized || typeof localized !== "object" || Array.isArray(localized)) return;
+      SEARCH_NAME_FIELDS.forEach((field) => push(localized[field]));
+      SEARCH_VARIANT_FIELDS.forEach((field) => push(localized[field]));
+    });
+  }
+
+  return [...new Set(out.map((item) => String(item || "").trim()).filter(Boolean))];
 };
 
 const normalizeNameKey = (name = "") => normalize(name);
@@ -846,20 +899,27 @@ const FilterSelect = React.memo(function FilterSelect({
   onChange,
   options,
   bg,
+  borderColor,
 }) {
   return (
-    <>
-      <Text fontSize="sm" opacity={0.8} fontWeight="600">
+    <Box>
+      <Text fontSize="sm" opacity={0.8} fontWeight="600" mb={1.5}>
         {label}
       </Text>
-      <Select value={value} onChange={onChange} bg={bg}>
+      <Select
+        value={value}
+        onChange={onChange}
+        bg={bg}
+        borderColor={borderColor}
+        borderRadius="lg"
+      >
         {options.map((o) => (
           <option key={o} value={o}>
             {o}
           </option>
         ))}
       </Select>
-    </>
+    </Box>
   );
 });
 
@@ -969,9 +1029,14 @@ export default function ExerciseBank({
   const [visibleCount, setVisibleCount] = useState(INITIAL_RENDER_COUNT);
 
   const cardBg = useColorModeValue("gray.100", "gray.700");
-  const inputBg = useColorModeValue("white", "gray.600");
-  const fabBg = useColorModeValue("blue.400", "blue.500");
-  const fabHoverBg = useColorModeValue("blue.500", "blue.600");
+  const inputBg = useColorModeValue("white", "gray.800");
+  const border = useColorModeValue("rgba(148,163,184,0.24)", "rgba(148,163,184,0.22)");
+  const panelBg = useColorModeValue("rgba(255,255,255,0.84)", "rgba(15,23,42,0.78)");
+  const subtleBg = useColorModeValue("rgba(248,250,252,0.92)", "rgba(15,23,42,0.88)");
+  const hoverBg = useColorModeValue("rgba(15,23,42,0.05)", "rgba(255,255,255,0.06)");
+  const mutedText = useColorModeValue("gray.600", "gray.300");
+  const fabBg = useColorModeValue("rgba(15,23,42,0.94)", "rgba(15,23,42,0.94)");
+  const fabHoverBg = useColorModeValue("rgba(30,41,59,0.96)", "rgba(30,41,59,0.96)");
 
   useEffect(() => {
     let alive = true;
@@ -1067,20 +1132,28 @@ export default function ExerciseBank({
 
   const indexed = useMemo(() => {
     return exercises.map((ex) => {
-      const nameNorm = normalize(ex.nom || "");
+      const multilingualSearchRaw = collectExerciseSearchStrings(ex);
+      const nameNorm = normalize([ex.nom, ex.name, ...multilingualSearchRaw].filter(Boolean).join(" "));
       const idNorm = normalize(ex.id || ex.docId || "");
+      const multilingualSearchNorm = normalize(multilingualSearchRaw.join(" "));
 
       const musclesPrimaryRaw = extractStrings(ex.groupe_musculaire);
       const musclesSecondaryRaw = extractStrings(ex.muscles_secondaires);
 
-      const jointsRaw = extractStrings(ex.articulations_sollicitees);
+      const jointsRaw = [
+        ...extractStrings(ex.articulations_sollicitees),
+        ...extractStrings(ex.articulations_solicitees),
+      ];
       const positionsRaw = [
         ...extractStrings(ex.position),
         ...extractStrings(ex.positions),
+        ...extractStrings(ex.posture),
+        ...extractStrings(ex.postures),
       ];
 
       const equipmentRaw = [
         ...extractStrings(ex.materiel),
+        ...extractStrings(ex.materiels),
         ...extractStrings(ex.equipement),
         ...extractStrings(ex.equipements),
       ];
@@ -1088,7 +1161,9 @@ export default function ExerciseBank({
       const objectivesRaw = [
         ...extractStrings(ex.objectifs),
         ...extractStrings(ex.objectif),
+        ...extractStrings(ex.objectives),
         ...extractStrings(ex.categorie),
+        ...extractStrings(ex.categories),
         ...extractStrings(ex.categorie_utilisation),
         ex.__collection === "warmup" ? "échauffement" : null,
         ex.__collection === "cooldown" ? "retour au calme" : null,
@@ -1138,9 +1213,11 @@ export default function ExerciseBank({
       const blob = normalize(
         [
           ex.nom,
+          ex.name,
           ex.id,
           ex.docId,
           ex.__collection,
+          ...multilingualSearchRaw,
           ex.niveau,
           ex.type,
           ex.categorie,
@@ -1160,6 +1237,7 @@ export default function ExerciseBank({
         raw: ex,
         nameNorm,
         idNorm,
+        multilingualSearchNorm,
         primarySet,
         secondarySet,
         jointSet,
@@ -1279,8 +1357,9 @@ export default function ExerciseBank({
         for (const w of searchTokens) {
           const inName = it.nameNorm.includes(w);
           const inId = it.idNorm.includes(w);
+          const inMultilingual = it.multilingualSearchNorm.includes(w);
           const inBlob = it.blob.includes(w);
-          if (!inName && !inId && !inBlob) {
+          if (!inName && !inId && !inMultilingual && !inBlob) {
             ok = false;
             break;
           }
@@ -1291,6 +1370,7 @@ export default function ExerciseBank({
       let score = 0;
       for (const w of searchTokens) {
         if (it.nameNorm.includes(w)) score += 6;
+        if (it.multilingualSearchNorm.includes(w)) score += 6;
         if (it.idNorm.includes(w)) score += 4;
         if (it.blob.includes(w)) score += 1;
       }
@@ -1611,9 +1691,12 @@ export default function ExerciseBank({
       minH={0}
       display="flex"
       flexDirection="column"
-      bg={cardBg}
-      borderRadius={{ base: "0", md: "lg" }}
-      boxShadow={{ base: "none", md: "md" }}
+      bg={panelBg}
+      borderRadius={{ base: "0", md: "2xl" }}
+      border="1px solid"
+      borderColor={border}
+      boxShadow={{ base: "none", md: "sm" }}
+      backdropFilter="blur(14px)"
       p={4}
       w="100%"
       h="100%"
@@ -1623,13 +1706,16 @@ export default function ExerciseBank({
       onMouseDown={(e) => e.stopPropagation()}
     >
       <Box position="relative" zIndex={5} flexShrink={0}>
-        <HStack spacing={2} mb={3} align="center" wrap="wrap">
-          <InputGroup>
+        <VStack spacing={3} mb={4} align="stretch">
+          <HStack spacing={2} align="center" wrap="wrap">
+            <InputGroup>
             <Input
               value={searchTermUI}
               onChange={(e) => setSearchTermUI(e.target.value)}
               placeholder={TXT.search}
               bg={inputBg}
+              borderColor={border}
+              borderRadius="xl"
             />
             {searchTermUI && (
               <InputRightElement width="2.5rem">
@@ -1651,51 +1737,71 @@ export default function ExerciseBank({
                 />
               </InputRightElement>
             )}
-          </InputGroup>
+            </InputGroup>
 
-          <IconButton
-            aria-label={TXT.toggleFilters}
-            icon={<FaFilter />}
-            onClick={() => setShowFilters((f) => !f)}
-            variant={showFilters ? "solid" : "outline"}
-            colorScheme="blue"
-            type="button"
-          />
+            <IconButton
+              aria-label={TXT.toggleFilters}
+              icon={<FaFilter />}
+              onClick={() => setShowFilters((f) => !f)}
+              variant="ghost"
+              colorScheme="gray"
+              bg={showFilters ? subtleBg : "transparent"}
+              border="1px solid"
+              borderColor={border}
+              _hover={{ bg: hoverBg }}
+              type="button"
+            />
 
-          <Button
-            colorScheme="blue"
-            leftIcon={<FaPlus />}
-            onClick={onAddOpen}
-            minW="170px"
-            maxW="100%"
-            whiteSpace="normal"
-            fontWeight="bold"
-            fontSize="md"
-            type="button"
-          >
-            {TXT.addExercise}
-          </Button>
-        </HStack>
+            <Button
+              leftIcon={<FaPlus />}
+              onClick={onAddOpen}
+              minW="170px"
+              maxW="100%"
+              whiteSpace="normal"
+              fontWeight="semibold"
+              fontSize="md"
+              variant="outline"
+              colorScheme="gray"
+              borderColor={border}
+              bg="transparent"
+              _hover={{ bg: hoverBg }}
+              type="button"
+            >
+              {TXT.addExercise}
+            </Button>
+          </HStack>
 
-        <Button
-          leftIcon={<FaRedo />}
-          variant="outline"
-          colorScheme="blue"
-          mb={showFilters ? 3 : 4}
-          onClick={resetAll}
-          type="button"
-        >
-          {TXT.reset}
-        </Button>
+          <HStack spacing={2} wrap="wrap">
+            <Button
+              leftIcon={<FaRedo />}
+              variant="ghost"
+              colorScheme="gray"
+              color={mutedText}
+              onClick={resetAll}
+              type="button"
+            >
+              {TXT.reset}
+            </Button>
+          </HStack>
+        </VStack>
 
         {showFilters && (
-          <VStack spacing={3} mb={4} align="stretch">
+          <Box
+            mb={4}
+            p={{ base: 3, md: 4 }}
+            bg={subtleBg}
+            border="1px solid"
+            borderColor={border}
+            borderRadius="xl"
+          >
+            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
             <FilterSelect
               label={TXT.filterMuscle}
               value={filters.muscle ?? muscleOptions[0]}
               onChange={(e) => handleFilterChange("muscle", e.target.value)}
               options={muscleOptions}
               bg={inputBg}
+              borderColor={border}
             />
 
             <FilterSelect
@@ -1706,6 +1812,7 @@ export default function ExerciseBank({
               }
               options={secondaryMuscleOptions}
               bg={inputBg}
+              borderColor={border}
             />
 
             <FilterSelect
@@ -1714,6 +1821,7 @@ export default function ExerciseBank({
               onChange={(e) => handleFilterChange("joint", e.target.value)}
               options={jointOptions}
               bg={inputBg}
+              borderColor={border}
             />
 
             <FilterSelect
@@ -1722,6 +1830,7 @@ export default function ExerciseBank({
               onChange={(e) => handleFilterChange("position", e.target.value)}
               options={positionOptions}
               bg={inputBg}
+              borderColor={border}
             />
 
             <FilterSelect
@@ -1730,6 +1839,7 @@ export default function ExerciseBank({
               onChange={(e) => handleFilterChange("equipment", e.target.value)}
               options={equipmentOptions}
               bg={inputBg}
+              borderColor={border}
             />
 
             <FilterSelect
@@ -1738,15 +1848,15 @@ export default function ExerciseBank({
               onChange={(e) => handleFilterChange("objective", e.target.value)}
               options={objectiveOptions}
               bg={inputBg}
+              borderColor={border}
             />
-          </VStack>
+            </SimpleGrid>
+          </Box>
         )}
       </Box>
 
       {loading ? (
-        <Box py={10} display="flex" justifyContent="center" flex="1 1 auto" minH={0}>
-          <Spinner size="xl" />
-        </Box>
+        <AppLoading label="Chargement..." minH="320px" />
       ) : (
         <Box
           id="exercise-bank-scroll"

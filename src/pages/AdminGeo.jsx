@@ -24,8 +24,6 @@ import {
   HStack,
   Input,
   Tag,
-  Spinner,
-  useColorModeValue,
   Text,
   Button,
   Progress,
@@ -36,6 +34,7 @@ import {
   Select,
   Stack,
   Badge,
+  VStack,
 } from "@chakra-ui/react";
 
 // ====== Carte 2D (Leaflet)
@@ -45,6 +44,8 @@ import { MapContainer, TileLayer, CircleMarker, Tooltip, useMap } from "react-le
 // Firestore
 import { collection, getDocs, updateDoc, doc } from "firebase/firestore";
 import { db } from "../firebaseConfig";
+import AppLoading from "../components/ui/AppLoading";
+import { useAppTheme } from "../styles/appTheme";
 
 /* ------------------------------------ utils ------------------------------------ */
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -108,12 +109,12 @@ function FitToMarkers({ points }) {
 
 // KPI card
 function StatCard({ title, value, help }) {
-  const cardBg = useColorModeValue("white", "gray.800");
+  const theme = useAppTheme();
   return (
-    <Stat p={4} bg={cardBg} borderRadius="xl" shadow="sm">
-      <StatLabel>{title}</StatLabel>
-      <StatNumber>{value}</StatNumber>
-      {help && <StatHelpText>{help}</StatHelpText>}
+    <Stat {...theme.tileProps} p={4}>
+      <StatLabel color={theme.mutedText}>{title}</StatLabel>
+      <StatNumber color={theme.textColor}>{value}</StatNumber>
+      {help && <StatHelpText color={theme.mutedText}>{help}</StatHelpText>}
     </Stat>
   );
 }
@@ -159,9 +160,36 @@ export default function AdminGeo() {
 
   const toast = useToast();
 
-  const cardBg = useColorModeValue("white", "gray.800");
-  const bubbleFill = useColorModeValue("#3182ce", "#63b3ed");
-  const bubbleStroke = useColorModeValue("#1a365d", "#2a4365");
+  const theme = useAppTheme();
+  const cardBg = theme.surfaceBg;
+  const bubbleFill = theme.accentBlue;
+  const bubbleStroke = theme.primary;
+  const adminPageSx = {
+    ".chakra-card": {
+      bg: theme.surfaceBg,
+      border: "1px solid",
+      borderColor: theme.borderColor,
+      borderRadius: "2xl",
+      boxShadow: theme.cardProps.boxShadow,
+      overflow: "hidden",
+    },
+    ".chakra-card__header": {
+      borderBottom: "1px solid",
+      borderColor: theme.borderColor,
+    },
+    ".chakra-table th": {
+      color: theme.mutedText,
+      borderColor: theme.borderColor,
+      letterSpacing: "0.08em",
+      textTransform: "uppercase",
+      fontSize: "xs",
+    },
+    ".chakra-table td": { borderColor: theme.borderColor },
+    ".chakra-input, .chakra-select": {
+      bg: theme.surfaceSoft,
+      borderColor: theme.borderColor,
+    },
+  };
 
   const todayKey = useMemo(() => fmtDay(new Date()), []);
 
@@ -427,11 +455,37 @@ export default function AdminGeo() {
     return windowKey === "all" ? "Visiteurs uniques (toujours)" : "Visiteurs uniques";
   }, [metric, windowKey]);
 
-  return (
-    <Box p={6}>
-      <Heading mb={6}>Géographie — trafic par villes</Heading>
+  if (loading) {
+    return <AppLoading label="Chargement de la géographie..." />;
+  }
 
-      <SimpleGrid columns={{ base: 1, md: 4 }} spacing={4} mb={6}>
+  return (
+    <Box p={{ base: 4, md: 8 }} bg={theme.pageBg} color={theme.textColor} minH="calc(100vh - 112px)" sx={adminPageSx}>
+      <VStack align="stretch" spacing={6} maxW="1680px" mx="auto">
+      <Box
+        {...theme.cardProps}
+        p={{ base: 5, md: 7 }}
+        position="relative"
+        overflow="hidden"
+        _before={{
+          content: '""',
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          background:
+            "radial-gradient(circle at 14% 8%, rgba(59,130,246,.18), transparent 34%), radial-gradient(circle at 86% 12%, rgba(16,185,129,.14), transparent 30%)",
+        }}
+      >
+        <Box position="relative">
+          <Badge borderRadius="full" px={3} mb={3}>Admin analytics</Badge>
+          <Heading letterSpacing="-0.05em">Géographie — trafic par villes</Heading>
+          <Text color={theme.mutedText} mt={2}>
+            Visualisez les villes, pays et volumes de visites avec les mêmes repères que le dashboard.
+          </Text>
+        </Box>
+      </Box>
+
+      <SimpleGrid columns={{ base: 1, md: 4 }} spacing={4}>
         <StatCard
           title={`${metricLabelUi} (global)`}
           value={kpi.total}
@@ -448,7 +502,7 @@ export default function AdminGeo() {
           <CardBody>
             <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
               <Box>
-                <Text fontSize="sm" color="gray.500" mb={1}>Métrique</Text>
+                <Text fontSize="sm" color={theme.mutedText} mb={1}>Métrique</Text>
                 <Select
                   value={metric}
                   onChange={(e) => { setMetric(e.target.value); setMinVal(1); }}
@@ -459,7 +513,7 @@ export default function AdminGeo() {
                 </Select>
               </Box>
               <Box>
-                <Text fontSize="sm" color="gray.500" mb={1}>Fenêtre</Text>
+                <Text fontSize="sm" color={theme.mutedText} mb={1}>Fenêtre</Text>
                 <Select
                   value={windowKey}
                   onChange={(e) => { setWindowKey(e.target.value); setMinVal(1); }}
@@ -535,7 +589,7 @@ export default function AdminGeo() {
       </SimpleGrid>
 
       {/* ------------------------------ Carte 2D ------------------------------ */}
-      <Card mb={6}>
+      <Card>
         <CardHeader>
           <HStack justify="space-between" align="center">
             <Heading size="md">
@@ -543,7 +597,7 @@ export default function AdminGeo() {
             </Heading>
             <Button
               size="sm"
-              colorScheme="blue"
+              {...theme.primaryButtonProps}
               onClick={() => enrichMissingCoords("manual")}
               isLoading={enriching}
               loadingText="Enrichissement…"
@@ -555,9 +609,6 @@ export default function AdminGeo() {
 
         <CardBody>
           {enriching && <Progress value={progress} size="sm" mb={3} />}
-          {loading ? (
-            <Box py={10} textAlign="center"><Spinner /></Box>
-          ) : (
             <Box w="100%" h={{ base: "420px", md: "560px" }} borderRadius="lg" overflow="hidden">
               <MapContainer
                 style={{ width: "100%", height: "100%" }}
@@ -609,7 +660,6 @@ export default function AdminGeo() {
                 })}
               </MapContainer>
             </Box>
-          )}
         </CardBody>
       </Card>
 
@@ -691,7 +741,7 @@ export default function AdminGeo() {
           </Stack>
         </CardBody>
       </Card>
+      </VStack>
     </Box>
   );
 }
-

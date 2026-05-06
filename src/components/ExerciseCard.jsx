@@ -59,6 +59,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router-dom";
 import { getStorage, ref as storageRef, getDownloadURL } from "firebase/storage";
+import { localizeExercise } from "../utils/exerciseI18n";
 
 /* ================= constants ================= */
 const EXPLICIT_STORAGE_BUCKET = "gs://boost-your-life-f6b3e.firebasestorage.app";
@@ -90,11 +91,20 @@ const isDirectUrl = (value) => {
   );
 };
 
+const normalizeFirebaseDownloadUrl = (value = "") => {
+  const url = String(value || "").trim();
+  if (!url) return "";
+  if (url.includes("firebasestorage.googleapis.com") && url.includes("/o/") && !url.includes("?")) {
+    return `${url}?alt=media`;
+  }
+  return url;
+};
+
 const mediaValueToPath = (value) => {
   if (!value) return "";
-  if (typeof value === "string") return value.trim();
+  if (typeof value === "string") return normalizeFirebaseDownloadUrl(value);
   if (typeof value === "object") {
-    return firstString(value.url, value.path, value.src, value.downloadURL);
+    return normalizeFirebaseDownloadUrl(firstString(value.url, value.path, value.src, value.downloadURL));
   }
   return "";
 };
@@ -122,7 +132,7 @@ const resolveStorageUrl = async (value) => {
   const raw = String(value || "").trim();
   if (!raw) return "";
 
-  if (isDirectUrl(raw)) return raw;
+  if (isDirectUrl(raw)) return normalizeFirebaseDownloadUrl(raw);
 
   const fromDefaultBucket = await tryResolveFromStorage(null, raw);
   if (fromDefaultBucket) return fromDefaultBucket;
@@ -306,58 +316,20 @@ const buildGenderOrderedMedia = (exercise, preferredGender = "homme") => {
   const femmeImages = safeArr(exercise?.media?.femme?.images);
 
   const female = {
-    depart: [
-      exercise?.image_femme_depart,
-      findMediaByKey(femmeImages, "depart"),
-      exercise?.image_femme,
-      exercise?.image,
-      exercise?.image_homme_depart,
-      findMediaByKey(hommeImages, "depart"),
-      exercise?.image_homme,
-    ],
-    arrivee: [
-      exercise?.image_femme_arrivee,
-      findMediaByKey(femmeImages, "arrivee"),
-      exercise?.image_femme,
-      exercise?.image,
-      exercise?.image_homme_arrivee,
-      findMediaByKey(hommeImages, "arrivee"),
-      exercise?.image_homme,
-    ],
+    depart: [findMediaByKey(femmeImages, "depart"), findMediaByKey(hommeImages, "depart")],
+    arrivee: [findMediaByKey(femmeImages, "arrivee"), findMediaByKey(hommeImages, "arrivee")],
     video: [
       mediaValueToPath(exercise?.media?.femme?.video),
-      exercise?.video_femme,
-      exercise?.video,
       mediaValueToPath(exercise?.media?.homme?.video),
-      exercise?.video_homme,
     ],
   };
 
   const male = {
-    depart: [
-      exercise?.image_homme_depart,
-      findMediaByKey(hommeImages, "depart"),
-      exercise?.image_homme,
-      exercise?.image,
-      exercise?.image_femme_depart,
-      findMediaByKey(femmeImages, "depart"),
-      exercise?.image_femme,
-    ],
-    arrivee: [
-      exercise?.image_homme_arrivee,
-      findMediaByKey(hommeImages, "arrivee"),
-      exercise?.image_homme,
-      exercise?.image,
-      exercise?.image_femme_arrivee,
-      findMediaByKey(femmeImages, "arrivee"),
-      exercise?.image_femme,
-    ],
+    depart: [findMediaByKey(hommeImages, "depart"), findMediaByKey(femmeImages, "depart")],
+    arrivee: [findMediaByKey(hommeImages, "arrivee"), findMediaByKey(femmeImages, "arrivee")],
     video: [
       mediaValueToPath(exercise?.media?.homme?.video),
-      exercise?.video_homme,
-      exercise?.video,
       mediaValueToPath(exercise?.media?.femme?.video),
-      exercise?.video_femme,
     ],
   };
 
@@ -572,9 +544,13 @@ function ExerciseCardComponent({
   onCancelReplace,
   preferredGender,
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const location = useLocation();
   const { pathname, state: locationState } = location;
+  const displayExercise = useMemo(
+    () => localizeExercise(exercise, i18n.resolvedLanguage || i18n.language || "fr"),
+    [exercise, i18n.resolvedLanguage, i18n.language]
+  );
 
   const isProgramBuilder = useMemo(
     () => pathname.includes("/program-builder"),
@@ -585,11 +561,11 @@ function ExerciseCardComponent({
     () =>
       inferPreferredGender({
         preferredGender,
-        exercise,
+        exercise: displayExercise,
         pathname,
         locationState,
       }),
-    [preferredGender, exercise, pathname, locationState]
+    [preferredGender, displayExercise, pathname, locationState]
   );
 
   const [isOpen, setIsOpen] = useState(false);
@@ -612,37 +588,46 @@ function ExerciseCardComponent({
 
   const addingRef = useRef(false);
 
-  const bg = useColorModeValue("white", "gray.800");
-  const border = useColorModeValue("blackAlpha.100", "whiteAlpha.200");
-  const strongBorder = useColorModeValue("blackAlpha.200", "whiteAlpha.300");
+  const bg = useColorModeValue("rgba(255,255,255,0.9)", "rgba(15,23,42,0.9)");
+  const border = useColorModeValue("rgba(148,163,184,0.22)", "rgba(148,163,184,0.22)");
+  const strongBorder = useColorModeValue("rgba(100,116,139,0.35)", "rgba(148,163,184,0.34)");
   const text = useColorModeValue("gray.900", "gray.50");
   const muted = useColorModeValue("gray.600", "gray.300");
-  const chipBg = useColorModeValue("gray.100", "whiteAlpha.100");
-  const imagePanelBg = useColorModeValue("gray.50", "whiteAlpha.50");
-  const mediaBg = useColorModeValue("gray.100", "blackAlpha.300");
+  const chipBg = useColorModeValue("rgba(248,250,252,0.95)", "rgba(255,255,255,0.06)");
+  const imagePanelBg = useColorModeValue("rgba(248,250,252,0.95)", "rgba(255,255,255,0.04)");
+  const mediaBg = useColorModeValue("rgba(241,245,249,0.95)", "rgba(15,23,42,0.86)");
+  const sectionBg = useColorModeValue("rgba(248,250,252,0.86)", "rgba(255,255,255,0.04)");
+  const modalOverlayBg = useColorModeValue("blackAlpha.300", "blackAlpha.700");
+  const mediaSurfaceBg = useColorModeValue("white", "rgba(15,23,42,0.94)");
+  const dangerText = useColorModeValue("red.600", "red.300");
 
-  const primaryBtnBg = useColorModeValue("blue.600", "blue.400");
-  const primaryBtnHover = useColorModeValue("blue.700", "blue.500");
-  const ghostBtnBg = useColorModeValue("gray.50", "whiteAlpha.100");
-  const ghostBtnHover = useColorModeValue("gray.100", "whiteAlpha.200");
+  const primaryBtnBg = useColorModeValue("gray.900", "white");
+  const primaryBtnHover = useColorModeValue("black", "gray.100");
+  const primaryBtnColor = useColorModeValue("white", "gray.900");
+  const ghostBtnBg = useColorModeValue("transparent", "transparent");
+  const ghostBtnHover = useColorModeValue("gray.100", "whiteAlpha.100");
+  const detailsBtnBg = useColorModeValue("rgba(15,23,42,0.05)", "rgba(255,255,255,0.08)");
+  const detailsBtnHover = useColorModeValue("rgba(15,23,42,0.10)", "rgba(255,255,255,0.14)");
+  const detailsBtnColor = useColorModeValue("gray.900", "white");
+  const detailsBtnBorder = useColorModeValue("rgba(15,23,42,0.14)", "rgba(255,255,255,0.14)");
 
   const missing = t("exerciseCard.missing", "Données manquantes");
-  const name = exercise?.nom || t("exerciseCard.missingName", "Nom manquant");
+  const name = displayExercise?.nom || t("exerciseCard.missingName", "Nom manquant");
 
-  const gmArr = safeArr(exercise?.groupe_musculaire);
+  const gmArr = safeArr(displayExercise?.groupe_musculaire);
   const groupe = gmArr.length ? gmArr[0] : missing;
 
-  const materielArr = safeArr(exercise?.materiel);
+  const materielArr = safeArr(displayExercise?.materiel);
   const materiel =
     materielArr.length ? materielArr[0] : t("exerciseCard.none", "Aucun");
 
   const niveau =
-    typeof exercise?.niveau === "string" && exercise.niveau.trim()
-      ? exercise.niveau.trim()
+    typeof displayExercise?.niveau === "string" && displayExercise.niveau.trim()
+      ? displayExercise.niveau.trim()
       : t("exerciseCard.allLevels", "Tous niveaux");
 
   const articulationsList =
-    exercise?.articulations_solicitees ?? exercise?.articulations_sollicitees;
+    displayExercise?.articulations_solicitees ?? displayExercise?.articulations_sollicitees;
 
   const articulations =
     Array.isArray(articulationsList) && articulationsList.length
@@ -650,31 +635,31 @@ function ExerciseCardComponent({
       : missing;
 
   const ligaments =
-    Array.isArray(exercise?.tendons_solicites) && exercise.tendons_solicites.length
-      ? exercise.tendons_solicites.join(", ")
+    Array.isArray(displayExercise?.tendons_solicites) && displayExercise.tendons_solicites.length
+      ? displayExercise.tendons_solicites.join(", ")
       : missing;
 
   const musclesSecondaires =
-    Array.isArray(exercise?.muscles_secondaires) &&
-    exercise.muscles_secondaires.length
-      ? exercise.muscles_secondaires.join(", ")
+    Array.isArray(displayExercise?.muscles_secondaires) &&
+    displayExercise.muscles_secondaires.length
+      ? displayExercise.muscles_secondaires.join(", ")
       : missing;
 
   const variantes =
-    Array.isArray(exercise?.variantes) && exercise.variantes.length
-      ? exercise.variantes.join(", ")
+    Array.isArray(displayExercise?.variantes) && displayExercise.variantes.length
+      ? displayExercise.variantes.join(", ")
       : t("exerciseCard.noVariant", "Aucune variante disponible");
 
-  const contraintes = Array.isArray(exercise?.contraintes)
-    ? exercise.contraintes.length
-      ? exercise.contraintes.join(", ")
+  const contraintes = Array.isArray(displayExercise?.contraintes)
+    ? displayExercise.contraintes.length
+      ? displayExercise.contraintes.join(", ")
       : t("exerciseCard.noConstraints", "Aucune contrainte spécifiée")
-    : exercise?.contraintes ||
+    : displayExercise?.contraintes ||
       t("exerciseCard.noConstraints", "Aucune contrainte spécifiée");
 
   const genderOrderedMedia = useMemo(
-    () => buildGenderOrderedMedia(exercise, resolvedPreferredGender),
-    [exercise, resolvedPreferredGender]
+    () => buildGenderOrderedMedia(displayExercise, resolvedPreferredGender),
+    [displayExercise, resolvedPreferredGender]
   );
 
   const MuscleIcon = useMemo(() => muscleIconFromGroup(groupe), [groupe]);
@@ -822,6 +807,49 @@ function ExerciseCardComponent({
     setIsOpen(true);
   };
 
+  const detailSections = useMemo(
+    () => [
+      {
+        key: "main-group",
+        icon: MdFitnessCenter,
+        label: t("exerciseCard.fields.mainGroup", "Groupe musculaire"),
+        value: gmArr.length ? gmArr.join(", ") : missing,
+      },
+      {
+        key: "secondary",
+        icon: MdFitnessCenter,
+        label: t("exerciseCard.fields.secondary", "Muscles secondaires"),
+        value: musclesSecondaires,
+      },
+      {
+        key: "joints",
+        icon: MdOutlineHealing,
+        label: t("exerciseCard.fields.joints", "Articulations sollicitées"),
+        value: articulations,
+      },
+      {
+        key: "ligaments",
+        icon: MdOutlineLink,
+        label: t("exerciseCard.fields.ligaments", "Ligaments sollicités"),
+        value: ligaments,
+      },
+      {
+        key: "variants",
+        icon: MdSwapHoriz,
+        label: t("exerciseCard.fields.variants", "Variantes"),
+        value: variantes,
+      },
+      {
+        key: "constraints",
+        icon: MdWarning,
+        label: t("exerciseCard.fields.constraints", "Contraintes"),
+        value: contraintes,
+        tone: "danger",
+      },
+    ],
+    [articulations, contraintes, gmArr, ligaments, missing, musclesSecondaires, t, variantes]
+  );
+
   return (
     <>
       {resolvedDepartImage && (
@@ -868,13 +896,14 @@ function ExerciseCardComponent({
         bg={bg}
         border="1px solid"
         borderColor={border}
-        borderRadius="2xl"
+        borderRadius="28px"
         overflow="hidden"
         boxShadow="sm"
+        backdropFilter="blur(14px)"
         transition="all .16s ease"
         _hover={{
           borderColor: strongBorder,
-          transform: "translateY(-2px)",
+          transform: "translateY(-1px)",
           boxShadow: "md",
         }}
         color={text}
@@ -932,115 +961,121 @@ function ExerciseCardComponent({
           </Box>
         )}
 
-        <Box px={3} py={3}>
-          <HStack spacing={3} align="center">
-            <Box
-              w="36px"
-              h="36px"
-              borderRadius="xl"
-              bg={chipBg}
-              border="1px solid"
-              borderColor={border}
-              overflow="hidden"
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
-              flex="0 0 auto"
-            >
-              <Icon as={MuscleIcon} boxSize={5} opacity={0.9} />
-            </Box>
-
-            <Box flex="1" minW={0}>
-              <Text
-                fontWeight="800"
-                fontSize="sm"
-                whiteSpace="normal"
-                wordBreak="break-word"
-                lineHeight="1.25"
+        <Box px={4} py={4}>
+          <VStack align="stretch" spacing={3}>
+            <HStack spacing={3} align="center">
+              <Box
+                w="38px"
+                h="38px"
+                borderRadius="lg"
+                bg={chipBg}
+                border="1px solid"
+                borderColor={border}
+                overflow="hidden"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                flex="0 0 auto"
               >
-                {name}
-              </Text>
+                <Icon as={MuscleIcon} boxSize={5} opacity={0.9} />
+              </Box>
 
-              <Text fontSize="xs" color={muted} noOfLines={1}>
-                {groupe}
-              </Text>
-            </Box>
+              <Box flex="1" minW={0}>
+                <Text
+                  fontWeight="700"
+                  fontSize="md"
+                  whiteSpace="normal"
+                  wordBreak="break-word"
+                  lineHeight="1.3"
+                >
+                  {name}
+                </Text>
 
-            <Tag
-              size="sm"
-              borderRadius="full"
-              bg={chipBg}
-              border="1px solid"
-              borderColor={border}
-              maxW="42%"
-            >
-              <TagLabel noOfLines={1}>{materiel}</TagLabel>
-            </Tag>
-          </HStack>
+                <Text fontSize="sm" color={muted} noOfLines={1}>
+                  {groupe}
+                </Text>
+              </Box>
 
-          <HStack spacing={2} mt={3} wrap="wrap">
-            <Badge borderRadius="full" px={2.5} py={1} colorScheme="gray">
-              {niveau}
-            </Badge>
+              <Tag
+                size="sm"
+                borderRadius="full"
+                bg={chipBg}
+                border="1px solid"
+                borderColor={border}
+                maxW="42%"
+              >
+                <TagLabel noOfLines={1}>{materiel}</TagLabel>
+              </Tag>
+            </HStack>
 
-            {mediaResolved && canShowVideo && (
-              <Badge borderRadius="full" px={2.5} py={1} colorScheme="purple">
-                {t("exerciseCard.video.badge", "Vidéo")}
+            <HStack spacing={2} wrap="wrap">
+              <Badge borderRadius="full" px={2.5} py={1} colorScheme="gray">
+                {niveau}
               </Badge>
-            )}
 
-            {mediaResolved && !canShowVideo && canShowImages && (
-              <Badge borderRadius="full" px={2.5} py={1} colorScheme="blue">
-                {t("exerciseCard.images.badge", "Images")}
-              </Badge>
-            )}
-          </HStack>
+              {mediaResolved && canShowVideo && (
+                <Badge borderRadius="full" px={2.5} py={1} colorScheme="gray">
+                  {t("exerciseCard.video.badge", "Vidéo")}
+                </Badge>
+              )}
 
-          <Text mt={3} fontSize="xs" color={muted} noOfLines={2}>
-            {t(
-              "exerciseCard.meta.fast",
-              "Voir détails pour consignes, média et informations complètes"
-            )}
-          </Text>
+              {mediaResolved && !canShowVideo && canShowImages && (
+                <Badge borderRadius="full" px={2.5} py={1} colorScheme="gray">
+                  {t("exerciseCard.images.badge", "Images")}
+                </Badge>
+              )}
+            </HStack>
 
-          <HStack spacing={2} mt={3}>
-            {isProgramBuilder && (
+            <Text fontSize="xs" color={muted} noOfLines={2}>
+              {t(
+                "exerciseCard.meta.fast",
+                "Voir détails pour consignes, média et informations complètes"
+              )}
+            </Text>
+
+            <HStack spacing={2}>
+              {isProgramBuilder && (
+                <Button
+                  leftIcon={leftIcon}
+                  onClick={handleClick}
+                  h="36px"
+                  px={4}
+                  borderRadius="full"
+                  bg={primaryBtnBg}
+                  color={primaryBtnColor}
+                  fontWeight="700"
+                  fontSize="sm"
+                  _hover={{ bg: primaryBtnHover }}
+                  _active={{ transform: "scale(0.99)" }}
+                  type="button"
+                  flex="1"
+                >
+                  {label}
+                </Button>
+              )}
+
               <Button
-                leftIcon={leftIcon}
-                onClick={handleClick}
-                h="34px"
+                leftIcon={<InfoOutlineIcon boxSize={4} />}
+                onClick={openDetails}
+                h="38px"
                 px={4}
                 borderRadius="full"
-                bg={primaryBtnBg}
-                color="white"
+                bg={detailsBtnBg}
+                border="1px solid"
+                borderColor={detailsBtnBorder}
+                color={detailsBtnColor}
                 fontWeight="800"
                 fontSize="sm"
-                _hover={{ bg: primaryBtnHover }}
+                boxShadow="0 8px 20px rgba(15,23,42,0.06)"
+                _hover={{ bg: detailsBtnHover, transform: "translateY(-1px)" }}
                 _active={{ transform: "scale(0.99)" }}
                 type="button"
                 flex="1"
               >
-                {label}
+                {t("exerciseCard.details", "Détails")}
               </Button>
-            )}
-
-            <Button
-              leftIcon={<InfoOutlineIcon boxSize={4} />}
-              onClick={openDetails}
-              h="34px"
-              px={4}
-              borderRadius="full"
-              bg={ghostBtnBg}
-              fontWeight="800"
-              fontSize="sm"
-              _hover={{ bg: ghostBtnHover }}
-              _active={{ transform: "scale(0.99)" }}
-              type="button"
-              flex="1"
-            >
-              {t("exerciseCard.details", "Détails")}
-            </Button>
-          </HStack>
+            </HStack>
+          </VStack>
         </Box>
       </Box>
 
@@ -1052,9 +1087,9 @@ function ExerciseCardComponent({
         scrollBehavior="inside"
         motionPreset="slideInBottom"
       >
-        <ModalOverlay />
+        <ModalOverlay bg={modalOverlayBg} backdropFilter="blur(6px)" />
         <ModalContent
-          borderRadius={{ base: 0, md: "2xl" }}
+          borderRadius={{ base: 0, md: "28px" }}
           bg={bg}
           color={text}
           my={{ base: 0, md: 6 }}
@@ -1063,9 +1098,14 @@ function ExerciseCardComponent({
           display="flex"
           flexDirection="column"
           overflow="hidden"
+          border="1px solid"
+          borderColor={border}
+          boxShadow="xl"
+          backdropFilter="blur(18px)"
         >
           <ModalHeader
-            fontWeight="900"
+            fontWeight="800"
+            fontSize={{ base: "xl", md: "2xl" }}
             pr="56px"
             flexShrink={0}
             borderBottom="1px solid"
@@ -1149,7 +1189,7 @@ function ExerciseCardComponent({
                   bg={imagePanelBg}
                   border="1px solid"
                   borderColor={border}
-                  borderRadius="xl"
+                  borderRadius="2xl"
                   p={3}
                 >
                   {modalMediaView === "video" && canShowVideo && (
@@ -1159,9 +1199,11 @@ function ExerciseCardComponent({
                       display="flex"
                       alignItems="center"
                       justifyContent="center"
-                      bg="black"
+                      bg={mediaSurfaceBg}
                       borderRadius="lg"
                       overflow="hidden"
+                      border="1px solid"
+                      borderColor={border}
                     >
                       <Box w="100%" h="100%">
                         <LoopingVideo
@@ -1203,7 +1245,7 @@ function ExerciseCardComponent({
                             display="flex"
                             alignItems="center"
                             justifyContent="center"
-                            bg="white"
+                            bg={mediaSurfaceBg}
                             borderRadius="lg"
                             overflow="hidden"
                             border="1px solid"
@@ -1216,7 +1258,7 @@ function ExerciseCardComponent({
                               maxW="100%"
                               maxH="100%"
                               objectFit="contain"
-                              bg="white"
+                              bg={mediaSurfaceBg}
                             />
                           </Box>
                         </Box>
@@ -1230,109 +1272,68 @@ function ExerciseCardComponent({
             )}
 
             <VStack align="stretch" spacing={5}>
-              <Grid templateColumns="30px 1fr" gap={3}>
-                <GridItem>
-                  <MdFitnessCenter size={20} />
-                </GridItem>
-                <GridItem>
+              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                {detailSections.map((section) => (
+                  <Box
+                    key={section.key}
+                    bg={sectionBg}
+                    border="1px solid"
+                    borderColor={border}
+                    borderRadius="xl"
+                    p={4}
+                  >
+                    <HStack align="start" spacing={3}>
+                      <Box pt={0.5}>
+                        <Icon
+                          as={section.icon}
+                          boxSize={5}
+                          color={section.tone === "danger" ? dangerText : muted}
+                        />
+                      </Box>
+                      <Box>
+                        <Text
+                          fontWeight="700"
+                          mb={1}
+                          color={section.tone === "danger" ? dangerText : text}
+                        >
+                          {section.label}
+                        </Text>
+                        <Text color={muted}>{section.value}</Text>
+                      </Box>
+                    </HStack>
+                  </Box>
+                ))}
+              </SimpleGrid>
+
+              <Box
+                bg={sectionBg}
+                border="1px solid"
+                borderColor={border}
+                borderRadius="xl"
+                p={{ base: 4, md: 5 }}
+              >
+                <HStack spacing={3} mb={3}>
+                  <Icon as={MdOutlineMenuBook} boxSize={5} color={muted} />
                   <Text fontWeight="800">
-                    {t("exerciseCard.fields.mainGroup", "Groupe musculaire")} :
+                    {t("exerciseCard.fields.cues", "Consignes d'exécution")}
                   </Text>
-                  <Text color={muted}>
-                    {gmArr.length ? gmArr.join(", ") : missing}
-                  </Text>
-                </GridItem>
+                </HStack>
 
-                <GridItem>
-                  <MdFitnessCenter size={20} />
-                </GridItem>
-                <GridItem>
-                  <Text fontWeight="800">
-                    {t("exerciseCard.fields.secondary", "Muscles secondaires")} :
-                  </Text>
-                  <Text color={muted}>{musclesSecondaires}</Text>
-                </GridItem>
-
-                <GridItem>
-                  <MdOutlineHealing size={20} />
-                </GridItem>
-                <GridItem>
-                  <Text fontWeight="800">
-                    {t(
-                      "exerciseCard.fields.joints",
-                      "Articulations sollicitées"
-                    )}{" "}
-                    :
-                  </Text>
-                  <Text color={muted}>{articulations}</Text>
-                </GridItem>
-
-                <GridItem>
-                  <MdOutlineLink size={20} />
-                </GridItem>
-                <GridItem>
-                  <Text fontWeight="800">
-                    {t("exerciseCard.fields.ligaments", "Ligaments sollicités")} :
-                  </Text>
-                  <Text color={muted}>{ligaments}</Text>
-                </GridItem>
-
-                <GridItem>
-                  <MdSwapHoriz size={20} />
-                </GridItem>
-                <GridItem>
-                  <Text fontWeight="800">
-                    {t("exerciseCard.fields.variants", "Variantes")} :
-                  </Text>
-                  <Text color={muted}>{variantes}</Text>
-                </GridItem>
-
-                <GridItem>
-                  <MdWarning size={20} />
-                </GridItem>
-                <GridItem>
-                  <Text fontWeight="800" color="red.500">
-                    {t("exerciseCard.fields.constraints", "Contraintes")} :
-                  </Text>
-                  <Text color={muted}>{contraintes}</Text>
-                </GridItem>
-
-                <GridItem>
-                  <MdOutlineMenuBook size={20} />
-                </GridItem>
-                <GridItem>
-                  <Text fontWeight="900">
-                    {t(
-                      "exerciseCard.fields.cues",
-                      "Consignes d'exécution"
-                    )}{" "}
-                    :
-                  </Text>
-
-                  {exercise?.consignes &&
-                  Object.keys(exercise.consignes).length > 0 ? (
-                    <List spacing={2} mt={2}>
-                      {Object.entries(exercise.consignes).map(
-                        ([key, val], i) => (
-                          <ListItem key={i} display="flex" alignItems="start">
-                            <ListIcon
-                              as={MdCheckCircle}
-                              color="green.500"
-                              mt="2px"
-                            />
-                            <Text>
-                              <strong>{key} :</strong>{" "}
-                              {toFlatString(val, missing)}
-                            </Text>
-                          </ListItem>
-                        )
-                      )}
-                    </List>
-                  ) : (
-                    <Text color={muted}>{missing}</Text>
-                  )}
-                </GridItem>
-              </Grid>
+                {displayExercise?.consignes && Object.keys(displayExercise.consignes).length > 0 ? (
+                  <List spacing={3}>
+                    {Object.entries(displayExercise.consignes).map(([key, val], i) => (
+                      <ListItem key={i} display="flex" alignItems="start">
+                        <ListIcon as={MdCheckCircle} color="green.500" mt="2px" />
+                        <Text>
+                          <strong>{key} :</strong> {toFlatString(val, missing)}
+                        </Text>
+                      </ListItem>
+                    ))}
+                  </List>
+                ) : (
+                  <Text color={muted}>{missing}</Text>
+                )}
+              </Box>
             </VStack>
           </ModalBody>
         </ModalContent>

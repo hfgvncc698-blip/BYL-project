@@ -60,6 +60,10 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../AuthContext";
+import AppLoading from "./ui/AppLoading";
+import { notify } from "../utils/notify";
+import { localizeExercise } from "../utils/exerciseI18n";
+import { useAppTheme } from "../styles/appTheme";
 import * as firebaseConfig from "../firebaseConfig";
 import {
   getStorage,
@@ -497,10 +501,15 @@ function preloadVideo(url) {
 
 /* ---------------- media helpers ---------------- */
 
-const EXERCISE_COLLECTIONS = ["training", "warmup", "cooldown"];
+const EXERCISE_COLLECTIONS = ["training", "warmup", "cooldown", "ergometre"];
 
 function normalizeUrl(v) {
-  return typeof v === "string" && v.trim() ? v.trim() : "";
+  const url = typeof v === "string" && v.trim() ? v.trim() : "";
+  if (!url) return "";
+  if (url.includes("firebasestorage.googleapis.com") && url.includes("/o/") && !url.includes("?")) {
+    return `${url}?alt=media`;
+  }
+  return url;
 }
 
 function isSignedStorageUrl(url = "") {
@@ -545,58 +554,20 @@ const buildGenderOrderedMedia = (exercise, preferredGender = "homme") => {
   const femmeImages = Array.isArray(exercise?.media?.femme?.images) ? exercise.media.femme.images : [];
 
   const female = {
-    depart: [
-      exercise?.image_femme_depart,
-      findMediaByKey(femmeImages, "depart"),
-      exercise?.image_femme,
-      exercise?.image,
-      exercise?.image_homme_depart,
-      findMediaByKey(hommeImages, "depart"),
-      exercise?.image_homme,
-    ],
-    arrivee: [
-      exercise?.image_femme_arrivee,
-      findMediaByKey(femmeImages, "arrivee"),
-      exercise?.image_femme,
-      exercise?.image,
-      exercise?.image_homme_arrivee,
-      findMediaByKey(hommeImages, "arrivee"),
-      exercise?.image_homme,
-    ],
+    depart: [findMediaByKey(femmeImages, "depart"), findMediaByKey(hommeImages, "depart")],
+    arrivee: [findMediaByKey(femmeImages, "arrivee"), findMediaByKey(hommeImages, "arrivee")],
     video: [
       mediaValueToPath(exercise?.media?.femme?.video),
-      exercise?.video_femme,
-      exercise?.video,
       mediaValueToPath(exercise?.media?.homme?.video),
-      exercise?.video_homme,
     ],
   };
 
   const male = {
-    depart: [
-      exercise?.image_homme_depart,
-      findMediaByKey(hommeImages, "depart"),
-      exercise?.image_homme,
-      exercise?.image,
-      exercise?.image_femme_depart,
-      findMediaByKey(femmeImages, "depart"),
-      exercise?.image_femme,
-    ],
-    arrivee: [
-      exercise?.image_homme_arrivee,
-      findMediaByKey(hommeImages, "arrivee"),
-      exercise?.image_homme,
-      exercise?.image,
-      exercise?.image_femme_arrivee,
-      findMediaByKey(femmeImages, "arrivee"),
-      exercise?.image_femme,
-    ],
+    depart: [findMediaByKey(hommeImages, "depart"), findMediaByKey(femmeImages, "depart")],
+    arrivee: [findMediaByKey(hommeImages, "arrivee"), findMediaByKey(femmeImages, "arrivee")],
     video: [
       mediaValueToPath(exercise?.media?.homme?.video),
-      exercise?.video_homme,
-      exercise?.video,
       mediaValueToPath(exercise?.media?.femme?.video),
-      exercise?.video_femme,
     ],
   };
 
@@ -648,11 +619,23 @@ function getSexMediaBucket(exercise, preferredSex = "") {
   return hommeCount ? homme : femmeCount ? femme : {};
 }
 
-function extractExerciseMedia(exercise, preferredSex = "") {
-  const selected = getSexMediaBucket(exercise, preferredSex);
-  const rawImages = Array.isArray(selected?.images) ? selected.images : [];
+function dedupeMediaItems(items) {
+  const seen = new Set();
+  return items.filter((item) => {
+    const url = normalizeUrl(item?.url);
+    if (!url || seen.has(url)) return false;
+    seen.add(url);
+    return true;
+  });
+}
 
-  const images = rawImages
+function extractExerciseMedia(exercise, preferredSex = "") {
+  const ordered = buildGenderOrderedMedia(exercise, preferredSex || "homme");
+  const selected = getSexMediaBucket(exercise, preferredSex);
+  const bucketImages = Array.isArray(selected?.images) ? selected.images : [];
+  const rawImages = bucketImages.filter((img) => ["depart", "arrivee"].includes(String(img?.key || "").toLowerCase()));
+
+  const images = dedupeMediaItems(rawImages.map((img) => (typeof img === "string" ? { url: img, key: "" } : img)))
     .map((img) => (typeof img === "string" ? { url: img, key: "" } : img))
     .filter((img) => normalizeUrl(img?.url))
     .sort((a, b) => rankMediaKey(a?.key) - rankMediaKey(b?.key))
@@ -664,7 +647,7 @@ function extractExerciseMedia(exercise, preferredSex = "") {
       path: normalizeUrl(img?.path),
     }));
 
-  const videoUrl = normalizeUrl(selected?.video?.url);
+  const videoUrl = normalizeUrl(ordered.video.find(Boolean) || selected?.video?.url);
   const video = videoUrl
     ? [
         {
@@ -754,6 +737,16 @@ async function findExerciseDocFromFirestore(exercise) {
           const d = byName.docs[0];
           return { ...d.data(), __collection: col, __docId: d.id };
         }
+
+        for (const lng of ["en", "it", "es", "de", "ru", "ar"]) {
+          const byTranslatedName = await getDocs(
+            query(collection(db, col), where(`translations.${lng}.nom`, "==", exName), limit(1))
+          );
+          if (!byTranslatedName.empty) {
+            const d = byTranslatedName.docs[0];
+            return { ...d.data(), __collection: col, __docId: d.id };
+          }
+        }
       }
     }
 
@@ -772,6 +765,25 @@ async function findExerciseVariantDoc(variantLabel, originalExercise = null) {
   if (!wanted) return null;
 
   const normalizedWanted = norm(wanted);
+  const wantedTokens = normalizedWanted.split(/\s+/).filter((token) => token.length > 2);
+  const originalTokens = norm(originalExercise?.nom || originalExercise?.name || "")
+    .split(/\s+/)
+    .filter((token) => token.length > 2);
+
+  const scoreCandidate = (data = {}) => {
+    const label = norm(data?.nom || data?.name || data?.title || data?.label || data?.id || "");
+    if (!label || label === norm(originalExercise?.nom || originalExercise?.name || "")) return -1;
+    if (label === normalizedWanted) return 1000;
+
+    const labelTokens = label.split(/\s+/).filter((token) => token.length > 2);
+    const wantedMatches = wantedTokens.filter((token) => labelTokens.includes(token)).length;
+    const originalMatches = originalTokens.filter((token) => labelTokens.includes(token)).length;
+    let score = wantedMatches * 12 + originalMatches * 3;
+
+    if (wantedTokens.length && wantedTokens.every((token) => labelTokens.includes(token))) score += 70;
+    if (label.includes(normalizedWanted) || normalizedWanted.includes(label)) score += 35;
+    return score;
+  };
 
   const preferredCollections = [];
   const colHint = String(originalExercise?.__collection || "").toLowerCase();
@@ -819,6 +831,15 @@ async function findExerciseVariantDoc(variantLabel, originalExercise = null) {
 
       if (matched) {
         return { ...matched.data(), __collection: col, __docId: matched.id };
+      }
+
+      const scored = snap.docs
+        .map((d) => ({ doc: d, score: scoreCandidate(d.data() || {}) }))
+        .filter((item) => item.score >= 75)
+        .sort((a, b) => b.score - a.score)[0];
+
+      if (scored) {
+        return { ...scored.doc.data(), __collection: col, __docId: scored.doc.id };
       }
     } catch {
       // ignore
@@ -1929,8 +1950,8 @@ const readAutoFollowFlag = (prog) => {
    ========================= */
 function MediaThumb({ media, active, onClick }) {
   const border = useColorModeValue("gray.200", "gray.700");
-  const activeBorder = useColorModeValue("blue.400", "blue.300");
-  const thumbBg = useColorModeValue("white", "gray.900");
+  const activeBorder = useColorModeValue("gray.500", "gray.300");
+  const thumbBg = "white";
 
   return (
     <Box
@@ -2057,12 +2078,14 @@ function GifLikeLoopVideo({ src }) {
 }
 
 function ExerciseMediaPanel({ exercise, preferredSex, mini = false }) {
+  const { t } = useTranslation("common");
   const mediaItems = useMemo(() => extractExerciseMedia(exercise, preferredSex), [exercise, preferredSex]);
   const displayItems = mediaItems;
 
   const border = useColorModeValue("gray.200", "gray.700");
   const cardBg = useColorModeValue("white", "gray.800");
   const mediaBg = useColorModeValue("gray.50", "gray.900");
+  const imageBg = "white";
 
   const [selectedIndex, setSelectedIndex] = useState(0);
 
@@ -2103,14 +2126,14 @@ function ExerciseMediaPanel({ exercise, preferredSex, mini = false }) {
         overflow="hidden"
         border="2px solid"
         borderColor={border}
-        bg={selectedType === "video" ? "black" : mediaBg}
+        bg={selectedType === "video" ? "black" : imageBg}
         display="flex"
         alignItems="center"
         justifyContent="center"
         mb={3}
         position="relative"
         _hover={{
-          borderColor: "blue.300",
+          borderColor: useColorModeValue("gray.400", "gray.500"),
           transform: "scale(1.02)",
           transition: "all 0.2s ease-in-out"
         }}
@@ -2125,7 +2148,7 @@ function ExerciseMediaPanel({ exercise, preferredSex, mini = false }) {
             w="100%"
             h="100%"
             objectFit="contain"
-            bg={mediaBg}
+            bg={imageBg}
             borderRadius="md"
             loading="eager"
             decoding="async"
@@ -2149,7 +2172,7 @@ function ExerciseMediaPanel({ exercise, preferredSex, mini = false }) {
       minW={0}
     >
       <VStack align="stretch" spacing={3}>
-        <Heading size="sm">Démonstration</Heading>
+        <Heading size="sm">{t("exerciseCard.media.title", "Démonstration")}</Heading>
 
         <Box
           w="full"
@@ -2157,8 +2180,8 @@ function ExerciseMediaPanel({ exercise, preferredSex, mini = false }) {
           borderRadius="xl"
           overflow="hidden"
           border="1px solid"
-          borderColor={border}
-          bg={selectedType === "video" ? "black" : mediaBg}
+        borderColor={border}
+        bg={selectedType === "video" ? "black" : imageBg}
           display="flex"
           alignItems="center"
           justifyContent="center"
@@ -2172,7 +2195,7 @@ function ExerciseMediaPanel({ exercise, preferredSex, mini = false }) {
               w="100%"
               h="100%"
               objectFit="contain"
-              bg={mediaBg}
+              bg={imageBg}
               borderRadius="lg"
               loading="eager"
               decoding="async"
@@ -2202,7 +2225,7 @@ function ExerciseMediaPanel({ exercise, preferredSex, mini = false }) {
 
 function ExerciseDetailsContent({ selExo, preferredSex, t }) {
   if (!selExo) {
-    return <Text>Chargement...</Text>;
+    return <Text>{t("common.loading", "Chargement...")}</Text>;
   }
 
   return (
@@ -2213,17 +2236,17 @@ function ExerciseDetailsContent({ selExo, preferredSex, t }) {
         {[
           {
             keys: ["groupe_musculaire", "groupeMusculaire", "muscle_group"],
-            label: "Groupe musculaire",
+            label: t("exerciseCard.fields.mainGroup", "Groupe musculaire"),
             icon: MdFitnessCenter,
           },
           {
             keys: ["muscles_secondaires", "musclesSecondaires", "secondary_muscles"],
-            label: "Muscles secondaires",
+            label: t("exerciseCard.fields.secondary", "Muscles secondaires"),
             icon: MdFitnessCenter,
           },
           {
             keys: ["articulations_sollicitees", "articulations_solicitees", "articulationsSolicitees", "joints"],
-            label: "Articulations sollicitées",
+            label: t("exerciseCard.fields.joints", "Articulations sollicitées"),
             icon: MdOutlineAccessibilityNew,
           },
           {
@@ -2239,7 +2262,7 @@ function ExerciseDetailsContent({ selExo, preferredSex, t }) {
               "tendons",
               "ligaments",
             ],
-            label: "Ligaments sollicités",
+            label: t("exerciseCard.fields.ligaments", "Ligaments sollicités"),
             icon: MdOutlineAccessibilityNew,
           },
         ].map(({ keys, label, icon }, i) => {
@@ -2358,13 +2381,13 @@ export default function ProgramView() {
   const [autoFollow, setAutoFollow] = useState(false);
   const [savingAutoFollow, setSavingAutoFollow] = useState(false);
 
-  const bg = useColorModeValue("gray.50", "gray.800");
-  const surface = useColorModeValue("white", "gray.700");
-  const cardBg = surface;
-  const cardBorder = useColorModeValue("1px solid #e3e7ef", "1.5px solid #233055");
-  const cardBorderColor = useColorModeValue("#e3e7ef", "#233055");
-  const subText = useColorModeValue("gray.600", "gray.300");
-  const sectionIconColor = useColorModeValue("blue.700", "blue.200");
+  const theme = useAppTheme();
+  const bg = theme.pageBg;
+  const surface = theme.surfaceBg;
+  const cardBg = theme.surfaceSoft;
+  const cardBorder = `1px solid ${theme.borderColor}`;
+  const subText = theme.mutedText;
+  const sectionIconColor = theme.textColor;
 
   useEffect(() => {
     (async () => {
@@ -2433,18 +2456,16 @@ export default function ProgramView() {
         const cacheKey = getExerciseCacheKey(exercise, `fallback-${idx}`);
         if (!cacheKey) return null;
 
-        const currentMedia = extractExerciseMedia(exercise, preferredSex);
-        if (currentMedia.length > 0) {
-          return [cacheKey, exercise];
-        }
-
         if (exerciseMediaCacheRef.current.has(cacheKey)) {
           const cached = exerciseMediaCacheRef.current.get(cacheKey);
           return [
             cacheKey,
             {
-              ...exercise,
               ...cached,
+              ...exercise,
+              nom: cached?.nom || exercise?.nom,
+              name: cached?.name || exercise?.name,
+              translations: cached?.translations || exercise?.translations,
               media: cached?.media || exercise?.media,
             },
           ];
@@ -2457,8 +2478,11 @@ export default function ProgramView() {
             return [
               cacheKey,
               {
-                ...exercise,
                 ...source,
+                ...exercise,
+                nom: source?.nom || exercise?.nom,
+                name: source?.name || exercise?.name,
+                translations: source?.translations || exercise?.translations,
                 media: source?.media || exercise?.media,
               },
             ];
@@ -2539,6 +2563,20 @@ export default function ProgramView() {
     const n = Number(v);
     return Number.isFinite(n) && n > 0 ? n : null;
   }, [location?.state, searchParams]);
+
+  const initialSessionIndex = useMemo(() => {
+    const fromState = location?.state?.sessionIndex;
+    const fromQuery = searchParams.get("sessionIndex");
+    const v = fromState ?? fromQuery;
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  }, [location?.state, searchParams]);
+
+  useEffect(() => {
+    if (!Array.isArray(sessions) || sessions.length === 0) return;
+    if (initialSessionIndex == null) return;
+    setTabIndex(Math.max(0, Math.min(initialSessionIndex, sessions.length - 1)));
+  }, [initialSessionIndex, sessions]);
 
   useEffect(() => {
     const realProgramId = programId || prog?.id;
@@ -2687,16 +2725,19 @@ export default function ProgramView() {
         auto_suivi: !!nextVal,
         options: { ...(prog?.options || {}), auto_suivi: !!nextVal },
       });
-      toast({
+      notify(toast, "saveSuccess", {
         title: nextVal
           ? t("autoPreview.autoFollowOn", "Suivi automatique activé")
           : t("autoPreview.autoFollowOff", "Suivi automatique désactivé"),
-        status: "success",
-        duration: 1800,
+        description: nextVal
+          ? "Les prochaines validations mettront la progression à jour automatiquement."
+          : "Le programme restera inchangé sans suivi automatique.",
       });
     } catch (e) {
       console.error(e);
-      toast({ title: t("settings.toasts.update_error", "Erreur de mise à jour."), status: "error" });
+      notify(toast, "saveError", {
+        title: t("settings.toasts.update_error", "Erreur de mise à jour."),
+      });
       setAutoFollow(readAutoFollowFlag(prog));
     } finally {
       setSavingAutoFollow(false);
@@ -2706,16 +2747,17 @@ export default function ProgramView() {
   useEffect(() => {
     (async () => {
       const byl = await anyImageSourceToDataUrl(LEGACY_BYL_LOCAL);
+      const coachLogo = await anyImageSourceToDataUrl(user?.logoUrl || user?.photoURL || "");
       const logo = byl || LEGACY_BYL_LOCAL;
       setFooterLogo(logo);
-      setHeaderLogo(logo);
+      setHeaderLogo(coachLogo || logo);
     })();
-  }, []);
+  }, [user?.logoUrl, user?.photoURL]);
 
-  const resolveExerciseForDisplay = (exercise, fallback = "") => {
+  const resolveExerciseForDisplay = (exercise, fallback = "", lng = i18n.language || "fr") => {
     const cacheKey = getExerciseCacheKey(exercise, fallback);
-    if (!cacheKey) return exercise;
-    return resolvedExerciseMap[cacheKey] || exercise;
+    const resolved = cacheKey ? resolvedExerciseMap[cacheKey] || exercise : exercise;
+    return localizeExercise(resolved, lng);
   };
 
   const preloadPdfImagesForAllSessions = async () => {
@@ -2725,7 +2767,7 @@ export default function ProgramView() {
 
     const entries = await Promise.all(
       allExercises.map(async (ex, idx) => {
-        const resolved = resolveExerciseForDisplay(ex, `pdf-${idx}`);
+        const resolved = resolveExerciseForDisplay(ex, `pdf-${idx}`, pdfLang);
         const cacheKey = getExerciseCacheKey(resolved, `pdf-${idx}`);
 
         if (!cacheKey) return null;
@@ -2777,7 +2819,7 @@ export default function ProgramView() {
     setReplaceMode(replace);
     setSelVariant("");
     setOriginalName(ex?.nom || ex?.name || "");
-    setSelExo(resolveExerciseForDisplay(ex, "modal"));
+    setSelExo(resolveExerciseForDisplay(ex, "modal", i18n.language || "fr"));
     detailsDlg.onOpen();
   };
 
@@ -2799,10 +2841,9 @@ export default function ProgramView() {
     try {
       const replacementSource = await findExerciseVariantDoc(newName, selExo);
       if (!replacementSource) {
-        toast({
+        notify(toast, "programMissing", {
           title: t("autoPreview.variantNotFound", "Variante introuvable"),
-          status: "warning",
-          duration: 2200,
+          description: "Choisissez une autre variante disponible dans la banque.",
         });
         return;
       }
@@ -2848,16 +2889,14 @@ export default function ProgramView() {
       setSelVariant("");
       detailsDlg.onClose();
 
-      toast({
-        title: `${t("autoPreview.replace", "Remplacer")} OK`,
-        status: "success",
-        duration: 2200,
+      notify(toast, "saveSuccess", {
+        title: t("autoPreview.replace", "Remplacer"),
+        description: "L'exercice a bien été remplacé dans le programme.",
       });
     } catch (e) {
       console.error(e);
-      toast({
+      notify(toast, "saveError", {
         title: t("settings.toasts.update_error", "Erreur de mise à jour."),
-        status: "error",
       });
     }
   };
@@ -2870,11 +2909,11 @@ export default function ProgramView() {
 
   const renderPdfPages = () => {
     const palette = {
-      primary: "#193b8a",
-      ink: "#172033",
-      sub: "#5a6b87",
-      line: "#dfe7ff",
-      cardBorder: "#e9edfa",
+      primary: "#111827",
+      ink: "#111827",
+      sub: "#6B7280",
+      line: "#E5E7EB",
+      cardBorder: "#E5E7EB",
       mediaBg: "#f8fafc",
     };
 
@@ -2894,7 +2933,7 @@ export default function ProgramView() {
           px={30}
           py={8}
           minH="74px"
-          style={{ borderBottom: `2px solid ${palette.primary}`, background: "#fff" }}
+          style={{ borderBottom: `1px solid ${palette.line}`, background: "#fff" }}
         >
           <HStack spacing={12} style={{ width: 260 }}>
             {headerLogo ? (
@@ -2907,7 +2946,7 @@ export default function ProgramView() {
             ) : (
               <Box w="36px" h="36px" borderRadius="8px" bg="#e6ecff" />
             )}
-            <Text style={{ fontSize: 14.5, fontWeight: 800, color: palette.primary, whiteSpace: "nowrap" }}>
+            <Text style={{ fontSize: 14.5, fontWeight: 800, color: palette.ink, whiteSpace: "nowrap" }}>
               {leftLabel}
             </Text>
           </HStack>
@@ -3053,6 +3092,13 @@ export default function ProgramView() {
 
       const infos = buildInfosFromExercise(ex, displayUnits, pdfLocale, L);
       const adv = getAdvancedSets(ex);
+      const cues = pickFirst(ex, ["consignes", "instructions", "cues"]);
+      const cueEntries =
+        cues && typeof cues === "object" && !Array.isArray(cues)
+          ? Object.entries(cues).filter(([, value]) => String(Array.isArray(value) ? value.join(" ") : value || "").trim())
+          : safeArray(cues)
+              .map((value, cueIndex) => [`${cueIndex + 1}`, value])
+              .filter(([, value]) => String(value || "").trim());
       const showNotes =
         pickFirst(ex, ["notesEnabled"]) === true &&
         String(pickFirst(ex, ["notes"]) || "").trim() !== "";
@@ -3070,7 +3116,7 @@ export default function ProgramView() {
         >
           <PdfImageGrid images={images} />
 
-          <Text style={{ fontWeight: 800, color: palette.primary, fontSize: 15.2, marginBottom: 6 }}>
+          <Text style={{ fontWeight: 800, color: palette.ink, fontSize: 15.2, marginBottom: 6 }}>
             {`${index}. ${exName}`}
           </Text>
 
@@ -3089,6 +3135,17 @@ export default function ProgramView() {
             )}
           </Box>
 
+          {cueEntries.length > 0 && (
+            <Box style={{ marginTop: 8, fontSize: 11.8, color: palette.ink, lineHeight: 1.45 }}>
+              {cueEntries.slice(0, 5).map(([key, value], i) => (
+                <div key={i} style={{ marginTop: 3 }}>
+                  {Number.isNaN(Number(key)) ? <b>{key} : </b> : null}
+                  {Array.isArray(value) ? value.join(" / ") : String(value)}
+                </div>
+              ))}
+            </Box>
+          )}
+
           {adv.enabled && adv.sets.length > 0 && <AdvSetsMiniTable sets={adv.sets} />}
 
           {showNotes && (
@@ -3099,12 +3156,12 @@ export default function ProgramView() {
                 background: "#f7f9ff",
                 borderRadius: 10,
                 padding: "10px 12px",
-                color: "#2c3550",
+                color: "#374151",
               }}
             >
               <HStack spacing={8} align="center" style={{ marginBottom: 6 }}>
                 <Box as={MdDescription} />
-                <Text as="span" style={{ fontWeight: 700, fontSize: 12.5, color: "#1c2748" }}>
+                <Text as="span" style={{ fontWeight: 700, fontSize: 12.5, color: palette.ink }}>
                   {L.notes}
                 </Text>
               </HStack>
@@ -3117,12 +3174,12 @@ export default function ProgramView() {
 
     const SectionTitle = ({ label, continued }) => (
       <HStack spacing={10} align="center" style={{ margin: "16px 0 10px 0" }}>
-        <Box style={{ width: 8, height: 8, borderRadius: 3, background: "#193b8a" }} />
-        <Text style={{ fontWeight: 900, color: "#193b8a", fontSize: 15.6 }}>
+        <Box style={{ width: 8, height: 8, borderRadius: 3, background: "#111827" }} />
+        <Text style={{ fontWeight: 900, color: "#111827", fontSize: 15.6 }}>
           {label}
           {continued ? L.continued : ""}
         </Text>
-        <Box style={{ flex: 1, height: 1, background: "#dfe7ff" }} />
+        <Box style={{ flex: 1, height: 1, background: palette.line }} />
       </HStack>
     );
 
@@ -3160,6 +3217,13 @@ export default function ProgramView() {
 
       const infos = buildInfosFromExercise(ex, displayUnits, pdfLocale, L);
       h += (infos.length > 0 ? infos.length : 3) * 18;
+
+      const cues = pickFirst(ex, ["consignes", "instructions", "cues"]);
+      const cueCount =
+        cues && typeof cues === "object" && !Array.isArray(cues)
+          ? Object.keys(cues).length
+          : safeArray(cues).length;
+      if (cueCount > 0) h += Math.min(cueCount, 5) * 18 + 10;
 
       const adv = getAdvancedSets(ex);
       if (adv.enabled && adv.sets.length) {
@@ -3206,8 +3270,8 @@ export default function ProgramView() {
         let i = 0;
 
         while (i < list.length) {
-          const left = resolveExerciseForDisplay(list[i], `pdf-left-${sIdx}-${i}`);
-          const right = list[i + 1] ? resolveExerciseForDisplay(list[i + 1], `pdf-right-${sIdx}-${i}`) : null;
+          const left = resolveExerciseForDisplay(list[i], `pdf-left-${sIdx}-${i}`, pdfLang);
+          const right = list[i + 1] ? resolveExerciseForDisplay(list[i + 1], `pdf-right-${sIdx}-${i}`, pdfLang) : null;
 
           const leftImages = getPdfImagesForExercise(left, `pdf-left-${sIdx}-${i}`);
           const rightImages = right ? getPdfImagesForExercise(right, `pdf-right-${sIdx}-${i}`) : null;
@@ -3264,7 +3328,7 @@ export default function ProgramView() {
       <Box
         id="auto-preview-pages"
         ref={pdfRef}
-        position="absolute"
+        position="fixed"
         left="-20000px"
         top="0"
         zIndex={-1}
@@ -3291,6 +3355,7 @@ export default function ProgramView() {
       if (!nodes || nodes.length === 0) return;
 
       const pdf = new jsPDF({ unit: "pt", format: "a4" });
+      const renderScale = Math.max(2.05, Math.min(window.devicePixelRatio || 2, 2.35));
 
       for (let i = 0; i < nodes.length; i++) {
         const node = nodes[i];
@@ -3299,7 +3364,7 @@ export default function ProgramView() {
         await wait(20);
 
         const canvas = await html2canvas(node, {
-          scale: 1.45,
+          scale: renderScale,
           backgroundColor: "#ffffff",
           useCORS: true,
           allowTaint: false,
@@ -3313,7 +3378,7 @@ export default function ProgramView() {
 
         const img = canvas.toDataURL("image/jpeg", 0.9);
         if (i > 0) pdf.addPage();
-        pdf.addImage(img, "JPEG", 0, 0, 595.28, 841.89, undefined, "FAST");
+        pdf.addImage(img, "JPEG", 0, 0, 595.28, 841.89, undefined, "MEDIUM");
       }
 
       const base = normalizeForFilename(programmeTitleDisplay || L.fileProgram);
@@ -3321,10 +3386,8 @@ export default function ProgramView() {
       pdf.save(`${base}-${clientBase}-BYL-${pdfLang}.pdf`);
     } catch (e) {
       console.error(e);
-      toast({
+      notify(toast, "pdfError", {
         title: t("autoPreview.pdfError", "Erreur lors de la génération du PDF"),
-        status: "error",
-        duration: 3000,
       });
     }
   };
@@ -3346,17 +3409,13 @@ export default function ProgramView() {
   };
 
   if (loading) {
-    return (
-      <Box textAlign="center" py={10} bg={bg} minH="100vh">
-        <Spinner size="xl" />
-      </Box>
-    );
+    return <AppLoading label={t("common.loading", "Chargement...")} />;
   }
 
   if (!prog) {
     return (
-      <Box minH="100vh" bg={bg} p={6}>
-        <Box bg={surface} p={6} rounded="xl" shadow="lg" maxW="5xl" mx="auto">
+      <Box bg={bg} p={6}>
+        <Box {...theme.cardProps} p={6} maxW="5xl" mx="auto">
           <HStack mb={4}>
             <IconButton icon={<ArrowBackIcon />} aria-label="back" onClick={() => navigate(-1)} />
             <Heading size="md">{t("autoPreview.notFound", "Programme introuvable")}</Heading>
@@ -3375,10 +3434,12 @@ export default function ProgramView() {
       px={4}
       h="34px"
       fontWeight={600}
-      bg={active ? "#193b8a" : useColorModeValue("gray.100", "#233055")}
+      bg={active ? useColorModeValue("gray.900", "#2b3448") : useColorModeValue("gray.100", "#233055")}
       color={active ? "white" : useColorModeValue("gray.800", "gray.100")}
-      border={active ? "2px solid #193b8a" : "1px solid transparent"}
-      _hover={{ bg: active ? "#193b8a" : useColorModeValue("gray.200", "#32406b") }}
+      border="1px solid transparent"
+      _hover={{
+        bg: active ? useColorModeValue("gray.800", "#374151") : useColorModeValue("gray.200", "#32406b")
+      }}
       transition="all .15s"
     >
       {children}
@@ -3391,8 +3452,8 @@ export default function ProgramView() {
   const showAutoFollowToggle = true;
 
   return (
-    <Box minH="100vh" bg={bg} p={{ base: 3, md: 6 }}>
-      <Box bg={surface} p={{ base: 4, md: 6 }} rounded="xl" shadow="lg" maxW="7xl" mx="auto">
+    <Box bg={bg} minH="100vh" p={{ base: 3, md: 6 }}>
+      <Box {...theme.cardProps} p={{ base: 4, md: 6 }} maxW="7xl" mx="auto">
         <TopBar
           programmeName={programmeTitleDisplay}
           onBack={() => navigate(-1)}
@@ -3424,10 +3485,26 @@ export default function ProgramView() {
             <Box as={MdOutlineAccessTime} boxSize={5} />
             <Text fontSize="sm">
               {L.totalTime} :{" "}
-              <Badge ml={2} colorScheme="blue">
+              <Badge
+                ml={2}
+                borderRadius="full"
+                px={2.5}
+                py="2px"
+                bg={useColorModeValue("gray.100", "#233055")}
+                color={useColorModeValue("gray.700", "gray.100")}
+                border={useColorModeValue("1px solid #e3e7ef", "1px solid #2b3b64")}
+              >
                 {totalTime(currentSession)}
               </Badge>
-              <Badge ml={2} variant="subtle">
+              <Badge
+                ml={2}
+                borderRadius="full"
+                px={2.5}
+                py="2px"
+                bg="transparent"
+                color={useColorModeValue("gray.600", "gray.200")}
+                border={useColorModeValue("1px solid #e3e7ef", "1px solid #2b3b64")}
+              >
                 {currentSessionTitle}
               </Badge>
             </Text>
@@ -3453,7 +3530,7 @@ export default function ProgramView() {
 
               <SimpleGrid columns={{ base: 1, md: 2, lg: 3, xl: 4 }} spacing={4}>
                 {list.map((ex, idx) => {
-                  const displayExercise = resolveExerciseForDisplay(ex, `${key}-${idx}`);
+                  const displayExercise = resolveExerciseForDisplay(ex, `${key}-${idx}`, i18n.language || "fr");
                   const nom = (pickFirst(displayExercise || ex, ["nom", "name"]) || "").toString();
                   const infos = buildInfosFromExercise(ex, displayUnits, locale, L);
                   const adv = getAdvancedSets(ex);
@@ -3463,9 +3540,9 @@ export default function ProgramView() {
                       key={`${nom}-${idx}`}
                       bg={cardBg}
                       border={cardBorder}
-                      borderRadius="xl"
+                      borderRadius="22px"
                       p={4}
-                      boxShadow={useColorModeValue("sm", "md")}
+                      boxShadow="none"
                       transition="all .15s"
                       _hover={{ boxShadow: "lg", transform: "translateY(-2px)" }}
                       minH="280px"
@@ -3601,7 +3678,15 @@ export default function ProgramView() {
                       })}
                     </Select>
                     <HStack align="center" spacing={2} wrap="wrap">
-                      <Button colorScheme="blue" onClick={() => doReplacePersist(selVariant)} isDisabled={!selVariant}>
+                      <Button
+                        onClick={() => doReplacePersist(selVariant)}
+                        isDisabled={!selVariant}
+                        borderRadius="full"
+                        bg={useColorModeValue("gray.900", "whiteAlpha.200")}
+                        color="white"
+                        _hover={{ bg: useColorModeValue("gray.800", "whiteAlpha.300") }}
+                        _active={{ bg: useColorModeValue("gray.700", "whiteAlpha.400") }}
+                      >
                         {t("autoPreview.replace", "Remplacer")}
                       </Button>
                       <Spacer />
@@ -3638,7 +3723,12 @@ function TopBar({
   onToggleAutoFollow,
 }) {
   const { t } = useTranslation("common");
-  const isDarkBtnBg = useColorModeValue(undefined, "gray.600");
+  const iconButtonBg = useColorModeValue("white", "#1f2937");
+  const iconButtonBorder = useColorModeValue("#e2e8f0", "#334155");
+  const iconButtonHoverBg = useColorModeValue("gray.100", "#273449");
+  const primaryButtonBg = useColorModeValue("gray.900", "whiteAlpha.200");
+  const primaryButtonHoverBg = useColorModeValue("gray.800", "whiteAlpha.300");
+  const primaryButtonActiveBg = useColorModeValue("gray.700", "whiteAlpha.400");
 
   const options = Object.keys(PDF_I18N).map((k) => ({
     value: k,
@@ -3655,7 +3745,17 @@ function TopBar({
     >
       <HStack spacing={3} align="center">
         <Tooltip label={t("autoPreview.back", "Retour")}>
-          <IconButton icon={<ArrowBackIcon />} aria-label={t("autoPreview.back", "Retour")} onClick={onBack} />
+          <IconButton
+            icon={<ArrowBackIcon />}
+            aria-label={t("autoPreview.back", "Retour")}
+            onClick={onBack}
+            borderRadius="full"
+            bg={iconButtonBg}
+            color={useColorModeValue("gray.700", "white")}
+            border="1px solid"
+            borderColor={iconButtonBorder}
+            _hover={{ bg: iconButtonHoverBg }}
+          />
         </Tooltip>
         <Heading fontSize={{ base: "xl", md: "2xl" }} noOfLines={2} wordBreak="break-word">
           {programmeName}
@@ -3755,7 +3855,15 @@ function TopBar({
           </Button>
         )}
 
-        <Button colorScheme="blue" size="sm" onClick={onPlay}>
+        <Button
+          size="sm"
+          onClick={onPlay}
+          borderRadius="full"
+          bg={primaryButtonBg}
+          color="white"
+          _hover={{ bg: primaryButtonHoverBg }}
+          _active={{ bg: primaryButtonActiveBg }}
+        >
           {t("autoPreview.start", "Démarrer séance")}
         </Button>
 
@@ -3765,7 +3873,12 @@ function TopBar({
             aria-label={t("autoPreview.downloadPdf", "Télécharger le PDF")}
             onClick={onPdf}
             size="sm"
-            bg={isDarkBtnBg}
+            borderRadius="full"
+            bg={iconButtonBg}
+            color={useColorModeValue("gray.700", "white")}
+            border="1px solid"
+            borderColor={iconButtonBorder}
+            _hover={{ bg: iconButtonHoverBg }}
           />
         </Tooltip>
       </HStack>

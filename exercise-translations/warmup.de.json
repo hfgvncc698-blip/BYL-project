@@ -1,0 +1,1425 @@
+{
+  "E001": {
+    "nom": "Hampelmänner",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Alle Muskeln",
+    "objectifs": [
+      "Cardio",
+      "Ausdauer",
+      "Gewichtsverlust",
+      "Mobilität",
+      "Gleichgewicht"
+    ],
+    "muscles_secondaires": [
+      "Kälber",
+      "Schultern",
+      "Quadrizeps"
+    ],
+    "articulations_solicitees": [
+      "Knöchel",
+      "Knie",
+      "Schultern"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne"
+    ],
+    "type": "Cardio-/Muskelaktivierung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Vermeiden Sie es, wenn Sie Knie- oder Knöchelschmerzen haben"
+    ],
+    "variantes": [
+      "Langsame Hampelmänner",
+      "Step Jacks (kein Sprung)",
+      "Gewichtete Hampelmänner"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit zusammengefügten Füßen und den Armen neben Ihrem Körper.",
+      "Mouvement": "Springen Sie, spreizen Sie die Beine zur Seite und heben Sie gleichzeitig die Arme über den Kopf.",
+      "Retour": "Bringen Sie Ihre Füße und Arme gleichzeitig in die Ausgangsposition zurück.",
+      "Respiration": "Beim Öffnen einatmen, beim Schließen ausatmen.",
+      "Posture": "Halten Sie Ihren Rücken gerade und spannen Sie Ihre Bauchmuskeln leicht an."
+    }
+  },
+  "E002": {
+    "nom": "Langsame Hampelmänner",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Alle Muskeln",
+    "objectifs": [
+      "Cardio",
+      "Mobilität",
+      "Gleichgewicht",
+      "Leichte Verstärkung",
+      "Körperliche Vorbereitung"
+    ],
+    "muscles_secondaires": [
+      "Kälber",
+      "Schultern",
+      "Quadrizeps"
+    ],
+    "articulations_solicitees": [
+      "Knöchel",
+      "Knie",
+      "Schultern"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne"
+    ],
+    "type": "Mäßiges Cardio",
+    "niveau": "Anfänger – Alle Niveaus",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Ideal für Menschen mit eingeschränkter Belastung"
+    ],
+    "variantes": [
+      "Hampelmänner",
+      "Step Jacks (kein Sprung)"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit zusammengefügten Füßen und den Armen neben Ihrem Körper.",
+      "Mouvement": "Führen Sie einen Jumping Jack langsamer aus und kontrollieren Sie dabei jede Bewegung.",
+      "Retour": "Bringen Sie Ihre Füße und Arme langsam wieder in die Ausgangsposition zurück.",
+      "Respiration": "Beim Öffnen einatmen, beim Schließen ausatmen.",
+      "Posture": "Spannen Sie Ihre Bauchmuskeln an und halten Sie Ihren Rücken gerade."
+    }
+  },
+  "E003": {
+    "nom": "Step Jacks (kein Sprung)",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Alle Muskeln",
+    "objectifs": [
+      "Cardio",
+      "Mobilität",
+      "Gleichgewicht",
+      "Gemeinsame Vorbereitung",
+      "Haltung"
+    ],
+    "muscles_secondaires": [
+      "Kälber",
+      "Schultern",
+      "Quadrizeps"
+    ],
+    "articulations_solicitees": [
+      "Knöchel",
+      "Knie",
+      "Schultern"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne"
+    ],
+    "type": "Mäßiges Cardio",
+    "niveau": "Anfänger",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Ideal für Menschen mit eingeschränkter Belastung"
+    ],
+    "variantes": [
+      "Hampelmänner",
+      "Langsame Hampelmänner"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit schulterbreit auseinander stehenden Füßen und den Armen neben Ihrem Körper.",
+      "Mouvement": "Machen Sie einen Schritt zur Seite, indem Sie Ihre Arme heben, und kehren Sie dann in die Ausgangsposition zurück.",
+      "Retour": "Abwechselnde Schritte nach rechts und links ohne Stoß.",
+      "Respiration": "Beim Öffnen einatmen, beim Schließen ausatmen.",
+      "Posture": "Halten Sie Ihren Rücken gerade und spannen Sie Ihre Bauchmuskeln an."
+    }
+  },
+  "E004": {
+    "nom": "Gewichtete Hampelmänner",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Alle Muskeln",
+    "objectifs": [
+      "Ausdauer",
+      "Verstärkung",
+      "Fortgeschrittenes Cardio",
+      "Mobilität",
+      "Haltung",
+      "Körperliche Vorbereitung"
+    ],
+    "muscles_secondaires": [
+      "Kälber",
+      "Schultern",
+      "Quadrizeps"
+    ],
+    "materiel": [
+      "Leichte Hanteln",
+      "Gewichtsweste"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Seien Sie wachsam bei Stößen auf die Knie"
+    ],
+    "variantes": [
+      "Hampelmänner",
+      "Step Jacks (kein Sprung)"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit zusammengefügten Füßen, Hanteln in der Hand oder befestigter Gewichtsweste.",
+      "Mouvement": "Führen Sie einen Jumping Jack aus und kontrollieren Sie dabei das zusätzliche Gewicht.",
+      "Retour": "Bringen Sie Ihre Füße und Arme gleichzeitig in die Ausgangsposition zurück.",
+      "Respiration": "Beim Öffnen einatmen, beim Schließen ausatmen.",
+      "Posture": "Beanspruchen Sie Ihren Rumpf, um ein Ungleichgewicht zu vermeiden."
+    }
+  },
+  "E005": {
+    "nom": "Armdrehungen",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Schultern",
+    "objectifs": [
+      "Mobilität",
+      "Verletzungsprävention",
+      "Muskelaktivierung"
+    ],
+    "muscles_secondaires": [
+      "Trapeze",
+      "Deltamuskeln"
+    ],
+    "articulations_solicitees": [
+      "Schultern"
+    ],
+    "tendons_solicites": [
+      "Rotatorenmanschette"
+    ],
+    "type": "Gemeinsame Mobilisierung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend oder sitzend",
+    "contraintes": [
+      "Erzwingen Sie die Amplitude nicht, wenn Schmerzen auftreten"
+    ],
+    "variantes": [
+      "Vorwärtsrotationen",
+      "Rückwärtsrotationen"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit schulterbreit auseinander stehenden Füßen und ausgestreckten Armen an den Seiten.",
+      "Mouvement": "Machen Sie langsame Kreise mit Ihren Armen, vorwärts und rückwärts.",
+      "Respiration": "Atmen Sie natürlich und ohne Blockaden.",
+      "Posture": "Halten Sie Ihren Rücken gerade und Ihren Nacken entspannt."
+    }
+  },
+  "E006": {
+    "nom": "Leichte Frontalheben",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Schultern",
+    "objectifs": [
+      "Muskelaktivierung",
+      "Gemeinsame Vorbereitung",
+      "Leichte Verstärkung"
+    ],
+    "muscles_secondaires": [
+      "Vordere Deltamuskeln",
+      "Trapeze"
+    ],
+    "articulations_solicitees": [
+      "Schultern"
+    ],
+    "tendons_solicites": [
+      "Rotatorenmanschette"
+    ],
+    "type": "Muskelvorbereitung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Leichte Hanteln",
+      "Elastisch"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Verwenden Sie eine leichte Last, um übermäßige Spannung zu vermeiden"
+    ],
+    "variantes": [
+      "Leichte seitliche Erhöhungen"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit schulterbreit auseinander stehenden Füßen und den Armen an Ihren Seiten.",
+      "Mouvement": "Hebe deine Arme langsam vor dir auf Schulterhöhe.",
+      "Retour": "Gehen Sie langsam und ohne zu rucken wieder nach unten.",
+      "Respiration": "Beim Aufstieg einatmen, beim Abstieg ausatmen.",
+      "Posture": "Halten Sie Ihren Rücken gerade und spannen Sie Ihre Bauchmuskeln an."
+    }
+  },
+  "E007": {
+    "nom": "Vorwärtsrotationen",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Schultern",
+    "objectifs": [
+      "Mobilität",
+      "Verletzungsprävention",
+      "Muskelaktivierung"
+    ],
+    "muscles_secondaires": [
+      "Trapeze",
+      "Deltamuskeln"
+    ],
+    "articulations_solicitees": [
+      "Schultern"
+    ],
+    "tendons_solicites": [
+      "Rotatorenmanschette"
+    ],
+    "type": "Gemeinsame Mobilisierung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend oder sitzend",
+    "contraintes": [
+      "Erzwingen Sie die Amplitude nicht, wenn Schmerzen auftreten"
+    ],
+    "variantes": [
+      "Rückwärtsrotationen"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit schulterbreit auseinander stehenden Füßen und ausgestreckten Armen an den Seiten.",
+      "Mouvement": "Führen Sie mit Ihren Armen langsame Vorwärtsrotationen durch.",
+      "Retour": "Behalten Sie eine kontrollierte, gleichmäßige Amplitude bei.",
+      "Respiration": "Atmen Sie natürlich und ohne Blockaden.",
+      "Posture": "Halten Sie Ihren Rücken gerade und Ihren Nacken entspannt."
+    }
+  },
+  "E008": {
+    "nom": "Rückwärtsrotationen",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Schultern",
+    "objectifs": [
+      "Mobilität",
+      "Verletzungsprävention",
+      "Muskelaktivierung"
+    ],
+    "muscles_secondaires": [
+      "Trapeze",
+      "Deltamuskeln"
+    ],
+    "articulations_solicitees": [
+      "Schultern"
+    ],
+    "tendons_solicites": [
+      "Rotatorenmanschette"
+    ],
+    "type": "Gemeinsame Mobilisierung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend oder sitzend",
+    "contraintes": [
+      "Erzwingen Sie die Amplitude nicht, wenn Schmerzen auftreten"
+    ],
+    "variantes": [
+      "Vorwärtsrotationen"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit schulterbreit auseinander stehenden Füßen und ausgestreckten Armen an den Seiten.",
+      "Mouvement": "Drehen Sie Ihre Arme langsam nach hinten.",
+      "Retour": "Behalten Sie eine kontrollierte, gleichmäßige Amplitude bei.",
+      "Respiration": "Atmen Sie natürlich und ohne Blockaden.",
+      "Posture": "Halten Sie Ihren Rücken gerade und Ihren Nacken entspannt."
+    }
+  },
+  "E009": {
+    "nom": "Leichte seitliche Erhöhungen",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Schultern",
+    "objectifs": [
+      "Muskelaktivierung",
+      "Gemeinsame Vorbereitung",
+      "Leichte Verstärkung"
+    ],
+    "muscles_secondaires": [
+      "Seitliche Deltamuskeln",
+      "Trapeze"
+    ],
+    "articulations_solicitees": [
+      "Schultern"
+    ],
+    "tendons_solicites": [
+      "Rotatorenmanschette"
+    ],
+    "type": "Muskelvorbereitung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Leichte Hanteln",
+      "Elastisch"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Verwenden Sie eine leichte Last, um übermäßige Spannung zu vermeiden"
+    ],
+    "variantes": [
+      "Leichte Frontalheben"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit schulterbreit auseinander stehenden Füßen und den Armen an Ihren Seiten.",
+      "Mouvement": "Heben Sie Ihre Arme langsam seitlich auf Schulterhöhe aus.",
+      "Retour": "Gehen Sie langsam und ohne zu rucken wieder nach unten.",
+      "Respiration": "Beim Aufstieg einatmen, beim Abstieg ausatmen.",
+      "Posture": "Halten Sie Ihren Rücken gerade und spannen Sie Ihre Bauchmuskeln an."
+    }
+  },
+  "E010": {
+    "nom": "Handgelenksrotation",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Unterarm",
+    "objectifs": [
+      "Gemeinsame Vorbereitung",
+      "Mobilität"
+    ],
+    "muscles_secondaires": [
+      "Handgelenkstrecker",
+      "Handgelenkbeuger"
+    ],
+    "articulations_solicitees": [
+      "Manschetten"
+    ],
+    "tendons_solicites": [
+      "Streck- und Beugesehnen"
+    ],
+    "type": "Gemeinsame Vorbereitung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Vermeiden Sie plötzliche Bewegungen"
+    ],
+    "variantes": [
+      "Drehung der Handgelenke mit einem Gummiband"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit entspannten Armen vor sich und gefalteten Händen.",
+      "Mouvement": "Machen Sie langsame Kreise mit Ihren Handgelenken.",
+      "Retour": "Wechseln Sie nach einigen Wiederholungen die Richtung.",
+      "Respiration": "Atmen Sie natürlich, ohne Blockaden.",
+      "Posture": "Halten Sie Ihre Schultern entspannt und Ihren Rücken gerade."
+    }
+  },
+  "E011": {
+    "nom": "Flexion-Extension der Handgelenke",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Unterarm",
+    "objectifs": [
+      "Mobilität",
+      "Muskelaktivierung"
+    ],
+    "muscles_secondaires": [
+      "Handgelenkstrecker",
+      "Handgelenkbeuger"
+    ],
+    "articulations_solicitees": [
+      "Manschetten"
+    ],
+    "tendons_solicites": [
+      "Beuge- und Strecksehnen"
+    ],
+    "type": "Gemeinsame Vorbereitung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Keine",
+      "Leichte Hanteln"
+    ],
+    "position": "Sitzen oder Stehen",
+    "contraintes": [
+      "Langsame, kontrollierte Bewegung"
+    ],
+    "variantes": [
+      "Handgelenkbeugung-Streckung mit leichten Hanteln"
+    ],
+    "consignes": {
+      "Positionnement": "Sitzen oder stehen Sie mit um 90° angewinkelten Armen vor sich.",
+      "Mouvement": "Beugen und strecken Sie langsam Ihre Handgelenke.",
+      "Retour": "Abwechseln, ohne die Amplitude zu erzwingen.",
+      "Respiration": "Beim Beugen einatmen, beim Strecken ausatmen.",
+      "Posture": "Halten Sie Ihren Rücken gerade und die Schultern entspannt."
+    }
+  },
+  "E012": {
+    "nom": "Ellenbogenrotation",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Bizeps, Trizeps",
+    "objectifs": [
+      "Gemeinsame Vorbereitung",
+      "Mobilität"
+    ],
+    "muscles_secondaires": [
+      "Bizeps",
+      "Trizeps"
+    ],
+    "articulations_solicitees": [
+      "Ellenbogen"
+    ],
+    "tendons_solicites": [
+      "Bizeps- und Trizepssehnen"
+    ],
+    "type": "Gemeinsame Vorbereitung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Flüssige und progressive Bewegung"
+    ],
+    "variantes": [
+      "Ellenbogenrotation mit Gummizug"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit im 90°-Winkel angehobenen Armen.",
+      "Mouvement": "Führen Sie langsame Ellenbogenrotationen durch.",
+      "Retour": "Abwechselnde Innen- und Außenrotation.",
+      "Respiration": "Atme tief und natürlich.",
+      "Posture": "Halten Sie Ihren Rücken gerade und die Schultern ausgerichtet."
+    }
+  },
+  "E013": {
+    "nom": "Drehung der Handgelenke mit einem Gummiband",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Unterarm",
+    "objectifs": [
+      "Gemeinsame Vorbereitung",
+      "Mobilität"
+    ],
+    "muscles_secondaires": [
+      "Handgelenkstrecker",
+      "Handgelenkbeuger"
+    ],
+    "articulations_solicitees": [
+      "Manschetten"
+    ],
+    "tendons_solicites": [
+      "Streck- und Beugesehnen"
+    ],
+    "type": "Gemeinsame Vorbereitung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Elastisch"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Überprüfen Sie die Spannung des Gummibandes, um eine übermäßige Belastung zu vermeiden"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie und halten Sie ein Gummiband vor sich fest.",
+      "Mouvement": "Führen Sie langsame Kreise mit Ihren Handgelenken aus und behalten Sie dabei einen leichten Widerstand bei.",
+      "Retour": "Wechseln Sie nach einigen Wiederholungen die Richtung.",
+      "Respiration": "Atmen Sie natürlich, ohne Blockaden.",
+      "Posture": "Halten Sie Ihre Schultern entspannt und Ihren Rücken gerade."
+    }
+  },
+  "E014": {
+    "nom": "Flexion-Extension der Handgelenke mit Gummizug",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Unterarm",
+    "objectifs": [
+      "Mobilität",
+      "Muskelaktivierung"
+    ],
+    "muscles_secondaires": [
+      "Handgelenkstrecker",
+      "Handgelenkbeuger"
+    ],
+    "articulations_solicitees": [
+      "Manschetten"
+    ],
+    "tendons_solicites": [
+      "Beuge- und Strecksehnen"
+    ],
+    "type": "Gemeinsame Vorbereitung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Elastisch"
+    ],
+    "position": "Sitzen oder Stehen",
+    "contraintes": [
+      "Ziehen Sie nicht zu stark am Gummiband, um eine übermäßige Spannung zu vermeiden"
+    ],
+    "variantes": [
+      "Handgelenkbeugung-Streckung mit leichten Hanteln",
+      "Flexion-Extension der Handgelenke"
+    ],
+    "consignes": {
+      "Positionnement": "Sitzen oder stehen Sie und halten Sie ein elastisches Band vor sich fest.",
+      "Mouvement": "Beugen und strecken Sie die Handgelenke langsam und halten Sie dabei eine leichte Spannung aufrecht.",
+      "Retour": "Abwechseln, ohne die Amplitude zu erzwingen.",
+      "Respiration": "Beim Beugen einatmen, beim Strecken ausatmen.",
+      "Posture": "Halten Sie Ihren Rücken gerade und die Schultern entspannt."
+    }
+  },
+  "E015": {
+    "nom": "Ellenbogenrotation mit leichten Hanteln",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Bizeps, Trizeps",
+    "objectifs": [
+      "Gemeinsame Vorbereitung",
+      "Mobilität"
+    ],
+    "muscles_secondaires": [
+      "Bizeps",
+      "Trizeps"
+    ],
+    "articulations_solicitees": [
+      "Ellenbogen"
+    ],
+    "tendons_solicites": [
+      "Bizeps- und Trizepssehnen"
+    ],
+    "type": "Gemeinsame Vorbereitung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Leichte Hanteln"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Verwenden Sie eine leichte Last, um übermäßige Spannung zu vermeiden"
+    ],
+    "variantes": [
+      "Ellenbogenrotation mit Gummizug",
+      "Ellenbogenrotation"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie und halten Sie in jeder Hand eine leichte Hantel.",
+      "Mouvement": "Führen Sie langsame Ellenbogenrotationen durch und behalten Sie dabei eine flüssige Bewegung bei.",
+      "Retour": "Abwechselnde Innen- und Außenrotation.",
+      "Respiration": "Atme tief und natürlich.",
+      "Posture": "Halten Sie Ihren Rücken gerade und die Schultern ausgerichtet."
+    }
+  },
+  "E016": {
+    "nom": "Nackenrotation",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Hals",
+    "objectifs": [
+      "Mobilität",
+      "Verletzungsprävention"
+    ],
+    "muscles_secondaires": [
+      "Trapeze",
+      "Sternocleidomastoideus"
+    ],
+    "articulations_solicitees": [
+      "Zervikal"
+    ],
+    "tendons_solicites": [
+      "Halssehnen"
+    ],
+    "type": "Gemeinsame Mobilisierung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend oder sitzend",
+    "contraintes": [
+      "Erzwingen Sie die Drehung nicht, wenn Schmerzen auftreten"
+    ],
+    "variantes": [
+      "Seitliche Nackenneigung"
+    ],
+    "consignes": {
+      "Positionnement": "Stellen Sie sich gerade hin, den Kopf in einer Linie mit Ihrem Körper.",
+      "Mouvement": "Drehen Sie Ihren Kopf langsam nach rechts und dann nach links.",
+      "Retour": "Bringen Sie Ihren Kopf zwischen jeder Drehung vorsichtig in eine neutrale Position zurück.",
+      "Respiration": "Atme tief und natürlich.",
+      "Posture": "Entspannen Sie Ihre Schultern und halten Sie Ihren Rücken gerade."
+    }
+  },
+  "E017": {
+    "nom": "Seitliche Nackenneigung",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Hals",
+    "objectifs": [
+      "Mobilität",
+      "Verletzungsprävention"
+    ],
+    "muscles_secondaires": [
+      "Trapeze",
+      "Sternocleidomastoideus"
+    ],
+    "articulations_solicitees": [
+      "Zervikal"
+    ],
+    "tendons_solicites": [
+      "Halssehnen"
+    ],
+    "type": "Gemeinsame Mobilisierung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend oder sitzend",
+    "contraintes": [
+      "Erzwingen Sie die Neigung nicht, wenn Sie Schmerzen haben"
+    ],
+    "variantes": [
+      "Nackenrotation"
+    ],
+    "consignes": {
+      "Positionnement": "Stellen Sie sich gerade hin, den Kopf in einer Linie mit Ihrem Körper.",
+      "Mouvement": "Neigen Sie Ihren Kopf sanft zur rechten Schulter und dann zur linken Schulter.",
+      "Retour": "Bringen Sie Ihren Kopf zwischen jeder Neigung wieder in eine neutrale Position.",
+      "Respiration": "Atme tief und natürlich.",
+      "Posture": "Entspannen Sie Ihre Schultern und halten Sie Ihren Rücken gerade."
+    }
+  },
+  "E018": {
+    "nom": "Rumpfrotation",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Bauchmuskeln",
+    "objectifs": [
+      "Mobilität",
+      "Gemeinsame Vorbereitung",
+      "Muskelaktivierung"
+    ],
+    "muscles_secondaires": [
+      "Schrägen",
+      "Lendenwirbelsäule"
+    ],
+    "articulations_solicitees": [
+      "Hüften",
+      "Wirbelsäule"
+    ],
+    "tendons_solicites": [
+      "Wirbelsäulenbänder"
+    ],
+    "type": "Gemeinsame Mobilisierung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Erzwingen Sie die Amplitude nicht, wenn Schmerzen auftreten"
+    ],
+    "variantes": [
+      "Rumpfrotation mit einem Stock"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit schulterbreit auseinander stehenden Füßen und verschränkten Armen vor der Brust oder hinter dem Kopf.",
+      "Mouvement": "Drehen Sie Ihren Rumpf langsam von links nach rechts, ohne Ihr Becken zu bewegen.",
+      "Retour": "Behalten Sie eine kontrollierte, gleichmäßige Amplitude bei.",
+      "Respiration": "In neutraler Position einatmen, während der Drehung ausatmen.",
+      "Posture": "Halten Sie Ihren Rücken gerade und spannen Sie Ihre Bauchmuskeln an."
+    }
+  },
+  "E019": {
+    "nom": "Rumpfflexion-Extension",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Bauchmuskeln",
+    "objectifs": [
+      "Mobilität",
+      "Gemeinsame Vorbereitung",
+      "Leichte Verstärkung"
+    ],
+    "muscles_secondaires": [
+      "Lendenwirbelsäule",
+      "Schrägen"
+    ],
+    "articulations_solicitees": [
+      "Wirbelsäule",
+      "Hüften"
+    ],
+    "tendons_solicites": [
+      "Wirbelsäulenbänder"
+    ],
+    "type": "Gemeinsame Vorbereitung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Gehen Sie nicht zu tief, wenn Sie Schmerzen im unteren Rücken haben"
+    ],
+    "variantes": [
+      "Flexion-Extension mit einem Stock"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit schulterbreit auseinander stehenden Füßen, die Hände in den Hüften oder hinter dem Kopf.",
+      "Mouvement": "Neigen Sie Ihren Oberkörper langsam nach vorne und stehen Sie dann auf.",
+      "Retour": "Kehren Sie kontrolliert in die Ausgangsposition zurück.",
+      "Respiration": "Auf dem Weg nach unten einatmen, auf dem Weg nach oben ausatmen.",
+      "Posture": "Halten Sie Ihre Bauchmuskeln angespannt und Ihren Rücken gerade."
+    }
+  },
+  "E020": {
+    "nom": "Rumpfrotation mit einem Stock",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Bauchmuskeln",
+    "objectifs": [
+      "Mobilität",
+      "Gemeinsame Vorbereitung",
+      "Muskelaktivierung"
+    ],
+    "muscles_secondaires": [
+      "Schrägen",
+      "Lendenwirbelsäule"
+    ],
+    "articulations_solicitees": [
+      "Hüften",
+      "Wirbelsäule"
+    ],
+    "tendons_solicites": [
+      "Wirbelsäulenbänder"
+    ],
+    "type": "Gemeinsame Mobilisierung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Stock"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Erzwingen Sie die Amplitude nicht, wenn Schmerzen auftreten"
+    ],
+    "variantes": [
+      "Rumpfrotation"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit schulterbreit auseinander stehenden Füßen, legen Sie den Stock hinter den Nacken und halten Sie ihn mit den Händen fest.",
+      "Mouvement": "Drehen Sie Ihren Rumpf langsam von links nach rechts, ohne Ihr Becken zu bewegen.",
+      "Retour": "Behalten Sie eine kontrollierte, gleichmäßige Amplitude bei.",
+      "Respiration": "In neutraler Position einatmen, während der Drehung ausatmen.",
+      "Posture": "Halten Sie Ihren Rücken gerade und spannen Sie Ihre Bauchmuskeln an."
+    }
+  },
+  "E021": {
+    "nom": "Flexion-Extension mit einem Stock",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Bauchmuskeln",
+    "objectifs": [
+      "Mobilität",
+      "Gemeinsame Vorbereitung",
+      "Leichte Verstärkung"
+    ],
+    "muscles_secondaires": [
+      "Lendenwirbelsäule",
+      "Schrägen"
+    ],
+    "articulations_solicitees": [
+      "Wirbelsäule",
+      "Hüften"
+    ],
+    "tendons_solicites": [
+      "Wirbelsäulenbänder"
+    ],
+    "type": "Gemeinsame Vorbereitung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Stock"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Gehen Sie nicht zu tief, wenn Sie Schmerzen im unteren Rücken haben"
+    ],
+    "variantes": [
+      "Rumpfflexion-Extension"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit schulterbreit auseinander stehenden Füßen, legen Sie den Stock auf die Schultern und halten Sie ihn mit den Händen.",
+      "Mouvement": "Neigen Sie Ihren Oberkörper langsam nach vorne und stehen Sie dann auf.",
+      "Retour": "Kehren Sie kontrolliert in die Ausgangsposition zurück.",
+      "Respiration": "Auf dem Weg nach unten einatmen, auf dem Weg nach oben ausatmen.",
+      "Posture": "Halten Sie Ihre Bauchmuskeln angespannt und Ihren Rücken gerade."
+    }
+  },
+  "E022": {
+    "nom": "Heels-Hintern",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Kniesehnen",
+    "objectifs": [
+      "Muskelaktivierung",
+      "Gemeinsame Vorbereitung",
+      "Cardio"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Kälber"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Knöchel"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne"
+    ],
+    "type": "Mäßiges Cardio",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Bei Knieschmerzen Stöße vermeiden"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit schulterbreit auseinander stehenden Füßen.",
+      "Mouvement": "Bringen Sie abwechselnd eine Ferse in Richtung Gesäß und aktivieren Sie so die hintere Oberschenkelmuskulatur.",
+      "Retour": "Abwechselnd ohne übermäßige Belastung.",
+      "Respiration": "Atmen Sie regelmäßig ein und aus.",
+      "Posture": "Halten Sie Ihren Rücken gerade und richten Sie Ihren Blick nach vorne."
+    }
+  },
+  "E023": {
+    "nom": "Kleiner Sprung auf der Stelle",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Kälber",
+    "objectifs": [
+      "Muskelaktivierung",
+      "Gemeinsame Vorbereitung",
+      "Cardio"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knöchel",
+      "Knie"
+    ],
+    "tendons_solicites": [
+      "Achillessehne"
+    ],
+    "type": "Mäßiges Cardio",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Begrenzen Sie den Aufprall bei Knöchelschmerzen"
+    ],
+    "variantes": [
+      "Alternative Sprünge",
+      "Leichter Sprung ohne Aufprall"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit schulterbreit auseinander stehenden Füßen.",
+      "Mouvement": "Führen Sie kleine Sprünge aus und bleiben Sie dabei auf den Zehenspitzen.",
+      "Retour": "Behalten Sie ein leichtes, gleichmäßiges Tempo bei.",
+      "Respiration": "Atmen Sie natürlich, blockieren Sie nicht Ihren Atem.",
+      "Posture": "Halten Sie Ihre Bauchmuskeln angespannt und Ihre Schultern entspannt."
+    }
+  },
+  "E024": {
+    "nom": "Alternative Sprünge",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Kälber",
+    "objectifs": [
+      "Muskelaktivierung",
+      "Gemeinsame Vorbereitung",
+      "Cardio"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knöchel",
+      "Knie"
+    ],
+    "tendons_solicites": [
+      "Achillessehne"
+    ],
+    "type": "Mäßiges Cardio",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Begrenzen Sie den Aufprall bei Knie- oder Knöchelschmerzen"
+    ],
+    "variantes": [
+      "Kleiner Sprung auf der Stelle",
+      "Leichter Sprung ohne Aufprall"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit schulterbreit auseinander stehenden Füßen.",
+      "Mouvement": "Springen Sie abwechselnd mit den Fußstützen, als ob Sie auf der Stelle laufen würden.",
+      "Retour": "Sorgen Sie für eine gleichmäßige, kontrollierte Bewegung.",
+      "Respiration": "Atme natürlich im Rhythmus der Sprünge.",
+      "Posture": "Spannen Sie Ihre Bauchmuskeln an und halten Sie Ihren Oberkörper gerade."
+    }
+  },
+  "E025": {
+    "nom": "Leichter Sprung ohne Aufprall",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Kälber",
+    "objectifs": [
+      "Gemeinsame Vorbereitung",
+      "Muskelaktivierung",
+      "Leichtes Cardio"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knöchel",
+      "Knie"
+    ],
+    "tendons_solicites": [
+      "Achillessehne"
+    ],
+    "type": "Leichtes Cardio",
+    "niveau": "Anfänger – Alle Niveaus",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Ideal für Menschen mit eingeschränkter Belastung"
+    ],
+    "variantes": [
+      "Kleiner Sprung auf der Stelle",
+      "Alternative Sprünge"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit schulterbreit auseinander stehenden Füßen.",
+      "Mouvement": "Führen Sie leichte Sprünge aus, während Sie auf den Fußballen bleiben, ohne zu hoch zu heben.",
+      "Retour": "Bleiben Sie ruhig und leicht in Bewegung.",
+      "Respiration": "Atmen Sie ruhig und regelmäßig.",
+      "Posture": "Halten Sie Ihre Knie leicht gebeugt und Ihren Rücken gerade."
+    }
+  },
+  "E026": {
+    "nom": "Nicht verfolgt",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Muskelaktivierung",
+      "Gemeinsame Vorbereitung",
+      "Agilität"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Kniesehnen",
+      "Kälber"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Sehnen der hinteren Oberschenkelmuskulatur"
+    ],
+    "type": "Mobilität und Koordination",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Vermeiden Sie zu plötzliche Bewegungen"
+    ],
+    "variantes": [
+      "Nicht schnell verfolgt",
+      "Nicht mit Gummiband ziseliert"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit schulterbreit auseinander stehenden Füßen und leicht gebeugten Knien.",
+      "Mouvement": "Bewegen Sie sich seitwärts und bringen Sie den hinteren Fuß schnell näher an den vorderen Fuß.",
+      "Retour": "Abwechselnd wiederholen.",
+      "Respiration": "Atmen Sie natürlich im Rhythmus der Bewegungen.",
+      "Posture": "Halten Sie Ihren Rücken gerade und spannen Sie Ihre Bauchmuskeln an."
+    }
+  },
+  "E027": {
+    "nom": "Hoher Kniegang",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Muskelaktivierung",
+      "Gemeinsame Vorbereitung",
+      "Leichtes Cardio"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften"
+    ],
+    "tendons_solicites": [
+      "Patellasehne"
+    ],
+    "type": "Mobilisierung & Aktivierung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Erzwingen Sie die Amplitude nicht, wenn Hüftschmerzen auftreten"
+    ],
+    "variantes": [
+      "Laufen mit hohen Knien",
+      "Knieheben"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit hüftbreit auseinander stehenden Füßen.",
+      "Mouvement": "Heben Sie ein Knie auf Hüfthöhe und wechseln Sie es dann mit dem anderen Bein ab.",
+      "Retour": "Führen Sie die Bewegung dynamisch, aber kontrolliert aus.",
+      "Respiration": "Atmen Sie ein, wenn Sie Ihr Knie heben, und atmen Sie aus, wenn Sie es senken.",
+      "Posture": "Spannen Sie Ihre Bauchmuskeln an und halten Sie Ihren Rücken gerade."
+    }
+  },
+  "E028": {
+    "nom": "Ausfallschritt nach vorne",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Gemeinsame Vorbereitung",
+      "Muskelaktivierung",
+      "Gleichgewicht"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Gesäßmuskeln",
+      "Kniesehnen"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Sehnen der hinteren Oberschenkelmuskulatur"
+    ],
+    "type": "Mobilisierung & Aktivierung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Gehen Sie nicht zu tief, wenn Ihre Knie schmerzen"
+    ],
+    "variantes": [
+      "Statische Ausfallschritte",
+      "Ausfallschritte nach hinten"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit hüftbreit auseinander stehenden Füßen.",
+      "Mouvement": "Treten Sie mit einem Fuß nach vorne und senken Sie ihn in einen Ausfallschritt nach vorne ab, dann wechseln Sie die Beine.",
+      "Retour": "Halten Sie Ihre Bewegungen gleichmäßig und kontrolliert.",
+      "Respiration": "Auf dem Weg nach unten einatmen, auf dem Weg nach oben ausatmen.",
+      "Posture": "Halten Sie Ihren Oberkörper gerade und spannen Sie Ihre Bauchmuskeln an."
+    }
+  },
+  "E029": {
+    "nom": "Nicht schnell verfolgt",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Muskelaktivierung",
+      "Agilität",
+      "Gemeinsame Vorbereitung"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Kälber",
+      "Kniesehnen"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Sehnen der hinteren Oberschenkelmuskulatur"
+    ],
+    "type": "Mobilität und Koordination",
+    "niveau": "Mittelstufe – Fortgeschritten",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Vermeiden Sie zu plötzliche Bewegungen"
+    ],
+    "variantes": [
+      "Nicht verfolgt",
+      "Nicht mit Gummiband ziseliert"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie mit leicht gebeugten Knien.",
+      "Mouvement": "Bewegen Sie sich so schnell wie möglich seitwärts.",
+      "Retour": "Wechseln Sie die Seiten und behalten Sie dabei eine gute Kontrolle über die Bewegung.",
+      "Respiration": "Atmen Sie natürlich im Rhythmus der Bewegung.",
+      "Posture": "Halten Sie Ihren Rücken gerade und spannen Sie Ihre Bauchmuskeln an."
+    }
+  },
+  "E030": {
+    "nom": "Nicht mit Gummiband ziseliert",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Muskelstärkung",
+      "Muskelaktivierung",
+      "Dynamisches Aufwärmen"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Kälber",
+      "Gesäßmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Sehnen der hinteren Oberschenkelmuskulatur"
+    ],
+    "type": "Mobilität und Koordination",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Widerstand elastisch"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Nehmen Sie kein zu steifes Gummiband"
+    ],
+    "variantes": [
+      "Nicht verfolgt",
+      "Nicht schnell verfolgt"
+    ],
+    "consignes": {
+      "Positionnement": "Legen Sie ein Gummiband um Ihre Knie oder Knöchel.",
+      "Mouvement": "Führen Sie Hin- und Herbewegungen von einer Seite zur anderen durch und halten Sie dabei die Spannung am Gummiband aufrecht.",
+      "Retour": "Abwechselnd wiederholen.",
+      "Respiration": "Beim Öffnen einatmen, beim Schließen ausatmen.",
+      "Posture": "Halten Sie Ihre Knie leicht gebeugt und aktivieren Sie Ihre Gesäßmuskulatur."
+    }
+  },
+  "E031": {
+    "nom": "Laufen mit hohen Knien",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Cardio",
+      "Mobilität",
+      "Agilität",
+      "Muskelaktivierung"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Kälber",
+      "Gesäßmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knöchel",
+      "Knie",
+      "Hüften"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne"
+    ],
+    "type": "Cardio & Koordination",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Bei Knie- oder Knöchelschmerzen vermeiden"
+    ],
+    "variantes": [
+      "Knieheben",
+      "Sprinten Sie auf der Stelle"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie gerade, die Füße hüftbreit auseinander.",
+      "Mouvement": "Heben Sie Ihre Knie abwechselnd schnell an und halten Sie dabei den Rücken gerade.",
+      "Retour": "Achten Sie auf ein gleichmäßiges Tempo und sanfte Bewegungen.",
+      "Respiration": "Atme regelmäßig im Rhythmus des Laufs.",
+      "Posture": "Spannen Sie Ihre Bauchmuskeln an und halten Sie Ihre Arme aktiv."
+    }
+  },
+  "E032": {
+    "nom": "Knieheben",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Mobilität",
+      "Muskelaktivierung",
+      "Gemeinsame Vorbereitung"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Gesäßmuskeln",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften"
+    ],
+    "tendons_solicites": [
+      "Patellasehne"
+    ],
+    "type": "Gemeinsame Vorbereitung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Erzwingen Sie die Amplitude nicht, wenn Hüftschmerzen auftreten"
+    ],
+    "variantes": [
+      "Laufen mit hohen Knien"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie gerade, die Füße hüftbreit auseinander.",
+      "Mouvement": "Heben Sie ein Knie in Richtung Brust und wechseln Sie es dann mit dem anderen Bein ab.",
+      "Retour": "Halten Sie ein kontrolliertes, gleichmäßiges Tempo ein.",
+      "Respiration": "Atmen Sie aus, wenn Sie Ihr Knie heben, und atmen Sie ein, wenn Sie es senken.",
+      "Posture": "Spannen Sie Ihre Bauchmuskeln an und richten Sie Ihren Blick geradeaus."
+    }
+  },
+  "E033": {
+    "nom": "Statische Ausfallschritte",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Verstärkung",
+      "Mobilität",
+      "Muskelaktivierung"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Gesäßmuskeln",
+      "Kniesehnen"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften"
+    ],
+    "tendons_solicites": [
+      "Patellasehne"
+    ],
+    "type": "Muskelvorbereitung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Halten Sie die Knie auf einer Linie mit den Zehen, um Verspannungen zu vermeiden"
+    ],
+    "variantes": [
+      "Ausfallschritte vorne",
+      "Ausfallschritte nach hinten"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie gerade, einen Fuß nach vorne, den anderen nach hinten.",
+      "Mouvement": "Beugen Sie beide Knie, um einen Ausfallschritt auszuführen, ohne mit dem hinteren Knie den Boden zu berühren.",
+      "Retour": "Kommen Sie wieder hoch, halten Sie Ihren Rücken gerade und wechseln Sie die Beine.",
+      "Respiration": "Auf dem Weg nach unten einatmen, auf dem Weg nach oben ausatmen.",
+      "Posture": "Spannen Sie Ihre Bauchmuskeln an und richten Sie Ihren Blick geradeaus."
+    }
+  },
+  "E034": {
+    "nom": "Ausfallschritte nach hinten",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Verstärkung",
+      "Gleichgewicht",
+      "Mobilität"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Gesäßmuskeln",
+      "Kniesehnen"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften"
+    ],
+    "tendons_solicites": [
+      "Patellasehne"
+    ],
+    "type": "Muskelvorbereitung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Vermeiden Sie plötzliche Bewegungen, um die Gelenke zu schonen"
+    ],
+    "variantes": [
+      "Ausfallschritte vorne",
+      "Statische Ausfallschritte"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie gerade, die Füße hüftbreit auseinander.",
+      "Mouvement": "Treten Sie mit einem Fuß zurück und beugen Sie die Knie, um sich in einen Ausfallschritt zu begeben.",
+      "Retour": "Drücken Sie auf das Vorderbein, um in die Ausgangsposition zurückzukehren.",
+      "Respiration": "Auf dem Weg nach unten einatmen, auf dem Weg nach oben ausatmen.",
+      "Posture": "Halten Sie Ihren Rücken gerade und richten Sie Ihren Blick nach vorne."
+    }
+  },
+  "E035": {
+    "nom": "Sprinten Sie auf der Stelle",
+    "categorie": "Aufwärmen",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Cardio",
+      "Explosivität",
+      "Koordination"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Kälber",
+      "Gesäßmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knöchel",
+      "Knie"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne"
+    ],
+    "type": "Intensives Cardio",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Keine"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Steuern Sie die Intensität je nach Niveau und vermeiden Sie übermäßig heftige Stöße"
+    ],
+    "variantes": [
+      "Laufen mit hohen Knien"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie gerade, die Füße hüftbreit auseinander.",
+      "Mouvement": "Machen Sie einen schnellen Lauf auf der Stelle und heben Sie dabei die Knie an.",
+      "Retour": "Halten Sie ein gleichmäßiges, kontrolliertes Tempo ein.",
+      "Respiration": "Atmen Sie tief und rhythmisch.",
+      "Posture": "Spannen Sie Ihre Bauchmuskeln an und halten Sie Ihren Rücken gerade."
+    }
+  }
+}

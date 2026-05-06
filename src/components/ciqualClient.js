@@ -184,6 +184,8 @@ export function getCiqualMicro100(food) {
       "vitamine_a_ug_100g",
       "activite_vitaminique_a_equivalents_retinol_ug_100g",
       "retinol_ug_100g",
+      "activite_vitaminique_a_equivalents_retinol_g_100g",
+      "retinol_g_100g",
     ]),
     vit_b1_mg_100g: get(["vitamine_b1_ou_thiamine_mg_100g", "vitamine_b1_mg_100g"]),
     vit_b2_mg_100g: get(["vitamine_b2_ou_riboflavine_mg_100g", "vitamine_b2_mg_100g"]),
@@ -192,12 +194,17 @@ export function getCiqualMicro100(food) {
       "vitamine_b9_ou_folates_totaux_ug_100g",
       "folates_totaux_ug_100g",
       "vitamine_b9_ug_100g",
+      "vitamine_b9_ou_folates_totaux_g_100g",
+      "vitamine_b9_ou_folates_totaux_equivalents_folates_alimentaires_dfe_g_100g",
     ]),
-    vit_b12_ug_100g: get(["vitamine_b12_ug_100g"]),
+    vit_b12_ug_100g: get(["vitamine_b12_ug_100g", "vitamine_b12_g_100g"]),
     vit_c_mg_100g: get(["vitamine_c_mg_100g"]),
-    vit_d_ug_100g: get(["vitamine_d_ug_100g"]),
-    vit_e_mg_100g: get(["vitamine_e_mg_100g", "alpha_tocopherol_mg_100g"]),
-    vit_k_ug_100g: get(["vitamine_k1_ug_100g", "vitamine_k_ug_100g"]),
+    vit_d_ug_100g: get(["vitamine_d_ug_100g", "vitamine_d_g_100g"]),
+    vit_e_mg_100g: get([
+      "vitamine_e_mg_100g",
+      "alpha_tocopherol_mg_100g",
+      "alpha_tocopherol_vitamine_e_mg_100g",
+    ]),
+    vit_k_ug_100g: get(["vitamine_k1_ug_100g", "vitamine_k_ug_100g", "vitamine_k1_g_100g"]),
   };
 }
-

@@ -74,6 +74,7 @@ import { RxDragHandleDots2 } from "react-icons/rx";
 import ClientCreation from "./ClientCreation";
 import { useAuth } from "../AuthContext";
 import { useTranslation } from "react-i18next";
+import { useAppTheme } from "../styles/appTheme";
 
 /* ------------------ utils ------------------ */
 function useDebouncedCallback(callback, deps, delay) {
@@ -908,6 +909,10 @@ const StepperInput = memo(function StepperInput({
   w = "full",
 }) {
   const [txt, setTxt] = useState(toDisplayString(value, precision));
+  const stepperBtnBg = useColorModeValue("transparent", "transparent");
+  const stepperBtnHoverBg = useColorModeValue("gray.100", "whiteAlpha.100");
+  const stepperBtnBorder = useColorModeValue("gray.200", "whiteAlpha.200");
+  const stepperBtnColor = useColorModeValue("gray.600", "gray.300");
 
   useEffect(() => {
     setTxt(toDisplayString(value, precision));
@@ -971,6 +976,14 @@ const StepperInput = memo(function StepperInput({
           icon={<ChevronUpIcon />}
           onClick={() => bump(+1)}
           isDisabled={disabled}
+          variant="ghost"
+          bg={stepperBtnBg}
+          color={stepperBtnColor}
+          border="1px solid"
+          borderColor={stepperBtnBorder}
+          borderRadius="md"
+          _hover={{ bg: stepperBtnHoverBg }}
+          _active={{ bg: stepperBtnHoverBg }}
         />
         <IconButton
           size="sm"
@@ -978,6 +991,14 @@ const StepperInput = memo(function StepperInput({
           icon={<ChevronDownIcon />}
           onClick={() => bump(-1)}
           isDisabled={disabled}
+          variant="ghost"
+          bg={stepperBtnBg}
+          color={stepperBtnColor}
+          border="1px solid"
+          borderColor={stepperBtnBorder}
+          borderRadius="md"
+          _hover={{ bg: stepperBtnHoverBg }}
+          _active={{ bg: stepperBtnHoverBg }}
         />
       </Flex>
     </HStack>
@@ -1043,6 +1064,9 @@ const ExerciseCardRow = memo(
     border,
     subBg,
     textMute,
+    hoverRow,
+    softShadow,
+    strongShadow,
     onMoveTo,
     onReplaceToggle,
     replaceIndex,
@@ -1089,13 +1113,14 @@ const ExerciseCardRow = memo(
       <Box
         bg={cardBg}
         p={{ base: 4, md: 5 }}
-        borderRadius="2xl"
-        boxShadow="md"
+        borderRadius="28px"
+        boxShadow={strongShadow}
         w="full"
         minW={0}
         border="1px solid"
         borderColor={border}
         overflow="visible"
+        backdropFilter="blur(18px)"
       >
         <Flex
           w="100%"
@@ -1117,9 +1142,20 @@ const ExerciseCardRow = memo(
               <RxDragHandleDots2 size={22} />
             </Box>
 
-            <Text fontSize="lg" fontWeight="bold" isTruncated>
-              {displayLabel} {ex.nom}
-            </Text>
+            <VStack align="start" spacing={0.5} minW={0}>
+              <Text
+                fontSize="xs"
+                letterSpacing="0.14em"
+                textTransform="uppercase"
+                color={textMute}
+                fontWeight="semibold"
+              >
+                {t("programBuilder.exercise.label", "Exercice")} {displayLabel}
+              </Text>
+              <Text fontSize="lg" fontWeight="bold" isTruncated>
+                {ex.nom}
+              </Text>
+            </VStack>
           </Flex>
 
           <Flex
@@ -1158,6 +1194,8 @@ const ExerciseCardRow = memo(
                       variant="ghost"
                       onClick={() => onMoveTo(currentSection, key, index)}
                       flexShrink={0}
+                      borderRadius="md"
+                      _hover={{ bg: hoverRow }}
                     >
                       → {t(labelKey)}
                     </Button>
@@ -1168,14 +1206,15 @@ const ExerciseCardRow = memo(
             {isCoach && (
               <IconButton
                 icon={<MdSyncAlt />}
-                variant={replaceIndex === index ? "solid" : "outline"}
+                variant={replaceIndex === index ? "outline" : "ghost"}
                 size="sm"
                 minW="36px"
                 flexShrink={0}
-                colorScheme={replaceIndex === index ? "blue" : "gray"}
+                colorScheme="gray"
                 aria-label={t("programBuilder.aria.replace", "Remplacer")}
                 title={t("programBuilder.aria.replaceThis", "Remplacer cet exercice")}
                 onClick={() => onReplaceToggle(index)}
+                borderRadius="md"
               />
             )}
 
@@ -1187,6 +1226,8 @@ const ExerciseCardRow = memo(
               flexShrink={0}
               onClick={() => onToggleExpand(index)}
               aria-label={t("programBuilder.aria.options", "Options")}
+              borderRadius="md"
+              _hover={{ bg: hoverRow }}
             />
 
             {isCoach && (
@@ -1198,14 +1239,23 @@ const ExerciseCardRow = memo(
                 colorScheme="red"
                 onClick={() => onDelete(index)}
                 aria-label={t("programBuilder.aria.deleteExercise", "Supprimer exercice")}
+                borderRadius="md"
               />
             )}
           </Flex>
         </Flex>
 
         <Collapse in={expanded} animateOpacity>
-          <Box mt={4} bg={subBg} p={4} borderRadius="lg" border="1px solid" borderColor={border}>
-            <Text fontWeight="bold" mb={2}>
+          <Box
+            mt={4}
+            bg={subBg}
+            p={4}
+            borderRadius="22px"
+            border="1px solid"
+            borderColor={border}
+            backdropFilter="blur(16px)"
+          >
+            <Text fontWeight="semibold" mb={2}>
               <MdSettings style={{ display: "inline", marginRight: 6 }} />
               {t("programBuilder.options.title", "Options")}
             </Text>
@@ -1240,9 +1290,9 @@ const ExerciseCardRow = memo(
                             alignItems="center"
                             bg={cardBg}
                             borderRadius="md"
-                            px={2}
-                            py={1}
-                            boxShadow="xs"
+                            px={3}
+                            py={1.5}
+                            boxShadow="none"
                             minW="150px"
                             gap={2}
                             border="1px solid"
@@ -1365,7 +1415,15 @@ const ExerciseCardRow = memo(
           })}
         </Flex>
 
-        <Box mt={6} p={4} bg={subBg} borderRadius="lg" border="1px solid" borderColor={border}>
+        <Box
+          mt={6}
+          p={4}
+          bg={subBg}
+          borderRadius="22px"
+          border="1px solid"
+          borderColor={border}
+          backdropFilter="blur(16px)"
+        >
           <Box mb={4}>
             <HStack justify="space-between" mb={2}>
               <Text fontWeight="bold">{t("programBuilder.notes.title", "Notes")}</Text>
@@ -1636,13 +1694,24 @@ export default function ProgramBuilder({
 }) {
   const { t } = useTranslation();
 
-  const pageBg = useColorModeValue("gray.50", "gray.900");
-  const cardBg = useColorModeValue("white", "gray.800");
-  const subBg = useColorModeValue("gray.100", "gray.700");
-  const border = useColorModeValue("gray.200", "gray.600");
-  const textMute = useColorModeValue("gray.600", "gray.300");
-  const hoverRow = useColorModeValue("gray.100", "gray.600");
-  const inactiveTagBg = useColorModeValue("blue.50", "blue.900");
+  const theme = useAppTheme();
+  const pageBg = theme.pageBg;
+  const cardBg = theme.surfaceBg;
+  const subBg = theme.surfaceSoft;
+  const border = theme.borderColor;
+  const textMute = theme.mutedText;
+  const hoverRow = useColorModeValue("rgba(15,23,42,0.05)", "rgba(255,255,255,0.07)");
+  const inactiveTagBg = theme.surfaceSoft;
+  const panelBg = theme.surfaceBgStrong;
+  const pageAccentBg = theme.surfaceGlow;
+  const softShadow = useColorModeValue(
+    "0 18px 45px rgba(15, 23, 42, 0.08)",
+    "0 22px 55px rgba(2, 6, 23, 0.38)"
+  );
+  const strongShadow = useColorModeValue(
+    "0 20px 48px rgba(15, 23, 42, 0.12)",
+    "0 24px 60px rgba(2, 6, 23, 0.48)"
+  );
 
   const sessionEditBg = useColorModeValue("white", "gray.800");
   const sessionEditColor = useColorModeValue("gray.900", "white");
@@ -2521,6 +2590,7 @@ export default function ProgramBuilder({
   return (
     <Box
       bg={pageBg}
+      backgroundImage={pageAccentBg}
       sx={{
         "@media (max-width: 768px)": {
           position: "fixed",
@@ -2549,9 +2619,19 @@ export default function ProgramBuilder({
           overflowX="hidden"
           pb={{ base: 6, md: 10 }}
           px={{ base: 3, md: 6 }}
+          pt={{ base: 3, md: 5 }}
         >
-          <Box mb={{ base: 3, md: 5 }}>
-            <Flex gap={3} wrap="wrap" align="center" mb={3}>
+          <Box
+            mb={{ base: 4, md: 6 }}
+            bg={panelBg}
+            border="1px solid"
+            borderColor={border}
+            borderRadius={{ base: "24px", md: "30px" }}
+            boxShadow={softShadow}
+            backdropFilter="blur(18px)"
+            p={{ base: 4, md: 5 }}
+          >
+            <Flex gap={3} wrap="wrap" align="center" mb={4}>
               <Input
                 placeholder={t("programBuilder.placeholders.name", "Nom du programme")}
                 value={programName}
@@ -2561,12 +2641,13 @@ export default function ProgramBuilder({
                   markDirty();
                 }}
                 bg={cardBg}
-                borderRadius="xl"
+                borderRadius="full"
                 borderColor={border}
                 flex={{ base: "1 1 260px", md: "1 1 320px" }}
                 minW={{ base: "240px", md: "280px" }}
                 w={{ base: "100%", md: "auto" }}
                 isDisabled={!isCoach}
+                boxShadow="sm"
               />
 
               <Input
@@ -2580,23 +2661,24 @@ export default function ProgramBuilder({
                   markDirty();
                 }}
                 bg={cardBg}
-                borderRadius="xl"
+                borderRadius="full"
                 borderColor={border}
                 flex={{ base: "1 1 260px", md: "2 1 520px" }}
                 minW={{ base: "240px", md: "320px" }}
                 w={{ base: "100%", md: "auto" }}
                 isDisabled={!isCoach}
+                boxShadow="sm"
               />
             </Flex>
 
             <Flex align="center" justify="space-between" gap={3} wrap="wrap">
-              <HStack spacing={2} align="center" flex="0 0 auto">
+              <HStack spacing={3} align="center" flex="0 0 auto">
                 <Box
                   boxSize={2.5}
                   bg={isSaved ? "green.400" : "orange.400"}
                   borderRadius="full"
                 />
-                <Text fontSize="sm" color={textMute} whiteSpace="nowrap">
+                <Text fontSize="sm" color={textMute} whiteSpace="nowrap" fontWeight="medium">
                   {isSaved
                     ? t("programBuilder.status.saved", "Sauvegardé")
                     : saving
@@ -2605,21 +2687,28 @@ export default function ProgramBuilder({
                 </Text>
               </HStack>
 
-              <HStack spacing={4} align="center" flex="1 1 auto" wrap="wrap">
+              <HStack
+                spacing={4}
+                align="center"
+                flex="1 1 auto"
+                wrap="wrap"
+              >
                 <HStack spacing={1}>
                   <Text fontSize="sm" color={textMute}>
                     {t("programBuilder.units.weight", "Poids")}
                   </Text>
                   <Button
                     size="sm"
-                    variant={weightUnit === "kg" ? "solid" : "outline"}
+                    variant={weightUnit === "kg" ? "outline" : "ghost"}
+                    colorScheme="gray"
                     onClick={() => setWU("kg")}
                   >
                     kg
                   </Button>
                   <Button
                     size="sm"
-                    variant={weightUnit === "lbs" ? "solid" : "outline"}
+                    variant={weightUnit === "lbs" ? "outline" : "ghost"}
+                    colorScheme="gray"
                     onClick={() => setWU("lbs")}
                   >
                     lbs
@@ -2634,14 +2723,16 @@ export default function ProgramBuilder({
                   </Text>
                   <Button
                     size="sm"
-                    variant={speedUnit === "kmh" ? "solid" : "outline"}
+                    variant={speedUnit === "kmh" ? "outline" : "ghost"}
+                    colorScheme="gray"
                     onClick={() => setSU("kmh")}
                   >
                     {t("units.kmh", "km/h")}
                   </Button>
                   <Button
                     size="sm"
-                    variant={speedUnit === "mph" ? "solid" : "outline"}
+                    variant={speedUnit === "mph" ? "outline" : "ghost"}
+                    colorScheme="gray"
                     onClick={() => setSU("mph")}
                   >
                     {t("units.mph", "mph")}
@@ -2656,14 +2747,16 @@ export default function ProgramBuilder({
                   </Text>
                   <Button
                     size="sm"
-                    variant={distanceUnit === "m" ? "solid" : "outline"}
+                    variant={distanceUnit === "m" ? "outline" : "ghost"}
+                    colorScheme="gray"
                     onClick={() => setDU("m")}
                   >
                     m
                   </Button>
                   <Button
                     size="sm"
-                    variant={distanceUnit === "mi" ? "solid" : "outline"}
+                    variant={distanceUnit === "mi" ? "outline" : "ghost"}
+                    colorScheme="gray"
                     onClick={() => setDU("mi")}
                   >
                     miles
@@ -2701,9 +2794,10 @@ export default function ProgramBuilder({
                   isLoading={saving}
                   size={ctaSize}
                   px={ctaPx}
-                  borderRadius="xl"
+                  borderRadius="lg"
                   whiteSpace="nowrap"
                   flex="0 0 auto"
+                  boxShadow="none"
                 >
                   {ctaLabel}
                 </Button>
@@ -2714,7 +2808,14 @@ export default function ProgramBuilder({
           <DragDropContext onDragEnd={onDragEndSessions}>
             <Droppable droppableId="sessions" direction="horizontal">
               {(provided) => (
-                <HStack ref={provided.innerRef} {...provided.droppableProps} spacing={4} wrap="wrap">
+                <HStack
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  spacing={3}
+                  wrap="wrap"
+                  p={{ base: 2, md: 3 }}
+                  align="stretch"
+                >
                   {sessions.map((s, i) => (
                     <Draggable key={i} draggableId={`sess-${i}`} index={i}>
                       {(prov) => (
@@ -2723,13 +2824,22 @@ export default function ProgramBuilder({
                           {...prov.draggableProps}
                           {...prov.dragHandleProps}
                           size="sm"
-                          variant={i === activeTab ? "solid" : "subtle"}
-                          colorScheme="blue"
+                          variant="subtle"
+                          colorScheme="gray"
                           cursor="pointer"
                           onClick={() => setActiveTab(i)}
-                          bg={i === activeTab ? undefined : inactiveTagBg}
+                          bg={i === activeTab ? subBg : "transparent"}
                           overflow="visible"
                           maxW="100%"
+                          minH="42px"
+                          px={3}
+                          borderRadius="lg"
+                          border="1px solid"
+                          borderColor={i === activeTab ? border : "transparent"}
+                          boxShadow="none"
+                          _hover={{
+                            bg: i === activeTab ? subBg : hoverRow,
+                          }}
                         >
                           <HStack spacing={2} maxW="100%">
                             {editIndex === i ? (
@@ -2764,6 +2874,7 @@ export default function ProgramBuilder({
                                 onDoubleClick={() => isCoach && setEditIndex(i)}
                                 maxW={{ base: "70vw", md: "360px" }}
                                 isTruncated
+                                fontWeight="semibold"
                               >
                                 {s.name ||
                                   t("programBuilder.sessionN", "Séance {{n}}", {
@@ -2772,7 +2883,7 @@ export default function ProgramBuilder({
                               </Text>
                             )}
                             {s.useSections && (
-                              <Badge colorScheme="purple">
+                              <Badge colorScheme="gray" borderRadius="md" px={2.5} py={1}>
                                 {t("programBuilder.badge.sections", "SECTIONS")}
                               </Badge>
                             )}
@@ -2826,6 +2937,9 @@ export default function ProgramBuilder({
                         );
                         markDirty();
                       }}
+                      variant="ghost"
+                      colorScheme="gray"
+                      borderRadius="lg"
                     >
                       {t("programBuilder.actions.add", "+ Ajouter")}
                     </Button>
@@ -2836,9 +2950,18 @@ export default function ProgramBuilder({
           </DragDropContext>
 
           {sessions[activeTab] && (
-            <Box mt={6}>
-              <HStack justify="space-between" mb={3} wrap="wrap" gap={4}>
-                <Text fontWeight="bold" color={textMute}>
+            <Box
+              mt={6}
+              bg={panelBg}
+              border="1px solid"
+              borderColor={border}
+              borderRadius="28px"
+              boxShadow={softShadow}
+              backdropFilter="blur(18px)"
+              p={{ base: 4, md: 5 }}
+            >
+              <HStack justify="space-between" mb={4} wrap="wrap" gap={4}>
+                <Text fontWeight="semibold" color={textMute}>
                   {t("programBuilder.totalTime", "Temps total")} : {totalTime}
                 </Text>
 
@@ -2894,6 +3017,9 @@ export default function ProgramBuilder({
                       setSessions((prev) => applyAutoSessionNumbering([...prev, clone], t));
                       markDirty();
                     }}
+                    variant="ghost"
+                    colorScheme="gray"
+                    borderRadius="lg"
                   >
                     {t("programBuilder.actions.duplicate", "Dupliquer")}
                   </Button>
@@ -2907,8 +3033,11 @@ export default function ProgramBuilder({
                       key={key}
                       size="sm"
                       onClick={() => setCurrentSection(key)}
-                      variant={currentSection === key ? "solid" : "outline"}
-                      colorScheme="purple"
+                      variant={currentSection === key ? "outline" : "ghost"}
+                      colorScheme="gray"
+                      borderRadius="lg"
+                      px={4}
+                      _hover={{ bg: hoverRow }}
                     >
                       {t(labelKey)} ({(sessions[activeTab][key] || []).length})
                     </Button>
@@ -2949,6 +3078,9 @@ export default function ProgramBuilder({
                                 border={border}
                                 subBg={subBg}
                                 textMute={textMute}
+                                hoverRow={hoverRow}
+                                softShadow={softShadow}
+                                strongShadow={strongShadow}
                                 currentSection={currentSection}
                                 t={t}
                                 hasNext={eIdx < visibleList.length - 1}

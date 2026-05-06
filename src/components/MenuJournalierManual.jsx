@@ -1,5 +1,6 @@
 // src/components/MenuJournalierManual.jsx
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+/* eslint-disable react/prop-types */
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   AlertIcon,
@@ -21,12 +22,11 @@ import {
   VStack,
   Wrap,
   WrapItem,
-  useColorModeValue,
   useToast,
   IconButton,
   Collapse,
   Tooltip,
-  useBreakpointValue,
+  useColorModeValue,
 } from "@chakra-ui/react";
 import {
   ChevronLeftIcon,
@@ -36,6 +36,8 @@ import {
   CopyIcon,
 } from "@chakra-ui/icons";
 import { onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore";
+import { extractRationLines as extractMenuRationLines } from "../utils/rationMenu";
+import { useNutritionTheme } from "../styles/nutritionTheme";
 
 /* ================= Utils ================= */
 const stripDiacritics = (s) =>
@@ -167,12 +169,30 @@ const buildCiqualColumnIndex = (ciqualArr) => {
     return scored.length ? scored[0].k : null;
   };
 
+  const pickFiberKey = () => {
+    const scored = keys
+      .map((k) => {
+        const kn = normalize(k);
+        let s = 0;
+        if (kn.includes("fibres alimentaires")) s += 30;
+        if (kn.includes("fibre")) s += 12;
+        if (kn.includes("_g") || kn.endsWith(" g") || kn.includes(" g ")) s += 6;
+        if (kn.includes("100g")) s += 4;
+        if (kn.includes("energie") || kn.includes("kcal") || kn.includes("kj") || kn.includes("facteur")) s -= 40;
+        return { k, s };
+      })
+      .filter((x) => x.s > 0)
+      .sort((a, b) => b.s - a.s);
+
+    return scored.length ? scored[0].k : null;
+  };
+
   return {
     kcal: pickKey([/energie/i, /kcal/i]),
     prot: pickKey([/prote/i, /proté/i, /jones/i]),
     lip: pickKey([/lipid/i, /lipide/i, /matiere grasse/i]),
     glu: pickKey([/glucid/i, /carbo/i]),
-    fibres: pickKey([/fibre/i]),
+    fibres: pickFiberKey(),
     calcium: pickKey([/calcium/i]),
     fer: pickKey([/^fer/i, /iron/i]),
     sodium: pickKey([/sodium/i, /sel/i]),
@@ -209,55 +229,6 @@ const MICRO_UNIT = {
   vitamine_c: "mg",
   magnesium: "mg",
   potassium: "mg",
-};
-
-/* ================= Extract ration lines ================= */
-const extractRationLines = (docData) => {
-  const r = docData?.ration || {};
-  const selected = r?.selected ?? r?.selection ?? r?.current ?? null;
-
-  const raw =
-    (selected && typeof selected === "object" ? selected : null) ||
-    (r?.mode === "auto" ? r?.auto : r?.pro) ||
-    r?.pro ||
-    r?.auto ||
-    null;
-
-  const rawSelected = raw?.selected && typeof raw.selected === "object" ? raw.selected : raw;
-  const root =
-    rawSelected?.values && typeof rawSelected.values === "object"
-      ? rawSelected.values
-      : rawSelected;
-
-  if (!root || typeof root !== "object") return [];
-
-  const items = [];
-  for (const [key, v] of Object.entries(root)) {
-    if (!key) continue;
-    if (key === "meta" || key === "meals" || key === "selectedAt" || key === "selectedType") continue;
-
-    const meals = v?.meals && typeof v.meals === "object" ? v.meals : null;
-    const unit = firstNonEmpty(v?.unit, v?.unite, v?.u, "g");
-
-    if (meals) {
-      items.push({ key, unit, meals });
-      continue;
-    }
-
-    const maybeMeals = {};
-    let hasAny = false;
-    for (const mk of MEALS_ORDER) {
-      const q = v?.[mk];
-      const n = num(q);
-      if (n) {
-        maybeMeals[mk] = q;
-        hasAny = true;
-      }
-    }
-    if (hasAny) items.push({ key, unit, meals: maybeMeals });
-  }
-
-  return items;
 };
 
 /* ================= Category + label cleanup ================= */
@@ -355,6 +326,7 @@ const SYNONYMS = {
   "pain complet": ["complet"],
   yaourt: ["yogourt"],
   boeuf: ["bœuf"],
+  pate: ["pates", "pâtes", "pasta"],
   pates: ["pâtes"],
   feculents: ["féculents", "riz", "pates", "pain", "pomme de terre", "quinoa", "semoule"],
 };
@@ -373,6 +345,38 @@ const expandQuery = (q) => {
 const wordBoundary = (token) => {
   const t = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`(^|[^\\p{L}\\p{N}])${t}([^\\p{L}\\p{N}]|$)`, "iu");
+};
+
+const levenshteinDistance = (a = "", b = "") => {
+  const left = String(a || "");
+  const right = String(b || "");
+  if (left === right) return 0;
+  if (!left.length) return right.length;
+  if (!right.length) return left.length;
+  const prev = Array.from({ length: right.length + 1 }, (_, index) => index);
+  const curr = Array(right.length + 1).fill(0);
+  for (let i = 1; i <= left.length; i += 1) {
+    curr[0] = i;
+    for (let j = 1; j <= right.length; j += 1) {
+      const cost = left[i - 1] === right[j - 1] ? 0 : 1;
+      curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+    }
+    for (let j = 0; j <= right.length; j += 1) prev[j] = curr[j];
+  }
+  return prev[right.length];
+};
+
+const tokenMatchesName = (token = "", nameNorm = "") => {
+  const t = normalize(token);
+  const n = normalize(nameNorm);
+  if (!t || !n) return false;
+  if (wordBoundary(t).test(n) || n.includes(t)) return true;
+  if (t.length < 4) return false;
+  const maxDistance = t.length >= 8 ? 2 : 1;
+  return tokensOf(n).some((part) => {
+    if (Math.abs(part.length - t.length) > maxDistance) return false;
+    return levenshteinDistance(t, part) <= maxDistance;
+  });
 };
 
 const FECULENT_BASES = [
@@ -405,6 +409,7 @@ const scoreCiqualName = ({ name, queryTokens, lineTokens, category }) => {
     if (qt.length >= 3) {
       if (wordBoundary(qt).test(n)) score += 9;
       else if (n.includes(qt)) score += 3;
+      else if (tokenMatchesName(qt, n)) score += 2;
     } else {
       if (wordBoundary(qt).test(n)) score += 4;
     }
@@ -489,37 +494,46 @@ const scoreCiqualName = ({ name, queryTokens, lineTokens, category }) => {
 export default function MenuJournalierManual({
   assessmentRef,
   docData: docDataProp,
+  rationItems: rationItemsProp = null,
   ciqualData = [],
   ciqualOk = false,
-  onSaveLabel = "Sauvegarder",
   blocked = false,
   targets = null,
+  preferredMicros = [],
+  onPdfDataChange,
 }) {
   const toast = useToast();
 
-  const panelBg = useColorModeValue("white", "gray.800");
-  const borderCol = useColorModeValue("gray.200", "whiteAlpha.200");
-  const textMuted = useColorModeValue("blackAlpha.700", "whiteAlpha.700");
-  const softBg = useColorModeValue("gray.50", "whiteAlpha.50");
-  const stickyBg = useColorModeValue("whiteAlpha.900", "blackAlpha.700");
-
-  const isMobile = useBreakpointValue({ base: true, md: false });
+  const nutritionTheme = useNutritionTheme();
+  const panelBg = nutritionTheme.surfaceBg;
+  const borderCol = nutritionTheme.borderColor;
+  const textMuted = nutritionTheme.mutedText;
+  const softBg = nutritionTheme.surfaceSoft;
+  const stickyBg = nutritionTheme.surfaceBgStrong;
+  const planningDayBg = useColorModeValue(
+    "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(241,245,249,0.96))",
+    "linear-gradient(180deg, rgba(13,18,30,0.96), rgba(15,23,42,0.98))"
+  );
+  const planningMealBg = useColorModeValue("rgba(15,23,42,0.035)", "rgba(30,41,59,0.52)");
+  const planningText = useColorModeValue("#0F172A", "#F8FAFC");
+  const planningMuted = useColorModeValue("#475569", "rgba(226,232,240,0.84)");
 
   const [loadingDoc, setLoadingDoc] = useState(true);
   const [docData, setDocData] = useState(null);
 
-  const [search, setSearch] = useState("");
   const [showMicros, setShowMicros] = useState(false);
 
   const [selectedMicros, setSelectedMicros] = useState([
     "calcium",
-    "fer",
-    "sodium",
     "fibres",
-    "vitamine_c",
-    "magnesium",
-    "potassium",
   ]);
+
+  useEffect(() => {
+    if (!preferredMicros.length) return;
+    const valid = preferredMicros.filter((key) => MICRO_LABEL[key]);
+    if (!valid.length) return;
+    setSelectedMicros(Array.from(new Set(["calcium", "fibres", ...valid])));
+  }, [preferredMicros]);
 
   const [daysCount, setDaysCount] = useState(7);
   const [dayIndex, setDayIndex] = useState(1);
@@ -529,9 +543,11 @@ export default function MenuJournalierManual({
 
   const [mappingByDay, setMappingByDay] = useState({});
   const [saving, setSaving] = useState(false);
+  const autoSaveHashRef = useRef("");
 
-  // mobile: ouvrir/fermer la zone actions d'une carte
+  // ouvrir/fermer la zone d'association d'une carte
   const [openCardKey, setOpenCardKey] = useState("");
+  const [cardSearch, setCardSearch] = useState({});
 
   const colIndex = useMemo(() => buildCiqualColumnIndex(ciqualData), [ciqualData]);
 
@@ -593,11 +609,14 @@ export default function MenuJournalierManual({
     return () => unsub();
   }, [assessmentRef, docDataProp]);
 
-  const rationItems = useMemo(() => extractRationLines(docData), [docData]);
+  const rationItems = useMemo(() => {
+    if (Array.isArray(rationItemsProp)) return rationItemsProp;
+    return extractMenuRationLines(docData);
+  }, [rationItemsProp, docData]);
 
   /* ================= Mapping helpers ================= */
   const dayKey = String(dayIndex);
-  const dayMap = mappingByDay?.[dayKey] || {};
+  const dayMap = useMemo(() => mappingByDay?.[dayKey] || {}, [mappingByDay, dayKey]);
 
   const getMapEntry = useCallback(
     (rationKey) => {
@@ -725,7 +744,6 @@ export default function MenuJournalierManual({
       if (!changed) return prev;
       return { ...p, [dayKey]: d };
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, dayKey, rationByMeal]);
 
   /* ================= Compute totals ================= */
@@ -802,8 +820,8 @@ export default function MenuJournalierManual({
 
   /* ================= TOP 25 + Options ================= */
   const getTop25 = useCallback(
-    (line) => {
-      const qTokens = expandQuery(search).flatMap(tokensOf);
+    (line, rawQuery = "") => {
+      const qTokens = expandQuery(rawQuery).flatMap(tokensOf);
       const lineTokens = tokensOf(line?.shortKey || "");
       const cat = line?.category || categoryFromKey(line?.key || "");
 
@@ -860,7 +878,7 @@ export default function MenuJournalierManual({
         });
 
         if (qTokens.length) {
-          const anyStrong = uniq(qTokens).some((t) => t.length >= 3 && wordBoundary(t).test(nameNorm));
+          const anyStrong = uniq(qTokens).some((t) => t.length >= 3 && tokenMatchesName(t, nameNorm));
           if (!anyStrong) continue;
         }
 
@@ -870,13 +888,13 @@ export default function MenuJournalierManual({
       scored.sort((a, b) => b.score - a.score);
       return scored.slice(0, 25).map((x) => x.row);
     },
-    [ciqualData, search]
+    [ciqualData]
   );
 
   const getOtherOptions = useCallback(
-    (line) => {
+    (line, rawQuery = "") => {
       const cat = line?.category || categoryFromKey(line?.key || "");
-      const qTokens = expandQuery(search).flatMap(tokensOf);
+      const qTokens = expandQuery(rawQuery).flatMap(tokensOf);
       const uq = uniq(qTokens);
 
       const out = [];
@@ -921,7 +939,7 @@ export default function MenuJournalierManual({
         if (!name) continue;
         if (!acceptByCategory(name)) continue;
 
-        const ok = uq.some((t) => t.length >= 3 && wordBoundary(t).test(name));
+        const ok = uq.some((t) => t.length >= 3 && tokenMatchesName(t, name));
         if (!ok) continue;
 
         out.push(row);
@@ -929,7 +947,7 @@ export default function MenuJournalierManual({
       }
       return out;
     },
-    [ciqualData, search]
+    [ciqualData]
   );
 
   /* ================= Planning preview ================= */
@@ -1025,6 +1043,24 @@ export default function MenuJournalierManual({
     return out;
   }, [weekDays, computeDayPreview]);
 
+  useEffect(() => {
+    if (!onPdfDataChange) return;
+    const days =
+      mode === "edit"
+        ? [dayIndex]
+        : Array.from({ length: Math.max(1, daysCount) }, (_, index) => index + 1);
+    onPdfDataChange({
+      type: "manual",
+      view: mode,
+      currentDay: dayIndex,
+      days: days.map((day) => ({
+        index: day,
+        label: `Jour ${day}`,
+        ...computeDayPreview(day),
+      })),
+    });
+  }, [computeDayPreview, dayIndex, daysCount, mode, onPdfDataChange]);
+
   /* ================= Duplication ================= */
   const duplicateDay = useCallback(
     (fromDay, toDay) => {
@@ -1050,30 +1086,34 @@ export default function MenuJournalierManual({
     [toast]
   );
 
-  /* ================= Save ================= */
-  const onSave = async () => {
+  /* ================= Auto-save ================= */
+  const persistManualMenu = useCallback(async ({ silent = true } = {}) => {
     if (!assessmentRef) {
-      toast({
-        title: "Impossible de sauvegarder",
-        description: "assessmentRef manquant (le parent doit passer la ref Firestore).",
-        status: "error",
-        duration: 3500,
-        isClosable: true,
-      });
+      if (!silent) {
+        toast({
+          title: "Impossible de sauvegarder",
+          description: "assessmentRef manquant (le parent doit passer la ref Firestore).",
+          status: "error",
+          duration: 3500,
+          isClosable: true,
+        });
+      }
       return;
     }
     if (blocked) {
-      toast({
-        title: "Bilan bloqué",
-        description: "Le bilan n’est pas validé (ou bloqué côté parent).",
-        status: "warning",
-        duration: 2500,
-        isClosable: true,
-      });
+      if (!silent) {
+        toast({
+          title: "Bilan bloqué",
+          description: "Le bilan n’est pas validé (ou bloqué côté parent).",
+          status: "warning",
+          duration: 2500,
+          isClosable: true,
+        });
+      }
       return;
     }
 
-    setSaving(true);
+    if (!silent) setSaving(true);
     try {
       await updateDoc(assessmentRef, {
         ration: {
@@ -1089,19 +1129,40 @@ export default function MenuJournalierManual({
         updatedAt: serverTimestamp(),
       });
 
-      toast({ title: "Sauvegardé", status: "success", duration: 1200, isClosable: true });
+      if (!silent) toast({ title: "Sauvegardé", status: "success", duration: 1200, isClosable: true });
     } catch (e) {
-      toast({
-        title: "Erreur sauvegarde",
-        description: e?.message || "Impossible de sauvegarder",
-        status: "error",
-        duration: 4000,
-        isClosable: true,
-      });
+      if (!silent) {
+        toast({
+          title: "Erreur sauvegarde",
+          description: e?.message || "Impossible de sauvegarder",
+          status: "error",
+          duration: 4000,
+          isClosable: true,
+        });
+      } else {
+        console.error("Manual menu autosave failed:", e);
+      }
     } finally {
-      setSaving(false);
+      if (!silent) setSaving(false);
     }
-  };
+  }, [assessmentRef, blocked, daysCount, docData?.ration, mappingByDay, toast]);
+
+  useEffect(() => {
+    if (!assessmentRef || blocked || !docData) return undefined;
+
+    const hash = JSON.stringify({ daysCount, mappingByDay });
+    if (autoSaveHashRef.current === hash) return undefined;
+
+    const timer = window.setTimeout(() => {
+      autoSaveHashRef.current = hash;
+      persistManualMenu({ silent: true }).catch((e) => {
+        console.error("Manual menu autosave failed:", e);
+        autoSaveHashRef.current = "";
+      });
+    }, 1200);
+
+    return () => window.clearTimeout(timer);
+  }, [assessmentRef, blocked, daysCount, docData, mappingByDay, persistManualMenu]);
 
   const onChangeDaysCount = (n) => {
     const next = Math.min(31, Math.max(1, num(n) || 1));
@@ -1126,6 +1187,7 @@ export default function MenuJournalierManual({
   };
 
   const toggleMicro = (k) => {
+    if (k === "calcium" || k === "fibres") return;
     setSelectedMicros((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]));
   };
 
@@ -1199,11 +1261,11 @@ export default function MenuJournalierManual({
     <Box p={{ base: 2, md: 5 }}>
       {/* HEADER */}
       <Card bg={panelBg} border="1px solid" borderColor={borderCol} rounded="2xl" mb={4}>
-        <CardBody>
+        <CardBody py={{ base: 4, md: 5 }}>
           <HStack mb={3} gap={2} flexWrap="wrap" align="center">
-            <Heading size="sm">Menu (manuel)</Heading>
+            <Heading size="sm">Association manuelle</Heading>
 
-            {ciqualOk ? <Badge colorScheme="green">CIQUAL OK</Badge> : <Badge colorScheme="red">CIQUAL KO</Badge>}
+            {ciqualOk ? <Badge colorScheme="green">Données prêtes</Badge> : <Badge colorScheme="red">Données à charger</Badge>}
 
             <Badge
               colorScheme={
@@ -1234,100 +1296,129 @@ export default function MenuJournalierManual({
                 </Button>
               )}
 
-              <Button
-                colorScheme="blue"
-                onClick={onSave}
-                isLoading={saving}
-                loadingText="Sauvegarde…"
-                isDisabled={blocked}
-              >
-                Sauvegarder
-              </Button>
+              {saving ? (
+                <Badge colorScheme="blue" px={3} py={2} borderRadius="full">
+                  Enregistrement…
+                </Badge>
+              ) : null}
             </HStack>
           </HStack>
 
-          <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4} alignItems="start">
+          <Text fontSize="sm" color={textMuted} mt={1}>
+            On part de la ration déjà construite puis on associe, jour par jour, les aliments
+            CIQUAL les plus pertinents sans surcharger la lecture.
+          </Text>
+
+          <Wrap mt={4} spacing={2}>
+            <WrapItem>
+              <Tag size="sm" variant="subtle" colorScheme="blue">
+                <TagLabel fontWeight="900">{daysCount} jour(s)</TagLabel>
+              </Tag>
+            </WrapItem>
+            <WrapItem>
+              <Tag size="sm" variant="subtle" colorScheme={mode === "edit" ? "blue" : "gray"}>
+                <TagLabel fontWeight="900">
+                  {mode === "edit" ? `Jour ${dayIndex} en édition` : "Vue planning"}
+                </TagLabel>
+              </Tag>
+            </WrapItem>
+            <WrapItem>
+              <Tag
+                size="sm"
+                variant="subtle"
+                colorScheme={
+                  associationStats.total
+                    ? associationStats.mapped === associationStats.total
+                      ? "green"
+                      : "yellow"
+                    : "gray"
+                }
+              >
+                <TagLabel fontWeight="900">
+                  {associationStats.mapped}/{associationStats.total} associations
+                </TagLabel>
+              </Tag>
+            </WrapItem>
+            <WrapItem>
+              <Tag size="sm" variant="subtle" colorScheme="blue">
+                <TagLabel fontWeight="900">{r0(totals?.day?.kcal)} kcal lus</TagLabel>
+              </Tag>
+            </WrapItem>
+            <WrapItem>
+              <Tag size="sm" variant="subtle">
+                <TagLabel fontWeight="900">P {r0(totals?.day?.p)} g</TagLabel>
+              </Tag>
+            </WrapItem>
+            <WrapItem>
+              <Tag size="sm" variant="subtle">
+                <TagLabel fontWeight="900">L {r0(totals?.day?.f)} g</TagLabel>
+              </Tag>
+            </WrapItem>
+            <WrapItem>
+              <Tag size="sm" variant="subtle">
+                <TagLabel fontWeight="900">G {r0(totals?.day?.carbs)} g</TagLabel>
+              </Tag>
+            </WrapItem>
+          </Wrap>
+
+          <Box mt={4}>
             <TargetsBar />
+          </Box>
 
-            {/* ✅ plus de barre de recherche ici (uniquement la sticky) */}
-            <Box>
-              <Text fontSize="sm" color={textMuted} mb={2}>
-                Options
-              </Text>
+          <HStack mt={4} spacing={2} flexWrap="wrap">
+            <Button
+              size="sm"
+              variant="outline"
+              leftIcon={showMicros ? <ViewOffIcon /> : <ViewIcon />}
+              onClick={() => setShowMicros((v) => !v)}
+            >
+              {showMicros ? "Masquer les micros" : "Afficher les micros"}
+            </Button>
+            <Text fontSize="sm" color={textMuted}>
+              La recherche CIQUAL n’apparaît qu’en mode édition pour garder un planning plus lisible.
+            </Text>
+          </HStack>
 
-              <HStack mt={1} spacing={2} flexWrap="wrap">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  leftIcon={showMicros ? <ViewOffIcon /> : <ViewIcon />}
-                  onClick={() => setShowMicros((v) => !v)}
-                >
-                  {showMicros ? "Masquer micros" : "Afficher micros"}
-                </Button>
-              </HStack>
+          <Collapse in={showMicros} animateOpacity>
+            <Divider my={4} />
+            <Text fontSize="sm" color={textMuted}>
+              Micros affichés et suivis sur le jour courant.
+            </Text>
 
-              <Collapse in={showMicros} animateOpacity>
-                <Text mt={3} fontSize="sm" color={textMuted}>
-                  Micros affichés (clique pour activer/désactiver)
-                </Text>
-                <Wrap spacing={2} mt={2}>
-                  {Object.keys(MICRO_LABEL).map((k) => {
-                    const active = selectedMicros.includes(k);
-                    return (
-                      <WrapItem key={k}>
-                        <Tag
-                          cursor="pointer"
-                          variant={active ? "solid" : "subtle"}
-                          colorScheme={active ? "purple" : "gray"}
-                          onClick={() => toggleMicro(k)}
-                        >
-                          <TagLabel fontWeight="900">{MICRO_LABEL[k]}</TagLabel>
-                        </Tag>
-                      </WrapItem>
-                    );
-                  })}
-                </Wrap>
-              </Collapse>
-            </Box>
+            <Wrap spacing={2} mt={3}>
+              {Object.keys(MICRO_LABEL).map((k) => {
+                const active = selectedMicros.includes(k);
+                return (
+                  <WrapItem key={k}>
+                    <Tag
+                      cursor="pointer"
+                      variant={active ? "solid" : "subtle"}
+                      colorScheme={active ? "purple" : "gray"}
+                      onClick={() => toggleMicro(k)}
+                    >
+                      <TagLabel fontWeight="900">{MICRO_LABEL[k]}</TagLabel>
+                    </Tag>
+                  </WrapItem>
+                );
+              })}
+            </Wrap>
 
-            <Box>
-              <Text fontSize="sm" color={textMuted} mb={2}>
-                Total du jour {mode === "edit" ? `(Jour ${dayIndex})` : ""}
-              </Text>
-              <HStack spacing={2} flexWrap="wrap">
-                <Tag size="sm" variant="subtle" colorScheme="blue">
-                  <TagLabel fontWeight="900">{r0(totals?.day?.kcal)} kcal</TagLabel>
-                </Tag>
-                <Tag size="sm" variant="subtle">
-                  <TagLabel fontWeight="900">P {r0(totals?.day?.p)}g</TagLabel>
-                </Tag>
-                <Tag size="sm" variant="subtle">
-                  <TagLabel fontWeight="900">L {r0(totals?.day?.f)}g</TagLabel>
-                </Tag>
-                <Tag size="sm" variant="subtle">
-                  <TagLabel fontWeight="900">G {r0(totals?.day?.carbs)}g</TagLabel>
-                </Tag>
-              </HStack>
-
-              {showMicros && (
-                <Wrap mt={3} spacing={2}>
-                  {selectedMicros.map((k) => {
-                    const v = totals?.day?.micros?.[k] || 0;
-                    const unit = MICRO_UNIT[k] || "mg";
-                    return (
-                      <WrapItem key={`day_${k}`}>
-                        <Tag size="sm" variant="subtle" colorScheme="purple">
-                          <TagLabel fontWeight="900">
-                            {MICRO_LABEL[k]}: {unit === "g" ? r1(v) : r0(v)} {unit}
-                          </TagLabel>
-                        </Tag>
-                      </WrapItem>
-                    );
-                  })}
-                </Wrap>
-              )}
-            </Box>
-          </SimpleGrid>
+            <Wrap mt={3} spacing={2}>
+              {selectedMicros.map((k) => {
+                const v = totals?.day?.micros?.[k] || 0;
+                const unit = MICRO_UNIT[k] || "mg";
+                return (
+                  <WrapItem key={`day_${k}`}>
+                    <Tag size="sm" variant="subtle" colorScheme="purple">
+                      <TagLabel fontWeight="900">
+                        {MICRO_LABEL[k]}: {unit === "g" ? r1(v) : r0(v)} {unit}
+                      </TagLabel>
+                    </Tag>
+                  </WrapItem>
+                );
+              })}
+            </Wrap>
+          </Collapse>
         </CardBody>
       </Card>
 
@@ -1388,12 +1479,13 @@ export default function MenuJournalierManual({
                 return (
                   <Card
                     key={d}
-                    bg={useColorModeValue("gray.50", "whiteAlpha.50")}
+                    bg={planningDayBg}
+                    color={planningText}
                     border="1px solid"
                     borderColor={borderCol}
                     rounded="xl"
                     cursor="pointer"
-                    _hover={{ transform: "translateY(-1px)" }}
+                    _hover={{ transform: "translateY(-1px)", boxShadow: "lg" }}
                     onClick={() => {
                       setDayIndex(d);
                       setMode("edit");
@@ -1401,7 +1493,7 @@ export default function MenuJournalierManual({
                       window?.scrollTo?.({ top: 0, behavior: "smooth" });
                     }}
                   >
-                    <CardBody>
+                    <CardBody color={planningText}>
                       <HStack mb={2}>
                         <Heading size="sm">Jour {d}</Heading>
                         <Spacer />
@@ -1416,7 +1508,7 @@ export default function MenuJournalierManual({
                         if (!hasAny) return null;
 
                         return (
-                          <Box key={mk} mt={2}>
+                          <Box key={mk} mt={2} p={2.5} bg={planningMealBg} border="1px solid" borderColor={borderCol} rounded="lg">
                             <Text fontWeight="900" fontSize="sm">
                               {MEAL_LABEL[mk]}
                             </Text>
@@ -1431,6 +1523,7 @@ export default function MenuJournalierManual({
                                       whiteSpace="normal"
                                       wordBreak="break-word"
                                       overflow="visible"
+                                      color={planningText}
                                     >
                                       • {x.text}
                                     </Text>
@@ -1438,7 +1531,7 @@ export default function MenuJournalierManual({
                                 </VStack>
                               </Box>
                             ) : (
-                              <Text fontSize="sm" opacity={0.6} mt={1}>
+                              <Text fontSize="sm" color={planningMuted} mt={1}>
                                 — (à associer)
                               </Text>
                             )}
@@ -1504,33 +1597,7 @@ export default function MenuJournalierManual({
               </Select>
             </HStack>
 
-            {/* ✅ la SEULE barre de recherche (sticky) */}
             <HStack spacing={2}>
-              <Input
-                size="sm"
-                placeholder="Recherche CIQUAL (ex: riz, pâtes...)"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                isDisabled={!ciqualOk}
-              />
-              <Tooltip
-                label="Tape un mot ici pour filtrer les options dans les menus CIQUAL. Exemple : “riz” → le Top 25 remonte du riz / produits proches."
-                hasArrow
-              >
-                <Box
-                  border="1px solid"
-                  borderColor={borderCol}
-                  rounded="md"
-                  px={2}
-                  py={1}
-                  cursor="help"
-                  fontSize="sm"
-                  opacity={0.8}
-                >
-                  ?
-                </Box>
-              </Tooltip>
-
               <Button
                 size="sm"
                 variant="outline"
@@ -1697,11 +1764,12 @@ export default function MenuJournalierManual({
                       const row = ciqualCodeSel ? ciqualByCodeMap.get(ciqualCodeSel) : null;
                       const t = computeFoodTotals(line.key, grams);
 
-                      const top25 = getTop25(line);
-                      const others = getOtherOptions(line);
-
                       const cardId = `${mealKey}_${line.key}`;
                       const open = openCardKey === cardId;
+                      const pickerQuery = String(cardSearch?.[cardId] || "").trim();
+                      const top25 = open ? getTop25(line, pickerQuery) : [];
+                      const others = open ? getOtherOptions(line, pickerQuery) : [];
+                      const quickOptions = (pickerQuery ? [...top25, ...others] : top25).slice(0, 10);
 
                       // ✅ "VPO" etc supprimés du rendu -> juste catégorie lisible
                       const categoryLabel =
@@ -1754,18 +1822,23 @@ export default function MenuJournalierManual({
 
                               <Spacer />
 
-                              {isMobile && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => setOpenCardKey((prev) => (prev === cardId ? "" : cardId))}
-                                >
-                                  {open ? "Réduire" : "Configurer"}
-                                </Button>
-                              )}
+                              <Button
+                                size="sm"
+                                variant={open ? "solid" : "outline"}
+                                colorScheme={row ? "blue" : "yellow"}
+                                onClick={() => setOpenCardKey((prev) => (prev === cardId ? "" : cardId))}
+                              >
+                                {open ? "Fermer" : row ? "Modifier" : "Associer"}
+                              </Button>
                             </HStack>
 
-                            <Collapse in={!isMobile || open} animateOpacity>
+                            {row ? (
+                              <Text fontSize="sm" opacity={0.75} noOfLines={1} mb={open ? 0 : 2}>
+                                Choix : <b>{ciqualName(row)}</b>
+                              </Text>
+                            ) : null}
+
+                            <Collapse in={open} animateOpacity>
                               <Divider my={3} />
 
                               {/* ✅ Partie du menu UNIQUEMENT Déj/Dîner */}
@@ -1795,6 +1868,54 @@ export default function MenuJournalierManual({
                               <Text fontSize="sm" color={textMuted} mb={2}>
                                 Aliment CIQUAL
                               </Text>
+
+                              <Input
+                                size="sm"
+                                placeholder={`Chercher ${categoryLabel.toLowerCase()} (ex: riz, pate, courgette...)`}
+                                value={cardSearch?.[cardId] || ""}
+                                onChange={(e) =>
+                                  setCardSearch((prev) => ({
+                                    ...prev,
+                                    [cardId]: e.target.value,
+                                  }))
+                                }
+                                isDisabled={!ciqualOk || blocked}
+                                bg={softBg}
+                                mb={3}
+                              />
+
+                              {quickOptions.length ? (
+                                <Wrap spacing={2} mb={3}>
+                                  {quickOptions.map((x) => {
+                                    const codeOpt = ciqualCode(x);
+                                    const nameOpt = ciqualName(x);
+                                    if (!codeOpt || !nameOpt) return null;
+                                    return (
+                                      <WrapItem key={`quick_${cardId}_${codeOpt}`}>
+                                        <Button
+                                          size="xs"
+                                          variant={ciqualCodeSel === codeOpt ? "solid" : "outline"}
+                                          colorScheme="blue"
+                                          onClick={() => {
+                                            setMappingCode(line.key, codeOpt);
+                                            setOpenCardKey("");
+                                          }}
+                                          isDisabled={blocked}
+                                          maxW={{ base: "100%", md: "240px" }}
+                                        >
+                                          <Text as="span" noOfLines={1}>
+                                            {nameOpt}
+                                          </Text>
+                                        </Button>
+                                      </WrapItem>
+                                    );
+                                  })}
+                                </Wrap>
+                              ) : (
+                                <Text fontSize="sm" color={textMuted} mb={3}>
+                                  Aucun aliment trouvé. Essaie un terme plus simple, par exemple “riz”, “pate” ou “poulet”.
+                                </Text>
+                              )}
 
                               <Select
                                 value={ciqualCodeSel}
@@ -1872,4 +1993,3 @@ export default function MenuJournalierManual({
   </Box>
 );
 }
-

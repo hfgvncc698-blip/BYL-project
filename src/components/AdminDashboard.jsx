@@ -19,7 +19,6 @@ import {
   Text,
   VStack,
   Spinner,
-  useColorModeValue,
   Stat,
   StatLabel,
   StatNumber,
@@ -95,6 +94,8 @@ import {
   MdChecklist,
   MdPendingActions,
 } from "react-icons/md";
+import AppLoading from "./ui/AppLoading";
+import { useAppTheme } from "../styles/appTheme";
 
 /* ================= helpers ================= */
 function todayMinus(n) {
@@ -170,14 +171,6 @@ const splitCsv = (value = "") =>
     .map((v) => v.trim())
     .filter(Boolean);
 
-const arrayToCsv = (arr) =>
-  Array.isArray(arr) ? arr.filter(Boolean).join(", ") : "";
-
-const emptyMediaSide = () => ({
-  images: [],
-  video: { path: "", url: "" },
-});
-
 const isPlainObject = (v) =>
   v != null && typeof v === "object" && !Array.isArray(v);
 
@@ -222,7 +215,6 @@ const extractPrimitiveStrings = (value) => {
   };
 
   walk(value);
-
   return [...new Set(out.filter(Boolean))];
 };
 
@@ -237,7 +229,106 @@ const hasFieldValue = (value) => {
 
 const fieldToCsv = (value) => extractPrimitiveStrings(value).join(", ");
 
-const fieldToArray = (value) => extractPrimitiveStrings(value);
+const pickFirstDefined = (obj, paths = []) => {
+  for (const path of paths) {
+    const parts = String(path).split(".");
+    let cur = obj;
+    let ok = true;
+
+    for (const part of parts) {
+      if (cur == null || !(part in cur)) {
+        ok = false;
+        break;
+      }
+      cur = cur[part];
+    }
+
+    if (ok && cur != null) return cur;
+  }
+  return undefined;
+};
+
+const getExerciseFieldValue = (exercise = {}, fieldName) => {
+  const aliases = {
+    groupe_musculaire: [
+      "groupe_musculaire",
+      "groupeMusculaire",
+      "muscle",
+      "muscles",
+      "details.groupe_musculaire",
+      "details.groupeMusculaire",
+    ],
+    objectifs: [
+      "objectifs",
+      "objectif",
+      "goal",
+      "goals",
+      "details.objectifs",
+      "details.objectif",
+    ],
+    muscles_secondaires: [
+      "muscles_secondaires",
+      "musclesSecondaires",
+      "secondary_muscles",
+      "secondaryMuscles",
+      "details.muscles_secondaires",
+      "details.musclesSecondaires",
+    ],
+    articulations_sollicitees: [
+      "articulations_sollicitees",
+      "articulations_solicitees",
+      "articulationsSollicitees",
+      "articulationsSolicitees",
+      "articulations",
+      "joints",
+      "details.articulations_sollicitees",
+      "details.articulations_solicitees",
+      "details.articulationsSollicitees",
+      "details.articulationsSolicitees",
+      "details.articulations",
+    ],
+    tendons_sollicites: [
+      "tendons_sollicites",
+      "tendons_solicites",
+      "tendonsSollicites",
+      "tendonsSolicites",
+      "tendons",
+      "details.tendons_sollicites",
+      "details.tendons_solicites",
+      "details.tendonsSollicites",
+      "details.tendonsSolicites",
+      "details.tendons",
+    ],
+    materiel: [
+      "materiel",
+      "matériel",
+      "equipement",
+      "equipements",
+      "equipment",
+      "details.materiel",
+      "details.equipement",
+      "details.equipements",
+    ],
+    position: [
+      "position",
+      "positions",
+      "details.position",
+      "details.positions",
+    ],
+    variantes: [
+      "variantes",
+      "variants",
+      "details.variantes",
+    ],
+    contraintes: [
+      "contraintes",
+      "contraintes_physiques",
+      "details.contraintes",
+    ],
+  };
+
+  return pickFirstDefined(exercise, aliases[fieldName] || [fieldName]);
+};
 
 const ensureMediaShape = (exercise = {}) => {
   const media = exercise?.media || {};
@@ -294,17 +385,21 @@ const exerciseToForm = (exercise = {}) => {
 
   return {
     nom: exercise.nom || "",
-    groupe_musculaire: fieldToCsv(exercise.groupe_musculaire),
-    objectifs: fieldToCsv(exercise.objectifs),
-    muscles_secondaires: fieldToCsv(exercise.muscles_secondaires),
-    articulations_sollicitees: fieldToCsv(exercise.articulations_sollicitees),
-    tendons_sollicites: fieldToCsv(exercise.tendons_sollicites),
+    groupe_musculaire: fieldToCsv(getExerciseFieldValue(exercise, "groupe_musculaire")),
+    objectifs: fieldToCsv(getExerciseFieldValue(exercise, "objectifs")),
+    muscles_secondaires: fieldToCsv(getExerciseFieldValue(exercise, "muscles_secondaires")),
+    articulations_sollicitees: fieldToCsv(
+      getExerciseFieldValue(exercise, "articulations_sollicitees")
+    ),
+    tendons_sollicites: fieldToCsv(
+      getExerciseFieldValue(exercise, "tendons_sollicites")
+    ),
     type: exercise.type || "",
     niveau: exercise.niveau || "",
-    materiel: fieldToCsv(exercise.materiel),
-    position: fieldToCsv(exercise.position),
-    contraintes: fieldToCsv(exercise.contraintes),
-    variantes: fieldToCsv(exercise.variantes),
+    materiel: fieldToCsv(getExerciseFieldValue(exercise, "materiel")),
+    position: fieldToCsv(getExerciseFieldValue(exercise, "position")),
+    contraintes: fieldToCsv(getExerciseFieldValue(exercise, "contraintes")),
+    variantes: fieldToCsv(getExerciseFieldValue(exercise, "variantes")),
     consignes: {
       Positionnement: exercise.consignes?.Positionnement || "",
       Mouvement: exercise.consignes?.Mouvement || "",
@@ -341,13 +436,23 @@ const formToExercisePayload = (form = {}) => {
       }))
       .filter((img) => img.key && (img.path || img.url));
 
+  const articulations = splitCsv(form.articulations_sollicitees);
+  const tendons = splitCsv(form.tendons_sollicites);
+
   return {
     nom: String(form.nom || "").trim(),
     groupe_musculaire: splitCsv(form.groupe_musculaire),
     objectifs: splitCsv(form.objectifs),
     muscles_secondaires: splitCsv(form.muscles_secondaires),
-    articulations_sollicitees: splitCsv(form.articulations_sollicitees),
-    tendons_sollicites: splitCsv(form.tendons_sollicites),
+
+    // version correcte
+    articulations_sollicitees: articulations,
+    tendons_sollicites: tendons,
+
+    // version legacy/fautive
+    articulations_solicitees: articulations,
+    tendons_solicites: tendons,
+
     type: String(form.type || "").trim(),
     niveau: String(form.niveau || "").trim(),
     materiel: splitCsv(form.materiel),
@@ -384,10 +489,15 @@ const getMissingExerciseFields = (exercise = {}) => {
   const missing = [];
   const media = ensureMediaShape(exercise);
 
+  const groupeMusculaire = getExerciseFieldValue(exercise, "groupe_musculaire");
+  const articulations = getExerciseFieldValue(exercise, "articulations_sollicitees");
+  const tendons = getExerciseFieldValue(exercise, "tendons_sollicites");
+  const musclesSecondaires = getExerciseFieldValue(exercise, "muscles_secondaires");
+
   if (!hasFieldValue(exercise.nom)) missing.push("nom");
-  if (!hasFieldValue(exercise.groupe_musculaire)) missing.push("groupe musculaire");
-  if (!hasFieldValue(exercise.articulations_sollicitees)) missing.push("articulations");
-  if (!hasFieldValue(exercise.tendons_sollicites)) missing.push("tendons");
+  if (!hasFieldValue(groupeMusculaire)) missing.push("groupe musculaire");
+  if (!hasFieldValue(articulations)) missing.push("articulations");
+  if (!hasFieldValue(tendons)) missing.push("tendons");
 
   if (!exercise.consignes?.Positionnement) missing.push("consigne: positionnement");
   if (!exercise.consignes?.Mouvement) missing.push("consigne: mouvement");
@@ -397,7 +507,7 @@ const getMissingExerciseFields = (exercise = {}) => {
 
   if (!hasFieldValue(exercise.type)) missing.push("type");
   if (!hasFieldValue(exercise.niveau)) missing.push("niveau");
-  if (!hasFieldValue(exercise.muscles_secondaires)) missing.push("muscles secondaires");
+  if (!hasFieldValue(musclesSecondaires)) missing.push("muscles secondaires");
 
   const hommeImages = Array.isArray(media.homme.images) ? media.homme.images.length : 0;
   const femmeImages = Array.isArray(media.femme.images) ? media.femme.images.length : 0;
@@ -442,7 +552,6 @@ export default function AdminDashboard() {
 
   const [topPagesWindow, setTopPagesWindow] = useState("30d");
 
-  /* ===== exercices ===== */
   const [pendingExercises, setPendingExercises] = useState([]);
   const [pendingExercisesLoading, setPendingExercisesLoading] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState(null);
@@ -452,9 +561,46 @@ export default function AdminDashboard() {
   const toast = useToast();
 
   const navigate = useNavigate();
-  const cardBg = useColorModeValue("white", "gray.800");
-  const tableStickyBg = useColorModeValue("white", "gray.800");
-  const rowHoverBg = useColorModeValue("gray.50", "whiteAlpha.100");
+  const theme = useAppTheme();
+  const tableStickyBg = theme.surfaceBgStrong;
+  const rowHoverBg = theme.surfaceSoft;
+  const mutedText = theme.mutedText;
+  const adminPageSx = {
+    ".chakra-card": {
+      bg: theme.surfaceBg,
+      border: "1px solid",
+      borderColor: theme.borderColor,
+      borderRadius: "2xl",
+      boxShadow: theme.cardProps.boxShadow,
+      overflow: "hidden",
+    },
+    ".chakra-card__header": {
+      borderBottom: "1px solid",
+      borderColor: theme.borderColor,
+    },
+    ".chakra-table th": {
+      color: theme.mutedText,
+      borderColor: theme.borderColor,
+      letterSpacing: "0.08em",
+      textTransform: "uppercase",
+      fontSize: "xs",
+    },
+    ".chakra-table td": {
+      borderColor: theme.borderColor,
+    },
+    ".chakra-input, .chakra-select, .chakra-textarea": {
+      bg: theme.surfaceSoft,
+      borderColor: theme.borderColor,
+    },
+    ".chakra-tabs__tablist": {
+      borderColor: theme.borderColor,
+    },
+    ".chakra-tabs__tab[aria-selected=true]": {
+      bg: theme.surfaceSoft,
+      borderColor: theme.borderColor,
+      color: theme.textColor,
+    },
+  };
 
   const loadPendingExercises = useCallback(async () => {
     setPendingExercisesLoading(true);
@@ -591,8 +737,8 @@ export default function AdminDashboard() {
         const endDay = days[days.length - 1];
         const last30Temp = allTemp.filter((d) => d.day >= startDay && d.day <= endDay);
         const mapByDay = Object.fromEntries(last30Temp.map((d) => [d.day, d]));
-        const normalized = days.map(
-          (d) =>
+        const normalized = days.map((d) => {
+          return (
             mapByDay[d] || {
               day: d,
               pageviews: 0,
@@ -601,7 +747,8 @@ export default function AdminDashboard() {
               byCountry: {},
               byRole: {},
             }
-        );
+          );
+        });
 
         if (!mounted) return;
 
@@ -677,7 +824,12 @@ export default function AdminDashboard() {
   }, [dailyDocs]);
 
   const chartData = useMemo(
-    () => dailyDocs.map((d) => ({ day: d.day.slice(5), pageviews: d.pageviews, unique: d.uniqueVisitors })),
+    () =>
+      dailyDocs.map((d) => ({
+        day: d.day.slice(5),
+        pageviews: d.pageviews,
+        unique: d.uniqueVisitors,
+      })),
     [dailyDocs]
   );
 
@@ -700,11 +852,18 @@ export default function AdminDashboard() {
     return toPairs(byPageAgg).slice(0, 10);
   }, [allDailyDocs, topPagesWindow]);
 
-  const topCountries = useMemo(() => toPairs(totals30.byCountry).slice(0, 10), [totals30]);
+  const topCountries = useMemo(
+    () => toPairs(totals30.byCountry).slice(0, 10),
+    [totals30]
+  );
   const roles = useMemo(() => toPairs(totals30.byRole), [totals30]);
 
   const topPagesLabel =
-    topPagesWindow === "today" ? "Aujourd’hui" : topPagesWindow === "7d" ? "7 jours" : "30 j";
+    topPagesWindow === "today"
+      ? "Aujourd’hui"
+      : topPagesWindow === "7d"
+      ? "7 jours"
+      : "30 j";
 
   const handleSearch = async () => {
     if (!searchTerm) return setResults([]);
@@ -725,7 +884,13 @@ export default function AdminDashboard() {
         (full && full.toLowerCase().includes(term))
       ) {
         if (role === "coach") {
-          matched.push({ id, email, name: full || id, source: "users(coach)", kind: "coach" });
+          matched.push({
+            id,
+            email,
+            name: full || id,
+            source: "users(coach)",
+            kind: "coach",
+          });
         } else {
           const source = role === "particulier" ? "users(particulier)" : "users";
           matched.push({ id, email, name: full || id, source, kind: "client" });
@@ -744,7 +909,14 @@ export default function AdminDashboard() {
         name.toLowerCase().includes(term) ||
         (email && email.toLowerCase().includes(term))
       ) {
-        matched.push({ id, email, name, source: "clients", coach: coachId || "BYL", kind: "client" });
+        matched.push({
+          id,
+          email,
+          name,
+          source: "clients",
+          coach: coachId || "BYL",
+          kind: "client",
+        });
       }
     });
 
@@ -762,8 +934,16 @@ export default function AdminDashboard() {
         out.push({
           id: d.id,
           name: p.nom || p.name || p.titre || d.id,
-          origine: p.origine || p.origin || p.source || p.generatedBy || p.meta?.source || "client-sub",
-          updatedAt: toIso(p.updatedAt || p.updated_at || p.maj || p.lastUpdate || p.lastUpdatedAt),
+          origine:
+            p.origine ||
+            p.origin ||
+            p.source ||
+            p.generatedBy ||
+            p.meta?.source ||
+            "client-sub",
+          updatedAt: toIso(
+            p.updatedAt || p.updated_at || p.maj || p.lastUpdate || p.lastUpdatedAt
+          ),
           raw: p,
           where: "clientsSub",
         });
@@ -789,8 +969,16 @@ export default function AdminDashboard() {
           out.push({
             id: d.id,
             name: p.nom || p.name || p.titre || d.id,
-            origine: p.origine || p.origin || p.source || p.generatedBy || p.meta?.source || "global",
-            updatedAt: toIso(p.updatedAt || p.updated_at || p.maj || p.lastUpdate || p.lastUpdatedAt),
+            origine:
+              p.origine ||
+              p.origin ||
+              p.source ||
+              p.generatedBy ||
+              p.meta?.source ||
+              "global",
+            updatedAt: toIso(
+              p.updatedAt || p.updated_at || p.maj || p.lastUpdate || p.lastUpdatedAt
+            ),
             raw: p,
             where: "programmesGlobal",
           });
@@ -830,7 +1018,8 @@ export default function AdminDashboard() {
           name: `${u.firstName || ""} ${u.lastName || ""}`.trim() || row.name,
           email: u.email || row.email,
           createdAt: toIso(u.createdAt),
-          subscriptionStatus: u.subscriptionStatus || (u.hasActiveSubscription ? "active" : "free"),
+          subscriptionStatus:
+            u.subscriptionStatus || (u.hasActiveSubscription ? "active" : "free"),
           hasActiveSubscription: !!u.hasActiveSubscription,
           trialStartedAt: toIso(u.trialStartedAt),
           trialEndsAt: toIso(u.trialEndsAt),
@@ -886,7 +1075,13 @@ export default function AdminDashboard() {
     try {
       const coachDoc = await getDoc(doc(db, "users", id));
       if (!coachDoc.exists()) {
-        setDrawerData({ drawerKind: "coach", type: "Coach", id, name: id, email: "—" });
+        setDrawerData({
+          drawerKind: "coach",
+          type: "Coach",
+          id,
+          name: id,
+          email: "—",
+        });
         return;
       }
 
@@ -900,7 +1095,8 @@ export default function AdminDashboard() {
         name,
         email: u.email || "—",
         createdAt: toIso(u.createdAt),
-        subscriptionStatus: u.subscriptionStatus || (u.hasActiveSubscription ? "active" : "free"),
+        subscriptionStatus:
+          u.subscriptionStatus || (u.hasActiveSubscription ? "active" : "free"),
         hasActiveSubscription: !!u.hasActiveSubscription,
         trialStartedAt: toIso(u.trialStartedAt),
         trialEndsAt: toIso(u.trialEndsAt),
@@ -908,7 +1104,9 @@ export default function AdminDashboard() {
         role: u.role || "coach",
       });
 
-      const clientsSnap = await getDocs(query(collection(db, "clients"), where("createdBy", "==", id)));
+      const clientsSnap = await getDocs(
+        query(collection(db, "clients"), where("createdBy", "==", id))
+      );
       const createdClients = [];
       clientsSnap.forEach((d) => {
         const c = d.data() || {};
@@ -921,15 +1119,20 @@ export default function AdminDashboard() {
       });
       createdClients.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
-      const progsSnap = await getDocs(query(collection(db, "programmes"), where("createdBy", "==", id)));
+      const progsSnap = await getDocs(
+        query(collection(db, "programmes"), where("createdBy", "==", id))
+      );
       const createdPrograms = [];
       progsSnap.forEach((d) => {
         const p = d.data() || {};
         createdPrograms.push({
           id: d.id,
           name: p.nom || p.name || p.titre || d.id,
-          origine: p.origine || p.origin || p.source || p.generatedBy || p.meta?.source || "—",
-          updatedAt: toIso(p.updatedAt || p.updated_at || p.maj || p.lastUpdate || p.lastUpdatedAt),
+          origine:
+            p.origine || p.origin || p.source || p.generatedBy || p.meta?.source || "—",
+          updatedAt: toIso(
+            p.updatedAt || p.updated_at || p.maj || p.lastUpdate || p.lastUpdatedAt
+          ),
           raw: p,
         });
       });
@@ -938,7 +1141,14 @@ export default function AdminDashboard() {
       setCoachPrograms(createdPrograms);
     } catch (e) {
       console.error(e);
-      setDrawerData({ drawerKind: "coach", type: "Coach", id, name: id, email: "—", error: true });
+      setDrawerData({
+        drawerKind: "coach",
+        type: "Coach",
+        id,
+        name: id,
+        email: "—",
+        error: true,
+      });
     } finally {
       setDrawerLoading(false);
       setCoachLinkedLoading(false);
@@ -1068,68 +1278,95 @@ export default function AdminDashboard() {
   }
 
   if (loading) {
-    return (
-      <Box p={8} display="flex" alignItems="center" justifyContent="center">
-        <Spinner size="lg" />
-      </Box>
-    );
+    return <AppLoading label="Chargement de l'administration..." />;
   }
 
   const linkedCount = linkedPrograms.length;
 
   return (
-    <Box p={{ base: 4, md: 6 }}>
-      <HStack justify="space-between" align="center" mb={4} flexWrap="wrap" gap={3}>
-        <Heading fontSize={{ base: "xl", md: "2xl" }}>Admin Dashboard</Heading>
-        <Button
-          as={RouterLink}
-          to="/admin/geo"
-          leftIcon={<Icon as={MdPublic} />}
-          colorScheme="green"
-          size={{ base: "sm", md: "md" }}
-        >
-          Voir la carte du monde
-        </Button>
-      </HStack>
+    <Box p={{ base: 4, md: 8 }} bg={theme.pageBg} color={theme.textColor} minH="calc(100vh - 112px)" sx={adminPageSx}>
+      <VStack align="stretch" spacing={6} maxW="1680px" mx="auto">
+      <Box
+        {...theme.cardProps}
+        p={{ base: 5, md: 7 }}
+        position="relative"
+        overflow="hidden"
+        _before={{
+          content: '""',
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          background:
+            "radial-gradient(circle at 16% 10%, rgba(16,185,129,.16), transparent 34%), radial-gradient(circle at 84% 16%, rgba(59,130,246,.18), transparent 30%)",
+        }}
+      >
+        <HStack position="relative" justify="space-between" align="center" flexWrap="wrap" gap={4}>
+          <HStack spacing={4} align="center">
+            <Box bg={theme.surfaceSoft} color={theme.accentBlue} borderRadius="2xl" p={3} display="inline-flex">
+              <Icon as={MdOutlineBadge} boxSize={7} />
+            </Box>
+            <Box>
+              <HStack spacing={3} flexWrap="wrap">
+                <Heading fontSize={{ base: "2xl", md: "4xl" }} letterSpacing="-0.05em">
+                  Admin
+                </Heading>
+                <Badge borderRadius="full" px={3}>Pilotage global</Badge>
+              </HStack>
+              <Text color={mutedText} mt={1}>
+                Vue d'ensemble des coachs, clients, programmes, trafic et actions à traiter.
+              </Text>
+            </Box>
+          </HStack>
+          <Button
+            as={RouterLink}
+            to="/admin/geo"
+            leftIcon={<Icon as={MdPublic} />}
+            {...theme.primaryButtonProps}
+            size={{ base: "sm", md: "md" }}
+          >
+            Voir la carte du monde
+          </Button>
+        </HStack>
+      </Box>
 
-      <SimpleGrid columns={{ base: 1, md: 7 }} spacing={4} mb={6}>
-        <Stat p={4} bg={cardBg} borderRadius="xl" shadow="sm">
+      <SimpleGrid columns={{ base: 1, md: 2, xl: 7 }} spacing={4}>
+        <Stat {...theme.tileProps} p={4} position="relative" overflow="hidden">
           <StatLabel>Total coaches</StatLabel>
           <StatNumber>{coaches.length}</StatNumber>
           <StatHelpText>Rôle = coach</StatHelpText>
         </Stat>
 
-        <Stat p={4} bg={cardBg} borderRadius="xl" shadow="sm">
+        <Stat {...theme.tileProps} p={4}>
           <StatLabel>Total clients (auto + créés)</StatLabel>
           <StatNumber>{totalClients}</StatNumber>
           <StatHelpText>Comptes particuliers + fiches</StatHelpText>
         </Stat>
 
-        <Stat p={4} bg={cardBg} borderRadius="xl" shadow="sm">
+        <Stat {...theme.tileProps} p={4}>
           <StatLabel>Total programmes</StatLabel>
           <StatNumber>{totalPrograms}</StatNumber>
           <StatHelpText>Actifs en base</StatHelpText>
         </Stat>
 
-        <Stat p={4} bg={cardBg} borderRadius="xl" shadow="sm">
+        <Stat {...theme.tileProps} p={4}>
           <StatLabel>Visiteurs uniques (Aujourd’hui)</StatLabel>
           <StatNumber>{visitorsKpi.vToday}</StatNumber>
           <StatHelpText>{visitorsKpi.today}</StatHelpText>
         </Stat>
 
-        <Stat p={4} bg={cardBg} borderRadius="xl" shadow="sm">
+        <Stat {...theme.tileProps} p={4}>
           <StatLabel>Visiteurs uniques (7 j)</StatLabel>
           <StatNumber>{visitorsKpi.v7}</StatNumber>
           <StatHelpText>cumul 7 jours</StatHelpText>
         </Stat>
 
-        <Stat p={4} bg={cardBg} borderRadius="xl" shadow="sm">
+        <Stat {...theme.tileProps} p={4}>
           <StatLabel>Visiteurs uniques (30 j)</StatLabel>
           <StatNumber>{visitorsKpi.v30}</StatNumber>
           <StatHelpText>cumul 30 jours</StatHelpText>
         </Stat>
 
-        <Stat p={4} bg={cardBg} borderRadius="xl" shadow="sm">
+        <Stat {...theme.tileProps} p={4}>
           <StatLabel>Pages vues (30 j)</StatLabel>
           <StatNumber>{totals30.pageviews}</StatNumber>
           <StatHelpText>Pageviews</StatHelpText>
@@ -1442,7 +1679,9 @@ export default function AdminDashboard() {
                       <Text noOfLines={1}>{c.email || "—"}</Text>
                     </Td>
                     <Td>
-                      <Badge colorScheme={c.type === "Compte" ? "purple" : "teal"}>{c.type}</Badge>
+                      <Badge colorScheme={c.type === "Compte" ? "purple" : "teal"}>
+                        {c.type}
+                      </Badge>
                     </Td>
                     <Td maxW="220px">
                       <Text noOfLines={1}>{c.coach || "—"}</Text>
@@ -1512,7 +1751,9 @@ export default function AdminDashboard() {
                         key={`${r.source}-${r.id}`}
                         _hover={{ bg: rowHoverBg, cursor: "pointer" }}
                         onClick={() =>
-                          r.kind === "coach" ? openCoachDrawer({ id: r.id }) : openClientDrawer(r)
+                          r.kind === "coach"
+                            ? openCoachDrawer({ id: r.id })
+                            : openClientDrawer(r)
                         }
                       >
                         <Td maxW="220px">
@@ -1587,13 +1828,19 @@ export default function AdminDashboard() {
                 <HStack spacing={2} flexWrap="wrap">
                   <Badge
                     colorScheme={
-                      drawerData.type === "Compte" ? "purple" : drawerData.type === "Fiche" ? "teal" : "gray"
+                      drawerData.type === "Compte"
+                        ? "purple"
+                        : drawerData.type === "Fiche"
+                        ? "teal"
+                        : "gray"
                     }
                   >
                     {drawerData.type}
                   </Badge>
                   {drawerData.role && <Badge colorScheme="cyan">rôle: {drawerData.role}</Badge>}
-                  {drawerData.hasActiveSubscription && <Badge colorScheme="green">Abonnement actif</Badge>}
+                  {drawerData.hasActiveSubscription && (
+                    <Badge colorScheme="green">Abonnement actif</Badge>
+                  )}
                   {!drawerData.hasActiveSubscription && drawerData.subscriptionStatus && (
                     <Badge colorScheme="gray">{drawerData.subscriptionStatus}</Badge>
                   )}
@@ -1663,18 +1910,29 @@ export default function AdminDashboard() {
 
                         {!linkedLoading &&
                           linkedPrograms.map((p) => {
-                            const viewRoute = getProgramViewRoute({ programId: p.id, program: p.raw });
+                            const viewRoute = getProgramViewRoute({
+                              programId: p.id,
+                              program: p.raw,
+                            });
+
                             const coachRoute = getCoachClientProgramRoute({
                               clientId: drawerData.id,
                               programId: p.id,
                               program: p.raw,
                             });
-                            const builderRoute = getBuilderRoute({ clientId: drawerData.id, programId: p.id });
+
+                            const builderRoute = getBuilderRoute({
+                              clientId: drawerData.id,
+                              programId: p.id,
+                            });
 
                             return (
                               <Tr key={`${p.where}-${p.id}`}>
                                 <Td maxW={{ base: "210px", md: "240px" }}>
-                                  <Tooltip label={`${p.name}\nID: ${p.id}`} whiteSpace="pre-wrap">
+                                  <Tooltip
+                                    label={`${p.name}\nID: ${p.id}`}
+                                    whiteSpace="pre-wrap"
+                                  >
                                     <Box>
                                       <Text fontWeight="semibold" noOfLines={1}>
                                         {p.name}
@@ -1695,7 +1953,11 @@ export default function AdminDashboard() {
                                   <Flex justify="flex-end" gap={2} flexWrap="wrap">
                                     {viewRoute && (
                                       <Tooltip
-                                        label={isAutoProgram(p.raw) ? "Voir (AutoProgramPreview)" : "Voir (ProgramView)"}
+                                        label={
+                                          isAutoProgram(p.raw)
+                                            ? "Voir (AutoProgramPreview)"
+                                            : "Voir (ProgramView)"
+                                        }
                                       >
                                         <IconButton
                                           size="sm"
@@ -1748,8 +2010,8 @@ export default function AdminDashboard() {
                 <Divider />
 
                 <Text fontSize="sm" color="gray.500">
-                  * “Compte” = utilisateur authentifié (collection <code>users</code>). “Fiche” = fiche client CRM (collection{" "}
-                  <code>clients</code>).
+                  * “Compte” = utilisateur authentifié (collection <code>users</code>). “Fiche” =
+                  fiche client CRM (collection <code>clients</code>).
                 </Text>
               </VStack>
             )}
@@ -1789,7 +2051,9 @@ export default function AdminDashboard() {
                   <Badge colorScheme="orange" display="inline-flex" alignItems="center" gap={1}>
                     <Icon as={MdOutlineBadge} /> COACH
                   </Badge>
-                  {drawerData.hasActiveSubscription && <Badge colorScheme="green">Abonnement actif</Badge>}
+                  {drawerData.hasActiveSubscription && (
+                    <Badge colorScheme="green">Abonnement actif</Badge>
+                  )}
                   {!drawerData.hasActiveSubscription && drawerData.subscriptionStatus && (
                     <Badge colorScheme="gray">{drawerData.subscriptionStatus}</Badge>
                   )}
@@ -1932,7 +2196,11 @@ export default function AdminDashboard() {
 
                               {!coachLinkedLoading &&
                                 coachPrograms.map((p) => {
-                                  const viewRoute = getProgramViewRoute({ programId: p.id, program: p.raw });
+                                  const viewRoute = getProgramViewRoute({
+                                    programId: p.id,
+                                    program: p.raw,
+                                  });
+
                                   return (
                                     <Tr key={p.id} _hover={{ bg: rowHoverBg }}>
                                       <Td maxW={{ base: "210px", md: "240px" }}>
@@ -1991,7 +2259,8 @@ export default function AdminDashboard() {
                 <Divider />
 
                 <Text fontSize="sm" color="gray.500">
-                  * Ici on affiche les données “créées par ce coach” (clients via <code>clients.createdBy</code> et programmes via{" "}
+                  * Ici on affiche les données “créées par ce coach” (clients via{" "}
+                  <code>clients.createdBy</code> et programmes via{" "}
                   <code>programmes.createdBy</code>).
                 </Text>
               </VStack>
@@ -2013,7 +2282,9 @@ export default function AdminDashboard() {
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>
-            {selectedExercise ? `Compléter : ${selectedExercise.nom || selectedExercise.docId}` : "Éditeur exercice"}
+            {selectedExercise
+              ? `Compléter : ${selectedExercise.nom || selectedExercise.docId}`
+              : "Éditeur exercice"}
           </ModalHeader>
           <ModalCloseButton />
           <ModalBody>
@@ -2039,7 +2310,9 @@ export default function AdminDashboard() {
                     <FormLabel>Groupe musculaire</FormLabel>
                     <Input
                       value={exerciseForm.groupe_musculaire}
-                      onChange={(e) => updateExerciseForm("groupe_musculaire", e.target.value)}
+                      onChange={(e) =>
+                        updateExerciseForm("groupe_musculaire", e.target.value)
+                      }
                       placeholder="Ex: Pectoraux, Triceps"
                     />
                   </FormControl>
@@ -2056,7 +2329,9 @@ export default function AdminDashboard() {
                     <FormLabel>Muscles secondaires</FormLabel>
                     <Input
                       value={exerciseForm.muscles_secondaires}
-                      onChange={(e) => updateExerciseForm("muscles_secondaires", e.target.value)}
+                      onChange={(e) =>
+                        updateExerciseForm("muscles_secondaires", e.target.value)
+                      }
                     />
                   </FormControl>
 
@@ -2074,7 +2349,9 @@ export default function AdminDashboard() {
                     <FormLabel>Tendons sollicités</FormLabel>
                     <Input
                       value={exerciseForm.tendons_sollicites}
-                      onChange={(e) => updateExerciseForm("tendons_sollicites", e.target.value)}
+                      onChange={(e) =>
+                        updateExerciseForm("tendons_sollicites", e.target.value)
+                      }
                     />
                   </FormControl>
 
@@ -2131,7 +2408,13 @@ export default function AdminDashboard() {
 
                 <Heading size="sm">Consignes</Heading>
                 <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                  {["Positionnement", "Mouvement", "Retour", "Respiration", "Posture"].map((field) => (
+                  {[
+                    "Positionnement",
+                    "Mouvement",
+                    "Retour",
+                    "Respiration",
+                    "Posture",
+                  ].map((field) => (
                     <FormControl key={field}>
                       <FormLabel>{field}</FormLabel>
                       <Textarea
@@ -2254,7 +2537,14 @@ export default function AdminDashboard() {
           </ModalBody>
           <ModalFooter>
             <HStack>
-              <Button variant="ghost" onClick={exerciseEditor.onClose}>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  exerciseEditor.onClose();
+                  setSelectedExercise(null);
+                  setExerciseForm(null);
+                }}
+              >
                 Fermer
               </Button>
               <Button
@@ -2280,6 +2570,7 @@ export default function AdminDashboard() {
         À venir
       </Heading>
       <Text color="gray.500">Plus de fonctionnalités arriveront bientôt…</Text>
+      </VStack>
     </Box>
   );
 }

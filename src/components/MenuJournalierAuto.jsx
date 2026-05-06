@@ -1,5 +1,6 @@
 // src/components/MenuJournalierAuto.jsx
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+/* eslint-disable react/prop-types */
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   AlertIcon,
@@ -12,7 +13,6 @@ import {
   Heading,
   HStack,
   IconButton,
-  Input,
   Select,
   SimpleGrid,
   Spacer,
@@ -22,9 +22,9 @@ import {
   VStack,
   Wrap,
   WrapItem,
-  useColorModeValue,
   useToast,
   Collapse,
+  useColorModeValue,
 } from "@chakra-ui/react";
 import {
   ChevronLeftIcon,
@@ -35,6 +35,12 @@ import {
   CheckIcon,
 } from "@chakra-ui/icons";
 import { onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore";
+import {
+  extractRationLines as extractMenuRationLines,
+  isSignificantRationMenuItem,
+} from "../utils/rationMenu";
+import { parseFoodExclusionFlags, parsePathologyFlags, parseRegimeFlags } from "../utils/nutritionContext";
+import { useNutritionTheme } from "../styles/nutritionTheme";
 
 /* ================= Utils ================= */
 const stripDiacritics = (s) =>
@@ -79,6 +85,35 @@ const wordBoundary = (token) => {
 
 const NAME_HAS = (n, words) => words.some((w) => wordBoundary(w).test(n));
 
+const PROTEIN_EXCLUSION_WORDS = {
+  pork: ["porc", "jambon", "lardon", "saucisson", "chorizo", "salami", "cochon"],
+  fish: ["poisson", "saumon", "thon", "sardine", "cabillaud", "colin", "merlu", "truite", "maquereau", "lieu"],
+  seafood: [
+    "fruit de mer",
+    "fruits de mer",
+    "crustace",
+    "crustacé",
+    "crevette",
+    "moule",
+    "huitre",
+    "huître",
+    "calamar",
+    "encornet",
+    "seiche",
+    "saint-jacques",
+    "saint jacques",
+    "homard",
+    "langouste",
+    "langoustine",
+  ],
+  eggs: ["oeuf", "œuf", "omelette"],
+  poultry: ["poulet", "dinde", "canard", "volaille", "pintade"],
+  redMeat: ["boeuf", "bœuf", "veau", "agneau", "mouton"],
+};
+
+const nameHasAny = (normalizedName, words = []) => words.some((word) => normalizedName.includes(normalize(word)));
+const PLANT_DAIRY_WORDS = ["vegetal", "végétal", "soja", "amande", "avoine", "riz", "coco", "noisette"];
+
 /* ================= Meals ================= */
 const MEALS_ORDER = ["petit_dej", "collation_1", "dejeuner", "collation_2", "diner", "collation_3"];
 const MEAL_LABEL = {
@@ -91,18 +126,28 @@ const MEAL_LABEL = {
 };
 
 /* ================= STRICT ROLES (Déj/Dîner) ================= */
-const MENU_ROLES = ["entree", "plat", "accompagnement", "assaisonnement", "produit_laitier", "dessert"];
+const MENU_ROLES = ["entree", "plat", "accompagnement", "assaisonnement", "produit_laitier", "dessert", "boisson"];
 const MENU_ROLE_LABEL = {
   entree: "Entrée (légumes crus/cuits)",
   plat: "Plat (protéiné)",
-  accompagnement: "Accompagnement (féculent)",
+  accompagnement: "Accompagnement (féculent / légumes)",
   assaisonnement: "Assaisonnement (matières grasses)",
   produit_laitier: "Produit laitier",
   dessert: "Dessert (fruit ou dessert simple)",
+  boisson: "Boisson",
 };
 const MENU_ROLE_ORDER = (r) => {
   const idx = MENU_ROLES.indexOf(r);
   return idx === -1 ? 999 : idx;
+};
+const MENU_ROLE_COLOR = {
+  entree: "green",
+  plat: "red",
+  accompagnement: "orange",
+  assaisonnement: "yellow",
+  produit_laitier: "blue",
+  dessert: "pink",
+  boisson: "cyan",
 };
 
 /* ================= Units -> grams ================= */
@@ -178,12 +223,30 @@ const buildCiqualColumnIndex = (ciqualArr) => {
     return scored.length ? scored[0].k : null;
   };
 
+  const pickFiberKey = () => {
+    const scored = keys
+      .map((k) => {
+        const kn = normalize(k);
+        let s = 0;
+        if (kn.includes("fibres alimentaires")) s += 30;
+        if (kn.includes("fibre")) s += 12;
+        if (kn.includes("_g") || kn.endsWith(" g") || kn.includes(" g ")) s += 6;
+        if (kn.includes("100g")) s += 4;
+        if (kn.includes("energie") || kn.includes("kcal") || kn.includes("kj") || kn.includes("facteur")) s -= 40;
+        return { k, s };
+      })
+      .filter((x) => x.s > 0)
+      .sort((a, b) => b.s - a.s);
+
+    return scored.length ? scored[0].k : null;
+  };
+
   return {
     kcal: pickKey([/energie/i, /kcal/i]),
     prot: pickKey([/prote/i, /proté/i, /jones/i]),
     lip: pickKey([/lipid/i, /lipide/i, /matiere grasse/i]),
     glu: pickKey([/glucid/i, /carbo/i]),
-    fibres: pickKey([/fibre/i]),
+    fibres: pickFiberKey(),
     calcium: pickKey([/calcium/i]),
     fer: pickKey([/^fer/i, /iron/i]),
     sodium: pickKey([/sodium/i, /sel/i, /chlorure_de_sodium/i]),
@@ -227,52 +290,6 @@ const formatMicro = (k, v) => {
   const n = num(v);
   if (!n) return `0 ${unit}`;
   return `${unit === "g" ? r1(n) : r0(n)} ${unit}`;
-};
-
-/* ================= Extract ration lines ================= */
-const extractRationLines = (docData) => {
-  const r = docData?.ration || {};
-  const selected = r?.selected ?? r?.selection ?? r?.current ?? null;
-
-  const raw =
-    (selected && typeof selected === "object" ? selected : null) ||
-    (r?.mode === "auto" ? r?.auto : r?.pro) ||
-    r?.pro ||
-    r?.auto ||
-    null;
-
-  const rawSelected = raw?.selected && typeof raw.selected === "object" ? raw.selected : raw;
-  const root = rawSelected?.values && typeof rawSelected.values === "object" ? rawSelected.values : rawSelected;
-
-  if (!root || typeof root !== "object") return [];
-
-  const items = [];
-  for (const [key, v] of Object.entries(root)) {
-    if (!key) continue;
-    if (key === "meta" || key === "meals" || key === "selectedAt" || key === "selectedType") continue;
-
-    const meals = v?.meals && typeof v.meals === "object" ? v.meals : null;
-    const unit = firstNonEmpty(v?.unit, v?.unite, v?.u, "g");
-
-    if (meals) {
-      items.push({ key, unit, meals });
-      continue;
-    }
-
-    const maybeMeals = {};
-    let hasAny = false;
-    for (const mk of MEALS_ORDER) {
-      const q = v?.[mk];
-      const n = num(q);
-      if (n) {
-        maybeMeals[mk] = q;
-        hasAny = true;
-      }
-    }
-    if (hasAny) items.push({ key, unit, meals: maybeMeals });
-  }
-
-  return items;
 };
 
 /* ================= Label cleanup ================= */
@@ -327,10 +344,76 @@ const enrichLine = (it) => {
 };
 
 /* ================= Pretty CIQUAL name ================= */
-const prettyCiqualName = (raw) => {
+const prettyCiqualName = (raw, options = {}) => {
+  const keepSansGluten = Boolean(options.keepSansGluten);
+  const keepSansSel = Boolean(options.keepSansSel);
   let s = String(raw || "").trim();
+  const n0 = normalize(s);
+
+  if (n0.startsWith("eau ")) {
+    if (n0.includes("gazeuse")) return "Eau gazeuse";
+    if (n0.includes("source")) return "Eau de source";
+    if (n0.includes("minerale") || n0.includes("minérale")) return "Eau minérale";
+    return "Eau";
+  }
+
+  if (n0.includes("type margarine") || (n0.includes("margarine") && n0.includes("graisse vegetale"))) {
+    return "Margarine";
+  }
+
+  if (n0.startsWith("boisson vegetale") || n0.startsWith("boisson végétale")) {
+    if (n0.includes("avoine")) return "Boisson à l'avoine";
+    if (n0.includes("amande")) return "Boisson à l'amande";
+    if (n0.includes("riz")) return "Boisson au riz";
+    if (n0.includes("coco")) return "Boisson à la noix de coco";
+    if (n0.includes("soja")) return "Boisson au soja";
+    return "Boisson végétale";
+  }
+
+  if (n0.includes("dessert vegetal sans soja") || n0.includes("dessert végétal sans soja")) {
+    return "Yaourt végétal sans soja";
+  }
+  if (n0.includes("dessert au soja")) {
+    return "Yaourt végétal au soja";
+  }
+
+  if (n0.includes("cereales pour petit dejeuner") || n0.includes("céréales pour petit déjeuner")) {
+    if (n0.includes("muesli")) {
+      if (n0.includes("fruits")) return "Muesli aux fruits";
+      if (n0.includes("fruits a coque") || n0.includes("fruits à coque") || n0.includes("graines")) return "Muesli aux graines";
+      return n0.includes("fibres") ? "Muesli riche en fibres" : "Muesli";
+    }
+    if (n0.includes("granola")) return "Granola";
+    if (n0.includes("riz souffle") || n0.includes("riz soufflé")) return "Riz soufflé nature";
+    if (n0.includes("avoine") || n0.includes("flocons")) {
+      return n0.includes("fibres") ? "Flocons d'avoine riches en fibres" : "Flocons d'avoine";
+    }
+    if (n0.includes("tres riches en fibres") || n0.includes("très riches en fibres")) return "Céréales petit-déjeuner très riches en fibres";
+    if (n0.includes("fibres")) return n0.includes("nature") ? "Céréales petit-déjeuner riches en fibres, nature" : "Céréales petit-déjeuner riches en fibres";
+    return n0.includes("nature") ? "Céréales petit-déjeuner, nature" : "Céréales du petit-déjeuner";
+  }
+
+  if (n0.includes("pates") || n0.includes("pâtes")) {
+    if (keepSansGluten && n0.includes("sans gluten")) return "Pâtes sans gluten cuites";
+    return keepSansSel && n0.includes("sans sel ajoute") ? "Pâtes cuites sans sel ajouté" : "Pâtes cuites";
+  }
+  if (n0.includes("riz ")) {
+    const base = n0.includes("basmati") ? "Riz basmati cuit" : n0.includes("complet") ? "Riz complet cuit" : "Riz cuit";
+    return keepSansSel && n0.includes("sans sel ajoute") ? `${base} sans sel ajouté` : base;
+  }
+  if (n0.includes("semoule") || n0.includes("couscous")) {
+    return keepSansSel && n0.includes("sans sel ajoute") ? "Semoule cuite sans sel ajouté" : "Semoule cuite";
+  }
+  if (n0.includes("boulgour")) return keepSansSel && n0.includes("sans sel ajoute") ? "Boulgour cuit sans sel ajouté" : "Boulgour cuit";
+  if (n0.includes("quinoa")) return keepSansSel && n0.includes("sans sel ajoute") ? "Quinoa cuit sans sel ajouté" : "Quinoa cuit";
 
   s = s.replace(/\(\s*aliment\s*[^)]*\)/gi, "").replace(/\(\s*moyen\s*\)/gi, "");
+  s = s
+    .replace(/,\s*chair et peau/gi, "")
+    .replace(/,\s*sans précision/gi, "")
+    .replace(/,\s*avec sauce/gi, "")
+    .replace(/,\s*non salée/gi, "")
+    .replace(/,\s*sucrée/gi, "");
 
   if ((s.match(/,/g) || []).length >= 1 && s.length > 52) {
     s = s.split(",")[0].trim();
@@ -340,6 +423,9 @@ const prettyCiqualName = (raw) => {
     .replace(/\b(pr[eé]emball[eé](e|es)?|reconstitu[eé](e|es)?|rayon ambiant|sans (pr[eé]cision|sel ajout[eé]|sucre ajout[eé]))\b/gi, "")
     .replace(/\s{2,}/g, " ")
     .trim();
+
+  if (!keepSansGluten) s = s.replace(/,\s*sans gluten/gi, "");
+  if (!keepSansSel) s = s.replace(/,\s*sans sel ajout[eé]/gi, "");
 
   if (s) s = s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -481,13 +567,354 @@ const isBannedName = (name) => {
   return BANNED_NAME_PATTERNS.some((re) => re.test(n));
 };
 
+const PREPARED_DISH_PATTERNS = [
+  /sandwich/i,
+  /burger/i,
+  /pizza/i,
+  /panini/i,
+  /kebab/i,
+  /tarte/i,
+  /tourte/i,
+  /quiche/i,
+  /gratin/i,
+  /lasagne/i,
+  /blanquette/i,
+  /paella/i,
+  /tajine/i,
+  /soupe/i,
+  /salade/i,
+  /sauce/i,
+  /couscous\s+a/i,
+  /poelee/i,
+  /poêlée/i,
+];
+
+const looksLikePreparedDish = (name) => {
+  const text = String(name || "");
+  return PREPARED_DISH_PATTERNS.some((pattern) => pattern.test(text));
+};
+
+const PROTEIN_WORDS_FOR_VEG_EXCLUSION = [
+  "thon",
+  "saumon",
+  "sardine",
+  "surimi",
+  "poisson",
+  "poulet",
+  "dinde",
+  "jambon",
+  "porc",
+  "boeuf",
+  "bœuf",
+  "cervelas",
+  "saucisse",
+  "museau",
+  "oeuf",
+  "œuf",
+  "fromage",
+];
+
+const isPlainVegetableCandidate = (name) => {
+  const n = normalize(name);
+  if (NAME_HAS(n, PROTEIN_WORDS_FOR_VEG_EXCLUSION)) return false;
+  if (NAME_HAS(n, ["truffe", "morille", "cepe", "cèpe", "girolle", "chanterelle", "oronge"])) return false;
+  if (n.includes("pomme de terre") || n.includes("pates") || n.includes("pâtes") || n.includes("riz")) return false;
+  if (n.includes("farci") || n.includes("poelee") || n.includes("poêlée")) return false;
+  if (n.includes("sauce") || n.includes("reconstitue") || n.includes("préemball") || n.includes("preemball")) return false;
+  return true;
+};
+
+const isCruditeName = (name) => {
+  const n = normalize(name);
+  if (!isPlainVegetableCandidate(name)) return false;
+  if (NAME_HAS(n, ["cuit", "cuite", "bouilli", "vapeur", "rotie", "rôtie", "provençale", "provencale", "surgeles", "surgelés"])) return false;
+  return (
+    n.includes("cru") ||
+    n.includes("rapee") ||
+    n.includes("râpée") ||
+    n.includes("crudite") ||
+    n.includes("crudité") ||
+    NAME_HAS(n, ["concombre", "tomate", "radis", "endive", "laitue", "salade verte"])
+  );
+};
+
+const isCuiditeName = (name) => {
+  const n = normalize(name);
+  if (!isPlainVegetableCandidate(name)) return false;
+  if (n.includes("cru") && !n.includes("surgeles") && !n.includes("surgelés")) return false;
+  return (
+    n.includes("cuit") ||
+    n.includes("bouilli") ||
+    n.includes("vapeur") ||
+    n.includes("rotie") ||
+    n.includes("rôtie") ||
+    n.includes("ratatouille") ||
+    n.includes("surgeles") ||
+    n.includes("surgelés")
+  );
+};
+
+const isAllowedOilName = (name) => {
+  const n = normalize(name);
+  if (!n.startsWith("huile ")) return false;
+  if (n.includes("foie") || n.includes("sardine") || n.includes("saumon") || n.includes("hareng")) return false;
+  if (n.includes("friture") || n.includes("palme") || n.includes("coco") || n.includes("cacao") || n.includes("karite")) return false;
+  return NAME_HAS(n, ["olive", "colza", "tournesol", "noix", "combinee", "combinée"]);
+};
+
+const isAllowedButterName = (name) => {
+  const n = normalize(name);
+  if (NAME_HAS(n, ["cacahuete", "arachide", "karite", "cacao"])) return false;
+  return n.startsWith("beurre ") || n.startsWith("beurre a") || n.startsWith("beurre à");
+};
+
+const isAllowedMargarineName = (name) => {
+  const n = normalize(name);
+  return n.startsWith("margarine") || (n.includes("type margarine") && n.includes("graisse vegetale"));
+};
+
+const isAllowedCreamName = (name) => {
+  const n = normalize(name);
+  return n.startsWith("creme fraiche") || n.startsWith("crème fraîche");
+};
+
+const isPlainBreakfastCerealName = (name) => {
+  const n = normalize(name);
+  if (NAME_HAS(n, ["chocolat", "caramel", "miel", "glace", "glacé", "fourre", "fourré", "vanille", "sucre"])) return false;
+  return NAME_HAS(n, ["flocons d avoine", "avoine", "muesli", "petales de mais", "pétales de maïs", "fibres", "nature", "ble khorasan", "blé khorasan"]);
+};
+
+const isAllowedSnackCerealName = (name) => {
+  const n = normalize(name);
+  if (isCookedStarchName(name)) return false;
+  if (NAME_HAS(n, ["riz cuit", "riz complet", "pates", "pâtes", "semoule", "couscous", "pomme de terre"])) return false;
+  if (n.includes("chocolat") || n.includes("apéritif") || n.includes("aperitif")) return false;
+  return NAME_HAS(n, [
+    "barre cerealiere",
+    "barre céréalière",
+    "flocons",
+    "avoine",
+    "muesli",
+    "biscotte",
+    "pain grille",
+    "pain grillé",
+    "galette de riz",
+    "galette de mais",
+    "galette de maïs",
+    "petales",
+    "pétales",
+    "cereales pour petit dejeuner",
+    "céréales pour petit déjeuner",
+  ]);
+};
+
+const isSimpleFruitCandidate = (name, group = "", subGroup = "") => {
+  const n = normalize(name);
+  const grp = normalize(group);
+  const sub = normalize(subGroup);
+  if (isBeverageName(name)) return false;
+  if (n.includes("pomme de terre") || n.includes("poireau") || n.includes("chou") || n.includes("brocoli")) return false;
+  if (NAME_HAS(n, ["confiture", "marmelade", "gelee", "gelée", "fourrage", "tarte", "beignet", "macaron", "rosti", "rösti", "galette"])) return false;
+  if (grp.includes("produits sucres") || grp.includes("produits sucrés")) return n.includes("compote") || n.includes("puree de fruits") || n.includes("purée de fruits");
+  if (sub.includes("fruits")) return true;
+  return n.includes("compote") || n.includes("puree de fruits") || n.includes("purée de fruits") || n.includes("salade de fruits");
+};
+
+const isSimpleCookedStarchCandidate = (name) => {
+  const n = normalize(name);
+  if (n.includes("legumes pour couscous") || n.includes("légumes pour couscous")) return false;
+  if (NAME_HAS(n, ["puree", "purée", "flocons", "dauphine", "duchesse", "frites", "chips", "croquette", "noisette", "potatoes", "wedges", "rosti", "rösti", "sautée", "sautee", "rissolée", "rissolee"])) return false;
+  if (NAME_HAS(n, ["farci", "farcie", "farcis", "farcies", "gratin", "aligot", "tartiflette", "brick"])) return false;
+  if (n.includes("preemball") || n.includes("préemball")) return false;
+  if (NAME_HAS(n, ["gnocchi", "tapioca", "banane plantain", "topinambour", "taro", "igname", "manioc", "ble dur", "blé dur", "frik"])) return false;
+  return true;
+};
+
+const isCookedStarchName = (name, subGroup = "") => {
+  const n = normalize(name);
+  const sub = normalize(subGroup);
+  if (!isSimpleCookedStarchCandidate(name)) return false;
+  if (n.includes("cru") || n.includes("a cuire") || n.includes("à cuire")) return false;
+  if (!NAME_HAS(n, ["cuit", "cuite", "cuits", "cuites", "bouilli", "rôti", "rotie", "rôtie", "vapeur"])) return false;
+  return (
+    sub.includes("pates, riz et cereales") ||
+    sub.includes("pâtes, riz et céréales") ||
+    sub.includes("pommes de terre") ||
+    NAME_HAS(n, ["riz", "pates", "pâtes", "semoule", "couscous", "quinoa", "boulgour", "polenta", "pomme de terre", "lentilles", "pois chiches", "haricots", "ble dur", "blé dur", "orge", "mil"])
+  );
+};
+
+const isCookedProteinName = (name, subGroup = "") => {
+  const n = normalize(name);
+  const sub = normalize(subGroup);
+  if (n.includes("cru") || n.includes("fumé") || n.includes("fume") || n.includes("salé") || n.includes("sale")) return false;
+  if (sub.includes("viandes crues") || sub.includes("poissons crus")) return false;
+  if (sub.includes("viandes cuites") || sub.includes("poissons cuits")) return true;
+  return NAME_HAS(n, ["cuit", "cuite", "grille", "grillé", "rotie", "rôtie", "poele", "poêlé", "bouilli", "vapeur", "omelette"]);
+};
+
+const codeNameMatchesAny = (code, ciqualByCode, words) => {
+  const row = ciqualByCode.get(code);
+  const name = row ? normalize(ciqualName(row)) : "";
+  return Boolean(name) && NAME_HAS(name, words);
+};
+
+const filterCodesByWords = (codes, ciqualByCode, words) => {
+  const filtered = (codes || []).filter((code) => codeNameMatchesAny(code, ciqualByCode, words));
+  return filtered.length ? filtered : (codes || []);
+};
+
+const resolvedLabelAliases = (label = "") => {
+  const normalized = normalize(label);
+  const map = {
+    "lait vegetal": ["boisson vegetale", "boisson au soja", "boisson a l'amande", "boisson à l'amande", "boisson a l'avoine", "boisson à l'avoine", "boisson au riz", "boisson a la noix de coco", "boisson à la noix de coco"],
+    "yaourt vegetal": ["dessert vegetal", "dessert végétal", "dessert vegetal sans soja", "dessert végétal sans soja", "dessert au soja"],
+    "yaourt nature": ["yaourt ou lait fermente, nature", "yaourt ou lait fermenté, nature", "lait fermente type yaourt au bifidus, nature", "yaourt au lait de chevre, nature", "yaourt au lait de chèvre, nature", "yaourt au lait de brebis, nature"],
+    "fromage blanc": ["fromage blanc"],
+    fromage: ["brie", "camembert", "emmental", "comte", "comté", "pont l'eveque", "pont l évêque", "fromage"],
+    beurre: ["beurre"],
+    margarine: ["margarine", "type margarine", "graisse vegetale solide"],
+    huile: ["huile d'olive", "huile de colza", "huile de tournesol", "huile de noix", "huile"],
+    "creme fraiche": ["creme fraiche", "crème fraîche"],
+    "cereales petit dejeuner": ["muesli", "cereales pour petit dejeuner", "céréales pour petit déjeuner", "petales de cereales", "pétales de céréales", "petales de maïs", "pétales de maïs", "flocons d'avoine", "flocons d avoine"],
+    "cereales petit dejeuner sans gluten": ["muesli", "cereales pour petit dejeuner", "céréales pour petit déjeuner", "petales de cereales", "pétales de céréales", "galette de riz"],
+    "pain blanc": ["baguette", "pain blanc", "pain de mie blanc", "pain"],
+    "pain complet": ["pain complet", "pain au son", "pain de seigle"],
+    "pain sans gluten": ["pain sans gluten"],
+  };
+  return map[normalized] || [];
+};
+
+const slotGroupText = (slot) => normalize(firstNonEmpty(slot?.group, slot?.category, ""));
+const slotResolvedText = (slot) =>
+  normalize(firstNonEmpty(slot?.resolvedLabel, slot?.label, slot?.shortKey, slot?.key, ""));
+
+const FAMILY_EQUIVALENTS = {
+  boissons: ["boisson", "boissons"],
+  fruits: ["fruit", "fruits"],
+  legumes: ["legume", "legumes", "légume", "légumes"],
+  vpo: ["vpo"],
+  pain: ["pain"],
+  "matières grasses": ["matiere grasse", "matieres grasses", "matières grasses"],
+  "produits laitiers": ["produit laitier", "produits laitiers"],
+  "produits céréaliers": ["produit cerealier", "produits cerealiers", "produits céréaliers"],
+  "compléments protéinés": ["complement proteine", "complements proteines", "compléments protéinés"],
+  "légumineuses": ["legumineuse", "legumineuses", "légumineuse", "légumineuses"],
+  "produits sucrés": ["produit sucre", "produits sucres", "produits sucrés"],
+};
+
+const isFamilySelectionFromSlot = (slot) => {
+  const group = slotGroupText(slot);
+  const resolved = slotResolvedText(slot);
+  if (!group || !resolved) return false;
+  if (group === resolved) return true;
+  return (FAMILY_EQUIVALENTS[group] || []).includes(resolved);
+};
+
+const prettySlotSourceLabel = (slot) => {
+  const groupLabel = cleanMenuLabel(firstNonEmpty(slot?.group, slot?.category, ""));
+  const explicit = cleanMenuLabel(firstNonEmpty(slot?.resolvedLabel, slot?.label, slot?.shortKey, slot?.key));
+  if (normalize(groupLabel).includes("produits cerealiers") && normalize(explicit).includes("cereales petit dejeuner")) {
+    return "Base céréalière";
+  }
+  if (normalize(explicit).includes("lait vegetal") || normalize(explicit).includes("lait végétal")) return "Boisson végétale";
+  if (normalize(explicit).includes("yaourt vegetal") || normalize(explicit).includes("yaourt végétal")) return "Yaourt végétal";
+  if (groupLabel) {
+    const g = normalize(groupLabel);
+    if (g.includes("produits laitiers")) return "Produit laitier";
+    if (g.includes("matieres grasses") || g.includes("matière grasse")) return "Matières grasses";
+    if (g.includes("produits cerealiers")) {
+      const slotType = slotTypeFromRationSlot(slot);
+      if (slotType === "breakfast_cereal") return "Base céréalière";
+      if (slotType === "bread") return "Pain";
+      return "Féculent";
+    }
+    if (g === "pain") return "Pain";
+    if (g.includes("boisson")) return "Boisson";
+    if (g.includes("fruit")) return "Fruit";
+    return groupLabel;
+  }
+  if (normalize(explicit).includes("cereales petit dejeuner")) return "Base céréalière";
+  if (explicit && !isFamilySelectionFromSlot(slot)) return explicit;
+
+  switch (slotTypeFromRationSlot(slot)) {
+    case "beverage":
+      return "Boisson";
+    case "breakfast_cereal":
+      return "Produit céréalier";
+    case "bread":
+      return "Pain";
+    case "dairy":
+      return "Produit laitier";
+    case "fruit":
+      return "Fruit";
+    case "sweet":
+      return "Produit sucré";
+    case "assaisonnement":
+      return "Matière grasse";
+    case "supplement":
+      return "Complément protéiné";
+    case "starch_cooked":
+    case "starch_raw":
+      return "Féculent";
+    case "legumes":
+      return "Légumineuse";
+    case "protein":
+      return "Protéine";
+    case "veg":
+      return "Légumes";
+    default:
+      return explicit || "Élément";
+  }
+};
+
+const NON_MAIN_SLOT_ORDER = {
+  beverage: 10,
+  breakfast_cereal: 20,
+  bread: 30,
+  assaisonnement: 40,
+  dairy: 50,
+  fruit: 60,
+  sweet: 70,
+  supplement: 80,
+  starch_cooked: 90,
+  starch_raw: 100,
+  legumes: 110,
+  protein: 120,
+  veg: 130,
+};
+
+const orderNonMainSlot = (slot) => NON_MAIN_SLOT_ORDER[slotTypeFromRationSlot(slot)] || 999;
+
 /* ================= Slot typing ================= */
 const slotTypeFromRationSlot = (slot) => {
   const key = normalize(slot?.key || "");
-  const lab = normalize(slot?.label || "");
-  const cat = normalize(slot?.category || "");
+  const lab = slotResolvedText(slot);
+  const cat = slotGroupText(slot);
+  const mealKey = normalize(slot?.mealKey || "");
 
   const has = (w) => key.includes(w) || lab.includes(w) || cat.includes(w);
+
+  if (cat.includes("boisson")) return "beverage";
+  if (cat.includes("complement") || cat.includes("complément")) return "supplement";
+  if (cat.includes("produit sucre")) return "sweet";
+  if (cat.includes("matiere grasse") || cat.includes("matières grasses")) return "assaisonnement";
+  if (cat === "pain") return "bread";
+  if (cat.includes("produit laitier")) return "dairy";
+  if (cat === "vpo" || cat.includes("viande") || cat.includes("poisson") || cat.includes("oeuf")) return "protein";
+  if (cat.includes("légumineuse") || cat.includes("legumineuse")) return "legumes";
+  if (cat.includes("fruit")) return "fruit";
+  if (cat.includes("légume") || cat.includes("legume")) return "veg";
+
+  if (cat.includes("produit cerealier") || cat.includes("produits cerealiers") || cat.includes("produits céréaliers")) {
+    if (lab.includes("petit déjeuner") || lab.includes("petit dejeuner")) {
+      if (mealKey === "petit_dej" || mealKey.startsWith("collation")) return "breakfast_cereal";
+    }
+    if (lab.includes("cru") || lab.includes("sec")) return "starch_raw";
+    if (lab.includes("cuit")) return "starch_cooked";
+    if (mealKey === "petit_dej" || mealKey.startsWith("collation")) return "breakfast_cereal";
+    return "starch_cooked";
+  }
 
   // matières grasses -> assaisonnement
   if (
@@ -543,6 +970,8 @@ const slotTypeFromRationSlot = (slot) => {
 const buildPoolsStrict = (ciqualData) => {
   const pools = {
     entree_veg: [],
+    entree_crudite: [],
+    entree_cuidite: [],
 
     plat_fish: [],
     plat_white_poulet: [],
@@ -555,6 +984,12 @@ const buildPoolsStrict = (ciqualData) => {
 
     // accompagnements
     starch_cooked: [],
+    starch_rice: [],
+    starch_pasta: [],
+    starch_semolina: [],
+    starch_potato: [],
+    starch_legumes: [],
+    starch_quinoa_bulgur: [],
     starch_raw: [],
     bread: [],
     veg_side: [],
@@ -566,6 +1001,31 @@ const buildPoolsStrict = (ciqualData) => {
     dessert_fruit: [],
     dessert_dairy: [],
     dessert_sweet_simple: [],
+
+    water: [],
+    juice: [],
+    soda: [],
+    alcohol: [],
+
+    bread_plain: [],
+    breakfast_cereal: [],
+    breakfast_cereal_plain: [],
+    cereal_snack: [],
+
+    dairy_plain: [],
+    milk_plain: [],
+    plant_milk_plain: [],
+    yogurt_plain: [],
+    plant_yogurt_plain: [],
+    fromage_blanc_plain: [],
+    cheese_plain: [],
+
+    fruit_simple: [],
+
+    oil_simple: [],
+    butter_simple: [],
+    margarine_simple: [],
+    cream_simple: [],
 
     any: [],
   };
@@ -644,6 +1104,21 @@ const buildPoolsStrict = (ciqualData) => {
     "riz, cuit",
   ];
 
+  const cerealSnackWords = [
+    "barre céréalière",
+    "barre cerealiere",
+    "flocons d'avoine",
+    "flocons d avoine",
+    "muesli",
+    "biscotte",
+    "galette de riz",
+    "galette de maïs",
+    "pain grillé",
+    "pain grille",
+    "petit pain grillé",
+    "petit pain grille",
+  ];
+
   // féculents crus / secs
   const starchRawWords = [
     "riz cru",
@@ -672,32 +1147,73 @@ const buildPoolsStrict = (ciqualData) => {
   const dessertSweetSimpleWords = ["tarte", "mousse", "crème dessert", "creme dessert", "compote", "purée de fruits", "puree de fruits"];
 
   // assaisonnement
-  const seasoningWords = ["huile", "beurre", "margarine", "olives", "arachide", "colza", "noisette"];
+  const seasoningWords = ["huile", "beurre", "margarine", "creme", "crème"];
+  const nameByCode = new Map();
 
   for (const row of ciqualData || []) {
     const code = ciqualCode(row);
     const name = ciqualName(row);
     if (!code || !name) continue;
+    nameByCode.set(code, name);
 
     const n = normalize(name);
+    const grp = normalize(row?.alim_grp_nom_fr || "");
+    const sub = normalize(row?.alim_ssgrp_nom_fr || "");
+    const preparedDish = looksLikePreparedDish(name);
+    const sweetenedDairy =
+      isBeverageName(name) ||
+      n.includes("aromatis") ||
+      n.includes("aux fruits") ||
+      n.includes("sur lit") ||
+      n.includes("sucre") ||
+      n.includes("chocolat") ||
+      n.includes("dessert") ||
+      n.includes("creme fouettee");
+
     pools.any.push(code);
 
     // bannis global
     if (isBannedName(name)) {
-      // MAIS on garde les assaisonnements dans leur pool dédiée
-      if (NAME_HAS(n, seasoningWords)) pools.seasoning.push(code);
+      // MAIS on garde les familles utiles dans leurs pools dédiées
+      if (NAME_HAS(n, seasoningWords)) {
+        pools.seasoning.push(code);
+        if (isAllowedOilName(name)) pools.oil_simple.push(code);
+        if (isAllowedButterName(name)) pools.butter_simple.push(code);
+        if (isAllowedMargarineName(name)) pools.margarine_simple.push(code);
+        if (isAllowedCreamName(name)) pools.cream_simple.push(code);
+      }
+      if (sub.includes("cereales de petit-dejeuner") && isPlainBreakfastCerealName(name)) {
+        pools.breakfast_cereal.push(code);
+        pools.breakfast_cereal_plain.push(code);
+        pools.cereal_snack.push(code);
+      }
+      if (
+        ((sub.includes("barres cerealieres") || sub.includes("barres céréalières")) && !n.includes("chocolat")) ||
+        (NAME_HAS(n, cerealSnackWords) &&
+          !n.includes("chocolat") &&
+          !n.includes("nappée") &&
+          !n.includes("nappee") &&
+          !n.includes("apéritif") &&
+          !n.includes("aperitif"))
+      ) {
+        pools.cereal_snack.push(code);
+      }
+      if (grp.includes("boissons alcool")) pools.alcohol.push(code);
       continue;
     }
 
     // Entrées / légumes
-    if (NAME_HAS(n, vegWords) && !n.includes("céréale") && !n.includes("cereale")) {
+    if (NAME_HAS(n, vegWords) && !n.includes("céréale") && !n.includes("cereale") && isPlainVegetableCandidate(name)) {
       pools.entree_veg.push(code);
       pools.veg_side.push(code);
+      if (isCruditeName(name)) pools.entree_crudite.push(code);
+      if (isCuiditeName(name)) pools.entree_cuidite.push(code);
     }
 
-    // Fruits / desserts fruit -> EXCLURE boissons
-    if (NAME_HAS(n, fruitWords) && !n.includes("chocolat") && !isBeverageName(name)) {
+    // Fruits / desserts fruit -> fruits simples uniquement (pas confiture, pomme de terre, pâtisserie...)
+    if (NAME_HAS(n, fruitWords) && !n.includes("chocolat") && isSimpleFruitCandidate(name, grp, sub)) {
       pools.dessert_fruit.push(code);
+      pools.fruit_simple.push(code);
     }
 
     // Laitiers
@@ -712,17 +1228,112 @@ const buildPoolsStrict = (ciqualData) => {
       }
     }
 
+    if (sub.includes("eaux")) pools.water.push(code);
+    if ((n.includes("jus") || n.includes("smoothie")) && grp.includes("boissons")) pools.juice.push(code);
+    if (
+      NAME_HAS(n, ["soda", "cola", "limonade", "boisson gazeuse"]) &&
+      grp.includes("boissons")
+    ) {
+      pools.soda.push(code);
+    }
+    if (grp.includes("boissons alcool") || grp.includes("boissons alcoolisées")) pools.alcohol.push(code);
+
+    if (sub.includes("pains et assimiles") && !preparedDish && !n.includes("panini")) {
+      pools.bread_plain.push(code);
+    }
+
+    if (sub.includes("cereales de petit-dejeuner") && isPlainBreakfastCerealName(name)) {
+      pools.breakfast_cereal.push(code);
+      pools.breakfast_cereal_plain.push(code);
+      pools.cereal_snack.push(code);
+    }
+
+    if (
+      NAME_HAS(n, cerealSnackWords) &&
+      !n.includes("chocolat") &&
+      !n.includes("nappée") &&
+      !n.includes("nappee") &&
+      !n.includes("apéritif") &&
+      !n.includes("aperitif")
+    ) {
+      pools.cereal_snack.push(code);
+    }
+
+    if (
+      (sub === "laits" || n.startsWith("boisson vegetale")) &&
+      !sweetenedDairy &&
+      !n.includes("chocolat") &&
+      !n.includes("cafe")
+    ) {
+      if (nameHasAny(n, PLANT_DAIRY_WORDS)) {
+        pools.plant_milk_plain.push(code);
+      } else {
+        pools.milk_plain.push(code);
+      }
+      pools.dairy_plain.push(code);
+    }
+
+    if (
+      (n.includes("dessert vegetal") || n.includes("dessert végétal")) &&
+      !n.includes("aromatise") &&
+      !n.includes("aromatisé") &&
+      !n.includes("aux fruits") &&
+      !n.includes("sucre")
+    ) {
+      pools.plant_yogurt_plain.push(code);
+      pools.dairy_plain.push(code);
+    }
+
+    if ((n.includes("yaourt") || n.includes("lait fermente")) && n.includes("nature") && !sweetenedDairy) {
+      if (nameHasAny(n, PLANT_DAIRY_WORDS)) {
+        pools.plant_yogurt_plain.push(code);
+      } else {
+        pools.yogurt_plain.push(code);
+      }
+      pools.dairy_plain.push(code);
+    }
+
+    if (n.includes("fromage blanc") && n.includes("nature") && !sweetenedDairy) {
+      pools.fromage_blanc_plain.push(code);
+      pools.dairy_plain.push(code);
+    }
+
+    if (
+      sub.includes("fromages et alternatives vegetales") &&
+      !n.includes("rape") &&
+      !n.includes("râpé") &&
+      !n.includes("tartiflette") &&
+      !n.includes("special") &&
+      !n.includes("pizza") &&
+      !n.includes("gratin")
+    ) {
+      pools.cheese_plain.push(code);
+    }
+
     // Pain -> EXCLURE “fruit à pain” (déjà banni) + éviter items trop “snack”
     if (NAME_HAS(n, breadWords) && n.includes("pain") && !n.includes("fruit a pain")) {
       pools.bread.push(code);
     }
 
-    // Féculents cuits vs crus (strict + éviter pain/biscotte)
-    if (NAME_HAS(n, starchCookedWords) && !NAME_HAS(n, breadWords) && !n.includes("biscotte")) pools.starch_cooked.push(code);
+    // Féculents cuits vs crus (strict + éviter pain/biscotte, mais compatible avec les libellés CIQUAL "Riz complet, cuit")
+    if (
+      (NAME_HAS(n, starchCookedWords) || isCookedStarchName(name, sub)) &&
+      !NAME_HAS(n, breadWords) &&
+      !n.includes("biscotte") &&
+      isSimpleCookedStarchCandidate(name)
+    ) {
+      pools.starch_cooked.push(code);
+      if (NAME_HAS(n, ["riz"])) pools.starch_rice.push(code);
+      if (NAME_HAS(n, ["pates", "pâtes", "vermicelle"])) pools.starch_pasta.push(code);
+      if (NAME_HAS(n, ["semoule", "couscous", "polenta"])) pools.starch_semolina.push(code);
+      if (NAME_HAS(n, ["pomme de terre", "pommes de terre"])) pools.starch_potato.push(code);
+      if (NAME_HAS(n, ["lentilles", "pois chiches", "haricots"])) pools.starch_legumes.push(code);
+      if (NAME_HAS(n, ["quinoa", "boulgour", "ble dur", "blé dur", "orge", "mil"])) pools.starch_quinoa_bulgur.push(code);
+    }
     if (NAME_HAS(n, starchRawWords) && !NAME_HAS(n, breadWords) && !n.includes("biscotte")) pools.starch_raw.push(code);
 
     // Protéines (IMPORTANT: exclure “graisse/peau/os/bouillon” des plats)
-    if (!looksLikeProteinBadCut(name)) {
+    if (!looksLikeProteinBadCut(name) && !preparedDish && isCookedProteinName(name, sub)) {
       if (NAME_HAS(n, fishWords)) pools.plat_fish.push(code);
       if (NAME_HAS(n, pouletWords)) pools.plat_white_poulet.push(code);
       if (NAME_HAS(n, dindeWords)) pools.plat_white_dinde.push(code);
@@ -736,6 +1347,10 @@ const buildPoolsStrict = (ciqualData) => {
 
     // Assaisonnements
     if (NAME_HAS(n, seasoningWords)) pools.seasoning.push(code);
+    if (isAllowedOilName(name)) pools.oil_simple.push(code);
+    if (isAllowedButterName(name)) pools.butter_simple.push(code);
+    if (isAllowedMargarineName(name)) pools.margarine_simple.push(code);
+    if (isAllowedCreamName(name)) pools.cream_simple.push(code);
 
     // desserts simples -> EXCLURE boissons
     if (NAME_HAS(n, dessertSweetSimpleWords) && !n.includes("chocolat") && !isBeverageName(name)) {
@@ -743,14 +1358,38 @@ const buildPoolsStrict = (ciqualData) => {
     }
   }
 
+  pools.dairy_plain = uniq([
+    ...(pools.plant_milk_plain || []),
+    ...(pools.milk_plain || []),
+    ...(pools.plant_yogurt_plain || []),
+    ...(pools.yogurt_plain || []),
+    ...(pools.fromage_blanc_plain || []),
+    ...(pools.cheese_plain || []),
+  ]);
+  pools.entree_veg = uniq([...(pools.entree_crudite || []), ...(pools.entree_cuidite || []), ...(pools.entree_veg || [])]);
+  pools.cereal_snack = uniq([...(pools.cereal_snack || []), ...(pools.breakfast_cereal_plain || [])]).filter((code) =>
+    isAllowedSnackCerealName(nameByCode.get(code))
+  );
+  pools.seasoning = uniq([
+    ...(pools.oil_simple || []),
+    ...(pools.butter_simple || []),
+    ...(pools.margarine_simple || []),
+    ...(pools.cream_simple || []),
+  ]);
+
   for (const k of Object.keys(pools)) pools[k] = uniq(pools[k]);
   return pools;
 };
 
 /* ================= Weekly planner ================= */
-const buildWeeklyPlan = (daysCount, seed) => {
+const buildWeeklyPlan = (daysCount, seed, clinicalOptions = {}) => {
   const rng = mulberry32(hash32(`weekly:${seed}:${daysCount}`));
   const meals = [];
+  const starchCycle = ["rice", "pasta", "potato", "semolina", "legumes", "quinoa_bulgur", "rice"];
+  const dairyCycle = ["yogurt", "cheese", "fromage_blanc", "yogurt", "cheese", "yogurt", "fromage_blanc"];
+  const snackCerealCycle = ["oats", "muesli", "cereal_bar", "toast", "rice_cake", "flakes", "muesli"];
+  const vegThemeCycle = ["carotte", "chou", "concombre", "courgette", "brocoli", "champignon", "betterave"];
+  const whiteProteinCycle = ["poulet", "dinde", "lapin"];
   for (let d = 1; d <= daysCount; d++) {
     meals.push({ day: d, meal: "dejeuner" });
     meals.push({ day: d, meal: "diner" });
@@ -762,23 +1401,44 @@ const buildWeeklyPlan = (daysCount, seed) => {
   const planByDayMeal = {};
   for (const block of blocks) {
     const proteinTypes = [];
-    const fishMin = 2;
-    const redMax = 2;
-    const charcMax = 1;
+    const isVegetarian = clinicalOptions.forbidPoultry && clinicalOptions.forbidRedMeat && clinicalOptions.forbidFish && clinicalOptions.forbidSeafood;
+    const isVegan = isVegetarian && clinicalOptions.forbidEggs;
+    const isPescetarian = clinicalOptions.forbidPoultry && clinicalOptions.forbidRedMeat && !clinicalOptions.forbidFish;
 
-    for (let i = 0; i < fishMin; i++) proteinTypes.push("fish");
+    if (isVegan) {
+      while (proteinTypes.length < block.length) proteinTypes.push("legumes");
+    } else if (isVegetarian) {
+      while (proteinTypes.length < block.length) {
+        proteinTypes.push(rng() < 0.45 && !clinicalOptions.forbidEggs ? "eggs" : "legumes");
+      }
+    } else if (isPescetarian) {
+      const fishMin = Math.min(3, block.length);
+      for (let i = 0; i < fishMin; i++) proteinTypes.push("fish");
+      while (proteinTypes.length < block.length) {
+        const roll = rng();
+        if (roll < 0.45) proteinTypes.push("fish");
+        else if (roll < 0.7 && !clinicalOptions.forbidEggs) proteinTypes.push("eggs");
+        else proteinTypes.push("legumes");
+      }
+    } else {
+      const fishMin = clinicalOptions.forbidFish ? 0 : 2;
+      const redMax = clinicalOptions.forbidRedMeat ? 0 : 2;
+      const charcMax = clinicalOptions.forbidPork ? 0 : 1;
 
-    const redCount = Math.floor(rng() * (redMax + 1)); // 0..2
-    for (let i = 0; i < redCount; i++) proteinTypes.push("red_meat");
+      for (let i = 0; i < fishMin; i++) proteinTypes.push("fish");
 
-    const charcCount = rng() < 0.18 ? 1 : 0;
-    for (let i = 0; i < Math.min(charcMax, charcCount); i++) proteinTypes.push("charcuterie");
+      const redCount = Math.floor(rng() * (redMax + 1));
+      for (let i = 0; i < redCount; i++) proteinTypes.push("red_meat");
 
-    while (proteinTypes.length < block.length) {
-      const roll = rng();
-      if (roll < 0.50) proteinTypes.push("white_meat");
-      else if (roll < 0.74) proteinTypes.push("eggs");
-      else proteinTypes.push("legumes");
+      const charcCount = charcMax > 0 && rng() < 0.18 ? 1 : 0;
+      for (let i = 0; i < Math.min(charcMax, charcCount); i++) proteinTypes.push("charcuterie");
+
+      while (proteinTypes.length < block.length) {
+        const roll = rng();
+        if (roll < 0.50 && !clinicalOptions.forbidPoultry) proteinTypes.push("white_meat");
+        else if (roll < 0.74 && !clinicalOptions.forbidEggs) proteinTypes.push("eggs");
+        else proteinTypes.push("legumes");
+      }
     }
 
     // shuffle
@@ -800,9 +1460,21 @@ const buildWeeklyPlan = (daysCount, seed) => {
 
     for (let i = 0; i < block.length; i++) {
       const bm = block[i];
+      const dayIsOdd = Number(bm.day) % 2 === 1;
+      const vegForm = bm.meal === "dejeuner"
+        ? (dayIsOdd ? "crudite" : "cuidite")
+        : (dayIsOdd ? "cuidite" : "crudite");
       planByDayMeal[`${bm.day}_${bm.meal}`] = {
         proteinType: proteinTypes[i],
         dessertType: dessertTypes[i],
+        vegForm,
+        starchType: starchCycle[(Number(bm.day) + (bm.meal === "diner" ? 2 : 0)) % starchCycle.length],
+        dairyType: bm.meal === "diner"
+          ? (Number(bm.day) % 3 === 0 ? "fromage_blanc" : "yogurt")
+          : dairyCycle[Number(bm.day) % dairyCycle.length],
+        snackCerealType: snackCerealCycle[(Number(bm.day) - 1) % snackCerealCycle.length],
+        vegTheme: vegThemeCycle[(Number(bm.day) + (bm.meal === "diner" ? 3 : 0)) % vegThemeCycle.length],
+        whiteProteinType: whiteProteinCycle[(Number(bm.day) + (bm.meal === "diner" ? 1 : 0)) % whiteProteinCycle.length],
       };
     }
   }
@@ -810,15 +1482,38 @@ const buildWeeklyPlan = (daysCount, seed) => {
   return planByDayMeal;
 };
 
+const fallbackMealPlan = (day, mealKey = "", clinicalOptions = {}) => {
+  const d = Number(day) || 1;
+  const snackCerealCycle = ["oats", "muesli", "cereal_bar", "toast", "rice_cake", "flakes", "muesli"];
+  const defaultProteinType =
+    clinicalOptions.forbidPoultry && clinicalOptions.forbidRedMeat && clinicalOptions.forbidFish && clinicalOptions.forbidSeafood
+      ? (clinicalOptions.forbidEggs ? "legumes" : "eggs")
+      : "white_meat";
+  return {
+    proteinType: defaultProteinType,
+    dessertType: "fruit",
+    vegForm: mealKey === "diner" ? "cuidite" : "crudite",
+    starchType: ["rice", "pasta", "potato", "semolina", "legumes", "quinoa_bulgur"][d % 6],
+    dairyType: mealKey === "diner" ? (d % 3 === 0 ? "fromage_blanc" : "yogurt") : ["yogurt", "cheese", "fromage_blanc"][d % 3],
+    snackCerealType: snackCerealCycle[(d + (mealKey === "collation_2" ? 2 : mealKey === "collation_3" ? 4 : 0)) % snackCerealCycle.length],
+    vegTheme: ["carotte", "chou", "concombre", "courgette", "brocoli", "champignon", "betterave"][d % 7],
+    whiteProteinType: ["poulet", "dinde", "lapin"][d % 3],
+  };
+};
+
 /* ================= Role hint from ration slot ================= */
 const roleHintFromRationSlot = (slot) => {
+  if (slot?.syntheticRole) return slot.syntheticRole;
+
   const type = slotTypeFromRationSlot(slot);
   const cat = normalize(slot?.category || "");
   const lab = normalize(slot?.label || "");
 
+  if (type === "beverage") return "boisson";
   if (type === "assaisonnement") return "assaisonnement";
   if (type === "fruit") return "dessert";
   if (type === "dairy") return "produit_laitier";
+  if (type === "breakfast_cereal") return "accompagnement";
 
   // Protéines
   if (type === "protein") return "plat";
@@ -836,13 +1531,32 @@ const roleHintFromRationSlot = (slot) => {
   // Féculent / pain
   if (type === "bread" || type === "starch_raw" || type === "starch_cooked" || type === "legumes") return "accompagnement";
 
-  // Entrée = légumes
-  if (type === "veg") return "entree";
+  // Dans la ration, la ligne "Légumes" correspond au légume du plat, pas à une entrée.
+  if (type === "veg") return "accompagnement";
 
   // fallback
-  if (cat.includes("legume") || cat.includes("légume") || lab.includes("salade") || lab.includes("crudite") || lab.includes("crudité")) return "entree";
+  if (cat.includes("legume") || cat.includes("légume")) return "accompagnement";
+  if (lab.includes("salade") || lab.includes("crudite") || lab.includes("crudité")) return "entree";
 
   return "";
+};
+
+const syntheticEntreeSlotForMeal = (mealKey) => ({
+  key: `__auto_entree_${mealKey}`,
+  label: "Entrée légumes",
+  resolvedLabel: "Entrée légumes",
+  group: "Entrée légumes",
+  category: "Entrée légumes",
+  qty: 50,
+  unit: "g",
+  meals: { [mealKey]: 50 },
+  source: "auto_menu_entree",
+  syntheticRole: "entree",
+});
+
+const mealSlotsForMenu = (mealKey, slots = []) => {
+  if (mealKey !== "dejeuner" && mealKey !== "diner") return slots;
+  return [syntheticEntreeSlotForMeal(mealKey), ...slots];
 };
 
 /* ================= STRICT role assignment per meal ================= */
@@ -850,7 +1564,17 @@ const assignStrictRolesForMeal = (mealKey, slots, persistedRoles = {}) => {
   if (mealKey !== "dejeuner" && mealKey !== "diner") return { ...persistedRoles };
 
   const out = { ...persistedRoles };
-  const usedCount = { entree: 0, plat: 0, accompagnement: 0, assaisonnement: 0, produit_laitier: 0, dessert: 0 };
+
+  // Les anciens menus peuvent avoir gardé "Légumes" en entrée en localStorage/Firebase.
+  // On force ces slots à revenir en accompagnement pour respecter la ration construite.
+  for (const slot of slots || []) {
+    const hint = roleHintFromRationSlot(slot);
+    if (hint === "accompagnement" && slotTypeFromRationSlot(slot) === "veg") {
+      out[slot.key] = "accompagnement";
+    }
+  }
+
+  const usedCount = { entree: 0, plat: 0, accompagnement: 0, assaisonnement: 0, produit_laitier: 0, dessert: 0, boisson: 0 };
 
   for (const s of slots || []) {
     const r = out[s.key];
@@ -868,6 +1592,12 @@ const assignStrictRolesForMeal = (mealKey, slots, persistedRoles = {}) => {
     if (hint === "assaisonnement") {
       out[slot.key] = "assaisonnement";
       usedCount.assaisonnement += 1;
+      continue;
+    }
+
+    if (hint === "boisson") {
+      out[slot.key] = "boisson";
+      usedCount.boisson += 1;
       continue;
     }
 
@@ -917,6 +1647,9 @@ const assignStrictRolesForMeal = (mealKey, slots, persistedRoles = {}) => {
     } else if (!ensureSingle("dessert")) {
       out[slot.key] = "dessert";
       usedCount.dessert += 1;
+    } else if (!ensureSingle("boisson")) {
+      out[slot.key] = "boisson";
+      usedCount.boisson += 1;
     } else {
       out[slot.key] = "accompagnement";
       usedCount.accompagnement += 1;
@@ -932,11 +1665,12 @@ const scoreCiqualName = ({ name, queryTokens }) => {
   if (!n) return -999;
 
   const phrase = queryTokens.join(" ").trim();
+  const queryText = queryTokens.join(" ");
   let score = 0;
   if (phrase && n.includes(phrase)) score += 18;
 
   for (const qt of queryTokens) {
-    if (qt.length >= 3) {
+    if (qt.length >= 4) {
       if (wordBoundary(qt).test(n)) score += 9;
       else if (n.includes(qt)) score += 3;
     } else {
@@ -952,6 +1686,12 @@ const scoreCiqualName = ({ name, queryTokens }) => {
     if (n.includes("cru") || n.includes("sec")) score -= 12;
   }
 
+  // Les libellés CIQUAL génériques ont tendance à gagner trop souvent.
+  if (n.includes("aliment moyen")) score -= 5;
+  if (n.includes("sans precision")) score -= 4;
+  if (n.includes("preemball")) score -= 3;
+  if (n.includes("puree") && !queryText.includes("puree")) score -= 12;
+
   return score;
 };
 
@@ -961,18 +1701,39 @@ const displayQtyForSlot = (slot) => {
   const q = num(slot?.qty);
   const unit = String(slot?.unit || "g");
   const t = slotTypeFromRationSlot(slot);
-
-  if (t === "starch_raw" && q > 0 && normalize(unit) === "g") {
-    return { qtyDisplay: r0(q * COOK_FACTOR), unitDisplay: "g", gramsForCalc: q * COOK_FACTOR, cookedOverride: true };
-  }
-
   const g = toGrams(q, unit, slot?.key || "");
-  return { qtyDisplay: q, unitDisplay: unit, gramsForCalc: g, cookedOverride: false };
+  const cookedEquivalent = t === "starch_raw" && q > 0 && normalize(unit) === "g" ? r0(q * COOK_FACTOR) : undefined;
+  return {
+    qtyDisplay: q,
+    unitDisplay: unit,
+    gramsForCalc: g,
+    cookedEquivalent,
+  };
 };
 
 /* ================= Helper: filter codes by name (extra safety) ================= */
-const filterCodesByName = (codes, ciqualByCode, { forbidBread = false, forbidBeverage = false, forbidProteinBad = false } = {}) => {
+const filterCodesByName = (
+  codes,
+  ciqualByCode,
+  {
+    forbidBread = false,
+    forbidBeverage = false,
+    forbidProteinBad = false,
+    forbidPreparedDish = false,
+    forbidLactose = false,
+    forbidMilk = false,
+    preferNoLactose = false,
+    forbidAnimalDairy = false,
+    forbidPork = false,
+    forbidFish = false,
+    forbidSeafood = false,
+    forbidEggs = false,
+    forbidPoultry = false,
+    forbidRedMeat = false,
+  } = {}
+) => {
   const out = [];
+  const fallback = [];
   for (const code of codes || []) {
     const row = ciqualByCode.get(code);
     const nm = row ? ciqualName(row) : "";
@@ -981,15 +1742,109 @@ const filterCodesByName = (codes, ciqualByCode, { forbidBread = false, forbidBev
 
     if (forbidBeverage && isBeverageName(nm)) continue;
     if (forbidProteinBad && looksLikeProteinBadCut(nm)) continue;
+    if (forbidPreparedDish && looksLikePreparedDish(nm)) continue;
 
     if (forbidBread) {
       // On exclut les items “pain/baguette/biscotte/bagel…” quand on veut des féculents cuits
       if (n.includes("pain") || n.includes("baguette") || n.includes("biscotte") || n.includes("bagel") || n.includes("pita")) continue;
     }
 
+    if (forbidAnimalDairy) {
+      const looksPlantAlternative =
+        n.includes("vegetal") ||
+        n.includes("végétal") ||
+        n.includes("soja") ||
+        n.includes("amande") ||
+        n.includes("avoine") ||
+        n.includes("riz") ||
+        n.includes("coco") ||
+        n.includes("noisette");
+      if (
+        !looksPlantAlternative &&
+        (
+          n.includes("lait") ||
+          n.includes("yaourt") ||
+          n.includes("yogourt") ||
+          n.includes("fromage") ||
+          n.includes("beurre") ||
+          n.includes("creme") ||
+          n.includes("crème") ||
+          n.includes("brebis") ||
+          n.includes("chevre") ||
+          n.includes("chèvre") ||
+          n.includes("vache")
+        )
+      ) {
+        continue;
+      }
+    }
+
+    if (forbidPork && nameHasAny(n, PROTEIN_EXCLUSION_WORDS.pork)) continue;
+    if (forbidFish && nameHasAny(n, PROTEIN_EXCLUSION_WORDS.fish)) continue;
+    if (forbidSeafood && nameHasAny(n, PROTEIN_EXCLUSION_WORDS.seafood)) continue;
+    if (forbidEggs && nameHasAny(n, PROTEIN_EXCLUSION_WORDS.eggs)) continue;
+    if (forbidPoultry && nameHasAny(n, PROTEIN_EXCLUSION_WORDS.poultry)) continue;
+    if (forbidRedMeat && nameHasAny(n, PROTEIN_EXCLUSION_WORDS.redMeat)) continue;
+
+    if (forbidMilk && (n.includes("lait") || n.includes("brebis") || n.includes("chevre") || n.includes("chèvre"))) {
+      continue;
+    }
+
+    if (forbidLactose) {
+      const looksAnimalDairy =
+        n.includes("lait") ||
+        n.includes("yaourt") ||
+        n.includes("yogourt") ||
+        n.includes("fromage") ||
+        n.includes("beurre") ||
+        n.includes("creme") ||
+        n.includes("crème") ||
+        n.includes("brebis") ||
+        n.includes("chevre") ||
+        n.includes("chèvre") ||
+        n.includes("vache");
+
+      if (looksAnimalDairy && !n.includes("sans lactose")) continue;
+    }
+
+    if (preferNoLactose) {
+      fallback.push(code);
+      if (
+        n.includes("sans lactose") ||
+        n.includes("vegetal") ||
+        n.includes("végétal") ||
+        n.includes("soja") ||
+        n.includes("amande") ||
+        n.includes("avoine") ||
+        n.includes("coco") ||
+        n.includes("riz")
+      ) {
+        out.push(code);
+      }
+      continue;
+    }
+
     out.push(code);
   }
-  return out.length ? out : (codes || []);
+  return out.length ? out : preferNoLactose ? fallback : (codes || []);
+};
+
+const mergeCodeLists = (...lists) => uniq(lists.flat().filter(Boolean));
+
+const makeMenuSlotKey = (mealKey, sourceKey) => `${mealKey}::${sourceKey}`;
+const hasSignificantMenuSlot = (slots = []) =>
+  slots.some((slot) => isSignificantRationMenuItem(slot));
+
+const isOptionalSnackNoiseMeal = (mealKey, slots = []) => {
+  if (!String(mealKey || "").startsWith("collation")) return false;
+
+  const meaningfulSlots = (slots || []).filter((slot) => isSignificantRationMenuItem(slot));
+  if (!meaningfulSlots.length) return true;
+
+  return (
+    meaningfulSlots.length === 1 &&
+    meaningfulSlots.every((slot) => slot?.source === "auto_slots" && slotTypeFromRationSlot(slot) === "dairy")
+  );
 };
 
 /* ================= Candidate choice STRICT ================= */
@@ -1001,11 +1856,25 @@ const pickCiqualForRole = ({
   pools,
   plannedProteinType,
   plannedDessertType,
+  plannedVegForm,
+  plannedStarchType,
+  plannedDairyType,
+  plannedSnackCerealType,
+  plannedVegTheme,
+  plannedWhiteProteinType,
+  clinicalOptions = {},
   daySeed,
+  avoidCodes = [],
   lastWhiteBias, // { avoid: "poulet" | "dinde" | "" }
 }) => {
-  const baseTokens = tokensOf(cleanMenuLabel(slot?.label || ""));
+  const sourceLabel = cleanMenuLabel(firstNonEmpty(slot?.resolvedLabel, slot?.label, slot?.shortKey, slot?.key));
+  const baseTokens = tokensOf(sourceLabel);
   const rng = mulberry32(hash32(`${daySeed}:${mealKey}:${role}:${slot?.key || ""}`));
+  const slotType = slotTypeFromRationSlot(slot);
+  const exactLabel = slotResolvedText(slot);
+  const familySelection = isFamilySelectionFromSlot(slot);
+  const slotUnitNorm = normalize(slot?.unit || "");
+  const dairyForbidBeverage = !(slotType === "dairy" && (slotUnitNorm === "ml" || exactLabel.includes("lait")));
 
   const rankCodes = (codes, extraTokens = []) => {
     const scored = [];
@@ -1023,140 +1892,771 @@ const pickCiqualForRole = ({
     return scored;
   };
 
-  const slotType = slotTypeFromRationSlot(slot);
+  const applyProteinRestrictions = (codes) =>
+    filterCodesByName(codes, ciqualByCode, {
+      forbidPork: clinicalOptions.forbidPork,
+      forbidFish: clinicalOptions.forbidFish,
+      forbidSeafood: clinicalOptions.forbidSeafood,
+      forbidEggs: clinicalOptions.forbidEggs,
+      forbidPoultry: clinicalOptions.forbidPoultry,
+      forbidRedMeat: clinicalOptions.forbidRedMeat,
+    });
+
+  const pickAllowedProteinPool = (...lists) => {
+    for (const list of lists) {
+      const filtered = applyProteinRestrictions(list || []);
+      if (filtered.length) return filtered;
+    }
+    return applyProteinRestrictions(mergeCodeLists(...lists));
+  };
 
   let poolCodes = [];
   let extraTok = [];
 
+  const pickDirectCodesFromResolvedLabel = (baseCodes = []) => {
+    const aliases = resolvedLabelAliases(exactLabel);
+    if (!aliases.length) return [];
+    return filterCodesByWords(baseCodes, ciqualByCode, aliases);
+  };
+
+  const isCodeCompatibleWithSlot = (code) => {
+    if (!code) return false;
+    if (familySelection && !(slotType === "dairy" || slotType === "assaisonnement")) return true;
+
+    const inList = (list = []) => (list || []).includes(code);
+
+    if (slotType === "dairy") {
+      const wantsPlant = exactLabel.includes("vegetal") || exactLabel.includes("végétal");
+      const wantsLiquid = slotUnitNorm === "ml" || exactLabel.includes("lait");
+      const wantsFromageBlanc = exactLabel.includes("fromage blanc");
+      const wantsCheese = exactLabel.includes("fromage") && !wantsFromageBlanc;
+      const wantsYogurt = exactLabel.includes("yaourt") || exactLabel.includes("lait fermente");
+
+      if (wantsPlant && wantsLiquid) return inList(pools.plant_milk_plain);
+      if (wantsPlant && wantsYogurt) return inList(pools.plant_yogurt_plain);
+      if (wantsPlant) return inList(pools.plant_milk_plain) || inList(pools.plant_yogurt_plain);
+      if (wantsLiquid) return inList(pools.milk_plain) || inList(pools.plant_milk_plain);
+      if (wantsFromageBlanc) return inList(pools.fromage_blanc_plain);
+      if (wantsCheese) return inList(pools.cheese_plain);
+      if (wantsYogurt) return inList(pools.yogurt_plain) || inList(pools.plant_yogurt_plain);
+      if (slotUnitNorm === "ml") return inList(pools.milk_plain) || inList(pools.plant_milk_plain);
+    }
+
+    if (slotType === "assaisonnement") {
+      if (exactLabel.includes("beurre")) {
+        if (clinicalOptions.forbidLactose || clinicalOptions.forbidAnimalDairy) {
+          return inList(pools.margarine_simple);
+        }
+        return inList(pools.butter_simple);
+      }
+      if (exactLabel.includes("margarine")) return inList(pools.margarine_simple);
+      if (exactLabel.includes("creme") || exactLabel.includes("crème")) {
+        if (clinicalOptions.forbidLactose || clinicalOptions.forbidAnimalDairy) {
+          return inList(pools.oil_simple);
+        }
+        return inList(pools.cream_simple);
+      }
+      if (exactLabel.includes("huile")) return inList(pools.oil_simple);
+    }
+
+    return true;
+  };
+
+  const pickProteinPoolFromPlan = () => {
+    if (plannedProteinType === "fish") {
+      const fishPool = applyProteinRestrictions(pools.plat_fish);
+      if (fishPool.length) return fishPool;
+    }
+    if (plannedProteinType === "red_meat") {
+      const redPool = applyProteinRestrictions(pools.plat_red_meat);
+      if (redPool.length) return redPool;
+    }
+    if (plannedProteinType === "charcuterie") {
+      const charcPool = applyProteinRestrictions(pools.plat_charcuterie);
+      if (charcPool.length) return charcPool;
+    }
+    if (plannedProteinType === "eggs") {
+      const eggPool = applyProteinRestrictions(pools.plat_eggs);
+      if (eggPool.length) return eggPool;
+    }
+    if (plannedProteinType === "legumes" && pools.plat_legumes.length) return pools.plat_legumes;
+
+    const avoid = normalize(lastWhiteBias?.avoid || "");
+    if (plannedWhiteProteinType === "poulet" && avoid !== "poulet") {
+      const pool = applyProteinRestrictions(pools.plat_white_poulet);
+      if (pool.length) return pool;
+    }
+    if (plannedWhiteProteinType === "dinde" && avoid !== "dinde") {
+      const pool = applyProteinRestrictions(pools.plat_white_dinde);
+      if (pool.length) return pool;
+    }
+    if (plannedWhiteProteinType === "lapin") {
+      const pool = applyProteinRestrictions(pools.plat_white_other);
+      if (pool.length) return pool;
+    }
+    if (avoid === "poulet") {
+      const pool = applyProteinRestrictions(pools.plat_white_dinde);
+      if (pool.length) return pool;
+    }
+    if (avoid === "dinde") {
+      const pool = applyProteinRestrictions(pools.plat_white_poulet);
+      if (pool.length) return pool;
+    }
+
+    return pickAllowedProteinPool(
+      pools.plat_legumes || [],
+      pools.plat_eggs || [],
+      pools.plat_white_poulet || [],
+      pools.plat_white_dinde || [],
+      pools.plat_white_other || [],
+      pools.plat_fish || [],
+      pools.plat_red_meat || [],
+      pools.plat_charcuterie || []
+    );
+  };
+
+  const pickDairyPool = () => {
+    const wantsLiquid = slotUnitNorm === "ml" || exactLabel.includes("lait");
+    const wantsPlant = exactLabel.includes("vegetal") || exactLabel.includes("végétal");
+    const slotQty = num(slot?.qty);
+    const inferGenericDairyIntent = () => {
+      if (slotUnitNorm === "ml") return "liquid";
+      if (slotQty > 0 && slotQty <= 60) return "cheese";
+      if (slotQty >= 90 && slotQty <= 220) return "yogurt";
+      return plannedDairyType || "yogurt";
+    };
+    const genericDairyIntent = inferGenericDairyIntent();
+
+    if (mealKey === "diner") {
+      const dinnerBase =
+        clinicalOptions.forbidLactose || clinicalOptions.forbidMilk || clinicalOptions.forbidAnimalDairy
+          ? pools.plant_yogurt_plain || []
+          : mergeCodeLists(pools.yogurt_plain || [], pools.fromage_blanc_plain || []);
+      const filtered = filterCodesByName(dinnerBase, ciqualByCode, {
+        forbidBeverage: true,
+        forbidLactose: clinicalOptions.forbidLactose,
+        forbidMilk: clinicalOptions.forbidMilk,
+        preferNoLactose: clinicalOptions.preferNoLactose,
+        forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+      });
+      if (filtered.length) return filtered;
+    }
+
+    if (!familySelection) {
+      if (wantsPlant) {
+        if (exactLabel.includes("yaourt")) {
+          const base = filterCodesByName(pools.plant_yogurt_plain, ciqualByCode, {
+            forbidBeverage: true,
+            forbidLactose: clinicalOptions.forbidLactose,
+            forbidMilk: clinicalOptions.forbidMilk,
+            preferNoLactose: true,
+            forbidAnimalDairy: true,
+          });
+          const direct = pickDirectCodesFromResolvedLabel(base);
+          return direct.length ? direct : base;
+        }
+        if (wantsLiquid) {
+          const base = filterCodesByName(pools.plant_milk_plain, ciqualByCode, {
+            forbidLactose: clinicalOptions.forbidLactose,
+            forbidMilk: true,
+            preferNoLactose: true,
+            forbidAnimalDairy: true,
+          });
+          const direct = pickDirectCodesFromResolvedLabel(base);
+          return direct.length ? direct : base;
+        }
+        const base = filterCodesByName(mergeCodeLists(pools.plant_milk_plain || [], pools.plant_yogurt_plain || []), ciqualByCode, {
+          forbidLactose: clinicalOptions.forbidLactose,
+          forbidMilk: true,
+          preferNoLactose: true,
+          forbidAnimalDairy: true,
+        });
+        const direct = pickDirectCodesFromResolvedLabel(base);
+        return direct.length ? direct : base;
+      }
+      if (exactLabel.includes("fromage blanc")) {
+        const base = filterCodesByName(pools.fromage_blanc_plain, ciqualByCode, {
+          forbidLactose: clinicalOptions.forbidLactose,
+          forbidMilk: clinicalOptions.forbidMilk,
+          preferNoLactose: clinicalOptions.preferNoLactose,
+          forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        });
+        const direct = pickDirectCodesFromResolvedLabel(base);
+        return direct.length ? direct : base;
+      }
+      if (exactLabel.includes("yaourt")) {
+        const base = filterCodesByName(pools.yogurt_plain, ciqualByCode, {
+          forbidLactose: clinicalOptions.forbidLactose,
+          forbidMilk: clinicalOptions.forbidMilk,
+          preferNoLactose: clinicalOptions.preferNoLactose,
+          forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        });
+        const direct = pickDirectCodesFromResolvedLabel(base);
+        return direct.length ? direct : base;
+      }
+      if (wantsLiquid) {
+        const filtered = (pools.milk_plain || []).filter((code) => {
+          const name = normalize(ciqualName(ciqualByCode.get(code)));
+          if (exactLabel.includes("1/2") || exactLabel.includes("demi")) return name.includes("demi-ecreme") || name.includes("demi écrémé");
+          if (exactLabel.includes("ecreme") || exactLabel.includes("écrémé")) return name.includes("ecreme") || name.includes("écrémé");
+          if (exactLabel.includes("entier")) return name.includes("entier");
+          return true;
+        });
+        const base = filterCodesByName(filtered.length ? filtered : pools.milk_plain, ciqualByCode, {
+          forbidLactose: clinicalOptions.forbidLactose,
+          forbidMilk: clinicalOptions.forbidMilk,
+          preferNoLactose: clinicalOptions.preferNoLactose,
+          forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        });
+        const direct = pickDirectCodesFromResolvedLabel(base);
+        return direct.length ? direct : base;
+      }
+      if (exactLabel.includes("fromage")) {
+        const base = filterCodesByName(pools.cheese_plain, ciqualByCode, {
+          forbidLactose: clinicalOptions.forbidLactose,
+          forbidMilk: clinicalOptions.forbidMilk,
+          preferNoLactose: clinicalOptions.preferNoLactose,
+          forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        });
+        const direct = pickDirectCodesFromResolvedLabel(base);
+        return direct.length ? direct : base;
+      }
+    }
+
+    if (clinicalOptions.forbidLactose || clinicalOptions.forbidMilk || clinicalOptions.forbidAnimalDairy) {
+      if (genericDairyIntent === "liquid") {
+        return filterCodesByName(pools.plant_milk_plain || [], ciqualByCode, {
+          forbidBeverage: false,
+          forbidLactose: clinicalOptions.forbidLactose,
+          forbidMilk: true,
+          preferNoLactose: true,
+          forbidAnimalDairy: true,
+        });
+      }
+      if (genericDairyIntent === "cheese") {
+        const plantCheese = filterCodesByWords(pools.cheese_plain || [], ciqualByCode, ["specialite vegetale type fromage", "spécialité végétale type fromage"]);
+        if (plantCheese.length) return plantCheese;
+      }
+      if (genericDairyIntent === "yogurt") {
+        return filterCodesByName(pools.plant_yogurt_plain || [], ciqualByCode, {
+          forbidBeverage: true,
+          forbidLactose: clinicalOptions.forbidLactose,
+          forbidMilk: true,
+          preferNoLactose: true,
+          forbidAnimalDairy: true,
+        });
+      }
+      return filterCodesByName(
+        mergeCodeLists(
+          pools.plant_milk_plain || [],
+          pools.plant_yogurt_plain || []
+        ),
+        ciqualByCode,
+        {
+          forbidBeverage: false,
+          forbidLactose: clinicalOptions.forbidLactose,
+          forbidMilk: true,
+          preferNoLactose: true,
+          forbidAnimalDairy: true,
+        }
+      );
+    }
+
+    if (familySelection) {
+      if (genericDairyIntent === "liquid") {
+        return filterCodesByName(pools.milk_plain || [], ciqualByCode, {
+          forbidBeverage: false,
+          forbidLactose: clinicalOptions.forbidLactose,
+          forbidMilk: clinicalOptions.forbidMilk,
+          preferNoLactose: clinicalOptions.preferNoLactose,
+          forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        });
+      }
+      if (genericDairyIntent === "cheese") {
+        return filterCodesByName(pools.cheese_plain || [], ciqualByCode, {
+          forbidLactose: clinicalOptions.forbidLactose,
+          forbidMilk: clinicalOptions.forbidMilk,
+          preferNoLactose: clinicalOptions.preferNoLactose,
+          forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        });
+      }
+      if (genericDairyIntent === "yogurt") {
+        return filterCodesByName(mergeCodeLists(pools.yogurt_plain || [], pools.fromage_blanc_plain || []), ciqualByCode, {
+          forbidBeverage: true,
+          forbidLactose: clinicalOptions.forbidLactose,
+          forbidMilk: clinicalOptions.forbidMilk,
+          preferNoLactose: clinicalOptions.preferNoLactose,
+          forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        });
+      }
+    }
+
+    if (plannedDairyType === "yogurt" && pools.yogurt_plain.length) {
+      return filterCodesByName(pools.yogurt_plain, ciqualByCode, {
+        forbidLactose: clinicalOptions.forbidLactose,
+        forbidMilk: clinicalOptions.forbidMilk,
+        preferNoLactose: clinicalOptions.preferNoLactose,
+        forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+      });
+    }
+    if (plannedDairyType === "fromage_blanc" && pools.fromage_blanc_plain.length) {
+      return filterCodesByName(pools.fromage_blanc_plain, ciqualByCode, {
+        forbidLactose: clinicalOptions.forbidLactose,
+        forbidMilk: clinicalOptions.forbidMilk,
+        preferNoLactose: clinicalOptions.preferNoLactose,
+        forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+      });
+    }
+    if (plannedDairyType === "cheese" && pools.cheese_plain.length) {
+      return filterCodesByName(pools.cheese_plain, ciqualByCode, {
+        forbidLactose: clinicalOptions.forbidLactose,
+        forbidMilk: clinicalOptions.forbidMilk,
+        preferNoLactose: clinicalOptions.preferNoLactose,
+        forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+      });
+    }
+
+    if (mealKey === "petit_dej") {
+      if (slotUnitNorm === "ml") {
+        return filterCodesByName(mergeCodeLists(
+          pools.plant_milk_plain || [],
+          pools.milk_plain || []
+        ), ciqualByCode, {
+          forbidLactose: clinicalOptions.forbidLactose,
+          forbidMilk: clinicalOptions.forbidMilk,
+          preferNoLactose: clinicalOptions.preferNoLactose,
+          forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        });
+      }
+      return filterCodesByName(mergeCodeLists(
+        pools.milk_plain || [],
+        pools.yogurt_plain || [],
+        pools.fromage_blanc_plain || []
+      ), ciqualByCode, {
+        forbidLactose: clinicalOptions.forbidLactose,
+        forbidMilk: clinicalOptions.forbidMilk,
+        preferNoLactose: clinicalOptions.preferNoLactose,
+        forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+      });
+    }
+
+    return filterCodesByName(mergeCodeLists(
+      pools.yogurt_plain || [],
+      pools.fromage_blanc_plain || [],
+      pools.cheese_plain || []
+    ), ciqualByCode, {
+      forbidLactose: clinicalOptions.forbidLactose,
+      forbidMilk: clinicalOptions.forbidMilk,
+      preferNoLactose: clinicalOptions.preferNoLactose,
+      forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+    });
+  };
+
+  const pickFatPool = () => {
+    if (!familySelection) {
+      if (exactLabel.includes("beurre")) {
+        const base = clinicalOptions.forbidLactose || clinicalOptions.forbidAnimalDairy
+          ? pools.margarine_simple
+          : pools.butter_simple;
+        const direct = pickDirectCodesFromResolvedLabel(base);
+        return direct.length ? direct : base;
+      }
+      if (exactLabel.includes("margarine")) {
+        const direct = pickDirectCodesFromResolvedLabel(pools.margarine_simple);
+        return direct.length ? direct : pools.margarine_simple;
+      }
+      if (exactLabel.includes("creme") || exactLabel.includes("crème")) {
+        const base = clinicalOptions.forbidLactose || clinicalOptions.forbidAnimalDairy
+          ? pools.oil_simple
+          : pools.cream_simple;
+        const direct = pickDirectCodesFromResolvedLabel(base);
+        return direct.length ? direct : base;
+      }
+      if (exactLabel.includes("huile")) {
+        const direct = pickDirectCodesFromResolvedLabel(pools.oil_simple);
+        return direct.length ? direct : pools.oil_simple;
+      }
+    }
+
+    return mealKey === "petit_dej"
+      ? (
+        clinicalOptions.forbidLactose || clinicalOptions.forbidAnimalDairy
+          ? mergeCodeLists(pools.margarine_simple || [], pools.oil_simple || [])
+          : mergeCodeLists(pools.butter_simple || [], pools.margarine_simple || [])
+      )
+      : (
+        clinicalOptions.forbidLactose || clinicalOptions.forbidAnimalDairy
+          ? mergeCodeLists(pools.oil_simple || [], pools.margarine_simple || [])
+          : mergeCodeLists(pools.oil_simple || [], pools.cream_simple || [])
+      );
+  };
+
+  const pickBeveragePool = () => {
+    if (!familySelection) {
+      if (exactLabel.includes("jus")) return pools.juice;
+      if (exactLabel.includes("soda")) return pools.soda;
+      if (exactLabel.includes("alcool")) return pools.alcohol;
+    }
+    return pools.water;
+  };
+
+  const pickBreadPool = () => pools.bread_plain;
+
+  const pickBreakfastCerealPool = () => {
+    if (mealKey !== "petit_dej" && pools.cereal_snack.length) {
+      const snackBase = filterCodesByName(pools.cereal_snack, ciqualByCode, { forbidBread: true });
+      const directSnack = pickDirectCodesFromResolvedLabel(snackBase);
+      if (directSnack.length) return directSnack;
+      if (plannedSnackCerealType === "cereal_bar") return filterCodesByWords(snackBase, ciqualByCode, ["barre cerealiere", "barre céréalière"]);
+      if (plannedSnackCerealType === "oats") return filterCodesByWords(snackBase, ciqualByCode, ["avoine", "flocons"]);
+      if (plannedSnackCerealType === "muesli") return filterCodesByWords(snackBase, ciqualByCode, ["muesli"]);
+      if (plannedSnackCerealType === "rice_cake") return filterCodesByWords(snackBase, ciqualByCode, ["galette de riz", "galette de maïs", "galette de mais"]);
+      if (plannedSnackCerealType === "flakes") return filterCodesByWords(snackBase, ciqualByCode, ["petales", "pétales"]);
+      return snackBase;
+    }
+    const base = pools.breakfast_cereal_plain.length ? pools.breakfast_cereal_plain : pools.breakfast_cereal;
+    const direct = pickDirectCodesFromResolvedLabel(base);
+    const source = direct.length ? direct : base;
+    const muesli = filterCodesByWords(source, ciqualByCode, ["muesli"]);
+    const oats = filterCodesByWords(source, ciqualByCode, ["flocons d'avoine", "flocons d avoine", "avoine"]);
+    const puffedRice = filterCodesByWords(source, ciqualByCode, ["riz souffle", "riz soufflé"]);
+    const fiber = filterCodesByWords(source, ciqualByCode, ["riches en fibres", "très riches en fibres", "tres riches en fibres"]);
+    const seededVariant = hash32(`${daySeed}:${mealKey}:${slot?.key || ""}:breakfast-cereal`) % 4;
+    const ordered =
+      seededVariant === 0 ? mergeCodeLists(muesli, oats, puffedRice, fiber, source) :
+      seededVariant === 1 ? mergeCodeLists(oats, muesli, fiber, puffedRice, source) :
+      seededVariant === 2 ? mergeCodeLists(puffedRice, muesli, oats, fiber, source) :
+      mergeCodeLists(fiber, muesli, oats, puffedRice, source);
+    return ordered.length ? ordered : source;
+  };
+
+  const pickEntreePool = () => {
+    const themeWords = {
+      carotte: ["carotte"],
+      chou: ["chou", "chou-fleur"],
+      concombre: ["concombre", "endive", "salade"],
+      courgette: ["poivron", "aubergine"],
+      brocoli: ["brocoli"],
+      champignon: ["champignon"],
+      betterave: ["betterave", "tomate"],
+    };
+    const base =
+      plannedVegForm === "crudite" && pools.entree_crudite.length
+        ? pools.entree_crudite
+        : plannedVegForm === "cuidite" && pools.entree_cuidite.length
+          ? pools.entree_cuidite
+          : pools.entree_veg;
+    if (plannedVegTheme && themeWords[plannedVegTheme]) return filterCodesByWords(base, ciqualByCode, themeWords[plannedVegTheme]);
+    return base;
+  };
+
+  const pickSideVegPool = () => {
+    const themeWords = {
+      carotte: ["courgette", "haricot vert", "epinard", "épinard"],
+      chou: ["courgette", "haricot vert", "epinard", "épinard"],
+      concombre: ["courgette", "haricot vert", "epinard", "épinard"],
+      courgette: ["courgette", "aubergine", "poivron"],
+      brocoli: ["haricot vert", "courgette", "epinard", "épinard"],
+      champignon: ["courgette", "haricot vert", "epinard", "épinard"],
+      betterave: ["carotte", "haricot vert", "courgette"],
+    };
+    const base = pools.veg_side.length
+      ? pools.veg_side
+      : pools.entree_cuidite.length
+        ? pools.entree_cuidite
+        : pools.entree_veg;
+    if (plannedVegTheme && themeWords[plannedVegTheme]) {
+      return filterCodesByWords(base, ciqualByCode, themeWords[plannedVegTheme]);
+    }
+    return base;
+  };
+
+  const pickStarchPool = () => {
+    const byType = {
+      rice: pools.starch_rice,
+      pasta: pools.starch_pasta,
+      semolina: pools.starch_semolina,
+      potato: pools.starch_potato,
+      legumes: pools.starch_legumes,
+      quinoa_bulgur: pools.starch_quinoa_bulgur,
+    };
+    const preferred = byType[plannedStarchType] || [];
+    const base = preferred.length ? preferred : pools.starch_cooked;
+    let filtered = filterCodesByName(base, ciqualByCode, {
+      forbidBread: true,
+      forbidPreparedDish: true,
+    });
+    if (!clinicalOptions.keepSansGluten) {
+      filtered = filtered.filter((code) => !normalize(ciqualName(ciqualByCode.get(code))).includes("sans gluten"));
+    }
+    if (!clinicalOptions.keepSansSel) {
+      const withoutNoSalt = filtered.filter((code) => !normalize(ciqualName(ciqualByCode.get(code))).includes("sans sel ajoute"));
+      if (withoutNoSalt.length) filtered = withoutNoSalt;
+    }
+    const withoutBreakfastCereals = filtered.filter((code) => {
+      const name = normalize(ciqualName(ciqualByCode.get(code)));
+      return !(
+        name.includes("flocon") ||
+        name.includes("avoine") ||
+        name.includes("muesli") ||
+        name.includes("cereales pour petit dejeuner") ||
+        name.includes("céréales pour petit déjeuner")
+      );
+    });
+    if (withoutBreakfastCereals.length) filtered = withoutBreakfastCereals;
+    return filtered;
+  };
+
+  const pickProteinPoolFromExactLabel = () => {
+    if (exactLabel.includes("oeuf")) return applyProteinRestrictions(pools.plat_eggs);
+    if (exactLabel.includes("poissons gras") || exactLabel.includes("poisson gras")) {
+      extraTok = ["saumon", "maquereau", "sardine", "truite"];
+      return applyProteinRestrictions(pools.plat_fish);
+    }
+    if (exactLabel.includes("poissons blanc") || exactLabel.includes("poisson blanc")) {
+      extraTok = ["cabillaud", "colin", "merlu", "lieu"];
+      return applyProteinRestrictions(pools.plat_fish);
+    }
+    if (exactLabel.includes("volaille")) {
+      return pickProteinPoolFromPlan();
+    }
+    if (exactLabel.includes("viande maigre")) {
+      return pickProteinPoolFromPlan();
+    }
+    if (exactLabel.includes("viande moyenne")) return pickAllowedProteinPool(pools.plat_red_meat || [], pickProteinPoolFromPlan());
+    if (exactLabel.includes("legumineuse")) return pools.plat_legumes;
+    return pickProteinPoolFromPlan();
+  };
+
   if (mealKey === "dejeuner" || mealKey === "diner") {
     if (role === "entree") {
-      poolCodes = pools.entree_veg;
+      poolCodes = pickEntreePool();
+      extraTok = plannedVegForm === "crudite" ? ["cru", "crudite", plannedVegTheme].filter(Boolean) : ["cuit", "vapeur", plannedVegTheme].filter(Boolean);
+    } else if (role === "boisson") {
+      poolCodes = pickBeveragePool();
     } else if (role === "assaisonnement") {
-      poolCodes = pools.seasoning;
+      poolCodes = pickFatPool();
+      if (exactLabel.includes("huile") || (familySelection && mealKey !== "petit_dej")) {
+        extraTok = ["olive", "colza", "tournesol"];
+      } else if (exactLabel.includes("beurre")) {
+        extraTok = ["beurre"];
+      } else if (exactLabel.includes("margarine")) {
+        extraTok = ["margarine"];
+      }
     } else if (role === "produit_laitier") {
-      poolCodes = pools.dairy;
-      poolCodes = filterCodesByName(poolCodes, ciqualByCode, { forbidBeverage: true });
+      poolCodes = pickDairyPool();
+      poolCodes = filterCodesByName(poolCodes, ciqualByCode, {
+        forbidBeverage: dairyForbidBeverage,
+        forbidLactose: clinicalOptions.forbidLactose,
+        forbidMilk: clinicalOptions.forbidMilk,
+        preferNoLactose: clinicalOptions.preferNoLactose,
+        forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+      });
+      if (familySelection) extraTok = ["nature"];
     } else if (role === "dessert") {
-      if (plannedDessertType === "simple" && pools.dessert_sweet_simple.length) poolCodes = pools.dessert_sweet_simple;
-      else if (plannedDessertType === "dairy" && pools.dessert_dairy.length) poolCodes = pools.dessert_dairy;
-      else poolCodes = pools.dessert_fruit.length ? pools.dessert_fruit : pools.dessert_dairy;
+      if (!familySelection && slotType === "sweet") {
+        poolCodes = pools.dessert_sweet_simple.length ? pools.dessert_sweet_simple : pools.dessert_fruit;
+      } else if (plannedDessertType === "simple" && pools.dessert_sweet_simple.length) {
+        poolCodes = pools.dessert_sweet_simple;
+      } else {
+        poolCodes = pools.fruit_simple.length ? pools.fruit_simple : pools.dessert_fruit;
+      }
 
       // ZERO boissons en dessert
       poolCodes = filterCodesByName(poolCodes, ciqualByCode, { forbidBeverage: true });
+      if (familySelection && slotType === "fruit") extraTok = ["fruit", "compote"];
     } else if (role === "accompagnement") {
-      // IMPORTANT : respecter bread vs féculent cuit vs cru
-      if (slotType === "bread") {
-        poolCodes = pools.bread.length ? pools.bread : pools.starch_cooked;
+      if (slotType === "veg") {
+        poolCodes = pickSideVegPool();
+        extraTok = ["cuit", "vapeur", plannedVegTheme].filter(Boolean);
+      } else if (slotType === "bread") {
+        poolCodes = pickBreadPool();
+      } else if (slotType === "legumes") {
+        poolCodes = pickStarchPool();
+        extraTok = ["lentilles", "pois chiches", "haricots", "cuit"];
       } else if (slotType === "starch_cooked") {
-        poolCodes = pools.starch_cooked.length ? pools.starch_cooked : pools.veg_side;
-        // Double sécurité: exclure tout ce qui ressemble à du pain/snack
-        poolCodes = filterCodesByName(poolCodes, ciqualByCode, { forbidBread: true });
+        poolCodes = pickStarchPool();
         extraTok = ["cuit", "cuits"];
       } else if (slotType === "starch_raw") {
-        // on force du cuit + conversion qty
-        poolCodes = pools.starch_cooked.length ? pools.starch_cooked : pools.veg_side;
-        poolCodes = filterCodesByName(poolCodes, ciqualByCode, { forbidBread: true });
-        extraTok = ["cuit", "cuits"];
-      } else if (slotType === "legumes") {
-        // légumineuses -> rester sur féculents cuits (lentilles cuites / pois chiches cuits)
-        poolCodes = pools.starch_cooked.length ? pools.starch_cooked : pools.veg_side;
-        poolCodes = filterCodesByName(poolCodes, ciqualByCode, { forbidBread: true });
+        poolCodes = pickStarchPool();
         extraTok = ["cuit", "cuits"];
       } else {
-        // fallback : féculent cuit
-        poolCodes = pools.starch_cooked.length ? pools.starch_cooked : pools.veg_side;
-        poolCodes = filterCodesByName(poolCodes, ciqualByCode, { forbidBread: true });
+        poolCodes = pickStarchPool();
         extraTok = ["cuit", "cuits"];
       }
     } else if (role === "plat") {
-      if (plannedProteinType === "fish" && pools.plat_fish.length) {
-        poolCodes = pools.plat_fish;
-      } else if (plannedProteinType === "red_meat" && pools.plat_red_meat.length) {
-        poolCodes = pools.plat_red_meat;
-      } else if (plannedProteinType === "charcuterie" && pools.plat_charcuterie.length) {
-        poolCodes = pools.plat_charcuterie;
-      } else if (plannedProteinType === "eggs" && pools.plat_eggs.length) {
-        poolCodes = pools.plat_eggs;
-      } else if (plannedProteinType === "legumes" && pools.plat_legumes.length) {
-        poolCodes = pools.plat_legumes;
-      } else {
-        // white meat : alterne poulet/dinde
-        const avoid = normalize(lastWhiteBias?.avoid || "");
-        if (avoid === "poulet" && pools.plat_white_dinde.length) poolCodes = pools.plat_white_dinde;
-        else if (avoid === "dinde" && pools.plat_white_poulet.length) poolCodes = pools.plat_white_poulet;
-        else {
-          poolCodes = uniq([
-            ...(pools.plat_white_poulet || []),
-            ...(pools.plat_white_dinde || []),
-            ...(pools.plat_white_other || []),
-          ]);
-        }
-      }
-
-      // Double sécurité: jamais “graisse/peau/os/bouillon…”
-      poolCodes = filterCodesByName(poolCodes, ciqualByCode, { forbidProteinBad: true });
+      poolCodes = familySelection ? pickProteinPoolFromPlan() : pickProteinPoolFromExactLabel();
+      poolCodes = filterCodesByName(poolCodes, ciqualByCode, {
+        forbidProteinBad: true,
+        forbidPreparedDish: true,
+        forbidPork: clinicalOptions.forbidPork,
+        forbidFish: clinicalOptions.forbidFish,
+        forbidSeafood: clinicalOptions.forbidSeafood,
+        forbidEggs: clinicalOptions.forbidEggs,
+        forbidPoultry: clinicalOptions.forbidPoultry,
+        forbidRedMeat: clinicalOptions.forbidRedMeat,
+      });
     } else {
       poolCodes = pools.any;
     }
   } else {
-    // petit dej / collations : simple
-    const lab = normalize(slot?.label || "");
-    if (lab.includes("lait") || lab.includes("yaourt") || lab.includes("fromage") || lab.includes("fromage blanc")) {
-      poolCodes = pools.dairy;
-    } else if (lab.includes("pain")) {
-      poolCodes = pools.bread.length ? pools.bread : pools.starch_cooked;
-    } else if (lab.includes("fruit") || lab.includes("pomme") || lab.includes("banane") || lab.includes("poire") || lab.includes("compote")) {
-      poolCodes = pools.dessert_fruit;
+    if (slotType === "beverage") {
+      poolCodes = pickBeveragePool();
+    } else if (slotType === "dairy") {
+      poolCodes = pickDairyPool();
+      poolCodes = filterCodesByName(poolCodes, ciqualByCode, {
+        forbidBeverage: dairyForbidBeverage,
+        forbidLactose: clinicalOptions.forbidLactose,
+        forbidMilk: clinicalOptions.forbidMilk,
+        preferNoLactose: clinicalOptions.preferNoLactose,
+        forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+      });
+      if (familySelection) extraTok = ["nature"];
+    } else if (slotType === "bread") {
+      poolCodes = pickBreadPool();
+    } else if (slotType === "breakfast_cereal") {
+      poolCodes = pickBreakfastCerealPool();
+      if (familySelection) extraTok = mealKey === "petit_dej" ? ["nature", "muesli", "fibres"] : ["muesli", "avoine", "barre", "galette"];
+    } else if (slotType === "fruit") {
+      poolCodes = pools.fruit_simple.length ? pools.fruit_simple : pools.dessert_fruit;
       poolCodes = filterCodesByName(poolCodes, ciqualByCode, { forbidBeverage: true });
+    } else if (slotType === "assaisonnement") {
+      poolCodes = pickFatPool();
+    } else if (slotType === "sweet") {
+      poolCodes = pools.dessert_sweet_simple.length ? pools.dessert_sweet_simple : pools.any;
+    } else if (slotType === "supplement") {
+      return null;
     } else {
       poolCodes = pools.any;
     }
   }
 
+  if (!poolCodes || !poolCodes.length) {
+    if (role === "assaisonnement" || slotType === "assaisonnement") {
+      poolCodes = pools.oil_simple.length ? pools.oil_simple : mergeCodeLists(pools.butter_simple || [], pools.margarine_simple || []);
+    } else if (role === "boisson" || slotType === "beverage") {
+      poolCodes = pools.water;
+    } else if (role === "entree") {
+      poolCodes = pools.entree_veg;
+    } else if (role === "produit_laitier" || slotType === "dairy") {
+      poolCodes = filterCodesByName(pools.dairy_plain, ciqualByCode, {
+        forbidBeverage: dairyForbidBeverage,
+        forbidLactose: clinicalOptions.forbidLactose,
+        forbidMilk: clinicalOptions.forbidMilk,
+        preferNoLactose: clinicalOptions.preferNoLactose,
+        forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+      });
+    } else if (role === "dessert" || slotType === "fruit") {
+      poolCodes = pools.fruit_simple.length ? pools.fruit_simple : pools.dessert_fruit;
+    } else if (role === "accompagnement" && slotType === "veg") {
+      poolCodes = pickSideVegPool();
+    } else if (role === "accompagnement" || slotType === "starch_cooked" || slotType === "starch_raw" || slotType === "legumes") {
+      poolCodes = pickStarchPool();
+    } else if (role === "plat" || slotType === "protein") {
+      poolCodes = pickProteinPoolFromPlan();
+    }
+  }
+  if ((!poolCodes || !poolCodes.length) && (
+    role === "produit_laitier" ||
+    slotType === "dairy" ||
+    role === "dessert" ||
+    slotType === "fruit" ||
+    role === "plat" ||
+    slotType === "protein"
+  )) {
+    return null;
+  }
   if (!poolCodes || !poolCodes.length) poolCodes = pools.any;
 
-  const ranked = rankCodes(poolCodes, extraTok);
-
-  if (ranked.length) {
-    const topN = ranked.slice(0, Math.min(20, ranked.length));
-    const weighted = topN.map((x, i) => ({ code: x.code, w: Math.max(1, x.s) * (1.18 - i * 0.03) }));
-    return pickWeightedOne(weighted, rng) || topN[0].code;
+  if (role === "dessert" || slotType === "fruit") {
+    poolCodes = filterCodesByName(poolCodes, ciqualByCode, { forbidBeverage: true });
+    const fruitLike = filterCodesByWords(poolCodes, ciqualByCode, [
+      "fruit",
+      "pomme",
+      "poire",
+      "banane",
+      "orange",
+      "kiwi",
+      "compote",
+      "purée de fruits",
+      "puree de fruits",
+    ]);
+    if (fruitLike.length) poolCodes = fruitLike;
   }
 
-  return pickOne(poolCodes, rng) || null;
+  const ranked = rankCodes(poolCodes, extraTok);
+  const avoidSet = new Set((avoidCodes || []).map((code) => String(code || "").trim()).filter(Boolean));
+
+  if (ranked.length) {
+    const isSnackCerealChoice = slotType === "breakfast_cereal" && mealKey !== "petit_dej";
+    const topN = ranked.slice(0, Math.min(isSnackCerealChoice ? 60 : 20, ranked.length));
+    const compatibleTopN = topN.filter((x) => isCodeCompatibleWithSlot(x.code) && !avoidSet.has(String(x.code || "").trim()));
+    const rankedChoices = compatibleTopN.length ? compatibleTopN : topN;
+    const weighted = rankedChoices.map((x, i) => ({
+      code: x.code,
+      w: isSnackCerealChoice
+        ? Math.max(1, x.s) * Math.max(0.35, 1.08 - i * 0.012)
+        : Math.max(1, x.s) * (1.18 - i * 0.03),
+    }));
+    const picked = pickWeightedOne(weighted, rng) || rankedChoices[0]?.code || null;
+    return isCodeCompatibleWithSlot(picked) ? picked : null;
+  }
+
+  const fallbackPool = poolCodes.filter((code) => isCodeCompatibleWithSlot(code) && !avoidSet.has(String(code || "").trim()));
+  const fallbackPick = pickOne(fallbackPool.length ? fallbackPool : poolCodes.filter((code) => isCodeCompatibleWithSlot(code)), rng) || null;
+  return isCodeCompatibleWithSlot(fallbackPick) ? fallbackPick : null;
 };
 
 /* ================= Component ================= */
 export default function MenuJournalierAuto({
   assessmentRef,
   docData: docDataProp,
+  rationItems: rationItemsProp = null,
   ciqualData = [],
   ciqualOk = false,
-  onSaveLabel = "Sauvegarder",
   blocked = false,
   targets = null,
+  preferredMicros = [],
+  onPdfDataChange,
 }) {
   const toast = useToast();
 
-  const panelBg = useColorModeValue("white", "gray.800");
-  const borderCol = useColorModeValue("gray.200", "whiteAlpha.200");
-  const subtleCard = useColorModeValue("gray.50", "whiteAlpha.50");
+  const nutritionTheme = useNutritionTheme();
+  const panelBg = nutritionTheme.surfaceBg;
+  const borderCol = nutritionTheme.borderColor;
+  const subtleCard = nutritionTheme.surfaceSoft;
+  const planningDayBg = useColorModeValue(
+    "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(241,245,249,0.96))",
+    "linear-gradient(180deg, rgba(13,18,30,0.96), rgba(15,23,42,0.98))"
+  );
+  const planningHeaderBg = useColorModeValue(
+    "linear-gradient(135deg, rgba(255,255,255,.88), rgba(232,245,233,.75))",
+    "linear-gradient(135deg, rgba(16,24,40,0.98), rgba(22,28,45,0.96))"
+  );
+  const mealHeaderBg = useColorModeValue(
+    "linear-gradient(135deg, rgba(232,245,233,.95), rgba(239,246,255,.88))",
+    "linear-gradient(135deg, rgba(17,24,39,0.98), rgba(15,23,42,0.97))"
+  );
+  const planningMealBg = useColorModeValue("rgba(15,23,42,0.035)", "rgba(30,41,59,0.52)");
+  const planningText = useColorModeValue("#0F172A", "#F8FAFC");
+  const planningMuted = useColorModeValue("#475569", "rgba(226,232,240,0.84)");
 
   const [loadingDoc, setLoadingDoc] = useState(true);
   const [docData, setDocData] = useState(null);
 
   // UI
-  const [search, setSearch] = useState("");
   const [showMicros, setShowMicros] = useState(false);
   const [selectedMicros, setSelectedMicros] = useState([
     "calcium",
-    "fer",
-    "sodium",
     "fibres",
-    "vitamine_c",
-    "magnesium",
-    "potassium",
   ]);
+
+  useEffect(() => {
+    if (!preferredMicros.length) return;
+    const valid = preferredMicros.filter((key) => MICRO_LABEL[key]);
+    if (!valid.length) return;
+    setSelectedMicros(Array.from(new Set(["calcium", "fibres", ...valid])));
+  }, [preferredMicros]);
 
   // Multi-days
   const [daysCount, setDaysCount] = useState(7);
@@ -1167,8 +2667,10 @@ export default function MenuJournalierAuto({
   // Auto state
   const [mappingByDay, setMappingByDay] = useState({});
   const [rolesByDay, setRolesByDay] = useState({});
+  const [generationNonce, setGenerationNonce] = useState(0);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const autoSaveHashRef = useRef("");
 
   const colIndex = useMemo(() => buildCiqualColumnIndex(ciqualData), [ciqualData]);
 
@@ -1206,6 +2708,7 @@ export default function MenuJournalierAuto({
         const am = d?.ration?.autoMenu && typeof d.ration.autoMenu === "object" ? d.ration.autoMenu : null;
 
         const nextDaysCount = Math.min(31, Math.max(1, num(am?.daysCount || 0) || 7));
+        setGenerationNonce(num(am?.generationNonce || 0));
         setDaysCount(nextDaysCount);
         setDayIndex((prev) => Math.min(nextDaysCount, Math.max(1, prev || 1)));
         setWeekStart((prev) => Math.min(Math.max(1, prev || 1), Math.max(1, nextDaysCount - 6)));
@@ -1241,6 +2744,7 @@ export default function MenuJournalierAuto({
 
     const am = d?.ration?.autoMenu && typeof d.ration.autoMenu === "object" ? d.ration.autoMenu : null;
     const nextDaysCount = Math.min(31, Math.max(1, num(am?.daysCount || 0) || 7));
+    setGenerationNonce(num(am?.generationNonce || 0));
 
     setDaysCount(nextDaysCount);
     setDayIndex((prev) => Math.min(nextDaysCount, Math.max(1, prev || 1)));
@@ -1263,14 +2767,51 @@ export default function MenuJournalierAuto({
     setRolesByDay(filledRoles);
   }, [docDataProp]);
 
-  const rationItems = useMemo(() => extractRationLines(docData).map(enrichLine), [docData]);
+  const rationItems = useMemo(() => {
+    const source = Array.isArray(rationItemsProp) ? rationItemsProp : extractMenuRationLines(docData);
+    return source.map(enrichLine);
+  }, [rationItemsProp, docData]);
+
+  const menuDisplayContext = useMemo(() => {
+    const docInputs = docData?.inputs || docData || {};
+    const regimeFlags = parseRegimeFlags(docInputs);
+    const pathologyFlags = parsePathologyFlags(docInputs);
+    const foodExclusionFlags = parseFoodExclusionFlags(docInputs);
+    const allergyText = String(
+      docData?.inputs?.medical?.allergies ??
+      docData?.inputs?.allergies ??
+      docData?.allergies ??
+      ""
+    ).trim();
+    const allergyNorm = normalize(allergyText);
+    return {
+      keepSansGluten: Boolean(regimeFlags.glutenFree),
+      keepSansSel: Boolean(pathologyFlags.hta || pathologyFlags.renal),
+      forbidLactose: Boolean(regimeFlags.lactoseFree),
+      preferNoLactose: Boolean(regimeFlags.lactoseFree),
+      forbidMilk:
+        allergyNorm.includes("lait") ||
+        allergyNorm.includes("milk") ||
+        allergyNorm.includes("lactose") ||
+        allergyNorm.includes("caseine") ||
+        allergyNorm.includes("caséine"),
+      forbidAnimalDairy: Boolean(regimeFlags.vegan),
+      forbidPork: Boolean(foodExclusionFlags.pork || regimeFlags.halal || regimeFlags.kosher),
+      forbidFish: Boolean(foodExclusionFlags.fish || regimeFlags.vegetarian || regimeFlags.vegan),
+      forbidSeafood: Boolean(foodExclusionFlags.seafood || regimeFlags.vegetarian || regimeFlags.vegan),
+      forbidEggs: Boolean(foodExclusionFlags.eggs || regimeFlags.vegan),
+      forbidPoultry: Boolean(foodExclusionFlags.poultry || regimeFlags.vegetarian || regimeFlags.vegan || regimeFlags.pescetarian),
+      forbidRedMeat: Boolean(foodExclusionFlags.redMeat || regimeFlags.vegetarian || regimeFlags.vegan || regimeFlags.pescetarian),
+    };
+  }, [docData]);
 
   // mapping du jour courant
   const dayKey = String(dayIndex);
-  const mapping = mappingByDay?.[dayKey] || {};
-  const dayRoles = rolesByDay?.[dayKey] || {};
+  const mapping = useMemo(() => mappingByDay?.[dayKey] || {}, [mappingByDay, dayKey]);
+  const dayRoles = useMemo(() => rolesByDay?.[dayKey] || {}, [rolesByDay, dayKey]);
 
   const toggleMicro = (k) => {
+    if (k === "calcium" || k === "fibres") return;
     setSelectedMicros((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]));
   };
 
@@ -1282,15 +2823,24 @@ export default function MenuJournalierAuto({
         const q = num(it?.meals?.[mk]);
         if (q > 0) {
           byMeal[mk].push({
-            key: it.key,
+            key: makeMenuSlotKey(mk, it.key),
+            sourceKey: it.key,
             unit: it.unit,
             qty: it.meals[mk],
             label: it.label,
             shortKey: it.shortKey,
             category: it.category,
+            source: it.source,
+            group: it.group,
+            resolvedLabel: it.resolvedLabel,
+            slotKey: it.slotKey,
+            mealKey: mk,
           });
         }
       }
+    }
+    for (const mk of ["collation_1", "collation_2", "collation_3"]) {
+      if (isOptionalSnackNoiseMeal(mk, byMeal[mk])) byMeal[mk] = [];
     }
     return byMeal;
   }, [rationItems]);
@@ -1303,13 +2853,22 @@ export default function MenuJournalierAuto({
         const q = num(it?.meals?.[mk]);
         if (q > 0)
           out[mk].push({
-            key: it.key,
+            key: makeMenuSlotKey(mk, it.key),
+            sourceKey: it.key,
             label: it.label,
             qty: it.meals[mk],
             unit: it.unit,
             category: it.category,
+            source: it.source,
+            group: it.group,
+            resolvedLabel: it.resolvedLabel,
+            slotKey: it.slotKey,
+            mealKey: mk,
           });
       }
+    }
+    for (const mk of ["collation_1", "collation_2", "collation_3"]) {
+      if (isOptionalSnackNoiseMeal(mk, out[mk])) out[mk] = [];
     }
     return out;
   }, [rationItems]);
@@ -1377,11 +2936,11 @@ export default function MenuJournalierAuto({
   }, [rationByMeal, selectedMicros, computeFoodTotals, mapping]);
 
   const associationStats = useMemo(() => {
-    const allKeys = uniq(rationItems.map((x) => x.key));
+    const allKeys = uniq(MEALS_ORDER.flatMap((mk) => (rationLinesByMealStatic?.[mk] || []).map((x) => x.key)));
     let mapped = 0;
     for (const k of allKeys) if (String(mapping?.[k] || "").trim()) mapped++;
     return { mapped, total: allKeys.length };
-  }, [rationItems, mapping]);
+  }, [rationLinesByMealStatic, mapping]);
 
   // ---------- Planning preview ----------
   const computeDayPreview = useCallback(
@@ -1398,7 +2957,7 @@ export default function MenuJournalierAuto({
       let dayC = 0;
 
       for (const mk of MEALS_ORDER) {
-        const slots = rationLinesByMealStatic[mk] || [];
+        const slots = mealSlotsForMenu(mk, rationLinesByMealStatic[mk] || []);
         for (const slot of slots) {
           const code = String(map?.[slot.key] || "").trim();
           const row = code ? ciqualByCode.get(code) : null;
@@ -1416,10 +2975,12 @@ export default function MenuJournalierAuto({
           const role = mk === "dejeuner" || mk === "diner" ? roles?.[slot.key] || "" : "";
 
           preview[mk].push({
-            text: prettyCiqualName(ciqualName(row)),
+            text: prettyCiqualName(ciqualName(row), menuDisplayContext),
             role,
             qty: info.qtyDisplay,
             unit: info.unitDisplay,
+            sourceLabel: prettySlotSourceLabel(slot),
+            sourceOrder: orderNonMainSlot(slot),
           });
         }
       }
@@ -1427,13 +2988,16 @@ export default function MenuJournalierAuto({
       for (const mk of ["dejeuner", "diner"]) {
         preview[mk].sort((a, b) => MENU_ROLE_ORDER(a.role) - MENU_ROLE_ORDER(b.role));
       }
+      for (const mk of ["petit_dej", "collation_1", "collation_2", "collation_3"]) {
+        preview[mk].sort((a, b) => (a.sourceOrder || 999) - (b.sourceOrder || 999));
+      }
 
       return {
         perMeal: preview,
         totals: { kcal: dayKcal, p: dayP, f: dayF, c: dayC },
       };
     },
-    [mappingByDay, rolesByDay, rationLinesByMealStatic, ciqualByCode, computeFoodTotals]
+    [mappingByDay, rolesByDay, rationLinesByMealStatic, ciqualByCode, computeFoodTotals, menuDisplayContext]
   );
 
   const weekDays = useMemo(() => {
@@ -1451,15 +3015,48 @@ export default function MenuJournalierAuto({
   }, [weekDays, computeDayPreview]);
 
   const allMealsNonZero = useMemo(() => {
-    return MEALS_ORDER.filter((mk) => (rationLinesByMealStatic?.[mk] || []).length > 0);
+    return MEALS_ORDER.filter((mk) => hasSignificantMenuSlot(rationLinesByMealStatic?.[mk] || []));
   }, [rationLinesByMealStatic]);
+
+  useEffect(() => {
+    if (!onPdfDataChange) return;
+    const days =
+      mode === "edit"
+        ? [dayIndex]
+        : Array.from({ length: Math.max(1, daysCount) }, (_, index) => index + 1);
+    onPdfDataChange({
+      type: "auto",
+      view: mode,
+      currentDay: dayIndex,
+      days: days.map((day) => ({
+        index: day,
+        label: `Jour ${day}`,
+        ...computeDayPreview(day),
+      })),
+    });
+  }, [computeDayPreview, dayIndex, daysCount, mode, onPdfDataChange]);
+
+  const compactMealSummary = useCallback((mealKey, items = []) => {
+    if (!items.length) return [];
+
+    if (mealKey === "dejeuner" || mealKey === "diner") {
+      const pickRole = (role) => items.find((item) => item.role === role);
+      return [pickRole("plat"), pickRole("accompagnement"), pickRole("entree")]
+        .filter(Boolean)
+        .slice(0, 3);
+    }
+
+    return items
+      .filter((item) => !normalize(item?.sourceLabel || "").includes("eau"))
+      .slice(0, 2);
+  }, []);
 
   // ---------- Auto generation ----------
   const generateAllDays = useCallback(() => {
     if (!ciqualOk) {
       toast({
-        title: "CIQUAL non chargé",
-        description: "Impossible de générer un menu sans CIQUAL.",
+        title: "Données alimentaires non chargées",
+        description: "Impossible de générer un menu sans les données alimentaires.",
         status: "error",
         duration: 2500,
         isClosable: true,
@@ -1479,11 +3076,12 @@ export default function MenuJournalierAuto({
 
     setGenerating(true);
     try {
-      const seed = docData?.id || docData?.createdAt?.seconds || "byl";
-      const plan = buildWeeklyPlan(daysCount, seed);
+      const nextNonce = Date.now();
+      const seed = `${docData?.id || docData?.createdAt?.seconds || "byl"}:${nextNonce}`;
+      const plan = buildWeeklyPlan(daysCount, seed, menuDisplayContext);
 
-      const nextMappingByDay = { ...(mappingByDay || {}) };
-      const nextRolesByDay = { ...(rolesByDay || {}) };
+      const nextMappingByDay = {};
+      const nextRolesByDay = {};
 
       const lastWhite = { dejeuner: "", diner: "" };
 
@@ -1494,8 +3092,8 @@ export default function MenuJournalierAuto({
         const dayRolesLocal = { ...(nextRolesByDay[dk] || {}) };
 
         for (const mk of MEALS_ORDER) {
-          const slots = rationLinesByMealStatic[mk] || [];
-          const planned = plan[`${d}_${mk}`] || { proteinType: "white_meat", dessertType: "fruit" };
+          const slots = mealSlotsForMenu(mk, rationLinesByMealStatic[mk] || []);
+          const planned = plan[`${d}_${mk}`] || fallbackMealPlan(d, mk, menuDisplayContext);
 
           if (mk === "dejeuner" || mk === "diner") {
             const ensured = assignStrictRolesForMeal(mk, slots, dayRolesLocal);
@@ -1513,6 +3111,13 @@ export default function MenuJournalierAuto({
               pools,
               plannedProteinType: planned.proteinType,
               plannedDessertType: planned.dessertType,
+              plannedVegForm: planned.vegForm,
+              plannedStarchType: planned.starchType,
+              plannedDairyType: planned.dairyType,
+              plannedSnackCerealType: planned.snackCerealType,
+              plannedVegTheme: planned.vegTheme,
+              plannedWhiteProteinType: planned.whiteProteinType,
+              clinicalOptions: menuDisplayContext,
               daySeed,
               lastWhiteBias: planned.proteinType === "white_meat" ? { avoid: lastWhite[mk] || "" } : { avoid: "" },
             });
@@ -1536,6 +3141,20 @@ export default function MenuJournalierAuto({
 
       setMappingByDay(nextMappingByDay);
       setRolesByDay(nextRolesByDay);
+      setGenerationNonce(nextNonce);
+
+      if (assessmentRef && !blocked) {
+        updateDoc(assessmentRef, {
+          "ration.autoMenu.daysCount": daysCount,
+          "ration.autoMenu.generationNonce": nextNonce,
+          "ration.autoMenu.mappingByDay": nextMappingByDay,
+          "ration.autoMenu.rolesByDay": nextRolesByDay,
+          "ration.autoMenu.updatedAt": serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }).catch((e) => {
+          console.error("Auto menu immediate save failed:", e);
+        });
+      }
 
       toast({
         title: "Menus générés",
@@ -1556,25 +3175,26 @@ export default function MenuJournalierAuto({
     } finally {
       setGenerating(false);
     }
-  }, [ciqualOk, rationItems.length, daysCount, docData, mappingByDay, rolesByDay, rationLinesByMealStatic, ciqualByCode, pools, toast]);
+  }, [assessmentRef, blocked, ciqualOk, rationItems.length, daysCount, docData, rationLinesByMealStatic, ciqualByCode, pools, menuDisplayContext, toast]);
 
   const regenerateDay = useCallback(
     (d) => {
       if (!ciqualOk) return;
 
-      const seed = docData?.id || docData?.createdAt?.seconds || "byl";
-      const plan = buildWeeklyPlan(daysCount, seed);
+      const nextNonce = Date.now();
+      const seed = `${docData?.id || docData?.createdAt?.seconds || "byl"}:${nextNonce}:day:${d}`;
+      const plan = buildWeeklyPlan(daysCount, seed, menuDisplayContext);
 
       const dk = String(d);
       const daySeed = `D${d}:${seed}`;
-      const dayMap = { ...(mappingByDay?.[dk] || {}) };
-      const dayRolesLocal = { ...(rolesByDay?.[dk] || {}) };
+      const dayMap = {};
+      const dayRolesLocal = {};
 
       const lastWhite = { dejeuner: "", diner: "" };
 
       for (const mk of MEALS_ORDER) {
-        const slots = rationLinesByMealStatic[mk] || [];
-        const planned = plan[`${d}_${mk}`] || { proteinType: "white_meat", dessertType: "fruit" };
+        const slots = mealSlotsForMenu(mk, rationLinesByMealStatic[mk] || []);
+        const planned = plan[`${d}_${mk}`] || fallbackMealPlan(d, mk, menuDisplayContext);
 
         if (mk === "dejeuner" || mk === "diner") {
           const ensured = assignStrictRolesForMeal(mk, slots, dayRolesLocal);
@@ -1592,6 +3212,13 @@ export default function MenuJournalierAuto({
             pools,
             plannedProteinType: planned.proteinType,
             plannedDessertType: planned.dessertType,
+            plannedVegForm: planned.vegForm,
+            plannedStarchType: planned.starchType,
+            plannedDairyType: planned.dairyType,
+            plannedSnackCerealType: planned.snackCerealType,
+            plannedVegTheme: planned.vegTheme,
+            plannedWhiteProteinType: planned.whiteProteinType,
+            clinicalOptions: menuDisplayContext,
             daySeed,
             lastWhiteBias: planned.proteinType === "white_meat" ? { avoid: lastWhite[mk] || "" } : { avoid: "" },
           });
@@ -1611,64 +3238,90 @@ export default function MenuJournalierAuto({
 
       setMappingByDay((prev) => ({ ...(prev || {}), [dk]: dayMap }));
       setRolesByDay((prev) => ({ ...(prev || {}), [dk]: dayRolesLocal }));
+      setGenerationNonce(nextNonce);
 
       toast({ title: `Jour ${d} régénéré`, status: "success", duration: 1200, isClosable: true });
     },
-    [ciqualOk, docData, daysCount, mappingByDay, rolesByDay, rationLinesByMealStatic, ciqualByCode, pools, toast]
+    [ciqualOk, docData, daysCount, rationLinesByMealStatic, ciqualByCode, pools, menuDisplayContext, toast]
   );
 
-  // ---------- Save ----------
-  const onSave = async () => {
+  // ---------- Auto-save ----------
+  const persistAutoMenu = useCallback(async ({ silent = true } = {}) => {
     if (!assessmentRef) {
-      toast({
-        title: "Impossible de sauvegarder",
-        description: "assessmentRef manquant (le parent doit passer la ref Firestore).",
-        status: "error",
-        duration: 3500,
-        isClosable: true,
-      });
+      if (!silent) {
+        toast({
+          title: "Impossible de sauvegarder",
+          description: "assessmentRef manquant (le parent doit passer la ref Firestore).",
+          status: "error",
+          duration: 3500,
+          isClosable: true,
+        });
+      }
       return;
     }
     if (blocked) {
-      toast({
-        title: "Bilan bloqué",
-        description: "Le bilan n’est pas validé (ou bloqué côté parent).",
-        status: "warning",
-        duration: 2500,
-        isClosable: true,
-      });
+      if (!silent) {
+        toast({
+          title: "Bilan bloqué",
+          description: "Le bilan n’est pas validé (ou bloqué côté parent).",
+          status: "warning",
+          duration: 2500,
+          isClosable: true,
+        });
+      }
       return;
     }
 
-    setSaving(true);
+    if (!silent) setSaving(true);
     try {
       await updateDoc(assessmentRef, {
-        ration: {
-          ...(docData?.ration || {}),
-          autoMenu: {
-            ...(docData?.ration?.autoMenu || {}),
-            daysCount,
-            mappingByDay: mappingByDay || {},
-            rolesByDay: rolesByDay || {},
-            updatedAt: serverTimestamp(),
-          },
-        },
+        "ration.autoMenu.daysCount": daysCount,
+        "ration.autoMenu.generationNonce": generationNonce,
+        "ration.autoMenu.mappingByDay": mappingByDay || {},
+        "ration.autoMenu.rolesByDay": rolesByDay || {},
+        "ration.autoMenu.updatedAt": serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
 
-      toast({ title: "Sauvegardé", status: "success", duration: 1200, isClosable: true });
+      if (!silent) toast({ title: "Sauvegardé", status: "success", duration: 1200, isClosable: true });
     } catch (e) {
-      toast({
-        title: "Erreur sauvegarde",
-        description: e?.message || "Impossible de sauvegarder",
-        status: "error",
-        duration: 4000,
-        isClosable: true,
-      });
+      if (!silent) {
+        toast({
+          title: "Erreur sauvegarde",
+          description: e?.message || "Impossible de sauvegarder",
+          status: "error",
+          duration: 4000,
+          isClosable: true,
+        });
+      } else {
+        console.error("Auto menu autosave failed:", e);
+      }
     } finally {
-      setSaving(false);
+      if (!silent) setSaving(false);
     }
-  };
+  }, [assessmentRef, blocked, daysCount, generationNonce, mappingByDay, rolesByDay, toast]);
+
+  useEffect(() => {
+    if (!assessmentRef || blocked || !docData) return undefined;
+
+    const hash = JSON.stringify({
+      daysCount,
+      generationNonce,
+      mappingByDay,
+      rolesByDay,
+    });
+    if (autoSaveHashRef.current === hash) return undefined;
+
+    const timer = window.setTimeout(() => {
+      autoSaveHashRef.current = hash;
+      persistAutoMenu({ silent: true }).catch((e) => {
+        console.error("Auto menu autosave failed:", e);
+        autoSaveHashRef.current = "";
+      });
+    }, 1200);
+
+    return () => window.clearTimeout(timer);
+  }, [assessmentRef, blocked, daysCount, docData, generationNonce, mappingByDay, persistAutoMenu, rolesByDay]);
 
   const onChangeDaysCount = (n) => {
     const next = Math.min(31, Math.max(1, num(n) || 1));
@@ -1725,9 +3378,8 @@ export default function MenuJournalierAuto({
   }
 
   const TargetsBar = () => {
-    const b = targets?.bilan || null;
     const r = targets?.ration || null;
-    if (!b && !r) return null;
+    if (!r) return null;
 
     const Pill = ({ label, v }) => {
       if (!v) {
@@ -1760,11 +3412,10 @@ export default function MenuJournalierAuto({
     return (
       <Box>
         <Text fontSize="sm" opacity={0.75} mb={2}>
-          Cibles
+          Objectifs issus de la ration
         </Text>
         <HStack spacing={3} flexWrap="wrap">
-          <Pill label="Bilan" v={b} />
-          <Pill label="Ration" v={r} />
+          <Pill label="Objectif ration" v={r} />
         </HStack>
       </Box>
     );
@@ -1780,137 +3431,166 @@ export default function MenuJournalierAuto({
       >
         <Card bg={panelBg} border="1px solid" borderColor={borderCol} rounded="2xl" mb={4}>
           <CardBody py={mode === "edit" ? 3 : 5}>
-            <HStack mb={mode === "edit" ? 2 : 3} gap={2} flexWrap="wrap" align="center">
-              <Heading size="sm">Menu (auto)</Heading>
+            <VStack align="stretch" spacing={4}>
+              <HStack gap={3} flexWrap="wrap" align="center">
+                <Box>
+                  <Heading size="sm">{mode === "edit" ? `Jour ${dayIndex}` : "Génération du menu"}</Heading>
+                  {mode !== "edit" ? (
+                    <Text fontSize="sm" opacity={0.72} mt={1}>
+                      La ration retenue sert de base à la génération des journées.
+                    </Text>
+                  ) : null}
+                </Box>
 
-              {ciqualOk ? <Badge colorScheme="green">CIQUAL OK</Badge> : <Badge colorScheme="red">CIQUAL KO</Badge>}
+                <Spacer />
 
-              <Badge
-                colorScheme={
-                  associationStats.total ? (associationStats.mapped === associationStats.total ? "green" : "yellow") : "gray"
-                }
-              >
-                {associationStats.mapped}/{associationStats.total} associés (Jour {dayIndex})
-              </Badge>
+                <HStack gap={2} flexWrap="wrap">
+                  <Select
+                    value={daysCount}
+                    onChange={(e) => onChangeDaysCount(e.target.value)}
+                    w={{ base: "92px", md: "100px" }}
+                    size={mode === "edit" ? "sm" : "md"}
+                  >
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                      <option key={d} value={d}>
+                        {d} j
+                      </option>
+                    ))}
+                  </Select>
 
-              <Spacer />
+                  {mode === "edit" && (
+                    <Button variant="outline" onClick={() => setMode("planning")} size="sm">
+                      Retour planning
+                    </Button>
+                  )}
 
-              <HStack gap={2} flexWrap="wrap">
-                <Select
-                  value={daysCount}
-                  onChange={(e) => onChangeDaysCount(e.target.value)}
-                  w={{ base: "92px", md: "100px" }}
-                  size={mode === "edit" ? "sm" : "md"}
-                >
-                  {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                    <option key={d} value={d}>
-                      {d} j
-                    </option>
-                  ))}
-                </Select>
-
-                {mode === "edit" && (
-                  <Button variant="outline" onClick={() => setMode("planning")} size="sm">
-                    Retour planning
-                  </Button>
-                )}
-
-                <Button
-                  variant="outline"
-                  leftIcon={<RepeatIcon />}
-                  onClick={generateAllDays}
-                  isLoading={generating}
-                  loadingText="Génération…"
-                  isDisabled={blocked || !ciqualOk}
-                  size={mode === "edit" ? "sm" : "md"}
-                >
-                  Générer tous les jours
-                </Button>
-
-                <Button
-                  colorScheme="blue"
-                  onClick={onSave}
-                  isLoading={saving}
-                  loadingText="Sauvegarde…"
-                  isDisabled={blocked}
-                  size={mode === "edit" ? "sm" : "md"}
-                >
-                  {onSaveLabel}
-                </Button>
-              </HStack>
-            </HStack>
-
-            <SimpleGrid columns={{ base: 1, md: 3 }} spacing={mode === "edit" ? 3 : 4} alignItems="start">
-              <TargetsBar />
-
-              <Box>
-                <HStack align="center" mb={2}>
-                  <Text fontSize="sm" opacity={0.75}>
-                    Options
-                  </Text>
-                  <Spacer />
                   <Button
-                    size="xs"
+                    {...nutritionTheme.primaryButtonProps}
+                    leftIcon={<RepeatIcon />}
+                    onClick={generateAllDays}
+                    isLoading={generating}
+                    loadingText="Génération…"
+                    isDisabled={blocked || !ciqualOk}
+                    size={mode === "edit" ? "sm" : "md"}
+                  >
+                    Générer les menus
+                  </Button>
+
+                  {saving ? (
+                    <Badge colorScheme="blue" px={3} py={2} borderRadius="full">
+                      Enregistrement…
+                    </Badge>
+                  ) : null}
+                </HStack>
+              </HStack>
+
+              {mode !== "edit" ? (
+              <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={3}>
+                <Box bg={subtleCard} border="1px solid" borderColor={borderCol} rounded="xl" p={3}>
+                  <Text fontSize="xs" textTransform="uppercase" opacity={0.65} fontWeight="900">
+                    État
+                  </Text>
+                  <Wrap mt={2} spacing={2}>
+                    <WrapItem>
+                      <Tag size="sm" variant="subtle" colorScheme={ciqualOk ? "green" : "red"}>
+                        <TagLabel fontWeight="900">{ciqualOk ? "Données prêtes" : "Données à charger"}</TagLabel>
+                      </Tag>
+                    </WrapItem>
+                    <WrapItem>
+                      <Tag size="sm" variant="subtle" colorScheme={mode === "edit" ? "blue" : "gray"}>
+                        <TagLabel fontWeight="900">
+                          {mode === "edit" ? `Jour ${dayIndex} en édition` : "Vue planning"}
+                        </TagLabel>
+                      </Tag>
+                    </WrapItem>
+                    <WrapItem>
+                      <Tag size="sm" variant="subtle">
+                        <TagLabel fontWeight="900">{daysCount} jour(s)</TagLabel>
+                      </Tag>
+                    </WrapItem>
+                    <WrapItem>
+                      <Tag
+                        size="sm"
+                        variant="subtle"
+                        colorScheme={
+                          associationStats.total
+                            ? associationStats.mapped === associationStats.total
+                              ? "green"
+                              : "yellow"
+                            : "gray"
+                        }
+                      >
+                        <TagLabel fontWeight="900">
+                          {associationStats.mapped}/{associationStats.total} associations
+                        </TagLabel>
+                      </Tag>
+                    </WrapItem>
+                  </Wrap>
+                </Box>
+
+                <Box bg={subtleCard} border="1px solid" borderColor={borderCol} rounded="xl" p={3}>
+                  <Text fontSize="xs" textTransform="uppercase" opacity={0.65} fontWeight="900">
+                    Menu généré
+                  </Text>
+                  <HStack mt={1} align="baseline" spacing={2}>
+                    <Text fontSize="2xl" fontWeight="900">
+                      {r0(totals?.day?.kcal)}
+                    </Text>
+                    <Text fontSize="sm" opacity={0.7}>
+                      kcal
+                    </Text>
+                  </HStack>
+                  <Wrap mt={2} spacing={2}>
+                    <WrapItem>
+                      <Tag size="sm" variant="subtle">
+                        <TagLabel fontWeight="900">P {r0(totals?.day?.p)} g</TagLabel>
+                      </Tag>
+                    </WrapItem>
+                    <WrapItem>
+                      <Tag size="sm" variant="subtle">
+                        <TagLabel fontWeight="900">L {r0(totals?.day?.f)} g</TagLabel>
+                      </Tag>
+                    </WrapItem>
+                    <WrapItem>
+                      <Tag size="sm" variant="subtle">
+                        <TagLabel fontWeight="900">G {r0(totals?.day?.c)} g</TagLabel>
+                      </Tag>
+                    </WrapItem>
+                    <WrapItem>
+                      <Tag size="sm" variant="subtle">
+                        <TagLabel fontWeight="900">{allMealsNonZero.length} repas utilisés</TagLabel>
+                      </Tag>
+                    </WrapItem>
+                  </Wrap>
+                </Box>
+
+                <Box bg={subtleCard} border="1px solid" borderColor={borderCol} rounded="xl" p={3}>
+                  <Text fontSize="xs" textTransform="uppercase" opacity={0.65} fontWeight="900">
+                    Contrôles
+                  </Text>
+                  <Button
+                    mt={2}
+                    size="sm"
                     variant="outline"
                     leftIcon={showMicros ? <ViewOffIcon /> : <ViewIcon />}
                     onClick={() => setShowMicros((v) => !v)}
                   >
-                    {showMicros ? "Masquer micros" : "Afficher micros"}
+                    {showMicros ? "Masquer les micros" : "Afficher les micros"}
                   </Button>
-                </HStack>
+                  <Text fontSize="sm" opacity={0.75} mt={2}>
+                    Féculents cuits stricts, équivalents cuits, plats sans morceaux gras,
+                    desserts sans boissons.
+                  </Text>
+                </Box>
+              </SimpleGrid>
+              ) : null}
 
-                <Input
-                  placeholder="(optionnel) filtre de debug : riz, pâtes…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  isDisabled={!ciqualOk}
-                  size={mode === "edit" ? "sm" : "md"}
-                />
-                <Text fontSize="xs" opacity={0.7} mt={2} lineHeight="1.25rem">
-                  ✅ Correctifs actifs : <b>féculents cuits stricts</b> (exclut pain/biscottes), <b>féculents crus → équiv. cuits</b>,
-                  <b>plats</b> sans “graisse/peau/os/bouillon”, <b>desserts</b> sans boissons.
-                </Text>
-              </Box>
-
-              <Box>
-                <Text fontSize="sm" opacity={0.75} mb={2}>
-                  Total du jour {mode === "edit" ? `(Jour ${dayIndex})` : ""}
-                </Text>
-                <HStack spacing={2} flexWrap="wrap">
-                  <Tag size="sm" variant="subtle" colorScheme="blue">
-                    <TagLabel fontWeight="900">{r0(totals?.day?.kcal)} kcal</TagLabel>
-                  </Tag>
-                  <Tag size="sm" variant="subtle">
-                    <TagLabel fontWeight="900">P {r0(totals?.day?.p)}g</TagLabel>
-                  </Tag>
-                  <Tag size="sm" variant="subtle">
-                    <TagLabel fontWeight="900">L {r0(totals?.day?.f)}g</TagLabel>
-                  </Tag>
-                  <Tag size="sm" variant="subtle">
-                    <TagLabel fontWeight="900">G {r0(totals?.day?.c)}g</TagLabel>
-                  </Tag>
-                </HStack>
-
-                {showMicros && (
-                  <Wrap mt={3} spacing={2}>
-                    {selectedMicros.map((k) => (
-                      <WrapItem key={k}>
-                        <Tag size="sm" variant="subtle" colorScheme="purple">
-                          <TagLabel fontWeight="900">
-                            {MICRO_LABEL[k]}: {formatMicro(k, totals?.day?.micros?.[k] || 0)}
-                          </TagLabel>
-                        </Tag>
-                      </WrapItem>
-                    ))}
-                  </Wrap>
-                )}
-              </Box>
-            </SimpleGrid>
+              {mode !== "edit" ? <TargetsBar /> : null}
 
             <Collapse in={showMicros} animateOpacity>
               <Divider my={4} />
               <Text fontSize="sm" opacity={0.75} mb={2}>
-                Micros affichés (clique pour activer/désactiver)
+                Micros affichés et suivis sur le jour courant
               </Text>
               <Wrap spacing={2}>
                 {Object.keys(MICRO_LABEL).map((k) => {
@@ -1929,7 +3609,20 @@ export default function MenuJournalierAuto({
                   );
                 })}
               </Wrap>
+
+              <Wrap mt={3} spacing={2}>
+                {selectedMicros.map((k) => (
+                  <WrapItem key={`header_${k}`}>
+                    <Tag size="sm" variant="subtle" colorScheme="purple">
+                      <TagLabel fontWeight="900">
+                        {MICRO_LABEL[k]}: {formatMicro(k, totals?.day?.micros?.[k] || 0)}
+                      </TagLabel>
+                    </Tag>
+                  </WrapItem>
+                ))}
+              </Wrap>
             </Collapse>
+            </VStack>
           </CardBody>
         </Card>
       </Box>
@@ -1937,7 +3630,7 @@ export default function MenuJournalierAuto({
       {!ciqualOk && (
         <Alert status="error" rounded="lg" mb={4}>
           <AlertIcon />
-          CIQUAL non chargé → vérifie `/public/ciqual_2025.json`
+          Données alimentaires non chargées.
         </Alert>
       )}
 
@@ -1980,10 +3673,10 @@ export default function MenuJournalierAuto({
             <Text fontSize="sm" opacity={0.75} mb={3}>
               Clique sur un jour pour voir le détail.
               <br />
-              Astuce : si tu veux des menus différents d’un coup → <b>“Générer tous les jours”</b>.
+              Astuce : si tu veux des menus différents d’un coup → <b>“Générer les menus”</b>.
             </Text>
 
-            <SimpleGrid columns={{ base: 1, md: 7 }} spacing={3}>
+            <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} spacing={4}>
               {weekDays.map((d) => {
                 const prev = weekPreview[d];
                 const t = prev?.totals || { kcal: 0, p: 0, f: 0, c: 0 };
@@ -1992,22 +3685,33 @@ export default function MenuJournalierAuto({
                 return (
                   <Card
                     key={d}
-                    bg={subtleCard}
+                    bg={planningDayBg}
+                    color={planningText}
                     border="1px solid"
                     borderColor={borderCol}
                     rounded="xl"
                     cursor="pointer"
-                    _hover={{ transform: "translateY(-1px)" }}
+                    overflow="hidden"
+                    _hover={{ transform: "translateY(-1px)", boxShadow: "lg" }}
                     onClick={() => {
                       setDayIndex(d);
                       setMode("edit");
                       window?.scrollTo?.({ top: 0, behavior: "smooth" });
                     }}
                   >
-                    <CardBody>
-                      <HStack mb={2} align="start" gap={2}>
+                    <Box
+                      px={3}
+                      py={3}
+                      bg={planningHeaderBg}
+                      borderBottom="1px solid"
+                      borderColor={borderCol}
+                    >
+                      <HStack align="start" gap={2}>
                         <Box>
                           <Heading size="sm">Jour {d}</Heading>
+                          <Text fontSize="xs" color={planningMuted}>
+                            {mealsToShow.length} repas lus
+                          </Text>
                         </Box>
                         <Spacer />
                         <Tag size="sm" variant="subtle" colorScheme="blue">
@@ -2015,7 +3719,7 @@ export default function MenuJournalierAuto({
                         </Tag>
                       </HStack>
 
-                      <HStack mb={2} spacing={2} onClick={(e) => e.stopPropagation()}>
+                      <HStack mt={2} spacing={2} onClick={(e) => e.stopPropagation()}>
                         <IconButton
                           aria-label="Régénérer ce jour"
                           icon={<RepeatIcon />}
@@ -2026,59 +3730,75 @@ export default function MenuJournalierAuto({
                         />
                         <IconButton aria-label="OK" icon={<CheckIcon />} size="xs" variant="outline" isDisabled />
                       </HStack>
+                    </Box>
 
+                    <CardBody color={planningText}>
+                      <Wrap mb={2} spacing={1}>
+                        <WrapItem>
+                          <Tag size="sm" variant="subtle">
+                            <TagLabel>P {r0(t.p)}g</TagLabel>
+                          </Tag>
+                        </WrapItem>
+                        <WrapItem>
+                          <Tag size="sm" variant="subtle">
+                            <TagLabel>L {r0(t.f)}g</TagLabel>
+                          </Tag>
+                        </WrapItem>
+                        <WrapItem>
+                          <Tag size="sm" variant="subtle">
+                            <TagLabel>G {r0(t.c)}g</TagLabel>
+                          </Tag>
+                        </WrapItem>
+                      </Wrap>
+
+                      <VStack align="stretch" spacing={2}>
                       {mealsToShow.map((mk) => {
                         const items = prev?.perMeal?.[mk] || [];
                         const hasAny = (rationLinesByMealStatic?.[mk] || []).length > 0;
                         if (!hasAny) return null;
 
-                        const isMenuMeal = mk === "dejeuner" || mk === "diner";
+                        const summaryItems = compactMealSummary(mk, items);
 
                         return (
-                          <Box key={mk} mt={2}>
-                            <Text fontWeight="900" fontSize="sm">
-                              {MEAL_LABEL[mk]}
-                            </Text>
+                          <Box key={mk} p={2.5} bg={planningMealBg} border="1px solid" borderColor={borderCol} rounded="lg">
+                            <HStack align="center" spacing={2} mb={1}>
+                              <Text fontWeight="900" fontSize="sm">
+                                {MEAL_LABEL[mk]}
+                              </Text>
+                              <Spacer />
+                              <Badge fontSize="0.62rem" variant="subtle">
+                                {items.length ? "Généré" : "À générer"}
+                              </Badge>
+                            </HStack>
 
-                            {items.length ? (
-                              <VStack align="stretch" spacing={1} mt={1}>
-                                {isMenuMeal
-                                  ? MENU_ROLES.map((role) => {
-                                      const roleItems = items.filter((x) => x.role === role);
-                                      if (!roleItems.length) return null;
-                                      return (
-                                        <Box key={role} mt={1}>
-                                          <Text fontSize="xs" opacity={0.75} fontWeight="900">
-                                            {MENU_ROLE_LABEL[role]}
-                                          </Text>
-                                          {roleItems.map((x, idx) => (
-                                            <Text key={`${mk}_${role}_${idx}`} fontSize="sm" whiteSpace="normal">
-                                              • {x.text}{" "}
-                                              <Box as="span" opacity={0.75}>
-                                                ({r0(x.qty)} {x.unit})
-                                              </Box>
-                                            </Text>
-                                          ))}
-                                        </Box>
-                                      );
-                                    })
-                                  : items.map((x, idx) => (
-                                      <Text key={`${mk}_${idx}`} fontSize="sm" whiteSpace="normal">
-                                        • {x.text}{" "}
-                                        <Box as="span" opacity={0.75}>
-                                          ({r0(x.qty)} {x.unit})
-                                        </Box>
-                                      </Text>
-                                    ))}
+                            {summaryItems.length ? (
+                              <VStack align="stretch" spacing={1.5}>
+                                {summaryItems.map((x, idx) => (
+                                  <HStack key={`${mk}_summary_${idx}`} align="start" spacing={2}>
+                                    <Box flexShrink={0} w="5px" h="5px" rounded="full" bg="gray.400" mt="6px" />
+                                    <Text fontSize="xs" lineHeight="1.3" noOfLines={2} color={planningText}>
+                                      {x.text}{" "}
+                                      <Box as="span" color={planningMuted}>
+                                        ({r0(x.qty)} {x.unit})
+                                      </Box>
+                                    </Text>
+                                  </HStack>
+                                ))}
+                                {items.length > summaryItems.length ? (
+                                  <Text fontSize="xs" color={planningMuted}>
+                                    +{items.length - summaryItems.length} autre(s) élément(s)
+                                  </Text>
+                                ) : null}
                               </VStack>
                             ) : (
-                              <Text fontSize="sm" opacity={0.6} mt={1}>
+                              <Text fontSize="sm" color={planningMuted} mt={1}>
                                 — (à générer)
                               </Text>
                             )}
                           </Box>
                         );
                       })}
+                      </VStack>
                     </CardBody>
                   </Card>
                 );
@@ -2125,16 +3845,13 @@ export default function MenuJournalierAuto({
                   Régénérer ce jour
                 </Button>
 
-                <Button size="sm" leftIcon={<RepeatIcon />} colorScheme="blue" onClick={generateAllDays} isLoading={generating} loadingText="Génération…" isDisabled={blocked || !ciqualOk}>
-                  Régénérer tous
-                </Button>
               </HStack>
             </CardBody>
           </Card>
 
           <VStack align="stretch" spacing={5}>
             {MEALS_ORDER.map((mealKey) => {
-              const slots = rationLinesByMealStatic?.[mealKey] || [];
+              const slots = mealSlotsForMenu(mealKey, rationLinesByMealStatic?.[mealKey] || []);
               if (!slots.length) return null;
 
               const isMenuMeal = mealKey === "dejeuner" || mealKey === "diner";
@@ -2151,73 +3868,119 @@ export default function MenuJournalierAuto({
                   return {
                     key: slot.key,
                     role,
-                    text: row ? prettyCiqualName(ciqualName(row)) : "—",
+                    text: row ? prettyCiqualName(ciqualName(row), menuDisplayContext) : "—",
                     missing: !row,
                     qty: info.qtyDisplay,
                     unit: info.unitDisplay,
-                    note: info.cookedOverride ? "équiv. cuit" : "",
+                    note: info.cookedEquivalent ? `équiv. cuit ${info.cookedEquivalent} g` : "",
+                    sourceLabel: prettySlotSourceLabel(slot),
+                    sourceOrder: orderNonMainSlot(slot),
                   };
                 })
                 .filter(Boolean);
 
               if (isMenuMeal) items.sort((a, b) => MENU_ROLE_ORDER(a.role) - MENU_ROLE_ORDER(b.role));
+              else items.sort((a, b) => (a.sourceOrder || 999) - (b.sourceOrder || 999));
 
               return (
-                <Card key={mealKey} bg={panelBg} border="1px solid" borderColor={borderCol} rounded="2xl">
-                  <CardBody>
-                    <HStack mb={2} flexWrap="wrap" gap={2}>
-                      <Heading size="sm">{MEAL_LABEL[mealKey]}</Heading>
+                <Card key={mealKey} bg={panelBg} border="1px solid" borderColor={borderCol} rounded="2xl" overflow="hidden">
+                  <Box
+                    px={{ base: 4, md: 5 }}
+                    py={4}
+                    bg={mealHeaderBg}
+                    borderBottom="1px solid"
+                    borderColor={borderCol}
+                  >
+                    <HStack flexWrap="wrap" gap={2}>
+                      <Box>
+                        <Heading size="sm">{MEAL_LABEL[mealKey]}</Heading>
+                        <Text fontSize="sm" opacity={0.68} mt={1}>
+                          {items.length} élément(s) • lecture par rôle alimentaire
+                        </Text>
+                      </Box>
                       <Spacer />
                       <Badge colorScheme={items.some((x) => x.missing) ? "yellow" : "green"}>
                         {items.some((x) => x.missing) ? "À générer" : "OK"}
                       </Badge>
                     </HStack>
+                  </Box>
 
+                  <CardBody>
                     {isMenuMeal ? (
-                      <VStack align="stretch" spacing={3} mt={2}>
+                      <SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} spacing={3}>
                         {MENU_ROLES.map((role) => {
                           const roleItems = items.filter((x) => x.role === role);
                           if (!roleItems.length) return null;
                           return (
-                            <Box key={role}>
-                              <Text fontSize="sm" opacity={0.75} fontWeight="900">
+                            <Box
+                              key={role}
+                              p={3}
+                              bg={subtleCard}
+                              border="1px solid"
+                              borderColor={borderCol}
+                              rounded="xl"
+                            >
+                              <Badge colorScheme={MENU_ROLE_COLOR[role] || "gray"} variant="subtle" mb={2}>
                                 {MENU_ROLE_LABEL[role]}
-                              </Text>
+                              </Badge>
                               {roleItems.map((x, idx) => (
-                                <Text key={`${role}_${idx}`} fontSize="md">
-                                  • {x.text}{" "}
-                                  <Box as="span" opacity={0.75}>
-                                    ({r0(x.qty)} {x.unit}
-                                    {x.note ? `, ${x.note}` : ""})
-                                  </Box>
-                                </Text>
+                                <Box key={`${role}_${idx}`} py={idx ? 2 : 0} borderTop={idx ? "1px solid" : "0"} borderColor={borderCol}>
+                                  <Text fontSize="md" fontWeight="800" lineHeight="1.25">
+                                    {x.text}
+                                  </Text>
+                                  <Wrap mt={2} spacing={2}>
+                                    <WrapItem>
+                                      <Tag size="sm" variant="subtle">
+                                        <TagLabel fontWeight="900">
+                                          {r0(x.qty)} {x.unit}
+                                        </TagLabel>
+                                      </Tag>
+                                    </WrapItem>
+                                    {x.note ? (
+                                      <WrapItem>
+                                        <Tag size="sm" variant="subtle" colorScheme="blue">
+                                          <TagLabel>{x.note}</TagLabel>
+                                        </Tag>
+                                      </WrapItem>
+                                    ) : null}
+                                  </Wrap>
+                                </Box>
                               ))}
                             </Box>
                           );
                         })}
-                      </VStack>
+                      </SimpleGrid>
                     ) : (
-                      <VStack align="stretch" spacing={1} mt={2}>
+                      <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} spacing={3}>
                         {items.map((x, idx) => (
-                          <Text key={`${mealKey}_${idx}`} fontSize="md">
-                            • {x.text}{" "}
-                            <Box as="span" opacity={0.75}>
-                              ({r0(x.qty)} {x.unit}
-                              {x.note ? `, ${x.note}` : ""})
-                            </Box>
-                          </Text>
+                          <Box key={`${mealKey}_${idx}`} p={3} bg={subtleCard} border="1px solid" borderColor={borderCol} rounded="xl">
+                            <Badge colorScheme="blue" variant="subtle" mb={2}>
+                              {x.sourceLabel || "Élément"}
+                            </Badge>
+                            <Text fontSize="md" fontWeight="800" lineHeight="1.25">
+                              {x.text}
+                            </Text>
+                            <Wrap mt={2} spacing={2}>
+                              <WrapItem>
+                                <Tag size="sm" variant="subtle">
+                                  <TagLabel fontWeight="900">
+                                    {r0(x.qty)} {x.unit}
+                                  </TagLabel>
+                                </Tag>
+                              </WrapItem>
+                              {x.note ? (
+                                <WrapItem>
+                                  <Tag size="sm" variant="subtle" colorScheme="blue">
+                                    <TagLabel>{x.note}</TagLabel>
+                                  </Tag>
+                                </WrapItem>
+                              ) : null}
+                            </Wrap>
+                          </Box>
                         ))}
-                      </VStack>
+                      </SimpleGrid>
                     )}
 
-                    <Divider my={3} />
-                    <Text fontSize="xs" opacity={0.7}>
-                      ✅ Fixes cohérence :
-                      <br />• <b>Féculents cuits</b> : pool strict (exclut pain/biscotte/bagel)
-                      <br />• <b>Féculents crus</b> : conversion automatique en <b>équivalent cuits</b>
-                      <br />• <b>Plat protéiné</b> : exclut <b>graisse/peau/os/bouillon</b>
-                      <br />• <b>Dessert</b> : exclut <b>boissons</b> (boisson/jus/soda/…)
-                    </Text>
                   </CardBody>
                 </Card>
               );
@@ -2228,4 +3991,3 @@ export default function MenuJournalierAuto({
     </Box>
   );
 }
-

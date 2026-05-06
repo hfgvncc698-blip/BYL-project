@@ -1,18 +1,36 @@
 import React from "react";
 import {
-  Menu, MenuButton, MenuList, MenuItem, Button
+  Menu, MenuButton, MenuList, MenuItem, Button, useColorModeValue,
 } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 import { doc, updateDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useAuth } from "../AuthContext";
 
-const SUPPORTED = ["fr","en","it","es","de","ru","ar"];
+const LANGS = [
+  { code: "fr", label: "Français" },
+  { code: "en", label: "English" },
+  { code: "de", label: "Deutsch" },
+  { code: "it", label: "Italiano" },
+  { code: "es", label: "Español" },
+  { code: "ru", label: "Русский" },
+  { code: "ar", label: "العربية" },
+];
 
-export default function LanguageSwitcher() {
+const SUPPORTED = LANGS.map((l) => l.code);
+
+export default function LanguageSwitcher({ buttonProps = {}, menuProps = {} }) {
   const { i18n } = useTranslation();
   const { user } = useAuth();
   const current = (i18n.resolvedLanguage || "fr").split("-")[0];
+
+  const buttonBg = useColorModeValue("transparent", "rgba(255,255,255,0.08)");
+  const buttonColor = useColorModeValue("black", "white");
+  const buttonBorderColor = useColorModeValue("rgba(255,255,255,0.8)", "rgba(255,255,255,0.32)");
+  const menuBg = useColorModeValue("white", "gray.900");
+  const menuColor = useColorModeValue("black", "white");
+  const menuBorderColor = useColorModeValue("gray.200", "whiteAlpha.150");
+  const itemHoverBg = useColorModeValue("gray.100", "whiteAlpha.100");
 
   const change = async (lng) => {
     if (!SUPPORTED.includes(lng)) return;
@@ -35,37 +53,39 @@ export default function LanguageSwitcher() {
   };
 
   return (
-    <Menu>
+    <Menu {...menuProps}>
       <MenuButton
         as={Button}
         size="sm"
         variant="outline"
         minW="52px"
         px={2}
-        borderColor="white"
-        color="white"
-        bg="transparent"
-        _hover={{ bg: "whiteAlpha.200" }}
-        _active={{ bg: "whiteAlpha.300" }}
+        borderColor={buttonBorderColor}
+        color={buttonColor}
+        bg={buttonBg}
+        _hover={{ bg: useColorModeValue("whiteAlpha.200", "whiteAlpha.200") }}
+        _active={{ bg: useColorModeValue("whiteAlpha.300", "whiteAlpha.300") }}
+        {...buttonProps}
       >
         {current.toUpperCase()}
       </MenuButton>
       <MenuList
-        bg="white"
-        color="black"
-        borderColor="gray.200"
+        bg={menuBg}
+        color={menuColor}
+        borderColor={menuBorderColor}
         minW="unset"
-        w="76px"
+        w="auto"
         p={0}
       >
-        {SUPPORTED.map((l) => (
+        {LANGS.map((lang) => (
           <MenuItem
-            key={l}
-            onClick={() => change(l)}
+            key={lang.code}
+            onClick={() => change(lang.code)}
             justifyContent="center"
-            _hover={{ bg: "gray.100" }}
+            _hover={{ bg: itemHoverBg }}
+            color={menuColor}
           >
-            {l.toUpperCase()}
+            {lang.label}
           </MenuItem>
         ))}
       </MenuList>

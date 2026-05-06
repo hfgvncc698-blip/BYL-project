@@ -1,5 +1,6 @@
+/* eslint-disable react/prop-types */
 // src/components/RationManualEditor.jsx
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
   Box,
   Badge,
@@ -18,18 +19,16 @@ import {
   Wrap,
   WrapItem,
   useBreakpointValue,
-  useColorModeValue,
   useToast,
   FormControl,
   FormLabel,
-  Portal,
 } from "@chakra-ui/react";
 import { ChevronDownIcon, ChevronRightIcon, RepeatIcon } from "@chakra-ui/icons";
-
-/* ==================== Sticky tuning ==================== */
-const GAP_BOTTOM = 16; // px
-const SAFE_AREA_EXTRA = 18; // px
-const SHOW_TOP_THRESHOLD = 80; // px (déclenchement quand on arrive au début du tableau)
+import {
+  buildNutritionContextTitle,
+  computeMicronutrientTargets,
+} from "../utils/nutritionContext";
+import { useNutritionTheme } from "../styles/nutritionTheme";
 
 /* ================= Utils ================= */
 const num = (v) => {
@@ -253,6 +252,43 @@ const LOCAL_MACROS_PER100_BY_LABEL = {
   Alcool: { prot: 0.0, glu: 0.0, lip: 0.0 },
 };
 
+const DEFAULT_QTY_BY_LABEL = {
+  "Lait 1/2 écrémé": { qty: 125, unit: "ml" },
+  "Lait végétal": { qty: 150, unit: "ml" },
+  Fromage: { qty: 30, unit: "g" },
+  "Yaourt nature": { qty: 125, unit: "g" },
+  "Viande moyenne": { qty: 100, unit: "g" },
+  "Viande maigre": { qty: 100, unit: "g" },
+  "Poissons gras": { qty: 120, unit: "g" },
+  "Poissons blanc": { qty: 120, unit: "g" },
+  Oeufs: { qty: 2, unit: "unité" },
+  "Féculents crus": { qty: 60, unit: "g" },
+  "Féculents cuits": { qty: 180, unit: "g" },
+  Légumineuse: { qty: 110, unit: "g" },
+  "Pain blanc": { qty: 60, unit: "g" },
+  "Pain complet": { qty: 60, unit: "g" },
+  Légumes: { qty: 200, unit: "g" },
+  Fruits: { qty: 150, unit: "g" },
+  Beurre: { qty: 10, unit: "g" },
+  Huile: { qty: 10, unit: "g" },
+  Margarine: { qty: 10, unit: "g" },
+  "Crème fraîche": { qty: 15, unit: "g" },
+  Sucre: { qty: 10, unit: "g" },
+  Biscuits: { qty: 30, unit: "g" },
+  Gâteaux: { qty: 50, unit: "g" },
+  Confiture: { qty: 20, unit: "g" },
+  Miel: { qty: 15, unit: "g" },
+  "Chocolat noir": { qty: 20, unit: "g" },
+  "Chocolat au lait": { qty: 20, unit: "g" },
+  Isolate: { qty: 30, unit: "g" },
+  Hydrolisate: { qty: 30, unit: "g" },
+  "100% whey": { qty: 30, unit: "g" },
+  "Whey vegan": { qty: 30, unit: "g" },
+  Soda: { qty: 250, unit: "ml" },
+  "Jus de fruits": { qty: 250, unit: "ml" },
+  Alcool: { qty: 150, unit: "ml" },
+};
+
 const MICRO_DEFS = [
   { key: "calcium", label: "Calcium", unit: "mg", ciqualKey: "calcium_mg_100g" },
   { key: "fer", label: "Fer", unit: "mg", ciqualKey: "fer_mg_100g" },
@@ -299,6 +335,7 @@ const buildFoodsFromGroups = () => {
 };
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
+const MACRO_GRAM_TOLERANCE = 3;
 const kcalScheme = (kcal, target) => {
   const k = num(kcal);
   const t = num(target);
@@ -308,15 +345,15 @@ const kcalScheme = (kcal, target) => {
   if (d <= 200) return "orange";
   return "red";
 };
-const rangeScheme = (value, min, max) => {
+const rangeScheme = (value, min, max, tolerance = 0) => {
   const v = num(value);
   const mi = num(min);
   const ma = num(max);
   if (!(mi > 0 || ma > 0)) return "gray";
-  if (mi > 0 && ma > 0 && v >= mi && v <= ma) return "green";
+  if (mi > 0 && ma > 0 && v >= mi - tolerance && v <= ma + tolerance) return "green";
   const band = Math.max(1, ma - mi);
   const near = band * 0.1;
-  if (v >= mi - near && v <= ma + near) return "orange";
+  if (v >= mi - near - tolerance && v <= ma + near + tolerance) return "orange";
   return "red";
 };
 const progressFromRange = (value, min, max) => {
@@ -327,15 +364,36 @@ const progressFromRange = (value, min, max) => {
   return clamp01((v - mi) / (ma - mi));
 };
 
+const hasRange = (range) => num(range?.min) > 0 && num(range?.max) > 0;
+
+const roundQuickQty = (value, unit) => {
+  const current = num(value);
+  if (!(current > 0)) return 0;
+  if (unit === "unité" || unit === "portion") return Math.max(1, Math.round(current));
+  const step = current >= 100 ? 10 : current >= 30 ? 5 : 1;
+  return Math.max(step, Math.round(current / step) * step);
+};
+
+const formatQuickQtyLabel = (value, unit) => {
+  const base = Number.isInteger(num(value)) ? String(round0(value)) : String(round1(value));
+  if (unit === "unité") return `${base}u`;
+  if (unit === "portion") return `${base}p`;
+  return `${base}${unit}`;
+};
+
 export default function RationManualEditor({ blocked, initialState, onChange, context }) {
   const toast = useToast();
   const mountedRef = useRef(false);
 
-  const panelBg = useColorModeValue("white", "gray.800");
-  const softBg = useColorModeValue("gray.50", "whiteAlpha.100");
-  const borderColor = useColorModeValue("gray.200", "whiteAlpha.200");
-  const muted = useColorModeValue("blackAlpha.700", "whiteAlpha.700");
-  const subtleText = useColorModeValue("blackAlpha.700", "whiteAlpha.700");
+  const nutritionTheme = useNutritionTheme();
+  const panelBg = nutritionTheme.surfaceBg;
+  const softBg = nutritionTheme.surfaceSoft;
+  const borderColor = nutritionTheme.borderColor;
+  const muted = nutritionTheme.mutedText;
+  const subtleText = nutritionTheme.mutedText;
+  const footerBg = nutritionTheme.surfaceBgStrong;
+  const footerBorder = nutritionTheme.borderColor;
+  const footerChipBg = nutritionTheme.surfaceSoft;
   const isMobile = useBreakpointValue({ base: true, md: false });
 
   /* ========================= needs ========================= */
@@ -394,19 +452,35 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
     if (Array.isArray(p)) return stableJoin(p);
     return String(p ?? "").trim();
   }, [context?.inputs?.medical?.pathologies, context?.inputs?.pathologies, context?.pathologies]);
+  const dietsForTitle = useMemo(() => {
+    const values = context?.diet || context?.diets || context?.inputs?.regimes || context?.inputs?.diets || [];
+    return Array.isArray(values)
+      ? values.map((item) => String(item || "").trim()).filter(Boolean)
+      : String(values || "")
+          .split(/[,\n;/]+/)
+          .map((item) => item.trim())
+          .filter(Boolean);
+  }, [context?.diet, context?.diets, context?.inputs?.regimes, context?.inputs?.diets]);
+  const allergiesForTitle = useMemo(
+    () => firstNonEmpty(context?.inputs?.medical?.allergies, context?.inputs?.allergies, context?.allergies),
+    [context?.allergies, context?.inputs?.allergies, context?.inputs?.medical?.allergies]
+  );
 
   const ctxKey = useMemo(() => {
-    return `${normalize(objectiveForTitle || "")}__${normalize(pathologiesForTitle || "")}`;
-  }, [objectiveForTitle, pathologiesForTitle]);
+    return `${normalize(objectiveForTitle || "")}__${normalize(pathologiesForTitle || "")}__${normalize(
+      stableJoin(dietsForTitle)
+    )}__${normalize(allergiesForTitle || "")}`;
+  }, [allergiesForTitle, dietsForTitle, objectiveForTitle, pathologiesForTitle]);
 
   const buildDefaultTitleFromCtxKey = useCallback(() => {
-    const obj = String(objectiveForTitle || "").trim();
-    const p = String(pathologiesForTitle || "").trim();
-    if (obj && p) return `Ration — ${obj} • Pathologies: ${p}`;
-    if (obj) return `Ration — ${obj}`;
-    if (p) return `Ration • Pathologies: ${p}`;
-    return "Ration (professionnel)";
-  }, [objectiveForTitle, pathologiesForTitle]);
+    return buildNutritionContextTitle({
+      baseLabel: "Ration",
+      objectiveRaw: objectiveForTitle,
+      diets: dietsForTitle,
+      pathologies: pathologiesForTitle ? pathologiesForTitle.split(",").map((item) => item.trim()) : [],
+      allergies: allergiesForTitle,
+    });
+  }, [allergiesForTitle, dietsForTitle, objectiveForTitle, pathologiesForTitle]);
 
   /* ========================= foods/categories ========================= */
   const [foods] = useState(() => buildFoodsFromGroups());
@@ -424,6 +498,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
   const [title, setTitle] = useState("Ration (professionnel)");
   const titleTouchedRef = useRef(false);
   const [titleTouched, setTitleTouched] = useState(false);
+  const [showFooterMicros, setShowFooterMicros] = useState(false);
 
   const [openCats, setOpenCats] = useState({});
   const [selectedMicros, setSelectedMicros] = useState({});
@@ -562,7 +637,6 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ========================= Persist up (debounce) ========================= */
   const ctxSnapshot = useMemo(() => {
     return {
       objectiveRaw: String(objectiveForTitle || "").trim(),
@@ -572,26 +646,6 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
   }, [objectiveForTitle, pathologiesForTitle, ctxKey]);
 
   const saveTimer = useRef(null);
-  useEffect(() => {
-    if (!mountedRef.current) return;
-
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      onChange?.({
-        title,
-        selectedMicros,
-        values,
-        openCats,
-        version: 5,
-        mode: "pro_manual_spreadsheet",
-        ctx: ctxSnapshot,
-      });
-    }, 250);
-
-    return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-    };
-  }, [title, selectedMicros, values, openCats, ctxSnapshot, onChange]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -631,6 +685,43 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
       return next;
     });
   };
+
+  const applyQuickQty = (foodId, mealKey, amount) => {
+    setValues((prev) => {
+      const next = { ...(prev || {}) };
+      const cur = next[foodId] || { unit: "g", meals: {} };
+      next[foodId] = {
+        ...cur,
+        meals: {
+          ...cur.meals,
+          [mealKey]: amount,
+        },
+      };
+      return next;
+    });
+  };
+
+  const quickOptionsForFood = useCallback((food, unit) => {
+    const effectiveUnit = unit || food.defaultUnit || "g";
+    const preset = DEFAULT_QTY_BY_LABEL?.[food.name] || null;
+    let baseQty = preset?.qty ?? (effectiveUnit === "ml" ? 150 : effectiveUnit === "g" ? 100 : 1);
+    const baseUnit = preset?.unit || food.defaultUnit || effectiveUnit;
+
+    if (effectiveUnit !== baseUnit) {
+      if (effectiveUnit === "g" || effectiveUnit === "ml") {
+        baseQty = toGrams(baseQty, baseUnit, food.name);
+      } else if (effectiveUnit === "unité" || effectiveUnit === "portion") {
+        baseQty = 1;
+      }
+    }
+
+    const options =
+      effectiveUnit === "unité" || effectiveUnit === "portion"
+        ? [1, Math.max(1, roundQuickQty(baseQty, effectiveUnit))]
+        : [roundQuickQty(baseQty / 2, effectiveUnit), roundQuickQty(baseQty, effectiveUnit)];
+
+    return [...new Set(options.filter((value) => num(value) > 0))];
+  }, []);
 
   /* ---------- Macros locales ---------- */
   const getLocalMacrosPer100 = (label) => {
@@ -709,32 +800,103 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
     return { prot: (p / total) * 100, lip: (l / total) * 100, glu: (g / total) * 100 };
   }, [totals]);
 
+  /* ========================= Persist up (debounce) ========================= */
+  useEffect(() => {
+    if (!mountedRef.current) return;
+
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      const items = foods.flatMap((food) => {
+        const state = values?.[food.id] || {};
+        const unit = state?.unit || food.defaultUnit || "g";
+        return MEALS.flatMap((meal) => {
+          const qty = num(state?.meals?.[meal.key]);
+          if (!(qty > 0)) return [];
+          return [
+            {
+              mealKey: meal.key,
+              meal: meal.key,
+              category: food.category,
+              label: food.name,
+              qty,
+              unit,
+            },
+          ];
+        });
+      });
+
+      onChange?.({
+        title,
+        selectedMicros,
+        values,
+        items,
+        openCats,
+        version: 6,
+        mode: "pro_manual_spreadsheet",
+        computed: {
+          totals,
+          day: totals.day,
+          macroPct: dayPct,
+        },
+        ctx: ctxSnapshot,
+      });
+    }, 250);
+
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, [title, selectedMicros, values, openCats, totals, dayPct, ctxSnapshot, onChange, foods]);
+
   const selectedMicroList = useMemo(
     () => MICRO_DEFS.filter((m) => !!selectedMicros?.[m.key]),
     [selectedMicros]
   );
+  const microTargets = useMemo(
+    () =>
+      computeMicronutrientTargets({
+        inputs: context?.inputs || {},
+        objectiveRaw: needs?.objectiveRaw || objectiveForTitle || "",
+      }),
+    [context?.inputs, needs?.objectiveRaw, objectiveForTitle]
+  );
+  const filledFoodCount = useMemo(() => {
+    return foods.filter((food) => {
+      const meals = values?.[food.id]?.meals || {};
+      return Object.values(meals).some((value) => num(value) > 0);
+    }).length;
+  }, [foods, values]);
 
   const kcalTarget = num(needs?.kcalTarget);
   const kcalSchemeDay = kcalScheme(totals?.day?.kcal, kcalTarget);
 
-  const protSchemeDay = rangeScheme(totals?.day?.prot, needs?.protG?.min, needs?.protG?.max);
-  const lipSchemeDay = rangeScheme(totals?.day?.lip, needs?.lipG?.min, needs?.lipG?.max);
-  const gluSchemeDay = rangeScheme(totals?.day?.glu, needs?.glucG?.min, needs?.glucG?.max);
+  const protSchemeDay = rangeScheme(
+    totals?.day?.prot,
+    needs?.protG?.min,
+    needs?.protG?.max,
+    MACRO_GRAM_TOLERANCE
+  );
+  const lipSchemeDay = rangeScheme(
+    totals?.day?.lip,
+    needs?.lipG?.min,
+    needs?.lipG?.max,
+    MACRO_GRAM_TOLERANCE
+  );
+  const gluSchemeDay = rangeScheme(
+    totals?.day?.glu,
+    needs?.glucG?.min,
+    needs?.glucG?.max,
+    MACRO_GRAM_TOLERANCE
+  );
 
   progressFromRange(totals?.day?.prot, needs?.protG?.min, needs?.protG?.max);
   progressFromRange(totals?.day?.lip, needs?.lipG?.min, needs?.lipG?.max);
   progressFromRange(totals?.day?.glu, needs?.glucG?.min, needs?.glucG?.max);
 
-  const hasNeeds =
-    num(needs?.kcalTarget) > 0 ||
-    num(needs?.protG?.min) > 0 ||
-    num(needs?.lipG?.min) > 0 ||
-    num(needs?.glucG?.min) > 0;
-
   /* ========================= Desktop header/rows/cards ========================= */
   const FoodRowDesktop = (food) => {
     const st = values?.[food.id];
     const unit = st?.unit || food.defaultUnit;
+    const quickOptions = quickOptionsForFood(food, unit);
 
     return (
       <Box key={food.id} px={4} py={3} borderTopWidth="1px" borderColor={borderColor} bg={panelBg}>
@@ -748,26 +910,46 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
 
           {MEALS.map((m) => (
             <Box key={m.key} flex="1">
-              <HStack justify="center" spacing={2}>
-                <Input
-                  width="90px"
-                  value={st?.meals?.[m.key] ?? 0}
-                  onChange={(e) => setQty(food.id, m.key, e.target.value)}
-                  isDisabled={blocked}
-                  inputMode="decimal"
-                />
-                <Select
-                  value={unit}
-                  onChange={(e) => setUnit(food.id, e.target.value)}
-                  isDisabled={blocked}
-                  width="90px"
-                >
-                  <option value="g">g</option>
-                  <option value="ml">ml</option>
-                  <option value="portion">portion</option>
-                  <option value="unité">unité</option>
-                </Select>
-              </HStack>
+              <VStack spacing={1.5}>
+                <HStack justify="center" spacing={2}>
+                  <Input
+                    width="90px"
+                    value={st?.meals?.[m.key] ?? 0}
+                    onChange={(e) => setQty(food.id, m.key, e.target.value)}
+                    isDisabled={blocked}
+                    inputMode="decimal"
+                  />
+                  <Select
+                    value={unit}
+                    onChange={(e) => setUnit(food.id, e.target.value)}
+                    isDisabled={blocked}
+                    width="90px"
+                  >
+                    <option value="g">g</option>
+                    <option value="ml">ml</option>
+                    <option value="portion">portion</option>
+                    <option value="unité">unité</option>
+                  </Select>
+                </HStack>
+
+                <Wrap spacing={1} justify="center">
+                  {quickOptions.map((option) => (
+                    <WrapItem key={`${food.id}-${m.key}-${option}`}>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        borderRadius="full"
+                        onClick={() => applyQuickQty(food.id, m.key, option)}
+                        isDisabled={blocked}
+                        minW="unset"
+                        px={2}
+                      >
+                        {formatQuickQtyLabel(option, unit)}
+                      </Button>
+                    </WrapItem>
+                  ))}
+                </Wrap>
+              </VStack>
             </Box>
           ))}
         </HStack>
@@ -778,6 +960,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
   const FoodCardMobile = (food) => {
     const st = values?.[food.id];
     const unit = st?.unit || food.defaultUnit;
+    const quickOptions = quickOptionsForFood(food, unit);
 
     return (
       <Box
@@ -818,259 +1001,170 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
 
         <VStack align="stretch" spacing={2}>
           {MEALS.map((m) => (
-            <HStack key={m.key} spacing={3}>
-              <Text fontSize="xs" fontWeight="800" opacity={0.7} minW="120px">
-                {m.label}
-              </Text>
-              <Input
-                value={st?.meals?.[m.key] ?? 0}
-                onChange={(e) => setQty(food.id, m.key, e.target.value)}
-                isDisabled={blocked}
-                inputMode="decimal"
-                size="sm"
-              />
-            </HStack>
+            <Box key={m.key}>
+              <HStack spacing={3}>
+                <Text fontSize="xs" fontWeight="800" opacity={0.7} minW="120px">
+                  {m.label}
+                </Text>
+                <Input
+                  value={st?.meals?.[m.key] ?? 0}
+                  onChange={(e) => setQty(food.id, m.key, e.target.value)}
+                  isDisabled={blocked}
+                  inputMode="decimal"
+                  size="sm"
+                />
+              </HStack>
+
+              <Wrap spacing={1} mt={1.5} pl={{ base: "123px", md: 0 }}>
+                {quickOptions.map((option) => (
+                  <WrapItem key={`${food.id}-${m.key}-${option}`}>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      borderRadius="full"
+                      onClick={() => applyQuickQty(food.id, m.key, option)}
+                      isDisabled={blocked}
+                      minW="unset"
+                      px={2}
+                    >
+                      {formatQuickQtyLabel(option, unit)}
+                    </Button>
+                  </WrapItem>
+                ))}
+              </Wrap>
+            </Box>
           ))}
         </VStack>
       </Box>
     );
   };
 
-  /* ========================= Sticky bottom bar (comme FoodSurvey) =========================
-     Objectifs EXACTS :
-     ✅ même largeur que le tableau (on mesure le container du tableau)
-     ✅ ne pas "pop" : slide (transition translateY)
-     ✅ commence au début du tableau ration
-     ✅ s’arrête / se “pose” entre Totaux (journalier) et les boutons du parent
-  */
-  const stickyStartRef = useRef(null); // placé juste avant le tableau ration
-  const stickyEndRef = useRef(null); // placé juste après "Totaux par repas" (donc avant les boutons du parent)
-
-  const tableWidthRef = useRef(null); // wrapper qui a EXACTEMENT la largeur du tableau ration
-  const barMeasureRef = useRef(null);
-
-  const [barH, setBarH] = useState(96);
-  const [barShow, setBarShow] = useState(false);
-  const [barDocked, setBarDocked] = useState(false);
-
-  const [dockRect, setDockRect] = useState({ left: 16, width: 600 });
-
-  // hauteur de barre (pour padding + docking)
-  useEffect(() => {
-    const el = barMeasureRef.current;
-    if (!el) return;
-
-    const ro = new ResizeObserver(() => {
-      const h = el.getBoundingClientRect().height;
-      if (h > 0) setBarH((prev) => (Math.abs(prev - h) < 2 ? prev : h));
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  // largeur EXACTE : on se cale sur le wrapper du tableau (tableWidthRef)
-  useEffect(() => {
-    const updateRect = () => {
-      const el = tableWidthRef.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      const left = Math.max(8, r.left);
-      const width = Math.max(280, Math.min(window.innerWidth - left - 8, r.width));
-      setDockRect((p) => {
-        if (Math.abs(p.left - left) < 1 && Math.abs(p.width - width) < 1) return p;
-        return { left, width };
-      });
-    };
-
-    updateRect();
-    window.addEventListener("resize", updateRect);
-    // re-mesure aussi pendant scroll (si layout change / scrollbar)
-    window.addEventListener("scroll", updateRect, { passive: true });
-
-    return () => {
-      window.removeEventListener("resize", updateRect);
-      window.removeEventListener("scroll", updateRect);
-    };
-  }, []);
-
-  // logique show/dock : show dès que le début du tableau atteint le haut (comme FoodSurvey)
-  useEffect(() => {
-    let raf = 0;
-
-    const compute = () => {
-      const s = stickyStartRef.current;
-      const e = stickyEndRef.current;
-      if (!s || !e) return;
-
-      const sTop = s.getBoundingClientRect().top;
-      const eTop = e.getBoundingClientRect().top;
-      const vh = window.innerHeight;
-
-      const show = sTop <= SHOW_TOP_THRESHOLD; // ✅ commence au début du tableau
-      const stopLine = vh - (barH + GAP_BOTTOM + SAFE_AREA_EXTRA);
-      const docked = show && eTop > stopLine; // ✅ se pose quand on arrive à la fin de la zone
-
-      setBarShow((p) => (p === show ? p : show));
-      setBarDocked((p) => (p === docked ? p : docked));
-    };
-
-    const onScroll = () => {
-      if (raf) return;
-      raf = window.requestAnimationFrame(() => {
-        raf = 0;
-        compute();
-      });
-    };
-
-    compute();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      if (raf) window.cancelAnimationFrame(raf);
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-    };
-  }, [barH]);
-
-  // padding-bottom seulement quand barre dockée (sinon elle se pose en flow)
-  const pagePb = useMemo(() => {
-    if (!barShow) return { base: "24px", md: "24px" };
-    if (!barDocked) return { base: "24px", md: "24px" };
-    const pb = barH + GAP_BOTTOM + SAFE_AREA_EXTRA;
-    return { base: `${pb}px`, md: `${pb}px` };
-  }, [barShow, barDocked, barH]);
-
-  const TotalBar = (
+  const StickyFooter = (
     <Box
-      ref={barMeasureRef}
-      borderWidth="1px"
-      borderColor={borderColor}
-      borderRadius="lg"
-      bg={panelBg}
-      overflow="hidden"
+      mt={4}
       px={{ base: 3, md: 4 }}
-      py={{ base: 3, md: 3 }}
+      py={{ base: 2.5, md: 3 }}
+      borderWidth="1px"
+      borderColor={footerBorder}
+      borderRadius="2xl"
+      bg={footerBg}
+      position="sticky"
+      bottom={{ base: "8px", md: "8px" }}
+      zIndex={20}
+      boxShadow="0 18px 40px rgba(15, 23, 42, 0.08)"
+      backdropFilter="blur(16px)"
     >
-      <HStack align="start" spacing={4} flexWrap="wrap" justify="space-between">
-        <Box minW={0} flex="1">
+      <VStack align="stretch" spacing={2}>
+        <HStack justify="space-between" align="center" gap={3} flexWrap="wrap">
           <HStack spacing={2} flexWrap="wrap">
-            <Text fontWeight="900" letterSpacing="0.02em">
-              TOTAL JOUR
+            <Badge colorScheme="blue" variant="solid" borderRadius="full" px={2.5} py={1}>
+              Manuel
+            </Badge>
+            <Text fontSize="sm" fontWeight="800" color={subtleText}>
+              {fmt0Plain(totals.day.kcal)} / {kcalTarget > 0 ? fmt0Plain(kcalTarget) : "—"} kcal
             </Text>
-
-            <Badge colorScheme={kcalSchemeDay} variant="subtle">
-              {fmt0Plain(totals.day.kcal)} KCAL{(kcalTarget > 0 && ` / ${round0(kcalTarget)}`) || ""}
-            </Badge>
-
-            <Badge colorScheme={protSchemeDay} variant="subtle">
-              P {fmt0Plain(totals.day.prot)}G
-            </Badge>
-            <Badge colorScheme={lipSchemeDay} variant="subtle">
-              L {fmt0Plain(totals.day.lip)}G
-            </Badge>
-            <Badge colorScheme={gluSchemeDay} variant="subtle">
-              G {fmt0Plain(totals.day.glu)}G
-            </Badge>
           </HStack>
+        </HStack>
 
-          <Text fontSize="sm" opacity={0.75} mt={1} lineHeight="1.25">
-            {round0(dayPct.prot)}% prot • {round0(dayPct.lip)}% lip • {round0(dayPct.glu)}% glu
-          </Text>
+        <HStack spacing={2} flexWrap="wrap">
+          <Badge colorScheme={protSchemeDay} variant="subtle" borderRadius="full" px={3} py={1} fontWeight="800" textTransform="none">
+            Prot {fmt0Plain(totals.day.prot)} g
+            {hasRange(needs?.protG) ? ` / ${fmt0Plain(needs.protG.min)}-${fmt0Plain(needs.protG.max)} g` : ""}
+            {needs?.pctRanges?.protPctMin ? ` • ${round0(dayPct.prot)}% / ${needs.pctRanges.protPctMin}-${needs.pctRanges.protPctMax}%` : ` • ${round0(dayPct.prot)}%`}
+          </Badge>
+          <Badge colorScheme={lipSchemeDay} variant="subtle" borderRadius="full" px={3} py={1} fontWeight="800" textTransform="none">
+            Lip {fmt0Plain(totals.day.lip)} g
+            {hasRange(needs?.lipG) ? ` / ${fmt0Plain(needs.lipG.min)}-${fmt0Plain(needs.lipG.max)} g` : ""}
+            {needs?.pctRanges?.lipPctMin ? ` • ${round0(dayPct.lip)}% / ${needs.pctRanges.lipPctMin}-${needs.pctRanges.lipPctMax}%` : ` • ${round0(dayPct.lip)}%`}
+          </Badge>
+          <Badge colorScheme={gluSchemeDay} variant="subtle" borderRadius="full" px={3} py={1} fontWeight="800" textTransform="none">
+            Glu {fmt0Plain(totals.day.glu)} g
+            {hasRange(needs?.glucG) ? ` / ${fmt0Plain(needs.glucG.min)}-${fmt0Plain(needs.glucG.max)} g` : ""}
+            {needs?.pctRanges?.glucPctMin ? ` • ${round0(dayPct.glu)}% / ${needs.pctRanges.glucPctMin}-${needs.pctRanges.glucPctMax}%` : ` • ${round0(dayPct.glu)}%`}
+          </Badge>
+          <Badge bg={footerChipBg} color="inherit" borderRadius="full" px={3} py={1} fontWeight="700">
+            Micros {selectedMicroList.length}
+          </Badge>
+          <Badge colorScheme={kcalSchemeDay} variant="subtle" borderRadius="full" px={3} py={1} fontWeight="700">
+            Energie {kcalTarget > 0 ? `${fmt0Plain(totals.day.kcal - kcalTarget)} kcal` : "Sans cible"}
+          </Badge>
+          {selectedMicroList.length > 0 ? (
+            <Button
+              size="xs"
+              variant="outline"
+              borderRadius="full"
+              onClick={() => setShowFooterMicros((prev) => !prev)}
+            >
+              {showFooterMicros ? "Réduire" : "Voir plus"}
+            </Button>
+          ) : null}
+        </HStack>
 
-          {hasNeeds && (
-            <Text fontSize="xs" opacity={0.65} mt={1}>
-              Fourchettes cibles : Prot{" "}
-              {needs?.protG?.min ? `${round0(needs.protG.min)}–${round0(needs.protG.max)}g` : "—"} • Lip{" "}
-              {needs?.lipG?.min ? `${round0(needs.lipG.min)}–${round0(needs.lipG.max)}g` : "—"} • Glu{" "}
-              {needs?.glucG?.min ? `${round0(needs.glucG.min)}–${round0(needs.glucG.max)}g` : "—"} • kcal ±100
-            </Text>
-          )}
-        </Box>
-
-        <Box flexShrink={0} minW={{ base: "0", md: "360px" }}>
-          <HStack align="start" spacing={3} justify={{ base: "flex-start", md: "flex-end" }} flexWrap="wrap">
-            <Badge colorScheme="blue" variant="subtle">
-              RAPPEL
-            </Badge>
-
-            <Box minW={0}>
-              <Text fontSize="sm" color={subtleText} textAlign={{ base: "left", md: "right" }}>
-                {needs?.kcalTarget ? <b>{round0(needs.kcalTarget)} kcal</b> : <b>— kcal</b>} • Prot{" "}
-                {needs?.protG?.min ? `${round0(needs.protG.min)}–${round0(needs.protG.max)}g` : "—"} • Lip{" "}
-                {needs?.lipG?.min ? `${round0(needs.lipG.min)}–${round0(needs.lipG.max)}g` : "—"} • Glu{" "}
-                {needs?.glucG?.min ? `${round0(needs.glucG.min)}–${round0(needs.glucG.max)}g` : "—"}
-              </Text>
-
-              <Text fontSize="xs" color={subtleText} opacity={0.85} mt={0.5} textAlign={{ base: "left", md: "right" }}>
-                MB {needs?.mb ? round0(needs.mb) : "—"} • DEJ {needs?.dej ? round0(needs.dej) : "—"} • NAP{" "}
-                {needs?.nap ? round1(needs.nap) : "—"} • Poids {needs?.weightKg ? round0(needs.weightKg) : "—"}kg
-              </Text>
-            </Box>
-          </HStack>
-
-          <Box mt={3}>
-            <Text fontWeight="800">Micros (total jour)</Text>
-            {selectedMicroList.length === 0 ? (
-              <Text fontSize="sm" opacity={0.6} mt={1}>
-                (Aucun micro sélectionné)
-              </Text>
-            ) : (
-              <Wrap spacing={2} mt={2} justify={{ base: "flex-start", md: "flex-end" }}>
-                {selectedMicroList.map((mic) => {
-                  const v = totals.day.micros?.[mic.key] || 0;
-                  const display = mic.unit === "g" ? fmt1Plain(v) : fmt0Plain(v);
-                  return (
-                    <WrapItem key={mic.key}>
-                      <Badge colorScheme="purple" variant="subtle" px={3} py={1} borderRadius="md">
-                        {mic.label.toUpperCase()} : {display} {mic.unit}
-                      </Badge>
-                    </WrapItem>
-                  );
-                })}
-              </Wrap>
-            )}
-          </Box>
-        </Box>
-      </HStack>
+        <Collapse in={showFooterMicros} animateOpacity>
+          <Wrap spacing={2} pt={1}>
+            {selectedMicroList.map((mic) => {
+              const v = totals.day.micros?.[mic.key] || 0;
+              const display = mic.unit === "g" ? fmt1Plain(v) : fmt0Plain(v);
+              const target = microTargets?.[mic.key];
+              const targetDisplay =
+                target?.value != null
+                  ? target.unit === "g"
+                    ? fmt1Plain(target.value)
+                    : fmt0Plain(target.value)
+                  : null;
+              return (
+                <WrapItem key={mic.key}>
+                  <Badge bg={footerChipBg} color="inherit" borderRadius="full" px={3} py={1} fontWeight="700">
+                    {mic.label} {display} {mic.unit}
+                    {targetDisplay != null ? ` / ${targetDisplay} ${target?.unit || mic.unit}` : ""}
+                  </Badge>
+                </WrapItem>
+              );
+            })}
+          </Wrap>
+        </Collapse>
+      </VStack>
     </Box>
-  );
-
-  // ✅ Barre FIXED dockée, même largeur que le tableau + animation slide (pas de pop)
-  const FixedBottomBar = (
-    <Portal>
-      <Box
-        position="fixed"
-        left={`${dockRect.left}px`}
-        width={`${dockRect.width}px`}
-        bottom={`calc(env(safe-area-inset-bottom) + ${GAP_BOTTOM}px)`}
-        zIndex={1300}
-        pointerEvents={barShow && barDocked ? "auto" : "none"}
-        style={{
-          transform:
-            barShow && barDocked ? "translateY(0px)" : `translateY(${barH + GAP_BOTTOM + 8}px)`,
-          opacity: barShow && barDocked ? 1 : 0,
-          transition: "transform 220ms ease, opacity 180ms ease",
-        }}
-      >
-        {TotalBar}
-      </Box>
-    </Portal>
   );
 
   /* ========================= Render ========================= */
   return (
-    <Box pb={pagePb}>
-      {/* Header */}
-      <HStack justify="space-between" align="start" mb={3} flexWrap="wrap" gap={3}>
-        <Box>
-          <Heading size="md">Ration pro</Heading>
-          <Text opacity={0.75} mt={1}>
-            Éditeur manuel (même logique “Excel”).
-          </Text>
-        </Box>
+    <Box>
+      <Box borderWidth="1px" borderColor={borderColor} borderRadius="lg" bg={softBg} p={4} mb={4}>
+        <HStack justify="space-between" align="start" flexWrap="wrap" gap={3}>
+          <Box>
+            <Heading size="md">Ration pro</Heading>
+            <Text opacity={0.75} mt={1} maxW="760px">
+              Éditeur manuel pensé comme une table de travail clinique : tu gardes la main sur
+              chaque quantité, repas et micro affiché.
+            </Text>
+          </Box>
 
-        <HStack flexWrap="wrap" gap={2}>
-          <Badge colorScheme={ciqualOk ? "green" : "gray"}>{ciqualOk ? "CIQUAL OK" : "CIQUAL"}</Badge>
+          <Wrap spacing={2}>
+            <WrapItem>
+              <Badge colorScheme={ciqualOk ? "green" : "gray"} borderRadius="full" px={3} py={1}>
+                {ciqualOk ? "Données prêtes" : "Données à charger"}
+              </Badge>
+            </WrapItem>
+            <WrapItem>
+              <Badge colorScheme="blue" variant="subtle" borderRadius="full" px={3} py={1}>
+                {filledFoodCount} ligne(s) remplies
+              </Badge>
+            </WrapItem>
+            <WrapItem>
+              <Badge colorScheme="purple" variant="subtle" borderRadius="full" px={3} py={1}>
+                {selectedMicroList.length} micro(s)
+              </Badge>
+            </WrapItem>
+            <WrapItem>
+              <Badge colorScheme="green" variant="subtle" borderRadius="full" px={3} py={1}>
+                {fmt0Plain(totals.day.kcal)} kcal
+              </Badge>
+            </WrapItem>
+          </Wrap>
+        </HStack>
+
+        <HStack flexWrap="wrap" gap={2} mt={4}>
           <Button
             size="sm"
             leftIcon={<RepeatIcon />}
@@ -1079,10 +1173,10 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
             loadingText="Chargement…"
             isDisabled={blocked}
           >
-            Recharger CIQUAL
+            Actualiser les données
           </Button>
         </HStack>
-      </HStack>
+      </Box>
 
       {/* Title */}
       <Box borderWidth="1px" borderColor={borderColor} borderRadius="lg" bg={panelBg} p={4} mb={4}>
@@ -1097,9 +1191,14 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
                 setTitle(e.target.value);
               }}
               isDisabled={blocked}
-            />
-          </FormControl>
-          <Box />
+          />
+        </FormControl>
+          <Box>
+            <Text fontSize="sm" opacity={0.75}>
+              Utilise un titre simple et directement compréhensible pour la suite du dossier et
+              pour l’export PDF.
+            </Text>
+          </Box>
         </SimpleGrid>
       </Box>
 
@@ -1130,11 +1229,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
         </Button>
       </HStack>
 
-      {/* ✅ Début EXACT du tableau ration (déclenche la barre) */}
-      <Box ref={stickyStartRef} />
-
-      {/* Wrapper largeur = largeur du tableau (utilisé par la barre) */}
-      <Box ref={tableWidthRef}>
+      <Box>
         {/* Table / Cards */}
         <Box borderWidth="1px" borderColor={borderColor} borderRadius="lg" overflow="hidden">
           {!isMobile && (
@@ -1257,17 +1352,9 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
           </Box>
         </Box>
 
-        {/* ✅ FIN de la zone ration (la barre doit se poser AVANT les boutons du parent) */}
-        <Box ref={stickyEndRef} />
-
-        {/* ✅ Barre "posée" (non dockée) : elle reste dans le flux, juste ici */}
-        {barShow && !barDocked ? (
-          <Box mt={3}>{TotalBar}</Box>
-        ) : null}
       </Box>
 
-      {/* ✅ Barre dockée FIXED (slide + largeur tableau) */}
-      {barShow ? FixedBottomBar : null}
+      {StickyFooter}
 
       <Box height="12px" />
       <Text fontSize="xs" opacity={muted} mt={2}>
@@ -1276,4 +1363,3 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
     </Box>
   );
 }
-

@@ -62,58 +62,24 @@ const formatMMSSFromSeconds = (sec) => {
   return `${pad2(mm)}:${pad2(ss)}`;
 };
 
-const looksLikeTimeField = (field) => {
-  const nk = normKey(field);
-
-  // noms de champs typiques
-  if (
-    nk.includes("repos") ||
-    nk.includes("duree") ||
-    nk.includes("durée") ||
-    nk.includes("temps") ||
-    nk.includes("time")
-  ) {
-    return true;
-  }
-
-  // suffixes courants
-  if (nk.includes("(min:sec)") || nk.includes("(mm:ss)")) return true;
-
-  return false;
-};
-
-const shouldFormatAsTime = (field, value) => {
-  if (looksLikeTimeField(field)) return true;
-
-  // Si la valeur est de type "mm:ss" ou un nombre (secondes) plausible
-  const s = toSeconds(value);
-  if (s == null) return false;
-
-  // garde-fou: si c’est un tout petit nombre décimal (ex: 1.5 kg), on ne veut pas le formater en temps
-  // mais si la valeur est déjà "mm:ss" ou >= 10 sec, c’est probablement un temps.
-  const raw = String(value ?? "").trim();
-  if (raw.includes(":")) return true;
-  if (typeof value === "number") return value >= 10;
-  if (!Number.isNaN(Number(raw.replace(",", ".")))) return s >= 10;
-
-  return false;
-};
-
-const formatCellValue = (field, value) => {
+const formatCellValue = (kind, value) => {
   if (isNil(value) || value === "—") return "—";
-  if (shouldFormatAsTime(field, value)) {
+  if (kind === "time") {
     const s = toSeconds(value);
     return s == null ? String(value) : formatMMSSFromSeconds(s);
   }
   return String(value);
 };
 
-const areEqualMeaningfully = (a, b) => {
+const areEqualMeaningfully = (kind, a, b) => {
   if (isNil(a) && isNil(b)) return true;
 
-  const sa = toSeconds(a);
-  const sb = toSeconds(b);
-  if (sa != null && sb != null) return Math.abs(sa - sb) < 1e-9;
+  if (kind === "time") {
+    const sa = toSeconds(a);
+    const sb = toSeconds(b);
+    if (sa != null && sb != null) return Math.abs(sa - sb) < 1e-9;
+    return false;
+  }
 
   const na = Number(String(a ?? "").replace(",", "."));
   const nb = Number(String(b ?? "").replace(",", "."));
@@ -123,7 +89,7 @@ const areEqualMeaningfully = (a, b) => {
   return String(a ?? "").trim() === String(b ?? "").trim();
 };
 
-const isDifferent = (a, b) => !areEqualMeaningfully(a, b);
+const isDifferent = (kind, a, b) => !areEqualMeaningfully(kind, a, b);
 
 const pick = (obj, keys) => keys.map((k) => obj?.[k]).find((v) => v !== undefined);
 
@@ -176,47 +142,154 @@ function flattenSessionExercises(sessionObj) {
 }
 
 /* ==================== Champs suivis ==================== */
-const TRACKED_FIELDS_NORM = new Set([
-  "series",
-  "séries",
-  "repetitions",
-  "répétitions",
-  "charge",
-  "charge (kg)",
-  "repos",
-  "repos (min:sec)",
-  "durée (min:sec)",
-  "duree (min:sec)",
-  "temps",
-  "durée",
-  "duree",
-  "distance",
-  "watts",
-  "vitesse",
-  "inclinaison",
-  "intensite",
-  "intensité",
-  "calories",
-  "resistance",
-  "résistance",
-]);
+const FIELD_DEFS = {
+  series: {
+    label: "Séries",
+    kind: "number",
+    aliases: ["series", "séries"],
+  },
+  repetitions: {
+    label: "Répétitions",
+    kind: "number",
+    aliases: ["repetitions", "répétitions", "reps"],
+  },
+  charge: {
+    label: "Charge (kg)",
+    kind: "number",
+    aliases: ["charge", "charge (kg)", "charge (lb)", "poids", "weight"],
+  },
+  repos: {
+    label: "Repos (min:sec)",
+    kind: "time",
+    aliases: ["repos", "repos (min:sec)", "pause", "rest"],
+  },
+  temps: {
+    label: "Durée (min:sec)",
+    kind: "time",
+    aliases: ["temps", "time", "durée", "duree", "durée (min:sec)", "duree (min:sec)"],
+  },
+  distance: {
+    label: "Distance",
+    kind: "number",
+    aliases: ["distance", "metrage", "m", "meters", "metres", "km"],
+  },
+  vitesse: {
+    label: "Vitesse",
+    kind: "number",
+    aliases: ["vitesse", "speed", "kmh", "km/h", "mph"],
+  },
+  intensite: {
+    label: "Intensité",
+    kind: "number",
+    aliases: ["intensite", "intensité", "intensity", "rpe", "percent_1rm"],
+  },
+  calories: {
+    label: "Objectif Calories",
+    kind: "number",
+    aliases: ["calories", "objectif calories", "objectif_calories", "kcal"],
+  },
+  tempo: {
+    label: "Tempo",
+    kind: "text",
+    aliases: ["tempo", "tempo_pattern", "cadence"],
+  },
+};
 
-function isTrackedKey(k) {
-  const nk = normKey(k);
-  if (TRACKED_FIELDS_NORM.has(nk)) return true;
+const getFieldValue = (obj, fieldKeys) => {
+  for (const k of fieldKeys) {
+    if (obj?.[k] !== undefined && obj[k] !== null) return obj[k];
+  }
+  return undefined;
+};
 
-  const strippedTime = nk.replace(/\((min:sec|mm:ss)\)/g, "").trim();
-  if (TRACKED_FIELDS_NORM.has(strippedTime)) return true;
+const getSeriesDiffFlag = (ex) =>
+  !!(
+    ex?.seriesDiff ||
+    ex?.series_differentes ||
+    ex?.seriesDifferentes ||
+    ex?.seriesDifferent ||
+    ex?.perSet
+  );
 
-  if (nk.includes("(set")) {
-    const base = nk.replace(/\s*\(set\s*\d+\)\s*/g, "").trim();
-    if (TRACKED_FIELDS_NORM.has(base)) return true;
+const getSeriesDetails = (ex) =>
+  Array.isArray(ex?.seriesDetails)
+    ? ex.seriesDetails
+    : Array.isArray(ex?.series_sets)
+      ? ex.series_sets
+      : null;
 
-    const base2 = base.replace(/\((min:sec|mm:ss)\)/g, "").trim();
-    if (TRACKED_FIELDS_NORM.has(base2)) return true;
+function parseFieldDescriptor(field) {
+  const raw = String(field ?? "").trim();
+  if (!raw) return null;
+
+  const setMatch = raw.match(/\(set\s*(\d+)\)\s*$/i);
+  const setIndex = setMatch ? Number(setMatch[1]) : null;
+  const baseRaw = setMatch ? raw.replace(/\s*\(set\s*\d+\)\s*$/i, "").trim() : raw;
+  const baseNorm = normKey(baseRaw);
+
+  const entry = Object.entries(FIELD_DEFS).find(([, def]) =>
+    def.aliases.some((alias) => normKey(alias) === baseNorm)
+  );
+
+  if (!entry) return null;
+
+  const [key, def] = entry;
+  return {
+    key,
+    setIndex,
+    kind: def.kind,
+    label: setIndex ? `${def.label} (set ${setIndex})` : def.label,
+    id: setIndex ? `${key}::set:${setIndex}` : key,
+  };
+}
+
+function isCompatibleValue(kind, value) {
+  if (isNil(value)) return false;
+
+  const raw = String(value).trim();
+  if (!raw) return false;
+
+  if (kind === "time") {
+    return toSeconds(value) != null;
   }
 
-  return false;
+  if (kind === "number") {
+    if (raw.includes(":")) return false;
+    if (/min|sec/i.test(raw)) return false;
+    const n = Number(raw.replace(",", "."));
+    return Number.isFinite(n);
+  }
+
+  return true;
+}
+
+function getPlannedValueForExercise(ex, descriptor) {
+  if (!ex || !descriptor?.key) return undefined;
+
+  const def = FIELD_DEFS[descriptor.key];
+  if (!def) return undefined;
+
+  const details = getSeriesDetails(ex);
+  const seriesDiff = getSeriesDiffFlag(ex);
+  const setIdx = descriptor.setIndex ? descriptor.setIndex - 1 : null;
+
+  if (
+    seriesDiff &&
+    details &&
+    setIdx != null &&
+    setIdx >= 0 &&
+    setIdx < details.length &&
+    descriptor.key !== "series"
+  ) {
+    const setValue = details[setIdx]?.[def.label];
+    if (setValue != null) {
+      return descriptor.kind === "time" ? toSeconds(setValue) : setValue;
+    }
+  }
+
+  const raw = getFieldValue(ex, def.aliases);
+  if (raw == null) return undefined;
+  return descriptor.kind === "time" ? toSeconds(raw) : raw;
 }
 
 /* ==================== Runs (group by runId) ==================== */
@@ -255,6 +328,10 @@ function buildRuns(mods, sessionIndex, exIdToIdx) {
 
     const field = m.field || m.champ || m.name || "valeur";
     const value = m.value ?? m.valeur ?? m.to ?? m.newValue ?? m.v;
+    const descriptor = parseFieldDescriptor(field);
+
+    if (!descriptor) continue;
+    if (!isCompatibleValue(descriptor.kind, value)) continue;
 
     if (!runs.has(runId)) runs.set(runId, { runId, ts, byExercise: {} });
     const run = runs.get(runId);
@@ -264,10 +341,13 @@ function buildRuns(mods, sessionIndex, exIdToIdx) {
     if (!run.byExercise[resolvedIdx]) run.byExercise[resolvedIdx] = {};
     run.byExercise[resolvedIdx]._exerciseName = exName;
     run.byExercise[resolvedIdx]._exerciseId = exId;
-
-    if (isTrackedKey(field)) {
-      run.byExercise[resolvedIdx][field] = value;
-    }
+    run.byExercise[resolvedIdx][descriptor.id] = {
+      value,
+      label: descriptor.label,
+      key: descriptor.key,
+      kind: descriptor.kind,
+      setIndex: descriptor.setIndex,
+    };
   }
 
   // tri desc (newest first)
@@ -276,42 +356,59 @@ function buildRuns(mods, sessionIndex, exIdToIdx) {
 
 /* ==================== Timeline reconstruction ==================== */
 // occList est triée: [0] = plus récent, [...]= plus ancien
-function getValueAtOrBeforeRun(occList, occIdx, exIdx, field) {
+function getValueAtOrBeforeRun(occList, occIdx, exIdx, field, fallbackValue) {
   if (!occList?.length) return undefined;
-  const targetNorm = normKey(field);
 
   for (let i = occIdx; i < occList.length; i++) {
     const byEx = occList[i]?.byExercise?.[exIdx];
     if (!byEx) continue;
 
-    // match exact
-    if (Object.prototype.hasOwnProperty.call(byEx, field)) return byEx[field];
-
-    // match "norm"
-    const k = Object.keys(byEx).find((kk) => normKey(kk) === targetNorm);
-    if (k) return byEx[k];
+    const cell = byEx[field];
+    if (cell && typeof cell === "object") return cell.value;
   }
-  return undefined;
+  return fallbackValue;
 }
 
 function collectAllTrackedFieldsForExercise(occList, exIdx) {
-  const set = new Set();
+  const map = new Map();
   (occList || []).forEach((run) => {
     const byEx = run?.byExercise?.[exIdx];
     if (!byEx) return;
-    Object.keys(byEx).forEach((k) => {
+    Object.entries(byEx).forEach(([k, cell]) => {
       if (k.startsWith("_")) return;
-      if (isTrackedKey(k)) set.add(k);
+      if (!cell || typeof cell !== "object") return;
+      if (!map.has(k)) {
+        map.set(k, {
+          label: cell.label || k,
+          kind: cell.kind || "text",
+          key: cell.key || null,
+          setIndex: cell.setIndex || null,
+        });
+      }
     });
   });
-  return Array.from(set);
+  return Array.from(map.entries()).map(([id, meta]) => ({
+    id,
+    label: meta.label,
+    kind: meta.kind,
+    key: meta.key,
+    setIndex: meta.setIndex,
+  }));
 }
 
 /* ==================== Component ==================== */
 export default function SessionComparator({ clientId, programmes }) {
-  const cardBg = useColorModeValue("white", "gray.700");
-  const border = useColorModeValue("gray.200", "gray.600");
+  const cardBg = useColorModeValue("rgba(255,255,255,0.78)", "rgba(15,23,42,0.78)");
+  const border = useColorModeValue("rgba(15,23,42,0.08)", "rgba(255,255,255,0.10)");
   const muted = useColorModeValue("gray.600", "gray.300");
+  const subtleBg = useColorModeValue("rgba(15,23,42,0.03)", "rgba(255,255,255,0.03)");
+  const accentBg = useColorModeValue("rgba(59,130,246,0.08)", "rgba(59,130,246,0.12)");
+  const tableHeadBg = useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.04)");
+  const rowHover = useColorModeValue("rgba(59,130,246,0.05)", "rgba(59,130,246,0.08)");
+  const shadow = useColorModeValue(
+    "0 20px 50px rgba(15,23,42,0.08)",
+    "0 20px 60px rgba(0,0,0,0.35)"
+  );
 
   const [loading, setLoading] = useState(false);
   const [progId, setProgId] = useState(() => programmes?.[0]?.id || "");
@@ -389,11 +486,10 @@ export default function SessionComparator({ clientId, programmes }) {
 
   if (!currentProg) return null;
 
-  const DiffBadge = ({ field, from, to }) => {
-    if (!isDifferent(from, to)) return <Badge variant="subtle">=</Badge>;
+  const DiffBadge = ({ kind, from, to }) => {
+    if (!isDifferent(kind, from, to)) return <Badge variant="subtle">=</Badge>;
 
-    // Si c'est un champ temps -> delta en mm:ss
-    if (shouldFormatAsTime(field, from) || shouldFormatAsTime(field, to)) {
+    if (kind === "time") {
       const nf = toSeconds(from);
       const nt = toSeconds(to);
       if (nf != null && nt != null) {
@@ -442,32 +538,34 @@ export default function SessionComparator({ clientId, programmes }) {
         occList?.[occAIdx]?.byExercise?.[exIdx]?._exerciseName ||
         `Exercice ${exIdx + 1}`;
 
-      const fields = collectAllTrackedFieldsForExercise(occList, exIdx)
-        .filter((f) => isTrackedKey(f) && !f.startsWith("_"));
+      const fields = collectAllTrackedFieldsForExercise(occList, exIdx);
 
       if (!fields.length) continue;
 
       const displayFields = fields.filter((f) => {
-        const before = getValueAtOrBeforeRun(occList, occAIdx, exIdx, f);
-        const now = getValueAtOrBeforeRun(occList, occBIdx, exIdx, f);
-        return onlyChanged ? isDifferent(before, now) : true;
+        const plannedValue = getPlannedValueForExercise(exPlan, f);
+        const before = getValueAtOrBeforeRun(occList, occAIdx, exIdx, f.id, plannedValue);
+        const now = getValueAtOrBeforeRun(occList, occBIdx, exIdx, f.id, plannedValue);
+        return onlyChanged ? isDifferent(f.kind, before, now) : true;
       });
 
       if (!displayFields.length) continue;
 
       displayFields.forEach((f, i) => {
-        const beforeRaw = getValueAtOrBeforeRun(occList, occAIdx, exIdx, f);
-        const nowRaw = getValueAtOrBeforeRun(occList, occBIdx, exIdx, f);
+        const plannedValue = getPlannedValueForExercise(exPlan, f);
+        const beforeRaw = getValueAtOrBeforeRun(occList, occAIdx, exIdx, f.id, plannedValue);
+        const nowRaw = getValueAtOrBeforeRun(occList, occBIdx, exIdx, f.id, plannedValue);
 
         out.push({
-          key: `${exIdx}-${f}`,
+          key: `${exIdx}-${f.id}`,
           exIdx,
           exName,
-          field: f,
+          field: f.label,
+          kind: f.kind,
           beforeRaw: isNil(beforeRaw) ? "—" : beforeRaw,
           nowRaw: isNil(nowRaw) ? "—" : nowRaw,
-          before: formatCellValue(f, isNil(beforeRaw) ? "—" : beforeRaw),
-          now: formatCellValue(f, isNil(nowRaw) ? "—" : nowRaw),
+          before: formatCellValue(f.kind, isNil(beforeRaw) ? "—" : beforeRaw),
+          now: formatCellValue(f.kind, isNil(nowRaw) ? "—" : nowRaw),
           rowSpanStart: i === 0,
           rowSpan: displayFields.length,
         });
@@ -478,12 +576,36 @@ export default function SessionComparator({ clientId, programmes }) {
   }, [occList, occAIdx, occBIdx, planExercises, onlyChanged]);
 
   return (
-    <Box bg={cardBg} p={6} borderRadius="xl" boxShadow="md" borderWidth="1px" borderColor={border}>
-      <Flex justify="space-between" align="center" wrap="wrap" gap={3}>
-        <Text fontWeight="bold">Comparer une séance</Text>
+    <Box
+      bg={cardBg}
+      p={{ base: 4, md: 6 }}
+      borderRadius="24px"
+      boxShadow={shadow}
+      borderWidth="1px"
+      borderColor={border}
+      backdropFilter="blur(16px)"
+    >
+      <Flex justify="space-between" align={{ base: "stretch", md: "center" }} direction={{ base: "column", md: "row" }} wrap="wrap" gap={4}>
+        <Box>
+          <Text fontWeight="900" fontSize={{ base: "lg", md: "xl" }} letterSpacing="-0.02em">
+            Comparer une séance
+          </Text>
+          <Text mt={1} fontSize="sm" color={muted}>
+            Comparez deux occurrences d’une même séance pour visualiser les évolutions exercice par exercice.
+          </Text>
+        </Box>
 
-        <HStack>
-          <Select size="sm" value={progId} onChange={(e) => setProgId(e.target.value)}>
+        <HStack
+          spacing={3}
+          flexWrap="wrap"
+          align="center"
+          bg={subtleBg}
+          border="1px solid"
+          borderColor={border}
+          borderRadius="20px"
+          p={3}
+        >
+          <Select size="sm" value={progId} onChange={(e) => setProgId(e.target.value)} maxW={{ base: "100%", md: "220px" }}>
             {(programmes || []).map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nomProgramme || p.name || p.id}
@@ -491,7 +613,7 @@ export default function SessionComparator({ clientId, programmes }) {
             ))}
           </Select>
 
-          <Select size="sm" value={sessionIndex} onChange={(e) => setSessionIndex(Number(e.target.value))}>
+          <Select size="sm" value={sessionIndex} onChange={(e) => setSessionIndex(Number(e.target.value))} maxW={{ base: "100%", md: "160px" }}>
             {(currentProg?.sessions || []).map((_s, i) => (
               <option key={i} value={i}>
                 Séance {i + 1}
@@ -499,22 +621,40 @@ export default function SessionComparator({ clientId, programmes }) {
             ))}
           </Select>
 
-          <HStack pl={3}>
+          <HStack pl={{ base: 0, md: 2 }}>
             <Text fontSize="sm">Uniquement modifiés</Text>
             <Switch size="sm" isChecked={onlyChanged} onChange={(e) => setOnlyChanged(e.target.checked)} />
           </HStack>
 
-          {loading && <Spinner size="sm" />}
+          {loading && <Spinner size="sm" color="brand.400" />}
         </HStack>
       </Flex>
 
       {occList.length < 2 ? (
-        <Text mt={3} fontSize="sm" color={muted}>
-          Pas encore assez d’occurrences pour comparer cette séance (il faut au moins 2 enregistrements).
-        </Text>
+        <Box
+          mt={4}
+          p={4}
+          bg={subtleBg}
+          border="1px solid"
+          borderColor={border}
+          borderRadius="20px"
+        >
+          <Text fontSize="sm" color={muted}>
+            Pas encore assez d’occurrences pour comparer cette séance. Il faut au moins 2 enregistrements.
+          </Text>
+        </Box>
       ) : (
         <>
-          <HStack spacing={3} mt={3} wrap="wrap">
+          <HStack
+            spacing={3}
+            mt={4}
+            wrap="wrap"
+            bg={subtleBg}
+            border="1px solid"
+            borderColor={border}
+            borderRadius="20px"
+            p={3}
+          >
             <Text fontSize="sm">Comparer :</Text>
 
             <Select size="sm" value={occAIdx} onChange={(e) => setOccAIdx(Number(e.target.value))} maxW="260px">
@@ -549,7 +689,7 @@ export default function SessionComparator({ clientId, programmes }) {
 
           <Box mt={4} overflowX="auto">
             <Table variant="simple" size="sm" minW="900px">
-              <Thead>
+              <Thead bg={tableHeadBg}>
                 <Tr>
                   <Th>Exercice</Th>
                   <Th>Champ</Th>
@@ -560,7 +700,7 @@ export default function SessionComparator({ clientId, programmes }) {
               </Thead>
               <Tbody>
                 {rows.map((r) => (
-                  <Tr key={r.key}>
+                  <Tr key={r.key} _hover={{ bg: rowHover }}>
                     {r.rowSpanStart && (
                       <Td rowSpan={r.rowSpan} fontWeight="semibold">
                         {r.exName}
@@ -570,7 +710,7 @@ export default function SessionComparator({ clientId, programmes }) {
                     <Td>{r.before}</Td>
                     <Td>{r.now}</Td>
                     <Td>
-                      <DiffBadge field={r.field} from={r.beforeRaw} to={r.nowRaw} />
+                      <DiffBadge kind={r.kind} from={r.beforeRaw} to={r.nowRaw} />
                     </Td>
                   </Tr>
                 ))}
@@ -578,9 +718,18 @@ export default function SessionComparator({ clientId, programmes }) {
             </Table>
 
             {rows.length === 0 && (
-              <Text mt={3} fontSize="sm" color={muted}>
-                Aucune différence détectée (ou aucun champ suivi trouvé dans l’historique pour cette sélection).
-              </Text>
+              <Box
+                mt={4}
+                p={4}
+                bg={accentBg}
+                border="1px solid"
+                borderColor={border}
+                borderRadius="20px"
+              >
+                <Text fontSize="sm" color={muted}>
+                  Aucune différence détectée, ou aucun champ suivi n’a été trouvé dans l’historique pour cette sélection.
+                </Text>
+              </Box>
             )}
           </Box>
         </>

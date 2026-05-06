@@ -1,0 +1,1869 @@
+{
+  "ER001": {
+    "nom": "Ruderer – Voller Zug",
+    "groupe_musculaire": "Ganzkörper",
+    "objectifs": [
+      "Ausdauer",
+      "Cardio",
+      "Gewichtsverlust",
+      "Fitness",
+      "Verstärkung",
+      "Massengewinn",
+      "Haltung",
+      "Stärke"
+    ],
+    "muscles_secondaires": [
+      "Zurück",
+      "Bizeps",
+      "Schultern",
+      "Quadrizeps",
+      "Kniesehnen",
+      "Gesäßmuskeln",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Schultern",
+      "Ellenbogen",
+      "Knie",
+      "Hüften"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Oberschenkelsehne",
+      "Bicipitalsehne"
+    ],
+    "type": "Ergometer – Kombiniertes Cardio",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Ruderer"
+    ],
+    "position": "Sitzen",
+    "contraintes": [
+      "Vermeiden Sie es bei Schmerzen im unteren Rücken oder einer Sehnenentzündung im Ellenbogen"
+    ],
+    "variantes": [
+      "Sprintruderer",
+      "Einbeiniger Ruderer",
+      "Ruderintervalle"
+    ],
+    "consignes": {
+      "Positionnement": "Setzen Sie sich auf das Rudergerät und fixieren Sie die Füße fest auf den Blöcken.",
+      "Mouvement": "Drücken Sie mit den Beinen, während Sie den Griff in Richtung der Unterseite Ihrer Brust ziehen.",
+      "Retour": "Strecken Sie Ihre Arme aus und beugen Sie dann Ihre Beine, um in die Ausgangsposition zurückzukehren.",
+      "Respiration": "Auf dem Rückweg einatmen, während des Stoßes ausatmen.",
+      "Posture": "Rücken gerade, Rumpfmitte, Schultern gesenkt."
+    }
+  },
+  "ER002": {
+    "nom": "Ruderer – Sprints",
+    "groupe_musculaire": "Ganzkörper",
+    "objectifs": [
+      "Ausdauer",
+      "Cardio",
+      "Gewichtsverlust",
+      "Stärke",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Zurück",
+      "Bizeps",
+      "Schultern",
+      "Quadrizeps",
+      "Gesäßmuskeln",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Schultern",
+      "Ellenbogen",
+      "Knie",
+      "Hüften"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Oberschenkelsehne",
+      "Bicipitalsehne"
+    ],
+    "type": "Ergometer – Sprint mit maximaler Anstrengung",
+    "niveau": "Mittelstufe bis Fortgeschritten",
+    "materiel": [
+      "Ruderer"
+    ],
+    "position": "Sitzen",
+    "contraintes": [
+      "Vermeiden Sie es bei instabilen Herz-Kreislauf-Problemen oder Verletzungen der Lendenwirbelsäule"
+    ],
+    "variantes": [
+      "Rudergerät für lange Intervalle",
+      "100-m-Sprint-Ruderer",
+      "Pyramidenruderer"
+    ],
+    "consignes": {
+      "Positionnement": "Gleiche Position wie beim klassischen Ruderer, Füße fest auf dem Boden und Rücken gerade.",
+      "Mouvement": "Führen Sie mit Ihren Beinen und Armen einen explosiven Zug mit voller Intensität durch.",
+      "Retour": "Steuern Sie die Rückkehrphase reibungslos, aktive Erholung.",
+      "Respiration": "Atmen Sie bei der Anstrengung kräftig ein, atmen Sie bei der Rückkehr tief ein.",
+      "Posture": "Halten Sie Ihren Rücken angespannt, ziehen Sie nicht nur mit den Armen."
+    }
+  },
+  "ER003": {
+    "nom": "Ruderer – Beine allein",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Ausdauer",
+      "Haltung",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Kniesehnen",
+      "Gesäßmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Oberschenkelsehne"
+    ],
+    "type": "Ergometer - Beinisolierung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Ruderer"
+    ],
+    "position": "Sitzen",
+    "contraintes": [
+      "Bei Knieschmerzen oder eingeschränkter Beweglichkeit vermeiden"
+    ],
+    "variantes": [
+      "Einarmiger Ruderer",
+      "Komplettes Rudergerät",
+      "Einseitiger Beinruderer"
+    ],
+    "consignes": {
+      "Positionnement": "Gleiche Position wie beim Vollruderer, Arme gerade, ohne zu ziehen.",
+      "Mouvement": "Führen Sie nur den Beinstoß aus, die Arme ruhig.",
+      "Retour": "Beugen Sie die Beine, ohne mit den Armen zu ziehen, fließender Rhythmus.",
+      "Respiration": "Beim Beugen einatmen, beim Drücken ausatmen.",
+      "Posture": "Rücken gerade, Rumpf angespannt, Arme entspannt, aber fixiert."
+    }
+  },
+  "ER004": {
+    "nom": "Rudergerät – Split-Intervalle",
+    "groupe_musculaire": "Ganzkörper",
+    "objectifs": [
+      "Ausdauer",
+      "Cardio",
+      "Gewichtsverlust",
+      "Fitness",
+      "Stärke"
+    ],
+    "muscles_secondaires": [
+      "Zurück",
+      "Bizeps",
+      "Schultern",
+      "Quadrizeps",
+      "Gesäßmuskeln",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Schultern",
+      "Ellenbogen",
+      "Knie",
+      "Hüften"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Oberschenkelsehne",
+      "Bicipitalsehne"
+    ],
+    "type": "Ergometer - Split",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Ruderer"
+    ],
+    "position": "Sitzen",
+    "contraintes": [
+      "Bei zunehmender Ermüdung auf die Technik achten, bei unbeaufsichtigten Anfängern vermeiden"
+    ],
+    "variantes": [
+      "Rudergerät 30/30",
+      "Rudergerät 45/15",
+      "20/40 Rückwärtsruderer"
+    ],
+    "consignes": {
+      "Positionnement": "Montieren Sie die Füße richtig, halten Sie den Griff mit entspannten Armen.",
+      "Mouvement": "Abwechselnde Phasen hochintensiver Anstrengung und aktiver Erholung.",
+      "Retour": "Machen Sie in Erholungsphasen bewusst langsamer.",
+      "Respiration": "Atmen Sie während des Trainings schwer und während der Erholung tief durch.",
+      "Posture": "Bleiben Sie stark und brechen Sie nicht am Ende der Serie zusammen."
+    }
+  },
+  "ER005": {
+    "nom": "Ruderer – 30:30",
+    "groupe_musculaire": "Ganzkörper",
+    "objectifs": [
+      "Ausdauer",
+      "Cardio",
+      "Gewichtsverlust",
+      "Stärke",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Zurück",
+      "Schultern",
+      "Bizeps",
+      "Quadrizeps",
+      "Gesäßmuskeln",
+      "Kniesehnen",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Schultern",
+      "Ellenbogen",
+      "Knie",
+      "Hüften"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Oberschenkelsehne",
+      "Bicipitalsehne"
+    ],
+    "type": "Ergometer – klassisches HIIT",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Ruderer"
+    ],
+    "position": "Sitzen",
+    "contraintes": [
+      "Vermeiden Sie dies im Falle einer instabilisierten Verletzung oder eines unbeaufsichtigten Beginns der Genesung"
+    ],
+    "variantes": [
+      "Rudergerät 45/15",
+      "20/40 Rückwärtsruderer",
+      "Split-Intervall-Rudergerät"
+    ],
+    "consignes": {
+      "Positionnement": "Füße fixiert, Rumpf abgedeckt, Griff fest.",
+      "Mouvement": "30 Sekunden kraftvolles Ziehen, gefolgt von 30 Sekunden vollständiger oder aktiver Ruhepause.",
+      "Retour": "Entspanne in den Ruhephasen das Tempo, behalte aber die Technik bei.",
+      "Respiration": "Atmen Sie bei jedem Zug kräftig und während der Erholung aktiv.",
+      "Posture": "Rücken gerade, nicht allein mit der Lendenwirbelsäule oder den Armen ausgleichen."
+    }
+  },
+  "ER006": {
+    "nom": "Ruderer – 45:15",
+    "groupe_musculaire": "Ganzkörper",
+    "objectifs": [
+      "Cardio",
+      "Ausdauer",
+      "Gewichtsverlust",
+      "Stärke",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Gesäßmuskeln",
+      "Kniesehnen",
+      "Zurück",
+      "Schultern",
+      "Bizeps",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Hüften",
+      "Knie",
+      "Schultern",
+      "Ellenbogen"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Oberschenkelsehne",
+      "Bicipitalsehne"
+    ],
+    "type": "Ergometer - intensives HIIT",
+    "niveau": "Mittelstufe bis Fortgeschritten",
+    "materiel": [
+      "Ruderer"
+    ],
+    "position": "Sitzen",
+    "contraintes": [
+      "Bei schlechter körperlicher Verfassung oder starker Müdigkeit vermeiden"
+    ],
+    "variantes": [
+      "Rudergerät 30/30",
+      "20/40 Rückwärtsruderer",
+      "Sprintruderer"
+    ],
+    "consignes": {
+      "Positionnement": "Füße abgestützt, Griff in der Hand, Körper ausgerichtet und umhüllt.",
+      "Mouvement": "Intensive Anstrengung für 45 Sekunden, gefolgt von 15 Sekunden aktiver oder vollständiger Ruhepause.",
+      "Retour": "Rückkehrkontrolle auch bei hoher Intensität, allmähliche Freigabe während der Erholung.",
+      "Respiration": "Kraftvolles Ausatmen beim Ziehen, tiefe Inspiration beim Zurückziehen.",
+      "Posture": "Aktiver Rumpf, neutraler Rücken, volle Bewegungsfreiheit ohne übermäßige Streckung."
+    }
+  },
+  "ER007": {
+    "nom": "Rudern – 20:40 in umgekehrter Richtung",
+    "groupe_musculaire": "Ganzkörper",
+    "objectifs": [
+      "Ausdauer",
+      "Cardio",
+      "Fitness",
+      "Gewichtsverlust",
+      "Haltung"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Kniesehnen",
+      "Gesäßmuskeln",
+      "Zurück",
+      "Schultern",
+      "Bizeps",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften",
+      "Schultern",
+      "Ellenbogen"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Oberschenkelsehne",
+      "Bicipitalsehne"
+    ],
+    "type": "Ergometer – Reverse HIIT",
+    "niveau": "Anfänger bis Mittelstufe",
+    "materiel": [
+      "Ruderer"
+    ],
+    "position": "Sitzen",
+    "contraintes": [
+      "Vermeiden Sie es im Falle einer Herzrhythmusstörung oder wenn die Rückkehr zum Sport nicht validiert ist"
+    ],
+    "variantes": [
+      "Rudergerät 30/30",
+      "Rudergerät 45/15",
+      "Ruderer – Voller Zug"
+    ],
+    "consignes": {
+      "Positionnement": "Füße fest verankert, Rumpf stabil, Blick gerade.",
+      "Mouvement": "Mäßige Anstrengung für 20 Sekunden, gefolgt von 40 Sekunden Pause oder aktiver Erholung.",
+      "Retour": "Sehr kontrollierte Rückkehrphase, tiefes Atmen während der Erholung.",
+      "Respiration": "Atmen Sie bei jedem Zug aus und bei der Rückkehr ein.",
+      "Posture": "Der Schwerpunkt liegt eher auf Regelmäßigkeit und Qualität der Bewegung als auf Intensität."
+    }
+  },
+  "ER008": {
+    "nom": "Ruderer – nur Arme",
+    "groupe_musculaire": "Oberkörper",
+    "objectifs": [
+      "Haltung",
+      "Verstärkung",
+      "Fitness",
+      "Ausdauer"
+    ],
+    "muscles_secondaires": [
+      "Zurück",
+      "Schultern",
+      "Bizeps",
+      "Unterarm",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Schultern",
+      "Ellenbogen",
+      "Manschetten"
+    ],
+    "tendons_solicites": [
+      "Bicipitalsehne",
+      "Sehnen der Rotatorenmanschette"
+    ],
+    "type": "Ergometer – Isolation des Oberkörpers",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Ruderer"
+    ],
+    "position": "Sitzen",
+    "contraintes": [
+      "Vermeiden Sie es, wenn Sie eine Sehnenentzündung in der Schulter oder im Ellenbogen haben"
+    ],
+    "variantes": [
+      "Einbeiniger Ruderer",
+      "Komplettes Rudergerät",
+      "Einseitiger Armruderer"
+    ],
+    "consignes": {
+      "Positionnement": "Füße fixiert, Beine halb gebeugt und fixiert, Rumpf gerade.",
+      "Mouvement": "Ziehen Sie den Griff nur mit den Armen, ohne die Beine zu benutzen.",
+      "Retour": "Strecken Sie Ihre Arme vollständig aus, bevor Sie mit einem neuen Zug beginnen.",
+      "Respiration": "Atmen Sie beim Ziehen aus, bei der Rückkehr ein.",
+      "Posture": "Halten Sie Ihren Rücken gerade, vermeiden Sie es, mit den Schultern zu zucken oder Ihren Rücken rund zu machen."
+    }
+  },
+  "ER009": {
+    "nom": "Ruderer – einseitige Beine",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Verstärkung",
+      "Haltung",
+      "Fitness",
+      "Ausdauer",
+      "Neuromuskuläre Neuprogrammierung"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Kniesehnen",
+      "Gesäßmuskeln",
+      "Kälber"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften",
+      "Knöchel"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne",
+      "Oberschenkelsehne"
+    ],
+    "type": "Ergometer – einseitige Arbeit",
+    "niveau": "Mittelstufe bis Fortgeschritten",
+    "materiel": [
+      "Ruderer"
+    ],
+    "position": "Sitzen",
+    "contraintes": [
+      "Bei erheblichem Ungleichgewicht oder akuten Gelenkschmerzen vermeiden"
+    ],
+    "variantes": [
+      "Einbeiniger Ruderer",
+      "Einseitiger Armruderer",
+      "Komplettes Rudergerät"
+    ],
+    "consignes": {
+      "Positionnement": "Stellen Sie nur einen Fuß in den Laderaum, den anderen zurückgesetzt oder auf den Boden.",
+      "Mouvement": "Führen Sie den Zug nur mit einem Bein durch, wobei die Arme normal beteiligt sind.",
+      "Retour": "Kontrollieren Sie den Abstieg, um Rhythmus und Gleichgewicht zu bewahren.",
+      "Respiration": "Beim Stoß ausatmen, beim Zurückkehren einatmen.",
+      "Posture": "Sorgen Sie für Stabilität des Beckens und eine gute Symmetrie des Oberkörpers."
+    }
+  },
+  "ER010": {
+    "nom": "Ergometer – Kontinuierliches Treten",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Ausdauer",
+      "Cardio",
+      "Gewichtsverlust",
+      "Fitness",
+      "Haltung"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Kniesehnen",
+      "Gesäßmuskeln",
+      "Kälber"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften",
+      "Knöchel"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne",
+      "Oberschenkelsehne"
+    ],
+    "type": "Ergometer – Kontinuierliches Cardio",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Ergometer"
+    ],
+    "position": "Sitzen",
+    "contraintes": [
+      "Überwachen Sie das Knie im Falle einer Gelenkerkrankung oder einer Prothese"
+    ],
+    "variantes": [
+      "Sprintrad",
+      "Fahrradintervalle",
+      "Bergauf radeln"
+    ],
+    "consignes": {
+      "Positionnement": "Satteleinstellung auf Hüfthöhe, Rücken gerade, Knie leicht gebeugt.",
+      "Mouvement": "Treten Sie ruhig und mit mäßiger bis flotter Trittfrequenz in die Pedale.",
+      "Retour": "Keine besondere Rendite: ständige zyklische Bewegung.",
+      "Respiration": "Regelmäßiges Atmen, synchronisiert mit der Anstrengung.",
+      "Posture": "Halten Sie Ihre Schultern niedrig, Ihren Rumpf angespannt und vermeiden Sie Nackenverspannungen."
+    }
+  },
+  "ER011": {
+    "nom": "Sprintrad",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Cardio",
+      "Gewichtsverlust",
+      "Ausdauer",
+      "Stärke",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Kniesehnen",
+      "Gesäßmuskeln",
+      "Kälber"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften",
+      "Knöchel"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne",
+      "Oberschenkelsehne"
+    ],
+    "type": "Ergometer – Explosive Anstrengung",
+    "niveau": "Mittelstufe bis Fortgeschritten",
+    "materiel": [
+      "Ergometer"
+    ],
+    "position": "Sitzen",
+    "contraintes": [
+      "Bei akuten Gelenkproblemen oder instabilen Herzproblemen vermeiden"
+    ],
+    "variantes": [
+      "Fahrradintervalle",
+      "Bergauf radeln"
+    ],
+    "consignes": {
+      "Positionnement": "Präzise Satteleinstellung, stabile Haltung, Hände am Lenker.",
+      "Mouvement": "Sprinten Sie für kurze Zeit mit maximaler Intensität.",
+      "Retour": "Aktive oder passive Pause nach jedem Sprint.",
+      "Respiration": "Forcierte Exspiration während der Belastung, anschließende Beatmungserholung.",
+      "Posture": "Gerader Rücken, angespannte Bauchmuskeln, nicht am Lenker ziehen."
+    }
+  },
+  "ER012": {
+    "nom": "Fahrradintervalle",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Ausdauer",
+      "Cardio",
+      "Gewichtsverlust",
+      "Fitness",
+      "Stärke"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Kniesehnen",
+      "Gesäßmuskeln",
+      "Kälber"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften",
+      "Knöchel"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne",
+      "Oberschenkelsehne"
+    ],
+    "type": "Ergometer - Klassisches Intervall",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Ergometer"
+    ],
+    "position": "Sitzen",
+    "contraintes": [
+      "Überwachen Sie die Erholung zwischen den Sätzen für Anfänger oder Wiederholer"
+    ],
+    "variantes": [
+      "Sprintrad",
+      "Bergauf radeln"
+    ],
+    "consignes": {
+      "Positionnement": "Korrekte Satteleinstellung, leicht geneigter Oberkörper, Hände am Lenker.",
+      "Mouvement": "Abwechselnde Phasen schnellen Tretens mit langsamer Erholung oder Anhalten.",
+      "Retour": "Machen Sie zwischen den Anstrengungen langsam langsamer.",
+      "Respiration": "Bei Belastung aktiv atmen, in Ruhe kontrolliert einatmen.",
+      "Posture": "Behalten Sie trotz unterschiedlicher Intensität eine stabile Haltung bei."
+    }
+  },
+  "ER013": {
+    "nom": "Bergauf radeln",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Stärke",
+      "Ausdauer",
+      "Cardio",
+      "Fitness",
+      "Massengewinn"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Kniesehnen",
+      "Gesäßmuskeln",
+      "Kälber"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften",
+      "Knöchel"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne",
+      "Oberschenkelsehne"
+    ],
+    "type": "Ergometer - Hoher Widerstand",
+    "niveau": "Mittelstufe bis Fortgeschritten",
+    "materiel": [
+      "Ergometer"
+    ],
+    "position": "Sitzen",
+    "contraintes": [
+      "Bei instabilem Knie oder Schmerzen im unteren Rückenbereich vermeiden"
+    ],
+    "variantes": [
+      "Sprintrad",
+      "Fahrradintervalle"
+    ],
+    "consignes": {
+      "Positionnement": "Zur Unterstützung der Lendenwirbelsäule ist der Sattel leicht nach hinten geneigt.",
+      "Mouvement": "Treten Sie mit hohem Widerstand in die Pedale, entweder im Sitzen oder in einer Tanzposition.",
+      "Retour": "Keine spezifische Rückkehr, kontinuierliche Anstrengung bei einem simulierten Aufstieg.",
+      "Respiration": "Atmen Sie vor Anstrengung aus, atmen Sie tief und regelmäßig ein.",
+      "Posture": "Halten Sie den Rumpf stabil und stark, vermeiden Sie unerwünschte Bewegungen."
+    }
+  },
+  "ER014": {
+    "nom": "Laufband – Dauerbetrieb",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Ausdauer",
+      "Cardio",
+      "Gewichtsverlust",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Kniesehnen",
+      "Gesäßmuskeln",
+      "Kälber"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften",
+      "Knöchel"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne",
+      "Oberschenkelsehne"
+    ],
+    "type": "Ergometer - Lineares Cardio",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Laufband"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Überwachen Sie die Gelenkbelastung bei Übergewicht oder Knie-/Lendenwirbelsäulenerkrankungen"
+    ],
+    "variantes": [
+      "Sprintmatten",
+      "Intervallmatten",
+      "Schräglaufband"
+    ],
+    "consignes": {
+      "Positionnement": "Aufrechte Haltung, Blick nach vorne, natürlicher Schritt.",
+      "Mouvement": "Laufen in konstantem Tempo und regelmäßiger Trittfrequenz.",
+      "Retour": "Beenden Sie die Sitzung mit einem langsamen Spaziergang oder einer allmählichen Rückkehr zur Ruhe.",
+      "Respiration": "Regelmäßig und kontrolliert während des gesamten Rennens.",
+      "Posture": "Achten Sie auf eine gute Kopf-Rumpf-Becken-Ausrichtung und vermeiden Sie Fersenbewegungen."
+    }
+  },
+  "ER015": {
+    "nom": "Sprintmatten",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Cardio",
+      "Gewichtsverlust",
+      "Stärke",
+      "Ausdauer",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Kniesehnen",
+      "Gesäßmuskeln",
+      "Kälber",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften",
+      "Knöchel"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne",
+      "Oberschenkelsehne"
+    ],
+    "type": "Ergometer – Maximale Laufanstrengung",
+    "niveau": "Mittelstufe bis Fortgeschritten",
+    "materiel": [
+      "Laufband"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Bei Gelenkschmerzen oder instabilen Herzerkrankungen vermeiden"
+    ],
+    "variantes": [
+      "Intervallmatten",
+      "Schräglaufband"
+    ],
+    "consignes": {
+      "Positionnement": "Dynamische Haltung, leichte Vorwärtsneigung, bewegliche Arme.",
+      "Mouvement": "Kurze Sprints mit Höchstgeschwindigkeit, explosiver und kontrollierter Schritt.",
+      "Retour": "Langsame Gehphase oder vollständige Ruhe nach jedem Sprint.",
+      "Respiration": "Atmen Sie während des Trainings schwer und während der Erholung tief durch.",
+      "Posture": "Kopf-Rumpf-Becken-Ausrichtung, übermäßige Fersenhaltung vermeiden."
+    }
+  },
+  "ER016": {
+    "nom": "Intervallmatten",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Ausdauer",
+      "Cardio",
+      "Gewichtsverlust",
+      "Fitness",
+      "Stärke"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Kniesehnen",
+      "Gesäßmuskeln",
+      "Kälber",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften",
+      "Knöchel"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne",
+      "Oberschenkelsehne"
+    ],
+    "type": "Ergometer - Split-Laufen",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Laufband"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Überwachen Sie den Gelenkzustand und das Haltungsgleichgewicht bei schnellen Übergängen"
+    ],
+    "variantes": [
+      "Sprintmatten",
+      "Schräglaufband"
+    ],
+    "consignes": {
+      "Positionnement": "Beginnen Sie in einer geraden Haltung, die Füße gut ausgerichtet und schauen Sie weit nach vorne.",
+      "Mouvement": "Wechseln Sie Phasen des schnellen Laufens mit Phasen des Gehens oder langsamen Laufens ab.",
+      "Retour": "Aktive Rückkehr zwischen Sprints, reduzierte Trittfrequenz.",
+      "Respiration": "Anhaltende Atmung in schnellen Phasen, reguliert während der Erholung.",
+      "Posture": "Behalten Sie einen stabilen, flüssigen Schritt ohne übermäßige Spannung bei."
+    }
+  },
+  "ER017": {
+    "nom": "Schräglaufband",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Ausdauer",
+      "Gewichtsverlust",
+      "Fitness",
+      "Haltung",
+      "Stärke"
+    ],
+    "muscles_secondaires": [
+      "Gesäßmuskeln",
+      "Kniesehnen",
+      "Quadrizeps",
+      "Kälber"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften",
+      "Knöchel"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne",
+      "Oberschenkelsehne"
+    ],
+    "type": "Ergometer – Gehen auf einer Steigung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Laufband"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Überwachen Sie die Neigung bei Personen mit Übergewicht oder einer Schwäche der Lendenwirbelsäule"
+    ],
+    "variantes": [
+      "Sprintmatten",
+      "Intervallmatten"
+    ],
+    "consignes": {
+      "Positionnement": "Rumpf leicht nach vorne geneigt.",
+      "Mouvement": "Langsames bis mäßiges Gehen an einem steilen Hang, kontrollierter Schritt.",
+      "Retour": "Verringern Sie die Steigung am Ende der Sitzung schrittweise.",
+      "Respiration": "Stabiler und tiefer Atemrhythmus.",
+      "Posture": "Behalten Sie eine aufrechte Haltung bei und vermeiden Sie übermäßiges Bücken."
+    }
+  },
+  "ER018": {
+    "nom": "Kontinuierlich elliptisch",
+    "groupe_musculaire": "Ganzkörper",
+    "objectifs": [
+      "Ausdauer",
+      "Cardio",
+      "Gewichtsverlust",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Kniesehnen",
+      "Gesäßmuskeln",
+      "Kälber",
+      "Zurück",
+      "Schultern",
+      "Arm",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften",
+      "Knöchel",
+      "Schultern",
+      "Ellenbogen"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne",
+      "Bicipitalsehne"
+    ],
+    "type": "Ergometer – Sanftes Cardio",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Elliptisch"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Wachsamkeit auf Gleichgewicht und Koordination, insbesondere im Falle einer Genesung"
+    ],
+    "variantes": [
+      "Sprinten Sie auf dem Ellipsentrainer",
+      "Umgekehrter Ellipsentrainer",
+      "Elliptische Intervalle"
+    ],
+    "consignes": {
+      "Positionnement": "Stabile Füße auf den Pedalen, leichter Halt an den beweglichen Griffen.",
+      "Mouvement": "Flüssige Kreisbewegung mit Arm-Bein-Koordination.",
+      "Retour": "Machen Sie am Ende der Sitzung langsam langsamer.",
+      "Respiration": "Regelmäßig und kontrolliert während des Trainings.",
+      "Posture": "Rücken gerade, Rumpf angespannt, Blick nach vorne."
+    }
+  },
+  "ER019": {
+    "nom": "Sprinten Sie auf dem Ellipsentrainer",
+    "groupe_musculaire": "Ganzkörper",
+    "objectifs": [
+      "Cardio",
+      "Gewichtsverlust",
+      "Ausdauer",
+      "Stärke",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Kniesehnen",
+      "Gesäßmuskeln",
+      "Kälber",
+      "Arm",
+      "Schultern",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften",
+      "Knöchel",
+      "Schultern",
+      "Ellenbogen"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne",
+      "Bicipitalsehne"
+    ],
+    "type": "Ergometer – Sanfte Sprints",
+    "niveau": "Mittelstufe bis Fortgeschritten",
+    "materiel": [
+      "Elliptisch"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Erfordert eine gute Koordination und eine gute Rumpfmuskulatur"
+    ],
+    "variantes": [
+      "Elliptische Intervalle",
+      "Umgekehrter Ellipsentrainer"
+    ],
+    "consignes": {
+      "Positionnement": "Füße stabil, Rumpf leicht nach vorne geneigt.",
+      "Mouvement": "Explosiver Einsatz bei hoher Geschwindigkeit bei Sprints.",
+      "Retour": "Erholungsphase in sehr langsamem Tempo oder völlige Ruhe.",
+      "Respiration": "Atmen Sie beim Training kräftig und während der Erholung tief ein.",
+      "Posture": "Bleiben Sie bedeckt und vermeiden Sie unerwünschte Bewegungen."
+    }
+  },
+  "ER020": {
+    "nom": "Elliptische Intervalle",
+    "groupe_musculaire": "Ganzkörper",
+    "objectifs": [
+      "Ausdauer",
+      "Cardio",
+      "Gewichtsverlust",
+      "Fitness",
+      "Stärke"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Kniesehnen",
+      "Gesäßmuskeln",
+      "Kälber",
+      "Schultern",
+      "Arm",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften",
+      "Knöchel",
+      "Schultern",
+      "Ellenbogen"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne",
+      "Bicipitalsehne"
+    ],
+    "type": "Ergometer - Flüssigkeitssplit",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Elliptisch"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Bei nicht beherrschter Koordination besteht die Gefahr eines Rhythmusverlustes"
+    ],
+    "variantes": [
+      "Sprinten Sie auf dem Ellipsentrainer",
+      "Umgekehrter Ellipsentrainer"
+    ],
+    "consignes": {
+      "Positionnement": "Stabile Position, Hände an den Griffen, Rumpf gerade.",
+      "Mouvement": "Wechseln Sie anhaltende Anstrengung und langsame oder aktive Erholung ab.",
+      "Retour": "Allmähliche Verringerung der Geschwindigkeit oder des Widerstands.",
+      "Respiration": "Regelmäßig und mit Anstrengung synchronisiert.",
+      "Posture": "Achten Sie auf eine gute Ausrichtung des Rumpfes und eine symmetrische Bewegung."
+    }
+  },
+  "ER021": {
+    "nom": "Umgekehrter Ellipsentrainer",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Haltung",
+      "Verstärkung",
+      "Neuromuskuläre Neuprogrammierung",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Kniesehnen",
+      "Gesäßmuskeln",
+      "Quadrizeps",
+      "Kälber",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften",
+      "Knöchel"
+    ],
+    "tendons_solicites": [
+      "Oberschenkelsehne",
+      "Achillessehne",
+      "Patellasehne"
+    ],
+    "type": "Ergometer – Rückwärtsbewegung",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Elliptisch"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Erfordert eine gute Koordination, für Anfänger ohne Aufsicht meiden"
+    ],
+    "variantes": [
+      "Kontinuierlich elliptisch",
+      "Sprinten Sie auf dem Ellipsentrainer",
+      "Elliptische Intervalle"
+    ],
+    "consignes": {
+      "Positionnement": "Gerade Haltung, Blick weit nach vorne, leichter Griff an den Griffen.",
+      "Mouvement": "Sanftes Rückwärtstreten, Betonung der hinteren Oberschenkel- und Gesäßmuskulatur.",
+      "Retour": "Kehren Sie zu einer Vorwärtsbewegung zurück oder schließen Sie mit einem langsamen Spaziergang ab.",
+      "Respiration": "Regelmäßige und kontrollierte Atmung.",
+      "Posture": "Stabiler Rumpf, Beckenschiefstellung vermeiden."
+    }
+  },
+  "ER022": {
+    "nom": "SkiErg kontinuierlich",
+    "groupe_musculaire": "Oberkörper",
+    "objectifs": [
+      "Cardio",
+      "Ausdauer",
+      "Gewichtsverlust",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Schultern",
+      "Zurück",
+      "Trizeps",
+      "Bauchmuskeln",
+      "Gesäßmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Schultern",
+      "Ellenbogen",
+      "Manschetten",
+      "Hüften"
+    ],
+    "tendons_solicites": [
+      "Trizipitalsehne",
+      "Sehnen der Rotatorenmanschette",
+      "Bicipitalsehne"
+    ],
+    "type": "Ergometer - Vertikaler Zug",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "SkiErg"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Bei Schulterschmerzen oder instabilem Bandscheibenvorfall vermeiden"
+    ],
+    "variantes": [
+      "SkiErg-Sprint",
+      "SkiErg-Intervalle",
+      "Einseitiger SkiErg"
+    ],
+    "consignes": {
+      "Positionnement": "Stehend, Füße hüftbreit auseinander, Griffe in der Hand, Arme nach oben ausgestreckt.",
+      "Mouvement": "Ziehen Sie die Griffe nach unten, während Sie Ihre Arme und Hüften beugen.",
+      "Retour": "Hebe deine Arme kontrolliert.",
+      "Respiration": "Beim Ziehen ausatmen, beim Aufsteigen einatmen.",
+      "Posture": "Spannen Sie Ihre Bauchmuskeln an, halten Sie Ihren Rücken gerade und ziehen Sie nicht nur mit den Armen."
+    }
+  },
+  "ER023": {
+    "nom": "SkiErg-Sprint",
+    "groupe_musculaire": "Oberkörper",
+    "objectifs": [
+      "Cardio",
+      "Gewichtsverlust",
+      "Stärke",
+      "Ausdauer",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Schultern",
+      "Zurück",
+      "Trizeps",
+      "Bauchmuskeln",
+      "Gesäßmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Schultern",
+      "Ellenbogen",
+      "Manschetten",
+      "Hüften"
+    ],
+    "tendons_solicites": [
+      "Trizipitalsehne",
+      "Sehnen der Rotatorenmanschette",
+      "Bicipitalsehne"
+    ],
+    "type": "Ergometer - Vertikalsprint",
+    "niveau": "Mittelstufe bis Fortgeschritten",
+    "materiel": [
+      "SkiErg"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Bei mangelhafter Durchführung kann sich die Schultertendopathie verschlimmern"
+    ],
+    "variantes": [
+      "SkiErg-Intervalle",
+      "Einseitiger SkiErg"
+    ],
+    "consignes": {
+      "Positionnement": "Füße fixiert, Arme erhoben, Rumpf leicht nach vorne.",
+      "Mouvement": "Ziehen Sie schnell mit Kraft und hoher Trittfrequenz nach unten.",
+      "Retour": "Kehren Sie schnell nach oben zurück, ohne Muskelblockaden.",
+      "Respiration": "Atmen Sie bei Anstrengung aus und atmen Sie beim Aufstieg ein.",
+      "Posture": "Den Rumpf stabil halten, nicht nur mit den Armen ziehen."
+    }
+  },
+  "ER024": {
+    "nom": "SkiErg-Intervalle",
+    "groupe_musculaire": "Oberkörper",
+    "objectifs": [
+      "Ausdauer",
+      "Cardio",
+      "Gewichtsverlust",
+      "Fitness",
+      "Stärke"
+    ],
+    "muscles_secondaires": [
+      "Zurück",
+      "Trizeps",
+      "Schultern",
+      "Bauchmuskeln",
+      "Gesäßmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Schultern",
+      "Ellenbogen",
+      "Manschetten",
+      "Hüften"
+    ],
+    "tendons_solicites": [
+      "Trizipitalsehne",
+      "Bicipitalsehne",
+      "Sehnen der Rotatorenmanschette"
+    ],
+    "type": "Ergometer - Vertikaler Split",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "SkiErg"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Kann bei schlechter Kontrolle zu Haltungsermüdung führen"
+    ],
+    "variantes": [
+      "SkiErg-Sprint",
+      "Einseitiger SkiErg"
+    ],
+    "consignes": {
+      "Positionnement": "Griffe in den Händen, Arme erhoben, Füße im Boden verankert.",
+      "Mouvement": "Wechseln Sie dynamische Zugphasen mit Erholungsphasen ab.",
+      "Retour": "Lassen Sie die Arme fließend heben, ohne übermäßige Entspannung.",
+      "Respiration": "Schnelles Tempo während des Trainings, kontrollierter während der Erholung.",
+      "Posture": "Halten Sie Ihren Rücken gerade und spannen Sie während der gesamten Übung Ihre Bauchmuskeln an."
+    }
+  },
+  "ER025": {
+    "nom": "Einseitiger SkiErg",
+    "groupe_musculaire": "Oberkörper",
+    "objectifs": [
+      "Verstärkung",
+      "Haltung",
+      "Koordination",
+      "Neuromuskuläre Neuprogrammierung"
+    ],
+    "muscles_secondaires": [
+      "Trizeps",
+      "Schultern",
+      "Bauchmuskeln",
+      "Gesäßmuskeln",
+      "Schrägen"
+    ],
+    "articulations_solicitees": [
+      "Schulter",
+      "Ellenbogen",
+      "Handgelenk",
+      "Hip"
+    ],
+    "tendons_solicites": [
+      "Trizipitalsehne",
+      "Bicipitalsehne",
+      "Sehnen der Rotatorenmanschette"
+    ],
+    "type": "Ergometer – Einseitiger Klimmzug",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "SkiErg"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Erfordert eine gute Kontrolle des Schwerpunkts und der Körperhaltung"
+    ],
+    "variantes": [
+      "SkiErg-Sprint",
+      "SkiErg-Intervalle"
+    ],
+    "consignes": {
+      "Positionnement": "Ein Griff in der Hand, Arm hochgehoben, stabile Position.",
+      "Mouvement": "Ziehen Sie den Griff kontrolliert nach unten und achten Sie dabei auf die Rumpfsymmetrie.",
+      "Retour": "Kehren Sie ohne parasitäre Bewegungen in die Ausgangsposition zurück.",
+      "Respiration": "Beim Ziehen ausatmen, beim Wiederaufstieg einatmen.",
+      "Posture": "Spannen Sie Ihre Bauchmuskeln an, halten Sie Ihre Hüften gerade und stabil."
+    }
+  },
+  "ER026": {
+    "nom": "AirBike – Kontinuierliche Bewegung",
+    "groupe_musculaire": "Ganzkörper",
+    "objectifs": [
+      "Cardio",
+      "Ausdauer",
+      "Gewichtsverlust",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Kniesehnen",
+      "Gesäßmuskeln",
+      "Kälber",
+      "Zurück",
+      "Brustmuskeln",
+      "Arm",
+      "Schultern",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Schultern",
+      "Ellenbogen",
+      "Hüften",
+      "Knie",
+      "Knöchel"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne",
+      "Bicipitalsehne",
+      "Trizipitalsehne"
+    ],
+    "type": "Ergometer – Luftwiderstand",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "AirBike"
+    ],
+    "position": "Sitzen",
+    "contraintes": [
+      "Erfordert eine flüssige Arm-Bein-Koordination – achten Sie bei Ermüdung auf Ihren unteren Rücken"
+    ],
+    "variantes": [
+      "AirBike-Sprint",
+      "AirBike-Intervalle",
+      "Nur AirBike-Arme",
+      "Nur AirBike-Beine"
+    ],
+    "consignes": {
+      "Positionnement": "Optimale Satteleinstellung, gerader Rücken, Hände an den beweglichen Griffen.",
+      "Mouvement": "Drücken Sie mit den Beinen, während Sie gleichzeitig mit den Armen ziehen/drücken, um eine sanfte Bewegung zu erzielen.",
+      "Retour": "Machen Sie es langsam und in einem flexiblen Tempo langsamer.",
+      "Respiration": "Regelmäßig, der Intensität angepasst.",
+      "Posture": "Ummantelter Rumpf, symmetrische Bewegung, vermeiden Sie, nur mit den Armen zu ziehen."
+    }
+  },
+  "ER027": {
+    "nom": "AirBike-Sprint",
+    "groupe_musculaire": "Ganzkörper",
+    "objectifs": [
+      "Cardio",
+      "Gewichtsverlust",
+      "Ausdauer",
+      "Stärke",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Gesäßmuskeln",
+      "Kälber",
+      "Brustmuskeln",
+      "Schultern",
+      "Trizeps",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Hüften",
+      "Knie",
+      "Knöchel",
+      "Schultern",
+      "Ellenbogen"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne",
+      "Trizipitalsehne"
+    ],
+    "type": "Ergometer – Explosive Anstrengung",
+    "niveau": "Mittelstufe bis Fortgeschritten",
+    "materiel": [
+      "AirBike"
+    ],
+    "position": "Sitzen",
+    "contraintes": [
+      "Sehr intensiv – vermeiden Sie es ohne Überhitzung oder bei Herzerkrankungen"
+    ],
+    "variantes": [
+      "AirBike-Intervalle",
+      "Nur AirBike-Arme",
+      "Nur AirBike-Beine"
+    ],
+    "consignes": {
+      "Positionnement": "Gut eingestellter Sattel, Hände an den Griffen, Brust leicht nach vorne geneigt.",
+      "Mouvement": "Sprintet mit maximaler Trittfrequenz in Arm-/Bein-Synchronisation.",
+      "Retour": "Aktive oder passive Pause nach jedem Sprint.",
+      "Respiration": "Bei sportlicher Betätigung kräftig pusten, aktive Erholung durch langsames Pusten.",
+      "Posture": "Bleiben Sie stark und stabil, vermeiden Sie Stöße."
+    }
+  },
+  "ER028": {
+    "nom": "AirBike-Intervalle",
+    "groupe_musculaire": "Ganzkörper",
+    "objectifs": [
+      "Ausdauer",
+      "Cardio",
+      "Gewichtsverlust",
+      "Fitness",
+      "Stärke"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Gesäßmuskeln",
+      "Kälber",
+      "Brustmuskeln",
+      "Arm",
+      "Schultern",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften",
+      "Knöchel",
+      "Schultern",
+      "Ellenbogen"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne",
+      "Bicipitalsehne",
+      "Trizipitalsehne"
+    ],
+    "type": "Ergometer – Split",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "AirBike"
+    ],
+    "position": "Sitzen",
+    "contraintes": [
+      "Schnelle Ermüdung, erfordert eine gute Erholung zwischen den Blöcken"
+    ],
+    "variantes": [
+      "AirBike-Sprint",
+      "Nur AirBike-Arme",
+      "Nur AirBike-Beine"
+    ],
+    "consignes": {
+      "Positionnement": "Sattelanpassung an die Größe, stabile Position.",
+      "Mouvement": "Wechseln Sie intensive Anstrengung und langsame oder passive Erholung ab.",
+      "Retour": "Beenden Sie den letzten Satz mit einer längeren Erholung.",
+      "Respiration": "Kontrolliertes, tiefes Tempo während der Erholung.",
+      "Posture": "Ummantelter Rumpf, Symmetrie der Arm-/Beinbewegungen."
+    }
+  },
+  "ER029": {
+    "nom": "Nur AirBike-Arme",
+    "groupe_musculaire": "Oberkörper",
+    "objectifs": [
+      "Verstärkung",
+      "Cardio",
+      "Haltung",
+      "Neuromuskuläre Neuprogrammierung"
+    ],
+    "muscles_secondaires": [
+      "Schultern",
+      "Trizeps",
+      "Zurück",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Schultern",
+      "Ellenbogen",
+      "Manschetten"
+    ],
+    "tendons_solicites": [
+      "Trizipitalsehne",
+      "Bicipitalsehne",
+      "Sehnen der Rotatorenmanschette"
+    ],
+    "type": "Ergometer – nur Arm",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "AirBike"
+    ],
+    "position": "Sitzen",
+    "contraintes": [
+      "Bei nicht stabilisierten Beinen besteht die Gefahr einer Haltungsstörung"
+    ],
+    "variantes": [
+      "Nur AirBike-Beine",
+      "AirBike-Sprint",
+      "AirBike-Intervalle"
+    ],
+    "consignes": {
+      "Positionnement": "Füße auf dem Boden oder auf einer Fußstütze abstellen, Hände an den beweglichen Griffen.",
+      "Mouvement": "Abwechselnde Druck- und Zugbewegungen nur mit den Armen.",
+      "Retour": "Kehren Sie in die Neutralstellung zurück, ohne Ihre Schultern zu entspannen.",
+      "Respiration": "Atmen Sie beim Stoßen aus und beim Zurückkehren ein.",
+      "Posture": "Rücken gerade, Bauchmuskeln angespannt, Schwanken vermeiden."
+    }
+  },
+  "ER030": {
+    "nom": "Nur AirBike-Beine",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Verstärkung",
+      "Cardio",
+      "Ausdauer",
+      "Haltung",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Kniesehnen",
+      "Gesäßmuskeln",
+      "Kälber"
+    ],
+    "articulations_solicitees": [
+      "Hüften",
+      "Knie",
+      "Knöchel"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne",
+      "Oberschenkelsehne"
+    ],
+    "type": "Ergometer – nur Beine",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "AirBike"
+    ],
+    "position": "Sitzen",
+    "contraintes": [
+      "Deaktivieren Sie die Arme (wenn möglich, fixieren Sie die Griffe), um Störungen zu vermeiden"
+    ],
+    "variantes": [
+      "Nur AirBike-Arme",
+      "AirBike-Sprint",
+      "AirBike-Intervalle"
+    ],
+    "consignes": {
+      "Positionnement": "Hände auf die Oberschenkel gelegt oder fixiert, Rücken gerade.",
+      "Mouvement": "Sanftes Treten nur mit den Beinen, kontrollierte Trittfrequenz.",
+      "Retour": "Am Ende des Blocks langsamer werden.",
+      "Respiration": "Kontinuierlich, tief, ohne Blockierung.",
+      "Posture": "Aktive Ummantelung, parasitäre Bewegungen des Rumpfes vermeiden."
+    }
+  },
+  "ER031": {
+    "nom": "Stepper – Kontinuierliche Bewegung",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Cardio",
+      "Ausdauer",
+      "Gewichtsverlust",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Gesäßmuskeln",
+      "Kniesehnen",
+      "Kälber",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften",
+      "Knöchel"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne"
+    ],
+    "type": "Ergometer – Rhythmischer Aufstieg",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Stepper"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Achten Sie auf langfristige Gelenkermüdung oder eine schlechte Haltung der Lendenwirbelsäule"
+    ],
+    "variantes": [
+      "Sprint-Stepper",
+      "Stepper-Intervalle",
+      "Einseitiger Stepper"
+    ],
+    "consignes": {
+      "Positionnement": "Füße fest auf den Stufen abstellen, Hände bei Bedarf an den Griffen.",
+      "Mouvement": "Sanfter Wechselaufstieg, konstante Trittfrequenz.",
+      "Retour": "Machen Sie am Ende der Sitzung langsam langsamer.",
+      "Respiration": "Kontinuierlich und regelmäßig.",
+      "Posture": "Rücken gerade, Rumpf angespannt, verlassen Sie sich nicht zu sehr auf die Arme."
+    }
+  },
+  "ER032": {
+    "nom": "Sprint-Stepper",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Cardio",
+      "Gewichtsverlust",
+      "Ausdauer",
+      "Stärke",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Gesäßmuskeln",
+      "Kniesehnen",
+      "Kälber",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften",
+      "Knöchel"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne"
+    ],
+    "type": "Ergometer – Sprint bergauf",
+    "niveau": "Mittelstufe bis Fortgeschritten",
+    "materiel": [
+      "Stepper"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Sehr gelenkbeanspruchend – bei Knieverletzungen nicht zu empfehlen"
+    ],
+    "variantes": [
+      "Stepper-Intervalle",
+      "Einseitiger Stepper"
+    ],
+    "consignes": {
+      "Positionnement": "Stabile aufrechte Position, Hände an den Griffen nur für das Gleichgewicht.",
+      "Mouvement": "Explosive Anstiege bei maximaler Trittfrequenz.",
+      "Retour": "Aktive oder vollständige Ruhephase nach jedem Sprint.",
+      "Respiration": "Atmen Sie beim Training kräftig aus, während der Erholung ein.",
+      "Posture": "Stabiler Rumpf, gerader Blick, kein übermäßiges Springen."
+    }
+  },
+  "ER033": {
+    "nom": "Stepper-Intervalle",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Ausdauer",
+      "Cardio",
+      "Gewichtsverlust",
+      "Fitness",
+      "Stärke"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Gesäßmuskeln",
+      "Kniesehnen",
+      "Kälber",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften",
+      "Knöchel"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne"
+    ],
+    "type": "Ergometer – Split bergauf",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Stepper"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Kann bei schlechter Rhythmuskontrolle zu erheblicher Ermüdung der unteren Gliedmaßen führen"
+    ],
+    "variantes": [
+      "Sprint-Stepper",
+      "Einseitiger Stepper"
+    ],
+    "consignes": {
+      "Positionnement": "Aufrechte Haltung, die Hände leicht auf den Griffen aufliegend.",
+      "Mouvement": "Wechseln Sie Phasen anhaltender Anstrengung mit Phasen der Erholung ab.",
+      "Retour": "Beenden Sie mit einer ausgedehnten Erholungsphase.",
+      "Respiration": "Beschleunigt während des Trainings, kontrollierter während der Erholung.",
+      "Posture": "Gerader Rumpf, keine übermäßige Unterstützung der Arme."
+    }
+  },
+  "ER034": {
+    "nom": "Einseitiger Stepper",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Verstärkung",
+      "Haltung",
+      "Koordination",
+      "Neuromuskuläre Neuprogrammierung"
+    ],
+    "muscles_secondaires": [
+      "Gesäßmuskeln",
+      "Quadrizeps",
+      "Kälber",
+      "Kniesehnen",
+      "Schrägen"
+    ],
+    "articulations_solicitees": [
+      "Hüften",
+      "Knie",
+      "Knöchel"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne",
+      "Oberschenkelsehne"
+    ],
+    "type": "Ergometer – einseitiger Aufstieg",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Stepper"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Erfordert eine gute Haltungsstabilität und starke Unterstützung des aktiven Beins"
+    ],
+    "variantes": [
+      "Sprint-Stepper",
+      "Stepper-Intervalle"
+    ],
+    "consignes": {
+      "Positionnement": "Gerade Position, ein Bein aktiv, das andere gestellt oder schwebend.",
+      "Mouvement": "Dynamischer Aufstieg mit einem Bein, angekettet über mehrere Wiederholungen.",
+      "Retour": "Machen Sie zwischen den einzelnen Sätzen eine Pause oder wechseln Sie die Seite.",
+      "Respiration": "Kontinuierlich und kontrolliert.",
+      "Posture": "Hüften ausgerichtet, aktiver Rumpf, seitliche Ungleichgewichte vermeiden."
+    }
+  },
+  "ER035": {
+    "nom": "Treppen – Kontinuierlicher Aufstieg",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Cardio",
+      "Ausdauer",
+      "Gewichtsverlust",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Gesäßmuskeln",
+      "Kälber",
+      "Kniesehnen",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften",
+      "Knöchel"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne",
+      "Oberschenkelsehne"
+    ],
+    "type": "Ergometer – Rolltreppe",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Rolltreppen (Climbmill/Stepmill)"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Achten Sie bei schnellem Tempo auf Ermüdung und Ungleichgewicht im unteren Rückenbereich"
+    ],
+    "variantes": [
+      "Sprint-Treppe",
+      "Treppenabstände",
+      "Einseitige Treppe"
+    ],
+    "consignes": {
+      "Positionnement": "Stehen Sie auf, die Füße fest verankert, die Hände bei Bedarf leicht aufgelegt.",
+      "Mouvement": "Flüssige Stufenaufstiege ohne Aufprall.",
+      "Retour": "Verlangsamen Sie das Tempo am Ende des Blocks.",
+      "Respiration": "Regulär, zum Klettern geeignet.",
+      "Posture": "Rücken gerade, Rumpf angespannt, nicht auf die Arme fallen lassen."
+    }
+  },
+  "ER036": {
+    "nom": "Sprint-Treppe",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Cardio",
+      "Gewichtsverlust",
+      "Ausdauer",
+      "Stärke",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Gesäßmuskeln",
+      "Kälber",
+      "Kniesehnen",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften",
+      "Knöchel"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne",
+      "Oberschenkelsehne"
+    ],
+    "type": "Ergometer – Treppensprint",
+    "niveau": "Mittelstufe bis Fortgeschritten",
+    "materiel": [
+      "Rolltreppen (Climbmill/Stepmill)"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Hohe Intensität – erfordert Koordination und Haltungskontrolle"
+    ],
+    "variantes": [
+      "Treppenabstände",
+      "Einseitige Treppe"
+    ],
+    "consignes": {
+      "Positionnement": "Aufrechte Position, Hände entspannt oder leicht platziert, um das Gleichgewicht zu halten.",
+      "Mouvement": "Sprinten Sie bei aufeinanderfolgenden Schritten mit maximaler Trittfrequenz.",
+      "Retour": "Aktive Ruhe (langsames Gehen) oder vollständige Ruhe zwischen den Sprints.",
+      "Respiration": "Atme beim schnellen Anstieg aus, atme beim Aufschwung ein.",
+      "Posture": "Ummantelter Rumpf, kein Vorwärtsschaukeln oder übermäßiger Armgriff."
+    }
+  },
+  "ER037": {
+    "nom": "Treppenabstände",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Ausdauer",
+      "Cardio",
+      "Gewichtsverlust",
+      "Fitness",
+      "Stärke"
+    ],
+    "muscles_secondaires": [
+      "Quadrizeps",
+      "Gesäßmuskeln",
+      "Kälber",
+      "Kniesehnen",
+      "Bauchmuskeln"
+    ],
+    "articulations_solicitees": [
+      "Knie",
+      "Hüften",
+      "Knöchel"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne",
+      "Oberschenkelsehne"
+    ],
+    "type": "Ergometer – geteilte Treppe",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Rolltreppen (Climbmill/Stepmill)"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Kann zu erheblicher Ermüdung führen, wenn das Tempo schlecht gemessen wird"
+    ],
+    "variantes": [
+      "Sprint-Treppe",
+      "Einseitige Treppe"
+    ],
+    "consignes": {
+      "Positionnement": "Füße stehen stabil, Hände geben bei Bedarf leichten Halt.",
+      "Mouvement": "Wechseln Sie schnelle Sequenzen und langsamere Erholungsphasen ab.",
+      "Retour": "Beenden Sie den Aufstieg mit einem langsamen und flüssigen Aufstieg.",
+      "Respiration": "Kontrolliert, tief während der Genesung.",
+      "Posture": "Gerader Rücken, angespannte Bauchmuskeln, keine Beckenneigung."
+    }
+  },
+  "ER038": {
+    "nom": "Einseitige Treppe",
+    "groupe_musculaire": "Beine",
+    "objectifs": [
+      "Verstärkung",
+      "Haltung",
+      "Koordination",
+      "Neuromuskuläre Neuprogrammierung"
+    ],
+    "muscles_secondaires": [
+      "Gesäßmuskeln",
+      "Quadrizeps",
+      "Kälber",
+      "Kniesehnen",
+      "Schrägen"
+    ],
+    "articulations_solicitees": [
+      "Hüften",
+      "Knie",
+      "Knöchel"
+    ],
+    "tendons_solicites": [
+      "Patellasehne",
+      "Achillessehne",
+      "Oberschenkelsehne"
+    ],
+    "type": "Ergometer – einseitiger Aufstieg",
+    "niveau": "Alle Ebenen",
+    "materiel": [
+      "Rolltreppen (Climbmill/Stepmill)"
+    ],
+    "position": "Stehend",
+    "contraintes": [
+      "Erfordert Stabilität und guten Halt – bei Gelenkinstabilität vermeiden"
+    ],
+    "variantes": [
+      "Sprint-Treppe",
+      "Treppenabstände"
+    ],
+    "consignes": {
+      "Positionnement": "Beginnen Sie mit nur einem aktiven Bein, das andere stützt oder hängt leicht.",
+      "Mouvement": "Führen Sie während des gesamten Satzes wiederholte Hebungen mit dem aktiven Bein durch.",
+      "Retour": "Wechseln Sie die Seite oder gönnen Sie sich nach der Serie eine Pause.",
+      "Respiration": "Weitergehen, angepasst an das Tempo des Aufstiegs.",
+      "Posture": "Stabiler Rumpf, ausgerichtete Hüften, Beckenkontrolle."
+    }
+  }
+}

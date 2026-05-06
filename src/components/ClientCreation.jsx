@@ -4,7 +4,7 @@ import {
   Box, Heading, Input, Select, Textarea, Button, VStack, HStack,
   useColorModeValue, useToast, FormControl, FormLabel,
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton,
-  useDisclosure, Text
+  useDisclosure, Text, SimpleGrid, Divider
 } from "@chakra-ui/react";
 import {
   doc, setDoc, serverTimestamp, getDocs, getDoc,
@@ -13,6 +13,7 @@ import {
 import { db } from "../firebaseConfig";
 import { useAuth } from "../AuthContext";
 import { useTranslation } from "react-i18next";
+import { notify } from "../utils/notify";
 
 // App secondaire pour créer un user sans déconnecter le coach
 import { initializeApp, getApps, getApp, deleteApp } from "firebase/app";
@@ -29,6 +30,17 @@ const CM_PER_IN = 2.54;
 const toNumber = (v) => {
   const n = parseFloat(String(v ?? "").replace(",", "."));
   return Number.isFinite(n) ? n : null;
+};
+
+const langCodeFromAny = (value) => {
+  const l = String(value || "").trim().toLowerCase();
+  if (l.startsWith("en") || l.includes("english") || l.includes("anglais")) return "en";
+  if (l.startsWith("de") || l.includes("deutsch") || l.includes("allemand")) return "de";
+  if (l.startsWith("it") || l.includes("italiano")) return "it";
+  if (l.startsWith("es") || l.includes("español") || l.includes("espanol") || l.includes("espagnol")) return "es";
+  if (l.startsWith("ru") || l.includes("русский")) return "ru";
+  if (l.includes("arab") || l.includes("العربية") || l === "ar") return "ar";
+  return "fr";
 };
 
 const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
@@ -115,6 +127,7 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
         ...(base.settings || {}),
         units: { height: heightUnit, weight: weightUnit },
         defaultLanguage: base.langue,
+        langCode: langCodeFromAny(base.langue),
       },
       updatedAt: serverTimestamp(),
     };
@@ -170,6 +183,7 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
             prenom: client.prenom.trim(),
             nom: client.nom.trim(),
           }),
+          emailLower: emailNorm,
           coachIds: arrayUnion(user.uid),
         });
         return { uid: ref.id, created: false, updatedExistingClient: true };
@@ -186,6 +200,7 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
     const clientPayload = buildComputedPayload({
       ...client,
       email: emailNorm,
+      emailLower: emailNorm,
       prenom: client.prenom.trim(),
       nom: client.nom.trim(),
       creeLe: clientSnap.exists() ? clientSnap.data()?.creeLe || serverTimestamp() : serverTimestamp(),
@@ -221,12 +236,18 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
         ...payload,
         coachIds: arrayUnion(user.uid),
       });
-      toast({ title: t("common.confirm"), description: t("clientCreation.modalConfirm"), status: "success", duration: 5000 });
+      notify(toast, "clientLinked", {
+        title: t("common.confirm"),
+        description: t("clientCreation.modalConfirm"),
+      });
       setMergeClientId(null); setMergeClient(null);
       setClient(initialClientState);
       onMergeClose(); onCreated?.(); onClose?.();
     } catch (error) {
-      toast({ title: t("errors.update_error") || "Erreur fusion client", description: error.message, status: "error", duration: 5000 });
+      notify(toast, "saveError", {
+        title: t("errors.update_error") || "Fusion impossible",
+        description: error.message,
+      });
     }
   };
 
@@ -269,6 +290,8 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
           getApps().find((a) => a.name === "BYL-Secondary")
           ?? initializeApp(baseConfig, "BYL-Secondary");
         const secondaryAuth = getAuthSecondary(secondary);
+        const langCode = langCodeFromAny(client.langue);
+        secondaryAuth.languageCode = langCode;
 
         const tempPwd = Math.random().toString(36).slice(-10) + "A!1$";
 
@@ -282,12 +305,7 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
           if (err?.code === "auth/email-already-in-use") {
             await deleteApp(secondary).catch(() => {});
             const res = await linkExistingByEmail(email);
-            toast({
-              title: "Client lié à votre liste",
-              description: "Le compte existait déjà ; le client a été rattaché.",
-              status: "success",
-              duration: 6000,
-            });
+            notify(toast, "clientLinked");
             setClient(initialClientState);
             onCreated?.(); onClose?.();
             setLoading(false);
@@ -295,7 +313,10 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
           }
 
           if (err?.code === "auth/operation-not-allowed") {
-            toast({ title: "E-mail/mot de passe désactivé dans Firebase.", status: "error", duration: 6000 });
+            notify(toast, "saveError", {
+              title: "Connexion e-mail indisponible",
+              description: "L'authentification e-mail/mot de passe est désactivée dans Firebase.",
+            });
             await deleteApp(secondary).catch(() => {});
             setLoading(false);
             return;
@@ -321,14 +342,18 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
         // Ecritures Firestore
         await setDoc(doc(db, "users", uid), {
           email,
+          emailLower: email,
           role: "particulier",
           firstName: client.prenom.trim(),
           lastName: client.nom.trim(),
+          displayName: `${client.prenom.trim()} ${client.nom.trim()}`.trim(),
           telephone: client.telephone?.trim() || null,
           createdAt: serverTimestamp(),
           loginMethod: "email",
+          preferredLang: langCode,
           settings: {
             defaultLanguage: client.langue,
+            langCode,
           }
         });
 
@@ -343,25 +368,21 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
 
         await setDoc(doc(db, "clients", uid), {
           ...clientPayload,
+          emailLower: email,
+          uid,
+          linkedUserId: uid,
           coachIds: [user.uid],
         });
 
-        toast({
-          title: t("clientCreation.save"),
-          description: "Un e-mail de configuration du mot de passe a été envoyé par Firebase.",
-          status: "success",
-          duration: 7000
-        });
+        notify(toast, "clientCreatedWithEmail");
 
         setClient(initialClientState);
         onCreated?.(); onClose?.();
       } catch (error) {
         console.error("Client creation failed:", error);
-        toast({
-          title: t("errors.update_error") || "Erreur lors de la création/liaison du client",
-          description: error?.message || String(error),
-          status: "error",
-          duration: 7000
+        notify(toast, "saveError", {
+          title: t("errors.update_error") || "Création impossible",
+          description: error?.message || "Le client n'a pas pu être créé pour le moment.",
         });
       } finally {
         setLoading(false);
@@ -372,7 +393,10 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
     // --- Méthode téléphone (invitation) ---
     if (client.loginMethod === "phone") {
       if (!client.telephone) {
-        toast({ title: t("clientCreation.phone"), description: t("errors.missingPhone") || "Numéro de téléphone requis", status: "error", duration: 4000 });
+        notify(toast, "clientMissingPhone", {
+          title: t("clientCreation.phone"),
+          description: t("errors.missingPhone") || "Numéro de téléphone requis",
+        });
         setLoading(false);
         return;
       }
@@ -405,15 +429,14 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
           coachIds: [user.uid],
         });
 
-        toast({
-          title: t("clientCreation.save"),
-          description: "Le client activera son compte lors de sa 1ère connexion.",
-          status: "success", duration: 7000
-        });
+        notify(toast, "clientCreated");
         setClient(initialClientState);
         onCreated?.(); onClose?.();
       } catch (error) {
-        toast({ title: t("errors.update_error") || "Erreur lors de la création du client", description: error.message, status: "error", duration: 6000 });
+        notify(toast, "saveError", {
+          title: t("errors.update_error") || "Création impossible",
+          description: error.message,
+        });
       } finally {
         setLoading(false);
       }
@@ -438,28 +461,55 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
         ...clientPayload,
         coachIds: [user.uid],
       });
-      toast({ title: t("clientCreation.save"), description: t("clientCreation.modalNoAccessText"), status: "info", duration: 7000 });
+      notify(toast, "clientCreated", {
+        status: "info",
+        title: t("clientCreation.save"),
+        description: t("clientCreation.modalNoAccessText"),
+        duration: 7000,
+      });
       setClient(initialClientState);
       setPendingOfflineClient(null);
       onCreated?.(); onClose?.();
     } catch (error) {
-      toast({ title: t("errors.update_error") || "Erreur lors de la création du client", description: error.message, status: "error", duration: 6000 });
+      notify(toast, "saveError", {
+        title: t("errors.update_error") || "Création impossible",
+        description: error.message,
+      });
     } finally {
       setLoading(false); onNoAccessClose();
     }
   };
 
   /* UI */
-  const cardBg = useColorModeValue("gray.50", "gray.700");
+  const fieldHint = useColorModeValue("gray.600", "whiteAlpha.700");
+  const mergePreviewBg = useColorModeValue("rgba(59,130,246,0.08)", "rgba(59,130,246,0.12)");
   const weightPlaceholder = weightUnit === "kg" ? `${t("clientCreation.weight")} (kg)` : `${t("clientCreation.weight")} (lbs)`;
   const heightPlaceholderCm = `${t("clientCreation.height")} (cm)`;
 
   return (
-    <Box bg={cardBg} p={6} borderRadius="lg" boxShadow="md">
-      {!hideTitle && <Heading size="md" mb={4}>{t("clientCreation.title")}</Heading>}
+    <Box layerStyle="glassCard" p={{ base: 4, md: 6 }}>
+      {!hideTitle && (
+        <Box mb={5}>
+          <Heading size="md" mb={1}>
+            {t("clientCreation.title")}
+          </Heading>
+          <Text fontSize="sm" color="textMuted">
+            Créez une fiche client complète avec ses informations de contact, son profil et ses préférences.
+          </Text>
+        </Box>
+      )}
 
       <form onSubmit={handleSubmit}>
-        <VStack spacing={4}>
+        <VStack spacing={5} align="stretch">
+          <Box>
+            <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.08em" color="textMuted" fontWeight="800">
+              Accès
+            </Text>
+            <Text mt={1} fontSize="sm" color={fieldHint}>
+              Choisissez comment le client activera son compte.
+            </Text>
+          </Box>
+
           <FormControl isRequired>
             <FormLabel>{t("clientCreation.loginMethod")}</FormLabel>
             <Select name="loginMethod" value={client.loginMethod} onChange={handleChange}>
@@ -468,35 +518,66 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
             </Select>
           </FormControl>
 
-          <HStack w="full">
-            <Input name="prenom" placeholder={t("clientCreation.firstName")} value={client.prenom} onChange={handleChange} required />
-            <Input name="nom" placeholder={t("clientCreation.lastName")} value={client.nom} onChange={handleChange} required />
-          </HStack>
+          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+            <FormControl isRequired>
+              <FormLabel>{t("clientCreation.firstName")}</FormLabel>
+              <Input name="prenom" placeholder={t("clientCreation.firstName")} value={client.prenom} onChange={handleChange} required />
+            </FormControl>
+            <FormControl isRequired>
+              <FormLabel>{t("clientCreation.lastName")}</FormLabel>
+              <Input name="nom" placeholder={t("clientCreation.lastName")} value={client.nom} onChange={handleChange} required />
+            </FormControl>
+          </SimpleGrid>
 
           {client.loginMethod === "email" && (
-            <Input type="email" name="email" placeholder={t("clientCreation.email")} value={client.email} onChange={handleChange} />
+            <FormControl>
+              <FormLabel>{t("clientCreation.email")}</FormLabel>
+              <Input type="email" name="email" placeholder={t("clientCreation.email")} value={client.email} onChange={handleChange} />
+            </FormControl>
           )}
           {client.loginMethod === "phone" && (
-            <Input type="tel" name="telephone" placeholder={t("clientCreation.phone")} value={client.telephone} onChange={handleChange} required />
+            <FormControl isRequired>
+              <FormLabel>{t("clientCreation.phone")}</FormLabel>
+              <Input type="tel" name="telephone" placeholder={t("clientCreation.phone")} value={client.telephone} onChange={handleChange} required />
+            </FormControl>
           )}
           {client.loginMethod === "email" && (
-            <Input name="telephone" placeholder={t("clientCreation.phoneOptional")} value={client.telephone} onChange={handleChange} />
+            <FormControl>
+              <FormLabel>{t("clientCreation.phoneOptional")}</FormLabel>
+              <Input name="telephone" placeholder={t("clientCreation.phoneOptional")} value={client.telephone} onChange={handleChange} />
+            </FormControl>
           )}
 
-          <HStack w="full">
-            <Input type="date" name="dateNaissance" value={client.dateNaissance} onChange={handleChange} />
-            <Select name="sexe" value={client.sexe} onChange={handleChange} required>
-              <option value="">{t("clientCreation.gender")}</option>
-              <option value="Homme">{t("clientCreation.genderMale")}</option>
-              <option value="Femme">{t("clientCreation.genderFemale")}</option>
-            </Select>
-          </HStack>
+          <Divider borderColor="borderSubtle" />
 
-          {/* Taille */}
+          <Box>
+            <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.08em" color="textMuted" fontWeight="800">
+              Profil
+            </Text>
+            <Text mt={1} fontSize="sm" color={fieldHint}>
+              Renseignez les informations utiles au suivi sportif.
+            </Text>
+          </Box>
+
+          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+            <FormControl>
+              <FormLabel>Date de naissance</FormLabel>
+              <Input type="date" name="dateNaissance" value={client.dateNaissance} onChange={handleChange} />
+            </FormControl>
+            <FormControl isRequired>
+              <FormLabel>{t("clientCreation.gender")}</FormLabel>
+              <Select name="sexe" value={client.sexe} onChange={handleChange} required>
+                <option value="">{t("clientCreation.gender")}</option>
+                <option value="Homme">{t("clientCreation.genderMale")}</option>
+                <option value="Femme">{t("clientCreation.genderFemale")}</option>
+              </Select>
+            </FormControl>
+          </SimpleGrid>
+
           <FormControl>
             <FormLabel>{t("clientCreation.height")}</FormLabel>
             {heightUnit === "cm" ? (
-              <HStack>
+              <HStack align="start">
                 <Input placeholder={heightPlaceholderCm} type="number" inputMode="decimal" step="1" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} />
                 <Select w="28" value={heightUnit} onChange={(e) => onHeightUnitChange(e.target.value)}>
                   <option value="cm">cm</option>
@@ -504,7 +585,7 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
                 </Select>
               </HStack>
             ) : (
-              <HStack>
+              <HStack align="start">
                 <Input placeholder="ft" type="number" inputMode="numeric" step="1" value={heightFt} onChange={(e) => setHeightFt(e.target.value)} />
                 <Input placeholder="in" type="number" inputMode="numeric" step="1" value={heightIn} onChange={(e) => setHeightIn(e.target.value)} />
                 <Select w="28" value={heightUnit} onChange={(e) => onHeightUnitChange(e.target.value)}>
@@ -515,10 +596,9 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
             )}
           </FormControl>
 
-          {/* Poids */}
           <FormControl>
             <FormLabel>{t("clientCreation.weight")}</FormLabel>
-            <HStack>
+            <HStack align="start">
               <Input name="poids" placeholder={weightPlaceholder} type="number" inputMode="decimal" step={weightUnit === "kg" ? "0.1" : "1"} value={client.poids} onChange={handleChange} />
               <Select w="28" value={weightUnit} onChange={(e) => onWeightUnitChange(e.target.value)}>
                 <option value="kg">kg</option>
@@ -527,21 +607,55 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
             </HStack>
           </FormControl>
 
-          <Select name="niveauSportif" value={client.niveauSportif} onChange={handleChange} required>
-            {levelOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-          </Select>
+          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+            <FormControl isRequired>
+              <FormLabel>Niveau sportif</FormLabel>
+              <Select name="niveauSportif" value={client.niveauSportif} onChange={handleChange} required>
+                {levelOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+              </Select>
+            </FormControl>
 
-          <Select name="objectifs" value={client.objectifs} onChange={handleChange} required>
-            {objectiveOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-          </Select>
+            <FormControl isRequired>
+              <FormLabel>Objectif principal</FormLabel>
+              <Select name="objectifs" value={client.objectifs} onChange={handleChange} required>
+                {objectiveOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+              </Select>
+            </FormControl>
+          </SimpleGrid>
 
-          <Select name="langue" value={client.langue} onChange={handleChange}>
-            {languageOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-          </Select>
+          <Divider borderColor="borderSubtle" />
 
-          <Textarea name="notes" placeholder={t("clientCreation.notes")} value={client.notes} onChange={handleChange} />
+          <Box>
+            <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.08em" color="textMuted" fontWeight="800">
+              Préférences
+            </Text>
+            <Text mt={1} fontSize="sm" color={fieldHint}>
+              Définissez la langue de référence et les notes utiles pour l’accompagnement.
+            </Text>
+          </Box>
 
-          <Button type="submit" colorScheme="blue" w="full" isLoading={loading}>
+          <FormControl>
+            <FormLabel>Langue</FormLabel>
+            <Select name="langue" value={client.langue} onChange={handleChange}>
+              {languageOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+            </Select>
+          </FormControl>
+
+          <FormControl>
+            <FormLabel>{t("clientCreation.notes")}</FormLabel>
+            <Textarea
+              name="notes"
+              placeholder={t("clientCreation.notes")}
+              value={client.notes}
+              onChange={handleChange}
+              minH="140px"
+              resize="vertical"
+            />
+          </FormControl>
+
+          <Divider borderColor="borderSubtle" />
+
+          <Button type="submit" w="full" isLoading={loading}>
             {t("clientCreation.save")}
           </Button>
         </VStack>
@@ -555,7 +669,7 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
           <ModalCloseButton />
           <ModalBody><Text>{t("clientCreation.modalNoAccessText")}</Text></ModalBody>
           <ModalFooter>
-            <Button onClick={handleNoAccessConfirm} colorScheme="blue" isLoading={loading}>OK</Button>
+            <Button onClick={handleNoAccessConfirm} isLoading={loading}>OK</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
@@ -568,14 +682,14 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
           <ModalCloseButton />
           <ModalBody>
             <Text>{t("clientCreation.modalMergeText")}</Text>
-            <Box mt={3} p={3} bg="gray.100" borderRadius="md">
+            <Box mt={4} p={4} bg={mergePreviewBg} borderRadius="18px" border="1px solid" borderColor="borderSubtle">
               <Text>{t("clientCreation.firstName")} : {mergeClient?.prenom}</Text>
               <Text>{t("clientCreation.lastName")} : {mergeClient?.nom}</Text>
               <Text>{t("clientCreation.notes")} : {mergeClient?.notes}</Text>
             </Box>
           </ModalBody>
           <ModalFooter>
-            <Button colorScheme="green" mr={3} onClick={handleMerge}>{t("clientCreation.modalConfirm")}</Button>
+            <Button mr={3} onClick={handleMerge}>{t("clientCreation.modalConfirm")}</Button>
             <Button variant="ghost" onClick={onMergeClose}>{t("clientCreation.modalCancel")}</Button>
           </ModalFooter>
         </ModalContent>
@@ -585,4 +699,3 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
 };
 
 export default ClientCreation;
-

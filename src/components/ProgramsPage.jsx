@@ -28,11 +28,12 @@ import {
   HStack,
   useToast,
   Flex,
-  ChakraProvider,
   Link as ChakraLink,
+  SimpleGrid,
 } from "@chakra-ui/react";
 import { AddIcon, DeleteIcon, CopyIcon } from "@chakra-ui/icons";
 import { useNavigate, Link as RouterLink, Link } from "react-router-dom";
+import AppLoading from "./ui/AppLoading";
 import {
   collection,
   getDocs,
@@ -47,6 +48,8 @@ import {
 import { db } from "../firebase";
 import { useAuth } from "../AuthContext";
 import { useTranslation } from "react-i18next";
+import { notify } from "../utils/notify";
+import { useAppTheme } from "../styles/appTheme";
 
 /* -------- helpers -------- */
 function getSessionCount(p) {
@@ -123,6 +126,7 @@ const isAutoProgramme = (p) => {
 
 export default function ProgramsPage() {
   const { t, i18n } = useTranslation("common");
+  const theme = useAppTheme();
   const locale = i18n.language || "fr-FR";
 
   const navigate = useNavigate();
@@ -141,11 +145,18 @@ export default function ProgramsPage() {
   const [toDeleteId, setToDeleteId] = useState(null);
   const [selectedAssignedBaseProgramId, setSelectedAssignedBaseProgramId] = useState(null);
 
-  const pageBg = useColorModeValue("gray.50", "gray.900");
-  const cardBg = useColorModeValue("white", "gray.700");
-  const borderColor = useColorModeValue("gray.200", "gray.600");
-  const textMuted = useColorModeValue("gray.600", "gray.300");
-  const titleColor = useColorModeValue("gray.800", "white");
+  const pageBg = theme.pageBg;
+  const cardBg = theme.surfaceBg;
+  const panelBg = theme.surfaceBgStrong;
+  const subtleBg = theme.surfaceSoft;
+  const borderColor = theme.borderColor;
+  const textMuted = theme.mutedText;
+  const titleColor = theme.textColor;
+  const hoverBg = useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)");
+  const softShadow = useColorModeValue(
+    "0 22px 70px rgba(15,23,42,0.08)",
+    "0 22px 70px rgba(0,0,0,0.28)"
+  );
 
   const getMillis = (p) => {
     if (p.createdAt?.toDate) return p.createdAt.toDate().getTime();
@@ -283,10 +294,8 @@ export default function ProgramsPage() {
       setAssignedClientsMap(map);
     } catch (err) {
       console.error("Erreur chargement programmes:", err);
-      toast({
+      notify(toast, "dataLoadError", {
         title: t("settings.toasts.update_error", "Erreur de chargement"),
-        status: "error",
-        duration: 2500,
       });
     } finally {
       setLoading(false);
@@ -310,14 +319,15 @@ export default function ProgramsPage() {
   const handleDelete = async (id) => {
     try {
       await deleteDoc(doc(db, "programmes", id));
-      toast({ title: t("common.delete", "Supprimer") + " ✓", status: "success", duration: 1600 });
+      notify(toast, "programDeleted", {
+        title: t("common.delete", "Supprimer"),
+      });
       fetchData();
     } catch (err) {
       console.error("Erreur suppression programme:", err);
-      toast({
+      notify(toast, "saveError", {
         title: t("settings.toasts.update_error", "Erreur lors de la suppression"),
-        status: "error",
-        duration: 2500,
+        description: "Le programme n'a pas pu être supprimé.",
       });
     }
   };
@@ -326,7 +336,9 @@ export default function ProgramsPage() {
     try {
       const snap = await getDoc(doc(db, "programmes", progId));
       if (!snap.exists()) {
-        toast({ title: t("programs.not_found", "Programme introuvable"), status: "error", duration: 2000 });
+        notify(toast, "programMissing", {
+          title: t("programs.not_found", "Programme introuvable"),
+        });
         return;
       }
       const data = snap.data();
@@ -342,61 +354,74 @@ export default function ProgramsPage() {
         origine: "duplicate-from-programs-page",
       });
 
-      toast({ title: t("common.duplicate", "Dupliquer") + " ✓", status: "success", duration: 1600 });
+      notify(toast, "programDuplicated", {
+        title: t("common.duplicate", "Dupliquer"),
+      });
       fetchData();
     } catch (err) {
       console.error("Erreur duplication programme:", err);
-      toast({
+      notify(toast, "saveError", {
         title: t("settings.toasts.update_error", "Erreur lors de la duplication"),
-        status: "error",
-        duration: 2500,
+        description: "La copie du programme n'a pas pu être créée.",
       });
     }
   };
 
   if (authLoading || loading) {
-    return (
-      <Box minH="100vh" bg={pageBg}>
-        <Flex minH="100vh" align="center" justify="center">
-          <Spinner size="xl" thickness="4px" />
-        </Flex>
-      </Box>
-    );
+    return <AppLoading label={t("common.loading", "Chargement...")} />;
   }
 
   return (
-    <Box minH="100vh" bg={pageBg} px={{ base: 2, md: 4 }} py={{ base: 4, md: 6 }}>
-      <Stack
-        direction={{ base: "column", md: "row" }}
-        justify="space-between"
-        align="start"
+    <Box minH="100vh" bg={pageBg} px={{ base: 3, md: 5 }} py={{ base: 5, md: 7 }}>
+      <Box
+        bg={panelBg}
+        border="1px solid"
+        borderColor={borderColor}
+        borderRadius={{ base: "24px", md: "28px" }}
+        boxShadow={softShadow}
+        backdropFilter="blur(16px)"
+        p={{ base: 4, md: 5 }}
         mb={6}
-        spacing={{ base: 4, md: 0 }}
       >
-        <Heading fontSize={{ base: "xl", md: "2xl" }} color={titleColor}>
-          {t("myPrograms.titleCoach", "Mes Programmes (Coach)")}
-        </Heading>
-        <Button
-          w={{ base: "full", md: "auto" }}
-          leftIcon={<AddIcon />}
-          colorScheme="blue"
-          onClick={choiceModal.onOpen}
+        <Stack
+          direction={{ base: "column", md: "row" }}
+          justify="space-between"
+          align={{ base: "stretch", md: "center" }}
+          spacing={{ base: 4, md: 6 }}
         >
-          {t("nav.new_program", "Nouveau programme")}
-        </Button>
-      </Stack>
+          <Box>
+            <Heading fontSize={{ base: "xl", md: "2xl" }} color={titleColor}>
+              {t("myPrograms.titleCoach", "Mes Programmes (Coach)")}
+            </Heading>
+            <Text mt={1.5} color={textMuted} fontSize="sm">
+              {t(
+                "programs.subtitle",
+                "Retrouve, duplique et consulte rapidement tous tes programmes."
+              )}
+            </Text>
+          </Box>
+          <Button
+            w={{ base: "full", md: "auto" }}
+            leftIcon={<AddIcon />}
+            onClick={choiceModal.onOpen}
+            borderRadius="full"
+          >
+            {t("nav.new_program", "Nouveau programme")}
+          </Button>
+        </Stack>
+      </Box>
 
       {/* Modal de choix */}
       <Modal isOpen={choiceModal.isOpen} onClose={choiceModal.onClose} isCentered>
-        <ModalOverlay />
-        <ModalContent>
+        <ModalOverlay backdropFilter="blur(6px)" />
+        <ModalContent bg={cardBg} border="1px solid" borderColor={borderColor} borderRadius="2xl">
           <ModalHeader>{t("nav.program_type", "Type de programme")}</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             <VStack spacing={4} py={4}>
               <Button
-                colorScheme="blue"
                 w="full"
+                borderRadius="xl"
                 onClick={() => {
                   choiceModal.onClose();
                   navigate("/exercise-bank/program-builder/new");
@@ -407,6 +432,7 @@ export default function ProgramsPage() {
               <Button
                 variant="outline"
                 w="full"
+                borderRadius="xl"
                 onClick={() => {
                   choiceModal.onClose();
                   navigate("/auto-program-questionnaire");
@@ -421,19 +447,20 @@ export default function ProgramsPage() {
 
       {/* Modal confirmation suppression */}
       <Modal isOpen={confirmModal.isOpen} onClose={confirmModal.onClose} isCentered>
-        <ModalOverlay />
-        <ModalContent>
+        <ModalOverlay backdropFilter="blur(6px)" />
+        <ModalContent bg={cardBg} border="1px solid" borderColor={borderColor} borderRadius="2xl">
           <ModalHeader>{t("settings.modal.confirm_title", "Confirmation")}</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             <Text>{t("confirm.delete_program", "Êtes-vous sûr de vouloir supprimer ce programme ?")}</Text>
           </ModalBody>
           <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={confirmModal.onClose}>
+            <Button variant="ghost" mr={3} borderRadius="lg" onClick={confirmModal.onClose}>
               {t("common.cancel", "Annuler")}
             </Button>
             <Button
               colorScheme="red"
+              borderRadius="lg"
               onClick={() => {
                 handleDelete(toDeleteId);
                 confirmModal.onClose();
@@ -455,8 +482,8 @@ export default function ProgramsPage() {
         isCentered
         size="md"
       >
-        <ModalOverlay />
-        <ModalContent>
+        <ModalOverlay backdropFilter="blur(6px)" />
+        <ModalContent bg={cardBg} border="1px solid" borderColor={borderColor} borderRadius="2xl">
           <ModalHeader>{t("dashboard.assigned_to_list", "Assigné à")}</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
@@ -473,7 +500,8 @@ export default function ProgramsPage() {
                     border="1px solid"
                     borderColor={borderColor}
                     borderRadius="lg"
-                    _hover={{ bg: useColorModeValue("gray.50", "whiteAlpha.50") }}
+                    bg={subtleBg}
+                    _hover={{ bg: hoverBg }}
                   >
                     <HStack justify="space-between">
                       <ChakraLink
@@ -487,7 +515,8 @@ export default function ProgramsPage() {
 
                       <Button
                         size="xs"
-                        colorScheme="blue"
+                        variant="outline"
+                        borderRadius="md"
                         onClick={() => {
                           const fallbackName = c.fallbackName || "";
                           assignedToModal.onClose();
@@ -511,6 +540,7 @@ export default function ProgramsPage() {
           <ModalFooter>
             <Button
               variant="ghost"
+              borderRadius="lg"
               onClick={() => {
                 assignedToModal.onClose();
                 setSelectedAssignedBaseProgramId(null);
@@ -522,7 +552,15 @@ export default function ProgramsPage() {
         </ModalContent>
       </Modal>
 
-      <Box bg={cardBg} p={{ base: 4, md: 6 }} borderRadius="xl" boxShadow="lg">
+      <Box
+        bg={panelBg}
+        p={{ base: 4, md: 5 }}
+        borderRadius={{ base: "24px", md: "28px" }}
+        border="1px solid"
+        borderColor={borderColor}
+        boxShadow={softShadow}
+        backdropFilter="blur(16px)"
+      >
         {/* Desktop */}
         <Box display={{ base: "none", md: "block" }} overflowX="auto">
           <Table variant="simple" minW="720px">
@@ -543,10 +581,10 @@ export default function ProgramsPage() {
                   const goalForSubtitle = p.objectifUI || p.objectif || "";
 
                   return (
-                    <Tr key={p.id}>
+                    <Tr key={p.id} _hover={{ bg: hoverBg }}>
                       <Td>
                         <Stack spacing={0}>
-                          <Text>{prettyProgramName(p)}</Text>
+                          <Text fontWeight="semibold">{prettyProgramName(p)}</Text>
                           {goalForSubtitle && (
                             <Text fontSize="sm" color={textMuted}>
                               {prettyGoal(goalForSubtitle)}
@@ -556,7 +594,9 @@ export default function ProgramsPage() {
                       </Td>
 
                       <Td>
-                        <Badge>{nbSessions}</Badge>
+                        <Badge borderRadius="full" px={2.5} py={1} colorScheme="gray">
+                          {nbSessions}
+                        </Badge>
                       </Td>
 
                       <Td>
@@ -564,7 +604,8 @@ export default function ProgramsPage() {
                           as="button"
                           cursor={nbAssigned > 0 ? "pointer" : "default"}
                           _hover={nbAssigned > 0 ? { opacity: 0.9 } : undefined}
-                          colorScheme={nbAssigned > 0 ? "blue" : "gray"}
+                          colorScheme="gray"
+                          borderRadius="full"
                           onClick={() => {
                             if (nbAssigned <= 0) return;
                             setSelectedAssignedBaseProgramId(p.id);
@@ -583,7 +624,8 @@ export default function ProgramsPage() {
                         <Stack direction="row" spacing={2} align="center">
                           <Button
                             size="sm"
-                            colorScheme="blue"
+                            variant="outline"
+                            borderRadius="full"
                             onClick={() => openBaseProgram(p)}
                           >
                             {t("common.view", "Voir")}
@@ -593,7 +635,8 @@ export default function ProgramsPage() {
                             aria-label={t("common.duplicate", "Dupliquer")}
                             icon={<CopyIcon />}
                             size="sm"
-                            colorScheme="teal"
+                            variant="ghost"
+                            borderRadius="full"
                             onClick={() => handleDuplicate(p.id)}
                           />
 
@@ -602,6 +645,7 @@ export default function ProgramsPage() {
                             icon={<DeleteIcon />}
                             size="sm"
                             colorScheme="red"
+                            borderRadius="full"
                             onClick={() => {
                               setToDeleteId(p.id);
                               confirmModal.onOpen();
@@ -635,45 +679,15 @@ export default function ProgramsPage() {
                 return (
                   <Box
                     key={p.id}
-                    position="relative"
                     bg={cardBg}
                     border="1px solid"
                     borderColor={borderColor}
-                    borderRadius="xl"
+                    borderRadius="2xl"
                     p={4}
-                    pt={12}
                     shadow="sm"
+                    backdropFilter="blur(12px)"
                   >
-                    <HStack position="absolute" top={3} right={3} spacing={2}>
-                      <Button
-                        size="sm"
-                        colorScheme="blue"
-                        onClick={() => openBaseProgram(p)}
-                      >
-                        {t("common.view", "Voir")}
-                      </Button>
-
-                      <IconButton
-                        aria-label={t("common.duplicate", "Dupliquer")}
-                        icon={<CopyIcon />}
-                        size="sm"
-                        colorScheme="teal"
-                        onClick={() => handleDuplicate(p.id)}
-                      />
-
-                      <IconButton
-                        aria-label={t("common.delete", "Supprimer")}
-                        icon={<DeleteIcon />}
-                        size="sm"
-                        colorScheme="red"
-                        onClick={() => {
-                          setToDeleteId(p.id);
-                          confirmModal.onOpen();
-                        }}
-                      />
-                    </HStack>
-
-                    <Text fontWeight="bold" fontSize="md" pr="160px">
+                    <Text fontWeight="bold" fontSize="md">
                       {prettyProgramName(p)}
                     </Text>
 
@@ -684,7 +698,7 @@ export default function ProgramsPage() {
                     )}
 
                     <HStack spacing={2} mb={2} flexWrap="wrap">
-                      <Badge>
+                      <Badge borderRadius="full" px={2.5} py={1} colorScheme="gray">
                         {nbSessions} {t("client_dash.table.sessions", "Nombre séances")}
                       </Badge>
 
@@ -692,7 +706,8 @@ export default function ProgramsPage() {
                         as="button"
                         cursor={nbAssigned > 0 ? "pointer" : "default"}
                         _hover={nbAssigned > 0 ? { opacity: 0.9 } : undefined}
-                        colorScheme={nbAssigned > 0 ? "blue" : "gray"}
+                        colorScheme="gray"
+                        borderRadius="full"
                         onClick={() => {
                           if (nbAssigned <= 0) return;
                           setSelectedAssignedBaseProgramId(p.id);
@@ -704,9 +719,42 @@ export default function ProgramsPage() {
                         {nbAssigned > 1 ? t("dashboard.clients", "clients") : t("dashboard.client", "client")}
                       </Badge>
 
-                      <Badge variant="subtle" colorScheme="gray">
+                      <Badge variant="subtle" colorScheme="gray" borderRadius="full">
                         {formatCreatedAt(p, locale)}
                       </Badge>
+                    </HStack>
+
+                    <HStack spacing={2} mt={3}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        borderRadius="full"
+                        onClick={() => openBaseProgram(p)}
+                        flex="1"
+                      >
+                        {t("common.view", "Voir")}
+                      </Button>
+
+                      <IconButton
+                        aria-label={t("common.duplicate", "Dupliquer")}
+                        icon={<CopyIcon />}
+                        size="sm"
+                        variant="ghost"
+                        borderRadius="full"
+                        onClick={() => handleDuplicate(p.id)}
+                      />
+
+                      <IconButton
+                        aria-label={t("common.delete", "Supprimer")}
+                        icon={<DeleteIcon />}
+                        size="sm"
+                        colorScheme="red"
+                        borderRadius="full"
+                        onClick={() => {
+                          setToDeleteId(p.id);
+                          confirmModal.onOpen();
+                        }}
+                      />
                     </HStack>
                   </Box>
                 );

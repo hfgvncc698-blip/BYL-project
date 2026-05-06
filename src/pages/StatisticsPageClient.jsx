@@ -4,7 +4,8 @@ import {
   Box, Heading, SimpleGrid, Text, Grid, Button, HStack, Modal, ModalOverlay,
   ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, FormControl,
   FormLabel, Input, VStack, useDisclosure, useColorModeValue, Stat, StatLabel,
-  StatNumber, StatHelpText, Divider, Skeleton, useToast, Select, Badge
+  StatNumber, StatHelpText, Divider, Skeleton, useToast, Select, Badge, Circle,
+  Icon, Flex, Progress
 } from "@chakra-ui/react";
 import {
   collection, query, where, getDocs, addDoc, serverTimestamp
@@ -15,6 +16,17 @@ import {
 } from "recharts";
 import { useTranslation } from "react-i18next";
 import SessionComparator from "../components/SessionComparator";
+import AppLoading from "../components/ui/AppLoading";
+import PageBackButton from "../components/ui/PageBackButton";
+import {
+  MdOutlineCalendarMonth,
+  MdOutlineFitnessCenter,
+  MdOutlineInsights,
+  MdOutlineMonitorWeight,
+  MdOutlineShowChart,
+  MdOutlineStraighten,
+  MdOutlineTimeline,
+} from "react-icons/md";
 
 /* ---------- helpers ---------- */
 const CM_PER_IN = 2.54;
@@ -83,12 +95,38 @@ export default function StatisticsPageClient() {
   });
 
   // UI colors
-  const pageBg = useColorModeValue("gray.50", "gray.800");
-  const cardBg = useColorModeValue("white", "gray.700");
-  const subCardBg = useColorModeValue("gray.50", "gray.800");
-  const accent = useColorModeValue("#2B6CB0", "#90CDF4");
-  const borderCol = useColorModeValue("gray.200", "gray.650");
-  const textMuted = useColorModeValue("gray.600", "gray.300");
+  const pageBg = useColorModeValue("#F5F7FB", "#070B14");
+  const cardBg = useColorModeValue("rgba(255,255,255,0.92)", "rgba(11,16,27,0.92)");
+  const subCardBg = useColorModeValue("rgba(255,255,255,0.78)", "rgba(15,21,35,0.82)");
+  const accent = useColorModeValue("#111827", "#E5EEF9");
+  const borderCol = useColorModeValue("rgba(15,23,42,0.10)", "rgba(255,255,255,0.10)");
+  const borderStrong = useColorModeValue("rgba(15,23,42,0.12)", "rgba(255,255,255,0.12)");
+  const textMuted = useColorModeValue("rgba(17,24,39,0.68)", "rgba(255,255,255,0.68)");
+  const subtleText = useColorModeValue("rgba(17,24,39,0.5)", "rgba(255,255,255,0.48)");
+  const glassShadow = useColorModeValue(
+    "0 20px 50px rgba(15,23,42,0.08)",
+    "0 22px 60px rgba(0,0,0,0.34)"
+  );
+  const topGlow = useColorModeValue("rgba(59,130,246,0.10)", "rgba(59,130,246,0.14)");
+  const bottomGlow = useColorModeValue("rgba(16,185,129,0.08)", "rgba(16,185,129,0.10)");
+  const heroGlow = useColorModeValue("rgba(59,130,246,0.08)", "rgba(59,130,246,0.12)");
+  const activeBlue = "#3B82F6";
+  const activeMint = "#10B981";
+
+  const statGradients = [
+    useColorModeValue(
+      "linear-gradient(135deg, rgba(59,130,246,0.10), rgba(255,255,255,0))",
+      "linear-gradient(135deg, rgba(59,130,246,0.16), rgba(255,255,255,0))"
+    ),
+    useColorModeValue(
+      "linear-gradient(135deg, rgba(16,185,129,0.10), rgba(255,255,255,0))",
+      "linear-gradient(135deg, rgba(16,185,129,0.16), rgba(255,255,255,0))"
+    ),
+    useColorModeValue(
+      "linear-gradient(135deg, rgba(245,158,11,0.10), rgba(255,255,255,0))",
+      "linear-gradient(135deg, rgba(245,158,11,0.16), rgba(255,255,255,0))"
+    ),
+  ];
 
   const nf0 = useMemo(
     () => new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 0 }),
@@ -184,6 +222,40 @@ export default function StatisticsPageClient() {
 
   const latestMeasure = useMemo(() => measures[measures.length - 1] || {}, [measures]);
 
+  /* -------- UI helpers -------- */
+  const label = (key, fb) => t(`stats.${key}`, fb);
+
+  const latestDisplay = (field) => {
+    if (field === "taille") return latestMeasure.taille != null ? nf0.format(fromCm(latestMeasure.taille, heightUnit)) : "—";
+    if (field === "poids") return latestMeasure.poids != null ? nf1.format(fromKg(latestMeasure.poids, weightUnit)) : "—";
+    return latestMeasure[field] ?? "—";
+  };
+
+  const chartDataFor = (field) => {
+    const list = measures.filter((m) => m[field] != null).map((m) => {
+      let value = m[field];
+      if (field === "taille") value = fromCm(value, heightUnit);
+      if (field === "poids") value = fromKg(value, weightUnit);
+      return { date: m.date, value };
+    });
+    return list.length >= 2 ? list : null;
+  };
+
+  const charts = useMemo(
+    () =>
+      FIELDS.map(({ k, field }) => ({
+        k,
+        field,
+        data: chartDataFor(field),
+      })).filter((item) => item.data),
+    [measures, heightUnit, weightUnit]
+  );
+
+  const measurementCompletion = useMemo(
+    () => FIELDS.filter(({ field }) => latestMeasure[field] != null && latestMeasure[field] !== "").length,
+    [latestMeasure]
+  );
+
   /* -------- add measure -------- */
   const handleAdd = async () => {
     if (!clientId || !user?.uid) return;
@@ -236,149 +308,381 @@ export default function StatisticsPageClient() {
 
   /* -------- loading skeleton -------- */
   if (loading) {
-    return (
-      <Box p={6} bg={pageBg} minH="100vh">
-        <Skeleton height="36px" mb={6} />
-        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
-          {[...Array(3)].map((_, i) => <Skeleton key={i} height="110px" />)}
-        </SimpleGrid>
-        <Skeleton mt={8} height="320px" />
-      </Box>
-    );
+    return <AppLoading label={t("common.loading", "Chargement...")} />;
   }
 
-  /* -------- UI helpers -------- */
-  const label = (key, fb) => t(`stats.${key}`, fb);
+  const SurfaceCard = ({ children, ...props }) => (
+    <Box
+      bg={cardBg}
+      borderRadius="28px"
+      border="1px solid"
+      borderColor={borderStrong}
+      boxShadow={glassShadow}
+      position="relative"
+      overflow="hidden"
+      {...props}
+    >
+      {children}
+    </Box>
+  );
 
-  const latestDisplay = (field) => {
-    if (field === "taille") return latestMeasure.taille != null ? nf0.format(fromCm(latestMeasure.taille, heightUnit)) : "—";
-    if (field === "poids") return latestMeasure.poids != null ? nf1.format(fromKg(latestMeasure.poids, weightUnit)) : "—";
-    return latestMeasure[field] ?? "—";
-  };
-
-  const chartDataFor = (field) => {
-    const list = measures.filter((m) => m[field] != null).map((m) => {
-      let value = m[field];
-      if (field === "taille") value = fromCm(value, heightUnit);
-      if (field === "poids") value = fromKg(value, weightUnit);
-      return { date: m.date, value };
-    });
-    return list.length >= 2 ? list : null;
-  };
+  const MiniStatCard = ({ icon, labelText, value, helper, glow, iconColor }) => (
+    <Box
+      p={5}
+      bg={subCardBg}
+      borderRadius="24px"
+      border="1px solid"
+      borderColor={borderCol}
+      boxShadow={glassShadow}
+      position="relative"
+      overflow="hidden"
+    >
+      <Box
+        position="absolute"
+        inset="0"
+        bg={glow}
+        opacity={0.95}
+      />
+      <HStack justify="space-between" align="flex-start" position="relative" zIndex={1}>
+        <Box minW={0}>
+          <Text fontSize="sm" color={textMuted} fontWeight="600">
+            {labelText}
+          </Text>
+          <Text mt={2} fontSize={{ base: "2xl", md: "3xl" }} fontWeight="900" letterSpacing="-0.03em" color={accent}>
+            {value}
+          </Text>
+          <Text mt={2} fontSize="sm" color={subtleText}>
+            {helper}
+          </Text>
+        </Box>
+        <Circle size="44px" bg="rgba(59,130,246,0.10)" color={iconColor} flexShrink={0}>
+          <Icon as={icon} boxSize="20px" />
+        </Circle>
+      </HStack>
+    </Box>
+  );
 
   return (
-    <Box p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh">
-      {/* Header */}
-      <Box bg={cardBg} borderRadius="xl" p={{ base: 4, md: 6 }} boxShadow="md" borderWidth="1px" borderColor={borderCol} mb={6}>
-        <Heading size="lg" mb={2}>{label("title", "Statistiques")}</Heading>
-        <Text fontSize="sm" color={textMuted}>
-          {label("subtitle", "Suis ta progression globale, tes mesures corporelles et compare tes séances pour visualiser les progrès.")}
-        </Text>
+    <Box p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
+      <Box position="absolute" top={{ base: 4, md: 6 }} left={{ base: 4, md: 6 }} zIndex={20}>
+        <PageBackButton />
       </Box>
+      <Box
+        position="absolute"
+        top="-120px"
+        right="-90px"
+        w="360px"
+        h="360px"
+        borderRadius="full"
+        bg={topGlow}
+        filter="blur(90px)"
+        pointerEvents="none"
+      />
+      <Box
+        position="absolute"
+        bottom="-140px"
+        left="-110px"
+        w="340px"
+        h="340px"
+        borderRadius="full"
+        bg={bottomGlow}
+        filter="blur(90px)"
+        pointerEvents="none"
+      />
 
-      {/* KPIs */}
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4} mb={6}>
-        <Box bg={cardBg} borderRadius="xl" p={5} boxShadow="md" borderWidth="1px" borderColor={borderCol}>
-          <Stat>
-            <StatLabel>{label("kpis.totalPrograms", "Total programmes")}</StatLabel>
-            <StatNumber>{nf0.format(totalProg)}</StatNumber>
-            <StatHelpText color={textMuted}>{label("hints.programs", "Click to view programs")}</StatHelpText>
-          </Stat>
-        </Box>
-        <Box bg={cardBg} borderRadius="xl" p={5} boxShadow="md" borderWidth="1px" borderColor={borderCol}>
-          <Stat>
-            <StatLabel>{label("kpis.percentDone", "% terminé")}</StatLabel>
-            <StatNumber>{nf0.format(percentDone)}%</StatNumber>
-            <StatHelpText color={textMuted}>{label("hints.basedOnSessions", "Basé sur les séances effectuées")}</StatHelpText>
-          </Stat>
-        </Box>
-        <Box bg={cardBg} borderRadius="xl" p={5} boxShadow="md" borderWidth="1px" borderColor={borderCol}>
-          <Stat>
-            <StatLabel>{label("kpis.sessionsPerWeek", "Séances / sem.")}</StatLabel>
-            <StatNumber>{nf0.format(sessWeek)}</StatNumber>
-            <StatHelpText color={textMuted}>{label("hints.last7days", "Sur les 7 derniers jours")}</StatHelpText>
-          </Stat>
-        </Box>
-      </SimpleGrid>
-
-      {/* Comparateur */}
-      {programmes.length > 0 && clientId ? (
-        <Box bg={cardBg} borderRadius="xl" p={{ base: 4, md: 6 }} boxShadow="md" borderWidth="1px" borderColor={borderCol} mb={6}>
-          <Heading size="md" mb={4}>{label("compareSession", "Comparer une séance")}</Heading>
-          <SessionComparator clientId={clientId} programmes={programmes} />
-        </Box>
-      ) : (
-        <Box bg={cardBg} borderRadius="xl" p={{ base: 4, md: 6 }} boxShadow="md" borderWidth="1px" borderColor={borderCol} mb={6}>
-          <Heading size="md" mb={2}>{label("compareSession", "Comparer une séance")}</Heading>
-          <Text color={textMuted}>{label("noPrograms", "Aucun programme trouvé pour l’instant.")}</Text>
-        </Box>
-      )}
-
-      {/* Corps */}
-      <Box bg={cardBg} borderRadius="xl" p={{ base: 4, md: 6 }} boxShadow="md" borderWidth="1px" borderColor={borderCol} mb={6}>
-        <HStack justify="space-between" mb={4} align="center" wrap="wrap">
-          <HStack>
-            <Heading size="md">{label("bodyComp", "Données corporelles")}</Heading>
-            <Badge colorScheme="blue" borderRadius="full">{label("storedAsMetric", "Stocké en métrique")}</Badge>
-          </HStack>
-          <HStack spacing={3}>
-            <FormControl w="auto">
-              <FormLabel fontSize="xs" mb={1}>{label("units.height", "Taille")}</FormLabel>
-              <Select size="sm" value={heightUnit} onChange={(e) => setHeightUnit(e.target.value)}>
-                <option value="cm">cm</option>
-                <option value="in">in</option>
-              </Select>
-            </FormControl>
-            <FormControl w="auto">
-              <FormLabel fontSize="xs" mb={1}>{label("units.weight", "Poids")}</FormLabel>
-              <Select size="sm" value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)}>
-                <option value="kg">kg</option>
-                <option value="lb">lb</option>
-              </Select>
-            </FormControl>
-            <Button colorScheme="blue" onClick={addMeas.onOpen}>{label("addMeasure", "Ajouter mesure")}</Button>
-          </HStack>
-        </HStack>
-
-        {/* tuiles */}
-        <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4} mb={4}>
-          {FIELDS.map(({ k, field }) => (
-            <Box key={field} bg={subCardBg} p={4} borderRadius="lg" borderWidth="1px" borderColor={borderCol}>
-              <Text fontSize="sm" color={textMuted}>{label(`fields.${k}`)}</Text>
-              <Text fontSize="2xl" fontWeight="bold">{latestDisplay(field)}</Text>
+      <VStack maxW="1120px" mx="auto" spacing={6} align="stretch" position="relative" zIndex={1}>
+        <SurfaceCard p={{ base: 5, md: 6 }}>
+          <Box
+            position="absolute"
+            top="-50px"
+            right="-30px"
+            w="220px"
+            h="220px"
+            borderRadius="full"
+            bg={heroGlow}
+            filter="blur(44px)"
+          />
+          <Flex direction={{ base: "column", xl: "row" }} justify="space-between" gap={5} position="relative" zIndex={1}>
+            <Box minW={0} flex="1">
+              <Heading size="lg" letterSpacing="-0.03em" color={accent}>
+                {label("title", "Statistiques")}
+              </Heading>
+              <Text mt={2} maxW="62ch" color={textMuted}>
+                {label("subtitle", "Suis ta progression globale, tes mesures corporelles et compare tes séances pour visualiser les progrès.")}
+              </Text>
+              <HStack mt={4} spacing={3} wrap="wrap">
+                <Badge borderRadius="full" px={3} py={1} bg="rgba(59,130,246,0.10)" color={activeBlue}>
+                  {totalProg} programme{totalProg > 1 ? "s" : ""} actif{totalProg > 1 ? "s" : ""}
+                </Badge>
+                <Badge borderRadius="full" px={3} py={1} bg="rgba(16,185,129,0.10)" color={activeMint}>
+                  {measures.length} mesure{measures.length > 1 ? "s" : ""} enregistrée{measures.length > 1 ? "s" : ""}
+                </Badge>
+              </HStack>
             </Box>
-          ))}
-        </SimpleGrid>
 
-        <Divider my={4} />
+            <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={3} w={{ base: "100%", xl: "520px" }}>
+              <MiniStatCard
+                icon={MdOutlineFitnessCenter}
+                labelText={label("kpis.totalPrograms", "Total programmes")}
+                value={nf0.format(totalProg)}
+                helper="programmes disponibles dans ton espace"
+                glow={statGradients[0]}
+                iconColor={activeBlue}
+              />
+              <MiniStatCard
+                icon={MdOutlineInsights}
+                labelText={label("kpis.percentDone", "% terminé")}
+                value={`${nf0.format(percentDone)}%`}
+                helper="basé sur les séances validées"
+                glow={statGradients[1]}
+                iconColor={activeMint}
+              />
+              <MiniStatCard
+                icon={MdOutlineCalendarMonth}
+                labelText={label("kpis.sessionsPerWeek", "Séances / sem.")}
+                value={nf0.format(sessWeek)}
+                helper="sur les 7 derniers jours"
+                glow={statGradients[2]}
+                iconColor="#F59E0B"
+              />
+            </SimpleGrid>
+          </Flex>
+        </SurfaceCard>
 
-        {/* graphes */}
-        <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} spacing={4}>
-          {FIELDS.map(({ k, field }) => {
-            const data = chartDataFor(field);
-            if (!data) return null;
-            return (
-              <Box key={field} bg={subCardBg} p={4} borderRadius="lg" borderWidth="1px" borderColor={borderCol}>
-                <Text fontSize="sm" mb={2} color={textMuted}>{label(`fields.${k}`)}</Text>
-                <ResponsiveContainer width="100%" height={140}>
-                  <LineChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                    <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-                    <Tooltip contentStyle={{ fontSize: "12px" }} />
-                    <Line type="monotone" dataKey="value" stroke={accent} strokeWidth={2} dot={{ r: 2 }} />
-                  </LineChart>
-                </ResponsiveContainer>
+        {programmes.length > 0 && clientId ? (
+          <SurfaceCard p={{ base: 5, md: 6 }}>
+            <HStack spacing={3} mb={4}>
+              <Circle size="42px" bg="rgba(59,130,246,0.10)" color={activeBlue}>
+                <Icon as={MdOutlineTimeline} boxSize="20px" />
+              </Circle>
+              <Box>
+                <Heading size="md" color={accent}>{label("compareSession", "Comparer une séance")}</Heading>
+                <Text mt={1} color={textMuted}>
+                  Visualise les écarts entre deux occurrences d’une même séance sans quitter la page.
+                </Text>
               </Box>
-            );
-          })}
+            </HStack>
+            <SessionComparator clientId={clientId} programmes={programmes} />
+          </SurfaceCard>
+        ) : (
+          <SurfaceCard p={{ base: 5, md: 6 }}>
+            <HStack spacing={3} mb={2}>
+              <Circle size="42px" bg="rgba(59,130,246,0.10)" color={activeBlue}>
+                <Icon as={MdOutlineTimeline} boxSize="20px" />
+              </Circle>
+              <Heading size="md" color={accent}>{label("compareSession", "Comparer une séance")}</Heading>
+            </HStack>
+            <Text color={textMuted}>{label("noPrograms", "Aucun programme trouvé pour l’instant.")}</Text>
+          </SurfaceCard>
+        )}
+
+        <SimpleGrid columns={{ base: 1, xl: 3 }} spacing={6}>
+          <SurfaceCard p={{ base: 5, md: 6 }} gridColumn={{ xl: "span 2" }}>
+            <Flex justify="space-between" align={{ base: "stretch", md: "center" }} direction={{ base: "column", md: "row" }} gap={4} mb={5}>
+              <Box>
+                <HStack spacing={3}>
+                  <Circle size="42px" bg="rgba(16,185,129,0.10)" color={activeMint}>
+                    <Icon as={MdOutlineMonitorWeight} boxSize="20px" />
+                  </Circle>
+                  <Box>
+                    <Heading size="md" color={accent}>{label("bodyComp", "Données corporelles")}</Heading>
+                    <Text mt={1} color={textMuted}>
+                      Suivi des mesures, des variations et des repères utiles dans le temps.
+                    </Text>
+                  </Box>
+                </HStack>
+              </Box>
+
+              <HStack spacing={3} align="end" wrap="wrap">
+                <FormControl w="auto" minW="92px">
+                  <FormLabel fontSize="xs" mb={1} color={subtleText}>{label("units.height", "Taille")}</FormLabel>
+                  <Select size="sm" value={heightUnit} onChange={(e) => setHeightUnit(e.target.value)} borderRadius="full" bg={subCardBg}>
+                    <option value="cm">cm</option>
+                    <option value="in">in</option>
+                  </Select>
+                </FormControl>
+                <FormControl w="auto" minW="92px">
+                  <FormLabel fontSize="xs" mb={1} color={subtleText}>{label("units.weight", "Poids")}</FormLabel>
+                  <Select size="sm" value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)} borderRadius="full" bg={subCardBg}>
+                    <option value="kg">kg</option>
+                    <option value="lb">lb</option>
+                  </Select>
+                </FormControl>
+                <Button
+                  onClick={addMeas.onOpen}
+                  bg="#0F172A"
+                  color="white"
+                  _hover={{ bg: "#111827" }}
+                  borderRadius="full"
+                  px={5}
+                >
+                  {label("addMeasure", "Ajouter mesure")}
+                </Button>
+              </HStack>
+            </Flex>
+
+            <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4} mb={5}>
+              {FIELDS.map(({ k, field }) => (
+                <Box
+                  key={field}
+                  bg={subCardBg}
+                  p={4}
+                  borderRadius="22px"
+                  borderWidth="1px"
+                  borderColor={borderCol}
+                  boxShadow="inset 0 1px 0 rgba(255,255,255,0.22)"
+                >
+                  <Text fontSize="sm" color={textMuted}>{label(`fields.${k}`)}</Text>
+                  <Text mt={2} fontSize={{ base: "xl", md: "2xl" }} fontWeight="800" letterSpacing="-0.03em" color={accent}>
+                    {latestDisplay(field)}
+                  </Text>
+                </Box>
+              ))}
+            </SimpleGrid>
+
+            <Divider my={5} borderColor={borderCol} />
+
+            {charts.length > 0 ? (
+              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                {charts.map(({ k, field, data }) => (
+                  <Box
+                    key={field}
+                    bg={subCardBg}
+                    p={4}
+                    borderRadius="24px"
+                    borderWidth="1px"
+                    borderColor={borderCol}
+                    position="relative"
+                    overflow="hidden"
+                  >
+                    <Box
+                      position="absolute"
+                      right="-24px"
+                      bottom="-28px"
+                      w="120px"
+                      h="120px"
+                      borderRadius="full"
+                      bg="rgba(59,130,246,0.08)"
+                      filter="blur(26px)"
+                    />
+                    <HStack justify="space-between" mb={3} position="relative" zIndex={1}>
+                      <Text fontSize="sm" color={textMuted} fontWeight="600">{label(`fields.${k}`)}</Text>
+                      <Badge borderRadius="full" bg="rgba(59,130,246,0.10)" color={activeBlue}>
+                        {data.length} points
+                      </Badge>
+                    </HStack>
+                    <ResponsiveContainer width="100%" height={170}>
+                      <LineChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={borderCol} />
+                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94A3B8" }} />
+                        <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: "#94A3B8" }} />
+                        <Tooltip
+                          contentStyle={{
+                            fontSize: "12px",
+                            borderRadius: "16px",
+                            border: `1px solid ${borderCol}`,
+                            background: "rgba(15,23,42,0.92)",
+                            color: "#fff",
+                          }}
+                        />
+                        <Line type="monotone" dataKey="value" stroke={activeBlue} strokeWidth={2.5} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </Box>
+                ))}
+              </SimpleGrid>
+            ) : (
+              <Box
+                bg={subCardBg}
+                border="1px solid"
+                borderColor={borderCol}
+                borderRadius="24px"
+                p={5}
+              >
+                <Text fontWeight="700" color={accent}>Pas encore assez d’historique</Text>
+                <Text mt={2} color={textMuted}>
+                  Ajoute au moins deux relevés pour afficher des courbes d’évolution exploitables.
+                </Text>
+              </Box>
+            )}
+          </SurfaceCard>
+
+          <VStack spacing={6} align="stretch">
+            <SurfaceCard p={5}>
+              <HStack spacing={3} mb={4}>
+                <Circle size="40px" bg="rgba(59,130,246,0.10)" color={activeBlue}>
+                  <Icon as={MdOutlineStraighten} boxSize="18px" />
+                </Circle>
+                <Box>
+                  <Heading size="sm" color={accent}>Vue rapide</Heading>
+                  <Text fontSize="sm" color={textMuted}>Ce que racontent tes dernières mesures.</Text>
+                </Box>
+              </HStack>
+              <VStack spacing={4} align="stretch">
+                <Box>
+                  <HStack justify="space-between" mb={1}>
+                    <Text fontSize="sm" color={textMuted}>Mesures renseignées</Text>
+                    <Text fontSize="sm" color={subtleText}>{measurementCompletion}/{FIELDS.length}</Text>
+                  </HStack>
+                  <Progress value={(measurementCompletion / FIELDS.length) * 100} borderRadius="full" size="sm" colorScheme="blue" />
+                </Box>
+                <Box
+                  bg={subCardBg}
+                  border="1px solid"
+                  borderColor={borderCol}
+                  borderRadius="20px"
+                  p={4}
+                >
+                  <Text fontSize="sm" color={textMuted}>Dernier poids</Text>
+                  <Text mt={1} fontSize="2xl" fontWeight="800" color={accent}>{latestDisplay("poids")}</Text>
+                </Box>
+                <Box
+                  bg={subCardBg}
+                  border="1px solid"
+                  borderColor={borderCol}
+                  borderRadius="20px"
+                  p={4}
+                >
+                  <Text fontSize="sm" color={textMuted}>Dernière mise à jour</Text>
+                  <Text mt={1} fontSize="lg" fontWeight="700" color={accent}>
+                    {latestMeasure.date || "Aucune mesure"}
+                  </Text>
+                </Box>
+              </VStack>
+            </SurfaceCard>
+
+            <SurfaceCard p={5}>
+              <HStack spacing={3} mb={4}>
+                <Circle size="40px" bg="rgba(16,185,129,0.10)" color={activeMint}>
+                  <Icon as={MdOutlineShowChart} boxSize="18px" />
+                </Circle>
+                <Box>
+                  <Heading size="sm" color={accent}>Repères utiles</Heading>
+                  <Text fontSize="sm" color={textMuted}>Résumé simple de ta dynamique actuelle.</Text>
+                </Box>
+              </HStack>
+              <VStack spacing={4} align="stretch">
+                <Box>
+                  <Text fontSize="sm" color={textMuted}>Progression globale</Text>
+                  <Text mt={1} fontSize="2xl" fontWeight="800" color={accent}>{percentDone}%</Text>
+                  <Text fontSize="sm" color={subtleText}>séances validées sur l’ensemble de tes programmes</Text>
+                </Box>
+                <Divider borderColor={borderCol} />
+                <Box>
+                  <Text fontSize="sm" color={textMuted}>Rythme récent</Text>
+                  <Text mt={1} fontSize="2xl" fontWeight="800" color={accent}>{sessWeek}</Text>
+                  <Text fontSize="sm" color={subtleText}>séance{sessWeek > 1 ? "s" : ""} réalisée{sessWeek > 1 ? "s" : ""} cette semaine</Text>
+                </Box>
+              </VStack>
+            </SurfaceCard>
+          </VStack>
         </SimpleGrid>
-      </Box>
+      </VStack>
 
       {/* Modal ajout mesure */}
       <Modal isOpen={addMeas.isOpen} onClose={addMeas.onClose} isCentered>
         <ModalOverlay />
-        <ModalContent>
+        <ModalContent borderRadius="28px" bg={cardBg} border="1px solid" borderColor={borderStrong} boxShadow={glassShadow}>
           <ModalHeader>{label("modal.title", "Nouvelle mesure")}</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
@@ -429,7 +733,7 @@ export default function StatisticsPageClient() {
           </ModalBody>
           <ModalFooter justifyContent="space-between">
             <Button variant="ghost" onClick={addMeas.onClose}>{t("common.cancel", "Annuler")}</Button>
-            <Button colorScheme="blue" onClick={handleAdd} isLoading={saving}>
+            <Button onClick={handleAdd} isLoading={saving}>
               {t("actions.confirm", "Confirmer")}
             </Button>
           </ModalFooter>
@@ -438,4 +742,3 @@ export default function StatisticsPageClient() {
     </Box>
   );
 }
-

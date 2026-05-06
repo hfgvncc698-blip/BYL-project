@@ -1,0 +1,1869 @@
+{
+  "ER001": {
+    "nom": "Remo - Tiro completo",
+    "groupe_musculaire": "Cuerpo completo",
+    "objectifs": [
+      "Resistencia",
+      "cardio",
+      "Pérdida de peso",
+      "aptitud",
+      "Refuerzo",
+      "ganancia de masa",
+      "posturales",
+      "fuerza"
+    ],
+    "muscles_secondaires": [
+      "Atrás",
+      "Bíceps",
+      "Hombros",
+      "Cuádriceps",
+      "Isquiotibiales",
+      "Glúteos",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "Hombros",
+      "Codos",
+      "rodillas",
+      "Caderas"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón del tendón de la corva",
+      "tendón bicipital"
+    ],
+    "type": "Ergómetro - Cardio combinado",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "remero"
+    ],
+    "position": "sentado",
+    "contraintes": [
+      "Evitar en caso de dolor lumbar o tendinitis del codo."
+    ],
+    "variantes": [
+      "remero de velocidad",
+      "Remero con una sola pierna",
+      "Intervalos de remo"
+    ],
+    "consignes": {
+      "Positionnement": "Siéntese en el remero, con los pies firmemente fijados en los bloques.",
+      "Mouvement": "Empuja con las piernas mientras tiras del mango hacia la parte inferior de tu pecho.",
+      "Retour": "Extiende los brazos y luego dobla las piernas para volver a la posición inicial.",
+      "Respiration": "Inhala al regresar, exhala durante el empujón.",
+      "Posture": "Espalda recta, tronco central, hombros bajados."
+    }
+  },
+  "ER002": {
+    "nom": "Remero - Sprints",
+    "groupe_musculaire": "Cuerpo completo",
+    "objectifs": [
+      "Resistencia",
+      "cardio",
+      "Pérdida de peso",
+      "fuerza",
+      "aptitud"
+    ],
+    "muscles_secondaires": [
+      "Atrás",
+      "Bíceps",
+      "Hombros",
+      "Cuádriceps",
+      "Glúteos",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "Hombros",
+      "Codos",
+      "rodillas",
+      "Caderas"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón del tendón de la corva",
+      "tendón bicipital"
+    ],
+    "type": "Ergómetro - Sprint máximo esfuerzo",
+    "niveau": "Intermedio a avanzado",
+    "materiel": [
+      "remero"
+    ],
+    "position": "sentado",
+    "contraintes": [
+      "Evitar en caso de problemas cardiovasculares no estabilizados o lesiones lumbares."
+    ],
+    "variantes": [
+      "Máquina de remo intervalos largos",
+      "remero de velocidad de 100 m",
+      "Remero piramidal"
+    ],
+    "consignes": {
+      "Positionnement": "Misma posición que el remero clásico, con los pies bien plantados y la espalda recta.",
+      "Mouvement": "Realice un tirón explosivo de máxima intensidad con las piernas y los brazos.",
+      "Retour": "Controlar la fase de retorno sin problemas, recuperación activa.",
+      "Respiration": "Respira fuerte en el esfuerzo, inhala profundamente durante el regreso.",
+      "Posture": "Mantén la espalda apoyada, no tires sólo con los brazos."
+    }
+  },
+  "ER003": {
+    "nom": "Remo - Piernas solas",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "Resistencia",
+      "posturales",
+      "aptitud"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Isquiotibiales",
+      "Glúteos"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón del tendón de la corva"
+    ],
+    "type": "Ergómetro - Aislamiento de piernas",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "remero"
+    ],
+    "position": "sentado",
+    "contraintes": [
+      "Evítelo si tiene dolor de rodilla o limitación de movilidad."
+    ],
+    "variantes": [
+      "Remero de un solo brazo",
+      "remero completo",
+      "Remero de pierna unilateral"
+    ],
+    "consignes": {
+      "Positionnement": "Misma posición que el remo completo, brazos rectos sin tirar.",
+      "Mouvement": "Realice sólo el empuje de piernas, con los brazos quietos.",
+      "Retour": "Flexiona las piernas sin tirar con los brazos, cadencia fluida.",
+      "Respiration": "Inhale al inclinarse, exhale al empujar.",
+      "Posture": "Espalda recta, core comprometido, brazos relajados pero fijos."
+    }
+  },
+  "ER004": {
+    "nom": "Máquina de remo - Intervalos divididos",
+    "groupe_musculaire": "Cuerpo completo",
+    "objectifs": [
+      "Resistencia",
+      "cardio",
+      "Pérdida de peso",
+      "aptitud",
+      "fuerza"
+    ],
+    "muscles_secondaires": [
+      "Atrás",
+      "Bíceps",
+      "Hombros",
+      "Cuádriceps",
+      "Glúteos",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "Hombros",
+      "Codos",
+      "rodillas",
+      "Caderas"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón del tendón de la corva",
+      "tendón bicipital"
+    ],
+    "type": "Ergómetro - Dividido",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "remero"
+    ],
+    "position": "sentado",
+    "contraintes": [
+      "Prestar atención a la técnica si aumenta la fatiga, evitar en principiantes sin supervisión."
+    ],
+    "variantes": [
+      "Remero 30/30",
+      "Remero 45/15",
+      "Remo inverso 20/40"
+    ],
+    "consignes": {
+      "Positionnement": "Instale los pies correctamente, sostenga el mango con los brazos relajados.",
+      "Mouvement": "Fases alternas de esfuerzo de alta intensidad y recuperación activa.",
+      "Retour": "Disminuya la velocidad intencionalmente durante las fases de recuperación.",
+      "Respiration": "Respire profundamente durante el ejercicio, respire profundamente durante la recuperación.",
+      "Posture": "Mantente fuerte, no colapses al final de la serie."
+    }
+  },
+  "ER005": {
+    "nom": "Remero - 30:30",
+    "groupe_musculaire": "Cuerpo completo",
+    "objectifs": [
+      "Resistencia",
+      "cardio",
+      "Pérdida de peso",
+      "fuerza",
+      "aptitud"
+    ],
+    "muscles_secondaires": [
+      "Atrás",
+      "Hombros",
+      "Bíceps",
+      "Cuádriceps",
+      "Glúteos",
+      "Isquiotibiales",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "Hombros",
+      "Codos",
+      "rodillas",
+      "Caderas"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón del tendón de la corva",
+      "tendón bicipital"
+    ],
+    "type": "Ergómetro - HIIT clásico",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "remero"
+    ],
+    "position": "sentado",
+    "contraintes": [
+      "Evitar en caso de una lesión no estabilizada o un inicio de recuperación sin supervisión."
+    ],
+    "variantes": [
+      "Remero 45/15",
+      "Remo inverso 20/40",
+      "Remero de intervalo dividido"
+    ],
+    "consignes": {
+      "Positionnement": "Pies fijos, tronco cubierto, agarre firme.",
+      "Mouvement": "30 segundos de tirones potentes seguidos de 30 segundos de descanso completo o activo.",
+      "Retour": "Durante las fases de descanso relaja el ritmo pero mantén la técnica.",
+      "Respiration": "Respire profundamente con cada tirón, respirando activamente durante la recuperación.",
+      "Posture": "Espalda recta, no compenses solo con las lumbares o los brazos."
+    }
+  },
+  "ER006": {
+    "nom": "Remero - 45:15",
+    "groupe_musculaire": "Cuerpo completo",
+    "objectifs": [
+      "cardio",
+      "Resistencia",
+      "Pérdida de peso",
+      "fuerza",
+      "aptitud"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Glúteos",
+      "Isquiotibiales",
+      "Atrás",
+      "Hombros",
+      "Bíceps",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "Caderas",
+      "rodillas",
+      "Hombros",
+      "Codos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón del tendón de la corva",
+      "tendón bicipital"
+    ],
+    "type": "Ergómetro - HIIT intensivo",
+    "niveau": "Intermedio a avanzado",
+    "materiel": [
+      "remero"
+    ],
+    "position": "sentado",
+    "contraintes": [
+      "Evitar en caso de mala condición física o fatiga significativa."
+    ],
+    "variantes": [
+      "Remero 30/30",
+      "Remo inverso 20/40",
+      "remero de velocidad"
+    ],
+    "consignes": {
+      "Positionnement": "Pies levantados, mango en mano, cuerpo alineado y enfundado.",
+      "Mouvement": "Esfuerzo intenso durante 45 segundos, seguido de 15 segundos de descanso activo o completo.",
+      "Retour": "Control de retorno incluso a alta intensidad, liberación gradual durante la recuperación.",
+      "Respiration": "Exhalación poderosa al tirar, inspiración profunda al regresar.",
+      "Posture": "Núcleo comprometido, espalda neutral, rango completo de movimiento sin extensión excesiva."
+    }
+  },
+  "ER007": {
+    "nom": "Remo - 20:40 invertido",
+    "groupe_musculaire": "Cuerpo completo",
+    "objectifs": [
+      "Resistencia",
+      "cardio",
+      "aptitud",
+      "Pérdida de peso",
+      "posturales"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Isquiotibiales",
+      "Glúteos",
+      "Atrás",
+      "Hombros",
+      "Bíceps",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas",
+      "Hombros",
+      "Codos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón del tendón de la corva",
+      "tendón bicipital"
+    ],
+    "type": "Ergómetro - HIIT inverso",
+    "niveau": "Principiante a intermedio",
+    "materiel": [
+      "remero"
+    ],
+    "position": "sentado",
+    "contraintes": [
+      "Evitar en caso de alteración del ritmo cardíaco o si no está validado el regreso al deporte."
+    ],
+    "variantes": [
+      "Remero 30/30",
+      "Remero 45/15",
+      "Remo - Tiro completo"
+    ],
+    "consignes": {
+      "Positionnement": "Pies firmemente anclados, tronco estable, mirada recta.",
+      "Mouvement": "Esfuerzo moderado durante 20 segundos seguido de 40 segundos de descanso o recuperación activa.",
+      "Retour": "Fase de retorno muy controlada, respiración profunda durante la recuperación.",
+      "Respiration": "Exhala en cada tirón, inhala al regresar.",
+      "Posture": "Énfasis en la regularidad y la calidad del movimiento más que en la intensidad."
+    }
+  },
+  "ER008": {
+    "nom": "Remero - Sólo brazos",
+    "groupe_musculaire": "parte superior del cuerpo",
+    "objectifs": [
+      "posturales",
+      "Refuerzo",
+      "aptitud",
+      "Resistencia"
+    ],
+    "muscles_secondaires": [
+      "Atrás",
+      "Hombros",
+      "Bíceps",
+      "antebrazo",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "Hombros",
+      "Codos",
+      "Puños"
+    ],
+    "tendons_solicites": [
+      "tendón bicipital",
+      "Tendones del manguito rotador"
+    ],
+    "type": "Ergómetro - Aislamiento de la parte superior del cuerpo",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "remero"
+    ],
+    "position": "sentado",
+    "contraintes": [
+      "Evítalo si tienes tendinitis en el hombro o el codo."
+    ],
+    "variantes": [
+      "Remero con una sola pierna",
+      "remero completo",
+      "Remero de brazo unilateral"
+    ],
+    "consignes": {
+      "Positionnement": "Pies fijos, piernas semiflexionadas y fijas, tronco recto.",
+      "Mouvement": "Tire del asa únicamente con los brazos sin utilizar las piernas.",
+      "Retour": "Extiende tus brazos completamente antes de comenzar un nuevo tirón.",
+      "Respiration": "Exhala al aspirar, inhala al regresar.",
+      "Posture": "Mantén la espalda recta, evita encoger los hombros o arquear la espalda."
+    }
+  },
+  "ER009": {
+    "nom": "Remero - Piernas unilaterales",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "Refuerzo",
+      "posturales",
+      "aptitud",
+      "Resistencia",
+      "Reprogramación neuromuscular"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Isquiotibiales",
+      "Glúteos",
+      "terneros"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas",
+      "Tobillos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles",
+      "tendón del tendón de la corva"
+    ],
+    "type": "Ergómetro - Trabajo unilateral",
+    "niveau": "Intermedio a avanzado",
+    "materiel": [
+      "remero"
+    ],
+    "position": "sentado",
+    "contraintes": [
+      "Evitar en caso de desequilibrio importante o dolor articular agudo."
+    ],
+    "variantes": [
+      "Remero con una sola pierna",
+      "Remero de brazo unilateral",
+      "remero completo"
+    ],
+    "consignes": {
+      "Positionnement": "Coloque sólo un pie en la bodega y el otro retraído o apoyado en el suelo.",
+      "Mouvement": "Realice el tirón con una sola pierna, con los brazos involucrados normalmente.",
+      "Retour": "Controla el descenso para mantener el ritmo y el equilibrio.",
+      "Respiration": "Exhala al empujar, inhala al regresar.",
+      "Posture": "Asegurar la estabilidad de la pelvis y una buena simetría de la parte superior del cuerpo."
+    }
+  },
+  "ER010": {
+    "nom": "Bicicleta estática - Pedaleo continuo",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "Resistencia",
+      "cardio",
+      "Pérdida de peso",
+      "aptitud",
+      "posturales"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Isquiotibiales",
+      "Glúteos",
+      "terneros"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas",
+      "Tobillos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles",
+      "tendón del tendón de la corva"
+    ],
+    "type": "Ergómetro - Cardio continuo",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "bicicleta estacionaria"
+    ],
+    "position": "sentado",
+    "contraintes": [
+      "Monitorizar la rodilla en caso de patología articular o prótesis."
+    ],
+    "variantes": [
+      "bicicleta de velocidad",
+      "Intervalos de ciclismo",
+      "Ciclismo cuesta arriba"
+    ],
+    "consignes": {
+      "Positionnement": "Ajuste del sillín a la altura de la cadera, espalda recta, rodillas ligeramente flexionadas.",
+      "Mouvement": "Pedalee suavemente a una cadencia de moderada a rápida.",
+      "Retour": "Sin retorno particular: movimiento cíclico constante.",
+      "Respiration": "Respiración regular, sincronizada con el esfuerzo.",
+      "Posture": "Mantenga los hombros bajos, el core comprometido y evite la tensión en el cuello."
+    }
+  },
+  "ER011": {
+    "nom": "bicicleta de velocidad",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "cardio",
+      "Pérdida de peso",
+      "Resistencia",
+      "fuerza",
+      "aptitud"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Isquiotibiales",
+      "Glúteos",
+      "terneros"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas",
+      "Tobillos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles",
+      "tendón del tendón de la corva"
+    ],
+    "type": "Ergómetro - Esfuerzo explosivo",
+    "niveau": "Intermedio a avanzado",
+    "materiel": [
+      "bicicleta estacionaria"
+    ],
+    "position": "sentado",
+    "contraintes": [
+      "Evitar en caso de problemas articulares agudos o problemas cardíacos no estabilizados."
+    ],
+    "variantes": [
+      "Intervalos de ciclismo",
+      "Ciclismo cuesta arriba"
+    ],
+    "consignes": {
+      "Positionnement": "Ajuste preciso del sillín, postura estable, manos en el manillar.",
+      "Mouvement": "Sprint a máxima intensidad durante un tiempo corto.",
+      "Retour": "Descanso activo o pasivo después de cada sprint.",
+      "Respiration": "Espiración forzada durante el ejercicio, recuperación ventilatoria posterior.",
+      "Posture": "Espalda recta, abdominales contraídos, no tirar del manillar."
+    }
+  },
+  "ER012": {
+    "nom": "Intervalos de ciclismo",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "Resistencia",
+      "cardio",
+      "Pérdida de peso",
+      "aptitud",
+      "fuerza"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Isquiotibiales",
+      "Glúteos",
+      "terneros"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas",
+      "Tobillos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles",
+      "tendón del tendón de la corva"
+    ],
+    "type": "Ergómetro - Intervalo clásico",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "bicicleta estacionaria"
+    ],
+    "position": "sentado",
+    "contraintes": [
+      "Monitoriza la recuperación entre series para principiantes o repetidores."
+    ],
+    "variantes": [
+      "bicicleta de velocidad",
+      "Ciclismo cuesta arriba"
+    ],
+    "consignes": {
+      "Positionnement": "Ajuste correcto del sillín, torso ligeramente inclinado, manos en el manillar.",
+      "Mouvement": "Alternar fases de pedaleo rápido con recuperación lenta o parada.",
+      "Retour": "Disminuya la velocidad gradualmente entre esfuerzos.",
+      "Respiration": "Respirar activamente durante el ejercicio, inspiración controlada en reposo.",
+      "Posture": "Mantener una postura estable a pesar de la variación de intensidad."
+    }
+  },
+  "ER013": {
+    "nom": "Ciclismo cuesta arriba",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "fuerza",
+      "Resistencia",
+      "cardio",
+      "aptitud",
+      "ganancia de masa"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Isquiotibiales",
+      "Glúteos",
+      "terneros"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas",
+      "Tobillos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles",
+      "tendón del tendón de la corva"
+    ],
+    "type": "Ergómetro - Alta resistencia",
+    "niveau": "Intermedio a avanzado",
+    "materiel": [
+      "bicicleta estacionaria"
+    ],
+    "position": "sentado",
+    "contraintes": [
+      "Evitar en caso de rodilla inestable o dolor lumbar."
+    ],
+    "variantes": [
+      "bicicleta de velocidad",
+      "Intervalos de ciclismo"
+    ],
+    "consignes": {
+      "Positionnement": "Ajuste del sillín ligeramente inclinado hacia atrás para apoyo lumbar.",
+      "Mouvement": "Pedaleo a alta resistencia, ya sea en posición sentada o en posición de baile.",
+      "Retour": "Sin retorno específico, esfuerzo continuo en una subida simulada.",
+      "Respiration": "Exhala por el esfuerzo, inhala profunda y regularmente.",
+      "Posture": "Mantenga el tronco estable y fuerte, evite movimientos no deseados."
+    }
+  },
+  "ER014": {
+    "nom": "Cinta de correr - Carrera continua",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "Resistencia",
+      "cardio",
+      "Pérdida de peso",
+      "aptitud"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Isquiotibiales",
+      "Glúteos",
+      "terneros"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas",
+      "Tobillos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles",
+      "tendón del tendón de la corva"
+    ],
+    "type": "Ergómetro - Cardio lineal",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "cinta de correr"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Monitorizar el impacto articular en caso de sobrepeso o patologías de rodilla/lumbares."
+    ],
+    "variantes": [
+      "Colchonetas de velocidad",
+      "Esteras de intervalo",
+      "cinta de correr inclinada"
+    ],
+    "consignes": {
+      "Positionnement": "Postura erguida, mirada al frente, paso natural.",
+      "Mouvement": "Correr a un ritmo constante, cadencia regular.",
+      "Retour": "Termine con una caminata lenta o un regreso gradual a la calma.",
+      "Respiration": "Regular y controlado durante toda la carrera.",
+      "Posture": "Mantenga una buena alineación cabeza-tronco-pelvis, evite inclinarse."
+    }
+  },
+  "ER015": {
+    "nom": "Colchonetas de velocidad",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "cardio",
+      "Pérdida de peso",
+      "fuerza",
+      "Resistencia",
+      "aptitud"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Isquiotibiales",
+      "Glúteos",
+      "terneros",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas",
+      "Tobillos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles",
+      "tendón del tendón de la corva"
+    ],
+    "type": "Ergómetro - Esfuerzo máximo en carrera",
+    "niveau": "Intermedio a avanzado",
+    "materiel": [
+      "cinta de correr"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Evitar en caso de dolores articulares o patologías cardíacas no estabilizadas."
+    ],
+    "variantes": [
+      "Esteras de intervalo",
+      "cinta de correr inclinada"
+    ],
+    "consignes": {
+      "Positionnement": "Posición dinámica, ligera inclinación hacia adelante, brazos móviles.",
+      "Mouvement": "Sprints cortos a máxima velocidad, zancada explosiva y controlada.",
+      "Retour": "Fase de marcha lenta o descanso completo después de cada sprint.",
+      "Respiration": "Respire profundamente durante el ejercicio, respire profundamente durante la recuperación.",
+      "Posture": "Alineación cabeza-tronco-pelvis, evitando escora excesiva."
+    }
+  },
+  "ER016": {
+    "nom": "Esteras de intervalo",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "Resistencia",
+      "cardio",
+      "Pérdida de peso",
+      "aptitud",
+      "fuerza"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Isquiotibiales",
+      "Glúteos",
+      "terneros",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas",
+      "Tobillos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles",
+      "tendón del tendón de la corva"
+    ],
+    "type": "Ergómetro - carrera dividida",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "cinta de correr"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Monitorear la condición de las articulaciones y el equilibrio postural durante las transiciones rápidas."
+    ],
+    "variantes": [
+      "Colchonetas de velocidad",
+      "cinta de correr inclinada"
+    ],
+    "consignes": {
+      "Positionnement": "Comienza en postura recta, con los pies bien alineados y mirando hacia adelante.",
+      "Mouvement": "Alterna fases de carrera rápida con fases de caminata o carrera lenta.",
+      "Retour": "Retorno activo entre sprints, cadencia reducida.",
+      "Respiration": "Respiración sostenida durante las fases rápidas, regulada durante la recuperación.",
+      "Posture": "Mantenga una zancada estable y fluida sin tensión excesiva."
+    }
+  },
+  "ER017": {
+    "nom": "cinta de correr inclinada",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "Resistencia",
+      "Pérdida de peso",
+      "aptitud",
+      "posturales",
+      "fuerza"
+    ],
+    "muscles_secondaires": [
+      "Glúteos",
+      "Isquiotibiales",
+      "Cuádriceps",
+      "terneros"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas",
+      "Tobillos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles",
+      "tendón del tendón de la corva"
+    ],
+    "type": "Ergómetro: caminar en pendiente",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "cinta de correr"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Monitorizar la inclinación para personas con sobrepeso o con debilidad lumbar"
+    ],
+    "variantes": [
+      "Colchonetas de velocidad",
+      "Esteras de intervalo"
+    ],
+    "consignes": {
+      "Positionnement": "Tronco ligeramente inclinado hacia adelante.",
+      "Mouvement": "Caminata lenta a moderada en pendiente pronunciada, paso controlado.",
+      "Retour": "Baja la inclinación gradualmente al final de la sesión.",
+      "Respiration": "Ritmo respiratorio estable y profundo.",
+      "Posture": "Mantenga una postura erguida y evite agacharse excesivamente."
+    }
+  },
+  "ER018": {
+    "nom": "elíptica continua",
+    "groupe_musculaire": "Cuerpo completo",
+    "objectifs": [
+      "Resistencia",
+      "cardio",
+      "Pérdida de peso",
+      "aptitud"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Isquiotibiales",
+      "Glúteos",
+      "terneros",
+      "Atrás",
+      "Hombros",
+      "brazo",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas",
+      "Tobillos",
+      "Hombros",
+      "Codos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles",
+      "tendón bicipital"
+    ],
+    "type": "Ergómetro - Cardio suave",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "elíptica"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Vigilancia del equilibrio y la coordinación, especialmente en caso de recuperación"
+    ],
+    "variantes": [
+      "elíptica de velocidad",
+      "Elíptica inversa",
+      "Intervalos elípticos"
+    ],
+    "consignes": {
+      "Positionnement": "Pies estables en los pedales, agarre ligero en las manijas móviles.",
+      "Mouvement": "Movimiento circular fluido con coordinación de brazos y piernas.",
+      "Retour": "Disminuya la velocidad gradualmente al final de la sesión.",
+      "Respiration": "Regular y controlado durante el ejercicio.",
+      "Posture": "Espalda recta, núcleo ocupado, mirada hacia adelante."
+    }
+  },
+  "ER019": {
+    "nom": "elíptica de velocidad",
+    "groupe_musculaire": "Cuerpo completo",
+    "objectifs": [
+      "cardio",
+      "Pérdida de peso",
+      "Resistencia",
+      "fuerza",
+      "aptitud"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Isquiotibiales",
+      "Glúteos",
+      "terneros",
+      "brazo",
+      "Hombros",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas",
+      "Tobillos",
+      "Hombros",
+      "Codos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles",
+      "tendón bicipital"
+    ],
+    "type": "Ergómetro - Sprints suaves",
+    "niveau": "Intermedio a avanzado",
+    "materiel": [
+      "elíptica"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Requiere buena coordinación y buena fuerza central."
+    ],
+    "variantes": [
+      "Intervalos elípticos",
+      "Elíptica inversa"
+    ],
+    "consignes": {
+      "Positionnement": "Pies estables, tronco ligeramente inclinado hacia adelante.",
+      "Mouvement": "Esfuerzo explosivo a alta velocidad durante los sprints.",
+      "Retour": "Fase de recuperación a ritmo muy lento o reposo total.",
+      "Respiration": "Respire profundamente durante el ejercicio, inhale profundamente durante la recuperación.",
+      "Posture": "Manténgase cubierto, evite movimientos no deseados."
+    }
+  },
+  "ER020": {
+    "nom": "Intervalos elípticos",
+    "groupe_musculaire": "Cuerpo completo",
+    "objectifs": [
+      "Resistencia",
+      "cardio",
+      "Pérdida de peso",
+      "aptitud",
+      "fuerza"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Isquiotibiales",
+      "Glúteos",
+      "terneros",
+      "Hombros",
+      "brazo",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas",
+      "Tobillos",
+      "Hombros",
+      "Codos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles",
+      "tendón bicipital"
+    ],
+    "type": "Ergómetro - División de fluidos",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "elíptica"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Riesgo de pérdida de ritmo si no se domina la coordinación."
+    ],
+    "variantes": [
+      "elíptica de velocidad",
+      "Elíptica inversa"
+    ],
+    "consignes": {
+      "Positionnement": "Posición estable, manos en las manijas, tronco erguido.",
+      "Mouvement": "Alternar esfuerzo sostenido y recuperación lenta o activa.",
+      "Retour": "Reducción gradual de la velocidad o la resistencia.",
+      "Respiration": "Regular y sincronizado con el esfuerzo.",
+      "Posture": "Mantenga una buena alineación del torso y un movimiento simétrico."
+    }
+  },
+  "ER021": {
+    "nom": "Elíptica inversa",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "posturales",
+      "Refuerzo",
+      "Reprogramación neuromuscular",
+      "aptitud"
+    ],
+    "muscles_secondaires": [
+      "Isquiotibiales",
+      "Glúteos",
+      "Cuádriceps",
+      "terneros",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas",
+      "Tobillos"
+    ],
+    "tendons_solicites": [
+      "tendón del tendón de la corva",
+      "tendón de aquiles",
+      "tendón rotuliano"
+    ],
+    "type": "Ergómetro - Movimiento hacia atrás",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "elíptica"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Requiere buena coordinación, evitar para principiantes sin supervisión."
+    ],
+    "variantes": [
+      "elíptica continua",
+      "elíptica de velocidad",
+      "Intervalos elípticos"
+    ],
+    "consignes": {
+      "Positionnement": "Postura recta, mirada al frente, agarre ligero de las asas.",
+      "Mouvement": "Pedaleo suave hacia atrás, énfasis en isquiotibiales y glúteos.",
+      "Retour": "Regrese a un movimiento hacia adelante o termine con una caminata lenta.",
+      "Respiration": "Respiración regular y controlada.",
+      "Posture": "Tronco estable, evitar inclinaciones pélvicas."
+    }
+  },
+  "ER022": {
+    "nom": "SkiErg continuo",
+    "groupe_musculaire": "parte superior del cuerpo",
+    "objectifs": [
+      "cardio",
+      "Resistencia",
+      "Pérdida de peso",
+      "aptitud"
+    ],
+    "muscles_secondaires": [
+      "Hombros",
+      "Atrás",
+      "tríceps",
+      "abdominales",
+      "Glúteos"
+    ],
+    "articulations_solicitees": [
+      "Hombros",
+      "Codos",
+      "Puños",
+      "Caderas"
+    ],
+    "tendons_solicites": [
+      "tendón tricipital",
+      "Tendones del manguito rotador",
+      "tendón bicipital"
+    ],
+    "type": "Ergómetro - Tiro vertical",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "EsquíErgio"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Evitar en caso de dolor de hombro o hernia de disco no estabilizada."
+    ],
+    "variantes": [
+      "Sprint de esquí erg",
+      "Intervalos SkiErg",
+      "SkiErg unilateral"
+    ],
+    "consignes": {
+      "Positionnement": "De pie, con los pies separados a la altura de las caderas, las manijas en la mano y los brazos extendidos hacia arriba.",
+      "Mouvement": "Tire de las manijas hacia abajo mientras dobla los brazos y las caderas.",
+      "Retour": "Levanta los brazos de forma controlada.",
+      "Respiration": "Exhala mientras tiras, inhala mientras subes.",
+      "Posture": "Contrae tus abdominales, mantén la espalda recta, no tires solo con los brazos."
+    }
+  },
+  "ER023": {
+    "nom": "Sprint de esquí erg",
+    "groupe_musculaire": "parte superior del cuerpo",
+    "objectifs": [
+      "cardio",
+      "Pérdida de peso",
+      "fuerza",
+      "Resistencia",
+      "aptitud"
+    ],
+    "muscles_secondaires": [
+      "Hombros",
+      "Atrás",
+      "tríceps",
+      "abdominales",
+      "Glúteos"
+    ],
+    "articulations_solicitees": [
+      "Hombros",
+      "Codos",
+      "Puños",
+      "Caderas"
+    ],
+    "tendons_solicites": [
+      "tendón tricipital",
+      "Tendones del manguito rotador",
+      "tendón bicipital"
+    ],
+    "type": "Ergómetro - Sprint vertical",
+    "niveau": "Intermedio a avanzado",
+    "materiel": [
+      "EsquíErgio"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Puede agravar la tendinopatía del hombro si no se realiza correctamente"
+    ],
+    "variantes": [
+      "Intervalos SkiErg",
+      "SkiErg unilateral"
+    ],
+    "consignes": {
+      "Positionnement": "Pies fijos, brazos levantados, tronco ligeramente adelantado.",
+      "Mouvement": "Tira hacia abajo rápidamente con fuerza y alta cadencia.",
+      "Retour": "Vuelve a la cima rápidamente sin bloqueo muscular.",
+      "Respiration": "Exhala en el esfuerzo, inhala a medida que asciendes.",
+      "Posture": "Mantenga el tronco estable, no tire sólo con los brazos."
+    }
+  },
+  "ER024": {
+    "nom": "Intervalos SkiErg",
+    "groupe_musculaire": "parte superior del cuerpo",
+    "objectifs": [
+      "Resistencia",
+      "cardio",
+      "Pérdida de peso",
+      "aptitud",
+      "fuerza"
+    ],
+    "muscles_secondaires": [
+      "Atrás",
+      "tríceps",
+      "Hombros",
+      "abdominales",
+      "Glúteos"
+    ],
+    "articulations_solicitees": [
+      "Hombros",
+      "Codos",
+      "Puños",
+      "Caderas"
+    ],
+    "tendons_solicites": [
+      "tendón tricipital",
+      "tendón bicipital",
+      "Tendones del manguito rotador"
+    ],
+    "type": "Ergómetro - División vertical",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "EsquíErgio"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Puede generar fatiga postural si no se controla bien"
+    ],
+    "variantes": [
+      "Sprint de esquí erg",
+      "SkiErg unilateral"
+    ],
+    "consignes": {
+      "Positionnement": "Asas en las manos, brazos en alto, pies anclados al suelo.",
+      "Mouvement": "Alternar fases de tracción dinámica con fases de recuperación.",
+      "Retour": "Permita que los brazos se eleven con fluidez, sin relajación excesiva.",
+      "Respiration": "Ritmo rápido durante el ejercicio, más controlado durante la recuperación.",
+      "Posture": "Mantén la espalda recta, contrayendo los abdominales durante todo el ejercicio."
+    }
+  },
+  "ER025": {
+    "nom": "SkiErg unilateral",
+    "groupe_musculaire": "parte superior del cuerpo",
+    "objectifs": [
+      "Refuerzo",
+      "posturales",
+      "Coordinación",
+      "Reprogramación neuromuscular"
+    ],
+    "muscles_secondaires": [
+      "tríceps",
+      "Hombros",
+      "abdominales",
+      "Glúteos",
+      "oblicuos"
+    ],
+    "articulations_solicitees": [
+      "Hombro",
+      "Codo",
+      "Muñeca",
+      "Cadera"
+    ],
+    "tendons_solicites": [
+      "tendón tricipital",
+      "tendón bicipital",
+      "Tendones del manguito rotador"
+    ],
+    "type": "Ergómetro - Pull-up unilateral",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "EsquíErgio"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Requiere un buen control del centro de gravedad y de la postura."
+    ],
+    "variantes": [
+      "Sprint de esquí erg",
+      "Intervalos SkiErg"
+    ],
+    "consignes": {
+      "Positionnement": "Un mango en mano, brazo levantado, posición estable.",
+      "Mouvement": "Tire de la manija hacia abajo con control, manteniendo la simetría del tronco.",
+      "Retour": "Vuelve a la posición inicial sin ningún movimiento parásito.",
+      "Respiration": "Exhala al tirar, inhala al volver a subir.",
+      "Posture": "Contrae tus abdominales, mantén tus caderas alineadas y estables."
+    }
+  },
+  "ER026": {
+    "nom": "AirBike – Movimiento continuo",
+    "groupe_musculaire": "Cuerpo completo",
+    "objectifs": [
+      "cardio",
+      "Resistencia",
+      "Pérdida de peso",
+      "aptitud"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Isquiotibiales",
+      "Glúteos",
+      "terneros",
+      "Atrás",
+      "Pectorales",
+      "brazo",
+      "Hombros",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "Hombros",
+      "Codos",
+      "Caderas",
+      "rodillas",
+      "Tobillos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles",
+      "tendón bicipital",
+      "tendón tricipital"
+    ],
+    "type": "Ergómetro – Resistencia del aire",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "bicicleta aérea"
+    ],
+    "position": "sentado",
+    "contraintes": [
+      "Requiere una coordinación fluida de brazos y piernas; preste atención a la zona lumbar en caso de fatiga"
+    ],
+    "variantes": [
+      "sprint en bicicleta aérea",
+      "Intervalos de AirBike",
+      "Solo brazos AirBike",
+      "Solo patas AirBike"
+    ],
+    "consignes": {
+      "Positionnement": "Ajuste óptimo del sillín, espalda recta, manos en las asas móviles.",
+      "Mouvement": "Empuje con las piernas mientras tira/empuja los brazos para un esfuerzo suave.",
+      "Retour": "Disminuya la velocidad gradualmente, a un ritmo flexible.",
+      "Respiration": "Regular, adaptado a la intensidad.",
+      "Posture": "Tronco enfundado, movimiento simétrico, evitar tirar sólo con los brazos."
+    }
+  },
+  "ER027": {
+    "nom": "sprint en bicicleta aérea",
+    "groupe_musculaire": "Cuerpo completo",
+    "objectifs": [
+      "cardio",
+      "Pérdida de peso",
+      "Resistencia",
+      "fuerza",
+      "aptitud"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Glúteos",
+      "terneros",
+      "Pectorales",
+      "Hombros",
+      "tríceps",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "Caderas",
+      "rodillas",
+      "Tobillos",
+      "Hombros",
+      "Codos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles",
+      "tendón tricipital"
+    ],
+    "type": "Ergómetro – Esfuerzo explosivo",
+    "niveau": "Intermedio a avanzado",
+    "materiel": [
+      "bicicleta aérea"
+    ],
+    "position": "sentado",
+    "contraintes": [
+      "Muy intenso – evitar sin sobrecalentamiento o en caso de patologías cardíacas."
+    ],
+    "variantes": [
+      "Intervalos de AirBike",
+      "Solo brazos AirBike",
+      "Solo patas AirBike"
+    ],
+    "consignes": {
+      "Positionnement": "Silla bien ajustada, manos en las manijas, busto ligeramente inclinado hacia adelante.",
+      "Mouvement": "Sprints a máxima cadencia en sincronización brazo/pierna.",
+      "Retour": "Descanso activo o pasivo después de cada sprint.",
+      "Respiration": "Sople fuerte durante el ejercicio, recuperación activa soplando lentamente.",
+      "Posture": "Mantente fuerte y estable, evita los tirones."
+    }
+  },
+  "ER028": {
+    "nom": "Intervalos de AirBike",
+    "groupe_musculaire": "Cuerpo completo",
+    "objectifs": [
+      "Resistencia",
+      "cardio",
+      "Pérdida de peso",
+      "aptitud",
+      "fuerza"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Glúteos",
+      "terneros",
+      "Pectorales",
+      "brazo",
+      "Hombros",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas",
+      "Tobillos",
+      "Hombros",
+      "Codos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles",
+      "tendón bicipital",
+      "tendón tricipital"
+    ],
+    "type": "Ergómetro – Dividido",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "bicicleta aérea"
+    ],
+    "position": "sentado",
+    "contraintes": [
+      "Fatiga rápida, requiere una buena recuperación entre bloques."
+    ],
+    "variantes": [
+      "sprint en bicicleta aérea",
+      "Solo brazos AirBike",
+      "Solo patas AirBike"
+    ],
+    "consignes": {
+      "Positionnement": "Ajuste del sillín según talla, posición estable.",
+      "Mouvement": "Alternar esfuerzo intenso y recuperación lenta o pasiva.",
+      "Retour": "Termina el último set con una recuperación extendida.",
+      "Respiration": "Ritmo controlado y profundo durante la recuperación.",
+      "Posture": "Tronco enfundado, simetría de movimientos de brazos/piernas."
+    }
+  },
+  "ER029": {
+    "nom": "Solo brazos AirBike",
+    "groupe_musculaire": "parte superior del cuerpo",
+    "objectifs": [
+      "Refuerzo",
+      "cardio",
+      "posturales",
+      "Reprogramación neuromuscular"
+    ],
+    "muscles_secondaires": [
+      "Hombros",
+      "tríceps",
+      "Atrás",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "Hombros",
+      "Codos",
+      "Puños"
+    ],
+    "tendons_solicites": [
+      "tendón tricipital",
+      "tendón bicipital",
+      "Tendones del manguito rotador"
+    ],
+    "type": "Ergómetro – Sólo brazo",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "bicicleta aérea"
+    ],
+    "position": "sentado",
+    "contraintes": [
+      "Riesgo de desequilibrio postural si las piernas no están estabilizadas"
+    ],
+    "variantes": [
+      "Solo patas AirBike",
+      "sprint en bicicleta aérea",
+      "Intervalos de AirBike"
+    ],
+    "consignes": {
+      "Positionnement": "Pies colocados en el suelo o sobre un reposapiés, manos en las asas móviles.",
+      "Mouvement": "Alterne movimientos de empujar y tirar solo con los brazos.",
+      "Retour": "Vuelve a la posición neutral sin relajar los hombros.",
+      "Respiration": "Exhale al empujar, inhale al regresar.",
+      "Posture": "Espalda recta, abdominales contraídos, evite balancearse."
+    }
+  },
+  "ER030": {
+    "nom": "Solo patas AirBike",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "Refuerzo",
+      "cardio",
+      "Resistencia",
+      "posturales",
+      "aptitud"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Isquiotibiales",
+      "Glúteos",
+      "terneros"
+    ],
+    "articulations_solicitees": [
+      "Caderas",
+      "rodillas",
+      "Tobillos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles",
+      "tendón del tendón de la corva"
+    ],
+    "type": "Ergómetro – Sólo piernas",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "bicicleta aérea"
+    ],
+    "position": "sentado",
+    "contraintes": [
+      "Desactive los brazos (inmovilice las manijas si es posible) para evitar interferencias"
+    ],
+    "variantes": [
+      "Solo brazos AirBike",
+      "sprint en bicicleta aérea",
+      "Intervalos de AirBike"
+    ],
+    "consignes": {
+      "Positionnement": "Manos colocadas sobre los muslos o fijas, espalda recta.",
+      "Mouvement": "Pedaleo suave sólo con las piernas, cadencia controlada.",
+      "Retour": "Reduzca la velocidad gradualmente al final de la cuadra.",
+      "Respiration": "Continuo, profundo, sin bloqueos.",
+      "Posture": "Envainado activo, evita movimientos parásitos del tronco."
+    }
+  },
+  "ER031": {
+    "nom": "Paso a paso - Movimiento continuo",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "cardio",
+      "Resistencia",
+      "Pérdida de peso",
+      "aptitud"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Glúteos",
+      "Isquiotibiales",
+      "terneros",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas",
+      "Tobillos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles"
+    ],
+    "type": "Ergómetro – Ascenso rítmico",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "paso a paso"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Cuidado con la fatiga articular prolongada o una mala postura lumbar"
+    ],
+    "variantes": [
+      "paso a paso de velocidad",
+      "Intervalos paso a paso",
+      "paso a paso unilateral"
+    ],
+    "consignes": {
+      "Positionnement": "Pies firmemente colocados en los escalones, manos en las manijas si es necesario.",
+      "Mouvement": "Ascenso alternativo suave, cadencia constante.",
+      "Retour": "Disminuya la velocidad gradualmente al final de la sesión.",
+      "Respiration": "Continuo y regular.",
+      "Posture": "Espalda recta, núcleo comprometido, no confíe excesivamente en los brazos."
+    }
+  },
+  "ER032": {
+    "nom": "paso a paso de velocidad",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "cardio",
+      "Pérdida de peso",
+      "Resistencia",
+      "fuerza",
+      "aptitud"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Glúteos",
+      "Isquiotibiales",
+      "terneros",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas",
+      "Tobillos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles"
+    ],
+    "type": "Ergómetro – Sprint cuesta arriba",
+    "niveau": "Intermedio a avanzado",
+    "materiel": [
+      "paso a paso"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Muy exigente para las articulaciones, no recomendado en caso de lesión de rodilla."
+    ],
+    "variantes": [
+      "Intervalos paso a paso",
+      "paso a paso unilateral"
+    ],
+    "consignes": {
+      "Positionnement": "Posición erguida estable, manos en las manijas solo para mantener el equilibrio.",
+      "Mouvement": "Subidas explosivas a máxima cadencia.",
+      "Retour": "Fase activa o de descanso completo después de cada sprint.",
+      "Respiration": "Exhale poderosamente durante el ejercicio, inhale durante la recuperación.",
+      "Posture": "Tronco estable, mirada recta, sin rebote excesivo."
+    }
+  },
+  "ER033": {
+    "nom": "Intervalos paso a paso",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "Resistencia",
+      "cardio",
+      "Pérdida de peso",
+      "aptitud",
+      "fuerza"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Glúteos",
+      "Isquiotibiales",
+      "terneros",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas",
+      "Tobillos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles"
+    ],
+    "type": "Ergómetro – Split cuesta arriba",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "paso a paso"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Puede provocar una fatiga importante en las extremidades inferiores si no se gestiona bien el ritmo."
+    ],
+    "variantes": [
+      "paso a paso de velocidad",
+      "paso a paso unilateral"
+    ],
+    "consignes": {
+      "Positionnement": "Posición erguida, manos ligeramente apoyadas en las asas.",
+      "Mouvement": "Alternar fases de esfuerzo sostenido con fases de recuperación.",
+      "Retour": "Termine con una fase de recuperación extendida.",
+      "Respiration": "Acelerado durante el ejercicio, más controlado durante la recuperación.",
+      "Posture": "Tronco recto, sin excesivo apoyo en los brazos."
+    }
+  },
+  "ER034": {
+    "nom": "paso a paso unilateral",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "Refuerzo",
+      "posturales",
+      "Coordinación",
+      "Reprogramación neuromuscular"
+    ],
+    "muscles_secondaires": [
+      "Glúteos",
+      "Cuádriceps",
+      "terneros",
+      "Isquiotibiales",
+      "oblicuos"
+    ],
+    "articulations_solicitees": [
+      "Caderas",
+      "rodillas",
+      "Tobillos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles",
+      "tendón del tendón de la corva"
+    ],
+    "type": "Ergómetro – Ascenso unilateral",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "paso a paso"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Requiere buena estabilidad postural y fuerte apoyo en la pierna activa."
+    ],
+    "variantes": [
+      "paso a paso de velocidad",
+      "Intervalos paso a paso"
+    ],
+    "consignes": {
+      "Positionnement": "Posición recta, una pierna activa, la otra en pose o suspendida.",
+      "Mouvement": "Ascenso dinámico con una pierna, encadenado durante varias repeticiones.",
+      "Retour": "Descanso completo o cambio de lado entre cada serie.",
+      "Respiration": "Continuo y controlado.",
+      "Posture": "Caderas alineadas, core activo, evita desequilibrios laterales."
+    }
+  },
+  "ER035": {
+    "nom": "Escaleras - Subida continua",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "cardio",
+      "Resistencia",
+      "Pérdida de peso",
+      "aptitud"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Glúteos",
+      "terneros",
+      "Isquiotibiales",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas",
+      "Tobillos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles",
+      "tendón del tendón de la corva"
+    ],
+    "type": "Ergómetro – Escalera mecánica",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Escaleras mecánicas (Climbmill/Stepmill)"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Cuidado con la fatiga lumbar y el desequilibrio a un ritmo rápido"
+    ],
+    "variantes": [
+      "Escaleras de velocidad",
+      "Intervalos de escaleras",
+      "escaleras de un solo lado"
+    ],
+    "consignes": {
+      "Positionnement": "De pie, con los pies firmemente anclados y las manos ligeramente colocadas si es necesario.",
+      "Mouvement": "Secuencia fluida de subidas de escalones sin impacto.",
+      "Retour": "Reduce el ritmo al final de la cuadra.",
+      "Respiration": "Regular, apto para escalada.",
+      "Posture": "Espalda recta, core comprometido, no colapses sobre tus brazos."
+    }
+  },
+  "ER036": {
+    "nom": "Escaleras de velocidad",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "cardio",
+      "Pérdida de peso",
+      "Resistencia",
+      "fuerza",
+      "aptitud"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Glúteos",
+      "terneros",
+      "Isquiotibiales",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas",
+      "Tobillos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles",
+      "tendón del tendón de la corva"
+    ],
+    "type": "Ergómetro – Sprint en escaleras",
+    "niveau": "Intermedio a avanzado",
+    "materiel": [
+      "Escaleras mecánicas (Climbmill/Stepmill)"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Alta intensidad: requiere coordinación y control postural."
+    ],
+    "variantes": [
+      "Intervalos de escaleras",
+      "escaleras de un solo lado"
+    ],
+    "consignes": {
+      "Positionnement": "Posición erguida, manos relajadas o ligeramente colocadas para mantener el equilibrio.",
+      "Mouvement": "Sprint a máxima cadencia en pasos sucesivos.",
+      "Retour": "Descanso activo (caminar lento) o descanso completo entre sprints.",
+      "Respiration": "Exhala en el rápido ascenso, inhala en la recuperación.",
+      "Posture": "Tronco enfundado, sin balanceo hacia adelante ni agarre excesivo del brazo."
+    }
+  },
+  "ER037": {
+    "nom": "Intervalos de escaleras",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "Resistencia",
+      "cardio",
+      "Pérdida de peso",
+      "aptitud",
+      "fuerza"
+    ],
+    "muscles_secondaires": [
+      "Cuádriceps",
+      "Glúteos",
+      "terneros",
+      "Isquiotibiales",
+      "abdominales"
+    ],
+    "articulations_solicitees": [
+      "rodillas",
+      "Caderas",
+      "Tobillos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles",
+      "tendón del tendón de la corva"
+    ],
+    "type": "Ergómetro – Escalera dividida",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Escaleras mecánicas (Climbmill/Stepmill)"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Puede provocar un cansancio importante si el ritmo está mal medido"
+    ],
+    "variantes": [
+      "Escaleras de velocidad",
+      "escaleras de un solo lado"
+    ],
+    "consignes": {
+      "Positionnement": "Pies estables, manos proporcionando un apoyo ligero si es necesario.",
+      "Mouvement": "Alterna secuencias rápidas y fases de recuperación más lentas.",
+      "Retour": "Termina con una subida lenta y fluida.",
+      "Respiration": "Controlado, profundo durante la recuperación.",
+      "Posture": "Espalda recta, abdominales contraídos, sin inclinación pélvica."
+    }
+  },
+  "ER038": {
+    "nom": "escaleras de un solo lado",
+    "groupe_musculaire": "Piernas",
+    "objectifs": [
+      "Refuerzo",
+      "posturales",
+      "Coordinación",
+      "Reprogramación neuromuscular"
+    ],
+    "muscles_secondaires": [
+      "Glúteos",
+      "Cuádriceps",
+      "terneros",
+      "Isquiotibiales",
+      "oblicuos"
+    ],
+    "articulations_solicitees": [
+      "Caderas",
+      "rodillas",
+      "Tobillos"
+    ],
+    "tendons_solicites": [
+      "tendón rotuliano",
+      "tendón de aquiles",
+      "tendón del tendón de la corva"
+    ],
+    "type": "Ergómetro – Ascenso unilateral",
+    "niveau": "Todos los niveles",
+    "materiel": [
+      "Escaleras mecánicas (Climbmill/Stepmill)"
+    ],
+    "position": "De pie",
+    "contraintes": [
+      "Requiere estabilidad y buen soporte – evitar en caso de inestabilidad articular"
+    ],
+    "variantes": [
+      "Escaleras de velocidad",
+      "Intervalos de escaleras"
+    ],
+    "consignes": {
+      "Positionnement": "Comience con una sola pierna activa y la otra ligeramente apoyada o colgando.",
+      "Mouvement": "Realiza una elevación repetida con la pierna activa durante toda la serie.",
+      "Retour": "Cambia de bando o tómate un descanso después de la serie.",
+      "Respiration": "Continuar, adaptado al ritmo de la subida.",
+      "Posture": "Núcleo estable, caderas alineadas, control de pelvis."
+    }
+  }
+}

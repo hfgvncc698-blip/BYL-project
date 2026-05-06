@@ -6,19 +6,23 @@
 // - sendWelcomeEmail       : email de bienvenue via SMTP (Zimbra OVH)
 // - onProgramAssigned      : email auto quand un coach assigne un programme à un élève
 // - syncExerciseMediaFromStorage : synchro auto Storage -> Firestore pour les médias exercices
+// - ensureCalendarSubscription   : crée/récupère le lien privé du calendrier client
+// - ensureCoachCalendarSubscription : crée/récupère le lien privé du calendrier coach global
+// - calendarFeed                : flux ICS d'abonnement calendrier (client + coach)
 // =======================================================
 
 const admin = require("firebase-admin");
 const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
-const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getFirestore } = require("firebase-admin/firestore");
 
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onObjectFinalized } = require("firebase-functions/v2/storage");
 const { defineSecret } = require("firebase-functions/params");
 const nodemailer = require("nodemailer");
 const crypto = require("crypto");
+const ical = require("ical-generator").default;
 
 initializeApp();
 const db = getFirestore();
@@ -34,6 +38,7 @@ const SMTP_SECURE = defineSecret("SMTP_SECURE"); // "true" si 465, sinon "false"
 const SMTP_USER = defineSecret("SMTP_USER"); // ex: contact@boostyourlife.coach
 const SMTP_PASS = defineSecret("SMTP_PASS"); // mdp de la boite mail
 const APP_BASE_URL = defineSecret("APP_BASE_URL"); // ex: https://boostyourlife.coach
+const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
 
 /* ------------------------ HELPERS ------------------------ */
 function logAndThrowHttpsError(code, message, err) {
@@ -53,6 +58,65 @@ function safeTrim(v) {
 
 function normalizeSpaces(s = "") {
   return String(s || "").replace(/\s+/g, " ").trim();
+}
+
+function safeJsonParse(raw) {
+  try {
+    return JSON.parse(String(raw || ""));
+  } catch (_) {
+    return null;
+  }
+}
+
+function trimLargePayload(value, maxChars = 22000) {
+  const raw = JSON.stringify(value || {});
+  if (raw.length <= maxChars) return value;
+  const clone = safeJsonParse(raw) || {};
+  if (Array.isArray(clone.rationLines)) clone.rationLines = clone.rationLines.slice(0, 80);
+  if (Array.isArray(clone.initialMenu)) clone.initialMenu = clone.initialMenu.slice(0, 14);
+  if (Array.isArray(clone.feedbackHistory)) clone.feedbackHistory = clone.feedbackHistory.slice(0, 25);
+  if (clone.ration) clone.ration = { omitted: true, reason: "rationLines already provided" };
+  const compact = JSON.stringify(clone);
+  if (compact.length <= maxChars) return clone;
+  return {
+    truncated: true,
+    objective: clone.objective || "",
+    calorieNeeds: clone.calorieNeeds || {},
+    macroTargets: clone.macroTargets || {},
+    pathologies: clone.pathologies || [],
+    forbiddenFoods: clone.forbiddenFoods || [],
+    preferences: clone.preferences || [],
+    rationLines: Array.isArray(clone.rationLines) ? clone.rationLines.slice(0, 40) : [],
+  };
+}
+
+function normalizeNutritionAiPlan(value) {
+  const plan = value && typeof value === "object" ? value : {};
+  return {
+    improvedPlan: plan.improvedPlan && typeof plan.improvedPlan === "object" ? plan.improvedPlan : {},
+    meals: Array.isArray(plan.meals) ? plan.meals : [],
+    recipes: Array.isArray(plan.recipes) ? plan.recipes : [],
+    shoppingList: Array.isArray(plan.shoppingList) ? plan.shoppingList : [],
+    warnings: Array.isArray(plan.warnings) ? plan.warnings : [],
+    suggestedAdjustments: Array.isArray(plan.suggestedAdjustments) ? plan.suggestedAdjustments : [],
+    clientExplanation: safeTrim(plan.clientExplanation || ""),
+  };
+}
+
+function extractOpenAiText(json) {
+  if (typeof json?.output_text === "string") return json.output_text;
+  const content = json?.choices?.[0]?.message?.content;
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content.map((part) => part?.text || part?.content || "").join("");
+  }
+  if (Array.isArray(json?.output)) {
+    return json.output
+      .flatMap((item) => item?.content || [])
+      .map((part) => part?.text || "")
+      .join("");
+  }
+  return "";
 }
 
 function normalizeLng(lng) {
@@ -123,6 +187,73 @@ function getClientLngFromDoc(client) {
   return resolveLng(lng);
 }
 
+/* ------------------------ CALENDAR HELPERS ------------------------ */
+function toDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value?.toDate === "function") return value.toDate();
+  if (typeof value === "number") return new Date(value);
+  if (typeof value === "string") {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
+function toTimestampMs(value) {
+  const d = toDate(value);
+  return d ? d.getTime() : 0;
+}
+
+function buildCalendarUrlFromToken(token) {
+  const projectId =
+    process.env.GCLOUD_PROJECT ||
+    process.env.PROJECT_ID ||
+    admin.app().options.projectId;
+
+  return `https://europe-west1-${projectId}.cloudfunctions.net/calendarFeed?token=${encodeURIComponent(
+    token
+  )}`;
+}
+
+function normalizeCalendarTimezone(value) {
+  const fallback = "Europe/Paris";
+  const timezone = safeTrim(value);
+  if (!timezone) return fallback;
+
+  try {
+    new Intl.DateTimeFormat("fr-FR", { timeZone: timezone }).format(new Date());
+    return timezone;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function calendarTokenRef(token) {
+  return db.collection("calendarSubscriptionTokens").doc(token);
+}
+
+function isCalendarTokenFormat(token) {
+  return /^[a-f0-9]{48}$/i.test(String(token || ""));
+}
+
+async function upsertCalendarTokenIndex({ token, kind, ownerId, sourcePath, timezone, enabled = true }) {
+  if (!token || !kind || !ownerId) return;
+
+  await calendarTokenRef(token).set(
+    {
+      token,
+      kind,
+      ownerId,
+      sourcePath: sourcePath || "",
+      timezone: normalizeCalendarTimezone(timezone),
+      enabled: enabled !== false,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
 /* ------------------------ STORAGE -> EXERCISE MEDIA HELPERS ------------------------ */
 
 const EXERCISE_COLLECTIONS = ["training", "warmup", "cooldown"];
@@ -147,15 +278,6 @@ function sortImages(images = []) {
 }
 
 function parseExerciseMediaPath(filePath) {
-  // Exemples acceptés :
-  // Exercices/T064/femme-depart.jpg
-  // Exercices/T064/femme-milieu.jpg
-  // Exercices/T064/femme-milieu-2.jpg
-  // Exercices/T064/femme-milieu-5.jpg
-  // Exercices/T064/femme-arrivee.png
-  // Exercices/T064/femme.mp4
-  // Exercices/T064/homme.mov
-
   const parts = String(filePath || "").split("/");
   if (parts.length !== 3) return null;
 
@@ -164,7 +286,6 @@ function parseExerciseMediaPath(filePath) {
   if (rootFolder !== "Exercices") return null;
   if (!exerciseId || !fileName) return null;
 
-  // Vidéo
   const videoMatch = fileName.match(/^(femme|homme)\.(mp4|mov|webm)$/i);
   if (videoMatch) {
     return {
@@ -176,7 +297,6 @@ function parseExerciseMediaPath(filePath) {
     };
   }
 
-  // Image
   const imageMatch = fileName.match(
     /^(femme|homme)-(depart|milieu(?:-\d+)?|arrivee)\.(jpg|jpeg|png|webp)$/i
   );
@@ -196,12 +316,10 @@ function parseExerciseMediaPath(filePath) {
 
 async function findExerciseDocRef(exerciseId) {
   for (const collectionName of EXERCISE_COLLECTIONS) {
-    // Cas 1 : doc id = T064
     const directRef = db.collection(collectionName).doc(exerciseId);
     const directSnap = await directRef.get();
     if (directSnap.exists) return directRef;
 
-    // Cas 2 : doc id différent, mais champ id = T064
     const querySnap = await db
       .collection(collectionName)
       .where("id", "==", exerciseId)
@@ -605,12 +723,6 @@ function deepGet(obj, pathParts = []) {
   }, obj);
 }
 
-/**
- * Supporte :
- * - t("assigned.subject", { programName }, lng)
- * - t("common.programLabel", {}, lng)
- * - t("welcome.subjectCoach", {}, lng)
- */
 function t(key, vars = {}, lng = "fr") {
   const parts = String(key || "").split(".");
   const sources = [getDict(lng), EMAIL_I18N.fr, EMAIL_I18N.en];
@@ -850,6 +962,9 @@ exports.sendPasswordSetupEmail = onCall(
     const data = request.data || {};
     const rawEmail = safeTrim(data.email).toLowerCase();
     const redirectUrl = data.redirectUrl || "https://boostyourlife.coach/login";
+    const lng = resolveLng(data.lang || data.language || data.locale || data.lng || "fr");
+    const firstName = normalizeSpaces(data.firstName || data.prenom || "");
+    const lastName = normalizeSpaces(data.lastName || data.nom || "");
 
     if (!rawEmail) {
       throw new HttpsError("invalid-argument", "Un e-mail valide est requis.");
@@ -888,6 +1003,32 @@ exports.sendPasswordSetupEmail = onCall(
       }
     }
 
+    try {
+      const displayName = normalizeSpaces(`${firstName} ${lastName}`);
+      if (displayName) {
+        await auth.updateUser(uid, { displayName });
+      }
+      await db.collection("users").doc(uid).set(
+        {
+          email: rawEmail,
+          emailLower: rawEmail,
+          firstName: firstName || "Utilisateur",
+          lastName,
+          displayName,
+          role: "particulier",
+          preferredLang: lng,
+          settings: {
+            defaultLanguage: lng,
+            langCode: lng,
+          },
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      console.warn("[sendPasswordSetupEmail] profile sync warning", err?.message || err);
+    }
+
     const apiKey = WEB_API_KEY.value();
     if (!apiKey) {
       throw new HttpsError("failed-precondition", "WEB_API_KEY n'est pas configuré.");
@@ -906,7 +1047,7 @@ exports.sendPasswordSetupEmail = onCall(
     try {
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Firebase-Locale": lng },
         body: JSON.stringify(payload),
       });
 
@@ -918,7 +1059,7 @@ exports.sendPasswordSetupEmail = onCall(
 
       const json = await res.json();
       console.log("[sendPasswordSetupEmail] sendOobCode OK", rawEmail, json);
-      return { ok: true, uid, email: rawEmail };
+      return { ok: true, uid, email: rawEmail, lng };
     } catch (err) {
       return logAndThrowHttpsError(
         "internal",
@@ -1035,6 +1176,98 @@ exports.sendWelcomeEmail = onCall(
       return { ok: true, email, role, lng };
     } catch (err) {
       return logAndThrowHttpsError("internal", "[sendWelcomeEmail] SMTP send failed", err);
+    }
+  }
+);
+
+/* =======================================================================
+ * Nutrition IA: optimisation contrôlée, sans calcul nutritionnel inventé
+ * ======================================================================= */
+exports.optimizeNutritionPlanWithAI = onCall(
+  {
+    region: "europe-west1",
+    secrets: [OPENAI_API_KEY],
+    timeoutSeconds: 90,
+    memory: "512MiB",
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Connexion requise.");
+    }
+
+    const apiKey = safeTrim(OPENAI_API_KEY.value());
+    if (!apiKey) {
+      return { ok: false, error: "OPENAI_API_KEY n'est pas configuré." };
+    }
+
+    const basePlan = trimLargePayload(request.data?.basePlan || {});
+    const clientProfile = trimLargePayload(request.data?.clientProfile || {});
+    if (!basePlan || typeof basePlan !== "object") {
+      throw new HttpsError("invalid-argument", "basePlan manquant.");
+    }
+
+    const systemPrompt = [
+      "Tu optimises un plan nutritionnel BoostYourLife au-dessus d'un moteur algorithmique existant.",
+      "L'algorithme et CIQUAL restent la source fiable pour calories, macros, portions, pathologies, aliments interdits et contraintes médicales.",
+      "Tu ne dois jamais inventer de valeurs nutritionnelles ni modifier les seuils médicaux.",
+      "Tu peux améliorer naturalité des repas, associations, recettes, liste de courses, explications et suggestions coach.",
+      "Toute modification doit rester compatible avec les calories cibles, macros cibles, aliments interdits, préférences et pathologies fournis.",
+      "Retourne uniquement un JSON strict avec les clés: improvedPlan, meals, recipes, shoppingList, warnings, suggestedAdjustments, clientExplanation.",
+      "Dans les recettes, laisse les informations nutritionnelles vides ou marquées comme à recalculer par CIQUAL.",
+    ].join("\n");
+
+    const userPayload = {
+      basePlan,
+      clientProfile,
+      requiredShape: {
+        improvedPlan: {},
+        meals: [],
+        recipes: [],
+        shoppingList: [],
+        warnings: [],
+        suggestedAdjustments: [],
+        clientExplanation: "",
+      },
+    };
+
+    try {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: process.env.OPENAI_NUTRITION_MODEL || "gpt-4.1-mini",
+          temperature: 0.3,
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: JSON.stringify(userPayload) },
+          ],
+        }),
+      });
+
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        console.error("[optimizeNutritionPlanWithAI] OpenAI error", res.status, json);
+        return { ok: false, error: "Optimisation IA indisponible." };
+      }
+
+      const parsed = safeJsonParse(extractOpenAiText(json));
+      if (!parsed) {
+        console.error("[optimizeNutritionPlanWithAI] JSON parse failed", json);
+        return { ok: false, error: "Réponse IA invalide." };
+      }
+
+      return {
+        ok: true,
+        plan: normalizeNutritionAiPlan(parsed),
+        model: json?.model || process.env.OPENAI_NUTRITION_MODEL || "gpt-4.1-mini",
+      };
+    } catch (err) {
+      console.error("[optimizeNutritionPlanWithAI] failed", err);
+      return { ok: false, error: "Optimisation IA échouée." };
     }
   }
 );
@@ -1204,7 +1437,7 @@ exports.syncExerciseMediaFromStorage = onObjectFinalized(
                 },
               },
             },
-            updatedAt: FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           },
           { merge: true }
         );
@@ -1235,7 +1468,7 @@ exports.syncExerciseMediaFromStorage = onObjectFinalized(
                 images: updatedImages,
               },
             },
-            updatedAt: FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           },
           { merge: true }
         );
@@ -1246,6 +1479,477 @@ exports.syncExerciseMediaFromStorage = onObjectFinalized(
       }
     } catch (err) {
       console.error("[syncExerciseMediaFromStorage] FAILED", err);
+    }
+  }
+);
+
+/* =======================================================================
+ * 6) ensureCalendarSubscription
+ * Crée ou récupère le lien privé d'abonnement calendrier pour un client
+ * Stockage :
+ * clients/{clientId}/private/calendar
+ * ======================================================================= */
+exports.ensureCalendarSubscription = onCall(
+  { region: "europe-west1" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Connexion requise.");
+    }
+
+    const clientId = safeTrim(request.data?.clientId);
+    const timezone = normalizeCalendarTimezone(request.data?.timezone);
+    if (!clientId) {
+      throw new HttpsError("invalid-argument", "clientId manquant.");
+    }
+
+    const ref = db.doc(`clients/${clientId}/private/calendar`);
+    const snap = await ref.get();
+
+    let token = snap.exists ? safeTrim(snap.data()?.token) : "";
+    let enabled = snap.exists ? snap.data()?.enabled !== false : true;
+
+    if (!token) {
+      token = crypto.randomBytes(24).toString("hex");
+
+      await ref.set(
+        {
+          token,
+          enabled: true,
+          timezone,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      enabled = true;
+    } else {
+      await ref.set(
+        {
+          timezone,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+
+    await upsertCalendarTokenIndex({
+      token,
+      kind: "client",
+      ownerId: clientId,
+      sourcePath: ref.path,
+      timezone,
+      enabled,
+    });
+
+    return {
+      ok: true,
+      token,
+      enabled,
+      timezone,
+      url: buildCalendarUrlFromToken(token),
+    };
+  }
+);
+
+/* =======================================================================
+ * 7) ensureCoachCalendarSubscription
+ * Crée ou récupère le lien privé d'abonnement calendrier pour le coach
+ * Stockage :
+ * coachCalendarSubscriptions/{coachId}
+ * ======================================================================= */
+exports.ensureCoachCalendarSubscription = onCall(
+  { region: "europe-west1" },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Connexion requise.");
+    }
+
+    const requestedCoachId = safeTrim(request.data?.coachId);
+    const coachId = requestedCoachId || request.auth.uid;
+    const timezone = normalizeCalendarTimezone(request.data?.timezone);
+
+    if (coachId !== request.auth.uid) {
+      throw new HttpsError("permission-denied", "Accès refusé.");
+    }
+
+    const ref = db.collection("coachCalendarSubscriptions").doc(coachId);
+    const snap = await ref.get();
+
+    let token = snap.exists ? safeTrim(snap.data()?.token) : "";
+    let enabled = snap.exists ? snap.data()?.enabled !== false : true;
+
+    if (!token) {
+      token = crypto.randomBytes(24).toString("hex");
+
+      await ref.set(
+        {
+          coachId,
+          token,
+          enabled: true,
+          timezone,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      enabled = true;
+    } else {
+      await ref.set(
+        {
+          coachId,
+          timezone,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+
+    await upsertCalendarTokenIndex({
+      token,
+      kind: "coach",
+      ownerId: coachId,
+      sourcePath: ref.path,
+      timezone,
+      enabled,
+    });
+
+    return {
+      ok: true,
+      coachId,
+      token,
+      enabled,
+      timezone,
+      url: buildCalendarUrlFromToken(token),
+    };
+  }
+);
+
+/* =======================================================================
+ * 8) calendarFeed
+ * Flux ICS lisible par Apple / Google / Outlook
+ * - mode client : clients/{clientId}/calendarEvents/{eventId}
+ * - mode coach  : collection "sessions" filtrée par coachId
+ * Version simplifiée + gestion CANCELLED
+ * ======================================================================= */
+exports.calendarFeed = onRequest(
+  {
+    region: "europe-west1",
+    cors: true,
+  },
+  async (req, res) => {
+    try {
+      const token = safeTrim(req.query.token);
+      if (!token) {
+        res.status(400).send("Missing token");
+        return;
+      }
+      if (!isCalendarTokenFormat(token)) {
+        res.status(404).send("Invalid or disabled token");
+        return;
+      }
+
+      const indexedTokenSnap = await calendarTokenRef(token).get();
+      const indexedToken = indexedTokenSnap.exists ? indexedTokenSnap.data() || {} : null;
+      const indexedTokenEnabled = indexedToken ? indexedToken.enabled !== false : false;
+
+      /* ---------------------------------------------------
+       * 1) Token client
+       * --------------------------------------------------- */
+      let clientRef = null;
+      let clientPrivateRef = null;
+
+      if (
+        indexedTokenEnabled &&
+        indexedToken.kind === "client" &&
+        safeTrim(indexedToken.ownerId)
+      ) {
+        clientRef = db.doc(`clients/${safeTrim(indexedToken.ownerId)}`);
+        clientPrivateRef = db.doc(`clients/${safeTrim(indexedToken.ownerId)}/private/calendar`);
+      } else if (!indexedToken) {
+        try {
+          const clientPrivateSnap = await db
+            .collectionGroup("private")
+            .where("token", "==", token)
+            .limit(5)
+            .get();
+
+          const privateDoc = clientPrivateSnap.docs.find((docSnap) => {
+            const data = docSnap.data() || {};
+            return data.enabled !== false && docSnap.ref.parent.parent?.parent?.id === "clients";
+          });
+
+          if (privateDoc) {
+            clientPrivateRef = privateDoc.ref;
+            clientRef = privateDoc.ref.parent.parent; // clients/{clientId}
+          }
+        } catch (err) {
+          if (err?.code !== 9) throw err;
+          console.warn("[calendarFeed] client token fallback index not ready yet");
+        }
+      }
+
+      if (clientRef) {
+        const clientId = clientRef.id;
+
+        if (clientPrivateRef) {
+          await upsertCalendarTokenIndex({
+            token,
+            kind: "client",
+            ownerId: clientId,
+            sourcePath: clientPrivateRef.path,
+            timezone: indexedToken?.timezone,
+            enabled: true,
+          });
+        }
+
+        const clientSnap = await clientRef.get();
+        const clientData = clientSnap.exists ? clientSnap.data() : {};
+
+        const clientName =
+          safeTrim(clientData?.prenom) ||
+          safeTrim(clientData?.firstName) ||
+          safeTrim(clientData?.displayName) ||
+          safeTrim(clientData?.nomComplet) ||
+          "Client";
+
+        const now = new Date();
+        const pastWindow = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+        const eventsSnap = await clientRef
+          .collection("calendarEvents")
+          .orderBy("startAt", "asc")
+          .get();
+
+        const calendar = ical({
+          name: `BoostYourLife - ${clientName}`,
+          prodId: {
+            company: "BoostYourLife",
+            product: "Client Calendar",
+            language: "FR",
+          },
+        });
+
+        for (const eventDoc of eventsSnap.docs) {
+          const data = eventDoc.data() || {};
+          const start = toDate(data.startAt);
+          const end = toDate(data.endAt);
+
+          if (!start || !end) continue;
+          if (end <= start) continue;
+          if (end < pastWindow) continue;
+
+          const status = safeTrim(data.status).toLowerCase();
+          const summary = safeTrim(data.title) || "Séance BoostYourLife";
+
+          if (status === "cancelled" || status === "canceled") {
+            calendar.createEvent({
+              id: `byl-client-${clientId}-${eventDoc.id}@boostyourlife.app`,
+              start,
+              end,
+              summary,
+              status: "CANCELLED",
+            });
+            continue;
+          }
+
+          calendar.createEvent({
+            id: `byl-client-${clientId}-${eventDoc.id}@boostyourlife.app`,
+            start,
+            end,
+            summary,
+          });
+        }
+
+        res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+        res.setHeader(
+          "Content-Disposition",
+          `inline; filename="boostyourlife-client-${clientId}.ics"`
+        );
+        res.status(200).send(calendar.toString());
+        return;
+      }
+
+      /* ---------------------------------------------------
+       * 2) Token coach
+       * --------------------------------------------------- */
+      let coachDoc = null;
+      let coachData = null;
+
+      if (
+        indexedTokenEnabled &&
+        indexedToken.kind === "coach" &&
+        safeTrim(indexedToken.ownerId)
+      ) {
+        const snap = await db
+          .collection("coachCalendarSubscriptions")
+          .doc(safeTrim(indexedToken.ownerId))
+          .get();
+        if (snap.exists) {
+          const data = snap.data() || {};
+          if (data.enabled !== false && safeTrim(data.token) === token) {
+            coachDoc = snap;
+            coachData = data;
+          }
+        }
+      } else if (!indexedToken) {
+        try {
+          const coachTokenSnap = await db
+            .collection("coachCalendarSubscriptions")
+            .where("token", "==", token)
+            .limit(5)
+            .get();
+
+          coachDoc = coachTokenSnap.docs.find((docSnap) => {
+            const data = docSnap.data() || {};
+            return data.enabled !== false;
+          });
+          coachData = coachDoc ? coachDoc.data() || {} : null;
+        } catch (err) {
+          if (err?.code !== 9) throw err;
+          console.warn("[calendarFeed] coach token fallback index not ready yet");
+        }
+      }
+
+      if (coachDoc && coachData) {
+        const coachId = safeTrim(coachData.coachId || coachDoc.id);
+
+        if (!coachId) {
+          res.status(404).send("Invalid coach token");
+          return;
+        }
+
+        await upsertCalendarTokenIndex({
+          token,
+          kind: "coach",
+          ownerId: coachId,
+          sourcePath: coachDoc.ref.path,
+          timezone: coachData.timezone || indexedToken?.timezone,
+          enabled: coachData.enabled !== false,
+        });
+
+        let coachName = "Coach";
+        try {
+          const authUser = await getAuth().getUser(coachId);
+          coachName =
+            safeTrim(authUser.displayName) ||
+            safeTrim(authUser.email) ||
+            coachName;
+        } catch (_) {
+          // non bloquant
+        }
+
+        const now = new Date();
+        const pastWindow = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+        const sessionsSnap = await db
+          .collection("sessions")
+          .where("coachId", "==", coachId)
+          .get();
+
+        const rawSessions = sessionsSnap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        }));
+
+        rawSessions.sort((a, b) => toTimestampMs(a.start) - toTimestampMs(b.start));
+
+        const clientIds = [
+          ...new Set(rawSessions.map((s) => safeTrim(s.clientId)).filter(Boolean)),
+        ];
+
+        const clientMap = new Map();
+
+        await Promise.all(
+          clientIds.map(async (clientId) => {
+            try {
+              const snap = await db.doc(`clients/${clientId}`).get();
+              if (snap.exists) {
+                const data = snap.data() || {};
+                clientMap.set(
+                  clientId,
+                  normalizeSpaces(
+                    `${safeTrim(data.prenom || data.firstName)} ${safeTrim(
+                      data.nom || data.lastName
+                    )}`
+                  ) ||
+                    safeTrim(data.displayName) ||
+                    "Client"
+                );
+              }
+            } catch (_) {
+              // non bloquant
+            }
+          })
+        );
+
+        const calendar = ical({
+          name: `BoostYourLife - ${coachName}`,
+          prodId: {
+            company: "BoostYourLife",
+            product: "Coach Calendar",
+            language: "FR",
+          },
+        });
+
+        for (const session of rawSessions) {
+          const start = toDate(session.start);
+          const end =
+            toDate(session.end) ||
+            (start ? new Date(start.getTime() + 60 * 60 * 1000) : null);
+
+          if (!start || !end) continue;
+          if (end <= start) continue;
+          if (end < pastWindow) continue;
+
+          const clientId = safeTrim(session.clientId);
+          const clientName =
+            safeTrim(session.clientName) ||
+            clientMap.get(clientId) ||
+            "Client";
+
+          const sessionTitle = safeTrim(session.title) || "Séance";
+          const summary = `${clientName} - ${sessionTitle}`;
+          const status = safeTrim(session.status).toLowerCase();
+
+          if (
+            status === "manquée" ||
+            status === "manquee" ||
+            status === "cancelled" ||
+            status === "canceled"
+          ) {
+            calendar.createEvent({
+              id: `byl-coach-${coachId}-${session.id}@boostyourlife.app`,
+              start,
+              end,
+              summary,
+              status: "CANCELLED",
+            });
+            continue;
+          }
+
+          calendar.createEvent({
+            id: `byl-coach-${coachId}-${session.id}@boostyourlife.app`,
+            start,
+            end,
+            summary,
+          });
+        }
+
+        res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+        res.setHeader(
+          "Content-Disposition",
+          `inline; filename="boostyourlife-coach-${coachId}.ics"`
+        );
+        res.status(200).send(calendar.toString());
+        return;
+      }
+
+      res.status(404).send("Invalid or disabled token");
+    } catch (err) {
+      console.error("[calendarFeed] FAILED", err);
+      res.status(500).send("Internal error");
     }
   }
 );

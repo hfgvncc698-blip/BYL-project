@@ -1,0 +1,1425 @@
+{
+  "E001": {
+    "nom": "Jumping Jacks",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "All muscles",
+    "objectifs": [
+      "Cardio",
+      "Endurance",
+      "Weight loss",
+      "Mobility",
+      "Balance"
+    ],
+    "muscles_secondaires": [
+      "Calves",
+      "Shoulders",
+      "Quadriceps"
+    ],
+    "articulations_solicitees": [
+      "Ankles",
+      "Knees",
+      "Shoulders"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon"
+    ],
+    "type": "Cardio / Muscle activation",
+    "niveau": "All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Avoid if you have knee or ankle pain"
+    ],
+    "variantes": [
+      "Slow Jumping Jacks",
+      "Step Jacks (no jump)",
+      "Weighted Jumping Jacks"
+    ],
+    "consignes": {
+      "Positionnement": "Stand with your feet together, arms alongside your body.",
+      "Mouvement": "Jump, spreading your legs out to the sides while raising your arms above your head.",
+      "Retour": "Return your feet and arms simultaneously to the starting position.",
+      "Respiration": "Inhale while opening, exhale while closing.",
+      "Posture": "Keep your back straight and lightly engage your abs."
+    }
+  },
+  "E002": {
+    "nom": "Slow Jumping Jacks",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "All muscles",
+    "objectifs": [
+      "Cardio",
+      "Mobility",
+      "Balance",
+      "Light reinforcement",
+      "Physical preparation"
+    ],
+    "muscles_secondaires": [
+      "Calves",
+      "Shoulders",
+      "Quadriceps"
+    ],
+    "articulations_solicitees": [
+      "Ankles",
+      "Knees",
+      "Shoulders"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon"
+    ],
+    "type": "Moderate cardio",
+    "niveau": "Beginner - All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Ideal for people with impact restrictions"
+    ],
+    "variantes": [
+      "Jumping Jacks",
+      "Step Jacks (no jump)"
+    ],
+    "consignes": {
+      "Positionnement": "Stand with your feet together, arms alongside your body.",
+      "Mouvement": "Perform a Jumping Jack at a slower pace, controlling each movement.",
+      "Retour": "Slowly return your feet and arms to the initial position.",
+      "Respiration": "Inhale while opening, exhale while closing.",
+      "Posture": "Engage your abs and keep your back straight."
+    }
+  },
+  "E003": {
+    "nom": "Step Jacks (no jump)",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "All muscles",
+    "objectifs": [
+      "Cardio",
+      "Mobility",
+      "Balance",
+      "Joint preparation",
+      "Postural"
+    ],
+    "muscles_secondaires": [
+      "Calves",
+      "Shoulders",
+      "Quadriceps"
+    ],
+    "articulations_solicitees": [
+      "Ankles",
+      "Knees",
+      "Shoulders"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon"
+    ],
+    "type": "Moderate cardio",
+    "niveau": "Beginner",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Ideal for people with impact restrictions"
+    ],
+    "variantes": [
+      "Jumping Jacks",
+      "Slow Jumping Jacks"
+    ],
+    "consignes": {
+      "Positionnement": "Stand with your feet shoulder-width apart, arms alongside your body.",
+      "Mouvement": "Take a side step by raising your arms, then return to the starting position.",
+      "Retour": "Alternate steps to the right and left without impact.",
+      "Respiration": "Inhale while opening, exhale while closing.",
+      "Posture": "Keep your back straight and engage your abs."
+    }
+  },
+  "E004": {
+    "nom": "Weighted Jumping Jacks",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "All muscles",
+    "objectifs": [
+      "Endurance",
+      "Reinforcement",
+      "Advanced Cardio",
+      "Mobility",
+      "Postural",
+      "Physical preparation"
+    ],
+    "muscles_secondaires": [
+      "Calves",
+      "Shoulders",
+      "Quadriceps"
+    ],
+    "materiel": [
+      "Light dumbbells",
+      "Weighted vest"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Stay vigilant about impacts on the knees"
+    ],
+    "variantes": [
+      "Jumping Jacks",
+      "Step Jacks (no jump)"
+    ],
+    "consignes": {
+      "Positionnement": "Stand with your feet together, dumbbells in hand or weighted vest attached.",
+      "Mouvement": "Perform a Jumping Jack while controlling the extra weight.",
+      "Retour": "Return your feet and arms simultaneously to the starting position.",
+      "Respiration": "Inhale while opening, exhale while closing.",
+      "Posture": "Engage your core to avoid any imbalance."
+    }
+  },
+  "E005": {
+    "nom": "Arm rotations",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Shoulders",
+    "objectifs": [
+      "Mobility",
+      "Injury prevention",
+      "Muscle activation"
+    ],
+    "muscles_secondaires": [
+      "Trapezoids",
+      "Deltoids"
+    ],
+    "articulations_solicitees": [
+      "Shoulders"
+    ],
+    "tendons_solicites": [
+      "Rotator cuff"
+    ],
+    "type": "Joint mobilization",
+    "niveau": "All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing or sitting",
+    "contraintes": [
+      "Do not force the amplitude if pain"
+    ],
+    "variantes": [
+      "Forward rotations",
+      "Backward rotations"
+    ],
+    "consignes": {
+      "Positionnement": "Stand with your feet shoulder-width apart, arms extended at your sides.",
+      "Mouvement": "Make slow circles with your arms, forward then back.",
+      "Respiration": "Breathe naturally, without blockage.",
+      "Posture": "Keep your back straight and your neck relaxed."
+    }
+  },
+  "E006": {
+    "nom": "Light frontal raises",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Shoulders",
+    "objectifs": [
+      "Muscle activation",
+      "Joint preparation",
+      "Light reinforcement"
+    ],
+    "muscles_secondaires": [
+      "Anterior deltoids",
+      "Trapezoids"
+    ],
+    "articulations_solicitees": [
+      "Shoulders"
+    ],
+    "tendons_solicites": [
+      "Rotator cuff"
+    ],
+    "type": "Muscle preparation",
+    "niveau": "All levels",
+    "materiel": [
+      "Light dumbbells",
+      "Elastic"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Use a light load to avoid excessive tension"
+    ],
+    "variantes": [
+      "Light lateral raises"
+    ],
+    "consignes": {
+      "Positionnement": "Stand with feet shoulder-width apart, arms at your sides.",
+      "Mouvement": "Slowly raise your arms in front of you to shoulder height.",
+      "Retour": "Go back down slowly without jerking.",
+      "Respiration": "Inhale on the way up, exhale on the way down.",
+      "Posture": "Keep your back straight and engage your abs."
+    }
+  },
+  "E007": {
+    "nom": "Forward rotations",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Shoulders",
+    "objectifs": [
+      "Mobility",
+      "Injury prevention",
+      "Muscle activation"
+    ],
+    "muscles_secondaires": [
+      "Trapezoids",
+      "Deltoids"
+    ],
+    "articulations_solicitees": [
+      "Shoulders"
+    ],
+    "tendons_solicites": [
+      "Rotator cuff"
+    ],
+    "type": "Joint mobilization",
+    "niveau": "All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing or sitting",
+    "contraintes": [
+      "Do not force the amplitude if pain"
+    ],
+    "variantes": [
+      "Backward rotations"
+    ],
+    "consignes": {
+      "Positionnement": "Stand with your feet shoulder-width apart, arms extended at your sides.",
+      "Mouvement": "Perform slow forward rotations with your arms.",
+      "Retour": "Maintain a controlled, smooth amplitude.",
+      "Respiration": "Breathe naturally, without blockage.",
+      "Posture": "Keep your back straight and your neck relaxed."
+    }
+  },
+  "E008": {
+    "nom": "Backward rotations",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Shoulders",
+    "objectifs": [
+      "Mobility",
+      "Injury prevention",
+      "Muscle activation"
+    ],
+    "muscles_secondaires": [
+      "Trapezoids",
+      "Deltoids"
+    ],
+    "articulations_solicitees": [
+      "Shoulders"
+    ],
+    "tendons_solicites": [
+      "Rotator cuff"
+    ],
+    "type": "Joint mobilization",
+    "niveau": "All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing or sitting",
+    "contraintes": [
+      "Do not force the amplitude if pain"
+    ],
+    "variantes": [
+      "Forward rotations"
+    ],
+    "consignes": {
+      "Positionnement": "Stand with your feet shoulder-width apart, arms extended at your sides.",
+      "Mouvement": "Slowly rotate your arms backwards.",
+      "Retour": "Maintain a controlled, smooth amplitude.",
+      "Respiration": "Breathe naturally, without blockage.",
+      "Posture": "Keep your back straight and your neck relaxed."
+    }
+  },
+  "E009": {
+    "nom": "Light lateral raises",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Shoulders",
+    "objectifs": [
+      "Muscle activation",
+      "Joint preparation",
+      "Light reinforcement"
+    ],
+    "muscles_secondaires": [
+      "Lateral deltoids",
+      "Trapezoids"
+    ],
+    "articulations_solicitees": [
+      "Shoulders"
+    ],
+    "tendons_solicites": [
+      "Rotator cuff"
+    ],
+    "type": "Muscle preparation",
+    "niveau": "All levels",
+    "materiel": [
+      "Light dumbbells",
+      "Elastic"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Use a light load to avoid excessive tension"
+    ],
+    "variantes": [
+      "Light frontal raises"
+    ],
+    "consignes": {
+      "Positionnement": "Stand with feet shoulder-width apart, arms at your sides.",
+      "Mouvement": "Slowly raise your arms out to the sides to shoulder height.",
+      "Retour": "Go back down slowly without jerking.",
+      "Respiration": "Inhale on the way up, exhale on the way down.",
+      "Posture": "Keep your back straight and engage your abs."
+    }
+  },
+  "E010": {
+    "nom": "Wrist rotation",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Forearm",
+    "objectifs": [
+      "Joint preparation",
+      "Mobility"
+    ],
+    "muscles_secondaires": [
+      "Wrist extensors",
+      "Wrist flexors"
+    ],
+    "articulations_solicitees": [
+      "Cuffs"
+    ],
+    "tendons_solicites": [
+      "Extensor and flexor tendons"
+    ],
+    "type": "Joint preparation",
+    "niveau": "All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Avoid sudden movements"
+    ],
+    "variantes": [
+      "Rotation of the wrists with an elastic band"
+    ],
+    "consignes": {
+      "Positionnement": "Stand, arms relaxed in front of you, hands clasped.",
+      "Mouvement": "Make slow circles with your wrists.",
+      "Retour": "Change direction after a few repetitions.",
+      "Respiration": "Breathe naturally, without blocking.",
+      "Posture": "Keep your shoulders relaxed and your back straight."
+    }
+  },
+  "E011": {
+    "nom": "Flexion-Extension of the wrists",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Forearm",
+    "objectifs": [
+      "Mobility",
+      "Muscle activation"
+    ],
+    "muscles_secondaires": [
+      "Wrist extensors",
+      "Wrist flexors"
+    ],
+    "articulations_solicitees": [
+      "Cuffs"
+    ],
+    "tendons_solicites": [
+      "Flexor and extensor tendons"
+    ],
+    "type": "Joint preparation",
+    "niveau": "All levels",
+    "materiel": [
+      "None",
+      "Light dumbbells"
+    ],
+    "position": "Sitting or Standing",
+    "contraintes": [
+      "Slow, controlled movement"
+    ],
+    "variantes": [
+      "Wrist flexion-extension with light dumbbells"
+    ],
+    "consignes": {
+      "Positionnement": "Sit or stand, arms bent 90° in front of you.",
+      "Mouvement": "Slowly bend and extend your wrists.",
+      "Retour": "Alternate without forcing the amplitude.",
+      "Respiration": "Inhale while bending, exhale while extending.",
+      "Posture": "Keep your back straight and shoulders relaxed."
+    }
+  },
+  "E012": {
+    "nom": "Elbow rotation",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Biceps, Triceps",
+    "objectifs": [
+      "Joint preparation",
+      "Mobility"
+    ],
+    "muscles_secondaires": [
+      "Biceps",
+      "Triceps"
+    ],
+    "articulations_solicitees": [
+      "Elbows"
+    ],
+    "tendons_solicites": [
+      "Biceps and triceps tendons"
+    ],
+    "type": "Joint preparation",
+    "niveau": "All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Fluid and progressive movement"
+    ],
+    "variantes": [
+      "Elbow rotation with elastic"
+    ],
+    "consignes": {
+      "Positionnement": "Stand with arms raised at 90°.",
+      "Mouvement": "Perform slow elbow rotations.",
+      "Retour": "Alternate internal and external rotation.",
+      "Respiration": "Breathe deeply and naturally.",
+      "Posture": "Keep your back straight and shoulders aligned."
+    }
+  },
+  "E013": {
+    "nom": "Rotation of the wrists with an elastic band",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Forearm",
+    "objectifs": [
+      "Joint preparation",
+      "Mobility"
+    ],
+    "muscles_secondaires": [
+      "Wrist extensors",
+      "Wrist flexors"
+    ],
+    "articulations_solicitees": [
+      "Cuffs"
+    ],
+    "tendons_solicites": [
+      "Extensor and flexor tendons"
+    ],
+    "type": "Joint preparation",
+    "niveau": "All levels",
+    "materiel": [
+      "Elastic"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Check the tension of the elastic to avoid excessive stress"
+    ],
+    "consignes": {
+      "Positionnement": "Stand, holding a rubber band fixed in front of you.",
+      "Mouvement": "Perform slow circles with your wrists while maintaining light resistance.",
+      "Retour": "Change direction after a few repetitions.",
+      "Respiration": "Breathe naturally, without blocking.",
+      "Posture": "Keep your shoulders relaxed and your back straight."
+    }
+  },
+  "E014": {
+    "nom": "Flexion-Extension of the wrists with elastic",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Forearm",
+    "objectifs": [
+      "Mobility",
+      "Muscle activation"
+    ],
+    "muscles_secondaires": [
+      "Wrist extensors",
+      "Wrist flexors"
+    ],
+    "articulations_solicitees": [
+      "Cuffs"
+    ],
+    "tendons_solicites": [
+      "Flexor and extensor tendons"
+    ],
+    "type": "Joint preparation",
+    "niveau": "All levels",
+    "materiel": [
+      "Elastic"
+    ],
+    "position": "Sitting or Standing",
+    "contraintes": [
+      "Do not pull too hard on the elastic to avoid excessive tension"
+    ],
+    "variantes": [
+      "Wrist flexion-extension with light dumbbells",
+      "Flexion-Extension of the wrists"
+    ],
+    "consignes": {
+      "Positionnement": "Sit or stand, holding an elastic band fixed in front of you.",
+      "Mouvement": "Slowly bend and extend the wrists, maintaining light tension.",
+      "Retour": "Alternate without forcing the amplitude.",
+      "Respiration": "Inhale while bending, exhale while extending.",
+      "Posture": "Keep your back straight and shoulders relaxed."
+    }
+  },
+  "E015": {
+    "nom": "Elbow rotation with light dumbbells",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Biceps, Triceps",
+    "objectifs": [
+      "Joint preparation",
+      "Mobility"
+    ],
+    "muscles_secondaires": [
+      "Biceps",
+      "Triceps"
+    ],
+    "articulations_solicitees": [
+      "Elbows"
+    ],
+    "tendons_solicites": [
+      "Biceps and triceps tendons"
+    ],
+    "type": "Joint preparation",
+    "niveau": "All levels",
+    "materiel": [
+      "Light dumbbells"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Use a light load to avoid excessive tension"
+    ],
+    "variantes": [
+      "Elbow rotation with elastic",
+      "Elbow rotation"
+    ],
+    "consignes": {
+      "Positionnement": "Stand holding a light dumbbell in each hand.",
+      "Mouvement": "Perform slow elbow rotations while maintaining a fluid movement.",
+      "Retour": "Alternate internal and external rotation.",
+      "Respiration": "Breathe deeply and naturally.",
+      "Posture": "Keep your back straight and shoulders aligned."
+    }
+  },
+  "E016": {
+    "nom": "Neck rotation",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Neck",
+    "objectifs": [
+      "Mobility",
+      "Injury prevention"
+    ],
+    "muscles_secondaires": [
+      "Trapezoids",
+      "Sternocleidomastoid"
+    ],
+    "articulations_solicitees": [
+      "Cervical"
+    ],
+    "tendons_solicites": [
+      "Cervical tendons"
+    ],
+    "type": "Joint mobilization",
+    "niveau": "All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing or sitting",
+    "contraintes": [
+      "Do not force the rotation if there is pain"
+    ],
+    "variantes": [
+      "Lateral neck tilt"
+    ],
+    "consignes": {
+      "Positionnement": "Stand straight, head in line with your body.",
+      "Mouvement": "Slowly rotate your head to the right then to the left.",
+      "Retour": "Gently return your head to a neutral position between each rotation.",
+      "Respiration": "Breathe deeply and naturally.",
+      "Posture": "Relax your shoulders and keep your back straight."
+    }
+  },
+  "E017": {
+    "nom": "Lateral neck tilt",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Neck",
+    "objectifs": [
+      "Mobility",
+      "Injury prevention"
+    ],
+    "muscles_secondaires": [
+      "Trapezoids",
+      "Sternocleidomastoid"
+    ],
+    "articulations_solicitees": [
+      "Cervical"
+    ],
+    "tendons_solicites": [
+      "Cervical tendons"
+    ],
+    "type": "Joint mobilization",
+    "niveau": "All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing or sitting",
+    "contraintes": [
+      "Do not force the inclination if pain"
+    ],
+    "variantes": [
+      "Neck rotation"
+    ],
+    "consignes": {
+      "Positionnement": "Stand straight, head in line with your body.",
+      "Mouvement": "Gently tilt your head towards the right shoulder then towards the left shoulder.",
+      "Retour": "Return your head to a neutral position between each tilt.",
+      "Respiration": "Breathe deeply and naturally.",
+      "Posture": "Relax your shoulders and keep your back straight."
+    }
+  },
+  "E018": {
+    "nom": "Trunk rotation",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Abdominals",
+    "objectifs": [
+      "Mobility",
+      "Joint preparation",
+      "Muscle activation"
+    ],
+    "muscles_secondaires": [
+      "Obliques",
+      "Lumbar"
+    ],
+    "articulations_solicitees": [
+      "Hips",
+      "Spine"
+    ],
+    "tendons_solicites": [
+      "Spinal ligaments"
+    ],
+    "type": "Joint mobilization",
+    "niveau": "All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Do not force the amplitude if pain"
+    ],
+    "variantes": [
+      "Trunk rotation with a stick"
+    ],
+    "consignes": {
+      "Positionnement": "Stand with feet shoulder-width apart, arms crossed across your chest or behind your head.",
+      "Mouvement": "Slowly turn your trunk from left to right without moving your pelvis.",
+      "Retour": "Maintain a controlled, smooth amplitude.",
+      "Respiration": "Inhale in neutral position, exhale while rotating.",
+      "Posture": "Keep your back straight and engage your abs."
+    }
+  },
+  "E019": {
+    "nom": "Trunk flexion-extension",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Abdominals",
+    "objectifs": [
+      "Mobility",
+      "Joint preparation",
+      "Light reinforcement"
+    ],
+    "muscles_secondaires": [
+      "Lumbar",
+      "Obliques"
+    ],
+    "articulations_solicitees": [
+      "Spine",
+      "Hips"
+    ],
+    "tendons_solicites": [
+      "Spinal ligaments"
+    ],
+    "type": "Joint preparation",
+    "niveau": "All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Do not go too low if lower back pain"
+    ],
+    "variantes": [
+      "Flexion-extension with a stick"
+    ],
+    "consignes": {
+      "Positionnement": "Stand with feet shoulder-width apart, hands on hips or behind your head.",
+      "Mouvement": "Slowly tilt your torso forward then stand up.",
+      "Retour": "Return to the starting position with control.",
+      "Respiration": "Inhale on the way down, exhale on the way up.",
+      "Posture": "Keep your abs engaged and your back straight."
+    }
+  },
+  "E020": {
+    "nom": "Trunk rotation with a stick",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Abdominals",
+    "objectifs": [
+      "Mobility",
+      "Joint preparation",
+      "Muscle activation"
+    ],
+    "muscles_secondaires": [
+      "Obliques",
+      "Lumbar"
+    ],
+    "articulations_solicitees": [
+      "Hips",
+      "Spine"
+    ],
+    "tendons_solicites": [
+      "Spinal ligaments"
+    ],
+    "type": "Joint mobilization",
+    "niveau": "All levels",
+    "materiel": [
+      "Stick"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Do not force the amplitude if pain"
+    ],
+    "variantes": [
+      "Trunk rotation"
+    ],
+    "consignes": {
+      "Positionnement": "Stand, feet shoulder-width apart, stick placed behind the neck and held by the hands.",
+      "Mouvement": "Slowly turn your trunk from left to right without moving your pelvis.",
+      "Retour": "Maintain a controlled, smooth amplitude.",
+      "Respiration": "Inhale in neutral position, exhale while rotating.",
+      "Posture": "Keep your back straight and engage your abs."
+    }
+  },
+  "E021": {
+    "nom": "Flexion-extension with a stick",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Abdominals",
+    "objectifs": [
+      "Mobility",
+      "Joint preparation",
+      "Light reinforcement"
+    ],
+    "muscles_secondaires": [
+      "Lumbar",
+      "Obliques"
+    ],
+    "articulations_solicitees": [
+      "Spine",
+      "Hips"
+    ],
+    "tendons_solicites": [
+      "Spinal ligaments"
+    ],
+    "type": "Joint preparation",
+    "niveau": "All levels",
+    "materiel": [
+      "Stick"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Do not go too low if lower back pain"
+    ],
+    "variantes": [
+      "Trunk flexion-extension"
+    ],
+    "consignes": {
+      "Positionnement": "Stand with feet shoulder-width apart, stick placed on shoulders and held by hands.",
+      "Mouvement": "Slowly tilt your torso forward then stand up.",
+      "Retour": "Return to the starting position with control.",
+      "Respiration": "Inhale on the way down, exhale on the way up.",
+      "Posture": "Keep your abs engaged and your back straight."
+    }
+  },
+  "E022": {
+    "nom": "Heels-butt",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Hamstrings",
+    "objectifs": [
+      "Muscle activation",
+      "Joint preparation",
+      "Cardio"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Calves"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Ankles"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon"
+    ],
+    "type": "Moderate cardio",
+    "niveau": "All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Avoid impacts if knee pain"
+    ],
+    "consignes": {
+      "Positionnement": "Stand with your feet shoulder-width apart.",
+      "Mouvement": "Alternately bring one heel towards the buttock, activating the hamstrings.",
+      "Retour": "Alternate without excessive impact.",
+      "Respiration": "Inhale and exhale regularly.",
+      "Posture": "Keep your back straight and your gaze forward."
+    }
+  },
+  "E023": {
+    "nom": "Little jump on the spot",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Calves",
+    "objectifs": [
+      "Muscle activation",
+      "Joint preparation",
+      "Cardio"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Ankles",
+      "Knees"
+    ],
+    "tendons_solicites": [
+      "Achilles tendon"
+    ],
+    "type": "Moderate cardio",
+    "niveau": "All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Limit the impact if ankle pain"
+    ],
+    "variantes": [
+      "Alternate jumps",
+      "Light bounce without impact"
+    ],
+    "consignes": {
+      "Positionnement": "Stand with your feet shoulder-width apart.",
+      "Mouvement": "Perform small jumps while remaining on your tiptoes.",
+      "Retour": "Maintain a light, steady pace.",
+      "Respiration": "Breathe naturally, don't block your breath.",
+      "Posture": "Keep your abs engaged and your shoulders relaxed."
+    }
+  },
+  "E024": {
+    "nom": "Alternate jumps",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Calves",
+    "objectifs": [
+      "Muscle activation",
+      "Joint preparation",
+      "Cardio"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Ankles",
+      "Knees"
+    ],
+    "tendons_solicites": [
+      "Achilles tendon"
+    ],
+    "type": "Moderate cardio",
+    "niveau": "All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Limit impact in case of knee or ankle pain"
+    ],
+    "variantes": [
+      "Little jump on the spot",
+      "Light bounce without impact"
+    ],
+    "consignes": {
+      "Positionnement": "Stand with feet shoulder-width apart.",
+      "Mouvement": "Jump, alternating foot supports as if you were running in place.",
+      "Retour": "Maintain a smooth, controlled movement.",
+      "Respiration": "Breathe naturally in rhythm with the jumps.",
+      "Posture": "Engage your abs and keep your torso straight."
+    }
+  },
+  "E025": {
+    "nom": "Light bounce without impact",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Calves",
+    "objectifs": [
+      "Joint preparation",
+      "Muscle activation",
+      "Light cardio"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Ankles",
+      "Knees"
+    ],
+    "tendons_solicites": [
+      "Achilles tendon"
+    ],
+    "type": "Light cardio",
+    "niveau": "Beginner - All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Ideal for people with impact restrictions"
+    ],
+    "variantes": [
+      "Little jump on the spot",
+      "Alternate jumps"
+    ],
+    "consignes": {
+      "Positionnement": "Stand with your feet shoulder-width apart.",
+      "Mouvement": "Perform slight bounces while remaining on the balls of your feet, without lifting too high.",
+      "Retour": "Stay moving smoothly and lightly.",
+      "Respiration": "Breathe calmly and regularly.",
+      "Posture": "Keep your knees slightly bent and your back straight."
+    }
+  },
+  "E026": {
+    "nom": "Not chased",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Muscle activation",
+      "Joint preparation",
+      "Agility"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Hamstrings",
+      "Calves"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Hamstring tendons"
+    ],
+    "type": "Mobility & coordination",
+    "niveau": "All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Avoid too sudden movements"
+    ],
+    "variantes": [
+      "Not chased fast",
+      "Not chased with elastic"
+    ],
+    "consignes": {
+      "Positionnement": "Stand with your feet shoulder-width apart, knees slightly bent.",
+      "Mouvement": "Move sideways, quickly bringing the back foot closer to the front foot.",
+      "Retour": "Repeat alternating sides.",
+      "Respiration": "Breathe naturally in rhythm with the movements.",
+      "Posture": "Keep your back straight and engage your abs."
+    }
+  },
+  "E027": {
+    "nom": "High knee walk",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Muscle activation",
+      "Joint preparation",
+      "Light cardio"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon"
+    ],
+    "type": "Mobilization & activation",
+    "niveau": "All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Do not force the amplitude if hip pain"
+    ],
+    "variantes": [
+      "Running high knees",
+      "Knee raises"
+    ],
+    "consignes": {
+      "Positionnement": "Stand with your feet hip-width apart.",
+      "Mouvement": "Raise one knee to hip height then alternate with the other leg.",
+      "Retour": "Perform the movement in a dynamic but controlled manner.",
+      "Respiration": "Inhale as you raise your knee, exhale as you lower it.",
+      "Posture": "Engage your abs and keep your back straight."
+    }
+  },
+  "E028": {
+    "nom": "Forward lunge",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Joint preparation",
+      "Muscle activation",
+      "Balance"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Glutes",
+      "Hamstrings"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Hamstring tendons"
+    ],
+    "type": "Mobilization & activation",
+    "niveau": "All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Do not go too low if your knees hurt"
+    ],
+    "variantes": [
+      "Static lunges",
+      "Back lunges"
+    ],
+    "consignes": {
+      "Positionnement": "Stand with your feet hip-width apart.",
+      "Mouvement": "Step one foot forward and lower into a forward lunge, then alternate legs.",
+      "Retour": "Keep your movement smooth and controlled.",
+      "Respiration": "Inhale on the way down, exhale on the way up.",
+      "Posture": "Keep your torso straight and engage your abs."
+    }
+  },
+  "E029": {
+    "nom": "Not chased fast",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Muscle activation",
+      "Agility",
+      "Joint preparation"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Calves",
+      "Hamstrings"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Hamstring tendons"
+    ],
+    "type": "Mobility & coordination",
+    "niveau": "Intermediate - Advanced",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Avoid too sudden movements"
+    ],
+    "variantes": [
+      "Not chased",
+      "Not chased with elastic"
+    ],
+    "consignes": {
+      "Positionnement": "Stand with your knees slightly bent.",
+      "Mouvement": "Move sideways as quickly as possible.",
+      "Retour": "Alternate sides while maintaining good control of the movement.",
+      "Respiration": "Breathe naturally in rhythm with the movement.",
+      "Posture": "Keep your back straight and engage your abs."
+    }
+  },
+  "E030": {
+    "nom": "Not chased with elastic",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Muscle strengthening",
+      "Muscle activation",
+      "Dynamic warm-up"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Calves",
+      "Glutes"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Hamstring tendons"
+    ],
+    "type": "Mobility & coordination",
+    "niveau": "All levels",
+    "materiel": [
+      "Resistance elastic"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Do not take an elastic that is too rigid"
+    ],
+    "variantes": [
+      "Not chased",
+      "Not chased fast"
+    ],
+    "consignes": {
+      "Positionnement": "Place an elastic band around your knees or ankles.",
+      "Mouvement": "Take side-to-side shuffle steps while maintaining tension on the elastic.",
+      "Retour": "Repeat alternating sides.",
+      "Respiration": "Inhale while opening, exhale while closing.",
+      "Posture": "Keep your knees slightly bent and activate your glutes."
+    }
+  },
+  "E031": {
+    "nom": "Running high knees",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Cardio",
+      "Mobility",
+      "Agility",
+      "Muscle activation"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Calves",
+      "Glutes"
+    ],
+    "articulations_solicitees": [
+      "Ankles",
+      "Knees",
+      "Hips"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon"
+    ],
+    "type": "Cardio & coordination",
+    "niveau": "All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Avoid if knee or ankle pain"
+    ],
+    "variantes": [
+      "Knee raises",
+      "Sprint on the spot"
+    ],
+    "consignes": {
+      "Positionnement": "Stand straight with your feet hip-width apart.",
+      "Mouvement": "Raise your knees quickly alternately, keeping your back straight.",
+      "Retour": "Maintain a steady pace and smooth movement.",
+      "Respiration": "Breathe regularly in rhythm with the run.",
+      "Posture": "Engage your abs and keep your arms active."
+    }
+  },
+  "E032": {
+    "nom": "Knee raises",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Mobility",
+      "Muscle activation",
+      "Joint preparation"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Glutes",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon"
+    ],
+    "type": "Joint preparation",
+    "niveau": "All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Do not force the amplitude if hip pain"
+    ],
+    "variantes": [
+      "Running high knees"
+    ],
+    "consignes": {
+      "Positionnement": "Stand straight with your feet hip-width apart.",
+      "Mouvement": "Raise one knee toward your chest, then alternate with the other leg.",
+      "Retour": "Keep a controlled, steady pace.",
+      "Respiration": "Exhale as you raise your knee, inhale as you lower it.",
+      "Posture": "Engage your abs and keep your gaze straight ahead."
+    }
+  },
+  "E033": {
+    "nom": "Static lunges",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Reinforcement",
+      "Mobility",
+      "Muscle activation"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Glutes",
+      "Hamstrings"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon"
+    ],
+    "type": "Muscle preparation",
+    "niveau": "All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Keep knees aligned with toes to avoid tension"
+    ],
+    "variantes": [
+      "Front lunges",
+      "Back lunges"
+    ],
+    "consignes": {
+      "Positionnement": "Stand straight, one foot forward, the other back.",
+      "Mouvement": "Bend both knees to lower into a lunge, without touching the ground with the back knee.",
+      "Retour": "Come back up, keeping your back straight and alternate legs.",
+      "Respiration": "Inhale on the way down, exhale on the way up.",
+      "Posture": "Engage your abs and keep your gaze straight ahead."
+    }
+  },
+  "E034": {
+    "nom": "Back lunges",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Reinforcement",
+      "Balance",
+      "Mobility"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Glutes",
+      "Hamstrings"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon"
+    ],
+    "type": "Muscle preparation",
+    "niveau": "All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Avoid sudden movements to preserve joints"
+    ],
+    "variantes": [
+      "Front lunges",
+      "Static lunges"
+    ],
+    "consignes": {
+      "Positionnement": "Stand straight with your feet hip-width apart.",
+      "Mouvement": "Step back with one foot and bend your knees to lower yourself into a lunge.",
+      "Retour": "Push on the front leg to return to the initial position.",
+      "Respiration": "Inhale on the way down, exhale on the way up.",
+      "Posture": "Keep your back straight and your gaze forward."
+    }
+  },
+  "E035": {
+    "nom": "Sprint on the spot",
+    "categorie": "Warm-up",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Cardio",
+      "Explosiveness",
+      "Coordination"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Calves",
+      "Glutes"
+    ],
+    "articulations_solicitees": [
+      "Ankles",
+      "Knees"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon"
+    ],
+    "type": "Intensive cardio",
+    "niveau": "All levels",
+    "materiel": [
+      "None"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Control the intensity according to the level and avoid excessively violent impacts"
+    ],
+    "variantes": [
+      "Running high knees"
+    ],
+    "consignes": {
+      "Positionnement": "Stand straight with your feet hip-width apart.",
+      "Mouvement": "Perform a quick jog in place while raising your knees.",
+      "Retour": "Keep a steady, controlled pace.",
+      "Respiration": "Breathe deeply and rhythmically.",
+      "Posture": "Engage your abs and keep your back straight."
+    }
+  }
+}

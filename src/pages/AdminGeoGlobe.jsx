@@ -1,11 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import Globe from "react-globe.gl";
-import { Box, Heading, Spinner } from "@chakra-ui/react";
+import { Badge, Box, Heading, Text } from "@chakra-ui/react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../firebaseConfig";
+import AppLoading from "../components/ui/AppLoading";
+import { useAppTheme } from "../styles/appTheme";
 
 export default function AdminGeoGlobe() {
   const globeEl = useRef();
+  const theme = useAppTheme();
   const [points, setPoints] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -39,14 +42,34 @@ export default function AdminGeoGlobe() {
   }, []);
 
   return (
-    <Box p={6}>
-      <Heading mb={4}>Globe 3D — trafic par villes</Heading>
-      {loading ? (
-        <Box textAlign="center" py={10}>
-          <Spinner />
+    <Box p={{ base: 4, md: 8 }} bg={theme.pageBg} color={theme.textColor} minH="calc(100vh - 112px)">
+      <Box
+        {...theme.cardProps}
+        p={{ base: 5, md: 7 }}
+        mb={6}
+        position="relative"
+        overflow="hidden"
+        _before={{
+          content: '""',
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          background:
+            "radial-gradient(circle at 14% 8%, rgba(59,130,246,.18), transparent 34%), radial-gradient(circle at 86% 12%, rgba(16,185,129,.14), transparent 30%)",
+        }}
+      >
+        <Box position="relative">
+          <Badge borderRadius="full" px={3} mb={3}>Admin analytics</Badge>
+          <Heading letterSpacing="-0.05em">Globe 3D — trafic par villes</Heading>
+          <Text color={theme.mutedText} mt={2}>
+            Une lecture immersive des visites géolocalisées.
+          </Text>
         </Box>
+      </Box>
+      {loading ? (
+        <AppLoading label="Chargement du globe..." />
       ) : (
-        <Box w="100%" h="700px">
+        <Box {...theme.cardProps} w="100%" h="700px" overflow="hidden">
           <Globe
             ref={globeEl}
             width={window.innerWidth - 100}
@@ -69,4 +92,3 @@ export default function AdminGeoGlobe() {
     </Box>
   );
 }
-

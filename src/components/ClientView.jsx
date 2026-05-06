@@ -43,11 +43,15 @@ import {
   doc,
   collection,
   addDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   onSnapshot,
   getDocs,
   getDoc,
+  query,
+  where,
+  limit,
   serverTimestamp,
   arrayUnion,
   arrayRemove,
@@ -64,6 +68,10 @@ import {
 import { FiEye, FiXCircle, FiCopy } from "react-icons/fi";
 import SessionComparator from "./SessionComparator";
 import ClientNutritionSection from "./ClientNutritionSection";
+import AppLoading from "./ui/AppLoading";
+import { notify } from "../utils/notify";
+import { useAppTheme } from "../styles/appTheme";
+import { useAuth } from "../AuthContext";
 
 // 🔥 Firebase app secondaire uniquement pour l'envoi des emails via Auth
 import { initializeApp, getApps, getApp } from "firebase/app";
@@ -77,6 +85,24 @@ const SUBCOL_PROGRAMMES = "programmes";
 const SUBCOL_SESSIONS_DONE = "sessionsEffectuees";
 const FIELD_DONE_DATE = "dateEffectuee";
 const SUBCOL_DIFFICULTE_NOTES = "difficulté_notes";
+
+const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
+const todayLocalDate = () => {
+  const now = new Date();
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+};
+
+const langCodeFromAny = (value) => {
+  const l = String(value || "").trim().toLowerCase();
+  if (l.startsWith("en") || l.includes("english") || l.includes("anglais")) return "en";
+  if (l.startsWith("de") || l.includes("deutsch") || l.includes("allemand")) return "de";
+  if (l.startsWith("it") || l.includes("italiano")) return "it";
+  if (l.startsWith("es") || l.includes("español") || l.includes("espanol") || l.includes("espagnol")) return "es";
+  if (l.startsWith("ru") || l.includes("русский")) return "ru";
+  if (l.includes("arab") || l.includes("العربية") || l === "ar") return "ar";
+  return "fr";
+};
 
 /* ---------------- utils dates ---------------- */
 function toJsDate(x) {
@@ -212,6 +238,22 @@ function getTotalSessionsFromProgrammeDoc(p) {
   if (typeof p.totalSessions === "number") return p.totalSessions;
   if (typeof p.nbSeances === "number") return p.nbSeances;
   return 0;
+}
+
+function getCompletedSessionsForProgramme(prog) {
+  const totalSessions = Math.max(0, getTotalSessionsFromProgrammeDoc(prog));
+  const sessionsEff = Array.isArray(prog?.sessionsEffectuees) ? prog.sessionsEffectuees : [];
+
+  let doneCount = sessionsEff.reduce((acc, s) => {
+    const pct = typeof s?.pourcentageTermine === "number" ? s.pourcentageTermine : 100;
+    return acc + (pct >= 90 ? 1 : 0);
+  }, 0);
+
+  if (sessionsEff.length > 0 && doneCount === 0) {
+    doneCount = sessionsEff.length;
+  }
+
+  return totalSessions > 0 ? Math.min(doneCount, totalSessions) : doneCount;
 }
 
 /* =======================
@@ -555,6 +597,7 @@ function buildAssignedProgramFromBase({
 }
 
 export default function ClientView() {
+  const { isAdmin } = useAuth();
   const { t } = useTranslation();
   const { clientId } = useParams();
   const navigate = useNavigate();
@@ -600,7 +643,7 @@ export default function ClientView() {
   };
 
   const [newMeas, setNewMeas] = useState({
-    date: "",
+    date: todayLocalDate(),
     taille: "",
     poids: "",
     bmi: "",
@@ -800,7 +843,7 @@ export default function ClientView() {
       timestamp: serverTimestamp(),
     });
     setNewMeas({
-      date: "",
+      date: todayLocalDate(),
       taille: "",
       poids: "",
       bmi: "",
@@ -816,11 +859,32 @@ export default function ClientView() {
 
   const handleEdit = async () => {
     try {
-      const oldEmail = (client?.email || "").trim().toLowerCase();
-      const newEmail = (editData.email ?? client?.email ?? "").trim().toLowerCase();
+      const oldEmail = normalizeEmail(client?.email);
+      const newEmail = normalizeEmail(editData.email ?? client?.email);
+      const firstName = String(editData.prenom ?? client?.prenom ?? "").trim();
+      const lastName = String(editData.nom ?? client?.nom ?? "").trim();
+      const langRaw =
+        editData.langue ??
+        editData.settings?.defaultLanguage ??
+        client?.settings?.langCode ??
+        client?.settings?.defaultLanguage ??
+        client?.langue ??
+        "fr";
+      const langCode = langCodeFromAny(langRaw);
 
       const payload = { ...editData };
-      if (payload.email != null) payload.email = newEmail || null;
+      if (payload.email != null) {
+        payload.email = newEmail || null;
+        payload.emailLower = newEmail || null;
+      }
+      if (payload.langue != null) {
+        payload.settings = {
+          ...(client?.settings || {}),
+          ...(payload.settings || {}),
+          defaultLanguage: payload.langue,
+          langCode,
+        };
+      }
 
       await updateDoc(doc(db, "clients", clientId), payload);
 
@@ -829,66 +893,86 @@ export default function ClientView() {
       if (emailChanged) {
         try {
           const authSec = getSecondaryAuth();
-
-          const langRaw =
-            client?.settings?.langCode ||
-            client?.settings?.defaultLanguage ||
-            client?.langue ||
-            "fr";
-
-          const langCode = (() => {
-            const l = String(langRaw).toLowerCase();
-            if (l.startsWith("en") || l.includes("english")) return "en";
-            if (l.startsWith("de")) return "de";
-            if (l.startsWith("it")) return "it";
-            if (l.startsWith("es")) return "es";
-            if (l.startsWith("ru")) return "ru";
-            if (l.includes("arab") || l === "ar") return "ar";
-            return "fr";
-          })();
-
           authSec.languageCode = langCode;
 
+          let authUid = null;
           try {
             const randomPw = Math.random().toString(36).slice(2, 10) + "Byl!";
-            await createUserSecondary(authSec, newEmail, randomPw);
+            const created = await createUserSecondary(authSec, newEmail, randomPw);
+            authUid = created?.user?.uid || null;
           } catch (err) {
             if (err?.code !== "auth/email-already-in-use") throw err;
+
+            try {
+              const usersSnap = await getDocs(
+                query(collection(db, "users"), where("emailLower", "==", newEmail), limit(1))
+              );
+              if (!usersSnap.empty) authUid = usersSnap.docs[0].id;
+            } catch {}
+            if (!authUid) {
+              try {
+                const usersSnap = await getDocs(
+                  query(collection(db, "users"), where("email", "==", newEmail), limit(1))
+                );
+                if (!usersSnap.empty) authUid = usersSnap.docs[0].id;
+              } catch {}
+            }
+          }
+
+          if (authUid) {
+            await setDoc(
+              doc(db, "users", authUid),
+              {
+                email: newEmail,
+                emailLower: newEmail,
+                firstName: firstName || "Utilisateur",
+                lastName,
+                displayName: `${firstName} ${lastName}`.trim(),
+                role: "particulier",
+                provider: "email",
+                linkedClientId: clientId,
+                settings: {
+                  defaultLanguage: langRaw,
+                  langCode,
+                },
+                updatedAt: serverTimestamp(),
+              },
+              { merge: true }
+            );
+
+            await updateDoc(doc(db, "clients", clientId), {
+              linkedUserId: authUid,
+              uid: authUid,
+              emailLower: newEmail,
+            });
           }
 
           await sendPasswordResetEmail(authSec, newEmail, {
-            url: "https://boostyourlife.coach/login",
+            url: `https://boostyourlife.coach/login?lang=${langCode}`,
           });
 
-          toast({
-            status: "success",
+          notify(toast, "clientInviteSent", {
             title: t("clientView.inviteSent", "Invitation envoyée"),
-            description: t(
-              "clientView.inviteSentDesc",
-              `Un email a été envoyé à ${newEmail} pour créer ou réinitialiser son mot de passe.`
-            ),
+            description: t("clientView.inviteSentDesc", {
+              email: newEmail,
+              defaultValue: `Un email a été envoyé à ${newEmail} pour créer ou réinitialiser son mot de passe.`,
+            }),
           });
         } catch (err) {
           console.error("[ClientView] invite error:", err);
-          toast({
-            status: "error",
+          notify(toast, "saveError", {
             title: t("errors.inviteFailed", "Échec de l’envoi de l’invitation"),
-            description: t(
-              "errors.tryAgain",
-              "Vérifie la configuration Firebase Auth et réessaie."
-            ),
+            description: t("errors.tryAgain", "Vérifie la configuration Firebase Auth et réessaie."),
           });
         }
       } else {
-        toast({
-          status: "success",
+        notify(toast, "saveSuccess", {
           title: t("profile.actions.saved", "Modifications enregistrées"),
         });
       }
     } catch (e) {
       console.error(e);
-      toast({
-        status: "error",
+      notify(toast, "saveError", {
         title: t("errors.saveFailed", "Échec de l’enregistrement"),
       });
     } finally {
@@ -922,14 +1006,13 @@ export default function ClientView() {
         } catch (_) {}
       }
 
-      toast({
-        status: "success",
-        title: `${t("clientView.unassign", "Désassigner")} ✅`,
+      notify(toast, "saveSuccess", {
+        title: t("clientView.unassign", "Désassigner"),
+        description: "Le programme n'est plus assigné à ce client.",
       });
     } catch (e) {
       console.error("[ClientView] unassign error:", e);
-      toast({
-        status: "error",
+      notify(toast, "saveError", {
         title: t("errors.saveFailed", "Échec de l’enregistrement"),
         description: t("errors.tryAgain", "Réessaie dans quelques secondes."),
       });
@@ -954,8 +1037,7 @@ export default function ClientView() {
       const snap = await getDoc(srcRef);
 
       if (!snap.exists()) {
-        toast({
-          status: "error",
+        notify(toast, "programMissing", {
           title: t("programs.empty", "Programme introuvable"),
         });
         return;
@@ -1049,16 +1131,14 @@ export default function ClientView() {
         }
       );
 
-      toast({
-        status: "success",
-        title: `${t("common.duplicate", "Dupliquer")} ✅`,
+      notify(toast, "programDuplicated", {
+        title: t("common.duplicate", "Dupliquer"),
       });
 
       await reloadProgrammes();
     } catch (e) {
       console.error("[ClientView] duplicateProgramme error:", e);
-      toast({
-        status: "error",
+      notify(toast, "saveError", {
         title: t("errors.saveFailed", "Échec de l’enregistrement"),
       });
     } finally {
@@ -1081,8 +1161,7 @@ export default function ClientView() {
       setBaseProgrammes(list);
     } catch (e) {
       console.error("[ClientView] loadBaseProgrammes error:", e);
-      toast({
-        status: "error",
+      notify(toast, "dataLoadError", {
         title: t("errors.loadFailed", "Erreur de chargement"),
         description: t("errors.tryAgain", "Réessaie dans quelques secondes."),
       });
@@ -1100,8 +1179,7 @@ export default function ClientView() {
     if (!clientId) return;
     const baseId = assignForm.baseProgrammeId;
     if (!baseId) {
-      toast({
-        status: "warning",
+      notify(toast, "programAssignMissing", {
         title: t("errors.missingField", "Champ manquant"),
         description: t("clientView.selectProgram", "Sélectionne un programme à assigner."),
       });
@@ -1113,8 +1191,7 @@ export default function ClientView() {
 
       const baseSnap = await getDoc(doc(db, "programmes", baseId));
       if (!baseSnap.exists()) {
-        toast({
-          status: "error",
+        notify(toast, "programMissing", {
           title: t("errors.notFound", "Introuvable"),
           description: t("clientView.programNotFound", "Le programme sélectionné n’existe pas."),
         });
@@ -1178,9 +1255,8 @@ export default function ClientView() {
         });
       } catch (_) {}
 
-      toast({
-        status: "success",
-        title: `${t("clientView.assigned", "Programme assigné")} ✅`,
+      notify(toast, "programAssigned", {
+        title: t("clientView.assigned", "Programme assigné"),
       });
 
       assignProg.onClose();
@@ -1189,8 +1265,7 @@ export default function ClientView() {
       await reloadProgrammes();
     } catch (e) {
       console.error("[ClientView] assign error:", e);
-      toast({
-        status: "error",
+      notify(toast, "programAssignError", {
         title: t("errors.saveFailed", "Échec de l’enregistrement"),
         description: t("errors.tryAgain", "Réessaie dans quelques secondes."),
       });
@@ -1209,12 +1284,9 @@ export default function ClientView() {
     nbTotalSessions += totalSessions;
 
     const sessionsEff = prog.sessionsEffectuees || [];
-    let doneThisProg = 0;
+    const doneThisProg = getCompletedSessionsForProgramme(prog);
 
     sessionsEff.forEach((s) => {
-      const pct = typeof s.pourcentageTermine === "number" ? s.pourcentageTermine : 100;
-      if (pct >= 90) doneThisProg += 1;
-
       const rawDone = s?.[FIELD_DONE_DATE];
       const d = rawDone?.toDate ? rawDone.toDate() : toJsDate(rawDone);
 
@@ -1225,7 +1297,6 @@ export default function ClientView() {
       }
     });
 
-    if (sessionsEff.length > 0 && doneThisProg === 0) doneThisProg = sessionsEff.length;
     nbTerminees += doneThisProg;
   });
 
@@ -1259,12 +1330,32 @@ export default function ClientView() {
     latest.bmi = +(latest.poids / (latest.taille / 100) ** 2).toFixed(1);
   }
 
-  const pageBg = useColorModeValue("gray.50", "gray.800");
-  const cardBg = useColorModeValue("white", "gray.700");
-  const subBg = useColorModeValue("gray.50", "gray.800");
-  const border = useColorModeValue("gray.200", "gray.700");
-  const muted = useColorModeValue("gray.600", "gray.300");
+  useEffect(() => {
+    if (!addMeas.isOpen) return;
+    setNewMeas((prev) => ({
+      ...prev,
+      date: prev.date || todayLocalDate(),
+      taille: prev.taille || latest.taille || "",
+      poids: prev.poids || latest.poids || "",
+      bmi: prev.bmi || latest.bmi || "",
+    }));
+  }, [addMeas.isOpen, latest.taille, latest.poids, latest.bmi]);
+
+  const theme = useAppTheme();
+  const pageBg = theme.pageBg;
+  const cardBg = theme.surfaceBg;
+  const subBg = theme.surfaceSoft;
+  const border = theme.borderColor;
+  const muted = theme.mutedText;
   const lineStroke = useColorModeValue("#3182CE", "#90CDF4");
+  const panelBg = theme.surfaceBg;
+  const panelBorder = theme.borderColor;
+  const subtlePanelBg = theme.surfaceSoft;
+  const accentSoft = useColorModeValue("rgba(59,130,246,0.08)", "rgba(59,130,246,0.12)");
+  const shadow = useColorModeValue(
+    "0 22px 70px rgba(15,23,42,0.08)",
+    "0 22px 70px rgba(0,0,0,0.28)"
+  );
 
   const displayHeight = (cm) => {
     if (cm == null || cm === "") return "—";
@@ -1291,33 +1382,79 @@ export default function ClientView() {
     [sortedProgrammes]
   );
 
+  if (!client) {
+    return <AppLoading label={t("common.loading", "Chargement...")} />;
+  }
+
   return (
     <Box minH="100vh" bg={pageBg} px={{ base: 2, md: 6 }} py={6}>
-      <Flex mb={4} align="center" justify="space-between">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
-          ← {t("common.back", "Retour")}
-        </Button>
-        <Button colorScheme="blue" size="sm" onClick={editClient.onOpen}>
-          {t("clientView.editClient", "Modifier client")}
-        </Button>
-      </Flex>
+      <Box
+        layerStyle="glassPanel"
+        p={{ base: 4, md: 6 }}
+        mb={5}
+      >
+        <Flex mb={4} align={{ base: "stretch", md: "center" }} justify="space-between" direction={{ base: "column", md: "row" }} gap={3}>
+          <Button variant="ghost" size="sm" alignSelf={{ base: "flex-start", md: "auto" }} onClick={() => navigate(-1)}>
+            ← {t("common.back", "Retour")}
+          </Button>
+          <Button size="sm" onClick={editClient.onOpen}>
+            {t("clientView.editClient", "Modifier client")}
+          </Button>
+        </Flex>
 
-      <Text fontSize={{ base: "2xl", md: "3xl" }} fontWeight="bold">
-        {client?.prenom} {client?.nom}
-      </Text>
+        <Text fontSize={{ base: "2xl", md: "3xl" }} fontWeight="900" letterSpacing="-0.03em">
+          {client?.prenom} {client?.nom}
+        </Text>
 
-      <Text mb={2} fontSize={{ base: "sm", md: "md" }}>
-        {t("profile.labels.email", "Email")}: {client?.email || "—"} |{" "}
-        {t("clientCreation.birthDate", "Date de naissance")}:{" "}
-        {client?.dateNaissance || "—"} |{" "}
-        {t("profile.labels.phone", "Téléphone")}: {client?.telephone || "—"} |{" "}
-        {t("clientCreation.level", "Niveau")}: {client?.niveauSportif || "—"}
-        {client?.objectifs ? ` | ${t("autoQ.goal", "Objectif")}: ${client.objectifs}` : ""}
-        {client?.sexe ? ` | ${t("clientCreation.gender", "Sexe")}: ${client?.sexe}` : ""}
-      </Text>
+        <Wrap mt={3} spacing="10px">
+          <WrapItem>
+            <Badge px={3} py={1.5} borderRadius="full" bg={accentSoft} color="textPrimary">
+              {t("profile.labels.email", "Email")}: {client?.email || "—"}
+            </Badge>
+          </WrapItem>
+          <WrapItem>
+            <Badge px={3} py={1.5} borderRadius="full" variant="subtle" colorScheme="gray">
+              {t("clientCreation.birthDate", "Date de naissance")}: {client?.dateNaissance || "—"}
+            </Badge>
+          </WrapItem>
+          <WrapItem>
+            <Badge px={3} py={1.5} borderRadius="full" variant="subtle" colorScheme="gray">
+              {t("profile.labels.phone", "Téléphone")}: {client?.telephone || "—"}
+            </Badge>
+          </WrapItem>
+          <WrapItem>
+            <Badge px={3} py={1.5} borderRadius="full" variant="subtle" colorScheme="gray">
+              {t("clientCreation.level", "Niveau")}: {client?.niveauSportif || "—"}
+            </Badge>
+          </WrapItem>
+          {client?.objectifs && (
+            <WrapItem>
+              <Badge px={3} py={1.5} borderRadius="full" variant="subtle" colorScheme="blue">
+                {t("autoQ.goal", "Objectif")}: {client.objectifs}
+              </Badge>
+            </WrapItem>
+          )}
+          {client?.sexe && (
+            <WrapItem>
+              <Badge px={3} py={1.5} borderRadius="full" variant="subtle" colorScheme="gray">
+                {t("clientCreation.gender", "Sexe")}: {client?.sexe}
+              </Badge>
+            </WrapItem>
+          )}
+        </Wrap>
+      </Box>
 
       {client?.notes && (
-        <Box bg={cardBg} border="1px solid" borderColor={border} borderRadius="md" p={3} mb={4}>
+        <Box
+          bg={panelBg}
+          border="1px solid"
+          borderColor={panelBorder}
+          borderRadius="22px"
+          p={4}
+          mb={4}
+          boxShadow={shadow}
+          backdropFilter="blur(14px)"
+        >
           <Text fontWeight="semibold" mb={1}>
             {t("clientCreation.notes", "Notes")}
           </Text>
@@ -1326,7 +1463,7 @@ export default function ClientView() {
       )}
 
       <Grid templateColumns={{ base: "1fr 1fr", md: "repeat(4,1fr)" }} gap={3} mb={3}>
-        <Box bg={cardBg} p={4} borderRadius="md" boxShadow="sm" textAlign="center">
+        <Box bg={panelBg} border="1px solid" borderColor={panelBorder} p={4} borderRadius="22px" boxShadow={shadow} backdropFilter="blur(14px)" textAlign="center">
           <Text fontSize="sm" color={muted}>
             {t("clientView.totalPrograms", "Total programmes")}
           </Text>
@@ -1335,7 +1472,7 @@ export default function ClientView() {
           </Text>
         </Box>
 
-        <Box bg={cardBg} p={4} borderRadius="md" boxShadow="sm" textAlign="center">
+        <Box bg={panelBg} border="1px solid" borderColor={panelBorder} p={4} borderRadius="22px" boxShadow={shadow} backdropFilter="blur(14px)" textAlign="center">
           <Text fontSize="sm" color={muted}>
             {t("clientView.percentCompleted", "% terminé")}
           </Text>
@@ -1344,7 +1481,7 @@ export default function ClientView() {
           </Text>
         </Box>
 
-        <Box bg={cardBg} p={4} borderRadius="md" boxShadow="sm" textAlign="center">
+        <Box bg={panelBg} border="1px solid" borderColor={panelBorder} p={4} borderRadius="22px" boxShadow={shadow} backdropFilter="blur(14px)" textAlign="center">
           <Text fontSize="sm" color={muted}>
             {t("clientView.sessionsPerWeek", "Séances / sem.")}
           </Text>
@@ -1353,7 +1490,7 @@ export default function ClientView() {
           </Text>
         </Box>
 
-        <Box bg={cardBg} p={4} borderRadius="md" boxShadow="sm" textAlign="center">
+        <Box bg={panelBg} border="1px solid" borderColor={panelBorder} p={4} borderRadius="22px" boxShadow={shadow} backdropFilter="blur(14px)" textAlign="center">
           <Text fontSize="sm" color={muted}>
             {t("clientView.lastShort", "Dern. séance")}
           </Text>
@@ -1368,18 +1505,37 @@ export default function ClientView() {
         </Box>
       </Grid>
 
-      <Box bg={cardBg} p={4} borderRadius="md" boxShadow="sm" mb={6}>
+      <Box
+        bg={panelBg}
+        border="1px solid"
+        borderColor={panelBorder}
+        p={4}
+        borderRadius="22px"
+        boxShadow={shadow}
+        backdropFilter="blur(14px)"
+        mb={6}
+      >
         <Flex justify="space-between" align="center" mb={2}>
           <Text fontWeight="bold">{t("clientView.globalProgress", "Progression globale")}</Text>
           <Text fontSize="sm" color={muted}>
             {nbTerminees}/{nbTotalSessions} {t("dashboard.sessions", "Séances")}
           </Text>
         </Flex>
-        <Progress value={percentDone} size="sm" borderRadius="md" />
+        <Progress value={percentDone} size="sm" borderRadius="full" />
       </Box>
 
       {/* Programmes */}
-      <Box bg={cardBg} mb={4} p={6} borderRadius="xl" boxShadow="md" w="100%">
+      <Box
+        bg={panelBg}
+        border="1px solid"
+        borderColor={panelBorder}
+        mb={4}
+        p={6}
+        borderRadius="24px"
+        boxShadow={shadow}
+        backdropFilter="blur(16px)"
+        w="100%"
+      >
         <Flex justify="space-between" align="center" mb={4} wrap="wrap" gap={2}>
           <Text fontWeight="bold">{t("clientView.assignedPrograms", "Programmes assignés")}</Text>
           <HStack spacing={2} wrap="wrap">
@@ -1395,7 +1551,7 @@ export default function ClientView() {
         {/* Desktop */}
         <Box display={{ base: "none", md: "block" }} overflowX="auto" w="100%">
           <Table variant="simple" size="md" w="100%">
-            <Thead>
+            <Thead bg={subtlePanelBg}>
               <Tr>
                 <Th>{t("dashboard.col_name", "Nom")}</Th>
                 <Th>{t("clientView.lastActivity", "Dernière activité")}</Th>
@@ -1407,13 +1563,7 @@ export default function ClientView() {
             <Tbody>
               {sortedProgrammes.map((p) => {
                 const totalPrevues = getTotalSessionsFromProgrammeDoc(p);
-
-                const nbSessEff =
-                  (p.sessionsEffectuees || []).reduce((acc, s) => {
-                    const pct =
-                      typeof s.pourcentageTermine === "number" ? s.pourcentageTermine : 100;
-                    return acc + (pct >= 90 ? 1 : 0);
-                  }, 0) || (p.sessionsEffectuees ? p.sessionsEffectuees.length : 0);
+                const nbSessEff = getCompletedSessionsForProgramme(p);
 
                 const lastSessObj = (p.sessionsEffectuees || [])
                   .map((s) => {
@@ -1446,7 +1596,7 @@ export default function ClientView() {
                 })();
 
                 return (
-                  <Tr key={p.id}>
+                  <Tr key={p.id} _hover={{ bg: subtlePanelBg }}>
                     <Td>
                       <VStack align="start" spacing={1}>
                         <Text fontWeight="semibold">{p.nomProgramme || p.name || p.id}</Text>
@@ -1532,13 +1682,7 @@ export default function ClientView() {
           <VStack spacing={3} align="stretch">
             {sortedProgrammes.map((p) => {
               const totalPrevues = getTotalSessionsFromProgrammeDoc(p);
-
-              const nbSessEff =
-                (p.sessionsEffectuees || []).reduce((acc, s) => {
-                  const pct =
-                    typeof s.pourcentageTermine === "number" ? s.pourcentageTermine : 100;
-                  return acc + (pct >= 90 ? 1 : 0);
-                }, 0) || (p.sessionsEffectuees ? p.sessionsEffectuees.length : 0);
+              const nbSessEff = getCompletedSessionsForProgramme(p);
 
               const lastSessObj = (p.sessionsEffectuees || [])
                 .map((s) => {
@@ -1576,12 +1720,13 @@ export default function ClientView() {
               return (
                 <Box
                   key={p.id}
-                  bg={subBg}
+                  bg={subtlePanelBg}
                   border="1px solid"
-                  borderColor={border}
-                  borderRadius="xl"
+                  borderColor={panelBorder}
+                  borderRadius="22px"
                   p={4}
-                  shadow="sm"
+                  boxShadow={shadow}
+                  backdropFilter="blur(10px)"
                 >
                   <VStack align="start" spacing={1}>
                     <Text fontWeight="bold" fontSize="md">
@@ -1591,21 +1736,21 @@ export default function ClientView() {
                   </VStack>
 
                   <HStack spacing={2} mt={2} wrap="wrap">
-                    <Badge variant="subtle" colorScheme="gray">
+                    <Badge variant="subtle" colorScheme="gray" borderRadius="full" px={2.5} py={1}>
                       {t("clientView.lastActivity", "Dernière activité")}:{" "}
                       {lastActivityDate ? lastActivityDate.toLocaleDateString() : "—"}
                     </Badge>
 
-                    <Badge variant="subtle" colorScheme="gray">
+                    <Badge variant="subtle" colorScheme="gray" borderRadius="full" px={2.5} py={1}>
                       {t("clientView.createdOn", "Créé le")}:{" "}
                       {assignedDate ? assignedDate.toLocaleDateString() : "—"}
                     </Badge>
 
-                    <Badge>
+                    <Badge borderRadius="full" px={2.5} py={1}>
                       {nbSessEff}/{totalPrevues} {t("dashboard.sessions", "Séances")}
                     </Badge>
 
-                    <Badge variant="subtle" colorScheme="gray">
+                    <Badge variant="subtle" colorScheme="gray" borderRadius="full" px={2.5} py={1}>
                       {t("clientView.lastShort", "Dern.")}:{" "}
                       {lastSessObj ? lastSessObj.date.toLocaleDateString() : "—"}
                       {lastSessObj?.name ? ` — ${lastSessObj.name}` : ""}
@@ -1620,7 +1765,7 @@ export default function ClientView() {
                       {percent}%
                     </Text>
                   </HStack>
-                  <Progress value={percent} size="sm" borderRadius="md" />
+                  <Progress value={percent} size="sm" borderRadius="full" />
 
                   <HStack spacing={2} mt={3}>
                     <Button
@@ -1666,10 +1811,13 @@ export default function ClientView() {
         <>
           <Box
             display={{ base: "none", md: "block" }}
-            bg={cardBg}
+            bg={panelBg}
+            border="1px solid"
+            borderColor={panelBorder}
             p={{ base: 4, md: 6 }}
-            borderRadius="xl"
-            boxShadow="md"
+            borderRadius="24px"
+            boxShadow={shadow}
+            backdropFilter="blur(16px)"
             mb={6}
             overflowX="auto"
           >
@@ -1696,11 +1844,11 @@ export default function ClientView() {
               scrollBehavior="inside"
             >
               <ModalOverlay />
-              <ModalContent bg={pageBg}>
+              <ModalContent bg={pageBg} maxW={{ base: "100vw", md: "95vw" }} maxH={{ base: "100dvh", md: "90vh" }} borderRadius={{ base: 0, md: "24px" }}>
                 <ModalHeader>{t("clientView.compareSession", "Comparer des séances")}</ModalHeader>
                 <ModalCloseButton />
-                <ModalBody>
-                  <Box bg={cardBg} p={4} borderRadius="xl" boxShadow="md" overflowX="auto">
+                <ModalBody overflowY="auto" px={{ base: 3, md: 6 }}>
+                  <Box bg={panelBg} border="1px solid" borderColor={panelBorder} p={4} borderRadius="24px" boxShadow={shadow} overflowX="auto">
                     <SafeBoundary>
                       <SessionComparator
                         key={comparatorKey}
@@ -1719,29 +1867,30 @@ export default function ClientView() {
         </>
       )}
 
-      {/* Nutrition */}
-      <Box bg={cardBg} mb={6} p={{ base: 4, md: 6 }} borderRadius="xl" boxShadow="md">
-        <Text fontWeight="bold" mb={3}>
-          {t("nutrition.title", "Nutrition")}
-        </Text>
-        <SafeBoundary
-          fallback={
-            <Box p={4} border="1px solid" borderColor="red.200" borderRadius="md">
-              <Text fontWeight="bold" color="red.500">
-                Une erreur empêche l’affichage de la section Nutrition.
-              </Text>
-              <Text fontSize="sm" mt={1}>
-                (La page reste utilisable.)
-              </Text>
-            </Box>
-          }
-        >
-          <ClientNutritionSection clientId={clientId} client={client} />
-        </SafeBoundary>
-      </Box>
+      {isAdmin && (
+        <Box bg={panelBg} border="1px solid" borderColor={panelBorder} mb={6} p={{ base: 4, md: 6 }} borderRadius="24px" boxShadow={shadow} backdropFilter="blur(16px)">
+          <Text fontWeight="bold" mb={3}>
+            {t("nutrition.title", "Nutrition")}
+          </Text>
+          <SafeBoundary
+            fallback={
+              <Box p={4} border="1px solid" borderColor="red.200" borderRadius="md">
+                <Text fontWeight="bold" color="red.500">
+                  Une erreur empêche l’affichage de la section Nutrition.
+                </Text>
+                <Text fontSize="sm" mt={1}>
+                  (La page reste utilisable.)
+                </Text>
+              </Box>
+            }
+          >
+            <ClientNutritionSection clientId={clientId} client={client} />
+          </SafeBoundary>
+        </Box>
+      )}
 
       {/* Mesures + graphes */}
-      <Box bg={cardBg} mb={6} p={4} borderRadius="md" boxShadow="sm">
+      <Box bg={panelBg} border="1px solid" borderColor={panelBorder} mb={6} p={4} borderRadius="24px" boxShadow={shadow} backdropFilter="blur(16px)">
         <Flex
           justify="space-between"
           align={{ base: "stretch", md: "center" }}
@@ -1801,7 +1950,7 @@ export default function ClientView() {
         </Box>
 
         <Grid templateColumns={{ base: "1fr 1fr", sm: "repeat(4,1fr)" }} gap={3} mb={6}>
-          <Box bg={subBg} p={3} borderRadius="md" textAlign="center">
+          <Box bg={subtlePanelBg} p={3} borderRadius="20px" textAlign="center">
             <Text fontSize="sm" color={muted}>
               {heightLabel}
             </Text>
@@ -1810,7 +1959,7 @@ export default function ClientView() {
             </Text>
           </Box>
 
-          <Box bg={subBg} p={3} borderRadius="md" textAlign="center">
+          <Box bg={subtlePanelBg} p={3} borderRadius="20px" textAlign="center">
             <Text fontSize="sm" color={muted}>
               {weightLabel}
             </Text>
@@ -1819,7 +1968,7 @@ export default function ClientView() {
             </Text>
           </Box>
 
-          <Box bg={subBg} p={3} borderRadius="md" textAlign="center">
+          <Box bg={subtlePanelBg} p={3} borderRadius="20px" textAlign="center">
             <Text fontSize="sm" color={muted}>
               {t("stats.fields.bmi", "IMC")}
             </Text>
@@ -1828,7 +1977,7 @@ export default function ClientView() {
             </Text>
           </Box>
 
-          <Box bg={subBg} p={3} borderRadius="md" textAlign="center">
+          <Box bg={subtlePanelBg} p={3} borderRadius="20px" textAlign="center">
             <Text fontSize="sm" color={muted}>
               {t("stats.fields.visceralFat", "Graisse viscérale")}
             </Text>
@@ -1885,7 +2034,7 @@ export default function ClientView() {
             if (!data.length || data.length < 2) return null;
 
             return (
-              <Box key={f} bg={cardBg} p={4} borderRadius="md" boxShadow="sm">
+              <Box key={f} bg={subtlePanelBg} border="1px solid" borderColor={panelBorder} p={4} borderRadius="22px" boxShadow={shadow}>
                 <Text fontWeight="bold" mb={2}>
                   {label}
                 </Text>
@@ -2005,10 +2154,10 @@ export default function ClientView() {
       {/* Modal nouvelle mesure */}
       <Modal isOpen={addMeas.isOpen} onClose={addMeas.onClose} isCentered>
         <ModalOverlay />
-        <ModalContent maxW="95vw">
+        <ModalContent maxW={{ base: "100vw", md: "95vw" }} maxH={{ base: "100dvh", md: "90vh" }} borderRadius={{ base: 0, md: "24px" }}>
           <ModalHeader>{t("stats.modal.title", "Nouvelle mesure")}</ModalHeader>
           <ModalCloseButton />
-          <ModalBody>
+          <ModalBody overflowY="auto">
             <VStack spacing={4} w="100%">
               <FormControl>
                 <FormLabel>{t("stats.fields.date", "Date")}</FormLabel>

@@ -2,12 +2,15 @@
 import React from 'react';
 import { Box, Heading, Text, Stack, List, ListItem } from '@chakra-ui/react';
 import { useTranslation, Trans } from 'react-i18next';
+import { useAppTheme } from "../styles/appTheme";
 
 export default function SalesPolicyPage() {
   const { t } = useTranslation();
+  const theme = useAppTheme();
 
   return (
-    <Box p={8} maxW="800px" mx="auto">
+    <Box bg={theme.pageBg} minH="100vh" p={{ base: 4, md: 8 }}>
+      <Box {...theme.cardProps} maxW="800px" mx="auto" p={{ base: 6, md: 8 }}>
       <Heading as="h1" mb={6} textAlign="center">
         {t('legal.sales_title')}
       </Heading>
@@ -70,12 +73,12 @@ export default function SalesPolicyPage() {
 
         {/* Date MAJ */}
         <Box>
-          <Text fontSize="sm" color="gray.600">
+          <Text fontSize="sm" color={theme.mutedText}>
             {t('legal.sales_last_update')}
           </Text>
         </Box>
       </Stack>
+      </Box>
     </Box>
   );
 }
-

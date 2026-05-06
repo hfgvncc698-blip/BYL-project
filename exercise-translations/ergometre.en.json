@@ -1,0 +1,1869 @@
+{
+  "ER001": {
+    "nom": "Rower - Full Pull",
+    "groupe_musculaire": "Full Body",
+    "objectifs": [
+      "Endurance",
+      "Cardio",
+      "Weight loss",
+      "Fitness",
+      "Reinforcement",
+      "Mass gain",
+      "Postural",
+      "Strength"
+    ],
+    "muscles_secondaires": [
+      "Back",
+      "Biceps",
+      "Shoulders",
+      "Quadriceps",
+      "Hamstrings",
+      "Glutes",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Shoulders",
+      "Elbows",
+      "Knees",
+      "Hips"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Hamstring tendon",
+      "Bicipital tendon"
+    ],
+    "type": "Ergometer - Combined cardio",
+    "niveau": "All levels",
+    "materiel": [
+      "Rower"
+    ],
+    "position": "Sitting",
+    "contraintes": [
+      "Avoid in case of lower back pain or elbow tendinitis"
+    ],
+    "variantes": [
+      "Sprint rower",
+      "Single leg rower",
+      "Rowing intervals"
+    ],
+    "consignes": {
+      "Positionnement": "Sit on the rower, feet firmly fixed on the blocks.",
+      "Mouvement": "Push with your legs while pulling the handle towards the bottom of your chest.",
+      "Retour": "Extend your arms then bend your legs to return to the initial position.",
+      "Respiration": "Inhale on the way back, exhale during the push.",
+      "Posture": "Back straight, trunk core, shoulders lowered."
+    }
+  },
+  "ER002": {
+    "nom": "Rower - Sprints",
+    "groupe_musculaire": "Full Body",
+    "objectifs": [
+      "Endurance",
+      "Cardio",
+      "Weight loss",
+      "Strength",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Back",
+      "Biceps",
+      "Shoulders",
+      "Quadriceps",
+      "Glutes",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Shoulders",
+      "Elbows",
+      "Knees",
+      "Hips"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Hamstring tendon",
+      "Bicipital tendon"
+    ],
+    "type": "Ergometer - Sprint max effort",
+    "niveau": "Intermediate to advanced",
+    "materiel": [
+      "Rower"
+    ],
+    "position": "Sitting",
+    "contraintes": [
+      "Avoid in case of unstabilized cardiovascular problems or lumbar injuries"
+    ],
+    "variantes": [
+      "Rowing machine long intervals",
+      "100m sprint rower",
+      "Pyramid rower"
+    ],
+    "consignes": {
+      "Positionnement": "Same position as the classic rower, feet firmly planted and back straight.",
+      "Mouvement": "Perform a full-intensity explosive pull with your legs and arms.",
+      "Retour": "Control the return phase smoothly, active recovery.",
+      "Respiration": "Breathe hard on the effort, inhale deeply during the return.",
+      "Posture": "Keep your back braced, do not pull only with your arms."
+    }
+  },
+  "ER003": {
+    "nom": "Rower - Legs alone",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Endurance",
+      "Postural",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Hamstrings",
+      "Glutes"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Hamstring tendon"
+    ],
+    "type": "Ergometer - Leg insulation",
+    "niveau": "All levels",
+    "materiel": [
+      "Rower"
+    ],
+    "position": "Sitting",
+    "contraintes": [
+      "Avoid if knee pain or mobility limitation"
+    ],
+    "variantes": [
+      "Single arm rower",
+      "Complete rower",
+      "Unilateral leg rower"
+    ],
+    "consignes": {
+      "Positionnement": "Same position as the full rower, arms straight without pulling.",
+      "Mouvement": "Perform only the leg push, arms still.",
+      "Retour": "Bend your legs without pulling with your arms, fluid cadence.",
+      "Respiration": "Inhale when bending, exhale when pushing.",
+      "Posture": "Back straight, core engaged, arms relaxed but fixed."
+    }
+  },
+  "ER004": {
+    "nom": "Rowing Machine - Split Intervals",
+    "groupe_musculaire": "Full Body",
+    "objectifs": [
+      "Endurance",
+      "Cardio",
+      "Weight loss",
+      "Fitness",
+      "Strength"
+    ],
+    "muscles_secondaires": [
+      "Back",
+      "Biceps",
+      "Shoulders",
+      "Quadriceps",
+      "Glutes",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Shoulders",
+      "Elbows",
+      "Knees",
+      "Hips"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Hamstring tendon",
+      "Bicipital tendon"
+    ],
+    "type": "Ergometer - Split",
+    "niveau": "All levels",
+    "materiel": [
+      "Rower"
+    ],
+    "position": "Sitting",
+    "contraintes": [
+      "Pay attention to technique if fatigue increases, avoid in unsupervised beginners"
+    ],
+    "variantes": [
+      "Rower 30/30",
+      "Rower 45/15",
+      "20/40 reverse rower"
+    ],
+    "consignes": {
+      "Positionnement": "Install the feet correctly, handle held with relaxed arms.",
+      "Mouvement": "Alternate phases of high intensity effort and active recovery.",
+      "Retour": "Slow down intentionally during recovery phases.",
+      "Respiration": "Breathe hard during exercise, breathe deeply during recovery.",
+      "Posture": "Stay strong, don't collapse at the end of the series."
+    }
+  },
+  "ER005": {
+    "nom": "Rower - 30:30",
+    "groupe_musculaire": "Full Body",
+    "objectifs": [
+      "Endurance",
+      "Cardio",
+      "Weight loss",
+      "Strength",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Back",
+      "Shoulders",
+      "Biceps",
+      "Quadriceps",
+      "Glutes",
+      "Hamstrings",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Shoulders",
+      "Elbows",
+      "Knees",
+      "Hips"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Hamstring tendon",
+      "Bicipital tendon"
+    ],
+    "type": "Ergometer - classic HIIT",
+    "niveau": "All levels",
+    "materiel": [
+      "Rower"
+    ],
+    "position": "Sitting",
+    "contraintes": [
+      "Avoid in the event of an unstabilized injury or unsupervised start of recovery"
+    ],
+    "variantes": [
+      "Rower 45/15",
+      "20/40 reverse rower",
+      "Split interval rower"
+    ],
+    "consignes": {
+      "Positionnement": "Feet fixed, trunk covered, grip firm.",
+      "Mouvement": "30 seconds of powerful pulls followed by 30 seconds of complete or active rest.",
+      "Retour": "During the rest phases, relax the pace but maintain the technique.",
+      "Respiration": "Breathe hard with each pull, breathing actively during recovery.",
+      "Posture": "Back straight, do not compensate with the lumbar or arms alone."
+    }
+  },
+  "ER006": {
+    "nom": "Rower - 45:15",
+    "groupe_musculaire": "Full Body",
+    "objectifs": [
+      "Cardio",
+      "Endurance",
+      "Weight loss",
+      "Strength",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Glutes",
+      "Hamstrings",
+      "Back",
+      "Shoulders",
+      "Biceps",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Hips",
+      "Knees",
+      "Shoulders",
+      "Elbows"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Hamstring tendon",
+      "Bicipital tendon"
+    ],
+    "type": "Ergometer - intensive HIIT",
+    "niveau": "Intermediate to advanced",
+    "materiel": [
+      "Rower"
+    ],
+    "position": "Sitting",
+    "contraintes": [
+      "Avoid in case of poor physical condition or significant fatigue"
+    ],
+    "variantes": [
+      "Rower 30/30",
+      "20/40 reverse rower",
+      "Sprint rower"
+    ],
+    "consignes": {
+      "Positionnement": "Feet propped up, handle in hand, body aligned and sheathed.",
+      "Mouvement": "Intense effort for 45 seconds, followed by 15 seconds of active or complete rest.",
+      "Retour": "Return control even at high intensity, gradual release during recovery.",
+      "Respiration": "Powerful exhalation on the draw, deep inspiration on the return.",
+      "Posture": "Engaged core, neutral back, full range of motion without excessive extension."
+    }
+  },
+  "ER007": {
+    "nom": "Rowing - 20:40 inverted",
+    "groupe_musculaire": "Full Body",
+    "objectifs": [
+      "Endurance",
+      "Cardio",
+      "Fitness",
+      "Weight loss",
+      "Postural"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Hamstrings",
+      "Glutes",
+      "Back",
+      "Shoulders",
+      "Biceps",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips",
+      "Shoulders",
+      "Elbows"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Hamstring tendon",
+      "Bicipital tendon"
+    ],
+    "type": "Ergometer - Reverse HIIT",
+    "niveau": "Beginner to intermediate",
+    "materiel": [
+      "Rower"
+    ],
+    "position": "Sitting",
+    "contraintes": [
+      "Avoid in the event of a heart rhythm disorder or if return to sport is not validated"
+    ],
+    "variantes": [
+      "Rower 30/30",
+      "Rower 45/15",
+      "Rower - Full Pull"
+    ],
+    "consignes": {
+      "Positionnement": "Feet firmly anchored, trunk stable, gaze straight.",
+      "Mouvement": "Moderate effort for 20 seconds followed by 40 seconds of rest or active recovery.",
+      "Retour": "Very controlled return phase, deep breathing during recovery.",
+      "Respiration": "Exhale on each pull, inhale on the return.",
+      "Posture": "Emphasis on regularity and quality of movement rather than intensity."
+    }
+  },
+  "ER008": {
+    "nom": "Rower - Arms only",
+    "groupe_musculaire": "Upper body",
+    "objectifs": [
+      "Postural",
+      "Reinforcement",
+      "Fitness",
+      "Endurance"
+    ],
+    "muscles_secondaires": [
+      "Back",
+      "Shoulders",
+      "Biceps",
+      "Forearm",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Shoulders",
+      "Elbows",
+      "Cuffs"
+    ],
+    "tendons_solicites": [
+      "Bicipital tendon",
+      "Rotator cuff tendons"
+    ],
+    "type": "Ergometer - Upper body isolation",
+    "niveau": "All levels",
+    "materiel": [
+      "Rower"
+    ],
+    "position": "Sitting",
+    "contraintes": [
+      "Avoid if you have tendinitis in the shoulder or elbow"
+    ],
+    "variantes": [
+      "Single leg rower",
+      "Complete rower",
+      "Unilateral arm rower"
+    ],
+    "consignes": {
+      "Positionnement": "Feet fixed, legs semi-flexed and fixed, trunk straight.",
+      "Mouvement": "Pull the handle only with your arms without using your legs.",
+      "Retour": "Extend your arms completely before starting a new pull.",
+      "Respiration": "Exhale on the draw, inhale on the return.",
+      "Posture": "Keep your back straight, avoid shrugging your shoulders or rounding your back."
+    }
+  },
+  "ER009": {
+    "nom": "Rower - Unilateral legs",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Reinforcement",
+      "Postural",
+      "Fitness",
+      "Endurance",
+      "Neuromuscular reprogramming"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Hamstrings",
+      "Glutes",
+      "Calves"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips",
+      "Ankles"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon",
+      "Hamstring tendon"
+    ],
+    "type": "Ergometer - Unilateral work",
+    "niveau": "Intermediate to advanced",
+    "materiel": [
+      "Rower"
+    ],
+    "position": "Sitting",
+    "contraintes": [
+      "Avoid in case of significant imbalance or acute joint pain"
+    ],
+    "variantes": [
+      "Single leg rower",
+      "Unilateral arm rower",
+      "Complete rower"
+    ],
+    "consignes": {
+      "Positionnement": "Place only one foot in the hold, the other set back or placed on the ground.",
+      "Mouvement": "Perform the pull with one leg only, arms involved normally.",
+      "Retour": "Control the descent to maintain rhythm and balance.",
+      "Respiration": "Exhale on the push, inhale on the return.",
+      "Posture": "Ensure stability of the pelvis and good symmetry of the upper body."
+    }
+  },
+  "ER010": {
+    "nom": "Stationary bike - Continuous pedaling",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Endurance",
+      "Cardio",
+      "Weight loss",
+      "Fitness",
+      "Postural"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Hamstrings",
+      "Glutes",
+      "Calves"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips",
+      "Ankles"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon",
+      "Hamstring tendon"
+    ],
+    "type": "Ergometer - Continuous cardio",
+    "niveau": "All levels",
+    "materiel": [
+      "Stationary bike"
+    ],
+    "position": "Sitting",
+    "contraintes": [
+      "Monitor the knee in the event of joint pathology or prosthesis"
+    ],
+    "variantes": [
+      "Sprint bike",
+      "Cycling intervals",
+      "Cycling uphill"
+    ],
+    "consignes": {
+      "Positionnement": "Saddle adjustment at hip height, back straight, knees slightly bent.",
+      "Mouvement": "Pedal smoothly at a moderate to brisk cadence.",
+      "Retour": "No particular return: constant cyclical movement.",
+      "Respiration": "Regular breathing, synchronized with effort.",
+      "Posture": "Keep your shoulders low, your core engaged, avoid neck tension."
+    }
+  },
+  "ER011": {
+    "nom": "Sprint bike",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Cardio",
+      "Weight loss",
+      "Endurance",
+      "Strength",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Hamstrings",
+      "Glutes",
+      "Calves"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips",
+      "Ankles"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon",
+      "Hamstring tendon"
+    ],
+    "type": "Ergometer - Explosive effort",
+    "niveau": "Intermediate to advanced",
+    "materiel": [
+      "Stationary bike"
+    ],
+    "position": "Sitting",
+    "contraintes": [
+      "Avoid in case of acute joint problems or unstabilized heart problems"
+    ],
+    "variantes": [
+      "Cycling intervals",
+      "Cycling uphill"
+    ],
+    "consignes": {
+      "Positionnement": "Precise saddle adjustment, stable posture, hands on the handlebars.",
+      "Mouvement": "Sprint at maximum intensity for a short time.",
+      "Retour": "Active or passive rest after each sprint.",
+      "Respiration": "Forced expiration during exercise, ventilatory recovery afterwards.",
+      "Posture": "Back straight, abs engaged, do not pull on the handlebars."
+    }
+  },
+  "ER012": {
+    "nom": "Cycling intervals",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Endurance",
+      "Cardio",
+      "Weight loss",
+      "Fitness",
+      "Strength"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Hamstrings",
+      "Glutes",
+      "Calves"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips",
+      "Ankles"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon",
+      "Hamstring tendon"
+    ],
+    "type": "Ergometer - Classic interval",
+    "niveau": "All levels",
+    "materiel": [
+      "Stationary bike"
+    ],
+    "position": "Sitting",
+    "contraintes": [
+      "Monitor recovery between sets for beginners or repeaters"
+    ],
+    "variantes": [
+      "Sprint bike",
+      "Cycling uphill"
+    ],
+    "consignes": {
+      "Positionnement": "Correct saddle adjustment, slightly leaning torso, hands on the handlebars.",
+      "Mouvement": "Alternate phases of fast pedaling with slow recovery or stopping.",
+      "Retour": "Slow down gradually between efforts.",
+      "Respiration": "Breathe actively during exercise, controlled inspiration at rest.",
+      "Posture": "Maintain a stable posture despite the variation in intensity."
+    }
+  },
+  "ER013": {
+    "nom": "Cycling uphill",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Strength",
+      "Endurance",
+      "Cardio",
+      "Fitness",
+      "Mass gain"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Hamstrings",
+      "Glutes",
+      "Calves"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips",
+      "Ankles"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon",
+      "Hamstring tendon"
+    ],
+    "type": "Ergometer - High resistance",
+    "niveau": "Intermediate to advanced",
+    "materiel": [
+      "Stationary bike"
+    ],
+    "position": "Sitting",
+    "contraintes": [
+      "Avoid in case of unstabilized knee or lower back pain"
+    ],
+    "variantes": [
+      "Sprint bike",
+      "Cycling intervals"
+    ],
+    "consignes": {
+      "Positionnement": "Saddle adjustment tilted slightly backwards for lumbar support.",
+      "Mouvement": "Pedaling at high resistance, either in a seated position or in a dancing position.",
+      "Retour": "No specific return, continuous effort on a simulated climb.",
+      "Respiration": "Exhale from the effort, inhale deeply and regularly.",
+      "Posture": "Keep the trunk stable and strong, avoid unwanted movements."
+    }
+  },
+  "ER014": {
+    "nom": "Treadmill - Continuous running",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Endurance",
+      "Cardio",
+      "Weight loss",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Hamstrings",
+      "Glutes",
+      "Calves"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips",
+      "Ankles"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon",
+      "Hamstring tendon"
+    ],
+    "type": "Ergometer - Linear cardio",
+    "niveau": "All levels",
+    "materiel": [
+      "Treadmill"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Monitor joint impact in the event of overweight or knee/lumbar pathologies"
+    ],
+    "variantes": [
+      "Sprint mats",
+      "Interval mats",
+      "Inclined treadmill"
+    ],
+    "consignes": {
+      "Positionnement": "Upright posture, gaze forward, natural stride.",
+      "Mouvement": "Running at a constant pace, regular cadence.",
+      "Retour": "End with a slow walk or a gradual return to calm.",
+      "Respiration": "Regular and controlled throughout the race.",
+      "Posture": "Maintain good head-trunk-pelvis alignment, avoid heeling."
+    }
+  },
+  "ER015": {
+    "nom": "Sprint mats",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Cardio",
+      "Weight loss",
+      "Strength",
+      "Endurance",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Hamstrings",
+      "Glutes",
+      "Calves",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips",
+      "Ankles"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon",
+      "Hamstring tendon"
+    ],
+    "type": "Ergometer - Maximum running effort",
+    "niveau": "Intermediate to advanced",
+    "materiel": [
+      "Treadmill"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Avoid in case of joint pain or unstabilized cardiac pathologies"
+    ],
+    "variantes": [
+      "Interval mats",
+      "Inclined treadmill"
+    ],
+    "consignes": {
+      "Positionnement": "Dynamic position, slight forward tilt, movable arms.",
+      "Mouvement": "Short sprints at maximum speed, explosive and controlled stride.",
+      "Retour": "Slow walking phase or complete rest after each sprint.",
+      "Respiration": "Breathe hard during exercise, breathe deeply during recovery.",
+      "Posture": "Head-trunk-pelvis alignment, avoid excessive heeling."
+    }
+  },
+  "ER016": {
+    "nom": "Interval mats",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Endurance",
+      "Cardio",
+      "Weight loss",
+      "Fitness",
+      "Strength"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Hamstrings",
+      "Glutes",
+      "Calves",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips",
+      "Ankles"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon",
+      "Hamstring tendon"
+    ],
+    "type": "Ergometer - Split running",
+    "niveau": "All levels",
+    "materiel": [
+      "Treadmill"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Monitor joint condition and postural balance during rapid transitions"
+    ],
+    "variantes": [
+      "Sprint mats",
+      "Inclined treadmill"
+    ],
+    "consignes": {
+      "Positionnement": "Start in a straight posture, feet well aligned, looking far ahead.",
+      "Mouvement": "Alternate phases of fast running with phases of walking or slow running.",
+      "Retour": "Active return between sprints, reduced cadence.",
+      "Respiration": "Sustained breathing during rapid phases, regulated during recovery.",
+      "Posture": "Maintain a stable, fluid stride without excessive tension."
+    }
+  },
+  "ER017": {
+    "nom": "Inclined treadmill",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Endurance",
+      "Weight loss",
+      "Fitness",
+      "Postural",
+      "Strength"
+    ],
+    "muscles_secondaires": [
+      "Glutes",
+      "Hamstrings",
+      "Quadriceps",
+      "Calves"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips",
+      "Ankles"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon",
+      "Hamstring tendon"
+    ],
+    "type": "Ergometer - Walking on an incline",
+    "niveau": "All levels",
+    "materiel": [
+      "Treadmill"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Monitor the inclination for people who are overweight or with lumbar weakness"
+    ],
+    "variantes": [
+      "Sprint mats",
+      "Interval mats"
+    ],
+    "consignes": {
+      "Positionnement": "Trunk slightly tilted forward.",
+      "Mouvement": "Slow to moderate walking on a steep slope, controlled stride.",
+      "Retour": "Lower the incline gradually at the end of the session.",
+      "Respiration": "Stable and deep breathing rhythm.",
+      "Posture": "Maintain an upright posture and avoid bending excessively."
+    }
+  },
+  "ER018": {
+    "nom": "Continuous elliptical",
+    "groupe_musculaire": "Full Body",
+    "objectifs": [
+      "Endurance",
+      "Cardio",
+      "Weight loss",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Hamstrings",
+      "Glutes",
+      "Calves",
+      "Back",
+      "Shoulders",
+      "Arm",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips",
+      "Ankles",
+      "Shoulders",
+      "Elbows"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon",
+      "Bicipital tendon"
+    ],
+    "type": "Ergometer - Smooth cardio",
+    "niveau": "All levels",
+    "materiel": [
+      "Elliptical"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Vigilance on balance and coordination, particularly in the event of a recovery"
+    ],
+    "variantes": [
+      "Sprint elliptical",
+      "Reverse Elliptical",
+      "Elliptical intervals"
+    ],
+    "consignes": {
+      "Positionnement": "Stable feet on the pedals, light grip on the moving handles.",
+      "Mouvement": "Fluid circular movement with arm/leg coordination.",
+      "Retour": "Slow down gradually at the end of the session.",
+      "Respiration": "Regular and controlled during exercise.",
+      "Posture": "Back straight, core engaged, gaze forward."
+    }
+  },
+  "ER019": {
+    "nom": "Sprint elliptical",
+    "groupe_musculaire": "Full Body",
+    "objectifs": [
+      "Cardio",
+      "Weight loss",
+      "Endurance",
+      "Strength",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Hamstrings",
+      "Glutes",
+      "Calves",
+      "Arm",
+      "Shoulders",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips",
+      "Ankles",
+      "Shoulders",
+      "Elbows"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon",
+      "Bicipital tendon"
+    ],
+    "type": "Ergometer - Smooth Sprints",
+    "niveau": "Intermediate to advanced",
+    "materiel": [
+      "Elliptical"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Requires good coordination and good core strength"
+    ],
+    "variantes": [
+      "Elliptical intervals",
+      "Reverse Elliptical"
+    ],
+    "consignes": {
+      "Positionnement": "Feet stable, trunk slightly tilted forward.",
+      "Mouvement": "Explosive effort at high speed during sprints.",
+      "Retour": "Recovery phase at a very slow pace or total rest.",
+      "Respiration": "Breathe hard during exercise, inhale deeply during recovery.",
+      "Posture": "Stay covered, avoid unwanted movements."
+    }
+  },
+  "ER020": {
+    "nom": "Elliptical intervals",
+    "groupe_musculaire": "Full Body",
+    "objectifs": [
+      "Endurance",
+      "Cardio",
+      "Weight loss",
+      "Fitness",
+      "Strength"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Hamstrings",
+      "Glutes",
+      "Calves",
+      "Shoulders",
+      "Arm",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips",
+      "Ankles",
+      "Shoulders",
+      "Elbows"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon",
+      "Bicipital tendon"
+    ],
+    "type": "Ergometer - Fluid split",
+    "niveau": "All levels",
+    "materiel": [
+      "Elliptical"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Risk of loss of rhythm if coordination is not mastered"
+    ],
+    "variantes": [
+      "Sprint elliptical",
+      "Reverse Elliptical"
+    ],
+    "consignes": {
+      "Positionnement": "Stable position, hands on the handles, trunk straight.",
+      "Mouvement": "Alternate sustained effort and slow or active recovery.",
+      "Retour": "Gradual reduction in speed or resistance.",
+      "Respiration": "Regular and synchronized with effort.",
+      "Posture": "Maintain good torso alignment and symmetrical movement."
+    }
+  },
+  "ER021": {
+    "nom": "Reverse Elliptical",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Postural",
+      "Reinforcement",
+      "Neuromuscular reprogramming",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Hamstrings",
+      "Glutes",
+      "Quadriceps",
+      "Calves",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips",
+      "Ankles"
+    ],
+    "tendons_solicites": [
+      "Hamstring tendon",
+      "Achilles tendon",
+      "Patellar tendon"
+    ],
+    "type": "Ergometer - Backward movement",
+    "niveau": "All levels",
+    "materiel": [
+      "Elliptical"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Requires good coordination, avoid for very beginners without supervision"
+    ],
+    "variantes": [
+      "Continuous elliptical",
+      "Sprint elliptical",
+      "Elliptical intervals"
+    ],
+    "consignes": {
+      "Positionnement": "Straight posture, gaze far ahead, light grip on the handles.",
+      "Mouvement": "Smooth backward pedaling, emphasis on the hamstrings and glutes.",
+      "Retour": "Return to a forward movement or finish with a slow walk.",
+      "Respiration": "Regular and controlled breathing.",
+      "Posture": "Stable trunk, avoid pelvic tilts."
+    }
+  },
+  "ER022": {
+    "nom": "SkiErg continuous",
+    "groupe_musculaire": "Upper body",
+    "objectifs": [
+      "Cardio",
+      "Endurance",
+      "Weight loss",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Shoulders",
+      "Back",
+      "Triceps",
+      "Abdominals",
+      "Glutes"
+    ],
+    "articulations_solicitees": [
+      "Shoulders",
+      "Elbows",
+      "Cuffs",
+      "Hips"
+    ],
+    "tendons_solicites": [
+      "Tricipital tendon",
+      "Rotator cuff tendons",
+      "Bicipital tendon"
+    ],
+    "type": "Ergometer - Vertical pull",
+    "niveau": "All levels",
+    "materiel": [
+      "SkiErg"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Avoid in case of shoulder pain or unstabilized disc herniation"
+    ],
+    "variantes": [
+      "SkiErg sprint",
+      "SkiErg intervals",
+      "Unilateral SkiErg"
+    ],
+    "consignes": {
+      "Positionnement": "Standing, feet hip width apart, handles in hand, arms extended upwards.",
+      "Mouvement": "Pull the handles down while bending your arms and hips.",
+      "Retour": "Raise your arms in a controlled manner.",
+      "Respiration": "Exhale while pulling, inhale while going up.",
+      "Posture": "Engage your abs, keep your back straight, don't pull only with your arms."
+    }
+  },
+  "ER023": {
+    "nom": "SkiErg sprint",
+    "groupe_musculaire": "Upper body",
+    "objectifs": [
+      "Cardio",
+      "Weight loss",
+      "Strength",
+      "Endurance",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Shoulders",
+      "Back",
+      "Triceps",
+      "Abdominals",
+      "Glutes"
+    ],
+    "articulations_solicitees": [
+      "Shoulders",
+      "Elbows",
+      "Cuffs",
+      "Hips"
+    ],
+    "tendons_solicites": [
+      "Tricipital tendon",
+      "Rotator cuff tendons",
+      "Bicipital tendon"
+    ],
+    "type": "Ergometer - Vertical sprint",
+    "niveau": "Intermediate to advanced",
+    "materiel": [
+      "SkiErg"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Can aggravate shoulder tendinopathy if poorly performed"
+    ],
+    "variantes": [
+      "SkiErg intervals",
+      "Unilateral SkiErg"
+    ],
+    "consignes": {
+      "Positionnement": "Feet fixed, arms raised, trunk slightly forward.",
+      "Mouvement": "Pull down quickly with force and high cadence.",
+      "Retour": "Return to the top quickly without muscle blockage.",
+      "Respiration": "Breathe out on the effort, inhale as you go up.",
+      "Posture": "Keep the trunk stable, do not pull only with the arms."
+    }
+  },
+  "ER024": {
+    "nom": "SkiErg intervals",
+    "groupe_musculaire": "Upper body",
+    "objectifs": [
+      "Endurance",
+      "Cardio",
+      "Weight loss",
+      "Fitness",
+      "Strength"
+    ],
+    "muscles_secondaires": [
+      "Back",
+      "Triceps",
+      "Shoulders",
+      "Abdominals",
+      "Glutes"
+    ],
+    "articulations_solicitees": [
+      "Shoulders",
+      "Elbows",
+      "Cuffs",
+      "Hips"
+    ],
+    "tendons_solicites": [
+      "Tricipital tendon",
+      "Bicipital tendon",
+      "Rotator cuff tendons"
+    ],
+    "type": "Ergometer - Vertical split",
+    "niveau": "All levels",
+    "materiel": [
+      "SkiErg"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Can generate postural fatigue if poorly controlled"
+    ],
+    "variantes": [
+      "SkiErg sprint",
+      "Unilateral SkiErg"
+    ],
+    "consignes": {
+      "Positionnement": "Handles in the hands, arms raised, feet anchored to the ground.",
+      "Mouvement": "Alternate dynamic pulling phases with recovery phases.",
+      "Retour": "Allow the arms to rise fluidly, without excessive relaxation.",
+      "Respiration": "Fast pace during exercise, more controlled during recovery.",
+      "Posture": "Keep your back straight, contracting your abs throughout the exercise."
+    }
+  },
+  "ER025": {
+    "nom": "Unilateral SkiErg",
+    "groupe_musculaire": "Upper body",
+    "objectifs": [
+      "Reinforcement",
+      "Postural",
+      "Coordination",
+      "Neuromuscular reprogramming"
+    ],
+    "muscles_secondaires": [
+      "Triceps",
+      "Shoulders",
+      "Abdominals",
+      "Glutes",
+      "Obliques"
+    ],
+    "articulations_solicitees": [
+      "Shoulder",
+      "Elbow",
+      "Wrist",
+      "Hip"
+    ],
+    "tendons_solicites": [
+      "Tricipital tendon",
+      "Bicipital tendon",
+      "Rotator cuff tendons"
+    ],
+    "type": "Ergometer - Unilateral pull-up",
+    "niveau": "All levels",
+    "materiel": [
+      "SkiErg"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Requires good control of center of gravity and posture"
+    ],
+    "variantes": [
+      "SkiErg sprint",
+      "SkiErg intervals"
+    ],
+    "consignes": {
+      "Positionnement": "One handle in hand, arm raised, stable position.",
+      "Mouvement": "Pull the handle down with control, while maintaining trunk symmetry.",
+      "Retour": "Return to the initial position without any parasitic movement.",
+      "Respiration": "Exhale on the pull, inhale on the way back up.",
+      "Posture": "Contract your abs, keep your hips aligned and stable."
+    }
+  },
+  "ER026": {
+    "nom": "AirBike – Continuous Motion",
+    "groupe_musculaire": "Full Body",
+    "objectifs": [
+      "Cardio",
+      "Endurance",
+      "Weight loss",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Hamstrings",
+      "Glutes",
+      "Calves",
+      "Back",
+      "Pectorals",
+      "Arm",
+      "Shoulders",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Shoulders",
+      "Elbows",
+      "Hips",
+      "Knees",
+      "Ankles"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon",
+      "Bicipital tendon",
+      "Tricipital tendon"
+    ],
+    "type": "Ergometer – Air resistance",
+    "niveau": "All levels",
+    "materiel": [
+      "AirBike"
+    ],
+    "position": "Sitting",
+    "contraintes": [
+      "Requires fluid arm/leg coordination – pay attention to your lower back in case of fatigue"
+    ],
+    "variantes": [
+      "AirBike sprint",
+      "AirBike intervals",
+      "AirBike arms only",
+      "AirBike legs only"
+    ],
+    "consignes": {
+      "Positionnement": "Optimal saddle adjustment, straight back, hands on the movable handles.",
+      "Mouvement": "Push with your legs while pulling/pushing your arms for a smooth effort.",
+      "Retour": "Slow down gradually, at a flexible pace.",
+      "Respiration": "Regular, adapted to the intensity.",
+      "Posture": "Sheathed trunk, symmetrical movement, avoid pulling only with the arms."
+    }
+  },
+  "ER027": {
+    "nom": "AirBike sprint",
+    "groupe_musculaire": "Full Body",
+    "objectifs": [
+      "Cardio",
+      "Weight loss",
+      "Endurance",
+      "Strength",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Glutes",
+      "Calves",
+      "Pectorals",
+      "Shoulders",
+      "Triceps",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Hips",
+      "Knees",
+      "Ankles",
+      "Shoulders",
+      "Elbows"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon",
+      "Tricipital tendon"
+    ],
+    "type": "Ergometer – Explosive effort",
+    "niveau": "Intermediate to advanced",
+    "materiel": [
+      "AirBike"
+    ],
+    "position": "Sitting",
+    "contraintes": [
+      "Very intense – avoid without overheating or for cardiac pathologies"
+    ],
+    "variantes": [
+      "AirBike intervals",
+      "AirBike arms only",
+      "AirBike legs only"
+    ],
+    "consignes": {
+      "Positionnement": "Well-adjusted saddle, hands on the handles, bust slightly leaned forward.",
+      "Mouvement": "Sprints at maximum cadence in arm/leg synchronization.",
+      "Retour": "Active or passive rest after each sprint.",
+      "Respiration": "Blow strongly during exercise, active recovery by blowing slowly.",
+      "Posture": "Stay strong and stable, avoid jerks."
+    }
+  },
+  "ER028": {
+    "nom": "AirBike intervals",
+    "groupe_musculaire": "Full Body",
+    "objectifs": [
+      "Endurance",
+      "Cardio",
+      "Weight loss",
+      "Fitness",
+      "Strength"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Glutes",
+      "Calves",
+      "Pectorals",
+      "Arm",
+      "Shoulders",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips",
+      "Ankles",
+      "Shoulders",
+      "Elbows"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon",
+      "Bicipital tendon",
+      "Tricipital tendon"
+    ],
+    "type": "Ergometer – Split",
+    "niveau": "All levels",
+    "materiel": [
+      "AirBike"
+    ],
+    "position": "Sitting",
+    "contraintes": [
+      "Rapid fatigue, requires good recovery between blocks"
+    ],
+    "variantes": [
+      "AirBike sprint",
+      "AirBike arms only",
+      "AirBike legs only"
+    ],
+    "consignes": {
+      "Positionnement": "Saddle adjustment according to size, stable position.",
+      "Mouvement": "Alternate intense effort and slow or passive recovery.",
+      "Retour": "Finish the last set with an extended recovery.",
+      "Respiration": "Controlled, deep pace during recovery.",
+      "Posture": "Sheathed trunk, symmetry of arm/leg movements."
+    }
+  },
+  "ER029": {
+    "nom": "AirBike arms only",
+    "groupe_musculaire": "Upper body",
+    "objectifs": [
+      "Reinforcement",
+      "Cardio",
+      "Postural",
+      "Neuromuscular reprogramming"
+    ],
+    "muscles_secondaires": [
+      "Shoulders",
+      "Triceps",
+      "Back",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Shoulders",
+      "Elbows",
+      "Cuffs"
+    ],
+    "tendons_solicites": [
+      "Tricipital tendon",
+      "Bicipital tendon",
+      "Rotator cuff tendons"
+    ],
+    "type": "Ergometer – Arm only",
+    "niveau": "All levels",
+    "materiel": [
+      "AirBike"
+    ],
+    "position": "Sitting",
+    "contraintes": [
+      "Risk of postural imbalance if the legs are not stabilized"
+    ],
+    "variantes": [
+      "AirBike legs only",
+      "AirBike sprint",
+      "AirBike intervals"
+    ],
+    "consignes": {
+      "Positionnement": "Feet placed on the ground or on a footrest, hands on the movable handles.",
+      "Mouvement": "Alternate pushing and pulling movements only with the arms.",
+      "Retour": "Return to neutral without relaxing your shoulders.",
+      "Respiration": "Breathe out on the push, inhale on the return.",
+      "Posture": "Back straight, abs engaged, avoid swaying."
+    }
+  },
+  "ER030": {
+    "nom": "AirBike legs only",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Reinforcement",
+      "Cardio",
+      "Endurance",
+      "Postural",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Hamstrings",
+      "Glutes",
+      "Calves"
+    ],
+    "articulations_solicitees": [
+      "Hips",
+      "Knees",
+      "Ankles"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon",
+      "Hamstring tendon"
+    ],
+    "type": "Ergometer – Legs only",
+    "niveau": "All levels",
+    "materiel": [
+      "AirBike"
+    ],
+    "position": "Sitting",
+    "contraintes": [
+      "Disable arms (immobilize handles if possible) to avoid interference"
+    ],
+    "variantes": [
+      "AirBike arms only",
+      "AirBike sprint",
+      "AirBike intervals"
+    ],
+    "consignes": {
+      "Positionnement": "Hands placed on the thighs or fixed, back straight.",
+      "Mouvement": "Smooth pedaling only with the legs, controlled cadence.",
+      "Retour": "Slow down gradually at the end of the block.",
+      "Respiration": "Continuous, deep, without blocking.",
+      "Posture": "Active sheathing, avoid parasitic movements of the trunk."
+    }
+  },
+  "ER031": {
+    "nom": "Stepper - Continuous movement",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Cardio",
+      "Endurance",
+      "Weight loss",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Glutes",
+      "Hamstrings",
+      "Calves",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips",
+      "Ankles"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon"
+    ],
+    "type": "Ergometer – Rhythmic climb",
+    "niveau": "All levels",
+    "materiel": [
+      "Stepper"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Beware of long-term joint fatigue or poor lumbar posture"
+    ],
+    "variantes": [
+      "Sprint stepper",
+      "Stepper intervals",
+      "Unilateral stepper"
+    ],
+    "consignes": {
+      "Positionnement": "Feet firmly placed on the steps, hands on the handles if necessary.",
+      "Mouvement": "Smooth alternating climb, constant cadence.",
+      "Retour": "Slow down gradually at the end of the session.",
+      "Respiration": "Continuous and regular.",
+      "Posture": "Back straight, core engaged, do not rely excessively on the arms."
+    }
+  },
+  "ER032": {
+    "nom": "Sprint stepper",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Cardio",
+      "Weight loss",
+      "Endurance",
+      "Strength",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Glutes",
+      "Hamstrings",
+      "Calves",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips",
+      "Ankles"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon"
+    ],
+    "type": "Ergometer – Sprint uphill",
+    "niveau": "Intermediate to advanced",
+    "materiel": [
+      "Stepper"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Very demanding on the joints – not recommended in case of knee injury"
+    ],
+    "variantes": [
+      "Stepper intervals",
+      "Unilateral stepper"
+    ],
+    "consignes": {
+      "Positionnement": "Stable upright position, hands on the handles only for balance.",
+      "Mouvement": "Explosive climbs at maximum cadence.",
+      "Retour": "Active or complete rest phase after each sprint.",
+      "Respiration": "Exhale powerfully during exercise, inhale during recovery.",
+      "Posture": "Stable trunk, straight gaze, no excessive bounce."
+    }
+  },
+  "ER033": {
+    "nom": "Stepper intervals",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Endurance",
+      "Cardio",
+      "Weight loss",
+      "Fitness",
+      "Strength"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Glutes",
+      "Hamstrings",
+      "Calves",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips",
+      "Ankles"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon"
+    ],
+    "type": "Ergometer – Split uphill",
+    "niveau": "All levels",
+    "materiel": [
+      "Stepper"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Can cause significant fatigue of the lower limbs if poor rhythm management"
+    ],
+    "variantes": [
+      "Sprint stepper",
+      "Unilateral stepper"
+    ],
+    "consignes": {
+      "Positionnement": "Upright position, hands placed lightly on the handles.",
+      "Mouvement": "Alternate phases of sustained effort with phases of recovery.",
+      "Retour": "End with an extended recovery phase.",
+      "Respiration": "Accelerated during exercise, more controlled during recovery.",
+      "Posture": "Straight trunk, no excessive support on the arms."
+    }
+  },
+  "ER034": {
+    "nom": "Unilateral stepper",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Reinforcement",
+      "Postural",
+      "Coordination",
+      "Neuromuscular reprogramming"
+    ],
+    "muscles_secondaires": [
+      "Glutes",
+      "Quadriceps",
+      "Calves",
+      "Hamstrings",
+      "Obliques"
+    ],
+    "articulations_solicitees": [
+      "Hips",
+      "Knees",
+      "Ankles"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon",
+      "Hamstring tendon"
+    ],
+    "type": "Ergometer – Unilateral climb",
+    "niveau": "All levels",
+    "materiel": [
+      "Stepper"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Requires good postural stability and strong support on the active leg"
+    ],
+    "variantes": [
+      "Sprint stepper",
+      "Stepper intervals"
+    ],
+    "consignes": {
+      "Positionnement": "Straight position, one leg active, the other posed or suspended.",
+      "Mouvement": "Dynamic climb with one leg, chained over several repetitions.",
+      "Retour": "Complete rest or change sides between each set.",
+      "Respiration": "Continuous and controlled.",
+      "Posture": "Hips aligned, active core, avoid lateral imbalances."
+    }
+  },
+  "ER035": {
+    "nom": "Stairs - Continuous climb",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Cardio",
+      "Endurance",
+      "Weight loss",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Glutes",
+      "Calves",
+      "Hamstrings",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips",
+      "Ankles"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon",
+      "Hamstring tendon"
+    ],
+    "type": "Ergometer – Escalator",
+    "niveau": "All levels",
+    "materiel": [
+      "Escalators (Climbmill/Stepmill)"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Beware of lower back fatigue and imbalance at fast pace"
+    ],
+    "variantes": [
+      "Sprint Stairs",
+      "Stairs intervals",
+      "One-sided stairs"
+    ],
+    "consignes": {
+      "Positionnement": "Stand up, feet firmly anchored, hands placed lightly if necessary.",
+      "Mouvement": "Fluid sequence of step climbs without impact.",
+      "Retour": "Slow down the pace at the end of the block.",
+      "Respiration": "Regular, suitable for climbing.",
+      "Posture": "Back straight, core engaged, do not collapse on your arms."
+    }
+  },
+  "ER036": {
+    "nom": "Sprint Stairs",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Cardio",
+      "Weight loss",
+      "Endurance",
+      "Strength",
+      "Fitness"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Glutes",
+      "Calves",
+      "Hamstrings",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips",
+      "Ankles"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon",
+      "Hamstring tendon"
+    ],
+    "type": "Ergometer – Stair Sprint",
+    "niveau": "Intermediate to advanced",
+    "materiel": [
+      "Escalators (Climbmill/Stepmill)"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "High intensity – requires coordination and postural control"
+    ],
+    "variantes": [
+      "Stairs intervals",
+      "One-sided stairs"
+    ],
+    "consignes": {
+      "Positionnement": "Upright position, hands relaxed or lightly placed for balance.",
+      "Mouvement": "Sprint at maximum cadence on successive steps.",
+      "Retour": "Active rest (slow walking) or complete rest between sprints.",
+      "Respiration": "Exhale on the rapid rise, inhale on the recovery.",
+      "Posture": "Sheathed trunk, no forward rocking or excessive arm grip."
+    }
+  },
+  "ER037": {
+    "nom": "Stairs intervals",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Endurance",
+      "Cardio",
+      "Weight loss",
+      "Fitness",
+      "Strength"
+    ],
+    "muscles_secondaires": [
+      "Quadriceps",
+      "Glutes",
+      "Calves",
+      "Hamstrings",
+      "Abdominals"
+    ],
+    "articulations_solicitees": [
+      "Knees",
+      "Hips",
+      "Ankles"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon",
+      "Hamstring tendon"
+    ],
+    "type": "Ergometer – Split staircase",
+    "niveau": "All levels",
+    "materiel": [
+      "Escalators (Climbmill/Stepmill)"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Can cause significant fatigue if the pace is poorly measured"
+    ],
+    "variantes": [
+      "Sprint Stairs",
+      "One-sided stairs"
+    ],
+    "consignes": {
+      "Positionnement": "Feet stable, hands providing light support if necessary.",
+      "Mouvement": "Alternate fast sequences and slower recovery phases.",
+      "Retour": "Finish on a slow and fluid climb.",
+      "Respiration": "Controlled, deep during recovery.",
+      "Posture": "Straight back, engaged abs, no pelvic tilt."
+    }
+  },
+  "ER038": {
+    "nom": "One-sided stairs",
+    "groupe_musculaire": "Legs",
+    "objectifs": [
+      "Reinforcement",
+      "Postural",
+      "Coordination",
+      "Neuromuscular reprogramming"
+    ],
+    "muscles_secondaires": [
+      "Glutes",
+      "Quadriceps",
+      "Calves",
+      "Hamstrings",
+      "Obliques"
+    ],
+    "articulations_solicitees": [
+      "Hips",
+      "Knees",
+      "Ankles"
+    ],
+    "tendons_solicites": [
+      "Patellar tendon",
+      "Achilles tendon",
+      "Hamstring tendon"
+    ],
+    "type": "Ergometer – Unilateral climb",
+    "niveau": "All levels",
+    "materiel": [
+      "Escalators (Climbmill/Stepmill)"
+    ],
+    "position": "Standing",
+    "contraintes": [
+      "Requires stability and good support – avoid in case of joint instability"
+    ],
+    "variantes": [
+      "Sprint Stairs",
+      "Stairs intervals"
+    ],
+    "consignes": {
+      "Positionnement": "Start with only one active leg, the other lightly supporting or hanging.",
+      "Mouvement": "Perform a repeated raise with the active leg throughout the set.",
+      "Retour": "Change sides or take a break after the series.",
+      "Respiration": "Continue, adapted to the pace of the climb.",
+      "Posture": "Stable core, aligned hips, pelvis control."
+    }
+  }
+}

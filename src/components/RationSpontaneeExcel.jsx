@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 // src/components/RationSpontaneeExcel.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -17,21 +18,12 @@ import {
   Wrap,
   WrapItem,
   useBreakpointValue,
-  useColorModeValue,
   useToast,
 } from "@chakra-ui/react";
 import { ChevronDownIcon, ChevronRightIcon, RepeatIcon } from "@chakra-ui/icons";
-
-/* ==================== Sticky tuning ==================== */
-/**
- * Objectif :
- * - TOTAL JOUR se comporte comme "RAPPEL" (sticky, pas fixed).
- * - Sur mobile, il doit être un peu plus haut pour éviter de couper le bas des lettres.
- * - Il doit rester collé au-dessus de la barre "RAPPEL" (qui est dans FoodSurvey).
- */
-const DESKTOP_BOTTOM_TOTAL_STICKY = 74; // px (au-dessus de la barre rappel desktop)
-const RAPPEL_H_MOBILE = 110; // px (approx hauteur de la barre rappel mobile)
-const SAFE_AREA_PX = 18; // ✅ plus haut pour éviter le cut (au lieu de 10/16)
+import { getCiqualMicro100 } from "./ciqualClient.js";
+import { computeMicronutrientTargets } from "../utils/nutritionContext";
+import { useNutritionTheme } from "../styles/nutritionTheme";
 
 /* ------------------ Helpers ------------------ */
 const num = (v) => {
@@ -130,6 +122,7 @@ const EXCEL_GROUPS = [
       { label: "Légumineuse", defaultUnit: "g" },
       { label: "Pain blanc", defaultUnit: "g" },
       { label: "Pain complet", defaultUnit: "g" },
+      { label: "Oléagineux", defaultUnit: "g" },
     ],
   },
   { group: "Légumes", items: [{ label: "Légumes", defaultUnit: "g" }] },
@@ -162,6 +155,8 @@ const EXCEL_GROUPS = [
       { label: "Hydrolisate", defaultUnit: "g" },
       { label: "100% whey", defaultUnit: "g" },
       { label: "Whey vegan", defaultUnit: "g" },
+      { label: "Gainer", defaultUnit: "g" },
+      { label: "Fortimel", defaultUnit: "ml" },
     ],
   },
   {
@@ -246,11 +241,16 @@ const LOCAL_MACROS_PER100_BY_LABEL = {
   Hydrolisate: { prot: 85.0, glu: 3.0, lip: 3.0 },
   "100% whey": { prot: 75.0, glu: 8.0, lip: 6.0 },
   "Whey vegan": { prot: 75.0, glu: 8.0, lip: 6.0 },
+  Gainer: { prot: 22.0, glu: 65.0, lip: 6.0 },
+  Fortimel: { prot: 6.0, glu: 20.0, lip: 5.8 },
+  Oléagineux: { prot: 20.0, glu: 12.0, lip: 52.0 },
 
   Soda: { prot: 0.0, glu: 10.6, lip: 0.0 },
   "Jus de fruits": { prot: 0.5, glu: 10.0, lip: 0.0 },
   Alcool: { prot: 0.0, glu: 0.0, lip: 0.0 },
 };
+
+const ALCOHOL_KCAL_PER_ML = 7 * 0.789 * 0.12;
 
 /* grammes par unité (pour "unité") */
 const LOCAL_UNIT_GRAMS = { Oeufs: 60 };
@@ -277,10 +277,31 @@ const MICRO_DEFS = [
   { key: "cholesterol", label: "Cholestérol", unit: "mg", ciqualKey: "cholesterol_mg_100g" },
 ];
 
-const getCiqualNutrients = (row) => row?.nutrients || row?.NUTRIENTS || row?.valeurs || {};
+const MICRO_NORMALIZED_KEY_BY_DEF = {
+  calcium: "calcium_mg_100g",
+  fer: "fer_mg_100g",
+  sodium: "sodium_mg_100g",
+  fibres: "fibres_g_100g",
+  vitA: "vit_a_ug_100g",
+  vitB1: "vit_b1_mg_100g",
+  vitB2: "vit_b2_mg_100g",
+  vitB6: "vit_b6_mg_100g",
+  vitB9: "vit_b9_ug_100g",
+  vitB12: "vit_b12_ug_100g",
+  vitC: "vit_c_mg_100g",
+  vitD: "vit_d_ug_100g",
+  vitE: "vit_e_mg_100g",
+  vitK: "vit_k_ug_100g",
+  magnesium: "magnesium_mg_100g",
+  potassium: "potassium_mg_100g",
+  lactose: "lactose_g_100g",
+  cholesterol: "cholesterol_mg_100g",
+};
+
 const getMicroPer100FromCiqual = (row, microDef) => {
-  const n = getCiqualNutrients(row);
-  return num(n?.[microDef?.ciqualKey]);
+  const normalized = getCiqualMicro100(row);
+  const key = MICRO_NORMALIZED_KEY_BY_DEF[microDef?.key];
+  return key ? num(normalized?.[key]) : 0;
 };
 
 /* ------------------ Build foods ------------------ */
@@ -302,29 +323,355 @@ const buildFoodsFromGroups = () => {
   return foods;
 };
 
-export default function RationSpontaneeExcel({ blocked, initialState, onChange }) {
+const MICRO_LABEL_BY_KEY = Object.fromEntries(MICRO_DEFS.map((m) => [m.key, m.label]));
+
+const hasRange = (range) => num(range?.min) > 0 && num(range?.max) > 0;
+
+const badgeSchemeFromStatus = (status) => {
+  if (status === "ok") return "green";
+  if (status === "high") return "red";
+  if (status === "low") return "orange";
+  return "gray";
+};
+
+const compareToRange = (value, range) => {
+  if (!hasRange(range)) return { status: "na", label: "Sans cible" };
+  const current = num(value);
+  const min = num(range.min);
+  const max = num(range.max);
+  if (current < min) return { status: "low", label: "Bas" };
+  if (current > max) return { status: "high", label: "Haut" };
+  return { status: "ok", label: "OK" };
+};
+
+const compareToTarget = (value, target, toleranceRatio = 0.1) => {
+  const goal = num(target);
+  if (!(goal > 0)) return { status: "na", label: "Sans cible" };
+  const current = num(value);
+  const delta = current - goal;
+  const tolerance = goal * toleranceRatio;
+  if (delta < -tolerance) return { status: "low", label: "Sous la cible" };
+  if (delta > tolerance) return { status: "high", label: "Au-dessus de la cible" };
+  return { status: "ok", label: "Dans la cible" };
+};
+
+const clampPercent = (value) => Math.max(0, Math.min(100, num(value)));
+
+const progressFromTarget = (value, target) => {
+  const goal = num(target);
+  if (!(goal > 0)) return 0;
+  return clampPercent((num(value) / goal) * 100);
+};
+
+const progressFromRange = (value, range) => {
+  if (!hasRange(range)) return 0;
+  const ceiling = Math.max(num(range.max), num(range.min));
+  if (!(ceiling > 0)) return 0;
+  return clampPercent((num(value) / ceiling) * 100);
+};
+
+const quickOptionsForFood = (food, unit) => {
+  const name = normalize(food?.name || "");
+  const category = normalize(food?.category || "");
+
+  if (unit === "ml") return [100, 200];
+  if (unit === "unité") return [1, 2];
+  if (unit === "portion") return [0.5, 1];
+
+  if (
+    name.includes("huile") ||
+    name.includes("beurre") ||
+    name.includes("margarine") ||
+    name.includes("sucre") ||
+    name.includes("confiture") ||
+    name.includes("miel")
+  ) {
+    return [5, 10];
+  }
+
+  if (name.includes("fromage")) return [15, 30];
+  if (category.includes("legumes")) return [100, 200];
+  if (category.includes("fruits")) return [100, 150];
+  if (category.includes("vpo")) return [50, 100];
+  if (category.includes("feculents")) return [30, 100];
+  if (category.includes("produits laitiers")) return [100, 125];
+  if (category.includes("produits sucres")) return [15, 30];
+
+  return [30, 100];
+};
+
+const quickOptionLabel = (value, unit) => {
+  if (unit === "portion") return `+${round1(value)} portion`;
+  if (unit === "unité") return `+${round1(value)}`;
+  return `+${round1(value)} ${unit}`;
+};
+
+function buildRecommendedMicroKeys(context = {}) {
+  const needs = context?.needs || {};
+  const path = needs?.pathologyFlags || {};
+  const reg = needs?.regimeFlags || {};
+  const profile = needs?.objectiveProfile || {};
+  const keys = new Set(["calcium", "fibres"]);
+
+  if (path.diabete) keys.add("fibres");
+  if (path.hta) {
+    keys.add("sodium");
+    keys.add("potassium");
+  }
+  if (path.hyperchol) keys.add("cholesterol");
+  if (
+    path.troublesDigestifs ||
+    path.rgo ||
+    path.ibs ||
+    path.constipation ||
+    path.diarrhee ||
+    path.ballonnements ||
+    path.fodmap
+  ) {
+    keys.add("fibres");
+    keys.add("lactose");
+  }
+  if (path.renal) {
+    keys.add("sodium");
+    keys.add("potassium");
+  }
+  if (reg.lactoseFree || path.allergies) {
+    keys.add("lactose");
+    keys.add("calcium");
+  }
+  if (reg.vegetarian || reg.vegan || reg.pescetarian) keys.add("fer");
+  if (reg.vegan) keys.add("vitB12");
+  if (profile.isPreg1 || profile.isPreg2 || profile.isPreg3) {
+    keys.add("fer");
+    keys.add("vitB9");
+    keys.add("calcium");
+    keys.add("vitD");
+  }
+  if (profile.isLact) {
+    keys.add("calcium");
+    keys.add("vitD");
+  }
+
+  return MICRO_DEFS.filter((micro) => keys.has(micro.key)).map((micro) => micro.key);
+}
+
+function buildClinicalGuidance(context = {}) {
+  const needs = context?.needs || {};
+  const path = needs?.pathologyFlags || {};
+  const reg = needs?.regimeFlags || {};
+  const profile = needs?.objectiveProfile || {};
+  const objectiveText = normalize(needs?.objectiveRaw || context?.objectiveRaw || "");
+  const entries = [];
+
+  entries.push({
+    title: "Socle de lecture",
+    tone: "blue",
+    body:
+      "Toujours relire au minimum énergie, protéines, calcium et fibres: ce sont les repères de base pour comparer la journée spontanée au cadre du bilan.",
+  });
+
+  if (objectiveText.includes("perte") || objectiveText.includes("poids")) {
+    entries.push({
+      title: "Objectif perte de poids",
+      tone: "orange",
+      body:
+        "Repérer les boissons caloriques, grignotages, portions de féculents et matières grasses ajoutées avant de conclure sur un déficit réel.",
+    });
+  }
+
+  if (objectiveText.includes("prise") || objectiveText.includes("masse")) {
+    entries.push({
+      title: "Objectif prise de masse",
+      tone: "green",
+      body:
+        "Vérifier que l’énergie, les protéines et les prises autour de l’entraînement sont suffisantes sans concentrer tout l’apport sur un seul repas.",
+    });
+  }
+
+  if (path.diabete) {
+    entries.push({
+      title: "Diabète",
+      tone: "orange",
+      body:
+        "Répartir les glucides sur la journée, éviter les sucres rapides isolés, associer les fruits à un repas ou une collation structurée et suivre les fibres.",
+    });
+  }
+
+  if (path.hta) {
+    entries.push({
+      title: "HTA",
+      tone: "red",
+      body:
+        "Contrôler le sodium surtout sur pain, fromages, charcuteries et produits industriels; le potassium aide au repérage mais n’est pas une prescription isolée.",
+    });
+  }
+
+  if (path.hyperchol) {
+    entries.push({
+      title: "Dyslipidémie",
+      tone: "yellow",
+      body:
+        "Surveiller cholestérol et qualité lipidique, modérer beurre, fromages et produits sucrés riches en graisses saturées.",
+    });
+  }
+
+  if (path.tca) {
+    entries.push({
+      title: "TCA / relation alimentaire",
+      tone: "pink",
+      body:
+        "Éviter une lecture trop normative pendant l’entretien: noter surtout rythmes, évitements, pertes de contrôle et rigidités éventuelles.",
+    });
+  }
+
+  if (
+    path.troublesDigestifs ||
+    path.rgo ||
+    path.ibs ||
+    path.constipation ||
+    path.diarrhee ||
+    path.ballonnements ||
+    path.fodmap
+  ) {
+    entries.push({
+      title: "Tolérance digestive",
+      tone: "purple",
+      body:
+        "Adapter texture, répartition et fibres à la tolérance réelle du patient; cette grille reste un support manuel et ne remplace pas le tri fin aliment par aliment.",
+    });
+  }
+
+  if (path.renal) {
+    entries.push({
+      title: "Atteinte rénale",
+      tone: "red",
+      body:
+        "Le sodium et le potassium sont visibles ici, mais le phosphore n’est pas calculé dans cette grille groupée: contrôle complémentaire indispensable selon le stade.",
+    });
+  }
+
+  if (reg.vegetarian || reg.vegan || reg.pescetarian) {
+    entries.push({
+      title: reg.vegan ? "Alimentation végétale stricte" : "Alimentation végétale",
+      tone: "green",
+      body:
+        "Vérifier la couverture protéique globale et garder un œil sur le fer, la B12 et le calcium selon le niveau d’exclusion.",
+    });
+  }
+
+  if (reg.vegan) {
+    entries.push({
+      title: "Végétalien",
+      tone: "green",
+      body:
+        "Contrôler B12, calcium, fer et qualité protéique; cette grille simplifiée ne valide pas à elle seule la complémentation.",
+    });
+  }
+
+  if (reg.glutenFree || path.celiac) {
+    entries.push({
+      title: "Sans gluten",
+      tone: "blue",
+      body:
+        "Le mode manuel n’empêche pas la saisie de catégories non adaptées: l’exclusion et le risque de contamination restent à contrôler par le praticien.",
+    });
+  }
+
+  if (reg.lactoseFree) {
+    entries.push({
+      title: "Sans lactose",
+      tone: "blue",
+      body:
+        "Surveiller le lactose et compenser les produits laitiers retirés pour préserver le calcium sur la journée.",
+    });
+  }
+
+  if (reg.lowFodmap || path.fodmap || path.ibs) {
+    entries.push({
+      title: "Low FODMAP / SII",
+      tone: "purple",
+      body:
+        "La catégorie seule ne suffit pas: noter les aliments précis, la quantité, le mode de cuisson et les symptômes associés.",
+    });
+  }
+
+  if (profile.isPreg1 || profile.isPreg2 || profile.isPreg3) {
+    entries.push({
+      title: "Grossesse",
+      tone: "pink",
+      body:
+        "Sécuriser l’énergie, les protéines, le fer, les folates, le calcium et la vitamine D. L’iode n’est pas suivi dans cette grille groupée.",
+    });
+  }
+
+  if (profile.isLact) {
+    entries.push({
+      title: "Allaitement",
+      tone: "teal",
+      body:
+        "La couverture énergétique et calcique doit rester visible; l’hydratation et l’iode restent à apprécier en dehors de cette grille.",
+    });
+  }
+
+  if (path.allergies || context?.allergies) {
+    entries.push({
+      title: "Allergies / évictions",
+      tone: "red",
+      body:
+        "Le mode manuel reste libre: il faut donc vérifier manuellement chaque éviction, substitut et risque de réintroduction involontaire.",
+    });
+  }
+
+  return entries;
+}
+
+export default function RationSpontaneeExcel({
+  blocked,
+  initialState,
+  onChange,
+  needs,
+  context,
+  onInsightsChange,
+  onFooterChange,
+}) {
   const toast = useToast();
   const mountedRef = useRef(false);
+  const autoMicrosInitRef = useRef(false);
+  const [showAllGuidance, setShowAllGuidance] = useState(false);
+  const [showMicroChooser, setShowMicroChooser] = useState(false);
 
-  const panelBg = useColorModeValue("white", "gray.800");
-  const softBg = useColorModeValue("gray.50", "whiteAlpha.100");
-  const borderColor = useColorModeValue("gray.200", "whiteAlpha.200");
-  const muted = useColorModeValue("blackAlpha.700", "whiteAlpha.700");
-
+  const nutritionTheme = useNutritionTheme();
+  const panelBg = nutritionTheme.surfaceBg;
+  const softBg = nutritionTheme.surfaceSoft;
+  const borderColor = nutritionTheme.borderColor;
+  const muted = nutritionTheme.mutedText;
   const isMobile = useBreakpointValue({ base: true, md: false });
 
-  /* ✅ TOTAL JOUR : sticky comme RAPPEL, mais un peu plus haut */
-  const totalPos = "sticky";
-  const totalBottom = useBreakpointValue({
-    base: `calc(${RAPPEL_H_MOBILE}px + env(safe-area-inset-bottom) + ${SAFE_AREA_PX}px)`,
-    md: `${DESKTOP_BOTTOM_TOTAL_STICKY}px`,
-  });
-
-  /* ✅ padding bottom pour ne pas masquer la fin */
-  const pagePb = useBreakpointValue({
-    base: `${RAPPEL_H_MOBILE + 200}px`,
-    md: "0px",
-  });
+  const clinicalContext = useMemo(() => context || { needs }, [context, needs]);
+  const effectiveNeeds = useMemo(() => clinicalContext?.needs || needs || {}, [clinicalContext, needs]);
+  const objectiveLabel = String(effectiveNeeds?.objectiveRaw || "").trim();
+  const objectiveProfile = effectiveNeeds?.objectiveProfile || {};
+  const pathologies = clinicalContext?.pathologies || effectiveNeeds?.pathologies || [];
+  const regimes = clinicalContext?.regimes || effectiveNeeds?.diet || [];
+  const allergies = String(clinicalContext?.allergies || "").trim();
+  const recommendedMicroKeys = useMemo(
+    () => buildRecommendedMicroKeys(clinicalContext),
+    [clinicalContext]
+  );
+  const recommendedMicroSet = useMemo(
+    () => new Set(recommendedMicroKeys),
+    [recommendedMicroKeys]
+  );
+  const clinicalGuidance = useMemo(
+    () => buildClinicalGuidance(clinicalContext),
+    [clinicalContext]
+  );
+  const visibleGuidance = useMemo(
+    () => (showAllGuidance ? clinicalGuidance : clinicalGuidance.slice(0, 4)),
+    [clinicalGuidance, showAllGuidance]
+  );
+  const hasSavedSelectedMicros =
+    !!initialState?.selectedMicros && typeof initialState.selectedMicros === "object";
 
   /* ---------- CIQUAL (pour micros uniquement) ---------- */
   const [ciqualLoading, setCiqualLoading] = useState(false);
@@ -350,8 +697,8 @@ export default function RationSpontaneeExcel({ blocked, initialState, onChange }
       setCiqualByCode({});
       setCiqualOk(false);
       toast({
-        title: "CIQUAL",
-        description: "Impossible de charger le fichier CIQUAL.",
+        title: "Données alimentaires",
+        description: "Impossible de charger les données alimentaires.",
         status: "error",
         duration: 4000,
         isClosable: true,
@@ -401,8 +748,11 @@ export default function RationSpontaneeExcel({ blocked, initialState, onChange }
     const saved = initialState?.selectedMicros;
     if (saved && typeof saved === "object") return saved;
     const o = {};
-    MICRO_DEFS.forEach((m) => (o[m.key] = false));
-    o.calcium = true;
+    MICRO_DEFS.forEach((m) => {
+      o[m.key] = recommendedMicroSet.has(m.key);
+    });
+    if (!recommendedMicroSet.size) o.calcium = true;
+    o.fibres = true;
     return o;
   });
 
@@ -442,6 +792,30 @@ export default function RationSpontaneeExcel({ blocked, initialState, onChange }
     mountedRef.current = true;
   }, []);
 
+  useEffect(() => {
+    if (hasSavedSelectedMicros || autoMicrosInitRef.current) return;
+    if (!recommendedMicroKeys.length) return;
+
+    setSelectedMicros((prev) => {
+      const next = { ...(prev || {}) };
+      MICRO_DEFS.forEach((micro) => {
+        next[micro.key] = recommendedMicroSet.has(micro.key);
+      });
+      next.calcium = true;
+      next.fibres = true;
+      return next;
+    });
+
+    autoMicrosInitRef.current = true;
+  }, [hasSavedSelectedMicros, recommendedMicroKeys, recommendedMicroSet]);
+
+  useEffect(() => {
+    setSelectedMicros((prev) => {
+      if (prev?.calcium && prev?.fibres) return prev;
+      return { ...(prev || {}), calcium: true, fibres: true };
+    });
+  }, []);
+
   /* ---------- Handlers ---------- */
   const setAllCats = (open) => {
     const next = {};
@@ -451,6 +825,18 @@ export default function RationSpontaneeExcel({ blocked, initialState, onChange }
 
   const toggleMicro = (key) => {
     setSelectedMicros((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const applyRecommendedMicros = () => {
+    setSelectedMicros((prev) => {
+      const next = { ...(prev || {}) };
+      MICRO_DEFS.forEach((micro) => {
+        if (recommendedMicroSet.has(micro.key)) next[micro.key] = true;
+      });
+      next.calcium = true;
+      next.fibres = true;
+      return next;
+    });
   };
 
   const setQty = (foodId, mealKey, val) => {
@@ -473,6 +859,22 @@ export default function RationSpontaneeExcel({ blocked, initialState, onChange }
       const next = { ...(prev || {}) };
       const cur = next[foodId] || { unit: "g", meals: {} };
       next[foodId] = { ...cur, unit };
+      return next;
+    });
+  };
+
+  const applyQuickAdd = (foodId, mealKey, amount) => {
+    setValues((prev) => {
+      const next = { ...(prev || {}) };
+      const cur = next[foodId] || { unit: "g", meals: {} };
+      const current = num(cur.meals?.[mealKey]);
+      next[foodId] = {
+        ...cur,
+        meals: {
+          ...cur.meals,
+          [mealKey]: round1(current + num(amount)),
+        },
+      };
       return next;
     });
   };
@@ -503,7 +905,8 @@ export default function RationSpontaneeExcel({ blocked, initialState, onChange }
       glu: mp100.glu * factor,
       lip: mp100.lip * factor,
     };
-    const kcal = kcalFromMacros(macros.prot, macros.glu, macros.lip);
+    const alcoholKcal = food.name === "Alcool" && unit === "ml" ? qty * ALCOHOL_KCAL_PER_ML : 0;
+    const kcal = kcalFromMacros(macros.prot, macros.glu, macros.lip) + alcoholKcal;
 
     // ✅ Micros = CIQUAL ONLY
     const micros = {};
@@ -550,23 +953,221 @@ export default function RationSpontaneeExcel({ blocked, initialState, onChange }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [foods, values, selectedMicros, ciqualByCode]);
 
-  const dayPct = useMemo(() => {
-    const p = num(totals?.day?.prot) * 4;
-    const l = num(totals?.day?.lip) * 9;
-    const g = num(totals?.day?.glu) * 4;
-    const total = p + l + g;
-    if (!(total > 0)) return { prot: 0, lip: 0, glu: 0 };
-    return {
-      prot: (p / total) * 100,
-      lip: (l / total) * 100,
-      glu: (g / total) * 100,
-    };
-  }, [totals]);
-
   const selectedMicroList = useMemo(
     () => MICRO_DEFS.filter((m) => !!selectedMicros?.[m.key]),
     [selectedMicros]
   );
+  const filledFoodCount = useMemo(() => {
+    return foods.filter((food) => {
+      const meals = values?.[food.id]?.meals || {};
+      return Object.values(meals).some((value) => num(value) > 0);
+    }).length;
+  }, [foods, values]);
+  const filledMealSlots = useMemo(() => {
+    return foods.reduce((count, food) => {
+      const meals = values?.[food.id]?.meals || {};
+      return count + Object.values(meals).filter((value) => num(value) > 0).length;
+    }, 0);
+  }, [foods, values]);
+  const categoryStats = useMemo(() => {
+    const stats = {};
+    categories.forEach((cat) => {
+      const filledItems = cat.items.filter((food) => {
+        const meals = values?.[food.id]?.meals || {};
+        return Object.values(meals).some((value) => num(value) > 0);
+      }).length;
+      stats[cat.name] = {
+        filledItems,
+        totalItems: cat.items.length,
+      };
+    });
+    return stats;
+  }, [categories, values]);
+  const completedCategoryCount = useMemo(() => {
+    return Object.values(categoryStats).filter((stat) => stat.filledItems > 0).length;
+  }, [categoryStats]);
+  const recommendedMicroList = useMemo(
+    () => MICRO_DEFS.filter((m) => recommendedMicroSet.has(m.key)),
+    [recommendedMicroSet]
+  );
+  const microTargets = useMemo(
+    () =>
+      computeMicronutrientTargets({
+        inputs: context?.inputs || {},
+        objectiveRaw: effectiveNeeds?.objectiveRaw || context?.needs?.objectiveRaw || "",
+      }),
+    [context?.inputs, context?.needs?.objectiveRaw, effectiveNeeds?.objectiveRaw]
+  );
+  const surveyEnergyTarget = useMemo(
+    () => num(effectiveNeeds?.dej) || num(effectiveNeeds?.kcalTarget),
+    [effectiveNeeds?.dej, effectiveNeeds?.kcalTarget]
+  );
+  const energyStatus = useMemo(
+    () => compareToTarget(totals?.day?.kcal, surveyEnergyTarget),
+    [surveyEnergyTarget, totals]
+  );
+  const proteinStatus = useMemo(
+    () => compareToRange(totals?.day?.prot, effectiveNeeds?.protG),
+    [effectiveNeeds?.protG, totals]
+  );
+  const fatStatus = useMemo(
+    () => compareToRange(totals?.day?.lip, effectiveNeeds?.lipG),
+    [effectiveNeeds?.lipG, totals]
+  );
+  const carbStatus = useMemo(
+    () => compareToRange(totals?.day?.glu, effectiveNeeds?.glucG),
+    [effectiveNeeds?.glucG, totals]
+  );
+  const manualInsights = useMemo(() => {
+    const breakfastKcal = num(totals?.perMeal?.petit_dej?.kcal);
+    const dinnerKcal = num(totals?.perMeal?.diner?.kcal);
+    const snackCount = ["collation_1", "collation_2", "collation_3"].filter(
+      (key) => num(totals?.perMeal?.[key]?.kcal) > 0
+    ).length;
+    const mainMealCount = ["petit_dej", "dejeuner", "diner"].filter(
+      (key) => num(totals?.perMeal?.[key]?.kcal) > 0
+    ).length;
+    const fruitCount = categoryStats?.["Fruits"]?.filledItems || 0;
+    const vegCount = categoryStats?.["Légumes"]?.filledItems || 0;
+    const sugaryCount = categoryStats?.["Produits sucrés"]?.filledItems || 0;
+    const drinkCount = categoryStats?.["Boissons"]?.filledItems || 0;
+    const dayKcal = num(totals?.day?.kcal);
+    const dinnerShare = dayKcal > 0 ? (dinnerKcal / dayKcal) * 100 : 0;
+    const observations = [];
+
+    if (!(filledFoodCount > 0)) {
+      observations.push("La journée n’est pas encore suffisamment saisie pour être interprétée.");
+    } else {
+      if (breakfastKcal < 120) observations.push("Petit-déjeuner absent ou très faible sur le relevé.");
+      if (mainMealCount < 3) observations.push("La journée paraît incomplète ou très irrégulière sur les repas principaux.");
+      if (snackCount >= 2) observations.push("Présence de collations répétées à explorer en consultation.");
+      if (fruitCount + vegCount === 0) observations.push("Très peu de fruits et légumes apparaissent sur la journée.");
+      if (proteinStatus.status === "low") observations.push("Les apports protéiques estimés restent en dessous de la cible.");
+      if (energyStatus.status === "low") observations.push("Les apports énergétiques estimés sont sous le besoin actuel.");
+      if (energyStatus.status === "high") observations.push("Les apports énergétiques estimés dépassent le besoin actuel.");
+      if (dinnerShare >= 40) observations.push("Une part importante des apports est concentrée sur le dîner.");
+      if (completedCategoryCount <= 3 && filledFoodCount > 0) observations.push("La journée semble peu diversifiée au regard des catégories remplies.");
+      if (sugaryCount > 0 || drinkCount > 0) observations.push("Les produits sucrés ou boissons plaisir méritent un commentaire qualitatif.");
+    }
+
+    return {
+      summaryBadges: [
+        { label: "Catégories", value: `${completedCategoryCount}/${categories.length}`, scheme: "blue" },
+        { label: "Créneaux", value: String(filledMealSlots), scheme: "purple" },
+        { label: "Micros actifs", value: String(selectedMicroList.length), scheme: "green" },
+      ],
+      observations,
+      comparisons: [
+        {
+          label: "Énergie",
+          currentText: `${fmt0Plain(totals?.day?.kcal)} kcal observées`,
+          targetText: surveyEnergyTarget ? `besoin actuel ${fmt0Plain(surveyEnergyTarget)} kcal` : "pas de besoin énergétique",
+          helper: energyStatus.label,
+          status: energyStatus.status,
+          progress: progressFromTarget(totals?.day?.kcal, surveyEnergyTarget),
+        },
+        {
+          label: "Protéines",
+          currentText: `${fmt0Plain(totals?.day?.prot)} g observés`,
+          targetText: hasRange(effectiveNeeds?.protG)
+            ? `cible ${fmt0Plain(effectiveNeeds.protG.min)}–${fmt0Plain(effectiveNeeds.protG.max)} g`
+            : "pas de cible protéique",
+          helper: proteinStatus.label,
+          status: proteinStatus.status,
+          progress: progressFromRange(totals?.day?.prot, effectiveNeeds?.protG),
+        },
+        {
+          label: "Lipides",
+          currentText: `${fmt0Plain(totals?.day?.lip)} g observés`,
+          targetText: hasRange(effectiveNeeds?.lipG)
+            ? `cible ${fmt0Plain(effectiveNeeds.lipG.min)}–${fmt0Plain(effectiveNeeds.lipG.max)} g`
+            : "pas de cible lipidique",
+          helper: fatStatus.label,
+          status: fatStatus.status,
+          progress: progressFromRange(totals?.day?.lip, effectiveNeeds?.lipG),
+        },
+        {
+          label: "Glucides",
+          currentText: `${fmt0Plain(totals?.day?.glu)} g observés`,
+          targetText: hasRange(effectiveNeeds?.glucG)
+            ? `cible ${fmt0Plain(effectiveNeeds.glucG.min)}–${fmt0Plain(effectiveNeeds.glucG.max)} g`
+            : "pas de cible glucidique",
+          helper: carbStatus.label,
+          status: carbStatus.status,
+          progress: progressFromRange(totals?.day?.glu, effectiveNeeds?.glucG),
+        },
+      ],
+    };
+  }, [
+    carbStatus.label,
+    carbStatus.status,
+    categories.length,
+    completedCategoryCount,
+    effectiveNeeds,
+    energyStatus.label,
+    energyStatus.status,
+    fatStatus.label,
+    fatStatus.status,
+    filledFoodCount,
+    filledMealSlots,
+    proteinStatus.label,
+    proteinStatus.status,
+    selectedMicroList.length,
+    surveyEnergyTarget,
+    totals,
+    categoryStats,
+  ]);
+
+  useEffect(() => {
+    onInsightsChange?.(manualInsights);
+  }, [manualInsights, onInsightsChange]);
+
+  useEffect(() => {
+    onFooterChange?.({
+      kcal: totals?.day?.kcal || 0,
+      prot: totals?.day?.prot || 0,
+      lip: totals?.day?.lip || 0,
+      glu: totals?.day?.glu || 0,
+      microCount: selectedMicroList.length,
+      microItems: selectedMicroList.map((micro) => {
+        const rawValue = totals?.day?.micros?.[micro.key] || 0;
+        const target = microTargets?.[micro.key];
+        return {
+          key: micro.key,
+          label: micro.label,
+          value: micro.unit === "g" ? fmt1Plain(rawValue) : fmt0Plain(rawValue),
+          unit: micro.unit,
+          targetValue:
+            target?.value != null
+              ? target.unit === "g"
+                ? fmt1Plain(target.value)
+                : fmt0Plain(target.value)
+              : null,
+          targetUnit: target?.unit || micro.unit,
+        };
+      }),
+      statuses: [
+        { label: "Énergie", value: energyStatus.label, scheme: badgeSchemeFromStatus(energyStatus.status) },
+        { label: "Prot", value: proteinStatus.label, scheme: badgeSchemeFromStatus(proteinStatus.status) },
+        { label: "Lip", value: fatStatus.label, scheme: badgeSchemeFromStatus(fatStatus.status) },
+        { label: "Glu", value: carbStatus.label, scheme: badgeSchemeFromStatus(carbStatus.status) },
+      ],
+    });
+  }, [
+    carbStatus.label,
+    carbStatus.status,
+    energyStatus.label,
+    energyStatus.status,
+    fatStatus.label,
+    fatStatus.status,
+    onFooterChange,
+    proteinStatus.label,
+    proteinStatus.status,
+    microTargets,
+    selectedMicroList,
+    selectedMicroList.length,
+    totals,
+  ]);
 
   /* ---------- UI blocks ---------- */
   const HeaderDesktop = (
@@ -591,20 +1192,41 @@ export default function RationSpontaneeExcel({ blocked, initialState, onChange }
   const FoodRowDesktop = (food) => {
     const st = values?.[food.id];
     const unit = st?.unit || food.defaultUnit;
+    const quickOptions = quickOptionsForFood(food, unit);
+    const mealValues = st?.meals || {};
+    const filledMeals = MEALS.filter((meal) => num(mealValues?.[meal.key]) > 0).length;
+    const totalQty = MEALS.reduce((sum, meal) => sum + num(mealValues?.[meal.key]), 0);
+    const isFilled = filledMeals > 0;
 
     return (
-      <Box key={food.id} px={4} py={3} borderTopWidth="1px" borderColor={borderColor} bg={panelBg}>
+      <Box
+        key={food.id}
+        px={4}
+        py={3}
+        borderTopWidth="1px"
+        borderColor={borderColor}
+        bg={isFilled ? softBg : panelBg}
+      >
         <HStack align="start" spacing={0}>
           <Box flex="0 0 320px" pr={3}>
-            <Text fontWeight="700">{food.name}</Text>
-            <Text fontSize="xs" opacity={0.6}>
-              Unité par défaut : {food.defaultUnit}
-            </Text>
+            <HStack justify="space-between" align="start" spacing={2}>
+              <Box minW={0}>
+                <Text fontWeight="700">{food.name}</Text>
+                <Text fontSize="xs" opacity={0.6}>
+                  Unité par défaut : {food.defaultUnit}
+                </Text>
+              </Box>
+              {isFilled ? (
+                <Badge colorScheme="green" variant="subtle" borderRadius="full" px={2}>
+                  {filledMeals} repas • {round1(totalQty)} {unit}
+                </Badge>
+              ) : null}
+            </HStack>
           </Box>
 
           {MEALS.map((m) => (
             <Box key={m.key} flex="1">
-              <HStack justify="center" spacing={2}>
+              <VStack spacing={1.5}>
                 <Input
                   width="90px"
                   value={st?.meals?.[m.key] ?? 0}
@@ -623,7 +1245,21 @@ export default function RationSpontaneeExcel({ blocked, initialState, onChange }
                   <option value="portion">portion</option>
                   <option value="unité">unité</option>
                 </Select>
-              </HStack>
+                <Wrap spacing={1} justify="center">
+                  {quickOptions.map((option) => (
+                    <WrapItem key={`${food.id}-${m.key}-${option}`}>
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        onClick={() => applyQuickAdd(food.id, m.key, option)}
+                        isDisabled={blocked}
+                      >
+                        {quickOptionLabel(option, unit)}
+                      </Button>
+                    </WrapItem>
+                  ))}
+                </Wrap>
+              </VStack>
             </Box>
           ))}
         </HStack>
@@ -634,6 +1270,11 @@ export default function RationSpontaneeExcel({ blocked, initialState, onChange }
   const FoodCardMobile = (food) => {
     const st = values?.[food.id];
     const unit = st?.unit || food.defaultUnit;
+    const quickOptions = quickOptionsForFood(food, unit);
+    const mealValues = st?.meals || {};
+    const filledMeals = MEALS.filter((meal) => num(mealValues?.[meal.key]) > 0).length;
+    const totalQty = MEALS.reduce((sum, meal) => sum + num(mealValues?.[meal.key]), 0);
+    const isFilled = filledMeals > 0;
 
     return (
       <Box
@@ -641,7 +1282,7 @@ export default function RationSpontaneeExcel({ blocked, initialState, onChange }
         borderWidth="1px"
         borderColor={borderColor}
         borderRadius="lg"
-        bg={panelBg}
+        bg={isFilled ? softBg : panelBg}
         p={3}
       >
         <HStack justify="space-between" align="start">
@@ -652,6 +1293,20 @@ export default function RationSpontaneeExcel({ blocked, initialState, onChange }
             <Text fontSize="xs" opacity={0.65} noOfLines={1}>
               {food.category} • unité: {unit}
             </Text>
+            {isFilled ? (
+              <Wrap spacing={2} mt={2}>
+                <WrapItem>
+                  <Badge colorScheme="green" variant="subtle" borderRadius="full">
+                    {filledMeals} repas renseigné(s)
+                  </Badge>
+                </WrapItem>
+                <WrapItem>
+                  <Badge colorScheme="blue" variant="subtle" borderRadius="full">
+                    {round1(totalQty)} {unit}
+                  </Badge>
+                </WrapItem>
+              </Wrap>
+            ) : null}
           </Box>
 
           <Select
@@ -684,6 +1339,20 @@ export default function RationSpontaneeExcel({ blocked, initialState, onChange }
                 inputMode="decimal"
                 size="sm"
               />
+              <Wrap spacing={1}>
+                {quickOptions.map((option) => (
+                  <WrapItem key={`${food.id}-${m.key}-${option}`}>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => applyQuickAdd(food.id, m.key, option)}
+                      isDisabled={blocked}
+                    >
+                      {quickOptionLabel(option, unit)}
+                    </Button>
+                  </WrapItem>
+                ))}
+              </Wrap>
             </HStack>
           ))}
         </VStack>
@@ -691,10 +1360,8 @@ export default function RationSpontaneeExcel({ blocked, initialState, onChange }
     );
   };
 
-  const [showTotalDetails, setShowTotalDetails] = useState(false);
-
   return (
-    <Box pb={pagePb}>
+    <Box>
       {/* Header */}
       <HStack justify="space-between" align="center" mb={3} flexWrap="wrap" gap={2}>
         <HStack spacing={3} flexWrap="wrap">
@@ -702,72 +1369,257 @@ export default function RationSpontaneeExcel({ blocked, initialState, onChange }
             Ration spontanée
           </Text>
           <Badge colorScheme={ciqualOk ? "green" : "gray"}>
-            {ciqualOk ? "CIQUAL OK" : "CIQUAL"}
+            {ciqualOk ? "Données prêtes" : "Données à charger"}
           </Badge>
-        </HStack>
-
-        <HStack flexWrap="wrap" gap={2}>
-          <Button size="sm" variant="outline" onClick={() => setAllCats(true)}>
-            Tout ouvrir
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setAllCats(false)}>
-            Tout fermer
-          </Button>
-          <Button
-            size="sm"
-            leftIcon={<RepeatIcon />}
-            onClick={reloadCiqual}
-            isLoading={ciqualLoading}
-            loadingText="Chargement…"
-          >
-            Recharger CIQUAL
-          </Button>
+          <Badge variant="subtle" colorScheme="blue">
+            {filledFoodCount} catégorie(s) renseignée(s)
+          </Badge>
         </HStack>
       </HStack>
 
-      {/* Micros */}
-      <Box borderWidth="1px" borderColor={borderColor} borderRadius="lg" bg={panelBg} p={4} mb={4}>
-        <Text fontWeight="800" mb={2}>
-          Choisir les micros à afficher / calculer (CIQUAL)
-        </Text>
+      <Box borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={panelBg} p={4} mb={4}>
+        <HStack justify="space-between" align="start" flexWrap="wrap" gap={3} mb={4}>
+          <Box minW={0}>
+            <Text fontWeight="900">Repères de lecture</Text>
+            <Text fontSize="sm" opacity={0.72} mt={1}>
+              Le relevé reste manuel; cette zone sert seulement à cadrer l’interprétation clinique.
+            </Text>
+          </Box>
+          <Badge colorScheme="orange" variant="subtle" px={3} py={1} borderRadius="full">
+            Cas sensibles: valider avec le détail alimentaire si besoin
+          </Badge>
+        </HStack>
 
-        <Wrap spacing={3}>
-          {MICRO_DEFS.map((m) => (
-            <WrapItem key={m.key}>
-              <Checkbox
-                isChecked={!!selectedMicros?.[m.key]}
-                onChange={() => toggleMicro(m.key)}
-                isDisabled={blocked}
-              >
-                {m.label}
-              </Checkbox>
-            </WrapItem>
-          ))}
-        </Wrap>
+        <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={3}>
+          <Box borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={softBg} p={3}>
+            <Text fontSize="xs" fontWeight="900" opacity={0.65} textTransform="uppercase">
+              Dossier
+            </Text>
+            <Text mt={1} fontWeight="900" noOfLines={1}>
+              {objectiveLabel || "Objectif non renseigné"}
+            </Text>
+            <Wrap spacing={2} mt={2}>
+              {objectiveProfile?.isPreg1 || objectiveProfile?.isPreg2 || objectiveProfile?.isPreg3 ? (
+                <WrapItem>
+                  <Badge colorScheme="pink" borderRadius="full">
+                    Grossesse{objectiveProfile?.pregnancyTrimester ? ` T${objectiveProfile.pregnancyTrimester}` : ""}
+                  </Badge>
+                </WrapItem>
+              ) : null}
+              {objectiveProfile?.isLact ? (
+                <WrapItem>
+                  <Badge colorScheme="teal" borderRadius="full">Allaitement</Badge>
+                </WrapItem>
+              ) : null}
+              {regimes.slice(0, 3).map((label) => (
+                <WrapItem key={`regime-${label}`}>
+                  <Badge colorScheme="green" variant="subtle" borderRadius="full">{label}</Badge>
+                </WrapItem>
+              ))}
+              {pathologies.slice(0, 3).map((label) => (
+                <WrapItem key={`patho-${label}`}>
+                  <Badge colorScheme="red" variant="subtle" borderRadius="full">{label}</Badge>
+                </WrapItem>
+              ))}
+              {allergies ? (
+                <WrapItem>
+                  <Badge colorScheme="red" borderRadius="full">Allergies / évictions</Badge>
+                </WrapItem>
+              ) : null}
+              {regimes.length + pathologies.length > 6 ? (
+                <WrapItem>
+                  <Badge variant="subtle" borderRadius="full">+{regimes.length + pathologies.length - 6}</Badge>
+                </WrapItem>
+              ) : null}
+            </Wrap>
+          </Box>
+
+          <Box borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={softBg} p={3}>
+            <Text fontSize="xs" fontWeight="900" opacity={0.65} textTransform="uppercase">
+              Cibles principales
+            </Text>
+            <Text mt={1} fontSize="2xl" fontWeight="900" lineHeight="1">
+              {effectiveNeeds?.kcalTarget ? `${fmt0Plain(effectiveNeeds.kcalTarget)} kcal` : "—"}
+            </Text>
+            <Wrap spacing={2} mt={3}>
+              <WrapItem>
+                <Badge variant="subtle">P {hasRange(effectiveNeeds?.protG) ? `${fmt0Plain(effectiveNeeds.protG.min)}–${fmt0Plain(effectiveNeeds.protG.max)}g` : "—"}</Badge>
+              </WrapItem>
+              <WrapItem>
+                <Badge variant="subtle">L {hasRange(effectiveNeeds?.lipG) ? `${fmt0Plain(effectiveNeeds.lipG.min)}–${fmt0Plain(effectiveNeeds.lipG.max)}g` : "—"}</Badge>
+              </WrapItem>
+              <WrapItem>
+                <Badge variant="subtle">G {hasRange(effectiveNeeds?.glucG) ? `${fmt0Plain(effectiveNeeds.glucG.min)}–${fmt0Plain(effectiveNeeds.glucG.max)}g` : "—"}</Badge>
+              </WrapItem>
+            </Wrap>
+            <Text fontSize="xs" opacity={0.65} mt={2}>
+              MB {effectiveNeeds?.mb ? fmt0Plain(effectiveNeeds.mb) : "—"} • DEJ {effectiveNeeds?.dej ? fmt0Plain(effectiveNeeds.dej) : "—"}
+            </Text>
+          </Box>
+
+          <Box borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={softBg} p={3}>
+            <HStack justify="space-between" align="start" gap={2}>
+              <Box minW={0}>
+                <Text fontSize="xs" fontWeight="900" opacity={0.65} textTransform="uppercase">
+                  Micronutriments conseillés
+                </Text>
+                <Text mt={1} fontSize="sm" opacity={0.72}>
+                  Calcium et fibres sont toujours suivis au minimum.
+                </Text>
+              </Box>
+              <HStack spacing={2} flexWrap="wrap" justify="flex-end">
+                <Button size="xs" variant="outline" onClick={applyRecommendedMicros} isDisabled={blocked}>
+                  Précocher
+                </Button>
+                <Button size="xs" variant="ghost" onClick={() => setShowMicroChooser((v) => !v)}>
+                  {showMicroChooser ? "Masquer" : `Personnaliser (${selectedMicroList.length})`}
+                </Button>
+              </HStack>
+            </HStack>
+            <Wrap spacing={2} mt={3}>
+              {recommendedMicroList.map((micro) => (
+                <WrapItem key={micro.key}>
+                  <Badge
+                    colorScheme={selectedMicros?.[micro.key] ? "green" : "gray"}
+                    variant="subtle"
+                    px={2}
+                    py={1}
+                    borderRadius="full"
+                  >
+                    {micro.label}
+                  </Badge>
+                </WrapItem>
+              ))}
+            </Wrap>
+            <Collapse in={showMicroChooser} animateOpacity>
+              <Box mt={3} borderWidth="1px" borderColor={borderColor} borderRadius="lg" bg={panelBg} p={3}>
+                <Wrap spacing={3}>
+                  {MICRO_DEFS.map((m) => (
+                    <WrapItem key={m.key}>
+                      <Checkbox
+                        isChecked={!!selectedMicros?.[m.key]}
+                        onChange={() => toggleMicro(m.key)}
+                        isDisabled={blocked || m.key === "calcium" || m.key === "fibres"}
+                      >
+                        {m.label}
+                      </Checkbox>
+                    </WrapItem>
+                  ))}
+                </Wrap>
+              </Box>
+            </Collapse>
+          </Box>
+        </SimpleGrid>
+
+        <Box mt={3} borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={softBg} p={3}>
+          <HStack justify="space-between" align="center" gap={3} flexWrap="wrap" mb={2}>
+            <Box>
+              <Text fontWeight="900">Points de vigilance</Text>
+              <Text fontSize="sm" opacity={0.7}>
+                Affichage condensé: on montre les priorités, le reste reste disponible.
+              </Text>
+            </Box>
+            {clinicalGuidance.length > 4 ? (
+              <Button size="xs" variant="outline" onClick={() => setShowAllGuidance((v) => !v)}>
+                {showAllGuidance ? "Réduire" : `Voir tout (${clinicalGuidance.length})`}
+              </Button>
+            ) : null}
+          </HStack>
+
+          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2}>
+            {visibleGuidance.map((item) => (
+              <Box key={item.title} borderWidth="1px" borderColor={borderColor} borderRadius="lg" bg={panelBg} p={3}>
+                <HStack align="start" justify="space-between" gap={2}>
+                  <Box minW={0}>
+                    <Text fontWeight="800">{item.title}</Text>
+                    <Text fontSize="sm" opacity={0.78} mt={1}>
+                      {item.body}
+                    </Text>
+                  </Box>
+                  <Badge colorScheme={item.tone} variant="subtle" px={2} py={1} borderRadius="md">
+                    Repère
+                  </Badge>
+                </HStack>
+              </Box>
+            ))}
+          </SimpleGrid>
+        </Box>
+
       </Box>
 
       {/* Table / Cards */}
       <Box borderWidth="1px" borderColor={borderColor} borderRadius="lg" overflow="hidden">
+        <Box px={4} py={3} bg={panelBg} borderBottomWidth="1px" borderColor={borderColor}>
+          <HStack justify="space-between" align="start" flexWrap="wrap" gap={3}>
+            <Box minW={0}>
+              <Text fontWeight="900">Saisie par catégories alimentaires</Text>
+              <Text fontSize="sm" opacity={0.7} mt={1}>
+                Renseigne uniquement ce qui a été consommé, puis utilise les totaux pour lire les
+                grands équilibres de la journée.
+              </Text>
+            </Box>
+            <HStack flexWrap="wrap" gap={2}>
+              <Button size="sm" variant="outline" onClick={() => setAllCats(true)}>
+                Tout ouvrir
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setAllCats(false)}>
+                Tout fermer
+              </Button>
+              <Button
+                size="sm"
+                leftIcon={<RepeatIcon />}
+                onClick={reloadCiqual}
+                isLoading={ciqualLoading}
+                loadingText="Chargement…"
+              >
+                Actualiser les données
+              </Button>
+            </HStack>
+          </HStack>
+        </Box>
         {!isMobile && HeaderDesktop}
 
         <Box>
           {categories.map((cat) => {
             const isOpen = !!openCats?.[cat.name];
+            const stat = categoryStats?.[cat.name] || { filledItems: 0, totalItems: cat.items.length };
+            const categoryDone = stat.filledItems > 0;
             return (
               <Box key={cat.name} borderBottomWidth="1px" borderColor={borderColor}>
-                <Box px={4} py={2} bg={panelBg}>
-                  <HStack spacing={2} align="center">
-                    <IconButton
-                      size="sm"
-                      variant="ghost"
-                      icon={isOpen ? <ChevronDownIcon /> : <ChevronRightIcon />}
-                      aria-label="toggle"
-                      onClick={() =>
-                        setOpenCats((p) => ({ ...(p || {}), [cat.name]: !p?.[cat.name] }))
-                      }
-                    />
-                    <Text fontWeight="900">{cat.name}</Text>
-                    <Badge variant="subtle">{cat.items.length}</Badge>
+                <Box px={4} py={3} bg={categoryDone ? softBg : panelBg}>
+                  <HStack spacing={2} align="center" justify="space-between">
+                    <HStack spacing={2} align="center">
+                      <IconButton
+                        size="sm"
+                        variant="ghost"
+                        icon={isOpen ? <ChevronDownIcon /> : <ChevronRightIcon />}
+                        aria-label="toggle"
+                        onClick={() =>
+                          setOpenCats((p) => ({ ...(p || {}), [cat.name]: !p?.[cat.name] }))
+                        }
+                      />
+                      <Box>
+                        <Text fontWeight="900">{cat.name}</Text>
+                        <Text fontSize="xs" opacity={0.65}>
+                          {stat.filledItems > 0
+                            ? `${stat.filledItems} sur ${stat.totalItems} aliment(s) renseigné(s)`
+                            : `${stat.totalItems} aliment(s) disponibles`}
+                        </Text>
+                      </Box>
+                    </HStack>
+
+                    <HStack spacing={2}>
+                      <Badge variant="subtle">{cat.items.length}</Badge>
+                      {categoryDone ? (
+                        <Badge colorScheme="green" variant="subtle" borderRadius="full">
+                          En cours
+                        </Badge>
+                      ) : (
+                        <Badge colorScheme="gray" variant="subtle" borderRadius="full">
+                          Vide
+                        </Badge>
+                      )}
+                    </HStack>
                   </HStack>
                 </Box>
 
@@ -907,78 +1759,16 @@ export default function RationSpontaneeExcel({ blocked, initialState, onChange }
         </Box>
       </Box>
 
-      {/* ✅ TOTAL JOUR : sticky + plus haut + lisible */}
-      <Box
-        mt={3}
-        p={3}
-        borderWidth="1px"
-        borderColor={borderColor}
-        borderRadius="lg"
-        bg={panelBg}
-        position={totalPos}
-        bottom={totalBottom}
-        zIndex={10}
-        boxShadow="sm"
-      >
-        <HStack align="start" spacing={3}>
-          <Box minW={0} flex="1">
-            <Text fontWeight="900" letterSpacing="0.02em">
-              TOTAL JOUR
-            </Text>
-
-            <Text mt={1} fontWeight="900" fontSize={isMobile ? "sm" : "md"} lineHeight="1.25">
-              {fmt0Plain(totals.day.kcal)} kcal • {fmt0Plain(totals.day.prot)} g prot •{" "}
-              {fmt0Plain(totals.day.lip)} g lip • {fmt0Plain(totals.day.glu)} g glu
-            </Text>
-
-            <Text fontSize="sm" opacity={0.75} mt={1} lineHeight="1.25">
-              {round0(dayPct.prot)}% prot • {round0(dayPct.lip)}% lip • {round0(dayPct.glu)}% glu
-            </Text>
-          </Box>
-
-          {isMobile && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowTotalDetails((v) => !v)}
-              flexShrink={0}
-            >
-              {showTotalDetails ? "Masquer" : "Détails"}
-            </Button>
-          )}
-        </HStack>
-
-        <Collapse in={!isMobile || showTotalDetails} animateOpacity>
-          <Box mt={3}>
-            <Text fontWeight="800">Micros (total jour)</Text>
-            {selectedMicroList.length === 0 ? (
-              <Text fontSize="sm" opacity={0.6} mt={1}>
-                (Aucun micro sélectionné)
-              </Text>
-            ) : (
-              <Wrap spacing={2} mt={2}>
-                {selectedMicroList.map((mic) => {
-                  const v = totals.day.micros?.[mic.key] || 0;
-                  const display = mic.unit === "g" ? fmt1Plain(v) : fmt0Plain(v);
-                  return (
-                    <WrapItem key={mic.key}>
-                      <Badge colorScheme="purple" variant="subtle" px={3} py={1} borderRadius="md">
-                        {mic.label.toUpperCase()} : {display} {mic.unit}
-                      </Badge>
-                    </WrapItem>
-                  );
-                })}
-              </Wrap>
-            )}
-          </Box>
-        </Collapse>
-      </Box>
-
       <Box height="12px" />
       <Text fontSize="xs" opacity={muted} mt={2}>
-        {ciqualLoading ? "Chargement CIQUAL…" : ""}
+        {ciqualLoading ? "Chargement des données…" : ""}
       </Text>
+      {!ciqualLoading && recommendedMicroKeys.length > 0 ? (
+        <Text fontSize="xs" opacity={muted} mt={1}>
+          Micros recommandés pour ce dossier:{" "}
+          {recommendedMicroKeys.map((key) => MICRO_LABEL_BY_KEY[key]).filter(Boolean).join(", ")}
+        </Text>
+      ) : null}
     </Box>
   );
 }
-

@@ -1,0 +1,1425 @@
+{
+  "E001": {
+    "nom": "Jumping Jack",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Tutti i muscoli",
+    "objectifs": [
+      "Cardio",
+      "Resistenza",
+      "Perdita di peso",
+      "Mobilità",
+      "Equilibrio"
+    ],
+    "muscles_secondaires": [
+      "Vitelli",
+      "Spalle",
+      "Quadricipiti"
+    ],
+    "articulations_solicitees": [
+      "Caviglie",
+      "Ginocchia",
+      "Spalle"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille"
+    ],
+    "type": "Attivazione cardio/muscolare",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Evita se hai dolore al ginocchio o alla caviglia"
+    ],
+    "variantes": [
+      "Jack che saltano lentamente",
+      "Step Jack (senza salto)",
+      "Jumping Jack ponderati"
+    ],
+    "consignes": {
+      "Positionnement": "Stai con i piedi uniti, le braccia lungo il corpo.",
+      "Mouvement": "Salta, allargando le gambe lateralmente mentre alzi le braccia sopra la testa.",
+      "Retour": "Riporta i piedi e le braccia contemporaneamente nella posizione di partenza.",
+      "Respiration": "Inspira mentre apri, espira mentre chiudi.",
+      "Posture": "Tieni la schiena dritta e contrai leggermente gli addominali."
+    }
+  },
+  "E002": {
+    "nom": "Jack che saltano lentamente",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Tutti i muscoli",
+    "objectifs": [
+      "Cardio",
+      "Mobilità",
+      "Equilibrio",
+      "Rinforzo leggero",
+      "Preparazione fisica"
+    ],
+    "muscles_secondaires": [
+      "Vitelli",
+      "Spalle",
+      "Quadricipiti"
+    ],
+    "articulations_solicitees": [
+      "Caviglie",
+      "Ginocchia",
+      "Spalle"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille"
+    ],
+    "type": "Cardio moderato",
+    "niveau": "Principiante - Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Ideale per persone con limitazioni di impatto"
+    ],
+    "variantes": [
+      "Jumping Jack",
+      "Step Jack (senza salto)"
+    ],
+    "consignes": {
+      "Positionnement": "Stai con i piedi uniti, le braccia lungo il corpo.",
+      "Mouvement": "Esegui un Jumping Jack a un ritmo più lento, controllando ogni movimento.",
+      "Retour": "Riporta lentamente i piedi e le braccia nella posizione iniziale.",
+      "Respiration": "Inspira mentre apri, espira mentre chiudi.",
+      "Posture": "Coinvolgi gli addominali e mantieni la schiena dritta."
+    }
+  },
+  "E003": {
+    "nom": "Step Jack (senza salto)",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Tutti i muscoli",
+    "objectifs": [
+      "Cardio",
+      "Mobilità",
+      "Equilibrio",
+      "Preparazione congiunta",
+      "Posturale"
+    ],
+    "muscles_secondaires": [
+      "Vitelli",
+      "Spalle",
+      "Quadricipiti"
+    ],
+    "articulations_solicitees": [
+      "Caviglie",
+      "Ginocchia",
+      "Spalle"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille"
+    ],
+    "type": "Cardio moderato",
+    "niveau": "Principiante",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Ideale per persone con limitazioni di impatto"
+    ],
+    "variantes": [
+      "Jumping Jack",
+      "Jack che saltano lentamente"
+    ],
+    "consignes": {
+      "Positionnement": "Stai con i piedi alla larghezza delle spalle, le braccia lungo il corpo.",
+      "Mouvement": "Fai un passo laterale alzando le braccia, quindi torna alla posizione di partenza.",
+      "Retour": "Passaggi alternati a destra e a sinistra senza impatto.",
+      "Respiration": "Inspira mentre apri, espira mentre chiudi.",
+      "Posture": "Tieni la schiena dritta e coinvolgi gli addominali."
+    }
+  },
+  "E004": {
+    "nom": "Jumping Jack ponderati",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Tutti i muscoli",
+    "objectifs": [
+      "Resistenza",
+      "Rinforzo",
+      "Cardio avanzato",
+      "Mobilità",
+      "Posturale",
+      "Preparazione fisica"
+    ],
+    "muscles_secondaires": [
+      "Vitelli",
+      "Spalle",
+      "Quadricipiti"
+    ],
+    "materiel": [
+      "Manubri leggeri",
+      "Gilet zavorrato"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Stai attento agli impatti sulle ginocchia"
+    ],
+    "variantes": [
+      "Jumping Jack",
+      "Step Jack (senza salto)"
+    ],
+    "consignes": {
+      "Positionnement": "Stai con i piedi uniti, manubri in mano o giubbotto zavorrato attaccato.",
+      "Mouvement": "Esegui un Jumping Jack controllando il peso extra.",
+      "Retour": "Riporta i piedi e le braccia contemporaneamente nella posizione di partenza.",
+      "Respiration": "Inspira mentre apri, espira mentre chiudi.",
+      "Posture": "Coinvolgi il tuo core per evitare qualsiasi squilibrio."
+    }
+  },
+  "E005": {
+    "nom": "Rotazioni del braccio",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Spalle",
+    "objectifs": [
+      "Mobilità",
+      "Prevenzione degli infortuni",
+      "Attivazione muscolare"
+    ],
+    "muscles_secondaires": [
+      "Trapezi",
+      "Deltoidi"
+    ],
+    "articulations_solicitees": [
+      "Spalle"
+    ],
+    "tendons_solicites": [
+      "Cuffia dei rotatori"
+    ],
+    "type": "Mobilitazione congiunta",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi o seduto",
+    "contraintes": [
+      "Non forzare l'ampiezza in caso di dolore"
+    ],
+    "variantes": [
+      "Rotazioni in avanti",
+      "Rotazioni all'indietro"
+    ],
+    "consignes": {
+      "Positionnement": "Stare con i piedi alla larghezza delle spalle, le braccia distese lungo i fianchi.",
+      "Mouvement": "Fai dei cerchi lenti con le braccia, avanti e poi indietro.",
+      "Respiration": "Respira in modo naturale, senza blocchi.",
+      "Posture": "Tieni la schiena dritta e il collo rilassato."
+    }
+  },
+  "E006": {
+    "nom": "Alzate frontali leggere",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Spalle",
+    "objectifs": [
+      "Attivazione muscolare",
+      "Preparazione congiunta",
+      "Rinforzo leggero"
+    ],
+    "muscles_secondaires": [
+      "Deltoidi anteriori",
+      "Trapezi"
+    ],
+    "articulations_solicitees": [
+      "Spalle"
+    ],
+    "tendons_solicites": [
+      "Cuffia dei rotatori"
+    ],
+    "type": "Preparazione muscolare",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Manubri leggeri",
+      "Elastico"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Utilizzare un carico leggero per evitare tensioni eccessive"
+    ],
+    "variantes": [
+      "Alzate laterali leggere"
+    ],
+    "consignes": {
+      "Positionnement": "Stare con i piedi alla larghezza delle spalle, le braccia lungo i fianchi.",
+      "Mouvement": "Alza lentamente le braccia davanti a te all'altezza delle spalle.",
+      "Retour": "Scendere lentamente senza sussulti.",
+      "Respiration": "Inspira durante la salita, espira durante la discesa.",
+      "Posture": "Tieni la schiena dritta e coinvolgi gli addominali."
+    }
+  },
+  "E007": {
+    "nom": "Rotazioni in avanti",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Spalle",
+    "objectifs": [
+      "Mobilità",
+      "Prevenzione degli infortuni",
+      "Attivazione muscolare"
+    ],
+    "muscles_secondaires": [
+      "Trapezi",
+      "Deltoidi"
+    ],
+    "articulations_solicitees": [
+      "Spalle"
+    ],
+    "tendons_solicites": [
+      "Cuffia dei rotatori"
+    ],
+    "type": "Mobilitazione congiunta",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi o seduto",
+    "contraintes": [
+      "Non forzare l'ampiezza in caso di dolore"
+    ],
+    "variantes": [
+      "Rotazioni all'indietro"
+    ],
+    "consignes": {
+      "Positionnement": "Stare con i piedi alla larghezza delle spalle, le braccia distese lungo i fianchi.",
+      "Mouvement": "Esegui lente rotazioni in avanti con le braccia.",
+      "Retour": "Mantenere un'ampiezza controllata e regolare.",
+      "Respiration": "Respira in modo naturale, senza blocchi.",
+      "Posture": "Tieni la schiena dritta e il collo rilassato."
+    }
+  },
+  "E008": {
+    "nom": "Rotazioni all'indietro",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Spalle",
+    "objectifs": [
+      "Mobilità",
+      "Prevenzione degli infortuni",
+      "Attivazione muscolare"
+    ],
+    "muscles_secondaires": [
+      "Trapezi",
+      "Deltoidi"
+    ],
+    "articulations_solicitees": [
+      "Spalle"
+    ],
+    "tendons_solicites": [
+      "Cuffia dei rotatori"
+    ],
+    "type": "Mobilitazione congiunta",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi o seduto",
+    "contraintes": [
+      "Non forzare l'ampiezza in caso di dolore"
+    ],
+    "variantes": [
+      "Rotazioni in avanti"
+    ],
+    "consignes": {
+      "Positionnement": "Stare con i piedi alla larghezza delle spalle, le braccia distese lungo i fianchi.",
+      "Mouvement": "Ruota lentamente le braccia all'indietro.",
+      "Retour": "Mantenere un'ampiezza controllata e regolare.",
+      "Respiration": "Respira in modo naturale, senza blocchi.",
+      "Posture": "Tieni la schiena dritta e il collo rilassato."
+    }
+  },
+  "E009": {
+    "nom": "Alzate laterali leggere",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Spalle",
+    "objectifs": [
+      "Attivazione muscolare",
+      "Preparazione congiunta",
+      "Rinforzo leggero"
+    ],
+    "muscles_secondaires": [
+      "Deltoidi laterali",
+      "Trapezi"
+    ],
+    "articulations_solicitees": [
+      "Spalle"
+    ],
+    "tendons_solicites": [
+      "Cuffia dei rotatori"
+    ],
+    "type": "Preparazione muscolare",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Manubri leggeri",
+      "Elastico"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Utilizzare un carico leggero per evitare tensioni eccessive"
+    ],
+    "variantes": [
+      "Alzate frontali leggere"
+    ],
+    "consignes": {
+      "Positionnement": "Stare con i piedi alla larghezza delle spalle, le braccia lungo i fianchi.",
+      "Mouvement": "Alza lentamente le braccia verso i lati fino all'altezza delle spalle.",
+      "Retour": "Scendere lentamente senza sussulti.",
+      "Respiration": "Inspira durante la salita, espira durante la discesa.",
+      "Posture": "Tieni la schiena dritta e coinvolgi gli addominali."
+    }
+  },
+  "E010": {
+    "nom": "Rotazione del polso",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Avambraccio",
+    "objectifs": [
+      "Preparazione congiunta",
+      "Mobilità"
+    ],
+    "muscles_secondaires": [
+      "Estensori del polso",
+      "Flessori del polso"
+    ],
+    "articulations_solicitees": [
+      "Polsini"
+    ],
+    "tendons_solicites": [
+      "Tendini estensori e flessori"
+    ],
+    "type": "Preparazione congiunta",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Evitare movimenti improvvisi"
+    ],
+    "variantes": [
+      "Rotazione dei polsi con elastico"
+    ],
+    "consignes": {
+      "Positionnement": "Stai in piedi, con le braccia rilassate davanti a te, le mani giunte.",
+      "Mouvement": "Fai dei cerchi lenti con i polsi.",
+      "Retour": "Cambia direzione dopo alcune ripetizioni.",
+      "Respiration": "Respira in modo naturale, senza blocchi.",
+      "Posture": "Mantieni le spalle rilassate e la schiena dritta."
+    }
+  },
+  "E011": {
+    "nom": "Flessione-Estensione dei polsi",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Avambraccio",
+    "objectifs": [
+      "Mobilità",
+      "Attivazione muscolare"
+    ],
+    "muscles_secondaires": [
+      "Estensori del polso",
+      "Flessori del polso"
+    ],
+    "articulations_solicitees": [
+      "Polsini"
+    ],
+    "tendons_solicites": [
+      "Tendini flessori ed estensori"
+    ],
+    "type": "Preparazione congiunta",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Nessuno",
+      "Manubri leggeri"
+    ],
+    "position": "Seduto o in piedi",
+    "contraintes": [
+      "Movimento lento e controllato"
+    ],
+    "variantes": [
+      "Flessione-estensione del polso con manubri leggeri"
+    ],
+    "consignes": {
+      "Positionnement": "Siediti o stai in piedi, con le braccia piegate a 90° davanti a te.",
+      "Mouvement": "Piega ed estendi lentamente i polsi.",
+      "Retour": "Alternare senza forzare l'ampiezza.",
+      "Respiration": "Inspira mentre ti pieghi, espira mentre ti estendi.",
+      "Posture": "Tieni la schiena dritta e le spalle rilassate."
+    }
+  },
+  "E012": {
+    "nom": "Rotazione del gomito",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Bicipiti, tricipiti",
+    "objectifs": [
+      "Preparazione congiunta",
+      "Mobilità"
+    ],
+    "muscles_secondaires": [
+      "Bicipiti",
+      "Tricipiti"
+    ],
+    "articulations_solicitees": [
+      "Gomiti"
+    ],
+    "tendons_solicites": [
+      "Tendini bicipiti e tricipiti"
+    ],
+    "type": "Preparazione congiunta",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Movimento fluido e progressivo"
+    ],
+    "variantes": [
+      "Rotazione del gomito con elastico"
+    ],
+    "consignes": {
+      "Positionnement": "In piedi con le braccia alzate a 90°.",
+      "Mouvement": "Esegui lente rotazioni del gomito.",
+      "Retour": "Rotazione interna ed esterna alternata.",
+      "Respiration": "Respira profondamente e naturalmente.",
+      "Posture": "Mantieni la schiena dritta e le spalle allineate."
+    }
+  },
+  "E013": {
+    "nom": "Rotazione dei polsi con elastico",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Avambraccio",
+    "objectifs": [
+      "Preparazione congiunta",
+      "Mobilità"
+    ],
+    "muscles_secondaires": [
+      "Estensori del polso",
+      "Flessori del polso"
+    ],
+    "articulations_solicitees": [
+      "Polsini"
+    ],
+    "tendons_solicites": [
+      "Tendini estensori e flessori"
+    ],
+    "type": "Preparazione congiunta",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Elastico"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Controllare la tensione dell'elastico per evitare sollecitazioni eccessive"
+    ],
+    "consignes": {
+      "Positionnement": "Stai in piedi, tenendo un elastico fissato davanti a te.",
+      "Mouvement": "Esegui dei cerchi lenti con i polsi mantenendo una leggera resistenza.",
+      "Retour": "Cambia direzione dopo alcune ripetizioni.",
+      "Respiration": "Respira in modo naturale, senza blocchi.",
+      "Posture": "Mantieni le spalle rilassate e la schiena dritta."
+    }
+  },
+  "E014": {
+    "nom": "Flessione-Estensione dei polsi con elastico",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Avambraccio",
+    "objectifs": [
+      "Mobilità",
+      "Attivazione muscolare"
+    ],
+    "muscles_secondaires": [
+      "Estensori del polso",
+      "Flessori del polso"
+    ],
+    "articulations_solicitees": [
+      "Polsini"
+    ],
+    "tendons_solicites": [
+      "Tendini flessori ed estensori"
+    ],
+    "type": "Preparazione congiunta",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Elastico"
+    ],
+    "position": "Seduto o in piedi",
+    "contraintes": [
+      "Non tirare troppo forte l'elastico per evitare una tensione eccessiva"
+    ],
+    "variantes": [
+      "Flessione-estensione del polso con manubri leggeri",
+      "Flessione-Estensione dei polsi"
+    ],
+    "consignes": {
+      "Positionnement": "Siediti o stai in piedi, tenendo un elastico fissato davanti a te.",
+      "Mouvement": "Piega ed estendi lentamente i polsi, mantenendo una leggera tensione.",
+      "Retour": "Alternare senza forzare l'ampiezza.",
+      "Respiration": "Inspira mentre ti pieghi, espira mentre ti estendi.",
+      "Posture": "Tieni la schiena dritta e le spalle rilassate."
+    }
+  },
+  "E015": {
+    "nom": "Rotazione del gomito con manubri leggeri",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Bicipiti, tricipiti",
+    "objectifs": [
+      "Preparazione congiunta",
+      "Mobilità"
+    ],
+    "muscles_secondaires": [
+      "Bicipiti",
+      "Tricipiti"
+    ],
+    "articulations_solicitees": [
+      "Gomiti"
+    ],
+    "tendons_solicites": [
+      "Tendini bicipiti e tricipiti"
+    ],
+    "type": "Preparazione congiunta",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Manubri leggeri"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Utilizzare un carico leggero per evitare tensioni eccessive"
+    ],
+    "variantes": [
+      "Rotazione del gomito con elastico",
+      "Rotazione del gomito"
+    ],
+    "consignes": {
+      "Positionnement": "Stai in piedi tenendo un manubrio leggero in ciascuna mano.",
+      "Mouvement": "Esegui lente rotazioni del gomito mantenendo un movimento fluido.",
+      "Retour": "Rotazione interna ed esterna alternata.",
+      "Respiration": "Respira profondamente e naturalmente.",
+      "Posture": "Mantieni la schiena dritta e le spalle allineate."
+    }
+  },
+  "E016": {
+    "nom": "Rotazione del collo",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Collo",
+    "objectifs": [
+      "Mobilità",
+      "Prevenzione degli infortuni"
+    ],
+    "muscles_secondaires": [
+      "Trapezi",
+      "Sternocleidomastoideo"
+    ],
+    "articulations_solicitees": [
+      "Cervicale"
+    ],
+    "tendons_solicites": [
+      "Tendini cervicali"
+    ],
+    "type": "Mobilitazione congiunta",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi o seduto",
+    "contraintes": [
+      "Non forzare la rotazione in caso di dolore"
+    ],
+    "variantes": [
+      "Inclinazione laterale del collo"
+    ],
+    "consignes": {
+      "Positionnement": "Stai dritto, la testa in linea con il tuo corpo.",
+      "Mouvement": "Ruota lentamente la testa verso destra e poi verso sinistra.",
+      "Retour": "Riporta delicatamente la testa in una posizione neutra tra ogni rotazione.",
+      "Respiration": "Respira profondamente e naturalmente.",
+      "Posture": "Rilassa le spalle e mantieni la schiena dritta."
+    }
+  },
+  "E017": {
+    "nom": "Inclinazione laterale del collo",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Collo",
+    "objectifs": [
+      "Mobilità",
+      "Prevenzione degli infortuni"
+    ],
+    "muscles_secondaires": [
+      "Trapezi",
+      "Sternocleidomastoideo"
+    ],
+    "articulations_solicitees": [
+      "Cervicale"
+    ],
+    "tendons_solicites": [
+      "Tendini cervicali"
+    ],
+    "type": "Mobilitazione congiunta",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi o seduto",
+    "contraintes": [
+      "Non forzare l'inclinazione in caso di dolore"
+    ],
+    "variantes": [
+      "Rotazione del collo"
+    ],
+    "consignes": {
+      "Positionnement": "Stai dritto, la testa in linea con il tuo corpo.",
+      "Mouvement": "Inclina delicatamente la testa verso la spalla destra e poi verso la spalla sinistra.",
+      "Retour": "Riporta la testa in una posizione neutra tra ogni inclinazione.",
+      "Respiration": "Respira profondamente e naturalmente.",
+      "Posture": "Rilassa le spalle e mantieni la schiena dritta."
+    }
+  },
+  "E018": {
+    "nom": "Rotazione del tronco",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Addominali",
+    "objectifs": [
+      "Mobilità",
+      "Preparazione congiunta",
+      "Attivazione muscolare"
+    ],
+    "muscles_secondaires": [
+      "Obliqui",
+      "Lombare"
+    ],
+    "articulations_solicitees": [
+      "Fianchi",
+      "Colonna vertebrale"
+    ],
+    "tendons_solicites": [
+      "Legamenti spinali"
+    ],
+    "type": "Mobilitazione congiunta",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Non forzare l'ampiezza in caso di dolore"
+    ],
+    "variantes": [
+      "Rotazione del tronco con un bastone"
+    ],
+    "consignes": {
+      "Positionnement": "Stare con i piedi alla larghezza delle spalle, le braccia incrociate sul petto o dietro la testa.",
+      "Mouvement": "Ruota lentamente il tronco da sinistra a destra senza muovere il bacino.",
+      "Retour": "Mantenere un'ampiezza controllata e regolare.",
+      "Respiration": "Inspira in posizione neutra, espira ruotando.",
+      "Posture": "Tieni la schiena dritta e coinvolgi gli addominali."
+    }
+  },
+  "E019": {
+    "nom": "Flessione-estensione del tronco",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Addominali",
+    "objectifs": [
+      "Mobilità",
+      "Preparazione congiunta",
+      "Rinforzo leggero"
+    ],
+    "muscles_secondaires": [
+      "Lombare",
+      "Obliqui"
+    ],
+    "articulations_solicitees": [
+      "Colonna vertebrale",
+      "Fianchi"
+    ],
+    "tendons_solicites": [
+      "Legamenti spinali"
+    ],
+    "type": "Preparazione congiunta",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Non andare troppo in basso in caso di mal di schiena"
+    ],
+    "variantes": [
+      "Flessione-estensione con bastone"
+    ],
+    "consignes": {
+      "Positionnement": "Stare con i piedi alla larghezza delle spalle, le mani sui fianchi o dietro la testa.",
+      "Mouvement": "Inclina lentamente il busto in avanti e poi alzati.",
+      "Retour": "Ritorna alla posizione di partenza con controllo.",
+      "Respiration": "Inspira durante la discesa, espira durante la salita.",
+      "Posture": "Mantieni gli addominali impegnati e la schiena dritta."
+    }
+  },
+  "E020": {
+    "nom": "Rotazione del tronco con un bastone",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Addominali",
+    "objectifs": [
+      "Mobilità",
+      "Preparazione congiunta",
+      "Attivazione muscolare"
+    ],
+    "muscles_secondaires": [
+      "Obliqui",
+      "Lombare"
+    ],
+    "articulations_solicitees": [
+      "Fianchi",
+      "Colonna vertebrale"
+    ],
+    "tendons_solicites": [
+      "Legamenti spinali"
+    ],
+    "type": "Mobilitazione congiunta",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Attacca"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Non forzare l'ampiezza in caso di dolore"
+    ],
+    "variantes": [
+      "Rotazione del tronco"
+    ],
+    "consignes": {
+      "Positionnement": "Stare in piedi, con i piedi alla larghezza delle spalle, il bastone posizionato dietro il collo e tenuto con le mani.",
+      "Mouvement": "Ruota lentamente il tronco da sinistra a destra senza muovere il bacino.",
+      "Retour": "Mantenere un'ampiezza controllata e regolare.",
+      "Respiration": "Inspira in posizione neutra, espira ruotando.",
+      "Posture": "Tieni la schiena dritta e coinvolgi gli addominali."
+    }
+  },
+  "E021": {
+    "nom": "Flessione-estensione con bastone",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Addominali",
+    "objectifs": [
+      "Mobilità",
+      "Preparazione congiunta",
+      "Rinforzo leggero"
+    ],
+    "muscles_secondaires": [
+      "Lombare",
+      "Obliqui"
+    ],
+    "articulations_solicitees": [
+      "Colonna vertebrale",
+      "Fianchi"
+    ],
+    "tendons_solicites": [
+      "Legamenti spinali"
+    ],
+    "type": "Preparazione congiunta",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Attacca"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Non andare troppo in basso in caso di mal di schiena"
+    ],
+    "variantes": [
+      "Flessione-estensione del tronco"
+    ],
+    "consignes": {
+      "Positionnement": "Stare con i piedi alla larghezza delle spalle, il bastone appoggiato sulle spalle e tenuto con le mani.",
+      "Mouvement": "Inclina lentamente il busto in avanti e poi alzati.",
+      "Retour": "Ritorna alla posizione di partenza con controllo.",
+      "Respiration": "Inspira durante la discesa, espira durante la salita.",
+      "Posture": "Mantieni gli addominali impegnati e la schiena dritta."
+    }
+  },
+  "E022": {
+    "nom": "Tacchi a sedere",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "tendini del ginocchio",
+    "objectifs": [
+      "Attivazione muscolare",
+      "Preparazione congiunta",
+      "Cardio"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "Vitelli"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Caviglie"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille"
+    ],
+    "type": "Cardio moderato",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Evitare gli impatti in caso di dolore al ginocchio"
+    ],
+    "consignes": {
+      "Positionnement": "Stai con i piedi alla larghezza delle spalle.",
+      "Mouvement": "In alternativa, porta un tallone verso il gluteo, attivando i muscoli posteriori della coscia.",
+      "Retour": "Alternare senza impatto eccessivo.",
+      "Respiration": "Inspira ed espira regolarmente.",
+      "Posture": "Tieni la schiena dritta e lo sguardo in avanti."
+    }
+  },
+  "E023": {
+    "nom": "Piccolo salto sul posto",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Vitelli",
+    "objectifs": [
+      "Attivazione muscolare",
+      "Preparazione congiunta",
+      "Cardio"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Caviglie",
+      "Ginocchia"
+    ],
+    "tendons_solicites": [
+      "Tendine d'Achille"
+    ],
+    "type": "Cardio moderato",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Limita l'impatto in caso di dolore alla caviglia"
+    ],
+    "variantes": [
+      "Salti alternativi",
+      "Rimbalzo leggero senza impatto"
+    ],
+    "consignes": {
+      "Positionnement": "Stai con i piedi alla larghezza delle spalle.",
+      "Mouvement": "Esegui piccoli salti rimanendo in punta di piedi.",
+      "Retour": "Mantieni un ritmo leggero e costante.",
+      "Respiration": "Respira in modo naturale, non bloccare il respiro.",
+      "Posture": "Mantieni gli addominali impegnati e le spalle rilassate."
+    }
+  },
+  "E024": {
+    "nom": "Salti alternativi",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Vitelli",
+    "objectifs": [
+      "Attivazione muscolare",
+      "Preparazione congiunta",
+      "Cardio"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Caviglie",
+      "Ginocchia"
+    ],
+    "tendons_solicites": [
+      "Tendine d'Achille"
+    ],
+    "type": "Cardio moderato",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Limita l'impatto in caso di dolore al ginocchio o alla caviglia"
+    ],
+    "variantes": [
+      "Piccolo salto sul posto",
+      "Rimbalzo leggero senza impatto"
+    ],
+    "consignes": {
+      "Positionnement": "Stare con i piedi alla larghezza delle spalle.",
+      "Mouvement": "Salta, alternando gli appoggi dei piedi come se stessi correndo sul posto.",
+      "Retour": "Mantenere un movimento fluido e controllato.",
+      "Respiration": "Respira in modo naturale a ritmo con i salti.",
+      "Posture": "Coinvolgi gli addominali e mantieni il busto dritto."
+    }
+  },
+  "E025": {
+    "nom": "Rimbalzo leggero senza impatto",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Vitelli",
+    "objectifs": [
+      "Preparazione congiunta",
+      "Attivazione muscolare",
+      "Cardio leggero"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Caviglie",
+      "Ginocchia"
+    ],
+    "tendons_solicites": [
+      "Tendine d'Achille"
+    ],
+    "type": "Cardio leggero",
+    "niveau": "Principiante - Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Ideale per persone con limitazioni di impatto"
+    ],
+    "variantes": [
+      "Piccolo salto sul posto",
+      "Salti alternativi"
+    ],
+    "consignes": {
+      "Positionnement": "Stai con i piedi alla larghezza delle spalle.",
+      "Mouvement": "Esegui leggeri rimbalzi rimanendo sugli avampiedi, senza sollevarti troppo in alto.",
+      "Retour": "Continua a muoverti in modo fluido e leggero.",
+      "Respiration": "Respira con calma e regolarmente.",
+      "Posture": "Tieni le ginocchia leggermente piegate e la schiena dritta."
+    }
+  },
+  "E026": {
+    "nom": "Non inseguito",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Attivazione muscolare",
+      "Preparazione congiunta",
+      "Agilità"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "tendini del ginocchio",
+      "Vitelli"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendini del tendine del ginocchio"
+    ],
+    "type": "Mobilità e coordinazione",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Evitare movimenti troppo bruschi"
+    ],
+    "variantes": [
+      "Non inseguito velocemente",
+      "Non inseguito con elastico"
+    ],
+    "consignes": {
+      "Positionnement": "Stare con i piedi alla larghezza delle spalle, le ginocchia leggermente piegate.",
+      "Mouvement": "Muoviti lateralmente, avvicinando rapidamente il piede posteriore a quello anteriore.",
+      "Retour": "Ripeti alternando i lati.",
+      "Respiration": "Respirate naturalmente a ritmo con i movimenti.",
+      "Posture": "Tieni la schiena dritta e coinvolgi gli addominali."
+    }
+  },
+  "E027": {
+    "nom": "Camminata con le ginocchia alte",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Attivazione muscolare",
+      "Preparazione congiunta",
+      "Cardio leggero"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo"
+    ],
+    "type": "Mobilitazione e attivazione",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Non forzare l'ampiezza in caso di dolore all'anca"
+    ],
+    "variantes": [
+      "Correre a ginocchia alte",
+      "Sollevamento del ginocchio"
+    ],
+    "consignes": {
+      "Positionnement": "Stai con i piedi alla larghezza dei fianchi.",
+      "Mouvement": "Sollevare un ginocchio all'altezza dei fianchi, quindi alternarlo con l'altra gamba.",
+      "Retour": "Esegui il movimento in modo dinamico ma controllato.",
+      "Respiration": "Inspira mentre sollevi il ginocchio, espira mentre lo abbassi.",
+      "Posture": "Coinvolgi gli addominali e mantieni la schiena dritta."
+    }
+  },
+  "E028": {
+    "nom": "Affondo in avanti",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Preparazione congiunta",
+      "Attivazione muscolare",
+      "Equilibrio"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "Glutei",
+      "tendini del ginocchio"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendini del tendine del ginocchio"
+    ],
+    "type": "Mobilitazione e attivazione",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Non abbassarti troppo se ti fanno male le ginocchia"
+    ],
+    "variantes": [
+      "Affondi statici",
+      "Affondi all'indietro"
+    ],
+    "consignes": {
+      "Positionnement": "Stai con i piedi alla larghezza dei fianchi.",
+      "Mouvement": "Fai un passo in avanti e abbassalo in un affondo in avanti, quindi alterna le gambe.",
+      "Retour": "Mantieni i tuoi movimenti fluidi e controllati.",
+      "Respiration": "Inspira durante la discesa, espira durante la salita.",
+      "Posture": "Mantieni il busto dritto e contrai gli addominali."
+    }
+  },
+  "E029": {
+    "nom": "Non inseguito velocemente",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Attivazione muscolare",
+      "Agilità",
+      "Preparazione congiunta"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "Vitelli",
+      "tendini del ginocchio"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendini del tendine del ginocchio"
+    ],
+    "type": "Mobilità e coordinazione",
+    "niveau": "Intermedio - Avanzato",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Evitare movimenti troppo bruschi"
+    ],
+    "variantes": [
+      "Non inseguito",
+      "Non inseguito con elastico"
+    ],
+    "consignes": {
+      "Positionnement": "Stai con le ginocchia leggermente piegate.",
+      "Mouvement": "Muoviti lateralmente il più velocemente possibile.",
+      "Retour": "Alternare i lati mantenendo un buon controllo del movimento.",
+      "Respiration": "Respira naturalmente a ritmo con il movimento.",
+      "Posture": "Tieni la schiena dritta e coinvolgi gli addominali."
+    }
+  },
+  "E030": {
+    "nom": "Non inseguito con elastico",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Rafforzamento muscolare",
+      "Attivazione muscolare",
+      "Riscaldamento dinamico"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "Vitelli",
+      "Glutei"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendini del tendine del ginocchio"
+    ],
+    "type": "Mobilità e coordinazione",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Resistenza elastica"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Non prendere un elastico troppo rigido"
+    ],
+    "variantes": [
+      "Non inseguito",
+      "Non inseguito velocemente"
+    ],
+    "consignes": {
+      "Positionnement": "Metti una fascia elastica attorno alle ginocchia o alle caviglie.",
+      "Mouvement": "Fai dei passi strascicati da un lato all'altro mantenendo la tensione sull'elastico.",
+      "Retour": "Ripeti alternando i lati.",
+      "Respiration": "Inspira mentre apri, espira mentre chiudi.",
+      "Posture": "Tieni le ginocchia leggermente piegate e attiva i glutei."
+    }
+  },
+  "E031": {
+    "nom": "Correre a ginocchia alte",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Cardio",
+      "Mobilità",
+      "Agilità",
+      "Attivazione muscolare"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "Vitelli",
+      "Glutei"
+    ],
+    "articulations_solicitees": [
+      "Caviglie",
+      "Ginocchia",
+      "Fianchi"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille"
+    ],
+    "type": "Cardio e coordinazione",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Evitare in caso di dolore al ginocchio o alla caviglia"
+    ],
+    "variantes": [
+      "Sollevamento del ginocchio",
+      "Sprint sul posto"
+    ],
+    "consignes": {
+      "Positionnement": "Stai dritto con i piedi alla larghezza dei fianchi.",
+      "Mouvement": "Alza rapidamente le ginocchia alternativamente, mantenendo la schiena dritta.",
+      "Retour": "Mantenere un ritmo costante e movimenti fluidi.",
+      "Respiration": "Respira regolarmente a ritmo con la corsa.",
+      "Posture": "Coinvolgi gli addominali e mantieni le braccia attive."
+    }
+  },
+  "E032": {
+    "nom": "Sollevamento del ginocchio",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Mobilità",
+      "Attivazione muscolare",
+      "Preparazione congiunta"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "Glutei",
+      "Addominali"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo"
+    ],
+    "type": "Preparazione congiunta",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Non forzare l'ampiezza in caso di dolore all'anca"
+    ],
+    "variantes": [
+      "Correre a ginocchia alte"
+    ],
+    "consignes": {
+      "Positionnement": "Stai dritto con i piedi alla larghezza dei fianchi.",
+      "Mouvement": "Solleva un ginocchio verso il petto, quindi alternalo con l'altra gamba.",
+      "Retour": "Mantieni un ritmo controllato e costante.",
+      "Respiration": "Espira mentre sollevi il ginocchio, inspira mentre lo abbassi.",
+      "Posture": "Coinvolgi gli addominali e mantieni lo sguardo dritto davanti a te."
+    }
+  },
+  "E033": {
+    "nom": "Affondi statici",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Rinforzo",
+      "Mobilità",
+      "Attivazione muscolare"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "Glutei",
+      "tendini del ginocchio"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo"
+    ],
+    "type": "Preparazione muscolare",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Mantenere le ginocchia allineate con le dita dei piedi per evitare tensioni"
+    ],
+    "variantes": [
+      "Affondi frontali",
+      "Affondi all'indietro"
+    ],
+    "consignes": {
+      "Positionnement": "Stai dritto, un piede avanti e l'altro indietro.",
+      "Mouvement": "Piegare entrambe le ginocchia per abbassarsi in un affondo, senza toccare il suolo con il ginocchio posteriore.",
+      "Retour": "Torna su, mantenendo la schiena dritta e alternando le gambe.",
+      "Respiration": "Inspira durante la discesa, espira durante la salita.",
+      "Posture": "Coinvolgi gli addominali e mantieni lo sguardo dritto davanti a te."
+    }
+  },
+  "E034": {
+    "nom": "Affondi all'indietro",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Rinforzo",
+      "Equilibrio",
+      "Mobilità"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "Glutei",
+      "tendini del ginocchio"
+    ],
+    "articulations_solicitees": [
+      "Ginocchia",
+      "Fianchi"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo"
+    ],
+    "type": "Preparazione muscolare",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Evitare movimenti bruschi per preservare le articolazioni"
+    ],
+    "variantes": [
+      "Affondi frontali",
+      "Affondi statici"
+    ],
+    "consignes": {
+      "Positionnement": "Stai dritto con i piedi alla larghezza dei fianchi.",
+      "Mouvement": "Fai un passo indietro con un piede e piega le ginocchia per abbassarti in un affondo.",
+      "Retour": "Spingere sulla gamba anteriore per tornare alla posizione iniziale.",
+      "Respiration": "Inspira durante la discesa, espira durante la salita.",
+      "Posture": "Tieni la schiena dritta e lo sguardo in avanti."
+    }
+  },
+  "E035": {
+    "nom": "Sprint sul posto",
+    "categorie": "Riscaldamento",
+    "groupe_musculaire": "Gambe",
+    "objectifs": [
+      "Cardio",
+      "Esplosività",
+      "Coordinamento"
+    ],
+    "muscles_secondaires": [
+      "Quadricipiti",
+      "Vitelli",
+      "Glutei"
+    ],
+    "articulations_solicitees": [
+      "Caviglie",
+      "Ginocchia"
+    ],
+    "tendons_solicites": [
+      "Tendine rotuleo",
+      "Tendine d'Achille"
+    ],
+    "type": "Cardio intensivo",
+    "niveau": "Tutti i livelli",
+    "materiel": [
+      "Nessuno"
+    ],
+    "position": "In piedi",
+    "contraintes": [
+      "Controllare l'intensità in base al livello ed evitare impatti eccessivamente violenti"
+    ],
+    "variantes": [
+      "Correre a ginocchia alte"
+    ],
+    "consignes": {
+      "Positionnement": "Stai dritto con i piedi alla larghezza dei fianchi.",
+      "Mouvement": "Esegui una corsa veloce sul posto mentre sollevi le ginocchia.",
+      "Retour": "Mantieni un ritmo costante e controllato.",
+      "Respiration": "Respira profondamente e ritmicamente.",
+      "Posture": "Coinvolgi gli addominali e mantieni la schiena dritta."
+    }
+  }
+}

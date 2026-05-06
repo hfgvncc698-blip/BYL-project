@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Box, Heading, Table, Thead, Tbody, Tr, Th, Td, Button, Spinner, Text,
   HStack, Stack, useColorModeValue, useBreakpointValue, Progress, Badge,
+  SimpleGrid, Circle, Icon, Flex, VStack,
 } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
@@ -11,6 +12,14 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useTranslation } from "react-i18next";
+import {
+  MdOutlineCalendarMonth,
+  MdOutlineFitnessCenter,
+  MdOutlineInsights,
+  MdOutlinePlayArrow,
+} from "react-icons/md";
+import AppLoading from "../components/ui/AppLoading";
+import PageBackButton from "../components/ui/PageBackButton";
 
 /* ----------------- Helpers date ----------------- */
 function toDateSafe(v) {
@@ -123,10 +132,22 @@ export default function MyPrograms() {
   const [loading, setLoading] = useState(true);
   const [clientId, setClientId] = useState(null);
 
-  const bg = useColorModeValue("white", "gray.700");
-  const cardBg = useColorModeValue("gray.50", "gray.800");
-  const textColor = useColorModeValue("gray.800", "white");
-  const hoverBg = useColorModeValue("gray.100", "gray.600");
+  const pageBg = useColorModeValue("#F5F7FB", "#070B14");
+  const surfaceBg = useColorModeValue("rgba(255,255,255,0.85)", "rgba(15,21,35,0.86)");
+  const surfaceBgStrong = useColorModeValue("rgba(255,255,255,0.95)", "rgba(11,16,27,0.95)");
+  const bg = surfaceBgStrong;
+  const cardBg = surfaceBg;
+  const textColor = useColorModeValue("#111827", "white");
+  const mutedText = useColorModeValue("rgba(17,24,39,0.68)", "rgba(255,255,255,0.68)");
+  const subtleText = useColorModeValue("rgba(17,24,39,0.52)", "rgba(255,255,255,0.46)");
+  const borderColor = useColorModeValue("rgba(15,23,42,0.08)", "rgba(255,255,255,0.08)");
+  const borderStrong = useColorModeValue("rgba(15,23,42,0.12)", "rgba(255,255,255,0.12)");
+  const hoverBg = useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.06)");
+  const glassShadow = useColorModeValue(
+    "0 20px 50px rgba(15,23,42,0.08)",
+    "0 20px 60px rgba(0,0,0,0.35)"
+  );
+  const activeBlue = "#3B82F6";
   const isMobile = useBreakpointValue({ base: true, md: false });
 
   // ✅ mapping objectif Firestore -> i18n key
@@ -384,56 +405,224 @@ export default function MyPrograms() {
     navigate(`/clients/${clientId}/programmes/${p.id}/session/${idx}/play`);
   };
 
-  /* ------------------ Rendu ------------------ */
-  if (loading) {
-    return (
-      <Box textAlign="center" py={10} bg={cardBg}>
-        <Spinner size="xl" color={textColor} />
-      </Box>
-    );
-  }
-
-  if (rows.length === 0) {
-    return (
-      <Box p={6} bg={cardBg} borderRadius="lg" boxShadow="base">
-        <Heading size="lg" mb={2} color={textColor}>
-          {t("client_dash.my_programs")}
-        </Heading>
-        <Text color={textColor}>{t("programs.empty")}</Text>
-      </Box>
-    );
-  }
-
   const title =
     user?.role === "coach"
       ? `${t("client_dash.my_programs")} (Coach)`
       : t("client_dash.my_programs");
 
+  const summary = useMemo(() => {
+    const total = rows.length;
+    const completed = rows.filter((p) => (p.progressionPct ?? 0) >= 100).length;
+    const inProgress = rows.filter((p) => (p.progressionPct ?? 0) > 0 && (p.progressionPct ?? 0) < 100).length;
+    const upcoming = rows.filter((p) => (p.progressionPct ?? 0) < 100).length;
+    return { total, completed, inProgress, upcoming };
+  }, [rows]);
+
+  const MiniStat = ({ label, value, helper, icon }) => (
+    <Box
+      bg={surfaceBg}
+      border="1px solid"
+      borderColor={borderColor}
+      borderRadius="22px"
+      p={4}
+      boxShadow={glassShadow}
+      position="relative"
+      overflow="hidden"
+      _before={{
+        content: '""',
+        position: "absolute",
+        right: "-18px",
+        bottom: "-22px",
+        w: "110px",
+        h: "110px",
+        borderRadius: "full",
+        bg: "rgba(59,130,246,0.12)",
+        filter: "blur(24px)",
+      }}
+    >
+      <HStack justify="space-between" align="flex-start" position="relative" zIndex={1}>
+        <Box minW={0}>
+          <Text fontSize="sm" color={mutedText} fontWeight="600">{label}</Text>
+          <Text mt={2} fontSize={{ base: "xl", md: "2xl" }} fontWeight="900" letterSpacing="-0.03em">
+            {value}
+          </Text>
+          {helper ? <Text mt={2} fontSize="sm" color={subtleText}>{helper}</Text> : null}
+        </Box>
+        <Circle size="42px" bg="rgba(59,130,246,0.12)" color={activeBlue} flexShrink={0}>
+          <Icon as={icon} boxSize="20px" />
+        </Circle>
+      </HStack>
+    </Box>
+  );
+
+  /* ------------------ Rendu ------------------ */
+  if (loading) {
+    return <AppLoading label={t("common.loading", "Chargement...")} />;
+  }
+
+  if (rows.length === 0) {
+    return (
+      <Box p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh" position="relative">
+        <Box position="absolute" top={{ base: 4, md: 6 }} left={{ base: 4, md: 6 }} zIndex={20}>
+          <PageBackButton />
+        </Box>
+        <Box p={6} bg={bg} borderRadius="2xl" boxShadow="sm" borderWidth="1px" borderColor={borderStrong}>
+          <Heading size="lg" mb={2} color={textColor}>
+            {t("client_dash.my_programs")}
+          </Heading>
+          <Text color={textColor}>{t("programs.empty")}</Text>
+        </Box>
+      </Box>
+    );
+  }
+
   return (
-    <Box p={6} bg={bg} borderRadius="lg" boxShadow="base">
-      <Heading size="lg" mb={4} color={textColor}>
-        {title}
-      </Heading>
+    <Box p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
+      <Box position="absolute" top={{ base: 4, md: 6 }} left={{ base: 4, md: 6 }} zIndex={20}>
+        <PageBackButton />
+      </Box>
+      <Box
+        position="absolute"
+        top="-140px"
+        right="-100px"
+        w="420px"
+        h="420px"
+        borderRadius="full"
+        bg={useColorModeValue("rgba(59,130,246,0.10)", "rgba(59,130,246,0.14)")}
+        filter="blur(90px)"
+        pointerEvents="none"
+      />
+      <Box
+        position="absolute"
+        bottom="-140px"
+        left="-100px"
+        w="380px"
+        h="380px"
+        borderRadius="full"
+        bg={useColorModeValue("rgba(16,185,129,0.08)", "rgba(16,185,129,0.10)")}
+        filter="blur(90px)"
+        pointerEvents="none"
+      />
+
+      <VStack maxW="1120px" mx="auto" spacing={6} align="stretch" position="relative" zIndex={1}>
+      <Box
+        p={{ base: 4, md: 5 }}
+        bg={bg}
+        borderRadius="30px"
+        boxShadow={glassShadow}
+        border="1px solid"
+        borderColor={borderStrong}
+        position="relative"
+        overflow="hidden"
+      >
+        <Box
+          position="absolute"
+          top="-40px"
+          right="-20px"
+          w="220px"
+          h="220px"
+          borderRadius="full"
+          bg={useColorModeValue("rgba(59,130,246,0.08)", "rgba(59,130,246,0.10)")}
+          filter="blur(38px)"
+        />
+        <Flex
+          position="relative"
+          zIndex={1}
+          direction={{ base: "column", "2xl": "row" }}
+          justify="space-between"
+          align={{ base: "stretch", "2xl": "center" }}
+          gap={4}
+        >
+          <Flex
+            direction={{ base: "column", md: "row" }}
+            gap={3}
+            align={{ base: "flex-start", md: "center" }}
+            minW={0}
+            w="full"
+            flex="1"
+          >
+            <Circle
+              size={{ base: "56px", md: "64px" }}
+              bg={useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")}
+              border="1px solid"
+              borderColor={borderStrong}
+              color={textColor}
+              flexShrink={0}
+            >
+              <Icon as={MdOutlineFitnessCenter} boxSize="26px" />
+            </Circle>
+            <Box minW={0} flex="1" w="full">
+              <Heading
+                size={{ base: "md", md: "lg" }}
+                lineHeight="1.05"
+                letterSpacing="-0.03em"
+                color={textColor}
+                wordBreak="keep-all"
+                whiteSpace="normal"
+              >
+                {title}
+              </Heading>
+              <Text mt={2} color={mutedText} maxW="56ch">
+                Retrouvez vos programmes actifs, votre progression et relancez directement la prochaine séance utile.
+              </Text>
+            </Box>
+          </Flex>
+
+          <SimpleGrid
+            columns={{ base: 1, sm: 2, xl: 4 }}
+            spacing={3}
+            w="full"
+            minW={0}
+            maxW={{ base: "100%", "2xl": "560px" }}
+          >
+            <MiniStat label="Programmes" value={summary.total} helper="actifs dans votre espace" icon={MdOutlineFitnessCenter} />
+            <MiniStat label="En cours" value={summary.inProgress} helper="progression déjà entamée" icon={MdOutlineInsights} />
+            <MiniStat label="À relancer" value={summary.upcoming} helper="séances encore à jouer" icon={MdOutlinePlayArrow} />
+            <MiniStat label="Terminés" value={summary.completed} helper="programmes complétés" icon={MdOutlineCalendarMonth} />
+          </SimpleGrid>
+        </Flex>
+      </Box>
 
       {isMobile ? (
         <Stack spacing={4}>
           {rows.map((p) => (
-            <Box key={p.id} p={4} bg={cardBg} borderRadius="md" boxShadow="sm">
+            <Box
+              key={p.id}
+              p={4}
+              bg={cardBg}
+              borderRadius="22px"
+              boxShadow={glassShadow}
+              border="1px solid"
+              borderColor={borderColor}
+              position="relative"
+              overflow="hidden"
+            >
+              <Box
+                position="absolute"
+                right="-18px"
+                bottom="-22px"
+                w="110px"
+                h="110px"
+                borderRadius="full"
+                bg="rgba(59,130,246,0.10)"
+                filter="blur(24px)"
+              />
+              <Box position="relative" zIndex={1}>
               <HStack justify="space-between" mb={1}>
                 <Text fontSize="md" fontWeight="bold" color={textColor}>
                   {p.nomProgramme}
                 </Text>
-                <Badge colorScheme={(p.progressionPct ?? 0) >= 100 ? "green" : "blue"}>
+                <Badge colorScheme={(p.progressionPct ?? 0) >= 100 ? "green" : undefined}>
                   {p.progressionPct ?? 0}%
                 </Badge>
               </HStack>
 
-              <Text color={textColor}>
-                {t("client_dash.table.created_on")}: {p.createdAtFormatted}
+              <Text color={mutedText} fontSize="sm">
+                Créé / assigné le {p.createdAtFormatted}
               </Text>
 
               {user?.role !== "coach" && (
-                <Text color={textColor}>
+                <Text color={mutedText} fontSize="sm" mt={1}>
                   {t("dashboard.col_last_session")}: {p.lastActivityStr}
                   {p.lastSessionLabel ? (
                     <>
@@ -446,10 +635,10 @@ export default function MyPrograms() {
                 </Text>
               )}
 
-              <Text color={textColor} mt={2}>{t("client_dash.table.progress")}</Text>
-              <Progress value={p.progressionPct ?? 0} size="sm" borderRadius="md" />
+              <Text color={textColor} mt={3} fontWeight="700">{t("client_dash.table.progress")}</Text>
+              <Progress value={p.progressionPct ?? 0} size="sm" borderRadius="full" mt={1.5} />
               {user?.role !== "coach" && (
-                <Text color={textColor} fontSize="sm" mt={1}>
+                <Text color={mutedText} fontSize="sm" mt={1.5}>
                   {t("client_dash.done_total_sessions", {
                     done: p.doneCount || 0,
                     total: p.sessionCount || 0,
@@ -464,17 +653,17 @@ export default function MyPrograms() {
                 <Button
                   flex={1}
                   size="sm"
-                  colorScheme="blue"
                   onClick={() => startSession(p)}
                 >
                   {t("client_dash.start")}
                 </Button>
               </HStack>
+              </Box>
             </Box>
           ))}
         </Stack>
       ) : (
-        <Box overflowX="auto">
+        <Box overflowX="auto" borderRadius="22px" border="1px solid" borderColor={borderColor} boxShadow={glassShadow}>
           <Table variant="simple" color={textColor} bg={cardBg}>
             <Thead>
               <Tr>
@@ -511,7 +700,7 @@ export default function MyPrograms() {
                     <HStack spacing={3}>
                       <Progress value={p.progressionPct ?? 0} flex="1" size="sm" borderRadius="md" />
                       <Badge
-                        colorScheme={(p.progressionPct ?? 0) >= 100 ? "green" : "blue"}
+                        colorScheme={(p.progressionPct ?? 0) >= 100 ? "green" : undefined}
                         minW="64px"
                         textAlign="center"
                       >
@@ -525,7 +714,7 @@ export default function MyPrograms() {
                       <Button variant="outline" size="sm" onClick={() => goToProgram(p)}>
                         {t("client_dash.view_program")}
                       </Button>
-                      <Button colorScheme="blue" size="sm" onClick={() => startSession(p)}>
+                      <Button size="sm" onClick={() => startSession(p)}>
                         {t("client_dash.start_session")}
                       </Button>
                     </HStack>
@@ -536,7 +725,7 @@ export default function MyPrograms() {
           </Table>
         </Box>
       )}
+      </VStack>
     </Box>
   );
 }
-

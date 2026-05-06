@@ -1,5 +1,5 @@
 // src/components/NutritionAssessmentEditor.jsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Heading,
@@ -11,6 +11,8 @@ import {
   Input,
   Select,
   HStack,
+  Stack,
+  Textarea,
   Button,
   useToast,
   Divider,
@@ -38,6 +40,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   doc,
   onSnapshot,
+  setDoc,
   updateDoc,
   serverTimestamp,
   getDoc,
@@ -50,6 +53,7 @@ import {
 import { db } from "../firebaseConfig";
 import { computeBMI, toNumber } from "../utils/nutritionPrefill";
 import { useAuth } from "../AuthContext.jsx";
+import { useNutritionTheme } from "../styles/nutritionTheme";
 
 /* ------------------------ Units helpers ------------------------ */
 const round1 = (n) => (Number.isFinite(n) ? Math.round(n * 10) / 10 : n);
@@ -70,6 +74,7 @@ const heightToCm = (taille) => {
   if (!Number.isFinite(v)) return null;
   if (u === "cm") return v;
   if (u === "ft") return ftToCm(v);
+  if (u === "in") return v * 2.54;
   return v;
 };
 
@@ -80,6 +85,18 @@ const weightToKg = (poids) => {
   if (u === "kg") return v;
   if (u === "lbs") return lbsToKg(v);
   return v;
+};
+
+const litersToGallons = (liters) => (Number.isFinite(liters) ? liters * 0.264172 : null);
+const gallonsToLiters = (gallons) => (Number.isFinite(gallons) ? gallons / 0.264172 : null);
+
+const waterToLiters = (water) => {
+  const value = toNumber(water?.value);
+  const unit = water?.unit || "L";
+  if (!Number.isFinite(value)) return null;
+  if (unit === "L") return value;
+  if (unit === "gal") return gallonsToLiters(value);
+  return null;
 };
 
 /* ------------------------ Options ------------------------ */
@@ -94,6 +111,24 @@ const OBJECTIFS = [
 ];
 
 const REGIMES = ["Normal", "Végétarien", "Végan", "Sans gluten", "Sans lactose"];
+
+const FOOD_EXCLUSIONS = [
+  "Aucune",
+  "Porc",
+  "Viande rouge",
+  "Volaille",
+  "Poisson",
+  "Fruits de mer",
+  "Oeufs",
+  "Lait / lactose",
+  "Gluten",
+  "Arachides",
+  "Fruits à coque",
+  "Soja",
+  "Boissons sucrées",
+  "Alcool",
+  "Produits ultra-transformés",
+];
 
 const NAP_PRESETS = [
   { label: "Sédentaire", value: 1.2 },
@@ -331,6 +366,7 @@ export default function NutritionAssessmentEditor() {
   const [form, setForm] = useState(null);
 
   const didPrefillRef = useRef(false);
+  const lastSavedHashRef = useRef("");
 
   useEffect(() => {
     if (!clientId || !assessmentId) return;
@@ -340,7 +376,7 @@ export default function NutritionAssessmentEditor() {
       (snap) => {
         const d = snap.exists() ? snap.data() : null;
         setDocData(d);
-        setForm(d?.inputs || null);
+        setForm((prev) => prev || d?.inputs || null);
         setLoading(false);
       },
       () => setLoading(false)
@@ -355,13 +391,17 @@ export default function NutritionAssessmentEditor() {
 
     (async () => {
       try {
-        const uref = doc(db, "users", clientId);
-        const usnap = await getDoc(uref);
-        const u = usnap.exists() ? usnap.data() : null;
+        const [usnap, csnap] = await Promise.all([
+          getDoc(doc(db, "users", clientId)).catch(() => null),
+          getDoc(doc(db, "clients", clientId)).catch(() => null),
+        ]);
+        const userDoc = usnap?.exists?.() ? usnap.data() : null;
+        const clientDoc = csnap?.exists?.() ? csnap.data() : null;
+        const u = { ...(userDoc || {}), ...(clientDoc || {}) };
 
         let latestMeasure = null;
         try {
-          const mref = collection(db, "users", clientId, "measurements");
+          const mref = collection(db, "clients", clientId, "measurements");
           const qs = query(mref, orderBy("timestamp", "desc"), limit(1));
           const msnap = await getDocs(qs);
           latestMeasure = msnap.docs[0]?.data() || null;
@@ -400,10 +440,12 @@ export default function NutritionAssessmentEditor() {
         patchIfEmpty("dateNaissance", u?.birthDate || u?.dateNaissance || "");
 
         patchIfEmpty("objectif", u?.objectifs || u?.objectif || "");
+        patchIfEmpty("niveauSportif", u?.niveauSportif || u?.sportLevel || "");
+        patchIfEmpty("notes", u?.notes || "");
         if (!next?.nap) patchIfEmpty("nap", { label: "Normal", value: 1.4 });
 
-        const poidsRaw = latestMeasure?.poids ?? u?.poids ?? null;
-        const tailleRaw = latestMeasure?.taille ?? u?.taille ?? null;
+        const poidsRaw = latestMeasure?.poids ?? u?.weightKg ?? u?.poids ?? null;
+        const tailleRaw = latestMeasure?.taille ?? u?.heightCm ?? u?.taille ?? null;
 
         if (poidsRaw !== null && poidsRaw !== undefined) {
           patchIfEmpty("poids", { unit: "kg", value: toNumber(poidsRaw) });
@@ -411,6 +453,13 @@ export default function NutritionAssessmentEditor() {
         if (tailleRaw !== null && tailleRaw !== undefined) {
           patchIfEmpty("taille", { unit: "cm", value: toNumber(tailleRaw) });
         }
+
+        patchIfEmpty("body.fatMassPct", toNumber(latestMeasure?.fatMass ?? u?.fatMass));
+        patchIfEmpty("body.muscleMassKg", toNumber(latestMeasure?.muscleMass ?? u?.muscleMass));
+        patchIfEmpty("body.waterMassPct", toNumber(latestMeasure?.waterMass ?? u?.waterMass));
+        patchIfEmpty("body.boneMassKg", toNumber(latestMeasure?.boneMass ?? u?.boneMass));
+        patchIfEmpty("body.metabolicAge", toNumber(latestMeasure?.metabolicAge ?? u?.metabolicAge));
+        patchIfEmpty("body.visceralFatScore", toNumber(latestMeasure?.visceralFatScore ?? u?.visceralFatScore));
 
         if (!Array.isArray(next.regimes)) next.regimes = [];
         if (!next.medical) next.medical = {};
@@ -488,6 +537,70 @@ export default function NutritionAssessmentEditor() {
     });
   }, [form?.poids, form?.taille]);
 
+  const targetWeightEstimate = useMemo(() => {
+    const currentKg = weightToKg(form?.poids);
+    const targetKg = weightToKg(form?.poidsCible);
+    if (!Number.isFinite(currentKg) || !Number.isFinite(targetKg) || currentKg === targetKg) return null;
+
+    const diff = targetKg - currentKg;
+    const magnitude = Math.abs(diff);
+    const minWeeks = magnitude / 0.8;
+    const maxWeeks = magnitude / 0.5;
+    const fmt = (value) => Math.round(value * 10) / 10;
+
+    let duration;
+    if (maxWeeks < 1) {
+      duration = "moins d'une semaine";
+    } else if (Math.abs(maxWeeks - minWeeks) < 0.25) {
+      duration = `en environ ${fmt(maxWeeks)} semaines`;
+    } else {
+      duration = `en ${fmt(minWeeks)} à ${fmt(maxWeeks)} semaines`;
+    }
+
+    return {
+      diff,
+      duration,
+      currentKg,
+      targetKg,
+      magnitude,
+    };
+  }, [form?.poids, form?.poidsCible]);
+
+  const recommendedWaterIntake = useMemo(() => {
+    const currentKg = weightToKg(form?.poids);
+    if (!Number.isFinite(currentKg)) return null;
+
+    const liters = {
+      min: Math.round(currentKg * 0.03 * 10) / 10,
+      max: Math.round(currentKg * 0.04 * 10) / 10,
+    };
+    const gallons = {
+      min: Math.round(litersToGallons(liters.min) * 100) / 100,
+      max: Math.round(litersToGallons(liters.max) * 100) / 100,
+    };
+
+    return { liters, gallons };
+  }, [form?.poids]);
+
+  const recommendedWaterText = useMemo(() => {
+    if (!recommendedWaterIntake) return "";
+    return `${recommendedWaterIntake.liters.min}-${recommendedWaterIntake.liters.max} L/jour (${recommendedWaterIntake.gallons.min}-${recommendedWaterIntake.gallons.max} gal/jour)`;
+  }, [recommendedWaterIntake]);
+
+  const waterDisplayString = useMemo(() => {
+    const value = toNumber(form?.eauParJour?.value);
+    const unit = form?.eauParJour?.unit || "L";
+    if (!Number.isFinite(value)) return null;
+
+    if (unit === "gal") {
+      const liters = gallonsToLiters(value);
+      return `${value} gal (${Math.round(liters * 10) / 10} L)`;
+    }
+
+    const gallons = litersToGallons(value);
+    return `${value} L${Number.isFinite(gallons) ? ` (${Math.round(gallons * 100) / 100} gal)` : ""}`;
+  }, [form?.eauParJour]);
+
   /* ------------------------ Auto completion status ------------------------ */
   const isBlank = (v) => String(v ?? "").trim() === "";
 
@@ -520,25 +633,122 @@ export default function NutritionAssessmentEditor() {
 
   const regimes = Array.isArray(form?.regimes) ? form.regimes : [];
   const pathologies = Array.isArray(form?.medical?.pathologies) ? form.medical.pathologies : [];
+  const foodExclusions = Array.isArray(form?.medical?.foodExclusions) ? form.medical.foodExclusions : [];
   const pathologiesKey = useMemo(() => pathologies.join("|"), [pathologies]);
   const medicalDetails = form?.medical?.details || {};
 
   useEffect(() => {}, [pathologiesKey]);
 
-  const onSave = async () => {
+  const saveAssessment = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!isAdmin || !clientId || !assessmentId || !form) return false;
+
+      const assessmentRef = doc(db, "clients", clientId, "nutrition_assessments", assessmentId);
+      const clientRef = doc(db, "clients", clientId);
+      const measurementRef = doc(db, "clients", clientId, "measurements", `nutrition_${assessmentId}`);
+      const today = new Date().toISOString().split("T")[0];
+      const heightCm = heightToCm(form?.taille);
+      const weightKg = weightToKg(form?.poids);
+
+      const body = form?.body || {};
+      const measurementPayload = {
+        date: today,
+        taille: Number.isFinite(heightCm) ? round1(heightCm) : null,
+        poids: Number.isFinite(weightKg) ? round1(weightKg) : null,
+        bmi: computedBMI || null,
+        fatMass: toNumber(body.fatMassPct),
+        muscleMass: toNumber(body.muscleMassKg),
+        waterMass: toNumber(body.waterMassPct),
+        boneMass: toNumber(body.boneMassKg),
+        metabolicAge: toNumber(body.metabolicAge),
+        visceralFatScore: toNumber(body.visceralFatScore),
+        source: "nutrition_assessment",
+        assessmentId,
+        timestamp: serverTimestamp(),
+      };
+
+      try {
+        await Promise.all([
+          updateDoc(assessmentRef, {
+            inputs: form,
+            validated: isComplete,
+            validatedAt: isComplete ? serverTimestamp() : null,
+            computed: { ...(docData?.computed || {}), imc: computedBMI },
+            updatedAt: serverTimestamp(),
+          }),
+          setDoc(
+            clientRef,
+            {
+              prenom: form.prenom || "",
+              nom: form.nom || "",
+              email: form.email || "",
+              telephone: form.telephone || "",
+              sexe: form.sexe || "",
+              dateNaissance: form.dateNaissance || "",
+              objectifs: form.objectif || "",
+              niveauSportif: form.niveauSportif || "",
+              notes: form.notes || "",
+              heightCm: measurementPayload.taille,
+              weightKg: measurementPayload.poids,
+              fatMass: measurementPayload.fatMass,
+              muscleMass: measurementPayload.muscleMass,
+              waterMass: measurementPayload.waterMass,
+              boneMass: measurementPayload.boneMass,
+              metabolicAge: measurementPayload.metabolicAge,
+              visceralFatScore: measurementPayload.visceralFatScore,
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          ),
+          setDoc(measurementRef, measurementPayload, { merge: true }),
+        ]);
+
+        if (!silent) {
+          toast({ title: "Enregistré", status: "success", duration: 1500, isClosable: true });
+        }
+        return true;
+      } catch (e) {
+        if (!silent) {
+          toast({
+            title: "Erreur",
+            description: e?.message || "Sauvegarde impossible",
+            status: "error",
+            duration: 4000,
+            isClosable: true,
+          });
+        }
+        throw e;
+      }
+    },
+    [assessmentId, clientId, computedBMI, docData?.computed, form, isAdmin, isComplete, toast]
+  );
+
+  useEffect(() => {
+    if (!isAdmin || !form || loading) return undefined;
+    const hash = JSON.stringify({ form, computedBMI, isComplete });
+    if (!lastSavedHashRef.current) {
+      lastSavedHashRef.current = hash;
+      return undefined;
+    }
+    if (lastSavedHashRef.current === hash) return undefined;
+
+    const timer = window.setTimeout(async () => {
+      try {
+        await saveAssessment({ silent: true });
+        lastSavedHashRef.current = hash;
+      } catch (e) {
+        console.error("[NutritionAssessmentEditor] autosave failed", e);
+      }
+    }, 1800);
+
+    return () => window.clearTimeout(timer);
+  }, [computedBMI, form, isAdmin, isComplete, loading, saveAssessment]);
+
+  const onSaveAndNext = async () => {
     if (!isAdmin) return;
     try {
-      const ref = doc(db, "clients", clientId, "nutrition_assessments", assessmentId);
-
-      await updateDoc(ref, {
-        inputs: form,
-        validated: isComplete,
-        validatedAt: isComplete ? serverTimestamp() : null,
-        computed: { ...(docData?.computed || {}), imc: computedBMI },
-        updatedAt: serverTimestamp(),
-      });
-
-      toast({ title: "Enregistré", status: "success", duration: 1500, isClosable: true });
+      await saveAssessment({ silent: true });
+      navigate(`/clients/${clientId}/nutrition/${assessmentId}/food-survey`);
     } catch (e) {
       toast({
         title: "Erreur",
@@ -607,406 +817,766 @@ export default function NutritionAssessmentEditor() {
   const actionBg = useColorModeValue("white", "gray.900");
   const actionBorder = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
 
+  const nutritionTheme = useNutritionTheme();
+  const pageBg = nutritionTheme.pageBg;
+  const panelBg = nutritionTheme.surfaceBg;
+  const subtleBg = nutritionTheme.surfaceSoft;
+  const borderColor = nutritionTheme.borderColor;
+  const mutedText = nutritionTheme.mutedText;
+  const accentBg = nutritionTheme.surfaceGlow;
+  const sectionCardProps = { borderWidth: "1px", borderColor, borderRadius: "2xl", bg: panelBg };
+
   return (
-    <Box p={6} pb={{ base: 28, md: 24 }}>
-      {/* Header */}
-      <HStack justify="space-between" mb={4} align="center" gap={3} flexWrap="wrap">
-        <HStack>
-          <Heading size="md">Bilan nutrition (Draft)</Heading>
-          <Badge colorScheme={isValidated ? "green" : "yellow"} variant="subtle">
-            {isValidated ? "VALIDÉ" : "BILAN INCOMPLET"}
-          </Badge>
-        </HStack>
-      </HStack>
+    <Box minH="100vh" p={{ base: 4, md: 6 }} pb={{ base: 28, md: 24 }} bg={pageBg} color={nutritionTheme.textColor}>
+      <Stack spacing={6}>
+        <Box {...sectionCardProps} overflow="hidden">
+          <Box bg={accentBg} px={{ base: 4, md: 5 }} py={{ base: 4, md: 5 }}>
+            <Stack spacing={4}>
+              <HStack justify="space-between" align="start" gap={3} flexWrap="wrap">
+                <Box>
+                  <HStack spacing={3} flexWrap="wrap">
+                    <Button variant="outline" onClick={() => navigate(-1)}>
+                      Retour
+                    </Button>
+                    <Heading size="md">Bilan nutrition</Heading>
+                    <Badge colorScheme={isValidated ? "green" : "yellow"} variant="subtle">
+                      {isValidated ? "VALIDÉ" : "BILAN INCOMPLET"}
+                    </Badge>
+                  </HStack>
+                  <Text mt={2} fontSize="sm" color={mutedText} maxW="720px">
+                    On construit ici la base du suivi : identité, objectif, mesures, activité et contexte médical.
+                  </Text>
+                </Box>
 
-      {/* Statut auto */}
-      <Box mb={6} p={4} borderWidth="1px" borderRadius="lg">
-        <HStack align="flex-start" spacing={3}>
-          <Box flex="1">
-            <Heading size="sm" mb={1}>
-              Statut du bilan
-            </Heading>
+                <Box minW={{ base: "100%", md: "220px" }}>
+                  <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={mutedText}>
+                    Statut du bilan
+                  </Text>
+                  <Badge colorScheme={isComplete ? "green" : "yellow"} variant="subtle" mt={2} px={3} py={1} borderRadius="full">
+                    {isComplete ? "COMPLET" : "INCOMPLET"}
+                  </Badge>
+                </Box>
+              </HStack>
+            </Stack>
+          </Box>
+        </Box>
 
-            {isComplete ? (
-              <Text fontSize="sm" opacity={0.8}>
-                ✅ Bilan complet. Tu peux passer à l’enquête alimentaire.
-              </Text>
-            ) : (
-              <>
-                <Text fontSize="sm" opacity={0.8}>
-                  ⚠️ Bilan incomplet. Champs manquants :
+        <Box {...sectionCardProps} p={{ base: 4, md: 5 }}>
+          <Box px={{ base: 4, md: 5 }} py={{ base: 4, md: 5 }}>
+            <SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} spacing={3}>
+              <Box p={4} borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={panelBg}>
+                <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={mutedText}>
+                  PATIENT
                 </Text>
-                <Wrap mt={2} spacing={2}>
-                  {missingFields.slice(0, 12).map((x) => (
-                    <WrapItem key={x}>
-                      <Badge colorScheme="yellow" variant="subtle">
-                        {x}
-                      </Badge>
-                    </WrapItem>
+                <Text mt={1} fontSize="lg" fontWeight="800" noOfLines={1}>
+                  {[form.prenom, form.nom].filter(Boolean).join(" ") || "Nom à compléter"}
+                </Text>
+                <Text fontSize="sm" color={mutedText}>
+                  {form.dateNaissance ? `${Math.max(0, new Date().getFullYear() - new Date(form.dateNaissance).getFullYear())} ans` : "Âge non renseigné"}
+                  {form?.sexe ? ` • ${form.sexe}` : ""}
+                </Text>
+                {form?.telephone ? (
+                  <Text fontSize="sm" color={mutedText} mt={1}>
+                    {form.telephone}
+                  </Text>
+                ) : null}
+                {form?.email ? (
+                  <Text fontSize="sm" color={mutedText} mt={form?.telephone ? 0 : 1}>
+                    {form.email}
+                  </Text>
+                ) : null}
+              </Box>
+
+              <Box p={4} borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={panelBg}>
+                <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={mutedText}>
+                  OBJECTIF
+                </Text>
+                <Text mt={1} fontSize="lg" fontWeight="800">
+                  {form?.objectif || "À définir"}
+                </Text>
+                {form?.poidsCible?.value ? (
+                  <Box mt={1}>
+                    <Text fontSize="sm" color={mutedText}>
+                      Cible de poids : {form.poidsCible.value} {form.poidsCible.unit || "kg"}
+                    </Text>
+                    {targetWeightEstimate ? (
+                      <>
+                        <Text fontSize="xs" color={mutedText} mt={1}>
+                          Différence : {Math.abs(Math.round(targetWeightEstimate.diff * 10) / 10)} kg {targetWeightEstimate.diff > 0 ? "à gagner" : "à perdre"}
+                        </Text>
+                        <Text fontSize="xs" color={mutedText} mt={1}>
+                          Délai : {targetWeightEstimate.duration}
+                        </Text>
+                      </>
+                    ) : null}
+                  </Box>
+                ) : null}
+                <Text fontSize="sm" color={mutedText} mt={form?.poidsCible?.value ? 1 : 0}>
+                  {regimes.length ? regimes.join(", ") : "Aucun régime spécifique"}
+                </Text>
+              </Box>
+
+              <Box p={4} borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={panelBg}>
+                <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={mutedText}>
+                  MESURES
+                </Text>
+                <Text mt={1} fontSize="lg" fontWeight="800">
+                  {form?.poids?.value ? `${form.poids.value} ${form?.poids?.unit || "kg"}` : "Poids à renseigner"}
+                </Text>
+                <Text fontSize="sm" color={mutedText}>
+                  {form?.taille?.value ? `${form.taille.value} ${form?.taille?.unit || "cm"}` : "Taille à renseigner"}
+                  {computedBMI ? ` • IMC ${computedBMI}` : ""}
+                </Text>
+                {waterDisplayString ? (
+                  <Text fontSize="sm" color={mutedText} mt={1}>
+                    Eau : {waterDisplayString}
+                  </Text>
+                ) : null}
+                {form?.nap?.label ? (
+                  <Text fontSize="sm" color={mutedText} mt={waterDisplayString ? 0 : 1}>
+                    Activité : {form.nap.label} ({form.nap.value})
+                  </Text>
+                ) : null}
+                {form?.body?.fatMassPct || form?.body?.muscleMassKg ? (
+                  <Text fontSize="sm" color={mutedText} mt={1}>
+                    Masse grasse {form?.body?.fatMassPct || "—"}% • Muscle {form?.body?.muscleMassKg || "—"} kg
+                  </Text>
+                ) : null}
+                {recommendedWaterText ? (
+                  <Text fontSize="xs" color={mutedText} mt={waterDisplayString || form?.nap?.label ? 1 : 0}>
+                    Repère hydratation : {recommendedWaterText}
+                  </Text>
+                ) : null}
+              </Box>
+
+              <Box p={4} borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={panelBg}>
+                <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={mutedText}>
+                  CONTEXTE MÉDICAL
+                </Text>
+                <Text mt={1} fontSize="lg" fontWeight="800">
+                  {pathologies.length ? pathologies.length : 0} élément(s)
+                </Text>
+                <Text fontSize="sm" color={mutedText}>
+                  {pathologies.length ? pathologies.slice(0, 2).join(", ") : "Aucune pathologie sélectionnée"}
+                </Text>
+                {form?.medical?.allergies ? (
+                  <Text fontSize="sm" color={mutedText} mt={1}>
+                    Allergies : {form.medical.allergies}
+                  </Text>
+                ) : null}
+                {form?.medical?.tabacParJour ? (
+                  <Text fontSize="sm" color={mutedText} mt={1}>
+                    Tabac : {form.medical.tabacParJour} /jour
+                  </Text>
+                ) : null}
+              </Box>
+            </SimpleGrid>
+          </Box>
+        </Box>
+
+        <Box {...sectionCardProps} p={{ base: 4, md: 5 }}>
+          <HStack justify="space-between" align="start" gap={3} flexWrap="wrap" mb={4}>
+            <Box>
+              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={mutedText}>
+                ÉTAPE 1
+              </Text>
+              <Heading size="sm" mt={1}>
+                Identité et objectif
+              </Heading>
+              <Text fontSize="sm" color={mutedText} mt={1}>
+                Les informations essentielles pour contextualiser le bilan dès le début.
+              </Text>
+            </Box>
+            <Badge colorScheme="blue" variant="subtle" px={3} py={1} borderRadius="full">
+              Base du dossier
+            </Badge>
+          </HStack>
+
+          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+            <FormControl>
+              <FormLabel>Prénom</FormLabel>
+              <Input value={form.prenom || ""} onChange={(e) => setField("prenom", e.target.value)} bg={subtleBg} />
+            </FormControl>
+            <FormControl>
+              <FormLabel>Nom</FormLabel>
+              <Input value={form.nom || ""} onChange={(e) => setField("nom", e.target.value)} bg={subtleBg} />
+            </FormControl>
+            <FormControl>
+              <FormLabel>Sexe</FormLabel>
+              <Select value={form.sexe || ""} onChange={(e) => setField("sexe", e.target.value)} bg={subtleBg}>
+                <option value="">—</option>
+                <option value="Homme">Homme</option>
+                <option value="Femme">Femme</option>
+              </Select>
+            </FormControl>
+            <FormControl>
+              <FormLabel>Date de naissance</FormLabel>
+              <Input type="date" value={form.dateNaissance || ""} onChange={(e) => setField("dateNaissance", e.target.value)} bg={subtleBg} />
+            </FormControl>
+            <FormControl>
+              <FormLabel>Téléphone</FormLabel>
+              <Input value={form.telephone || ""} onChange={(e) => setField("telephone", e.target.value)} bg={subtleBg} />
+            </FormControl>
+            <FormControl>
+              <FormLabel>Email</FormLabel>
+              <Input value={form.email || ""} onChange={(e) => setField("email", e.target.value)} bg={subtleBg} />
+            </FormControl>
+            <FormControl>
+              <FormLabel>Objectif</FormLabel>
+              <Select value={form.objectif || ""} onChange={(e) => setField("objectif", e.target.value)} bg={subtleBg}>
+                <option value="">—</option>
+                {OBJECTIFS.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl>
+              <FormLabel>Niveau sportif</FormLabel>
+              <Select value={form.niveauSportif || ""} onChange={(e) => setField("niveauSportif", e.target.value)} bg={subtleBg}>
+                <option value="">—</option>
+                <option value="Débutant">Débutant</option>
+                <option value="Intermédiaire">Intermédiaire</option>
+                <option value="Confirmé">Confirmé</option>
+              </Select>
+            </FormControl>
+            <FormControl>
+              <FormLabel>Régimes (multi-choix)</FormLabel>
+              <MultiSelectTags
+                options={REGIMES}
+                value={regimes}
+                onChange={setRegimes}
+                placeholder="Sélectionner un régime…"
+                helperText="Exemple : Végan + Sans gluten"
+                isDisabled={false}
+              />
+            </FormControl>
+            <FormControl>
+              <FormLabel>Notes du dossier</FormLabel>
+              <Textarea
+                value={form.notes || ""}
+                onChange={(e) => setField("notes", e.target.value)}
+                bg={subtleBg}
+                minH="92px"
+              />
+            </FormControl>
+            <FormControl gridColumn={{ base: "auto", md: "1 / span 2" }}>
+              <FormLabel>NAP</FormLabel>
+              <HStack align="flex-start">
+                <Select
+                  value={form?.nap?.label || "Normal"}
+                  onChange={(e) => {
+                    const sel = NAP_PRESETS.find((x) => x.label === e.target.value) || NAP_PRESETS[1];
+                    setField("nap", { label: sel.label, value: sel.value });
+                  }}
+                  bg={subtleBg}
+                >
+                  {NAP_PRESETS.map((x) => (
+                    <option key={x.label} value={x.label}>
+                      {x.label}
+                    </option>
                   ))}
-                </Wrap>
-              </>
-            )}
-          </Box>
+                </Select>
+                <Input
+                  w={{ base: "120px", md: "140px" }}
+                  inputMode="decimal"
+                  value={form?.nap?.value ?? ""}
+                  onChange={(e) => setField("nap", { ...(form.nap || {}), value: toNumber(e.target.value) })}
+                  bg={subtleBg}
+                />
+              </HStack>
+              <Text fontSize="sm" color={mutedText} mt={1}>
+                Sédentaire 1.2 • Normal 1.4 • Actif 1.6 • Très actif 1.8
+              </Text>
+            </FormControl>
+          </SimpleGrid>
+        </Box>
 
-          <Badge
-            colorScheme={isComplete ? "green" : "yellow"}
-            variant="subtle"
-            alignSelf="center"
-            px={3}
-            py={1}
-            borderRadius="full"
-          >
-            {isComplete ? "COMPLET" : "INCOMPLET"}
-          </Badge>
-        </HStack>
-      </Box>
-
-      {/* Synthèse */}
-      <Box mb={6} p={4} borderWidth="1px" borderRadius="lg">
-        <Heading size="sm" mb={3}>
-          Synthèse
-        </Heading>
-        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={3}>
-          <Box borderWidth="1px" borderRadius="md" p={3}>
-            <Text fontSize="sm" opacity={0.75}>
-              IMC
-            </Text>
-            <Text fontSize="xl" fontWeight="700">
-              {computedBMI ?? ""}
-            </Text>
-          </Box>
-          <Box borderWidth="1px" borderRadius="md" p={3}>
-            <Text fontSize="sm" opacity={0.75}>
-              Poids ({form?.poids?.unit || "kg"})
-            </Text>
-            <Text fontSize="xl" fontWeight="700">
-              {form?.poids?.value ?? ""}
-            </Text>
-          </Box>
-          <Box borderWidth="1px" borderRadius="md" p={3}>
-            <Text fontSize="sm" opacity={0.75}>
-              Taille ({form?.taille?.unit || "cm"})
-            </Text>
-            <Text fontSize="xl" fontWeight="700">
-              {form?.taille?.value ?? ""}
-            </Text>
-          </Box>
-        </SimpleGrid>
-      </Box>
-
-      <Heading size="sm" mb={2}>
-        Général
-      </Heading>
-      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-        <FormControl>
-          <FormLabel>Prénom</FormLabel>
-          <Input value={form.prenom || ""} onChange={(e) => setField("prenom", e.target.value)} />
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>Nom</FormLabel>
-          <Input value={form.nom || ""} onChange={(e) => setField("nom", e.target.value)} />
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>Sexe</FormLabel>
-          <Select value={form.sexe || ""} onChange={(e) => setField("sexe", e.target.value)}>
-            <option value="">—</option>
-            <option value="Homme">Homme</option>
-            <option value="Femme">Femme</option>
-          </Select>
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>Date de naissance</FormLabel>
-          <Input
-            type="date"
-            value={form.dateNaissance || ""}
-            onChange={(e) => setField("dateNaissance", e.target.value)}
-          />
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>Téléphone</FormLabel>
-          <Input value={form.telephone || ""} onChange={(e) => setField("telephone", e.target.value)} />
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>Email</FormLabel>
-          <Input value={form.email || ""} onChange={(e) => setField("email", e.target.value)} />
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>Objectif</FormLabel>
-          <Select value={form.objectif || ""} onChange={(e) => setField("objectif", e.target.value)}>
-            <option value="">—</option>
-            {OBJECTIFS.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
-          </Select>
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>Régimes (multi-choix)</FormLabel>
-          <MultiSelectTags
-            options={REGIMES}
-            value={regimes}
-            onChange={setRegimes}
-            placeholder="Sélectionner un régime…"
-            helperText="Exemple : Végan + Sans gluten"
-          />
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>NAP</FormLabel>
-          <HStack align="flex-start">
-            <Select
-              value={form?.nap?.label || "Normal"}
-              onChange={(e) => {
-                const sel = NAP_PRESETS.find((x) => x.label === e.target.value) || NAP_PRESETS[1];
-                setField("nap", { label: sel.label, value: sel.value });
-              }}
-            >
-              {NAP_PRESETS.map((x) => (
-                <option key={x.label} value={x.label}>
-                  {x.label}
-                </option>
-              ))}
-            </Select>
-
-            <Input
-              w="140px"
-              inputMode="decimal"
-              value={form?.nap?.value ?? ""}
-              onChange={(e) => setField("nap", { ...(form.nap || {}), value: toNumber(e.target.value) })}
-            />
+        <Box {...sectionCardProps} p={{ base: 4, md: 5 }}>
+          <HStack justify="space-between" align="start" gap={3} flexWrap="wrap" mb={4}>
+            <Box>
+              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={mutedText}>
+                ÉTAPE 2
+              </Text>
+              <Heading size="sm" mt={1}>
+                Mesures et activité
+              </Heading>
+              <Text fontSize="sm" color={mutedText} mt={1}>
+                Les données de base qui servent de fondation au plan nutritionnel.
+              </Text>
+            </Box>
+            <Badge colorScheme="green" variant="subtle" px={3} py={1} borderRadius="full">
+              Mesures
+            </Badge>
           </HStack>
-          <Text fontSize="sm" opacity={0.7} mt={1}>
-            Sédentaire 1.2 • Normal 1.4 • Actif 1.6 • Très actif 1.8 (modifiable)
-          </Text>
-        </FormControl>
-      </SimpleGrid>
 
-      <Divider my={6} />
+          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+            <FormControl>
+              <FormLabel>Taille</FormLabel>
+              <HStack>
+                <Input
+                  inputMode="decimal"
+                  value={form?.taille?.value ?? ""}
+                  onChange={(e) => setField("taille", { ...(form.taille || {}), value: toNumber(e.target.value) })}
+                  bg={subtleBg}
+                />
+                <Select w="130px" value={form?.taille?.unit || "cm"} onChange={(e) => onChangeHeightUnit(e.target.value)} bg={subtleBg}>
+                  <option value="cm">cm</option>
+                  <option value="ft">ft</option>
+                </Select>
+              </HStack>
+              <Text fontSize="sm" color={mutedText} mt={1}>
+                Conversion auto cm ↔ ft.
+              </Text>
+            </FormControl>
 
-      <Heading size="sm" mb={2}>
-        Mesures
-      </Heading>
-      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-        <FormControl>
-          <FormLabel>Taille</FormLabel>
-          <HStack>
-            <Input
-              inputMode="decimal"
-              value={form?.taille?.value ?? ""}
-              onChange={(e) => setField("taille", { ...(form.taille || {}), value: toNumber(e.target.value) })}
-            />
-            <Select w="130px" value={form?.taille?.unit || "cm"} onChange={(e) => onChangeHeightUnit(e.target.value)}>
-              <option value="cm">cm</option>
-              <option value="ft">ft</option>
-            </Select>
+            <FormControl>
+              <FormLabel>Poids</FormLabel>
+              <HStack>
+                <Input
+                  inputMode="decimal"
+                  value={form?.poids?.value ?? ""}
+                  onChange={(e) => setField("poids", { ...(form.poids || {}), value: toNumber(e.target.value) })}
+                  bg={subtleBg}
+                />
+                <Select w="130px" value={form?.poids?.unit || "kg"} onChange={(e) => onChangeWeightUnit(e.target.value)} bg={subtleBg}>
+                  <option value="kg">kg</option>
+                  <option value="lbs">lbs</option>
+                </Select>
+              </HStack>
+              <Text fontSize="sm" color={mutedText} mt={1}>
+                Conversion auto kg ↔ lbs.
+              </Text>
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Objectif de poids</FormLabel>
+              <HStack>
+                <Input
+                  inputMode="decimal"
+                  value={form?.poidsCible?.value ?? ""}
+                  onChange={(e) => setField("poidsCible", { ...(form.poidsCible || {}), value: toNumber(e.target.value) })}
+                  bg={subtleBg}
+                />
+                <Select w="130px" value={form?.poidsCible?.unit || "kg"} onChange={(e) => setField("poidsCible", { ...(form.poidsCible || {}), unit: e.target.value })} bg={subtleBg}>
+                  <option value="kg">kg</option>
+                  <option value="lbs">lbs</option>
+                </Select>
+              </HStack>
+              <Text fontSize="sm" color={mutedText} mt={1}>
+                Optionnel, pour estimer un délai d’atteinte selon le poids actuel.
+              </Text>
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Eau par jour</FormLabel>
+              <HStack>
+                <Input
+                  inputMode="decimal"
+                  value={form?.eauParJour?.value ?? ""}
+                  onChange={(e) => setField("eauParJour", { ...(form.eauParJour || {}), value: toNumber(e.target.value) })}
+                  bg={subtleBg}
+                />
+                <Select w="130px" value={form?.eauParJour?.unit || "L"} onChange={(e) => setField("eauParJour", { ...(form.eauParJour || {}), unit: e.target.value })} bg={subtleBg}>
+                  <option value="L">L</option>
+                  <option value="gal">gal</option>
+                </Select>
+              </HStack>
+              <Text fontSize="sm" color={mutedText} mt={1}>
+                Quantité d’eau journalière avec conversion automatique L ⇄ gal.
+              </Text>
+              {recommendedWaterText ? (
+                <Box mt={2} p={3} borderWidth="1px" borderColor={borderColor} borderRadius="lg" bg={panelBg}>
+                  <Text fontSize="sm" color={mutedText}>
+                    Repère recommandé selon le poids actuel : {recommendedWaterText}.
+                  </Text>
+                </Box>
+              ) : null}
+            </FormControl>
+          </SimpleGrid>
+
+          <Box mt={5} p={4} borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={subtleBg}>
+            <HStack justify="space-between" align="start" gap={3} flexWrap="wrap" mb={4}>
+              <Box>
+                <Heading size="sm">Composition corporelle</Heading>
+                <Text fontSize="sm" color={mutedText} mt={1}>
+                  Données issues de la dernière mesure ou à compléter manuellement.
+                </Text>
+              </Box>
+              <Badge colorScheme="blue" variant="subtle" borderRadius="full" px={3} py={1}>
+                Données avancées
+              </Badge>
+            </HStack>
+            <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+              <FormControl>
+                <FormLabel>Masse grasse (%)</FormLabel>
+                <Input
+                  inputMode="decimal"
+                  value={form?.body?.fatMassPct ?? ""}
+                  onChange={(e) => setField("body.fatMassPct", toNumber(e.target.value))}
+                  bg={panelBg}
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Masse musculaire (kg)</FormLabel>
+                <Input
+                  inputMode="decimal"
+                  value={form?.body?.muscleMassKg ?? ""}
+                  onChange={(e) => setField("body.muscleMassKg", toNumber(e.target.value))}
+                  bg={panelBg}
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Masse hydrique (%)</FormLabel>
+                <Input
+                  inputMode="decimal"
+                  value={form?.body?.waterMassPct ?? ""}
+                  onChange={(e) => setField("body.waterMassPct", toNumber(e.target.value))}
+                  bg={panelBg}
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Masse osseuse (kg)</FormLabel>
+                <Input
+                  inputMode="decimal"
+                  value={form?.body?.boneMassKg ?? ""}
+                  onChange={(e) => setField("body.boneMassKg", toNumber(e.target.value))}
+                  bg={panelBg}
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Âge métabolique</FormLabel>
+                <Input
+                  inputMode="numeric"
+                  value={form?.body?.metabolicAge ?? ""}
+                  onChange={(e) => setField("body.metabolicAge", toNumber(e.target.value))}
+                  bg={panelBg}
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel>Graisse viscérale</FormLabel>
+                <Input
+                  inputMode="decimal"
+                  value={form?.body?.visceralFatScore ?? ""}
+                  onChange={(e) => setField("body.visceralFatScore", toNumber(e.target.value))}
+                  bg={panelBg}
+                />
+              </FormControl>
+            </SimpleGrid>
+          </Box>
+
+          {targetWeightEstimate && (
+            <Box mt={4} p={4} borderWidth="1px" borderRadius="xl" borderColor={borderColor} bg={panelBg}>
+              <Text fontSize="sm" color={mutedText}>
+                Estimation d’atteinte : {Math.abs(Math.round(targetWeightEstimate.diff * 10) / 10)} kg {targetWeightEstimate.diff > 0 ? "à gagner" : "à perdre"} en {targetWeightEstimate.duration}.
+              </Text>
+            </Box>
+          )}
+        </Box>
+
+        <Box {...sectionCardProps} p={{ base: 4, md: 5 }}>
+          <HStack justify="space-between" align="start" gap={3} flexWrap="wrap" mb={4}>
+            <Box>
+              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={mutedText}>
+                ÉTAPE 3
+              </Text>
+              <Heading size="sm" mt={1}>
+                Contexte médical
+              </Heading>
+              <Text fontSize="sm" color={mutedText} mt={1}>
+                Les antécédents et pathologies affinent ensuite l’interprétation du dossier.
+              </Text>
+            </Box>
+            <Badge colorScheme="orange" variant="subtle" px={3} py={1} borderRadius="full">
+              Contexte clinique
+            </Badge>
           </HStack>
-          <Text fontSize="sm" opacity={0.7} mt={1}>
-            Conversion auto cm ↔ ft.
-          </Text>
-        </FormControl>
 
-        <FormControl>
-          <FormLabel>Poids</FormLabel>
-          <HStack>
-            <Input
-              inputMode="decimal"
-              value={form?.poids?.value ?? ""}
-              onChange={(e) => setField("poids", { ...(form.poids || {}), value: toNumber(e.target.value) })}
-            />
-            <Select w="130px" value={form?.poids?.unit || "kg"} onChange={(e) => onChangeWeightUnit(e.target.value)}>
-              <option value="kg">kg</option>
-              <option value="lbs">lbs</option>
-            </Select>
-          </HStack>
-          <Text fontSize="sm" opacity={0.7} mt={1}>
-            Conversion auto kg ↔ lbs.
-          </Text>
-        </FormControl>
-      </SimpleGrid>
+          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+            <FormControl>
+              <FormLabel>Antécédents médicaux</FormLabel>
+              <Input
+                value={form?.medical?.antecedentsMedicaux || ""}
+                onChange={(e) => setField("medical", { ...(form.medical || {}), antecedentsMedicaux: e.target.value })}
+                bg={subtleBg}
+              />
+            </FormControl>
 
-      <Divider my={6} />
+            <FormControl>
+              <FormLabel>Antécédents nutritionnels</FormLabel>
+              <Input
+                value={form?.medical?.antecedentsNutritionnels || ""}
+                onChange={(e) => setField("medical", { ...(form.medical || {}), antecedentsNutritionnels: e.target.value })}
+                bg={subtleBg}
+              />
+            </FormControl>
 
-      <Heading size="sm" mb={2}>
-        Médical
-      </Heading>
-      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-        <FormControl>
-          <FormLabel>Antécédents médicaux</FormLabel>
-          <Input
-            value={form?.medical?.antecedentsMedicaux || ""}
-            onChange={(e) => setField("medical", { ...(form.medical || {}), antecedentsMedicaux: e.target.value })}
-          />
-        </FormControl>
+            <FormControl>
+              <FormLabel>Pathologies (multi-choix)</FormLabel>
+              <MultiSelectTags
+                options={PATHOLOGIES}
+                value={pathologies}
+                onChange={setPathologies}
+                placeholder="Sélectionner une pathologie…"
+                exclusiveNoneValue="Aucune"
+                helperText="Si “Aucune” est sélectionné, les autres choix sont désactivés."
+              />
 
-        <FormControl>
-          <FormLabel>Antécédents nutritionnels</FormLabel>
-          <Input
-            value={form?.medical?.antecedentsNutritionnels || ""}
-            onChange={(e) =>
-              setField("medical", { ...(form.medical || {}), antecedentsNutritionnels: e.target.value })
-            }
-          />
-        </FormControl>
+              {isPathoSelected("Diabète") && (
+                <Box mt={3}>
+                  <FormLabel fontSize="sm">Diabète — précision</FormLabel>
+                  <Select
+                    value={medicalDetails.diabeteType || ""}
+                    onChange={(e) => setMedicalDetail("diabeteType", e.target.value)}
+                    bg={subtleBg}
+                  >
+                    <option value="">—</option>
+                    {DIABETE_DETAILS.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </Select>
 
-        <FormControl>
-          <FormLabel>Pathologies (multi-choix)</FormLabel>
-          <MultiSelectTags
-            options={PATHOLOGIES}
-            value={pathologies}
-            onChange={setPathologies}
-            placeholder="Sélectionner une pathologie…"
-            exclusiveNoneValue="Aucune"
-            helperText="Si “Aucune” est sélectionné, les autres choix sont désactivés."
-          />
+                  {medicalDetails.diabeteType === "Autre" && (
+                    <Input
+                      mt={2}
+                      placeholder="Précisez…"
+                      value={medicalDetails.diabeteAutre || ""}
+                      onChange={(e) => setMedicalDetail("diabeteAutre", e.target.value)}
+                      bg={subtleBg}
+                    />
+                  )}
+                </Box>
+              )}
 
-          {isPathoSelected("Diabète") && (
-            <Box mt={3}>
-              <FormLabel fontSize="sm">Diabète — précision</FormLabel>
+              {isPathoSelected("Troubles digestifs") && (
+                <Box mt={3}>
+                  <FormLabel fontSize="sm">Troubles digestifs — précision</FormLabel>
+                  <Select
+                    value={medicalDetails.digestifType || ""}
+                    onChange={(e) => setMedicalDetail("digestifType", e.target.value)}
+                    bg={subtleBg}
+                  >
+                    <option value="">—</option>
+                    {DIGESTIVE_DETAILS.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </Select>
+
+                  {medicalDetails.digestifType === "Autre" && (
+                    <Input
+                      mt={2}
+                      placeholder="Précisez…"
+                      value={medicalDetails.digestifAutre || ""}
+                      onChange={(e) => setMedicalDetail("digestifAutre", e.target.value)}
+                      bg={subtleBg}
+                    />
+                  )}
+                </Box>
+              )}
+
+              {isPathoSelected("TCA (Troubles du comportement alimentaire)") && (
+                <Box mt={3}>
+                  <FormLabel fontSize="sm">TCA — précision</FormLabel>
+                  <Select
+                    value={medicalDetails.tcaType || ""}
+                    onChange={(e) => setMedicalDetail("tcaType", e.target.value)}
+                    bg={subtleBg}
+                  >
+                    <option value="">—</option>
+                    {TCA_DETAILS.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </Select>
+
+                  {medicalDetails.tcaType === "Autre" && (
+                    <Input
+                      mt={2}
+                      placeholder="Précisez…"
+                      value={medicalDetails.tcaAutre || ""}
+                      onChange={(e) => setMedicalDetail("tcaAutre", e.target.value)}
+                      bg={subtleBg}
+                    />
+                  )}
+                </Box>
+              )}
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Tabac (nb/jour)</FormLabel>
+              <Input
+                inputMode="numeric"
+                value={form?.medical?.tabacParJour ?? ""}
+                onChange={(e) => setField("medical", { ...(form.medical || {}), tabacParJour: toNumber(e.target.value) })}
+                bg={subtleBg}
+              />
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Allergies / intolérances</FormLabel>
+              <Input
+                value={form?.medical?.allergies || ""}
+                onChange={(e) => setField("medical", { ...(form.medical || {}), allergies: e.target.value })}
+                bg={subtleBg}
+              />
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>Aliments interdits / à éviter</FormLabel>
+              <MultiSelectTags
+                options={FOOD_EXCLUSIONS}
+                value={foodExclusions}
+                onChange={(next) =>
+                  setField("medical", {
+                    ...(form.medical || {}),
+                    foodExclusions: Array.isArray(next) ? next : [],
+                  })
+                }
+                placeholder="Sélectionner les exclusions…"
+                exclusiveNoneValue="Aucune"
+                helperText="Ces choix sont repris ensuite par la ration auto et le menu."
+              />
+            </FormControl>
+
+            <FormControl gridColumn={{ base: "auto", md: "1 / span 2" }}>
+              <FormLabel>Précisions alimentaires / préférences patient</FormLabel>
+              <Textarea
+                value={form?.medical?.foodNotes || ""}
+                onChange={(e) =>
+                  setField("medical", {
+                    ...(form.medical || {}),
+                    foodNotes: e.target.value,
+                  })
+                }
+                bg={subtleBg}
+                minH="92px"
+                placeholder="Exemple : n’aime pas le poisson, évite les plats épicés, préfère petit-déjeuner salé, contraintes religieuses, aliments déclencheurs digestifs…"
+              />
+              <Text fontSize="sm" color={mutedText} mt={1}>
+                Sert de rappel clinique pour éviter les informations parasites et garder les choix alimentaires cohérents.
+              </Text>
+            </FormControl>
+
+            <Box gridColumn={{ base: "auto", md: "1 / span 2" }} p={4} borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={panelBg}>
+              <Heading size="sm">Micronutrition</Heading>
+              <Text fontSize="sm" color={mutedText} mt={1} mb={4}>
+                Repères rapides pour orienter les priorités de fibres, minéraux, vitamines et hydratation.
+              </Text>
+              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                <FormControl>
+                  <FormLabel>Fatigue / énergie</FormLabel>
+                  <Select
+                    value={form?.medical?.microFatigue || ""}
+                    onChange={(e) => setField("medical", { ...(form.medical || {}), microFatigue: e.target.value })}
+                    bg={subtleBg}
+                  >
+                    <option value="">—</option>
+                    <option value="Non">Non</option>
+                    <option value="Occasionnelle">Occasionnelle</option>
+                    <option value="Fréquente">Fréquente</option>
+                  </Select>
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>Sommeil / récupération</FormLabel>
+                  <Select
+                    value={form?.medical?.microSleep || ""}
+                    onChange={(e) => setField("medical", { ...(form.medical || {}), microSleep: e.target.value })}
+                    bg={subtleBg}
+                  >
+                    <option value="">—</option>
+                    <option value="Bon">Bon</option>
+                    <option value="Irrégulier">Irrégulier</option>
+                    <option value="Difficile">Difficile</option>
+                  </Select>
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>Digestion / transit</FormLabel>
+                  <Select
+                    value={form?.medical?.microDigestion || ""}
+                    onChange={(e) => setField("medical", { ...(form.medical || {}), microDigestion: e.target.value })}
+                    bg={subtleBg}
+                  >
+                    <option value="">—</option>
+                    <option value="RAS">RAS</option>
+                    <option value="Ballonnements">Ballonnements</option>
+                    <option value="Transit ralenti">Transit ralenti</option>
+                    <option value="Transit accéléré">Transit accéléré</option>
+                  </Select>
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>Crampes / douleurs musculaires</FormLabel>
+                  <Select
+                    value={form?.medical?.microCramps || ""}
+                    onChange={(e) => setField("medical", { ...(form.medical || {}), microCramps: e.target.value })}
+                    bg={subtleBg}
+                  >
+                    <option value="">—</option>
+                    <option value="Non">Non</option>
+                    <option value="Parfois">Parfois</option>
+                    <option value="Souvent">Souvent</option>
+                  </Select>
+                </FormControl>
+
+                <FormControl gridColumn={{ base: "auto", md: "1 / span 2" }}>
+                  <FormLabel>Notes micronutrition</FormLabel>
+                  <Textarea
+                    value={form?.medical?.microNotes || ""}
+                    onChange={(e) => setField("medical", { ...(form.medical || {}), microNotes: e.target.value })}
+                    bg={subtleBg}
+                    minH="80px"
+                    placeholder="Exemple : chute de cheveux, ongles fragiles, envies sucrées, exposition solaire faible, hydratation faible…"
+                  />
+                </FormControl>
+              </SimpleGrid>
+            </Box>
+
+            <FormControl>
+              <FormLabel>Êtes-vous réglée ?</FormLabel>
               <Select
-                value={medicalDetails.diabeteType || ""}
-                onChange={(e) => setMedicalDetail("diabeteType", e.target.value)}
+                value={form?.medical?.reglee || ""}
+                onChange={(e) => setField("medical", { ...(form.medical || {}), reglee: e.target.value })}
+                bg={subtleBg}
               >
                 <option value="">—</option>
-                {DIABETE_DETAILS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
+                <option value="Oui">Oui</option>
+                <option value="Non">Non</option>
+                <option value="N/A">N/A</option>
               </Select>
+            </FormControl>
+          </SimpleGrid>
+        </Box>
 
-              {medicalDetails.diabeteType === "Autre" && (
-                <Input
-                  mt={2}
-                  placeholder="Précisez…"
-                  value={medicalDetails.diabeteAutre || ""}
-                  onChange={(e) => setMedicalDetail("diabeteAutre", e.target.value)}
-                />
-              )}
-            </Box>
-          )}
-
-          {isPathoSelected("Troubles digestifs") && (
-            <Box mt={3}>
-              <FormLabel fontSize="sm">Troubles digestifs — précision</FormLabel>
-              <Select
-                value={medicalDetails.digestifType || ""}
-                onChange={(e) => setMedicalDetail("digestifType", e.target.value)}
-              >
-                <option value="">—</option>
-                {DIGESTIVE_DETAILS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </Select>
-
-              {medicalDetails.digestifType === "Autre" && (
-                <Input
-                  mt={2}
-                  placeholder="Précisez…"
-                  value={medicalDetails.digestifAutre || ""}
-                  onChange={(e) => setMedicalDetail("digestifAutre", e.target.value)}
-                />
-              )}
-            </Box>
-          )}
-
-          {isPathoSelected("TCA (Troubles du comportement alimentaire)") && (
-            <Box mt={3}>
-              <FormLabel fontSize="sm">TCA — précision</FormLabel>
-              <Select value={medicalDetails.tcaType || ""} onChange={(e) => setMedicalDetail("tcaType", e.target.value)}>
-                <option value="">—</option>
-                {TCA_DETAILS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </Select>
-
-              {medicalDetails.tcaType === "Autre" && (
-                <Input
-                  mt={2}
-                  placeholder="Précisez…"
-                  value={medicalDetails.tcaAutre || ""}
-                  onChange={(e) => setMedicalDetail("tcaAutre", e.target.value)}
-                />
-              )}
-            </Box>
-          )}
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>Tabac (nb/jour)</FormLabel>
-          <Input
-            inputMode="numeric"
-            value={form?.medical?.tabacParJour ?? ""}
-            onChange={(e) => setField("medical", { ...(form.medical || {}), tabacParJour: toNumber(e.target.value) })}
-          />
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>Allergies / intolérances</FormLabel>
-          <Input
-            value={form?.medical?.allergies || ""}
-            onChange={(e) => setField("medical", { ...(form.medical || {}), allergies: e.target.value })}
-          />
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>Êtes-vous réglée ?</FormLabel>
-          <Select
-            value={form?.medical?.reglee || ""}
-            onChange={(e) => setField("medical", { ...(form.medical || {}), reglee: e.target.value })}
-          >
-            <option value="">—</option>
-            <option value="Oui">Oui</option>
-            <option value="Non">Non</option>
-            <option value="N/A">N/A</option>
-          </Select>
-        </FormControl>
-      </SimpleGrid>
-
-      {/* ✅ Barre sticky bottom avec les boutons */}
-      <Box
-        position="sticky"
-        bottom="0"
-        mt={8}
-        bg={actionBg}
-        borderTopWidth="1px"
-        borderColor={actionBorder}
-        zIndex={10}
-        py={3}
-      >
-        <HStack justify="space-between" gap={3} flexWrap="wrap">
-          <Button variant="outline" onClick={() => navigate(-1)}>
-            Retour
-          </Button>
-
-          <HStack gap={2} flexWrap="wrap" justify="flex-end">
-            <Button colorScheme="blue" onClick={onSave}>
-              Sauvegarder
+        <Box
+          position="sticky"
+          bottom="0"
+          bg={actionBg}
+          borderTopWidth="1px"
+          borderColor={actionBorder}
+          zIndex={10}
+          py={3}
+        >
+          <HStack justify="space-between" gap={3} flexWrap="wrap">
+            <Button variant="outline" onClick={() => navigate(-1)}>
+              Retour
             </Button>
 
-            <Button
-              colorScheme="purple"
-              onClick={() => navigate(`/clients/${clientId}/nutrition/${assessmentId}/food-survey`)}
-              isDisabled={!isValidated}
-            >
-              Passer à l’enquête alimentaire
-            </Button>
+            <HStack spacing={3} flexWrap="wrap" justify="flex-end">
+              <Button colorScheme="blue" onClick={onSaveAndNext}>
+                Étape suivante
+              </Button>
+            </HStack>
           </HStack>
-        </HStack>
-      </Box>
+        </Box>
+      </Stack>
     </Box>
   );
 }
-

@@ -17,6 +17,21 @@ const toKey = (s = "") =>
 const arrify = (x) => (Array.isArray(x) ? x : x ? [x] : []);
 const blacklistKey = (name = "") => (normalize(name).split(/\s*-\s*/)[0] || "");
 
+function normalizeSexeInput(sexe = "") {
+  const k = toKey(sexe);
+  if (["femme", "female", "woman", "girl", "feminin"].includes(k)) return "Femme";
+  if (["homme", "male", "man", "boy", "masculin"].includes(k)) return "Homme";
+  return "Homme";
+}
+
+function normalizeNiveauInput(niveau = "") {
+  const k = toKey(niveau);
+  if (["debutant", "beginner", "starter", "novice"].includes(k)) return "Débutant";
+  if (["intermediaire", "intermediate", "medium"].includes(k)) return "Intermédiaire";
+  if (["avance", "confirme", "advanced", "confirmed", "expert"].includes(k)) return "Confirmé";
+  return "Débutant";
+}
+
 /** ✅ Affichage propre : "prise_de_masse" -> "Prise de masse" */
 function formatLabel(s = "") {
   const raw = String(s || "").trim();
@@ -914,9 +929,153 @@ const getSplitHommeA = (nb) => {
   }
 };
 
-const getSplitHommeB = (nb) => getSplitHommeA(nb);
-const getSplitFemmeA = (nb) => getSplitHommeA(nb);
-const getSplitFemmeB = (nb) => getSplitFemmeA(nb);
+const getSplitHommeB = (nb) => {
+  switch (nb) {
+    case 3:
+      return [
+        ["pectoraux", "dos", "epaules"],
+        ["jambes", "fessiers", "lombaires"],
+        ["pectoraux", "dos", "epaules"],
+      ];
+    case 4:
+      return [
+        ["pectoraux", "dos", "epaules"],
+        ["jambes", "quadriceps", "mollets", "lombaires"],
+        ["pectoraux", "dos", "epaules"],
+        ["jambes", "ischio-jambiers", "fessiers", "lombaires"],
+      ];
+    case 5:
+      return [
+        ["pectoraux", "dos", "epaules"],
+        ["jambes", "quadriceps", "mollets", "lombaires"],
+        ["pectoraux", "dos", "epaules"],
+        ["jambes", "ischio-jambiers", "fessiers", "lombaires"],
+        ["jambes", "pectoraux", "dos", "epaules"],
+      ];
+    case 6:
+      return [
+        ["pectoraux", "triceps", "epaules"],
+        ["dos", "biceps", "epaules"],
+        ["jambes", "quadriceps", "mollets", "lombaires"],
+        ["pectoraux", "triceps", "epaules"],
+        ["dos", "biceps", "epaules"],
+        ["jambes", "ischio-jambiers", "fessiers", "lombaires"],
+      ];
+    case 7:
+      return [
+        ["pectoraux", "triceps", "epaules"],
+        ["dos", "biceps", "epaules"],
+        ["jambes", "quadriceps", "mollets", "lombaires"],
+        ["pectoraux", "triceps", "epaules"],
+        ["dos", "biceps", "epaules"],
+        ["jambes", "ischio-jambiers", "fessiers", "lombaires"],
+        ["jambes", "pectoraux", "dos", "epaules"],
+      ];
+    default:
+      return getSplitHommeA(nb);
+  }
+};
+
+const getSplitFemmeA = (nb) => {
+  switch (nb) {
+    case 1:
+      return [["jambes", "jambes", "fessiers", "fessiers", "epaules", "dos", "pectoraux"]];
+    case 2:
+      return [
+        ["jambes", "jambes", "fessiers", "fessiers", "epaules", "dos"],
+        ["jambes", "jambes", "fessiers", "fessiers", "epaules", "pectoraux"],
+      ];
+    case 3:
+      return [
+        ["jambes", "jambes", "fessiers", "fessiers", "mollets", "epaules"],
+        ["dos", "dos", "epaules", "epaules", "pectoraux"],
+        ["jambes", "jambes", "fessiers", "fessiers", "epaules", "pectoraux"],
+      ];
+    case 4:
+      return [
+        ["jambes", "jambes", "fessiers", "fessiers", "epaules"],
+        ["dos", "dos", "epaules", "epaules", "pectoraux"],
+        ["jambes", "jambes", "fessiers", "fessiers", "epaules"],
+        ["epaules", "dos", "pectoraux"],
+      ];
+    case 5:
+      return [
+        ["jambes", "fessiers", "jambes", "fessiers", "mollets"],
+        ["epaules", "dos", "epaules", "pectoraux"],
+        ["jambes", "fessiers", "jambes", "fessiers", "epaules"],
+        ["dos", "epaules", "pectoraux"],
+        ["jambes", "fessiers", "jambes", "fessiers", "mollets"],
+      ];
+    case 6:
+      return [
+        ["jambes", "fessiers", "jambes", "fessiers", "mollets"],
+        ["epaules", "dos", "epaules", "pectoraux"],
+        ["jambes", "fessiers", "jambes", "fessiers", "mollets"],
+        ["epaules", "dos", "epaules", "pectoraux"],
+        ["jambes", "fessiers", "jambes", "fessiers", "mollets"],
+        ["epaules", "dos", "epaules", "pectoraux"],
+      ];
+    case 7:
+      return [
+        ["jambes", "fessiers", "jambes", "fessiers", "mollets"],
+        ["epaules", "dos", "epaules", "pectoraux"],
+        ["jambes", "fessiers", "jambes", "fessiers", "mollets"],
+        ["epaules", "dos", "epaules", "pectoraux"],
+        ["jambes", "fessiers", "jambes", "fessiers", "mollets"],
+        ["epaules", "dos", "epaules", "pectoraux"],
+        ["jambes", "fessiers", "jambes", "fessiers", "mollets"],
+      ];
+    default:
+      return getSplitHommeA(nb);
+  }
+};
+
+const getSplitFemmeB = (nb) => {
+  switch (nb) {
+    case 3:
+      return [
+        ["jambes", "quadriceps", "fessiers"],
+        ["dos", "epaules", "pectoraux"],
+        ["jambes", "ischio-jambiers", "fessiers"],
+      ];
+    case 4:
+      return [
+        ["jambes", "quadriceps", "fessiers", "mollets"],
+        ["dos", "epaules", "pectoraux"],
+        ["jambes", "ischio-jambiers", "fessiers", "lombaires"],
+        ["dos", "epaules", "pectoraux"],
+      ];
+    case 5:
+      return [
+        ["jambes", "quadriceps", "fessiers", "mollets"],
+        ["dos", "epaules", "pectoraux"],
+        ["jambes", "ischio-jambiers", "fessiers", "lombaires"],
+        ["dos", "epaules", "pectoraux"],
+        ["jambes", "fessiers", "dos", "epaules"],
+      ];
+    case 6:
+      return [
+        ["jambes", "quadriceps", "fessiers", "mollets"],
+        ["dos", "epaules", "pectoraux"],
+        ["jambes", "ischio-jambiers", "fessiers", "lombaires"],
+        ["dos", "epaules", "pectoraux"],
+        ["jambes", "quadriceps", "ischio-jambiers", "fessiers"],
+        ["dos", "epaules", "pectoraux"],
+      ];
+    case 7:
+      return [
+        ["jambes", "quadriceps", "fessiers", "mollets"],
+        ["dos", "epaules", "pectoraux"],
+        ["jambes", "ischio-jambiers", "fessiers", "lombaires"],
+        ["dos", "epaules", "pectoraux"],
+        ["jambes", "quadriceps", "ischio-jambiers", "fessiers"],
+        ["dos", "epaules", "pectoraux"],
+        ["jambes", "fessiers", "dos", "epaules"],
+      ];
+    default:
+      return getSplitFemmeA(nb);
+  }
+};
 
 /* ------------------- GENERATION AUTO PRINCIPALE ------------------- */
 /**
@@ -924,6 +1083,8 @@ const getSplitFemmeB = (nb) => getSplitFemmeA(nb);
  */
 async function generateAutoProgram({ sexe, niveau, nbSeances, objectif }) {
   const db = admin.firestore();
+  const sexeNormalized = normalizeSexeInput(sexe);
+  const niveauNormalized = normalizeNiveauInput(niveau);
 
   const [ts, ws, cs, es] = await Promise.all([
     db.collection("training").get(),
@@ -939,7 +1100,7 @@ async function generateAutoProgram({ sexe, niveau, nbSeances, objectif }) {
 
   const variant = Math.random() < 0.5 ? "A" : "B";
   const split =
-    sexe === "Femme"
+    sexeNormalized === "Femme"
       ? variant === "A"
         ? getSplitFemmeA(nbSeances)
         : getSplitFemmeB(nbSeances)
@@ -947,8 +1108,8 @@ async function generateAutoProgram({ sexe, niveau, nbSeances, objectif }) {
       ? getSplitHommeA(nbSeances)
       : getSplitHommeB(nbSeances);
 
-  console.log(`[AUTO] Split choisi ${sexe === "Femme" ? "F" : "H"} ${variant}`, split);
-  console.log(`[AUTO] Objectif PARAMS utilisé`, { objectif });
+  console.log(`[AUTO] Split choisi ${sexeNormalized === "Femme" ? "F" : "H"} ${variant}`, split);
+  console.log(`[AUTO] Objectif PARAMS utilisé`, { objectif, sexe: sexeNormalized, niveau: niveauNormalized });
 
   const programmeComplet = [];
   const cleanArr = (arr) => (Array.isArray(arr) ? arr.filter(Boolean) : []);
@@ -966,7 +1127,7 @@ async function generateAutoProgram({ sexe, niveau, nbSeances, objectif }) {
           matchGroupeMusculaire(e, g) &&
           estPrincipal(e) &&
           exoMatchMateriel(e, "Salle de sport") &&
-          exoMatchNiveau(e, niveau) &&
+          exoMatchNiveau(e, niveauNormalized) &&
           !blacklist.has(blacklistKey(e.nom)) &&
           !baseBlacklist.has(blacklistKey(e.nom)) &&
           normalize(Array.isArray(e.groupe_musculaire) ? e.groupe_musculaire[0] : e.groupe_musculaire) !==
@@ -978,7 +1139,7 @@ async function generateAutoProgram({ sexe, niveau, nbSeances, objectif }) {
           (e) =>
             matchGroupeMusculaire(e, g) &&
             exoMatchMateriel(e, "Salle de sport") &&
-            exoMatchNiveau(e, niveau) &&
+            exoMatchNiveau(e, niveauNormalized) &&
             !blacklist.has(blacklistKey(e.nom)) &&
             !baseBlacklist.has(blacklistKey(e.nom)) &&
             normalize(Array.isArray(e.groupe_musculaire) ? e.groupe_musculaire[0] : e.groupe_musculaire) !==
@@ -1022,7 +1183,7 @@ async function generateAutoProgram({ sexe, niveau, nbSeances, objectif }) {
           (x) =>
             matchGroupeMusculaire(x, g) &&
             exoMatchMateriel(x, "Salle de sport") &&
-            exoMatchNiveau(x, niveau)
+            exoMatchNiveau(x, niveauNormalized)
         );
         if (w.length) {
           const exo = w[Math.floor(Math.random() * w.length)];
@@ -1058,7 +1219,7 @@ async function generateAutoProgram({ sexe, niveau, nbSeances, objectif }) {
           normalize(Array.isArray(e.groupe_musculaire) ? e.groupe_musculaire[0] : e.groupe_musculaire) ===
             "abdominaux" &&
           exoMatchMateriel(e, "Salle de sport") &&
-          exoMatchNiveau(e, niveau) &&
+          exoMatchNiveau(e, niveauNormalized) &&
           !blacklist.has(blacklistKey(e.nom))
       );
 
@@ -1095,14 +1256,14 @@ async function generateAutoProgram({ sexe, niveau, nbSeances, objectif }) {
               normalize(Array.isArray(x.groupe_musculaire) ? x.groupe_musculaire[0] : x.groupe_musculaire)
             ) &&
             exoMatchMateriel(x, "Salle de sport") &&
-            exoMatchNiveau(x, niveau)
+            exoMatchNiveau(x, niveauNormalized)
         );
         const fbC = cooldowns.filter(
           (x) =>
             normalize(Array.isArray(x.groupe_musculaire) ? x.groupe_musculaire[0] : x.groupe_musculaire) ===
               "fullbody" &&
             exoMatchMateriel(x, "Salle de sport") &&
-            exoMatchNiveau(x, niveau)
+            exoMatchNiveau(x, niveauNormalized)
         );
 
         if (cF.length || fbC.length) {
@@ -1191,7 +1352,8 @@ async function generateAndSaveAutoProgram({
     // ✅ nom propre
     nomProgramme: autoName,
 
-    niveauSportif: niveau,
+    niveauSportif: normalizeNiveauInput(niveau),
+    sexe: normalizeSexeInput(sexe),
 
     // ✅ stockage / affichage
     objectif: objectifStored,
@@ -1218,4 +1380,3 @@ module.exports = {
   generateAutoProgram,
   generateAndSaveAutoProgram,
 };
-

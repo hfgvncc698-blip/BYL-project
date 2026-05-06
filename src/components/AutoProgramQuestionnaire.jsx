@@ -30,6 +30,7 @@ import { apiFetch } from "../utils/api";
 // ✅ Firestore : on patch le programme après génération
 import { db } from "../firebaseConfig";
 import { doc, updateDoc } from "firebase/firestore";
+import { useAppTheme } from "../styles/appTheme";
 
 /* --- i18n source keys (labels come from translation files) --- */
 const LVL_KEYS = ["beginner", "intermediate", "advanced"];
@@ -58,6 +59,7 @@ export default function AutoProgramQuestionnaire() {
   const { user, isAdmin, effectiveRole, hasCoachAccess } = useAuth();
   const toast = useToast();
   const { t } = useTranslation("common");
+  const theme = useAppTheme();
 
   // ✅ rôle UI : admin peut “voir comme coach”
   const isCoachUI = effectiveRole === "coach";
@@ -86,19 +88,19 @@ export default function AutoProgramQuestionnaire() {
     String(objectif).trim() !== "";
 
   // ---------- styles ----------
-  const pageBg = useColorModeValue("gray.50", "#101626");
-  const cardBg = useColorModeValue("white", "#131d2c");
-  const labelColor = useColorModeValue("gray.700", "gray.300");
-  const selectBg = useColorModeValue("white", "#232d3b");
-  const borderColor = useColorModeValue("gray.200", "#263040");
-  const shadow = useColorModeValue("xl", "2xl");
+  const pageBg = theme.pageBg;
+  const cardBg = theme.surfaceBg;
+  const labelColor = theme.mutedText;
+  const selectBg = theme.surfaceSoft;
+  const borderColor = theme.borderColor;
+  const shadow = useColorModeValue("0 22px 70px rgba(15,23,42,0.08)", "0 22px 70px rgba(0,0,0,0.28)");
 
-  const primary = useColorModeValue("blue.600", "blue.400");
-  const primaryHover = useColorModeValue("blue.700", "blue.500");
+  const primary = theme.primary;
+  const primaryHover = theme.primaryHover;
   const primaryText = "white";
-  const outlineText = useColorModeValue("blue.700", "blue.200");
-  const outlineBorder = useColorModeValue("blue.200", "blue.700");
-  const muted = useColorModeValue("gray.600", "gray.300");
+  const outlineText = theme.textColor;
+  const outlineBorder = theme.borderStrong;
+  const muted = theme.mutedText;
 
   const pageTitle = isCoachUI || isAdmin
     ? t("autoQ.titleCoach", "Création guidée")

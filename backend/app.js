@@ -111,6 +111,12 @@ app.use('/api/payments', payments);
 const stripePortalRoutes = require('./routes/stripePortal');
 app.use('/api/stripe-portal', stripePortalRoutes);
 
+const contactRoutes = require('./routes/contact');
+app.use('/api/contact', contactRoutes);
+
+const analyticsRoutes = require('./routes/analytics');
+app.use('/api/analytics', analyticsRoutes);
+
 // Programmes
 const programRoutes = require('./routes/programs');
 app.use('/api/programs', programRoutes);
@@ -169,4 +175,3 @@ app.listen(PORT, () => {
 
 // ⚠️ IMPORTANT : pas de CRON ici (utiliser cron.worker.js)
 module.exports = app;
-

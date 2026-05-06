@@ -19,6 +19,7 @@
     "express": "^4.21.2",
     "firebase-admin": "^13.6.0",
     "firebase-functions": "^7.0.3",
+    "ical-generator": "^10.1.0",
     "nodemailer": "^7.0.11",
     "resend": "^6.4.0",
     "stripe": "^14.25.0"

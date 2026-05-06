@@ -21,6 +21,11 @@ import {
   Checkbox,
   Spinner,
 } from "@chakra-ui/react";
+import {
+  computeMicronutrientTargets,
+  parsePathologyFlags,
+  parseRegimeFlags,
+} from "../utils/nutritionContext";
 
 /* ================= Utils ================= */
 const num = (v) => {
@@ -30,11 +35,6 @@ const num = (v) => {
 const r0 = (v) => Math.round(num(v));
 const r1 = (v) => Math.round(num(v) * 10) / 10;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const snapMultiplier = (v, max = 4) => {
-  const n = num(v);
-  if (!Number.isFinite(n) || n <= 0) return 0;
-  return Math.round(clamp(n, 0, max) * 2) / 2;
-};
 const kcalFromMacros = (p, c, f) => num(p) * 4 + num(c) * 4 + num(f) * 9;
 
 const normalize = (s = "") =>
@@ -260,14 +260,14 @@ const DEFAULT_DOSE_BY_LABEL = {
   "Pain complet": { qty: 60, unit: "g" },
   "Pain sans gluten": { qty: 60, unit: "g" },
 
-  "Féculents cuits": { qty: 180, unit: "g" },
-  "Féculents crus": { qty: 60, unit: "g" },
+  "Féculents cuits": { qty: 200, unit: "g" },
+  "Féculents crus": { qty: 70, unit: "g" },
   "Céréales petit déjeuner": { qty: 30, unit: "g" },
-  "Féculents sans gluten cuits": { qty: 180, unit: "g" },
-  "Féculents sans gluten crus": { qty: 60, unit: "g" },
+  "Féculents sans gluten cuits": { qty: 200, unit: "g" },
+  "Féculents sans gluten crus": { qty: 70, unit: "g" },
   "Céréales petit déjeuner sans gluten": { qty: 30, unit: "g" },
 
-  Légumineuse: { qty: 110, unit: "g" },
+  Légumineuse: { qty: 150, unit: "g" },
 
   "Lait 1/2 écrémé": { qty: 125, unit: "ml" },
   "Lait végétal": { qty: 150, unit: "ml" },
@@ -310,6 +310,13 @@ const DEFAULT_DOSE_BY_LABEL = {
   Alcool: { qty: 150, unit: "ml" },
 };
 
+const DISPLAY_LABEL_BY_LABEL = {
+  "Céréales petit déjeuner": "Base céréalière (flocons, muesli, céréales)",
+  "Céréales petit déjeuner sans gluten": "Base céréalière sans gluten",
+};
+
+const displayFoodLabel = (label) => DISPLAY_LABEL_BY_LABEL[label] || label;
+
 /* ==================== Multipliers UI ==================== */
 const MULTIPLIERS_BASE = [
   { label: "x0", value: 0 },
@@ -346,8 +353,41 @@ const MULTIPLIERS_CHEESE = [
   { label: "x1", value: 1 },
 ];
 
+const getMultiplierOptionsFor = (group, resolvedLabel, caps) => {
+  if (resolvedLabel === "Fromage") return MULTIPLIERS_CHEESE;
+  const max = caps?.labelMaxMult?.[resolvedLabel];
+  if (max !== undefined && num(max) <= 2) return MULTIPLIERS_LIMITED_2;
+  if (group === "Légumineuses") return MULTIPLIERS_LIMITED_3;
+  if (group === "Matières grasses") return MULTIPLIERS_LIMITED_3;
+  if (group === "Compléments protéinés") return MULTIPLIERS_LIMITED_2;
+  return MULTIPLIERS_BASE;
+};
+
+const snapMultiplierDownToOption = (multiplier, group, resolvedLabel, caps) => {
+  const current = num(multiplier);
+  if (!(current > 0)) return 0;
+  const options = getMultiplierOptionsFor(group, resolvedLabel, caps)
+    .map((m) => num(m.value))
+    .filter((value) => Number.isFinite(value))
+    .sort((a, b) => a - b);
+  let snapped = 0;
+  options.forEach((value) => {
+    if (value <= current + 0.001) snapped = value;
+  });
+  return snapped;
+};
+
+const formatAutoQtyLabel = (label, multiplier) => {
+  const mult = num(multiplier);
+  if (!(mult > 0)) return "0";
+  const dose = DEFAULT_DOSE_BY_LABEL?.[label] || { qty: 100, unit: "g" };
+  const qty = num(dose.qty) * mult;
+  const rounded = dose.unit === "unité" ? r1(qty) : r0(qty);
+  return `${rounded} ${dose.unit || "g"}`.trim();
+};
+
 const PLAUSIBILITY_MAX_MULT_BY_LABEL = {
-  Légumineuse: 2,
+  Légumineuse: 2.5,
   Isolate: 2,
   Hydrolisate: 2,
   "100% whey": 2,
@@ -356,12 +396,12 @@ const PLAUSIBILITY_MAX_MULT_BY_LABEL = {
   Beurre: 2,
   Margarine: 2,
   "Crème fraîche": 1.5,
-  "Féculents cuits": 3,
-  "Féculents crus": 2.5,
-  "Céréales petit déjeuner": 2.5,
-  "Féculents sans gluten cuits": 3,
-  "Féculents sans gluten crus": 2.5,
-  "Céréales petit déjeuner sans gluten": 2.5,
+  "Féculents cuits": 4,
+  "Féculents crus": 3,
+  "Céréales petit déjeuner": 3,
+  "Féculents sans gluten cuits": 4,
+  "Féculents sans gluten crus": 3,
+  "Céréales petit déjeuner sans gluten": 3,
   "Pain blanc": 3,
   "Pain complet": 3,
   "Pain sans gluten": 3,
@@ -384,7 +424,6 @@ const PLAUSIBILITY_MAX_MULT_BY_LABEL = {
 };
 
 const FRUIT_DAY_MAX = 3;
-const FRUIT_DAY_MAX_DIABETE = 2;
 
 const SNACK_AFTER_LUNCH_MIN_KCAL = 2200;
 const SNACK_BEFORE_LUNCH_MIN_KCAL = 3000;
@@ -403,11 +442,12 @@ const MEAL_KEYS = [
   { key: "collation_soir", label: "Collation (après dîner)" },
 ];
 
+// Fromage = 30g/jour max, autorisé uniquement matin / midi.
 const FROMAGE_ALLOWED_MEAL_KEYS = new Set(["petit_dej", "collation_matin", "dejeuner"]);
 
 const SLOTS_BY_MEAL = {
   petit_dej: [
-    { slotKey: "cereales", label: "Produit céréalier", group: "Produits céréaliers", required: true },
+    { slotKey: "cereales", label: "Base céréalière", group: "Produits céréaliers", required: true },
     { slotKey: "pain", label: "Pain", group: "Pain", required: false },
     { slotKey: "laitier", label: "Produit laitier", group: "Produits laitiers", required: true },
     { slotKey: "mg", label: "Matières grasses", group: "Matières grasses", required: true },
@@ -421,7 +461,7 @@ const SLOTS_BY_MEAL = {
     { slotKey: "laitier", label: "Produit laitier", group: "Produits laitiers", required: false },
     { slotKey: "boisson", label: "Boisson", group: "Boissons", required: false },
     { slotKey: "shake", label: "Complément protéiné", group: "Compléments protéinés", required: false },
-    { slotKey: "cereales", label: "Produit céréalier", group: "Produits céréaliers", required: false },
+    { slotKey: "cereales", label: "Base céréalière / encas", group: "Produits céréaliers", required: false },
     { slotKey: "pain", label: "Pain", group: "Pain", required: false },
   ],
   dejeuner: [
@@ -434,14 +474,13 @@ const SLOTS_BY_MEAL = {
     { slotKey: "laitier", label: "Produit laitier", group: "Produits laitiers", required: true },
     { slotKey: "fruit", label: "Fruit", group: "Fruits", required: true },
     { slotKey: "boisson", label: "Boisson", group: "Boissons", required: true },
-    { slotKey: "shake", label: "Complément protéiné", group: "Compléments protéinés", required: false },
   ],
   collation_apm: [
     { slotKey: "fruit", label: "Fruit", group: "Fruits", required: false },
     { slotKey: "laitier", label: "Produit laitier", group: "Produits laitiers", required: true },
     { slotKey: "boisson", label: "Boisson", group: "Boissons", required: true },
     { slotKey: "shake", label: "Complément protéiné", group: "Compléments protéinés", required: false },
-    { slotKey: "cereales", label: "Produit céréalier", group: "Produits céréaliers", required: false },
+    { slotKey: "cereales", label: "Base céréalière / encas", group: "Produits céréaliers", required: false },
     { slotKey: "pain", label: "Pain", group: "Pain", required: false },
   ],
   diner: [
@@ -453,14 +492,13 @@ const SLOTS_BY_MEAL = {
     { slotKey: "mg", label: "Matières grasses", group: "Matières grasses", required: true },
     { slotKey: "laitier", label: "Produit laitier", group: "Produits laitiers", required: true },
     { slotKey: "boisson", label: "Boisson", group: "Boissons", required: true },
-    { slotKey: "shake", label: "Complément protéiné", group: "Compléments protéinés", required: false },
   ],
   collation_soir: [
     { slotKey: "fruit", label: "Fruit", group: "Fruits", required: false },
     { slotKey: "laitier", label: "Produit laitier", group: "Produits laitiers", required: false },
     { slotKey: "boisson", label: "Boisson", group: "Boissons", required: false },
     { slotKey: "shake", label: "Complément protéiné", group: "Compléments protéinés", required: false },
-    { slotKey: "cereales", label: "Produit céréalier", group: "Produits céréaliers", required: false },
+    { slotKey: "cereales", label: "Base céréalière / encas", group: "Produits céréaliers", required: false },
     { slotKey: "pain", label: "Pain", group: "Pain", required: false },
   ],
 };
@@ -475,8 +513,8 @@ function pickMacroPercents(objectifRaw) {
   const isMass = o.includes("prise") || o.includes("masse") || o.includes("hypertroph");
   const isLoss = o.includes("perte") || o.includes("maigr");
 
-  if (isMass) return { protPct: 27.5, lipPct: 27.5, gluPct: 45 };
-  if (isLoss) return { protPct: 17.5, lipPct: 37.5, gluPct: 45 };
+  if (isMass) return { protPct: 25, lipPct: 30, gluPct: 45 };
+  if (isLoss) return { protPct: 25, lipPct: 30, gluPct: 45 };
   return { protPct: 20, lipPct: 35, gluPct: 45 };
 }
 
@@ -487,16 +525,16 @@ function macroRanges(objectifRaw) {
 
   if (isMass) {
     return {
-      prot: { min: 25, max: 30 },
-      lip: { min: 25, max: 30 },
-      glu: { min: 40, max: 50 },
+      prot: { min: 23, max: 28 },
+      lip: { min: 27, max: 32 },
+      glu: { min: 40, max: 48 },
     };
   }
   if (isLoss) {
     return {
-      prot: { min: 15, max: 20 },
-      lip: { min: 35, max: 40 },
-      glu: { min: 40, max: 50 },
+      prot: { min: 22, max: 28 },
+      lip: { min: 27, max: 33 },
+      glu: { min: 38, max: 48 },
     };
   }
   return {
@@ -506,121 +544,46 @@ function macroRanges(objectifRaw) {
   };
 }
 
+const avgRange = (range) => {
+  const min = num(range?.min);
+  const max = num(range?.max);
+  if (min > 0 && max > 0) return (min + max) / 2;
+  return min || max || 0;
+};
+
+const pctRangeFromGramRange = (range, kcalTarget, kcalPerGram) => {
+  const min = num(range?.min);
+  const max = num(range?.max);
+  const kcal = num(kcalTarget);
+  if (!(min > 0) || !(max > 0) || !(kcal > 0)) return null;
+  return {
+    min: Math.round(((min * kcalPerGram) / kcal) * 100),
+    max: Math.round(((max * kcalPerGram) / kcal) * 100),
+  };
+};
+
+const formatGramRange = (range, fallback) => {
+  const min = num(range?.min);
+  const max = num(range?.max);
+  if (min > 0 && max > 0) return `${r0(min)}-${r0(max)}g`;
+  if (num(fallback) > 0) return `${r0(fallback)}g`;
+  return "—";
+};
+
+const formatPctRange = (min, max, fallbackRange) => {
+  const a = num(min) || num(fallbackRange?.min);
+  const b = num(max) || num(fallbackRange?.max);
+  if (a > 0 && b > 0) return `${r0(a)}-${r0(b)}%`;
+  return "—";
+};
+
 function kcalCoeff(objectifRaw) {
   const o = normalize(objectifRaw);
   const isLoss = o.includes("perte") || o.includes("maigr");
   const isMass = o.includes("prise") || o.includes("masse") || o.includes("hypertroph");
-  if (isLoss) return 0.8;
-  if (isMass) return 1.2;
+  if (isLoss) return 0.85;
+  if (isMass) return 1.1;
   return 1.0;
-}
-
-function macroGramRangesFromPct(kcalTarget, ranges) {
-  if (!(kcalTarget > 0)) {
-    return {
-      prot: { min: 0, max: 0 },
-      lip: { min: 0, max: 0 },
-      glu: { min: 0, max: 0 },
-    };
-  }
-
-  return {
-    prot: {
-      min: (kcalTarget * (num(ranges?.prot?.min) / 100)) / 4,
-      max: (kcalTarget * (num(ranges?.prot?.max) / 100)) / 4,
-    },
-    lip: {
-      min: (kcalTarget * (num(ranges?.lip?.min) / 100)) / 9,
-      max: (kcalTarget * (num(ranges?.lip?.max) / 100)) / 9,
-    },
-    glu: {
-      min: (kcalTarget * (num(ranges?.glu?.min) / 100)) / 4,
-      max: (kcalTarget * (num(ranges?.glu?.max) / 100)) / 4,
-    },
-  };
-}
-
-function macroRangeDistance(day, gramRanges) {
-  const getGap = (value, min, max) => {
-    if (value < min) return min - value;
-    if (value > max) return value - max;
-    return 0;
-  };
-
-  return (
-    getGap(num(day?.prot), num(gramRanges?.prot?.min), num(gramRanges?.prot?.max)) +
-    getGap(num(day?.lip), num(gramRanges?.lip?.min), num(gramRanges?.lip?.max)) +
-    getGap(num(day?.glu), num(gramRanges?.glu?.min), num(gramRanges?.glu?.max))
-  );
-}
-
-function buildMacroGramRangesFromComputed(computed = {}, kcalTarget = 0, fallbackRanges = {}) {
-  const pick = (...values) => {
-    for (const value of values) {
-      const n = num(value);
-      if (n > 0) return n;
-    }
-    return 0;
-  };
-
-  const protMin = pick(
-    computed?.protMin,
-    computed?.proteinMin,
-    computed?.proteinesMin,
-    computed?.proteinsMin,
-    computed?.fourchettes?.prot?.min,
-    computed?.fourchettes?.protein?.min,
-  );
-  const protMax = pick(
-    computed?.protMax,
-    computed?.proteinMax,
-    computed?.proteinesMax,
-    computed?.proteinsMax,
-    computed?.fourchettes?.prot?.max,
-    computed?.fourchettes?.protein?.max,
-  );
-  const lipMin = pick(
-    computed?.lipMin,
-    computed?.fatMin,
-    computed?.lipidesMin,
-    computed?.fatsMin,
-    computed?.fourchettes?.lip?.min,
-    computed?.fourchettes?.fat?.min,
-  );
-  const lipMax = pick(
-    computed?.lipMax,
-    computed?.fatMax,
-    computed?.lipidesMax,
-    computed?.fatsMax,
-    computed?.fourchettes?.lip?.max,
-    computed?.fourchettes?.fat?.max,
-  );
-  const gluMin = pick(
-    computed?.gluMin,
-    computed?.carbMin,
-    computed?.glucidesMin,
-    computed?.carbsMin,
-    computed?.fourchettes?.glu?.min,
-    computed?.fourchettes?.carb?.min,
-  );
-  const gluMax = pick(
-    computed?.gluMax,
-    computed?.carbMax,
-    computed?.glucidesMax,
-    computed?.carbsMax,
-    computed?.fourchettes?.glu?.max,
-    computed?.fourchettes?.carb?.max,
-  );
-
-  if (protMin || protMax || lipMin || lipMax || gluMin || gluMax) {
-    return {
-      prot: { min: protMin || fallbackRanges?.prot?.min || 0, max: protMax || fallbackRanges?.prot?.max || 0 },
-      lip: { min: lipMin || fallbackRanges?.lip?.min || 0, max: lipMax || fallbackRanges?.lip?.max || 0 },
-      glu: { min: gluMin || fallbackRanges?.glu?.min || 0, max: gluMax || fallbackRanges?.glu?.max || 0 },
-    };
-  }
-
-  return macroGramRangesFromPct(kcalTarget, fallbackRanges);
 }
 
 /* ==================== Helpers data ==================== */
@@ -726,16 +689,15 @@ function applyCapsToSlots(slots, caps, slotDefById, reg, path) {
   for (const [id, st] of Object.entries(next)) {
     const resolvedLabel = getResolvedLabelForSlot(st, slotDefById, reg, path);
     const max = caps?.labelMaxMult?.[resolvedLabel];
-    const upper = max === undefined ? 4 : num(max);
+    if (max === undefined) continue;
     const cur = num(st.multiplier || 0);
-    const clamped = snapMultiplier(cur, upper);
-    if (clamped !== cur || !Number.isFinite(cur)) next[id] = { ...st, multiplier: clamped };
+    const clamped = clamp(cur, 0, num(max));
+    if (clamped !== cur) next[id] = { ...st, multiplier: clamped };
   }
   return next;
 }
 
-function enforceFruitCap(draftSlots, path = {}) {
-  const dayMax = path.diabete ? FRUIT_DAY_MAX_DIABETE : FRUIT_DAY_MAX;
+function enforceFruitCap(draftSlots) {
   const next = { ...draftSlots };
 
   Object.entries(next).forEach(([id, st]) => {
@@ -749,7 +711,7 @@ function enforceFruitCap(draftSlots, path = {}) {
   );
 
   let totalFruit = fruitEntries.reduce((sum, [, st]) => sum + num(st.multiplier), 0);
-  if (totalFruit <= dayMax) return next;
+  if (totalFruit <= FRUIT_DAY_MAX) return next;
 
   const priorityOrder = {
     collation_soir: 1,
@@ -766,10 +728,10 @@ function enforceFruitCap(draftSlots, path = {}) {
       return pa - pb;
     })
     .forEach(([id, st]) => {
-      if (totalFruit <= dayMax) return;
+      if (totalFruit <= FRUIT_DAY_MAX) return;
       const current = num(st.multiplier);
       const reducible = Math.max(0, current - (st.mealKey === "petit_dej" ? 1 : 0));
-      const overflow = totalFruit - dayMax;
+      const overflow = totalFruit - FRUIT_DAY_MAX;
       const reduce = Math.min(reducible, overflow);
       next[id] = { ...st, multiplier: Math.max(0, current - reduce) };
       totalFruit -= reduce;
@@ -778,100 +740,128 @@ function enforceFruitCap(draftSlots, path = {}) {
   return next;
 }
 
-function enforceFruitFiberRequirement(draftSlots, path, slotDefById, reg) {
-  if (!path.diabete) return draftSlots;
-
-  const next = { ...draftSlots };
-  const slotsByMeal = {};
-  Object.entries(next).forEach(([id, st]) => {
-    if (!slotsByMeal[st.mealKey]) slotsByMeal[st.mealKey] = [];
-    slotsByMeal[st.mealKey].push({ id, slot: st });
-  });
-
-  let fruitCount = 0;
-  const maxFruits = FRUIT_DAY_MAX_DIABETE;
-
-  Object.entries(slotsByMeal).forEach(([mealKey, entries]) => {
-    const hasFiber = entries.some(({ slot }) => {
-      const group = slot.group;
-      const resolved = getResolvedLabelForSlot(slot, slotDefById, reg, path);
-      return (
-        num(slot.multiplier) > 0 &&
-        (group === "Légumes" ||
-          group === "Produits céréaliers" ||
-          group === "Pain" ||
-          resolved === "Légumineuse")
-      );
-    });
-
-    entries.forEach(({ id, slot }) => {
-      if (slot.group !== "Fruits") return;
-      const current = num(slot.multiplier);
-      if (!(current > 0)) return;
-
-      if (hasFiber && fruitCount < maxFruits) {
-        fruitCount += current;
-      } else {
-        next[id] = { ...slot, multiplier: 0 };
-      }
-    });
-  });
-
-  return next;
-}
-
 /* ==================== CIQUAL ==================== */
 const CIQUAL_REF_CODE_BY_LABEL = {
-  Fruits: 2003,
-  Légumes: 1111,
-  Légumineuse: 1601,
-  "Lait 1/2 écrémé": 101,
+  Fruits: 13396,
+  Légumes: 20009,
+  Légumineuse: 20360,
+  "Lait 1/2 écrémé": 19033,
   "Lait végétal": 990001,
   "Yaourt végétal": 990002,
-  "Yaourt nature": 201,
-  "Fromage blanc": 202,
-  Fromage: 301,
-  "Pain complet": 401,
-  "Pain blanc": 402,
+  "Yaourt nature": 19593,
+  "Fromage blanc": 19501,
+  Fromage: 12004,
+  "Pain complet": 7110,
+  "Pain blanc": 7001,
   "Pain sans gluten": 403,
-  "Féculents cuits": 501,
-  "Féculents crus": 502,
+  "Féculents cuits": 9104,
+  "Féculents crus": 9100,
   "Céréales petit déjeuner": 503,
-  "Féculents sans gluten cuits": 504,
-  "Féculents sans gluten crus": 505,
+  "Féculents sans gluten cuits": 9104,
+  "Féculents sans gluten crus": 9100,
   "Céréales petit déjeuner sans gluten": 506,
-  "Viande maigre": 601,
-  "Viande moyenne": 602,
-  Volaille: 603,
-  "Poissons blanc": 701,
-  "Poissons gras": 702,
-  Oeufs: 801,
-  Huile: 901,
-  Beurre: 902,
-  Margarine: 903,
+  "Viande maigre": 36005,
+  "Viande moyenne": 6200,
+  Volaille: 36005,
+  "Poissons blanc": 25997,
+  "Poissons gras": 25996,
+  Oeufs: 22500,
+  Huile: 17130,
+  Beurre: 16400,
+  Margarine: 16080,
   "Crème fraîche": 904,
-  Sucre: 905,
-  Miel: 906,
-  Confiture: 907,
-  "Chocolat noir": 908,
-  "Chocolat au lait": 909,
-  Biscuits: 910,
-  Gâteaux: 911,
+  Sucre: 31016,
+  Miel: 31008,
+  Confiture: 30888,
+  "Chocolat noir": 31005,
+  "Chocolat au lait": 31004,
+  Biscuits: 38399,
+  Gâteaux: 23000,
 };
 
-const CIQUAL_FALLBACK_URLS = [
-  "/ciqual_2025.json",
-  "/data/ciqual_2025.json",
-  "/ciqual.json",
-  "/data/ciqual.json",
-];
+const CIQUAL_REF_NAME_HINTS_BY_LABEL = {
+  Fruits: ["pomme, chair sans peau, crue", "pomme, chair et peau, crue"],
+  Légumes: ["carotte, crue"],
+  Légumineuse: ["lentille", "haricot rouge"],
+  "Lait 1/2 écrémé": ["lait demi ecreme", "lait 1/2 ecreme"],
+  "Lait végétal": ["boisson au soja", "lait de soja"],
+  "Yaourt végétal": ["dessert au soja", "yaourt soja"],
+  "Yaourt nature": ["yaourt nature"],
+  "Fromage blanc": ["fromage blanc"],
+  Fromage: ["emmental", "fromage"],
+  "Pain complet": ["pain complet"],
+  "Pain blanc": ["pain blanc", "baguette"],
+  "Pain sans gluten": ["pain sans gluten"],
+  "Féculents cuits": ["riz blanc, cuit", "pates cuites", "pommes de terre cuites"],
+  "Féculents crus": ["riz blanc, cru", "pates crues"],
+  "Céréales petit déjeuner": ["cereales petit dejeuner"],
+  "Féculents sans gluten cuits": ["riz blanc cuit", "pommes de terre cuites"],
+  "Féculents sans gluten crus": ["riz blanc cru"],
+  "Céréales petit déjeuner sans gluten": ["cereales petit dejeuner"],
+  "Viande maigre": ["poulet, viande", "dinde, viande"],
+  "Viande moyenne": ["boeuf"],
+  Volaille: ["poulet, viande", "dinde, viande"],
+  "Poissons blanc": ["cabillaud", "colin"],
+  "Poissons gras": ["saumon", "sardine"],
+  Oeufs: ["oeuf"],
+  Huile: ["huile"],
+  Beurre: ["beurre"],
+  Margarine: ["margarine"],
+  "Crème fraîche": ["creme fraiche"],
+  Sucre: ["sucre"],
+  Miel: ["miel"],
+  Confiture: ["confiture"],
+  "Chocolat noir": ["chocolat noir"],
+  "Chocolat au lait": ["chocolat au lait"],
+  Biscuits: ["biscuit"],
+  Gâteaux: ["gateau"],
+};
 
-function prettyNutrient(k) {
-  return String(k || "")
+function findCiqualRowForLabel(label, rows, byCode) {
+  const code = CIQUAL_REF_CODE_BY_LABEL?.[label];
+  if (code && byCode?.[code]?.nutrients) return byCode[code];
+
+  const hints = CIQUAL_REF_NAME_HINTS_BY_LABEL?.[label] || [label];
+  const normalizedHints = hints.map(normalize).filter(Boolean);
+  return (rows || []).find((row) => {
+    const name = normalize(row?.name);
+    return row?.nutrients && normalizedHints.some((hint) => name.includes(hint));
+  });
+}
+
+const prettyNutrient = (k) =>
+  String(k || "")
     .replace(/_100g$/i, "")
     .replace(/_/g, " ")
     .toUpperCase();
-}
+
+const isEnergyLikeNutrientKey = (key = "") => {
+  const normalized = normalize(String(key || "").replace(/_/g, " "));
+  return normalized.includes("energie") || normalized.includes("kcal") || normalized.includes("kj") || normalized.includes("facteur");
+};
+
+const isFiberNutrientKey = (key = "") => {
+  const normalized = normalize(String(key || "").replace(/_/g, " "));
+  return (normalized.includes("fibres") || normalized.includes("fibre")) && !isEnergyLikeNutrientKey(key);
+};
+
+const findBestNutrientKeyForTarget = (keys = [], targetKey = "") => {
+  if (targetKey === "fibres") {
+    return keys
+      .filter(isFiberNutrientKey)
+      .sort((a, b) => {
+        const an = normalize(a);
+        const bn = normalize(b);
+        const score = (value) =>
+          (value.includes("fibres alimentaires") ? 40 : 0) +
+          (value.includes("fibre alimentaire") ? 30 : 0) +
+          (value.includes("g_100g") || value.includes("g 100g") ? 10 : 0) -
+          value.length / 100;
+        return score(bn) - score(an);
+      })[0];
+  }
+  return keys.find((key) => microTargetKeyFromNutrient(key) === targetKey);
+};
 
 function pickDefaultMicroKeys(allKeys) {
   const keys = allKeys || [];
@@ -890,134 +880,77 @@ function pickDefaultMicroKeys(allKeys) {
   ];
   const picked = [];
   for (const w of wanted) {
-    const k = keys.find((x) => normalize(x).includes(w));
+    const k = w === "fibres" ? findBestNutrientKeyForTarget(keys, "fibres") : keys.find((x) => normalize(x).includes(w));
     if (k) picked.push(k);
   }
   return Array.from(new Set(picked)).slice(0, 10);
 }
 
-function extractCiqualRows(payload) {
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.data)) return payload.data;
-  if (Array.isArray(payload?.rows)) return payload.rows;
-  if (Array.isArray(payload?.items)) return payload.items;
-  if (Array.isArray(payload?.records)) return payload.records;
-  if (Array.isArray(payload?.aliments)) return payload.aliments;
-  return [];
-}
+const microTargetKeyFromNutrient = (key = "") => {
+  const normalized = normalize(String(key || "").replace(/_/g, " "));
+  if (normalized.includes("calcium")) return "calcium";
+  if (isFiberNutrientKey(key)) return "fibres";
+  if (normalized.includes("sodium") || normalized.includes("sel")) return "sodium";
+  if (normalized.includes("potassium")) return "potassium";
+  if (normalized.includes("magnesium")) return "magnesium";
+  if (normalized.includes("fer") || normalized.includes("iron")) return "fer";
+  if (normalized.includes("vitamine a")) return "vitA";
+  if (normalized.includes("vitamine b1")) return "vitB1";
+  if (normalized.includes("vitamine b2")) return "vitB2";
+  if (normalized.includes("vitamine b6")) return "vitB6";
+  if (normalized.includes("vitamine b9") || normalized.includes("folate")) return "vitB9";
+  if (normalized.includes("vitamine b12")) return "vitB12";
+  if (normalized.includes("vitamine c") || normalized.includes("ascorb")) return "vitC";
+  if (normalized.includes("vitamine d")) return "vitD";
+  if (normalized.includes("vitamine e")) return "vitE";
+  if (normalized.includes("vitamine k")) return "vitK";
+  if (normalized.includes("lactose")) return "lactose";
+  if (normalized.includes("cholesterol")) return "cholesterol";
+  return "";
+};
 
-function normalizeCiqualRow(row, index = 0) {
-  if (!row || typeof row !== "object") return null;
-  const rawCode =
-    row.code ??
-    row.CODAL ??
-    row.codal ??
-    row["alim_code"] ??
-    row["alim_code_ciqual"] ??
-    row["code_ciqual"] ??
-    row["food_code"] ??
-    index + 1;
-
-  const code = Number(rawCode);
-  const nutrients =
-    row.nutrients ||
-    row.constituants ||
-    row.nutriments ||
-    row.values ||
-    row.valeurs ||
-    {};
-
-  return {
-    ...row,
-    code: Number.isFinite(code) ? code : index + 1,
-    nutrients: typeof nutrients === "object" && nutrients ? nutrients : {},
-  };
-}
-
-
-function ciqualLabelAliases(label) {
-  const map = {
-    Fruits: ["fruit", "fruits", "pomme", "banane"],
-    Légumes: ["legume", "legumes", "carotte", "courgette"],
-    Légumineuse: ["legumineuse", "legumineuses", "lentille", "pois chiche", "haricot"],
-    "Lait 1/2 écrémé": ["lait demi ecreme", "lait 1/2 ecreme", "lait"],
-    "Lait végétal": ["lait vegetal", "boisson soja", "boisson amande", "boisson vegetale"],
-    "Yaourt végétal": ["yaourt vegetal", "specialite vegetale"],
-    "Yaourt nature": ["yaourt nature", "yaourt"],
-    "Fromage blanc": ["fromage blanc"],
-    Fromage: ["fromage", "emmental", "comte", "camembert"],
-    "Pain complet": ["pain complet"],
-    "Pain blanc": ["pain blanc", "baguette"],
-    "Pain sans gluten": ["pain sans gluten"],
-    "Féculents cuits": ["riz cuit", "pates cuites", "pomme de terre cuite", "feculents cuits"],
-    "Féculents crus": ["riz cru", "pates crues", "semoule crue", "feculents crus"],
-    "Céréales petit déjeuner": ["cereales petit dejeuner", "muesli", "corn flakes", "flocons d avoine"],
-    "Féculents sans gluten cuits": ["riz cuit", "quinoa cuit", "feculents sans gluten cuits"],
-    "Féculents sans gluten crus": ["riz cru", "quinoa cru", "feculents sans gluten crus"],
-    "Céréales petit déjeuner sans gluten": ["cereales petit dejeuner sans gluten", "flocons de riz"],
-    "Viande maigre": ["viande maigre", "steak 5", "boeuf maigre"],
-    "Viande moyenne": ["viande moyenne", "boeuf", "veau"],
-    Volaille: ["volaille", "poulet", "dinde"],
-    "Poissons blanc": ["poisson blanc", "cabillaud", "colin", "merlu"],
-    "Poissons gras": ["poisson gras", "saumon", "maquereau", "thon"],
-    Oeufs: ["oeuf", "oeufs"],
-    Huile: ["huile", "huile olive", "huile colza"],
-    Beurre: ["beurre"],
-    Margarine: ["margarine"],
-    "Crème fraîche": ["creme fraiche"],
-    Sucre: ["sucre"],
-    Miel: ["miel"],
-    Confiture: ["confiture"],
-    "Chocolat noir": ["chocolat noir"],
-    "Chocolat au lait": ["chocolat au lait"],
-    Biscuits: ["biscuit", "biscuits"],
-    Gâteaux: ["gateau", "gateaux"],
-  };
-  return map[label] || [normalize(label)];
-}
-
-function getCiqualRowSearchText(row) {
-  return normalize(
-    row?.name ||
-      row?.label ||
-      row?.alim_nom_fr ||
-      row?.nom ||
-      row?.title ||
-      row?.designation ||
-      row?.description ||
-      ""
+function pickRecommendedMicroKeys(allKeys, context = {}, objectiveRaw = "") {
+  const keys = allKeys || [];
+  const inputs = context?.inputs || {};
+  const targets = computeMicronutrientTargets({ inputs: context?.inputs || {}, objectiveRaw });
+  const path = parsePathologyFlags(inputs);
+  const reg = parseRegimeFlags(inputs);
+  const microText = normalize(
+    [
+      inputs?.medical?.microFatigue,
+      inputs?.medical?.microSleep,
+      inputs?.medical?.microDigestion,
+      inputs?.medical?.microCramps,
+      inputs?.medical?.microNotes,
+    ]
+      .filter(Boolean)
+      .join(" ")
   );
-}
-async function loadCiqualDataset() {
-  let lastError = null;
-
-  for (const url of CIQUAL_FALLBACK_URLS) {
-    try {
-      const res = await fetch(url, { cache: "no-store" });
-      if (!res.ok) {
-        lastError = new Error(`HTTP ${res.status} on ${url}`);
-        continue;
-      }
-
-      const payload = await res.json();
-      const rows = extractCiqualRows(payload)
-        .map((row, idx) => normalizeCiqualRow(row, idx))
-        .filter(Boolean);
-
-      if (rows.length) {
-        return {
-          rows,
-          sourceUrl: url,
-        };
-      }
-
-      lastError = new Error(`Dataset vide sur ${url}`);
-    } catch (err) {
-      lastError = err;
-    }
+  const wantedTargets = new Set(["calcium", "fibres"]);
+  if (path.hta || path.renal) ["sodium", "potassium"].forEach((key) => wantedTargets.add(key));
+  if (path.hyperchol) wantedTargets.add("cholesterol");
+  if (path.diabete || path.constipation || path.troublesDigestifs) wantedTargets.add("fibres");
+  if (path.troublesDigestifs || reg.lactoseFree) wantedTargets.add("lactose");
+  if (reg.vegetarian || reg.vegan) ["fer", "vitB12", "vitD"].forEach((key) => wantedTargets.add(key));
+  if (reg.vegan) wantedTargets.add("calcium");
+  if (targets?.vitB9?.value >= 500) wantedTargets.add("vitB9");
+  if (targets?.vitC?.value >= 150) wantedTargets.add("vitC");
+  if (microText.includes("fatigue") || microText.includes("energie")) {
+    ["fer", "vitB12", "vitD", "magnesium"].forEach((key) => wantedTargets.add(key));
+  }
+  if (microText.includes("sommeil") || microText.includes("recuperation")) {
+    ["magnesium", "vitD"].forEach((key) => wantedTargets.add(key));
+  }
+  if (microText.includes("crampe") || microText.includes("musculaire")) {
+    ["magnesium", "potassium"].forEach((key) => wantedTargets.add(key));
   }
 
-  throw lastError || new Error("Impossible de charger le dataset CIQUAL");
+  const picked = [];
+  wantedTargets.forEach((targetKey) => {
+    const nutrientKey = findBestNutrientKeyForTarget(keys, targetKey);
+    if (nutrientKey) picked.push(nutrientKey);
+  });
+  return Array.from(new Set(picked)).slice(0, 10);
 }
 
 /* ==================== calculs ==================== */
@@ -1103,7 +1036,7 @@ function parseRegimes(inputs) {
 }
 
 function parsePathologies(inputs) {
-  const raw = inputs?.pathologies || inputs?.pathology || [];
+  const raw = inputs?.medical?.pathologies || inputs?.pathologies || inputs?.pathology || [];
   const arr = Array.isArray(raw) ? raw : typeof raw === "string" ? raw.split(",") : [];
   const set = new Set(arr.map((x) => normalize(x)));
   return {
@@ -1145,15 +1078,6 @@ function capsForContext(reg, path) {
     caps.labelMaxMult["Isolate"] = 0;
     caps.labelMaxMult["Hydrolisate"] = 0;
     caps.labelMaxMult["100% whey"] = 0;
-
-    caps.labelMaxMult["Légumineuse"] = 0.5;
-    caps.labelMaxMult["Féculents cuits"] = 1;
-    caps.labelMaxMult["Féculents crus"] = 0.5;
-    caps.labelMaxMult["Féculents sans gluten cuits"] = 1;
-    caps.labelMaxMult["Féculents sans gluten crus"] = 0.5;
-    caps.labelMaxMult["Céréales petit déjeuner"] = 0.5;
-    caps.labelMaxMult["Céréales petit déjeuner sans gluten"] = 0.5;
-    caps.labelMaxMult["Whey vegan"] = 1;
   }
 
   if (reg.vegetarian) {
@@ -1162,14 +1086,6 @@ function capsForContext(reg, path) {
     caps.labelMaxMult["Volaille"] = 0;
     caps.labelMaxMult["Poissons gras"] = 0;
     caps.labelMaxMult["Poissons blanc"] = 0;
-
-    caps.labelMaxMult["Légumineuse"] = 0.5;
-    caps.labelMaxMult["Féculents cuits"] = 2.5;
-    caps.labelMaxMult["Féculents crus"] = 2;
-    caps.labelMaxMult["Féculents sans gluten cuits"] = 2.5;
-    caps.labelMaxMult["Féculents sans gluten crus"] = 2;
-    caps.labelMaxMult["Céréales petit déjeuner"] = 2;
-    caps.labelMaxMult["Céréales petit déjeuner sans gluten"] = 2;
   }
 
   if (reg.lactoseFree) {
@@ -1189,10 +1105,8 @@ function capsForContext(reg, path) {
 
   if (path.diabete) {
     caps.poolMaxBudget.pool_sucres = 0;
-    caps.poolMaxBudget.pool_boissons = 1;
     caps.labelMaxMult["Soda"] = 0;
     caps.labelMaxMult["Jus de fruits"] = 0;
-    caps.labelMaxMult["Alcool"] = 0;
     caps.labelMaxMult["Sucre"] = 0;
     caps.labelMaxMult["Miel"] = 0;
     caps.labelMaxMult["Confiture"] = 0;
@@ -1200,7 +1114,7 @@ function capsForContext(reg, path) {
     caps.labelMaxMult["Gâteaux"] = 0;
     caps.labelMaxMult["Chocolat au lait"] = 0;
     caps.labelMaxMult["Chocolat noir"] = Math.min(num(caps.labelMaxMult["Chocolat noir"] ?? 1), 0.5);
-    caps.labelMaxMult["Fruits"] = FRUIT_DAY_MAX_DIABETE;
+    caps.labelMaxMult["Fruits"] = Math.min(num(caps.labelMaxMult["Fruits"] ?? 3), 2);
   }
 
   if (path.hta) {
@@ -1295,7 +1209,7 @@ function getDefaultMultiplierForSelectedLabel({
   if (group === "Boissons") return 1;
   if (group === "Fruits") return 1;
   if (group === "Légumes") return 1;
-  if (group === "Pain") return mealKey === "petit_dej" ? 1 : 0;
+  if (group === "Pain") return 0;
   if (group === "Produits céréaliers") return mealKey.startsWith("collation") ? 0.5 : 1;
   if (group === "Matières grasses") return 1;
   if (group === "Produits laitiers") return 1;
@@ -1324,65 +1238,55 @@ function deriveMealAutoPattern(mealKey, slotKey, label, group, reg, path, object
   if (mealKey === "petit_dej") {
     if (slotKey === "boisson") return 1;
     if (slotKey === "fruit") return path.diabete ? 0.5 : 1;
-    if (slotKey === "laitier") return reg.vegan ? 0.5 : 1.5;
+    if (slotKey === "laitier") return 1.5;
     if (slotKey === "mg") return digestiveMode ? 0.5 : 1;
-    if (slotKey === "cereales") return reg.vegan ? 0.5 : mass ? 1.25 : 1;
-    if (slotKey === "pain") return mealKey === "petit_dej" ? 1 : 0;
+    if (slotKey === "cereales") return mass ? 1.5 : 1;
+    if (slotKey === "pain") return 0;
     if (slotKey === "sucre") return path.diabete || digestiveMode ? 0 : 0.5;
-    if (slotKey === "shake") return reg.vegan ? 1 : proteinAssistanceNeeded ? 0.5 : 0;
+    if (slotKey === "shake") return proteinAssistanceNeeded ? 0.5 : 0;
   }
 
   if (mealKey === "collation_matin") {
     if (!snackFlags.beforeLunch) return 0;
     if (slotKey === "fruit") return path.diabete ? 0 : 1;
-    if (slotKey === "laitier") return reg.vegan ? 0.5 : 1;
+    if (slotKey === "laitier") return 1;
     if (slotKey === "boisson") return 1;
     if (slotKey === "shake") return proteinAssistanceNeeded || digestiveMode ? 0.5 : 0;
     if (slotKey === "cereales") return 0.5;
-    if (slotKey === "pain") return mealKey === "petit_dej" ? 1 : 0;
+    if (slotKey === "pain") return 0;
   }
 
   if (mealKey === "dejeuner") {
     if (slotKey === "boisson") return 1;
     if (slotKey === "legumes") return digestiveMode ? 0.5 : 1;
-    if (slotKey === "vpo") return reg.vegan ? 0 : reg.vegetarian ? 1 : digestiveMode ? 1.5 : 2;
-    if (slotKey === "feculents") {
-      const baseMultiplier = digestiveMode ? (mass ? 1.25 : 1) : mass ? 2 : 1.5;
-      if (reg.vegetarian || reg.vegan) return reg.vegan ? 0.5 : Math.max(0.5, baseMultiplier);
-      return baseMultiplier;
-    }
-    if (slotKey === "pain") return mealKey === "petit_dej" ? 1 : 0;
-    if (slotKey === "legumineuses") return reg.vegetarian || reg.vegan ? 0.5 : 0;
-    if (slotKey === "mg") return reg.vegan ? 0.5 : digestiveMode ? 0.5 : 1.5;
+    if (slotKey === "vpo") return reg.vegetarian || reg.vegan ? 1.5 : digestiveMode ? 1.5 : 2;
+    if (slotKey === "feculents") return digestiveMode ? (mass ? 1.5 : 1) : mass ? 3 : 2.5;
+    if (slotKey === "pain") return 0;
+    if (slotKey === "legumineuses") return reg.vegetarian || reg.vegan ? (digestiveMode ? 0.5 : 1) : 0;
+    if (slotKey === "mg") return digestiveMode ? 0.5 : 1.5;
     if (slotKey === "laitier") return effectiveLabel === "Fromage" ? 1 : 1;
     if (slotKey === "fruit") return path.diabete ? 0 : 1;
-    if (slotKey === "shake") return reg.vegan ? 1 : proteinAssistanceNeeded ? 0.5 : 0;
   }
 
   if (mealKey === "collation_apm") {
     if (!snackFlags.afterLunch) return 0;
     if (slotKey === "fruit") return path.diabete ? 0 : 1;
-    if (slotKey === "laitier") return reg.vegan ? 0.5 : 1;
+    if (slotKey === "laitier") return 1;
     if (slotKey === "boisson") return 1;
     if (slotKey === "shake") return proteinAssistanceNeeded || digestiveMode ? 0.5 : 0;
     if (slotKey === "cereales") return mass ? 1 : 0.5;
-    if (slotKey === "pain") return mealKey === "petit_dej" ? 1 : 0;
+    if (slotKey === "pain") return 0;
   }
 
   if (mealKey === "diner") {
     if (slotKey === "boisson") return 1;
     if (slotKey === "legumes") return digestiveMode ? 0.5 : 1;
-    if (slotKey === "vpo") return reg.vegetarian || reg.vegan ? 1.25 : digestiveMode ? 1.5 : 2;
-    if (slotKey === "feculents") {
-      const baseMultiplier = digestiveMode ? (mass ? 1.25 : 1) : mass ? 1.75 : 1.25;
-      if (reg.vegetarian || reg.vegan) return reg.vegan ? 0.5 : Math.max(0.5, baseMultiplier);
-      return baseMultiplier;
-    }
-    if (slotKey === "pain") return mealKey === "petit_dej" ? 1 : 0;
-    if (slotKey === "legumineuses") return reg.vegetarian || reg.vegan ? 0.5 : 0;
-    if (slotKey === "mg") return reg.vegan ? 0.5 : digestiveMode ? 0.5 : 1.5;
+    if (slotKey === "vpo") return reg.vegetarian || reg.vegan ? 1.5 : digestiveMode ? 1.5 : 2;
+    if (slotKey === "feculents") return digestiveMode ? (mass ? 1.5 : 1) : mass ? 2.5 : 2;
+    if (slotKey === "pain") return 0;
+    if (slotKey === "legumineuses") return reg.vegetarian || reg.vegan ? (digestiveMode ? 0.5 : 0.5) : 0;
+    if (slotKey === "mg") return digestiveMode ? 0.5 : 1.5;
     if (slotKey === "laitier") return 1;
-    if (slotKey === "shake") return reg.vegan ? 1 : proteinAssistanceNeeded ? 0.5 : 0;
   }
 
   if (mealKey === "collation_soir") {
@@ -1392,7 +1296,7 @@ function deriveMealAutoPattern(mealKey, slotKey, label, group, reg, path, object
     if (slotKey === "boisson") return 1;
     if (slotKey === "shake") return proteinAssistanceNeeded || digestiveMode ? 0.5 : 0;
     if (slotKey === "cereales") return 0.5;
-    if (slotKey === "pain") return mealKey === "petit_dej" ? 1 : 0;
+    if (slotKey === "pain") return 0;
   }
 
   return 0;
@@ -1430,7 +1334,7 @@ function rebalanceMealToTarget(draftSlots, mealKey, kcalTarget, snackFlags, caps
 
   if (!(currentKcal > 0)) return next;
 
-  const ratio = clamp(mealTarget / currentKcal, 0.65, 1.1);
+  const ratio = clamp(mealTarget / currentKcal, 0.7, 1.35);
 
   slotIds.forEach((id) => {
     const st = next[id];
@@ -1510,75 +1414,17 @@ function buildExcelLikeDefaultSlots({
     });
   }
 
-  if (path.diabete) {
-    Object.entries(next).forEach(([id, st]) => {
-      if (st.group === "Boissons") {
-        const resolvedLabel = getResolvedLabelForSlot(st, slotDefById, reg, path);
-        if (resolvedLabel && resolvedLabel !== "Eau") {
-          next[id] = { ...st, multiplier: 0 };
-        }
-      }
-    });
-  }
-
   Object.values(next).forEach((st) => {
     if (getResolvedLabelForSlot(st, slotDefById, reg, path) === "Fromage") {
       st.multiplier = num(st.multiplier) >= 0.75 ? 1 : 0;
     }
   });
 
-  if (reg.vegan || reg.vegetarian) {
-    Object.entries(next).forEach(([id, st]) => {
-      if (st.group === "Produits céréaliers" && num(st.multiplier) > 1.5) {
-        next[id] = { ...st, multiplier: Math.max(0.5, num(st.multiplier) * 0.9) };
-      }
-      if (st.group === "Légumineuses" && num(st.multiplier) > 1) {
-        next[id] = { ...st, multiplier: Math.max(0.5, num(st.multiplier) * 0.85) };
-      }
-    });
-  }
-
   for (const m of MEAL_KEYS) {
     next = rebalanceMealToTarget(next, m.key, kcalTarget, snackFlags, caps, slotDefById, reg, path);
   }
 
-  next = applyCapsToSlots(next, caps, slotDefById, reg, path);
-  next = enforceFruitCap(next, path);
-  next = enforceFruitFiberRequirement(next, path, slotDefById, reg);
-
-  const computeTotalsLocal = (slots) => {
-    let totalKcal = 0;
-    Object.entries(slots).forEach(([, st]) => {
-      if (num(st.multiplier) <= 0) return;
-      const resolvedLabel = getResolvedLabelForSlot(st, slotDefById, reg, path);
-      if (!resolvedLabel) return;
-      const unit = findFoodUnit(resolvedLabel);
-      const line = computeLine(resolvedLabel, unit, st.multiplier);
-      totalKcal += line.kcal;
-    });
-    return totalKcal;
-  };
-
-  let dayKcal = computeTotalsLocal(next);
-  if (dayKcal > kcalTarget + 80 && kcalTarget > 0) {
-    const priorityGroups = ["Produits céréaliers", "VPO", "Matières grasses", "Produits laitiers", "Légumineuses"];
-
-    for (const group of priorityGroups) {
-      if (dayKcal <= kcalTarget + 80) break;
-      const scale = kcalTarget / dayKcal;
-
-      Object.entries(next).forEach(([id, st]) => {
-        if (st.group !== group || num(st.multiplier) <= 0) return;
-        const def = slotDefById[makeSlotId(st.mealKey, st.slotKey)];
-        const floor = getMealFloorMultiplier(st, def, reg, path);
-        const reduced = Math.max(floor, Math.round(num(st.multiplier) * scale * 2) / 2);
-        next[id] = { ...st, multiplier: reduced };
-      });
-
-      dayKcal = computeTotalsLocal(next);
-    }
-  }
-
+  next = enforceFruitCap(next);
   return next;
 }
 
@@ -1641,45 +1487,14 @@ function getMealFloorMultiplier(st, def, reg, path) {
   if (def.group === "Produits laitiers" && def.mealKey === "dejeuner") return 1;
   if (def.group === "Produits laitiers" && def.mealKey === "diner") return 1;
   if (def.group === "Fruits" && def.mealKey === "dejeuner" && !path?.diabete) return 1;
-  if (def.group === "VPO" && (def.mealKey === "dejeuner" || def.mealKey === "diner")) return reg.vegetarian || reg.vegan ? 0.5 : 1;
-  if (def.group === "Pain" && def.mealKey === "petit_dej") return 1;
+  if (def.group === "VPO" && (def.mealKey === "dejeuner" || def.mealKey === "diner")) return 1;
   if (def.group === "Produits céréaliers" && (def.mealKey === "dejeuner" || def.mealKey === "diner")) return 0.5;
   if (def.group === "Matières grasses" && (def.mealKey === "dejeuner" || def.mealKey === "diner")) return 0.5;
 
   return 0;
 }
 
-
-function coerceForbiddenSelectionToFamilyDefault(st, slotDefById, reg, path) {
-  const def = slotDefById[makeSlotId(st.mealKey, st.slotKey)];
-  if (!def) return st;
-
-  const forbiddenByDiabetes =
-    path.diabete &&
-    ((def.group === "Boissons" && !["Boissons", "Eau"].includes(st.label)) ||
-      (def.group === "Fruits" && num(st.multiplier || 0) > 1));
-
-  const forbiddenByChol =
-    path.hyperchol && ["Beurre", "Crème fraîche", "Viande moyenne"].includes(st.label);
-
-  const forbiddenByGluten =
-    reg.glutenFree &&
-    ["Pain blanc", "Pain complet", "Féculents crus", "Féculents cuits", "Céréales petit déjeuner", "100% whey"].includes(st.label);
-
-  if (forbiddenByDiabetes || forbiddenByChol || forbiddenByGluten) {
-    return {
-      ...st,
-      label: def.group,
-      manualLabel: false,
-      multiplier: def.group === "Boissons" ? Math.max(1, num(st.multiplier || 0)) : st.multiplier,
-    };
-  }
-
-  return st;
-}
-
 function sanitizeSlotLabelByMeal(st, slotDefById, reg, path) {
-  st = coerceForbiddenSelectionToFamilyDefault(st, slotDefById, reg, path);
   const def = slotDefById[makeSlotId(st.mealKey, st.slotKey)];
   if (!def) return st;
 
@@ -1717,7 +1532,7 @@ function sanitizeSlotLabelByMeal(st, slotDefById, reg, path) {
   return st;
 }
 
-function sanitizeSlotsHard(draftSlots, slotDefById, reg, path, caps, computeTotalsFn, kcalTarget = 0) {
+function sanitizeSlotsHard(draftSlots, slotDefById, reg, path, caps, computeTotalsFn) {
   let next = { ...draftSlots };
 
   Object.entries(next).forEach(([id, st]) => {
@@ -1731,15 +1546,12 @@ function sanitizeSlotsHard(draftSlots, slotDefById, reg, path, caps, computeTota
     if (!def) return;
 
     const resolvedLabel = getResolvedLabelForSlot(st, slotDefById, reg, path);
-    const max = caps?.labelMaxMult?.[resolvedLabel];
-    next[id] = { ...st, multiplier: snapMultiplier(st.multiplier, max !== undefined ? num(max) : 4) };
-    const safeSt = next[id];
     if (!resolvedLabel) {
-      next[id] = { ...safeSt, multiplier: 0 };
+      next[id] = { ...st, multiplier: 0 };
       return;
     }
 
-    const line = computeLine(resolvedLabel, findFoodUnit(resolvedLabel), safeSt.multiplier);
+    const line = computeLine(resolvedLabel, findFoodUnit(resolvedLabel), st.multiplier);
     const mealCap = st.mealKey.startsWith("collation") ? MAX_SNACK_KCAL_HARD : MAX_MEAL_KCAL_HARD;
 
     if (num(line.kcal) > mealCap && num(line.kcal) > 0) {
@@ -1751,6 +1563,16 @@ function sanitizeSlotsHard(draftSlots, slotDefById, reg, path, caps, computeTota
     }
   });
 
+  Object.entries(next).forEach(([id, st]) => {
+    const def = slotDefById[id];
+    if (!def) return;
+    const resolvedLabel = getResolvedLabelForSlot(st, slotDefById, reg, path);
+    next[id] = {
+      ...st,
+      multiplier: snapMultiplierDownToOption(st.multiplier, def.group, resolvedLabel, caps),
+    };
+  });
+
   let totals = computeTotalsFn(next);
   if (num(totals.day.kcal) > MAX_DAY_KCAL_HARD) {
     const scale = MAX_DAY_KCAL_HARD / num(totals.day.kcal);
@@ -1759,7 +1581,11 @@ function sanitizeSlotsHard(draftSlots, slotDefById, reg, path, caps, computeTota
       const def = slotDefById[id];
       const floor = getMealFloorMultiplier(st, def, reg, path);
       const scaled = Math.round(num(st.multiplier) * scale * 2) / 2;
-      next[id] = { ...st, multiplier: Math.max(floor, scaled) };
+      const resolvedLabel = getResolvedLabelForSlot(st, slotDefById, reg, path);
+      next[id] = {
+        ...st,
+        multiplier: snapMultiplierDownToOption(Math.max(floor, scaled), def?.group, resolvedLabel, caps),
+      };
     });
   }
 
@@ -1778,304 +1604,15 @@ function sanitizeSlotsHard(draftSlots, slotDefById, reg, path, caps, computeTota
       const def = slotDefById[id];
       const floor = getMealFloorMultiplier(st, def, reg, path);
       const scaled = Math.round(num(st.multiplier) * scale * 2) / 2;
-      next[id] = { ...st, multiplier: Math.max(floor, scaled) };
+      const resolvedLabel = getResolvedLabelForSlot(st, slotDefById, reg, path);
+      next[id] = {
+        ...st,
+        multiplier: snapMultiplierDownToOption(Math.max(floor, scaled), def?.group, resolvedLabel, caps),
+      };
     });
   });
 
   return applyCapsToSlots(next, caps, slotDefById, reg, path);
-}
-
-
-function aggressivelyReducePlantBasedExcess(draftSlots, kcalTarget, slotDefById, reg, path, caps, computeTotalsFn) {
-  if (!(reg.vegan || reg.vegetarian) || !(kcalTarget > 0)) return draftSlots;
-
-  let next = { ...draftSlots };
-  const getTotals = () => computeTotalsFn(next);
-  let dayKcal = num(getTotals().day.kcal);
-
-  if (dayKcal <= kcalTarget + 80) return next;
-
-  const priorityGroups = [
-    "Produits céréaliers",
-    "Pain",
-    "Légumineuses",
-    "Matières grasses",
-    "Produits laitiers",
-    "Compléments protéinés",
-  ];
-
-  for (let pass = 0; pass < 6 && dayKcal > kcalTarget + 80; pass += 1) {
-    for (const group of priorityGroups) {
-      if (dayKcal <= kcalTarget + 80) break;
-
-      Object.entries(next).forEach(([id, st]) => {
-        if (st.group !== group) return;
-        const def = slotDefById[id];
-        if (!def) return;
-
-        const floor =
-          group === "Boissons"
-            ? 1
-            : group === "Légumes"
-            ? (path.troublesDigestifs || path.rgo ? 0.5 : 1)
-            : group === "Fruits"
-            ? (def.mealKey === "petit_dej" ? 1 : 0)
-            : 0;
-
-        const current = num(st.multiplier || 0);
-        if (current <= floor) return;
-
-        let factor = 0.85;
-        if (group === "Produits céréaliers" || group === "Pain") factor = 0.75;
-        if (group === "Légumineuses") factor = 0.8;
-        if (group === "Matières grasses") factor = 0.75;
-
-        const reduced = Math.max(floor, Math.round(current * factor * 2) / 2);
-        next[id] = { ...st, multiplier: reduced };
-      });
-
-      next = applyCapsToSlots(next, caps, slotDefById, reg, path);
-      dayKcal = num(getTotals().day.kcal);
-    }
-  }
-
-  if (dayKcal > kcalTarget + 80) {
-    const scale = clamp(kcalTarget / dayKcal, 0.6, 0.95);
-    Object.entries(next).forEach(([id, st]) => {
-      const def = slotDefById[id];
-      if (!def) return;
-      const current = num(st.multiplier || 0);
-      if (current <= 0) return;
-
-      const floor =
-        st.group === "Boissons"
-          ? 1
-          : st.group === "Légumes"
-          ? (path.troublesDigestifs || path.rgo ? 0.5 : 1)
-          : st.group === "Fruits"
-          ? (def.mealKey === "petit_dej" ? 1 : 0)
-          : 0;
-
-      if (["Produits céréaliers", "Pain", "Légumineuses", "Matières grasses", "Produits laitiers", "Compléments protéinés"].includes(st.group)) {
-        next[id] = {
-          ...st,
-          multiplier: Math.max(floor, Math.round(current * scale * 2) / 2),
-        };
-      }
-    });
-  }
-
-  return next;
-}
-
-
-function finalClampVeganToTarget(draftSlots, kcalTarget, slotDefById, reg, path, caps, computeTotalsFn) {
-  if (!reg.vegan || !(kcalTarget > 0)) return draftSlots;
-
-  let next = { ...draftSlots };
-
-  const getFloor = (st, def) => {
-    if (!st || !def) return 0;
-    if (st.group === "Boissons") return 1;
-    if (st.group === "Légumes") return path.troublesDigestifs || path.rgo ? 0.5 : 1;
-    if (st.group === "Fruits") return def.mealKey === "petit_dej" ? 1 : 0;
-    if (st.group === "Compléments protéinés") return 0.5;
-    if (st.group === "Produits céréaliers") return 0.5;
-    if (st.group === "Légumineuses") return 0.5;
-    if (st.group === "Produits laitiers") return 0.5;
-    if (st.group === "Matières grasses") return 0;
-    return 0;
-  };
-
-  const getPriority = (st) => {
-    if (!st) return 0;
-    if (st.group === "Matières grasses") return 100;
-    if (st.group === "Pain") return 95;
-    if (st.group === "Produits céréaliers") return 90;
-    if (st.group === "Légumineuses") return 85;
-    if (st.group === "Produits laitiers") return 70;
-    if (st.group === "Compléments protéinés") return 60;
-    if (st.group === "Fruits") return 20;
-    if (st.group === "Légumes") return 5;
-    if (st.group === "Boissons") return -100;
-    return 10;
-  };
-
-  let totals = computeTotalsFn(next);
-  let safety = 0;
-
-  while (num(totals.day.kcal) > kcalTarget + 80 && safety < 80) {
-    safety += 1;
-
-    const candidates = Object.entries(next)
-      .map(([id, st]) => ({ id, st, def: slotDefById[id] }))
-      .filter(({ st, def }) => st && def && num(st.multiplier) > getFloor(st, def))
-      .sort((a, b) => getPriority(b.st) - getPriority(a.st));
-
-    if (!candidates.length) break;
-
-    let changed = false;
-
-    for (const { id, st, def } of candidates) {
-      if (num(totals.day.kcal) <= kcalTarget + 80) break;
-
-      const floor = getFloor(st, def);
-      const current = num(st.multiplier || 0);
-      if (current <= floor) continue;
-
-      const resolvedLabel = getResolvedLabelForSlot(st, slotDefById, reg, path);
-      if (!resolvedLabel) continue;
-
-      const currentLine = computeLine(resolvedLabel, findFoodUnit(resolvedLabel), current);
-      const step = 0.5;
-      const nextMult = Math.max(floor, Math.round((current - step) * 2) / 2);
-      if (nextMult === current) continue;
-
-      const nextLine = computeLine(resolvedLabel, findFoodUnit(resolvedLabel), nextMult);
-      if (num(currentLine.kcal) - num(nextLine.kcal) < 10 && current > floor + 0.5) {
-        continue;
-      }
-
-      next[id] = { ...st, multiplier: nextMult };
-      changed = true;
-      totals = computeTotalsFn(next);
-    }
-
-    if (!changed) break;
-  }
-
-  next = applyCapsToSlots(next, caps, slotDefById, reg, path);
-  return next;
-}
-
-
-function forceVeganKcalWindow(draftSlots, kcalTarget, slotDefById, reg, path, caps, computeTotalsFn) {
-  if (!reg.vegan || !(kcalTarget > 0)) return draftSlots;
-
-  let next = { ...draftSlots };
-
-  const getFloor = (st, def) => {
-    if (!st || !def) return 0;
-    if (st.group === "Boissons") return 1;
-    if (st.group === "Légumes") return path.troublesDigestifs || path.rgo ? 0.5 : 1;
-    if (st.group === "Fruits") return def.mealKey === "petit_dej" ? 1 : 0;
-    if (st.group === "Compléments protéinés") return 0.5;
-    if (st.group === "Produits céréaliers") return 0.5;
-    if (st.group === "Légumineuses") return 0.5;
-    if (st.group === "Produits laitiers") return 0.5;
-    return 0;
-  };
-
-  const reducePriority = (st) => {
-    if (!st) return 0;
-    if (st.group === "Matières grasses") return 100;
-    if (st.group === "Pain") return 95;
-    if (st.group === "Produits céréaliers") return 90;
-    if (st.group === "Légumineuses") return 85;
-    if (st.group === "Produits laitiers") return 75;
-    if (st.group === "Compléments protéinés") return 70;
-    if (st.group === "Fruits") return 30;
-    if (st.group === "Légumes") return 10;
-    if (st.group === "Boissons") return -100;
-    return 5;
-  };
-
-  const addPriority = (st) => {
-    if (!st) return 0;
-    if (st.group === "Compléments protéinés") return 100;
-    if (st.group === "Produits laitiers") return 90;
-    if (st.group === "Légumineuses") return 80;
-    if (st.group === "Produits céréaliers") return 70;
-    if (st.group === "Pain") return 60;
-    if (st.group === "Matières grasses") return 40;
-    if (st.group === "Fruits") return 20;
-    if (st.group === "Légumes") return 10;
-    if (st.group === "Boissons") return -100;
-    return 5;
-  };
-
-  const getMax = (st) => {
-    const resolved = getResolvedLabelForSlot(st, slotDefById, reg, path);
-    const cap = caps?.labelMaxMult?.[resolved];
-    return cap === undefined ? 4 : num(cap);
-  };
-
-  let totals = computeTotalsFn(next);
-  let loops = 0;
-
-  while (num(totals.day.kcal) > kcalTarget + 100 && loops < 120) {
-    loops += 1;
-
-    const candidates = Object.entries(next)
-      .map(([id, st]) => ({ id, st, def: slotDefById[id] }))
-      .filter(({ st, def }) => st && def && num(st.multiplier || 0) > getFloor(st, def))
-      .sort((a, b) => reducePriority(b.st) - reducePriority(a.st));
-
-    if (!candidates.length) break;
-
-    let moved = false;
-    for (const { id, st, def } of candidates) {
-      if (num(totals.day.kcal) <= kcalTarget + 100) break;
-
-      const floor = getFloor(st, def);
-      const current = num(st.multiplier || 0);
-      if (current <= floor) continue;
-
-      const nextMult = Math.max(floor, Math.round((current - 0.5) * 2) / 2);
-      if (nextMult === current) continue;
-
-      next[id] = { ...st, multiplier: nextMult };
-      totals = computeTotalsFn(next);
-      moved = true;
-    }
-
-    if (!moved) break;
-  }
-
-  while (num(totals.day.kcal) < kcalTarget - 100 && loops < 200) {
-    loops += 1;
-
-    const candidates = Object.entries(next)
-      .map(([id, st]) => ({ id, st, def: slotDefById[id] }))
-      .filter(({ st, def }) => st && def && num(st.multiplier || 0) < getMax(st))
-      .sort((a, b) => addPriority(b.st) - addPriority(a.st));
-
-    if (!candidates.length) break;
-
-    let moved = false;
-    for (const { id, st } of candidates) {
-      if (num(totals.day.kcal) >= kcalTarget - 100) break;
-
-      const max = getMax(st);
-      const current = num(st.multiplier || 0);
-      const nextMult = Math.min(max, Math.round((current + 0.5) * 2) / 2);
-      if (nextMult === current) continue;
-
-      next[id] = { ...st, multiplier: nextMult };
-      totals = computeTotalsFn(next);
-      moved = true;
-    }
-
-    if (!moved) break;
-  }
-
-  return applyCapsToSlots(next, caps, slotDefById, reg, path);
-}
-
-function findCiqualRowForLabel(label, byCode, ciqualRows) {
-  const code = CIQUAL_REF_CODE_BY_LABEL?.[label];
-  if (code && byCode?.[code]?.nutrients && Object.keys(byCode[code].nutrients).length) {
-    return byCode[code];
-  }
-
-  const aliases = ciqualLabelAliases(label);
-  for (const row of ciqualRows || []) {
-    const hay = getCiqualRowSearchText(row);
-    if (!hay) continue;
-    if (aliases.some((a) => hay.includes(normalize(a)))) return row;
-  }
-
-  return null;
 }
 
 /* ==================== Component ==================== */
@@ -2095,7 +1632,6 @@ export default function RationAutoGenerator(props) {
   const autoInitDone = useRef(false);
   const microInitDone = useRef(false);
   const autoTuneRef = useRef(false);
-  const manualEditRef = useRef(false);
 
   const panelBg = useColorModeValue("white", "gray.800");
   const softBg = useColorModeValue("gray.50", "whiteAlpha.50");
@@ -2124,24 +1660,57 @@ export default function RationAutoGenerator(props) {
 
   const objectiveRaw = String(context?.objectiveRaw || "");
   const kcalIndicatif = context?.kcalIndicatif || 0;
-  const coeff = useMemo(() => kcalCoeff(objectiveRaw), [objectiveRaw]);
-  const kcalTarget = useMemo(() => (kcalIndicatif > 0 ? kcalIndicatif * coeff : 0), [kcalIndicatif, coeff]);
+  const coeff = 1;
+  const kcalTarget = useMemo(() => {
+    const explicitTarget =
+      num(context?.needs?.kcalTarget) ||
+      num(context?.computed?.kcalTarget) ||
+      num(context?.computed?.kcal_target) ||
+      num(context?.inputs?.kcal_cible) ||
+      num(context?.inputs?.kcalTarget);
+    return explicitTarget || num(kcalIndicatif) || 0;
+  }, [context?.computed?.kcalTarget, context?.computed?.kcal_target, context?.inputs?.kcalTarget, context?.inputs?.kcal_cible, context?.needs?.kcalTarget, kcalIndicatif]);
 
-  const { protPct, lipPct, gluPct } = useMemo(() => pickMacroPercents(objectiveRaw), [objectiveRaw]);
-  const ranges = useMemo(() => macroRanges(objectiveRaw), [objectiveRaw]);
-  const gramRanges = useMemo(
-    () => buildMacroGramRangesFromComputed(context?.computed || {}, kcalTarget, ranges),
-    [context, kcalTarget, ranges]
-  );
+  const fallbackPercents = useMemo(() => pickMacroPercents(objectiveRaw), [objectiveRaw]);
+  const ranges = useMemo(() => {
+    const fallback = macroRanges(objectiveRaw);
+    const pctRanges = context?.needs?.pctRanges || {};
+    return {
+      prot:
+        pctRangeFromGramRange(context?.needs?.protG, kcalTarget, 4) || {
+          min: num(pctRanges.protPctMin) || fallback.prot.min,
+          max: num(pctRanges.protPctMax) || fallback.prot.max,
+        },
+      lip:
+        pctRangeFromGramRange(context?.needs?.lipG, kcalTarget, 9) || {
+          min: num(pctRanges.lipPctMin) || fallback.lip.min,
+          max: num(pctRanges.lipPctMax) || fallback.lip.max,
+        },
+      glu:
+        pctRangeFromGramRange(context?.needs?.glucG, kcalTarget, 4) || {
+          min: num(pctRanges.glucPctMin) || fallback.glu.min,
+          max: num(pctRanges.glucPctMax) || fallback.glu.max,
+        },
+    };
+  }, [context?.needs, kcalTarget, objectiveRaw]);
 
   const macroTargets = useMemo(() => {
     if (!(kcalTarget > 0)) return { protG: 0, lipG: 0, gluG: 0 };
     return {
-      protG: (kcalTarget * (protPct / 100)) / 4,
-      lipG: (kcalTarget * (lipPct / 100)) / 9,
-      gluG: (kcalTarget * (gluPct / 100)) / 4,
+      protG: avgRange(context?.needs?.protG) || (kcalTarget * (fallbackPercents.protPct / 100)) / 4,
+      lipG: avgRange(context?.needs?.lipG) || (kcalTarget * (fallbackPercents.lipPct / 100)) / 9,
+      gluG: avgRange(context?.needs?.glucG) || (kcalTarget * (fallbackPercents.gluPct / 100)) / 4,
     };
-  }, [kcalTarget, protPct, lipPct, gluPct]);
+  }, [context?.needs?.glucG, context?.needs?.lipG, context?.needs?.protG, fallbackPercents, kcalTarget]);
+
+  const macroPct = useMemo(() => {
+    if (!(kcalTarget > 0)) return fallbackPercents;
+    return {
+      protPct: ((num(macroTargets.protG) * 4) / kcalTarget) * 100,
+      lipPct: ((num(macroTargets.lipG) * 9) / kcalTarget) * 100,
+      gluPct: ((num(macroTargets.gluG) * 4) / kcalTarget) * 100,
+    };
+  }, [fallbackPercents, kcalTarget, macroTargets]);
 
   const allSlotDefs = useMemo(() => {
     const defs = [];
@@ -2299,8 +1868,7 @@ export default function RationAutoGenerator(props) {
       }
 
       const fruitAlreadyOutsideThisSnack = getFruitTotal(next, [mealKey]);
-      const dayFruitMax = path.diabete ? FRUIT_DAY_MAX_DIABETE : FRUIT_DAY_MAX;
-      const canStillUseFruit = !path.diabete && fruitAlreadyOutsideThisSnack < dayFruitMax;
+      const canStillUseFruit = !path.diabete && fruitAlreadyOutsideThisSnack < FRUIT_DAY_MAX;
 
       if (canStillUseFruit) {
         next[fruitId] = { ...next[fruitId], multiplier: Math.max(1, num(next[fruitId]?.multiplier || 0)) };
@@ -2336,7 +1904,23 @@ export default function RationAutoGenerator(props) {
 
     const lunchLaitierId = makeSlotId("dejeuner", "laitier");
     const lunchFruitId = makeSlotId("dejeuner", "fruit");
+    const lunchLegumesId = makeSlotId("dejeuner", "legumes");
+    const dinnerLegumesId = makeSlotId("diner", "legumes");
     const dinnerLaitierId = makeSlotId("diner", "laitier");
+
+    if (next[lunchLegumesId]) {
+      next[lunchLegumesId] = {
+        ...next[lunchLegumesId],
+        multiplier: Math.max(1, num(next[lunchLegumesId].multiplier || 0)),
+      };
+    }
+
+    if (next[dinnerLegumesId]) {
+      next[dinnerLegumesId] = {
+        ...next[dinnerLegumesId],
+        multiplier: Math.max(1, num(next[dinnerLegumesId].multiplier || 0)),
+      };
+    }
 
     if (next[lunchLaitierId]) {
       next[lunchLaitierId] = {
@@ -2410,70 +1994,6 @@ export default function RationAutoGenerator(props) {
     };
   }, [slotDefById, reg, path]);
 
-
-  const compensateNextMealSameGroup = useCallback((prevSlots, draftSlots, changedSlotId) => {
-    if (!changedSlotId) return draftSlots;
-    const prev = prevSlots?.[changedSlotId];
-    const changed = draftSlots?.[changedSlotId];
-    if (!changed || !prev) return draftSlots;
-
-    if (!Object.prototype.hasOwnProperty.call(changed, "multiplier")) return draftSlots;
-
-    const changedDef = slotDefById[changedSlotId];
-    if (!changedDef) return draftSlots;
-
-    const changedGroup = changedDef.group;
-    if (!changedGroup || changedGroup === "Boissons") return draftSlots;
-
-    const mealOrder = MEAL_KEYS.map((m) => m.key);
-    const currentMealIndex = mealOrder.indexOf(changed.mealKey);
-    if (currentMealIndex < 0 || currentMealIndex >= mealOrder.length - 1) return draftSlots;
-
-    const prevResolved = getResolvedLabelForSlot(prev, slotDefById, reg, path);
-    const nextResolvedChanged = getResolvedLabelForSlot(changed, slotDefById, reg, path);
-    if (!prevResolved || !nextResolvedChanged) return draftSlots;
-
-    const prevLine = computeLine(prevResolved, findFoodUnit(prevResolved), num(prev.multiplier || 0));
-    const nextLine = computeLine(nextResolvedChanged, findFoodUnit(nextResolvedChanged), num(changed.multiplier || 0));
-    const deltaKcal = num(nextLine.kcal) - num(prevLine.kcal);
-    if (Math.abs(deltaKcal) < 1) return draftSlots;
-
-    for (let i = currentMealIndex + 1; i < mealOrder.length; i += 1) {
-      const nextMealKey = mealOrder[i];
-      const candidateEntry = Object.entries(draftSlots).find(([id, st]) => {
-        const def = slotDefById[id];
-        return def && st?.mealKey === nextMealKey && def.group === changedGroup;
-      });
-
-      if (!candidateEntry) continue;
-
-      const [candidateId, candidateSlot] = candidateEntry;
-      const candidateResolved = getResolvedLabelForSlot(candidateSlot, slotDefById, reg, path);
-      if (!candidateResolved) return draftSlots;
-
-      const perOne = computeLine(candidateResolved, findFoodUnit(candidateResolved), 1).kcal;
-      if (!(perOne > 0)) return draftSlots;
-
-      const candidateDef = slotDefById[candidateId];
-      const floor = getMealFloorMultiplier(candidateSlot, candidateDef, reg, path);
-      const max = caps?.labelMaxMult?.[candidateResolved];
-      const upper = max === undefined ? 4 : num(max);
-      const current = num(candidateSlot.multiplier || 0);
-      const deltaMult = deltaKcal / perOne;
-      const target = snapMultiplier(current - deltaMult, upper);
-      const compensated = Math.max(floor, target);
-
-      return {
-        ...draftSlots,
-        [candidateId]: {
-          ...candidateSlot,
-          multiplier: compensated,
-        },
-      };
-    }
-
-    return draftSlots;
-  }, [slotDefById, reg, path, caps]);
   const injectShakesIfProteinSourcesAreUnrealistic = useCallback((draftSlots) => {
     let next = { ...draftSlots };
     const maxRealVpoGrams = 250;
@@ -2552,38 +2072,28 @@ export default function RationAutoGenerator(props) {
     const breakfastShakeId = makeSlotId("petit_dej", "shake");
     const lunchLegumeId = makeSlotId("dejeuner", "legumineuses");
     const dinnerLegumeId = makeSlotId("diner", "legumineuses");
-    const lunchShakeId = makeSlotId("dejeuner", "shake");
-    const dinnerShakeId = makeSlotId("diner", "shake");
     const afternoonShakeId = makeSlotId("collation_apm", "shake");
     const nightShakeId = makeSlotId("collation_soir", "shake");
 
     if (next[lunchLegumeId]) {
       next[lunchLegumeId] = {
         ...next[lunchLegumeId],
-        multiplier: reg.vegan ? 0.5 : Math.max(0.5, Math.min(1, num(next[lunchLegumeId].multiplier || 0))),
+        multiplier: Math.max(1, num(next[lunchLegumeId].multiplier || 0)),
       };
     }
 
     if (next[dinnerLegumeId]) {
       next[dinnerLegumeId] = {
         ...next[dinnerLegumeId],
-        multiplier: reg.vegan ? 0.5 : Math.max(0.5, Math.min(1, num(next[dinnerLegumeId].multiplier || 0))),
+        multiplier: Math.max(0.5, num(next[dinnerLegumeId].multiplier || 0)),
       };
     }
 
     if (next[breakfastShakeId]) {
       next[breakfastShakeId] = {
         ...next[breakfastShakeId],
-        multiplier: reg.vegan ? Math.max(1, num(next[breakfastShakeId].multiplier || 0)) : Math.max(0.5, num(next[breakfastShakeId].multiplier || 0)),
+        multiplier: Math.max(0.5, num(next[breakfastShakeId].multiplier || 0)),
       };
-    }
-
-    if (next[lunchShakeId] && num(next[lunchShakeId].multiplier || 0) === 0) {
-      next[lunchShakeId] = { ...next[lunchShakeId], multiplier: 0.5 };
-    }
-
-    if (next[dinnerShakeId] && num(next[dinnerShakeId].multiplier || 0) === 0) {
-      next[dinnerShakeId] = { ...next[dinnerShakeId], multiplier: 0.5 };
     }
 
     if (next[afternoonShakeId] && num(next[afternoonShakeId].multiplier || 0) === 0) {
@@ -2596,86 +2106,6 @@ export default function RationAutoGenerator(props) {
 
     return next;
   }, [reg]);
-
-
-  const compensateOnNextMeal = useCallback((prevSlots, nextSlots, changedSlotId) => {
-    if (!changedSlotId) return nextSlots;
-    const prevSt = prevSlots?.[changedSlotId];
-    const newSt = nextSlots?.[changedSlotId];
-    if (!prevSt || !newSt) return nextSlots;
-    if (!Object.prototype.hasOwnProperty.call(newSt, "group")) return nextSlots;
-
-    const order = MEAL_KEYS.map((m) => m.key);
-    const currentMealIdx = order.indexOf(newSt.mealKey);
-    if (currentMealIdx < 0 || currentMealIdx >= order.length - 1) return nextSlots;
-
-    const prevResolved = getResolvedLabelForSlot(prevSt, slotDefById, reg, path);
-    const newResolved = getResolvedLabelForSlot(newSt, slotDefById, reg, path);
-    if (!prevResolved || !newResolved) return nextSlots;
-
-    const prevLine = computeLine(prevResolved, findFoodUnit(prevResolved), num(prevSt.multiplier || 0));
-    const newLine = computeLine(newResolved, findFoodUnit(newResolved), num(newSt.multiplier || 0));
-    const deltaKcal = num(newLine.kcal) - num(prevLine.kcal);
-    if (Math.abs(deltaKcal) < 5) return nextSlots;
-
-    let targetId = "";
-    for (let i = currentMealIdx + 1; i < order.length; i += 1) {
-      const mealKey = order[i];
-      const candidate = Object.keys(nextSlots).find((id) => {
-        const st = nextSlots[id];
-        return st?.mealKey === mealKey && st?.group === newSt.group;
-      });
-      if (candidate) {
-        targetId = candidate;
-        break;
-      }
-    }
-    if (!targetId) return nextSlots;
-
-    const target = nextSlots[targetId];
-    const targetResolved = getResolvedLabelForSlot(target, slotDefById, reg, path);
-    if (!targetResolved) return nextSlots;
-
-    const targetPerUnit = computeLine(targetResolved, findFoodUnit(targetResolved), 1).kcal;
-    if (!(targetPerUnit > 0)) return nextSlots;
-
-    const current = num(target.multiplier || 0);
-    const max = caps?.labelMaxMult?.[targetResolved];
-    const upper = max !== undefined ? num(max) : 4;
-    const compensated = snapMultiplier(current - deltaKcal / targetPerUnit, upper);
-
-    nextSlots[targetId] = {
-      ...target,
-      multiplier: compensated,
-      manualLinkedAdjustment: true,
-    };
-    return nextSlots;
-  }, [slotDefById, reg, path, caps]);
-
-  const sanitizeContextSelections = useCallback((draftSlots) => {
-    const next = { ...draftSlots };
-    Object.entries(next).forEach(([id, st]) => {
-      const def = slotDefById[id];
-      if (!def || !st) return;
-
-      if (path.diabete && def.group === "Boissons") {
-        next[id] = { ...st, label: "Boissons", manualLabel: false };
-      }
-      if (path.diabete && def.group === "Fruits" && st.mealKey === "collation_soir") {
-        next[id] = { ...st, multiplier: 0 };
-      }
-      if (path.hyperchol && def.group === "Matières grasses" && st.label === "Beurre") {
-        next[id] = { ...st, label: "Matières grasses", manualLabel: false };
-      }
-      if (path.hyperchol && def.group === "VPO" && st.label === "Viande moyenne") {
-        next[id] = { ...st, label: "VPO", manualLabel: false };
-      }
-      if (path.diabete && def.group === "VPO" && st.label === "Oeufs" && !st.manualLabel) {
-        next[id] = { ...st, label: "VPO" };
-      }
-    });
-    return next;
-  }, [slotDefById, path]);
 
   const [slots, setSlots] = useState(() => {
     const saved = initialState?.slots;
@@ -2691,11 +2121,11 @@ export default function RationAutoGenerator(props) {
       Object.entries(slotsArg || {}).forEach(([slotId, st]) => {
         const def = slotDefById[slotId];
         if (!def) return;
-        const mult = snapMultiplier(st.multiplier || 0, 4);
-        if (mult <= 0.001) return;
 
         const resolvedLabel = getResolvedLabelForSlot(st, slotDefById, reg, path);
         if (!resolvedLabel) return;
+        const mult = snapMultiplierDownToOption(st.multiplier, def.group, resolvedLabel, caps);
+        if (mult <= 0.001) return;
 
         const unit = findFoodUnit(resolvedLabel);
         const line = computeLine(resolvedLabel, unit, mult);
@@ -2718,7 +2148,7 @@ export default function RationAutoGenerator(props) {
 
       return { perMeal, day };
     },
-    [slotDefById, reg, path]
+    [slotDefById, reg, path, caps]
   );
 
   const computePctFromDay = useCallback((day) => {
@@ -2742,45 +2172,107 @@ export default function RationAutoGenerator(props) {
       const st = draft[slotId];
       const resolvedLabel = getResolvedLabelForSlot(st, slotDefById, reg, path);
       const max = caps?.labelMaxMult?.[resolvedLabel];
-      const upper = max !== undefined ? num(max) : 4;
-      const clamped = snapMultiplier(nextMult, upper);
+      const clamped = max !== undefined ? clamp(nextMult, 0, num(max)) : Math.max(0, nextMult);
       draft[slotId] = { ...draft[slotId], multiplier: clamped };
     },
     [caps, slotDefById, reg, path]
   );
 
+  const enforceBreadWithCheese = useCallback((draftSlots) => {
+    const next = { ...draftSlots };
+
+    Object.values(next).forEach((st) => {
+      const resolved = getResolvedLabelForSlot(st, slotDefById, reg, path);
+      if (resolved !== "Fromage" || !(num(st.multiplier || 0) > 0)) return;
+
+      const mealKey = st.mealKey;
+      const breadId = makeSlotId(mealKey, "pain");
+      if (!next[breadId]) return;
+
+      const previousBread = num(next[breadId].multiplier || 0);
+      if (previousBread >= 1) return;
+
+      setSlotMultiplierSafe(next, breadId, 1);
+
+      const starchId = makeSlotId(mealKey, "feculents");
+      const cerealId = makeSlotId(mealKey, "cereales");
+      const compensationId = next[starchId] ? starchId : next[cerealId] ? cerealId : null;
+      if (!compensationId) return;
+
+      const current = num(next[compensationId].multiplier || 0);
+      const floor = next[compensationId].required ? 0.5 : 0;
+      setSlotMultiplierSafe(next, compensationId, Math.max(floor, current - 0.5));
+    });
+
+    return next;
+  }, [slotDefById, reg, path, setSlotMultiplierSafe]);
+
+  const enforceLunchAtLeastDinnerStarches = useCallback((draftSlots) => {
+    const next = { ...draftSlots };
+    const starchSlotKeys = ["feculents", "pain", "legumineuses"];
+
+    starchSlotKeys.forEach((slotKey) => {
+      const lunchId = makeSlotId("dejeuner", slotKey);
+      const dinnerId = makeSlotId("diner", slotKey);
+      const lunch = next[lunchId];
+      const dinner = next[dinnerId];
+      if (!lunch || !dinner) return;
+
+      const lunchMult = num(lunch.multiplier || 0);
+      const dinnerMult = num(dinner.multiplier || 0);
+      if (dinnerMult <= lunchMult) return;
+
+      setSlotMultiplierSafe(next, lunchId, dinnerMult);
+      setSlotMultiplierSafe(next, dinnerId, lunchMult);
+    });
+
+    return next;
+  }, [setSlotMultiplierSafe]);
+
+  const enforceBreakfastCerealBase = useCallback((draftSlots) => {
+    const next = { ...draftSlots };
+    const cerealId = makeSlotId("petit_dej", "cereales");
+    const cereal = next[cerealId];
+
+    if (!cereal) return next;
+    if (num(cereal.multiplier || 0) > 0) return next;
+
+    setSlotMultiplierSafe(next, cerealId, 1);
+    return next;
+  }, [setSlotMultiplierSafe]);
+
   const applyCompositionRules = useCallback((draftSlots, prevSlots = null, changedSlotId = null) => {
-    let next = sanitizeContextSelections({ ...draftSlots });
+    let next = { ...draftSlots };
 
     next = enforceLunchDinnerMandatoryItems(next);
+    next = enforceBreakfastCerealBase(next);
+    next = enforceLunchAtLeastDinnerStarches(next);
     next = keepSnackFruitOrCerealLogic(next);
-    next = enforceFruitCap(next, path);
-    next = enforceFruitFiberRequirement(next, path, slotDefById, reg);
+    next = enforceFruitCap(next);
     next = enforceFromageCap(next);
+    next = enforceBreadWithCheese(next);
     next = ensureVegetarianVeganProteinSupport(next);
     next = injectShakesIfProteinSourcesAreUnrealistic(next);
     next = applyCapsToSlots(next, caps, slotDefById, reg, path);
 
     if (prevSlots && changedSlotId) {
       next = compensateBreadAgainstCereals(prevSlots, next, changedSlotId);
-      next = compensateNextMealSameGroup(prevSlots, next, changedSlotId);
       next = applyCapsToSlots(next, caps, slotDefById, reg, path);
     }
 
     next = sanitizeSlotsHard(next, slotDefById, reg, path, caps, computeTotals);
-    next = enforceFruitCap(next, path);
-    Object.entries(next).forEach(([id, st]) => {
-      next[id] = coerceForbiddenSelectionToFamilyDefault(st, slotDefById, reg, path);
-    });
-    next = enforceFruitFiberRequirement(next, path, slotDefById, reg);
+    next = enforceFruitCap(next);
     next = enforceFromageCap(next);
-    next = sanitizeContextSelections(next);
+    next = enforceBreadWithCheese(next);
 
     return next;
   }, [
     enforceLunchDinnerMandatoryItems,
+    enforceBreakfastCerealBase,
+    enforceLunchAtLeastDinnerStarches,
     keepSnackFruitOrCerealLogic,
     enforceFromageCap,
+    enforceBreadWithCheese,
     ensureVegetarianVeganProteinSupport,
     injectShakesIfProteinSourcesAreUnrealistic,
     caps,
@@ -2788,7 +2280,6 @@ export default function RationAutoGenerator(props) {
     reg,
     path,
     compensateBreadAgainstCereals,
-    compensateNextMealSameGroup,
     computeTotals,
   ]);
 
@@ -2834,10 +2325,112 @@ export default function RationAutoGenerator(props) {
     next = applyCompositionRules(next);
     next = applyCapsToSlots(next, caps, slotDefById, reg, path);
     next = sanitizeSlotsHard(next, slotDefById, reg, path, caps, computeTotals);
-
     return next;
   }, [reg, path, snackFlags, caps, slotDefById, objectiveRaw, kcalTarget, applyCompositionRules, computeTotals]);
 
+  const closeKcalGapWithAllowedSteps = useCallback(
+    (baseSlots) => {
+      if (!(kcalTarget > 0)) return baseSlots;
+
+      const activeMealKeys = MEAL_KEYS.filter((m) => {
+        if (m.key === "collation_matin") return snackFlags.beforeLunch;
+        if (m.key === "collation_apm") return snackFlags.afterLunch;
+        if (m.key === "collation_soir") return snackFlags.afterDinner;
+        return true;
+      }).map((m) => m.key);
+
+      let next = sanitizeSlotsHard(baseSlots, slotDefById, reg, path, caps, computeTotals);
+
+      const allowedMultipliersForSlot = (slotId, st) => {
+        const def = slotDefById[slotId];
+        if (!def) return [];
+        const resolvedLabel = getResolvedLabelForSlot(st, slotDefById, reg, path);
+        if (!resolvedLabel) return [];
+        const max = caps?.labelMaxMult?.[resolvedLabel];
+        const capMax = max !== undefined ? num(max) : Infinity;
+        return getMultiplierOptionsFor(def.group, resolvedLabel, caps)
+          .map((option) => num(option.value))
+          .filter((value) => Number.isFinite(value) && value <= capMax + 0.001)
+          .sort((a, b) => a - b);
+      };
+
+      const evaluateCandidate = (slotId, multiplier) => {
+        const draft = {
+          ...next,
+          [slotId]: {
+            ...next[slotId],
+            multiplier,
+          },
+        };
+        let candidateSlots = applyCapsToSlots(draft, caps, slotDefById, reg, path);
+        candidateSlots = applyCompositionRules(candidateSlots, next, slotId);
+        candidateSlots = sanitizeSlotsHard(candidateSlots, slotDefById, reg, path, caps, computeTotals);
+
+        const totals = computeTotals(candidateSlots);
+        const st = candidateSlots[slotId];
+        const mealKey = st?.mealKey;
+        const mealCap = mealKey?.startsWith("collation") ? MAX_SNACK_KCAL_HARD : MAX_MEAL_KCAL_HARD;
+
+        if (num(totals.day.kcal) > MAX_DAY_KCAL_HARD) return null;
+        if (mealKey && num(totals.perMeal?.[mealKey]?.kcal) > mealCap) return null;
+
+        return {
+          slots: candidateSlots,
+          diff: num(kcalTarget) - num(totals.day.kcal),
+          abs: Math.abs(num(kcalTarget) - num(totals.day.kcal)),
+        };
+      };
+
+      for (let i = 0; i < 18; i += 1) {
+        const totals = computeTotals(next);
+        const diff = num(kcalTarget) - num(totals.day.kcal);
+        const currentAbs = Math.abs(diff);
+        if (currentAbs <= 50) break;
+
+        const needsIncrease = diff > 0;
+        let best = null;
+
+        Object.entries(next).forEach(([slotId, st]) => {
+          const def = slotDefById[slotId];
+          if (!def || !st?.label) return;
+          if (!activeMealKeys.includes(st.mealKey)) return;
+
+          const resolvedLabel = getResolvedLabelForSlot(st, slotDefById, reg, path);
+          if (!resolvedLabel) return;
+
+          const options = allowedMultipliersForSlot(slotId, st);
+          if (!options.length) return;
+
+          const current = snapMultiplierDownToOption(st.multiplier, def.group, resolvedLabel, caps);
+          const floor = getMealFloorMultiplier(st, def, reg, path);
+          const priority = needsIncrease
+            ? getSlotEnergyPriority(st, def, reg, path, slotDefById)
+            : getSlotReductionPriority(st, def, reg, path, slotDefById);
+          if (!(priority > 0)) return;
+
+          const candidates = needsIncrease
+            ? options.filter((value) => value > current + 0.001)
+            : options.filter((value) => value < current - 0.001 && value >= floor - 0.001);
+
+          candidates.forEach((value) => {
+            const evaluated = evaluateCandidate(slotId, value);
+            if (!evaluated || evaluated.abs >= currentAbs - 0.001) return;
+
+            const score = evaluated.abs - priority * 0.01;
+            if (!best || score < best.score) {
+              best = { ...evaluated, score };
+            }
+          });
+        });
+
+        if (!best) break;
+        next = best.slots;
+      }
+
+      return next;
+    },
+    [kcalTarget, snackFlags, slotDefById, reg, path, caps, computeTotals, applyCompositionRules]
+  );
 
   const adjustSlotsForTarget = useCallback(
     (baseSlots = slots) => {
@@ -2859,41 +2452,13 @@ export default function RationAutoGenerator(props) {
       });
 
       const bump = (slotId, delta = 0.5) => {
-        if (!slotId || !next[slotId]) return false;
-        const before = num(next[slotId].multiplier || 0);
-        setSlotMultiplierSafe(next, slotId, before + delta);
-        return num(next[slotId].multiplier || 0) !== before;
+        if (!slotId || !next[slotId]) return;
+        setSlotMultiplierSafe(next, slotId, num(next[slotId].multiplier) + delta);
       };
 
       const down = (slotId, delta = 0.5, floor = 0) => {
-        if (!slotId || !next[slotId]) return false;
-        const before = num(next[slotId].multiplier || 0);
-        setSlotMultiplierSafe(next, slotId, Math.max(floor, before - delta));
-        return num(next[slotId].multiplier || 0) !== before;
-      };
-
-      const adjustGroup = (group, delta, preferredMeals = []) => {
-        const candidates = Object.entries(next)
-          .filter(([id, st]) => {
-            const def = slotDefById[id];
-            return def && def.group === group && st?.label;
-          })
-          .sort((a, b) => {
-            const ia = preferredMeals.indexOf(a[1].mealKey);
-            const ib = preferredMeals.indexOf(b[1].mealKey);
-            const sa = ia === -1 ? 999 : ia;
-            const sb = ib === -1 ? 999 : ib;
-            return sa - sb;
-          });
-
-        for (const [id, st] of candidates) {
-          const def = slotDefById[id];
-          if (!def) continue;
-          const floor = getMealFloorMultiplier(st, def, reg, path);
-          const changed = delta > 0 ? bump(id, delta) : down(id, Math.abs(delta), floor);
-          if (changed) return true;
-        }
-        return false;
+        if (!slotId || !next[slotId]) return;
+        setSlotMultiplierSafe(next, slotId, Math.max(floor, num(next[slotId].multiplier) - delta));
       };
 
       const activeMealKeys = MEAL_KEYS.filter((m) => {
@@ -2903,189 +2468,209 @@ export default function RationAutoGenerator(props) {
         return true;
       }).map((m) => m.key);
 
-      // 1) Coarse kcal rebalance by meals
-      for (let i = 0; i < 18; i += 1) {
+      for (let i = 0; i < 28; i += 1) {
         const totals = computeTotals(next);
+        const pct = computePctFromDay(totals.day);
+
+        if (num(totals.day.kcal) > MAX_DAY_KCAL_HARD) {
+          next = sanitizeSlotsHard(next, slotDefById, reg, path, caps, computeTotals);
+          break;
+        }
+
         const kcalDiff = num(kcalTarget) - num(totals.day.kcal);
-        if (Math.abs(kcalDiff) <= 60) break;
 
-        const mealEntries = activeMealKeys.map((mealKey) => {
-          const current = num(totals.perMeal?.[mealKey]?.kcal);
-          const target = num(mealTargetKcal?.[mealKey]);
-          return { mealKey, gap: target - current };
-        });
+        const protLow = pct.prot < ranges.prot.min;
+        const protHigh = pct.prot > ranges.prot.max;
+        const lipLow = pct.lip < ranges.lip.min;
+        const lipHigh = pct.lip > ranges.lip.max;
+        const gluLow = pct.glu < ranges.glu.min;
+        const gluHigh = pct.glu > ranges.glu.max;
 
-        mealEntries.sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap));
+        if (
+          Math.abs(kcalDiff) <= 50 &&
+          !protLow &&
+          !lipLow &&
+          !gluLow &&
+          !protHigh &&
+          !lipHigh &&
+          !gluHigh
+        ) {
+          break;
+        }
 
-        let moved = false;
-        for (const meal of mealEntries) {
-          const direction = meal.gap > 0 ? 1 : -1;
-          const mealCandidates = Object.entries(next)
-            .filter(([id, st]) => {
-              const def = slotDefById[id];
-              if (!def || st.mealKey !== meal.mealKey || !st.label) return false;
-              if (direction > 0) {
+        if (kcalDiff > 0) {
+          const mealEntries = activeMealKeys.map((mealKey) => {
+            const current = num(totals.perMeal?.[mealKey]?.kcal);
+            const target = num(mealTargetKcal?.[mealKey]);
+            return { mealKey, gap: target - current };
+          });
+
+          mealEntries.sort((a, b) => b.gap - a.gap);
+
+          let didSomething = false;
+
+          for (const meal of mealEntries) {
+            if (!(meal.gap > 20)) continue;
+
+            const mealCandidates = Object.entries(next)
+              .filter(([id, st]) => {
+                const def = slotDefById[id];
+                if (!def) return false;
+                if (st.mealKey !== meal.mealKey) return false;
+                if (!st.label) return false;
+
+                const currentMealKcal = num(computeTotals(next).perMeal?.[meal.mealKey]?.kcal || 0);
+                const mealCap = meal.mealKey.startsWith("collation") ? MAX_SNACK_KCAL_HARD : MAX_MEAL_KCAL_HARD;
+                if (currentMealKcal >= mealCap) return false;
+
                 const resolvedLabel = getResolvedLabelForSlot(st, slotDefById, reg, path);
                 const max = caps?.labelMaxMult?.[resolvedLabel];
-                return max === undefined || num(st.multiplier || 0) < num(max);
+                if (max !== undefined && num(st.multiplier) >= num(max)) return false;
+                return getSlotEnergyPriority(st, def, reg, path, slotDefById) > 0;
+              })
+              .sort((a, b) => {
+                const defA = slotDefById[a[0]];
+                const defB = slotDefById[b[0]];
+                return (
+                  getSlotEnergyPriority(b[1], defB, reg, path, slotDefById) -
+                  getSlotEnergyPriority(a[1], defA, reg, path, slotDefById)
+                );
+              });
+
+            for (const [id] of mealCandidates) {
+              bump(id, 0.25);
+              didSomething = true;
+
+              const updatedTotals = computeTotals(next);
+              const mealCap = meal.mealKey.startsWith("collation") ? MAX_SNACK_KCAL_HARD : MAX_MEAL_KCAL_HARD;
+              if (
+                num(updatedTotals.perMeal?.[meal.mealKey]?.kcal) >= num(mealTargetKcal?.[meal.mealKey]) - 20 ||
+                num(updatedTotals.perMeal?.[meal.mealKey]?.kcal) >= mealCap
+              ) {
+                break;
               }
+            }
+          }
+
+          if (!didSomething) {
+            const fallbackCandidates = Object.entries(next)
+              .filter(([id, st]) => {
+                const def = slotDefById[id];
+                if (!def || !st.label) return false;
+                const resolvedLabel = getResolvedLabelForSlot(st, slotDefById, reg, path);
+                const max = caps?.labelMaxMult?.[resolvedLabel];
+                if (max !== undefined && num(st.multiplier) >= num(max)) return false;
+                return getSlotEnergyPriority(st, def, reg, path, slotDefById) > 0;
+              })
+              .sort((a, b) => {
+                const defA = slotDefById[a[0]];
+                const defB = slotDefById[b[0]];
+                return (
+                  getSlotEnergyPriority(b[1], defB, reg, path, slotDefById) -
+                  getSlotEnergyPriority(a[1], defA, reg, path, slotDefById)
+                );
+              });
+
+            fallbackCandidates.slice(0, 4).forEach(([id]) => bump(id, 0.25));
+          }
+        } else {
+          const candidates = Object.entries(next)
+            .filter(([id, st]) => {
+              const def = slotDefById[id];
+              if (!def || !st.label) return false;
               const floor = getMealFloorMultiplier(st, def, reg, path);
-              return num(st.multiplier || 0) > floor;
+              return num(st.multiplier) > floor;
             })
             .sort((a, b) => {
               const defA = slotDefById[a[0]];
               const defB = slotDefById[b[0]];
-              return direction > 0
-                ? getSlotEnergyPriority(b[1], defB, reg, path, slotDefById) -
-                    getSlotEnergyPriority(a[1], defA, reg, path, slotDefById)
-                : getSlotReductionPriority(b[1], defB, reg, path, slotDefById) -
-                    getSlotReductionPriority(a[1], defA, reg, path, slotDefById);
+              return (
+                getSlotReductionPriority(b[1], defB, reg, path, slotDefById) -
+                getSlotReductionPriority(a[1], defA, reg, path, slotDefById)
+              );
             });
 
-          for (const [id, st] of mealCandidates.slice(0, 3)) {
+          candidates.slice(0, 6).forEach(([id, st]) => {
             const def = slotDefById[id];
             const floor = getMealFloorMultiplier(st, def, reg, path);
-            moved = direction > 0 ? bump(id, 0.5) : down(id, 0.5, floor);
-            if (moved) break;
-          }
-          if (moved) break;
+            down(id, 0.25, floor);
+          });
         }
 
-        if (!moved) break;
+        if (protLow) {
+          Object.entries(next).forEach(([id]) => {
+            const def = slotDefById[id];
+            if (!def) return;
+            if (
+              def.group === "VPO" ||
+              def.group === "Produits laitiers" ||
+              def.group === "Compléments protéinés" ||
+              def.group === "Légumineuses"
+            ) {
+              bump(id, 0.25);
+            }
+          });
+        }
+
+        if (gluLow) {
+          Object.entries(next).forEach(([id]) => {
+            const def = slotDefById[id];
+            if (!def) return;
+            if (def.group === "Produits céréaliers" || def.group === "Pain") {
+              bump(id, 0.25);
+            }
+          });
+        }
+
+        if (lipLow) {
+          Object.entries(next).forEach(([id]) => {
+            const def = slotDefById[id];
+            if (!def) return;
+            if (def.group === "Matières grasses") {
+              bump(id, 0.25);
+            }
+          });
+        }
+
+        if (protHigh) {
+          Object.entries(next).forEach(([id, st]) => {
+            const def = slotDefById[id];
+            if (!def) return;
+            if (def.group === "Compléments protéinés") {
+              const floor = getMealFloorMultiplier(st, def, reg, path);
+              down(id, 0.25, floor);
+            }
+          });
+        }
+
+        if (gluHigh) {
+          Object.entries(next).forEach(([id, st]) => {
+            const def = slotDefById[id];
+            if (!def) return;
+            if (def.group === "Produits sucrés") {
+              const floor = getMealFloorMultiplier(st, def, reg, path);
+              down(id, 0.25, floor);
+            }
+          });
+        }
+
+        if (lipHigh) {
+          Object.entries(next).forEach(([id, st]) => {
+            const def = slotDefById[id];
+            if (!def) return;
+            if (def.group === "Matières grasses") {
+              const floor = getMealFloorMultiplier(st, def, reg, path);
+              down(id, 0.25, floor);
+            }
+          });
+        }
+
         next = applyCapsToSlots(next, caps, slotDefById, reg, path);
         next = applyCompositionRules(next);
         next = sanitizeSlotsHard(next, slotDefById, reg, path, caps, computeTotals);
       }
 
-      // 2) Fine tuning by macro gram ranges first, kcal second
-      const gramGap = (value, range) => {
-        if (num(value) < num(range?.min)) return num(range.min) - num(value);
-        if (num(value) > num(range?.max)) return num(range.max) - num(value);
-        return 0;
-      };
-
-      for (let i = 0; i < 36; i += 1) {
-        const totals = computeTotals(next);
-        const day = totals.day;
-        const kcalDiff = num(kcalTarget) - num(day.kcal);
-
-        const issues = [
-          { key: "prot", gap: gramGap(day.prot, gramRanges.prot) },
-          { key: "lip", gap: gramGap(day.lip, gramRanges.lip) },
-          { key: "glu", gap: gramGap(day.glu, gramRanges.glu) },
-        ]
-          .filter((x) => Math.abs(num(x.gap)) > 0.5)
-          .sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap));
-
-        if (!issues.length && Math.abs(kcalDiff) <= 100) break;
-
-        let moved = false;
-        const main = issues[0]?.key || "";
-
-        if (main === "prot") {
-          if (issues[0].gap > 0) {
-            moved =
-              adjustGroup("Compléments protéinés", 0.5, ["collation_apm", "collation_matin", "petit_dej"]) ||
-              adjustGroup("VPO", 0.5, ["dejeuner", "diner"]) ||
-              adjustGroup("Produits laitiers", 0.5, ["petit_dej", "collation_apm", "diner"]);
-            if (moved && kcalDiff < -50) adjustGroup("Produits céréaliers", -0.5, ["dejeuner", "diner", "petit_dej"]);
-          } else {
-            moved =
-              adjustGroup("Compléments protéinés", -0.5, ["collation_apm", "collation_matin", "petit_dej"]) ||
-              adjustGroup("VPO", -0.5, ["dejeuner", "diner"]) ||
-              adjustGroup("Produits laitiers", -0.5, ["petit_dej", "collation_apm", "diner"]);
-            if (moved && (gramGap(day.glu, gramRanges.glu) > 0 || kcalDiff > 50)) {
-              adjustGroup("Produits céréaliers", 0.5, ["dejeuner", "diner", "petit_dej"]);
-              adjustGroup("Pain", 0.5, ["dejeuner", "diner", "petit_dej"]);
-            }
-          }
-        } else if (main === "lip") {
-          if (issues[0].gap > 0) {
-            moved =
-              adjustGroup("Matières grasses", 0.5, ["petit_dej", "dejeuner", "diner"]) ||
-              adjustGroup("Produits laitiers", 0.5, ["petit_dej", "collation_apm", "diner"]) ||
-              adjustGroup("VPO", 0.5, ["dejeuner", "diner"]);
-            if (moved && kcalDiff < -50) adjustGroup("Produits céréaliers", -0.5, ["dejeuner", "diner", "petit_dej"]);
-          } else {
-            moved =
-              adjustGroup("Matières grasses", -0.5, ["petit_dej", "dejeuner", "diner"]) ||
-              adjustGroup("Produits laitiers", -0.5, ["petit_dej", "collation_apm", "diner"]) ||
-              adjustGroup("VPO", -0.5, ["dejeuner", "diner"]);
-            if (moved && (gramGap(day.glu, gramRanges.glu) > 0 || kcalDiff > 50)) {
-              adjustGroup("Produits céréaliers", 0.5, ["dejeuner", "diner", "petit_dej"]);
-              adjustGroup("Pain", 0.5, ["dejeuner", "diner", "petit_dej"]);
-            }
-          }
-        } else if (main === "glu") {
-          if (issues[0].gap > 0) {
-            moved =
-              adjustGroup("Produits céréaliers", 0.5, ["petit_dej", "dejeuner", "diner"]) ||
-              adjustGroup("Pain", 0.5, ["dejeuner", "diner", "petit_dej"]) ||
-              adjustGroup("Fruits", 0.5, ["petit_dej", "dejeuner", "collation_apm"]);
-            if (moved && kcalDiff < -50) adjustGroup("Matières grasses", -0.5, ["petit_dej", "dejeuner", "diner"]);
-          } else {
-            moved =
-              adjustGroup("Produits céréaliers", -0.5, ["dejeuner", "diner", "petit_dej"]) ||
-              adjustGroup("Pain", -0.5, ["dejeuner", "diner", "petit_dej"]) ||
-              adjustGroup("Produits sucrés", -0.5, ["petit_dej"]);
-            if (moved && gramGap(day.lip, gramRanges.lip) > 0) adjustGroup("Matières grasses", 0.5, ["petit_dej", "dejeuner", "diner"]);
-          }
-        } else {
-          if (kcalDiff > 100) {
-            moved =
-              adjustGroup("Produits céréaliers", 0.5, ["petit_dej", "dejeuner", "diner"]) ||
-              adjustGroup("Matières grasses", 0.5, ["petit_dej", "dejeuner", "diner"]);
-          } else if (kcalDiff < -100) {
-            moved =
-              adjustGroup("Produits céréaliers", -0.5, ["dejeuner", "diner", "petit_dej"]) ||
-              adjustGroup("Matières grasses", -0.5, ["petit_dej", "dejeuner", "diner"]);
-          }
-        }
-
-        if (!moved) break;
-        next = applyCapsToSlots(next, caps, slotDefById, reg, path);
-        next = applyCompositionRules(next);
-        next = sanitizeSlotsHard(next, slotDefById, reg, path, caps, computeTotals);
-      }
-
-      // Keep the best candidate among small nearby variants
-      let best = next;
-      let bestTotals = computeTotals(best);
-      let bestScore = macroRangeDistance(bestTotals.day, gramRanges) * 10 + Math.abs(num(bestTotals.day.kcal) - num(kcalTarget)) / 40;
-
-      const candidateGroups = ["Produits céréaliers", "Pain", "Matières grasses", "Compléments protéinés", "VPO", "Produits laitiers"];
-      for (const group of candidateGroups) {
-        const candidates = Object.entries(best).filter(([id]) => slotDefById[id]?.group === group);
-        for (const [id, st] of candidates) {
-          for (const delta of [-0.5, 0.5]) {
-            const draft = { ...best };
-            const def = slotDefById[id];
-            const floor = getMealFloorMultiplier(st, def, reg, path);
-            if (delta > 0) {
-              const changed = (() => {
-                const before = num(draft[id].multiplier || 0);
-                setSlotMultiplierSafe(draft, id, before + delta);
-                return num(draft[id].multiplier || 0) !== before;
-              })();
-              if (!changed) continue;
-            } else {
-              const before = num(draft[id].multiplier || 0);
-              setSlotMultiplierSafe(draft, id, Math.max(floor, before + delta));
-              if (num(draft[id].multiplier || 0) === before) continue;
-            }
-            const clean = sanitizeSlotsHard(applyCompositionRules(draft), slotDefById, reg, path, caps, computeTotals);
-            const totals = computeTotals(clean);
-            const score = macroRangeDistance(totals.day, gramRanges) * 10 + Math.abs(num(totals.day.kcal) - num(kcalTarget)) / 40;
-            if (score < bestScore) {
-              best = clean;
-              bestTotals = totals;
-              bestScore = score;
-            }
-          }
-        }
-      }
-
-      return best;
+      return closeKcalGapWithAllowedSteps(next);
     },
     [
       kcalTarget,
@@ -3095,17 +2680,16 @@ export default function RationAutoGenerator(props) {
       reg,
       path,
       computeTotals,
+      computePctFromDay,
       ranges,
-    gramRanges,
-      gramRanges,
       setSlotMultiplierSafe,
       slotDefById,
       applyCompositionRules,
+      closeKcalGapWithAllowedSteps,
     ]
   );
 
   const [ciqual, setCiqual] = useState([]);
-  const [ciqualSourceUrl, setCiqualSourceUrl] = useState("");
   const [byCode, setByCode] = useState({});
   const [ciqualLoading, setCiqualLoading] = useState(false);
   const [nutrientsOpen, setNutrientsOpen] = useState(false);
@@ -3113,45 +2697,40 @@ export default function RationAutoGenerator(props) {
   const [showMicroDetails, setShowMicroDetails] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-
     (async () => {
       setCiqualLoading(true);
       try {
-        const { rows, sourceUrl } = await loadCiqualDataset();
-        if (cancelled) return;
-
+        const res = await fetch("/ciqual_2025.json", { cache: "no-store" });
+        const data = await res.json();
         const map = {};
-        rows.forEach((r) => {
-          if (r?.code !== undefined) map[r.code] = r;
-        });
-
-        setCiqual(rows);
+        data.forEach((r) => (map[r.code] = r));
+        setCiqual(data);
         setByCode(map);
-        setCiqualSourceUrl(sourceUrl);
-      } catch (err) {
-        if (!cancelled) {
-          toast({
-            title: "CIQUAL",
-            description: "Impossible de charger le dataset JSON. Vérifie qu’un fichier /ciqual_2025.json ou /data/ciqual_2025.json est bien présent.",
-            status: "error",
-          });
-        }
+      } catch {
+        toast({ title: "Données alimentaires", description: "Erreur de chargement", status: "error" });
       } finally {
-        if (!cancelled) setCiqualLoading(false);
+        setCiqualLoading(false);
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
   }, [toast]);
 
   const allNutrientKeys = useMemo(() => Object.keys(ciqual?.[0]?.nutrients || {}).sort(), [ciqual]);
   const selectedKeys = useMemo(
-    () => Object.keys(selectedNutrients).filter((k) => selectedNutrients[k]),
+    () => Object.keys(selectedNutrients).filter((k) => selectedNutrients[k] && !isEnergyLikeNutrientKey(k)),
     [selectedNutrients]
   );
+  const recommendedNutrientKeys = useMemo(
+    () => pickRecommendedMicroKeys(allNutrientKeys, context, objectiveRaw),
+    [allNutrientKeys, context, objectiveRaw]
+  );
+  const applyRecommendedNutrients = useCallback(() => {
+    const defaults = recommendedNutrientKeys.length
+      ? recommendedNutrientKeys
+      : pickDefaultMicroKeys(allNutrientKeys);
+    const next = {};
+    defaults.forEach((k) => (next[k] = true));
+    setSelectedNutrients(next);
+  }, [allNutrientKeys, recommendedNutrientKeys]);
 
   const ciqualOk = useMemo(() => !!ciqual?.length && !!Object.keys(byCode || {}).length, [ciqual, byCode]);
 
@@ -3163,29 +2742,50 @@ export default function RationAutoGenerator(props) {
     const hasSome = Object.keys(selectedNutrients || {}).some((k) => selectedNutrients[k]);
     if (hasSome) return;
 
-    const defaults = pickDefaultMicroKeys(allNutrientKeys);
+    const defaults = recommendedNutrientKeys.length
+      ? recommendedNutrientKeys
+      : pickDefaultMicroKeys(allNutrientKeys);
     if (!defaults.length) return;
     const next = {};
     defaults.forEach((k) => (next[k] = true));
     setSelectedNutrients(next);
-  }, [ciqualOk, allNutrientKeys, selectedNutrients]);
+  }, [ciqualOk, allNutrientKeys, recommendedNutrientKeys, selectedNutrients]);
+
+  useEffect(() => {
+    if (!ciqualOk) return;
+    const selected = Object.keys(selectedNutrients || {}).filter((k) => selectedNutrients[k]);
+    const wrongFiberKeys = selected.filter((key) => {
+      const normalized = normalize(String(key || "").replace(/_/g, " "));
+      return (normalized.includes("fibres") || normalized.includes("fibre")) && isEnergyLikeNutrientKey(key);
+    });
+    if (!wrongFiberKeys.length) return;
+    const realFiberKey = findBestNutrientKeyForTarget(allNutrientKeys, "fibres");
+    if (!realFiberKey) return;
+    setSelectedNutrients((prev) => {
+      const next = { ...prev, [realFiberKey]: true };
+      wrongFiberKeys.forEach((key) => {
+        delete next[key];
+      });
+      return next;
+    });
+  }, [allNutrientKeys, ciqualOk, selectedNutrients]);
 
   const microsTotals = useMemo(() => {
     const micros = {};
     if (!selectedKeys.length) return micros;
     if (!ciqualOk) return micros;
 
-    Object.entries(slots || {}).forEach(([, st]) => {
-      const mult = snapMultiplier(st.multiplier || 0, 4);
-      if (mult <= 0.001) return;
-
+    Object.entries(slots || {}).forEach(([slotId, st]) => {
       const resolvedLabel = getResolvedLabelForSlot(st, slotDefById, reg, path);
       if (!resolvedLabel) return;
+      const def = slotDefById[slotId];
+      const mult = snapMultiplierDownToOption(st.multiplier, def?.group || st.group, resolvedLabel, caps);
+      if (mult <= 0.001) return;
 
       const unit = findFoodUnit(resolvedLabel);
       const line = computeLine(resolvedLabel, unit, mult);
 
-      const row = findCiqualRowForLabel(resolvedLabel, byCode, ciqual);
+      const row = findCiqualRowForLabel(resolvedLabel, ciqual, byCode);
       if (!row?.nutrients) return;
 
       const f = (num(line.grams) || 0) / 100;
@@ -3195,7 +2795,7 @@ export default function RationAutoGenerator(props) {
     });
 
     return micros;
-  }, [slots, selectedKeys, byCode, ciqual, ciqualOk, slotDefById, reg, path]);
+  }, [slots, selectedKeys, byCode, ciqual, ciqualOk, slotDefById, reg, path, caps]);
 
   useEffect(() => {
     if (autoInitDone.current) return;
@@ -3231,7 +2831,6 @@ export default function RationAutoGenerator(props) {
         next = rebalanceMealToTarget(next, "dejeuner", kcalTarget, snackFlags, caps, slotDefById, reg, path);
         next = rebalanceMealToTarget(next, "collation_apm", kcalTarget, snackFlags, caps, slotDefById, reg, path);
         next = rebalanceMealToTarget(next, "diner", kcalTarget, snackFlags, caps, slotDefById, reg, path);
-        next = applyCapsToSlots(next, caps, slotDefById, reg, path);
 
         totals = computeTotals(next);
       }
@@ -3241,31 +2840,6 @@ export default function RationAutoGenerator(props) {
       }
 
       next = sanitizeSlotsHard(next, slotDefById, reg, path, caps, computeTotals);
-
-      const finalTotals = computeTotals(next);
-      if (num(finalTotals.day.kcal) > kcalTarget + 200 && kcalTarget > 0) {
-        const reductionGroups = ["Produits céréaliers", "VPO", "Matières grasses", "Compléments protéinés"];
-
-        Object.entries(next).forEach(([id, st]) => {
-          if (!reductionGroups.includes(st.group) || num(st.multiplier) < 1) return;
-          const reduced = Math.max(0.5, num(st.multiplier) * 0.85);
-          next[id] = { ...st, multiplier: Math.round(reduced * 2) / 2 };
-        });
-
-        const finalTotals2 = computeTotals(next);
-        if (num(finalTotals2.day.kcal) > kcalTarget + 200) {
-          const scale = kcalTarget / num(finalTotals2.day.kcal);
-          Object.entries(next).forEach(([id, st]) => {
-            if (num(st.multiplier) <= 0.5) return;
-            const reduced = Math.round(num(st.multiplier) * scale * 2) / 2;
-            next[id] = { ...st, multiplier: Math.max(0.5, reduced) };
-          });
-        }
-      }
-
-      next = aggressivelyReducePlantBasedExcess(next, kcalTarget, slotDefById, reg, path, caps, computeTotals);
-      next = finalClampVeganToTarget(next, kcalTarget, slotDefById, reg, path, caps, computeTotals);
-            next = forceVeganKcalWindow(next, kcalTarget, slotDefById, reg, path, caps, computeTotals);
       setSlots(normalizeSlotsToFamilyDefaults(next));
     }
   }, [
@@ -3290,15 +2864,14 @@ export default function RationAutoGenerator(props) {
     if (!(kcalTarget > 0)) return;
     if (blocked) return;
     if (autoTuneRef.current) return;
-    if (manualEditRef.current) return;
 
     const { day } = computedByMeal;
     const pct = dayPct;
     const kcalDiffAbs = Math.abs(num(day.kcal) - num(kcalTarget));
 
-    const protOk = num(day.prot) >= num(gramRanges.prot.min) - 3 && num(day.prot) <= num(gramRanges.prot.max) + 3;
-    const lipOk = num(day.lip) >= num(gramRanges.lip.min) - 3 && num(day.lip) <= num(gramRanges.lip.max) + 3;
-    const gluOk = num(day.glu) >= num(gramRanges.glu.min) - 5 && num(day.glu) <= num(gramRanges.glu.max) + 5;
+    const protOk = pct.prot >= ranges.prot.min - 1.5 && pct.prot <= ranges.prot.max + 1.5;
+    const lipOk = pct.lip >= ranges.lip.min - 1.5 && pct.lip <= ranges.lip.max + 1.5;
+    const gluOk = pct.glu >= ranges.glu.min - 1.5 && pct.glu <= ranges.glu.max + 1.5;
 
     if (num(day.kcal) <= 0 || num(day.kcal) < kcalTarget * 0.78 || num(day.kcal) > MAX_DAY_KCAL_HARD) {
       autoTuneRef.current = true;
@@ -3351,7 +2924,7 @@ export default function RationAutoGenerator(props) {
       return;
     }
 
-    if (kcalDiffAbs > 90 || !protOk || !lipOk || !gluOk) {
+    if (kcalDiffAbs > 50 || !protOk || !lipOk || !gluOk) {
       autoTuneRef.current = true;
       let next = adjustSlotsForTarget(slots);
       next = sanitizeSlotsHard(next, slotDefById, reg, path, caps, computeTotals);
@@ -3381,17 +2954,60 @@ export default function RationAutoGenerator(props) {
 
   useEffect(() => {
     if (!mounted.current) return;
-    onChange?.({
-      version: 23,
-      slots: Object.fromEntries(
-        Object.entries(slots).map(([id, st]) => [
+    const normalizedSlots = Object.fromEntries(
+      Object.entries(slots).map(([id, st]) => {
+        const resolvedLabel = getResolvedLabelForSlot(st, slotDefById, reg, path);
+        const def = slotDefById[id];
+        return [
           id,
           {
             ...st,
-            resolvedLabel: getResolvedLabelForSlot(st, slotDefById, reg, path),
+            multiplier: snapMultiplierDownToOption(st.multiplier, def?.group || st.group, resolvedLabel, caps),
+            resolvedLabel,
           },
-        ])
-      ),
+        ];
+      })
+    );
+    const normalizedItems = Object.values(normalizedSlots).flatMap((st) => {
+      const multiplier = num(st?.multiplier || 0);
+      const resolvedLabel = st?.resolvedLabel;
+      if (!(multiplier > 0.001) || !resolvedLabel) return [];
+      const isDisabledSnack =
+        (st.mealKey === "collation_matin" && !snackFlags.beforeLunch) ||
+        (st.mealKey === "collation_apm" && !snackFlags.afterLunch) ||
+        (st.mealKey === "collation_soir" && !snackFlags.afterDinner);
+      if (isDisabledSnack) return [];
+
+      const unit = findFoodUnit(resolvedLabel);
+      const line = computeLine(resolvedLabel, unit, multiplier);
+      if (!(num(line.qty) > 0)) return [];
+
+      return [
+        {
+          key: `${st.mealKey}__${st.slotKey}__${st.group}__${resolvedLabel}`,
+          mealKey: st.mealKey,
+          meal: st.mealKey,
+          slotKey: st.slotKey,
+          category: st.group,
+          group: st.group,
+          label: displayFoodLabel(resolvedLabel),
+          resolvedLabel,
+          qty: line.qty,
+          unit: line.unit,
+          grams: line.grams,
+          kcal: line.kcal,
+          prot: line.prot,
+          lip: line.lip,
+          glu: line.glu,
+          multiplier,
+        },
+      ];
+    });
+
+    onChange?.({
+      version: 23,
+      slots: normalizedSlots,
+      items: normalizedItems,
       poolBudgets,
       selectedNutrients,
       meta: {
@@ -3399,21 +3015,23 @@ export default function RationAutoGenerator(props) {
         kcalIndicatif,
         coeff,
         kcalTarget,
-        macroPct: { protPct, lipPct, gluPct },
+        macroPct,
         macroTargets,
-    gramRanges,
-        macroGramRanges: gramRanges,
         diets: reg,
         pathologies: path,
         alcool: { kcalPerGram: 7, assumedABV: DEFAULT_ABV },
         snacks: {
+          activeFlags: {
+            beforeLunch: !!snackFlags.beforeLunch,
+            afterLunch: !!snackFlags.afterLunch,
+            afterDinner: !!snackFlags.afterDinner,
+          },
           beforeLunchMin: SNACK_BEFORE_LUNCH_MIN_KCAL,
           afterLunchMin: SNACK_AFTER_LUNCH_MIN_KCAL,
           afterDinnerMin: SNACK_AFTER_DINNER_MIN_KCAL,
         },
         plausibilityCaps: PLAUSIBILITY_MAX_MULT_BY_LABEL,
-        fruitDayMax: path.diabete ? FRUIT_DAY_MAX_DIABETE : FRUIT_DAY_MAX,
-        ciqualSourceUrl,
+        fruitDayMax: FRUIT_DAY_MAX,
       },
       computed: { totals: computedByMeal, micros: microsTotals },
     });
@@ -3426,30 +3044,23 @@ export default function RationAutoGenerator(props) {
     kcalIndicatif,
     coeff,
     kcalTarget,
-    protPct,
-    lipPct,
-    gluPct,
+    macroPct,
     macroTargets,
     computedByMeal,
     reg,
     path,
     microsTotals,
     slotDefById,
-    ciqualSourceUrl,
+    snackFlags.beforeLunch,
+    snackFlags.afterLunch,
+    snackFlags.afterDinner,
   ]);
 
   useEffect(() => {
     mounted.current = true;
   }, []);
 
-  useEffect(() => {
-    manualEditRef.current = false;
-  }, [context?.objectiveRaw, context?.inputs]);
-
   const updateSlot = (slotId, patch) => {
-    if (Object.prototype.hasOwnProperty.call(patch, "multiplier") || Object.prototype.hasOwnProperty.call(patch, "label")) {
-      manualEditRef.current = true;
-    }
     setSlots((prev) => {
       let next = { ...prev };
       const cur = next[slotId] || {};
@@ -3482,16 +3093,18 @@ export default function RationAutoGenerator(props) {
       if (max !== undefined) {
         candidate.multiplier = clamp(num(candidate.multiplier || 0), 0, num(max));
       }
+      candidate.multiplier = snapMultiplierDownToOption(
+        candidate.multiplier,
+        slotDefById[slotId]?.group || candidate.group,
+        resolvedCandidateLabel,
+        caps
+      );
 
       next[slotId] = candidate;
       next = applyCompositionRules(next, prev, slotId);
       next = sanitizeSlotsHard(next, slotDefById, reg, path, caps, computeTotals);
-      next = aggressivelyReducePlantBasedExcess(next, kcalTarget, slotDefById, reg, path, caps, computeTotals);
-      next = finalClampVeganToTarget(next, kcalTarget, slotDefById, reg, path, caps, computeTotals);
 
-          next = forceVeganKcalWindow(next, kcalTarget, slotDefById, reg, path, caps, computeTotals);
-
-    return next;
+      return next;
     });
   };
 
@@ -3547,9 +3160,6 @@ export default function RationAutoGenerator(props) {
 
       next = applyCompositionRules(next, prev);
       next = sanitizeSlotsHard(next, slotDefById, reg, path, caps, computeTotals);
-      next = aggressivelyReducePlantBasedExcess(next, kcalTarget, slotDefById, reg, path, caps, computeTotals);
-      next = finalClampVeganToTarget(next, kcalTarget, slotDefById, reg, path, caps, computeTotals);
-            next = forceVeganKcalWindow(next, kcalTarget, slotDefById, reg, path, caps, computeTotals);
       return normalizeSlotsToFamilyDefaults(next);
     });
   };
@@ -3558,10 +3168,10 @@ export default function RationAutoGenerator(props) {
     const items = [];
 
     if (reg.vegetarian) {
-      items.push("Mode végétarien : réduction des volumes de féculents/légumineuses et renfort protéique via œufs, laitages autorisés et shakers.");
+      items.push("Mode végétarien : protéines rééquilibrées avec œufs, laitages si autorisés, légumineuses et shakers si nécessaire.");
     }
     if (reg.vegan) {
-      items.push("Mode végan : réduction des quantités massives sur les repas, renfort avec whey vegan et meilleure répartition protéines/glucides.");
+      items.push("Mode végan : remplacement automatique par légumineuses, lait végétal, yaourt végétal et whey vegan.");
     }
     if (reg.glutenFree) {
       items.push("Mode sans gluten : seules les options céréalières sans gluten sont conservées.");
@@ -3570,7 +3180,7 @@ export default function RationAutoGenerator(props) {
       items.push("Hypercholestérolémie : beurre, crème fraîche et viande moyenne retirés, priorité aux matières grasses de meilleure qualité et protéines maigres.");
     }
     if (path.diabete) {
-      items.push("Diabète : boissons sucrées retirées, fruits limités à 2/j maximum et seulement avec une source de fibres.");
+      items.push("Diabète : boissons sucrées et produits sucrés retirés ou fortement limités.");
     }
     if (path.troublesDigestifs || path.rgo) {
       items.push("RGO / troubles digestifs : repas volontairement plus petits, collations plus présentes, aliments irritants limités.");
@@ -3583,48 +3193,45 @@ export default function RationAutoGenerator(props) {
   }, [reg, path]);
 
   const headerCards = (
-    <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4} mb={4}>
+    <SimpleGrid columns={1} spacing={4} mb={4}>
       <Card bg={panelBg} border="1px solid" borderColor={border}>
         <CardBody>
-          <Text fontSize="sm" color={muted}>
-            Cibles
-          </Text>
-          <Text fontSize="sm" mt={1} opacity={0.9}>
-            Base : {r0(kcalIndicatif)} kcal • coeff : {r1(coeff)} • cible : {r0(kcalTarget)} kcal
-          </Text>
+          <HStack justify="space-between" align="start" gap={3} flexWrap="wrap">
+            <Box>
+              <Text fontSize="sm" color={muted}>
+                Totaux jour
+              </Text>
+              <HStack mt={2} align="baseline" gap={3} flexWrap="wrap">
+                <Text fontSize="2xl" fontWeight="900">
+                  {r0(computedByMeal.day.kcal)} / {r0(kcalTarget || kcalIndicatif)} kcal
+                </Text>
+                {kcalTarget > 0 && (
+                  <Badge colorScheme={Math.abs(computedByMeal.day.kcal - kcalTarget) <= 50 ? "green" : "yellow"}>
+                    Écart {r0(computedByMeal.day.kcal - kcalTarget)} kcal
+                  </Badge>
+                )}
+              </HStack>
+            </Box>
 
-          <Text mt={2} fontWeight="900">
-            Prot {r0(macroTargets.protG)}g • Lip {r0(macroTargets.lipG)}g • Glu {r0(macroTargets.gluG)}g
-          </Text>
-
-          <Text fontSize="sm" opacity={0.8}>
-            {r0(protPct)}% / {r0(lipPct)}% / {r0(gluPct)}%
-          </Text>
-
-          <Text fontSize="xs" mt={2} opacity={0.75}>
-            Plages : P {r0(gramRanges.prot.min)}-{r0(gramRanges.prot.max)}g • L {r0(gramRanges.lip.min)}-{r0(gramRanges.lip.max)}g • G {r0(gramRanges.glu.min)}-{r0(gramRanges.glu.max)}g
-          </Text>
-        </CardBody>
-      </Card>
-
-      <Card bg={panelBg} border="1px solid" borderColor={border}>
-        <CardBody>
-          <Text fontSize="sm" color={muted}>
-            Totaux jour
-          </Text>
-
-          <HStack mt={2} align="baseline" gap={3} flexWrap="wrap">
-            <Text fontSize="2xl" fontWeight="900">
-              {r0(computedByMeal.day.kcal)} kcal
-            </Text>
-            {kcalTarget > 0 && (
-              <Badge colorScheme={Math.abs(computedByMeal.day.kcal - kcalTarget) <= 80 ? "green" : "yellow"}>
-                Écart {r0(computedByMeal.day.kcal - kcalTarget)} kcal
-              </Badge>
-            )}
+            <Box textAlign={{ base: "left", md: "right" }}>
+              <Text fontSize="xs" color={muted} fontWeight="800" textTransform="uppercase">
+                Cibles macros
+              </Text>
+              <Text fontWeight="900">
+                P {r0(macroTargets.protG)}g • L {r0(macroTargets.lipG)}g • G {r0(macroTargets.gluG)}g
+              </Text>
+              <Text fontSize="xs" opacity={0.75}>
+                Repères bilan : P {formatGramRange(context?.needs?.protG, macroTargets.protG)} (
+                {formatPctRange(context?.needs?.pctRanges?.protPctMin, context?.needs?.pctRanges?.protPctMax, ranges.prot)}) • L{" "}
+                {formatGramRange(context?.needs?.lipG, macroTargets.lipG)} (
+                {formatPctRange(context?.needs?.pctRanges?.lipPctMin, context?.needs?.pctRanges?.lipPctMax, ranges.lip)}) • G{" "}
+                {formatGramRange(context?.needs?.glucG, macroTargets.gluG)} (
+                {formatPctRange(context?.needs?.pctRanges?.gluPctMin, context?.needs?.pctRanges?.gluPctMax, ranges.glu)})
+              </Text>
+            </Box>
           </HStack>
 
-          <Wrap mt={3} spacing={2}>
+          <Wrap mt={4} spacing={2}>
             <WrapItem>
               <Badge colorScheme={macroColorScheme(dayPct.prot, ranges.prot)} variant="subtle" border="1px solid" borderColor={border}>
                 P {r0(computedByMeal.day.prot)}g • {r0(dayPct.prot)}%
@@ -3647,13 +3254,16 @@ export default function RationAutoGenerator(props) {
           <Box bg={bgSoft2} border="1px solid" borderColor={border} p={3} rounded="lg">
             <HStack justify="space-between" align="start" spacing={3} flexWrap="wrap">
               <HStack spacing={2}>
-                <Text fontWeight="900">Micros (CIQUAL)</Text>
-                <Badge colorScheme={ciqualOk ? "green" : "yellow"}>{ciqualOk ? "CIQUAL OK" : "CIQUAL..."}</Badge>
+                <Text fontWeight="900">Micronutriments</Text>
+                <Badge colorScheme={ciqualOk ? "green" : "yellow"}>{ciqualOk ? "Données prêtes" : "Données..."}</Badge>
               </HStack>
 
               <HStack spacing={2} flexWrap="wrap">
                 <Button size="xs" onClick={() => setNutrientsOpen((v) => !v)}>
                   {nutrientsOpen ? "Fermer" : "Choisir"}
+                </Button>
+                <Button size="xs" variant="outline" onClick={applyRecommendedNutrients}>
+                  Précocher
                 </Button>
                 <Button
                   size="xs"
@@ -3676,16 +3286,10 @@ export default function RationAutoGenerator(props) {
               <HStack mt={2} spacing={2}>
                 <Spinner size="sm" />
                 <Text fontSize="sm" opacity={0.75}>
-                  Chargement CIQUAL…
+                  Chargement des données…
                 </Text>
               </HStack>
             )}
-
-            {!ciqualLoading && ciqualSourceUrl ? (
-              <Text fontSize="xs" mt={2} opacity={0.65}>
-                Source chargée : {ciqualSourceUrl}
-              </Text>
-            ) : null}
 
             <Text fontSize="sm" opacity={0.75} mt={2}>
               {selectedKeys.length
@@ -3724,7 +3328,7 @@ export default function RationAutoGenerator(props) {
               <Text fontSize="sm" opacity={0.75}>
                 {Object.keys(microsTotals || {}).length
                   ? "Micros calculés (totaux jour)"
-                  : "Micros non affichés (sélection vide ou CIQUAL absent)."}
+                  : "Micros non affichés (sélection vide ou données absentes)."}
               </Text>
               <Button size="xs" variant="outline" onClick={() => setShowMicroDetails((v) => !v)}>
                 {showMicroDetails ? "Masquer" : "Détails"}
@@ -3757,13 +3361,7 @@ export default function RationAutoGenerator(props) {
   );
 
   const multipliersFor = (group, resolvedLabel) => {
-    if (resolvedLabel === "Fromage") return MULTIPLIERS_CHEESE;
-    const max = caps?.labelMaxMult?.[resolvedLabel];
-    if (max !== undefined && num(max) <= 2) return MULTIPLIERS_LIMITED_2;
-    if (group === "Légumineuses") return MULTIPLIERS_LIMITED_3;
-    if (group === "Matières grasses") return MULTIPLIERS_LIMITED_3;
-    if (group === "Compléments protéinés") return MULTIPLIERS_LIMITED_2;
-    return MULTIPLIERS_BASE;
+    return getMultiplierOptionsFor(group, resolvedLabel, caps);
   };
 
   const renderMeal = (mealKey, mealLabel) => {
@@ -3859,10 +3457,6 @@ export default function RationAutoGenerator(props) {
                 opts = opts.filter((o) => o.label === d.group || o.label === "Pain sans gluten");
               }
 
-              if (reg.glutenFree && d.group === "Compléments protéinés") {
-                opts = opts.filter((o) => o.label !== "100% whey");
-              }
-
               if (path.hyperchol && d.group === "Matières grasses") {
                 opts = opts.filter((o) => o.label === d.group || o.label === "Huile" || o.label === "Margarine");
               }
@@ -3881,18 +3475,6 @@ export default function RationAutoGenerator(props) {
 
               if (path.diabete && d.group === "Boissons") {
                 opts = opts.filter((o) => o.label === d.group || o.label === "Eau");
-              }
-
-              if (path.hyperchol && d.group === "Produits laitiers") {
-                opts = opts.filter((o) => o.label !== "Fromage");
-              }
-
-              if (path.hyperchol && d.group === "Matières grasses") {
-                opts = opts.filter((o) => !["Beurre", "Crème fraîche"].includes(o.label));
-              }
-
-              if (path.hyperchol && d.group === "VPO") {
-                opts = opts.filter((o) => o.label !== "Viande moyenne");
               }
 
               if ((path.troublesDigestifs || path.rgo) && d.group === "Boissons") {
@@ -3927,19 +3509,19 @@ export default function RationAutoGenerator(props) {
                 : opts[0]?.label || d.group;
 
               const preciseLabel =
-                selectedCandidate &&
-                selectedCandidate !== d.group &&
-                st.manualLabel
-                  ? selectedCandidate
+                selectedCandidate && selectedCandidate !== d.group
+                  ? shouldCollapseToFamily
+                    ? selectedCandidate
+                    : selectedCandidate
                   : "";
 
-              const mult = snapMultiplier(st.multiplier || 0, 4);
               const resolvedLabel = getResolvedLabelForSlot(
                 { ...st, label: selectedCandidate, mealKey, slotKey: d.slotKey, group: d.group },
                 slotDefById,
                 reg,
                 path
               );
+              const mult = snapMultiplierDownToOption(st.multiplier, d.group, resolvedLabel, caps);
               const resolvedUnit = resolvedLabel ? findFoodUnit(resolvedLabel) : "g";
               const line = mult > 0.001 && resolvedLabel ? computeLine(resolvedLabel, resolvedUnit, mult) : null;
 
@@ -3953,117 +3535,120 @@ export default function RationAutoGenerator(props) {
 
               const capsMax = caps?.labelMaxMult?.[resolvedLabel];
               const capInfo = capsMax !== undefined ? `Cap: x${capsMax}` : "";
+              const multiplierOptions = multipliersFor(d.group, resolvedLabel);
 
               return (
-                <>
-                  {mult > 0.001 ? (
-                    <Box key={slotId} p={{ base: 3, md: 4 }} bg={softBg} border="1px solid" borderColor={border} rounded="lg">
-                      <VStack align="stretch" spacing={3}>
-                        <HStack align="start" spacing={3}>
-                          <Box flex="1" minW={0}>
-                            <Text fontWeight="800" lineHeight="1.1" noOfLines={2}>
-                              {d.label}
-                              {!d.required && (
-                                <Text as="span" fontWeight="700" opacity={0.75}>
-                                  {" "}
-                                  (option)
-                                </Text>
-                              )}
+                <Box key={slotId} p={{ base: 3, md: 4 }} bg={softBg} border="1px solid" borderColor={border} rounded="lg">
+                  <VStack align="stretch" spacing={3}>
+                    <HStack align="start" spacing={3}>
+                      <Box flex="1" minW={0}>
+                        <Text fontWeight="800" lineHeight="1.1" noOfLines={2}>
+                          {d.label}
+                          {!d.required && (
+                            <Text as="span" fontWeight="700" opacity={0.75}>
+                              {" "}
+                              (option)
                             </Text>
-                            <Text fontSize="xs" opacity={0.65}>
-                              {d.group} {capInfo ? `• ${capInfo}` : ""}
-                              {preciseLabel ? ` • ${preciseLabel}` : ""}
-                            </Text>
-                          </Box>
-                        </HStack>
-
-                        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2}>
-                          <Select
-                            value={displaySelected}
-                            onChange={(e) => {
-                              updateSlot(slotId, { label: e.target.value, manualLabel: true });
-                            }}
-                            isDisabled={selectDisabled || !opts.length}
-                            size="sm"
-                          >
-                            {opts.length ? (
-                              opts.map((o, idx) => (
-                                <option key={`${d.group}__${o.label}__${idx}`} value={o.label}>
-                                  {o.label === d.group ? o.label : `  ${o.label}`}
-                                </option>
-                              ))
-                            ) : (
-                              <option value="">{reg.vegan ? "Non disponible (végan)" : "Non disponible"}</option>
-                            )}
-                          </Select>
-
-                          <Select
-                            value={String(mult)}
-                            onChange={(e) => {
-                              const val = num(e.target.value);
-                              const max = caps?.labelMaxMult?.[resolvedLabel];
-                              const capped = max !== undefined ? clamp(val, 0, num(max)) : val;
-                              updateSlot(slotId, { multiplier: capped });
-                            }}
-                            isDisabled={multDisabled}
-                            size="sm"
-                          >
-                            {multipliersFor(d.group, resolvedLabel).map((m) => (
-                              <option key={`${d.group}__${resolvedLabel || "family"}__${m.value}`} value={m.value}>
-                                {m.label}
-                              </option>
-                            ))}
-                          </Select>
-                        </SimpleGrid>
-
-                        <Wrap spacing={2} justify="flex-start">
-                          {line ? (
-                            <>
-                              <WrapItem>
-                                <Badge bg={chipBg} border="1px solid" borderColor={border}>
-                                  {r0(line.qty)}
-                                  {String(line.unit || "").toUpperCase()}
-                                </Badge>
-                              </WrapItem>
-                              <WrapItem>
-                                <Badge bg={chipBg} border="1px solid" borderColor={border}>
-                                  {r0(line.kcal)} kcal
-                                </Badge>
-                              </WrapItem>
-                              <WrapItem>
-                                <Badge bg={chipBg} border="1px solid" borderColor={border}>
-                                  P {r0(line.prot)}g
-                                </Badge>
-                              </WrapItem>
-                              <WrapItem>
-                                <Badge bg={chipBg} border="1px solid" borderColor={border}>
-                                  L {r0(line.lip)}g
-                                </Badge>
-                              </WrapItem>
-                              <WrapItem>
-                                <Badge bg={chipBg} border="1px solid" borderColor={border}>
-                                  G {r0(line.glu)}g
-                                </Badge>
-                              </WrapItem>
-                            </>
-                          ) : (
-                            <WrapItem>
-                              <Badge bg={chipBg} border="1px solid" borderColor={border} opacity={0.7}>
-                                Désactivé
-                              </Badge>
-                            </WrapItem>
                           )}
-                        </Wrap>
+                        </Text>
+                        <Text fontSize="xs" opacity={0.65}>
+                          {d.group} {capInfo ? `• ${capInfo}` : ""}
+                          {preciseLabel ? ` • ${preciseLabel}` : ""}
+                        </Text>
+                      </Box>
 
-                        {snackDisabled && (
-                          <Text fontSize="xs" opacity={0.7}>
-                            Collation désactivée (kcal trop bas).
-                          </Text>
+                      {mult <= 0.001 && (
+                        <Badge bg={chipBg} border="1px solid" borderColor={border} opacity={0.75}>
+                          Off
+                        </Badge>
+                      )}
+                    </HStack>
+
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2}>
+                      <Select
+                        value={displaySelected}
+                        onChange={(e) => {
+                          updateSlot(slotId, { label: e.target.value, manualLabel: true });
+                        }}
+                        isDisabled={selectDisabled || !opts.length}
+                        size="sm"
+                      >
+                        {opts.length ? (
+                          opts.map((o) => (
+                            <option key={o.label} value={o.label}>
+                              {o.label === d.group ? o.label : `  ${displayFoodLabel(o.label)}`}
+                            </option>
+                          ))
+                        ) : (
+                          <option value="">{reg.vegan ? "Non disponible (végan)" : "Non disponible"}</option>
                         )}
-                      </VStack>
-                    </Box>
-                  ) : null}
-                </>
+                      </Select>
+
+                      <Select
+                        value={String(snapMultiplierDownToOption(mult, d.group, resolvedLabel, caps))}
+                        onChange={(e) => {
+                          const val = num(e.target.value);
+                          const max = caps?.labelMaxMult?.[resolvedLabel];
+                          const capped = max !== undefined ? clamp(val, 0, num(max)) : val;
+                          updateSlot(slotId, { multiplier: capped });
+                        }}
+                        isDisabled={multDisabled}
+                        size="sm"
+                      >
+                        {multiplierOptions.map((m) => (
+                          <option key={m.value} value={m.value}>
+                            {formatAutoQtyLabel(resolvedLabel || displaySelected, m.value)}
+                          </option>
+                        ))}
+                      </Select>
+                    </SimpleGrid>
+
+                    <Wrap spacing={2} justify="flex-start">
+                      {line ? (
+                        <>
+                          <WrapItem>
+                            <Badge bg={chipBg} border="1px solid" borderColor={border}>
+                              {r0(line.qty)}
+                              {String(line.unit || "").toUpperCase()}
+                            </Badge>
+                          </WrapItem>
+                          <WrapItem>
+                            <Badge bg={chipBg} border="1px solid" borderColor={border}>
+                              {r0(line.kcal)} kcal
+                            </Badge>
+                          </WrapItem>
+                          <WrapItem>
+                            <Badge bg={chipBg} border="1px solid" borderColor={border}>
+                              P {r0(line.prot)}g
+                            </Badge>
+                          </WrapItem>
+                          <WrapItem>
+                            <Badge bg={chipBg} border="1px solid" borderColor={border}>
+                              L {r0(line.lip)}g
+                            </Badge>
+                          </WrapItem>
+                          <WrapItem>
+                            <Badge bg={chipBg} border="1px solid" borderColor={border}>
+                              G {r0(line.glu)}g
+                            </Badge>
+                          </WrapItem>
+                        </>
+                      ) : (
+                        <WrapItem>
+                          <Badge bg={chipBg} border="1px solid" borderColor={border} opacity={0.7}>
+                            Désactivé
+                          </Badge>
+                        </WrapItem>
+                      )}
+                    </Wrap>
+
+                    {snackDisabled && (
+                      <Text fontSize="xs" opacity={0.7}>
+                        Collation désactivée (kcal trop bas).
+                      </Text>
+                    )}
+                  </VStack>
+                </Box>
               );
             })}
           </VStack>
@@ -4076,9 +3661,6 @@ export default function RationAutoGenerator(props) {
     <Box>
       <HStack justify="space-between" mb={3} flexWrap="wrap" gap={2}>
         <Heading size="md">Ration auto</Heading>
-        <Badge colorScheme={Object.keys(slots).length ? "green" : "gray"}>
-          {Object.keys(slots).length ? "DRAFT AUTO PRÉSENT" : "AUCUN DRAFT"}
-        </Badge>
       </HStack>
 
       {headerCards}

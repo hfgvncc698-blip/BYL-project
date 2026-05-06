@@ -1,9 +1,6 @@
 // src/App.jsx
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import {
-  ChakraProvider,
-  ColorModeScript,
-  extendTheme,
   Box,
 } from "@chakra-ui/react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
@@ -14,6 +11,7 @@ import { AuthProvider, useAuth } from "./AuthContext";
 import Navbar from "./components/Navbar";
 import { Footer } from "./components/Footer";
 import LanguageRouteSync from "./components/LanguageRouteSync.jsx";
+import AppLoading from "./components/ui/AppLoading.jsx";
 
 import GeolocationBootstrap from "./components/GeolocationBootstrap.jsx";
 import SunColorModeSync from "./components/SunColorModeSync.jsx";
@@ -22,81 +20,62 @@ import CookieConsentBanner from "./components/CookieConsentBanner.jsx";
 
 import RouteAnalyticsListener from "./components/RouteAnalyticsListener.jsx";
 
-// Pages publiques & Offres
-import HomePage from "./components/HomePage.jsx";
-import PlanProfessionnel from "./pages/PlanProfessionnel.jsx";
-import PlanParticulier from "./pages/PlanParticulier.jsx";
-import AboutPage from "./pages/AboutPage.jsx";
-import ContactPage from "./pages/ContactPage.jsx";
-import PrivacyPolicyPage from "./pages/PrivacyPolicyPage.jsx";
-import TermsOfServicePage from "./pages/TermsOfServicePage.jsx";
-import SalesPolicyPage from "./pages/SalesPolicyPage.jsx";
-
-// Paiement & Premium
-import PremiumPrograms from "./pages/PremiumPrograms.jsx";
-import Checkout from "./pages/Checkout.jsx";
-import AccountBilling from "./pages/AccountBilling.jsx";
-
-// Auth & Dashboards
-import Login from "./pages/Login.jsx";
-import Register from "./pages/Register.jsx";
-import CoachDashboard from "./components/CoachDashboard.jsx";
-import ClientDashboard from "./components/Clientdashboard.jsx";
-import AdminDashboard from "./components/AdminDashboard.jsx";
-
-// Profil Client & Coach
-import ProfilePageClient from "./pages/ProfilePageClient.jsx";
-import MyPrograms from "./pages/MyPrograms.jsx";
-import Statistics from "./pages/StatisticsPageClient.jsx";
-import SettingsPageClient from "./pages/SettingsPageClient.jsx";
-import ProfilePageCoach from "./pages/ProfilePageCoach.jsx";
-import SettingsPageCoach from "./pages/SettingsPageCoach.jsx";
-import StatisticsPageCoach from "./pages/StatisticsPageCoach.jsx";
-
-// Fonctionnalités coach
-import ExerciseBank from "./components/ExerciseBank.jsx";
-import ProgramsPage from "./components/ProgramsPage.jsx";
-import ProgramView from "./components/ProgramView.jsx";
-import ProgramBuilderPage from "./components/ProgramBuilderPage.jsx";
-import AutoProgramQuestionnaire from "./components/AutoProgramQuestionnaire.jsx";
-import AutoProgramPreview from "./components/AutoProgramPreview.jsx";
-import Clients from "./components/Clients.jsx";
-import SessionPlayer from "./components/SessionPlayer.jsx";
-import ClientView from "./components/ClientView.jsx";
-
-// ✅ Nutrition
-import NutritionAssessmentEditor from "./components/NutritionAssessmentEditor.jsx";
-import FoodSurvey from "./components/FoodSurvey.jsx"; // ✅ Enquête alimentaire
-import NutritionRationPage from "./components/NutritionRationPage.jsx"; // ✅ Page Ration (Pro / Auto)
-
-// ✅ NOUVEAU : Menu journalier (CIQUAL) basé sur ration
-import NutritionMenuJournalierPage from "./components/MenuJournalierFromRation.jsx";
-
-// Paiement Stripe (pages retour)
-import Success from "./pages/Success";
-import Cancel from "./pages/Cancel";
-
-// Admin
-import AdminGeo from "./pages/AdminGeo.jsx";
-import AdminClient from "./pages/AdminClient.jsx"; // ✅ client admin
-import AdminCoach from "./pages/AdminCoach.jsx"; // ✅ coach admin
-
-/* -------------------- Thème Chakra -------------------- */
-const theme = extendTheme({
-  config: { initialColorMode: "light", useSystemColorMode: false },
-});
+// Route-level code splitting: les écrans lourds ne partent plus dans le bundle initial.
+const HomePage = lazy(() => import("./components/HomePage.jsx"));
+const PlanProfessionnel = lazy(() => import("./pages/PlanProfessionnel.jsx"));
+const PlanParticulier = lazy(() => import("./pages/PlanParticulier.jsx"));
+const AboutPage = lazy(() => import("./pages/AboutPage.jsx"));
+const ContactPage = lazy(() => import("./pages/ContactPage.jsx"));
+const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage.jsx"));
+const TermsOfServicePage = lazy(() => import("./pages/TermsOfServicePage.jsx"));
+const SalesPolicyPage = lazy(() => import("./pages/SalesPolicyPage.jsx"));
+const PremiumPrograms = lazy(() => import("./pages/PremiumPrograms.jsx"));
+const Checkout = lazy(() => import("./pages/Checkout.jsx"));
+const AccountBilling = lazy(() => import("./pages/AccountBilling.jsx"));
+const Login = lazy(() => import("./pages/Login.jsx"));
+const Register = lazy(() => import("./pages/Register.jsx"));
+const CoachDashboard = lazy(() => import("./components/CoachDashboard.jsx"));
+const ClientDashboard = lazy(() => import("./components/Clientdashboard.jsx"));
+const AdminDashboard = lazy(() => import("./components/AdminDashboard.jsx"));
+const ProfilePageClient = lazy(() => import("./pages/ProfilePageClient.jsx"));
+const MyPrograms = lazy(() => import("./pages/MyPrograms.jsx"));
+const Statistics = lazy(() => import("./pages/StatisticsPageClient.jsx"));
+const SettingsPageClient = lazy(() => import("./pages/SettingsPageClient.jsx"));
+const ClientNutritionPage = lazy(() => import("./pages/ClientNutritionPage.jsx"));
+const CoachNutritionPage = lazy(() => import("./pages/CoachNutritionPage.jsx"));
+const ProfilePageCoach = lazy(() => import("./pages/ProfilePageCoach.jsx"));
+const SettingsPageCoach = lazy(() => import("./pages/SettingsPageCoach.jsx"));
+const StatisticsPageCoach = lazy(() => import("./pages/StatisticsPageCoach.jsx"));
+const ExerciseBank = lazy(() => import("./components/ExerciseBank.jsx"));
+const ProgramsPage = lazy(() => import("./components/ProgramsPage.jsx"));
+const ProgramView = lazy(() => import("./components/ProgramView.jsx"));
+const ProgramBuilderPage = lazy(() => import("./components/ProgramBuilderPage.jsx"));
+const AutoProgramQuestionnaire = lazy(() => import("./components/AutoProgramQuestionnaire.jsx"));
+const AutoProgramPreview = lazy(() => import("./components/AutoProgramPreview.jsx"));
+const Clients = lazy(() => import("./components/Clients.jsx"));
+const SessionPlayer = lazy(() => import("./components/SessionPlayer.jsx"));
+const ClientView = lazy(() => import("./components/ClientView.jsx"));
+const NutritionAssessmentEditor = lazy(() => import("./components/NutritionAssessmentEditor.jsx"));
+const FoodSurvey = lazy(() => import("./components/FoodSurvey.jsx"));
+const NutritionRationPage = lazy(() => import("./components/NutritionRationPage.jsx"));
+const NutritionMenuJournalierPage = lazy(() => import("./components/MenuJournalierFromRation.jsx"));
+const Success = lazy(() => import("./pages/Success"));
+const Cancel = lazy(() => import("./pages/Cancel"));
+const AdminGeo = lazy(() => import("./pages/AdminGeo.jsx"));
+const AdminClient = lazy(() => import("./pages/AdminClient.jsx"));
+const AdminCoach = lazy(() => import("./pages/AdminCoach.jsx"));
 
 /* -------------------- Gardes -------------------- */
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return null;
+  if (loading) return <AppLoading label="Chargement de votre espace..." />;
   if (!user) return <Navigate to="/login" replace />;
   return children;
 }
 
 function CoachActiveRoute({ children }) {
   const { user, loading, isAdmin, hasCoachAccess } = useAuth();
-  if (loading) return null;
+  if (loading) return <AppLoading label="Chargement de votre espace..." />;
   if (!user) return <Navigate to="/login" replace />;
 
   // Admin : accès OK
@@ -113,7 +92,7 @@ function CoachActiveRoute({ children }) {
 
 function AdminRoute({ children }) {
   const { user, loading, isAdmin } = useAuth();
-  if (loading) return null;
+  if (loading) return <AppLoading label="Chargement de l'administration..." />;
   if (!user) return <Navigate to="/login" replace />;
   if (!isAdmin) return <Navigate to="/" replace />;
   return children;
@@ -124,7 +103,7 @@ function AdminRoute({ children }) {
  */
 function ClientOnlyRoute({ children }) {
   const { user, loading, isAdmin, effectiveRole, hasCoachAccess } = useAuth();
-  if (loading) return null;
+  if (loading) return <AppLoading label="Chargement de votre espace..." />;
   if (!user) return <Navigate to="/login" replace />;
 
   // Admin : jamais sur l'espace client
@@ -152,7 +131,7 @@ function ClientOnlyRoute({ children }) {
 function HomeRoute() {
   const { user, loading, effectiveRole, isAdmin, hasCoachAccess } = useAuth();
 
-  if (loading) return null;
+  if (loading) return <AppLoading label="Chargement..." />;
   if (!user) return <HomePage />;
 
   if (isAdmin) {
@@ -178,7 +157,31 @@ function HomeRoute() {
 /* -------------------- App content -------------------- */
 function AppContent() {
   const location = useLocation();
-  const noFooter = ["/login", "/register"].includes(location.pathname);
+  const footerRoutes = [
+    "/",
+    "/plans/professionnel",
+    "/plans/particulier",
+    "/programmes-premium",
+    "/checkout",
+    "/success",
+    "/cancel",
+    "/payment-success",
+    "/payment-cancel",
+    "/about",
+    "/contact",
+    "/privacy",
+    "/terms",
+    "/sales-policy",
+    "/login",
+    "/register",
+    "/settings",
+    "/settings-coach",
+  ];
+  const showFooter = footerRoutes.some((route) =>
+    route === "/"
+      ? location.pathname === "/"
+      : location.pathname === route || location.pathname.startsWith(`${route}/`)
+  );
 
   const { prefs } = useConsent();
   const analyticsOn = !!prefs?.analytics;
@@ -195,8 +198,9 @@ function AppContent() {
       <RouteAnalyticsListener isAnalyticsOn={analyticsOn} />
 
       <Box as="main" flex="1" minH="0">
-        <Routes>
-          <Route path="/" element={<HomeRoute />} />
+        <Suspense fallback={<AppLoading label="Chargement de la page..." />}>
+          <Routes>
+            <Route path="/" element={<HomeRoute />} />
 
           {/* ✅ Alias "Tarifs" (ancienne page Tarifs.jsx) -> Plan Pro */}
           <Route
@@ -278,6 +282,14 @@ function AppContent() {
             }
           />
           <Route
+            path="/nutrition"
+            element={
+              <ClientOnlyRoute>
+                <ClientNutritionPage />
+              </ClientOnlyRoute>
+            }
+          />
+          <Route
             path="/statistiques"
             element={
               <ClientOnlyRoute>
@@ -317,6 +329,14 @@ function AppContent() {
               <CoachActiveRoute>
                 <StatisticsPageCoach />
               </CoachActiveRoute>
+            }
+          />
+          <Route
+            path="/nutrition-coach"
+            element={
+              <AdminRoute>
+                <CoachNutritionPage />
+              </AdminRoute>
             }
           />
 
@@ -366,7 +386,7 @@ function AppContent() {
             }
           />
 
-          {/* ✅ Nutrition (Admin only) */}
+          {/* ✅ Nutrition */}
           <Route
             path="/clients/:clientId/nutrition/:assessmentId"
             element={
@@ -376,7 +396,7 @@ function AppContent() {
             }
           />
 
-          {/* ✅ Enquête alimentaire (Admin only) */}
+          {/* ✅ Enquête alimentaire */}
           <Route
             path="/clients/:clientId/nutrition/:assessmentId/food-survey"
             element={
@@ -386,7 +406,7 @@ function AppContent() {
             }
           />
 
-          {/* ✅ Ration (Pro / Auto) (Admin only) */}
+          {/* ✅ Ration (Pro / Auto) */}
           <Route
             path="/clients/:clientId/nutrition/:assessmentId/ration"
             element={
@@ -396,7 +416,7 @@ function AppContent() {
             }
           />
 
-          {/* ✅ Menu journalier (CIQUAL) (Admin only) */}
+          {/* ✅ Menu journalier (CIQUAL) */}
           <Route
             path="/clients/:clientId/nutrition/:assessmentId/menu"
             element={
@@ -529,10 +549,11 @@ function AppContent() {
           />
 
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+          </Routes>
+        </Suspense>
       </Box>
 
-      {!noFooter && <Footer />}
+      {showFooter && <Footer />}
 
       <CookieConsentBanner />
     </>
@@ -543,14 +564,11 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <ChakraProvider theme={theme}>
-        <ConsentProvider>
-          <ColorModeScript initialColorMode="light" />
-          <Box display="flex" flexDir="column" minH="100vh">
-            <AppContent />
-          </Box>
-        </ConsentProvider>
-      </ChakraProvider>
+      <ConsentProvider>
+        <Box display="flex" flexDir="column" minH="100vh" layerStyle="appShell">
+          <AppContent />
+        </Box>
+      </ConsentProvider>
     </AuthProvider>
   );
 }

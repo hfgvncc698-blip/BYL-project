@@ -80,6 +80,9 @@ app.use("/api/payments", paymentsRouter);
 const contactRouter = require("./routes/contact");
 app.use("/api/contact", contactRouter);
 
+const analyticsRouter = require("./routes/analytics");
+app.use("/api/analytics", analyticsRouter);
+
 // ✅✅✅ PROGRAMS (génération auto)
 // IMPORTANT : c’est CE router qui doit gérer /api/programs/generate
 const programsRouter = require("./routes/programs");

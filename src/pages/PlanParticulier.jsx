@@ -10,31 +10,24 @@ import {
   Button,
   Badge,
   HStack,
-  useColorModeValue,
 } from '@chakra-ui/react';
 import { Link as RouterLink } from 'react-router-dom';
+import { useAppTheme } from "../styles/appTheme";
 
 export default function PlanParticulier() {
-  // Color mode aware values
-  const bgPage = useColorModeValue('gray.50', 'gray.900');
-  const cardBg = useColorModeValue('white', 'gray.700');
-  const textColor = useColorModeValue('gray.800', 'gray.100');
-  const mutedText = useColorModeValue('gray.600', 'gray.300');
-  const highlightBorder = useColorModeValue('blue.300', 'blue.500');
+  const theme = useAppTheme();
 
   return (
-    <Box bg={bgPage} minH="100vh" py={16}>
+    <Box bg={theme.pageBg} minH="100vh" py={{ base: 6, md: 10 }} px={{ base: 4, md: 6 }}>
       <Container maxW="container.lg">
-        <Heading mb={8} textAlign="center" color={textColor}>
+        <Heading mb={8} textAlign="center" color={theme.textColor}>
           Nos formules Particuliers
         </Heading>
 
         <SimpleGrid columns={{ base: 1, md: 3 }} spacing={8}>
           {/* Essai 14 jours */}
           <Box
-            bg={cardBg}
-            boxShadow="md"
-            borderRadius="lg"
+            {...theme.cardProps}
             p={6}
             position="relative"
             display="flex"
@@ -43,10 +36,10 @@ export default function PlanParticulier() {
             <Badge position="absolute" top={4} right={4} colorScheme="green">
               Essai 14 j
             </Badge>
-            <Heading size="md" mb={4} color={textColor}>
+            <Heading size="md" mb={4} color={theme.textColor}>
               14 jours d’essai
             </Heading>
-            <VStack align="start" spacing={2} color={mutedText}>
+            <VStack align="start" spacing={2} color={theme.mutedText}>
               <Text>✓ Accès complet à tous les programmes</Text>
               <Text>✓ Suivi personnalisé et rappels</Text>
               <Text>✓ Sans engagement, annulez à tout moment</Text>
@@ -55,7 +48,7 @@ export default function PlanParticulier() {
               <Button
                 as={RouterLink}
                 to="/register?plan=particulier&trial=14"
-                colorScheme="green"
+                {...theme.primaryButtonProps}
                 isFullWidth
                 size="md"
                 variant="solid"
@@ -67,17 +60,15 @@ export default function PlanParticulier() {
 
           {/* Achat unique */}
           <Box
-            bg={cardBg}
-            boxShadow="md"
-            borderRadius="lg"
+            {...theme.cardProps}
             p={6}
             display="flex"
             flexDir="column"
           >
-            <Heading size="md" mb={4} color={textColor}>
+            <Heading size="md" mb={4} color={theme.textColor}>
               Achat unique
             </Heading>
-            <VStack align="start" spacing={2} color={mutedText}>
+            <VStack align="start" spacing={2} color={theme.mutedText}>
               <Text>✓ Programme pré-établi : 29 €</Text>
               <Text ml={4}>Idéal pour débuter rapidement avec un programme standard.</Text>
               <Text>✓ Programme personnalisé : 89 €</Text>
@@ -87,7 +78,7 @@ export default function PlanParticulier() {
               <Button
                 as={RouterLink}
                 to="/register?plan=particulier&purchase=predefined"
-                colorScheme="blue"
+                {...theme.primaryButtonProps}
                 flex={1}
                 variant="solid"
                 size="md"
@@ -97,7 +88,7 @@ export default function PlanParticulier() {
               <Button
                 as={RouterLink}
                 to="/register?plan=particulier&purchase=custom"
-                colorScheme="green"
+                {...theme.primaryButtonProps}
                 flex={1}
                 variant="solid"
                 size="md"
@@ -109,23 +100,21 @@ export default function PlanParticulier() {
 
           {/* Abonnement - Populaire */}
           <Box
-            bg={cardBg}
-            boxShadow="lg"
-            borderRadius="lg"
+            {...theme.cardProps}
             p={6}
             position="relative"
             borderWidth="2px"
-            borderColor={highlightBorder}
+            borderColor={theme.borderStrong}
             display="flex"
             flexDir="column"
           >
             <Badge position="absolute" top={4} right={4} colorScheme="blue">
               Populaire
             </Badge>
-            <Heading size="md" mb={4} color={textColor}>
+            <Heading size="md" mb={4} color={theme.textColor}>
               Abonnement
             </Heading>
-            <VStack align="start" spacing={2} color={mutedText}>
+            <VStack align="start" spacing={2} color={theme.mutedText}>
               <Text>✓ Mensuel : 49 €/mois</Text>
               <Text ml={4}>Suivi régulier et mises à jour incluses.</Text>
               <Text>✓ Annuel : 490 €/an (2 mois offerts)</Text>
@@ -135,7 +124,7 @@ export default function PlanParticulier() {
               <Button
                 as={RouterLink}
                 to="/register?plan=particulier&billing=monthly"
-                colorScheme="blue"
+                {...theme.primaryButtonProps}
                 flex={1}
                 variant="solid"
                 size="md"
@@ -145,7 +134,7 @@ export default function PlanParticulier() {
               <Button
                 as={RouterLink}
                 to="/register?plan=particulier&billing=annual"
-                colorScheme="blue"
+                {...theme.primaryButtonProps}
                 flex={1}
                 variant="outline"
                 size="md"
@@ -159,4 +148,3 @@ export default function PlanParticulier() {
     </Box>
   );
 }
-

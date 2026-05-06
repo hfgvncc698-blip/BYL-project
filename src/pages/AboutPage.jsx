@@ -15,6 +15,7 @@ import {
 import { CheckCircleIcon } from "@chakra-ui/icons";
 import { Link as RouterLink } from "react-router-dom";
 import { useTranslation, Trans } from "react-i18next";
+import { useAppTheme } from "../styles/appTheme";
 
 /**
  * Utility robuste (compatible vieux Safari/Android) :
@@ -51,6 +52,7 @@ function toArrayMaybe(v) {
 
 export default function AboutPage() {
   const { t } = useTranslation("common");
+  const theme = useAppTheme();
 
   // Récupère et normalise les listes depuis i18n (jamais undefined)
   const features = toArrayMaybe(
@@ -61,13 +63,14 @@ export default function AboutPage() {
   );
 
   return (
-    <Box py={{ base: 8, md: 12 }}>
+    <Box bg={theme.pageBg} minH="100vh" py={{ base: 6, md: 10 }} px={{ base: 4, md: 6 }}>
       <Container maxW="4xl">
-        <Heading as="h1" textAlign="center" mb={8}>
-          {t("about.title")}
-        </Heading>
+        <Box {...theme.cardProps} p={{ base: 6, md: 10 }}>
+          <Heading as="h1" textAlign="center" mb={8}>
+            {t("about.title")}
+          </Heading>
 
-        <Stack spacing={8}>
+        <Stack spacing={8} color={theme.textColor}>
           <Text fontSize="lg" lineHeight="tall">
             <Trans
               i18nKey="about.intro"
@@ -80,7 +83,7 @@ export default function AboutPage() {
             <Heading as="h2" size="md" mb={2}>
               {t("about.mission.title")}
             </Heading>
-            <Text color="gray.600">{t("about.mission.body")}</Text>
+            <Text color={theme.mutedText}>{t("about.mission.body")}</Text>
           </Box>
 
           <Box>
@@ -89,13 +92,13 @@ export default function AboutPage() {
             </Heading>
             <List spacing={2} pl={1}>
               {features.length === 0 ? (
-                <Text color="gray.500">
+                <Text color={theme.subtleText}>
                   {t("about.features.empty", { defaultValue: "" })}
                 </Text>
               ) : (
                 features.map((line, i) => (
                   <ListItem key={`f-${i}`}>
-                    <ListIcon as={CheckCircleIcon} color="blue.500" />
+                    <ListIcon as={CheckCircleIcon} color={theme.accentBlue} />
                     {String(line)}
                   </ListItem>
                 ))
@@ -109,7 +112,7 @@ export default function AboutPage() {
             <Heading as="h2" size="md" mb={2}>
               {t("about.autonomy.title")}
             </Heading>
-            <Text color="gray.600">{t("about.autonomy.body")}</Text>
+            <Text color={theme.mutedText}>{t("about.autonomy.body")}</Text>
           </Box>
 
           {/* ✅ Vision */}
@@ -117,7 +120,7 @@ export default function AboutPage() {
             <Heading as="h2" size="md" mb={2}>
               {t("about.vision.title")}
             </Heading>
-            <Text color="gray.600">{t("about.vision.body")}</Text>
+            <Text color={theme.mutedText}>{t("about.vision.body")}</Text>
           </Box>
 
           <Box>
@@ -126,13 +129,13 @@ export default function AboutPage() {
             </Heading>
             <List spacing={2} pl={1}>
               {why.length === 0 ? (
-                <Text color="gray.500">
+                <Text color={theme.subtleText}>
                   {t("about.why.empty", { defaultValue: "" })}
                 </Text>
               ) : (
                 why.map((line, i) => (
                   <ListItem key={`w-${i}`}>
-                    <ListIcon as={CheckCircleIcon} color="blue.500" />
+                    <ListIcon as={CheckCircleIcon} color={theme.accentBlue} />
                     {String(line)}
                   </ListItem>
                 ))
@@ -145,13 +148,14 @@ export default function AboutPage() {
               as={RouterLink}
               to="/register"
               size="lg"
-              colorScheme="blue"
+              {...theme.primaryButtonProps}
               px={8}
             >
               {t("about.cta")}
             </Button>
           </Box>
         </Stack>
+        </Box>
       </Container>
     </Box>
   );

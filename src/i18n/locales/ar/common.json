@@ -1,1396 +1,1751 @@
 {
   "brand": "BoostYourLife.coach",
   "nav": {
-    "home": "الصفحة الرئيسية",
-    "dashboard": "لوحة التحكم",
-    "programs": "البرامج",
-    "logout": "تسجيل الخروج",
-    "my_programs": "برامجي",
-    "profile": "الملف الشخصي",
-    "settings": "الإعدادات",
-    "all_programs": "كل البرامج",
-    "my_clients": "عملائي",
-    "statistics": "الإحصائيات",
-    "exercise_bank": "بنك التمارين",
-    "login": "تسجيل الدخول",
-    "register": "إنشاء حساب",
-    "admin_view": "المشرف",
-    "admin_view_mobile": "عرض المشرف",
-    "open_menu": "فتح القائمة",
-    "toggle_color_mode": "تغيير السمة",
-    "custom_program": "برنامج مخصص",
-    "new_program": "برنامج جديد",
-    "new_client": "عميل جديد",
-    "menu": "القائمة",
-    "program_type": "نوع البرنامج",
-    "create_manual": "إنشاء يدوي",
-    "guided_creation": "إنشاء مُوجَّه",
-    "build_my_program": "إنشاء برنامجي"
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "programs": "Programs",
+    "logout": "Log out",
+    "my_programs": "My programs",
+    "profile": "Profile",
+    "settings": "Settings",
+    "all_programs": "All programs",
+    "my_clients": "My clients",
+    "nutrition": "التغذية",
+    "statistics": "Statistics",
+    "exercise_bank": "Exercise bank",
+    "login": "Log in",
+    "register": "Sign up",
+    "admin_view": "Admin",
+    "admin_view_mobile": "Admin view",
+    "open_menu": "Open menu",
+    "toggle_color_mode": "Toggle theme",
+    "custom_program": "Custom program",
+    "new": "جديد",
+    "new_program": "New program",
+    "new_program_manual": "برنامج يدوي جديد",
+    "new_program_guided": "برنامج موجه جديد",
+    "new_client": "New client",
+    "new_nutrition_followup": "متابعة غذائية جديدة",
+    "menu": "Menu",
+    "program_type": "Program type",
+    "create_manual": "Create manually",
+    "guided_creation": "Guided creation",
+    "build_my_program": "Build my program"
   },
   "actions": {
-    "buy_now": "شراء",
-    "subscribe": "اشتراك",
-    "start_trial": "بدء التجربة",
-    "view_details": "عرض التفاصيل",
-    "close": "إغلاق",
-    "add": "إضافة",
-    "confirm": "تأكيد",
-    "delete": "حذف"
+    "buy_now": "Buy",
+    "subscribe": "Subscribe",
+    "start_trial": "Start trial",
+    "view_details": "View details",
+    "close": "Close",
+    "add": "Add",
+    "confirm": "Confirm",
+    "delete": "Delete"
   },
   "common": {
-    "loading": "جارٍ التحميل…",
-    "loading_details": "جارٍ تحميل التفاصيل…",
-    "view": "عرض",
-    "delete": "حذف",
-    "duplicate": "نسخ مكرر",
-    "assign": "إسناد",
-    "add": "إضافة",
-    "cancel": "إلغاء",
-    "confirm": "تأكيد",
-    "back": "رجوع",
-    "close": "إغلاق",
-    "edit": "تعديل",
-    "ignore": "تجاهل",
-    "submit": "إرسال"
+    "loading": "Loading…",
+    "loading_details": "Loading details…",
+    "view": "View",
+    "delete": "Delete",
+    "duplicate": "Duplicate",
+    "assign": "Assign",
+    "add": "Add",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "back": "Back",
+    "close": "Close",
+    "edit": "Edit",
+    "ignore": "Skip",
+    "submit": "Submit",
+    "copy": "نسخ",
+    "error": "خطأ",
+    "missed": "فاتت",
+    "none": "لا يوجد",
+    "validate": "اعتماد",
+    "save": "Enregistrer",
+    "skip": "Ignorer",
+    "select": "Sélectionner"
   },
   "form": {
-    "program": "البرنامج",
-    "client": "العميل",
-    "session": "الحصة",
-    "datetime": "التاريخ والوقت",
-    "select_program": "اختر برنامجًا",
-    "select_client": "اختر عميلًا",
-    "select_session": "اختر حصة"
+    "program": "Program",
+    "client": "Client",
+    "session": "Session",
+    "datetime": "Date & time",
+    "select_program": "Select a program",
+    "select_client": "Select a client",
+    "select_session": "Select a session",
+    "status": "الحالة"
   },
   "errors": {
-    "not_logged_in": "المستخدم غير مسجّل الدخول.",
-    "payment_failed": "خطأ في الدفع: "
+    "not_logged_in": "User not logged in.",
+    "payment_failed": "Payment error: ",
+    "update_error": "Erreur de mise à jour",
+    "missingPhone": "Numéro de téléphone requis",
+    "inviteFailed": "Échec de l’envoi de l’invitation",
+    "tryAgain": "Vérifie la configuration Firebase Auth et réessaie.",
+    "saveFailed": "Échec de l’enregistrement",
+    "loadFailed": "Erreur de chargement",
+    "missingField": "Champ manquant",
+    "notFound": "Introuvable",
+    "email_in_use": "Cette adresse e-mail est déjà utilisée.",
+    "invalid_email": "Adresse e-mail invalide.",
+    "wrong_password": "Mot de passe incorrect.",
+    "too_many_requests": "Trop de tentatives, réessayez plus tard."
   },
   "premium": {
-    "title": "البرامج المميزة",
-    "subtitle": "برامج جاهزة صمّمها BoostYourLife.",
-    "free": "مجاني",
-    "free_badge": "الأول مجانًا",
-    "price_on_stripe": "السعر معروض على Stripe",
-    "claim_free": "الحصول مجانًا",
-    "added_to_yours": "تمت إضافة البرنامج إلى قائمتك 🎉",
-    "cannot_add_free": "تعذّر الإضافة مجانًا: ",
-    "per_week_short": "/ أسبوع",
-    "min": "دق",
-    "weeks_short": "أسابيع",
-    "card_title": "برنامج مميز",
-    "default_desc": "برنامج منظّم وجاهز للبدء."
+    "title": "Premium Programs",
+    "subtitle": "Ready-to-use programs designed by BoostYourLife.",
+    "free": "Free",
+    "free_badge": "1ST FREE",
+    "price_on_stripe": "Price shown on Stripe",
+    "claim_free": "Claim for free",
+    "added_to_yours": "Program added to your programs 🎉 ",
+    "cannot_add_free": "Unable to add for free: ",
+    "per_week_short": "/ wk",
+    "min": "min",
+    "weeks_short": "wk",
+    "card_title": "Premium Program",
+    "default_desc": "Structured program, ready to start."
   },
   "home": {
-    "hero_title": "عزّز حياتك بتدريب ذكي",
-    "hero_sub": "أدوات بسيطة للمدربين والعملاء.",
-    "cta_pro": "للمدربين",
-    "cta_client": "للأفراد"
+    "hero_title": "Boost your life with smart training",
+    "hero_sub": "Simple tools for coaches and clients.",
+    "cta_pro": "For coaches",
+    "cta_client": "For individuals"
   },
   "dashboard": {
-    "coach_title": "لوحة تحكم المدرب",
-    "client_title": "لوحتي",
-    "recent_clients": "العملاء الحديثون",
-    "view_all": "عرض الكل",
-    "add_client": "إضافة عميل",
-    "assign": "إسناد",
-    "delete_client": "حذف العميل",
-    "delete_client_title": "حذف العميل",
-    "sessions": "الحصص",
-    "col_client": "العميل",
-    "col_last_session": "آخر حصة",
-    "col_progress": "التقدّم",
-    "col_program": "البرنامج",
-    "col_action": "إجراء",
-    "latest_programs": "أحدث البرامج",
-    "col_name": "الاسم",
-    "col_assigned_to": "مُسنَد إلى",
-    "col_created_on": "أُنشئ في",
-    "assign_program": "إسناد برنامج",
-    "add_session": "إضافة حصة",
-    "edit_session": "تعديل الحصة",
-    "delete_program": "حذف البرنامج",
-    "client": "عميل",
-    "clients": "عملاء",
+    "coach_title": "Coach dashboard",
+    "client_title": "My dashboard",
+    "recent_clients": "Recent clients",
+    "view_all": "View all",
+    "add_client": "Add client",
+    "assign": "Assign",
+    "delete_client": "Delete client",
+    "delete_client_title": "Delete client",
+    "sessions": "Sessions",
+    "col_client": "Client",
+    "col_last_session": "Last session",
+    "col_progress": "Progress",
+    "col_program": "Program",
+    "col_action": "Action",
+    "latest_programs": "Latest programs",
+    "col_name": "Name",
+    "col_assigned_to": "Assigned to",
+    "col_created_on": "Created on",
+    "assign_program": "Assign a program",
+    "add_session": "Add a session",
+    "edit_session": "Edit session",
+    "delete_program": "Delete program",
+    "client": "CLIENT",
+    "clients": "CLIENTS",
     "trial_banner": {
-      "prefix": "تجربة مجانية — يتبقى لك",
-      "suffix": ". يمكنك اختيار باقة عند انتهاء التجربة."
+      "prefix": "Free trial — you have",
+      "suffix": " left. You can choose a plan at the end of your trial."
     },
-    "calendar": "التقويم"
+    "calendar": "Calendar",
+    "assigned_clients_count": "{{count}} عميل مُسنَد",
+    "assigned_clients_count_other": "{{count}} عملاء مُسنَدون",
+    "assigned_to_list": "مُسنَد إلى",
+    "cant_delete_completed": "لا يمكن حذف حصة تم اعتمادها بالفعل.",
+    "completed": "المعتمدة",
+    "completed_info": "{{done}} / {{total}} حصص معتمدة",
+    "connect_calendar": "ربط التقويم",
+    "created_on": "أُنشئ في {{date}}",
+    "next_session_line": "التالي: الحصة {{n}}",
+    "nutrition_clients_shared": "{{clients}} عميل • {{shared}} تمت مشاركته",
+    "nutrition_drafts_full": "{{count}} تقييم غذائي بانتظار الإنهاء",
+    "nutrition_drafts_short": "{{count}} تقييم غذائي للإنهاء",
+    "no_assigned_clients": "لا يوجد عملاء مُسنَدون",
+    "no_client_to_relaunch": "لا يوجد عملاء لإعادة التواصل",
+    "no_program_available": "لا توجد برامج متاحة",
+    "no_recent_action": "لا توجد إجراءات حديثة",
+    "no_upcoming_session": "لا توجد حصص قادمة",
+    "nothing_planned": "لا شيء مخطط",
+    "plan_session": "جدولة حصة",
+    "resume_session": "استئناف",
+    "readonly_completed": "تم اعتماد هذه الحصة بالفعل ولم يعد من الممكن تعديلها هنا.",
+    "session_completed": "حصة معتمدة",
+    "session_planned": "حصة مخططة",
+    "stats_active_30": "نشطون (30 يومًا)",
+    "stats_inactive": "غير نشطين",
+    "stats_total_clients": "العملاء",
+    "stats_total_programs": "البرامج",
+    "weekly_execution_hint": "{{done}}/{{planned}} مخططة هذا الأسبوع",
+    "banner": {
+      "birthdays_label": "أعياد ميلاد اليوم",
+      "next_session_label": "الحصة القادمة",
+      "planned_count": "المخططة",
+      "today_label": "اليوم",
+      "validated_count": "المعتمدة",
+      "today_summary": "{{validated}} معتمدة · {{planned}} مخططة",
+      "today_missed": "{{count}} فائتة",
+      "today_no_missed": "لا توجد حصص فائتة",
+      "start_now": "بدء الحصة"
+    },
+    "cards": {
+      "active_status": "نشط",
+      "calendar_subtitle": "حصصك التدريبية وآخر الاعتمادات.",
+      "eyebrow_actions": "الإجراءات",
+      "eyebrow_nutrition": "التغذية",
+      "eyebrow_planning": "التخطيط",
+      "eyebrow_priority": "الأولوية",
+      "eyebrow_tracking": "المتابعة",
+      "inactive_status": "غير نشط",
+      "latest_programs_subtitle": "البرامج التي أُنشئت مؤخرًا وأصبحت جاهزة للاستخدام.",
+      "latest_programs_title": "أحدث البرامج",
+      "popular_programs_subtitle": "البرامج الأكثر توزيعًا على عملائك.",
+      "popular_programs_title": "البرامج الأكثر إسنادًا",
+      "recent_actions_subtitle": "آخر الاعتمادات والتحركات المهمة.",
+      "recent_actions_title": "الإجراءات الأخيرة",
+      "recent_clients_subtitle": "أحدث عملائك أو أكثرهم نشاطًا الآن.",
+      "relaunch_title": "عملاء لإعادة التواصل",
+      "shortcuts_title": "اختصارات",
+      "upcoming_title": "الحصص القادمة",
+      "week_title": "الأسبوع الحالي"
+    },
+    "calendar_link_modal": {
+      "description": "انسخ رابط الاشتراك هذا لمزامنة الحصص مع تقويمك الخارجي.",
+      "generate_copy": "إنشاء الرابط ونسخه",
+      "help_google": "في Google Calendar: أضف عبر رابط URL.",
+      "help_ios": "على iPhone / Apple Calendar: أضف تقويمًا بالاشتراك.",
+      "subscription_link_label": "رابط الاشتراك"
+    },
+    "toasts": {
+      "calendar_link_copied_desc": "تم نسخ رابط الاشتراك إلى الحافظة.",
+      "calendar_link_copied_title": "تم نسخ رابط التقويم",
+      "calendar_link_generate_error_desc": "تعذر إنشاء رابط التقويم.",
+      "calendar_link_generated_title": "تم إنشاء رابط التقويم",
+      "coach_not_found_title": "لم يتم العثور على المدرب",
+      "link_copied_title": "تم نسخ الرابط",
+      "link_copy_error_title": "تعذر نسخ الرابط"
+    },
+    "weekly_planned_label": "المخطط: {{count}}",
+    "weekly_validated_label": "المعتمد: {{count}}",
+    "completed_read_only": "Cette séance provient des séances effectuées (lecture seule).",
+    "see_assigned_list": "Voir la liste"
   },
   "calendar": {
-    "title": "التقويم",
-    "add_session": "إضافة حصة",
-    "program": "البرنامج",
-    "session": "الحصة",
-    "select_program": "اختر برنامجًا",
-    "select_session": "اختر حصة",
-    "start_datetime": "تاريخ ووقت البدء",
-    "session_title": "الحصة",
-    "validate": "اعتماد",
-    "missed": "فاتت",
-    "move": "نقل…",
-    "new_datetime": "تاريخ ووقت جديدان",
-    "today": "اليوم",
-    "prev": "السابق",
-    "previous": "السابق",
-    "next": "التالي",
-    "month": "شهر",
-    "week": "أسبوع",
-    "day": "يوم",
-    "agenda": "الأجندة",
-    "show_more": "+ {{count}} أخرى"
+    "title": "Calendar",
+    "add_session": "Add a session",
+    "program": "Program",
+    "session": "Session",
+    "select_program": "Select a program",
+    "select_session": "Select a session",
+    "start_datetime": "Start date & time",
+    "session_title": "Session",
+    "validate": "Validate",
+    "missed": "Missed",
+    "move": "Move…",
+    "new_datetime": "New date & time",
+    "today": "Today",
+    "prev": "Prev",
+    "previous": "Prev",
+    "next": "Next",
+    "month": "Month",
+    "week": "Week",
+    "day": "Day",
+    "agenda": "Agenda",
+    "show_more": "+ {{count}} more"
   },
   "time": {
-    "days_short": "ي",
-    "hours_short": "س",
-    "minutes_short": "د"
+    "days_short": "d",
+    "hours_short": "h",
+    "minutes_short": "m"
   },
   "programs": {
-    "title": "البرامج",
-    "empty": "لا توجد برامج حاليًا.",
-    "create": "إنشاء برنامج",
-    "open": "فتح",
-    "edit": "تعديل",
-    "delete": "حذف",
-    "new_program": "برنامج جديد"
+    "title": "Programs",
+    "empty": "No programs yet.",
+    "create": "Create a program",
+    "open": "Open",
+    "edit": "Edit",
+    "delete": "Delete",
+    "new_program": "New program",
+    "not_found": "Programme introuvable",
+    "subtitle": "Retrouve, duplique et consulte rapidement tous tes programmes."
   },
   "exercise": {
-    "name": "التمرين",
+    "name": "تمرين",
     "reps": "تكرارات",
     "sets": "مجموعات",
     "rest": "راحة",
-    "duration": "المدة"
+    "duration": "مدة",
+    "instructions": "تعليمات التنفيذ:"
   },
   "confirm": {
-    "delete_program": "هل أنت متأكد من رغبتك في حذف هذا البرنامج؟",
-    "delete_client": "هل أنت متأكد من رغبتك في حذف هذا العميل؟"
+    "delete_program": "Are you sure you want to delete this program?",
+    "delete_client": "Are you sure you want to delete this client?"
   },
   "greeting": {
-    "card_aria": "بطاقة ترحيب المدرب",
-    "hello_name": "مرحبًا {{name}}",
-    "coach": "مدرب",
-    "add_logo": "إضافة شعار",
-    "logo_alt": "شعار {{name}}",
+    "card_aria": "Coach welcome card",
+    "hello_name": "Hello {{name}}",
+    "coach": "Coach",
+    "add_logo": "Add a logo",
+    "logo_alt": "{{name}}’s logo",
     "subline": {
-      "night": "ليلة هانئة، لا تنسَ الراحة 🌙",
-      "morning": "صباح جميل — مستعد/ة ليوم جديد؟",
-      "afternoon": "سعيدون برؤيتك مجددًا — مستعد/ة للتدريب؟",
-      "evening": "لنختم اليوم بأفضل صورة 💪"
+      "night": "Good night — remember to rest 🌙 ",
+      "morning": "Good morning — ready for a new day?",
+      "afternoon": "Great to see you back — ready to coach?",
+      "evening": "Let’s wrap up the day strong 💪 "
     }
   },
   "units": {
-    "per_week_short": "/ أسبوع",
-    "min": "دق",
-    "weeks_short": "أسابيع",
-    "cm": "سم",
-    "ftin": "قدم/بوصة",
-    "kg": "كغ",
-    "lbs": "رطل",
-    "kmh": "كم/س",
-    "mph": "ميل/س"
+    "per_week_short": "/ wk",
+    "min": "min",
+    "weeks_short": "wk",
+    "cm": "cm",
+    "ftin": "ft/in",
+    "kg": "kg",
+    "lbs": "lbs",
+    "kmh": "km/h",
+    "mph": "mph"
   },
   "client_dash": {
-    "client": "عميل",
-    "hello_name": "مرحبًا {{name}}",
-    "logo_alt": "شعار العميل",
-    "my_programs": "برامجي",
-    "view_all": "عرض الكل",
-    "view_program": "عرض البرنامج",
-    "start_session": "بدء الحصة",
-    "view": "عرض",
-    "start": "بدء",
-    "done_total_sessions": "{{done}}/{{total}} حصص",
-    "session_n": "الحصة {{n}}",
-    "session_moved": "تم نقل الحصة",
-    "sessions": "الحصص",
+    "client": "Client",
+    "hello_name": "Hello {{name}}",
+    "logo_alt": "Client logo",
+    "my_programs": "My programs",
+    "view_all": "View all",
+    "view_program": "View program",
+    "start_session": "Start session",
+    "view": "View",
+    "start": "Start",
+    "done_total_sessions": "{{done}}/{{total}} sessions",
+    "session_n": "Session {{n}}",
+    "session_moved": "Session moved",
+    "sessions": "Sessions",
     "motivation": {
-      "none": "لا توجد حصص معتمدة هذا الشهر حتى الآن — حان وقت البدء!",
-      "one": "أحسنت! بدأت بحصة واحدة معتمدة هذا الشهر!",
-      "many": "رائع! أنجزت {{n}} حصصًا معتمدة هذا الشهر — استمر!"
+      "none": "No validated sessions yet this month—time to get started!",
+      "one": "Nice! You’ve already validated 1 session this month!",
+      "many": "Awesome—{{n}} validated sessions this month. Keep it up!"
     },
     "table": {
-      "program": "البرنامج",
-      "made_by": "أُعِدَّ بواسطة",
-      "created_on": "أُنشئ في",
-      "sessions": "عدد الحصص",
-      "progress": "التقدّم",
-      "action": "إجراء"
+      "program": "Program",
+      "made_by": "Made by",
+      "created_on": "Created on",
+      "sessions": "Sessions count",
+      "progress": "Progress",
+      "action": "Action",
+      "last_session": "Dernière séance"
     }
   },
   "hero": {
-    "title1": "حقق أهدافك مع",
+    "title1": "Bring your goals to life with",
     "title2": "BoostYourLife.coach",
-    "subtitle": "منصّة شاملة لإنشاء برامج التدريب ومتابعتها وتطويرها — للأفراد والمحترفين.",
-    "ctaClient": "الدخول لمساحة الأفراد",
-    "clientHint": "مجاني 100%، متابعة غير محدودة، <strong>برنامج مميز واحد</strong> هدية.",
-    "ctaCoach": "اشتراك المحترفين",
-    "coachHint": "تجربة مجانية 14 يومًا. لا حاجة لبطاقة عند البدء.",
-    "ctaPremium": "استكشف البرامج المميزة"
+    "subtitle": "The all-in-one platform to create, track, and evolve training programs—for individuals and professionals.",
+    "ctaClient": "Enter the individual space",
+    "clientHint": "100% free, unlimited tracking, <strong>1 premium program</strong> offered.",
+    "ctaCoach": "Subscribe Pro",
+    "coachHint": "14-day free trial. No card required to start.",
+    "ctaPremium": "Explore premium programs"
   },
   "how": {
-    "title": "كيف يعمل؟",
+    "title": "How does it work?",
     "coach": {
-      "title": "للمدربين",
-      "l1": "تجربة مجانية 14 يومًا دون التزام.",
-      "l2": "إنشاء غير محدود وإدارة عملاء غير محدودة وأدوات متابعة متقدمة.",
-      "l3": "تخصيص (شعار)، تصدير PDF، ومساحة إلكترونية لعملائك."
+      "title": "For Coaches",
+      "l1": "14-day free trial, no commitment.",
+      "l2": "Unlimited creation, unlimited clients, advanced tracking tools.",
+      "l3": "Branding (logo), PDF exports, online space for your clients."
     },
     "client": {
-      "title": "للأفراد",
-      "l1": "تسجيل مجاني ومساحة شخصية غير محدودة.",
-      "l2": "برنامج <strong>مميز</strong> واحد مجانًا عند التسجيل.",
-      "l3": "متابعة تقدمك + كتالوج البرامج المميزة."
+      "title": "For Individuals",
+      "l1": "Free signup and unlimited personal space.",
+      "l2": "1 <strong>premium</strong> program offered at signup.",
+      "l3": "Track your progress + browse premium program catalog."
     }
   },
   "plans": {
-    "title": "اختر باقتك",
+    "title": "Choose your plan",
     "free": {
-      "badge": "مجاني 100%",
-      "title": "مساحة الأفراد",
-      "desc": "وصول كامل ومتابعة مجانية. 1 <strong>مميز</strong> هدية. بعد ذلك يمكنك فتح برامج مميزة حسب الاختيار.",
-      "cta": "ادخل مجانًا"
+      "badge": "100% FREE",
+      "title": "Individual space",
+      "desc": "Full access and free tracking. 1 <strong>premium</ strong> included. Unlock more premium programs anytime.",
+      "cta": "Get free access"
     },
     "pro": {
-      "badge": "تجربة 14 يومًا",
-      "title": "مساحة المحترفين",
-      "desc": "كل مزايا المحترفين: عملاء وبرامج غير محدودة، بنك تمارين، شعار مخصص، متابعة متقدمة، تصدير PDF، مساحة مخصصة للعميل.",
-      "cta": "اشترك كمحترف"
+      "badge": "14-DAY TRIAL",
+      "title": "Professional space",
+      "desc": "All Pro features: unlimited clients & programs, exercise bank, custom logo, advanced tracking, PDF exports, dedicated client area.",
+      "cta": "Subscribe Pro"
     },
     "premium": {
-      "badge": "Premium",
-      "title": "البرامج المميزة",
-      "desc": "افتح برامج حصرية أو اطلب مرافقة مخصّصة (شراء لمرة واحدة أو باشتراك).",
-      "cta": "اكتشف البرامج المميزة"
+      "badge": "PREMIUM",
+      "title": "Premium programs",
+      "desc": "Unlock exclusive programs or request bespoke coaching (one-off or subscription).",
+      "cta": "Discover premium programs"
     }
   },
   "roles": {
-    "individual": "فرد",
-    "coach": "مدرب"
+    "individual": "Individual",
+    "coach": "Coach"
   },
   "profile": {
-    "title": "ملفي الشخصي",
+    "title": "My profile",
     "labels": {
-      "firstName": "الاسم",
-      "lastName": "اسم العائلة",
-      "email": "البريد الإلكتروني",
-      "phone": "الهاتف",
-      "logo": "الشعار (PNG / JPG / WEBP)"
+      "firstName": "First name",
+      "lastName": "Last name",
+      "email": "Email",
+      "phone": "Phone",
+      "logo": "Logo (PNG / JPG / WEBP)"
     },
     "placeholders": {
-      "firstName": "اسمك",
-      "lastName": "اسم العائلة",
-      "email": "you@example.com",
+      "firstName": "Your first name",
+      "lastName": "Your last name",
+      "email": "your@email.com",
       "phone": "06 XX XX XX XX"
     },
     "actions": {
-      "save": "حفظ معلوماتي",
-      "chooseFile": "اختيار ملف"
+      "save": "Save my info",
+      "chooseFile": "Choose a file",
+      "saved": "Modifications enregistrées"
     },
     "toasts": {
-      "load_error_title": "خطأ في تحميل الملف",
-      "load_error_desc": "تعذّر تحميل ملفك الشخصي.",
-      "updated_title": "تم تحديث الملف",
-      "updated_desc": "تم حفظ معلوماتك بنجاح.",
-      "update_error_title": "خطأ في التحديث",
-      "update_error_desc": "فشل تحديث ملفك الشخصي."
+      "load_error_title": "Profile load error",
+      "load_error_desc": "Unable to load your profile.",
+      "updated_title": "Profile updated",
+      "updated_desc": "Your information has been saved.",
+      "update_error_title": "Update error",
+      "update_error_desc": "Profile update failed.",
+      "email_changed": "Un email de confirmation a été envoyé à votre nouvelle adresse. Le changement sera effectif après validation du lien."
     },
     "alt": {
-      "logo": "شعار"
+      "logo": "Logo"
+    },
+    "file": {
+      "none": "Aucun fichier"
+    },
+    "coach": {
+      "subtitle": "Mettez à jour vos informations visibles, votre logo et votre adresse de connexion depuis un espace plus clair et plus pro.",
+      "stats": {
+        "identity": "Identité",
+        "complete": "Complète",
+        "pending": "À finir",
+        "identityHelper": "Nom et prénom du coach",
+        "contact": "Contact",
+        "ready": "Prêt",
+        "add": "À ajouter",
+        "contactHelper": "Téléphone utilisé pour vos échanges",
+        "login": "Connexion",
+        "modified": "Modifié",
+        "synced": "Synchronisé",
+        "loginHelper": "Adresse e-mail de connexion"
+      },
+      "sections": {
+        "identity": "Informations du coach",
+        "identitySub": "Nom, prénom, e-mail et téléphone utilisés dans votre espace pro.",
+        "branding": "Logo et identité visuelle",
+        "brandingSub": "Ajoutez votre logo pour rendre votre espace encore plus professionnel.",
+        "security": "Sécurité de connexion",
+        "securitySub": "La modification d’e-mail peut demander une reconfirmation de votre identité."
+      },
+      "badges": {
+        "emailPending": "E-mail modifié, validation requise",
+        "savedState": "Coordonnées prêtes",
+        "newLogo": "Nouveau logo sélectionné",
+        "currentLogo": "Logo actuel"
+      },
+      "security": {
+        "emailTitle": "E-mail de connexion",
+        "nextEmailTitle": "Nouvelle adresse",
+        "helper": "Si votre session est jugée trop ancienne, une confirmation par mot de passe vous sera demandée au moment de l’enregistrement."
+      }
+    },
+    "reauth": {
+      "title": "Confirmer votre identité",
+      "body": "Pour modifier votre adresse e-mail, entrez votre mot de passe actuel."
     }
   },
   "legal": {
-    "cgu": "شروط الاستخدام",
-    "cgv": "شروط البيع",
-    "privacy": "الخصوصية",
-    "privacy_title": "سياسة الخصوصية",
-    "controller": "مسؤول المعالجة",
-    "intro": "في BoostYourLife نولي أهمية كبيرة لحماية خصوصيتك. تشرح هذه السياسة البيانات التي نجمعها وكيف نستخدمها وحقوقك.",
-    "collected_data_title": "البيانات المجمّعة",
+    "cgu": "TOS",
+    "cgv": "Sales T&C",
+    "privacy": "Privacy",
+    "privacy_title": "Privacy Policy",
+    "controller": "Data controller",
+    "intro": "At BoostYourLife, your privacy matters. This policy explains what data we collect, how we use it, and your rights.",
+    "collected_data_title": "Data we collect",
     "collected_data": {
-      "registration": "معلومات التسجيل: الاسم والبريد الإلكتروني.",
-      "profile": "بيانات الملف: العمر، الجنس، المستوى الرياضي (اختياري).",
-      "activity": "الأنشطة والأداء: سجلات التدريب والتقدم.",
-      "tech": "بيانات تقنية: عنوان IP، نوع المتصفح، بيانات تسجيل الدخول."
+      "registration": "Registration info: name, email address.",
+      "profile": "Profile data: age, sex, fitness level (optional).",
+      "activity": "Activities & performance: training history, progress.",
+      "tech": "Technical data: IP address, browser type, login data."
     },
-    "purposes_title": "أغراض المعالجة والأساس القانوني",
+    "purposes_title": "Purposes & legal bases",
     "purposes": {
-      "service": "تقديم خدماتنا وتخصيصها (تنفيذ العقد).",
-      "tracking": "متابعة تقدمك وإنشاء تقارير (مصلحة مشروعة).",
-      "communication": "إرسال نصائح وعروض (موافقة على النشرات).",
-      "security": "الأمن ومنع الاحتيال (مصلحة مشروعة)."
+      "service": "Provide and personalize our coaching services (contract performance).",
+      "tracking": "Track your progress and generate reports (legitimate interest).",
+      "communication": "Send tips and offers (newsletter consent).",
+      "security": "Security and fraud prevention (legitimate interest)."
     },
-    "sharing_title": "مشاركة البيانات",
-    "sharing_intro": "لا نبيع بياناتك الشخصية ولا نؤجرها. قد تتم مشاركتها مع:",
+    "sharing_title": "Data sharing",
+    "sharing_intro": "We do not sell or rent your personal data. It may be shared with:",
     "sharing": {
-      "providers": "مزودي الخدمات التقنية (الاستضافة، البريد).",
-      "coaches": "المدربين الذين اشتركت معهم.",
-      "authorities": "الجهات الرسمية عند وجود التزام قانوني."
+      "providers": "Technical providers (hosting, email).",
+      "coaches": "Coaches whose programs you subscribe to.",
+      "authorities": "Legal authorities when required."
     },
-    "retention_title": "فترات الاحتفاظ",
+    "retention_title": "Retention periods",
     "retention": {
-      "profile": "3 سنوات بعد إغلاق الحساب لبيانات الملف.",
-      "logs": "13 شهرًا للسجلات التقنية.",
-      "newsletters": "حتى سحب الموافقة على النشرات البريدية."
+      "profile": "3 years after account closure for profile data.",
+      "logs": "13 months for technical logs.",
+      "newsletters": "Until consent is withdrawn for newsletters."
     },
-    "transfer_title": "النقل خارج الاتحاد الأوروبي",
-    "transfer": "إذا نُقلت بياناتك خارج الاتحاد الأوروبي، نستخدم بنودًا تعاقدية قياسية أو ضمانات متوافقة مع اللائحة العامة لحماية البيانات (GDPR).",
-    "rights_title": "حقوقك",
+    "transfer_title": "Transfers outside the EU",
+    "transfer": "If your data is transferred outside the EU, we use Standard Contractual Clauses or equivalent safeguards.",
+    "rights_title": "Your rights",
     "rights": {
-      "access": "حق الوصول: طلب نسخة من بياناتك.",
-      "rectification": "حق التصحيح: تصحيح معلومات غير دقيقة.",
-      "erasure": "حق المحو: حذف حسابك وبياناتك.",
-      "objection": "حق الاعتراض: الاعتراض على المعالجة لأسباب مشروعة.",
-      "portability": "حق نقل البيانات: استلام بياناتك بصيغة منظمة."
+      "access": "Right of access: request a copy of your data.",
+      "rectification": "Right to rectification: correct inaccurate information.",
+      "erasure": "Right to erasure: delete your account and data.",
+      "objection": "Right to object: object to processing on legitimate grounds.",
+      "portability": "Right to portability: receive your data in a structured format."
     },
-    "rights_contact": "لممارسة هذه الحقوق، تواصل معنا على privacy@boostyourlife.coach أو عبر البريد على العنوان أعلاه.",
-    "cookies_title": "ملفات تعريف الارتباط والمتتبعات",
-    "cookies": "نستخدم ملفات تعريف الارتباط لتحسين تجربتك وتحليل الزيارات وتقديم إعلانات مخصصة. يمكنك إدارة تفضيلاتك في متصفحك.",
-    "update_title": "تعديلات السياسة",
-    "update": "قد نقوم بتحديث هذه السياسة. سيتم نشر التغييرات هنا مع تاريخ آخر تحديث.",
-    "last_update": "تاريخ آخر تحديث: 1 مايو 2025",
-    "sales_title": "سياسة البيع",
-    "sales_intro": "توضح سياسة البيع هذه شروط التسعير والدفع والإلغاء والاسترداد للخدمات المقدّمة على <b>BoostYourLife</b>.",
-    "sales_pricing_title": "1. الأسعار والمدفوعات",
-    "sales_pricing_li1": "تُعرض أسعار البرامج والاشتراكات باليورو (€) شاملةً للضرائب (TTC).",
-    "sales_pricing_li2": "يتم الدفع عبر الإنترنت ببطاقة مصرفية أو أي وسيلة أخرى متاحة.",
-    "sales_pricing_li3": "تصدر الفاتورة فور تأكيد طلبك.",
-    "sales_withdrawal_title": "2. حق التراجع والاسترداد",
-    "sales_withdrawal_p1": "وفقًا للمادة L221-18 من قانون المستهلك، لديك 14 يومًا تقويميًا لممارسة حق التراجع دون مبرر أو غرامة.",
-    "sales_withdrawal_p2": "بالنسبة للمحتوى الرقمي المقدم فورًا بعد الدفع، تفقد حقك في التراجع إذا منحت موافقة صريحة على بدء الخدمة وأقريت بفقدان الحق (المادة L221-28). إذا بدأت استخدام الخدمة فلا يمكنك التراجع.",
-    "sales_withdrawal_p3": "لممارسة حقك خلال المهلة، أرسل تصريحًا واضحًا قبل الانقضاء (بريد إلى <b>support@boostyourlife.coach</b> أو عبر نموذج التواصل). ليس من الضروري إرسال بريد مسجل لكنه قد يكون دليلًا إضافيًا.",
-    "sales_delivery_title": "3. تسليم الخدمات",
-    "sales_delivery_p1": "تتوافر الخدمات فورًا عبر الإنترنت بعد تأكيد الدفع. ستتلقى رسالة تأكيد تتضمن تعليمات البدء.",
-    "sales_support_title": "4. دعم العملاء",
-    "sales_support_p1": "لأي استفسار بخصوص الفواتير أو استخدام الخدمات، تواصل مع <b>support@boostyourlife.coach</b>. نرد خلال 48 ساعة.",
-    "sales_last_update": "تاريخ آخر تحديث: 1 مايو 2025",
+    "rights_contact": "To exercise these rights, contact privacy@boostyourlife.coach or mail us at the address above.",
+    "cookies_title": "Cookies & trackers",
+    "cookies": "We use cookies to improve your experience, analyze traffic, and deliver personalized ads. You can manage preferences in your browser.",
+    "update_title": "Policy changes",
+    "update": "We may update this policy. Changes will appear on this page with an update date.",
+    "last_update": "Last updated: May 1, 2025",
+    "sales_title": "Sales Policy",
+    "sales_intro": "This sales policy details pricing, payment, cancellation, and refund terms for services offered on <b>BoostYourLife</b>.",
+    "sales_pricing_title": "1. Pricing & payments",
+    "sales_pricing_li1": "Program and subscription prices are shown in euros (€), all taxes included (VAT).",
+    "sales_pricing_li2": "Payment is made online by bank card or any method offered.",
+    "sales_pricing_li3": "Billing occurs immediately upon order confirmation.",
+    "sales_withdrawal_title": "2. Right of withdrawal & refunds",
+    "sales_withdrawal_p1": "Under French law (Art. L221-18), you have 14 calendar days to withdraw without justification or penalty.",
+    "sales_withdrawal_p2": "For digital content delivered immediately after payment, you waive the right of withdrawal once you expressly agree to start the service and acknowledge waiving this right (Art. L221-28). If you started using the service, you can no longer withdraw.",
+    "sales_withdrawal_p3": "To exercise your right within the deadline, send a clear statement before it expires (email to <b>support@boostyourlife.coach</b> or via the contact form). Registered mail is not required but can provide additional proof.",
+    "sales_delivery_title": "3. Service delivery",
+    "sales_delivery_p1": "Services are available online immediately after payment is confirmed. You will receive a confirmation email with instructions to start your program.",
+    "sales_support_title": "4. Customer support",
+    "sales_support_p1": "For any billing or service questions, contact <b>support@boostyourlife.coach</b>. We reply within 48 hours.",
+    "sales_last_update": "Last updated: May 1, 2025",
     "tos": {
-      "title": "شروط الاستخدام",
-      "intro": "تحكم شروط الاستخدام هذه وصول المدربين والأفراد إلى منصة BoostYourLife واستخدامها. باستخدام خدماتنا فإنك توافق على هذه الشروط.",
-      "access_title": "1. الوصول إلى الخدمة",
-      "access_body": "يتطلب الوصول إنشاء حساب باستخدام بريد إلكتروني صالح. أنت مسؤول عن سرية بيانات الدخول.",
-      "account_title": "2. حساب المستخدم",
-      "account_li1": "تضمن دقة المعلومات المقدمة.",
-      "account_li2": "يمكنك تعديل حسابك أو حذفه في أي وقت.",
-      "account_li3": "في حال إساءة الاستخدام نحتفظ بحق تعليق وصولك.",
-      "ip_title": "3. الملكية الفكرية",
-      "ip_body": "جميع المحتويات (نصوص، صور، برامج، إلخ) على BoostYourLife محمية بحقوق النشر. يُحظر النسخ دون إذن.",
-      "liability_title": "4. المسؤوليات",
-      "liability_body": "تقدم BoostYourLife أدوات للمرافقة والمتابعة لكنها لا تضمن نتائج محددة. يجب على المستخدم استشارة مختص صحي قبل بدء أي برنامج مكثّف.",
-      "changes_title": "5. تعديل الشروط",
-      "changes_body": "قد نحدّث هذه الشروط. سيتم الإشعار بالتغييرات على هذه الصفحة مع تاريخ آخر تحديث.",
-      "last_update": "تاريخ آخر تحديث: 1 مايو 2025"
+      "title": "Terms of Service",
+      "intro": "These Terms of Service govern access to and use of the BoostYourLife platform by coaches and individuals. By using our services, you agree to these terms.",
+      "access_title": "1. Service access",
+      "access_body": "Access requires creating an account with a valid email address. You are responsible for keeping your credentials confidential.",
+      "account_title": "2. User account",
+      "account_li1": "You guarantee the accuracy of the information provided.",
+      "account_li2": "You may modify or delete your account at any time.",
+      "account_li3": "In case of misuse, we may suspend your access.",
+      "ip_title": "3. Intellectual property",
+      "ip_body": "All content (texts, images, programs, etc.) on BoostYourLife is protected by copyright. Reproduction without permission is prohibited.",
+      "liability_title": "4. Liability",
+      "liability_body": "BoostYourLife provides coaching and tracking tools but cannot guarantee specific results. Consult a healthcare professional before starting any intensive program.",
+      "changes_title": "5. Changes to the TOS",
+      "changes_body": "We may update these terms. Changes will be posted on this page with the last update date.",
+      "last_update": "Last updated: May 1, 2025"
     }
   },
   "proPlans": {
-    "checking": "جارٍ التحقق من حالة تجربتك/اشتراكك…",
-    "title": "باقات المحترفين",
-    "subtitle": "انتهت تجربتك. اختر باقة للمتابعة في مساحة المدرب.",
+    "checking": "Checking your trial/subscription status…",
+    "title": "Our Professional plans",
+    "subtitle": "Your trial has ended. Choose a plan to keep using the coach area.",
     "benefits": {
-      "title": "ماذا تحصل مع BYL Pro",
-      "b1": "إنشاء غير محدود لبرامج مخصصة",
-      "b2": "بنك تمارين مُثرى وتصدير PDF",
-      "b3": "متابعة العملاء لحظيًا",
-      "b4": "لوحات معلومات وتحليلات",
-      "b5": "دعم أولوية",
-      "b6": "وصول آمن ومتعدد الأجهزة"
+      "title": "What you get with BYL Pro",
+      "b1": "Unlimited creation of personalized programs",
+      "b2": "Enhanced exercise bank & PDF exports",
+      "b3": "Real-time client tracking",
+      "b4": "Dashboards & analytics",
+      "b5": "Priority support",
+      "b6": "Secure, multi-device access"
     },
     "trial": {
-      "badge": "تجربة 14 يومًا",
-      "title": "التجربة المجانية (انتهت)",
-      "desc": "لقد استفدت من التجربة المجانية سابقًا. اشترك في إحدى الباقات للمتابعة.",
-      "cta": "التجربة مستخدمة"
+      "badge": "14-day trial",
+      "title": "Free trial (ended)",
+      "desc": "You’ve already used the free trial. Subscribe to continue.",
+      "cta": "Trial already used",
+      "titleRunning": "Essai gratuit (en cours)",
+      "titleEnded": "Essai gratuit (terminé)",
+      "descLoggedOut": "Créez un compte coach pour activer votre essai et accéder à toutes les fonctionnalités.",
+      "descRunning": "Votre essai est en cours{{daysLabel}}.",
+      "descEnded": "Vous avez déjà bénéficié de l’essai gratuit. Souscrivez à l’une des formules pour continuer.",
+      "ctaGo": "Accéder à mon espace coach",
+      "ctaUsed": "Essai déjà utilisé"
     },
     "monthly": {
-      "title": "اشتراك شهري",
-      "price": "79 €",
-      "h1": "بدون التزام: يمكنك الإلغاء في أي وقت",
-      "h2": "وصول كامل: إنشاء، متابعة، تحليلات",
-      "h3": "يشمل دعمًا ذا أولوية",
-      "cta": "اشترك مقابل 79 €/شهر"
+      "title": "Monthly subscription",
+      "price": "€79",
+      "h1": "No commitment: cancel anytime",
+      "h2": "Full access: creation, tracking, analytics",
+      "h3": "Priority support included",
+      "cta": "Subscribe at €79/mo"
     },
     "yearly": {
-      "title": "اشتراك سنوي",
-      "price": "790 €",
-      "h1": "أفضل سعر: شهران مجانًا",
-      "h2": "وصول كامل: إنشاء، متابعة، تحليلات",
-      "h3": "يشمل دعمًا ذا أولوية",
-      "cta": "اشترك مقابل 790 €/سنة",
-      "footnote": "ما يعادل 65,83 € / شهر"
+      "title": "Yearly subscription",
+      "price": "€790",
+      "h1": "Best value: 2 months free",
+      "h2": "Full access: creation, tracking, analytics",
+      "h3": "Priority support included",
+      "cta": "Subscribe at €790/yr",
+      "footnote": "Equivalent to €65.83 / month"
     },
     "badges": {
-      "popular": "شائع",
-      "savings": "توفير"
+      "popular": "Popular",
+      "savings": "Savings"
     },
     "cadence": {
-      "month": "شهر",
-      "year": "سنة"
+      "month": "month",
+      "year": "year"
     },
     "trust": {
-      "secure": "دفع آمن",
-      "cancel": "قابل للإلغاء من مساحتك",
-      "invoices": "الفواتير متاحة"
+      "secure": "Secure payment",
+      "cancel": "Cancelable from your space",
+      "invoices": "Invoices available"
     },
-    "backToDashboard": "⟵ الرجوع إلى اللوحة"
+    "backToDashboard": "⟵ Back to dashboard",
+    "cta": {
+      "createAccount": "Créer un compte",
+      "goClient": "Aller à mon espace",
+      "goCoach": "Accéder à mon espace coach",
+      "choosePlan": "Choisir une formule",
+      "alreadyHaveAccount": "J’ai déjà un compte",
+      "notEligible": "Réservé aux coachs"
+    },
+    "subtitleLoggedOut": "Créez un compte pour démarrer l’essai gratuit 14 jours et accéder à l’espace coach.",
+    "subtitleNotCoach": "Cette offre est réservée aux coachs. Vous pouvez continuer sur votre espace particulier.",
+    "subtitleTrial": "Votre essai est en cours{{daysLabel}}. Vous avez accès à l’espace coach.",
+    "subtitleActive": "Votre accès est actif. Vous pouvez utiliser l’espace coach.",
+    "subtitlePaywall": "Votre essai est terminé. Choisissez une formule pour continuer à utiliser l’espace coach.",
+    "status": {
+      "needAccount": "Compte requis",
+      "active": "Accès actif"
+    },
+    "loggedOutInfo": "Pour démarrer l’essai gratuit et accéder à l’espace coach, créez un compte (30 secondes).",
+    "notCoachInfo": "Cette offre est destinée aux coachs. Vous pouvez continuer sur votre espace particulier.",
+    "backHome": "⟵ Retour à l’accueil"
   },
   "payment": {
     "checkout": {
-      "title": "دفع البرنامج",
-      "subtitle": "أكمل شراءك لفتح البرنامج <b>{{productId}}</b>.",
-      "button": "المتابعة إلى الدفع (تجريبي)",
-      "note": "(في الإصدار النهائي سيتم تحويلك تلقائيًا إلى بوابة الدفع الآمنة.)"
+      "title": "Program payment",
+      "subtitle": "Confirm your purchase to unlock program <b>{{productId}}</b>.",
+      "button": "Proceed to payment (demo)",
+      "note": "(In the final version, you’ll be redirected to secure checkout.)"
     },
     "cancel": {
-      "message": "تم إلغاء الدفع",
-      "subMessage": "يمكنك إعادة المحاولة.",
-      "button": "إعادة المحاولة"
+      "message": "Payment canceled",
+      "subMessage": "You can try the payment again.",
+      "button": "Try again"
     },
     "success": {
-      "program_paid_creating": "تم تأكيد الدفع، جارٍ إنشاء برنامجك…",
-      "program_valid_creating": "تم اعتماد الدفع، جارٍ إنشاء برنامجك…",
-      "paid": "تم تأكيد الدفع!",
-      "valid": "تم اعتماد الدفع!",
-      "redirect_when_ready": "سيتم تحويلك عند جهوزية البرنامج.",
-      "redirect_to_dashboard": "سيتم تحويلك إلى لوحة التحكم.",
-      "finalizing": "جارٍ الإنهاء…",
-      "confirmed": "الدفع مؤكد",
-      "checked": "تم التحقق من الدفع",
-      "go_now": "اذهب الآن",
-      "please_wait": "يرجى الانتظار بضع ثوانٍ…"
+      "program_paid_creating": "Payment confirmed, creating your program…",
+      "program_valid_creating": "Payment validated, creating your program…",
+      "paid": "Payment confirmed!",
+      "valid": "Payment validated!",
+      "redirect_when_ready": "You’ll be redirected as soon as the program is ready.",
+      "redirect_to_dashboard": "You’re about to be redirected to your dashboard.",
+      "finalizing": "Finalizing…",
+      "confirmed": "Payment confirmed",
+      "checked": "Payment verified",
+      "go_now": "Go now",
+      "please_wait": "Please wait a few seconds…"
     }
   },
   "myPrograms": {
-    "titleCoach": "برامجي (مدرب)",
-    "untitled": "بدون عنوان",
-    "created_on_short": "أُنشئ في",
-    "last_activity": "آخر نشاط",
-    "progress": "التقدّم",
-    "view_program": "عرض البرنامج",
-    "preview": "معاينة",
-    "start_session": "بدء الحصة",
-    "sessionsCount_one": "{{count}} حصة",
-    "sessionsCount_other": "{{count}} حصص"
+    "titleCoach": "My Programs (Coach)",
+    "untitled": "Untitled",
+    "created_on_short": "Created on",
+    "last_activity": "Last activity",
+    "progress": "Progress",
+    "view_program": "View program",
+    "preview": "Preview",
+    "start_session": "Start session",
+    "sessionsCount_one": "{{count}} session",
+    "sessionsCount_other": "{{count}} sessions"
   },
   "profile_short": {
-    "title": "الملف الشخصي"
+    "title": "Profile"
   },
   "settings": {
-    "title": "الإعدادات",
+    "title": "Settings",
     "sections": {
-      "language": "اللغة الافتراضية",
-      "preferences": "التفضيلات",
-      "email_notifications": "تنبيهات البريد",
-      "subscription": "اشتراكي",
-      "my_subscription": "اشتراكي",
-      "security": "الأمان",
-      "danger_zone": "منطقة الخطر"
+      "language": "Default language",
+      "preferences": "Preferences",
+      "email_notifications": "Email notifications",
+      "subscription": "My subscription",
+      "my_subscription": "My subscription",
+      "security": "Security",
+      "danger_zone": "Danger zone"
     },
     "fields": {
-      "default_language": "اللغة الافتراضية",
-      "dark_mode": "الوضع الداكن",
-      "reminders": "تذكيرات المواعيد",
-      "newsletter": "النشرة البريدية"
+      "default_language": "Default language",
+      "dark_mode": "Dark mode",
+      "reminders": "Appointment reminders",
+      "newsletter": "Newsletter"
     },
-    "subscription_hint": "أدر اشتراكك أو اعرض سجل فواتير Stripe.",
-    "reset_hint": "سيتم إرسال رابط إعادة التعيين إلى بريدك الإلكتروني.",
-    "delete_hint": "حذف حسابك نهائيًا.",
+    "subscription_hint": "Manage your subscription or access your Stripe invoice history.",
+    "reset_hint": "A reset link will be sent to your email.",
+    "delete_hint": "Permanently delete your account.",
     "buttons": {
-      "open_stripe_portal": "فتح بوابة Stripe",
-      "send_reset": "إرسال رابط إعادة التعيين",
-      "delete_account": "حذف حسابي"
+      "open_stripe_portal": "Open Stripe portal",
+      "send_reset": "Send reset link",
+      "delete_account": "Delete my account"
     },
     "modal": {
-      "confirm_title": "تأكيد",
-      "confirm_body": "هل أنت متأكد من حذف حسابك؟ هذا الإجراء غير قابل للاسترجاع."
+      "confirm_title": "Confirmation",
+      "confirm_body": "Are you sure you want to delete your account? This action is irreversible."
     },
     "toasts": {
-      "lang_updated": "تم تحديث اللغة.",
-      "firestore_perm_denied": "تم رفض صلاحيات Firestore (القواعد).",
-      "update_error": "خطأ في التحديث.",
-      "reset_sent": "إذا كان حسابك موجودًا فستتلقى بريدًا الآن.",
-      "reset_error": "حدث خطأ أثناء إرسال الرابط.",
-      "stripe_comm_error": "خطأ اتصال بالخادم.",
-      "stripe_url_error": "تعذّر جلب رابط Stripe.",
-      "stripe_redirect_error": "خطأ في التحويل إلى Stripe.",
-      "account_deleted": "تم حذف الحساب."
+      "lang_updated": "Language updated.",
+      "firestore_perm_denied": "Firestore permission denied (rules).",
+      "update_error": "Update error.",
+      "reset_sent": "If your account exists, we’ve emailed you.",
+      "reset_error": "Error sending the reset link.",
+      "stripe_comm_error": "Communication error with the server.",
+      "stripe_url_error": "Could not retrieve Stripe URL.",
+      "stripe_redirect_error": "Stripe redirect error.",
+      "account_deleted": "Account deleted."
     }
   },
   "auth": {
     "login": {
-      "title": "تسجيل الدخول",
-      "emailPlaceholder": "البريد الإلكتروني",
-      "passwordPlaceholder": "كلمة المرور",
-      "showPassword": "إظهار كلمة المرور",
-      "hidePassword": "إخفاء كلمة المرور",
-      "forgot": "هل نسيت كلمة المرور؟",
-      "sending": "جارٍ الإرسال…",
-      "retryIn": "أعد المحاولة خلال {{s}}ث",
-      "signIn": "تسجيل الدخول",
-      "signInWithGoogle": "تسجيل الدخول عبر Google",
-      "noAccount": "ليس لديك حساب؟",
-      "createAccount": "إنشاء حساب",
+      "title": "Log in",
+      "emailPlaceholder": "Email",
+      "passwordPlaceholder": "Password",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "forgot": "Forgot password?",
+      "sending": "Sending…",
+      "retryIn": "Retry in {{s}}s",
+      "signIn": "Log in",
+      "signInWithGoogle": "Sign in with Google",
+      "noAccount": "No account yet?",
+      "createAccount": "Create an account",
       "errors": {
-        "missingEmail": "يرجى إدخال بريدك الإلكتروني.",
-        "invalidEmail": "عنوان البريد غير صالح.",
-        "userNotFound": "لا يوجد حساب بهذا البريد.",
-        "wrongPassword": "كلمة المرور غير صحيحة.",
-        "tooMany": "محاولات كثيرة. حاول لاحقًا.",
-        "network": "مشكلة في الشبكة. تحقق وأعد المحاولة.",
-        "generic": "فشل تسجيل الدخول."
+        "missingEmail": "Please enter your email address.",
+        "invalidEmail": "The email address is invalid.",
+        "userNotFound": "No account found with that email.",
+        "wrongPassword": "Incorrect password.",
+        "tooMany": "Too many attempts. Try again later.",
+        "network": "Network issue. Check your connection and try again.",
+        "generic": "Login failed."
       },
       "reset": {
-        "success": "تم إرسال بريد لإعادة التعيين. تفقّد البريد غير الهام.",
-        "genericError": "حدث خطأ أثناء إرسال بريد إعادة التعيين."
+        "success": "We sent you a reset email. Check your spam folder too.",
+        "genericError": "An error occurred while sending the reset email.",
+        "errors": {
+          "missingEmail": "Veuillez entrer votre adresse e-mail.",
+          "invalidEmail": "L’adresse e-mail n’est pas valide.",
+          "userNotFound": "Aucun compte trouvé avec cet e-mail.",
+          "tooMany": "Trop de tentatives. Réessayez plus tard.",
+          "network": "Problème réseau. Vérifiez votre connexion et réessayez."
+        },
+        "sending": "Envoi en cours…",
+        "retryIn": "Réessayer dans {{s}}s"
       }
     },
     "register": {
-      "title": "إنشاء حساب",
-      "firstName": "الاسم",
-      "lastName": "اسم العائلة",
-      "birthDate": "تاريخ الميلاد",
-      "email": "البريد الإلكتروني",
-      "confirmEmail": "تأكيد البريد",
-      "password": "كلمة المرور",
-      "confirmPassword": "تأكيد كلمة المرور",
-      "togglePassword": "إظهار/إخفاء كلمة المرور",
-      "role": "الدور",
-      "role_individual": "فرد",
-      "role_coach": "مدرب",
-      "adultConfirm": "أؤكد أنني <b>أبلغ 18 عامًا أو أكثر</b>.",
-      "acceptTerms": "قرأت وأوافق على <cgu>شروط الاستخدام</cgu> و<cgv>شروط البيع</cgv>.",
-      "privacyHint": "اطّلع أيضًا على <privacy>سياسة الخصوصية</privacy>.",
-      "signUp": "إنشاء الحساب",
-      "signUpWithGoogle": "إنشاء عبر Google",
-      "haveAccount": "لديك حساب؟",
-      "goToLogin": "تسجيل الدخول",
-      "ageWarning": "العمر المحسوب: {{age}} — يجب أن تكون 18 عامًا على الأقل.",
+      "title": "Sign up",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "birthDate": "Birth date",
+      "email": "Email",
+      "confirmEmail": "Confirm email",
+      "password": "Password",
+      "confirmPassword": "Confirm password",
+      "togglePassword": "Show/Hide password",
+      "role": "Role",
+      "role_individual": "Individual",
+      "role_coach": "Coach",
+      "adultConfirm": "I confirm I am <b>18 years old or older</ b>.",
+      "acceptTerms": "I have read and accept the <cgu>TOS</cgu> & <cgv>Sales T&C</cgv>.",
+      "privacyHint": "See also our <privacy>Privacy Policy</ privacy>.",
+      "signUp": "Create account",
+      "signUpWithGoogle": "Sign up with Google",
+      "haveAccount": "Already have an account?",
+      "goToLogin": "Log in",
+      "ageWarning": "Calculated age: {{age}} — you must be at least 18.",
       "errors": {
-        "emailsMismatch": "البريدان غير متطابقين.",
-        "passwordsMismatch": "كلمتا المرور غير متطابقتين.",
-        "missingFields": "يرجى ملء جميع الحقول.",
-        "mustBeAdult": "يجب أن تبلغ 18 عامًا على الأقل لإنشاء حساب.",
-        "mustConfirmAndAccept": "يرجى تأكيد +18 والموافقة على الشروط.",
-        "failed": "فشل التسجيل. تحقّق من معلوماتك."
+        "emailsMismatch": "Emails don’t match.",
+        "passwordsMismatch": "Passwords don’t match.",
+        "missingFields": "Please fill in all fields.",
+        "mustBeAdult": "You must be at least 18 to create an account.",
+        "mustConfirmAndAccept": "Please confirm you’re 18+ and accept the TOS/Sales T&C.",
+        "failed": "Sign-up failed. Please check your details."
       }
-    }
+    },
+    "change_email_with_provider": "Votre compte est lié à un fournisseur externe. Changez votre e-mail depuis ce fournisseur ou contactez le support.",
+    "password": "Mot de passe"
   },
   "stats": {
-    "title": "الإحصائيات",
-    "subtitle": "تابع تقدمك العام وقياسات جسمك وقارن حصصك لرؤية التطور.",
+    "title": "Statistics",
+    "subtitle": "Track your overall progress, body metrics, and compare sessions to visualize improvements.",
     "kpis": {
-      "totalPrograms": "إجمالي البرامج",
-      "percentDone": "% مُنجَز",
-      "sessionsPerWeek": "حصص/أسبوع"
+      "totalPrograms": "Total programs",
+      "percentDone": "% completed",
+      "sessionsPerWeek": "Sessions / wk"
     },
     "hints": {
-      "programs": "عدد الخطط النشطة/المؤرشفة",
-      "basedOnSessions": "استنادًا إلى الحصص المنفذة",
-      "last7days": "آخر 7 أيام"
+      "programs": "Number of active/archived plans",
+      "basedOnSessions": "Based on completed sessions",
+      "last7days": "Over the last 7 days",
+      "clients": "Clique pour voir la liste des clients"
     },
-    "compareSession": "مقارنة حصة",
-    "noPrograms": "لا توجد برامج حتى الآن.",
-    "bodyComp": "بيانات الجسم",
-    "addMeasure": "إضافة قياس",
+    "compareSession": "Compare a session",
+    "noPrograms": "No programs found yet.",
+    "bodyComp": "Body data",
+    "addMeasure": "Add measurement",
     "modal": {
-      "title": "قياس جديد"
+      "title": "New measurement"
     },
     "fields": {
-      "date": "التاريخ",
-      "height": "الطول (سم)",
-      "height_ftin": "الطول (قدم/بوصة)",
-      "weight": "الوزن (كغ)",
-      "weight_lbs": "الوزن (رطل)",
-      "bmi": "مؤشر كتلة الجسم (كغ/م²)",
-      "fat": "الدهون (%)",
-      "muscle": "الكتلة العضلية (كغ)",
-      "water": "الماء (%)",
-      "bone": "الكتلة العظمية (كغ)",
-      "metabolicAge": "العمر الأيضي"
+      "date": "Date",
+      "height": "Height (cm)",
+      "height_ftin": "Height (ft/in)",
+      "weight": "Weight (kg)",
+      "weight_lbs": "Weight (lbs)",
+      "bmi": "BMI (kg/m²)",
+      "fat": "Body fat (%)",
+      "muscle": "Muscle mass (kg)",
+      "water": "Water (%)",
+      "bone": "Bone mass (kg)",
+      "metabolicAge": "Metabolic age",
+      "visceralFat": "Graisse viscérale"
+    },
+    "objectives": {
+      "weight_loss": "Perte de poids",
+      "get_in_shape": "Remise en forme",
+      "muscle_gain": "Prise de masse",
+      "endurance": "Endurance",
+      "strength": "Force",
+      "hypertrophy": "Hypertrophie",
+      "mobility": "Mobilité",
+      "rehab": "Réhabilitation",
+      "performance": "Performance",
+      "health": "Santé",
+      "unknown": "Non spécifié"
+    },
+    "client": {
+      "unnamed": "Client",
+      "active": "Actif",
+      "lastInteraction": "Dernière interaction",
+      "daysAgo": "il y a {{n}}j",
+      "programs": "{{n}} programme(s)",
+      "activity30": "Activité (30j)"
+    },
+    "coachTag": "Coach",
+    "totalClients": "Total clients",
+    "totalPrograms": "Total programmes",
+    "activeClients30": "Clients actifs (30j)",
+    "inactiveClients": "Clients inactifs",
+    "activeClientsList": {
+      "title": "Clients actifs (30 jours)",
+      "seeAll": "Voir tout",
+      "empty": "Aucun client actif sur les 30 derniers jours."
+    },
+    "totalCount": "{{count}} au total",
+    "activeOutOfTotal": "{{active}} actif(s) sur {{total}} client(s).",
+    "sessionsPerMonth": {
+      "tooltip": "{{label}} · {{count}} séance(s)"
     }
   },
   "months": {
     "long": {
-      "0": "يناير",
-      "1": "فبراير",
-      "2": "مارس",
-      "3": "أبريل",
-      "4": "مايو",
-      "5": "يونيو",
-      "6": "يوليو",
-      "7": "أغسطس",
-      "8": "سبتمبر",
-      "9": "أكتوبر",
-      "10": "نوفمبر",
-      "11": "ديسمبر"
+      "0": "January",
+      "1": "February",
+      "2": "March",
+      "3": "April",
+      "4": "May",
+      "5": "June",
+      "6": "July",
+      "7": "August",
+      "8": "September",
+      "9": "October",
+      "10": "November",
+      "11": "December"
     }
   },
   "coachStats": {
-    "title": "الإحصائيات",
-    "badge": "مدرب",
+    "title": "Statistics",
+    "badge": "Coach",
+    "subtitle": "A clear view of your clients, recent activity, and the goals shaping your coaching.",
     "kpis": {
-      "total_clients": "إجمالي العملاء",
-      "total_programs": "إجمالي البرامج",
-      "active_clients": "العملاء النشطون (30ي)",
-      "inactive_clients": "العملاء غير النشطين"
+      "total_clients": "Total clients",
+      "total_programs": "Total programs",
+      "active_clients": "Active clients (30d)",
+      "inactive_clients": "Inactive clients"
     },
     "hints": {
-      "see_clients": "انقر لعرض قائمة العملاء",
-      "see_programs": "انقر لعرض البرامج"
+      "see_clients": "Click to see the clients list",
+      "see_programs": "Click to see the programs"
     },
     "retention": {
-      "title": "معدل الاحتفاظ (30 يومًا)",
-      "caption": "{{active}} نشط/ة من أصل {{total}} عميل."
+      "title": "Retention rate (30d)",
+      "caption": "{{active}} active out of {{total}} client(s)."
     },
     "sessionsPerMonth": {
-      "title": "الحصص المنفَّذة/شهر (آخر 6)",
-      "total": "{{n}} إجماليًا"
+      "title": "Sessions played / month (last 6)",
+      "total": "{{n}} total"
     },
     "objectives": {
-      "title": "توزيع الأهداف",
-      "empty": "لا توجد بيانات أهداف بعد.",
+      "title": "Goals breakdown",
+      "empty": "No goals data yet.",
       "labels": {
-        "weight_loss": "خسارة وزن",
-        "get_in_shape": "استعادة اللياقة",
-        "muscle_gain": "زيادة العضلات",
-        "endurance": "التحمل",
-        "strength": "القوة",
-        "hypertrophy": "التضخيم",
-        "mobility": "المرونة/الحركية",
-        "rehab": "تأهيل",
-        "performance": "الأداء",
-        "health": "الصحة",
-        "unknown": "غير محدد"
+        "weight_loss": "Weight loss",
+        "get_in_shape": "Get in shape",
+        "muscle_gain": "Muscle gain",
+        "endurance": "Endurance",
+        "strength": "Strength",
+        "hypertrophy": "Hypertrophy",
+        "mobility": "Mobility",
+        "rehab": "Rehab",
+        "performance": "Performance",
+        "health": "Health",
+        "unknown": "Unspecified"
       }
     },
     "errors": {
-      "load_failed": "فشل تحميل الإحصائيات."
+      "load_failed": "Failed to load statistics."
     }
   },
   "autoPreview": {
-    "back": "رجوع",
-    "edit": "تعديل",
-    "start": "بدء الحصة",
-    "downloadPdf": "تنزيل PDF",
+    "back": "Back",
+    "edit": "Edit",
+    "start": "Start session",
+    "downloadPdf": "Download PDF",
     "pdfLang": "PDF: {{code}}",
-    "session": "الحصة",
-    "sessionN": "الحصة {{n}}",
-    "noProgram": "لا يوجد برنامج للعرض.",
-    "details": "تفاصيل",
-    "replace": "استبدال",
-    "exerciseDetails": "تفاصيل التمرين",
-    "replaceExercise": "استبدال التمرين",
-    "exerciseBank": "بنك التمارين",
-    "close": "إغلاق",
-    "availableVariants": "البدائل المتاحة:",
-    "advancedSets": "مجموعات مختلفة",
-    "notes": "ملاحظات",
-    "noData": "لا توجد بيانات.",
-    "estimatedTotalTime": "الوقت الإجمالي المقدر",
+    "session": "Session",
+    "sessionN": "Session {{n}}",
+    "noProgram": "No program to display.",
+    "details": "Details",
+    "replace": "Replace",
+    "exerciseDetails": "Exercise details",
+    "replaceExercise": "Replace exercise",
+    "exerciseBank": "Exercise bank",
+    "close": "Close",
+    "availableVariants": "Available variants:",
+    "advancedSets": "Advanced sets",
+    "notes": "Notes",
+    "noData": "No data.",
+    "estimatedTotalTime": "Estimated total time",
     "sections": {
-      "warmup": "الإحماء",
-      "main": "صلب الحصة",
-      "bonus": "إضافات",
-      "cooldown": "التهدئة"
-    }
+      "warmup": "Warm-up",
+      "main": "Main work",
+      "bonus": "Bonus",
+      "cooldown": "Cool-down"
+    },
+    "generated": "Programme",
+    "autoFollowOn": "Suivi automatique activé",
+    "autoFollowOff": "Suivi automatique désactivé",
+    "variantNotFound": "Variante introuvable",
+    "pdfError": "Erreur lors de la génération du PDF",
+    "notFound": "Programme introuvable",
+    "notFoundHint": "Vérifie l’URL ou les droits d’accès.",
+    "chooseVariant": "Choisissez une variante",
+    "autoFollowHintOn": "IA activée : BYL ajuste automatiquement la progression (si disponible) selon tes séances validées.",
+    "autoFollowHintOff": "IA désactivée : aucune progression automatique n’est appliquée.",
+    "saving": "Sauvegarde",
+    "autoFollowShort": "Suivi",
+    "enabled": "Activé",
+    "disabled": "Désactivé"
   },
   "pdf": {
     "sections": {
-      "warmup": "الإحماء",
-      "main": "صلب الحصة",
-      "bonus": "إضافات",
-      "cooldown": "التهدئة"
+      "warmup": "Warm-up",
+      "main": "Main work",
+      "bonus": "Bonus",
+      "cooldown": "Cool-down"
     },
     "labels": {
-      "sets": "المجموعات",
-      "reps": "التكرارات",
-      "rest": "الراحة",
-      "duration": "المدة",
-      "load": "الحمولة (كغ)",
-      "intensity": "الشدة",
-      "watts": "واط",
-      "incline": "الميل (%)",
-      "calories": "هدف السعرات",
-      "tempo": "الإيقاع",
-      "speed": "السرعة",
-      "distance": "المسافة",
-      "effort": "الجهد",
-      "pause": "استراحة"
+      "sets": "Sets",
+      "reps": "Repetitions",
+      "rest": "Rest",
+      "duration": "Duration",
+      "load": "Load (kg)",
+      "intensity": "Intensity",
+      "watts": "Watts",
+      "incline": "Incline (%)",
+      "calories": "Calories target",
+      "tempo": "Tempo",
+      "speed": "Speed",
+      "distance": "Distance",
+      "effort": "Effort",
+      "pause": "Rest"
     },
-    "advancedSets": "مجموعات مختلفة",
-    "notes": "ملاحظات",
-    "session": "الحصة",
-    "setN": "المجموعة {{n}}",
-    "generatedWith": "تم الإنشاء بواسطة Boost Your Life • {{host}}",
-    "date": "{{date, DD/MM/YYYY}}",
-    "fileProgram": "برنامج",
-    "fileClient": "عميل",
-    "estimatedTotalTime": "الوقت الإجمالي المقدر",
+    "advancedSets": "Advanced sets",
+    "notes": "Notes",
+    "session": "Session",
+    "setN": "Set {{n}}",
+    "generatedWith": "Generated with Boost Your Life • {{host}}",
+    "date": "{{date, MM/DD/YYYY}}",
+    "fileProgram": "program",
+    "fileClient": "client",
+    "estimatedTotalTime": "Estimated total time",
     "langNames": {
-      "fr": "Français",
+      "fr": "French",
       "en": "English",
-      "de": "Deutsch",
-      "it": "Italiano",
-      "es": "Español",
-      "ru": "Русский",
+      "de": "German",
+      "it": "Italian",
+      "es": "Spanish",
+      "ru": "Russian",
       "ar": "العربية"
     },
     "fileNamePattern": "{{program}}-{{client}}-BYL-{{lang}}.pdf"
   },
   "autoQ": {
-    "titleCoach": "إنشاء مُوجَّه",
-    "titleClient": "برنامج مخصص",
-    "gender": "الجنس",
-    "male": "ذكر",
-    "female": "أنثى",
-    "level": "المستوى",
+    "titleCoach": "Guided creation",
+    "titleClient": "Custom program",
+    "gender": "Sex",
+    "male": "Male",
+    "female": "Female",
+    "level": "Level",
     "levels": {
-      "beginner": "مبتدئ",
-      "intermediate": "متوسط",
-      "advanced": "متقدم"
+      "beginner": "Beginner",
+      "intermediate": "Intermediate",
+      "advanced": "Advanced"
     },
-    "frequency": "الوتيرة",
-    "sessionsPerWeek": "{{n}} حصة/أسبوع",
-    "goal": "الهدف",
+    "frequency": "Frequency",
+    "sessionsPerWeek": "{{n}} session(s) / week",
+    "goal": "Goal",
     "goals": {
-      "massGain": "زيادة الكتلة",
-      "weightLoss": "خسارة الوزن",
-      "strength": "القوة",
-      "endurance": "التحمل",
-      "returnToSport": "العودة للرياضة",
-      "posture": "الوضعية"
+      "massGain": "Muscle gain",
+      "weightLoss": "Weight loss",
+      "strength": "Strength",
+      "endurance": "Endurance",
+      "returnToSport": "Return to sport",
+      "posture": "Postural"
     },
-    "selectPlaceholder": "يرجى الاختيار",
-    "coachBanner": "مساحة المدرب — {{status}}",
-    "coachActive": "اشتراك فعّال",
-    "coachNeeded": "الاشتراك مطلوب",
-    "bestChoice": "الخيار الأفضل",
-    "redirecting": "جارٍ التحويل…",
-    "fillToContinue": "املأ الحقول أعلاه للمتابعة.",
-    "creating": "جارٍ الإنشاء…",
-    "createProgram": "إنشاء البرنامج",
+    "selectPlaceholder": "Please select",
+    "coachBanner": "Coach area — {{status}}",
+    "coachActive": "active subscription",
+    "coachNeeded": "subscription required",
+    "bestChoice": "Best choice",
+    "redirecting": "Redirecting…",
+    "fillToContinue": "Fill the fields above to continue.",
+    "creating": "Creating…",
+    "createProgram": "Create program",
     "prices": {
       "sub": {
-        "title": "اشتراك 39,99 €/شهر",
-        "badge": "الشهر الأول 29,99 €",
-        "subtitle": "برنامج مخصص جديد كل شهر",
-        "cta": "اختيار الاشتراك"
+        "title": "Subscription €39.99/month",
+        "badge": "1st month €29.99",
+        "subtitle": "new personalized program every month",
+        "cta": "Choose subscription"
       },
       "one": {
-        "title": "شراء مرة واحدة 89,99 €",
-        "subtitle": "برنامج كامل بدون تجديد",
-        "cta": "شراء مرة واحدة"
+        "title": "One-off purchase €89.99",
+        "subtitle": "Full program, no renewal",
+        "cta": "Buy once"
       }
     },
-    "connectingStripe": "جارٍ الاتصال بـ Stripe…",
+    "connectingStripe": "Connecting to Stripe…",
     "toasts": {
       "missing": {
-        "title": "حقول ناقصة",
-        "desc": "املأ الحقول الأربعة للمتابعة.",
-        "create": "املأ الحقول الأربعة لإنشاء البرنامج."
+        "title": "Missing fields",
+        "desc": "Fill all 4 fields to continue.",
+        "create": "Fill all 4 fields to create the program."
       },
       "paymentError": {
-        "title": "خطأ في الدفع"
+        "title": "Payment error"
       },
       "createError": {
-        "title": "خطأ في الإنشاء"
+        "title": "Creation error"
+      },
+      "authNeeded": {
+        "title": "Connexion requise",
+        "desc": "Connecte-toi pour poursuivre le paiement."
+      },
+      "emailNeeded": {
+        "title": "Adresse e-mail requise",
+        "desc": "Renseigne une adresse e-mail dans ton profil avant de payer."
       }
     },
     "errors": {
-      "savePrefs": "خطأ أثناء حفظ التفضيلات.",
-      "checkout": "تعذّر فتح صفحة الدفع.",
-      "missingProgramId": "استجابة غير متوقعة (معرّف البرنامج مفقود)."
-    }
+      "savePrefs": "Error while saving preferences.",
+      "checkout": "Could not open checkout page.",
+      "missingProgramId": "Unexpected response (missing programId)."
+    },
+    "adminBanner": "Admin — accès complet",
+    "proPaywall": {
+      "title": "Accès coach requis",
+      "desc": "Ton essai/abonnement n’est pas actif. Active l’accès pro pour générer automatiquement des programmes.",
+      "cta": "Voir l’offre Pro",
+      "hint": "Active l’offre Pro pour débloquer la génération automatique."
+    },
+    "noteClientPaywall": "Ces tarifs concernent l’espace client. L’espace coach se débloque via l’offre Pro."
   },
   "clientCreation": {
-    "title": "إضافة عميل جديد",
-    "loginMethod": "طريقة تسجيل الدخول",
-    "loginMethodEmail": "بريد إلكتروني",
-    "loginMethodPhone": "هاتف",
-    "firstName": "الاسم",
-    "lastName": "اسم العائلة",
-    "email": "البريد الإلكتروني",
-    "phone": "الهاتف",
-    "phoneOptional": "الهاتف (اختياري)",
-    "birthDate": "تاريخ الميلاد",
-    "gender": "الجنس",
-    "genderMale": "ذكر",
-    "genderFemale": "أنثى",
-    "height": "الطول (سم)",
-    "weight": "الوزن (كغ)",
-    "level": "المستوى",
+    "title": "Add a new client",
+    "loginMethod": "Login method",
+    "loginMethodEmail": "Email",
+    "loginMethodPhone": "Phone",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "email": "Email",
+    "phone": "Phone",
+    "phoneOptional": "Phone (optional)",
+    "birthDate": "Birth date",
+    "gender": "Sex",
+    "genderMale": "Male",
+    "genderFemale": "Female",
+    "height": "Height (cm)",
+    "weight": "Weight (kg)",
+    "level": "Level",
     "levels": {
-      "beginner": "مبتدئ",
-      "intermediate": "متوسط",
-      "advanced": "متقدم"
+      "beginner": "Beginner",
+      "intermediate": "Intermediate",
+      "advanced": "Advanced"
     },
-    "objective": "الهدف",
+    "objective": "Goal",
     "objectives": {
-      "gain": "زيادة الكتلة",
-      "loss": "خسارة الوزن",
-      "strength": "القوة",
-      "endurance": "التحمل",
-      "restart": "العودة للرياضة",
-      "posture": "الوضعية"
+      "gain": "Muscle gain",
+      "loss": "Weight loss",
+      "strength": "Strength",
+      "endurance": "Endurance",
+      "restart": "Return to sport",
+      "posture": "Postural"
     },
-    "language": "اللغة",
+    "language": "Language",
     "languages": {
-      "fr": "Français",
+      "fr": "French",
       "en": "English",
-      "de": "Deutsch",
-      "it": "Italiano",
-      "es": "Español",
-      "ru": "Русский",
+      "de": "German",
+      "it": "Italian",
+      "es": "Spanish",
+      "ru": "Russian",
       "ar": "العربية"
     },
-    "notes": "ملاحظات",
-    "save": "حفظ العميل",
-    "modalNoAccessTitle": "وصول غير متاح",
-    "modalNoAccessText": "لم تتم إضافة بريد إلكتروني. لن يحصل العميل على وصول إلى المنصة حتى يتم إضافة بريد.",
-    "modalMergeTitle": "العميل موجود مسبقًا",
-    "modalMergeText": "توجد بطاقة عميل بنفس الاسم واسم العائلة (بدون بريد). هل تريد تحديث البطاقة الموجودة بالمعلومات الجديدة؟",
-    "modalConfirm": "نعم، تحديث",
-    "modalCancel": "إلغاء"
+    "notes": "Notes",
+    "save": "Save client",
+    "modalNoAccessTitle": "Access not available",
+    "modalNoAccessText": "No email address provided. The client won’t have access to the platform until an email is added.",
+    "modalMergeTitle": "Client already exists",
+    "modalMergeText": "A client record with this first and last name (without email) already exists. Do you want to update the existing record with the new information?",
+    "modalConfirm": "Yes, update",
+    "modalCancel": "Cancel"
   },
   "clientView": {
-    "globalProgress": "التقدّم العام",
-    "assignedPrograms": "البرامج المُسنَدة",
-    "lastShort": "آخر حصة",
-    "unassign": "إلغاء الإسناد",
-    "unassignConfirmTitle": "تأكيد إلغاء الإسناد",
-    "unassignConfirmBody": "هل تريد حقًا إلغاء إسناد هذا البرنامج؟",
-    "editClient": "تعديل العميل",
-    "totalPrograms": "إجمالي البرامج",
-    "percentCompleted": "% مُنجَز",
-    "sessionsPerWeek": "حصص/أسبوع",
-    "progressionSessions": "التقدّم — الحصص",
-    "latestPrograms": "أحدث البرامج",
-    "createdOn": "أُنشئ في",
-    "sessionsDonePlanned": "الحصص (منفذة/مخططة)",
-    "compareSession": "مقارنة حصة",
-    "viewAll": "عرض الكل",
-    "deleteProgram": "حذف البرنامج"
+    "globalProgress": "Overall progress",
+    "assignedPrograms": "Assigned programs",
+    "lastShort": "Last sess.",
+    "unassign": "Unassign",
+    "unassignConfirmTitle": "Confirm unassignment",
+    "unassignConfirmBody": "Do you really want to unassign this program?",
+    "editClient": "Edit client",
+    "totalPrograms": "Total programs",
+    "percentCompleted": "% completed",
+    "sessionsPerWeek": "Sessions / wk",
+    "progressionSessions": "Progress — Sessions",
+    "latestPrograms": "Latest programs",
+    "createdOn": "Created on",
+    "sessionsDonePlanned": "Sessions (done/planned)",
+    "compareSession": "Compare a session",
+    "viewAll": "View all",
+    "deleteProgram": "Delete program",
+    "inviteSent": "Invitation envoyée",
+    "inviteSentDesc": "Un email a été envoyé à {{email}} pour créer ou réinitialiser son mot de passe.",
+    "selectProgram": "Sélectionne un programme à assigner.",
+    "programNotFound": "Le programme sélectionné n’existe pas.",
+    "assigned": "Programme assigné",
+    "assignProgram": "Assigner un programme",
+    "lastActivity": "Dernière activité",
+    "programTemplate": "Programme",
+    "programNameOptional": "Nom (optionnel)",
+    "programNamePlaceholder": "Laisser vide pour le nom par défaut",
+    "assignInfo": "Le programme sera ajouté au client et disponible immédiatement.",
+    "assign": "Assigner"
   },
   "clientsList": {
-    "heading": "عملائي",
+    "heading": "My Clients",
     "filters": {
-      "active": "نشطون (آخر {{days}} يومًا)",
-      "inactive": "غير نشطين",
-      "all": "الكل"
+      "active": "Active (last {{days}} d)",
+      "inactive": "Inactive",
+      "all": "All"
     },
-    "searchPlaceholder": "ابحث عن عميل",
+    "searchPlaceholder": "Search a client",
     "table": {
-      "client": "العميل",
-      "programs": "البرامج",
-      "lastSession": "آخر حصة",
-      "activity": "النشاط",
-      "subscription": "الاشتراك",
-      "progress": "التقدّم",
-      "action": "إجراء"
+      "client": "Client",
+      "programs": "Programs",
+      "lastSession": "Last session",
+      "activity": "Activity",
+      "subscription": "Subscription",
+      "progress": "Progress",
+      "action": "Action"
     },
     "tooltip": {
-      "lastOn": "آخر حصة في {{date}}",
-      "none": "لا توجد حصص"
+      "lastOn": "Last session on {{date}}",
+      "none": "No sessions found"
     },
     "status": {
-      "active": "نشط",
-      "inactive": "غير نشط"
+      "active": "Active",
+      "inactive": "Inactive"
     },
     "sub": {
-      "active": "مشترك",
-      "inactive": "غير مشترك",
-      "expired": "منتهي",
-      "trialing": "تجربة",
-      "canceled": "ملغى",
-      "past_due": "دفع متأخر",
-      "unknown": "غير معروف"
+      "active": "Subscribed",
+      "inactive": "Not subscribed",
+      "expired": "Expired",
+      "trialing": "On trial",
+      "canceled": "Canceled",
+      "past_due": "Past due",
+      "unknown": "Unknown"
     },
     "progress": {
-      "sessions": "{{done}}/{{total}} حصص",
-      "perWeek": "حصص/أسبوع: {{n}}"
+      "sessions": "{{done}}/{{total}} sessions",
+      "perWeek": "Sessions / wk: {{n}}"
     },
     "actions": {
-      "assign": "إسناد",
-      "deleteAria": "حذف العميل"
+      "assign": "Assign",
+      "deleteAria": "Delete client",
+      "newClient": "Nouveau client"
     },
     "badge": {
-      "programsShort": "برامج"
+      "programsShort": "prog."
     },
     "assignModal": {
-      "title": "إسناد برنامج",
-      "placeholder": "اختر برنامجًا"
+      "title": "Assign a program",
+      "placeholder": "Select a program",
+      "successTitle": "Programme assigné",
+      "successDesc": "Le programme a bien été attribué au client.",
+      "errorTitle": "Erreur",
+      "errorDesc": "Impossible d’assigner le programme."
     },
     "deleteModal": {
-      "title": "حذف العميل",
-      "body": "هل أنت متأكد من حذف هذا العميل؟"
+      "title": "Delete client",
+      "body": "Are you sure you want to delete this client?"
     }
   },
   "exerciseBank": {
-    "title": "بنك التمارين",
-    "searchPlaceholder": "بحث…",
-    "clear": "مسح",
-    "toggleFilters": "عرض/إخفاء المرشّحات",
-    "addExercise": "إضافة تمرين",
-    "reset": "إعادة تعيين",
+    "title": "Exercise Bank",
+    "searchPlaceholder": "Search…",
+    "clear": "Clear",
+    "toggleFilters": "Show/hide filters",
+    "addExercise": "Add exercise",
+    "reset": "Reset",
     "options": {
       "muscles": {
-        "all": "كل العضلات"
+        "all": "All muscles"
       },
       "positions": {
-        "all": "كل الوضعيات"
+        "all": "All positions"
       },
       "equipment": {
-        "all": "كل المعدات",
-        "none": "بدون"
+        "all": "All equipment",
+        "none": "None"
       },
       "objectives": {
-        "all": "كل الأهداف"
+        "all": "All goals"
       }
     },
     "labels": {
-      "shoulders": "الأكتاف",
-      "legs": "الساقان"
+      "shoulders": "Shoulders",
+      "legs": "Legs"
     },
     "modal": {
-      "addTitle": "إضافة تمرين جديد",
-      "chooseSection": "اختر القسم",
-      "namePlaceholder": "اسم التمرين",
-      "musclesPlaceholder": "المجموعة/المجموعات العضلية (افصل بفواصل)",
-      "objectivesPlaceholder": "الأهداف (افصل بفواصل)",
-      "equipmentPlaceholder": "المعدات (افصل بفواصل)",
-      "positionPlaceholder": "الوضعية (افصل بفواصل)",
-      "cues": "التعليمات"
+      "addTitle": "Add a new exercise",
+      "chooseSection": "Choose section",
+      "namePlaceholder": "Exercise name",
+      "musclesPlaceholder": "Muscle group(s) (comma-separated)",
+      "objectivesPlaceholder": "Goals (comma-separated)",
+      "equipmentPlaceholder": "Equipment (comma-separated)",
+      "positionPlaceholder": "Position (comma-separated)",
+      "cues": "Cues"
     },
     "sections": {
-      "warmup": "الإحماء",
-      "training": "صلب الحصة",
-      "cooldown": "التهدئة",
-      "ergometer": "أرغوميتر"
+      "warmup": "Warm-up",
+      "training": "Main work",
+      "cooldown": "Cool-down",
+      "ergometer": "Ergometer"
     },
     "toast": {
-      "missingSectionTitle": "القسم مفقود",
-      "missingSectionDesc": "يرجى اختيار القسم.",
-      "missingNameTitle": "الاسم مفقود",
-      "missingNameDesc": "يرجى إدخال الاسم.",
-      "addedTitle": "تمت إضافة التمرين",
-      "addedDesc": "أُضيف بالمعرّف {{id}}.",
-      "errorTitle": "خطأ"
+      "missingSectionTitle": "Missing section",
+      "missingSectionDesc": "Please choose a section.",
+      "missingNameTitle": "Missing name",
+      "missingNameDesc": "Please fill in the name.",
+      "addedTitle": "Exercise added",
+      "addedDesc": "Added with ID {{id}}.",
+      "errorTitle": "Error"
     },
-    "fabAria": "بنك التمارين"
+    "fabAria": "Exercise bank"
   },
   "exerciseCard": {
     "add": "إضافة",
     "replace": "استبدال",
     "cancel": "إلغاء",
-    "details": "تفاصيل",
-    "missing": "بيانات مفقودة",
+    "details": "التفاصيل",
+    "missing": "بيانات ناقصة",
     "missingName": "الاسم مفقود",
-    "noVariant": "لا توجد بدائل متاحة",
+    "noVariant": "لا توجد نسخة بديلة متاحة",
     "noConstraints": "لا توجد قيود محددة",
     "fields": {
-      "mainGroup": "المجموعة العضلية",
-      "secondary": "عضلات ثانوية",
-      "joints": "المفاصل المستهدفة",
-      "ligaments": "الأربطة المستهدفة",
-      "variants": "بدائل",
-      "constraints": "قيود",
-      "cues": "تعليمات الأداء"
+      "mainGroup": "المجموعة العضلية الرئيسية",
+      "secondary": "العضلات الثانوية",
+      "joints": "المفاصل المستخدمة",
+      "ligaments": "الأربطة المستخدمة",
+      "variants": "النسخ البديلة",
+      "constraints": "القيود",
+      "cues": "تعليمات التنفيذ"
+    },
+    "none": "لا يوجد",
+    "allLevels": "كل المستويات",
+    "images": {
+      "start": "وضعية البداية",
+      "end": "وضعية النهاية",
+      "badge": "صور",
+      "button": "صور"
+    },
+    "video": {
+      "badge": "فيديو",
+      "button": "فيديو"
+    },
+    "meta": {
+      "fast": "افتح التفاصيل لعرض التعليمات والوسائط والمعلومات الكاملة"
+    },
+    "media": {
+      "title": "عرض توضيحي"
     }
   },
   "footer": {
-    "about": "من نحن",
-    "contact": "تواصل",
-    "privacy": "سياسة الخصوصية",
-    "terms": "شروط الاستخدام",
-    "sales": "سياسة البيع",
-    "rights": "جميع الحقوق محفوظة"
+    "about": "About",
+    "contact": "Contact",
+    "privacy": "Privacy Policy",
+    "terms": "Terms & Conditions",
+    "sales": "Sales Policy",
+    "rights": "All rights reserved",
+    "pricing": "Tarifs"
   },
   "programBuilder": {
     "placeholders": {
-      "name": "اسم البرنامج",
-      "goal": "الهدف (مثال: زيادة الكتلة)"
+      "name": "Program name",
+      "goal": "Goal (e.g., Muscle gain)"
     },
     "status": {
-      "saved": "تم الحفظ",
-      "saving": "جارٍ الحفظ...",
-      "unsaved": "غير محفوظ"
+      "saved": "Saved",
+      "saving": "Saving...",
+      "unsaved": "Unsaved"
     },
     "units": {
-      "weight": "الوزن",
-      "speed": "السرعة"
+      "weight": "Weight",
+      "speed": "Speed",
+      "distance": "Distance"
     },
     "cta": {
-      "createShort": "إنشاء",
-      "saveShort": "حفظ",
-      "create": "إنشاء البرنامج",
-      "save": "حفظ التعديلات"
+      "createShort": "Create",
+      "saveShort": "Save",
+      "create": "Create program",
+      "save": "Save changes"
     },
-    "untitled": "برنامج بلا عنوان",
-    "defaultSession": "الحصة 1",
-    "sessionN": "الحصة {{n}}",
+    "untitled": "Untitled program",
+    "defaultSession": "Session 1",
+    "sessionN": "Session {{n}}",
     "badge": {
-      "sections": "الأقسام"
+      "sections": "SECTIONS"
     },
     "actions": {
-      "add": "+ إضافة",
-      "duplicate": "نسخ"
+      "add": "+ Add",
+      "duplicate": "Duplicate"
     },
-    "totalTime": "الوقت الإجمالي",
-    "enableSections": "تفعيل الأقسام",
-    "copySuffix": "(نسخة)",
+    "totalTime": "Total time",
+    "enableSections": "Enable sections",
+    "copySuffix": "(copy)",
     "sections": {
-      "warmup": "الإحماء",
-      "main": "صلب الحصة",
-      "bonus": "إضافات",
-      "cooldown": "التهدئة"
+      "warmup": "Warm-up",
+      "main": "Main work",
+      "bonus": "Bonus",
+      "cooldown": "Cool-down"
     },
     "options": {
-      "title": "الخيارات"
+      "title": "Options"
     },
     "labels": {
-      "weightKg": "الحمولة (كغ)",
-      "weightLbs": "الوزن (رطل)",
-      "speedKmh": "السرعة (كم/س)",
-      "speedMph": "السرعة (ميل/س)"
+      "weightKg": "Load (kg)",
+      "weightLbs": "Weight (lbs)",
+      "speedKmh": "Speed (km/h)",
+      "speedMph": "Speed (mph)",
+      "distanceM": "Distance (m)",
+      "distanceMi": "Distance (miles)"
     },
     "notes": {
-      "title": "ملاحظات",
-      "placeholder": "أضف ملاحظة (تعليمات، تذكير، إلخ)"
+      "title": "Notes",
+      "placeholder": "Add a note (cue, reminder, etc.)"
     },
     "advancedSets": {
-      "title": "مجموعات مختلفة (متقدم)",
-      "fillFromGlobals": "الملء من القيم العامة",
-      "addSet": "+ إضافة مجموعة",
-      "removeLast": "– إزالة الأخيرة"
+      "title": "Advanced sets (different per set)",
+      "fillFromGlobals": "Fill from global values",
+      "addSet": "+ Add a set",
+      "removeLast": "– Remove last set"
     },
     "sets": {
-      "set": "مجموعة"
+      "set": "Set"
     },
     "aria": {
-      "deleteSession": "حذف الحصة",
-      "replace": "استبدال",
-      "replaceThis": "استبدال هذا التمرين",
-      "options": "خيارات",
-      "deleteExercise": "حذف التمرين",
-      "deleteSet": "حذف المجموعة"
+      "deleteSession": "Delete session",
+      "replace": "Replace",
+      "replaceThis": "Replace this exercise",
+      "options": "Options",
+      "deleteExercise": "Delete exercise",
+      "deleteSet": "Delete set"
     },
     "modals": {
-      "savedTitle": "تم حفظ البرنامج",
-      "savedBody": "يمكنك الآن العثور على البرنامج في الصفحة الرئيسية.",
-      "searchClient": "ابحث عن عميل...",
-      "noClient": "لا يوجد عملاء.",
-      "addClient": "إضافة عميل",
-      "assign": "إسناد",
-      "home": "الرئيسية",
-      "newClient": "عميل جديد"
+      "savedTitle": "Program saved",
+      "savedBody": "You can now find this program on the home page.",
+      "searchClient": "Search a client...",
+      "noClient": "No client found.",
+      "addClient": "Add a client",
+      "assign": "Assign",
+      "home": "Home",
+      "newClient": "New client"
     },
     "toasts": {
-      "createdTitle": "تم إنشاء البرنامج",
-      "savedTitle": "تم حفظ التعديلات",
-      "saved": "تم حفظ التعديلات بنجاح.",
-      "savedDesc": "تم حفظ برنامجك.",
-      "errorTitle": "خطأ",
-      "assigned": "تم إسناد البرنامج"
+      "createdTitle": "Program created",
+      "savedTitle": "Changes saved",
+      "saved": "Changes saved successfully.",
+      "savedDesc": "Your program has been saved.",
+      "errorTitle": "Error",
+      "assigned": "Program assigned"
+    },
+    "exercise": {
+      "label": "Exercice"
+    },
+    "linkNext": {
+      "tip": "Chaîner avec l’exercice suivant",
+      "label": "Lier au suivant"
+    },
+    "autoProgression": {
+      "tip": "Si activé, le programme peut évoluer automatiquement selon les validations du client (si le coach ne gère pas manuellement).",
+      "label": "Progression auto"
     }
   },
   "statsShort": {
-    "compareSession": "مقارنة حصة"
+    "compareSession": "Compare a session"
   },
   "compare": {
-    "pick": "المقارنة:",
-    "with": "مع",
-    "lastVsPrev": "الأخيرة مقابل السابقة",
-    "occ": "عدد مرات الحدوث",
-    "field": "الحقل",
-    "before": "قبل",
-    "now": "الآن",
+    "pick": "Compare:",
+    "with": "with",
+    "lastVsPrev": "Last vs previous",
+    "occ": "Occ.",
+    "field": "Field",
+    "before": "Before",
+    "now": "Now",
     "delta": "Δ",
-    "needMore": "لا توجد تكرارات كافية لمقارنة هذه الحصة (يلزم تسجيلان على الأقل)."
+    "needMore": "Not enough occurrences yet to compare this session (need at least 2 records)."
   },
   "programView": {
-    "back": "رجوع",
-    "edit": "تعديل",
-    "startSession": "بدء الحصة",
-    "downloadPdf": "تنزيل PDF",
+    "back": "Back",
+    "edit": "Edit",
+    "startSession": "Start session",
+    "downloadPdf": "Download PDF",
     "pdfLang": "PDF: {{code}}",
-    "session": "الحصة",
-    "sessionN": "الحصة {{n}}",
-    "details": "تفاصيل",
-    "replace": "استبدال",
-    "exerciseDetails": "تفاصيل التمرين",
-    "replaceExercise": "استبدال التمرين",
-    "exerciseBank": "بنك التمارين",
-    "close": "إغلاق",
-    "availableVariants": "البدائل المتاحة:",
-    "advancedSets": "مجموعات مختلفة",
-    "notes": "ملاحظات",
-    "noData": "لا توجد بيانات.",
-    "estimatedTotalTime": "الوقت الإجمالي المقدر",
+    "session": "Session",
+    "sessionN": "Session {{n}}",
+    "details": "Details",
+    "replace": "Replace",
+    "exerciseDetails": "Exercise details",
+    "replaceExercise": "Replace exercise",
+    "exerciseBank": "Exercise bank",
+    "close": "Close",
+    "availableVariants": "Available variants:",
+    "advancedSets": "Advanced sets",
+    "notes": "Notes",
+    "noData": "No data.",
+    "estimatedTotalTime": "Estimated total time",
     "sections": {
-      "warmup": "الإحماء",
-      "main": "صلب الحصة",
-      "bonus": "إضافات",
-      "cooldown": "التهدئة"
+      "warmup": "Warm-up",
+      "main": "Main work",
+      "bonus": "Bonus",
+      "cooldown": "Cool-down"
     }
   },
   "fields": {
-    "sets": "المجموعات",
-    "reps": "التكرارات",
-    "duration": "المدة",
-    "weight": "الحمولة (كغ)",
-    "rest": "الراحة",
-    "speed": "السرعة",
-    "intensity": "الشدة",
-    "watts": "واط",
-    "incline": "الميل (%)",
-    "calories": "هدف السعرات",
-    "tempo": "الإيقاع",
-    "distance": "المسافة"
+    "sets": "Sets",
+    "reps": "Repetitions",
+    "duration": "Duration",
+    "weight": "Load (kg)",
+    "rest": "Rest",
+    "speed": "Speed",
+    "intensity": "Intensity",
+    "watts": "Watts",
+    "incline": "Incline (%)",
+    "calories": "Calories target",
+    "tempo": "Tempo",
+    "distance": "Distance"
   },
   "labels": {
-    "sets": "المجموعات",
-    "repetitions": "التكرارات",
-    "duration": "المدة",
-    "rest": "الراحة"
+    "sets": "Sets",
+    "repetitions": "Reps",
+    "duration": "Duration",
+    "rest": "Rest"
   },
   "sessionPlayer": {
-    "exerciseCounter": "تمرين {{i}} / {{n}}",
-    "program": "البرنامج",
-    "sessionN": "الحصة {{n}}",
-    "ready": "استعد",
-    "work": "جهد",
-    "rest": "راحة",
-    "setCounter": "مجموعة {{i}}/{{n}}",
-    "start": "بدء",
-    "finishSet": "إنهاء المجموعة",
-    "nextSet": "المجموعة التالية",
-    "nextExercise": "التمرين التالي",
-    "done": "تم",
-    "prev": "السابق",
-    "skip": "تخطّي التمرين",
-    "upNext": "التالي",
-    "finishWorkout": "إنهاء الحصة",
-    "advSets": "مجموعات مختلفة",
-    "notes": "ملاحظات",
-    "addNotePh": "أضف ملاحظة لهذا التمرين…",
-    "constraints": "قيود",
-    "cues": "تعليمات",
-    "currentSet": "المجموعة الحالية:",
-    "setN": "المجموعة {{n}}",
-    "empty": "الحصة غير موجودة أو فارغة.",
-    "rateTitle": "قيّم الصعوبة"
+    "exerciseCounter": "Exercise {{i}} / {{n}}",
+    "program": "Program",
+    "sessionN": "Session {{n}}",
+    "ready": "READY",
+    "work": "WORK",
+    "rest": "REST",
+    "setCounter": "Set {{i}}/{{n}}",
+    "start": "Start",
+    "finishSet": "Finish set",
+    "nextSet": "Next set",
+    "nextExercise": "Next exercise",
+    "done": "Done",
+    "prev": "Previous",
+    "skip": "Skip exercise",
+    "upNext": "Up next",
+    "finishWorkout": "Finish workout",
+    "advSets": "Different sets",
+    "notes": "Notes",
+    "addNotePh": "Add a note for this exercise…",
+    "constraints": "Constraints",
+    "cues": "Execution cues",
+    "currentSet": "Current set:",
+    "setN": "Set {{n}}",
+    "empty": "Session not found or empty.",
+    "rateTitle": "Rate the difficulty",
+    "restBetween": "Entre les exercices",
+    "restEndOfBlock": "Fin du bloc",
+    "restIgnored": "Ignoré (enchaînement)",
+    "autoProgressionOn": "Activée pour ce programme.",
+    "autoProgressionOff": "Désactivée pour ce programme.",
+    "autoProgression": "Auto-progression",
+    "chainOf": "Chaîne de {{n}} exercices",
+    "round": "Tour {{i}}/{{n}}",
+    "restMode": "Repos",
+    "restBoth": "entre + fin",
+    "restEach": "entre",
+    "restLast": "fin",
+    "shortcuts": "Raccourcis",
+    "effort": "EFFORT",
+    "roundShort": "Tour",
+    "set": "Set",
+    "nextRound": "Tour suivant",
+    "settings": "Paramètres de l’exercice",
+    "addNote": "Ajouter une note pour cet exercice…"
   },
   "about": {
-    "title": "نبذة عنا",
-    "intro": "مرحبًا بك في <b>Boost Your Life</b>! رسالتنا هي جعل التمرين فعالًا وواضحًا ومُلهمًا، لتتقدم أسبوعًا بعد أسبوع دون أن تضيع في خطط معقدة.",
+    "title": "About",
+    "intro": "Welcome to <b>Boost Your Life</b>! Our mission is to make training effective, clear and motivating so you progress every week — without getting lost in complicated plans.",
     "mission": {
-      "title": "رسالتنا",
-      "body": "نقدّم برامج تدريبية مخصّصة تتكيف مع مستواك ووقتك وأهدافك (خسارة الدهون، زيادة العضلات، الأداء، العودة إلى اللياقة). كل شيء مصمّم ليكون بسيطًا ومستدامًا: جلسات ذكية وتقدم قابل للقياس بلا إطالة."
+      "title": "Our mission",
+      "body": "We build personalised programs that adapt to your level, time and goals (fat loss, muscle gain, performance, getting back in shape). Everything is designed to be simple to follow and sustainable."
     },
     "features": {
-      "title": "ماذا ستحصل؟",
+      "title": "What you get",
       "items": [
-        "برنامج شخصي يتكيّف تلقائيًا مع ملاحظاتك (RPE، الحمل، الملحوظات)",
-        "جلسات مُرشدة خطوة بخطوة مع تعليمات وبدائل وإيقاعات",
-        "تتبّع ذكي للصعوبة وحِمل التدريب",
-        "مؤقّتات مدمجة (عمل/راحة) وسوبرسِت تلقائي",
-        "إحصاءات واضحة: التقدم بكل حركة وبكل جلسة",
-        "تمارين مناسبة لمعداتك (نادي، منزل، حدّ أدنى)",
-        "تذكيرات وتقويم — التزام منتظم دون عناء",
-        "وصول إلى برامج مميزة ودعم المدرب عند الحاجة"
-      ]
+        "A personalised program that auto-adjusts from your feedback (RPE, load, notes)",
+        "Step-by-step workouts with cues, alternatives and tempos",
+        "Smart difficulty & training-load tracking",
+        "Built-in timers (work/rest) and automatic supersets",
+        "Clear stats: progress per movement and per workout",
+        "Exercises adapted to your equipment (gym, home, minimal)",
+        "Reminders and calendar — stay consistent without thinking about it",
+        "Access to premium programs and coach support if needed"
+      ],
+      "empty": ""
     },
     "autonomy": {
-      "title": "استقلاليتك",
-      "body": "أنت تتحكم بالإيقاع: انقل جلسة، قصّر أخرى، أضف ملاحظات أو اطلب بديلاً. يرافقك التطبيق دون إثقال — كل جلسة تقرّبك من أهدافك."
+      "title": "Your autonomy",
+      "body": "You stay in control: move a session, shorten one, add notes or request a variant. The app guides you without overload — every session counts toward your goals."
     },
     "why": {
-      "title": "لماذا ينجح هذا؟",
+      "title": "Why it works",
       "items": [
-        "تقدّم مُخطّط: يتكيّف الحمل والصعوبة تلقائيًا",
-        "تنفيذ واضح: تعرف ما الذي تفعله ومتى ترتاح",
-        "تكيّف مع السياق: نادي، منزل أو معدات محدودة",
-        "انتظام بلا احتكاك: تذكيرات + تقويم مدمج",
-        "تقدّم قابل للقياس: جداول بسيطة لكل جلسة ولكل حركة"
-      ]
+        "Planned progression: load & difficulty adjust automatically",
+        "Execution clarity: know exactly what to do and when to rest",
+        "Context-aware: gym, home or minimal equipment",
+        "Frictionless consistency: reminders + integrated calendar",
+        "Trackable progress: simple tables per session and movement"
+      ],
+      "empty": ""
     },
-    "cta": "ابدأ الآن"
+    "cta": "Get started",
+    "vision": {
+      "title": "رؤيتنا",
+      "body": "نؤمن بأن التدريب الحديث يجب أن يعتمد على أدوات حديثة.\n\nطموحنا هو أن نصبح مرجعًا للمدربين المستقلين الذين يرغبون في تنظيم عملهم واحترافه وتطويره.\n\nلم يعد التدريب يعتمد فقط على الكفاءة التقنية، بل أيضًا على القدرة على تقديم تجربة واضحة وقابلة للقياس ومتسقة.\n\nBoost Your Life جزء من هذا التطور.\n\nتتطور المنصة باستمرار لتتكيف مع احتياجات المدربين وواقع العمل الميداني."
+    }
   },
   "contact": {
-    "title": "اتصل بنا",
-    "intro": "لديك سؤال أو ملاحظة؟ أرسِل لنا رسالة.",
+    "title": "Contact",
+    "intro": "Questions or feedback? Send us a message.",
     "fields": {
       "name": {
-        "label": "الاسم",
-        "placeholder": "اسمك"
+        "label": "Name",
+        "placeholder": "Your name"
       },
       "email": {
-        "label": "البريد الإلكتروني",
+        "label": "Email",
         "placeholder": "you@email.com"
       },
       "message": {
-        "label": "الرسالة",
-        "placeholder": "كيف يمكننا مساعدتك؟"
+        "label": "Message",
+        "placeholder": "Tell us how we can help…"
       }
     },
-    "submit": "إرسال",
-    "success_title": "تم إرسال الرسالة ✓",
-    "success_desc": "شكرًا! لقد استلمنا رسالتك. سنعود إليك قريبًا.",
-    "error_title": "تعذر الإرسال",
-    "error_desc": "حدث خطأ ما. حاول مرة أخرى.",
+    "submit": "Send",
+    "success_title": "Message sent ✅ ",
+    "success_desc": "Thanks! We’ll get back to you shortly.",
+    "error_title": "Couldn’t send",
+    "error_desc": "Something went wrong. Please try again.",
     "validation": {
-      "required": "هذا الحقل مطلوب.",
-      "email": "بريد إلكتروني غير صالح.",
-      "min_message": "أدخل على الأقل {{min}} حرفًا."
+      "required": "This field is required.",
+      "email": "Invalid email address.",
+      "min_message": "Your message must be at least {{min}} characters."
+    },
+    "toast": {
+      "success": {
+        "title": "Message envoyé",
+        "desc": "Merci ! Nous vous répondrons rapidement."
+      },
+      "error": {
+        "title": "Erreur",
+        "desc": "Impossible d’envoyer le message. Réessayez."
+      }
     }
   },
   "homePro": {
     "hero": {
-      "titleLine1": "مدرب رياضي،",
-      "titleLine2": "أنشئ. تابع. تطوّر.",
-      "subtitle": "أنشئ برامج تدريبية، خطّطها عبر التقويم، أطلق الحصص مباشرة، وتابع سجل وتقدّم عملائك — كل ذلك في مكان واحد.",
+      "titleLine1": "Fitness coach,",
+      "titleLine2": "Create. Track. Progress.",
+      "subtitle": "Create programs, schedule them in a calendar, run sessions live, and track your clients’ history and progress — all in one place.",
       "proofs": {
         "p1": {
-          "title": "برامج مخصّصة",
-          "desc": "أنشئ برامج احترافية بدون تعقيد."
+          "title": "Custom programs",
+          "desc": "Create professional programs without complexity."
         },
         "p2": {
-          "title": "متابعة منظّمة",
-          "desc": "السجل، التقدّم والبيانات الجسدية في مكان واحد."
+          "title": "Structured tracking",
+          "desc": "History, progress, and body metrics centralized."
         },
         "p3": {
-          "title": "مساحة خاصة للمتدرّب",
-          "desc": "المتدرّب يتابع الحصة، وأنت تتحكم بالإشراف."
+          "title": "Client space included",
+          "desc": "Clients follow the session; you stay in control."
         }
       },
-      "cta": "جرّب المساحة الاحترافية (14 يومًا، بدون بطاقة)",
-      "hint": "إعداد خلال دقائق • القرار بعد التجربة",
-      "scroll": "اكتشف ما ستحصل عليه ↓"
+      "cta": "Try the Pro space (14 days, no card)",
+      "hint": "Setup in minutes • Decide after the trial",
+      "scroll": "See what you get ↓"
     },
     "benefits": {
-      "title": "ماذا ستحصل عليه مع المساحة الاحترافية",
-      "subtitle": "أداة واضحة واحترافية لإنشاء البرامج، تنظيم المتدرّبين، ومتابعة التقدّم — بدون Excel أو ملاحظات مبعثرة.",
+      "title": "What you get with the Pro space",
+      "subtitle": "A clear, professional tool to create programs, organize your clients, and track their progress — without Excel, scattered notes, or piling files.",
       "cards": {
         "c1": {
-          "title": "إنشاء برامج احترافية بدون تعقيد",
-          "desc": "حصص واضحة ومنظمة: مجموعات، تكرارات، أوزان، راحة، وقت الجهد، تعليمات، ملاحظات… مع تصدير نظيف."
+          "title": "Create professional programs without complexity",
+          "desc": "Clean, structured sessions: sets, reps, loads, rest, work time, cues, notes… plus clean exports."
         },
         "c2": {
-          "title": "تقويم مدمج",
-          "desc": "خطّط الحصص، راقب حالتها (قادمة / مكتملة / فائتة) وحافظ على تنظيم كامل."
+          "title": "Built-in calendar",
+          "desc": "Schedule sessions, see status (upcoming / completed / missed), and stay fully organized."
         },
         "c3": {
-          "title": "حصة موجّهة مباشرة",
-          "desc": "أطلق التدريب تمرينًا بتمرين: جميع القيم قابلة للتعديل في الوقت الحقيقي وتبقى متزامنة."
+          "title": "Live guided session",
+          "desc": "Run sessions exercise by exercise: all values are editable in real time and stay synchronized."
         },
         "c4": {
-          "title": "متابعة شاملة",
-          "desc": "سجل الحصص، التقدّم، والبيانات الجسدية (الوزن، القياسات، إلخ) في مكان واحد."
+          "title": "Complete tracking",
+          "desc": "Session history, progress, and body tracking (weight, measurements, etc.) in one place."
         }
       },
-      "cta": "بسّط عملي كمدرب (تجربة 14 يومًا)",
-      "hint": "بدون بطاقة • وصول كامل فورًا"
+      "cta": "Simplify my coaching (14-day trial)",
+      "hint": "No card required • Full access instantly"
     },
     "mockup": {
-      "title": "المدرب يخطّط، والمتدرّب يتطوّر",
-      "p1": "المساحة الاحترافية مصممة ليومك كمدرب: تنشئ البرامج، تخطّط، تعدّل وتتابع. المتدرّب من جهته يتبع الحصة بسهولة عبر الهاتف. النتيجة: تدريب أكثر سلاسة، أوضح، وأكثر احترافية.",
-      "p2": "جميع البيانات تبقى مركزية وجاهزة للتعديل: مجموعات، تكرارات، أوزان، وقت الجهد، الراحة، الملاحظات…",
-      "cta": "مركزة برامجي التدريبية (14 يومًا)",
-      "hint": "بدون بطاقة • القرار بعد التجربة",
-      "imageAlt": "معاينة المساحة الاحترافية"
+      "title": "The coach builds, the client progresses",
+      "p1": "The Pro space is built for your day-to-day coaching: you build programs, schedule, adjust, and track. On their side, clients simply follow the session on mobile (on their own or with you). Result: smoother, clearer, more professional coaching.",
+      "p2": "All data stays centralized and ready to adjust: sets, reps, loads, work time, rest, notes…",
+      "cta": "Centralize my programs (14 days)",
+      "hint": "No card required • Decide after the trial",
+      "imageAlt": "Pro space preview"
     },
     "how": {
-      "title": "كيف يعمل (عمليًا)",
+      "title": "How it works (in practice)",
       "coach": {
-        "title": "من جهة المدرب",
+        "title": "Coach side",
         "steps": {
-          "s1": "1) تنشئ برنامجًا أو حصة خلال دقائق.",
-          "s2": "2) تخطط عبر التقويم وتعيّنها للمتدرّبين.",
-          "s3": "3) تتابع التمارين، التقدّم والبيانات الجسدية."
+          "s1": "1) Create a program / session in minutes.",
+          "s2": "2) Schedule it in the calendar and assign it to your clients.",
+          "s3": "3) Track workouts, progress, and body metrics (weight, measurements, etc.)."
         },
-        "gainTitle": "ما الذي ستكسبه:",
+        "gainTitle": "What you gain:",
         "gains": {
-          "g1": "تنظيم واضح وتحت السيطرة",
-          "g2": "مظهر أكثر احترافية ومصداقية",
-          "g3": "إدارة أقل، تدريب أكثر"
+          "g1": "Clear, fully controlled organization",
+          "g2": "More professional, more credible results",
+          "g3": "Less admin, more coaching"
         }
       },
       "student": {
-        "title": "من جهة المتدرّب",
+        "title": "Client side",
         "steps": {
-          "s1": "1) يرى حصصه في التقويم.",
-          "s2": "2) يتبع الحصة الموجّهة عبر الهاتف.",
-          "s3": "3) يؤكد الحصة ويعود السجل للمدرب."
+          "s1": "1) They see their sessions in their calendar.",
+          "s2": "2) They follow a guided session on mobile.",
+          "s3": "3) They validate it, and history syncs back to you."
         },
-        "benefitTitle": "بالنسبة للمتدرّب:",
+        "benefitTitle": "For the client:",
         "benefits": {
-          "b1": "حصة واضحة بدون ارتباك",
-          "b2": "تقدّم مرئي (أكثر تحفيزًا)",
-          "b3": "أخطاء أقل وانتظام أكبر"
+          "b1": "A clear session, no confusion",
+          "b2": "Visible progress (more motivating)",
+          "b3": "Fewer mistakes, more consistency"
         }
       }
     },
     "promise": {
-      "title": "وعدنا لك",
-      "subtitle": "وداعًا لبرامج Excel أو الورق: انتقل إلى أداة واضحة واحترافية تبسّط عملك، تعزّز مصداقيتك، وتوفّر وقتًا حقيقيًا.",
+      "title": "Our promise",
+      "subtitle": "No more Excel or paper programs: switch to a clear, professional tool that simplifies your day, strengthens your credibility, and saves real time.",
       "cards": {
         "simplicity": {
-          "title": "البساطة",
-          "desc": "أنشئ حصصك بأداة واضحة وقاعدة تمارين منظمة ومحدّثة. ارتجال أقل، انسجام أكبر."
+          "title": "Simplicity",
+          "desc": "Build sessions with a clear tool and an organized, up-to-date exercise library. Less patchwork, more consistency."
         },
         "speed": {
-          "title": "السرعة",
-          "desc": "إنشاء وتعديل البرامج على Excel أو الورق يستهلك الوقت. في المتوسط، يمكن للمدرب توفير 5 إلى 8 ساعات شهريًا عبر توحيد العمل هنا."
+          "title": "Speed",
+          "desc": "Creating and updating programs in Excel/paper quickly becomes time-consuming. On average, a coach can get back ~5 to 8 hours per month by centralizing their method here."
         },
         "centralized": {
-          "title": "كل شيء في مكان واحد",
-          "desc": "البرامج، التقويم، الحصص، التقدّم والبيانات الجسدية مجتمعة لتنظيم واضح وتحت السيطرة."
+          "title": "All centralized",
+          "desc": "Programs, calendar, sessions, progress and body metrics in one place — for a clear, controlled organization."
         }
       },
       "ctaBlock": {
-        "title": "انتقل للوضع الاحترافي بدون التزام",
-        "desc": "تجربة 14 يومًا بدون بطاقة. الهدف بسيط: تجرب الأداة مع متدرّبين حقيقيين وتلاحظ فرق الوقت والوضوح.",
-        "cta": "جرّب المساحة الاحترافية (14 يومًا، بدون بطاقة)",
-        "hint": "وصول كامل فورًا • القرار بعد التجربة"
+        "title": "Go Pro, with no commitment",
+        "desc": "The 14-day trial requires no card. The goal is simple: let you test with your real clients and feel the time savings and clarity in your organization.",
+        "cta": "Try the Pro space (14 days, no card)",
+        "hint": "Full access instantly • Decide after the trial"
       },
-      "forYouTitle": "هذه المنصة مناسبة لك إذا…",
+      "forYouTitle": "This is for you if…",
       "forYou": {
-        "f1": "تريد التوقف عن العمل العشوائي على Excel أو الورق",
-        "f2": "تبحث عن تنظيم واضح (تقويم + متابعة)",
-        "f3": "تريد توفير الوقت كل أسبوع",
-        "f4": "تريد مظهرًا احترافيًا يعزّز مصداقيتك",
-        "f5": "تريد مركزية المتابعة (الحصص + التقدّم + البيانات الجسدية)"
+        "f1": "You want to stop “patchworking” programs in Excel / on paper",
+        "f2": "You want a clear organization (calendar + tracking)",
+        "f3": "You want to save time every week",
+        "f4": "You want a pro result that strengthens your credibility",
+        "f5": "You want to centralize tracking (sessions + progress + body metrics)"
       }
     },
     "faq": {
-      "title": "الأسئلة الشائعة",
+      "title": "Frequently asked questions",
       "items": {
         "q1": {
-          "q": "هل من السهل الإعداد والتكيّف مع أسلوبي في التدريب؟",
-          "a": "نعم. يمكنك البدء ببساطة (حصة واحدة، متدرّب واحد) ثم التنظيم تدريجيًا. الأداة تتكيّف مع أسلوبك مع إطار أوضح وأكثر احترافية."
+          "q": "Is it easy to set up and adapt to my coaching method?",
+          "a": "Yes. You can start simple (one session, one client) and structure progressively. The tool adapts to your coaching style: you keep your parameters, your organization and habits — with a clearer, more professional framework."
         },
         "q2": {
-          "q": "هل هي مفيدة فعلًا للمتدرّبين؟",
-          "a": "نعم، لأن المتدرّب لا يحتاج لفهم نظامك الداخلي: يتبع حصة موجّهة وواضحة. النتيجة: أخطاء أقل وانتظام أكبر وتقدّم أسهل للرؤية."
+          "q": "Is it really useful for clients?",
+          "a": "Yes, because clients don’t need to understand your back-office: they follow a guided session that’s clear and structured. Result: fewer mistakes, more consistency, and progress that’s easier to visualize."
         },
         "q3": {
-          "q": "هل هي مناسبة للتدريب عن بُعد، في المنزل أو في النادي؟",
-          "a": "نعم. سواء كان التدريب حضوريًا، عبر الفيديو أو ذاتيًا، يبقى التقويم والسجل والتقدّم مركزيين."
+          "q": "Is it compatible with remote coaching, at-home, and in-gym coaching?",
+          "a": "Yes. You can coach in person, on video, or let clients train independently. In all cases, the calendar, history, and progress remain centralized."
         },
         "q4": {
-          "q": "ماذا يحدث بعد 14 يومًا؟",
-          "a": "ستكون قد جرّبت الأداة ضمن روتينك الحقيقي. التجربة بدون بطاقة: تتابع فقط إذا لاحظت قيمة حقيقية."
+          "q": "What happens after the 14 days?",
+          "a": "You’ll have time to test the tool with your real routine. The trial is no-card: you choose what’s next only if you see real value (time saved, clarity, pro output)."
         },
         "q5": {
-          "q": "كيف تساعدني على الظهور بشكل أكثر احترافية؟",
-          "a": "برامج أوضح، تنظيم أفضل، ومتابعة أسهل. تحكّم أكبر وارتجال أقل — وهذا ما يشعر به المتدرّب."
+          "q": "How does it help me look more professional?",
+          "a": "Your programs become clearer and better structured, and your tracking becomes easier to follow. Less improvisation, more control — that’s what clients feel, and what boosts your credibility."
         },
         "q6": {
-          "q": "هل يمكنني متابعة أكثر من مجرد الحصص (قياسات، بيانات…)?",
-          "a": "نعم. يمكنك أيضًا متابعة الوزن، القياسات، ومؤشرات أخرى لعرض التقدّم بمرور الوقت."
+          "q": "Can I track more than just sessions (measurements, data…)?",
+          "a": "Yes. You can also centralize body metrics like weight, measurements, and other indicators to complement session tracking and visualize progress over time."
         }
       },
-      "cta": "جرّب المساحة الاحترافية (14 يومًا، بدون بطاقة)",
-      "hint": "وصول كامل فورًا • القرار بعد التجربة"
+      "cta": "Try the Pro space (14 days, no card)",
+      "hint": "Full access instantly • Decide after the trial"
     }
+  },
+  "status": {
+    "upcoming": "قادمة",
+    "validated": "معتمدة",
+    "missed": "فاتت"
+  },
+  "nutrition": {
+    "title": "Nutrition"
   }
 }

@@ -6,7 +6,7 @@ import {
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton,
   ModalBody, ModalFooter, FormControl, FormLabel, Select, Input,
   VStack, Progress, Image, Badge, useToast, Divider, Link as ChakraLink,
-  SimpleGrid, Icon, Tooltip,
+  SimpleGrid, Icon, Tooltip, Circle, Stack, useBreakpointValue,
 } from '@chakra-ui/react';
 import { AddIcon } from '@chakra-ui/icons';
 import { Link, useNavigate } from 'react-router-dom';
@@ -14,6 +14,7 @@ import {
   collection, getDocs, query, where, onSnapshot,
   doc, addDoc, updateDoc, deleteDoc, Timestamp, getDoc
 } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../firebaseConfig';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
@@ -23,7 +24,19 @@ import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import { useAuth } from '../AuthContext';
 import { useTranslation } from 'react-i18next';
 import { FaStar, FaRegStar } from "react-icons/fa";
-
+import { resolveStorageUrl } from "../utils/storageUrls";
+import ClientNutritionSharedSection from "./ClientNutritionSharedSection.jsx";
+import {
+  MdOutlineCalendarMonth,
+  MdOutlineChecklist,
+  MdOutlineFitnessCenter,
+  MdOutlineInsights,
+  MdOutlineRestaurantMenu,
+  MdOutlineSchedule,
+  MdOutlineStars,
+  MdOutlineTrendingUp,
+} from "react-icons/md";
+import AppLoading from "./ui/AppLoading";
 // ✅ base centralisée
 import { getApiBase } from '../utils/apiBase';
 const API_BASE = getApiBase();
@@ -82,9 +95,40 @@ function getTotalSessionsFromProgrammeDoc(p) {
   return 0;
 }
 
+function getSessionExerciseCount(session) {
+  if (!session || typeof session !== 'object') return 0;
+  const arrays = [
+    session.echauffement,
+    session.corps,
+    session.bonus,
+    session.retourCalme,
+    session.exercises,
+  ];
+  const total = arrays.reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
+  return total > 0 ? total : 0;
+}
+
 const isTouchDevice = () =>
   typeof window !== 'undefined' &&
   ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+
+const pad2 = (value) => String(value).padStart(2, '0');
+
+const formatLocalDateKey = (value) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+};
+
+const formatDateTimeLocalValue = (value) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${formatLocalDateKey(date)}T${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+};
+
+function getBrowserTimezone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris';
+}
 
 async function resolveCoachDisplay(p) {
   const createdBy = p?.createdBy || p?.createdByUid || p?.coachId || '';
@@ -375,6 +419,20 @@ export default function ClientDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
+  const { firstName, logoUrl, primaryColor } = user || {};
+  const [resolvedLogoUrl, setResolvedLogoUrl] = useState(null);
+  const calendarModalHelpColor = useColorModeValue('gray.600', 'gray.300');
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const url = await resolveStorageUrl(logoUrl);
+      if (alive) setResolvedLogoUrl(url || null);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [logoUrl]);
 
   // ✅ mapping objectif Firestore -> i18n key (même que ProgramsPage)
   const GOAL_LABEL_KEY = useMemo(() => ({
@@ -430,6 +488,10 @@ export default function ClientDashboard() {
   const [isRescheduleOpen, setRescheduleOpen] = useState(false);
   const [rescheduleDateTime, setRescheduleDateTime] = useState('');
 
+  const [isCalendarModalOpen, setCalendarModalOpen] = useState(false);
+  const [calendarSubscriptionUrl, setCalendarSubscriptionUrl] = useState('');
+  const [calendarLinkLoading, setCalendarLinkLoading] = useState(false);
+
   const freeAvailable = useMemo(() => {
     if (user?.firstPremiumClaimed === true) return false;
     return !hasPremiumOwned;
@@ -465,6 +527,48 @@ export default function ClientDashboard() {
     console.warn('[ClientDashboard] Aucun document client trouvé pour', u.uid, email);
     return null;
   }
+
+  const handleOpenCalendarLinkModal = () => {
+    setCalendarSubscriptionUrl('');
+    setCalendarModalOpen(true);
+  };
+
+  const handleGenerateCalendarLink = async () => {
+    if (!user?.uid || !clientId) {
+      toast({ status: 'error', title: 'Client introuvable', description: 'Impossible de générer le lien sans compte client.' });
+      return;
+    }
+
+    try {
+      setCalendarLinkLoading(true);
+      const functions = getFunctions(undefined, 'europe-west1');
+      const callable = httpsCallable(functions, 'ensureCalendarSubscription');
+      const result = await callable({ clientId, timezone: getBrowserTimezone() });
+      const url = result?.data?.url || '';
+      setCalendarSubscriptionUrl(url);
+      toast({ status: 'success', title: 'Lien calendrier prêt', description: url ? 'Le lien est prêt et peut être copié.' : 'Le lien du calendrier a été généré.' });
+      if (url && navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        toast({ status: 'success', title: 'Lien copié', description: 'Le lien d’abonnement a été copié dans le presse-papier.' });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ status: 'error', title: 'Erreur calendrier', description: 'Impossible de générer le lien du calendrier.' });
+    } finally {
+      setCalendarLinkLoading(false);
+    }
+  };
+
+  const handleCopyCalendarUrl = async () => {
+    if (!calendarSubscriptionUrl) return;
+    try {
+      await navigator.clipboard.writeText(calendarSubscriptionUrl);
+      toast({ status: 'success', title: 'Lien copié', description: 'Le lien d’abonnement a bien été copié.' });
+    } catch (err) {
+      console.error(err);
+      toast({ status: 'error', title: 'Impossible de copier', description: 'Copiez le lien manuellement depuis la fenêtre.' });
+    }
+  };
 
   /* -------- Notes (rating) : sous-collection difficulté_notes -------- */
   async function fetchDifficultyMap({ cId, programmeId }) {
@@ -668,6 +772,25 @@ export default function ClientDashboard() {
               return { id: s.id, ...sd };
             });
 
+            const latestSessionRecord = [...sessionsEffectuees]
+              .sort((a, b) => {
+                const ams =
+                  toMillis(a.updatedAt) ||
+                  toMillis(a.dateEffectuee) ||
+                  toMillis(a.completedAt) ||
+                  toMillis(a.startedAt) ||
+                  toMillis(a.createdAt) ||
+                  0;
+                const bms =
+                  toMillis(b.updatedAt) ||
+                  toMillis(b.dateEffectuee) ||
+                  toMillis(b.completedAt) ||
+                  toMillis(b.startedAt) ||
+                  toMillis(b.createdAt) ||
+                  0;
+                return bms - ams;
+              })[0] || null;
+
             const totalPrevues = getTotalSessionsFromProgrammeDoc(p);
             let done = 0;
             const finishedIdx = new Set();
@@ -688,6 +811,31 @@ export default function ClientDashboard() {
               while (nextIndex < totalPrevues && finishedIdx.has(nextIndex)) nextIndex++;
               if (nextIndex >= totalPrevues) nextIndex = Math.max(0, totalPrevues - 1);
             }
+
+            const latestPct = Number(latestSessionRecord?.pourcentageTermine);
+            const latestSessionIndex = Number(latestSessionRecord?.sessionIndex);
+            const hasResumePoint =
+              Number.isFinite(latestPct) &&
+              latestPct > 0 &&
+              latestPct < 90 &&
+              Number.isFinite(latestSessionIndex);
+
+            const resumeSessionIndex = hasResumePoint ? latestSessionIndex : nextIndex;
+            const resumeSession = Array.isArray(p.sessions) ? p.sessions[resumeSessionIndex] : null;
+            const resumeExerciseCount = getSessionExerciseCount(resumeSession);
+            const resumeExerciseIndex = hasResumePoint && resumeExerciseCount > 0
+              ? Math.min(
+                  resumeExerciseCount - 1,
+                  Math.max(0, Math.ceil((latestPct / 100) * resumeExerciseCount) - 1)
+                )
+              : 0;
+            const partialSessionFraction =
+              hasResumePoint && !finishedIdx.has(latestSessionIndex)
+                ? Math.max(0, Math.min(0.99, latestPct / 100))
+                : 0;
+            const visualPercent = totalPrevues > 0
+              ? Math.min(100, Math.round(((done + partialSessionFraction) / totalPrevues) * 100))
+              : percent;
 
             const nomProgramme = getProgrammeDisplayName(p);
             const coachDisplay = await resolveCoachDisplay(p);
@@ -716,7 +864,12 @@ export default function ClientDashboard() {
               _done: done,
               _total: totalPrevues,
               _percent: percent,
+              _visualPercent: visualPercent,
               _nextIndex: nextIndex,
+              _resumeSessionIndex: resumeSessionIndex,
+              _resumeExerciseIndex: resumeExerciseIndex,
+              _resumePct: hasResumePoint ? Math.max(1, Math.min(99, Math.round(latestPct))) : null,
+              _hasResumePoint: hasResumePoint,
               _assignedAtMs: assignedAtMs,
               _createdAtMs: createdAtMs,
               _lastSessionMs: lastSessionMs,
@@ -790,7 +943,7 @@ export default function ClientDashboard() {
             t('client_dash.session_n', { n: idx + 1 });
 
           const title = `${progName} — ${sessionTitle}`;
-          const dayKey = startDate.toISOString().slice(0, 10);
+          const dayKey = formatLocalDateKey(startDate);
 
           const keys = [
             `${user.uid}_${p.id}_${idx}_${dayKey}`,
@@ -853,9 +1006,40 @@ export default function ClientDashboard() {
       : `/clients/${clientId}/programmes/${p.id}`;
     navigate(href);
   };
+  const navigateToProgramSession = (p, sessionIndex) => {
+    if (!clientId || !p) return;
+    const safeIndex = Number.isFinite(Number(sessionIndex)) ? Number(sessionIndex) : 0;
+    const href = isAutoProgramme(p)
+      ? `/auto-program-preview/${clientId}/${p.id}`
+      : `/clients/${clientId}/programmes/${p.id}`;
+    navigate(href, { state: { sessionIndex: safeIndex } });
+  };
+  const navigateToCalendarSession = (event) => {
+    if (!event?.programmeId) return;
+    const prog = programmes.find((p) => p.id === event.programmeId);
+    if (!prog) return;
+    navigateToProgramSession(prog, event.sessionIndex ?? 0);
+  };
   const startNextSession = (p) => {
     if (!clientId || !(p?._total >= 1)) return;
-    navigate(`/clients/${clientId}/programmes/${p.id}/session/${p._nextIndex}/play`);
+    const resumeSessionIndex = Number.isFinite(Number(p?._resumeSessionIndex))
+      ? Number(p._resumeSessionIndex)
+      : Number(p?._nextIndex) || 0;
+    const resumeExerciseIndex = Number.isFinite(Number(p?._resumeExerciseIndex))
+      ? Number(p._resumeExerciseIndex)
+      : 0;
+
+    navigate(
+      `/clients/${clientId}/programmes/${p.id}/session/${resumeSessionIndex}/play`,
+      {
+        state: {
+          exerciseIndex: resumeExerciseIndex,
+          resumeExerciseIndex,
+          resumeSessionIndex,
+          resumePct: p?._resumePct ?? null,
+        },
+      }
+    );
   };
 
   /* ------------------ Achat premium / 1er gratuit (fallback endpoints) ------------------ */
@@ -992,7 +1176,7 @@ export default function ClientDashboard() {
 
   const openReschedule = () => {
     if (!selectedEvent) return;
-    const iso = new Date(selectedEvent.start).toISOString().slice(0, 16);
+    const iso = formatDateTimeLocalValue(selectedEvent.start);
     setRescheduleDateTime(iso);
     setRescheduleOpen(true);
   };
@@ -1009,16 +1193,20 @@ export default function ClientDashboard() {
     setEventOpen(false);
   };
 
-  if (!user) return <Flex minH="100vh" align="center" justify="center"><Spinner size="xl" /></Flex>;
+  if (!user) return <AppLoading label={t("common.loading", "Chargement...")} />;
 
-  const { firstName, logoUrl, primaryColor } = user || {};
-  const pageBg       = useColorModeValue('gray.50','gray.900');
-  const cardBg       = useColorModeValue('white','gray.800');
-  const textColor    = useColorModeValue('gray.800','gray.100');
-  const headerBg     = useColorModeValue('#f7fafc','#2d3748');
-  const borderColor  = useColorModeValue('#e2e8f0','#4a5568');
-  const offRangeBg   = useColorModeValue('#edf2f7','#1f2736');
-  const todayBg      = useColorModeValue('#bee3f8','#2c5282');
+  const pageBg = useColorModeValue("#F5F7FB", "#070B14");
+  const surfaceBg = useColorModeValue("rgba(255,255,255,0.85)", "rgba(15,21,35,0.86)");
+  const surfaceBgStrong = useColorModeValue("rgba(255,255,255,0.95)", "rgba(11,16,27,0.95)");
+  const cardBg = surfaceBgStrong;
+  const textColor = useColorModeValue("#111827", "white");
+  const headerBg = useColorModeValue("rgba(248,250,252,0.95)", "rgba(255,255,255,0.03)");
+  const borderColor = useColorModeValue("rgba(15,23,42,0.08)", "rgba(255,255,255,0.08)");
+  const borderStrong = useColorModeValue("rgba(15,23,42,0.12)", "rgba(255,255,255,0.12)");
+  const offRangeBg = useColorModeValue('#edf2f7','#1f2736');
+  const todayBg = useColorModeValue('#dbeafe','#183b6b');
+  const activeBlue = "#3B82F6";
+  const isMobileDashboard = useBreakpointValue({ base: true, md: false });
 
   // ⭐ map programmeId -> difficultyMap (sessionIndex -> {rating,...})
   const difficultyByProgramme = useMemo(() => {
@@ -1101,20 +1289,12 @@ export default function ClientDashboard() {
     }).length;
   }, [sessions]);
 
-  const motivationalText =
-    countThisMonth === 0 ? t('client_dash.motivation.none')
+  const hasSportPrograms = programmes.length > 0;
+  const motivationalText = !hasSportPrograms
+    ? "Ton suivi nutrition est disponible ici, avec les repas, recettes et courses partagés."
+    : countThisMonth === 0 ? t('client_dash.motivation.none')
   : countThisMonth === 1 ? t('client_dash.motivation.one')
   : t('client_dash.motivation.many', { n: countThisMonth });
-
-  // ✅ greetings subtitle (coachdashboard-like)
-  const greetingSubtitle = useMemo(() => {
-    const h = new Date().getHours();
-    const isNight = h >= 22 || h < 5;
-    if (isNight) return "Bonne nuit — pense à bien récupérer 🌙";
-    if (h < 12) return "Belle matinée — on lance la journée fort ?";
-    if (h < 18) return "Heureux de te revoir — objectif : une séance de plus 💪";
-    return "On termine la journée en beauté 🔥";
-  }, []);
 
   // ✅ motivation stats block
   const motivationStats = useMemo(() => {
@@ -1180,142 +1360,712 @@ export default function ClientDashboard() {
     return { validatedThisWeek, validatedThisMonth, streak, upcoming, doneAll, totalAll, percentAll };
   }, [sessions, programmes, i18n.language]);
 
-  const displayedProgrammes = programmes.slice(0, 5);
+  const todayOverview = useMemo(() => {
+    const now = new Date();
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setDate(endOfDay.getDate() + 1);
+
+    const todaySessions = sessions.filter((e) => {
+      if (!e?.start) return false;
+      const d = e.start instanceof Date ? e.start : new Date(e.start);
+      return d >= startOfDay && d < endOfDay;
+    });
+
+    const validated = todaySessions.filter((e) => e.status === "validée").length;
+    const planned = todaySessions.filter((e) => e.status !== "validée" && e.status !== "manquée").length;
+
+    const upcoming = todaySessions
+      .filter((e) => e.status !== "validée" && e.status !== "manquée" && e?.start)
+      .map((e) => ({ ...e, _start: e.start instanceof Date ? e.start : new Date(e.start) }))
+      .filter((e) => e._start && !isNaN(e._start.getTime()) && e._start >= now)
+      .sort((a, b) => a._start - b._start)[0] || null;
+
+    return { validated, planned, upcoming };
+  }, [sessions]);
+
+  const displayedProgrammes = programmes.slice(0, isMobileDashboard ? 3 : 5);
+  const mutedText = useColorModeValue("rgba(17,24,39,0.68)", "rgba(255,255,255,0.68)");
+  const subtleText = useColorModeValue("rgba(17,24,39,0.52)", "rgba(255,255,255,0.46)");
+  const heroTint = useColorModeValue("rgba(59,130,246,0.08)", "rgba(59,130,246,0.10)");
+  const glassShadow = useColorModeValue(
+    "0 20px 50px rgba(15,23,42,0.08)",
+    "0 20px 60px rgba(0,0,0,0.35)"
+  );
+
+  const upcomingSessions = useMemo(() => {
+    const nowMs = Date.now();
+    return sessions
+      .filter((e) => e?.status !== 'validée' && e?.status !== 'manquée' && e?.start)
+      .map((e) => ({ ...e, _start: e.start instanceof Date ? e.start : new Date(e.start) }))
+      .filter((e) => e._start && !isNaN(e._start.getTime()) && e._start.getTime() >= nowMs)
+      .sort((a, b) => a._start.getTime() - b._start.getTime());
+  }, [sessions]);
+
+  const remainingSessions = Math.max(0, motivationStats.totalAll - motivationStats.doneAll);
+  const averageRating = useMemo(() => {
+    const values = programmes
+      .map((p) => Number(p?._rating))
+      .filter((v) => Number.isFinite(v) && v > 0);
+    if (!values.length) return null;
+    return Math.round((values.reduce((sum, v) => sum + v, 0) / values.length) * 10) / 10;
+  }, [programmes]);
+
+  const focusProgramme = useMemo(() => {
+    if (!programmes.length) return null;
+    return [...programmes].sort((a, b) => {
+      const aOpen = Math.max(0, (Number(a?._total) || 0) - (Number(a?._done) || 0));
+      const bOpen = Math.max(0, (Number(b?._total) || 0) - (Number(b?._done) || 0));
+      if (aOpen === 0 && bOpen > 0) return 1;
+      if (bOpen === 0 && aOpen > 0) return -1;
+      return (b._lastOrAssignedMs || 0) - (a._lastOrAssignedMs || 0);
+    })[0];
+  }, [programmes]);
+
+  const nextSessionLabel = motivationStats.upcoming?._start
+    ? new Date(motivationStats.upcoming._start).toLocaleString(i18n.language || 'fr', {
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : 'Aucune séance planifiée';
+
+  const ClientStatTile = ({ label, value, helper, icon, accent = activeBlue }) => (
+    <Box
+      bg={surfaceBg}
+      border="1px solid"
+      borderColor={borderColor}
+      borderRadius="22px"
+      p={{ base: 3.5, md: 4 }}
+      boxShadow={glassShadow}
+      minH="116px"
+      position="relative"
+      overflow="hidden"
+      _before={{
+        content: '""',
+        position: "absolute",
+        right: "-18px",
+        bottom: "-22px",
+        w: "110px",
+        h: "110px",
+        borderRadius: "full",
+        bg: `${accent}16`,
+        filter: "blur(24px)",
+      }}
+    >
+      <Flex justify="space-between" align="flex-start" gap={4} position="relative" zIndex={1}>
+        <Box minW={0}>
+          <Text fontSize="sm" color={mutedText} fontWeight="600" lineHeight="1.2">
+            {label}
+          </Text>
+          <Text mt={2} fontSize={{ base: '2xl', md: '3xl' }} fontWeight="900" letterSpacing="-0.03em" lineHeight="1">
+            {value}
+          </Text>
+          {helper ? (
+            <Text mt={2.5} fontSize="sm" color={subtleText} lineHeight="1.35">
+              {helper}
+            </Text>
+          ) : null}
+        </Box>
+
+        <Circle
+          size="46px"
+          bg={useColorModeValue("rgba(59,130,246,0.10)", "rgba(59,130,246,0.16)")}
+          border="1px solid"
+          borderColor={`${activeBlue}33`}
+          color={accent}
+          flexShrink={0}
+        >
+          <Icon as={icon} boxSize="22px" />
+        </Circle>
+      </Flex>
+    </Box>
+  );
+
+  const ClientCardShell = ({ title, subtitle, action, icon, children, minH, accent = activeBlue, ...boxProps }) => (
+    <Box
+      bg={surfaceBg}
+      border="1px solid"
+      borderColor={borderColor}
+      borderRadius="22px"
+      p={{ base: 3.5, md: 4 }}
+      boxShadow={glassShadow}
+      backdropFilter="blur(14px)"
+      minH={minH}
+      position="relative"
+      overflow="hidden"
+      _before={{
+        content: '""',
+        position: "absolute",
+        right: "-20px",
+        bottom: "-24px",
+        w: "140px",
+        h: "140px",
+        borderRadius: "full",
+        bg: `${accent}14`,
+        filter: "blur(30px)",
+      }}
+      {...boxProps}
+    >
+      <Flex justify="space-between" align="flex-start" gap={4} mb={4} position="relative" zIndex={1}>
+        <HStack spacing={3} align="flex-start">
+          {icon ? (
+            <Circle
+              size="40px"
+              bg={`${accent}20`}
+              color={accent}
+              flexShrink={0}
+            >
+              <Icon as={icon} boxSize="20px" />
+            </Circle>
+          ) : null}
+          <Box>
+            <Heading size="md" letterSpacing="-0.02em">
+              {title}
+            </Heading>
+            {subtitle ? (
+              <Text mt={1} fontSize="sm" color={subtleText}>
+                {subtitle}
+              </Text>
+            ) : null}
+          </Box>
+        </HStack>
+        {action}
+      </Flex>
+      <Box position="relative" zIndex={1}>{children}</Box>
+    </Box>
+  );
 
   return (
-    <Box bg={pageBg} minH="100vh" p={{base:2,md:6}} color={textColor}>
-      {/* Header */}
-      <Flex align="center" justify="space-between" mb={3}>
-        <HStack>
-          {logoUrl && <Image src={logoUrl} boxSize="48px" alt={t('client_dash.logo_alt')} mr={2} />}
-          <Text fontSize="2xl" fontWeight="bold" color={primaryColor || 'inherit'}>
-            {t('client_dash.hello_name', { name: firstName || user.displayName || t('client_dash.client') })} 👋
-          </Text>
-        </HStack>
-      </Flex>
-
-      {/* Greetings / Motivation (coachdashboard-like) */}
+    <Box bg={pageBg} minH="100vh" p={{base:3,md:6}} color={textColor} position="relative" overflow="hidden">
       <Box
-        bg={cardBg}
-        border="1px solid"
-        borderColor={borderColor}
-        p={{ base: 4, md: 5 }}
-        borderRadius="xl"
-        boxShadow="sm"
-        mb={6}
-      >
-        <VStack align="stretch" spacing={3}>
-          <Box>
-            <Text fontSize="sm" color={useColorModeValue("gray.600", "gray.300")}>
-              {greetingSubtitle}
-            </Text>
-            <Text fontSize="md" fontWeight="semibold" mt={1}>
-              {motivationalText}
-            </Text>
+        position="absolute"
+        top="-140px"
+        right="-100px"
+        w="420px"
+        h="420px"
+        borderRadius="full"
+        bg={useColorModeValue("rgba(59,130,246,0.10)", "rgba(59,130,246,0.14)")}
+        filter="blur(90px)"
+        pointerEvents="none"
+      />
+      <Box
+        position="absolute"
+        bottom="-140px"
+        left="-100px"
+        w="380px"
+        h="380px"
+        borderRadius="full"
+        bg={useColorModeValue("rgba(16,185,129,0.08)", "rgba(16,185,129,0.10)")}
+        filter="blur(90px)"
+        pointerEvents="none"
+      />
+      <Box position="relative" zIndex={1}>
+      <Box mb={5}>
+          <Box
+            bg={surfaceBgStrong}
+            border="1px solid"
+            borderColor={borderStrong}
+            p={{ base: 3, md: 4 }}
+            borderRadius={{ base: "24px", md: "30px" }}
+            boxShadow={glassShadow}
+            position="relative"
+            overflow="hidden"
+          >
+            <Box
+              position="absolute"
+              top="-40px"
+              right="-20px"
+              w="220px"
+              h="220px"
+              borderRadius="full"
+              bg={useColorModeValue("rgba(59,130,246,0.08)", "rgba(59,130,246,0.10)")}
+              filter="blur(38px)"
+            />
+            <Box
+              position="absolute"
+              bottom="-60px"
+              left="20%"
+              w="240px"
+              h="240px"
+              borderRadius="full"
+              bg={useColorModeValue("rgba(16,185,129,0.08)", "rgba(16,185,129,0.10)")}
+              filter="blur(48px)"
+            />
+
+            <Flex
+              position="relative"
+              zIndex={1}
+              direction={{ base: 'column', xl: 'row' }}
+              justify="space-between"
+              align={{ base: 'stretch', xl: 'center' }}
+              gap={{ base: 3, md: 2.5 }}
+            >
+              <Flex align="center" gap={2.5} minW={0} flex="1">
+                <Flex
+                  display={{ base: "none", sm: "flex" }}
+                  w={{ base: "48px", md: "68px" }}
+                  h={{ base: "48px", md: "68px" }}
+                  borderRadius="22px"
+                  bg={useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")}
+                  border="1px solid"
+                  borderColor={borderStrong}
+                  overflow="hidden"
+                  align="center"
+                  justify="center"
+                  boxShadow={useColorModeValue(
+                    "0 18px 40px rgba(15,23,42,0.08)",
+                    "0 18px 40px rgba(0,0,0,0.22)"
+                  )}
+                  flexShrink={0}
+                >
+                  <Image
+                    src={resolvedLogoUrl || "/logo-byl.png"}
+                    alt={t('client_dash.logo_alt')}
+                    boxSize="100%"
+                    objectFit="contain"
+                  />
+                </Flex>
+                <Box minW={0}>
+                    <Heading size={{ base: 'sm', md: 'lg' }} lineHeight="1.05" letterSpacing="-0.03em" color={textColor}>
+                      {t('client_dash.hello_name', { name: firstName || user.displayName || t('client_dash.client') })} 👋
+                    </Heading>
+                    <Text mt={{ base: 1.5, md: 2 }} fontSize={{ base: 'sm', md: 'xl' }} fontWeight="semibold" lineHeight="1.35" noOfLines={{ base: 2, md: undefined }}>
+                      {motivationalText}
+                    </Text>
+                </Box>
+              </Flex>
+
+              <Flex
+                display={{ base: "none", md: "flex" }}
+                direction={{ base: "column", lg: "row" }}
+                gap={2.5}
+                align="stretch"
+                minW={{ base: "100%", xl: "auto" }}
+                flexShrink={0}
+              >
+                <Box
+                  px={4}
+                  py={3}
+                  minW={{ base: "100%", lg: "170px" }}
+                  borderRadius="20px"
+                  bg={useColorModeValue("rgba(15,23,42,0.03)", "rgba(255,255,255,0.04)")}
+                  border="1px solid"
+                  borderColor={borderColor}
+                >
+                  <Text fontSize="xs" color={subtleText} mb={1}>
+                    {hasSportPrograms ? "Aujourd'hui" : "Plan nutrition"}
+                  </Text>
+                  <Text fontWeight="800" fontSize="lg">
+                    {hasSportPrograms ? `${todayOverview.validated} validée${todayOverview.validated > 1 ? 's' : ''}` : "Disponible"}
+                  </Text>
+                  <Text fontSize="sm" color={mutedText} noOfLines={1}>
+                    {hasSportPrograms ? `${todayOverview.planned} planifiée${todayOverview.planned > 1 ? 's' : ''}` : "Menu, recettes et courses"}
+                  </Text>
+                </Box>
+
+                <Box
+                  px={4}
+                  py={3}
+                  minW={{ base: "100%", lg: "180px" }}
+                  borderRadius="20px"
+                  bg={useColorModeValue("rgba(15,23,42,0.03)", "rgba(255,255,255,0.04)")}
+                  border="1px solid"
+                  borderColor={borderColor}
+                  cursor={hasSportPrograms ? (motivationStats.upcoming ? 'pointer' : 'default') : 'pointer'}
+                  onClick={
+                    hasSportPrograms
+                      ? motivationStats.upcoming ? () => navigateToCalendarSession(motivationStats.upcoming) : undefined
+                      : () => navigate('/nutrition')
+                  }
+                >
+                  <Text fontSize="xs" color={subtleText} mb={1}>
+                    {hasSportPrograms ? "Prochaine séance" : "Accès rapide"}
+                  </Text>
+                  <Text fontWeight="800" fontSize="lg" noOfLines={1}>
+                    {!hasSportPrograms
+                      ? "Nutrition"
+                      : todayOverview.upcoming
+                      ? todayOverview.upcoming._start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                      : 'Aucune séance à venir'}
+                  </Text>
+                  <Text fontSize="sm" color={mutedText} noOfLines={1}>
+                    {hasSportPrograms ? todayOverview.upcoming?.title || 'Rien de planifié' : "Ouvrir le suivi partagé"}
+                  </Text>
+                </Box>
+
+                <Box
+                  px={4}
+                  py={3}
+                  minW={{ base: "100%", lg: "200px" }}
+                  borderRadius="20px"
+                  bg={useColorModeValue("rgba(15,23,42,0.03)", "rgba(255,255,255,0.04)")}
+                  border="1px solid"
+                  borderColor={borderColor}
+                >
+                  <Text fontSize="xs" color={subtleText} mb={1}>
+                    {hasSportPrograms ? "Programmes actifs" : "Recettes & courses"}
+                  </Text>
+                  <Text fontWeight="800" fontSize="lg">
+                    {hasSportPrograms ? programmes.length : "Prêt"}
+                  </Text>
+                  <Text fontSize="sm" color={mutedText} noOfLines={1}>
+                    {hasSportPrograms
+                      ? `${remainingSessions} séance${remainingSessions > 1 ? 's' : ''} restante${remainingSessions > 1 ? 's' : ''}`
+                      : "Pensé pour une lecture mobile"}
+                  </Text>
+                </Box>
+              </Flex>
+            </Flex>
+            <SimpleGrid display={{ base: "grid", md: "none" }} columns={2} spacing={2} mt={3}>
+              <Button
+                size="sm"
+                borderRadius="16px"
+                leftIcon={hasSportPrograms ? <MdOutlineFitnessCenter /> : <MdOutlineRestaurantMenu />}
+                onClick={() => hasSportPrograms ? (focusProgramme ? startNextSession(focusProgramme) : navigate('/mes-programmes')) : navigate('/nutrition')}
+                isDisabled={hasSportPrograms && !focusProgramme && !programmes.length}
+              >
+                {hasSportPrograms ? "Reprendre" : "Nutrition"}
+              </Button>
+              <Button
+                size="sm"
+                borderRadius="16px"
+                variant="outline"
+                onClick={() => navigate(hasSportPrograms ? '/mes-programmes' : '/nutrition?tab=menu')}
+              >
+                {hasSportPrograms ? "Programmes" : "Menu"}
+              </Button>
+            </SimpleGrid>
+            {hasSportPrograms ? (
+            <Flex mt={4} justify="flex-end">
+              <Button
+                display={{ base: "none", md: "inline-flex" }}
+                leftIcon={<MdOutlineCalendarMonth />}
+                colorScheme="blue"
+                onClick={handleOpenCalendarLinkModal}
+                isLoading={calendarLinkLoading}
+              >
+                Synchroniser mon calendrier
+              </Button>
+            </Flex>
+            ) : null}
           </Box>
-
-          <SimpleGrid columns={{ base: 2, md: 4 }} spacing={3}>
-            <Box
-              border="1px solid"
-              borderColor={borderColor}
-              borderRadius="lg"
-              p={3}
-              bg={useColorModeValue("gray.50", "whiteAlpha.50")}
-            >
-              <Text fontSize="xs" color={useColorModeValue("gray.600", "gray.300")}>
-                Cette semaine
-              </Text>
-              <Text fontSize="lg" fontWeight="bold">
-                {motivationStats.validatedThisWeek} séance{motivationStats.validatedThisWeek > 1 ? "s" : ""}
-              </Text>
-            </Box>
-
-            <Box
-              border="1px solid"
-              borderColor={borderColor}
-              borderRadius="lg"
-              p={3}
-              bg={useColorModeValue("gray.50", "whiteAlpha.50")}
-            >
-              <Text fontSize="xs" color={useColorModeValue("gray.600", "gray.300")}>
-                Ce mois-ci
-              </Text>
-              <Text fontSize="lg" fontWeight="bold">
-                {motivationStats.validatedThisMonth}
-              </Text>
-            </Box>
-
-            <Box
-              border="1px solid"
-              borderColor={borderColor}
-              borderRadius="lg"
-              p={3}
-              bg={useColorModeValue("gray.50", "whiteAlpha.50")}
-            >
-              <Text fontSize="xs" color={useColorModeValue("gray.600", "gray.300")}>
-                Série en cours
-              </Text>
-              <Text fontSize="lg" fontWeight="bold">
-                {motivationStats.streak > 0 ? `🔥 ${motivationStats.streak}j` : "—"}
-              </Text>
-            </Box>
-
-            <Box
-              border="1px solid"
-              borderColor={borderColor}
-              borderRadius="lg"
-              p={3}
-              bg={useColorModeValue("gray.50", "whiteAlpha.50")}
-            >
-              <Text fontSize="xs" color={useColorModeValue("gray.600", "gray.300")}>
-                Prochaine séance
-              </Text>
-              <Text fontSize="sm" fontWeight="bold" noOfLines={1}>
-                {motivationStats.upcoming?._start
-                  ? new Date(motivationStats.upcoming._start).toLocaleString(i18n.language || "fr", {
-                      weekday: "short",
-                      day: "2-digit",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
-                  : "Non planifiée"}
-              </Text>
-            </Box>
-          </SimpleGrid>
-
-          {motivationStats.totalAll > 0 && (
-            <Box pt={1}>
-              <HStack justify="space-between" mb={1}>
-                <Text fontSize="sm" color={useColorModeValue("gray.600", "gray.300")}>
-                  Progression globale
-                </Text>
-                <Text fontSize="sm" fontWeight="semibold">
-                  {motivationStats.percentAll}%
-                </Text>
-              </HStack>
-              <Progress value={motivationStats.percentAll} size="sm" borderRadius="md" />
-              <Text mt={1} fontSize="xs" color={useColorModeValue("gray.500", "gray.400")}>
-                {motivationStats.doneAll}/{motivationStats.totalAll} séances validées
-              </Text>
-            </Box>
-          )}
-        </VStack>
       </Box>
 
-      {/* MES PROGRAMMES */}
-      <Box bg={cardBg} p={6} rounded="xl" shadow="md" mb={6}>
-        <Flex align="center" justify="space-between" mb={4}>
-          <Heading size="md">{t('client_dash.my_programs')}</Heading>
-          {programmes.length > 5 && (
-            <Button variant="link" colorScheme="blue" onClick={() => navigate('/mes-programmes')}>
-              {t('client_dash.view_all')}
+      {user ? (
+        <ClientNutritionSharedSection
+          clientId={clientId}
+          variant="compact"
+          onOpenNutrition={() => navigate('/nutrition')}
+        />
+      ) : null}
+
+      {isMobileDashboard && !hasSportPrograms && (
+        <ClientCardShell
+          title="Accès rapide"
+          subtitle="Les raccourcis les plus utiles sur mobile."
+          icon={MdOutlineChecklist}
+          mb={5}
+        >
+          <SimpleGrid columns={2} spacing={3}>
+            <Button
+              w="full"
+              onClick={() => hasSportPrograms ? (focusProgramme ? startNextSession(focusProgramme) : navigate('/mes-programmes')) : navigate('/nutrition')}
+              isDisabled={hasSportPrograms && !focusProgramme && !programmes.length}
+            >
+              {hasSportPrograms ? "Reprendre" : "Nutrition"}
             </Button>
-          )}
+            <Button variant="outline" w="full" onClick={() => navigate(hasSportPrograms ? '/mes-programmes' : '/nutrition?tab=menu')}>
+              {hasSportPrograms ? "Programmes" : "Menu"}
+            </Button>
+            <Button variant="outline" w="full" onClick={() => hasSportPrograms ? setAddOpen(true) : navigate('/nutrition?tab=recipes')}>
+              {hasSportPrograms ? "Planifier" : "Recettes"}
+            </Button>
+            <Button variant="outline" w="full" onClick={() => navigate(hasSportPrograms ? '/statistiques' : '/nutrition?tab=shoppingList')}>
+              {hasSportPrograms ? "Statistiques" : "Courses"}
+            </Button>
+          </SimpleGrid>
+        </ClientCardShell>
+      )}
+
+      <SimpleGrid display={{ base: "none", md: hasSportPrograms ? "grid" : "none" }} columns={{ md: 2, xl: 4 }} spacing={4} mb={5}>
+        <ClientStatTile
+          label="Progression globale"
+          value={`${motivationStats.percentAll}%`}
+          helper={`${motivationStats.doneAll}/${motivationStats.totalAll || 0} séances complétées`}
+          icon={MdOutlineInsights}
+          accent={activeBlue}
+        />
+        <ClientStatTile
+          label="Séances à venir"
+          value={upcomingSessions.length}
+          helper={upcomingSessions.length ? 'déjà planifiées dans ton calendrier' : 'aucune séance planifiée'}
+          icon={MdOutlineCalendarMonth}
+          accent="#60A5FA"
+        />
+        <ClientStatTile
+          label="Ce mois-ci"
+          value={motivationStats.validatedThisMonth}
+          helper="séances terminées"
+          icon={MdOutlineSchedule}
+          accent="#10B981"
+        />
+        <ClientStatTile
+          label="Ressenti moyen"
+          value={averageRating ? `${averageRating}/5` : '—'}
+          helper={averageRating ? 'sur tes dernières notes de difficulté' : 'pas encore assez de retours'}
+          icon={MdOutlineStars}
+          accent="#8B5CF6"
+        />
+      </SimpleGrid>
+
+      <SimpleGrid display={{ base: "none", md: hasSportPrograms ? "grid" : "none" }} columns={{ md: 1, xl: 12 }} spacing={5} mb={5}>
+        <Box gridColumn={{ base: 'span 1', xl: 'span 4' }}>
+          <ClientCardShell
+            title="Vue d'ensemble"
+            subtitle="Tes repères rapides pour la semaine."
+            icon={MdOutlineInsights}
+            minH="100%"
+            accent={activeBlue}
+          >
+            <SimpleGrid columns={2} spacing={3}>
+              <ClientStatTile
+                label="Cette semaine"
+                value={motivationStats.validatedThisWeek}
+                helper="séances validées"
+                icon={MdOutlineChecklist}
+              />
+              <ClientStatTile
+                label="Régularité"
+                value={motivationStats.streak > 0 ? `${motivationStats.streak}j` : '—'}
+                helper="série en cours"
+                icon={MdOutlineTrendingUp}
+              />
+            </SimpleGrid>
+          </ClientCardShell>
+        </Box>
+
+        <Box gridColumn={{ base: 'span 1', xl: 'span 8' }}>
+          <ClientCardShell
+            title="Programme focus"
+            subtitle="Le programme à reprendre en priorité."
+            icon={MdOutlineFitnessCenter}
+            minH="100%"
+            accent="#8B5CF6"
+          >
+            {focusProgramme ? (
+              <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={5}>
+                <Box>
+                  <Text fontSize="lg" fontWeight="800" letterSpacing="-0.02em">
+                    {getProgrammeDisplayName(focusProgramme)}
+                  </Text>
+                  <Text mt={1} fontSize="sm" color={mutedText}>
+                    Par {focusProgramme.createdByName}
+                  </Text>
+                  <HStack mt={4} spacing={3} flexWrap="wrap">
+                    <Badge px={3} py={1.5} borderRadius="full" variant="subtle">
+                      {focusProgramme._done}/{focusProgramme._total} séances
+                    </Badge>
+                    {focusProgramme._hasResumePoint ? (
+                      <Badge px={3} py={1.5} borderRadius="full" variant="subtle">
+                        Reprise vers {focusProgramme._resumePct}%
+                      </Badge>
+                    ) : null}
+                  </HStack>
+                </Box>
+
+                <Box>
+                  <HStack justify="space-between">
+                    <Text fontSize="sm" color={mutedText}>
+                      Progression
+                    </Text>
+                    <Text fontSize="sm" fontWeight="700">
+                      {focusProgramme._done}/{focusProgramme._total}
+                    </Text>
+                  </HStack>
+                  <Progress mt={2} value={focusProgramme._visualPercent ?? focusProgramme._percent} size="sm" borderRadius="full" />
+                  {focusProgramme._hasResumePoint ? (
+                    <Text mt={2} fontSize="sm" color={subtleText}>
+                      Progression estimée cohérente avec une reprise vers {focusProgramme._resumePct}% de la séance en cours.
+                    </Text>
+                  ) : null}
+                  <Stack mt={4} direction={{ base: 'column', sm: 'row' }} spacing={3}>
+                    <Button flex="1" onClick={() => startNextSession(focusProgramme)} isDisabled={!focusProgramme._total}>
+                      {focusProgramme._hasResumePoint ? "Reprendre au bon endroit" : "Démarrer la prochaine séance"}
+                    </Button>
+                    <Button
+                      flex="1"
+                      variant="outline"
+                      onClick={() => navigateToProgram(focusProgramme)}
+                    >
+                      Ouvrir le programme
+                    </Button>
+                  </Stack>
+                </Box>
+              </SimpleGrid>
+            ) : (
+              <Text fontSize="sm" color={mutedText}>
+                Aucun programme actif pour le moment.
+              </Text>
+            )}
+          </ClientCardShell>
+        </Box>
+      </SimpleGrid>
+
+      <SimpleGrid display={{ base: "none", md: hasSportPrograms ? "grid" : "none" }} columns={{ md: 1, xl: 12 }} spacing={5} mb={5}>
+        <Box gridColumn={{ base: 'span 1', xl: 'span 8' }}>
+          <ClientCardShell
+            title="Continuer sans réfléchir"
+            subtitle="Les prochaines actions les plus utiles pour garder l'élan."
+            icon={MdOutlineChecklist}
+            minH="100%"
+            accent="#10B981"
+          >
+            <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+              <Box
+                border="1px solid"
+                borderColor={borderColor}
+                borderRadius="22px"
+                p={4}
+                cursor={motivationStats.upcoming ? 'pointer' : 'default'}
+                transition="all 0.2s ease"
+                _hover={motivationStats.upcoming ? { borderColor: textColor, transform: 'translateY(-1px)' } : undefined}
+                onClick={motivationStats.upcoming ? () => navigateToCalendarSession(motivationStats.upcoming) : undefined}
+              >
+                <Text fontSize="sm" color={mutedText} fontWeight="600">Prochaine séance</Text>
+                <Text mt={2} fontWeight="800" fontSize="lg" noOfLines={2}>
+                  {motivationStats.upcoming?.title || 'À planifier'}
+                </Text>
+                <Text mt={2} fontSize="sm" color={subtleText}>
+                  {nextSessionLabel}
+                </Text>
+                {motivationStats.upcoming ? (
+                  <Button mt={3} size="sm" w="full">
+                    Ouvrir
+                  </Button>
+                ) : null}
+              </Box>
+
+              <Box
+                border="1px solid"
+                borderColor={borderColor}
+                borderRadius="22px"
+                p={4}
+                cursor="pointer"
+                transition="all 0.2s ease"
+                _hover={{ borderColor: textColor, transform: 'translateY(-1px)' }}
+                onClick={() => navigate('/mes-programmes')}
+              >
+                <Text fontSize="sm" color={mutedText} fontWeight="600">Objectif immédiat</Text>
+                <Text mt={2} fontWeight="800" fontSize="lg">
+                  {remainingSessions} séance{remainingSessions > 1 ? 's' : ''} restante{remainingSessions > 1 ? 's' : ''}
+                </Text>
+                <Text mt={2} fontSize="sm" color={subtleText}>
+                  Sur l'ensemble de tes programmes actifs.
+                </Text>
+                <Button mt={3} size="sm" variant="outline" w="full">
+                  Voir les programmes
+                </Button>
+              </Box>
+
+              <Box
+                border="1px solid"
+                borderColor={borderColor}
+                borderRadius="22px"
+                p={4}
+                cursor="pointer"
+                transition="all 0.2s ease"
+                _hover={{ borderColor: textColor, transform: 'translateY(-1px)' }}
+                onClick={() => navigate('/statistiques')}
+              >
+                <Text fontSize="sm" color={mutedText} fontWeight="600">Élan actuel</Text>
+                <Text mt={2} fontWeight="800" fontSize="lg">
+                  {motivationStats.streak > 0 ? `${motivationStats.streak} jour${motivationStats.streak > 1 ? 's' : ''}` : 'À relancer'}
+                </Text>
+                <Text mt={2} fontSize="sm" color={subtleText}>
+                  {motivationStats.streak > 0 ? 'Continue sur ce rythme.' : 'Une séance suffit pour repartir.'}
+                </Text>
+                <Button mt={3} size="sm" variant="outline" w="full">
+                  Ouvrir les stats
+                </Button>
+              </Box>
+            </SimpleGrid>
+          </ClientCardShell>
+        </Box>
+
+        <Box gridColumn={{ base: 'span 1', xl: 'span 4' }}>
+          <ClientCardShell
+            title="Prochaines dates"
+            subtitle="Un aperçu simple de ce qui arrive."
+            icon={MdOutlineCalendarMonth}
+            action={<Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>Planifier</Button>}
+            minH="100%"
+            accent="#60A5FA"
+          >
+            <VStack align="stretch" spacing={3}>
+              {upcomingSessions.slice(0, 3).map((session) => (
+                <Box
+                  key={session.id}
+                  border="1px solid"
+                  borderColor={borderColor}
+                  borderRadius="20px"
+                  p={3.5}
+                  cursor="pointer"
+                  transition="all 0.2s ease"
+                  _hover={{ borderColor: textColor, transform: 'translateY(-1px)' }}
+                  onClick={() => navigateToCalendarSession(session)}
+                >
+                  <Text fontWeight="700" noOfLines={1}>{session.title}</Text>
+                  <Text mt={1} fontSize="sm" color={mutedText}>
+                    {session._start.toLocaleString(i18n.language || 'fr', {
+                      weekday: 'long',
+                      day: '2-digit',
+                      month: 'long',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                </Box>
+              ))}
+              {!upcomingSessions.length && (
+                <Text fontSize="sm" color={mutedText}>
+                  Aucun créneau prévu pour le moment. Tu peux ajouter une séance directement depuis ici.
+                </Text>
+              )}
+            </VStack>
+          </ClientCardShell>
+        </Box>
+      </SimpleGrid>
+
+      {/* MES PROGRAMMES */}
+      {hasSportPrograms ? (
+      <ClientCardShell
+        title={t('client_dash.my_programs')}
+        subtitle="Tes programmes actifs, leur progression et l'accès direct à la prochaine séance."
+        icon={MdOutlineFitnessCenter}
+        action={programmes.length > (isMobileDashboard ? 3 : 5) ? (
+          <Button variant="outline" size="sm" onClick={() => navigate('/mes-programmes')}>
+            {t('client_dash.view_all')}
+          </Button>
+        ) : null}
+        mb={6}
+      >
+        <Flex align="center" justify="space-between" mb={4}>
+          <HStack spacing={3} flexWrap="wrap">
+            <Badge px={3} py={1.5} borderRadius="full" variant="subtle">
+              {programmes.length} actif{programmes.length > 1 ? 's' : ''}
+            </Badge>
+            <Badge px={3} py={1.5} borderRadius="full" variant="subtle">
+              {motivationStats.percentAll}% complété
+            </Badge>
+          </HStack>
         </Flex>
 
         {loading ? (
-          <Spinner />
+          <AppLoading label={t('common.loading', 'Chargement...')} minH="220px" />
         ) : (
           <>
             {/* Desktop */}
@@ -1339,7 +2089,7 @@ export default function ClientDashboard() {
                         <ChakraLink
                           as={Link}
                           to={isAutoProgramme(p) ? `/auto-program-preview/${clientId}/${p.id}` : `/clients/${clientId}/programmes/${p.id}`}
-                          color="blue.400"
+                          color={textColor}
                         >
                           {getProgrammeDisplayName(p)}
                         </ChakraLink>
@@ -1364,9 +2114,9 @@ export default function ClientDashboard() {
                             <Text fontSize="sm" color={useColorModeValue('gray.600','gray.300')}>
                               {t('client_dash.done_total_sessions', { done: p._done, total: p._total })}
                             </Text>
-                            <Text fontSize="sm" fontWeight="semibold">{p._percent}%</Text>
+                            <Text fontSize="sm" fontWeight="semibold">{p._visualPercent ?? p._percent}%</Text>
                           </HStack>
-                          <Progress value={p._percent} size="sm" borderRadius="md" />
+                          <Progress value={p._visualPercent ?? p._percent} size="sm" borderRadius="md" />
                         </Box>
                       </Td>
 
@@ -1384,7 +2134,7 @@ export default function ClientDashboard() {
                           <Button variant="outline" size="sm" onClick={() => navigateToProgram(p)}>
                             {t('client_dash.view_program')}
                           </Button>
-                          <Button colorScheme="blue" size="sm" onClick={() => startNextSession(p)} isDisabled={!clientId || !p._total}>
+                          <Button size="sm" onClick={() => startNextSession(p)} isDisabled={!clientId || !p._total}>
                             {t('client_dash.start_session')}
                           </Button>
                         </HStack>
@@ -1399,20 +2149,13 @@ export default function ClientDashboard() {
             <Box display={{ base:'block', md:'none' }}>
               <VStack spacing={3} align="stretch">
                 {displayedProgrammes.map((p)=>(
-                  <Box key={p.id} position="relative" bg={cardBg} border="1px solid" borderColor={borderColor} borderRadius="xl" p={4} pt={12} shadow="sm">
-                    <HStack position="absolute" top={3} right={3} spacing={2}>
-                      <Button size="sm" variant="outline" onClick={()=>navigateToProgram(p)}>{t('client_dash.view')}</Button>
-                      <Button size="sm" colorScheme="blue" onClick={()=>startNextSession(p)} isDisabled={!p._total}>
-                        {t('client_dash.start')}
-                      </Button>
-                    </HStack>
-
+                  <Box key={p.id} bg={cardBg} border="1px solid" borderColor={borderColor} borderRadius="2xl" p={4} shadow="sm">
                     <HStack justify="space-between" align="start" spacing={3} mb={1}>
-                      <Text fontWeight="bold" fontSize="md" pr="10px">
+                      <Text fontWeight="bold" fontSize="md" pr="10px" flex="1">
                         <ChakraLink
                           as={Link}
                           to={isAutoProgramme(p) ? `/auto-program-preview/${clientId}/${p.id}` : `/clients/${clientId}/programmes/${p.id}`}
-                          color="blue.400"
+                          color={textColor}
                         >
                           {getProgrammeDisplayName(p)}
                         </ChakraLink>
@@ -1433,29 +2176,57 @@ export default function ClientDashboard() {
                       <Text fontSize="sm" color={useColorModeValue('gray.600','gray.300')}>
                         {t('client_dash.done_total_sessions', { done: p._done, total: p._total })}
                       </Text>
-                      <Text fontSize="sm" fontWeight="semibold">{p._percent}%</Text>
+                      <Text fontSize="sm" fontWeight="semibold">{p._visualPercent ?? p._percent}%</Text>
                     </HStack>
-                    <Progress value={p._percent} size="sm" borderRadius="md" />
+                    <Progress value={p._visualPercent ?? p._percent} size="sm" borderRadius="md" />
+
+                    {p._hasResumePoint ? (
+                      <Text mt={2.5} fontSize="sm" color={subtleText}>
+                        Reprise estimée vers {p._resumePct}% de la séance en cours.
+                      </Text>
+                    ) : null}
+
+                    <SimpleGrid columns={2} spacing={2} mt={3}>
+                      <Button size="sm" variant="outline" onClick={()=>navigateToProgram(p)}>
+                        {t('client_dash.view')}
+                      </Button>
+                      <Button size="sm" onClick={()=>startNextSession(p)} isDisabled={!p._total}>
+                        {p._hasResumePoint ? 'Reprendre' : t('client_dash.start')}
+                      </Button>
+                    </SimpleGrid>
                   </Box>
                 ))}
               </VStack>
             </Box>
           </>
         )}
-      </Box>
+      </ClientCardShell>
+      ) : null}
 
       {/* PROGRAMMES PREMIUM */}
-      <Box bg={cardBg} border="1px solid" borderColor={borderColor} p={{ base: 4, md: 6 }} rounded="2xl" shadow="md" mb={6}>
-        <Flex align="center" justify="space-between" mb={2} wrap="wrap" gap={3}>
-          <Heading size="md">{t('premium.title')}</Heading>
-          <Button size="sm" variant="outline" colorScheme="blue" onClick={() => navigate('/programmes-premium')}>
+      <ClientCardShell
+        title={t('premium.title')}
+        subtitle={t('premium.subtitle')}
+        icon={MdOutlineStars}
+        action={
+          <Button size="sm" variant="outline" onClick={() => navigate('/programmes-premium')}>
             {t('client_dash.view_all')}
           </Button>
+        }
+        mb={6}
+      >
+        <Flex align="center" justify="space-between" mb={2} wrap="wrap" gap={3}>
+          <HStack spacing={3}>
+            <Badge px={3} py={1.5} borderRadius="full" variant="subtle">
+              {premiumPrograms.length} suggestion{premiumPrograms.length > 1 ? 's' : ''}
+            </Badge>
+            {freeAvailable && (
+              <Badge px={3} py={1.5} borderRadius="full" colorScheme="green">
+                1 programme offert disponible
+              </Badge>
+            )}
+          </HStack>
         </Flex>
-
-        <Text color={useColorModeValue('gray.600','gray.400')} mb={4} fontSize="sm">
-          {t('premium.subtitle')}
-        </Text>
 
         {loadingPremium ? (
           <HStack><Spinner size="sm" /><Text>{t('common.loading')}</Text></HStack>
@@ -1511,12 +2282,12 @@ export default function ClientDashboard() {
                                 {normal}
                               </Text>
                             )}
-                            <Text as="div" fontWeight="bold" fontSize="lg" color="blue.500" whiteSpace="nowrap">
+                            <Text as="div" fontWeight="bold" fontSize="lg" color={textColor} whiteSpace="nowrap">
                               {promo}
                             </Text>
                           </>
                         ) : (
-                          <Text as="div" fontWeight="bold" fontSize="lg" color="blue.500" whiteSpace="nowrap">
+                          <Text as="div" fontWeight="bold" fontSize="lg" color={textColor} whiteSpace="nowrap">
                             {normal || t('premium.price_on_stripe')}
                           </Text>
                         )}
@@ -1532,7 +2303,7 @@ export default function ClientDashboard() {
                           {t('premium.claim_free')}
                         </Button>
                       ) : (
-                        <Button colorScheme="blue" onClick={() => handleBuyPremium(p)} flex="1">
+                        <Button onClick={() => handleBuyPremium(p)} flex="1">
                           {t('actions.buy_now')}
                         </Button>
                       )}
@@ -1543,16 +2314,21 @@ export default function ClientDashboard() {
             })}
           </SimpleGrid>
         )}
-      </Box>
+      </ClientCardShell>
 
       {/* CALENDRIER */}
-      <Box
-        bg={cardBg}
-        p={6}
-        rounded="xl"
-        shadow="md"
+      <ClientCardShell
+        title={t('calendar.title')}
+        subtitle="Planifie, déplace et valide tes séances depuis une seule vue."
+        icon={MdOutlineCalendarMonth}
+        action={
+          <Button leftIcon={<AddIcon/>} size="sm" onClick={()=>setAddOpen(true)}>
+            {t('calendar.add_session')}
+          </Button>
+        }
+        mb={0}
         sx={{
-          '.rbc-calendar': { background: cardBg, color: textColor },
+          '.rbc-calendar': { background: surfaceBgStrong, color: textColor },
           '.rbc-toolbar': { background: headerBg, padding: '0.5rem', borderRadius: '8px', marginBottom: '12px' },
           '.rbc-toolbar button': { color: textColor, background: 'transparent', border: '1px solid', borderColor, borderRadius: '6px', padding: '4px 8px' },
           '.rbc-toolbar button:hover': { background: useColorModeValue('#edf2f7','#4a5568') },
@@ -1568,13 +2344,6 @@ export default function ClientDashboard() {
           '.rbc-agenda-table td, .rbc-agenda-table th': { borderColor }
         }}
       >
-        <Flex justify="space-between" align="center" mb={2} flexWrap="wrap" gap={2}>
-          <Heading size="md">{t('calendar.title')}</Heading>
-          <HStack>
-            <Button leftIcon={<AddIcon/>} size="sm" onClick={()=>setAddOpen(true)}>{t('calendar.add_session')}</Button>
-          </HStack>
-        </Flex>
-
         <DnDCalendar
           localizer={localizer}
           events={sessions}
@@ -1601,6 +2370,7 @@ export default function ClientDashboard() {
           eventPropGetter={eventPropGetter}
           draggableAccessor={() => !isTouchDevice()}
         />
+      </ClientCardShell>
       </Box>
 
       {/* ADD SESSION */}
@@ -1647,7 +2417,7 @@ export default function ClientDashboard() {
           </ModalBody>
           <ModalFooter>
             <Button variant="ghost" mr={3} onClick={()=>setAddOpen(false)}>{t('actions.close')}</Button>
-            <Button colorScheme="blue" onClick={handleAddSession}>{t('actions.add')}</Button>
+            <Button onClick={handleAddSession}>{t('actions.add')}</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
@@ -1688,7 +2458,39 @@ export default function ClientDashboard() {
           </ModalBody>
           <ModalFooter>
             <Button variant="ghost" mr={3} onClick={()=>setRescheduleOpen(false)}>{t('actions.close')}</Button>
-            <Button colorScheme="blue" onClick={confirmReschedule}>{t('actions.confirm')}</Button>
+            <Button onClick={confirmReschedule}>{t('actions.confirm')}</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* CALENDAR SUBSCRIPTION */}
+      <Modal isOpen={isCalendarModalOpen} onClose={()=>setCalendarModalOpen(false)} isCentered>
+        <ModalOverlay/>
+        <ModalContent>
+          <ModalHeader>Calendrier personnel</ModalHeader>
+          <ModalCloseButton/>
+          <ModalBody>
+            <VStack spacing={4} align="stretch">
+              <Text>
+                Génère un lien privé pour synchroniser tes séances dans ton application de calendrier.
+              </Text>
+              {calendarSubscriptionUrl ? (
+                <Input readOnly value={calendarSubscriptionUrl} />
+              ) : (
+                <Text color={calendarModalHelpColor}>
+                  Clique sur « Générer » pour obtenir ton lien d’abonnement.
+                </Text>
+              )}
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={()=>setCalendarModalOpen(false)}>{t('actions.close')}</Button>
+            <Button variant="outline" mr={3} onClick={handleCopyCalendarUrl} isDisabled={!calendarSubscriptionUrl}>
+              Copier
+            </Button>
+            <Button colorScheme="blue" onClick={handleGenerateCalendarLink} isLoading={calendarLinkLoading}>
+              Générer
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

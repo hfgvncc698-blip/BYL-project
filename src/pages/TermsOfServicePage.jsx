@@ -7,29 +7,21 @@ import {
   Stack,
   List,
   ListItem,
-  useColorModeValue,
 } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
+import { useAppTheme } from "../styles/appTheme";
 
 export default function TermsOfServicePage() {
   const { t } = useTranslation("common");
-
-  const pageBg = useColorModeValue("gray.50", "gray.900");
-  const cardBg = useColorModeValue("white", "gray.800");
-  const borderCol = useColorModeValue("gray.200", "gray.700");
-  const muted = useColorModeValue("gray.600", "gray.300");
+  const theme = useAppTheme();
 
   return (
-    <Box bg={pageBg} minH="100vh" py={{ base: 6, md: 10 }} px={{ base: 4, md: 8 }}>
+    <Box bg={theme.pageBg} minH="100vh" py={{ base: 6, md: 10 }} px={{ base: 4, md: 8 }}>
       <Box
         maxW="900px"
         mx="auto"
-        bg={cardBg}
-        border="1px solid"
-        borderColor={borderCol}
-        borderRadius="2xl"
+        {...theme.cardProps}
         p={{ base: 6, md: 10 }}
-        boxShadow="sm"
       >
         <Heading
           as="h1"
@@ -43,7 +35,7 @@ export default function TermsOfServicePage() {
         <Stack spacing={6}>
           {/* Intro */}
           <Box>
-            <Text color={muted}>
+            <Text color={theme.mutedText}>
               {t(
                 "legal.tos.intro",
                 "Les présentes conditions générales d'utilisation (CGU) régissent l'accès et l'utilisation de la plateforme BoostYourLife par les coachs et les particuliers. En utilisant nos services, vous acceptez ces conditions."
@@ -132,7 +124,7 @@ export default function TermsOfServicePage() {
 
           {/* Last update */}
           <Box>
-            <Text fontSize="sm" color={muted}>
+            <Text fontSize="sm" color={theme.mutedText}>
               {t("legal.tos.last_update", "Date de dernière mise à jour : 1er mai 2025")}
             </Text>
           </Box>
@@ -141,4 +133,3 @@ export default function TermsOfServicePage() {
     </Box>
   );
 }
-

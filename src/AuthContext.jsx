@@ -23,7 +23,12 @@ import {
 } from "firebase/auth";
 import {
   doc,
+  collection,
   getDoc,
+  getDocs,
+  query,
+  where,
+  limit,
   setDoc,
   serverTimestamp,
   Timestamp,
@@ -50,11 +55,25 @@ const safeTime = (d) => {
   return Number.isFinite(t) ? t : null;
 };
 
+const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
+
+const langCodeFromAny = (value) => {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return (navigator.language || "fr").slice(0, 2).toLowerCase();
+  if (raw.startsWith("en") || raw.includes("english") || raw.includes("anglais")) return "en";
+  if (raw.startsWith("es") || raw.includes("español") || raw.includes("espanol") || raw.includes("espagnol")) return "es";
+  if (raw.startsWith("de") || raw.includes("deutsch") || raw.includes("allemand")) return "de";
+  if (raw.startsWith("it") || raw.includes("italiano")) return "it";
+  if (raw.startsWith("ru") || raw.includes("русский")) return "ru";
+  if (raw.startsWith("ar") || raw.includes("العربية") || raw.includes("arab")) return "ar";
+  return "fr";
+};
+
 const normalizeUserDoc = (uid, data, fb) => ({
   uid,
   email: fb?.email ?? data?.email ?? null,
-  firstName: data?.firstName ?? "Utilisateur",
-  lastName: data?.lastName ?? "",
+  firstName: data?.firstName ?? data?.prenom ?? "Utilisateur",
+  lastName: data?.lastName ?? data?.nom ?? "",
   role: data?.role ?? "particulier", // "admin" | "coach" | "particulier"
 
   // ⚠️ harmonisation : parfois tu écris preferredLanguage, parfois preferredLang
@@ -77,7 +96,62 @@ const normalizeUserDoc = (uid, data, fb) => ({
 
   logoUrl: data?.logoUrl ?? null,
   primaryColor: data?.primaryColor ?? null,
+  settings: data?.settings ?? {},
 });
+
+async function findClientProfileForAuthUser(firebaseUser) {
+  const email = normalizeEmail(firebaseUser?.email);
+  const queries = [];
+
+  if (email) {
+    queries.push(query(collection(db, "clients"), where("emailLower", "==", email), limit(1)));
+    queries.push(query(collection(db, "clients"), where("email", "==", email), limit(1)));
+  }
+  if (firebaseUser?.uid) {
+    queries.push(query(collection(db, "clients"), where("uid", "==", firebaseUser.uid), limit(1)));
+    queries.push(query(collection(db, "clients"), where("linkedUserId", "==", firebaseUser.uid), limit(1)));
+  }
+
+  for (const q of queries) {
+    try {
+      const snap = await getDocs(q);
+      if (!snap.empty) return { id: snap.docs[0].id, data: snap.docs[0].data() || {} };
+    } catch {}
+  }
+
+  return null;
+}
+
+async function seedUserDocFromClient(firebaseUser, provider = null) {
+  const linkedClient = await findClientProfileForAuthUser(firebaseUser);
+  const c = linkedClient?.data || {};
+  const email = normalizeEmail(firebaseUser?.email || c.email);
+  const firstName = String(c.prenom || c.firstName || firebaseUser?.displayName?.split(" ")?.[0] || "").trim();
+  const lastName = String(c.nom || c.lastName || "").trim();
+  const defaultLanguage = c.settings?.defaultLanguage || c.settings?.langCode || c.langue || c.language || c.lang || "fr";
+  const langCode = langCodeFromAny(defaultLanguage);
+
+  return {
+    email: email || firebaseUser?.email || null,
+    emailLower: email || null,
+    firstName: firstName || "Utilisateur",
+    lastName: lastName || "",
+    displayName: `${firstName} ${lastName}`.trim() || firebaseUser?.displayName || "",
+    role: "particulier",
+    hasActiveSubscription: false,
+    stripeCustomerId: null,
+    stripeSubscriptionId: null,
+    preferredLang: langCode,
+    provider,
+    linkedClientId: linkedClient?.id || null,
+    settings: {
+      defaultLanguage,
+      langCode,
+    },
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+}
 
 /* ----------------- Provider ----------------- */
 export const AuthProvider = ({ children }) => {
@@ -226,20 +300,7 @@ export const AuthProvider = ({ children }) => {
                 }
               } else {
                 // création minimale si le doc manque
-                const seed = {
-                  email: firebaseUser.email || null,
-                  firstName: "Utilisateur",
-                  lastName: "",
-                  role: "particulier",
-                  hasActiveSubscription: false,
-                  stripeCustomerId: null,
-                  stripeSubscriptionId: null,
-                  preferredLang: (navigator.language || "fr")
-                    .slice(0, 2)
-                    .toLowerCase(),
-                  createdAt: serverTimestamp(),
-                  updatedAt: serverTimestamp(),
-                };
+                const seed = await seedUserDocFromClient(firebaseUser);
                 await setDoc(userRef, seed, { merge: true });
               }
               setLoading(false);
@@ -285,21 +346,7 @@ export const AuthProvider = ({ children }) => {
           const userRef = doc(db, "users", u.uid);
           const userDoc = await getDoc(userRef);
           if (!userDoc.exists()) {
-            await setDoc(userRef, {
-              email: u.email || null,
-              firstName: "Utilisateur",
-              lastName: "",
-              role: "particulier",
-              hasActiveSubscription: false,
-              stripeCustomerId: null,
-              stripeSubscriptionId: null,
-              preferredLang: (navigator.language || "fr")
-                .slice(0, 2)
-                .toLowerCase(),
-              provider: "apple",
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            });
+            await setDoc(userRef, await seedUserDocFromClient(u, "apple"), { merge: true });
           }
         }
       } catch {
@@ -356,21 +403,7 @@ export const AuthProvider = ({ children }) => {
       if (!userDoc.exists()) {
         await setDoc(
           userRef,
-          {
-            email: fbUser.email || null,
-            firstName: "Utilisateur",
-            lastName: "",
-            role: "particulier",
-            hasActiveSubscription: false,
-            stripeCustomerId: null,
-            stripeSubscriptionId: null,
-            preferredLang: (navigator.language || "fr")
-              .slice(0, 2)
-              .toLowerCase(),
-            provider: "google",
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          },
+          await seedUserDocFromClient(fbUser, "google"),
           { merge: true }
         );
       }
@@ -417,21 +450,7 @@ export const AuthProvider = ({ children }) => {
       if (!userDoc.exists()) {
         await setDoc(
           userRef,
-          {
-            email: fbUser.email || null,
-            firstName: "Utilisateur",
-            lastName: "",
-            role: "particulier",
-            hasActiveSubscription: false,
-            stripeCustomerId: null,
-            stripeSubscriptionId: null,
-            preferredLang: (navigator.language || "fr")
-              .slice(0, 2)
-              .toLowerCase(),
-            provider: "apple",
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          },
+          await seedUserDocFromClient(fbUser, "apple"),
           { merge: true }
         );
       }
@@ -659,4 +678,3 @@ export const AuthProvider = ({ children }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-

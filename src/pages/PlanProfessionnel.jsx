@@ -16,7 +16,6 @@ import {
   Divider,
   Icon,
   Tag,
-  useColorModeValue,
 } from "@chakra-ui/react";
 import { CheckCircleIcon, InfoOutlineIcon } from "@chakra-ui/icons";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
@@ -25,6 +24,7 @@ import { useTranslation } from "react-i18next";
 
 // ✅ helper HTTP centralisé
 import { apiFetch } from "../utils/api";
+import { useAppTheme } from "../styles/appTheme";
 
 const toMs = (d) =>
   d?.toDate
@@ -36,6 +36,7 @@ const toMs = (d) =>
 export default function PlanProfessionnel() {
   const { t } = useTranslation();
   const toast = useToast();
+  const theme = useAppTheme();
   const navigate = useNavigate();
   const { user, loading, hasCoachAccess } = useAuth();
   const [submitting, setSubmitting] = useState(false);
@@ -58,13 +59,13 @@ export default function PlanProfessionnel() {
     return Math.ceil(diff / (24 * 60 * 60 * 1000));
   }, [trialActive, user]);
 
-  const pageDescColor = useColorModeValue("gray.600", "gray.300");
-  const cardBg = useColorModeValue("white", "gray.800");
-  const cardMutedBg = useColorModeValue("gray.50", "blackAlpha.300");
-  const borderEmph = useColorModeValue("blue.300", "blue.400");
-  const borderSoft = useColorModeValue("gray.200", "whiteAlpha.200");
-  const mutedText = useColorModeValue("gray.600", "gray.300");
-  const priceColor = useColorModeValue("gray.900", "white");
+  const pageDescColor = theme.mutedText;
+  const cardBg = theme.surfaceSoft;
+  const cardMutedBg = theme.surfaceBg;
+  const borderEmph = theme.borderStrong;
+  const borderSoft = theme.borderColor;
+  const mutedText = theme.mutedText;
+  const priceColor = theme.textColor;
 
   // ✅ Le backend choisit le priceId via .env selon { role, plan }
   const goCheckout = async ({ plan }) => {
@@ -154,6 +155,7 @@ export default function PlanProfessionnel() {
   }, [isAuthed, isCoach, hasCoachAccess, trialActive, navigate, t]);
 
   const subtitle = useMemo(() => {
+    const daysLabel = trialDaysLeft ? ` (J-${trialDaysLeft})` : "";
     if (!isAuthed) {
       return t("proPlans.subtitleLoggedOut", {
         defaultValue:
@@ -168,7 +170,8 @@ export default function PlanProfessionnel() {
     }
     if (trialActive) {
       return t("proPlans.subtitleTrial", {
-        defaultValue: `Votre essai est en cours${trialDaysLeft ? ` (J-${trialDaysLeft})` : ""}. Vous avez accès à l’espace coach.`,
+        daysLabel,
+        defaultValue: `Votre essai est en cours${daysLabel}. Vous avez accès à l’espace coach.`,
       });
     }
     if (hasCoachAccess) {
@@ -204,11 +207,12 @@ export default function PlanProfessionnel() {
   }) => (
     <Box
       bg={cardBg}
-      borderRadius="xl"
+      backgroundImage="radial-gradient(circle at 92% 8%, rgba(59,130,246,0.10), transparent 28%)"
+      borderRadius="24px"
       p={6}
       borderWidth="1px"
       borderColor={emphasized ? borderEmph : borderSoft}
-      boxShadow={emphasized ? "xl" : "sm"}
+      boxShadow="none"
       position="relative"
       role="group"
       opacity={isDisabled ? 0.6 : 1}
@@ -250,7 +254,7 @@ export default function PlanProfessionnel() {
 
         <Button
           mt={3}
-          colorScheme="blue"
+          {...theme.primaryButtonProps}
           variant={outline ? "outline" : "solid"}
           isFullWidth
           onClick={onClick}
@@ -285,7 +289,9 @@ export default function PlanProfessionnel() {
   const ctaYearlyLoggedOut = "Économiser avec l’annuel";
 
   return (
-    <Container maxW="container.xl" py={{ base: 10, md: 16 }}>
+    <Box bg={theme.pageBg} minH="100vh" py={{ base: 6, md: 10 }} px={{ base: 4, md: 6 }}>
+    <Container maxW="container.xl">
+      <Box {...theme.cardProps} p={{ base: 5, md: 8 }}>
       <VStack spacing={3} mb={8} textAlign="center">
         <Heading>
           {t("proPlans.title", { defaultValue: "Nos formules Professionnels" })}
@@ -294,7 +300,7 @@ export default function PlanProfessionnel() {
 
         <HStack spacing={3} pt={2} justify="center" flexWrap="wrap">
           <Button
-            colorScheme={primaryCTA.colorScheme}
+            {...theme.primaryButtonProps}
             variant={primaryCTA.variant}
             onClick={primaryCTA.onClick}
           >
@@ -356,7 +362,7 @@ export default function PlanProfessionnel() {
       {/* Section — bénéfices */}
       <Box
         bg={cardMutedBg}
-        borderRadius="xl"
+        borderRadius="24px"
         p={{ base: 5, md: 6 }}
         mb={{ base: 8, md: 10 }}
         borderWidth="1px"
@@ -417,7 +423,8 @@ export default function PlanProfessionnel() {
         {/* Essai */}
         <Box
           bg={cardBg}
-          borderRadius="xl"
+          backgroundImage="radial-gradient(circle at 92% 8%, rgba(16,185,129,0.10), transparent 28%)"
+          borderRadius="24px"
           p={6}
           borderWidth="1px"
           borderColor={borderSoft}
@@ -442,6 +449,7 @@ export default function PlanProfessionnel() {
                 })
               : trialActive
               ? t("proPlans.trial.descRunning", {
+                  daysLabel: trialDaysLeft ? ` (J-${trialDaysLeft})` : "",
                   defaultValue: `Votre essai est en cours${trialDaysLeft ? ` (J-${trialDaysLeft})` : ""}.`,
                 })
               : t("proPlans.trial.descEnded", {
@@ -461,7 +469,7 @@ export default function PlanProfessionnel() {
             <Button
               mt={6}
               isFullWidth
-              colorScheme="blue"
+              {...theme.primaryButtonProps}
               onClick={() => navigate("/register")}
             >
               {ctaTrialLoggedOut}
@@ -470,7 +478,7 @@ export default function PlanProfessionnel() {
             <Button
               mt={6}
               isFullWidth
-              colorScheme="blue"
+              {...theme.primaryButtonProps}
               onClick={() => navigate("/coach-dashboard")}
             >
               {t("proPlans.trial.ctaGo", { defaultValue: "Accéder à mon espace coach" })}
@@ -573,6 +581,8 @@ export default function PlanProfessionnel() {
           </Button>
         )}
       </Box>
+      </Box>
     </Container>
+    </Box>
   );
 }
