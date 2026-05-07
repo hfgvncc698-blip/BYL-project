@@ -1,9 +1,8 @@
 // src/pages/ClientNutritionPage.jsx
 import { useEffect, useState } from "react";
 import { Box, Heading, Text } from "@chakra-ui/react";
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { db } from "../firebaseConfig";
 import { useAuth } from "../AuthContext.jsx";
+import { resolveClientSnapshotForUser } from "../utils/clientResolver";
 import { useNutritionTheme } from "../styles/nutritionTheme";
 import AppLoading from "../components/ui/AppLoading.jsx";
 import PageBackButton from "../components/ui/PageBackButton";
@@ -24,27 +23,20 @@ export default function ClientNutritionPage() {
         return;
       }
 
-      const email = String(user.email || "").trim();
-      const emailLower = email.toLowerCase();
-      const attempts = [
-        emailLower ? query(collection(db, "clients"), where("emailLower", "==", emailLower)) : null,
-        email ? query(collection(db, "clients"), where("email", "==", email)) : null,
-        query(collection(db, "clients"), where("uid", "==", user.uid)),
-        query(collection(db, "clients"), where("linkedUserId", "==", user.uid)),
-      ].filter(Boolean);
-
-      for (const q of attempts) {
-        try {
-          const snap = await getDocs(q);
-          if (!snap.empty) {
-            if (alive) {
-              setClientId(snap.docs[0].id);
-              setClientData(snap.docs[0].data());
-            }
-            break;
-          }
-        } catch {
-          // On teste plusieurs identifiants possibles, donc une requête ratée ne bloque pas.
+      try {
+        const snap = await resolveClientSnapshotForUser(user, { logPrefix: "ClientNutritionPage" });
+        if (snap?.exists?.() && alive) {
+          setClientId(snap.id);
+          setClientData(snap.data());
+        } else if (alive) {
+          setClientId(null);
+          setClientData(null);
+        }
+      } catch {
+        // Le composant affichera l'état "non relié" si aucune piste ne passe les règles.
+        if (alive) {
+          setClientId(null);
+          setClientData(null);
         }
       }
 

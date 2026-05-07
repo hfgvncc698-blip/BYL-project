@@ -20,8 +20,9 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 // --- Firestore ---
 export const db = initializeFirestore(app, {
-  experimentalAutoDetectLongPolling: true,
+  experimentalForceLongPolling: true,
   useFetchStreams: false,
+  ignoreUndefinedProperties: true,
 });
 
 // --- Auth & Storage ---
@@ -29,4 +30,3 @@ export const auth = getAuth(app);
 export const storage = getStorage(app);
 
 export default app;
-

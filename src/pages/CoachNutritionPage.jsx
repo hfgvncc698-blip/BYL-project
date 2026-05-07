@@ -25,7 +25,7 @@ import {
   ModalBody,
   ModalFooter,
 } from "@chakra-ui/react";
-import { collectionGroup, deleteDoc, doc, onSnapshot } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDocs, limit, query, where } from "firebase/firestore";
 import { useLocation, useNavigate } from "react-router-dom";
 import { db } from "../firebaseConfig";
 import { useNutritionTheme } from "../styles/nutritionTheme";
@@ -74,10 +74,53 @@ export default function CoachNutritionPage() {
   const [rows, setRows] = useState([]);
   const [pendingDelete, setPendingDelete] = useState(null);
 
+  const loadRows = useCallback(async () => {
+    if (!user?.uid) {
+      setRows([]);
+      return;
+    }
+
+    const clientQueries = [
+      query(collection(db, "clients"), where("createdBy", "==", user.uid), limit(500)),
+      query(collection(db, "clients"), where("coachId", "==", user.uid), limit(500)),
+    ];
+    const clientSnaps = await Promise.all(
+      clientQueries.map((clientQuery) =>
+        getDocs(clientQuery).catch(() => ({ docs: [] }))
+      )
+    );
+    const clientIds = new Set();
+    clientSnaps.forEach((clientSnap) => {
+      clientSnap.docs.forEach((clientDoc) => clientIds.add(clientDoc.id));
+    });
+
+    const assessmentGroups = await Promise.all(
+      Array.from(clientIds).map(async (clientId) => {
+        const snap = await getDocs(collection(db, "clients", clientId, "nutrition_assessments"));
+        return snap.docs.map((docSnap) => ({ docSnap, clientId }));
+      })
+    );
+    const docs = assessmentGroups.flat().sort((a, b) => {
+      const aTs = a.docSnap.data()?.updatedAt?.toMillis?.() || a.docSnap.data()?.createdAt?.toMillis?.() || 0;
+      const bTs = b.docSnap.data()?.updatedAt?.toMillis?.() || b.docSnap.data()?.createdAt?.toMillis?.() || 0;
+      return bTs - aTs;
+    });
+    setRows(
+      docs
+        .map(({ docSnap, clientId }) => {
+          return { id: docSnap.id, clientId, ...docSnap.data() };
+        })
+        .filter(Boolean)
+    );
+  }, [user?.uid]);
+
   const handleDelete = useCallback(
     async (clientId, assessmentId) => {
       try {
         await deleteDoc(doc(db, "clients", clientId, "nutrition_assessments", assessmentId));
+        setRows((currentRows) =>
+          currentRows.filter((row) => !(row.clientId === clientId && row.id === assessmentId))
+        );
         toast({
           status: "success",
           title: "Bilan supprimé",
@@ -117,29 +160,19 @@ export default function CoachNutritionPage() {
   }, [createModal, location.search]);
 
   useEffect(() => {
-    const unsub = onSnapshot(
-      collectionGroup(db, "nutrition_assessments"),
-      (snap) => {
-        const docs = [...snap.docs].sort((a, b) => {
-          const aTs = a.data()?.updatedAt?.toMillis?.() || a.data()?.createdAt?.toMillis?.() || 0;
-          const bTs = b.data()?.updatedAt?.toMillis?.() || b.data()?.createdAt?.toMillis?.() || 0;
-          return bTs - aTs;
-        });
-        setRows(
-          docs
-            .map((docSnap) => {
-              const clientId = docSnap.ref.parent.parent?.id;
-              if (!clientId) return null;
-              return { id: docSnap.id, clientId, ...docSnap.data() };
-            })
-            .filter(Boolean)
-        );
-        setLoading(false);
-      },
-      () => setLoading(false)
-    );
-    return () => unsub();
-  }, []);
+    let alive = true;
+    loadRows()
+      .catch((error) => {
+        console.error("[CoachNutritionPage] nutrition rows load failed", error);
+        if (alive) setRows([]);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [loadRows]);
 
   const stats = useMemo(() => {
     const distinctClients = new Set(rows.map((row) => row.clientId).filter(Boolean)).size;

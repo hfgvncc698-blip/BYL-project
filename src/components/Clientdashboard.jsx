@@ -11,7 +11,7 @@ import {
 import { AddIcon } from '@chakra-ui/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  collection, getDocs, query, where, onSnapshot,
+  collection, getDocs, query, where, onSnapshot, limit,
   doc, addDoc, updateDoc, deleteDoc, Timestamp, getDoc
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -25,6 +25,8 @@ import { useAuth } from '../AuthContext';
 import { useTranslation } from 'react-i18next';
 import { FaStar, FaRegStar } from "react-icons/fa";
 import { resolveStorageUrl } from "../utils/storageUrls";
+import { resolveClientSnapshotForUser } from "../utils/clientResolver";
+import { runClientDataAccessDiagnostic } from "../utils/firestoreAccessDiagnostics";
 import ClientNutritionSharedSection from "./ClientNutritionSharedSection.jsx";
 import {
   MdOutlineCalendarMonth,
@@ -417,11 +419,16 @@ function PremiumDetailsModal({ isOpen, onClose, program, loadingDetails, onBuy, 
 export default function ClientDashboard() {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  const colorMode = useColorModeValue("light", "dark");
+  const modeValue = useCallback(
+    (lightValue, darkValue) => (colorMode === "light" ? lightValue : darkValue),
+    [colorMode]
+  );
   const navigate = useNavigate();
   const toast = useToast();
   const { firstName, logoUrl, primaryColor } = user || {};
   const [resolvedLogoUrl, setResolvedLogoUrl] = useState(null);
-  const calendarModalHelpColor = useColorModeValue('gray.600', 'gray.300');
+  const calendarModalHelpColor = modeValue('gray.600', 'gray.300');
 
   useEffect(() => {
     let alive = true;
@@ -499,33 +506,7 @@ export default function ClientDashboard() {
 
   /* ---------- Résolution robuste du client ---------- */
   async function resolveClientRef(u) {
-    if (!u) return null;
-    const email = (u.email || '').trim();
-    const emailLower = email.toLowerCase();
-
-    try {
-      if (emailLower) {
-        const snap = await getDocs(query(collection(db, 'clients'), where('emailLower', '==', emailLower)));
-        if (!snap.empty) return snap.docs[0];
-      }
-    } catch {}
-    try {
-      if (email) {
-        const snap = await getDocs(query(collection(db, 'clients'), where('email', '==', email)));
-        if (!snap.empty) return snap.docs[0];
-      }
-    } catch {}
-    try {
-      const snap = await getDocs(query(collection(db, 'clients'), where('uid', '==', u.uid)));
-      if (!snap.empty) return snap.docs[0];
-    } catch {}
-    try {
-      const snap = await getDocs(query(collection(db, 'clients'), where('linkedUserId', '==', u.uid)));
-      if (!snap.empty) return snap.docs[0];
-    } catch {}
-
-    console.warn('[ClientDashboard] Aucun document client trouvé pour', u.uid, email);
-    return null;
+    return resolveClientSnapshotForUser(u, { logPrefix: "ClientDashboard" });
   }
 
   const handleOpenCalendarLinkModal = () => {
@@ -674,6 +655,7 @@ export default function ClientDashboard() {
 
       const cId = clientDoc.id;
       setClientId(cId);
+      runClientDataAccessDiagnostic(user, { source: "ClientDashboard", clientId: cId });
 
       // ✅ sessions (calendar) EN LIVE : deux listeners + merge
       const mergeSessions = (a = [], b = []) => {
@@ -711,15 +693,29 @@ export default function ClientDashboard() {
       const qA = query(collection(db, 'sessions'), where('clientId', '==', user.uid));
       const qB = query(collection(db, 'sessions'), where('clientId', '==', cId));
 
-      unsubSessA = onSnapshot(qA, (snap) => {
-        cacheA = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        setSessionsRaw(mergeSessions(cacheA, cacheB));
-      });
+      unsubSessA = onSnapshot(
+        qA,
+        (snap) => {
+          cacheA = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          setSessionsRaw(mergeSessions(cacheA, cacheB));
+        },
+        () => {
+          cacheA = [];
+          setSessionsRaw(mergeSessions(cacheA, cacheB));
+        }
+      );
 
-      unsubSessB = onSnapshot(qB, (snap) => {
-        cacheB = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        setSessionsRaw(mergeSessions(cacheA, cacheB));
-      });
+      unsubSessB = onSnapshot(
+        qB,
+        (snap) => {
+          cacheB = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          setSessionsRaw(mergeSessions(cacheA, cacheB));
+        },
+        () => {
+          cacheB = [];
+          setSessionsRaw(mergeSessions(cacheA, cacheB));
+        }
+      );
 
       // ✅ programmes (mes programmes)
       const progCol = collection(db, 'clients', cId, 'programmes');
@@ -890,6 +886,9 @@ export default function ClientDashboard() {
         const sorted = items.sort((a, b) => (b._lastOrAssignedMs || 0) - (a._lastOrAssignedMs || 0));
         setProgrammes(sorted);
         setLoading(false);
+      }, () => {
+        setProgrammes([]);
+        setLoading(false);
       });
     })();
 
@@ -992,7 +991,7 @@ export default function ClientDashboard() {
             ];
           });
         }
-      });
+      }, () => {});
     });
 
     return () => { unsubs.forEach(u => u && u()); };
@@ -1193,18 +1192,16 @@ export default function ClientDashboard() {
     setEventOpen(false);
   };
 
-  if (!user) return <AppLoading label={t("common.loading", "Chargement...")} />;
-
-  const pageBg = useColorModeValue("#F5F7FB", "#070B14");
-  const surfaceBg = useColorModeValue("rgba(255,255,255,0.85)", "rgba(15,21,35,0.86)");
-  const surfaceBgStrong = useColorModeValue("rgba(255,255,255,0.95)", "rgba(11,16,27,0.95)");
+  const pageBg = modeValue("#F5F7FB", "#070B14");
+  const surfaceBg = modeValue("rgba(255,255,255,0.85)", "rgba(15,21,35,0.86)");
+  const surfaceBgStrong = modeValue("rgba(255,255,255,0.95)", "rgba(11,16,27,0.95)");
   const cardBg = surfaceBgStrong;
-  const textColor = useColorModeValue("#111827", "white");
-  const headerBg = useColorModeValue("rgba(248,250,252,0.95)", "rgba(255,255,255,0.03)");
-  const borderColor = useColorModeValue("rgba(15,23,42,0.08)", "rgba(255,255,255,0.08)");
-  const borderStrong = useColorModeValue("rgba(15,23,42,0.12)", "rgba(255,255,255,0.12)");
-  const offRangeBg = useColorModeValue('#edf2f7','#1f2736');
-  const todayBg = useColorModeValue('#dbeafe','#183b6b');
+  const textColor = modeValue("#111827", "white");
+  const headerBg = modeValue("rgba(248,250,252,0.95)", "rgba(255,255,255,0.03)");
+  const borderColor = modeValue("rgba(15,23,42,0.08)", "rgba(255,255,255,0.08)");
+  const borderStrong = modeValue("rgba(15,23,42,0.12)", "rgba(255,255,255,0.12)");
+  const offRangeBg = modeValue('#edf2f7','#1f2736');
+  const todayBg = modeValue('#dbeafe','#183b6b');
   const activeBlue = "#3B82F6";
   const isMobileDashboard = useBreakpointValue({ base: true, md: false });
 
@@ -1386,10 +1383,10 @@ export default function ClientDashboard() {
   }, [sessions]);
 
   const displayedProgrammes = programmes.slice(0, isMobileDashboard ? 3 : 5);
-  const mutedText = useColorModeValue("rgba(17,24,39,0.68)", "rgba(255,255,255,0.68)");
-  const subtleText = useColorModeValue("rgba(17,24,39,0.52)", "rgba(255,255,255,0.46)");
-  const heroTint = useColorModeValue("rgba(59,130,246,0.08)", "rgba(59,130,246,0.10)");
-  const glassShadow = useColorModeValue(
+  const mutedText = modeValue("rgba(17,24,39,0.68)", "rgba(255,255,255,0.68)");
+  const subtleText = modeValue("rgba(17,24,39,0.52)", "rgba(255,255,255,0.46)");
+  const heroTint = modeValue("rgba(59,130,246,0.08)", "rgba(59,130,246,0.10)");
+  const glassShadow = modeValue(
     "0 20px 50px rgba(15,23,42,0.08)",
     "0 20px 60px rgba(0,0,0,0.35)"
   );
@@ -1473,7 +1470,7 @@ export default function ClientDashboard() {
 
         <Circle
           size="46px"
-          bg={useColorModeValue("rgba(59,130,246,0.10)", "rgba(59,130,246,0.16)")}
+          bg={modeValue("rgba(59,130,246,0.10)", "rgba(59,130,246,0.16)")}
           border="1px solid"
           borderColor={`${activeBlue}33`}
           color={accent}
@@ -1539,6 +1536,8 @@ export default function ClientDashboard() {
     </Box>
   );
 
+  if (!user) return <AppLoading label={t("common.loading", "Chargement...")} />;
+
   return (
     <Box bg={pageBg} minH="100vh" p={{base:3,md:6}} color={textColor} position="relative" overflow="hidden">
       <Box
@@ -1548,7 +1547,7 @@ export default function ClientDashboard() {
         w="420px"
         h="420px"
         borderRadius="full"
-        bg={useColorModeValue("rgba(59,130,246,0.10)", "rgba(59,130,246,0.14)")}
+        bg={modeValue("rgba(59,130,246,0.10)", "rgba(59,130,246,0.14)")}
         filter="blur(90px)"
         pointerEvents="none"
       />
@@ -1559,7 +1558,7 @@ export default function ClientDashboard() {
         w="380px"
         h="380px"
         borderRadius="full"
-        bg={useColorModeValue("rgba(16,185,129,0.08)", "rgba(16,185,129,0.10)")}
+        bg={modeValue("rgba(16,185,129,0.08)", "rgba(16,185,129,0.10)")}
         filter="blur(90px)"
         pointerEvents="none"
       />
@@ -1582,7 +1581,7 @@ export default function ClientDashboard() {
               w="220px"
               h="220px"
               borderRadius="full"
-              bg={useColorModeValue("rgba(59,130,246,0.08)", "rgba(59,130,246,0.10)")}
+              bg={modeValue("rgba(59,130,246,0.08)", "rgba(59,130,246,0.10)")}
               filter="blur(38px)"
             />
             <Box
@@ -1592,7 +1591,7 @@ export default function ClientDashboard() {
               w="240px"
               h="240px"
               borderRadius="full"
-              bg={useColorModeValue("rgba(16,185,129,0.08)", "rgba(16,185,129,0.10)")}
+              bg={modeValue("rgba(16,185,129,0.08)", "rgba(16,185,129,0.10)")}
               filter="blur(48px)"
             />
 
@@ -1610,13 +1609,13 @@ export default function ClientDashboard() {
                   w={{ base: "48px", md: "68px" }}
                   h={{ base: "48px", md: "68px" }}
                   borderRadius="22px"
-                  bg={useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")}
+                  bg={modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")}
                   border="1px solid"
                   borderColor={borderStrong}
                   overflow="hidden"
                   align="center"
                   justify="center"
-                  boxShadow={useColorModeValue(
+                  boxShadow={modeValue(
                     "0 18px 40px rgba(15,23,42,0.08)",
                     "0 18px 40px rgba(0,0,0,0.22)"
                   )}
@@ -1652,7 +1651,7 @@ export default function ClientDashboard() {
                   py={3}
                   minW={{ base: "100%", lg: "170px" }}
                   borderRadius="20px"
-                  bg={useColorModeValue("rgba(15,23,42,0.03)", "rgba(255,255,255,0.04)")}
+                  bg={modeValue("rgba(15,23,42,0.03)", "rgba(255,255,255,0.04)")}
                   border="1px solid"
                   borderColor={borderColor}
                 >
@@ -1672,7 +1671,7 @@ export default function ClientDashboard() {
                   py={3}
                   minW={{ base: "100%", lg: "180px" }}
                   borderRadius="20px"
-                  bg={useColorModeValue("rgba(15,23,42,0.03)", "rgba(255,255,255,0.04)")}
+                  bg={modeValue("rgba(15,23,42,0.03)", "rgba(255,255,255,0.04)")}
                   border="1px solid"
                   borderColor={borderColor}
                   cursor={hasSportPrograms ? (motivationStats.upcoming ? 'pointer' : 'default') : 'pointer'}
@@ -1702,7 +1701,7 @@ export default function ClientDashboard() {
                   py={3}
                   minW={{ base: "100%", lg: "200px" }}
                   borderRadius="20px"
-                  bg={useColorModeValue("rgba(15,23,42,0.03)", "rgba(255,255,255,0.04)")}
+                  bg={modeValue("rgba(15,23,42,0.03)", "rgba(255,255,255,0.04)")}
                   border="1px solid"
                   borderColor={borderColor}
                 >
@@ -1720,6 +1719,68 @@ export default function ClientDashboard() {
                 </Box>
               </Flex>
             </Flex>
+            <SimpleGrid display={{ base: "grid", md: "none" }} columns={2} spacing={2} mt={3}>
+              <Box
+                px={3}
+                py={2.5}
+                borderRadius="16px"
+                bg={modeValue("rgba(15,23,42,0.035)", "rgba(255,255,255,0.05)")}
+                border="1px solid"
+                borderColor={borderColor}
+              >
+                <Text fontSize="xs" color={subtleText} fontWeight="800" textTransform="uppercase">
+                  {hasSportPrograms ? "Progression" : "Nutrition"}
+                </Text>
+                <Text mt={1} fontSize="lg" fontWeight="900" lineHeight="1">
+                  {hasSportPrograms ? `${motivationStats.percentAll}%` : "Suivi actif"}
+                </Text>
+                <Text mt={1} fontSize="xs" color={mutedText} noOfLines={1}>
+                  {hasSportPrograms
+                    ? `${motivationStats.doneAll}/${motivationStats.totalAll || 0} séances`
+                    : "Bilan et conseils"}
+                </Text>
+              </Box>
+
+              <Box
+                px={3}
+                py={2.5}
+                borderRadius="16px"
+                bg={modeValue("rgba(15,23,42,0.035)", "rgba(255,255,255,0.05)")}
+                border="1px solid"
+                borderColor={borderColor}
+              >
+                <Text fontSize="xs" color={subtleText} fontWeight="800" textTransform="uppercase">
+                  {hasSportPrograms ? "Ce mois-ci" : "Repère jour"}
+                </Text>
+                <Text mt={1} fontSize="lg" fontWeight="900" lineHeight="1">
+                  {hasSportPrograms ? motivationStats.validatedThisMonth : "Prêt"}
+                </Text>
+                <Text mt={1} fontSize="xs" color={mutedText} noOfLines={1}>
+                  {hasSportPrograms ? "séances terminées" : "Menu partagé"}
+                </Text>
+              </Box>
+
+              <Box
+                gridColumn="1 / -1"
+                px={3}
+                py={2.5}
+                borderRadius="16px"
+                bg={modeValue("rgba(59,130,246,0.08)", "rgba(59,130,246,0.14)")}
+                border="1px solid"
+                borderColor={modeValue("rgba(59,130,246,0.16)", "rgba(96,165,250,0.22)")}
+              >
+                <Text fontSize="xs" color={subtleText} fontWeight="800" textTransform="uppercase">
+                  {hasSportPrograms ? "Prochaine action" : "À retenir"}
+                </Text>
+                <Text mt={1} fontSize="sm" color={textColor} fontWeight="800" noOfLines={2}>
+                  {hasSportPrograms
+                    ? remainingSessions > 0
+                      ? `${remainingSessions} séance${remainingSessions > 1 ? "s" : ""} restante${remainingSessions > 1 ? "s" : ""} • ${nextSessionLabel}`
+                      : "Programme terminé, tu peux relancer un nouveau cycle."
+                    : "Tes éléments nutrition sont disponibles dans le suivi partagé."}
+                </Text>
+              </Box>
+            </SimpleGrid>
             <SimpleGrid display={{ base: "grid", md: "none" }} columns={2} spacing={2} mt={3}>
               <Button
                 size="sm"
@@ -1763,7 +1824,7 @@ export default function ClientDashboard() {
         />
       ) : null}
 
-      {isMobileDashboard && !hasSportPrograms && (
+      {isMobileDashboard && (
         <ClientCardShell
           title="Accès rapide"
           subtitle="Les raccourcis les plus utiles sur mobile."
@@ -2111,7 +2172,7 @@ export default function ClientDashboard() {
                       <Td>
                         <Box minW="220px">
                           <HStack justify="space-between" mb={1}>
-                            <Text fontSize="sm" color={useColorModeValue('gray.600','gray.300')}>
+                            <Text fontSize="sm" color={modeValue('gray.600','gray.300')}>
                               {t('client_dash.done_total_sessions', { done: p._done, total: p._total })}
                             </Text>
                             <Text fontSize="sm" fontWeight="semibold">{p._visualPercent ?? p._percent}%</Text>
@@ -2173,7 +2234,7 @@ export default function ClientDashboard() {
                     </HStack>
 
                     <HStack justify="space-between" mb={1}>
-                      <Text fontSize="sm" color={useColorModeValue('gray.600','gray.300')}>
+                      <Text fontSize="sm" color={modeValue('gray.600','gray.300')}>
                         {t('client_dash.done_total_sessions', { done: p._done, total: p._total })}
                       </Text>
                       <Text fontSize="sm" fontWeight="semibold">{p._visualPercent ?? p._percent}%</Text>
@@ -2266,7 +2327,7 @@ export default function ClientDashboard() {
                   </HStack>
 
                   <Heading size="sm" mb={2}>{title}</Heading>
-                  <Text color={useColorModeValue('gray.600','gray.400')} noOfLines={3}>
+                  <Text color={modeValue('gray.600','gray.400')} noOfLines={3}>
                     {desc}
                   </Text>
 
@@ -2278,7 +2339,7 @@ export default function ClientDashboard() {
                         ) : hasPromo && promo ? (
                           <>
                             {normal && (
-                              <Text as="div" color={useColorModeValue('gray.500','gray.400')} textDecoration="line-through" fontSize="sm" whiteSpace="nowrap">
+                              <Text as="div" color={modeValue('gray.500','gray.400')} textDecoration="line-through" fontSize="sm" whiteSpace="nowrap">
                                 {normal}
                               </Text>
                             )}
@@ -2331,8 +2392,8 @@ export default function ClientDashboard() {
           '.rbc-calendar': { background: surfaceBgStrong, color: textColor },
           '.rbc-toolbar': { background: headerBg, padding: '0.5rem', borderRadius: '8px', marginBottom: '12px' },
           '.rbc-toolbar button': { color: textColor, background: 'transparent', border: '1px solid', borderColor, borderRadius: '6px', padding: '4px 8px' },
-          '.rbc-toolbar button:hover': { background: useColorModeValue('#edf2f7','#4a5568') },
-          '.rbc-toolbar .rbc-active': { background: useColorModeValue('#e2e8f0','#2d3748') },
+          '.rbc-toolbar button:hover': { background: modeValue('#edf2f7','#4a5568') },
+          '.rbc-toolbar .rbc-active': { background: modeValue('#e2e8f0','#2d3748') },
           '.rbc-month-view, .rbc-time-view, .rbc-agenda-view': { border: '1px solid', borderColor },
           '.rbc-month-row': { borderTop: '1px solid', borderColor },
           '.rbc-header': { background: headerBg, color: textColor, borderBottom: '1px solid', borderColor, padding: '0.5rem' },

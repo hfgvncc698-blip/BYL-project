@@ -93,6 +93,7 @@ const normalizeUserDoc = (uid, data, fb) => ({
 
   stripeCustomerId: data?.stripeCustomerId ?? null,
   stripeSubscriptionId: data?.stripeSubscriptionId ?? null,
+  linkedClientId: data?.linkedClientId ?? null,
 
   logoUrl: data?.logoUrl ?? null,
   primaryColor: data?.primaryColor ?? null,
@@ -103,13 +104,13 @@ async function findClientProfileForAuthUser(firebaseUser) {
   const email = normalizeEmail(firebaseUser?.email);
   const queries = [];
 
+  if (firebaseUser?.uid) {
+    queries.push(query(collection(db, "clients"), where("linkedUserId", "==", firebaseUser.uid), limit(1)));
+    queries.push(query(collection(db, "clients"), where("uid", "==", firebaseUser.uid), limit(1)));
+  }
   if (email) {
     queries.push(query(collection(db, "clients"), where("emailLower", "==", email), limit(1)));
     queries.push(query(collection(db, "clients"), where("email", "==", email), limit(1)));
-  }
-  if (firebaseUser?.uid) {
-    queries.push(query(collection(db, "clients"), where("uid", "==", firebaseUser.uid), limit(1)));
-    queries.push(query(collection(db, "clients"), where("linkedUserId", "==", firebaseUser.uid), limit(1)));
   }
 
   for (const q of queries) {

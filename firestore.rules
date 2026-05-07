@@ -11,10 +11,6 @@ service cloud.firestore {
       return /databases/$(database)/documents/users/$(uid);
     }
 
-    function clientPath(clientId) {
-      return /databases/$(database)/documents/clients/$(clientId);
-    }
-
     function currentUser() {
       return signedIn() && exists(userPath(request.auth.uid))
         ? get(userPath(request.auth.uid)).data
@@ -32,56 +28,11 @@ service cloud.firestore {
       );
     }
 
-    function hasKey(data, key) {
-      return data.keys().hasAny([key]);
-    }
-
-    function listHas(data, key, value) {
-      return hasKey(data, key) && data[key] is list && value in data[key];
-    }
-
     function isOwnUser(uid) {
       return signedIn() && request.auth.uid == uid;
     }
 
-    function isClientOwnerData(data, clientId) {
-      return signedIn() && (
-        clientId == request.auth.uid ||
-        data.uid == request.auth.uid ||
-        data.linkedUserId == request.auth.uid ||
-        data.email == request.auth.token.email ||
-        data.emailLower == request.auth.token.email
-      );
-    }
-
-    function isCoachForClientData(data) {
-      return signedIn() && (
-        data.createdBy == request.auth.uid ||
-        data.coachId == request.auth.uid ||
-        data.assignedCoachId == request.auth.uid ||
-        listHas(data, "coachIds", request.auth.uid)
-      );
-    }
-
-    function canAccessClient(clientId) {
-      return isAdmin() ||
-        (
-          signedIn() &&
-          exists(clientPath(clientId)) &&
-          (
-            isClientOwnerData(get(clientPath(clientId)).data, clientId) ||
-            isCoachForClientData(get(clientPath(clientId)).data)
-          )
-        );
-    }
-
-    function canCreateClient(clientId) {
-      return isAdmin() ||
-        isClientOwnerData(request.resource.data, clientId) ||
-        (isCoach() && isCoachForClientData(request.resource.data));
-    }
-
-    function isPublicProgramData(data) {
+    function publicProgram(data) {
       return data.isActive != false && (
         data.visibility == "public" ||
         data.origine == "premium" ||
@@ -90,59 +41,55 @@ service cloud.firestore {
       );
     }
 
-    function ownsProgramData(data) {
-      return signedIn() && (
-        data.createdBy == request.auth.uid ||
-        data.ownerId == request.auth.uid ||
-        data.coachId == request.auth.uid ||
-        data.assignedTo == request.auth.uid ||
-        listHas(data, "assignedTo", request.auth.uid) ||
-        listHas(data, "clients", request.auth.uid)
-      );
+    function userSelfProtectedFieldsUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        "role",
+        "hasActiveSubscription",
+        "subscriptionStatus",
+        "stripeCustomerId",
+        "stripeSubscriptionId",
+        "trialStartedAt",
+        "trialEndsAt",
+        "linkedClientId"
+      ]);
     }
 
     match /users/{uid} {
-      allow create: if isOwnUser(uid) || isAdmin();
-      allow read: if isOwnUser(uid) || isAdmin();
-      allow update: if isOwnUser(uid) || isAdmin();
+      allow create: if isOwnUser(uid) || isAdmin() || isCoach();
+      allow get: if isOwnUser(uid) || isAdmin() || isCoach() || (signedIn() && resource.data.role in ["coach", "admin"]);
+      allow list: if isAdmin() || isCoach();
+      allow update: if isAdmin() || isCoach() || (isOwnUser(uid) && userSelfProtectedFieldsUnchanged());
       allow delete: if isAdmin();
 
       match /privacy/{document=**} {
         allow read, write: if isOwnUser(uid) || isAdmin();
       }
+
+      match /measurements/{document=**} {
+        allow read, write: if isOwnUser(uid) || isAdmin() || isCoach();
+      }
     }
 
     match /clients/{clientId} {
-      allow create: if signedIn() && canCreateClient(clientId);
-      allow read: if canAccessClient(clientId);
-      allow update: if canAccessClient(clientId);
-      allow delete: if isAdmin() || (isCoach() && isCoachForClientData(resource.data));
-
-      match /private/{document=**} {
-        allow read, write: if canAccessClient(clientId);
-      }
+      allow read, write: if signedIn();
 
       match /{subCollection}/{document=**} {
-        allow read, write: if canAccessClient(clientId);
+        allow read, write: if signedIn();
       }
     }
 
     match /programmes/{programId} {
-      allow read: if isPublicProgramData(resource.data) || isAdmin() || ownsProgramData(resource.data);
-      allow create: if isAdmin() || (isCoach() && ownsProgramData(request.resource.data));
-      allow update: if isAdmin() || (isCoach() && ownsProgramData(resource.data));
-      allow delete: if isAdmin() || (isCoach() && ownsProgramData(resource.data));
+      allow read: if publicProgram(resource.data) || signedIn();
+      allow write: if signedIn();
 
       match /{subCollection}/{document=**} {
-        allow read, write: if isAdmin() || ownsProgramData(get(/databases/$(database)/documents/programmes/$(programId)).data);
+        allow read: if signedIn();
+        allow write: if signedIn();
       }
     }
 
     match /sessions/{sessionId} {
-      allow read: if isAdmin() || ownsProgramData(resource.data);
-      allow create: if isAdmin() || ownsProgramData(request.resource.data);
-      allow update: if isAdmin() || ownsProgramData(resource.data);
-      allow delete: if isAdmin() || ownsProgramData(resource.data);
+      allow read, write: if signedIn();
     }
 
     match /training/{exerciseId} {
@@ -166,28 +113,33 @@ service cloud.firestore {
     }
 
     match /coachs/{coachId} {
-      allow read: if isAdmin() || isOwnUser(coachId);
+      allow read: if signedIn();
       allow write: if isAdmin() || isOwnUser(coachId);
     }
 
     match /analytics_geo/{document=**} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     match /analytics_daily/{document=**} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     match /analytics_geo_daily/{document=**} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     match /analytics_geo_hourly/{document=**} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     match /contact_messages/{messageId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     match /calendarSubscriptionTokens/{token} {

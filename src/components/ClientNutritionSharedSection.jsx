@@ -631,7 +631,16 @@ export default function ClientNutritionSharedSection({
   };
 
   if (loading) return <AppLoading label="Chargement du suivi nutrition..." minH="180px" />;
-  if (!latest) return null;
+  if (!latest) {
+    return (
+      <Box {...theme.cardProps} p={{ base: 4, md: 5 }}>
+        <Heading size="sm">Aucun suivi nutrition partagé</Heading>
+        <Text color={theme.mutedText} mt={2}>
+          Ton coach n’a pas encore partagé de menu, recette ou liste de courses sur cette fiche client.
+        </Text>
+      </Box>
+    );
+  }
 
   if (variant === "compact") {
     const sharedCount = assessments.length;

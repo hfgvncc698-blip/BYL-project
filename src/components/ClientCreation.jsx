@@ -350,6 +350,7 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
           telephone: client.telephone?.trim() || null,
           createdAt: serverTimestamp(),
           loginMethod: "email",
+          linkedClientId: uid,
           preferredLang: langCode,
           settings: {
             defaultLanguage: client.langue,

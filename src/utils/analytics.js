@@ -40,8 +40,8 @@ export async function trackPageView({
         visitorId: getVisitorId(),
       }),
     });
-  } catch (error) {
-    if (import.meta.env.DEV) console.warn("trackPageView error:", error);
+  } catch {
+    // Analytics is best-effort: local/dev backends can be offline without affecting the app.
   }
 }
 

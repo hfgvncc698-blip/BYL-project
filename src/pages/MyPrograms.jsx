@@ -8,9 +8,10 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
 import {
-  collection, query, where, getDocs, getDoc, doc, orderBy, limit,
+  collection, query, where, getDocs, orderBy, limit,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
+import { resolveClientSnapshotForUser } from "../utils/clientResolver";
 import { useTranslation } from "react-i18next";
 import {
   MdOutlineCalendarMonth,
@@ -246,17 +247,9 @@ export default function MyPrograms() {
         }
 
         // ===== PARTICULIER : programmes assignés =====
-        // 1) doc client (par email ou par uid)
-        let cId = null;
-        if (user.email) {
-          const qClient = query(collection(db, "clients"), where("email", "==", user.email));
-          const cSnap = await getDocs(qClient);
-          if (!cSnap.empty) cId = cSnap.docs[0].id;
-        }
-        if (!cId && user.uid) {
-          const maybe = await getDoc(doc(db, "clients", user.uid));
-          if (maybe.exists()) cId = user.uid;
-        }
+        // 1) dossier client réel, en compatibilité avec les anciens chemins.
+        const clientSnap = await resolveClientSnapshotForUser(user, { logPrefix: "MyPrograms" });
+        const cId = clientSnap?.id || null;
         if (!cId) { setRows([]); setClientId(null); return; }
         setClientId(cId);
 

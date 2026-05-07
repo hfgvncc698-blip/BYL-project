@@ -117,6 +117,9 @@ app.use('/api/contact', contactRoutes);
 const analyticsRoutes = require('./routes/analytics');
 app.use('/api/analytics', analyticsRoutes);
 
+const clientProfileRoutes = require('./routes/clientProfile');
+app.use('/api/client-profile', clientProfileRoutes);
+
 // Programmes
 const programRoutes = require('./routes/programs');
 app.use('/api/programs', programRoutes);

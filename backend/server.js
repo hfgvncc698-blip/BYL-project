@@ -83,6 +83,9 @@ app.use("/api/contact", contactRouter);
 const analyticsRouter = require("./routes/analytics");
 app.use("/api/analytics", analyticsRouter);
 
+const clientProfileRouter = require("./routes/clientProfile");
+app.use("/api/client-profile", clientProfileRouter);
+
 // ✅✅✅ PROGRAMS (génération auto)
 // IMPORTANT : c’est CE router qui doit gérer /api/programs/generate
 const programsRouter = require("./routes/programs");

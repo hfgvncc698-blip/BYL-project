@@ -52,7 +52,6 @@ import { notify } from "../utils/notify";
 import { useNavigate, Link } from "react-router-dom";
 import {
   collection,
-  collectionGroup,
   getDocs,
   addDoc,
   setDoc,
@@ -63,7 +62,6 @@ import {
   serverTimestamp,
   Timestamp,
   query,
-  onSnapshot,
   where,
   limit,
   orderBy,
@@ -268,6 +266,46 @@ null) ||
       t("dashboard.session_completed", "Séance effectuée")
    );
 };
+
+const getProgrammeSessionList = (programme) => {
+  if (Array.isArray(programme?.sessions)) return programme.sessions;
+  if (Array.isArray(programme?.seances)) return programme.seances;
+  if (programme?.sessions && typeof programme.sessions === "object") {
+    return Object.values(programme.sessions);
+  }
+  if (programme?.seances && typeof programme.seances === "object") {
+    return Object.values(programme.seances);
+  }
+  return [];
+};
+
+const getProgrammeSessionTitle = (programme, sessionIndex, t) => {
+  const idx = Number(sessionIndex);
+  const session = Number.isFinite(idx) ? getProgrammeSessionList(programme)[idx] : null;
+  const title =
+    session?.name ||
+    session?.title ||
+    session?.nom ||
+    session?.sessionTitle ||
+    session?.titre ||
+    "";
+
+  return String(title || "").trim() || `${t("form.session", "Séance")} ${Number.isFinite(idx) ? idx + 1 : 1}`;
+};
+
+const getSessionDisplayTitle = (programme, session, t) => {
+  const rawTitle =
+    session?.sessionTitle ||
+    session?.title ||
+    session?.name ||
+    session?.nom ||
+    session?.titre ||
+    "";
+  if (String(rawTitle || "").trim()) return String(rawTitle).trim();
+
+  const idx = getSessionIndex(session);
+  return getProgrammeSessionTitle(programme, idx, t);
+};
 const normRating = (v) => {
    if (v === null || v === undefined || v === "") return null;
    const n = Number(v);
@@ -424,6 +462,81 @@ const isSessionValidatedRecord = (session) => {
     Boolean(session?.validatedAt)
   );
 };
+
+const getSessionActivityMs = (session) =>
+  toMillis(session?.updatedAt) ||
+  toMillis(session?.dateEffectuee) ||
+  toMillis(session?.completedAt) ||
+  toMillis(session?.playedAt) ||
+  toMillis(session?.timestamp) ||
+  toMillis(session?.date) ||
+  toMillis(session?.validatedAt) ||
+  toMillis(session?.startedAt) ||
+  toMillis(session?.endedAt) ||
+  toMillis(session?.endAt) ||
+  toMillis(session?.finishedAt) ||
+  toMillis(session?.createdAt) ||
+  0;
+
+const getLatestValidatedSessionRecord = (sessionsEffectuees = []) => {
+  let best = null;
+  let bestMs = -1;
+  let bestIndex = -1;
+  let bestOrder = -1;
+
+  sessionsEffectuees.forEach((session, order) => {
+    if (!isSessionValidatedRecord(session)) return;
+
+    const ms = getSessionActivityMs(session);
+    const index = getSessionIndex(session);
+    const comparableIndex = Number.isFinite(index) ? index : -1;
+
+    if (
+      !best ||
+      ms > bestMs ||
+      (ms === bestMs && comparableIndex > bestIndex) ||
+      (ms === bestMs && comparableIndex === bestIndex && order > bestOrder)
+    ) {
+      best = session;
+      bestMs = ms;
+      bestIndex = comparableIndex;
+      bestOrder = order;
+    }
+  });
+
+  return best;
+};
+
+const getLatestSessionRecord = (sessionsEffectuees = []) => {
+  let best = null;
+  let bestMs = -1;
+  let bestIndex = -1;
+  let bestOrder = -1;
+
+  sessionsEffectuees.forEach((session, order) => {
+    const ms = getSessionActivityMs(session);
+    const index = getSessionIndex(session);
+    const comparableIndex = Number.isFinite(index) ? index : -1;
+
+    if (
+      !best ||
+      ms > bestMs ||
+      (ms === bestMs && comparableIndex > bestIndex) ||
+      (ms === bestMs && comparableIndex === bestIndex && order > bestOrder)
+    ) {
+      best = session;
+      bestMs = ms;
+      bestIndex = comparableIndex;
+      bestOrder = order;
+    }
+  });
+
+  return best;
+};
+
+const getLatestCompletedSessionRecord = (sessionsEffectuees = []) =>
+  getLatestValidatedSessionRecord(sessionsEffectuees) ||
+  getLatestSessionRecord(sessionsEffectuees);
 async function upsertClientCalendarEvent({
    clientId,
    eventId,
@@ -515,6 +628,11 @@ export default function CoachDashboard() {
   }, [i18n.resolvedLanguage]);
   const { user, loading } = useAuth();
   const isAdmin = user?.role === "admin";
+  const colorMode = useColorModeValue("light", "dark");
+  const modeValue = useCallback(
+    (lightValue, darkValue) => (colorMode === "light" ? lightValue : darkValue),
+    [colorMode]
+  );
   const navigate = useNavigate();
   const toast = useToast();
   const { firstName, logoUrl, primaryColor } = user || {};
@@ -591,33 +709,65 @@ setSelectedAssignedBaseProgramId] = useState(null);
 useState("");
   const [calendarLinkLoading, setCalendarLinkLoading] =
 useState(false);
-  const dashboardModalActionBorder = useColorModeValue("rgba(15,23,42,0.10)", "rgba(255,255,255,0.14)");
-  const dashboardModalActionBg = useColorModeValue("white", "rgba(255,255,255,0.03)");
-  const dashboardModalActionHoverBg = useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.06)");
-  const dashboardModalActionHoverBorder = useColorModeValue("rgba(15,23,42,0.18)", "rgba(255,255,255,0.26)");
-  const dashboardModalActionHoverShadow = useColorModeValue(
+  const dashboardModalActionBorder = modeValue("rgba(15,23,42,0.10)", "rgba(255,255,255,0.14)");
+  const dashboardModalActionBg = modeValue("white", "rgba(255,255,255,0.03)");
+  const dashboardModalActionHoverBg = modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.06)");
+  const dashboardModalActionHoverBorder = modeValue("rgba(15,23,42,0.18)", "rgba(255,255,255,0.26)");
+  const dashboardModalActionHoverShadow = modeValue(
     "0 10px 24px rgba(15,23,42,0.08)",
     "0 12px 26px rgba(0,0,0,0.24)"
   );
 
   useEffect(() => {
-    const unsub = onSnapshot(
-      collectionGroup(db, "nutrition_assessments"),
-      (snap) => {
-        setNutritionRows(
-          snap.docs
-            .map((docSnap) => {
-              const clientId = docSnap.ref.parent.parent?.id;
-              if (!clientId) return null;
-              return { id: docSnap.id, clientId, ...docSnap.data() };
-            })
-            .filter(Boolean)
+    let alive = true;
+    const loadNutritionRows = async () => {
+      if (!user?.uid) {
+        setNutritionRows([]);
+        return;
+      }
+
+      try {
+        const clientQueries = [
+          query(collection(db, "clients"), where("createdBy", "==", user.uid), limit(500)),
+          query(collection(db, "clients"), where("coachId", "==", user.uid), limit(500)),
+        ];
+        const clientSnaps = await Promise.all(
+          clientQueries.map((clientQuery) =>
+            getDocs(clientQuery).catch(() => ({ docs: [] }))
+          )
         );
-      },
-      () => setNutritionRows([])
-    );
-    return () => unsub();
-  }, []);
+        const clientsById = new Map();
+        clientSnaps.forEach((clientSnap) => {
+          clientSnap.docs.forEach((clientDoc) => {
+            clientsById.set(clientDoc.id, clientDoc);
+          });
+        });
+
+        const nutritionSnaps = await Promise.all(
+          Array.from(clientsById.keys()).map(async (clientId) => {
+            const snap = await getDocs(collection(db, "clients", clientId, "nutrition_assessments"));
+            return snap.docs.map((docSnap) => ({ docSnap, clientId }));
+          })
+        );
+        const nutritionDocs = nutritionSnaps.flat();
+        if (!alive) return;
+        setNutritionRows(
+          nutritionDocs.map(({ docSnap, clientId }) => ({
+            id: docSnap.id,
+            clientId,
+            ...docSnap.data(),
+          }))
+        );
+      } catch {
+        if (alive) setNutritionRows([]);
+      }
+    };
+
+    loadNutritionRows();
+    return () => {
+      alive = false;
+    };
+  }, [user?.uid]);
 
   const nutritionDashboardStats = useMemo(() => {
     const distinctClients = new Set(nutritionRows.map((row) => row.clientId).filter(Boolean)).size;
@@ -738,45 +888,39 @@ sessionIndex = null }) => {
   );
   const enrichAssignedProgram = useCallback((prog, sessionsEffectuees = []) => {
     const totalPrevues = getTotalSessionsFromProgrammeDoc(prog);
-    const latestSessionRecord = [...sessionsEffectuees]
-      .sort((a, b) => {
-        const ams =
-          toMillis(a.updatedAt) ||
-          toMillis(a.dateEffectuee) ||
-          toMillis(a.completedAt) ||
-          toMillis(a.startedAt) ||
-          toMillis(a.createdAt) ||
-          0;
-        const bms =
-          toMillis(b.updatedAt) ||
-          toMillis(b.dateEffectuee) ||
-          toMillis(b.completedAt) ||
-          toMillis(b.startedAt) ||
-          toMillis(b.createdAt) ||
-          0;
-        return bms - ams;
-      })[0] || null;
+    const latestSessionRecord = getLatestSessionRecord(sessionsEffectuees);
+    const latestCompletedRecord = getLatestCompletedSessionRecord(sessionsEffectuees);
 
     const finishedIdx = new Set();
     let done = 0;
     sessionsEffectuees.forEach((s) => {
       if (isSessionValidatedRecord(s)) {
         done += 1;
-        const idx = typeof s.sessionIndex === "number" ? s.sessionIndex : Number(s.sessionIndex);
+        const idx = getSessionIndex(s);
         if (Number.isFinite(idx)) finishedIdx.add(idx);
       }
     });
-    if (sessionsEffectuees.length > 0 && done === 0) done = sessionsEffectuees.length;
+    if (sessionsEffectuees.length > 0 && done === 0) {
+      done = sessionsEffectuees.length;
+      sessionsEffectuees.forEach((s) => {
+        const idx = getSessionIndex(s);
+        if (Number.isFinite(idx)) finishedIdx.add(idx);
+      });
+      if (finishedIdx.size === 0) {
+        const legacyDone = totalPrevues > 0 ? Math.min(done, totalPrevues) : done;
+        for (let i = 0; i < legacyDone; i += 1) finishedIdx.add(i);
+      }
+    }
 
     const percent = totalPrevues > 0 ? Math.min(100, Math.round((done / totalPrevues) * 100)) : 0;
     let nextIndex = 0;
     if (totalPrevues > 0) {
       while (nextIndex < totalPrevues && finishedIdx.has(nextIndex)) nextIndex += 1;
-      if (nextIndex >= totalPrevues) nextIndex = Math.max(0, totalPrevues - 1);
+      if (nextIndex >= totalPrevues) nextIndex = 0;
     }
 
     const latestPct = Number(latestSessionRecord?.pourcentageTermine);
-    const latestSessionIndex = Number(latestSessionRecord?.sessionIndex);
+    const latestSessionIndex = getSessionIndex(latestSessionRecord);
     const latestIsValidated = isSessionValidatedRecord(latestSessionRecord);
     const hasResumePoint =
       !latestIsValidated &&
@@ -795,13 +939,7 @@ sessionIndex = null }) => {
             Math.max(0, Math.ceil((latestPct / 100) * resumeExerciseCount) - 1)
           )
         : 0;
-    const lastSessionMs =
-      toMillis(latestSessionRecord?.updatedAt) ||
-      toMillis(latestSessionRecord?.dateEffectuee) ||
-      toMillis(latestSessionRecord?.completedAt) ||
-      toMillis(latestSessionRecord?.startedAt) ||
-      toMillis(latestSessionRecord?.createdAt) ||
-      0;
+    const lastSessionMs = getSessionActivityMs(latestSessionRecord);
 
     return {
       ...prog,
@@ -815,7 +953,7 @@ sessionIndex = null }) => {
       _resumePct: hasResumePoint ? Math.max(1, Math.min(99, Math.round(latestPct))) : null,
       _hasResumePoint: hasResumePoint,
       _lastSessionMs: lastSessionMs,
-      _lastCompletedTitle: latestSessionRecord ? getCompletedTitle(latestSessionRecord, t) : "",
+      _lastCompletedTitle: latestCompletedRecord ? getSessionDisplayTitle(prog, latestCompletedRecord, t) : "",
     };
   }, [t]);
   const startNextSessionForClient = useCallback(async (client, mode = "next") => {
@@ -914,12 +1052,46 @@ selectedEvent.programmeId) ||
        assignedProgramId: assignedProg.id,
        isAuto: Boolean(isAutoProgramme(assignedProg)),
        fallbackName: prettyAssignedProgramName(assignedProg),
-       sessionIndex:
-          Number.isFinite(Number(selectedEvent.sessionIndex)) ?
-Number(selectedEvent.sessionIndex) : null,
+       sessionIndex: getSessionIndex(selectedEvent),
      });
   }, [clients, openAssignedProgramForClient,
 prettyAssignedProgramName, selectedEvent, eventModal]);
+
+  const handleStartSelectedEventSession = useCallback(() => {
+    if (!selectedEvent?.clientId) return;
+
+    const client = clients.find((c) => c.id === selectedEvent.clientId);
+    if (!client) return;
+
+    const assignedProg =
+      (client.programmesAssignes || []).find((p) => p.id === selectedEvent.programmeId) ||
+      (client.programmesAssignes || []).find(
+        (p) => (p.programId || p.programID || p.baseId || null) === selectedEvent.baseProgrammeId
+      ) ||
+      (client.programmesAssignes || []).find(
+        (p) => (p.programId || p.programID || p.baseId || null) === selectedEvent.programmeId
+      );
+
+    if (!assignedProg?.id) return;
+
+    const sessionIndex = getSessionIndex(selectedEvent);
+    const sessionToPlay = Number.isFinite(sessionIndex)
+      ? sessionIndex
+      : Number.isFinite(Number(assignedProg?._nextIndex))
+        ? Number(assignedProg._nextIndex)
+        : 0;
+
+    eventModal.onClose();
+    navigate(`/clients/${client.id}/programmes/${assignedProg.id}/session/${sessionToPlay}/play`, {
+      state: {
+        exerciseIndex: 0,
+        resumeExerciseIndex: 0,
+        resumeSessionIndex: sessionToPlay,
+        resumePct: null,
+      },
+    });
+  }, [clients, eventModal, navigate, selectedEvent]);
+
   const fetchData = useCallback(async () => {
      if (!user?.uid) return;
      setLoadingData(true);
@@ -972,42 +1144,36 @@ assignMs;
 d.id, "sessionsEffectuees")
                 );
                 const sessionsEffectuees = sessSnap.docs.map((docu) => ({ id: docu.id, ...docu.data() }));
-                const latestSessionRecord = [...sessionsEffectuees]
-                  .sort((a, b) => {
-                    const ams =
-                      toMillis(a.updatedAt) ||
-                      toMillis(a.dateEffectuee) ||
-                      toMillis(a.completedAt) ||
-                      toMillis(a.startedAt) ||
-                      toMillis(a.createdAt) ||
-                      0;
-                    const bms =
-                      toMillis(b.updatedAt) ||
-                      toMillis(b.dateEffectuee) ||
-                      toMillis(b.completedAt) ||
-                      toMillis(b.startedAt) ||
-                      toMillis(b.createdAt) ||
-                      0;
-                    return bms - ams;
-                  })[0] || null;
+                const latestSessionRecord = getLatestSessionRecord(sessionsEffectuees);
+                const latestCompletedRecord = getLatestCompletedSessionRecord(sessionsEffectuees);
                 const finishedIdx = new Set();
                 let done = 0;
                 sessionsEffectuees.forEach((s) => {
                   if (isSessionValidatedRecord(s)) {
                     done += 1;
-                    const idx = typeof s.sessionIndex === "number" ? s.sessionIndex : Number(s.sessionIndex);
+                    const idx = getSessionIndex(s);
                     if (Number.isFinite(idx)) finishedIdx.add(idx);
                   }
                 });
-                if (sessionsEffectuees.length > 0 && done === 0) done = sessionsEffectuees.length;
+                if (sessionsEffectuees.length > 0 && done === 0) {
+                  done = sessionsEffectuees.length;
+                  sessionsEffectuees.forEach((s) => {
+                    const idx = getSessionIndex(s);
+                    if (Number.isFinite(idx)) finishedIdx.add(idx);
+                  });
+                  if (finishedIdx.size === 0) {
+                    const legacyDone = totalPrevues > 0 ? Math.min(done, totalPrevues) : done;
+                    for (let i = 0; i < legacyDone; i += 1) finishedIdx.add(i);
+                  }
+                }
                 const percent = totalPrevues > 0 ? Math.min(100, Math.round((done / totalPrevues) * 100)) : 0;
                 let nextIndex = 0;
                 if (totalPrevues > 0) {
                   while (nextIndex < totalPrevues && finishedIdx.has(nextIndex)) nextIndex += 1;
-                  if (nextIndex >= totalPrevues) nextIndex = Math.max(0, totalPrevues - 1);
+                  if (nextIndex >= totalPrevues) nextIndex = 0;
                 }
                 const latestPct = Number(latestSessionRecord?.pourcentageTermine);
-                const latestSessionIndex = Number(latestSessionRecord?.sessionIndex);
+                const latestSessionIndex = getSessionIndex(latestSessionRecord);
                 const latestIsValidated = isSessionValidatedRecord(latestSessionRecord);
                 const hasResumePoint =
                   !latestIsValidated &&
@@ -1033,14 +1199,8 @@ d.id, "sessionsEffectuees")
                   totalPrevues > 0
                     ? Math.min(100, Math.round(((done + partialSessionFraction) / totalPrevues) * 100))
                     : percent;
-                const lastSessionMs =
-                  toMillis(latestSessionRecord?.updatedAt) ||
-                  toMillis(latestSessionRecord?.dateEffectuee) ||
-                  toMillis(latestSessionRecord?.completedAt) ||
-                  toMillis(latestSessionRecord?.startedAt) ||
-                  toMillis(latestSessionRecord?.createdAt) ||
-                  0;
-                const lastCompletedTitle = latestSessionRecord ? getCompletedTitle(latestSessionRecord, t) : "";
+                const lastSessionMs = getSessionActivityMs(latestSessionRecord);
+                const lastCompletedTitle = latestCompletedRecord ? getSessionDisplayTitle(prog, latestCompletedRecord, t) : "";
                 let difficultyNotes = [];
                 try {
                    const diffSnap = await getDocs(
@@ -1198,8 +1358,10 @@ idx.byAssignedId.get(rawProgrammeId) || null;
           const programmeName = resolvedAssignedProg ?
 prettyAssignedProgramName(resolvedAssignedProg) : "";
 
-          const sessionTitle = String(s.title || s.sessionTitle ||
+          const storedSessionTitle = String(s.title || s.sessionTitle ||
 "").trim();
+          const sessionTitle = storedSessionTitle ||
+            (resolvedAssignedProg ? getProgrammeSessionTitle(resolvedAssignedProg, sessionIndex, t) : "");
           const titlePieces = [];
           if (clientName) titlePieces.push(clientName);
           if (programmeName) titlePieces.push(programmeName);
@@ -1246,7 +1408,7 @@ toMillis(s.createdAt), 0),
               const end = new Date(start.getTime() +
 FORCE_SESSION_DURATION_MIN * 60000);
               const sessionIndex = getSessionIndex(sEff);
-              const sessionTitle = getCompletedTitle(sEff, t);
+              const sessionTitle = getSessionDisplayTitle(prog, sEff, t);
               let difficultyRating = null;
               let difficultyAtMs = 0;
 
@@ -1437,11 +1599,7 @@ newSession.programmeId);
      const start = new Date(newSession.startDateTime);
      const end = new Date(start.getTime() +
 FORCE_SESSION_DURATION_MIN * 60000);
-     const sessionTitle =
-       seance?.name ||
-       seance?.title ||
-       seance?.nom ||
-       `${t("form.session", "Séance")} ${Number(newSession.sessionIndex || 0) + 1}`;
+    const sessionTitle = getProgrammeSessionTitle(prog, newSession.sessionIndex, t);
      const rootSessionPayload = {
        clientId: client.id,
        clientName: getClientFullName(client),
@@ -1608,24 +1766,24 @@ navigator.clipboard.writeText(calendarSubscriptionUrl);
 
   };
   /* ---------- Theme ---------- */
-  const pageBg = useColorModeValue("#F5F7FB", "#070B14");
-  const surfaceBg = useColorModeValue("rgba(255,255,255,0.85)",
+  const pageBg = modeValue("#F5F7FB", "#070B14");
+  const surfaceBg = modeValue("rgba(255,255,255,0.85)",
 "rgba(15,21,35,0.86)");
   const surfaceBgStrong =
-useColorModeValue("rgba(255,255,255,0.95)",
+modeValue("rgba(255,255,255,0.95)",
 "rgba(11,16,27,0.95)");
-  const surfaceSoft = useColorModeValue("rgba(248,250,252,0.95)",
+  const surfaceSoft = modeValue("rgba(248,250,252,0.95)",
 "rgba(255,255,255,0.03)");
-  const borderColor = useColorModeValue("rgba(15,23,42,0.08)",
+  const borderColor = modeValue("rgba(15,23,42,0.08)",
 "rgba(255,255,255,0.08)");
-  const borderStrong = useColorModeValue("rgba(15,23,42,0.12)",
+  const borderStrong = modeValue("rgba(15,23,42,0.12)",
 "rgba(255,255,255,0.12)");
-  const textColor = useColorModeValue("#111827", "white");
-  const mutedText = useColorModeValue("rgba(17,24,39,0.68)",
+  const textColor = modeValue("#111827", "white");
+  const mutedText = modeValue("rgba(17,24,39,0.68)",
 "rgba(255,255,255,0.68)");
-  const subtleText = useColorModeValue("rgba(17,24,39,0.52)",
+  const subtleText = modeValue("rgba(17,24,39,0.52)",
 "rgba(255,255,255,0.46)");
-  const glassShadow = useColorModeValue(
+  const glassShadow = modeValue(
      "0 20px 50px rgba(15,23,42,0.08)",
      "0 20px 60px rgba(0,0,0,0.35)"
   );
@@ -1633,7 +1791,6 @@ useColorModeValue("rgba(255,255,255,0.95)",
   const activeGreen = "#10B981";
   const dangerRed = "#EF4444";
   const warningOrange = "#F59E0B";
-  if (loading) return <AppLoading label={t("common.loading", "Chargement...")} />;
   const greetingSubtitle = useMemo(() => {
      const h = new Date().getHours();
      const isNight = h >= 22 || h < 5;
@@ -1912,7 +2069,7 @@ false, onClick, clickable = false }) => (
       bg={surfaceBg}
       border="1px solid"
       borderColor={featured ?
-useColorModeValue("rgba(59,130,246,0.18)",
+modeValue("rgba(59,130,246,0.18)",
 "rgba(59,130,246,0.26)") : borderColor}
       borderRadius={featured ? "26px" : "22px"}
       p={{ base: featured ? 3.5 : 3, md: featured ? 4 : 3.5 }}
@@ -1926,7 +2083,7 @@ useColorModeValue("rgba(59,130,246,0.18)",
       onClick={onClick}
       _hover={clickable ? {
          transform: "translateY(-2px)",
-         borderColor: useColorModeValue("rgba(59,130,246,0.18)",
+         borderColor: modeValue("rgba(59,130,246,0.18)",
 "rgba(59,130,246,0.24)"),
       } : undefined}
       _before={{
@@ -2002,7 +2159,7 @@ minH, ...boxProps }) => (
             {icon ? (
               <Circle
                 size="40px"
-                bg={useColorModeValue("rgba(59,130,246,0.10)",
+                bg={modeValue("rgba(59,130,246,0.10)",
 "rgba(59,130,246,0.16)")}
                 color={activeBlue}
               >
@@ -2046,7 +2203,7 @@ letterSpacing="-0.02em">
        bg={surfaceBg}
        border="1px solid"
        borderColor={featured ?
-useColorModeValue("rgba(59,130,246,0.18)",
+modeValue("rgba(59,130,246,0.18)",
 "rgba(59,130,246,0.24)") : borderColor}
        borderRadius={featured ? "24px" : "22px"}
        p={{ base: featured ? 3.5 : 3, md: featured ? 4 : 3.5 }}
@@ -2061,7 +2218,7 @@ useColorModeValue("rgba(59,130,246,0.18)",
        onClick={onClick}
        _hover={clickable ? {
           transform: "translateY(-2px)",
-          borderColor: useColorModeValue("rgba(59,130,246,0.18)",
+          borderColor: modeValue("rgba(59,130,246,0.18)",
 "rgba(59,130,246,0.24)"),
        } : undefined}
        _before={{
@@ -2124,6 +2281,8 @@ letterSpacing="-0.02em" lineHeight="1.15">
        </Box>
   );
 
+  if (loading) return <AppLoading label={t("common.loading", "Chargement...")} />;
+
   return (
     <Box minH="100vh" bg={pageBg} color={textColor}
 position="relative" overflow="hidden">
@@ -2134,7 +2293,7 @@ position="relative" overflow="hidden">
          w="420px"
          h="420px"
          borderRadius="full"
-         bg={useColorModeValue("rgba(59,130,246,0.10)",
+         bg={modeValue("rgba(59,130,246,0.10)",
 "rgba(59,130,246,0.14)")}
          filter="blur(90px)"
          pointerEvents="none"
@@ -2146,7 +2305,7 @@ position="relative" overflow="hidden">
          w="380px"
          h="380px"
          borderRadius="full"
-         bg={useColorModeValue("rgba(16,185,129,0.08)",
+         bg={modeValue("rgba(16,185,129,0.08)",
 "rgba(16,185,129,0.10)")}
          filter="blur(90px)"
          pointerEvents="none"
@@ -2201,7 +2360,7 @@ position="relative" overflow="hidden">
               w="220px"
               h="220px"
               borderRadius="full"
-              bg={useColorModeValue("rgba(59,130,246,0.08)",
+              bg={modeValue("rgba(59,130,246,0.08)",
 "rgba(59,130,246,0.10)")}
               filter="blur(38px)"
            />
@@ -2212,7 +2371,7 @@ position="relative" overflow="hidden">
               w="240px"
               h="240px"
               borderRadius="full"
-              bg={useColorModeValue("rgba(16,185,129,0.06)",
+              bg={modeValue("rgba(16,185,129,0.06)",
 "rgba(16,185,129,0.08)")}
               filter="blur(48px)"
            />
@@ -2230,7 +2389,7 @@ position="relative" overflow="hidden">
                 w={{ base: "58px", md: "68px" }}
                 h={{ base: "58px", md: "68px" }}
                 borderRadius="22px"
-                bg={useColorModeValue("rgba(15,23,42,0.04)",
+                bg={modeValue("rgba(15,23,42,0.04)",
 "rgba(255,255,255,0.05)")}
                 border="1px solid"
                 borderColor={borderStrong}
@@ -2238,7 +2397,7 @@ position="relative" overflow="hidden">
                      overflow="hidden"
                      align="center"
                      justify="center"
-                     boxShadow={useColorModeValue(
+                     boxShadow={modeValue(
                         "0 18px 40px rgba(15,23,42,0.08)",
                         "0 18px 40px rgba(0,0,0,0.22)"
                      )}
@@ -2292,7 +2451,7 @@ noOfLines={2}>
                  py={3}
                  minW={{ base: "100%", lg: "170px" }}
                  borderRadius="20px"
-                 bg={useColorModeValue("rgba(15,23,42,0.03)",
+                 bg={modeValue("rgba(15,23,42,0.03)",
 "rgba(255,255,255,0.04)")}
                  border="1px solid"
                  borderColor={borderColor}
@@ -2315,7 +2474,7 @@ noOfLines={1}>
                  py={3}
                  minW={{ base: "100%", lg: "180px" }}
                  borderRadius="20px"
-                 bg={useColorModeValue("rgba(15,23,42,0.03)",
+                 bg={modeValue("rgba(15,23,42,0.03)",
 "rgba(255,255,255,0.04)")}
                  border="1px solid"
                  borderColor={borderColor}
@@ -2344,7 +2503,7 @@ noOfLines={1}>
                 py={3}
                 minW={{ base: "100%", lg: "200px" }}
                 borderRadius="20px"
-                bg={useColorModeValue("rgba(15,23,42,0.03)",
+                bg={modeValue("rgba(15,23,42,0.03)",
 "rgba(255,255,255,0.04)")}
                 border="1px solid"
                 borderColor={borderColor}
@@ -2447,10 +2606,10 @@ boxSize="20px" />
                     size="sm"
                     leftIcon={<AddIcon />}
                     borderRadius="14px"
-                    bg={useColorModeValue("#111827", "rgba(255,255,255,0.16)")}
+                    bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
                     color="white"
-                    _hover={{ bg: useColorModeValue("#1F2937", "rgba(255,255,255,0.22)") }}
-                    _active={{ bg: useColorModeValue("#374151", "rgba(255,255,255,0.28)") }}
+                    _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
+                    _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
                     onClick={choiceModal.onOpen}
                   >
                     {t("nav.new", "Nouveau")}
@@ -2501,7 +2660,7 @@ boxSize="20px" />
                          p={2.5}
                          borderRadius="16px"
 
-bg={useColorModeValue("rgba(255,255,255,0.04)",
+bg={modeValue("rgba(255,255,255,0.04)",
 "rgba(255,255,255,0.03)")}
                         border="1px solid"
                         borderColor={borderColor}
@@ -2513,7 +2672,7 @@ bg={useColorModeValue("rgba(255,255,255,0.04)",
                         }}
                         _hover={{
                            borderColor:
-useColorModeValue("rgba(59,130,246,0.22)",
+modeValue("rgba(59,130,246,0.22)",
 "rgba(59,130,246,0.28)"),
                            transform: "translateY(-1px)",
                         }}
@@ -2570,11 +2729,11 @@ fontWeight="900" lineHeight="1">{weeklyLoad.rate}%</Text>
                    value={weeklyLoad.rate}
                    size="sm"
                    borderRadius="full"
-                   bg={useColorModeValue("rgba(15,23,42,0.06)",
+                   bg={modeValue("rgba(15,23,42,0.06)",
 "rgba(255,255,255,0.08)")}
                    sx={{
                       "& > div": {
-                         background: useColorModeValue("#111827", "rgba(255,255,255,0.22)"),
+                         background: modeValue("#111827", "rgba(255,255,255,0.22)"),
                          borderRadius: "999px",
                       },
                    }}
@@ -2656,10 +2815,10 @@ justify="center" h="100%">
                    <Button
                      leftIcon={<AddIcon />}
                      borderRadius="16px"
-                     bg={useColorModeValue("#111827", "rgba(255,255,255,0.16)")}
+                     bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
                      color="white"
-                     _hover={{ bg: useColorModeValue("#1F2937", "rgba(255,255,255,0.22)") }}
-                     _active={{ bg: useColorModeValue("#374151", "rgba(255,255,255,0.28)") }}
+                     _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
+                     _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
                      onClick={choiceModal.onOpen}
                    >
                      {t("nav.new", "Nouveau")}
@@ -2714,7 +2873,7 @@ justify="center" h="100%">
                         p={2.5}
                         borderRadius="16px"
 
-bg={useColorModeValue("rgba(255,255,255,0.04)",
+bg={modeValue("rgba(255,255,255,0.04)",
 "rgba(255,255,255,0.03)")}
                            border="1px solid"
                            borderColor={borderColor}
@@ -2726,7 +2885,7 @@ bg={useColorModeValue("rgba(255,255,255,0.04)",
                            }}
                            _hover={{
                               borderColor:
-useColorModeValue("rgba(59,130,246,0.22)",
+modeValue("rgba(59,130,246,0.22)",
 "rgba(59,130,246,0.28)"),
                               transform: "translateY(-1px)",
                            }}
@@ -2786,11 +2945,11 @@ fontWeight="900">{weeklyLoad.rate}%</Text>
                     value={weeklyLoad.rate}
                     size="sm"
                     borderRadius="full"
-                    bg={useColorModeValue("rgba(15,23,42,0.06)",
+                    bg={modeValue("rgba(15,23,42,0.06)",
 "rgba(255,255,255,0.08)")}
                     sx={{
                        "& > div": {
-                          background: useColorModeValue("#111827", "rgba(255,255,255,0.22)"),
+                          background: modeValue("#111827", "rgba(255,255,255,0.22)"),
                           borderRadius: "999px",
                        },
                     }}
@@ -2880,7 +3039,7 @@ h="100%">
                onClick={() => navigate("/clients")}
                _hover={{
                   borderColor:
-useColorModeValue("rgba(59,130,246,0.18)",
+modeValue("rgba(59,130,246,0.18)",
 "rgba(59,130,246,0.24)"),
                }}
              >
@@ -2896,8 +3055,9 @@ overflow="auto">
                       let nbTotalSessions = 0;
                       let lastCompletedMs = 0;
                       let lastCompletedDate = null;
-
-                    let lastCompletedAssignedProg = null;
+                      let lastCompletedRecord = null;
+                      let lastCompletedIndex = -1;
+                      let lastCompletedAssignedProg = null;
 
                     (c.programmesAssignes || []).forEach((prog) =>
 {
@@ -2908,16 +3068,29 @@ getTotalSessionsFromProgrammeDoc(prog);
 || [];
                       const doneIndexes = new Set();
                       let fallbackDoneCount = 0;
+                      const latestValidatedSession =
+                        getLatestCompletedSessionRecord(sessionsEff);
+
+                      if (latestValidatedSession) {
+                        const ms = getSessionActivityMs(latestValidatedSession);
+                        const idx = getSessionIndex(latestValidatedSession);
+                        const comparableIndex = Number.isFinite(idx) ? idx : -1;
+                        if (
+                          !lastCompletedRecord ||
+                          ms > lastCompletedMs ||
+                          (ms === lastCompletedMs && comparableIndex > lastCompletedIndex)
+                        ) {
+                          lastCompletedMs = ms;
+                          lastCompletedDate =
+                            getCompletedDate(latestValidatedSession) ||
+                            (ms > 0 ? new Date(ms) : null);
+                          lastCompletedIndex = comparableIndex;
+                          lastCompletedRecord = latestValidatedSession;
+                          lastCompletedAssignedProg = prog;
+                        }
+                      }
 
                         sessionsEff.forEach((s) => {
-                          const d = getCompletedDate(s);
-                          const ms = d ? d.getTime() : 0;
-                          if (isSessionValidatedRecord(s) && ms > lastCompletedMs) {
-                            lastCompletedMs = ms;
-                            lastCompletedDate = d;
-                            lastCompletedAssignedProg = prog;
-                          }
-
                         if (!isSessionValidatedRecord(s)) return;
                           const idx = getSessionIndex(s);
                           if (idx !== null && idx >= 0)
@@ -2956,30 +3129,13 @@ prettyAssignedProgramName(lastCompletedAssignedProg)
 prettyAssignedProgramName(c.programmesAssignes[0])
                         : "—";
                     const lastCompletedSessionLabel =
-                      lastCompletedAssignedProg?._lastCompletedTitle ||
-                      (lastCompletedAssignedProg && lastCompletedDate
-                        ? getCompletedTitle(
-                            [...(lastCompletedAssignedProg.sessionsEffectuees || [])]
-                              .sort((a, b) => {
-                                const ams =
-                                  toMillis(a.updatedAt) ||
-                                  toMillis(a.dateEffectuee) ||
-                                  toMillis(a.completedAt) ||
-                                  toMillis(a.startedAt) ||
-                                  toMillis(a.createdAt) ||
-                                  0;
-                                const bms =
-                                  toMillis(b.updatedAt) ||
-                                  toMillis(b.dateEffectuee) ||
-                                  toMillis(b.completedAt) ||
-                                  toMillis(b.startedAt) ||
-                                  toMillis(b.createdAt) ||
-                                  0;
-                                return bms - ams;
-                              })[0],
-                            t
-                          )
-                        : "Aucune séance validée");
+                      lastCompletedRecord
+                        ? getSessionDisplayTitle(lastCompletedAssignedProg, lastCompletedRecord, t)
+                        : "Aucune séance validée";
+                    const programForNextSession =
+                      lastCompletedAssignedProg || c.programmesAssignes?.[0] || null;
+                    const nextSessionIndex = ((programForNextSession?._nextIndex ?? 0) || 0);
+                    const nextSessionTitle = getProgrammeSessionTitle(programForNextSession, nextSessionIndex, t);
 
                     const isActiveClient =
 Number(c._lastInteractionMs || 0) > 0;
@@ -2998,9 +3154,9 @@ Number(c._lastInteractionMs || 0) > 0;
                         _hover={{
                            transform: "translateY(-2px)",
                            borderColor:
-useColorModeValue("rgba(15,23,42,0.12)",
+modeValue("rgba(15,23,42,0.12)",
 "rgba(255,255,255,0.16)"),
-                           boxShadow: useColorModeValue(
+                           boxShadow: modeValue(
                               "0 16px 30px rgba(15,23,42,0.08)",
                               "0 18px 35px rgba(0,0,0,0.22)"
                            ),
@@ -3021,13 +3177,13 @@ mb={2.5}>
                                   h="48px"
                                   borderRadius="18px"
 
-                                bg={useColorModeValue("rgba(15,23,42,0.08)", "rgba(255,255,255,0.12)")}
+                                bg={modeValue("rgba(15,23,42,0.08)", "rgba(255,255,255,0.12)")}
                                 color="white"
                                 fontWeight="900"
                                 align="center"
                                 justify="center"
                                 flexShrink={0}
-                                boxShadow={useColorModeValue("0 14px 24px rgba(15,23,42,0.12)", "0 14px 24px rgba(0,0,0,0.28)")}
+                                boxShadow={modeValue("0 14px 24px rgba(15,23,42,0.12)", "0 14px 24px rgba(0,0,0,0.28)")}
                               >
                                 {`${c?.prenom?.[0] || ""}${c?.nom?.[0] || ""}`.toUpperCase() || "C"}
                               </Flex>
@@ -3056,9 +3212,7 @@ color={mutedText} noOfLines={1}>
                                    {lastCompletedSessionLabel}
                                  </Text>
                                  <Text fontSize="xs" color={mutedText} noOfLines={1}>
-                                   {t("dashboard.next_session_line", "Next: Session {{n}}", {
-                                     n: ((lastCompletedAssignedProg?._nextIndex ?? 0) || 0) + 1,
-                                   })}
+                                   {t("dashboard.next_label", "Suivante")} : {nextSessionTitle}
                                  </Text>
                               </Box>
                             </HStack>
@@ -3086,7 +3240,7 @@ flexWrap="wrap">
                                   py={1}
                                   borderRadius="full"
 
-bg={useColorModeValue("rgba(15,23,42,0.04)",
+bg={modeValue("rgba(15,23,42,0.04)",
 "rgba(255,255,255,0.05)")}
                                 color={mutedText}
                                 border="1px solid"
@@ -3116,11 +3270,11 @@ fontWeight="800" color={textColor}>
                                  size="sm"
                                  borderRadius="full"
 
-bg={useColorModeValue("rgba(15,23,42,0.06)",
+bg={modeValue("rgba(15,23,42,0.06)",
 "rgba(255,255,255,0.08)")}
                                   sx={{
                                      "& > div": {
-                                        background: useColorModeValue("#111827", "rgba(255,255,255,0.22)"),
+                                        background: modeValue("#111827", "rgba(255,255,255,0.22)"),
                                         borderRadius: "999px",
                                      },
                                   }}
@@ -3133,10 +3287,10 @@ bg={useColorModeValue("rgba(15,23,42,0.06)",
                               <Button
                                 size="sm"
                                 w="100%"
-                                bg={useColorModeValue("#111827", "rgba(255,255,255,0.16)")}
+                                bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
                                 color="white"
-                                _hover={{ bg: useColorModeValue("#1F2937", "rgba(255,255,255,0.22)") }}
-                                _active={{ bg: useColorModeValue("#374151", "rgba(255,255,255,0.28)") }}
+                                _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
+                                _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
                                 borderRadius="16px"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -3151,7 +3305,7 @@ bg={useColorModeValue("rgba(15,23,42,0.06)",
                                 variant="outline"
                                 borderColor={borderStrong}
                                 color={textColor}
-                                _hover={{ bg: useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)") }}
+                                _hover={{ bg: modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)") }}
                                 borderRadius="16px"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -3166,7 +3320,7 @@ bg={useColorModeValue("rgba(15,23,42,0.06)",
                                 variant="outline"
                                 borderColor={borderStrong}
                                 color={textColor}
-                                _hover={{ bg: useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)") }}
+                                _hover={{ bg: modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)") }}
                                 borderRadius="16px"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -3182,7 +3336,7 @@ bg={useColorModeValue("rgba(15,23,42,0.06)",
                                 variant="outline"
                                 borderColor={borderStrong}
                                 color={textColor}
-                                _hover={{ bg: useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)") }}
+                                _hover={{ bg: modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)") }}
                                 borderRadius="16px"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -3236,7 +3390,7 @@ subtitle={t("dashboard.cards.latest_programs_subtitle", "Accès rapide aux plus 
                  onClick={() => navigate("/programmes")}
                  _hover={{
                     borderColor:
-useColorModeValue("rgba(59,130,246,0.18)",
+modeValue("rgba(59,130,246,0.18)",
 "rgba(59,130,246,0.24)"),
                  }}
               >
@@ -3268,7 +3422,7 @@ p.createdAt.toDate().toLocaleDateString()
 
                            _hover={{
                               borderColor:
-useColorModeValue("rgba(59,130,246,0.18)",
+modeValue("rgba(59,130,246,0.18)",
 "rgba(59,130,246,0.24)"),
                               transform: "translateY(-1px)",
                            }}
@@ -3325,7 +3479,7 @@ client{assignedCount > 1 ? "s" : ""}
                                      color={textColor}
                                      _hover={{
                                         bg:
-useColorModeValue("rgba(15,23,42,0.04)",
+modeValue("rgba(15,23,42,0.04)",
 "rgba(255,255,255,0.05)"),
                                      }}
                                      onClick={(e) => {
@@ -3372,10 +3526,10 @@ alignItems="stretch">
                   leftIcon={<AddIcon />}
                   borderRadius="14px"
 
-                        bg={useColorModeValue("#111827", "rgba(255,255,255,0.16)")}
+                        bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
                         color="white"
-                        _hover={{ bg: useColorModeValue("#1F2937", "rgba(255,255,255,0.22)") }}
-                        _active={{ bg: useColorModeValue("#374151", "rgba(255,255,255,0.28)") }}
+                        _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
+                        _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
                         onClick={(e) => {
                            e.stopPropagation();
                            addSessionModal.onOpen();
@@ -3395,7 +3549,7 @@ alignItems="stretch">
                    },
                    ".rbc-toolbar": {
                       background:
-useColorModeValue("rgba(15,23,42,0.03)",
+modeValue("rgba(15,23,42,0.03)",
 "rgba(255,255,255,0.03)"),
                       padding: "0.9rem",
                       borderRadius: "18px",
@@ -3414,12 +3568,12 @@ useColorModeValue("rgba(15,23,42,0.03)",
                    },
                    ".rbc-toolbar button:hover": {
                       background:
-useColorModeValue("rgba(15,23,42,0.05)",
+modeValue("rgba(15,23,42,0.05)",
 "rgba(255,255,255,0.06)"),
                    },
                    ".rbc-toolbar .rbc-active": {
                       background:
-useColorModeValue("rgba(59,130,246,0.10)",
+modeValue("rgba(59,130,246,0.10)",
 "rgba(59,130,246,0.16)"),
                    },
                    ".rbc-month-view, .rbc-time-view, .rbc-agenda- view": {
@@ -3429,14 +3583,14 @@ useColorModeValue("rgba(59,130,246,0.10)",
                        borderRadius: "20px",
                        overflow: "hidden",
                        background:
-useColorModeValue("rgba(15,23,42,0.01)",
+modeValue("rgba(15,23,42,0.01)",
 "rgba(255,255,255,0.02)"),
                     },
                     ".rbc-month-row": { borderTop: "1px solid",
 borderColor },
                     ".rbc-header": {
                        background:
-useColorModeValue("rgba(15,23,42,0.03)",
+modeValue("rgba(15,23,42,0.03)",
 "rgba(255,255,255,0.03)"),
                        color: textColor,
                        borderBottom: "1px solid",
@@ -3446,12 +3600,12 @@ useColorModeValue("rgba(15,23,42,0.03)",
                     },
                     ".rbc-off-range-bg": {
                        background:
-useColorModeValue("rgba(15,23,42,0.015)",
+modeValue("rgba(15,23,42,0.015)",
 "rgba(255,255,255,0.015)"),
                     },
                     ".rbc-today": {
                        background:
-useColorModeValue("rgba(59,130,246,0.06)",
+modeValue("rgba(59,130,246,0.06)",
 "rgba(59,130,246,0.08)"),
                     },
                     ".rbc-event": {
@@ -3459,7 +3613,7 @@ useColorModeValue("rgba(59,130,246,0.06)",
                        padding: "4px 8px",
                        fontSize: "0.88rem",
                        border: "none",
-                       boxShadow: useColorModeValue(
+                       boxShadow: modeValue(
                           "0 8px 18px rgba(15,23,42,0.08)",
                           "0 8px 20px rgba(0,0,0,0.18)"
                        ),
@@ -3536,7 +3690,7 @@ subtitle={t("dashboard.cards.popular_programs_subtitle", "Les programmes les plu
                  onClick={() => navigate("/programmes")}
                  _hover={{
                     borderColor:
-useColorModeValue("rgba(59,130,246,0.18)",
+modeValue("rgba(59,130,246,0.18)",
 "rgba(59,130,246,0.24)"),
                  }}
               >
@@ -3561,7 +3715,7 @@ overflow="auto">
                           }}
                           _hover={{
                              borderColor:
-useColorModeValue("rgba(59,130,246,0.18)",
+modeValue("rgba(59,130,246,0.18)",
 "rgba(59,130,246,0.24)"),
                              transform: "translateY(-1px)",
                           }}
@@ -3615,7 +3769,7 @@ subtitle={t("dashboard.cards.recent_actions_subtitle", "Les dernières validatio
                  onClick={() => navigate("/clients")}
                  _hover={{
                     borderColor:
-useColorModeValue("rgba(59,130,246,0.18)",
+modeValue("rgba(59,130,246,0.18)",
 "rgba(59,130,246,0.24)"),
                  }}
               >
@@ -3646,7 +3800,7 @@ Text>
                             item.clientId
                               ? {
                                    borderColor:
-useColorModeValue("rgba(59,130,246,0.18)",
+modeValue("rgba(59,130,246,0.18)",
 "rgba(59,130,246,0.24)"),
                                    transform: "translateY(-1px)",
                                  }
@@ -3658,10 +3812,10 @@ useColorModeValue("rgba(59,130,246,0.18)",
                             bg={
                               item.type === "assign"
                                  ?
-useColorModeValue("rgba(59,130,246,0.10)",
+modeValue("rgba(59,130,246,0.10)",
 "rgba(59,130,246,0.16)")
                                  :
-useColorModeValue("rgba(16,185,129,0.10)",
+modeValue("rgba(16,185,129,0.10)",
 "rgba(16,185,129,0.16)")
                             }
                             color={item.type === "assign" ?
@@ -3710,7 +3864,7 @@ FormLabel>
                  onChange={(e) =>
 setSelectedProgramme(e.target.value)}
                  borderRadius="16px"
-                 bg={useColorModeValue("rgba(15,23,42,0.03)",
+                 bg={modeValue("rgba(15,23,42,0.03)",
 "rgba(255,255,255,0.04)")}
                  borderColor={borderColor}
                  color={textColor}
@@ -3727,10 +3881,10 @@ setSelectedProgramme(e.target.value)}
            <ModalFooter>
              <Button
 
-                bg={useColorModeValue("#111827", "rgba(255,255,255,0.16)")}
+                bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
                 color="white"
-                _hover={{ bg: useColorModeValue("#1F2937", "rgba(255,255,255,0.22)") }}
-                _active={{ bg: useColorModeValue("#374151", "rgba(255,255,255,0.28)") }}
+                _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
+                _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
                 borderRadius="16px"
                 onClick={handleAssign}
             >
@@ -3783,7 +3937,7 @@ borderRadius="22px" border="1px solid" borderColor={borderColor}>
                     borderColor={borderColor}
                     borderRadius="16px"
                     _hover={{ bg:
-useColorModeValue("rgba(15,23,42,0.03)", "rgba(255,255,255,0.04)")
+modeValue("rgba(15,23,42,0.03)", "rgba(255,255,255,0.04)")
 }}
                   >
                     <HStack justify="space-between">
@@ -3799,11 +3953,11 @@ t("dashboard.client", "Client")}
                        <Button
                          size="xs"
 
-bg={useColorModeValue("rgba(59,130,246,0.10)",
+bg={modeValue("rgba(59,130,246,0.10)",
 "rgba(59,130,246,0.18)")}
                         color={textColor}
                         _hover={{ bg:
-useColorModeValue("rgba(59,130,246,0.16)",
+modeValue("rgba(59,130,246,0.16)",
 "rgba(59,130,246,0.26)") }}
                         borderRadius="12px"
                         onClick={() => {
@@ -3995,7 +4149,7 @@ FormLabel>
                      placeholder={t("form.select_client", "Choisir un client")}
                   value={newSession.clientId}
                   borderRadius="16px"
-                  bg={useColorModeValue("rgba(15,23,42,0.03)",
+                  bg={modeValue("rgba(15,23,42,0.03)",
 "rgba(255,255,255,0.04)")}
                   borderColor={borderColor}
                   color={textColor}
@@ -4018,7 +4172,7 @@ FormLabel>
                   placeholder={t("form.select_program", "Choisir un programme")}
                   value={newSession.programmeId}
                   borderRadius="16px"
-                  bg={useColorModeValue("rgba(15,23,42,0.03)",
+                  bg={modeValue("rgba(15,23,42,0.03)",
 "rgba(255,255,255,0.04)")}
                   borderColor={borderColor}
                   color={textColor}
@@ -4044,7 +4198,7 @@ FormLabel>
                     placeholder={t("form.select_session", "Choisir une séance")}
                      value={newSession.sessionIndex ?? ""}
                      borderRadius="16px"
-                     bg={useColorModeValue("rgba(15,23,42,0.03)",
+                     bg={modeValue("rgba(15,23,42,0.03)",
 "rgba(255,255,255,0.04)")}
                      borderColor={borderColor}
                      color={textColor}
@@ -4078,7 +4232,7 @@ FormLabel>
                 <Input
                    type="datetime-local"
                    borderRadius="16px"
-                   bg={useColorModeValue("rgba(15,23,42,0.03)",
+                   bg={modeValue("rgba(15,23,42,0.03)",
 "rgba(255,255,255,0.04)")}
                    borderColor={borderColor}
                    color={textColor}
@@ -4094,7 +4248,7 @@ FormLabel>
                   <Select
                     value={newSession.status}
                     borderRadius="16px"
-                    bg={useColorModeValue("rgba(15,23,42,0.03)",
+                    bg={modeValue("rgba(15,23,42,0.03)",
 "rgba(255,255,255,0.04)")}
                     borderColor={borderColor}
                     color={textColor}
@@ -4113,10 +4267,10 @@ FormLabel>
            </ModalBody>
            <ModalFooter>
              <Button
-                bg={useColorModeValue("#111827", "rgba(255,255,255,0.16)")}
+                bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
                 color="white"
-                _hover={{ bg: useColorModeValue("#1F2937", "rgba(255,255,255,0.22)") }}
-                _active={{ bg: useColorModeValue("#374151", "rgba(255,255,255,0.28)") }}
+                _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
+                _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
                 borderRadius="16px"
                 onClick={handleAddSession}
              >
@@ -4221,6 +4375,17 @@ px={3} py={1}>
                </Box>
             )}
             <VStack spacing={2.5}>
+              <Button
+                w="full"
+                bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
+                color="white"
+                _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
+                _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
+                borderRadius="16px"
+                onClick={handleStartSelectedEventSession}
+              >
+                {t("client_dash.start_session", "Démarrer la séance")}
+              </Button>
                <Button
                   w="full"
                   variant="outline"
@@ -4228,7 +4393,7 @@ px={3} py={1}>
                   color={textColor}
 
                 _hover={{ bg:
-useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")
+modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")
 }}
                 borderRadius="16px"
                 onClick={handleOpenSelectedEventSession}
@@ -4264,7 +4429,7 @@ useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")
                  borderColor={borderStrong}
                  color={textColor}
                  _hover={{ bg:
-useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")
+modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")
 }}
                  borderRadius="16px"
                  onClick={handleDeleteEvent}
@@ -4374,10 +4539,10 @@ isCentered>
                 isLoading={calendarLinkLoading}
                 borderRadius="16px"
 
-                bg={useColorModeValue("#111827", "rgba(255,255,255,0.16)")}
+                bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
                 color="white"
-                _hover={{ bg: useColorModeValue("#1F2937", "rgba(255,255,255,0.22)") }}
-                _active={{ bg: useColorModeValue("#374151", "rgba(255,255,255,0.28)") }}
+                _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
+                _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
               >
                 {t("dashboard.calendar_link_modal.generate_copy", "Générer et copier le lien")}
               </Button>
@@ -4385,7 +4550,7 @@ isCentered>
                 <Box
                   p={3.5}
                   borderRadius="16px"
-                  bg={useColorModeValue("rgba(15,23,42,0.03)",
+                  bg={modeValue("rgba(15,23,42,0.03)",
 "rgba(255,255,255,0.04)")}
                   border="1px solid"
                   borderColor={borderColor}
