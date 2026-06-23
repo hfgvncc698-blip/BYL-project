@@ -1,5 +1,5 @@
 // utils/generateAutoProgram.js
-const admin = require("firebase-admin");
+const admin = require('../firebaseAdmin');
 const fs = require("node:fs");
 const path = require("node:path");
 

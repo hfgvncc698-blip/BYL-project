@@ -1,4 +1,4 @@
-const admin = require("firebase-admin");
+const admin = require('../firebaseAdmin');
 
 function getBearerToken(req) {
   const header = req.headers.authorization || req.headers.Authorization || "";

@@ -11,6 +11,7 @@ REMOTE_BACKEND="/var/www/byl-backend"
 LOCAL_API_HEALTH_URL="${LOCAL_API_HEALTH_URL:-http://127.0.0.1:5050/api/health}"
 REMOTE_API_HEALTH_URL="${REMOTE_API_HEALTH_URL:-http://127.0.0.1:5000/api/health}"
 REMOTE_NODE_VERSION="${REMOTE_NODE_VERSION:-22}"
+REMOTE_CANARY_PORT="${REMOTE_CANARY_PORT:-5099}"
 # =================================
 
 ASSUME_YES=false
@@ -263,6 +264,7 @@ echo "- Firestore rules: ${DEPLOY_FIRESTORE_RULES}"
 echo "- Firestore indexes: ${DEPLOY_FIRESTORE_INDEXES}"
 echo "- Firebase functions: ${DEPLOY_FIREBASE_FUNCTIONS}"
 echo "- Node distant cible: ${REMOTE_NODE_VERSION}"
+echo "- Port canary backend: ${REMOTE_CANARY_PORT}"
 echo
 confirm "Lancer le deploy maintenant ?" || exit 1
 
@@ -299,6 +301,7 @@ REMOTE_BACKEND="${REMOTE_BACKEND}"
 REMOTE_BACKEND_RELEASE="/tmp/byl-backend-release-${ts}"
 REMOTE_API_HEALTH_URL="${REMOTE_API_HEALTH_URL}"
 REMOTE_NODE_VERSION="${REMOTE_NODE_VERSION}"
+REMOTE_CANARY_PORT="${REMOTE_CANARY_PORT}"
 
 [ -f "\$ARCHIVE" ] || { echo "Archive manquante: \$ARCHIVE"; exit 1; }
 [ -f "\$BACKEND_ARCHIVE" ] || { echo "Archive backend manquante: \$BACKEND_ARCHIVE"; exit 1; }
@@ -382,6 +385,65 @@ if [ -f package-lock.json ]; then
 else
   npm install --omit=dev
 fi
+
+prepare_canary_env() {
+  if [ -f "\$REMOTE_BACKEND/.env" ]; then
+    cp "\$REMOTE_BACKEND/.env" "\$REMOTE_BACKEND_RELEASE/.env"
+  fi
+  if [ -f "\$REMOTE_BACKEND/serviceAccountKey.json" ]; then
+    cp "\$REMOTE_BACKEND/serviceAccountKey.json" "\$REMOTE_BACKEND_RELEASE/serviceAccountKey.json"
+  fi
+  if [ -f "\$REMOTE_BACKEND/firebase-service-account.json" ]; then
+    cp "\$REMOTE_BACKEND/firebase-service-account.json" "\$REMOTE_BACKEND_RELEASE/firebase-service-account.json"
+  fi
+
+  touch "\$REMOTE_BACKEND_RELEASE/.env"
+  if grep -q '^PORT=' "\$REMOTE_BACKEND_RELEASE/.env"; then
+    sed -i "s/^PORT=.*/PORT=\$REMOTE_CANARY_PORT/" "\$REMOTE_BACKEND_RELEASE/.env"
+  else
+    printf '\nPORT=%s\n' "\$REMOTE_CANARY_PORT" >> "\$REMOTE_BACKEND_RELEASE/.env"
+  fi
+  if ! grep -q '^NODE_ENV=' "\$REMOTE_BACKEND_RELEASE/.env"; then
+    printf 'NODE_ENV=production\n' >> "\$REMOTE_BACKEND_RELEASE/.env"
+  fi
+}
+
+run_backend_canary() {
+  local canary_log="/tmp/byl-backend-canary-${ts}.log"
+  local canary_pid=""
+
+  echo "Test canary backend sur le port \$REMOTE_CANARY_PORT..."
+  prepare_canary_env
+
+  cd "\$REMOTE_BACKEND_RELEASE"
+  NODE_ENV=production "\$NODE_INTERPRETER" app.js >"\$canary_log" 2>&1 &
+  canary_pid="\$!"
+
+  for attempt in \$(seq 1 15); do
+    if curl --fail --silent --show-error --max-time 5 "http://127.0.0.1:\$REMOTE_CANARY_PORT/api/health" >/dev/null; then
+      echo "Canary backend OK."
+      kill "\$canary_pid" >/dev/null 2>&1 || true
+      wait "\$canary_pid" >/dev/null 2>&1 || true
+      rm -f "\$canary_log"
+      return 0
+    fi
+    if ! kill -0 "\$canary_pid" >/dev/null 2>&1; then
+      echo "Le canary backend s'est arrete avant de repondre."
+      cat "\$canary_log" || true
+      return 1
+    fi
+    echo "Canary backend pas encore disponible, tentative \$attempt/15..."
+    sleep 2
+  done
+
+  echo "Le canary backend ne repond pas."
+  cat "\$canary_log" || true
+  kill "\$canary_pid" >/dev/null 2>&1 || true
+  wait "\$canary_pid" >/dev/null 2>&1 || true
+  return 1
+}
+
+run_backend_canary
 
 echo "Backup front actuel..."
 if [ "\$(ls -A "\$REMOTE_WEBROOT" 2>/dev/null | wc -l)" -gt 0 ]; then

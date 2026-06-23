@@ -5,7 +5,7 @@ if (process.env.CRON_ENABLED !== 'true') {
 }
 
 const { performance } = require('perf_hooks');
-const admin = require('firebase-admin');
+const admin = require('./firebaseAdmin');
 const serviceAccount = require('./serviceAccountKey.json');
 if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 

@@ -1,7 +1,7 @@
 // routes/stripePortal.js
 const express = require("express");
 const Stripe = require("stripe");
-const admin = require("firebase-admin");
+const admin = require('../firebaseAdmin');
 const {
   requireFirebaseAuth,
   requireSelfOrAdmin,

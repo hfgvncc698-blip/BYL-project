@@ -1,6 +1,6 @@
 const express = require("express");
 const http = require("http");
-const admin = require("firebase-admin");
+const admin = require('./firebaseAdmin');
 const helmet = require("helmet");
 const fs = require("fs");
 const path = require("path");

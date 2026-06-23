@@ -5,7 +5,7 @@
 const express = require("express");
 const router = express.Router();
 const Stripe = require("stripe");
-const admin = require("firebase-admin");
+const admin = require('../firebaseAdmin');
 const {
   requireFirebaseAuth,
   requireSelfOrAdmin,

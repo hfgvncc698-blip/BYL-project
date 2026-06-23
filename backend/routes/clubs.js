@@ -1,6 +1,6 @@
 const crypto = require("crypto");
 const express = require("express");
-const admin = require("firebase-admin");
+const admin = require('../firebaseAdmin');
 const nodemailer = require("nodemailer");
 const { requireFirebaseAuth } = require("../utils/firebaseAuth");
 

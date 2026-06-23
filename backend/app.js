@@ -10,7 +10,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const { monitorEventLoopDelay } = require('perf_hooks');
-const admin = require('firebase-admin');
+const admin = require('./firebaseAdmin');
 
 // ====================== Firebase Admin ======================
 if (!admin.apps.length) {

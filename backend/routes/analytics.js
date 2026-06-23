@@ -1,5 +1,5 @@
 const express = require("express");
-const admin = require("firebase-admin");
+const admin = require('../firebaseAdmin');
 const crypto = require("crypto");
 const { getBearerToken, getUserRole } = require("../utils/firebaseAuth");
 
