@@ -445,6 +445,12 @@ run_backend_canary() {
 
 run_backend_canary
 
+echo "Nettoyage des secrets temporaires de la release backend..."
+rm -f \
+  "\$REMOTE_BACKEND_RELEASE/.env" \
+  "\$REMOTE_BACKEND_RELEASE/serviceAccountKey.json" \
+  "\$REMOTE_BACKEND_RELEASE/firebase-service-account.json"
+
 echo "Backup front actuel..."
 if [ "\$(ls -A "\$REMOTE_WEBROOT" 2>/dev/null | wc -l)" -gt 0 ]; then
   BK="\$REMOTE_BACKUPS/byl-\$(date +%Y%m%d-%H%M%S).tgz"
@@ -486,7 +492,11 @@ else
     ! -name "serviceAccountKey.json" \
     ! -name "firebase-service-account.json" \
     -exec rm -rf {} +
-  sudo cp -a "\$REMOTE_BACKEND_RELEASE"/. "\$REMOTE_BACKEND"/
+  (cd "\$REMOTE_BACKEND_RELEASE" && tar \
+    --exclude ".env" \
+    --exclude "serviceAccountKey.json" \
+    --exclude "firebase-service-account.json" \
+    -cf - .) | sudo tar -C "\$REMOTE_BACKEND" -xf -
 fi
 sudo chown -R "\$USER":"\$USER" "\$REMOTE_BACKEND"
 
