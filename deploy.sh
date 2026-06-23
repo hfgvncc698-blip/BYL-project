@@ -9,7 +9,7 @@ REMOTE_BACKUPS="/var/www/byl_backups"
 REMOTE_RELEASE="/var/www/byl_release"
 REMOTE_BACKEND="/var/www/byl-backend"
 LOCAL_API_HEALTH_URL="${LOCAL_API_HEALTH_URL:-http://127.0.0.1:5050/api/health}"
-REMOTE_API_HEALTH_URL="${REMOTE_API_HEALTH_URL:-http://127.0.0.1:5050/api/health}"
+REMOTE_API_HEALTH_URL="${REMOTE_API_HEALTH_URL:-http://127.0.0.1:5000/api/health}"
 REMOTE_NODE_VERSION="${REMOTE_NODE_VERSION:-22}"
 # =================================
 
@@ -361,6 +361,8 @@ activate_remote_node
 
 echo "Preparation dossiers..."
 sudo mkdir -p "\$REMOTE_WEBROOT" "\$REMOTE_BACKUPS" "\$REMOTE_RELEASE" "\$REMOTE_BACKEND"
+BK=""
+BK_BACKEND=""
 
 echo "Extraction front dans release temporaire..."
 sudo rm -rf "\$REMOTE_RELEASE"
@@ -429,16 +431,71 @@ cd "\$REMOTE_BACKEND"
 echo "Reload PM2..."
 NODE_INTERPRETER="\$NODE_INTERPRETER" pm2 startOrReload ecosystem.config.js --update-env
 
-echo "Verification API..."
-api_ready=false
-for attempt in {1..12}; do
-  if curl --fail --silent --show-error --max-time 5 "\$REMOTE_API_HEALTH_URL" >/dev/null; then
-    api_ready=true
-    break
+rollback_release() {
+  echo
+  echo "Rollback automatique en cours..."
+
+  if [ -n "\$BK_BACKEND" ] && [ -f "\$BK_BACKEND" ]; then
+    echo "Restauration backend: \$BK_BACKEND"
+    sudo find "\$REMOTE_BACKEND" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+    sudo tar -C "\$REMOTE_BACKEND" -xzf "\$BK_BACKEND"
+    sudo chown -R "\$USER":"\$USER" "\$REMOTE_BACKEND"
+  else
+    echo "Aucun backup backend disponible pour rollback."
   fi
-  echo "API pas encore disponible, tentative \$attempt/12..."
-  sleep 3
-done
+
+  if [ -n "\$BK" ] && [ -f "\$BK" ]; then
+    echo "Restauration front: \$BK"
+    sudo rm -rf "\$REMOTE_WEBROOT"/*
+    sudo tar -C "\$REMOTE_WEBROOT" -xzf "\$BK"
+    sudo chown -R www-data:www-data "\$REMOTE_WEBROOT"
+    sudo chmod -R 755 "\$REMOTE_WEBROOT"
+  else
+    echo "Aucun backup front disponible pour rollback."
+  fi
+
+  if [ -f "\$REMOTE_BACKEND/ecosystem.config.js" ]; then
+    cd "\$REMOTE_BACKEND"
+    NODE_INTERPRETER="\$NODE_INTERPRETER" pm2 startOrReload ecosystem.config.js --update-env || true
+  fi
+}
+
+echo "Verification API..."
+remote_env_port=""
+if [ -f "\$REMOTE_BACKEND/.env" ]; then
+  remote_env_port="\$(awk -F= '/^PORT=/ {print \$2; exit}' "\$REMOTE_BACKEND/.env" | tr -d '\"'\''[:space:]' || true)"
+fi
+
+health_urls=("\$REMOTE_API_HEALTH_URL")
+if [ -n "\$remote_env_port" ]; then
+  health_urls+=("http://127.0.0.1:\${remote_env_port}/api/health")
+fi
+health_urls+=("http://127.0.0.1:5000/api/health" "http://127.0.0.1:5050/api/health")
+
+check_api_health() {
+  local max_attempts="\$1"
+  local wait_seconds="\$2"
+  local url
+  local attempt
+
+  for attempt in \$(seq 1 "\$max_attempts"); do
+    for url in "\${health_urls[@]}"; do
+      if curl --fail --silent --show-error --max-time 5 "\$url" >/dev/null; then
+        echo "API OK: \$url"
+        return 0
+      fi
+    done
+    echo "API pas encore disponible, tentative \$attempt/\$max_attempts..."
+    sleep "\$wait_seconds"
+  done
+
+  return 1
+}
+
+api_ready=false
+if check_api_health 12 3; then
+  api_ready=true
+fi
 
 if [ "\$api_ready" != true ]; then
   echo "L'API ne repond pas apres reload PM2."
@@ -453,6 +510,14 @@ if [ "\$api_ready" != true ]; then
     ss -ltnp || true
   elif command -v netstat >/dev/null 2>&1; then
     netstat -ltnp || true
+  fi
+  rollback_release
+  echo
+  echo "Verification API apres rollback..."
+  if check_api_health 3 2; then
+    echo "Rollback effectue: l'API repond a nouveau."
+  else
+    echo "Rollback effectue, mais l'API ne repond toujours pas. Intervention manuelle requise."
   fi
   exit 1
 fi
