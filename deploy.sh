@@ -10,6 +10,7 @@ REMOTE_RELEASE="/var/www/byl_release"
 REMOTE_BACKEND="/var/www/byl-backend"
 LOCAL_API_HEALTH_URL="${LOCAL_API_HEALTH_URL:-http://127.0.0.1:5050/api/health}"
 REMOTE_API_HEALTH_URL="${REMOTE_API_HEALTH_URL:-http://127.0.0.1:5050/api/health}"
+REMOTE_NODE_VERSION="${REMOTE_NODE_VERSION:-22}"
 # =================================
 
 ASSUME_YES=false
@@ -260,6 +261,7 @@ echo "- Backend: ${REMOTE_BACKEND}"
 echo "- Firestore rules: ${DEPLOY_FIRESTORE_RULES}"
 echo "- Firestore indexes: ${DEPLOY_FIRESTORE_INDEXES}"
 echo "- Firebase functions: ${DEPLOY_FIREBASE_FUNCTIONS}"
+echo "- Node distant cible: ${REMOTE_NODE_VERSION}"
 echo
 confirm "Lancer le deploy maintenant ?" || exit 1
 
@@ -295,6 +297,7 @@ REMOTE_RELEASE="${REMOTE_RELEASE}"
 REMOTE_BACKEND="${REMOTE_BACKEND}"
 REMOTE_BACKEND_RELEASE="/tmp/byl-backend-release-${ts}"
 REMOTE_API_HEALTH_URL="${REMOTE_API_HEALTH_URL}"
+REMOTE_NODE_VERSION="${REMOTE_NODE_VERSION}"
 
 [ -f "\$ARCHIVE" ] || { echo "Archive manquante: \$ARCHIVE"; exit 1; }
 [ -f "\$BACKEND_ARCHIVE" ] || { echo "Archive backend manquante: \$BACKEND_ARCHIVE"; exit 1; }
@@ -310,9 +313,49 @@ need_remote_command() {
 
 need_remote_command sudo
 need_remote_command tar
-need_remote_command npm
-need_remote_command pm2
 need_remote_command curl
+
+activate_remote_node() {
+  local requested_major="\$REMOTE_NODE_VERSION"
+
+  if [ -s "\$HOME/.nvm/nvm.sh" ]; then
+    # shellcheck source=/dev/null
+    . "\$HOME/.nvm/nvm.sh"
+    nvm use "\$requested_major" >/dev/null 2>&1 ||
+      nvm use 22 >/dev/null 2>&1 ||
+      nvm use 20 >/dev/null 2>&1 ||
+      nvm use 18 >/dev/null 2>&1 ||
+      true
+  fi
+
+  if command -v fnm >/dev/null 2>&1; then
+    eval "\$(fnm env --shell bash)"
+    fnm use "\$requested_major" >/dev/null 2>&1 ||
+      fnm use 22 >/dev/null 2>&1 ||
+      fnm use 20 >/dev/null 2>&1 ||
+      fnm use 18 >/dev/null 2>&1 ||
+      true
+  fi
+
+  hash -r
+
+  need_remote_command node
+  need_remote_command npm
+  need_remote_command pm2
+
+  local node_major
+  node_major="\$(node -p "Number(process.versions.node.split('.')[0])" 2>/dev/null || echo 0)"
+  if [ "\$node_major" -lt 18 ]; then
+    echo "Node distant trop ancien: \$(node -v). Le backend requiert Node 18+."
+    echo "Installe/active Node 22 sur le VPS, ou expose-le via nvm/fnm avant de relancer."
+    exit 1
+  fi
+
+  echo "Node distant actif: \$(node -v)"
+  echo "npm distant actif: \$(npm -v)"
+}
+
+activate_remote_node
 
 echo "Preparation dossiers..."
 sudo mkdir -p "\$REMOTE_WEBROOT" "\$REMOTE_BACKUPS" "\$REMOTE_RELEASE" "\$REMOTE_BACKEND"
