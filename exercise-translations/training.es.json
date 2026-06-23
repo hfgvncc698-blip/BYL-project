@@ -11643,13 +11643,14 @@
       "Silla con mancuernas",
       "Silla con balón medicinal",
       "Silla con alza del talón",
-      "Silla con elástico"
+      "Silla con elástico (abducción)"
     ],
     "consignes": {
       "Positionnement": "Espalda apoyada contra la pared, con los pies separados a la altura de los hombros, aproximadamente a 50 cm de la pared.",
       "Mouvement": "Doble las piernas a 90°, los muslos paralelos al suelo, mantenga la posición sin moverse.",
       "Respiration": "Respira tranquila y regularmente, evita la apnea.",
-      "Posture": "Espalda recta, abdominales contraídos, rodillas alineadas con los tobillos."
+      "Posture": "Espalda recta, abdominales contraídos, rodillas alineadas con los tobillos.",
+      "Retour": "Empuja con los talones para volver de pie sin perder bruscamente la postura."
     }
   },
   "T259": {
@@ -11689,14 +11690,15 @@
       "Evitar si hay desequilibrio o dolor en las articulaciones."
     ],
     "variantes": [
-      "Silla clásica",
       "Silla con mancuernas",
       "Silla con balón medicinal"
     ],
     "consignes": {
       "Positionnement": "Espalda apoyada contra la pared, una pierna extendida frente a usted y la otra a 90°.",
       "Respiration": "Respira tranquilamente sin bloquear la respiración.",
-      "Posture": "Tronco cubierto, rodilla alineada con el tobillo."
+      "Posture": "Tronco cubierto, rodilla alineada con el tobillo.",
+      "Mouvement": "Baja hasta formar un ángulo de unos 90 grados en las rodillas y mantén la posición.",
+      "Retour": "Empuja con los talones para volver de pie sin perder bruscamente la postura."
     }
   },
   "T260": {
@@ -11733,13 +11735,15 @@
       "Evitar en caso de dolor de rodilla o espalda baja."
     ],
     "variantes": [
-      "Silla clásica",
       "silla unilateral",
       "Silla con balón medicinal"
     ],
     "consignes": {
       "Positionnement": "Coloca las mancuernas sobre los muslos, mantén la posición clásica de la silla.",
-      "Posture": "Abdominales contraídos, espalda presionada contra la pared."
+      "Posture": "Abdominales contraídos, espalda presionada contra la pared.",
+      "Mouvement": "Baja hasta formar un ángulo de unos 90 grados en las rodillas y mantén la posición.",
+      "Retour": "Empuja con los talones para volver de pie sin perder bruscamente la postura.",
+      "Respiration": "Inhala durante la preparación o el descenso, exhala durante el esfuerzo."
     }
   },
   "T261": {
@@ -11775,13 +11779,15 @@
       "Elija un peso adecuado para no aumentar la presión en las articulaciones."
     ],
     "variantes": [
-      "Silla clásica",
       "Silla con mancuernas",
-      "Silla con elástico"
+      "Silla con elástico (abducción)"
     ],
     "consignes": {
       "Positionnement": "Pelota sostenida frente a ti o entre tus rodillas.",
-      "Posture": "Espalda recta, abdominales contraídos."
+      "Posture": "Espalda recta, abdominales contraídos.",
+      "Mouvement": "Baja hasta formar un ángulo de unos 90 grados en las rodillas y mantén la posición.",
+      "Retour": "Empuja con los talones para volver de pie sin perder bruscamente la postura.",
+      "Respiration": "Inhala durante la preparación o el descenso, exhala durante el esfuerzo."
     }
   },
   "T262": {
@@ -11817,12 +11823,14 @@
       "No te das cuenta si te duele el tendón de Aquiles."
     ],
     "variantes": [
-      "Silla clásica",
-      "Silla con elástico"
+      "Silla con elástico (abducción)"
     ],
     "consignes": {
       "Positionnement": "Levante los talones para involucrar las pantorrillas además de los cuádriceps.",
-      "Posture": "Mantener la estabilidad, abdominales contraídos."
+      "Posture": "Mantener la estabilidad, abdominales contraídos.",
+      "Mouvement": "Baja hasta formar un ángulo de unos 90 grados en las rodillas y mantén la posición.",
+      "Retour": "Empuja con los talones para volver de pie sin perder bruscamente la postura.",
+      "Respiration": "Inhala durante la preparación o el descenso, exhala durante el esfuerzo."
     }
   },
   "T263": {
@@ -11859,12 +11867,14 @@
       "Elige una banda elástica adecuada para no desequilibrar tu postura."
     ],
     "variantes": [
-      "Silla clásica",
       "Silla con balón medicinal"
     ],
     "consignes": {
       "Positionnement": "Mantenga la posición de la silla empujando las rodillas contra el elástico.",
-      "Posture": "Espalda recta, abdominales contraídos."
+      "Posture": "Espalda recta, abdominales contraídos.",
+      "Mouvement": "Baja hasta formar un ángulo de unos 90 grados en las rodillas y mantén la posición.",
+      "Retour": "Empuja con los talones para volver de pie sin perder bruscamente la postura.",
+      "Respiration": "Inhala durante la preparación o el descenso, exhala durante el esfuerzo."
     }
   },
   "T264": {
@@ -11955,14 +11965,15 @@
       "De pie"
     ],
     "variantes": [
-      "Barra clásica de peso muerto",
-      "Peso muerto rumano",
-      "peso muerto con pesas rusas"
+      "Peso muerto rumano (RDL)",
+      "Peso muerto con pesas rusas"
     ],
     "consignes": {
       "Positionnement": "Pies separados a la altura de las caderas, mancuernas delante de los muslos.",
       "Mouvement": "Baje las mancuernas por las piernas, empujando las caderas hacia atrás.",
-      "Retour": "Contrae tus glúteos y endereza tu torso."
+      "Retour": "Contrae tus glúteos y endereza tu torso.",
+      "Respiration": "Inhala antes de bajar, activa el core y exhala al subir la carga.",
+      "Posture": "Mantén la espalda neutra, los hombros activos y la carga cerca del cuerpo."
     }
   },
   "T266": {
@@ -11998,13 +12009,14 @@
       "Pies bien abiertos"
     ],
     "variantes": [
-      "Barra clásica de peso muerto",
-      "Peso muerto rumano"
+      "Peso muerto rumano (RDL)"
     ],
     "consignes": {
       "Positionnement": "Pies bien separados, manos apretadas sobre la barra.",
       "Mouvement": "Empuja con las piernas y contrae los glúteos para levantar la barra.",
-      "Retour": "Controla el descenso manteniendo la espalda recta."
+      "Retour": "Controla el descenso manteniendo la espalda recta.",
+      "Respiration": "Inhala antes de bajar, activa el core y exhala al subir la carga.",
+      "Posture": "Mantén la espalda neutra, los hombros activos y la carga cerca del cuerpo."
     }
   },
   "T267": {
@@ -12035,13 +12047,14 @@
       "De pie"
     ],
     "variantes": [
-      "Barra clásica de peso muerto",
-      "mancuernas de peso muerto"
+      "Peso muerto con mancuernas"
     ],
     "consignes": {
       "Positionnement": "Pies separados a la altura de las caderas, barra delante de los muslos.",
       "Mouvement": "Baje la barra empujando las caderas hacia atrás, con las piernas ligeramente flexionadas.",
-      "Retour": "Contrae los glúteos y los isquiotibiales para volver a ponerte de pie."
+      "Retour": "Contrae los glúteos y los isquiotibiales para volver a ponerte de pie.",
+      "Respiration": "Inhala antes de bajar, activa el core y exhala al subir la carga.",
+      "Posture": "Mantén la espalda neutra, los hombros activos y la carga cerca del cuerpo."
     }
   },
   "T268": {
@@ -12073,13 +12086,15 @@
       "De pie"
     ],
     "variantes": [
-      "mancuernas de peso muerto",
-      "Peso muerto rumano"
+      "Peso muerto con mancuernas",
+      "Peso muerto rumano (RDL)"
     ],
     "consignes": {
       "Positionnement": "Coloca la pesa rusa entre los pies.",
       "Mouvement": "Baja manteniendo la espalda recta, agarra la pesa rusa y empuja con las piernas para volver a subir.",
-      "Retour": "Controla el descenso."
+      "Retour": "Controla el descenso.",
+      "Respiration": "Inhala antes de bajar, activa el core y exhala al subir la carga.",
+      "Posture": "Mantén la espalda neutra, los hombros activos y la carga cerca del cuerpo."
     }
   },
   "T269": {
@@ -12109,13 +12124,15 @@
       "De pie"
     ],
     "variantes": [
-      "Peso muerto rumano",
-      "mancuernas de peso muerto"
+      "Peso muerto rumano (RDL)",
+      "Peso muerto con mancuernas"
     ],
     "consignes": {
       "Positionnement": "Pies separados a la altura de las caderas, piernas rectas pero no bloqueadas.",
       "Mouvement": "Baja la barra manteniendo las piernas estiradas y la espalda plana.",
-      "Retour": "Contrae los isquiotibiales y los glúteos para volver a ponerte de pie."
+      "Retour": "Contrae los isquiotibiales y los glúteos para volver a ponerte de pie.",
+      "Respiration": "Inhala antes de bajar, activa el core y exhala al subir la carga.",
+      "Posture": "Mantén la espalda neutra, los hombros activos y la carga cerca del cuerpo."
     }
   },
   "T270": {
@@ -12148,11 +12165,14 @@
       "De pie elevado"
     ],
     "variantes": [
-      "Peso muerto clásico"
+      "Peso muerto (peso muerto clásico)"
     ],
     "consignes": {
       "Positionnement": "Párate sobre una plataforma para aumentar la amplitud.",
-      "Mouvement": "Levanta la barra como en un peso muerto clásico con más estiramiento."
+      "Mouvement": "Levanta la barra como en un peso muerto clásico con más estiramiento.",
+      "Retour": "Vuelve lentamente a la posición inicial manteniendo el control del movimiento.",
+      "Respiration": "Inhala antes de bajar, activa el core y exhala al subir la carga.",
+      "Posture": "Mantén la espalda neutra, los hombros activos y la carga cerca del cuerpo."
     }
   },
   "T271": {
@@ -12183,11 +12203,14 @@
       "De pie"
     ],
     "variantes": [
-      "Peso muerto clásico"
+      "Peso muerto (peso muerto clásico)"
     ],
     "consignes": {
       "Positionnement": "Barra colocada sobre rejilla a la altura de las rodillas.",
-      "Mouvement": "Levanta la barra a una amplitud reducida."
+      "Mouvement": "Levanta la barra a una amplitud reducida.",
+      "Retour": "Vuelve lentamente a la posición inicial manteniendo el control del movimiento.",
+      "Respiration": "Inhala antes de bajar, activa el core y exhala al subir la carga.",
+      "Posture": "Mantén la espalda neutra, los hombros activos y la carga cerca del cuerpo."
     }
   },
   "T272": {
@@ -12223,7 +12246,10 @@
     ],
     "consignes": {
       "Positionnement": "Párese y sostenga las correas TRX.",
-      "Mouvement": "Baje el torso recto empujando las caderas hacia atrás y luego regrese."
+      "Mouvement": "Baje el torso recto empujando las caderas hacia atrás y luego regrese.",
+      "Retour": "Vuelve lentamente a la posición inicial manteniendo el control del movimiento.",
+      "Respiration": "Inhala antes de bajar, activa el core y exhala al subir la carga.",
+      "Posture": "Mantén la espalda neutra, los hombros activos y la carga cerca del cuerpo."
     }
   },
   "T273": {
@@ -12258,7 +12284,10 @@
     ],
     "consignes": {
       "Positionnement": "Coloca el elástico debajo de los pies, sujétalo con las manos.",
-      "Mouvement": "Baja el torso derecho y luego sube nuevamente tirando del elástico."
+      "Mouvement": "Baja el torso derecho y luego sube nuevamente tirando del elástico.",
+      "Retour": "Vuelve lentamente a la posición inicial manteniendo el control del movimiento.",
+      "Respiration": "Inhala antes de bajar, activa el core y exhala al subir la carga.",
+      "Posture": "Mantén la espalda neutra, los hombros activos y la carga cerca del cuerpo."
     }
   },
   "T274": {
@@ -12364,7 +12393,8 @@
       "Positionnement": "Agarre las asas bajas, el torso más inclinado, los pies activos.",
       "Mouvement": "Empuja con zancadas pesadas y cortas y poderosas, mantén el core.",
       "Retour": "Vuelve lentamente y prepárate para la siguiente serie.",
-      "Posture": "Espalda neutra, hombros estables, cuello alineado."
+      "Posture": "Espalda neutra, hombros estables, cuello alineado.",
+      "Respiration": "Respira de forma rítmica y continua durante todo el empuje o la tracción."
     }
   },
   "T276": {
@@ -12411,7 +12441,9 @@
     "consignes": {
       "Positionnement": "Asas altas o bajas según comodidad, carga ligera.",
       "Mouvement": "Acelere en una distancia corta (10 a 20 m) manteniendo el control.",
-      "Retour": "Camine de regreso; recuperarse activamente."
+      "Retour": "Camine de regreso; recuperarse activamente.",
+      "Respiration": "Respira de forma rítmica y continua durante todo el empuje o la tracción.",
+      "Posture": "Mantén el tronco firme, los hombros bajos y los apoyos activos."
     }
   },
   "T277": {
@@ -12452,13 +12484,15 @@
       "Muy seguro para las rodillas pero aún controlado al dar marcha atrás."
     ],
     "variantes": [
-      "Tirador del trineo – Arnés delantero",
+      "Tiro de trineo – Arnés delantero (correr o caminar)",
       "Tirador de trineo – Cuerda mano a mano"
     ],
     "consignes": {
       "Positionnement": "Correa sujeta a la cintura, caminar hacia atrás con pasos controlados.",
       "Mouvement": "Tira del trineo en reversa, con las rodillas y las caderas dobladas.",
-      "Posture": "Busto alto, tronco cubierto, talón-punta activo."
+      "Posture": "Busto alto, tronco cubierto, talón-punta activo.",
+      "Retour": "Reduce la velocidad progresivamente, recoloca los apoyos y vuelve al inicio con control.",
+      "Respiration": "Respira de forma rítmica y continua durante todo el empuje o la tracción."
     }
   },
   "T278": {
@@ -12508,7 +12542,9 @@
     "consignes": {
       "Positionnement": "Arnés en torso/hombros, tronco enfundado.",
       "Mouvement": "Correr o caminar tirando del trineo, a zancadas regulares.",
-      "Respiration": "Regular, adaptado al esfuerzo."
+      "Respiration": "Regular, adaptado al esfuerzo.",
+      "Retour": "Reduce la velocidad progresivamente, recoloca los apoyos y vuelve al inicio con control.",
+      "Posture": "Mantén el tronco firme, los hombros bajos y los apoyos activos."
     }
   },
   "T279": {
@@ -12552,13 +12588,15 @@
       "Mantenga la espalda neutral; no redondear al tirar con fuerza"
     ],
     "variantes": [
-      "Tirador del trineo – Arnés delantero",
+      "Tiro de trineo – Arnés delantero (correr o caminar)",
       "Trineo Tirar hacia atrás (arrastrar)"
     ],
     "consignes": {
       "Positionnement": "Ancla tus pies, agarra la cuerda con un agarre alterno.",
       "Mouvement": "Tira de la mano, lleva la cuerda hacia el pecho, da un paso atrás si estás de pie.",
-      "Posture": "Núcleo fuerte, hombros bajos."
+      "Posture": "Núcleo fuerte, hombros bajos.",
+      "Retour": "Reduce la velocidad progresivamente, recoloca los apoyos y vuelve al inicio con control.",
+      "Respiration": "Respira de forma rítmica y continua durante todo el empuje o la tracción."
     }
   },
   "T280": {
@@ -12604,7 +12642,9 @@
     "consignes": {
       "Positionnement": "Coloque el trineo al nivel de la cintura, párese de lado.",
       "Mouvement": "Muévete hacia los lados mientras tiras del trineo, con pasos controlados.",
-      "Posture": "Tronco enfundado, pelvis estable."
+      "Posture": "Tronco enfundado, pelvis estable.",
+      "Retour": "Reduce la velocidad progresivamente, recoloca los apoyos y vuelve al inicio con control.",
+      "Respiration": "Respira de forma rítmica y continua durante todo el empuje o la tracción."
     }
   },
   "T281": {
@@ -12649,12 +12689,14 @@
     ],
     "variantes": [
       "Tirador de trineo – Cuerda mano a mano",
-      "Tirador del trineo – Arnés delantero"
+      "Tiro de trineo – Arnés delantero (correr o caminar)"
     ],
     "consignes": {
       "Positionnement": "Agarre las asas/cuerda con los brazos extendidos y los pies anclados.",
       "Mouvement": "Tire hacia el pecho llevando los codos hacia adentro y retroceda con el control.",
-      "Posture": "Hombros bajos, tronco fuerte, mirada al horizonte."
+      "Posture": "Hombros bajos, tronco fuerte, mirada al horizonte.",
+      "Retour": "Reduce la velocidad progresivamente, recoloca los apoyos y vuelve al inicio con control.",
+      "Respiration": "Respira de forma rítmica y continua durante todo el empuje o la tracción."
     }
   },
   "T282": {
@@ -12702,7 +12744,9 @@
     "consignes": {
       "Positionnement": "Tirantes en manos/antebrazos, busto inclinado.",
       "Mouvement": "Empuje hacia adelante mientras avanza, con los brazos extendidos.",
-      "Posture": "Core fuerte, pelvis neutra, cadencia regular."
+      "Posture": "Core fuerte, pelvis neutra, cadencia regular.",
+      "Retour": "Reduce la velocidad progresivamente, recoloca los apoyos y vuelve al inicio con control.",
+      "Respiration": "Respira de forma rítmica y continua durante todo el empuje o la tracción."
     }
   },
   "T283": {
@@ -12749,7 +12793,9 @@
     "consignes": {
       "Positionnement": "Tirantes sujetos a la altura de los hombros.",
       "Mouvement": "Empuje por encima de la cabeza mientras avanza, con los brazos extendidos al final del gesto.",
-      "Posture": "Costillas metidas hacia dentro, pelvis neutra, no arqueada."
+      "Posture": "Costillas metidas hacia dentro, pelvis neutra, no arqueada.",
+      "Retour": "Reduce la velocidad progresivamente, recoloca los apoyos y vuelve al inicio con control.",
+      "Respiration": "Respira de forma rítmica y continua durante todo el empuje o la tracción."
     }
   },
   "T284": {
@@ -12791,12 +12837,14 @@
     ],
     "variantes": [
       "Arrastre lateral del trineo",
-      "Rotación del trineo"
+      "Rotación de trineo (leñador de cuerda)"
     ],
     "consignes": {
       "Positionnement": "Párese de lado, con las manos en las manijas y los pies paralelos.",
       "Mouvement": "Empuja lateralmente con pasos amplios, manteniendo el torso alineado.",
-      "Posture": "Revestimiento antirotación, hombros bajos."
+      "Posture": "Revestimiento antirotación, hombros bajos.",
+      "Retour": "Reduce la velocidad progresivamente, recoloca los apoyos y vuelve al inicio con control.",
+      "Respiration": "Respira de forma rítmica y continua durante todo el empuje o la tracción."
     }
   },
   "T285": {
@@ -12845,7 +12893,9 @@
     "consignes": {
       "Positionnement": "Desde un lado, agarre la cuerda con ambas manos a la altura de los hombros.",
       "Mouvement": "Tira/guía la cuerda en rotación controlada como un leñador.",
-      "Posture": "Revestimiento antiextensión, hombros bajos, transferencia de peso fluida."
+      "Posture": "Revestimiento antiextensión, hombros bajos, transferencia de peso fluida.",
+      "Retour": "Reduce la velocidad progresivamente, recoloca los apoyos y vuelve al inicio con control.",
+      "Respiration": "Respira de forma rítmica y continua durante todo el empuje o la tracción."
     }
   },
   "T286": {
@@ -12897,7 +12947,9 @@
     "consignes": {
       "Positionnement": "Coloca las correas sobre un arnés bajo o en las manos, ponte en posición cuadrúpedo.",
       "Mouvement": "Avanza lentamente, tirando del trineo detrás de ti.",
-      "Posture": "Espalda neutra, pelvis estable, evitar arco lumbar."
+      "Posture": "Espalda neutra, pelvis estable, evitar arco lumbar.",
+      "Retour": "Reduce la velocidad progresivamente, recoloca los apoyos y vuelve al inicio con control.",
+      "Respiration": "Respira de forma rítmica y continua durante todo el empuje o la tracción."
     }
   },
   "T287": {
@@ -12939,14 +12991,13 @@
     "contraintes": [
       "Protege bien el maletero para evitar la inclinación lateral."
     ],
-    "variantes": [
-      "Paseo del granjero con mancuernas",
-      "Paseo del granjero con pesas rusas"
-    ],
+    "variantes": [],
     "consignes": {
       "Positionnement": "Sujete las asas laterales del trineo con los brazos estirados.",
       "Mouvement": "Camine derecho manteniendo el revestimiento y la carga.",
-      "Posture": "Espalda neutra, hombros bajos, core apretado."
+      "Posture": "Espalda neutra, hombros bajos, core apretado.",
+      "Retour": "Reduce la velocidad progresivamente, recoloca los apoyos y vuelve al inicio con control.",
+      "Respiration": "Respira de forma rítmica y continua durante todo el empuje o la tracción."
     }
   },
   "T288": {
@@ -12991,13 +13042,15 @@
       "Evite el desequilibrio lateral; estabilizar la pelvis"
     ],
     "variantes": [
-      "Remo de trineo de pie",
+      "Remo en trineo de pie (tiro horizontal)",
       "Press de pecho en trineo"
     ],
     "consignes": {
       "Positionnement": "Coloque un pie hacia adelante (estocada), el tronco recto y las correas en la mano.",
       "Mouvement": "Realice un tirón o empujón unilateral mientras mantiene la estocada.",
-      "Posture": "Tronco enfundado, rodilla delantera alineada con el tobillo."
+      "Posture": "Tronco enfundado, rodilla delantera alineada con el tobillo.",
+      "Retour": "Reduce la velocidad progresivamente, recoloca los apoyos y vuelve al inicio con control.",
+      "Respiration": "Respira de forma rítmica y continua durante todo el empuje o la tracción."
     }
   },
   "T289": {

@@ -1,6 +1,6 @@
-/* eslint-disable react/prop-types */
+ 
 // src/components/ClientNutritionSection.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -15,6 +15,12 @@ import {
   Td,
   Badge,
   IconButton,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
   useToast,
   SimpleGrid,
   Stack,
@@ -35,6 +41,7 @@ import { useAuth } from "../AuthContext.jsx";
 import { useNutritionTheme } from "../styles/nutritionTheme";
 import AppLoading from "./ui/AppLoading";
 import { notify } from "../utils/notify";
+import i18n from "../i18n/index";
 
 function formatDate(ts) {
   try {
@@ -89,6 +96,9 @@ export default function ClientNutritionSection({ clientId, isAdminOnly = false }
 
   const [loading, setLoading] = useState(true);
   const [assessments, setAssessments] = useState([]);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deletingId, setDeletingId] = useState("");
+  const cancelDeleteRef = useRef(null);
 
   useEffect(() => {
     if (!clientId) return;
@@ -126,6 +136,7 @@ export default function ClientNutritionSection({ clientId, isAdminOnly = false }
       const { assessmentId } = await createNutritionAssessmentDraft({
         clientId,
         createdByUid: user?.uid,
+        clubId: user?.clubId || null,
       });
       notify(toast, "nutritionDraftCreated");
       navigate(`/clients/${clientId}/nutrition/${assessmentId}`);
@@ -143,6 +154,7 @@ export default function ClientNutritionSection({ clientId, isAdminOnly = false }
 
   const onDelete = async (assessmentId) => {
     if (!canUse) return;
+    setDeletingId(assessmentId);
     try {
       await deleteDoc(
         doc(db, "clients", clientId, "nutrition_assessments", assessmentId)
@@ -156,6 +168,9 @@ export default function ClientNutritionSection({ clientId, isAdminOnly = false }
         title: "Suppression impossible",
         description: e?.message || "Suppression impossible.",
       });
+    } finally {
+      setDeletingId("");
+      setDeleteTarget(null);
     }
   };
 
@@ -163,13 +178,9 @@ export default function ClientNutritionSection({ clientId, isAdminOnly = false }
     <Box mt={8} p={{ base: 4, md: 5 }} {...theme.cardProps}>
       <HStack justify="space-between" mb={4} align="start" gap={3} flexWrap="wrap">
         <Box>
-          <Text fontSize="xs" fontWeight="800" letterSpacing="0.12em" color={theme.subtleText}>
-            SUIVI CLIENT
-          </Text>
-          <Heading size="md" mt={1}>Nutrition</Heading>
-          <Text fontSize="sm" color={theme.mutedText} mt={1}>
-            Bilans, enquête alimentaire, ration et menu journalier au même endroit.
-          </Text>
+          <Text fontSize="xs" fontWeight="800" letterSpacing="0.12em" color={theme.subtleText}>{i18n.t("auto.ClientNutritionSection.suivi_client", "SUIVI CLIENT")}</Text>
+          <Heading size="md" mt={1}>{i18n.t("nutrition.title", "Nutrition")}</Heading>
+          <Text fontSize="sm" color={theme.mutedText} mt={1}>{i18n.t("auto.ClientNutritionSection.bilans_enquete_alimentaire_ration_et_menu_journali", "Bilans, enquête alimentaire, ration et menu journalier au même endroit.")}</Text>
         </Box>
         <Button
           leftIcon={<AddIcon />}
@@ -177,22 +188,18 @@ export default function ClientNutritionSection({ clientId, isAdminOnly = false }
           w={{ base: "full", md: "auto" }}
           onClick={onCreate}
           isDisabled={!canUse}
-        >
-          Créer un bilan nutrition
-        </Button>
+        >{i18n.t("auto.ClientNutritionSection.creer_un_bilan_nutrition", "Créer un bilan nutrition")}</Button>
       </HStack>
 
       {!canUse && (
-        <Text fontSize="sm" opacity={0.7} mb={3}>
-          (Admin uniquement pour le moment — ouverture aux pros après validation.)
-        </Text>
+        <Text fontSize="sm" opacity={0.7} mb={3}>{i18n.t("auto.ClientNutritionSection.admin_uniquement_pour_le_moment_ouverture_aux_pros", "(Admin uniquement pour le moment — ouverture aux pros après validation.)")}</Text>
       )}
 
       {loading ? (
-        <AppLoading label="Chargement..." minH="220px" />
+        <AppLoading label={i18n.t("auto.ClientNutritionSection.chargement", "Chargement...")} minH="220px" />
       ) : assessments.length === 0 ? (
         <Box {...theme.tileProps} p={4}>
-          <Text color={theme.mutedText}>Aucun bilan nutrition pour ce client.</Text>
+          <Text color={theme.mutedText}>{i18n.t("auto.ClientNutritionSection.aucun_bilan_nutrition_pour_ce_client", "Aucun bilan nutrition pour ce client.")}</Text>
         </Box>
       ) : (
         <>
@@ -200,17 +207,17 @@ export default function ClientNutritionSection({ clientId, isAdminOnly = false }
             <Box {...theme.tileProps} p={4}>
               <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={theme.subtleText}>BILANS</Text>
               <Text fontSize="2xl" fontWeight="900">{assessments.length}</Text>
-              <Text fontSize="sm" color={theme.mutedText}>dossier(s) nutrition</Text>
+              <Text fontSize="sm" color={theme.mutedText}>{i18n.t("auto.ClientNutritionSection.dossier_s_nutrition", "dossier(s) nutrition")}</Text>
             </Box>
             <Box {...theme.tileProps} p={4}>
-              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={theme.subtleText}>PARTAGÉS</Text>
+              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={theme.subtleText}>{i18n.t("auto.ClientNutritionSection.partages", "PARTAGÉS")}</Text>
               <Text fontSize="2xl" fontWeight="900">{sharedCount}</Text>
-              <Text fontSize="sm" color={theme.mutedText}>visible(s) côté client</Text>
+              <Text fontSize="sm" color={theme.mutedText}>{i18n.t("auto.ClientNutritionSection.visible_s_cote_client", "visible(s) côté client")}</Text>
             </Box>
             <Box {...theme.tileProps} p={4}>
               <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={theme.subtleText}>STATUT</Text>
               <Text fontSize="2xl" fontWeight="900">{statusSummary}</Text>
-              <Text fontSize="sm" color={theme.mutedText}>avancement global</Text>
+              <Text fontSize="sm" color={theme.mutedText}>{i18n.t("auto.ClientNutritionSection.avancement_global", "avancement global")}</Text>
             </Box>
           </SimpleGrid>
 
@@ -230,9 +237,7 @@ export default function ClientNutritionSection({ clientId, isAdminOnly = false }
                         <Badge colorScheme={shared ? "green" : "gray"} borderRadius="full" px={2}>{shared ? "Client" : "Interne"}</Badge>
                       </HStack>
                     </Box>
-                    <Button size="sm" borderRadius="12px" onClick={() => onOpen(a.id)}>
-                      Ouvrir
-                    </Button>
+                    <Button size="sm" borderRadius="12px" onClick={() => onOpen(a.id)}>{i18n.t("programs.open", "Ouvrir")}</Button>
                   </HStack>
                 </Box>
               );
@@ -243,11 +248,11 @@ export default function ClientNutritionSection({ clientId, isAdminOnly = false }
             <Table size="sm">
               <Thead>
                 <Tr>
-                  <Th>Date</Th>
-                  <Th>Statut</Th>
-                  <Th>Objectif</Th>
-                  <Th>Partage</Th>
-                  <Th isNumeric>Actions</Th>
+                  <Th>{i18n.t("nutritionCoach.table.date", "Date")}</Th>
+                  <Th>{i18n.t("nutritionCoach.table.status", "Statut")}</Th>
+                  <Th>{i18n.t("nutritionCoach.table.objective", "Objectif")}</Th>
+                  <Th>{i18n.t("nutritionCoach.table.share", "Partage")}</Th>
+                  <Th isNumeric>{i18n.t("nutritionCoach.table.actions", "Actions")}</Th>
                 </Tr>
               </Thead>
               <Tbody>
@@ -271,17 +276,15 @@ export default function ClientNutritionSection({ clientId, isAdminOnly = false }
                     </Td>
                     <Td isNumeric>
                       <HStack justify="flex-end">
-                        <Button size="sm" borderRadius="12px" onClick={() => onOpen(a.id)}>
-                          Ouvrir
-                        </Button>
+                        <Button size="sm" borderRadius="12px" onClick={() => onOpen(a.id)}>{i18n.t("programs.open", "Ouvrir")}</Button>
                         <IconButton
                           size="sm"
-                          aria-label="Supprimer"
+                          aria-label={i18n.t("programs.delete", "Supprimer")}
                           bg="rgba(239,68,68,0.14)"
                           color="#EF4444"
                           borderRadius="12px"
-                          icon={<span style={{ fontWeight: 700 }}>×</span>}
-                          onClick={() => onDelete(a.id)}
+                          icon={<span style={{ fontWeight: 700 }}>{i18n.t("auto.ClientNutritionSection.text", "×")}</span>}
+                          onClick={() => setDeleteTarget(a)}
                           isDisabled={!canUse}
                         />
                       </HStack>
@@ -293,6 +296,37 @@ export default function ClientNutritionSection({ clientId, isAdminOnly = false }
           </Box>
         </>
       )}
+      <AlertDialog
+        isOpen={!!deleteTarget}
+        leastDestructiveRef={cancelDeleteRef}
+        onClose={() => {
+          if (!deletingId) setDeleteTarget(null);
+        }}
+        isCentered
+      >
+        <AlertDialogOverlay />
+        <AlertDialogContent borderRadius="24px">
+          <AlertDialogHeader fontSize="lg" fontWeight="900">
+            Supprimer ce bilan nutrition ?
+          </AlertDialogHeader>
+          <AlertDialogBody color={theme.mutedText}>
+            Cette action supprimera définitivement le bilan du {formatDate(deleteTarget?.updatedAt || deleteTarget?.createdAt) || "dossier sélectionné"}. Le client ne pourra plus consulter les éléments partagés associés.
+          </AlertDialogBody>
+          <AlertDialogFooter>
+            <Button ref={cancelDeleteRef} variant="outline" onClick={() => setDeleteTarget(null)} isDisabled={!!deletingId}>
+              Annuler
+            </Button>
+            <Button
+              colorScheme="red"
+              ml={3}
+              onClick={() => onDelete(deleteTarget?.id)}
+              isLoading={deletingId === deleteTarget?.id}
+            >
+              Supprimer
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Box>
   );
 }

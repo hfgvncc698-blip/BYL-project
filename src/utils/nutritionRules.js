@@ -1,4 +1,4 @@
-import { normalizeNutritionText } from "./nutritionContext";
+import { normalizeNutritionText } from "./nutritionContext.js";
 
 const bool = (value) => Boolean(value);
 
@@ -41,7 +41,7 @@ export function buildNutritionRuleSet({
   const allowFish = !vegetarianLike && !foodExclusionFlags.fish && !foodExclusionFlags.seafood && !allergies.fish;
   const allowPoultry = !vegetarianLike && !pescetarianLike && !foodExclusionFlags.poultry;
   const allowRedMeat = !vegetarianLike && !pescetarianLike && !foodExclusionFlags.redMeat;
-  const allowPork = allowRedMeat && !foodExclusionFlags.pork;
+  const allowPork = allowRedMeat && !foodExclusionFlags.pork && !regimeFlags.halal && !regimeFlags.kosher;
 
   return {
     vegetarianLike,

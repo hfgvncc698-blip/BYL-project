@@ -173,7 +173,31 @@
       "Retour": "Regresa tus pies y brazos simultáneamente a la posición inicial.",
       "Respiration": "Inhala mientras abres, exhala mientras cierras.",
       "Posture": "Involucre su núcleo para evitar cualquier desequilibrio."
-    }
+    },
+    "articulations_solicitees": [
+      "Hombros",
+      "Codos",
+      "Muñecas",
+      "Tobillos"
+    ],
+    "articulations_sollicitees": [
+      "Hombros",
+      "Codos",
+      "Muñecas",
+      "Tobillos"
+    ],
+    "tendons_solicites": [
+      "Tendón de Aquiles",
+      "Tendón rotuliano",
+      "Tendón del deltoides"
+    ],
+    "tendons_sollicites": [
+      "Tendón de Aquiles",
+      "Tendón rotuliano",
+      "Tendón del deltoides"
+    ],
+    "type": "Ejercicio cardiovascular con carga ligera",
+    "niveau": "Intermedio"
   },
   "E005": {
     "nom": "Rotaciones de brazos",
@@ -211,7 +235,8 @@
       "Positionnement": "Párese con los pies separados a la altura de los hombros y los brazos extendidos a los costados.",
       "Mouvement": "Haz círculos lentos con los brazos, hacia adelante y hacia atrás.",
       "Respiration": "Respira naturalmente, sin bloqueos.",
-      "Posture": "Mantenga la espalda recta y el cuello relajado."
+      "Posture": "Mantenga la espalda recta y el cuello relajado.",
+      "Retour": "Vuelve lentamente a la posición inicial manteniendo el control del movimiento."
     }
   },
   "E006": {

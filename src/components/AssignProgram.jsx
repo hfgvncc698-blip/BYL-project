@@ -15,6 +15,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { Button, Modal, Select, message } from "antd";
+import { useTranslation } from "react-i18next";
 
 /**
  * Props:
@@ -33,6 +34,7 @@ const AssignProgram = ({
   onAssigned,
   coachId,
 }) => {
+  const { t } = useTranslation("common");
   const [programs, setPrograms] = useState([]);
   const [selectedProgramId, setSelectedProgramId] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -58,19 +60,19 @@ const AssignProgram = ({
         setPrograms(list);
       } catch (err) {
         console.error(err);
-        message.error("Impossible de charger les programmes.");
+        message.error(t("assignProgram.errors.loadPrograms", "Impossible de charger les programmes."));
       }
     })();
-  }, [isOpen, coachId]);
+  }, [isOpen, coachId, t]);
 
   // Dupliquer le programme choisi dans la sous-collection du client
   const handleAssignProgram = async () => {
     if (!clientId) {
-      message.error("Client manquant.");
+      message.error(t("assignProgram.errors.missingClient", "Client manquant."));
       return;
     }
     if (!selectedProgramId) {
-      message.error("Veuillez sélectionner un programme.");
+      message.error(t("assignProgram.errors.selectProgram", "Veuillez sélectionner un programme."));
       return;
     }
 
@@ -79,10 +81,11 @@ const AssignProgram = ({
       // 1) Récupérer le programme "base"
       const baseRef = doc(db, "programmes", selectedProgramId);
       const baseSnap = await getDoc(baseRef);
-      if (!baseSnap.exists()) throw new Error("Programme introuvable.");
+      if (!baseSnap.exists()) throw new Error(t("assignProgram.errors.programNotFound", "Programme introuvable."));
 
       const base = baseSnap.data();
       const { nomProgramme, name, titre, title, ...rest } = base;
+      const activeWeeks = Math.max(1, Math.min(52, Math.round(Number(base.activeWeeks ?? base.durationWeeks ?? 4) || 4)));
 
       // 2) Créer une copie dans clients/{clientId}/programmes
       const clientProgRef = await addDoc(
@@ -91,8 +94,10 @@ const AssignProgram = ({
           ...rest,
           // champs lisibles côté client
           displayName:
-            nomProgramme || name || titre || title || "Programme sans titre",
+            nomProgramme || name || titre || title || t("programs.untitled", "Programme sans titre"),
           programId: selectedProgramId, // référence vers le programme "base"
+          activeWeeks,
+          durationWeeks: activeWeeks,
           statut: "en cours",
           assignedAt: serverTimestamp(),
         }
@@ -105,13 +110,13 @@ const AssignProgram = ({
         lastAssignedAt: serverTimestamp(),
       });
 
-      message.success("Programme assigné avec succès.");
+      message.success(t("assignProgram.success", "Programme assigné avec succès."));
       onAssigned?.(clientProgRef.id);
       onClose?.();
       setSelectedProgramId(null);
     } catch (err) {
       console.error(err);
-      message.error("Erreur lors de l'assignation du programme.");
+      message.error(t("assignProgram.errors.assign", "Erreur lors de l'assignation du programme."));
     } finally {
       setLoading(false);
     }
@@ -119,7 +124,7 @@ const AssignProgram = ({
 
   return (
     <Modal
-      title="Assigner un programme"
+      title={t("assignProgram.title", "Assigner un programme")}
       open={isOpen}          // AntD v5
       visible={isOpen}       // compat AntD v4 (sans effet en v5)
       onCancel={() => {
@@ -131,7 +136,7 @@ const AssignProgram = ({
     >
       <Select
         style={{ width: "100%" }}
-        placeholder="Sélectionnez un programme"
+        placeholder={t("assignProgram.selectPlaceholder", "Sélectionnez un programme")}
         onChange={setSelectedProgramId}
         value={selectedProgramId}
         showSearch
@@ -139,7 +144,7 @@ const AssignProgram = ({
       >
         {programs.map((p) => {
           const label =
-            p.nomProgramme || p.name || p.titre || p.title || "Sans titre";
+            p.nomProgramme || p.name || p.titre || p.title || t("myPrograms.untitled", "Sans titre");
         return (
             <Select.Option key={p.id} value={p.id} label={label}>
               {label}
@@ -156,11 +161,10 @@ const AssignProgram = ({
         style={{ marginTop: 16 }}
         disabled={!programs.length}
       >
-        Assigner
+        {t("common.assign", "Assigner")}
       </Button>
     </Modal>
   );
 };
 
 export default AssignProgram;
-

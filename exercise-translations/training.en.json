@@ -11643,13 +11643,14 @@
       "Chair with dumbbells",
       "Chair with medicine ball",
       "Chair with heel lift",
-      "Chair with elastic"
+      "Chair with elastic (abduction)"
     ],
     "consignes": {
       "Positionnement": "Back flat against the wall, feet shoulder-width apart, approximately 50 cm from the wall.",
       "Mouvement": "Bend your legs to 90°, thighs parallel to the ground, hold the position without moving.",
       "Respiration": "Breathe calmly and regularly, avoid apnea.",
-      "Posture": "Back straight, abs tight, knees aligned with the ankles."
+      "Posture": "Back straight, abs tight, knees aligned with the ankles.",
+      "Retour": "Push through the heels to stand back up without abruptly losing posture."
     }
   },
   "T259": {
@@ -11689,14 +11690,15 @@
       "Avoid if imbalance or joint pain"
     ],
     "variantes": [
-      "Classic chair",
       "Chair with dumbbells",
       "Chair with medicine ball"
     ],
     "consignes": {
       "Positionnement": "Back pressed against the wall, one leg extended in front of you, the other at 90°.",
       "Respiration": "Breathe calmly without blocking your breathing.",
-      "Posture": "Trunk covered, knee aligned with the ankle."
+      "Posture": "Trunk covered, knee aligned with the ankle.",
+      "Mouvement": "Lower until the knees are at about a 90-degree angle, then hold the position.",
+      "Retour": "Push through the heels to stand back up without abruptly losing posture."
     }
   },
   "T260": {
@@ -11733,13 +11735,15 @@
       "Avoid in case of knee or lower back pain"
     ],
     "variantes": [
-      "Classic chair",
       "One-sided chair",
       "Chair with medicine ball"
     ],
     "consignes": {
       "Positionnement": "Place the dumbbells on the thighs, maintain the classic chair position.",
-      "Posture": "Abs contracted, back pressed against the wall."
+      "Posture": "Abs contracted, back pressed against the wall.",
+      "Mouvement": "Lower until the knees are at about a 90-degree angle, then hold the position.",
+      "Retour": "Push through the heels to stand back up without abruptly losing posture.",
+      "Respiration": "Inhale during the setup or lowering phase, exhale during the effort."
     }
   },
   "T261": {
@@ -11775,13 +11779,15 @@
       "Choose a suitable weight so as not to increase joint pressure"
     ],
     "variantes": [
-      "Classic chair",
       "Chair with dumbbells",
-      "Chair with elastic"
+      "Chair with elastic (abduction)"
     ],
     "consignes": {
       "Positionnement": "Ball held in front of you or between your knees.",
-      "Posture": "Back straight, abs contracted."
+      "Posture": "Back straight, abs contracted.",
+      "Mouvement": "Lower until the knees are at about a 90-degree angle, then hold the position.",
+      "Retour": "Push through the heels to stand back up without abruptly losing posture.",
+      "Respiration": "Inhale during the setup or lowering phase, exhale during the effort."
     }
   },
   "T262": {
@@ -11817,12 +11823,14 @@
       "Do not realize if Achilles tendon pain"
     ],
     "variantes": [
-      "Classic chair",
-      "Chair with elastic"
+      "Chair with elastic (abduction)"
     ],
     "consignes": {
       "Positionnement": "Lift your heels off to engage your calves in addition to your quadriceps.",
-      "Posture": "Maintain stability, abs contracted."
+      "Posture": "Maintain stability, abs contracted.",
+      "Mouvement": "Lower until the knees are at about a 90-degree angle, then hold the position.",
+      "Retour": "Push through the heels to stand back up without abruptly losing posture.",
+      "Respiration": "Inhale during the setup or lowering phase, exhale during the effort."
     }
   },
   "T263": {
@@ -11859,12 +11867,14 @@
       "Choose a suitable elastic band so as not to unbalance your posture"
     ],
     "variantes": [
-      "Classic chair",
       "Chair with medicine ball"
     ],
     "consignes": {
       "Positionnement": "Maintain the chair position by pushing your knees against the elastic.",
-      "Posture": "Back straight, abs engaged."
+      "Posture": "Back straight, abs engaged.",
+      "Mouvement": "Lower until the knees are at about a 90-degree angle, then hold the position.",
+      "Retour": "Push through the heels to stand back up without abruptly losing posture.",
+      "Respiration": "Inhale during the setup or lowering phase, exhale during the effort."
     }
   },
   "T264": {
@@ -11955,14 +11965,15 @@
       "Standing"
     ],
     "variantes": [
-      "Deadlift classic bar",
-      "Romanian Deadlift",
-      "kettlebell deadlift"
+      "Romanian Deadlift (RDL)",
+      "Deadlift with kettlebell"
     ],
     "consignes": {
       "Positionnement": "Feet hip width apart, dumbbells in front of thighs.",
       "Mouvement": "Lower the dumbbells down your legs, pushing your hips back.",
-      "Retour": "Contract your glutes and straighten your torso."
+      "Retour": "Contract your glutes and straighten your torso.",
+      "Respiration": "Inhale before lowering, brace the core, then exhale as you lift the load.",
+      "Posture": "Keep a neutral back, engaged shoulders and the load close to the body."
     }
   },
   "T266": {
@@ -11998,13 +12009,14 @@
       "Feet spread wide"
     ],
     "variantes": [
-      "Deadlift classic bar",
-      "Romanian Deadlift"
+      "Romanian Deadlift (RDL)"
     ],
     "consignes": {
       "Positionnement": "Feet wide apart, hands tight on the bar.",
       "Mouvement": "Push through your legs and contract your glutes to lift the bar.",
-      "Retour": "Control the descent by keeping your back straight."
+      "Retour": "Control the descent by keeping your back straight.",
+      "Respiration": "Inhale before lowering, brace the core, then exhale as you lift the load.",
+      "Posture": "Keep a neutral back, engaged shoulders and the load close to the body."
     }
   },
   "T267": {
@@ -12035,13 +12047,14 @@
       "Standing"
     ],
     "variantes": [
-      "Deadlift classic bar",
-      "Deadlift dumbbells"
+      "Deadlift with dumbbells"
     ],
     "consignes": {
       "Positionnement": "Feet hip width apart, bar in front of thighs.",
       "Mouvement": "Lower the bar by pushing your hips back, legs slightly bent.",
-      "Retour": "Contract the glutes and hamstrings to return to standing."
+      "Retour": "Contract the glutes and hamstrings to return to standing.",
+      "Respiration": "Inhale before lowering, brace the core, then exhale as you lift the load.",
+      "Posture": "Keep a neutral back, engaged shoulders and the load close to the body."
     }
   },
   "T268": {
@@ -12073,13 +12086,15 @@
       "Standing"
     ],
     "variantes": [
-      "Deadlift dumbbells",
-      "Romanian Deadlift"
+      "Deadlift with dumbbells",
+      "Romanian Deadlift (RDL)"
     ],
     "consignes": {
       "Positionnement": "Place the kettlebell between the feet.",
       "Mouvement": "Go down while keeping your back straight, grab the kettlebell and push through your legs to come back up.",
-      "Retour": "Control the descent."
+      "Retour": "Control the descent.",
+      "Respiration": "Inhale before lowering, brace the core, then exhale as you lift the load.",
+      "Posture": "Keep a neutral back, engaged shoulders and the load close to the body."
     }
   },
   "T269": {
@@ -12109,13 +12124,15 @@
       "Standing"
     ],
     "variantes": [
-      "Romanian Deadlift",
-      "Deadlift dumbbells"
+      "Romanian Deadlift (RDL)",
+      "Deadlift with dumbbells"
     ],
     "consignes": {
       "Positionnement": "Feet hip width apart, legs straight but not locked.",
       "Mouvement": "Lower the bar while keeping your legs straight and your back flat.",
-      "Retour": "Contract your hamstrings and glutes to return to standing."
+      "Retour": "Contract your hamstrings and glutes to return to standing.",
+      "Respiration": "Inhale before lowering, brace the core, then exhale as you lift the load.",
+      "Posture": "Keep a neutral back, engaged shoulders and the load close to the body."
     }
   },
   "T270": {
@@ -12148,11 +12165,14 @@
       "Standing elevated"
     ],
     "variantes": [
-      "Classic Deadlift"
+      "Deadlift (Classic Deadlift)"
     ],
     "consignes": {
       "Positionnement": "Stand on a platform to increase the amplitude.",
-      "Mouvement": "Lift the bar like a classic deadlift with more stretching."
+      "Mouvement": "Lift the bar like a classic deadlift with more stretching.",
+      "Retour": "Return slowly to the starting position while keeping the movement controlled.",
+      "Respiration": "Inhale before lowering, brace the core, then exhale as you lift the load.",
+      "Posture": "Keep a neutral back, engaged shoulders and the load close to the body."
     }
   },
   "T271": {
@@ -12183,11 +12203,14 @@
       "Standing"
     ],
     "variantes": [
-      "Classic Deadlift"
+      "Deadlift (Classic Deadlift)"
     ],
     "consignes": {
       "Positionnement": "Bar placed on a rack at knee height.",
-      "Mouvement": "Lift the bar to a reduced amplitude."
+      "Mouvement": "Lift the bar to a reduced amplitude.",
+      "Retour": "Return slowly to the starting position while keeping the movement controlled.",
+      "Respiration": "Inhale before lowering, brace the core, then exhale as you lift the load.",
+      "Posture": "Keep a neutral back, engaged shoulders and the load close to the body."
     }
   },
   "T272": {
@@ -12223,7 +12246,10 @@
     ],
     "consignes": {
       "Positionnement": "Stand and hold the TRX straps.",
-      "Mouvement": "Lower your torso straight by pushing your hips backwards, then come back."
+      "Mouvement": "Lower your torso straight by pushing your hips backwards, then come back.",
+      "Retour": "Return slowly to the starting position while keeping the movement controlled.",
+      "Respiration": "Inhale before lowering, brace the core, then exhale as you lift the load.",
+      "Posture": "Keep a neutral back, engaged shoulders and the load close to the body."
     }
   },
   "T273": {
@@ -12258,7 +12284,10 @@
     ],
     "consignes": {
       "Positionnement": "Place the elastic under the feet, hold it with your hands.",
-      "Mouvement": "Lower the right torso then rise again by pulling on the elastic."
+      "Mouvement": "Lower the right torso then rise again by pulling on the elastic.",
+      "Retour": "Return slowly to the starting position while keeping the movement controlled.",
+      "Respiration": "Inhale before lowering, brace the core, then exhale as you lift the load.",
+      "Posture": "Keep a neutral back, engaged shoulders and the load close to the body."
     }
   },
   "T274": {
@@ -12364,7 +12393,8 @@
       "Positionnement": "Grasp the low handles, torso more inclined, feet active.",
       "Mouvement": "Push heavy and short, powerful strides, maintain the core.",
       "Retour": "Come back slowly and prepare for the next set.",
-      "Posture": "Neutral back, stable shoulders, aligned neck."
+      "Posture": "Neutral back, stable shoulders, aligned neck.",
+      "Respiration": "Breathe rhythmically and continuously throughout the push or pull."
     }
   },
   "T276": {
@@ -12411,7 +12441,9 @@
     "consignes": {
       "Positionnement": "High or low handles depending on comfort, light load.",
       "Mouvement": "Accelerate over a short distance (10–20 m) while maintaining control.",
-      "Retour": "Walk back; actively recover."
+      "Retour": "Walk back; actively recover.",
+      "Respiration": "Breathe rhythmically and continuously throughout the push or pull.",
+      "Posture": "Keep the torso solid, shoulders low and foot contacts active."
     }
   },
   "T277": {
@@ -12452,13 +12484,15 @@
       "Very safe for the knees but still controlled when reversing"
     ],
     "variantes": [
-      "Sled Pull – Front Harness",
+      "Sled Pull – Front harness (running or walking)",
       "Sled Pull – Hand to Hand Rope"
     ],
     "consignes": {
       "Positionnement": "Strap attached to the waist, walk back with controlled steps.",
       "Mouvement": "Pull the sled in reverse, knees and hips bent.",
-      "Posture": "High bust, covered trunk, active heel–toe."
+      "Posture": "High bust, covered trunk, active heel–toe.",
+      "Retour": "Slow down gradually, reset your footing and return to the start under control.",
+      "Respiration": "Breathe rhythmically and continuously throughout the push or pull."
     }
   },
   "T278": {
@@ -12508,7 +12542,9 @@
     "consignes": {
       "Positionnement": "Harness on the torso/shoulders, sheathed trunk.",
       "Mouvement": "Run or walk while pulling the sled, regular strides.",
-      "Respiration": "Regular, adapted to the effort."
+      "Respiration": "Regular, adapted to the effort.",
+      "Retour": "Slow down gradually, reset your footing and return to the start under control.",
+      "Posture": "Keep the torso solid, shoulders low and foot contacts active."
     }
   },
   "T279": {
@@ -12552,13 +12588,15 @@
       "Keep your back neutral; do not round when pulling hard"
     ],
     "variantes": [
-      "Sled Pull – Front Harness",
+      "Sled Pull – Front harness (running or walking)",
       "Sled Pull back (drag)"
     ],
     "consignes": {
       "Positionnement": "Anchor your feet, grab the rope in an alternate grip.",
       "Mouvement": "Pull hand to hand, bring the rope towards the chest, step back if standing.",
-      "Posture": "Strong core, low shoulders."
+      "Posture": "Strong core, low shoulders.",
+      "Retour": "Slow down gradually, reset your footing and return to the start under control.",
+      "Respiration": "Breathe rhythmically and continuously throughout the push or pull."
     }
   },
   "T280": {
@@ -12604,7 +12642,9 @@
     "consignes": {
       "Positionnement": "Attach the sled at waist level, stand sideways.",
       "Mouvement": "Move sideways while pulling the sled, with controlled steps.",
-      "Posture": "Sheathed trunk, stable pelvis."
+      "Posture": "Sheathed trunk, stable pelvis.",
+      "Retour": "Slow down gradually, reset your footing and return to the start under control.",
+      "Respiration": "Breathe rhythmically and continuously throughout the push or pull."
     }
   },
   "T281": {
@@ -12649,12 +12689,14 @@
     ],
     "variantes": [
       "Sled Pull – Hand to Hand Rope",
-      "Sled Pull – Front Harness"
+      "Sled Pull – Front harness (running or walking)"
     ],
     "consignes": {
       "Positionnement": "Grasp the handles/rope with arms outstretched, feet anchored.",
       "Mouvement": "Pull towards the chest by bringing the elbows in, step back in control.",
-      "Posture": "Shoulders low, trunk strong, gaze at the horizon."
+      "Posture": "Shoulders low, trunk strong, gaze at the horizon.",
+      "Retour": "Slow down gradually, reset your footing and return to the start under control.",
+      "Respiration": "Breathe rhythmically and continuously throughout the push or pull."
     }
   },
   "T282": {
@@ -12702,7 +12744,9 @@
     "consignes": {
       "Positionnement": "Straps at the hands/forearms, inclined bust.",
       "Mouvement": "Push forward while moving forward, arms extending.",
-      "Posture": "Strong core, neutral pelvis, regular cadence."
+      "Posture": "Strong core, neutral pelvis, regular cadence.",
+      "Retour": "Slow down gradually, reset your footing and return to the start under control.",
+      "Respiration": "Breathe rhythmically and continuously throughout the push or pull."
     }
   },
   "T283": {
@@ -12749,7 +12793,9 @@
     "consignes": {
       "Positionnement": "Straps held at shoulder level.",
       "Mouvement": "Push above the head while moving forward, arms outstretched at the end of the gesture.",
-      "Posture": "Ribs tucked in, pelvis neutral, do not arch."
+      "Posture": "Ribs tucked in, pelvis neutral, do not arch.",
+      "Retour": "Slow down gradually, reset your footing and return to the start under control.",
+      "Respiration": "Breathe rhythmically and continuously throughout the push or pull."
     }
   },
   "T284": {
@@ -12791,12 +12837,14 @@
     ],
     "variantes": [
       "Lateral Sled Drag",
-      "Sled Rotation"
+      "Sled Rotation (rope woodchopper)"
     ],
     "consignes": {
       "Positionnement": "Stand sideways, hands on the handles, feet parallel.",
       "Mouvement": "Push laterally with sweeping steps, keeping your torso aligned.",
-      "Posture": "Anti-rotation sheathing, low shoulders."
+      "Posture": "Anti-rotation sheathing, low shoulders.",
+      "Retour": "Slow down gradually, reset your footing and return to the start under control.",
+      "Respiration": "Breathe rhythmically and continuously throughout the push or pull."
     }
   },
   "T285": {
@@ -12845,7 +12893,9 @@
     "consignes": {
       "Positionnement": "From the side, grasp the rope with both hands at shoulder level.",
       "Mouvement": "Pull/guide the rope in controlled rotation like woodchopper.",
-      "Posture": "Anti-extension sheathing, low shoulders, fluid weight transfer."
+      "Posture": "Anti-extension sheathing, low shoulders, fluid weight transfer.",
+      "Retour": "Slow down gradually, reset your footing and return to the start under control.",
+      "Respiration": "Breathe rhythmically and continuously throughout the push or pull."
     }
   },
   "T286": {
@@ -12897,7 +12947,9 @@
     "consignes": {
       "Positionnement": "Place the straps on a low harness or on the hands, get into a quadrupedal position.",
       "Mouvement": "Move forward in a crawl step, pulling the sled behind you.",
-      "Posture": "Neutral back, stable pelvis, avoid lumbar arch."
+      "Posture": "Neutral back, stable pelvis, avoid lumbar arch.",
+      "Retour": "Slow down gradually, reset your footing and return to the start under control.",
+      "Respiration": "Breathe rhythmically and continuously throughout the push or pull."
     }
   },
   "T287": {
@@ -12939,14 +12991,13 @@
     "contraintes": [
       "Protect the trunk well to avoid lateral tilting"
     ],
-    "variantes": [
-      "Farmer Walk with Dumbbells",
-      "Farmer Walk with kettlebells"
-    ],
+    "variantes": [],
     "consignes": {
       "Positionnement": "Grasp the side handles of the sled, arms straight.",
       "Mouvement": "Walk straight while maintaining the sheathing and load.",
-      "Posture": "Neutral back, low shoulders, tight core."
+      "Posture": "Neutral back, low shoulders, tight core.",
+      "Retour": "Slow down gradually, reset your footing and return to the start under control.",
+      "Respiration": "Breathe rhythmically and continuously throughout the push or pull."
     }
   },
   "T288": {
@@ -12991,13 +13042,15 @@
       "Avoid lateral imbalance; stabilize the pelvis"
     ],
     "variantes": [
-      "Standing Sled Row",
+      "Standing Sled Row (Horizontal Pull)",
       "Sled Chest Press"
     ],
     "consignes": {
       "Positionnement": "Place one foot forward (lunge), trunk straight, straps in hand.",
       "Mouvement": "Perform a unilateral pull or push while keeping the lunge.",
-      "Posture": "Sheathed trunk, front knee aligned with ankle."
+      "Posture": "Sheathed trunk, front knee aligned with ankle.",
+      "Retour": "Slow down gradually, reset your footing and return to the start under control.",
+      "Respiration": "Breathe rhythmically and continuously throughout the push or pull."
     }
   },
   "T289": {

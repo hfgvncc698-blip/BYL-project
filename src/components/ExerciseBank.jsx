@@ -57,9 +57,13 @@ import { db } from "../firebase";
 import ExerciseCard from "./ExerciseCard";
 import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import EXERCISE_TRANSLATION_ALIASES from "../data/exerciseTranslationAliases.json";
 
 /* ---------- helpers ---------- */
 const EXERCISE_COLLECTIONS = ["warmup", "training", "cooldown", "ergometre"];
+const SUPPORTED_EXERCISE_TRANSLATION_LANGS = ["en", "it", "es", "de", "ru", "ar"];
+const EXERCISE_TRANSLATION_MODULES = import.meta.glob("../../exercise-translations/*.json");
+const exerciseTranslationCache = new Map();
 
 const normalize = (s = "") =>
   String(s || "")
@@ -99,6 +103,63 @@ const dedupeByUid = (arr) => {
   const m = new Map();
   for (const x of arr) m.set(uidFor(x), x);
   return [...m.values()];
+};
+
+const normalizeLangCode = (lng = "fr") => {
+  const code = String(lng || "fr").toLowerCase().split(/[-_]/)[0];
+  return SUPPORTED_EXERCISE_TRANSLATION_LANGS.includes(code) ? code : "fr";
+};
+
+const loadExerciseTranslations = async (lng = "fr") => {
+  const lang = normalizeLangCode(lng);
+  if (lang === "fr") return {};
+  if (exerciseTranslationCache.has(lang)) return exerciseTranslationCache.get(lang);
+
+  const entries = await Promise.all(
+    EXERCISE_COLLECTIONS.map(async (collectionName) => {
+      const loader = EXERCISE_TRANSLATION_MODULES[`../../exercise-translations/${collectionName}.${lang}.json`];
+      if (!loader) return [collectionName, {}];
+      const mod = await loader();
+      return [collectionName, mod.default || mod];
+    })
+  );
+
+  const maps = Object.fromEntries(entries);
+  exerciseTranslationCache.set(lang, maps);
+  return maps;
+};
+
+const enrichExerciseWithTranslation = (exercise, maps, lng = "fr") => {
+  const lang = normalizeLangCode(lng);
+  if (!exercise || lang === "fr") return exercise;
+
+  const collectionName = exercise.__collection;
+  const byCollection = collectionName ? maps?.[collectionName] : null;
+  const normalizedName = normalize(exercise.nom || exercise.name || "");
+  const aliasId = collectionName
+    ? EXERCISE_TRANSLATION_ALIASES?.[collectionName]?.[normalizedName]
+    : null;
+  const translated =
+    byCollection?.[exercise.id] ||
+    byCollection?.[exercise.docId] ||
+    byCollection?.[aliasId] ||
+    EXERCISE_COLLECTIONS.map((name) => {
+      const fallbackAliasId = EXERCISE_TRANSLATION_ALIASES?.[name]?.[normalizedName];
+      return maps?.[name]?.[exercise.id] || maps?.[name]?.[exercise.docId] || maps?.[name]?.[fallbackAliasId];
+    }).find(Boolean);
+
+  if (!translated) return exercise;
+
+  return {
+    ...exercise,
+    translations: {
+      ...(exercise.translations || {}),
+      [lang]: {
+        ...translated,
+        ...(exercise.translations?.[lang] || {}),
+      },
+    },
+  };
 };
 
 const keepFirstSorted = (arr, locale) => {
@@ -929,69 +990,52 @@ export default function ExerciseBank({
   onReplace = () => {},
   onCancelReplace = () => {},
 }) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const L = i18n.language?.toLowerCase().startsWith("fr") ? "fr" : "en";
   const locale = L === "fr" ? "fr" : "en";
+  const activeLang = normalizeLangCode(i18n.language || i18n.resolvedLanguage || "fr");
 
   const TXT = {
-    search: L === "fr" ? "Rechercher…" : "Search…",
-    toggleFilters:
-      L === "fr" ? "Afficher/masquer les filtres" : "Show/Hide filters",
-    addExercise: L === "fr" ? "Ajouter un exercice" : "Add exercise",
-    reset: L === "fr" ? "Réinitialiser" : "Reset",
-    addNewTitle:
-      L === "fr" ? "Ajouter un nouvel exercice" : "Add a new exercise",
-    chooseSection: L === "fr" ? "Choisir la section" : "Choose section",
-    warmup: L === "fr" ? "Échauffement" : "Warm-up",
-    main: L === "fr" ? "Corps de séance" : "Main work",
-    cooldown: L === "fr" ? "Retour au calme" : "Cool-down",
-    ergometer: L === "fr" ? "Ergomètre" : "Ergometer",
-    namePH: L === "fr" ? "Nom de l'exercice" : "Exercise name",
+    search: t("auto.ExerciseBank.search", "Rechercher…"),
+    toggleFilters: t("auto.ExerciseBank.toggle_filters", "Afficher/masquer les filtres"),
+    addExercise: t("auto.ExerciseBank.add_exercise", "Ajouter un exercice"),
+    reset: t("auto.ExerciseBank.reset", "Réinitialiser"),
+    addNewTitle: t("auto.ExerciseBank.add_new_title", "Ajouter un nouvel exercice"),
+    chooseSection: t("auto.ExerciseBank.choose_section", "Choisir la section"),
+    warmup: t("auto.ExerciseBank.warmup", "Échauffement"),
+    main: t("auto.ExerciseBank.main", "Corps de séance"),
+    cooldown: t("auto.ExerciseBank.cooldown", "Retour au calme"),
+    ergometer: t("auto.ExerciseBank.ergometer", "Ergomètre"),
+    namePH: t("auto.ExerciseBank.name_placeholder", "Nom de l'exercice"),
     groupsPH:
-      L === "fr"
-        ? "Groupe(s) musculaire(s) (obligatoire)"
-        : "Muscle group(s) (required)",
-    goalsPH: L === "fr" ? "Objectifs (optionnel)" : "Goals (optional)",
-    equipPH: L === "fr" ? "Matériel (optionnel)" : "Equipment (optional)",
-    posPH: L === "fr" ? "Position (optionnel)" : "Position (optional)",
-    cuesTitle: L === "fr" ? "Consignes (optionnel)" : "Cues (optional)",
-    optionalBlock:
-      L === "fr" ? "Informations facultatives" : "Optional information",
-    save: L === "fr" ? "Enregistrer" : "Save",
-    cancel: L === "fr" ? "Annuler" : "Cancel",
-    added: L === "fr" ? "Exercice ajouté" : "Exercise added",
-    addedWithId: (id) =>
-      L === "fr" ? `Ajouté sous ${id}.` : `Added as ${id}.`,
-    missingSection: L === "fr" ? "Section manquante" : "Missing section",
-    missingSectionDesc:
-      L === "fr" ? "Merci de choisir la section." : "Please choose a section.",
-    missingName: L === "fr" ? "Nom manquant" : "Missing name",
-    missingNameDesc:
-      L === "fr" ? "Merci de remplir le nom." : "Please enter a name.",
-    missingMuscles:
-      L === "fr" ? "Groupe musculaire manquant" : "Missing muscle group",
-    missingMusclesDesc:
-      L === "fr"
-        ? "Merci de renseigner au moins un groupe musculaire."
-        : "Please enter at least one muscle group.",
-    duplicateTitle:
-      L === "fr" ? "Exercice déjà existant" : "Exercise already exists",
-    duplicateDesc:
-      L === "fr"
-        ? "Un exercice de la même famille existe déjà dans la base."
-        : "An exercise from the same family already exists in the database.",
-    noResults: L === "fr" ? "Aucun exercice trouvé." : "No exercises found.",
-    filterMuscle: L === "fr" ? "Groupe musculaire" : "Muscle group",
-    filterSecondaryMuscle:
-      L === "fr" ? "Muscles sollicités" : "Trained muscles",
-    filterJoint: L === "fr" ? "Articulations" : "Joints",
-    filterPosition: L === "fr" ? "Position" : "Position",
-    filterEquipment: L === "fr" ? "Matériel" : "Equipment",
-    filterObjective:
-      L === "fr" ? "Objectif / Catégorie" : "Goal / Category",
-    loadErrorTitle: L === "fr" ? "Erreur de chargement" : "Loading error",
-    genericErrorTitle: L === "fr" ? "Erreur" : "Error",
-    bankTitle: L === "fr" ? "Banque d'exercices" : "Exercise bank",
+      t("auto.ExerciseBank.groups_placeholder", "Groupe(s) musculaire(s) (obligatoire)"),
+    goalsPH: t("auto.ExerciseBank.goals_placeholder", "Objectifs (optionnel)"),
+    equipPH: t("auto.ExerciseBank.equipment_placeholder", "Matériel (optionnel)"),
+    posPH: t("auto.ExerciseBank.position_placeholder", "Position (optionnel)"),
+    cuesTitle: t("auto.ExerciseBank.cues_title", "Consignes (optionnel)"),
+    optionalBlock: t("auto.ExerciseBank.optional_block", "Informations facultatives"),
+    save: t("auto.ExerciseBank.save", "Enregistrer"),
+    cancel: t("auto.ExerciseBank.cancel", "Annuler"),
+    added: t("auto.ExerciseBank.added", "Exercice ajouté"),
+    addedWithId: (id) => t("auto.ExerciseBank.added_with_id", "Ajouté sous {{id}}.", { id }),
+    missingSection: t("auto.ExerciseBank.missing_section", "Section manquante"),
+    missingSectionDesc: t("auto.ExerciseBank.missing_section_desc", "Merci de choisir la section."),
+    missingName: t("auto.ExerciseBank.missing_name", "Nom manquant"),
+    missingNameDesc: t("auto.ExerciseBank.missing_name_desc", "Merci de remplir le nom."),
+    missingMuscles: t("auto.ExerciseBank.missing_muscles", "Groupe musculaire manquant"),
+    missingMusclesDesc: t("auto.ExerciseBank.missing_muscles_desc", "Merci de renseigner au moins un groupe musculaire."),
+    duplicateTitle: t("auto.ExerciseBank.duplicate_title", "Exercice déjà existant"),
+    duplicateDesc: t("auto.ExerciseBank.duplicate_desc", "Un exercice de la même famille existe déjà dans la base."),
+    noResults: t("auto.ExerciseBank.no_results", "Aucun exercice trouvé."),
+    filterMuscle: t("auto.ExerciseBank.filter_muscle", "Groupe musculaire"),
+    filterSecondaryMuscle: t("auto.ExerciseBank.filter_secondary_muscle", "Muscles sollicités"),
+    filterJoint: t("auto.ExerciseBank.filter_joint", "Articulations"),
+    filterPosition: t("auto.ExerciseBank.filter_position", "Position"),
+    filterEquipment: t("auto.ExerciseBank.filter_equipment", "Matériel"),
+    filterObjective: t("auto.ExerciseBank.filter_objective", "Objectif / Catégorie"),
+    loadErrorTitle: t("auto.ExerciseBank.load_error_title", "Erreur de chargement"),
+    genericErrorTitle: t("auto.ExerciseBank.generic_error_title", "Erreur"),
+    bankTitle: t("auto.ExerciseBank.bank_title", "Banque d'exercices"),
   };
 
   const auth = getAuth();
@@ -1011,6 +1055,7 @@ export default function ExerciseBank({
   const deferredFilters = useDeferredValue(filters);
 
   const [exercises, setExercises] = useState([]);
+  const [exerciseTranslationMaps, setExerciseTranslationMaps] = useState({});
   const [loading, setLoading] = useState(false);
   const [savingExercise, setSavingExercise] = useState(false);
 
@@ -1028,7 +1073,7 @@ export default function ExerciseBank({
 
   const [visibleCount, setVisibleCount] = useState(INITIAL_RENDER_COUNT);
 
-  const cardBg = useColorModeValue("gray.100", "gray.700");
+  
   const inputBg = useColorModeValue("white", "gray.800");
   const border = useColorModeValue("rgba(148,163,184,0.24)", "rgba(148,163,184,0.22)");
   const panelBg = useColorModeValue("rgba(255,255,255,0.84)", "rgba(15,23,42,0.78)");
@@ -1078,6 +1123,27 @@ export default function ExerciseBank({
       alive = false;
     };
   }, [toast, TXT.loadErrorTitle]);
+
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      const maps = await loadExerciseTranslations(activeLang).catch(() => ({}));
+      if (alive) setExerciseTranslationMaps(maps);
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [activeLang]);
+
+  const displayExercises = useMemo(
+    () =>
+      exercises.map((exercise) =>
+        enrichExerciseWithTranslation(exercise, exerciseTranslationMaps, activeLang)
+      ),
+    [exercises, exerciseTranslationMaps, activeLang]
+  );
 
   const muscleOptions = useMemo(
     () => keepFirstSorted(L === "fr" ? muscleOptionsFR : muscleOptionsEN, locale),
@@ -1131,7 +1197,7 @@ export default function ExerciseBank({
   );
 
   const indexed = useMemo(() => {
-    return exercises.map((ex) => {
+    return displayExercises.map((ex) => {
       const multilingualSearchRaw = collectExerciseSearchStrings(ex);
       const nameNorm = normalize([ex.nom, ex.name, ...multilingualSearchRaw].filter(Boolean).join(" "));
       const idNorm = normalize(ex.id || ex.docId || "");
@@ -1248,7 +1314,7 @@ export default function ExerciseBank({
         blob,
       };
     });
-  }, [exercises]);
+  }, [displayExercises]);
 
   const filtered = useMemo(() => {
     const pickCanon = (domain, value) =>
@@ -1521,7 +1587,7 @@ export default function ExerciseBank({
       toast({
         status: "error",
         title: TXT.genericErrorTitle,
-        description: "Nom d'exercice invalide.",
+        description: i18n.t("auto.ExerciseBank.nom_d_exercice_invalide", "Nom d'exercice invalide."),
       });
       return;
     }
@@ -1687,6 +1753,7 @@ export default function ExerciseBank({
 
   const renderBank = () => (
     <Box
+      data-tour-page="coach-exercises"
       flex="1 1 auto"
       minH={0}
       display="flex"
@@ -1720,7 +1787,7 @@ export default function ExerciseBank({
             {searchTermUI && (
               <InputRightElement width="2.5rem">
                 <IconButton
-                  aria-label="Clear"
+                  aria-label={i18n.t("auto.ExerciseBank.clear", "Clear")}
                   size="sm"
                   variant="ghost"
                   icon={<CloseIcon boxSize={3} />}
@@ -1856,7 +1923,7 @@ export default function ExerciseBank({
       </Box>
 
       {loading ? (
-        <AppLoading label="Chargement..." minH="320px" />
+        <AppLoading label={i18n.t("auto.ExerciseBank.chargement", "Chargement...")} minH="320px" />
       ) : (
         <Box
           id="exercise-bank-scroll"
@@ -2065,7 +2132,7 @@ export default function ExerciseBank({
     return (
       <>
         <IconButton
-          aria-label="Exercise bank"
+          aria-label={i18n.t("auto.ExerciseBank.exercise_bank", "Exercise bank")}
           icon={<MdOutlineMenuBook size={26} />}
           isRound
           size="lg"

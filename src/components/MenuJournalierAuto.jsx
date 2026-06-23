@@ -1,5 +1,5 @@
 // src/components/MenuJournalierAuto.jsx
-/* eslint-disable react/prop-types */
+ 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
@@ -40,13 +40,17 @@ import {
   isSignificantRationMenuItem,
 } from "../utils/rationMenu";
 import { parseFoodExclusionFlags, parsePathologyFlags, parseRegimeFlags } from "../utils/nutritionContext";
+import { parseAllergyFlags } from "../utils/nutritionRules";
 import { useNutritionTheme } from "../styles/nutritionTheme";
+import i18n from "../i18n/index";
 
 /* ================= Utils ================= */
 const stripDiacritics = (s) =>
   String(s || "")
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[œŒ]/g, "oe")
+    .replace(/[æÆ]/g, "ae");
 
 const normalize = (s = "") =>
   stripDiacritics(String(s).toLowerCase()).trim().replace(/\s+/g, " ");
@@ -114,27 +118,62 @@ const PROTEIN_EXCLUSION_WORDS = {
 const nameHasAny = (normalizedName, words = []) => words.some((word) => normalizedName.includes(normalize(word)));
 const PLANT_DAIRY_WORDS = ["vegetal", "végétal", "soja", "amande", "avoine", "riz", "coco", "noisette"];
 
+const isGlutenFreeStarchName = (name) => {
+  const n = normalize(name);
+  return (
+    n.includes("sans gluten") ||
+    NAME_HAS(n, [
+      "riz",
+      "mais",
+      "maïs",
+      "pomme de terre",
+      "quinoa",
+      "sarrasin",
+      "millet",
+      "polenta",
+      "lentilles",
+      "pois chiches",
+      "haricots",
+    ])
+  );
+};
+
+const isGlutenFreeCerealOrSnackName = (name) => {
+  const n = normalize(name);
+  if (n.includes("sans gluten")) return true;
+  if (NAME_HAS(n, ["galette de riz", "galette de mais", "galette de maïs", "riz souffle", "riz soufflé", "petales de mais", "pétales de maïs"])) return true;
+  return false;
+};
+
 /* ================= Meals ================= */
 const MEALS_ORDER = ["petit_dej", "collation_1", "dejeuner", "collation_2", "diner", "collation_3"];
 const MEAL_LABEL = {
-  petit_dej: "Petit-déjeuner",
-  collation_1: "Collation",
-  dejeuner: "Déjeuner",
-  collation_2: "Collation",
-  diner: "Dîner",
-  collation_3: "Collation",
+  petit_dej: { key: "auto.MenuJournalierAuto.petit_dejeuner", defaultValue: "Petit-déjeuner" },
+  collation_1: { key: "auto.MenuJournalierAuto.collation", defaultValue: "Collation" },
+  dejeuner: { key: "auto.MenuJournalierAuto.dejeuner", defaultValue: "Déjeuner" },
+  collation_2: { key: "auto.MenuJournalierAuto.collation", defaultValue: "Collation" },
+  diner: { key: "auto.MenuJournalierAuto.diner", defaultValue: "Dîner" },
+  collation_3: { key: "auto.MenuJournalierAuto.collation", defaultValue: "Collation" },
+};
+const getMealLabel = (mealKey) => {
+  const meta = MEAL_LABEL[mealKey];
+  return meta ? i18n.t(meta.key, meta.defaultValue) : i18n.t("auto.MenuJournalierAuto.repas", "Repas");
 };
 
 /* ================= STRICT ROLES (Déj/Dîner) ================= */
 const MENU_ROLES = ["entree", "plat", "accompagnement", "assaisonnement", "produit_laitier", "dessert", "boisson"];
 const MENU_ROLE_LABEL = {
-  entree: "Entrée (légumes crus/cuits)",
-  plat: "Plat (protéiné)",
-  accompagnement: "Accompagnement (féculent / légumes)",
-  assaisonnement: "Assaisonnement (matières grasses)",
-  produit_laitier: "Produit laitier",
-  dessert: "Dessert (fruit ou dessert simple)",
-  boisson: "Boisson",
+  entree: { key: "auto.MenuJournalierAuto.role_entree", defaultValue: "Entrée (légumes crus/cuits)" },
+  plat: { key: "auto.MenuJournalierAuto.role_plat", defaultValue: "Plat (protéiné)" },
+  accompagnement: { key: "auto.MenuJournalierAuto.role_accompagnement", defaultValue: "Accompagnement (féculent / légumes)" },
+  assaisonnement: { key: "auto.MenuJournalierAuto.role_assaisonnement", defaultValue: "Assaisonnement (matières grasses)" },
+  produit_laitier: { key: "auto.MenuJournalierAuto.role_produit_laitier", defaultValue: "Produit laitier" },
+  dessert: { key: "auto.MenuJournalierAuto.role_dessert", defaultValue: "Dessert (fruit ou dessert simple)" },
+  boisson: { key: "auto.MenuJournalierAuto.role_boisson", defaultValue: "Boisson" },
+};
+const getMenuRoleLabel = (role) => {
+  const meta = MENU_ROLE_LABEL[role];
+  return meta ? i18n.t(meta.key, meta.defaultValue) : i18n.t("auto.MenuJournalierAuto.element", "Élément");
 };
 const MENU_ROLE_ORDER = (r) => {
   const idx = MENU_ROLES.indexOf(r);
@@ -376,7 +415,45 @@ const prettyCiqualName = (raw, options = {}) => {
   if (n0.includes("dessert au soja")) {
     return "Yaourt végétal au soja";
   }
+  if (n0.includes("lait demi ecreme") || n0.includes("lait demi-écrémé")) return "Lait demi-écrémé";
+  if (n0.includes("lait entier")) return "Lait entier";
+  if (n0.includes("lait ecreme") || n0.includes("lait écrémé")) return "Lait écrémé";
+  if (n0.startsWith("beurre")) return "Beurre";
 
+  if (n0.includes("pomme de terre") || n0.includes("pommes de terre")) return "Pomme de terre";
+  if (n0.includes("pomme granny smith")) return "Pomme Granny Smith";
+  if (n0.includes("pomme golden")) return "Pomme Golden";
+  if (n0.includes("pomme ")) return "Pomme";
+  if (n0.includes("banane")) return "Banane";
+  if (n0.includes("poire")) return "Poire";
+  if (n0.includes("kiwi")) return "Kiwi";
+  if (n0.includes("orange")) return "Orange";
+  if (n0.includes("clementine") || n0.includes("clémentine")) return "Clémentine";
+  if (n0.includes("fraise")) return "Fraises";
+  if (n0.includes("raisin")) return "Raisin";
+  if (n0.includes("chou romanesco") || n0.includes("brocoli a pomme") || n0.includes("brocoli à pomme")) {
+    return "Brocoli ou chou romanesco";
+  }
+  if (n0.includes("champignon de paris") || n0.includes("champignon de couche")) return "Champignons de Paris";
+  if (n0.includes("carotte")) return "Carotte";
+  if (n0.includes("endive")) return n0.includes("rotie") || n0.includes("rôtie") ? "Endive rôtie" : "Endive";
+  if (n0.startsWith("dinde")) return "Dinde";
+  if (n0.startsWith("agneau")) return "Agneau";
+  if (n0.startsWith("porc, filet")) return "Filet de porc";
+  if (n0.startsWith("merlu")) return "Merlu";
+  if (n0.startsWith("cabillaud")) return "Cabillaud";
+  if (n0.startsWith("colin")) return "Colin";
+  if (n0.startsWith("lieu")) return "Lieu";
+  if (n0.startsWith("saumon")) return "Saumon";
+  if (n0.startsWith("thon")) return "Thon";
+  if (n0.includes("orge perlee") || n0.includes("orge perlée")) return "Orge perlée cuite";
+
+  if (n0.includes("petales de cereales") || n0.includes("pétales de céréales")) {
+    if (n0.includes("sans sucres ajoutes") || n0.includes("sans sucres ajoutés")) return "Céréales nature sans sucres ajoutés";
+    if (n0.includes("sucre") || n0.includes("sucré") || n0.includes("sucrées")) return "Céréales nature sucrées";
+    if (n0.includes("nature")) return "Céréales nature";
+    return "Céréales du petit-déjeuner";
+  }
   if (n0.includes("cereales pour petit dejeuner") || n0.includes("céréales pour petit déjeuner")) {
     if (n0.includes("muesli")) {
       if (n0.includes("fruits")) return "Muesli aux fruits";
@@ -410,9 +487,15 @@ const prettyCiqualName = (raw, options = {}) => {
   s = s.replace(/\(\s*aliment\s*[^)]*\)/gi, "").replace(/\(\s*moyen\s*\)/gi, "");
   s = s
     .replace(/,\s*chair et peau/gi, "")
+    .replace(/,\s*chair sans peau/gi, "")
     .replace(/,\s*sans précision/gi, "")
     .replace(/,\s*avec sauce/gi, "")
     .replace(/,\s*non salée/gi, "")
+    .replace(/,\s*surgel[eé]e?/gi, "")
+    .replace(/,\s*(cru|crue|cuits?|cuites?)$/gi, "")
+    .replace(/,\s*cuit(e)?\s+à\s+l[’']étouffée/gi, "")
+    .replace(/\br[oô]ti(e)?\/cuit(e)? au four\b/gi, (match) => (match.toLowerCase().includes("rôtie") || match.toLowerCase().includes("rotie") ? "rôtie" : "rôti"))
+    .replace(/\bbouilli\/cuite? à l'eau\b/gi, "cuit")
     .replace(/,\s*sucrée/gi, "");
 
   if ((s.match(/,/g) || []).length >= 1 && s.length > 52) {
@@ -681,7 +764,26 @@ const isAllowedCreamName = (name) => {
 const isPlainBreakfastCerealName = (name) => {
   const n = normalize(name);
   if (NAME_HAS(n, ["chocolat", "caramel", "miel", "glace", "glacé", "fourre", "fourré", "vanille", "sucre"])) return false;
-  return NAME_HAS(n, ["flocons d avoine", "avoine", "muesli", "petales de mais", "pétales de maïs", "fibres", "nature", "ble khorasan", "blé khorasan"]);
+  if (n.includes("aliment moyen")) return false;
+  if (n.includes("petales de cereales") || n.includes("pétales de céréales")) return false;
+  if (n.includes("muesli croustillant") && !n.includes("sans sucres ajoutes") && !n.includes("sans sucres ajoutés")) return false;
+  return NAME_HAS(n, [
+    "flocons d avoine",
+    "flocons d'avoine",
+    "avoine",
+    "muesli",
+    "petales de mais nature",
+    "pétales de maïs nature",
+    "riz souffle nature",
+    "riz soufflé nature",
+    "riches en fibres, nature",
+    "tres riches en fibres, nature",
+    "très riches en fibres, nature",
+    "melange de flocons de cereales, nature",
+    "mélange de flocons de céréales, nature",
+    "ble khorasan",
+    "blé khorasan",
+  ]);
 };
 
 const isAllowedSnackCerealName = (name) => {
@@ -689,6 +791,13 @@ const isAllowedSnackCerealName = (name) => {
   if (isCookedStarchName(name)) return false;
   if (NAME_HAS(n, ["riz cuit", "riz complet", "pates", "pâtes", "semoule", "couscous", "pomme de terre"])) return false;
   if (n.includes("chocolat") || n.includes("apéritif") || n.includes("aperitif")) return false;
+  if (n.includes("barre cerealiere") || n.includes("barre céréalière")) {
+    return NAME_HAS(n, ["fruits", "amandes", "noisettes", "equilibre", "équilibre", "hypocalorique"]);
+  }
+  if (n.includes("cereales pour petit dejeuner") || n.includes("céréales pour petit déjeuner")) {
+    return false;
+  }
+  if (n.includes("petales de cereales") || n.includes("pétales de céréales")) return false;
   return NAME_HAS(n, [
     "barre cerealiere",
     "barre céréalière",
@@ -701,11 +810,18 @@ const isAllowedSnackCerealName = (name) => {
     "galette de riz",
     "galette de mais",
     "galette de maïs",
-    "petales",
-    "pétales",
-    "cereales pour petit dejeuner",
-    "céréales pour petit déjeuner",
+    "petales de mais nature",
+    "pétales de maïs nature",
+    "riz souffle nature",
+    "riz soufflé nature",
   ]);
+};
+
+const isSnackFriendlyCerealName = (name) => {
+  const n = normalize(name);
+  if (n.includes("barre cerealiere") || n.includes("barre céréalière")) return isAllowedSnackCerealName(name);
+  if (n.includes("cereales pour petit dejeuner") || n.includes("céréales pour petit déjeuner")) return false;
+  return isAllowedSnackCerealName(name);
 };
 
 const isSimpleFruitCandidate = (name, group = "", subGroup = "") => {
@@ -764,6 +880,48 @@ const filterCodesByWords = (codes, ciqualByCode, words) => {
   return filtered.length ? filtered : (codes || []);
 };
 
+const pickClearBreakfastCerealCode = (codes, ciqualByCode, seed = "") => {
+  const source = (codes || []).filter((code) => {
+    const row = ciqualByCode.get(String(code));
+    const name = row ? ciqualName(row) : "";
+    return name && isPlainBreakfastCerealName(name);
+  });
+  if (!source.length) return "";
+  const oats = filterCodesByWords(source, ciqualByCode, ["flocons d'avoine", "flocons d avoine"]);
+  const muesliNoSugar = source.filter((code) => {
+    const name = normalize(ciqualName(ciqualByCode.get(String(code))));
+    return name.includes("muesli") && name.includes("sans sucres ajoutes");
+  });
+  const puffedRice = filterCodesByWords(source, ciqualByCode, ["riz souffle nature", "riz soufflé nature"]);
+  const cornFlakes = filterCodesByWords(source, ciqualByCode, ["petales de mais nature", "pétales de maïs nature"]);
+  const fiberNature = filterCodesByWords(source, ciqualByCode, ["riches en fibres, nature", "tres riches en fibres, nature", "très riches en fibres, nature"]);
+  const ordered = mergeCodeLists(oats, muesliNoSugar, puffedRice, cornFlakes, fiberNature, source);
+  return ordered[hash32(seed || "breakfast-cereal") % ordered.length] || ordered[0] || "";
+};
+
+const pickClearSnackCerealCode = (codes, ciqualByCode, seed = "", preferredType = "") => {
+  const source = (codes || []).filter((code) => {
+    const row = ciqualByCode.get(String(code));
+    const name = row ? ciqualName(row) : "";
+    return name && isSnackFriendlyCerealName(name);
+  });
+  if (!source.length) return "";
+  const bars = filterCodesByWords(source, ciqualByCode, ["barre cerealiere", "barre céréalière"]);
+  const oats = filterCodesByWords(source, ciqualByCode, ["flocons d'avoine", "flocons d avoine", "avoine"]);
+  const muesli = filterCodesByWords(source, ciqualByCode, ["muesli"]);
+  const riceCake = filterCodesByWords(source, ciqualByCode, ["galette de riz", "galette de maïs", "galette de mais"]);
+  const flakes = filterCodesByWords(source, ciqualByCode, ["petales de mais nature", "pétales de maïs nature", "riz souffle nature", "riz soufflé nature"]);
+  const preferred =
+    preferredType === "cereal_bar" ? bars :
+    preferredType === "oats" ? oats :
+    preferredType === "muesli" ? muesli :
+    preferredType === "rice_cake" ? riceCake :
+    preferredType === "flakes" ? flakes :
+    [];
+  const ordered = mergeCodeLists(preferred, bars, oats, muesli, riceCake, flakes, source);
+  return ordered[hash32(seed || "snack-cereal") % ordered.length] || ordered[0] || "";
+};
+
 const resolvedLabelAliases = (label = "") => {
   const normalized = normalize(label);
   const map = {
@@ -777,7 +935,7 @@ const resolvedLabelAliases = (label = "") => {
     huile: ["huile d'olive", "huile de colza", "huile de tournesol", "huile de noix", "huile"],
     "creme fraiche": ["creme fraiche", "crème fraîche"],
     "cereales petit dejeuner": ["muesli", "cereales pour petit dejeuner", "céréales pour petit déjeuner", "petales de cereales", "pétales de céréales", "petales de maïs", "pétales de maïs", "flocons d'avoine", "flocons d avoine"],
-    "cereales petit dejeuner sans gluten": ["muesli", "cereales pour petit dejeuner", "céréales pour petit déjeuner", "petales de cereales", "pétales de céréales", "galette de riz"],
+    "cereales petit dejeuner sans gluten": ["sans gluten", "galette de riz", "riz souffle", "riz soufflé", "petales de mais", "pétales de maïs"],
     "pain blanc": ["baguette", "pain blanc", "pain de mie blanc", "pain"],
     "pain complet": ["pain complet", "pain au son", "pain de seigle"],
     "pain sans gluten": ["pain sans gluten"],
@@ -821,50 +979,50 @@ const prettySlotSourceLabel = (slot) => {
   if (normalize(explicit).includes("yaourt vegetal") || normalize(explicit).includes("yaourt végétal")) return "Yaourt végétal";
   if (groupLabel) {
     const g = normalize(groupLabel);
-    if (g.includes("produits laitiers")) return "Produit laitier";
-    if (g.includes("matieres grasses") || g.includes("matière grasse")) return "Matières grasses";
+    if (g.includes("produits laitiers")) return i18n.t("auto.MenuJournalierAuto.produit_laitier", "Produit laitier");
+    if (g.includes("matieres grasses") || g.includes("matière grasse")) return i18n.t("auto.MenuJournalierAuto.matieres_grasses", "Matières grasses");
     if (g.includes("produits cerealiers")) {
       const slotType = slotTypeFromRationSlot(slot);
-      if (slotType === "breakfast_cereal") return "Base céréalière";
-      if (slotType === "bread") return "Pain";
-      return "Féculent";
+      if (slotType === "breakfast_cereal") return i18n.t("auto.MenuJournalierAuto.base_cerealiere", "Base céréalière");
+      if (slotType === "bread") return i18n.t("auto.MenuJournalierAuto.pain", "Pain");
+      return i18n.t("auto.MenuJournalierAuto.feculent", "Féculent");
     }
-    if (g === "pain") return "Pain";
-    if (g.includes("boisson")) return "Boisson";
-    if (g.includes("fruit")) return "Fruit";
+    if (g === "pain") return i18n.t("auto.MenuJournalierAuto.pain", "Pain");
+    if (g.includes("boisson")) return i18n.t("auto.MenuJournalierAuto.boisson", "Boisson");
+    if (g.includes("fruit")) return i18n.t("auto.MenuJournalierAuto.fruit", "Fruit");
     return groupLabel;
   }
-  if (normalize(explicit).includes("cereales petit dejeuner")) return "Base céréalière";
+  if (normalize(explicit).includes("cereales petit dejeuner")) return i18n.t("auto.MenuJournalierAuto.base_cerealiere", "Base céréalière");
   if (explicit && !isFamilySelectionFromSlot(slot)) return explicit;
 
   switch (slotTypeFromRationSlot(slot)) {
     case "beverage":
-      return "Boisson";
+      return i18n.t("auto.MenuJournalierAuto.boisson", "Boisson");
     case "breakfast_cereal":
-      return "Produit céréalier";
+      return i18n.t("auto.MenuJournalierAuto.produit_cerealier", "Produit céréalier");
     case "bread":
-      return "Pain";
+      return i18n.t("auto.MenuJournalierAuto.pain", "Pain");
     case "dairy":
-      return "Produit laitier";
+      return i18n.t("auto.MenuJournalierAuto.produit_laitier", "Produit laitier");
     case "fruit":
-      return "Fruit";
+      return i18n.t("auto.MenuJournalierAuto.fruit", "Fruit");
     case "sweet":
-      return "Produit sucré";
+      return i18n.t("auto.MenuJournalierAuto.produit_sucre", "Produit sucré");
     case "assaisonnement":
-      return "Matière grasse";
+      return i18n.t("auto.MenuJournalierAuto.matiere_grasse", "Matière grasse");
     case "supplement":
-      return "Complément protéiné";
+      return i18n.t("auto.MenuJournalierAuto.complement_proteine", "Complément protéiné");
     case "starch_cooked":
     case "starch_raw":
-      return "Féculent";
+      return i18n.t("auto.MenuJournalierAuto.feculent", "Féculent");
     case "legumes":
-      return "Légumineuse";
+      return i18n.t("auto.MenuJournalierAuto.legumineuse", "Légumineuse");
     case "protein":
-      return "Protéine";
+      return i18n.t("auto.MenuJournalierAuto.proteine", "Protéine");
     case "veg":
-      return "Légumes";
+      return i18n.t("auto.MenuJournalierAuto.legumes", "Légumes");
     default:
-      return explicit || "Élément";
+      return explicit || i18n.t("auto.MenuJournalierAuto.element", "Élément");
   }
 };
 
@@ -1730,6 +1888,7 @@ const filterCodesByName = (
     forbidEggs = false,
     forbidPoultry = false,
     forbidRedMeat = false,
+    forbidSoy = false,
   } = {}
 ) => {
   const out = [];
@@ -1785,6 +1944,7 @@ const filterCodesByName = (
     if (forbidEggs && nameHasAny(n, PROTEIN_EXCLUSION_WORDS.eggs)) continue;
     if (forbidPoultry && nameHasAny(n, PROTEIN_EXCLUSION_WORDS.poultry)) continue;
     if (forbidRedMeat && nameHasAny(n, PROTEIN_EXCLUSION_WORDS.redMeat)) continue;
+    if (forbidSoy && (n.includes("soja") || n.includes("soy"))) continue;
 
     if (forbidMilk && (n.includes("lait") || n.includes("brebis") || n.includes("chevre") || n.includes("chèvre"))) {
       continue;
@@ -2038,6 +2198,7 @@ const pickCiqualForRole = ({
         forbidMilk: clinicalOptions.forbidMilk,
         preferNoLactose: clinicalOptions.preferNoLactose,
         forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidSoy: clinicalOptions.forbidSoy,
       });
       if (filtered.length) return filtered;
     }
@@ -2079,7 +2240,8 @@ const pickCiqualForRole = ({
           forbidLactose: clinicalOptions.forbidLactose,
           forbidMilk: clinicalOptions.forbidMilk,
           preferNoLactose: clinicalOptions.preferNoLactose,
-          forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidSoy: clinicalOptions.forbidSoy,
         });
         const direct = pickDirectCodesFromResolvedLabel(base);
         return direct.length ? direct : base;
@@ -2089,7 +2251,8 @@ const pickCiqualForRole = ({
           forbidLactose: clinicalOptions.forbidLactose,
           forbidMilk: clinicalOptions.forbidMilk,
           preferNoLactose: clinicalOptions.preferNoLactose,
-          forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidSoy: clinicalOptions.forbidSoy,
         });
         const direct = pickDirectCodesFromResolvedLabel(base);
         return direct.length ? direct : base;
@@ -2106,7 +2269,8 @@ const pickCiqualForRole = ({
           forbidLactose: clinicalOptions.forbidLactose,
           forbidMilk: clinicalOptions.forbidMilk,
           preferNoLactose: clinicalOptions.preferNoLactose,
-          forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidSoy: clinicalOptions.forbidSoy,
         });
         const direct = pickDirectCodesFromResolvedLabel(base);
         return direct.length ? direct : base;
@@ -2116,7 +2280,8 @@ const pickCiqualForRole = ({
           forbidLactose: clinicalOptions.forbidLactose,
           forbidMilk: clinicalOptions.forbidMilk,
           preferNoLactose: clinicalOptions.preferNoLactose,
-          forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidSoy: clinicalOptions.forbidSoy,
         });
         const direct = pickDirectCodesFromResolvedLabel(base);
         return direct.length ? direct : base;
@@ -2169,7 +2334,8 @@ const pickCiqualForRole = ({
           forbidLactose: clinicalOptions.forbidLactose,
           forbidMilk: clinicalOptions.forbidMilk,
           preferNoLactose: clinicalOptions.preferNoLactose,
-          forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidSoy: clinicalOptions.forbidSoy,
         });
       }
       if (genericDairyIntent === "cheese") {
@@ -2177,7 +2343,8 @@ const pickCiqualForRole = ({
           forbidLactose: clinicalOptions.forbidLactose,
           forbidMilk: clinicalOptions.forbidMilk,
           preferNoLactose: clinicalOptions.preferNoLactose,
-          forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidSoy: clinicalOptions.forbidSoy,
         });
       }
       if (genericDairyIntent === "yogurt") {
@@ -2186,7 +2353,8 @@ const pickCiqualForRole = ({
           forbidLactose: clinicalOptions.forbidLactose,
           forbidMilk: clinicalOptions.forbidMilk,
           preferNoLactose: clinicalOptions.preferNoLactose,
-          forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidSoy: clinicalOptions.forbidSoy,
         });
       }
     }
@@ -2197,6 +2365,7 @@ const pickCiqualForRole = ({
         forbidMilk: clinicalOptions.forbidMilk,
         preferNoLactose: clinicalOptions.preferNoLactose,
         forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidSoy: clinicalOptions.forbidSoy,
       });
     }
     if (plannedDairyType === "fromage_blanc" && pools.fromage_blanc_plain.length) {
@@ -2205,6 +2374,7 @@ const pickCiqualForRole = ({
         forbidMilk: clinicalOptions.forbidMilk,
         preferNoLactose: clinicalOptions.preferNoLactose,
         forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidSoy: clinicalOptions.forbidSoy,
       });
     }
     if (plannedDairyType === "cheese" && pools.cheese_plain.length) {
@@ -2213,6 +2383,7 @@ const pickCiqualForRole = ({
         forbidMilk: clinicalOptions.forbidMilk,
         preferNoLactose: clinicalOptions.preferNoLactose,
         forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidSoy: clinicalOptions.forbidSoy,
       });
     }
 
@@ -2225,7 +2396,8 @@ const pickCiqualForRole = ({
           forbidLactose: clinicalOptions.forbidLactose,
           forbidMilk: clinicalOptions.forbidMilk,
           preferNoLactose: clinicalOptions.preferNoLactose,
-          forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidSoy: clinicalOptions.forbidSoy,
         });
       }
       return filterCodesByName(mergeCodeLists(
@@ -2237,6 +2409,7 @@ const pickCiqualForRole = ({
         forbidMilk: clinicalOptions.forbidMilk,
         preferNoLactose: clinicalOptions.preferNoLactose,
         forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidSoy: clinicalOptions.forbidSoy,
       });
     }
 
@@ -2248,7 +2421,8 @@ const pickCiqualForRole = ({
       forbidLactose: clinicalOptions.forbidLactose,
       forbidMilk: clinicalOptions.forbidMilk,
       preferNoLactose: clinicalOptions.preferNoLactose,
-      forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidSoy: clinicalOptions.forbidSoy,
     });
   };
 
@@ -2304,19 +2478,36 @@ const pickCiqualForRole = ({
 
   const pickBreakfastCerealPool = () => {
     if (mealKey !== "petit_dej" && pools.cereal_snack.length) {
-      const snackBase = filterCodesByName(pools.cereal_snack, ciqualByCode, { forbidBread: true });
+      let snackBase = filterCodesByName(pools.cereal_snack, ciqualByCode, { forbidBread: true }).filter((code) => {
+        const row = ciqualByCode.get(String(code));
+        return row && isSnackFriendlyCerealName(ciqualName(row));
+      });
+      if (clinicalOptions.keepSansGluten) {
+        const glutenFreeSnack = snackBase.filter((code) => {
+          const row = ciqualByCode.get(String(code));
+          return row && isGlutenFreeCerealOrSnackName(ciqualName(row));
+        });
+        if (glutenFreeSnack.length) snackBase = glutenFreeSnack;
+      }
       const directSnack = pickDirectCodesFromResolvedLabel(snackBase);
       if (directSnack.length) return directSnack;
       if (plannedSnackCerealType === "cereal_bar") return filterCodesByWords(snackBase, ciqualByCode, ["barre cerealiere", "barre céréalière"]);
       if (plannedSnackCerealType === "oats") return filterCodesByWords(snackBase, ciqualByCode, ["avoine", "flocons"]);
       if (plannedSnackCerealType === "muesli") return filterCodesByWords(snackBase, ciqualByCode, ["muesli"]);
       if (plannedSnackCerealType === "rice_cake") return filterCodesByWords(snackBase, ciqualByCode, ["galette de riz", "galette de maïs", "galette de mais"]);
-      if (plannedSnackCerealType === "flakes") return filterCodesByWords(snackBase, ciqualByCode, ["petales", "pétales"]);
+      if (plannedSnackCerealType === "flakes") return filterCodesByWords(snackBase, ciqualByCode, ["petales de mais nature", "pétales de maïs nature", "riz souffle nature", "riz soufflé nature"]);
       return snackBase;
     }
     const base = pools.breakfast_cereal_plain.length ? pools.breakfast_cereal_plain : pools.breakfast_cereal;
     const direct = pickDirectCodesFromResolvedLabel(base);
-    const source = direct.length ? direct : base;
+    let source = direct.length ? direct : base;
+    if (clinicalOptions.keepSansGluten) {
+      const glutenFreeCereals = source.filter((code) => {
+        const row = ciqualByCode.get(String(code));
+        return row && isGlutenFreeCerealOrSnackName(ciqualName(row));
+      });
+      if (glutenFreeCereals.length) source = glutenFreeCereals;
+    }
     const muesli = filterCodesByWords(source, ciqualByCode, ["muesli"]);
     const oats = filterCodesByWords(source, ciqualByCode, ["flocons d'avoine", "flocons d avoine", "avoine"]);
     const puffedRice = filterCodesByWords(source, ciqualByCode, ["riz souffle", "riz soufflé"]);
@@ -2386,7 +2577,13 @@ const pickCiqualForRole = ({
       forbidBread: true,
       forbidPreparedDish: true,
     });
-    if (!clinicalOptions.keepSansGluten) {
+    if (clinicalOptions.keepSansGluten) {
+      const glutenFreeStarches = filtered.filter((code) => {
+        const row = ciqualByCode.get(String(code));
+        return row && isGlutenFreeStarchName(ciqualName(row));
+      });
+      if (glutenFreeStarches.length) filtered = glutenFreeStarches;
+    } else {
       filtered = filtered.filter((code) => !normalize(ciqualName(ciqualByCode.get(code))).includes("sans gluten"));
     }
     if (!clinicalOptions.keepSansSel) {
@@ -2451,6 +2648,7 @@ const pickCiqualForRole = ({
         forbidMilk: clinicalOptions.forbidMilk,
         preferNoLactose: clinicalOptions.preferNoLactose,
         forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidSoy: clinicalOptions.forbidSoy,
       });
       if (familySelection) extraTok = ["nature"];
     } else if (role === "dessert") {
@@ -2510,6 +2708,7 @@ const pickCiqualForRole = ({
         forbidMilk: clinicalOptions.forbidMilk,
         preferNoLactose: clinicalOptions.preferNoLactose,
         forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidSoy: clinicalOptions.forbidSoy,
       });
       if (familySelection) extraTok = ["nature"];
     } else if (slotType === "bread") {
@@ -2545,6 +2744,7 @@ const pickCiqualForRole = ({
         forbidMilk: clinicalOptions.forbidMilk,
         preferNoLactose: clinicalOptions.preferNoLactose,
         forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+        forbidSoy: clinicalOptions.forbidSoy,
       });
     } else if (role === "dessert" || slotType === "fruit") {
       poolCodes = pools.fruit_simple.length ? pools.fruit_simple : pools.dessert_fruit;
@@ -2783,23 +2983,19 @@ export default function MenuJournalierAuto({
       docData?.allergies ??
       ""
     ).trim();
-    const allergyNorm = normalize(allergyText);
+    const allergyFlags = parseAllergyFlags(allergyText);
     return {
-      keepSansGluten: Boolean(regimeFlags.glutenFree),
+      keepSansGluten: Boolean(regimeFlags.glutenFree || pathologyFlags.celiac || allergyFlags.gluten),
       keepSansSel: Boolean(pathologyFlags.hta || pathologyFlags.renal),
-      forbidLactose: Boolean(regimeFlags.lactoseFree),
-      preferNoLactose: Boolean(regimeFlags.lactoseFree),
-      forbidMilk:
-        allergyNorm.includes("lait") ||
-        allergyNorm.includes("milk") ||
-        allergyNorm.includes("lactose") ||
-        allergyNorm.includes("caseine") ||
-        allergyNorm.includes("caséine"),
-      forbidAnimalDairy: Boolean(regimeFlags.vegan),
-      forbidPork: Boolean(foodExclusionFlags.pork || regimeFlags.halal || regimeFlags.kosher),
-      forbidFish: Boolean(foodExclusionFlags.fish || regimeFlags.vegetarian || regimeFlags.vegan),
-      forbidSeafood: Boolean(foodExclusionFlags.seafood || regimeFlags.vegetarian || regimeFlags.vegan),
-      forbidEggs: Boolean(foodExclusionFlags.eggs || regimeFlags.vegan),
+      forbidLactose: Boolean(regimeFlags.lactoseFree || allergyFlags.milk),
+      preferNoLactose: Boolean(regimeFlags.lactoseFree || allergyFlags.milk),
+      forbidMilk: Boolean(allergyFlags.milk),
+      forbidAnimalDairy: Boolean(regimeFlags.vegan || allergyFlags.milk),
+      forbidSoy: Boolean(allergyFlags.soy),
+      forbidPork: Boolean(foodExclusionFlags.pork || regimeFlags.halal || regimeFlags.kosher || regimeFlags.vegetarian || regimeFlags.vegan || regimeFlags.pescetarian),
+      forbidFish: Boolean(foodExclusionFlags.fish || regimeFlags.vegetarian || regimeFlags.vegan || allergyFlags.fish),
+      forbidSeafood: Boolean(foodExclusionFlags.seafood || regimeFlags.vegetarian || regimeFlags.vegan || allergyFlags.fish),
+      forbidEggs: Boolean(foodExclusionFlags.eggs || regimeFlags.vegan || allergyFlags.egg),
       forbidPoultry: Boolean(foodExclusionFlags.poultry || regimeFlags.vegetarian || regimeFlags.vegan || regimeFlags.pescetarian),
       forbidRedMeat: Boolean(foodExclusionFlags.redMeat || regimeFlags.vegetarian || regimeFlags.vegan || regimeFlags.pescetarian),
     };
@@ -2872,6 +3068,51 @@ export default function MenuJournalierAuto({
     }
     return out;
   }, [rationItems]);
+
+  useEffect(() => {
+    if (!ciqualByCode.size || !(pools.breakfast_cereal_plain || []).length) return;
+    const clearBreakfastCodes = pools.breakfast_cereal_plain.filter((code) => {
+      const row = ciqualByCode.get(String(code));
+      return row && isPlainBreakfastCerealName(ciqualName(row));
+    });
+    const clearSnackCodes = pools.cereal_snack.filter((code) => {
+      const row = ciqualByCode.get(String(code));
+      return row && isSnackFriendlyCerealName(ciqualName(row));
+    });
+    if (!clearBreakfastCodes.length && !clearSnackCodes.length) return;
+    const repairSeed = `${docData?.id || docData?.createdAt?.seconds || "byl"}:${generationNonce || "current"}`;
+    const repairPlan = buildWeeklyPlan(daysCount, repairSeed, menuDisplayContext);
+
+    setMappingByDay((prev) => {
+      let changed = false;
+      const next = { ...(prev || {}) };
+      for (let day = 1; day <= daysCount; day += 1) {
+        const dk = String(day);
+        const dayMap = { ...(next[dk] || {}) };
+        let dayChanged = false;
+        for (const mealKey of MEALS_ORDER) {
+          for (const slot of rationLinesByMealStatic[mealKey] || []) {
+            if (slotTypeFromRationSlot(slot) !== "breakfast_cereal") continue;
+            const currentCode = String(dayMap?.[slot.key] || "").trim();
+            const currentRow = currentCode ? ciqualByCode.get(currentCode) : null;
+            if (mealKey === "petit_dej" && currentRow && isPlainBreakfastCerealName(ciqualName(currentRow))) continue;
+            if (mealKey !== "petit_dej" && currentRow && isSnackFriendlyCerealName(ciqualName(currentRow))) continue;
+            const planned = repairPlan?.[`${day}_${mealKey}`] || fallbackMealPlan(day, mealKey, menuDisplayContext);
+            const replacement = mealKey === "petit_dej"
+              ? pickClearBreakfastCerealCode(clearBreakfastCodes, ciqualByCode, `${dk}:${mealKey}:${slot.key}`)
+              : pickClearSnackCerealCode(clearSnackCodes, ciqualByCode, `${dk}:${mealKey}:${slot.key}`, planned?.snackCerealType);
+            if (replacement && replacement !== currentCode) {
+              dayMap[slot.key] = replacement;
+              changed = true;
+              dayChanged = true;
+            }
+          }
+        }
+        if (dayChanged) next[dk] = dayMap;
+      }
+      return changed ? next : prev;
+    });
+  }, [ciqualByCode, daysCount, docData?.createdAt?.seconds, docData?.id, generationNonce, menuDisplayContext, pools.breakfast_cereal_plain, pools.cereal_snack, rationLinesByMealStatic]);
 
   const computeFoodTotals = useCallback(
     (dayMap, rationKey, grams, microsKeys) => {
@@ -3030,7 +3271,7 @@ export default function MenuJournalierAuto({
       currentDay: dayIndex,
       days: days.map((day) => ({
         index: day,
-        label: `Jour ${day}`,
+        label: i18n.t("auto.MenuJournalierAuto.day_number", "Jour {{day}}", { day }),
         ...computeDayPreview(day),
       })),
     });
@@ -3055,8 +3296,8 @@ export default function MenuJournalierAuto({
   const generateAllDays = useCallback(() => {
     if (!ciqualOk) {
       toast({
-        title: "Données alimentaires non chargées",
-        description: "Impossible de générer un menu sans les données alimentaires.",
+        title: i18n.t("auto.MenuJournalierAuto.donnees_alimentaires_non_chargees", "Données alimentaires non chargées"),
+        description: i18n.t("auto.MenuJournalierAuto.impossible_de_generer_un_menu_sans_les_donnees_ali", "Impossible de générer un menu sans les données alimentaires."),
         status: "error",
         duration: 2500,
         isClosable: true,
@@ -3065,8 +3306,8 @@ export default function MenuJournalierAuto({
     }
     if (!rationItems.length) {
       toast({
-        title: "Aucune ration détectée",
-        description: "Génération impossible : aucune ligne de ration.",
+        title: i18n.t("auto.MenuJournalierAuto.aucune_ration_detectee", "Aucune ration détectée"),
+        description: i18n.t("auto.MenuJournalierAuto.generation_impossible_aucune_ligne_de_ration", "Génération impossible : aucune ligne de ration."),
         status: "warning",
         duration: 2500,
         isClosable: true,
@@ -3157,17 +3398,20 @@ export default function MenuJournalierAuto({
       }
 
       toast({
-        title: "Menus générés",
-        description:
-          `${daysCount} jours remplis automatiquement (féculents cuits stricts / plats sans “graisse/peau” / desserts sans boissons).`,
+        title: i18n.t("auto.MenuJournalierAuto.menus_generes", "Menus générés"),
+        description: i18n.t(
+          "auto.MenuJournalierAuto.jours_remplis_automatiquement",
+          "{{count}} jours remplis automatiquement (féculents cuits stricts / plats sans “graisse/peau” / desserts sans boissons).",
+          { count: daysCount }
+        ),
         status: "success",
         duration: 2000,
         isClosable: true,
       });
     } catch (e) {
       toast({
-        title: "Erreur génération",
-        description: e?.message || "Impossible de générer",
+        title: i18n.t("auto.MenuJournalierAuto.erreur_generation", "Erreur génération"),
+        description: e?.message || i18n.t("auto.MenuJournalierAuto.impossible_de_generer", "Impossible de générer"),
         status: "error",
         duration: 3500,
         isClosable: true,
@@ -3240,7 +3484,12 @@ export default function MenuJournalierAuto({
       setRolesByDay((prev) => ({ ...(prev || {}), [dk]: dayRolesLocal }));
       setGenerationNonce(nextNonce);
 
-      toast({ title: `Jour ${d} régénéré`, status: "success", duration: 1200, isClosable: true });
+      toast({
+        title: i18n.t("auto.MenuJournalierAuto.jour_regenere", "Jour {{day}} régénéré", { day: d }),
+        status: "success",
+        duration: 1200,
+        isClosable: true,
+      });
     },
     [ciqualOk, docData, daysCount, rationLinesByMealStatic, ciqualByCode, pools, menuDisplayContext, toast]
   );
@@ -3250,8 +3499,8 @@ export default function MenuJournalierAuto({
     if (!assessmentRef) {
       if (!silent) {
         toast({
-          title: "Impossible de sauvegarder",
-          description: "assessmentRef manquant (le parent doit passer la ref Firestore).",
+          title: i18n.t("auto.MenuJournalierAuto.impossible_de_sauvegarder", "Impossible de sauvegarder"),
+          description: i18n.t("auto.MenuJournalierAuto.assessmentref_manquant_le_parent_doit_passer_la_re", "assessmentRef manquant (le parent doit passer la ref Firestore)."),
           status: "error",
           duration: 3500,
           isClosable: true,
@@ -3262,8 +3511,8 @@ export default function MenuJournalierAuto({
     if (blocked) {
       if (!silent) {
         toast({
-          title: "Bilan bloqué",
-          description: "Le bilan n’est pas validé (ou bloqué côté parent).",
+          title: i18n.t("auto.MenuJournalierAuto.bilan_bloque", "Bilan bloqué"),
+          description: i18n.t("auto.MenuJournalierAuto.le_bilan_n_est_pas_valide_ou_bloque_cote_parent", "Le bilan n’est pas validé (ou bloqué côté parent)."),
           status: "warning",
           duration: 2500,
           isClosable: true,
@@ -3283,12 +3532,12 @@ export default function MenuJournalierAuto({
         updatedAt: serverTimestamp(),
       });
 
-      if (!silent) toast({ title: "Sauvegardé", status: "success", duration: 1200, isClosable: true });
+      if (!silent) toast({ title: i18n.t("programBuilder.status.saved", "Sauvegardé"), status: "success", duration: 1200, isClosable: true });
     } catch (e) {
       if (!silent) {
         toast({
-          title: "Erreur sauvegarde",
-          description: e?.message || "Impossible de sauvegarder",
+          title: i18n.t("auto.MenuJournalierAuto.erreur_sauvegarde", "Erreur sauvegarde"),
+          description: e?.message || i18n.t("auto.MenuJournalierAuto.impossible_de_sauvegarder", "Impossible de sauvegarder"),
           status: "error",
           duration: 4000,
           isClosable: true,
@@ -3358,7 +3607,7 @@ export default function MenuJournalierAuto({
   if (loadingDoc) {
     return (
       <Box p={4}>
-        <Text>Chargement…</Text>
+        <Text>{i18n.t("common.loading", "Chargement…")}</Text>
       </Box>
     );
   }
@@ -3367,11 +3616,7 @@ export default function MenuJournalierAuto({
     return (
       <Box p={4}>
         <Alert status="warning" rounded="lg">
-          <AlertIcon />
-          Je n’ai pas reçu les données du bilan (docData) ni la référence Firestore (assessmentRef).
-          <Box mt={2} fontSize="sm" opacity={0.8}>
-            👉 Passe <b>assessmentRef</b> OU <b>docData</b> au composant.
-          </Box>
+          <AlertIcon />{i18n.t("auto.MenuJournalierAuto.je_n_ai_pas_recu_les_donnees_du_bilan_docdata_ni_l", "Je n’ai pas reçu les données du bilan (docData) ni la référence Firestore (assessmentRef).")}<Box mt={2} fontSize="sm" opacity={0.8}>{i18n.t("auto.MenuJournalierAuto.passe", "👉 Passe")}<b>{i18n.t("auto.MenuJournalierAuto.assessmentref", "assessmentRef")}</b> OU <b>{i18n.t("auto.MenuJournalierAuto.docdata", "docData")}</b>{i18n.t("auto.MenuJournalierAuto.au_composant", "au composant.")}</Box>
         </Alert>
       </Box>
     );
@@ -3393,17 +3638,16 @@ export default function MenuJournalierAuto({
         <HStack spacing={2} flexWrap="wrap">
           <Tag size="sm" variant="subtle" colorScheme="blue">
             <TagLabel fontWeight="900">
-              {label}: {r0(v.kcal)} kcal
-            </TagLabel>
+              {label}: {r0(v.kcal)}{i18n.t("auto.MenuJournalierAuto.kcal", "kcal")}</TagLabel>
           </Tag>
           <Tag size="sm" variant="subtle">
-            <TagLabel fontWeight="900">P {r0(v.p)}g</TagLabel>
+            <TagLabel fontWeight="900">P {r0(v.p)}{i18n.t("auto.MenuJournalierAuto.g", "g")}</TagLabel>
           </Tag>
           <Tag size="sm" variant="subtle">
-            <TagLabel fontWeight="900">L {r0(v.f)}g</TagLabel>
+            <TagLabel fontWeight="900">L {r0(v.f)}{i18n.t("auto.MenuJournalierAuto.g", "g")}</TagLabel>
           </Tag>
           <Tag size="sm" variant="subtle">
-            <TagLabel fontWeight="900">G {r0(v.c)}g</TagLabel>
+            <TagLabel fontWeight="900">G {r0(v.c)}{i18n.t("auto.MenuJournalierAuto.g", "g")}</TagLabel>
           </Tag>
         </HStack>
       );
@@ -3411,11 +3655,9 @@ export default function MenuJournalierAuto({
 
     return (
       <Box>
-        <Text fontSize="sm" opacity={0.75} mb={2}>
-          Objectifs issus de la ration
-        </Text>
+        <Text fontSize="sm" opacity={0.75} mb={2}>{i18n.t("auto.MenuJournalierAuto.objectifs_issus_de_la_ration", "Objectifs issus de la ration")}</Text>
         <HStack spacing={3} flexWrap="wrap">
-          <Pill label="Objectif ration" v={r} />
+          <Pill label={i18n.t("auto.MenuJournalierAuto.objectif_ration", "Objectif ration")} v={r} />
         </HStack>
       </Box>
     );
@@ -3434,11 +3676,13 @@ export default function MenuJournalierAuto({
             <VStack align="stretch" spacing={4}>
               <HStack gap={3} flexWrap="wrap" align="center">
                 <Box>
-                  <Heading size="sm">{mode === "edit" ? `Jour ${dayIndex}` : "Génération du menu"}</Heading>
+                  <Heading size="sm">
+                    {mode === "edit"
+                      ? i18n.t("auto.MenuJournalierAuto.day_number", "Jour {{day}}", { day: dayIndex })
+                      : i18n.t("auto.MenuJournalierAuto.generation_du_menu", "Génération du menu")}
+                  </Heading>
                   {mode !== "edit" ? (
-                    <Text fontSize="sm" opacity={0.72} mt={1}>
-                      La ration retenue sert de base à la génération des journées.
-                    </Text>
+                    <Text fontSize="sm" opacity={0.72} mt={1}>{i18n.t("auto.MenuJournalierAuto.la_ration_retenue_sert_de_base_a_la_generation_des", "La ration retenue sert de base à la génération des journées.")}</Text>
                   ) : null}
                 </Box>
 
@@ -3453,15 +3697,12 @@ export default function MenuJournalierAuto({
                   >
                     {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
                       <option key={d} value={d}>
-                        {d} j
-                      </option>
+                        {d}{i18n.t("time.days_short", "j")}</option>
                     ))}
                   </Select>
 
                   {mode === "edit" && (
-                    <Button variant="outline" onClick={() => setMode("planning")} size="sm">
-                      Retour planning
-                    </Button>
+                    <Button variant="outline" onClick={() => setMode("planning")} size="sm">{i18n.t("auto.MenuJournalierAuto.retour_planning", "Retour planning")}</Button>
                   )}
 
                   <Button
@@ -3469,17 +3710,13 @@ export default function MenuJournalierAuto({
                     leftIcon={<RepeatIcon />}
                     onClick={generateAllDays}
                     isLoading={generating}
-                    loadingText="Génération…"
+                    loadingText={i18n.t("auto.MenuJournalierAuto.generation", "Génération…")}
                     isDisabled={blocked || !ciqualOk}
                     size={mode === "edit" ? "sm" : "md"}
-                  >
-                    Générer les menus
-                  </Button>
+                  >{i18n.t("auto.MenuJournalierAuto.generer_les_menus", "Générer les menus")}</Button>
 
                   {saving ? (
-                    <Badge colorScheme="blue" px={3} py={2} borderRadius="full">
-                      Enregistrement…
-                    </Badge>
+                    <Badge colorScheme="blue" px={3} py={2} borderRadius="full">{i18n.t("auto.MenuJournalierAuto.enregistrement", "Enregistrement…")}</Badge>
                   ) : null}
                 </HStack>
               </HStack>
@@ -3487,25 +3724,31 @@ export default function MenuJournalierAuto({
               {mode !== "edit" ? (
               <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={3}>
                 <Box bg={subtleCard} border="1px solid" borderColor={borderCol} rounded="xl" p={3}>
-                  <Text fontSize="xs" textTransform="uppercase" opacity={0.65} fontWeight="900">
-                    État
-                  </Text>
+                  <Text fontSize="xs" textTransform="uppercase" opacity={0.65} fontWeight="900">{i18n.t("auto.MenuJournalierAuto.etat", "État")}</Text>
                   <Wrap mt={2} spacing={2}>
                     <WrapItem>
                       <Tag size="sm" variant="subtle" colorScheme={ciqualOk ? "green" : "red"}>
-                        <TagLabel fontWeight="900">{ciqualOk ? "Données prêtes" : "Données à charger"}</TagLabel>
+                        <TagLabel fontWeight="900">
+                          {ciqualOk
+                            ? i18n.t("auto.MenuJournalierAuto.donnees_pretes", "Données prêtes")
+                            : i18n.t("auto.MenuJournalierAuto.donnees_a_charger", "Données à charger")}
+                        </TagLabel>
                       </Tag>
                     </WrapItem>
                     <WrapItem>
                       <Tag size="sm" variant="subtle" colorScheme={mode === "edit" ? "blue" : "gray"}>
                         <TagLabel fontWeight="900">
-                          {mode === "edit" ? `Jour ${dayIndex} en édition` : "Vue planning"}
+                          {mode === "edit"
+                            ? i18n.t("auto.MenuJournalierAuto.jour_en_edition", "Jour {{day}} en édition", { day: dayIndex })
+                            : i18n.t("auto.MenuJournalierAuto.vue_planning", "Vue planning")}
                         </TagLabel>
                       </Tag>
                     </WrapItem>
                     <WrapItem>
                       <Tag size="sm" variant="subtle">
-                        <TagLabel fontWeight="900">{daysCount} jour(s)</TagLabel>
+                        <TagLabel fontWeight="900">
+                          {i18n.t("auto.MenuJournalierAuto.days_count", "{{count}} jour(s)", { count: daysCount })}
+                        </TagLabel>
                       </Tag>
                     </WrapItem>
                     <WrapItem>
@@ -3521,7 +3764,10 @@ export default function MenuJournalierAuto({
                         }
                       >
                         <TagLabel fontWeight="900">
-                          {associationStats.mapped}/{associationStats.total} associations
+                          {i18n.t("auto.MenuJournalierAuto.associations_count", "{{mapped}}/{{total}} associations", {
+                            mapped: associationStats.mapped,
+                            total: associationStats.total,
+                          })}
                         </TagLabel>
                       </Tag>
                     </WrapItem>
@@ -3529,45 +3775,41 @@ export default function MenuJournalierAuto({
                 </Box>
 
                 <Box bg={subtleCard} border="1px solid" borderColor={borderCol} rounded="xl" p={3}>
-                  <Text fontSize="xs" textTransform="uppercase" opacity={0.65} fontWeight="900">
-                    Menu généré
-                  </Text>
+                  <Text fontSize="xs" textTransform="uppercase" opacity={0.65} fontWeight="900">{i18n.t("auto.MenuJournalierAuto.menu_genere", "Menu généré")}</Text>
                   <HStack mt={1} align="baseline" spacing={2}>
                     <Text fontSize="2xl" fontWeight="900">
                       {r0(totals?.day?.kcal)}
                     </Text>
-                    <Text fontSize="sm" opacity={0.7}>
-                      kcal
-                    </Text>
+                    <Text fontSize="sm" opacity={0.7}>{i18n.t("auto.MenuJournalierAuto.kcal", "kcal")}</Text>
                   </HStack>
                   <Wrap mt={2} spacing={2}>
                     <WrapItem>
                       <Tag size="sm" variant="subtle">
-                        <TagLabel fontWeight="900">P {r0(totals?.day?.p)} g</TagLabel>
+                        <TagLabel fontWeight="900">P {r0(totals?.day?.p)}{i18n.t("auto.MenuJournalierAuto.g", "g")}</TagLabel>
                       </Tag>
                     </WrapItem>
                     <WrapItem>
                       <Tag size="sm" variant="subtle">
-                        <TagLabel fontWeight="900">L {r0(totals?.day?.f)} g</TagLabel>
+                        <TagLabel fontWeight="900">L {r0(totals?.day?.f)}{i18n.t("auto.MenuJournalierAuto.g", "g")}</TagLabel>
                       </Tag>
                     </WrapItem>
                     <WrapItem>
                       <Tag size="sm" variant="subtle">
-                        <TagLabel fontWeight="900">G {r0(totals?.day?.c)} g</TagLabel>
+                        <TagLabel fontWeight="900">G {r0(totals?.day?.c)}{i18n.t("auto.MenuJournalierAuto.g", "g")}</TagLabel>
                       </Tag>
                     </WrapItem>
                     <WrapItem>
                       <Tag size="sm" variant="subtle">
-                        <TagLabel fontWeight="900">{allMealsNonZero.length} repas utilisés</TagLabel>
+                        <TagLabel fontWeight="900">
+                          {i18n.t("auto.MenuJournalierAuto.meals_used_count", "{{count}} repas utilisés", { count: allMealsNonZero.length })}
+                        </TagLabel>
                       </Tag>
                     </WrapItem>
                   </Wrap>
                 </Box>
 
                 <Box bg={subtleCard} border="1px solid" borderColor={borderCol} rounded="xl" p={3}>
-                  <Text fontSize="xs" textTransform="uppercase" opacity={0.65} fontWeight="900">
-                    Contrôles
-                  </Text>
+                  <Text fontSize="xs" textTransform="uppercase" opacity={0.65} fontWeight="900">{i18n.t("auto.MenuJournalierAuto.controles", "Contrôles")}</Text>
                   <Button
                     mt={2}
                     size="sm"
@@ -3575,12 +3817,11 @@ export default function MenuJournalierAuto({
                     leftIcon={showMicros ? <ViewOffIcon /> : <ViewIcon />}
                     onClick={() => setShowMicros((v) => !v)}
                   >
-                    {showMicros ? "Masquer les micros" : "Afficher les micros"}
+                    {showMicros
+                      ? i18n.t("auto.MenuJournalierAuto.masquer_les_micros", "Masquer les micros")
+                      : i18n.t("auto.MenuJournalierAuto.afficher_les_micros", "Afficher les micros")}
                   </Button>
-                  <Text fontSize="sm" opacity={0.75} mt={2}>
-                    Féculents cuits stricts, équivalents cuits, plats sans morceaux gras,
-                    desserts sans boissons.
-                  </Text>
+                  <Text fontSize="sm" opacity={0.75} mt={2}>{i18n.t("auto.MenuJournalierAuto.feculents_cuits_stricts_equivalents_cuits_plats_sa", "Féculents cuits stricts, équivalents cuits, plats sans morceaux gras, desserts sans boissons.")}</Text>
                 </Box>
               </SimpleGrid>
               ) : null}
@@ -3589,9 +3830,7 @@ export default function MenuJournalierAuto({
 
             <Collapse in={showMicros} animateOpacity>
               <Divider my={4} />
-              <Text fontSize="sm" opacity={0.75} mb={2}>
-                Micros affichés et suivis sur le jour courant
-              </Text>
+              <Text fontSize="sm" opacity={0.75} mb={2}>{i18n.t("auto.MenuJournalierAuto.micros_affiches_et_suivis_sur_le_jour_courant", "Micros affichés et suivis sur le jour courant")}</Text>
               <Wrap spacing={2}>
                 {Object.keys(MICRO_LABEL).map((k) => {
                   const active = selectedMicros.includes(k);
@@ -3629,25 +3868,21 @@ export default function MenuJournalierAuto({
 
       {!ciqualOk && (
         <Alert status="error" rounded="lg" mb={4}>
-          <AlertIcon />
-          Données alimentaires non chargées.
-        </Alert>
+          <AlertIcon />{i18n.t("auto.MenuJournalierAuto.donnees_alimentaires_non_chargees_2", "Données alimentaires non chargées.")}</Alert>
       )}
 
       {rationItems.length === 0 ? (
         <Alert status="warning" rounded="lg">
-          <AlertIcon />
-          Aucune ligne de ration détectée.
-        </Alert>
+          <AlertIcon />{i18n.t("auto.MenuJournalierAuto.aucune_ligne_de_ration_detectee", "Aucune ligne de ration détectée.")}</Alert>
       ) : mode === "planning" ? (
         <Card bg={panelBg} border="1px solid" borderColor={borderCol} rounded="2xl">
           <CardBody>
             <HStack mb={3} align="center" flexWrap="wrap" gap={2}>
-              <Heading size="sm">Planning (7 jours)</Heading>
+              <Heading size="sm">{i18n.t("auto.MenuJournalierAuto.planning_7_jours", "Planning (7 jours)")}</Heading>
               <Spacer />
               <HStack>
                 <IconButton
-                  aria-label="Semaine précédente"
+                  aria-label={i18n.t("auto.MenuJournalierAuto.semaine_precedente", "Semaine précédente")}
                   icon={<ChevronLeftIcon />}
                   size="sm"
                   variant="outline"
@@ -3656,11 +3891,14 @@ export default function MenuJournalierAuto({
                 />
                 <Tag size="sm" variant="subtle">
                   <TagLabel fontWeight="900">
-                    J{weekDays[0]} → J{weekDays[weekDays.length - 1]}
+                    {i18n.t("auto.MenuJournalierAuto.week_range", "J{{start}} → J{{end}}", {
+                      start: weekDays[0],
+                      end: weekDays[weekDays.length - 1],
+                    })}
                   </TagLabel>
                 </Tag>
                 <IconButton
-                  aria-label="Semaine suivante"
+                  aria-label={i18n.t("auto.MenuJournalierAuto.semaine_suivante", "Semaine suivante")}
                   icon={<ChevronRightIcon />}
                   size="sm"
                   variant="outline"
@@ -3670,10 +3908,7 @@ export default function MenuJournalierAuto({
               </HStack>
             </HStack>
 
-            <Text fontSize="sm" opacity={0.75} mb={3}>
-              Clique sur un jour pour voir le détail.
-              <br />
-              Astuce : si tu veux des menus différents d’un coup → <b>“Générer les menus”</b>.
+            <Text fontSize="sm" opacity={0.75} mb={3}>{i18n.t("auto.MenuJournalierAuto.clique_sur_un_jour_pour_voir_le_detail", "Clique sur un jour pour voir le détail.")}<br />{i18n.t("auto.MenuJournalierAuto.astuce_si_tu_veux_des_menus_differents_d_un_coup", "Astuce : si tu veux des menus différents d’un coup →")}<b>{i18n.t("auto.MenuJournalierAuto.generer_les_menus_2", "“Générer les menus”")}</b>.
             </Text>
 
             <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} spacing={4}>
@@ -3708,20 +3943,20 @@ export default function MenuJournalierAuto({
                     >
                       <HStack align="start" gap={2}>
                         <Box>
-                          <Heading size="sm">Jour {d}</Heading>
+                          <Heading size="sm">{i18n.t("auto.MenuJournalierAuto.day_number", "Jour {{day}}", { day: d })}</Heading>
                           <Text fontSize="xs" color={planningMuted}>
-                            {mealsToShow.length} repas lus
+                            {i18n.t("auto.MenuJournalierAuto.meals_read_count", "{{count}} repas lus", { count: mealsToShow.length })}
                           </Text>
                         </Box>
                         <Spacer />
                         <Tag size="sm" variant="subtle" colorScheme="blue">
-                          <TagLabel fontWeight="900">{r0(t.kcal)} kcal</TagLabel>
+                          <TagLabel fontWeight="900">{r0(t.kcal)}{i18n.t("auto.MenuJournalierAuto.kcal", "kcal")}</TagLabel>
                         </Tag>
                       </HStack>
 
                       <HStack mt={2} spacing={2} onClick={(e) => e.stopPropagation()}>
                         <IconButton
-                          aria-label="Régénérer ce jour"
+                          aria-label={i18n.t("auto.MenuJournalierAuto.regenerer_ce_jour", "Régénérer ce jour")}
                           icon={<RepeatIcon />}
                           size="xs"
                           variant="outline"
@@ -3736,17 +3971,17 @@ export default function MenuJournalierAuto({
                       <Wrap mb={2} spacing={1}>
                         <WrapItem>
                           <Tag size="sm" variant="subtle">
-                            <TagLabel>P {r0(t.p)}g</TagLabel>
+                            <TagLabel>P {r0(t.p)}{i18n.t("auto.MenuJournalierAuto.g", "g")}</TagLabel>
                           </Tag>
                         </WrapItem>
                         <WrapItem>
                           <Tag size="sm" variant="subtle">
-                            <TagLabel>L {r0(t.f)}g</TagLabel>
+                            <TagLabel>L {r0(t.f)}{i18n.t("auto.MenuJournalierAuto.g", "g")}</TagLabel>
                           </Tag>
                         </WrapItem>
                         <WrapItem>
                           <Tag size="sm" variant="subtle">
-                            <TagLabel>G {r0(t.c)}g</TagLabel>
+                            <TagLabel>G {r0(t.c)}{i18n.t("auto.MenuJournalierAuto.g", "g")}</TagLabel>
                           </Tag>
                         </WrapItem>
                       </Wrap>
@@ -3763,11 +3998,13 @@ export default function MenuJournalierAuto({
                           <Box key={mk} p={2.5} bg={planningMealBg} border="1px solid" borderColor={borderCol} rounded="lg">
                             <HStack align="center" spacing={2} mb={1}>
                               <Text fontWeight="900" fontSize="sm">
-                                {MEAL_LABEL[mk]}
+                                {getMealLabel(mk)}
                               </Text>
                               <Spacer />
                               <Badge fontSize="0.62rem" variant="subtle">
-                                {items.length ? "Généré" : "À générer"}
+                                {items.length
+                                  ? i18n.t("auto.MenuJournalierAuto.genere", "Généré")
+                                  : i18n.t("auto.MenuJournalierAuto.a_generer_badge", "À générer")}
                               </Badge>
                             </HStack>
 
@@ -3786,14 +4023,14 @@ export default function MenuJournalierAuto({
                                 ))}
                                 {items.length > summaryItems.length ? (
                                   <Text fontSize="xs" color={planningMuted}>
-                                    +{items.length - summaryItems.length} autre(s) élément(s)
+                                    {i18n.t("auto.MenuJournalierAuto.more_items_count", "+{{count}} autre(s) élément(s)", {
+                                      count: items.length - summaryItems.length,
+                                    })}
                                   </Text>
                                 ) : null}
                               </VStack>
                             ) : (
-                              <Text fontSize="sm" color={planningMuted} mt={1}>
-                                — (à générer)
-                              </Text>
+                              <Text fontSize="sm" color={planningMuted} mt={1}>{i18n.t("auto.MenuJournalierAuto.a_generer", "— (à générer)")}</Text>
                             )}
                           </Box>
                         );
@@ -3812,7 +4049,7 @@ export default function MenuJournalierAuto({
             <CardBody py={3}>
               <HStack spacing={2} flexWrap="wrap">
                 <IconButton
-                  aria-label="Jour précédent"
+                  aria-label={i18n.t("auto.MenuJournalierAuto.jour_precedent", "Jour précédent")}
                   icon={<ChevronLeftIcon />}
                   size="sm"
                   variant="outline"
@@ -3820,10 +4057,10 @@ export default function MenuJournalierAuto({
                   isDisabled={dayIndex <= 1}
                 />
                 <Tag variant="solid" colorScheme="blue">
-                  <TagLabel fontWeight="900">Jour {dayIndex}</TagLabel>
+                  <TagLabel fontWeight="900">{i18n.t("auto.MenuJournalierAuto.day_number", "Jour {{day}}", { day: dayIndex })}</TagLabel>
                 </Tag>
                 <IconButton
-                  aria-label="Jour suivant"
+                  aria-label={i18n.t("auto.MenuJournalierAuto.jour_suivant", "Jour suivant")}
                   icon={<ChevronRightIcon />}
                   size="sm"
                   variant="outline"
@@ -3835,15 +4072,12 @@ export default function MenuJournalierAuto({
 
                 <Select value={dayIndex} onChange={(e) => setDayIndex(num(e.target.value) || 1)} w={{ base: "120px", md: "140px" }} size="sm">
                   {Array.from({ length: daysCount }, (_, i) => i + 1).map((d) => (
-                    <option key={d} value={d}>
-                      Jour {d}
+                    <option key={d} value={d}>{i18n.t("auto.MenuJournalierAuto.day_number", "Jour {{day}}", { day: d })}
                     </option>
                   ))}
                 </Select>
 
-                <Button size="sm" leftIcon={<RepeatIcon />} variant="outline" onClick={() => regenerateDay(dayIndex)} isDisabled={blocked || !ciqualOk}>
-                  Régénérer ce jour
-                </Button>
+                <Button size="sm" leftIcon={<RepeatIcon />} variant="outline" onClick={() => regenerateDay(dayIndex)} isDisabled={blocked || !ciqualOk}>{i18n.t("auto.MenuJournalierAuto.regenerer_ce_jour", "Régénérer ce jour")}</Button>
 
               </HStack>
             </CardBody>
@@ -3872,7 +4106,9 @@ export default function MenuJournalierAuto({
                     missing: !row,
                     qty: info.qtyDisplay,
                     unit: info.unitDisplay,
-                    note: info.cookedEquivalent ? `équiv. cuit ${info.cookedEquivalent} g` : "",
+                    note: info.cookedEquivalent
+                      ? i18n.t("auto.MenuJournalierAuto.equivalent_cuit_g", "équiv. cuit {{grams}} g", { grams: info.cookedEquivalent })
+                      : "",
                     sourceLabel: prettySlotSourceLabel(slot),
                     sourceOrder: orderNonMainSlot(slot),
                   };
@@ -3893,14 +4129,15 @@ export default function MenuJournalierAuto({
                   >
                     <HStack flexWrap="wrap" gap={2}>
                       <Box>
-                        <Heading size="sm">{MEAL_LABEL[mealKey]}</Heading>
+                        <Heading size="sm">{getMealLabel(mealKey)}</Heading>
                         <Text fontSize="sm" opacity={0.68} mt={1}>
-                          {items.length} élément(s) • lecture par rôle alimentaire
-                        </Text>
+                          {items.length}{i18n.t("auto.MenuJournalierAuto.element_s_lecture_par_role_alimentaire", "élément(s) • lecture par rôle alimentaire")}</Text>
                       </Box>
                       <Spacer />
                       <Badge colorScheme={items.some((x) => x.missing) ? "yellow" : "green"}>
-                        {items.some((x) => x.missing) ? "À générer" : "OK"}
+                        {items.some((x) => x.missing)
+                          ? i18n.t("auto.MenuJournalierAuto.a_generer_badge", "À générer")
+                          : "OK"}
                       </Badge>
                     </HStack>
                   </Box>
@@ -3921,7 +4158,7 @@ export default function MenuJournalierAuto({
                               rounded="xl"
                             >
                               <Badge colorScheme={MENU_ROLE_COLOR[role] || "gray"} variant="subtle" mb={2}>
-                                {MENU_ROLE_LABEL[role]}
+                                {getMenuRoleLabel(role)}
                               </Badge>
                               {roleItems.map((x, idx) => (
                                 <Box key={`${role}_${idx}`} py={idx ? 2 : 0} borderTop={idx ? "1px solid" : "0"} borderColor={borderCol}>
@@ -3955,7 +4192,7 @@ export default function MenuJournalierAuto({
                         {items.map((x, idx) => (
                           <Box key={`${mealKey}_${idx}`} p={3} bg={subtleCard} border="1px solid" borderColor={borderCol} rounded="xl">
                             <Badge colorScheme="blue" variant="subtle" mb={2}>
-                              {x.sourceLabel || "Élément"}
+                              {x.sourceLabel || i18n.t("auto.MenuJournalierAuto.element", "Élément")}
                             </Badge>
                             <Text fontSize="md" fontWeight="800" lineHeight="1.25">
                               {x.text}

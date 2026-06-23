@@ -29,6 +29,23 @@ const normalizeList = (value) =>
 
 const cleanText = (value) => String(value || "").trim();
 const normalizeEmail = (value) => cleanText(value).toLowerCase();
+const normalizeIdentityText = (value) =>
+  cleanText(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+const normalizePhone = (value) => cleanText(value).replace(/[^\d+]/g, "").replace(/^00/, "+");
+const langCodeFromAny = (value) => {
+  const l = String(value || "").trim().toLowerCase();
+  if (l.startsWith("en") || l.includes("english") || l.includes("anglais")) return "en";
+  if (l.startsWith("de") || l.includes("deutsch") || l.includes("allemand")) return "de";
+  if (l.startsWith("it") || l.includes("italiano")) return "it";
+  if (l.startsWith("es") || l.includes("español") || l.includes("espanol") || l.includes("espagnol")) return "es";
+  if (l.startsWith("ru") || l.includes("русский")) return "ru";
+  if (l.includes("arab") || l.includes("العربية") || l === "ar") return "ar";
+  return "fr";
+};
 
 function buildPreviousAssessmentSummary(lastAssessment) {
   if (!lastAssessment) return null;
@@ -55,12 +72,23 @@ function buildPreviousAssessmentSummary(lastAssessment) {
   };
 }
 
-function buildNutritionClientPayload(profile = {}, createdByUid, existingClient = null) {
+function buildNutritionClientPayload(profile = {}, createdByUid, existingClient = null, clubId = null) {
   const email = normalizeEmail(profile.email || existingClient?.email);
   const phone = cleanText(profile.telephone || profile.phone || existingClient?.telephone || existingClient?.phone);
   const firstName = cleanText(profile.prenom || profile.firstName || existingClient?.prenom || existingClient?.firstName);
   const lastName = cleanText(profile.nom || profile.lastName || existingClient?.nom || existingClient?.lastName);
   const objective = cleanText(profile.objectif || profile.objective || existingClient?.objectifs || existingClient?.objectif);
+  const langCode = langCodeFromAny(
+    profile.langue ||
+      profile.language ||
+      profile.lang ||
+      existingClient?.preferredLang ||
+      existingClient?.settings?.langCode ||
+      existingClient?.settings?.defaultLanguage ||
+      existingClient?.langue ||
+      existingClient?.language ||
+      "fr"
+  );
 
   const rawHeight = toNumber(profile.heightCm ?? profile.tailleCm ?? profile.height ?? existingClient?.heightCm ?? existingClient?.taille);
   const rawWeight = toNumber(profile.weightKg ?? profile.poidsKg ?? profile.weight ?? existingClient?.weightKg ?? existingClient?.poids);
@@ -83,15 +111,21 @@ function buildNutritionClientPayload(profile = {}, createdByUid, existingClient 
     taille: rawHeight ?? null,
     weightKg: rawWeight ?? null,
     poids: rawWeight ?? null,
+    langue: langCode,
+    language: langCode,
+    lang: langCode,
+    preferredLang: langCode,
     updatedAt: serverTimestamp(),
     createdBy: existingClient?.createdBy || createdByUid || null,
+    clubId: existingClient?.clubId || clubId || null,
     settings: {
       ...(existingClient?.settings || {}),
       units: {
         height: existingClient?.settings?.units?.height || "cm",
         weight: existingClient?.settings?.units?.weight || "kg",
       },
-      defaultLanguage: existingClient?.settings?.defaultLanguage || "Français",
+      defaultLanguage: langCode,
+      langCode,
     },
   };
 }
@@ -100,6 +134,18 @@ async function findExistingClientByIdentity(profile = {}) {
   const email = normalizeEmail(profile.email);
   const firstName = cleanText(profile.prenom || profile.firstName);
   const lastName = cleanText(profile.nom || profile.lastName);
+  const normalizedFirstName = normalizeIdentityText(firstName);
+  const normalizedLastName = normalizeIdentityText(lastName);
+  const phone = normalizePhone(profile.telephone || profile.phone);
+  const sameName = (data = {}) =>
+    normalizedFirstName &&
+    normalizedLastName &&
+    normalizeIdentityText(data.prenom || data.firstName) === normalizedFirstName &&
+    normalizeIdentityText(data.nom || data.lastName) === normalizedLastName;
+  const samePhone = (data = {}) => {
+    if (!phone) return false;
+    return normalizePhone(data.telephone || data.phone) === phone;
+  };
 
   if (email) {
     const attempts = [
@@ -117,7 +163,7 @@ async function findExistingClientByIdentity(profile = {}) {
       }
     }
     try {
-      const scanSnap = await getDocs(query(collection(db, "clients"), limit(500)));
+      const scanSnap = await getDocs(query(collection(db, "clients"), limit(1000)));
       const match = scanSnap.docs.find((docSnap) => normalizeEmail(docSnap.data()?.email) === email);
       if (match) {
         return {
@@ -128,10 +174,29 @@ async function findExistingClientByIdentity(profile = {}) {
     } catch {
       // Fallback de compatibilité pour les anciens dossiers sans emailLower.
     }
-    return null;
   }
 
   if (firstName && lastName) {
+    if (phone) {
+      try {
+        const scanSnap = await getDocs(query(collection(db, "clients"), limit(1000)));
+        const match = scanSnap.docs.find((docSnap) => {
+          const data = docSnap.data() || {};
+          return sameName(data) && samePhone(data);
+        });
+        if (match) {
+          return {
+            clientId: match.id,
+            client: match.data(),
+          };
+        }
+      } catch {
+        // Si le scan échoue, on tente la requête prénom/nom historique ci-dessous.
+      }
+    }
+
+    if (email) return null;
+
     try {
       const qByName = query(
         collection(db, "clients"),
@@ -154,35 +219,38 @@ async function findExistingClientByIdentity(profile = {}) {
   return null;
 }
 
-async function ensureExistingClientLinked(clientId, profile = {}, createdByUid) {
+async function ensureExistingClientLinked(clientId, profile = {}, createdByUid, clubId = null) {
   const clientRef = doc(db, "clients", clientId);
   const clientSnap = await getDoc(clientRef);
   const existingClient = clientSnap.exists() ? clientSnap.data() : null;
-  const payload = buildNutritionClientPayload(profile, createdByUid, existingClient);
+  const payload = buildNutritionClientPayload(profile, createdByUid, existingClient, clubId);
   await updateDoc(clientRef, createdByUid ? {
     ...payload,
     coachIds: arrayUnion(createdByUid),
+    ...(clubId ? { clubIds: arrayUnion(clubId), ...(existingClient?.clubId ? {} : { clubId }) } : {}),
   } : payload);
   return { clientId, client: { ...(existingClient || {}), ...profile }, status: "existing" };
 }
 
-async function createEmailClient(profile = {}, createdByUid) {
+async function createEmailClient(profile = {}, createdByUid, clubId = null) {
   const email = normalizeEmail(profile.email);
   const baseConfig = getApp().options;
   const secondary =
     getApps().find((app) => app.name === "BYL-Secondary") ??
     initializeApp(baseConfig, "BYL-Secondary");
   const secondaryAuth = getAuthSecondary(secondary);
+  secondaryAuth.languageCode = langCodeFromAny(profile.langue || profile.language || profile.lang || "fr");
+  const langCode = secondaryAuth.languageCode || "fr";
   const tempPwd = Math.random().toString(36).slice(-10) + "A!1$";
 
   try {
     const createdUser = await createUserSecondary(secondaryAuth, email, tempPwd);
     const uid = createdUser.user.uid;
-    const payload = buildNutritionClientPayload(profile, createdByUid, null);
+    const payload = buildNutritionClientPayload(profile, createdByUid, null, clubId);
 
     try {
       await sendPasswordResetEmail(secondaryAuth, email, {
-        url: "https://boostyourlife.coach/login",
+        url: `https://boostyourlife.coach/nutrition?lang=${encodeURIComponent(langCode)}`,
         handleCodeInApp: false,
       });
     } catch {
@@ -195,17 +263,26 @@ async function createEmailClient(profile = {}, createdByUid) {
       firstName: payload.firstName,
       lastName: payload.lastName,
       telephone: payload.telephone,
+      preferredLang: payload.settings?.langCode || "fr",
       createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
       loginMethod: "email",
+      linkedClientId: uid,
+      passwordSetupRequired: true,
+      passwordSetupEmailSentAt: serverTimestamp(),
       settings: {
-        defaultLanguage: payload.settings?.defaultLanguage || "Français",
+        defaultLanguage: payload.settings?.defaultLanguage || "fr",
+        langCode: payload.settings?.langCode || "fr",
       },
     });
 
     await setDoc(doc(db, "clients", uid), {
       ...payload,
+      uid,
+      linkedUserId: uid,
       creeLe: serverTimestamp(),
       coachIds: createdByUid ? [createdByUid] : [],
+      clubIds: clubId ? [clubId] : [],
     });
 
     return { clientId: uid, status: "created_email" };
@@ -217,14 +294,19 @@ async function createEmailClient(profile = {}, createdByUid) {
         const clientRef = doc(db, "clients", uid);
         const clientSnap = await getDoc(clientRef);
         const existingClient = clientSnap.exists() ? clientSnap.data() : null;
-        const payload = buildNutritionClientPayload(profile, createdByUid, existingClient);
+        const payload = buildNutritionClientPayload(profile, createdByUid, existingClient, clubId);
         if (existingClient) {
-          await updateDoc(clientRef, createdByUid ? { ...payload, coachIds: arrayUnion(createdByUid) } : payload);
+          await updateDoc(clientRef, createdByUid ? {
+            ...payload,
+            coachIds: arrayUnion(createdByUid),
+            ...(clubId ? { clubIds: arrayUnion(clubId), ...(existingClient?.clubId ? {} : { clubId }) } : {}),
+          } : payload);
         } else {
           await setDoc(clientRef, {
             ...payload,
             creeLe: serverTimestamp(),
             coachIds: createdByUid ? [createdByUid] : [],
+            clubIds: clubId ? [clubId] : [],
           });
         }
         return { clientId: uid, status: "existing" };
@@ -232,7 +314,7 @@ async function createEmailClient(profile = {}, createdByUid) {
 
       const existing = await findExistingClientByIdentity(profile);
       if (existing?.clientId) {
-        return ensureExistingClientLinked(existing.clientId, profile, createdByUid);
+        return ensureExistingClientLinked(existing.clientId, profile, createdByUid, clubId);
       }
     }
     throw error;
@@ -241,9 +323,9 @@ async function createEmailClient(profile = {}, createdByUid) {
   }
 }
 
-async function createOfflineClient(profile = {}, createdByUid) {
+async function createOfflineClient(profile = {}, createdByUid, clubId = null) {
   const offlineId = `offline_nutrition_${Date.now()}`;
-  const payload = buildNutritionClientPayload(profile, createdByUid, null);
+  const payload = buildNutritionClientPayload(profile, createdByUid, null, clubId);
   await setDoc(doc(db, "clients", offlineId), {
     ...payload,
     email: "",
@@ -251,21 +333,22 @@ async function createOfflineClient(profile = {}, createdByUid) {
     offlineOnly: true,
     creeLe: serverTimestamp(),
     coachIds: createdByUid ? [createdByUid] : [],
+    clubIds: clubId ? [clubId] : [],
   });
   return { clientId: offlineId, status: "created_offline" };
 }
 
-export async function createOrResolveNutritionClient({ profile = {}, createdByUid }) {
+export async function createOrResolveNutritionClient({ profile = {}, createdByUid, clubId = null }) {
   const existing = await findExistingClientByIdentity(profile);
   if (existing?.clientId) {
-    return ensureExistingClientLinked(existing.clientId, profile, createdByUid);
+    return ensureExistingClientLinked(existing.clientId, profile, createdByUid, clubId);
   }
 
   if (normalizeEmail(profile.email)) {
-    return createEmailClient(profile, createdByUid);
+    return createEmailClient(profile, createdByUid, clubId);
   }
 
-  return createOfflineClient(profile, createdByUid);
+  return createOfflineClient(profile, createdByUid, clubId);
 }
 
 /* -------------------- conversions -------------------- */
@@ -448,7 +531,7 @@ export async function getClientNutritionPrefill(clientId) {
  * Crée un bilan draft pré-rempli.
  * Retourne { assessmentId }
  */
-export async function createNutritionAssessmentDraft({ clientId, createdByUid }) {
+export async function createNutritionAssessmentDraft({ clientId, createdByUid, clubId = null }) {
   const { prefill, client } = await getClientNutritionPrefill(clientId);
   let previousSummary = null;
   let previousAssessment = null;
@@ -516,6 +599,7 @@ export async function createNutritionAssessmentDraft({ clientId, createdByUid })
   const payload = {
     status: "draft",
     createdBy: createdByUid || null,
+    clubId: clubId || client?.clubId || null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
     units: prefill.units,
@@ -529,8 +613,8 @@ export async function createNutritionAssessmentDraft({ clientId, createdByUid })
   return { assessmentId: ref.id };
 }
 
-export async function createNutritionAssessmentFromProfile({ profile = {}, createdByUid }) {
-  const { clientId, status } = await createOrResolveNutritionClient({ profile, createdByUid });
-  const { assessmentId } = await createNutritionAssessmentDraft({ clientId, createdByUid });
+export async function createNutritionAssessmentFromProfile({ profile = {}, createdByUid, clubId = null }) {
+  const { clientId, status } = await createOrResolveNutritionClient({ profile, createdByUid, clubId });
+  const { assessmentId } = await createNutritionAssessmentDraft({ clientId, createdByUid, clubId });
   return { clientId, assessmentId, clientStatus: status };
 }

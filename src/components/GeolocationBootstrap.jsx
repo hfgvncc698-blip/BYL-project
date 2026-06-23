@@ -5,10 +5,10 @@ import { useAuth } from "../AuthContext";
 import { useConsent } from "../consent/ConsentContext";
 
 export default function GeolocationBootstrap() {
-  const { user } = useAuth();
+  const { user, effectiveRole, isAdmin } = useAuth();
   const { prefs } = useConsent();
 
-  const analyticsOn = !!prefs?.analytics;
+  const analyticsOn = !!prefs?.analytics || isAdmin || effectiveRole === "admin";
 
   useGeolocation({
     uid: analyticsOn && user?.uid ? user.uid : null,
@@ -27,4 +27,3 @@ export default function GeolocationBootstrap() {
 
   return null;
 }
-

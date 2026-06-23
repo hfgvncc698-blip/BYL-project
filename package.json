@@ -4,8 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "node scripts/dev.mjs",
+    "dev:api": "node backend/app.js",
+    "dev:front": "vite",
+    "build": "vite build && node scripts/generateSeoArtifacts.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "tailwind": "tailwindcss",
@@ -13,8 +15,19 @@
     "exercises:i18n:auto": "node scripts/translateExercises.mjs --mode=auto",
     "exercises:i18n:apply": "node scripts/translateExercises.mjs --mode=apply",
     "exercises:i18n:sync": "node scripts/translateExercises.mjs --mode=firestore",
+    "exercises:tags": "node scripts/tagExerciseBank.cjs",
+    "exercises:tags:check": "node scripts/tagExerciseBank.cjs --check",
+    "exercises:tags:sync": "node scripts/syncExerciseProgrammingTags.cjs",
+    "exercises:tags:sync:commit": "node scripts/syncExerciseProgrammingTags.cjs --commit",
     "audit:firestore-identity": "node scripts/auditFirestoreIdentity.cjs",
-    "plan:firestore-identity-migration": "node scripts/planFirestoreIdentityMigration.cjs"
+    "plan:firestore-identity-migration": "node scripts/planFirestoreIdentityMigration.cjs",
+    "test:smoke": "node scripts/smokeCriticalFlows.mjs",
+    "test:footer-i18n": "node scripts/testFooterI18n.mjs",
+    "test:sport-engine": "node scripts/testSportEngineMatrix.cjs",
+    "audit:sport-engine:samples": "node scripts/auditSportEngineSamples.cjs",
+    "audit:public-pages": "node scripts/auditPublicPages.mjs",
+    "social:daily:finalize": "node ad-samples/social-publisher/src/finalize-daily-media.mjs",
+    "social:meta:sync": "node ad-samples/social-publisher/src/sync-meta-insights.mjs"
   },
   "dependencies": {
     "@chakra-ui/icons": "^2.2.4",

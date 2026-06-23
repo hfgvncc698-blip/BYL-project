@@ -13,7 +13,6 @@ import {
   Button,
   Input,
   useColorModeValue,
-  Spinner,
   Modal,
   ModalOverlay,
   ModalContent,
@@ -60,12 +59,13 @@ import {
   limit,
   deleteDoc,
   setDoc,
-  Timestamp,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { FiTrash2 } from "react-icons/fi";
 import ClientCreation from "../components/ClientCreation";
 import AppLoading from "./ui/AppLoading";
+import PageBackButton from "./ui/PageBackButton";
+import { apiFetch } from "../utils/api";
 import { notify } from "../utils/notify";
 import { useAppTheme } from "../styles/appTheme";
 
@@ -73,6 +73,29 @@ const DAYS_ACTIVE_CUTOFF = 30;
 const SUBCOLL_PROGRAMMES = "programmes";
 const SUBCOLL_SESSIONS_DONE = "sessionsEffectuees";
 const FIELD_DONE_DATE = "dateEffectuee";
+const TOUR_DEMO_CLIENT_ID = "__tour_demo_client__";
+const TOUR_DEMO_CLIENT = {
+  id: TOUR_DEMO_CLIENT_ID,
+  prenom: "Client",
+  nom: "Démo",
+  email: "demo@boostyourlife.coach",
+  __tourDemo: true,
+};
+
+const getCachedClientActivityMs = (client) =>
+  toMillis(client?.lastSession) || 0;
+
+const getCachedSportProgramCount = (client) => {
+  const candidates = [
+    client?.sportProgramCount,
+    client?.programmesSportifs,
+    client?.programmesCount,
+    client?.programmeCount,
+    client?.nbProgrammes,
+  ];
+  const value = candidates.map(Number).find((n) => Number.isFinite(n) && n > 0);
+  return value || 0;
+};
 
 /* -------------------- Utils (comme CoachDashboard) -------------------- */
 function getTotalSessionsFromProgrammeDoc(p) {
@@ -228,12 +251,6 @@ function toDateInputValue(anyTs) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function fromDateInputValue(v) {
-  if (!v) return null;
-  const d = new Date(`${v}T00:00:00`);
-  return Number.isNaN(d.getTime()) ? null : Timestamp.fromDate(d);
-}
-
 /* ------------------- Constantes Selects ------------------- */
 const GOALS = [
   { value: "weight_loss", fr: "Perte de poids", en: "Weight loss" },
@@ -248,6 +265,14 @@ const LEVELS = [
   { value: "beginner", fr: "Débutant", en: "Beginner" },
   { value: "intermediate", fr: "Intermédiaire", en: "Intermediate" },
   { value: "advanced", fr: "Avancé", en: "Advanced" },
+];
+
+const NUTRITION_GOALS = [
+  { value: "reequilibrage", fr: "Rééquilibrage alimentaire", en: "Nutrition reset" },
+  { value: "weight_loss", fr: "Perte de poids", en: "Weight loss" },
+  { value: "muscle_gain", fr: "Prise de masse", en: "Muscle gain" },
+  { value: "performance", fr: "Performance sportive", en: "Performance nutrition" },
+  { value: "health", fr: "Santé et habitudes", en: "Health and habits" },
 ];
 
 const LANGS = [
@@ -283,47 +308,36 @@ async function buildClientComputedStats(client) {
   let sessions7j = 0;
 
   let latestDoneMs = 0;
-  let latestAssignMs = 0;
-
-  for (const d of progSnap.docs) {
+  const computedProgrammes = await Promise.all(progSnap.docs.map(async (d) => {
     const progData = d.data() || {};
     const totalProgSessions = getTotalSessionsFromProgrammeDoc(progData);
-    totalSessions += totalProgSessions;
-
-    const assignMs =
-      toMillis(progData.assignedAt) ||
-      toMillis(progData.dateAssignation) ||
-      toMillis(progData.dateAffectation) ||
-      toMillis(progData.createdAt) ||
-      0;
-
-    if (assignMs > latestAssignMs) latestAssignMs = assignMs;
 
     const sessEffCol = collection(db, "clients", clientId, SUBCOLL_PROGRAMMES, d.id, SUBCOLL_SESSIONS_DONE);
     const sessEffSnap = await getDocs(sessEffCol);
 
     const doneIndexes = new Set();
     let fallbackDoneCount = 0;
+    let programmeSessions7j = 0;
+    let programmeLatestDoneMs = 0;
 
     sessEffSnap.forEach((s) => {
       const data = s.data() || {};
+      const pct = typeof data.pourcentageTermine === "number" ? data.pourcentageTermine : 100;
+      if (pct < 90) return;
 
       const completedDate = getCompletedDate(data);
       if (completedDate instanceof Date) {
         const ms = completedDate.getTime();
-        if (ms > latestDoneMs) latestDoneMs = ms;
-        if (completedDate >= since7) sessions7j += 1;
+        if (ms > programmeLatestDoneMs) programmeLatestDoneMs = ms;
+        if (completedDate >= since7) programmeSessions7j += 1;
       } else {
         const ts = data?.[FIELD_DONE_DATE]?.toDate?.();
         if (ts instanceof Date) {
           const ms = ts.getTime();
-          if (ms > latestDoneMs) latestDoneMs = ms;
-          if (ts >= since7) sessions7j += 1;
+          if (ms > programmeLatestDoneMs) programmeLatestDoneMs = ms;
+          if (ts >= since7) programmeSessions7j += 1;
         }
       }
-
-      const pct = typeof data.pourcentageTermine === "number" ? data.pourcentageTermine : 100;
-      if (pct < 90) return;
 
       const idx = getSessionIndex(data);
       if (idx !== null && idx >= 0) {
@@ -340,8 +354,20 @@ async function buildClientComputedStats(client) {
     }
 
     doneForProg = Math.min(doneForProg, totalProgSessions);
-    completedSessions += doneForProg;
-  }
+    return {
+      totalProgSessions,
+      doneForProg,
+      programmeSessions7j,
+      programmeLatestDoneMs,
+    };
+  }));
+
+  computedProgrammes.forEach((item) => {
+    totalSessions += item.totalProgSessions;
+    completedSessions += item.doneForProg;
+    sessions7j += item.programmeSessions7j;
+    if (item.programmeLatestDoneMs > latestDoneMs) latestDoneMs = item.programmeLatestDoneMs;
+  });
 
   completedSessions = Math.min(completedSessions, totalSessions);
 
@@ -350,13 +376,7 @@ async function buildClientComputedStats(client) {
 
   const lastSessionDate = latestDoneMs > 0 ? new Date(latestDoneMs) : null;
 
-  const lastClientUpdate = Math.max(
-    toMillis(client.updatedAt),
-    toMillis(client.lastActivityAt),
-    toMillis(client.createdAt)
-  );
-
-  const _lastInteractionMs = Math.max(latestDoneMs, latestAssignMs, lastClientUpdate);
+  const _lastInteractionMs = latestDoneMs || 0;
 
   return {
     progress: { percent, completed: completedSessions, total: totalSessions },
@@ -369,13 +389,34 @@ async function buildClientComputedStats(client) {
 
 const Clients = () => {
   const { t, i18n } = useTranslation();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
 
   const params = new URLSearchParams(location.search);
   const filter = params.get("filter");
+  const listView = params.get("view");
+  const adminCoachId = params.get("adminCoachId") || "";
+  const effectiveCoachUid = isAdmin && adminCoachId ? adminCoachId : user?.uid;
+  const planModules = user?.proAccess?.modules || user?.modules;
+  const hasNutritionAccess = Boolean(isAdmin);
+  const hasSportAccess = Boolean(
+    user?.sportAccess ||
+    user?.hasSportAccess ||
+    (Array.isArray(planModules) && planModules.includes("sport")) ||
+    planModules?.sport ||
+    user?.features?.sport ||
+    ["sport", "complete", "club"].includes(user?.packageKey)
+  );
+  const nutritionOnly = hasNutritionAccess && !hasSportAccess;
+  const mixedNutritionView = hasNutritionAccess && hasSportAccess && listView === "nutrition";
+  const sportView = hasSportAccess && listView === "sport";
+  const nutritionMode = nutritionOnly || mixedNutritionView;
+  const withAdminCoach = (path) => {
+    if (!isAdmin || !adminCoachId) return path;
+    return `${path}${path.includes("?") ? "&" : "?"}adminCoachId=${encodeURIComponent(adminCoachId)}`;
+  };
 
   const [clients, setClients] = useState([]);
   const [programmes, setProgrammes] = useState([]);
@@ -395,10 +436,19 @@ const Clients = () => {
   const [lastSessionMap, setLastSessionMap] = useState({});
   const [programmeCountMap, setProgrammeCountMap] = useState({});
   const [lastInteractionMap, setLastInteractionMap] = useState({});
+  const [nutritionAssessmentCountMap, setNutritionAssessmentCountMap] = useState({});
+  const [nutritionLastFollowMap, setNutritionLastFollowMap] = useState({});
+  const [showTourDemoClient, setShowTourDemoClient] = useState(false);
 
   const createClientModal = useDisclosure();
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [editClient, setEditClient] = useState(null);
+
+  useEffect(() => {
+    const onDemo = (event) => setShowTourDemoClient(!!event.detail?.active);
+    window.addEventListener("byl:clients-demo", onDemo);
+    return () => window.removeEventListener("byl:clients-demo", onDemo);
+  }, []);
 
   const isFr = i18n.language?.startsWith?.("fr");
 
@@ -408,23 +458,26 @@ const Clients = () => {
   }, []);
 
   const fetchData = useCallback(async () => {
-    if (!user?.uid) return;
+    if (!effectiveCoachUid) return;
     setLoading(true);
 
     try {
-      const cSnap = await getDocs(query(collection(db, "clients"), where("createdBy", "==", user.uid)));
-      let list = cSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-      if (list.length === 0) {
-        const cSnap2 = await getDocs(query(collection(db, "clients"), where("coachId", "==", user.uid)));
-        list = cSnap2.docs.map((d) => ({ id: d.id, ...d.data() }));
-      }
+      const clientSnaps = await Promise.all([
+        getDocs(query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(150))),
+        getDocs(query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(150))).catch(() => ({ docs: [] })),
+        getDocs(query(collection(db, "clients"), where("coachIds", "array-contains", effectiveCoachUid), limit(150))).catch(() => ({ docs: [] })),
+      ]);
+      const clientById = new Map();
+      clientSnaps.forEach((snap) => {
+        snap.docs.forEach((d) => clientById.set(d.id, { id: d.id, ...d.data() }));
+      });
+      let list = [...clientById.values()];
 
       let progs = [];
       try {
         const pQ = query(
           collection(db, "programmes"),
-          where("createdBy", "==", user.uid),
+          where("createdBy", "==", effectiveCoachUid),
           orderBy("createdAt", "desc"),
           limit(200)
         );
@@ -432,7 +485,7 @@ const Clients = () => {
         progs = pSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       } catch (e) {
         const pSnap = await getDocs(
-          query(collection(db, "programmes"), where("createdBy", "==", user.uid), limit(200))
+          query(collection(db, "programmes"), where("createdBy", "==", effectiveCoachUid), limit(200))
         );
         progs = pSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         progs.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
@@ -441,21 +494,55 @@ const Clients = () => {
       progs.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
       setProgrammes(progs);
 
+      const initialSportList = list.filter((c) => getCachedSportProgramCount(c) > 0);
+      if (initialSportList.length) {
+        const initialList =
+          filter === "active"
+            ? initialSportList.filter((c) => getCachedClientActivityMs(c) >= activeCutoffMs)
+            : filter === "inactive"
+              ? initialSportList.filter((c) => getCachedClientActivityMs(c) < activeCutoffMs)
+              : initialSportList;
+
+        setClients(initialList);
+        setLoading(false);
+      }
+
       const progressEntries = {};
       const perWeekEntries = {};
       const lastEntries = {};
       const countEntries = {};
       const interactionEntries = {};
+      const nutritionCountEntries = {};
+      const nutritionLastEntries = {};
 
       const enriched = await Promise.all(
         list.map(async (c) => {
           const computed = await buildClientComputedStats(c);
+          let latestNutritionMs = 0;
+          try {
+            const nutritionSnap = await getDocs(collection(db, "clients", c.id, "nutrition_assessments"));
+            nutritionCountEntries[c.id] = nutritionSnap.size;
+            nutritionSnap.forEach((assessmentDoc) => {
+              const data = assessmentDoc.data() || {};
+              const ms = Math.max(
+                toMillis(data.sharedAt),
+                toMillis(data.updatedAt),
+                toMillis(data.createdAt),
+                toMillis(data.date),
+                0
+              );
+              if (ms > latestNutritionMs) latestNutritionMs = ms;
+            });
+          } catch (_) {
+            nutritionCountEntries[c.id] = 0;
+          }
 
           progressEntries[c.id] = computed.progress;
           perWeekEntries[c.id] = computed.sessionsPerWeek;
           lastEntries[c.id] = computed.lastSessionDate || null;
           countEntries[c.id] = computed.programmeCount;
           interactionEntries[c.id] = computed._lastInteractionMs || 0;
+          nutritionLastEntries[c.id] = latestNutritionMs || 0;
 
           const cached = c?.lastSession?.toDate?.() ?? null;
           if (!cached && computed.lastSessionDate) {
@@ -473,12 +560,26 @@ const Clients = () => {
       setLastSessionMap(lastEntries);
       setProgrammeCountMap(countEntries);
       setLastInteractionMap(interactionEntries);
+      setNutritionAssessmentCountMap(nutritionCountEntries);
+      setNutritionLastFollowMap(nutritionLastEntries);
 
-      let filtered = enriched;
+      let filtered = nutritionMode
+        ? nutritionOnly
+          ? enriched
+          : enriched.filter((c) => (nutritionCountEntries[c.id] || 0) > 0)
+        : sportView
+          ? enriched.filter((c) => (countEntries[c.id] || 0) > 0)
+          : enriched;
       if (filter === "active") {
-        filtered = enriched.filter((c) => (Number(c._lastInteractionMs || 0) || 0) >= activeCutoffMs);
+        filtered = filtered.filter((c) => {
+          const ms = nutritionMode ? nutritionLastEntries[c.id] || c._lastInteractionMs : c._lastInteractionMs;
+          return (Number(ms || 0) || 0) >= activeCutoffMs;
+        });
       } else if (filter === "inactive") {
-        filtered = enriched.filter((c) => !((Number(c._lastInteractionMs || 0) || 0) >= activeCutoffMs));
+        filtered = filtered.filter((c) => {
+          const ms = nutritionMode ? nutritionLastEntries[c.id] || c._lastInteractionMs : c._lastInteractionMs;
+          return !((Number(ms || 0) || 0) >= activeCutoffMs);
+        });
       }
 
       setClients(filtered);
@@ -487,11 +588,24 @@ const Clients = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid, filter, activeCutoffMs]);
+  }, [effectiveCoachUid, filter, activeCutoffMs, nutritionMode, nutritionOnly, sportView]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    if (!searchQuery.trim()) return;
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia?.("(max-width: 767px)")?.matches) return;
+    const timeoutId = window.setTimeout(() => {
+      document.getElementById("clients-results")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 120);
+    return () => window.clearTimeout(timeoutId);
+  }, [searchQuery]);
 
   const openAssignModal = (clientId) => {
     setSelectedClient(clientId);
@@ -516,9 +630,9 @@ const Clients = () => {
         ...tpl,
         id: instRef.id,
         fromTemplateId: selectedProgramme,
-        coachId: user.uid,
-        createdBy: user.uid,
-        assignedBy: user.uid,
+        coachId: effectiveCoachUid,
+        createdBy: effectiveCoachUid,
+        assignedBy: effectiveCoachUid,
         assignedAt: serverTimestamp(),
         totalSessions: typeof totalSessions === "number" ? totalSessions : null,
         progress: 0,
@@ -529,7 +643,7 @@ const Clients = () => {
       await updateDoc(doc(db, "clients", selectedClient), {
         currentProgramme: instRef.id,
         updatedAt: serverTimestamp(),
-        coachIds: arrayUnion(user.uid),
+        coachIds: arrayUnion(effectiveCoachUid),
       });
 
       setIsModalOpen(false);
@@ -561,8 +675,8 @@ const Clients = () => {
   };
 
   const goalOptions = useMemo(
-    () => GOALS.map((g) => ({ value: g.value, label: isFr ? g.fr : g.en })),
-    [isFr]
+    () => (nutritionMode ? NUTRITION_GOALS : GOALS).map((g) => ({ value: g.value, label: isFr ? g.fr : g.en })),
+    [isFr, nutritionMode]
   );
 
   const levelOptions = useMemo(
@@ -580,14 +694,15 @@ const Clients = () => {
   const [cf_height, setCfHeight] = useState("");
   const [cf_weight, setCfWeight] = useState("");
   const [cf_lang, setCfLang] = useState("fr");
+  const [isSavingClient, setIsSavingClient] = useState(false);
 
   const openClientForm = (clientOrNull) => {
     setEditClient(clientOrNull);
     if (clientOrNull) {
-      setCfFirst(clientOrNull.prenom ?? "");
-      setCfLast(clientOrNull.nom ?? "");
+      setCfFirst(clientOrNull.prenom ?? clientOrNull.firstName ?? "");
+      setCfLast(clientOrNull.nom ?? clientOrNull.lastName ?? "");
       setCfEmail(clientOrNull.email ?? "");
-      setCfPhone(clientOrNull.phone ?? "");
+      setCfPhone(clientOrNull.phone ?? clientOrNull.telephone ?? "");
       setCfBirth(toDateInputValue(clientOrNull.birthDate || clientOrNull.dateNaissance));
       setCfGoal(clientOrNull.goal || clientOrNull.objectif || "weight_loss");
       setCfLevel(clientOrNull.level || clientOrNull.niveau || "beginner");
@@ -598,13 +713,20 @@ const Clients = () => {
     setIsClientModalOpen(true);
   };
 
-  const saveClient = async () => {
+  const saveClient = async ({ forceEmail = false } = {}) => {
+    if (!editClient?.id || isSavingClient) return;
+    const previousEmail = String(editClient.email || editClient.emailLower || "").trim().toLowerCase();
+    const nextEmail = cf_email.trim().toLowerCase();
     const payload = {
       prenom: cf_first.trim(),
+      firstName: cf_first.trim(),
       nom: cf_last.trim(),
-      email: cf_email.trim().toLowerCase(),
+      lastName: cf_last.trim(),
+      email: nextEmail,
       phone: cf_phone.trim() || "",
-      birthDate: fromDateInputValue(cf_birth),
+      telephone: cf_phone.trim() || "",
+      birthDate: cf_birth,
+      dateNaissance: cf_birth,
       objectif: cf_goal,
       goal: cf_goal,
       niveau: cf_level,
@@ -613,20 +735,82 @@ const Clients = () => {
       weightKg: cf_weight ? Number(cf_weight) : null,
       preferredLang: cf_lang,
       settings: { defaultLanguage: cf_lang },
-      updatedAt: serverTimestamp(),
+      sendActivationEmail: forceEmail,
     };
 
-    if (editClient?.id) {
-      await updateDoc(doc(db, "clients", editClient.id), payload);
-    }
+    try {
+      setIsSavingClient(true);
+      const result = await apiFetch(`/clubs/clients/${encodeURIComponent(editClient.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
 
-    setIsClientModalOpen(false);
-    setEditClient(null);
-    await fetchData();
+      setIsClientModalOpen(false);
+      setEditClient(null);
+
+      const changedEmail = nextEmail && nextEmail !== previousEmail;
+      if (result.emailSent) {
+        notify(toast, "clientInviteSent", {
+          title: t("clientsList.edit.emailSentTitle", "Client mis à jour"),
+          description: t("clientsList.edit.emailSentDesc", "Les informations sont enregistrées et l’e-mail d’accès vient d’être envoyé."),
+          duration: 5200,
+        });
+      } else if (changedEmail || result.emailAttempted || result.emailDelivery === "activation-link-generated") {
+        notify(toast, "saveSuccess", {
+          status: "warning",
+          title: t("clientsList.edit.savedNoEmailTitle", "Client mis à jour"),
+          description: result.emailWarning
+            ? t("clientsList.edit.savedEmailWarningDesc", "Les informations sont enregistrées, mais l’e-mail n’a pas pu partir : {{error}}", {
+                error: result.emailWarning,
+              })
+            : t(
+                "clientsList.edit.savedNoEmailDesc",
+                "Les informations sont enregistrées, mais l’e-mail d’accès n’a pas pu être envoyé automatiquement."
+              ),
+          duration: 5200,
+        });
+      } else {
+        notify(toast, "saveSuccess", {
+          title: t("clientsList.edit.savedTitle", "Client mis à jour"),
+          description: t("clientsList.edit.savedDesc", "Les informations du client sont bien enregistrées."),
+          duration: 4200,
+        });
+      }
+      await fetchData();
+    } catch (err) {
+      console.error("Client save error:", err);
+      const errorCode = err?.data?.error || err?.message || "";
+      const duplicateEmail =
+        errorCode === "client-email-already-used" ||
+        errorCode === "email-belongs-to-another-account" ||
+        errorCode === "existing-account-is-not-client" ||
+        errorCode === "linked-account-is-not-client";
+      notify(toast, "saveError", {
+        title: duplicateEmail
+          ? t("clientsList.edit.emailConflictTitle", "E-mail déjà utilisé")
+          : t("clientsList.edit.errorTitle", "Client non enregistré"),
+        description: duplicateEmail
+          ? t("clientsList.edit.emailConflictDesc", "Cette adresse est déjà liée à un autre compte. Utilisez une autre adresse ou vérifiez le profil existant.")
+          : t("clientsList.edit.errorDesc", "Impossible d’enregistrer ce client pour le moment."),
+      });
+    } finally {
+      setIsSavingClient(false);
+    }
   };
 
-  const filteredClients = clients
+  const tourDemoClient = useMemo(
+    () =>
+      nutritionMode
+        ? { ...TOUR_DEMO_CLIENT, prenom: "Patient", objectif: "reequilibrage", goal: "reequilibrage" }
+        : TOUR_DEMO_CLIENT,
+    [nutritionMode]
+  );
+
+  const clientsForDisplay = showTourDemoClient ? [tourDemoClient, ...clients] : clients;
+
+  const filteredClients = clientsForDisplay
     .filter((c) =>
+      c.__tourDemo ||
       `${c.prenom ?? ""} ${c.nom ?? ""}`.toLowerCase().includes(searchQuery.toLowerCase())
     )
     .sort((a, b) =>
@@ -634,8 +818,9 @@ const Clients = () => {
     );
 
   const theme = useAppTheme();
+  const hasSearch = searchQuery.trim().length > 0;
   const bg = theme.pageBg;
-  const cardBg = theme.surfaceBg;
+  
   const headColor = theme.textColor;
   const borderColor = theme.borderColor;
   const muted = theme.mutedText;
@@ -645,11 +830,55 @@ const Clients = () => {
   const tableHeadBg = useColorModeValue("rgba(15,23,42,0.03)", "rgba(255,255,255,0.03)");
   const rowHover = useColorModeValue("rgba(59,130,246,0.05)", "rgba(59,130,246,0.08)");
 
-  const newClientLabel = t("clientsList.actions.newClient", isFr ? "Nouveau client" : "New client");
+  const newClientLabel = nutritionMode
+    ? t("clientsList.actions.newNutritionFollowup", "Nouveau suivi")
+    : t("clientsList.actions.newClient", isFr ? "Nouveau client" : "New client");
+  const filterLabels = nutritionMode
+    ? {
+        active: t("clientsList.filters.nutritionActive", "Suivis récents"),
+        inactive: t("clientsList.filters.nutritionInactive", "À relancer"),
+        all: t("clientsList.filters.nutritionAll", "Tous les patients"),
+      }
+    : {
+        active: t("clientsList.filters.active", { days: DAYS_ACTIVE_CUTOFF }),
+        inactive: t("clientsList.filters.inactive"),
+        all: t("clientsList.filters.all"),
+      };
+  const statusText = (isActive) =>
+    nutritionMode
+      ? isActive
+        ? t("clientsList.status.nutritionActive", "Suivi récent")
+        : t("clientsList.status.nutritionInactive", "À relancer")
+      : t(isActive ? "clientsList.status.active" : "clientsList.status.inactive");
+  const nutritionLastFollowDate = (client) => {
+    if (client.__tourDemo) return new Date();
+    const ms = Number(nutritionLastFollowMap[client.id] || lastInteractionMap[client.id] || 0) || 0;
+    return ms > 0 ? new Date(ms) : null;
+  };
 
   const isActiveByInteraction = (clientId) => {
-    const ms = Number(lastInteractionMap[clientId] || 0) || 0;
+    const ms = Number((nutritionMode ? nutritionLastFollowMap[clientId] || lastInteractionMap[clientId] : lastInteractionMap[clientId]) || 0) || 0;
     return ms > 0 && ms >= activeCutoffMs;
+  };
+  const getFollowKind = (client, nbProg = 0) => {
+    const nutritionCount = Number(nutritionAssessmentCountMap[client.id] || 0) || 0;
+    if (nbProg > 0 && nutritionCount > 0) {
+      return { label: t("clientsList.followKinds.sportNutrition", "Sport + nutrition"), colorScheme: "purple" };
+    }
+    if (nbProg > 0) {
+      return { label: t("clientsList.followKinds.sport", "Client sport"), colorScheme: "blue" };
+    }
+    if (nutritionCount > 0 || nutritionMode) {
+      return { label: t("clientsList.followKinds.nutrition", "Patient nutrition"), colorScheme: "teal" };
+    }
+    return { label: t("clientsList.followKinds.toProgram", "À programmer"), colorScheme: "orange" };
+  };
+  const buildClientsPath = (nextFilter) => {
+    const nextParams = new URLSearchParams();
+    if (mixedNutritionView) nextParams.set("view", "nutrition");
+    if (nextFilter) nextParams.set("filter", nextFilter);
+    const queryString = nextParams.toString();
+    return withAdminCoach(`/clients${queryString ? `?${queryString}` : ""}`);
   };
 
   if (loading) {
@@ -657,45 +886,55 @@ const Clients = () => {
   }
 
   return (
-    <Box bg={bg} minH="100vh">
+    <Box data-tour-page="coach-clients" bg={bg} minH="100vh">
       <Container maxW="7xl" py={{ base: 6, md: 10 }} px={{ base: 4, md: 6 }}>
         <Box mb={6}>
-          <Heading mb={1} color={headColor}>
-            {t("clientsList.heading")}
-          </Heading>
+          <HStack spacing={3} align="center" mb={1}>
+            <PageBackButton fallbackTo={withAdminCoach("/coach-dashboard")} />
+            <Heading color={headColor}>
+              {nutritionMode ? t("clientsList.headingPatients", "Mes patients") : t("clientsList.heading")}
+            </Heading>
+          </HStack>
           <Text color={subhead}>
-            Gérez vos clients, leur activité récente et leurs programmes depuis un seul espace.
+            {nutritionMode ? t("clientsList.nutritionSubtitle", "Gérez vos patients, leurs coordonnées et leurs suivis nutrition depuis un seul espace.") : t(
+              "clientsList.sportOnlySubtitle",
+              "Gérez vos clients sportifs, leur activité récente et leurs programmes depuis un seul espace."
+            )}
           </Text>
         </Box>
 
         <Box
           layerStyle="glassCard"
-          mb={6}
-          p={{ base: 4, md: 5 }}
+          mb={{ base: hasSearch ? 3 : 6, md: 6 }}
+          p={{ base: hasSearch ? 3 : 4, md: 5 }}
+          position={{ base: "sticky", md: "static" }}
+          top={{ base: 0, md: "auto" }}
+          zIndex={{ base: 5, md: "auto" }}
         >
           <Flex gap={3} flexWrap="wrap" align="center">
           <Button
+            data-tour="clients-filters"
             size="sm"
             variant={filter === "active" ? "solid" : "outline"}
-            onClick={() => navigate("/clients?filter=active")}
+            onClick={() => navigate(buildClientsPath("active"))}
           >
-            {t("clientsList.filters.active", { days: DAYS_ACTIVE_CUTOFF })}
+            {filterLabels.active}
           </Button>
 
           <Button
             size="sm"
             variant={filter === "inactive" ? "solid" : "outline"}
-            onClick={() => navigate("/clients?filter=inactive")}
+            onClick={() => navigate(buildClientsPath("inactive"))}
           >
-            {t("clientsList.filters.inactive")}
+            {filterLabels.inactive}
           </Button>
 
-          <Button size="sm" variant={!filter ? "solid" : "outline"} onClick={() => navigate("/clients")}>
-            {t("clientsList.filters.all")}
+          <Button size="sm" variant={!filter ? "solid" : "outline"} onClick={() => navigate(buildClientsPath())}>
+            {filterLabels.all}
           </Button>
 
           <Input
-            placeholder={t("clientsList.searchPlaceholder")}
+            placeholder={nutritionMode ? t("clientsList.searchPatientPlaceholder", "Rechercher un patient") : t("clientsList.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             maxW={{ base: "100%", md: "340px" }}
@@ -703,103 +942,157 @@ const Clients = () => {
             minW={0}
           />
 
+          {hasSearch && (
+            <HStack
+              display={{ base: "flex", md: "none" }}
+              w="full"
+              justify="space-between"
+              color={muted}
+              fontSize="sm"
+              fontWeight="700"
+            >
+              <Text noOfLines={1}>
+                {filteredClients.length} {nutritionMode ? "patient(s)" : "client(s)"}
+              </Text>
+              <Button
+                size="xs"
+                variant="ghost"
+                borderRadius="full"
+                onClick={() => setSearchQuery("")}
+              >
+                Effacer
+              </Button>
+            </HStack>
+          )}
+
           <Button
+            data-tour="clients-new-client"
             size="sm"
+            display={{ base: hasSearch ? "none" : "inline-flex", md: "inline-flex" }}
             ml={{ base: 0, md: "auto" }}
-            onClick={createClientModal.onOpen}
+            onClick={nutritionMode ? () => navigate(withAdminCoach("/nutrition-coach?new=1")) : createClientModal.onOpen}
           >
             {newClientLabel}
           </Button>
           </Flex>
         </Box>
 
-        <SimpleGrid columns={{ base: 3, md: 3 }} spacing={{ base: 2, md: 4 }} mb={6}>
+        <SimpleGrid
+          columns={{ base: 3, md: 3 }}
+          spacing={{ base: 2, md: 4 }}
+          mb={6}
+          display={{ base: hasSearch ? "none" : "grid", md: "grid" }}
+        >
           <Box layerStyle="glassCard" p={4}>
-            <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.08em" color="textMuted" fontWeight="800">
-              Total
-            </Text>
+            <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.08em" color="textMuted" fontWeight="800">{t("auto.Clients.total", "Total")}</Text>
             <Text mt={2} fontSize={{ base: "2xl", md: "3xl" }} fontWeight="900" color={headColor}>
               {clients.length}
             </Text>
-            <Text fontSize={{ base: "xs", md: "sm" }} color={subhead}>Clients dans votre portefeuille</Text>
+            <Text fontSize={{ base: "xs", md: "sm" }} color={subhead}>
+              {nutritionMode ? t("clientsList.stats.patients", "Patients suivis") : t("clientsList.stats.clients", "Clients")}
+            </Text>
           </Box>
           <Box layerStyle="glassCard" p={4}>
             <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.08em" color="textMuted" fontWeight="800">
-              Actifs
+              {nutritionMode ? t("clientsList.stats.recentFollows", "Suivis récents") : t("clientsList.stats.active", "Actifs")}
             </Text>
             <Text mt={2} fontSize={{ base: "2xl", md: "3xl" }} fontWeight="900" color="green.400">
               {clients.filter((c) => isActiveByInteraction(c.id)).length}
             </Text>
-            <Text fontSize={{ base: "xs", md: "sm" }} color={subhead}>Interaction sur les {DAYS_ACTIVE_CUTOFF} derniers jours</Text>
+            <Text fontSize={{ base: "xs", md: "sm" }} color={subhead}>
+              {nutritionMode
+                ? t("clientsList.stats.nutritionInteraction", "Interaction nutrition sur {{days}} jours", { days: DAYS_ACTIVE_CUTOFF })
+                : t("clientsList.stats.sportInteraction", "Interaction sur les {{days}} derniers jours", { days: DAYS_ACTIVE_CUTOFF })}
+            </Text>
           </Box>
           <Box layerStyle="glassCard" p={4}>
             <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.08em" color="textMuted" fontWeight="800">
-              Affichés
+              {nutritionMode ? t("clientsList.stats.filteredPatients", "Patients filtrés") : t("clientsList.stats.shown", "Affichés")}
             </Text>
             <Text mt={2} fontSize={{ base: "2xl", md: "3xl" }} fontWeight="900" color="brand.400">
               {filteredClients.length}
             </Text>
-            <Text fontSize="sm" color={subhead}>Résultats selon vos filtres et votre recherche</Text>
+            <Text fontSize="sm" color={subhead}>
+              {nutritionMode
+                ? t("clientsList.stats.nutritionFilteredHint", "Selon le suivi et la recherche")
+                : t("clientsList.stats.shownHint", "Résultats selon vos filtres et votre recherche")}
+            </Text>
           </Box>
         </SimpleGrid>
 
-        <Box layerStyle="glassCard" p={{ base: 3, md: 6 }} mb={8}>
+        <Box id="clients-results" layerStyle="glassCard" p={{ base: 3, md: 6 }} mb={8} scrollMarginTop={{ base: "150px", md: "24px" }}>
           <Box display={{ base: "none", md: "block" }}>
             <Table variant="simple" colorScheme="gray" width="100%">
               <Thead bg={tableHeadBg}>
                 <Tr>
-                  <Th>{t("clientsList.table.client")}</Th>
-                  <Th>{t("clientsList.table.programs")}</Th>
-                  <Th>{t("clientsList.table.lastSession")}</Th>
-                  <Th>{t("clientsList.table.activity")}</Th>
-                  <Th>{t("clientsList.table.progress")}</Th>
+                  <Th>{nutritionMode ? "Patient" : t("clientsList.table.client")}</Th>
+                  {!nutritionMode && <Th>{t("clientsList.table.programs")}</Th>}
+                  <Th>{nutritionMode ? "Dernier suivi" : t("clientsList.table.lastSession")}</Th>
+                  <Th>{nutritionMode ? "Statut nutrition" : t("clientsList.table.activity")}</Th>
+                  {!nutritionMode && <Th>{t("clientsList.table.progress")}</Th>}
                   <Th isNumeric>{t("clientsList.table.action")}</Th>
                 </Tr>
               </Thead>
               <Tbody>
                 {filteredClients.map((c) => {
-                  const last = lastSessionMap[c.id] || c.lastSession?.toDate?.() || null;
-                  const isActive = isActiveByInteraction(c.id);
-                  const progStat = progressMap[c.id] || { percent: 0, completed: 0, total: 0 };
-                  const perWeek = sessionsPerWeekMap[c.id] ?? 0;
-                  const nbProg = programmeCountMap[c.id] ?? 0;
+                  const last = nutritionMode ? nutritionLastFollowDate(c) : c.__tourDemo ? new Date() : lastSessionMap[c.id] || c.lastSession?.toDate?.() || null;
+                  const isActive = c.__tourDemo ? true : isActiveByInteraction(c.id);
+                  const progStat = c.__tourDemo ? { percent: 67, completed: 4, total: 6 } : progressMap[c.id] || { percent: 0, completed: 0, total: 0 };
+                  const perWeek = c.__tourDemo ? 2 : sessionsPerWeekMap[c.id] ?? 0;
+                  const nbProg = c.__tourDemo ? 2 : programmeCountMap[c.id] ?? 0;
+                  const followKind = getFollowKind(c, nbProg);
 
                   return (
-                    <Tr key={c.id} _hover={{ bg: rowHover }}>
+                    <Tr key={c.id} data-tour={c.__tourDemo ? "clients-demo-row" : undefined} _hover={{ bg: rowHover }}>
                       <Td minW={0}>
                         <VStack align="start" spacing={0}>
-                          <ChakraLink as={Link} to={`/clients/${c.id}`} color={headColor} fontWeight="800">
+                          <ChakraLink
+                            as={c.__tourDemo ? "span" : Link}
+                            to={c.__tourDemo ? undefined : `/clients/${c.id}`}
+                            color={headColor}
+                            fontWeight="800"
+                          >
                             {c.prenom} {c.nom}
                           </ChakraLink>
                           <Text fontSize="sm" color={muted}>
-                            {c.email || c.phone || "Aucun contact renseigné"}
+                            {c.email || c.phone || t("clientsList.noContact", "Aucun contact renseigné")}
                           </Text>
+                          <Badge colorScheme={followKind.colorScheme} borderRadius="full" px={2.5} py={0.5} mt={1}>
+                            {followKind.label}
+                          </Badge>
                         </VStack>
                       </Td>
 
+                      {!nutritionMode && (
                       <Td>
                         <Badge px={2.5} py={1} borderRadius="full" bg={statBg} color={headColor}>
                           {nbProg}
                         </Badge>
                       </Td>
+                      )}
 
                       <Td>{last ? last.toLocaleDateString() : "N/A"}</Td>
 
                       <Td>
                         <Tooltip
                           label={
-                            last
+                            nutritionMode
+                              ? isActive
+                                ? t("clientsList.tooltip.nutritionRecent", "Interaction nutrition récente")
+                                : t("clientsList.tooltip.nutritionNone", "Aucune interaction nutrition récente")
+                              : last
                               ? t("clientsList.tooltip.lastOn", { date: last.toLocaleDateString() })
                               : t("clientsList.tooltip.none")
                           }
                           hasArrow
                         >
                           <Badge colorScheme={isActive ? "green" : "orange"} px={2.5} py={1} borderRadius="full">
-                            {t(isActive ? "clientsList.status.active" : "clientsList.status.inactive")}
+                            {statusText(isActive)}
                           </Badge>
                         </Tooltip>
                       </Td>
 
+                      {!nutritionMode && (
                       <Td>
                         <Box minW="240px">
                           <HStack justify="space-between" mb={1}>
@@ -819,22 +1112,35 @@ const Clients = () => {
                           </Text>
                         </Box>
                       </Td>
+                      )}
 
                       <Td isNumeric>
                         <ButtonGroup spacing={2} display="inline-flex" whiteSpace="nowrap">
-                          <Button size="sm" variant="outline" onClick={() => openClientForm(c)}>
+                          <Button
+                            data-tour={c.__tourDemo ? "clients-demo-edit" : undefined}
+                            size="sm"
+                            variant="outline"
+                            onClick={() => !c.__tourDemo && openClientForm(c)}
+                          >
                             {t("common.edit", "Edit")}
                           </Button>
-                          <Button size="sm" onClick={() => openAssignModal(c.id)}>
+                          {!nutritionMode && (
+                          <Button
+                            data-tour={c.__tourDemo ? "clients-demo-assign" : undefined}
+                            size="sm"
+                            onClick={() => !c.__tourDemo && openAssignModal(c.id)}
+                          >
                             {t("clientsList.actions.assign")}
                           </Button>
+                          )}
                           <IconButton
                             aria-label={t("clientsList.actions.deleteAria")}
                             icon={<FiTrash2 />}
                             colorScheme="red"
                             variant="solid"
                             size="sm"
-                            onClick={() => openDeleteModal(c.id)}
+                            isDisabled={c.__tourDemo}
+                            onClick={() => !c.__tourDemo && openDeleteModal(c.id)}
                           />
                         </ButtonGroup>
                       </Td>
@@ -848,15 +1154,17 @@ const Clients = () => {
           <Box display={{ base: "block", md: "none" }}>
             <VStack spacing={3} align="stretch">
               {filteredClients.map((c) => {
-                const last = lastSessionMap[c.id] || c.lastSession?.toDate?.() || null;
-                const isActive = isActiveByInteraction(c.id);
-                const progStat = progressMap[c.id] || { percent: 0, completed: 0, total: 0 };
-                const perWeek = sessionsPerWeekMap[c.id] ?? 0;
-                const nbProg = programmeCountMap[c.id] ?? 0;
+                const last = nutritionMode ? nutritionLastFollowDate(c) : c.__tourDemo ? new Date() : lastSessionMap[c.id] || c.lastSession?.toDate?.() || null;
+                const isActive = c.__tourDemo ? true : isActiveByInteraction(c.id);
+                const progStat = c.__tourDemo ? { percent: 67, completed: 4, total: 6 } : progressMap[c.id] || { percent: 0, completed: 0, total: 0 };
+                const perWeek = c.__tourDemo ? 2 : sessionsPerWeekMap[c.id] ?? 0;
+                const nbProg = c.__tourDemo ? 2 : programmeCountMap[c.id] ?? 0;
+                const followKind = getFollowKind(c, nbProg);
 
                 return (
                   <Box
                     key={c.id}
+                    data-tour={c.__tourDemo ? "clients-demo-row" : undefined}
                     position="relative"
                     bg={filterBg}
                     border="1px solid"
@@ -868,62 +1176,83 @@ const Clients = () => {
                   >
                     <Wrap justify="flex-end" mb={2} spacing="8px">
                       <WrapItem>
-                        <Button size="sm" variant="outline" onClick={() => openClientForm(c)}>
+                        <Button
+                          data-tour={c.__tourDemo ? "clients-demo-edit" : undefined}
+                          size="sm"
+                          variant="outline"
+                          onClick={() => !c.__tourDemo && openClientForm(c)}
+                        >
                           {t("common.edit", "Edit")}
                         </Button>
                       </WrapItem>
+                      {!nutritionMode && (
                       <WrapItem>
-                        <Button size="sm" onClick={() => openAssignModal(c.id)}>
+                        <Button
+                          data-tour={c.__tourDemo ? "clients-demo-assign" : undefined}
+                          size="sm"
+                          onClick={() => !c.__tourDemo && openAssignModal(c.id)}
+                        >
                           {t("clientsList.actions.assign")}
                         </Button>
                       </WrapItem>
+                      )}
                       <WrapItem>
                         <IconButton
                           aria-label={t("clientsList.actions.deleteAria")}
                           icon={<FiTrash2 />}
                           size="sm"
                           colorScheme="red"
-                          onClick={() => openDeleteModal(c.id)}
+                          isDisabled={c.__tourDemo}
+                          onClick={() => !c.__tourDemo && openDeleteModal(c.id)}
                         />
                       </WrapItem>
                     </Wrap>
 
                     <Text fontWeight="bold" fontSize="md" noOfLines={1}>
-                      <ChakraLink as={Link} to={`/clients/${c.id}`} color={headColor}>
+                      <ChakraLink as={c.__tourDemo ? "span" : Link} to={c.__tourDemo ? undefined : `/clients/${c.id}`} color={headColor}>
                         {c.prenom} {c.nom}
                       </ChakraLink>
                     </Text>
                     <Text mt={1} fontSize="sm" color={muted} noOfLines={1}>
-                      {c.email || c.phone || "Aucun contact renseigné"}
+                      {c.email || c.phone || t("clientsList.noContact", "Aucun contact renseigné")}
                     </Text>
 
                     <HStack spacing={2} mt={1} mb={2} wrap="wrap">
+                      <Badge colorScheme={followKind.colorScheme} borderRadius="full" px={2.5} py={1}>
+                        {followKind.label}
+                      </Badge>
+                      {!nutritionMode && (
                       <Badge px={2.5} py={1} borderRadius="full" bg={statBg} color={headColor}>
                         {nbProg} {t("clientsList.badge.programsShort")}
                       </Badge>
+                      )}
                       <Badge colorScheme={isActive ? "green" : "orange"} px={2.5} py={1} borderRadius="full">
-                        {t(isActive ? "clientsList.status.active" : "clientsList.status.inactive")}
+                        {statusText(isActive)}
                       </Badge>
                       <Badge variant="subtle" colorScheme="gray" px={2.5} py={1} borderRadius="full">
                         {last ? last.toLocaleDateString() : "N/A"}
                       </Badge>
                     </HStack>
 
-                    <HStack justify="space-between" mb={1}>
-                      <Text fontSize="sm" color={muted}>
-                        {t("clientsList.progress.sessions", {
-                          done: progStat.completed,
-                          total: progStat.total,
-                        })}
-                      </Text>
-                      <Text fontSize="sm" fontWeight="semibold">
-                        {progStat.percent}%
-                      </Text>
-                    </HStack>
-                    <Progress value={progStat.percent} size="sm" borderRadius="md" />
-                    <Text mt={1} fontSize="xs" color={muted}>
-                      {t("clientsList.progress.perWeek", { n: perWeek })}
-                    </Text>
+                    {!nutritionMode && (
+                      <>
+                        <HStack justify="space-between" mb={1}>
+                          <Text fontSize="sm" color={muted}>
+                            {t("clientsList.progress.sessions", {
+                              done: progStat.completed,
+                              total: progStat.total,
+                            })}
+                          </Text>
+                          <Text fontSize="sm" fontWeight="semibold">
+                            {progStat.percent}%
+                          </Text>
+                        </HStack>
+                        <Progress value={progStat.percent} size="sm" borderRadius="md" />
+                        <Text mt={1} fontSize="xs" color={muted}>
+                          {t("clientsList.progress.perWeek", { n: perWeek })}
+                        </Text>
+                      </>
+                    )}
                   </Box>
                 );
               })}
@@ -963,12 +1292,12 @@ const Clients = () => {
         <Modal isOpen={isDeleteOpen} onClose={() => setIsDeleteOpen(false)} isCentered>
           <ModalOverlay />
           <ModalContent>
-            <ModalHeader>{t("clientsList.deleteModal.title", "Supprimer le client")}</ModalHeader>
+            <ModalHeader>{nutritionMode ? t("clientsList.deleteModal.patientTitle", "Supprimer le patient") : t("clientsList.deleteModal.title", "Supprimer le client")}</ModalHeader>
             <ModalCloseButton />
             <ModalBody>
               <Alert status="warning">
                 <AlertIcon />
-                {t("clientsList.deleteModal.body", "Êtes-vous sûr de vouloir supprimer ce client ?")}
+                {nutritionMode ? t("clientsList.deleteModal.patientBody", "Êtes-vous sûr de vouloir supprimer ce patient ?") : t("clientsList.deleteModal.body", "Êtes-vous sûr de vouloir supprimer ce client ?")}
               </Alert>
             </ModalBody>
             <ModalFooter>
@@ -1007,7 +1336,7 @@ const Clients = () => {
         >
           <ModalOverlay />
           <ModalContent>
-            <ModalHeader>{t("clientView.editClient", "Modifier le client")}</ModalHeader>
+            <ModalHeader>{nutritionMode ? t("clientsList.editPatient", "Modifier le patient") : t("clientView.editClient", "Modifier le client")}</ModalHeader>
             <ModalCloseButton />
             <ModalBody>
               <Stack spacing={3}>
@@ -1024,7 +1353,7 @@ const Clients = () => {
 
                 <Stack spacing={4} direction={{ base: "column", md: "row" }}>
                   <FormControl>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>{t("clientCreation.email", "Email")}</FormLabel>
                     <Input type="email" value={cf_email} onChange={(e) => setCfEmail(e.target.value)} />
                   </FormControl>
                   <FormControl>
@@ -1052,7 +1381,7 @@ const Clients = () => {
 
                 <Stack spacing={4} direction={{ base: "column", md: "row" }}>
                   <FormControl>
-                    <FormLabel>{t("clientCreation.level", "Niveau")}</FormLabel>
+                    <FormLabel>{nutritionMode ? t("clientsList.fields.activityProfile", "Profil d'activité") : t("clientCreation.level", "Niveau")}</FormLabel>
                     <Select value={cf_level} onChange={(e) => setCfLevel(e.target.value)}>
                       {levelOptions.map((opt) => (
                         <option key={opt.value} value={opt.value}>
@@ -1062,7 +1391,7 @@ const Clients = () => {
                     </Select>
                   </FormControl>
                   <FormControl>
-                    <FormLabel>{t("clientCreation.objective", "Objectif")}</FormLabel>
+                    <FormLabel>{nutritionMode ? t("clientsList.fields.nutritionGoal", "Objectif nutrition") : t("clientCreation.objective", "Objectif")}</FormLabel>
                     <Select value={cf_goal} onChange={(e) => setCfGoal(e.target.value)}>
                       {goalOptions.map((opt) => (
                         <option key={opt.value} value={opt.value}>
@@ -1098,10 +1427,19 @@ const Clients = () => {
               </Stack>
             </ModalBody>
             <ModalFooter>
-              <Button mr={3} onClick={() => setIsClientModalOpen(false)}>
+              <Button
+                mr={3}
+                variant="outline"
+                onClick={() => saveClient({ forceEmail: true })}
+                isDisabled={isSavingClient || !cf_email.trim()}
+                isLoading={isSavingClient}
+              >
+                {t("clientsList.edit.resendAccessEmail", "Renvoyer l’e-mail d’accès")}
+              </Button>
+              <Button mr={3} onClick={() => setIsClientModalOpen(false)} isDisabled={isSavingClient}>
                 {t("common.cancel", "Annuler")}
               </Button>
-              <Button colorScheme="blue" onClick={saveClient}>
+              <Button colorScheme="blue" onClick={() => saveClient()} isLoading={isSavingClient}>
                 {t("common.save", "Enregistrer")}
               </Button>
             </ModalFooter>

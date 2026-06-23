@@ -5,22 +5,21 @@ import LanguageDetector from "i18next-browser-languagedetector";
 
 /* ---------- Ressources JSON (toutes les langues) ---------- */
 import fr from "./locales/fr/common.json";
-import en from "./locales/en/common.json";
-import it from "./locales/it/common.json";
-import es from "./locales/es/common.json";
-import de from "./locales/de/common.json";
-import ru from "./locales/ru/common.json";
-import ar from "./locales/ar/common.json";
 
 /* ---------- Dictionnaires ---------- */
 const resources = {
   fr: { common: fr },
-  en: { common: en },
-  it: { common: it },
-  es: { common: es },
-  de: { common: de },
-  ru: { common: ru },
-  ar: { common: ar },
+};
+
+const supportedLngs = ["fr", "en", "it", "es", "de", "ru", "ar"];
+const loadedLanguages = new Set(["fr"]);
+const localeLoaders = {
+  en: () => import("./locales/en/common.json"),
+  it: () => import("./locales/it/common.json"),
+  es: () => import("./locales/es/common.json"),
+  de: () => import("./locales/de/common.json"),
+  ru: () => import("./locales/ru/common.json"),
+  ar: () => import("./locales/ar/common.json"),
 };
 
 /* ---------- Helpers (LTR/RTL + <html lang>) ---------- */
@@ -37,6 +36,18 @@ const applyDocumentLangAndDir = (lng) => {
   if (html.getAttribute("lang") !== base) html.setAttribute("lang", base);
 };
 
+export const ensureLanguageLoaded = async (lng) => {
+  const base = normalizeLng(lng);
+  if (!supportedLngs.includes(base) || loadedLanguages.has(base)) return { base, loadedNow: false };
+  const loader = localeLoaders[base];
+  if (!loader) return { base: "fr", loadedNow: false };
+
+  const mod = await loader();
+  i18n.addResourceBundle(base, "common", mod.default || mod, true, true);
+  loadedLanguages.add(base);
+  return { base, loadedNow: true };
+};
+
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
@@ -46,7 +57,7 @@ i18n
     // Si une clé manque -> retombe sur FR puis EN
     fallbackLng: ["fr", "en"],
 
-    supportedLngs: ["fr", "en", "it", "es", "de", "ru", "ar"],
+    supportedLngs,
     nonExplicitSupportedLngs: true,
     cleanCode: true,
 
@@ -56,13 +67,13 @@ i18n
     detection: {
       /**
        * Ordre de détection :
-       * 1) /en/... (si tu utilises des routes avec prefix langue)
-       * 2) ?lng=en
-       * 3) localStorage
+       * 1) ?lng=en
+       * 2) localStorage
+       * 3) /en/... (si tu utilises des routes avec prefix langue)
        * 4) navigateur
        * 5) <html lang="">
        */
-      order: ["path", "querystring", "localStorage", "navigator", "htmlTag"],
+      order: ["querystring", "localStorage", "path", "navigator", "htmlTag"],
 
       lookupFromPathIndex: 0,
       lookupQuerystring: "lng",
@@ -90,11 +101,21 @@ i18n
 
 // Applique direction + lang au chargement
 applyDocumentLangAndDir(i18n.resolvedLanguage || i18n.language || "fr");
+ensureLanguageLoaded(i18n.resolvedLanguage || i18n.language || "fr").then(({ base, loadedNow }) => {
+  if (loadedNow && base !== "fr" && normalizeLng(i18n.language) === base) {
+    i18n.changeLanguage(base);
+  }
+});
 
 // Et à chaque changement de langue
 i18n.on("languageChanged", (lng) => {
-  applyDocumentLangAndDir(lng);
+  const base = normalizeLng(lng);
+  applyDocumentLangAndDir(base);
+  ensureLanguageLoaded(base).then(({ base: loadedBase, loadedNow }) => {
+    if (loadedNow && loadedBase !== "fr" && normalizeLng(i18n.language) === loadedBase) {
+      i18n.changeLanguage(loadedBase);
+    }
+  });
 });
 
 export default i18n;
-

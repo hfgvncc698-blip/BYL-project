@@ -4,15 +4,17 @@ import {
   Box, Heading, Input, Select, Textarea, Button, VStack, HStack,
   useColorModeValue, useToast, FormControl, FormLabel,
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton,
-  useDisclosure, Text, SimpleGrid, Divider
+  useDisclosure, Text, SimpleGrid, Divider, Alert, AlertIcon, Badge
 } from "@chakra-ui/react";
 import {
-  doc, setDoc, serverTimestamp, getDocs, getDoc,
+  doc, setDoc, serverTimestamp, getDocs,
   collection, query, where, updateDoc, arrayUnion
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useAuth } from "../AuthContext";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { apiFetch } from "../utils/api";
 import { notify } from "../utils/notify";
 
 // App secondaire pour créer un user sans déconnecter le coach
@@ -43,10 +45,18 @@ const langCodeFromAny = (value) => {
   return "fr";
 };
 
-const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
+const ClientCreation = ({ onClose, onCreated, hideTitle = false, ownerUid = "" }) => {
   const { t } = useTranslation("common");
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const effectiveOwnerUid = ownerUid || user?.uid || "";
   const toast = useToast();
+  const clientLimit =
+    typeof user?.proAccess?.clientLimit === "number"
+      ? user.proAccess.clientLimit
+      : typeof user?.clientLimit === "number"
+      ? user.clientLimit
+      : null;
 
   /* ----- options UI ----- */
   const levelOptions = [
@@ -95,11 +105,53 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
   /* modals */
   const { isOpen: isNoAccessOpen, onOpen: onNoAccessOpen, onClose: onNoAccessClose } = useDisclosure();
   const { isOpen: isMergeOpen, onOpen: onMergeOpen, onClose: onMergeClose } = useDisclosure();
+  const { isOpen: isLimitOpen, onOpen: onLimitOpen, onClose: onLimitClose } = useDisclosure();
   const [mergeClientId, setMergeClientId] = useState(null);
   const [mergeClient, setMergeClient] = useState(null);
   const [pendingOfflineClient, setPendingOfflineClient] = useState(null);
+  const [limitUsage, setLimitUsage] = useState({ used: 0, limit: clientLimit });
+  const [existingLookup, setExistingLookup] = useState(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
 
-  const handleChange = (e) => setClient({ ...client, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    setClient({ ...client, [e.target.name]: e.target.value });
+    if (e.target.name === "email") setExistingLookup(null);
+  };
+
+  const lookupExistingClient = async () => {
+    const email = (client.email || "").trim().toLowerCase();
+    if (!email || !email.includes("@")) {
+      setExistingLookup(null);
+      return null;
+    }
+    setLookupLoading(true);
+    try {
+      const result = await apiFetch(`/clubs/client-lookup?email=${encodeURIComponent(email)}`);
+      setExistingLookup(result?.exists ? result : null);
+      return result?.exists ? result : null;
+    } catch (error) {
+      console.warn("Client lookup failed:", error);
+      setExistingLookup(null);
+      return null;
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
+  const ensureClientCapacity = async () => {
+    if (!user?.uid) return false;
+    const capacity = await apiFetch("/clubs/client-capacity");
+    if (capacity?.allowed || capacity?.limit == null) return true;
+    setLimitUsage({
+      used: capacity.used || 0,
+      limit: capacity.limit,
+      clubManaged: Boolean(capacity.clubManaged),
+      packageTier: capacity.packageTier || "",
+      upgradeMessage: capacity.upgradeMessage || "",
+    });
+    onLimitOpen();
+    return false;
+  };
 
   /* --------- payload calculé Firestore --------- */
   const buildComputedPayload = (base) => {
@@ -121,6 +173,8 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
 
     return {
       ...base,
+      clubId: base.clubId || user?.clubId || null,
+      clubName: base.clubName || user?.clubName || null,
       heightCm: heightCmOut,
       weightKg: weightKgOut,
       settings: {
@@ -166,61 +220,7 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
   };
 
   /* --------- Lier un compte existant par e-mail --------- */
-  const linkExistingByEmail = async (emailNorm) => {
-    const qUsers = query(collection(db, "users"), where("email", "==", emailNorm));
-    const usersSnap = await getDocs(qUsers);
-
-    if (usersSnap.empty) {
-      // fallback: client existant par email dans /clients
-      const qClients = query(collection(db, "clients"), where("email", "==", emailNorm));
-      const clientsSnap = await getDocs(qClients);
-      if (!clientsSnap.empty) {
-        const ref = clientsSnap.docs[0].ref;
-        await updateDoc(ref, {
-          ...buildComputedPayload({
-            ...client,
-            email: emailNorm,
-            prenom: client.prenom.trim(),
-            nom: client.nom.trim(),
-          }),
-          emailLower: emailNorm,
-          coachIds: arrayUnion(user.uid),
-        });
-        return { uid: ref.id, created: false, updatedExistingClient: true };
-      }
-      throw new Error("email_exists_but_user_doc_missing");
-    }
-
-    const userDoc = usersSnap.docs[0];
-    const uid = userDoc.id;
-
-    const clientRef = doc(db, "clients", uid);
-    const clientSnap = await getDoc(clientRef);
-
-    const clientPayload = buildComputedPayload({
-      ...client,
-      email: emailNorm,
-      emailLower: emailNorm,
-      prenom: client.prenom.trim(),
-      nom: client.nom.trim(),
-      creeLe: clientSnap.exists() ? clientSnap.data()?.creeLe || serverTimestamp() : serverTimestamp(),
-      createdBy: user.uid,
-    });
-
-    if (clientSnap.exists()) {
-      await updateDoc(clientRef, {
-        ...clientPayload,
-        coachIds: arrayUnion(user.uid),
-      });
-    } else {
-      await setDoc(clientRef, {
-        ...clientPayload,
-        coachIds: [user.uid],
-      });
-    }
-
-    return { uid, created: false };
-  };
+  
 
   /* ----------------- fusion (doublon offline) ----------------- */
   const handleMerge = async () => {
@@ -230,11 +230,11 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
         ...client,
         email: client.email || "",
         creeLe: mergeClient?.creeLe || serverTimestamp(),
-        createdBy: user.uid,
+        createdBy: effectiveOwnerUid,
       });
       await updateDoc(doc(db, "clients", mergeClientId), {
         ...payload,
-        coachIds: arrayUnion(user.uid),
+        coachIds: arrayUnion(effectiveOwnerUid),
       });
       notify(toast, "clientLinked", {
         title: t("common.confirm"),
@@ -256,6 +256,11 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
     e.preventDefault();
     if (!user?.uid) return;
     setLoading(true);
+    const hasCapacity = await ensureClientCapacity();
+    if (!hasCapacity) {
+      setLoading(false);
+      return;
+    }
 
     if (client.loginMethod === "email") {
       const email = (client.email || "").trim().toLowerCase();
@@ -284,6 +289,45 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
       }
 
       try {
+        const existing = existingLookup || (await lookupExistingClient());
+        if (existing?.exists) {
+          if (!existing.canLink) {
+            notify(toast, "saveError", {
+              title: "Compte existant incompatible",
+              description: "Cet email appartient déjà à un compte coach ou admin.",
+            });
+            setLoading(false);
+            return;
+          }
+
+          const linked = await apiFetch("/clubs/link-existing-client", {
+            method: "POST",
+            body: JSON.stringify({
+              email,
+              firstName: client.prenom.trim(),
+              lastName: client.nom.trim(),
+              telephone: client.telephone?.trim() || "",
+              dateNaissance: client.dateNaissance || "",
+              niveauSportif: client.niveauSportif || "",
+              objectifs: client.objectifs || "",
+              notes: client.notes || "",
+              langue: client.langue || "",
+            }),
+          });
+
+          notify(toast, "clientLinked", {
+            title: "Client existant rattaché",
+            description: linked?.hasPrograms
+              ? "Le coach verra aussi les programmes déjà présents sur cette fiche."
+              : "Le compte existant est maintenant visible dans la liste clients.",
+          });
+          setClient(initialClientState);
+          setExistingLookup(null);
+          onCreated?.(); onClose?.();
+          setLoading(false);
+          return;
+        }
+
         // essayer de créer le compte via app secondaire
         const baseConfig = getApp().options;
         const secondary =
@@ -303,9 +347,28 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
 
           // s'il existe déjà -> lier au coach + mettre à jour clients/{uid}
           if (err?.code === "auth/email-already-in-use") {
+            const linked = await apiFetch("/clubs/link-existing-client", {
+              method: "POST",
+              body: JSON.stringify({
+                email,
+                firstName: client.prenom.trim(),
+                lastName: client.nom.trim(),
+                telephone: client.telephone?.trim() || "",
+                dateNaissance: client.dateNaissance || "",
+                niveauSportif: client.niveauSportif || "",
+                objectifs: client.objectifs || "",
+                notes: client.notes || "",
+                langue: client.langue || "",
+              }),
+            });
             await deleteApp(secondary).catch(() => {});
-            const res = await linkExistingByEmail(email);
-            notify(toast, "clientLinked");
+
+            notify(toast, "clientLinked", {
+              title: "Client existant rattaché",
+              description: linked?.hasPrograms
+                ? "Le compte existant a été rattaché au coach avec ses programmes."
+                : "Le compte existant a été rattaché au coach.",
+            });
             setClient(initialClientState);
             onCreated?.(); onClose?.();
             setLoading(false);
@@ -364,7 +427,7 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
           prenom: client.prenom.trim(),
           nom: client.nom.trim(),
           creeLe: serverTimestamp(),
-          createdBy: user.uid,
+          createdBy: effectiveOwnerUid,
         });
 
         await setDoc(doc(db, "clients", uid), {
@@ -372,7 +435,7 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
           emailLower: email,
           uid,
           linkedUserId: uid,
-          coachIds: [user.uid],
+          coachIds: [effectiveOwnerUid],
         });
 
         notify(toast, "clientCreatedWithEmail");
@@ -391,62 +454,22 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
       return;
     }
 
-    // --- Méthode téléphone (invitation) ---
+    // --- Méthode téléphone : désactivée tant que Firebase SMS n'est pas branché ---
     if (client.loginMethod === "phone") {
-      if (!client.telephone) {
-        notify(toast, "clientMissingPhone", {
-          title: t("clientCreation.phone"),
-          description: t("errors.missingPhone") || "Numéro de téléphone requis",
-        });
-        setLoading(false);
-        return;
-      }
-      try {
-        const pseudoUid = `tel_${client.telephone.replace(/\D/g, "")}`;
-        await setDoc(doc(db, "users", pseudoUid), {
-          phone: client.telephone,
-          role: "particulier",
-          firstName: client.prenom.trim(),
-          lastName: client.nom.trim(),
-          email: (client.email || "").trim() || null,
-          createdAt: serverTimestamp(),
-          loginMethod: "phone",
-          invitePending: true,
-          settings: { defaultLanguage: client.langue }
-        });
-
-        const clientPayload = buildComputedPayload({
-          ...client,
-          email: (client.email || "").trim(),
-          prenom: client.prenom.trim(),
-          nom: client.nom.trim(),
-          creeLe: serverTimestamp(),
-          createdBy: user.uid,
-          invitePending: true,
-        });
-
-        await setDoc(doc(db, "clients", pseudoUid), {
-          ...clientPayload,
-          coachIds: [user.uid],
-        });
-
-        notify(toast, "clientCreated");
-        setClient(initialClientState);
-        onCreated?.(); onClose?.();
-      } catch (error) {
-        notify(toast, "saveError", {
-          title: t("errors.update_error") || "Création impossible",
-          description: error.message,
-        });
-      } finally {
-        setLoading(false);
-      }
+      notify(toast, "phoneLoginUnavailable", {
+        title: t("clientCreation.phoneLoginUnavailableTitle") || "Connexion téléphone indisponible",
+        description:
+          t("clientCreation.phoneLoginUnavailableDescription") ||
+          "La connexion par téléphone nécessite une validation SMS Firebase complète. Pour l’instant, créez l’accès client par email pour garder un parcours sécurisé.",
+      });
+      setLoading(false);
+      return;
     }
   };
 
   /* offline-only (pas d’email) */
   const handleNoAccessConfirm = async () => {
-    if (!pendingOfflineClient || !user?.uid) { onNoAccessClose(); return; }
+    if (!pendingOfflineClient || !effectiveOwnerUid) { onNoAccessClose(); return; }
     setLoading(true);
     const c = pendingOfflineClient;
     const pseudoUid = `offline_${c.prenom.trim().toLowerCase()}_${c.nom.trim().toLowerCase()}_${Date.now()}`;
@@ -455,12 +478,12 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
         ...c,
         email: "",
         creeLe: serverTimestamp(),
-        createdBy: user.uid,
+        createdBy: effectiveOwnerUid,
         offlineOnly: true,
       });
       await setDoc(doc(db, "clients", pseudoUid), {
         ...clientPayload,
-        coachIds: [user.uid],
+        coachIds: [effectiveOwnerUid],
       });
       notify(toast, "clientCreated", {
         status: "info",
@@ -494,29 +517,29 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
           <Heading size="md" mb={1}>
             {t("clientCreation.title")}
           </Heading>
-          <Text fontSize="sm" color="textMuted">
-            Créez une fiche client complète avec ses informations de contact, son profil et ses préférences.
-          </Text>
+          <Text fontSize="sm" color="textMuted">{t("auto.ClientCreation.creez_une_fiche_client_complete_avec_ses_informati", "Créez une fiche client complète avec ses informations de contact, son profil et ses préférences.")}</Text>
         </Box>
       )}
 
       <form onSubmit={handleSubmit}>
         <VStack spacing={5} align="stretch">
           <Box>
-            <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.08em" color="textMuted" fontWeight="800">
-              Accès
-            </Text>
-            <Text mt={1} fontSize="sm" color={fieldHint}>
-              Choisissez comment le client activera son compte.
-            </Text>
+            <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.08em" color="textMuted" fontWeight="800">{t("auto.SettingsPageCoach.acces", "Accès")}</Text>
+            <Text mt={1} fontSize="sm" color={fieldHint}>{t("auto.ClientCreation.choisissez_comment_le_client_activera_son_compte", "Choisissez comment le client activera son compte.")}</Text>
           </Box>
 
           <FormControl isRequired>
             <FormLabel>{t("clientCreation.loginMethod")}</FormLabel>
             <Select name="loginMethod" value={client.loginMethod} onChange={handleChange}>
               <option value="email">{t("clientCreation.loginMethodEmail")}</option>
-              <option value="phone">{t("clientCreation.loginMethodPhone")}</option>
+              <option value="phone" disabled>
+                {t("clientCreation.loginMethodPhoneSoon") || `${t("clientCreation.loginMethodPhone")} (bientôt)`}
+              </option>
             </Select>
+            <Text mt={2} fontSize="xs" color={fieldHint}>
+              {t("clientCreation.phoneLoginHint") ||
+                "La connexion par téléphone sera branchée avec une validation SMS dédiée. Pour le moment, l’accès client sécurisé se fait par email."}
+            </Text>
           </FormControl>
 
           <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
@@ -533,7 +556,41 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
           {client.loginMethod === "email" && (
             <FormControl>
               <FormLabel>{t("clientCreation.email")}</FormLabel>
-              <Input type="email" name="email" placeholder={t("clientCreation.email")} value={client.email} onChange={handleChange} />
+              <Input
+                type="email"
+                name="email"
+                placeholder={t("clientCreation.email")}
+                value={client.email}
+                onChange={handleChange}
+                onBlur={lookupExistingClient}
+              />
+              {lookupLoading && (
+                <Text mt={2} fontSize="xs" color={fieldHint}>
+                  Vérification du compte existant...
+                </Text>
+              )}
+              {existingLookup?.exists && (
+                <Alert mt={3} status={existingLookup.canLink ? "info" : "warning"} borderRadius="lg">
+                  <AlertIcon />
+                  <Box>
+                    <HStack spacing={2} flexWrap="wrap">
+                      <Text fontWeight="800">
+                        {existingLookup.canLink ? "Compte client existant trouvé" : "Email déjà utilisé"}
+                      </Text>
+                      {existingLookup.hasPrograms && (
+                        <Badge colorScheme="blue">
+                          {existingLookup.client?.programCount || 0} programme(s)
+                        </Badge>
+                      )}
+                    </HStack>
+                    <Text fontSize="sm">
+                      {existingLookup.canLink
+                        ? "À la validation, cette fiche sera rattachée au coach sans créer de doublon."
+                        : "Cet email appartient déjà à un compte pro/admin et ne peut pas être ajouté comme client."}
+                    </Text>
+                  </Box>
+                </Alert>
+              )}
             </FormControl>
           )}
           {client.loginMethod === "phone" && (
@@ -552,17 +609,13 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
           <Divider borderColor="borderSubtle" />
 
           <Box>
-            <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.08em" color="textMuted" fontWeight="800">
-              Profil
-            </Text>
-            <Text mt={1} fontSize="sm" color={fieldHint}>
-              Renseignez les informations utiles au suivi sportif.
-            </Text>
+            <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.08em" color="textMuted" fontWeight="800">{t("profile_short.title", "Profil")}</Text>
+            <Text mt={1} fontSize="sm" color={fieldHint}>{t("auto.ClientCreation.renseignez_les_informations_utiles_au_suivi_sporti", "Renseignez les informations utiles au suivi sportif.")}</Text>
           </Box>
 
           <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
             <FormControl>
-              <FormLabel>Date de naissance</FormLabel>
+              <FormLabel>{t("clientCreation.birthDate", "Date de naissance")}</FormLabel>
               <Input type="date" name="dateNaissance" value={client.dateNaissance} onChange={handleChange} />
             </FormControl>
             <FormControl isRequired>
@@ -581,17 +634,17 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
               <HStack align="start">
                 <Input placeholder={heightPlaceholderCm} type="number" inputMode="decimal" step="1" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} />
                 <Select w="28" value={heightUnit} onChange={(e) => onHeightUnitChange(e.target.value)}>
-                  <option value="cm">cm</option>
-                  <option value="ft">ft</option>
+                  <option value="cm">{t("units.cm", "cm")}</option>
+                  <option value="ft">{t("auto.ClientCreation.ft", "ft")}</option>
                 </Select>
               </HStack>
             ) : (
               <HStack align="start">
-                <Input placeholder="ft" type="number" inputMode="numeric" step="1" value={heightFt} onChange={(e) => setHeightFt(e.target.value)} />
-                <Input placeholder="in" type="number" inputMode="numeric" step="1" value={heightIn} onChange={(e) => setHeightIn(e.target.value)} />
+                <Input placeholder={t("auto.ClientCreation.ft", "ft")} type="number" inputMode="numeric" step="1" value={heightFt} onChange={(e) => setHeightFt(e.target.value)} />
+                <Input placeholder={t("auto.ClientCreation.in", "in")} type="number" inputMode="numeric" step="1" value={heightIn} onChange={(e) => setHeightIn(e.target.value)} />
                 <Select w="28" value={heightUnit} onChange={(e) => onHeightUnitChange(e.target.value)}>
-                  <option value="cm">cm</option>
-                  <option value="ft">ft</option>
+                  <option value="cm">{t("units.cm", "cm")}</option>
+                  <option value="ft">{t("auto.ClientCreation.ft", "ft")}</option>
                 </Select>
               </HStack>
             )}
@@ -602,22 +655,22 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
             <HStack align="start">
               <Input name="poids" placeholder={weightPlaceholder} type="number" inputMode="decimal" step={weightUnit === "kg" ? "0.1" : "1"} value={client.poids} onChange={handleChange} />
               <Select w="28" value={weightUnit} onChange={(e) => onWeightUnitChange(e.target.value)}>
-                <option value="kg">kg</option>
-                <option value="lbs">lbs</option>
+                <option value="kg">{t("units.kg", "kg")}</option>
+                <option value="lbs">{t("units.lbs", "lbs")}</option>
               </Select>
             </HStack>
           </FormControl>
 
           <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
             <FormControl isRequired>
-              <FormLabel>Niveau sportif</FormLabel>
+              <FormLabel>{t("auto.ClientCreation.niveau_sportif", "Niveau sportif")}</FormLabel>
               <Select name="niveauSportif" value={client.niveauSportif} onChange={handleChange} required>
                 {levelOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
               </Select>
             </FormControl>
 
             <FormControl isRequired>
-              <FormLabel>Objectif principal</FormLabel>
+              <FormLabel>{t("auto.ClientCreation.objectif_principal", "Objectif principal")}</FormLabel>
               <Select name="objectifs" value={client.objectifs} onChange={handleChange} required>
                 {objectiveOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
               </Select>
@@ -627,16 +680,12 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
           <Divider borderColor="borderSubtle" />
 
           <Box>
-            <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.08em" color="textMuted" fontWeight="800">
-              Préférences
-            </Text>
-            <Text mt={1} fontSize="sm" color={fieldHint}>
-              Définissez la langue de référence et les notes utiles pour l’accompagnement.
-            </Text>
+            <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.08em" color="textMuted" fontWeight="800">{t("settings.sections.preferences", "Préférences")}</Text>
+            <Text mt={1} fontSize="sm" color={fieldHint}>{t("auto.ClientCreation.definissez_la_langue_de_reference_et_les_notes_uti", "Définissez la langue de référence et les notes utiles pour l’accompagnement.")}</Text>
           </Box>
 
           <FormControl>
-            <FormLabel>Langue</FormLabel>
+            <FormLabel>{t("clientCreation.language", "Langue")}</FormLabel>
             <Select name="langue" value={client.langue} onChange={handleChange}>
               {languageOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
             </Select>
@@ -692,6 +741,40 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false }) => {
           <ModalFooter>
             <Button mr={3} onClick={handleMerge}>{t("clientCreation.modalConfirm")}</Button>
             <Button variant="ghost" onClick={onMergeClose}>{t("clientCreation.modalCancel")}</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* MODAL : Limite du pack */}
+      <Modal isOpen={isLimitOpen} onClose={onLimitClose} isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>{t("auto.ClientCreation.limite_de_clients_atteinte", "Limite de clients atteinte")}</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Text>
+              {t(
+                "auto.ClientCreation.votre_pack_permet_clients",
+                "Votre pack permet {{limit}} client(s). Vous en avez déjà {{used}}.",
+                { limit: limitUsage.limit, used: limitUsage.used }
+              )}
+            </Text>
+            <Text mt={3} color={fieldHint}>
+              {limitUsage.clubManaged
+                ? limitUsage.upgradeMessage || "La capacité est partagée par tout le club. Demandez au responsable de passer au pack supérieur, ou contactez contact@boostyourlife.coach si vous êtes déjà au maximum."
+                : "Passez au palier supérieur pour ajouter de nouveaux clients et débloquer plus de capacité."}
+            </Text>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onLimitClose}>{t("auto.ClubDashboard.plus_tard", "Plus tard")}</Button>
+            <Button
+              onClick={() => {
+                onLimitClose();
+                navigate(limitUsage.packageTier === "network" ? "/contact" : "/plans/professionnel");
+              }}
+            >
+              {limitUsage.packageTier === "network" ? "Contacter BYL" : "Améliorer le pack"}
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

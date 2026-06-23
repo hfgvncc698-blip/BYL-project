@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Redirection TikTok</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        background: #101413;
+        color: #f7f4ec;
+      }
+
+      body {
+        align-items: center;
+        display: flex;
+        justify-content: center;
+        margin: 0;
+        min-height: 100vh;
+      }
+
+      main {
+        max-width: 520px;
+        padding: 32px;
+        text-align: center;
+      }
+
+      h1 {
+        font-size: 28px;
+        line-height: 1.15;
+        margin: 0 0 12px;
+      }
+
+      p {
+        color: #c8c3b8;
+        font-size: 16px;
+        line-height: 1.6;
+        margin: 0 0 24px;
+      }
+
+      a {
+        background: #d7b766;
+        border-radius: 8px;
+        color: #141311;
+        display: inline-flex;
+        font-weight: 700;
+        padding: 12px 18px;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Connexion TikTok en cours</h1>
+      <p>Retour vers le tableau de bord local pour finaliser la connexion.</p>
+      <a id="manualLink" href="http://localhost:5182/oauth/tiktok/callback">
+        Continuer vers le dashboard
+      </a>
+    </main>
+    <script>
+      (function () {
+        var localCallback = "http://localhost:5182/oauth/tiktok/callback";
+        var targetUrl =
+          localCallback + (window.location.search || "") + (window.location.hash || "");
+        var link = document.getElementById("manualLink");
+
+        if (link) {
+          link.href = targetUrl;
+        }
+
+        window.setTimeout(function () {
+          window.location.replace(targetUrl);
+        }, 350);
+      })();
+    </script>
+  </body>
+</html>

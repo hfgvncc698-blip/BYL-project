@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { doc, updateDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useAuth } from "../AuthContext";
+import { ensureLanguageLoaded } from "../i18n";
 
 const LANGS = [
   { code: "fr", label: "Français" },
@@ -34,6 +35,7 @@ export default function LanguageSwitcher({ buttonProps = {}, menuProps = {} }) {
 
   const change = async (lng) => {
     if (!SUPPORTED.includes(lng)) return;
+    await ensureLanguageLoaded(lng);
     await i18n.changeLanguage(lng);
     localStorage.setItem("i18nextLng", lng);
 
@@ -92,4 +94,3 @@ export default function LanguageSwitcher({ buttonProps = {}, menuProps = {} }) {
     </Menu>
   );
 }
-

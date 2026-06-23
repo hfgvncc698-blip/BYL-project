@@ -12,6 +12,8 @@ export function normalizeNutritionText(value = "") {
   return String(value || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[œŒ]/g, "oe")
+    .replace(/[æÆ]/g, "ae")
     .toLowerCase()
     .trim()
     .replace(/\s+/g, " ");
@@ -254,8 +256,18 @@ export function getObjectiveProfile(objectiveRaw = "", inputs = {}) {
   return {
     objectiveRaw: resolvedObjective,
     key,
-    isLoss: key.includes("perte") || key.includes("maigr"),
-    isMass: key.includes("prise") || key.includes("masse") || key.includes("hypertroph"),
+    isLoss:
+      key.includes("perte") ||
+      key.includes("maigr") ||
+      key.includes("perdita") ||
+      key.includes("dimagr"),
+    isMass:
+      key.includes("prise") ||
+      key.includes("masse") ||
+      key.includes("massa") ||
+      key.includes("aumento") ||
+      key.includes("hypertroph") ||
+      key.includes("ipertrof"),
     isPreg1: trimester === 1,
     isPreg2: trimester === 2,
     isPreg3: trimester === 3,
@@ -388,10 +400,10 @@ export function parseRegimeFlags(inputs = {}) {
 
   return {
     vegetarian: hasAnyNormalized(entries, ["vegetarien", "vegetarienne", "vegetarian"]),
-    vegan: hasAnyNormalized(entries, ["vegan", "vegane", "vegetalien", "vegetalienne"]),
+    vegan: hasAnyNormalized(entries, ["vegan", "vegane", "vegano", "vegetalien", "vegetalienne"]),
     pescetarian: hasAnyNormalized(entries, ["pescetar", "pesco", "poisson uniquement"]),
-    glutenFree: hasAnyNormalized(entries, ["sans gluten", "gluten free", "celiaque", "coeliaque"]),
-    lactoseFree: hasAnyNormalized(entries, ["sans lactose", "lactose free"]),
+    glutenFree: hasAnyNormalized(entries, ["sans gluten", "gluten free", "senza glutine", "celiaque", "coeliaque", "celiachia"]),
+    lactoseFree: hasAnyNormalized(entries, ["sans lactose", "lactose free", "senza lattosio"]),
     lowFodmap: hasAnyNormalized(entries, ["fodmap", "low fodmap"]),
     halal: hasAnyNormalized(entries, ["halal"]),
     kosher: hasAnyNormalized(entries, ["casher", "kosher"]),
@@ -400,6 +412,10 @@ export function parseRegimeFlags(inputs = {}) {
 
 export function normalizeFoodExclusionList(inputs = {}) {
   const values = [
+    ...listFromUnknown(inputs?.medical?.forbiddenFoods),
+    ...listFromUnknown(inputs?.forbiddenFoods),
+    ...listFromUnknown(inputs?.medical?.alimentsInterdits),
+    ...listFromUnknown(inputs?.alimentsInterdits),
     ...listFromUnknown(inputs?.medical?.foodExclusions),
     ...listFromUnknown(inputs?.foodExclusions),
     ...listFromUnknown(inputs?.medical?.foodRestrictions),
@@ -415,26 +431,33 @@ export function parseFoodExclusionFlags(inputs = {}) {
   const entries = normalizeFoodExclusionList(inputs).map((item) => normalizeNutritionText(item));
 
   return {
-    pork: hasAnyNormalized(entries, ["porc", "cochon", "charcuterie de porc"]),
-    fish: hasAnyNormalized(entries, ["poisson", "poissons"]),
+    pork: hasAnyNormalized(entries, ["porc", "cochon", "maiale", "suino", "charcuterie de porc"]),
+    fish: hasAnyNormalized(entries, ["poisson", "poissons", "pesce"]),
     seafood: hasAnyNormalized(entries, [
       "produits de la mer",
       "fruits de mer",
       "seafood",
+      "frutti di mare",
       "crustaces",
       "crustacés",
+      "crostacei",
       "mollusques",
+      "molluschi",
     ]),
-    eggs: hasAnyNormalized(entries, ["oeuf", "oeufs", "œuf", "œufs"]),
-    poultry: hasAnyNormalized(entries, ["volaille", "poulet", "dinde"]),
+    eggs: hasAnyNormalized(entries, ["oeuf", "oeufs", "œuf", "œufs", "uovo", "uova"]),
+    poultry: hasAnyNormalized(entries, ["volaille", "poulet", "dinde", "pollame", "pollo", "tacchino"]),
     redMeat: hasAnyNormalized(entries, [
       "boeuf",
       "bœuf",
       "veau",
       "agneau",
       "mouton",
+      "manzo",
+      "vitello",
+      "agnello",
       "viandes rouges",
       "viande rouge",
+      "carne rossa",
     ]),
   };
 }
@@ -446,38 +469,44 @@ export function parsePathologyFlags(inputs = {}) {
   );
 
   return {
-    diabete: hasAnyNormalized(entries, ["diabete", "type 1", "type 2", "gestationnel"]),
-    hta: hasAnyNormalized(entries, ["hta", "hypertension"]),
-    hyperchol: hasAnyNormalized(entries, ["hyperchol", "dyslipid", "cholesterol"]),
+    diabete: hasAnyNormalized(entries, ["diabete", "type 1", "type 2", "tipo 1", "tipo 2", "gestationnel", "gestazionale"]),
+    hta: hasAnyNormalized(entries, ["hta", "hypertension", "ipertensione"]),
+    hyperchol: hasAnyNormalized(entries, ["hyperchol", "ipercolesterolemia", "dyslipid", "cholesterol", "colesterolo"]),
     troublesDigestifs: hasAnyNormalized(entries, [
       "troubles digestifs",
       "digestif",
+      "disturbi digestivi",
+      "digestivo",
       "rgo",
       "reflux",
+      "reflusso",
       "intestin irritable",
+      "intestino irritabile",
       "sii",
       "crohn",
       "rectocolite",
       "rch",
       "constipation",
       "diarrhe",
+      "diarrea",
       "ballonnement",
+      "gonfiore",
       "fodmap",
     ]),
-    rgo: hasAnyNormalized(entries, ["rgo", "reflux"]),
-    ibs: hasAnyNormalized(entries, ["sii", "intestin irritable"]),
+    rgo: hasAnyNormalized(entries, ["rgo", "reflux", "reflusso"]),
+    ibs: hasAnyNormalized(entries, ["sii", "intestin irritable", "intestino irritabile"]),
     crohn: hasAnyNormalized(entries, ["crohn"]),
     rch: hasAnyNormalized(entries, ["rectocolite", "rch"]),
     constipation: hasAnyNormalized(entries, ["constipation"]),
-    diarrhee: hasAnyNormalized(entries, ["diarrhe"]),
-    ballonnements: hasAnyNormalized(entries, ["ballonnement"]),
+    diarrhee: hasAnyNormalized(entries, ["diarrhe", "diarrea"]),
+    ballonnements: hasAnyNormalized(entries, ["ballonnement", "gonfiore"]),
     fodmap: hasAnyNormalized(entries, ["fodmap"]),
-    celiac: hasAnyNormalized(entries, ["celiaque", "coeliaque"]),
-    renal: hasAnyNormalized(entries, ["renal", "renale", "rein", "dialyse", "ckd"]),
-    tca: hasAnyNormalized(entries, ["tca", "anorex", "boulim", "hyperphag", "orthorex"]),
-    hypo: hasAnyNormalized(entries, ["hypothyroid"]),
-    hyper: hasAnyNormalized(entries, ["hyperthyroid"]),
-    endometriosis: hasAnyNormalized(entries, ["endometriose"]),
+    celiac: hasAnyNormalized(entries, ["celiaque", "coeliaque", "celiachia", "celiaca"]),
+    renal: hasAnyNormalized(entries, ["renal", "renale", "rein", "rene", "dialyse", "dialisi", "ckd"]),
+    tca: hasAnyNormalized(entries, ["tca", "dca", "comportement alimentaire", "disturbi alimentari", "anorex", "boulim", "bulim", "hyperphag", "orthorex"]),
+    hypo: hasAnyNormalized(entries, ["hypothyroid", "ipotiroid"]),
+    hyper: hasAnyNormalized(entries, ["hyperthyroid", "ipertiroid"]),
+    endometriosis: hasAnyNormalized(entries, ["endometriose", "endometriosi"]),
     pcos: hasAnyNormalized(entries, ["sopk", "pcos"]),
     menopause: hasAnyNormalized(entries, ["menopause"]),
     allergies: !!allergiesText,
@@ -561,15 +590,16 @@ export function computeNutritionNeeds({
     1.4
   );
   const mb = firstNonZero(computed?.mb, computed?.MB) || blackBmrKcal({ sex, weightKg, heightCm, ageY });
-  const dej = firstNonZero(computed?.dej, computed?.DEJ) || (mb > 0 ? mb * nap : 0);
+  const computedDej = firstNonZero(computed?.dej, computed?.DEJ);
+  const calculatedDej = mb > 0 && nap > 0 ? mb * nap : 0;
+  const dej = calculatedDej || computedDej;
   const kcalMul = computeKcalMultiplier({ objectiveRaw: resolvedObjective, inputs });
   const explicitTarget = firstNonZero(
-    computed?.kcalTarget,
-    computed?.kcal_target,
     inputs?.kcal_cible,
     inputs?.kcalTarget
   );
-  const kcalTarget = explicitTarget || (dej > 0 ? dej * kcalMul : 0);
+  const computedTarget = firstNonZero(computed?.kcalTarget, computed?.kcal_target);
+  const kcalTarget = explicitTarget || (dej > 0 ? dej * kcalMul : computedTarget);
   const pctRanges = computeMacroPercentRanges({ objectiveRaw: resolvedObjective, inputs });
 
   const protG =

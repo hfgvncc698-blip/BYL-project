@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import {
   Box, Flex, HStack, VStack, Text, Image, Button,
   useColorModeValue, SkeletonCircle, SkeletonText
@@ -35,7 +35,19 @@ export default function CoachGreetingCard({
   const cardBg = useColorModeValue("white", "gray.800");
   const border = useColorModeValue("gray.200", "gray.700");
   const subtle = useColorModeValue("gray.600", "gray.300");
+  const logoBg = useColorModeValue("white", "gray.700");
+  const initialsBg = useColorModeValue("blue.50", "blue.900");
+  const initialsColor = useColorModeValue("blue.700", "blue.100");
   const ring = `0 0 0 3px ${primaryColor}33`; // halo léger
+  const [logoAspectRatio, setLogoAspectRatio] = useState(null);
+  const logoFrameSize = useMemo(() => {
+    const ratio = Number(logoAspectRatio || 1);
+    if (ratio >= 2.2) return { w: { base: "76px", md: "112px" }, h: { base: "48px", md: "64px" } };
+    if (ratio >= 1.35) return { w: { base: "64px", md: "92px" }, h: { base: "48px", md: "64px" } };
+    if (ratio <= 0.58) return { w: { base: "48px", md: "64px" }, h: { base: "64px", md: "84px" } };
+    if (ratio <= 0.82) return { w: { base: "48px", md: "64px" }, h: { base: "56px", md: "74px" } };
+    return { w: { base: "48px", md: "64px" }, h: { base: "48px", md: "64px" } };
+  }, [logoAspectRatio]);
 
   const name = (firstName || t("greeting.coach")).trim();
 
@@ -68,12 +80,21 @@ export default function CoachGreetingCard({
               <Image
                 src={logoUrl}
                 alt={t("greeting.logo_alt", { name: `${firstName ?? ""} ${lastName ?? ""}`.trim() })}
-                boxSize={{ base: "48px", md: "64px" }}
+                w={logoFrameSize.w}
+                h={logoFrameSize.h}
                 objectFit="contain"
+                maxW={logoFrameSize.w}
+                maxH={logoFrameSize.h}
                 borderRadius="md"
                 boxShadow={ring}
-                bg={useColorModeValue("white", "gray.700")}
+                bg={logoBg}
                 p="1"
+                onLoad={(event) => {
+                  const img = event.currentTarget;
+                  if (img.naturalWidth && img.naturalHeight) {
+                    setLogoAspectRatio(img.naturalWidth / img.naturalHeight);
+                  }
+                }}
               />
             ) : (
               <Flex
@@ -82,8 +103,8 @@ export default function CoachGreetingCard({
                 justify="center"
                 borderRadius="md"
                 fontWeight="bold"
-                bg={useColorModeValue("blue.50", "blue.900")}
-                color={useColorModeValue("blue.700", "blue.100")}
+                bg={initialsBg}
+                color={initialsColor}
                 boxShadow={ring}
               >
                 {getInitials(firstName, lastName)}
@@ -116,4 +137,3 @@ export default function CoachGreetingCard({
     </Box>
   );
 }
-

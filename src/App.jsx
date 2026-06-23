@@ -4,6 +4,7 @@ import {
   Box,
 } from "@chakra-ui/react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import "./i18n";
 
@@ -13,28 +14,34 @@ import { Footer } from "./components/Footer";
 import LanguageRouteSync from "./components/LanguageRouteSync.jsx";
 import AppLoading from "./components/ui/AppLoading.jsx";
 
-import GeolocationBootstrap from "./components/GeolocationBootstrap.jsx";
-import SunColorModeSync from "./components/SunColorModeSync.jsx";
 import { ConsentProvider, useConsent } from "./consent/ConsentContext.jsx";
-import CookieConsentBanner from "./components/CookieConsentBanner.jsx";
 
-import RouteAnalyticsListener from "./components/RouteAnalyticsListener.jsx";
+import SeoManager from "./components/SeoManager.jsx";
+import { SEO_ROUTES } from "./seo/seoConfig.js";
+
+const GeolocationBootstrap = lazy(() => import("./components/GeolocationBootstrap.jsx"));
+const SunColorModeSync = lazy(() => import("./components/SunColorModeSync.jsx"));
+const GuidedTutorial = lazy(() => import("./components/GuidedTutorial.jsx"));
+const CookieConsentBanner = lazy(() => import("./components/CookieConsentBanner.jsx"));
+const RouteAnalyticsListener = lazy(() => import("./components/RouteAnalyticsListener.jsx"));
 
 // Route-level code splitting: les écrans lourds ne partent plus dans le bundle initial.
 const HomePage = lazy(() => import("./components/HomePage.jsx"));
-const PlanProfessionnel = lazy(() => import("./pages/PlanProfessionnel.jsx"));
-const PlanParticulier = lazy(() => import("./pages/PlanParticulier.jsx"));
 const AboutPage = lazy(() => import("./pages/AboutPage.jsx"));
 const ContactPage = lazy(() => import("./pages/ContactPage.jsx"));
 const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage.jsx"));
 const TermsOfServicePage = lazy(() => import("./pages/TermsOfServicePage.jsx"));
 const SalesPolicyPage = lazy(() => import("./pages/SalesPolicyPage.jsx"));
+const TikTokOAuthRelay = lazy(() => import("./pages/TikTokOAuthRelay.jsx"));
 const PremiumPrograms = lazy(() => import("./pages/PremiumPrograms.jsx"));
+const PlanProfessionnel = lazy(() => import("./pages/PlanProfessionnel.jsx"));
+const SeoLandingPage = lazy(() => import("./pages/SeoLandingPage.jsx"));
 const Checkout = lazy(() => import("./pages/Checkout.jsx"));
 const AccountBilling = lazy(() => import("./pages/AccountBilling.jsx"));
 const Login = lazy(() => import("./pages/Login.jsx"));
 const Register = lazy(() => import("./pages/Register.jsx"));
 const CoachDashboard = lazy(() => import("./components/CoachDashboard.jsx"));
+const ClubDashboard = lazy(() => import("./pages/ClubDashboard.jsx"));
 const ClientDashboard = lazy(() => import("./components/Clientdashboard.jsx"));
 const AdminDashboard = lazy(() => import("./components/AdminDashboard.jsx"));
 const ProfilePageClient = lazy(() => import("./pages/ProfilePageClient.jsx"));
@@ -64,19 +71,71 @@ const Cancel = lazy(() => import("./pages/Cancel"));
 const AdminGeo = lazy(() => import("./pages/AdminGeo.jsx"));
 const AdminClient = lazy(() => import("./pages/AdminClient.jsx"));
 const AdminCoach = lazy(() => import("./pages/AdminCoach.jsx"));
+const AdminSocialPublisher = lazy(() => import("./pages/AdminSocialPublisher.jsx"));
+
+function LazyBackground({ children }) {
+  return <Suspense fallback={null}>{children}</Suspense>;
+}
+
+function IdleMount({ children, delay = 900 }) {
+  const [ready, setReady] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") {
+      setReady(true);
+      return undefined;
+    }
+
+    let timeoutId = 0;
+    let idleId = 0;
+    const done = () => setReady(true);
+
+    if ("requestIdleCallback" in window) {
+      idleId = window.requestIdleCallback(done, { timeout: delay });
+    } else {
+      timeoutId = window.setTimeout(done, delay);
+    }
+
+    return () => {
+      if (idleId && "cancelIdleCallback" in window) window.cancelIdleCallback(idleId);
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, [delay]);
+
+  return ready ? children : null;
+}
+
+function loginRedirectFor(location) {
+  const next = `${location.pathname || "/"}${location.search || ""}${location.hash || ""}`;
+  return `/login?next=${encodeURIComponent(next)}`;
+}
+
+function LegacyClientDashboardRoute() {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const isNutritionLink = params.get("nutrition") === "1";
+  params.delete("nutrition");
+  const query = params.toString();
+  const target = isNutritionLink ? "/nutrition" : "/user-dashboard";
+  return <Navigate to={`${target}${query ? `?${query}` : ""}`} replace />;
+}
 
 /* -------------------- Gardes -------------------- */
 function ProtectedRoute({ children }) {
+  const { t } = useTranslation("common");
   const { user, loading } = useAuth();
-  if (loading) return <AppLoading label="Chargement de votre espace..." />;
-  if (!user) return <Navigate to="/login" replace />;
+  const location = useLocation();
+  if (loading) return <AppLoading label={t("common.loading_space", "Chargement de votre espace...")} />;
+  if (!user) return <Navigate to={loginRedirectFor(location)} replace />;
   return children;
 }
 
 function CoachActiveRoute({ children }) {
+  const { t } = useTranslation("common");
   const { user, loading, isAdmin, hasCoachAccess } = useAuth();
-  if (loading) return <AppLoading label="Chargement de votre espace..." />;
-  if (!user) return <Navigate to="/login" replace />;
+  const location = useLocation();
+  if (loading) return <AppLoading label={t("common.loading_space", "Chargement de votre espace...")} />;
+  if (!user) return <Navigate to={loginRedirectFor(location)} replace />;
 
   // Admin : accès OK
   if (isAdmin) return children;
@@ -90,10 +149,43 @@ function CoachActiveRoute({ children }) {
   return children;
 }
 
+function ClubRoute({ children }) {
+  const { t } = useTranslation("common");
+  const { user, loading, isAdmin, hasCoachAccess } = useAuth();
+  const location = useLocation();
+  if (loading) return <AppLoading label={t("club.loading", "Chargement de l'espace club...")} />;
+  if (!user) return <Navigate to={loginRedirectFor(location)} replace />;
+  if (isAdmin) return children;
+  if (user.role !== "coach") return <Navigate to="/" replace />;
+  if (!hasCoachAccess) return <Navigate to="/plans/professionnel" replace />;
+  if (user.accountType !== "club_owner" && user.clubRole !== "owner") {
+    return <Navigate to="/coach-dashboard" replace />;
+  }
+  return children;
+}
+
+function ModuleRoute({ module, children }) {
+  const { t } = useTranslation("common");
+  const { user, loading, isAdmin, hasCoachAccess } = useAuth();
+  const location = useLocation();
+  if (loading) return <AppLoading label={t("plans.checkingPackage", "Vérification de votre package...")} />;
+  if (!user) return <Navigate to={loginRedirectFor(location)} replace />;
+  if (isAdmin) return children;
+  if (user.role !== "coach") return <Navigate to="/" replace />;
+  if (!hasCoachAccess) return <Navigate to="/plans/professionnel" replace />;
+  const modules = user.proAccess?.modules || user.modules || [];
+  if (Array.isArray(modules) && modules.length && !modules.includes(module) && !modules.includes("club")) {
+    return <Navigate to="/plans/professionnel" replace />;
+  }
+  return children;
+}
+
 function AdminRoute({ children }) {
+  const { t } = useTranslation("common");
   const { user, loading, isAdmin } = useAuth();
-  if (loading) return <AppLoading label="Chargement de l'administration..." />;
-  if (!user) return <Navigate to="/login" replace />;
+  const location = useLocation();
+  if (loading) return <AppLoading label={t("admin.loading", "Chargement de l'administration...")} />;
+  if (!user) return <Navigate to={loginRedirectFor(location)} replace />;
   if (!isAdmin) return <Navigate to="/" replace />;
   return children;
 }
@@ -102,9 +194,11 @@ function AdminRoute({ children }) {
  * ✅ routes "client" accessibles uniquement aux particuliers.
  */
 function ClientOnlyRoute({ children }) {
+  const { t } = useTranslation("common");
   const { user, loading, isAdmin, effectiveRole, hasCoachAccess } = useAuth();
-  if (loading) return <AppLoading label="Chargement de votre espace..." />;
-  if (!user) return <Navigate to="/login" replace />;
+  const location = useLocation();
+  if (loading) return <AppLoading label={t("common.loading_space", "Chargement de votre espace...")} />;
+  if (!user) return <Navigate to={loginRedirectFor(location)} replace />;
 
   // Admin : jamais sur l'espace client
   if (isAdmin) {
@@ -118,6 +212,9 @@ function ClientOnlyRoute({ children }) {
   // Coach : jamais sur l'espace client
   if (effectiveRole === "coach") {
     if (!hasCoachAccess) return <Navigate to="/plans/professionnel" replace />;
+    if (user.accountType === "club_owner" || user.clubRole === "owner") {
+      return <Navigate to="/club-dashboard" replace />;
+    }
     return <Navigate to="/coach-dashboard" replace />;
   }
 
@@ -131,7 +228,7 @@ function ClientOnlyRoute({ children }) {
 function HomeRoute() {
   const { user, loading, effectiveRole, isAdmin, hasCoachAccess } = useAuth();
 
-  if (loading) return <AppLoading label="Chargement..." />;
+  if (loading && !user) return <HomePage />;
   if (!user) return <HomePage />;
 
   if (isAdmin) {
@@ -145,6 +242,9 @@ function HomeRoute() {
   // ✅ Coach : s'il n'a pas l'accès (trial/payant), on l'envoie au paywall
   if (effectiveRole === "coach") {
     if (!hasCoachAccess) return <Navigate to="/plans/professionnel" replace />;
+    if (user.accountType === "club_owner" || user.clubRole === "owner") {
+      return <Navigate to="/club-dashboard" replace />;
+    }
     return <Navigate to="/coach-dashboard" replace />;
   }
 
@@ -156,12 +256,11 @@ function HomeRoute() {
 
 /* -------------------- App content -------------------- */
 function AppContent() {
+  const { t } = useTranslation("common");
   const location = useLocation();
   const footerRoutes = [
-    "/",
+    ...Object.keys(SEO_ROUTES),
     "/plans/professionnel",
-    "/plans/particulier",
-    "/programmes-premium",
     "/checkout",
     "/success",
     "/cancel",
@@ -176,6 +275,7 @@ function AppContent() {
     "/register",
     "/settings",
     "/settings-coach",
+    "/club-dashboard/settings",
   ];
   const showFooter = footerRoutes.some((route) =>
     route === "/"
@@ -183,45 +283,79 @@ function AppContent() {
       : location.pathname === route || location.pathname.startsWith(`${route}/`)
   );
 
-  const { prefs } = useConsent();
-  const analyticsOn = !!prefs?.analytics;
+  const { prefs, loaded: consentLoaded } = useConsent();
+  const { user, effectiveRole, isAdmin } = useAuth();
+  const analyticsOn = !!prefs?.analytics || isAdmin || effectiveRole === "admin";
+  const shouldTrackRoute = consentLoaded && (analyticsOn || !!user?.uid);
 
   return (
     <>
+      <SeoManager />
       <LanguageRouteSync />
 
-      <SunColorModeSync />
-      <GeolocationBootstrap />
+      <LazyBackground>
+        <SunColorModeSync />
+      </LazyBackground>
+      {analyticsOn && (
+        <IdleMount>
+          <LazyBackground>
+            <GeolocationBootstrap />
+          </LazyBackground>
+        </IdleMount>
+      )}
 
       <Navbar />
+      {user && (
+        <IdleMount delay={1200}>
+          <LazyBackground>
+            <GuidedTutorial />
+          </LazyBackground>
+        </IdleMount>
+      )}
 
-      <RouteAnalyticsListener isAnalyticsOn={analyticsOn} />
+      {shouldTrackRoute && (
+        <IdleMount delay={500}>
+          <LazyBackground>
+            <RouteAnalyticsListener isAnalyticsOn={analyticsOn} consentLoaded={consentLoaded} />
+          </LazyBackground>
+        </IdleMount>
+      )}
 
       <Box as="main" flex="1" minH="0">
-        <Suspense fallback={<AppLoading label="Chargement de la page..." />}>
+        <Suspense fallback={<AppLoading label={t("common.loading_page", "Chargement de la page...")} />}>
           <Routes>
             <Route path="/" element={<HomeRoute />} />
 
-          {/* ✅ Alias "Tarifs" (ancienne page Tarifs.jsx) -> Plan Pro */}
+          {/* ✅ Alias "Tarifs" (ancienne page Tarifs.jsx) -> page premium */}
           <Route
             path="/tarifs"
-            element={<Navigate to="/plans/professionnel" replace />}
+            element={<Navigate to="/programmes-premium" replace />}
           />
           <Route
             path="/pricing"
-            element={<Navigate to="/plans/professionnel" replace />}
+            element={<Navigate to="/programmes-premium" replace />}
           />
 
           {/* Offres */}
           <Route path="/plans/professionnel" element={<PlanProfessionnel />} />
-          <Route path="/plans/particulier" element={<PlanParticulier />} />
+          <Route path="/client-dashboard" element={<LegacyClientDashboardRoute />} />
+          <Route path="/:slug" element={<SeoLandingPage />} />
 
           {/* Paiement / Premium */}
-          <Route path="/programmes-premium" element={<PremiumPrograms />} />
+          <Route
+            path="/programmes-premium"
+            element={
+              <ProtectedRoute>
+                <PremiumPrograms />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/checkout/:productId" element={<Checkout />} />
 
           {/* Retours Stripe */}
           <Route path="/success" element={<Success />} />
+          <Route path="/programmes-premium/success" element={<Success />} />
+          <Route path="/questionnaire/success" element={<Success />} />
           <Route path="/cancel" element={<Cancel />} />
           <Route path="/payment-success" element={<Success />} />
           <Route path="/payment-cancel" element={<Cancel />} />
@@ -241,6 +375,7 @@ function AppContent() {
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsOfServicePage />} />
           <Route path="/sales-policy" element={<SalesPolicyPage />} />
+          <Route path="/oauth/tiktok/callback" element={<TikTokOAuthRelay />} />
 
           {/* Auth */}
           <Route path="/login" element={<Login />} />
@@ -253,6 +388,14 @@ function AppContent() {
               <CoachActiveRoute>
                 <CoachDashboard />
               </CoachActiveRoute>
+            }
+          />
+          <Route
+            path="/club-dashboard/*"
+            element={
+              <ClubRoute>
+                <ClubDashboard />
+              </ClubRoute>
             }
           />
           <Route
@@ -334,9 +477,9 @@ function AppContent() {
           <Route
             path="/nutrition-coach"
             element={
-              <AdminRoute>
+              <ModuleRoute module="nutrition">
                 <CoachNutritionPage />
-              </AdminRoute>
+              </ModuleRoute>
             }
           />
 
@@ -344,9 +487,9 @@ function AppContent() {
           <Route
             path="/exercise-bank"
             element={
-              <CoachActiveRoute>
+              <ModuleRoute module="sport">
                 <ExerciseBank onAdd={() => {}} />
-              </CoachActiveRoute>
+              </ModuleRoute>
             }
           />
 
@@ -354,17 +497,17 @@ function AppContent() {
           <Route
             path="/exercise-bank/program-builder/:programId"
             element={
-              <CoachActiveRoute>
+              <ModuleRoute module="sport">
                 <ProgramBuilderPage />
-              </CoachActiveRoute>
+              </ModuleRoute>
             }
           />
           <Route
             path="/clients/:clientId/programmes/:programId/program-builder"
             element={
-              <CoachActiveRoute>
+              <ModuleRoute module="sport">
                 <ProgramBuilderPage />
-              </CoachActiveRoute>
+              </ModuleRoute>
             }
           />
 
@@ -390,9 +533,9 @@ function AppContent() {
           <Route
             path="/clients/:clientId/nutrition/:assessmentId"
             element={
-              <AdminRoute>
+              <ModuleRoute module="nutrition">
                 <NutritionAssessmentEditor />
-              </AdminRoute>
+              </ModuleRoute>
             }
           />
 
@@ -400,9 +543,9 @@ function AppContent() {
           <Route
             path="/clients/:clientId/nutrition/:assessmentId/food-survey"
             element={
-              <AdminRoute>
+              <ModuleRoute module="nutrition">
                 <FoodSurvey />
-              </AdminRoute>
+              </ModuleRoute>
             }
           />
 
@@ -410,9 +553,9 @@ function AppContent() {
           <Route
             path="/clients/:clientId/nutrition/:assessmentId/ration"
             element={
-              <AdminRoute>
+              <ModuleRoute module="nutrition">
                 <NutritionRationPage />
-              </AdminRoute>
+              </ModuleRoute>
             }
           />
 
@@ -420,9 +563,9 @@ function AppContent() {
           <Route
             path="/clients/:clientId/nutrition/:assessmentId/menu"
             element={
-              <AdminRoute>
+              <ModuleRoute module="nutrition">
                 <NutritionMenuJournalierPage />
-              </AdminRoute>
+              </ModuleRoute>
             }
           />
 
@@ -430,17 +573,17 @@ function AppContent() {
           <Route
             path="/programmes"
             element={
-              <CoachActiveRoute>
+              <ModuleRoute module="sport">
                 <ProgramsPage />
-              </CoachActiveRoute>
+              </ModuleRoute>
             }
           />
           <Route
             path="/programmes/:id"
             element={
-              <CoachActiveRoute>
+              <ModuleRoute module="sport">
                 <ProgramView />
-              </CoachActiveRoute>
+              </ModuleRoute>
             }
           />
 
@@ -458,9 +601,9 @@ function AppContent() {
           <Route
             path="/auto-program-preview/:programId"
             element={
-              <CoachActiveRoute>
+              <ModuleRoute module="sport">
                 <AutoProgramPreview />
-              </CoachActiveRoute>
+              </ModuleRoute>
             }
           />
           <Route
@@ -482,9 +625,9 @@ function AppContent() {
           <Route
             path="/auto-program-questionnaire"
             element={
-              <CoachActiveRoute>
+              <ModuleRoute module="sport">
                 <AutoProgramQuestionnaire />
-              </CoachActiveRoute>
+              </ModuleRoute>
             }
           />
           <Route
@@ -500,9 +643,9 @@ function AppContent() {
           <Route
             path="/programmes/:id/session/:sessionIndex/play"
             element={
-              <CoachActiveRoute>
+              <ModuleRoute module="sport">
                 <SessionPlayer />
-              </CoachActiveRoute>
+              </ModuleRoute>
             }
           />
           <Route
@@ -532,6 +675,14 @@ function AppContent() {
             }
           />
           <Route
+            path="/admin/social-publisher"
+            element={
+              <AdminRoute>
+                <AdminSocialPublisher />
+              </AdminRoute>
+            }
+          />
+          <Route
             path="/admin/client/:id"
             element={
               <AdminRoute>
@@ -555,7 +706,9 @@ function AppContent() {
 
       {showFooter && <Footer />}
 
-      <CookieConsentBanner />
+      <LazyBackground>
+        <CookieConsentBanner />
+      </LazyBackground>
     </>
   );
 }

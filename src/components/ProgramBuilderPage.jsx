@@ -15,7 +15,7 @@ export default function ProgramBuilderPage() {
   const [replaceIndex, setReplaceIndex] = useState(null);
 
   return (
-    <Flex w="100%" h="100vh" overflow="hidden">
+    <Flex data-tour-page="program-builder" w="100%" h="100vh" overflow="hidden">
       {/* Banque d'exercices, largeur fixe */}
       <Box
         as="aside"

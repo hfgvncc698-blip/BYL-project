@@ -1,5 +1,5 @@
 // src/components/MenuJournalierManual.jsx
-/* eslint-disable react/prop-types */
+ 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
@@ -25,7 +25,6 @@ import {
   useToast,
   IconButton,
   Collapse,
-  Tooltip,
   useColorModeValue,
 } from "@chakra-ui/react";
 import {
@@ -38,6 +37,7 @@ import {
 import { onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore";
 import { extractRationLines as extractMenuRationLines } from "../utils/rationMenu";
 import { useNutritionTheme } from "../styles/nutritionTheme";
+import i18n from "../i18n/index";
 
 /* ================= Utils ================= */
 const stripDiacritics = (s) =>
@@ -1076,7 +1076,7 @@ export default function MenuJournalierManual({
       });
 
       toast({
-        title: "Jour dupliqué",
+        title: i18n.t("auto.MenuJournalierManual.jour_duplique", "Jour dupliqué"),
         description: `Jour ${fromDay} → Jour ${toDay}`,
         status: "success",
         duration: 1600,
@@ -1091,8 +1091,8 @@ export default function MenuJournalierManual({
     if (!assessmentRef) {
       if (!silent) {
         toast({
-          title: "Impossible de sauvegarder",
-          description: "assessmentRef manquant (le parent doit passer la ref Firestore).",
+          title: i18n.t("auto.MenuJournalierManual.impossible_de_sauvegarder", "Impossible de sauvegarder"),
+          description: i18n.t("auto.MenuJournalierManual.assessmentref_manquant_le_parent_doit_passer_la_re", "assessmentRef manquant (le parent doit passer la ref Firestore)."),
           status: "error",
           duration: 3500,
           isClosable: true,
@@ -1103,8 +1103,8 @@ export default function MenuJournalierManual({
     if (blocked) {
       if (!silent) {
         toast({
-          title: "Bilan bloqué",
-          description: "Le bilan n’est pas validé (ou bloqué côté parent).",
+          title: i18n.t("auto.MenuJournalierManual.bilan_bloque", "Bilan bloqué"),
+          description: i18n.t("auto.MenuJournalierManual.le_bilan_n_est_pas_valide_ou_bloque_cote_parent", "Le bilan n’est pas validé (ou bloqué côté parent)."),
           status: "warning",
           duration: 2500,
           isClosable: true,
@@ -1129,11 +1129,11 @@ export default function MenuJournalierManual({
         updatedAt: serverTimestamp(),
       });
 
-      if (!silent) toast({ title: "Sauvegardé", status: "success", duration: 1200, isClosable: true });
+      if (!silent) toast({ title: i18n.t("programBuilder.status.saved", "Sauvegardé"), status: "success", duration: 1200, isClosable: true });
     } catch (e) {
       if (!silent) {
         toast({
-          title: "Erreur sauvegarde",
+          title: i18n.t("auto.MenuJournalierManual.erreur_sauvegarde", "Erreur sauvegarde"),
           description: e?.message || "Impossible de sauvegarder",
           status: "error",
           duration: 4000,
@@ -1195,7 +1195,7 @@ export default function MenuJournalierManual({
   if (loadingDoc) {
     return (
       <Box p={4}>
-        <Text>Chargement…</Text>
+        <Text>{i18n.t("common.loading", "Chargement…")}</Text>
       </Box>
     );
   }
@@ -1204,9 +1204,7 @@ export default function MenuJournalierManual({
     return (
       <Box p={4}>
         <Alert status="warning" rounded="lg">
-          <AlertIcon />
-          Je n’ai pas reçu les données du bilan (docData) ni la référence Firestore (assessmentRef).
-        </Alert>
+          <AlertIcon />{i18n.t("auto.MenuJournalierManual.je_n_ai_pas_recu_les_donnees_du_bilan_docdata_ni_l", "Je n’ai pas reçu les données du bilan (docData) ni la référence Firestore (assessmentRef).")}</Alert>
       </Box>
     );
   }
@@ -1227,17 +1225,16 @@ export default function MenuJournalierManual({
         <HStack spacing={2} flexWrap="wrap">
           <Tag size="sm" variant="subtle" colorScheme="blue">
             <TagLabel fontWeight="900">
-              {label}: {r0(v.kcal)} kcal
-            </TagLabel>
+              {label}: {r0(v.kcal)}{i18n.t("auto.MenuJournalierManual.kcal", "kcal")}</TagLabel>
           </Tag>
           <Tag size="sm" variant="subtle">
-            <TagLabel fontWeight="900">P {r0(v.p)}g</TagLabel>
+            <TagLabel fontWeight="900">P {r0(v.p)}{i18n.t("auto.MenuJournalierManual.g", "g")}</TagLabel>
           </Tag>
           <Tag size="sm" variant="subtle">
-            <TagLabel fontWeight="900">L {r0(v.f)}g</TagLabel>
+            <TagLabel fontWeight="900">L {r0(v.f)}{i18n.t("auto.MenuJournalierManual.g", "g")}</TagLabel>
           </Tag>
           <Tag size="sm" variant="subtle">
-            <TagLabel fontWeight="900">G {r0(v.c)}g</TagLabel>
+            <TagLabel fontWeight="900">G {r0(v.c)}{i18n.t("auto.MenuJournalierManual.g", "g")}</TagLabel>
           </Tag>
         </HStack>
       );
@@ -1245,12 +1242,10 @@ export default function MenuJournalierManual({
 
     return (
       <Box>
-        <Text fontSize="sm" color={textMuted} mb={2}>
-          Cibles
-        </Text>
+        <Text fontSize="sm" color={textMuted} mb={2}>{i18n.t("auto.MenuJournalierManual.cibles", "Cibles")}</Text>
         <HStack spacing={3} flexWrap="wrap">
-          <Pill label="Bilan" v={b} />
-          <Pill label="Ration" v={r} />
+          <Pill label={i18n.t("auto.ClubDashboard.bilan", "Bilan")} v={b} />
+          <Pill label={i18n.t("auto.MenuJournalierManual.ration", "Ration")} v={r} />
         </HStack>
       </Box>
     );
@@ -1263,9 +1258,9 @@ export default function MenuJournalierManual({
       <Card bg={panelBg} border="1px solid" borderColor={borderCol} rounded="2xl" mb={4}>
         <CardBody py={{ base: 4, md: 5 }}>
           <HStack mb={3} gap={2} flexWrap="wrap" align="center">
-            <Heading size="sm">Association manuelle</Heading>
+            <Heading size="sm">{i18n.t("auto.MenuJournalierManual.association_manuelle", "Association manuelle")}</Heading>
 
-            {ciqualOk ? <Badge colorScheme="green">Données prêtes</Badge> : <Badge colorScheme="red">Données à charger</Badge>}
+            {ciqualOk ? <Badge colorScheme="green">{i18n.t("auto.MenuJournalierManual.donnees_pretes", "Données prêtes")}</Badge> : <Badge colorScheme="red">{i18n.t("auto.MenuJournalierManual.donnees_a_charger", "Données à charger")}</Badge>}
 
             <Badge
               colorScheme={
@@ -1276,8 +1271,7 @@ export default function MenuJournalierManual({
                   : "gray"
               }
             >
-              {associationStats.mapped}/{associationStats.total} associés
-            </Badge>
+              {associationStats.mapped}/{associationStats.total}{i18n.t("auto.MenuJournalierManual.associes", "associés")}</Badge>
 
             <Spacer />
 
@@ -1285,34 +1279,26 @@ export default function MenuJournalierManual({
               <Select value={daysCount} onChange={(e) => onChangeDaysCount(e.target.value)} w={{ base: "84px", md: "110px" }}>
                 {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
                   <option key={d} value={d}>
-                    {d} j
-                  </option>
+                    {d}{i18n.t("time.days_short", "j")}</option>
                 ))}
               </Select>
 
               {mode === "edit" && (
-                <Button variant="outline" onClick={() => setMode("planning")}>
-                  Retour planning
-                </Button>
+                <Button variant="outline" onClick={() => setMode("planning")}>{i18n.t("auto.MenuJournalierManual.retour_planning", "Retour planning")}</Button>
               )}
 
               {saving ? (
-                <Badge colorScheme="blue" px={3} py={2} borderRadius="full">
-                  Enregistrement…
-                </Badge>
+                <Badge colorScheme="blue" px={3} py={2} borderRadius="full">{i18n.t("auto.MenuJournalierManual.enregistrement", "Enregistrement…")}</Badge>
               ) : null}
             </HStack>
           </HStack>
 
-          <Text fontSize="sm" color={textMuted} mt={1}>
-            On part de la ration déjà construite puis on associe, jour par jour, les aliments
-            CIQUAL les plus pertinents sans surcharger la lecture.
-          </Text>
+          <Text fontSize="sm" color={textMuted} mt={1}>{i18n.t("auto.MenuJournalierManual.on_part_de_la_ration_deja_construite_puis_on_assoc", "On part de la ration déjà construite puis on associe, jour par jour, les aliments CIQUAL les plus pertinents sans surcharger la lecture.")}</Text>
 
           <Wrap mt={4} spacing={2}>
             <WrapItem>
               <Tag size="sm" variant="subtle" colorScheme="blue">
-                <TagLabel fontWeight="900">{daysCount} jour(s)</TagLabel>
+                <TagLabel fontWeight="900">{daysCount}{i18n.t("auto.MenuJournalierManual.jour_s", "jour(s)")}</TagLabel>
               </Tag>
             </WrapItem>
             <WrapItem>
@@ -1335,28 +1321,27 @@ export default function MenuJournalierManual({
                 }
               >
                 <TagLabel fontWeight="900">
-                  {associationStats.mapped}/{associationStats.total} associations
-                </TagLabel>
+                  {associationStats.mapped}/{associationStats.total}{i18n.t("auto.MenuJournalierManual.associations", "associations")}</TagLabel>
               </Tag>
             </WrapItem>
             <WrapItem>
               <Tag size="sm" variant="subtle" colorScheme="blue">
-                <TagLabel fontWeight="900">{r0(totals?.day?.kcal)} kcal lus</TagLabel>
+                <TagLabel fontWeight="900">{r0(totals?.day?.kcal)}{i18n.t("auto.MenuJournalierManual.kcal_lus", "kcal lus")}</TagLabel>
               </Tag>
             </WrapItem>
             <WrapItem>
               <Tag size="sm" variant="subtle">
-                <TagLabel fontWeight="900">P {r0(totals?.day?.p)} g</TagLabel>
+                <TagLabel fontWeight="900">P {r0(totals?.day?.p)}{i18n.t("auto.MenuJournalierManual.g", "g")}</TagLabel>
               </Tag>
             </WrapItem>
             <WrapItem>
               <Tag size="sm" variant="subtle">
-                <TagLabel fontWeight="900">L {r0(totals?.day?.f)} g</TagLabel>
+                <TagLabel fontWeight="900">L {r0(totals?.day?.f)}{i18n.t("auto.MenuJournalierManual.g", "g")}</TagLabel>
               </Tag>
             </WrapItem>
             <WrapItem>
               <Tag size="sm" variant="subtle">
-                <TagLabel fontWeight="900">G {r0(totals?.day?.carbs)} g</TagLabel>
+                <TagLabel fontWeight="900">G {r0(totals?.day?.carbs)}{i18n.t("auto.MenuJournalierManual.g", "g")}</TagLabel>
               </Tag>
             </WrapItem>
           </Wrap>
@@ -1374,16 +1359,12 @@ export default function MenuJournalierManual({
             >
               {showMicros ? "Masquer les micros" : "Afficher les micros"}
             </Button>
-            <Text fontSize="sm" color={textMuted}>
-              La recherche CIQUAL n’apparaît qu’en mode édition pour garder un planning plus lisible.
-            </Text>
+            <Text fontSize="sm" color={textMuted}>{i18n.t("auto.MenuJournalierManual.la_recherche_ciqual_n_apparait_qu_en_mode_edition_", "La recherche CIQUAL n’apparaît qu’en mode édition pour garder un planning plus lisible.")}</Text>
           </HStack>
 
           <Collapse in={showMicros} animateOpacity>
             <Divider my={4} />
-            <Text fontSize="sm" color={textMuted}>
-              Micros affichés et suivis sur le jour courant.
-            </Text>
+            <Text fontSize="sm" color={textMuted}>{i18n.t("auto.MenuJournalierManual.micros_affiches_et_suivis_sur_le_jour_courant", "Micros affichés et suivis sur le jour courant.")}</Text>
 
             <Wrap spacing={2} mt={3}>
               {Object.keys(MICRO_LABEL).map((k) => {
@@ -1424,26 +1405,22 @@ export default function MenuJournalierManual({
 
       {!ciqualOk && (
         <Alert status="error" rounded="lg" mb={4}>
-          <AlertIcon />
-          CIQUAL non chargé → vérifie `/public/ciqual_2025.json`
-        </Alert>
+          <AlertIcon />{i18n.t("auto.MenuJournalierManual.ciqual_non_charge_verifie_public_ciqual_2025_json", "CIQUAL non chargé → vérifie `/public/ciqual_2025.json`")}</Alert>
       )}
 
       {rationItems.length === 0 ? (
         <Alert status="warning" rounded="lg">
-          <AlertIcon />
-          Aucune ligne de ration détectée.
-        </Alert>
+          <AlertIcon />{i18n.t("auto.MenuJournalierManual.aucune_ligne_de_ration_detectee", "Aucune ligne de ration détectée.")}</Alert>
       ) : mode === "planning" ? (
         /* ========================= PLANNING ========================= */
         <Card bg={panelBg} border="1px solid" borderColor={borderCol} rounded="2xl">
           <CardBody>
             <HStack mb={3} align="center">
-              <Heading size="sm">Planning (7 jours)</Heading>
+              <Heading size="sm">{i18n.t("auto.MenuJournalierManual.planning_7_jours", "Planning (7 jours)")}</Heading>
               <Spacer />
               <HStack>
                 <IconButton
-                  aria-label="Semaine précédente"
+                  aria-label={i18n.t("auto.MenuJournalierManual.semaine_precedente", "Semaine précédente")}
                   icon={<ChevronLeftIcon />}
                   size="sm"
                   variant="outline"
@@ -1452,11 +1429,11 @@ export default function MenuJournalierManual({
                 />
                 <Tag size="sm" variant="subtle">
                   <TagLabel fontWeight="900">
-                    J{weekDays[0]} → J{weekDays[weekDays.length - 1]}
+                    J{weekDays[0]}{i18n.t("auto.MenuJournalierManual.j", "→ J")}{weekDays[weekDays.length - 1]}
                   </TagLabel>
                 </Tag>
                 <IconButton
-                  aria-label="Semaine suivante"
+                  aria-label={i18n.t("auto.MenuJournalierManual.semaine_suivante", "Semaine suivante")}
                   icon={<ChevronRightIcon />}
                   size="sm"
                   variant="outline"
@@ -1466,9 +1443,7 @@ export default function MenuJournalierManual({
               </HStack>
             </HStack>
 
-            <Text fontSize="sm" color={textMuted} mb={3}>
-              Clique sur un jour pour éditer. Tu peux aussi <b>dupliquer</b> un jour sur un autre.
-            </Text>
+            <Text fontSize="sm" color={textMuted} mb={3}>{i18n.t("auto.MenuJournalierManual.clique_sur_un_jour_pour_editer_tu_peux_aussi", "Clique sur un jour pour éditer. Tu peux aussi")}<b>{i18n.t("auto.MenuJournalierManual.dupliquer", "dupliquer")}</b>{i18n.t("auto.MenuJournalierManual.un_jour_sur_un_autre", "un jour sur un autre.")}</Text>
 
             <SimpleGrid columns={{ base: 1, md: 7 }} spacing={3}>
               {weekDays.map((d) => {
@@ -1495,10 +1470,10 @@ export default function MenuJournalierManual({
                   >
                     <CardBody color={planningText}>
                       <HStack mb={2}>
-                        <Heading size="sm">Jour {d}</Heading>
+                        <Heading size="sm">{i18n.t("calendar.day", "Jour")}{d}</Heading>
                         <Spacer />
                         <Tag size="sm" variant="subtle" colorScheme="blue">
-                          <TagLabel fontWeight="900">{r0(t.kcal)} kcal</TagLabel>
+                          <TagLabel fontWeight="900">{r0(t.kcal)}{i18n.t("auto.MenuJournalierManual.kcal", "kcal")}</TagLabel>
                         </Tag>
                       </HStack>
 
@@ -1531,9 +1506,7 @@ export default function MenuJournalierManual({
                                 </VStack>
                               </Box>
                             ) : (
-                              <Text fontSize="sm" color={planningMuted} mt={1}>
-                                — (à associer)
-                              </Text>
+                              <Text fontSize="sm" color={planningMuted} mt={1}>{i18n.t("auto.MenuJournalierManual.a_associer", "— (à associer)")}</Text>
                             )}
                           </Box>
                         );
@@ -1565,7 +1538,7 @@ export default function MenuJournalierManual({
             <SimpleGrid columns={{ base: 1, md: 3 }} spacing={3} alignItems="center">
               <HStack spacing={2} flexWrap="wrap">
                 <IconButton
-                  aria-label="Jour précédent"
+                  aria-label={i18n.t("auto.MenuJournalierManual.jour_precedent", "Jour précédent")}
                   icon={<ChevronLeftIcon />}
                   size="sm"
                   variant="outline"
@@ -1573,10 +1546,10 @@ export default function MenuJournalierManual({
                   isDisabled={dayIndex <= 1}
                 />
                 <Tag variant="solid" colorScheme="blue" size="sm">
-                  <TagLabel fontWeight="900">Jour {dayIndex}</TagLabel>
+                  <TagLabel fontWeight="900">{i18n.t("calendar.day", "Jour")}{dayIndex}</TagLabel>
                 </Tag>
                 <IconButton
-                  aria-label="Jour suivant"
+                  aria-label={i18n.t("auto.MenuJournalierManual.jour_suivant", "Jour suivant")}
                   icon={<ChevronRightIcon />}
                   size="sm"
                   variant="outline"
@@ -1590,8 +1563,7 @@ export default function MenuJournalierManual({
                 size="sm"
               >
                 {Array.from({ length: daysCount }, (_, i) => i + 1).map((d) => (
-                  <option key={d} value={d}>
-                    Jour {d}
+                  <option key={d} value={d}>{i18n.t("calendar.day", "Jour")}{d}
                   </option>
                 ))}
               </Select>
@@ -1603,34 +1575,28 @@ export default function MenuJournalierManual({
                 variant="outline"
                 leftIcon={showMicros ? <ViewOffIcon /> : <ViewIcon />}
                 onClick={() => setShowMicros((v) => !v)}
-              >
-                Micros
-              </Button>
+              >{i18n.t("auto.MenuJournalierManual.micros", "Micros")}</Button>
             </HStack>
 
             <HStack spacing={2} justify={{ base: "flex-start", md: "flex-end" }} flexWrap="wrap">
-              <Text fontSize="sm" color={textMuted} fontWeight="700">
-                Total
-              </Text>
+              <Text fontSize="sm" color={textMuted} fontWeight="700">{i18n.t("auto.MenuJournalierManual.total", "Total")}</Text>
               <Tag size="sm" variant="subtle" colorScheme="blue">
-                <TagLabel fontWeight="900">{r0(totals?.day?.kcal)} kcal</TagLabel>
+                <TagLabel fontWeight="900">{r0(totals?.day?.kcal)}{i18n.t("auto.MenuJournalierManual.kcal", "kcal")}</TagLabel>
               </Tag>
               <Tag size="sm" variant="subtle">
-                <TagLabel fontWeight="900">P {r0(totals?.day?.p)}g</TagLabel>
+                <TagLabel fontWeight="900">P {r0(totals?.day?.p)}{i18n.t("auto.MenuJournalierManual.g", "g")}</TagLabel>
               </Tag>
               <Tag size="sm" variant="subtle">
-                <TagLabel fontWeight="900">L {r0(totals?.day?.f)}g</TagLabel>
+                <TagLabel fontWeight="900">L {r0(totals?.day?.f)}{i18n.t("auto.MenuJournalierManual.g", "g")}</TagLabel>
               </Tag>
               <Tag size="sm" variant="subtle">
-                <TagLabel fontWeight="900">G {r0(totals?.day?.carbs)}g</TagLabel>
+                <TagLabel fontWeight="900">G {r0(totals?.day?.carbs)}{i18n.t("auto.MenuJournalierManual.g", "g")}</TagLabel>
               </Tag>
 
               <Spacer />
 
               <HStack spacing={2}>
-                <Text fontSize="sm" color={textMuted} fontWeight="700">
-                  Dupliquer vers
-                </Text>
+                <Text fontSize="sm" color={textMuted} fontWeight="700">{i18n.t("auto.MenuJournalierManual.dupliquer_vers", "Dupliquer vers")}</Text>
                 <Select
                   size="sm"
                   id="dup_target"
@@ -1640,8 +1606,7 @@ export default function MenuJournalierManual({
                   {Array.from({ length: daysCount }, (_, i) => i + 1)
                     .filter((d) => d !== dayIndex)
                     .map((d) => (
-                      <option key={`dup_${d}`} value={d}>
-                        Jour {d}
+                      <option key={`dup_${d}`} value={d}>{i18n.t("calendar.day", "Jour")}{d}
                       </option>
                     ))}
                 </Select>
@@ -1655,9 +1620,7 @@ export default function MenuJournalierManual({
                   }}
                   variant="outline"
                   isDisabled={blocked}
-                >
-                  Dupliquer
-                </Button>
+                >{i18n.t("programBuilder.actions.duplicate", "Dupliquer")}</Button>
               </HStack>
             </HStack>
           </SimpleGrid>
@@ -1709,23 +1672,23 @@ export default function MenuJournalierManual({
                 <HStack mb={2} flexWrap="wrap" gap={2}>
                   <Heading size="sm">{MEAL_LABEL[mealKey]}</Heading>
                   <Tag size="sm" variant="subtle">
-                    <TagLabel fontWeight="900">{sortedLines.length} lignes</TagLabel>
+                    <TagLabel fontWeight="900">{sortedLines.length}{i18n.t("auto.MenuJournalierManual.lignes", "lignes")}</TagLabel>
                   </Tag>
 
                   <Spacer />
 
                   <HStack spacing={2} flexWrap="wrap">
                     <Tag size="sm" variant="subtle" colorScheme="blue">
-                      <TagLabel fontWeight="900">{r0(mTot.kcal)} kcal</TagLabel>
+                      <TagLabel fontWeight="900">{r0(mTot.kcal)}{i18n.t("auto.MenuJournalierManual.kcal", "kcal")}</TagLabel>
                     </Tag>
                     <Tag size="sm" variant="subtle">
-                      <TagLabel fontWeight="900">P {r0(mTot.p)}g</TagLabel>
+                      <TagLabel fontWeight="900">P {r0(mTot.p)}{i18n.t("auto.MenuJournalierManual.g", "g")}</TagLabel>
                     </Tag>
                     <Tag size="sm" variant="subtle">
-                      <TagLabel fontWeight="900">L {r0(mTot.f)}g</TagLabel>
+                      <TagLabel fontWeight="900">L {r0(mTot.f)}{i18n.t("auto.MenuJournalierManual.g", "g")}</TagLabel>
                     </Tag>
                     <Tag size="sm" variant="subtle">
-                      <TagLabel fontWeight="900">G {r0(mTot.carbs)}g</TagLabel>
+                      <TagLabel fontWeight="900">G {r0(mTot.carbs)}{i18n.t("auto.MenuJournalierManual.g", "g")}</TagLabel>
                     </Tag>
                   </HStack>
                 </HStack>
@@ -1749,9 +1712,7 @@ export default function MenuJournalierManual({
                 )}
 
                 {sortedLines.length === 0 ? (
-                  <Text fontSize="sm" opacity={0.6}>
-                    (aucun aliment sur ce repas)
-                  </Text>
+                  <Text fontSize="sm" opacity={0.6}>{i18n.t("auto.MenuJournalierManual.aucun_aliment_sur_ce_repas", "(aucun aliment sur ce repas)")}</Text>
                 ) : (
                   <SimpleGrid columns={{ base: 1, md: 2 }} spacing={{ base: 3, md: 4 }}>
                     {sortedLines.map((line) => {
@@ -1802,22 +1763,21 @@ export default function MenuJournalierManual({
                                 <TagLabel fontWeight="900">{categoryLabel}</TagLabel>
                               </Tag>
                               <Text fontSize="sm" opacity={0.75}>
-                                {r0(num(line.qty))} {line.unit} → {r0(grams)} g
-                              </Text>
+                                {r0(num(line.qty))} {line.unit} → {r0(grams)}{i18n.t("auto.MenuJournalierManual.g", "g")}</Text>
                             </HStack>
 
                             <HStack spacing={2} flexWrap="wrap" mb={2}>
                               <Tag size="sm" variant="subtle" colorScheme="blue">
-                                <TagLabel fontWeight="900">{r0(t.kcal)} kcal</TagLabel>
+                                <TagLabel fontWeight="900">{r0(t.kcal)}{i18n.t("auto.MenuJournalierManual.kcal", "kcal")}</TagLabel>
                               </Tag>
                               <Tag size="sm" variant="subtle">
-                                <TagLabel fontWeight="900">P {r0(t.p)}g</TagLabel>
+                                <TagLabel fontWeight="900">P {r0(t.p)}{i18n.t("auto.MenuJournalierManual.g", "g")}</TagLabel>
                               </Tag>
                               <Tag size="sm" variant="subtle">
-                                <TagLabel fontWeight="900">L {r0(t.f)}g</TagLabel>
+                                <TagLabel fontWeight="900">L {r0(t.f)}{i18n.t("auto.MenuJournalierManual.g", "g")}</TagLabel>
                               </Tag>
                               <Tag size="sm" variant="subtle">
-                                <TagLabel fontWeight="900">G {r0(t.carbs)}g</TagLabel>
+                                <TagLabel fontWeight="900">G {r0(t.carbs)}{i18n.t("auto.MenuJournalierManual.g", "g")}</TagLabel>
                               </Tag>
 
                               <Spacer />
@@ -1833,8 +1793,7 @@ export default function MenuJournalierManual({
                             </HStack>
 
                             {row ? (
-                              <Text fontSize="sm" opacity={0.75} noOfLines={1} mb={open ? 0 : 2}>
-                                Choix : <b>{ciqualName(row)}</b>
+                              <Text fontSize="sm" opacity={0.75} noOfLines={1} mb={open ? 0 : 2}>{i18n.t("auto.MenuJournalierManual.choix", "Choix :")}<b>{ciqualName(row)}</b>
                               </Text>
                             ) : null}
 
@@ -1844,12 +1803,10 @@ export default function MenuJournalierManual({
                               {/* ✅ Partie du menu UNIQUEMENT Déj/Dîner */}
                               {allowMenuPart && (
                                 <>
-                                  <Text fontSize="sm" color={textMuted} mb={2}>
-                                    Partie du menu
-                                  </Text>
+                                  <Text fontSize="sm" color={textMuted} mb={2}>{i18n.t("auto.MenuJournalierManual.partie_du_menu", "Partie du menu")}</Text>
                                   <Select
                                     value={part}
-                                    placeholder="— choisir —"
+                                    placeholder={i18n.t("auto.MenuJournalierManual.choisir", "— choisir —")}
                                     onChange={(e) => setMappingPart(line.key, e.target.value)}
                                     isDisabled={blocked}
                                     bg={softBg}
@@ -1865,9 +1822,7 @@ export default function MenuJournalierManual({
                                 </>
                               )}
 
-                              <Text fontSize="sm" color={textMuted} mb={2}>
-                                Aliment CIQUAL
-                              </Text>
+                              <Text fontSize="sm" color={textMuted} mb={2}>{i18n.t("auto.MenuJournalierManual.aliment_ciqual", "Aliment CIQUAL")}</Text>
 
                               <Input
                                 size="sm"
@@ -1912,20 +1867,18 @@ export default function MenuJournalierManual({
                                   })}
                                 </Wrap>
                               ) : (
-                                <Text fontSize="sm" color={textMuted} mb={3}>
-                                  Aucun aliment trouvé. Essaie un terme plus simple, par exemple “riz”, “pate” ou “poulet”.
-                                </Text>
+                                <Text fontSize="sm" color={textMuted} mb={3}>{i18n.t("auto.MenuJournalierManual.aucun_aliment_trouve_essaie_un_terme_plus_simple_p", "Aucun aliment trouvé. Essaie un terme plus simple, par exemple “riz”, “pate” ou “poulet”.")}</Text>
                               )}
 
                               <Select
                                 value={ciqualCodeSel}
-                                placeholder="— choisir —"
+                                placeholder={i18n.t("auto.MenuJournalierManual.choisir", "— choisir —")}
                                 onChange={(e) => setMappingCode(line.key, e.target.value)}
                                 isDisabled={!ciqualOk || blocked}
                                 bg={softBg}
                               >
                                 {!!top25.length && (
-                                  <optgroup label="Top 25 (guidé)">
+                                  <optgroup label={i18n.t("auto.MenuJournalierManual.top_25_guide", "Top 25 (guidé)")}>
                                     {top25.map((x) => {
                                       const codeOpt = ciqualCode(x);
                                       const nameOpt = ciqualName(x);
@@ -1939,7 +1892,7 @@ export default function MenuJournalierManual({
                                   </optgroup>
                                 )}
 
-                                <optgroup label="Autres (filtrés)">
+                                <optgroup label={i18n.t("auto.MenuJournalierManual.autres_filtres", "Autres (filtrés)")}>
                                   {others.map((x) => {
                                     const codeOpt = ciqualCode(x);
                                     const nameOpt = ciqualName(x);
@@ -1953,8 +1906,7 @@ export default function MenuJournalierManual({
                                 </optgroup>
                               </Select>
 
-                              <Text fontSize="sm" mt={2} opacity={0.75}>
-                                Choix : <b>{row ? ciqualName(row) : "—"}</b>
+                              <Text fontSize="sm" mt={2} opacity={0.75}>{i18n.t("auto.MenuJournalierManual.choix", "Choix :")}<b>{row ? ciqualName(row) : "—"}</b>
                               </Text>
 
                               {showMicros && (

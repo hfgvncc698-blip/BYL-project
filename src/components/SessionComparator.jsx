@@ -20,6 +20,7 @@ import {
 } from "@chakra-ui/react";
 import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { db } from "../firebaseConfig";
+import i18n from "../i18n/index";
 
 /* ==================== Helpers ==================== */
 const isNil = (v) => v == null || v === "";
@@ -484,8 +485,6 @@ export default function SessionComparator({ clientId, programmes }) {
     setOccAIdx(runs.length > 1 ? 1 : 0);
   }, [mods, sessionIndex, exIdToIdx]);
 
-  if (!currentProg) return null;
-
   const DiffBadge = ({ kind, from, to }) => {
     if (!isDifferent(kind, from, to)) return <Badge variant="subtle">=</Badge>;
 
@@ -575,6 +574,8 @@ export default function SessionComparator({ clientId, programmes }) {
     return out;
   }, [occList, occAIdx, occBIdx, planExercises, onlyChanged]);
 
+  if (!currentProg) return null;
+
   return (
     <Box
       bg={cardBg}
@@ -587,12 +588,8 @@ export default function SessionComparator({ clientId, programmes }) {
     >
       <Flex justify="space-between" align={{ base: "stretch", md: "center" }} direction={{ base: "column", md: "row" }} wrap="wrap" gap={4}>
         <Box>
-          <Text fontWeight="900" fontSize={{ base: "lg", md: "xl" }} letterSpacing="-0.02em">
-            Comparer une séance
-          </Text>
-          <Text mt={1} fontSize="sm" color={muted}>
-            Comparez deux occurrences d’une même séance pour visualiser les évolutions exercice par exercice.
-          </Text>
+          <Text fontWeight="900" fontSize={{ base: "lg", md: "xl" }} letterSpacing="-0.02em">{i18n.t("statsShort.compareSession", "Comparer une séance")}</Text>
+          <Text mt={1} fontSize="sm" color={muted}>{i18n.t("auto.SessionComparator.comparez_deux_occurrences_d_une_meme_seance_pour_v", "Comparez deux occurrences d’une même séance pour visualiser les évolutions exercice par exercice.")}</Text>
         </Box>
 
         <HStack
@@ -615,14 +612,13 @@ export default function SessionComparator({ clientId, programmes }) {
 
           <Select size="sm" value={sessionIndex} onChange={(e) => setSessionIndex(Number(e.target.value))} maxW={{ base: "100%", md: "160px" }}>
             {(currentProg?.sessions || []).map((_s, i) => (
-              <option key={i} value={i}>
-                Séance {i + 1}
+              <option key={i} value={i}>{i18n.t("programView.session", "Séance")}{i + 1}
               </option>
             ))}
           </Select>
 
           <HStack pl={{ base: 0, md: 2 }}>
-            <Text fontSize="sm">Uniquement modifiés</Text>
+            <Text fontSize="sm">{i18n.t("auto.SessionComparator.uniquement_modifies", "Uniquement modifiés")}</Text>
             <Switch size="sm" isChecked={onlyChanged} onChange={(e) => setOnlyChanged(e.target.checked)} />
           </HStack>
 
@@ -639,9 +635,7 @@ export default function SessionComparator({ clientId, programmes }) {
           borderColor={border}
           borderRadius="20px"
         >
-          <Text fontSize="sm" color={muted}>
-            Pas encore assez d’occurrences pour comparer cette séance. Il faut au moins 2 enregistrements.
-          </Text>
+          <Text fontSize="sm" color={muted}>{i18n.t("auto.SessionComparator.pas_encore_assez_d_occurrences_pour_comparer_cette", "Pas encore assez d’occurrences pour comparer cette séance. Il faut au moins 2 enregistrements.")}</Text>
         </Box>
       ) : (
         <>
@@ -655,7 +649,7 @@ export default function SessionComparator({ clientId, programmes }) {
             borderRadius="20px"
             p={3}
           >
-            <Text fontSize="sm">Comparer :</Text>
+            <Text fontSize="sm">{i18n.t("compare.pick", "Comparer :")}</Text>
 
             <Select size="sm" value={occAIdx} onChange={(e) => setOccAIdx(Number(e.target.value))} maxW="260px">
               {occList.map((o, idx) => (
@@ -665,7 +659,7 @@ export default function SessionComparator({ clientId, programmes }) {
               ))}
             </Select>
 
-            <Text fontSize="sm">avec</Text>
+            <Text fontSize="sm">{i18n.t("compare.with", "avec")}</Text>
 
             <Select size="sm" value={occBIdx} onChange={(e) => setOccBIdx(Number(e.target.value))} maxW="260px">
               {occList.map((o, idx) => (
@@ -682,19 +676,17 @@ export default function SessionComparator({ clientId, programmes }) {
                 setOccBIdx(0);
                 setOccAIdx(occList.length > 1 ? 1 : 0);
               }}
-            >
-              Dernière vs précédente
-            </Button>
+            >{i18n.t("compare.lastVsPrev", "Dernière vs précédente")}</Button>
           </HStack>
 
           <Box mt={4} overflowX="auto">
             <Table variant="simple" size="sm" minW="900px">
               <Thead bg={tableHeadBg}>
                 <Tr>
-                  <Th>Exercice</Th>
-                  <Th>Champ</Th>
-                  <Th>Avant</Th>
-                  <Th>Maintenant</Th>
+                  <Th>{i18n.t("programBuilder.exercise.label", "Exercice")}</Th>
+                  <Th>{i18n.t("compare.field", "Champ")}</Th>
+                  <Th>{i18n.t("compare.before", "Avant")}</Th>
+                  <Th>{i18n.t("compare.now", "Maintenant")}</Th>
                   <Th>Δ</Th>
                 </Tr>
               </Thead>
@@ -726,9 +718,7 @@ export default function SessionComparator({ clientId, programmes }) {
                 borderColor={border}
                 borderRadius="20px"
               >
-                <Text fontSize="sm" color={muted}>
-                  Aucune différence détectée, ou aucun champ suivi n’a été trouvé dans l’historique pour cette sélection.
-                </Text>
+                <Text fontSize="sm" color={muted}>{i18n.t("auto.SessionComparator.aucune_difference_detectee_ou_aucun_champ_suivi_n_", "Aucune différence détectée, ou aucun champ suivi n’a été trouvé dans l’historique pour cette sélection.")}</Text>
               </Box>
             )}
           </Box>

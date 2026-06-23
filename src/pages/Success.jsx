@@ -19,9 +19,7 @@ import { db } from "../firebaseConfig";
 import { doc, onSnapshot, collection, getDocs } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
 
-// ✅ base API centralisée (.../api garanti)
-import { getApiBase } from "../utils/apiBase";
-const API_BASE = getApiBase();
+import { apiFetch } from "../utils/api";
 
 export default function Success() {
   const { user } = useAuth();
@@ -31,14 +29,19 @@ export default function Success() {
 
   const [verifying, setVerifying] = useState(true);
   const [paid, setPaid] = useState(false);
+  const [premiumRedirectPath, setPremiumRedirectPath] = useState("");
 
   const searchParams = useMemo(
     () => new URLSearchParams(location.search),
     [location.search]
   );
-  const action = searchParams.get("action"); // 'program' | 'account'
+  const action =
+    searchParams.get("action") ||
+    (location.pathname.includes("programmes-premium") ? "premium" : "") ||
+    (location.pathname.includes("questionnaire") ? "program" : "");
   const role = searchParams.get("role") || "coach";
   const sessionId = searchParams.get("session_id");
+  const isPremium = action === "premium";
 
   const cardBg = useColorModeValue("gray.100", "gray.700");
 
@@ -50,31 +53,41 @@ export default function Success() {
       try {
         if (sessionId) {
           // a) Forcer la MAJ Firestore depuis Stripe
-          await fetch(`${API_BASE}/payments/finalize-session`, {
+          const finalizeResult = await apiFetch("/payments/finalize-session", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ session_id: sessionId }),
-            credentials: "include",
           });
+          if (!cancelled && action === "premium" && finalizeResult?.ok) {
+            const viewerPath =
+              finalizeResult.viewerUrl ||
+              (finalizeResult.clientId && finalizeResult.programAssignmentId
+                ? `/clients/${finalizeResult.clientId}/programmes/${finalizeResult.programAssignmentId}`
+                : "");
+            if (viewerPath) setPremiumRedirectPath(viewerPath);
+          }
 
           // b) Vérifier la session (feedback rapide)
-          const res = await fetch(
-            `${API_BASE}/payments/session?session_id=${encodeURIComponent(sessionId)}`,
-            { credentials: "include" }
-          );
-          const data = await res.json().catch(() => null);
+          const data = await apiFetch(`/payments/session?session_id=${encodeURIComponent(sessionId)}`);
           const isPaid =
             data?.payment_status === "paid" || data?.status === "complete";
           if (!cancelled) setPaid(Boolean(isPaid));
+
+          if (!cancelled && action === "premium" && isPaid && finalizeResult?.ok) {
+            const viewerPath =
+              finalizeResult.viewerUrl ||
+              (finalizeResult.clientId && finalizeResult.programAssignmentId
+                ? `/clients/${finalizeResult.clientId}/programmes/${finalizeResult.programAssignmentId}`
+                : "");
+            navigate(viewerPath || "/mes-programmes", { replace: true });
+            return;
+          }
         }
 
         // c) Reconcile (sécurité)
         if (user?.uid) {
-          await fetch(`${API_BASE}/payments/reconcile`, {
+          await apiFetch("/payments/reconcile", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ uid: user.uid }),
-            credentials: "include",
           });
         }
       } catch {
@@ -88,7 +101,7 @@ export default function Success() {
     return () => {
       cancelled = true;
     };
-  }, [sessionId, user?.uid]);
+  }, [action, navigate, sessionId, user?.uid]);
 
   // 2) Écoute temps réel Firestore pour déclencher la redirection
   useEffect(() => {
@@ -111,6 +124,11 @@ export default function Success() {
         u.hasActiveSubscription === true ||
         u.subscriptionStatus === "active" ||
         trialActive;
+
+      if (isPremium && paid) {
+        navigate(premiumRedirectPath || "/mes-programmes", { replace: true });
+        return;
+      }
 
       if (isActive) {
         const redirectPath =
@@ -135,7 +153,7 @@ export default function Success() {
               )[0];
             if (latest)
               navigate("/auto-program-preview", {
-                state: { programId: latest.id },
+                state: { programId: latest.id, fromCreation: true, from: "checkout" },
               });
             else navigate("/auto-program-preview"); // fallback
           })();
@@ -146,9 +164,9 @@ export default function Success() {
     });
 
     return () => unsub();
-  }, [user?.uid, navigate, action, role]);
+  }, [user?.uid, navigate, action, role, isPremium, paid, premiumRedirectPath]);
 
-  const isProgram = action === "program";
+  const isProgram = action === "program" || isPremium;
 
   // Titres traduits avec fallbacks
   const title = isProgram
@@ -166,7 +184,12 @@ export default function Success() {
     : t("payment.success.valid", "Paiement validé !");
 
   const redirectHint = isProgram
-    ? t(
+    ? isPremium
+      ? t(
+          "payment.success.redirect_to_programs",
+          "Ton programme est ajouté à ton espace. Tu vas être redirigé·e vers le viewer."
+        )
+      : t(
         "payment.success.redirect_when_ready",
         "Tu seras redirigé·e dès que le programme est prêt."
       )
@@ -252,4 +275,3 @@ export default function Success() {
     </Box>
   );
 }
-

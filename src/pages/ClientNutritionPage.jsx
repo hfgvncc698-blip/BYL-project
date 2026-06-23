@@ -7,10 +7,19 @@ import { useNutritionTheme } from "../styles/nutritionTheme";
 import AppLoading from "../components/ui/AppLoading.jsx";
 import PageBackButton from "../components/ui/PageBackButton";
 import ClientNutritionSharedSection from "../components/ClientNutritionSharedSection.jsx";
+import { useTranslation } from "react-i18next";
 
 export default function ClientNutritionPage() {
+  const { t } = useTranslation("common");
   const { user } = useAuth();
   const theme = useNutritionTheme();
+  const panelProps = {
+    borderWidth: "1px",
+    borderColor: theme.borderColor,
+    borderRadius: "lg",
+    bg: theme.surfaceBg,
+    boxShadow: "0 14px 34px rgba(15, 23, 42, 0.06)",
+  };
   const [clientId, setClientId] = useState(null);
   const [clientData, setClientData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -48,23 +57,23 @@ export default function ClientNutritionPage() {
     };
   }, [user]);
 
-  if (loading) return <AppLoading label="Chargement de ton suivi nutrition..." />;
+  if (loading) return <AppLoading label={t("clientNutrition.loading", "Chargement de ton suivi nutrition...")} />;
 
   return (
-    <Box minH="100vh" bg={theme.pageBg} color={theme.textColor} p={{ base: 3, md: 6 }} position="relative">
+    <Box data-tour-page="client-nutrition" minH="100vh" bg={theme.pageBg} color={theme.textColor} p={{ base: 3, md: 6 }} position="relative">
       <Box position="absolute" top={{ base: 3, md: 6 }} left={{ base: 3, md: 6 }} zIndex={20}>
         <PageBackButton />
       </Box>
       <Box maxW="7xl" mx="auto">
-        <Box {...theme.cardProps} p={{ base: 4, md: 5 }} mb={{ base: 3, md: 5 }} pt={{ base: 12, md: 5 }}>
+        <Box {...panelProps} p={{ base: 4, md: 5 }} mb={{ base: 3, md: 5 }} pt={{ base: 12, md: 5 }}>
           <Text fontSize="xs" fontWeight="900" letterSpacing="0.12em" color={theme.subtleText}>
-            ESPACE CLIENT
+            {t("clientNutrition.eyebrow", "ESPACE CLIENT")}
           </Text>
           <Heading size={{ base: "md", md: "lg" }} mt={1}>
-            Nutrition
+            {t("nav.nutrition", "Nutrition")}
           </Heading>
           <Text color={theme.mutedText} mt={2} fontSize={{ base: "sm", md: "md" }}>
-            Tout ce que ton professionnel a partagé : menu, recettes, courses et conseils.
+            {t("clientNutrition.subtitle", "Tout ce que ton professionnel a partagé : menu, recettes, courses et conseils.")}
           </Text>
         </Box>
 
@@ -75,10 +84,10 @@ export default function ClientNutritionPage() {
             clientName={[clientData?.firstName || clientData?.prenom, clientData?.lastName || clientData?.nom].filter(Boolean).join(" ")}
           />
         ) : (
-          <Box {...theme.cardProps} p={5}>
-            <Heading size="sm">Aucun dossier client relié</Heading>
+          <Box {...panelProps} p={5}>
+            <Heading size="sm">{t("clientNutrition.noLinkedTitle", "Aucun dossier client relié")}</Heading>
             <Text color={theme.mutedText} mt={2}>
-              Ton compte n’est pas encore relié à une fiche client nutrition.
+              {t("clientNutrition.noLinkedBody", "Ton compte n’est pas encore relié à une fiche client nutrition.")}
             </Text>
           </Box>
         )}

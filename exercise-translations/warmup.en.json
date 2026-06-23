@@ -173,7 +173,31 @@
       "Retour": "Return your feet and arms simultaneously to the starting position.",
       "Respiration": "Inhale while opening, exhale while closing.",
       "Posture": "Engage your core to avoid any imbalance."
-    }
+    },
+    "articulations_solicitees": [
+      "Shoulders",
+      "Elbows",
+      "Wrists",
+      "Ankles"
+    ],
+    "articulations_sollicitees": [
+      "Shoulders",
+      "Elbows",
+      "Wrists",
+      "Ankles"
+    ],
+    "tendons_solicites": [
+      "Achilles tendon",
+      "Patellar tendon",
+      "Deltoid tendon"
+    ],
+    "tendons_sollicites": [
+      "Achilles tendon",
+      "Patellar tendon",
+      "Deltoid tendon"
+    ],
+    "type": "Cardiovascular exercise with light load",
+    "niveau": "Intermediate"
   },
   "E005": {
     "nom": "Arm rotations",
@@ -211,7 +235,8 @@
       "Positionnement": "Stand with your feet shoulder-width apart, arms extended at your sides.",
       "Mouvement": "Make slow circles with your arms, forward then back.",
       "Respiration": "Breathe naturally, without blockage.",
-      "Posture": "Keep your back straight and your neck relaxed."
+      "Posture": "Keep your back straight and your neck relaxed.",
+      "Retour": "Return slowly to the starting position while keeping the movement controlled."
     }
   },
   "E006": {

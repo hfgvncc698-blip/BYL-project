@@ -34,12 +34,40 @@ import {
   Timestamp,
   onSnapshot,
 } from "firebase/firestore";
+import { getApiBase } from "./utils/apiBase";
+import { getProPlanAccess } from "./utils/proPlanAccess";
 
 const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
 const TRIAL_DAYS = 14;
 const VIEW_AS_KEY = "BYL_VIEW_AS"; // persistance de la vue choisie (admin/coach)
+const ADMIN_PRO_ACCESS = getProPlanAccess("complete", "unlimited");
+const FULL_PRO_TRIAL_ACCESS = getProPlanAccess("complete", "unlimited");
+const FULL_CLUB_TRIAL_ACCESS = getProPlanAccess("club", "network");
+
+async function createStripeCustomerForRegisteredUser(fbUser, payload) {
+  if (!fbUser?.getIdToken) return;
+  try {
+    const token = await fbUser.getIdToken(true);
+    const response = await fetch(`${getApiBase()}/payments/register-customer`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      console.warn("[register] Stripe customer not created:", response.status, text);
+    }
+  } catch (error) {
+    console.warn("[register] Stripe customer creation skipped:", error?.message || error);
+  }
+}
 
 /* ----------------- Utils ----------------- */
 const toDate = (v) =>
@@ -69,36 +97,80 @@ const langCodeFromAny = (value) => {
   return "fr";
 };
 
-const normalizeUserDoc = (uid, data, fb) => ({
-  uid,
-  email: fb?.email ?? data?.email ?? null,
-  firstName: data?.firstName ?? data?.prenom ?? "Utilisateur",
-  lastName: data?.lastName ?? data?.nom ?? "",
-  role: data?.role ?? "particulier", // "admin" | "coach" | "particulier"
+const normalizeUserDoc = (uid, data, fb) => {
+  const isClubAccount =
+    data?.accountType === "club_owner" ||
+    data?.accountType === "club_member" ||
+    data?.clubRole === "owner" ||
+    data?.onboardingPackage === "club" ||
+    data?.packageKey === "club";
+  const rawRole = data?.role ?? "particulier"; // "admin" | "coach" | "particulier"
+  const role = rawRole === "particulier" && isClubAccount ? "coach" : rawRole;
+  const isAdminUser = role === "admin";
+  const trialEndsAt = toDate(data?.trialEndsAt);
+  const isActiveCoachTrial =
+    role === "coach" &&
+    data?.subscriptionStatus === "trialing" &&
+    safeTime(trialEndsAt) &&
+    safeTime(trialEndsAt) > Date.now();
+  const isClubTrial = isClubAccount;
+  const adminAccess = isAdminUser
+    ? {
+        ...ADMIN_PRO_ACCESS,
+        modules: [...ADMIN_PRO_ACCESS.modules],
+      }
+    : null;
+  const trialAccess = isActiveCoachTrial
+    ? {
+        ...(isClubTrial ? FULL_CLUB_TRIAL_ACCESS : FULL_PRO_TRIAL_ACCESS),
+        modules: [...(isClubTrial ? FULL_CLUB_TRIAL_ACCESS.modules : FULL_PRO_TRIAL_ACCESS.modules)],
+      }
+    : null;
 
-  // ⚠️ harmonisation : parfois tu écris preferredLanguage, parfois preferredLang
-  preferredLang:
-    data?.preferredLang ??
-    data?.preferredLanguage ??
-    (navigator.language || "fr").slice(0, 2).toLowerCase(),
+  return {
+    uid,
+    email: fb?.email ?? data?.email ?? null,
+    firstName: data?.firstName ?? data?.prenom ?? "Utilisateur",
+    lastName: data?.lastName ?? data?.nom ?? "",
+    role,
+    accountType: data?.accountType ?? (data?.clubRole ? "club_member" : ""),
+    clubId: data?.clubId ?? null,
+    clubRole: data?.clubRole ?? null,
+    clubName: data?.clubName ?? null,
+    clubLogoUrl: data?.clubLogoUrl ?? null,
+    clubPrimaryColor: data?.clubPrimaryColor ?? null,
 
-  // ⚠️ IMPORTANT : ce flag doit refléter un abonnement PAYANT.
-  // Un coach en TRIAL doit avoir hasActiveSubscription=false (accès géré par trialEndsAt + subscriptionStatus).
-  hasActiveSubscription: !!data?.hasActiveSubscription,
-  subscriptionStatus: data?.subscriptionStatus ?? null,
+    // ⚠️ harmonisation : parfois tu écris preferredLanguage, parfois preferredLang
+    preferredLang:
+      data?.preferredLang ??
+      data?.preferredLanguage ??
+      (navigator.language || "fr").slice(0, 2).toLowerCase(),
 
-  trialStartedAt: toDate(data?.trialStartedAt),
-  trialEndsAt: toDate(data?.trialEndsAt),
-  nextInvoiceAt: toDate(data?.nextInvoiceAt),
+    // ⚠️ IMPORTANT : ce flag doit refléter un abonnement PAYANT.
+    // Un coach en TRIAL doit avoir hasActiveSubscription=false (accès géré par trialEndsAt + subscriptionStatus).
+    hasActiveSubscription: !!data?.hasActiveSubscription,
+    subscriptionStatus: data?.subscriptionStatus ?? null,
+    planType: data?.planType ?? null,
+    packageKey: adminAccess?.packageKey ?? trialAccess?.packageKey ?? data?.packageKey ?? data?.onboardingPackage ?? "",
+    packageTier: adminAccess?.packageTier ?? trialAccess?.packageTier ?? data?.packageTier ?? data?.onboardingPackageTier ?? "",
+    clientLimit: adminAccess ? adminAccess.clientLimit : trialAccess ? trialAccess.clientLimit : data?.clientLimit ?? null,
+    proLimit: adminAccess ? adminAccess.proLimit : trialAccess ? trialAccess.proLimit : data?.proLimit ?? null,
+    modules: adminAccess ? adminAccess.modules : trialAccess ? trialAccess.modules : data?.modules ?? [],
+    proAccess: adminAccess ?? trialAccess ?? data?.proAccess ?? null,
 
-  stripeCustomerId: data?.stripeCustomerId ?? null,
-  stripeSubscriptionId: data?.stripeSubscriptionId ?? null,
-  linkedClientId: data?.linkedClientId ?? null,
+    trialStartedAt: toDate(data?.trialStartedAt),
+    trialEndsAt,
+    nextInvoiceAt: toDate(data?.nextInvoiceAt),
 
-  logoUrl: data?.logoUrl ?? null,
-  primaryColor: data?.primaryColor ?? null,
-  settings: data?.settings ?? {},
-});
+    stripeCustomerId: data?.stripeCustomerId ?? null,
+    stripeSubscriptionId: data?.stripeSubscriptionId ?? null,
+    linkedClientId: data?.linkedClientId ?? null,
+
+    logoUrl: data?.logoUrl ?? null,
+    primaryColor: data?.primaryColor ?? null,
+    settings: data?.settings ?? {},
+  };
+};
 
 async function findClientProfileForAuthUser(firebaseUser) {
   const email = normalizeEmail(firebaseUser?.email);
@@ -212,6 +284,7 @@ export const AuthProvider = ({ children }) => {
   const isTrialActive = useMemo(() => {
     if (!user) return false;
     if (user.role !== "coach") return false;
+    if (user.accountType === "club_member" && user.clubId) return true;
 
     // accepte trialing + endsAt futur
     const endsAtMs = safeTime(user.trialEndsAt);
@@ -334,7 +407,7 @@ export const AuthProvider = ({ children }) => {
       unAuth();
       if (unsubUserRef.current) unsubUserRef.current();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   /* -- (Optionnel) gérer la fin d'un redirect Apple -- */
@@ -372,6 +445,22 @@ export const AuthProvider = ({ children }) => {
         const ref = doc(db, "users", fbUser.uid);
         const snap = await getDoc(ref);
         const data = snap.data() || {};
+        const normalized = normalizeUserDoc(fbUser.uid, data, fbUser);
+        setUser(normalized);
+        try {
+          localStorage.setItem("user", JSON.stringify(normalized));
+        } catch {}
+        setDoc(
+          ref,
+          {
+            passwordSetupRequired: false,
+            lastLoginAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        ).catch((writeError) => {
+          console.warn("[auth] post-login user update skipped:", writeError?.message || writeError);
+        });
 
         // ✅ callback historique mais inclut l'accès trial
         const endsAt = toDate(data.trialEndsAt);
@@ -381,8 +470,13 @@ export const AuthProvider = ({ children }) => {
           data.subscriptionStatus === "trialing" &&
           endsAtMs &&
           endsAtMs > Date.now();
+        const clubAccessOk =
+          (data.accountType === "club_member" && data.clubId) ||
+          data.accountType === "club_owner" ||
+          data.clubRole === "owner";
+        const callbackRole = clubAccessOk ? "coach" : data.role || "particulier";
 
-        callback(data.role || "particulier", !!data.hasActiveSubscription || !!trialOk);
+        callback(callbackRole, !!data.hasActiveSubscription || !!trialOk || !!clubAccessOk, data);
       }
     } catch (err) {
       console.error(err);
@@ -411,6 +505,22 @@ export const AuthProvider = ({ children }) => {
       if (callback) {
         const snap = await getDoc(userRef);
         const data = snap.data() || {};
+        const normalized = normalizeUserDoc(fbUser.uid, data, fbUser);
+        setUser(normalized);
+        try {
+          localStorage.setItem("user", JSON.stringify(normalized));
+        } catch {}
+        setDoc(
+          userRef,
+          {
+            passwordSetupRequired: false,
+            lastLoginAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        ).catch((writeError) => {
+          console.warn("[auth] post-login user update skipped:", writeError?.message || writeError);
+        });
 
         const endsAt = toDate(data.trialEndsAt);
         const endsAtMs = safeTime(endsAt);
@@ -419,8 +529,13 @@ export const AuthProvider = ({ children }) => {
           data.subscriptionStatus === "trialing" &&
           endsAtMs &&
           endsAtMs > Date.now();
+        const clubAccessOk =
+          (data.accountType === "club_member" && data.clubId) ||
+          data.accountType === "club_owner" ||
+          data.clubRole === "owner";
+        const callbackRole = clubAccessOk ? "coach" : data.role || "particulier";
 
-        callback(data.role || "particulier", !!data.hasActiveSubscription || !!trialOk);
+        callback(callbackRole, !!data.hasActiveSubscription || !!trialOk || !!clubAccessOk, data);
       }
     } catch (err) {
       console.error(err);
@@ -505,11 +620,23 @@ export const AuthProvider = ({ children }) => {
 
       const userRef = doc(db, "users", fbUser.uid);
 
+      const isClubOwner =
+        role === "coach" &&
+        (consent?.accountType === "club_owner" || consent?.onboardingPackage === "club");
+      const clubId = isClubOwner ? fbUser.uid : consent?.clubId || null;
+      const clubName =
+        consent?.clubName ||
+        (isClubOwner ? `${firstName || "Club"} ${lastName || ""}`.trim() : "");
+
       const base = {
         email,
         firstName: firstName || "Utilisateur",
         lastName: lastName || "",
         role,
+        accountType: isClubOwner ? "club_owner" : consent?.accountType || "",
+        clubId,
+        clubRole: isClubOwner ? "owner" : consent?.clubRole || "",
+        clubName,
         birthDate: birthDate || "",
         preferredLang: (navigator.language || "fr").slice(0, 2).toLowerCase(),
         ageVerified: !!consent?.ageVerified,
@@ -524,14 +651,33 @@ export const AuthProvider = ({ children }) => {
 
       let trialPart = {};
       if (role === "coach") {
+        const requestedPackageKey = consent?.onboardingPackage || "";
+        const requestedPackageTier = consent?.onboardingPackageTier || "";
+        const selectedAccess = isClubOwner ? FULL_CLUB_TRIAL_ACCESS : FULL_PRO_TRIAL_ACCESS;
         const now = Date.now();
+        const requestedTrialDays = Number(consent?.trialDays || TRIAL_DAYS);
+        const trialDays =
+          Number.isFinite(requestedTrialDays) && requestedTrialDays > 0
+            ? Math.min(Math.round(requestedTrialDays), 30)
+            : TRIAL_DAYS;
         trialPart = {
           subscriptionStatus: "trialing",
           trialStartedAt: Timestamp.fromDate(new Date(now)),
           trialEndsAt: Timestamp.fromDate(
-            new Date(now + TRIAL_DAYS * 24 * 60 * 60 * 1000)
+            new Date(now + trialDays * 24 * 60 * 60 * 1000)
           ),
           trialStatus: "running",
+          trialDays,
+          requestedPackageKey,
+          requestedPackageTier,
+          onboardingPackage: selectedAccess.packageKey,
+          onboardingPackageTier: selectedAccess.packageTier,
+          packageKey: selectedAccess.packageKey,
+          packageTier: selectedAccess.packageTier,
+          clientLimit: selectedAccess.clientLimit,
+          proLimit: selectedAccess.proLimit,
+          modules: selectedAccess.modules,
+          proAccess: selectedAccess,
 
           // ✅ IMPORTANT : un trial n'est PAS un abonnement payant
           hasActiveSubscription: false,
@@ -549,6 +695,43 @@ export const AuthProvider = ({ children }) => {
       }
 
       await setDoc(userRef, { ...base, ...trialPart }, { merge: true });
+      if (isClubOwner) {
+        const clubRef = doc(db, "clubs", clubId);
+        await setDoc(
+          clubRef,
+          {
+            name: clubName || `${firstName || "Club"} ${lastName || ""}`.trim(),
+            ownerUid: fbUser.uid,
+            ownerEmail: email,
+            planTier: trialPart.packageTier || "network",
+            trialDays: trialPart.trialDays || 30,
+            status: "trialing",
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+        await setDoc(
+          doc(db, "clubs", clubId, "members", fbUser.uid),
+          {
+            uid: fbUser.uid,
+            email,
+            firstName: firstName || "Responsable",
+            lastName: lastName || "",
+            role: "owner",
+            status: "active",
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }
+      await createStripeCustomerForRegisteredUser(fbUser, {
+        email,
+        firstName,
+        lastName,
+        role,
+      });
       // le onSnapshot remplira `user`
     } catch (err) {
       console.error(err);

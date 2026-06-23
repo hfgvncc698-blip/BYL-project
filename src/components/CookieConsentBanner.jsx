@@ -9,8 +9,10 @@ import {
   useColorModeValue,
 } from "@chakra-ui/react";
 import { useConsent } from "../consent/ConsentContext";
+import { Trans, useTranslation } from "react-i18next";
 
 export default function CookieConsentBanner() {
+  const { t } = useTranslation("common");
   const { asked, save, loaded } = useConsent();
   const bg = useColorModeValue("gray.50", "gray.800");
   const border = useColorModeValue("gray.200", "gray.700");
@@ -50,33 +52,33 @@ export default function CookieConsentBanner() {
             _hover={{ color: "gray.600" }}
             onClick={refuseAll}
           >
-            Continuer sans consentir
+            {t("cookies.continueWithoutConsent", "Continuer sans consentir")}
           </Button>
         </Box>
 
-        <Text fontWeight="semibold">Cookies & confidentialité</Text>
+        <Text fontWeight="semibold">{t("cookies.title", "Cookies & confidentialité")}</Text>
         <Text fontSize="sm">
-          Nous utilisons des cookies nécessaires au bon fonctionnement du site
-          (obligatoires). Pour les <strong>statistiques</strong> et le{" "}
-          <strong>marketing</strong>, nous avons besoin de votre accord. Le
-          thème clair/sombre peut utiliser votre position{" "}
-          <em>sans la stocker</em>.{" "}
+          <Trans
+            i18nKey="cookies.body"
+            t={t}
+            components={{ strong: <strong />, em: <em /> }}
+          />
+          {" "}
           <Link href="/privacy" textDecoration="underline">
-            En savoir plus
+            {t("cookies.learnMore", "En savoir plus")}
           </Link>
           .
         </Text>
 
         <Stack direction="row" spacing={2}>
           <Button colorScheme="blue" onClick={acceptAll}>
-            Tout accepter
+            {t("cookies.acceptAll", "Tout accepter")}
           </Button>
           <Button variant="outline" onClick={refuseAll}>
-            Tout refuser
+            {t("cookies.refuseAll", "Tout refuser")}
           </Button>
         </Stack>
       </Stack>
     </Box>
   );
 }
-

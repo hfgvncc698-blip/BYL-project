@@ -1,7 +1,6 @@
 // src/SunColorModeSync.js
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useColorMode } from "@chakra-ui/react";
-import useGeolocation from "../hooks/useGeolocation";
 import { isDaylightNow, isDayByFallback } from "../utils/sunTimes";
 
 const CHECK_EVERY_MS = 15 * 60 * 1000;
@@ -37,6 +36,17 @@ function getManualOverride() {
   }
 }
 
+function getCachedPosition() {
+  try {
+    const lat = Number(localStorage.getItem("BYL_LAT"));
+    const lng = Number(localStorage.getItem("BYL_LNG"));
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) return null;
+    return { lat, lng };
+  } catch {
+    return null;
+  }
+}
+
 export function setColorModeManual(mode) {
   // mode: "light" | "dark"
   try {
@@ -58,29 +68,25 @@ export function clearColorModeManual() {
 
 export default function SunColorModeSync() {
   const { colorMode, setColorMode } = useColorMode();
+  const [cachedPosition, setCachedPosition] = useState(getCachedPosition);
 
-  const { status, position } = useGeolocation({
-    uid: null,
-    enabled: true,
-    watch: false,
-    saveToFirestore: false,
-  });
+  useEffect(() => {
+    const handler = () => setCachedPosition(getCachedPosition());
+    window.addEventListener("BYL_GEO_READY", handler);
+    return () => window.removeEventListener("BYL_GEO_READY", handler);
+  }, []);
 
   const wantLight = useMemo(() => {
     const now = new Date();
 
-    if (
-      status === "granted" &&
-      position?.lat != null &&
-      position?.lng != null
-    ) {
-      const day = isDaylightNow(position.lat, position.lng, now);
+    if (cachedPosition?.lat != null && cachedPosition?.lng != null) {
+      const day = isDaylightNow(cachedPosition.lat, cachedPosition.lng, now);
       if (day === null) return isDayByFallback(now);
       return day;
     }
 
     return isDayByFallback(now);
-  }, [status, position?.lat, position?.lng]);
+  }, [cachedPosition?.lat, cachedPosition?.lng]);
 
   const autoTarget = wantLight ? "light" : "dark";
 
@@ -104,16 +110,15 @@ export default function SunColorModeSync() {
   // Applique au mount + quand le calcul jour/nuit change
   useEffect(() => {
     applyTheme();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [autoTarget]);
 
   // Re-check périodique
   useEffect(() => {
     const id = setInterval(applyTheme, CHECK_EVERY_MS);
     return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [autoTarget, colorMode]);
 
   return null;
 }
-

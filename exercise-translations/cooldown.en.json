@@ -1690,9 +1690,7 @@
       "Eyes closed"
     ],
     "variantes": [
-      "With cushion under the knees",
-      "With cover on the body",
-      "With audio guided relaxation"
+      "Lying star stretch with cushion under the knees or head"
     ],
     "consignes": {
       "Positionnement": "Lie on your back, legs slightly apart, arms alongside your body, palms facing the sky.",
@@ -1700,7 +1698,15 @@
       "Retour": "Start by moving your fingers and toes, then slowly stretch before turning to the side to stand up.",
       "Respiration": "Slow, regular, silent breathing. Just observe your breath.",
       "Posture": "Body totally relaxed, gaze inward, mind peaceful."
-    }
+    },
+    "tendons_solicites": [
+      "Paraspinal tendons",
+      "Hamstring tendons"
+    ],
+    "tendons_sollicites": [
+      "Paraspinal tendons",
+      "Hamstring tendons"
+    ]
   },
   "C037": {
     "nom": "Stretching calves against a wall (leg straight)",

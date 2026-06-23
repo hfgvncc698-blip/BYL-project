@@ -1690,9 +1690,7 @@
       "Augen geschlossen"
     ],
     "variantes": [
-      "Mit Kissen unter den Knien",
-      "Mit Abdeckung am Körper",
-      "Mit audiogeführter Entspannung"
+      "Liegende Sterndehnung mit Kissen unter den Knien oder dem Kopf"
     ],
     "consignes": {
       "Positionnement": "Legen Sie sich auf den Rücken, die Beine leicht gespreizt, die Arme neben Ihrem Körper, die Handflächen zeigen zum Himmel.",
@@ -1700,7 +1698,15 @@
       "Retour": "Bewegen Sie zunächst Ihre Finger und Zehen, strecken Sie sich dann langsam, bevor Sie sich zur Seite drehen, um aufzustehen.",
       "Respiration": "Langsames, regelmäßiges, stilles Atmen. Beobachten Sie einfach Ihren Atem.",
       "Posture": "Der Körper ist völlig entspannt, der Blick nach innen gerichtet, der Geist ruhig."
-    }
+    },
+    "tendons_solicites": [
+      "Paravertebrale Sehnen",
+      "Ischiocrurale Sehnen"
+    ],
+    "tendons_sollicites": [
+      "Paravertebrale Sehnen",
+      "Ischiocrurale Sehnen"
+    ]
   },
   "C037": {
     "nom": "Waden gegen eine Wand strecken (Bein gestreckt)",

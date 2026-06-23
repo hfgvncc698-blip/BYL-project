@@ -9,7 +9,6 @@ import {
   Button,
   Stack,
   useToast,
-  Spinner,
   Select,
   HStack,
   Text,
@@ -36,13 +35,13 @@ import {
   MdOutlineFitnessCenter,
   MdOutlineLanguage,
   MdOutlinePerson,
-  MdOutlinePhone,
   MdOutlineStraighten,
   MdOutlineTrackChanges,
 } from "react-icons/md";
 import AppLoading from "../components/ui/AppLoading";
 import PageBackButton from "../components/ui/PageBackButton";
 import { notify } from "../utils/notify";
+import { ensureLanguageLoaded } from "../i18n";
 
 /* ---- conversions identiques à ClientCreation.jsx ---- */
 const KG_PER_LB = 0.45359237;
@@ -217,8 +216,9 @@ export default function ProfilePageClient() {
   const activePurple = "#8B5CF6";
 
   /* ---------- applyLanguage: change toute l'appli immédiatement ---------- */
-  const applyLanguage = (code) => {
+  const applyLanguage = async (code) => {
     const next = codeFromAny(code);
+    await ensureLanguageLoaded(next);
     i18n.changeLanguage(next);
     localStorage.setItem("i18nextLng", next);
     // RTL pour arabe
@@ -322,7 +322,7 @@ export default function ProfilePageClient() {
       }
     };
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [user]);
 
   /* ---------- Handlers champs ---------- */
@@ -541,7 +541,7 @@ export default function ProfilePageClient() {
   const displayedWeight = form.poids ? `${form.poids} ${weightUnit}` : "—";
 
   return (
-    <Box p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
+    <Box data-tour-page="client-profile" p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
       <Box position="absolute" top={{ base: 4, md: 6 }} left={{ base: 4, md: 6 }} zIndex={20}>
         <PageBackButton />
       </Box>
@@ -623,17 +623,15 @@ export default function ProfilePageClient() {
                 <Heading as="h1" size={{ base: "md", md: "lg" }} lineHeight="1.05" letterSpacing="-0.03em" color={textColor}>
                   {t("profile.title", "Mon profil")}
                 </Heading>
-                <Text mt={2} color={mutedText}>
-                  Centralisez vos informations, vos objectifs et vos préférences de suivi dans un espace plus clair.
-                </Text>
+                <Text mt={2} color={mutedText}>{t("auto.ProfilePageClient.centralisez_vos_informations_vos_objectifs_et_vos_", "Centralisez vos informations, vos objectifs et vos préférences de suivi dans un espace plus clair.")}</Text>
               </Box>
             </HStack>
 
             <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={3} minW={{ base: "100%", xl: "480px" }}>
               <StatMini
-                label="Profil complété"
+                label={t("auto.ProfilePageClient.profil_complete", "Profil complété")}
                 value={`${profileCompletionPct}%`}
-                helper="Informations remplies"
+                helper={t("auto.ProfilePageClient.informations_remplies", "Informations remplies")}
                 icon={MdOutlinePerson}
                 accent={activeBlue}
                 surfaceBg={surfaceBg}
@@ -643,7 +641,7 @@ export default function ProfilePageClient() {
                 glassShadow={glassShadow}
               />
               <StatMini
-                label="Objectif"
+                label={t("nutritionCoach.table.objective", "Objectif")}
                 value={form.objectifs || "—"}
                 helper={form.niveauSportif || "Niveau non défini"}
                 icon={MdOutlineTrackChanges}
@@ -655,7 +653,7 @@ export default function ProfilePageClient() {
                 glassShadow={glassShadow}
               />
               <StatMini
-                label="Préférences"
+                label={t("settings.sections.preferences", "Préférences")}
                 value={langCode.toUpperCase()}
                 helper={`${heightUnit}/${weightUnit}`}
                 icon={MdOutlineLanguage}
@@ -674,8 +672,8 @@ export default function ProfilePageClient() {
           <Box gridColumn={{ base: "span 1", xl: "span 4" }}>
             <VStack spacing={6} align="stretch">
               <SectionCard
-                title="Vue rapide"
-                subtitle="Les repères personnels les plus utiles au quotidien."
+                title={t("auto.ProfilePageClient.vue_rapide", "Vue rapide")}
+                subtitle={t("auto.ProfilePageClient.les_reperes_personnels_les_plus_utiles_au_quotidie", "Les repères personnels les plus utiles au quotidien.")}
                 icon={MdOutlinePerson}
                 accent={activeBlue}
                 cardBg={cardBg}
@@ -685,17 +683,17 @@ export default function ProfilePageClient() {
               >
                 <VStack align="stretch" spacing={3}>
                   <Box border="1px solid" borderColor={borderColor} borderRadius="18px" p={3.5}>
-                    <Text fontSize="xs" color={subtleText} mb={1}>Identité</Text>
+                    <Text fontSize="xs" color={subtleText} mb={1}>{t("profile.coach.stats.identity", "Identité")}</Text>
                     <Text fontWeight="800">{`${form.firstName || "—"} ${form.lastName || ""}`.trim() || "—"}</Text>
                     <Text mt={1} fontSize="sm" color={mutedText}>{form.email || "—"}</Text>
                   </Box>
                   <Box border="1px solid" borderColor={borderColor} borderRadius="18px" p={3.5}>
-                    <Text fontSize="xs" color={subtleText} mb={1}>Mesure actuelle</Text>
+                    <Text fontSize="xs" color={subtleText} mb={1}>{t("auto.ProfilePageClient.mesure_actuelle", "Mesure actuelle")}</Text>
                     <Text fontWeight="800">{displayedWeight}</Text>
-                    <Text mt={1} fontSize="sm" color={mutedText}>Taille : {displayedHeight}</Text>
+                    <Text mt={1} fontSize="sm" color={mutedText}>{t("auto.ProfilePageClient.taille", "Taille :")}{displayedHeight}</Text>
                   </Box>
                   <Box border="1px solid" borderColor={borderColor} borderRadius="18px" p={3.5}>
-                    <Text fontSize="xs" color={subtleText} mb={1}>Contact</Text>
+                    <Text fontSize="xs" color={subtleText} mb={1}>{t("contact.title", "Contact")}</Text>
                     <Text fontWeight="800">{form.phone || "Numéro non renseigné"}</Text>
                     <Text mt={1} fontSize="sm" color={mutedText}>
                       {form.dateNaissance || "Date de naissance non renseignée"}
@@ -705,8 +703,8 @@ export default function ProfilePageClient() {
               </SectionCard>
 
               <SectionCard
-                title="Préférences"
-                subtitle="Unités, langue et contexte d'entraînement."
+                title={t("settings.sections.preferences", "Préférences")}
+                subtitle={t("auto.ProfilePageClient.unites_langue_et_contexte_d_entrainement", "Unités, langue et contexte d'entraînement.")}
                 icon={MdOutlineLanguage}
                 accent={activePurple}
                 cardBg={cardBg}
@@ -716,22 +714,22 @@ export default function ProfilePageClient() {
               >
                 <VStack align="stretch" spacing={3}>
                   <HStack justify="space-between">
-                    <Text color={mutedText}>Langue</Text>
+                    <Text color={mutedText}>{t("clientCreation.language", "Langue")}</Text>
                     <Badge variant="subtle">{labelFromCode(langCode)}</Badge>
                   </HStack>
                   <Divider borderColor={borderColor} />
                   <HStack justify="space-between">
-                    <Text color={mutedText}>Unités</Text>
+                    <Text color={mutedText}>{t("auto.ProfilePageClient.unites", "Unités")}</Text>
                     <Badge variant="subtle">{heightUnit} / {weightUnit}</Badge>
                   </HStack>
                   <Divider borderColor={borderColor} />
                   <HStack justify="space-between">
-                    <Text color={mutedText}>Niveau</Text>
+                    <Text color={mutedText}>{t("clientCreation.level", "Niveau")}</Text>
                     <Badge variant="subtle">{form.niveauSportif || "—"}</Badge>
                   </HStack>
                   <Divider borderColor={borderColor} />
                   <HStack justify="space-between">
-                    <Text color={mutedText}>Sexe</Text>
+                    <Text color={mutedText}>{t("clientCreation.gender", "Sexe")}</Text>
                     <Badge variant="subtle">{form.sexe || "—"}</Badge>
                   </HStack>
                 </VStack>
@@ -752,8 +750,8 @@ export default function ProfilePageClient() {
             >
               <VStack align="stretch" spacing={6}>
                 <SectionCard
-                  title="Informations personnelles"
-                  subtitle="Votre identité et vos coordonnées de contact."
+                  title={t("auto.ProfilePageClient.informations_personnelles", "Informations personnelles")}
+                  subtitle={t("auto.ProfilePageClient.votre_identite_et_vos_coordonnees_de_contact", "Votre identité et vos coordonnées de contact.")}
                   icon={MdOutlinePerson}
                   accent={activeBlue}
                   cardBg={cardBg}
@@ -811,8 +809,8 @@ export default function ProfilePageClient() {
                 </SectionCard>
 
                 <SectionCard
-                  title="Données physiques"
-                  subtitle="Les informations utiles pour adapter le suivi à votre profil."
+                  title={t("auto.ProfilePageClient.donnees_physiques", "Données physiques")}
+                  subtitle={t("auto.ProfilePageClient.les_informations_utiles_pour_adapter_le_suivi_a_vo", "Les informations utiles pour adapter le suivi à votre profil.")}
                   icon={MdOutlineStraighten}
                   accent={activeGreen}
                   cardBg={cardBg}
@@ -863,14 +861,14 @@ export default function ProfilePageClient() {
                   value={heightUnit}
                   onChange={(e) => onHeightUnitChange(e.target.value)}
                 >
-                  <option value="cm">cm</option>
-                  <option value="ft">ft</option>
+                  <option value="cm">{t("units.cm", "cm")}</option>
+                  <option value="ft">{t("auto.ProfilePageClient.ft", "ft")}</option>
                 </Select>
               </HStack>
             ) : (
               <HStack>
                 <Input
-                  placeholder="ft"
+                  placeholder={t("auto.ProfilePageClient.ft", "ft")}
                   type="number"
                   inputMode="numeric"
                   step="1"
@@ -878,7 +876,7 @@ export default function ProfilePageClient() {
                   onChange={(e) => setHeightFt(e.target.value)}
                 />
                 <Input
-                  placeholder="in"
+                  placeholder={t("auto.ProfilePageClient.in", "in")}
                   type="number"
                   inputMode="numeric"
                   step="1"
@@ -890,8 +888,8 @@ export default function ProfilePageClient() {
                   value={heightUnit}
                   onChange={(e) => onHeightUnitChange(e.target.value)}
                 >
-                  <option value="cm">cm</option>
-                  <option value="ft">ft</option>
+                  <option value="cm">{t("units.cm", "cm")}</option>
+                  <option value="ft">{t("auto.ProfilePageClient.ft", "ft")}</option>
                 </Select>
               </HStack>
             )}
@@ -914,8 +912,8 @@ export default function ProfilePageClient() {
                 value={weightUnit}
                 onChange={(e) => onWeightUnitChange(e.target.value)}
               >
-                <option value="kg">kg</option>
-                <option value="lbs">lbs</option>
+                <option value="kg">{t("units.kg", "kg")}</option>
+                <option value="lbs">{t("units.lbs", "lbs")}</option>
               </Select>
             </HStack>
           </FormControl>
@@ -923,8 +921,8 @@ export default function ProfilePageClient() {
                 </SectionCard>
 
                 <SectionCard
-                  title="Objectifs et préférences"
-                  subtitle="Le cadre général de votre progression et de vos habitudes."
+                  title={t("auto.ProfilePageClient.objectifs_et_preferences", "Objectifs et préférences")}
+                  subtitle={t("auto.ProfilePageClient.le_cadre_general_de_votre_progression_et_de_vos_ha", "Le cadre général de votre progression et de vos habitudes.")}
                   icon={MdOutlineFitnessCenter}
                   accent={activePurple}
                   cardBg={cardBg}
@@ -1011,10 +1009,8 @@ export default function ProfilePageClient() {
 
                 <HStack justify="space-between" align={{ base: "stretch", md: "center" }} flexDirection={{ base: "column", md: "row" }} spacing={4}>
                   <VStack align={{ base: "stretch", md: "flex-start" }} spacing={1}>
-                    <Text fontWeight="700" color={textColor}>Mise à jour du profil</Text>
-                    <Text fontSize="sm" color={mutedText}>
-                      Les modifications sont enregistrées sur votre compte et votre fiche client.
-                    </Text>
+                    <Text fontWeight="700" color={textColor}>{t("auto.ProfilePageClient.mise_a_jour_du_profil", "Mise à jour du profil")}</Text>
+                    <Text fontSize="sm" color={mutedText}>{t("auto.ProfilePageClient.les_modifications_sont_enregistrees_sur_votre_comp", "Les modifications sont enregistrées sur votre compte et votre fiche client.")}</Text>
                   </VStack>
                   <Button type="submit" isLoading={isLoading} alignSelf={{ base: "stretch", md: "center" }}>
                     {t("profile.actions.save")}

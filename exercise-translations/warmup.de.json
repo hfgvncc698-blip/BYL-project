@@ -173,7 +173,31 @@
       "Retour": "Bringen Sie Ihre Füße und Arme gleichzeitig in die Ausgangsposition zurück.",
       "Respiration": "Beim Öffnen einatmen, beim Schließen ausatmen.",
       "Posture": "Beanspruchen Sie Ihren Rumpf, um ein Ungleichgewicht zu vermeiden."
-    }
+    },
+    "articulations_solicitees": [
+      "Schultern",
+      "Ellenbogen",
+      "Handgelenke",
+      "Sprunggelenke"
+    ],
+    "articulations_sollicitees": [
+      "Schultern",
+      "Ellenbogen",
+      "Handgelenke",
+      "Sprunggelenke"
+    ],
+    "tendons_solicites": [
+      "Achillessehne",
+      "Patellarsehne",
+      "Deltasehne"
+    ],
+    "tendons_sollicites": [
+      "Achillessehne",
+      "Patellarsehne",
+      "Deltasehne"
+    ],
+    "type": "Kardiovaskuläre Übung mit leichter Last",
+    "niveau": "Mittelstufe"
   },
   "E005": {
     "nom": "Armdrehungen",
@@ -211,7 +235,8 @@
       "Positionnement": "Stehen Sie mit schulterbreit auseinander stehenden Füßen und ausgestreckten Armen an den Seiten.",
       "Mouvement": "Machen Sie langsame Kreise mit Ihren Armen, vorwärts und rückwärts.",
       "Respiration": "Atmen Sie natürlich und ohne Blockaden.",
-      "Posture": "Halten Sie Ihren Rücken gerade und Ihren Nacken entspannt."
+      "Posture": "Halten Sie Ihren Rücken gerade und Ihren Nacken entspannt.",
+      "Retour": "Kehre langsam in die Ausgangsposition zurück und behalte die Kontrolle."
     }
   },
   "E006": {

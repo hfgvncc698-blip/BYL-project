@@ -430,6 +430,88 @@
             "Posture": "حافظ على استقامة ظهرك وشد عضلات بطنك بخفة."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "lower_body",
+          "upper_body"
+        ],
+        "primaryMuscleTags": [
+          "quadriceps"
+        ],
+        "secondaryMuscleTags": [
+          "calves",
+          "shoulders"
+        ],
+        "movementPatterns": [
+          "cardio",
+          "mobility"
+        ],
+        "movementAngles": [
+          "conditioning",
+          "preparation"
+        ],
+        "objectiveTags": [
+          "endurance",
+          "weight_loss",
+          "conditioning",
+          "mobility"
+        ],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "power",
+          "cardio",
+          "mobility",
+          "dynamic"
+        ],
+        "jointAction": "cardio",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "not_applicable",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "mixed_plane"
+        ],
+        "coachIntentTags": [
+          "conditioning",
+          "preparation",
+          "power"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "knee",
+          "ankle",
+          "shoulder"
+        ],
+        "injuryCautions": [
+          "knee_pain_caution",
+          "ankle_pain_caution",
+          "shoulder_pain_caution",
+          "impact_caution",
+          "tendon_load_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "conditioning",
+          "mobility",
+          "activation"
+        ]
       }
     },
     {
@@ -855,6 +937,82 @@
             "Posture": "اشغل عضلات بطنك وحافظ على استقامة ظهرك."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "lower_body",
+          "upper_body"
+        ],
+        "primaryMuscleTags": [
+          "quadriceps"
+        ],
+        "secondaryMuscleTags": [
+          "calves",
+          "shoulders"
+        ],
+        "movementPatterns": [
+          "cardio"
+        ],
+        "movementAngles": [
+          "conditioning"
+        ],
+        "objectiveTags": [
+          "strength",
+          "conditioning",
+          "mobility"
+        ],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "eccentric_control",
+          "power",
+          "cardio",
+          "dynamic"
+        ],
+        "jointAction": "cardio",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "not_applicable",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "mixed_plane"
+        ],
+        "coachIntentTags": [
+          "conditioning",
+          "preparation",
+          "tempo_control",
+          "power"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "knee",
+          "ankle",
+          "shoulder"
+        ],
+        "injuryCautions": [
+          "impact_caution",
+          "tendon_load_caution"
+        ],
+        "difficultyTag": "beginner",
+        "programRoles": [
+          "warmup",
+          "conditioning",
+          "activation"
+        ]
       }
     },
     {
@@ -1280,6 +1438,70 @@
             "Posture": "حافظ على استقامة ظهرك واشغل عضلات بطنك."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "lower_body",
+          "upper_body"
+        ],
+        "primaryMuscleTags": [
+          "quadriceps"
+        ],
+        "secondaryMuscleTags": [
+          "calves",
+          "shoulders"
+        ],
+        "movementPatterns": [
+          "general_strength"
+        ],
+        "movementAngles": [],
+        "objectiveTags": [
+          "conditioning",
+          "posture",
+          "mobility"
+        ],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "multi_joint",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "closed_chain",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "mixed_plane"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "knee",
+          "ankle",
+          "shoulder"
+        ],
+        "injuryCautions": [],
+        "difficultyTag": "beginner",
+        "programRoles": [
+          "warmup",
+          "activation"
+        ]
       }
     },
     {
@@ -1455,7 +1677,31 @@
             "Retour": "Return your feet and arms simultaneously to the starting position.",
             "Respiration": "Inhale while opening, exhale while closing.",
             "Posture": "Engage your core to avoid any imbalance."
-          }
+          },
+          "articulations_solicitees": [
+            "Shoulders",
+            "Elbows",
+            "Wrists",
+            "Ankles"
+          ],
+          "articulations_sollicitees": [
+            "Shoulders",
+            "Elbows",
+            "Wrists",
+            "Ankles"
+          ],
+          "tendons_solicites": [
+            "Achilles tendon",
+            "Patellar tendon",
+            "Deltoid tendon"
+          ],
+          "tendons_sollicites": [
+            "Achilles tendon",
+            "Patellar tendon",
+            "Deltoid tendon"
+          ],
+          "type": "Cardiovascular exercise with light load",
+          "niveau": "Intermediate"
         },
         "it": {
           "nom": "Jumping Jack ponderati",
@@ -1492,7 +1738,31 @@
             "Retour": "Riporta i piedi e le braccia contemporaneamente nella posizione di partenza.",
             "Respiration": "Inspira mentre apri, espira mentre chiudi.",
             "Posture": "Coinvolgi il tuo core per evitare qualsiasi squilibrio."
-          }
+          },
+          "articulations_solicitees": [
+            "Spalle",
+            "Gomiti",
+            "Polsi",
+            "Caviglie"
+          ],
+          "articulations_sollicitees": [
+            "Spalle",
+            "Gomiti",
+            "Polsi",
+            "Caviglie"
+          ],
+          "tendons_solicites": [
+            "Tendine d'Achille",
+            "Tendine rotuleo",
+            "Tendine del deltoide"
+          ],
+          "tendons_sollicites": [
+            "Tendine d'Achille",
+            "Tendine rotuleo",
+            "Tendine del deltoide"
+          ],
+          "type": "Esercizio cardiovascolare con carico leggero",
+          "niveau": "Intermedio"
         },
         "es": {
           "nom": "Saltos ponderados",
@@ -1529,7 +1799,31 @@
             "Retour": "Regresa tus pies y brazos simultáneamente a la posición inicial.",
             "Respiration": "Inhala mientras abres, exhala mientras cierras.",
             "Posture": "Involucre su núcleo para evitar cualquier desequilibrio."
-          }
+          },
+          "articulations_solicitees": [
+            "Hombros",
+            "Codos",
+            "Muñecas",
+            "Tobillos"
+          ],
+          "articulations_sollicitees": [
+            "Hombros",
+            "Codos",
+            "Muñecas",
+            "Tobillos"
+          ],
+          "tendons_solicites": [
+            "Tendón de Aquiles",
+            "Tendón rotuliano",
+            "Tendón del deltoides"
+          ],
+          "tendons_sollicites": [
+            "Tendón de Aquiles",
+            "Tendón rotuliano",
+            "Tendón del deltoides"
+          ],
+          "type": "Ejercicio cardiovascular con carga ligera",
+          "niveau": "Intermedio"
         },
         "de": {
           "nom": "Gewichtete Hampelmänner",
@@ -1566,7 +1860,31 @@
             "Retour": "Bringen Sie Ihre Füße und Arme gleichzeitig in die Ausgangsposition zurück.",
             "Respiration": "Beim Öffnen einatmen, beim Schließen ausatmen.",
             "Posture": "Beanspruchen Sie Ihren Rumpf, um ein Ungleichgewicht zu vermeiden."
-          }
+          },
+          "articulations_solicitees": [
+            "Schultern",
+            "Ellenbogen",
+            "Handgelenke",
+            "Sprunggelenke"
+          ],
+          "articulations_sollicitees": [
+            "Schultern",
+            "Ellenbogen",
+            "Handgelenke",
+            "Sprunggelenke"
+          ],
+          "tendons_solicites": [
+            "Achillessehne",
+            "Patellarsehne",
+            "Deltasehne"
+          ],
+          "tendons_sollicites": [
+            "Achillessehne",
+            "Patellarsehne",
+            "Deltasehne"
+          ],
+          "type": "Kardiovaskuläre Übung mit leichter Last",
+          "niveau": "Mittelstufe"
         },
         "ru": {
           "nom": "Утяжеленные прыжки с отягощением",
@@ -1603,7 +1921,31 @@
             "Retour": "Верните ноги и руки одновременно в исходное положение.",
             "Respiration": "Вдох при открытии, выдох при закрытии.",
             "Posture": "Задействуйте свое ядро, чтобы избежать любого дисбаланса."
-          }
+          },
+          "articulations_solicitees": [
+            "Плечи",
+            "Локти",
+            "Запястья",
+            "Голеностопы"
+          ],
+          "articulations_sollicitees": [
+            "Плечи",
+            "Локти",
+            "Запястья",
+            "Голеностопы"
+          ],
+          "tendons_solicites": [
+            "Ахиллово сухожилие",
+            "Сухожилие надколенника",
+            "Сухожилие дельтовидной мышцы"
+          ],
+          "tendons_sollicites": [
+            "Ахиллово сухожилие",
+            "Сухожилие надколенника",
+            "Сухожилие дельтовидной мышцы"
+          ],
+          "type": "Кардиоупражнение с легкой нагрузкой",
+          "niveau": "Средний уровень"
         },
         "ar": {
           "nom": "رافعات القفز المرجحة",
@@ -1640,8 +1982,138 @@
             "Retour": "أعد قدميك وذراعيك في نفس الوقت إلى وضع البداية.",
             "Respiration": "يستنشق أثناء الفتح، والزفير أثناء الإغلاق.",
             "Posture": "إشراك الأساسية الخاصة بك لتجنب أي خلل."
-          }
+          },
+          "articulations_solicitees": [
+            "الكتفان",
+            "المرفقان",
+            "المعصمان",
+            "الكاحلان"
+          ],
+          "articulations_sollicitees": [
+            "الكتفان",
+            "المرفقان",
+            "المعصمان",
+            "الكاحلان"
+          ],
+          "tendons_solicites": [
+            "وتر أخيل",
+            "وتر الرضفة",
+            "وتر العضلة الدالية"
+          ],
+          "tendons_sollicites": [
+            "وتر أخيل",
+            "وتر الرضفة",
+            "وتر العضلة الدالية"
+          ],
+          "type": "تمرين قلبي مع حمل خفيف",
+          "niveau": "متوسط"
         }
+      },
+      "articulations_solicitees": [
+        "Épaules",
+        "Coudes",
+        "Poignets",
+        "Chevilles"
+      ],
+      "articulations_sollicitees": [
+        "Épaules",
+        "Coudes",
+        "Poignets",
+        "Chevilles"
+      ],
+      "tendons_solicites": [
+        "Tendon d'Achille",
+        "Tendon rotulien",
+        "Tendon du deltoïde"
+      ],
+      "tendons_sollicites": [
+        "Tendon d'Achille",
+        "Tendon rotulien",
+        "Tendon du deltoïde"
+      ],
+      "type": "Exercice cardiovasculaire avec charge légère",
+      "niveau": "Intermédiaire",
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "lower_body",
+          "upper_body",
+          "neck"
+        ],
+        "primaryMuscleTags": [
+          "quadriceps"
+        ],
+        "secondaryMuscleTags": [
+          "calves",
+          "shoulders",
+          "neck"
+        ],
+        "movementPatterns": [
+          "cardio"
+        ],
+        "movementAngles": [
+          "conditioning"
+        ],
+        "objectiveTags": [
+          "strength",
+          "endurance",
+          "conditioning",
+          "posture",
+          "mobility"
+        ],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "power",
+          "cardio",
+          "dynamic"
+        ],
+        "jointAction": "cardio",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "free_weight",
+          "dumbbell"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "not_applicable",
+        "loadPlacement": [
+          "local_load"
+        ],
+        "movementPlane": [
+          "mixed_plane"
+        ],
+        "coachIntentTags": [
+          "conditioning",
+          "preparation",
+          "power"
+        ],
+        "equipmentTags": [
+          "dumbbells"
+        ],
+        "equipmentTier": "free_weights",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "knee",
+          "ankle",
+          "shoulder",
+          "elbow",
+          "wrist",
+          "neck"
+        ],
+        "injuryCautions": [
+          "impact_caution",
+          "tendon_load_caution"
+        ],
+        "difficultyTag": "intermediate",
+        "programRoles": [
+          "warmup",
+          "conditioning",
+          "activation"
+        ]
       }
     },
     {
@@ -1681,7 +2153,8 @@
         "Positionnement": "Tenez-vous debout, pieds écartés à la largeur des épaules, bras tendus sur les côtés.",
         "Mouvement": "Faites des cercles lents avec vos bras, en avant puis en arrière.",
         "Respiration": "Respirez naturellement, sans blocage.",
-        "Posture": "Gardez le dos droit et le cou relâché."
+        "Posture": "Gardez le dos droit et le cou relâché.",
+        "Retour": "Revenir lentement à la position de départ en gardant le contrôle du mouvement."
       },
       "parametres_objectif": {
         "prise_de_masse": {
@@ -1820,7 +2293,8 @@
             "Positionnement": "Stand with your feet shoulder-width apart, arms extended at your sides.",
             "Mouvement": "Make slow circles with your arms, forward then back.",
             "Respiration": "Breathe naturally, without blockage.",
-            "Posture": "Keep your back straight and your neck relaxed."
+            "Posture": "Keep your back straight and your neck relaxed.",
+            "Retour": "Return slowly to the starting position while keeping the movement controlled."
           }
         },
         "it": {
@@ -1859,7 +2333,8 @@
             "Positionnement": "Stare con i piedi alla larghezza delle spalle, le braccia distese lungo i fianchi.",
             "Mouvement": "Fai dei cerchi lenti con le braccia, avanti e poi indietro.",
             "Respiration": "Respira in modo naturale, senza blocchi.",
-            "Posture": "Tieni la schiena dritta e il collo rilassato."
+            "Posture": "Tieni la schiena dritta e il collo rilassato.",
+            "Retour": "Torna lentamente alla posizione iniziale mantenendo il controllo del movimento."
           }
         },
         "es": {
@@ -1898,7 +2373,8 @@
             "Positionnement": "Párese con los pies separados a la altura de los hombros y los brazos extendidos a los costados.",
             "Mouvement": "Haz círculos lentos con los brazos, hacia adelante y hacia atrás.",
             "Respiration": "Respira naturalmente, sin bloqueos.",
-            "Posture": "Mantenga la espalda recta y el cuello relajado."
+            "Posture": "Mantenga la espalda recta y el cuello relajado.",
+            "Retour": "Vuelve lentamente a la posición inicial manteniendo el control del movimiento."
           }
         },
         "de": {
@@ -1937,7 +2413,8 @@
             "Positionnement": "Stehen Sie mit schulterbreit auseinander stehenden Füßen und ausgestreckten Armen an den Seiten.",
             "Mouvement": "Machen Sie langsame Kreise mit Ihren Armen, vorwärts und rückwärts.",
             "Respiration": "Atmen Sie natürlich und ohne Blockaden.",
-            "Posture": "Halten Sie Ihren Rücken gerade und Ihren Nacken entspannt."
+            "Posture": "Halten Sie Ihren Rücken gerade und Ihren Nacken entspannt.",
+            "Retour": "Kehre langsam in die Ausgangsposition zurück und behalte die Kontrolle."
           }
         },
         "ru": {
@@ -1976,7 +2453,8 @@
             "Positionnement": "Встаньте, ноги на ширине плеч, руки вытянуты по бокам.",
             "Mouvement": "Делайте медленные круговые движения руками вперед, затем назад.",
             "Respiration": "Дышите естественно, без задержек.",
-            "Posture": "Держите спину прямо, а шею расслабленной."
+            "Posture": "Держите спину прямо, а шею расслабленной.",
+            "Retour": "Медленно вернитесь в исходное положение, сохраняя контроль движения."
           }
         },
         "ar": {
@@ -2015,9 +2493,72 @@
             "Positionnement": "قف مع مباعدة قدميك بمقدار عرض الكتفين، وذراعيك ممدودتين على جانبيك.",
             "Mouvement": "قم بعمل دوائر بطيئة بذراعيك للأمام ثم للخلف.",
             "Respiration": "التنفس بشكل طبيعي، دون انسداد.",
-            "Posture": "حافظ على استقامة ظهرك ورقبتك مسترخية."
+            "Posture": "حافظ على استقامة ظهرك ورقبتك مسترخية.",
+            "Retour": "عد ببطء إلى وضع البداية مع الحفاظ على التحكم في الحركة."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "upper_body"
+        ],
+        "primaryMuscleTags": [
+          "shoulders"
+        ],
+        "secondaryMuscleTags": [],
+        "movementPatterns": [
+          "core_rotation"
+        ],
+        "movementAngles": [
+          "rotation"
+        ],
+        "objectiveTags": [
+          "rehab",
+          "mobility"
+        ],
+        "mechanics": [
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "core_control",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "supported_stable",
+        "laterality": "bilateral",
+        "kineticChain": "mixed_chain",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "transverse"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "shoulder"
+        ],
+        "injuryCautions": [
+          "shoulder_pain_caution",
+          "back_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "core",
+          "activation"
+        ]
       }
     },
     {
@@ -2401,6 +2942,71 @@
             "Posture": "حافظ على استقامة ظهرك واشغل عضلات بطنك."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "upper_body"
+        ],
+        "primaryMuscleTags": [
+          "shoulders"
+        ],
+        "secondaryMuscleTags": [],
+        "movementPatterns": [
+          "shoulder_flexion"
+        ],
+        "movementAngles": [
+          "front_shoulder"
+        ],
+        "objectiveTags": [
+          "strength"
+        ],
+        "mechanics": [
+          "isolation",
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "single_joint",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "free_weight",
+          "elastic",
+          "dumbbell"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "open_chain",
+        "loadPlacement": [
+          "external_guided_load"
+        ],
+        "movementPlane": [
+          "mixed_plane"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "resistance_band",
+          "dumbbells"
+        ],
+        "equipmentTier": "free_weights",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "shoulder",
+          "wrist"
+        ],
+        "injuryCautions": [
+          "shoulder_pain_caution",
+          "wrist_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "activation"
+        ]
       }
     },
     {
@@ -2777,6 +3383,68 @@
             "Posture": "حافظ على استقامة ظهرك ورقبتك مسترخية."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "upper_body"
+        ],
+        "primaryMuscleTags": [
+          "shoulders"
+        ],
+        "secondaryMuscleTags": [],
+        "movementPatterns": [
+          "mobility"
+        ],
+        "movementAngles": [
+          "preparation"
+        ],
+        "objectiveTags": [
+          "rehab",
+          "mobility"
+        ],
+        "mechanics": [
+          "bilateral",
+          "mobility",
+          "dynamic"
+        ],
+        "jointAction": "mobility",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "supported_stable",
+        "laterality": "bilateral",
+        "kineticChain": "not_applicable",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "transverse"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "shoulder"
+        ],
+        "injuryCautions": [
+          "shoulder_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "mobility",
+          "activation"
+        ]
       }
     },
     {
@@ -3153,6 +3821,68 @@
             "Posture": "حافظ على استقامة ظهرك ورقبتك مسترخية."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "upper_body"
+        ],
+        "primaryMuscleTags": [
+          "shoulders"
+        ],
+        "secondaryMuscleTags": [],
+        "movementPatterns": [
+          "mobility"
+        ],
+        "movementAngles": [
+          "preparation"
+        ],
+        "objectiveTags": [
+          "rehab",
+          "mobility"
+        ],
+        "mechanics": [
+          "bilateral",
+          "mobility",
+          "dynamic"
+        ],
+        "jointAction": "mobility",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "supported_stable",
+        "laterality": "bilateral",
+        "kineticChain": "not_applicable",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "transverse"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "shoulder"
+        ],
+        "injuryCautions": [
+          "shoulder_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "mobility",
+          "activation"
+        ]
       }
     },
     {
@@ -3536,6 +4266,71 @@
             "Posture": "حافظ على استقامة ظهرك واشغل عضلات بطنك."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "upper_body"
+        ],
+        "primaryMuscleTags": [
+          "shoulders"
+        ],
+        "secondaryMuscleTags": [],
+        "movementPatterns": [
+          "shoulder_abduction"
+        ],
+        "movementAngles": [
+          "lateral_shoulder"
+        ],
+        "objectiveTags": [
+          "strength"
+        ],
+        "mechanics": [
+          "isolation",
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "single_joint",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "free_weight",
+          "elastic",
+          "dumbbell"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "open_chain",
+        "loadPlacement": [
+          "external_guided_load"
+        ],
+        "movementPlane": [
+          "frontal"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "resistance_band",
+          "dumbbells"
+        ],
+        "equipmentTier": "free_weights",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "shoulder",
+          "wrist"
+        ],
+        "injuryCautions": [
+          "shoulder_pain_caution",
+          "wrist_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "activation"
+        ]
       }
     },
     {
@@ -3920,6 +4715,63 @@
             "Posture": "حافظ على استرخاء كتفيك وظهرك مستقيمًا."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [],
+        "primaryMuscleTags": [],
+        "secondaryMuscleTags": [],
+        "movementPatterns": [
+          "core_rotation"
+        ],
+        "movementAngles": [
+          "rotation"
+        ],
+        "objectiveTags": [
+          "mobility"
+        ],
+        "mechanics": [
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "core_control",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "mixed_chain",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "transverse"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "wrist"
+        ],
+        "injuryCautions": [
+          "wrist_pain_caution",
+          "back_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "core",
+          "activation"
+        ]
       }
     },
     {
@@ -4297,6 +5149,59 @@
             "Posture": "حافظ على استقامة ظهرك واسترخاء كتفيك."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [],
+        "primaryMuscleTags": [],
+        "secondaryMuscleTags": [],
+        "movementPatterns": [
+          "general_strength"
+        ],
+        "movementAngles": [],
+        "objectiveTags": [
+          "mobility"
+        ],
+        "mechanics": [
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "mixed",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "free_weight",
+          "dumbbell"
+        ],
+        "stabilityProfile": "supported_stable",
+        "laterality": "bilateral",
+        "kineticChain": "mixed_chain",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "mixed_plane"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight",
+          "dumbbells"
+        ],
+        "equipmentTier": "free_weights",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "wrist"
+        ],
+        "injuryCautions": [],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "activation"
+        ]
       }
     },
     {
@@ -4667,6 +5572,72 @@
             "Posture": "حافظ على استقامة ظهرك ومحاذاة كتفيك."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "upper_body",
+          "neck"
+        ],
+        "primaryMuscleTags": [
+          "biceps",
+          "triceps"
+        ],
+        "secondaryMuscleTags": [
+          "neck"
+        ],
+        "movementPatterns": [
+          "core_rotation"
+        ],
+        "movementAngles": [
+          "rotation"
+        ],
+        "objectiveTags": [
+          "mobility"
+        ],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "multi_joint",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "mixed_chain",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "transverse"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "elbow",
+          "neck"
+        ],
+        "injuryCautions": [
+          "back_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "core",
+          "activation"
+        ]
       }
     },
     {
@@ -5037,6 +6008,64 @@
           },
           "variantes": []
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [],
+        "primaryMuscleTags": [],
+        "secondaryMuscleTags": [],
+        "movementPatterns": [
+          "core_rotation"
+        ],
+        "movementAngles": [
+          "rotation"
+        ],
+        "objectiveTags": [
+          "mobility"
+        ],
+        "mechanics": [
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "core_control",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "small_equipment",
+          "elastic"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "mixed_chain",
+        "loadPlacement": [
+          "external_guided_load"
+        ],
+        "movementPlane": [
+          "transverse"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "resistance_band"
+        ],
+        "equipmentTier": "small_equipment",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "wrist"
+        ],
+        "injuryCautions": [
+          "wrist_pain_caution",
+          "back_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "core",
+          "activation"
+        ]
       }
     },
     {
@@ -5421,6 +6450,60 @@
             "Posture": "حافظ على استقامة ظهرك واسترخاء كتفيك."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [],
+        "primaryMuscleTags": [],
+        "secondaryMuscleTags": [],
+        "movementPatterns": [
+          "general_strength"
+        ],
+        "movementAngles": [],
+        "objectiveTags": [
+          "mobility"
+        ],
+        "mechanics": [
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "mixed",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "small_equipment",
+          "elastic"
+        ],
+        "stabilityProfile": "supported_stable",
+        "laterality": "bilateral",
+        "kineticChain": "mixed_chain",
+        "loadPlacement": [
+          "external_guided_load"
+        ],
+        "movementPlane": [
+          "mixed_plane"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "resistance_band"
+        ],
+        "equipmentTier": "small_equipment",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "wrist"
+        ],
+        "injuryCautions": [
+          "wrist_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "activation"
+        ]
       }
     },
     {
@@ -5805,6 +6888,77 @@
             "Posture": "حافظ على استقامة ظهرك ومحاذاة كتفيك."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "upper_body",
+          "neck"
+        ],
+        "primaryMuscleTags": [
+          "biceps",
+          "triceps"
+        ],
+        "secondaryMuscleTags": [
+          "neck"
+        ],
+        "movementPatterns": [
+          "core_rotation"
+        ],
+        "movementAngles": [
+          "rotation"
+        ],
+        "objectiveTags": [
+          "mobility"
+        ],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "multi_joint",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "free_weight",
+          "dumbbell"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "mixed_chain",
+        "loadPlacement": [
+          "local_load"
+        ],
+        "movementPlane": [
+          "transverse"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "dumbbells"
+        ],
+        "equipmentTier": "free_weights",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "elbow",
+          "wrist",
+          "neck"
+        ],
+        "injuryCautions": [
+          "elbow_pain_caution",
+          "wrist_pain_caution",
+          "neck_pain_caution",
+          "back_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "core",
+          "activation"
+        ]
       }
     },
     {
@@ -6189,6 +7343,68 @@
             "Posture": "استرخي كتفيك وحافظي على استقامة ظهرك."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "neck"
+        ],
+        "primaryMuscleTags": [
+          "neck"
+        ],
+        "secondaryMuscleTags": [],
+        "movementPatterns": [
+          "core_rotation"
+        ],
+        "movementAngles": [
+          "rotation"
+        ],
+        "objectiveTags": [
+          "rehab",
+          "mobility"
+        ],
+        "mechanics": [
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "core_control",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "supported_stable",
+        "laterality": "bilateral",
+        "kineticChain": "mixed_chain",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "transverse"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "neck"
+        ],
+        "injuryCautions": [
+          "neck_pain_caution",
+          "back_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "core",
+          "activation"
+        ]
       }
     },
     {
@@ -6573,6 +7789,64 @@
             "Posture": "استرخي كتفيك وحافظي على استقامة ظهرك."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "neck"
+        ],
+        "primaryMuscleTags": [
+          "neck"
+        ],
+        "secondaryMuscleTags": [],
+        "movementPatterns": [
+          "general_strength"
+        ],
+        "movementAngles": [],
+        "objectiveTags": [
+          "rehab",
+          "mobility"
+        ],
+        "mechanics": [
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "mixed",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "supported_stable",
+        "laterality": "bilateral",
+        "kineticChain": "mixed_chain",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "frontal"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "neck"
+        ],
+        "injuryCautions": [
+          "neck_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "activation"
+        ]
       }
     },
     {
@@ -6956,6 +8230,71 @@
             "Posture": "حافظ على استقامة ظهرك واشغل عضلات بطنك."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "core"
+        ],
+        "primaryMuscleTags": [
+          "core"
+        ],
+        "secondaryMuscleTags": [
+          "lower_back"
+        ],
+        "movementPatterns": [
+          "core_rotation"
+        ],
+        "movementAngles": [
+          "rotation"
+        ],
+        "objectiveTags": [
+          "mobility"
+        ],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "multi_joint",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "mixed_chain",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "transverse"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "hip",
+          "spine"
+        ],
+        "injuryCautions": [
+          "hip_pain_caution",
+          "back_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "core",
+          "activation"
+        ]
       }
     },
     {
@@ -7339,6 +8678,69 @@
             "Posture": "حافظ على عضلات بطنك منشغلة وظهرك مستقيمًا."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "core"
+        ],
+        "primaryMuscleTags": [
+          "core"
+        ],
+        "secondaryMuscleTags": [
+          "lower_back"
+        ],
+        "movementPatterns": [
+          "general_strength"
+        ],
+        "movementAngles": [],
+        "objectiveTags": [
+          "strength",
+          "mobility"
+        ],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "multi_joint",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "mixed_chain",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "mixed_plane"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "hip",
+          "spine"
+        ],
+        "injuryCautions": [
+          "hip_pain_caution",
+          "back_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "activation"
+        ]
       }
     },
     {
@@ -7722,6 +9124,71 @@
             "Posture": "حافظ على استقامة ظهرك واشغل عضلات بطنك."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "core"
+        ],
+        "primaryMuscleTags": [
+          "core"
+        ],
+        "secondaryMuscleTags": [
+          "lower_back"
+        ],
+        "movementPatterns": [
+          "core_rotation"
+        ],
+        "movementAngles": [
+          "rotation"
+        ],
+        "objectiveTags": [
+          "mobility"
+        ],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "multi_joint",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "unknown_resistance"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "mixed_chain",
+        "loadPlacement": [
+          "unknown_load"
+        ],
+        "movementPlane": [
+          "transverse"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "unspecified"
+        ],
+        "equipmentTier": "unknown",
+        "contexts": [
+          "gym",
+          "home"
+        ],
+        "jointTags": [
+          "hip",
+          "spine"
+        ],
+        "injuryCautions": [
+          "hip_pain_caution",
+          "back_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "core",
+          "activation"
+        ]
       }
     },
     {
@@ -8105,6 +9572,69 @@
             "Posture": "حافظ على عضلات بطنك منشغلة وظهرك مستقيمًا."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "core"
+        ],
+        "primaryMuscleTags": [
+          "core"
+        ],
+        "secondaryMuscleTags": [
+          "lower_back"
+        ],
+        "movementPatterns": [
+          "general_strength"
+        ],
+        "movementAngles": [],
+        "objectiveTags": [
+          "strength",
+          "mobility"
+        ],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "multi_joint",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "unknown_resistance"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "mixed_chain",
+        "loadPlacement": [
+          "unknown_load"
+        ],
+        "movementPlane": [
+          "mixed_plane"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "unspecified"
+        ],
+        "equipmentTier": "unknown",
+        "contexts": [
+          "gym",
+          "home"
+        ],
+        "jointTags": [
+          "hip",
+          "spine"
+        ],
+        "injuryCautions": [
+          "hip_pain_caution",
+          "back_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "activation"
+        ]
       }
     },
     {
@@ -8481,6 +10011,69 @@
           },
           "variantes": []
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "lower_body"
+        ],
+        "primaryMuscleTags": [
+          "hamstrings"
+        ],
+        "secondaryMuscleTags": [
+          "quadriceps",
+          "calves"
+        ],
+        "movementPatterns": [
+          "general_strength"
+        ],
+        "movementAngles": [],
+        "objectiveTags": [
+          "conditioning"
+        ],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "multi_joint",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "mixed_chain",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "mixed_plane"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "knee",
+          "ankle"
+        ],
+        "injuryCautions": [
+          "knee_pain_caution",
+          "ankle_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "activation"
+        ]
       }
     },
     {
@@ -8871,6 +10464,70 @@
             "Posture": "أبقِ عضلات بطنك مشغولة وأكتافك مسترخية."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "lower_body",
+          "core"
+        ],
+        "primaryMuscleTags": [
+          "calves"
+        ],
+        "secondaryMuscleTags": [
+          "quadriceps",
+          "core"
+        ],
+        "movementPatterns": [
+          "general_strength"
+        ],
+        "movementAngles": [],
+        "objectiveTags": [
+          "conditioning"
+        ],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "multi_joint",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "mixed_chain",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "mixed_plane"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "knee",
+          "ankle"
+        ],
+        "injuryCautions": [
+          "knee_pain_caution",
+          "ankle_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "activation"
+        ]
       }
     },
     {
@@ -9261,6 +10918,70 @@
             "Posture": "قم بإشراك عضلات بطنك وحافظ على استقامة جذعك."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "lower_body",
+          "core"
+        ],
+        "primaryMuscleTags": [
+          "calves"
+        ],
+        "secondaryMuscleTags": [
+          "quadriceps",
+          "core"
+        ],
+        "movementPatterns": [
+          "general_strength"
+        ],
+        "movementAngles": [],
+        "objectiveTags": [
+          "conditioning"
+        ],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "multi_joint",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "alternating",
+        "kineticChain": "mixed_chain",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "mixed_plane"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "knee",
+          "ankle"
+        ],
+        "injuryCautions": [
+          "knee_pain_caution",
+          "ankle_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "activation"
+        ]
       }
     },
     {
@@ -9651,6 +11372,67 @@
             "Posture": "أبقِ ركبتيك مثنيتين قليلًا وظهرك مستقيمًا."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "lower_body",
+          "core"
+        ],
+        "primaryMuscleTags": [
+          "calves"
+        ],
+        "secondaryMuscleTags": [
+          "quadriceps",
+          "core"
+        ],
+        "movementPatterns": [
+          "general_strength"
+        ],
+        "movementAngles": [],
+        "objectiveTags": [
+          "conditioning"
+        ],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "multi_joint",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "mixed_chain",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "mixed_plane"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "knee",
+          "ankle"
+        ],
+        "injuryCautions": [],
+        "difficultyTag": "beginner",
+        "programRoles": [
+          "warmup",
+          "activation"
+        ]
       }
     },
     {
@@ -10055,6 +11837,73 @@
             "Posture": "حافظ على استقامة ظهرك واشغل عضلات بطنك."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "lower_body"
+        ],
+        "primaryMuscleTags": [
+          "quadriceps"
+        ],
+        "secondaryMuscleTags": [
+          "hamstrings",
+          "calves"
+        ],
+        "movementPatterns": [
+          "mobility"
+        ],
+        "movementAngles": [
+          "preparation"
+        ],
+        "objectiveTags": [],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "mobility",
+          "dynamic"
+        ],
+        "jointAction": "mobility",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "not_applicable",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "mixed_plane"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "knee",
+          "hip",
+          "ankle"
+        ],
+        "injuryCautions": [
+          "knee_pain_caution",
+          "hip_pain_caution",
+          "ankle_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "mobility",
+          "activation"
+        ]
       }
     },
     {
@@ -10445,6 +12294,79 @@
             "Posture": "اشغل عضلات بطنك وحافظ على استقامة ظهرك."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "lower_body",
+          "core"
+        ],
+        "primaryMuscleTags": [
+          "quadriceps"
+        ],
+        "secondaryMuscleTags": [
+          "core"
+        ],
+        "movementPatterns": [
+          "cardio",
+          "mobility"
+        ],
+        "movementAngles": [
+          "conditioning",
+          "preparation"
+        ],
+        "objectiveTags": [
+          "conditioning"
+        ],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "cardio",
+          "mobility",
+          "dynamic"
+        ],
+        "jointAction": "cardio",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "not_applicable",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "mixed_plane"
+        ],
+        "coachIntentTags": [
+          "conditioning",
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym",
+          "outdoor"
+        ],
+        "jointTags": [
+          "knee",
+          "hip"
+        ],
+        "injuryCautions": [
+          "knee_pain_caution",
+          "hip_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "conditioning",
+          "mobility",
+          "activation"
+        ]
       }
     },
     {
@@ -10849,6 +12771,74 @@
             "Posture": "حافظ على استقامة جذعك واشغل عضلات بطنك."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "lower_body"
+        ],
+        "primaryMuscleTags": [
+          "quadriceps"
+        ],
+        "secondaryMuscleTags": [
+          "hamstrings",
+          "glutes"
+        ],
+        "movementPatterns": [
+          "lunge",
+          "mobility"
+        ],
+        "movementAngles": [
+          "unilateral_lower",
+          "knee_dominant",
+          "preparation"
+        ],
+        "objectiveTags": [],
+        "mechanics": [
+          "compound",
+          "unilateral",
+          "mobility",
+          "dynamic"
+        ],
+        "jointAction": "mobility",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "balance_demand",
+        "laterality": "unilateral",
+        "kineticChain": "not_applicable",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "sagittal"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "knee",
+          "hip"
+        ],
+        "injuryCautions": [
+          "knee_pain_caution",
+          "hip_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "mobility",
+          "activation"
+        ]
       }
     },
     {
@@ -11253,6 +13243,73 @@
             "Posture": "حافظ على استقامة ظهرك واشغل عضلات بطنك."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "lower_body"
+        ],
+        "primaryMuscleTags": [
+          "quadriceps"
+        ],
+        "secondaryMuscleTags": [
+          "hamstrings",
+          "calves"
+        ],
+        "movementPatterns": [
+          "mobility"
+        ],
+        "movementAngles": [
+          "preparation"
+        ],
+        "objectiveTags": [],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "mobility",
+          "dynamic"
+        ],
+        "jointAction": "mobility",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "not_applicable",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "mixed_plane"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "knee",
+          "hip",
+          "ankle"
+        ],
+        "injuryCautions": [
+          "knee_pain_caution",
+          "hip_pain_caution",
+          "ankle_pain_caution"
+        ],
+        "difficultyTag": "intermediate",
+        "programRoles": [
+          "warmup",
+          "mobility",
+          "activation"
+        ]
       }
     },
     {
@@ -11657,6 +13714,73 @@
             "Posture": "أبقِ ركبتيك مثنيتين قليلًا وقم بتنشيط عضلات المؤخرة."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "lower_body"
+        ],
+        "primaryMuscleTags": [
+          "quadriceps"
+        ],
+        "secondaryMuscleTags": [
+          "hamstrings",
+          "glutes",
+          "calves"
+        ],
+        "movementPatterns": [
+          "mobility"
+        ],
+        "movementAngles": [
+          "preparation"
+        ],
+        "objectiveTags": [
+          "strength"
+        ],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "mobility",
+          "dynamic"
+        ],
+        "jointAction": "mobility",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "small_equipment",
+          "elastic"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "not_applicable",
+        "loadPlacement": [
+          "external_guided_load"
+        ],
+        "movementPlane": [
+          "mixed_plane"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "resistance_band"
+        ],
+        "equipmentTier": "small_equipment",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "knee",
+          "hip",
+          "ankle"
+        ],
+        "injuryCautions": [],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "mobility",
+          "activation"
+        ]
       }
     },
     {
@@ -12075,6 +14199,82 @@
             "Posture": "قم بإشراك عضلات البطن وحافظ على نشاط ذراعيك."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "lower_body",
+          "neck"
+        ],
+        "primaryMuscleTags": [
+          "quadriceps"
+        ],
+        "secondaryMuscleTags": [
+          "glutes",
+          "calves",
+          "neck"
+        ],
+        "movementPatterns": [
+          "cardio"
+        ],
+        "movementAngles": [
+          "conditioning"
+        ],
+        "objectiveTags": [
+          "conditioning",
+          "mobility"
+        ],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "cardio",
+          "dynamic"
+        ],
+        "jointAction": "cardio",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "not_applicable",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "mixed_plane"
+        ],
+        "coachIntentTags": [
+          "conditioning",
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym",
+          "outdoor"
+        ],
+        "jointTags": [
+          "knee",
+          "hip",
+          "ankle",
+          "neck"
+        ],
+        "injuryCautions": [
+          "knee_pain_caution",
+          "hip_pain_caution",
+          "ankle_pain_caution",
+          "neck_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "conditioning",
+          "activation"
+        ]
       }
     },
     {
@@ -12465,6 +14665,70 @@
             "Posture": "قم بإشراك عضلات بطنك وحافظ على نظرك للأمام بشكل مستقيم."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "lower_body",
+          "core"
+        ],
+        "primaryMuscleTags": [
+          "quadriceps"
+        ],
+        "secondaryMuscleTags": [
+          "glutes",
+          "core"
+        ],
+        "movementPatterns": [
+          "general_strength"
+        ],
+        "movementAngles": [],
+        "objectiveTags": [
+          "mobility"
+        ],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "dynamic"
+        ],
+        "jointAction": "multi_joint",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "mixed_chain",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "mixed_plane"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "knee",
+          "hip"
+        ],
+        "injuryCautions": [
+          "knee_pain_caution",
+          "hip_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "activation"
+        ]
       }
     },
     {
@@ -12855,6 +15119,73 @@
             "Posture": "قم بإشراك عضلات بطنك وحافظ على نظرك للأمام بشكل مستقيم."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "lower_body"
+        ],
+        "primaryMuscleTags": [
+          "quadriceps"
+        ],
+        "secondaryMuscleTags": [
+          "hamstrings",
+          "glutes"
+        ],
+        "movementPatterns": [
+          "lunge"
+        ],
+        "movementAngles": [
+          "unilateral_lower",
+          "knee_dominant"
+        ],
+        "objectiveTags": [
+          "strength",
+          "mobility"
+        ],
+        "mechanics": [
+          "compound",
+          "unilateral",
+          "isometric"
+        ],
+        "jointAction": "multi_joint",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "balance_demand",
+        "laterality": "unilateral",
+        "kineticChain": "closed_chain",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "sagittal"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "knee",
+          "hip"
+        ],
+        "injuryCautions": [
+          "knee_pain_caution",
+          "hip_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "activation"
+        ]
       }
     },
     {
@@ -13245,6 +15576,73 @@
             "Posture": "حافظ على استقامة ظهرك ونظرتك للأمام."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "lower_body"
+        ],
+        "primaryMuscleTags": [
+          "quadriceps"
+        ],
+        "secondaryMuscleTags": [
+          "hamstrings",
+          "glutes"
+        ],
+        "movementPatterns": [
+          "lunge"
+        ],
+        "movementAngles": [
+          "unilateral_lower",
+          "knee_dominant"
+        ],
+        "objectiveTags": [
+          "strength",
+          "mobility"
+        ],
+        "mechanics": [
+          "compound",
+          "unilateral",
+          "dynamic"
+        ],
+        "jointAction": "multi_joint",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "balance_demand",
+        "laterality": "unilateral",
+        "kineticChain": "closed_chain",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "sagittal"
+        ],
+        "coachIntentTags": [
+          "preparation"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym"
+        ],
+        "jointTags": [
+          "knee",
+          "hip"
+        ],
+        "injuryCautions": [
+          "knee_pain_caution",
+          "hip_pain_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "activation"
+        ]
       }
     },
     {
@@ -13642,6 +16040,74 @@
             "Posture": "اشغل عضلات بطنك وحافظ على استقامة ظهرك."
           }
         }
+      },
+      "programmingTags": {
+        "version": "exercise-tags-v2",
+        "bodyRegions": [
+          "lower_body"
+        ],
+        "primaryMuscleTags": [
+          "quadriceps"
+        ],
+        "secondaryMuscleTags": [
+          "glutes",
+          "calves"
+        ],
+        "movementPatterns": [
+          "general_strength"
+        ],
+        "movementAngles": [],
+        "objectiveTags": [
+          "conditioning"
+        ],
+        "mechanics": [
+          "compound",
+          "bilateral",
+          "power",
+          "dynamic"
+        ],
+        "jointAction": "multi_joint",
+        "selectionRole": "warmup",
+        "resistanceProfile": [
+          "bodyweight"
+        ],
+        "stabilityProfile": "free_stable",
+        "laterality": "bilateral",
+        "kineticChain": "mixed_chain",
+        "loadPlacement": [
+          "bodyweight_load"
+        ],
+        "movementPlane": [
+          "mixed_plane"
+        ],
+        "coachIntentTags": [
+          "preparation",
+          "power"
+        ],
+        "equipmentTags": [
+          "bodyweight"
+        ],
+        "equipmentTier": "bodyweight",
+        "contexts": [
+          "home",
+          "gym",
+          "outdoor"
+        ],
+        "jointTags": [
+          "knee",
+          "ankle"
+        ],
+        "injuryCautions": [
+          "knee_pain_caution",
+          "ankle_pain_caution",
+          "impact_caution",
+          "tendon_load_caution"
+        ],
+        "difficultyTag": "all",
+        "programRoles": [
+          "warmup",
+          "activation"
+        ]
       }
     }
   ]

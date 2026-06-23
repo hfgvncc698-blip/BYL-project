@@ -14,6 +14,7 @@ dist-ssr
 *.local
 .env
 .env.local
+.env.social
 .env.production
 *.tgz
 
@@ -34,6 +35,23 @@ backend/firebase-service-account.json
 backend/*.log
 
 exercise-translations/.cache/
+
+# Generated marketing/social media assets
+ad-samples/**/output/
+ad-samples/byl-video-*/
+ad-samples/social-publisher/.cert/
+ad-samples/social-publisher/*.log
+ad-samples/social-publisher/ad-samples/
+ad-samples/social-publisher/chatgpt-assets/
+ad-samples/social-publisher/creative-studio/
+ad-samples/social-publisher/demo-assets/
+ad-samples/social-publisher/moodboards/
+ad-samples/social-publisher/public/
+ad-samples/social-publisher/runs/
+ad-samples/social-publisher/campaigns/2026-*
+ad-samples/social-publisher/marketing-agent/nightly-reports/
+ad-samples/social-publisher/marketing-agent/*log.jsonl
+public/social-media/
 
 
 boost-your-life-f6b3e-firebase-adminsdk-fbsvc-f200c38fb3.json

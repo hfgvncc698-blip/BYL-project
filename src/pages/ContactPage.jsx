@@ -14,6 +14,27 @@ import {
 import { useTranslation } from "react-i18next";
 import { useAppTheme } from "../styles/appTheme";
 import { notify } from "../utils/notify";
+import { apiFetch } from "../utils/api";
+
+function contactErrorDescription(error, t) {
+  const code = error?.data?.error || error?.message || "";
+  if (code === "Missing fields") {
+    return t("contact.toast.error.missingFields", "Merci de remplir le nom, l’e-mail et le message.");
+  }
+  if (code === "Invalid email") {
+    return t("contact.toast.error.invalidEmail", "L’adresse e-mail semble invalide.");
+  }
+  if (code === "Invalid fields") {
+    return t("contact.toast.error.invalidFields", "Le nom doit contenir au moins 2 caractères et le message au moins 10 caractères.");
+  }
+  if (error?.status === 429 || code === "Too many requests") {
+    return t("contact.toast.error.tooManyRequests", "Trop de tentatives. Réessayez dans quelques minutes.");
+  }
+  return t(
+    "contact.toast.error.desc",
+    "Impossible d’envoyer le message. Réessayez."
+  );
+}
 
 export default function ContactPage() {
   const { t } = useTranslation("common");
@@ -21,10 +42,6 @@ export default function ContactPage() {
   const [form, setForm] = useState({ name: "", email: "", message: "" });
   const toast = useToast();
   const [isLoading, setLoading] = useState(false);
-
-  // Si tu as une variable d'env Vite, elle peut surcharger le comportement
-  // Exemple: VITE_API_BASE=https://boostyourlife.coach/api
-  const API_BASE = import.meta.env.VITE_API_BASE || "";
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -36,13 +53,10 @@ export default function ContactPage() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/contact`, {
+      await apiFetch("/contact", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       notify(toast, "saveSuccess", {
         title: t("contact.toast.success.title", "Message envoyé"),
@@ -57,10 +71,7 @@ export default function ContactPage() {
       console.error(err);
       notify(toast, "saveError", {
         title: t("contact.toast.error.title", "Erreur"),
-        description: t(
-          "contact.toast.error.desc",
-          "Impossible d’envoyer le message. Réessayez."
-        ),
+        description: contactErrorDescription(err, t),
       });
     } finally {
       setLoading(false);

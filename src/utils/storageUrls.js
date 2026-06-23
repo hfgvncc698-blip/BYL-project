@@ -72,7 +72,7 @@ export async function getPublicUrl(pathOrUrl, { quiet = true } = {}) {
       // Cache négatif pour éviter les tentatives répétées sur un objet inexistant
       _valueCache.set(key, null);
       if (!quiet) {
-        // eslint-disable-next-line no-console
+         
         console.warn("[storageUrls] getPublicUrl error for:", key, e);
       }
       return null;

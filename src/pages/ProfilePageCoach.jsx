@@ -9,7 +9,6 @@ import {
   Button,
   Stack,
   useToast,
-  Spinner,
   Image,
   Progress,
   HStack,
@@ -47,6 +46,7 @@ import {
 } from "react-icons/md";
 import AppLoading from "../components/ui/AppLoading";
 import { notify } from "../utils/notify";
+import { canUseCustomBranding } from "../utils/proPlanAccess";
 
 import {
   getAuth,
@@ -227,6 +227,8 @@ export default function ProfilePageCoach() {
   const darkButtonColor = useColorModeValue("white", "gray.900");
   const secondaryButtonBg = useColorModeValue("white", "rgba(255,255,255,0.06)");
   const secondaryButtonHover = useColorModeValue("gray.50", "rgba(255,255,255,0.12)");
+  const isClubMember = user?.accountType === "club_member" && user?.clubRole !== "owner";
+  const customBrandingAllowed = !isClubMember && (!user?.proAccess || canUseCustomBranding(user.proAccess));
 
   useEffect(() => {
     if (!user) return;
@@ -267,12 +269,23 @@ export default function ProfilePageCoach() {
   };
 
   const handleLogoSelect = (e) => {
+    if (!customBrandingAllowed) {
+      notify(toast, "saveError", {
+        title: "Logo non inclus",
+        description: isClubMember
+          ? "Le logo est géré par le responsable du club."
+          : "Votre palier actuel ne débloque pas encore le logo personnalisé.",
+      });
+      e.target.value = "";
+      return;
+    }
     if (e.target.files?.[0]) setLogoFile(e.target.files[0]);
   };
 
   const uploadLogoIfAny = () =>
     new Promise((resolve, reject) => {
       if (!logoFile) return resolve(form.logoUrl);
+      if (!customBrandingAllowed) return resolve(form.logoUrl);
       const path = `logos/${user.uid}/${logoFile.name}`;
       const storageRef = ref(storage, path);
       const uploadTask = uploadBytesResumable(storageRef, logoFile);
@@ -447,6 +460,7 @@ export default function ProfilePageCoach() {
 
   return (
     <Box
+      data-tour-page="coach-profile"
       minH="100vh"
       bg={pageBg}
       px={{ base: 4, md: 6 }}
@@ -689,25 +703,97 @@ export default function ProfilePageCoach() {
           </SectionCard>
 
           <VStack spacing={6} align="stretch">
-            <SectionCard
-              title={t("profile.coach.sections.branding", "Logo et identité visuelle")}
-              subtitle={t("profile.coach.sections.brandingSub", "Ajoutez votre logo pour rendre votre espace encore plus professionnel.")}
-              icon={MdOutlineImage}
-              accent={activeGreen}
-              cardBg={cardBg}
-              borderColor={borderColor}
-              glassShadow={glassShadow}
-              subtleText={subtleText}
-            >
-              <Stack spacing={4}>
-                <Input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  display="none"
-                  onChange={handleLogoSelect}
-                />
+            {customBrandingAllowed ? (
+              <SectionCard
+                title={t("profile.coach.sections.branding", "Logo et identité visuelle")}
+                subtitle={t("profile.coach.sections.brandingSub", "Ajoutez votre logo pour rendre votre espace encore plus professionnel.")}
+                icon={MdOutlineImage}
+                accent={activeGreen}
+                cardBg={cardBg}
+                borderColor={borderColor}
+                glassShadow={glassShadow}
+                subtleText={subtleText}
+              >
+                <Stack spacing={4}>
+                  <Input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    display="none"
+                    onChange={handleLogoSelect}
+                  />
 
+                  <HStack spacing={4} align={{ base: "flex-start", md: "center" }} flexDir={{ base: "column", md: "row" }}>
+                    <Box
+                      w="96px"
+                      h="96px"
+                      borderRadius="24px"
+                      bg={surfaceBgStrong}
+                      border="1px solid"
+                      borderColor={borderStrong}
+                      overflow="hidden"
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="center"
+                      flexShrink={0}
+                    >
+                      {form.logoUrl ? (
+                        <Image
+                          src={form.logoUrl}
+                          boxSize="100%"
+                          objectFit="cover"
+                          alt={t("profile.alt.logo")}
+                        />
+                      ) : (
+                        <Icon as={MdOutlineBadge} boxSize={10} color={activeGreen} />
+                      )}
+                    </Box>
+
+                    <VStack align="stretch" spacing={3} flex="1" w="full">
+                      <HStack spacing={3} flexWrap="wrap">
+                        <Button
+                          onClick={() => fileInputRef.current?.click()}
+                          borderRadius="full"
+                          bg={secondaryButtonBg}
+                          color={textColor}
+                          fontWeight="800"
+                          border="1px solid"
+                          borderColor={borderStrong}
+                          _hover={{ bg: secondaryButtonHover }}
+                        >
+                          {t("profile.actions.chooseFile", "Choisir un fichier")}
+                        </Button>
+                        <Badge px={3} py={1.5} borderRadius="full" bg="rgba(59,130,246,0.10)" color={activeBlue} fontWeight="800">
+                          {logoFile
+                            ? t("profile.coach.badges.newLogo", "Nouveau logo sélectionné")
+                            : t("profile.coach.badges.currentLogo", "Logo actuel")}
+                        </Badge>
+                      </HStack>
+
+                      <Tooltip label={currentFileLabel} hasArrow>
+                        <Text fontSize="sm" color={mutedText} noOfLines={2}>
+                          {currentFileLabel}
+                        </Text>
+                      </Tooltip>
+
+                      {logoFile ? (
+                        <Progress value={uploadProgress} size="sm" borderRadius="full" colorScheme="blue" />
+                      ) : null}
+                    </VStack>
+                  </HStack>
+                </Stack>
+              </SectionCard>
+            ) : (
+              <SectionCard
+                title={t("auto.ProfilePageCoach.identite_des_documents", "Identité des documents")}
+                subtitle={isClubMember ? "L'identité visuelle est gérée par le responsable du club." : "Ce palier utilise automatiquement l'identité BoostYourLife.coach sur les exports et documents partagés."}
+                icon={MdOutlineImage}
+                accent={activeGreen}
+                cardBg={cardBg}
+                borderColor={borderColor}
+                glassShadow={glassShadow}
+                subtleText={subtleText}
+              >
                 <HStack spacing={4} align={{ base: "flex-start", md: "center" }} flexDir={{ base: "column", md: "row" }}>
                   <Box
                     w="96px"
@@ -721,51 +807,23 @@ export default function ProfilePageCoach() {
                     alignItems="center"
                     justifyContent="center"
                     flexShrink={0}
+                    p={3}
                   >
-                    {form.logoUrl ? (
-                      <Image
-                        src={form.logoUrl}
-                        boxSize="100%"
-                        objectFit="cover"
-                        alt={t("profile.alt.logo")}
-                      />
-                    ) : (
-                      <Icon as={MdOutlineBadge} boxSize={10} color={activeGreen} />
-                    )}
+                    <Image src="/logo-byl.png" alt="BoostYourLife.coach" w="100%" h="100%" objectFit="contain" />
                   </Box>
-
-                  <VStack align="stretch" spacing={3} flex="1" w="full">
-                    <HStack spacing={3} flexWrap="wrap">
-                      <Button
-                        onClick={() => fileInputRef.current?.click()}
-                        borderRadius="full"
-                        bg={secondaryButtonBg}
-                        border="1px solid"
-                        borderColor={borderStrong}
-                        _hover={{ bg: secondaryButtonHover }}
-                      >
-                        {t("profile.actions.chooseFile")}
-                      </Button>
-                      <Badge px={3} py={1.5} borderRadius="full" bg="rgba(59,130,246,0.10)" color={activeBlue} fontWeight="800">
-                        {logoFile
-                          ? t("profile.coach.badges.newLogo", "Nouveau logo sélectionné")
-                          : t("profile.coach.badges.currentLogo", "Logo actuel")}
-                      </Badge>
-                    </HStack>
-
-                    <Tooltip label={currentFileLabel} hasArrow>
-                      <Text fontSize="sm" color={mutedText} noOfLines={2}>
-                        {currentFileLabel}
-                      </Text>
-                    </Tooltip>
-
-                    {logoFile ? (
-                      <Progress value={uploadProgress} size="sm" borderRadius="full" colorScheme="blue" />
-                    ) : null}
+                  <VStack align="stretch" spacing={2} flex="1" w="full">
+                    <Badge alignSelf="flex-start" px={3} py={1.5} borderRadius="full" bg="rgba(15,23,42,0.08)" color={textColor} fontWeight="800">
+                      {isClubMember ? "Logo du club appliqué" : "Logo BYL appliqué"}
+                    </Badge>
+                    <Text fontSize="sm" color={mutedText}>
+                      {isClubMember
+                        ? "Vous pouvez gérer votre profil, mais pas modifier le logo ou l’identité du club."
+                        : "L'ajout d'un logo personnalisé démarre au palier Croissance."}
+                    </Text>
                   </VStack>
                 </HStack>
-              </Stack>
-            </SectionCard>
+              </SectionCard>
+            )}
 
             <SectionCard
               title={t("profile.coach.sections.security", "Sécurité de connexion")}

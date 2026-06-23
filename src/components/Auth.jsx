@@ -7,6 +7,7 @@ import {
   onAuthStateChanged 
 } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
+import i18n from "../i18n/index";
 import { 
   Box, Button, Input, Select, Text, VStack, useToast 
 } from "@chakra-ui/react";
@@ -56,7 +57,7 @@ function Auth() {
       await enregistrerProgrammeUtilisateur(userId);
 
       toast({
-        title: "Inscription réussie 🎉",
+        title: i18n.t("auto.Auth.inscription_reussie", "Inscription réussie 🎉"),
         description: `Bienvenue ${email} !`,
         status: "success",
         duration: 3000,
@@ -64,7 +65,7 @@ function Auth() {
       });
     } catch (error) {
       toast({
-        title: "Erreur d'inscription",
+        title: i18n.t("auto.Auth.erreur_d_inscription", "Erreur d'inscription"),
         description: error.message,
         status: "error",
         duration: 3000,
@@ -78,7 +79,7 @@ function Auth() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       toast({
-        title: "Connexion réussie ✅",
+        title: i18n.t("auto.Auth.connexion_reussie", "Connexion réussie ✅"),
         description: `Ravi de te revoir, ${email} !`,
         status: "success",
         duration: 3000,
@@ -86,7 +87,7 @@ function Auth() {
       });
     } catch (error) {
       toast({
-        title: "Erreur de connexion",
+        title: i18n.t("auto.Auth.erreur_de_connexion", "Erreur de connexion"),
         description: error.message,
         status: "error",
         duration: 3000,
@@ -99,7 +100,7 @@ function Auth() {
   const handleSignOut = async () => {
     await signOut(auth);
     toast({
-      title: "Déconnexion réussie",
+      title: i18n.t("auto.Auth.deconnexion_reussie", "Déconnexion réussie"),
       status: "info",
       duration: 3000,
       isClosable: true,
@@ -111,34 +112,31 @@ function Auth() {
       <VStack spacing={4}>
         {user ? (
           <>
-            <Text fontSize="xl" fontWeight="bold">
-              Bienvenue, {user.email} ! 🎉
+            <Text fontSize="xl" fontWeight="bold">{i18n.t("auto.Auth.bienvenue", "Bienvenue,")}{user.email} ! 🎉
             </Text>
-            <Button colorScheme="red" onClick={handleSignOut} w="full">
-              Se déconnecter
-            </Button>
+            <Button colorScheme="red" onClick={handleSignOut} w="full">{i18n.t("nav.logout", "Se déconnecter")}</Button>
           </>
         ) : (
           <>
-            <Text fontSize="xl" fontWeight="bold">Connexion / Inscription</Text>
+            <Text fontSize="xl" fontWeight="bold">{i18n.t("auto.Auth.connexion_inscription", "Connexion / Inscription")}</Text>
             <Input
               type="email"
-              placeholder="Email"
+              placeholder={i18n.t("clientCreation.email", "Email")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
             <Input
               type="password"
-              placeholder="Mot de passe"
+              placeholder={i18n.t("auth.password", "Mot de passe")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
             <Select value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="particulier">Particulier</option>
-              <option value="professionnel">Professionnel</option>
+              <option value="particulier">{i18n.t("auth.register.role_individual", "Particulier")}</option>
+              <option value="professionnel">{i18n.t("auto.Auth.professionnel", "Professionnel")}</option>
             </Select>
-            <Button colorScheme="blue" onClick={handleSignUp} w="full">S'inscrire</Button>
-            <Button colorScheme="green" onClick={handleSignIn} w="full">Se connecter</Button>
+            <Button colorScheme="blue" onClick={handleSignUp} w="full">{i18n.t("auto.Auth.s_inscrire", "S'inscrire")}</Button>
+            <Button colorScheme="green" onClick={handleSignIn} w="full">{i18n.t("auth.register.goToLogin", "Se connecter")}</Button>
           </>
         )}
       </VStack>

@@ -44,6 +44,7 @@ import {
   CircularProgressLabel,
   Divider,
   Input,
+  Select,
   useBreakpointValue,
   Switch,
   FormControl,
@@ -72,10 +73,20 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { playFeedback } from "../utils/feedback";
 import { useTranslation } from "react-i18next";
+import i18n from "../i18n";
 import { useAuth } from "../AuthContext";
 import AppLoading from "./ui/AppLoading";
 import { useAppTheme } from "../styles/appTheme";
 import { localizeExercise } from "../utils/exerciseI18n";
+import { getExerciseNotesText } from "../utils/exerciseNotes";
+import {
+  applyProgressionStrategyToDecision,
+  applySportProgressionToSession,
+  estimateExerciseDurationSeconds,
+  estimateSessionDurationSeconds,
+  evaluateSportAdaptation,
+  getExerciseTimingAdjustmentTargets,
+} from "../utils/trainingEngine";
 
 /* ---------------------- Helpers ---------------------- */
 
@@ -83,6 +94,26 @@ function getProgrammeDocRef({ clientId, programId }) {
   if (clientId && programId) return doc(db, "clients", clientId, "programmes", programId);
   if (programId) return doc(db, "programmes", programId);
   return null;
+}
+
+function getCachedVisitLocation() {
+  try {
+    const country = String(localStorage.getItem("BYL_COUNTRY") || "").trim().toUpperCase();
+    const city = String(localStorage.getItem("BYL_CITY") || "").trim();
+    const lat = Number(localStorage.getItem("BYL_LAT"));
+    const lng = Number(localStorage.getItem("BYL_LNG"));
+    const hasCoords = Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0);
+    const hasLabel = !!country || !!city;
+    if (!hasCoords && !hasLabel) return null;
+    return {
+      ...(country ? { country } : {}),
+      ...(city ? { city } : {}),
+      ...(hasCoords ? { lat, lng } : {}),
+      updatedAt: serverTimestamp(),
+    };
+  } catch {
+    return null;
+  }
 }
 
 const toSeconds = (v) => {
@@ -172,6 +203,7 @@ const OPTION_FLAG = {
   calories: "Objectif Calories",
   tempo: "Tempo",
   vitesse: "Vitesse",
+  inclinaison: "Inclinaison (%)",
   distance: "Distance",
   intensite: "Intensité",
 };
@@ -185,6 +217,7 @@ const FIELD_MAP = {
   calories: ["Objectif Calories", "calories", "objectif_calories", "kcal"],
   tempo: ["Tempo", "tempo", "tempo_pattern", "cadence"],
   vitesse: ["Vitesse", "vitesse", "speed", "kmh", "km/h"],
+  inclinaison: ["Inclinaison (%)", "inclinaison", "incline", "slope", "pente"],
   distance: ["Distance", "distance", "metrage", "m", "meters", "metres", "km"],
   intensite: ["Intensité", "intensite", "intensity", "rpe", "percent_1rm"],
 };
@@ -198,6 +231,7 @@ const METADATA = {
   calories: { step: 1, isTime: false },
   tempo: { step: 1, isTime: false },
   vitesse: { step: 1, isTime: false },
+  inclinaison: { step: 1, isTime: false },
   distance: { step: 10, isTime: false },
   intensite: { step: 1, isTime: false },
 };
@@ -338,6 +372,36 @@ function buildChainInfo(sessionObj, flat, i) {
   return { inChain, start, end, pos, isFirst, isLast, size, refSeries, mode };
 }
 
+const isFieldActiveForExercise = (ex, key) => {
+  const label = OPTION_FLAG[key];
+  if (!label) return false;
+  if (Array.isArray(ex?.optionsOrder)) return ex.optionsOrder.includes(label);
+  const value = getFieldValue(ex, FIELD_MAP[key]);
+  if (key === "repetitions") return Number(value || 0) > 0;
+  return value !== undefined;
+};
+
+const isTimerOnlyChain = (info, flat) => {
+  if (!info?.inChain || !Array.isArray(flat)) return false;
+  const chainExercises = flat.slice(info.start, info.end + 1).filter(Boolean);
+  if (!chainExercises.length) return false;
+
+  const hasActiveRepetitions = chainExercises.some((ex) => isFieldActiveForExercise(ex, "repetitions"));
+  if (hasActiveRepetitions) return false;
+
+  return chainExercises.every((ex) => {
+    if (!isFieldActiveForExercise(ex, "temps")) return false;
+    return toSeconds(getFieldValue(ex, FIELD_MAP.temps) ?? 0) > 0;
+  });
+};
+
+const getExerciseDisplayName = (exercise) =>
+  exercise?.nom || exercise?.name || exercise?.title || exercise?.label || "Exercice";
+
+const estimateExercisePlannedSeconds = (exercise) => {
+  estimateExerciseDurationSeconds(exercise);
+};
+
 /* ---------------------- Editable metric ---------------------- */
 
 const EditableMetric = ({ label, isTime = false, value, onChange, step = 1, compact = false }) => {
@@ -410,7 +474,7 @@ const EditableMetric = ({ label, isTime = false, value, onChange, step = 1, comp
             fontSize={inputFont}
             h={height}
             w="full"
-            placeholder="mm:ss"
+            placeholder={i18n.t("auto.SessionPlayer.mm_ss", "mm:ss")}
             inputMode="numeric"
             aria-label={`${label} en mm:ss`}
           />
@@ -491,47 +555,44 @@ function randomId(n = 8) {
   return Math.random().toString(36).slice(2, 2 + n);
 }
 
-/* ====================== AUTO PROGRESSION ====================== */
-
-const PROG_FIELDS = ["Charge (kg)", "Répétitions", "Repos (min:sec)", "Séries"];
-
-const roundTo = (v, step) => {
-  const n = Number(v) || 0;
-  const s = Number(step) || 1;
-  return Math.round(n / s) * s;
+const toMs = (value) => {
+  if (!value) return 0;
+  if (typeof value?.toDate === "function") return value.toDate().getTime();
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === "number") return value > 1e12 ? value : value * 1000;
+  if (typeof value === "string") return Date.parse(value) || 0;
+  return 0;
 };
 
-const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+const toDate = (value) => {
+  const ms = toMs(value);
+  return ms ? new Date(ms) : null;
+};
 
-function isTrainingLike(ex) {
-  const col = String(ex?.__collection || "").toLowerCase();
-  if (
-    col.includes("warmup") ||
-    col.includes("cooldown") ||
-    col.includes("echauffement") ||
-    col.includes("retour")
-  ) return false;
+const sameCalendarDay = (a, b) =>
+  a instanceof Date &&
+  b instanceof Date &&
+  a.getFullYear() === b.getFullYear() &&
+  a.getMonth() === b.getMonth() &&
+  a.getDate() === b.getDate();
 
-  const cu = ex?.categorie_utilisation;
-  const arr = Array.isArray(cu) ? cu : typeof cu === "string" ? [cu] : [];
-  const norm = arr.map((x) => String(x).toLowerCase());
-  if (norm.includes("warmup") || norm.includes("cooldown")) return false;
-  if (norm.includes("training") || norm.includes("bonus")) return true;
+const isValidatedCalendarSession = (session = {}) => {
+  const status = String(session?.status || "").trim().toLowerCase();
+  return (
+    status === "validée" ||
+    status === "validee" ||
+    status === "done" ||
+    Boolean(session?.validatedAt) ||
+    Boolean(session?.completedAt)
+  );
+};
 
-  return true;
-}
+/* ====================== AUTO PROGRESSION ====================== */
 
-function pickRandom(arr) {
-  if (!Array.isArray(arr) || !arr.length) return null;
-  return arr[Math.floor(Math.random() * arr.length)];
-}
 
-function computeProgSignFromRating(r) {
-  if (r == null) return 0;
-  if (r <= 2) return +1;
-  if (r === 3) return 0;
-  return -1;
-}
+
+
+
 
 function readAutoProgressionEnabled(programData) {
   const pd = programData || {};
@@ -547,109 +608,17 @@ function readAutoProgressionEnabled(programData) {
   return true;
 }
 
-function availableProgressFields(ex, seriesDiff) {
-  const out = [];
-
-  const hasCharge =
-    getFieldValue(ex, FIELD_MAP.charge) != null ||
-    (seriesDiff && getSeriesDetails(ex)?.[0]?.["Charge (kg)"] != null);
-
-  const hasReps =
-    getFieldValue(ex, FIELD_MAP.repetitions) != null ||
-    (seriesDiff && getSeriesDetails(ex)?.[0]?.["Répétitions"] != null);
-
-  const hasRest =
-    getFieldValue(ex, FIELD_MAP.repos) != null ||
-    (seriesDiff && getSeriesDetails(ex)?.[0]?.["Repos (min:sec)"] != null);
-
-  const hasSeries = getFieldValue(ex, FIELD_MAP.series) != null;
-
-  if (hasCharge) out.push("Charge (kg)");
-  if (hasReps) out.push("Répétitions");
-  if (hasRest) out.push("Repos (min:sec)");
-  if (hasSeries) out.push("Séries");
-
-  return out.filter((x) => PROG_FIELDS.includes(x));
+function readProgressionStrategy(programData) {
+  const value =
+    programData?.progressionStrategy ||
+    programData?.progression?.strategy ||
+    programData?.progressionTemplate?.strategy;
+  return ["secure", "linear", "undulating"].includes(value) ? value : "linear";
 }
 
-function applyOneProgressChange({ ex, sign, currentSet }) {
-  const out = structuredClone(ex || {});
-  const seriesDiff = getSeriesDiffFlag(out);
-  const details = getSeriesDetails(out);
-  const detIdx = Math.max(0, (Number(currentSet) || 1) - 1);
 
-  const fields = availableProgressFields(out, seriesDiff);
-  if (!fields.length) return { ex: out, changed: false, changedField: null };
 
-  const chosen = pickRandom(fields);
-  if (!chosen) return { ex: out, changed: false, changedField: null };
 
-  const isTime = chosen === "Repos (min:sec)";
-  const isCharge = chosen === "Charge (kg)";
-  const isReps = chosen === "Répétitions";
-  const isSeries = chosen === "Séries";
-
-  let cur;
-  if (seriesDiff && details && chosen !== "Séries") {
-    cur = details?.[detIdx]?.[chosen];
-    if (cur == null) {
-      if (isCharge) cur = getFieldValue(out, FIELD_MAP.charge);
-      else if (isReps) cur = getFieldValue(out, FIELD_MAP.repetitions);
-      else if (isTime) cur = getFieldValue(out, FIELD_MAP.repos);
-    }
-  } else {
-    cur = out[chosen];
-    if (cur == null) {
-      if (isCharge) cur = getFieldValue(out, FIELD_MAP.charge);
-      else if (isReps) cur = getFieldValue(out, FIELD_MAP.repetitions);
-      else if (isTime) cur = getFieldValue(out, FIELD_MAP.repos);
-      else if (isSeries) cur = getFieldValue(out, FIELD_MAP.series);
-    }
-  }
-
-  if (cur == null) return { ex: out, changed: false, changedField: null };
-
-  let next = cur;
-
-  if (isCharge) {
-    const n = Number(cur) || 0;
-    const delta = n * 0.025;
-    next = roundTo(Math.max(0, n + sign * delta), 0.25);
-    if (n === 0 && sign > 0) next = 0.25;
-  } else if (isReps) {
-    const n = Math.round(Number(cur) || 0);
-    next = Math.max(0, n + sign * 1);
-  } else if (isTime) {
-    const sec = toSeconds(cur);
-    next = Math.max(0, sec + sign * 15);
-  } else if (isSeries) {
-    const n = Math.round(Number(cur) || 1);
-    next = clamp(n + sign * 1, 1, 10);
-  }
-
-  if (String(next) === String(cur)) return { ex: out, changed: false, changedField: null };
-
-  if (seriesDiff && details && chosen !== "Séries") {
-    const seed = {};
-    Object.values(OPTION_FLAG).forEach((lbl) => {
-      if (out[lbl] != null) seed[lbl] = out[lbl];
-    });
-    const setsCount = Number(getFieldValue(out, FIELD_MAP.series) ?? 1) || 1;
-    const det = ensureDetailsLength(details, setsCount, seed);
-    det[detIdx] = { ...(det[detIdx] || {}), [chosen]: next };
-    out.seriesDetails = det;
-  } else {
-    out[chosen] = next;
-
-    if (chosen === "Séries") {
-      const setsCount = Number(next) || 1;
-      const baseForNew = mergeBaseFromDetail0(out);
-      out.seriesDetails = ensureDetailsLength(getSeriesDetails(out), setsCount, baseForNew);
-    }
-  }
-
-  return { ex: out, changed: true, changedField: chosen };
-}
 
 /* ---------------------- MEDIA HELPERS ---------------------- */
 
@@ -991,7 +960,7 @@ function ExerciseMediaPanel({ exercise, preferredSex }) {
   const mediaItems = useMemo(() => extractExerciseMedia(exercise, preferredSex), [exercise, preferredSex]);
   const border = useColorModeValue("gray.200", "gray.700");
   const cardBg = useColorModeValue("white", "gray.800");
-  const mediaBg = useColorModeValue("gray.50", "gray.900");
+
   const imageBg = "white";
   const isMobile = useBreakpointValue({ base: true, md: false });
 
@@ -1077,14 +1046,23 @@ export default function SessionPlayer() {
   const params = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, effectiveRole, isCoach: isEffectiveCoach } = useAuth();
 
-  const isCoach = user?.role === "coach";
-  const isCoachContext = !!isCoach;
+  const searchParams = new URLSearchParams(location.search || "");
+  const adminCoachId = String(searchParams.get("adminCoachId") || "").trim();
+  const realRole = String(user?.role || "").toLowerCase();
+  const uiRole = String(effectiveRole || realRole || "").toLowerCase();
+  const isCoachContext =
+    Boolean(isEffectiveCoach) ||
+    uiRole === "coach" ||
+    realRole === "coach" ||
+    realRole === "admin";
+  const actingCoachId = realRole === "admin" && adminCoachId ? adminCoachId : user?.uid || null;
 
   const clientId = params.clientId || null;
   const programId = params.programId || params.id;
   const sessionIndex = Number(params.sessionIndex ?? 0);
+  const plannedCalendarEventId = String(location.state?.calendarEventId || "").trim();
 
   const theme = useAppTheme();
   const pageBg = theme.pageBg;
@@ -1111,10 +1089,15 @@ export default function SessionPlayer() {
   const [exIndex, setExIndex] = useState(0);
   const [currentSet, setCurrentSet] = useState(1);
   const [phase, setPhase] = useState("ready");
+  const [isPaused, setIsPaused] = useState(false);
 
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const [rating, setRating] = useState(null);
+  const [energyLevel, setEnergyLevel] = useState("normal");
+  const [painFlag, setPainFlag] = useState(false);
+  const [painLevel, setPainLevel] = useState("");
+  const [painArea, setPainArea] = useState("");
   const [notesOpen, setNotesOpen] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
 
@@ -1122,6 +1105,9 @@ export default function SessionPlayer() {
   const restSecRef = useRef(0);
   const totalSetsRef = useRef(1);
   const topAnchorRef = useRef(null);
+  const notesInitKeyRef = useRef("");
+  const pausedPhaseRef = useRef(null);
+  const autoStartNextRef = useRef(false);
 
   const [units, setUnits] = useState(DEFAULT_UNITS);
 
@@ -1143,6 +1129,10 @@ export default function SessionPlayer() {
   const completionDocIdRef = useRef(randomId(12));
   const completionStartedAtRef = useRef(new Date());
   const completionSavedRef = useRef(false);
+  const partialProgressTimerRef = useRef(null);
+  const exerciseTimingRef = useRef(new Map());
+  const exerciseTimingStartedAtRef = useRef(Date.now());
+  const activeTimingExerciseIndexRef = useRef(0);
 
   useEffect(() => {
     historyRunIdRef.current = randomId(10);
@@ -1151,7 +1141,19 @@ export default function SessionPlayer() {
     completionDocIdRef.current = randomId(12);
     completionStartedAtRef.current = new Date();
     completionSavedRef.current = false;
+    exerciseTimingRef.current = new Map();
+    exerciseTimingStartedAtRef.current = Date.now();
+    activeTimingExerciseIndexRef.current = 0;
     resumeAppliedRef.current = false;
+    pausedPhaseRef.current = null;
+    autoStartNextRef.current = false;
+    setIsPaused(false);
+    setRating(null);
+    setEnergyLevel("normal");
+    setPainFlag(false);
+    setPainLevel("");
+    setPainArea("");
+    clearTimeout(partialProgressTimerRef.current);
   }, [clientId, programId, sessionIndex]);
 
   useEffect(() => {
@@ -1168,14 +1170,70 @@ export default function SessionPlayer() {
     }
 
     const clampedIndex = Math.max(0, Math.min(flat.length - 1, Number(requestedIndex)));
+    const requestedSet =
+      location?.state?.resumeSet ??
+      location?.state?.currentSet;
+    const safeSet = Number.isFinite(Number(requestedSet))
+      ? Math.max(1, Number(requestedSet))
+      : 1;
+    activeTimingExerciseIndexRef.current = clampedIndex;
+    exerciseTimingStartedAtRef.current = Date.now();
     setExIndex(clampedIndex);
-    setCurrentSet(1);
+    setCurrentSet(safeSet);
     resumeAppliedRef.current = true;
   }, [flat.length, location?.state]);
 
   function stageHistory({ sessionIndex, exerciseIndex, field, value }) {
     const key = `${sessionIndex}|${exerciseIndex}|${field}`;
     historyBufferRef.current.set(key, { sessionIndex, exerciseIndex, field, value });
+  }
+
+  function getExerciseActualSeconds(index, { includeCurrent = true } = {}) {
+    const safeIndex = Number(index);
+    if (!Number.isFinite(safeIndex)) return 0;
+    const saved = Number(exerciseTimingRef.current.get(safeIndex) || 0);
+    if (!includeCurrent || activeTimingExerciseIndexRef.current !== safeIndex) return saved;
+    const elapsed = Math.max(0, (Date.now() - exerciseTimingStartedAtRef.current) / 1000);
+    return saved + elapsed;
+  }
+
+  function recordCurrentExerciseTiming() {
+    const index = Number(activeTimingExerciseIndexRef.current);
+    if (!Number.isFinite(index) || !flat[index]) {
+      exerciseTimingStartedAtRef.current = Date.now();
+      return;
+    }
+    const elapsed = Math.max(0, (Date.now() - exerciseTimingStartedAtRef.current) / 1000);
+    if (elapsed >= 1) {
+      exerciseTimingRef.current.set(index, Number(exerciseTimingRef.current.get(index) || 0) + elapsed);
+    }
+    exerciseTimingStartedAtRef.current = Date.now();
+  }
+
+  function goToExerciseIndex(nextIndex) {
+    const safeIndex = Math.max(0, Math.min(flat.length - 1, Number(nextIndex) || 0));
+    recordCurrentExerciseTiming();
+    activeTimingExerciseIndexRef.current = safeIndex;
+    exerciseTimingStartedAtRef.current = Date.now();
+    setExIndex(safeIndex);
+  }
+
+  function buildExerciseTimingSnapshot({ includeCurrent = true } = {}) {
+    return (flat || [])
+      .map((exercise, index) => {
+        const plannedSeconds = estimateExercisePlannedSeconds(exercise);
+        const actualSeconds = getExerciseActualSeconds(index, { includeCurrent });
+        if (plannedSeconds <= 0 && actualSeconds < 3) return null;
+        return {
+          exerciseIndex: index,
+          exerciseName: getExerciseDisplayName(exercise),
+          plannedSeconds,
+          actualSeconds: Math.max(0, Math.round(actualSeconds)),
+          deltaSeconds: Math.round(actualSeconds - plannedSeconds),
+          ratio: plannedSeconds > 0 ? Number((actualSeconds / plannedSeconds).toFixed(2)) : null,
+        };
+      })
+      .filter(Boolean);
   }
 
   async function flushHistory() {
@@ -1225,7 +1283,7 @@ export default function SessionPlayer() {
     }, 500);
   };
 
-  const saveSessionCompletion = async (pourcentage) => {
+  const saveSessionCompletion = async (pourcentage, meta = {}) => {
     try {
       if (!clientId || !programId || sessionIndex == null) return;
 
@@ -1246,38 +1304,178 @@ export default function SessionPlayer() {
         sessionObj?.nom ||
         t("sessionPlayer.sessionN", "Séance {{n}}", { n: sessionIndex + 1 });
 
+      const safePct = Math.max(0, Math.min(100, Number(pourcentage) || 0));
+      const isPartial = Boolean(meta.partial) && safePct < 90;
+      const lastExerciseIndex = Number.isFinite(Number(meta.exerciseIndex))
+        ? Math.max(0, Number(meta.exerciseIndex))
+        : null;
+      const lastSet = Number.isFinite(Number(meta.currentSet))
+        ? Math.max(1, Number(meta.currentSet))
+        : null;
+      const exerciseTimings = Array.isArray(meta.exerciseTimings)
+        ? meta.exerciseTimings
+        : buildExerciseTimingSnapshot({ includeCurrent: true });
+
       await setDoc(
         sRef,
         {
           runId: completionDocId,
           sessionIndex,
           sessionTitle,
-          pourcentageTermine: Math.max(0, Math.min(100, Number(pourcentage) || 0)),
-          dateEffectuee: serverTimestamp(),
+          pourcentageTermine: safePct,
           startedAt: Timestamp.fromDate(completionStartedAtRef.current),
+          status: isPartial ? "en_cours" : "validée",
+          isPartial,
+          ...(plannedCalendarEventId ? { calendarEventId: plannedCalendarEventId } : {}),
+          ...(lastExerciseIndex != null ? { lastExerciseIndex } : {}),
+          ...(lastSet != null ? { lastSet } : {}),
+          ...(exerciseTimings.length ? { exerciseTimings } : {}),
+          ...(isPartial
+            ? { progressUpdatedAt: serverTimestamp() }
+            : {
+                dateEffectuee: serverTimestamp(),
+                validatedAt: serverTimestamp(),
+                completedAt: serverTimestamp(),
+              }),
+          ...(!isPartial && isCoachContext
+            ? {
+                coachVisible: true,
+                launchedFrom: "coach",
+                launchedByRole: uiRole || realRole || "coach",
+                coachId: actingCoachId,
+                ...(realRole === "admin" && user?.uid ? { launchedByAdminUid: user.uid } : {}),
+              }
+            : {}),
           updatedAt: serverTimestamp(),
         },
         { merge: true }
       );
 
-      completionSavedRef.current = true;
+      const isClientSelfVisit =
+        !!user?.uid &&
+        (
+          user.uid === clientId ||
+          user.uid === clientData?.uid ||
+          user.uid === clientData?.linkedUserId ||
+          user.uid === clientData?.userUid
+        );
+
+      if (isClientSelfVisit) {
+        const location = getCachedVisitLocation();
+        const visitPatch = {
+          lastVisitAt: serverTimestamp(),
+          lastSeenAt: serverTimestamp(),
+          lastVisitedPath: window.location.pathname,
+          lastVisitSource: "client-self",
+          lastVisitActorUid: user.uid,
+          ...(location ? { location } : {}),
+          updatedAt: serverTimestamp(),
+        };
+        const visitBatch = writeBatch(db);
+        visitBatch.set(doc(db, "clients", clientId), visitPatch, { merge: true });
+        visitBatch.set(
+          doc(db, "users", user.uid),
+          {
+            ...visitPatch,
+            linkedClientId: clientId,
+          },
+          { merge: true }
+        );
+        await visitBatch.commit();
+      }
+
+      if (!isPartial && isCoachContext) {
+        await setDoc(
+          doc(db, "clients", clientId),
+          {
+            lastActivityAt: serverTimestamp(),
+            lastCoachInteractionAt: serverTimestamp(),
+            lastSessionAt: serverTimestamp(),
+            lastSessionProgramId: programId,
+            lastSessionIndex: sessionIndex,
+            lastSessionTitle: sessionTitle,
+            lastSessionSource: "coach",
+            ...(actingCoachId ? { lastSessionCoachId: actingCoachId } : {}),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }
+
+      if (!isPartial) completionSavedRef.current = true;
     } catch (e) {
       console.error("saveSessionCompletion error:", e);
     }
   };
 
+  useEffect(() => {
+    if (!clientId || !programId || sessionIndex == null) return undefined;
+    if (!flat.length) return undefined;
+    if (completionSavedRef.current) return undefined;
+    if (isOpen) return undefined;
+
+    clearTimeout(partialProgressTimerRef.current);
+    partialProgressTimerRef.current = setTimeout(() => {
+      const pct = Math.max(
+        1,
+        Math.min(89, Math.round(((exIndex + 1) / (flat.length || 1)) * 100))
+      );
+      saveSessionCompletion(pct, {
+        partial: true,
+        exerciseIndex: exIndex,
+        currentSet,
+      });
+    }, 700);
+
+    return () => clearTimeout(partialProgressTimerRef.current);
+  }, [clientId, programId, sessionIndex, flat.length, exIndex, currentSet, isOpen]);
+
   const estimateSessionDurationSec = (sess) => {
-    if (!sess) return 3600;
-    const { flat } = flattenSession(sess);
-    let total = 0;
-    flat.forEach((ex) => {
-      const series = Number(getFieldValue(ex, FIELD_MAP.series) ?? 1) || 1;
-      const dur = toSeconds(getFieldValue(ex, FIELD_MAP.temps) ?? 0);
-      const rest = toSeconds(getFieldValue(ex, FIELD_MAP.repos) ?? 0);
-      total += series * (dur + rest);
-    });
+    const total = estimateSessionDurationSeconds(sess);
     return Math.max(600, Math.min(total || 0, 3 * 3600)) || 3600;
   };
+
+  async function syncLinkedCalendarsAfterValidation({ sessionId, sessionData, startDate, endDate, title, clientName }) {
+    if (!sessionId || !sessionData) return;
+    const batch = writeBatch(db);
+    if (clientId) {
+      batch.set(
+        doc(db, "clients", clientId, "calendarEvents", sessionId),
+        {
+          title: title || sessionData.title || "Séance validée",
+          start: Timestamp.fromDate(startDate),
+          end: Timestamp.fromDate(endDate),
+          startAt: Timestamp.fromDate(startDate),
+          endAt: Timestamp.fromDate(endDate),
+          status: "done",
+          eventType: sessionData.eventType || sessionData.type || "sport_session",
+          sessionId,
+          programId: sessionData.programId || sessionData.programmeId || programId || "",
+          sessionIndex: Number.isFinite(Number(sessionData.sessionIndex)) ? Number(sessionData.sessionIndex) : sessionIndex,
+          description: sessionData.description || sessionData.programTitle || "",
+          durationMin: Math.max(15, Math.round((endDate.getTime() - startDate.getTime()) / 60000) || Number(sessionData.durationMin || 60)),
+          updatedAt: serverTimestamp(),
+          createdAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+    if (sessionData.clubId && sessionData.clubAppointmentId) {
+      batch.set(
+        doc(db, "clubs", sessionData.clubId, "appointments", sessionData.clubAppointmentId),
+        {
+          status: "validée",
+          title: sessionData.sessionTitle || sessionData.title || title || "Séance validée",
+          startsAt: Timestamp.fromDate(startDate),
+          durationMin: Math.max(15, Math.round((endDate.getTime() - startDate.getTime()) / 60000) || Number(sessionData.durationMin || 60)),
+          clientName: clientName || sessionData.clientName || "",
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+    await batch.commit();
+  }
 
   async function upsertCoachCalendarEvent() {
     if (!isCoachContext || !clientId || !programId) return;
@@ -1308,6 +1506,74 @@ export default function SessionPlayer() {
       const startDate = new Date(endDate.getTime() - estimatedDurationSec * 1000);
 
       const fullTitle = `${clientName ? `${clientName} - ` : ""}${programmeName} - ${sessionTitle}`;
+      const completionDocId = completionDocIdRef.current;
+      const completionRef = doc(
+        db,
+        "clients",
+        clientId,
+        "programmes",
+        programId,
+        "sessionsEffectuees",
+        completionDocId
+      );
+      const linkCompletionToCalendarEvent = async (eventId) => {
+        if (!eventId) return;
+        await setDoc(
+          completionRef,
+          {
+            calendarEventId: eventId,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      };
+      const rootCalendarPatch = (sourceData = {}) => ({
+        title: fullTitle,
+        status: "validée",
+        start: Timestamp.fromDate(startDate),
+        end: Timestamp.fromDate(endDate),
+        visibility: "both",
+        eventType: sourceData.eventType || sourceData.type || "sport_session",
+        type: sourceData.type || sourceData.eventType || "sport_session",
+        validatedAt: serverTimestamp(),
+        completedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        coachId: sourceData.coachId || sourceData.createdBy || actingCoachId || user?.uid || null,
+        clientId,
+        clientName,
+        programmeId: sourceData.programmeId || sourceData.programId || programId,
+        programId: sourceData.programId || sourceData.programmeId || programId,
+        sessionIndex,
+      });
+
+      if (plannedCalendarEventId) {
+        const plannedRef = doc(db, "sessions", plannedCalendarEventId);
+        const plannedSnap = await getDoc(plannedRef);
+        const plannedData = plannedSnap.exists() ? plannedSnap.data() || {} : null;
+        const visibility = plannedData?.visibility || "coach";
+
+        if (
+          plannedSnap.exists() &&
+          plannedData?.clientId === clientId &&
+          (plannedData?.programmeId === programId || plannedData?.programId === programId) &&
+          Number(plannedData?.sessionIndex) === Number(sessionIndex) &&
+          (visibility === "coach" || visibility === "both") &&
+          !plannedData?.clientPrivate
+        ) {
+          await updateDoc(plannedRef, rootCalendarPatch(plannedData));
+          await syncLinkedCalendarsAfterValidation({
+            sessionId: plannedCalendarEventId,
+            sessionData: plannedData,
+            startDate,
+            endDate,
+            title: fullTitle,
+            clientName,
+          });
+          await linkCompletionToCalendarEvent(plannedCalendarEventId);
+
+          return plannedCalendarEventId;
+        }
+      }
 
       const qSnap = await getDocs(
         query(
@@ -1319,105 +1585,159 @@ export default function SessionPlayer() {
         )
       );
 
-      if (!qSnap.empty) {
-        const targetDoc = qSnap.docs[0];
+      const matchingDocs = qSnap.docs.map((candidate) => ({
+        doc: candidate,
+        data: candidate.data() || {},
+      }));
+      const sameDayValidatedDoc = matchingDocs.find(({ data }) => {
+        const visibility = data.visibility || "coach";
+        const existingDate =
+          toDate(data.start) ||
+          toDate(data.validatedAt) ||
+          toDate(data.completedAt) ||
+          toDate(data.updatedAt);
+        return (
+          (visibility === "coach" || visibility === "both") &&
+          !data.clientPrivate &&
+          isValidatedCalendarSession(data) &&
+          sameCalendarDay(existingDate, endDate)
+        );
+      });
 
-        await updateDoc(doc(db, "sessions", targetDoc.id), {
+      if (sameDayValidatedDoc) {
+        const eventId = sameDayValidatedDoc.doc.id;
+        await setDoc(doc(db, "sessions", eventId), rootCalendarPatch(sameDayValidatedDoc.data), { merge: true });
+        await syncLinkedCalendarsAfterValidation({
+          sessionId: eventId,
+          sessionData: sameDayValidatedDoc.data,
+          startDate,
+          endDate,
           title: fullTitle,
-          status: "validée",
-          start: Timestamp.fromDate(startDate),
-          end: Timestamp.fromDate(endDate),
-          visibility: "both",
-          validatedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          coachId: user?.uid || null,
           clientName,
         });
+        await linkCompletionToCalendarEvent(eventId);
 
-        return;
+        return eventId;
       }
 
-      await addDoc(collection(db, "sessions"), {
+      const plannedSessionDoc = matchingDocs
+        .map(({ doc: candidate, data }) => {
+          const plannedStart = toDate(data.start);
+          return { candidate, data, plannedStart };
+        })
+        .filter(({ data, plannedStart }) => {
+          const visibility = data.visibility || "coach";
+          return (
+            (visibility === "coach" || visibility === "both") &&
+            !isValidatedCalendarSession(data) &&
+            !data.clientPrivate &&
+            plannedStart &&
+            sameCalendarDay(plannedStart, endDate)
+          );
+        })
+        .sort((a, b) =>
+          Math.abs(a.plannedStart.getTime() - startDate.getTime()) -
+          Math.abs(b.plannedStart.getTime() - startDate.getTime())
+        )[0]?.candidate || null;
+
+      if (plannedSessionDoc) {
+        const targetDoc = plannedSessionDoc;
+        const targetData = targetDoc.data() || {};
+
+        await updateDoc(doc(db, "sessions", targetDoc.id), rootCalendarPatch(targetData));
+        await syncLinkedCalendarsAfterValidation({
+          sessionId: targetDoc.id,
+          sessionData: targetData,
+          startDate,
+          endDate,
+          title: fullTitle,
+          clientName,
+        });
+        await linkCompletionToCalendarEvent(targetDoc.id);
+
+        return targetDoc.id;
+      }
+
+      const newSessionId = `coach_${completionDocId}`;
+      const newSessionData = {
         clientId,
         clientName,
         programmeId: programId,
+        programId,
         sessionIndex,
-        title: fullTitle,
-        start: Timestamp.fromDate(startDate),
-        end: Timestamp.fromDate(endDate),
-        status: "validée",
+        eventType: "sport_session",
+        type: "sport_session",
         visibility: "both",
+        coachId: actingCoachId || user?.uid || null,
+        createdBy: actingCoachId || user?.uid || null,
         createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        validatedAt: serverTimestamp(),
-        coachId: user?.uid || null,
+      };
+      await setDoc(doc(db, "sessions", newSessionId), {
+        ...newSessionData,
+        ...rootCalendarPatch(newSessionData),
+      }, { merge: true });
+      await syncLinkedCalendarsAfterValidation({
+        sessionId: newSessionId,
+        sessionData: newSessionData,
+        startDate,
+        endDate,
+        title: fullTitle,
+        clientName,
       });
+      await linkCompletionToCalendarEvent(newSessionId);
+
+      return newSessionId;
     } catch (e) {
       console.error("upsertCoachCalendarEvent error:", e);
     }
   }
 
-  async function applyAutoProgressionAfterRating(r) {
+  async function applyAutoProgressionAfterRating(input) {
     try {
       if (!programDocRef) return;
       if (!programData?.sessions?.length) return;
       if (!sessionObj) return;
       if (!readAutoProgressionEnabled(programData)) return;
 
-      const sign = computeProgSignFromRating(r);
-      if (sign === 0) return;
+      const feedback = typeof input === "object" && input !== null ? input : { rating: input };
+      const decision = applyProgressionStrategyToDecision(
+        evaluateSportAdaptation(feedback),
+        readProgressionStrategy(programData)
+      );
+      if (!decision.shouldAdapt || decision.direction === 0) return decision;
+      const targetExerciseIndexes = getExerciseTimingAdjustmentTargets(feedback.exerciseTimings, decision.direction);
+      const progressionDecision = targetExerciseIndexes.length
+        ? { ...decision, targetExerciseIndexes }
+        : decision;
 
       const sessionsCopy = structuredClone(programData.sessions || []);
       const sessCopy = sessionsCopy[sessionIndex] || {};
-      let changedCount = 0;
-
-      if (
-        sessCopy?.useSections ||
-        sessCopy?.echauffement ||
-        sessCopy?.corps ||
-        sessCopy?.bonus ||
-        sessCopy?.retourCalme
-      ) {
-        const keys = ["corps", "bonus"];
-        keys.forEach((key) => {
-          const arr = Array.isArray(sessCopy[key]) ? sessCopy[key] : [];
-          const nextArr = arr.map((exItem) => {
-            const { ex: nextEx, changed } = applyOneProgressChange({
-              ex: exItem,
-              sign,
-              currentSet: 1,
-            });
-            if (changed) changedCount += 1;
-            return nextEx;
-          });
-          sessCopy[key] = nextArr;
-        });
-      } else if (Array.isArray(sessCopy?.exercises)) {
-        const arr = sessCopy.exercises || [];
-        sessCopy.exercises = arr.map((exItem) => {
-          if (!isTrainingLike(exItem)) return exItem;
-          const { ex: nextEx, changed } = applyOneProgressChange({
-            ex: exItem,
-            sign,
-            currentSet: 1,
-          });
-          if (changed) changedCount += 1;
-          return nextEx;
-        });
-      }
+      const { session: nextSession, changedCount, changedFields } =
+        applySportProgressionToSession(sessCopy, progressionDecision);
 
       if (!changedCount) return;
 
-      sessionsCopy[sessionIndex] = sessCopy;
+      sessionsCopy[sessionIndex] = nextSession;
 
-      await updateDoc(programDocRef, { sessions: sessionsCopy, updatedAt: serverTimestamp() });
+      await updateDoc(programDocRef, {
+        sessions: sessionsCopy,
+        lastAutoProgression: {
+          sessionIndex,
+          decision: progressionDecision,
+          changedCount,
+          changedFields: Array.from(new Set(changedFields)).filter(Boolean),
+          updatedAt: new Date().toISOString(),
+        },
+        updatedAt: serverTimestamp(),
+      });
 
       setProgramData((prev) => ({ ...(prev || {}), sessions: sessionsCopy }));
-      setSessionObj(sessCopy);
+      setSessionObj(nextSession);
 
-      const updated = flattenSession(sessCopy);
+      const updated = flattenSession(nextSession);
       setFlat(updated.flat);
       setMapIdx(updated.map);
+      return { ...decision, changedCount, changedFields };
     } catch (e) {
       console.error("applyAutoProgressionAfterRating error:", e);
     }
@@ -1425,21 +1745,47 @@ export default function SessionPlayer() {
 
   const handleSubmitRating = async () => {
     if (clientId && programId) {
+      recordCurrentExerciseTiming();
+      const exerciseTimings = buildExerciseTimingSnapshot({ includeCurrent: false });
+      const feedbackPayload = {
+        sessionIndex,
+        rating,
+        energy: energyLevel,
+        energyLevel,
+        pain: painFlag,
+        painLevel: painFlag ? painLevel || "mild" : "",
+        painArea: painFlag ? painArea.trim() : "",
+        completionPct: 100,
+        exerciseTimings,
+      };
+      const adaptationDecision = applyProgressionStrategyToDecision(
+        evaluateSportAdaptation(feedbackPayload),
+        readProgressionStrategy(programData)
+      );
+
       try {
         await addDoc(
           collection(db, "clients", clientId, "programmes", programId, "difficulté_notes"),
-          { sessionIndex, rating, createdAt: serverTimestamp() }
+          {
+            ...feedbackPayload,
+            adaptationDecision,
+            createdAt: serverTimestamp(),
+          }
         );
       } catch (e) {
         console.error("rating add error", e);
       }
 
       try {
-        await applyAutoProgressionAfterRating(rating);
+        await applyAutoProgressionAfterRating(feedbackPayload);
       } catch {}
 
       try {
-        await saveSessionCompletion(100);
+        await saveSessionCompletion(100, {
+          exerciseIndex: Math.max(0, flat.length - 1),
+          currentSet: totalSetsRef.current,
+          exerciseTimings,
+        });
       } catch {}
 
       try {
@@ -1456,18 +1802,14 @@ export default function SessionPlayer() {
 
   const handleIgnoreRating = async () => {
     if (clientId && programId) {
+      recordCurrentExerciseTiming();
+      const exerciseTimings = buildExerciseTimingSnapshot({ includeCurrent: false });
       try {
-        await addDoc(
-          collection(db, "clients", clientId, "programmes", programId, "difficulté_notes"),
-          { sessionIndex, rating: null, createdAt: serverTimestamp() }
-        );
-      } catch (e) {
-        console.error("rating ignore add error:", e);
-      }
-
-      try {
-        const pct = Math.round(((exIndex + 1) / (flat.length || 1)) * 100);
-        await saveSessionCompletion(pct);
+        await saveSessionCompletion(100, {
+          exerciseIndex: Math.max(0, flat.length - 1),
+          currentSet: totalSetsRef.current,
+          exerciseTimings,
+        });
       } catch {}
 
       try {
@@ -1482,23 +1824,37 @@ export default function SessionPlayer() {
     navigate(-1);
   };
 
+  const handleCloseRatingModal = () => {
+    onClose();
+    navigate(-1);
+  };
+
   /* ---------------------- Timers ---------------------- */
 
-  const advanceInsideChain = async (info) => {
+  const advanceInsideChain = async (info, { autoStart = false } = {}) => {
     if (!info.inChain) return nextExercise();
+    const shouldAutoStart = autoStart && isTimerOnlyChain(info, flat);
+    const queueAutoStart = () => {
+      if (shouldAutoStart) autoStartNextRef.current = true;
+    };
+    setIsPaused(false);
+    pausedPhaseRef.current = null;
+
     if (!info.isLast) {
+      queueAutoStart();
       setPhase("ready");
-      setExIndex((i) => Math.min(i + 1, flat.length - 1));
+      goToExerciseIndex(Math.min(exIndex + 1, flat.length - 1));
       return;
     }
     if (currentSet < totalSetsRef.current) {
+      queueAutoStart();
       setPhase("ready");
       setCurrentSet((n) => n + 1);
-      setExIndex(info.start);
+      goToExerciseIndex(info.start);
     } else {
       setPhase("ready");
       setCurrentSet(1);
-      setExIndex(info.end + 1 <= flat.length - 1 ? info.end + 1 : info.end);
+      goToExerciseIndex(info.end + 1 <= flat.length - 1 ? info.end + 1 : info.end);
       if (info.end === flat.length - 1) {
         clientId && programId ? awaitCompletionAndOpenModal() : onOpen();
       }
@@ -1537,7 +1893,7 @@ export default function SessionPlayer() {
         return;
       }
 
-      advanceInsideChain(info);
+      advanceInsideChain(info, { autoStart: isTimerOnlyChain(info, flat) });
       return;
     }
 
@@ -1555,7 +1911,7 @@ export default function SessionPlayer() {
     playFeedback();
     const info = buildChainInfo(sessionObj, flat, exIndex);
     if (info.inChain) {
-      advanceInsideChain(info);
+      advanceInsideChain(info, { autoStart: isTimerOnlyChain(info, flat) });
       return;
     }
     if (currentSet < totalSetsRef.current) {
@@ -1694,11 +2050,12 @@ export default function SessionPlayer() {
 
   /* ---------------------- Exercise init ---------------------- */
 
-  useEffect(() => {
-    if (!flat.length) return;
-    const ex = flat[exIndex];
+	  useEffect(() => {
+	    if (!flat.length) return;
+	    const ex = flat[exIndex];
+	    let autoStartTimer = null;
 
-    const info = buildChainInfo(sessionObj, flat, exIndex);
+	    const info = buildChainInfo(sessionObj, flat, exIndex);
     if (info.inChain) {
       totalSetsRef.current = info.refSeries || 1;
     } else {
@@ -1724,16 +2081,41 @@ export default function SessionPlayer() {
     durSecRef.current = dur;
     restSecRef.current = rest;
 
-    effortTimer.reset(dur);
-    restTimer.reset(rest);
-    setPhase("ready");
-    topAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+	    effortTimer.reset(dur);
+	    restTimer.reset(rest);
+	    setPhase("ready");
+	    setIsPaused(false);
+	    pausedPhaseRef.current = null;
+	    if (autoStartNextRef.current && isTimerOnlyChain(info, flat) && dur > 0) {
+	      autoStartNextRef.current = false;
+	      autoStartTimer = setTimeout(() => {
+	        setPhase("effort");
+	        effortTimer.start();
+	      }, 0);
+	    } else if (autoStartNextRef.current) {
+	      autoStartNextRef.current = false;
+	    }
+	    topAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
-    const initNotes = ex?.notes || "";
+    const initNotes = getExerciseNotesText(ex, i18n.language || i18n.resolvedLanguage || "fr");
     setNotesDraft(String(initNotes));
     setNotesOpen(Boolean(initNotes));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exIndex]);
+    notesInitKeyRef.current = `${exIndex}:${initNotes}`;
+	    return () => {
+	      if (autoStartTimer) clearTimeout(autoStartTimer);
+	    };
+	  }, [exIndex, i18n.language, i18n.resolvedLanguage]);
+
+  useEffect(() => {
+    const ex = flat[exIndex];
+    if (!ex) return;
+    const initNotes = getExerciseNotesText(ex, i18n.language || i18n.resolvedLanguage || "fr");
+    const key = `${exIndex}:${initNotes}`;
+    if (notesInitKeyRef.current === key) return;
+    notesInitKeyRef.current = key;
+    setNotesDraft(String(initNotes));
+    setNotesOpen(Boolean(initNotes));
+  }, [flat, exIndex, i18n.language, i18n.resolvedLanguage]);
 
   useEffect(() => {
     const ex = flat[exIndex];
@@ -1768,7 +2150,7 @@ export default function SessionPlayer() {
       effortTimer.reset(dur);
       restTimer.reset(rest);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [flat, exIndex, currentSet, phase]);
 
   /* ---------------------- Value read ---------------------- */
@@ -1947,11 +2329,15 @@ export default function SessionPlayer() {
   function nextExercise() {
     effortTimer.stop();
     restTimer.stop();
+    setIsPaused(false);
+    pausedPhaseRef.current = null;
+    autoStartNextRef.current = false;
     setPhase("ready");
     setCurrentSet(1);
     if (flat.length && exIndex < flat.length - 1) {
-      setExIndex((i) => i + 1);
+      goToExerciseIndex(exIndex + 1);
     } else {
+      recordCurrentExerciseTiming();
       clientId && programId ? awaitCompletionAndOpenModal() : onOpen();
     }
   }
@@ -1959,18 +2345,44 @@ export default function SessionPlayer() {
   function prevExercise() {
     effortTimer.stop();
     restTimer.stop();
+    setIsPaused(false);
+    pausedPhaseRef.current = null;
+    autoStartNextRef.current = false;
     setPhase("ready");
     setCurrentSet(1);
-    if (exIndex > 0) setExIndex((i) => i - 1);
+    if (exIndex > 0) goToExerciseIndex(exIndex - 1);
   }
 
   function nextPhase() {
+    const info = buildChainInfo(sessionObj, flat, exIndex);
+    const timerOnlyChain = isTimerOnlyChain(info, flat);
+
+    if (isPaused) {
+      const pausedPhase = pausedPhaseRef.current;
+      setIsPaused(false);
+      if (pausedPhase === "rest") {
+        setPhase("rest");
+        restTimer.start();
+      } else {
+        setPhase("effort");
+        effortTimer.start();
+      }
+      return;
+    }
+
+    if (timerOnlyChain && (phase === "effort" || phase === "rest")) {
+      pausedPhaseRef.current = phase;
+      if (phase === "effort") effortTimer.stop();
+      if (phase === "rest") restTimer.stop();
+      setIsPaused(true);
+      return;
+    }
+
     if (phase === "effort") {
       effortTimer.stop();
       effortTimer.reset(0);
       effortTimer.start();
     } else if (phase === "rest") {
-      const info = buildChainInfo(sessionObj, flat, exIndex);
       restTimer.stop();
 
       if (info.inChain) {
@@ -1989,21 +2401,27 @@ export default function SessionPlayer() {
     }
   }
 
+  function restartCurrentChain() {
+    const info = buildChainInfo(sessionObj, flat, exIndex);
+    effortTimer.stop();
+    restTimer.stop();
+    setIsPaused(false);
+    pausedPhaseRef.current = null;
+    autoStartNextRef.current = false;
+    setCurrentSet(1);
+    setPhase("ready");
+    if (info.inChain) {
+      goToExerciseIndex(info.start);
+    } else {
+      effortTimer.reset(durSecRef.current);
+      restTimer.reset(restSecRef.current);
+    }
+  }
+
   async function awaitCompletionAndOpenModal() {
-    try {
-      if (!completionSavedRef.current) {
-        await saveSessionCompletion(100);
-      }
-    } catch {}
-
-    try {
-      await flushHistory();
-    } catch {}
-
-    try {
-      await upsertCoachCalendarEvent();
-    } catch {}
-
+    recordCurrentExerciseTiming();
+    activeTimingExerciseIndexRef.current = -1;
+    exerciseTimingStartedAtRef.current = Date.now();
     onOpen();
   }
 
@@ -2029,9 +2447,21 @@ export default function SessionPlayer() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [phase, exIndex, currentSet]); // eslint-disable-line
+  }, [phase, exIndex, currentSet]);
 
   /* ---------------------- Render ---------------------- */
+  const chainBorderColor = useColorModeValue("purple.200", "purple.600");
+  const chainBg = useColorModeValue("purple.50", "whiteAlpha.100");
+  const progressTrackColor = useColorModeValue("gray.100", "gray.700");
+  const primaryButtonBg = useColorModeValue("gray.900", "white");
+  const primaryButtonColor = useColorModeValue("white", "gray.900");
+  const primaryButtonHoverBg = useColorModeValue("black", "gray.100");
+  const primaryButtonActiveBg = useColorModeValue("black", "gray.200");
+  const warningIconColor = useColorModeValue("yellow.500", "yellow.300");
+  const infoIconColor = useColorModeValue("blue.600", "blue.300");
+  const seriesDiffBg = useColorModeValue("gray.50", "gray.700");
+  const effortGaugeColor = useColorModeValue("gray.900", "gray.100");
+  const activeGaugeColor = phase === "rest" ? "green.400" : effortGaugeColor;
 
   if (loading) return <AppLoading label={t("common.loading", "Chargement...")} />;
   if (!flat.length) return <Text p={6}>{t("sessionPlayer.empty", "Séance introuvable ou vide.")}</Text>;
@@ -2043,8 +2473,9 @@ export default function SessionPlayer() {
   );
   const preferredSex = inferSexPreference(clientData, user, programData);
 
-  const exNext = localizeExercise(flat[exIndex + 1], i18n.resolvedLanguage || i18n.language || "fr");
-  const chain = buildChainInfo(sessionObj, flat, exIndex);
+	  const exNext = localizeExercise(flat[exIndex + 1], i18n.resolvedLanguage || i18n.language || "fr");
+	  const chain = buildChainInfo(sessionObj, flat, exIndex);
+	  const timerOnlyChain = isTimerOnlyChain(chain, flat);
 
   const orderFromBuilder = Array.isArray(ex?.optionsOrder)
     ? ex.optionsOrder
@@ -2059,12 +2490,14 @@ export default function SessionPlayer() {
     "charge",
     "repos",
     "vitesse",
+    "inclinaison",
     "distance",
     "calories",
     "tempo",
     "intensite",
   ];
 
+  const hasBuilderOrder = Array.isArray(ex?.optionsOrder);
   const effectiveOrder = orderFromBuilder.length ? orderFromBuilder : defaultOrder;
 
   const seriesDiff = getSeriesDiffFlag(ex);
@@ -2078,10 +2511,10 @@ export default function SessionPlayer() {
     if (!meta) return;
 
     const raw = getFieldValue(ex, FIELD_MAP[key]);
-    const isEnabled = Array.isArray(ex?.optionsOrder) && ex.optionsOrder.includes(OPTION_FLAG[key]);
+    const isEnabled = hasBuilderOrder && ex.optionsOrder.includes(OPTION_FLAG[key]);
     const hasValue = raw !== undefined || (seriesDiff && label !== "Séries");
 
-    if (isEnabled || hasValue) {
+    if (isEnabled || (!hasBuilderOrder && hasValue)) {
       const value = valueFor(ex, key, OPTION_FLAG[key] || label, currentSet, units);
       metrics.push({
         key,
@@ -2099,17 +2532,32 @@ export default function SessionPlayer() {
   const shortInfos = (exo) => {
     if (!exo) return [];
     const out = [];
+    const canShow = (key) =>
+      !Array.isArray(exo?.optionsOrder) || exo.optionsOrder.includes(OPTION_FLAG[key]);
     const series = getFieldValue(exo, FIELD_MAP.series);
     const reps = getFieldValue(exo, FIELD_MAP.repetitions);
     const time = getFieldValue(exo, FIELD_MAP.temps);
+    const distance = getFieldValue(exo, FIELD_MAP.distance);
     const rest = getFieldValue(exo, FIELD_MAP.repos);
     const load = getFieldValue(exo, FIELD_MAP.charge);
 
-    if (reps != null) out.push(`${t("labels.repetitions", "Répétitions")} : ${reps}`);
-    if (time != null) out.push(`${t("labels.duration", "Durée")} : ${toClockMMSS(toSeconds(time))}`);
-    if (series != null) out.push(`${t("labels.sets", "Séries")} : ${series}`);
-    if (rest != null) out.push(`${t("labels.rest", "Repos")} : ${toClockMMSS(toSeconds(rest))}`);
-    if (load != null) {
+    if (canShow("repetitions") && reps != null)
+      out.push(`${t("labels.repetitions", "Répétitions")} : ${reps}`);
+    if (canShow("distance") && distance != null) {
+      out.push(
+        `${labelWithUnit(units, "Distance", t)} : ${displayFromBase({
+          units,
+          label: "Distance",
+          value: distance,
+        })}`
+      );
+    }
+    if (canShow("temps") && time != null)
+      out.push(`${t("labels.duration", "Durée")} : ${toClockMMSS(toSeconds(time))}`);
+    if (canShow("series") && series != null) out.push(`${t("labels.sets", "Séries")} : ${series}`);
+    if (canShow("repos") && rest != null)
+      out.push(`${t("labels.rest", "Repos")} : ${toClockMMSS(toSeconds(rest))}`);
+    if (canShow("charge") && load != null) {
       out.push(
         `${labelWithUnit(units, "Charge (kg)", t)} : ${displayFromBase({
           units,
@@ -2199,9 +2647,7 @@ export default function SessionPlayer() {
               flexShrink={0}
             >
               <HStack spacing={1.5} flexShrink={0}>
-                <Tag size={isMobile ? "xs" : "sm"} variant="subtle" colorScheme="gray">
-                  kg/lb
-                </Tag>
+                <Tag size={isMobile ? "xs" : "sm"} variant="subtle" colorScheme="gray">{t("auto.SessionPlayer.kg_lb", "kg/lb")}</Tag>
                 <Switch
                   size="sm"
                   isChecked={units.weight === "lb"}
@@ -2213,9 +2659,7 @@ export default function SessionPlayer() {
               </HStack>
 
               <HStack spacing={1.5} flexShrink={0}>
-                <Tag size={isMobile ? "xs" : "sm"} variant="subtle" colorScheme="gray">
-                  m/miles
-                </Tag>
+                <Tag size={isMobile ? "xs" : "sm"} variant="subtle" colorScheme="gray">{t("auto.SessionPlayer.m_miles", "m/miles")}</Tag>
                 <Switch
                   size="sm"
                   isChecked={units.distance === "miles"}
@@ -2227,9 +2671,7 @@ export default function SessionPlayer() {
               </HStack>
 
               <HStack spacing={1.5} flexShrink={0}>
-                <Tag size={isMobile ? "xs" : "sm"} variant="subtle" colorScheme="gray">
-                  km/h·mph
-                </Tag>
+                <Tag size={isMobile ? "xs" : "sm"} variant="subtle" colorScheme="gray">{t("auto.SessionPlayer.km_h_mph", "km/h·mph")}</Tag>
                 <Switch
                   size="sm"
                   isChecked={units.speed === "mph"}
@@ -2245,8 +2687,8 @@ export default function SessionPlayer() {
           {chain.inChain && (
             <Box
               border="1px solid"
-              borderColor={useColorModeValue("purple.200", "purple.600")}
-              bg={useColorModeValue("purple.50", "whiteAlpha.100")}
+              borderColor={chainBorderColor}
+              bg={chainBg}
               px={4}
               py={2}
               borderRadius="xl"
@@ -2254,9 +2696,7 @@ export default function SessionPlayer() {
             >
               <HStack justify="space-between" align="center" wrap="wrap" gap={2}>
                 <HStack>
-                  <Tag colorScheme="purple" variant="solid">
-                    Superset
-                  </Tag>
+                  <Tag colorScheme="purple" variant="solid">{t("auto.SessionPlayer.superset", "Superset")}</Tag>
                   <Text fontSize="sm">
                     {t("sessionPlayer.chainOf", "Chaîne de {{n}} exercices", { n: chain.size })} —{" "}
                     {t("sessionPlayer.round", "Tour {{i}}/{{n}}", {
@@ -2282,7 +2722,7 @@ export default function SessionPlayer() {
                         : t("sessionPlayer.restLast", "fin")}
                   </Text>
                   <Text fontSize="xs">
-                    {t("sessionPlayer.shortcuts", "Raccourcis")} : <Kbd>Space</Kbd> / <Kbd>←</Kbd> <Kbd>→</Kbd>
+                    {t("sessionPlayer.shortcuts", "Raccourcis")} : <Kbd>{t("auto.SessionPlayer.space", "Space")}</Kbd> / <Kbd>←</Kbd> <Kbd>→</Kbd>
                   </Text>
                 </HStack>
               </HStack>
@@ -2295,7 +2735,14 @@ export default function SessionPlayer() {
             flex="1"
             size={isMobile ? "xs" : "sm"}
             borderRadius="full"
+            bg={progressTrackColor}
             value={((exIndex + 1) / flat.length) * 100}
+            sx={{
+              "& > div, [role='progressbar'] > div, .chakra-progress__filled-track": {
+                bg: activeGaugeColor,
+                background: activeGaugeColor,
+              },
+            }}
           />
           <Badge colorScheme={phaseColor} fontSize={isMobile ? "0.72em" : "0.8em"} flexShrink={0}>
             {phase === "ready"
@@ -2317,15 +2764,16 @@ export default function SessionPlayer() {
             <Grid
               templateColumns={{
                 base: "1fr",
+                lg: "300px minmax(340px, 1fr) 300px",
                 xl: "320px minmax(0, 1fr) 340px",
               }}
-              gap={{ base: 4, lg: 6 }}
+              gap={{ base: 4, lg: 3, xl: 6 }}
               alignItems="start"
             >
               <Box
-                order={{ base: 1, xl: 1 }}
-                position={{ base: "static", xl: "sticky" }}
-                top={{ xl: 20 }}
+                order={{ base: 1, lg: 1 }}
+                position={{ base: "static", lg: "sticky" }}
+                top={{ lg: 20 }}
                 w="full"
                 minW={0}
               >
@@ -2359,8 +2807,8 @@ export default function SessionPlayer() {
                       }
                       size={progressSize}
                       thickness={progressThickness}
-                      color={phase === "rest" ? "green.400" : "blue.400"}
-                      trackColor={useColorModeValue("gray.100", "gray.700")}
+                      color={activeGaugeColor}
+                      trackColor={progressTrackColor}
                     >
                       <CircularProgressLabel>
                         <Heading size={timeFontSize}>
@@ -2374,8 +2822,8 @@ export default function SessionPlayer() {
                     </CircularProgress>
 
                     <Button
-                      bg={phase === "rest" ? "green.400" : useColorModeValue("gray.900", "white")}
-                      color={phase === "rest" ? "white" : useColorModeValue("white", "gray.900")}
+                      bg={phase === "rest" ? "green.400" : primaryButtonBg}
+                      color={phase === "rest" ? "white" : primaryButtonColor}
                       colorScheme={phase === "rest" ? undefined : undefined}
                       w="full"
                       size={isMobile ? "sm" : "lg"}
@@ -2384,30 +2832,46 @@ export default function SessionPlayer() {
                       _hover={
                         phase === "rest"
                           ? { bg: "green.500" }
-                          : { bg: useColorModeValue("black", "gray.100") }
+                          : { bg: primaryButtonHoverBg }
                       }
                       _active={
                         phase === "rest"
                           ? { bg: "green.600" }
-                          : { bg: useColorModeValue("black", "gray.200") }
+                          : { bg: primaryButtonActiveBg }
                       }
                     >
-                      {phase === "ready"
-                        ? t("sessionPlayer.start", "Démarrer")
-                        : phase === "effort"
-                          ? t("sessionPlayer.finishSet", "Terminer")
-                          : chain.inChain
-                            ? !chain.isLast
-                              ? t("sessionPlayer.nextExercise", "Exercice suivant")
-                              : currentSet < totalSetsRef.current
-                                ? t("sessionPlayer.nextRound", "Tour suivant")
-                                : t("sessionPlayer.nextExercise", "Exercice suivant")
-                            : currentSet < totalSetsRef.current
-                              ? t("sessionPlayer.nextSet", "Set suivant")
-                              : exIndex < flat.length - 1
-                                ? t("sessionPlayer.nextExercise", "Exercice suivant")
-                                : t("sessionPlayer.done", "Terminé")}
-                    </Button>
+	                      {isPaused
+	                        ? t("sessionPlayer.resume", "Reprendre")
+	                        : timerOnlyChain && (phase === "effort" || phase === "rest")
+	                          ? t("sessionPlayer.pause", "Pause")
+	                          : phase === "ready"
+	                            ? t("sessionPlayer.start", "Démarrer")
+	                            : phase === "effort"
+	                              ? t("sessionPlayer.finishSet", "Terminer")
+	                              : chain.inChain
+	                                ? !chain.isLast
+	                                  ? t("sessionPlayer.nextExercise", "Exercice suivant")
+	                                  : currentSet < totalSetsRef.current
+	                                    ? t("sessionPlayer.nextRound", "Tour suivant")
+	                                    : t("sessionPlayer.nextExercise", "Exercice suivant")
+	                                : currentSet < totalSetsRef.current
+	                                  ? t("sessionPlayer.nextSet", "Set suivant")
+	                                  : exIndex < flat.length - 1
+	                                    ? t("sessionPlayer.nextExercise", "Exercice suivant")
+	                                    : t("sessionPlayer.done", "Terminé")}
+	                    </Button>
+
+	                    {timerOnlyChain && phase !== "ready" && (
+	                      <Button
+	                        variant="outline"
+	                        w="full"
+	                        size={isMobile ? "sm" : "md"}
+	                        borderRadius="full"
+	                        onClick={restartCurrentChain}
+	                      >
+	                        {t("sessionPlayer.restart", "Recommencer")}
+	                      </Button>
+	                    )}
 
                     <HStack w="full" spacing={3}>
                       <Button
@@ -2486,8 +2950,8 @@ export default function SessionPlayer() {
                 </Box>
               </Box>
 
-              <Box order={{ base: 3, xl: 2 }} w="full" minW={0}>
-                <HStack align="baseline" justify="space-between" display={{ base: "none", xl: "flex" }} mb={3}>
+              <Box order={{ base: 3, lg: 2 }} w="full" minW={0}>
+                <HStack align="baseline" justify="space-between" display={{ base: "none", lg: "flex" }} mb={3}>
                   <Heading size="lg" noOfLines={2}>
                     {displayExercise?.nom || displayExercise?.name}
                   </Heading>
@@ -2503,7 +2967,7 @@ export default function SessionPlayer() {
                 {displayExercise?.contraintes && (
                   <ListCard
                     title={t("sessionPlayer.constraints", "Contraintes")}
-                    icon={<WarningTwoIcon color={useColorModeValue("yellow.500", "yellow.300")} />}
+                    icon={<WarningTwoIcon color={warningIconColor} />}
                     accent="yellow"
                     items={toArray(displayExercise.contraintes)}
                   />
@@ -2512,7 +2976,7 @@ export default function SessionPlayer() {
                 {displayExercise?.consignes && (
                   <ListCard
                     title={t("sessionPlayer.cues", "Consignes")}
-                    icon={<InfoOutlineIcon color={useColorModeValue("blue.600", "blue.300")} />}
+                    icon={<InfoOutlineIcon color={infoIconColor} />}
                     accent="blue"
                     items={toArray(displayExercise.consignes)}
                   />
@@ -2520,9 +2984,9 @@ export default function SessionPlayer() {
               </Box>
 
               <Box
-                order={{ base: 2, xl: 3 }}
-                position={{ base: "static", xl: "sticky" }}
-                top={{ xl: 20 }}
+                order={{ base: 2, lg: 3 }}
+                position={{ base: "static", lg: "sticky" }}
+                top={{ lg: 20 }}
                 w="full"
                 minW={0}
               >
@@ -2577,7 +3041,7 @@ export default function SessionPlayer() {
                       templateColumns={{
                         base: "1fr",
                         sm: "repeat(2, minmax(0,1fr))",
-                        xl: "1fr",
+                        lg: "1fr",
                       }}
                       gap={3}
                       alignItems="stretch"
@@ -2612,7 +3076,7 @@ export default function SessionPlayer() {
                         borderColor={border}
                         borderRadius="xl"
                         p={3}
-                        bg={useColorModeValue("gray.50", "gray.700")}
+                        bg={seriesDiffBg}
                         w="full"
                         minW={0}
                       >
@@ -2699,7 +3163,7 @@ export default function SessionPlayer() {
         </AnimatePresence>
       </Container>
 
-      <Modal isOpen={isOpen} onClose={handleIgnoreRating} isCentered>
+      <Modal isOpen={isOpen} onClose={handleCloseRatingModal} isCentered>
         <ModalOverlay />
         <ModalContent maxW="lg">
           <ModalHeader textAlign="center">
@@ -2707,19 +3171,117 @@ export default function SessionPlayer() {
           </ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            <HStack justify="center" spacing={4}>
-              {[1, 2, 3, 4, 5].map((n) => (
-                <Button
-                  key={n}
-                  variant={rating === n ? "solid" : "outline"}
-                  colorScheme="gray"
-                  borderRadius="full"
-                  onClick={() => setRating(n)}
-                >
-                  {n}
-                </Button>
-              ))}
-            </HStack>
+            <VStack align="stretch" spacing={5}>
+              <Box>
+                <Text textAlign="center" fontWeight="semibold" mb={3}>
+                  {t("sessionPlayer.difficultyQuestion", "Difficulté ressentie")}
+                </Text>
+                <HStack justify="center" spacing={3}>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <Button
+                      key={n}
+                      variant={rating === n ? "solid" : "outline"}
+                      colorScheme="gray"
+                      borderRadius="full"
+                      onClick={() => setRating(n)}
+                    >
+                      {n}
+                    </Button>
+                  ))}
+                </HStack>
+              </Box>
+
+              <Box>
+                <Text textAlign="center" fontWeight="semibold" mb={3}>
+                  {t("sessionPlayer.energyQuestion", "Énergie aujourd'hui")}
+                </Text>
+                <HStack justify="center" spacing={2} flexWrap="wrap">
+                  {[
+                    { value: "low", label: t("sessionPlayer.energyLow", "Basse") },
+                    { value: "normal", label: t("sessionPlayer.energyNormal", "Normale") },
+                    { value: "high", label: t("sessionPlayer.energyHigh", "Bonne") },
+                  ].map((option) => (
+                    <Button
+                      key={option.value}
+                      size="sm"
+                      variant={energyLevel === option.value ? "solid" : "outline"}
+                      colorScheme="blue"
+                      borderRadius="full"
+                      onClick={() => setEnergyLevel(option.value)}
+                    >
+                      {option.label}
+                    </Button>
+                  ))}
+                </HStack>
+              </Box>
+
+              <Box>
+                <Text textAlign="center" fontWeight="semibold" mb={3}>
+                  {t("sessionPlayer.painQuestion", "Douleur ou gêne ?")}
+                </Text>
+                <HStack justify="center" spacing={2}>
+                  <Button
+                    size="sm"
+                    variant={!painFlag ? "solid" : "outline"}
+                    colorScheme="green"
+                    borderRadius="full"
+                    onClick={() => {
+                      setPainFlag(false);
+                      setPainLevel("");
+                      setPainArea("");
+                    }}
+                  >
+                    {t("common.no", "Non")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={painFlag ? "solid" : "outline"}
+                    colorScheme="orange"
+                    borderRadius="full"
+                    onClick={() => {
+                      setPainFlag(true);
+                      setPainLevel((prev) => prev || "mild");
+                    }}
+                  >
+                    {t("common.yes", "Oui")}
+                  </Button>
+                </HStack>
+
+                {painFlag && (
+                  <VStack align="stretch" spacing={3} mt={4}>
+                    <Select
+                      value={painLevel}
+                      onChange={(e) => setPainLevel(e.target.value)}
+                      borderRadius="14px"
+                    >
+                      <option value="mild">{t("sessionPlayer.painMild", "Légère")}</option>
+                      <option value="moderate">{t("sessionPlayer.painModerate", "Moyenne")}</option>
+                      <option value="severe">{t("sessionPlayer.painSevere", "Forte")}</option>
+                    </Select>
+                    <Select
+                      value={painArea}
+                      onChange={(e) => setPainArea(e.target.value)}
+                      placeholder={t("sessionPlayer.painArea", "Zone concernée (optionnel)")}
+                      borderRadius="14px"
+                    >
+                      {[
+                        ["back", t("sessionPlayer.painAreas.back", "Dos / lombaires")],
+                        ["neck", t("sessionPlayer.painAreas.neck", "Nuque")],
+                        ["shoulder", t("sessionPlayer.painAreas.shoulder", "Épaule")],
+                        ["elbow", t("sessionPlayer.painAreas.elbow", "Coude")],
+                        ["wrist", t("sessionPlayer.painAreas.wrist", "Poignet")],
+                        ["hip", t("sessionPlayer.painAreas.hip", "Hanche")],
+                        ["knee", t("sessionPlayer.painAreas.knee", "Genou")],
+                        ["ankle", t("sessionPlayer.painAreas.ankle", "Cheville")],
+                        ["foot", t("sessionPlayer.painAreas.foot", "Pied")],
+                      ].map(([value, label]) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </Select>
+                  </VStack>
+                )}
+              </Box>
+            </VStack>
           </ModalBody>
           <ModalFooter justifyContent="space-between">
             <Button variant="ghost" onClick={handleIgnoreRating}>

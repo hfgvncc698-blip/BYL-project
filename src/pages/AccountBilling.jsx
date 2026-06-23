@@ -8,6 +8,7 @@ import { getAuthHeaders } from "../utils/authHeaders";
 
 // ✅ base API centralisée
 import { getApiBase } from "../utils/apiBase";
+import i18n from "../i18n/index";
 const API_BASE = getApiBase();
 
 export default function AccountBilling() {
@@ -56,19 +57,15 @@ export default function AccountBilling() {
   return (
     <Box bg={theme.pageBg} minH="100vh" py={{ base: 6, md: 10 }} px={{ base: 4, md: 6 }}>
     <Box {...theme.cardProps} maxW="lg" mx="auto" p={{ base: 6, md: 8 }}>
-      <Heading size="lg" mb={6}>Gérer mon abonnement</Heading>
-      <Text mb={8} color={theme.mutedText}>
-        Depuis cet espace, vous pouvez gérer votre abonnement, consulter vos factures et changer de formule.
-      </Text>
+      <Heading size="lg" mb={6}>{i18n.t("auto.AccountBilling.gerer_mon_abonnement", "Gérer mon abonnement")}</Heading>
+      <Text mb={8} color={theme.mutedText}>{i18n.t("auto.AccountBilling.depuis_cet_espace_vous_pouvez_gerer_votre_abonneme", "Depuis cet espace, vous pouvez gérer votre abonnement, consulter vos factures et changer de formule.")}</Text>
       <Button
         {...theme.primaryButtonProps}
         fontWeight="bold"
         onClick={handleOpenPortal}
         isLoading={loading}
-        loadingText="Redirection en cours…"
-      >
-        Accéder au portail de gestion Stripe
-      </Button>
+        loadingText={i18n.t("auto.AccountBilling.redirection_en_cours", "Redirection en cours…")}
+      >{i18n.t("auto.AccountBilling.acceder_au_portail_de_gestion_stripe", "Accéder au portail de gestion Stripe")}</Button>
     </Box>
     </Box>
   );

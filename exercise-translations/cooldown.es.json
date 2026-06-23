@@ -1690,9 +1690,7 @@
       "ojos cerrados"
     ],
     "variantes": [
-      "Con cojín debajo de las rodillas.",
-      "Con funda en el cuerpo.",
-      "Con relajación audioguiada."
+      "Estiramiento en estrella tumbada con cojín debajo de las rodillas o la cabeza."
     ],
     "consignes": {
       "Positionnement": "Acuéstese boca arriba, con las piernas ligeramente separadas, los brazos a lo largo del cuerpo y las palmas hacia el cielo.",
@@ -1700,7 +1698,15 @@
       "Retour": "Comience moviendo los dedos de las manos y los pies, luego estírese lentamente antes de girar hacia un lado para levantarse.",
       "Respiration": "Respiración lenta, regular y silenciosa. Simplemente observa tu respiración.",
       "Posture": "Cuerpo totalmente relajado, mirada hacia adentro, mente en paz."
-    }
+    },
+    "tendons_solicites": [
+      "Tendones paravertebrales",
+      "Tendones isquiotibiales"
+    ],
+    "tendons_sollicites": [
+      "Tendones paravertebrales",
+      "Tendones isquiotibiales"
+    ]
   },
   "C037": {
     "nom": "Estiramiento de pantorrillas contra una pared (pierna estirada)",

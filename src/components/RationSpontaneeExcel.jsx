@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+ 
 // src/components/RationSpontaneeExcel.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -24,6 +24,7 @@ import { ChevronDownIcon, ChevronRightIcon, RepeatIcon } from "@chakra-ui/icons"
 import { getCiqualMicro100 } from "./ciqualClient.js";
 import { computeMicronutrientTargets } from "../utils/nutritionContext";
 import { useNutritionTheme } from "../styles/nutritionTheme";
+import i18n from "../i18n/index";
 
 /* ------------------ Helpers ------------------ */
 const num = (v) => {
@@ -43,6 +44,20 @@ const makeId = (group, label) =>
     /[^a-z0-9]+/g,
     "_"
   )}`;
+
+const labelKey = (label = "") =>
+  normalize(label)
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+const translateSheetLabel = (label = "") => {
+  const key = labelKey(label);
+  if (!key) return label;
+  return i18n.t(`auto.RationSpontaneeExcel.labels.${key}`, label);
+};
+
+const translateMealLabel = (meal = {}) =>
+  i18n.t(`auto.RationSpontaneeExcel.meals.${meal.key}`, meal.label || "");
 
 /* kcal depuis macros */
 const kcalFromMacros = (p, c, f) => num(p) * 4 + num(c) * 4 + num(f) * 9;
@@ -646,6 +661,8 @@ export default function RationSpontaneeExcel({
   const borderColor = nutritionTheme.borderColor;
   const muted = nutritionTheme.mutedText;
   const isMobile = useBreakpointValue({ base: true, md: false });
+  const desktopCategoryFlex = { md: "0 0 240px", xl: "0 0 280px", "2xl": "0 0 320px" };
+  const desktopControlWidth = { md: "72px", xl: "82px", "2xl": "90px" };
 
   const clinicalContext = useMemo(() => context || { needs }, [context, needs]);
   const effectiveNeeds = useMemo(() => clinicalContext?.needs || needs || {}, [clinicalContext, needs]);
@@ -682,7 +699,7 @@ export default function RationSpontaneeExcel({
     setCiqualLoading(true);
     setCiqualOk(false);
     try {
-      const res = await fetch("/ciqual_2025.json", { cache: "no-store" });
+      const res = await fetch("/ciqual_2025.json", { cache: "force-cache" });
       const arr = await res.json();
       const map = {};
       for (const row of arr || []) {
@@ -697,8 +714,8 @@ export default function RationSpontaneeExcel({
       setCiqualByCode({});
       setCiqualOk(false);
       toast({
-        title: "Données alimentaires",
-        description: "Impossible de charger les données alimentaires.",
+        title: i18n.t("auto.RationSpontaneeExcel.donnees_alimentaires", "Données alimentaires"),
+        description: i18n.t("auto.RationSpontaneeExcel.impossible_de_charger_les_donnees_alimentaires", "Impossible de charger les données alimentaires."),
         status: "error",
         duration: 4000,
         isClosable: true,
@@ -710,7 +727,7 @@ export default function RationSpontaneeExcel({
 
   useEffect(() => {
     reloadCiqual();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   /* ---------- Foods / Categories ---------- */
@@ -741,7 +758,7 @@ export default function RationSpontaneeExcel({
       categories.forEach((c) => (base[c.name] = !isMobile));
       return base;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [categories.length, isMobile]);
 
   const [selectedMicros, setSelectedMicros] = useState(() => {
@@ -950,7 +967,7 @@ export default function RationSpontaneeExcel({
     }
 
     return { perMeal, day };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [foods, values, selectedMicros, ciqualByCode]);
 
   const selectedMicroList = useMemo(
@@ -1038,23 +1055,23 @@ export default function RationSpontaneeExcel({
     if (!(filledFoodCount > 0)) {
       observations.push("La journée n’est pas encore suffisamment saisie pour être interprétée.");
     } else {
-      if (breakfastKcal < 120) observations.push("Petit-déjeuner absent ou très faible sur le relevé.");
-      if (mainMealCount < 3) observations.push("La journée paraît incomplète ou très irrégulière sur les repas principaux.");
-      if (snackCount >= 2) observations.push("Présence de collations répétées à explorer en consultation.");
-      if (fruitCount + vegCount === 0) observations.push("Très peu de fruits et légumes apparaissent sur la journée.");
-      if (proteinStatus.status === "low") observations.push("Les apports protéiques estimés restent en dessous de la cible.");
-      if (energyStatus.status === "low") observations.push("Les apports énergétiques estimés sont sous le besoin actuel.");
-      if (energyStatus.status === "high") observations.push("Les apports énergétiques estimés dépassent le besoin actuel.");
-      if (dinnerShare >= 40) observations.push("Une part importante des apports est concentrée sur le dîner.");
-      if (completedCategoryCount <= 3 && filledFoodCount > 0) observations.push("La journée semble peu diversifiée au regard des catégories remplies.");
-      if (sugaryCount > 0 || drinkCount > 0) observations.push("Les produits sucrés ou boissons plaisir méritent un commentaire qualitatif.");
+      if (breakfastKcal < 120) observations.push(i18n.t("auto.RationSpontaneeExcel.obs_breakfast_low", "Petit-déjeuner absent ou très faible sur le relevé."));
+      if (mainMealCount < 3) observations.push(i18n.t("auto.RationSpontaneeExcel.obs_main_meals_incomplete", "La journée paraît incomplète ou très irrégulière sur les repas principaux."));
+      if (snackCount >= 2) observations.push(i18n.t("auto.RationSpontaneeExcel.obs_repeated_snacks", "Présence de collations répétées à explorer en consultation."));
+      if (fruitCount + vegCount === 0) observations.push(i18n.t("auto.RationSpontaneeExcel.obs_low_fruits_veg", "Très peu de fruits et légumes apparaissent sur la journée."));
+      if (proteinStatus.status === "low") observations.push(i18n.t("auto.RationSpontaneeExcel.obs_low_protein", "Les apports protéiques estimés restent en dessous de la cible."));
+      if (energyStatus.status === "low") observations.push(i18n.t("auto.RationSpontaneeExcel.obs_low_energy", "Les apports énergétiques estimés sont sous le besoin actuel."));
+      if (energyStatus.status === "high") observations.push(i18n.t("auto.RationSpontaneeExcel.obs_high_energy", "Les apports énergétiques estimés dépassent le besoin actuel."));
+      if (dinnerShare >= 40) observations.push(i18n.t("auto.RationSpontaneeExcel.obs_dinner_share_high", "Une part importante des apports est concentrée sur le dîner."));
+      if (completedCategoryCount <= 3 && filledFoodCount > 0) observations.push(i18n.t("auto.RationSpontaneeExcel.obs_low_diversity", "La journée semble peu diversifiée au regard des catégories remplies."));
+      if (sugaryCount > 0 || drinkCount > 0) observations.push(i18n.t("auto.RationSpontaneeExcel.obs_sugary_drinks", "Les produits sucrés ou boissons plaisir méritent un commentaire qualitatif."));
     }
 
     return {
       summaryBadges: [
-        { label: "Catégories", value: `${completedCategoryCount}/${categories.length}`, scheme: "blue" },
-        { label: "Créneaux", value: String(filledMealSlots), scheme: "purple" },
-        { label: "Micros actifs", value: String(selectedMicroList.length), scheme: "green" },
+        { label: i18n.t("auto.RationSpontaneeExcel.categories", "Catégories"), value: `${completedCategoryCount}/${categories.length}`, scheme: "blue" },
+        { label: i18n.t("auto.RationSpontaneeExcel.creneaux", "Créneaux"), value: String(filledMealSlots), scheme: "purple" },
+        { label: i18n.t("auto.RationSpontaneeExcel.micros_actifs", "Micros actifs"), value: String(selectedMicroList.length), scheme: "green" },
       ],
       observations,
       comparisons: [
@@ -1171,17 +1188,21 @@ export default function RationSpontaneeExcel({
 
   /* ---------- UI blocks ---------- */
   const HeaderDesktop = (
-    <Box bg={softBg} borderBottomWidth="1px" borderColor={borderColor} px={4} py={2}>
+    <Box bg={softBg} borderBottomWidth="1px" borderColor={borderColor} px={{ md: 3, xl: 4 }} py={2}>
       <HStack spacing={0} align="center">
-        <Box flex="0 0 320px">
-          <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" opacity={0.7}>
-            CATÉGORIE
-          </Text>
+        <Box flex={desktopCategoryFlex}>
+          <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" opacity={0.7}>{i18n.t("auto.RationSpontaneeExcel.categorie", "CATÉGORIE")}</Text>
         </Box>
         {MEALS.map((m) => (
-          <Box key={m.key} flex="1" textAlign="center">
-            <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" opacity={0.7}>
-              {m.label}
+          <Box key={m.key} flex="1" textAlign="center" minW={0}>
+            <Text
+              fontSize={{ md: "10px", xl: "xs" }}
+              fontWeight="800"
+              letterSpacing="0.04em"
+              opacity={0.7}
+              lineHeight="1.15"
+            >
+              {translateMealLabel(m)}
             </Text>
           </Box>
         ))}
@@ -1201,49 +1222,50 @@ export default function RationSpontaneeExcel({
     return (
       <Box
         key={food.id}
-        px={4}
+        px={{ md: 3, xl: 4 }}
         py={3}
         borderTopWidth="1px"
         borderColor={borderColor}
         bg={isFilled ? softBg : panelBg}
       >
         <HStack align="start" spacing={0}>
-          <Box flex="0 0 320px" pr={3}>
+          <Box flex={desktopCategoryFlex} pr={{ md: 2, xl: 3 }}>
             <HStack justify="space-between" align="start" spacing={2}>
               <Box minW={0}>
-                <Text fontWeight="700">{food.name}</Text>
-                <Text fontSize="xs" opacity={0.6}>
-                  Unité par défaut : {food.defaultUnit}
+                <Text fontWeight="700">{translateSheetLabel(food.name)}</Text>
+                <Text fontSize="xs" opacity={0.6}>{i18n.t("auto.RationSpontaneeExcel.unite_par_defaut", "Unité par défaut :")}{food.defaultUnit}
                 </Text>
               </Box>
               {isFilled ? (
                 <Badge colorScheme="green" variant="subtle" borderRadius="full" px={2}>
-                  {filledMeals} repas • {round1(totalQty)} {unit}
+                  {filledMeals}{i18n.t("auto.RationSpontaneeExcel.repas", "repas •")}{round1(totalQty)} {unit}
                 </Badge>
               ) : null}
             </HStack>
           </Box>
 
           {MEALS.map((m) => (
-            <Box key={m.key} flex="1">
+            <Box key={m.key} flex="1" minW={0}>
               <VStack spacing={1.5}>
                 <Input
-                  width="90px"
+                  size="sm"
+                  width={desktopControlWidth}
                   value={st?.meals?.[m.key] ?? 0}
                   onChange={(e) => setQty(food.id, m.key, e.target.value)}
                   isDisabled={blocked}
                   inputMode="decimal"
                 />
                 <Select
+                  size="sm"
                   value={unit}
                   onChange={(e) => setUnit(food.id, e.target.value)}
                   isDisabled={blocked}
-                  width="90px"
+                  width={desktopControlWidth}
                 >
-                  <option value="g">g</option>
-                  <option value="ml">ml</option>
-                  <option value="portion">portion</option>
-                  <option value="unité">unité</option>
+                  <option value="g">{i18n.t("auto.RationSpontaneeExcel.g", "g")}</option>
+                  <option value="ml">{i18n.t("auto.RationSpontaneeExcel.ml", "ml")}</option>
+                  <option value="portion">{i18n.t("auto.RationSpontaneeExcel.portion", "portion")}</option>
+                  <option value="unité">{i18n.t("auto.RationSpontaneeExcel.unite", "unité")}</option>
                 </Select>
                 <Wrap spacing={1} justify="center">
                   {quickOptions.map((option) => (
@@ -1288,17 +1310,16 @@ export default function RationSpontaneeExcel({
         <HStack justify="space-between" align="start">
           <Box minW={0} pr={2}>
             <Text fontWeight="800" noOfLines={1}>
-              {food.name}
+              {translateSheetLabel(food.name)}
             </Text>
             <Text fontSize="xs" opacity={0.65} noOfLines={1}>
-              {food.category} • unité: {unit}
+              {translateSheetLabel(food.category)}{i18n.t("auto.RationSpontaneeExcel.unite_2", "• unité:")}{unit}
             </Text>
             {isFilled ? (
               <Wrap spacing={2} mt={2}>
                 <WrapItem>
                   <Badge colorScheme="green" variant="subtle" borderRadius="full">
-                    {filledMeals} repas renseigné(s)
-                  </Badge>
+                    {filledMeals}{i18n.t("auto.RationSpontaneeExcel.repas_renseigne_s", "repas renseigné(s)")}</Badge>
                 </WrapItem>
                 <WrapItem>
                   <Badge colorScheme="blue" variant="subtle" borderRadius="full">
@@ -1317,10 +1338,10 @@ export default function RationSpontaneeExcel({
             width="110px"
             flexShrink={0}
           >
-            <option value="g">g</option>
-            <option value="ml">ml</option>
-            <option value="portion">portion</option>
-            <option value="unité">unité</option>
+            <option value="g">{i18n.t("auto.RationSpontaneeExcel.g", "g")}</option>
+            <option value="ml">{i18n.t("auto.RationSpontaneeExcel.ml", "ml")}</option>
+            <option value="portion">{i18n.t("auto.RationSpontaneeExcel.portion", "portion")}</option>
+            <option value="unité">{i18n.t("auto.RationSpontaneeExcel.unite", "unité")}</option>
           </Select>
         </HStack>
 
@@ -1330,7 +1351,7 @@ export default function RationSpontaneeExcel({
           {MEALS.map((m) => (
             <HStack key={m.key} spacing={3}>
               <Text fontSize="xs" fontWeight="800" opacity={0.7} minW="120px">
-                {m.label}
+                {translateMealLabel(m)}
               </Text>
               <Input
                 value={st?.meals?.[m.key] ?? 0}
@@ -1365,14 +1386,14 @@ export default function RationSpontaneeExcel({
       {/* Header */}
       <HStack justify="space-between" align="center" mb={3} flexWrap="wrap" gap={2}>
         <HStack spacing={3} flexWrap="wrap">
-          <Text fontSize="lg" fontWeight="900">
-            Ration spontanée
-          </Text>
+          <Text fontSize="lg" fontWeight="900">{i18n.t("auto.RationSpontaneeExcel.ration_spontanee", "Ration spontanée")}</Text>
           <Badge colorScheme={ciqualOk ? "green" : "gray"}>
-            {ciqualOk ? "Données prêtes" : "Données à charger"}
+            {ciqualOk
+              ? i18n.t("auto.RationSpontaneeExcel.donnees_pretes", "Données prêtes")
+              : i18n.t("auto.RationSpontaneeExcel.donnees_a_charger", "Données à charger")}
           </Badge>
           <Badge variant="subtle" colorScheme="blue">
-            {filledFoodCount} catégorie(s) renseignée(s)
+            {i18n.t("auto.RationSpontaneeExcel.categories_renseignees_count", "{{count}} catégorie(s) renseignée(s)", { count: filledFoodCount })}
           </Badge>
         </HStack>
       </HStack>
@@ -1380,35 +1401,28 @@ export default function RationSpontaneeExcel({
       <Box borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={panelBg} p={4} mb={4}>
         <HStack justify="space-between" align="start" flexWrap="wrap" gap={3} mb={4}>
           <Box minW={0}>
-            <Text fontWeight="900">Repères de lecture</Text>
-            <Text fontSize="sm" opacity={0.72} mt={1}>
-              Le relevé reste manuel; cette zone sert seulement à cadrer l’interprétation clinique.
-            </Text>
+            <Text fontWeight="900">{i18n.t("auto.RationSpontaneeExcel.reperes_de_lecture", "Repères de lecture")}</Text>
+            <Text fontSize="sm" opacity={0.72} mt={1}>{i18n.t("auto.RationSpontaneeExcel.le_releve_reste_manuel_cette_zone_sert_seulement_a", "Le relevé reste manuel; cette zone sert seulement à cadrer l’interprétation clinique.")}</Text>
           </Box>
-          <Badge colorScheme="orange" variant="subtle" px={3} py={1} borderRadius="full">
-            Cas sensibles: valider avec le détail alimentaire si besoin
-          </Badge>
+          <Badge colorScheme="orange" variant="subtle" px={3} py={1} borderRadius="full">{i18n.t("auto.RationSpontaneeExcel.cas_sensibles_valider_avec_le_detail_alimentaire_s", "Cas sensibles: valider avec le détail alimentaire si besoin")}</Badge>
         </HStack>
 
         <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={3}>
           <Box borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={softBg} p={3}>
-            <Text fontSize="xs" fontWeight="900" opacity={0.65} textTransform="uppercase">
-              Dossier
-            </Text>
+            <Text fontSize="xs" fontWeight="900" opacity={0.65} textTransform="uppercase">{i18n.t("auto.RationSpontaneeExcel.dossier", "Dossier")}</Text>
             <Text mt={1} fontWeight="900" noOfLines={1}>
               {objectiveLabel || "Objectif non renseigné"}
             </Text>
             <Wrap spacing={2} mt={2}>
               {objectiveProfile?.isPreg1 || objectiveProfile?.isPreg2 || objectiveProfile?.isPreg3 ? (
                 <WrapItem>
-                  <Badge colorScheme="pink" borderRadius="full">
-                    Grossesse{objectiveProfile?.pregnancyTrimester ? ` T${objectiveProfile.pregnancyTrimester}` : ""}
+                  <Badge colorScheme="pink" borderRadius="full">{i18n.t("auto.RationSpontaneeExcel.grossesse", "Grossesse")}{objectiveProfile?.pregnancyTrimester ? ` T${objectiveProfile.pregnancyTrimester}` : ""}
                   </Badge>
                 </WrapItem>
               ) : null}
               {objectiveProfile?.isLact ? (
                 <WrapItem>
-                  <Badge colorScheme="teal" borderRadius="full">Allaitement</Badge>
+                  <Badge colorScheme="teal" borderRadius="full">{i18n.t("auto.RationSpontaneeExcel.allaitement", "Allaitement")}</Badge>
                 </WrapItem>
               ) : null}
               {regimes.slice(0, 3).map((label) => (
@@ -1423,7 +1437,7 @@ export default function RationSpontaneeExcel({
               ))}
               {allergies ? (
                 <WrapItem>
-                  <Badge colorScheme="red" borderRadius="full">Allergies / évictions</Badge>
+                  <Badge colorScheme="red" borderRadius="full">{i18n.t("auto.RationSpontaneeExcel.allergies_evictions", "Allergies / évictions")}</Badge>
                 </WrapItem>
               ) : null}
               {regimes.length + pathologies.length > 6 ? (
@@ -1435,9 +1449,7 @@ export default function RationSpontaneeExcel({
           </Box>
 
           <Box borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={softBg} p={3}>
-            <Text fontSize="xs" fontWeight="900" opacity={0.65} textTransform="uppercase">
-              Cibles principales
-            </Text>
+            <Text fontSize="xs" fontWeight="900" opacity={0.65} textTransform="uppercase">{i18n.t("auto.RationSpontaneeExcel.cibles_principales", "Cibles principales")}</Text>
             <Text mt={1} fontSize="2xl" fontWeight="900" lineHeight="1">
               {effectiveNeeds?.kcalTarget ? `${fmt0Plain(effectiveNeeds.kcalTarget)} kcal` : "—"}
             </Text>
@@ -1453,24 +1465,18 @@ export default function RationSpontaneeExcel({
               </WrapItem>
             </Wrap>
             <Text fontSize="xs" opacity={0.65} mt={2}>
-              MB {effectiveNeeds?.mb ? fmt0Plain(effectiveNeeds.mb) : "—"} • DEJ {effectiveNeeds?.dej ? fmt0Plain(effectiveNeeds.dej) : "—"}
+              MB {effectiveNeeds?.mb ? fmt0Plain(effectiveNeeds.mb) : "—"}{i18n.t("auto.RationSpontaneeExcel.dej", "• DEJ")}{effectiveNeeds?.dej ? fmt0Plain(effectiveNeeds.dej) : "—"}
             </Text>
           </Box>
 
           <Box borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={softBg} p={3}>
             <HStack justify="space-between" align="start" gap={2}>
               <Box minW={0}>
-                <Text fontSize="xs" fontWeight="900" opacity={0.65} textTransform="uppercase">
-                  Micronutriments conseillés
-                </Text>
-                <Text mt={1} fontSize="sm" opacity={0.72}>
-                  Calcium et fibres sont toujours suivis au minimum.
-                </Text>
+                <Text fontSize="xs" fontWeight="900" opacity={0.65} textTransform="uppercase">{i18n.t("auto.RationSpontaneeExcel.micronutriments_conseilles", "Micronutriments conseillés")}</Text>
+                <Text mt={1} fontSize="sm" opacity={0.72}>{i18n.t("auto.RationSpontaneeExcel.calcium_et_fibres_sont_toujours_suivis_au_minimum", "Calcium et fibres sont toujours suivis au minimum.")}</Text>
               </Box>
               <HStack spacing={2} flexWrap="wrap" justify="flex-end">
-                <Button size="xs" variant="outline" onClick={applyRecommendedMicros} isDisabled={blocked}>
-                  Précocher
-                </Button>
+                <Button size="xs" variant="outline" onClick={applyRecommendedMicros} isDisabled={blocked}>{i18n.t("auto.RationSpontaneeExcel.precocher", "Précocher")}</Button>
                 <Button size="xs" variant="ghost" onClick={() => setShowMicroChooser((v) => !v)}>
                   {showMicroChooser ? "Masquer" : `Personnaliser (${selectedMicroList.length})`}
                 </Button>
@@ -1514,10 +1520,8 @@ export default function RationSpontaneeExcel({
         <Box mt={3} borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={softBg} p={3}>
           <HStack justify="space-between" align="center" gap={3} flexWrap="wrap" mb={2}>
             <Box>
-              <Text fontWeight="900">Points de vigilance</Text>
-              <Text fontSize="sm" opacity={0.7}>
-                Affichage condensé: on montre les priorités, le reste reste disponible.
-              </Text>
+              <Text fontWeight="900">{i18n.t("auto.RationSpontaneeExcel.points_de_vigilance", "Points de vigilance")}</Text>
+              <Text fontSize="sm" opacity={0.7}>{i18n.t("auto.RationSpontaneeExcel.affichage_condense_on_montre_les_priorites_le_rest", "Affichage condensé: on montre les priorités, le reste reste disponible.")}</Text>
             </Box>
             {clinicalGuidance.length > 4 ? (
               <Button size="xs" variant="outline" onClick={() => setShowAllGuidance((v) => !v)}>
@@ -1536,9 +1540,7 @@ export default function RationSpontaneeExcel({
                       {item.body}
                     </Text>
                   </Box>
-                  <Badge colorScheme={item.tone} variant="subtle" px={2} py={1} borderRadius="md">
-                    Repère
-                  </Badge>
+                  <Badge colorScheme={item.tone} variant="subtle" px={2} py={1} borderRadius="md">{i18n.t("auto.RationSpontaneeExcel.repere", "Repère")}</Badge>
                 </HStack>
               </Box>
             ))}
@@ -1552,28 +1554,19 @@ export default function RationSpontaneeExcel({
         <Box px={4} py={3} bg={panelBg} borderBottomWidth="1px" borderColor={borderColor}>
           <HStack justify="space-between" align="start" flexWrap="wrap" gap={3}>
             <Box minW={0}>
-              <Text fontWeight="900">Saisie par catégories alimentaires</Text>
-              <Text fontSize="sm" opacity={0.7} mt={1}>
-                Renseigne uniquement ce qui a été consommé, puis utilise les totaux pour lire les
-                grands équilibres de la journée.
-              </Text>
+              <Text fontWeight="900">{i18n.t("auto.RationSpontaneeExcel.saisie_par_categories_alimentaires", "Saisie par catégories alimentaires")}</Text>
+              <Text fontSize="sm" opacity={0.7} mt={1}>{i18n.t("auto.RationSpontaneeExcel.renseigne_uniquement_ce_qui_a_ete_consomme_puis_ut", "Renseigne uniquement ce qui a été consommé, puis utilise les totaux pour lire les grands équilibres de la journée.")}</Text>
             </Box>
             <HStack flexWrap="wrap" gap={2}>
-              <Button size="sm" variant="outline" onClick={() => setAllCats(true)}>
-                Tout ouvrir
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setAllCats(false)}>
-                Tout fermer
-              </Button>
+              <Button size="sm" variant="outline" onClick={() => setAllCats(true)}>{i18n.t("auto.RationSpontaneeExcel.tout_ouvrir", "Tout ouvrir")}</Button>
+              <Button size="sm" variant="outline" onClick={() => setAllCats(false)}>{i18n.t("auto.RationSpontaneeExcel.tout_fermer", "Tout fermer")}</Button>
               <Button
                 size="sm"
                 leftIcon={<RepeatIcon />}
                 onClick={reloadCiqual}
                 isLoading={ciqualLoading}
-                loadingText="Chargement…"
-              >
-                Actualiser les données
-              </Button>
+                loadingText={i18n.t("common.loading", "Chargement…")}
+              >{i18n.t("auto.RationSpontaneeExcel.actualiser_les_donnees", "Actualiser les données")}</Button>
             </HStack>
           </HStack>
         </Box>
@@ -1593,13 +1586,13 @@ export default function RationSpontaneeExcel({
                         size="sm"
                         variant="ghost"
                         icon={isOpen ? <ChevronDownIcon /> : <ChevronRightIcon />}
-                        aria-label="toggle"
+                        aria-label={i18n.t("auto.RationSpontaneeExcel.toggle", "toggle")}
                         onClick={() =>
                           setOpenCats((p) => ({ ...(p || {}), [cat.name]: !p?.[cat.name] }))
                         }
                       />
                       <Box>
-                        <Text fontWeight="900">{cat.name}</Text>
+                        <Text fontWeight="900">{translateSheetLabel(cat.name)}</Text>
                         <Text fontSize="xs" opacity={0.65}>
                           {stat.filledItems > 0
                             ? `${stat.filledItems} sur ${stat.totalItems} aliment(s) renseigné(s)`
@@ -1611,13 +1604,9 @@ export default function RationSpontaneeExcel({
                     <HStack spacing={2}>
                       <Badge variant="subtle">{cat.items.length}</Badge>
                       {categoryDone ? (
-                        <Badge colorScheme="green" variant="subtle" borderRadius="full">
-                          En cours
-                        </Badge>
+                        <Badge colorScheme="green" variant="subtle" borderRadius="full">{i18n.t("nutritionCoach.status.inProgress", "En cours")}</Badge>
                       ) : (
-                        <Badge colorScheme="gray" variant="subtle" borderRadius="full">
-                          Vide
-                        </Badge>
+                        <Badge colorScheme="gray" variant="subtle" borderRadius="full">{i18n.t("auto.RationSpontaneeExcel.vide", "Vide")}</Badge>
                       )}
                     </HStack>
                   </HStack>
@@ -1650,7 +1639,7 @@ export default function RationSpontaneeExcel({
         bg={panelBg}
       >
         <Box bg={softBg} borderBottomWidth="1px" borderColor={borderColor} px={4} py={2}>
-          <Text fontWeight="900">Totaux par repas</Text>
+          <Text fontWeight="900">{i18n.t("auto.RationSpontaneeExcel.totaux_par_repas", "Totaux par repas")}</Text>
         </Box>
 
         <Box px={4} py={3}>
@@ -1668,16 +1657,13 @@ export default function RationSpontaneeExcel({
                     bg={panelBg}
                   >
                     <Text fontSize="xs" fontWeight="900" opacity={0.7}>
-                      {m.label}
+                      {translateMealLabel(m)}
                     </Text>
 
                     <Text mt={1} fontWeight="900" lineHeight="1.25">
-                      {fmt0Plain(t.kcal)} kcal
-                    </Text>
+                      {fmt0Plain(t.kcal)}{i18n.t("auto.RationSpontaneeExcel.kcal", "kcal")}</Text>
 
-                    <Text fontSize="sm" opacity={0.85} lineHeight="1.25">
-                      Prot {fmt0Plain(t.prot)} g • Lip {fmt0Plain(t.lip)} g • Glu {fmt0Plain(t.glu)} g
-                    </Text>
+                    <Text fontSize="sm" opacity={0.85} lineHeight="1.25">{i18n.t("auto.RationSpontaneeExcel.prot", "Prot")}{fmt0Plain(t.prot)}{i18n.t("auto.RationSpontaneeExcel.g_lip", "g • Lip")}{fmt0Plain(t.lip)}{i18n.t("auto.RationSpontaneeExcel.g_glu", "g • Glu")}{fmt0Plain(t.glu)}{i18n.t("auto.RationSpontaneeExcel.g", "g")}</Text>
 
                     {selectedMicroList.length > 0 && (
                       <Wrap spacing={2} mt={2}>
@@ -1708,7 +1694,7 @@ export default function RationSpontaneeExcel({
             <>
               <HStack spacing={0} py={1}>
                 <Box flex="0 0 320px">
-                  <Text fontWeight="900">TOTAL (kcal)</Text>
+                  <Text fontWeight="900">{i18n.t("auto.RationSpontaneeExcel.total_kcal", "TOTAL (kcal)")}</Text>
                 </Box>
                 {MEALS.map((m) => (
                   <Box key={m.key} flex="1" textAlign="center">
@@ -1721,7 +1707,7 @@ export default function RationSpontaneeExcel({
 
               <HStack spacing={0} py={1}>
                 <Box flex="0 0 320px">
-                  <Text fontWeight="900">TOTAL (g) — Prot / Lip / Glu</Text>
+                  <Text fontWeight="900">{i18n.t("auto.RationSpontaneeExcel.total_g_prot_lip_glu", "TOTAL (g) — Prot / Lip / Glu")}</Text>
                 </Box>
                 {MEALS.map((m) => (
                   <Box key={m.key} flex="1" textAlign="center">
@@ -1738,8 +1724,7 @@ export default function RationSpontaneeExcel({
                   <Divider />
                   <HStack spacing={0} py={1}>
                     <Box flex="0 0 320px">
-                      <Text fontWeight="900">
-                        TOTAL ({mic.label}) ({mic.unit})
+                      <Text fontWeight="900">{i18n.t("auto.RationSpontaneeExcel.total", "TOTAL (")}{mic.label}) ({mic.unit})
                       </Text>
                     </Box>
                     {MEALS.map((m) => (
@@ -1764,8 +1749,7 @@ export default function RationSpontaneeExcel({
         {ciqualLoading ? "Chargement des données…" : ""}
       </Text>
       {!ciqualLoading && recommendedMicroKeys.length > 0 ? (
-        <Text fontSize="xs" opacity={muted} mt={1}>
-          Micros recommandés pour ce dossier:{" "}
+        <Text fontSize="xs" opacity={muted} mt={1}>{i18n.t("auto.RationSpontaneeExcel.micros_recommandes_pour_ce_dossier", "Micros recommandés pour ce dossier:")}{" "}
           {recommendedMicroKeys.map((key) => MICRO_LABEL_BY_KEY[key]).filter(Boolean).join(", ")}
         </Text>
       ) : null}

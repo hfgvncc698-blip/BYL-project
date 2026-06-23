@@ -18,6 +18,7 @@ import { collection, getDocs, setDoc, doc } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { v4 as uuidv4 } from "uuid";
 import { useNavigate } from "react-router-dom";
+import i18n from "../i18n/index";
 
 const ProgramCreator = () => {
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -53,27 +54,27 @@ const ProgramCreator = () => {
 
   return (
     <>
-      <Button colorScheme="blue" onClick={onOpen}>Nouveau programme</Button>
+      <Button colorScheme="blue" onClick={onOpen}>{i18n.t("programs.new_program", "Nouveau programme")}</Button>
 
       <Modal isOpen={isOpen} onClose={onClose} isCentered>
         <ModalOverlay />
         <ModalContent>
-          <ModalHeader>Créer un nouveau programme</ModalHeader>
+          <ModalHeader>{i18n.t("auto.ProgramCreator.creer_un_nouveau_programme", "Créer un nouveau programme")}</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             <FormControl mb={4}>
-              <FormLabel>Nom du programme</FormLabel>
+              <FormLabel>{i18n.t("programBuilder.placeholders.name", "Nom du programme")}</FormLabel>
               <Input
-                placeholder="Nom du programme"
+                placeholder={i18n.t("programBuilder.placeholders.name", "Nom du programme")}
                 value={programName}
                 onChange={(e) => setProgramName(e.target.value)}
               />
             </FormControl>
 
             <FormControl>
-              <FormLabel>Assigner à un client</FormLabel>
+              <FormLabel>{i18n.t("auto.ProgramCreator.assigner_a_un_client", "Assigner à un client")}</FormLabel>
               <Select
-                placeholder="Assigner à un client"
+                placeholder={i18n.t("auto.ProgramCreator.assigner_a_un_client", "Assigner à un client")}
                 value={selectedClient}
                 onChange={(e) => setSelectedClient(e.target.value)}
               >
@@ -87,10 +88,8 @@ const ProgramCreator = () => {
           </ModalBody>
 
           <ModalFooter>
-            <Button colorScheme="blue" mr={3} onClick={creerProgramme}>
-              Créer
-            </Button>
-            <Button onClick={onClose}>Annuler</Button>
+            <Button colorScheme="blue" mr={3} onClick={creerProgramme}>{i18n.t("programBuilder.cta.createShort", "Créer")}</Button>
+            <Button onClick={onClose}>{i18n.t("exerciseCard.cancel", "Annuler")}</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

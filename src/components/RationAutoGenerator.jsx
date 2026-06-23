@@ -1,5 +1,6 @@
 // src/components/RationAutoGenerator.jsx
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import i18n from "../i18n/index";
 import {
   Box,
   Badge,
@@ -23,9 +24,11 @@ import {
 } from "@chakra-ui/react";
 import {
   computeMicronutrientTargets,
+  parseFoodExclusionFlags,
   parsePathologyFlags,
   parseRegimeFlags,
 } from "../utils/nutritionContext";
+import { parseAllergyFlags } from "../utils/nutritionRules";
 
 /* ================= Utils ================= */
 const num = (v) => {
@@ -42,7 +45,20 @@ const normalize = (s = "") =>
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[œŒ]/g, "oe")
+    .replace(/[æÆ]/g, "ae")
     .trim();
+
+const autoLabelKey = (label = "") =>
+  normalize(label)
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+const translateAutoLabel = (label = "") => {
+  const normalizedKey = autoLabelKey(label);
+  if (!normalizedKey) return label;
+  return i18n.t(`auto.RationAutoGenerator.labels.${normalizedKey}`, label);
+};
 
 const LOCAL_UNIT_GRAMS = { Oeufs: 60 };
 const toGrams = (qty, unit, label) => {
@@ -356,11 +372,19 @@ const MULTIPLIERS_CHEESE = [
 const getMultiplierOptionsFor = (group, resolvedLabel, caps) => {
   if (resolvedLabel === "Fromage") return MULTIPLIERS_CHEESE;
   const max = caps?.labelMaxMult?.[resolvedLabel];
-  if (max !== undefined && num(max) <= 2) return MULTIPLIERS_LIMITED_2;
-  if (group === "Légumineuses") return MULTIPLIERS_LIMITED_3;
-  if (group === "Matières grasses") return MULTIPLIERS_LIMITED_3;
-  if (group === "Compléments protéinés") return MULTIPLIERS_LIMITED_2;
-  return MULTIPLIERS_BASE;
+  const baseOptions =
+    max !== undefined && num(max) <= 2
+      ? MULTIPLIERS_LIMITED_2
+      : group === "Légumineuses"
+      ? MULTIPLIERS_LIMITED_3
+      : group === "Matières grasses"
+      ? MULTIPLIERS_LIMITED_3
+      : group === "Compléments protéinés"
+      ? MULTIPLIERS_LIMITED_2
+      : MULTIPLIERS_BASE;
+
+  if (max === undefined) return baseOptions;
+  return baseOptions.filter((option) => num(option.value) <= num(max) + 0.001);
 };
 
 const snapMultiplierDownToOption = (multiplier, group, resolvedLabel, caps) => {
@@ -406,7 +430,7 @@ const PLAUSIBILITY_MAX_MULT_BY_LABEL = {
   "Pain complet": 3,
   "Pain sans gluten": 3,
   Fruits: 3,
-  Légumes: 4,
+  Légumes: 1,
   "Lait 1/2 écrémé": 3,
   "Lait végétal": 3,
   "Yaourt végétal": 2,
@@ -577,14 +601,7 @@ const formatPctRange = (min, max, fallbackRange) => {
   return "—";
 };
 
-function kcalCoeff(objectifRaw) {
-  const o = normalize(objectifRaw);
-  const isLoss = o.includes("perte") || o.includes("maigr");
-  const isMass = o.includes("prise") || o.includes("masse") || o.includes("hypertroph");
-  if (isLoss) return 0.85;
-  if (isMass) return 1.1;
-  return 1.0;
-}
+
 
 /* ==================== Helpers data ==================== */
 function buildGroupOptions() {
@@ -613,16 +630,21 @@ function resolveFamilyLabel(mealKey, slotDef, reg, path = {}) {
   const g = slotDef.group;
   const slotKey = slotDef.slotKey;
   const digestiveMode = path.troublesDigestifs || path.rgo;
+  const excluded = reg?.foodExclusionFlags || {};
+  const noEggs = Boolean(reg.vegan || excluded.eggs);
+  const noFish = Boolean(reg.vegetarian || reg.vegan || excluded.fish || excluded.seafood);
+  const noPoultry = Boolean(reg.vegetarian || reg.vegan || reg.pescetarian || excluded.poultry);
+  const noRedMeat = Boolean(reg.vegetarian || reg.vegan || reg.pescetarian || excluded.redMeat);
 
   if (g === "Produits céréaliers") {
     if (slotKey === "cereales" || mealKey === "petit_dej") {
-      return reg.glutenFree ? "Céréales petit déjeuner sans gluten" : "Céréales petit déjeuner";
+      return reg.glutenFree || path.celiac ? "Céréales petit déjeuner sans gluten" : "Céréales petit déjeuner";
     }
-    return reg.glutenFree ? "Féculents sans gluten cuits" : "Féculents cuits";
+    return reg.glutenFree || path.celiac ? "Féculents sans gluten cuits" : "Féculents cuits";
   }
 
   if (g === "Pain") {
-    if (reg.glutenFree) return "Pain sans gluten";
+    if (reg.glutenFree || path.celiac) return "Pain sans gluten";
     return "Pain complet";
   }
 
@@ -633,17 +655,34 @@ function resolveFamilyLabel(mealKey, slotDef, reg, path = {}) {
 
   if (g === "VPO") {
     if (reg.vegan) return "";
-    if (reg.vegetarian) return "Oeufs";
-
-    if (path.hyperchol) {
-      if (mealKey === "dejeuner") return "Viande maigre";
-      if (mealKey === "diner") return "Poissons blanc";
-      return "Viande maigre";
+    if (reg.vegetarian) return noEggs ? "" : "Oeufs";
+    if (reg.pescetarian) {
+      if (!noFish) return "Poissons blanc";
+      return noEggs ? "" : "Oeufs";
     }
 
-    if (mealKey === "dejeuner") return "Viande maigre";
-    if (mealKey === "diner") return digestiveMode ? "Poissons blanc" : "Poissons blanc";
-    return "Viande maigre";
+    if (path.hyperchol) {
+      if (!noFish) return "Poissons blanc";
+      if (!noPoultry) return "Volaille";
+      if (!noEggs) return "Oeufs";
+      return noRedMeat ? "" : "Viande maigre";
+    }
+
+    if (mealKey === "dejeuner") {
+      if (!noPoultry) return "Volaille";
+      if (!noRedMeat) return reg.halal || reg.kosher || excluded.pork ? "Viande maigre" : "Viande maigre";
+      if (!noFish) return "Poissons blanc";
+      return noEggs ? "" : "Oeufs";
+    }
+    if (mealKey === "diner") {
+      if (!noFish) return digestiveMode ? "Poissons blanc" : "Poissons blanc";
+      if (!noPoultry) return "Volaille";
+      return noEggs ? "" : "Oeufs";
+    }
+    if (!noPoultry) return "Volaille";
+    if (!noRedMeat) return "Viande maigre";
+    if (!noFish) return "Poissons blanc";
+    return noEggs ? "" : "Oeufs";
   }
 
   if (g === "Fruits") return "Fruits";
@@ -1012,50 +1051,24 @@ function macroColorScheme(valuePct, range) {
 
 /* ==================== contexte ==================== */
 function parseRegimes(inputs) {
-  const raw = inputs?.regimes || inputs?.regime || inputs?.diets || [];
-  const arr = Array.isArray(raw) ? raw : typeof raw === "string" ? raw.split(",") : [];
-  const set = new Set(arr.map((x) => normalize(x)));
-
-  const vegetarian =
-    set.has("vegetarien") ||
-    set.has("vegetarienne") ||
-    set.has("vegetarien(ne)") ||
-    set.has("vegetarien (sans viande)") ||
-    set.has("vegetarien sans viande");
-
-  const vegan =
-    set.has("vegan") ||
-    set.has("vegane") ||
-    set.has("vegetalien") ||
-    set.has("vegetalien(ne)");
-
-  const glutenFree = set.has("sans gluten") || set.has("sans-gluten") || set.has("sg");
-  const lactoseFree = set.has("sans lactose") || set.has("sans-lactose") || set.has("sl");
-
-  return { vegetarian, vegan, glutenFree, lactoseFree };
+  const allergies = parseAllergyFlags(inputs?.medical?.allergies || inputs?.allergies || "");
+  const foodExclusionFlags = parseFoodExclusionFlags(inputs);
+  const regimeFlags = parseRegimeFlags(inputs);
+  return {
+    ...regimeFlags,
+    lactoseFree: Boolean(regimeFlags.lactoseFree || allergies.milk),
+    glutenFree: Boolean(regimeFlags.glutenFree || allergies.gluten),
+    foodExclusionFlags: {
+      ...foodExclusionFlags,
+      eggs: Boolean(foodExclusionFlags.eggs || allergies.egg),
+      fish: Boolean(foodExclusionFlags.fish || allergies.fish),
+      seafood: Boolean(foodExclusionFlags.seafood || allergies.fish),
+    },
+  };
 }
 
 function parsePathologies(inputs) {
-  const raw = inputs?.medical?.pathologies || inputs?.pathologies || inputs?.pathology || [];
-  const arr = Array.isArray(raw) ? raw : typeof raw === "string" ? raw.split(",") : [];
-  const set = new Set(arr.map((x) => normalize(x)));
-  return {
-    diabete: set.has("diabete"),
-    hta: set.has("hta (hypertension)") || set.has("hta") || set.has("hypertension"),
-    hyperchol: set.has("hypercholesterolemie") || set.has("hypercholesterolémie"),
-    troublesDigestifs:
-      set.has("troubles digestifs") ||
-      set.has("rgo") ||
-      set.has("reflux gastro oesophagien") ||
-      set.has("reflux gastro-oesophagien"),
-    rgo:
-      set.has("rgo") ||
-      set.has("reflux gastro oesophagien") ||
-      set.has("reflux gastro-oesophagien"),
-    tca: set.has("tca (troubles du comportement alimentaire)") || set.has("tca"),
-    hypo: set.has("hypothyroidie") || set.has("hypothyroïdie"),
-    hyper: set.has("hyperthyroidie") || set.has("hyperthyroïdie"),
-  };
+  return parsePathologyFlags(inputs);
 }
 
 function capsForContext(reg, path) {
@@ -1063,6 +1076,28 @@ function capsForContext(reg, path) {
     labelMaxMult: { ...PLAUSIBILITY_MAX_MULT_BY_LABEL },
     poolMaxBudget: {},
   };
+  const excluded = reg?.foodExclusionFlags || {};
+
+  if (reg.pescetarian) {
+    caps.labelMaxMult["Viande moyenne"] = 0;
+    caps.labelMaxMult["Viande maigre"] = 0;
+    caps.labelMaxMult["Volaille"] = 0;
+  }
+
+  if (reg.halal || reg.kosher || excluded.pork) {
+    caps.labelMaxMult["Viande moyenne"] = 0;
+  }
+
+  if (excluded.eggs) caps.labelMaxMult["Oeufs"] = 0;
+  if (excluded.fish || excluded.seafood) {
+    caps.labelMaxMult["Poissons gras"] = 0;
+    caps.labelMaxMult["Poissons blanc"] = 0;
+  }
+  if (excluded.poultry) caps.labelMaxMult["Volaille"] = 0;
+  if (excluded.redMeat) {
+    caps.labelMaxMult["Viande moyenne"] = 0;
+    caps.labelMaxMult["Viande maigre"] = 0;
+  }
 
   if (reg.vegan) {
     caps.labelMaxMult["Oeufs"] = 0;
@@ -1095,7 +1130,7 @@ function capsForContext(reg, path) {
     caps.labelMaxMult["Lait 1/2 écrémé"] = 0;
   }
 
-  if (reg.glutenFree) {
+  if (reg.glutenFree || path.celiac) {
     caps.labelMaxMult["Pain blanc"] = 0;
     caps.labelMaxMult["Pain complet"] = 0;
     caps.labelMaxMult["Féculents crus"] = 0;
@@ -1494,6 +1529,28 @@ function getMealFloorMultiplier(st, def, reg, path) {
   return 0;
 }
 
+function enforceMainMealStarchFloor(draftSlots = {}, slotDefById = {}, reg = {}, path = {}, caps = {}) {
+  const next = { ...draftSlots };
+
+  ["dejeuner", "diner"].forEach((mealKey) => {
+    const slotId = makeSlotId(mealKey, "feculents");
+    const st = next[slotId];
+    const def = slotDefById[slotId];
+    if (!st || !def) return;
+
+    const resolvedLabel = getResolvedLabelForSlot(st, slotDefById, reg, path);
+    const max = caps?.labelMaxMult?.[resolvedLabel];
+    if (max !== undefined && num(max) <= 0) return;
+
+    next[slotId] = {
+      ...st,
+      multiplier: Math.max(0.5, num(st.multiplier || 0)),
+    };
+  });
+
+  return next;
+}
+
 function sanitizeSlotLabelByMeal(st, slotDefById, reg, path) {
   const def = slotDefById[makeSlotId(st.mealKey, st.slotKey)];
   if (!def) return st;
@@ -1612,6 +1669,7 @@ function sanitizeSlotsHard(draftSlots, slotDefById, reg, path, caps, computeTota
     });
   });
 
+  next = enforceMainMealStarchFloor(next, slotDefById, reg, path, caps);
   return applyCapsToSlots(next, caps, slotDefById, reg, path);
 }
 
@@ -2261,6 +2319,7 @@ export default function RationAutoGenerator(props) {
     }
 
     next = sanitizeSlotsHard(next, slotDefById, reg, path, caps, computeTotals);
+    next = enforceMainMealStarchFloor(next, slotDefById, reg, path, caps);
     next = enforceFruitCap(next);
     next = enforceFromageCap(next);
     next = enforceBreadWithCheese(next);
@@ -2700,14 +2759,14 @@ export default function RationAutoGenerator(props) {
     (async () => {
       setCiqualLoading(true);
       try {
-        const res = await fetch("/ciqual_2025.json", { cache: "no-store" });
+        const res = await fetch("/ciqual_2025.json", { cache: "force-cache" });
         const data = await res.json();
         const map = {};
         data.forEach((r) => (map[r.code] = r));
         setCiqual(data);
         setByCode(map);
       } catch {
-        toast({ title: "Données alimentaires", description: "Erreur de chargement", status: "error" });
+        toast({ title: i18n.t("auto.RationAutoGenerator.donnees_alimentaires", "Données alimentaires"), description: i18n.t("errors.loadFailed", "Erreur de chargement"), status: "error" });
       } finally {
         setCiqualLoading(false);
       }
@@ -3198,33 +3257,24 @@ export default function RationAutoGenerator(props) {
         <CardBody>
           <HStack justify="space-between" align="start" gap={3} flexWrap="wrap">
             <Box>
-              <Text fontSize="sm" color={muted}>
-                Totaux jour
-              </Text>
+              <Text fontSize="sm" color={muted}>{i18n.t("auto.RationAutoGenerator.totaux_jour", "Totaux jour")}</Text>
               <HStack mt={2} align="baseline" gap={3} flexWrap="wrap">
                 <Text fontSize="2xl" fontWeight="900">
-                  {r0(computedByMeal.day.kcal)} / {r0(kcalTarget || kcalIndicatif)} kcal
-                </Text>
+                  {r0(computedByMeal.day.kcal)} / {r0(kcalTarget || kcalIndicatif)}{i18n.t("auto.RationAutoGenerator.kcal", "kcal")}</Text>
                 {kcalTarget > 0 && (
-                  <Badge colorScheme={Math.abs(computedByMeal.day.kcal - kcalTarget) <= 50 ? "green" : "yellow"}>
-                    Écart {r0(computedByMeal.day.kcal - kcalTarget)} kcal
-                  </Badge>
+                  <Badge colorScheme={Math.abs(computedByMeal.day.kcal - kcalTarget) <= 50 ? "green" : "yellow"}>{i18n.t("auto.RationAutoGenerator.ecart", "Écart")}{r0(computedByMeal.day.kcal - kcalTarget)}{i18n.t("auto.RationAutoGenerator.kcal", "kcal")}</Badge>
                 )}
               </HStack>
             </Box>
 
             <Box textAlign={{ base: "left", md: "right" }}>
-              <Text fontSize="xs" color={muted} fontWeight="800" textTransform="uppercase">
-                Cibles macros
-              </Text>
+              <Text fontSize="xs" color={muted} fontWeight="800" textTransform="uppercase">{i18n.t("auto.RationAutoGenerator.cibles_macros", "Cibles macros")}</Text>
               <Text fontWeight="900">
-                P {r0(macroTargets.protG)}g • L {r0(macroTargets.lipG)}g • G {r0(macroTargets.gluG)}g
-              </Text>
-              <Text fontSize="xs" opacity={0.75}>
-                Repères bilan : P {formatGramRange(context?.needs?.protG, macroTargets.protG)} (
-                {formatPctRange(context?.needs?.pctRanges?.protPctMin, context?.needs?.pctRanges?.protPctMax, ranges.prot)}) • L{" "}
+                P {r0(macroTargets.protG)}{i18n.t("auto.RationAutoGenerator.g_l", "g • L")}{r0(macroTargets.lipG)}{i18n.t("auto.RationAutoGenerator.g_g", "g • G")}{r0(macroTargets.gluG)}{i18n.t("auto.RationAutoGenerator.g", "g")}</Text>
+              <Text fontSize="xs" opacity={0.75}>{i18n.t("auto.RationAutoGenerator.reperes_bilan_p", "Repères bilan : P")}{formatGramRange(context?.needs?.protG, macroTargets.protG)} (
+                {formatPctRange(context?.needs?.pctRanges?.protPctMin, context?.needs?.pctRanges?.protPctMax, ranges.prot)}{i18n.t("auto.RationAutoGenerator.l", ") • L")}{" "}
                 {formatGramRange(context?.needs?.lipG, macroTargets.lipG)} (
-                {formatPctRange(context?.needs?.pctRanges?.lipPctMin, context?.needs?.pctRanges?.lipPctMax, ranges.lip)}) • G{" "}
+                {formatPctRange(context?.needs?.pctRanges?.lipPctMin, context?.needs?.pctRanges?.lipPctMax, ranges.lip)}{i18n.t("auto.RationAutoGenerator.g_2", ") • G")}{" "}
                 {formatGramRange(context?.needs?.glucG, macroTargets.gluG)} (
                 {formatPctRange(context?.needs?.pctRanges?.gluPctMin, context?.needs?.pctRanges?.gluPctMax, ranges.glu)})
               </Text>
@@ -3234,17 +3284,17 @@ export default function RationAutoGenerator(props) {
           <Wrap mt={4} spacing={2}>
             <WrapItem>
               <Badge colorScheme={macroColorScheme(dayPct.prot, ranges.prot)} variant="subtle" border="1px solid" borderColor={border}>
-                P {r0(computedByMeal.day.prot)}g • {r0(dayPct.prot)}%
+                P {r0(computedByMeal.day.prot)}{i18n.t("auto.RationAutoGenerator.g_3", "g •")}{r0(dayPct.prot)}%
               </Badge>
             </WrapItem>
             <WrapItem>
               <Badge colorScheme={macroColorScheme(dayPct.lip, ranges.lip)} variant="subtle" border="1px solid" borderColor={border}>
-                L {r0(computedByMeal.day.lip)}g • {r0(dayPct.lip)}%
+                L {r0(computedByMeal.day.lip)}{i18n.t("auto.RationAutoGenerator.g_3", "g •")}{r0(dayPct.lip)}%
               </Badge>
             </WrapItem>
             <WrapItem>
               <Badge colorScheme={macroColorScheme(dayPct.glu, ranges.glu)} variant="subtle" border="1px solid" borderColor={border}>
-                G {r0(computedByMeal.day.glu)}g • {r0(dayPct.glu)}%
+                G {r0(computedByMeal.day.glu)}{i18n.t("auto.RationAutoGenerator.g_3", "g •")}{r0(dayPct.glu)}%
               </Badge>
             </WrapItem>
           </Wrap>
@@ -3254,17 +3304,21 @@ export default function RationAutoGenerator(props) {
           <Box bg={bgSoft2} border="1px solid" borderColor={border} p={3} rounded="lg">
             <HStack justify="space-between" align="start" spacing={3} flexWrap="wrap">
               <HStack spacing={2}>
-                <Text fontWeight="900">Micronutriments</Text>
-                <Badge colorScheme={ciqualOk ? "green" : "yellow"}>{ciqualOk ? "Données prêtes" : "Données..."}</Badge>
+                <Text fontWeight="900">{i18n.t("auto.RationAutoGenerator.micronutriments", "Micronutriments")}</Text>
+                <Badge colorScheme={ciqualOk ? "green" : "yellow"}>
+                  {ciqualOk
+                    ? i18n.t("auto.RationAutoGenerator.donnees_pretes", "Données prêtes")
+                    : i18n.t("auto.RationAutoGenerator.donnees_en_cours", "Données...")}
+                </Badge>
               </HStack>
 
               <HStack spacing={2} flexWrap="wrap">
                 <Button size="xs" onClick={() => setNutrientsOpen((v) => !v)}>
-                  {nutrientsOpen ? "Fermer" : "Choisir"}
+                  {nutrientsOpen
+                    ? i18n.t("auto.RationAutoGenerator.fermer", "Fermer")
+                    : i18n.t("auto.RationAutoGenerator.choisir", "Choisir")}
                 </Button>
-                <Button size="xs" variant="outline" onClick={applyRecommendedNutrients}>
-                  Précocher
-                </Button>
+                <Button size="xs" variant="outline" onClick={applyRecommendedNutrients}>{i18n.t("auto.RationAutoGenerator.precocher", "Précocher")}</Button>
                 <Button
                   size="xs"
                   variant="outline"
@@ -3273,28 +3327,22 @@ export default function RationAutoGenerator(props) {
                     allNutrientKeys.forEach((k) => (next[k] = true));
                     setSelectedNutrients(next);
                   }}
-                >
-                  Tout cocher
-                </Button>
-                <Button size="xs" variant="outline" onClick={() => setSelectedNutrients({})}>
-                  Tout décocher
-                </Button>
+                >{i18n.t("auto.RationAutoGenerator.tout_cocher", "Tout cocher")}</Button>
+                <Button size="xs" variant="outline" onClick={() => setSelectedNutrients({})}>{i18n.t("auto.RationAutoGenerator.tout_decocher", "Tout décocher")}</Button>
               </HStack>
             </HStack>
 
             {ciqualLoading && (
               <HStack mt={2} spacing={2}>
                 <Spinner size="sm" />
-                <Text fontSize="sm" opacity={0.75}>
-                  Chargement des données…
-                </Text>
+                <Text fontSize="sm" opacity={0.75}>{i18n.t("auto.RationAutoGenerator.chargement_des_donnees", "Chargement des données…")}</Text>
               </HStack>
             )}
 
             <Text fontSize="sm" opacity={0.75} mt={2}>
               {selectedKeys.length
-                ? `${selectedKeys.length} nutriment(s) sélectionné(s)`
-                : "Aucun nutriment sélectionné (par défaut on en pré-sélectionne quelques-uns si disponible)."}
+                ? i18n.t("auto.RationAutoGenerator.nutriments_selectionnes_count", "{{count}} nutriment(s) sélectionné(s)", { count: selectedKeys.length })
+                : i18n.t("auto.RationAutoGenerator.aucun_nutriment_selectionne", "Aucun nutriment sélectionné (par défaut on en pré-sélectionne quelques-uns si disponible).")}
             </Text>
 
             <Collapse in={nutrientsOpen} animateOpacity>
@@ -3327,20 +3375,20 @@ export default function RationAutoGenerator(props) {
             <HStack mt={3} justify="space-between" align="center" flexWrap="wrap">
               <Text fontSize="sm" opacity={0.75}>
                 {Object.keys(microsTotals || {}).length
-                  ? "Micros calculés (totaux jour)"
-                  : "Micros non affichés (sélection vide ou données absentes)."}
+                  ? i18n.t("auto.RationAutoGenerator.micros_calcules_totaux_jour", "Micros calculés (totaux jour)")
+                  : i18n.t("auto.RationAutoGenerator.micros_non_affiches", "Micros non affichés (sélection vide ou données absentes).")}
               </Text>
               <Button size="xs" variant="outline" onClick={() => setShowMicroDetails((v) => !v)}>
-                {showMicroDetails ? "Masquer" : "Détails"}
+                {showMicroDetails
+                  ? i18n.t("auto.RationAutoGenerator.masquer", "Masquer")
+                  : i18n.t("auto.RationAutoGenerator.details", "Détails")}
               </Button>
             </HStack>
 
             <Collapse in={showMicroDetails} animateOpacity>
               <Box mt={3}>
                 {Object.keys(microsTotals || {}).length === 0 ? (
-                  <Text fontSize="sm" opacity={0.7}>
-                    Sélectionne des nutriments pour afficher les micros.
-                  </Text>
+                  <Text fontSize="sm" opacity={0.7}>{i18n.t("auto.RationAutoGenerator.selectionne_des_nutriments_pour_afficher_les_micro", "Sélectionne des nutriments pour afficher les micros.")}</Text>
                 ) : (
                   <Wrap spacing={2}>
                     {Object.entries(microsTotals).map(([k, v]) => (
@@ -3367,6 +3415,7 @@ export default function RationAutoGenerator(props) {
   const renderMeal = (mealKey, mealLabel) => {
     const defs = SLOTS_BY_MEAL[mealKey] || [];
     const totals = computedByMeal.perMeal[mealKey] || { kcal: 0, prot: 0, lip: 0, glu: 0, alcG: 0 };
+    const mealLabelText = translateAutoLabel(mealLabel);
 
     return (
       <Card bg={panelBg} border="1px solid" borderColor={border} overflow="hidden">
@@ -3374,24 +3423,20 @@ export default function RationAutoGenerator(props) {
           <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2} alignItems="start">
             <Box>
               <Text fontWeight="900" fontSize="lg">
-                {mealLabel}
+                {mealLabelText}
               </Text>
               <Text fontSize="sm" opacity={0.8}>
-                P {r0(totals.prot)}g • L {r0(totals.lip)}g • G {r0(totals.glu)}g
-                {totals.alcG > 0 ? ` • Alcool ${r0(totals.alcG)}g` : ""}
+                P {r0(totals.prot)}{i18n.t("auto.RationAutoGenerator.g_l", "g • L")}{r0(totals.lip)}{i18n.t("auto.RationAutoGenerator.g_g", "g • G")}{r0(totals.glu)}{i18n.t("auto.RationAutoGenerator.g", "g")}{totals.alcG > 0 ? ` • ${i18n.t("auto.RationAutoGenerator.alcool", "Alcool")} ${r0(totals.alcG)}g` : ""}
               </Text>
             </Box>
             <HStack justify={{ base: "flex-start", md: "flex-end" }} spacing={2} flexWrap="wrap">
-              <Badge>{r0(totals.kcal)} kcal</Badge>
+              <Badge>{r0(totals.kcal)}{i18n.t("auto.RationAutoGenerator.kcal", "kcal")}</Badge>
               <Badge bg={chipBg} border="1px solid" borderColor={border}>
-                P {r0(totals.prot)}g
-              </Badge>
+                P {r0(totals.prot)}{i18n.t("auto.RationAutoGenerator.g", "g")}</Badge>
               <Badge bg={chipBg} border="1px solid" borderColor={border}>
-                L {r0(totals.lip)}g
-              </Badge>
+                L {r0(totals.lip)}{i18n.t("auto.RationAutoGenerator.g", "g")}</Badge>
               <Badge bg={chipBg} border="1px solid" borderColor={border}>
-                G {r0(totals.glu)}g
-              </Badge>
+                G {r0(totals.glu)}{i18n.t("auto.RationAutoGenerator.g", "g")}</Badge>
             </HStack>
           </SimpleGrid>
 
@@ -3497,6 +3542,13 @@ export default function RationAutoGenerator(props) {
                 : categoryOptFromBase
                 ? [categoryOptFromBase, ...opts]
                 : opts;
+              const seenOptionLabels = new Set();
+              opts = opts.filter((option) => {
+                const optionKey = String(option?.label || "");
+                if (seenOptionLabels.has(optionKey)) return false;
+                seenOptionLabels.add(optionKey);
+                return true;
+              });
 
               const selectedCandidate = st.label || d.group;
               const familyDefaultResolved = resolveFamilyLabel(mealKey, d, reg, path);
@@ -3536,6 +3588,9 @@ export default function RationAutoGenerator(props) {
               const capsMax = caps?.labelMaxMult?.[resolvedLabel];
               const capInfo = capsMax !== undefined ? `Cap: x${capsMax}` : "";
               const multiplierOptions = multipliersFor(d.group, resolvedLabel);
+              const translatedSlotLabel = translateAutoLabel(d.label);
+              const translatedGroupLabel = translateAutoLabel(d.group);
+              const translatedPreciseLabel = preciseLabel ? translateAutoLabel(preciseLabel) : "";
 
               return (
                 <Box key={slotId} p={{ base: 3, md: 4 }} bg={softBg} border="1px solid" borderColor={border} rounded="lg">
@@ -3543,24 +3598,20 @@ export default function RationAutoGenerator(props) {
                     <HStack align="start" spacing={3}>
                       <Box flex="1" minW={0}>
                         <Text fontWeight="800" lineHeight="1.1" noOfLines={2}>
-                          {d.label}
+                          {translatedSlotLabel}
                           {!d.required && (
                             <Text as="span" fontWeight="700" opacity={0.75}>
-                              {" "}
-                              (option)
-                            </Text>
+                              {" "}{i18n.t("auto.RationAutoGenerator.option", "(option)")}</Text>
                           )}
                         </Text>
                         <Text fontSize="xs" opacity={0.65}>
-                          {d.group} {capInfo ? `• ${capInfo}` : ""}
-                          {preciseLabel ? ` • ${preciseLabel}` : ""}
+                          {translatedGroupLabel} {capInfo ? `• ${capInfo}` : ""}
+                          {translatedPreciseLabel ? ` • ${translatedPreciseLabel}` : ""}
                         </Text>
                       </Box>
 
                       {mult <= 0.001 && (
-                        <Badge bg={chipBg} border="1px solid" borderColor={border} opacity={0.75}>
-                          Off
-                        </Badge>
+                        <Badge bg={chipBg} border="1px solid" borderColor={border} opacity={0.75}>{i18n.t("auto.RationAutoGenerator.off", "Off")}</Badge>
                       )}
                     </HStack>
 
@@ -3576,11 +3627,15 @@ export default function RationAutoGenerator(props) {
                         {opts.length ? (
                           opts.map((o) => (
                             <option key={o.label} value={o.label}>
-                              {o.label === d.group ? o.label : `  ${displayFoodLabel(o.label)}`}
+                              {o.label === d.group ? translateAutoLabel(o.label) : `  ${translateAutoLabel(displayFoodLabel(o.label))}`}
                             </option>
                           ))
                         ) : (
-                          <option value="">{reg.vegan ? "Non disponible (végan)" : "Non disponible"}</option>
+                          <option value="">
+                            {reg.vegan
+                              ? i18n.t("auto.RationAutoGenerator.non_disponible_vegan", "Non disponible (végan)")
+                              : i18n.t("auto.RationAutoGenerator.non_disponible", "Non disponible")}
+                          </option>
                         )}
                       </Select>
 
@@ -3614,38 +3669,30 @@ export default function RationAutoGenerator(props) {
                           </WrapItem>
                           <WrapItem>
                             <Badge bg={chipBg} border="1px solid" borderColor={border}>
-                              {r0(line.kcal)} kcal
-                            </Badge>
+                              {r0(line.kcal)}{i18n.t("auto.RationAutoGenerator.kcal", "kcal")}</Badge>
                           </WrapItem>
                           <WrapItem>
                             <Badge bg={chipBg} border="1px solid" borderColor={border}>
-                              P {r0(line.prot)}g
-                            </Badge>
+                              P {r0(line.prot)}{i18n.t("auto.RationAutoGenerator.g", "g")}</Badge>
                           </WrapItem>
                           <WrapItem>
                             <Badge bg={chipBg} border="1px solid" borderColor={border}>
-                              L {r0(line.lip)}g
-                            </Badge>
+                              L {r0(line.lip)}{i18n.t("auto.RationAutoGenerator.g", "g")}</Badge>
                           </WrapItem>
                           <WrapItem>
                             <Badge bg={chipBg} border="1px solid" borderColor={border}>
-                              G {r0(line.glu)}g
-                            </Badge>
+                              G {r0(line.glu)}{i18n.t("auto.RationAutoGenerator.g", "g")}</Badge>
                           </WrapItem>
                         </>
                       ) : (
                         <WrapItem>
-                          <Badge bg={chipBg} border="1px solid" borderColor={border} opacity={0.7}>
-                            Désactivé
-                          </Badge>
+                          <Badge bg={chipBg} border="1px solid" borderColor={border} opacity={0.7}>{i18n.t("autoPreview.disabled", "Désactivé")}</Badge>
                         </WrapItem>
                       )}
                     </Wrap>
 
                     {snackDisabled && (
-                      <Text fontSize="xs" opacity={0.7}>
-                        Collation désactivée (kcal trop bas).
-                      </Text>
+                      <Text fontSize="xs" opacity={0.7}>{i18n.t("auto.RationAutoGenerator.collation_desactivee_kcal_trop_bas", "Collation désactivée (kcal trop bas).")}</Text>
                     )}
                   </VStack>
                 </Box>
@@ -3660,7 +3707,7 @@ export default function RationAutoGenerator(props) {
   return (
     <Box>
       <HStack justify="space-between" mb={3} flexWrap="wrap" gap={2}>
-        <Heading size="md">Ration auto</Heading>
+        <Heading size="md">{i18n.t("auto.RationAutoGenerator.ration_auto", "Ration auto")}</Heading>
       </HStack>
 
       {headerCards}
@@ -3668,9 +3715,7 @@ export default function RationAutoGenerator(props) {
       {!!adviceItems.length && (
         <Card bg={panelBg} border="1px solid" borderColor={border} mb={4}>
           <CardBody>
-            <Text fontWeight="900" mb={2}>
-              Ajustements automatiques appliqués
-            </Text>
+            <Text fontWeight="900" mb={2}>{i18n.t("auto.RationAutoGenerator.ajustements_automatiques_appliques", "Ajustements automatiques appliqués")}</Text>
             <VStack align="stretch" spacing={2}>
               {adviceItems.map((item, idx) => (
                 <Text key={idx} fontSize="sm" opacity={0.85}>
@@ -3684,9 +3729,7 @@ export default function RationAutoGenerator(props) {
 
       <Divider my={4} />
 
-      <Text fontSize="sm" opacity={0.75} mb={3}>
-        Structure : par défaut seules les familles alimentaires sont sélectionnées avec les quantités adaptées. Tous les détails restent accessibles uniquement dans les menus déroulants.
-      </Text>
+      <Text fontSize="sm" opacity={0.75} mb={3}>{i18n.t("auto.RationAutoGenerator.structure_par_defaut_seules_les_familles_alimentai", "Structure : par défaut seules les familles alimentaires sont sélectionnées avec les quantités adaptées. Tous les détails restent accessibles uniquement dans les menus déroulants.")}</Text>
 
       <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4}>
         {MEAL_KEYS.map((m) => {
@@ -3702,14 +3745,10 @@ export default function RationAutoGenerator(props) {
           return (
             <Box key={m.key} p={6} bg={softBg} border="1px solid" borderColor={border} rounded="lg" textAlign="center">
               <Text fontWeight="bold" fontSize="lg" mb={2}>
-                {m.label}
+                {translateAutoLabel(m.label)}
               </Text>
-              <Text fontSize="sm" opacity={0.7} mb={4}>
-                Non obligatoire (kcal trop bas)
-              </Text>
-              <Button colorScheme="blue" size="md" onClick={() => addSnack(m.key)}>
-                Ajouter cette collation
-              </Button>
+              <Text fontSize="sm" opacity={0.7} mb={4}>{i18n.t("auto.RationAutoGenerator.non_obligatoire_kcal_trop_bas", "Non obligatoire (kcal trop bas)")}</Text>
+              <Button colorScheme="blue" size="md" onClick={() => addSnack(m.key)}>{i18n.t("auto.RationAutoGenerator.ajouter_cette_collation", "Ajouter cette collation")}</Button>
             </Box>
           );
         })}

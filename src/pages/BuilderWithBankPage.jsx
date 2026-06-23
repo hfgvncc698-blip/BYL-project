@@ -19,6 +19,7 @@ import { MdLibraryBooks } from "react-icons/md";
 
 import ProgramBuilder from "../components/ProgramBuilder";
 import ExerciseBank from "../components/ExerciseBank";
+import i18n from "../i18n/index";
 
 export default function BuilderWithBankPage() {
   const bg = useColorModeValue("gray.50", "gray.900");
@@ -91,7 +92,7 @@ export default function BuilderWithBankPage() {
 
       {/* -------- Bouton mobile pour ouvrir la banque -------- */}
       <IconButton
-        aria-label="Ouvrir la banque d’exercices"
+        aria-label={i18n.t("auto.BuilderWithBankPage.ouvrir_la_banque_d_exercices", "Ouvrir la banque d’exercices")}
         icon={<MdLibraryBooks />}
         colorScheme="blue"
         position="fixed"
@@ -109,7 +110,7 @@ export default function BuilderWithBankPage() {
         <DrawerOverlay />
         <DrawerContent overflow="hidden">
           <DrawerCloseButton />
-          <DrawerHeader>Banque d’exercices</DrawerHeader>
+          <DrawerHeader>{i18n.t("auto.BuilderWithBankPage.banque_d_exercices", "Banque d’exercices")}</DrawerHeader>
           <DrawerBody p={0} display="flex">
             <Box
               key={isOpen ? "bank-open" : "bank-closed"}

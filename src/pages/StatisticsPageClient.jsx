@@ -1,23 +1,19 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { Suspense, lazy, useState, useEffect, useMemo } from "react";
 import { useAuth } from "../AuthContext";
 import {
   Box, Heading, SimpleGrid, Text, Grid, Button, HStack, Modal, ModalOverlay,
   ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, FormControl,
-  FormLabel, Input, VStack, useDisclosure, useColorModeValue, Stat, StatLabel,
-  StatNumber, StatHelpText, Divider, Skeleton, useToast, Select, Badge, Circle,
+  FormLabel, Input, VStack, useDisclosure, useColorModeValue, Divider, Skeleton, useToast, Select, Badge, Circle,
   Icon, Flex, Progress
 } from "@chakra-ui/react";
 import {
-  collection, query, where, getDocs, addDoc, serverTimestamp
+  collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, limit, Timestamp
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip
-} from "recharts";
 import { useTranslation } from "react-i18next";
-import SessionComparator from "../components/SessionComparator";
 import AppLoading from "../components/ui/AppLoading";
 import PageBackButton from "../components/ui/PageBackButton";
+import { resolveClientSnapshotForUser } from "../utils/clientResolver";
 import {
   MdOutlineCalendarMonth,
   MdOutlineFitnessCenter,
@@ -27,6 +23,9 @@ import {
   MdOutlineStraighten,
   MdOutlineTimeline,
 } from "react-icons/md";
+
+const BodyMeasureChart = lazy(() => import("../components/stats/BodyMeasureChart.jsx"));
+const SessionComparator = lazy(() => import("../components/SessionComparator.jsx"));
 
 /* ---------- helpers ---------- */
 const CM_PER_IN = 2.54;
@@ -59,6 +58,57 @@ const FIELDS = [
   { k: "metabolicAge", field: "metabolicAge" }, // années
 ];
 
+const FIELD_ALIASES = {
+  taille: ["taille", "height", "heightCm", "body.heightCm", "body.taille"],
+  poids: ["poids", "weight", "weightKg", "body.weightKg", "body.poids"],
+  fatMass: ["fatMass", "fatMassPct", "bodyFat", "bodyFatPct", "bodyFatPercentage", "masseGrasse", "masseGrassePct", "body.fatMassPct"],
+  muscleMass: ["muscleMass", "muscleMassKg", "leanMass", "masseMusculaire", "masseMusculaireKg", "body.muscleMassKg"],
+  waterMass: ["waterMass", "waterMassPct", "bodyWater", "bodyWaterPct", "eau", "eauPct", "body.waterMassPct"],
+  boneMass: ["boneMass", "boneMassKg", "masseOsseuse", "masseOsseuseKg", "body.boneMassKg"],
+  metabolicAge: ["metabolicAge", "ageMetabolique", "body.metabolicAge"],
+};
+
+function readPath(source, path) {
+  return String(path || "")
+    .split(".")
+    .reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), source);
+}
+
+function toNumericMeasure(value) {
+  if (value == null || value === "") return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  const cleaned = String(value).replace(",", ".").replace("%", "").trim();
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getMeasurementValue(measure, field) {
+  if (!measure) return null;
+  const aliases = FIELD_ALIASES[field] || [field];
+  for (const alias of aliases) {
+    const value = toNumericMeasure(readPath(measure, alias));
+    if (value != null) return value;
+  }
+  return null;
+}
+
+function normalizeMeasurementDoc(measure) {
+  const parsed = { ...measure };
+  const tailleCm = getMeasurementValue(parsed, "taille");
+  const poidsKg = getMeasurementValue(parsed, "poids");
+  parsed.taille = tailleCm;
+  parsed.poids = poidsKg;
+  parsed.fatMass = getMeasurementValue(parsed, "fatMass");
+  parsed.muscleMass = getMeasurementValue(parsed, "muscleMass");
+  parsed.waterMass = getMeasurementValue(parsed, "waterMass");
+  parsed.boneMass = getMeasurementValue(parsed, "boneMass");
+  parsed.metabolicAge = getMeasurementValue(parsed, "metabolicAge");
+  if (tailleCm && poidsKg) {
+    parsed.bmi = Number((poidsKg / (tailleCm / 100) ** 2).toFixed(1));
+  }
+  return parsed;
+}
+
 export default function StatisticsPageClient() {
   const { user } = useAuth();
   const { t, i18n } = useTranslation("common");
@@ -76,6 +126,7 @@ export default function StatisticsPageClient() {
 
   const [measures, setMeasures] = useState([]);
   const addMeas = useDisclosure();
+  const comparePanel = useDisclosure();
   const [saving, setSaving] = useState(false);
 
   // unités UI
@@ -140,16 +191,16 @@ export default function StatisticsPageClient() {
   /* -------- load -------- */
   useEffect(() => {
     if (!user) return;
+    let cancelled = false;
 
     (async () => {
       try {
         setLoading(true);
 
-        // 1) client par email
-        const clientSnap = await getDocs(
-          query(collection(db, "clients"), where("email", "==", (user.email || "").toLowerCase()))
-        );
-        if (clientSnap.empty) {
+        // 1) Résolution robuste du document client, alignée avec "Mes programmes".
+        const clientDoc = await resolveClientSnapshotForUser(user, { logPrefix: "StatisticsPageClient" });
+        if (cancelled) return;
+        if (!clientDoc) {
           setClientId(null);
           setProgrammes([]);
           setTotalProg(0);
@@ -160,22 +211,53 @@ export default function StatisticsPageClient() {
           return;
         }
 
-        const cid = clientSnap.docs[0].id;
+        const cid = clientDoc.id;
         setClientId(cid);
 
-        // 2) programmes
-        const progSnap = await getDocs(collection(db, "clients", cid, "programmes"));
+        // 2) données de base en parallèle, bornées pour éviter un premier affichage trop lent.
+        const weekAgo = Date.now() - 7 * 86400000;
+        const weekAgoTimestamp = Timestamp.fromMillis(weekAgo);
+        const sessionsQuery = query(
+          collection(db, "sessions"),
+          where("clientId", "==", cid),
+          where("start", ">=", weekAgoTimestamp),
+          limit(100)
+        );
+
+        const [progSnap, sessSnap, measSnap] = await Promise.all([
+          getDocs(query(collection(db, "clients", cid, "programmes"), limit(100))),
+          getDocs(sessionsQuery).catch(async () =>
+            getDocs(query(collection(db, "sessions"), where("clientId", "==", cid), limit(200)))
+          ),
+          getDocs(query(collection(db, "clients", cid, "measurements"), orderBy("date", "desc"), limit(80))).catch(async () =>
+            getDocs(query(collection(db, "clients", cid, "measurements"), limit(80)))
+          ),
+        ]);
+        if (cancelled) return;
+
         const progs = progSnap.docs.map((d) => ({ id: d.id, ...d.data() })) || [];
         setProgrammes(progs);
         setTotalProg(progs.length);
 
-        // 3) progression
-        let totalPlanned = 0, totalDone = 0;
-        await Promise.all(
+        const sessions = sessSnap.docs.map((d) => d.data())
+          .filter((s) => s?.start?.toDate?.().getTime?.() >= weekAgo);
+        setSessWeek(sessions.length);
+
+        const arr = measSnap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+          .map(normalizeMeasurementDoc);
+        setMeasures(arr);
+        setLoading(false);
+
+        // 3) progression : calcul secondaire, pour ne pas bloquer l'affichage initial.
+        let totalPlanned = 0;
+        let totalDone = 0;
+        await Promise.allSettled(
           progs.map(async (p) => {
             const planned = getTotalSessionsFromProgrammeDoc(p);
             totalPlanned += planned;
-            const effSnap = await getDocs(collection(db, "clients", cid, "programmes", p.id, "sessionsEffectuees"));
+            const effSnap = await getDocs(query(collection(db, "clients", cid, "programmes", p.id, "sessionsEffectuees"), limit(200)));
             const eff = effSnap.docs.map((d) => d.data());
             let doneCount = 0;
             eff.forEach((s) => {
@@ -186,38 +268,20 @@ export default function StatisticsPageClient() {
             totalDone += Math.min(doneCount, planned || doneCount);
           })
         );
+        if (cancelled) return;
         setPercentDone(totalPlanned ? Math.round((totalDone / totalPlanned) * 100) : 0);
-
-        // 4) séances sur 7 jours
-        const weekAgo = Date.now() - 7 * 86400000;
-        const sessSnap = await getDocs(query(collection(db, "sessions"), where("clientId", "==", cid)));
-        const sessions = sessSnap.docs.map((d) => d.data())
-          .filter((s) => s?.start?.toDate?.().getTime?.() >= weekAgo);
-        setSessWeek(sessions.length);
-
-        // 5) mesures (stockées métriques)
-        const measSnap = await getDocs(collection(db, "clients", cid, "measurements"));
-        const arr = measSnap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-          .map((m) => {
-            const parsed = { ...m };
-            const tailleCm = parsed.taille ? parseFloat(parsed.taille) : null;
-            const poidsKg = parsed.poids ? parseFloat(parsed.poids) : null;
-            parsed.taille = tailleCm;
-            parsed.poids = poidsKg;
-            if (tailleCm && poidsKg) {
-              parsed.bmi = Number((poidsKg / (tailleCm / 100) ** 2).toFixed(1));
-            }
-            return parsed;
-          });
-        setMeasures(arr);
       } catch (e) {
+        if (cancelled) return;
         toast({ status: "error", description: t("common.loading_details", "Chargement des détails…") });
-      } finally {
         setLoading(false);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [user, t, toast]);
 
   const latestMeasure = useMemo(() => measures[measures.length - 1] || {}, [measures]);
@@ -226,18 +290,30 @@ export default function StatisticsPageClient() {
   const label = (key, fb) => t(`stats.${key}`, fb);
 
   const latestDisplay = (field) => {
-    if (field === "taille") return latestMeasure.taille != null ? nf0.format(fromCm(latestMeasure.taille, heightUnit)) : "—";
-    if (field === "poids") return latestMeasure.poids != null ? nf1.format(fromKg(latestMeasure.poids, weightUnit)) : "—";
-    return latestMeasure[field] ?? "—";
+    if (field === "taille") {
+      const value = getMeasurementValue(latestMeasure, field);
+      return value != null ? nf0.format(fromCm(value, heightUnit)) : "—";
+    }
+    if (field === "poids") {
+      const value = getMeasurementValue(latestMeasure, field);
+      return value != null ? nf1.format(fromKg(value, weightUnit)) : "—";
+    }
+    if (field === "bmi") return latestMeasure.bmi != null ? nf1.format(latestMeasure.bmi) : "—";
+    const value = [...measures]
+      .reverse()
+      .map((m) => getMeasurementValue(m, field))
+      .find((v) => v != null && v !== 0);
+    return value != null ? nf1.format(value) : "—";
   };
 
   const chartDataFor = (field) => {
-    const list = measures.filter((m) => m[field] != null).map((m) => {
-      let value = m[field];
+    const list = measures.map((m) => {
+      let value = field === "bmi" ? m.bmi : getMeasurementValue(m, field);
+      if (value == null) return null;
       if (field === "taille") value = fromCm(value, heightUnit);
       if (field === "poids") value = fromKg(value, weightUnit);
       return { date: m.date, value };
-    });
+    }).filter(Boolean);
     return list.length >= 2 ? list : null;
   };
 
@@ -252,7 +328,7 @@ export default function StatisticsPageClient() {
   );
 
   const measurementCompletion = useMemo(
-    () => FIELDS.filter(({ field }) => latestMeasure[field] != null && latestMeasure[field] !== "").length,
+    () => FIELDS.filter(({ field }) => (field === "bmi" ? latestMeasure.bmi != null : getMeasurementValue(latestMeasure, field) != null)).length,
     [latestMeasure]
   );
 
@@ -287,13 +363,7 @@ export default function StatisticsPageClient() {
       const arr = measSnap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-        .map((m) => {
-          const tailleCm = m.taille ? parseFloat(m.taille) : null;
-          const poidsKg = m.poids ? parseFloat(m.poids) : null;
-          const out = { ...m, taille: tailleCm, poids: poidsKg };
-          if (tailleCm && poidsKg) out.bmi = Number((poidsKg / (tailleCm / 100) ** 2).toFixed(1));
-          return out;
-        });
+        .map(normalizeMeasurementDoc);
       setMeasures(arr);
 
       addMeas.onClose();
@@ -363,7 +433,7 @@ export default function StatisticsPageClient() {
   );
 
   return (
-    <Box p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
+    <Box data-tour-page="client-stats" p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
       <Box position="absolute" top={{ base: 4, md: 6 }} left={{ base: 4, md: 6 }} zIndex={20}>
         <PageBackButton />
       </Box>
@@ -412,10 +482,10 @@ export default function StatisticsPageClient() {
               </Text>
               <HStack mt={4} spacing={3} wrap="wrap">
                 <Badge borderRadius="full" px={3} py={1} bg="rgba(59,130,246,0.10)" color={activeBlue}>
-                  {totalProg} programme{totalProg > 1 ? "s" : ""} actif{totalProg > 1 ? "s" : ""}
+                  {totalProg}{t("pdf.fileProgram", "programme")}{totalProg > 1 ? "s" : ""}{t("auto.StatisticsPageClient.actif", "actif")}{totalProg > 1 ? "s" : ""}
                 </Badge>
                 <Badge borderRadius="full" px={3} py={1} bg="rgba(16,185,129,0.10)" color={activeMint}>
-                  {measures.length} mesure{measures.length > 1 ? "s" : ""} enregistrée{measures.length > 1 ? "s" : ""}
+                  {measures.length}{t("auto.StatisticsPageClient.mesure", "mesure")}{measures.length > 1 ? "s" : ""}{t("auto.StatisticsPageClient.enregistree", "enregistrée")}{measures.length > 1 ? "s" : ""}
                 </Badge>
               </HStack>
             </Box>
@@ -425,7 +495,7 @@ export default function StatisticsPageClient() {
                 icon={MdOutlineFitnessCenter}
                 labelText={label("kpis.totalPrograms", "Total programmes")}
                 value={nf0.format(totalProg)}
-                helper="programmes disponibles dans ton espace"
+                helper={t("auto.StatisticsPageClient.programmes_disponibles_dans_ton_espace", "programmes disponibles dans ton espace")}
                 glow={statGradients[0]}
                 iconColor={activeBlue}
               />
@@ -433,7 +503,7 @@ export default function StatisticsPageClient() {
                 icon={MdOutlineInsights}
                 labelText={label("kpis.percentDone", "% terminé")}
                 value={`${nf0.format(percentDone)}%`}
-                helper="basé sur les séances validées"
+                helper={t("auto.StatisticsPageClient.base_sur_les_seances_validees", "basé sur les séances validées")}
                 glow={statGradients[1]}
                 iconColor={activeMint}
               />
@@ -441,7 +511,7 @@ export default function StatisticsPageClient() {
                 icon={MdOutlineCalendarMonth}
                 labelText={label("kpis.sessionsPerWeek", "Séances / sem.")}
                 value={nf0.format(sessWeek)}
-                helper="sur les 7 derniers jours"
+                helper={t("auto.StatisticsPageClient.sur_les_7_derniers_jours", "sur les 7 derniers jours")}
                 glow={statGradients[2]}
                 iconColor="#F59E0B"
               />
@@ -451,18 +521,41 @@ export default function StatisticsPageClient() {
 
         {programmes.length > 0 && clientId ? (
           <SurfaceCard p={{ base: 5, md: 6 }}>
-            <HStack spacing={3} mb={4}>
-              <Circle size="42px" bg="rgba(59,130,246,0.10)" color={activeBlue}>
-                <Icon as={MdOutlineTimeline} boxSize="20px" />
-              </Circle>
-              <Box>
-                <Heading size="md" color={accent}>{label("compareSession", "Comparer une séance")}</Heading>
-                <Text mt={1} color={textMuted}>
-                  Visualise les écarts entre deux occurrences d’une même séance sans quitter la page.
-                </Text>
+            <Flex justify="space-between" align={{ base: "stretch", md: "center" }} direction={{ base: "column", md: "row" }} gap={4} mb={4}>
+              <HStack spacing={3} align="flex-start">
+                <Circle size="42px" bg="rgba(59,130,246,0.10)" color={activeBlue}>
+                  <Icon as={MdOutlineTimeline} boxSize="20px" />
+                </Circle>
+                <Box>
+                  <Heading size="md" color={accent}>{label("compareSession", "Comparer une séance")}</Heading>
+                  <Text mt={1} color={textMuted}>{t("auto.StatisticsPageClient.visualise_les_ecarts_entre_deux_occurrences_d_une_", "Visualise les écarts entre deux occurrences d’une même séance sans quitter la page.")}</Text>
+                </Box>
+              </HStack>
+              <Button
+                onClick={comparePanel.onToggle}
+                variant={comparePanel.isOpen ? "solid" : "outline"}
+                colorScheme="blue"
+                borderRadius="full"
+                alignSelf={{ base: "stretch", md: "center" }}
+              >
+                {comparePanel.isOpen ? "Masquer le comparateur" : "Comparer une séance"}
+              </Button>
+            </Flex>
+            {comparePanel.isOpen ? (
+              <Suspense fallback={<Skeleton h="220px" borderRadius="24px" />}>
+                <SessionComparator clientId={clientId} programmes={programmes} />
+              </Suspense>
+            ) : (
+              <Box
+                bg={subCardBg}
+                border="1px solid"
+                borderColor={borderCol}
+                borderRadius="24px"
+                p={5}
+              >
+                <Text color={textMuted}>{t("auto.StatisticsPageClient.aucune_comparaison_ouverte", "Aucune comparaison ouverte.")}</Text>
               </Box>
-            </HStack>
-            <SessionComparator clientId={clientId} programmes={programmes} />
+            )}
           </SurfaceCard>
         ) : (
           <SurfaceCard p={{ base: 5, md: 6 }}>
@@ -486,9 +579,7 @@ export default function StatisticsPageClient() {
                   </Circle>
                   <Box>
                     <Heading size="md" color={accent}>{label("bodyComp", "Données corporelles")}</Heading>
-                    <Text mt={1} color={textMuted}>
-                      Suivi des mesures, des variations et des repères utiles dans le temps.
-                    </Text>
+                    <Text mt={1} color={textMuted}>{t("auto.StatisticsPageClient.suivi_des_mesures_des_variations_et_des_reperes_ut", "Suivi des mesures, des variations et des repères utiles dans le temps.")}</Text>
                   </Box>
                 </HStack>
               </Box>
@@ -497,15 +588,15 @@ export default function StatisticsPageClient() {
                 <FormControl w="auto" minW="92px">
                   <FormLabel fontSize="xs" mb={1} color={subtleText}>{label("units.height", "Taille")}</FormLabel>
                   <Select size="sm" value={heightUnit} onChange={(e) => setHeightUnit(e.target.value)} borderRadius="full" bg={subCardBg}>
-                    <option value="cm">cm</option>
-                    <option value="in">in</option>
+                    <option value="cm">{t("units.cm", "cm")}</option>
+                    <option value="in">{t("auto.StatisticsPageClient.in", "in")}</option>
                   </Select>
                 </FormControl>
                 <FormControl w="auto" minW="92px">
                   <FormLabel fontSize="xs" mb={1} color={subtleText}>{label("units.weight", "Poids")}</FormLabel>
                   <Select size="sm" value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)} borderRadius="full" bg={subCardBg}>
-                    <option value="kg">kg</option>
-                    <option value="lb">lb</option>
+                    <option value="kg">{t("units.kg", "kg")}</option>
+                    <option value="lb">{t("auto.StatisticsPageClient.lb", "lb")}</option>
                   </Select>
                 </FormControl>
                 <Button
@@ -568,26 +659,11 @@ export default function StatisticsPageClient() {
                     <HStack justify="space-between" mb={3} position="relative" zIndex={1}>
                       <Text fontSize="sm" color={textMuted} fontWeight="600">{label(`fields.${k}`)}</Text>
                       <Badge borderRadius="full" bg="rgba(59,130,246,0.10)" color={activeBlue}>
-                        {data.length} points
-                      </Badge>
+                        {data.length}{t("auto.StatisticsPageClient.points", "points")}</Badge>
                     </HStack>
-                    <ResponsiveContainer width="100%" height={170}>
-                      <LineChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={borderCol} />
-                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94A3B8" }} />
-                        <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: "#94A3B8" }} />
-                        <Tooltip
-                          contentStyle={{
-                            fontSize: "12px",
-                            borderRadius: "16px",
-                            border: `1px solid ${borderCol}`,
-                            background: "rgba(15,23,42,0.92)",
-                            color: "#fff",
-                          }}
-                        />
-                        <Line type="monotone" dataKey="value" stroke={activeBlue} strokeWidth={2.5} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
+                    <Suspense fallback={<Skeleton h="170px" borderRadius="18px" />}>
+                      <BodyMeasureChart data={data} borderColor={borderCol} strokeColor={activeBlue} />
+                    </Suspense>
                   </Box>
                 ))}
               </SimpleGrid>
@@ -599,10 +675,8 @@ export default function StatisticsPageClient() {
                 borderRadius="24px"
                 p={5}
               >
-                <Text fontWeight="700" color={accent}>Pas encore assez d’historique</Text>
-                <Text mt={2} color={textMuted}>
-                  Ajoute au moins deux relevés pour afficher des courbes d’évolution exploitables.
-                </Text>
+                <Text fontWeight="700" color={accent}>{t("auto.StatisticsPageClient.pas_encore_assez_d_historique", "Pas encore assez d’historique")}</Text>
+                <Text mt={2} color={textMuted}>{t("auto.StatisticsPageClient.ajoute_au_moins_deux_releves_pour_afficher_des_cou", "Ajoute au moins deux relevés pour afficher des courbes d’évolution exploitables.")}</Text>
               </Box>
             )}
           </SurfaceCard>
@@ -614,14 +688,14 @@ export default function StatisticsPageClient() {
                   <Icon as={MdOutlineStraighten} boxSize="18px" />
                 </Circle>
                 <Box>
-                  <Heading size="sm" color={accent}>Vue rapide</Heading>
-                  <Text fontSize="sm" color={textMuted}>Ce que racontent tes dernières mesures.</Text>
+                  <Heading size="sm" color={accent}>{t("auto.StatisticsPageClient.vue_rapide", "Vue rapide")}</Heading>
+                  <Text fontSize="sm" color={textMuted}>{t("auto.StatisticsPageClient.ce_que_racontent_tes_dernieres_mesures", "Ce que racontent tes dernières mesures.")}</Text>
                 </Box>
               </HStack>
               <VStack spacing={4} align="stretch">
                 <Box>
                   <HStack justify="space-between" mb={1}>
-                    <Text fontSize="sm" color={textMuted}>Mesures renseignées</Text>
+                    <Text fontSize="sm" color={textMuted}>{t("auto.StatisticsPageClient.mesures_renseignees", "Mesures renseignées")}</Text>
                     <Text fontSize="sm" color={subtleText}>{measurementCompletion}/{FIELDS.length}</Text>
                   </HStack>
                   <Progress value={(measurementCompletion / FIELDS.length) * 100} borderRadius="full" size="sm" colorScheme="blue" />
@@ -633,7 +707,7 @@ export default function StatisticsPageClient() {
                   borderRadius="20px"
                   p={4}
                 >
-                  <Text fontSize="sm" color={textMuted}>Dernier poids</Text>
+                  <Text fontSize="sm" color={textMuted}>{t("auto.StatisticsPageClient.dernier_poids", "Dernier poids")}</Text>
                   <Text mt={1} fontSize="2xl" fontWeight="800" color={accent}>{latestDisplay("poids")}</Text>
                 </Box>
                 <Box
@@ -643,7 +717,7 @@ export default function StatisticsPageClient() {
                   borderRadius="20px"
                   p={4}
                 >
-                  <Text fontSize="sm" color={textMuted}>Dernière mise à jour</Text>
+                  <Text fontSize="sm" color={textMuted}>{t("auto.StatisticsPageClient.derniere_mise_a_jour", "Dernière mise à jour")}</Text>
                   <Text mt={1} fontSize="lg" fontWeight="700" color={accent}>
                     {latestMeasure.date || "Aucune mesure"}
                   </Text>
@@ -657,21 +731,21 @@ export default function StatisticsPageClient() {
                   <Icon as={MdOutlineShowChart} boxSize="18px" />
                 </Circle>
                 <Box>
-                  <Heading size="sm" color={accent}>Repères utiles</Heading>
-                  <Text fontSize="sm" color={textMuted}>Résumé simple de ta dynamique actuelle.</Text>
+                  <Heading size="sm" color={accent}>{t("auto.StatisticsPageClient.reperes_utiles", "Repères utiles")}</Heading>
+                  <Text fontSize="sm" color={textMuted}>{t("auto.StatisticsPageClient.resume_simple_de_ta_dynamique_actuelle", "Résumé simple de ta dynamique actuelle.")}</Text>
                 </Box>
               </HStack>
               <VStack spacing={4} align="stretch">
                 <Box>
-                  <Text fontSize="sm" color={textMuted}>Progression globale</Text>
+                  <Text fontSize="sm" color={textMuted}>{t("clientView.globalProgress", "Progression globale")}</Text>
                   <Text mt={1} fontSize="2xl" fontWeight="800" color={accent}>{percentDone}%</Text>
-                  <Text fontSize="sm" color={subtleText}>séances validées sur l’ensemble de tes programmes</Text>
+                  <Text fontSize="sm" color={subtleText}>{t("auto.StatisticsPageClient.seances_validees_sur_l_ensemble_de_tes_programmes", "séances validées sur l’ensemble de tes programmes")}</Text>
                 </Box>
                 <Divider borderColor={borderCol} />
                 <Box>
-                  <Text fontSize="sm" color={textMuted}>Rythme récent</Text>
+                  <Text fontSize="sm" color={textMuted}>{t("auto.StatisticsPageClient.rythme_recent", "Rythme récent")}</Text>
                   <Text mt={1} fontSize="2xl" fontWeight="800" color={accent}>{sessWeek}</Text>
-                  <Text fontSize="sm" color={subtleText}>séance{sessWeek > 1 ? "s" : ""} réalisée{sessWeek > 1 ? "s" : ""} cette semaine</Text>
+                  <Text fontSize="sm" color={subtleText}>{t("auto.StatisticsPageClient.seance", "séance")}{sessWeek > 1 ? "s" : ""}{t("auto.StatisticsPageClient.realisee", "réalisée")}{sessWeek > 1 ? "s" : ""}{t("auto.StatisticsPageClient.cette_semaine", "cette semaine")}</Text>
                 </Box>
               </VStack>
             </SurfaceCard>
@@ -701,8 +775,8 @@ export default function StatisticsPageClient() {
                     <Input type="number" value={newMeas.taille ?? ""}
                       onChange={(e) => setNewMeas((p) => ({ ...p, taille: e.target.value }))} />
                     <Select w="32" value={heightUnit} onChange={(e) => setHeightUnit(e.target.value)}>
-                      <option value="cm">cm</option>
-                      <option value="in">in</option>
+                      <option value="cm">{t("units.cm", "cm")}</option>
+                      <option value="in">{t("auto.StatisticsPageClient.in", "in")}</option>
                     </Select>
                   </HStack>
                 </FormControl>
@@ -714,8 +788,8 @@ export default function StatisticsPageClient() {
                     <Input type="number" value={newMeas.poids ?? ""}
                       onChange={(e) => setNewMeas((p) => ({ ...p, poids: e.target.value }))} />
                     <Select w="32" value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)}>
-                      <option value="kg">kg</option>
-                      <option value="lb">lb</option>
+                      <option value="kg">{t("units.kg", "kg")}</option>
+                      <option value="lb">{t("auto.StatisticsPageClient.lb", "lb")}</option>
                     </Select>
                   </HStack>
                 </FormControl>

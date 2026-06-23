@@ -11643,13 +11643,14 @@
       "Sedia con manubri",
       "Sedia con palla medica",
       "Sedia con alzatacco",
-      "Sedia con elastico"
+      "Sedia con elastico (abduzione)"
     ],
     "consignes": {
       "Positionnement": "Schiena appoggiata al muro, piedi alla larghezza delle spalle, a circa 50 cm dal muro.",
       "Mouvement": "Piegare le gambe a 90°, cosce parallele al suolo, mantenere la posizione senza muoversi.",
       "Respiration": "Respirare con calma e regolarmente, evitare l'apnea.",
-      "Posture": "Schiena dritta, addominali tesi, ginocchia allineate con le caviglie."
+      "Posture": "Schiena dritta, addominali tesi, ginocchia allineate con le caviglie.",
+      "Retour": "Spingi sui talloni per tornare in piedi senza perdere bruscamente la postura."
     }
   },
   "T259": {
@@ -11689,14 +11690,15 @@
       "Evitare in caso di squilibrio o dolori articolari"
     ],
     "variantes": [
-      "Sedia classica",
       "Sedia con manubri",
       "Sedia con palla medica"
     ],
     "consignes": {
       "Positionnement": "Schiena appoggiata al muro, una gamba distesa davanti a sé, l'altra a 90°.",
       "Respiration": "Respira con calma senza bloccare il respiro.",
-      "Posture": "Tronco coperto, ginocchio allineato con la caviglia."
+      "Posture": "Tronco coperto, ginocchio allineato con la caviglia.",
+      "Mouvement": "Scendi fino a formare un angolo di circa 90 gradi alle ginocchia, poi mantieni la posizione.",
+      "Retour": "Spingi sui talloni per tornare in piedi senza perdere bruscamente la postura."
     }
   },
   "T260": {
@@ -11733,13 +11735,15 @@
       "Da evitare in caso di dolori alle ginocchia o alla parte bassa della schiena"
     ],
     "variantes": [
-      "Sedia classica",
       "Sedia unilaterale",
       "Sedia con palla medica"
     ],
     "consignes": {
       "Positionnement": "Posiziona i manubri sulle cosce, mantieni la classica posizione della sedia.",
-      "Posture": "Gli addominali contratti, la schiena appoggiata al muro."
+      "Posture": "Gli addominali contratti, la schiena appoggiata al muro.",
+      "Mouvement": "Scendi fino a formare un angolo di circa 90 gradi alle ginocchia, poi mantieni la posizione.",
+      "Retour": "Spingi sui talloni per tornare in piedi senza perdere bruscamente la postura.",
+      "Respiration": "Inspira durante la preparazione o la discesa, espira durante lo sforzo."
     }
   },
   "T261": {
@@ -11775,13 +11779,15 @@
       "Scegliere un peso adeguato per non aumentare la pressione articolare"
     ],
     "variantes": [
-      "Sedia classica",
       "Sedia con manubri",
-      "Sedia con elastico"
+      "Sedia con elastico (abduzione)"
     ],
     "consignes": {
       "Positionnement": "Palla tenuta davanti a te o tra le ginocchia.",
-      "Posture": "Schiena dritta, addominali contratti."
+      "Posture": "Schiena dritta, addominali contratti.",
+      "Mouvement": "Scendi fino a formare un angolo di circa 90 gradi alle ginocchia, poi mantieni la posizione.",
+      "Retour": "Spingi sui talloni per tornare in piedi senza perdere bruscamente la postura.",
+      "Respiration": "Inspira durante la preparazione o la discesa, espira durante lo sforzo."
     }
   },
   "T262": {
@@ -11817,12 +11823,14 @@
       "Non realizzare se il dolore al tendine d'Achille"
     ],
     "variantes": [
-      "Sedia classica",
-      "Sedia con elastico"
+      "Sedia con elastico (abduzione)"
     ],
     "consignes": {
       "Positionnement": "Solleva i talloni per coinvolgere i polpacci oltre ai quadricipiti.",
-      "Posture": "Mantenere la stabilità, addominali contratti."
+      "Posture": "Mantenere la stabilità, addominali contratti.",
+      "Mouvement": "Scendi fino a formare un angolo di circa 90 gradi alle ginocchia, poi mantieni la posizione.",
+      "Retour": "Spingi sui talloni per tornare in piedi senza perdere bruscamente la postura.",
+      "Respiration": "Inspira durante la preparazione o la discesa, espira durante lo sforzo."
     }
   },
   "T263": {
@@ -11859,12 +11867,14 @@
       "Scegli una fascia elastica adatta per non sbilanciare la postura"
     ],
     "variantes": [
-      "Sedia classica",
       "Sedia con palla medica"
     ],
     "consignes": {
       "Positionnement": "Mantieni la posizione della sedia spingendo le ginocchia contro l'elastico.",
-      "Posture": "Schiena dritta, addominali impegnati."
+      "Posture": "Schiena dritta, addominali impegnati.",
+      "Mouvement": "Scendi fino a formare un angolo di circa 90 gradi alle ginocchia, poi mantieni la posizione.",
+      "Retour": "Spingi sui talloni per tornare in piedi senza perdere bruscamente la postura.",
+      "Respiration": "Inspira durante la preparazione o la discesa, espira durante lo sforzo."
     }
   },
   "T264": {
@@ -11955,14 +11965,15 @@
       "In piedi"
     ],
     "variantes": [
-      "Barra classica per stacco",
-      "Stacco rumeno",
-      "stacco con kettlebell"
+      "Stacco rumeno (RDL)",
+      "Stacco con kettlebell"
     ],
     "consignes": {
       "Positionnement": "Piedi divaricati alla larghezza dei fianchi, manubri davanti alle cosce.",
       "Mouvement": "Abbassa i manubri lungo le gambe, spingendo indietro i fianchi.",
-      "Retour": "Contrai i glutei e raddrizza il busto."
+      "Retour": "Contrai i glutei e raddrizza il busto.",
+      "Respiration": "Inspira prima della discesa, attiva il core ed espira mentre sollevi il carico.",
+      "Posture": "Mantieni la schiena neutra, le spalle attive e il carico vicino al corpo."
     }
   },
   "T266": {
@@ -11998,13 +12009,14 @@
       "I piedi sono ben divaricati"
     ],
     "variantes": [
-      "Barra classica per stacco",
-      "Stacco rumeno"
+      "Stacco rumeno (RDL)"
     ],
     "consignes": {
       "Positionnement": "Piedi divaricati, mani strette sulla barra.",
       "Mouvement": "Spingi attraverso le gambe e contrai i glutei per sollevare la barra.",
-      "Retour": "Controlla la discesa mantenendo la schiena dritta."
+      "Retour": "Controlla la discesa mantenendo la schiena dritta.",
+      "Respiration": "Inspira prima della discesa, attiva il core ed espira mentre sollevi il carico.",
+      "Posture": "Mantieni la schiena neutra, le spalle attive e il carico vicino al corpo."
     }
   },
   "T267": {
@@ -12035,13 +12047,14 @@
       "In piedi"
     ],
     "variantes": [
-      "Barra classica per stacco",
-      "Manubri per stacco"
+      "Stacco con manubri"
     ],
     "consignes": {
       "Positionnement": "Piedi divaricati alla larghezza dei fianchi, barra davanti alle cosce.",
       "Mouvement": "Abbassare la barra spingendo indietro i fianchi, con le gambe leggermente piegate.",
-      "Retour": "Contrai i glutei e i muscoli posteriori della coscia per tornare in posizione eretta."
+      "Retour": "Contrai i glutei e i muscoli posteriori della coscia per tornare in posizione eretta.",
+      "Respiration": "Inspira prima della discesa, attiva il core ed espira mentre sollevi il carico.",
+      "Posture": "Mantieni la schiena neutra, le spalle attive e il carico vicino al corpo."
     }
   },
   "T268": {
@@ -12073,13 +12086,15 @@
       "In piedi"
     ],
     "variantes": [
-      "Manubri per stacco",
-      "Stacco rumeno"
+      "Stacco con manubri",
+      "Stacco rumeno (RDL)"
     ],
     "consignes": {
       "Positionnement": "Posiziona il kettlebell tra i piedi.",
       "Mouvement": "Scendi mantenendo la schiena dritta, afferra il kettlebell e spingi attraverso le gambe per risalire.",
-      "Retour": "Controllare la discesa."
+      "Retour": "Controllare la discesa.",
+      "Respiration": "Inspira prima della discesa, attiva il core ed espira mentre sollevi il carico.",
+      "Posture": "Mantieni la schiena neutra, le spalle attive e il carico vicino al corpo."
     }
   },
   "T269": {
@@ -12109,13 +12124,15 @@
       "In piedi"
     ],
     "variantes": [
-      "Stacco rumeno",
-      "Manubri per stacco"
+      "Stacco rumeno (RDL)",
+      "Stacco con manubri"
     ],
     "consignes": {
       "Positionnement": "Piedi divaricati alla larghezza dei fianchi, gambe dritte ma non bloccate.",
       "Mouvement": "Abbassa la barra mantenendo le gambe dritte e la schiena piatta.",
-      "Retour": "Contrai i muscoli posteriori della coscia e i glutei per tornare in posizione eretta."
+      "Retour": "Contrai i muscoli posteriori della coscia e i glutei per tornare in posizione eretta.",
+      "Respiration": "Inspira prima della discesa, attiva il core ed espira mentre sollevi il carico.",
+      "Posture": "Mantieni la schiena neutra, le spalle attive e il carico vicino al corpo."
     }
   },
   "T270": {
@@ -12148,11 +12165,14 @@
       "Stare in piedi sopraelevato"
     ],
     "variantes": [
-      "Stacco classico"
+      "Stacco (stacco classico)"
     ],
     "consignes": {
       "Positionnement": "Stare su una piattaforma per aumentare l'ampiezza.",
-      "Mouvement": "Solleva la barra come un classico stacco con più stretching."
+      "Mouvement": "Solleva la barra come un classico stacco con più stretching.",
+      "Retour": "Torna lentamente alla posizione iniziale mantenendo il controllo del movimento.",
+      "Respiration": "Inspira prima della discesa, attiva il core ed espira mentre sollevi il carico.",
+      "Posture": "Mantieni la schiena neutra, le spalle attive e il carico vicino al corpo."
     }
   },
   "T271": {
@@ -12183,11 +12203,14 @@
       "In piedi"
     ],
     "variantes": [
-      "Stacco classico"
+      "Stacco (stacco classico)"
     ],
     "consignes": {
       "Positionnement": "Barra posizionata su rack all'altezza del ginocchio.",
-      "Mouvement": "Sollevare la barra ad un'ampiezza ridotta."
+      "Mouvement": "Sollevare la barra ad un'ampiezza ridotta.",
+      "Retour": "Torna lentamente alla posizione iniziale mantenendo il controllo del movimento.",
+      "Respiration": "Inspira prima della discesa, attiva il core ed espira mentre sollevi il carico.",
+      "Posture": "Mantieni la schiena neutra, le spalle attive e il carico vicino al corpo."
     }
   },
   "T272": {
@@ -12223,7 +12246,10 @@
     ],
     "consignes": {
       "Positionnement": "Alzati e tieni le cinghie TRX.",
-      "Mouvement": "Abbassa il busto spingendo i fianchi all'indietro, quindi torna indietro."
+      "Mouvement": "Abbassa il busto spingendo i fianchi all'indietro, quindi torna indietro.",
+      "Retour": "Torna lentamente alla posizione iniziale mantenendo il controllo del movimento.",
+      "Respiration": "Inspira prima della discesa, attiva il core ed espira mentre sollevi il carico.",
+      "Posture": "Mantieni la schiena neutra, le spalle attive e il carico vicino al corpo."
     }
   },
   "T273": {
@@ -12258,7 +12284,10 @@
     ],
     "consignes": {
       "Positionnement": "Posiziona l'elastico sotto i piedi, tienilo con le mani.",
-      "Mouvement": "Abbassare il busto destro poi rialzarsi tirando l'elastico."
+      "Mouvement": "Abbassare il busto destro poi rialzarsi tirando l'elastico.",
+      "Retour": "Torna lentamente alla posizione iniziale mantenendo il controllo del movimento.",
+      "Respiration": "Inspira prima della discesa, attiva il core ed espira mentre sollevi il carico.",
+      "Posture": "Mantieni la schiena neutra, le spalle attive e il carico vicino al corpo."
     }
   },
   "T274": {
@@ -12364,7 +12393,8 @@
       "Positionnement": "Afferrare le maniglie basse, busto più inclinato, piedi attivi.",
       "Mouvement": "Fai passi pesanti, brevi e potenti, mantieni il core.",
       "Retour": "Torna lentamente e preparati per la serie successiva.",
-      "Posture": "Schiena neutra, spalle stabili, collo allineato."
+      "Posture": "Schiena neutra, spalle stabili, collo allineato.",
+      "Respiration": "Respira in modo ritmico e continuo durante tutta la spinta o trazione."
     }
   },
   "T276": {
@@ -12411,7 +12441,9 @@
     "consignes": {
       "Positionnement": "Manici alti o bassi a seconda della comodità, del carico leggero.",
       "Mouvement": "Accelerare su una breve distanza (10–20 m) mantenendo il controllo.",
-      "Retour": "Torna indietro; recuperare attivamente."
+      "Retour": "Torna indietro; recuperare attivamente.",
+      "Respiration": "Respira in modo ritmico e continuo durante tutta la spinta o trazione.",
+      "Posture": "Mantieni il busto stabile, le spalle basse e gli appoggi attivi."
     }
   },
   "T277": {
@@ -12452,13 +12484,15 @@
       "Molto sicuro per le ginocchia ma comunque controllato in retromarcia"
     ],
     "variantes": [
-      "Slitta da traino – Imbracatura anteriore",
+      "Sled Pull – Imbracatura anteriore (corsa o camminata)",
       "Sled Pull – Corda corpo a corpo"
     ],
     "consignes": {
       "Positionnement": "Cintura fissata in vita, camminata indietro con passi controllati.",
       "Mouvement": "Tirare la slitta all'indietro, con le ginocchia e le anche piegate.",
-      "Posture": "Busto alto, busto coperto, punta-tacco attiva."
+      "Posture": "Busto alto, busto coperto, punta-tacco attiva.",
+      "Retour": "Rallenta gradualmente, riposiziona gli appoggi e torna al punto di partenza con controllo.",
+      "Respiration": "Respira in modo ritmico e continuo durante tutta la spinta o trazione."
     }
   },
   "T278": {
@@ -12508,7 +12542,9 @@
     "consignes": {
       "Positionnement": "Imbracatura su busto/spalle, tronco inguainato.",
       "Mouvement": "Correre o camminare tirando la slitta, a passi regolari.",
-      "Respiration": "Regolare, adattato allo sforzo."
+      "Respiration": "Regolare, adattato allo sforzo.",
+      "Retour": "Rallenta gradualmente, riposiziona gli appoggi e torna al punto di partenza con controllo.",
+      "Posture": "Mantieni il busto stabile, le spalle basse e gli appoggi attivi."
     }
   },
   "T279": {
@@ -12552,13 +12588,15 @@
       "Mantieni la schiena neutra; non arrotondare quando si tira forte"
     ],
     "variantes": [
-      "Slitta da traino – Imbracatura anteriore",
+      "Sled Pull – Imbracatura anteriore (corsa o camminata)",
       "Slitta Tirare indietro (trascinare)"
     ],
     "consignes": {
       "Positionnement": "Ancora i piedi, afferra la corda con una presa alternata.",
       "Mouvement": "Tirare mano a mano, portare la corda verso il petto, fare un passo indietro se in piedi.",
-      "Posture": "Nucleo forte, spalle basse."
+      "Posture": "Nucleo forte, spalle basse.",
+      "Retour": "Rallenta gradualmente, riposiziona gli appoggi e torna al punto di partenza con controllo.",
+      "Respiration": "Respira in modo ritmico e continuo durante tutta la spinta o trazione."
     }
   },
   "T280": {
@@ -12604,7 +12642,9 @@
     "consignes": {
       "Positionnement": "Attaccare la slitta all'altezza della vita, stare di lato.",
       "Mouvement": "Muoviti lateralmente mentre tiri la slitta, con passi controllati.",
-      "Posture": "Tronco inguainato, bacino stabile."
+      "Posture": "Tronco inguainato, bacino stabile.",
+      "Retour": "Rallenta gradualmente, riposiziona gli appoggi e torna al punto di partenza con controllo.",
+      "Respiration": "Respira in modo ritmico e continuo durante tutta la spinta o trazione."
     }
   },
   "T281": {
@@ -12649,12 +12689,14 @@
     ],
     "variantes": [
       "Sled Pull – Corda corpo a corpo",
-      "Slitta da traino – Imbracatura anteriore"
+      "Sled Pull – Imbracatura anteriore (corsa o camminata)"
     ],
     "consignes": {
       "Positionnement": "Afferrare le maniglie/fune con le braccia tese, i piedi ancorati.",
       "Mouvement": "Tirare verso il petto portando i gomiti verso l'interno, fare un passo indietro mantenendo il controllo.",
-      "Posture": "Spalle basse, tronco forte, sguardo fisso all'orizzonte."
+      "Posture": "Spalle basse, tronco forte, sguardo fisso all'orizzonte.",
+      "Retour": "Rallenta gradualmente, riposiziona gli appoggi e torna al punto di partenza con controllo.",
+      "Respiration": "Respira in modo ritmico e continuo durante tutta la spinta o trazione."
     }
   },
   "T282": {
@@ -12702,7 +12744,9 @@
     "consignes": {
       "Positionnement": "Cinghie alle mani/avambracci, busto inclinato.",
       "Mouvement": "Spingi in avanti mentre ti muovi in avanti, con le braccia distese.",
-      "Posture": "Nucleo forte, bacino neutro, cadenza regolare."
+      "Posture": "Nucleo forte, bacino neutro, cadenza regolare.",
+      "Retour": "Rallenta gradualmente, riposiziona gli appoggi e torna al punto di partenza con controllo.",
+      "Respiration": "Respira in modo ritmico e continuo durante tutta la spinta o trazione."
     }
   },
   "T283": {
@@ -12749,7 +12793,9 @@
     "consignes": {
       "Positionnement": "Cinghie tenute all'altezza delle spalle.",
       "Mouvement": "Spingere sopra la testa avanzando, con le braccia tese alla fine del gesto.",
-      "Posture": "Costole retratte, bacino neutro, non inarcarsi."
+      "Posture": "Costole retratte, bacino neutro, non inarcarsi.",
+      "Retour": "Rallenta gradualmente, riposiziona gli appoggi e torna al punto di partenza con controllo.",
+      "Respiration": "Respira in modo ritmico e continuo durante tutta la spinta o trazione."
     }
   },
   "T284": {
@@ -12791,12 +12837,14 @@
     ],
     "variantes": [
       "Trascinamento laterale della slitta",
-      "Rotazione della slitta"
+      "Rotazione della slitta (taglialegna a corda)"
     ],
     "consignes": {
       "Positionnement": "Stare di lato, le mani sulle maniglie, i piedi paralleli.",
       "Mouvement": "Spingi lateralmente con passi ampi, mantenendo il busto allineato.",
-      "Posture": "Guaina antirotazione, spalle basse."
+      "Posture": "Guaina antirotazione, spalle basse.",
+      "Retour": "Rallenta gradualmente, riposiziona gli appoggi e torna al punto di partenza con controllo.",
+      "Respiration": "Respira in modo ritmico e continuo durante tutta la spinta o trazione."
     }
   },
   "T285": {
@@ -12845,7 +12893,9 @@
     "consignes": {
       "Positionnement": "Di lato, afferrare la corda con entrambe le mani all'altezza delle spalle.",
       "Mouvement": "Tirare/guidare la corda con rotazione controllata come un tritatutto.",
-      "Posture": "Guaina anti-estensione, spalle basse, trasferimento fluido del peso."
+      "Posture": "Guaina anti-estensione, spalle basse, trasferimento fluido del peso.",
+      "Retour": "Rallenta gradualmente, riposiziona gli appoggi e torna al punto di partenza con controllo.",
+      "Respiration": "Respira in modo ritmico e continuo durante tutta la spinta o trazione."
     }
   },
   "T286": {
@@ -12897,7 +12947,9 @@
     "consignes": {
       "Positionnement": "Posizionare le cinghie su un'imbracatura bassa o sulle mani, mettersi in posizione quadrupede.",
       "Mouvement": "Avanzate con un passo strisciato, trascinando la slitta dietro di voi.",
-      "Posture": "Schiena neutra, bacino stabile, evitare l'arco lombare."
+      "Posture": "Schiena neutra, bacino stabile, evitare l'arco lombare.",
+      "Retour": "Rallenta gradualmente, riposiziona gli appoggi e torna al punto di partenza con controllo.",
+      "Respiration": "Respira in modo ritmico e continuo durante tutta la spinta o trazione."
     }
   },
   "T287": {
@@ -12939,14 +12991,13 @@
     "contraintes": [
       "Proteggere bene il tronco per evitare inclinazioni laterali"
     ],
-    "variantes": [
-      "Camminata del contadino con manubri",
-      "Farmer Walk con kettlebell"
-    ],
+    "variantes": [],
     "consignes": {
       "Positionnement": "Afferrare le maniglie laterali della slitta, con le braccia tese.",
       "Mouvement": "Camminare dritto mantenendo la guaina e il carico.",
-      "Posture": "Dorso neutro, spalle basse, nucleo stretto."
+      "Posture": "Dorso neutro, spalle basse, nucleo stretto.",
+      "Retour": "Rallenta gradualmente, riposiziona gli appoggi e torna al punto di partenza con controllo.",
+      "Respiration": "Respira in modo ritmico e continuo durante tutta la spinta o trazione."
     }
   },
   "T288": {
@@ -12991,13 +13042,15 @@
       "Evitare lo squilibrio laterale; stabilizzare il bacino"
     ],
     "variantes": [
-      "Fila di slitte in piedi",
+      "Rematura con slitta in piedi (trazione orizzontale)",
       "Pressa per pettorali a slitta"
     ],
     "consignes": {
       "Positionnement": "Posizionare un piede in avanti (affondo), busto dritto, cinghie in mano.",
       "Mouvement": "Esegui una trazione o una spinta unilaterale mantenendo l'affondo.",
-      "Posture": "Tronco inguainato, ginocchio anteriore allineato con la caviglia."
+      "Posture": "Tronco inguainato, ginocchio anteriore allineato con la caviglia.",
+      "Retour": "Rallenta gradualmente, riposiziona gli appoggi e torna al punto di partenza con controllo.",
+      "Respiration": "Respira in modo ritmico e continuo durante tutta la spinta o trazione."
     }
   },
   "T289": {

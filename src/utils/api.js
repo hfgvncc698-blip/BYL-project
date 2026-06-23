@@ -15,7 +15,19 @@ export async function apiFetch(path, { json = true, ...opts } = {}) {
     Object.entries(authHeaders).forEach(([key, value]) => headers.set(key, value));
   }
 
-  const res = await fetch(url, { credentials: 'include', ...opts, headers });
+  let res;
+  try {
+    res = await fetch(url, { credentials: 'include', ...opts, headers });
+  } catch (cause) {
+    const err = new Error(
+      import.meta.env.DEV
+        ? "API locale indisponible. Lance le backend avec npm run dev:api, puis réessaie."
+        : "Connexion API impossible. Réessaie dans un instant."
+    );
+    err.cause = cause;
+    err.url = url;
+    throw err;
+  }
   let data = null;
   try { data = await res.json(); } catch { /* ignore */ }
 

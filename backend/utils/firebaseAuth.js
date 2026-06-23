@@ -36,9 +36,14 @@ async function requireSelfOrAdmin(req, res, next) {
 
     const requestedUid = String(
       req.body?.userId ||
+        req.body?.firebaseUid ||
         req.body?.uid ||
         req.params?.userId ||
+        req.params?.firebaseUid ||
+        req.params?.uid ||
         req.query?.userId ||
+        req.query?.firebaseUid ||
+        req.query?.uid ||
         ""
     ).trim();
 

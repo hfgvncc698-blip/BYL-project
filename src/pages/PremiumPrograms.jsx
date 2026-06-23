@@ -1,15 +1,31 @@
 // src/pages/PremiumPrograms.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Box, Heading, Text, Button, HStack, Badge, Spinner,
+  Box, Heading, Text, Button, HStack, Badge, Spinner, Icon,
   useColorModeValue, useToast, Modal, ModalOverlay, ModalContent,
-  ModalHeader, ModalCloseButton, ModalBody, ModalFooter, Divider, SimpleGrid
+  ModalHeader, ModalCloseButton, ModalBody, ModalFooter, Divider, SimpleGrid, Stack,
 } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
 import { collection, getDocs, getDoc, doc, query, where } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useAuth } from "../AuthContext";
 import { useTranslation } from "react-i18next";
+import {
+  MdFitnessCenter,
+  MdOutlineAccessTime,
+  MdOutlineAccessibilityNew,
+  MdOutlineDirectionsRun,
+  MdOutlineFavorite,
+  MdOutlineFlashOn,
+  MdOutlineLocalFireDepartment,
+  MdOutlineSelfImprovement,
+  MdOutlineTrendingUp,
+  MdOutlineWorkspacePremium,
+} from "react-icons/md";
+import { useAppTheme } from "../styles/appTheme";
+import PageBackButton from "../components/ui/PageBackButton";
+import { formatProgramActiveWeeks } from "../utils/programDuration";
+import { estimateSessionDurationSeconds } from "../utils/trainingEngine";
 
 // ✅ helper HTTP centralisé (gère la base /api et credentials)
 import { apiFetch } from "../utils/api";
@@ -26,52 +42,77 @@ const fmtPrice = (n, lng = "fr", currency = "EUR") => {
 };
 const getProgrammeDisplayName = (p) =>
   p?.name || p?.nomProgramme || p?.title || p?.objectif || "Programme";
+const langKey = (lng) => String(lng || "fr").split("-")[0];
+const trValue = (entity, field, lng) =>
+  entity?.translations?.[langKey(lng)]?.[field] ||
+  entity?.translations?.fr?.[field] ||
+  entity?.[field] ||
+  null;
+const trArray = (entity, field, lng) => {
+  const translated = entity?.translations?.[langKey(lng)]?.[field] || entity?.translations?.fr?.[field];
+  return Array.isArray(translated) ? translated : (Array.isArray(entity?.[field]) ? entity[field] : []);
+};
+const trProgramName = (p, lng) =>
+  trValue(p, "name", lng) || trValue(p, "nomProgramme", lng) || trValue(p, "title", lng) || getProgrammeDisplayName(p);
+const trProgramDesc = (p, lng, fallback) =>
+  trValue(p, "cardDesc", lng) || trValue(p, "shortDesc", lng) || trValue(p, "recap", lng) || fallback;
+const normalizeGoalLabel = (value) =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+const getPremiumGoalIcon = (program) => {
+  const goal = normalizeGoalLabel(
+    program?.objectif ||
+    program?.goal ||
+    program?.translations?.fr?.objectif ||
+    program?.translations?.fr?.goal
+  );
 
-function toSeconds(val) {
-  if (val == null) return 0;
-  if (typeof val === "number" && Number.isFinite(val)) {
-    return val > 10000 ? Math.round(val / 1000) : Math.round(val);
+  if (goal.includes("perte") || goal.includes("seche") || goal.includes("poids") || goal.includes("weight")) {
+    return MdOutlineLocalFireDepartment;
   }
-  const s = String(val).trim();
-  if (!s) return 0;
-  if (/^\d+$/.test(s)) return parseInt(s, 10);
-  const parts = s.split(":").map(p => parseInt(p, 10) || 0);
-  if (parts.length === 2) return parts[0] * 60 + parts[1];
-  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  return 0;
-}
+  if (goal.includes("mobil") || goal.includes("posture") || goal.includes("souplesse")) {
+    return MdOutlineSelfImprovement;
+  }
+  if (goal.includes("cardio") || goal.includes("endurance") || goal.includes("conditioning")) {
+    return MdOutlineDirectionsRun;
+  }
+  if (goal.includes("reprise") || goal.includes("forme") || goal.includes("bien-etre") || goal.includes("bien etre")) {
+    return MdOutlineFavorite;
+  }
+  if (goal.includes("core") || goal.includes("gainage") || goal.includes("abdos")) {
+    return MdOutlineAccessibilityNew;
+  }
+  if (goal.includes("hybride") || goal.includes("athlet") || goal.includes("performance")) {
+    return MdOutlineFlashOn;
+  }
+  if (goal.includes("force") || goal.includes("renforcement")) {
+    return MdOutlineTrendingUp;
+  }
+  return MdFitnessCenter;
+};
+
 function getAvgDurationRounded15FromSessions(sessions) {
   if (!sessions) return null;
-  let totalSec = 0; let count = 0;
-  const visitBlockArray = (arr) => {
-    if (!Array.isArray(arr)) return;
-    for (const ex of arr) {
-      if (!ex || typeof ex !== "object") continue;
-      const series = Number(ex.series ?? ex["Séries"] ?? 0) || 0;
-      const reps   = Number(ex.repetitions ?? ex["Répétitions"] ?? 0) || 0;
-      const rest   = toSeconds(ex.repos ?? ex["Repos (min:sec)"] ?? ex.pause ?? 0);
-      const perRep = toSeconds(ex.temps_par_repetition ?? ex.tempsParRep ?? 0);
-      const fixed  = toSeconds(ex.duree ?? ex["Durée (min:sec)"] ?? ex.duree_effort ?? ex.temps_effort ?? 0);
-      let effort = 0;
-      if (perRep > 0 && reps > 0 && series > 0) effort = perRep * reps * series;
-      else if (fixed > 0 && series > 0) effort = fixed * series;
-      else if (fixed > 0) effort = fixed;
-      else if (reps > 0 && series > 0) effort = 3 * reps * series;
-      totalSec += effort + rest * (series || 1);
-    }
-  };
-  const visitSession = (sess) => {
-    if (!sess || typeof sess !== "object") return;
-    visitBlockArray(sess.echauffement);
-    visitBlockArray(sess.corps);
-    visitBlockArray(sess.retourCalme);
-    visitBlockArray(sess.bonus);
-    if (Array.isArray(sess.exercises)) visitBlockArray(sess.exercises);
-  };
+  let totalSec = 0;
+  let count = 0;
   if (Array.isArray(sessions)) {
-    sessions.forEach(sess => { visitSession(sess); count++; });
+    sessions.forEach((sess) => {
+      const seconds = estimateSessionDurationSeconds(sess);
+      if (seconds > 0) {
+        totalSec += seconds;
+        count += 1;
+      }
+    });
   } else if (typeof sessions === "object") {
-    Object.values(sessions).forEach(sess => { visitSession(sess); count++; });
+    Object.values(sessions).forEach((sess) => {
+      const seconds = estimateSessionDurationSeconds(sess);
+      if (seconds > 0) {
+        totalSec += seconds;
+        count += 1;
+      }
+    });
   }
   if (totalSec <= 0 || count === 0) return null;
   const avgSec = totalSec / count;
@@ -83,35 +124,38 @@ function getAvgDurationRounded15FromSessions(sessions) {
 function PremiumDetailsModal({
   isOpen, onClose, program, loadingDetails, onBuy, onClaimFree, freeAvailable, requireLogin
 }) {
-  const { t } = useTranslation("common");
+  const { t, i18n } = useTranslation("common");
   const muted = useColorModeValue('gray.600', 'gray.300');
+  const sectionBorder = useColorModeValue("rgba(15,23,42,0.08)", "rgba(255,255,255,0.10)");
   if (!program) return null;
 
   const goal = program.goal ?? program.objectif ?? null;
   const level = program.level ?? program.niveauSportif ?? null;
   const sessionsPerWeek = program.sessionsPerWeek ?? program.nbSeances ?? null;
-  const durWeeks = program.durationWeeks ?? null;
+  const durWeeks = program.activeWeeks ?? program.durationWeeks ?? null;
   const location = program.location ?? null;
   const durMin = program._avgDurationMin ?? program.durationPerSessionMin ?? null;
 
   const hasPromo = Boolean(program?.isPromo && program?.promoPriceEUR);
-  const title = getProgrammeDisplayName(program);
-  const desc  = program.recap || program.shortDesc || t("premium.subtitle");
+  const lng = i18n.resolvedLanguage || i18n.language || "fr";
+  const title = trProgramName(program, lng);
+  const desc  = trValue(program, "recap", lng) || trValue(program, "shortDesc", lng) || t("premium.subtitle");
 
   const normal = fmtPrice(program?.priceEUR);
   const promo  = fmtPrice(program?.promoPriceEUR);
+  const sessions = Array.isArray(program.sessions) ? program.sessions : [];
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="lg" isCentered>
+    <Modal isOpen={isOpen} onClose={onClose} size="3xl" isCentered scrollBehavior="inside">
       <ModalOverlay />
       <ModalContent overflow="hidden" rounded="2xl">
         <ModalHeader>{title}</ModalHeader>
         <ModalCloseButton />
         <ModalBody>
           <HStack spacing={2} mb={2} wrap="wrap">
-            {goal && <Badge colorScheme="purple">{goal}</Badge>}
-            {level && <Badge>{level}</Badge>}
-            {location && <Badge variant="subtle">{location}</Badge>}
+            {goal && <Badge colorScheme="purple">{trValue(program, "objectif", lng) || trValue(program, "goal", lng) || goal}</Badge>}
+            {level && <Badge>{trValue(program, "niveauSportif", lng) || trValue(program, "level", lng) || level}</Badge>}
+            {location && <Badge variant="subtle">{trValue(program, "location", lng) || location}</Badge>}
             {sessionsPerWeek && <Badge variant="outline">{sessionsPerWeek} {t("premium.per_week_short")}</Badge>}
             {durMin && <Badge variant="outline">≈ {durMin} {t("premium.min")}</Badge>}
             {durWeeks && <Badge variant="outline">{durWeeks} {t("premium.weeks_short")}</Badge>}
@@ -143,6 +187,42 @@ function PremiumDetailsModal({
           ) : (
             <Text color={muted}>{desc}</Text>
           )}
+
+          {!!sessions.length && (
+            <Stack spacing={3} mt={5}>
+              {sessions.map((session, index) => (
+                <Box
+                  key={`${session?.title || session?.name || index}-${index}`}
+                  border="1px solid"
+                  borderColor={sectionBorder}
+                  borderRadius="lg"
+                  px={4}
+                  py={3}
+                >
+                  <Text fontWeight="900">
+                    {index + 1}. {trValue(session, "title", lng) || trValue(session, "name", lng) || `Séance ${index + 1}`}
+                  </Text>
+                  {!!trArray(session, "focus", lng).length && (
+                    <Text color={muted} fontSize="sm">{trArray(session, "focus", lng).join(" · ")}</Text>
+                  )}
+                  {(trValue(session, "preview", lng) || trValue(session, "description", lng)) && (
+                    <Text color={muted} fontSize="sm" mt={1}>
+                      {trValue(session, "preview", lng) || trValue(session, "description", lng)}
+                    </Text>
+                  )}
+                </Box>
+              ))}
+              <Box border="1px solid" borderColor={sectionBorder} borderRadius="lg" p={4}>
+                <Text fontWeight="900">{t("premium.previewLockedTitle", "Contenu détaillé inclus après achat")}</Text>
+                <Text color={muted} fontSize="sm" mt={1}>
+                  {t(
+                    "premium.previewLockedText",
+                    "L'échauffement, les exercices, les séries, les temps de repos et le retour au calme sont débloqués dans ton espace après l'achat."
+                  )}
+                </Text>
+              </Box>
+            </Stack>
+          )}
         </ModalBody>
 
         <Divider />
@@ -171,6 +251,7 @@ export default function PremiumPrograms(){
   const { user } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
+  const theme = useAppTheme();
   const lng = i18n.resolvedLanguage || "fr";
 
   const [premium, setPremium] = useState([]);
@@ -184,10 +265,18 @@ export default function PremiumPrograms(){
   const [selectedPrem, setSelectedPrem] = useState(null);
   const [loadingPremDetails, setLoadingPremDetails] = useState(false);
 
-  const pageBg     = useColorModeValue("gray.50","gray.900");
-  const cardBg     = useColorModeValue("white","gray.800");
-  const borderColor= useColorModeValue("#e2e8f0","#4a5568");
-  const descColor  = useColorModeValue("gray.600","gray.400");
+  const headerPanelBg = useColorModeValue(
+    "linear-gradient(135deg, rgba(255,255,255,0.96), rgba(239,246,255,0.86))",
+    "linear-gradient(135deg, rgba(13,19,32,0.96), rgba(12,28,48,0.78))"
+  );
+  const cardPanelBg = useColorModeValue(
+    "rgba(255,255,255,0.86)",
+    "rgba(255,255,255,0.045)"
+  );
+  const headerShadow = useColorModeValue("0 18px 50px rgba(15,23,42,0.07)", "0 18px 55px rgba(0,0,0,0.24)");
+  const programCardShadow = useColorModeValue("0 16px 42px rgba(15,23,42,0.06)", "0 18px 54px rgba(0,0,0,0.22)");
+  const oldPriceColor = useColorModeValue("gray.500","gray.400");
+  const accents = [theme.accentBlue, theme.accentGreen, "#F59E0B", "#A78BFA"];
 
   const freeAvailable = useMemo(() => {
     if (elig && typeof elig.freeAvailable === "boolean") return elig.freeAvailable;
@@ -230,17 +319,32 @@ export default function PremiumPrograms(){
           setClaimedLocal(null);
         }
 
-        // Catalogue
-        const q1 = query(collection(db,"programmes"), where("origine","==","premium"));
-        const q2 = query(collection(db,"programmes"), where("isPremiumOnly","==",true));
-        const [s1,s2] = await Promise.all([getDocs(q1).catch(()=>null), getDocs(q2).catch(()=>null)]);
-        const map=new Map();
-        for(const s of [s1,s2]){ if(!s) continue; s.docs.forEach(d=>map.set(d.id,{id:d.id, ...d.data()})); }
-        const rows = Array.from(map.values())
-          .filter(p => (p?.isActive ?? true) && (p?.isPremiumOnly ?? true))
+        // Catalogue: API backend d'abord pour éviter les différences de règles Firestore côté client.
+        let catalog = [];
+        try {
+          const data = await apiFetch("/payments/premium-programs");
+          catalog = Array.isArray(data?.programs) ? data.programs : [];
+        } catch (apiError) {
+          console.warn("[PremiumPrograms] backend premium fetch failed, fallback Firestore", apiError);
+          const q1 = query(collection(db,"programmes"), where("origine","==","premium"));
+          const q2 = query(collection(db,"programmes"), where("isPremiumOnly","==",true));
+          const [s1,s2] = await Promise.all([
+            getDocs(q1).catch((e)=>{ console.warn("[PremiumPrograms] origine query failed", e); return null; }),
+            getDocs(q2).catch((e)=>{ console.warn("[PremiumPrograms] isPremiumOnly query failed", e); return null; }),
+          ]);
+          const map=new Map();
+          for(const s of [s1,s2]){ if(!s) continue; s.docs.forEach(d=>map.set(d.id,{id:d.id, ...d.data()})); }
+          catalog = Array.from(map.values());
+        }
+
+        const rows = catalog
+          .filter(p => (p?.isActive ?? true))
           .map(p => ({
             ...p,
-            _avgDurationMin: getAvgDurationRounded15FromSessions(p.sessions) ?? p.durationPerSessionMin ?? null
+            _avgDurationMin: Math.max(
+              getAvgDurationRounded15FromSessions(p.sessions) ?? 0,
+              Number(p.durationPerSessionMin) || 0
+            ) || null
           }))
           .sort((a,b)=>(a?.featuredRank ?? 999)-(b?.featuredRank ?? 999));
         setPremium(rows);
@@ -319,10 +423,11 @@ export default function PremiumPrograms(){
       if (full.exists()) {
         const data = full.data();
         const avg = getAvgDurationRounded15FromSessions(data.sessions);
+        const duration = Math.max(avg ?? 0, Number(data?.durationPerSessionMin) || 0) || null;
         setSelectedPrem(prev => ({
           ...prev,
           ...data,
-          _avgDurationMin: (avg ?? data?.durationPerSessionMin ?? prev?._avgDurationMin ?? null)
+          _avgDurationMin: (duration ?? prev?._avgDurationMin ?? null)
         }));
       }
     } finally {
@@ -332,94 +437,205 @@ export default function PremiumPrograms(){
 
   /* ---------- UI ---------- */
   return (
-    <Box bg={pageBg} minH="100vh" px={{ base: 4, md: 12 }} py={10}>
-      <Heading size="2xl" mb={2}>{t("premium.title")}</Heading>
-      <Text color={useColorModeValue('gray.600','gray.400')} mb={8}>
-        {t("premium.subtitle")}
-      </Text>
+    <Box bg={theme.pageBg} minH="100vh" px={{ base: 4, md: 8 }} py={{ base: 6, md: 10 }}>
+      <Box maxW="1180px" mx="auto">
+        <HStack mb={4}>
+          <PageBackButton fallbackTo="/user-dashboard" label={t("programView.back", "Retour")} />
+          <Text color={theme.mutedText} fontWeight="800" fontSize="sm">
+            {t("programView.back", "Retour")}
+          </Text>
+        </HStack>
+        <Box
+          bg={headerPanelBg}
+          border="1px solid"
+          borderColor={theme.borderColor}
+          borderRadius={{ base: "18px", md: "22px" }}
+          px={{ base: 5, md: 7 }}
+          py={{ base: 5, md: 6 }}
+          mb={6}
+          boxShadow={headerShadow}
+        >
+          <HStack justify="space-between" align={{ base: "flex-start", md: "center" }} spacing={4} flexWrap="wrap">
+            <Box>
+              <HStack spacing={3} mb={3}>
+                <Box
+                  w="38px"
+                  h="38px"
+                  borderRadius="12px"
+                  display="grid"
+                  placeItems="center"
+                  bg="rgba(59,130,246,0.14)"
+                  color={theme.accentBlue}
+                >
+                  <Icon as={MdOutlineWorkspacePremium} boxSize={5} />
+                </Box>
+                <Badge bg="rgba(59,130,246,0.14)" color={theme.accentBlue} borderRadius="full" px={3} py={1}>
+                  {t("premium.title")}
+                </Badge>
+              </HStack>
+              <Heading size={{ base: "lg", md: "xl" }} mb={2} color={theme.textColor} letterSpacing="0">
+                {t("premium.title")}
+              </Heading>
+              <Text color={theme.mutedText} maxW="660px" fontSize={{ base: "sm", md: "md" }}>
+                {t("premium.subtitle")}
+              </Text>
+            </Box>
+            <Box
+              minW={{ base: "100%", sm: "170px" }}
+              px={4}
+              py={3}
+              borderRadius="16px"
+              bg={cardPanelBg}
+              border="1px solid"
+              borderColor={theme.borderColor}
+            >
+              <Text fontSize="xs" color={theme.subtleText} fontWeight="800" textTransform="uppercase">
+                {t("premium.catalog", "Catalogue")}
+              </Text>
+              <Text color={theme.textColor} fontWeight="900" fontSize="2xl" lineHeight="1">
+                {loading ? "..." : premium.length}
+              </Text>
+            </Box>
+          </HStack>
+        </Box>
 
       {loading ? (
-        <HStack><Spinner /><Text>{t("common.loading")}</Text></HStack>
+        <HStack {...theme.tileProps} p={5}><Spinner /><Text color={theme.mutedText}>{t("common.loading")}</Text></HStack>
+      ) : premium.length === 0 ? (
+        <Box {...theme.tileProps} p={6}>
+          <Text color={theme.textColor} fontWeight="800">
+            {t("premium.emptyTitle", "Aucun programme disponible")}
+          </Text>
+          <Text color={theme.mutedText} mt={1}>
+            {t("premium.emptyText", "Les programmes premium apparaîtront ici dès qu'ils seront actifs.")}
+          </Text>
+        </Box>
       ) : (
         <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
           {premium.map((p, idx) => {
             const hasPromo = Boolean(p?.isPromo && p?.promoPriceEUR);
             const normal = fmtPrice(p?.priceEUR, lng);
             const promo  = fmtPrice(p?.promoPriceEUR, lng);
-            const title  = getProgrammeDisplayName(p);
-            const desc   = p.cardDesc || p.shortDesc || t("premium.subtitle");
+            const title  = trProgramName(p, lng);
+            const desc   = trProgramDesc(p, lng, t("premium.subtitle"));
+            const cover = p.coverUrl || p.imageUrl || p.thumbnailUrl || p.photoUrl || null;
+            const accent = accents[idx % accents.length];
+            const GoalIcon = getPremiumGoalIcon(p);
+            const activeWeeksLabel = formatProgramActiveWeeks(p, t);
 
             return (
               <Box
                 key={p.id || idx}
-                bg={cardBg}
+                bg={theme.surfaceBgStrong}
                 border="1px solid"
-                borderColor={borderColor}
-                borderRadius="2xl"
-                p={5}
-                shadow="sm"
-                _hover={{ shadow: 'md', transform: 'translateY(-2px)' }}
+                borderColor={theme.borderColor}
+                borderRadius="18px"
+                p={4}
+                boxShadow={programCardShadow}
+                _hover={{ transform: "translateY(-3px)", borderColor: accent }}
+                transition="transform 160ms ease, border-color 160ms ease"
                 display="flex"
                 flexDirection="column"
                 h="100%"
               >
-                <HStack spacing={2} mb={3} wrap="wrap">
-                  {p.objectif && <Badge colorScheme="purple">{p.objectif}</Badge>}
-                  {p.niveauSportif && <Badge variant="subtle">{p.niveauSportif}</Badge>}
-                  {p.nbSeances && <Badge variant="outline">{p.nbSeances} {t("premium.per_week_short")}</Badge>}
-                  {freeAvailable && <Badge colorScheme="green">{t("premium.free_badge")}</Badge>}
-                </HStack>
-
-                <Heading size="sm" mb={2}>{title}</Heading>
-                <Text color={descColor} noOfLines={3}>
-                  {desc}
-                </Text>
-
-                <Box mt="auto" pt={4}>
-                  <HStack justify="space-between" align="flex-end" mb={3}>
-                    <Box lineHeight="1.05">
-                      {freeAvailable ? (
-                        <Text as="div" fontWeight="bold" fontSize="lg" color="green.500">{t("premium.free")}</Text>
-                      ) : hasPromo && promo ? (
-                        <>
-                          {normal && (
-                            <Text as="div" color={useColorModeValue('gray.500','gray.400')}
-                                  textDecoration="line-through" fontSize="sm" whiteSpace="nowrap">
-                              {normal}
-                            </Text>
-                          )}
-                          <Text as="div" fontWeight="bold" fontSize="lg" color="blue.500" whiteSpace="nowrap">
-                            {promo}
-                          </Text>
-                        </>
-                      ) : (
-                        <Text as="div" fontWeight="bold" fontSize="lg" color="blue.500" whiteSpace="nowrap">
-                          {normal || t("premium.price_on_stripe")}
-                        </Text>
-                      )}
+                <Stack spacing={4} flex="1">
+                  <HStack justify="space-between" align="flex-start" spacing={3}>
+                    <Box
+                      w="54px"
+                      h="54px"
+                      borderRadius="16px"
+                      display="grid"
+                      placeItems="center"
+                      bg={cover ? `linear-gradient(rgba(7,11,20,0.18), rgba(7,11,20,0.42)), url(${cover}) center/cover` : `${accent}22`}
+                      border="1px solid"
+                      borderColor={`${accent}55`}
+                      color={cover ? "white" : accent}
+                      flexShrink={0}
+                    >
+                      <Icon as={GoalIcon} boxSize={6} />
                     </Box>
+                    <Stack spacing={1} align="flex-end">
+                      {freeAvailable && (
+                        <Badge bg="rgba(16,185,129,0.16)" color={theme.accentGreen} borderRadius="full" px={3} py={1}>
+                          {t("premium.free_badge")}
+                        </Badge>
+                      )}
+                      <Icon as={MdOutlineWorkspacePremium} color={theme.subtleText} boxSize={6} />
+                    </Stack>
                   </HStack>
 
-                  <HStack>
-                    <Button variant="outline" onClick={() => openPremDetails(p)} flex="1">
-                      {t("actions.view_details")}
-                    </Button>
-                    {freeAvailable ? (
-                      <Button colorScheme="green" onClick={() => (requireLogin ? navigate("/login") : handleClaimFree(p))} flex="1">
-                        {t("premium.claim_free")}
-                      </Button>
-                    ) : (
-                      <Button colorScheme="blue" onClick={() => (requireLogin ? navigate("/login") : handleBuy(p))} flex="1">
-                        {t("actions.buy_now")}
-                      </Button>
+                  <HStack spacing={2} wrap="wrap">
+                    {p.objectif && <Badge bg={`${accent}22`} color={accent}>{trValue(p, "objectif", lng) || p.objectif}</Badge>}
+                    {p.niveauSportif && <Badge bg="rgba(255,255,255,0.08)" color={theme.mutedText}>{trValue(p, "niveauSportif", lng) || p.niveauSportif}</Badge>}
+                    {p.nbSeances && (
+                      <Badge variant="outline" borderColor={theme.borderStrong} color={theme.mutedText}>
+                        <HStack spacing={1}>
+                          <Icon as={MdOutlineAccessTime} />
+                          <Text as="span">{p.nbSeances} {t("premium.per_week_short")}</Text>
+                        </HStack>
+                      </Badge>
+                    )}
+                    {activeWeeksLabel && (
+                      <Badge variant="outline" borderColor={theme.borderStrong} color={theme.mutedText}>
+                        {activeWeeksLabel}
+                      </Badge>
                     )}
                   </HStack>
-                </Box>
+
+                  <Box>
+                    <Heading size="md" mb={2} color={theme.textColor} letterSpacing="0" lineHeight="1.2">{title}</Heading>
+                    <Text color={theme.mutedText} noOfLines={3} minH="70px" lineHeight="1.55" fontSize="sm">
+                      {desc}
+                    </Text>
+                  </Box>
+
+                  <Box mt="auto" pt={2} borderTop="1px solid" borderColor={theme.borderColor}>
+                    <HStack justify="space-between" align="center" mb={4} pt={4}>
+                      <Box lineHeight="1.05">
+                        {freeAvailable ? (
+                          <Text as="div" fontWeight="900" fontSize="xl" color={theme.accentGreen}>{t("premium.free")}</Text>
+                        ) : hasPromo && promo ? (
+                          <>
+                            {normal && (
+                              <Text as="div" color={oldPriceColor}
+                                    textDecoration="line-through" fontSize="sm" whiteSpace="nowrap">
+                                {normal}
+                              </Text>
+                            )}
+                            <Text as="div" fontWeight="900" fontSize="2xl" color={accent} whiteSpace="nowrap">
+                              {promo}
+                            </Text>
+                          </>
+                        ) : (
+                          <Text as="div" fontWeight="900" fontSize="2xl" color={accent} whiteSpace="nowrap">
+                            {normal || t("premium.price_on_stripe")}
+                          </Text>
+                        )}
+                      </Box>
+                    </HStack>
+
+                    <Stack direction={{ base: "column", sm: "row" }} spacing={3}>
+                      <Button variant="outline" borderColor={theme.borderStrong} color={theme.textColor} onClick={() => openPremDetails(p)} flex="1" borderRadius="12px">
+                        {t("actions.view_details")}
+                      </Button>
+                      {freeAvailable ? (
+                        <Button {...theme.primaryButtonProps} bg={theme.accentGreen} borderRadius="12px" _hover={{ bg: "#059669", transform: "translateY(-1px)" }} onClick={() => handleClaimFree(p)} flex="1">
+                          {t("premium.claim_free")}
+                        </Button>
+                      ) : (
+                        <Button {...theme.primaryButtonProps} borderRadius="12px" onClick={() => handleBuy(p)} flex="1">
+                          {t("actions.buy_now")}
+                        </Button>
+                      )}
+                    </Stack>
+                  </Box>
+                </Stack>
               </Box>
             );
           })}
         </SimpleGrid>
       )}
+      </Box>
 
       {/* MODALE DÉTAILS */}
       <PremiumDetailsModal
@@ -435,4 +651,3 @@ export default function PremiumPrograms(){
     </Box>
   );
 }
-

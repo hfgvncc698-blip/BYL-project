@@ -1,7 +1,7 @@
 // src/pages/MyPrograms.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Box, Heading, Table, Thead, Tbody, Tr, Th, Td, Button, Spinner, Text,
+  Box, Heading, Table, Thead, Tbody, Tr, Th, Td, Button, Text,
   HStack, Stack, useColorModeValue, useBreakpointValue, Progress, Badge,
   SimpleGrid, Circle, Icon, Flex, VStack,
 } from "@chakra-ui/react";
@@ -21,6 +21,8 @@ import {
 } from "react-icons/md";
 import AppLoading from "../components/ui/AppLoading";
 import PageBackButton from "../components/ui/PageBackButton";
+import { apiFetch } from "../utils/api";
+import { formatProgramActiveWeeks, getProgramActiveWeeksLabel } from "../utils/programDuration";
 
 /* ----------------- Helpers date ----------------- */
 function toDateSafe(v) {
@@ -148,6 +150,10 @@ export default function MyPrograms() {
     "0 20px 50px rgba(15,23,42,0.08)",
     "0 20px 60px rgba(0,0,0,0.35)"
   );
+  const topGlow = useColorModeValue("rgba(59,130,246,0.10)", "rgba(59,130,246,0.14)");
+  const bottomGlow = useColorModeValue("rgba(16,185,129,0.08)", "rgba(16,185,129,0.10)");
+  const panelGlow = useColorModeValue("rgba(59,130,246,0.08)", "rgba(59,130,246,0.10)");
+  const iconCircleBg = useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)");
   const activeBlue = "#3B82F6";
   const isMobile = useBreakpointValue({ base: true, md: false });
 
@@ -247,6 +253,15 @@ export default function MyPrograms() {
         }
 
         // ===== PARTICULIER : programmes assignés =====
+        try {
+          await apiFetch("/payments/recover-premium-purchases", {
+            method: "POST",
+            body: JSON.stringify({ firebaseUid: user.uid }),
+          });
+        } catch (recoverError) {
+          console.warn("[MyPrograms] premium recovery unavailable", recoverError);
+        }
+
         // 1) dossier client réel, en compatibilité avec les anciens chemins.
         const clientSnap = await resolveClientSnapshotForUser(user, { logPrefix: "MyPrograms" });
         const cId = clientSnap?.id || null;
@@ -318,8 +333,9 @@ export default function MyPrograms() {
             if (nextIndex >= sessionCount) nextIndex = Math.max(0, sessionCount - 1);
           }
 
+          const doneForProgress = sessionCount > 0 ? Math.min(doneCount, sessionCount) : doneCount;
           const progressionPct =
-            sessionCount > 0 ? Math.min(100, Math.round((doneCount / sessionCount) * 100)) : 0;
+            sessionCount > 0 ? Math.min(100, Math.round((doneForProgress / sessionCount) * 100)) : 0;
 
           const rowObj = {
             id: p.id, // id d'assignation
@@ -334,7 +350,8 @@ export default function MyPrograms() {
             lastActivityStr: fmtLocale(lastDone?.date, i18n.language),
             lastSessionLabel: lastDone?.label || null,
             _nextIndex: nextIndex,
-            doneCount,
+            doneCount: doneForProgress,
+            doneCountRaw: doneCount,
             _createdAtMs: createdAtMs,
             _lastSessionMs: lastSessionMs,
           };
@@ -345,10 +362,44 @@ export default function MyPrograms() {
           });
         }
 
+        const visiblePrograms = [];
+        const premiumPurchaseIndex = new Map();
+        result.forEach((program) => {
+          const checkoutSessionId = String(program?.stripe?.checkoutSessionId || "").trim();
+          const sourceProgrammeId = String(program?.sourceProgrammeId || "").trim();
+          const isPremiumAssigned =
+            program?.origine === "premium" ||
+            program?.source === "premium-paid" ||
+            program?.isPremiumOnly === true;
+          const duplicateKey =
+            checkoutSessionId && checkoutSessionId !== "manual"
+              ? `stripe:${checkoutSessionId}`
+              : isPremiumAssigned && sourceProgrammeId
+              ? `premium-source:${sourceProgrammeId}`
+              : null;
+
+          if (!duplicateKey) {
+            visiblePrograms.push(program);
+            return;
+          }
+
+          const existingIndex = premiumPurchaseIndex.get(duplicateKey);
+          if (existingIndex === undefined) {
+            premiumPurchaseIndex.set(duplicateKey, visiblePrograms.length);
+            visiblePrograms.push(program);
+            return;
+          }
+
+          const existing = visiblePrograms[existingIndex];
+          const existingScore = (existing._lastSessionMs || 0) + (existing._createdAtMs || 0);
+          const nextScore = (program._lastSessionMs || 0) + (program._createdAtMs || 0);
+          if (nextScore > existingScore) visiblePrograms[existingIndex] = program;
+        });
+
         // ✅ TRI (comme demandé) :
         // 1) Jamais joués -> en tête, triés par création/assignation (récent -> ancien)
         // 2) Joués -> triés par dernière séance effectuée (récent -> ancien)
-        result.sort((a, b) => {
+        visiblePrograms.sort((a, b) => {
           const aLast = a._lastSessionMs || 0;
           const bLast = b._lastSessionMs || 0;
 
@@ -363,7 +414,7 @@ export default function MyPrograms() {
           return bLast - aLast;
         });
 
-        setRows(result);
+        setRows(visiblePrograms);
       } catch (err) {
         console.error("Erreur fetch programmes:", err);
         setRows([]);
@@ -470,7 +521,7 @@ export default function MyPrograms() {
   }
 
   return (
-    <Box p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
+    <Box data-tour-page="client-programs" p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
       <Box position="absolute" top={{ base: 4, md: 6 }} left={{ base: 4, md: 6 }} zIndex={20}>
         <PageBackButton />
       </Box>
@@ -481,7 +532,7 @@ export default function MyPrograms() {
         w="420px"
         h="420px"
         borderRadius="full"
-        bg={useColorModeValue("rgba(59,130,246,0.10)", "rgba(59,130,246,0.14)")}
+        bg={topGlow}
         filter="blur(90px)"
         pointerEvents="none"
       />
@@ -492,7 +543,7 @@ export default function MyPrograms() {
         w="380px"
         h="380px"
         borderRadius="full"
-        bg={useColorModeValue("rgba(16,185,129,0.08)", "rgba(16,185,129,0.10)")}
+        bg={bottomGlow}
         filter="blur(90px)"
         pointerEvents="none"
       />
@@ -515,7 +566,7 @@ export default function MyPrograms() {
           w="220px"
           h="220px"
           borderRadius="full"
-          bg={useColorModeValue("rgba(59,130,246,0.08)", "rgba(59,130,246,0.10)")}
+          bg={panelGlow}
           filter="blur(38px)"
         />
         <Flex
@@ -536,7 +587,7 @@ export default function MyPrograms() {
           >
             <Circle
               size={{ base: "56px", md: "64px" }}
-              bg={useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")}
+              bg={iconCircleBg}
               border="1px solid"
               borderColor={borderStrong}
               color={textColor}
@@ -555,9 +606,7 @@ export default function MyPrograms() {
               >
                 {title}
               </Heading>
-              <Text mt={2} color={mutedText} maxW="56ch">
-                Retrouvez vos programmes actifs, votre progression et relancez directement la prochaine séance utile.
-              </Text>
+              <Text mt={2} color={mutedText} maxW="56ch">{t("auto.MyPrograms.retrouvez_vos_programmes_actifs_votre_progression_", "Retrouvez vos programmes actifs, votre progression et relancez directement la prochaine séance utile.")}</Text>
             </Box>
           </Flex>
 
@@ -568,10 +617,10 @@ export default function MyPrograms() {
             minW={0}
             maxW={{ base: "100%", "2xl": "560px" }}
           >
-            <MiniStat label="Programmes" value={summary.total} helper="actifs dans votre espace" icon={MdOutlineFitnessCenter} />
-            <MiniStat label="En cours" value={summary.inProgress} helper="progression déjà entamée" icon={MdOutlineInsights} />
-            <MiniStat label="À relancer" value={summary.upcoming} helper="séances encore à jouer" icon={MdOutlinePlayArrow} />
-            <MiniStat label="Terminés" value={summary.completed} helper="programmes complétés" icon={MdOutlineCalendarMonth} />
+            <MiniStat label={t("clientsList.table.programs", "Programmes")} value={summary.total} helper={t("auto.MyPrograms.actifs_dans_votre_espace", "actifs dans votre espace")} icon={MdOutlineFitnessCenter} />
+            <MiniStat label={t("nutritionCoach.status.inProgress", "En cours")} value={summary.inProgress} helper={t("auto.MyPrograms.progression_deja_entamee", "progression déjà entamée")} icon={MdOutlineInsights} />
+            <MiniStat label={t("auto.MyPrograms.a_relancer", "À relancer")} value={summary.upcoming} helper={t("auto.MyPrograms.seances_encore_a_jouer", "séances encore à jouer")} icon={MdOutlinePlayArrow} />
+            <MiniStat label={t("auto.MyPrograms.termines", "Terminés")} value={summary.completed} helper={t("auto.MyPrograms.programmes_completes", "programmes complétés")} icon={MdOutlineCalendarMonth} />
           </SimpleGrid>
         </Flex>
       </Box>
@@ -610,9 +659,13 @@ export default function MyPrograms() {
                 </Badge>
               </HStack>
 
-              <Text color={mutedText} fontSize="sm">
-                Créé / assigné le {p.createdAtFormatted}
+              <Text color={mutedText} fontSize="sm">{t("auto.MyPrograms.cree_assigne_le", "Créé / assigné le")}{p.createdAtFormatted}
               </Text>
+              {formatProgramActiveWeeks(p, t) && (
+                <Text color={mutedText} fontSize="sm" mt={1}>
+                  {getProgramActiveWeeksLabel(t)} : {formatProgramActiveWeeks(p, t)}
+                </Text>
+              )}
 
               {user?.role !== "coach" && (
                 <Text color={mutedText} fontSize="sm" mt={1}>

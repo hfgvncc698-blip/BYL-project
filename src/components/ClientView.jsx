@@ -36,14 +36,14 @@ import {
   Spinner,
   Tooltip,
 } from "@chakra-ui/react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import i18n from "../i18n";
 import { db } from "../firebaseConfig";
 import {
   doc,
   collection,
   addDoc,
-  setDoc,
   updateDoc,
   deleteDoc,
   onSnapshot,
@@ -72,14 +72,7 @@ import AppLoading from "./ui/AppLoading";
 import { notify } from "../utils/notify";
 import { useAppTheme } from "../styles/appTheme";
 import { useAuth } from "../AuthContext";
-
-// 🔥 Firebase app secondaire uniquement pour l'envoi des emails via Auth
-import { initializeApp, getApps, getApp } from "firebase/app";
-import {
-  getAuth as getAuthSecondary,
-  createUserWithEmailAndPassword as createUserSecondary,
-  sendPasswordResetEmail,
-} from "firebase/auth";
+import { apiFetch } from "../utils/api";
 
 const SUBCOL_PROGRAMMES = "programmes";
 const SUBCOL_SESSIONS_DONE = "sessionsEffectuees";
@@ -370,19 +363,6 @@ async function resolveProgrammeDisplayNameFromClientDoc(data, programmeId) {
   return prettyProgramNameBase(data) || programmeId || "Programme";
 }
 
-/* ---------- App secondaire pour l'envoi d'emails Firebase Auth ---------- */
-const SECONDARY_APP_NAME = "byl-email-helper";
-function getSecondaryAuth() {
-  const existing = getApps().find((a) => a.name === SECONDARY_APP_NAME);
-  let secondaryApp;
-  if (existing) secondaryApp = existing;
-  else {
-    const mainApp = getApp();
-    secondaryApp = initializeApp(mainApp.options, SECONDARY_APP_NAME);
-  }
-  return getAuthSecondary(secondaryApp);
-}
-
 /* ---------------- Tri des programmes ---------------- */
 function getLastDoneDateFromProgramme(prog) {
   const last = (prog?.sessionsEffectuees || [])
@@ -450,12 +430,8 @@ class SafeBoundary extends React.Component {
       return (
         this.props.fallback || (
           <Box p={4} border="1px solid" borderColor="red.200" borderRadius="md">
-            <Text fontWeight="bold" color="red.500">
-              Une erreur empêche l’affichage du comparateur.
-            </Text>
-            <Text fontSize="sm" mt={1}>
-              (La page reste utilisable, tu peux continuer.)
-            </Text>
+            <Text fontWeight="bold" color="red.500">{i18n.t("auto.ClientView.une_erreur_empeche_l_affichage_du_comparateur", "Une erreur empêche l’affichage du comparateur.")}</Text>
+            <Text fontSize="sm" mt={1}>{i18n.t("auto.ClientView.la_page_reste_utilisable_tu_peux_continuer", "(La page reste utilisable, tu peux continuer.)")}</Text>
           </Box>
         )
       );
@@ -518,35 +494,7 @@ function safeDeepClone(value) {
 
 function stripRootProgramMeta(data = {}) {
   const {
-    sessionsEffectuees,
-    difficultyNotes,
-    difficultyMap,
-    assignedAt,
-    assigned_at,
-    createdAt,
-    created_at,
-    updatedAt,
-    updated_at,
-    progression,
-    pourcentageTermine,
-    clientId,
-    clientNom,
-    source,
-    origine,
-    origin,
-    duplicatedFrom,
-    duplicatedAt,
-    duplicatedFromProgramId,
-    duplicatedFromTemplateId,
-    duplicatedBaseId,
-    order,
-    lastPlayedAt,
-    assignedClients,
-    assignedClientIds,
-    lastAssignedAt,
-    programId,
-    fromTemplateId,
-    templateId,
+    
     ...rest
   } = data || {};
 
@@ -566,6 +514,10 @@ function buildAssignedProgramFromBase({
       : Array.isArray(baseData?.seances)
       ? baseData.seances
       : []
+  );
+  const activeWeeks = Math.max(
+    1,
+    Math.min(52, Math.round(Number(baseData?.activeWeeks ?? baseData?.durationWeeks ?? 4) || 4))
   );
 
   return {
@@ -589,6 +541,8 @@ function buildAssignedProgramFromBase({
     seances: safeDeepClone(sessions),
     objectif: baseData?.objectif || baseData?.objectifUI || "",
     objectifUI: baseData?.objectifUI || "",
+    activeWeeks,
+    durationWeeks: activeWeeks,
     nbSeances: sessions.length || baseData?.nbSeances || baseData?.totalSessions || null,
     totalSessions: sessions.length || baseData?.totalSessions || null,
     progression: 0,
@@ -601,6 +555,8 @@ export default function ClientView() {
   const { t } = useTranslation();
   const { clientId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const toast = useToast();
 
   const [client, setClient] = useState(null);
@@ -631,6 +587,10 @@ export default function ClientView() {
   const [weightUnit, setWeightUnit] = useState(
     () => localStorage.getItem("unit.weight") || "kg"
   );
+  const assignmentCoachUid = useMemo(
+    () => searchParams.get("clubAssignCoachId") || searchParams.get("adminCoachId") || client?.coachId || client?.createdBy || "",
+    [client?.coachId, client?.createdBy, searchParams]
+  );
 
   const onChangeHeightUnit = (u) => {
     setHeightUnit(u);
@@ -656,6 +616,7 @@ export default function ClientView() {
   });
 
   const [editData, setEditData] = useState({});
+  const [isSavingClient, setIsSavingClient] = useState(false);
 
   const levelOptions = [
     { value: "Débutant", label: t("clientCreation.levels.beginner", "Débutant") },
@@ -857,114 +818,73 @@ export default function ClientView() {
     addMeas.onClose();
   };
 
-  const handleEdit = async () => {
+  const handleEdit = async ({ forceEmail = false } = {}) => {
+    if (isSavingClient) return;
     try {
       const oldEmail = normalizeEmail(client?.email);
       const newEmail = normalizeEmail(editData.email ?? client?.email);
-      const firstName = String(editData.prenom ?? client?.prenom ?? "").trim();
-      const lastName = String(editData.nom ?? client?.nom ?? "").trim();
+      const firstName = String(editData.prenom ?? client?.prenom ?? client?.firstName ?? "").trim();
+      const lastName = String(editData.nom ?? client?.nom ?? client?.lastName ?? "").trim();
       const langRaw =
         editData.langue ??
         editData.settings?.defaultLanguage ??
+        client?.preferredLang ??
         client?.settings?.langCode ??
         client?.settings?.defaultLanguage ??
         client?.langue ??
         "fr";
       const langCode = langCodeFromAny(langRaw);
-
-      const payload = { ...editData };
-      if (payload.email != null) {
-        payload.email = newEmail || null;
-        payload.emailLower = newEmail || null;
-      }
-      if (payload.langue != null) {
-        payload.settings = {
-          ...(client?.settings || {}),
-          ...(payload.settings || {}),
-          defaultLanguage: payload.langue,
-          langCode,
-        };
-      }
-
-      await updateDoc(doc(db, "clients", clientId), payload);
-
       const emailChanged = !!newEmail && newEmail !== oldEmail;
 
-      if (emailChanged) {
-        try {
-          const authSec = getSecondaryAuth();
-          authSec.languageCode = langCode;
+      const payload = {
+        ...editData,
+        prenom: firstName,
+        firstName,
+        nom: lastName,
+        lastName,
+        email: newEmail,
+        emailLower: newEmail,
+        preferredLang: langCode,
+        langue: langCode,
+        settings: {
+          ...(client?.settings || {}),
+          ...(editData.settings || {}),
+          defaultLanguage: langCode,
+          langCode,
+        },
+        sendActivationEmail: forceEmail,
+      };
 
-          let authUid = null;
-          try {
-            const randomPw = Math.random().toString(36).slice(2, 10) + "Byl!";
-            const created = await createUserSecondary(authSec, newEmail, randomPw);
-            authUid = created?.user?.uid || null;
-          } catch (err) {
-            if (err?.code !== "auth/email-already-in-use") throw err;
+      setIsSavingClient(true);
+      const result = await apiFetch(`/clubs/clients/${encodeURIComponent(clientId)}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
 
-            try {
-              const usersSnap = await getDocs(
-                query(collection(db, "users"), where("emailLower", "==", newEmail), limit(1))
-              );
-              if (!usersSnap.empty) authUid = usersSnap.docs[0].id;
-            } catch {}
-            if (!authUid) {
-              try {
-                const usersSnap = await getDocs(
-                  query(collection(db, "users"), where("email", "==", newEmail), limit(1))
-                );
-                if (!usersSnap.empty) authUid = usersSnap.docs[0].id;
-              } catch {}
-            }
-          }
-
-          if (authUid) {
-            await setDoc(
-              doc(db, "users", authUid),
-              {
-                email: newEmail,
-                emailLower: newEmail,
-                firstName: firstName || "Utilisateur",
-                lastName,
-                displayName: `${firstName} ${lastName}`.trim(),
-                role: "particulier",
-                provider: "email",
-                linkedClientId: clientId,
-                settings: {
-                  defaultLanguage: langRaw,
-                  langCode,
-                },
-                updatedAt: serverTimestamp(),
-              },
-              { merge: true }
-            );
-
-            await updateDoc(doc(db, "clients", clientId), {
-              linkedUserId: authUid,
-              uid: authUid,
-              emailLower: newEmail,
-            });
-          }
-
-          await sendPasswordResetEmail(authSec, newEmail, {
-            url: `https://boostyourlife.coach/login?lang=${langCode}`,
-          });
-
-          notify(toast, "clientInviteSent", {
-            title: t("clientView.inviteSent", "Invitation envoyée"),
-            description: t("clientView.inviteSentDesc", {
-              email: newEmail,
-              defaultValue: `Un email a été envoyé à ${newEmail} pour créer ou réinitialiser son mot de passe.`,
-            }),
-          });
-        } catch (err) {
-          console.error("[ClientView] invite error:", err);
-          notify(toast, "saveError", {
-            title: t("errors.inviteFailed", "Échec de l’envoi de l’invitation"),
-            description: t("errors.tryAgain", "Vérifie la configuration Firebase Auth et réessaie."),
-          });
-        }
+      if (result.emailSent) {
+        notify(toast, "clientInviteSent", {
+          title: t("clientView.inviteSent", "Invitation envoyée"),
+          description: t("clientView.inviteSentDesc", {
+            email: newEmail,
+            defaultValue: `Un email a été envoyé à ${newEmail} pour créer ou réinitialiser son mot de passe.`,
+          }),
+        });
+      } else if (emailChanged || result.emailAttempted || result.emailDelivery === "activation-link-generated") {
+        notify(toast, "saveSuccess", {
+          status: "warning",
+          title: t("profile.actions.saved", "Modifications enregistrées"),
+          description: result.emailWarning
+            ? t(
+                "clientView.inviteWarningDesc",
+                "Les informations sont enregistrées, mais l’e-mail d’accès n’a pas pu partir : {{error}}",
+                { error: result.emailWarning }
+              )
+            : t(
+                "clientView.inviteNotSentDesc",
+                "Les informations sont enregistrées, mais l’e-mail d’accès n’a pas pu être envoyé automatiquement."
+              ),
+          duration: 5200,
+        });
       } else {
         notify(toast, "saveSuccess", {
           title: t("profile.actions.saved", "Modifications enregistrées"),
@@ -976,6 +896,7 @@ export default function ClientView() {
         title: t("errors.saveFailed", "Échec de l’enregistrement"),
       });
     } finally {
+      setIsSavingClient(false);
       setEditData({});
       editClient.onClose();
     }
@@ -1152,8 +1073,15 @@ export default function ClientView() {
   const loadBaseProgrammes = async () => {
     try {
       setLoadingBaseProgrammes(true);
-      const snap = await getDocs(collection(db, "programmes"));
-      const list = snap.docs
+      const snaps = assignmentCoachUid
+        ? await Promise.all([
+            getDocs(query(collection(db, "programmes"), where("createdBy", "==", assignmentCoachUid), limit(300))),
+            getDocs(query(collection(db, "programmes"), where("coachId", "==", assignmentCoachUid), limit(300))).catch(() => ({ docs: [] })),
+          ])
+        : [await getDocs(collection(db, "programmes"))];
+      const docsById = new Map();
+      snaps.forEach((snap) => snap.docs.forEach((docSnap) => docsById.set(docSnap.id, docSnap)));
+      const list = [...docsById.values()]
         .map((d) => ({ id: d.id, ...d.data() }))
         .filter((p) => p?.isTemplate !== false)
         .map((p) => ({ ...p, __label: prettyProgramNameBase(p) }))
@@ -1173,7 +1101,7 @@ export default function ClientView() {
   useEffect(() => {
     if (!assignProg.isOpen) return;
     loadBaseProgrammes();
-  }, [assignProg.isOpen]);
+  }, [assignProg.isOpen, assignmentCoachUid]);
 
   const handleAssignProgramme = async () => {
     if (!clientId) return;
@@ -1214,6 +1142,10 @@ export default function ClientView() {
         : [];
 
       const clonedSessions = safeDeepClone(baseSessions || []);
+      const activeWeeks = Math.max(
+        1,
+        Math.min(52, Math.round(Number(base?.activeWeeks ?? base?.durationWeeks ?? 4) || 4))
+      );
 
       const clientProgPayload = {
         nomProgramme: finalName,
@@ -1234,8 +1166,14 @@ export default function ClientView() {
         seances: safeDeepClone(clonedSessions),
         objectif: base?.objectif || base?.objectifUI || "",
         objectifUI: base?.objectifUI || "",
+        activeWeeks,
+        durationWeeks: activeWeeks,
         nbSeances: clonedSessions.length || base?.nbSeances || base?.totalSessions || null,
         totalSessions: clonedSessions.length || base?.totalSessions || null,
+        createdBy: assignmentCoachUid || base?.createdBy || client?.coachId || client?.createdBy || null,
+        coachId: assignmentCoachUid || base?.coachId || client?.coachId || client?.createdBy || null,
+        assignedBy: assignmentCoachUid || base?.createdBy || client?.coachId || client?.createdBy || null,
+        clubId: client?.clubId || base?.clubId || "",
       };
 
       const newRef = await addDoc(
@@ -1343,9 +1281,9 @@ export default function ClientView() {
 
   const theme = useAppTheme();
   const pageBg = theme.pageBg;
-  const cardBg = theme.surfaceBg;
-  const subBg = theme.surfaceSoft;
-  const border = theme.borderColor;
+  
+  
+  
   const muted = theme.mutedText;
   const lineStroke = useColorModeValue("#3182CE", "#90CDF4");
   const panelBg = theme.surfaceBg;
@@ -1875,16 +1813,12 @@ export default function ClientView() {
           <SafeBoundary
             fallback={
               <Box p={4} border="1px solid" borderColor="red.200" borderRadius="md">
-                <Text fontWeight="bold" color="red.500">
-                  Une erreur empêche l’affichage de la section Nutrition.
-                </Text>
-                <Text fontSize="sm" mt={1}>
-                  (La page reste utilisable.)
-                </Text>
+                <Text fontWeight="bold" color="red.500">{t("auto.ClientView.une_erreur_empeche_l_affichage_de_la_section_nutri", "Une erreur empêche l’affichage de la section Nutrition.")}</Text>
+                <Text fontSize="sm" mt={1}>{t("auto.ClientView.la_page_reste_utilisable", "(La page reste utilisable.)")}</Text>
               </Box>
             }
           >
-            <ClientNutritionSection clientId={clientId} client={client} />
+            <ClientNutritionSection clientId={clientId} client={client} isAdminOnly />
           </SafeBoundary>
         </Box>
       )}
@@ -1912,8 +1846,8 @@ export default function ClientView() {
                   onChange={(e) => onChangeHeightUnit(e.target.value)}
                   w="90px"
                 >
-                  <option value="cm">cm</option>
-                  <option value="ftin">ft/in</option>
+                  <option value="cm">{t("units.cm", "cm")}</option>
+                  <option value="ftin">{t("units.ftin", "ft/in")}</option>
                 </Select>
               </HStack>
             </WrapItem>
@@ -1929,8 +1863,8 @@ export default function ClientView() {
                   onChange={(e) => onChangeWeightUnit(e.target.value)}
                   w="90px"
                 >
-                  <option value="kg">kg</option>
-                  <option value="lbs">lbs</option>
+                  <option value="kg">{t("units.kg", "kg")}</option>
+                  <option value="lbs">{t("units.lbs", "lbs")}</option>
                 </Select>
               </HStack>
             </WrapItem>
@@ -2135,7 +2069,7 @@ export default function ClientView() {
               </Text>
             </VStack>
           </ModalBody>
-          <ModalFooter justifyContent="space-between">
+          <ModalFooter justifyContent="space-between" gap={3} flexWrap="wrap">
             <Button variant="ghost" onClick={assignProg.onClose}>
               {t("common.cancel", "Annuler")}
             </Button>
@@ -2178,8 +2112,8 @@ export default function ClientView() {
                       value={heightUnit}
                       onChange={(e) => onChangeHeightUnit(e.target.value)}
                     >
-                      <option value="cm">cm</option>
-                      <option value="ftin">ft/in</option>
+                      <option value="cm">{t("units.cm", "cm")}</option>
+                      <option value="ftin">{t("units.ftin", "ft/in")}</option>
                     </Select>
                   </HStack>
 
@@ -2198,7 +2132,7 @@ export default function ClientView() {
                           <>
                             <Input
                               type="number"
-                              placeholder="ft"
+                              placeholder={t("auto.ClientView.ft", "ft")}
                               value={ft === "" ? "" : ft}
                               onChange={(e) =>
                                 setNewMeas((p) => ({
@@ -2209,7 +2143,7 @@ export default function ClientView() {
                             />
                             <Input
                               type="number"
-                              placeholder="in"
+                              placeholder={t("auto.ClientView.in", "in")}
                               value={inch === "" ? "" : inch}
                               onChange={(e) =>
                                 setNewMeas((p) => ({
@@ -2234,8 +2168,8 @@ export default function ClientView() {
                       value={weightUnit}
                       onChange={(e) => onChangeWeightUnit(e.target.value)}
                     >
-                      <option value="kg">kg</option>
-                      <option value="lbs">lbs</option>
+                      <option value="kg">{t("units.kg", "kg")}</option>
+                      <option value="lbs">{t("units.lbs", "lbs")}</option>
                     </Select>
                   </HStack>
 
@@ -2489,8 +2423,8 @@ export default function ClientView() {
                     value={heightUnit}
                     onChange={(e) => onChangeHeightUnit(e.target.value)}
                   >
-                    <option value="cm">cm</option>
-                    <option value="ftin">ft/in</option>
+                    <option value="cm">{t("units.cm", "cm")}</option>
+                    <option value="ftin">{t("units.ftin", "ft/in")}</option>
                   </Select>
                 </HStack>
 
@@ -2509,7 +2443,7 @@ export default function ClientView() {
                         <>
                           <Input
                             type="number"
-                            placeholder="ft"
+                            placeholder={t("auto.ClientView.ft", "ft")}
                             value={ft === "" ? "" : ft}
                             onChange={(e) =>
                               setEditData((p) => ({
@@ -2520,7 +2454,7 @@ export default function ClientView() {
                           />
                           <Input
                             type="number"
-                            placeholder="in"
+                            placeholder={t("auto.ClientView.in", "in")}
                             value={inch === "" ? "" : inch}
                             onChange={(e) =>
                               setEditData((p) => ({
@@ -2545,8 +2479,8 @@ export default function ClientView() {
                     value={weightUnit}
                     onChange={(e) => onChangeWeightUnit(e.target.value)}
                   >
-                    <option value="kg">kg</option>
-                    <option value="lbs">lbs</option>
+                    <option value="kg">{t("units.kg", "kg")}</option>
+                    <option value="lbs">{t("units.lbs", "lbs")}</option>
                   </Select>
                 </HStack>
 
@@ -2573,12 +2507,22 @@ export default function ClientView() {
             </Grid>
           </ModalBody>
           <ModalFooter justifyContent="space-between">
-            <Button variant="ghost" onClick={editClient.onClose}>
-              {t("common.cancel", "Annuler")}
+            <Button
+              variant="outline"
+              onClick={() => handleEdit({ forceEmail: true })}
+              isDisabled={isSavingClient || !normalizeEmail(editData.email ?? client?.email)}
+              isLoading={isSavingClient}
+            >
+              {t("clientsList.edit.resendAccessEmail", "Renvoyer l’e-mail d’accès")}
             </Button>
-            <Button colorScheme="blue" onClick={handleEdit}>
-              {t("profile.actions.save", "Enregistrer mes infos")}
-            </Button>
+            <HStack>
+              <Button variant="ghost" onClick={editClient.onClose} isDisabled={isSavingClient}>
+                {t("common.cancel", "Annuler")}
+              </Button>
+              <Button colorScheme="blue" onClick={() => handleEdit()} isLoading={isSavingClient}>
+                {t("profile.actions.save", "Enregistrer mes infos")}
+              </Button>
+            </HStack>
           </ModalFooter>
         </ModalContent>
       </Modal>

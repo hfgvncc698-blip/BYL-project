@@ -17,8 +17,6 @@ import {
   ModalHeader,
   ModalBody,
   ModalCloseButton,
-  Grid,
-  GridItem,
   List,
   ListItem,
   ListIcon,
@@ -548,8 +546,8 @@ function ExerciseCardComponent({
   const location = useLocation();
   const { pathname, state: locationState } = location;
   const displayExercise = useMemo(
-    () => localizeExercise(exercise, i18n.resolvedLanguage || i18n.language || "fr"),
-    [exercise, i18n.resolvedLanguage, i18n.language]
+    () => localizeExercise(exercise, i18n.language || i18n.resolvedLanguage || "fr"),
+    [exercise, i18n.language, i18n.resolvedLanguage]
   );
 
   const isProgramBuilder = useMemo(
@@ -578,7 +576,7 @@ function ExerciseCardComponent({
 
   const [departLoaded, setDepartLoaded] = useState(false);
   const [arriveeLoaded, setArriveeLoaded] = useState(false);
-  const [videoLoaded, setVideoLoaded] = useState(false);
+  const [, setVideoLoaded] = useState(false);
 
   const [departFailed, setDepartFailed] = useState(false);
   const [arriveeFailed, setArriveeFailed] = useState(false);
@@ -604,7 +602,7 @@ function ExerciseCardComponent({
   const primaryBtnBg = useColorModeValue("gray.900", "white");
   const primaryBtnHover = useColorModeValue("black", "gray.100");
   const primaryBtnColor = useColorModeValue("white", "gray.900");
-  const ghostBtnBg = useColorModeValue("transparent", "transparent");
+  
   const ghostBtnHover = useColorModeValue("gray.100", "whiteAlpha.100");
   const detailsBtnBg = useColorModeValue("rgba(15,23,42,0.05)", "rgba(255,255,255,0.08)");
   const detailsBtnHover = useColorModeValue("rgba(15,23,42,0.10)", "rgba(255,255,255,0.14)");

@@ -33,7 +33,6 @@ import {
   GridItem,
   Icon,
   Spacer,
-  Spinner,
   Image as ChakraImage,
   VStack,
 } from "@chakra-ui/react";
@@ -53,17 +52,20 @@ import {
   MdSelfImprovement,
   MdOutlineAccessTime,
   MdCheckCircle,
-  MdDescription,
   MdAutoAwesome,
 } from "react-icons/md";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import { pdf } from "@react-pdf/renderer";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../AuthContext";
 import AppLoading from "./ui/AppLoading";
 import { notify } from "../utils/notify";
 import { localizeExercise } from "../utils/exerciseI18n";
+import { getExerciseNoteLines } from "../utils/exerciseNotes";
 import { useAppTheme } from "../styles/appTheme";
+import { estimateSessionDurationSeconds, formatDuration } from "../utils/trainingEngine";
+import { SportProgramPdfDocument } from "../utils/sportProgramPdf";
+import { canUseCustomBranding } from "../utils/proPlanAccess";
+import { formatProgramActiveWeeks, getProgramActiveWeeksLabel } from "../utils/programDuration";
 import * as firebaseConfig from "../firebaseConfig";
 import {
   getStorage,
@@ -315,36 +317,6 @@ async function resolveImageCandidatesToUrls(candidates = []) {
   return uniqStrings(results.flat());
 }
 
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function nextFrame() {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
-}
-
-async function waitForImagesInNode(root) {
-  if (!root) return;
-
-  const imgs = Array.from(root.querySelectorAll("img"));
-  if (!imgs.length) return;
-
-  await Promise.all(
-    imgs.map(
-      (img) =>
-        new Promise((resolve) => {
-          if (img.complete && img.naturalWidth > 0) {
-            resolve();
-            return;
-          }
-          const done = () => resolve();
-          img.addEventListener("load", done, { once: true });
-          img.addEventListener("error", done, { once: true });
-        })
-    )
-  );
-}
-
 async function blobToDataUrl(blob) {
   if (!blob) return null;
 
@@ -502,6 +474,12 @@ function preloadVideo(url) {
 /* ---------------- media helpers ---------------- */
 
 const EXERCISE_COLLECTIONS = ["training", "warmup", "cooldown", "ergometre"];
+const KNOWN_UNSAFE_EXERCISE_MEDIA = new Set(["crunch machine unilateral", "leg curl debout"]);
+
+function hasKnownUnsafeExerciseMedia(exercise) {
+  const name = norm(exercise?.nom || exercise?.name || exercise?.title || "");
+  return KNOWN_UNSAFE_EXERCISE_MEDIA.has(name);
+}
 
 function normalizeUrl(v) {
   const url = typeof v === "string" && v.trim() ? v.trim() : "";
@@ -630,6 +608,8 @@ function dedupeMediaItems(items) {
 }
 
 function extractExerciseMedia(exercise, preferredSex = "") {
+  if (hasKnownUnsafeExerciseMedia(exercise)) return [];
+
   const ordered = buildGenderOrderedMedia(exercise, preferredSex || "homme");
   const selected = getSexMediaBucket(exercise, preferredSex);
   const bucketImages = Array.isArray(selected?.images) ? selected.images : [];
@@ -665,14 +645,17 @@ function extractExerciseMedia(exercise, preferredSex = "") {
 }
 
 function getExerciseCacheKey(exercise, fallback = "") {
-  return (
+  const exId =
     String(exercise?.id || "").trim() ||
     String(exercise?.exerciseId || "").trim() ||
-    String(exercise?.exercise_id || "").trim() ||
+    String(exercise?.exercise_id || "").trim();
+  const exName =
     String(exercise?.nom || "").trim() ||
     String(exercise?.name || "").trim() ||
-    fallback
-  );
+    String(exercise?.title || "").trim();
+  const collection = String(exercise?.__collection || "").trim();
+  if (exId && exName) return [collection, exId, exName].filter(Boolean).join("__");
+  return exId || exName || fallback;
 }
 
 async function findExerciseDocFromFirestore(exercise) {
@@ -717,12 +700,6 @@ async function findExerciseDocFromFirestore(exercise) {
         const directRef = doc(db, col, exId);
         const directSnap = await getDoc(directRef);
         if (directSnap.exists()) return { ...directSnap.data(), __collection: col, __docId: directSnap.id };
-
-        const byFieldId = await getDocs(query(collection(db, col), where("id", "==", exId), limit(1)));
-        if (!byFieldId.empty) {
-          const d = byFieldId.docs[0];
-          return { ...d.data(), __collection: col, __docId: d.id };
-        }
       }
 
       if (exName) {
@@ -746,6 +723,14 @@ async function findExerciseDocFromFirestore(exercise) {
             const d = byTranslatedName.docs[0];
             return { ...d.data(), __collection: col, __docId: d.id };
           }
+        }
+      }
+
+      if (exId) {
+        const byFieldId = await getDocs(query(collection(db, col), where("id", "==", exId), limit(1)));
+        if (!byFieldId.empty) {
+          const d = byFieldId.docs[0];
+          return { ...d.data(), __collection: col, __docId: d.id };
         }
       }
     }
@@ -1378,7 +1363,8 @@ const buildInfosFromExercise = (ex, units, locale = "fr-FR", L = null) => {
   const push = (key) => {
     const enabled = isOptionEnabled(ex, key);
     const present = values[key] !== undefined;
-    if (enabled || present) {
+    const hasBuilderOrder = Array.isArray(ex?.optionsOrder);
+    if (enabled || (!hasBuilderOrder && present)) {
       const raw = values[key] ?? 0;
       const sourceUnit = detectSourceUnitForField(ex, key);
       return {
@@ -1419,6 +1405,7 @@ function getAdvancedSets(ex) {
   const raw = Array.isArray(pickFirst(ex, ["seriesDetails"])) ? pickFirst(ex, ["seriesDetails"]) : null;
   const fallback = Array.isArray(pickFirst(ex, ["sets"])) ? pickFirst(ex, ["sets"]) : null;
   const arr = raw || fallback || [];
+  const activeOptions = Array.isArray(ex?.optionsOrder) ? new Set(ex.optionsOrder) : null;
 
   if (!enabled || arr.length === 0) return { enabled: false, sets: [] };
 
@@ -1445,10 +1432,20 @@ function getAdvancedSets(ex) {
       chargeUnit: sourceUnit,
       restSec: toSeconds(s.restSec ?? s.rest ?? s["Repos (min:sec)"] ?? s.repos ?? 0),
       durationSec: toSeconds(s.durationSec ?? s.duration ?? s["Durée (min:sec)"] ?? s.temps ?? 0),
+      inclinePct: s.inclinePct ?? s["Inclinaison (%)"] ?? s.inclinaison ?? s.incline ?? s.slope ?? 0,
     };
   });
 
-  return { enabled: true, sets };
+  const hasAny = (keys) => arr.some((s) => keys.some((key) => s?.[key] !== undefined && s?.[key] !== null));
+  const visible = {
+    reps: activeOptions ? activeOptions.has("Répétitions") : hasAny(["reps", "repetitions", "Répétitions"]),
+    charge: activeOptions ? activeOptions.has("Charge (kg)") : hasAny(["chargeKg", "charge", "Charge (kg)", "Charge (lbs)"]),
+    rest: activeOptions ? activeOptions.has("Repos (min:sec)") : hasAny(["restSec", "rest", "Repos (min:sec)", "repos"]),
+    duration: activeOptions ? activeOptions.has("Durée (min:sec)") : hasAny(["durationSec", "duration", "Durée (min:sec)", "temps"]),
+    incline: activeOptions ? activeOptions.has("Inclinaison (%)") : hasAny(["inclinePct", "Inclinaison (%)", "inclinaison", "incline", "slope"]),
+  };
+
+  return { enabled: true, sets, visible };
 }
 
 /* ---- Sections helper ---- */
@@ -1467,44 +1464,8 @@ const asSections = (session) => {
 
 /* ---- Temps total ---- */
 function totalTime(session) {
-  if (!session) return "-";
-  const S = asSections(session);
-  let total = 0;
-
-  const addEx = (ex) => {
-    const adv = getAdvancedSets(ex);
-    const restDefault = toSeconds(getFieldValue(ex, FIELD_MAP.repos) ?? 0);
-    const series = Number(getFieldValue(ex, FIELD_MAP.series) ?? 0) || 1;
-    const reps = Number(getFieldValue(ex, FIELD_MAP.repetitions) ?? 0);
-    const dur = toSeconds(getFieldValue(ex, FIELD_MAP.temps) ?? 0);
-
-    if (adv.enabled && adv.sets.length) {
-      adv.sets.forEach((st) => {
-        total += st.durationSec || (reps ? reps * 3 : 30);
-        total += st.restSec || restDefault || 0;
-      });
-      return;
-    }
-
-    if (dur > 0) {
-      total += series * dur + Math.max(0, series - 1) * restDefault;
-      return;
-    }
-    if (reps > 0) {
-      total += series * reps * 3 + Math.max(0, series - 1) * restDefault;
-      return;
-    }
-    total += series * 30 + Math.max(0, series - 1) * restDefault;
-  };
-
-  S.echauffement.forEach(addEx);
-  S.corps.forEach(addEx);
-  S.bonus.forEach(addEx);
-  S.retourCalme.forEach(addEx);
-
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return s ? `${m} min ${s} sec` : `${m} min`;
+  const total = estimateSessionDurationSeconds(session);
+  return total ? formatDuration(total) : "-";
 }
 
 /* ---------------- PDF i18n ---------------- */
@@ -1538,6 +1499,7 @@ const PDF_I18N = {
     },
     advSets: "Séries différentes",
     notes: "Notes",
+    noteLabel: "Note",
     session: "Séance",
     setN: (n) => `Set ${n}`,
     generatedWith: (host) => `Généré avec Boost Your Life • ${host}`,
@@ -1572,6 +1534,7 @@ const PDF_I18N = {
     },
     advSets: "Advanced sets",
     notes: "Notes",
+    noteLabel: "Note",
     session: "Session",
     setN: (n) => `Set ${n}`,
     generatedWith: (host) => `Generated with Boost Your Life • ${host}`,
@@ -1606,6 +1569,7 @@ const PDF_I18N = {
     },
     advSets: "Variable Sätze",
     notes: "Notizen",
+    noteLabel: "Hinweis",
     session: "Einheit",
     setN: (n) => `Satz ${n}`,
     generatedWith: (host) => `Erstellt mit Boost Your Life • ${host}`,
@@ -1640,6 +1604,7 @@ const PDF_I18N = {
     },
     advSets: "Serie variabili",
     notes: "Note",
+    noteLabel: "Nota",
     session: "Seduta",
     setN: (n) => `Serie ${n}`,
     generatedWith: (host) => `Generato con Boost Your Life • ${host}`,
@@ -1679,6 +1644,7 @@ const PDF_I18N = {
     },
     advSets: "Series variables",
     notes: "Notas",
+    noteLabel: "Nota",
     session: "Sesión",
     setN: (n) => `Serie ${n}`,
     generatedWith: (host) => `Generado con Boost Your Life • ${host}`,
@@ -1713,6 +1679,7 @@ const PDF_I18N = {
     },
     advSets: "Разные подходы",
     notes: "Заметки",
+    noteLabel: "Заметка",
     session: "Тренировка",
     setN: (n) => `Подход ${n}`,
     generatedWith: (host) => `Создано в Boost Your Life • ${host}`,
@@ -1747,6 +1714,7 @@ const PDF_I18N = {
     },
     advSets: "مجموعات متغيرة",
     notes: "ملاحظات",
+    noteLabel: "ملاحظة",
     session: "حصة",
     setN: (n) => `مجموعة ${n}`,
     generatedWith: (host) => `تم الإنشاء عبر Boost Your Life • ${host}`,
@@ -2084,7 +2052,8 @@ function ExerciseMediaPanel({ exercise, preferredSex, mini = false }) {
 
   const border = useColorModeValue("gray.200", "gray.700");
   const cardBg = useColorModeValue("white", "gray.800");
-  const mediaBg = useColorModeValue("gray.50", "gray.900");
+  
+  const miniHoverBorder = useColorModeValue("gray.400", "gray.500");
   const imageBg = "white";
 
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -2133,7 +2102,7 @@ function ExerciseMediaPanel({ exercise, preferredSex, mini = false }) {
         mb={3}
         position="relative"
         _hover={{
-          borderColor: useColorModeValue("gray.400", "gray.500"),
+          borderColor: miniHoverBorder,
           transform: "scale(1.02)",
           transition: "all 0.2s ease-in-out"
         }}
@@ -2330,13 +2299,18 @@ export default function ProgramView() {
   const clientId = params.clientId;
   const programId = params.programId || params.id || params.programmeId;
 
-  const { user } = useAuth();
+  const { user, effectiveRole, showAdminView } = useAuth();
   const { t, i18n } = useTranslation("common");
   const navigate = useNavigate();
   const toast = useToast();
 
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const adminCoachId = searchParams.get("adminCoachId") || "";
+  const withAdminCoach = (path) => {
+    if (!adminCoachId) return path;
+    return `${path}${path.includes("?") ? "&" : "?"}adminCoachId=${encodeURIComponent(adminCoachId)}`;
+  };
 
   const [prog, setProg] = useState(null);
   const [progRef, setProgRef] = useState(null);
@@ -2359,12 +2333,11 @@ export default function ProgramView() {
     const short = raw.split("-")[0];
     return supportedPdfLangs.includes(short) ? short : "fr";
   });
-
-  const pdfRef = useRef();
   const exerciseMediaCacheRef = useRef(new Map());
 
   const [resolvedExerciseMap, setResolvedExerciseMap] = useState({});
-  const [pdfExerciseImageMap, setPdfExerciseImageMap] = useState({});
+  const [, setPdfExerciseImageMap] = useState({});
+  const [pdfGenerating, setPdfGenerating] = useState(false);
 
   const [headerLogo, setHeaderLogo] = useState(null);
   const [footerLogo, setFooterLogo] = useState(null);
@@ -2621,9 +2594,11 @@ export default function ProgramView() {
     const ui = getObjectifUIFromProg(prog);
     if (ui) return ui;
 
+    const fromField = (prog?.objectif && String(prog.objectif).trim()) || "";
+    if (fromField) return fromField;
+
     if (objectifKeyFromName) return objectifKeyFromName;
 
-    const fromField = (prog?.objectif && String(prog.objectif).trim()) || "";
     return fromField || "";
   }, [objectifUIFromNav, cachedPrefs, lastPrefs, isAutoProgram, prog, objectifKeyFromName]);
 
@@ -2666,12 +2641,18 @@ export default function ProgramView() {
 
   const programmeTitleDisplay = useMemo(() => {
     const custom = (customProgramName || "").trim();
-    if (custom) return custom;
+    const shouldUseComputedAutoName =
+      isAutoProgram &&
+      custom &&
+      objectifKeyDisplay &&
+      objectifKeyFromName &&
+      objectifKeyFromName !== objectifKeyDisplay;
+    if (custom && !shouldUseComputedAutoName) return custom;
 
     const perWeek = (Llbl[pdfLang] || Llbl.fr).perWeek || "x/Sem";
     const base = objectifLabelDisplay || t("autoPreview.generated", "Programme");
     return nbSeances ? `${base} — ${nbSeances}${perWeek}` : base;
-  }, [customProgramName, objectifLabelDisplay, nbSeances, pdfLang, Llbl, t]);
+  }, [customProgramName, isAutoProgram, objectifKeyDisplay, objectifKeyFromName, objectifLabelDisplay, nbSeances, pdfLang, Llbl, t]);
 
   useEffect(() => {
     let alive = true;
@@ -2747,12 +2728,21 @@ export default function ProgramView() {
   useEffect(() => {
     (async () => {
       const byl = await anyImageSourceToDataUrl(LEGACY_BYL_LOCAL);
-      const coachLogo = await anyImageSourceToDataUrl(user?.logoUrl || user?.photoURL || "");
+      const brandingAllowed = canUseCustomBranding(
+        user?.proAccess || {
+          packageKey: user?.packageKey,
+          packageTier: user?.packageTier,
+          branding: user?.branding,
+        }
+      );
+      const coachLogo = brandingAllowed
+        ? await anyImageSourceToDataUrl(user?.logoUrl || user?.photoURL || "")
+        : "";
       const logo = byl || LEGACY_BYL_LOCAL;
       setFooterLogo(logo);
       setHeaderLogo(coachLogo || logo);
     })();
-  }, [user?.logoUrl, user?.photoURL]);
+  }, [user?.branding, user?.logoUrl, user?.packageKey, user?.packageTier, user?.photoURL, user?.proAccess]);
 
   const resolveExerciseForDisplay = (exercise, fallback = "", lng = i18n.language || "fr") => {
     const cacheKey = getExerciseCacheKey(exercise, fallback);
@@ -2774,7 +2764,7 @@ export default function ProgramView() {
 
         const rawCandidates = getExerciseImageUrls(resolved, preferredSex);
         const resolvedCandidates = await resolveImageCandidatesToUrls(rawCandidates);
-        const allCandidates = uniqStrings([...rawCandidates, ...resolvedCandidates]);
+        const allCandidates = uniqStrings([...rawCandidates, ...resolvedCandidates]).slice(0, 4);
 
         const candidateResults = await Promise.all(
           allCandidates.map(async (candidate) => {
@@ -2901,502 +2891,133 @@ export default function ProgramView() {
     }
   };
 
-  const getPdfImagesForExercise = (exercise, fallback = "") => {
+  
+
+  const getPdfImagesForExerciseFromMap = (imageMap, exercise, fallback = "") => {
     const cacheKey = getExerciseCacheKey(exercise, fallback);
     if (!cacheKey) return { images: [], hasImages: false };
-    return pdfExerciseImageMap[cacheKey] || { images: [], hasImages: false };
+    return imageMap?.[cacheKey] || { images: [], hasImages: false };
   };
 
-  const renderPdfPages = () => {
-    const palette = {
-      primary: "#111827",
-      ink: "#111827",
-      sub: "#6B7280",
-      line: "#E5E7EB",
-      cardBorder: "#E5E7EB",
-      mediaBg: "#f8fafc",
-    };
-
-    const Header = ({ sessionIdx, showSessionTitle }) => {
-      const leftLabel = viewerIsCoach
-        ? getPrettyUserName(user) ||
-          (user?.displayName && !/@/.test(user.displayName) ? user.displayName : "") ||
-          "BYL"
-        : (coachPdfName || "").trim() || "BYL";
-
-      const sessionTitle = getSessionDisplayName(sessions?.[sessionIdx] || {}, sessionIdx, L);
-
-      return (
-        <Flex
-          align="center"
-          justify="space-between"
-          px={30}
-          py={8}
-          minH="74px"
-          style={{ borderBottom: `1px solid ${palette.line}`, background: "#fff" }}
-        >
-          <HStack spacing={12} style={{ width: 260 }}>
-            {headerLogo ? (
-              <img
-                src={headerLogo}
-                crossOrigin="anonymous"
-                alt="logo"
-                style={{ height: 36, width: 36, objectFit: "contain", borderRadius: 8 }}
-              />
-            ) : (
-              <Box w="36px" h="36px" borderRadius="8px" bg="#e6ecff" />
-            )}
-            <Text style={{ fontSize: 14.5, fontWeight: 800, color: palette.ink, whiteSpace: "nowrap" }}>
-              {leftLabel}
-            </Text>
-          </HStack>
-
-          <Box style={{ textAlign: "center", flex: 1 }}>
-            <Text style={{ fontSize: 18, fontWeight: 900, color: palette.ink, letterSpacing: ".3px" }}>
-              {programmeTitleDisplay}
-            </Text>
-            {showSessionTitle && (
-              <Text style={{ fontSize: 12.5, color: palette.sub, marginTop: 2 }}>{sessionTitle}</Text>
-            )}
-          </Box>
-
-          <HStack spacing={12} style={{ width: 240, justifyContent: "flex-end" }}>
-            {clientName ? (
-              <Text style={{ fontSize: 13.2, color: palette.ink, opacity: 0.85, whiteSpace: "nowrap" }}>
-                {clientName}
-              </Text>
-            ) : null}
-            <Text style={{ fontSize: 12.2, color: "#999", whiteSpace: "nowrap" }}>{L.date(new Date())}</Text>
-          </HStack>
-        </Flex>
-      );
-    };
-
-    const DurationLine = ({ sessionIdx }) => (
-      <Box style={{ position: "absolute", top: 82, right: 30, fontSize: 12.5, color: "#4b5b77" }}>
-        <Box as="span" mr={2} style={{ display: "inline-block", transform: "translateY(1px)" }}>
-          <MdOutlineAccessTime />
-        </Box>
-        {totalTime(sessions[sessionIdx])}
-      </Box>
-    );
-
-    const Footer = () => (
-      <Flex
-        position="absolute"
-        left={0}
-        right={0}
-        bottom={0}
-        align="center"
-        justify="center"
-        fontSize="12.5px"
-        color="#8a8a8a"
-        borderTop={`1px solid ${palette.line}`}
-        py={6}
-      >
-        {footerLogo && (
-          <img
-            src={footerLogo}
-            crossOrigin="anonymous"
-            alt="BYL"
-            style={{ height: 22, width: 22, objectFit: "contain", borderRadius: 6, marginRight: 10 }}
-          />
-        )}
-        {L.generatedWith(window.location.hostname)}
-      </Flex>
-    );
-
-    const AdvSetsMiniTable = ({ sets }) => (
-      <Box mt={10}>
-        <Tag size="sm" colorScheme="purple" mb={6}>
-          {L.advSets}
-        </Tag>
-        <Table size="sm" variant="simple" width="100%">
-          <Thead>
-            <Tr>
-              <Th>#</Th>
-              <Th>{L.labels.reps}</Th>
-              <Th>{displayUnits.weight === "lbs" ? L.labels.loadLbs : L.labels.loadKg}</Th>
-              <Th>{L.labels.rest}</Th>
-              <Th>{L.labels.duration}</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {sets.map((s, i) => (
-              <Tr key={i}>
-                <Td>{L.setN(i + 1)}</Td>
-                <Td>{formatDisplayNumber(s.reps ?? 0, pdfLocale)}</Td>
-                <Td>
-                  {formatDisplayNumber(
-                    convertWeight(s.chargeValue ?? 0, displayUnits.weight, s.chargeUnit || "kg"),
-                    pdfLocale
-                  )}
-                </Td>
-                <Td>{fmtSec(s.restSec ?? 0)}</Td>
-                <Td>{fmtSec(s.durationSec ?? 0)}</Td>
-              </Tr>
-            ))}
-          </Tbody>
-        </Table>
-      </Box>
-    );
-
-    const PdfImageGrid = ({ images = [] }) => {
-      if (!images.length) return null;
-
-      return (
-        <Box mb="12px">
-          <Box
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-              justifyItems: "center",
-              gap: "10px",
-            }}
-          >
-            {images.map((img, idx) => (
-              <Box
-                key={`pdf-img-${idx}`}
-                style={{
-                  width: "100%",
-                  height: 180,
-                  borderRadius: 12,
-                  overflow: "hidden",
-                  border: `1px solid ${palette.cardBorder}`,
-                  background: palette.mediaBg,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "6px",
-                }}
-              >
-                <img
-                  src={img.dataUrl || img.finalUrl}
-                  alt=""
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "contain",
-                    display: "block",
-                  }}
-                />
-              </Box>
-            ))}
-          </Box>
-        </Box>
-      );
-    };
-
-    const PdfCard = ({ ex, index, pdfImages }) => {
-      const images = Array.isArray(pdfImages?.images) ? pdfImages.images : [];
-
-      const infos = buildInfosFromExercise(ex, displayUnits, pdfLocale, L);
-      const adv = getAdvancedSets(ex);
-      const cues = pickFirst(ex, ["consignes", "instructions", "cues"]);
-      const cueEntries =
-        cues && typeof cues === "object" && !Array.isArray(cues)
-          ? Object.entries(cues).filter(([, value]) => String(Array.isArray(value) ? value.join(" ") : value || "").trim())
-          : safeArray(cues)
-              .map((value, cueIndex) => [`${cueIndex + 1}`, value])
-              .filter(([, value]) => String(value || "").trim());
-      const showNotes =
-        pickFirst(ex, ["notesEnabled"]) === true &&
-        String(pickFirst(ex, ["notes"]) || "").trim() !== "";
-
-      const exName = pickFirst(ex, ["nom", "name"]) || "";
-
-      return (
-        <Box
-          border={`1px solid ${palette.cardBorder}`}
-          bg="#fff"
-          borderRadius="14px"
-          p="14px"
-          w="100%"
-          style={{ breakInside: "avoid", pageBreakInside: "avoid" }}
-        >
-          <PdfImageGrid images={images} />
-
-          <Text style={{ fontWeight: 800, color: palette.ink, fontSize: 15.2, marginBottom: 6 }}>
-            {`${index}. ${exName}`}
-          </Text>
-
-          <Box style={{ height: 1, background: palette.line, margin: "4px 0 8px 0" }} />
-
-          <Box style={{ fontSize: 12.8, color: palette.ink, lineHeight: 1.6 }}>
-            {infos.length > 0 ? (
-              infos.map((it, i) => (
-                <div key={i}>
-                  <b>{it.label} :</b>{" "}
-                  {it.key === "temps" || it.key === "repos" ? nbspUnits(String(it.value)) : String(it.value)}
-                </div>
-              ))
-            ) : (
-              <div>-</div>
-            )}
-          </Box>
-
-          {cueEntries.length > 0 && (
-            <Box style={{ marginTop: 8, fontSize: 11.8, color: palette.ink, lineHeight: 1.45 }}>
-              {cueEntries.slice(0, 5).map(([key, value], i) => (
-                <div key={i} style={{ marginTop: 3 }}>
-                  {Number.isNaN(Number(key)) ? <b>{key} : </b> : null}
-                  {Array.isArray(value) ? value.join(" / ") : String(value)}
-                </div>
-              ))}
-            </Box>
-          )}
-
-          {adv.enabled && adv.sets.length > 0 && <AdvSetsMiniTable sets={adv.sets} />}
-
-          {showNotes && (
-            <Box
-              mt={8}
-              style={{
-                border: `1px solid ${palette.cardBorder}`,
-                background: "#f7f9ff",
-                borderRadius: 10,
-                padding: "10px 12px",
-                color: "#374151",
-              }}
-            >
-              <HStack spacing={8} align="center" style={{ marginBottom: 6 }}>
-                <Box as={MdDescription} />
-                <Text as="span" style={{ fontWeight: 700, fontSize: 12.5, color: palette.ink }}>
-                  {L.notes}
-                </Text>
-              </HStack>
-              <Text style={{ whiteSpace: "pre-wrap", fontSize: 12.2 }}>{pickFirst(ex, ["notes"])}</Text>
-            </Box>
-          )}
-        </Box>
-      );
-    };
-
-    const SectionTitle = ({ label, continued }) => (
-      <HStack spacing={10} align="center" style={{ margin: "16px 0 10px 0" }}>
-        <Box style={{ width: 8, height: 8, borderRadius: 3, background: "#111827" }} />
-        <Text style={{ fontWeight: 900, color: "#111827", fontSize: 15.6 }}>
-          {label}
-          {continued ? L.continued : ""}
-        </Text>
-        <Box style={{ flex: 1, height: 1, background: palette.line }} />
-      </HStack>
-    );
-
-    const PageShell = ({ sessionIdx, firstPageForSession, blocks }) => (
-      <Box
-        className="a4page"
-        width="794px"
-        minH="1123px"
-        bg="#fff"
-        color="#181b22"
-        fontFamily="'Inter','Montserrat', Arial, sans-serif"
-        position="relative"
-        style={{ breakAfter: "page", pageBreakAfter: "always" }}
-      >
-        <Header sessionIdx={sessionIdx} showSessionTitle={firstPageForSession} />
-        <DurationLine sessionIdx={sessionIdx} />
-        <Box style={{ padding: "0 30px", marginTop: firstPageForSession ? 30 : 14, paddingBottom: 36 }}>
-          {blocks}
-        </Box>
-        <Footer />
-      </Box>
-    );
-
-    const estimatePdfCardHeight = (ex, pdfImages) => {
-      const images = Array.isArray(pdfImages?.images) ? pdfImages.images : [];
-      let h = 120;
-
-      if (images.length > 0) {
-        const rows = Math.ceil(images.length / 2);
-        const rowHeight = 180;
-        h += rows * rowHeight;
-        h += (rows - 1) * 10;
-        h += 12;
-      }
-
-      const infos = buildInfosFromExercise(ex, displayUnits, pdfLocale, L);
-      h += (infos.length > 0 ? infos.length : 3) * 18;
-
-      const cues = pickFirst(ex, ["consignes", "instructions", "cues"]);
-      const cueCount =
-        cues && typeof cues === "object" && !Array.isArray(cues)
-          ? Object.keys(cues).length
-          : safeArray(cues).length;
-      if (cueCount > 0) h += Math.min(cueCount, 5) * 18 + 10;
-
-      const adv = getAdvancedSets(ex);
-      if (adv.enabled && adv.sets.length) {
-        const rows = adv.sets.length;
-        h += 28 + (24 + rows * 22) + 8;
-      }
-
-      const notesEnabled = pickFirst(ex, ["notesEnabled"]) === true;
-      const notes = String(pickFirst(ex, ["notes"]) || "");
-      if (notesEnabled && notes.trim() !== "") {
-        const lines = Math.ceil(notes.length / 48);
-        h += 18 + lines * 16;
-      }
-
-      return h;
-    };
-
-    const pages = [];
-    (sessions || []).forEach((sess, sIdx) => {
+  const buildSportPdfSessions = (imageMap) =>
+    (sessions || []).map((sess, sIdx) => {
       const S = asSections(sess);
-      let used = 0;
-      let blocks = [];
-      let onFirst = true;
-      let runningIndex = 1;
-
-      const flush = () => {
-        pages.push(
-          <PageShell
-            key={`p-${sIdx}-${pages.length}`}
-            sessionIdx={sIdx}
-            firstPageForSession={onFirst}
-            blocks={blocks}
-          />
-        );
-        blocks = [];
-        used = 0;
-        onFirst = false;
+      const makeExercise = (exercise, indexPrefix) => {
+        const resolved = resolveExerciseForDisplay(exercise, indexPrefix, pdfLang);
+        const pdfImages = getPdfImagesForExerciseFromMap(imageMap, resolved, indexPrefix);
+        return {
+          name: pickFirst(resolved, ["nom", "name"]) || "",
+          infos: buildInfosFromExercise(resolved, displayUnits, pdfLocale, L),
+          images: (pdfImages.images || [])
+            .map((item) => item?.dataUrl || item?.finalUrl)
+            .filter(Boolean),
+        };
       };
 
-      const addList = (label, list) => {
-        if (!list.length) return;
+      const makeSection = (label, list, key) => ({
+        label,
+        exercises: (list || []).map((exercise, index) =>
+          makeExercise(exercise, `sport-pdf-${sIdx}-${key}-${index}`)
+        ),
+      });
 
-        let sectionTitleAdded = false;
-        let i = 0;
-
-        while (i < list.length) {
-          const left = resolveExerciseForDisplay(list[i], `pdf-left-${sIdx}-${i}`, pdfLang);
-          const right = list[i + 1] ? resolveExerciseForDisplay(list[i + 1], `pdf-right-${sIdx}-${i}`, pdfLang) : null;
-
-          const leftImages = getPdfImagesForExercise(left, `pdf-left-${sIdx}-${i}`);
-          const rightImages = right ? getPdfImagesForExercise(right, `pdf-right-${sIdx}-${i}`) : null;
-
-          const leftH = estimatePdfCardHeight(left, leftImages);
-          const rightH = right ? estimatePdfCardHeight(right, rightImages) : 0;
-          const rowH = Math.max(leftH, rightH, 116) + 18;
-          const titleH = 36;
-
-          if (!sectionTitleAdded) {
-            if (used + titleH + rowH > 1123 - 74 - 36 - 10 - 10 && used > 0) {
-              flush();
-              continue;
-            }
-
-            blocks.push(
-              <SectionTitle key={`st-${label}-${sIdx}-${i}`} label={label} continued={!onFirst && i > 0} />
-            );
-            used += titleH;
-            sectionTitleAdded = true;
-          }
-
-          if (used + rowH > 1123 - 74 - 36 - 10 - 10 && used > 0) {
-            flush();
-            sectionTitleAdded = false;
-            continue;
-          }
-
-          blocks.push(
-            <HStack key={`sec-${label}-${i}`} spacing={24} align="stretch" mb={4}>
-              <Box flex="1">
-                <PdfCard ex={left} index={runningIndex++} pdfImages={leftImages} />
-              </Box>
-              <Box flex="1">
-                {right ? <PdfCard ex={right} index={runningIndex++} pdfImages={rightImages} /> : null}
-              </Box>
-            </HStack>
-          );
-
-          used += rowH;
-          i += 2;
-        }
+      return {
+        title: getSessionDisplayName(sess, sIdx, L),
+        duration: `${L.totalTime} : ${totalTime(sess)}`,
+        sections: [
+          makeSection(L.sections.warmup, S.echauffement, "warmup"),
+          makeSection(L.sections.main, S.corps, "main"),
+          makeSection(L.sections.bonus, S.bonus, "bonus"),
+          makeSection(L.sections.cooldown, S.retourCalme, "cooldown"),
+        ].filter((section) => section.exercises.length),
       };
-
-      addList(L.sections.warmup, S.echauffement || []);
-      addList(L.sections.main, S.corps || []);
-      addList(L.sections.bonus, S.bonus || []);
-      addList(L.sections.cooldown, S.retourCalme || []);
-
-      flush();
     });
 
-    return (
-      <Box
-        id="auto-preview-pages"
-        ref={pdfRef}
-        position="fixed"
-        left="-20000px"
-        top="0"
-        zIndex={-1}
-        pointerEvents="none"
-      >
-        {pages}
-      </Box>
-    );
-  };
-
   const handleDownloadPDF = async () => {
+    if (pdfGenerating) return;
+    setPdfGenerating(true);
     try {
-      await preloadPdfImagesForAllSessions();
+      notify(toast, "pdfPreparing", {
+        title: t("autoPreview.pdfPreparing", "Préparation du PDF..."),
+        status: "info",
+        duration: 1400,
+      });
+      const imageMap = await preloadPdfImagesForAllSessions();
+      const rawCoachName = viewerIsCoach
+        ? getPrettyUserName(user) ||
+          (user?.displayName && !/@/.test(user.displayName) ? user.displayName : "") ||
+          ""
+        : coachPdfName || "";
+      const createdByForPdf = String(prog?.createdBy || prog?.createdByUid || prog?.generatedBy || "").toLowerCase();
+      const createdNameForPdf = String(prog?.createdByName || prog?.coachName || prog?.ownerName || "").toLowerCase();
+      const isBylGeneratedPdf =
+        createdByForPdf.includes("auto-cron") ||
+        createdByForPdf.includes("auto_cron") ||
+        createdByForPdf === "byl" ||
+        createdByForPdf === "system" ||
+        createdNameForPdf === "byl" ||
+        createdNameForPdf.includes("boostyourlife");
+      const isAdminWorkspacePdf =
+        user?.role === "admin" &&
+        (showAdminView || effectiveRole === "admin") &&
+        !searchParams.get("adminCoachId");
+      const pdfHeaderName =
+        isBylGeneratedPdf || isAdminWorkspacePdf ? "BoostYourLife.coach" : rawCoachName;
+      const pdfHeaderLogo =
+        isBylGeneratedPdf || isAdminWorkspacePdf ? footerLogo || headerLogo : headerLogo || footerLogo;
 
-      await nextFrame();
-      await wait(60);
-
-      const root = pdfRef.current;
-      if (!root) return;
-
-      await waitForImagesInNode(root);
-
-      const nodes = root.querySelectorAll(".a4page");
-      if (!nodes || nodes.length === 0) return;
-
-      const pdf = new jsPDF({ unit: "pt", format: "a4" });
-      const renderScale = Math.max(2.05, Math.min(window.devicePixelRatio || 2, 2.35));
-
-      for (let i = 0; i < nodes.length; i++) {
-        const node = nodes[i];
-
-        await waitForImagesInNode(node);
-        await wait(20);
-
-        const canvas = await html2canvas(node, {
-          scale: renderScale,
-          backgroundColor: "#ffffff",
-          useCORS: true,
-          allowTaint: false,
-          imageTimeout: 12000,
-          logging: false,
-          removeContainer: true,
-          foreignObjectRendering: false,
-          windowWidth: node.scrollWidth,
-          windowHeight: node.scrollHeight,
-        });
-
-        const img = canvas.toDataURL("image/jpeg", 0.9);
-        if (i > 0) pdf.addPage();
-        pdf.addImage(img, "JPEG", 0, 0, 595.28, 841.89, undefined, "MEDIUM");
-      }
+      const blob = await pdf(
+        <SportProgramPdfDocument
+          title={programmeTitleDisplay}
+          clientName={clientName}
+          coachName={pdfHeaderName}
+          logoDataUrl={pdfHeaderLogo}
+          footerLogoDataUrl={footerLogo || headerLogo}
+          dateLabel={L.date(new Date())}
+          footerText={L.generatedWith(window.location.hostname)}
+          sessions={buildSportPdfSessions(imageMap)}
+        />
+      ).toBlob();
 
       const base = normalizeForFilename(programmeTitleDisplay || L.fileProgram);
       const clientBase = normalizeForFilename(clientName || L.fileClient);
-      pdf.save(`${base}-${clientBase}-BYL-${pdfLang}.pdf`);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${base}-${clientBase}-BYL-${pdfLang}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
     } catch (e) {
       console.error(e);
       notify(toast, "pdfError", {
         title: t("autoPreview.pdfError", "Erreur lors de la génération du PDF"),
       });
+    } finally {
+      setPdfGenerating(false);
     }
+  };
+
+  const goBack = () => {
+    const from = location.state?.from || location.state?.source || "";
+    const fromCreation =
+      location.state?.fromCreation ||
+      from === "program-creation" ||
+      from === "checkout";
+    if (fromCreation) {
+      navigate(viewerIsCoach ? withAdminCoach("/coach-dashboard") : "/user-dashboard", { replace: true });
+      return;
+    }
+    navigate(-1);
   };
 
   const goEdit = () => {
     const realProgramId = programId || prog?.id;
     if (!realProgramId) return;
-    if (clientId) navigate(`/clients/${clientId}/programmes/${realProgramId}/program-builder`);
-    else navigate(`/exercise-bank/program-builder/${realProgramId}`);
+    const state = { returnTo: location.pathname + location.search };
+    if (clientId) navigate(withAdminCoach(`/clients/${clientId}/programmes/${realProgramId}/program-builder`), { state });
+    else navigate(withAdminCoach(`/exercise-bank/program-builder/${realProgramId}`), { state });
   };
 
   const goPlay = () => {
@@ -3404,9 +3025,49 @@ export default function ProgramView() {
     const sIdx = Math.max(0, Math.min(tabIndex, sessions.length - 1));
     const realProgramId = programId || prog?.id;
     if (!realProgramId) return;
-    if (clientId) navigate(`/clients/${clientId}/programmes/${realProgramId}/session/${sIdx}/play`);
-    else navigate(`/programmes/${realProgramId}/session/${sIdx}/play`);
+    if (clientId) navigate(withAdminCoach(`/clients/${clientId}/programmes/${realProgramId}/session/${sIdx}/play`));
+    else navigate(withAdminCoach(`/programmes/${realProgramId}/session/${sIdx}/play`));
   };
+
+  const pillActiveBg = useColorModeValue("gray.900", "#2b3448");
+  const pillInactiveBg = useColorModeValue("gray.100", "#233055");
+  const pillInactiveColor = useColorModeValue("gray.800", "gray.100");
+  const pillActiveHoverBg = useColorModeValue("gray.800", "#374151");
+  const pillInactiveHoverBg = useColorModeValue("gray.200", "#32406b");
+  const timeRowColor = useColorModeValue("gray.600", "gray.300");
+  const badgeBg = useColorModeValue("gray.100", "#233055");
+  const badgeColor = useColorModeValue("gray.700", "gray.100");
+  const badgeBorder = useColorModeValue("1px solid #e3e7ef", "1px solid #2b3b64");
+  const secondaryBadgeColor = useColorModeValue("gray.600", "gray.200");
+  const replaceButtonBg = useColorModeValue("gray.900", "whiteAlpha.200");
+  const replaceButtonHoverBg = useColorModeValue("gray.800", "whiteAlpha.300");
+  const replaceButtonActiveBg = useColorModeValue("gray.700", "whiteAlpha.400");
+
+  const Pill = ({ active, children, onClick }) => (
+    <Button
+      onClick={onClick}
+      borderRadius="9999px"
+      size="sm"
+      px={4}
+      h="34px"
+      fontWeight={600}
+      bg={active ? pillActiveBg : pillInactiveBg}
+      color={active ? "white" : pillInactiveColor}
+      border="1px solid transparent"
+      _hover={{
+        bg: active ? pillActiveHoverBg : pillInactiveHoverBg
+      }}
+      transition="all .15s"
+    >
+      {children}
+    </Button>
+  );
+
+  const currentSession = sessions[tabIndex] || null;
+  const currentSessionTitle = getSessionDisplayName(currentSession || {}, tabIndex, L);
+  const activeWeeksLabel = formatProgramActiveWeeks(prog || {}, t);
+
+  const showAutoFollowToggle = true;
 
   if (loading) {
     return <AppLoading label={t("common.loading", "Chargement...")} />;
@@ -3417,7 +3078,7 @@ export default function ProgramView() {
       <Box bg={bg} p={6}>
         <Box {...theme.cardProps} p={6} maxW="5xl" mx="auto">
           <HStack mb={4}>
-            <IconButton icon={<ArrowBackIcon />} aria-label="back" onClick={() => navigate(-1)} />
+            <IconButton icon={<ArrowBackIcon />} aria-label={t("auto.ProgramView.back", "back")} onClick={() => navigate(-1)} />
             <Heading size="md">{t("autoPreview.notFound", "Programme introuvable")}</Heading>
           </HStack>
           <Text opacity={0.8}>{t("autoPreview.notFoundHint", "Vérifie l’URL ou les droits d’accès.")}</Text>
@@ -3426,40 +3087,16 @@ export default function ProgramView() {
     );
   }
 
-  const Pill = ({ active, children, onClick }) => (
-    <Button
-      onClick={onClick}
-      borderRadius="9999px"
-      size="sm"
-      px={4}
-      h="34px"
-      fontWeight={600}
-      bg={active ? useColorModeValue("gray.900", "#2b3448") : useColorModeValue("gray.100", "#233055")}
-      color={active ? "white" : useColorModeValue("gray.800", "gray.100")}
-      border="1px solid transparent"
-      _hover={{
-        bg: active ? useColorModeValue("gray.800", "#374151") : useColorModeValue("gray.200", "#32406b")
-      }}
-      transition="all .15s"
-    >
-      {children}
-    </Button>
-  );
-
-  const currentSession = sessions[tabIndex] || null;
-  const currentSessionTitle = getSessionDisplayName(currentSession || {}, tabIndex, L);
-
-  const showAutoFollowToggle = true;
-
   return (
     <Box bg={bg} minH="100vh" p={{ base: 3, md: 6 }}>
       <Box {...theme.cardProps} p={{ base: 4, md: 6 }} maxW="7xl" mx="auto">
         <TopBar
           programmeName={programmeTitleDisplay}
-          onBack={() => navigate(-1)}
+          onBack={goBack}
           onEdit={goEdit}
           onPlay={goPlay}
           onPdf={handleDownloadPDF}
+          pdfGenerating={pdfGenerating}
           canEdit={canEdit}
           pdfLang={pdfLang}
           setPdfLang={setPdfLang}
@@ -3473,6 +3110,18 @@ export default function ProgramView() {
         />
 
         <HStack spacing={2} mb={4} wrap="wrap">
+          {activeWeeksLabel && (
+            <Badge
+              borderRadius="full"
+              px={3}
+              py="6px"
+              bg={badgeBg}
+              color={badgeColor}
+              border={badgeBorder}
+            >
+              {getProgramActiveWeeksLabel(t)} : {activeWeeksLabel}
+            </Badge>
+          )}
           {sessions.map((sess, i) => (
             <Pill key={i} active={i === tabIndex} onClick={() => setTabIndex(i)}>
               {getSessionDisplayName(sess || {}, i, L)}
@@ -3481,7 +3130,7 @@ export default function ProgramView() {
         </HStack>
 
         {currentSession && (
-          <HStack mb={3} color={useColorModeValue("gray.600", "gray.300")} wrap="wrap">
+          <HStack mb={3} color={timeRowColor} wrap="wrap">
             <Box as={MdOutlineAccessTime} boxSize={5} />
             <Text fontSize="sm">
               {L.totalTime} :{" "}
@@ -3490,9 +3139,9 @@ export default function ProgramView() {
                 borderRadius="full"
                 px={2.5}
                 py="2px"
-                bg={useColorModeValue("gray.100", "#233055")}
-                color={useColorModeValue("gray.700", "gray.100")}
-                border={useColorModeValue("1px solid #e3e7ef", "1px solid #2b3b64")}
+                bg={badgeBg}
+                color={badgeColor}
+                border={badgeBorder}
               >
                 {totalTime(currentSession)}
               </Badge>
@@ -3502,8 +3151,8 @@ export default function ProgramView() {
                 px={2.5}
                 py="2px"
                 bg="transparent"
-                color={useColorModeValue("gray.600", "gray.200")}
-                border={useColorModeValue("1px solid #e3e7ef", "1px solid #2b3b64")}
+                color={secondaryBadgeColor}
+                border={badgeBorder}
               >
                 {currentSessionTitle}
               </Badge>
@@ -3534,6 +3183,8 @@ export default function ProgramView() {
                   const nom = (pickFirst(displayExercise || ex, ["nom", "name"]) || "").toString();
                   const infos = buildInfosFromExercise(ex, displayUnits, locale, L);
                   const adv = getAdvancedSets(ex);
+                  const noteLines = getExerciseNoteLines(ex, i18n.language || i18n.resolvedLanguage || "fr");
+                  const variantOptions = safeArray(pickFirst(displayExercise || ex, ["variantes"]));
 
                   return (
                     <Box
@@ -3586,32 +3237,58 @@ export default function ProgramView() {
                             <Box overflowX="auto">
                               <Table size="sm" variant="simple" minW="520px">
                                 <Thead>
-                                  <Tr>
-                                    <Th>#</Th>
-                                    <Th>{L.labels.reps}</Th>
-                                    <Th>{displayUnits.weight === "lbs" ? L.labels.loadLbs : L.labels.loadKg}</Th>
-                                    <Th>{L.labels.rest}</Th>
-                                    <Th>{L.labels.duration}</Th>
-                                  </Tr>
-                                </Thead>
-                                <Tbody>
-                                  {adv.sets.map((s, i) => (
-                                    <Tr key={i}>
-                                      <Td>{L.setN(i + 1)}</Td>
-                                      <Td>{formatDisplayNumber(s.reps ?? 0, locale)}</Td>
-                                      <Td>
-                                        {formatDisplayNumber(
-                                          convertWeight(s.chargeValue ?? 0, displayUnits.weight, s.chargeUnit || "kg"),
-                                          locale
-                                        )}
-                                      </Td>
-                                      <Td>{fmtSec(s.restSec ?? 0)}</Td>
-                                      <Td>{fmtSec(s.durationSec ?? 0)}</Td>
-                                    </Tr>
-                                  ))}
+	                                  <Tr>
+	                                    <Th>#</Th>
+	                                    {adv.visible?.reps && <Th>{L.labels.reps}</Th>}
+	                                    {adv.visible?.charge && (
+	                                      <Th>{displayUnits.weight === "lbs" ? L.labels.loadLbs : L.labels.loadKg}</Th>
+	                                    )}
+	                                    {adv.visible?.rest && <Th>{L.labels.rest}</Th>}
+	                                    {adv.visible?.duration && <Th>{L.labels.duration}</Th>}
+	                                    {adv.visible?.incline && <Th>{L.labels.incline}</Th>}
+	                                  </Tr>
+	                                </Thead>
+	                                <Tbody>
+	                                  {adv.sets.map((s, i) => (
+	                                    <Tr key={i}>
+	                                      <Td>{L.setN(i + 1)}</Td>
+	                                      {adv.visible?.reps && <Td>{formatDisplayNumber(s.reps ?? 0, locale)}</Td>}
+	                                      {adv.visible?.charge && (
+	                                        <Td>
+	                                          {formatDisplayNumber(
+	                                            convertWeight(s.chargeValue ?? 0, displayUnits.weight, s.chargeUnit || "kg"),
+	                                            locale
+	                                          )}
+	                                        </Td>
+	                                      )}
+	                                      {adv.visible?.rest && <Td>{fmtSec(s.restSec ?? 0)}</Td>}
+	                                      {adv.visible?.duration && <Td>{fmtSec(s.durationSec ?? 0)}</Td>}
+	                                      {adv.visible?.incline && <Td>{formatDisplayNumber(s.inclinePct ?? 0, locale)}</Td>}
+	                                    </Tr>
+	                                  ))}
                                 </Tbody>
                               </Table>
                             </Box>
+                          </Box>
+                        )}
+
+                        {noteLines.length > 0 && (
+                          <Box
+                            border="1px solid"
+                            borderColor={badgeBorder}
+                            borderRadius="lg"
+                            bg={badgeBg}
+                            px={3}
+                            py={2}
+                          >
+                            <Text fontSize="xs" fontWeight="bold" color={badgeColor} textTransform="uppercase" mb={1}>
+                              {L.noteLabel || L.notes || t("autoPreview.notes", "Notes")}
+                            </Text>
+                            {noteLines.map((note, noteIndex) => (
+                              <Text key={noteIndex} fontSize="sm" color={subText} lineHeight="1.35">
+                                {note}
+                              </Text>
+                            ))}
                           </Box>
                         )}
                       </VStack>
@@ -3625,7 +3302,7 @@ export default function ProgramView() {
                         >
                           {t("autoPreview.details", "Détails")}
                         </Button>
-                        {safeArray(pickFirst(ex, ["variantes"])).length > 0 && (
+                        {variantOptions.length > 0 && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -3682,10 +3359,10 @@ export default function ProgramView() {
                         onClick={() => doReplacePersist(selVariant)}
                         isDisabled={!selVariant}
                         borderRadius="full"
-                        bg={useColorModeValue("gray.900", "whiteAlpha.200")}
+                        bg={replaceButtonBg}
                         color="white"
-                        _hover={{ bg: useColorModeValue("gray.800", "whiteAlpha.300") }}
-                        _active={{ bg: useColorModeValue("gray.700", "whiteAlpha.400") }}
+                        _hover={{ bg: replaceButtonHoverBg }}
+                        _active={{ bg: replaceButtonActiveBg }}
                       >
                         {t("autoPreview.replace", "Remplacer")}
                       </Button>
@@ -3701,7 +3378,6 @@ export default function ProgramView() {
           </Modal>
         )}
 
-        {renderPdfPages()}
       </Box>
     </Box>
   );
@@ -3714,6 +3390,7 @@ function TopBar({
   onEdit,
   onPlay,
   onPdf,
+  pdfGenerating = false,
   canEdit,
   pdfLang,
   setPdfLang,
@@ -3729,6 +3406,12 @@ function TopBar({
   const primaryButtonBg = useColorModeValue("gray.900", "whiteAlpha.200");
   const primaryButtonHoverBg = useColorModeValue("gray.800", "whiteAlpha.300");
   const primaryButtonActiveBg = useColorModeValue("gray.700", "whiteAlpha.400");
+  const iconButtonColor = useColorModeValue("gray.700", "white");
+  const autoFollowBg = useColorModeValue("purple.600", "purple.400");
+  const autoFollowHoverBg = useColorModeValue("purple.700", "purple.500");
+  const autoFollowInactiveColor = useColorModeValue("gray.800", "gray.100");
+  const autoFollowInactiveBorder = useColorModeValue("1px solid #e3e7ef", "1px solid #2b3b64");
+  const autoFollowInactiveHoverBg = useColorModeValue("gray.100", "#233055");
 
   const options = Object.keys(PDF_I18N).map((k) => ({
     value: k,
@@ -3751,7 +3434,7 @@ function TopBar({
             onClick={onBack}
             borderRadius="full"
             bg={iconButtonBg}
-            color={useColorModeValue("gray.700", "white")}
+            color={iconButtonColor}
             border="1px solid"
             borderColor={iconButtonBorder}
             _hover={{ bg: iconButtonHoverBg }}
@@ -3790,17 +3473,15 @@ function TopBar({
               leftIcon={<Icon as={MdAutoAwesome} />}
               colorScheme={autoFollow ? "purple" : "gray"}
               variant={autoFollow ? "solid" : "outline"}
-              bg={autoFollow ? useColorModeValue("purple.600", "purple.400") : "transparent"}
-              color={autoFollow ? "white" : useColorModeValue("gray.800", "gray.100")}
+              bg={autoFollow ? autoFollowBg : "transparent"}
+              color={autoFollow ? "white" : autoFollowInactiveColor}
               border={
-                autoFollow ? "1px solid transparent" : useColorModeValue("1px solid #e3e7ef", "1px solid #2b3b64")
+                autoFollow ? "1px solid transparent" : autoFollowInactiveBorder
               }
               _hover={{
                 transform: "translateY(-1px)",
                 boxShadow: "md",
-                bg: autoFollow
-                  ? useColorModeValue("purple.700", "purple.500")
-                  : useColorModeValue("gray.100", "#233055"),
+                bg: autoFollow ? autoFollowHoverBg : autoFollowInactiveHoverBg,
               }}
               _active={{ transform: "translateY(0px)" }}
               transition="all .15s ease"
@@ -3872,10 +3553,12 @@ function TopBar({
             icon={<DownloadIcon />}
             aria-label={t("autoPreview.downloadPdf", "Télécharger le PDF")}
             onClick={onPdf}
+            isLoading={pdfGenerating}
+            isDisabled={pdfGenerating}
             size="sm"
             borderRadius="full"
             bg={iconButtonBg}
-            color={useColorModeValue("gray.700", "white")}
+            color={iconButtonColor}
             border="1px solid"
             borderColor={iconButtonBorder}
             _hover={{ bg: iconButtonHoverBg }}

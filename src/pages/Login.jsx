@@ -12,6 +12,7 @@ import { useTranslation, Trans } from "react-i18next";
 
 /* -------------- helpers -------------- */
 const isValidEmail = (val) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(val).toLowerCase());
+const normalizeLoginEmail = (val) => String(val || "").trim().toLowerCase();
 function looksLikeProIntent(params) {
   const next = params.get("next") || params.get("redirect") || "";
   const role = params.get("role");
@@ -27,6 +28,26 @@ function looksLikeProIntent(params) {
   );
 }
 
+function normalizeRedirectTarget(raw) {
+  if (!raw || !String(raw).startsWith("/") || String(raw).startsWith("//")) return null;
+  try {
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://boostyourlife.coach";
+    const url = new URL(raw, origin);
+    if (url.origin !== origin) return null;
+    if (url.pathname === "/client-dashboard") {
+      const params = new URLSearchParams(url.search);
+      const isNutritionLink = params.get("nutrition") === "1";
+      params.delete("nutrition");
+      const query = params.toString();
+      const target = isNutritionLink ? "/nutrition" : "/user-dashboard";
+      return `${target}${query ? `?${query}` : ""}${url.hash || ""}`;
+    }
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return null;
+  }
+}
+
 /* -------------- component -------------- */
 export default function Login() {
   const { t } = useTranslation("common");
@@ -37,12 +58,18 @@ export default function Login() {
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const next = params.get("next");
   const redirect = params.get("redirect");
-  const targetAfterLogin = next || redirect || null;
+  const targetAfterLogin = useMemo(() => normalizeRedirectTarget(next || redirect), [next, redirect]);
   const proIntent = looksLikeProIntent(params);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+
+  const routeAfterAuth = (role, profile) => {
+    if (profile?.accountType === "club_owner" || profile?.clubRole === "owner") return "/club-dashboard";
+    return role === "coach" ? "/coach-dashboard" : "/user-dashboard";
+  };
 
   // Reset password UI
   const [resetMessage, setResetMessage] = useState("");
@@ -59,28 +86,45 @@ export default function Login() {
   // --- Login email/mdp
   const handleLogin = async (e) => {
     if (e) e.preventDefault();
-    await loginWithEmail(email, password, (role, hasActiveSubscription) => {
-      if (targetAfterLogin) {
-        navigate(targetAfterLogin, { replace: true });
-      } else if ((proIntent || role === "coach") && !hasActiveSubscription) {
-        navigate("/plans/professionnel", { replace: true });
-      } else {
-        navigate(role === "coach" ? "/coach-dashboard" : "/user-dashboard", { replace: true });
-      }
-    });
+    setResetMessage("");
+    const loginEmail = normalizeLoginEmail(email);
+    if (!loginEmail || !password) {
+      setResetMessage(t("auth.login.errors.missingCredentials", "Renseigne ton e-mail et ton mot de passe."));
+      setResetSeverity("warning");
+      return;
+    }
+    try {
+      setAuthLoading(true);
+      await loginWithEmail(loginEmail, password, (role, hasActiveSubscription, profile) => {
+        if (targetAfterLogin) {
+          navigate(targetAfterLogin, { replace: true });
+        } else if ((proIntent || role === "coach") && !hasActiveSubscription) {
+          navigate("/plans/professionnel", { replace: true });
+        } else {
+          navigate(routeAfterAuth(role, profile), { replace: true });
+        }
+      });
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   // --- Login Google
   const handleGoogleLogin = async () => {
-    await loginWithGoogle((role, hasActiveSubscription) => {
-      if (targetAfterLogin) {
-        navigate(targetAfterLogin, { replace: true });
-      } else if ((proIntent || role === "coach") && !hasActiveSubscription) {
-        navigate("/plans/professionnel", { replace: true });
-      } else {
-        navigate(role === "coach" ? "/coach-dashboard" : "/user-dashboard", { replace: true });
-      }
-    });
+    try {
+      setAuthLoading(true);
+      await loginWithGoogle((role, hasActiveSubscription, profile) => {
+        if (targetAfterLogin) {
+          navigate(targetAfterLogin, { replace: true });
+        } else if ((proIntent || role === "coach") && !hasActiveSubscription) {
+          navigate("/plans/professionnel", { replace: true });
+        } else {
+          navigate(routeAfterAuth(role, profile), { replace: true });
+        }
+      });
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   // --- Mot de passe oublié
@@ -88,12 +132,13 @@ export default function Login() {
     setResetMessage("");
     setResetSeverity("info");
 
-    if (!email) {
+    const resetEmail = normalizeLoginEmail(email);
+    if (!resetEmail) {
       setResetMessage(t("auth.login.reset.errors.missingEmail"));
       setResetSeverity("warning");
       return;
     }
-    if (!isValidEmail(email)) {
+    if (!isValidEmail(resetEmail)) {
       setResetMessage(t("auth.login.reset.errors.invalidEmail"));
       setResetSeverity("warning");
       return;
@@ -102,7 +147,7 @@ export default function Login() {
 
     try {
       setResetLoading(true);
-      await resetPassword(email);
+      await resetPassword(resetEmail);
       setResetMessage(t("auth.login.reset.success"));
       setResetSeverity("success");
     } catch (err) {
@@ -152,6 +197,8 @@ export default function Login() {
     if (proIntent) {
       search.set("role", "coach");
       search.set("from", "pro");
+    } else if (targetAfterLogin) {
+      search.set("role", "particulier");
     }
     const qs = search.toString();
     if (qs) url += `?${qs}`;
@@ -193,7 +240,8 @@ export default function Login() {
             <InputLeftElement pointerEvents="none"><EmailIcon color="gray.500" /></InputLeftElement>
             <Input
               placeholder={t("auth.login.emailPlaceholder")}
-              type="email"
+              type="text"
+              inputMode="email"
               value={email}
               onChange={handleChangeEmail}
               bg={inputBg}
@@ -241,7 +289,15 @@ export default function Login() {
               : t("auth.login.forgot")}
           </Button>
 
-          <Button w="full" bg="gray.500" color="white" _hover={{ bg: "gray.600" }} type="submit">
+          <Button
+            w="full"
+            bg="gray.500"
+            color="white"
+            _hover={{ bg: "gray.600" }}
+            type="submit"
+            isLoading={authLoading}
+            isDisabled={authLoading}
+          >
             {t("auth.login.signIn")}
           </Button>
 
@@ -252,6 +308,7 @@ export default function Login() {
             color="black"
             _hover={{ bg: "gray.200" }}
             onClick={handleGoogleLogin}
+            isDisabled={authLoading}
             borderWidth="1px"
             borderColor="gray.300"
           >
@@ -259,9 +316,7 @@ export default function Login() {
           </Button>
 
           <Text textAlign="center">
-            <Trans i18nKey="auth.login.noAccount">
-              Pas encore de compte ?
-            </Trans>{" "}
+            <Trans i18nKey="auth.login.noAccount">{t("auth.login.noAccount", "Pas encore de compte ?")}</Trans>{" "}
             <Text as="span" color="blue.400" cursor="pointer" onClick={handleGoToRegister}>
               {t("auth.login.createAccount")}
             </Text>
@@ -282,4 +337,3 @@ export default function Login() {
     </Box>
   );
 }
-

@@ -16,6 +16,7 @@ function publicClientData(data = {}) {
     nom: data.nom || data.lastName || null,
     uid: data.uid || null,
     linkedUserId: data.linkedUserId || null,
+    accountUid: data.accountUid || null,
   };
 }
 
@@ -45,7 +46,7 @@ async function scoreClient(docSnap, auth) {
   const clientEmailLower = normalizeEmail(data.emailLower || data.email);
   let score = 0;
 
-  if (data.uid === auth.uid || data.linkedUserId === auth.uid || docSnap.id === auth.uid) score += 25;
+  if (data.uid === auth.uid || data.linkedUserId === auth.uid || data.accountUid === auth.uid || docSnap.id === auth.uid) score += 25;
   if (clientEmailLower && clientEmailLower === emailLower) score += 20;
   if (Array.isArray(data.programmesAssignes)) score += Math.min(10, data.programmesAssignes.length);
 

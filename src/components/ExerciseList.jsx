@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Box, Flex, Input, Button, useColorMode, Card, Text, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalCloseButton, VStack, HStack, Image } from "@chakra-ui/react";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { FaSun, FaMoon } from "react-icons/fa";
-import jsPDF from "jspdf";
+import "jspdf";
+import i18n from "../i18n/index";
 
 const exercisesData = [
   { id: "1", name: "Squat", image: "squat.jpg", details: "Séries: 3, Répétitions: 12, Repos: 60s" },
@@ -49,7 +50,7 @@ const ExerciseList = () => {
       <Box w="50%" p={4} overflowY="auto" maxH="100%" border="1px solid #ccc" borderRadius="md" boxShadow="md">
         <Flex justify="space-between" mb={4}>
           <Input
-            placeholder="Rechercher un exercice..."
+            placeholder={i18n.t("auto.ExerciseList.rechercher_un_exercice", "Rechercher un exercice...")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -65,8 +66,8 @@ const ExerciseList = () => {
                 <Box>
                   <Text fontWeight="bold">{exercise.name}</Text>
                   <HStack mt={2}>
-                    <Button size="sm" colorScheme="blue" onClick={() => addToProgram(exercise)}>Ajouter</Button>
-                    <Button size="sm" colorScheme="gray" onClick={() => setSelectedExercise(exercise)}>Voir détails</Button>
+                    <Button size="sm" colorScheme="blue" onClick={() => addToProgram(exercise)}>{i18n.t("exerciseCard.add", "Ajouter")}</Button>
+                    <Button size="sm" colorScheme="gray" onClick={() => setSelectedExercise(exercise)}>{i18n.t("auto.ExerciseList.voir_details", "Voir détails")}</Button>
                   </HStack>
                 </Box>
               </HStack>
@@ -77,7 +78,7 @@ const ExerciseList = () => {
 
       {/* Colonne du programme en cours */}
       <Box w="50%" p={4} overflowY="auto" maxH="100%" border="1px solid #ccc" borderRadius="md" boxShadow="md">
-        <Text fontSize="xl" fontWeight="bold" mb={4}>Programme en cours</Text>
+        <Text fontSize="xl" fontWeight="bold" mb={4}>{i18n.t("auto.ExerciseList.programme_en_cours", "Programme en cours")}</Text>
         <DragDropContext onDragEnd={onDragEnd}>
           <Droppable droppableId="program">
             {(provided) => (
@@ -113,7 +114,7 @@ const ExerciseList = () => {
             <ModalHeader>{selectedExercise.name}</ModalHeader>
             <ModalCloseButton />
             <ModalBody>
-              <Text><strong>Détails :</strong> {selectedExercise.details}</Text>
+              <Text><strong>{i18n.t("auto.ExerciseList.details", "Détails :")}</strong> {selectedExercise.details}</Text>
             </ModalBody>
           </ModalContent>
         </Modal>

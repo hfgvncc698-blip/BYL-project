@@ -1,3 +1,5 @@
+import i18n from "../i18n/index";
+
 export const DEFAULT_NUTRITION_ADVICE_SHEETS = [
   {
     id: "base-alimentation",
@@ -568,14 +570,19 @@ export function mergeAdviceSheets(customSheets = []) {
 }
 
 export function getAdviceSheetPreview(sheet) {
+  const baseKey = `auto.nutritionAdviceSheets.${sheet.id}`;
+  const translateValue = (path, fallback) => i18n.t(`${baseKey}.${path}`, fallback);
+  const translateList = (path, values = []) =>
+    (values || []).map((value, index) => translateValue(`${path}.${index}`, value));
+
   return {
     id: sheet.id,
-    title: sheet.title,
-    category: sheet.category,
+    title: translateValue("title", sheet.title),
+    category: translateValue("category", sheet.category),
     accent: sheet.accent,
-    tags: sheet.tags || [],
-    summary: sheet.summary,
-    keyPoints: sheet.keyPoints || [],
-    practicalTips: sheet.practicalTips || [],
+    tags: translateList("tags", sheet.tags || []),
+    summary: translateValue("summary", sheet.summary),
+    keyPoints: translateList("keyPoints", sheet.keyPoints || []),
+    practicalTips: translateList("practicalTips", sheet.practicalTips || []),
   };
 }

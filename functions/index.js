@@ -5,6 +5,7 @@
 // - changeClientEmail      : changement d'email depuis CLIENT (Admin update)
 // - sendWelcomeEmail       : email de bienvenue via SMTP (Zimbra OVH)
 // - onProgramAssigned      : email auto quand un coach assigne un programme à un élève
+// - onNutritionProgramAttached : email auto quand un suivi nutrition est partagé à un client
 // - syncExerciseMediaFromStorage : synchro auto Storage -> Firestore pour les médias exercices
 // - ensureCalendarSubscription   : crée/récupère le lien privé du calendrier client
 // - ensureCoachCalendarSubscription : crée/récupère le lien privé du calendrier coach global
@@ -17,8 +18,9 @@ const { getAuth } = require("firebase-admin/auth");
 const { getFirestore } = require("firebase-admin/firestore");
 
 const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { onObjectFinalized } = require("firebase-functions/v2/storage");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
 const nodemailer = require("nodemailer");
 const crypto = require("crypto");
@@ -177,6 +179,7 @@ function getClientLngFromDoc(client) {
     client?.settings?.langCode ||
     client?.settings?.defaultLanguage ||
     client?.language ||
+    client?.preferredLang ||
     client?.lang ||
     client?.locale ||
     client?.lng ||
@@ -256,7 +259,12 @@ async function upsertCalendarTokenIndex({ token, kind, ownerId, sourcePath, time
 
 /* ------------------------ STORAGE -> EXERCISE MEDIA HELPERS ------------------------ */
 
-const EXERCISE_COLLECTIONS = ["training", "warmup", "cooldown"];
+const EXERCISE_COLLECTIONS = ["training", "warmup", "cooldown", "ergometre"];
+const EXERCISE_STORAGE_ROOT = "Exercices";
+const EXERCISE_ID_RE = /^[A-Z]{1,3}\d{3,4}$/i;
+const EXERCISE_ID_PREFIX_RE = /^([A-Z]{1,3}\d{3,4})(?:$|[\s._-])/i;
+const IMAGE_EXT_RE = /\.(jpg|jpeg|png|webp)$/i;
+const VIDEO_EXT_RE = /\.(mp4|mov|webm)$/i;
 
 function stepRank(stepKey) {
   if (stepKey === "depart") return 0;
@@ -277,37 +285,94 @@ function sortImages(images = []) {
   });
 }
 
+function normalizeStorageToken(value = "") {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function stripFileExtension(fileName = "") {
+  return String(fileName || "").replace(/\.[^.]+$/, "");
+}
+
+function extractExerciseIdFromMediaPath(pathParts, fileName) {
+  for (const segment of pathParts.slice(1, -1)) {
+    const clean = String(segment || "").trim();
+    if (EXERCISE_ID_RE.test(clean)) return clean.toUpperCase();
+  }
+
+  const fromFileName = String(fileName || "").trim().match(EXERCISE_ID_PREFIX_RE);
+  return fromFileName ? fromFileName[1].toUpperCase() : "";
+}
+
+function stripLeadingExerciseId(fileNameNoExt, exerciseId) {
+  return String(fileNameNoExt || "")
+    .replace(new RegExp(`^${exerciseId}(?:[\\s._-]+)?`, "i"), "")
+    .trim();
+}
+
+function inferMediaSex(label) {
+  const tokens = normalizeStorageToken(label).split(/[^a-z0-9]+/).filter(Boolean);
+  if (tokens.includes("femme") || tokens.includes("female") || tokens.includes("woman") || tokens.includes("f")) {
+    return "femme";
+  }
+  if (tokens.includes("homme") || tokens.includes("male") || tokens.includes("man") || tokens.includes("h")) {
+    return "homme";
+  }
+  return "";
+}
+
+function inferImageStepKey(label) {
+  const normalized = normalizeStorageToken(label);
+  const tokens = normalized.split(/[^a-z0-9]+/).filter(Boolean);
+
+  if (tokens.includes("depart") || tokens.includes("start") || tokens.includes("debut")) return "depart";
+  if (tokens.includes("arrivee") || tokens.includes("end") || tokens.includes("fin")) return "arrivee";
+
+  const middleMatch = normalized.match(/(?:^|[^a-z0-9])(?:milieu|middle|mid)(?:[^0-9]+(\d+))?(?:$|[^a-z0-9])/);
+  if (middleMatch) return middleMatch[1] ? `milieu-${Number(middleMatch[1])}` : "milieu";
+
+  return "depart";
+}
+
 function parseExerciseMediaPath(filePath) {
-  const parts = String(filePath || "").split("/");
-  if (parts.length !== 3) return null;
+  const cleanPath = String(filePath || "").replace(/^\/+/, "");
+  const parts = cleanPath.split("/").filter(Boolean);
+  if (parts.length < 2) return null;
 
-  const [rootFolder, exerciseId, fileName] = parts;
+  const [rootFolder] = parts;
+  const fileName = parts[parts.length - 1];
 
-  if (rootFolder !== "Exercices") return null;
-  if (!exerciseId || !fileName) return null;
+  if (normalizeStorageToken(rootFolder) !== normalizeStorageToken(EXERCISE_STORAGE_ROOT)) return null;
+  if (!fileName || fileName.endsWith("/")) return null;
 
-  const videoMatch = fileName.match(/^(femme|homme)\.(mp4|mov|webm)$/i);
-  if (videoMatch) {
+  const exerciseId = extractExerciseIdFromMediaPath(parts, fileName);
+  if (!exerciseId) return null;
+
+  const fileNameNoExt = stripFileExtension(fileName);
+  const mediaLabel = stripLeadingExerciseId(fileNameNoExt, exerciseId);
+  const sex = inferMediaSex(mediaLabel || fileNameNoExt);
+  if (!sex) return null;
+
+  if (VIDEO_EXT_RE.test(fileName)) {
     return {
       exerciseId,
-      sex: videoMatch[1].toLowerCase(),
+      sex,
       type: "video",
       stepKey: null,
-      path: filePath,
+      path: cleanPath,
     };
   }
 
-  const imageMatch = fileName.match(
-    /^(femme|homme)-(depart|milieu(?:-\d+)?|arrivee)\.(jpg|jpeg|png|webp)$/i
-  );
-
-  if (imageMatch) {
+  if (IMAGE_EXT_RE.test(fileName)) {
     return {
       exerciseId,
-      sex: imageMatch[1].toLowerCase(),
+      sex,
       type: "image",
-      stepKey: imageMatch[2].toLowerCase(),
-      path: filePath,
+      stepKey: inferImageStepKey(mediaLabel || fileNameNoExt),
+      path: cleanPath,
     };
   }
 
@@ -399,6 +464,7 @@ const EMAIL_I18N = {
       brandTeam: "L’équipe BoostYourLife",
       copyPaste: "Si le bouton ne fonctionne pas, copie/colle ce lien :",
       programLabel: "Programme",
+      nutritionProgramLabel: "Suivi nutrition",
     },
     welcome: {
       subjectCoach: "Bienvenue sur BoostYourLife 👋 Ton espace coach est prêt",
@@ -436,6 +502,18 @@ const EMAIL_I18N = {
         "Tu peux retrouver ce programme dans ton espace, puis lancer ta séance quand tu es prêt(e).",
       closing: "À très vite,",
     },
+    nutritionAssigned: {
+      subject: "Nouveau suivi nutrition disponible : {{programName}}",
+      title: "Bonjour {{firstName}} 👋",
+      introWithCoach:
+        "{{coachName}} vient de partager un nouveau programme nutrition sur BoostYourLife.",
+      introNoCoach:
+        "Un nouveau programme nutrition vient d’être partagé sur BoostYourLife.",
+      cta: "Voir mon suivi nutrition",
+      hint:
+        "Tu peux retrouver ton plan dans ton espace Nutrition, avec les documents partagés par ton professionnel.",
+      closing: "À très vite,",
+    },
   },
 
   en: {
@@ -443,6 +521,7 @@ const EMAIL_I18N = {
       brandTeam: "The BoostYourLife team",
       copyPaste: "If the button doesn’t work, copy/paste this link:",
       programLabel: "Program",
+      nutritionProgramLabel: "Nutrition plan",
     },
     welcome: {
       subjectCoach:
@@ -480,6 +559,18 @@ const EMAIL_I18N = {
         "You can find this program in your space and start your session when you’re ready.",
       closing: "See you soon,",
     },
+    nutritionAssigned: {
+      subject: "New nutrition plan available: {{programName}}",
+      title: "Hi {{firstName}} 👋",
+      introWithCoach:
+        "{{coachName}} has shared a new nutrition plan with you on BoostYourLife.",
+      introNoCoach:
+        "A new nutrition plan has been shared with you on BoostYourLife.",
+      cta: "View my nutrition plan",
+      hint:
+        "You can find it in your Nutrition space, together with the documents shared by your professional.",
+      closing: "See you soon,",
+    },
   },
 
   it: {
@@ -487,6 +578,7 @@ const EMAIL_I18N = {
       brandTeam: "Il team BoostYourLife",
       copyPaste: "Se il pulsante non funziona, copia/incolla questo link:",
       programLabel: "Programma",
+      nutritionProgramLabel: "Piano nutrizionale",
     },
     welcome: {
       subjectCoach:
@@ -524,6 +616,18 @@ const EMAIL_I18N = {
         "Trovi il programma nel tuo spazio e puoi avviare la sessione quando vuoi.",
       closing: "A presto,",
     },
+    nutritionAssigned: {
+      subject: "Nuovo piano nutrizionale disponibile: {{programName}}",
+      title: "Ciao {{firstName}} 👋",
+      introWithCoach:
+        "{{coachName}} ha condiviso con te un nuovo piano nutrizionale su BoostYourLife.",
+      introNoCoach:
+        "È stato condiviso con te un nuovo piano nutrizionale su BoostYourLife.",
+      cta: "Vedi il mio piano nutrizionale",
+      hint:
+        "Lo trovi nel tuo spazio Nutrizione, insieme ai documenti condivisi dal tuo professionista.",
+      closing: "A presto,",
+    },
   },
 
   es: {
@@ -531,6 +635,7 @@ const EMAIL_I18N = {
       brandTeam: "El equipo de BoostYourLife",
       copyPaste: "Si el botón no funciona, copia/pega este enlace:",
       programLabel: "Programa",
+      nutritionProgramLabel: "Plan nutricional",
     },
     welcome: {
       subjectCoach:
@@ -569,6 +674,18 @@ const EMAIL_I18N = {
         "Puedes encontrar este programa en tu espacio y empezar tu sesión cuando quieras.",
       closing: "Hasta pronto,",
     },
+    nutritionAssigned: {
+      subject: "Nuevo plan nutricional disponible: {{programName}}",
+      title: "Hola {{firstName}} 👋",
+      introWithCoach:
+        "{{coachName}} ha compartido contigo un nuevo plan nutricional en BoostYourLife.",
+      introNoCoach:
+        "Se ha compartido contigo un nuevo plan nutricional en BoostYourLife.",
+      cta: "Ver mi plan nutricional",
+      hint:
+        "Lo encontrarás en tu espacio Nutrición, junto con los documentos compartidos por tu profesional.",
+      closing: "Hasta pronto,",
+    },
   },
 
   de: {
@@ -576,6 +693,7 @@ const EMAIL_I18N = {
       brandTeam: "Das BoostYourLife-Team",
       copyPaste: "Wenn der Button nicht funktioniert, kopiere diesen Link:",
       programLabel: "Programm",
+      nutritionProgramLabel: "Ernährungsplan",
     },
     welcome: {
       subjectCoach:
@@ -613,6 +731,18 @@ const EMAIL_I18N = {
         "Du findest das Programm in deinem Bereich und kannst starten, sobald du bereit bist.",
       closing: "Bis bald,",
     },
+    nutritionAssigned: {
+      subject: "Neuer Ernährungsplan verfügbar: {{programName}}",
+      title: "Hallo {{firstName}} 👋",
+      introWithCoach:
+        "{{coachName}} hat einen neuen Ernährungsplan mit dir auf BoostYourLife geteilt.",
+      introNoCoach:
+        "Ein neuer Ernährungsplan wurde mit dir auf BoostYourLife geteilt.",
+      cta: "Meinen Ernährungsplan ansehen",
+      hint:
+        "Du findest ihn in deinem Ernährungsbereich zusammen mit den von deinem Profi geteilten Dokumenten.",
+      closing: "Bis bald,",
+    },
   },
 
   ru: {
@@ -621,6 +751,7 @@ const EMAIL_I18N = {
       copyPaste:
         "Если кнопка не работает, скопируйте и вставьте эту ссылку:",
       programLabel: "Программа",
+      nutritionProgramLabel: "План питания",
     },
     welcome: {
       subjectCoach:
@@ -660,6 +791,18 @@ const EMAIL_I18N = {
         "Вы найдете программу в своем кабинете и сможете начать тренировку, когда будете готовы.",
       closing: "До скорой встречи,",
     },
+    nutritionAssigned: {
+      subject: "Доступен новый план питания: {{programName}}",
+      title: "Здравствуйте, {{firstName}} 👋",
+      introWithCoach:
+        "{{coachName}} поделился(ась) с вами новым планом питания в BoostYourLife.",
+      introNoCoach:
+        "С вами поделились новым планом питания в BoostYourLife.",
+      cta: "Посмотреть план питания",
+      hint:
+        "Вы найдете его в разделе питания вместе с документами, которыми поделился ваш специалист.",
+      closing: "До скорой встречи,",
+    },
   },
 
   ar: {
@@ -667,6 +810,7 @@ const EMAIL_I18N = {
       brandTeam: "فريق BoostYourLife",
       copyPaste: "إذا لم يعمل الزر، انسخ/الصق هذا الرابط:",
       programLabel: "البرنامج",
+      nutritionProgramLabel: "خطة التغذية",
     },
     welcome: {
       subjectCoach: "مرحبًا بك في BoostYourLife 👋 مساحة المدرب جاهزة",
@@ -700,6 +844,18 @@ const EMAIL_I18N = {
       cta: "عرض برنامجي",
       hint:
         "يمكنك العثور على البرنامج في مساحتك وبدء الجلسة عندما تكون جاهزًا.",
+      closing: "إلى اللقاء قريبًا،",
+    },
+    nutritionAssigned: {
+      subject: "خطة تغذية جديدة متاحة: {{programName}}",
+      title: "مرحبًا {{firstName}} 👋",
+      introWithCoach:
+        "شارك {{coachName}} معك خطة تغذية جديدة على BoostYourLife.",
+      introNoCoach:
+        "تمت مشاركة خطة تغذية جديدة معك على BoostYourLife.",
+      cta: "عرض خطة التغذية",
+      hint:
+        "يمكنك العثور عليها في مساحة التغذية مع المستندات التي شاركها المختص.",
       closing: "إلى اللقاء قريبًا،",
     },
   },
@@ -757,6 +913,97 @@ function pickProgramName(progData = {}) {
   if (obj && n) return `${obj.charAt(0).toUpperCase() + obj.slice(1)} — ${n}x/Sem`;
   if (obj) return obj.charAt(0).toUpperCase() + obj.slice(1);
   return "Nouveau programme";
+}
+
+function hasSharedNutritionContent(assessment = {}) {
+  const share = assessment?.clientShare || {};
+  const sections = share.sections || {};
+  const snapshot = share.snapshot || {};
+  const hasSnapshotContent =
+    safeTrim(snapshot?.patientNote?.text) ||
+    (Array.isArray(snapshot.menuDays) && snapshot.menuDays.length > 0) ||
+    (Array.isArray(snapshot.recipes) && snapshot.recipes.length > 0) ||
+    (Array.isArray(snapshot.shoppingList) && snapshot.shoppingList.length > 0) ||
+    (Array.isArray(snapshot.adviceSheets) && snapshot.adviceSheets.length > 0);
+
+  return Boolean(
+    share.enabled &&
+      (Object.values(sections).some(Boolean) ||
+        hasSnapshotContent ||
+        assessment?.nutritionPatientNote?.shared)
+  );
+}
+
+function pickNutritionPlanName(assessment = {}) {
+  const raw =
+    safeTrim(assessment?.title) ||
+    safeTrim(assessment?.name) ||
+    safeTrim(assessment?.inputs?.objectif) ||
+    safeTrim(assessment?.inputs?.objective) ||
+    safeTrim(assessment?.clientShare?.snapshot?.needs?.objectiveRaw);
+
+  return raw || "Plan nutrition";
+}
+
+function addDays(date, days) {
+  return new Date(date.getTime() + Number(days || 0) * 24 * 60 * 60 * 1000);
+}
+
+function readActiveWeeks(program = {}) {
+  const raw =
+    program.activeWeeks ??
+    program.durationWeeks ??
+    program.programDurationWeeks ??
+    program.dureeSemaines ??
+    program.weeksActive;
+  const weeks = Math.max(1, Math.min(52, Math.round(Number(raw) || 4)));
+  return weeks;
+}
+
+function isPremiumProgram(program = {}) {
+  return program?.origine === "premium" || program?.source === "premium-paid" || program?.isPremiumOnly === true;
+}
+
+function isSubscriptionActiveStatus(status) {
+  return ["active", "trialing"].includes(String(status || "").toLowerCase());
+}
+
+function isPaymentIssueStatus(status) {
+  return ["past_due", "unpaid", "incomplete_expired"].includes(String(status || "").toLowerCase());
+}
+
+function getUserLng(user = {}) {
+  return resolveLng(
+    user.preferredLang ||
+      user.settings?.langCode ||
+      user.settings?.defaultLanguage ||
+      user.lang ||
+      user.language ||
+      "fr"
+  );
+}
+
+function getClientLngFromAny(client = {}) {
+  return resolveLng(
+    client.preferredLang ||
+      client.settings?.langCode ||
+      client.settings?.defaultLanguage ||
+      client.langue ||
+      client.language ||
+      "fr"
+  );
+}
+
+function getCoachUidFromNutritionShare(assessment = {}, client = {}) {
+  return (
+    assessment?.clientShare?.sharedBy ||
+    assessment?.sharedBy ||
+    assessment?.createdBy ||
+    assessment?.coachId ||
+    client?.createdBy ||
+    client?.coachId ||
+    null
+  );
 }
 
 /* ------------------------ SMTP transporter (cache) ------------------------ */
@@ -948,6 +1195,304 @@ ${team}
 `;
 
   return { subject, html, text };
+}
+
+function buildNutritionAssignedTemplate({
+  firstName,
+  coachName,
+  programName,
+  dashboardUrl,
+  lng,
+}) {
+  const subject = t("nutritionAssigned.subject", { programName }, lng);
+  const title = t("nutritionAssigned.title", { firstName: firstName || "" }, lng);
+
+  const intro = coachName
+    ? t("nutritionAssigned.introWithCoach", { coachName }, lng)
+    : t("nutritionAssigned.introNoCoach", {}, lng);
+
+  const programLabel = t("common.nutritionProgramLabel", {}, lng);
+  const cta = t("nutritionAssigned.cta", {}, lng);
+  const hint = t("nutritionAssigned.hint", {}, lng);
+  const closing = t("nutritionAssigned.closing", {}, lng);
+  const team = t("common.brandTeam", {}, lng);
+
+  const html = `
+  <div style="font-family: Arial, Helvetica, sans-serif; background:#f7f9fc; padding:30px;">
+    <div style="max-width:600px; margin:auto; background:#ffffff; border-radius:10px; padding:32px; border:1px solid #e5e7eb;">
+
+      <h2 style="color:#111827; margin:0 0 12px 0;">${title}</h2>
+
+      <p style="color:#374151; font-size:15px; margin:0 0 14px 0;">
+        ${intro}
+      </p>
+
+      <div style="background:#f3f4f6; border:1px solid #e5e7eb; border-radius:10px; padding:14px 16px; margin:18px 0 22px 0;">
+        <div style="color:#6b7280; font-size:12px; margin-bottom:6px;">${programLabel}</div>
+        <div style="color:#111827; font-size:16px; font-weight:800;">${programName}</div>
+      </div>
+
+      <div style="margin:10px 0 18px 0;">
+        <a href="${dashboardUrl}"
+           style="display:inline-block; background:#2563eb; color:#ffffff; padding:12px 18px;
+                  border-radius:8px; text-decoration:none; font-weight:700;">
+          ${cta}
+        </a>
+      </div>
+
+      <p style="color:#6b7280; font-size:13px; margin:0 0 16px 0;">
+        ${hint}
+      </p>
+
+      <p style="margin:0; color:#374151; font-size:14px;">
+        ${closing}<br/>
+        <strong>${team}</strong>
+      </p>
+
+      <div style="margin-top:22px; color:#9ca3af; font-size:12px;">
+        ${t("common.copyPaste", {}, lng)}<br/>
+        <span style="word-break:break-all;">${dashboardUrl}</span>
+      </div>
+
+    </div>
+  </div>
+  `;
+
+  const text = `${title}
+
+${intro}
+
+${programLabel} : ${programName}
+
+${cta} : ${dashboardUrl}
+
+${hint}
+
+${closing}
+${team}
+`;
+
+  return { subject, html, text };
+}
+
+function buildLifecycleTemplate({ subject, title, intro, cta, url, detail, lng }) {
+  const team = t("common.brandTeam", {}, lng);
+  const html = `
+  <div style="font-family: Arial, Helvetica, sans-serif; background:#f7f9fc; padding:30px;">
+    <div style="max-width:600px; margin:auto; background:#ffffff; border-radius:10px; padding:32px; border:1px solid #e5e7eb;">
+      <h2 style="color:#111827; margin:0 0 12px 0;">${title}</h2>
+      <p style="color:#374151; font-size:15px; line-height:1.55; margin:0 0 18px 0;">${intro}</p>
+      ${
+        detail
+          ? `<div style="background:#f3f4f6; border:1px solid #e5e7eb; border-radius:10px; padding:14px 16px; margin:18px 0 22px 0; color:#111827; font-size:15px; font-weight:700;">${detail}</div>`
+          : ""
+      }
+      ${
+        url
+          ? `<div style="margin:10px 0 18px 0;">
+              <a href="${url}" style="display:inline-block; background:#2563eb; color:#ffffff; padding:12px 18px; border-radius:8px; text-decoration:none; font-weight:700;">${cta}</a>
+            </div>`
+          : ""
+      }
+      <p style="margin:0; color:#374151; font-size:14px;"><strong>${team}</strong></p>
+      ${
+        url
+          ? `<div style="margin-top:22px; color:#9ca3af; font-size:12px;">${t("common.copyPaste", {}, lng)}<br/><span style="word-break:break-all;">${url}</span></div>`
+          : ""
+      }
+    </div>
+  </div>`;
+  const text = [title, "", intro, detail || "", url ? `${cta} : ${url}` : "", "", team].filter(Boolean).join("\n");
+  return { subject, html, text };
+}
+
+async function sendLifecycleEmail({ to, subject, title, intro, cta, url, detail, lng }) {
+  if (!to) return null;
+  const transporter = getTransporterFromSecrets();
+  const from = `"BoostYourLife" <${SMTP_USER.value()}>`;
+  const message = buildLifecycleTemplate({ subject, title, intro, cta, url, detail, lng });
+  return transporter.sendMail({
+    from,
+    to,
+    subject: message.subject,
+    text: message.text,
+    html: message.html,
+    replyTo: SMTP_USER.value(),
+  });
+}
+
+function lifecycleCopy(kind, lng, vars = {}) {
+  const programName = vars.programName || "Programme";
+  const days = vars.days || "";
+  const copies = {
+    premiumPurchase: {
+      fr: ["Ton programme premium est prêt", "Ton programme premium est prêt", "Merci pour ton achat. Ton programme est maintenant disponible dans ton espace.", "Accéder au programme"],
+      en: ["Your premium program is ready", "Your premium program is ready", "Thanks for your purchase. Your program is now available in your space.", "Open the program"],
+      it: ["Il tuo programma premium è pronto", "Il tuo programma premium è pronto", "Grazie per l'acquisto. Il programma è ora disponibile nel tuo spazio.", "Aprire il programma"],
+      es: ["Tu programa premium está listo", "Tu programa premium está listo", "Gracias por tu compra. El programa ya está disponible en tu espacio.", "Abrir el programa"],
+      de: ["Dein Premium-Programm ist bereit", "Dein Premium-Programm ist bereit", "Danke für deinen Kauf. Dein Programm ist jetzt in deinem Bereich verfügbar.", "Programm öffnen"],
+      ru: ["Ваша премиум-программа готова", "Ваша премиум-программа готова", "Спасибо за покупку. Программа уже доступна в вашем кабинете.", "Открыть программу"],
+      ar: ["برنامجك المميز جاهز", "برنامجك المميز جاهز", "شكرا على الشراء. أصبح البرنامج متاحا الآن في مساحتك.", "فتح البرنامج"],
+    },
+    subscriptionWelcome: {
+      fr: ["Bienvenue dans ton espace BoostYourLife", "Ton espace est prêt", "Ton abonnement est actif. Tu peux maintenant utiliser les outils inclus dans ton pack.", "Accéder à mon dashboard"],
+      en: ["Welcome to your BoostYourLife space", "Your space is ready", "Your subscription is active. You can now use the tools included in your plan.", "Open my dashboard"],
+      it: ["Benvenuto nel tuo spazio BoostYourLife", "Il tuo spazio è pronto", "Il tuo abbonamento è attivo. Ora puoi usare gli strumenti inclusi nel tuo piano.", "Aprire la dashboard"],
+      es: ["Bienvenido a tu espacio BoostYourLife", "Tu espacio está listo", "Tu suscripción está activa. Ya puedes usar las herramientas incluidas en tu plan.", "Abrir mi panel"],
+      de: ["Willkommen in deinem BoostYourLife-Bereich", "Dein Bereich ist bereit", "Dein Abonnement ist aktiv. Du kannst jetzt die Tools deines Pakets nutzen.", "Dashboard öffnen"],
+      ru: ["Добро пожаловать в BoostYourLife", "Ваш кабинет готов", "Ваша подписка активна. Теперь вы можете использовать инструменты вашего пакета.", "Открыть панель"],
+      ar: ["مرحبا بك في مساحة BoostYourLife", "مساحتك جاهزة", "اشتراكك نشط. يمكنك الآن استخدام الأدوات المضمنة في باقتك.", "فتح لوحة التحكم"],
+    },
+    trialReminder: {
+      fr: [`Ton essai se termine dans ${days} jour${Number(days) > 1 ? "s" : ""}`, "Petit rappel sur ton essai", `Ton essai BoostYourLife se termine dans ${days} jour${Number(days) > 1 ? "s" : ""}. Tu peux gérer ton abonnement depuis ton espace.`, "Gérer mon abonnement"],
+      en: [`Your trial ends in ${days} day${Number(days) > 1 ? "s" : ""}`, "Trial reminder", `Your BoostYourLife trial ends in ${days} day${Number(days) > 1 ? "s" : ""}. You can manage your subscription from your space.`, "Manage my subscription"],
+      it: [`La tua prova termina tra ${days} giorn${Number(days) > 1 ? "i" : "o"}`, "Promemoria prova", `La tua prova BoostYourLife termina tra ${days} giorn${Number(days) > 1 ? "i" : "o"}. Puoi gestire l'abbonamento dal tuo spazio.`, "Gestire l'abbonamento"],
+      es: [`Tu prueba termina en ${days} día${Number(days) > 1 ? "s" : ""}`, "Recordatorio de prueba", `Tu prueba de BoostYourLife termina en ${days} día${Number(days) > 1 ? "s" : ""}. Puedes gestionar tu suscripción desde tu espacio.`, "Gestionar mi suscripción"],
+      de: [`Deine Testphase endet in ${days} Tag${Number(days) > 1 ? "en" : ""}`, "Erinnerung an deine Testphase", `Deine BoostYourLife-Testphase endet in ${days} Tag${Number(days) > 1 ? "en" : ""}. Du kannst dein Abonnement in deinem Bereich verwalten.`, "Abonnement verwalten"],
+      ru: [`Пробный период закончится через ${days} дн.`, "Напоминание о пробном периоде", `Пробный период BoostYourLife закончится через ${days} дн. Управлять подпиской можно в вашем кабинете.`, "Управлять подпиской"],
+      ar: [`تنتهي الفترة التجريبية خلال ${days} يوم`, "تذكير بالفترة التجريبية", `تنتهي فترة BoostYourLife التجريبية خلال ${days} يوم. يمكنك إدارة اشتراكك من مساحتك.`, "إدارة الاشتراك"],
+    },
+    paymentIssue: {
+      fr: ["Action requise sur ton paiement", "Ton paiement n’a pas pu être validé", "Stripe nous indique un souci de paiement. Mets à jour ton moyen de paiement pour éviter l’interruption de ton accès.", "Mettre à jour mon paiement"],
+      en: ["Action needed on your payment", "Your payment could not be confirmed", "Stripe reported a payment issue. Update your payment method to avoid losing access.", "Update my payment"],
+      it: ["Azione richiesta sul pagamento", "Il pagamento non è stato confermato", "Stripe segnala un problema di pagamento. Aggiorna il metodo di pagamento per evitare l'interruzione dell'accesso.", "Aggiornare il pagamento"],
+      es: ["Acción requerida sobre tu pago", "Tu pago no se pudo confirmar", "Stripe ha indicado un problema de pago. Actualiza tu método de pago para evitar perder el acceso.", "Actualizar mi pago"],
+      de: ["Aktion für deine Zahlung erforderlich", "Deine Zahlung konnte nicht bestätigt werden", "Stripe meldet ein Zahlungsproblem. Aktualisiere deine Zahlungsmethode, um eine Unterbrechung zu vermeiden.", "Zahlung aktualisieren"],
+      ru: ["Требуется действие по оплате", "Платеж не был подтвержден", "Stripe сообщает о проблеме с оплатой. Обновите способ оплаты, чтобы сохранить доступ.", "Обновить оплату"],
+      ar: ["يلزم إجراء بخصوص الدفع", "تعذر تأكيد الدفع", "أبلغ Stripe عن مشكلة في الدفع. حدّث وسيلة الدفع لتجنب انقطاع الوصول.", "تحديث الدفع"],
+    },
+    programCompleted: {
+      fr: ["Programme terminé, bravo !", "Bravo, programme terminé", `Tu as terminé "${programName}". Tu peux maintenant relancer un programme ou faire le point avec ton coach.`, "Voir mes programmes"],
+      en: ["Program completed, well done!", "Well done, program completed", `You completed "${programName}". You can now start another program or check in with your coach.`, "View my programs"],
+      it: ["Programma completato, bravo!", "Bravo, programma completato", `Hai completato "${programName}". Ora puoi iniziare un altro programma o fare il punto con il tuo coach.`, "Vedere i miei programmi"],
+      es: ["Programa terminado, ¡bien hecho!", "Bien hecho, programa terminado", `Has terminado "${programName}". Ahora puedes iniciar otro programa o hablar con tu coach.`, "Ver mis programas"],
+      de: ["Programm abgeschlossen, stark!", "Programm abgeschlossen", `Du hast "${programName}" abgeschlossen. Du kannst nun ein neues Programm starten oder mit deinem Coach Bilanz ziehen.`, "Meine Programme ansehen"],
+      ru: ["Программа завершена, отлично!", "Поздравляем, программа завершена", `Вы завершили "${programName}". Теперь можно начать новую программу или обсудить прогресс с тренером.`, "Посмотреть мои программы"],
+      ar: ["اكتمل البرنامج، أحسنت!", "أحسنت، اكتمل البرنامج", `لقد أكملت "${programName}". يمكنك الآن بدء برنامج جديد أو مراجعة التقدم مع مدربك.`, "عرض برامجي"],
+    },
+    inactivity: {
+      fr: ["Ton programme t’attend", "Un petit rappel pour reprendre", `Le programme "${programName}" est disponible dans ton espace, mais aucune séance n’a encore été lancée.`, "Reprendre mon programme"],
+      en: ["Your program is waiting", "A quick reminder to get started", `The program "${programName}" is available in your space, but no session has been started yet.`, "Open my program"],
+      it: ["Il tuo programma ti aspetta", "Un promemoria per riprendere", `Il programma "${programName}" è disponibile nel tuo spazio, ma nessuna sessione è stata ancora avviata.`, "Riprendere il programma"],
+      es: ["Tu programa te espera", "Un recordatorio para empezar", `El programa "${programName}" está disponible en tu espacio, pero todavía no se ha iniciado ninguna sesión.`, "Retomar mi programa"],
+      de: ["Dein Programm wartet auf dich", "Eine kleine Erinnerung zum Start", `Das Programm "${programName}" ist in deinem Bereich verfügbar, aber es wurde noch keine Einheit gestartet.`, "Programm fortsetzen"],
+      ru: ["Ваша программа ждет вас", "Небольшое напоминание начать", `Программа "${programName}" доступна в вашем кабинете, но ни одна тренировка еще не начата.`, "Открыть программу"],
+      ar: ["برنامجك في انتظارك", "تذكير صغير للبدء", `البرنامج "${programName}" متاح في مساحتك، لكن لم يتم بدء أي حصة بعد.`, "متابعة البرنامج"],
+    },
+  };
+  const selected = copies[kind]?.[resolveLng(lng)] || copies[kind]?.en || copies[kind]?.fr;
+  return {
+    subject: selected[0],
+    title: selected[1],
+    intro: selected[2],
+    cta: selected[3],
+  };
+}
+
+function sentField(name) {
+  return `lifecycleEmails.${name}SentAt`;
+}
+
+function messageField(name) {
+  return `lifecycleEmails.${name}MessageId`;
+}
+
+function getSubscriptionDashboardPath(user = {}) {
+  const role = String(user.role || user.accountType || "").toLowerCase();
+  const pack = String(user.packageKey || user.planKey || user.subscriptionPack || "").toLowerCase();
+  if (role.includes("club") || pack.includes("club")) return "/club-dashboard";
+  if (role.includes("coach") || role.includes("pro") || pack.includes("pro")) return "/coach-dashboard";
+  return "/user-dashboard";
+}
+
+function getBillingPath(user = {}) {
+  const role = String(user.role || user.accountType || "").toLowerCase();
+  if (role.includes("coach") || role.includes("pro") || role.includes("club")) return "/account-billing";
+  return "/plans/professionnel";
+}
+
+function programViewerUrl(baseUrl, clientId, programmeId) {
+  return `${baseUrl}/clients/${clientId}/programmes/${programmeId}`;
+}
+
+async function markLifecycleEmail(ref, name, info, extra = {}) {
+  await ref.set(
+    {
+      [sentField(name)]: admin.firestore.FieldValue.serverTimestamp(),
+      ...(info?.messageId ? { [messageField(name)]: info.messageId } : {}),
+      ...extra,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
+function countProgramSessions(program = {}) {
+  const sessions = Array.isArray(program.sessions)
+    ? program.sessions
+    : Array.isArray(program.seances)
+    ? program.seances
+    : [];
+  return sessions.length;
+}
+
+function getProgramAssignedDate(program = {}) {
+  return (
+    toDate(program.assignedAt) ||
+    toDate(program.assigned_at) ||
+    toDate(program.createdAt) ||
+    toDate(program.created_at) ||
+    new Date()
+  );
+}
+
+async function hasStartedProgram(programRef) {
+  const doneSnap = await programRef.collection("sessionsEffectuees").limit(1).get();
+  return !doneSnap.empty;
+}
+
+async function getCompletedSessionCount(programRef, program = {}) {
+  const total = countProgramSessions(program);
+  const doneSnap = await programRef.collection("sessionsEffectuees").get();
+  if (doneSnap.empty) return 0;
+  const indexes = new Set();
+  let fallbackCount = 0;
+  doneSnap.forEach((docSnap) => {
+    const data = docSnap.data() || {};
+    const pct = Number(data.pourcentageTermine ?? data.progress ?? data.completionPercent ?? 100);
+    if (pct < 90) return;
+    const idx = data.sessionIndex ?? data.index ?? data.sessionIdx ?? data.sessionNumber;
+    if (idx !== undefined && idx !== null && idx !== "") {
+      indexes.add(String(idx));
+    } else {
+      fallbackCount += 1;
+    }
+  });
+  return Math.max(indexes.size, fallbackCount, total > 0 && doneSnap.size >= total ? total : 0);
+}
+
+async function sendProgramLifecycleEmail({ programRef, program, clientId, programmeId, kind, dueExtra = {} }) {
+  if (program?.lifecycleEmails?.[`${kind}SentAt`]) return false;
+
+  const clientSnap = await db.doc(`clients/${clientId}`).get();
+  const client = clientSnap.exists ? clientSnap.data() || {} : {};
+  const to = safeTrim(client.email).toLowerCase();
+  if (!to) return false;
+
+  const lng = getClientLngFromAny(client);
+  const programName = pickProgramName(program);
+  const baseUrl = getBaseUrlFromSecret();
+  const copy = lifecycleCopy(kind, lng, { programName });
+  const info = await sendLifecycleEmail({
+    to,
+    ...copy,
+    detail: programName,
+    url: programViewerUrl(baseUrl, clientId, programmeId),
+    lng,
+  });
+
+  await markLifecycleEmail(programRef, kind, info, dueExtra);
+  return true;
 }
 
 /* =======================================================================
@@ -1334,6 +1879,41 @@ exports.onProgramAssigned = onDocumentCreated(
       const programName = pickProgramName(progData);
       const baseUrl = getBaseUrlFromSecret();
       const dashboardUrl = `${baseUrl}/user-dashboard`;
+      const programRef = event.data.ref;
+
+      const activeWeeks = readActiveWeeks(progData);
+      await programRef.set(
+        {
+          activeWeeks,
+          durationWeeks: activeWeeks,
+          inactiveReminderDueAt: admin.firestore.Timestamp.fromDate(addDays(new Date(), 7)),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      if (isPremiumProgram(progData)) {
+        const copy = lifecycleCopy("premiumPurchase", lng, { programName });
+        const info = await sendLifecycleEmail({
+          to: clientEmail,
+          ...copy,
+          detail: programName,
+          url: programViewerUrl(baseUrl, clientId, programmeId),
+          lng,
+        });
+
+        await markLifecycleEmail(programRef, "premiumPurchase", info);
+
+        console.log("[onProgramAssigned] premium purchase email sent", {
+          clientId,
+          programmeId,
+          to: clientEmail,
+          programName,
+          lng,
+          messageId: info?.messageId,
+        });
+        return;
+      }
 
       const transporter = getTransporterFromSecrets();
       const from = `"BoostYourLife" <${SMTP_USER.value()}>`;
@@ -1370,7 +1950,362 @@ exports.onProgramAssigned = onDocumentCreated(
 );
 
 /* =======================================================================
- * 5) syncExerciseMediaFromStorage
+ * 5) onUserSubscriptionLifecycle (TRIGGER Firestore)
+ * ======================================================================= */
+exports.onUserSubscriptionLifecycle = onDocumentWritten(
+  {
+    region: "europe-west1",
+    document: "users/{uid}",
+    secrets: [SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, APP_BASE_URL],
+  },
+  async (event) => {
+    const uid = event.params.uid;
+    const before = event.data?.before?.exists ? event.data.before.data() || {} : {};
+    const afterSnap = event.data?.after;
+    if (!afterSnap?.exists) return;
+
+    const after = afterSnap.data() || {};
+    const ref = afterSnap.ref;
+    const email = safeTrim(after.email || after.contactEmail).toLowerCase();
+    if (!email) return;
+
+    const beforeStatus = String(before.subscriptionStatus || "").toLowerCase();
+    const afterStatus = String(after.subscriptionStatus || "").toLowerCase();
+    const lng = getUserLng(after);
+    const baseUrl = getBaseUrlFromSecret();
+
+    try {
+      if (
+        isSubscriptionActiveStatus(afterStatus) &&
+        !isSubscriptionActiveStatus(beforeStatus) &&
+        !after.lifecycleEmails?.subscriptionWelcomeSentAt
+      ) {
+        const copy = lifecycleCopy("subscriptionWelcome", lng);
+        const info = await sendLifecycleEmail({
+          to: email,
+          ...copy,
+          url: `${baseUrl}${getSubscriptionDashboardPath(after)}`,
+          detail: after.planName || after.subscriptionName || after.packageName || "",
+          lng,
+        });
+        await markLifecycleEmail(ref, "subscriptionWelcome", info);
+        console.log("[onUserSubscriptionLifecycle] welcome sent", { uid, email, afterStatus });
+      }
+
+      if (
+        isPaymentIssueStatus(afterStatus) &&
+        !isPaymentIssueStatus(beforeStatus) &&
+        !after.lifecycleEmails?.paymentIssueSentAt
+      ) {
+        const copy = lifecycleCopy("paymentIssue", lng);
+        const info = await sendLifecycleEmail({
+          to: email,
+          ...copy,
+          url: `${baseUrl}${getBillingPath(after)}`,
+          detail: after.planName || after.subscriptionName || after.packageName || "",
+          lng,
+        });
+        await markLifecycleEmail(ref, "paymentIssue", info);
+        console.log("[onUserSubscriptionLifecycle] payment issue sent", { uid, email, afterStatus });
+      }
+    } catch (err) {
+      console.error("[onUserSubscriptionLifecycle] FAILED", { uid }, err);
+    }
+  }
+);
+
+/* =======================================================================
+ * 6) onProgramSessionCompleted (TRIGGER Firestore)
+ * ======================================================================= */
+exports.onProgramSessionCompleted = onDocumentCreated(
+  {
+    region: "europe-west1",
+    document: "clients/{clientId}/programmes/{programmeId}/sessionsEffectuees/{sessionDoneId}",
+    secrets: [SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, APP_BASE_URL],
+  },
+  async (event) => {
+    const { clientId, programmeId } = event.params;
+    const programRef = db.doc(`clients/${clientId}/programmes/${programmeId}`);
+
+    try {
+      const programSnap = await programRef.get();
+      if (!programSnap.exists) return;
+
+      const program = programSnap.data() || {};
+      if (program.lifecycleEmails?.programCompletedSentAt) return;
+
+      const totalSessions = countProgramSessions(program);
+      if (!totalSessions) return;
+
+      const completed = await getCompletedSessionCount(programRef, program);
+      if (completed < totalSessions) return;
+
+      const activeWeeks = readActiveWeeks(program);
+      const dueAt = addDays(getProgramAssignedDate(program), activeWeeks * 7);
+      const duePayload = {
+        completedAt: admin.firestore.FieldValue.serverTimestamp(),
+        completionEmailDueAt: admin.firestore.Timestamp.fromDate(dueAt),
+      };
+
+      if (dueAt.getTime() > Date.now()) {
+        await programRef.set(
+          {
+            ...duePayload,
+            activeWeeks,
+            durationWeeks: activeWeeks,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+        return;
+      }
+
+      await sendProgramLifecycleEmail({
+        programRef,
+        program,
+        clientId,
+        programmeId,
+        kind: "programCompleted",
+        dueExtra: duePayload,
+      });
+    } catch (err) {
+      console.error("[onProgramSessionCompleted] FAILED", { clientId, programmeId }, err);
+    }
+  }
+);
+
+/* =======================================================================
+ * 7) runLifecycleEmailJobs (SCHEDULED)
+ * ======================================================================= */
+exports.runLifecycleEmailJobs = onSchedule(
+  {
+    region: "europe-west1",
+    schedule: "every day 09:00",
+    timeZone: "Europe/Paris",
+    secrets: [SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, APP_BASE_URL],
+  },
+  async () => {
+    const now = new Date();
+    const nowTs = admin.firestore.Timestamp.fromDate(now);
+    const baseUrl = getBaseUrlFromSecret();
+
+    async function sendTrialReminders() {
+      const snap = await db.collection("users").where("subscriptionStatus", "==", "trialing").limit(500).get();
+      const tasks = [];
+      snap.forEach((docSnap) => {
+        const user = docSnap.data() || {};
+        const trialEnd = toDate(user.trialEnd || user.trialEndsAt || user.nextInvoiceAt);
+        const email = safeTrim(user.email || user.contactEmail).toLowerCase();
+        if (!trialEnd || !email) return;
+
+        const daysLeft = Math.ceil((trialEnd.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+        if (![3, 1].includes(daysLeft)) return;
+
+        const lifecycleKey = `trialReminder${daysLeft}`;
+        if (user.lifecycleEmails?.[`${lifecycleKey}SentAt`]) return;
+
+        const lng = getUserLng(user);
+        const copy = lifecycleCopy("trialReminder", lng, { days: daysLeft });
+        tasks.push(
+          sendLifecycleEmail({
+            to: email,
+            ...copy,
+            url: `${baseUrl}${getBillingPath(user)}`,
+            lng,
+          }).then((info) => markLifecycleEmail(docSnap.ref, lifecycleKey, info))
+        );
+      });
+      await Promise.allSettled(tasks);
+    }
+
+    async function sendPendingProgramCompletionEmails() {
+      const snap = await db
+        .collectionGroup("programmes")
+        .where("completionEmailDueAt", "<=", nowTs)
+        .limit(500)
+        .get();
+      const tasks = [];
+      snap.forEach((docSnap) => {
+        const program = docSnap.data() || {};
+        if (program.lifecycleEmails?.programCompletedSentAt) return;
+        const parts = docSnap.ref.path.split("/");
+        if (parts[0] !== "clients" || parts[2] !== "programmes") return;
+        const clientId = parts[1];
+        const programmeId = parts[3];
+        if (!clientId || !programmeId) return;
+        tasks.push(
+          sendProgramLifecycleEmail({
+            programRef: docSnap.ref,
+            program,
+            clientId,
+            programmeId,
+            kind: "programCompleted",
+          })
+        );
+      });
+      await Promise.allSettled(tasks);
+    }
+
+    async function sendInactivityReminders() {
+      const snap = await db
+        .collectionGroup("programmes")
+        .where("inactiveReminderDueAt", "<=", nowTs)
+        .limit(500)
+        .get();
+      const tasks = [];
+      for (const docSnap of snap.docs) {
+        const program = docSnap.data() || {};
+        if (program.lifecycleEmails?.inactivitySentAt || program.lifecycleEmails?.programCompletedSentAt) continue;
+        const parts = docSnap.ref.path.split("/");
+        if (parts[0] !== "clients" || parts[2] !== "programmes") continue;
+        const clientId = parts[1];
+        const programmeId = parts[3];
+        if (!clientId || !programmeId) continue;
+        if (await hasStartedProgram(docSnap.ref)) {
+          await docSnap.ref.set(
+            {
+              inactiveReminderSkippedAt: admin.firestore.FieldValue.serverTimestamp(),
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+          continue;
+        }
+        tasks.push(
+          sendProgramLifecycleEmail({
+            programRef: docSnap.ref,
+            program,
+            clientId,
+            programmeId,
+            kind: "inactivity",
+          })
+        );
+      }
+      await Promise.allSettled(tasks);
+    }
+
+    await sendTrialReminders();
+    await sendPendingProgramCompletionEmails();
+    await sendInactivityReminders();
+  }
+);
+
+/* =======================================================================
+ * 8) onNutritionProgramAttached (TRIGGER Firestore)
+ * ======================================================================= */
+exports.onNutritionProgramAttached = onDocumentWritten(
+  {
+    region: "europe-west1",
+    document: "clients/{clientId}/nutrition_assessments/{assessmentId}",
+    secrets: [SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, APP_BASE_URL],
+  },
+  async (event) => {
+    const clientId = event.params.clientId;
+    const assessmentId = event.params.assessmentId;
+    const beforeData = event.data?.before?.exists ? event.data.before.data() : null;
+    const afterSnap = event.data?.after;
+
+    if (!afterSnap?.exists) {
+      return;
+    }
+
+    const assessment = afterSnap.data() || {};
+    const wasShared = hasSharedNutritionContent(beforeData || {});
+    const isShared = hasSharedNutritionContent(assessment);
+
+    if (!isShared) {
+      return;
+    }
+
+    if (assessment?.noNotify === true || assessment?.clientShare?.noNotify === true) {
+      console.log("[onNutritionProgramAttached] noNotify=true -> skip", { clientId, assessmentId });
+      return;
+    }
+
+    if (assessment?.clientShare?.emailSentAt) {
+      console.log("[onNutritionProgramAttached] email already sent -> skip", { clientId, assessmentId });
+      return;
+    }
+
+    if (wasShared && beforeData?.clientShare?.emailSentAt) {
+      return;
+    }
+
+    try {
+      const clientSnap = await db.doc(`clients/${clientId}`).get();
+      const client = clientSnap.exists ? clientSnap.data() : null;
+
+      const clientEmail = safeTrim(client?.email).toLowerCase();
+      const clientFirstName = safeTrim(client?.prenom) || safeTrim(client?.firstName) || "";
+      const clientLastName = safeTrim(client?.nom) || safeTrim(client?.lastName) || "";
+      const clientFullName = normalizeSpaces(`${clientFirstName} ${clientLastName}`);
+
+      if (!clientEmail) {
+        console.log("[onNutritionProgramAttached] client email missing -> skip", { clientId, assessmentId });
+        return;
+      }
+
+      const lng = getClientLngFromDoc(client);
+      const coachUid = getCoachUidFromNutritionShare(assessment, client);
+      let coachName = safeTrim(assessment?.clientShare?.coachName);
+
+      try {
+        if (!coachName && coachUid) {
+          const authUser = await getAuth().getUser(coachUid);
+          const display = safeTrim(authUser.displayName);
+          if (display) coachName = display;
+        }
+      } catch (_) {
+        // pas bloquant
+      }
+
+      const programName = pickNutritionPlanName(assessment);
+      const baseUrl = getBaseUrlFromSecret();
+      const dashboardUrl = `${baseUrl}/user-dashboard`;
+
+      const transporter = getTransporterFromSecrets();
+      const from = `"BoostYourLife" <${SMTP_USER.value()}>`;
+
+      const { subject, html, text } = buildNutritionAssignedTemplate({
+        firstName: clientFirstName || clientFullName || "👋",
+        coachName,
+        programName,
+        dashboardUrl,
+        lng,
+      });
+
+      const info = await transporter.sendMail({
+        from,
+        to: clientEmail,
+        subject,
+        text,
+        html,
+        replyTo: SMTP_USER.value(),
+      });
+
+      await afterSnap.ref.update({
+        "clientShare.emailSentAt": admin.firestore.FieldValue.serverTimestamp(),
+        "clientShare.emailSentTo": clientEmail,
+        "clientShare.emailLang": lng,
+        "clientShare.emailMessageId": info.messageId || null,
+      });
+
+      console.log("[onNutritionProgramAttached] email sent", {
+        clientId,
+        assessmentId,
+        to: clientEmail,
+        programName,
+        lng,
+        messageId: info.messageId,
+      });
+    } catch (err) {
+      console.error("[onNutritionProgramAttached] FAILED", { clientId, assessmentId }, err);
+    }
+  }
+);
+
+/* =======================================================================
+ * 6) syncExerciseMediaFromStorage
  * ======================================================================= */
 exports.syncExerciseMediaFromStorage = onObjectFinalized(
   {
@@ -1460,16 +2395,22 @@ exports.syncExerciseMediaFromStorage = onObjectFinalized(
           },
         ]);
 
-        await docRef.set(
-          {
-            media: {
-              [sex]: {
-                ...sexMedia,
-                images: updatedImages,
-              },
+        const patch = {
+          media: {
+            [sex]: {
+              ...sexMedia,
+              images: updatedImages,
             },
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           },
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+
+        if (stepKey === "depart") {
+          patch[`image_${sex}`] = url || "";
+        }
+
+        await docRef.set(
+          patch,
           { merge: true }
         );
 

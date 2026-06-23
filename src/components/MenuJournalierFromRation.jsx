@@ -1,10 +1,11 @@
-/* eslint-disable react/prop-types */
+ 
 // src/components/MenuJournalierFromRation.jsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Badge,
   Button,
+  Grid,
   Heading,
   HStack,
   SimpleGrid,
@@ -14,8 +15,6 @@ import {
   AlertTitle,
   AlertDescription,
   Stack,
-  IconButton,
-  Tooltip,
   useToast,
   Modal,
   ModalOverlay,
@@ -32,7 +31,7 @@ import {
 } from "@chakra-ui/react";
 import { DownloadIcon } from "@chakra-ui/icons";
 import { useNavigate, useParams } from "react-router-dom";
-import { doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useAuth } from "../AuthContext.jsx";
 import {
@@ -51,12 +50,17 @@ import MenuJournalierManual from "./MenuJournalierManual.jsx";
 import MenuJournalierAuto from "./MenuJournalierAuto.jsx";
 import NutritionAdviceSheetsPanel from "./NutritionAdviceSheetsPanel.jsx";
 import { useNutritionTheme } from "../styles/nutritionTheme";
+import NutritionWorkflowBar from "./nutrition/NutritionWorkflowBar.jsx";
 import AppLoading from "./ui/AppLoading";
 import { notify } from "../utils/notify";
 import { getAdviceSheetPreview, mergeAdviceSheets } from "../utils/nutritionAdviceSheets";
 import { generateShoppingListFromNutritionPlan } from "../utils/shoppingListService";
-import { generateRecipesFromMeal } from "../utils/recipeGenerationService";
-import { saveNutritionFeedback } from "../utils/nutritionFeedbackService";
+import { generateRecipesFromMealCourses } from "../utils/recipeGenerationService";
+
+import { canUseCustomBranding } from "../utils/proPlanAccess";
+import { apiFetch } from "../utils/api";
+import i18n from "../i18n/index";
+import { navigateWithDomFallback } from "../utils/navigationFallback";
 import {
   pdf,
   Document,
@@ -194,6 +198,14 @@ const menuPdfStyles = StyleSheet.create({
   adviceSheet: { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 14, padding: 12, marginBottom: 12 },
   adviceSheetTitle: { fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 8 },
   adviceSheetContent: { fontSize: 10, lineHeight: 1.4, color: "#374151" },
+  infoGrid: { flexDirection: "row", flexWrap: "wrap", marginLeft: -4, marginRight: -4, marginBottom: 10 },
+  infoCard: { width: "48%", backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 10, padding: 8, margin: 4 },
+  infoLabel: { fontSize: 8, color: "#64748B", textTransform: "uppercase", marginBottom: 3 },
+  infoValue: { fontSize: 10, color: "#111827", fontWeight: 700, lineHeight: 1.3 },
+  fullCard: { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 12, padding: 10, marginBottom: 10 },
+  mutedLine: { fontSize: 9, color: "#64748B", lineHeight: 1.35, marginTop: 2 },
+  recipeTitle: { fontSize: 11, fontWeight: 700, color: "#111827", marginBottom: 4 },
+  subSectionTitle: { fontSize: 10, fontWeight: 700, color: "#193B8A", marginBottom: 5 },
 });
 
 const menuDayMacroLine = (totals) => {
@@ -231,139 +243,227 @@ const allShareSections = () => ({
   adviceSheets: true,
 });
 
-function MenuPdfDoc({ clientName, coachName, title, subtitle, logoDataUrl, days, date, adviceSheets }) {
+const PdfInfoCard = ({ label, value }) => (
+  <View style={menuPdfStyles.infoCard}>
+    <PdfText style={menuPdfStyles.infoLabel}>{label}</PdfText>
+    <PdfText style={menuPdfStyles.infoValue}>{value || "—"}</PdfText>
+  </View>
+);
+
+const pdfListText = (items, fallback = i18n.t("auto.MenuJournalierFromRation.aucun_element", "Aucun élément")) => {
+  const clean = (items || []).map((item) => String(item || "").trim()).filter(Boolean);
+  return clean.length ? clean.join(", ") : fallback;
+};
+
+const menuMealLabel = (mealKey) => {
+  if (mealKey === "petit_dej") return i18n.t("auto.MenuJournalierFromRation.petit_dejeuner", "Petit-déjeuner");
+  if (mealKey === "dejeuner") return i18n.t("auto.MenuJournalierFromRation.dejeuner", "Déjeuner");
+  if (mealKey === "diner") return i18n.t("auto.MenuJournalierFromRation.diner", "Dîner");
+  return i18n.t("auto.MenuJournalierFromRation.collation", "Collation");
+};
+
+function MenuPdfDoc({
+  clientName,
+  coachName,
+  title,
+  subtitle,
+  logoDataUrl,
+  days,
+  date,
+  sections,
+  summary,
+  foodSurvey,
+  ration,
+  recipes,
+  shoppingList,
+  adviceSheets,
+  patientNote,
+}) {
   const dateStr = date?.toLocaleDateString ? date.toLocaleDateString("fr-FR") : "";
+  const selectedSections = { ...emptyShareSections(), ...(sections || {}) };
   const hasDays = Array.isArray(days) && days.some((day) => day.meals.some((meal) => meal.items.length));
-  const hasAdviceSheets = Array.isArray(adviceSheets) && adviceSheets.length > 0;
+  const printableRecipes = Array.isArray(recipes) ? recipes : [];
+  const printableShoppingList = Array.isArray(shoppingList) ? shoppingList : [];
+  const printableAdviceSheets = Array.isArray(adviceSheets) ? adviceSheets.map((sheet) => getAdviceSheetPreview(sheet)) : [];
   return (
     <Document>
       <Page size="A4" style={menuPdfStyles.page}>
         <View style={menuPdfStyles.header} fixed>
           <View style={menuPdfStyles.headerLeft}>
             {logoDataUrl ? <PdfImage src={logoDataUrl} style={menuPdfStyles.logo} /> : null}
-            <PdfText style={menuPdfStyles.coachName}>{coachName || "Coach"}</PdfText>
+            <PdfText style={menuPdfStyles.coachName}>{coachName || i18n.t("auto.MenuJournalierFromRation.coach", "Coach")}</PdfText>
           </View>
           <View style={menuPdfStyles.headerCenter}>
-            <PdfText style={menuPdfStyles.title}>{title || "Menu journalier"}</PdfText>
+            <PdfText style={menuPdfStyles.title}>{title || i18n.t("auto.MenuJournalierFromRation.menu_journalier", "Menu journalier")}</PdfText>
             {subtitle ? <PdfText style={menuPdfStyles.subtitle}>{subtitle}</PdfText> : null}
           </View>
           <View style={menuPdfStyles.headerRight}>
-            <PdfText style={menuPdfStyles.clientName}>{clientName || "Patient"}</PdfText>
+            <PdfText style={menuPdfStyles.clientName}>{clientName || i18n.t("auto.MenuJournalierFromRation.patient", "Patient")}</PdfText>
             <PdfText style={menuPdfStyles.date}>{dateStr}</PdfText>
           </View>
         </View>
 
-        <PdfText style={menuPdfStyles.sectionTitle}>Menu</PdfText>
-        {!hasDays ? (
-          <PdfText style={menuPdfStyles.empty}>Aucun menu sauvegardé à exporter pour le moment.</PdfText>
-        ) : (
-          days.map((day) => (
-            <View key={day.label} style={menuPdfStyles.dayCard} wrap={false}>
-              <View style={menuPdfStyles.dayHeader}>
-                <PdfText style={menuPdfStyles.dayTitle}>{day.label}</PdfText>
-                <PdfText style={menuPdfStyles.totalPill}>
-                  {menuDayMacroLine(day?.totals)}
-                </PdfText>
-              </View>
-              <View style={menuPdfStyles.mealGrid}>
-                {day.meals.map((meal) =>
-                  meal.items.length ? (
-                    <View key={`${day.label}_${meal.label}`} style={menuPdfStyles.mealCard}>
-                      <PdfText style={menuPdfStyles.mealTitle}>{meal.label}</PdfText>
-                      {meal.items.map((item, idx) => (
-                        <PdfText key={`${day.label}_${meal.label}_${idx}`} style={menuPdfStyles.itemLine}>
-                          • {item.name} <PdfText style={menuPdfStyles.itemQty}>({item.qty})</PdfText>
-                        </PdfText>
-                      ))}
-                    </View>
-                  ) : null
-                )}
-              </View>
-            </View>
-          ))
-        )}
-
-        {hasAdviceSheets ? (
+        {selectedSections.summary ? (
           <>
-            <PdfText style={menuPdfStyles.sectionTitle}>Fiches conseils</PdfText>
-            {adviceSheets.map((sheet, idx) => (
-              <View key={idx} style={menuPdfStyles.adviceSheet} wrap={false}>
-                <PdfText style={menuPdfStyles.adviceSheetTitle}>{sheet.title}</PdfText>
-                <PdfText style={menuPdfStyles.adviceSheetContent}>{sheet.content}</PdfText>
+            <PdfText style={menuPdfStyles.sectionTitle}>{i18n.t("auto.MenuJournalierFromRation.resume_du_bilan_et_objectifs", "Résumé du bilan et objectifs")}</PdfText>
+            <View style={menuPdfStyles.infoGrid}>
+              <PdfInfoCard label={i18n.t("auto.MenuJournalierFromRation.patient", "Patient")} value={summary?.clientSummary || clientName} />
+              <PdfInfoCard label={i18n.t("auto.MenuJournalierFromRation.objectif", "Objectif")} value={summary?.objective || i18n.t("auto.MenuJournalierFromRation.objectif_a_preciser", "Objectif à préciser")} />
+              <PdfInfoCard label={i18n.t("auto.MenuJournalierFromRation.regimes", "Régime(s)")} value={pdfListText(summary?.diet, i18n.t("auto.MenuJournalierFromRation.aucun_regime_specifique", "Aucun régime spécifique"))} />
+              <PdfInfoCard label={i18n.t("auto.MenuJournalierFromRation.contexte_clinique", "Contexte clinique")} value={pdfListText(summary?.pathologies, i18n.t("auto.MenuJournalierFromRation.aucune_pathologie", "Aucune pathologie"))} />
+            </View>
+          </>
+        ) : null}
+
+        {selectedSections.foodSurvey ? (
+          <>
+            <PdfText style={menuPdfStyles.sectionTitle}>{i18n.t("auto.MenuJournalierFromRation.ration_spontanee_habitudes_alimentaires", "Ration spontanée / habitudes alimentaires")}</PdfText>
+            <View style={menuPdfStyles.fullCard} wrap={false}>
+              <PdfText style={menuPdfStyles.infoValue}>{i18n.t("auto.MenuJournalierFromRation.mode_label", "Mode :")} {foodSurvey?.modeLabel || "—"}</PdfText>
+              <PdfText style={menuPdfStyles.mutedLine}>{i18n.t("auto.MenuJournalierFromRation.reference_label", "Référence :")} {foodSurvey?.referenceLabel || i18n.t("auto.MenuJournalierFromRation.non_renseignee", "Non renseignée")}</PdfText>
+              <PdfText style={menuPdfStyles.mutedLine}>{i18n.t("auto.MenuJournalierFromRation.reperes_label", "Repères :")} {pdfListText(foodSurvey?.behaviorFlags, i18n.t("auto.MenuJournalierFromRation.aucun_repere_renseigne", "Aucun repère renseigné"))}</PdfText>
+              {foodSurvey?.note ? <PdfText style={menuPdfStyles.mutedLine}>{i18n.t("auto.MenuJournalierFromRation.note_label", "Note :")} {foodSurvey.note}</PdfText> : null}
+            </View>
+          </>
+        ) : null}
+
+        {selectedSections.ration ? (
+          <>
+            <PdfText style={menuPdfStyles.sectionTitle}>{i18n.t("auto.MenuJournalierFromRation.ration_alimentaire_construite", "Ration alimentaire construite")}</PdfText>
+            <View style={menuPdfStyles.infoGrid}>
+              <PdfInfoCard label={i18n.t("auto.MenuJournalierFromRation.source", "Source")} value={ration?.sourceLabel} />
+              <PdfInfoCard label={i18n.t("auto.MenuJournalierFromRation.energie", "Énergie")} value={ration?.kcal ? `${r0(ration.kcal)} kcal` : i18n.t("auto.MenuJournalierFromRation.ration_a_relire", "Ration à relire")} />
+              <PdfInfoCard label={i18n.t("auto.MenuJournalierFromRation.repas_couverts", "Repas couverts")} value={`${ration?.coveredMeals || 0}/${MENU_MEALS_ORDER.length}`} />
+              <PdfInfoCard label={i18n.t("auto.MenuJournalierFromRation.macros", "Macros")} value={ration?.macroLine || "—"} />
+            </View>
+            {ration?.items?.length ? (
+              <View style={menuPdfStyles.fullCard} wrap={false}>
+                {ration.items.slice(0, 18).map((item, idx) => (
+                  <PdfText key={`ration_${idx}`} style={menuPdfStyles.itemLine}>
+                    • {[item.mealLabel, item.label || item.resolvedLabel || item.key].filter(Boolean).join(" · ")} {item.qty ? `(${r0(item.qty)} ${item.unit || "g"})` : ""}
+                  </PdfText>
+                ))}
               </View>
-            ))}
+            ) : null}
+          </>
+        ) : null}
+
+        {selectedSections.menu ? (
+          <>
+            <PdfText style={menuPdfStyles.sectionTitle}>{i18n.t("nav.menu", "Menu")}</PdfText>
+            {!hasDays ? (
+              <PdfText style={menuPdfStyles.empty}>{i18n.t("auto.MenuJournalierFromRation.aucun_menu_sauvegarde_a_exporter_pour_le_moment", "Aucun menu sauvegardé à exporter pour le moment.")}</PdfText>
+            ) : (
+              days.map((day) => (
+                <View key={day.label} style={menuPdfStyles.dayCard} wrap={false}>
+                  <View style={menuPdfStyles.dayHeader}>
+                    <PdfText style={menuPdfStyles.dayTitle}>{day.label}</PdfText>
+                    <PdfText style={menuPdfStyles.totalPill}>
+                      {menuDayMacroLine(day?.totals)}
+                    </PdfText>
+                  </View>
+                  <View style={menuPdfStyles.mealGrid}>
+                    {day.meals.map((meal) =>
+                      meal.items.length ? (
+                        <View key={`${day.label}_${meal.label}`} style={menuPdfStyles.mealCard}>
+                          <PdfText style={menuPdfStyles.mealTitle}>{meal.label}</PdfText>
+                          {meal.items.map((item, idx) => (
+                            <PdfText key={`${day.label}_${meal.label}_${idx}`} style={menuPdfStyles.itemLine}>
+                              • {item.name} <PdfText style={menuPdfStyles.itemQty}>({item.qty})</PdfText>
+                            </PdfText>
+                          ))}
+                        </View>
+                      ) : null
+                    )}
+                  </View>
+                </View>
+              ))
+            )}
+          </>
+        ) : null}
+
+        {selectedSections.recipes ? (
+          <>
+            <PdfText style={menuPdfStyles.sectionTitle}>{i18n.t("auto.MenuJournalierFromRation.recettes_jour_par_jour", "Recettes jour par jour")}</PdfText>
+            {printableRecipes.length ? (
+              printableRecipes.slice(0, 24).map((recipe, index) => (
+                <View key={`recipe_pdf_${index}`} style={menuPdfStyles.fullCard} wrap={false}>
+                  <PdfText style={menuPdfStyles.recipeTitle}>{recipe.name || recipe.title || i18n.t("auto.MenuJournalierFromRation.recette_count", "Recette {{count}}", { count: index + 1 })}</PdfText>
+                  <PdfText style={menuPdfStyles.mutedLine}>{[recipe.dayLabel, recipe.mealLabel].filter(Boolean).join(" • ")}</PdfText>
+                  {recipeIngredientsText(recipe).slice(0, 10).map((ingredient) => (
+                    <PdfText key={ingredient} style={menuPdfStyles.itemLine}>• {ingredient}</PdfText>
+                  ))}
+                  {normalizeAiList(recipe.steps).slice(0, 8).map((step, stepIndex) => (
+                    <PdfText key={`recipe_step_${stepIndex}`} style={menuPdfStyles.itemLine}>{stepIndex + 1}. {stableAiItemText(step)}</PdfText>
+                  ))}
+                </View>
+              ))
+            ) : (
+              <PdfText style={menuPdfStyles.empty}>{i18n.t("auto.MenuJournalierFromRation.les_recettes_apparaitront_apres_une_optimisation_i", "Les recettes apparaîtront après une optimisation IA validée ou dès qu’un menu exploitable sera structuré en repas.")}</PdfText>
+            )}
+          </>
+        ) : null}
+
+        {selectedSections.shoppingList ? (
+          <>
+            <PdfText style={menuPdfStyles.sectionTitle}>{i18n.t("auto.MenuJournalierFromRation.liste_de_courses", "Liste de courses")}</PdfText>
+            {printableShoppingList.some((section) => normalizeAiList(section?.items).length) ? (
+              printableShoppingList.map((section, sectionIndex) =>
+                normalizeAiList(section?.items).length ? (
+                  <View key={`shopping_pdf_${sectionIndex}`} style={menuPdfStyles.fullCard} wrap={false}>
+                    <PdfText style={menuPdfStyles.subSectionTitle}>{section.label || section.section || i18n.t("auto.MenuJournalierFromRation.rayon", "Rayon")}</PdfText>
+                    {normalizeAiList(section.items).map((item, itemIndex) => (
+                      <PdfText key={`shopping_item_${itemIndex}`} style={menuPdfStyles.itemLine}>
+                        • {item.name || item.label} {item.quantity ? `(${item.quantity} ${item.unit || ""})` : ""}
+                      </PdfText>
+                    ))}
+                  </View>
+                ) : null
+              )
+            ) : (
+              <PdfText style={menuPdfStyles.empty}>{i18n.t("auto.MenuJournalierFromRation.aucune_liste_de_courses_exploitable_pour_le_moment", "Aucune liste de courses exploitable pour le moment.")}</PdfText>
+            )}
+          </>
+        ) : null}
+
+        {selectedSections.adviceSheets ? (
+          <>
+            <PdfText style={menuPdfStyles.sectionTitle}>{i18n.t("auto.MenuJournalierFromRation.fiches_conseils", "Fiches conseils")}</PdfText>
+            {printableAdviceSheets.length ? (
+              printableAdviceSheets.map((sheet) => (
+                <View key={sheet.id || sheet.title} style={menuPdfStyles.adviceSheet} wrap={false}>
+                  <PdfText style={menuPdfStyles.adviceSheetTitle}>{sheet.title}</PdfText>
+                  <PdfText style={menuPdfStyles.adviceSheetContent}>{sheet.summary}</PdfText>
+                  {sheet.keyPoints?.slice(0, 6).map((point) => (
+                    <PdfText key={point} style={menuPdfStyles.itemLine}>• {point}</PdfText>
+                  ))}
+                </View>
+              ))
+            ) : (
+              <PdfText style={menuPdfStyles.empty}>{i18n.t("auto.MenuJournalierFromRation.aucune_fiche_selectionnee_pour_le_moment", "Aucune fiche sélectionnée pour le moment.")}</PdfText>
+            )}
+          </>
+        ) : null}
+
+        {patientNote ? (
+          <>
+            <PdfText style={menuPdfStyles.sectionTitle}>{i18n.t("auto.MenuJournalierFromRation.note_patient_personnalisee", "Note patient personnalisée")}</PdfText>
+            <View style={menuPdfStyles.fullCard}>
+              <PdfText style={menuPdfStyles.adviceSheetContent}>{patientNote}</PdfText>
+            </View>
           </>
         ) : null}
 
         <View style={menuPdfStyles.footer} fixed>
           {logoDataUrl ? <PdfImage src={logoDataUrl} style={menuPdfStyles.footerLogo} /> : null}
-          <PdfText style={menuPdfStyles.footerText}>Généré avec BoostYourLife.coach</PdfText>
+          <PdfText style={menuPdfStyles.footerText}>{i18n.t("auto.MenuJournalierFromRation.genere_avec_boostyourlife_coach", "Généré avec BoostYourLife.coach")}</PdfText>
         </View>
       </Page>
     </Document>
   );
 }
 
-function AdviceSheetsPdfDoc({ clientName, coachName, logoDataUrl, sheets, date }) {
-  const dateStr = date?.toLocaleDateString ? date.toLocaleDateString("fr-FR") : "";
-  const printableSheets = Array.isArray(sheets) ? sheets.map((sheet) => getAdviceSheetPreview(sheet)) : [];
 
-  return (
-    <Document>
-      <Page size="A4" style={menuPdfStyles.page}>
-        <View style={menuPdfStyles.header} fixed>
-          <View style={menuPdfStyles.headerLeft}>
-            {logoDataUrl ? <PdfImage src={logoDataUrl} style={menuPdfStyles.logo} /> : null}
-            <PdfText style={menuPdfStyles.coachName}>{coachName || "Coach"}</PdfText>
-          </View>
-          <View style={menuPdfStyles.headerCenter}>
-            <PdfText style={menuPdfStyles.title}>Fiches conseils</PdfText>
-            <PdfText style={menuPdfStyles.subtitle}>Nutrition</PdfText>
-          </View>
-          <View style={menuPdfStyles.headerRight}>
-            <PdfText style={menuPdfStyles.clientName}>{clientName || "Patient"}</PdfText>
-            <PdfText style={menuPdfStyles.date}>{dateStr}</PdfText>
-          </View>
-        </View>
-
-        {!printableSheets.length ? (
-          <PdfText style={menuPdfStyles.empty}>Aucune fiche sélectionnée pour le moment.</PdfText>
-        ) : (
-          printableSheets.map((sheet) => (
-            <View key={sheet.id || sheet.title} style={menuPdfStyles.adviceSheet} wrap={false}>
-              <PdfText style={menuPdfStyles.adviceSheetTitle}>{sheet.title}</PdfText>
-              <PdfText style={menuPdfStyles.adviceSheetContent}>{sheet.summary}</PdfText>
-              {sheet.keyPoints?.length ? (
-                <View style={{ marginTop: 8 }}>
-                  {sheet.keyPoints.map((point) => (
-                    <PdfText key={point} style={menuPdfStyles.itemLine}>
-                      • {point}
-                    </PdfText>
-                  ))}
-                </View>
-              ) : null}
-              {sheet.practicalTips?.length ? (
-                <View style={{ marginTop: 8 }}>
-                  <PdfText style={menuPdfStyles.mealTitle}>Repères pratiques</PdfText>
-                  {sheet.practicalTips.map((tip) => (
-                    <PdfText key={tip} style={menuPdfStyles.itemLine}>
-                      • {tip}
-                    </PdfText>
-                  ))}
-                </View>
-              ) : null}
-            </View>
-          ))
-        )}
-
-        <View style={menuPdfStyles.footer} fixed>
-          {logoDataUrl ? <PdfImage src={logoDataUrl} style={menuPdfStyles.footerLogo} /> : null}
-          <PdfText style={menuPdfStyles.footerText}>Généré avec BoostYourLife.coach</PdfText>
-        </View>
-      </Page>
-    </Document>
-  );
-}
 
 const calcAgeFromDate = (value) => {
   const raw = String(value || "").trim();
@@ -413,6 +513,23 @@ const recipeIngredientsText = (recipe = {}) =>
     })
     .filter(Boolean);
 
+const RECIPE_MEAL_GROUPS = [
+  { key: "petit_dej", labelKey: "auto.MenuJournalierFromRation.petit_dejeuner", labelDefault: "Petit-déjeuner" },
+  { key: "dejeuner", labelKey: "auto.MenuJournalierFromRation.dejeuner", labelDefault: "Déjeuner" },
+  { key: "collation", labelKey: "auto.MenuJournalierFromRation.collation", labelDefault: "Collation" },
+  { key: "diner", labelKey: "auto.MenuJournalierFromRation.diner", labelDefault: "Dîner" },
+  { key: "autre", labelKey: "auto.MenuJournalierFromRation.autres_recettes", labelDefault: "Autres recettes" },
+];
+
+const recipeMealGroupKey = (recipe = {}) => {
+  const label = normalizeAdviceText(recipe.mealLabel || recipe.label || recipe.meal || "");
+  if (label.includes("petit-dejeuner") || label.includes("petit dejeuner")) return "petit_dej";
+  if (label.includes("dejeuner")) return "dejeuner";
+  if (label.includes("collation") || label.includes("gouter")) return "collation";
+  if (label.includes("diner")) return "diner";
+  return "autre";
+};
+
 export default function MenuJournalierFromRation() {
   const { clientId, assessmentId } = useParams();
   const navigate = useNavigate();
@@ -434,9 +551,15 @@ export default function MenuJournalierFromRation() {
 
   const nutritionTheme = useNutritionTheme();
   const panelBg = nutritionTheme.surfaceBg;
-  const accentBg = nutritionTheme.surfaceGlow;
   const borderCol = nutritionTheme.borderColor;
   const textMuted = nutritionTheme.mutedText;
+  const sectionCardProps = {
+    borderWidth: "1px",
+    borderColor: borderCol,
+    borderRadius: "lg",
+    bg: panelBg,
+    boxShadow: "0 14px 34px rgba(15, 23, 42, 0.06)",
+  };
 
   const [loadingDoc, setLoadingDoc] = useState(true);
   const [docData, setDocData] = useState(null);
@@ -446,38 +569,47 @@ export default function MenuJournalierFromRation() {
   const [ciqualError, setCiqualError] = useState("");
   const [ciqualData, setCiqualData] = useState([]);
 
-  const [activeTab, setActiveTab] = useState(0); // 0 manual, 1 auto
+  const [activeTab, setActiveTab] = useState(1); // 0 manual, 1 auto
   const [pdfLogoDataUrl, setPdfLogoDataUrl] = useState(null);
   const [exportingPdf, setExportingPdf] = useState(false);
-  const [exportingAdvicePdf, setExportingAdvicePdf] = useState(false);
   const [menuPdfData, setMenuPdfData] = useState(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareSelection, setShareSelection] = useState(() => allShareSections());
   const [patientNote, setPatientNote] = useState("");
   const [sharePatientNote, setSharePatientNote] = useState(false);
+  const [preparingShare, setPreparingShare] = useState(false);
   const [savingShare, setSavingShare] = useState(false);
-  const [aiCoachNote, setAiCoachNote] = useState("");
-  const [savingAiFeedback, setSavingAiFeedback] = useState(false);
+  const [clientEmail, setClientEmail] = useState("");
   const [showPatientRecipes, setShowPatientRecipes] = useState(false);
+  const [showPatientShoppingList, setShowPatientShoppingList] = useState(false);
   const menuAutosaveHashRef = useRef("");
   const tabTouchedUntilRef = useRef(0);
+  const documentBrandingAllowed = canUseCustomBranding(
+    user?.proAccess || {
+      packageKey: user?.packageKey,
+      packageTier: user?.packageTier,
+      branding: user?.branding,
+    }
+  );
 
   useEffect(() => {
     (async () => {
-      const preferred = user?.logoUrl || user?.photoURL || user?.avatarUrl || "";
+      const preferred = documentBrandingAllowed
+        ? user?.logoUrl || user?.photoURL || user?.avatarUrl || ""
+        : "";
       const coachLogo = await toDataUrlSafe(preferred);
       const fallback = await toDataUrlSafe(LEGACY_BYL_LOCAL);
       setPdfLogoDataUrl(coachLogo || fallback);
     })();
-  }, [user?.avatarUrl, user?.logoUrl, user?.photoURL]);
+  }, [documentBrandingAllowed, user?.avatarUrl, user?.logoUrl, user?.photoURL]);
 
-  const coachPdfName = useMemo(() => getPersonName(user) || "Coach", [user]);
+  const coachPdfName = useMemo(() => getPersonName(user) || i18n.t("auto.MenuJournalierFromRation.coach", "Coach"), [user]);
 
   const loadCiqual = useCallback(async () => {
     setCiqualLoading(true);
     setCiqualError("");
     try {
-      const res = await fetch("/ciqual_2025.json", { cache: "no-store" });
+      const res = await fetch("/ciqual_2025.json", { cache: "force-cache" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
@@ -489,13 +621,15 @@ export default function MenuJournalierFromRation() {
         ? data.data
         : [];
 
-      if (!arr.length) throw new Error("Données alimentaires vides ou format inattendu");
+      if (!arr.length) {
+        throw new Error(i18n.t("auto.MenuJournalierFromRation.donnees_alimentaires_vides_ou_format_inattendu", "Données alimentaires vides ou format inattendu"));
+      }
       setCiqualData(arr);
 
       safeSetSmallLocal("byl_ciqual_2025_loaded_v1", String(Date.now()));
     } catch (e) {
       setCiqualData([]);
-      setCiqualError("Chargement des données alimentaires impossible");
+      setCiqualError(i18n.t("auto.MenuJournalierFromRation.chargement_des_donnees_alimentaires_impossible", "Chargement des données alimentaires impossible"));
     } finally {
       setCiqualLoading(false);
     }
@@ -522,6 +656,7 @@ export default function MenuJournalierFromRation() {
           else if (tab === "manual") setActiveTab(0);
           else if (nextSelectedType === "auto") setActiveTab(1);
           else if (nextSelectedType === "pro") setActiveTab(0);
+          else setActiveTab(1);
         }
 
         setLoadingDoc(false);
@@ -531,6 +666,23 @@ export default function MenuJournalierFromRation() {
 
     return () => unsub();
   }, [assessmentRef]);
+
+  useEffect(() => {
+    if (!clientId) return;
+    let cancelled = false;
+    getDoc(doc(db, "clients", clientId))
+      .then((snap) => {
+        if (cancelled) return;
+        const data = snap.exists() ? snap.data() : {};
+        setClientEmail(String(data?.email || data?.emailLower || "").trim());
+      })
+      .catch(() => {
+        if (!cancelled) setClientEmail("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId]);
 
   const rationItems = useMemo(() => extractRationLines(docData), [docData]);
 
@@ -552,10 +704,7 @@ export default function MenuJournalierFromRation() {
 
   const navigateWithFallback = useCallback(
     (path) => {
-      navigate(path);
-      window.setTimeout(() => {
-        if (decodeURI(window.location.pathname) !== path) window.location.assign(path);
-      }, 180);
+      navigateWithDomFallback(navigate, path);
     },
     [navigate]
   );
@@ -581,10 +730,10 @@ export default function MenuJournalierFromRation() {
   const selectedType = String(docData?.ration?.selectedType || docData?.ration?.mode || "").trim();
   const sourceLabel =
     selectedType === "auto"
-      ? "Ration auto"
+      ? i18n.t("auto.MenuJournalierFromRation.ration_auto", "Ration auto")
       : selectedType === "pro"
-      ? "Ration manuelle"
-      : "Source non identifiée";
+      ? i18n.t("auto.MenuJournalierFromRation.ration_manuelle", "Ration manuelle")
+      : i18n.t("auto.MenuJournalierFromRation.source_non_identifiee", "Source non identifiée");
 
   const needs = useMemo(
     () =>
@@ -611,14 +760,18 @@ export default function MenuJournalierFromRation() {
     [inputs]
   );
   const patientName = useMemo(
-    () => [inputs?.prenom, inputs?.nom].filter(Boolean).join(" ") || "Patient",
+    () => [inputs?.prenom, inputs?.nom].filter(Boolean).join(" ") || i18n.t("auto.MenuJournalierFromRation.patient", "Patient"),
     [inputs]
   );
   const clientSummary = useMemo(
     () =>
       [
-        summaryAge !== null ? `${summaryAge} ans` : null,
-        needs?.sex || null,
+        summaryAge !== null ? i18n.t("auto.MenuJournalierFromRation.age_years", "{{count}} ans", { count: summaryAge }) : null,
+        needs?.sex === "Homme"
+          ? i18n.t("auto.MenuJournalierFromRation.sex_male", "Homme")
+          : needs?.sex === "Femme"
+          ? i18n.t("auto.MenuJournalierFromRation.sex_female", "Femme")
+          : needs?.sex || null,
         objectiveRaw || null,
       ]
         .filter(Boolean)
@@ -833,10 +986,18 @@ export default function MenuJournalierFromRation() {
 
   const openShareModal = useCallback(async () => {
     if (!assessmentRef || blocked) return;
+    setPreparingShare(true);
     try {
       await persistMenuDraft();
     } catch (e) {
       console.error("Menu draft save before next step failed:", e);
+      notify(toast, "saveError", {
+        title: i18n.t("auto.MenuJournalierFromRation.sauvegarde_impossible", "Sauvegarde impossible"),
+        description: e?.message || i18n.t("auto.MenuJournalierFromRation.impossible_de_sauvegarder_le_partage", "Impossible de sauvegarder le partage."),
+      });
+      return;
+    } finally {
+      setPreparingShare(false);
     }
     const previous = docData?.clientShare?.sections;
     const savedNote = docData?.nutritionPatientNote;
@@ -850,7 +1011,7 @@ export default function MenuJournalierFromRation() {
         : allShareSections()
     );
     setShareModalOpen(true);
-  }, [assessmentRef, blocked, docData?.clientShare?.sections, docData?.nutritionPatientNote, persistMenuDraft]);
+  }, [assessmentRef, blocked, docData?.clientShare?.sections, docData?.nutritionPatientNote, persistMenuDraft, toast]);
 
   const ciqualByCode = useMemo(() => {
     const map = new Map();
@@ -882,51 +1043,39 @@ export default function MenuJournalierFromRation() {
                 : { code: "", part: "" };
             const row = entry.code ? ciqualByCode.get(String(entry.code || "")) : null;
             return {
-              name: row ? ciqualName(row) : firstNonEmpty(item?.resolvedLabel, item?.key, "Aliment à associer"),
+              name: row ? ciqualName(row) : firstNonEmpty(item?.resolvedLabel, item?.key, i18n.t("auto.MenuJournalierFromRation.aliment_a_associer", "Aliment à associer")),
               qty: `${r0(item?.meals?.[mealKey])} ${item?.unit || ""}`.trim(),
             };
           });
         return {
-          label:
-            mealKey === "petit_dej"
-              ? "Petit-déjeuner"
-              : mealKey === "dejeuner"
-              ? "Déjeuner"
-              : mealKey === "diner"
-              ? "Dîner"
-              : "Collation",
+          label: menuMealLabel(mealKey),
           items: items.map((item) => ({ ...item, qty: item.qty || "—" })),
         };
       });
-      return { label: `Jour ${dayKey}`, meals, totals: null };
+      return { label: i18n.t("auto.MenuJournalierFromRation.jour_count", "Jour {{count}}", { count: dayKey }), meals, totals: null };
     });
   }, [activeTab, ciqualByCode, docData?.ration?.autoMenu, docData?.ration?.manualMenu, rationItems]);
 
   const pdfDays = useMemo(() => {
     const sourceDays = Array.isArray(menuPdfData?.days) && menuPdfData.days.length ? menuPdfData.days : fallbackPdfDays;
     return sourceDays.map((day) => ({
-      label: day.label || `Jour ${day.index || ""}`.trim(),
+      label: day.label || i18n.t("auto.MenuJournalierFromRation.jour_count", "Jour {{count}}", { count: day.index || "" }).trim(),
       totals: day.totals || null,
       meals: MENU_MEALS_ORDER.map((mealKey, mealIndex) => {
         const previewItems = day?.perMeal?.[mealKey] || [];
         if (previewItems.length) {
           return {
-            label:
-              mealKey === "petit_dej"
-                ? "Petit-déjeuner"
-                : mealKey === "dejeuner"
-                ? "Déjeuner"
-                : mealKey === "diner"
-                ? "Dîner"
-                : "Collation",
+            label: menuMealLabel(mealKey),
             items: previewItems.map((item) => ({
-              name: item.text || item.name || "Aliment",
+              name: item.text || item.name || i18n.t("auto.MenuJournalierFromRation.aliment", "Aliment"),
               qty: [item.qty, item.unit].filter(Boolean).join(" ") || (item.grams ? `${item.grams} g` : "—"),
+              category: item.sourceLabel || item.category || "",
+              role: item.role || "",
             })),
           };
         }
         const fallbackMeal = (day.meals || [])[mealIndex];
-        return fallbackMeal || { label: "Repas", items: [] };
+        return fallbackMeal || { label: i18n.t("auto.MenuJournalierFromRation.repas", "Repas"), items: [] };
       }),
     }));
   }, [fallbackPdfDays, menuPdfData]);
@@ -935,15 +1084,16 @@ export default function MenuJournalierFromRation() {
     () => ({
       days: (pdfDays || []).map((day, dayIndexValue) => ({
         id: day.label || `jour_${dayIndexValue + 1}`,
-        label: day.label || `Jour ${dayIndexValue + 1}`,
+        label: day.label || i18n.t("auto.MenuJournalierFromRation.jour_count", "Jour {{count}}", { count: dayIndexValue + 1 }),
         meals: (day.meals || []).map((meal, mealIndex) => ({
           id: `${dayIndexValue + 1}_${meal.label || mealIndex}`,
-          label: meal.label || "Repas",
+          label: meal.label || i18n.t("auto.MenuJournalierFromRation.repas", "Repas"),
           items: (meal.items || [])
             .map((item) => ({
               name: item.name || item.text || "",
               qty: item.qty || [item.quantity, item.unit].filter(Boolean).join(" "),
               category: item.category || meal.label || "",
+              role: item.role || "",
             }))
             .filter((item) => item.name && !/aliment à associer/i.test(item.name)),
         })),
@@ -966,31 +1116,31 @@ export default function MenuJournalierFromRation() {
   const nutritionAi = useMemo(() => docData?.nutritionAi || {}, [docData?.nutritionAi]);
   const aiPlan = useMemo(() => nutritionAi?.aiPlan || {}, [nutritionAi]);
   const aiFinalPlan = useMemo(() => nutritionAi?.finalPlan || {}, [nutritionAi]);
-  const aiWarnings = useMemo(
-    () => [
-      ...normalizeAiList(nutritionAi?.coachAlerts),
-      ...normalizeAiList(nutritionAi?.validation?.warnings),
-      ...normalizeAiList(aiPlan?.warnings),
-    ],
-    [aiPlan?.warnings, nutritionAi?.coachAlerts, nutritionAi?.validation?.warnings]
-  );
-  const aiAdjustments = useMemo(
-    () => normalizeAiList(aiPlan?.suggestedAdjustments || aiFinalPlan?.suggestedAdjustments),
-    [aiFinalPlan?.suggestedAdjustments, aiPlan?.suggestedAdjustments]
-  );
+  
+  
   const aiRecipes = useMemo(() => {
     const explicit = normalizeAiList(aiPlan?.recipes || aiFinalPlan?.recipes);
     const mealRecipes = displayedMenuMeals
       .filter((meal) => meal.items?.length >= 2)
       .slice(0, 28)
-      .map((meal) =>
-        generateRecipesFromMeal(meal)
-      );
+      .flatMap((meal) => generateRecipesFromMealCourses(meal));
     if (mealRecipes.length) return mealRecipes;
     if (explicit.length) return explicit;
     const meals = normalizeAiList(aiPlan?.meals || aiFinalPlan?.meals);
-    return meals.slice(0, 6).map((meal) => generateRecipesFromMeal(meal));
+    return meals.slice(0, 6).flatMap((meal) => generateRecipesFromMealCourses(meal));
   }, [aiFinalPlan?.meals, aiFinalPlan?.recipes, aiPlan?.meals, aiPlan?.recipes, displayedMenuMeals]);
+  const aiRecipeGroups = useMemo(() => {
+    const buckets = RECIPE_MEAL_GROUPS.reduce((acc, group) => {
+      acc[group.key] = { ...group, recipes: [] };
+      return acc;
+    }, {});
+    aiRecipes.forEach((recipe, index) => {
+      const key = recipeMealGroupKey(recipe);
+      const bucket = buckets[key] || buckets.autre;
+      bucket.recipes.push({ ...recipe, __recipeIndex: index });
+    });
+    return RECIPE_MEAL_GROUPS.map((group) => buckets[group.key]).filter((group) => group.recipes.length);
+  }, [aiRecipes]);
   const aiShoppingList = useMemo(() => {
     const fromDisplayedMenu = generateShoppingListFromNutritionPlan(displayedMenuPlan);
     if (fromDisplayedMenu.some((section) => normalizeAiList(section?.items).length)) return fromDisplayedMenu;
@@ -998,78 +1148,15 @@ export default function MenuJournalierFromRation() {
     if (explicit.length) return explicit;
     return generateShoppingListFromNutritionPlan(aiFinalPlan);
   }, [aiFinalPlan, aiPlan?.shoppingList, displayedMenuPlan]);
-  const aiDecisions = useMemo(
-    () => (nutritionAi?.coachDecisions && typeof nutritionAi.coachDecisions === "object" ? nutritionAi.coachDecisions : {}),
-    [nutritionAi?.coachDecisions]
+  const aiShoppingSections = useMemo(
+    () => aiShoppingList.filter((section) => normalizeAiList(section?.items).length),
+    [aiShoppingList]
   );
+  
 
-  const saveAiDecision = useCallback(
-    async (index, decision) => {
-      if (!assessmentRef || blocked) return;
-      const adjustment = aiAdjustments[index];
-      const key = `adjustment_${index}`;
-      const nextDecisions = {
-        ...aiDecisions,
-        [key]: {
-          decision,
-          text: stableAiItemText(adjustment),
-          decidedAt: new Date().toISOString(),
-          decidedBy: user?.uid || null,
-        },
-      };
-      await updateDoc(assessmentRef, {
-        "nutritionAi.coachDecisions": nextDecisions,
-        updatedAt: serverTimestamp(),
-      });
-      await saveNutritionFeedback(
-        clientId,
-        {
-          type: "coach",
-          planId: assessmentId,
-          correctionType: "other",
-          originalValue: stableAiItemText(adjustment),
-          newValue: decision,
-          reason: decision === "accepted" ? "Suggestion IA acceptée" : "Suggestion IA refusée",
-          validated: decision === "accepted",
-        },
-        { assessmentId, type: "coach" }
-      );
-    },
-    [aiAdjustments, aiDecisions, assessmentId, assessmentRef, blocked, clientId, user?.uid]
-  );
+  
 
-  const saveCoachAiNote = useCallback(async () => {
-    const note = String(aiCoachNote || "").trim();
-    if (!note || blocked) return;
-    setSavingAiFeedback(true);
-    try {
-      await saveNutritionFeedback(
-        clientId,
-        {
-          type: "coach",
-          planId: assessmentId,
-          correctionType: "other",
-          originalValue: "",
-          newValue: note,
-          reason: "Retour coach pour les prochaines optimisations IA",
-          validated: true,
-        },
-        { assessmentId, type: "coach" }
-      );
-      setAiCoachNote("");
-      notify(toast, "saveSuccess", {
-        title: "Retour enregistré",
-        description: "Il sera repris dans les prochaines optimisations IA.",
-      });
-    } catch (e) {
-      notify(toast, "saveError", {
-        title: "Retour non enregistré",
-        description: e?.message || "Impossible d'enregistrer ce retour.",
-      });
-    } finally {
-      setSavingAiFeedback(false);
-    }
-  }, [aiCoachNote, assessmentId, blocked, clientId, toast]);
+  
 
   const saveMenuAndShare = useCallback(
     async ({ share }) => {
@@ -1081,8 +1168,8 @@ export default function MenuJournalierFromRation() {
 
       if (share && !hasSharedSection) {
         notify(toast, "saveError", {
-          title: "Aucune section sélectionnée",
-          description: "Coche au moins une section à partager au client.",
+          title: i18n.t("auto.MenuJournalierFromRation.aucune_section_selectionnee", "Aucune section sélectionnée"),
+          description: i18n.t("auto.MenuJournalierFromRation.coche_au_moins_une_section_a_partager_au_client", "Coche au moins une section à partager au client."),
         });
         return;
       }
@@ -1090,6 +1177,8 @@ export default function MenuJournalierFromRation() {
       setSavingShare(true);
       try {
         const adviceSheetsToShare = sections.adviceSheets ? selectedAdviceSheets : [];
+        let shareEmailSent = false;
+        let shareEmailWarning = "";
         await updateDoc(assessmentRef, {
           "ration.menuTab": activeTab === 1 ? "auto" : "manual",
           "nutritionAdviceSheets.selectedIds": selectedAdviceSheetIds,
@@ -1104,7 +1193,10 @@ export default function MenuJournalierFromRation() {
             sharedAt: share ? serverTimestamp() : null,
             sharedBy: share ? user?.uid || null : null,
             coachName: share ? coachPdfName : null,
-            coachLogoUrl: share ? (user?.logoUrl || user?.photoURL || user?.avatarUrl || "") : null,
+            coachLogoUrl:
+              share && documentBrandingAllowed
+                ? user?.logoUrl || user?.photoURL || user?.avatarUrl || ""
+                : null,
             snapshot: {
               menuMode: activeTab === 1 ? "auto" : "manual",
               menuView: menuPdfData?.view || "planning",
@@ -1117,18 +1209,41 @@ export default function MenuJournalierFromRation() {
           },
           updatedAt: serverTimestamp(),
         });
+
+        if (share && clientEmail) {
+          try {
+            const emailResult = await apiFetch("/clubs/nutrition-share-email", {
+              method: "POST",
+              body: JSON.stringify({ clientId, assessmentId }),
+            });
+            shareEmailSent = Boolean(emailResult?.emailed);
+            shareEmailWarning = emailResult?.warning || "";
+          } catch (emailError) {
+            shareEmailWarning = emailError?.message || "email-send-failed";
+            console.warn("[nutrition] share email failed", emailError);
+          }
+        }
+
         notify(toast, share ? "saveSuccess" : "nutritionSaved", {
-          title: share ? "Partage client mis à jour" : "Bilan sauvegardé",
+          title: share
+            ? i18n.t("auto.MenuJournalierFromRation.partage_client_mis_a_jour", "Partage client mis à jour")
+            : i18n.t("auto.MenuJournalierFromRation.bilan_sauvegarde", "Bilan sauvegardé"),
           description: share
-            ? "Le client verra uniquement les sections cochées."
-            : "Rien n’est visible côté client pour ce bilan.",
+            ? clientEmail
+              ? shareEmailSent
+                ? i18n.t("auto.MenuJournalierFromRation.client_verra_sections_cochees_email_envoye", "Le client verra uniquement les sections cochées. Un e-mail est envoyé à {{email}}.", { email: clientEmail })
+                : shareEmailWarning === "smtp-missing"
+                  ? i18n.t("auto.MenuJournalierFromRation.client_verra_sections_cochees_email_non_configure", "Le client verra les sections cochées. L’e-mail de notification n’est pas parti car l’envoi SMTP n’est pas configuré.")
+                  : i18n.t("auto.MenuJournalierFromRation.client_verra_sections_cochees_email_erreur", "Le client verra les sections cochées, mais l’e-mail de notification n’a pas pu être envoyé.")
+              : i18n.t("auto.MenuJournalierFromRation.client_verra_sections_cochees_aucun_email", "Le client verra uniquement les sections cochées. Aucun e-mail n’est envoyé car ce client n’a pas d’adresse renseignée.")
+            : i18n.t("auto.MenuJournalierFromRation.rien_visible_cote_client_pour_ce_bilan", "Rien n’est visible côté client pour ce bilan."),
         });
         setShareModalOpen(false);
         navigateWithFallback(`/clients/${clientId}`);
       } catch (e) {
         notify(toast, "saveError", {
-          title: "Sauvegarde impossible",
-          description: e?.message || "Impossible de sauvegarder le partage.",
+          title: i18n.t("auto.MenuJournalierFromRation.sauvegarde_impossible", "Sauvegarde impossible"),
+          description: e?.message || i18n.t("auto.MenuJournalierFromRation.impossible_de_sauvegarder_le_partage", "Impossible de sauvegarder le partage."),
         });
       } finally {
         setSavingShare(false);
@@ -1137,6 +1252,7 @@ export default function MenuJournalierFromRation() {
     [
       activeTab,
       assessmentRef,
+      assessmentId,
       blocked,
       clientId,
       docData?.ration,
@@ -1161,29 +1277,74 @@ export default function MenuJournalierFromRation() {
   );
 
   const handleDownloadPDF = useCallback(async () => {
+    const selectedForPdf = { ...emptyShareSections(), ...shareSelection };
+    const cleanPatientNote = String(patientNote || "").trim();
+    const includePatientNote = !!sharePatientNote && cleanPatientNote.length > 0;
+    const hasSelectedPdfContent = SHARE_SECTION_KEYS.some((key) => !!selectedForPdf[key]) || includePatientNote;
+
+    if (!hasSelectedPdfContent) {
+      notify(toast, "saveError", {
+        title: i18n.t("auto.MenuJournalierFromRation.aucune_section_selectionnee", "Aucune section sélectionnée"),
+        description: i18n.t("auto.MenuJournalierFromRation.coche_au_moins_une_section_avant_de_generer_le_pdf", "Coche au moins une section avant de générer le PDF."),
+      });
+      return;
+    }
+
     setExportingPdf(true);
     try {
       const now = new Date();
+      const foodSurvey = docData?.foodSurvey || {};
+      const foodSurveyMeta = foodSurvey?.meta || {};
+      const behaviorFlags = Object.entries(foodSurveyMeta?.behaviorFlags || {})
+        .filter(([, enabled]) => !!enabled)
+        .map(([key]) => String(key).replace(/_/g, " "));
+      const rationTotals = targets?.ration || {};
       const blob = await pdf(
         <MenuPdfDoc
           clientName={patientName}
           coachName={coachPdfName}
-          title="Menu journalier"
-          subtitle={
-            menuPdfData?.view === "edit"
-              ? `Jour ${menuPdfData.currentDay}`
-              : "Planning"
-          }
+          title={i18n.t("auto.MenuJournalierFromRation.suivi_nutrition", "Suivi nutrition")}
+          subtitle={i18n.t("auto.MenuJournalierFromRation.export_sections_cochees", "Export des éléments cochés")}
           logoDataUrl={pdfLogoDataUrl}
           days={pdfDays}
           date={now}
-          adviceSheets={selectedAdviceSheets}
+          sections={selectedForPdf}
+          summary={{
+            clientSummary,
+            objective: objectiveRaw,
+            diet: activeDiet,
+            pathologies,
+          }}
+          foodSurvey={{
+            modeLabel:
+              foodSurvey?.mode === "ciqual"
+                ? i18n.t("auto.MenuJournalierFromRation.mode_detaille", "Mode détaillé")
+                : i18n.t("auto.MenuJournalierFromRation.mode_simplifie", "Mode simplifié"),
+            referenceLabel: foodSurveyMeta?.referenceDay || i18n.t("auto.MenuJournalierFromRation.journee_type_veille", "Journée type / veille"),
+            behaviorFlags,
+            note: foodSurveyMeta?.note || "",
+          }}
+          ration={{
+            sourceLabel,
+            kcal: rationTotals?.kcal,
+            coveredMeals: coveredMealsCount,
+            macroLine: [
+              rationTotals?.p ? `P ${r0(rationTotals.p)} g` : "",
+              rationTotals?.f ? `L ${r0(rationTotals.f)} g` : "",
+              rationTotals?.c ? `G ${r0(rationTotals.c)} g` : "",
+            ].filter(Boolean).join(" • "),
+            items: rationItems,
+          }}
+          recipes={selectedForPdf.recipes ? aiRecipes : []}
+          shoppingList={selectedForPdf.shoppingList ? aiShoppingList : []}
+          adviceSheets={selectedForPdf.adviceSheets ? selectedAdviceSheets : []}
+          patientNote={includePatientNote ? cleanPatientNote : ""}
         />
       ).toBlob();
 
       const url = URL.createObjectURL(blob);
       const clientBase = (patientName || "client").replace(/\s+/g, "_").toLowerCase();
-      const filename = `menu_journalier-${clientBase}-BYL.pdf`;
+      const filename = `suivi_nutrition-${clientBase}-BYL.pdf`;
       const a = document.createElement("a");
       a.href = url;
       a.download = filename;
@@ -1194,156 +1355,134 @@ export default function MenuJournalierFromRation() {
       notify(toast, "pdfReady");
     } catch (e) {
       notify(toast, "pdfError", {
-        description: e?.message || "Impossible de générer le PDF du menu.",
+        description: e?.message || i18n.t("auto.MenuJournalierFromRation.impossible_de_generer_le_pdf", "Impossible de générer le PDF."),
       });
     } finally {
       setExportingPdf(false);
     }
-  }, [coachPdfName, menuPdfData?.currentDay, menuPdfData?.view, patientName, pdfDays, pdfLogoDataUrl, selectedAdviceSheets, toast]);
-
-  const handleDownloadAdviceSheetsPDF = useCallback(async () => {
-    setExportingAdvicePdf(true);
-    try {
-      const now = new Date();
-      const blob = await pdf(
-        <AdviceSheetsPdfDoc
-          clientName={patientName}
-          coachName={coachPdfName}
-          logoDataUrl={pdfLogoDataUrl}
-          sheets={selectedAdviceSheets}
-          date={now}
-        />
-      ).toBlob();
-
-      const url = URL.createObjectURL(blob);
-      const clientBase = (patientName || "client").replace(/\s+/g, "_").toLowerCase();
-      const filename = `fiches_conseils-${clientBase}-BYL.pdf`;
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.open(url, "_blank", "noopener,noreferrer");
-      notify(toast, "pdfReady", {
-        title: "PDF fiches conseils généré",
-        description: "Les fiches sélectionnées sont prêtes.",
-      });
-    } catch (e) {
-      notify(toast, "pdfError", {
-        description: e?.message || "Impossible de générer le PDF des fiches conseils.",
-      });
-    } finally {
-      setExportingAdvicePdf(false);
-    }
-  }, [coachPdfName, patientName, pdfLogoDataUrl, selectedAdviceSheets, toast]);
+  }, [
+    activeDiet,
+    aiRecipes,
+    aiShoppingList,
+    clientSummary,
+    coachPdfName,
+    coveredMealsCount,
+    docData?.foodSurvey,
+    objectiveRaw,
+    patientName,
+    patientNote,
+    pathologies,
+    pdfDays,
+    pdfLogoDataUrl,
+    rationItems,
+    selectedAdviceSheets,
+    sharePatientNote,
+    shareSelection,
+    sourceLabel,
+    targets?.ration,
+    toast,
+  ]);
 
   if (!isAdmin) {
     return (
       <Box p={6}>
-        <Heading size="md">Accès refusé</Heading>
-        <Text mt={2} opacity={0.7}>
-          Admin uniquement pour le moment.
-        </Text>
+        <Heading size="md">{i18n.t("auto.MenuJournalierFromRation.acces_refuse", "Accès refusé")}</Heading>
+        <Text mt={2} opacity={0.7}>{i18n.t("auto.MenuJournalierFromRation.cet_espace_est_reserve_aux_professionnels_nutritio", "Cet espace est réservé aux professionnels nutrition autorisés.")}</Text>
       </Box>
     );
   }
 
   if (loadingDoc) {
-    return <AppLoading label="Chargement..." />;
+    return <AppLoading label={i18n.t("auto.MenuJournalierFromRation.chargement", "Chargement...")} />;
   }
 
   if (!docData) {
     return (
       <Box p={6}>
-        <Heading size="md">Bilan introuvable</Heading>
-        <Button mt={4} onClick={goBack}>
-          Retour
-        </Button>
+        <Heading size="md">{i18n.t("auto.MenuJournalierFromRation.bilan_introuvable", "Bilan introuvable")}</Heading>
+        <Button mt={4} onClick={goBack}>{i18n.t("programView.back", "Retour")}</Button>
       </Box>
     );
   }
 
   return (
-    <Box minH="100vh" p={{ base: 4, md: 6 }} bg={nutritionTheme.pageBg} color={nutritionTheme.textColor}>
-      <Stack spacing={6}>
-        <Box {...nutritionTheme.cardProps} overflow="hidden">
-          <Box bg={accentBg} px={{ base: 4, md: 5 }} py={{ base: 4, md: 5 }}>
+    <Box minH="100vh" p={{ base: 3, md: 6 }} bg={nutritionTheme.pageBg} color={nutritionTheme.textColor}>
+      <Stack spacing={4} maxW="7xl" mx="auto">
+        <NutritionWorkflowBar
+          activeStep="menu"
+          clientId={clientId}
+          assessmentId={assessmentId}
+          navigate={navigateWithFallback}
+        />
+
+        <Box {...sectionCardProps} overflow="hidden">
+          <Box bg={panelBg} px={{ base: 4, md: 5 }} py={{ base: 4, md: 5 }}>
             <HStack justify="space-between" align="center" gap={4} flexWrap="wrap">
               <HStack spacing={3} flexWrap="wrap">
-                <Button variant="outline" onClick={goBack}>
-                  Retour
-                </Button>
+                <Button variant="outline" onClick={goBack} data-testid="nutrition-menu-back-top">{i18n.t("programView.back", "Retour")}</Button>
                 <Box>
                   <HStack spacing={2} flexWrap="wrap">
-                    <Heading size="md">Menu journalier</Heading>
+                    <Heading size="md">{i18n.t("auto.MenuJournalierFromRation.menu_journalier", "Menu journalier")}</Heading>
                     <Badge colorScheme={blocked ? "yellow" : "green"}>
-                      {blocked ? "Bilan à finaliser" : "Prêt"}
+                      {blocked
+                        ? i18n.t("auto.MenuJournalierFromRation.bilan_a_finaliser", "Bilan à finaliser")
+                        : i18n.t("auto.MenuJournalierFromRation.pret", "Prêt")}
                     </Badge>
                   </HStack>
-                  <Text fontSize="sm" color={textMuted} mt={1}>
-                    Base menu construite à partir de la ration retenue.
-                  </Text>
+                  <Text fontSize="sm" color={textMuted} mt={1}>{i18n.t("auto.MenuJournalierFromRation.base_menu_construite_a_partir_de_la_ration_retenue", "Base menu construite à partir de la ration retenue.")}</Text>
                 </Box>
               </HStack>
 
-              <HStack spacing={2}>
-                <Button variant="outline" onClick={loadCiqual} isLoading={ciqualLoading} loadingText="Chargement…">
-                  Actualiser les données
-                </Button>
-                <Tooltip label="Télécharger le PDF">
-                  <IconButton
-                    aria-label="Télécharger le PDF"
-                    icon={<DownloadIcon />}
-                    variant="outline"
-                    onClick={handleDownloadPDF}
-                    isLoading={exportingPdf}
-                  />
-                </Tooltip>
-              </HStack>
+              <Button variant="outline" onClick={loadCiqual} isLoading={ciqualLoading} loadingText={i18n.t("common.loading", "Chargement…")}>{i18n.t("auto.MenuJournalierFromRation.actualiser_les_donnees", "Actualiser les données")}</Button>
             </HStack>
 
             <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={3} mt={5}>
-              <Box p={4} borderWidth="1px" borderColor={borderCol} borderRadius="xl" bg={panelBg}>
+              <Box p={4} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={nutritionTheme.surfaceSoft}>
                 <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>
-                  DOSSIER
+                  {i18n.t("auto.MenuJournalierFromRation.dossier", "DOSSIER")}
                 </Text>
                 <Text mt={1} fontSize="xl" fontWeight="900" noOfLines={1}>
                   {patientName}
                 </Text>
                 <Text fontSize="sm" color={textMuted}>
-                  {clientSummary || "Contexte général à compléter"}
+                  {clientSummary || i18n.t("auto.MenuJournalierFromRation.contexte_general_a_completer", "Contexte général à compléter")}
                 </Text>
               </Box>
 
-              <Box p={4} borderWidth="1px" borderColor={borderCol} borderRadius="xl" bg={panelBg}>
-                <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>
-                  CADRE NUTRITION
-                </Text>
+              <Box p={4} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={nutritionTheme.surfaceSoft}>
+                <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>{i18n.t("auto.MenuJournalierFromRation.cadre_nutrition", "CADRE NUTRITION")}</Text>
                 <Text mt={1} fontSize="lg" fontWeight="800">
-                  {objectiveRaw || "Objectif à préciser"}
+                  {objectiveRaw || i18n.t("auto.MenuJournalierFromRation.objectif_a_preciser", "Objectif à préciser")}
                 </Text>
                 <Text fontSize="sm" color={textMuted} noOfLines={2}>
-                  {[activeDiet.length ? activeDiet.join(", ") : "Aucun régime spécifique", pathologies.length ? pathologies.slice(0, 2).join(", ") : "Aucune pathologie"].join(" • ")}
+                  {[
+                    activeDiet.length ? activeDiet.join(", ") : i18n.t("auto.MenuJournalierFromRation.aucun_regime_specifique", "Aucun régime spécifique"),
+                    pathologies.length ? pathologies.slice(0, 2).join(", ") : i18n.t("auto.MenuJournalierFromRation.aucune_pathologie", "Aucune pathologie"),
+                  ].join(" • ")}
                 </Text>
               </Box>
 
-              <Box p={4} borderWidth="1px" borderColor={borderCol} borderRadius="xl" bg={panelBg}>
-                <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>
-                  RATION ET DONNÉES
-                </Text>
+              <Box p={4} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={nutritionTheme.surfaceSoft}>
+                <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>{i18n.t("auto.MenuJournalierFromRation.ration_et_donnees", "RATION ET DONNÉES")}</Text>
                 <Text mt={1} fontSize="lg" fontWeight="800">
                   {sourceLabel}
                 </Text>
                 <HStack mt={2} spacing={2} flexWrap="wrap">
                   <Badge colorScheme={rationHasAnyQty ? "green" : "orange"}>
-                    {targets?.ration?.kcal ? `Ration ${r0(targets.ration.kcal)} kcal` : "Ration à relire"}
+                    {targets?.ration?.kcal
+                      ? i18n.t("auto.MenuJournalierFromRation.ration_kcal", "Ration {{kcal}} kcal", { kcal: r0(targets.ration.kcal) })
+                      : i18n.t("auto.MenuJournalierFromRation.ration_a_relire", "Ration à relire")}
                   </Badge>
                   <Badge colorScheme={coveredMealsCount === MENU_MEALS_ORDER.length ? "green" : "blue"}>
-                    {coveredMealsCount}/{MENU_MEALS_ORDER.length} repas
+                    {i18n.t("auto.MenuJournalierFromRation.repas_couverts_count", "{{count}}/{{total}} repas", {
+                      count: coveredMealsCount,
+                      total: MENU_MEALS_ORDER.length,
+                    })}
                   </Badge>
                   <Badge colorScheme={ciqualOk ? "green" : "red"}>
-                    {ciqualOk ? "Données prêtes" : "Données à charger"}
+                    {ciqualOk
+                      ? i18n.t("auto.MenuJournalierFromRation.donnees_pretes", "Données prêtes")
+                      : i18n.t("auto.MenuJournalierFromRation.donnees_a_charger", "Données à charger")}
                   </Badge>
                 </HStack>
               </Box>
@@ -1353,10 +1492,10 @@ export default function MenuJournalierFromRation() {
               <Alert status="error" rounded="xl" mt={4}>
                 <AlertIcon />
                 <Box>
-                  <AlertTitle>Données alimentaires non chargées</AlertTitle>
+                  <AlertTitle>{i18n.t("auto.MenuJournalierFromRation.donnees_alimentaires_non_chargees", "Données alimentaires non chargées")}</AlertTitle>
                   <AlertDescription>
                     {ciqualError ||
-                      "Impossible de charger les données alimentaires nécessaires à la génération."}
+                      i18n.t("auto.MenuJournalierFromRation.impossible_de_charger_les_donnees_alimentaires_necessaires", "Impossible de charger les données alimentaires nécessaires à la génération.")}
                   </AlertDescription>
                 </Box>
               </Alert>
@@ -1366,56 +1505,56 @@ export default function MenuJournalierFromRation() {
               <Alert status="warning" rounded="xl" mt={4}>
                 <AlertIcon />
                 <Box>
-                  <AlertTitle>La ration n’est pas encore exploitable pour le menu</AlertTitle>
-                  <AlertDescription>
-                    Retourne sur la page ration puis sauvegarde explicitement l’étape avant de revenir ici.
-                  </AlertDescription>
+                  <AlertTitle>{i18n.t("auto.MenuJournalierFromRation.la_ration_n_est_pas_encore_exploitable_pour_le_men", "La ration n’est pas encore exploitable pour le menu")}</AlertTitle>
+                  <AlertDescription>{i18n.t("auto.MenuJournalierFromRation.retourne_sur_la_page_ration_puis_sauvegarde_explic", "Retourne sur la page ration puis sauvegarde explicitement l’étape avant de revenir ici.")}</AlertDescription>
                 </Box>
               </Alert>
             ) : null}
           </Box>
         </Box>
 
-        <Box borderWidth="1px" borderColor={borderCol} borderRadius="2xl" bg={panelBg} p={{ base: 4, md: 5 }}>
-          <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>
-            ÉTAPE 1
+        <Grid templateColumns={{ base: "1fr", lg: "minmax(0, 1fr) 320px" }} gap={4} alignItems="start">
+          <Stack
+            spacing={4}
+            position={{ base: "static", lg: "sticky" }}
+            top={{ lg: "88px" }}
+            maxH={{ base: "none", lg: "calc(100vh - 104px)" }}
+            overflowY={{ base: "visible", lg: "auto" }}
+            pr={{ base: 0, lg: 1 }}
+            order={{ base: -1, lg: 2 }}
+          >
+        <Box {...sectionCardProps} p={{ base: 4, md: 5 }} order={{ base: 0, xl: 1 }}>
+          <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>{i18n.t("auto.MenuJournalierFromRation.mode_de_travail", "MODE DE TRAVAIL")}</Text>
+          <Heading size="sm" mt={1}>{i18n.t("auto.MenuJournalierFromRation.choix_de_la_methode", "Choix de la méthode")}</Heading>
+          <Text fontSize="sm" color={textMuted} mt={1}>
+            {i18n.t("auto.MenuJournalierFromRation.choisis_la_logique_de_travail", "Choisis la logique de travail, puis construis le menu dans la zone principale.")}
           </Text>
-          <Heading size="sm" mt={1}>
-            Choix de la méthode
-          </Heading>
-          <HStack mt={4} spacing={0} borderWidth="1px" borderColor={borderCol} borderRadius="xl" overflow="hidden" w="fit-content" maxW="100%" flexWrap="wrap">
+          <HStack mt={4} spacing={0} borderWidth="1px" borderColor={borderCol} borderRadius="md" overflow="hidden" w="fit-content" maxW="100%" flexWrap="wrap">
             <Button
               borderRadius="0"
               variant={activeTab === 0 ? "solid" : "ghost"}
               colorScheme="blue"
               onClick={() => changeActiveTab(0)}
               isDisabled={blocked}
-            >
-              Manuel
-            </Button>
+            >{i18n.t("auto.MenuJournalierFromRation.manuel", "Manuel")}</Button>
             <Button
               borderRadius="0"
               variant={activeTab === 1 ? "solid" : "ghost"}
               colorScheme="purple"
               onClick={() => changeActiveTab(1)}
               isDisabled={blocked}
-            >
-              Auto
-            </Button>
+            >{i18n.t("auto.MenuJournalierFromRation.auto", "Auto")}</Button>
           </HStack>
         </Box>
+          </Stack>
 
-        <Box borderWidth="1px" borderColor={borderCol} borderRadius="2xl" bg={panelBg} p={{ base: 4, md: 5 }}>
-          <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>
-            ÉTAPE 2
-          </Text>
-          <Heading size="sm" mt={1}>
-            Construction du menu
-          </Heading>
+        <Box {...sectionCardProps} p={{ base: 4, md: 5 }}>
+          <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>{i18n.t("auto.MenuJournalierFromRation.menu_a_relire", "MENU À RELIRE")}</Text>
+          <Heading size="sm" mt={1}>{i18n.t("auto.MenuJournalierFromRation.construction_du_menu", "Construction du menu")}</Heading>
           <Text fontSize="sm" color={textMuted} mt={1} mb={4}>
             {activeTab === 0
-              ? "Le mode manuel te laisse choisir précisément les aliments détaillés."
-              : "Le mode auto génère une base multi-jours, à relire avant validation."}
+              ? i18n.t("auto.MenuJournalierFromRation.mode_manuel_description", "Le mode manuel te laisse choisir précisément les aliments détaillés.")
+              : i18n.t("auto.MenuJournalierFromRation.mode_auto_description", "Le mode auto génère une base multi-jours, à relire avant validation.")}
           </Text>
 
           {activeTab === 0 ? (
@@ -1444,105 +1583,119 @@ export default function MenuJournalierFromRation() {
             />
           )}
         </Box>
+        </Grid>
 
-        <Box borderWidth="1px" borderColor={borderCol} borderRadius="2xl" bg={panelBg} p={{ base: 4, md: 5 }}>
+        <Box {...sectionCardProps} p={{ base: 4, md: 5 }}>
           <HStack justify="space-between" align="start" gap={3} flexWrap="wrap">
             <Box>
-              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>
-                SORTIES PATIENT
-              </Text>
-              <Heading size="sm" mt={1}>
-                Recettes et liste de courses
-              </Heading>
-              <Text fontSize="sm" color={textMuted} mt={1}>
-                Préparées à partir du menu affiché, avec les quantités validées.
-              </Text>
+              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>{i18n.t("auto.MenuJournalierFromRation.sorties_patient", "SORTIES PATIENT")}</Text>
+              <Heading size="sm" mt={1}>{i18n.t("auto.MenuJournalierFromRation.recettes_et_liste_de_courses", "Recettes et liste de courses")}</Heading>
+              <Text fontSize="sm" color={textMuted} mt={1}>{i18n.t("auto.MenuJournalierFromRation.preparees_a_partir_du_menu_affiche_avec_les_quanti", "Préparées à partir du menu affiché, avec les quantités validées.")}</Text>
             </Box>
             <HStack spacing={2} flexWrap="wrap">
               <Button size="sm" variant="outline" onClick={() => setShowPatientRecipes((prev) => !prev)}>
-                {showPatientRecipes ? "Masquer les recettes" : "Voir les recettes jour par jour"}
+                {showPatientRecipes
+                  ? i18n.t("auto.MenuJournalierFromRation.masquer_les_recettes", "Masquer les recettes")
+                  : i18n.t("auto.MenuJournalierFromRation.voir_les_recettes_jour_par_jour", "Voir les recettes jour par jour")}
               </Button>
-              <Badge colorScheme="green" px={3} py={1} borderRadius="full">
-                Prêt à partager
-              </Badge>
+              <Button size="sm" variant="outline" onClick={() => setShowPatientShoppingList((prev) => !prev)}>
+                {showPatientShoppingList
+                  ? i18n.t("auto.MenuJournalierFromRation.masquer_la_liste_de_courses", "Masquer la liste de courses")
+                  : i18n.t("auto.MenuJournalierFromRation.voir_la_liste_de_courses", "Voir la liste de courses")}
+              </Button>
+              <Badge colorScheme="green" px={3} py={1} borderRadius="full">{i18n.t("auto.MenuJournalierFromRation.pret_a_partager", "Prêt à partager")}</Badge>
             </HStack>
           </HStack>
 
           <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={4} mt={4} alignItems="start">
-            <Box borderWidth="1px" borderColor={borderCol} borderRadius="xl" p={4} bg={nutritionTheme.surfaceSoft}>
+            <Box borderWidth="1px" borderColor={borderCol} borderRadius="md" p={4} bg={nutritionTheme.surfaceSoft}>
               <HStack justify="space-between" align="center" gap={3} flexWrap="wrap">
-                <Heading size="xs">Recettes jour par jour</Heading>
+                <Heading size="xs">{i18n.t("auto.MenuJournalierFromRation.recettes_jour_par_jour", "Recettes jour par jour")}</Heading>
                 <Badge colorScheme="blue">{aiRecipes.length}</Badge>
               </HStack>
               <Stack spacing={3} mt={3}>
                 {!showPatientRecipes ? (
-                  <Text fontSize="sm" color={textMuted}>
-                    Les recettes sont prêtes pour le partage patient. Ouvre-les uniquement si tu veux les relire côté pro.
-                  </Text>
-                ) : aiRecipes.length ? (
-                  aiRecipes.map((recipe, index) => (
-                    <Box key={`ai_recipe_${index}`} borderWidth="1px" borderColor={borderCol} borderRadius="lg" p={3} bg={panelBg}>
-                      <Text fontWeight="900">{recipe.name || recipe.title || `Recette ${index + 1}`}</Text>
-                      <Text fontSize="xs" color={textMuted} mt={1}>
-                        {[recipe.dayLabel, recipe.mealLabel].filter(Boolean).join(" • ")}
-                        {recipe.dayLabel || recipe.mealLabel ? " · " : ""}
-                        Prépa {recipe.preparationTimeMin || recipe.prepTimeMin || "—"} min • Cuisson {recipe.cookingTimeMin || recipe.cookTimeMin || "—"} min
-                      </Text>
-                      <Wrap spacing={1.5} mt={2}>
-                        {recipeIngredientsText(recipe).slice(0, 6).map((ingredient) => (
-                          <WrapItem key={ingredient}>
-                            <Badge variant="subtle" colorScheme="blue">
-                              {ingredient}
-                            </Badge>
-                          </WrapItem>
+                  <Text fontSize="sm" color={textMuted}>{i18n.t("auto.MenuJournalierFromRation.les_recettes_sont_pretes_pour_le_partage_patient_o", "Les recettes sont prêtes pour le partage patient. Ouvre-les uniquement si tu veux les relire côté pro.")}</Text>
+                ) : aiRecipeGroups.length ? (
+                  aiRecipeGroups.map((group) => (
+                    <Box key={group.key}>
+                      <HStack justify="space-between" align="center" mb={2}>
+                        <Heading size="xs">{i18n.t(group.labelKey, group.labelDefault)}</Heading>
+                        <Badge colorScheme="blue">{group.recipes.length}</Badge>
+                      </HStack>
+                      <Stack spacing={3}>
+                        {group.recipes.map((recipe) => (
+                          <Box key={`ai_recipe_${recipe.__recipeIndex}`} borderWidth="1px" borderColor={borderCol} borderRadius="md" p={3} bg={panelBg}>
+                            <Box minW={0}>
+                              <Text fontWeight="900">{recipe.name || recipe.title || i18n.t("auto.MenuJournalierFromRation.recette_count", "Recette {{count}}", { count: recipe.__recipeIndex + 1 })}</Text>
+                              <Text fontSize="xs" color={textMuted} mt={1}>
+                                {[recipe.dayLabel, recipe.mealLabel].filter(Boolean).join(" • ")}
+                                {recipe.dayLabel || recipe.mealLabel ? " · " : ""}
+                                {i18n.t("auto.MenuJournalierFromRation.recipe_times", "Prépa {{prep}} min • Cuisson {{cook}} min", {
+                                  prep: recipe.preparationTimeMin || recipe.prepTimeMin || "—",
+                                  cook: recipe.cookingTimeMin || recipe.cookTimeMin || "—",
+                                })}
+                              </Text>
+                              <Wrap spacing={1.5} mt={2}>
+                                {recipeIngredientsText(recipe).slice(0, 8).map((ingredient) => (
+                                  <WrapItem key={ingredient}>
+                                    <Badge variant="subtle" colorScheme="blue">
+                                      {ingredient}
+                                    </Badge>
+                                  </WrapItem>
+                                ))}
+                              </Wrap>
+                              {normalizeAiList(recipe.steps).length ? (
+                                <Stack spacing={1} mt={3}>
+                                  {normalizeAiList(recipe.steps).slice(0, 8).map((step, stepIndex) => (
+                                    <Text key={`step_${stepIndex}`} fontSize="sm">
+                                      {stepIndex + 1}. {stableAiItemText(step)}
+                                    </Text>
+                                  ))}
+                                </Stack>
+                              ) : null}
+                              <Text fontSize="xs" color={textMuted} mt={3}>{i18n.t("auto.MenuJournalierFromRation.nutrition_recalcul_ciqual_uniquement", "Nutrition: recalcul CIQUAL uniquement.")}</Text>
+                            </Box>
+                          </Box>
                         ))}
-                      </Wrap>
-                      {normalizeAiList(recipe.steps).length ? (
-                        <Stack spacing={1} mt={3}>
-                          {normalizeAiList(recipe.steps).slice(0, 6).map((step, stepIndex) => (
-                            <Text key={`step_${stepIndex}`} fontSize="sm">
-                              {stepIndex + 1}. {stableAiItemText(step)}
-                            </Text>
-                          ))}
-                        </Stack>
-                      ) : null}
-                      <Text fontSize="xs" color={textMuted} mt={3}>
-                        Nutrition: recalcul CIQUAL uniquement.
-                      </Text>
+                      </Stack>
                     </Box>
                   ))
                 ) : (
-                  <Text fontSize="sm" color={textMuted}>
-                    Les recettes apparaîtront après une optimisation IA validée ou dès qu’un menu exploitable sera structuré en repas.
-                  </Text>
+                  <Text fontSize="sm" color={textMuted}>{i18n.t("auto.MenuJournalierFromRation.les_recettes_apparaitront_apres_une_optimisation_i", "Les recettes apparaîtront après une optimisation IA validée ou dès qu’un menu exploitable sera structuré en repas.")}</Text>
                 )}
               </Stack>
             </Box>
 
-            <Box borderWidth="1px" borderColor={borderCol} borderRadius="xl" p={4} bg={nutritionTheme.surfaceSoft}>
-              <Heading size="xs">Liste de courses</Heading>
+            <Box borderWidth="1px" borderColor={borderCol} borderRadius="md" p={4} bg={nutritionTheme.surfaceSoft}>
+              <HStack justify="space-between" align="center" gap={3} flexWrap="wrap">
+                <Heading size="xs">{i18n.t("auto.MenuJournalierFromRation.liste_de_courses", "Liste de courses")}</Heading>
+                <Badge colorScheme="green">{aiShoppingSections.length}</Badge>
+              </HStack>
               <Stack spacing={3} mt={3}>
-                {aiShoppingList.some((section) => normalizeAiList(section?.items).length) ? (
-                  aiShoppingList.map((section) =>
-                    normalizeAiList(section?.items).length ? (
-                      <Box key={section.section || section.label} borderWidth="1px" borderColor={borderCol} borderRadius="lg" p={3} bg={panelBg}>
-                        <Text fontSize="sm" fontWeight="900">
-                          {section.label || section.section || "Rayon"}
-                        </Text>
-                        <Stack spacing={1} mt={2}>
-                          {normalizeAiList(section.items).slice(0, 8).map((item, index) => (
-                            <Text key={`${section.section}_${index}`} fontSize="sm">
-                              {item.name || item.label} {item.quantity ? `• ${item.quantity} ${item.unit || ""}` : ""}
-                            </Text>
-                          ))}
-                        </Stack>
-                      </Box>
-                    ) : null
-                  )
-                ) : (
+                {!showPatientShoppingList ? (
                   <Text fontSize="sm" color={textMuted}>
-                    Aucune liste de courses exploitable pour le moment.
+                    {aiShoppingSections.length
+                      ? i18n.t("auto.MenuJournalierFromRation.liste_courses_prete_partage_patient", "La liste de courses est prête pour le partage patient. Ouvre-la uniquement si tu veux la relire côté pro.")
+                      : i18n.t("auto.MenuJournalierFromRation.aucune_liste_de_courses_exploitable_pour_le_moment", "Aucune liste de courses exploitable pour le moment.")}
                   </Text>
+                ) : aiShoppingSections.length ? (
+                  aiShoppingSections.map((section) => (
+                    <Box key={section.section || section.label} borderWidth="1px" borderColor={borderCol} borderRadius="md" p={3} bg={panelBg}>
+                      <Text fontSize="sm" fontWeight="900">
+                        {section.label || section.section || i18n.t("auto.MenuJournalierFromRation.rayon", "Rayon")}
+                      </Text>
+                      <Stack spacing={1} mt={2}>
+                        {normalizeAiList(section.items).slice(0, 8).map((item, index) => (
+                          <Text key={`${section.section || section.label}_${index}`} fontSize="sm">
+                            {item.name || item.label} {item.quantity ? `• ${item.quantity} ${item.unit || ""}` : ""}
+                          </Text>
+                        ))}
+                      </Stack>
+                    </Box>
+                  ))
+                ) : (
+                  <Text fontSize="sm" color={textMuted}>{i18n.t("auto.MenuJournalierFromRation.aucune_liste_de_courses_exploitable_pour_le_moment", "Aucune liste de courses exploitable pour le moment.")}</Text>
                 )}
               </Stack>
             </Box>
@@ -1559,40 +1712,39 @@ export default function MenuJournalierFromRation() {
           onPatientNoteChange={setPatientNote}
           patientNoteShared={sharePatientNote}
           onPatientNoteSharedChange={setSharePatientNote}
-          onDownloadPdf={handleDownloadAdviceSheetsPDF}
-          isDownloadingPdf={exportingAdvicePdf}
           blocked={blocked}
           theme={nutritionTheme}
         />
 
-        <Box p={4} borderWidth="1px" borderColor={borderCol} borderRadius="2xl" bg={panelBg}>
+        <Box {...sectionCardProps} p={4}>
           <HStack spacing={3} flexWrap="wrap" align="center" justify="space-between">
-            <Button variant="outline" onClick={goBack}>
-              Retour
-            </Button>
+            <Button variant="outline" onClick={goBack} data-testid="nutrition-menu-back-bottom">{i18n.t("programView.back", "Retour")}</Button>
 
             <Button
               {...nutritionTheme.primaryButtonProps}
               onClick={openShareModal}
+              data-testid="nutrition-menu-validate-share"
               isDisabled={blocked}
-              isLoading={savingShare}
-            >
-              Étape suivante
-            </Button>
+              isLoading={preparingShare || savingShare}
+              loadingText={i18n.t("auto.MenuJournalierFromRation.preparation", "Préparation")}
+            >{i18n.t("auto.MenuJournalierFromRation.valider_partager", "Valider / partager")}</Button>
           </HStack>
         </Box>
       </Stack>
 
-      <Modal isOpen={shareModalOpen} onClose={() => setShareModalOpen(false)} size="xl" isCentered>
+      <Modal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        size={{ base: "full", md: "xl" }}
+        scrollBehavior="inside"
+        isCentered
+      >
         <ModalOverlay />
-        <ModalContent borderRadius="2xl" bg={panelBg}>
-          <ModalHeader>Validation du suivi client</ModalHeader>
+        <ModalContent borderRadius={{ base: 0, md: "lg" }} bg={panelBg}>
+          <ModalHeader>{i18n.t("auto.MenuJournalierFromRation.validation_du_suivi_client", "Validation du suivi client")}</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            <Text color={textMuted} fontSize="sm">
-              Choisis ce que le client pourra consulter dans son espace. Si tu sauvegardes sans
-              partager, le dossier reste uniquement visible côté professionnel.
-            </Text>
+            <Text color={textMuted} fontSize="sm">{i18n.t("auto.MenuJournalierFromRation.choisis_ce_que_le_client_pourra_consulter_dans_son", "Choisis ce que le client pourra consulter dans son espace. Si tu sauvegardes sans partager, le dossier reste uniquement visible côté professionnel.")}</Text>
 
             <Stack spacing={3} mt={5}>
               <Checkbox
@@ -1605,74 +1757,99 @@ export default function MenuJournalierFromRation() {
                   setShareSelection(e.target.checked ? allShareSections() : emptyShareSections());
                   setSharePatientNote(e.target.checked && !!patientNote.trim());
                 }}
-              >
-                Tout partager
-              </Checkbox>
+              >{i18n.t("auto.MenuJournalierFromRation.tout_partager", "Tout partager")}</Checkbox>
               <Divider />
               <Checkbox
                 isChecked={!!shareSelection.summary}
                 onChange={(e) => setShareSelection((prev) => ({ ...prev, summary: e.target.checked }))}
-              >
-                Résumé du bilan et objectifs
-              </Checkbox>
+              >{i18n.t("auto.MenuJournalierFromRation.resume_du_bilan_et_objectifs", "Résumé du bilan et objectifs")}</Checkbox>
               <Checkbox
                 isChecked={!!shareSelection.foodSurvey}
                 onChange={(e) => setShareSelection((prev) => ({ ...prev, foodSurvey: e.target.checked }))}
-              >
-                Ration spontanée / habitudes alimentaires
-              </Checkbox>
+              >{i18n.t("auto.MenuJournalierFromRation.ration_spontanee_habitudes_alimentaires", "Ration spontanée / habitudes alimentaires")}</Checkbox>
               <Checkbox
                 isChecked={!!shareSelection.ration}
                 onChange={(e) => setShareSelection((prev) => ({ ...prev, ration: e.target.checked }))}
-              >
-                Ration alimentaire construite
-              </Checkbox>
+              >{i18n.t("auto.MenuJournalierFromRation.ration_alimentaire_construite", "Ration alimentaire construite")}</Checkbox>
               <Checkbox
                 isChecked={!!shareSelection.menu}
                 onChange={(e) => setShareSelection((prev) => ({ ...prev, menu: e.target.checked }))}
-              >
-                Menu journalier
-              </Checkbox>
+              >{i18n.t("auto.MenuJournalierFromRation.menu_journalier", "Menu journalier")}</Checkbox>
               <Checkbox
                 isChecked={!!shareSelection.recipes}
                 onChange={(e) => setShareSelection((prev) => ({ ...prev, recipes: e.target.checked }))}
               >
-                Recettes jour par jour ({aiRecipes.length})
+                {i18n.t("auto.MenuJournalierFromRation.recettes_jour_par_jour_count", "Recettes jour par jour ({{count}})", { count: aiRecipes.length })}
               </Checkbox>
               <Checkbox
                 isChecked={!!shareSelection.shoppingList}
                 onChange={(e) => setShareSelection((prev) => ({ ...prev, shoppingList: e.target.checked }))}
-              >
-                Liste de courses
-              </Checkbox>
+              >{i18n.t("auto.MenuJournalierFromRation.liste_de_courses", "Liste de courses")}</Checkbox>
               <Checkbox
                 isChecked={!!shareSelection.adviceSheets}
                 onChange={(e) => setShareSelection((prev) => ({ ...prev, adviceSheets: e.target.checked }))}
               >
-                Fiches conseils sélectionnées ({selectedAdviceSheetIds.length})
+                {i18n.t("auto.MenuJournalierFromRation.fiches_conseils_selectionnees_count", "Fiches conseils sélectionnées ({{count}})", { count: selectedAdviceSheetIds.length })}
               </Checkbox>
               <Checkbox
                 isChecked={!!sharePatientNote}
                 onChange={(e) => setSharePatientNote(e.target.checked)}
                 isDisabled={!patientNote.trim()}
-              >
-                Note patient personnalisée
-              </Checkbox>
+              >{i18n.t("auto.MenuJournalierFromRation.note_patient_personnalisee", "Note patient personnalisée")}</Checkbox>
               <Textarea
                 value={patientNote}
                 onChange={(e) => setPatientNote(e.target.value)}
-                placeholder="Note visible côté patient si elle est cochée..."
+                placeholder={i18n.t("auto.MenuJournalierFromRation.note_visible_cote_patient_si_elle_est_cochee", "Note visible côté patient si elle est cochée...")}
                 minH="90px"
               />
+              <Box borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={nutritionTheme.surfaceSoft} p={4}>
+                <Text fontWeight="800">{i18n.t("auto.MenuJournalierFromRation.documents_pdf", "Documents PDF")}</Text>
+                <Text color={textMuted} fontSize="sm" mt={1}>
+                  {i18n.t("auto.MenuJournalierFromRation.genere_un_pdf_selon_les_sections_cochees", "Génère un seul PDF avec uniquement les sections cochées ci-dessus.")}
+                </Text>
+                <Button
+                  mt={3}
+                  variant="outline"
+                  leftIcon={<DownloadIcon />}
+                  onClick={handleDownloadPDF}
+                  isLoading={exportingPdf}
+                  isDisabled={
+                    !SHARE_SECTION_KEYS.some((key) => !!shareSelection[key]) &&
+                    !(sharePatientNote && patientNote.trim())
+                  }
+                >
+                  {i18n.t("auto.MenuJournalierFromRation.pdf_elements_coches", "PDF des éléments cochés")}
+                </Button>
+              </Box>
             </Stack>
           </ModalBody>
-          <ModalFooter gap={3} flexWrap="wrap">
-            <Button variant="outline" onClick={() => saveMenuAndShare({ share: false })} isLoading={savingShare}>
-              Sauvegarder sans partager
-            </Button>
-            <Button {...nutritionTheme.primaryButtonProps} onClick={() => saveMenuAndShare({ share: true })} isLoading={savingShare}>
-              Sauvegarder & partager
-            </Button>
+          <ModalFooter
+            gap={3}
+            flexWrap="wrap"
+            flexDirection={{ base: "column", sm: "row" }}
+            alignItems={{ base: "stretch", sm: "center" }}
+          >
+            <Button
+              variant="ghost"
+              onClick={() => setShareModalOpen(false)}
+              data-testid="nutrition-share-cancel"
+              isDisabled={savingShare}
+              w={{ base: "100%", sm: "auto" }}
+            >{i18n.t("auto.MenuJournalierFromRation.annuler_validation", "Annuler")}</Button>
+            <Button
+              variant="outline"
+              onClick={() => saveMenuAndShare({ share: false })}
+              data-testid="nutrition-share-save-private"
+              isLoading={savingShare}
+              w={{ base: "100%", sm: "auto" }}
+            >{i18n.t("auto.MenuJournalierFromRation.sauvegarder_sans_partager", "Sauvegarder sans partager")}</Button>
+            <Button
+              {...nutritionTheme.primaryButtonProps}
+              onClick={() => saveMenuAndShare({ share: true })}
+              data-testid="nutrition-share-save-public"
+              isLoading={savingShare}
+              w={{ base: "100%", sm: "auto" }}
+            >{i18n.t("auto.MenuJournalierFromRation.sauvegarder_partager", "Sauvegarder & partager")}</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

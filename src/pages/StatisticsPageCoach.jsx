@@ -33,6 +33,9 @@ import {
   MdTrendingUp,
   MdCalendarMonth,
   MdArrowForward,
+  MdOutlineLink,
+  MdOutlineNoteAlt,
+  MdOutlineRestaurantMenu,
 } from "react-icons/md";
 import { useTranslation } from "react-i18next";
 import AppLoading from "../components/ui/AppLoading";
@@ -75,6 +78,33 @@ function formatDateShort(d, locale) {
     return "—";
   }
 }
+
+const DAYS_ACTIVE_CUTOFF = 30;
+
+const isSessionValidatedRecord = (session) => {
+  const pct = typeof session?.pourcentageTermine === "number" ? session.pourcentageTermine : 100;
+  const status = String(session?.status || "").trim().toLowerCase();
+  return (
+    pct >= 90 ||
+    status === "validée" ||
+    status === "validee" ||
+    status === "done" ||
+    session?.validated === true ||
+    session?.isValidated === true ||
+    Boolean(session?.validatedAt)
+  );
+};
+
+const hasSharedNutritionSections = (assessment) => {
+  const sections = assessment?.clientShare?.sections || {};
+  return !!assessment?.clientShare?.enabled && Object.values(sections).some(Boolean);
+};
+
+const isNutritionDraft = (assessment) => {
+  if (hasSharedNutritionSections(assessment)) return false;
+  if (assessment?.status === "final" || assessment?.validated || assessment?.inputs?.nutritionValidated) return false;
+  return true;
+};
 
 /* ---------------- normalization des objectifs ---------------- */
 const OBJECTIVE_ALIASES = {
@@ -230,7 +260,7 @@ function MiniBars({ data, monthTooltip }) {
 /* Carte client actifs (même logique CoachDashboard: _lastInteractionMs) */
 function ActiveClientCard({ client, locale, t, onOpen }) {
   const theme = useAppTheme();
-  const lastMs = Number(client?._lastInteractionMs || 0);
+  const lastMs = Number(client?._clientListActivityMs || client?._lastInteractionMs || 0);
   const last = lastMs > 0 ? new Date(lastMs) : null;
   const now = new Date();
   const days = last ? daysBetween(now, last) : null;
@@ -343,6 +373,13 @@ export default function StatisticsPageCoach() {
 
   const [objectivesDistribution, setObjectivesDistribution] = useState({});
   const [monthlySessions, setMonthlySessions] = useState([]);
+  const [nutritionStats, setNutritionStats] = useState({
+    patients: 0,
+    assessments: 0,
+    shared: 0,
+    drafts: 0,
+    recent: 0,
+  });
 
   const [activeClientList, setActiveClientList] = useState([]);
 
@@ -352,6 +389,18 @@ export default function StatisticsPageCoach() {
   const mutedText = theme.mutedText;
   const subtleText = theme.subtleText;
   const locale = (i18n.language || "fr").toLowerCase().startsWith("en") ? "en-GB" : "fr-FR";
+  const planModules = user?.proAccess?.modules || user?.modules;
+  const hasNutritionAccess = Boolean(user?.role === "admin");
+  const hasSportAccess = Boolean(
+    user?.sportAccess ||
+    user?.hasSportAccess ||
+    (Array.isArray(planModules) && planModules.includes("sport")) ||
+    planModules?.sport ||
+    user?.features?.sport ||
+    ["sport", "complete", "club"].includes(user?.packageKey)
+  );
+  const nutritionOnlyStats = hasNutritionAccess && !hasSportAccess;
+  const mixedStats = hasNutritionAccess && hasSportAccess;
 
   useEffect(() => {
     (async () => {
@@ -361,17 +410,18 @@ export default function StatisticsPageCoach() {
 
       try {
         // -----------------
-        // 1) Clients du coach (createdBy ou coachId legacy) — EXACTEMENT comme CoachDashboard
+        // 1) Clients du coach : même périmètre que la page Clients et le dashboard
         // -----------------
-        const qCreatedBy = query(collection(db, "clients"), where("createdBy", "==", user.uid), limit(500));
-        const createdBySnap = await getDocs(qCreatedBy);
-        let mergedClients = createdBySnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-        if (mergedClients.length === 0) {
-          const qCoach = query(collection(db, "clients"), where("coachId", "==", user.uid), limit(500));
-          const coachSnap = await getDocs(qCoach);
-          mergedClients = coachSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        }
+        const clientSnaps = await Promise.all([
+          getDocs(query(collection(db, "clients"), where("createdBy", "==", user.uid), limit(500))),
+          getDocs(query(collection(db, "clients"), where("coachId", "==", user.uid), limit(500))).catch(() => ({ docs: [] })),
+          getDocs(query(collection(db, "clients"), where("coachIds", "array-contains", user.uid), limit(500))).catch(() => ({ docs: [] })),
+        ]);
+        const clientsById = new Map();
+        clientSnaps.forEach((snap) => {
+          snap.docs.forEach((d) => clientsById.set(d.id, { id: d.id, ...d.data() }));
+        });
+        let mergedClients = [...clientsById.values()];
 
         // -----------------
         // 2) Enrichissement: programmes assignés + sessionsEffectuees + _lastInteractionMs (même logique)
@@ -407,11 +457,9 @@ export default function StatisticsPageCoach() {
             let latestSessionMs = 0;
             progsWithSessions.forEach((p) => {
               (p.sessionsEffectuees || []).forEach((s) => {
-                const ms =
-                  toMillis(s.dateEffectuee) ||
-                  toMillis(s.completedAt) ||
-                  toMillis(s.playedAt) ||
-                  toMillis(s.timestamp);
+                if (!isSessionValidatedRecord(s)) return;
+                const doneDate = getDoneDate(s);
+                const ms = doneDate?.getTime?.() || 0;
                 if (ms > latestSessionMs) latestSessionMs = ms;
               });
             });
@@ -429,24 +477,67 @@ export default function StatisticsPageCoach() {
               programmesAssignes: progsWithSessions,
               programCount: progsWithSessions.length,
               _lastInteractionMs,
+              _clientListActivityMs: latestSessionMs,
             };
           })
         );
 
         clientsWithMeta.sort((a, b) => (b._lastInteractionMs || 0) - (a._lastInteractionMs || 0));
 
+        const nutritionClientIds = new Set();
+        let nutritionAssessments = 0;
+        let nutritionShared = 0;
+        let nutritionDrafts = 0;
+        let nutritionRecent = 0;
+        const nutritionCutoffMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
+        if (hasNutritionAccess) {
+          await Promise.all(
+            clientsWithMeta.map(async (client) => {
+              try {
+                const snap = await getDocs(collection(db, "clients", client.id, "nutrition_assessments"));
+                if (!snap.size) return;
+                nutritionClientIds.add(client.id);
+                let clientRecent = false;
+                snap.forEach((assessmentDoc) => {
+                  const data = assessmentDoc.data() || {};
+                  nutritionAssessments += 1;
+                  if (hasSharedNutritionSections(data)) nutritionShared += 1;
+                  if (isNutritionDraft(data)) nutritionDrafts += 1;
+                  const lastMs = Math.max(
+                    toMillis(data.sharedAt),
+                    toMillis(data.updatedAt),
+                    toMillis(data.createdAt),
+                    toMillis(data.date),
+                    0
+                  );
+                  if (lastMs >= nutritionCutoffMs) clientRecent = true;
+                });
+                if (clientRecent) nutritionRecent += 1;
+              } catch (_) {}
+            })
+          );
+        }
+
+        setNutritionStats({
+          patients: nutritionOnlyStats ? clientsWithMeta.length : nutritionClientIds.size,
+          assessments: nutritionAssessments,
+          shared: nutritionShared,
+          drafts: nutritionDrafts,
+          recent: nutritionRecent,
+        });
+
         // -----------------
-        // 3) Stats clients actifs (30j) — EXACTEMENT comme CoachDashboard
+        // 3) Stats clients actifs (30j) — même définition que /clients?filter=active
         // -----------------
         const totalC = clientsWithMeta.length;
 
-        const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-        const nowMs = Date.now();
+        const activeCutoffMs = Date.now() - DAYS_ACTIVE_CUTOFF * 24 * 60 * 60 * 1000;
 
         const active30List = clientsWithMeta.filter((c) => {
-          const ms = Number(c._lastInteractionMs || 0);
-          return ms > 0 && nowMs - ms <= THIRTY_DAYS_MS;
-        });
+          const ms = Number(c._clientListActivityMs || 0);
+          return ms > 0 && ms >= activeCutoffMs;
+        }).sort((a, b) => (b._clientListActivityMs || 0) - (a._clientListActivityMs || 0));
 
         const active30 = active30List.length;
         const inactive = Math.max(0, totalC - active30);
@@ -493,6 +584,7 @@ export default function StatisticsPageCoach() {
         clientsWithMeta.forEach((c) => {
           (c.programmesAssignes || []).forEach((p) => {
             (p.sessionsEffectuees || []).forEach((s) => {
+              if (!isSessionValidatedRecord(s)) return;
               const dt = getDoneDate(s);
               if (!dt) return;
               if (dt < windowStart || dt >= windowEnd) return;
@@ -509,7 +601,7 @@ export default function StatisticsPageCoach() {
         setLoading(false);
       }
     })();
-  }, [user?.uid, locale]);
+  }, [user?.uid, locale, hasNutritionAccess, nutritionOnlyStats]);
 
   const activePreview = useMemo(() => activeClientList.slice(0, 8), [activeClientList]);
 
@@ -522,9 +614,18 @@ export default function StatisticsPageCoach() {
   const objectivesList = hasKnown ? entries.filter(([k]) => k !== "unknown") : entries;
   const totalObj = objectivesList.reduce((s, [, n]) => s + n, 0);
   const totalSessions6mo = monthlySessions.reduce((s, m) => s + (m.count || 0), 0);
+  const headerBadge = nutritionOnlyStats ? "Nutrition" : mixedStats ? "Sport + nutrition" : t("coachStats.badge", "Coach");
+  const headerSubtitle = nutritionOnlyStats
+    ? "Une vue claire de vos patients, des bilans nutrition et des suivis à relancer."
+    : mixedStats
+      ? "Une vue claire de vos clients, patients, programmes sport et suivis nutrition."
+      : t(
+          "coachStats.subtitle",
+          "Une vue claire de vos clients, de l'activité récente et des objectifs qui structurent votre coaching."
+        );
 
   return (
-    <Box p={{ base: 5, md: 8 }} bg={pageBg} color={textColor} minH="calc(100vh - 112px)">
+    <Box data-tour-page="coach-stats" p={{ base: 5, md: 8 }} bg={pageBg} color={textColor} minH="calc(100vh - 112px)">
       <VStack align="stretch" spacing={6} maxW="1680px" mx="auto">
         <Card glow="rgba(16, 185, 129, 0.12)" p={{ base: 5, md: 7 }}>
           <HStack align="center" spacing={5}>
@@ -545,14 +646,11 @@ export default function StatisticsPageCoach() {
                   {t("coachStats.title", "Statistiques")}
                 </Heading>
                 <Badge borderRadius="full" px={3}>
-                  {t("coachStats.badge", "Coach")}
+                  {headerBadge}
                 </Badge>
               </HStack>
               <Text color={mutedText} maxW="760px">
-                {t(
-                  "coachStats.subtitle",
-                  "Une vue claire de vos clients, de l'activité récente et des objectifs qui structurent votre coaching."
-                )}
+                {headerSubtitle}
               </Text>
             </VStack>
           </HStack>
@@ -562,42 +660,109 @@ export default function StatisticsPageCoach() {
       <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={5}>
         <StatTile
           icon={MdPeople}
-          label={t("stats.totalClients", "Total clients")}
+          label={nutritionOnlyStats ? "Total patients" : mixedStats ? "Total clients/patients" : t("stats.totalClients", "Total clients")}
           value={totalClients}
           accent={theme.accentBlue}
           glow="rgba(59, 130, 246, 0.14)"
           onClick={() => navigate("/clients")}
           hint={t("stats.hints.clients", "Click to see the client list")}
         />
-        <StatTile
-          icon={MdFitnessCenter}
-          label={t("stats.totalPrograms", "Total programmes")}
-          value={totalPrograms}
-          accent="purple.300"
-          glow="rgba(139, 92, 246, 0.14)"
-          onClick={() => navigate("/programmes")}
-          hint={t("stats.hints.programs", "Click to view programs")}
-        />
-        <StatTile
-          icon={MdCheckCircle}
-          label={t("stats.activeClients30", "Clients actifs (30j)")}
-          value={activeClients}
-          accent={theme.accentGreen}
-          glow="rgba(16, 185, 129, 0.14)"
-          onClick={() => navigate("/clients?filter=active")}
-        />
-        <StatTile
-          icon={MdOutlinePauseCircle}
-          label={t("stats.inactiveClients", "Clients inactifs")}
-          value={inactiveClients}
-          accent="orange.300"
-          glow="rgba(245, 158, 11, 0.14)"
-          onClick={() => navigate("/clients?filter=inactive")}
-        />
+        {!nutritionOnlyStats && (
+          <StatTile
+            icon={MdFitnessCenter}
+            label={mixedStats ? "Programmes sport" : t("stats.totalPrograms", "Total programmes")}
+            value={totalPrograms}
+            accent="purple.300"
+            glow="rgba(139, 92, 246, 0.14)"
+            onClick={() => navigate("/programmes")}
+            hint={t("stats.hints.programs", "Click to view programs")}
+          />
+        )}
+        {hasNutritionAccess && (
+          <StatTile
+            icon={MdOutlineRestaurantMenu}
+            label={t("dashboard.stats_nutrition_patients", "Patients nutrition")}
+            value={nutritionStats.patients}
+            accent="#14B8A6"
+            glow="rgba(20, 184, 166, 0.14)"
+            onClick={() => navigate(mixedStats ? "/clients?view=nutrition" : "/clients")}
+          />
+        )}
+        {hasNutritionAccess && (
+          <StatTile
+            icon={MdOutlineNoteAlt}
+            label={t("auto.StatisticsPageCoach.bilans_nutrition", "Bilans nutrition")}
+            value={nutritionStats.assessments}
+            accent={theme.accentGreen}
+            glow="rgba(16, 185, 129, 0.14)"
+            onClick={() => navigate("/nutrition-coach")}
+          />
+        )}
+        {!nutritionOnlyStats && (
+          <StatTile
+            icon={MdCheckCircle}
+            label={t("stats.activeClients30", "Clients actifs (30j)")}
+            value={activeClients}
+            accent={theme.accentGreen}
+            glow="rgba(16, 185, 129, 0.14)"
+            onClick={() => navigate("/clients?filter=active")}
+          />
+        )}
+        {!nutritionOnlyStats && (
+          <StatTile
+            icon={MdOutlinePauseCircle}
+            label={t("stats.inactiveClients", "Clients inactifs")}
+            value={inactiveClients}
+            accent="orange.300"
+            glow="rgba(245, 158, 11, 0.14)"
+            onClick={() => navigate("/clients?filter=inactive")}
+          />
+        )}
       </SimpleGrid>
 
+      {hasNutritionAccess && (
+        <Card glow="rgba(20, 184, 166, 0.12)">
+          <HStack mb={4} spacing={2}>
+            <Box bg={theme.surfaceSoft} color="#14B8A6" borderRadius="full" p={2} display="inline-flex">
+              <Icon as={MdOutlineRestaurantMenu} />
+            </Box>
+            <Text fontWeight="semibold">{t("nutrition.title", "Nutrition")}</Text>
+            <Badge colorScheme="teal" borderRadius="full">
+              {nutritionStats.assessments}{t("auto.ClubDashboard.bilan_s", "bilan(s)")}</Badge>
+            <Spacer />
+            <Button size="sm" variant="ghost" rightIcon={<MdArrowForward />} onClick={() => navigate("/nutrition-coach")}>{t("programs.open", "Ouvrir")}</Button>
+          </HStack>
+          <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+            <StatTile
+              icon={MdOutlineRestaurantMenu}
+              label={t("auto.StatisticsPageCoach.patients_suivis", "Patients suivis")}
+              value={nutritionStats.patients}
+              accent="#14B8A6"
+              glow="rgba(20, 184, 166, 0.12)"
+              onClick={() => navigate(mixedStats ? "/clients?view=nutrition" : "/clients")}
+            />
+            <StatTile
+              icon={MdOutlineLink}
+              label={t("auto.StatisticsPageCoach.bilans_partages", "Bilans partagés")}
+              value={nutritionStats.shared}
+              accent={theme.accentGreen}
+              glow="rgba(16, 185, 129, 0.12)"
+              onClick={() => navigate("/nutrition-coach")}
+            />
+            <StatTile
+              icon={MdOutlinePauseCircle}
+              label={t("auto.StatisticsPageCoach.a_finaliser", "À finaliser")}
+              value={nutritionStats.drafts}
+              accent="orange.300"
+              glow="rgba(245, 158, 11, 0.12)"
+              onClick={() => navigate("/nutrition-coach")}
+            />
+          </SimpleGrid>
+        </Card>
+      )}
+
       {/* Clients actifs (liste) */}
-      <Card glow="rgba(59, 130, 246, 0.1)">
+      {!nutritionOnlyStats && <Card glow="rgba(59, 130, 246, 0.1)">
         <HStack mb={4} spacing={2}>
           <Box bg={theme.surfaceSoft} color={theme.accentBlue} borderRadius="full" p={2} display="inline-flex">
             <Icon as={MdPeople} />
@@ -636,10 +801,10 @@ export default function StatisticsPageCoach() {
             ))}
           </SimpleGrid>
         )}
-      </Card>
+      </Card>}
 
       {/* Rétention + sessions */}
-      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+      {!nutritionOnlyStats && <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
         <Card glow="rgba(16, 185, 129, 0.12)">
           <HStack justify="space-between" mb={3}>
             <HStack>
@@ -688,10 +853,10 @@ export default function StatisticsPageCoach() {
             }
           />
         </Card>
-      </SimpleGrid>
+      </SimpleGrid>}
 
       {/* Objectifs */}
-      <Card glow="rgba(139, 92, 246, 0.12)">
+      {!nutritionOnlyStats && <Card glow="rgba(139, 92, 246, 0.12)">
         <HStack mb={4}>
           <Box bg={theme.surfaceSoft} color="purple.300" borderRadius="full" p={2} display="inline-flex">
             <Icon as={MdInsights} />
@@ -737,7 +902,7 @@ export default function StatisticsPageCoach() {
             </SimpleGrid>
           </>
         )}
-      </Card>
+      </Card>}
       </VStack>
     </Box>
   );

@@ -35,6 +35,12 @@ router.post("/generate", async (req, res) => {
       objectifParamsKey,
 
       nomProgramme,
+      sessionDurationMin,
+      trainingLocation,
+      equipmentAccess,
+      injuryProfile,
+      programVariant,
+      generationSeed,
 
       // ancien schéma
       userId,
@@ -88,6 +94,12 @@ router.post("/generate", async (req, res) => {
 
       createdBy,
       nomProgramme: autoName,
+      sessionDurationMin,
+      trainingLocation,
+      equipmentAccess,
+      injuryProfile,
+      programVariant,
+      generationSeed,
     });
 
     return res.status(200).json({
@@ -103,4 +115,3 @@ router.post("/generate", async (req, res) => {
 });
 
 module.exports = router;
-

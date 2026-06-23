@@ -5,6 +5,7 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import AppLoading from "../components/ui/AppLoading";
 import { useAppTheme } from "../styles/appTheme";
+import i18n from "../i18n/index";
 
 export default function AdminGeoGlobe() {
   const globeEl = useRef();
@@ -59,15 +60,13 @@ export default function AdminGeoGlobe() {
         }}
       >
         <Box position="relative">
-          <Badge borderRadius="full" px={3} mb={3}>Admin analytics</Badge>
-          <Heading letterSpacing="-0.05em">Globe 3D — trafic par villes</Heading>
-          <Text color={theme.mutedText} mt={2}>
-            Une lecture immersive des visites géolocalisées.
-          </Text>
+          <Badge borderRadius="full" px={3} mb={3}>{i18n.t("auto.AdminGeoGlobe.admin_analytics", "Admin analytics")}</Badge>
+          <Heading letterSpacing="-0.05em">{i18n.t("auto.AdminGeoGlobe.globe_3d_trafic_par_villes", "Globe 3D — trafic par villes")}</Heading>
+          <Text color={theme.mutedText} mt={2}>{i18n.t("auto.AdminGeoGlobe.une_lecture_immersive_des_visites_geolocalisees", "Une lecture immersive des visites géolocalisées.")}</Text>
         </Box>
       </Box>
       {loading ? (
-        <AppLoading label="Chargement du globe..." />
+        <AppLoading label={i18n.t("auto.AdminGeoGlobe.chargement_du_globe", "Chargement du globe...")} />
       ) : (
         <Box {...theme.cardProps} w="100%" h="700px" overflow="hidden">
           <Globe

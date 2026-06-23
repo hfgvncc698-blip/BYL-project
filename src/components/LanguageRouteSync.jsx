@@ -1,9 +1,11 @@
 import { useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { ensureLanguageLoaded } from "../i18n";
 
 const SUPPORTED = ["fr","en","it","es","de","ru","ar"];
 const RTL = new Set(["ar"]);
+const STORAGE_KEY = "i18nextLng";
 
 function applyDir(lng){
   const dir = RTL.has(lng) ? "rtl" : "ltr";
@@ -14,23 +16,40 @@ function applyDir(lng){
 }
 
 export default function LanguageRouteSync() {
-  const { pathname } = useLocation();
-  const navigate = useNavigate();
+  const { pathname, search } = useLocation();
   const { i18n } = useTranslation();
 
   useEffect(() => {
-    const [, seg1, ...rest] = pathname.split("/"); // "" | "en" | "dashboard" ...
+    let cancelled = false;
+    const [, seg1] = pathname.split("/"); // "" | "en" | "dashboard" ...
     const seg = (seg1 || "").toLowerCase();
+    const queryLng = new URLSearchParams(search).get("lng")?.split("-")[0]?.toLowerCase();
 
-    if (SUPPORTED.includes(seg)) {
+    const syncLanguage = async (lng) => {
+      await ensureLanguageLoaded(lng);
+      if (cancelled) return;
+      if ((i18n.language || "").split("-")[0] !== lng) await i18n.changeLanguage(lng);
+      applyDir(lng);
+    };
+
+    if (SUPPORTED.includes(queryLng)) {
+      syncLanguage(queryLng);
+    } else if (SUPPORTED.includes(seg)) {
       // URL contient une langue
-      if (i18n.language !== seg) i18n.changeLanguage(seg);
-      applyDir(seg);
+      syncLanguage(seg);
     } else {
-      // Pas de langue dans l'URL → on n'impose rien (détection normale)
-      applyDir((i18n.resolvedLanguage || "fr").split("-")[0]);
+      const storedLng = localStorage.getItem(STORAGE_KEY)?.split("-")[0]?.toLowerCase();
+      if (SUPPORTED.includes(storedLng)) {
+        syncLanguage(storedLng);
+      } else {
+        // Pas de langue dans l'URL → on n'impose rien (détection normale)
+        applyDir((i18n.resolvedLanguage || i18n.language || "fr").split("-")[0]);
+      }
     }
-  }, [pathname, i18n]);
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname, search, i18n]);
 
   useEffect(() => {
     const onChange = (lng) => applyDir(lng.split("-")[0]);
@@ -40,4 +59,3 @@ export default function LanguageRouteSync() {
 
   return null;
 }
-

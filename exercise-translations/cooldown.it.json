@@ -1690,9 +1690,7 @@
       "Occhi chiusi"
     ],
     "variantes": [
-      "Con cuscino sotto le ginocchia",
-      "Con copertura sul corpo",
-      "Con rilassamento audioguidato"
+      "Stretching a stella sdraiata con cuscino sotto le ginocchia o la testa"
     ],
     "consignes": {
       "Positionnement": "Sdraiati sulla schiena, le gambe leggermente divaricate, le braccia lungo il corpo, i palmi rivolti verso il cielo.",
@@ -1700,7 +1698,15 @@
       "Retour": "Inizia muovendo le dita delle mani e dei piedi, quindi allunga lentamente prima di girarti di lato per alzarti.",
       "Respiration": "Respiro lento, regolare e silenzioso. Osserva semplicemente il tuo respiro.",
       "Posture": "Corpo totalmente rilassato, sguardo interiore, mente pacifica."
-    }
+    },
+    "tendons_solicites": [
+      "Tendini paravertebrali",
+      "Tendini ischiocrurali"
+    ],
+    "tendons_sollicites": [
+      "Tendini paravertebrali",
+      "Tendini ischiocrurali"
+    ]
   },
   "C037": {
     "nom": "Allungare i polpacci contro un muro (gamba tesa)",

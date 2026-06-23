@@ -9,7 +9,6 @@ import {
   Button,
   Text,
   useToast,
-  Divider,
   useDisclosure,
   Modal,
   ModalOverlay,
@@ -19,7 +18,6 @@ import {
   ModalFooter,
   Badge,
   HStack,
-  Spinner,
   VStack,
   Stack,
   useColorModeValue,
@@ -42,8 +40,10 @@ import {
 } from "react-icons/md";
 import AppLoading from "../components/ui/AppLoading";
 import PageBackButton from "../components/ui/PageBackButton";
+import TutorialSettingsPanel from "../components/TutorialSettingsPanel";
 import { notify } from "../utils/notify";
 import { useAppTheme } from "../styles/appTheme";
+import { ensureLanguageLoaded } from "../i18n";
 
 const SUPPORTED = ["fr", "en", "de", "it", "es", "ru", "ar"];
 const normalizeLang = (lng) => (lng || "fr").split("-")[0].toLowerCase();
@@ -92,10 +92,6 @@ export default function SettingsPageClient() {
   const hasStripeCustomer = Boolean(
     user?.stripeCustomerId || user?.stripe?.customerId
   );
-  const stripeCustomerId =
-    user?.stripeCustomerId || user?.stripe?.customerId || null;
-  const stripeSubscriptionId =
-    user?.stripeSubscriptionId || user?.stripe?.subscriptionId || null;
 
   const subBadge = useMemo(() => {
     if (subStatus === "active") return { color: "green", label: "ACCÈS ACTIF" };
@@ -112,6 +108,7 @@ export default function SettingsPageClient() {
     if (!SUPPORTED.includes(newLang)) return;
 
     try {
+      await ensureLanguageLoaded(newLang);
       await i18n.changeLanguage(newLang);
       localStorage.setItem("i18nextLng", newLang);
       setSelectedLang(newLang);
@@ -150,7 +147,7 @@ export default function SettingsPageClient() {
     }
     if (!hasStripeCustomer) {
       toast({
-        description: "Votre compte n’est pas encore lié à Stripe (stripeCustomerId manquant).",
+        description: t("auto.SettingsPageClient.votre_compte_n_est_pas_encore_lie_a_stripe_st", "Votre compte n’est pas encore lié à Stripe (stripeCustomerId manquant)."),
         status: "warning",
       });
       return;
@@ -198,7 +195,7 @@ export default function SettingsPageClient() {
   );
 
   return (
-    <Box p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
+    <Box data-tour-page="settings" p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
       <Box position="absolute" top={{ base: 4, md: 6 }} left={{ base: 4, md: 6 }} zIndex={20}>
         <PageBackButton />
       </Box>
@@ -253,24 +250,22 @@ export default function SettingsPageClient() {
                 <Heading as="h1" size="lg" color={textColor} letterSpacing="-0.03em">
                   {t("settings.title")}
                 </Heading>
-                <Text mt={2} color={mutedText} maxW="60ch">
-                  Gérez votre langue, votre accès, votre sécurité et les préférences de votre compte dans un espace plus clair et plus simple.
-                </Text>
+                <Text mt={2} color={mutedText} maxW="60ch">{t("auto.SettingsPageClient.gerez_votre_langue_votre_acces_votre_securite", "Gérez votre langue, votre accès, votre sécurité et les préférences de votre compte dans un espace plus clair et plus simple.")}</Text>
               </Box>
             </HStack>
 
             <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={3} w={{ base: "100%", xl: "420px" }}>
               <Box bg={subCardBg} border="1px solid" borderColor={borderColor} borderRadius="22px" p={4}>
-                <Text fontSize="sm" color={mutedText}>Langue active</Text>
+                <Text fontSize="sm" color={mutedText}>{t("auto.SettingsPageClient.langue_active", "Langue active")}</Text>
                 <Text mt={2} fontSize="xl" fontWeight="800" color={textColor}>{selectedLang.toUpperCase()}</Text>
               </Box>
               <Box bg={subCardBg} border="1px solid" borderColor={borderColor} borderRadius="22px" p={4}>
-                <Text fontSize="sm" color={mutedText}>Abonnement</Text>
+                <Text fontSize="sm" color={mutedText}>{t("clientsList.table.subscription", "Abonnement")}</Text>
                 <Text mt={2} fontSize="xl" fontWeight="800" color={textColor}>{subStatus === "active" ? "Actif" : subStatus === "trialing" ? "Essai" : "Inactif"}</Text>
               </Box>
               <Box bg={subCardBg} border="1px solid" borderColor={borderColor} borderRadius="22px" p={4}>
-                <Text fontSize="sm" color={mutedText}>Sécurité</Text>
-                <Text mt={2} fontSize="xl" fontWeight="800" color={textColor}>Email</Text>
+                <Text fontSize="sm" color={mutedText}>{t("settings.sections.security", "Sécurité")}</Text>
+                <Text mt={2} fontSize="xl" fontWeight="800" color={textColor}>{t("clientCreation.email", "Email")}</Text>
               </Box>
             </SimpleGrid>
           </Flex>
@@ -286,25 +281,31 @@ export default function SettingsPageClient() {
                 <Heading as="h2" size="md" color={textColor}>
                   {t("settings.sections.language")}
                 </Heading>
-                <Text mt={1} color={mutedText}>
-                  Choisissez la langue utilisée dans tout votre espace client.
-                </Text>
+                <Text mt={1} color={mutedText}>{t("auto.SettingsPageClient.choisissez_la_langue_utilisee_dans_tout_votre", "Choisissez la langue utilisée dans tout votre espace client.")}</Text>
               </Box>
             </HStack>
 
             <FormControl maxW={{ base: "100%", md: "280px" }}>
               <FormLabel mb="1" color={subtleText}>{t("settings.fields.default_language")}</FormLabel>
               <Select value={selectedLang} onChange={handleLangChange} borderRadius="full" bg={subCardBg}>
-                <option value="fr">Français</option>
-                <option value="en">English</option>
-                <option value="de">Deutsch</option>
-                <option value="it">Italiano</option>
-                <option value="es">Español</option>
-                <option value="ru">Русский</option>
+                <option value="fr">{t("clientCreation.languages.fr", "Français")}</option>
+                <option value="en">{t("clientCreation.languages.en", "English")}</option>
+                <option value="de">{t("clientCreation.languages.de", "Deutsch")}</option>
+                <option value="it">{t("clientCreation.languages.it", "Italiano")}</option>
+                <option value="es">{t("clientCreation.languages.es", "Español")}</option>
+                <option value="ru">{t("clientCreation.languages.ru", "Русский")}</option>
                 <option value="ar">العربية</option>
               </Select>
             </FormControl>
           </SurfaceCard>
+
+          <TutorialSettingsPanel
+            role="client"
+            cardBg={cardBg}
+            borderColor={borderStrong}
+            textColor={textColor}
+            mutedText={mutedText}
+          />
 
           <SurfaceCard p={{ base: 5, md: 6 }}>
             <HStack spacing={3} mb={4}>
@@ -326,24 +327,11 @@ export default function SettingsPageClient() {
                 {subBadge.label}
               </Badge>
               {user?.hasActiveSubscription ? (
-                <Badge borderRadius="full" px={3} py={1} colorScheme="green">ACCÈS ACTIF</Badge>
+                <Badge borderRadius="full" px={3} py={1} colorScheme="green">{t("auto.SettingsPageClient.acces_actif", "ACCÈS ACTIF")}</Badge>
               ) : (
-                <Badge borderRadius="full" px={3} py={1}>ANNULÉ / INACTIF</Badge>
+                <Badge borderRadius="full" px={3} py={1}>{t("auto.SettingsPageClient.annule_inactif", "ANNULÉ / INACTIF")}</Badge>
               )}
             </HStack>
-
-            <Box bg={subCardBg} border="1px solid" borderColor={borderColor} borderRadius="22px" p={4} mb={4}>
-              {hasStripeCustomer ? (
-                <Text fontSize="sm" color={mutedText}>
-                  Client Stripe : {stripeCustomerId}
-                  {stripeSubscriptionId ? ` • Abonnement : ${stripeSubscriptionId}` : ""}
-                </Text>
-              ) : (
-                <Text fontSize="sm" color="orange.400">
-                  Votre compte n’est pas encore lié à Stripe.
-                </Text>
-              )}
-            </Box>
 
             <Button
               bg="#0F172A"
@@ -353,7 +341,7 @@ export default function SettingsPageClient() {
               fontWeight="700"
               onClick={handleOpenStripePortal}
               isLoading={stripeLoading}
-              loadingText="Connexion à Stripe…"
+              loadingText={t("autoQ.connectingStripe", "Connexion à Stripe…")}
               isDisabled={!hasStripeCustomer}
             >
               {t("settings.buttons.open_stripe_portal")}
@@ -377,7 +365,7 @@ export default function SettingsPageClient() {
 
             <Stack spacing={4}>
               <Box bg={subCardBg} border="1px solid" borderColor={borderColor} borderRadius="22px" p={4}>
-                <Text fontSize="sm" color={mutedText}>Adresse utilisée</Text>
+                <Text fontSize="sm" color={mutedText}>{t("auto.SettingsPageClient.adresse_utilisee", "Adresse utilisée")}</Text>
                 <Text mt={1} fontWeight="700" color={textColor}>{user.email}</Text>
               </Box>
               <Button

@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+ 
 import { useMemo, useState } from "react";
 import {
   Badge,
@@ -8,7 +8,6 @@ import {
   Divider,
   HStack,
   Heading,
-  Input,
   Modal,
   ModalBody,
   ModalCloseButton,
@@ -22,24 +21,20 @@ import {
   TagLabel,
   Text,
   Textarea,
-  useToast,
+  useColorModeValue,
 } from "@chakra-ui/react";
-import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
-import { db } from "../firebaseConfig";
+import { } from "firebase/firestore";
+
 import { getAdviceSheetPreview, mergeAdviceSheets } from "../utils/nutritionAdviceSheets";
-import { notify } from "../utils/notify";
 
-const makeCustomId = () => `custom_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+import i18n from "../i18n/index";
 
-const splitLines = (value) =>
-  String(value || "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
+
+
+
 
 export default function NutritionAdviceSheetsPanel({
-  clientId,
-  assessmentId,
+  
   docData,
   selectedIds,
   onSelectedIdsChange,
@@ -47,21 +42,13 @@ export default function NutritionAdviceSheetsPanel({
   onPatientNoteChange,
   patientNoteShared,
   onPatientNoteSharedChange,
-  onDownloadPdf,
-  isDownloadingPdf,
   blocked,
   theme,
 }) {
-  const toast = useToast();
-  const [saving, setSaving] = useState(false);
-  const [draftOpen, setDraftOpen] = useState(false);
-  const [draft, setDraft] = useState({
-    title: "",
-    category: "",
-    summary: "",
-    keyPoints: "",
-    practicalTips: "",
-  });
+  
+  const accentPillBgAlpha = useColorModeValue("22", "3D");
+  const accentPillBorderAlpha = useColorModeValue("33", "66");
+  const accentPillTextColor = useColorModeValue(null, "whiteAlpha.900");
   const [activeSheetId, setActiveSheetId] = useState(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
 
@@ -80,6 +67,13 @@ export default function NutritionAdviceSheetsPanel({
     () => (activeSheet ? getAdviceSheetPreview(activeSheet) : null),
     [activeSheet]
   );
+  const accentPillProps = (accent = "#2563EB") => ({
+    bg: `${accent}${accentPillBgAlpha}`,
+    color: accentPillTextColor || accent,
+    borderWidth: "1px",
+    borderColor: `${accent}${accentPillBorderAlpha}`,
+    fontWeight: "800",
+  });
 
   const toggleSheet = (id) => {
     const next = new Set(selectedSet);
@@ -88,122 +82,82 @@ export default function NutritionAdviceSheetsPanel({
     onSelectedIdsChange?.([...next]);
   };
 
-  const saveCustomSheet = async () => {
-    const title = draft.title.trim();
-    if (!title || !clientId || !assessmentId) return;
-    setSaving(true);
-    try {
-      const sheet = {
-        id: makeCustomId(),
-        title,
-        category: draft.category.trim() || "Fiche personnalisée",
-        accent: "#2563EB",
-        tags: ["personnalisée"],
-        summary: draft.summary.trim() || "Conseil personnalisé ajouté par le professionnel.",
-        keyPoints: splitLines(draft.keyPoints),
-        practicalTips: splitLines(draft.practicalTips),
-        createdAt: new Date().toISOString(),
-      };
-
-      const ref = doc(db, "clients", clientId, "nutrition_assessments", assessmentId);
-      await updateDoc(ref, {
-        nutritionAdviceSheets: {
-          ...(docData?.nutritionAdviceSheets || {}),
-          custom: [...customSheets, sheet],
-          selectedIds: [...new Set([...(selectedIds || []), sheet.id])],
-        },
-        updatedAt: serverTimestamp(),
-      });
-      onSelectedIdsChange?.([...new Set([...(selectedIds || []), sheet.id])]);
-      setDraft({ title: "", category: "", summary: "", keyPoints: "", practicalTips: "" });
-      setDraftOpen(false);
-      notify(toast, "saveSuccess", { title: "Fiche créée", description: "Elle est sélectionnée pour le partage." });
-    } catch (error) {
-      notify(toast, "saveError", { title: "Création impossible", description: error?.message || "Impossible de créer la fiche." });
-    } finally {
-      setSaving(false);
-    }
-  };
+  
 
   return (
-    <Box borderWidth="1px" borderColor={theme.borderColor} borderRadius="2xl" bg={theme.surfaceBg} p={{ base: 4, md: 5 }}>
+    <Box
+      borderWidth="1px"
+      borderColor={theme.borderColor}
+      borderRadius="lg"
+      bg={theme.surfaceBg}
+      p={{ base: 4, md: 5 }}
+      boxShadow="0 14px 34px rgba(15, 23, 42, 0.06)"
+    >
       <HStack justify="space-between" align="start" gap={3} flexWrap="wrap">
         <Box>
-          <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={theme.mutedText}>
-            ÉTAPE 3
-          </Text>
-          <Heading size="sm" mt={1}>
-            Fiches conseils à partager
-          </Heading>
-          <Text fontSize="sm" color={theme.mutedText} mt={1}>
-            Sélectionne les fiches web visibles côté patient. Les fiches non cochées restent internes.
-          </Text>
+          <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={theme.mutedText}>{i18n.t("auto.NutritionAdviceSheetsPanel.etape_3", "ÉTAPE 3")}</Text>
+          <Heading size="sm" mt={1}>{i18n.t("auto.NutritionAdviceSheetsPanel.fiches_conseils_a_partager", "Fiches conseils à partager")}</Heading>
+          <Text fontSize="sm" color={theme.mutedText} mt={1}>{i18n.t("auto.NutritionAdviceSheetsPanel.selectionne_les_fiches_web_visibles_cote_patient_l", "Sélectionne les fiches web visibles côté patient. Les fiches non cochées restent internes.")}</Text>
         </Box>
         <HStack spacing={2} flexWrap="wrap" justify="flex-end">
-          <Button
-            variant="outline"
-            onClick={onDownloadPdf}
-            isLoading={isDownloadingPdf}
-            isDisabled={!selectedSheets.length}
-          >
-            PDF fiches conseils
-          </Button>
           <Button variant="outline" onClick={() => setLibraryOpen((value) => !value)}>
-            {libraryOpen ? "Masquer les fiches" : `Voir les fiches (${selectedSet.size} sélectionnée${selectedSet.size > 1 ? "s" : ""})`}
+            {libraryOpen
+              ? i18n.t("auto.NutritionAdviceSheetsPanel.masquer_les_fiches", "Masquer les fiches")
+              : i18n.t("auto.NutritionAdviceSheetsPanel.voir_les_fiches_count", "Voir les fiches ({{count}} sélectionnée(s))", {
+                  count: selectedSet.size,
+                })}
           </Button>
         </HStack>
       </HStack>
 
       {!libraryOpen ? (
-        <Box mt={4} p={4} borderWidth="1px" borderColor={theme.borderColor} borderRadius="xl" bg={theme.surfaceSoft}>
+        <Box mt={4} p={4} borderWidth="1px" borderColor={theme.borderColor} borderRadius="md" bg={theme.surfaceSoft}>
           <Text fontSize="sm" fontWeight="700">
-            {selectedSet.size} fiche{selectedSet.size > 1 ? "s" : ""} sélectionnée{selectedSet.size > 1 ? "s" : ""}
+            {i18n.t(
+              "auto.NutritionAdviceSheetsPanel.selected_sheets_count",
+              "{{count}} fiche(s) sélectionnée(s)",
+              { count: selectedSet.size }
+            )}
           </Text>
           <HStack mt={3} spacing={2} flexWrap="wrap">
             {selectedSheets.length ? (
               selectedSheets.slice(0, 8).map((sheet) => {
                 const preview = getAdviceSheetPreview(sheet);
                 return (
-                  <Tag key={sheet.id} size="sm" borderRadius="full" bg={`${preview.accent}22`} color={preview.accent}>
+                  <Tag key={sheet.id} size="sm" borderRadius="full" {...accentPillProps(preview.accent)}>
                     <TagLabel>{preview.title}</TagLabel>
                   </Tag>
                 );
               })
             ) : (
-              <Text fontSize="sm" color={theme.mutedText}>
-                Aucune fiche sélectionnée pour le moment.
-              </Text>
+              <Text fontSize="sm" color={theme.mutedText}>{i18n.t("auto.NutritionAdviceSheetsPanel.aucune_fiche_selectionnee_pour_le_moment", "Aucune fiche sélectionnée pour le moment.")}</Text>
             )}
             {selectedSheets.length > 8 ? (
               <Tag size="sm" borderRadius="full">
-                <TagLabel>+{selectedSheets.length - 8}</TagLabel>
+                      <TagLabel>{i18n.t("auto.NutritionAdviceSheetsPanel.plus_count", "+{{count}}", { count: selectedSheets.length - 8 })}</TagLabel>
               </Tag>
             ) : null}
           </HStack>
         </Box>
       ) : null}
 
-      <Box mt={4} p={4} borderWidth="1px" borderColor={theme.borderColor} borderRadius="xl" bg={theme.surfaceSoft}>
+      <Box mt={4} p={4} borderWidth="1px" borderColor={theme.borderColor} borderRadius="md" bg={theme.surfaceSoft}>
         <HStack justify="space-between" align="start" gap={3} flexWrap="wrap">
           <Box>
-            <Heading size="sm">Note patient</Heading>
-            <Text fontSize="sm" color={theme.mutedText} mt={1}>
-              Ajoute une note simple à transmettre au patient, ou garde-la en interne si elle n’est pas cochée.
-            </Text>
+            <Heading size="sm">{i18n.t("auto.NutritionAdviceSheetsPanel.note_patient", "Note patient")}</Heading>
+            <Text fontSize="sm" color={theme.mutedText} mt={1}>{i18n.t("auto.NutritionAdviceSheetsPanel.ajoute_une_note_simple_a_transmettre_au_patient_ou", "Ajoute une note simple à transmettre au patient, ou garde-la en interne si elle n’est pas cochée.")}</Text>
           </Box>
           <Checkbox
             isChecked={!!patientNoteShared}
             onChange={(e) => onPatientNoteSharedChange?.(e.target.checked)}
             isDisabled={blocked || !String(patientNote || "").trim()}
-          >
-            Transmettre
-          </Checkbox>
+          >{i18n.t("auto.NutritionAdviceSheetsPanel.transmettre", "Transmettre")}</Checkbox>
         </HStack>
         <Textarea
           mt={3}
           value={patientNote || ""}
           onChange={(e) => onPatientNoteChange?.(e.target.value)}
-          placeholder="Exemple : priorité sur l’hydratation cette semaine, garder le yaourt du soir, limiter les boissons sucrées..."
+          placeholder={i18n.t("auto.NutritionAdviceSheetsPanel.exemple_priorite_sur_l_hydratation_cette_semaine_g", "Exemple : priorité sur l’hydratation cette semaine, garder le yaourt du soir, limiter les boissons sucrées...")}
           bg={theme.surfaceBg}
           isDisabled={blocked}
         />
@@ -220,22 +174,20 @@ export default function NutritionAdviceSheetsPanel({
               p={4}
               borderWidth="1px"
               borderColor={selected ? preview.accent : theme.borderColor}
-              borderRadius="xl"
+              borderRadius="md"
               bg={selected ? theme.surfaceSoft : theme.surfaceBg}
               boxShadow={selected ? "md" : "none"}
             >
               <HStack justify="space-between" align="start" gap={3}>
                 <Box>
-                  <Badge bg={`${preview.accent}22`} color={preview.accent} borderRadius="full" px={2}>
+                  <Badge {...accentPillProps(preview.accent)} borderRadius="full" px={2}>
                     {preview.category}
                   </Badge>
                   <Heading size="sm" mt={3}>
                     {preview.title}
                   </Heading>
                 </Box>
-                <Checkbox isChecked={selected} onChange={() => toggleSheet(sheet.id)} isDisabled={blocked}>
-                  Partager
-                </Checkbox>
+                <Checkbox isChecked={selected} onChange={() => toggleSheet(sheet.id)} isDisabled={blocked}>{i18n.t("auto.NutritionAdviceSheetsPanel.partager", "Partager")}</Checkbox>
               </HStack>
               <Text fontSize="sm" color={theme.mutedText} mt={3}>
                 {preview.summary}
@@ -256,9 +208,7 @@ export default function NutritionAdviceSheetsPanel({
                     </Tag>
                   ))}
                 </HStack>
-                <Button size="sm" variant="outline" onClick={() => setActiveSheetId(sheet.id)}>
-                  Voir la fiche
-                </Button>
+                <Button size="sm" variant="outline" onClick={() => setActiveSheetId(sheet.id)}>{i18n.t("auto.NutritionAdviceSheetsPanel.voir_la_fiche", "Voir la fiche")}</Button>
               </HStack>
             </Box>
           );
@@ -268,9 +218,9 @@ export default function NutritionAdviceSheetsPanel({
 
       <Modal isOpen={Boolean(activePreview)} onClose={() => setActiveSheetId(null)} size="3xl" scrollBehavior="inside">
         <ModalOverlay />
-        <ModalContent borderRadius="2xl">
+        <ModalContent borderRadius="lg">
           <ModalHeader>
-            <Badge bg={`${activePreview?.accent || "#2563EB"}22`} color={activePreview?.accent || "#2563EB"} borderRadius="full" px={2}>
+            <Badge {...accentPillProps(activePreview?.accent || "#2563EB")} borderRadius="full" px={2}>
               {activePreview?.category}
             </Badge>
             <Heading size="md" mt={3}>
@@ -283,10 +233,8 @@ export default function NutritionAdviceSheetsPanel({
           <ModalCloseButton />
           <ModalBody>
             <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-              <Box p={4} borderWidth="1px" borderColor={theme.borderColor} borderRadius="xl" bg={theme.surfaceBg}>
-                <Heading size="sm" mb={3}>
-                  Points clés
-                </Heading>
+              <Box p={4} borderWidth="1px" borderColor={theme.borderColor} borderRadius="md" bg={theme.surfaceBg}>
+                <Heading size="sm" mb={3}>{i18n.t("auto.NutritionAdviceSheetsPanel.points_cles", "Points clés")}</Heading>
                 <Stack spacing={2}>
                   {(activePreview?.keyPoints || []).map((point) => (
                     <Text key={point} fontSize="sm">
@@ -295,10 +243,8 @@ export default function NutritionAdviceSheetsPanel({
                   ))}
                 </Stack>
               </Box>
-              <Box p={4} borderWidth="1px" borderColor={theme.borderColor} borderRadius="xl" bg={theme.surfaceBg}>
-                <Heading size="sm" mb={3}>
-                  Conseils pratiques
-                </Heading>
+              <Box p={4} borderWidth="1px" borderColor={theme.borderColor} borderRadius="md" bg={theme.surfaceBg}>
+                <Heading size="sm" mb={3}>{i18n.t("auto.NutritionAdviceSheetsPanel.conseils_pratiques", "Conseils pratiques")}</Heading>
                 <Stack spacing={2}>
                   {(activePreview?.practicalTips || []).map((tip) => (
                     <Text key={tip} fontSize="sm">
@@ -317,16 +263,16 @@ export default function NutritionAdviceSheetsPanel({
             </HStack>
           </ModalBody>
           <ModalFooter gap={2}>
-            <Button variant="outline" onClick={() => setActiveSheetId(null)}>
-              Fermer
-            </Button>
+            <Button variant="outline" onClick={() => setActiveSheetId(null)}>{i18n.t("programView.close", "Fermer")}</Button>
             {activeSheet ? (
               <Button
                 {...theme.primaryButtonProps}
                 onClick={() => toggleSheet(activeSheet.id)}
                 isDisabled={blocked}
               >
-                {selectedSet.has(activeSheet.id) ? "Retirer du partage" : "Partager cette fiche"}
+                {selectedSet.has(activeSheet.id)
+                  ? i18n.t("auto.NutritionAdviceSheetsPanel.retirer_du_partage", "Retirer du partage")
+                  : i18n.t("auto.NutritionAdviceSheetsPanel.partager_cette_fiche", "Partager cette fiche")}
               </Button>
             ) : null}
           </ModalFooter>

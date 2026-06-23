@@ -28,8 +28,151 @@ service cloud.firestore {
       );
     }
 
+    function hasCoachAccess() {
+      let user = currentUser();
+      return isAdmin() || (
+        signedIn() &&
+        user.role == "coach" &&
+        (
+          user.hasActiveSubscription == true ||
+          user.subscriptionStatus == "active" ||
+          user.subscriptionStatus == "club_active" ||
+          user.accountType == "club_owner" ||
+          user.clubRole == "owner" ||
+          (user.accountType == "club_member" && user.keys().hasAny(["clubId"])) ||
+          (
+            user.subscriptionStatus == "trialing" &&
+            user.keys().hasAny(["trialEndsAt"]) &&
+            user.trialEndsAt is timestamp &&
+            user.trialEndsAt > request.time
+          )
+        )
+      );
+    }
+
+    function isClubOwner(clubId) {
+      return signedIn() && (
+        isAdmin() ||
+        (
+          currentUser().role == "coach" &&
+          currentUser().clubId == clubId &&
+          (
+            currentUser().accountType == "club_owner" ||
+            currentUser().clubRole == "owner"
+          )
+        )
+      );
+    }
+
     function isOwnUser(uid) {
       return signedIn() && request.auth.uid == uid;
+    }
+
+    function isSameClub(data) {
+      return signedIn() &&
+        currentUser().keys().hasAny(["clubId"]) &&
+        data.keys().hasAny(["clubId"]) &&
+        currentUser().clubId == data.clubId;
+    }
+
+    function uidInList(data, field) {
+      return data.keys().hasAny([field]) &&
+        data[field] is list &&
+        request.auth.uid in data[field];
+    }
+
+    function clientIsOwnProfile(clientId, data) {
+      return isOwnUser(clientId) ||
+        (data.keys().hasAny(["uid"]) && data.uid == request.auth.uid) ||
+        (data.keys().hasAny(["userId"]) && data.userId == request.auth.uid) ||
+        (data.keys().hasAny(["linkedUserId"]) && data.linkedUserId == request.auth.uid) ||
+        (data.keys().hasAny(["accountUid"]) && data.accountUid == request.auth.uid) ||
+        (
+          currentUser().keys().hasAny(["linkedClientId"]) &&
+          currentUser().linkedClientId == clientId
+        );
+    }
+
+    function coachOwnsRecord(data) {
+      return hasCoachAccess() && (
+        (data.keys().hasAny(["createdBy"]) && data.createdBy == request.auth.uid) ||
+        (data.keys().hasAny(["coachId"]) && data.coachId == request.auth.uid) ||
+        (data.keys().hasAny(["coachUid"]) && data.coachUid == request.auth.uid) ||
+        (data.keys().hasAny(["ownerUid"]) && data.ownerUid == request.auth.uid) ||
+        (data.keys().hasAny(["assignedBy"]) && data.assignedBy == request.auth.uid) ||
+        uidInList(data, "coachIds") ||
+        uidInList(data, "sharedWith") ||
+        isSameClub(data)
+      );
+    }
+
+    function canAccessClient(clientId, data) {
+      return isAdmin() || clientIsOwnProfile(clientId, data) || coachOwnsRecord(data);
+    }
+
+    function canCreateClient(clientId, data) {
+      return isAdmin() ||
+        clientIsOwnProfile(clientId, data) ||
+        (
+          hasCoachAccess() &&
+          (
+            (data.keys().hasAny(["createdBy"]) && data.createdBy == request.auth.uid) ||
+            (data.keys().hasAny(["coachId"]) && data.coachId == request.auth.uid) ||
+            uidInList(data, "coachIds") ||
+            isSameClub(data)
+          )
+        );
+    }
+
+    function programAssignedToSelf(data) {
+      return signedIn() && (
+        (data.keys().hasAny(["clientId"]) && (
+          data.clientId == request.auth.uid ||
+          (
+            currentUser().keys().hasAny(["linkedClientId"]) &&
+            data.clientId == currentUser().linkedClientId
+          )
+        )) ||
+        (data.keys().hasAny(["userId"]) && data.userId == request.auth.uid) ||
+        (data.keys().hasAny(["ownerId"]) && data.ownerId == request.auth.uid) ||
+        uidInList(data, "assignedTo") ||
+        uidInList(data, "assignedClientIds")
+      );
+    }
+
+    function canAccessProgram(data) {
+      return isAdmin() || publicProgram(data) || coachOwnsRecord(data) || programAssignedToSelf(data);
+    }
+
+    function canCreateProgram(data) {
+      return isAdmin() ||
+        (
+          hasCoachAccess() &&
+          (
+            (data.keys().hasAny(["createdBy"]) && data.createdBy == request.auth.uid) ||
+            (data.keys().hasAny(["coachId"]) && data.coachId == request.auth.uid) ||
+            isSameClub(data)
+          )
+        );
+    }
+
+    function canAccessSession(data) {
+      return isAdmin() ||
+        coachOwnsRecord(data) ||
+        (
+          signedIn() &&
+          (
+            (data.keys().hasAny(["clientId"]) && data.clientId == request.auth.uid) ||
+            (data.keys().hasAny(["clientDocId"]) && (
+              data.clientDocId == request.auth.uid ||
+              (
+                currentUser().keys().hasAny(["linkedClientId"]) &&
+                data.clientDocId == currentUser().linkedClientId
+              )
+            )) ||
+            (data.keys().hasAny(["userId"]) && data.userId == request.auth.uid)
+          )
+        );
     }
 
     function publicProgram(data) {
@@ -55,10 +198,20 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow create: if isOwnUser(uid) || isAdmin() || isCoach();
+      allow create: if isOwnUser(uid) || isAdmin() || (
+        hasCoachAccess() &&
+        request.resource.data.role == "particulier" &&
+        request.resource.data.linkedClientId == uid &&
+        request.resource.data.hasActiveSubscription != true &&
+        !request.resource.data.keys().hasAny(["stripeCustomerId", "stripeSubscriptionId"]) &&
+        !(
+          request.resource.data.keys().hasAny(["subscriptionStatus"]) &&
+          request.resource.data.subscriptionStatus in ["active", "trialing"]
+        )
+      );
       allow get: if isOwnUser(uid) || isAdmin() || isCoach() || (signedIn() && resource.data.role in ["coach", "admin"]);
       allow list: if isAdmin() || isCoach();
-      allow update: if isAdmin() || isCoach() || (isOwnUser(uid) && userSelfProtectedFieldsUnchanged());
+      allow update: if isAdmin() || (isOwnUser(uid) && userSelfProtectedFieldsUnchanged());
       allow delete: if isAdmin();
 
       match /privacy/{document=**} {
@@ -66,30 +219,74 @@ service cloud.firestore {
       }
 
       match /measurements/{document=**} {
-        allow read, write: if isOwnUser(uid) || isAdmin() || isCoach();
+        allow read, write: if isOwnUser(uid) || isAdmin();
       }
     }
 
     match /clients/{clientId} {
-      allow read, write: if signedIn();
+      allow read: if canAccessClient(clientId, resource.data);
+      allow create: if canCreateClient(clientId, request.resource.data);
+      allow update: if canAccessClient(clientId, resource.data) && canAccessClient(clientId, request.resource.data);
+      allow delete: if isAdmin() || coachOwnsRecord(resource.data);
+
+      match /programmes/{document=**} {
+        allow read, write: if canAccessClient(
+          clientId,
+          get(/databases/$(database)/documents/clients/$(clientId)).data
+        );
+      }
+
+      match /measurements/{document=**} {
+        allow read, write: if canAccessClient(
+          clientId,
+          get(/databases/$(database)/documents/clients/$(clientId)).data
+        );
+      }
+
+      match /nutrition_assessments/{document=**} {
+        allow read: if canAccessClient(
+          clientId,
+          get(/databases/$(database)/documents/clients/$(clientId)).data
+        );
+        allow create, update, delete: if isAdmin() || (
+          hasCoachAccess() &&
+          canAccessClient(
+            clientId,
+            get(/databases/$(database)/documents/clients/$(clientId)).data
+          )
+        );
+      }
+
+      match /nutrition_feedback/{document=**} {
+        allow read, write: if isAdmin() || clientIsOwnProfile(
+          clientId,
+          get(/databases/$(database)/documents/clients/$(clientId)).data
+        );
+      }
 
       match /{subCollection}/{document=**} {
-        allow read, write: if signedIn();
+        allow read, write: if isAdmin();
       }
     }
 
     match /programmes/{programId} {
-      allow read: if publicProgram(resource.data) || signedIn();
-      allow write: if signedIn();
+      allow read: if canAccessProgram(resource.data);
+      allow create: if canCreateProgram(request.resource.data);
+      allow update: if canAccessProgram(resource.data) && canAccessProgram(request.resource.data);
+      allow delete: if isAdmin() || coachOwnsRecord(resource.data);
 
       match /{subCollection}/{document=**} {
-        allow read: if signedIn();
-        allow write: if signedIn();
+        allow read, write: if canAccessProgram(
+          get(/databases/$(database)/documents/programmes/$(programId)).data
+        );
       }
     }
 
     match /sessions/{sessionId} {
-      allow read, write: if signedIn();
+      allow read: if canAccessSession(resource.data);
+      allow create: if canAccessSession(request.resource.data);
+      allow update: if canAccessSession(resource.data) && canAccessSession(request.resource.data);
+      allow delete: if isAdmin() || coachOwnsRecord(resource.data);
     }
 
     match /training/{exerciseId} {
@@ -115,6 +312,28 @@ service cloud.firestore {
     match /coachs/{coachId} {
       allow read: if signedIn();
       allow write: if isAdmin() || isOwnUser(coachId);
+    }
+
+    match /clubs/{clubId} {
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow read: if isClubOwner(clubId) || (isCoach() && currentUser().clubId == clubId);
+      allow update: if isClubOwner(clubId);
+      allow delete: if isAdmin();
+
+      match /members/{memberId} {
+        allow create: if isClubOwner(clubId) || (isOwnUser(memberId) && request.resource.data.role == "owner");
+        allow read: if isClubOwner(clubId) || (isCoach() && currentUser().clubId == clubId);
+        allow update, delete: if isClubOwner(clubId);
+      }
+
+      match /appointments/{appointmentId} {
+        allow create, update, delete: if isClubOwner(clubId);
+        allow read: if isClubOwner(clubId) || (
+          isCoach() &&
+          currentUser().clubId == clubId &&
+          resource.data.coachUid == request.auth.uid
+        );
+      }
     }
 
     match /analytics_geo/{document=**} {
@@ -156,6 +375,11 @@ service cloud.firestore {
 
     match /stripe_events/{eventId} {
       allow read, write: if isAdmin();
+    }
+
+    match /admin_audit_logs/{logId} {
+      allow read, create: if isAdmin();
+      allow update, delete: if false;
     }
 
     match /health/{document=**} {

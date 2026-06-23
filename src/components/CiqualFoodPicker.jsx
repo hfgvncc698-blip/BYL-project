@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+ 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
@@ -31,6 +31,7 @@ import {
 import { ChevronDownIcon, ChevronRightIcon, CloseIcon } from "@chakra-ui/icons";
 import { computeMicronutrientTargets } from "../utils/nutritionContext";
 import { useNutritionTheme } from "../styles/nutritionTheme";
+import i18n from "../i18n/index";
 
 /* ================= Utils ================= */
 const num = (v) => {
@@ -426,7 +427,7 @@ export default function CiqualFoodPicker({
     (async () => {
       setLoading(true);
       try {
-        const res = await fetch("/ciqual_2025.json", { cache: "no-store" });
+        const res = await fetch("/ciqual_2025.json", { cache: "force-cache" });
         const data = await res.json();
         const map = {};
         data.forEach((r) => (map[r.code] = r));
@@ -435,20 +436,20 @@ export default function CiqualFoodPicker({
       } catch {
         toast({
           title: "CIQUAL",
-          description: "Erreur de chargement",
+          description: i18n.t("errors.loadFailed", "Erreur de chargement"),
           status: "error",
         });
       } finally {
         setLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   useEffect(() => {
     if (!mounted.current) return;
     onChange?.({ items, selectedNutrients, activeMeal });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [activeMeal, items, selectedNutrients]);
 
   useEffect(() => {
@@ -788,21 +789,12 @@ export default function CiqualFoodPicker({
       <Box {...nutritionTheme.cardProps} p={{ base: 4, md: 5 }} mb={4}>
         <HStack justify="space-between" align="start" gap={3} flexWrap="wrap">
           <Box>
-            <Text fontSize="xs" fontWeight="900" letterSpacing="0.12em" color={nutritionTheme.subtleText}>
-              REPÈRES DE LECTURE
-            </Text>
-            <Text fontSize="xl" fontWeight="900" mt={1}>
-              Ration spontanée CIQUAL détaillée
-            </Text>
-            <Text fontSize="sm" color={nutritionTheme.mutedText} mt={1} maxW="860px">
-              Même logique que le mode simplifié, mais avec une lecture aliment par aliment pour
-              préciser les micros, les quantités et les repas.
-            </Text>
+            <Text fontSize="xs" fontWeight="900" letterSpacing="0.12em" color={nutritionTheme.subtleText}>{i18n.t("auto.CiqualFoodPicker.reperes_de_lecture", "REPÈRES DE LECTURE")}</Text>
+            <Text fontSize="xl" fontWeight="900" mt={1}>{i18n.t("auto.CiqualFoodPicker.ration_spontanee_ciqual_detaillee", "Ration spontanée CIQUAL détaillée")}</Text>
+            <Text fontSize="sm" color={nutritionTheme.mutedText} mt={1} maxW="860px">{i18n.t("auto.CiqualFoodPicker.meme_logique_que_le_mode_simplifie_mais_avec_une_l", "Même logique que le mode simplifié, mais avec une lecture aliment par aliment pour préciser les micros, les quantités et les repas.")}</Text>
           </Box>
 
-          <Badge colorScheme="purple" variant="subtle" px={3} py={1} borderRadius="full">
-            Mode détaillé
-          </Badge>
+          <Badge colorScheme="purple" variant="subtle" px={3} py={1} borderRadius="full">{i18n.t("auto.CiqualFoodPicker.mode_detaille", "Mode détaillé")}</Badge>
         </HStack>
 
         <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={3} mt={4}>
@@ -816,16 +808,12 @@ export default function CiqualFoodPicker({
             <Wrap spacing={2} mt={3}>
               {objectiveProfile?.isPreg1 || objectiveProfile?.isPreg2 || objectiveProfile?.isPreg3 ? (
                 <WrapItem>
-                  <Badge colorScheme="pink" variant="subtle" borderRadius="full" px={2.5} py={1}>
-                    Grossesse
-                  </Badge>
+                  <Badge colorScheme="pink" variant="subtle" borderRadius="full" px={2.5} py={1}>{i18n.t("auto.CiqualFoodPicker.grossesse", "Grossesse")}</Badge>
                 </WrapItem>
               ) : null}
               {objectiveProfile?.isLact ? (
                 <WrapItem>
-                  <Badge colorScheme="teal" variant="subtle" borderRadius="full" px={2.5} py={1}>
-                    Allaitement
-                  </Badge>
+                  <Badge colorScheme="teal" variant="subtle" borderRadius="full" px={2.5} py={1}>{i18n.t("auto.CiqualFoodPicker.allaitement", "Allaitement")}</Badge>
                 </WrapItem>
               ) : null}
               {[...pathologies, ...regimes].slice(0, 5).map((item) => (
@@ -837,25 +825,19 @@ export default function CiqualFoodPicker({
               ))}
               {allergies ? (
                 <WrapItem>
-                  <Badge colorScheme="red" variant="subtle" borderRadius="full" px={2.5} py={1}>
-                    Allergies
-                  </Badge>
+                  <Badge colorScheme="red" variant="subtle" borderRadius="full" px={2.5} py={1}>{i18n.t("auto.CiqualFoodPicker.allergies", "Allergies")}</Badge>
                 </WrapItem>
               ) : null}
               {!pathologies.length && !regimes.length && !allergies ? (
                 <WrapItem>
-                  <Badge colorScheme="gray" variant="subtle" borderRadius="full" px={2.5} py={1}>
-                    Aucun contexte spécifique
-                  </Badge>
+                  <Badge colorScheme="gray" variant="subtle" borderRadius="full" px={2.5} py={1}>{i18n.t("auto.CiqualFoodPicker.aucun_contexte_specifique", "Aucun contexte spécifique")}</Badge>
                 </WrapItem>
               ) : null}
             </Wrap>
           </Box>
 
           <Box {...nutritionTheme.tileProps} p={4}>
-            <Text fontSize="xs" fontWeight="900" letterSpacing="0.1em" color={nutritionTheme.subtleText}>
-              CIBLES PRINCIPALES
-            </Text>
+            <Text fontSize="xs" fontWeight="900" letterSpacing="0.1em" color={nutritionTheme.subtleText}>{i18n.t("auto.CiqualFoodPicker.cibles_principales", "CIBLES PRINCIPALES")}</Text>
             <Text fontSize="2xl" fontWeight="900" mt={2}>
               {effectiveNeeds?.kcalTarget ? `${r0(effectiveNeeds.kcalTarget)} kcal` : "Cible à compléter"}
             </Text>
@@ -881,13 +863,8 @@ export default function CiqualFoodPicker({
           <Box {...nutritionTheme.tileProps} p={4}>
             <HStack justify="space-between" align="start" gap={3}>
               <Box minW={0}>
-                <Text fontSize="xs" fontWeight="900" letterSpacing="0.1em" color={nutritionTheme.subtleText}>
-                  MICROS CONSEILLÉS
-                </Text>
-                <Text fontSize="sm" color={nutritionTheme.mutedText} mt={2}>
-                  Calcium et fibres restent toujours visibles, puis les autres repères dépendent du
-                  contexte clinique.
-                </Text>
+                <Text fontSize="xs" fontWeight="900" letterSpacing="0.1em" color={nutritionTheme.subtleText}>{i18n.t("auto.CiqualFoodPicker.micros_conseilles", "MICROS CONSEILLÉS")}</Text>
+                <Text fontSize="sm" color={nutritionTheme.mutedText} mt={2}>{i18n.t("auto.CiqualFoodPicker.calcium_et_fibres_restent_toujours_visibles_puis_l", "Calcium et fibres restent toujours visibles, puis les autres repères dépendent du contexte clinique.")}</Text>
               </Box>
               <Button size="xs" borderRadius="full" onClick={() => setNutrientsOpen((v) => !v)}>
                 {nutrientsOpen ? "Fermer" : "Choisir"}
@@ -896,19 +873,13 @@ export default function CiqualFoodPicker({
 
             <Wrap spacing={2} mt={3}>
               <WrapItem>
-                <Button size="xs" variant="outline" borderRadius="full" onClick={applyRecommendedNutrients} isDisabled={recommendedNutrientKeys.length === 0}>
-                  Précocher
-                </Button>
+                <Button size="xs" variant="outline" borderRadius="full" onClick={applyRecommendedNutrients} isDisabled={recommendedNutrientKeys.length === 0}>{i18n.t("auto.CiqualFoodPicker.precocher", "Précocher")}</Button>
               </WrapItem>
               <WrapItem>
-                <Button size="xs" variant="outline" borderRadius="full" onClick={() => applyPreset(NUTRIENT_PRESETS.essentials)}>
-                  Essentiels
-                </Button>
+                <Button size="xs" variant="outline" borderRadius="full" onClick={() => applyPreset(NUTRIENT_PRESETS.essentials)}>{i18n.t("auto.CiqualFoodPicker.essentiels", "Essentiels")}</Button>
               </WrapItem>
               <WrapItem>
-                <Button size="xs" variant="outline" borderRadius="full" onClick={() => applyPreset(NUTRIENT_PRESETS.vitamins)}>
-                  Vitamines
-                </Button>
+                <Button size="xs" variant="outline" borderRadius="full" onClick={() => applyPreset(NUTRIENT_PRESETS.vitamins)}>{i18n.t("auto.CiqualFoodPicker.vitamines", "Vitamines")}</Button>
               </WrapItem>
               <WrapItem>
                 <Button
@@ -922,9 +893,7 @@ export default function CiqualFoodPicker({
                     });
                     setSelectedNutrients(next);
                   }}
-                >
-                  Réinitialiser
-                </Button>
+                >{i18n.t("exerciseBank.reset", "Réinitialiser")}</Button>
               </WrapItem>
             </Wrap>
 
@@ -1002,10 +971,8 @@ export default function CiqualFoodPicker({
         <Box mt={4}>
           <HStack justify="space-between" align="center" gap={3} flexWrap="wrap">
             <Box>
-              <Text fontWeight="900">Points de vigilance</Text>
-              <Text fontSize="sm" color={nutritionTheme.mutedText}>
-                Les repères affichés s’adaptent au contexte du bilan.
-              </Text>
+              <Text fontWeight="900">{i18n.t("auto.CiqualFoodPicker.points_de_vigilance", "Points de vigilance")}</Text>
+              <Text fontSize="sm" color={nutritionTheme.mutedText}>{i18n.t("auto.CiqualFoodPicker.les_reperes_affiches_s_adaptent_au_contexte_du_bil", "Les repères affichés s’adaptent au contexte du bilan.")}</Text>
             </Box>
             {clinicalGuidance.length > 4 ? (
               <Button
@@ -1036,11 +1003,8 @@ export default function CiqualFoodPicker({
         <Divider my={4} />
 
         <Box>
-          <Text fontWeight="900">Repas actif pour les prochains ajouts</Text>
-          <Text fontSize="sm" color={nutritionTheme.mutedText} mt={1}>
-            Choisis le repas avant d’ajouter des aliments. Tu peux ensuite déplacer un aliment vers
-            un autre repas si le patient s’en souvient plus tard.
-          </Text>
+          <Text fontWeight="900">{i18n.t("auto.CiqualFoodPicker.repas_actif_pour_les_prochains_ajouts", "Repas actif pour les prochains ajouts")}</Text>
+          <Text fontSize="sm" color={nutritionTheme.mutedText} mt={1}>{i18n.t("auto.CiqualFoodPicker.choisis_le_repas_avant_d_ajouter_des_aliments_tu_p", "Choisis le repas avant d’ajouter des aliments. Tu peux ensuite déplacer un aliment vers un autre repas si le patient s’en souvient plus tard.")}</Text>
           <Wrap spacing={2} mt={3}>
             {MEAL_OPTIONS.map((meal) => (
               <WrapItem key={meal.key}>
@@ -1063,30 +1027,23 @@ export default function CiqualFoodPicker({
       <Box bg={bgCard} border="1px solid" borderColor={border} p={4} rounded="xl">
         <HStack justify="space-between" align="start" gap={3} flexWrap="wrap" mb={2}>
           <Box>
-            <Text fontWeight="800">Recherche d’aliments</Text>
-            <Text fontSize="sm" color={textMuted} mt={1}>
-              Recherche rapide sur les 25 résultats les plus pertinents, puis ajuste quantité et
-              unité.
-            </Text>
+            <Text fontWeight="800">{i18n.t("auto.CiqualFoodPicker.recherche_d_aliments", "Recherche d’aliments")}</Text>
+            <Text fontSize="sm" color={textMuted} mt={1}>{i18n.t("auto.CiqualFoodPicker.recherche_rapide_sur_les_25_resultats_les_plus_per", "Recherche rapide sur les 25 résultats les plus pertinents, puis ajuste quantité et unité.")}</Text>
           </Box>
-          <Badge variant="subtle" colorScheme="purple">
-            Top 25
-          </Badge>
+          <Badge variant="subtle" colorScheme="purple">{i18n.t("auto.CiqualFoodPicker.top_25", "Top 25")}</Badge>
         </HStack>
 
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Rechercher un aliment…"
+          placeholder={i18n.t("auto.CiqualFoodPicker.rechercher_un_aliment", "Rechercher un aliment…")}
           isDisabled={blocked}
         />
 
         {loading && (
           <HStack mt={2} spacing={2}>
             <Spinner size="sm" />
-            <Text fontSize="sm" color={textMuted}>
-              Chargement CIQUAL…
-            </Text>
+            <Text fontSize="sm" color={textMuted}>{i18n.t("auto.CiqualFoodPicker.chargement_ciqual", "Chargement CIQUAL…")}</Text>
           </HStack>
         )}
 
@@ -1113,7 +1070,7 @@ export default function CiqualFoodPicker({
       <VStack mt={4} spacing={4} align="stretch">
         {items.length === 0 ? (
           <Box bg={bgCard} border="1px solid" borderColor={border} rounded="xl" p={4}>
-            <Text color={textMuted}>Ajoute un aliment via la recherche puis rattache-le au repas concerné.</Text>
+            <Text color={textMuted}>{i18n.t("auto.CiqualFoodPicker.ajoute_un_aliment_via_la_recherche_puis_rattache_l", "Ajoute un aliment via la recherche puis rattache-le au repas concerné.")}</Text>
           </Box>
         ) : (
           MEAL_OPTIONS.map((meal) => {
@@ -1150,19 +1107,13 @@ export default function CiqualFoodPicker({
                     {mealItems.length > 0 ? (
                       <Wrap spacing={2}>
                         <WrapItem>
-                          <Badge colorScheme="purple" variant="subtle" borderRadius="full">
-                            Prot {fmt1Plain(mealTotals.prot)} g
-                          </Badge>
+                          <Badge colorScheme="purple" variant="subtle" borderRadius="full">{i18n.t("auto.CiqualFoodPicker.prot", "Prot")}{fmt1Plain(mealTotals.prot)}{i18n.t("auto.CiqualFoodPicker.g", "g")}</Badge>
                         </WrapItem>
                         <WrapItem>
-                          <Badge colorScheme="pink" variant="subtle" borderRadius="full">
-                            Lip {fmt1Plain(mealTotals.lip)} g
-                          </Badge>
+                          <Badge colorScheme="pink" variant="subtle" borderRadius="full">{i18n.t("auto.CiqualFoodPicker.lip", "Lip")}{fmt1Plain(mealTotals.lip)}{i18n.t("auto.CiqualFoodPicker.g", "g")}</Badge>
                         </WrapItem>
                         <WrapItem>
-                          <Badge colorScheme="blue" variant="subtle" borderRadius="full">
-                            Gluc {fmt1Plain(mealTotals.glu)} g
-                          </Badge>
+                          <Badge colorScheme="blue" variant="subtle" borderRadius="full">{i18n.t("auto.CiqualFoodPicker.gluc", "Gluc")}{fmt1Plain(mealTotals.glu)}{i18n.t("auto.CiqualFoodPicker.g", "g")}</Badge>
                         </WrapItem>
                       </Wrap>
                     ) : null}
@@ -1177,9 +1128,7 @@ export default function CiqualFoodPicker({
                         variant="outline"
                         onClick={() => setActiveMeal(meal.key)}
                         borderRadius="full"
-                      >
-                        Définir comme repas actif
-                      </Button>
+                      >{i18n.t("auto.CiqualFoodPicker.definir_comme_repas_actif", "Définir comme repas actif")}</Button>
                     </Box>
                   ) : isMobile ? (
                     <VStack spacing={3} align="stretch" p={3}>
@@ -1211,7 +1160,7 @@ export default function CiqualFoodPicker({
                               <IconButton
                                 size="sm"
                                 icon={<CloseIcon />}
-                                aria-label="Supprimer"
+                                aria-label={i18n.t("programs.delete", "Supprimer")}
                                 onClick={() => removeItem(it.id)}
                                 flexShrink={0}
                               />
@@ -1219,9 +1168,7 @@ export default function CiqualFoodPicker({
 
                             <Stack spacing={2} mt={3}>
                               <Box>
-                                <Text fontSize="xs" color={textMuted} mb={1}>
-                                  Repas
-                                </Text>
+                                <Text fontSize="xs" color={textMuted} mb={1}>{i18n.t("auto.CiqualFoodPicker.repas", "Repas")}</Text>
                                 <Select
                                   value={it.meal || "dejeuner"}
                                   onChange={(e) => updateItem(it.id, { meal: e.target.value })}
@@ -1236,9 +1183,7 @@ export default function CiqualFoodPicker({
                               </Box>
                               <Stack direction={{ base: "column", sm: "row" }} spacing={2}>
                                 <Box flex="1" minW={0}>
-                                  <Text fontSize="xs" color={textMuted} mb={1}>
-                                    Quantité
-                                  </Text>
+                                  <Text fontSize="xs" color={textMuted} mb={1}>{i18n.t("auto.CiqualFoodPicker.quantite", "Quantité")}</Text>
                                   <Input
                                     value={it.qty}
                                     onChange={(e) => updateItem(it.id, { qty: e.target.value })}
@@ -1247,16 +1192,14 @@ export default function CiqualFoodPicker({
                                   />
                                 </Box>
                                 <Box w={{ base: "100%", sm: "140px" }} minW={0}>
-                                  <Text fontSize="xs" color={textMuted} mb={1}>
-                                    Unité
-                                  </Text>
+                                  <Text fontSize="xs" color={textMuted} mb={1}>{i18n.t("auto.CiqualFoodPicker.unite", "Unité")}</Text>
                                   <Select
                                     value={it.unit}
                                     onChange={(e) => updateItem(it.id, { unit: e.target.value })}
                                     isDisabled={blocked}
                                   >
-                                    <option value="g">g</option>
-                                    <option value="ml">ml</option>
+                                    <option value="g">{i18n.t("auto.CiqualFoodPicker.g", "g")}</option>
+                                    <option value="ml">{i18n.t("auto.CiqualFoodPicker.ml", "ml")}</option>
                                   </Select>
                                 </Box>
                               </Stack>
@@ -1301,8 +1244,8 @@ export default function CiqualFoodPicker({
                           <Tr>
                             <Th minW="260px">ALIMENT</Th>
                             <Th minW="170px">REPAS</Th>
-                            <Th minW="120px">QTÉ</Th>
-                            <Th minW="110px">UNITÉ</Th>
+                            <Th minW="120px">{i18n.t("auto.CiqualFoodPicker.qte", "QTÉ")}</Th>
+                            <Th minW="110px">{i18n.t("auto.CiqualFoodPicker.unite_2", "UNITÉ")}</Th>
                             <Th isNumeric>KCAL</Th>
                             <Th isNumeric>PROT</Th>
                             <Th isNumeric>LIP</Th>
@@ -1350,8 +1293,8 @@ export default function CiqualFoodPicker({
                                     onChange={(e) => updateItem(it.id, { unit: e.target.value })}
                                     isDisabled={blocked}
                                   >
-                                    <option value="g">g</option>
-                                    <option value="ml">ml</option>
+                                    <option value="g">{i18n.t("auto.CiqualFoodPicker.g", "g")}</option>
+                                    <option value="ml">{i18n.t("auto.CiqualFoodPicker.ml", "ml")}</option>
                                   </Select>
                                 </Td>
                                 <Td isNumeric>{r1(num(n.energie_reglement_ue_n_1169_2011_kcal_100g) * f)}</Td>
@@ -1374,7 +1317,7 @@ export default function CiqualFoodPicker({
                                   <IconButton
                                     size="sm"
                                     icon={<CloseIcon />}
-                                    aria-label="Supprimer"
+                                    aria-label={i18n.t("programs.delete", "Supprimer")}
                                     onClick={() => removeItem(it.id)}
                                   />
                                 </Td>

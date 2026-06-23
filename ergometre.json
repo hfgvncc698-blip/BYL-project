@@ -503,6 +503,95 @@
           "Posture": "الظهر مستقيم، جذع الجذع، الكتفين منخفضان."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "upper_body",
+        "core",
+        "neck"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "back",
+        "shoulders",
+        "biceps",
+        "core",
+        "neck"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "hypertrophy",
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training",
+        "posture"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "supported_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "rower"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "shoulder",
+        "elbow",
+        "spine",
+        "neck"
+      ],
+      "injuryCautions": [
+        "knee_pain_caution",
+        "hip_pain_caution",
+        "shoulder_pain_caution",
+        "elbow_pain_caution",
+        "back_pain_caution",
+        "neck_pain_caution"
+      ],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "activation",
+        "finisher"
+      ]
     }
   },
   {
@@ -935,6 +1024,98 @@
           "Posture": "حافظ على ثبات ظهرك، ولا تسحب بذراعيك فقط."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "upper_body",
+        "core",
+        "neck"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "back",
+        "lower_back",
+        "shoulders",
+        "biceps",
+        "core",
+        "neck"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "power",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "supported_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning",
+        "power"
+      ],
+      "equipmentTags": [
+        "rower"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym",
+        "outdoor"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "shoulder",
+        "elbow",
+        "spine",
+        "neck"
+      ],
+      "injuryCautions": [
+        "knee_pain_caution",
+        "hip_pain_caution",
+        "shoulder_pain_caution",
+        "elbow_pain_caution",
+        "back_pain_caution",
+        "neck_pain_caution",
+        "impact_caution",
+        "tendon_load_caution"
+      ],
+      "difficultyTag": "intermediate",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "finisher"
+      ]
     }
   },
   {
@@ -1341,6 +1522,76 @@
           "Posture": "الظهر مستقيم، الجذع منشغل، والذراعان مسترخيتان ولكن ثابتتان."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "upper_body"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "back"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "endurance",
+        "return_to_training",
+        "posture"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "supported_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "rower"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym"
+      ],
+      "jointTags": [
+        "knee",
+        "hip"
+      ],
+      "injuryCautions": [
+        "knee_pain_caution",
+        "hip_pain_caution"
+      ],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "activation"
+      ]
     }
   },
   {
@@ -1801,6 +2052,92 @@
           "Posture": "خليك قوي، لا تنهار في نهاية المسلسل."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "upper_body",
+        "core",
+        "neck"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "back",
+        "shoulders",
+        "biceps",
+        "core",
+        "neck"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "supported_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "rower"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "shoulder",
+        "elbow",
+        "spine",
+        "neck"
+      ],
+      "injuryCautions": [
+        "knee_pain_caution",
+        "hip_pain_caution",
+        "shoulder_pain_caution",
+        "elbow_pain_caution",
+        "back_pain_caution",
+        "neck_pain_caution"
+      ],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "finisher"
+      ]
     }
   },
   {
@@ -2268,6 +2605,92 @@
           "Posture": "الظهر مستقيم، لا تعوض بالفقرات القطنية أو الذراعين وحدهما."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "upper_body",
+        "core",
+        "neck"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "back",
+        "shoulders",
+        "biceps",
+        "core",
+        "neck"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "supported_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "rower"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "shoulder",
+        "elbow",
+        "spine",
+        "neck"
+      ],
+      "injuryCautions": [
+        "knee_pain_caution",
+        "hip_pain_caution",
+        "shoulder_pain_caution",
+        "elbow_pain_caution",
+        "back_pain_caution",
+        "neck_pain_caution"
+      ],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "finisher"
+      ]
     }
   },
   {
@@ -2728,6 +3151,92 @@
           "Posture": "قلب مشغول، ظهر محايد، نطاق كامل من الحركة دون تمديد مفرط."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "upper_body",
+        "core",
+        "neck"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "back",
+        "shoulders",
+        "biceps",
+        "core",
+        "neck"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "supported_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "rower"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "shoulder",
+        "elbow",
+        "spine",
+        "neck"
+      ],
+      "injuryCautions": [
+        "knee_pain_caution",
+        "hip_pain_caution",
+        "shoulder_pain_caution",
+        "elbow_pain_caution",
+        "back_pain_caution",
+        "neck_pain_caution"
+      ],
+      "difficultyTag": "intermediate",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "finisher"
+      ]
     }
   },
   {
@@ -3196,6 +3705,92 @@
           "Posture": "التركيز على انتظام وجودة الحركة بدلاً من شدتها."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "upper_body",
+        "core",
+        "neck"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "back",
+        "shoulders",
+        "biceps",
+        "core",
+        "neck"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training",
+        "posture"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "supported_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "rower"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "shoulder",
+        "elbow",
+        "spine",
+        "neck"
+      ],
+      "injuryCautions": [
+        "knee_pain_caution",
+        "hip_pain_caution",
+        "shoulder_pain_caution",
+        "elbow_pain_caution",
+        "back_pain_caution",
+        "neck_pain_caution"
+      ],
+      "difficultyTag": "beginner",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "finisher"
+      ]
     }
   },
   {
@@ -3624,6 +4219,85 @@
           "Posture": "حافظ على استقامة ظهرك، وتجنب هز كتفيك أو تقريب ظهرك."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "upper_body",
+        "core",
+        "neck"
+      ],
+      "primaryMuscleTags": [
+        "back"
+      ],
+      "secondaryMuscleTags": [
+        "shoulders",
+        "biceps",
+        "core",
+        "neck"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "endurance",
+        "return_to_training",
+        "posture"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "supported_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "rower"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym"
+      ],
+      "jointTags": [
+        "shoulder",
+        "elbow",
+        "wrist",
+        "spine",
+        "neck"
+      ],
+      "injuryCautions": [
+        "shoulder_pain_caution",
+        "elbow_pain_caution",
+        "wrist_pain_caution",
+        "back_pain_caution",
+        "neck_pain_caution"
+      ],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "activation"
+      ]
     }
   },
   {
@@ -4050,6 +4724,80 @@
           "Posture": "ضمان استقرار الحوض والتماثل الجيد للجزء العلوي من الجسم."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "upper_body"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves",
+        "back"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "endurance",
+        "return_to_training",
+        "posture"
+      ],
+      "mechanics": [
+        "compound",
+        "unilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "supported_stable",
+      "laterality": "unilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "frontal"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "rower"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle"
+      ],
+      "injuryCautions": [
+        "knee_pain_caution",
+        "hip_pain_caution",
+        "ankle_pain_caution"
+      ],
+      "difficultyTag": "intermediate",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "activation"
+      ]
     }
   },
   {
@@ -4491,6 +5239,75 @@
           "Posture": "أبقِ كتفيك منخفضتين، وجسمك منشغلًا، وتجنب توتر الرقبة."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training",
+        "posture"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "supported_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "bike"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle"
+      ],
+      "injuryCautions": [],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "activation"
+      ]
     }
   },
   {
@@ -4923,6 +5740,84 @@
           "Posture": "الظهر مستقيم، عضلات البطن مشدودة، لا تسحب المقود."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "power",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "supported_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning",
+        "power"
+      ],
+      "equipmentTags": [
+        "bike"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym",
+        "outdoor"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle"
+      ],
+      "injuryCautions": [
+        "knee_pain_caution",
+        "hip_pain_caution",
+        "ankle_pain_caution",
+        "impact_caution",
+        "tendon_load_caution"
+      ],
+      "difficultyTag": "intermediate",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "finisher"
+      ]
     }
   },
   {
@@ -5356,6 +6251,75 @@
           "Posture": "الحفاظ على وضعية ثابتة على الرغم من اختلاف شدتها."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "supported_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "bike"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle"
+      ],
+      "injuryCautions": [],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "finisher"
+      ]
     }
   },
   {
@@ -5789,6 +6753,82 @@
           "Posture": "حافظ على ثبات وقوة الجذع، وتجنب الحركات غير المرغوب فيها."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "core"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves",
+        "lower_back"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "hypertrophy",
+        "endurance",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "supported_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "bike"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle",
+        "spine"
+      ],
+      "injuryCautions": [
+        "knee_pain_caution",
+        "hip_pain_caution",
+        "ankle_pain_caution",
+        "back_pain_caution"
+      ],
+      "difficultyTag": "intermediate",
+      "programRoles": [
+        "cardio",
+        "conditioning"
+      ]
     }
   },
   {
@@ -6223,6 +7263,81 @@
           "Posture": "الحفاظ على محاذاة جيدة بين الرأس والجذع والحوض، وتجنب الكعب."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "core",
+        "neck"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves",
+        "lower_back",
+        "neck"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "free_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "treadmill"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym",
+        "outdoor"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle",
+        "spine",
+        "neck"
+      ],
+      "injuryCautions": [],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "activation"
+      ]
     }
   },
   {
@@ -6662,6 +7777,90 @@
           "Posture": "محاذاة الرأس والجذع والحوض، وتجنب الإفراط في الكعب."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "core",
+        "neck"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves",
+        "core",
+        "neck"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "power",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "free_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning",
+        "power"
+      ],
+      "equipmentTags": [
+        "treadmill"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym",
+        "outdoor"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle",
+        "neck"
+      ],
+      "injuryCautions": [
+        "knee_pain_caution",
+        "hip_pain_caution",
+        "ankle_pain_caution",
+        "neck_pain_caution",
+        "impact_caution",
+        "tendon_load_caution"
+      ],
+      "difficultyTag": "intermediate",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "finisher"
+      ]
     }
   },
   {
@@ -7102,6 +8301,81 @@
           "Posture": "حافظ على خطوة ثابتة وسلسة دون توتر مفرط."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "core",
+        "neck"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves",
+        "core",
+        "neck"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "free_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "treadmill"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym",
+        "outdoor"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle",
+        "neck"
+      ],
+      "injuryCautions": [],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "finisher"
+      ]
     }
   },
   {
@@ -7565,6 +8839,82 @@
           "Posture": "حافظ على وضعية مستقيمة وتجنب الانحناء بشكل مفرط."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "core",
+        "neck"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves",
+        "lower_back",
+        "neck"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "endurance",
+        "weight_loss",
+        "return_to_training",
+        "posture"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "free_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "treadmill"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym",
+        "outdoor"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle",
+        "spine",
+        "neck"
+      ],
+      "injuryCautions": [],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "activation"
+      ]
     }
   },
   {
@@ -8041,6 +9391,85 @@
           "Posture": "العودة مستقيمة، الأساسية مشغولة، والنظر إلى الأمام."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "upper_body",
+        "core",
+        "neck"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves",
+        "back",
+        "shoulders",
+        "core",
+        "neck"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "free_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "elliptical"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle",
+        "shoulder",
+        "elbow",
+        "spine",
+        "neck"
+      ],
+      "injuryCautions": [],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "activation"
+      ]
     }
   },
   {
@@ -8508,6 +9937,90 @@
           "Posture": "ابق مغطى، وتجنب الحركات غير المرغوب فيها."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "upper_body",
+        "core",
+        "neck"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves",
+        "shoulders",
+        "core",
+        "neck"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "power",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "free_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning",
+        "power"
+      ],
+      "equipmentTags": [
+        "elliptical"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym",
+        "outdoor"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle",
+        "shoulder",
+        "elbow",
+        "neck"
+      ],
+      "injuryCautions": [
+        "impact_caution",
+        "tendon_load_caution"
+      ],
+      "difficultyTag": "intermediate",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "finisher"
+      ]
     }
   },
   {
@@ -8976,6 +10489,84 @@
           "Posture": "الحفاظ على محاذاة جيدة للجذع وحركة متناظرة."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "upper_body",
+        "core",
+        "neck"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves",
+        "shoulders",
+        "core",
+        "neck"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "free_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "elliptical"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle",
+        "shoulder",
+        "elbow",
+        "neck"
+      ],
+      "injuryCautions": [],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "finisher"
+      ]
     }
   },
   {
@@ -9417,6 +11008,78 @@
           "Posture": "جذع مستقر، وتجنب إمالة الحوض."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "core"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves",
+        "core"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "return_to_training",
+        "posture"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "free_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "elliptical"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle"
+      ],
+      "injuryCautions": [
+        "knee_pain_caution",
+        "hip_pain_caution",
+        "ankle_pain_caution"
+      ],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning"
+      ]
     }
   },
   {
@@ -9865,6 +11528,91 @@
           "Posture": "اشغل عضلات بطنك، وحافظ على استقامة ظهرك، ولا تسحب بذراعيك فقط."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "upper_body",
+        "core",
+        "neck"
+      ],
+      "primaryMuscleTags": [
+        "glutes"
+      ],
+      "secondaryMuscleTags": [
+        "back",
+        "shoulders",
+        "triceps",
+        "core",
+        "neck"
+      ],
+      "movementPatterns": [
+        "pull_vertical",
+        "cardio"
+      ],
+      "movementAngles": [
+        "vertical_pull",
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "free_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "sagittal"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "skierg"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym"
+      ],
+      "jointTags": [
+        "hip",
+        "shoulder",
+        "elbow",
+        "wrist",
+        "spine",
+        "neck"
+      ],
+      "injuryCautions": [
+        "hip_pain_caution",
+        "shoulder_pain_caution",
+        "elbow_pain_caution",
+        "wrist_pain_caution",
+        "back_pain_caution",
+        "neck_pain_caution"
+      ],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "activation"
+      ]
     }
   },
   {
@@ -10311,6 +12059,89 @@
           "Posture": "حافظ على ثبات الجذع، ولا تسحب بالذراعين فقط."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "upper_body",
+        "core",
+        "neck"
+      ],
+      "primaryMuscleTags": [
+        "glutes"
+      ],
+      "secondaryMuscleTags": [
+        "back",
+        "shoulders",
+        "triceps",
+        "core",
+        "neck"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "power",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "free_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning",
+        "power"
+      ],
+      "equipmentTags": [
+        "skierg"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym",
+        "outdoor"
+      ],
+      "jointTags": [
+        "hip",
+        "shoulder",
+        "elbow",
+        "wrist",
+        "spine",
+        "neck"
+      ],
+      "injuryCautions": [
+        "impact_caution",
+        "tendon_load_caution"
+      ],
+      "difficultyTag": "intermediate",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "finisher"
+      ]
     }
   },
   {
@@ -10758,6 +12589,83 @@
           "Posture": "حافظ على استقامة ظهرك، مع شد عضلات بطنك طوال التمرين."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "upper_body",
+        "core",
+        "neck"
+      ],
+      "primaryMuscleTags": [
+        "glutes"
+      ],
+      "secondaryMuscleTags": [
+        "back",
+        "shoulders",
+        "triceps",
+        "core",
+        "neck"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "free_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "skierg"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym"
+      ],
+      "jointTags": [
+        "hip",
+        "shoulder",
+        "elbow",
+        "wrist",
+        "spine",
+        "neck"
+      ],
+      "injuryCautions": [],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "finisher"
+      ]
     }
   },
   {
@@ -11199,6 +13107,78 @@
           "Posture": "قم بشد عضلات بطنك، وحافظ على محاذاة الوركين وثباتهما."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "upper_body",
+        "core",
+        "neck"
+      ],
+      "primaryMuscleTags": [
+        "glutes"
+      ],
+      "secondaryMuscleTags": [
+        "back",
+        "shoulders",
+        "triceps",
+        "core",
+        "neck"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "posture"
+      ],
+      "mechanics": [
+        "compound",
+        "unilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "balance_demand",
+      "laterality": "unilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "frontal"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "skierg"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym"
+      ],
+      "jointTags": [
+        "hip",
+        "shoulder",
+        "elbow",
+        "wrist",
+        "neck"
+      ],
+      "injuryCautions": [],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning"
+      ]
     }
   },
   {
@@ -11696,6 +13676,87 @@
           "Posture": "الجذع مُغمد، وحركة متناظرة، وتجنب السحب بالذراعين فقط."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "upper_body",
+        "core",
+        "neck"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves",
+        "chest",
+        "back",
+        "lower_back",
+        "shoulders",
+        "core",
+        "neck"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "supported_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "bike"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle",
+        "shoulder",
+        "elbow",
+        "spine",
+        "neck"
+      ],
+      "injuryCautions": [],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "activation"
+      ]
     }
   },
   {
@@ -12170,6 +14231,97 @@
           "Posture": "كن قوياً ومستقراً، وتجنب الهزات."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "upper_body",
+        "core",
+        "neck"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "glutes",
+        "calves",
+        "chest",
+        "shoulders",
+        "triceps",
+        "core",
+        "neck"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "power",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "supported_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning",
+        "power"
+      ],
+      "equipmentTags": [
+        "bike"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym",
+        "outdoor"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle",
+        "shoulder",
+        "elbow",
+        "neck"
+      ],
+      "injuryCautions": [
+        "knee_pain_caution",
+        "hip_pain_caution",
+        "ankle_pain_caution",
+        "shoulder_pain_caution",
+        "elbow_pain_caution",
+        "neck_pain_caution",
+        "impact_caution",
+        "tendon_load_caution"
+      ],
+      "difficultyTag": "intermediate",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "finisher"
+      ]
     }
   },
   {
@@ -12652,6 +14804,84 @@
           "Posture": "الجذع مُغمد، وتماثل حركات الذراع/الساق."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "upper_body",
+        "core",
+        "neck"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "glutes",
+        "calves",
+        "chest",
+        "shoulders",
+        "core",
+        "neck"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "supported_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "bike"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle",
+        "shoulder",
+        "elbow",
+        "neck"
+      ],
+      "injuryCautions": [],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "finisher"
+      ]
     }
   },
   {
@@ -13086,6 +15316,77 @@
           "Posture": "الظهر مستقيم، عضلات البطن منشغلة، تجنب التأرجح."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "upper_body",
+        "core",
+        "neck"
+      ],
+      "primaryMuscleTags": [
+        "back"
+      ],
+      "secondaryMuscleTags": [
+        "shoulders",
+        "triceps",
+        "core",
+        "neck"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "conditioning",
+        "posture"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "supported_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "bike"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym"
+      ],
+      "jointTags": [
+        "shoulder",
+        "elbow",
+        "wrist",
+        "spine",
+        "neck"
+      ],
+      "injuryCautions": [],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning"
+      ]
     }
   },
   {
@@ -13527,6 +15828,78 @@
           "Posture": "الإغماد النشط، تجنب الحركات الطفيلية للجذع."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "endurance",
+        "conditioning",
+        "return_to_training",
+        "posture"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "ergometer"
+      ],
+      "stabilityProfile": "supported_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "local_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "bike"
+      ],
+      "equipmentTier": "cardio_machine",
+      "contexts": [
+        "gym"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle"
+      ],
+      "injuryCautions": [
+        "knee_pain_caution",
+        "hip_pain_caution",
+        "ankle_pain_caution"
+      ],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning"
+      ]
     }
   },
   {
@@ -13961,6 +16334,79 @@
           "Posture": "الظهر مستقيم، منشغل، لا تعتمد بشكل مفرط على الذراعين."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "core"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves",
+        "lower_back",
+        "core"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "unknown_resistance"
+      ],
+      "stabilityProfile": "free_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "unknown_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "unspecified"
+      ],
+      "equipmentTier": "unknown",
+      "contexts": [
+        "gym",
+        "home"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle",
+        "spine"
+      ],
+      "injuryCautions": [],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "activation"
+      ]
     }
   },
   {
@@ -14393,6 +16839,87 @@
           "Posture": "جذع مستقر، نظرة مستقيمة، لا ارتداد مفرط."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "core"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves",
+        "core"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "power",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "unknown_resistance"
+      ],
+      "stabilityProfile": "free_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "unknown_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning",
+        "power"
+      ],
+      "equipmentTags": [
+        "unspecified"
+      ],
+      "equipmentTier": "unknown",
+      "contexts": [
+        "outdoor",
+        "gym",
+        "home"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle"
+      ],
+      "injuryCautions": [
+        "knee_pain_caution",
+        "hip_pain_caution",
+        "ankle_pain_caution",
+        "impact_caution",
+        "tendon_load_caution"
+      ],
+      "difficultyTag": "intermediate",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "finisher"
+      ]
     }
   },
   {
@@ -14826,6 +17353,78 @@
           "Posture": "جذع مستقيم، لا يوجد دعم مفرط على الذراعين."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "core"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves",
+        "core"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "unknown_resistance"
+      ],
+      "stabilityProfile": "free_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "unknown_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "unspecified"
+      ],
+      "equipmentTier": "unknown",
+      "contexts": [
+        "gym",
+        "home"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle"
+      ],
+      "injuryCautions": [],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "finisher"
+      ]
     }
   },
   {
@@ -15260,6 +17859,74 @@
           "Posture": "محاذاة الوركين، النواة النشطة، تجنب الاختلالات الجانبية."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "core"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves",
+        "core"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "posture"
+      ],
+      "mechanics": [
+        "compound",
+        "unilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "unknown_resistance"
+      ],
+      "stabilityProfile": "balance_demand",
+      "laterality": "unilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "unknown_load"
+      ],
+      "movementPlane": [
+        "frontal"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "unspecified"
+      ],
+      "equipmentTier": "unknown",
+      "contexts": [
+        "gym",
+        "home"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle"
+      ],
+      "injuryCautions": [],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning"
+      ]
     }
   },
   {
@@ -15701,6 +18368,79 @@
           "Posture": "الظهر مستقيم، منشغل بشكل أساسي، لا تنهار على ذراعيك."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "core"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves",
+        "lower_back",
+        "core"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "unknown_resistance"
+      ],
+      "stabilityProfile": "free_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "unknown_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "unspecified"
+      ],
+      "equipmentTier": "unknown",
+      "contexts": [
+        "gym",
+        "home"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle",
+        "spine"
+      ],
+      "injuryCautions": [],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "activation"
+      ]
     }
   },
   {
@@ -16140,6 +18880,84 @@
           "Posture": "جذع مُغمد، لا يوجد تأرجح للأمام أو قبضة ذراع مفرطة."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "core"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves",
+        "core"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "power",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "unknown_resistance"
+      ],
+      "stabilityProfile": "free_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "unknown_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning",
+        "power"
+      ],
+      "equipmentTags": [
+        "unspecified"
+      ],
+      "equipmentTier": "unknown",
+      "contexts": [
+        "outdoor",
+        "gym",
+        "home"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle"
+      ],
+      "injuryCautions": [
+        "impact_caution",
+        "tendon_load_caution"
+      ],
+      "difficultyTag": "intermediate",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "finisher"
+      ]
     }
   },
   {
@@ -16580,6 +19398,81 @@
           "Posture": "ظهر مستقيم، عضلات بطن مشدودة، لا يوجد ميل للحوض."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "upper_body",
+        "core"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves",
+        "back",
+        "core"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "endurance",
+        "weight_loss",
+        "conditioning",
+        "return_to_training"
+      ],
+      "mechanics": [
+        "compound",
+        "bilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "unknown_resistance"
+      ],
+      "stabilityProfile": "free_stable",
+      "laterality": "bilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "unknown_load"
+      ],
+      "movementPlane": [
+        "mixed_plane"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "unspecified"
+      ],
+      "equipmentTier": "unknown",
+      "contexts": [
+        "gym",
+        "home"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle",
+        "spine"
+      ],
+      "injuryCautions": [],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning",
+        "finisher"
+      ]
     }
   },
   {
@@ -17014,6 +19907,78 @@
           "Posture": "قلب ثابت، وركان محاذيان، وتحكم في الحوض."
         }
       }
+    },
+    "programmingTags": {
+      "version": "exercise-tags-v2",
+      "bodyRegions": [
+        "lower_body",
+        "core"
+      ],
+      "primaryMuscleTags": [
+        "quadriceps"
+      ],
+      "secondaryMuscleTags": [
+        "hamstrings",
+        "glutes",
+        "calves",
+        "core"
+      ],
+      "movementPatterns": [
+        "cardio"
+      ],
+      "movementAngles": [
+        "conditioning"
+      ],
+      "objectiveTags": [
+        "strength",
+        "posture"
+      ],
+      "mechanics": [
+        "compound",
+        "unilateral",
+        "cardio",
+        "dynamic"
+      ],
+      "jointAction": "cardio",
+      "selectionRole": "conditioning",
+      "resistanceProfile": [
+        "unknown_resistance"
+      ],
+      "stabilityProfile": "balance_demand",
+      "laterality": "unilateral",
+      "kineticChain": "not_applicable",
+      "loadPlacement": [
+        "unknown_load"
+      ],
+      "movementPlane": [
+        "frontal"
+      ],
+      "coachIntentTags": [
+        "conditioning"
+      ],
+      "equipmentTags": [
+        "unspecified"
+      ],
+      "equipmentTier": "unknown",
+      "contexts": [
+        "gym",
+        "home"
+      ],
+      "jointTags": [
+        "knee",
+        "hip",
+        "ankle"
+      ],
+      "injuryCautions": [
+        "knee_pain_caution",
+        "hip_pain_caution",
+        "ankle_pain_caution"
+      ],
+      "difficultyTag": "all",
+      "programRoles": [
+        "cardio",
+        "conditioning"
+      ]
     }
   }
 ]

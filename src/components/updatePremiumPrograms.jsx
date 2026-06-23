@@ -7,10 +7,11 @@ import {
 import {
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter,
 } from "@chakra-ui/react";
-import { useNavigate } from "react-router-dom";
+
 import { db } from "../firebaseConfig";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { MdOutlineAccessTime, MdFitnessCenter } from "react-icons/md";
+import i18n from "../i18n/index";
 
 // ---------- Helpers ----------
 function formatPrice(n) {
@@ -64,12 +65,12 @@ function ProgramDetailsModal({ isOpen, onClose, program, onBuy }) {
             {level && <Badge>{level}</Badge>}
             {location && <Badge variant="subtle">{location}</Badge>}
             {sessions && (
-              <Badge variant="outline"><MdFitnessCenter style={{ marginRight: 4 }} /> {sessions} / sem</Badge>
+              <Badge variant="outline"><MdFitnessCenter style={{ marginRight: 4 }} /> {sessions}{i18n.t("units.per_week_short", "/ sem")}</Badge>
             )}
             {durMin && (
-              <Badge variant="outline"><MdOutlineAccessTime style={{ marginRight: 4 }} /> {durMin} min</Badge>
+              <Badge variant="outline"><MdOutlineAccessTime style={{ marginRight: 4 }} /> {durMin}{i18n.t("units.min", "min")}</Badge>
             )}
-            {durWeeks && <Badge variant="outline">{durWeeks} sem</Badge>}
+            {durWeeks && <Badge variant="outline">{durWeeks}{i18n.t("units.weeks_short", "sem")}</Badge>}
           </HStack>
 
           {/* Prix */}
@@ -97,7 +98,7 @@ function ProgramDetailsModal({ isOpen, onClose, program, onBuy }) {
           {/* Matériel */}
           {materiel.length > 0 && (
             <>
-              <Heading size="sm" mb={2}>Matériel requis</Heading>
+              <Heading size="sm" mb={2}>{i18n.t("auto.updatePremiumPrograms.materiel_requis", "Matériel requis")}</Heading>
               <HStack spacing={2} mb={4} wrap="wrap">
                 {materiel.map((m, i) => <Badge key={i} variant="subtle">{m}</Badge>)}
               </HStack>
@@ -107,7 +108,7 @@ function ProgramDetailsModal({ isOpen, onClose, program, onBuy }) {
           {/* Semaine type */}
           {Array.isArray(program.weekStructure) && program.weekStructure.length > 0 && (
             <>
-              <Heading size="sm" mb={2}>Semaine type</Heading>
+              <Heading size="sm" mb={2}>{i18n.t("auto.updatePremiumPrograms.semaine_type", "Semaine type")}</Heading>
               <Box borderWidth="1px" borderColor={border} rounded="lg" p={3} mb={4}>
                 <List spacing={2}>
                   {program.weekStructure.map((d, i) => (
@@ -126,7 +127,7 @@ function ProgramDetailsModal({ isOpen, onClose, program, onBuy }) {
           {/* Bénéfices */}
           {Array.isArray(program.benefits) && program.benefits.length > 0 && (
             <>
-              <Heading size="sm" mb={2}>Points forts</Heading>
+              <Heading size="sm" mb={2}>{i18n.t("auto.updatePremiumPrograms.points_forts", "Points forts")}</Heading>
               <List spacing={1} styleType="disc" pl={5} mb={2}>
                 {program.benefits.map((b, i) => <ListItem key={i}>{b}</ListItem>)}
               </List>
@@ -137,8 +138,8 @@ function ProgramDetailsModal({ isOpen, onClose, program, onBuy }) {
         <Divider />
         <ModalFooter>
           <HStack spacing={3}>
-            <Button variant="ghost" onClick={onClose}>Fermer</Button>
-            <Button colorScheme="blue" onClick={() => onBuy(program)}>Acheter</Button>
+            <Button variant="ghost" onClick={onClose}>{i18n.t("programView.close", "Fermer")}</Button>
+            <Button colorScheme="blue" onClick={() => onBuy(program)}>{i18n.t("actions.buy_now", "Acheter")}</Button>
           </HStack>
         </ModalFooter>
       </ModalContent>
@@ -149,11 +150,13 @@ function ProgramDetailsModal({ isOpen, onClose, program, onBuy }) {
 // ---------- Page ----------
 export default function PremiumPrograms() {
   const toast = useToast();
-  const navigate = useNavigate();
+  
 
   const cardBg = useColorModeValue("white", "gray.800");
   const border = useColorModeValue("gray.200", "gray.700");
   const pageBg = useColorModeValue("gray.50", "gray.900");
+  const descColor = useColorModeValue("gray.600", "gray.300");
+  const oldPriceColor = useColorModeValue("gray.500", "gray.400");
 
   const [programs, setPrograms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -180,7 +183,7 @@ export default function PremiumPrograms() {
         setPrograms(rows);
       } catch (err) {
         console.error(err);
-        toast({ description: "Impossible de charger les programmes premium.", status: "error" });
+        toast({ description: i18n.t("auto.updatePremiumPrograms.impossible_de_charger_les_programmes_premium", "Impossible de charger les programmes premium."), status: "error" });
       } finally {
         setLoading(false);
       }
@@ -226,7 +229,7 @@ export default function PremiumPrograms() {
     }
   };
 
-  const handleViewRoute = (prog) => navigate(`/premium/${prog.slug || prog.id}`);
+  
 
   const grid = useMemo(() => {
     if (loading) {
@@ -275,7 +278,7 @@ export default function PremiumPrograms() {
                   {pick(prog.level, prog.niveauSportif) && <Badge>{pick(prog.level, prog.niveauSportif)}</Badge>}
                   {prog.location && <Badge variant="subtle">{prog.location}</Badge>}
                   {pick(prog.sessionsPerWeek, prog.nbSeances) && (
-                    <Badge variant="outline">{pick(prog.sessionsPerWeek, prog.nbSeances)} / sem</Badge>
+                    <Badge variant="outline">{pick(prog.sessionsPerWeek, prog.nbSeances)}{i18n.t("units.per_week_short", "/ sem")}</Badge>
                   )}
                 </HStack>
 
@@ -283,7 +286,7 @@ export default function PremiumPrograms() {
                   {prog.name || prog.nomProgramme || "Programme Premium"}
                 </Heading>
 
-                <Text color={useColorModeValue("gray.600", "gray.300")} mb={4}>
+                <Text color={descColor} mb={4}>
                   {prog.shortDesc || "Programme structuré, prêt à démarrer."}
                 </Text>
 
@@ -291,7 +294,7 @@ export default function PremiumPrograms() {
                   <Box>
                     {hasPromo && promo ? (
                       <HStack spacing={2} align="baseline">
-                        {normal && <Text as="s" fontSize="md" color={useColorModeValue("gray.500", "gray.400")}>{normal}</Text>}
+                        {normal && <Text as="s" fontSize="md" color={oldPriceColor}>{normal}</Text>}
                         <Text fontWeight="bold" fontSize="xl" color="blue.400">{promo}</Text>
                       </HStack>
                     ) : (
@@ -303,12 +306,8 @@ export default function PremiumPrograms() {
 
                   <HStack>
                     {/* Ouvre le modal détails */}
-                    <Button variant="outline" borderRadius="xl" onClick={() => openModal(prog)}>
-                      Détails
-                    </Button>
-                    <Button colorScheme="blue" borderRadius="xl" onClick={() => handleBuyProgram(prog)}>
-                      Acheter
-                    </Button>
+                    <Button variant="outline" borderRadius="xl" onClick={() => openModal(prog)}>{i18n.t("programView.details", "Détails")}</Button>
+                    <Button colorScheme="blue" borderRadius="xl" onClick={() => handleBuyProgram(prog)}>{i18n.t("actions.buy_now", "Acheter")}</Button>
                   </HStack>
                 </HStack>
 
@@ -326,10 +325,8 @@ export default function PremiumPrograms() {
     <Box bg={pageBg} minH="100vh">
       <Box maxW="container.xl" mx="auto" py={{ base: 10, md: 12 }} px={{ base: 4, md: 6 }}>
         <VStack spacing={2} mb={8}>
-          <Heading size="xl" textAlign="center">Programmes Premium</Heading>
-          <Text color={useColorModeValue("gray.500", "gray.300")} textAlign="center">
-            Des programmes prêts à l’emploi, conçus par BoostYourLife.
-          </Text>
+          <Heading size="xl" textAlign="center">{i18n.t("premium.title", "Programmes Premium")}</Heading>
+          <Text color={useColorModeValue("gray.500", "gray.300")} textAlign="center">{i18n.t("auto.updatePremiumPrograms.des_programmes_prets_a_l_emploi_concus_par_boostyo", "Des programmes prêts à l’emploi, conçus par BoostYourLife.")}</Text>
         </VStack>
 
         {grid}
@@ -344,4 +341,3 @@ export default function PremiumPrograms() {
     </Box>
   );
 }
-

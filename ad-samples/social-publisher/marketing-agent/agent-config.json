@@ -1,0 +1,447 @@
+{
+  "version": "1.0.0",
+  "brand": {
+    "name": "BoostYourLife",
+    "positioning": "plateforme premium tout-en-un pour coachs sportifs, nutritionnistes, dieteticiens, salles de sport et structures de coaching",
+    "vision": "l'Apple du fitness coaching",
+    "primaryGoal": "maximiser les essais gratuits de 14 jours",
+    "language": "fr-FR"
+  },
+  "targets": [
+    "coachs sportifs independants",
+    "coachs online",
+    "dieteticiens",
+    "nutritionnistes",
+    "salles de sport",
+    "studios premium",
+    "structures de coaching"
+  ],
+  "platforms": {
+    "instagram": {
+      "status": "active_if_meta_connected",
+      "priority": 1,
+      "formats": ["reel", "carousel", "story", "post"],
+      "notes": ["media video/image doit etre accessible via URL HTTPS publique pour publication API"]
+    },
+    "facebook": {
+      "status": "active_if_meta_connected",
+      "priority": 2,
+      "formats": ["reel", "post", "carousel_like_post"],
+      "notes": ["adapter le ton en plus B2B et explicatif"]
+    },
+    "tiktok": {
+      "status": "prepare_until_review_approved",
+      "priority": 3,
+      "formats": ["short_video"],
+      "notes": ["publier seulement apres validation app + scopes user.info.basic et video.publish"]
+    }
+  },
+  "agents": [
+    {
+      "id": "trend_scout",
+      "name": "Trend Scout",
+      "runs": "daily",
+      "responsibilities": [
+        "analyser trends social media",
+        "analyser hooks fitness/business/coaching",
+        "surveiller concurrents sans copier",
+        "identifier sons, formats, montages et sujets adaptables"
+      ],
+      "outputs": ["daily_trend_brief", "opportunity_list"]
+    },
+    {
+      "id": "strategy_lead",
+      "name": "Strategy Lead",
+      "runs": "daily",
+      "responsibilities": [
+        "choisir l'angle du jour selon calendrier",
+        "relier l'angle a un objectif de conversion",
+        "definir persona, probleme, preuve et CTA"
+      ],
+      "outputs": ["content_brief"]
+    },
+    {
+      "id": "creative_director",
+      "name": "Creative Director",
+      "runs": "per_content",
+      "responsibilities": [
+        "garantir rendu premium",
+        "eviter rendu IA generique",
+        "valider realisme, mouvement, naturel et credibilite"
+      ],
+      "outputs": ["quality_score", "visual_direction"]
+    },
+    {
+      "id": "scriptwriter",
+      "name": "Scriptwriter",
+      "runs": "per_content",
+      "responsibilities": [
+        "ecrire hooks",
+        "ecrire scripts voix off",
+        "preparer captions, sous-titres, hashtags et CTA",
+        "creer variantes A/B"
+      ],
+      "outputs": ["scripts", "captions", "hashtags", "cta_variants"]
+    },
+    {
+      "id": "video_producer",
+      "name": "Video Producer",
+      "runs": "per_video",
+      "responsibilities": [
+        "preparer scenes realistes",
+        "assembler assets produit et lifestyle",
+        "exporter formats verticaux",
+        "verifier lisibilite et rythme"
+      ],
+      "outputs": ["storyboard", "shot_list", "video_assets"]
+    },
+    {
+      "id": "publisher",
+      "name": "Publisher",
+      "runs": "scheduled",
+      "responsibilities": [
+        "publier selon calendrier",
+        "respecter statut connecteurs",
+        "bloquer si contenu non pret ou plateforme non approuvee",
+        "journaliser chaque publication"
+      ],
+      "outputs": ["publication_log"]
+    },
+    {
+      "id": "analyst",
+      "name": "Analyst",
+      "runs": "daily_and_weekly",
+      "responsibilities": [
+        "mesurer performances",
+        "identifier hooks et formats gagnants",
+        "produire hypotheses d'amelioration",
+        "alimenter la memoire d'experiences"
+      ],
+      "outputs": ["performance_report", "learning_notes"]
+    },
+    {
+      "id": "lead_qualifier",
+      "name": "Lead Qualifier",
+      "runs": "daily",
+      "responsibilities": [
+        "detecter leads qualifies",
+        "appliquer politique anti-spam",
+        "proposer ou envoyer un premier DM seulement si eligible"
+      ],
+      "outputs": ["qualified_leads", "dm_log"]
+    }
+  ],
+  "contentAngles": [
+    "suivi client disperse",
+    "gain de temps quotidien",
+    "relance prospect oubliee",
+    "retention client",
+    "nutrition entre deux rendez-vous",
+    "professionnalisation du coaching",
+    "pilotage club ou studio",
+    "remplacement Excel Sheets PDF WhatsApp",
+    "preuve produit courte"
+  ],
+  "qualityGate": {
+    "minimumScore": 80,
+    "calendarPrinciple": "Le calendrier editorial est une contrainte de diffusion, pas une obligation de publier un contenu mediocre. Si le contenu ne depasse pas les seuils, l'agent regenere, change l'angle, change le hook, change le storytelling, change le CTA ou reporte.",
+    "seniorMarketingQuestions": [
+      "Pourquoi quelqu'un regarderait cette video ?",
+      "Pourquoi quelqu'un resterait jusqu'a la fin ?",
+      "Pourquoi quelqu'un cliquerait ?",
+      "Pourquoi quelqu'un testerait BoostYourLife ?",
+      "Quel probleme reel est resolu ?",
+      "Quelle emotion est declenchee ?",
+      "Quel benefice est percu en moins de 3 secondes ?"
+    ],
+    "conversionGate": {
+      "minimumScore": 80,
+      "hardBlock": true,
+      "criteria": [
+        "hook",
+        "emotion",
+        "preuve",
+        "CTA",
+        "storytelling",
+        "differenciation"
+      ],
+      "primaryKpi": "free_trial_starts",
+      "secondaryKpi": "activation_day_7",
+      "activationSignals": [
+        "client_created",
+        "program_created",
+        "program_assigned",
+        "client_login"
+      ]
+    },
+    "emotionPriority": [
+      "emotion",
+      "identification",
+      "probleme reel",
+      "storytelling",
+      "demonstration produit"
+    ],
+    "productTimingRule": "Le produit ne doit jamais etre montre avant que le probleme soit ressenti.",
+    "criteria": [
+      {
+        "id": "human_reality",
+        "weight": 20,
+        "description": "situation credible, humaine, concrete"
+      },
+      {
+        "id": "premium_branding",
+        "weight": 20,
+        "description": "esthetique sobre, moderne, premium"
+      },
+      {
+        "id": "conversion_clarity",
+        "weight": 20,
+        "description": "probleme, solution et CTA comprehensibles"
+      },
+      {
+        "id": "non_generic_ai",
+        "weight": 20,
+        "description": "pas de rendu IA evident, pas de fond photo texte"
+      },
+      {
+        "id": "platform_fit",
+        "weight": 20,
+        "description": "format adapte au reseau et au calendrier"
+      },
+      {
+        "id": "creative_diversity",
+        "weight": 20,
+        "description": "angle, sujet, point de vue, scene, voix et mecanique differents des publications recentes"
+      }
+    ],
+    "hardBlocks": [
+      "faux temoignage",
+      "promesse de resultat garanti",
+      "claim medical",
+      "copie directe concurrent",
+      "spam",
+      "contenu IA cheap",
+      "absence de CTA",
+      "story identique au reel",
+      "reuse du meme media dans les 72 heures",
+      "meme media ou meme copy deja publie sur la meme plateforme",
+      "meme hook ou meme angle publie recemment",
+      "strategie creative trop proche d'un contenu publie dans les 72 heures",
+      "conversion_score_below_minimum",
+      "contenu IA generique",
+      "voix robotique",
+      "avatar artificiel evident",
+      "hook vu partout",
+      "storytelling artificiel",
+      "promesse irrealiste"
+    ],
+    "diversityRules": {
+      "recentWindowHours": 72,
+      "requireCreativeStrategy": true,
+      "requiredFields": [
+        "angle",
+        "pillar",
+        "audience",
+        "formatFamily",
+        "humanScenario",
+        "pointOfView",
+        "shotPlan",
+        "voiceDirection",
+        "interactionMechanic",
+        "primaryHypothesis"
+      ],
+      "noRepeatWithinWindow": [
+        "variant",
+        "media",
+        "caption",
+        "hook",
+        "angle",
+        "storyMechanic"
+      ],
+      "videoStandard": [
+        "plans varies",
+        "mouvement reel",
+        "situation humaine credible",
+        "voix naturelle",
+        "pas de fond photo texte comme format principal",
+        "preuve produit seulement quand elle sert la scene"
+      ]
+    }
+  },
+  "decisionRules": {
+    "automatic": [
+      "veille quotidienne",
+      "generation de briefs",
+      "generation de scripts et captions",
+      "preparation de stories et carrousels",
+      "publication de contenu conforme au calendrier si connecteurs prets",
+      "analyse des performances"
+    ],
+    "requiresValidation": [
+      "budget publicitaire",
+      "changement d'offre ou prix",
+      "outil payant couteux",
+      "DM a volume eleve",
+      "claim commercial fort",
+      "changement majeur de positionnement"
+    ]
+  },
+  "notifications": {
+    "onRealPublish": true,
+    "prefix": "PUBLICATION BYL",
+    "include": [
+      "platform",
+      "format",
+      "contentTitle",
+      "publishedAt",
+      "postUrlOrProviderId",
+      "quickCheck"
+    ],
+    "doNotUsePrefixForPreparedOnly": true
+  },
+  "kpis": [
+    "free_trial_starts",
+    "activation_day_7",
+    "client_created",
+    "program_created",
+    "program_assigned",
+    "client_login",
+    "landing_page_clicks",
+    "profile_visits",
+    "qualified_dms",
+    "comments_from_target_profiles",
+    "saves",
+    "shares",
+    "video_retention_3s",
+    "video_completion_rate",
+    "cost_per_asset"
+  ],
+  "memory": {
+    "marketingMemory": "./marketing-memory.json",
+    "growthMemory": "./growth-memory.json",
+    "marketingKnowledge": "./marketing-knowledge.json",
+    "proofLibrary": "./proof-library.json",
+    "objectionDatabase": "./objection-database.json",
+    "brandMemory": "./brand-memory.json",
+    "killSwitch": "./kill-switch.json",
+    "nightlyReports": "./nightly-reports",
+    "marketingFields": [
+      "hook",
+      "theme",
+      "angle",
+      "cta",
+      "emotion",
+      "performance",
+      "platform",
+      "date",
+      "audience",
+      "audienceSegment",
+      "activationDay7",
+      "brandScore",
+      "fatigueScore",
+      "experimentBucket"
+    ],
+    "rules": [
+      "consulter la memoire avant toute creation",
+      "eviter repetitions, recyclages et saturation d'un angle",
+      "mettre a jour growth_memory chaque nuit avec les meilleurs hooks, videos, CTA, formats, horaires, emotions et audiences",
+      "relier chaque contenu aux essais gratuits puis a l'activation J+7",
+      "centraliser hooks, CTA, resultats, audiences, objections, preuves, tests et performances"
+    ]
+  },
+  "audienceSegments": {
+    "coach_independant": {
+      "pain": ["perte de temps", "Excel", "WhatsApp"],
+      "rule": "ne pas melanger ce message avec nutritionniste ou salle"
+    },
+    "nutritionniste": {
+      "pain": ["suivi alimentaire", "plans nutritionnels", "adherence"],
+      "rule": "parler nutrition et adherence, pas gestion equipe"
+    },
+    "salle_de_sport": {
+      "pain": ["gestion equipe", "suivi coachs", "standardisation"],
+      "rule": "parler structure et process, pas coach solo"
+    }
+  },
+  "fatigueScore": {
+    "inputs": ["frequence_utilisation", "baisse_ctr", "baisse_watch_time", "baisse_conversion", "baisse_activation"],
+    "pauseThreshold": 70
+  },
+  "brandScore": {
+    "dimensions": ["premium", "serieux", "innovant", "fiable"]
+  },
+  "killSwitch": {
+    "autoDisablePublishingOn": [
+      "api_bug",
+      "bad_prompt",
+      "weird_generation",
+      "spam_behavior",
+      "incoherent_publication"
+    ]
+  },
+  "experimentationPolicy": {
+    "provenShare": 0.7,
+    "optimizationShare": 0.2,
+    "experimentShare": 0.1,
+    "falseSuccessRule": "un contenu avec beaucoup de vues mais sans essais ou sans activation est un echec"
+  },
+  "trendPolicy": {
+    "trendInspiredShare": 0.8,
+    "originalConceptShare": 0.2,
+    "measureOriginalConceptsSeparately": true
+  },
+  "dmInterestScore": {
+    "minimumScore": 15,
+    "weights": {
+      "story_view": 1,
+      "profile_click": 2,
+      "comment": 3,
+      "story_reply": 4,
+      "site_visit": 5,
+      "multi_day_return": 6,
+      "coach_identified": 8,
+      "nutritionist_identified": 8,
+      "gym_identified": 10
+    },
+    "hardRules": [
+      "DM autorise uniquement si score >= 15",
+      "aucun DM precedent recent"
+    ]
+  },
+  "cadence": {
+    "dailyTrendAudit": "08:00 Europe/Paris",
+    "morningProductionPrep": "08:00 Europe/Paris - analyser la veille, les stats, les trends et preparer tous les contenus du jour avant les publications",
+    "publicationMode": "calendar_slots",
+    "publicationRule": "ne publier que si le calendrier editorial prevoit un contenu pour le jour, la plateforme et le creneau concernes",
+    "dailyCreationRule": "chaque creneau doit partir d'un nouveau media et d'une nouvelle copy; ne jamais republier le meme contenu sur la meme plateforme",
+    "publicationSlots": [
+      "lundi 09:15 Facebook",
+      "lundi 18:30 Instagram stories/reel",
+      "lundi 19:45 TikTok si approuve",
+      "mardi 09:30 Facebook",
+      "mardi 13:15 Instagram carrousel",
+      "mardi 18:30 stories",
+      "mercredi 09:15 Facebook",
+      "mercredi 12:00 Instagram contenu fort",
+      "mercredi 19:00 stories",
+      "jeudi 09:00 Facebook",
+      "jeudi 12:30 Instagram reel/demo",
+      "jeudi 19:30 TikTok si approuve",
+      "vendredi 09:30 Facebook",
+      "vendredi 12:15 Instagram carrousel/preuve",
+      "vendredi 18:30 stories",
+      "samedi 10:30 stories legeres",
+      "samedi 19:30 TikTok recyclage si approuve",
+      "dimanche 13:00 TikTok test si approuve",
+      "dimanche 20:30 story planning"
+    ],
+    "weeklyReview": "vendredi apres publication",
+    "monthlyReview": "dernier jour du mois"
+  },
+  "files": {
+    "calendar": "../CONTENT_CALENDAR.md",
+    "campaign": "../campaigns/byl-coach-ugc.json",
+    "dmPolicy": "./DM_POLICY.md",
+    "learningLog": "./learning-log.jsonl"
+  }
+}

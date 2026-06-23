@@ -1,10 +1,11 @@
-/* eslint-disable react/prop-types */
+ 
 // src/components/NutritionRationPage.jsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Heading,
   Text,
+  Grid,
   HStack,
   Button,
   Badge,
@@ -13,8 +14,6 @@ import {
   CardBody,
   useToast,
   Spacer,
-  IconButton,
-  Tooltip,
   Stack,
   Wrap,
   WrapItem,
@@ -28,7 +27,7 @@ import { doc, onSnapshot, updateDoc, serverTimestamp, getDoc } from "firebase/fi
 import { db } from "../firebaseConfig";
 import { useAuth } from "../AuthContext.jsx";
 import {
-  buildNutritionContextTitle,
+  
   computeNutritionNeeds,
   computeMicronutrientTargets,
   normalizeDietList,
@@ -45,23 +44,15 @@ import AppLoading from "./ui/AppLoading";
 import { notify } from "../utils/notify";
 import { generateValidatedAiNutritionPlan } from "../utils/nutritionAiService";
 import { getClientNutritionFeedbackHistory } from "../utils/nutritionFeedbackService";
+import { canUseCustomBranding } from "../utils/proPlanAccess";
 
 import RationManualEditor from "./RationManualEditor.jsx";
 import RationAutoGenerator from "./RationAutoGenerator.jsx";
 import { useNutritionTheme } from "../styles/nutritionTheme";
+import NutritionWorkflowBar from "./nutrition/NutritionWorkflowBar.jsx";
 
-import { DownloadIcon } from "@chakra-ui/icons";
-
-/* ✅ PDF (React-PDF) */
-import {
-  pdf,
-  Document,
-  Page,
-  View,
-  Text as PdfText,
-  Image as PdfImage,
-  StyleSheet,
-} from "@react-pdf/renderer";
+import i18n from "../i18n/index";
+import { navigateWithDomFallback } from "../utils/navigationFallback";
 
 /* ================= Utils ================= */
 const num = (v) => {
@@ -86,22 +77,7 @@ const cleanLabel = (s) =>
     .replace(/\s{2,}/g, " ")
     .trim();
 
-const getPersonName = (...sources) => {
-  for (const source of sources) {
-    if (!source) continue;
-    if (typeof source === "string" && source.trim()) return source.trim();
-    const full = [
-      source.firstName || source.firstname || source.prenom,
-      source.lastName || source.lastname || source.nom,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
-    if (full) return full;
-    if (source.displayName && !/@/.test(source.displayName)) return String(source.displayName).trim();
-  }
-  return "";
-};
+
 
 const MICRO_PDF_LABELS = {
   calcium: "Calcium",
@@ -287,14 +263,14 @@ const normalizeMealKey = (k) => {
 
 const mealLabelFromKey = (mk) => {
   const k = normalizeMealKey(mk);
-  if (k === "petit_dejeuner") return "Petit-déjeuner";
-  if (k === "dejeuner") return "Déjeuner";
-  if (k === "diner") return "Dîner";
-  if (k === "collation") return "Collation";
-  if (k === "collation_1") return MENU_MEAL_LABEL.collation_1 || "Collation matin";
-  if (k === "collation_2") return MENU_MEAL_LABEL.collation_2 || "Collation après-midi";
-  if (k === "collation_3") return MENU_MEAL_LABEL.collation_3 || "Collation soir";
-  return "Repas";
+  if (k === "petit_dejeuner") return i18n.t("auto.NutritionRationPage.petit_dejeuner", "Petit-déjeuner");
+  if (k === "dejeuner") return i18n.t("auto.NutritionRationPage.dejeuner", "Déjeuner");
+  if (k === "diner") return i18n.t("auto.NutritionRationPage.diner", "Dîner");
+  if (k === "collation") return i18n.t("auto.NutritionRationPage.collation", "Collation");
+  if (k === "collation_1") return MENU_MEAL_LABEL.collation_1 || i18n.t("auto.NutritionRationPage.collation_matin", "Collation matin");
+  if (k === "collation_2") return MENU_MEAL_LABEL.collation_2 || i18n.t("auto.NutritionRationPage.collation_apres_midi", "Collation après-midi");
+  if (k === "collation_3") return MENU_MEAL_LABEL.collation_3 || i18n.t("auto.NutritionRationPage.collation_soir", "Collation soir");
+  return i18n.t("auto.NutritionRationPage.repas", "Repas");
 };
 
 const looksLikeMealKey = (k) => {
@@ -485,191 +461,9 @@ const hasAnyRationItems = (state) => {
 };
 
 /* ========================= React-PDF Document ========================= */
-const pdfStyles = StyleSheet.create({
-  page: { paddingTop: 104, paddingLeft: 38, paddingRight: 38, paddingBottom: 58, fontSize: 10, color: "#0B1B3A", backgroundColor: "#F8FBFF" },
 
-  header: {
-    position: "absolute",
-    top: 24,
-    left: 38,
-    right: 38,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E2E8F0",
-    paddingBottom: 12,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  headerLeft: { flexDirection: "row", alignItems: "center", width: 170 },
-  logo: { width: 26, height: 26, marginRight: 10 },
-  coachName: { fontSize: 11, fontWeight: 700, color: "#111827" },
-  clientName: { fontSize: 11, fontWeight: 700, textAlign: "right" },
 
-  headerCenter: { flex: 1, alignItems: "center" },
-  brand: { fontSize: 12, fontWeight: 700, color: "#1F5EFF" },
-  title: { fontSize: 18, fontWeight: 700, textAlign: "center", color: "#111827" },
-  subtitle: { fontSize: 11, opacity: 0.75, marginTop: 4, textAlign: "center" },
 
-  headerRight: { width: 170, alignItems: "flex-end" },
-  date: { fontSize: 10, opacity: 0.6 },
-
-  sectionTitle: { fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 10 },
-  summaryCard: { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 14, padding: 12, marginBottom: 14 },
-  summaryGrid: { flexDirection: "row", flexWrap: "wrap", marginLeft: -4, marginRight: -4 },
-  summaryTile: { width: "48%", backgroundColor: "#F9FAFB", borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 10, padding: 8, margin: 4 },
-  tileLabel: { fontSize: 8, color: "#6B7280", textTransform: "uppercase", marginBottom: 3, fontWeight: 700 },
-  tileValue: { fontSize: 10, fontWeight: 700, color: "#111827" },
-  mealCard: { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 14, padding: 12, marginBottom: 12 },
-  mealHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
-  mealTitle: { fontSize: 13, fontWeight: 700, color: "#111827" },
-  mealPill: { backgroundColor: "#F3F4F6", color: "#111827", borderRadius: 999, paddingTop: 3, paddingBottom: 3, paddingLeft: 8, paddingRight: 8, fontSize: 9, fontWeight: 700 },
-  categoryGrid: { flexDirection: "row", flexWrap: "wrap", marginLeft: -4, marginRight: -4 },
-  categoryCard: { width: "48%", backgroundColor: "#F9FAFB", borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 10, padding: 8, margin: 4 },
-  categoryTitle: { fontSize: 8, fontWeight: 700, color: "#111827", textTransform: "uppercase", marginBottom: 5 },
-  line: { fontSize: 9, marginBottom: 3, lineHeight: 1.25 },
-  qtyText: { color: "#64748B" },
-
-  empty: { fontSize: 11, opacity: 0.7, marginTop: 6 },
-
-  footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    borderTopWidth: 1,
-    borderTopColor: "#E2E8F0",
-    paddingTop: 12,
-    paddingBottom: 12,
-  },
-  footerLogo: { width: 16, height: 16, marginRight: 8 },
-  footerText: { fontSize: 9, opacity: 0.65, textAlign: "center" },
-});
-
-function RationPdfDoc({
-  clientName,
-  coachName,
-  title,
-  subtitle,
-  logoDataUrl,
-  footerText,
-  date,
-  groupedForPdf,
-  needs,
-  diet,
-  pathologies,
-  dayTotals,
-  macroPct,
-  selectedMicros,
-}) {
-  const dateStr = date?.toLocaleDateString ? date.toLocaleDateString("fr-FR") : "";
-  const hasAny = Array.isArray(groupedForPdf) && groupedForPdf.length > 0;
-  const observedKcal = num(dayTotals?.kcal);
-  const macroLine =
-    observedKcal > 0
-      ? `P ${r0(dayTotals?.prot)} g (${r0(macroPct?.prot)}%) • L ${r0(dayTotals?.lip)} g (${r0(macroPct?.lip)}%) • G ${r0(dayTotals?.glu)} g (${r0(macroPct?.glu)}%)`
-      : "À compléter";
-  const rangeLine = `Cibles: P ${
-    needs?.protG?.min ? `${r0(needs.protG.min)}-${r0(needs.protG.max)} g` : "—"
-  } • L ${needs?.lipG?.min ? `${r0(needs.lipG.min)}-${r0(needs.lipG.max)} g` : "—"} • G ${
-    needs?.glucG?.min ? `${r0(needs.glucG.min)}-${r0(needs.glucG.max)} g` : "—"
-  }`;
-
-  return (
-    <Document>
-      <Page size="A4" style={pdfStyles.page}>
-        <View style={pdfStyles.header} fixed>
-          <View style={pdfStyles.headerLeft}>
-            {logoDataUrl ? <PdfImage src={logoDataUrl} style={pdfStyles.logo} /> : null}
-            <PdfText style={pdfStyles.coachName}>{coachName || "Coach"}</PdfText>
-          </View>
-
-          <View style={pdfStyles.headerCenter}>
-            <PdfText style={pdfStyles.title}>{title || "Ration alimentaire"}</PdfText>
-            {subtitle ? <PdfText style={pdfStyles.subtitle}>{subtitle}</PdfText> : null}
-          </View>
-
-          <View style={pdfStyles.headerRight}>
-            <PdfText style={pdfStyles.clientName}>{clientName || "Patient"}</PdfText>
-            <PdfText style={pdfStyles.date}>{dateStr}</PdfText>
-          </View>
-        </View>
-
-        <View style={pdfStyles.summaryCard} wrap={false}>
-          <PdfText style={pdfStyles.sectionTitle}>Repères du jour</PdfText>
-          <View style={pdfStyles.summaryGrid}>
-            <View style={pdfStyles.summaryTile}>
-              <PdfText style={pdfStyles.tileLabel}>Journée</PdfText>
-              <PdfText style={pdfStyles.tileValue}>
-                {observedKcal > 0 ? r0(observedKcal) : "—"} kcal • cible {needs?.kcalTarget ? r0(needs.kcalTarget) : "—"} kcal
-              </PdfText>
-            </View>
-            <View style={pdfStyles.summaryTile}>
-              <PdfText style={pdfStyles.tileLabel}>Macros ration</PdfText>
-              <PdfText style={pdfStyles.tileValue}>{macroLine}</PdfText>
-              <PdfText style={[pdfStyles.tileValue, { fontSize: 8, color: "#64748B", marginTop: 3 }]}>{rangeLine}</PdfText>
-            </View>
-            <View style={pdfStyles.summaryTile}>
-              <PdfText style={pdfStyles.tileLabel}>Contexte</PdfText>
-              <PdfText style={pdfStyles.tileValue}>
-                {[diet?.length ? diet.join(", ") : "", pathologies?.length ? pathologies.join(", ") : ""].filter(Boolean).join(" • ") || "—"}
-              </PdfText>
-            </View>
-            <View style={pdfStyles.summaryTile}>
-              <PdfText style={pdfStyles.tileLabel}>Micros suivis</PdfText>
-              <PdfText style={pdfStyles.tileValue}>
-                {selectedMicros?.length ? selectedMicros.slice(0, 8).join(" • ") : "Calcium • Fibres"}
-              </PdfText>
-            </View>
-          </View>
-        </View>
-
-        <View style={{ marginTop: 14 }}>
-          <PdfText style={pdfStyles.sectionTitle}>Ration par repas</PdfText>
-
-          {!hasAny ? (
-            <PdfText style={pdfStyles.empty}>
-              Aucun aliment renseigné (quantité à 0 sur tous les repas).
-            </PdfText>
-          ) : (
-            groupedForPdf.map((meal, i) => (
-              <View key={`meal_${i}`} style={pdfStyles.mealCard} wrap={false}>
-                <View style={pdfStyles.mealHeader}>
-                  <PdfText style={pdfStyles.mealTitle}>{meal.mealLabel}</PdfText>
-                  <PdfText style={pdfStyles.mealPill}>
-                    {`Kcal ${r0(meal?.totals?.kcal)} • Prot ${r0(meal?.totals?.prot)} g • Lipides ${r0(
-                      meal?.totals?.lip
-                    )} g • Glucides ${r0(meal?.totals?.glu)} g`}
-                  </PdfText>
-                </View>
-                <View style={pdfStyles.categoryGrid}>
-                  {meal.categories.map((c, j) => (
-                    <View key={`cat_${i}_${j}`} style={pdfStyles.categoryCard}>
-                      <PdfText style={pdfStyles.categoryTitle}>{c.category}</PdfText>
-                      {c.items.map((it, k) => (
-                        <PdfText key={`it_${i}_${j}_${k}`} style={pdfStyles.line}>
-                          • {cleanLabel(it.label)} <PdfText style={pdfStyles.qtyText}>({r0(it.qty)} {it.unit || ""})</PdfText>
-                        </PdfText>
-                      ))}
-                    </View>
-                  ))}
-                </View>
-              </View>
-            ))
-          )}
-        </View>
-
-        <View style={pdfStyles.footer} fixed>
-          {logoDataUrl ? <PdfImage src={logoDataUrl} style={pdfStyles.footerLogo} /> : null}
-          <PdfText style={pdfStyles.footerText}>
-            Généré avec {footerText || "BoostYourLife.coach"}
-          </PdfText>
-        </View>
-      </Page>
-    </Document>
-  );
-}
 
 /* ===================== Component ===================== */
 export default function NutritionRationPage() {
@@ -693,7 +487,7 @@ export default function NutritionRationPage() {
   const [loading, setLoading] = useState(true);
   const [docData, setDocData] = useState(null);
 
-  const [mode, setMode] = useState("pro"); // "pro" | "auto"
+  const [mode, setMode] = useState("auto"); // "pro" | "auto"
   const [proState, setProState] = useState(null);
   const [autoState, setAutoState] = useState(null);
 
@@ -706,9 +500,15 @@ export default function NutritionRationPage() {
   const panelBg = nutritionTheme.surfaceBg;
   const pageBg = nutritionTheme.pageBg;
   const softBg = nutritionTheme.surfaceSoft;
-  const accentBg = nutritionTheme.surfaceGlow;
   const borderCol = nutritionTheme.borderColor;
   const textMuted = nutritionTheme.mutedText;
+  const sectionCardProps = {
+    borderWidth: "1px",
+    borderColor: borderCol,
+    borderRadius: "lg",
+    bg: panelBg,
+    boxShadow: "0 14px 34px rgba(15, 23, 42, 0.06)",
+  };
 
   // client name for PDF
   const [clientName, setClientName] = useState("");
@@ -761,7 +561,7 @@ export default function NutritionRationPage() {
             : d?.ration?.selectedType === "auto" || d?.ration?.selectedType === "pro"
             ? d.ration.selectedType
             : "";
-        const modeFromDoc = explicitMode || (d?.rationAuto ? "auto" : "pro");
+        const modeFromDoc = explicitMode || "auto";
 
         if (Date.now() > modeTouchedUntilRef.current) setMode(modeFromDoc);
         setProState(d?.ration?.pro ?? d?.rationPro ?? null);
@@ -831,13 +631,16 @@ export default function NutritionRationPage() {
     return v > 0 ? v : 0;
   }, [needs, computed]);
 
+  const navigateWithFallback = useCallback(
+    (path) => {
+      navigateWithDomFallback(navigate, path);
+    },
+    [navigate]
+  );
+
   const goBack = useCallback(() => {
-    const path = `/clients/${clientId}/nutrition/${assessmentId}/food-survey`;
-    navigate(path);
-    window.setTimeout(() => {
-      if (decodeURI(window.location.pathname) !== path) window.location.assign(path);
-    }, 180);
-  }, [assessmentId, clientId, navigate]);
+    navigateWithFallback(`/clients/${clientId}/nutrition/${assessmentId}/food-survey`);
+  }, [assessmentId, clientId, navigateWithFallback]);
 
   const queueChildState = useCallback((kind, next) => {
     const timers = childStateTimersRef.current;
@@ -948,97 +751,48 @@ export default function NutritionRationPage() {
     if (!assessmentRef || blocked) return;
     setSavingNext(true);
     try {
-      updateDoc(assessmentRef, buildRationPayload()).catch((e) => {
-        console.error("Ration save before next failed:", e);
-        notify(toast, "saveError", {
-          title: "Sauvegarde en arrière-plan impossible",
-          description: e?.message || "Sauvegarde impossible",
-        });
-      });
+      await updateDoc(assessmentRef, buildRationPayload());
       runNutritionAiOptimization().catch((e) => {
         console.error("Nutrition AI optimization failed:", e);
       });
       notify(toast, "rationSaved");
-      navigate(`/clients/${clientId}/nutrition/${assessmentId}/menu`);
+      navigateWithFallback(`/clients/${clientId}/nutrition/${assessmentId}/menu`);
     } catch (e) {
       notify(toast, "saveError", {
-        title: "Sauvegarde impossible",
-        description: e?.message || "Sauvegarde impossible",
+        title: i18n.t("auto.NutritionRationPage.sauvegarde_impossible", "Sauvegarde impossible"),
+        description: e?.message || i18n.t("auto.NutritionRationPage.sauvegarde_impossible", "Sauvegarde impossible"),
       });
     } finally {
       setSavingNext(false);
     }
-  }, [assessmentRef, blocked, buildRationPayload, toast, navigate, clientId, assessmentId, runNutritionAiOptimization]);
+  }, [assessmentRef, blocked, buildRationPayload, toast, clientId, assessmentId, runNutritionAiOptimization, navigateWithFallback]);
 
   /* ========================= Selected ration + grouping ========================= */
   const selectedRation = useMemo(() => (mode === "auto" ? autoState : proState), [mode, autoState, proState]);
 
-  const rationTitle = useMemo(() => {
-    const t = selectedRation?.title || selectedRation?.titre || docData?.ration?.title || docData?.ration?.titre || "";
-    if (String(t || "").trim()) return String(t || "").trim();
-    return buildNutritionContextTitle({
-      baseLabel: "Ration",
-      objectiveRaw,
-      diets: activeDiet,
-      pathologies,
-      allergies: inputs?.medical?.allergies || inputs?.allergies || "",
-    });
-  }, [selectedRation, docData, objectiveRaw, activeDiet, pathologies, inputs?.medical?.allergies, inputs?.allergies]);
+  
 
-  const rationSubtitle = useMemo(() => {
-    const s =
-      selectedRation?.subtitle ||
-      selectedRation?.sous_titre ||
-      selectedRation?.objectifLabel ||
-      objectiveRaw ||
-      "";
-    return String(s || "").trim();
-  }, [selectedRation, objectiveRaw]);
+  
 
   const rationItems = useMemo(() => extractRationItems(selectedRation), [selectedRation]);
-  const menuRationItems = useMemo(() => extractMenuRationLines(docData), [docData]);
-  const pdfRationItems = useMemo(() => {
-    const fallbackItems = (menuRationItems || []).flatMap((item) =>
-      Object.entries(item?.meals || {})
-        .filter(([, qty]) => num(qty) > 0)
-        .map(([mealKey, qty]) => ({
-          mealKey: normalizeMealKey(mealKey),
-          mealLabel: mealLabelFromKey(mealKey),
-          category: item?.group || item?.category || "Ration",
-          label: item?.resolvedLabel || item?.label || item?.key || "Aliment",
-          qty,
-          unit: item?.unit || "g",
-        }))
-    );
-    const merged = [...fallbackItems];
-    const seen = new Set(
-      fallbackItems.map((item) =>
-        [
-          normalizeMealKey(item.mealKey),
-          String(item.category || "").trim().toLowerCase(),
-          String(item.label || "").trim().toLowerCase(),
-          r0(item.qty),
-          String(item.unit || "").trim().toLowerCase(),
-        ].join("|")
-      )
-    );
-
-    rationItems.forEach((item) => {
-      const signature = [
-        normalizeMealKey(item.mealKey),
-        String(item.category || "").trim().toLowerCase(),
-        String(item.label || "").trim().toLowerCase(),
-        r0(item.qty),
-        String(item.unit || "").trim().toLowerCase(),
-      ].join("|");
-      if (!seen.has(signature)) {
-        seen.add(signature);
-        merged.push(item);
-      }
-    });
-
-    return merged;
-  }, [menuRationItems, rationItems]);
+  const currentRationForSummary = useMemo(
+    () => ({
+      ...(docData || {}),
+      ration: {
+        ...(docData?.ration || {}),
+        mode,
+        selectedType: mode === "auto" ? "auto" : "pro",
+        selected: selectedRation,
+        auto: autoState,
+        pro: proState,
+      },
+      rationAuto: autoState,
+      rationPro: proState,
+    }),
+    [autoState, docData, mode, proState, selectedRation]
+  );
+  const menuRationItems = useMemo(() => extractMenuRationLines(currentRationForSummary), [currentRationForSummary]);
+  
   const readableRationLineCount = menuRationItems.length || rationItems.length;
   const readableMealCount = useMemo(
     () =>
@@ -1069,18 +823,7 @@ export default function NutritionRationPage() {
     if (!(total > 0)) return { prot: 0, lip: 0, glu: 0 };
     return { prot: (p / total) * 100, lip: (l / total) * 100, glu: (g / total) * 100 };
   }, [rationDayTotals]);
-  const rationPdfMicros = useMemo(() => {
-    const raw =
-      selectedRation?.selectedMicros ||
-      selectedRation?.selectedNutrients ||
-      docData?.ration?.selected?.selectedMicros ||
-      docData?.ration?.selected?.selectedNutrients ||
-      {};
-    const labels = selectedMicroKeysFromRaw(raw)
-      .map((key) => microLabelForPdf(key))
-      .filter(Boolean);
-    return Array.from(new Set(labels));
-  }, [docData, selectedRation]);
+  
   const rationMicroSummary = useMemo(() => {
     const raw =
       selectedRation?.selectedMicros ||
@@ -1145,33 +888,37 @@ export default function NutritionRationPage() {
         : "";
     const pctText = num(pctMin) > 0 && num(pctMax) > 0 ? `${r0(pctMin)}-${r0(pctMax)}%` : "";
     const parts = [gramText, pctText].filter(Boolean);
-    return parts.length ? `cible ${parts.join(" • ")}` : "cible à compléter";
+    return parts.length
+      ? i18n.t("auto.NutritionRationPage.cible_parts", "cible {{parts}}", { parts: parts.join(" • ") })
+      : i18n.t("auto.NutritionRationPage.cible_a_completer", "cible à compléter");
   };
   const rationComparisons = useMemo(
     () => [
       {
-        label: "Énergie",
+        label: i18n.t("auto.NutritionRationPage.energie", "Énergie"),
         currentText: `${r0(rationDayTotals.kcal)} kcal`,
-        targetText: needs.kcalTarget ? `cible ${r0(needs.kcalTarget)} kcal` : "cible à compléter",
+        targetText: needs.kcalTarget
+          ? i18n.t("auto.NutritionRationPage.cible_kcal_value", "cible {{value}} kcal", { value: r0(needs.kcalTarget) })
+          : i18n.t("auto.NutritionRationPage.cible_a_completer", "cible à compléter"),
         status: compareTargetStatus(rationDayTotals.kcal, needs.kcalTarget),
         progress: needs.kcalTarget ? (rationDayTotals.kcal / needs.kcalTarget) * 100 : 0,
       },
       {
-        label: "Protéines",
+        label: i18n.t("auto.NutritionRationPage.proteines", "Protéines"),
         currentText: `${r0(rationDayTotals.prot)} g • ${r0(rationMacroPct.prot)}%`,
         targetText: macroTargetText(needs.protG, needs?.pctRanges?.protPctMin, needs?.pctRanges?.protPctMax),
         status: compareRangeStatus(rationDayTotals.prot, needs.protG),
         progress: rangeProgress(rationDayTotals.prot, needs.protG),
       },
       {
-        label: "Lipides",
+        label: i18n.t("auto.NutritionRationPage.lipides", "Lipides"),
         currentText: `${r0(rationDayTotals.lip)} g • ${r0(rationMacroPct.lip)}%`,
         targetText: macroTargetText(needs.lipG, needs?.pctRanges?.lipPctMin, needs?.pctRanges?.lipPctMax),
         status: compareRangeStatus(rationDayTotals.lip, needs.lipG),
         progress: rangeProgress(rationDayTotals.lip, needs.lipG),
       },
       {
-        label: "Glucides",
+        label: i18n.t("auto.NutritionRationPage.glucides", "Glucides"),
         currentText: `${r0(rationDayTotals.glu)} g • ${r0(rationMacroPct.glu)}%`,
         targetText: macroTargetText(needs.glucG, needs?.pctRanges?.gluPctMin, needs?.pctRanges?.gluPctMax),
         status: compareRangeStatus(rationDayTotals.glu, needs.glucG),
@@ -1181,356 +928,221 @@ export default function NutritionRationPage() {
     [needs, rationDayTotals, rationMacroPct]
   );
 
-  const groupedForPdf = useMemo(() => {
-    const byMeal = new Map();
-    const rawPerMealTotals =
-      selectedRation?.computed?.totals?.perMeal ||
-      selectedRation?.computed?.perMeal ||
-      docData?.ration?.selected?.computed?.totals?.perMeal ||
-      docData?.ration?.selected?.computed?.perMeal ||
-      {};
-    const perMealTotals = Object.entries(rawPerMealTotals || {}).reduce((acc, [key, value]) => {
-      const normalizedKey = normalizeMealKey(key);
-      acc[normalizedKey] = {
-        kcal: num(value?.kcal),
-        prot: num(value?.prot ?? value?.p),
-        lip: num(value?.lip ?? value?.f),
-        glu: num(value?.glu ?? value?.c ?? value?.carbs),
-      };
-      return acc;
-    }, {});
-    pdfRationItems.forEach((it) => {
-      const mk = normalizeMealKey(it.mealKey || "repas");
-      if (!byMeal.has(mk)) {
-        byMeal.set(mk, {
-          mealKey: mk,
-          mealLabel: it.mealLabel || mealLabelFromKey(mk),
-          categories: new Map(),
-          totals: perMealTotals?.[mk] || { kcal: 0, prot: 0, lip: 0, glu: 0 },
-        });
-      }
-      const meal = byMeal.get(mk);
-      const cat = cleanLabel(it.category || "Autre");
-      if (!meal.categories.has(cat)) meal.categories.set(cat, []);
-      meal.categories.get(cat).push(it);
-    });
-
-    const mealOrder = ["petit_dejeuner", "collation_1", "dejeuner", "collation_2", "diner", "collation_3", "collation"];
-    const meals = Array.from(byMeal.values());
-    meals.sort((a, b) => {
-      const ia = mealOrder.indexOf(normalizeMealKey(a.mealKey));
-      const ib = mealOrder.indexOf(normalizeMealKey(b.mealKey));
-      if (ia !== -1 || ib !== -1) return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
-      return (a.mealLabel || "").localeCompare(b.mealLabel || "");
-    });
-
-    return meals.map((m) => ({
-      ...m,
-      categories: Array.from(m.categories.entries()).map(([cat, arr]) => ({
-        category: cat,
-        items: arr.sort((x, y) => (x.label || "").localeCompare(y.label || "")),
-      })),
-    }));
-  }, [docData, pdfRationItems, selectedRation]);
+  
+  const sexLabel = useMemo(() => {
+    const raw = String(needs?.sex || "").trim();
+    const normalized = normalize(raw);
+    if (!raw) return "";
+    if (normalized.includes("homme") || normalized.includes("male") || normalized === "m") {
+      return i18n.t("auto.NutritionRationPage.sex_male", "Homme");
+    }
+    if (normalized.includes("femme") || normalized.includes("female") || normalized === "f") {
+      return i18n.t("auto.NutritionRationPage.sex_female", "Femme");
+    }
+    return raw;
+  }, [needs?.sex]);
   const clientSummary = useMemo(
     () =>
       [
-        summaryAge !== null ? `${summaryAge} ans` : null,
-        needs?.sex || null,
+        summaryAge !== null ? i18n.t("auto.NutritionRationPage.age_years", "{{age}} ans", { age: summaryAge }) : null,
+        sexLabel || null,
         objectiveRaw || null,
       ]
         .filter(Boolean)
         .join(" • "),
-    [needs?.sex, objectiveRaw, summaryAge]
+    [objectiveRaw, sexLabel, summaryAge]
   );
   const pageTips = [
-    "Commencer par choisir le mode le plus adapté au niveau de personnalisation souhaité.",
-    "S’appuyer sur le cadre clinique pour garder une ration cohérente avec les besoins estimés.",
-    "Vérifier la répartition par repas avant de passer au menu journalier.",
+    i18n.t("auto.NutritionRationPage.tip_choisir_mode", "Commencer par choisir le mode le plus adapté au niveau de personnalisation souhaité."),
+    i18n.t("auto.NutritionRationPage.tip_cadre_clinique", "S’appuyer sur le cadre clinique pour garder une ration cohérente avec les besoins estimés."),
+    i18n.t("auto.NutritionRationPage.tip_verifier_repartition", "Vérifier la répartition par repas avant de passer au menu journalier."),
   ];
   const rationObservations = useMemo(() => {
     const observations = [];
     if (!readableRationLineCount) {
-      observations.push("Aucune ligne de ration exploitable: la ration ne peut pas encore servir de base au menu.");
+      observations.push(i18n.t("auto.NutritionRationPage.observation_aucune_ligne", "Aucune ligne de ration exploitable: la ration ne peut pas encore servir de base au menu."));
     } else {
       if (needs.kcalTarget && rationDayTotals.kcal) {
         const delta = rationDayTotals.kcal - needs.kcalTarget;
         observations.push(
           Math.abs(delta) <= 50
-            ? `Énergie calée sur la cible: écart ${r0(delta)} kcal.`
-            : `Énergie à ajuster: écart ${r0(delta)} kcal par rapport à la cible.`
+            ? i18n.t("auto.NutritionRationPage.observation_energie_calee", "Énergie calée sur la cible: écart {{delta}} kcal.", { delta: r0(delta) })
+            : i18n.t("auto.NutritionRationPage.observation_energie_a_ajuster", "Énergie à ajuster: écart {{delta}} kcal par rapport à la cible.", { delta: r0(delta) })
         );
       }
       observations.push(
         readableMealCount >= 3
-          ? `${readableMealCount}/${MENU_MEALS_ORDER.length} repas couverts: la répartition peut être relue.`
-          : `${readableMealCount}/${MENU_MEALS_ORDER.length} repas couverts: compléter les repas principaux avant le menu.`
+          ? i18n.t("auto.NutritionRationPage.observation_repas_couverts_ok", "{{count}}/{{total}} repas couverts: la répartition peut être relue.", { count: readableMealCount, total: MENU_MEALS_ORDER.length })
+          : i18n.t("auto.NutritionRationPage.observation_repas_couverts_incomplet", "{{count}}/{{total}} repas couverts: compléter les repas principaux avant le menu.", { count: readableMealCount, total: MENU_MEALS_ORDER.length })
       );
-      if (readableMealCount < 3) observations.push("Répartition à compléter: au moins les repas principaux doivent être couverts avant de passer au menu.");
+      if (readableMealCount < 3) observations.push(i18n.t("auto.NutritionRationPage.observation_repartition_a_completer", "Répartition à compléter: au moins les repas principaux doivent être couverts avant de passer au menu."));
       rationComparisons.forEach((item) => {
-        if (item.status === "low") observations.push(`${item.label}: apport sous la cible, à corriger avant validation.`);
-        if (item.status === "high") observations.push(`${item.label}: apport au-dessus de la cible, à réduire ou répartir autrement.`);
+        if (item.status === "low") observations.push(i18n.t("auto.NutritionRationPage.observation_apport_sous_cible", "{{label}}: apport sous la cible, à corriger avant validation.", { label: item.label }));
+        if (item.status === "high") observations.push(i18n.t("auto.NutritionRationPage.observation_apport_au_dessus_cible", "{{label}}: apport au-dessus de la cible, à réduire ou répartir autrement.", { label: item.label }));
       });
       if (rationComparisons.every((item) => item.status === "ok") && readableMealCount >= 3) {
-        observations.push("Les repères énergie et macros sont cohérents: la ration peut servir de base au menu.");
+        observations.push(i18n.t("auto.NutritionRationPage.observation_reperes_coherents", "Les repères énergie et macros sont cohérents: la ration peut servir de base au menu."));
       }
     }
-    if (pathologies.length || activeDiet.length) observations.push("Contrôle clinique à faire: aliments, quantités et exclusions doivent rester compatibles avec les pathologies/régimes du bilan.");
+    if (pathologies.length || activeDiet.length) observations.push(i18n.t("auto.NutritionRationPage.observation_controle_clinique", "Contrôle clinique à faire: aliments, quantités et exclusions doivent rester compatibles avec les pathologies/régimes du bilan."));
     return Array.from(new Set(observations)).slice(0, 6);
   }, [activeDiet.length, needs.kcalTarget, pathologies.length, rationComparisons, rationDayTotals.kcal, readableMealCount, readableRationLineCount]);
 
   /* ========================= React-PDF Export ========================= */
-  const [pdfLogoDataUrl, setPdfLogoDataUrl] = useState(null);
-  const [exportingPdf, setExportingPdf] = useState(false);
+  const [, setPdfLogoDataUrl] = useState(null);
+  
+  const documentBrandingAllowed = canUseCustomBranding(
+    user?.proAccess || {
+      packageKey: user?.packageKey,
+      packageTier: user?.packageTier,
+      branding: user?.branding,
+    }
+  );
 
   useEffect(() => {
     (async () => {
-      const preferred = user?.logoUrl || user?.photoURL || user?.avatarUrl || "";
+      const preferred = documentBrandingAllowed
+        ? user?.logoUrl || user?.photoURL || user?.avatarUrl || ""
+        : "";
       const coachLogo = await toDataUrlSafe(preferred);
       const fallback = await toDataUrlSafe(LEGACY_BYL_LOCAL);
       setPdfLogoDataUrl(coachLogo || fallback);
     })();
-  }, [user?.avatarUrl, user?.logoUrl, user?.photoURL]);
+  }, [documentBrandingAllowed, user?.avatarUrl, user?.logoUrl, user?.photoURL]);
 
-  const coachPdfName = useMemo(() => getPersonName(user) || "Coach", [user]);
+  
 
-  const handleDownloadPDF = useCallback(async () => {
-    if (!selectedRation) return;
-
-    setExportingPdf(true);
-    try {
-      const preferred = user?.logoUrl || user?.photoURL || user?.avatarUrl || "";
-      const effectiveLogo =
-        pdfLogoDataUrl || (await toDataUrlSafe(preferred)) || (await toDataUrlSafe(LEGACY_BYL_LOCAL));
-      const now = new Date();
-      const blob = await pdf(
-        <RationPdfDoc
-          clientName={clientName || "Client"}
-          coachName={coachPdfName}
-          title="Ration alimentaire"
-          subtitle={rationTitle || rationSubtitle || ""}
-          logoDataUrl={effectiveLogo}
-          footerText="BoostYourLife.coach"
-          date={now}
-          groupedForPdf={groupedForPdf}
-          needs={needs}
-          diet={diet}
-          pathologies={pathologies}
-          dayTotals={rationDayTotals}
-          macroPct={rationMacroPct}
-          selectedMicros={rationPdfMicros}
-        />
-      ).toBlob();
-
-      const url = URL.createObjectURL(blob);
-      const base = (rationTitle || "ration_alimentaire").replace(/\s+/g, "_").toLowerCase();
-      const clientBase = (clientName || "client").replace(/\s+/g, "_").toLowerCase();
-      const filename = `${base}-${clientBase}-BYL.pdf`;
-
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-
-      window.open(url, "_blank", "noopener,noreferrer");
-
-      notify(toast, "pdfReady");
-    } catch (e) {
-      notify(toast, "pdfError", {
-        description: e?.message || "Impossible de générer le PDF.",
-      });
-    } finally {
-      setExportingPdf(false);
-    }
-  }, [
-    selectedRation,
-    clientName,
-    rationTitle,
-    rationSubtitle,
-    coachPdfName,
-    pdfLogoDataUrl,
-    user?.avatarUrl,
-    user?.logoUrl,
-    user?.photoURL,
-    groupedForPdf,
-    needs,
-    diet,
-    pathologies,
-    rationDayTotals,
-    rationMacroPct,
-    rationPdfMicros,
-    toast,
-  ]);
+  
 
   /* ========================= guards ========================= */
   if (!isAdmin) {
     return (
       <Box p={6}>
-        <Heading size="md">Accès refusé</Heading>
-        <Text mt={2} opacity={0.7}>
-          Admin uniquement pour le moment.
-        </Text>
+        <Heading size="md">{i18n.t("auto.NutritionRationPage.acces_refuse", "Accès refusé")}</Heading>
+        <Text mt={2} opacity={0.7}>{i18n.t("auto.NutritionRationPage.cet_espace_est_reserve_aux_professionnels_nutritio", "Cet espace est réservé aux professionnels nutrition autorisés.")}</Text>
       </Box>
     );
   }
 
   if (loading) {
-    return <AppLoading label="Chargement..." />;
+    return <AppLoading label={i18n.t("auto.NutritionRationPage.chargement", "Chargement...")} />;
   }
 
   if (!docData) {
     return (
       <Box p={6}>
-        <Heading size="md">Bilan introuvable</Heading>
-        <Button mt={4} onClick={goBack}>
-          Retour
-        </Button>
+        <Heading size="md">{i18n.t("auto.NutritionRationPage.bilan_introuvable", "Bilan introuvable")}</Heading>
+        <Button mt={4} onClick={goBack}>{i18n.t("programView.back", "Retour")}</Button>
       </Box>
     );
   }
 
   return (
-    <Box minH="100vh" p={{ base: 4, md: 6 }} bg={pageBg} color={nutritionTheme.textColor}>
-      <Stack spacing={6}>
-        <Box {...nutritionTheme.cardProps} overflow="hidden">
-          <Box bg={accentBg} px={{ base: 4, md: 5 }} py={{ base: 4, md: 5 }}>
+    <Box minH="100vh" p={{ base: 3, md: 3, xl: 5, "2xl": 6 }} bg={pageBg} color={nutritionTheme.textColor}>
+      <Stack spacing={4} maxW="7xl" mx="auto">
+        <NutritionWorkflowBar
+          activeStep="ration"
+          clientId={clientId}
+          assessmentId={assessmentId}
+          navigate={navigate}
+        />
+
+        <Box {...sectionCardProps} overflow="hidden">
+          <Box bg={panelBg} px={{ base: 4, md: 5 }} py={{ base: 4, md: 5 }}>
             <Stack spacing={4}>
               <HStack justify="space-between" align="start" gap={3} flexWrap="wrap">
                 <Box>
                   <HStack spacing={3} flexWrap="wrap">
-                    <Button variant="outline" onClick={goBack}>
-                      Retour
-                    </Button>
-                    <Heading size="md">Ration alimentaire</Heading>
-                    {blocked ? <Badge colorScheme="yellow">BILAN NON VALIDÉ</Badge> : <Badge colorScheme="green">OK</Badge>}
+                    <Button variant="outline" onClick={goBack} data-testid="nutrition-ration-back-top">{i18n.t("programView.back", "Retour")}</Button>
+                    <Heading size="md">{i18n.t("auto.NutritionRationPage.ration_alimentaire", "Ration alimentaire")}</Heading>
+                    {blocked ? <Badge colorScheme="yellow">{i18n.t("auto.NutritionRationPage.bilan_non_valide", "BILAN NON VALIDÉ")}</Badge> : <Badge colorScheme="green">OK</Badge>}
                     <Badge colorScheme={mode === "auto" ? "purple" : "blue"}>
-                      {mode === "auto" ? "MODE AUTO" : "MODE MANUEL"}
+                      {mode === "auto"
+                        ? i18n.t("auto.NutritionRationPage.mode_auto_upper", "MODE AUTO")
+                        : i18n.t("auto.NutritionRationPage.mode_manuel_upper", "MODE MANUEL")}
                     </Badge>
                   </HStack>
 
-                  <Text mt={2} fontSize="sm" color={textMuted} maxW="760px">
-                    Cette étape sert à construire la ration cible à partir du contexte clinique, des
-                    besoins estimés et du mode de travail choisi.
-                  </Text>
+                  <Text mt={2} fontSize="sm" color={textMuted} maxW="760px">{i18n.t("auto.NutritionRationPage.cette_etape_sert_a_construire_la_ration_cible_a_pa", "Cette étape sert à construire la ration cible à partir du contexte clinique, des besoins estimés et du mode de travail choisi.")}</Text>
                 </Box>
 
-                <HStack spacing={2}>
-                  <Tooltip label="Télécharger le PDF">
-                    <IconButton
-                      aria-label="Télécharger le PDF"
-                      icon={<DownloadIcon />}
-                      onClick={handleDownloadPDF}
-                      variant="outline"
-                      isDisabled={!selectedRation}
-                      isLoading={exportingPdf}
-                    />
-                  </Tooltip>
-                </HStack>
               </HStack>
 
-              <SimpleGrid columns={{ base: 1, md: 4 }} spacing={3}>
-                <Box gridColumn={{ base: "auto", md: "1 / 4" }}>
-                  <Wrap spacing={2}>
-                    {pageTips.map((tip) => (
-                      <WrapItem key={tip}>
-                        <Tag size="md" variant="subtle" colorScheme="blue" borderRadius="full">
-                          <TagLabel>{tip}</TagLabel>
-                        </Tag>
-                      </WrapItem>
-                    ))}
-                  </Wrap>
-                </Box>
-
-                <Box p={4} borderWidth="1px" borderColor={borderCol} borderRadius="xl" bg={panelBg}>
-                  <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>
-                    DOSSIER
-                  </Text>
-                  <Text mt={1} fontSize="lg" fontWeight="800" noOfLines={1}>
-                    {clientName || [inputs?.prenom, inputs?.nom].filter(Boolean).join(" ") || "Patient"}
-                  </Text>
-                  <Text fontSize="sm" color={textMuted}>
-                    {clientSummary || "Contexte général à compléter"}
-                  </Text>
-                </Box>
+              <SimpleGrid columns={{ base: 1, md: 3 }} spacing={3}>
+                {pageTips.map((tip, index) => (
+                  <Box key={tip} p={3} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={softBg}>
+                    <Text fontSize="xs" fontWeight="900" color={textMuted}>0{index + 1}</Text>
+                    <Text fontSize="sm" fontWeight="700" mt={1}>{tip}</Text>
+                  </Box>
+                ))}
               </SimpleGrid>
             </Stack>
           </Box>
-
-          <Box px={{ base: 4, md: 5 }} py={{ base: 4, md: 5 }}>
-            <SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} spacing={3}>
-              <Box p={4} borderWidth="1px" borderColor={borderCol} borderRadius="xl" bg={panelBg}>
-                <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>
-                  OBJECTIF
-                </Text>
-                <Text mt={1} fontSize="lg" fontWeight="800">
-                  {objectiveRaw || "À préciser"}
-                </Text>
-                <Text fontSize="sm" color={textMuted}>
-                  {activeDiet.length ? activeDiet.join(", ") : "Aucun régime spécifique"}
-                </Text>
-              </Box>
-
-              <Box p={4} borderWidth="1px" borderColor={borderCol} borderRadius="xl" bg={panelBg}>
-                <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>
-                  CONTEXTE CLINIQUE
-                </Text>
-                <Text mt={1} fontSize="lg" fontWeight="800">
-                  {pathologies.length} élément(s)
-                </Text>
-                <Text fontSize="sm" color={textMuted}>
-                  {pathologies.length ? pathologies.slice(0, 2).join(", ") : "Aucune pathologie"}
-                </Text>
-              </Box>
-
-              <Box p={4} borderWidth="1px" borderColor={borderCol} borderRadius="xl" bg={panelBg}>
-                <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>
-                  CIBLE ÉNERGÉTIQUE
-                </Text>
-                <Text mt={1} fontSize="lg" fontWeight="800">
-                  {needs.kcalTarget ? `${r0(needs.kcalTarget)} kcal` : "—"}
-                </Text>
-                <Text fontSize="sm" color={textMuted}>
-                  DEJ {needs.dej ? r0(needs.dej) : "—"} • NAP {needs.nap ? r1(needs.nap) : "—"}
-                </Text>
-              </Box>
-
-              <Box p={4} borderWidth="1px" borderColor={borderCol} borderRadius="xl" bg={panelBg}>
-                <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>
-                  RATION ACTIVE
-                </Text>
-                <Text mt={1} fontSize="lg" fontWeight="800">
-                  {mode === "auto" ? "Génération automatique" : "Construction manuelle"}
-                </Text>
-                <Text fontSize="sm" color={textMuted}>
-                  {readableRationLineCount
-                    ? `${r0(rationDayTotals.kcal)} kcal • ${readableMealCount}/${MENU_MEALS_ORDER.length} repas couverts`
-                    : "Aucune ration exploitable pour l’instant"}
-                </Text>
-              </Box>
-            </SimpleGrid>
-          </Box>
         </Box>
 
-        <Box borderWidth="1px" borderColor={borderCol} borderRadius="2xl" bg={panelBg} p={{ base: 4, md: 5 }}>
-          <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>
-            ÉTAPE 1
+        <Grid
+          templateColumns={{
+            base: "1fr",
+            lg: "minmax(0, 1fr) clamp(260px, 24vw, 300px)",
+            "2xl": "minmax(0, 1fr) 360px",
+          }}
+          gap={{ base: 4, lg: 2, xl: 4 }}
+          alignItems="start"
+        >
+          <Stack
+            spacing={{ base: 4, lg: 3, xl: 4 }}
+            position={{ base: "static", lg: "sticky" }}
+            top={{ lg: "88px" }}
+            maxH={{ base: "none", lg: "calc(100vh - 104px)" }}
+            overflowY={{ base: "visible", lg: "auto" }}
+            pr={{ base: 0, lg: 1 }}
+            order={{ base: 0, lg: 1 }}
+          >
+        <Box {...sectionCardProps} p={{ base: 4, lg: 4, xl: 5 }} order={0}>
+          <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>{i18n.t("auto.NutritionRationPage.dossier", "DOSSIER")}</Text>
+          <Text mt={1} fontSize="lg" fontWeight="800" noOfLines={1}>
+            {clientName || [inputs?.prenom, inputs?.nom].filter(Boolean).join(" ") || i18n.t("auto.NutritionRationPage.patient", "Patient")}
           </Text>
-          <Heading size="sm" mt={1}>
-            Cadre clinique et énergétique
-          </Heading>
-          <Text fontSize="sm" color={textMuted} mt={1}>
-            Ce cadre donne les repères utiles avant de construire ou d’ajuster la ration.
+          <Text fontSize="sm" color={textMuted}>
+            {clientSummary || i18n.t("auto.NutritionRationPage.contexte_general_a_completer", "Contexte général à compléter")}
           </Text>
+          <SimpleGrid columns={{ base: 1, sm: 2, lg: 1 }} spacing={3} mt={4}>
+            <Box p={3} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={softBg}>
+              <Text fontSize="xs" fontWeight="800" color={textMuted}>{i18n.t("auto.NutritionRationPage.objectif", "OBJECTIF")}</Text>
+              <Text fontWeight="900">{objectiveRaw || i18n.t("auto.NutritionRationPage.a_preciser", "À préciser")}</Text>
+              <Text fontSize="sm" color={textMuted}>{activeDiet.length ? activeDiet.join(", ") : i18n.t("auto.NutritionRationPage.aucun_regime_specifique", "Aucun régime spécifique")}</Text>
+            </Box>
+            <Box p={3} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={softBg}>
+              <Text fontSize="xs" fontWeight="800" color={textMuted}>{i18n.t("auto.NutritionRationPage.contexte_clinique", "CONTEXTE CLINIQUE")}</Text>
+              <Text fontWeight="900">{i18n.t("auto.NutritionRationPage.elements_count", "{{count}} élément(s)", { count: pathologies.length })}</Text>
+              <Text fontSize="sm" color={textMuted}>{pathologies.length ? pathologies.slice(0, 2).join(", ") : i18n.t("auto.NutritionRationPage.aucune_pathologie", "Aucune pathologie")}</Text>
+            </Box>
+            <Box p={3} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={softBg}>
+              <Text fontSize="xs" fontWeight="800" color={textMuted}>{i18n.t("auto.NutritionRationPage.ration_active", "RATION ACTIVE")}</Text>
+              <Text fontWeight="900">{mode === "auto" ? i18n.t("auto.NutritionRationPage.generation_automatique", "Génération automatique") : i18n.t("auto.NutritionRationPage.construction_manuelle", "Construction manuelle")}</Text>
+              <Text fontSize="sm" color={textMuted}>
+                {readableRationLineCount
+                  ? i18n.t("auto.NutritionRationPage.ration_summary_kcal_meals", "{{kcal}} kcal • {{count}}/{{total}} repas couverts", {
+                      kcal: r0(rationDayTotals.kcal),
+                      count: readableMealCount,
+                      total: MENU_MEALS_ORDER.length,
+                    })
+                  : i18n.t("auto.NutritionRationPage.aucune_ration_exploitable", "Aucune ration exploitable")}
+              </Text>
+            </Box>
+          </SimpleGrid>
+        </Box>
+
+        <Box {...sectionCardProps} p={{ base: 4, lg: 4, xl: 5 }} order={{ base: 2, lg: 1 }}>
+          <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>{i18n.t("auto.NutritionRationPage.reperes_cliniques", "REPÈRES CLINIQUES")}</Text>
+          <Heading size="sm" mt={1}>{i18n.t("auto.NutritionRationPage.cadre_clinique_et_energetique", "Cadre clinique et énergétique")}</Heading>
+          <Text fontSize="sm" color={textMuted} mt={1}>{i18n.t("auto.NutritionRationPage.ce_cadre_donne_les_reperes_utiles_avant_de_constru", "Ce cadre donne les repères utiles avant de construire ou d’ajuster la ration.")}</Text>
 
           {(activeDiet.length > 0 || pathologies.length > 0) && (
             <Box mt={4}>
               {activeDiet.length > 0 ? (
                 <Box mb={pathologies.length > 0 ? 3 : 0}>
-                  <Text fontSize="xs" color={textMuted} mb={1}>
-                    Régimes :
-                  </Text>
+                  <Text fontSize="xs" color={textMuted} mb={1}>{i18n.t("auto.NutritionRationPage.regimes", "Régimes :")}</Text>
                   <Wrap spacing={2}>
                     {activeDiet.map((item) => (
                       <WrapItem key={item}>
@@ -1545,9 +1157,7 @@ export default function NutritionRationPage() {
 
               {pathologies.length > 0 ? (
                 <Box>
-                  <Text fontSize="xs" color={textMuted} mb={1}>
-                    Pathologies :
-                  </Text>
+                  <Text fontSize="xs" color={textMuted} mb={1}>{i18n.t("auto.NutritionRationPage.pathologies", "Pathologies :")}</Text>
                   <Wrap spacing={2}>
                     {pathologies.map((item) => (
                       <WrapItem key={item}>
@@ -1562,12 +1172,10 @@ export default function NutritionRationPage() {
             </Box>
           )}
 
-          <SimpleGrid columns={{ base: 1, md: 4 }} spacing={4} mt={4}>
+          <SimpleGrid columns={{ base: 1, sm: 2, lg: 1 }} spacing={4} mt={4}>
             <Card bg={softBg} border="1px solid" borderColor={borderCol}>
               <CardBody>
-                <Text fontSize="sm" color={textMuted}>
-                  MB (kcal/j)
-                </Text>
+                <Text fontSize="sm" color={textMuted}>{i18n.t("auto.NutritionRationPage.mb_kcal_j", "MB (kcal/j)")}</Text>
                 <Text fontSize="2xl" fontWeight="800">
                   {needs.mb ? r0(needs.mb) : "—"}
                 </Text>
@@ -1587,9 +1195,7 @@ export default function NutritionRationPage() {
 
             <Card bg={softBg} border="1px solid" borderColor={borderCol}>
               <CardBody>
-                <Text fontSize="sm" color={textMuted}>
-                  DEJ (kcal/j)
-                </Text>
+                <Text fontSize="sm" color={textMuted}>{i18n.t("auto.NutritionRationPage.dej_kcal_j", "DEJ (kcal/j)")}</Text>
                 <Text fontSize="2xl" fontWeight="800">
                   {needs.dej ? r0(needs.dej) : "—"}
                 </Text>
@@ -1598,35 +1204,31 @@ export default function NutritionRationPage() {
 
             <Card bg={softBg} border="1px solid" borderColor={borderCol}>
               <CardBody>
-                <Text fontSize="sm" color={textMuted}>
-                  Cible kcal
-                </Text>
+                <Text fontSize="sm" color={textMuted}>{i18n.t("auto.NutritionRationPage.cible_kcal", "Cible kcal")}</Text>
                 <Text fontSize="2xl" fontWeight="900">
                   {needs.kcalTarget ? r0(needs.kcalTarget) : kcalIndicatif ? r0(kcalIndicatif) : "—"}
                 </Text>
                 <Text fontSize="sm" color={textMuted}>
-                  Prot {needs.protG?.min ? `${r0(needs.protG.min)}–${r0(needs.protG.max)} g` : "—"} • Lip{" "}
-                  {needs.lipG?.min ? `${r0(needs.lipG.min)}–${r0(needs.lipG.max)} g` : "—"} • Glu{" "}
-                  {needs.glucG?.min ? `${r0(needs.glucG.min)}–${r0(needs.glucG.max)} g` : "—"}
+                  {i18n.t("auto.NutritionRationPage.macro_ranges", "Prot {{prot}} • Lip {{lip}} • Glu {{glu}}", {
+                    prot: needs.protG?.min ? `${r0(needs.protG.min)}–${r0(needs.protG.max)} g` : "—",
+                    lip: needs.lipG?.min ? `${r0(needs.lipG.min)}–${r0(needs.lipG.max)} g` : "—",
+                    glu: needs.glucG?.min ? `${r0(needs.glucG.min)}–${r0(needs.glucG.max)} g` : "—",
+                  })}
                 </Text>
               </CardBody>
             </Card>
           </SimpleGrid>
         </Box>
 
-        <Box borderWidth="1px" borderColor={borderCol} borderRadius="2xl" bg={panelBg} p={{ base: 4, md: 5 }}>
-          <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>
-            ÉTAPE 2
-          </Text>
-          <Heading size="sm" mt={1}>
-            Choix de la méthode
-          </Heading>
+        <Box {...sectionCardProps} p={{ base: 4, lg: 4, xl: 5 }} order={{ base: 1, lg: 2 }}>
+          <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>{i18n.t("auto.NutritionRationPage.mode_de_construction", "MODE DE CONSTRUCTION")}</Text>
+          <Heading size="sm" mt={1}>{i18n.t("auto.NutritionRationPage.choix_de_la_methode", "Choix de la méthode")}</Heading>
           <HStack
             mt={4}
             spacing={0}
             borderWidth="1px"
             borderColor={borderCol}
-            borderRadius="xl"
+            borderRadius="md"
             overflow="hidden"
             w="fit-content"
           >
@@ -1636,32 +1238,25 @@ export default function NutritionRationPage() {
               {...(mode === "pro" ? nutritionTheme.primaryButtonProps : {})}
               onClick={() => changeMode("pro")}
               isDisabled={blocked}
-            >
-              Mode manuel
-            </Button>
+            >{i18n.t("auto.NutritionRationPage.mode_manuel", "Mode manuel")}</Button>
             <Button
               borderRadius="0"
               variant={mode === "auto" ? "solid" : "ghost"}
               {...(mode === "auto" ? nutritionTheme.primaryButtonProps : {})}
               onClick={() => changeMode("auto")}
               isDisabled={blocked}
-            >
-              Mode auto
-            </Button>
+            >{i18n.t("auto.NutritionRationPage.mode_auto", "Mode auto")}</Button>
           </HStack>
         </Box>
+          </Stack>
 
-        <Box borderWidth="1px" borderColor={borderCol} borderRadius="2xl" bg={panelBg} p={{ base: 4, md: 5 }}>
-          <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>
-            ÉTAPE 3
-          </Text>
-          <Heading size="sm" mt={1}>
-            Construction de la ration
-          </Heading>
+        <Box {...sectionCardProps} p={{ base: 4, md: 5 }} order={{ base: 1, lg: 0 }}>
+          <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>{i18n.t("auto.NutritionRationPage.construction_label", "CONSTRUCTION")}</Text>
+          <Heading size="sm" mt={1}>{i18n.t("auto.NutritionRationPage.construction_de_la_ration", "Construction de la ration")}</Heading>
           <Text fontSize="sm" color={textMuted} mt={1} mb={4}>
             {mode === "pro"
-              ? "Le mode manuel te laisse une liberté complète sur les quantités, repas et repères cliniques."
-              : "Le mode auto propose une base rationnelle à partir du contexte puis te laisse la possibilité d’ajuster."}
+              ? i18n.t("auto.NutritionRationPage.mode_manuel_description", "Le mode manuel te laisse une liberté complète sur les quantités, repas et repères cliniques.")
+              : i18n.t("auto.NutritionRationPage.mode_auto_description", "Le mode auto propose une base rationnelle à partir du contexte puis te laisse la possibilité d’ajuster.")}
           </Text>
 
           {mode === "pro" ? (
@@ -1697,45 +1292,42 @@ export default function NutritionRationPage() {
             />
           )}
         </Box>
+        </Grid>
 
-        <Box borderWidth="1px" borderColor={borderCol} borderRadius="2xl" bg={softBg} p={{ base: 4, md: 5 }}>
-          <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>
-            SYNTHÈSE CONSULTATION
-          </Text>
-          <Heading size="sm" mt={2}>
-            Lecture rapide de la ration
-          </Heading>
+        <Box {...sectionCardProps} bg={softBg} p={{ base: 4, md: 5 }}>
+          <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>{i18n.t("auto.NutritionRationPage.synthese_consultation", "SYNTHÈSE CONSULTATION")}</Text>
+          <Heading size="sm" mt={2}>{i18n.t("auto.NutritionRationPage.lecture_rapide_de_la_ration", "Lecture rapide de la ration")}</Heading>
 
           <HStack justify="space-between" align="center" gap={3} flexWrap="wrap" mt={4}>
           <Wrap spacing={2}>
             <WrapItem>
               <Badge colorScheme={mode === "auto" ? "purple" : "blue"} variant="subtle" px={3} py={1} borderRadius="full">
-                Mode: {mode === "auto" ? "auto" : "manuel"}
+                {i18n.t("auto.NutritionRationPage.mode_value", "Mode : {{mode}}", { mode: mode === "auto" ? "auto" : "manuel" })}
               </Badge>
             </WrapItem>
             <WrapItem>
               <Badge colorScheme={readableMealCount >= 3 ? "green" : "orange"} variant="subtle" px={3} py={1} borderRadius="full">
-                Repas couverts: {readableMealCount}/{MENU_MEALS_ORDER.length}
+                {i18n.t("auto.NutritionRationPage.repas_couverts_value", "Repas couverts : {{count}}/{{total}}", { count: readableMealCount, total: MENU_MEALS_ORDER.length })}
               </Badge>
             </WrapItem>
             <WrapItem>
               <Badge colorScheme="blue" variant="subtle" px={3} py={1} borderRadius="full">
-                Cible: {needs.kcalTarget ? `${r0(needs.kcalTarget)} kcal` : "—"}
+                {i18n.t("auto.NutritionRationPage.cible_value", "Cible : {{value}}", { value: needs.kcalTarget ? `${r0(needs.kcalTarget)} kcal` : "—" })}
               </Badge>
             </WrapItem>
           </Wrap>
             {rationMicroSummary.length ? (
               <Button size="sm" variant="outline" onClick={() => setShowSummaryMicros((v) => !v)}>
                 {showSummaryMicros
-                  ? "Masquer les micronutriments"
-                  : `Voir les micronutriments (${rationMicroSummary.length})`}
+                  ? i18n.t("auto.NutritionRationPage.masquer_les_micronutriments", "Masquer les micronutriments")
+                  : i18n.t("auto.NutritionRationPage.voir_les_micronutriments_count", "Voir les micronutriments ({{count}})", { count: rationMicroSummary.length })}
               </Button>
             ) : null}
           </HStack>
 
           <Stack spacing={3} mt={4}>
             {rationComparisons.map((item) => (
-              <Box key={item.label} borderWidth="1px" borderColor={borderCol} borderRadius="xl" bg={panelBg} p={3}>
+              <Box key={item.label} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={panelBg} p={3}>
                 <HStack justify="space-between" align="start" gap={3} mb={3}>
                   <Box>
                     <Text fontWeight="800">{item.label}</Text>
@@ -1760,10 +1352,8 @@ export default function NutritionRationPage() {
 
           {rationMicroSummary.length ? (
             <Collapse in={showSummaryMicros} animateOpacity>
-              <Box borderWidth="1px" borderColor={borderCol} borderRadius="xl" bg={panelBg} p={3} mt={4}>
-                <Text fontWeight="800" mb={3}>
-                  Micronutriments sélectionnés
-                </Text>
+              <Box borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={panelBg} p={3} mt={4}>
+                <Text fontWeight="800" mb={3}>{i18n.t("auto.NutritionRationPage.micronutriments_selectionnes", "Micronutriments sélectionnés")}</Text>
                 <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
                   {rationMicroSummary.map((item) => (
                     <Box key={item.key}>
@@ -1791,35 +1381,30 @@ export default function NutritionRationPage() {
             </Collapse>
           ) : null}
 
-          <Text fontWeight="800" mt={5} mb={2}>
-            Ce qu’on observe
-          </Text>
+          <Text fontWeight="800" mt={5} mb={2}>{i18n.t("auto.NutritionRationPage.ce_qu_on_observe", "Ce qu’on observe")}</Text>
           <Stack spacing={2}>
             {rationObservations.map((item) => (
-              <Box key={item} borderWidth="1px" borderColor={borderCol} borderRadius="lg" bg={panelBg} p={3}>
+              <Box key={item} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={panelBg} p={3}>
                 <Text fontSize="sm">{item}</Text>
               </Box>
             ))}
           </Stack>
         </Box>
 
-        <Box p={4} borderWidth="1px" borderColor={borderCol} borderRadius="2xl" bg={panelBg}>
+        <Box {...sectionCardProps} p={4}>
           <HStack spacing={3} flexWrap="wrap" align="center">
-            <Button variant="outline" onClick={goBack}>
-              Retour
-            </Button>
+            <Button variant="outline" onClick={goBack} data-testid="nutrition-ration-back-bottom">{i18n.t("programView.back", "Retour")}</Button>
 
             <Spacer />
 
             <Button
               {...nutritionTheme.primaryButtonProps}
               onClick={onSaveAndNext}
+              data-testid="nutrition-ration-next"
               isDisabled={blocked}
               isLoading={savingNext}
-              loadingText="Sauvegarde…"
-            >
-              Étape suivante
-            </Button>
+              loadingText={i18n.t("auto.NutritionRationPage.sauvegarde", "Sauvegarde…")}
+            >{i18n.t("auto.NutritionRationPage.etape_suivante", "Étape suivante")}</Button>
           </HStack>
         </Box>
       </Stack>

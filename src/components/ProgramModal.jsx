@@ -1,5 +1,6 @@
 import React from "react";
-import { Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalCloseButton, Button, Text, VStack } from "@chakra-ui/react";
+import { Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalCloseButton, Text, VStack } from "@chakra-ui/react";
+import i18n from "../i18n/index";
 
 const ProgramModal = ({ isOpen, onClose, program }) => {
   return (
@@ -18,7 +19,7 @@ const ProgramModal = ({ isOpen, onClose, program }) => {
               ))}
             </VStack>
           ) : (
-            <Text>Aucun exercice disponible.</Text>
+            <Text>{i18n.t("auto.ProgramModal.aucun_exercice_disponible", "Aucun exercice disponible.")}</Text>
           )}
         </ModalBody>
       </ModalContent>

@@ -48,8 +48,8 @@ import {
   Textarea,
   Tooltip,
 } from "@chakra-ui/react";
-import { CloseIcon, ChevronUpIcon, ChevronDownIcon } from "@chakra-ui/icons";
-import { useParams, useNavigate } from "react-router-dom";
+import { CloseIcon, ChevronUpIcon, ChevronDownIcon, InfoOutlineIcon } from "@chakra-ui/icons";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   doc,
   onSnapshot,
@@ -59,6 +59,7 @@ import {
   getDocs,
   serverTimestamp,
   arrayUnion,
+  deleteField,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import {
@@ -74,7 +75,10 @@ import { RxDragHandleDots2 } from "react-icons/rx";
 import ClientCreation from "./ClientCreation";
 import { useAuth } from "../AuthContext";
 import { useTranslation } from "react-i18next";
+import i18n from "../i18n";
 import { useAppTheme } from "../styles/appTheme";
+import { estimateSessionDurationSeconds, formatDuration } from "../utils/trainingEngine";
+import PageBackButton from "./ui/PageBackButton";
 
 /* ------------------ utils ------------------ */
 function useDebouncedCallback(callback, deps, delay) {
@@ -83,7 +87,7 @@ function useDebouncedCallback(callback, deps, delay) {
     if (timeout.current) clearTimeout(timeout.current);
     timeout.current = setTimeout(callback, delay);
     return () => clearTimeout(timeout.current);
-  }, [...(deps || []), delay]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [...(deps || []), delay]);
 }
 
 function useRafCallback(fn) {
@@ -135,6 +139,31 @@ const defaultOptions = {
   gainage: ["Durée (min:sec)", "Séries", "Repos (min:sec)"],
   isometrique: ["Durée (min:sec)", "Séries", "Repos (min:sec)"],
 };
+
+const optionAliasesForSave = {
+  "Séries": ["series", "séries", "set", "nb_series", "serie", "série"],
+  "Répétitions": ["repetitions", "répétitions", "reps", "rep", "nb_reps", "repetition", "répétition"],
+  "Repos (min:sec)": ["repos", "rest", "pause", "recup", "récup", "temps_repos"],
+  "Durée (min:sec)": ["duree", "durée", "duration", "time", "temps", "temps_effort"],
+  "Inclinaison (%)": ["inclinaison", "incline", "slope", "pente"],
+  Résistance: ["resistance"],
+  Watts: ["watt", "watts", "power", "puissance"],
+  "Objectif Calories": ["calories", "objectif_calories", "objectif calories", "kcal"],
+  "Charge (kg)": ["charge", "poids", "weight", "load", "Charge"],
+  Tempo: ["tempo", "tempo_pattern", "cadence"],
+  Vitesse: ["vitesse", "speed", "kmh", "km/h"],
+  Distance: ["distance", "dist", "metrage", "m", "meters", "metres", "km"],
+  Intensité: ["intensite", "intensity", "rpe", "percent_1rm"],
+};
+
+const advancedSetOptions = [
+  { label: "Répétitions", fields: ["reps", "repetitions"] },
+  { label: "Charge (kg)", fields: ["chargeKg", "charge", "poids", "weight"] },
+  { label: "Repos (min:sec)", fields: ["restSec", "rest", "repos"] },
+  { label: "Durée (min:sec)", fields: ["durationSec", "duration", "temps"] },
+  { label: "Vitesse", fields: ["speedKmh", "speed", "vitesse"] },
+  { label: "Inclinaison (%)", fields: ["inclinePct", "inclinaison", "incline", "slope"] },
+];
 
 const norm = (s = "") =>
   String(s).normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
@@ -246,6 +275,102 @@ function sanitizeDisplayUnits(units = {}) {
 function readDisplayUnits(data = {}) {
   return sanitizeDisplayUnits(data?.displayUnits || {});
 }
+
+function sanitizeActiveWeeks(value) {
+  return Math.max(1, Math.min(52, Math.round(Number(value) || 4)));
+}
+
+const PROGRESSION_STRATEGIES = ["secure", "linear", "undulating"];
+
+const sanitizeProgressionStrategy = (value) =>
+  PROGRESSION_STRATEGIES.includes(value) ? value : "linear";
+
+const formatDeltaPct = (value) => {
+  const n = Number(value) || 0;
+  if (!n) return "0%";
+  return `${n > 0 ? "+" : ""}${String(n).replace(".", ",")}%`;
+};
+
+function buildProgressionPlan(activeWeeks, strategyValue) {
+  const weeks = sanitizeActiveWeeks(activeWeeks);
+  const strategy = sanitizeProgressionStrategy(strategyValue);
+  return Array.from({ length: weeks }, (_, index) => {
+    const week = index + 1;
+    const isLastDeload = weeks >= 4 && week === weeks;
+
+    if (strategy === "linear") {
+      return {
+        week,
+        phase: week === 1 ? "base" : "progression",
+        loadDeltaPct: Math.min(10, index * 2.5),
+        volumeDeltaPct: week <= 2 ? 0 : Math.min(10, (week - 2) * 5),
+        recoveryDeltaPct: 0,
+      };
+    }
+
+    if (strategy === "undulating") {
+      const cycle = index % 3;
+      if (cycle === 0) {
+        return { week, phase: "volume", loadDeltaPct: 0, volumeDeltaPct: 8, recoveryDeltaPct: 0 };
+      }
+      if (cycle === 1) {
+        return { week, phase: "intensity", loadDeltaPct: 5, volumeDeltaPct: -5, recoveryDeltaPct: 5 };
+      }
+      return { week, phase: "consolidation", loadDeltaPct: 2.5, volumeDeltaPct: 0, recoveryDeltaPct: 0 };
+    }
+
+    if (isLastDeload) {
+      return { week, phase: "deload", loadDeltaPct: -8, volumeDeltaPct: -15, recoveryDeltaPct: 10 };
+    }
+    if (week === 1) {
+      return { week, phase: "adaptation", loadDeltaPct: 0, volumeDeltaPct: 0, recoveryDeltaPct: 0 };
+    }
+    if (week === 2) {
+      return { week, phase: "progression", loadDeltaPct: 2.5, volumeDeltaPct: 0, recoveryDeltaPct: 0 };
+    }
+    return { week, phase: "overload", loadDeltaPct: 5, volumeDeltaPct: 5, recoveryDeltaPct: 5 };
+  });
+}
+
+const buildProgressionTemplateData = (strategyValue) => {
+  const strategy = sanitizeProgressionStrategy(strategyValue);
+  return {
+    progressionStrategy: strategy,
+    progressionTemplate: {
+      strategy,
+      generatedOnAssign: true,
+      mode: "template",
+    },
+    progression: {
+      strategy,
+      mode: "template",
+    },
+  };
+};
+
+const buildProgressionTemplateUpdate = (strategyValue) => ({
+  ...buildProgressionTemplateData(strategyValue),
+  progressionPlan: deleteField(),
+});
+
+const buildAssignedProgressionUpdate = (strategyValue, plan = []) => {
+  const strategy = sanitizeProgressionStrategy(strategyValue);
+  const cleanPlan = Array.isArray(plan) ? plan : [];
+  return {
+    progressionStrategy: strategy,
+    progressionTemplate: {
+      strategy,
+      generatedOnAssign: true,
+      mode: "template",
+    },
+    progressionPlan: cleanPlan,
+    progression: {
+      strategy,
+      mode: "assigned",
+      plan: cleanPlan,
+    },
+  };
+};
 
 /* ===================== PATCH LECTURE DONNÉES ===================== */
 const parseNumberish = (v) => {
@@ -445,6 +570,7 @@ function fillSetsFromGlobalsPure(ex) {
   const rest = toSeconds(out["Repos (min:sec)"] || 0);
   const dur = toSeconds(out["Durée (min:sec)"] || 0);
   const vKmh = Number(out["Vitesse"]) || 0;
+  const inclinePct = Number(out["Inclinaison (%)"]) || 0;
 
   out.sets = (out.sets || []).map((s, i) => ({
     _id: s._id || uid(),
@@ -454,6 +580,7 @@ function fillSetsFromGlobalsPure(ex) {
     restSec: i < out.sets.length - 1 ? rest || s.restSec || 0 : s.restSec || 0,
     durationSec: dur || s.durationSec || 0,
     speedKmh: vKmh || s.speedKmh || 0,
+    inclinePct: inclinePct || s.inclinePct || 0,
   }));
   return out;
 }
@@ -484,17 +611,70 @@ function setsFromSeriesDetails(details = []) {
     durationSec:
       toSeconds(d?.["Durée (min:sec)"] ?? d?.duree ?? d?.temps ?? d?.time ?? 0) || 0,
     speedKmh: Number(d?.["Vitesse"] ?? d?.vitesse ?? d?.speed ?? 0) || 0,
+    inclinePct: Number(d?.["Inclinaison (%)"] ?? d?.inclinaison ?? d?.incline ?? d?.slope ?? 0) || 0,
   }));
 }
 
-function seriesDetailsFromSets(sets = []) {
-  return (sets || []).map((s) => ({
-    "Répétitions": Number(s?.reps ?? 0) || 0,
-    "Charge (kg)": Number(s?.chargeKg ?? 0) || 0,
-    "Repos (min:sec)": Number(s?.restSec ?? 0) || 0,
-    "Durée (min:sec)": Number(s?.durationSec ?? 0) || 0,
-    Vitesse: Number(s?.speedKmh ?? 0) || 0,
-  }));
+function seriesDetailsFromSets(sets = [], optionsOrder = []) {
+  const hasExplicitOptions = Array.isArray(optionsOrder);
+  const active = new Set(hasExplicitOptions ? optionsOrder : []);
+  const include = (label) => !hasExplicitOptions || active.has(label);
+
+  return (sets || []).map((s) => {
+    const out = {};
+    if (include("Répétitions")) out["Répétitions"] = Number(s?.reps ?? 0) || 0;
+    if (include("Charge (kg)")) out["Charge (kg)"] = Number(s?.chargeKg ?? 0) || 0;
+    if (include("Repos (min:sec)")) out["Repos (min:sec)"] = Number(s?.restSec ?? 0) || 0;
+    if (include("Durée (min:sec)")) out["Durée (min:sec)"] = Number(s?.durationSec ?? 0) || 0;
+    if (include("Vitesse")) out.Vitesse = Number(s?.speedKmh ?? 0) || 0;
+    if (include("Inclinaison (%)")) out["Inclinaison (%)"] = Number(s?.inclinePct ?? 0) || 0;
+    return out;
+  });
+}
+
+function pruneUncheckedOptionsForSave(ex) {
+  if (!Array.isArray(ex?.optionsOrder)) return ex;
+
+  const active = new Set(ex.optionsOrder);
+
+  allOptions.forEach((label) => {
+    if (active.has(label)) return;
+    if (label !== "Séries" || (!ex.useAdvancedSets && !ex.seriesDiff)) {
+      delete ex[label];
+    }
+    (optionAliasesForSave[label] || []).forEach((alias) => {
+      delete ex[alias];
+    });
+  });
+
+  if (Array.isArray(ex.sets)) {
+    ex.sets = ex.sets.map((set) => {
+      const next = { ...(set || {}) };
+      advancedSetOptions.forEach(({ label, fields }) => {
+        if (active.has(label)) return;
+        fields.forEach((field) => {
+          delete next[field];
+        });
+      });
+      return next;
+    });
+  }
+
+  if (Array.isArray(ex.seriesDetails)) {
+    ex.seriesDetails = ex.seriesDetails.map((detail) => {
+      const next = { ...(detail || {}) };
+      allOptions.forEach((label) => {
+        if (active.has(label)) return;
+        delete next[label];
+        (optionAliasesForSave[label] || []).forEach((alias) => {
+          delete next[alias];
+        });
+      });
+      return next;
+    });
+  }
+
+  return ex;
 }
 
 function serializeExerciseForSave(ex) {
@@ -506,7 +686,7 @@ function serializeExerciseForSave(ex) {
     out["Séries"] = out.sets.length;
 
     out.seriesDiff = true;
-    out.seriesDetails = seriesDetailsFromSets(out.sets);
+    out.seriesDetails = seriesDetailsFromSets(out.sets, out.optionsOrder);
   } else {
     delete out.seriesDiff;
     delete out.seriesDetails;
@@ -514,7 +694,7 @@ function serializeExerciseForSave(ex) {
     delete out.series_differentes;
   }
 
-  return out;
+  return pruneUncheckedOptionsForSave(out);
 }
 
 /* --------- CHAÎNES --------- */
@@ -541,28 +721,7 @@ function groupLinked(list = []) {
   return groups;
 }
 
-function getEffortAndRestForSet(ex, setIdx) {
-  const tpr = Number(ex.tempsParRep) || 1;
-  const globalRest = toSeconds(ex["Repos (min:sec)"] || 0);
-  const globalDur = toSeconds(ex["Durée (min:sec)"] || 0);
-  const globalReps = Number(ex["Répétitions"] || 0);
 
-  if (ex.useAdvancedSets && Array.isArray(ex.sets) && ex.sets.length) {
-    const s = ex.sets[Math.min(setIdx, ex.sets.length - 1)] || {};
-    const dur = toSeconds(s.durationSec || 0) || 0;
-    const reps = Number(s.reps || 0);
-    const rest = toSeconds(s.restSec || 0);
-    return {
-      effortSec: dur > 0 ? dur : reps > 0 ? reps * tpr : 0,
-      restSecAfter: rest || 0,
-    };
-  }
-
-  return {
-    effortSec: globalDur > 0 ? globalDur : globalReps > 0 ? globalReps * tpr : 0,
-    restSecAfter: globalRest || 0,
-  };
-}
 
 /* --------- normalize --------- */
 function isTimedLike(ex) {
@@ -639,7 +798,7 @@ function detectType(ex) {
   return "musculation";
 }
 
-function normalizeExercise(ex, objectif) {
+function normalizeExercise(ex) {
   const base = migrateAliases(ex || {});
   const type = detectType(base);
   const opts = defaultOptions[type] || ["Répétitions", "Séries", "Repos (min:sec)"];
@@ -671,7 +830,7 @@ function normalizeExercise(ex, objectif) {
   const out = {
     ...structuredClone(base),
     id: stableId,
-    tempsParRep: Number(base.tempsParRep) || 1,
+    tempsParRep: Number(base.tempsParRep) > 1.25 ? Number(base.tempsParRep) : 3,
     optionsOrder:
       Array.isArray(base.optionsOrder) && base.optionsOrder.length
         ? base.optionsOrder
@@ -706,6 +865,8 @@ function normalizeExercise(ex, objectif) {
 
     if ((out["Vitesse"] ?? 0) === 0 && d0["Vitesse"] != null)
       out["Vitesse"] = Number(d0["Vitesse"]) || 0;
+    if ((out["Inclinaison (%)"] ?? 0) === 0 && d0["Inclinaison (%)"] != null)
+      out["Inclinaison (%)"] = Number(d0["Inclinaison (%)"]) || 0;
   }
 
   return ensureSetsLengthPure(out);
@@ -752,52 +913,7 @@ function ensureSessionShape(session, objectif) {
 }
 
 function getTotalTime(sess) {
-  const list = sess?.useSections
-    ? flattenFromSections(sess)
-    : Array.isArray(sess?.exercises)
-    ? sess.exercises
-    : [];
-  if (!list.length) return "0 sec";
-
-  const groups = groupLinked(list);
-
-  const totalSec = groups.reduce((sum, grp) => {
-    if (grp.type === "single") {
-      const ex = grp.items[0];
-      const series = Math.max(0, Number(ex["Séries"]) || ex.sets?.length || 0);
-      if (series <= 0) return sum;
-
-      let acc = 0;
-      for (let r = 0; r < series; r++) {
-        const { effortSec, restSecAfter } = getEffortAndRestForSet(ex, r);
-        acc += effortSec;
-        if (r < series - 1) acc += restSecAfter;
-      }
-      return sum + acc;
-    }
-
-    const series = Math.max(
-      ...grp.items.map((ex) => Math.max(0, Number(ex["Séries"]) || ex.sets?.length || 0))
-    );
-    if (series <= 0) return sum;
-
-    let acc = 0;
-    for (let r = 0; r < series; r++) {
-      grp.items.forEach((ex, idx) => {
-        const { effortSec, restSecAfter } = getEffortAndRestForSet(ex, r);
-        acc += effortSec;
-        const isLast = idx === grp.items.length - 1;
-        if (!isLast) {
-          acc += restSecAfter;
-        } else if (r < series - 1) {
-          acc += restSecAfter;
-        }
-      });
-    }
-    return sum + acc;
-  }, 0);
-
-  return formatMinSec(totalSec);
+  return formatDuration(estimateSessionDurationSeconds(sess));
 }
 
 function useProgramDocRef(programIdState) {
@@ -972,7 +1088,7 @@ const StepperInput = memo(function StepperInput({
       >
         <IconButton
           size="sm"
-          aria-label="plus"
+          aria-label={i18n.t("auto.ProgramBuilder.plus", "plus")}
           icon={<ChevronUpIcon />}
           onClick={() => bump(+1)}
           isDisabled={disabled}
@@ -987,7 +1103,7 @@ const StepperInput = memo(function StepperInput({
         />
         <IconButton
           size="sm"
-          aria-label="minus"
+          aria-label={i18n.t("auto.ProgramBuilder.minus", "minus")}
           icon={<ChevronDownIcon />}
           onClick={() => bump(-1)}
           isDisabled={disabled}
@@ -1065,7 +1181,6 @@ const ExerciseCardRow = memo(
     subBg,
     textMute,
     hoverRow,
-    softShadow,
     strongShadow,
     onMoveTo,
     onReplaceToggle,
@@ -1483,15 +1598,7 @@ const ExerciseCardRow = memo(
                     <Tr>
                       <Th>{t("programBuilder.sets.set", "Set")}</Th>
                       {(ex.optionsOrder || [])
-                        .filter((o) =>
-                          [
-                            "Répétitions",
-                            "Charge (kg)",
-                            "Repos (min:sec)",
-                            "Durée (min:sec)",
-                            "Vitesse",
-                          ].includes(o)
-                        )
+                        .filter((o) => advancedSetOptions.some(({ label }) => label === o))
                         .map((opt, idx) => (
                           <Th key={`head-${opt}-${idx}`}>
                             {opt === "Charge (kg)"
@@ -1524,15 +1631,7 @@ const ExerciseCardRow = memo(
                           <Td>#{i + 1}</Td>
 
                           {(ex.optionsOrder || [])
-                            .filter((o) =>
-                              [
-                                "Répétitions",
-                                "Charge (kg)",
-                                "Repos (min:sec)",
-                                "Durée (min:sec)",
-                                "Vitesse",
-                              ].includes(o)
-                            )
+                            .filter((o) => advancedSetOptions.some(({ label }) => label === o))
                             .map((opt, cIdx) => {
                               if (opt === "Répétitions") {
                                 return (
@@ -1643,6 +1742,24 @@ const ExerciseCardRow = memo(
                                   </Td>
                                 );
                               }
+                              if (opt === "Inclinaison (%)") {
+                                return (
+                                  <Td key={`incline-${s._id}-${cIdx}`}>
+                                    <StepperInput
+                                      value={Number(s.inclinePct ?? 0)}
+                                      onChange={(val) =>
+                                        onSetChange(index, i, "inclinePct", Number(val) || 0)
+                                      }
+                                      step={1}
+                                      precision={0}
+                                      min={0}
+                                      disabled={!isCoach}
+                                      bg={cardBg}
+                                      borderColor={border}
+                                    />
+                                  </Td>
+                                );
+                              }
                               return <Td key={`noop-${s._id}-${cIdx}`} />;
                             })}
 
@@ -1701,7 +1818,7 @@ export default function ProgramBuilder({
   const border = theme.borderColor;
   const textMute = theme.mutedText;
   const hoverRow = useColorModeValue("rgba(15,23,42,0.05)", "rgba(255,255,255,0.07)");
-  const inactiveTagBg = theme.surfaceSoft;
+
   const panelBg = theme.surfaceBgStrong;
   const pageAccentBg = theme.surfaceGlow;
   const softShadow = useColorModeValue(
@@ -1721,17 +1838,43 @@ export default function ProgramBuilder({
   const toast = useToast();
   const { programId: routeId, clientId } = useParams();
   const navigate = useNavigate();
-  const HOME_PATH = "/coach-dashboard";
+  const isAssignedClientProgram = Boolean(clientId);
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const adminCreatedBy = searchParams.get("adminCreatedBy") || "";
+  const adminCoachId = searchParams.get("adminCoachId") || "";
+  const { user } = useAuth();
+  const isAdminCoachMode = user?.role === "admin" && !!adminCoachId;
+  const HOME_PATH = isAdminCoachMode
+    ? `/coach-dashboard?adminCoachId=${encodeURIComponent(adminCoachId)}`
+    : "/coach-dashboard";
+  const returnToAfterSave =
+    typeof location.state?.returnTo === "string" && location.state.returnTo
+      ? location.state.returnTo
+      : "";
   const isNewRoute = routeId === "new";
   const [programId, setProgramId] = useState(isNewRoute ? null : routeId);
-  const { user } = useAuth();
   const isCoach = user?.role === "coach" || user?.role === "admin";
+  const createdByForSave =
+    user?.role === "admin" && adminCreatedBy === "BYL"
+      ? "BYL"
+      : isAdminCoachMode
+      ? adminCoachId
+      : user?.uid || "unknown";
+  const createdByNameForSave =
+    user?.role === "admin" && adminCreatedBy === "BYL"
+      ? "BYL"
+      : isAdminCoachMode
+      ? adminCoachId
+      : user?.email || user?.uid || "unknown";
   const programDocRef = useProgramDocRef(programId);
   const [, startTransition] = useTransition();
 
   const [programName, setProgramName] = useState("");
   const [programmeGoal, setProgrammeGoal] = useState("");
   const [objectifUI, setObjectifUI] = useState("");
+  const [programActiveWeeks, setProgramActiveWeeks] = useState(4);
+  const [progressionStrategy, setProgressionStrategy] = useState("linear");
 
   const [autoProgressionEnabled, setAutoProgressionEnabled] = useState(true);
   const [programOptions, setProgramOptions] = useState({});
@@ -1755,7 +1898,13 @@ export default function ProgramBuilder({
   const [saving, setSaving] = useState(false);
   const [hasModifications, setHasModifications] = useState(false);
 
+  const progressionPlan = useMemo(
+    () => buildProgressionPlan(programActiveWeeks, progressionStrategy),
+    [programActiveWeeks, progressionStrategy]
+  );
+
   const nameTouchedRef = useRef(false);
+  const demoRestoreRef = useRef(null);
 
   const [weightUnit, setWeightUnit] = useState(() => {
     const ls = localStorage.getItem("byl_weight_unit");
@@ -1771,6 +1920,130 @@ export default function ProgramBuilder({
     const ls = localStorage.getItem("byl_distance_unit");
     return ["m", "mi"].includes(ls) ? ls : "m";
   });
+
+  useEffect(() => {
+    const onDemo = (event) => {
+      const active = !!event.detail?.active;
+      if (active) {
+        if (demoRestoreRef.current) return;
+        demoRestoreRef.current = {
+          programName,
+          programmeGoal,
+          objectifUI,
+          programActiveWeeks,
+          progressionStrategy,
+          sessions,
+          activeTab,
+          currentSection,
+          isSaved,
+          hasModifications,
+        };
+
+        const demoWarmup = normalizeExercise(
+          {
+            id: "tour-demo-warmup",
+            nom: "Mobilisation hanches",
+            groupe_musculaire: "Échauffement",
+            type_exercice: "mobilisation articulaire",
+            "Durée (min:sec)": 180,
+            "Repos (min:sec)": 30,
+            notes: "Préparer l'amplitude avant les exercices principaux.",
+            notesEnabled: true,
+          },
+          "Renforcement général"
+        );
+        const demoMain = normalizeExercise(
+          {
+            id: "tour-demo-squat",
+            nom: "Goblet squat",
+            groupe_musculaire: "Jambes",
+            type_exercice: "musculation",
+            "Séries": 4,
+            "Répétitions": 10,
+            "Charge": 16,
+            "Repos (min:sec)": 90,
+            tempo: "3-1-1",
+            notes: "Garder le buste haut et contrôler la descente.",
+            notesEnabled: true,
+          },
+          "Renforcement général"
+        );
+        const demoCooldown = normalizeExercise(
+          {
+            id: "tour-demo-stretch",
+            nom: "Étirement quadriceps",
+            groupe_musculaire: "Retour au calme",
+            type_exercice: "stretching",
+            "Durée (min:sec)": 120,
+            notes: "Respiration lente, sans douleur.",
+            notesEnabled: true,
+          },
+          "Renforcement général"
+        );
+
+        setProgramName("Programme démo - Renforcement");
+        setProgrammeGoal("Renforcement général");
+        setObjectifUI("strength");
+        setProgramActiveWeeks(4);
+        setProgressionStrategy("linear");
+        setSessions([
+          {
+            name: "Séance 1 - Bases",
+            useSections: true,
+            echauffement: [demoWarmup],
+            corps: [demoMain],
+            bonus: [],
+            retourCalme: [demoCooldown],
+          },
+          {
+            name: "Séance 2 - Progression",
+            useSections: true,
+            echauffement: [],
+            corps: [
+              normalizeExercise(
+                {
+                  id: "tour-demo-row",
+                  nom: "Rowing haltères",
+                  groupe_musculaire: "Dos",
+                  type_exercice: "musculation",
+                  "Séries": 3,
+                  "Répétitions": 12,
+                  "Repos (min:sec)": 75,
+                },
+                "Renforcement général"
+              ),
+            ],
+            bonus: [],
+            retourCalme: [],
+          },
+        ]);
+        setActiveTab(0);
+        setCurrentSection("corps");
+        setIsSaved(true);
+        setHasModifications(false);
+        return;
+      }
+
+      if (!demoRestoreRef.current) return;
+      const restore = demoRestoreRef.current;
+      demoRestoreRef.current = null;
+      setProgramName(restore.programName);
+      setProgrammeGoal(restore.programmeGoal);
+      setObjectifUI(restore.objectifUI);
+      setProgramActiveWeeks(restore.programActiveWeeks || 4);
+      setProgressionStrategy(sanitizeProgressionStrategy(restore.progressionStrategy));
+      setSessions(restore.sessions);
+      setActiveTab(restore.activeTab);
+      setCurrentSection(restore.currentSection);
+      setIsSaved(restore.isSaved);
+      setHasModifications(restore.hasModifications);
+    };
+
+    window.addEventListener("byl:builder-demo", onDemo);
+    return () => {
+      window.removeEventListener("byl:builder-demo", onDemo);
+    };
+  }, [activeTab, currentSection, hasModifications, isSaved, objectifUI, programActiveWeeks, progressionStrategy, programName, programmeGoal, sessions]);
 
   const localEditTimeRef = useRef(0);
   const ignoreSnapsUntilRef = useRef(0);
@@ -1789,6 +2062,7 @@ export default function ProgramBuilder({
   const [selectedClient, setSelectedClient] = useState(null);
   const assignModal = useDisclosure();
   const addClientModal = useDisclosure();
+  const autoProgressionImpactModal = useDisclosure();
   const isFirstLoad = useRef(true);
 
   const isDraft = !programId;
@@ -1886,6 +2160,10 @@ export default function ProgramBuilder({
         nomProgramme: data.nomProgramme || "",
         objectif: objectifTech || "",
         objectifUI: objectifUiKey || "",
+        activeWeeks: sanitizeActiveWeeks(data.activeWeeks ?? data.durationWeeks ?? 4),
+        progressionStrategy: sanitizeProgressionStrategy(
+          data.progressionStrategy || data.progressionModel || data.progression?.strategy
+        ),
         autoProgressionEnabled: incomingAuto,
         sessions: normalizedWithNames,
         options: data.options || {},
@@ -1896,6 +2174,8 @@ export default function ProgramBuilder({
         nomProgramme: programName,
         objectif: programmeGoal,
         objectifUI,
+        activeWeeks: sanitizeActiveWeeks(programActiveWeeks),
+        progressionStrategy: sanitizeProgressionStrategy(progressionStrategy),
         autoProgressionEnabled,
         sessions,
         options: programOptions || {},
@@ -1925,6 +2205,8 @@ export default function ProgramBuilder({
         }
 
         setProgramOptions(incomingState.options || {});
+        setProgramActiveWeeks(incomingState.activeWeeks);
+        setProgressionStrategy(incomingState.progressionStrategy);
         setAutoProgressionEnabled(!!incomingState.autoProgressionEnabled);
 
         const units = incomingState.displayUnits || DEFAULT_DISPLAY_UNITS;
@@ -1952,6 +2234,8 @@ export default function ProgramBuilder({
     programmeGoal,
     objectifUI,
     programName,
+    programActiveWeeks,
+    progressionStrategy,
     sessions,
     programOptions,
     weightUnit,
@@ -2076,6 +2360,11 @@ export default function ProgramBuilder({
             nomProgramme: finalName,
             objectif: programmeGoal || "",
             ...(objectifUI ? { objectifUI } : {}),
+            activeWeeks: sanitizeActiveWeeks(programActiveWeeks),
+            durationWeeks: sanitizeActiveWeeks(programActiveWeeks),
+            ...(isAssignedClientProgram
+              ? buildAssignedProgressionUpdate(progressionStrategy, progressionPlan)
+              : buildProgressionTemplateUpdate(progressionStrategy)),
             ...buildAutoFollowUpdate(autoProgressionEnabled, programOptions || {}),
             displayUnits: sanitizeDisplayUnits({
               weight: weightUnit,
@@ -2101,6 +2390,10 @@ export default function ProgramBuilder({
       programName,
       programmeGoal,
       objectifUI,
+      programActiveWeeks,
+      progressionStrategy,
+      progressionPlan,
+      isAssignedClientProgram,
       autoProgressionEnabled,
       sessions,
       programOptions,
@@ -2146,6 +2439,9 @@ export default function ProgramBuilder({
           nomProgramme: finalName,
           objectif: programmeGoal || "",
           ...(objectifUI ? { objectifUI } : {}),
+          activeWeeks: sanitizeActiveWeeks(programActiveWeeks),
+          durationWeeks: sanitizeActiveWeeks(programActiveWeeks),
+          ...buildProgressionTemplateData(progressionStrategy),
           ...buildAutoFollowUpdate(autoProgressionEnabled, programOptions || {}),
           displayUnits: sanitizeDisplayUnits({
             weight: weightUnit,
@@ -2154,7 +2450,10 @@ export default function ProgramBuilder({
           }),
           sessions: sessionsToSave,
           createdAt: serverTimestamp(),
-          createdBy: user?.uid || "unknown",
+          createdBy: createdByForSave,
+          createdByName: createdByNameForSave,
+          clubId: user?.clubId || null,
+          clubName: user?.clubName || null,
           assignedTo: null,
           _rev: Date.now(),
         };
@@ -2185,6 +2484,11 @@ export default function ProgramBuilder({
           nomProgramme: finalName,
           objectif: programmeGoal || "",
           ...(objectifUI ? { objectifUI } : {}),
+          activeWeeks: sanitizeActiveWeeks(programActiveWeeks),
+          durationWeeks: sanitizeActiveWeeks(programActiveWeeks),
+          ...(isAssignedClientProgram
+            ? buildAssignedProgressionUpdate(progressionStrategy, progressionPlan)
+            : buildProgressionTemplateUpdate(progressionStrategy)),
           ...buildAutoFollowUpdate(autoProgressionEnabled, programOptions || {}),
           displayUnits: sanitizeDisplayUnits({
             weight: weightUnit,
@@ -2210,7 +2514,13 @@ export default function ProgramBuilder({
           position: "bottom",
         });
 
-        setTimeout(() => navigate(HOME_PATH, { replace: true }), 1200);
+        setTimeout(() => {
+          if (returnToAfterSave) {
+            navigate(returnToAfterSave, { replace: true });
+          } else {
+            navigate(-1);
+          }
+        }, 1200);
       }
     } catch (e) {
       toast({
@@ -2228,30 +2538,85 @@ export default function ProgramBuilder({
     programId,
     clientId,
     programName,
+    programActiveWeeks,
     programmeGoal,
     objectifUI,
+    progressionStrategy,
+    progressionPlan,
+    isAssignedClientProgram,
     autoProgressionEnabled,
     sessions,
     programOptions,
     weightUnit,
     speedUnit,
     distanceUnit,
-    user?.uid,
+    createdByForSave,
+    createdByNameForSave,
     navigate,
     HOME_PATH,
+    returnToAfterSave,
     t,
     toast,
   ]);
 
   const handleAssign = useCallback(async () => {
     if (!selectedClient || !programId) return;
+    const sessionsToAssign = applyAutoSessionNumbering(sessions, t).map((sess) => {
+      const s = structuredClone(sess);
+      if (s.useSections) {
+        sectionDefs.forEach(({ key }) => {
+          s[key] = (s[key] || []).map((ex) => serializeExerciseForSave(ex));
+        });
+      } else {
+        s.exercises = (s.exercises || []).map((ex) => serializeExerciseForSave(ex));
+      }
+      return s;
+    });
+    const finalName = programName || makeDefaultProgramName(objectifUI, programmeGoal, sessionsToAssign.length || 1);
+    const assignedRef = await addDoc(collection(db, "clients", selectedClient.id, "programmes"), {
+      nomProgramme: finalName,
+      name: finalName,
+      programId,
+      fromTemplateId: programId,
+      templateId: programId,
+      origin: "coach-assign",
+      origine: "coach-assign",
+      assignedAt: serverTimestamp(),
+      createdAt: serverTimestamp(),
+      clientId: selectedClient.id,
+      clientNom: selectedClient.fullName || selectedClient.name || selectedClient.email || "",
+      sessions: sessionsToAssign,
+      seances: structuredClone(sessionsToAssign),
+      objectif: programmeGoal || objectifUI || "",
+      objectifUI: objectifUI || "",
+      activeWeeks: sanitizeActiveWeeks(programActiveWeeks),
+      durationWeeks: sanitizeActiveWeeks(programActiveWeeks),
+      ...buildAssignedProgressionUpdate(progressionStrategy, progressionPlan),
+      totalSessions: sessionsToAssign.length || null,
+      nbSeances: sessionsToAssign.length || null,
+      coachId: createdByForSave,
+      createdBy: createdByForSave,
+      assignedBy: createdByForSave,
+      clubId: user?.clubId || null,
+      clubName: user?.clubName || null,
+      progress: 0,
+      status: "active",
+    });
+    await updateDoc(doc(db, "clients", selectedClient.id, "programmes", assignedRef.id), {
+      id: assignedRef.id,
+    });
     await updateDoc(doc(db, "programmes", programId), {
       assignedTo: selectedClient.id,
       assignedAt: serverTimestamp(),
+      assignedClients: arrayUnion(selectedClient.id),
+      assignedClientIds: arrayUnion(selectedClient.id),
+      lastAssignedAt: serverTimestamp(),
     });
     await updateDoc(doc(db, "clients", selectedClient.id), {
-      currentProgramme: programId,
-      programmes: arrayUnion(programId),
+      currentProgramme: assignedRef.id,
+      programmes: arrayUnion(assignedRef.id),
+      coachIds: arrayUnion(createdByForSave),
+      updatedAt: serverTimestamp(),
     });
     assignModal.onClose();
     toast({
@@ -2261,7 +2626,26 @@ export default function ProgramBuilder({
       position: "bottom",
     });
     navigate(HOME_PATH);
-  }, [selectedClient, programId, assignModal, toast, navigate, HOME_PATH, t]);
+  }, [
+    selectedClient,
+    programId,
+    sessions,
+    t,
+    sectionDefs,
+    programName,
+    programActiveWeeks,
+    objectifUI,
+    programmeGoal,
+    progressionStrategy,
+    progressionPlan,
+    createdByForSave,
+    user?.clubId,
+    user?.clubName,
+    assignModal,
+    toast,
+    navigate,
+    HOME_PATH,
+  ]);
 
   /* --------- DnD --------- */
   const onDragEndSessions = useCallback(
@@ -2586,6 +2970,54 @@ export default function ProgramBuilder({
 
   const ctaSize = useBreakpointValue({ base: "sm", md: "md" });
   const ctaPx = useBreakpointValue({ base: 4, md: 6 });
+  const progressionDeloadBg = useColorModeValue("green.50", "rgba(34,197,94,0.12)");
+  const progressionStrategyOptions = useMemo(
+    () => [
+      {
+        key: "secure",
+        label: t("programBuilder.progression.secure", "Sécurisée"),
+        detail: t(
+          "programBuilder.progression.secureDetail",
+          "Adaptation, progression contrôlée puis décharge si le cycle est assez long."
+        ),
+      },
+      {
+        key: "linear",
+        label: t("programBuilder.progression.linear", "Linéaire"),
+        detail: t(
+          "programBuilder.progression.linearDetail",
+          "Augmentation progressive et régulière de l'intensité."
+        ),
+      },
+      {
+        key: "undulating",
+        label: t("programBuilder.progression.undulating", "Ondulatoire"),
+        detail: t(
+          "programBuilder.progression.undulatingDetail",
+          "Alternance volume, intensité et consolidation."
+        ),
+      },
+    ],
+    [t]
+  );
+  const selectedProgressionStrategy =
+    progressionStrategyOptions.find((option) => option.key === progressionStrategy) ||
+    progressionStrategyOptions[0];
+  const progressionPhaseLabels = useMemo(
+    () => ({
+      adaptation: t("programBuilder.progression.phase.adaptation", "Adaptation"),
+      progression: t("programBuilder.progression.phase.progression", "Progression"),
+      overload: t("programBuilder.progression.phase.overload", "Surcharge"),
+      deload: t("programBuilder.progression.phase.deload", "Décharge"),
+      base: t("programBuilder.progression.phase.base", "Base"),
+      volume: t("programBuilder.progression.phase.volume", "Volume"),
+      intensity: t("programBuilder.progression.phase.intensity", "Intensité"),
+      consolidation: t("programBuilder.progression.phase.consolidation", "Consolidation"),
+    }),
+    [t]
+  );
+  const compactProgressionWeeks = progressionPlan.slice(0, 8);
+  const hiddenProgressionWeeksCount = Math.max(0, progressionPlan.length - compactProgressionWeeks.length);
 
   return (
     <Box
@@ -2631,7 +3063,8 @@ export default function ProgramBuilder({
             backdropFilter="blur(18px)"
             p={{ base: 4, md: 5 }}
           >
-            <Flex gap={3} wrap="wrap" align="center" mb={4}>
+            <Flex data-tour="builder-identity" gap={3} wrap="wrap" align="center" mb={4}>
+              <PageBackButton fallbackTo={HOME_PATH} />
               <Input
                 placeholder={t("programBuilder.placeholders.name", "Nom du programme")}
                 value={programName}
@@ -2669,6 +3102,28 @@ export default function ProgramBuilder({
                 isDisabled={!isCoach}
                 boxShadow="sm"
               />
+
+              <Box flex={{ base: "1 1 180px", md: "0 0 210px" }} minW={{ base: "180px", md: "190px" }}>
+                <Text fontSize="xs" fontWeight="800" color={textMute} mb={1} pl={2}>
+                  {t("programBuilder.activeWeeks", "Durée active (semaines)")}
+                </Text>
+                <Input
+                  type="number"
+                  min={1}
+                  max={52}
+                  step={1}
+                  value={programActiveWeeks}
+                  onChange={(e) => {
+                    setProgramActiveWeeks(sanitizeActiveWeeks(e.target.value));
+                    markDirty();
+                  }}
+                  bg={cardBg}
+                  borderRadius="full"
+                  borderColor={border}
+                  isDisabled={!isCoach}
+                  boxShadow="sm"
+                />
+              </Box>
             </Flex>
 
             <Flex align="center" justify="space-between" gap={3} wrap="wrap">
@@ -2702,17 +3157,13 @@ export default function ProgramBuilder({
                     variant={weightUnit === "kg" ? "outline" : "ghost"}
                     colorScheme="gray"
                     onClick={() => setWU("kg")}
-                  >
-                    kg
-                  </Button>
+                  >{t("units.kg", "kg")}</Button>
                   <Button
                     size="sm"
                     variant={weightUnit === "lbs" ? "outline" : "ghost"}
                     colorScheme="gray"
                     onClick={() => setWU("lbs")}
-                  >
-                    lbs
-                  </Button>
+                  >{t("units.lbs", "lbs")}</Button>
                 </HStack>
 
                 <Divider orientation="vertical" h="22px" display={{ base: "none", lg: "block" }} />
@@ -2750,17 +3201,13 @@ export default function ProgramBuilder({
                     variant={distanceUnit === "m" ? "outline" : "ghost"}
                     colorScheme="gray"
                     onClick={() => setDU("m")}
-                  >
-                    m
-                  </Button>
+                  >{t("time.minutes_short", "m")}</Button>
                   <Button
                     size="sm"
                     variant={distanceUnit === "mi" ? "outline" : "ghost"}
                     colorScheme="gray"
                     onClick={() => setDU("mi")}
-                  >
-                    miles
-                  </Button>
+                  >{t("auto.ProgramBuilder.miles", "miles")}</Button>
                 </HStack>
 
                 <Divider orientation="vertical" h="22px" display={{ base: "none", lg: "block" }} />
@@ -2785,10 +3232,54 @@ export default function ProgramBuilder({
                     />
                   </HStack>
                 </Tooltip>
+
+                {autoProgressionEnabled && (
+                  <>
+                    <Divider orientation="vertical" h="22px" display={{ base: "none", lg: "block" }} />
+                    <HStack spacing={1} wrap="wrap">
+                      <Text fontSize="sm" color={textMute}>
+                        {t("programBuilder.progression.mode", "Mode")}
+                      </Text>
+                      {progressionStrategyOptions.map((option) => (
+                        <Tooltip key={option.key} label={option.detail}>
+                          <Button
+                            size="sm"
+                            variant={progressionStrategy === option.key ? "solid" : "outline"}
+                            colorScheme={progressionStrategy === option.key ? "blue" : "gray"}
+                            borderRadius="full"
+                            onClick={() => {
+                              setProgressionStrategy(option.key);
+                              markDirty();
+                            }}
+                            isDisabled={!isCoach}
+                          >
+                            {option.label}
+                          </Button>
+                        </Tooltip>
+                      ))}
+                      <Badge colorScheme="gray" borderRadius="full">
+                        {isAssignedClientProgram
+                          ? t("programBuilder.progression.assignedMode", "client")
+                          : t("programBuilder.progression.templateMode", "modèle")}
+                      </Badge>
+                      <Tooltip label={t("programBuilder.progression.viewImpact", "Voir l'impact")}>
+                        <IconButton
+                          aria-label={t("programBuilder.progression.viewImpact", "Voir l'impact")}
+                          icon={<InfoOutlineIcon />}
+                          size="sm"
+                          variant="outline"
+                          borderRadius="full"
+                          onClick={autoProgressionImpactModal.onOpen}
+                        />
+                      </Tooltip>
+                    </HStack>
+                  </>
+                )}
               </HStack>
 
               {isCoach && (
                 <Button
+                  data-tour="builder-save"
                   colorScheme="blue"
                   onClick={saveProgramme}
                   isLoading={saving}
@@ -2805,6 +3296,7 @@ export default function ProgramBuilder({
             </Flex>
           </Box>
 
+          <Box data-tour="builder-sessions">
           <DragDropContext onDragEnd={onDragEndSessions}>
             <Droppable droppableId="sessions" direction="horizontal">
               {(provided) => (
@@ -2948,6 +3440,7 @@ export default function ProgramBuilder({
               )}
             </Droppable>
           </DragDropContext>
+          </Box>
 
           {sessions[activeTab] && (
             <Box
@@ -2960,7 +3453,7 @@ export default function ProgramBuilder({
               backdropFilter="blur(18px)"
               p={{ base: 4, md: 5 }}
             >
-              <HStack justify="space-between" mb={4} wrap="wrap" gap={4}>
+              <HStack data-tour="builder-sections" justify="space-between" mb={4} wrap="wrap" gap={4}>
                 <Text fontWeight="semibold" color={textMute}>
                   {t("programBuilder.totalTime", "Temps total")} : {totalTime}
                 </Text>
@@ -3045,6 +3538,7 @@ export default function ProgramBuilder({
                 </HStack>
               )}
 
+              <Box data-tour="builder-exercises">
               <DragDropContext onDragEnd={handleDragEndExercises}>
                 <Droppable
                   droppableId={`ex-${activeTab}-${
@@ -3063,7 +3557,11 @@ export default function ProgramBuilder({
                       {visibleList.map((ex, eIdx) => (
                         <Draggable key={ex.id} draggableId={ex.id} index={eIdx}>
                           {(drProv) => (
-                            <Box ref={drProv.innerRef} {...drProv.draggableProps}>
+                            <Box
+                              ref={drProv.innerRef}
+                              data-tour={eIdx === 0 ? "builder-demo-exercise" : undefined}
+                              {...drProv.draggableProps}
+                            >
                               <ExerciseCardRow
                                 ex={ex}
                                 index={eIdx}
@@ -3126,8 +3624,118 @@ export default function ProgramBuilder({
                   )}
                 </Droppable>
               </DragDropContext>
+              </Box>
             </Box>
           )}
+
+          <Modal
+            isOpen={autoProgressionImpactModal.isOpen}
+            onClose={autoProgressionImpactModal.onClose}
+            isCentered
+            size="md"
+          >
+            <ModalOverlay />
+            <ModalContent borderRadius="xl" bg={cardBg} maxW={{ base: "calc(100vw - 24px)", md: "520px" }}>
+              <ModalHeader pb={2} fontSize="lg">
+                {t("programBuilder.progression.impactTitle", "Impact de la progression auto")}
+              </ModalHeader>
+              <ModalCloseButton />
+              <ModalBody pt={0}>
+                <VStack align="stretch" spacing={3}>
+                  <Box p={3} border="1px solid" borderColor={border} borderRadius="lg" bg={subBg}>
+                    <HStack justify="space-between" align="center" spacing={3}>
+                      <Box minW={0}>
+                        <Text fontSize="xs" fontWeight="900" color={textMute} textTransform="uppercase">
+                          {t("programBuilder.progression.selectedMode", "Mode sélectionné")}
+                        </Text>
+                        <Text fontWeight="900" noOfLines={1}>{selectedProgressionStrategy?.label}</Text>
+                        <Text color={textMute} fontSize="sm" noOfLines={2}>
+                          {selectedProgressionStrategy?.detail}
+                        </Text>
+                      </Box>
+                      <Badge borderRadius="full" colorScheme={isAssignedClientProgram ? "green" : "gray"} flexShrink={0}>
+                        {isAssignedClientProgram
+                          ? t("programBuilder.progression.assignedMode", "client")
+                          : t("programBuilder.progression.templateMode", "modèle")}
+                      </Badge>
+                    </HStack>
+                  </Box>
+
+                  <Box p={3} border="1px solid" borderColor={border} borderRadius="lg">
+                    <HStack justify="space-between" mb={2}>
+                      <Text fontSize="sm" fontWeight="900">
+                        {t("programBuilder.progression.weekPreview", "Aperçu par semaines")}
+                      </Text>
+                      <Badge borderRadius="full" colorScheme="purple">
+                        {programActiveWeeks} {t("programBuilder.progression.weeks", "sem.")}
+                      </Badge>
+                    </HStack>
+                    <Flex gap={2} overflowX="auto" pb={1}>
+                      {compactProgressionWeeks.map((week) => (
+                        <Box
+                          key={`${week.week}-${week.phase}`}
+                          flex="0 0 86px"
+                          p={2}
+                          border="1px solid"
+                          borderColor={border}
+                          borderRadius="md"
+                          bg={week.phase === "deload" ? progressionDeloadBg : "transparent"}
+                        >
+                          <Text fontSize="xs" color={textMute} fontWeight="900">
+                            S{week.week}
+                          </Text>
+                          <Text fontSize="xs" fontWeight="800" noOfLines={1}>
+                            {progressionPhaseLabels[week.phase] || week.phase}
+                          </Text>
+                          <Badge mt={1} borderRadius="full" colorScheme={week.loadDeltaPct < 0 ? "green" : "blue"}>
+                            {formatDeltaPct(week.loadDeltaPct)}
+                          </Badge>
+                        </Box>
+                      ))}
+                      {hiddenProgressionWeeksCount > 0 && (
+                        <Box
+                          flex="0 0 74px"
+                          p={2}
+                          border="1px dashed"
+                          borderColor={border}
+                          borderRadius="md"
+                          display="grid"
+                          placeItems="center"
+                        >
+                          <Text fontSize="xs" fontWeight="900" color={textMute}>
+                            +{hiddenProgressionWeeksCount}
+                          </Text>
+                        </Box>
+                      )}
+                    </Flex>
+                  </Box>
+
+                  <Box p={3} border="1px solid" borderColor={border} borderRadius="lg">
+                    <Text fontSize="xs" fontWeight="900" color={textMute} textTransform="uppercase">
+                      {t("programBuilder.progression.exampleTitle", "Exemple concret")}
+                    </Text>
+                    <HStack mt={2} spacing={2} wrap="wrap">
+                      <Badge borderRadius="full">{t("programBuilder.progression.planned", "prévu")} 5 min</Badge>
+                      <Badge borderRadius="full" colorScheme="orange">{t("programBuilder.progression.real", "réel")} 7 min</Badge>
+                      <Badge borderRadius="full" colorScheme="red">{t("programBuilder.progression.rating", "note")} 5/5</Badge>
+                      <Badge borderRadius="full" colorScheme="green">charge -5%</Badge>
+                    </HStack>
+                    <Text mt={2} fontSize="sm" color={textMute}>
+                      {t(
+                        "programBuilder.progression.exampleTextShort",
+                        "BYL cible cet exercice en priorité et propose une baisse légère pour la prochaine séance."
+                      )}
+                    </Text>
+                  </Box>
+                </VStack>
+              </ModalBody>
+              <ModalFooter pt={2}>
+                <Button size="sm" onClick={autoProgressionImpactModal.onClose}>
+                  {t("common.close", "Fermer")}
+                </Button>
+              </ModalFooter>
+            </ModalContent>
+          </Modal>
 
           <Modal isOpen={assignModal.isOpen} onClose={assignModal.onClose} isCentered size="lg">
             <ModalOverlay />

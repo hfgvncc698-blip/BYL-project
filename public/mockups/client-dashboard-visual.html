@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BYL - Visuel dashboard client</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f4f1ec;
+        --surface: #ffffff;
+        --surface-soft: #f8f7f4;
+        --surface-warm: #fbfaf7;
+        --ink: #171717;
+        --muted: #6f6c66;
+        --subtle: #a39d94;
+        --border: rgba(55, 48, 38, 0.11);
+        --border-strong: rgba(55, 48, 38, 0.16);
+        --beige: #e8dfd2;
+        --beige-soft: #f3eee6;
+        --sage: #78866b;
+        --sage-soft: #eef2ea;
+        --clay: #9a6b4f;
+        --clay-soft: #f4ebe4;
+        --slate-soft: #f0f0ee;
+        --shadow: 0 24px 70px rgba(55, 48, 38, 0.1);
+        --shadow-soft: 0 12px 32px rgba(55, 48, 38, 0.07);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at 12% 0%, rgba(255, 255, 255, 0.9), transparent 30%),
+          radial-gradient(circle at 88% 8%, rgba(232, 223, 210, 0.72), transparent 34%),
+          linear-gradient(180deg, #fbfaf7 0%, var(--bg) 58%, #eeebe6 100%);
+        color: var(--ink);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      button {
+        border: 0;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      .page {
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 16px;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+      }
+
+      .brand-mark {
+        width: 46px;
+        height: 46px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.88);
+        display: grid;
+        place-items: center;
+        box-shadow: var(--shadow-soft);
+        overflow: hidden;
+      }
+
+      .brand-mark img {
+        width: 36px;
+        height: 36px;
+        object-fit: contain;
+      }
+
+      .eyebrow {
+        margin: 0;
+        color: var(--subtle);
+        font-size: 11px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        margin-top: 2px;
+        font-size: clamp(25px, 7vw, 34px);
+        line-height: 1.05;
+        letter-spacing: 0;
+      }
+
+      .avatar-row {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        padding: 6px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.72);
+        box-shadow: var(--shadow-soft);
+      }
+
+      .avatar {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--ink);
+        color: #fff;
+        font-weight: 900;
+      }
+
+      .avatar-row span {
+        padding-right: 8px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 14px;
+        align-items: stretch;
+        margin-bottom: 14px;
+      }
+
+      .panel {
+        background: rgba(255, 255, 255, 0.86);
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(18px);
+      }
+
+      .hero-main {
+        padding: 16px;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+        min-height: 0;
+      }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        width: fit-content;
+        padding: 8px 11px;
+        border-radius: 999px;
+        background: var(--sage-soft);
+        color: #596752;
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: currentColor;
+      }
+
+      .hero-title {
+        margin-top: 18px;
+        max-width: 610px;
+        font-size: clamp(31px, 9vw, 54px);
+        line-height: 0.98;
+        font-weight: 950;
+        letter-spacing: 0;
+      }
+
+      .hero-copy {
+        margin-top: 12px;
+        max-width: 560px;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.5;
+        font-weight: 680;
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 24px;
+      }
+
+      .btn {
+        width: 100%;
+        min-height: 54px;
+        border-radius: 18px;
+        padding: 0 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-weight: 920;
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+      }
+
+      .btn:hover {
+        transform: translateY(-1px);
+      }
+
+      .btn-primary {
+        min-height: 58px;
+        min-width: 228px;
+        padding-inline: 24px;
+        background: var(--ink);
+        color: #fff;
+        box-shadow: 0 18px 30px rgba(23, 23, 23, 0.2);
+      }
+
+      .btn-secondary {
+        background: rgba(255, 255, 255, 0.72);
+        color: var(--ink);
+        border: 1px solid var(--border);
+      }
+
+      .progress-card {
+        align-self: stretch;
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        padding: 18px;
+        background: linear-gradient(180deg, #ffffff, var(--surface-warm));
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .ring {
+        position: relative;
+        width: 154px;
+        height: 154px;
+        margin: 2px auto 18px;
+        border-radius: 50%;
+        background: conic-gradient(var(--ink) 0 68%, var(--beige) 68% 100%);
+        display: grid;
+        place-items: center;
+        box-shadow: inset 0 0 0 1px rgba(55, 48, 38, 0.04);
+      }
+
+      .ring::after {
+        content: "";
+        width: 112px;
+        height: 112px;
+        border-radius: 50%;
+        background: #fff;
+        position: absolute;
+      }
+
+      .ring-value {
+        position: relative;
+        z-index: 1;
+        text-align: center;
+      }
+
+      .ring-value strong {
+        display: block;
+        font-size: 36px;
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      .ring-value span {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .mini-line {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .hero-side {
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .side-card {
+        flex: 1;
+        min-height: 0;
+        border-radius: 22px;
+        border: 1px solid var(--border);
+        padding: 16px;
+        background: var(--surface-soft);
+      }
+
+      .side-card h2 {
+        font-size: 15px;
+        line-height: 1.2;
+      }
+
+      .side-value {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .side-value strong {
+        font-size: 36px;
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      .side-value span {
+        color: var(--muted);
+        font-weight: 800;
+      }
+
+      .side-card p {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.45;
+        font-weight: 650;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
+
+      .section {
+        padding: 16px;
+      }
+
+      .section-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 16px;
+        flex-direction: column;
+      }
+
+      .section-head h2 {
+        font-size: 18px;
+      }
+
+      .section-head span {
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .metric-stack {
+        display: grid;
+        gap: 10px;
+      }
+
+      .metric {
+        display: grid;
+        grid-template-columns: 42px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        background: var(--surface-soft);
+      }
+
+      .icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 15px;
+        display: grid;
+        place-items: center;
+        font-size: 20px;
+        font-weight: 900;
+      }
+
+      .blue {
+        background: var(--slate-soft);
+        color: #4b4b47;
+      }
+
+      .mint {
+        background: var(--sage-soft);
+        color: #596752;
+      }
+
+      .amber {
+        background: var(--clay-soft);
+        color: var(--clay);
+      }
+
+      .violet {
+        background: var(--beige-soft);
+        color: #6f6253;
+      }
+
+      .metric h3 {
+        font-size: 14px;
+        line-height: 1.2;
+      }
+
+      .metric p {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .metric strong {
+        font-size: 24px;
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      .program-card {
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        padding: 16px;
+        background: var(--surface-soft);
+      }
+
+      .program-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        flex-direction: column;
+      }
+
+      .program-top h3 {
+        font-size: 18px;
+        line-height: 1.2;
+      }
+
+      .tag {
+        flex-shrink: 0;
+        border-radius: 999px;
+        padding: 7px 11px;
+        background: var(--beige-soft);
+        color: #6f6253;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .bar {
+        height: 10px;
+        margin: 16px 0 10px;
+        border-radius: 999px;
+        background: var(--beige);
+        overflow: hidden;
+      }
+
+      .bar span {
+        display: block;
+        height: 100%;
+        width: 68%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--ink), var(--sage));
+      }
+
+      .program-meta {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .meta-box {
+        min-width: 0;
+        padding: 10px;
+        border-radius: 18px;
+        background: #fff;
+        border: 1px solid var(--border);
+      }
+
+      .meta-box strong {
+        display: block;
+        font-size: 17px;
+      }
+
+      .meta-box span {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 750;
+      }
+
+      .timeline {
+        display: grid;
+        gap: 10px;
+      }
+
+      .event {
+        display: grid;
+        grid-template-columns: 54px minmax(0, 1fr);
+        gap: 12px;
+        align-items: center;
+        padding: 12px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        background: var(--surface-soft);
+      }
+
+      .time {
+        padding: 8px 4px;
+        border-radius: 16px;
+        background: #fff;
+        border: 1px solid var(--border);
+        text-align: center;
+        font-size: 12px;
+        font-weight: 950;
+      }
+
+      .event h3 {
+        font-size: 14px;
+      }
+
+      .event p {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 650;
+        line-height: 1.35;
+      }
+
+      .mobile-preview {
+        margin-top: 18px;
+        padding: 18px;
+        display: none;
+      }
+
+      @media (min-width: 641px) {
+        .page {
+          padding: 24px;
+        }
+
+        .topbar {
+          align-items: center;
+        }
+
+        .avatar-row {
+          display: flex;
+        }
+
+        .hero-main {
+          padding: 22px;
+          gap: 22px;
+        }
+
+        .program-meta {
+          grid-template-columns: repeat(3, 1fr);
+        }
+
+        .hero-actions {
+          flex-direction: row;
+        }
+
+        .btn {
+          width: auto;
+          min-height: 48px;
+        }
+
+        .btn-primary {
+          min-height: 58px;
+        }
+      }
+
+      @media (min-width: 981px) {
+        .hero {
+          grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+          gap: 18px;
+          margin-bottom: 18px;
+        }
+
+        .hero-main {
+          grid-template-columns: minmax(0, 1fr) 220px;
+          min-height: 308px;
+        }
+
+        .grid {
+          grid-template-columns: 0.82fr 1.18fr 0.8fr;
+          gap: 18px;
+        }
+
+        .section-head,
+        .program-top {
+          align-items: center;
+          flex-direction: row;
+        }
+
+        .section,
+        .hero-side {
+          padding: 18px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark">
+            <img src="/logo-byl.png" alt="BoostYourLife" />
+          </div>
+          <div>
+            <p class="eyebrow">Tableau de bord client</p>
+            <h1>Bonjour Léa</h1>
+          </div>
+        </div>
+        <div class="avatar-row" aria-label="Profil client">
+          <div class="avatar">L</div>
+          <span>Suivi actif</span>
+        </div>
+      </header>
+
+      <section class="hero">
+        <div class="panel hero-main">
+          <div>
+            <div class="status-pill"><span class="dot"></span>À faire aujourd’hui</div>
+            <h2 class="hero-title">Séance bas du corps prête à lancer.</h2>
+            <p class="hero-copy">
+              Tu es dans le bon rythme. La prochaine action est claire, et ton coach a déjà prévu la suite de la semaine.
+            </p>
+            <div class="hero-actions">
+              <button class="btn btn-primary"><span aria-hidden="true">▶</span> Lancer la séance</button>
+              <button class="btn btn-secondary"><span aria-hidden="true">□</span> Planifier</button>
+              <button class="btn btn-secondary"><span aria-hidden="true">↗</span> Voir mes stats</button>
+            </div>
+          </div>
+
+          <aside class="progress-card" aria-label="Progression globale">
+            <div class="ring">
+              <div class="ring-value">
+                <strong>68%</strong>
+                <span>cycle actuel</span>
+              </div>
+            </div>
+            <div class="mini-line">
+              <span>11 séances validées</span>
+              <strong>5 restantes</strong>
+            </div>
+          </aside>
+        </div>
+
+        <aside class="panel hero-side">
+          <div class="side-card">
+            <h2>Cette semaine</h2>
+            <div class="side-value"><strong>3</strong><span>séances prévues</span></div>
+            <p>Deux créneaux déjà posés, une séance libre à placer.</p>
+          </div>
+          <div class="side-card">
+            <h2>Ressenti moyen</h2>
+            <div class="side-value"><strong>4.2</strong><span>/5</span></div>
+            <p>Charge bien tolérée sur les dernières séances.</p>
+          </div>
+        </aside>
+      </section>
+
+      <section class="grid">
+        <article class="panel section">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Lecture rapide</p>
+              <h2>Ce qui compte</h2>
+            </div>
+            <span>7 derniers jours</span>
+          </div>
+
+          <div class="metric-stack">
+            <div class="metric">
+              <div class="icon mint">✓</div>
+              <div>
+                <h3>Régularité</h3>
+                <p>Série active depuis 5 jours</p>
+              </div>
+              <strong>5j</strong>
+            </div>
+            <div class="metric">
+              <div class="icon blue">↗</div>
+              <div>
+                <h3>Progression</h3>
+                <p>Objectif hebdo bien engagé</p>
+              </div>
+              <strong>75%</strong>
+            </div>
+            <div class="metric">
+              <div class="icon amber">!</div>
+              <div>
+                <h3>Point d’attention</h3>
+                <p>Sommeil plus bas mardi</p>
+              </div>
+              <strong>1</strong>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel section">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Programme actif</p>
+              <h2>Renforcement & posture</h2>
+            </div>
+            <span class="tag">Coach Martin</span>
+          </div>
+
+          <div class="program-card">
+            <div class="program-top">
+              <div>
+                <h3>Prochaine séance : jambes + gainage</h3>
+                <p class="hero-copy" style="font-size: 14px; margin-top: 8px">
+                  42 min estimées. Dernière séance notée facile à modérée.
+                </p>
+              </div>
+              <span class="tag">Semaine 4/6</span>
+            </div>
+            <div class="bar"><span></span></div>
+            <div class="mini-line">
+              <span>Progression du cycle</span>
+              <strong>11/16</strong>
+            </div>
+            <div class="program-meta">
+              <div class="meta-box"><strong>42 min</strong><span>durée moyenne</span></div>
+              <div class="meta-box"><strong>4.2/5</strong><span>ressenti</span></div>
+              <div class="meta-box"><strong>2 j</strong><span>dernier entraînement</span></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel section">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Planning</p>
+              <h2>À venir</h2>
+            </div>
+            <span>3 dates</span>
+          </div>
+
+          <div class="timeline">
+            <div class="event">
+              <div class="time">18:30</div>
+              <div>
+                <h3>Aujourd’hui</h3>
+                <p>Jambes + gainage</p>
+              </div>
+            </div>
+            <div class="event">
+              <div class="time">07:45</div>
+              <div>
+                <h3>Jeudi</h3>
+                <p>Mobilité hanches</p>
+              </div>
+            </div>
+            <div class="event">
+              <div class="time">10:00</div>
+              <div>
+                <h3>Samedi</h3>
+                <p>Cardio zone 2</p>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

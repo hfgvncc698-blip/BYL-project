@@ -22,7 +22,6 @@ import {
   AccordionIcon,
   Badge,
   Circle,
-  Flex,
 } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -42,10 +41,8 @@ import {
 
 const MotionVStack = motion(VStack);
 
-// Images locales (public/)
-import MOCKUP_URL from "../assets/Mockup.png";
-
 const HERO_URL = "/hero-bg.png";
+const MOCKUP_URL = "/Mockup.jpg";
 const stripStepPrefix = (text = "") => String(text).replace(/^\s*\d+\)\s*/, "");
 
 function FeatureCard({ title, desc, icon, accent = "blue.500" }) {
@@ -142,7 +139,7 @@ export default function HomePage() {
   const bgHero = useColorModeValue("white", "gray.900");
   const bgSection = useColorModeValue("white", "gray.800");
   const bgSoft = useColorModeValue("gray.50", "gray.900");
-  const softButtonHover = useColorModeValue("rgba(255,255,255,0.16)", "rgba(255,255,255,0.14)");
+  
 
   const bodyText = useColorModeValue("gray.900", "gray.100");
   const subText = useColorModeValue("gray.600", "gray.300");
@@ -374,9 +371,7 @@ export default function HomePage() {
       <Box id="pro" py={{ base: 16, md: 20 }} px={4} bg={bgSoft}>
         <Container maxW="container.xl">
           <VStack spacing={3} textAlign="center" mb={12}>
-            <Text color="blue.500" fontWeight="800" letterSpacing="0.08em" textTransform="uppercase" fontSize="xs">
-              Ce que vous obtenez
-            </Text>
+            <Text color="blue.500" fontWeight="800" letterSpacing="0.08em" textTransform="uppercase" fontSize="xs">{t("auto.HomePage.ce_que_vous_obtenez", "Ce que vous obtenez")}</Text>
             <Heading fontSize={{ base: "2xl", md: "3xl" }} color={bodyText} fontWeight="extrabold" maxW="16ch">
               {t("homePro.benefits.title")}
             </Heading>
@@ -404,12 +399,8 @@ export default function HomePage() {
           >
             <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6} alignItems="center">
               <Box textAlign={{ base: "center", md: "left" }}>
-                <Heading size="md" color={bodyText} fontWeight="extrabold">
-                  Passez de l’intérêt à l’essai en quelques minutes.
-                </Heading>
-                <Text mt={2} color={subText}>
-                  Lancez un premier essai, découvrez l’interface complète et voyez immédiatement si elle colle à votre façon de coacher.
-                </Text>
+                <Heading size="md" color={bodyText} fontWeight="extrabold">{t("auto.HomePage.passez_de_l_interet_a_l_essai_en_quelques_minutes", "Passez de l’intérêt à l’essai en quelques minutes.")}</Heading>
+                <Text mt={2} color={subText}>{t("auto.HomePage.lancez_un_premier_essai_decouvrez_l_interface_comp", "Lancez un premier essai, découvrez l’interface complète et voyez immédiatement si elle colle à votre façon de coacher.")}</Text>
               </Box>
               <VStack align={{ base: "stretch", md: "flex-end" }} spacing={2}>
                 <Button size="lg" onClick={startTrialNow} {...ctaButtonProps}>
@@ -429,9 +420,7 @@ export default function HomePage() {
         <Container maxW="container.xl">
           <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={{ base: 10, lg: 12 }} alignItems="center">
             <VStack align="start" spacing={5}>
-              <Text color="blue.500" fontWeight="800" letterSpacing="0.08em" textTransform="uppercase" fontSize="xs">
-                Aperçu produit
-              </Text>
+              <Text color="blue.500" fontWeight="800" letterSpacing="0.08em" textTransform="uppercase" fontSize="xs">{t("auto.HomePage.apercu_produit", "Aperçu produit")}</Text>
               <Heading fontSize={{ base: "2xl", md: "3xl" }} color={bodyText} fontWeight="extrabold" maxW="14ch">
                 {t("homePro.mockup.title")}
               </Heading>
@@ -445,12 +434,8 @@ export default function HomePage() {
               </Text>
 
               <HStack spacing={3} wrap="wrap">
-                <Badge borderRadius="full" px={3} py={1.5} bg="rgba(59,130,246,0.10)" color="blue.600">
-                  Vue coach claire
-                </Badge>
-                <Badge borderRadius="full" px={3} py={1.5} bg="rgba(16,185,129,0.10)" color="green.600">
-                  Séances prêtes à lancer
-                </Badge>
+                <Badge borderRadius="full" px={3} py={1.5} bg="rgba(59,130,246,0.10)" color="blue.600">{t("auto.HomePage.vue_coach_claire", "Vue coach claire")}</Badge>
+                <Badge borderRadius="full" px={3} py={1.5} bg="rgba(16,185,129,0.10)" color="green.600">{t("auto.HomePage.seances_pretes_a_lancer", "Séances prêtes à lancer")}</Badge>
               </HStack>
 
               <VStack align="start" spacing={2}>
@@ -480,7 +465,16 @@ export default function HomePage() {
                 pointerEvents="none"
                 zIndex={1}
               />
-              <Box as="img" src={MOCKUP_URL} alt={t("homePro.mockup.imageAlt")} w="100%" h="auto" display="block" />
+              <Box
+                as="img"
+                src={MOCKUP_URL}
+                alt={t("homePro.mockup.imageAlt")}
+                w="100%"
+                h="auto"
+                display="block"
+                loading="lazy"
+                decoding="async"
+              />
             </Box>
           </SimpleGrid>
         </Container>
@@ -490,9 +484,7 @@ export default function HomePage() {
       <Box py={{ base: 16, md: 20 }} px={4} bg={bgSoft}>
         <Container maxW="container.xl">
           <VStack spacing={3} textAlign="center" mb={10}>
-            <Text color="blue.500" fontWeight="800" letterSpacing="0.08em" textTransform="uppercase" fontSize="xs">
-              Parcours simple
-            </Text>
+            <Text color="blue.500" fontWeight="800" letterSpacing="0.08em" textTransform="uppercase" fontSize="xs">{t("auto.HomePage.parcours_simple", "Parcours simple")}</Text>
             <Heading textAlign="center" fontSize={{ base: "2xl", md: "3xl" }} color={bodyText} fontWeight="extrabold">
               {t("homePro.how.title")}
             </Heading>
@@ -592,9 +584,7 @@ export default function HomePage() {
       <Box py={{ base: 16, md: 20 }} px={4} bg={bgSection}>
         <Container maxW="container.xl">
           <VStack spacing={3} textAlign="center" mb={10}>
-            <Text color="blue.500" fontWeight="800" letterSpacing="0.08em" textTransform="uppercase" fontSize="xs">
-              Pourquoi ça convainc
-            </Text>
+            <Text color="blue.500" fontWeight="800" letterSpacing="0.08em" textTransform="uppercase" fontSize="xs">{t("auto.HomePage.pourquoi_ca_convainc", "Pourquoi ça convainc")}</Text>
             <Heading fontSize={{ base: "2xl", md: "3xl" }} color={bodyText} fontWeight="extrabold">
               {t("homePro.promise.title")}
             </Heading>
@@ -665,9 +655,7 @@ export default function HomePage() {
       <Box py={{ base: 16, md: 20 }} px={4} bg={bgSoft}>
         <Container maxW="container.md">
           <VStack spacing={3} textAlign="center" mb={8}>
-            <Text color="blue.500" fontWeight="800" letterSpacing="0.08em" textTransform="uppercase" fontSize="xs">
-              Réponses utiles
-            </Text>
+            <Text color="blue.500" fontWeight="800" letterSpacing="0.08em" textTransform="uppercase" fontSize="xs">{t("auto.HomePage.reponses_utiles", "Réponses utiles")}</Text>
             <Heading textAlign="center" fontSize={{ base: "2xl", md: "3xl" }} color={bodyText} fontWeight="extrabold">
               {t("homePro.faq.title")}
             </Heading>
@@ -698,12 +686,8 @@ export default function HomePage() {
             p={{ base: 6, md: 7 }}
             textAlign="center"
           >
-            <Heading size="md" color={bodyText} fontWeight="extrabold">
-              Prêt à voir si l’outil vous fait gagner du temps ?
-            </Heading>
-            <Text mt={2} color={subText}>
-              Testez l’espace pro dans de bonnes conditions et jugez par vous-même sur vos vrais usages.
-            </Text>
+            <Heading size="md" color={bodyText} fontWeight="extrabold">{t("auto.HomePage.pret_a_voir_si_l_outil_vous_fait_gagner_du_temps", "Prêt à voir si l’outil vous fait gagner du temps ?")}</Heading>
+            <Text mt={2} color={subText}>{t("auto.HomePage.testez_l_espace_pro_dans_de_bonnes_conditions_et_j", "Testez l’espace pro dans de bonnes conditions et jugez par vous-même sur vos vrais usages.")}</Text>
             <Button mt={5} size="lg" onClick={startTrialNow} {...ctaButtonProps}>
               {t("homePro.faq.cta")}
             </Button>

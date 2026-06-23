@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+  <rect width="1080" height="1080" fill="#f7f9fc"/>
+  <rect x="64" y="96" width="952" height="348" rx="28" fill="#0f1a26"/>
+  <text x="96" y="194" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="64" font-weight="800">Dans un club,</text>
+  <text x="96" y="286" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="58" font-weight="800">ce qui manque</text>
+  <text x="96" y="362" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="58" font-weight="800">c'est la vision.</text>
+  <text x="96" y="548" fill="#0f1a26" font-family="Inter, Arial, sans-serif" font-size="42" font-weight="800">A verifier en 10 secondes :</text>
+  <rect x="96" y="630" width="724" height="82" rx="26" fill="#ffffff" stroke="#d8e0ea" stroke-width="3"/>
+  <text x="136" y="684" fill="#0f1a26" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800">Clients actifs et suivis</text>
+  <rect x="204" y="744" width="760" height="82" rx="26" fill="#305a8e"/>
+  <text x="244" y="798" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800">Equipe alignee</text>
+</svg>

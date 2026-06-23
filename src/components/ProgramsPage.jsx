@@ -11,7 +11,6 @@ import {
   Td,
   Button,
   useColorModeValue,
-  Spinner,
   Stack,
   IconButton,
   useDisclosure,
@@ -27,12 +26,11 @@ import {
   Badge,
   HStack,
   useToast,
-  Flex,
   Link as ChakraLink,
-  SimpleGrid,
+  Select,
 } from "@chakra-ui/react";
 import { AddIcon, DeleteIcon, CopyIcon } from "@chakra-ui/icons";
-import { useNavigate, Link as RouterLink, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import AppLoading from "./ui/AppLoading";
 import {
   collection,
@@ -41,15 +39,22 @@ import {
   doc,
   getDoc,
   addDoc,
+  setDoc,
+  updateDoc,
+  arrayUnion,
   serverTimestamp,
   query,
   where,
+  limit,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { useAuth } from "../AuthContext";
 import { useTranslation } from "react-i18next";
 import { notify } from "../utils/notify";
 import { useAppTheme } from "../styles/appTheme";
+import { canUseGuidedProgram } from "../utils/proPlanAccess";
+import { formatProgramActiveWeeks, getProgramActiveWeeksLabel } from "../utils/programDuration";
+import PageBackButton from "./ui/PageBackButton";
 
 /* -------- helpers -------- */
 function getSessionCount(p) {
@@ -124,16 +129,45 @@ const isAutoProgramme = (p) => {
   return o.includes("auto");
 };
 
+const getClientDisplayName = (client) =>
+  `${client?.prenom || client?.firstName || ""} ${client?.nom || client?.lastName || ""}`.trim() ||
+  client?.displayName ||
+  client?.email ||
+  "Client";
+
 export default function ProgramsPage() {
   const { t, i18n } = useTranslation("common");
   const theme = useAppTheme();
   const locale = i18n.language || "fr-FR";
 
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isAdmin } = useAuth();
+  const params = new URLSearchParams(location.search);
+  const adminCoachId = params.get("adminCoachId") || "";
+  const effectiveCoachUid = isAdmin && adminCoachId ? adminCoachId : user?.uid;
+  const withAdminCoach = useCallback(
+    (path) => {
+      if (!isAdmin || !adminCoachId) return path;
+      return `${path}${path.includes("?") ? "&" : "?"}adminCoachId=${encodeURIComponent(adminCoachId)}`;
+    },
+    [adminCoachId, isAdmin]
+  );
+  const guidedProgramAllowed = useMemo(
+    () =>
+      canUseGuidedProgram(
+        user?.proAccess || {
+          packageKey: user?.packageKey,
+          packageTier: user?.packageTier,
+          branding: user?.branding,
+        }
+      ),
+    [user?.branding, user?.packageKey, user?.packageTier, user?.proAccess]
+  );
 
   const [programmes, setProgrammes] = useState([]);
+  const [clients, setClients] = useState([]);
   const [assignedCounts, setAssignedCounts] = useState({});
   const [assignedClientsMap, setAssignedClientsMap] = useState({});
   const [loading, setLoading] = useState(true);
@@ -141,9 +175,13 @@ export default function ProgramsPage() {
   const choiceModal = useDisclosure();
   const confirmModal = useDisclosure();
   const assignedToModal = useDisclosure();
+  const assignClientModal = useDisclosure();
 
   const [toDeleteId, setToDeleteId] = useState(null);
   const [selectedAssignedBaseProgramId, setSelectedAssignedBaseProgramId] = useState(null);
+  const [selectedProgramForAssign, setSelectedProgramForAssign] = useState(null);
+  const [selectedClientId, setSelectedClientId] = useState("");
+  const [assigningClient, setAssigningClient] = useState(false);
 
   const pageBg = theme.pageBg;
   const cardBg = theme.surfaceBg;
@@ -219,17 +257,17 @@ export default function ProgramsPage() {
       const fallbackName = prettyProgramName(baseProg);
 
       if (isAutoProgramme(baseProg)) {
-        navigate(`/auto-program-preview/${baseProg.id}`, {
+        navigate(withAdminCoach(`/auto-program-preview/${baseProg.id}`), {
           state: { programmeName: fallbackName, from: "programsPage" },
         });
         return;
       }
 
-      navigate(`/programmes/${baseProg.id}`, {
+      navigate(withAdminCoach(`/programmes/${baseProg.id}`), {
         state: { programmeName: fallbackName, from: "programsPage" },
       });
     },
-    [navigate, prettyProgramName]
+    [navigate, prettyProgramName, withAdminCoach]
   );
 
   const openAssignedProgramForClient = useCallback(
@@ -237,40 +275,50 @@ export default function ProgramsPage() {
       if (!clientId || !assignedProgramId) return;
 
       if (isAuto) {
-        navigate(`/auto-program-preview/${assignedProgramId}`, {
-          state: { programmeName: fallbackName || "", from: "programsPage" },
+        navigate(withAdminCoach(`/auto-program-preview/${clientId}/${assignedProgramId}`), {
+          state: { programmeName: fallbackName || "", from: "programsPage", clientId },
         });
         return;
       }
 
-      navigate(`/clients/${clientId}/programmes/${assignedProgramId}`, {
+      navigate(withAdminCoach(`/clients/${clientId}/programmes/${assignedProgramId}`), {
         state: { programmeName: fallbackName || "", from: "programsPage" },
       });
     },
-    [navigate]
+    [navigate, withAdminCoach]
   );
 
   const fetchData = useCallback(async () => {
-    if (!user?.uid) return;
+    if (!effectiveCoachUid) return;
     try {
       setLoading(true);
 
-      const progQ = query(collection(db, "programmes"), where("createdBy", "==", user.uid));
+      const progQ = query(collection(db, "programmes"), where("createdBy", "==", effectiveCoachUid), limit(200));
       const pSnap = await getDocs(progQ);
       let progs = pSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       progs.sort((a, b) => getMillis(b) - getMillis(a));
       setProgrammes(progs);
+      setLoading(false);
 
-      const clientsQ = query(collection(db, "clients"), where("createdBy", "==", user.uid));
-      const clientsSnap = await getDocs(clientsQ);
+      const clientSnaps = await Promise.all([
+        getDocs(query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(200))),
+        getDocs(query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(200))).catch(() => ({ docs: [] })),
+        getDocs(query(collection(db, "clients"), where("coachIds", "array-contains", effectiveCoachUid), limit(200))).catch(() => ({ docs: [] })),
+      ]);
+      const clientsById = new Map();
+      clientSnaps.forEach((snap) => {
+        snap.docs.forEach((d) => clientsById.set(d.id, { id: d.id, ...d.data() }));
+      });
+      const clientList = [...clientsById.values()].sort((a, b) =>
+        getClientDisplayName(a).localeCompare(getClientDisplayName(b), "fr", { sensitivity: "base" })
+      );
+      setClients(clientList);
 
       const counts = {};
       const map = {};
 
-      for (const c of clientsSnap.docs) {
-        const clientData = c.data() || {};
-
-        const subSnap = await getDocs(collection(db, "clients", c.id, "programmes"));
+      await Promise.all(clientList.map(async (clientData) => {
+        const subSnap = await getDocs(collection(db, "clients", clientData.id, "programmes"));
         subSnap.docs.forEach((d) => {
           const prog = d.data() || {};
           const baseId = prog.programId || prog.programID || prog.baseId;
@@ -280,7 +328,7 @@ export default function ProgramsPage() {
           if (!map[baseId]) map[baseId] = [];
 
           map[baseId].push({
-            clientId: c.id,
+            clientId: clientData.id,
             prenom: clientData.prenom || clientData.firstName || "",
             nom: clientData.nom || clientData.lastName || "",
             assignedProgramId: d.id,
@@ -288,7 +336,7 @@ export default function ProgramsPage() {
             fallbackName: prettyProgramName(prog),
           });
         });
-      }
+      }));
 
       setAssignedCounts(counts);
       setAssignedClientsMap(map);
@@ -300,11 +348,11 @@ export default function ProgramsPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast, user?.uid, t, prettyProgramName]);
+  }, [toast, effectiveCoachUid, t, prettyProgramName]);
 
   useEffect(() => {
-    if (!authLoading && user?.uid) fetchData();
-  }, [authLoading, user?.uid, fetchData]);
+    if (!authLoading && effectiveCoachUid) fetchData();
+  }, [authLoading, effectiveCoachUid, fetchData]);
 
   const selectedAssignedClients = useMemo(() => {
     if (!selectedAssignedBaseProgramId) return [];
@@ -350,7 +398,9 @@ export default function ProgramsPage() {
         ...data,
         nomProgramme: newName,
         createdAt: serverTimestamp(),
-        createdBy: user?.uid || data.createdBy || null,
+        createdBy: effectiveCoachUid || user?.uid || data.createdBy || null,
+        clubId: data.clubId || user?.clubId || null,
+        clubName: data.clubName || user?.clubName || null,
         origine: "duplicate-from-programs-page",
       });
 
@@ -367,12 +417,94 @@ export default function ProgramsPage() {
     }
   };
 
+  const closeAssignClientModal = useCallback(() => {
+    assignClientModal.onClose();
+    setSelectedProgramForAssign(null);
+    setSelectedClientId("");
+  }, [assignClientModal]);
+
+  const openAssignClientModal = useCallback(
+    (program) => {
+      setSelectedProgramForAssign(program);
+      setSelectedClientId("");
+      assignClientModal.onOpen();
+    },
+    [assignClientModal]
+  );
+
+  const handleAssignClient = async () => {
+    if (!selectedProgramForAssign?.id || !selectedClientId || !effectiveCoachUid) return;
+
+    setAssigningClient(true);
+    try {
+      const tplRef = doc(db, "programmes", selectedProgramForAssign.id);
+      const tplSnap = await getDoc(tplRef);
+      if (!tplSnap.exists()) {
+        notify(toast, "programMissing", {
+          title: t("programs.not_found", "Programme introuvable"),
+        });
+        return;
+      }
+
+      const tpl = tplSnap.data() || {};
+      const instRef = doc(collection(db, "clients", selectedClientId, "programmes"));
+      const totalSessions = getSessionCount(tpl);
+      const activeWeeks = Math.max(1, Math.min(52, Math.round(Number(tpl.activeWeeks ?? tpl.durationWeeks ?? 4) || 4)));
+
+      await setDoc(instRef, {
+        programId: selectedProgramForAssign.id,
+        ...tpl,
+        id: instRef.id,
+        fromTemplateId: selectedProgramForAssign.id,
+        coachId: effectiveCoachUid,
+        createdBy: effectiveCoachUid,
+        assignedBy: effectiveCoachUid,
+        assignedAt: serverTimestamp(),
+        activeWeeks,
+        durationWeeks: activeWeeks,
+        totalSessions: typeof totalSessions === "number" ? totalSessions : null,
+        progress: 0,
+        status: "active",
+        statut: "en cours",
+        origine: "coach-assign",
+      });
+
+      await updateDoc(doc(db, "clients", selectedClientId), {
+        currentProgramme: instRef.id,
+        programmes: arrayUnion(instRef.id),
+        lastAssignedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        coachIds: arrayUnion(effectiveCoachUid),
+      });
+
+      notify(toast, "programAssigned", {
+        title: t("clientsList.assignModal.successTitle", "Programme assigné"),
+        description: t("clientsList.assignModal.successDesc", "Le programme a bien été attribué au client."),
+      });
+
+      closeAssignClientModal();
+      await fetchData();
+    } catch (err) {
+      console.error("Assign program to client error:", err);
+      notify(toast, "programAssignError", {
+        title: t("clientsList.assignModal.errorTitle", "Erreur"),
+        description: t("clientsList.assignModal.errorDesc", "Impossible d’assigner le programme."),
+      });
+    } finally {
+      setAssigningClient(false);
+    }
+  };
+
   if (authLoading || loading) {
     return <AppLoading label={t("common.loading", "Chargement...")} />;
   }
 
   return (
-    <Box minH="100vh" bg={pageBg} px={{ base: 3, md: 5 }} py={{ base: 5, md: 7 }}>
+    <Box data-tour-page="coach-programs" minH="100vh" bg={pageBg} px={{ base: 3, md: 5 }} py={{ base: 5, md: 7 }}>
+      <Box mb={4}>
+        <PageBackButton fallbackTo="/coach-dashboard" />
+      </Box>
+
       <Box
         bg={panelBg}
         border="1px solid"
@@ -424,22 +556,24 @@ export default function ProgramsPage() {
                 borderRadius="xl"
                 onClick={() => {
                   choiceModal.onClose();
-                  navigate("/exercise-bank/program-builder/new");
+                  navigate(withAdminCoach("/exercise-bank/program-builder/new"));
                 }}
               >
                 {t("nav.create_manual", "Créer manuel")}
               </Button>
-              <Button
-                variant="outline"
-                w="full"
-                borderRadius="xl"
-                onClick={() => {
-                  choiceModal.onClose();
-                  navigate("/auto-program-questionnaire");
-                }}
-              >
-                {t("nav.guided_creation", "Création guidée")}
-              </Button>
+              {guidedProgramAllowed && (
+                <Button
+                  variant="outline"
+                  w="full"
+                  borderRadius="xl"
+                  onClick={() => {
+                    choiceModal.onClose();
+                    navigate(withAdminCoach("/auto-program-questionnaire"));
+                  }}
+                >
+                  {t("nav.guided_creation", "Création guidée")}
+                </Button>
+              )}
             </VStack>
           </ModalBody>
         </ModalContent>
@@ -552,6 +686,51 @@ export default function ProgramsPage() {
         </ModalContent>
       </Modal>
 
+      {/* Modal assigner à un client */}
+      <Modal isOpen={assignClientModal.isOpen} onClose={closeAssignClientModal} isCentered>
+        <ModalOverlay backdropFilter="blur(6px)" />
+        <ModalContent bg={cardBg} border="1px solid" borderColor={borderColor} borderRadius="2xl">
+          <ModalHeader>{t("assignProgram.title", "Assigner un programme")}</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack align="stretch" spacing={4}>
+              <Box>
+                <Text fontSize="sm" color={textMuted}>
+                  {t("form.program", "Programme")}
+                </Text>
+                <Text fontWeight="800">
+                  {selectedProgramForAssign ? prettyProgramName(selectedProgramForAssign) : "—"}
+                </Text>
+              </Box>
+              <Select
+                placeholder={t("clientsList.assignModal.clientPlaceholder", "Sélectionnez un client")}
+                value={selectedClientId}
+                onChange={(e) => setSelectedClientId(e.target.value)}
+              >
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {getClientDisplayName(client)}
+                  </option>
+                ))}
+              </Select>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} borderRadius="lg" onClick={closeAssignClientModal}>
+              {t("common.cancel", "Annuler")}
+            </Button>
+            <Button
+              borderRadius="lg"
+              onClick={handleAssignClient}
+              isLoading={assigningClient}
+              isDisabled={!selectedClientId || clients.length === 0}
+            >
+              {t("common.assign", "Assigner")}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
       <Box
         bg={panelBg}
         p={{ base: 4, md: 5 }}
@@ -579,6 +758,7 @@ export default function ProgramsPage() {
                   const nbSessions = getSessionCount(p);
                   const nbAssigned = assignedCounts[p.id] || 0;
                   const goalForSubtitle = p.objectifUI || p.objectif || "";
+                  const activeWeeksLabel = formatProgramActiveWeeks(p, t);
 
                   return (
                     <Tr key={p.id} _hover={{ bg: hoverBg }}>
@@ -588,6 +768,11 @@ export default function ProgramsPage() {
                           {goalForSubtitle && (
                             <Text fontSize="sm" color={textMuted}>
                               {prettyGoal(goalForSubtitle)}
+                            </Text>
+                          )}
+                          {activeWeeksLabel && (
+                            <Text fontSize="xs" color={textMuted}>
+                              {getProgramActiveWeeksLabel(t)} : {activeWeeksLabel}
                             </Text>
                           )}
                         </Stack>
@@ -629,6 +814,14 @@ export default function ProgramsPage() {
                             onClick={() => openBaseProgram(p)}
                           >
                             {t("common.view", "Voir")}
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            borderRadius="full"
+                            onClick={() => openAssignClientModal(p)}
+                          >
+                            {t("common.assign", "Assigner")}
                           </Button>
 
                           <IconButton
@@ -675,6 +868,7 @@ export default function ProgramsPage() {
                 const nbSessions = getSessionCount(p);
                 const nbAssigned = assignedCounts[p.id] || 0;
                 const goalForSubtitle = p.objectifUI || p.objectif || "";
+                const activeWeeksLabel = formatProgramActiveWeeks(p, t);
 
                 return (
                   <Box
@@ -694,6 +888,11 @@ export default function ProgramsPage() {
                     {goalForSubtitle && (
                       <Text fontSize="sm" color={textMuted} mt={0.5} mb={2}>
                         {prettyGoal(goalForSubtitle)}
+                      </Text>
+                    )}
+                    {activeWeeksLabel && (
+                      <Text fontSize="xs" color={textMuted} mt={0.5} mb={2}>
+                        {getProgramActiveWeeksLabel(t)} : {activeWeeksLabel}
                       </Text>
                     )}
 
@@ -733,6 +932,15 @@ export default function ProgramsPage() {
                         flex="1"
                       >
                         {t("common.view", "Voir")}
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        borderRadius="full"
+                        onClick={() => openAssignClientModal(p)}
+                        flex="1"
+                      >
+                        {t("common.assign", "Assigner")}
                       </Button>
 
                       <IconButton

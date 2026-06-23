@@ -83,6 +83,11 @@ export function ConsentProvider({ children }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
     // ✅ écrit aussi dans la clé legacy pour compat/debug
     localStorage.setItem(LEGACY_KEY, JSON.stringify(merged));
+    try {
+      window.dispatchEvent(new CustomEvent("BYL_CONSENT_UPDATED", { detail: merged }));
+    } catch {
+      // ignore
+    }
 
     // 🔒 Journalise côté serveur si l'utilisateur est connecté
     try {
@@ -123,4 +128,3 @@ export function useConsent() {
   if (!ctx) throw new Error("useConsent must be used within ConsentProvider");
   return ctx;
 }
-

@@ -47,23 +47,38 @@ const Register = () => {
   const params = new URLSearchParams(location.search);
   const redirect = params.get("redirect") || params.get("next");
   const forcedRole = params.get("role");
+  const requestedPackage = params.get("package") || "";
+  const requestedPackageTier = params.get("packageTier") || "";
+  const requestedTrialDays = Number(params.get("trialDays") || 0);
+  const isClientRedirect = /^\/(nutrition|user-dashboard|mes-programmes|statistiques|settings|profile)(\/|\?|$)/.test(
+    redirect || ""
+  );
+  const trialDays =
+    Number.isFinite(requestedTrialDays) && requestedTrialDays > 0
+      ? Math.min(Math.round(requestedTrialDays), 30)
+      : null;
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [clubName, setClubName] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [email, setEmail] = useState("");
   const [confirmEmail, setConfirmEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // ✅ UI role: "coach" ou "eleve"
-  // Par défaut : coach
-  const [role, setRole] = useState("coach");
+  // UI role: "pro", "club" ou "eleve". Firestore garde "coach" pour les accès pro existants.
+  const [role, setRole] = useState(
+    requestedPackage === "club" ? "club" : forcedRole === "particulier" || forcedRole === "eleve" || isClientRedirect ? "eleve" : "pro"
+  );
 
   useEffect(() => {
-    if (forcedRole === "coach") setRole("coach");
+    if (forcedRole === "coach" || forcedRole === "pro") {
+      setRole(requestedPackage === "club" ? "club" : "pro");
+    }
+    if (forcedRole === "club") setRole("club");
     if (forcedRole === "particulier" || forcedRole === "eleve") setRole("eleve");
-  }, [forcedRole]);
+  }, [forcedRole, requestedPackage]);
 
   const [isAdultChecked, setIsAdultChecked] = useState(false);
   const [acceptTermsChecked, setAcceptTermsChecked] = useState(false);
@@ -83,12 +98,12 @@ const Register = () => {
 
   const clearError = () => errorMessage && setErrorMessage("");
 
-  // ✅ Mapping UI -> Firestore
-  // - coach => coach
-  // - eleve => particulier
+  // Mapping UI -> Firestore: pro et club restent "coach" pour conserver les accès existants.
   const firestoreRole = useMemo(() => {
-    return role === "coach" ? "coach" : "particulier";
+    return role === "pro" || role === "club" ? "coach" : "particulier";
   }, [role]);
+
+  const accountType = role === "club" ? "club_owner" : role === "pro" ? "pro" : "";
 
   // ✅ Langue active (détectée par i18next)
   const activeLang = useMemo(() => {
@@ -99,6 +114,7 @@ const Register = () => {
   const canSubmit =
     firstName &&
     lastName &&
+    (role !== "club" || clubName) &&
     birthDate &&
     email &&
     confirmEmail &&
@@ -136,6 +152,12 @@ const Register = () => {
           cgvVersion: "v1.0",
           // ✅ utile si ton AuthContext le stocke en Firestore
           preferredLanguage: activeLang,
+          trialDays,
+          onboardingPackage: requestedPackage,
+          onboardingPackageTier: requestedPackageTier,
+          accountType,
+          clubRole: role === "club" ? "owner" : "",
+          clubName: role === "club" ? clubName : "",
         }
       );
 
@@ -160,6 +182,8 @@ const Register = () => {
 
       if (redirect) {
         navigate(redirect, { replace: true });
+      } else if (role === "club") {
+        navigate("/club-dashboard", { replace: true });
       } else {
         navigate(firestoreRole === "coach" ? "/coach-dashboard" : "/user-dashboard", { replace: true });
       }
@@ -224,6 +248,20 @@ const Register = () => {
             color={textColor}
             _placeholder={{ color: inputPlaceholderColor }}
           />
+          {role === "club" && (
+            <Input
+              placeholder={t("auto.Register.nom_du_club_ou_de_la_structure", "Nom du club ou de la structure")}
+              type="text"
+              value={clubName}
+              onChange={(e) => {
+                setClubName(e.target.value);
+                clearError();
+              }}
+              bg={inputBg}
+              color={textColor}
+              _placeholder={{ color: inputPlaceholderColor }}
+            />
+          )}
           <Input
             placeholder={t("auth.register.birthDate")}
             type="date"
@@ -277,8 +315,9 @@ const Register = () => {
             color={textColor}
             borderColor={borderColor}
           >
-            <option value="coach">Coach</option>
-            <option value="eleve">Élève</option>
+            <option value="pro">{t("auto.ClubDashboard.pro", "Pro")}</option>
+            <option value="club">{t("auto.Register.club_structure", "Club / structure")}</option>
+            <option value="eleve">{t("auto.Register.eleve", "Élève")}</option>
           </Select>
 
           <InputGroup>
@@ -343,8 +382,7 @@ const Register = () => {
                 clearError();
               }}
             >
-              <Trans i18nKey="auth.register.adultConfirm">
-                J’atteste avoir <b>18 ans ou plus</b>.
+              <Trans i18nKey="auth.register.adultConfirm">{t("auto.Register.j_atteste_avoir", "J’atteste avoir")}<b>{t("auto.Register.18_ans_ou_plus", "18 ans ou plus")}</b>.
               </Trans>
             </Checkbox>
 
@@ -411,4 +449,3 @@ const Register = () => {
 };
 
 export default Register;
-

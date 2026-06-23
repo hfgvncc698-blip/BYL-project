@@ -15,14 +15,12 @@ import {
   Textarea,
   Button,
   useToast,
-  Divider,
   Tag,
   TagLabel,
   TagCloseButton,
   Wrap,
   WrapItem,
   Badge,
-  Spacer,
   Popover,
   PopoverTrigger,
   PopoverContent,
@@ -54,6 +52,8 @@ import { db } from "../firebaseConfig";
 import { computeBMI, toNumber } from "../utils/nutritionPrefill";
 import { useAuth } from "../AuthContext.jsx";
 import { useNutritionTheme } from "../styles/nutritionTheme";
+import NutritionWorkflowBar from "./nutrition/NutritionWorkflowBar.jsx";
+import i18n from "../i18n/index";
 
 /* ------------------------ Units helpers ------------------------ */
 const round1 = (n) => (Number.isFinite(n) ? Math.round(n * 10) / 10 : n);
@@ -90,14 +90,7 @@ const weightToKg = (poids) => {
 const litersToGallons = (liters) => (Number.isFinite(liters) ? liters * 0.264172 : null);
 const gallonsToLiters = (gallons) => (Number.isFinite(gallons) ? gallons / 0.264172 : null);
 
-const waterToLiters = (water) => {
-  const value = toNumber(water?.value);
-  const unit = water?.unit || "L";
-  if (!Number.isFinite(value)) return null;
-  if (unit === "L") return value;
-  if (unit === "gal") return gallonsToLiters(value);
-  return null;
-};
+
 
 /* ------------------------ Options ------------------------ */
 const OBJECTIFS = [
@@ -110,7 +103,35 @@ const OBJECTIFS = [
   "Femme allaitante",
 ];
 
+const OBJECTIF_LABEL_KEYS = {
+  "Rééquilibrage alimentaire": "reequilibrage_alimentaire",
+  "Perte de poids": "perte_de_poids",
+  "Prise de masse": "prise_de_masse",
+  "Femme enceinte (1er trimestre)": "femme_enceinte_1er_trimestre",
+  "Femme enceinte (2ème trimestre)": "femme_enceinte_2eme_trimestre",
+  "Femme enceinte (3ème trimestre)": "femme_enceinte_3eme_trimestre",
+  "Femme allaitante": "femme_allaitante",
+};
+
+const objectiveDisplayLabel = (objective = "") => {
+  const key = OBJECTIF_LABEL_KEYS[objective];
+  return key ? i18n.t(`auto.nutritionObjectives.${key}`, objective) : objective;
+};
+
 const REGIMES = ["Normal", "Végétarien", "Végan", "Sans gluten", "Sans lactose"];
+
+const REGIME_LABEL_KEYS = {
+  Normal: "normal",
+  Végétarien: "vegetarien",
+  Végan: "vegan",
+  "Sans gluten": "sans_gluten",
+  "Sans lactose": "sans_lactose",
+};
+
+const regimeDisplayLabel = (regime = "") => {
+  const key = REGIME_LABEL_KEYS[regime];
+  return key ? i18n.t(`auto.nutritionDiets.${key}`, regime) : regime;
+};
 
 const FOOD_EXCLUSIONS = [
   "Aucune",
@@ -136,6 +157,18 @@ const NAP_PRESETS = [
   { label: "Actif", value: 1.6 },
   { label: "Très actif", value: 1.8 },
 ];
+
+const NAP_LABEL_KEYS = {
+  Sédentaire: "sedentaire",
+  Normal: "normal",
+  Actif: "actif",
+  "Très actif": "tres_actif",
+};
+
+const napDisplayLabel = (label = "") => {
+  const key = NAP_LABEL_KEYS[label];
+  return key ? i18n.t(`auto.nutritionNap.${key}`, label) : label;
+};
 
 const PATHOLOGIES = [
   "Aucune",
@@ -177,6 +210,7 @@ function MultiSelectTags({
   onChange,
   placeholder = "Sélectionner…",
   helperText,
+  getOptionLabel = (option) => option,
   exclusiveNoneValue, // ex: "Aucune"
   isDisabled = false,
 }) {
@@ -195,8 +229,8 @@ function MultiSelectTags({
 
   const filtered = useMemo(() => {
     if (!normalizedQuery) return list;
-    return list.filter((x) => normalize(x).includes(normalizedQuery));
-  }, [list, normalizedQuery]);
+    return list.filter((x) => normalize(x).includes(normalizedQuery) || normalize(getOptionLabel(x)).includes(normalizedQuery));
+  }, [getOptionLabel, list, normalizedQuery]);
 
   const noneIsSelected = !!exclusiveNoneValue && safeValue.includes(exclusiveNoneValue);
 
@@ -264,7 +298,7 @@ function MultiSelectTags({
               <IconButton
                 size="sm"
                 variant="ghost"
-                aria-label={isOpen ? "Fermer" : "Ouvrir"}
+                aria-label={isOpen ? i18n.t("auto.NutritionAssessmentEditor.fermer", "Fermer") : i18n.t("auto.NutritionAssessmentEditor.ouvrir", "Ouvrir")}
                 icon={<ChevronDownIcon />}
                 isDisabled={isDisabled}
                 onMouseDown={(e) => e.preventDefault()}
@@ -278,9 +312,7 @@ function MultiSelectTags({
           <PopoverBody p={2}>
             <List maxH="240px" overflowY="auto" spacing={1}>
               {filtered.length === 0 ? (
-                <Text fontSize="sm" opacity={0.7} px={2} py={2}>
-                  Aucun résultat
-                </Text>
+                <Text fontSize="sm" opacity={0.7} px={2} py={2}>{i18n.t("auto.NutritionAssessmentEditor.aucun_resultat", "Aucun résultat")}</Text>
               ) : (
                 filtered.slice(0, 60).map((opt) => {
                   const selected = safeValue.includes(opt);
@@ -307,13 +339,13 @@ function MultiSelectTags({
                       }}
                     >
                       <HStack justify="space-between">
-                        <Text noOfLines={1}>{opt}</Text>
+                        <Text noOfLines={1}>{getOptionLabel(opt)}</Text>
                         <Badge
                           colorScheme={selected ? "green" : "gray"}
                           variant={selected ? "solid" : "subtle"}
                           flexShrink={0}
                         >
-                          {selected ? "OK" : "Ajouter"}
+                          {selected ? "OK" : i18n.t("auto.NutritionAssessmentEditor.ajouter", "Ajouter")}
                         </Badge>
                       </HStack>
                     </ListItem>
@@ -336,7 +368,7 @@ function MultiSelectTags({
           {safeValue.map((opt) => (
             <WrapItem key={opt}>
               <Tag size="sm" borderRadius="full">
-                <TagLabel>{opt}</TagLabel>
+                <TagLabel>{getOptionLabel(opt)}</TagLabel>
                 <TagCloseButton onClick={() => remove(opt)} />
               </Tag>
             </WrapItem>
@@ -472,7 +504,7 @@ export default function NutritionAssessmentEditor() {
         didPrefillRef.current = true;
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [clientId, form]);
 
   const setField = (path, value) => {
@@ -584,7 +616,12 @@ export default function NutritionAssessmentEditor() {
 
   const recommendedWaterText = useMemo(() => {
     if (!recommendedWaterIntake) return "";
-    return `${recommendedWaterIntake.liters.min}-${recommendedWaterIntake.liters.max} L/jour (${recommendedWaterIntake.gallons.min}-${recommendedWaterIntake.gallons.max} gal/jour)`;
+    return i18n.t("auto.NutritionAssessmentEditor.water_range_per_day", "{{litersMin}}-{{litersMax}} L/jour ({{gallonsMin}}-{{gallonsMax}} gal/jour)", {
+      litersMin: recommendedWaterIntake.liters.min,
+      litersMax: recommendedWaterIntake.liters.max,
+      gallonsMin: recommendedWaterIntake.gallons.min,
+      gallonsMax: recommendedWaterIntake.gallons.max,
+    });
   }, [recommendedWaterIntake]);
 
   const waterDisplayString = useMemo(() => {
@@ -704,13 +741,13 @@ export default function NutritionAssessmentEditor() {
         ]);
 
         if (!silent) {
-          toast({ title: "Enregistré", status: "success", duration: 1500, isClosable: true });
+          toast({ title: i18n.t("auto.NutritionAssessmentEditor.enregistre", "Enregistré"), status: "success", duration: 1500, isClosable: true });
         }
         return true;
       } catch (e) {
         if (!silent) {
           toast({
-            title: "Erreur",
+            title: i18n.t("contact.toast.error.title", "Erreur"),
             description: e?.message || "Sauvegarde impossible",
             status: "error",
             duration: 4000,
@@ -751,7 +788,7 @@ export default function NutritionAssessmentEditor() {
       navigate(`/clients/${clientId}/nutrition/${assessmentId}/food-survey`);
     } catch (e) {
       toast({
-        title: "Erreur",
+        title: i18n.t("contact.toast.error.title", "Erreur"),
         description: e?.message || "Sauvegarde impossible",
         status: "error",
         duration: 4000,
@@ -760,13 +797,29 @@ export default function NutritionAssessmentEditor() {
     }
   };
 
+  // ✅ Barre d’actions sticky en bas
+  const actionBg = useColorModeValue("white", "gray.900");
+  const actionBorder = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
+
+  const nutritionTheme = useNutritionTheme();
+  const pageBg = nutritionTheme.pageBg;
+  const panelBg = nutritionTheme.surfaceBg;
+  const subtleBg = nutritionTheme.surfaceSoft;
+  const borderColor = nutritionTheme.borderColor;
+  const mutedText = nutritionTheme.mutedText;
+  const sectionCardProps = {
+    borderWidth: "1px",
+    borderColor,
+    borderRadius: "lg",
+    bg: panelBg,
+    boxShadow: "0 14px 34px rgba(15, 23, 42, 0.06)",
+  };
+
   if (!isAdmin) {
     return (
       <Box p={6}>
-        <Heading size="md">Accès refusé</Heading>
-        <Text mt={2} opacity={0.7}>
-          Admin uniquement pour le moment.
-        </Text>
+        <Heading size="md">{i18n.t("auto.NutritionAssessmentEditor.acces_refuse", "Accès refusé")}</Heading>
+        <Text mt={2} opacity={0.7}>{i18n.t("auto.NutritionAssessmentEditor.cet_espace_est_reserve_aux_professionnels_nutritio", "Cet espace est réservé aux professionnels nutrition autorisés.")}</Text>
       </Box>
     );
   }
@@ -776,7 +829,7 @@ export default function NutritionAssessmentEditor() {
       <Box p={6}>
         <HStack>
           <Spinner />
-          <Text>Chargement…</Text>
+          <Text>{i18n.t("common.loading", "Chargement…")}</Text>
         </HStack>
       </Box>
     );
@@ -785,10 +838,8 @@ export default function NutritionAssessmentEditor() {
   if (!docData || !form) {
     return (
       <Box p={6}>
-        <Heading size="md">Bilan introuvable</Heading>
-        <Button mt={4} onClick={() => navigate(-1)}>
-          Retour
-        </Button>
+        <Heading size="md">{i18n.t("auto.NutritionAssessmentEditor.bilan_introuvable", "Bilan introuvable")}</Heading>
+        <Button mt={4} onClick={() => navigate(-1)}>{i18n.t("programView.back", "Retour")}</Button>
       </Box>
     );
   }
@@ -813,45 +864,33 @@ export default function NutritionAssessmentEditor() {
 
   const isPathoSelected = (name) => pathologies.includes(name);
 
-  // ✅ Barre d’actions sticky en bas
-  const actionBg = useColorModeValue("white", "gray.900");
-  const actionBorder = useColorModeValue("blackAlpha.200", "whiteAlpha.200");
-
-  const nutritionTheme = useNutritionTheme();
-  const pageBg = nutritionTheme.pageBg;
-  const panelBg = nutritionTheme.surfaceBg;
-  const subtleBg = nutritionTheme.surfaceSoft;
-  const borderColor = nutritionTheme.borderColor;
-  const mutedText = nutritionTheme.mutedText;
-  const accentBg = nutritionTheme.surfaceGlow;
-  const sectionCardProps = { borderWidth: "1px", borderColor, borderRadius: "2xl", bg: panelBg };
-
   return (
-    <Box minH="100vh" p={{ base: 4, md: 6 }} pb={{ base: 28, md: 24 }} bg={pageBg} color={nutritionTheme.textColor}>
-      <Stack spacing={6}>
+    <Box minH="100vh" p={{ base: 3, md: 6 }} pb={{ base: 28, md: 24 }} bg={pageBg} color={nutritionTheme.textColor}>
+      <Stack spacing={4} maxW="7xl" mx="auto">
+        <NutritionWorkflowBar
+          activeStep="bilan"
+          clientId={clientId}
+          assessmentId={assessmentId}
+          navigate={navigate}
+        />
+
         <Box {...sectionCardProps} overflow="hidden">
-          <Box bg={accentBg} px={{ base: 4, md: 5 }} py={{ base: 4, md: 5 }}>
+          <Box bg={panelBg} px={{ base: 4, md: 5 }} py={{ base: 4, md: 5 }}>
             <Stack spacing={4}>
               <HStack justify="space-between" align="start" gap={3} flexWrap="wrap">
                 <Box>
                   <HStack spacing={3} flexWrap="wrap">
-                    <Button variant="outline" onClick={() => navigate(-1)}>
-                      Retour
-                    </Button>
-                    <Heading size="md">Bilan nutrition</Heading>
+                    <Button variant="outline" onClick={() => navigate(-1)}>{i18n.t("programView.back", "Retour")}</Button>
+                    <Heading size="md">{i18n.t("nutritionCoach.defaultObjective", "Bilan nutrition")}</Heading>
                     <Badge colorScheme={isValidated ? "green" : "yellow"} variant="subtle">
                       {isValidated ? "VALIDÉ" : "BILAN INCOMPLET"}
                     </Badge>
                   </HStack>
-                  <Text mt={2} fontSize="sm" color={mutedText} maxW="720px">
-                    On construit ici la base du suivi : identité, objectif, mesures, activité et contexte médical.
-                  </Text>
+                  <Text mt={2} fontSize="sm" color={mutedText} maxW="720px">{i18n.t("auto.NutritionAssessmentEditor.on_construit_ici_la_base_du_suivi_identite_objecti", "On construit ici la base du suivi : identité, objectif, mesures, activité et contexte médical.")}</Text>
                 </Box>
 
                 <Box minW={{ base: "100%", md: "220px" }}>
-                  <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={mutedText}>
-                    Statut du bilan
-                  </Text>
+                  <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={mutedText}>{i18n.t("auto.NutritionAssessmentEditor.statut_du_bilan", "Statut du bilan")}</Text>
                   <Badge colorScheme={isComplete ? "green" : "yellow"} variant="subtle" mt={2} px={3} py={1} borderRadius="full">
                     {isComplete ? "COMPLET" : "INCOMPLET"}
                   </Badge>
@@ -861,10 +900,10 @@ export default function NutritionAssessmentEditor() {
           </Box>
         </Box>
 
-        <Box {...sectionCardProps} p={{ base: 4, md: 5 }}>
-          <Box px={{ base: 4, md: 5 }} py={{ base: 4, md: 5 }}>
+        <Box {...sectionCardProps}>
+          <Box px={{ base: 3, md: 4 }} py={{ base: 3, md: 4 }}>
             <SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} spacing={3}>
-              <Box p={4} borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={panelBg}>
+              <Box p={4} borderWidth="1px" borderColor={borderColor} borderRadius="md" bg={subtleBg}>
                 <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={mutedText}>
                   PATIENT
                 </Text>
@@ -887,36 +926,44 @@ export default function NutritionAssessmentEditor() {
                 ) : null}
               </Box>
 
-              <Box p={4} borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={panelBg}>
+              <Box p={4} borderWidth="1px" borderColor={borderColor} borderRadius="md" bg={subtleBg}>
                 <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={mutedText}>
                   OBJECTIF
                 </Text>
                 <Text mt={1} fontSize="lg" fontWeight="800">
-                  {form?.objectif || "À définir"}
+                  {form?.objectif ? objectiveDisplayLabel(form.objectif) : i18n.t("auto.NutritionAssessmentEditor.a_definir", "À définir")}
                 </Text>
                 {form?.poidsCible?.value ? (
                   <Box mt={1}>
                     <Text fontSize="sm" color={mutedText}>
-                      Cible de poids : {form.poidsCible.value} {form.poidsCible.unit || "kg"}
+                      {i18n.t("auto.NutritionAssessmentEditor.target_weight_value", "Cible de poids : {{value}} {{unit}}", {
+                        value: form.poidsCible.value,
+                        unit: form.poidsCible.unit || "kg",
+                      })}
                     </Text>
                     {targetWeightEstimate ? (
                       <>
                         <Text fontSize="xs" color={mutedText} mt={1}>
-                          Différence : {Math.abs(Math.round(targetWeightEstimate.diff * 10) / 10)} kg {targetWeightEstimate.diff > 0 ? "à gagner" : "à perdre"}
+                          {i18n.t("auto.NutritionAssessmentEditor.target_weight_difference", "Différence : {{value}} kg {{direction}}", {
+                            value: Math.abs(Math.round(targetWeightEstimate.diff * 10) / 10),
+                            direction: targetWeightEstimate.diff > 0 ? "à gagner" : "à perdre",
+                          })}
                         </Text>
                         <Text fontSize="xs" color={mutedText} mt={1}>
-                          Délai : {targetWeightEstimate.duration}
+                          {i18n.t("auto.NutritionAssessmentEditor.target_weight_duration", "Délai : {{duration}}", { duration: targetWeightEstimate.duration })}
                         </Text>
                       </>
                     ) : null}
                   </Box>
                 ) : null}
                 <Text fontSize="sm" color={mutedText} mt={form?.poidsCible?.value ? 1 : 0}>
-                  {regimes.length ? regimes.join(", ") : "Aucun régime spécifique"}
+                  {regimes.length
+                    ? regimes.map(regimeDisplayLabel).join(", ")
+                    : i18n.t("auto.NutritionAssessmentEditor.aucun_regime_specifique", "Aucun régime spécifique")}
                 </Text>
               </Box>
 
-              <Box p={4} borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={panelBg}>
+              <Box p={4} borderWidth="1px" borderColor={borderColor} borderRadius="md" bg={subtleBg}>
                 <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={mutedText}>
                   MESURES
                 </Text>
@@ -929,44 +976,48 @@ export default function NutritionAssessmentEditor() {
                 </Text>
                 {waterDisplayString ? (
                   <Text fontSize="sm" color={mutedText} mt={1}>
-                    Eau : {waterDisplayString}
+                    {i18n.t("auto.NutritionAssessmentEditor.water_value", "Eau : {{value}}", { value: waterDisplayString })}
                   </Text>
                 ) : null}
                 {form?.nap?.label ? (
                   <Text fontSize="sm" color={mutedText} mt={waterDisplayString ? 0 : 1}>
-                    Activité : {form.nap.label} ({form.nap.value})
+                    {i18n.t("auto.NutritionAssessmentEditor.activity_value", "Activité : {{label}} ({{value}})", {
+                      label: napDisplayLabel(form.nap.label),
+                      value: form.nap.value,
+                    })}
                   </Text>
                 ) : null}
                 {form?.body?.fatMassPct || form?.body?.muscleMassKg ? (
                   <Text fontSize="sm" color={mutedText} mt={1}>
-                    Masse grasse {form?.body?.fatMassPct || "—"}% • Muscle {form?.body?.muscleMassKg || "—"} kg
+                    {i18n.t("auto.NutritionAssessmentEditor.body_composition_short", "Masse grasse {{fat}}% • Muscle {{muscle}} kg", {
+                      fat: form?.body?.fatMassPct || "—",
+                      muscle: form?.body?.muscleMassKg || "—",
+                    })}
                   </Text>
                 ) : null}
                 {recommendedWaterText ? (
                   <Text fontSize="xs" color={mutedText} mt={waterDisplayString || form?.nap?.label ? 1 : 0}>
-                    Repère hydratation : {recommendedWaterText}
+                    {i18n.t("auto.NutritionAssessmentEditor.hydration_reference_value", "Repère hydratation : {{value}}", { value: recommendedWaterText })}
                   </Text>
                 ) : null}
               </Box>
 
-              <Box p={4} borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={panelBg}>
-                <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={mutedText}>
-                  CONTEXTE MÉDICAL
-                </Text>
+              <Box p={4} borderWidth="1px" borderColor={borderColor} borderRadius="md" bg={subtleBg}>
+                <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={mutedText}>{i18n.t("auto.NutritionAssessmentEditor.contexte_medical", "CONTEXTE MÉDICAL")}</Text>
                 <Text mt={1} fontSize="lg" fontWeight="800">
-                  {pathologies.length ? pathologies.length : 0} élément(s)
+                  {i18n.t("auto.NutritionAssessmentEditor.elements_count", "{{count}} élément(s)", { count: pathologies.length || 0 })}
                 </Text>
                 <Text fontSize="sm" color={mutedText}>
                   {pathologies.length ? pathologies.slice(0, 2).join(", ") : "Aucune pathologie sélectionnée"}
                 </Text>
                 {form?.medical?.allergies ? (
                   <Text fontSize="sm" color={mutedText} mt={1}>
-                    Allergies : {form.medical.allergies}
+                    {i18n.t("auto.NutritionAssessmentEditor.allergies_value", "Allergies : {{value}}", { value: form.medical.allergies })}
                   </Text>
                 ) : null}
                 {form?.medical?.tabacParJour ? (
                   <Text fontSize="sm" color={mutedText} mt={1}>
-                    Tabac : {form.medical.tabacParJour} /jour
+                    {i18n.t("auto.NutritionAssessmentEditor.tobacco_value", "Tabac : {{value}}/jour", { value: form.medical.tabacParJour })}
                   </Text>
                 ) : null}
               </Box>
@@ -974,86 +1025,80 @@ export default function NutritionAssessmentEditor() {
           </Box>
         </Box>
 
+        <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={4} alignItems="start">
         <Box {...sectionCardProps} p={{ base: 4, md: 5 }}>
           <HStack justify="space-between" align="start" gap={3} flexWrap="wrap" mb={4}>
             <Box>
-              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={mutedText}>
-                ÉTAPE 1
-              </Text>
-              <Heading size="sm" mt={1}>
-                Identité et objectif
-              </Heading>
-              <Text fontSize="sm" color={mutedText} mt={1}>
-                Les informations essentielles pour contextualiser le bilan dès le début.
-              </Text>
+              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={mutedText}>{i18n.t("auto.NutritionAssessmentEditor.etape_1", "ÉTAPE 1")}</Text>
+              <Heading size="sm" mt={1}>{i18n.t("auto.NutritionAssessmentEditor.identite_et_objectif", "Identité et objectif")}</Heading>
+              <Text fontSize="sm" color={mutedText} mt={1}>{i18n.t("auto.NutritionAssessmentEditor.les_informations_essentielles_pour_contextualiser_", "Les informations essentielles pour contextualiser le bilan dès le début.")}</Text>
             </Box>
-            <Badge colorScheme="blue" variant="subtle" px={3} py={1} borderRadius="full">
-              Base du dossier
-            </Badge>
+            <Badge colorScheme="blue" variant="subtle" px={3} py={1} borderRadius="full">{i18n.t("auto.NutritionAssessmentEditor.base_du_dossier", "Base du dossier")}</Badge>
           </HStack>
 
           <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
             <FormControl>
-              <FormLabel>Prénom</FormLabel>
+              <FormLabel>{i18n.t("clientCreation.firstName", "Prénom")}</FormLabel>
               <Input value={form.prenom || ""} onChange={(e) => setField("prenom", e.target.value)} bg={subtleBg} />
             </FormControl>
             <FormControl>
-              <FormLabel>Nom</FormLabel>
+              <FormLabel>{i18n.t("contact.fields.name.label", "Nom")}</FormLabel>
               <Input value={form.nom || ""} onChange={(e) => setField("nom", e.target.value)} bg={subtleBg} />
             </FormControl>
             <FormControl>
-              <FormLabel>Sexe</FormLabel>
+              <FormLabel>{i18n.t("clientCreation.gender", "Sexe")}</FormLabel>
               <Select value={form.sexe || ""} onChange={(e) => setField("sexe", e.target.value)} bg={subtleBg}>
                 <option value="">—</option>
-                <option value="Homme">Homme</option>
-                <option value="Femme">Femme</option>
+                <option value="Homme">{i18n.t("clientCreation.genderMale", "Homme")}</option>
+                <option value="Femme">{i18n.t("clientCreation.genderFemale", "Femme")}</option>
               </Select>
             </FormControl>
             <FormControl>
-              <FormLabel>Date de naissance</FormLabel>
+              <FormLabel>{i18n.t("clientCreation.birthDate", "Date de naissance")}</FormLabel>
               <Input type="date" value={form.dateNaissance || ""} onChange={(e) => setField("dateNaissance", e.target.value)} bg={subtleBg} />
             </FormControl>
             <FormControl>
-              <FormLabel>Téléphone</FormLabel>
+              <FormLabel>{i18n.t("clientCreation.phone", "Téléphone")}</FormLabel>
               <Input value={form.telephone || ""} onChange={(e) => setField("telephone", e.target.value)} bg={subtleBg} />
             </FormControl>
             <FormControl>
-              <FormLabel>Email</FormLabel>
+              <FormLabel>{i18n.t("clientCreation.email", "Email")}</FormLabel>
               <Input value={form.email || ""} onChange={(e) => setField("email", e.target.value)} bg={subtleBg} />
             </FormControl>
             <FormControl>
-              <FormLabel>Objectif</FormLabel>
+              <FormLabel>{i18n.t("nutritionCoach.table.objective", "Objectif")}</FormLabel>
               <Select value={form.objectif || ""} onChange={(e) => setField("objectif", e.target.value)} bg={subtleBg}>
                 <option value="">—</option>
                 {OBJECTIFS.map((o) => (
                   <option key={o} value={o}>
-                    {o}
+                    {objectiveDisplayLabel(o)}
                   </option>
                 ))}
               </Select>
             </FormControl>
             <FormControl>
-              <FormLabel>Niveau sportif</FormLabel>
+              <FormLabel>{i18n.t("auto.NutritionAssessmentEditor.niveau_sportif", "Niveau sportif")}</FormLabel>
               <Select value={form.niveauSportif || ""} onChange={(e) => setField("niveauSportif", e.target.value)} bg={subtleBg}>
                 <option value="">—</option>
-                <option value="Débutant">Débutant</option>
-                <option value="Intermédiaire">Intermédiaire</option>
-                <option value="Confirmé">Confirmé</option>
+                <option value="Débutant">{i18n.t("clientCreation.levels.beginner", "Débutant")}</option>
+                <option value="Intermédiaire">{i18n.t("clientCreation.levels.intermediate", "Intermédiaire")}</option>
+                <option value="Confirmé">{i18n.t("clientCreation.levels.advanced", "Confirmé")}</option>
               </Select>
             </FormControl>
             <FormControl>
-              <FormLabel>Régimes (multi-choix)</FormLabel>
+              <FormLabel>{i18n.t("auto.NutritionAssessmentEditor.regimes_multi_choix", "Régimes (multi-choix)")}</FormLabel>
               <MultiSelectTags
                 options={REGIMES}
                 value={regimes}
                 onChange={setRegimes}
-                placeholder="Sélectionner un régime…"
-                helperText="Exemple : Végan + Sans gluten"
+                placeholder={i18n.t("auto.NutritionAssessmentEditor.selectionner_un_regime", "Sélectionner un régime…")}
+                helperText={i18n.t("auto.NutritionAssessmentEditor.exemple_regimes", "Exemple : Végan + Sans gluten")}
+                getOptionLabel={regimeDisplayLabel}
                 isDisabled={false}
               />
             </FormControl>
             <FormControl>
-              <FormLabel>Notes du dossier</FormLabel>
+              <FormLabel>{i18n.t("auto.NutritionAssessmentEditor.notes_du_dossier", "Notes du dossier")}</FormLabel>
               <Textarea
                 value={form.notes || ""}
                 onChange={(e) => setField("notes", e.target.value)}
@@ -1074,7 +1119,7 @@ export default function NutritionAssessmentEditor() {
                 >
                   {NAP_PRESETS.map((x) => (
                     <option key={x.label} value={x.label}>
-                      {x.label}
+                      {napDisplayLabel(x.label)}
                     </option>
                   ))}
                 </Select>
@@ -1087,7 +1132,12 @@ export default function NutritionAssessmentEditor() {
                 />
               </HStack>
               <Text fontSize="sm" color={mutedText} mt={1}>
-                Sédentaire 1.2 • Normal 1.4 • Actif 1.6 • Très actif 1.8
+                {i18n.t("auto.NutritionAssessmentEditor.nap_reference_values", "{{sedentary}} 1.2 • {{normal}} 1.4 • {{active}} 1.6 • {{veryActive}} 1.8", {
+                  sedentary: napDisplayLabel("Sédentaire"),
+                  normal: napDisplayLabel("Normal"),
+                  active: napDisplayLabel("Actif"),
+                  veryActive: napDisplayLabel("Très actif"),
+                })}
               </Text>
             </FormControl>
           </SimpleGrid>
@@ -1096,24 +1146,16 @@ export default function NutritionAssessmentEditor() {
         <Box {...sectionCardProps} p={{ base: 4, md: 5 }}>
           <HStack justify="space-between" align="start" gap={3} flexWrap="wrap" mb={4}>
             <Box>
-              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={mutedText}>
-                ÉTAPE 2
-              </Text>
-              <Heading size="sm" mt={1}>
-                Mesures et activité
-              </Heading>
-              <Text fontSize="sm" color={mutedText} mt={1}>
-                Les données de base qui servent de fondation au plan nutritionnel.
-              </Text>
+              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={mutedText}>{i18n.t("auto.NutritionAssessmentEditor.etape_2", "ÉTAPE 2")}</Text>
+              <Heading size="sm" mt={1}>{i18n.t("auto.NutritionAssessmentEditor.mesures_et_activite", "Mesures et activité")}</Heading>
+              <Text fontSize="sm" color={mutedText} mt={1}>{i18n.t("auto.NutritionAssessmentEditor.les_donnees_de_base_qui_servent_de_fondation_au_pl", "Les données de base qui servent de fondation au plan nutritionnel.")}</Text>
             </Box>
-            <Badge colorScheme="green" variant="subtle" px={3} py={1} borderRadius="full">
-              Mesures
-            </Badge>
+            <Badge colorScheme="green" variant="subtle" px={3} py={1} borderRadius="full">{i18n.t("auto.NutritionAssessmentEditor.mesures", "Mesures")}</Badge>
           </HStack>
 
           <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
             <FormControl>
-              <FormLabel>Taille</FormLabel>
+              <FormLabel>{i18n.t("auto.NutritionAssessmentEditor.taille", "Taille")}</FormLabel>
               <HStack>
                 <Input
                   inputMode="decimal"
@@ -1122,17 +1164,15 @@ export default function NutritionAssessmentEditor() {
                   bg={subtleBg}
                 />
                 <Select w="130px" value={form?.taille?.unit || "cm"} onChange={(e) => onChangeHeightUnit(e.target.value)} bg={subtleBg}>
-                  <option value="cm">cm</option>
-                  <option value="ft">ft</option>
+                  <option value="cm">{i18n.t("units.cm", "cm")}</option>
+                  <option value="ft">{i18n.t("auto.NutritionAssessmentEditor.ft", "ft")}</option>
                 </Select>
               </HStack>
-              <Text fontSize="sm" color={mutedText} mt={1}>
-                Conversion auto cm ↔ ft.
-              </Text>
+              <Text fontSize="sm" color={mutedText} mt={1}>{i18n.t("auto.NutritionAssessmentEditor.conversion_auto_cm_ft", "Conversion auto cm ↔ ft.")}</Text>
             </FormControl>
 
             <FormControl>
-              <FormLabel>Poids</FormLabel>
+              <FormLabel>{i18n.t("programBuilder.units.weight", "Poids")}</FormLabel>
               <HStack>
                 <Input
                   inputMode="decimal"
@@ -1141,17 +1181,15 @@ export default function NutritionAssessmentEditor() {
                   bg={subtleBg}
                 />
                 <Select w="130px" value={form?.poids?.unit || "kg"} onChange={(e) => onChangeWeightUnit(e.target.value)} bg={subtleBg}>
-                  <option value="kg">kg</option>
-                  <option value="lbs">lbs</option>
+                  <option value="kg">{i18n.t("units.kg", "kg")}</option>
+                  <option value="lbs">{i18n.t("units.lbs", "lbs")}</option>
                 </Select>
               </HStack>
-              <Text fontSize="sm" color={mutedText} mt={1}>
-                Conversion auto kg ↔ lbs.
-              </Text>
+              <Text fontSize="sm" color={mutedText} mt={1}>{i18n.t("auto.NutritionAssessmentEditor.conversion_auto_kg_lbs", "Conversion auto kg ↔ lbs.")}</Text>
             </FormControl>
 
             <FormControl>
-              <FormLabel>Objectif de poids</FormLabel>
+              <FormLabel>{i18n.t("auto.NutritionAssessmentEditor.objectif_de_poids", "Objectif de poids")}</FormLabel>
               <HStack>
                 <Input
                   inputMode="decimal"
@@ -1160,17 +1198,15 @@ export default function NutritionAssessmentEditor() {
                   bg={subtleBg}
                 />
                 <Select w="130px" value={form?.poidsCible?.unit || "kg"} onChange={(e) => setField("poidsCible", { ...(form.poidsCible || {}), unit: e.target.value })} bg={subtleBg}>
-                  <option value="kg">kg</option>
-                  <option value="lbs">lbs</option>
+                  <option value="kg">{i18n.t("units.kg", "kg")}</option>
+                  <option value="lbs">{i18n.t("units.lbs", "lbs")}</option>
                 </Select>
               </HStack>
-              <Text fontSize="sm" color={mutedText} mt={1}>
-                Optionnel, pour estimer un délai d’atteinte selon le poids actuel.
-              </Text>
+              <Text fontSize="sm" color={mutedText} mt={1}>{i18n.t("auto.NutritionAssessmentEditor.optionnel_pour_estimer_un_delai_d_atteinte_selon_l", "Optionnel, pour estimer un délai d’atteinte selon le poids actuel.")}</Text>
             </FormControl>
 
             <FormControl>
-              <FormLabel>Eau par jour</FormLabel>
+              <FormLabel>{i18n.t("auto.NutritionAssessmentEditor.eau_par_jour", "Eau par jour")}</FormLabel>
               <HStack>
                 <Input
                   inputMode="decimal"
@@ -1180,37 +1216,31 @@ export default function NutritionAssessmentEditor() {
                 />
                 <Select w="130px" value={form?.eauParJour?.unit || "L"} onChange={(e) => setField("eauParJour", { ...(form.eauParJour || {}), unit: e.target.value })} bg={subtleBg}>
                   <option value="L">L</option>
-                  <option value="gal">gal</option>
+                  <option value="gal">{i18n.t("auto.NutritionAssessmentEditor.gal", "gal")}</option>
                 </Select>
               </HStack>
-              <Text fontSize="sm" color={mutedText} mt={1}>
-                Quantité d’eau journalière avec conversion automatique L ⇄ gal.
-              </Text>
+              <Text fontSize="sm" color={mutedText} mt={1}>{i18n.t("auto.NutritionAssessmentEditor.quantite_d_eau_journaliere_avec_conversion_automat", "Quantité d’eau journalière avec conversion automatique L ⇄ gal.")}</Text>
               {recommendedWaterText ? (
                 <Box mt={2} p={3} borderWidth="1px" borderColor={borderColor} borderRadius="lg" bg={panelBg}>
-                  <Text fontSize="sm" color={mutedText}>
-                    Repère recommandé selon le poids actuel : {recommendedWaterText}.
+              <Text fontSize="sm" color={mutedText}>
+                {i18n.t("auto.NutritionAssessmentEditor.recommended_water_value", "Repère recommandé selon le poids actuel : {{value}}.", { value: recommendedWaterText })}
                   </Text>
                 </Box>
               ) : null}
             </FormControl>
           </SimpleGrid>
 
-          <Box mt={5} p={4} borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={subtleBg}>
+          <Box mt={5} p={4} borderWidth="1px" borderColor={borderColor} borderRadius="md" bg={subtleBg}>
             <HStack justify="space-between" align="start" gap={3} flexWrap="wrap" mb={4}>
               <Box>
-                <Heading size="sm">Composition corporelle</Heading>
-                <Text fontSize="sm" color={mutedText} mt={1}>
-                  Données issues de la dernière mesure ou à compléter manuellement.
-                </Text>
+                <Heading size="sm">{i18n.t("auto.NutritionAssessmentEditor.composition_corporelle", "Composition corporelle")}</Heading>
+                <Text fontSize="sm" color={mutedText} mt={1}>{i18n.t("auto.NutritionAssessmentEditor.donnees_issues_de_la_derniere_mesure_ou_a_complete", "Données issues de la dernière mesure ou à compléter manuellement.")}</Text>
               </Box>
-              <Badge colorScheme="blue" variant="subtle" borderRadius="full" px={3} py={1}>
-                Données avancées
-              </Badge>
+              <Badge colorScheme="blue" variant="subtle" borderRadius="full" px={3} py={1}>{i18n.t("auto.NutritionAssessmentEditor.donnees_avancees", "Données avancées")}</Badge>
             </HStack>
             <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
               <FormControl>
-                <FormLabel>Masse grasse (%)</FormLabel>
+                <FormLabel>{i18n.t("stats.fields.fat", "Masse grasse (%)")}</FormLabel>
                 <Input
                   inputMode="decimal"
                   value={form?.body?.fatMassPct ?? ""}
@@ -1219,7 +1249,7 @@ export default function NutritionAssessmentEditor() {
                 />
               </FormControl>
               <FormControl>
-                <FormLabel>Masse musculaire (kg)</FormLabel>
+                <FormLabel>{i18n.t("stats.fields.muscle", "Masse musculaire (kg)")}</FormLabel>
                 <Input
                   inputMode="decimal"
                   value={form?.body?.muscleMassKg ?? ""}
@@ -1228,7 +1258,7 @@ export default function NutritionAssessmentEditor() {
                 />
               </FormControl>
               <FormControl>
-                <FormLabel>Masse hydrique (%)</FormLabel>
+                <FormLabel>{i18n.t("auto.NutritionAssessmentEditor.masse_hydrique", "Masse hydrique (%)")}</FormLabel>
                 <Input
                   inputMode="decimal"
                   value={form?.body?.waterMassPct ?? ""}
@@ -1237,7 +1267,7 @@ export default function NutritionAssessmentEditor() {
                 />
               </FormControl>
               <FormControl>
-                <FormLabel>Masse osseuse (kg)</FormLabel>
+                <FormLabel>{i18n.t("stats.fields.bone", "Masse osseuse (kg)")}</FormLabel>
                 <Input
                   inputMode="decimal"
                   value={form?.body?.boneMassKg ?? ""}
@@ -1246,7 +1276,7 @@ export default function NutritionAssessmentEditor() {
                 />
               </FormControl>
               <FormControl>
-                <FormLabel>Âge métabolique</FormLabel>
+                <FormLabel>{i18n.t("stats.fields.metabolicAge", "Âge métabolique")}</FormLabel>
                 <Input
                   inputMode="numeric"
                   value={form?.body?.metabolicAge ?? ""}
@@ -1255,7 +1285,7 @@ export default function NutritionAssessmentEditor() {
                 />
               </FormControl>
               <FormControl>
-                <FormLabel>Graisse viscérale</FormLabel>
+                <FormLabel>{i18n.t("stats.fields.visceralFat", "Graisse viscérale")}</FormLabel>
                 <Input
                   inputMode="decimal"
                   value={form?.body?.visceralFatScore ?? ""}
@@ -1267,35 +1297,31 @@ export default function NutritionAssessmentEditor() {
           </Box>
 
           {targetWeightEstimate && (
-            <Box mt={4} p={4} borderWidth="1px" borderRadius="xl" borderColor={borderColor} bg={panelBg}>
+            <Box mt={4} p={4} borderWidth="1px" borderRadius="md" borderColor={borderColor} bg={panelBg}>
               <Text fontSize="sm" color={mutedText}>
-                Estimation d’atteinte : {Math.abs(Math.round(targetWeightEstimate.diff * 10) / 10)} kg {targetWeightEstimate.diff > 0 ? "à gagner" : "à perdre"} en {targetWeightEstimate.duration}.
+                {i18n.t("auto.NutritionAssessmentEditor.achievement_estimate_value", "Estimation d’atteinte : {{value}} kg {{direction}} en {{duration}}.", {
+                  value: Math.abs(Math.round(targetWeightEstimate.diff * 10) / 10),
+                  direction: targetWeightEstimate.diff > 0 ? "à gagner" : "à perdre",
+                  duration: targetWeightEstimate.duration,
+                })}
               </Text>
             </Box>
           )}
         </Box>
 
-        <Box {...sectionCardProps} p={{ base: 4, md: 5 }}>
+        <Box {...sectionCardProps} p={{ base: 4, md: 5 }} gridColumn={{ base: "auto", xl: "1 / span 2" }}>
           <HStack justify="space-between" align="start" gap={3} flexWrap="wrap" mb={4}>
             <Box>
-              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={mutedText}>
-                ÉTAPE 3
-              </Text>
-              <Heading size="sm" mt={1}>
-                Contexte médical
-              </Heading>
-              <Text fontSize="sm" color={mutedText} mt={1}>
-                Les antécédents et pathologies affinent ensuite l’interprétation du dossier.
-              </Text>
+              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={mutedText}>{i18n.t("auto.NutritionAssessmentEditor.etape_3", "ÉTAPE 3")}</Text>
+              <Heading size="sm" mt={1}>{i18n.t("auto.NutritionAssessmentEditor.contexte_medical_2", "Contexte médical")}</Heading>
+              <Text fontSize="sm" color={mutedText} mt={1}>{i18n.t("auto.NutritionAssessmentEditor.les_antecedents_et_pathologies_affinent_ensuite_l_", "Les antécédents et pathologies affinent ensuite l’interprétation du dossier.")}</Text>
             </Box>
-            <Badge colorScheme="orange" variant="subtle" px={3} py={1} borderRadius="full">
-              Contexte clinique
-            </Badge>
+            <Badge colorScheme="orange" variant="subtle" px={3} py={1} borderRadius="full">{i18n.t("auto.NutritionAssessmentEditor.contexte_clinique", "Contexte clinique")}</Badge>
           </HStack>
 
           <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
             <FormControl>
-              <FormLabel>Antécédents médicaux</FormLabel>
+              <FormLabel>{i18n.t("auto.NutritionAssessmentEditor.antecedents_medicaux", "Antécédents médicaux")}</FormLabel>
               <Input
                 value={form?.medical?.antecedentsMedicaux || ""}
                 onChange={(e) => setField("medical", { ...(form.medical || {}), antecedentsMedicaux: e.target.value })}
@@ -1304,7 +1330,7 @@ export default function NutritionAssessmentEditor() {
             </FormControl>
 
             <FormControl>
-              <FormLabel>Antécédents nutritionnels</FormLabel>
+              <FormLabel>{i18n.t("auto.NutritionAssessmentEditor.antecedents_nutritionnels", "Antécédents nutritionnels")}</FormLabel>
               <Input
                 value={form?.medical?.antecedentsNutritionnels || ""}
                 onChange={(e) => setField("medical", { ...(form.medical || {}), antecedentsNutritionnels: e.target.value })}
@@ -1313,19 +1339,19 @@ export default function NutritionAssessmentEditor() {
             </FormControl>
 
             <FormControl>
-              <FormLabel>Pathologies (multi-choix)</FormLabel>
+              <FormLabel>{i18n.t("auto.NutritionAssessmentEditor.pathologies_multi_choix", "Pathologies (multi-choix)")}</FormLabel>
               <MultiSelectTags
                 options={PATHOLOGIES}
                 value={pathologies}
                 onChange={setPathologies}
-                placeholder="Sélectionner une pathologie…"
+                placeholder={i18n.t("auto.NutritionAssessmentEditor.selectionner_une_pathologie", "Sélectionner une pathologie…")}
                 exclusiveNoneValue="Aucune"
                 helperText="Si “Aucune” est sélectionné, les autres choix sont désactivés."
               />
 
               {isPathoSelected("Diabète") && (
                 <Box mt={3}>
-                  <FormLabel fontSize="sm">Diabète — précision</FormLabel>
+                  <FormLabel fontSize="sm">{i18n.t("auto.NutritionAssessmentEditor.diabete_precision", "Diabète — précision")}</FormLabel>
                   <Select
                     value={medicalDetails.diabeteType || ""}
                     onChange={(e) => setMedicalDetail("diabeteType", e.target.value)}
@@ -1342,7 +1368,7 @@ export default function NutritionAssessmentEditor() {
                   {medicalDetails.diabeteType === "Autre" && (
                     <Input
                       mt={2}
-                      placeholder="Précisez…"
+                      placeholder={i18n.t("auto.NutritionAssessmentEditor.precisez", "Précisez…")}
                       value={medicalDetails.diabeteAutre || ""}
                       onChange={(e) => setMedicalDetail("diabeteAutre", e.target.value)}
                       bg={subtleBg}
@@ -1353,7 +1379,7 @@ export default function NutritionAssessmentEditor() {
 
               {isPathoSelected("Troubles digestifs") && (
                 <Box mt={3}>
-                  <FormLabel fontSize="sm">Troubles digestifs — précision</FormLabel>
+                  <FormLabel fontSize="sm">{i18n.t("auto.NutritionAssessmentEditor.troubles_digestifs_precision", "Troubles digestifs — précision")}</FormLabel>
                   <Select
                     value={medicalDetails.digestifType || ""}
                     onChange={(e) => setMedicalDetail("digestifType", e.target.value)}
@@ -1370,7 +1396,7 @@ export default function NutritionAssessmentEditor() {
                   {medicalDetails.digestifType === "Autre" && (
                     <Input
                       mt={2}
-                      placeholder="Précisez…"
+                      placeholder={i18n.t("auto.NutritionAssessmentEditor.precisez", "Précisez…")}
                       value={medicalDetails.digestifAutre || ""}
                       onChange={(e) => setMedicalDetail("digestifAutre", e.target.value)}
                       bg={subtleBg}
@@ -1381,7 +1407,7 @@ export default function NutritionAssessmentEditor() {
 
               {isPathoSelected("TCA (Troubles du comportement alimentaire)") && (
                 <Box mt={3}>
-                  <FormLabel fontSize="sm">TCA — précision</FormLabel>
+                  <FormLabel fontSize="sm">{i18n.t("auto.NutritionAssessmentEditor.tca_precision", "TCA — précision")}</FormLabel>
                   <Select
                     value={medicalDetails.tcaType || ""}
                     onChange={(e) => setMedicalDetail("tcaType", e.target.value)}
@@ -1398,7 +1424,7 @@ export default function NutritionAssessmentEditor() {
                   {medicalDetails.tcaType === "Autre" && (
                     <Input
                       mt={2}
-                      placeholder="Précisez…"
+                      placeholder={i18n.t("auto.NutritionAssessmentEditor.precisez", "Précisez…")}
                       value={medicalDetails.tcaAutre || ""}
                       onChange={(e) => setMedicalDetail("tcaAutre", e.target.value)}
                       bg={subtleBg}
@@ -1409,7 +1435,7 @@ export default function NutritionAssessmentEditor() {
             </FormControl>
 
             <FormControl>
-              <FormLabel>Tabac (nb/jour)</FormLabel>
+              <FormLabel>{i18n.t("auto.NutritionAssessmentEditor.tabac_nb_jour", "Tabac (nb/jour)")}</FormLabel>
               <Input
                 inputMode="numeric"
                 value={form?.medical?.tabacParJour ?? ""}
@@ -1419,7 +1445,7 @@ export default function NutritionAssessmentEditor() {
             </FormControl>
 
             <FormControl>
-              <FormLabel>Allergies / intolérances</FormLabel>
+              <FormLabel>{i18n.t("auto.NutritionAssessmentEditor.allergies_intolerances", "Allergies / intolérances")}</FormLabel>
               <Input
                 value={form?.medical?.allergies || ""}
                 onChange={(e) => setField("medical", { ...(form.medical || {}), allergies: e.target.value })}
@@ -1428,7 +1454,7 @@ export default function NutritionAssessmentEditor() {
             </FormControl>
 
             <FormControl>
-              <FormLabel>Aliments interdits / à éviter</FormLabel>
+              <FormLabel>{i18n.t("auto.NutritionAssessmentEditor.aliments_interdits_a_eviter", "Aliments interdits / à éviter")}</FormLabel>
               <MultiSelectTags
                 options={FOOD_EXCLUSIONS}
                 value={foodExclusions}
@@ -1438,14 +1464,14 @@ export default function NutritionAssessmentEditor() {
                     foodExclusions: Array.isArray(next) ? next : [],
                   })
                 }
-                placeholder="Sélectionner les exclusions…"
+                placeholder={i18n.t("auto.NutritionAssessmentEditor.selectionner_les_exclusions", "Sélectionner les exclusions…")}
                 exclusiveNoneValue="Aucune"
                 helperText="Ces choix sont repris ensuite par la ration auto et le menu."
               />
             </FormControl>
 
             <FormControl gridColumn={{ base: "auto", md: "1 / span 2" }}>
-              <FormLabel>Précisions alimentaires / préférences patient</FormLabel>
+              <FormLabel>{i18n.t("auto.NutritionAssessmentEditor.precisions_alimentaires_preferences_patient", "Précisions alimentaires / préférences patient")}</FormLabel>
               <Textarea
                 value={form?.medical?.foodNotes || ""}
                 onChange={(e) =>
@@ -1456,49 +1482,45 @@ export default function NutritionAssessmentEditor() {
                 }
                 bg={subtleBg}
                 minH="92px"
-                placeholder="Exemple : n’aime pas le poisson, évite les plats épicés, préfère petit-déjeuner salé, contraintes religieuses, aliments déclencheurs digestifs…"
+                placeholder={i18n.t("auto.NutritionAssessmentEditor.exemple_n_aime_pas_le_poisson_evite_les_plats_epic", "Exemple : n’aime pas le poisson, évite les plats épicés, préfère petit-déjeuner salé, contraintes religieuses, aliments déclencheurs digestifs…")}
               />
-              <Text fontSize="sm" color={mutedText} mt={1}>
-                Sert de rappel clinique pour éviter les informations parasites et garder les choix alimentaires cohérents.
-              </Text>
+              <Text fontSize="sm" color={mutedText} mt={1}>{i18n.t("auto.NutritionAssessmentEditor.sert_de_rappel_clinique_pour_eviter_les_informatio", "Sert de rappel clinique pour éviter les informations parasites et garder les choix alimentaires cohérents.")}</Text>
             </FormControl>
 
-            <Box gridColumn={{ base: "auto", md: "1 / span 2" }} p={4} borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={panelBg}>
-              <Heading size="sm">Micronutrition</Heading>
-              <Text fontSize="sm" color={mutedText} mt={1} mb={4}>
-                Repères rapides pour orienter les priorités de fibres, minéraux, vitamines et hydratation.
-              </Text>
+            <Box gridColumn={{ base: "auto", md: "1 / span 2" }} p={4} borderWidth="1px" borderColor={borderColor} borderRadius="md" bg={panelBg}>
+              <Heading size="sm">{i18n.t("auto.NutritionAssessmentEditor.micronutrition", "Micronutrition")}</Heading>
+              <Text fontSize="sm" color={mutedText} mt={1} mb={4}>{i18n.t("auto.NutritionAssessmentEditor.reperes_rapides_pour_orienter_les_priorites_de_fib", "Repères rapides pour orienter les priorités de fibres, minéraux, vitamines et hydratation.")}</Text>
               <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
                 <FormControl>
-                  <FormLabel>Fatigue / énergie</FormLabel>
+                  <FormLabel>{i18n.t("auto.NutritionAssessmentEditor.fatigue_energie", "Fatigue / énergie")}</FormLabel>
                   <Select
                     value={form?.medical?.microFatigue || ""}
                     onChange={(e) => setField("medical", { ...(form.medical || {}), microFatigue: e.target.value })}
                     bg={subtleBg}
                   >
                     <option value="">—</option>
-                    <option value="Non">Non</option>
-                    <option value="Occasionnelle">Occasionnelle</option>
-                    <option value="Fréquente">Fréquente</option>
+                    <option value="Non">{i18n.t("common.no", "Non")}</option>
+                    <option value="Occasionnelle">{i18n.t("auto.NutritionAssessmentEditor.occasionnelle", "Occasionnelle")}</option>
+                    <option value="Fréquente">{i18n.t("auto.NutritionAssessmentEditor.frequente", "Fréquente")}</option>
                   </Select>
                 </FormControl>
 
                 <FormControl>
-                  <FormLabel>Sommeil / récupération</FormLabel>
+                  <FormLabel>{i18n.t("auto.NutritionAssessmentEditor.sommeil_recuperation", "Sommeil / récupération")}</FormLabel>
                   <Select
                     value={form?.medical?.microSleep || ""}
                     onChange={(e) => setField("medical", { ...(form.medical || {}), microSleep: e.target.value })}
                     bg={subtleBg}
                   >
                     <option value="">—</option>
-                    <option value="Bon">Bon</option>
-                    <option value="Irrégulier">Irrégulier</option>
-                    <option value="Difficile">Difficile</option>
+                    <option value="Bon">{i18n.t("auto.NutritionAssessmentEditor.bon", "Bon")}</option>
+                    <option value="Irrégulier">{i18n.t("auto.NutritionAssessmentEditor.irregulier", "Irrégulier")}</option>
+                    <option value="Difficile">{i18n.t("auto.NutritionAssessmentEditor.difficile", "Difficile")}</option>
                   </Select>
                 </FormControl>
 
                 <FormControl>
-                  <FormLabel>Digestion / transit</FormLabel>
+                  <FormLabel>{i18n.t("auto.NutritionAssessmentEditor.digestion_transit", "Digestion / transit")}</FormLabel>
                   <Select
                     value={form?.medical?.microDigestion || ""}
                     onChange={(e) => setField("medical", { ...(form.medical || {}), microDigestion: e.target.value })}
@@ -1506,54 +1528,55 @@ export default function NutritionAssessmentEditor() {
                   >
                     <option value="">—</option>
                     <option value="RAS">RAS</option>
-                    <option value="Ballonnements">Ballonnements</option>
-                    <option value="Transit ralenti">Transit ralenti</option>
-                    <option value="Transit accéléré">Transit accéléré</option>
+                    <option value="Ballonnements">{i18n.t("auto.NutritionAssessmentEditor.ballonnements", "Ballonnements")}</option>
+                    <option value="Transit ralenti">{i18n.t("auto.NutritionAssessmentEditor.transit_ralenti", "Transit ralenti")}</option>
+                    <option value="Transit accéléré">{i18n.t("auto.NutritionAssessmentEditor.transit_accelere", "Transit accéléré")}</option>
                   </Select>
                 </FormControl>
 
                 <FormControl>
-                  <FormLabel>Crampes / douleurs musculaires</FormLabel>
+                  <FormLabel>{i18n.t("auto.NutritionAssessmentEditor.crampes_douleurs_musculaires", "Crampes / douleurs musculaires")}</FormLabel>
                   <Select
                     value={form?.medical?.microCramps || ""}
                     onChange={(e) => setField("medical", { ...(form.medical || {}), microCramps: e.target.value })}
                     bg={subtleBg}
                   >
                     <option value="">—</option>
-                    <option value="Non">Non</option>
-                    <option value="Parfois">Parfois</option>
-                    <option value="Souvent">Souvent</option>
+                    <option value="Non">{i18n.t("common.no", "Non")}</option>
+                    <option value="Parfois">{i18n.t("auto.NutritionAssessmentEditor.parfois", "Parfois")}</option>
+                    <option value="Souvent">{i18n.t("auto.NutritionAssessmentEditor.souvent", "Souvent")}</option>
                   </Select>
                 </FormControl>
 
                 <FormControl gridColumn={{ base: "auto", md: "1 / span 2" }}>
-                  <FormLabel>Notes micronutrition</FormLabel>
+                  <FormLabel>{i18n.t("auto.NutritionAssessmentEditor.notes_micronutrition", "Notes micronutrition")}</FormLabel>
                   <Textarea
                     value={form?.medical?.microNotes || ""}
                     onChange={(e) => setField("medical", { ...(form.medical || {}), microNotes: e.target.value })}
                     bg={subtleBg}
                     minH="80px"
-                    placeholder="Exemple : chute de cheveux, ongles fragiles, envies sucrées, exposition solaire faible, hydratation faible…"
+                    placeholder={i18n.t("auto.NutritionAssessmentEditor.exemple_chute_de_cheveux_ongles_fragiles_envies_su", "Exemple : chute de cheveux, ongles fragiles, envies sucrées, exposition solaire faible, hydratation faible…")}
                   />
                 </FormControl>
               </SimpleGrid>
             </Box>
 
             <FormControl>
-              <FormLabel>Êtes-vous réglée ?</FormLabel>
+              <FormLabel>{i18n.t("auto.NutritionAssessmentEditor.etes_vous_reglee", "Êtes-vous réglée ?")}</FormLabel>
               <Select
                 value={form?.medical?.reglee || ""}
                 onChange={(e) => setField("medical", { ...(form.medical || {}), reglee: e.target.value })}
                 bg={subtleBg}
               >
                 <option value="">—</option>
-                <option value="Oui">Oui</option>
-                <option value="Non">Non</option>
-                <option value="N/A">N/A</option>
+                <option value="Oui">{i18n.t("common.yes", "Oui")}</option>
+                <option value="Non">{i18n.t("common.no", "Non")}</option>
+                <option value="N/A">{i18n.t("auto.NutritionAssessmentEditor.n_a", "N/A")}</option>
               </Select>
             </FormControl>
           </SimpleGrid>
         </Box>
+        </SimpleGrid>
 
         <Box
           position="sticky"
@@ -1565,14 +1588,10 @@ export default function NutritionAssessmentEditor() {
           py={3}
         >
           <HStack justify="space-between" gap={3} flexWrap="wrap">
-            <Button variant="outline" onClick={() => navigate(-1)}>
-              Retour
-            </Button>
+            <Button variant="outline" onClick={() => navigate(-1)}>{i18n.t("programView.back", "Retour")}</Button>
 
             <HStack spacing={3} flexWrap="wrap" justify="flex-end">
-              <Button colorScheme="blue" onClick={onSaveAndNext}>
-                Étape suivante
-              </Button>
+              <Button colorScheme="blue" onClick={onSaveAndNext}>{i18n.t("auto.NutritionAssessmentEditor.etape_suivante", "Étape suivante")}</Button>
             </HStack>
           </HStack>
         </Box>

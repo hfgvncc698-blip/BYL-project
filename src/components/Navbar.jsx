@@ -1,5 +1,5 @@
 // src/components/Navbar.jsx
-/* eslint-disable react/prop-types */
+ 
 import React from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
@@ -32,7 +32,6 @@ import {
   Switch,
   FormControl,
   FormLabel,
-  useToast,
   useColorModeValue,
   Text,
   Icon,
@@ -55,19 +54,23 @@ import {
   MdOutlineRestaurant,
   MdOutlineNoteAdd,
   MdAutoAwesome,
+  MdOutlineCalendarMonth,
 } from "react-icons/md";
 import { useAuth } from "../AuthContext";
 import ClientCreation from "./ClientCreation";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "./LanguageSwitcher";
 import useAutoRevertColorMode from "../hooks/useAutoRevertColorMode";
+import { canUseGuidedProgram, canUseNavbarBranding } from "../utils/proPlanAccess";
 
 /* ========= ROUTES ========= */
 const ROUTES = {
   home: "/",
-  autoQuestionnaire: "/questionnaire",
+  autoQuestionnaire: "/auto-program-questionnaire",
+  clientQuestionnaire: "/questionnaire",
   coachBuilderNew: "/exercise-bank/program-builder/new",
   admin: "/admin",
+  clubDashboard: "/club-dashboard",
   coachDashboard: "/coach-dashboard",
   coachProfile: "/coach/profile",
   coachSettings: "/settings-coach",
@@ -87,9 +90,10 @@ const ROUTES = {
 };
 /* ========================= */
 
+const DEFAULT_BRAND_LABEL = "BoostYourLife.coach";
+
 export default function Navbar() {
-  const toast = useToast();
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const nav = (k, fb) => t(k, fb);
   const { user, logout, isAdmin, effectiveRole, setViewAs } = useAuth();
 
@@ -123,28 +127,85 @@ export default function Navbar() {
   const roleEffective = effectiveRole;
   const showCoachUI = roleEffective === "coach";
   const isClient = user?.role === "particulier";
-
-  React.useEffect(() => {
-    const onLang = () => {
-      toast({
-        description: t("settings.toasts.lang_updated", "Langue mise à jour."),
-        status: "success",
-        duration: 3000,
-      });
-    };
-
-    i18n.on("languageChanged", onLang);
-    return () => i18n.off("languageChanged", onLang);
-  }, [i18n, toast, t]);
+  const isClubOwner =
+    user?.role === "coach" &&
+    (user?.accountType === "club_owner" || user?.clubRole === "owner");
+  const isClubContext =
+    (user?.role === "coach" || user?.role === "admin") &&
+    (isClubOwner || location.pathname.startsWith(ROUTES.clubDashboard));
+  const clubBrandAllowed =
+    isClubOwner &&
+    user?.clubName &&
+    (user?.packageTier === "network" || Number(user?.proLimit || 0) >= 20);
+  const navbarBrandAllowed = canUseNavbarBranding(
+    user?.proAccess || {
+      packageKey: user?.packageKey,
+      packageTier: user?.packageTier,
+      branding: user?.branding,
+    }
+  );
+  const guidedProgramAllowed = canUseGuidedProgram(
+    user?.proAccess || {
+      packageKey: user?.packageKey,
+      packageTier: user?.packageTier,
+      branding: user?.branding,
+    }
+  );
+  const planModules = user?.proAccess?.modules || user?.modules;
+  const hasNutritionAccess = Boolean(
+    isAdmin ||
+    user?.nutritionAccess ||
+    user?.hasNutritionAccess ||
+    (Array.isArray(planModules) && planModules.includes("nutrition")) ||
+    planModules?.nutrition ||
+    user?.features?.nutrition ||
+    ["nutrition", "complete", "club"].includes(user?.packageKey)
+  );
+  const hasSportAccess = Boolean(
+    user?.sportAccess ||
+    user?.hasSportAccess ||
+    (Array.isArray(planModules) && planModules.includes("sport")) ||
+    planModules?.sport ||
+    user?.features?.sport ||
+    ["sport", "complete", "club"].includes(user?.packageKey)
+  );
+  const isNutritionOnlyCoach = showCoachUI && hasNutritionAccess && !hasSportAccess;
+  const isMixedCoach = showCoachUI && hasNutritionAccess && hasSportAccess;
+  const customNavbarName = (
+    user?.settings?.navbarBrandName ||
+    user?.companyName ||
+    user?.businessName ||
+    user?.cabinetName ||
+    displayFullName
+  )?.trim?.();
+  const brandLabel =
+    clubBrandAllowed && user?.clubName
+      ? user.clubName
+      : navbarBrandAllowed && customNavbarName
+        ? customNavbarName
+        : DEFAULT_BRAND_LABEL;
+  const adminCoachId = new URLSearchParams(location.search).get("adminCoachId") || "";
+  const clientCustomProgramLabel = nav("nav.create_my_program", "Créer mon programme");
+  const withAdminCoach = (path) => {
+    if (isClubContext || !isAdmin || !showCoachUI || !adminCoachId) return path;
+    return `${path}${path.includes("?") ? "&" : "?"}adminCoachId=${encodeURIComponent(adminCoachId)}`;
+  };
 
   const handleLogout = () => {
     logout();
     setTimeout(() => navigate(ROUTES.home), 100);
   };
 
+  const goToClientQuestionnaire = () => {
+    choiceModal.onClose();
+    mobileNav.onClose();
+    navigate(ROUTES.clientQuestionnaire);
+  };
+
   const coachLinks = [
     { label: nav("nav.dashboard", "Tableau de bord"), to: ROUTES.coachDashboard, icon: MdOutlineSpaceDashboard },
-    { label: nav("nav.my_clients", "Mes clients"), to: ROUTES.coachClients, icon: MdOutlinePeopleAlt },
+    { label: isNutritionOnlyCoach ? nav("nav.my_patients", "Mes patients") : nav("nav.my_clients", "Mes clients"), to: ROUTES.coachClients, icon: MdOutlinePeopleAlt },
+    { label: nav("nav.my_patients", "Mes patients"), to: `${ROUTES.coachClients}?view=nutrition`, icon: MdOutlineRestaurant, mixedOnly: true },
     { label: nav("nav.nutrition", "Nutrition"), to: ROUTES.coachNutrition, icon: MdOutlineRestaurant },
     { label: nav("nav.all_programs", "Tous les programmes"), to: ROUTES.coachPrograms, icon: MdOutlineFitnessCenter },
     { label: nav("nav.exercise_bank", "Banque d'exercices"), to: ROUTES.exerciseBank, icon: MdOutlineLibraryBooks },
@@ -160,11 +221,26 @@ export default function Navbar() {
     { label: nav("nav.statistics", "Statistiques"), to: ROUTES.clientStats, icon: MdOutlineInsights },
   ];
 
-  const linksToShow = (showCoachUI ? coachLinks : clientLinks).filter((link) => {
-    if (link.to === ROUTES.coachNutrition) return isAdmin;
+  const clubLinks = [
+    { label: nav("nav.club_dashboard", "Dashboard club"), to: ROUTES.clubDashboard, icon: MdOutlineSpaceDashboard },
+    { label: nav("nav.create_pro", "Créer un pro"), to: `${ROUTES.clubDashboard}/create`, icon: MdOutlinePerson },
+    { label: nav("nav.club_pros", "Pros du club"), to: `${ROUTES.clubDashboard}/team`, icon: MdOutlinePeopleAlt },
+    { label: nav("nav.club_calendar", "Calendrier club"), to: `${ROUTES.clubDashboard}/calendrier`, icon: MdOutlineCalendarMonth },
+    { label: nav("nav.club_clients", "Clients du club"), to: `${ROUTES.clubDashboard}/clients`, icon: MdOutlinePeopleAlt },
+    { label: nav("nav.club_programs", "Programmes du club"), to: `${ROUTES.clubDashboard}/programmes`, icon: MdOutlineLibraryBooks },
+    { label: nav("nav.club_nutrition", "Nutrition du club"), to: `${ROUTES.clubDashboard}/nutrition`, icon: MdOutlineRestaurant },
+    { label: nav("nav.club_statistics", "Statistiques club"), to: `${ROUTES.clubDashboard}/statistiques`, icon: MdOutlineInsights },
+    { label: nav("nav.club_settings", "Réglages club"), to: `${ROUTES.clubDashboard}/settings`, icon: MdOutlineSettings },
+  ];
+
+  const linksToShow = (isClubContext ? clubLinks : showCoachUI ? coachLinks : clientLinks).filter((link) => {
+    if (link.mixedOnly) return isMixedCoach;
+    if (link.to === ROUTES.coachNutrition) return hasNutritionAccess;
+    if (link.to === `${ROUTES.clubDashboard}/nutrition`) return isAdmin || isClubOwner || hasNutritionAccess;
+    if (link.to === ROUTES.coachPrograms || link.to === ROUTES.exerciseBank) return isClubContext || isAdmin || hasSportAccess;
     return true;
   });
-  const settingsTo = showCoachUI ? ROUTES.coachSettings : ROUTES.clientSettings;
+  const settingsTo = isClubContext ? `${ROUTES.clubDashboard}/settings` : showCoachUI ? ROUTES.coachSettings : ROUTES.clientSettings;
 
   const headerBg = useColorModeValue("rgba(255,255,255,0.86)", "rgba(10,14,24,0.82)");
   const headerBorder = useColorModeValue("rgba(15,23,42,0.08)", "rgba(255,255,255,0.08)");
@@ -257,7 +333,19 @@ export default function Navbar() {
     markManualChoice(next);
   };
 
-  const isCurrentRoute = (to) => location.pathname === to;
+  const isCurrentRoute = (to) => {
+    const [targetPath, targetSearch = ""] = to.split("?");
+    if (location.pathname !== targetPath) return false;
+    if (!targetSearch) {
+      if (targetPath === ROUTES.coachClients && new URLSearchParams(location.search).get("view") === "nutrition") {
+        return false;
+      }
+      return true;
+    }
+    const currentParams = new URLSearchParams(location.search);
+    const targetParams = new URLSearchParams(targetSearch);
+    return [...targetParams.entries()].every(([key, value]) => currentParams.get(key) === value);
+  };
 
   const langFixSx = useColorModeValue(
     {
@@ -303,6 +391,7 @@ export default function Navbar() {
   const QuickCoachActions = ({ compact = false, onAfterClick }) => (
     <HStack spacing={2} flexWrap="wrap">
       <Button
+        data-tour="coach-new"
         leftIcon={<AddIcon />}
         size={compact ? "sm" : "md"}
         h={compact ? "40px" : "44px"}
@@ -353,7 +442,7 @@ export default function Navbar() {
             letterSpacing="-0.02em"
             minW={0}
           >
-            {nav("brand", "BoostYourLife.coach")}
+            {brandLabel}
           </Box>
         </HStack>
 
@@ -375,17 +464,18 @@ export default function Navbar() {
                   onChange={() => {
                     const goAdmin = !adminSwitchChecked;
                     setViewAs(goAdmin ? "admin" : "coach");
-                    navigate(goAdmin ? ROUTES.admin : ROUTES.coachDashboard);
+                    navigate(goAdmin ? ROUTES.admin : withAdminCoach(ROUTES.coachDashboard));
                   }}
                   colorScheme="yellow"
                 />
               </FormControl>
             )}
 
-            {showCoachUI && <QuickCoachActions compact />}
+            {showCoachUI && !isClubContext && <QuickCoachActions compact />}
 
             {isClient && (
               <Button
+                data-tour="client-custom-program"
                 leftIcon={<AddIcon />}
                 size="sm"
                 h="40px"
@@ -396,9 +486,9 @@ export default function Navbar() {
                 fontWeight="800"
                 _hover={{ bg: primaryActionHoverBg }}
                 _active={{ bg: primaryActionActiveBg }}
-                onClick={choiceModal.onOpen}
+                onClick={goToClientQuestionnaire}
               >
-                {nav("nav.custom_program", "Programme sur mesure")}
+                {clientCustomProgramLabel}
               </Button>
             )}
 
@@ -457,14 +547,14 @@ export default function Navbar() {
                         color={menuMuted}
                         fontWeight="800"
                       >
-                        Navigation
+                        {isClubContext ? "Espace Club" : "Navigation"}
                       </Text>
                     </Box>
 
                     {linksToShow.map((link) => (
                       <MenuItem
                         as={Link}
-                        to={link.to}
+                        to={withAdminCoach(link.to)}
                         key={link.to}
                         bg={isCurrentRoute(link.to) ? menuItemActiveBg : "transparent"}
                         py={3}
@@ -522,9 +612,7 @@ export default function Navbar() {
                         letterSpacing="0.08em"
                         color={menuMuted}
                         fontWeight="800"
-                      >
-                        Préférences
-                      </Text>
+                      >{t("settings.sections.preferences", "Préférences")}</Text>
                     </Box>
 
                     <MenuItem
@@ -762,17 +850,21 @@ export default function Navbar() {
           >
             <VStack align="start" spacing={1} pr={10}>
               <Text fontSize="lg" fontWeight="900" letterSpacing="-0.02em">
-                {nav("nav.menu", "Menu")}
+                {isClubContext ? "Menu Club" : nav("nav.menu", "Menu")}
               </Text>
               <Text fontSize="sm" color={menuMuted}>
-                {displayFirstName || displayFullName}
+                {isClubContext
+                  ? "Pilotage de la structure"
+                  : isNutritionOnlyCoach
+                    ? "Espace nutrition"
+                    : displayFirstName || displayFullName}
               </Text>
             </VStack>
           </DrawerHeader>
 
           <DrawerBody px={4} py={4}>
             <VStack align="stretch" spacing={4} mt={1} w="full">
-              {showCoachUI && (
+              {showCoachUI && !isClubContext && (
                 <Box
                   p={3}
                   borderRadius="22px"
@@ -805,12 +897,9 @@ export default function Navbar() {
                   color="white"
                   _hover={{ bg: primaryActionHoverBg }}
                   _active={{ bg: primaryActionActiveBg }}
-                  onClick={() => {
-                    choiceModal.onOpen();
-                    mobileNav.onClose();
-                  }}
-                >
-                  {nav("nav.custom_program", "Programme sur mesure")}
+                  onClick={goToClientQuestionnaire}
+              >
+                  {clientCustomProgramLabel}
                 </Button>
               )}
 
@@ -832,13 +921,13 @@ export default function Navbar() {
                     color={menuMuted}
                     fontWeight="800"
                   >
-                    Navigation
+                    {isClubContext ? "Espace Club" : "Navigation"}
                   </Text>
 
                   {linksToShow.map((link) => (
                     <Button
                       as={Link}
-                      to={link.to}
+                      to={withAdminCoach(link.to)}
                       variant="ghost"
                       justifyContent="space-between"
                       w="full"
@@ -905,9 +994,7 @@ export default function Navbar() {
                     letterSpacing="0.08em"
                     color={menuMuted}
                     fontWeight="800"
-                  >
-                    Préférences
-                  </Text>
+                  >{t("settings.sections.preferences", "Préférences")}</Text>
 
                   {isAdmin && (
                     <FormControl display="flex" alignItems="center" px={2} py={2}>
@@ -921,7 +1008,7 @@ export default function Navbar() {
                           const goAdmin = !adminSwitchChecked;
                           setViewAs(goAdmin ? "admin" : "coach");
                           mobileNav.onClose();
-                          navigate(goAdmin ? ROUTES.admin : ROUTES.coachDashboard);
+                          navigate(goAdmin ? ROUTES.admin : withAdminCoach(ROUTES.coachDashboard));
                         }}
                         colorScheme="yellow"
                       />
@@ -1077,7 +1164,7 @@ export default function Navbar() {
             <ModalHeader>{nav("nav.new_client", "Nouveau client")}</ModalHeader>
             <ModalCloseButton />
             <ModalBody>
-              <ClientCreation onClose={clientModal.onClose} />
+              <ClientCreation onClose={clientModal.onClose} ownerUid={adminCoachId} />
             </ModalBody>
           </ModalContent>
         </Modal>
@@ -1094,7 +1181,7 @@ export default function Navbar() {
         >
           <ModalHeader>
             {isClient
-              ? nav("nav.custom_program", "Programme sur mesure")
+              ? clientCustomProgramLabel
               : nav("nav.new", "Nouveau")}
           </ModalHeader>
           <ModalCloseButton />
@@ -1102,6 +1189,7 @@ export default function Navbar() {
             <VStack spacing={4} py={4}>
               {showCoachUI && (
                 <>
+                  {hasSportAccess && (
                   <Button
                     w="full"
                     borderRadius="16px"
@@ -1118,34 +1206,39 @@ export default function Navbar() {
                     }}
                     onClick={() => {
                       choiceModal.onClose();
-                      navigate(ROUTES.coachBuilderNew);
+                      navigate(withAdminCoach(ROUTES.coachBuilderNew));
                     }}
                   >
                     {nav("nav.new_program_manual", "Nouveau programme manuel")}
                   </Button>
+                  )}
 
-                  <Button
-                    variant="outline"
-                    w="full"
-                    borderRadius="16px"
-                    leftIcon={<Icon as={MdAutoAwesome} />}
-                    borderColor={modalActionBorder}
-                    bg={modalActionBg}
-                    transition="all 0.18s ease"
-                    _hover={{
-                      bg: modalActionHoverBg,
-                      borderColor: modalActionHoverBorder,
-                      transform: "translateY(-1px)",
-                      boxShadow: modalActionHoverShadow,
-                    }}
-                    onClick={() => {
-                      choiceModal.onClose();
-                      navigate(ROUTES.autoQuestionnaire);
-                    }}
-                  >
-                    {nav("nav.new_program_guided", "Nouveau programme guidé")}
-                  </Button>
+                  {hasSportAccess && guidedProgramAllowed && (
+                    <Button
+                      variant="outline"
+                      w="full"
+                      borderRadius="16px"
+                      leftIcon={<Icon as={MdAutoAwesome} />}
+                      borderColor={modalActionBorder}
+                      bg={modalActionBg}
+                      transition="all 0.18s ease"
+                      _hover={{
+                        bg: modalActionHoverBg,
+                        borderColor: modalActionHoverBorder,
+                        transform: "translateY(-1px)",
+                        boxShadow: modalActionHoverShadow,
+                      }}
+                      onClick={() => {
+                        choiceModal.onClose();
+                        mobileNav.onClose();
+                        navigate(withAdminCoach(ROUTES.autoQuestionnaire));
+                      }}
+                    >
+                      {nav("nav.new_program_guided", "Nouveau programme guidé")}
+                    </Button>
+                  )}
 
+                  {hasSportAccess && (
                   <Button
                     variant="outline"
                     w="full"
@@ -1167,8 +1260,9 @@ export default function Navbar() {
                   >
                     {nav("nav.new_client", "Nouveau client")}
                   </Button>
+                  )}
 
-                  {isAdmin && (
+                  {(isAdmin || hasNutritionAccess) && (
                     <Button
                       variant="outline"
                       w="full"
@@ -1185,7 +1279,7 @@ export default function Navbar() {
                       }}
                       onClick={() => {
                         choiceModal.onClose();
-                        navigate(`${ROUTES.coachNutrition}?new=1`);
+                        navigate(withAdminCoach(`${ROUTES.coachNutrition}?new=1`));
                       }}
                     >
                       {nav("nav.new_nutrition_followup", "Nouveau suivi diététique")}
@@ -1199,10 +1293,7 @@ export default function Navbar() {
                   variant="solid"
                   w="full"
                   borderRadius="16px"
-                  onClick={() => {
-                    choiceModal.onClose();
-                    navigate(ROUTES.autoQuestionnaire);
-                  }}
+                  onClick={goToClientQuestionnaire}
                 >
                   {nav("nav.build_my_program", "Construire mon programme")}
                 </Button>

@@ -173,7 +173,31 @@
       "Retour": "Riporta i piedi e le braccia contemporaneamente nella posizione di partenza.",
       "Respiration": "Inspira mentre apri, espira mentre chiudi.",
       "Posture": "Coinvolgi il tuo core per evitare qualsiasi squilibrio."
-    }
+    },
+    "articulations_solicitees": [
+      "Spalle",
+      "Gomiti",
+      "Polsi",
+      "Caviglie"
+    ],
+    "articulations_sollicitees": [
+      "Spalle",
+      "Gomiti",
+      "Polsi",
+      "Caviglie"
+    ],
+    "tendons_solicites": [
+      "Tendine d'Achille",
+      "Tendine rotuleo",
+      "Tendine del deltoide"
+    ],
+    "tendons_sollicites": [
+      "Tendine d'Achille",
+      "Tendine rotuleo",
+      "Tendine del deltoide"
+    ],
+    "type": "Esercizio cardiovascolare con carico leggero",
+    "niveau": "Intermedio"
   },
   "E005": {
     "nom": "Rotazioni del braccio",
@@ -211,7 +235,8 @@
       "Positionnement": "Stare con i piedi alla larghezza delle spalle, le braccia distese lungo i fianchi.",
       "Mouvement": "Fai dei cerchi lenti con le braccia, avanti e poi indietro.",
       "Respiration": "Respira in modo naturale, senza blocchi.",
-      "Posture": "Tieni la schiena dritta e il collo rilassato."
+      "Posture": "Tieni la schiena dritta e il collo rilassato.",
+      "Retour": "Torna lentamente alla posizione iniziale mantenendo il controllo del movimento."
     }
   },
   "E006": {

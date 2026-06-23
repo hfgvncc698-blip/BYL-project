@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <rect x="54" y="92" width="972" height="250" rx="26" fill="#05070a" opacity="0.64"/>
+  <text x="78" y="160" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="800" fill="#ffffff">Tu reponds vite,</text>
+  <text x="78" y="235" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="700" fill="#ffffff">ou tu cherches d'abord ?</text>
+  <rect x="78" y="395" width="560" height="74" rx="20" fill="#ffffff" opacity="0.94"/>
+  <text x="118" y="443" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="800" fill="#0b1724">Dossier complet</text>
+  <rect x="78" y="490" width="560" height="74" rx="20" fill="#0b1724" opacity="0.92"/>
+  <text x="118" y="538" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="800" fill="#ffffff">Message au bon moment</text>
+</svg>

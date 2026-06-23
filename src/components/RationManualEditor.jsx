@@ -1,4 +1,4 @@
-/* eslint-disable react/prop-types */
+ 
 // src/components/RationManualEditor.jsx
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
@@ -29,6 +29,7 @@ import {
   computeMicronutrientTargets,
 } from "../utils/nutritionContext";
 import { useNutritionTheme } from "../styles/nutritionTheme";
+import i18n from "../i18n/index";
 
 /* ================= Utils ================= */
 const num = (v) => {
@@ -606,7 +607,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
     setCiqualLoading(true);
     setCiqualOk(false);
     try {
-      const res = await fetch("/ciqual_2025.json", { cache: "no-store" });
+      const res = await fetch("/ciqual_2025.json", { cache: "force-cache" });
       const arr = await res.json();
       const map = {};
       for (const row of arr || []) {
@@ -622,7 +623,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
       setCiqualOk(false);
       toast({
         title: "CIQUAL",
-        description: "Impossible de charger le fichier CIQUAL.",
+        description: i18n.t("auto.RationManualEditor.impossible_de_charger_le_fichier_ciqual", "Impossible de charger le fichier CIQUAL."),
         status: "error",
         duration: 4000,
         isClosable: true,
@@ -634,7 +635,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
 
   useEffect(() => {
     reloadCiqual();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const ctxSnapshot = useMemo(() => {
@@ -788,7 +789,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
     }
 
     return { perMeal, day };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [foods, values, selectedMicros, ciqualByCode]);
 
   const dayPct = useMemo(() => {
@@ -903,8 +904,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
         <HStack align="start" spacing={0}>
           <Box flex="0 0 320px" pr={3}>
             <Text fontWeight="700">{food.name}</Text>
-            <Text fontSize="xs" opacity={0.6}>
-              Unité par défaut : {food.defaultUnit}
+            <Text fontSize="xs" opacity={0.6}>{i18n.t("auto.RationManualEditor.unite_par_defaut", "Unité par défaut :")}{food.defaultUnit}
             </Text>
           </Box>
 
@@ -925,10 +925,10 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
                     isDisabled={blocked}
                     width="90px"
                   >
-                    <option value="g">g</option>
-                    <option value="ml">ml</option>
-                    <option value="portion">portion</option>
-                    <option value="unité">unité</option>
+                    <option value="g">{i18n.t("auto.RationManualEditor.g", "g")}</option>
+                    <option value="ml">{i18n.t("auto.RationManualEditor.ml", "ml")}</option>
+                    <option value="portion">{i18n.t("auto.RationManualEditor.portion", "portion")}</option>
+                    <option value="unité">{i18n.t("auto.RationManualEditor.unite", "unité")}</option>
                   </Select>
                 </HStack>
 
@@ -978,7 +978,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
               {food.name}
             </Text>
             <Text fontSize="xs" opacity={0.65} noOfLines={1}>
-              {food.category} • unité: {unit}
+              {food.category}{i18n.t("auto.RationManualEditor.unite_2", "• unité:")}{unit}
             </Text>
           </Box>
 
@@ -990,10 +990,10 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
             width="110px"
             flexShrink={0}
           >
-            <option value="g">g</option>
-            <option value="ml">ml</option>
-            <option value="portion">portion</option>
-            <option value="unité">unité</option>
+            <option value="g">{i18n.t("auto.RationManualEditor.g", "g")}</option>
+            <option value="ml">{i18n.t("auto.RationManualEditor.ml", "ml")}</option>
+            <option value="portion">{i18n.t("auto.RationManualEditor.portion", "portion")}</option>
+            <option value="unité">{i18n.t("auto.RationManualEditor.unite", "unité")}</option>
           </Select>
         </HStack>
 
@@ -1057,36 +1057,31 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
       <VStack align="stretch" spacing={2}>
         <HStack justify="space-between" align="center" gap={3} flexWrap="wrap">
           <HStack spacing={2} flexWrap="wrap">
-            <Badge colorScheme="blue" variant="solid" borderRadius="full" px={2.5} py={1}>
-              Manuel
-            </Badge>
+            <Badge colorScheme="blue" variant="solid" borderRadius="full" px={2.5} py={1}>{i18n.t("auto.RationManualEditor.manuel", "Manuel")}</Badge>
             <Text fontSize="sm" fontWeight="800" color={subtleText}>
-              {fmt0Plain(totals.day.kcal)} / {kcalTarget > 0 ? fmt0Plain(kcalTarget) : "—"} kcal
-            </Text>
+              {fmt0Plain(totals.day.kcal)} / {kcalTarget > 0 ? fmt0Plain(kcalTarget) : "—"}{i18n.t("auto.RationManualEditor.kcal", "kcal")}</Text>
           </HStack>
         </HStack>
 
         <HStack spacing={2} flexWrap="wrap">
-          <Badge colorScheme={protSchemeDay} variant="subtle" borderRadius="full" px={3} py={1} fontWeight="800" textTransform="none">
-            Prot {fmt0Plain(totals.day.prot)} g
-            {hasRange(needs?.protG) ? ` / ${fmt0Plain(needs.protG.min)}-${fmt0Plain(needs.protG.max)} g` : ""}
+          <Badge colorScheme={protSchemeDay} variant="subtle" borderRadius="full" px={3} py={1} fontWeight="800" textTransform="none">{i18n.t("auto.RationManualEditor.prot", "Prot")}{fmt0Plain(totals.day.prot)}{i18n.t("auto.RationManualEditor.g", "g")}{hasRange(needs?.protG) ? ` / ${fmt0Plain(needs.protG.min)}-${fmt0Plain(needs.protG.max)} g` : ""}
             {needs?.pctRanges?.protPctMin ? ` • ${round0(dayPct.prot)}% / ${needs.pctRanges.protPctMin}-${needs.pctRanges.protPctMax}%` : ` • ${round0(dayPct.prot)}%`}
           </Badge>
-          <Badge colorScheme={lipSchemeDay} variant="subtle" borderRadius="full" px={3} py={1} fontWeight="800" textTransform="none">
-            Lip {fmt0Plain(totals.day.lip)} g
-            {hasRange(needs?.lipG) ? ` / ${fmt0Plain(needs.lipG.min)}-${fmt0Plain(needs.lipG.max)} g` : ""}
+          <Badge colorScheme={lipSchemeDay} variant="subtle" borderRadius="full" px={3} py={1} fontWeight="800" textTransform="none">{i18n.t("auto.RationManualEditor.lip", "Lip")}{fmt0Plain(totals.day.lip)}{i18n.t("auto.RationManualEditor.g", "g")}{hasRange(needs?.lipG) ? ` / ${fmt0Plain(needs.lipG.min)}-${fmt0Plain(needs.lipG.max)} g` : ""}
             {needs?.pctRanges?.lipPctMin ? ` • ${round0(dayPct.lip)}% / ${needs.pctRanges.lipPctMin}-${needs.pctRanges.lipPctMax}%` : ` • ${round0(dayPct.lip)}%`}
           </Badge>
-          <Badge colorScheme={gluSchemeDay} variant="subtle" borderRadius="full" px={3} py={1} fontWeight="800" textTransform="none">
-            Glu {fmt0Plain(totals.day.glu)} g
-            {hasRange(needs?.glucG) ? ` / ${fmt0Plain(needs.glucG.min)}-${fmt0Plain(needs.glucG.max)} g` : ""}
+          <Badge colorScheme={gluSchemeDay} variant="subtle" borderRadius="full" px={3} py={1} fontWeight="800" textTransform="none">{i18n.t("auto.RationManualEditor.glu", "Glu")}{fmt0Plain(totals.day.glu)}{i18n.t("auto.RationManualEditor.g", "g")}{hasRange(needs?.glucG) ? ` / ${fmt0Plain(needs.glucG.min)}-${fmt0Plain(needs.glucG.max)} g` : ""}
             {needs?.pctRanges?.glucPctMin ? ` • ${round0(dayPct.glu)}% / ${needs.pctRanges.glucPctMin}-${needs.pctRanges.glucPctMax}%` : ` • ${round0(dayPct.glu)}%`}
           </Badge>
           <Badge bg={footerChipBg} color="inherit" borderRadius="full" px={3} py={1} fontWeight="700">
-            Micros {selectedMicroList.length}
+            {i18n.t("auto.RationManualEditor.micros_count", "Micros {{count}}", { count: selectedMicroList.length })}
           </Badge>
           <Badge colorScheme={kcalSchemeDay} variant="subtle" borderRadius="full" px={3} py={1} fontWeight="700">
-            Energie {kcalTarget > 0 ? `${fmt0Plain(totals.day.kcal - kcalTarget)} kcal` : "Sans cible"}
+            {i18n.t("auto.RationManualEditor.energie_delta", "Energie {{value}}", {
+              value: kcalTarget > 0
+                ? `${fmt0Plain(totals.day.kcal - kcalTarget)} kcal`
+                : i18n.t("auto.RationManualEditor.sans_cible", "Sans cible"),
+            })}
           </Badge>
           {selectedMicroList.length > 0 ? (
             <Button
@@ -1095,7 +1090,9 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
               borderRadius="full"
               onClick={() => setShowFooterMicros((prev) => !prev)}
             >
-              {showFooterMicros ? "Réduire" : "Voir plus"}
+              {showFooterMicros
+                ? i18n.t("auto.RationManualEditor.reduire", "Réduire")
+                : i18n.t("auto.RationManualEditor.voir_plus", "Voir plus")}
             </Button>
           ) : null}
         </HStack>
@@ -1133,33 +1130,29 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
       <Box borderWidth="1px" borderColor={borderColor} borderRadius="lg" bg={softBg} p={4} mb={4}>
         <HStack justify="space-between" align="start" flexWrap="wrap" gap={3}>
           <Box>
-            <Heading size="md">Ration pro</Heading>
-            <Text opacity={0.75} mt={1} maxW="760px">
-              Éditeur manuel pensé comme une table de travail clinique : tu gardes la main sur
-              chaque quantité, repas et micro affiché.
-            </Text>
+            <Heading size="md">{i18n.t("auto.RationManualEditor.ration_pro", "Ration pro")}</Heading>
+            <Text opacity={0.75} mt={1} maxW="760px">{i18n.t("auto.RationManualEditor.editeur_manuel_pense_comme_une_table_de_travail_cl", "Éditeur manuel pensé comme une table de travail clinique : tu gardes la main sur chaque quantité, repas et micro affiché.")}</Text>
           </Box>
 
           <Wrap spacing={2}>
             <WrapItem>
               <Badge colorScheme={ciqualOk ? "green" : "gray"} borderRadius="full" px={3} py={1}>
-                {ciqualOk ? "Données prêtes" : "Données à charger"}
+                {ciqualOk
+                  ? i18n.t("auto.RationManualEditor.donnees_pretes", "Données prêtes")
+                  : i18n.t("auto.RationManualEditor.donnees_a_charger", "Données à charger")}
               </Badge>
             </WrapItem>
             <WrapItem>
               <Badge colorScheme="blue" variant="subtle" borderRadius="full" px={3} py={1}>
-                {filledFoodCount} ligne(s) remplies
-              </Badge>
+                {filledFoodCount}{i18n.t("auto.RationManualEditor.ligne_s_remplies", "ligne(s) remplies")}</Badge>
             </WrapItem>
             <WrapItem>
               <Badge colorScheme="purple" variant="subtle" borderRadius="full" px={3} py={1}>
-                {selectedMicroList.length} micro(s)
-              </Badge>
+                {selectedMicroList.length}{i18n.t("auto.RationManualEditor.micro_s", "micro(s)")}</Badge>
             </WrapItem>
             <WrapItem>
               <Badge colorScheme="green" variant="subtle" borderRadius="full" px={3} py={1}>
-                {fmt0Plain(totals.day.kcal)} kcal
-              </Badge>
+                {fmt0Plain(totals.day.kcal)}{i18n.t("auto.RationManualEditor.kcal", "kcal")}</Badge>
             </WrapItem>
           </Wrap>
         </HStack>
@@ -1170,11 +1163,9 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
             leftIcon={<RepeatIcon />}
             onClick={reloadCiqual}
             isLoading={ciqualLoading}
-            loadingText="Chargement…"
+            loadingText={i18n.t("common.loading", "Chargement…")}
             isDisabled={blocked}
-          >
-            Actualiser les données
-          </Button>
+          >{i18n.t("auto.RationManualEditor.actualiser_les_donnees", "Actualiser les données")}</Button>
         </HStack>
       </Box>
 
@@ -1182,7 +1173,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
       <Box borderWidth="1px" borderColor={borderColor} borderRadius="lg" bg={panelBg} p={4} mb={4}>
         <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
           <FormControl>
-            <FormLabel>Titre</FormLabel>
+            <FormLabel>{i18n.t("auto.ClubDashboard.titre", "Titre")}</FormLabel>
             <Input
               value={title}
               onChange={(e) => {
@@ -1194,19 +1185,14 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
           />
         </FormControl>
           <Box>
-            <Text fontSize="sm" opacity={0.75}>
-              Utilise un titre simple et directement compréhensible pour la suite du dossier et
-              pour l’export PDF.
-            </Text>
+            <Text fontSize="sm" opacity={0.75}>{i18n.t("auto.RationManualEditor.utilise_un_titre_simple_et_directement_comprehensi", "Utilise un titre simple et directement compréhensible pour la suite du dossier et pour l’export PDF.")}</Text>
           </Box>
         </SimpleGrid>
       </Box>
 
       {/* Micros */}
       <Box borderWidth="1px" borderColor={borderColor} borderRadius="lg" bg={panelBg} p={4} mb={4}>
-        <Text fontWeight="800" mb={2}>
-          Choisir les micros à afficher / calculer (CIQUAL)
-        </Text>
+        <Text fontWeight="800" mb={2}>{i18n.t("auto.RationManualEditor.choisir_les_micros_a_afficher_calculer_ciqual", "Choisir les micros à afficher / calculer (CIQUAL)")}</Text>
 
         <Wrap spacing={3}>
           {MICRO_DEFS.map((m) => (
@@ -1221,12 +1207,8 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
 
       {/* Controls catégories */}
       <HStack mb={3} flexWrap="wrap" gap={2}>
-        <Button size="sm" variant="outline" onClick={() => setAllCats(true)} isDisabled={blocked}>
-          Tout ouvrir
-        </Button>
-        <Button size="sm" variant="outline" onClick={() => setAllCats(false)} isDisabled={blocked}>
-          Tout fermer
-        </Button>
+        <Button size="sm" variant="outline" onClick={() => setAllCats(true)} isDisabled={blocked}>{i18n.t("auto.RationManualEditor.tout_ouvrir", "Tout ouvrir")}</Button>
+        <Button size="sm" variant="outline" onClick={() => setAllCats(false)} isDisabled={blocked}>{i18n.t("auto.RationManualEditor.tout_fermer", "Tout fermer")}</Button>
       </HStack>
 
       <Box>
@@ -1236,9 +1218,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
             <Box bg={softBg} borderBottomWidth="1px" borderColor={borderColor} px={4} py={2}>
               <HStack spacing={0} align="center">
                 <Box flex="0 0 320px">
-                  <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" opacity={0.7}>
-                    CATÉGORIE
-                  </Text>
+                  <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" opacity={0.7}>{i18n.t("auto.RationManualEditor.categorie", "CATÉGORIE")}</Text>
                 </Box>
                 {MEALS.map((m) => (
                   <Box key={m.key} flex="1" textAlign="center">
@@ -1262,7 +1242,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
                         size="sm"
                         variant="ghost"
                         icon={isOpen ? <ChevronDownIcon /> : <ChevronRightIcon />}
-                        aria-label="toggle"
+                        aria-label={i18n.t("auto.RationManualEditor.toggle", "toggle")}
                         onClick={() => setOpenCats((p) => ({ ...(p || {}), [cat.name]: !p?.[cat.name] }))}
                         isDisabled={blocked}
                       />
@@ -1292,9 +1272,8 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
         <Box mt={3} borderWidth="1px" borderColor={borderColor} borderRadius="lg" overflow="hidden" bg={panelBg}>
           <Box bg={softBg} borderBottomWidth="1px" borderColor={borderColor} px={4} py={2}>
             <HStack justify="space-between">
-              <Text fontWeight="900">Totaux par repas</Text>
-              <Badge colorScheme={kcalSchemeDay} variant="subtle">
-                JOUR: {fmt0Plain(totals.day.kcal)} KCAL
+              <Text fontWeight="900">{i18n.t("auto.RationManualEditor.totaux_par_repas", "Totaux par repas")}</Text>
+              <Badge colorScheme={kcalSchemeDay} variant="subtle">{i18n.t("auto.RationManualEditor.jour", "JOUR:")}{fmt0Plain(totals.day.kcal)} KCAL
               </Badge>
             </HStack>
           </Box>
@@ -1310,11 +1289,8 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
                         {m.label}
                       </Text>
                       <Text mt={1} fontWeight="900" lineHeight="1.25">
-                        {fmt0Plain(t.kcal)} kcal
-                      </Text>
-                      <Text fontSize="sm" opacity={0.85} lineHeight="1.25">
-                        Prot {fmt0Plain(t.prot)} g • Lip {fmt0Plain(t.lip)} g • Glu {fmt0Plain(t.glu)} g
-                      </Text>
+                        {fmt0Plain(t.kcal)}{i18n.t("auto.RationManualEditor.kcal", "kcal")}</Text>
+                      <Text fontSize="sm" opacity={0.85} lineHeight="1.25">{i18n.t("auto.RationManualEditor.prot", "Prot")}{fmt0Plain(t.prot)}{i18n.t("auto.RationManualEditor.g_lip", "g • Lip")}{fmt0Plain(t.lip)}{i18n.t("auto.RationManualEditor.g_glu", "g • Glu")}{fmt0Plain(t.glu)}{i18n.t("auto.RationManualEditor.g", "g")}</Text>
                     </Box>
                   );
                 })}
@@ -1323,7 +1299,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
               <>
                 <HStack spacing={0} py={1}>
                   <Box flex="0 0 320px">
-                    <Text fontWeight="900">TOTAL (kcal)</Text>
+                    <Text fontWeight="900">{i18n.t("auto.RationManualEditor.total_kcal", "TOTAL (kcal)")}</Text>
                   </Box>
                   {MEALS.map((m) => (
                     <Box key={m.key} flex="1" textAlign="center">
@@ -1336,7 +1312,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
 
                 <HStack spacing={0} py={1}>
                   <Box flex="0 0 320px">
-                    <Text fontWeight="900">TOTAL (g) — Prot / Lip / Glu</Text>
+                    <Text fontWeight="900">{i18n.t("auto.RationManualEditor.total_g_prot_lip_glu", "TOTAL (g) — Prot / Lip / Glu")}</Text>
                   </Box>
                   {MEALS.map((m) => (
                     <Box key={m.key} flex="1" textAlign="center">

@@ -11643,13 +11643,14 @@
       "Stuhl mit Hanteln",
       "Stuhl mit Medizinball",
       "Stuhl mit Fersenlift",
-      "Stuhl mit Gummizug"
+      "Stuhl mit Gummizug (Abduktion)"
     ],
     "consignes": {
       "Positionnement": "Lehnen Sie sich flach an die Wand, die Füße schulterbreit auseinander, etwa 50 cm von der Wand entfernt.",
       "Mouvement": "Beugen Sie Ihre Beine im 90°-Winkel, die Oberschenkel parallel zum Boden, und halten Sie die Position, ohne sich zu bewegen.",
       "Respiration": "Atmen Sie ruhig und regelmäßig, vermeiden Sie Apnoe.",
-      "Posture": "Der Rücken ist gerade, die Bauchmuskeln sind angespannt, die Knie sind auf Höhe der Knöchel."
+      "Posture": "Der Rücken ist gerade, die Bauchmuskeln sind angespannt, die Knie sind auf Höhe der Knöchel.",
+      "Retour": "Drücke über die Fersen zurück in den Stand, ohne die Haltung abrupt zu lösen."
     }
   },
   "T259": {
@@ -11689,14 +11690,15 @@
       "Bei Ungleichgewicht oder Gelenkschmerzen vermeiden"
     ],
     "variantes": [
-      "Klassischer Stuhl",
       "Stuhl mit Hanteln",
       "Stuhl mit Medizinball"
     ],
     "consignes": {
       "Positionnement": "Mit dem Rücken an die Wand gedrückt, ein Bein vor sich ausgestreckt, das andere im 90°-Winkel.",
       "Respiration": "Atmen Sie ruhig, ohne Ihre Atmung zu blockieren.",
-      "Posture": "Rumpf bedeckt, Knie auf Höhe des Knöchels."
+      "Posture": "Rumpf bedeckt, Knie auf Höhe des Knöchels.",
+      "Mouvement": "Senke dich ab, bis die Knie etwa 90 Grad bilden, und halte die Position.",
+      "Retour": "Drücke über die Fersen zurück in den Stand, ohne die Haltung abrupt zu lösen."
     }
   },
   "T260": {
@@ -11733,13 +11735,15 @@
       "Bei Knie- oder Rückenschmerzen vermeiden"
     ],
     "variantes": [
-      "Klassischer Stuhl",
       "Einseitiger Stuhl",
       "Stuhl mit Medizinball"
     ],
     "consignes": {
       "Positionnement": "Platzieren Sie die Hanteln auf den Oberschenkeln und behalten Sie die klassische Stuhlposition bei.",
-      "Posture": "Bauchmuskeln angespannt, Rücken gegen die Wand gedrückt."
+      "Posture": "Bauchmuskeln angespannt, Rücken gegen die Wand gedrückt.",
+      "Mouvement": "Senke dich ab, bis die Knie etwa 90 Grad bilden, und halte die Position.",
+      "Retour": "Drücke über die Fersen zurück in den Stand, ohne die Haltung abrupt zu lösen.",
+      "Respiration": "Atme während der Vorbereitung oder Abwärtsphase ein und während der Anstrengung aus."
     }
   },
   "T261": {
@@ -11775,13 +11779,15 @@
       "Wählen Sie ein geeignetes Gewicht, um den Gelenkdruck nicht zu erhöhen"
     ],
     "variantes": [
-      "Klassischer Stuhl",
       "Stuhl mit Hanteln",
-      "Stuhl mit Gummizug"
+      "Stuhl mit Gummizug (Abduktion)"
     ],
     "consignes": {
       "Positionnement": "Ball vor sich oder zwischen den Knien gehalten.",
-      "Posture": "Rücken gerade, Bauchmuskeln angespannt."
+      "Posture": "Rücken gerade, Bauchmuskeln angespannt.",
+      "Mouvement": "Senke dich ab, bis die Knie etwa 90 Grad bilden, und halte die Position.",
+      "Retour": "Drücke über die Fersen zurück in den Stand, ohne die Haltung abrupt zu lösen.",
+      "Respiration": "Atme während der Vorbereitung oder Abwärtsphase ein und während der Anstrengung aus."
     }
   },
   "T262": {
@@ -11817,12 +11823,14 @@
       "Merken Sie nicht, ob Schmerzen in der Achillessehne auftreten"
     ],
     "variantes": [
-      "Klassischer Stuhl",
-      "Stuhl mit Gummizug"
+      "Stuhl mit Gummizug (Abduktion)"
     ],
     "consignes": {
       "Positionnement": "Heben Sie Ihre Fersen an, um zusätzlich zu Ihrem Quadrizeps auch Ihre Waden zu beanspruchen.",
-      "Posture": "Behalten Sie die Stabilität bei, die Bauchmuskeln sind angespannt."
+      "Posture": "Behalten Sie die Stabilität bei, die Bauchmuskeln sind angespannt.",
+      "Mouvement": "Senke dich ab, bis die Knie etwa 90 Grad bilden, und halte die Position.",
+      "Retour": "Drücke über die Fersen zurück in den Stand, ohne die Haltung abrupt zu lösen.",
+      "Respiration": "Atme während der Vorbereitung oder Abwärtsphase ein und während der Anstrengung aus."
     }
   },
   "T263": {
@@ -11859,12 +11867,14 @@
       "Wählen Sie ein geeignetes Gummiband, um Ihre Körperhaltung nicht aus dem Gleichgewicht zu bringen"
     ],
     "variantes": [
-      "Klassischer Stuhl",
       "Stuhl mit Medizinball"
     ],
     "consignes": {
       "Positionnement": "Behalten Sie die Stuhlposition bei, indem Sie Ihre Knie gegen das Gummiband drücken.",
-      "Posture": "Rücken gerade, Bauchmuskeln angespannt."
+      "Posture": "Rücken gerade, Bauchmuskeln angespannt.",
+      "Mouvement": "Senke dich ab, bis die Knie etwa 90 Grad bilden, und halte die Position.",
+      "Retour": "Drücke über die Fersen zurück in den Stand, ohne die Haltung abrupt zu lösen.",
+      "Respiration": "Atme während der Vorbereitung oder Abwärtsphase ein und während der Anstrengung aus."
     }
   },
   "T264": {
@@ -11955,14 +11965,15 @@
       "Stehend"
     ],
     "variantes": [
-      "Klassischer Kreuzheben-Riegel",
-      "Rumänisches Kreuzheben",
-      "Kettlebell-Kreuzheben"
+      "Rumänisches Kreuzheben (RDL)",
+      "Kreuzheben mit Kettlebell"
     ],
     "consignes": {
       "Positionnement": "Füße hüftbreit auseinander, Hanteln vor den Oberschenkeln.",
       "Mouvement": "Lower the dumbbells down your legs, pushing your hips back.",
-      "Retour": "Spannen Sie Ihre Gesäßmuskulatur an und strecken Sie Ihren Oberkörper."
+      "Retour": "Spannen Sie Ihre Gesäßmuskulatur an und strecken Sie Ihren Oberkörper.",
+      "Respiration": "Atme vor dem Absenken ein, spanne die Mitte an und atme beim Heben aus.",
+      "Posture": "Halte den Rücken neutral, die Schultern aktiv und die Last nah am Körper."
     }
   },
   "T266": {
@@ -11998,13 +12009,14 @@
       "Füße weit gespreizt"
     ],
     "variantes": [
-      "Klassischer Kreuzheben-Riegel",
-      "Rumänisches Kreuzheben"
+      "Rumänisches Kreuzheben (RDL)"
     ],
     "consignes": {
       "Positionnement": "Die Füße weit auseinander, die Hände fest an der Stange.",
       "Mouvement": "Drücken Sie Ihre Beine durch und spannen Sie Ihre Gesäßmuskeln an, um die Stange anzuheben.",
-      "Retour": "Kontrollieren Sie den Abstieg, indem Sie Ihren Rücken gerade halten."
+      "Retour": "Kontrollieren Sie den Abstieg, indem Sie Ihren Rücken gerade halten.",
+      "Respiration": "Atme vor dem Absenken ein, spanne die Mitte an und atme beim Heben aus.",
+      "Posture": "Halte den Rücken neutral, die Schultern aktiv und die Last nah am Körper."
     }
   },
   "T267": {
@@ -12035,13 +12047,14 @@
       "Stehend"
     ],
     "variantes": [
-      "Klassischer Kreuzheben-Riegel",
-      "Kreuzheben-Hanteln"
+      "Kreuzheben mit Hanteln"
     ],
     "consignes": {
       "Positionnement": "Füße hüftbreit auseinander, Stange vor den Oberschenkeln.",
       "Mouvement": "Senken Sie die Stange ab, indem Sie Ihre Hüften nach hinten drücken, die Beine leicht gebeugt.",
-      "Retour": "Spannen Sie die Gesäßmuskulatur und die hintere Oberschenkelmuskulatur an, um wieder aufzustehen."
+      "Retour": "Spannen Sie die Gesäßmuskulatur und die hintere Oberschenkelmuskulatur an, um wieder aufzustehen.",
+      "Respiration": "Atme vor dem Absenken ein, spanne die Mitte an und atme beim Heben aus.",
+      "Posture": "Halte den Rücken neutral, die Schultern aktiv und die Last nah am Körper."
     }
   },
   "T268": {
@@ -12073,13 +12086,15 @@
       "Stehend"
     ],
     "variantes": [
-      "Kreuzheben-Hanteln",
-      "Rumänisches Kreuzheben"
+      "Kreuzheben mit Hanteln",
+      "Rumänisches Kreuzheben (RDL)"
     ],
     "consignes": {
       "Positionnement": "Platzieren Sie die Kettlebell zwischen den Füßen.",
       "Mouvement": "Gehen Sie mit geradem Rücken nach unten, greifen Sie nach der Kettlebell und schieben Sie sie durch Ihre Beine, um wieder nach oben zu kommen.",
-      "Retour": "Kontrollieren Sie den Abstieg."
+      "Retour": "Kontrollieren Sie den Abstieg.",
+      "Respiration": "Atme vor dem Absenken ein, spanne die Mitte an und atme beim Heben aus.",
+      "Posture": "Halte den Rücken neutral, die Schultern aktiv und die Last nah am Körper."
     }
   },
   "T269": {
@@ -12109,13 +12124,15 @@
       "Stehend"
     ],
     "variantes": [
-      "Rumänisches Kreuzheben",
-      "Kreuzheben-Hanteln"
+      "Rumänisches Kreuzheben (RDL)",
+      "Kreuzheben mit Hanteln"
     ],
     "consignes": {
       "Positionnement": "Füße hüftbreit auseinander, Beine gerade, aber nicht durchgestreckt.",
       "Mouvement": "Senken Sie die Stange ab, während Sie Ihre Beine gerade und Ihren Rücken gerade halten.",
-      "Retour": "Spannen Sie Ihre Kniesehnen und Gesäßmuskeln an, um zum Stehen zurückzukehren."
+      "Retour": "Spannen Sie Ihre Kniesehnen und Gesäßmuskeln an, um zum Stehen zurückzukehren.",
+      "Respiration": "Atme vor dem Absenken ein, spanne die Mitte an und atme beim Heben aus.",
+      "Posture": "Halte den Rücken neutral, die Schultern aktiv und die Last nah am Körper."
     }
   },
   "T270": {
@@ -12148,11 +12165,14 @@
       "Erhöht stehend"
     ],
     "variantes": [
-      "Klassisches Kreuzheben"
+      "Kreuzheben (klassisches Kreuzheben)"
     ],
     "consignes": {
       "Positionnement": "Stellen Sie sich auf eine Plattform, um die Amplitude zu erhöhen.",
-      "Mouvement": "Heben Sie die Stange wie beim klassischen Kreuzheben mit mehr Dehnung an."
+      "Mouvement": "Heben Sie die Stange wie beim klassischen Kreuzheben mit mehr Dehnung an.",
+      "Retour": "Kehre langsam in die Ausgangsposition zurück und behalte die Kontrolle.",
+      "Respiration": "Atme vor dem Absenken ein, spanne die Mitte an und atme beim Heben aus.",
+      "Posture": "Halte den Rücken neutral, die Schultern aktiv und die Last nah am Körper."
     }
   },
   "T271": {
@@ -12183,11 +12203,14 @@
       "Stehend"
     ],
     "variantes": [
-      "Klassisches Kreuzheben"
+      "Kreuzheben (klassisches Kreuzheben)"
     ],
     "consignes": {
       "Positionnement": "Die Stange wird in Kniehöhe auf einem Gestell platziert.",
-      "Mouvement": "Heben Sie die Stange auf eine reduzierte Amplitude an."
+      "Mouvement": "Heben Sie die Stange auf eine reduzierte Amplitude an.",
+      "Retour": "Kehre langsam in die Ausgangsposition zurück und behalte die Kontrolle.",
+      "Respiration": "Atme vor dem Absenken ein, spanne die Mitte an und atme beim Heben aus.",
+      "Posture": "Halte den Rücken neutral, die Schultern aktiv und die Last nah am Körper."
     }
   },
   "T272": {
@@ -12223,7 +12246,10 @@
     ],
     "consignes": {
       "Positionnement": "Stehen Sie und halten Sie die TRX-Gurte fest.",
-      "Mouvement": "Senken Sie Ihren Oberkörper gerade ab, indem Sie Ihre Hüften nach hinten drücken, und kommen Sie dann zurück."
+      "Mouvement": "Senken Sie Ihren Oberkörper gerade ab, indem Sie Ihre Hüften nach hinten drücken, und kommen Sie dann zurück.",
+      "Retour": "Kehre langsam in die Ausgangsposition zurück und behalte die Kontrolle.",
+      "Respiration": "Atme vor dem Absenken ein, spanne die Mitte an und atme beim Heben aus.",
+      "Posture": "Halte den Rücken neutral, die Schultern aktiv und die Last nah am Körper."
     }
   },
   "T273": {
@@ -12258,7 +12284,10 @@
     ],
     "consignes": {
       "Positionnement": "Legen Sie das Gummiband unter die Füße und halten Sie es mit den Händen fest.",
-      "Mouvement": "Senken Sie den rechten Oberkörper ab und heben Sie ihn dann wieder an, indem Sie am Gummiband ziehen."
+      "Mouvement": "Senken Sie den rechten Oberkörper ab und heben Sie ihn dann wieder an, indem Sie am Gummiband ziehen.",
+      "Retour": "Kehre langsam in die Ausgangsposition zurück und behalte die Kontrolle.",
+      "Respiration": "Atme vor dem Absenken ein, spanne die Mitte an und atme beim Heben aus.",
+      "Posture": "Halte den Rücken neutral, die Schultern aktiv und die Last nah am Körper."
     }
   },
   "T274": {
@@ -12364,7 +12393,8 @@
       "Positionnement": "Fassen Sie die niedrigen Griffe, den Oberkörper geneigter und die Füße aktiv.",
       "Mouvement": "Machen Sie schwere und kurze, kraftvolle Schritte und halten Sie die Körpermitte aufrecht.",
       "Retour": "Kommen Sie langsam zurück und bereiten Sie sich auf den nächsten Satz vor.",
-      "Posture": "Neutraler Rücken, stabile Schultern, ausgerichteter Nacken."
+      "Posture": "Neutraler Rücken, stabile Schultern, ausgerichteter Nacken.",
+      "Respiration": "Atme während des gesamten Schiebens oder Ziehens rhythmisch und kontinuierlich."
     }
   },
   "T276": {
@@ -12411,7 +12441,9 @@
     "consignes": {
       "Positionnement": "Hohe oder niedrige Griffe je nach Komfort und leichter Belastung.",
       "Mouvement": "Beschleunigen Sie über eine kurze Distanz (10–20 m) und behalten Sie dabei die Kontrolle.",
-      "Retour": "Gehen Sie zurück; aktiv erholen."
+      "Retour": "Gehen Sie zurück; aktiv erholen.",
+      "Respiration": "Atme während des gesamten Schiebens oder Ziehens rhythmisch und kontinuierlich.",
+      "Posture": "Halte den Oberkörper stabil, die Schultern tief und die Schritte aktiv."
     }
   },
   "T277": {
@@ -12452,13 +12484,15 @@
       "Sehr knieschonend, aber dennoch kontrolliert beim Rückwärtsfahren"
     ],
     "variantes": [
-      "Schlittenzug – Vordergurt",
+      "Schlittenzug – Vordergurt (Laufen oder Gehen)",
       "Schlittenzug – Hand-zu-Hand-Seil"
     ],
     "consignes": {
       "Positionnement": "Riemen an der Taille befestigt, mit kontrollierten Schritten zurückgehen.",
       "Mouvement": "Ziehen Sie den Schlitten rückwärts, Knie und Hüfte sind gebeugt.",
-      "Posture": "Hoher Busen, bedeckter Rumpf, aktive Fersen-Zehen-Bewegung."
+      "Posture": "Hoher Busen, bedeckter Rumpf, aktive Fersen-Zehen-Bewegung.",
+      "Retour": "Verlangsame allmählich, setze die Füße neu und kehre kontrolliert zum Start zurück.",
+      "Respiration": "Atme während des gesamten Schiebens oder Ziehens rhythmisch und kontinuierlich."
     }
   },
   "T278": {
@@ -12508,7 +12542,9 @@
     "consignes": {
       "Positionnement": "Geschirr am Rumpf/Schultern, ummantelter Rumpf.",
       "Mouvement": "Laufen oder gehen Sie, während Sie den Schlitten ziehen, in regelmäßigen Schritten.",
-      "Respiration": "Regelmäßig, dem Aufwand angepasst."
+      "Respiration": "Regelmäßig, dem Aufwand angepasst.",
+      "Retour": "Verlangsame allmählich, setze die Füße neu und kehre kontrolliert zum Start zurück.",
+      "Posture": "Halte den Oberkörper stabil, die Schultern tief und die Schritte aktiv."
     }
   },
   "T279": {
@@ -12552,13 +12588,15 @@
       "Halten Sie Ihren Rücken neutral; bei starkem Ziehen nicht verrunden"
     ],
     "variantes": [
-      "Schlittenzug – Vordergurt",
+      "Schlittenzug – Vordergurt (Laufen oder Gehen)",
       "Schlitten Zurückziehen (ziehen)"
     ],
     "consignes": {
       "Positionnement": "Verankern Sie Ihre Füße und greifen Sie das Seil in einem alternativen Griff.",
       "Mouvement": "Von Hand zu Hand ziehen, das Seil zur Brust führen, im Stehen einen Schritt zurücktreten.",
-      "Posture": "Starker Rumpf, tiefe Schultern."
+      "Posture": "Starker Rumpf, tiefe Schultern.",
+      "Retour": "Verlangsame allmählich, setze die Füße neu und kehre kontrolliert zum Start zurück.",
+      "Respiration": "Atme während des gesamten Schiebens oder Ziehens rhythmisch und kontinuierlich."
     }
   },
   "T280": {
@@ -12604,7 +12642,9 @@
     "consignes": {
       "Positionnement": "Befestigen Sie den Schlitten auf Hüfthöhe und stellen Sie sich seitlich hin.",
       "Mouvement": "Bewegen Sie sich beim Ziehen des Schlittens mit kontrollierten Schritten seitwärts.",
-      "Posture": "Ummantelter Rumpf, stabiles Becken."
+      "Posture": "Ummantelter Rumpf, stabiles Becken.",
+      "Retour": "Verlangsame allmählich, setze die Füße neu und kehre kontrolliert zum Start zurück.",
+      "Respiration": "Atme während des gesamten Schiebens oder Ziehens rhythmisch und kontinuierlich."
     }
   },
   "T281": {
@@ -12649,12 +12689,14 @@
     ],
     "variantes": [
       "Schlittenzug – Hand-zu-Hand-Seil",
-      "Schlittenzug – Vordergurt"
+      "Schlittenzug – Vordergurt (Laufen oder Gehen)"
     ],
     "consignes": {
       "Positionnement": "Fassen Sie die Griffe/das Seil mit ausgestreckten Armen und verankerten Füßen.",
       "Mouvement": "Ziehen Sie mit den Ellbogen in Richtung Brust und treten Sie kontrolliert zurück.",
-      "Posture": "Schultern tief, Rumpf kräftig, Blick zum Horizont gerichtet."
+      "Posture": "Schultern tief, Rumpf kräftig, Blick zum Horizont gerichtet.",
+      "Retour": "Verlangsame allmählich, setze die Füße neu und kehre kontrolliert zum Start zurück.",
+      "Respiration": "Atme während des gesamten Schiebens oder Ziehens rhythmisch und kontinuierlich."
     }
   },
   "T282": {
@@ -12702,7 +12744,9 @@
     "consignes": {
       "Positionnement": "Riemen an den Händen/Unterarmen, schräge Brust.",
       "Mouvement": "Drücken Sie sich nach vorne, während Sie sich mit ausgestreckten Armen vorwärts bewegen.",
-      "Posture": "Starker Rumpf, neutrales Becken, regelmäßige Trittfrequenz."
+      "Posture": "Starker Rumpf, neutrales Becken, regelmäßige Trittfrequenz.",
+      "Retour": "Verlangsame allmählich, setze die Füße neu und kehre kontrolliert zum Start zurück.",
+      "Respiration": "Atme während des gesamten Schiebens oder Ziehens rhythmisch und kontinuierlich."
     }
   },
   "T283": {
@@ -12749,7 +12793,9 @@
     "consignes": {
       "Positionnement": "Die Träger werden auf Schulterhöhe gehalten.",
       "Mouvement": "Drücken Sie über den Kopf, während Sie sich vorwärts bewegen, und strecken Sie die Arme am Ende der Geste aus.",
-      "Posture": "Rippen eingezogen, Becken neutral, nicht gewölbt."
+      "Posture": "Rippen eingezogen, Becken neutral, nicht gewölbt.",
+      "Retour": "Verlangsame allmählich, setze die Füße neu und kehre kontrolliert zum Start zurück.",
+      "Respiration": "Atme während des gesamten Schiebens oder Ziehens rhythmisch und kontinuierlich."
     }
   },
   "T284": {
@@ -12791,12 +12837,14 @@
     ],
     "variantes": [
       "Seitlicher Schlittenwiderstand",
-      "Schlittenrotation"
+      "Schlittendrehung (Seilholzhacker)"
     ],
     "consignes": {
       "Positionnement": "Stehen Sie seitwärts, die Hände an den Griffen, die Füße parallel.",
       "Mouvement": "Drücken Sie mit schwungvollen Schritten seitlich und halten Sie dabei Ihren Oberkörper gerade.",
-      "Posture": "Verdrehsichere Ummantelung, niedrige Schultern."
+      "Posture": "Verdrehsichere Ummantelung, niedrige Schultern.",
+      "Retour": "Verlangsame allmählich, setze die Füße neu und kehre kontrolliert zum Start zurück.",
+      "Respiration": "Atme während des gesamten Schiebens oder Ziehens rhythmisch und kontinuierlich."
     }
   },
   "T285": {
@@ -12845,7 +12893,9 @@
     "consignes": {
       "Positionnement": "Fassen Sie das Seil seitlich mit beiden Händen auf Schulterhöhe.",
       "Mouvement": "Ziehen/führen Sie das Seil in kontrollierter Drehung wie ein Holzhacker.",
-      "Posture": "Anti-Extension-Ummantelung, niedrige Schultern, flüssige Gewichtsübertragung."
+      "Posture": "Anti-Extension-Ummantelung, niedrige Schultern, flüssige Gewichtsübertragung.",
+      "Retour": "Verlangsame allmählich, setze die Füße neu und kehre kontrolliert zum Start zurück.",
+      "Respiration": "Atme während des gesamten Schiebens oder Ziehens rhythmisch und kontinuierlich."
     }
   },
   "T286": {
@@ -12897,7 +12947,9 @@
     "consignes": {
       "Positionnement": "Legen Sie die Gurte an einem niedrigen Gurt oder an den Händen an und gehen Sie in die Vierbeinerposition.",
       "Mouvement": "Bewegen Sie sich im Kriechschritt vorwärts und ziehen Sie dabei den Schlitten hinter sich her.",
-      "Posture": "Neutraler Rücken, stabiles Becken, Lendenwirbel vermeiden."
+      "Posture": "Neutraler Rücken, stabiles Becken, Lendenwirbel vermeiden.",
+      "Retour": "Verlangsame allmählich, setze die Füße neu und kehre kontrolliert zum Start zurück.",
+      "Respiration": "Atme während des gesamten Schiebens oder Ziehens rhythmisch und kontinuierlich."
     }
   },
   "T287": {
@@ -12939,14 +12991,13 @@
     "contraintes": [
       "Schützen Sie den Rumpf gut, um ein seitliches Kippen zu vermeiden"
     ],
-    "variantes": [
-      "Farmer Walk mit Hanteln",
-      "Farmer Walk mit Kettlebells"
-    ],
+    "variantes": [],
     "consignes": {
       "Positionnement": "Fassen Sie die seitlichen Griffe des Schlittens mit ausgestreckten Armen.",
       "Mouvement": "Gehen Sie geradeaus und achten Sie dabei auf Ummantelung und Belastung.",
-      "Posture": "Neutraler Rücken, tiefe Schultern, straffer Rumpf."
+      "Posture": "Neutraler Rücken, tiefe Schultern, straffer Rumpf.",
+      "Retour": "Verlangsame allmählich, setze die Füße neu und kehre kontrolliert zum Start zurück.",
+      "Respiration": "Atme während des gesamten Schiebens oder Ziehens rhythmisch und kontinuierlich."
     }
   },
   "T288": {
@@ -12991,13 +13042,15 @@
       "Vermeiden Sie seitliches Ungleichgewicht; stabilisieren das Becken"
     ],
     "variantes": [
-      "Stehende Schlittenreihe",
+      "Stehendes Schlittenrudern (horizontaler Zug)",
       "Schlitten-Brustpresse"
     ],
     "consignes": {
       "Positionnement": "Stellen Sie einen Fuß nach vorne (Ausfallschritt), den Rumpf gerade, die Riemen in der Hand.",
       "Mouvement": "Führen Sie einen einseitigen Zug oder Stoß aus, während Sie den Ausfallschritt beibehalten.",
-      "Posture": "Ummantelter Rumpf, vorderes Knie auf Höhe des Knöchels."
+      "Posture": "Ummantelter Rumpf, vorderes Knie auf Höhe des Knöchels.",
+      "Retour": "Verlangsame allmählich, setze die Füße neu und kehre kontrolliert zum Start zurück.",
+      "Respiration": "Atme während des gesamten Schiebens oder Ziehens rhythmisch und kontinuierlich."
     }
   },
   "T289": {

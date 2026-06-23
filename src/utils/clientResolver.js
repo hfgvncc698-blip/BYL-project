@@ -49,7 +49,12 @@ async function scoreClientSnapshot(snap, user, options = {}) {
   if (docEmailLower && emailLower && docEmailLower === emailLower) score += 40;
   else if (docEmail && emailLower && docEmail === emailLower) score += 15;
   if (snap.id === user?.linkedClientId) score += 8;
-  if (data.linkedUserId === user?.uid || data.uid === user?.uid || snap.id === user?.uid) score += 6;
+  if (
+    data.linkedUserId === user?.uid ||
+    data.accountUid === user?.uid ||
+    data.uid === user?.uid ||
+    snap.id === user?.uid
+  ) score += 6;
   if (Array.isArray(data.programmesAssignes)) score += Math.min(10, data.programmesAssignes.length);
 
   if (options.scoreContent !== false) {

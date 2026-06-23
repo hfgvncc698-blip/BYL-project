@@ -1,15 +1,26 @@
-// server.js
-require("dotenv").config();
-
 const express = require("express");
+const http = require("http");
 const admin = require("firebase-admin");
 const helmet = require("helmet");
+const fs = require("fs");
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
+require("dotenv").config({ path: path.join(__dirname, ".env"), override: true });
 
 // Init Firebase Admin
 try {
   admin.app();
 } catch {
-  admin.initializeApp();
+  const localServiceAccountPath = path.join(__dirname, "serviceAccountKey.json");
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS || fs.existsSync(localServiceAccountPath)) {
+    admin.initializeApp({
+      credential: admin.credential.cert(
+        require(process.env.GOOGLE_APPLICATION_CREDENTIALS || localServiceAccountPath)
+      ),
+    });
+  } else {
+    admin.initializeApp();
+  }
 }
 
 const app = express();
@@ -91,75 +102,13 @@ app.use("/api/client-profile", clientProfileRouter);
 const programsRouter = require("./routes/programs");
 app.use("/api/programs", programsRouter);
 
-/* =================== Analytics (même que Functions) =================== */
-function getClientIp(req) {
-  const fwd = req.headers["x-forwarded-for"];
-  const ip =
-    (Array.isArray(fwd) ? fwd[0] : fwd || "").split(",")[0].trim() ||
-    req.ip ||
-    req.socket?.remoteAddress ||
-    "";
-  return ip.replace("::ffff:", "");
-}
-
-function slug(s) {
-  return (s || "unknown")
-    .toString()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-app.post("/api/analytics/pageview", async (req, res) => {
-  try {
-    let ip = getClientIp(req);
-    if (process.env.NODE_ENV !== "production" && req.query && req.query.ip) {
-      ip = String(req.query.ip);
-    }
-    if (!ip || ip.startsWith("127.") || ip === "::1") {
-      return res.json({ ok: true, skipped: "local" });
-    }
-
-    const controller = new AbortController();
-    const to = setTimeout(() => controller.abort(), 4000);
-    let geo = null;
-
-    try {
-      const r = await fetch(`https://ipapi.co/${encodeURIComponent(ip)}/json/`, {
-        signal: controller.signal,
-      });
-      geo = await r.json();
-    } finally {
-      clearTimeout(to);
-    }
-
-    const countryCode = (geo?.country || "UN").toUpperCase();
-    const cityName = geo?.city || "Unknown";
-    const docId = `${countryCode}-${slug(cityName)}`.slice(0, 100);
-
-    await admin.firestore().collection("analytics_geo").doc(docId).set(
-      {
-        country: countryCode,
-        city: cityName,
-        pv: admin.firestore.FieldValue.increment(1),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      },
-      { merge: true }
-    );
-
-    res.json({ ok: true });
-  } catch (e) {
-    console.error("analytics/pageview error:", e.message || e);
-    res.status(200).json({ ok: true, skipped: "error" });
-  }
-});
-
 app.get("/api/_healthz", (_req, res) => res.json({ ok: true }));
 app.get("/_healthz", (_req, res) => res.json({ ok: true }));
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+const PORT = process.env.PORT || 5050;
+const server = http.createServer(app);
+server.listen(PORT, () => {
   console.log(`[BYL] API listening on http://localhost:${PORT}`);
 });
+
+module.exports = { app, server };
