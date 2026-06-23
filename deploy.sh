@@ -17,6 +17,7 @@ ALLOW_DIRTY=false
 ALLOW_UNPUSHED=false
 SKIP_PREFLIGHT=false
 DEPLOY_FIRESTORE_RULES=false
+DEPLOY_FIRESTORE_INDEXES=false
 DEPLOY_FIREBASE_FUNCTIONS=false
 
 usage() {
@@ -28,9 +29,11 @@ Options:
   --allow-dirty            Autorise un working tree non committe.
   --allow-unpushed         Autorise des commits locaux non push.
   --skip-preflight         Ignore lint/tests/build locaux.
-  --firebase-rules         Deploie aussi les rules/index Firestore.
+  --firebase-rules         Deploie aussi les rules Firestore, sans toucher aux index.
+  --firebase-indexes       Deploie aussi les index Firestore.
   --firebase-functions     Deploie aussi les Cloud Functions Firebase.
   --firebase-all           Equivalent a --firebase-rules --firebase-functions.
+  --firebase-firestore-all Equivalent a --firebase-rules --firebase-indexes.
   -h, --help               Affiche cette aide.
 
 Par defaut, le script deploie uniquement le front + backend VPS.
@@ -45,10 +48,15 @@ for arg in "$@"; do
     --allow-unpushed) ALLOW_UNPUSHED=true ;;
     --skip-preflight) SKIP_PREFLIGHT=true ;;
     --firebase-rules) DEPLOY_FIRESTORE_RULES=true ;;
+    --firebase-indexes) DEPLOY_FIRESTORE_INDEXES=true ;;
     --firebase-functions) DEPLOY_FIREBASE_FUNCTIONS=true ;;
     --firebase-all)
       DEPLOY_FIRESTORE_RULES=true
       DEPLOY_FIREBASE_FUNCTIONS=true
+      ;;
+    --firebase-firestore-all)
+      DEPLOY_FIRESTORE_RULES=true
+      DEPLOY_FIRESTORE_INDEXES=true
       ;;
     -h|--help)
       usage
@@ -136,18 +144,46 @@ warn_if_firebase_changes_not_deployed() {
     return 0
   fi
 
-  if git diff --quiet "${base}..HEAD" -- firestore.rules firestore.indexes.json firebase.json functions; then
+  local rules_changed=false
+  local indexes_changed=false
+  local functions_changed=false
+
+  if ! git diff --quiet "${base}..HEAD" -- firestore.rules firebase.json; then
+    rules_changed=true
+  fi
+  if ! git diff --quiet "${base}..HEAD" -- firestore.indexes.json; then
+    indexes_changed=true
+  fi
+  if ! git diff --quiet "${base}..HEAD" -- functions; then
+    functions_changed=true
+  fi
+
+  if [ "$rules_changed" != true ] &&
+    [ "$indexes_changed" != true ] &&
+    [ "$functions_changed" != true ]; then
     return 0
   fi
 
-  if [ "$DEPLOY_FIRESTORE_RULES" = true ] || [ "$DEPLOY_FIREBASE_FUNCTIONS" = true ]; then
+  local missing=()
+  if [ "$rules_changed" = true ] && [ "$DEPLOY_FIRESTORE_RULES" != true ]; then
+    missing+=("Firestore rules")
+  fi
+  if [ "$indexes_changed" = true ] && [ "$DEPLOY_FIRESTORE_INDEXES" != true ]; then
+    missing+=("Firestore indexes")
+  fi
+  if [ "$functions_changed" = true ] && [ "$DEPLOY_FIREBASE_FUNCTIONS" != true ]; then
+    missing+=("Firebase functions")
+  fi
+
+  if [ "${#missing[@]}" -eq 0 ]; then
     return 0
   fi
 
   echo
-  echo "Attention: le dernier commit touche Firestore/Firebase functions."
+  echo "Attention: le dernier commit touche des fichiers Firebase non inclus dans ce deploy:"
+  printf ' - %s\n' "${missing[@]}"
   echo "Le deploy VPS ne les publie pas par defaut."
-  echo "Ajoute --firebase-rules, --firebase-functions ou --firebase-all si ces changements sont requis."
+  echo "Options disponibles: --firebase-rules, --firebase-indexes, --firebase-functions."
   confirm "Continuer avec seulement front + backend VPS ?" || exit 1
 }
 
@@ -174,18 +210,27 @@ preflight() {
 }
 
 firebase_deploy_if_requested() {
-  if [ "$DEPLOY_FIRESTORE_RULES" != true ] && [ "$DEPLOY_FIREBASE_FUNCTIONS" != true ]; then
+  if [ "$DEPLOY_FIRESTORE_RULES" != true ] &&
+    [ "$DEPLOY_FIRESTORE_INDEXES" != true ] &&
+    [ "$DEPLOY_FIREBASE_FUNCTIONS" != true ]; then
     return 0
   fi
 
   need_command firebase
 
   if [ "$DEPLOY_FIRESTORE_RULES" = true ]; then
-    run_step firebase deploy --only firestore:rules,firestore:indexes
+    run_step firebase deploy --non-interactive --only firestore:rules
+  fi
+
+  if [ "$DEPLOY_FIRESTORE_INDEXES" = true ]; then
+    echo
+    echo "Attention: deployer les index Firestore peut proposer de supprimer des index existants."
+    echo "Reponds toujours 'n' si Firebase demande de supprimer des index non presents localement."
+    run_step firebase deploy --non-interactive --only firestore:indexes
   fi
 
   if [ "$DEPLOY_FIREBASE_FUNCTIONS" = true ]; then
-    run_step firebase deploy --only functions
+    run_step firebase deploy --non-interactive --only functions
   fi
 }
 
@@ -213,6 +258,7 @@ echo "- Host: ${USER}@${HOST}"
 echo "- Webroot: ${REMOTE_WEBROOT}"
 echo "- Backend: ${REMOTE_BACKEND}"
 echo "- Firestore rules: ${DEPLOY_FIRESTORE_RULES}"
+echo "- Firestore indexes: ${DEPLOY_FIRESTORE_INDEXES}"
 echo "- Firebase functions: ${DEPLOY_FIREBASE_FUNCTIONS}"
 echo
 confirm "Lancer le deploy maintenant ?" || exit 1
