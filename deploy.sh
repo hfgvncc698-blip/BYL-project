@@ -353,6 +353,8 @@ activate_remote_node() {
 
   echo "Node distant actif: \$(node -v)"
   echo "npm distant actif: \$(npm -v)"
+  export NODE_INTERPRETER="\$(command -v node)"
+  echo "Interpreteur Node PM2: \$NODE_INTERPRETER"
 }
 
 activate_remote_node
@@ -425,10 +427,35 @@ sudo chown -R "\$USER":"\$USER" "\$REMOTE_BACKEND"
 
 cd "\$REMOTE_BACKEND"
 echo "Reload PM2..."
-pm2 reload ecosystem.config.js --update-env
+NODE_INTERPRETER="\$NODE_INTERPRETER" pm2 startOrReload ecosystem.config.js --update-env
 
 echo "Verification API..."
-curl --fail --silent --show-error --max-time 15 "\$REMOTE_API_HEALTH_URL" >/dev/null
+api_ready=false
+for attempt in {1..12}; do
+  if curl --fail --silent --show-error --max-time 5 "\$REMOTE_API_HEALTH_URL" >/dev/null; then
+    api_ready=true
+    break
+  fi
+  echo "API pas encore disponible, tentative \$attempt/12..."
+  sleep 3
+done
+
+if [ "\$api_ready" != true ]; then
+  echo "L'API ne repond pas apres reload PM2."
+  echo "Statut PM2:"
+  pm2 status || true
+  echo
+  echo "Logs byl-api:"
+  pm2 logs byl-api --lines 80 --nostream || true
+  echo
+  echo "Ports en ecoute:"
+  if command -v ss >/dev/null 2>&1; then
+    ss -ltnp || true
+  elif command -v netstat >/dev/null 2>&1; then
+    netstat -ltnp || true
+  fi
+  exit 1
+fi
 
 echo "Nettoyage distant..."
 sudo rm -f "\$ARCHIVE" "\$BACKEND_ARCHIVE"
