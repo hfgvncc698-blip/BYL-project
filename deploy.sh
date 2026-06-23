@@ -208,6 +208,7 @@ preflight() {
   run_step npm run test:footer-i18n
   run_step npm run test:sport-engine
   run_step npm run build
+  run_step npm --prefix backend audit --omit=dev --audit-level=moderate
 }
 
 firebase_deploy_if_requested() {
