@@ -441,6 +441,13 @@ rollback_release() {
     sudo find "\$REMOTE_BACKEND" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
     sudo tar -C "\$REMOTE_BACKEND" -xzf "\$BK_BACKEND"
     sudo chown -R "\$USER":"\$USER" "\$REMOTE_BACKEND"
+    cd "\$REMOTE_BACKEND"
+    echo "Reinstallation dependances backend apres rollback..."
+    if [ -f package-lock.json ]; then
+      npm ci --omit=dev
+    else
+      npm install --omit=dev
+    fi
   else
     echo "Aucun backup backend disponible pour rollback."
   fi
