@@ -219,6 +219,330 @@
           "Unsupported get request. Object with ID '18319661620272929' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
         ]
       }
+    },
+    {
+      "at": "2026-06-23T21:32:18.910Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 15,
+        "sampleErrors": [
+          "Meta Graph GET 857477100212912: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18142983556524389: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18099111391988502: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18138591487532730: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 27506921462235774: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+        ],
+        "rerunSkipped": "sandbox escalation disabled in this session"
+      }
+    },
+    {
+      "at": "2026-06-23T21:52:06.416Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 15,
+        "sampleErrors": [
+          "<!DOCTYPE html>\n<html lang=\"en\" id=\"facebook\">\n\n<head>\n  <title>Facebook | Error</title>\n  <meta charset=\"utf-8\">\n  <meta http-equiv=\"cache-control\" content=\"no-cache\">\n  <meta http-equiv=\"cache-control\" content=\"no-store\">\n  <meta http-equiv=\"cache-control\" content=\"max-age=0\">\n  <meta http-equiv=\"expires\" content=\"-1\">\n  <meta http-equiv=\"pragma\" content=\"no-cache\">\n  <meta name=\"robots\" content=\"noindex,nofollow\">\n  <style>\n    html,\n    body {\n      color: #141823;\n      background-color: #e9eaed;\n      font-family: Helvetica, Lucida Grande, Arial,\n        Tahoma, Verdana, sans-serif;\n      margin: 0;\n      padding: 0;\n      text-align: center;\n    }\n\n    #header {\n      height: 30px;\n      padding-bottom: 10px;\n      padding-top: 10px;\n      text-align: center;\n    }\n\n    #icon {\n      width: 30px;\n    }\n\n    h1 {\n      font-size: 18px;\n    }\n\n    p {\n      font-size: 13px;\n    }\n\n    #footer {\n      border-top: 1px solid #ddd;\n      color: #9197a3;\n      font-size: 12px;\n      padding: 5px 8px 6px 0;\n    }\n  </style>\n</head>\n\n<body>\n  <div id=\"header\">\n    <a href=\"//www.facebook.com/\">\n      <img id=\"icon\" src=\"//static.facebook.com/images/logos/facebook_2x.png\" />\n    </a>\n  </div>\n  <div id=\"core\">\n    <h1 id=\"sorry\">Sorry, something went wrong.</h1>\n    <p id=\"promise\">\n      We're working on it and we'll get it fixed as soon as we can.\n    </p>\n    <p id=\"back-link\">\n      <a id=\"back\" href=\"//www.facebook.com/\">Go Back</a>\n    </p>\n    <div id=\"footer\">\n      Facebook\n      <span id=\"copyright\">\n        &copy; 2024\n      </span>\n      <span id=\"help-link\">\n        &#183;\n        <a id=\"help\" href=\"//www.facebook.com/help/\">Help Center</a>\n      </span>\n    </div>\n  </div>\n  <script>\n    document.getElementById('back').onclick = function () {\n      if (history.length > 1) {\n        history.back();\n        return false;\n      }\n    };\n\n    // Adjust the display based on the window size\n    if (window.innerHeight < 80 || window.innerWidth < 80) {\n      // Blank if window is too small\n      document.body.style.display = 'none';\n    };\n    if (window.innerWidth < 200 || window.innerHeight < 150) {\n      document.getElementById('back-link').style.display = 'none';\n      document.getElementById('help-link').style.display = 'none';\n    };\n    if (window.innerWidth < 200) {\n      document.getElementById('sorry').style.fontSize = '16px';\n    };\n    if (window.innerWidth < 150) {\n      document.getElementById('promise').style.display = 'none';\n    };\n    if (window.innerHeight < 150) {\n      document.getElementById('sorry').style.margin = '4px 0 0 0';\n      document.getElementById('sorry').style.fontSize = '14px';\n      document.getElementById('promise').style.display = 'none';\n    };\n\n    document.getElementById('copyright').textContent = '© ' + new Date().getFullYear();\n  </script>\n</body>\n\n</html>\n",
+          "<!DOCTYPE html>\n<html lang=\"en\" id=\"facebook\">\n\n<head>\n  <title>Facebook | Error</title>\n  <meta charset=\"utf-8\">\n  <meta http-equiv=\"cache-control\" content=\"no-cache\">\n  <meta http-equiv=\"cache-control\" content=\"no-store\">\n  <meta http-equiv=\"cache-control\" content=\"max-age=0\">\n  <meta http-equiv=\"expires\" content=\"-1\">\n  <meta http-equiv=\"pragma\" content=\"no-cache\">\n  <meta name=\"robots\" content=\"noindex,nofollow\">\n  <style>\n    html,\n    body {\n      color: #141823;\n      background-color: #e9eaed;\n      font-family: Helvetica, Lucida Grande, Arial,\n        Tahoma, Verdana, sans-serif;\n      margin: 0;\n      padding: 0;\n      text-align: center;\n    }\n\n    #header {\n      height: 30px;\n      padding-bottom: 10px;\n      padding-top: 10px;\n      text-align: center;\n    }\n\n    #icon {\n      width: 30px;\n    }\n\n    h1 {\n      font-size: 18px;\n    }\n\n    p {\n      font-size: 13px;\n    }\n\n    #footer {\n      border-top: 1px solid #ddd;\n      color: #9197a3;\n      font-size: 12px;\n      padding: 5px 8px 6px 0;\n    }\n  </style>\n</head>\n\n<body>\n  <div id=\"header\">\n    <a href=\"//www.facebook.com/\">\n      <img id=\"icon\" src=\"//static.facebook.com/images/logos/facebook_2x.png\" />\n    </a>\n  </div>\n  <div id=\"core\">\n    <h1 id=\"sorry\">Sorry, something went wrong.</h1>\n    <p id=\"promise\">\n      We're working on it and we'll get it fixed as soon as we can.\n    </p>\n    <p id=\"back-link\">\n      <a id=\"back\" href=\"//www.facebook.com/\">Go Back</a>\n    </p>\n    <div id=\"footer\">\n      Facebook\n      <span id=\"copyright\">\n        &copy; 2024\n      </span>\n      <span id=\"help-link\">\n        &#183;\n        <a id=\"help\" href=\"//www.facebook.com/help/\">Help Center</a>\n      </span>\n    </div>\n  </div>\n  <script>\n    document.getElementById('back').onclick = function () {\n      if (history.length > 1) {\n        history.back();\n        return false;\n      }\n    };\n\n    // Adjust the display based on the window size\n    if (window.innerHeight < 80 || window.innerWidth < 80) {\n      // Blank if window is too small\n      document.body.style.display = 'none';\n    };\n    if (window.innerWidth < 200 || window.innerHeight < 150) {\n      document.getElementById('back-link').style.display = 'none';\n      document.getElementById('help-link').style.display = 'none';\n    };\n    if (window.innerWidth < 200) {\n      document.getElementById('sorry').style.fontSize = '16px';\n    };\n    if (window.innerWidth < 150) {\n      document.getElementById('promise').style.display = 'none';\n    };\n    if (window.innerHeight < 150) {\n      document.getElementById('sorry').style.margin = '4px 0 0 0';\n      document.getElementById('sorry').style.fontSize = '14px';\n      document.getElementById('promise').style.display = 'none';\n    };\n\n    document.getElementById('copyright').textContent = '© ' + new Date().getFullYear();\n  </script>\n</body>\n\n</html>\n",
+          "<!DOCTYPE html>\n<html lang=\"en\" id=\"facebook\">\n\n<head>\n  <title>Facebook | Error</title>\n  <meta charset=\"utf-8\">\n  <meta http-equiv=\"cache-control\" content=\"no-cache\">\n  <meta http-equiv=\"cache-control\" content=\"no-store\">\n  <meta http-equiv=\"cache-control\" content=\"max-age=0\">\n  <meta http-equiv=\"expires\" content=\"-1\">\n  <meta http-equiv=\"pragma\" content=\"no-cache\">\n  <meta name=\"robots\" content=\"noindex,nofollow\">\n  <style>\n    html,\n    body {\n      color: #141823;\n      background-color: #e9eaed;\n      font-family: Helvetica, Lucida Grande, Arial,\n        Tahoma, Verdana, sans-serif;\n      margin: 0;\n      padding: 0;\n      text-align: center;\n    }\n\n    #header {\n      height: 30px;\n      padding-bottom: 10px;\n      padding-top: 10px;\n      text-align: center;\n    }\n\n    #icon {\n      width: 30px;\n    }\n\n    h1 {\n      font-size: 18px;\n    }\n\n    p {\n      font-size: 13px;\n    }\n\n    #footer {\n      border-top: 1px solid #ddd;\n      color: #9197a3;\n      font-size: 12px;\n      padding: 5px 8px 6px 0;\n    }\n  </style>\n</head>\n\n<body>\n  <div id=\"header\">\n    <a href=\"//www.facebook.com/\">\n      <img id=\"icon\" src=\"//static.facebook.com/images/logos/facebook_2x.png\" />\n    </a>\n  </div>\n  <div id=\"core\">\n    <h1 id=\"sorry\">Sorry, something went wrong.</h1>\n    <p id=\"promise\">\n      We're working on it and we'll get it fixed as soon as we can.\n    </p>\n    <p id=\"back-link\">\n      <a id=\"back\" href=\"//www.facebook.com/\">Go Back</a>\n    </p>\n    <div id=\"footer\">\n      Facebook\n      <span id=\"copyright\">\n        &copy; 2024\n      </span>\n      <span id=\"help-link\">\n        &#183;\n        <a id=\"help\" href=\"//www.facebook.com/help/\">Help Center</a>\n      </span>\n    </div>\n  </div>\n  <script>\n    document.getElementById('back').onclick = function () {\n      if (history.length > 1) {\n        history.back();\n        return false;\n      }\n    };\n\n    // Adjust the display based on the window size\n    if (window.innerHeight < 80 || window.innerWidth < 80) {\n      // Blank if window is too small\n      document.body.style.display = 'none';\n    };\n    if (window.innerWidth < 200 || window.innerHeight < 150) {\n      document.getElementById('back-link').style.display = 'none';\n      document.getElementById('help-link').style.display = 'none';\n    };\n    if (window.innerWidth < 200) {\n      document.getElementById('sorry').style.fontSize = '16px';\n    };\n    if (window.innerWidth < 150) {\n      document.getElementById('promise').style.display = 'none';\n    };\n    if (window.innerHeight < 150) {\n      document.getElementById('sorry').style.margin = '4px 0 0 0';\n      document.getElementById('sorry').style.fontSize = '14px';\n      document.getElementById('promise').style.display = 'none';\n    };\n\n    document.getElementById('copyright').textContent = '© ' + new Date().getFullYear();\n  </script>\n</body>\n\n</html>\n",
+          "<!DOCTYPE html>\n<html lang=\"en\" id=\"facebook\">\n\n<head>\n  <title>Facebook | Error</title>\n  <meta charset=\"utf-8\">\n  <meta http-equiv=\"cache-control\" content=\"no-cache\">\n  <meta http-equiv=\"cache-control\" content=\"no-store\">\n  <meta http-equiv=\"cache-control\" content=\"max-age=0\">\n  <meta http-equiv=\"expires\" content=\"-1\">\n  <meta http-equiv=\"pragma\" content=\"no-cache\">\n  <meta name=\"robots\" content=\"noindex,nofollow\">\n  <style>\n    html,\n    body {\n      color: #141823;\n      background-color: #e9eaed;\n      font-family: Helvetica, Lucida Grande, Arial,\n        Tahoma, Verdana, sans-serif;\n      margin: 0;\n      padding: 0;\n      text-align: center;\n    }\n\n    #header {\n      height: 30px;\n      padding-bottom: 10px;\n      padding-top: 10px;\n      text-align: center;\n    }\n\n    #icon {\n      width: 30px;\n    }\n\n    h1 {\n      font-size: 18px;\n    }\n\n    p {\n      font-size: 13px;\n    }\n\n    #footer {\n      border-top: 1px solid #ddd;\n      color: #9197a3;\n      font-size: 12px;\n      padding: 5px 8px 6px 0;\n    }\n  </style>\n</head>\n\n<body>\n  <div id=\"header\">\n    <a href=\"//www.facebook.com/\">\n      <img id=\"icon\" src=\"//static.facebook.com/images/logos/facebook_2x.png\" />\n    </a>\n  </div>\n  <div id=\"core\">\n    <h1 id=\"sorry\">Sorry, something went wrong.</h1>\n    <p id=\"promise\">\n      We're working on it and we'll get it fixed as soon as we can.\n    </p>\n    <p id=\"back-link\">\n      <a id=\"back\" href=\"//www.facebook.com/\">Go Back</a>\n    </p>\n    <div id=\"footer\">\n      Facebook\n      <span id=\"copyright\">\n        &copy; 2024\n      </span>\n      <span id=\"help-link\">\n        &#183;\n        <a id=\"help\" href=\"//www.facebook.com/help/\">Help Center</a>\n      </span>\n    </div>\n  </div>\n  <script>\n    document.getElementById('back').onclick = function () {\n      if (history.length > 1) {\n        history.back();\n        return false;\n      }\n    };\n\n    // Adjust the display based on the window size\n    if (window.innerHeight < 80 || window.innerWidth < 80) {\n      // Blank if window is too small\n      document.body.style.display = 'none';\n    };\n    if (window.innerWidth < 200 || window.innerHeight < 150) {\n      document.getElementById('back-link').style.display = 'none';\n      document.getElementById('help-link').style.display = 'none';\n    };\n    if (window.innerWidth < 200) {\n      document.getElementById('sorry').style.fontSize = '16px';\n    };\n    if (window.innerWidth < 150) {\n      document.getElementById('promise').style.display = 'none';\n    };\n    if (window.innerHeight < 150) {\n      document.getElementById('sorry').style.margin = '4px 0 0 0';\n      document.getElementById('sorry').style.fontSize = '14px';\n      document.getElementById('promise').style.display = 'none';\n    };\n\n    document.getElementById('copyright').textContent = '© ' + new Date().getFullYear();\n  </script>\n</body>\n\n</html>\n",
+          "<!DOCTYPE html>\n<html lang=\"en\" id=\"facebook\">\n\n<head>\n  <title>Facebook | Error</title>\n  <meta charset=\"utf-8\">\n  <meta http-equiv=\"cache-control\" content=\"no-cache\">\n  <meta http-equiv=\"cache-control\" content=\"no-store\">\n  <meta http-equiv=\"cache-control\" content=\"max-age=0\">\n  <meta http-equiv=\"expires\" content=\"-1\">\n  <meta http-equiv=\"pragma\" content=\"no-cache\">\n  <meta name=\"robots\" content=\"noindex,nofollow\">\n  <style>\n    html,\n    body {\n      color: #141823;\n      background-color: #e9eaed;\n      font-family: Helvetica, Lucida Grande, Arial,\n        Tahoma, Verdana, sans-serif;\n      margin: 0;\n      padding: 0;\n      text-align: center;\n    }\n\n    #header {\n      height: 30px;\n      padding-bottom: 10px;\n      padding-top: 10px;\n      text-align: center;\n    }\n\n    #icon {\n      width: 30px;\n    }\n\n    h1 {\n      font-size: 18px;\n    }\n\n    p {\n      font-size: 13px;\n    }\n\n    #footer {\n      border-top: 1px solid #ddd;\n      color: #9197a3;\n      font-size: 12px;\n      padding: 5px 8px 6px 0;\n    }\n  </style>\n</head>\n\n<body>\n  <div id=\"header\">\n    <a href=\"//www.facebook.com/\">\n      <img id=\"icon\" src=\"//static.facebook.com/images/logos/facebook_2x.png\" />\n    </a>\n  </div>\n  <div id=\"core\">\n    <h1 id=\"sorry\">Sorry, something went wrong.</h1>\n    <p id=\"promise\">\n      We're working on it and we'll get it fixed as soon as we can.\n    </p>\n    <p id=\"back-link\">\n      <a id=\"back\" href=\"//www.facebook.com/\">Go Back</a>\n    </p>\n    <div id=\"footer\">\n      Facebook\n      <span id=\"copyright\">\n        &copy; 2024\n      </span>\n      <span id=\"help-link\">\n        &#183;\n        <a id=\"help\" href=\"//www.facebook.com/help/\">Help Center</a>\n      </span>\n    </div>\n  </div>\n  <script>\n    document.getElementById('back').onclick = function () {\n      if (history.length > 1) {\n        history.back();\n        return false;\n      }\n    };\n\n    // Adjust the display based on the window size\n    if (window.innerHeight < 80 || window.innerWidth < 80) {\n      // Blank if window is too small\n      document.body.style.display = 'none';\n    };\n    if (window.innerWidth < 200 || window.innerHeight < 150) {\n      document.getElementById('back-link').style.display = 'none';\n      document.getElementById('help-link').style.display = 'none';\n    };\n    if (window.innerWidth < 200) {\n      document.getElementById('sorry').style.fontSize = '16px';\n    };\n    if (window.innerWidth < 150) {\n      document.getElementById('promise').style.display = 'none';\n    };\n    if (window.innerHeight < 150) {\n      document.getElementById('sorry').style.margin = '4px 0 0 0';\n      document.getElementById('sorry').style.fontSize = '14px';\n      document.getElementById('promise').style.display = 'none';\n    };\n\n    document.getElementById('copyright').textContent = '© ' + new Date().getFullYear();\n  </script>\n</body>\n\n</html>\n"
+        ]
+      }
+    },
+    {
+      "at": "2026-06-23T21:55:51.233Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 14,
+        "sampleErrors": [
+          "<!DOCTYPE html>\n<html lang=\"en\" id=\"facebook\">\n\n<head>\n  <title>Facebook | Error</title>\n  <meta charset=\"utf-8\">\n  <meta http-equiv=\"cache-control\" content=\"no-cache\">\n  <meta http-equiv=\"cache-control\" content=\"no-store\">\n  <meta http-equiv=\"cache-control\" content=\"max-age=0\">\n  <meta http-equiv=\"expires\" content=\"-1\">\n  <meta http-equiv=\"pragma\" content=\"no-cache\">\n  <meta name=\"robots\" content=\"noindex,nofollow\">\n  <style>\n    html,\n    body {\n      color: #141823;\n      background-color: #e9eaed;\n      font-family: Helvetica, Lucida Grande, Arial,\n        Tahoma, Verdana, sans-serif;\n      margin: 0;\n      padding: 0;\n      text-align: center;\n    }\n\n    #header {\n      height: 30px;\n      padding-bottom: 10px;\n      padding-top: 10px;\n      text-align: center;\n    }\n\n    #icon {\n      width: 30px;\n    }\n\n    h1 {\n      font-size: 18px;\n    }\n\n    p {\n      font-size: 13px;\n    }\n\n    #footer {\n      border-top: 1px solid #ddd;\n      color: #9197a3;\n      font-size: 12px;\n      padding: 5px 8px 6px 0;\n    }\n  </style>\n</head>\n\n<body>\n  <div id=\"header\">\n    <a href=\"//www.facebook.com/\">\n      <img id=\"icon\" src=\"//static.facebook.com/images/logos/facebook_2x.png\" />\n    </a>\n  </div>\n  <div id=\"core\">\n    <h1 id=\"sorry\">Sorry, something went wrong.</h1>\n    <p id=\"promise\">\n      We're working on it and we'll get it fixed as soon as we can.\n    </p>\n    <p id=\"back-link\">\n      <a id=\"back\" href=\"//www.facebook.com/\">Go Back</a>\n    </p>\n    <div id=\"footer\">\n      Facebook\n      <span id=\"copyright\">\n        &copy; 2024\n      </span>\n      <span id=\"help-link\">\n        &#183;\n        <a id=\"help\" href=\"//www.facebook.com/help/\">Help Center</a>\n      </span>\n    </div>\n  </div>\n  <script>\n    document.getElementById('back').onclick = function () {\n      if (history.length > 1) {\n        history.back();\n        return false;\n      }\n    };\n\n    // Adjust the display based on the window size\n    if (window.innerHeight < 80 || window.innerWidth < 80) {\n      // Blank if window is too small\n      document.body.style.display = 'none';\n    };\n    if (window.innerWidth < 200 || window.innerHeight < 150) {\n      document.getElementById('back-link').style.display = 'none';\n      document.getElementById('help-link').style.display = 'none';\n    };\n    if (window.innerWidth < 200) {\n      document.getElementById('sorry').style.fontSize = '16px';\n    };\n    if (window.innerWidth < 150) {\n      document.getElementById('promise').style.display = 'none';\n    };\n    if (window.innerHeight < 150) {\n      document.getElementById('sorry').style.margin = '4px 0 0 0';\n      document.getElementById('sorry').style.fontSize = '14px';\n      document.getElementById('promise').style.display = 'none';\n    };\n\n    document.getElementById('copyright').textContent = '© ' + new Date().getFullYear();\n  </script>\n</body>\n\n</html>\n",
+          "<!DOCTYPE html>\n<html lang=\"en\" id=\"facebook\">\n\n<head>\n  <title>Facebook | Error</title>\n  <meta charset=\"utf-8\">\n  <meta http-equiv=\"cache-control\" content=\"no-cache\">\n  <meta http-equiv=\"cache-control\" content=\"no-store\">\n  <meta http-equiv=\"cache-control\" content=\"max-age=0\">\n  <meta http-equiv=\"expires\" content=\"-1\">\n  <meta http-equiv=\"pragma\" content=\"no-cache\">\n  <meta name=\"robots\" content=\"noindex,nofollow\">\n  <style>\n    html,\n    body {\n      color: #141823;\n      background-color: #e9eaed;\n      font-family: Helvetica, Lucida Grande, Arial,\n        Tahoma, Verdana, sans-serif;\n      margin: 0;\n      padding: 0;\n      text-align: center;\n    }\n\n    #header {\n      height: 30px;\n      padding-bottom: 10px;\n      padding-top: 10px;\n      text-align: center;\n    }\n\n    #icon {\n      width: 30px;\n    }\n\n    h1 {\n      font-size: 18px;\n    }\n\n    p {\n      font-size: 13px;\n    }\n\n    #footer {\n      border-top: 1px solid #ddd;\n      color: #9197a3;\n      font-size: 12px;\n      padding: 5px 8px 6px 0;\n    }\n  </style>\n</head>\n\n<body>\n  <div id=\"header\">\n    <a href=\"//www.facebook.com/\">\n      <img id=\"icon\" src=\"//static.facebook.com/images/logos/facebook_2x.png\" />\n    </a>\n  </div>\n  <div id=\"core\">\n    <h1 id=\"sorry\">Sorry, something went wrong.</h1>\n    <p id=\"promise\">\n      We're working on it and we'll get it fixed as soon as we can.\n    </p>\n    <p id=\"back-link\">\n      <a id=\"back\" href=\"//www.facebook.com/\">Go Back</a>\n    </p>\n    <div id=\"footer\">\n      Facebook\n      <span id=\"copyright\">\n        &copy; 2024\n      </span>\n      <span id=\"help-link\">\n        &#183;\n        <a id=\"help\" href=\"//www.facebook.com/help/\">Help Center</a>\n      </span>\n    </div>\n  </div>\n  <script>\n    document.getElementById('back').onclick = function () {\n      if (history.length > 1) {\n        history.back();\n        return false;\n      }\n    };\n\n    // Adjust the display based on the window size\n    if (window.innerHeight < 80 || window.innerWidth < 80) {\n      // Blank if window is too small\n      document.body.style.display = 'none';\n    };\n    if (window.innerWidth < 200 || window.innerHeight < 150) {\n      document.getElementById('back-link').style.display = 'none';\n      document.getElementById('help-link').style.display = 'none';\n    };\n    if (window.innerWidth < 200) {\n      document.getElementById('sorry').style.fontSize = '16px';\n    };\n    if (window.innerWidth < 150) {\n      document.getElementById('promise').style.display = 'none';\n    };\n    if (window.innerHeight < 150) {\n      document.getElementById('sorry').style.margin = '4px 0 0 0';\n      document.getElementById('sorry').style.fontSize = '14px';\n      document.getElementById('promise').style.display = 'none';\n    };\n\n    document.getElementById('copyright').textContent = '© ' + new Date().getFullYear();\n  </script>\n</body>\n\n</html>\n",
+          "<!DOCTYPE html>\n<html lang=\"en\" id=\"facebook\">\n\n<head>\n  <title>Facebook | Error</title>\n  <meta charset=\"utf-8\">\n  <meta http-equiv=\"cache-control\" content=\"no-cache\">\n  <meta http-equiv=\"cache-control\" content=\"no-store\">\n  <meta http-equiv=\"cache-control\" content=\"max-age=0\">\n  <meta http-equiv=\"expires\" content=\"-1\">\n  <meta http-equiv=\"pragma\" content=\"no-cache\">\n  <meta name=\"robots\" content=\"noindex,nofollow\">\n  <style>\n    html,\n    body {\n      color: #141823;\n      background-color: #e9eaed;\n      font-family: Helvetica, Lucida Grande, Arial,\n        Tahoma, Verdana, sans-serif;\n      margin: 0;\n      padding: 0;\n      text-align: center;\n    }\n\n    #header {\n      height: 30px;\n      padding-bottom: 10px;\n      padding-top: 10px;\n      text-align: center;\n    }\n\n    #icon {\n      width: 30px;\n    }\n\n    h1 {\n      font-size: 18px;\n    }\n\n    p {\n      font-size: 13px;\n    }\n\n    #footer {\n      border-top: 1px solid #ddd;\n      color: #9197a3;\n      font-size: 12px;\n      padding: 5px 8px 6px 0;\n    }\n  </style>\n</head>\n\n<body>\n  <div id=\"header\">\n    <a href=\"//www.facebook.com/\">\n      <img id=\"icon\" src=\"//static.facebook.com/images/logos/facebook_2x.png\" />\n    </a>\n  </div>\n  <div id=\"core\">\n    <h1 id=\"sorry\">Sorry, something went wrong.</h1>\n    <p id=\"promise\">\n      We're working on it and we'll get it fixed as soon as we can.\n    </p>\n    <p id=\"back-link\">\n      <a id=\"back\" href=\"//www.facebook.com/\">Go Back</a>\n    </p>\n    <div id=\"footer\">\n      Facebook\n      <span id=\"copyright\">\n        &copy; 2024\n      </span>\n      <span id=\"help-link\">\n        &#183;\n        <a id=\"help\" href=\"//www.facebook.com/help/\">Help Center</a>\n      </span>\n    </div>\n  </div>\n  <script>\n    document.getElementById('back').onclick = function () {\n      if (history.length > 1) {\n        history.back();\n        return false;\n      }\n    };\n\n    // Adjust the display based on the window size\n    if (window.innerHeight < 80 || window.innerWidth < 80) {\n      // Blank if window is too small\n      document.body.style.display = 'none';\n    };\n    if (window.innerWidth < 200 || window.innerHeight < 150) {\n      document.getElementById('back-link').style.display = 'none';\n      document.getElementById('help-link').style.display = 'none';\n    };\n    if (window.innerWidth < 200) {\n      document.getElementById('sorry').style.fontSize = '16px';\n    };\n    if (window.innerWidth < 150) {\n      document.getElementById('promise').style.display = 'none';\n    };\n    if (window.innerHeight < 150) {\n      document.getElementById('sorry').style.margin = '4px 0 0 0';\n      document.getElementById('sorry').style.fontSize = '14px';\n      document.getElementById('promise').style.display = 'none';\n    };\n\n    document.getElementById('copyright').textContent = '© ' + new Date().getFullYear();\n  </script>\n</body>\n\n</html>\n",
+          "<!DOCTYPE html>\n<html lang=\"en\" id=\"facebook\">\n\n<head>\n  <title>Facebook | Error</title>\n  <meta charset=\"utf-8\">\n  <meta http-equiv=\"cache-control\" content=\"no-cache\">\n  <meta http-equiv=\"cache-control\" content=\"no-store\">\n  <meta http-equiv=\"cache-control\" content=\"max-age=0\">\n  <meta http-equiv=\"expires\" content=\"-1\">\n  <meta http-equiv=\"pragma\" content=\"no-cache\">\n  <meta name=\"robots\" content=\"noindex,nofollow\">\n  <style>\n    html,\n    body {\n      color: #141823;\n      background-color: #e9eaed;\n      font-family: Helvetica, Lucida Grande, Arial,\n        Tahoma, Verdana, sans-serif;\n      margin: 0;\n      padding: 0;\n      text-align: center;\n    }\n\n    #header {\n      height: 30px;\n      padding-bottom: 10px;\n      padding-top: 10px;\n      text-align: center;\n    }\n\n    #icon {\n      width: 30px;\n    }\n\n    h1 {\n      font-size: 18px;\n    }\n\n    p {\n      font-size: 13px;\n    }\n\n    #footer {\n      border-top: 1px solid #ddd;\n      color: #9197a3;\n      font-size: 12px;\n      padding: 5px 8px 6px 0;\n    }\n  </style>\n</head>\n\n<body>\n  <div id=\"header\">\n    <a href=\"//www.facebook.com/\">\n      <img id=\"icon\" src=\"//static.facebook.com/images/logos/facebook_2x.png\" />\n    </a>\n  </div>\n  <div id=\"core\">\n    <h1 id=\"sorry\">Sorry, something went wrong.</h1>\n    <p id=\"promise\">\n      We're working on it and we'll get it fixed as soon as we can.\n    </p>\n    <p id=\"back-link\">\n      <a id=\"back\" href=\"//www.facebook.com/\">Go Back</a>\n    </p>\n    <div id=\"footer\">\n      Facebook\n      <span id=\"copyright\">\n        &copy; 2024\n      </span>\n      <span id=\"help-link\">\n        &#183;\n        <a id=\"help\" href=\"//www.facebook.com/help/\">Help Center</a>\n      </span>\n    </div>\n  </div>\n  <script>\n    document.getElementById('back').onclick = function () {\n      if (history.length > 1) {\n        history.back();\n        return false;\n      }\n    };\n\n    // Adjust the display based on the window size\n    if (window.innerHeight < 80 || window.innerWidth < 80) {\n      // Blank if window is too small\n      document.body.style.display = 'none';\n    };\n    if (window.innerWidth < 200 || window.innerHeight < 150) {\n      document.getElementById('back-link').style.display = 'none';\n      document.getElementById('help-link').style.display = 'none';\n    };\n    if (window.innerWidth < 200) {\n      document.getElementById('sorry').style.fontSize = '16px';\n    };\n    if (window.innerWidth < 150) {\n      document.getElementById('promise').style.display = 'none';\n    };\n    if (window.innerHeight < 150) {\n      document.getElementById('sorry').style.margin = '4px 0 0 0';\n      document.getElementById('sorry').style.fontSize = '14px';\n      document.getElementById('promise').style.display = 'none';\n    };\n\n    document.getElementById('copyright').textContent = '© ' + new Date().getFullYear();\n  </script>\n</body>\n\n</html>\n",
+          "<!DOCTYPE html>\n<html lang=\"en\" id=\"facebook\">\n\n<head>\n  <title>Facebook | Error</title>\n  <meta charset=\"utf-8\">\n  <meta http-equiv=\"cache-control\" content=\"no-cache\">\n  <meta http-equiv=\"cache-control\" content=\"no-store\">\n  <meta http-equiv=\"cache-control\" content=\"max-age=0\">\n  <meta http-equiv=\"expires\" content=\"-1\">\n  <meta http-equiv=\"pragma\" content=\"no-cache\">\n  <meta name=\"robots\" content=\"noindex,nofollow\">\n  <style>\n    html,\n    body {\n      color: #141823;\n      background-color: #e9eaed;\n      font-family: Helvetica, Lucida Grande, Arial,\n        Tahoma, Verdana, sans-serif;\n      margin: 0;\n      padding: 0;\n      text-align: center;\n    }\n\n    #header {\n      height: 30px;\n      padding-bottom: 10px;\n      padding-top: 10px;\n      text-align: center;\n    }\n\n    #icon {\n      width: 30px;\n    }\n\n    h1 {\n      font-size: 18px;\n    }\n\n    p {\n      font-size: 13px;\n    }\n\n    #footer {\n      border-top: 1px solid #ddd;\n      color: #9197a3;\n      font-size: 12px;\n      padding: 5px 8px 6px 0;\n    }\n  </style>\n</head>\n\n<body>\n  <div id=\"header\">\n    <a href=\"//www.facebook.com/\">\n      <img id=\"icon\" src=\"//static.facebook.com/images/logos/facebook_2x.png\" />\n    </a>\n  </div>\n  <div id=\"core\">\n    <h1 id=\"sorry\">Sorry, something went wrong.</h1>\n    <p id=\"promise\">\n      We're working on it and we'll get it fixed as soon as we can.\n    </p>\n    <p id=\"back-link\">\n      <a id=\"back\" href=\"//www.facebook.com/\">Go Back</a>\n    </p>\n    <div id=\"footer\">\n      Facebook\n      <span id=\"copyright\">\n        &copy; 2024\n      </span>\n      <span id=\"help-link\">\n        &#183;\n        <a id=\"help\" href=\"//www.facebook.com/help/\">Help Center</a>\n      </span>\n    </div>\n  </div>\n  <script>\n    document.getElementById('back').onclick = function () {\n      if (history.length > 1) {\n        history.back();\n        return false;\n      }\n    };\n\n    // Adjust the display based on the window size\n    if (window.innerHeight < 80 || window.innerWidth < 80) {\n      // Blank if window is too small\n      document.body.style.display = 'none';\n    };\n    if (window.innerWidth < 200 || window.innerHeight < 150) {\n      document.getElementById('back-link').style.display = 'none';\n      document.getElementById('help-link').style.display = 'none';\n    };\n    if (window.innerWidth < 200) {\n      document.getElementById('sorry').style.fontSize = '16px';\n    };\n    if (window.innerWidth < 150) {\n      document.getElementById('promise').style.display = 'none';\n    };\n    if (window.innerHeight < 150) {\n      document.getElementById('sorry').style.margin = '4px 0 0 0';\n      document.getElementById('sorry').style.fontSize = '14px';\n      document.getElementById('promise').style.display = 'none';\n    };\n\n    document.getElementById('copyright').textContent = '© ' + new Date().getFullYear();\n  </script>\n</body>\n\n</html>\n"
+        ]
+      }
+    },
+    {
+      "at": "2026-06-24T07:57:40.013Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 9,
+        "sampleErrors": [
+          "Meta Graph GET 857477100212912: The operation was aborted due to timeout",
+          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
+        ]
+      }
+    },
+    {
+      "at": "2026-06-24T11:08:41.160Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 9,
+        "sampleErrors": [
+          "Meta Graph GET 18138591487532730: The operation was aborted due to timeout",
+          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
+        ]
+      }
+    },
+    {
+      "at": "2026-06-24T11:08:41.808Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 9,
+        "sampleErrors": [
+          "Meta Graph GET 18099111391988502/insights: The operation was aborted due to timeout",
+          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
+        ]
+      }
+    },
+    {
+      "at": "2026-06-24T11:08:41.871Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 9,
+        "sampleErrors": [
+          "Meta Graph GET 18142983556524389/insights: The operation was aborted due to timeout",
+          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
+        ]
+      }
+    },
+    {
+      "at": "2026-06-24T23:22:45.611Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 15,
+        "total": 15,
+        "sampleErrors": [
+          "Meta Graph GET 857477100212912: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18142983556524389: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18099111391988502: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18138591487532730: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 27506921462235774: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+        ],
+        "rerunSkipped": "sandbox escalation disabled in this session"
+      }
+    },
+    {
+      "at": "2026-06-24T23:24:00.742Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 8,
+        "sampleErrors": [
+          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18319661620272929' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
+        ]
+      }
+    },
+    {
+      "at": "2026-06-25T01:15:50.093Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 15,
+        "sampleErrors": [
+          "Meta Graph GET 857477100212912: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18142983556524389: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18099111391988502: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18138591487532730: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 27506921462235774: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+        ]
+      }
+    },
+    {
+      "at": "2026-06-25T08:46:31.247Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 8,
+        "sampleErrors": [
+          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18319661620272929' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
+        ]
+      }
+    },
+    {
+      "at": "2026-06-25T08:46:49.461Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 8,
+        "sampleErrors": [
+          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18319661620272929' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
+        ]
+      }
+    },
+    {
+      "at": "2026-06-25T08:46:55.686Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 8,
+        "sampleErrors": [
+          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18319661620272929' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
+        ]
+      }
+    },
+    {
+      "at": "2026-06-25T08:46:57.631Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 8,
+        "sampleErrors": [
+          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18319661620272929' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
+        ]
+      }
+    },
+    {
+      "at": "2026-06-25T11:51:02.433Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 8,
+        "sampleErrors": [
+          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18319661620272929' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
+        ]
+      }
+    },
+    {
+      "at": "2026-06-25T12:14:42.352Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 8,
+        "sampleErrors": [
+          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18319661620272929' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
+        ]
+      }
+    },
+    {
+      "at": "2026-06-25T12:30:33.122Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 8,
+        "sampleErrors": [
+          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18319661620272929' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
+        ]
+      }
+    },
+    {
+      "at": "2026-06-25T12:38:11.996Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 15,
+        "sampleErrors": [
+          "Meta Graph GET 857477100212912: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18142983556524389: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18099111391988502: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18138591487532730: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 27506921462235774: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+        ]
+      }
+    },
+    {
+      "at": "2026-06-25T13:05:18.043Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 8,
+        "sampleErrors": [
+          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18319661620272929' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
+        ]
+      }
+    },
+    {
+      "at": "2026-06-25T21:31:26.700Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 15,
+        "sampleErrors": [
+          "Meta Graph GET 857477100212912: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18142983556524389: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18099111391988502: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18138591487532730: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 27506921462235774: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+        ],
+        "rerunSkipped": "sandbox escalation disabled in this session"
+      }
     }
   ]
 }

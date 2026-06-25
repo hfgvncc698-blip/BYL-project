@@ -10,6 +10,8 @@ import "./i18n";
 
 import { AuthProvider, useAuth } from "./AuthContext";
 import Navbar from "./components/Navbar";
+import ClientMobileNav, { CLIENT_MOBILE_NAV_PATHS } from "./components/ClientMobileNav.jsx";
+import CoachMobileNav, { COACH_MOBILE_NAV_PREFIXES } from "./components/CoachMobileNav.jsx";
 import { Footer } from "./components/Footer";
 import LanguageRouteSync from "./components/LanguageRouteSync.jsx";
 import AppLoading from "./components/ui/AppLoading.jsx";
@@ -20,7 +22,6 @@ import SeoManager from "./components/SeoManager.jsx";
 import { SEO_ROUTES } from "./seo/seoConfig.js";
 
 const GeolocationBootstrap = lazy(() => import("./components/GeolocationBootstrap.jsx"));
-const SunColorModeSync = lazy(() => import("./components/SunColorModeSync.jsx"));
 const GuidedTutorial = lazy(() => import("./components/GuidedTutorial.jsx"));
 const CookieConsentBanner = lazy(() => import("./components/CookieConsentBanner.jsx"));
 const RouteAnalyticsListener = lazy(() => import("./components/RouteAnalyticsListener.jsx"));
@@ -287,15 +288,28 @@ function AppContent() {
   const { user, effectiveRole, isAdmin } = useAuth();
   const analyticsOn = !!prefs?.analytics || isAdmin || effectiveRole === "admin";
   const shouldTrackRoute = consentLoaded && (analyticsOn || !!user?.uid);
+  const isSessionPlayerRoute =
+    /^\/programmes\/[^/]+\/session\/[^/]+\/play(?:\/)?$/.test(location.pathname) ||
+    /^\/clients\/[^/]+\/programmes\/[^/]+\/session\/[^/]+\/play(?:\/)?$/.test(location.pathname);
+  const showClientMobileNav =
+    user?.role === "particulier" &&
+    !isSessionPlayerRoute &&
+    CLIENT_MOBILE_NAV_PATHS.includes(location.pathname);
+  const isProgramBuilderRoute =
+    /^\/exercise-bank\/program-builder\/[^/]+(?:\/)?$/.test(location.pathname) ||
+    /^\/clients\/[^/]+\/programmes\/[^/]+\/program-builder(?:\/)?$/.test(location.pathname);
+  const showCoachMobileNav =
+    (user?.role === "coach" || user?.role === "admin") &&
+    !isSessionPlayerRoute &&
+    !isProgramBuilderRoute &&
+    COACH_MOBILE_NAV_PREFIXES.some((prefix) => location.pathname === prefix || location.pathname.startsWith(`${prefix}/`));
+  const showBottomMobileNav = showClientMobileNav || showCoachMobileNav;
 
   return (
     <>
       <SeoManager />
       <LanguageRouteSync />
 
-      <LazyBackground>
-        <SunColorModeSync />
-      </LazyBackground>
       {analyticsOn && (
         <IdleMount>
           <LazyBackground>
@@ -304,7 +318,7 @@ function AppContent() {
         </IdleMount>
       )}
 
-      <Navbar />
+      {!isSessionPlayerRoute && <Navbar />}
       {user && (
         <IdleMount delay={1200}>
           <LazyBackground>
@@ -321,7 +335,7 @@ function AppContent() {
         </IdleMount>
       )}
 
-      <Box as="main" flex="1" minH="0">
+      <Box as="main" flex="1" minH="0" pb={showBottomMobileNav ? { base: 24, md: 0 } : 0}>
         <Suspense fallback={<AppLoading label={t("common.loading_page", "Chargement de la page...")} />}>
           <Routes>
             <Route path="/" element={<HomeRoute />} />
@@ -703,6 +717,8 @@ function AppContent() {
           </Routes>
         </Suspense>
       </Box>
+      {showClientMobileNav ? <ClientMobileNav /> : null}
+      {showCoachMobileNav ? <CoachMobileNav /> : null}
 
       {showFooter && <Footer />}
 

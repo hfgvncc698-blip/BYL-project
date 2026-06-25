@@ -22,7 +22,7 @@ import {
 import AppLoading from "../components/ui/AppLoading";
 import PageBackButton from "../components/ui/PageBackButton";
 import { apiFetch } from "../utils/api";
-import { formatProgramActiveWeeks, getProgramActiveWeeksLabel } from "../utils/programDuration";
+import { formatProgramActiveWeeks, formatProgramWeekProgress, getProgramActiveWeeksLabel } from "../utils/programDuration";
 
 /* ----------------- Helpers date ----------------- */
 function toDateSafe(v) {
@@ -64,6 +64,48 @@ function pickSessionTitle(s, sessionsArr) {
   if (idx != null) return `Séance ${idx + 1}`;
   return null;
 }
+
+const getSessionIndex = (session) => {
+  const raw = session?.sessionIndex ?? session?.seanceIndex ?? session?.indexSeance ?? session?.index ?? null;
+  if (raw !== null && raw !== undefined && raw !== "") {
+    const idx = Number(raw);
+    if (Number.isFinite(idx)) return idx;
+  }
+  const displayValue = session?.session_number ?? session?.sessionNumber ?? null;
+  if (displayValue !== null && displayValue !== undefined && displayValue !== "") {
+    const displayNumber = Number(displayValue);
+    if (Number.isFinite(displayNumber)) return Math.max(0, displayNumber - 1);
+  }
+  return null;
+};
+
+const isSessionValidatedRecord = (session) => {
+  if (!session) return false;
+  const status = String(session?.status || "").trim().toLowerCase();
+  if (
+    session?.isPartial === true ||
+    status === "en_cours" ||
+    status === "in_progress" ||
+    status === "partial"
+  ) {
+    return false;
+  }
+
+  const pct = Number(session?.pourcentageTermine);
+  if (Number.isFinite(pct)) return pct >= 90;
+
+  return (
+    status === "validée" ||
+    status === "validee" ||
+    status === "done" ||
+    status === "completed" ||
+    status === "terminée" ||
+    status === "terminee" ||
+    session?.validated === true ||
+    session?.isValidated === true ||
+    Boolean(session?.dateEffectuee || session?.completedAt || session?.validatedAt || session?.playedAt || session?.timestamp || session?.date)
+  );
+};
 
 const isAutoProgramme = (p) => String(p?.origine || "").toLowerCase().includes("auto");
 
@@ -125,6 +167,55 @@ function isLegacyAutoName(existingName, { objectifUI, objectif, nbSeances }, pre
   return false;
 }
 
+function prepareVisiblePrograms(programs) {
+  const visiblePrograms = [];
+  const premiumPurchaseIndex = new Map();
+  programs.forEach((program) => {
+    const checkoutSessionId = String(program?.stripe?.checkoutSessionId || "").trim();
+    const sourceProgrammeId = String(program?.sourceProgrammeId || "").trim();
+    const isPremiumAssigned =
+      program?.origine === "premium" ||
+      program?.source === "premium-paid" ||
+      program?.isPremiumOnly === true;
+    const duplicateKey =
+      checkoutSessionId && checkoutSessionId !== "manual"
+        ? `stripe:${checkoutSessionId}`
+        : isPremiumAssigned && sourceProgrammeId
+        ? `premium-source:${sourceProgrammeId}`
+        : null;
+
+    if (!duplicateKey) {
+      visiblePrograms.push(program);
+      return;
+    }
+
+    const existingIndex = premiumPurchaseIndex.get(duplicateKey);
+    if (existingIndex === undefined) {
+      premiumPurchaseIndex.set(duplicateKey, visiblePrograms.length);
+      visiblePrograms.push(program);
+      return;
+    }
+
+    const existing = visiblePrograms[existingIndex];
+    const existingScore = (existing._lastSessionMs || 0) + (existing._createdAtMs || 0);
+    const nextScore = (program._lastSessionMs || 0) + (program._createdAtMs || 0);
+    if (nextScore > existingScore) visiblePrograms[existingIndex] = program;
+  });
+
+  return visiblePrograms.sort((a, b) => {
+    const aLast = a._lastSessionMs || 0;
+    const bLast = b._lastSessionMs || 0;
+
+    const aNever = aLast <= 0;
+    const bNever = bLast <= 0;
+
+    if (aNever && !bNever) return -1;
+    if (!aNever && bNever) return 1;
+    if (aNever && bNever) return (b._createdAtMs || 0) - (a._createdAtMs || 0);
+    return bLast - aLast;
+  });
+}
+
 /* --------------- Component --------------- */
 export default function MyPrograms() {
   const { t, i18n } = useTranslation();
@@ -135,7 +226,7 @@ export default function MyPrograms() {
   const [loading, setLoading] = useState(true);
   const [clientId, setClientId] = useState(null);
 
-  const pageBg = useColorModeValue("#F5F7FB", "#070B14");
+  const pageBg = useColorModeValue("#F5F8FF", "#070B14");
   const surfaceBg = useColorModeValue("rgba(255,255,255,0.85)", "rgba(15,21,35,0.86)");
   const surfaceBgStrong = useColorModeValue("rgba(255,255,255,0.95)", "rgba(11,16,27,0.95)");
   const bg = surfaceBgStrong;
@@ -150,11 +241,12 @@ export default function MyPrograms() {
     "0 20px 50px rgba(15,23,42,0.08)",
     "0 20px 60px rgba(0,0,0,0.35)"
   );
-  const topGlow = useColorModeValue("rgba(59,130,246,0.10)", "rgba(59,130,246,0.14)");
-  const bottomGlow = useColorModeValue("rgba(16,185,129,0.08)", "rgba(16,185,129,0.10)");
-  const panelGlow = useColorModeValue("rgba(59,130,246,0.08)", "rgba(59,130,246,0.10)");
   const iconCircleBg = useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)");
-  const activeBlue = "#3B82F6";
+  const activeBlue = "#2563EB";
+  const mobileHeroBg = useColorModeValue(
+    "linear-gradient(145deg, #0F172A 0%, #1D4ED8 58%, #0EA5E9 135%)",
+    "linear-gradient(145deg, #020617 0%, #1E3A8A 58%, #0369A1 135%)"
+  );
   const isMobile = useBreakpointValue({ base: true, md: false });
 
   // ✅ mapping objectif Firestore -> i18n key
@@ -253,14 +345,12 @@ export default function MyPrograms() {
         }
 
         // ===== PARTICULIER : programmes assignés =====
-        try {
-          await apiFetch("/payments/recover-premium-purchases", {
-            method: "POST",
-            body: JSON.stringify({ firebaseUid: user.uid }),
-          });
-        } catch (recoverError) {
+        apiFetch("/payments/recover-premium-purchases", {
+          method: "POST",
+          body: JSON.stringify({ firebaseUid: user.uid }),
+        }).catch((recoverError) => {
           console.warn("[MyPrograms] premium recovery unavailable", recoverError);
-        }
+        });
 
         // 1) dossier client réel, en compatibilité avec les anciens chemins.
         const clientSnap = await resolveClientSnapshotForUser(user, { logPrefix: "MyPrograms" });
@@ -271,8 +361,50 @@ export default function MyPrograms() {
         // 2) programmes assignés
         const assignedSnap = await getDocs(collection(db, "clients", cId, "programmes"));
 
-        const result = [];
-        for (const p of assignedSnap.docs) {
+        const baseRows = assignedSnap.docs.map((p) => {
+          const data = p.data();
+          const baseId = data.programId || p.id;
+          const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+          const sessionCount = sessions.length;
+          const createdAtDate = toDateSafe(data.createdAt) || null;
+          const createdAtFormatted = fmtLocale(createdAtDate, i18n.language);
+          const createdAtMs = toMillis(
+            data.assignedAt ||
+              data.dateAssignation ||
+              data.dateAffectation ||
+              data.createdAt ||
+              data.createdOn ||
+              data.created_date
+          );
+          const rowObj = {
+            id: p.id,
+            baseId,
+            ...data,
+            sessions,
+            origine: data.origine || data.source || "",
+            createdAtFormatted,
+            sessionCount,
+            progressionPct: 0,
+            lastActivityDate: null,
+            lastActivityStr: "—",
+            lastSessionLabel: null,
+            _nextIndex: 0,
+            doneCount: 0,
+            doneCountRaw: 0,
+            _createdAtMs: createdAtMs,
+            _lastSessionMs: 0,
+          };
+
+          return {
+            ...rowObj,
+            nomProgramme: getProgrammeDisplayName(rowObj),
+          };
+        });
+
+        setRows(prepareVisiblePrograms(baseRows));
+        setLoading(false);
+
+        const result = await Promise.all(assignedSnap.docs.map(async (p) => {
           const data = p.data();
           const baseId = data.programId || p.id;
 
@@ -295,24 +427,32 @@ export default function MyPrograms() {
           // 3) sessionsEffectuees
           const seSnap = await getDocs(
             collection(db, "clients", cId, "programmes", p.id, "sessionsEffectuees")
-          );
+          ).catch((error) => {
+            console.warn("[MyPrograms] sessionsEffectuees unavailable", p.id, error);
+            return null;
+          });
 
           let doneCount = 0;
           let lastDone = null;
           let lastSessionMs = 0;
+          let latestSessionRecord = null;
+          let latestSessionMs = 0;
           const finishedIdx = new Set();
+          const sessionRecords = (seSnap?.docs || []).map((dDoc) => ({ id: dDoc.id, ...dDoc.data() }));
 
-          seSnap.docs.forEach((dDoc) => {
-            const s = dDoc.data();
-            const pct = typeof s.pourcentageTermine === "number" ? s.pourcentageTermine : 100;
-            if (pct >= 90) {
+          sessionRecords.forEach((s) => {
+            if (isSessionValidatedRecord(s)) {
               doneCount += 1;
-              if (typeof s.sessionIndex === "number") finishedIdx.add(Number(s.sessionIndex));
+              const idx = getSessionIndex(s);
+              if (Number.isFinite(idx)) finishedIdx.add(idx);
             }
 
             const dt =
+              toDateSafe(s.progressUpdatedAt) ||
+              toDateSafe(s.updatedAt) ||
               toDateSafe(s.dateEffectuee) ||
               toDateSafe(s.completedAt) ||
+              toDateSafe(s.validatedAt) ||
               toDateSafe(s.playedAt) ||
               toDateSafe(s.timestamp) ||
               toDateSafe(s.date);
@@ -323,9 +463,12 @@ export default function MyPrograms() {
               if (!lastDone || dt > lastDone.date) {
                 lastDone = { date: dt, label: pickSessionTitle(s, sessions) };
               }
+              if (ms > latestSessionMs) {
+                latestSessionMs = ms;
+                latestSessionRecord = s;
+              }
             }
           });
-          if (seSnap.size > 0 && doneCount === 0) doneCount = seSnap.size;
 
           let nextIndex = 0;
           if (sessionCount > 0) {
@@ -333,9 +476,21 @@ export default function MyPrograms() {
             if (nextIndex >= sessionCount) nextIndex = Math.max(0, sessionCount - 1);
           }
 
+          const latestPct = Number(latestSessionRecord?.pourcentageTermine);
+          const latestSessionIndex = getSessionIndex(latestSessionRecord);
+          const hasResumePoint =
+            !isSessionValidatedRecord(latestSessionRecord) &&
+            Number.isFinite(latestPct) &&
+            latestPct > 0 &&
+            latestPct < 90 &&
+            Number.isFinite(latestSessionIndex) &&
+            !finishedIdx.has(latestSessionIndex);
+
           const doneForProgress = sessionCount > 0 ? Math.min(doneCount, sessionCount) : doneCount;
-          const progressionPct =
-            sessionCount > 0 ? Math.min(100, Math.round((doneForProgress / sessionCount) * 100)) : 0;
+          const partialSessionFraction = hasResumePoint ? Math.max(0, Math.min(0.99, latestPct / 100)) : 0;
+          const progressionPct = sessionCount > 0
+            ? Math.min(100, Math.round(((doneForProgress + partialSessionFraction) / sessionCount) * 100))
+            : 0;
 
           const rowObj = {
             id: p.id, // id d'assignation
@@ -350,71 +505,28 @@ export default function MyPrograms() {
             lastActivityStr: fmtLocale(lastDone?.date, i18n.language),
             lastSessionLabel: lastDone?.label || null,
             _nextIndex: nextIndex,
+            _resumeSessionIndex: hasResumePoint ? latestSessionIndex : nextIndex,
+            _resumeExerciseIndex: Number.isFinite(Number(latestSessionRecord?.lastExerciseIndex))
+              ? Math.max(0, Number(latestSessionRecord.lastExerciseIndex))
+              : 0,
+            _resumeSet: Number.isFinite(Number(latestSessionRecord?.lastSet))
+              ? Math.max(1, Number(latestSessionRecord.lastSet))
+              : 1,
+            _resumePct: hasResumePoint ? Math.max(1, Math.min(89, Math.round(latestPct))) : null,
+            _hasResumePoint: hasResumePoint,
             doneCount: doneForProgress,
             doneCountRaw: doneCount,
             _createdAtMs: createdAtMs,
             _lastSessionMs: lastSessionMs,
           };
 
-          result.push({
+          return {
             ...rowObj,
             nomProgramme: getProgrammeDisplayName(rowObj),
-          });
-        }
+          };
+        }));
 
-        const visiblePrograms = [];
-        const premiumPurchaseIndex = new Map();
-        result.forEach((program) => {
-          const checkoutSessionId = String(program?.stripe?.checkoutSessionId || "").trim();
-          const sourceProgrammeId = String(program?.sourceProgrammeId || "").trim();
-          const isPremiumAssigned =
-            program?.origine === "premium" ||
-            program?.source === "premium-paid" ||
-            program?.isPremiumOnly === true;
-          const duplicateKey =
-            checkoutSessionId && checkoutSessionId !== "manual"
-              ? `stripe:${checkoutSessionId}`
-              : isPremiumAssigned && sourceProgrammeId
-              ? `premium-source:${sourceProgrammeId}`
-              : null;
-
-          if (!duplicateKey) {
-            visiblePrograms.push(program);
-            return;
-          }
-
-          const existingIndex = premiumPurchaseIndex.get(duplicateKey);
-          if (existingIndex === undefined) {
-            premiumPurchaseIndex.set(duplicateKey, visiblePrograms.length);
-            visiblePrograms.push(program);
-            return;
-          }
-
-          const existing = visiblePrograms[existingIndex];
-          const existingScore = (existing._lastSessionMs || 0) + (existing._createdAtMs || 0);
-          const nextScore = (program._lastSessionMs || 0) + (program._createdAtMs || 0);
-          if (nextScore > existingScore) visiblePrograms[existingIndex] = program;
-        });
-
-        // ✅ TRI (comme demandé) :
-        // 1) Jamais joués -> en tête, triés par création/assignation (récent -> ancien)
-        // 2) Joués -> triés par dernière séance effectuée (récent -> ancien)
-        visiblePrograms.sort((a, b) => {
-          const aLast = a._lastSessionMs || 0;
-          const bLast = b._lastSessionMs || 0;
-
-          const aNever = aLast <= 0;
-          const bNever = bLast <= 0;
-
-          if (aNever && !bNever) return -1;
-          if (!aNever && bNever) return 1;
-
-          if (aNever && bNever) return (b._createdAtMs || 0) - (a._createdAtMs || 0);
-
-          return bLast - aLast;
-        });
-
-        setRows(visiblePrograms);
+        setRows(prepareVisiblePrograms(result));
       } catch (err) {
         console.error("Erreur fetch programmes:", err);
         setRows([]);
@@ -439,14 +551,44 @@ export default function MyPrograms() {
     navigate(href);
   };
 
-  const startSession = (p) => {
+  const isProgramCompleted = (p) =>
+    (Number(p?.sessionCount) || 0) > 0 && (Number(p?.doneCount) || 0) >= (Number(p?.sessionCount) || 0);
+
+  const startSession = (p, { replay = false } = {}) => {
     if (user?.role === "coach") {
       navigate(`/programmes/${p.baseId}/session/0/play`);
       return;
     }
     if (!clientId) return;
-    const idx = typeof p._nextIndex === "number" ? p._nextIndex : 0;
-    navigate(`/clients/${clientId}/programmes/${p.id}/session/${idx}/play`);
+    const idx = replay
+      ? 0
+      : typeof p._resumeSessionIndex === "number"
+      ? p._resumeSessionIndex
+      : typeof p._nextIndex === "number"
+      ? p._nextIndex
+      : 0;
+    navigate(`/clients/${clientId}/programmes/${p.id}/session/${idx}/play`, {
+      state: replay
+        ? {
+            exerciseIndex: 0,
+            resumeExerciseIndex: 0,
+            currentSet: 1,
+            resumeSet: 1,
+            resumeSessionIndex: 0,
+            resumePct: null,
+            replayProgramme: true,
+          }
+        : p?._hasResumePoint
+        ? {
+            exerciseIndex: p._resumeExerciseIndex || 0,
+            resumeExerciseIndex: p._resumeExerciseIndex || 0,
+            currentSet: p._resumeSet || 1,
+            resumeSet: p._resumeSet || 1,
+            resumeSessionIndex: idx,
+            resumePct: p._resumePct ?? null,
+          }
+        : undefined,
+    });
   };
 
   const title =
@@ -464,37 +606,41 @@ export default function MyPrograms() {
 
   const MiniStat = ({ label, value, helper, icon }) => (
     <Box
-      bg={surfaceBg}
+      bg={{ base: "rgba(255,255,255,0.16)", md: surfaceBg }}
       border="1px solid"
-      borderColor={borderColor}
-      borderRadius="22px"
-      p={4}
-      boxShadow={glassShadow}
+      borderColor={{ base: "rgba(255,255,255,0.24)", md: borderColor }}
+      borderRadius={{ base: "18px", md: "22px" }}
+      p={{ base: 3.5, md: 4 }}
+      boxShadow={{ base: "none", md: glassShadow }}
       position="relative"
       overflow="hidden"
-      _before={{
-        content: '""',
-        position: "absolute",
-        right: "-18px",
-        bottom: "-22px",
-        w: "110px",
-        h: "110px",
-        borderRadius: "full",
-        bg: "rgba(59,130,246,0.12)",
-        filter: "blur(24px)",
-      }}
+      minH={{ base: "120px", md: "auto" }}
     >
-      <HStack justify="space-between" align="flex-start" position="relative" zIndex={1}>
+      <Circle
+        size={{ base: "34px", md: "42px" }}
+        bg={{ base: "rgba(255,255,255,0.16)", md: "rgba(59,130,246,0.12)" }}
+        color={{ base: "white", md: activeBlue }}
+        position={{ base: "absolute", md: "static" }}
+        top={{ base: 3, md: "auto" }}
+        right={{ base: 3, md: "auto" }}
+        flexShrink={0}
+      >
+        <Icon as={icon} boxSize={{ base: "17px", md: "20px" }} />
+      </Circle>
+      <HStack justify="space-between" align="flex-start" position="relative" zIndex={1} pr={{ base: 9, md: 0 }}>
         <Box minW={0}>
-          <Text fontSize="sm" color={mutedText} fontWeight="600">{label}</Text>
-          <Text mt={2} fontSize={{ base: "xl", md: "2xl" }} fontWeight="900" letterSpacing="-0.03em">
+          <Text fontSize={{ base: "sm", md: "sm" }} color={{ base: "whiteAlpha.860", md: mutedText }} fontWeight="850" lineHeight="1.2" noOfLines={2}>
+            {label}
+          </Text>
+          <Text mt={2.5} fontSize={{ base: "2xl", md: "2xl" }} color={{ base: "white", md: textColor }} fontWeight="950" letterSpacing="0">
             {value}
           </Text>
-          {helper ? <Text mt={2} fontSize="sm" color={subtleText}>{helper}</Text> : null}
+          {helper ? (
+            <Text mt={2} fontSize={{ base: "xs", md: "sm" }} color={{ base: "whiteAlpha.760", md: subtleText }} lineHeight="1.35" noOfLines={{ base: 2, md: 3 }}>
+              {helper}
+            </Text>
+          ) : null}
         </Box>
-        <Circle size="42px" bg="rgba(59,130,246,0.12)" color={activeBlue} flexShrink={0}>
-          <Icon as={icon} boxSize="20px" />
-        </Circle>
       </HStack>
     </Box>
   );
@@ -507,68 +653,37 @@ export default function MyPrograms() {
   if (rows.length === 0) {
     return (
       <Box p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh" position="relative">
-        <Box position="absolute" top={{ base: 4, md: 6 }} left={{ base: 4, md: 6 }} zIndex={20}>
+        <Box display={{ base: "none", md: "block" }} position="absolute" top={{ base: 4, md: 6 }} left={{ base: 4, md: 6 }} zIndex={20}>
           <PageBackButton />
         </Box>
-        <Box p={6} bg={bg} borderRadius="2xl" boxShadow="sm" borderWidth="1px" borderColor={borderStrong}>
-          <Heading size="lg" mb={2} color={textColor}>
+        <Box p={{ base: 5, md: 6 }} bg={{ base: mobileHeroBg, md: bg }} borderRadius={{ base: "28px", md: "2xl" }} boxShadow="sm" borderWidth="1px" borderColor={{ base: "rgba(255,255,255,0.18)", md: borderStrong }}>
+          <Heading size="lg" mb={2} color={{ base: "white", md: textColor }} letterSpacing="0">
             {t("client_dash.my_programs")}
           </Heading>
-          <Text color={textColor}>{t("programs.empty")}</Text>
+          <Text color={{ base: "whiteAlpha.850", md: textColor }}>{t("programs.empty")}</Text>
         </Box>
       </Box>
     );
   }
 
   return (
-    <Box data-tour-page="client-programs" p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
-      <Box position="absolute" top={{ base: 4, md: 6 }} left={{ base: 4, md: 6 }} zIndex={20}>
+    <Box data-tour-page="client-programs" p={{ base: 3, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
+      <Box display={{ base: "none", md: "block" }} position="absolute" top={{ base: 4, md: 6 }} left={{ base: 4, md: 6 }} zIndex={20}>
         <PageBackButton />
       </Box>
-      <Box
-        position="absolute"
-        top="-140px"
-        right="-100px"
-        w="420px"
-        h="420px"
-        borderRadius="full"
-        bg={topGlow}
-        filter="blur(90px)"
-        pointerEvents="none"
-      />
-      <Box
-        position="absolute"
-        bottom="-140px"
-        left="-100px"
-        w="380px"
-        h="380px"
-        borderRadius="full"
-        bg={bottomGlow}
-        filter="blur(90px)"
-        pointerEvents="none"
-      />
 
-      <VStack maxW="1120px" mx="auto" spacing={6} align="stretch" position="relative" zIndex={1}>
+      <VStack maxW="1120px" mx="auto" spacing={{ base: 3.5, md: 6 }} align="stretch" position="relative" zIndex={1}>
       <Box
         p={{ base: 4, md: 5 }}
-        bg={bg}
-        borderRadius="30px"
+        bg={{ base: mobileHeroBg, md: bg }}
+        color={{ base: "white", md: textColor }}
+        borderRadius={{ base: "28px", md: "30px" }}
         boxShadow={glassShadow}
         border="1px solid"
-        borderColor={borderStrong}
+        borderColor={{ base: "rgba(255,255,255,0.18)", md: borderStrong }}
         position="relative"
         overflow="hidden"
       >
-        <Box
-          position="absolute"
-          top="-40px"
-          right="-20px"
-          w="220px"
-          h="220px"
-          borderRadius="full"
-          bg={panelGlow}
-          filter="blur(38px)"
-        />
         <Flex
           position="relative"
           zIndex={1}
@@ -587,10 +702,10 @@ export default function MyPrograms() {
           >
             <Circle
               size={{ base: "56px", md: "64px" }}
-              bg={iconCircleBg}
+              bg={{ base: "whiteAlpha.180", md: iconCircleBg }}
               border="1px solid"
-              borderColor={borderStrong}
-              color={textColor}
+              borderColor={{ base: "whiteAlpha.260", md: borderStrong }}
+              color={{ base: "white", md: textColor }}
               flexShrink={0}
             >
               <Icon as={MdOutlineFitnessCenter} boxSize="26px" />
@@ -599,20 +714,20 @@ export default function MyPrograms() {
               <Heading
                 size={{ base: "md", md: "lg" }}
                 lineHeight="1.05"
-                letterSpacing="-0.03em"
-                color={textColor}
+                letterSpacing="0"
+                color={{ base: "white", md: textColor }}
                 wordBreak="keep-all"
                 whiteSpace="normal"
               >
                 {title}
               </Heading>
-              <Text mt={2} color={mutedText} maxW="56ch">{t("auto.MyPrograms.retrouvez_vos_programmes_actifs_votre_progression_", "Retrouvez vos programmes actifs, votre progression et relancez directement la prochaine séance utile.")}</Text>
+              <Text mt={2} color={{ base: "whiteAlpha.820", md: mutedText }} maxW="56ch" fontSize={{ base: "sm", md: "md" }}>{t("auto.MyPrograms.retrouvez_vos_programmes_actifs_votre_progression_", "Retrouvez vos programmes actifs, votre progression et relancez directement la prochaine séance utile.")}</Text>
             </Box>
           </Flex>
 
           <SimpleGrid
-            columns={{ base: 1, sm: 2, xl: 4 }}
-            spacing={3}
+            columns={{ base: 2, sm: 2, xl: 4 }}
+            spacing={{ base: 2, md: 3 }}
             w="full"
             minW={0}
             maxW={{ base: "100%", "2xl": "560px" }}
@@ -628,33 +743,26 @@ export default function MyPrograms() {
       {isMobile ? (
         <Stack spacing={4}>
           {rows.map((p) => (
+            (() => {
+              const completed = isProgramCompleted(p);
+              return (
             <Box
               key={p.id}
               p={4}
               bg={cardBg}
-              borderRadius="22px"
+              borderRadius="24px"
               boxShadow={glassShadow}
               border="1px solid"
               borderColor={borderColor}
               position="relative"
               overflow="hidden"
             >
-              <Box
-                position="absolute"
-                right="-18px"
-                bottom="-22px"
-                w="110px"
-                h="110px"
-                borderRadius="full"
-                bg="rgba(59,130,246,0.10)"
-                filter="blur(24px)"
-              />
               <Box position="relative" zIndex={1}>
-              <HStack justify="space-between" mb={1}>
-                <Text fontSize="md" fontWeight="bold" color={textColor}>
+              <HStack justify="space-between" align="flex-start" mb={1} spacing={3}>
+                <Text fontSize="md" fontWeight="900" color={textColor} lineHeight="1.2" noOfLines={2}>
                   {p.nomProgramme}
                 </Text>
-                <Badge colorScheme={(p.progressionPct ?? 0) >= 100 ? "green" : undefined}>
+                <Badge colorScheme={(p.progressionPct ?? 0) >= 100 ? "blue" : undefined} borderRadius="full" px={2.5} py={1}>
                   {p.progressionPct ?? 0}%
                 </Badge>
               </HStack>
@@ -662,9 +770,16 @@ export default function MyPrograms() {
               <Text color={mutedText} fontSize="sm">{t("auto.MyPrograms.cree_assigne_le", "Créé / assigné le")}{p.createdAtFormatted}
               </Text>
               {formatProgramActiveWeeks(p, t) && (
-                <Text color={mutedText} fontSize="sm" mt={1}>
-                  {getProgramActiveWeeksLabel(t)} : {formatProgramActiveWeeks(p, t)}
-                </Text>
+                <HStack mt={2} spacing={2} wrap="wrap">
+                  <Badge variant="subtle" colorScheme="blue" borderRadius="full" px={2.5} py={1} textTransform="none">
+                    {getProgramActiveWeeksLabel(t)} : {formatProgramActiveWeeks(p, t)}
+                  </Badge>
+                  {formatProgramWeekProgress(p, t, { includeInitialWeek: true }) ? (
+                    <Badge variant="subtle" colorScheme="purple" borderRadius="full" px={2.5} py={1} textTransform="none">
+                      {formatProgramWeekProgress(p, t, { includeInitialWeek: true })}
+                    </Badge>
+                  ) : null}
+                </HStack>
               )}
 
               {user?.role !== "coach" && (
@@ -692,20 +807,23 @@ export default function MyPrograms() {
                 </Text>
               )}
 
-              <HStack mt={3} spacing={2}>
-                <Button flex={1} size="sm" onClick={() => goToProgram(p)}>
+              <HStack mt={3.5} spacing={2}>
+                <Button flex={1} h="42px" borderRadius="15px" variant="outline" onClick={() => goToProgram(p)}>
                   {t("client_dash.view")}
                 </Button>
                 <Button
                   flex={1}
-                  size="sm"
-                  onClick={() => startSession(p)}
+                  h="42px"
+                  borderRadius="15px"
+                  onClick={() => startSession(p, { replay: completed })}
                 >
-                  {t("client_dash.start")}
+                  {completed ? "Refaire" : p._hasResumePoint ? "Reprendre" : t("client_dash.start")}
                 </Button>
               </HStack>
               </Box>
             </Box>
+              );
+            })()
           ))}
         </Stack>
       ) : (
@@ -717,13 +835,16 @@ export default function MyPrograms() {
                 {user?.role !== "coach" && (
                   <Th color={textColor}>{t("dashboard.col_last_session")}</Th>
                 )}
+                <Th color={textColor}>{getProgramActiveWeeksLabel(t)}</Th>
                 <Th color={textColor}>{t("client_dash.table.sessions")}</Th>
                 <Th color={textColor}>{t("client_dash.table.progress")}</Th>
                 <Th color={textColor}>{t("client_dash.table.action")}</Th>
               </Tr>
             </Thead>
             <Tbody>
-              {rows.map((p) => (
+              {rows.map((p) => {
+                const completed = isProgramCompleted(p);
+                return (
                 <Tr key={p.id} _hover={{ bg: hoverBg }}>
                   <Td color={textColor}>{p.nomProgramme}</Td>
 
@@ -740,13 +861,26 @@ export default function MyPrograms() {
                     </Td>
                   )}
 
+                  <Td color={textColor}>
+                    <VStack align="flex-start" spacing={1}>
+                      <Badge variant="subtle" colorScheme="blue" borderRadius="full" px={2.5} py={1} textTransform="none">
+                        {getProgramActiveWeeksLabel(t)} : {formatProgramActiveWeeks(p, t)}
+                      </Badge>
+                      {formatProgramWeekProgress(p, t, { includeInitialWeek: true }) ? (
+                        <Badge variant="subtle" colorScheme="purple" borderRadius="full" px={2.5} py={1} textTransform="none">
+                          {formatProgramWeekProgress(p, t, { includeInitialWeek: true })}
+                        </Badge>
+                      ) : null}
+                    </VStack>
+                  </Td>
+
                   <Td color={textColor}>{p.sessionCount}</Td>
 
                   <Td color={textColor} minW="240px">
                     <HStack spacing={3}>
                       <Progress value={p.progressionPct ?? 0} flex="1" size="sm" borderRadius="md" />
                       <Badge
-                        colorScheme={(p.progressionPct ?? 0) >= 100 ? "green" : undefined}
+                        colorScheme={(p.progressionPct ?? 0) >= 100 ? "blue" : undefined}
                         minW="64px"
                         textAlign="center"
                       >
@@ -760,13 +894,14 @@ export default function MyPrograms() {
                       <Button variant="outline" size="sm" onClick={() => goToProgram(p)}>
                         {t("client_dash.view_program")}
                       </Button>
-                      <Button size="sm" onClick={() => startSession(p)}>
-                        {t("client_dash.start_session")}
+                      <Button size="sm" onClick={() => startSession(p, { replay: completed })}>
+                        {completed ? "Refaire" : p._hasResumePoint ? "Reprendre" : t("client_dash.start_session")}
                       </Button>
                     </HStack>
                   </Td>
                 </Tr>
-              ))}
+                );
+              })}
             </Tbody>
           </Table>
         </Box>

@@ -3,6 +3,41 @@ import { db } from "../firebaseConfig";
 import { apiFetch } from "./api";
 
 const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
+const CLIENT_RESOLVE_CACHE_TTL_MS = 2 * 60 * 1000;
+const CLIENT_RESOLVE_LOCAL_TTL_MS = 24 * 60 * 60 * 1000;
+const clientResolveCache = new Map();
+const pendingClientResolve = new Map();
+
+const getClientResolveCacheKey = (user) =>
+  user?.uid ? `${user.uid}:${normalizeEmail(user.email)}` : "";
+
+const getLocalClientResolveKey = (user) =>
+  user?.uid ? `byl:client-resolve:${getClientResolveCacheKey(user)}` : "";
+
+function readLocalClientId(user) {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(getLocalClientResolveKey(user));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.clientId || Date.now() - Number(parsed.at || 0) > CLIENT_RESOLVE_LOCAL_TTL_MS) return null;
+    return String(parsed.clientId);
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalClientId(user, clientId) {
+  if (typeof window === "undefined" || !clientId) return;
+  try {
+    window.localStorage.setItem(
+      getLocalClientResolveKey(user),
+      JSON.stringify({ at: Date.now(), clientId })
+    );
+  } catch {
+    // Cache best-effort uniquement.
+  }
+}
 
 const addExistingSnapshot = (candidates, snap) => {
   if (snap?.exists?.()) candidates.set(snap.id, snap);
@@ -60,7 +95,7 @@ async function scoreClientSnapshot(snap, user, options = {}) {
   if (options.scoreContent !== false) {
     try {
       const progSnap = await getDocs(
-        query(collection(db, "clients", snap.id, "programmes"), limit(options.programmesLimit || 50))
+        query(collection(db, "clients", snap.id, "programmes"), limit(options.programmesLimit || 6))
       );
       score += progSnap.size * 4;
     } catch {
@@ -69,7 +104,7 @@ async function scoreClientSnapshot(snap, user, options = {}) {
 
     try {
       const nutritionSnap = await getDocs(
-        query(collection(db, "clients", snap.id, "nutrition_assessments"), limit(options.nutritionLimit || 30))
+        query(collection(db, "clients", snap.id, "nutrition_assessments"), limit(options.nutritionLimit || 6))
       );
       score += nutritionSnap.size * 5;
     } catch {
@@ -80,12 +115,31 @@ async function scoreClientSnapshot(snap, user, options = {}) {
   return { snap, score };
 }
 
-export async function resolveClientSnapshotForUser(user, options = {}) {
+async function resolveClientSnapshotForUserUncached(user, options = {}) {
   if (!user?.uid) return null;
 
   const email = String(user.email || "").trim();
   const emailLower = normalizeEmail(email);
   const candidates = new Map();
+
+  if (user.linkedClientId) {
+    try {
+      const linkedSnap = await getDoc(doc(db, "clients", user.linkedClientId));
+      if (linkedSnap.exists()) return linkedSnap;
+    } catch {
+      // On conserve les autres pistes si ce chemin direct est refusé.
+    }
+  }
+
+  const localClientId = readLocalClientId(user);
+  if (localClientId) {
+    try {
+      const localSnap = await getDoc(doc(db, "clients", localClientId));
+      if (localSnap.exists()) return localSnap;
+    } catch {
+      // Si le cache local est obsolète ou refusé, on retombe sur les pistes robustes.
+    }
+  }
 
   if (emailLower) {
     const exactEmailLowerSnap = await tryGetDocsFromQuery(
@@ -149,4 +203,32 @@ export async function resolveClientSnapshotForUser(user, options = {}) {
 
   scored.sort((a, b) => b.score - a.score);
   return scored[0]?.snap || null;
+}
+
+export async function resolveClientSnapshotForUser(user, options = {}) {
+  if (!user?.uid) return null;
+
+  const cacheKey = getClientResolveCacheKey(user);
+  const now = Date.now();
+  const cached = clientResolveCache.get(cacheKey);
+  if (!options.disableCache && cached && now - cached.at < CLIENT_RESOLVE_CACHE_TTL_MS) {
+    return cached.snap;
+  }
+
+  if (!options.disableCache && pendingClientResolve.has(cacheKey)) {
+    return pendingClientResolve.get(cacheKey);
+  }
+
+  const promise = resolveClientSnapshotForUserUncached(user, options)
+    .then((snap) => {
+      clientResolveCache.set(cacheKey, { at: Date.now(), snap });
+      if (snap?.id) writeLocalClientId(user, snap.id);
+      return snap;
+    })
+    .finally(() => {
+      pendingClientResolve.delete(cacheKey);
+    });
+
+  if (!options.disableCache) pendingClientResolve.set(cacheKey, promise);
+  return promise;
 }

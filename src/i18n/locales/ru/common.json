@@ -135,7 +135,9 @@
     "card_title": "Премиум-программа",
     "default_desc": "Структурированная программа, готовая к запуску.",
     "previewLockedTitle": "Подробное содержание доступно после покупки",
-    "previewLockedText": "Разминка, упражнения, подходы, время отдыха и заминка откроются в вашем пространстве после покупки."
+    "previewLockedText": "Разминка, упражнения, подходы, время отдыха и заминка откроются в вашем пространстве после покупки.",
+    "emptyTitle": "Премиум-программы недоступны",
+    "emptyText": "Загляните позже, чтобы открыть новые программы."
   },
   "home": {
     "hero_title": "Улучшите свою жизнь с помощью умных тренировок",
@@ -161,6 +163,7 @@
     "latest_programs": "Последние программы",
     "col_name": "Имя",
     "col_assigned_to": "Назначено",
+    "assigned_programs_short": "Назначено",
     "col_created_on": "Создано",
     "assign_program": "Назначить программу",
     "add_session": "Добавить сеанс",
@@ -626,6 +629,26 @@
       "copy_error_title": "Не удалось скопировать",
       "email_subject": "С днем рождения",
       "open_email": "Открыть email"
+    },
+    "mobile": {
+      "today": "Сегодня",
+      "no_appointment": "Нет встречи",
+      "no_session": "Нет тренировки",
+      "ready_to_plan": "Можно запланировать следующий контакт.",
+      "validated": "Готово",
+      "planned": "Заплан.",
+      "week": "Неделя",
+      "new_followup": "Новый разбор",
+      "plan": "Запланировать",
+      "open_planning": "План",
+      "upcoming": "Предстоящее",
+      "open_event": "Открыть слот",
+      "open_events": "Посмотреть слоты",
+      "open_decisions": "Посмотреть решения",
+      "open_nutrition": "Открыть питание",
+      "priority": "Приоритет",
+      "recent": "Недавнее",
+      "no_recent_client": "Нет недавнего сопровождения"
     }
   },
   "calendar": {
@@ -667,6 +690,7 @@
     "new_program": "Новая программа",
     "not_found": "Программа не найдена",
     "subtitle": "Быстро находите, дублируйте и просматривайте все свои программы.",
+    "toAssign": "Назначить",
     "untitled": "Программа без названия"
   },
   "exercise": {
@@ -2041,7 +2065,18 @@
     "energyQuestion": "Энергия сегодня",
     "energyLow": "Бас",
     "energyNormal": "Нормальный",
-    "energyHigh": "Хорошо"
+    "energyHigh": "Хорошо",
+    "pause": "Пауза",
+    "resume": "Продолжить",
+    "restart": "Начать заново",
+    "settingsShort": "Настройки",
+    "playerSettings": "Настройки плеера",
+    "units": "Единицы",
+    "unitWeight": "Вес",
+    "unitDistance": "Дистанция",
+    "unitSpeed": "Скорость",
+    "visibleParameters": "Отображаемые параметры",
+    "visibleParametersHelp": "Добавьте поля, полезные для этого упражнения, как в конструкторе."
   },
   "contact": {
     "title": "Контакт",
@@ -3509,7 +3544,15 @@
       "calendrier_personnel": "Персональный календарь",
       "genere_un_lien_prive_pour_synchroniser_tes_seances": "Создайте частную ссылку для синхронизации сеансов в приложении календаря.",
       "clique_sur_generer_pour_obtenir_ton_lien_d_abonnem": "Нажмите «Создать», чтобы получить ссылку на подписку.",
-      "generer": "Генерировать"
+      "generer": "Генерировать",
+      "accueil": "Главная",
+      "a_planifier": "Запланировать",
+      "aucune_seance_planifiee": "Нет запланированных тренировок",
+      "inspiration": "Вдохновение",
+      "menu": "Меню",
+      "planifiees": "запланировано",
+      "progression": "Прогресс",
+      "stats": "Статистика"
     },
     "Clients": {
       "total": "Итого"
@@ -5565,6 +5608,15 @@
           "3": "Travailler en lien avec médecin, psychologue ou psychiatre si besoin."
         }
       }
+    },
+    "CoachMobileNav": {
+      "accueil": "Главная",
+      "patients": "Пациенты",
+      "clients": "Клиенты",
+      "planning": "План",
+      "programmes": "Программы",
+      "stats": "Стат.",
+      "new_patient": "Новый пациент"
     }
   },
   "guidedTutorial": {

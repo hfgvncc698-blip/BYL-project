@@ -749,7 +749,7 @@ export default function ClientNutritionSharedSection({
         </Box>
       ) : null}
 
-      <HStack justify="space-between" align="start" gap={3} flexWrap="wrap" mb={4}>
+      <HStack justify="space-between" align="start" gap={3} flexWrap="wrap" mb={{ base: 3, md: 4 }}>
         <Box>
           <Text fontSize="xs" fontWeight="900" letterSpacing="0.12em" color={theme.subtleText}>{i18n.t("auto.ClientNutritionSharedSection.suivi_nutrition_2", "SUIVI NUTRITION")}</Text>
           <Heading size="md" mt={1}>{i18n.t("auto.ClientNutritionSharedSection.ton_plan_nutrition", "Ton plan nutrition")}</Heading>
@@ -757,7 +757,7 @@ export default function ClientNutritionSharedSection({
           </Text>
         </Box>
         <HStack spacing={2} align="center" flexWrap="wrap" justify="flex-end">
-          <Wrap spacing={2}>
+          <Wrap spacing={2} display={{ base: "none", md: "flex" }}>
             {sections.summary ? <Badge borderRadius="full" px={3} py={1}>{i18n.t("auto.ClientNutritionSharedSection.resume", "Résumé")}</Badge> : null}
             {sections.foodSurvey ? <Badge borderRadius="full" px={3} py={1}>{i18n.t("auto.ClientNutritionSharedSection.habitudes", "Habitudes")}</Badge> : null}
             {sections.ration ? <Badge borderRadius="full" px={3} py={1}>{i18n.t("auto.ClientNutritionSharedSection.ration", "Ration")}</Badge> : null}
@@ -796,7 +796,7 @@ export default function ClientNutritionSharedSection({
           ))}
         </HStack>
         {activePanelMeta ? (
-          <Box {...tileProps} p={4} bg={activePanelMeta.bg} borderColor={activePanelMeta.accent}>
+          <Box {...tileProps} p={3.5} borderRadius="20px" bg={activePanelMeta.bg} borderColor={activePanelMeta.accent}>
             <Text fontSize="xs" fontWeight="900" color={theme.subtleText}>
               {activePanelMeta.eyebrow}
             </Text>

@@ -101,6 +101,37 @@ function useRafCallback(fn) {
   );
 }
 
+const BUILDER_SCROLL_SELECTOR = "[data-builder-scroll-container='true'], [data-builder-main-scroll='true']";
+
+function getDragClientY(event) {
+  const touch = event?.touches?.[0] || event?.changedTouches?.[0];
+  return typeof touch?.clientY === "number" ? touch.clientY : event?.clientY;
+}
+
+function getBuilderScrollTarget(pointerY) {
+  if (typeof document === "undefined") return null;
+
+  const candidates = Array.from(document.querySelectorAll(BUILDER_SCROLL_SELECTOR)).filter(
+    (el) => el.scrollHeight > el.clientHeight + 4
+  );
+
+  const containing = candidates.find((el) => {
+    const rect = el.getBoundingClientRect();
+    return pointerY >= rect.top && pointerY <= rect.bottom;
+  });
+
+  return containing || candidates[0] || document.scrollingElement || document.documentElement;
+}
+
+function scrollBuilderTargetBy(target, delta) {
+  if (!target || !delta) return;
+  if (target === document.scrollingElement || target === document.documentElement || target === document.body) {
+    window.scrollBy(0, delta);
+    return;
+  }
+  target.scrollTop += delta;
+}
+
 /** petites utils */
 const sectionDefs = [
   { key: "echauffement", labelKey: "programBuilder.sections.warmup" },
@@ -2936,6 +2967,81 @@ export default function ProgramBuilder({
     currentSection,
   ]);
 
+  const exerciseDragAutoScrollRef = useRef({ active: false, pointerY: null, frame: 0 });
+
+  const updateExerciseDragPointer = useCallback((event) => {
+    const clientY = getDragClientY(event);
+    if (typeof clientY === "number") {
+      exerciseDragAutoScrollRef.current.pointerY = clientY;
+    }
+  }, []);
+
+  const tickExerciseDragAutoScroll = useCallback(() => {
+    const state = exerciseDragAutoScrollRef.current;
+    if (!state.active) {
+      state.frame = 0;
+      return;
+    }
+
+    const pointerY = state.pointerY;
+    if (typeof pointerY === "number" && typeof window !== "undefined") {
+      const target = getBuilderScrollTarget(pointerY);
+      const rect =
+        target && target !== document.scrollingElement && target !== document.documentElement
+          ? target.getBoundingClientRect()
+          : { top: 0, bottom: window.innerHeight, height: window.innerHeight };
+
+      const edge = Math.min(190, Math.max(90, rect.height * 0.24));
+      let direction = 0;
+      let intensity = 0;
+
+      if (pointerY < rect.top + edge) {
+        direction = -1;
+        intensity = (rect.top + edge - pointerY) / edge;
+      } else if (pointerY > rect.bottom - edge) {
+        direction = 1;
+        intensity = (pointerY - (rect.bottom - edge)) / edge;
+      }
+
+      if (direction) {
+        const speed = direction * Math.max(12, Math.round(Math.min(1, intensity) ** 1.45 * 58));
+        scrollBuilderTargetBy(target, speed);
+      }
+    }
+
+    state.frame = requestAnimationFrame(tickExerciseDragAutoScroll);
+  }, []);
+
+  const stopExerciseDragAutoScroll = useCallback(() => {
+    const state = exerciseDragAutoScrollRef.current;
+    state.active = false;
+    state.pointerY = null;
+    if (state.frame) {
+      cancelAnimationFrame(state.frame);
+      state.frame = 0;
+    }
+    if (typeof window !== "undefined") {
+      window.removeEventListener("pointermove", updateExerciseDragPointer);
+      window.removeEventListener("mousemove", updateExerciseDragPointer);
+      window.removeEventListener("touchmove", updateExerciseDragPointer);
+    }
+  }, [updateExerciseDragPointer]);
+
+  const startExerciseDragAutoScroll = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const state = exerciseDragAutoScrollRef.current;
+    state.active = true;
+    state.pointerY = null;
+    window.addEventListener("pointermove", updateExerciseDragPointer, { passive: true });
+    window.addEventListener("mousemove", updateExerciseDragPointer, { passive: true });
+    window.addEventListener("touchmove", updateExerciseDragPointer, { passive: true });
+    if (!state.frame) {
+      state.frame = requestAnimationFrame(tickExerciseDragAutoScroll);
+    }
+  }, [tickExerciseDragAutoScroll, updateExerciseDragPointer]);
+
+  useEffect(() => stopExerciseDragAutoScroll, [stopExerciseDragAutoScroll]);
+
   const labels = useMemo(() => {
     const res = [];
     const groups = groupLinked(visibleList);
@@ -2961,11 +3067,12 @@ export default function ProgramBuilder({
 
   const handleDragEndExercises = useCallback(
     (res) => {
+      stopExerciseDragAutoScroll();
       if (!res.destination) return;
       const secKey = sessions[activeTab]?.useSections ? currentSection : null;
       onDragEndExercises(res, activeTab, secKey);
     },
-    [sessions, activeTab, currentSection, onDragEndExercises]
+    [sessions, activeTab, currentSection, onDragEndExercises, stopExerciseDragAutoScroll]
   );
 
   const ctaSize = useBreakpointValue({ base: "sm", md: "md" });
@@ -3046,6 +3153,7 @@ export default function ProgramBuilder({
       <Flex direction="column" minH="100%" w="100%" maxW="100%">
         <Box
           as="main"
+          data-builder-main-scroll="true"
           flex="1 1 auto"
           overflowY="auto"
           overflowX="hidden"
@@ -3539,7 +3647,10 @@ export default function ProgramBuilder({
               )}
 
               <Box data-tour="builder-exercises">
-              <DragDropContext onDragEnd={handleDragEndExercises}>
+              <DragDropContext
+                onDragStart={startExerciseDragAutoScroll}
+                onDragEnd={handleDragEndExercises}
+              >
                 <Droppable
                   droppableId={`ex-${activeTab}-${
                     sessions[activeTab].useSections ? currentSection : "flat"

@@ -61,7 +61,7 @@ import ClientCreation from "./ClientCreation";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "./LanguageSwitcher";
 import useAutoRevertColorMode from "../hooks/useAutoRevertColorMode";
-import { canUseGuidedProgram, canUseNavbarBranding } from "../utils/proPlanAccess";
+import { canUseGuidedProgram, canUseNavbarBranding, hasPlanModule } from "../utils/proPlanAccess";
 
 /* ========= ROUTES ========= */
 const ROUTES = {
@@ -151,24 +151,8 @@ export default function Navbar() {
       branding: user?.branding,
     }
   );
-  const planModules = user?.proAccess?.modules || user?.modules;
-  const hasNutritionAccess = Boolean(
-    isAdmin ||
-    user?.nutritionAccess ||
-    user?.hasNutritionAccess ||
-    (Array.isArray(planModules) && planModules.includes("nutrition")) ||
-    planModules?.nutrition ||
-    user?.features?.nutrition ||
-    ["nutrition", "complete", "club"].includes(user?.packageKey)
-  );
-  const hasSportAccess = Boolean(
-    user?.sportAccess ||
-    user?.hasSportAccess ||
-    (Array.isArray(planModules) && planModules.includes("sport")) ||
-    planModules?.sport ||
-    user?.features?.sport ||
-    ["sport", "complete", "club"].includes(user?.packageKey)
-  );
+  const hasNutritionAccess = hasPlanModule(user, "nutrition");
+  const hasSportAccess = hasPlanModule(user, "sport");
   const isNutritionOnlyCoach = showCoachUI && hasNutritionAccess && !hasSportAccess;
   const isMixedCoach = showCoachUI && hasNutritionAccess && hasSportAccess;
   const customNavbarName = (

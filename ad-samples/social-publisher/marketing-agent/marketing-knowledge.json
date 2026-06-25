@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-06-23T09:35:29.619Z",
+  "updatedAt": "2026-06-25T21:31:26.709Z",
   "primaryKpi": "free_trial_starts",
   "secondaryKpi": "activation_day_7",
   "activationSignals": [
@@ -75,13 +75,13 @@
           "clientLogin": false
         },
         "clicks": 0,
-        "views": 13,
+        "views": 14,
         "watchTime": 0,
         "likes": 0,
         "comments": 0,
         "shares": 0,
         "saves": 0,
-        "reach": 9,
+        "reach": 10,
         "interactions": 0
       },
       "date": "2026-06-02"
@@ -101,13 +101,13 @@
           "clientLogin": false
         },
         "clicks": 0,
-        "views": 12,
+        "views": 13,
         "watchTime": 0,
         "likes": 0,
         "comments": 0,
         "shares": 0,
         "saves": 0,
-        "reach": 9,
+        "reach": 10,
         "interactions": 0
       },
       "date": "2026-06-04"
@@ -367,13 +367,13 @@
           "clientLogin": false
         },
         "clicks": 0,
-        "views": 9,
+        "views": 17,
         "watchTime": 0,
         "likes": 0,
         "comments": 0,
         "shares": 0,
         "saves": 0,
-        "reach": 9,
+        "reach": 12,
         "interactions": 0
       },
       "date": "2026-06-22"
@@ -386,7 +386,7 @@
       "freeTrialStarts": 0,
       "activationDay7": 0,
       "clicks": 0,
-      "views": 39,
+      "views": 48,
       "activationRate": 0,
       "trialRate": 0
     },
@@ -396,7 +396,7 @@
       "freeTrialStarts": 0,
       "activationDay7": 0,
       "clicks": 0,
-      "views": 12,
+      "views": 13,
       "activationRate": 0,
       "trialRate": 0
     },
@@ -1017,13 +1017,13 @@
             "clientLogin": false
           },
           "clicks": 0,
-          "views": 13,
+          "views": 14,
           "watchTime": 0,
           "likes": 0,
           "comments": 0,
           "shares": 0,
           "saves": 0,
-          "reach": 9,
+          "reach": 10,
           "interactions": 0
         },
         "date": "2026-06-02"
@@ -1049,13 +1049,13 @@
             "clientLogin": false
           },
           "clicks": 0,
-          "views": 12,
+          "views": 13,
           "watchTime": 0,
           "likes": 0,
           "comments": 0,
           "shares": 0,
           "saves": 0,
-          "reach": 9,
+          "reach": 10,
           "interactions": 0
         },
         "date": "2026-06-04"
@@ -1381,13 +1381,13 @@
             "clientLogin": false
           },
           "clicks": 0,
-          "views": 9,
+          "views": 17,
           "watchTime": 0,
           "likes": 0,
           "comments": 0,
           "shares": 0,
           "saves": 0,
-          "reach": 9,
+          "reach": 12,
           "interactions": 0
         },
         "date": "2026-06-22"
@@ -1416,6 +1416,13 @@
     "growthWinners": {
       "hooks": [
         {
+          "value": "Le vrai gain de temps, c'est de ne plus chercher l'info.",
+          "count": 2,
+          "score": 17,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
           "value": "Ton client ne voit pas ton admin. Il ressent ton suivi.",
           "count": 1,
           "score": 17,
@@ -1425,21 +1432,14 @@
         {
           "value": "Excel depanne. Mais ton coaching merite mieux.",
           "count": 2,
-          "score": 13,
+          "score": 14,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
           "value": "Le rendez-vous finit. Le vrai suivi commence.",
           "count": 3,
-          "score": 12,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
-          "value": "Le vrai gain de temps, c'est de ne plus chercher l'info.",
-          "count": 2,
-          "score": 9,
+          "score": 13,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
@@ -1455,21 +1455,21 @@
         {
           "value": "reel",
           "count": 2,
-          "score": 26,
+          "score": 34,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
           "value": "carousel_or_reel",
           "count": 1,
-          "score": 13,
+          "score": 14,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
           "value": "reel_solution_demo",
           "count": 1,
-          "score": 12,
+          "score": 13,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
@@ -1492,14 +1492,14 @@
         {
           "value": "Essai gratuit 14 jours",
           "count": 4,
-          "score": 30,
+          "score": 31,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
           "value": "Essai gratuit 14 jours - lien en bio",
           "count": 2,
-          "score": 21,
+          "score": 30,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
@@ -1522,21 +1522,21 @@
         {
           "value": "reel",
           "count": 2,
-          "score": 26,
+          "score": 34,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
           "value": "carousel_or_reel",
           "count": 1,
-          "score": 13,
+          "score": 14,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
           "value": "reel_solution_demo",
           "count": 1,
-          "score": 12,
+          "score": 13,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
@@ -1559,21 +1559,21 @@
         {
           "value": "monday-18h30-instagram",
           "count": 2,
-          "score": 26,
+          "score": 34,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
           "value": "tuesday-13h15-instagram",
           "count": 1,
-          "score": 13,
+          "score": 14,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
           "value": "thursday-12h30-instagram",
           "count": 1,
-          "score": 12,
+          "score": 13,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
@@ -1596,14 +1596,14 @@
         {
           "value": "soulagement",
           "count": 7,
-          "score": 38,
+          "score": 47,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
           "value": "stress",
           "count": 6,
-          "score": 13,
+          "score": 14,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
@@ -1619,14 +1619,14 @@
         {
           "value": "coachs sportifs",
           "count": 8,
-          "score": 39,
+          "score": 48,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
           "value": "nutritionnistes et dieteticiens",
           "count": 6,
-          "score": 12,
+          "score": 13,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
@@ -1700,9 +1700,9 @@
       ]
     },
     "latestReport": {
-      "id": "2026-06-23-growth-report",
-      "generatedAt": "2026-06-23T09:35:29.613Z",
-      "date": "2026-06-23",
+      "id": "2026-06-25-growth-report",
+      "generatedAt": "2026-06-25T21:31:26.706Z",
+      "date": "2026-06-25",
       "primaryKpi": "free_trial_starts",
       "secondaryKpi": "activation_day_7",
       "activationSignals": [
@@ -1714,6 +1714,13 @@
       "summary": "Optimisation orientee essais gratuits demarres puis activation J+7. Les vues, likes et commentaires restent des signaux secondaires.",
       "topHooks": [
         {
+          "value": "Le vrai gain de temps, c'est de ne plus chercher l'info.",
+          "count": 2,
+          "score": 17,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
           "value": "Ton client ne voit pas ton admin. Il ressent ton suivi.",
           "count": 1,
           "score": 17,
@@ -1723,21 +1730,14 @@
         {
           "value": "Excel depanne. Mais ton coaching merite mieux.",
           "count": 2,
-          "score": 13,
+          "score": 14,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
           "value": "Le rendez-vous finit. Le vrai suivi commence.",
           "count": 3,
-          "score": 12,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
-          "value": "Le vrai gain de temps, c'est de ne plus chercher l'info.",
-          "count": 2,
-          "score": 9,
+          "score": 13,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
@@ -1753,21 +1753,21 @@
         {
           "value": "reel",
           "count": 2,
-          "score": 26,
+          "score": 34,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
           "value": "carousel_or_reel",
           "count": 1,
-          "score": 13,
+          "score": 14,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
           "value": "reel_solution_demo",
           "count": 1,
-          "score": 12,
+          "score": 13,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
@@ -1790,14 +1790,14 @@
         {
           "value": "Essai gratuit 14 jours",
           "count": 4,
-          "score": 30,
+          "score": 31,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
           "value": "Essai gratuit 14 jours - lien en bio",
           "count": 2,
-          "score": 21,
+          "score": 30,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
@@ -1820,21 +1820,21 @@
         {
           "value": "reel",
           "count": 2,
-          "score": 26,
+          "score": 34,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
           "value": "carousel_or_reel",
           "count": 1,
-          "score": 13,
+          "score": 14,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
           "value": "reel_solution_demo",
           "count": 1,
-          "score": 12,
+          "score": 13,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
@@ -1858,21 +1858,21 @@
         {
           "value": "monday-18h30-instagram",
           "count": 2,
-          "score": 26,
+          "score": 34,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
           "value": "tuesday-13h15-instagram",
           "count": 1,
-          "score": 13,
+          "score": 14,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
           "value": "thursday-12h30-instagram",
           "count": 1,
-          "score": 12,
+          "score": 13,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
@@ -1895,14 +1895,14 @@
         {
           "value": "soulagement",
           "count": 7,
-          "score": 38,
+          "score": 47,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
           "value": "stress",
           "count": 6,
-          "score": 13,
+          "score": 14,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
@@ -1918,14 +1918,14 @@
         {
           "value": "coachs sportifs",
           "count": 8,
-          "score": 39,
+          "score": 48,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
           "value": "nutritionnistes et dieteticiens",
           "count": 6,
-          "score": 12,
+          "score": 13,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
@@ -2004,7 +2004,7 @@
           "freeTrialStarts": 0,
           "activationDay7": 0,
           "clicks": 0,
-          "views": 39,
+          "views": 48,
           "activationRate": 0,
           "trialRate": 0
         },
@@ -2014,7 +2014,7 @@
           "freeTrialStarts": 0,
           "activationDay7": 0,
           "clicks": 0,
-          "views": 12,
+          "views": 13,
           "activationRate": 0,
           "trialRate": 0
         },
@@ -2069,8 +2069,8 @@
           "platform": "instagram",
           "hook": "Excel depanne. Mais ton coaching merite mieux.",
           "audienceSegment": "coach_independant",
-          "views": 13,
-          "reach": 9,
+          "views": 14,
+          "reach": 10,
           "interactions": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0,
@@ -2086,8 +2086,8 @@
           "platform": "instagram",
           "hook": "Le rendez-vous finit. Le vrai suivi commence.",
           "audienceSegment": "nutritionniste",
-          "views": 12,
-          "reach": 9,
+          "views": 13,
+          "reach": 10,
           "interactions": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0,
@@ -2253,8 +2253,8 @@
           "platform": "instagram",
           "hook": "Le vrai gain de temps, c'est de ne plus chercher l'info.",
           "audienceSegment": "coach_independant",
-          "views": 9,
-          "reach": 9,
+          "views": 17,
+          "reach": 12,
           "interactions": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0,
@@ -2308,12 +2308,12 @@
         "temps": 0
       },
       "brandScore": {
-        "score": 63,
+        "score": 62,
         "dimensions": {
-          "premium": 61,
-          "serious": 59,
+          "premium": 60,
+          "serious": 58,
           "innovative": 58,
-          "reliable": 73
+          "reliable": 72
         }
       },
       "killSwitch": {
@@ -2324,208 +2324,92 @@
         "source": "",
         "resolvedAt": "",
         "resolvedReason": "",
-        "alertCount": 13,
+        "alertCount": 33,
         "latestAlert": {
-          "at": "2026-06-23T09:35:29.601Z",
+          "at": "2026-06-25T21:31:26.700Z",
           "reason": "meta_performance_sync_blocked",
           "severity": "warning",
           "source": "nightly_growth_report",
           "details": {
-            "failedCount": 8,
+            "failedCount": 15,
             "sampleErrors": [
-              "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-              "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-              "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-              "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-              "Unsupported get request. Object with ID '18319661620272929' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
-            ]
+              "Meta Graph GET 857477100212912: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+              "Meta Graph GET 18142983556524389: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+              "Meta Graph GET 18099111391988502: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+              "Meta Graph GET 18138591487532730: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+              "Meta Graph GET 27506921462235774: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+            ],
+            "rerunSkipped": "sandbox escalation disabled in this session"
           }
         }
       },
       "recentBlocks": [
         {
-          "reason": "daily_media_not_publishable",
-          "detail": ""
+          "network": "facebook",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
         },
         {
-          "reason": "daily_media_not_publishable",
-          "detail": ""
-        },
-        {
-          "network": "tiktok",
-          "reason": "tiktok_not_approved",
-          "detail": ""
-        },
-        {
-          "network": "tiktok",
-          "reason": "tiktok_not_approved",
-          "detail": ""
-        },
-        {
-          "reason": "daily_media_not_publishable",
-          "detail": ""
-        },
-        {
-          "reason": "daily_media_not_publishable",
-          "detail": ""
-        },
-        {
-          "reason": "daily_media_not_publishable",
-          "detail": ""
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
         },
         {
           "network": "facebook",
           "reason": "fresh_media_required",
           "detail": "daily_media_missing"
+        },
+        {
+          "network": "facebook",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "tiktok",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "facebook",
+          "reason": "creative_quality_blocked",
+          "detail": ""
         }
       ],
-      "learningEntryCount": 16
+      "learningEntryCount": 244
     }
   },
   "brand": {
     "version": "1.0.0",
-    "updatedAt": "2026-06-23T09:35:29.611Z",
-    "brandScore": 63,
+    "updatedAt": "2026-06-25T21:31:26.705Z",
+    "brandScore": 62,
     "dimensions": {
-      "premium": 61,
-      "serious": 59,
+      "premium": 60,
+      "serious": 58,
       "innovative": 58,
-      "reliable": 73
+      "reliable": 72
     },
     "signals": [
       {
-        "at": "2026-06-02T12:53:58.230Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-04T10:46:53.763Z",
-        "source": "instagram",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:33:29.503Z",
-        "source": "facebook",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:45:36.435Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T16:52:24.813Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:03:53.288Z",
-        "source": "instagram_story",
-        "audienceSegment": "salle_de_sport",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:12:53.266Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-14T18:56:31.998Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-15T10:48:02.955Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-19T07:48:25.628Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-19T16:30:58.334Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 73,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
         "at": "2026-06-01T07:17:38.044Z",
         "source": "facebook",
         "audienceSegment": "coach_independant",
@@ -2682,31 +2566,19 @@
         }
       },
       {
-        "at": "2026-06-01T07:17:38.044Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
+        "at": "2026-06-22T10:38:07.853Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
         "dimensions": {
           "premium": 55,
           "serious": 55,
           "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-01T18:07:06.698Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 66,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 76,
           "reliable": 78
         }
       },
       {
-        "at": "2026-06-02T12:53:58.230Z",
+        "at": "2026-06-22T16:31:31.098Z",
         "source": "instagram",
         "audienceSegment": "coach_independant",
         "brandScore": 55,
@@ -2715,1374 +2587,6 @@
           "serious": 55,
           "innovative": 55,
           "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-04T10:46:53.763Z",
-        "source": "instagram",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:33:29.503Z",
-        "source": "facebook",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:45:36.435Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T16:52:24.813Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:03:53.288Z",
-        "source": "instagram_story",
-        "audienceSegment": "salle_de_sport",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:12:53.266Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-14T18:56:31.998Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-15T10:48:02.955Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-19T07:48:25.628Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-19T16:30:58.334Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 73,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-01T07:17:38.044Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-01T18:07:06.698Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 66,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-02T12:53:58.230Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-04T10:46:53.763Z",
-        "source": "instagram",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:33:29.503Z",
-        "source": "facebook",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:45:36.435Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T16:52:24.813Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:03:53.288Z",
-        "source": "instagram_story",
-        "audienceSegment": "salle_de_sport",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:12:53.266Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-14T18:56:31.998Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-15T10:48:02.955Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-19T07:48:25.628Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-19T16:30:58.334Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 73,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-01T07:17:38.044Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-01T18:07:06.698Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 66,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-02T12:53:58.230Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-04T10:46:53.763Z",
-        "source": "instagram",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:33:29.503Z",
-        "source": "facebook",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:45:36.435Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T16:52:24.813Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:03:53.288Z",
-        "source": "instagram_story",
-        "audienceSegment": "salle_de_sport",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:12:53.266Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-14T18:56:31.998Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-15T10:48:02.955Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-19T07:48:25.628Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-19T16:30:58.334Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 73,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-01T07:17:38.044Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-01T18:07:06.698Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 66,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-02T12:53:58.230Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-04T10:46:53.763Z",
-        "source": "instagram",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:33:29.503Z",
-        "source": "facebook",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:45:36.435Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T16:52:24.813Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:03:53.288Z",
-        "source": "instagram_story",
-        "audienceSegment": "salle_de_sport",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:12:53.266Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-14T18:56:31.998Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-15T10:48:02.955Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-19T07:48:25.628Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-19T16:30:58.334Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 73,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-01T07:17:38.044Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-01T18:07:06.698Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 66,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-02T12:53:58.230Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-04T10:46:53.763Z",
-        "source": "instagram",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:33:29.503Z",
-        "source": "facebook",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:45:36.435Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T16:52:24.813Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:03:53.288Z",
-        "source": "instagram_story",
-        "audienceSegment": "salle_de_sport",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:12:53.266Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-14T18:56:31.998Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-15T10:48:02.955Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-19T07:48:25.628Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-19T16:30:58.334Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 73,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-01T07:17:38.044Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-01T18:07:06.698Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 66,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-02T12:53:58.230Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-04T10:46:53.763Z",
-        "source": "instagram",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:33:29.503Z",
-        "source": "facebook",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:45:36.435Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T16:52:24.813Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:03:53.288Z",
-        "source": "instagram_story",
-        "audienceSegment": "salle_de_sport",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:12:53.266Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-14T18:56:31.998Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-15T10:48:02.955Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-19T07:48:25.628Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-19T16:30:58.334Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 73,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-01T07:17:38.044Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-01T18:07:06.698Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 66,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-02T12:53:58.230Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-04T10:46:53.763Z",
-        "source": "instagram",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:33:29.503Z",
-        "source": "facebook",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:45:36.435Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T16:52:24.813Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:03:53.288Z",
-        "source": "instagram_story",
-        "audienceSegment": "salle_de_sport",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:12:53.266Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-14T18:56:31.998Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-15T10:48:02.955Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-19T07:48:25.628Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-19T16:30:58.334Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 73,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-01T07:17:38.044Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-01T18:07:06.698Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 66,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-02T12:53:58.230Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-04T10:46:53.763Z",
-        "source": "instagram",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:33:29.503Z",
-        "source": "facebook",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:45:36.435Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T16:52:24.813Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:03:53.288Z",
-        "source": "instagram_story",
-        "audienceSegment": "salle_de_sport",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:12:53.266Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-14T18:56:31.998Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-15T10:48:02.955Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-19T07:48:25.628Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-19T16:30:58.334Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 73,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-01T07:17:38.044Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-01T18:07:06.698Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 66,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-02T12:53:58.230Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-04T10:46:53.763Z",
-        "source": "instagram",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:33:29.503Z",
-        "source": "facebook",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:45:36.435Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T16:52:24.813Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:03:53.288Z",
-        "source": "instagram_story",
-        "audienceSegment": "salle_de_sport",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:12:53.266Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-14T18:56:31.998Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-15T10:48:02.955Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-19T07:48:25.628Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-19T16:30:58.334Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 73,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 55,
-          "reliable": 78
         }
       },
       {
@@ -4254,31 +2758,7 @@
         }
       },
       {
-        "at": "2026-06-01T07:17:38.044Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-01T18:07:06.698Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 66,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-02T12:53:58.230Z",
+        "at": "2026-06-22T16:31:31.098Z",
         "source": "instagram",
         "audienceSegment": "coach_independant",
         "brandScore": 55,
@@ -4287,306 +2767,6 @@
           "serious": 55,
           "innovative": 55,
           "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-04T10:46:53.763Z",
-        "source": "instagram",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:33:29.503Z",
-        "source": "facebook",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:45:36.435Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T16:52:24.813Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:03:53.288Z",
-        "source": "instagram_story",
-        "audienceSegment": "salle_de_sport",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:12:53.266Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-14T18:56:31.998Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-15T10:48:02.955Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-19T07:48:25.628Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-19T16:30:58.334Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 73,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-22T10:38:07.853Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-01T07:17:38.044Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-01T18:07:06.698Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 66,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-02T12:53:58.230Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-04T10:46:53.763Z",
-        "source": "instagram",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:33:29.503Z",
-        "source": "facebook",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:45:36.435Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T16:52:24.813Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:03:53.288Z",
-        "source": "instagram_story",
-        "audienceSegment": "salle_de_sport",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:12:53.266Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-14T18:56:31.998Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-15T10:48:02.955Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-19T07:48:25.628Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-19T16:30:58.334Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 73,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-22T10:38:07.853Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
         }
       },
       {
@@ -4758,6 +2938,18 @@
         }
       },
       {
+        "at": "2026-06-22T16:31:31.098Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
         "at": "2026-06-01T07:17:38.044Z",
         "source": "facebook",
         "audienceSegment": "coach_independant",
@@ -4926,6 +3118,18 @@
         }
       },
       {
+        "at": "2026-06-22T16:31:31.098Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
         "at": "2026-06-01T07:17:38.044Z",
         "source": "facebook",
         "audienceSegment": "coach_independant",
@@ -5091,6 +3295,1818 @@
           "serious": 55,
           "innovative": 55,
           "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T16:31:31.098Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-01T07:17:38.044Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-01T18:07:06.698Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 66,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-02T12:53:58.230Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-04T10:46:53.763Z",
+        "source": "instagram",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T07:33:29.503Z",
+        "source": "facebook",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T07:45:36.435Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 80,
+          "serious": 80,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T16:52:24.813Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-10T17:03:53.288Z",
+        "source": "instagram_story",
+        "audienceSegment": "salle_de_sport",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-10T17:12:53.266Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-14T18:56:31.998Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-15T10:48:02.955Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-19T07:48:25.628Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 80,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-19T16:30:58.334Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 73,
+        "dimensions": {
+          "premium": 80,
+          "serious": 80,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T10:38:07.853Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T16:31:31.098Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-01T07:17:38.044Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-01T18:07:06.698Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 66,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-02T12:53:58.230Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-04T10:46:53.763Z",
+        "source": "instagram",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T07:33:29.503Z",
+        "source": "facebook",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T07:45:36.435Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 80,
+          "serious": 80,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T16:52:24.813Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-10T17:03:53.288Z",
+        "source": "instagram_story",
+        "audienceSegment": "salle_de_sport",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-10T17:12:53.266Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-14T18:56:31.998Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-15T10:48:02.955Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-19T07:48:25.628Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 80,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-19T16:30:58.334Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 73,
+        "dimensions": {
+          "premium": 80,
+          "serious": 80,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T10:38:07.853Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T16:31:31.098Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-01T07:17:38.044Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-01T18:07:06.698Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 66,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-02T12:53:58.230Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-04T10:46:53.763Z",
+        "source": "instagram",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T07:33:29.503Z",
+        "source": "facebook",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T07:45:36.435Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 80,
+          "serious": 80,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T16:52:24.813Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-10T17:03:53.288Z",
+        "source": "instagram_story",
+        "audienceSegment": "salle_de_sport",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-10T17:12:53.266Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-14T18:56:31.998Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-15T10:48:02.955Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-19T07:48:25.628Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 80,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-19T16:30:58.334Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 73,
+        "dimensions": {
+          "premium": 80,
+          "serious": 80,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T10:38:07.853Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T16:31:31.098Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-01T07:17:38.044Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-01T18:07:06.698Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 66,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-02T12:53:58.230Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-04T10:46:53.763Z",
+        "source": "instagram",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T07:33:29.503Z",
+        "source": "facebook",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T07:45:36.435Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 80,
+          "serious": 80,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T16:52:24.813Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-10T17:03:53.288Z",
+        "source": "instagram_story",
+        "audienceSegment": "salle_de_sport",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-10T17:12:53.266Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-14T18:56:31.998Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-15T10:48:02.955Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-19T07:48:25.628Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 80,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-19T16:30:58.334Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 73,
+        "dimensions": {
+          "premium": 80,
+          "serious": 80,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T10:38:07.853Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T16:31:31.098Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-01T07:17:38.044Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-01T18:07:06.698Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 66,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-02T12:53:58.230Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-04T10:46:53.763Z",
+        "source": "instagram",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T07:33:29.503Z",
+        "source": "facebook",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T07:45:36.435Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 80,
+          "serious": 80,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T16:52:24.813Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-10T17:03:53.288Z",
+        "source": "instagram_story",
+        "audienceSegment": "salle_de_sport",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-10T17:12:53.266Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-14T18:56:31.998Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-15T10:48:02.955Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-19T07:48:25.628Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 80,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-19T16:30:58.334Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 73,
+        "dimensions": {
+          "premium": 80,
+          "serious": 80,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T10:38:07.853Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T16:31:31.098Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-01T07:17:38.044Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-01T18:07:06.698Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 66,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-02T12:53:58.230Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-04T10:46:53.763Z",
+        "source": "instagram",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T07:33:29.503Z",
+        "source": "facebook",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T07:45:36.435Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 80,
+          "serious": 80,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T16:52:24.813Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-10T17:03:53.288Z",
+        "source": "instagram_story",
+        "audienceSegment": "salle_de_sport",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-10T17:12:53.266Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-14T18:56:31.998Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-15T10:48:02.955Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-19T07:48:25.628Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 80,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-19T16:30:58.334Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 73,
+        "dimensions": {
+          "premium": 80,
+          "serious": 80,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T10:38:07.853Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T16:31:31.098Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-01T07:17:38.044Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-01T18:07:06.698Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 66,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-02T12:53:58.230Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-04T10:46:53.763Z",
+        "source": "instagram",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T07:33:29.503Z",
+        "source": "facebook",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T07:45:36.435Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 80,
+          "serious": 80,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T16:52:24.813Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-10T17:03:53.288Z",
+        "source": "instagram_story",
+        "audienceSegment": "salle_de_sport",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-10T17:12:53.266Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-14T18:56:31.998Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-15T10:48:02.955Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-19T07:48:25.628Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 80,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-19T16:30:58.334Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 73,
+        "dimensions": {
+          "premium": 80,
+          "serious": 80,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T10:38:07.853Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T16:31:31.098Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-01T07:17:38.044Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-01T18:07:06.698Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 66,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-02T12:53:58.230Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-04T10:46:53.763Z",
+        "source": "instagram",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T07:33:29.503Z",
+        "source": "facebook",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T07:45:36.435Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 80,
+          "serious": 80,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T16:52:24.813Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-10T17:03:53.288Z",
+        "source": "instagram_story",
+        "audienceSegment": "salle_de_sport",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-10T17:12:53.266Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-14T18:56:31.998Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-15T10:48:02.955Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-19T07:48:25.628Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 80,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-19T16:30:58.334Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 73,
+        "dimensions": {
+          "premium": 80,
+          "serious": 80,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T10:38:07.853Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T16:31:31.098Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-01T07:17:38.044Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-01T18:07:06.698Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 66,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-02T12:53:58.230Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-04T10:46:53.763Z",
+        "source": "instagram",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T07:33:29.503Z",
+        "source": "facebook",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T07:45:36.435Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 80,
+          "serious": 80,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T16:52:24.813Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-10T17:03:53.288Z",
+        "source": "instagram_story",
+        "audienceSegment": "salle_de_sport",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-10T17:12:53.266Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-14T18:56:31.998Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-15T10:48:02.955Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-19T07:48:25.628Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 80,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-19T16:30:58.334Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 73,
+        "dimensions": {
+          "premium": 80,
+          "serious": 80,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T10:38:07.853Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T16:31:31.098Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-01T07:17:38.044Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-01T18:07:06.698Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 66,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-02T12:53:58.230Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-04T10:46:53.763Z",
+        "source": "instagram",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T07:33:29.503Z",
+        "source": "facebook",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T07:45:36.435Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 80,
+          "serious": 80,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T16:52:24.813Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-10T17:03:53.288Z",
+        "source": "instagram_story",
+        "audienceSegment": "salle_de_sport",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-10T17:12:53.266Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-14T18:56:31.998Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-15T10:48:02.955Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-19T07:48:25.628Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 80,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-19T16:30:58.334Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 73,
+        "dimensions": {
+          "premium": 80,
+          "serious": 80,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T10:38:07.853Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T16:31:31.098Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
         }
       },
       {
@@ -6004,21 +6020,22 @@
       "source": "",
       "resolvedAt": "",
       "resolvedReason": "",
-      "alertCount": 13,
+      "alertCount": 33,
       "latestAlert": {
-        "at": "2026-06-23T09:35:29.601Z",
+        "at": "2026-06-25T21:31:26.700Z",
         "reason": "meta_performance_sync_blocked",
         "severity": "warning",
         "source": "nightly_growth_report",
         "details": {
-          "failedCount": 8,
+          "failedCount": 15,
           "sampleErrors": [
-            "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-            "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-            "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-            "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-            "Unsupported get request. Object with ID '18319661620272929' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
-          ]
+            "Meta Graph GET 857477100212912: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+            "Meta Graph GET 18142983556524389: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+            "Meta Graph GET 18099111391988502: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+            "Meta Graph GET 18138591487532730: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+            "Meta Graph GET 27506921462235774: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+          ],
+          "rerunSkipped": "sandbox escalation disabled in this session"
         }
       }
     }

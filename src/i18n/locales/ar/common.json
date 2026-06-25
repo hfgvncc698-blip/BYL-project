@@ -135,7 +135,9 @@
     "card_title": "برنامج بريميوم",
     "default_desc": "برنامج منظم، جاهز للبدء.",
     "previewLockedTitle": "المحتوى التفصيلي متاح بعد الشراء",
-    "previewLockedText": "سيتم فتح الإحماء والتمارين والمجموعات وأوقات الراحة والتهدئة في مساحتك بعد الشراء."
+    "previewLockedText": "سيتم فتح الإحماء والتمارين والمجموعات وأوقات الراحة والتهدئة في مساحتك بعد الشراء.",
+    "emptyTitle": "لا توجد برامج مميزة متاحة",
+    "emptyText": "عد قريبًا لاكتشاف برامج جديدة."
   },
   "home": {
     "hero_title": "عزز حياتك بالتدريب الذكي",
@@ -161,6 +163,7 @@
     "latest_programs": "أحدث البرامج",
     "col_name": "الاسم",
     "col_assigned_to": "المخصصة ل",
+    "assigned_programs_short": "المعيّنة",
     "col_created_on": "تم الإنشاء بتاريخ",
     "assign_program": "تعيين برنامج",
     "add_session": "أضف جلسة",
@@ -626,6 +629,26 @@
       "copy_error_title": "تعذر النسخ",
       "email_subject": "عيد ميلاد سعيد",
       "open_email": "فتح البريد"
+    },
+    "mobile": {
+      "today": "اليوم",
+      "no_appointment": "لا يوجد موعد",
+      "no_session": "لا توجد حصة",
+      "ready_to_plan": "كل شيء متاح لتخطيط المتابعة القادمة.",
+      "validated": "منجزة",
+      "planned": "مجدولة",
+      "week": "الأسبوع",
+      "new_followup": "متابعة جديدة",
+      "plan": "تخطيط",
+      "open_planning": "الجدول",
+      "upcoming": "القادم",
+      "open_event": "فتح الموعد",
+      "open_events": "عرض المواعيد",
+      "open_decisions": "عرض القرارات",
+      "open_nutrition": "فتح التغذية",
+      "priority": "الأولوية",
+      "recent": "الأحدث",
+      "no_recent_client": "لا توجد متابعة حديثة"
     }
   },
   "calendar": {
@@ -667,6 +690,7 @@
     "new_program": "برنامج جديد",
     "not_found": "لم يتم العثور على البرنامج",
     "subtitle": "يمكنك العثور بسرعة على جميع برامجك وتكرارها والتشاور معها.",
+    "toAssign": "بانتظار التعيين",
     "untitled": "برنامج بدون عنوان"
   },
   "exercise": {
@@ -2041,7 +2065,18 @@
     "energyQuestion": "الطاقة اليوم",
     "energyLow": "باس",
     "energyNormal": "عادي",
-    "energyHigh": "جيد"
+    "energyHigh": "جيد",
+    "pause": "إيقاف مؤقت",
+    "resume": "استئناف",
+    "restart": "إعادة البدء",
+    "settingsShort": "الإعدادات",
+    "playerSettings": "إعدادات المشغل",
+    "units": "الوحدات",
+    "unitWeight": "الوزن",
+    "unitDistance": "المسافة",
+    "unitSpeed": "السرعة",
+    "visibleParameters": "المعايير المعروضة",
+    "visibleParametersHelp": "أضف الحقول المفيدة لهذا التمرين كما في أداة البناء."
   },
   "contact": {
     "title": "الاتصال",
@@ -3467,7 +3502,57 @@
       "calendrier_personnel": "التقويم الشخصي",
       "genere_un_lien_prive_pour_synchroniser_tes_seances": "قم بإنشاء رابط خاص لمزامنة جلساتك في تطبيق التقويم الخاص بك.",
       "clique_sur_generer_pour_obtenir_ton_lien_d_abonnem": "انقر على \"إنشاء\" للحصول على رابط الاشتراك الخاص بك.",
-      "generer": "إنشاء"
+      "generer": "إنشاء",
+      "accueil": "الرئيسية",
+      "a_planifier": "للتخطيط",
+      "actif_status": "نشط",
+      "aucune_seance_planifiee": "لا توجد جلسة مخططة",
+      "bilan": "ملخص",
+      "bilan_menu_recettes_courses": "الملخص والقائمة والوصفات والمشتريات في مكان واحد",
+      "bravo_tous_tes_programmes_sont_termines": "أحسنت، لقد اكتملت كل برامجك. هذا وقت مناسب لتحليل نتائجك وبدء دورة جديدة.",
+      "calcul_en_cours": "جارٍ الحساب",
+      "chargement": "جارٍ التحميل",
+      "chargement_de_tes_programmes_et_de_ton_suivi": "جارٍ تحميل برامجك ومتابعتك...",
+      "chargement_des_seances": "جارٍ تحميل الجلسات",
+      "choisir_la_suite": "اختيار الخطوة التالية",
+      "choisir_un_programme": "اختيار برنامج",
+      "courses": "المشتريات",
+      "cycle_termine": "اكتملت الدورة",
+      "depart_propre": "بداية واضحة",
+      "entretenir": "الحفاظ",
+      "inspiration": "إلهام",
+      "lancer_la_seance": "بدء الجلسة",
+      "liste_de_courses": "قائمة التسوق",
+      "liste_partagee": "قائمة مشتركة",
+      "menu": "القائمة",
+      "menu_du_jour": "قائمة اليوم",
+      "plan_menu_et_courses": "الخطة والقائمة والمشتريات",
+      "plan_nutrition": "خطة التغذية",
+      "planifiees": "مخططة",
+      "planifier_une_seance_libre": "تخطيط جلسة حرة",
+      "preparer_les_achats": "تحضير المشتريات",
+      "pret": "جاهز",
+      "pret_pour_la_suite": "جاهز للخطوة التالية",
+      "programme_sport_nutrition_avec_kcal": "يتقدم برنامجك الرياضي ومتابعتك الغذائية معًا: مرجع اليوم {{kcal}} سعرة حرارية.",
+      "programme_sport_nutrition_ensemble": "يتقدم برنامجك الرياضي ومتابعتك الغذائية معًا.",
+      "programmes": "البرامج",
+      "progression": "التقدم",
+      "progression_globale": "التقدم العام",
+      "recuperation_de_tes_programmes": "جارٍ استرجاع برامجك...",
+      "reprendre": "استئناف",
+      "restant": "المتبقي",
+      "revoir_tes_cycles": "مراجعة دوراتك",
+      "seances_a_faire": "جلسات متبقية",
+      "seances_ce_mois_ci": "{{count}} جلسة هذا الشهر",
+      "seances_completees_count": "{{done}}/{{total}} جلسات مكتملة",
+      "seances_prevues_count": "{{count}} جلسة مخططة",
+      "seances_validees_count": "{{done}}/{{total}} جلسات مؤكدة",
+      "statistiques": "الإحصائيات",
+      "stats": "الإحصائيات",
+      "suivi_disponible": "المتابعة متاحة",
+      "synchronisation_du_suivi": "مزامنة المتابعة",
+      "ton_suivi_nutrition_est_disponible_ici": "متابعة التغذية متاحة هنا مع الوجبات والوصفات والمشتريات المشتركة.",
+      "voir_les_repas_partages": "عرض الوجبات المشتركة"
     },
     "Clients": {
       "total": "المجموع"
@@ -5523,6 +5608,15 @@
           "3": "Travailler en lien avec médecin, psychologue ou psychiatre si besoin."
         }
       }
+    },
+    "CoachMobileNav": {
+      "accueil": "الرئيسية",
+      "patients": "المرضى",
+      "clients": "العملاء",
+      "planning": "الجدول",
+      "programmes": "البرامج",
+      "stats": "الإحصاء",
+      "new_patient": "مريض جديد"
     }
   },
   "guidedTutorial": {

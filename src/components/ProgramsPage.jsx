@@ -10,6 +10,7 @@ import {
   Th,
   Td,
   Button,
+  SimpleGrid,
   useColorModeValue,
   Stack,
   IconButton,
@@ -364,6 +365,15 @@ export default function ProgramsPage() {
     );
   }, [selectedAssignedBaseProgramId, assignedClientsMap]);
 
+  const programSummary = useMemo(() => {
+    const assignedPrograms = programmes.filter((program) => (assignedCounts[program.id] || 0) > 0).length;
+    return {
+      total: programmes.length,
+      assigned: assignedPrograms,
+      unassigned: Math.max(0, programmes.length - assignedPrograms),
+    };
+  }, [assignedCounts, programmes]);
+
   const handleDelete = async (id) => {
     try {
       await deleteDoc(doc(db, "programmes", id));
@@ -500,13 +510,13 @@ export default function ProgramsPage() {
   }
 
   return (
-    <Box data-tour-page="coach-programs" minH="100vh" bg={pageBg} px={{ base: 3, md: 5 }} py={{ base: 5, md: 7 }}>
-      <Box mb={4}>
+    <Box data-tour-page="coach-programs" minH="100vh" bg={pageBg} px={{ base: 3, md: 5 }} py={{ base: 4, md: 7 }} pb={{ base: 28, md: 7 }}>
+      <Box mb={{ base: 3, md: 4 }}>
         <PageBackButton fallbackTo="/coach-dashboard" />
       </Box>
 
       <Box
-        bg={panelBg}
+        bg={{ base: theme.surfaceGlow, md: panelBg }}
         border="1px solid"
         borderColor={borderColor}
         borderRadius={{ base: "24px", md: "28px" }}
@@ -522,10 +532,10 @@ export default function ProgramsPage() {
           spacing={{ base: 4, md: 6 }}
         >
           <Box>
-            <Heading fontSize={{ base: "xl", md: "2xl" }} color={titleColor}>
+            <Heading fontSize={{ base: "2xl", md: "2xl" }} color={titleColor} letterSpacing="0">
               {t("myPrograms.titleCoach", "Mes Programmes (Coach)")}
             </Heading>
-            <Text mt={1.5} color={textMuted} fontSize="sm">
+            <Text mt={1.5} color={textMuted} fontSize={{ base: "md", md: "sm" }} fontWeight={{ base: "650", md: "normal" }}>
               {t(
                 "programs.subtitle",
                 "Retrouve, duplique et consulte rapidement tous tes programmes."
@@ -542,6 +552,40 @@ export default function ProgramsPage() {
           </Button>
         </Stack>
       </Box>
+
+      <SimpleGrid display={{ base: "grid", md: "none" }} columns={3} spacing={2} mb={4}>
+        {[
+          {
+            label: t("auto.Clients.total", "Total"),
+            value: programSummary.total,
+          },
+          {
+            label: t("dashboard.assigned_programs_short", "Assignés"),
+            value: programSummary.assigned,
+          },
+          {
+            label: t("programs.toAssign", "À assigner"),
+            value: programSummary.unassigned,
+          },
+        ].map((item) => (
+          <Box
+            key={item.label}
+            bg={theme.surfaceBgStrong}
+            border="1px solid"
+            borderColor={borderColor}
+            borderRadius="18px"
+            p={3}
+            boxShadow={softShadow}
+          >
+            <Text fontSize="10px" color={textMuted} fontWeight="900" textTransform="uppercase" noOfLines={1}>
+              {item.label}
+            </Text>
+            <Text mt={1} fontSize="2xl" fontWeight="950" lineHeight="1" color={titleColor}>
+              {item.value}
+            </Text>
+          </Box>
+        ))}
+      </SimpleGrid>
 
       {/* Modal de choix */}
       <Modal isOpen={choiceModal.isOpen} onClose={choiceModal.onClose} isCentered>
@@ -733,7 +777,7 @@ export default function ProgramsPage() {
 
       <Box
         bg={panelBg}
-        p={{ base: 4, md: 5 }}
+        p={{ base: 3, md: 5 }}
         borderRadius={{ base: "24px", md: "28px" }}
         border="1px solid"
         borderColor={borderColor}
@@ -873,15 +917,15 @@ export default function ProgramsPage() {
                 return (
                   <Box
                     key={p.id}
-                    bg={cardBg}
+                    bg={theme.surfaceBgStrong}
                     border="1px solid"
                     borderColor={borderColor}
-                    borderRadius="2xl"
+                    borderRadius="24px"
                     p={4}
-                    shadow="sm"
-                    backdropFilter="blur(12px)"
+                    boxShadow={softShadow}
+                    backdropFilter="blur(14px)"
                   >
-                    <Text fontWeight="bold" fontSize="md">
+                    <Text fontWeight="900" fontSize="lg" lineHeight="1.2">
                       {prettyProgramName(p)}
                     </Text>
 
@@ -923,7 +967,7 @@ export default function ProgramsPage() {
                       </Badge>
                     </HStack>
 
-                    <HStack spacing={2} mt={3}>
+                    <SimpleGrid columns={2} spacing={2} mt={4}>
                       <Button
                         size="sm"
                         variant="outline"
@@ -942,7 +986,9 @@ export default function ProgramsPage() {
                       >
                         {t("common.assign", "Assigner")}
                       </Button>
+                    </SimpleGrid>
 
+                    <HStack spacing={2} mt={2} justify="flex-end">
                       <IconButton
                         aria-label={t("common.duplicate", "Dupliquer")}
                         icon={<CopyIcon />}

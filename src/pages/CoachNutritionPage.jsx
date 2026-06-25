@@ -74,7 +74,7 @@ export default function CoachNutritionPage() {
   const panelProps = {
     borderWidth: "1px",
     borderColor: theme.borderColor,
-    borderRadius: "lg",
+    borderRadius: "24px",
     bg: theme.surfaceBg,
     boxShadow: "0 14px 34px rgba(15, 23, 42, 0.06)",
   };
@@ -259,9 +259,9 @@ export default function CoachNutritionPage() {
   if (loading) return <AppLoading label={t("nutritionCoach.loading", "Chargement de l’espace nutrition...")} />;
 
   return (
-    <Box data-tour-page="coach-nutrition" minH="100vh" bg={theme.pageBg} color={theme.textColor} p={{ base: 3, md: 6 }}>
+    <Box data-tour-page="coach-nutrition" minH="100vh" bg={theme.pageBg} color={theme.textColor} p={{ base: 3, md: 6 }} pb={{ base: 28, md: 6 }}>
       <Box maxW="7xl" mx="auto">
-        <Box {...panelProps} p={{ base: 4, md: 5 }} mb={4}>
+        <Box {...panelProps} bg={{ base: theme.surfaceGlow, md: theme.surfaceBg }} p={{ base: 5, md: 5 }} mb={4}>
           <HStack justify="space-between" align="start" gap={4} flexWrap="wrap">
             <Box>
               <Text fontSize="xs" fontWeight="900" letterSpacing="0.12em" color={theme.subtleText}>
@@ -269,38 +269,38 @@ export default function CoachNutritionPage() {
               </Text>
               <HStack spacing={3} align="center" mt={1}>
                 <PageBackButton fallbackTo={withAdminCoach("/coach-dashboard")} />
-                <Heading size="lg">{t("nav.nutrition", "Nutrition")}</Heading>
+                <Heading fontSize={{ base: "2xl", md: "3xl" }} letterSpacing="0">{t("nav.nutrition", "Nutrition")}</Heading>
               </HStack>
-              <Text color={theme.mutedText} mt={2}>
+              <Text color={theme.mutedText} mt={2} fontSize={{ base: "md", md: "inherit" }} fontWeight={{ base: "650", md: "normal" }}>
                 {t("nutritionCoach.subtitle", "Retrouve ici les patients qui ont déjà un suivi nutrition afin de relancer, ajuster ou ouvrir leur dossier.")}
               </Text>
             </Box>
             <HStack spacing={3} w={{ base: "full", md: "auto" }} flexWrap="wrap">
-              <Button variant="outline" borderRadius="14px" onClick={() => navigate(withAdminCoach("/clients"))}>
+              <Button w={{ base: "full", sm: "auto" }} variant="outline" borderRadius="16px" onClick={() => navigate(withAdminCoach("/clients"))}>
                 {t("nutritionCoach.openPatientFiles", "Ouvrir les fiches patients")}
               </Button>
-              <Button data-tour="nutrition-new" {...theme.primaryButtonProps} onClick={createModal.onOpen}>
+              <Button w={{ base: "full", sm: "auto" }} data-tour="nutrition-new" {...theme.primaryButtonProps} onClick={createModal.onOpen}>
                 {t("nutritionCoach.createFollowup", "Créer un suivi nutrition")}
               </Button>
             </HStack>
           </HStack>
         </Box>
 
-        <SimpleGrid data-tour="nutrition-stats" columns={{ base: 1, sm: 3 }} spacing={{ base: 2, md: 4 }} mb={4}>
-          <Box {...tileProps} p={4}>
-            <Text fontSize="xs" fontWeight="900" color={theme.subtleText}>{t("nutritionCoach.stats.patients", "PATIENTS")}</Text>
+        <SimpleGrid data-tour="nutrition-stats" columns={{ base: 3, sm: 3 }} spacing={{ base: 2, md: 4 }} mb={4}>
+          <Box {...tileProps} p={{ base: 3, md: 4 }}>
+            <Text fontSize="xs" fontWeight="900" color={theme.subtleText} noOfLines={1}>{t("nutritionCoach.stats.patients", "PATIENTS")}</Text>
             <Text mt={1} fontSize={{ base: "2xl", md: "2xl" }} fontWeight="900">{clientQuota.value}</Text>
-            <Text fontSize={{ base: "xs", md: "sm" }} color={theme.mutedText}>{clientQuota.hint}</Text>
+            <Text fontSize={{ base: "xs", md: "sm" }} color={theme.mutedText} noOfLines={{ base: 2, md: 1 }}>{clientQuota.hint}</Text>
           </Box>
-          <Box {...tileProps} p={4}>
-            <Text fontSize="xs" fontWeight="900" color={theme.subtleText}>{t("nutritionCoach.stats.assessments", "BILANS")}</Text>
+          <Box {...tileProps} p={{ base: 3, md: 4 }}>
+            <Text fontSize="xs" fontWeight="900" color={theme.subtleText} noOfLines={1}>{t("nutritionCoach.stats.assessments", "BILANS")}</Text>
             <Text mt={1} fontSize={{ base: "2xl", md: "2xl" }} fontWeight="900">{stats.totalAssessments}</Text>
-            <Text fontSize={{ base: "xs", md: "sm" }} color={theme.mutedText}>{t("nutritionCoach.stats.assessmentsHint", "historique nutrition disponible")}</Text>
+            <Text fontSize={{ base: "xs", md: "sm" }} color={theme.mutedText} noOfLines={{ base: 2, md: 1 }}>{t("nutritionCoach.stats.assessmentsHint", "historique nutrition disponible")}</Text>
           </Box>
-          <Box {...tileProps} p={4}>
-            <Text fontSize="xs" fontWeight="900" color={theme.subtleText}>{t("nutritionCoach.stats.sharedFollowup", "PARTAGÉS / À SUIVRE")}</Text>
+          <Box {...tileProps} p={{ base: 3, md: 4 }}>
+            <Text fontSize="xs" fontWeight="900" color={theme.subtleText} noOfLines={1}>{t("nutritionCoach.stats.sharedFollowup", "PARTAGÉS / À SUIVRE")}</Text>
             <Text mt={1} fontSize={{ base: "2xl", md: "2xl" }} fontWeight="900">{stats.shared} / {stats.inProgress}</Text>
-            <Text fontSize={{ base: "xs", md: "sm" }} color={theme.mutedText}>{t("nutritionCoach.stats.sharedFollowupHint", "partagés côté patient / dossiers en cours")}</Text>
+            <Text fontSize={{ base: "xs", md: "sm" }} color={theme.mutedText} noOfLines={{ base: 2, md: 1 }}>{t("nutritionCoach.stats.sharedFollowupHint", "partagés côté patient / dossiers en cours")}</Text>
           </Box>
         </SimpleGrid>
 

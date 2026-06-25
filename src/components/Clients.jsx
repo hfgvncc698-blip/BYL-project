@@ -36,8 +36,6 @@ import {
   ButtonGroup,
   FormControl,
   FormLabel,
-  Wrap,
-  WrapItem,
   Stack,
   useDisclosure,
   useToast,
@@ -68,6 +66,7 @@ import PageBackButton from "./ui/PageBackButton";
 import { apiFetch } from "../utils/api";
 import { notify } from "../utils/notify";
 import { useAppTheme } from "../styles/appTheme";
+import { hasPlanModule } from "../utils/proPlanAccess";
 
 const DAYS_ACTIVE_CUTOFF = 30;
 const SUBCOLL_PROGRAMMES = "programmes";
@@ -399,16 +398,8 @@ const Clients = () => {
   const listView = params.get("view");
   const adminCoachId = params.get("adminCoachId") || "";
   const effectiveCoachUid = isAdmin && adminCoachId ? adminCoachId : user?.uid;
-  const planModules = user?.proAccess?.modules || user?.modules;
-  const hasNutritionAccess = Boolean(isAdmin);
-  const hasSportAccess = Boolean(
-    user?.sportAccess ||
-    user?.hasSportAccess ||
-    (Array.isArray(planModules) && planModules.includes("sport")) ||
-    planModules?.sport ||
-    user?.features?.sport ||
-    ["sport", "complete", "club"].includes(user?.packageKey)
-  );
+  const hasNutritionAccess = hasPlanModule(user, "nutrition");
+  const hasSportAccess = hasPlanModule(user, "sport");
   const nutritionOnly = hasNutritionAccess && !hasSportAccess;
   const mixedNutritionView = hasNutritionAccess && hasSportAccess && listView === "nutrition";
   const sportView = hasSportAccess && listView === "sport";
@@ -458,7 +449,11 @@ const Clients = () => {
   }, []);
 
   const fetchData = useCallback(async () => {
-    if (!effectiveCoachUid) return;
+    if (!effectiveCoachUid) {
+      setClients([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
 
     try {
@@ -472,6 +467,66 @@ const Clients = () => {
         snap.docs.forEach((d) => clientById.set(d.id, { id: d.id, ...d.data() }));
       });
       let list = [...clientById.values()];
+
+      const getCachedNutritionCount = (client) => {
+        const candidates = [
+          client?.nutritionAssessmentCount,
+          client?.nutritionAssessmentsCount,
+          client?.nutritionFollowupCount,
+          client?.nutritionBilansCount,
+          client?.nbBilansNutrition,
+        ];
+        const value = candidates.map(Number).find((n) => Number.isFinite(n) && n > 0);
+        return value || 0;
+      };
+      const getCachedNutritionActivityMs = (client) =>
+        Math.max(
+          toMillis(client?.lastNutritionFollow),
+          toMillis(client?.nutritionLastFollow),
+          toMillis(client?.lastNutritionAssessmentAt),
+          toMillis(client?.nutritionUpdatedAt),
+          getCachedClientActivityMs(client),
+          0
+        );
+      const applyQuickFilter = (items) => {
+        let quickList = nutritionMode
+          ? nutritionOnly
+            ? items
+            : items.filter((c) => getCachedNutritionCount(c) > 0 || c?.hasNutritionFollowup || c?.nutritionFollowup)
+          : sportView
+            ? items.filter((c) => getCachedSportProgramCount(c) > 0)
+            : items;
+
+        if (filter === "active") {
+          quickList = quickList.filter((c) => {
+            const ms = nutritionMode ? getCachedNutritionActivityMs(c) : getCachedClientActivityMs(c);
+            return (Number(ms || 0) || 0) >= activeCutoffMs;
+          });
+        } else if (filter === "inactive") {
+          quickList = quickList.filter((c) => {
+            const ms = nutritionMode ? getCachedNutritionActivityMs(c) : getCachedClientActivityMs(c);
+            return !((Number(ms || 0) || 0) >= activeCutoffMs);
+          });
+        }
+        return quickList;
+      };
+
+      const quickProgrammeCounts = {};
+      const quickNutritionCounts = {};
+      const quickLastInteractions = {};
+      const quickNutritionLast = {};
+      list.forEach((client) => {
+        quickProgrammeCounts[client.id] = getCachedSportProgramCount(client);
+        quickNutritionCounts[client.id] = getCachedNutritionCount(client);
+        quickLastInteractions[client.id] = getCachedClientActivityMs(client);
+        quickNutritionLast[client.id] = getCachedNutritionActivityMs(client);
+      });
+      setProgrammeCountMap(quickProgrammeCounts);
+      setNutritionAssessmentCountMap(quickNutritionCounts);
+      setLastInteractionMap(quickLastInteractions);
+      setNutritionLastFollowMap(quickNutritionLast);
+      setClients(applyQuickFilter(list));
+      setLoading(false);
 
       let progs = [];
       try {
@@ -886,16 +941,25 @@ const Clients = () => {
   }
 
   return (
-    <Box data-tour-page="coach-clients" bg={bg} minH="100vh">
-      <Container maxW="7xl" py={{ base: 6, md: 10 }} px={{ base: 4, md: 6 }}>
-        <Box mb={6}>
+    <Box data-tour-page="coach-clients" bg={bg} minH="100vh" pb={{ base: 28, md: 0 }}>
+      <Container maxW="7xl" py={{ base: 4, md: 10 }} px={{ base: 3, md: 6 }}>
+        <Box
+          mb={{ base: 4, md: 6 }}
+          bg={{ base: theme.surfaceGlow, md: "transparent" }}
+          border={{ base: "1px solid", md: "0" }}
+          borderColor={{ base: borderColor, md: "transparent" }}
+          borderRadius={{ base: "28px", md: 0 }}
+          p={{ base: 5, md: 0 }}
+          boxShadow={{ base: "0 20px 52px rgba(15,23,42,0.12)", md: "none" }}
+          overflow="hidden"
+        >
           <HStack spacing={3} align="center" mb={1}>
             <PageBackButton fallbackTo={withAdminCoach("/coach-dashboard")} />
-            <Heading color={headColor}>
+            <Heading color={headColor} fontSize={{ base: "2xl", md: "3xl" }} letterSpacing="0">
               {nutritionMode ? t("clientsList.headingPatients", "Mes patients") : t("clientsList.heading")}
             </Heading>
           </HStack>
-          <Text color={subhead}>
+          <Text color={subhead} fontSize={{ base: "md", md: "inherit" }} fontWeight={{ base: "650", md: "normal" }}>
             {nutritionMode ? t("clientsList.nutritionSubtitle", "Gérez vos patients, leurs coordonnées et leurs suivis nutrition depuis un seul espace.") : t(
               "clientsList.sportOnlySubtitle",
               "Gérez vos clients sportifs, leur activité récente et leurs programmes depuis un seul espace."
@@ -908,8 +972,9 @@ const Clients = () => {
           mb={{ base: hasSearch ? 3 : 6, md: 6 }}
           p={{ base: hasSearch ? 3 : 4, md: 5 }}
           position={{ base: "sticky", md: "static" }}
-          top={{ base: 0, md: "auto" }}
+          top={{ base: 2, md: "auto" }}
           zIndex={{ base: 5, md: "auto" }}
+          borderRadius={{ base: "24px", md: "card" }}
         >
           <Flex gap={3} flexWrap="wrap" align="center">
           <Button
@@ -1160,6 +1225,8 @@ const Clients = () => {
                 const perWeek = c.__tourDemo ? 2 : sessionsPerWeekMap[c.id] ?? 0;
                 const nbProg = c.__tourDemo ? 2 : programmeCountMap[c.id] ?? 0;
                 const followKind = getFollowKind(c, nbProg);
+                const nutritionCount = Number(nutritionAssessmentCountMap[c.id] || 0) || 0;
+                const clientPath = c.__tourDemo ? undefined : `/clients/${c.id}`;
 
                 return (
                   <Box
@@ -1174,85 +1241,109 @@ const Clients = () => {
                     boxShadow="glass"
                     backdropFilter="blur(14px)"
                   >
-                    <Wrap justify="flex-end" mb={2} spacing="8px">
-                      <WrapItem>
-                        <Button
-                          data-tour={c.__tourDemo ? "clients-demo-edit" : undefined}
-                          size="sm"
-                          variant="outline"
-                          onClick={() => !c.__tourDemo && openClientForm(c)}
-                        >
-                          {t("common.edit", "Edit")}
-                        </Button>
-                      </WrapItem>
+                    <HStack justify="space-between" align="start" spacing={3}>
+                      <Box minW={0}>
+                        <Text fontWeight="900" fontSize="lg" lineHeight="1.2" noOfLines={1}>
+                          <ChakraLink as={c.__tourDemo ? "span" : Link} to={clientPath} color={headColor}>
+                            {c.prenom} {c.nom}
+                          </ChakraLink>
+                        </Text>
+                        <Text mt={1} fontSize="sm" color={muted} noOfLines={1}>
+                          {c.email || c.phone || t("clientsList.noContact", "Aucun contact renseigné")}
+                        </Text>
+                      </Box>
+                      <Badge colorScheme={isActive ? "green" : "orange"} px={2.5} py={1} borderRadius="full" flexShrink={0}>
+                        {statusText(isActive)}
+                      </Badge>
+                    </HStack>
+
+                    <HStack spacing={2} mt={3} wrap="wrap">
+                      <Badge colorScheme={followKind.colorScheme} borderRadius="full" px={2.5} py={1}>
+                        {followKind.label}
+                      </Badge>
+                    </HStack>
+
+                    <SimpleGrid columns={3} spacing={2} mt={3}>
+                      <Box bg={theme.surfaceSoft} border="1px solid" borderColor={borderColor} borderRadius="16px" p={2.5}>
+                        <Text fontSize="10px" color={muted} fontWeight="900" textTransform="uppercase" noOfLines={1}>
+                          {nutritionMode ? t("nutritionCoach.stats.assessments", "Bilans") : t("auto.CoachMobileNav.programmes", "Programmes")}
+                        </Text>
+                        <Text mt={1} fontSize="xl" fontWeight="950" lineHeight="1">
+                          {nutritionMode ? nutritionCount : nbProg}
+                        </Text>
+                      </Box>
+                      <Box bg={theme.surfaceSoft} border="1px solid" borderColor={borderColor} borderRadius="16px" p={2.5}>
+                        <Text fontSize="10px" color={muted} fontWeight="900" textTransform="uppercase" noOfLines={1}>
+                          {t("clientView.lastShort", "Dern.")}
+                        </Text>
+                        <Text mt={1} fontSize="sm" fontWeight="850" lineHeight="1.2" noOfLines={1}>
+                          {last ? last.toLocaleDateString() : "—"}
+                        </Text>
+                      </Box>
+                      <Box bg={theme.surfaceSoft} border="1px solid" borderColor={borderColor} borderRadius="16px" p={2.5}>
+                        <Text fontSize="10px" color={muted} fontWeight="900" textTransform="uppercase" noOfLines={1}>
+                          {nutritionMode ? t("dashboard.mobile.today", "Aujourd'hui") : t("clientView.percentCompleted", "% terminé")}
+                        </Text>
+                        <Text mt={1} fontSize="xl" fontWeight="950" lineHeight="1">
+                          {nutritionMode ? (isActive ? "OK" : "!") : `${progStat.percent}%`}
+                        </Text>
+                      </Box>
+                    </SimpleGrid>
+
+                    {!nutritionMode && (
+                      <Box mt={3}>
+                        <HStack justify="space-between" mb={1}>
+                          <Text fontSize="sm" color={muted}>
+                            {progStat.completed}/{progStat.total} {t("dashboard.sessions", "Séances")}
+                          </Text>
+                          <Text fontSize="sm" color={muted}>
+                            {t("clientsList.progress.perWeek", { n: perWeek })}
+                          </Text>
+                        </HStack>
+                        <Progress value={progStat.percent} size="sm" borderRadius="full" />
+                      </Box>
+                    )}
+
+                    <HStack spacing={2} mt={4}>
+                      <Button
+                        size="sm"
+                        borderRadius="full"
+                        flex="1"
+                        isDisabled={c.__tourDemo}
+                        onClick={() => clientPath && navigate(clientPath)}
+                      >
+                        {t("common.view", "Voir")}
+                      </Button>
+                      <Button
+                        data-tour={c.__tourDemo ? "clients-demo-edit" : undefined}
+                        size="sm"
+                        variant="outline"
+                        borderRadius="full"
+                        onClick={() => !c.__tourDemo && openClientForm(c)}
+                      >
+                        {t("common.edit", "Edit")}
+                      </Button>
                       {!nutritionMode && (
-                      <WrapItem>
                         <Button
                           data-tour={c.__tourDemo ? "clients-demo-assign" : undefined}
                           size="sm"
+                          borderRadius="full"
+                          flex="1"
                           onClick={() => !c.__tourDemo && openAssignModal(c.id)}
                         >
                           {t("clientsList.actions.assign")}
                         </Button>
-                      </WrapItem>
                       )}
-                      <WrapItem>
-                        <IconButton
-                          aria-label={t("clientsList.actions.deleteAria")}
-                          icon={<FiTrash2 />}
-                          size="sm"
-                          colorScheme="red"
-                          isDisabled={c.__tourDemo}
-                          onClick={() => !c.__tourDemo && openDeleteModal(c.id)}
-                        />
-                      </WrapItem>
-                    </Wrap>
-
-                    <Text fontWeight="bold" fontSize="md" noOfLines={1}>
-                      <ChakraLink as={c.__tourDemo ? "span" : Link} to={c.__tourDemo ? undefined : `/clients/${c.id}`} color={headColor}>
-                        {c.prenom} {c.nom}
-                      </ChakraLink>
-                    </Text>
-                    <Text mt={1} fontSize="sm" color={muted} noOfLines={1}>
-                      {c.email || c.phone || t("clientsList.noContact", "Aucun contact renseigné")}
-                    </Text>
-
-                    <HStack spacing={2} mt={1} mb={2} wrap="wrap">
-                      <Badge colorScheme={followKind.colorScheme} borderRadius="full" px={2.5} py={1}>
-                        {followKind.label}
-                      </Badge>
-                      {!nutritionMode && (
-                      <Badge px={2.5} py={1} borderRadius="full" bg={statBg} color={headColor}>
-                        {nbProg} {t("clientsList.badge.programsShort")}
-                      </Badge>
-                      )}
-                      <Badge colorScheme={isActive ? "green" : "orange"} px={2.5} py={1} borderRadius="full">
-                        {statusText(isActive)}
-                      </Badge>
-                      <Badge variant="subtle" colorScheme="gray" px={2.5} py={1} borderRadius="full">
-                        {last ? last.toLocaleDateString() : "N/A"}
-                      </Badge>
+                      <IconButton
+                        aria-label={t("clientsList.actions.deleteAria")}
+                        icon={<FiTrash2 />}
+                        size="sm"
+                        borderRadius="full"
+                        colorScheme="red"
+                        isDisabled={c.__tourDemo}
+                        onClick={() => !c.__tourDemo && openDeleteModal(c.id)}
+                      />
                     </HStack>
-
-                    {!nutritionMode && (
-                      <>
-                        <HStack justify="space-between" mb={1}>
-                          <Text fontSize="sm" color={muted}>
-                            {t("clientsList.progress.sessions", {
-                              done: progStat.completed,
-                              total: progStat.total,
-                            })}
-                          </Text>
-                          <Text fontSize="sm" fontWeight="semibold">
-                            {progStat.percent}%
-                          </Text>
-                        </HStack>
-                        <Progress value={progStat.percent} size="sm" borderRadius="md" />
-                        <Text mt={1} fontSize="xs" color={muted}>
-                          {t("clientsList.progress.perWeek", { n: perWeek })}
-                        </Text>
-                      </>
-                    )}
                   </Box>
                 );
               })}

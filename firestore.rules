@@ -197,6 +197,10 @@ service cloud.firestore {
       ]);
     }
 
+    function userRoleUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(["role"]);
+    }
+
     match /users/{uid} {
       allow create: if isOwnUser(uid) || isAdmin() || (
         hasCoachAccess() &&
@@ -211,7 +215,7 @@ service cloud.firestore {
       );
       allow get: if isOwnUser(uid) || isAdmin() || isCoach() || (signedIn() && resource.data.role in ["coach", "admin"]);
       allow list: if isAdmin() || isCoach();
-      allow update: if isAdmin() || (isOwnUser(uid) && userSelfProtectedFieldsUnchanged());
+      allow update: if (isAdmin() && userRoleUnchanged()) || (isOwnUser(uid) && userSelfProtectedFieldsUnchanged());
       allow delete: if isAdmin();
 
       match /privacy/{document=**} {

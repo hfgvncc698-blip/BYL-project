@@ -9,7 +9,7 @@ import {
   SimpleGrid, Icon, Tooltip, Circle, Stack, useBreakpointValue,
 } from '@chakra-ui/react';
 import { AddIcon } from '@chakra-ui/icons';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   collection, getDocs, query, where, onSnapshot,
   doc, addDoc, updateDoc, deleteDoc, Timestamp, getDoc
@@ -34,7 +34,7 @@ import { FaStar, FaRegStar } from "react-icons/fa";
 import { resolveStorageUrl } from "../utils/storageUrls";
 import { resolveClientSnapshotForUser } from "../utils/clientResolver";
 import { estimateSessionDurationSeconds } from "../utils/trainingEngine";
-import { formatProgramActiveWeeks } from "../utils/programDuration";
+import { formatProgramActiveWeeks, formatProgramWeekProgress, getProgramActiveWeeksLabel } from "../utils/programDuration";
 import { runClientDataAccessDiagnostic } from "../utils/firestoreAccessDiagnostics";
 import ClientNutritionSharedSection from "./ClientNutritionSharedSection.jsx";
 import {
@@ -163,6 +163,24 @@ function getTotalSessionsFromProgrammeDoc(p) {
   return 0;
 }
 
+function getProgrammeSessionTitle(programme, sessionIndex, t) {
+  const idx = Number(sessionIndex);
+  const safeIndex = Number.isFinite(idx) && idx >= 0 ? idx : 0;
+  const session =
+    Array.isArray(programme?.sessions) ? programme.sessions[safeIndex] :
+    Array.isArray(programme?.seances) ? programme.seances[safeIndex] :
+    null;
+  const rawTitle =
+    session?.sessionTitle ||
+    session?.title ||
+    session?.name ||
+    session?.nom ||
+    session?.titre ||
+    "";
+  const fallback = t("client_dash.session_n", "Séance {{n}}", { n: safeIndex + 1 });
+  return rawTitle ? `${fallback} · ${String(rawTitle).trim()}` : fallback;
+}
+
 const getSessionIndex = (session) => {
   const zeroBasedValue =
     session?.sessionIndex ??
@@ -182,6 +200,34 @@ const getSessionIndex = (session) => {
   }
 
   return null;
+};
+
+const isSessionValidatedRecord = (session) => {
+  if (!session) return false;
+  const status = String(session?.status || "").trim().toLowerCase();
+  if (
+    session?.isPartial === true ||
+    status === "en_cours" ||
+    status === "in_progress" ||
+    status === "partial"
+  ) {
+    return false;
+  }
+
+  const pct = Number(session?.pourcentageTermine);
+  if (Number.isFinite(pct)) return pct >= 90;
+
+  return (
+    status === "validée" ||
+    status === "validee" ||
+    status === "done" ||
+    status === "completed" ||
+    status === "terminée" ||
+    status === "terminee" ||
+    session?.validated === true ||
+    session?.isValidated === true ||
+    Boolean(session?.dateEffectuee || session?.completedAt || session?.validatedAt || session?.playedAt || session?.timestamp || session?.date)
+  );
 };
 
 const getNextSessionIndexAfterLatest = ({ totalPrevues, finishedIdx, latestSessionRecord }) => {
@@ -233,29 +279,64 @@ function getBrowserTimezone() {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris';
 }
 
+const isLikelyEmail = (value) =>
+  typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+
+const getPersonDisplayName = (source) => {
+  if (!source || typeof source !== 'object') return null;
+  const composed = [source.firstName || source.prenom, source.lastName || source.nom]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+  const candidates = [
+    composed,
+    source.displayName,
+    source.fullName,
+    source.name,
+    source.coachName,
+    source.createdByDisplayName,
+    source.createdByName,
+  ];
+
+  for (const candidate of candidates) {
+    const cleaned = String(candidate || '').trim();
+    if (cleaned && !isLikelyEmail(cleaned)) return cleaned;
+  }
+  return null;
+};
+
 async function resolveCoachDisplay(p) {
   const createdBy = p?.createdBy || p?.createdByUid || p?.coachId || '';
   if (typeof createdBy === 'string' && createdBy.toLowerCase().includes('auto')) return 'BYL';
-  if (p?.createdByName && String(p.createdByName).trim()) {
-    return String(p.createdByName).trim().split(' ')[0];
-  }
+  const programmeCoachName = getPersonDisplayName(p);
+  if (programmeCoachName) return programmeCoachName;
   if (createdBy) {
     try {
       const u = await getDoc(doc(db, 'users', createdBy));
       if (u.exists()) {
-        const d = u.data();
-        const name = d.firstName || d.prenom || d.displayName || d.name;
-        if (name) return String(name).trim().split(' ')[0];
+        const name = getPersonDisplayName(u.data());
+        if (name) return name;
       }
     } catch {}
     try {
       const c = await getDoc(doc(db, 'coachs', createdBy));
       if (c.exists()) {
-        const d = c.data();
-        const name = d.firstName || d.prenom || d.displayName || d.name;
-        if (name) return String(name).trim().split(' ')[0];
+        const name = getPersonDisplayName(c.data());
+        if (name) return name;
       }
     } catch {}
+    if (isLikelyEmail(createdBy)) {
+      try {
+        const snap = await getDocs(query(collection(db, 'users'), where('email', '==', createdBy)));
+        const name = snap.docs.map((d) => getPersonDisplayName(d.data())).find(Boolean);
+        if (name) return name;
+      } catch {}
+      try {
+        const snap = await getDocs(query(collection(db, 'coachs'), where('email', '==', createdBy)));
+        const name = snap.docs.map((d) => getPersonDisplayName(d.data())).find(Boolean);
+        if (name) return name;
+      } catch {}
+    }
   }
   return 'Coach';
 }
@@ -504,6 +585,7 @@ export default function ClientDashboard() {
     [colorMode]
   );
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
   const { firstName, logoUrl, primaryColor } = user || {};
   const [resolvedLogoUrl, setResolvedLogoUrl] = useState(null);
@@ -914,13 +996,15 @@ export default function ClientDashboard() {
             const sessionsEffectuees = sessDoneSnap.docs.map(s => {
               const sd = s.data();
               const dt =
+                sd.progressUpdatedAt?.toDate?.() ||
+                sd.updatedAt?.toDate?.() ||
                 sd.dateEffectuee?.toDate?.() ||
                 sd.completedAt?.toDate?.() ||
+                sd.validatedAt?.toDate?.() ||
                 sd.playedAt?.toDate?.() ||
                 sd.timestamp?.toDate?.() ||
                 null;
 
-              const pct = typeof sd.pourcentageTermine === 'number' ? sd.pourcentageTermine : 100;
               const idx = (typeof sd.sessionIndex === 'number') ? sd.sessionIndex : Number(sd.sessionIndex);
 
               if (dt) {
@@ -928,7 +1012,7 @@ export default function ClientDashboard() {
                 const prevLast = lastSessionMs;
                 if (ms > lastSessionMs) lastSessionMs = ms;
 
-                if (pct >= 90 && Number.isFinite(idx) && ms >= prevLast && ms === lastSessionMs) {
+                if (isSessionValidatedRecord(sd) && Number.isFinite(idx) && ms >= prevLast && ms === lastSessionMs) {
                   lastCompletedIdx = idx;
                 }
               }
@@ -959,24 +1043,12 @@ export default function ClientDashboard() {
             let done = 0;
             const finishedIdx = new Set();
             sessionsEffectuees.forEach(s => {
-              const pct = typeof s.pourcentageTermine === 'number' ? s.pourcentageTermine : 100;
-              if (pct >= 90) {
+              if (isSessionValidatedRecord(s)) {
                 done += 1;
                 const idx = getSessionIndex(s);
                 if (Number.isFinite(idx)) finishedIdx.add(idx);
               }
             });
-            if (sessionsEffectuees.length > 0 && done === 0) {
-              done = sessionsEffectuees.length;
-              sessionsEffectuees.forEach((s) => {
-                const idx = getSessionIndex(s);
-                if (Number.isFinite(idx)) finishedIdx.add(idx);
-              });
-              if (finishedIdx.size === 0) {
-                const legacyDone = totalPrevues > 0 ? Math.min(done, totalPrevues) : done;
-                for (let i = 0; i < legacyDone; i += 1) finishedIdx.add(i);
-              }
-            }
 
             const doneForProgress = totalPrevues > 0 ? Math.min(done, totalPrevues) : done;
             const percent = totalPrevues > 0 ? Math.min(100, Math.round((doneForProgress / totalPrevues) * 100)) : 0;
@@ -989,7 +1061,9 @@ export default function ClientDashboard() {
 
             const latestPct = Number(latestSessionRecord?.pourcentageTermine);
             const latestSessionIndex = getSessionIndex(latestSessionRecord);
+            const latestIsValidated = isSessionValidatedRecord(latestSessionRecord);
             const hasResumePoint =
+              !latestIsValidated &&
               Number.isFinite(latestPct) &&
               latestPct > 0 &&
               latestPct < 90 &&
@@ -998,6 +1072,13 @@ export default function ClientDashboard() {
 
             const resumeSessionIndex = hasResumePoint ? latestSessionIndex : nextIndex;
             const resumeSession = Array.isArray(p.sessions) ? p.sessions[resumeSessionIndex] : null;
+            const nextSessionLabel = getProgrammeSessionTitle(p, nextIndex, t);
+            const resumeSessionLabel = getProgrammeSessionTitle(p, resumeSessionIndex, t);
+            const freshNextSessionIndex =
+              hasResumePoint && Number.isFinite(latestSessionIndex)
+                ? Math.min(totalPrevues - 1, latestSessionIndex + 1)
+                : nextIndex;
+            const freshNextSessionLabel = getProgrammeSessionTitle(p, freshNextSessionIndex, t);
             const resumeExerciseCount = getSessionExerciseCount(resumeSession);
             const storedResumeExerciseIndex = Number(latestSessionRecord?.lastExerciseIndex);
             const storedResumeSet = Number(latestSessionRecord?.lastSet);
@@ -1052,7 +1133,11 @@ export default function ClientDashboard() {
               _percent: percent,
               _visualPercent: visualPercent,
               _nextIndex: nextIndex,
+              _nextSessionLabel: nextSessionLabel,
+              _freshNextSessionIndex: freshNextSessionIndex,
+              _freshNextSessionLabel: freshNextSessionLabel,
               _resumeSessionIndex: resumeSessionIndex,
+              _resumeSessionLabel: resumeSessionLabel,
               _resumeExerciseIndex: resumeExerciseIndex,
               _resumeSet: resumeSet,
               _resumePct: hasResumePoint ? Math.max(1, Math.min(99, Math.round(latestPct))) : null,
@@ -1239,7 +1324,9 @@ export default function ClientDashboard() {
 
   const startUpcomingSession = (p) => {
     if (!clientId || !(p?._total >= 1)) return;
-    const nextSessionIndex = Number.isFinite(Number(p?._nextIndex))
+    const nextSessionIndex = Number.isFinite(Number(p?._freshNextSessionIndex))
+      ? Number(p._freshNextSessionIndex)
+      : Number.isFinite(Number(p?._nextIndex))
       ? Number(p._nextIndex)
       : 0;
 
@@ -1253,6 +1340,24 @@ export default function ClientDashboard() {
           resumeSet: 1,
           resumeSessionIndex: nextSessionIndex,
           resumePct: null,
+        },
+      }
+    );
+  };
+
+  const replayProgramme = (p) => {
+    if (!clientId || !(p?._total >= 1)) return;
+    navigate(
+      `/clients/${clientId}/programmes/${p.id}/session/0/play`,
+      {
+        state: {
+          exerciseIndex: 0,
+          resumeExerciseIndex: 0,
+          currentSet: 1,
+          resumeSet: 1,
+          resumeSessionIndex: 0,
+          resumePct: null,
+          replayProgramme: true,
         },
       }
     );
@@ -1410,18 +1515,24 @@ export default function ClientDashboard() {
     setEventOpen(false);
   };
 
-  const pageBg = modeValue("#F5F7FB", "#070B14");
+  const pageBg = modeValue("#F5F8FF", "#070B14");
   
   const surfaceBgStrong = modeValue("rgba(255,255,255,0.95)", "rgba(11,16,27,0.95)");
   const cardBg = surfaceBgStrong;
   const textColor = modeValue("#111827", "white");
-  const headerBg = modeValue("rgba(248,250,252,0.95)", "rgba(255,255,255,0.03)");
+  const headerBg = modeValue("rgba(248,251,255,0.95)", "rgba(255,255,255,0.03)");
   const borderColor = modeValue("rgba(15,23,42,0.08)", "rgba(255,255,255,0.08)");
   const borderStrong = modeValue("rgba(15,23,42,0.12)", "rgba(255,255,255,0.12)");
   const offRangeBg = modeValue('#edf2f7','#1f2736');
-  const todayBg = modeValue('#dbeafe','#183b6b');
-  const activeBlue = "#3B82F6";
+  const todayBg = modeValue('#DBEAFE','#183B6B');
+  const activeBlue = modeValue("#2563EB", "#7CB7FF");
+  const warmAccent = modeValue("#0EA5E9", "#7DD3FC");
+  const violetAccent = modeValue("#4F46E5", "#A5B4FC");
   const isMobileDashboard = useBreakpointValue({ base: true, md: false });
+  const mobileHeroBg = modeValue(
+    "linear-gradient(145deg, #0F172A 0%, #1D4ED8 56%, #0EA5E9 135%)",
+    "linear-gradient(145deg, #020617 0%, #1E3A8A 58%, #0369A1 135%)"
+  );
 
   // ⭐ map programmeId -> difficultyMap (sessionIndex -> {rating,...})
   const difficultyByProgramme = useMemo(() => {
@@ -1521,7 +1632,7 @@ export default function ClientDashboard() {
     : "Plan, menus et courses";
 
   // ✅ motivation stats block
-  const motivationStats = useMemo(() => {
+  const rawMotivationStats = useMemo(() => {
     const now = new Date();
 
     const startOfWeek = new Date(now);
@@ -1584,6 +1695,21 @@ export default function ClientDashboard() {
     return { validatedThisWeek, validatedThisMonth, streak, upcoming, doneAll, totalAll, percentAll };
   }, [sessions, programmes, i18n.language]);
 
+  const completedPreview =
+    import.meta.env.DEV && new URLSearchParams(location.search).get("previewCompleted") === "1";
+
+  const motivationStats = useMemo(() => {
+    if (!completedPreview) return rawMotivationStats;
+    const totalAll = Math.max(rawMotivationStats.totalAll || 0, rawMotivationStats.doneAll || 0, programmes.length || 1);
+    return {
+      ...rawMotivationStats,
+      doneAll: totalAll,
+      totalAll,
+      percentAll: 100,
+      validatedThisMonth: Math.max(rawMotivationStats.validatedThisMonth || 0, totalAll),
+    };
+  }, [completedPreview, rawMotivationStats, programmes.length]);
+
   const todayOverview = useMemo(() => {
     const now = new Date();
     const startOfDay = new Date(now);
@@ -1609,7 +1735,7 @@ export default function ClientDashboard() {
     return { validated, planned, upcoming };
   }, [sessions]);
 
-  const displayedProgrammes = programmes.slice(0, isMobileDashboard ? 3 : 5);
+  const rawDisplayedProgrammes = programmes.slice(0, isMobileDashboard ? 3 : 5);
   const mutedText = modeValue("rgba(17,24,39,0.68)", "rgba(255,255,255,0.68)");
   const subtleText = modeValue("rgba(17,24,39,0.52)", "rgba(255,255,255,0.46)");
   const glassShadow = modeValue(
@@ -1624,6 +1750,31 @@ export default function ClientDashboard() {
       .map((e) => ({ ...e, _start: e.start instanceof Date ? e.start : new Date(e.start) }))
       .filter((e) => e._start && !isNaN(e._start.getTime()) && e._start.getTime() >= nowMs)
       .sort((a, b) => a._start.getTime() - b._start.getTime());
+  }, [sessions]);
+
+  const mobileCalendarDays = useMemo(() => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+
+    return Array.from({ length: 7 }, (_, index) => {
+      const day = new Date(start);
+      day.setDate(start.getDate() + index);
+      const next = new Date(day);
+      next.setDate(day.getDate() + 1);
+
+      const daySessions = sessions.filter((session) => {
+        if (!session?.start) return false;
+        const date = session.start instanceof Date ? session.start : new Date(session.start);
+        return date >= day && date < next;
+      });
+
+      return {
+        key: formatLocalDateKey(day),
+        date: day,
+        planned: daySessions.filter((session) => session.status !== 'validée' && session.status !== 'manquée').length,
+        done: daySessions.filter((session) => session.status === 'validée').length,
+      };
+    });
   }, [sessions]);
 
   const remainingSessions = Math.max(0, motivationStats.totalAll - motivationStats.doneAll);
@@ -1641,7 +1792,7 @@ export default function ClientDashboard() {
     programmes.length > 0 &&
     motivationStats.totalAll > 0 &&
     motivationStats.percentAll >= 100;
-  const allProgramsCompleted = allProgramsDone && cycleDurationDays >= 28;
+  const allProgramsCompleted = completedPreview || (allProgramsDone && cycleDurationDays >= 28);
 
   const isProgrammeCompleted = (p) =>
     (Number(p?._total) || 0) > 0 && (Number(p?._done) || 0) >= (Number(p?._total) || 0);
@@ -1652,6 +1803,19 @@ export default function ClientDashboard() {
     const endMs = p?._lastSessionMs || 0;
     return !!startMs && !!endMs && endMs >= startMs && (endMs - startMs) >= 28 * 24 * 60 * 60 * 1000;
   };
+
+  const displayedProgrammes = completedPreview
+    ? rawDisplayedProgrammes.map((p) => {
+        const total = Math.max(Number(p?._total) || 0, Number(p?._done) || 0, p?.sessions?.length || 0, 1);
+        return {
+          ...p,
+          _done: total,
+          _total: total,
+          _percent: 100,
+          _visualPercent: 100,
+        };
+      })
+    : rawDisplayedProgrammes;
 
   const motivationalText = sportDataPending
     ? t("auto.Clientdashboard.chargement_de_tes_programmes_et_de_ton_suivi", "Chargement de tes programmes et de ton suivi...")
@@ -1678,6 +1842,8 @@ export default function ClientDashboard() {
   const focusProgramme = useMemo(() => {
     if (!programmes.length) return null;
     return [...programmes].sort((a, b) => {
+      if (a?._hasResumePoint && !b?._hasResumePoint) return -1;
+      if (b?._hasResumePoint && !a?._hasResumePoint) return 1;
       const aOpen = Math.max(0, (Number(a?._total) || 0) - (Number(a?._done) || 0));
       const bOpen = Math.max(0, (Number(b?._total) || 0) - (Number(b?._done) || 0));
       if (aOpen === 0 && bOpen > 0) return 1;
@@ -1696,6 +1862,57 @@ export default function ClientDashboard() {
       })
     : 'Aucune séance planifiée';
 
+  const primaryTodayIcon = allProgramsCompleted
+    ? MdOutlineStars
+    : hasSportPrograms
+      ? MdOutlinePlayCircle
+      : MdOutlineRestaurantMenu;
+  const primaryTodayTitle = sportDataPending
+    ? t("common.loading", "Chargement")
+    : allProgramsCompleted
+      ? t("auto.Clientdashboard.nouveau_cycle", "Nouveau cycle")
+      : hasSportPrograms
+        ? (focusProgramme?._hasResumePoint
+            ? t("auto.Clientdashboard.reprendre", "Reprendre")
+            : Number(focusProgramme?._done || 0) > 0
+              ? t("auto.Clientdashboard.seance_suivante", "Séance suivante")
+              : t("auto.Clientdashboard.lancer_la_seance", "Lancer la séance"))
+        : t("auto.Clientdashboard.ouvrir_la_nutrition", "Ouvrir la nutrition");
+  const primaryTodayHelper = sportDataPending
+    ? t("auto.Clientdashboard.synchronisation_du_suivi", "Synchronisation du suivi")
+    : allProgramsCompleted
+      ? t("auto.Clientdashboard.choisir_la_suite", "Choisir la suite")
+      : hasSportPrograms
+        ? (focusProgramme
+            ? `${getProgrammeDisplayName(focusProgramme)} · ${
+                focusProgramme._hasResumePoint
+                  ? focusProgramme._resumeSessionLabel || getProgrammeSessionTitle(focusProgramme, focusProgramme._resumeSessionIndex, t)
+                  : focusProgramme._nextSessionLabel || getProgrammeSessionTitle(focusProgramme, focusProgramme._nextIndex, t)
+              }`
+            : t("auto.Clientdashboard.choisir_un_programme", "Choisir un programme"))
+        : nutritionHeroHelper;
+  const primaryTodayDurationLabel =
+    !sportDataPending && hasSportPrograms && focusProgramme ? formatProgramActiveWeeks(focusProgramme, t) : "";
+  const primaryTodayWeekLabel =
+    !sportDataPending && hasSportPrograms && focusProgramme
+      ? formatProgramWeekProgress(focusProgramme, t, { includeInitialWeek: true })
+      : "";
+  const canStartFreshNextSession =
+    Boolean(focusProgramme?._hasResumePoint) &&
+    Number.isFinite(Number(focusProgramme?._freshNextSessionIndex)) &&
+    Number(focusProgramme._freshNextSessionIndex) !== Number(focusProgramme?._resumeSessionIndex);
+  const handlePrimaryTodayAction = () => {
+    if (allProgramsCompleted) {
+      navigate('/programmes-premium');
+      return;
+    }
+    if (hasSportPrograms) {
+      if (focusProgramme) startNextSession(focusProgramme);
+      else navigate('/mes-programmes');
+      return;
+    }
+    navigate('/nutrition');
+  };
   const ClientStatTile = ({ label, value, helper, icon, accent = activeBlue, action = null }) => (
     <Box
       bg={modeValue("rgba(255,255,255,0.78)", "rgba(255,255,255,0.045)")}
@@ -1730,9 +1947,9 @@ export default function ClientDashboard() {
 
         <Circle
           size="46px"
-          bg={modeValue("rgba(59,130,246,0.10)", "rgba(59,130,246,0.16)")}
+          bg={`${accent}18`}
           border="1px solid"
-          borderColor={`${activeBlue}33`}
+          borderColor={`${accent}33`}
           color={accent}
           flexShrink={0}
         >
@@ -1747,6 +1964,8 @@ export default function ClientDashboard() {
       bg={surfaceBgStrong}
       border="1px solid"
       borderColor={borderColor}
+      borderTop="3px solid"
+      borderTopColor={accent}
       borderRadius="20px"
       p={{ base: 3.5, md: 4 }}
       boxShadow={glassShadow}
@@ -1787,9 +2006,9 @@ export default function ClientDashboard() {
 
   const DashboardAction = ({ icon, title, helper, onClick, variant = "solid", isDisabled = false }) => {
     const isSolid = variant === "solid";
-    const solidBg = modeValue(textColor, "rgba(37,99,235,0.18)");
-    const solidHoverBg = modeValue("#1F2937", "rgba(37,99,235,0.26)");
-    const solidBorder = modeValue(textColor, "rgba(96,165,250,0.45)");
+    const solidBg = modeValue(activeBlue, "rgba(124,183,255,0.18)");
+    const solidHoverBg = modeValue("#1D4ED8", "rgba(124,183,255,0.26)");
+    const solidBorder = modeValue(activeBlue, "rgba(124,183,255,0.45)");
     return (
       <Button
         h="auto"
@@ -1805,8 +2024,8 @@ export default function ClientDashboard() {
         leftIcon={
           <Circle
             size="34px"
-            bg={isSolid ? modeValue("rgba(255,255,255,0.18)", "rgba(96,165,250,0.18)") : modeValue("rgba(59,130,246,0.10)", "rgba(96,165,250,0.12)")}
-            color={isSolid ? modeValue("white", "#93C5FD") : activeBlue}
+            bg={isSolid ? modeValue("rgba(255,255,255,0.18)", "rgba(124,183,255,0.18)") : `${activeBlue}18`}
+            color={isSolid ? modeValue("white", activeBlue) : activeBlue}
             flexShrink={0}
           >
             <Icon as={icon} boxSize="18px" />
@@ -1956,7 +2175,194 @@ export default function ClientDashboard() {
                     <Text mt={{ base: 2, md: 2.5 }} fontSize={{ base: 'sm', md: 'lg' }} color={mutedText} fontWeight="650" lineHeight="1.45" maxW="760px">
                       {motivationalText}
                     </Text>
-                    <SimpleGrid columns={{ base: 1, sm: 2, lg: hasMixedFollowUp ? 5 : 4 }} spacing={2.5} mt={4} maxW={hasMixedFollowUp ? "1120px" : "980px"}>
+
+                    <Box display={{ base: "block", md: "none" }} mt={4}>
+                      <Box
+                        bg={mobileHeroBg}
+                        color="white"
+                        borderRadius="24px"
+                        p={4}
+                        boxShadow={modeValue("0 18px 44px rgba(29,78,216,0.22)", "0 18px 46px rgba(0,0,0,0.42)")}
+                      >
+                        <HStack justify="space-between" align="flex-start" spacing={3}>
+                          <Box minW={0}>
+                            <Text fontSize="xs" fontWeight="900" textTransform="uppercase" color="whiteAlpha.760">
+                              {t("calendar.today", "Aujourd'hui")}
+                            </Text>
+                            <Heading mt={1.5} size="md" lineHeight="1.08" noOfLines={2}>
+                              {primaryTodayTitle}
+                            </Heading>
+                            <Text mt={2} fontSize="sm" color="whiteAlpha.820" fontWeight="650" noOfLines={2}>
+                              {primaryTodayHelper}
+                            </Text>
+                            {(primaryTodayDurationLabel || primaryTodayWeekLabel) && (
+                              <HStack mt={3} spacing={2} flexWrap="wrap">
+                                {primaryTodayDurationLabel ? (
+                                  <Badge
+                                    bg="whiteAlpha.220"
+                                    color="white"
+                                    borderRadius="full"
+                                    px={2.5}
+                                    py={1}
+                                    textTransform="none"
+                                  >
+                                    {getProgramActiveWeeksLabel(t)} : {primaryTodayDurationLabel}
+                                  </Badge>
+                                ) : null}
+                                {primaryTodayWeekLabel ? (
+                                  <Badge
+                                    bg="whiteAlpha.220"
+                                    color="white"
+                                    borderRadius="full"
+                                    px={2.5}
+                                    py={1}
+                                    textTransform="none"
+                                  >
+                                    {primaryTodayWeekLabel}
+                                  </Badge>
+                                ) : null}
+                              </HStack>
+                            )}
+                          </Box>
+                          <Circle size="48px" bg="whiteAlpha.220" color="white" flexShrink={0}>
+                            <Icon as={primaryTodayIcon} boxSize="24px" />
+                          </Circle>
+                        </HStack>
+
+                        <Stack mt={4} spacing={2}>
+                          {canStartFreshNextSession ? (
+                            <>
+                              <Button
+                                w="full"
+                                h="48px"
+                                borderRadius="16px"
+                                bg="white"
+                                color="#0F172A"
+                                fontWeight="900"
+                                leftIcon={<Icon as={MdOutlineFitnessCenter} />}
+                                onClick={() => startUpcomingSession(focusProgramme)}
+                                isDisabled={!focusProgramme._total}
+                                _hover={{ bg: "whiteAlpha.900" }}
+                                _active={{ bg: "whiteAlpha.800" }}
+                              >
+                                {focusProgramme?._freshNextSessionLabel || t("auto.Clientdashboard.seance_suivante", "Séance suivante")}
+                              </Button>
+                              <Button
+                                w="full"
+                                h="42px"
+                                borderRadius="14px"
+                                variant="outline"
+                                borderColor="whiteAlpha.420"
+                                color="white"
+                                bg="whiteAlpha.120"
+                                fontWeight="850"
+                                leftIcon={<Icon as={primaryTodayIcon} />}
+                                onClick={handlePrimaryTodayAction}
+                                isDisabled={sportDataPending || (!allProgramsCompleted && hasSportPrograms && !focusProgramme && !programmes.length)}
+                                _hover={{ bg: "whiteAlpha.220" }}
+                                _active={{ bg: "whiteAlpha.260" }}
+                              >
+                                {primaryTodayTitle}
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              w="full"
+                              h="48px"
+                              borderRadius="16px"
+                              bg="white"
+                              color="#0F172A"
+                              fontWeight="900"
+                              leftIcon={<Icon as={primaryTodayIcon} />}
+                              onClick={handlePrimaryTodayAction}
+                              isDisabled={sportDataPending || (!allProgramsCompleted && hasSportPrograms && !focusProgramme && !programmes.length)}
+                              _hover={{ bg: "whiteAlpha.900" }}
+                              _active={{ bg: "whiteAlpha.800" }}
+                            >
+                              {primaryTodayTitle}
+                            </Button>
+                          )}
+                        </Stack>
+
+                        <SimpleGrid columns={3} spacing={2.5} mt={4}>
+                          <Box>
+                            <Text fontSize="xs" color="whiteAlpha.680" fontWeight="800">
+                              {t("auto.Clientdashboard.progression", "Progression")}
+                            </Text>
+                            <Text mt={1} fontSize="lg" fontWeight="900" lineHeight="1">
+                              {sportDataPending ? "..." : hasSportPrograms ? `${motivationStats.percentAll}%` : t("auto.Clientdashboard.actif_status", "Actif")}
+                            </Text>
+                          </Box>
+                          <Box>
+                            <Text fontSize="xs" color="whiteAlpha.680" fontWeight="800">
+                              {t("auto.Clientdashboard.planifiees", "Planifiées")}
+                            </Text>
+                            <Text mt={1} fontSize="lg" fontWeight="900" lineHeight="1">
+                              {sportDataPending ? "..." : hasSportPrograms ? todayOverview.planned : "OK"}
+                            </Text>
+                          </Box>
+                          <Box>
+                            <Text fontSize="xs" color="whiteAlpha.680" fontWeight="800">
+                              {hasSportPrograms ? t("auto.Clientdashboard.restant", "Restant") : t("nutrition.title", "Nutrition")}
+                            </Text>
+                            <Text mt={1} fontSize="lg" fontWeight="900" lineHeight="1">
+                              {sportDataPending ? "..." : hasSportPrograms ? remainingSessions : (nutritionSummary?.kcal ? Math.round(Number(nutritionSummary.kcal)) : "OK")}
+                            </Text>
+                          </Box>
+                        </SimpleGrid>
+                      </Box>
+
+                      <SimpleGrid columns={hasSportPrograms && hasNutritionFollowUp ? 2 : 3} spacing={2.5} mt={3}>
+                        {hasSportPrograms ? (
+                          <Button
+                            h="54px"
+                            borderRadius="18px"
+                            variant="outline"
+                            leftIcon={<Icon as={MdOutlineFitnessCenter} />}
+                            onClick={() => navigate('/mes-programmes')}
+                            isDisabled={sportDataPending}
+                            fontSize="xs"
+                          >
+                            {t("auto.Clientdashboard.programmes", "Programmes")}
+                          </Button>
+                        ) : null}
+                        {hasNutritionFollowUp ? (
+                          <Button
+                            h="54px"
+                            borderRadius="18px"
+                            variant="outline"
+                            leftIcon={<Icon as={MdOutlineRestaurantMenu} />}
+                            onClick={() => navigate('/nutrition')}
+                            fontSize="xs"
+                          >
+                            {t("nutrition.title", "Nutrition")}
+                          </Button>
+                        ) : null}
+                        <Button
+                          h="54px"
+                          borderRadius="18px"
+                          variant="outline"
+                          leftIcon={<Icon as={MdOutlineInsights} />}
+                          onClick={() => navigate(hasSportPrograms ? '/statistiques' : '/nutrition?tab=menu')}
+                          fontSize="xs"
+                        >
+                          {hasSportPrograms ? t("auto.Clientdashboard.stats", "Stats") : t("auto.Clientdashboard.menu", "Menu")}
+                        </Button>
+                        <Button
+                          h="54px"
+                          borderRadius="18px"
+                          variant="outline"
+                          leftIcon={<Icon as={MdOutlineCalendarMonth} />}
+                          onClick={hasSportPrograms ? () => setAddOpen(true) : handleOpenCalendarLinkModal}
+                          isLoading={!hasSportPrograms && calendarLinkLoading}
+                          fontSize="xs"
+                        >
+                          {hasSportPrograms ? t("auto.Clientdashboard.planifier", "Planifier") : t("calendar.title", "Calendrier")}
+                        </Button>
+                      </SimpleGrid>
+                    </Box>
+
+                    <SimpleGrid display={{ base: "none", md: "grid" }} columns={{ base: 1, sm: 2, lg: hasMixedFollowUp ? 5 : 4 }} spacing={2.5} mt={4} maxW={hasMixedFollowUp ? "1120px" : "980px"}>
                       <DashboardAction
                         icon={allProgramsCompleted ? MdOutlineStars : hasSportPrograms ? MdOutlinePlayCircle : MdOutlineRestaurantMenu}
                         title={
@@ -1977,6 +2383,7 @@ export default function ClientDashboard() {
                             ? (focusProgramme ? getProgrammeDisplayName(focusProgramme) : t("auto.Clientdashboard.choisir_un_programme", "Choisir un programme"))
                             : t("auto.Clientdashboard.plan_menu_et_courses", "Plan, menu et courses")
                         }
+                        variant={focusProgramme?._hasResumePoint ? "outline" : "solid"}
                         onClick={() => allProgramsCompleted ? navigate('/programmes-premium') : hasSportPrograms ? (focusProgramme ? startNextSession(focusProgramme) : navigate('/mes-programmes')) : navigate('/nutrition')}
                         isDisabled={sportDataPending || (!allProgramsCompleted && hasSportPrograms && !focusProgramme && !programmes.length)}
                       />
@@ -1985,7 +2392,7 @@ export default function ClientDashboard() {
                           icon={MdOutlineFitnessCenter}
                           title={sportDataPending ? t("auto.Clientdashboard.seance_suivante", "Séance suivante") : allProgramsCompleted ? t("auto.Clientdashboard.entretenir", "Entretenir") : t("auto.Clientdashboard.seance_suivante", "Séance suivante")}
                           helper={sportDataPending ? t("common.loading", "Chargement") : allProgramsCompleted ? t("auto.Clientdashboard.planifier_une_seance_libre", "Planifier une séance libre") : focusProgramme ? t("auto.Clientdashboard.depart_propre", "Départ propre") : t("auto.Clientdashboard.choisir_un_programme", "Choisir un programme")}
-                          variant="outline"
+                          variant={focusProgramme?._hasResumePoint ? "solid" : "outline"}
                           onClick={() => allProgramsCompleted ? setAddOpen(true) : focusProgramme ? startUpcomingSession(focusProgramme) : navigate('/mes-programmes')}
                           isDisabled={sportDataPending || (!allProgramsCompleted && !focusProgramme && !programmes.length)}
                         />
@@ -2026,6 +2433,7 @@ export default function ClientDashboard() {
                 align="stretch"
                 minW={{ base: "100%", xl: "360px" }}
                 flexShrink={0}
+                display={{ base: "none", md: "flex" }}
               >
                 <Box
                   as="button"
@@ -2051,7 +2459,7 @@ export default function ClientDashboard() {
                         {sportDataPending ? "..." : hasSportPrograms ? `${motivationStats.percentAll}%` : t("auto.Clientdashboard.actif_status", "Actif")}
                       </Text>
                     </Box>
-                    <Circle size="58px" bg={modeValue("rgba(59,130,246,0.10)", "rgba(59,130,246,0.14)")} color={activeBlue}>
+                    <Circle size="58px" bg={`${activeBlue}18`} color={activeBlue}>
                       <Icon as={allProgramsCompleted ? MdOutlineStars : hasSportPrograms ? MdOutlineFlag : MdOutlineRestaurantMenu} boxSize="26px" />
                     </Circle>
                   </HStack>
@@ -2132,12 +2540,12 @@ export default function ClientDashboard() {
         />
       ) : null}
 
-      <Box display={{ base: "block", md: "none" }} mb={5}>
+      <Box display={{ base: "none", md: "none" }} mb={5}>
         <ClientCardShell
           title={t("sessionPlayer.shortcuts", "Raccourcis")}
           subtitle={t("auto.Clientdashboard.les_actions_utiles_sans_chercher", "Les actions utiles sans chercher.")}
           icon={MdOutlineChecklist}
-          accent={hasNutritionFollowUp ? "#10B981" : activeBlue}
+          accent={hasNutritionFollowUp ? activeBlue : activeBlue}
         >
           <SimpleGrid columns={1} spacing={2.5}>
             {showSportSections ? (
@@ -2188,7 +2596,7 @@ export default function ClientDashboard() {
               : t("auto.Clientdashboard.a_connecter", "À connecter")}
             helper={t("auto.Clientdashboard.retrouver_les_rendez_vous_nutrition_dans_ton_agend", "Retrouver les rendez-vous nutrition dans ton agenda personnel")}
             icon={MdOutlineCalendarMonth}
-            accent="#60A5FA"
+            accent={warmAccent}
             action={
               <Button
                 size="sm"
@@ -2213,7 +2621,7 @@ export default function ClientDashboard() {
           value={upcomingSessions.length}
           helper={upcomingSessions.length ? 'déjà planifiées dans ton calendrier' : 'aucune séance planifiée'}
           icon={MdOutlineCalendarMonth}
-          accent="#60A5FA"
+          accent={warmAccent}
           action={
             !calendarConnectedOnce ? (
               <Button
@@ -2232,18 +2640,18 @@ export default function ClientDashboard() {
           value={motivationStats.validatedThisMonth}
           helper={t("auto.Clientdashboard.seances_terminees", "séances terminées")}
           icon={MdOutlineSchedule}
-          accent="#10B981"
+          accent={activeBlue}
         />
         <ClientStatTile
           label={t("auto.Clientdashboard.ressenti_moyen", "Ressenti moyen")}
           value={averageRating ? `${averageRating}/5` : '—'}
           helper={averageRating ? 'sur tes dernières notes de difficulté' : 'pas encore assez de retours'}
           icon={MdOutlineStars}
-          accent="#8B5CF6"
+          accent={violetAccent}
         />
       </SimpleGrid>
 
-      <SimpleGrid display={{ base: showSportSections ? "grid" : "none", md: showSportSections ? "grid" : "none" }} columns={{ base: 1, xl: 12 }} spacing={5} mb={5}>
+      <SimpleGrid display={{ base: "none", md: showSportSections ? "grid" : "none" }} columns={{ base: 1, xl: 12 }} spacing={5} mb={5}>
         <Box gridColumn={{ base: 'span 1', xl: 'span 4' }}>
           <ClientCardShell
             title={t("auto.Clientdashboard.rythme_actuel", "Rythme actuel")}
@@ -2257,21 +2665,21 @@ export default function ClientDashboard() {
               value={motivationStats.validatedThisWeek}
               helper={t("auto.Clientdashboard.seances_validees", "séances validées")}
               icon={MdOutlineChecklist}
-              accent="#10B981"
+              accent={activeBlue}
             />
             <MetricLine
               label={t("auto.Clientdashboard.regularite", "Régularité")}
               value={motivationStats.streak > 0 ? `${motivationStats.streak}j` : '—'}
               helper={motivationStats.streak > 0 ? "série en cours" : "à relancer tranquillement"}
               icon={MdOutlineTrendingUp}
-              accent="#3B82F6"
+              accent={activeBlue}
             />
             <MetricLine
               label={t("auto.Clientdashboard.ressenti", "Ressenti")}
               value={averageRating ? `${averageRating}/5` : '—'}
               helper={averageRating ? "difficulté moyenne" : "pas encore assez de notes"}
               icon={MdOutlineStars}
-              accent="#8B5CF6"
+              accent={violetAccent}
             />
           </ClientCardShell>
         </Box>
@@ -2282,7 +2690,7 @@ export default function ClientDashboard() {
             subtitle={allProgramsCompleted ? "Le cycle est terminé, on passe au bilan puis à la suite." : "Une seule décision claire pour continuer."}
             icon={allProgramsCompleted ? MdOutlineStars : MdOutlineFitnessCenter}
             minH="100%"
-            accent="#8B5CF6"
+            accent={violetAccent}
           >
             {allProgramsCompleted ? (
               <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={5}>
@@ -2297,14 +2705,14 @@ export default function ClientDashboard() {
                     value={motivationStats.doneAll}
                     helper={`${programmes.length} programme${programmes.length > 1 ? 's' : ''} terminé${programmes.length > 1 ? 's' : ''}`}
                     icon={MdOutlineChecklist}
-                    accent="#10B981"
+                    accent={activeBlue}
                   />
                   <MetricLine
                     label={t("auto.Clientdashboard.ce_mois_ci", "Ce mois-ci")}
                     value={motivationStats.validatedThisMonth}
                     helper={t("auto.Clientdashboard.seances_terminees_recemment", "séances terminées récemment")}
                     icon={MdOutlineSchedule}
-                    accent="#3B82F6"
+                    accent={activeBlue}
                   />
                   <Stack mt={4} direction={{ base: 'column', sm: 'row' }} spacing={3}>
                     <Button flex="1" onClick={() => navigate('/statistiques')}>{t("auto.Clientdashboard.voir_le_bilan", "Voir le bilan")}</Button>
@@ -2318,7 +2726,8 @@ export default function ClientDashboard() {
                   <Text fontSize="lg" fontWeight="800" letterSpacing="0">
                     {getProgrammeDisplayName(focusProgramme)}
                   </Text>
-                  <Text mt={1} fontSize="sm" color={mutedText}>{t("auto.Clientdashboard.par", "Par")}{focusProgramme.createdByName}
+                  <Text mt={1} fontSize="sm" color={mutedText}>
+                    {t("auto.Clientdashboard.par", "Par")} {focusProgramme.createdByName}
                   </Text>
                   <HStack mt={4} spacing={3} flexWrap="wrap">
                     <Badge px={3} py={1.5} borderRadius="full" variant="subtle">
@@ -2342,15 +2751,20 @@ export default function ClientDashboard() {
                     <Text mt={2} fontSize="sm" color={subtleText}>{t("auto.Clientdashboard.progression_estimee_coherente_avec_une_reprise_ver", "Progression estimée cohérente avec une reprise vers")}{focusProgramme._resumePct}{t("auto.Clientdashboard.de_la_seance_en_cours", "% de la séance en cours.")}</Text>
                   ) : null}
                   <Stack mt={4} direction={{ base: 'column', md: 'row' }} spacing={3}>
-                    <Button flex="1" onClick={() => startNextSession(focusProgramme)} isDisabled={!focusProgramme._total}>
-                      {focusProgramme._hasResumePoint ? "Reprendre au bon endroit" : "Reprendre"}
-                    </Button>
                     <Button
                       flex="1"
-                      variant="outline"
+                      variant={focusProgramme._hasResumePoint ? "solid" : "outline"}
                       onClick={() => startUpcomingSession(focusProgramme)}
                       isDisabled={!focusProgramme._total}
                     >{t("auto.Clientdashboard.seance_suivante", "Séance suivante")}</Button>
+                    <Button
+                      flex="1"
+                      variant={focusProgramme._hasResumePoint ? "outline" : "solid"}
+                      onClick={() => startNextSession(focusProgramme)}
+                      isDisabled={!focusProgramme._total}
+                    >
+                      {focusProgramme._hasResumePoint ? "Reprendre au bon endroit" : "Reprendre"}
+                    </Button>
                     <Button
                       flex="1"
                       variant="outline"
@@ -2366,14 +2780,14 @@ export default function ClientDashboard() {
         </Box>
       </SimpleGrid>
 
-      <SimpleGrid display={{ base: showSportSections ? "grid" : "none", md: showSportSections ? "grid" : "none" }} columns={{ base: 1, xl: 12 }} spacing={5} mb={5}>
+      <SimpleGrid display={{ base: "none", md: showSportSections ? "grid" : "none" }} columns={{ base: 1, xl: 12 }} spacing={5} mb={5}>
         <Box gridColumn={{ base: 'span 1', xl: 'span 8' }}>
           <ClientCardShell
             title={allProgramsCompleted ? "Après la réussite" : "Actions utiles"}
             subtitle={allProgramsCompleted ? "Des suites logiques plutôt qu'une séance de plus." : "Des raccourcis concrets, sans surcharge."}
             icon={MdOutlineChecklist}
             minH="100%"
-            accent="#10B981"
+            accent={activeBlue}
           >
             <ActionLine
               label={allProgramsCompleted ? "Bilan" : "Prochaine séance"}
@@ -2382,7 +2796,7 @@ export default function ClientDashboard() {
               icon={allProgramsCompleted ? MdOutlineInsights : MdOutlineCalendarMonth}
               buttonLabel={allProgramsCompleted ? "Ouvrir" : motivationStats.upcoming ? "Ouvrir" : "Planifier"}
               onClick={allProgramsCompleted ? () => navigate('/statistiques') : motivationStats.upcoming ? () => navigateToCalendarSession(motivationStats.upcoming) : () => setAddOpen(true)}
-              accent="#3B82F6"
+              accent={activeBlue}
             />
             <ActionLine
               label={allProgramsCompleted ? "Suite" : "Objectif immédiat"}
@@ -2391,7 +2805,7 @@ export default function ClientDashboard() {
               icon={allProgramsCompleted ? MdOutlineFitnessCenter : MdOutlineFlag}
               buttonLabel={allProgramsCompleted ? "Choisir" : "Voir"}
               onClick={() => navigate(allProgramsCompleted ? '/programmes-premium' : '/mes-programmes')}
-              accent="#8B5CF6"
+              accent={violetAccent}
             />
             <ActionLine
               label={allProgramsCompleted ? "Entretien" : "Élan actuel"}
@@ -2400,7 +2814,7 @@ export default function ClientDashboard() {
               icon={MdOutlineTrendingUp}
               buttonLabel={allProgramsCompleted ? "Planifier" : "Stats"}
               onClick={allProgramsCompleted ? () => setAddOpen(true) : () => navigate('/statistiques')}
-              accent="#10B981"
+              accent={activeBlue}
             />
           </ClientCardShell>
         </Box>
@@ -2413,7 +2827,7 @@ export default function ClientDashboard() {
             icon={MdOutlineCalendarMonth}
             action={<Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>{t("auto.Clientdashboard.planifier", "Planifier")}</Button>}
             minH="100%"
-            accent="#60A5FA"
+            accent={warmAccent}
           >
             <VStack align="stretch" spacing={3}>
               {upcomingSessions.slice(0, 3).map((session) => (
@@ -2448,6 +2862,101 @@ export default function ClientDashboard() {
         </Box>
       </SimpleGrid>
 
+      <Box display={{ base: "block", md: "none" }} mb={5}>
+        <ClientCardShell
+          title={t("calendar.title", "Calendrier")}
+          subtitle={upcomingSessions.length ? nextSessionLabel : t("auto.Clientdashboard.aucune_seance_planifiee", "Aucune séance planifiée")}
+          icon={MdOutlineCalendarMonth}
+          accent={activeBlue}
+          action={
+            <Button size="sm" variant="outline" borderRadius="14px" onClick={() => setAddOpen(true)}>
+              {t("auto.Clientdashboard.planifier", "Planifier")}
+            </Button>
+          }
+        >
+          <SimpleGrid columns={7} spacing={1.5} mb={4}>
+            {mobileCalendarDays.map((day, index) => {
+              const hasActivity = day.planned > 0 || day.done > 0;
+              return (
+                <Box
+                  key={day.key}
+                  border="1px solid"
+                  borderColor={hasActivity ? `${activeBlue}55` : borderColor}
+                  borderRadius="14px"
+                  py={2}
+                  px={1}
+                  bg={index === 0 ? `${activeBlue}12` : hasActivity ? `${activeBlue}0D` : modeValue("rgba(255,255,255,0.52)", "rgba(255,255,255,0.035)")}
+                  textAlign="center"
+                  minW={0}
+                >
+                  <Text fontSize="10px" color={subtleText} fontWeight="900" textTransform="uppercase" noOfLines={1}>
+                    {day.date.toLocaleDateString(i18n.language || 'fr', { weekday: 'short' }).replace('.', '')}
+                  </Text>
+                  <Text mt={1} fontSize="md" lineHeight="1" fontWeight="950">
+                    {day.date.getDate()}
+                  </Text>
+                  <HStack justify="center" spacing={1} mt={2} minH="6px">
+                    {day.done > 0 ? <Box w="6px" h="6px" borderRadius="full" bg={activeBlue} /> : null}
+                    {day.planned > 0 ? <Box w="6px" h="6px" borderRadius="full" bg={warmAccent} /> : null}
+                    {!hasActivity ? <Box w="6px" h="6px" borderRadius="full" bg={modeValue("blackAlpha.200", "whiteAlpha.200")} /> : null}
+                  </HStack>
+                </Box>
+              );
+            })}
+          </SimpleGrid>
+
+          <VStack align="stretch" spacing={2.5}>
+            {upcomingSessions.slice(0, 3).map((session) => (
+              <Box
+                key={session.id}
+                as="button"
+                type="button"
+                textAlign="left"
+                border="1px solid"
+                borderColor={borderColor}
+                borderRadius="18px"
+                p={3}
+                bg={modeValue("rgba(255,255,255,0.64)", "rgba(255,255,255,0.035)")}
+                onClick={() => navigateToCalendarSession(session)}
+                transition="all 0.2s ease"
+                _hover={{ borderColor: activeBlue, transform: "translateY(-1px)" }}
+              >
+                <HStack justify="space-between" spacing={3}>
+                  <Box minW={0}>
+                    <Text fontWeight="850" noOfLines={1}>{session.title}</Text>
+                    <Text mt={1} fontSize="sm" color={mutedText}>
+                      {session._start.toLocaleString(i18n.language || 'fr', {
+                        weekday: 'short',
+                        day: '2-digit',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </Text>
+                  </Box>
+                  <Circle size="34px" bg={`${warmAccent}18`} color={warmAccent} flexShrink={0}>
+                    <Icon as={MdOutlineSchedule} boxSize="18px" />
+                  </Circle>
+                </HStack>
+              </Box>
+            ))}
+            {!upcomingSessions.length && (
+              <HStack spacing={3} align="flex-start">
+                <Circle size="34px" bg={`${warmAccent}18`} color={warmAccent} flexShrink={0}>
+                  <Icon as={MdOutlineSchedule} boxSize="18px" />
+                </Circle>
+                <Box>
+                  <Text fontWeight="850">{t("auto.Clientdashboard.a_planifier", "À planifier")}</Text>
+                  <Text mt={1} fontSize="sm" color={mutedText}>
+                    {t("auto.Clientdashboard.aucun_creneau_prevu_pour_le_moment_tu_peux_ajouter", "Aucun créneau prévu pour le moment. Tu peux ajouter une séance directement depuis ici.")}
+                  </Text>
+                </Box>
+              </HStack>
+            )}
+          </VStack>
+        </ClientCardShell>
+      </Box>
+
       {/* MES PROGRAMMES */}
       {hasSportPrograms ? (
       <ClientCardShell
@@ -2465,7 +2974,7 @@ export default function ClientDashboard() {
         <Flex align="center" justify="space-between" mb={4}>
           <HStack spacing={3} flexWrap="wrap">
             <Badge px={3} py={1.5} borderRadius="full" variant="subtle">
-              {programmes.length}{t("auto.Clientdashboard.actif", "actif")}{programmes.length > 1 ? 's' : ''}
+              {programmes.length} {t("auto.Clientdashboard.actif", "actif")}{programmes.length > 1 ? 's' : ''}
             </Badge>
             <Badge px={3} py={1.5} borderRadius="full" variant="subtle">
               {motivationStats.percentAll}{t("auto.Clientdashboard.complete", "% complété")}</Badge>
@@ -2484,6 +2993,7 @@ export default function ClientDashboard() {
                     <Th>{t('client_dash.table.program')}</Th>
                     <Th>{t('client_dash.table.made_by')}</Th>
                     <Th>{t('client_dash.table.last_session', 'Dernière séance')}</Th>
+                    <Th>{getProgramActiveWeeksLabel(t)}</Th>
                     <Th>{t('client_dash.table.sessions')}</Th>
                     <Th>{t('client_dash.table.progress')}</Th>
                     <Th>{t("auto.CoachDashboard.note", "Note")}</Th>
@@ -2493,7 +3003,8 @@ export default function ClientDashboard() {
                 <Tbody>
                   {displayedProgrammes.map(p=>{
                     const programmeCompleted = isProgrammeCompleted(p);
-                    const programmeCycleCompleted = isProgrammeCycleCompleted(p);
+                    const activeWeeksLabel = formatProgramActiveWeeks(p, t);
+                    const weekProgressLabel = formatProgramWeekProgress(p, t, { includeInitialWeek: true });
                     return (
                     <Tr key={p.id}>
                       <Td>
@@ -2516,6 +3027,19 @@ export default function ClientDashboard() {
                             {p._displayDateFormatted}
                           </Box>
                         </Tooltip>
+                      </Td>
+
+                      <Td>
+                        <VStack align="flex-start" spacing={1}>
+                          <Badge variant="subtle" colorScheme="blue" borderRadius="full" px={2.5} py={1}>
+                            {getProgramActiveWeeksLabel(t)} : {activeWeeksLabel}
+                          </Badge>
+                          {weekProgressLabel ? (
+                            <Badge variant="subtle" colorScheme="purple" borderRadius="full" px={2.5} py={1}>
+                              {weekProgressLabel}
+                            </Badge>
+                          ) : null}
+                        </VStack>
                       </Td>
 
                       <Td>{p._done}/{p._total}</Td>
@@ -2545,8 +3069,12 @@ export default function ClientDashboard() {
                           <Button variant="outline" size="sm" onClick={() => navigateToProgram(p)}>
                             {t('client_dash.view_program')}
                           </Button>
-                          <Button size="sm" onClick={() => startNextSession(p)} isDisabled={!clientId || !p._total || programmeCycleCompleted}>
-                            {programmeCycleCompleted ? "Terminé" : programmeCompleted ? "Reprendre" : t('client_dash.start_session')}
+                          <Button
+                            size="sm"
+                            onClick={() => (programmeCompleted ? replayProgramme(p) : startNextSession(p))}
+                            isDisabled={!clientId || !p._total}
+                          >
+                            {programmeCompleted ? "Refaire" : t('client_dash.start_session')}
                           </Button>
                         </HStack>
                       </Td>
@@ -2563,30 +3091,65 @@ export default function ClientDashboard() {
                 {displayedProgrammes.map((p)=>{
                   const programmeCompleted = isProgrammeCompleted(p);
                   const programmeCycleCompleted = isProgrammeCycleCompleted(p);
+                  const activeWeeksLabel = formatProgramActiveWeeks(p, t);
+                  const weekProgressLabel = formatProgramWeekProgress(p, t, { includeInitialWeek: true });
                   return (
-                  <Box key={p.id} bg={cardBg} border="1px solid" borderColor={borderColor} borderRadius="2xl" p={4} shadow="sm">
+                  <Box
+                    key={p.id}
+                    bg={modeValue("linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(247,250,248,0.96) 100%)", "rgba(255,255,255,0.035)")}
+                    border="1px solid"
+                    borderColor={borderColor}
+                    borderRadius="22px"
+                    p={4}
+                    shadow="sm"
+                  >
                     <HStack justify="space-between" align="start" spacing={3} mb={1}>
-                      <Text fontWeight="bold" fontSize="md" pr="10px" flex="1">
-                        <ChakraLink
-                          as={Link}
-                          to={isAutoProgramme(p) ? `/auto-program-preview/${clientId}/${p.id}` : `/clients/${clientId}/programmes/${p.id}`}
-                          color={textColor}
-                        >
-                          {getProgrammeDisplayName(p)}
-                        </ChakraLink>
-                      </Text>
-                      <Stars rating={p._rating} size="13px" />
+                      <HStack spacing={3} minW={0} align="flex-start" flex="1">
+                        <Circle size="38px" bg={`${activeBlue}18`} color={activeBlue} flexShrink={0}>
+                          <Icon as={MdOutlineFitnessCenter} boxSize="19px" />
+                        </Circle>
+                        <Box minW={0}>
+                          <Text fontWeight="900" fontSize="md" pr="10px" noOfLines={2}>
+                            <ChakraLink
+                              as={Link}
+                              to={isAutoProgramme(p) ? `/auto-program-preview/${clientId}/${p.id}` : `/clients/${clientId}/programmes/${p.id}`}
+                              color={textColor}
+                            >
+                              {getProgrammeDisplayName(p)}
+                            </ChakraLink>
+                          </Text>
+                          <Text mt={1} fontSize="xs" color={subtleText} fontWeight="800" noOfLines={1}>
+                            {t("auto.Clientdashboard.par", "Par")} {p.createdByName}
+                          </Text>
+                        </Box>
+                      </HStack>
+                      <Box flexShrink={0}>
+                        <Stars rating={p._rating} size="13px" />
+                      </Box>
                     </HStack>
 
-                    <HStack spacing={2} mb={2} mt={1}>
-                      <Badge>{p.createdByName}</Badge>
+                    <HStack spacing={2} mb={2} mt={1} flexWrap="wrap" align="center">
                       {p._displayDateFormatted && (
-                        <Badge variant="subtle" colorScheme="gray">
+                        <Badge variant="subtle" colorScheme="gray" textTransform="none">
                           {p._displayDateFormatted}
                         </Badge>
                       )}
+                      <Badge
+                        variant="subtle"
+                        colorScheme="blue"
+                        textTransform="none"
+                        maxW="100%"
+                        whiteSpace="normal"
+                      >
+                        {getProgramActiveWeeksLabel(t)} : {activeWeeksLabel}
+                      </Badge>
+                      {weekProgressLabel ? (
+                        <Badge variant="subtle" colorScheme="purple" textTransform="none">
+                          {weekProgressLabel}
+                        </Badge>
+                      ) : null}
                       {programmeCycleCompleted && (
-                        <Badge variant="subtle" colorScheme="green">{t("sessionPlayer.done", "Terminé")}</Badge>
+                        <Badge variant="subtle" colorScheme="green" textTransform="none">{t("sessionPlayer.done", "Terminé")}</Badge>
                       )}
                     </HStack>
 
@@ -2596,7 +3159,7 @@ export default function ClientDashboard() {
                       </Text>
                       <Text fontSize="sm" fontWeight="semibold">{p._visualPercent ?? p._percent}%</Text>
                     </HStack>
-                    <Progress value={p._visualPercent ?? p._percent} size="sm" borderRadius="md" />
+                    <Progress value={p._visualPercent ?? p._percent} size="sm" borderRadius="full" colorScheme="blue" />
 
                     {p._hasResumePoint && !programmeCycleCompleted ? (
                       <Text mt={2.5} fontSize="sm" color={subtleText}>{t("auto.Clientdashboard.reprise_estimee_vers", "Reprise estimée vers")}{p._resumePct}{t("auto.Clientdashboard.de_la_seance_en_cours", "% de la séance en cours.")}</Text>
@@ -2606,8 +3169,12 @@ export default function ClientDashboard() {
                       <Button size="sm" variant="outline" onClick={()=>navigateToProgram(p)}>
                         {t('client_dash.view')}
                       </Button>
-                      <Button size="sm" onClick={()=>startNextSession(p)} isDisabled={!p._total || programmeCycleCompleted}>
-                        {programmeCycleCompleted ? 'Terminé' : p._hasResumePoint || programmeCompleted ? 'Reprendre' : t('client_dash.start')}
+                      <Button
+                        size="sm"
+                        onClick={() => (programmeCompleted ? replayProgramme(p) : startNextSession(p))}
+                        isDisabled={!p._total}
+                      >
+                        {programmeCompleted ? "Refaire" : p._hasResumePoint ? 'Reprendre' : t('client_dash.start')}
                       </Button>
                     </SimpleGrid>
                   </Box>
@@ -2620,12 +3187,52 @@ export default function ClientDashboard() {
       </ClientCardShell>
       ) : null}
 
+      <Box display={{ base: "block", md: "none" }} mb={6}>
+        <ClientCardShell
+          title={freeAvailable ? t("premium.free_badge", "Offert") : t("auto.Clientdashboard.inspiration", "Inspiration")}
+          subtitle={freeAvailable ? t("auto.Clientdashboard.1_programme_offert_disponible", "1 programme offert disponible") : t("premium.subtitle")}
+          icon={MdOutlineStars}
+          accent={violetAccent}
+          action={
+            <Button size="sm" variant="outline" borderRadius="14px" onClick={() => navigate('/programmes-premium')}>
+              {t('client_dash.view_all')}
+            </Button>
+          }
+        >
+          {loadingPremium ? (
+            <HStack><Spinner size="sm" /><Text fontSize="sm">{t('common.loading')}</Text></HStack>
+          ) : premiumPrograms[0] ? (
+            <Flex align="center" justify="space-between" gap={3}>
+              <Box minW={0}>
+                <Text fontWeight="900" noOfLines={1}>
+                  {trProgramName(premiumPrograms[0], i18n.resolvedLanguage || i18n.language, t('premium.card_title'))}
+                </Text>
+                <Text mt={1} fontSize="sm" color={mutedText} noOfLines={2}>
+                  {trProgramDesc(premiumPrograms[0], i18n.resolvedLanguage || i18n.language, t('premium.default_desc'))}
+                </Text>
+              </Box>
+              <Button
+                size="sm"
+                borderRadius="14px"
+                flexShrink={0}
+                onClick={() => freeAvailable ? handleClaimFree(premiumPrograms[0]) : openPremDetails(premiumPrograms[0])}
+              >
+                {freeAvailable ? t('premium.claim_free', "Obtenir") : t('actions.view_details', "Voir")}
+              </Button>
+            </Flex>
+          ) : (
+            <Text fontSize="sm" color={mutedText}>{t("premium.emptyText", "Les programmes premium apparaîtront ici dès qu'ils seront actifs.")}</Text>
+          )}
+        </ClientCardShell>
+      </Box>
+
       {/* PROGRAMMES PREMIUM */}
       <ClientCardShell
         data-tour="client-premium-card"
         title={t('premium.title')}
         subtitle={t('premium.subtitle')}
         icon={MdOutlineStars}
+        display={{ base: "none", md: "block" }}
         action={
           <Button size="sm" variant="outline" onClick={() => navigate('/programmes-premium')}>
             {t('client_dash.view_all')}
@@ -2707,7 +3314,7 @@ export default function ClientDashboard() {
                   _hover={{ shadow: 'md', transform: 'translateY(-2px)' }}
                 >
                   <HStack justify="space-between" align="flex-start" mb={3}>
-                    <Circle size="48px" bg={modeValue("rgba(59,130,246,0.10)", "rgba(59,130,246,0.14)")} color={activeBlue}>
+                    <Circle size="48px" bg={`${activeBlue}18`} color={activeBlue}>
                       <Icon as={GoalIcon} boxSize={6} />
                     </Circle>
                     <Icon as={MdOutlineStars} color={subtleText} boxSize={5} />
@@ -2803,6 +3410,7 @@ export default function ClientDashboard() {
           </HStack>
         }
         mb={0}
+        display={{ base: "none", md: "block" }}
         sx={{
           '.rbc-calendar': { background: surfaceBgStrong, color: textColor },
           '.rbc-toolbar': { background: headerBg, padding: '0.5rem', borderRadius: '8px', marginBottom: '12px' },
@@ -2849,6 +3457,7 @@ export default function ClientDashboard() {
           draggableAccessor={() => !isTouchDevice()}
         />
       </ClientCardShell>
+
       </Box>
 
       {/* ADD SESSION */}

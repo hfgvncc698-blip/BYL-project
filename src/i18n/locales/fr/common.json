@@ -135,7 +135,9 @@
     "card_title": "Programme Premium",
     "default_desc": "Programme structuré, prêt à démarrer.",
     "previewLockedTitle": "Contenu détaillé inclus après achat",
-    "previewLockedText": "L'échauffement, les exercices, les séries, les temps de repos et le retour au calme sont débloqués dans ton espace après l'achat."
+    "previewLockedText": "L'échauffement, les exercices, les séries, les temps de repos et le retour au calme sont débloqués dans ton espace après l'achat.",
+    "emptyTitle": "Aucun programme premium disponible",
+    "emptyText": "Revenez bientôt pour découvrir de nouveaux programmes."
   },
   "home": {
     "hero_title": "Boostez votre vie avec l’entraînement intelligent",
@@ -161,6 +163,7 @@
     "latest_programs": "Derniers programmes",
     "col_name": "Nom",
     "col_assigned_to": "Assigné à",
+    "assigned_programs_short": "Assignés",
     "col_created_on": "Créé le",
     "assign_program": "Assigner un programme",
     "add_session": "Ajouter une séance",
@@ -626,6 +629,26 @@
       "copy_error_title": "Copie impossible",
       "email_subject": "Joyeux anniversaire",
       "open_email": "Ouvrir l’e-mail"
+    },
+    "mobile": {
+      "today": "Aujourd'hui",
+      "no_appointment": "Aucun rendez-vous",
+      "no_session": "Aucune séance",
+      "ready_to_plan": "Tout est libre pour planifier le prochain point.",
+      "validated": "Validées",
+      "planned": "Planifiées",
+      "week": "Semaine",
+      "new_followup": "Créer suivi",
+      "plan": "Planifier",
+      "open_planning": "Planning",
+      "upcoming": "À venir",
+      "open_event": "Ouvrir le créneau",
+      "open_events": "Voir les créneaux",
+      "open_decisions": "Voir les décisions",
+      "open_nutrition": "Ouvrir nutrition",
+      "priority": "Priorité",
+      "recent": "Récent",
+      "no_recent_client": "Aucun suivi récent"
     }
   },
   "calendar": {
@@ -667,6 +690,7 @@
     "new_program": "Nouveau programme",
     "not_found": "Programme introuvable",
     "subtitle": "Retrouve, duplique et consulte rapidement tous tes programmes.",
+    "toAssign": "À assigner",
     "untitled": "Programme sans titre"
   },
   "exercise": {
@@ -2047,7 +2071,18 @@
     "energyQuestion": "Énergie aujourd'hui",
     "energyLow": "Basse",
     "energyNormal": "Normale",
-    "energyHigh": "Bonne"
+    "energyHigh": "Bonne",
+    "pause": "Pause",
+    "resume": "Reprendre",
+    "restart": "Recommencer",
+    "settingsShort": "Réglages",
+    "playerSettings": "Réglages du player",
+    "units": "Unités",
+    "unitWeight": "Poids",
+    "unitDistance": "Distance",
+    "unitSpeed": "Vitesse",
+    "visibleParameters": "Paramètres affichés",
+    "visibleParametersHelp": "Ajoutez les champs utiles à cet exercice, comme dans le builder."
   },
   "contact": {
     "title": "Contact",
@@ -3515,7 +3550,15 @@
       "calendrier_personnel": "Calendrier personnel",
       "genere_un_lien_prive_pour_synchroniser_tes_seances": "Génère un lien privé pour synchroniser tes séances dans ton application de calendrier.",
       "clique_sur_generer_pour_obtenir_ton_lien_d_abonnem": "Clique sur « Générer » pour obtenir ton lien d’abonnement.",
-      "generer": "Générer"
+      "generer": "Générer",
+      "accueil": "Accueil",
+      "a_planifier": "À planifier",
+      "aucune_seance_planifiee": "Aucune séance planifiée",
+      "inspiration": "Inspiration",
+      "menu": "Menu",
+      "planifiees": "planifiées",
+      "progression": "Progression",
+      "stats": "Stats"
     },
     "Clients": {
       "total": "Total"
@@ -5571,6 +5614,15 @@
           "3": "Travailler en lien avec médecin, psychologue ou psychiatre si besoin."
         }
       }
+    },
+    "CoachMobileNav": {
+      "accueil": "Accueil",
+      "patients": "Patients",
+      "clients": "Clients",
+      "planning": "Planning",
+      "programmes": "Programmes",
+      "stats": "Stats",
+      "new_patient": "Nouveau patient"
     }
   },
   "guidedTutorial": {

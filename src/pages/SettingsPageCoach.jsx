@@ -46,7 +46,7 @@ import { useAppTheme } from "../styles/appTheme";
 
 import { getApiBase } from "../utils/apiBase";
 import { getAuthHeaders } from "../utils/authHeaders";
-import { canUseNavbarBranding } from "../utils/proPlanAccess";
+import { canUseNavbarBranding, hasPlanModule } from "../utils/proPlanAccess";
 import { ensureLanguageLoaded } from "../i18n";
 
 const API_BASE = getApiBase();
@@ -130,17 +130,8 @@ export default function SettingsPageCoach() {
           year: "numeric",
         }).format(trialEndsAtValue)
       : null;
-  const planModules = user?.proAccess?.modules || user?.modules;
-  const hasNutritionAccess = Boolean(user?.role === "admin");
-  const hasSportAccess = Boolean(
-    user?.role === "admin" ||
-      user?.sportAccess ||
-      user?.hasSportAccess ||
-      (Array.isArray(planModules) && planModules.includes("sport")) ||
-      planModules?.sport ||
-      user?.features?.sport ||
-      ["sport", "complete", "club"].includes(user?.packageKey)
-  );
+  const hasNutritionAccess = hasPlanModule(user, "nutrition");
+  const hasSportAccess = hasPlanModule(user, "sport");
   const isClubMember = user?.accountType === "club_member" && user?.clubRole !== "owner";
   const nutritionOnly = hasNutritionAccess && !hasSportAccess;
   const mixedAccess = hasNutritionAccess && hasSportAccess;

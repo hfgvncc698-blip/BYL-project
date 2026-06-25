@@ -515,13 +515,25 @@ async function markTrialUsed(uid) {
 async function upsertUserSubscription(uid, data) {
   if (!uid) return;
   const userRef = admin.firestore().collection("users").doc(uid);
+  const currentSnap = await userRef.get().catch(() => null);
+  const currentRole = String(currentSnap?.data?.()?.role || "").toLowerCase();
+  const incomingRole = String(data?.role || "").toLowerCase();
+  const rolePatch = (() => {
+    if (!incomingRole) return {};
+    if (!currentRole || currentRole === incomingRole) return { role: incomingRole };
+    if (currentRole === "particulier" && incomingRole === "coach") return { role: "coach" };
+    return {};
+  })();
+  const subscriptionData = { ...data };
+  delete subscriptionData.role;
 
   const trialStart = data.trialStart ?? data.trialStartedAt ?? null;
   const trialEnd = data.trialEnd ?? data.trialEndsAt ?? null;
 
   await userRef.set(
     {
-      ...data,
+      ...subscriptionData,
+      ...rolePatch,
       trialStart,
       trialEnd,
       trialStartedAt: trialStart,

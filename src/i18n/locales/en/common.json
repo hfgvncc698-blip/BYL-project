@@ -135,7 +135,9 @@
     "card_title": "Premium Program",
     "default_desc": "Structured program, ready to start.",
     "previewLockedTitle": "Detailed content included after purchase",
-    "previewLockedText": "Warm-up, exercises, sets, rest times and cool-down are unlocked in your space after purchase."
+    "previewLockedText": "Warm-up, exercises, sets, rest times and cool-down are unlocked in your space after purchase.",
+    "emptyTitle": "No premium programs available",
+    "emptyText": "Check back soon to discover new programs."
   },
   "home": {
     "hero_title": "Boost your life with smart training",
@@ -161,6 +163,7 @@
     "latest_programs": "Latest programs",
     "col_name": "Name",
     "col_assigned_to": "Assigned to",
+    "assigned_programs_short": "Assigned",
     "col_created_on": "Created on",
     "assign_program": "Assign a program",
     "add_session": "Add a session",
@@ -626,6 +629,26 @@
       "copy_error_title": "Could not copy",
       "email_subject": "Happy birthday",
       "open_email": "Open email"
+    },
+    "mobile": {
+      "today": "Today",
+      "no_appointment": "No appointment",
+      "no_session": "No session",
+      "ready_to_plan": "Everything is clear to schedule the next check-in.",
+      "validated": "Done",
+      "planned": "Planned",
+      "week": "Week",
+      "new_followup": "New follow-up",
+      "plan": "Schedule",
+      "open_planning": "Planning",
+      "upcoming": "Upcoming",
+      "open_event": "Open slot",
+      "open_events": "View slots",
+      "open_decisions": "View decisions",
+      "open_nutrition": "Open nutrition",
+      "priority": "Priority",
+      "recent": "Recent",
+      "no_recent_client": "No recent follow-up"
     }
   },
   "calendar": {
@@ -667,6 +690,7 @@
     "new_program": "New program",
     "not_found": "Program not found",
     "subtitle": "Quickly find, duplicate and consult all your programs.",
+    "toAssign": "To assign",
     "untitled": "Untitled program"
   },
   "exercise": {
@@ -2047,7 +2071,18 @@
     "energyQuestion": "Energy today",
     "energyLow": "Bass",
     "energyNormal": "Normal",
-    "energyHigh": "Good"
+    "energyHigh": "Good",
+    "pause": "Pause",
+    "resume": "Resume",
+    "restart": "Restart",
+    "settingsShort": "Settings",
+    "playerSettings": "Player settings",
+    "units": "Units",
+    "unitWeight": "Weight",
+    "unitDistance": "Distance",
+    "unitSpeed": "Speed",
+    "visibleParameters": "Displayed parameters",
+    "visibleParametersHelp": "Add the fields useful for this exercise, just like in the builder."
   },
   "contact": {
     "title": "Contact",
@@ -3515,7 +3550,15 @@
       "calendrier_personnel": "Personal calendar",
       "genere_un_lien_prive_pour_synchroniser_tes_seances": "Generate a private link to synchronize your sessions in your calendar application.",
       "clique_sur_generer_pour_obtenir_ton_lien_d_abonnem": "Click on “Generate” to obtain your subscription link.",
-      "generer": "Generate"
+      "generer": "Generate",
+      "accueil": "Home",
+      "a_planifier": "To plan",
+      "aucune_seance_planifiee": "No session planned",
+      "inspiration": "Inspiration",
+      "menu": "Menu",
+      "planifiees": "planned",
+      "progression": "Progress",
+      "stats": "Stats"
     },
     "Clients": {
       "total": "Total"
@@ -5571,6 +5614,15 @@
           "3": "Travailler en lien avec médecin, psychologue ou psychiatre si besoin."
         }
       }
+    },
+    "CoachMobileNav": {
+      "accueil": "Home",
+      "patients": "Patients",
+      "clients": "Clients",
+      "planning": "Planning",
+      "programmes": "Programs",
+      "stats": "Stats",
+      "new_patient": "New patient"
     }
   },
   "guidedTutorial": {

@@ -135,7 +135,9 @@
     "card_title": "Premium-Programm",
     "default_desc": "Strukturiertes Programm, sofort startbereit.",
     "previewLockedTitle": "Detaillierte Inhalte nach dem Kauf enthalten",
-    "previewLockedText": "Aufwärmen, Übungen, Sätze, Pausenzeiten und Cool-down werden nach dem Kauf in deinem Bereich freigeschaltet."
+    "previewLockedText": "Aufwärmen, Übungen, Sätze, Pausenzeiten und Cool-down werden nach dem Kauf in deinem Bereich freigeschaltet.",
+    "emptyTitle": "Keine Premium-Programme verfügbar",
+    "emptyText": "Schau bald wieder vorbei, um neue Programme zu entdecken."
   },
   "home": {
     "hero_title": "Steigern Sie Ihr Leben mit intelligentem Training",
@@ -161,6 +163,7 @@
     "latest_programs": "Neueste Programme",
     "col_name": "Name",
     "col_assigned_to": "Zugewiesen an",
+    "assigned_programs_short": "Zugewiesen",
     "col_created_on": "Erstellt am",
     "assign_program": "Weisen Sie ein Programm zu",
     "add_session": "Fügen Sie eine Sitzung hinzu",
@@ -626,6 +629,26 @@
       "copy_error_title": "Kopieren nicht möglich",
       "email_subject": "Alles Gute zum Geburtstag",
       "open_email": "E-Mail öffnen"
+    },
+    "mobile": {
+      "today": "Heute",
+      "no_appointment": "Kein Termin",
+      "no_session": "Keine Einheit",
+      "ready_to_plan": "Alles ist frei, um den nächsten Check-in zu planen.",
+      "validated": "Erledigt",
+      "planned": "Geplant",
+      "week": "Woche",
+      "new_followup": "Neuer Verlauf",
+      "plan": "Planen",
+      "open_planning": "Planung",
+      "upcoming": "Anstehend",
+      "open_event": "Termin öffnen",
+      "open_events": "Termine ansehen",
+      "open_decisions": "Entscheidungen ansehen",
+      "open_nutrition": "Ernährung öffnen",
+      "priority": "Priorität",
+      "recent": "Aktuell",
+      "no_recent_client": "Kein aktueller Verlauf"
     }
   },
   "calendar": {
@@ -667,6 +690,7 @@
     "new_program": "Neues Programm",
     "not_found": "Programm nicht gefunden",
     "subtitle": "Finden, duplizieren und konsultieren Sie schnell alle Ihre Programme.",
+    "toAssign": "Zuzuweisen",
     "untitled": "Programm ohne Titel"
   },
   "exercise": {
@@ -2041,7 +2065,18 @@
     "energyQuestion": "Energie heute",
     "energyLow": "Bass",
     "energyNormal": "Normal",
-    "energyHigh": "Gut"
+    "energyHigh": "Gut",
+    "pause": "Pause",
+    "resume": "Fortsetzen",
+    "restart": "Neu starten",
+    "settingsShort": "Einstellungen",
+    "playerSettings": "Player-Einstellungen",
+    "units": "Einheiten",
+    "unitWeight": "Gewicht",
+    "unitDistance": "Distanz",
+    "unitSpeed": "Geschwindigkeit",
+    "visibleParameters": "Angezeigte Parameter",
+    "visibleParametersHelp": "Füge die für diese Übung nützlichen Felder hinzu, wie im Builder."
   },
   "contact": {
     "title": "Kontakt",
@@ -3467,7 +3502,57 @@
       "calendrier_personnel": "Persönlicher Kalender",
       "genere_un_lien_prive_pour_synchroniser_tes_seances": "Generieren Sie einen privaten Link, um Ihre Sitzungen in Ihrer Kalenderanwendung zu synchronisieren.",
       "clique_sur_generer_pour_obtenir_ton_lien_d_abonnem": "Klicken Sie auf „Generieren“, um Ihren Abonnementlink zu erhalten.",
-      "generer": "Generieren"
+      "generer": "Generieren",
+      "accueil": "Start",
+      "a_planifier": "Zu planen",
+      "actif_status": "Aktiv",
+      "aucune_seance_planifiee": "Keine Einheit geplant",
+      "bilan": "Bilanz",
+      "bilan_menu_recettes_courses": "Bilanz, Menü, Rezepte und Einkäufe an einem Ort",
+      "bravo_tous_tes_programmes_sont_termines": "Glückwunsch, alle deine Programme sind abgeschlossen. Jetzt ist ein guter Moment, um deine Ergebnisse zu analysieren und einen neuen Zyklus zu starten.",
+      "calcul_en_cours": "Berechnung läuft",
+      "chargement": "Laden",
+      "chargement_de_tes_programmes_et_de_ton_suivi": "Deine Programme und dein Follow-up werden geladen...",
+      "chargement_des_seances": "Einheiten werden geladen",
+      "choisir_la_suite": "Weiteres Vorgehen wählen",
+      "choisir_un_programme": "Programm wählen",
+      "courses": "Einkäufe",
+      "cycle_termine": "Zyklus abgeschlossen",
+      "depart_propre": "Sauberer Start",
+      "entretenir": "Erhalten",
+      "inspiration": "Inspiration",
+      "lancer_la_seance": "Einheit starten",
+      "liste_de_courses": "Einkaufsliste",
+      "liste_partagee": "geteilte Liste",
+      "menu": "Menü",
+      "menu_du_jour": "Tagesmenü",
+      "plan_menu_et_courses": "Plan, Menü und Einkäufe",
+      "plan_nutrition": "Ernährungsplan",
+      "planifiees": "geplant",
+      "planifier_une_seance_libre": "Freie Einheit planen",
+      "preparer_les_achats": "Einkäufe vorbereiten",
+      "pret": "Bereit",
+      "pret_pour_la_suite": "bereit für den nächsten Schritt",
+      "programme_sport_nutrition_avec_kcal": "Dein Sportprogramm und dein Ernährungs-Follow-up laufen zusammen: Tagesmarke {{kcal}} kcal.",
+      "programme_sport_nutrition_ensemble": "Dein Sportprogramm und dein Ernährungs-Follow-up laufen zusammen.",
+      "programmes": "Programme",
+      "progression": "Fortschritt",
+      "progression_globale": "Gesamtfortschritt",
+      "recuperation_de_tes_programmes": "Deine Programme werden abgerufen...",
+      "reprendre": "Fortsetzen",
+      "restant": "Verbleibend",
+      "revoir_tes_cycles": "Deine Zyklen ansehen",
+      "seances_a_faire": "Einheiten offen",
+      "seances_ce_mois_ci": "{{count}} Einheit diesen Monat",
+      "seances_completees_count": "{{done}}/{{total}} Einheiten abgeschlossen",
+      "seances_prevues_count": "{{count}} geplante Einheit",
+      "seances_validees_count": "{{done}}/{{total}} Einheiten bestätigt",
+      "statistiques": "Statistiken",
+      "stats": "Stats",
+      "suivi_disponible": "Follow-up verfügbar",
+      "synchronisation_du_suivi": "Follow-up-Synchronisierung",
+      "ton_suivi_nutrition_est_disponible_ici": "Dein Ernährungs-Follow-up ist hier verfügbar, mit geteilten Mahlzeiten, Rezepten und Einkäufen.",
+      "voir_les_repas_partages": "Geteilte Mahlzeiten ansehen"
     },
     "Clients": {
       "total": "Insgesamt"
@@ -5523,6 +5608,15 @@
           "3": "Travailler en lien avec médecin, psychologue ou psychiatre si besoin."
         }
       }
+    },
+    "CoachMobileNav": {
+      "accueil": "Start",
+      "patients": "Patienten",
+      "clients": "Kunden",
+      "planning": "Planung",
+      "programmes": "Programme",
+      "stats": "Stats",
+      "new_patient": "Neuer Patient"
     }
   },
   "guidedTutorial": {

@@ -38,7 +38,14 @@ export default function ProgramBuilderPage() {
       </Box>
 
       {/* Builder prend tout l’espace restant */}
-      <Box flex="1 1 0" minW={0} h="100%" overflowY="auto" overflowX="hidden">
+      <Box
+        data-builder-scroll-container="true"
+        flex="1 1 0"
+        minW={0}
+        h="100%"
+        overflowY="auto"
+        overflowX="hidden"
+      >
         <ProgramBuilder
           selectedExercises={selectedExercises}
           setSelectedExercises={setSelectedExercises}

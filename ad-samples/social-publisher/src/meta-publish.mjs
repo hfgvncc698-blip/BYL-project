@@ -177,6 +177,7 @@ async function publicMediaLooksReady(mediaUrl = "") {
     const contentType = String(response.headers.get("content-type") || "").toLowerCase();
     const contentLength = Number.parseInt(response.headers.get("content-length") || "0", 10);
     if (contentType.startsWith("video/") || contentType === "application/octet-stream") return true;
+    if (contentType.startsWith("image/")) return true;
     return urlExtension(mediaUrl) && contentLength > 100_000 && !contentType.includes("text/html");
   } catch {
     return false;
@@ -323,8 +324,8 @@ async function ensurePublicMediaReady({ env, sourceValue = "", mediaUrl = "" }) 
     }
   }
   throw new Error(
-    `Le media Instagram n'est pas accessible comme fichier video public: ${mediaUrl}. ` +
-      `L'URL doit servir le MP4 directement, pas la page HTML du site. ${errors.join(" | ")}`,
+    `Le media Instagram n'est pas accessible comme fichier public: ${mediaUrl}. ` +
+      `L'URL doit servir le fichier media directement, pas la page HTML du site. ${errors.join(" | ")}`,
   );
 }
 

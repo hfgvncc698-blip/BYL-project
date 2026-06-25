@@ -121,6 +121,39 @@ export function hasUnlimitedClients(access) {
   return access?.clientLimit == null;
 }
 
+export function getPlanModules(accessOrUser) {
+  return accessOrUser?.proAccess?.modules || accessOrUser?.modules || [];
+}
+
+export function hasPlanModule(accessOrUser, module) {
+  if (!accessOrUser || !module) return false;
+  if (accessOrUser.role === "admin") return true;
+
+  const modules = getPlanModules(accessOrUser);
+  if (Array.isArray(modules) && (modules.includes(module) || modules.includes("club"))) return true;
+  if (modules?.[module] || modules?.club) return true;
+
+  if (module === "nutrition") {
+    return Boolean(
+      accessOrUser.nutritionAccess ||
+        accessOrUser.hasNutritionAccess ||
+        accessOrUser.features?.nutrition ||
+        ["nutrition", "complete", "club"].includes(accessOrUser.packageKey)
+    );
+  }
+
+  if (module === "sport") {
+    return Boolean(
+      accessOrUser.sportAccess ||
+        accessOrUser.hasSportAccess ||
+        accessOrUser.features?.sport ||
+        ["sport", "complete", "club"].includes(accessOrUser.packageKey)
+    );
+  }
+
+  return false;
+}
+
 export function canUseCustomBranding(access) {
   const resolved = resolvePlanAccess(access);
   return resolved?.branding && resolved.branding !== "none";

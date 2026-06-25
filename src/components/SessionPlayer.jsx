@@ -61,6 +61,7 @@ import {
   Wrap,
   Kbd,
   Tooltip,
+  SimpleGrid,
 } from "@chakra-ui/react";
 import {
   ArrowBackIcon,
@@ -69,6 +70,7 @@ import {
   WarningTwoIcon,
   InfoOutlineIcon,
   CheckCircleIcon,
+  SettingsIcon,
 } from "@chakra-ui/icons";
 import { AnimatePresence, motion } from "framer-motion";
 import { playFeedback } from "../utils/feedback";
@@ -523,12 +525,12 @@ const ListCard = ({ title, icon, accent, items }) => {
   return (
     <Box
       bg={cardBg}
-      p={4}
-      borderRadius="xl"
+      p={{ base: 3.5, md: 4 }}
+      borderRadius={{ base: "20px", md: "xl" }}
       border="1px solid"
       borderColor={border}
       boxShadow="sm"
-      mb={4}
+      mb={{ base: 3, md: 4 }}
       minW={0}
     >
       <HStack mb={2} spacing={2}>
@@ -960,6 +962,10 @@ function ExerciseMediaPanel({ exercise, preferredSex }) {
   const mediaItems = useMemo(() => extractExerciseMedia(exercise, preferredSex), [exercise, preferredSex]);
   const border = useColorModeValue("gray.200", "gray.700");
   const cardBg = useColorModeValue("white", "gray.800");
+  const mediaShadow = useColorModeValue(
+    "0 16px 34px rgba(15,23,42,0.10)",
+    "0 18px 42px rgba(0,0,0,0.34)"
+  );
 
   const imageBg = "white";
   const isMobile = useBreakpointValue({ base: true, md: false });
@@ -974,18 +980,18 @@ function ExerciseMediaPanel({ exercise, preferredSex }) {
 
   const selected = mediaItems[selectedIndex] || mediaItems[0];
   const panelHeight = selected?.type === "video"
-    ? { base: "190px", sm: "250px", md: "420px", lg: "500px" }
-    : { base: "220px", sm: "320px", md: "500px", lg: "620px" };
+    ? { base: "220px", sm: "260px", md: "420px", lg: "500px" }
+    : { base: "260px", sm: "330px", md: "500px", lg: "620px" };
 
   return (
     <Box
       bg={cardBg}
       border="1px solid"
       borderColor={border}
-      borderRadius="2xl"
-      p={{ base: 2.5, md: 4 }}
-      boxShadow="xl"
-      mb={{ base: 3, md: 5 }}
+      borderRadius={{ base: "24px", md: "2xl" }}
+      p={{ base: 2, md: 4 }}
+      boxShadow={{ base: mediaShadow, md: "xl" }}
+      mb={{ base: 2, md: 5 }}
       w="full"
       minW={0}
     >
@@ -1072,12 +1078,18 @@ export default function SessionPlayer() {
   const rowHighlight = useColorModeValue("purple.50", "whiteAlpha.100");
 
   const isMobile = useBreakpointValue({ base: true, md: false });
-  const progressSize = useBreakpointValue({ base: "92px", md: "160px" });
+  const progressSize = useBreakpointValue({ base: "88px", md: "160px" });
   const progressThickness = useBreakpointValue({ base: "7px", md: "10px" });
-  const timeFontSize = useBreakpointValue({ base: "md", md: "lg" });
+  const timeFontSize = useBreakpointValue({ base: "sm", md: "lg" });
   const notesBorderColor = useColorModeValue("#e7ecf5", "#2a3660");
   const notesBgColor = useColorModeValue("gray.50", "rgba(255,255,255,0.04)");
   const notesTextColor = useColorModeValue("gray.700", "gray.200");
+  const unitRowBg = useColorModeValue("white", "whiteAlpha.80");
+  const unitToggleBg = useColorModeValue("gray.100", "blackAlpha.300");
+  const mobileCardShadow = useColorModeValue(
+    "0 18px 38px rgba(15,23,42,0.10)",
+    "0 18px 44px rgba(0,0,0,0.36)"
+  );
 
   const [programData, setProgramData] = useState(null);
   const [clientData, setClientData] = useState(null);
@@ -1092,6 +1104,11 @@ export default function SessionPlayer() {
   const [isPaused, setIsPaused] = useState(false);
 
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const {
+    isOpen: settingsModalOpen,
+    onOpen: openSettingsModal,
+    onClose: closeSettingsModal,
+  } = useDisclosure();
 
   const [rating, setRating] = useState(null);
   const [energyLevel, setEnergyLevel] = useState("normal");
@@ -2295,6 +2312,66 @@ export default function SessionPlayer() {
     setResolvedExercise((prev) => ({ ...(prev || {}), ...ex }));
   }
 
+  async function toggleExerciseParameter(keyToToggle, enabled) {
+    if (!programData || !sessionObj || !flat.length) return;
+    const label = OPTION_FLAG[keyToToggle];
+    if (!label || label === "Séries") return;
+
+    const sessionsCopy = structuredClone(programData.sessions || []);
+    const sessCopy = sessionsCopy[sessionIndex] || {};
+    const mapping = mapIdx[exIndex];
+    if (!mapping) return;
+
+    const key = mapping.sectionKey === "exercises" ? "exercises" : mapping.sectionKey;
+    const list = Array.isArray(sessCopy[key]) ? sessCopy[key] : [];
+    if (!list[mapping.index]) return;
+
+    const ex = list[mapping.index];
+    const currentOrder = Array.isArray(ex.optionsOrder) && ex.optionsOrder.length
+      ? [...ex.optionsOrder]
+      : metrics.map((metric) => metric.field).filter(Boolean);
+
+    if (enabled) {
+      if (!currentOrder.includes(label)) currentOrder.push(label);
+      if (ex[label] == null) {
+        ex[label] = label === "Séries" ? 1 : 0;
+      }
+
+      if (getSeriesDiffFlag(ex) && label !== "Séries") {
+        const setsCount = Number(getFieldValue(ex, FIELD_MAP.series) ?? 1) || 1;
+        const det = ensureDetailsLength(getSeriesDetails(ex), setsCount, {});
+        ex.seriesDetails = det.map((row) => ({
+          ...(row || {}),
+          [label]: row?.[label] ?? ex[label] ?? 0,
+        }));
+      }
+    } else {
+      ex.optionsOrder = currentOrder.filter((item) => item !== label);
+    }
+
+    if (enabled) ex.optionsOrder = currentOrder;
+
+    stageHistory({
+      sessionIndex,
+      exerciseIndex: exIndex,
+      field: `Paramètre ${label}`,
+      value: enabled,
+    });
+
+    list[mapping.index] = ex;
+    sessCopy[key] = list;
+    sessionsCopy[sessionIndex] = sessCopy;
+
+    scheduleSave(sessionsCopy);
+    setProgramData((prev) => ({ ...(prev || {}), sessions: sessionsCopy }));
+    setSessionObj(sessCopy);
+
+    const updated = flattenSession(sessCopy);
+    setFlat(updated.flat);
+    setMapIdx(updated.map);
+    setResolvedExercise((prev) => ({ ...(prev || {}), ...ex }));
+  }
+
   async function saveNotes(val) {
     if (!programData || !sessionObj || !flat.length) return;
     const sessionsCopy = structuredClone(programData.sessions || []);
@@ -2462,7 +2539,6 @@ export default function SessionPlayer() {
   const seriesDiffBg = useColorModeValue("gray.50", "gray.700");
   const effortGaugeColor = useColorModeValue("gray.900", "gray.100");
   const activeGaugeColor = phase === "rest" ? "green.400" : effortGaugeColor;
-
   if (loading) return <AppLoading label={t("common.loading", "Chargement...")} />;
   if (!flat.length) return <Text p={6}>{t("sessionPlayer.empty", "Séance introuvable ou vide.")}</Text>;
 
@@ -2526,6 +2602,14 @@ export default function SessionPlayer() {
       });
     }
   });
+  const activeParameterLabels = new Set(metrics.map((metric) => metric.field));
+  const builderParameterOptions = defaultOrder
+    .map((key) => ({
+      key,
+      label: OPTION_FLAG[key],
+      required: key === "series",
+    }))
+    .filter((item) => item.label);
 
   const phaseColor = phase === "effort" ? "blue" : phase === "rest" ? "green" : "gray";
 
@@ -2622,7 +2706,14 @@ export default function SessionPlayer() {
           >
             <HStack flex="1" minW={0}>
               <Tooltip label={autoProgTooltip} placement="bottom-start" hasArrow>
-                <Tag size="sm" variant="subtle" borderRadius="full" px={3} py={1} cursor="default">
+                <Tag
+                  size="sm"
+                  variant="subtle"
+                  borderRadius="full"
+                  px={3}
+                  py={1}
+                  cursor="default"
+                >
                   <Box
                     w="7px"
                     h="7px"
@@ -2636,51 +2727,6 @@ export default function SessionPlayer() {
                   </Text>
                 </Tag>
               </Tooltip>
-            </HStack>
-
-            <HStack
-              spacing={{ base: 2.5, md: 4 }}
-              overflowX={{ base: "auto", md: "visible" }}
-              py={{ base: 0.5, md: 0 }}
-              css={{ WebkitOverflowScrolling: "touch" }}
-              justify={{ base: "flex-start", md: "flex-end" }}
-              flexShrink={0}
-            >
-              <HStack spacing={1.5} flexShrink={0}>
-                <Tag size={isMobile ? "xs" : "sm"} variant="subtle" colorScheme="gray">{t("auto.SessionPlayer.kg_lb", "kg/lb")}</Tag>
-                <Switch
-                  size="sm"
-                  isChecked={units.weight === "lb"}
-                  onChange={(e) => setUnits((u) => ({ ...u, weight: e.target.checked ? "lb" : "kg" }))}
-                />
-                <Tag size={isMobile ? "xs" : "sm"} variant="subtle" colorScheme="gray">
-                  {units.weight.toUpperCase()}
-                </Tag>
-              </HStack>
-
-              <HStack spacing={1.5} flexShrink={0}>
-                <Tag size={isMobile ? "xs" : "sm"} variant="subtle" colorScheme="gray">{t("auto.SessionPlayer.m_miles", "m/miles")}</Tag>
-                <Switch
-                  size="sm"
-                  isChecked={units.distance === "miles"}
-                  onChange={(e) => setUnits((u) => ({ ...u, distance: e.target.checked ? "miles" : "m" }))}
-                />
-                <Tag size={isMobile ? "xs" : "sm"} variant="subtle" colorScheme="gray">
-                  {units.distance}
-                </Tag>
-              </HStack>
-
-              <HStack spacing={1.5} flexShrink={0}>
-                <Tag size={isMobile ? "xs" : "sm"} variant="subtle" colorScheme="gray">{t("auto.SessionPlayer.km_h_mph", "km/h·mph")}</Tag>
-                <Switch
-                  size="sm"
-                  isChecked={units.speed === "mph"}
-                  onChange={(e) => setUnits((u) => ({ ...u, speed: e.target.checked ? "mph" : "kmh" }))}
-                />
-                <Tag size={isMobile ? "xs" : "sm"} variant="subtle" colorScheme="gray">
-                  {units.speed}
-                </Tag>
-              </HStack>
             </HStack>
           </Flex>
 
@@ -2744,7 +2790,11 @@ export default function SessionPlayer() {
               },
             }}
           />
-          <Badge colorScheme={phaseColor} fontSize={isMobile ? "0.72em" : "0.8em"} flexShrink={0}>
+          <Badge
+            colorScheme={phaseColor}
+            fontSize={isMobile ? "0.72em" : "0.8em"}
+            flexShrink={0}
+          >
             {phase === "ready"
               ? t("sessionPlayer.ready", "PRÊT")
               : phase === "effort"
@@ -2771,7 +2821,7 @@ export default function SessionPlayer() {
               alignItems="start"
             >
               <Box
-                order={{ base: 1, lg: 1 }}
+                order={{ base: 2, lg: 1 }}
                 position={{ base: "static", lg: "sticky" }}
                 top={{ lg: 20 }}
                 w="full"
@@ -2780,14 +2830,14 @@ export default function SessionPlayer() {
                 <Box
                   bg={cardBg}
                   p={{ base: 3, md: 5 }}
-                  borderRadius="2xl"
-                  boxShadow="xl"
+                  borderRadius={{ base: "24px", md: "2xl" }}
+                  boxShadow={{ base: mobileCardShadow, md: "xl" }}
                   border="1px solid"
                   borderColor={border}
                   w="full"
                 >
-                  <VStack spacing={{ base: 3, md: 4 }} w="full">
-                    <Heading size={isMobile ? "sm" : "md"} textAlign="center" noOfLines={2} display={{ base: "block", xl: "none" }}>
+                  <VStack spacing={{ base: 2.5, md: 4 }} w="full">
+                    <Heading size={isMobile ? "sm" : "md"} textAlign="center" noOfLines={2} display={{ base: "block", xl: "none" }} letterSpacing="0">
                       {displayExercise?.nom || displayExercise?.name}
                     </Heading>
 
@@ -2826,7 +2876,8 @@ export default function SessionPlayer() {
                       color={phase === "rest" ? "white" : primaryButtonColor}
                       colorScheme={phase === "rest" ? undefined : undefined}
                       w="full"
-                      size={isMobile ? "sm" : "lg"}
+                      size="lg"
+                      minH={{ base: "48px", md: "48px" }}
                       onClick={nextPhase}
                       borderRadius="full"
                       _hover={
@@ -2865,7 +2916,8 @@ export default function SessionPlayer() {
 	                      <Button
 	                        variant="outline"
 	                        w="full"
-	                        size={isMobile ? "sm" : "md"}
+	                        size={isMobile ? "md" : "md"}
+                          minH={{ base: "46px", md: "40px" }}
 	                        borderRadius="full"
 	                        onClick={restartCurrentChain}
 	                      >
@@ -2878,7 +2930,8 @@ export default function SessionPlayer() {
                         onClick={prevExercise}
                         isDisabled={exIndex === 0}
                         w="50%"
-                        size={isMobile ? "sm" : "md"}
+                        size={isMobile ? "md" : "md"}
+                        minH={{ base: "42px", md: "40px" }}
                         borderRadius="full"
                         variant="outline"
                       >
@@ -2888,7 +2941,8 @@ export default function SessionPlayer() {
                         variant="outline"
                         onClick={nextExercise}
                         w="50%"
-                        size={isMobile ? "sm" : "md"}
+                        size={isMobile ? "md" : "md"}
+                        minH={{ base: "42px", md: "40px" }}
                         borderRadius="full"
                       >
                         {t("sessionPlayer.skip", "Passer l’exercice")}
@@ -2941,7 +2995,8 @@ export default function SessionPlayer() {
                       variant="solid"
                       onClick={awaitCompletionAndOpenModal}
                       w="full"
-                      size={isMobile ? "sm" : "md"}
+                      size={isMobile ? "md" : "md"}
+                      minH={{ base: "46px", md: "40px" }}
                       borderRadius="full"
                     >
                       {t("sessionPlayer.finishWorkout", "Terminer la séance")}
@@ -2950,7 +3005,7 @@ export default function SessionPlayer() {
                 </Box>
               </Box>
 
-              <Box order={{ base: 3, lg: 2 }} w="full" minW={0}>
+              <Box order={{ base: 1, lg: 2 }} w="full" minW={0}>
                 <HStack align="baseline" justify="space-between" display={{ base: "none", lg: "flex" }} mb={3}>
                   <Heading size="lg" noOfLines={2}>
                     {displayExercise?.nom || displayExercise?.name}
@@ -2964,6 +3019,28 @@ export default function SessionPlayer() {
 
                 <ExerciseMediaPanel exercise={displayExercise} preferredSex={preferredSex} />
 
+                <Box display={{ base: "none", lg: "block" }}>
+                  {displayExercise?.contraintes && (
+                    <ListCard
+                      title={t("sessionPlayer.constraints", "Contraintes")}
+                      icon={<WarningTwoIcon color={warningIconColor} />}
+                      accent="yellow"
+                      items={toArray(displayExercise.contraintes)}
+                    />
+                  )}
+
+                  {displayExercise?.consignes && (
+                    <ListCard
+                      title={t("sessionPlayer.cues", "Consignes")}
+                      icon={<InfoOutlineIcon color={infoIconColor} />}
+                      accent="blue"
+                      items={toArray(displayExercise.consignes)}
+                    />
+                  )}
+                </Box>
+              </Box>
+
+              <Box order={{ base: 3, lg: 2 }} display={{ base: "block", lg: "none" }} w="full" minW={0}>
                 {displayExercise?.contraintes && (
                   <ListCard
                     title={t("sessionPlayer.constraints", "Contraintes")}
@@ -2984,7 +3061,7 @@ export default function SessionPlayer() {
               </Box>
 
               <Box
-                order={{ base: 2, lg: 3 }}
+                order={{ base: 4, lg: 3 }}
                 position={{ base: "static", lg: "sticky" }}
                 top={{ lg: 20 }}
                 w="full"
@@ -2993,22 +3070,26 @@ export default function SessionPlayer() {
                 <Box
                   bg={cardBg}
                   p={{ base: 3, md: 5 }}
-                  borderRadius="2xl"
+                  borderRadius={{ base: "24px", md: "2xl" }}
                   border="1px solid"
                   borderColor={border}
-                  boxShadow="xl"
+                  boxShadow={{ base: mobileCardShadow, md: "xl" }}
                   w="full"
                 >
                   <VStack align="stretch" spacing={{ base: 3, md: 4 }}>
                     <HStack justify="space-between" align="center" flexWrap="wrap" gap={2}>
-                      <Heading size="sm">{t("sessionPlayer.settings", "Paramètres de l’exercice")}</Heading>
-                      <Badge colorScheme={phaseColor}>
-                        {phase === "ready"
-                          ? t("sessionPlayer.ready", "PRÊT")
-                          : phase === "effort"
-                            ? t("sessionPlayer.effort", "EFFORT")
-                            : t("sessionPlayer.rest", "REPOS")}
-                      </Badge>
+                      <Heading size="sm" letterSpacing="0">{t("sessionPlayer.settings", "Paramètres de l’exercice")}</Heading>
+                      <Button
+                        leftIcon={<SettingsIcon />}
+                        variant="outline"
+                        size="xs"
+                        h="30px"
+                        px={3}
+                        borderRadius="full"
+                        onClick={openSettingsModal}
+                      >
+                        {t("sessionPlayer.settingsShort", "Réglages")}
+                      </Button>
                     </HStack>
 
                     <Wrap spacing={4} align="center">
@@ -3162,6 +3243,138 @@ export default function SessionPlayer() {
           </motion.div>
         </AnimatePresence>
       </Container>
+
+      <Modal isOpen={settingsModalOpen} onClose={closeSettingsModal} isCentered size={isMobile ? "full" : "lg"}>
+        <ModalOverlay />
+        <ModalContent borderRadius={{ base: "0", md: "2xl" }}>
+          <ModalHeader>
+            {t("sessionPlayer.playerSettings", "Réglages du player")}
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={5}>
+            <VStack align="stretch" spacing={5}>
+              <Box>
+                <Text fontSize="sm" fontWeight="900" mb={2}>
+                  {t("sessionPlayer.units", "Unités")}
+                </Text>
+                <VStack align="stretch" spacing={2}>
+                  {[
+                    {
+                      label: t("sessionPlayer.unitWeight", "Poids"),
+                      value: units.weight,
+                      options: [
+                        { value: "kg", label: "KG" },
+                        { value: "lb", label: "LB" },
+                      ],
+                      onSelect: (value) => setUnits((u) => ({ ...u, weight: value })),
+                    },
+                    {
+                      label: t("sessionPlayer.unitDistance", "Distance"),
+                      value: units.distance,
+                      options: [
+                        { value: "m", label: "m" },
+                        { value: "miles", label: "miles" },
+                      ],
+                      onSelect: (value) => setUnits((u) => ({ ...u, distance: value })),
+                    },
+                    {
+                      label: t("sessionPlayer.unitSpeed", "Vitesse"),
+                      value: units.speed,
+                      options: [
+                        { value: "kmh", label: "km/h" },
+                        { value: "mph", label: "mph" },
+                      ],
+                      onSelect: (value) => setUnits((u) => ({ ...u, speed: value })),
+                    },
+                  ].map((unit) => (
+                    <HStack
+                      key={unit.label}
+                      justify="space-between"
+                      gap={3}
+                      px={3}
+                      py={2}
+                      bg={unitRowBg}
+                      border="1px solid"
+                      borderColor={border}
+                      borderRadius="16px"
+                    >
+                      <Text fontSize="sm" fontWeight="800">
+                        {unit.label}
+                      </Text>
+                      <HStack spacing={1} p={1} bg={unitToggleBg} borderRadius="full">
+                        {unit.options.map((option) => {
+                          const active = unit.value === option.value;
+                          return (
+                            <Button
+                              key={option.value}
+                              size="xs"
+                              minW="52px"
+                              h="26px"
+                              px={3}
+                              borderRadius="full"
+                              variant={active ? "solid" : "ghost"}
+                              colorScheme={active ? "blue" : "gray"}
+                              onClick={() => unit.onSelect(option.value)}
+                            >
+                              {option.label}
+                            </Button>
+                          );
+                        })}
+                      </HStack>
+                    </HStack>
+                  ))}
+                </VStack>
+              </Box>
+
+              <Box>
+                <Text fontSize="sm" fontWeight="900" mb={1}>
+                  {t("sessionPlayer.visibleParameters", "Paramètres affichés")}
+                </Text>
+                <Text fontSize="xs" color={textMute} mb={3}>
+                  {t(
+                    "sessionPlayer.visibleParametersHelp",
+                    "Ajoutez les champs utiles à cet exercice, comme dans le builder."
+                  )}
+                </Text>
+                <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={2}>
+                  {builderParameterOptions.map((option) => {
+                    const checked = option.required || activeParameterLabels.has(option.label);
+                    return (
+                      <HStack
+                        key={option.key}
+                        justify="space-between"
+                        gap={3}
+                        px={3}
+                        py={2.5}
+                        bg={unitRowBg}
+                        border="1px solid"
+                        borderColor={border}
+                        borderRadius="16px"
+                      >
+                        <Text fontSize="sm" fontWeight="800" noOfLines={1}>
+                          {option.label}
+                        </Text>
+                        <Switch
+                          size="sm"
+                          colorScheme="blue"
+                          isChecked={checked}
+                          isDisabled={option.required}
+                          onChange={(e) => toggleExerciseParameter(option.key, e.target.checked)}
+                        />
+                      </HStack>
+                    );
+                  })}
+                </SimpleGrid>
+              </Box>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button borderRadius="full" colorScheme="blue" onClick={closeSettingsModal}>
+              {t("common.close", "Fermer")}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       <Modal isOpen={isOpen} onClose={handleCloseRatingModal} isCentered>
         <ModalOverlay />

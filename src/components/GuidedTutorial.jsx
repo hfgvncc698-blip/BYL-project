@@ -20,6 +20,7 @@ import {
 import { useAuth } from "../AuthContext";
 import { db } from "../firebaseConfig";
 import i18n from "../i18n/index";
+import { hasPlanModule } from "../utils/proPlanAccess";
 
 const SEEN_PREFIX = "byl_spotlight_tour_seen";
 const START_EVENT = "byl:start-tour";
@@ -385,21 +386,9 @@ const TOURS = {
   },
 };
 
-function getPlanModules(user) {
-  return user?.proAccess?.modules || user?.modules;
-}
-
 function isNutritionOnlyUser(user) {
-  const planModules = getPlanModules(user);
-  const hasNutritionAccess = Boolean(user?.role === "admin");
-  const hasSportAccess = Boolean(
-    user?.sportAccess ||
-      user?.hasSportAccess ||
-      (Array.isArray(planModules) && planModules.includes("sport")) ||
-      planModules?.sport ||
-      user?.features?.sport ||
-      ["sport", "complete", "club"].includes(user?.packageKey)
-  );
+  const hasNutritionAccess = hasPlanModule(user, "nutrition");
+  const hasSportAccess = hasPlanModule(user, "sport");
   return hasNutritionAccess && !hasSportAccess;
 }
 

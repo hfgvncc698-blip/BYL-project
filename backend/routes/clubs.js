@@ -1151,6 +1151,7 @@ router.patch("/clients/:clientId", requireFirebaseAuth, async (req, res) => {
     let authUser = null;
     let createdAuth = false;
     let updatedAuthEmail = false;
+    let linkedUserExistingRole = "";
     let linkedAuthUid = cleanText(
       existingClient.linkedUserId || existingClient.accountUid || existingClient.uid || "",
       180
@@ -1181,6 +1182,7 @@ router.patch("/clients/:clientId", requireFirebaseAuth, async (req, res) => {
         const emailUserSnap = await db.collection("users").doc(emailAuthUser.uid).get().catch(() => null);
         const emailUser = emailUserSnap?.exists ? emailUserSnap.data() || {} : {};
         const role = String(emailUser.role || "").toLowerCase();
+        linkedUserExistingRole = role;
         if (["admin", "coach"].includes(role)) {
           return res.status(409).json({ error: "existing-account-is-not-client" });
         }
@@ -1192,6 +1194,7 @@ router.patch("/clients/:clientId", requireFirebaseAuth, async (req, res) => {
         const userSnap = await db.collection("users").doc(authUser.uid).get().catch(() => null);
         const userProfile = userSnap?.exists ? userSnap.data() || {} : {};
         const role = String(userProfile.role || "").toLowerCase();
+        linkedUserExistingRole = role;
         if (["admin", "coach"].includes(role) && role !== "particulier") {
           return res.status(409).json({ error: "linked-account-is-not-client" });
         }
@@ -1231,7 +1234,7 @@ router.patch("/clients/:clientId", requireFirebaseAuth, async (req, res) => {
             firstName,
             lastName,
             displayName: [firstName, lastName].filter(Boolean).join(" ").trim() || email || previousEmail || "",
-            role: "particulier",
+            role: linkedUserExistingRole || "particulier",
             linkedClientId: clientRef.id,
             preferredLang: langCode,
             settings: { defaultLanguage: langCode, langCode },
@@ -1440,6 +1443,11 @@ router.post("/coaches", requireFirebaseAuth, assertClubOwner, async (req, res) =
 
     const uid = authUser.uid;
     const now = admin.firestore.FieldValue.serverTimestamp();
+    const existingUserSnap = await db.collection("users").doc(uid).get().catch(() => null);
+    const existingUserRole = String(existingUserSnap?.data?.()?.role || "").toLowerCase();
+    if (existingUserRole && !["particulier", "coach"].includes(existingUserRole)) {
+      return res.status(409).json({ error: "existing-account-role-is-protected" });
+    }
     const userPayload = {
       email,
       firstName,

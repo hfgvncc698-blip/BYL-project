@@ -7,7 +7,7 @@ import {
   Icon, Flex, Progress
 } from "@chakra-ui/react";
 import {
-  collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, limit, Timestamp
+  collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, limit
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useTranslation } from "react-i18next";
@@ -109,6 +109,25 @@ function normalizeMeasurementDoc(measure) {
   return parsed;
 }
 
+function toMillisSafe(value) {
+  if (!value) return 0;
+  if (typeof value.toDate === "function") return value.toDate().getTime();
+  if (typeof value.seconds === "number") return value.seconds * 1000;
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === "number") return value > 1e12 ? value : value * 1000;
+  if (typeof value === "string") return Date.parse(value) || 0;
+  return 0;
+}
+
+async function getDocsSafe(q, label) {
+  try {
+    return await getDocs(q);
+  } catch (error) {
+    console.warn(`[StatisticsPageClient] ${label} unavailable`, error);
+    return null;
+  }
+}
+
 export default function StatisticsPageClient() {
   const { user } = useAuth();
   const { t, i18n } = useTranslation("common");
@@ -117,6 +136,8 @@ export default function StatisticsPageClient() {
   const today = new Date().toISOString().split("T")[0];
 
   const [loading, setLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [progressLoading, setProgressLoading] = useState(true);
   const [clientId, setClientId] = useState(null);
 
   const [totalProg, setTotalProg] = useState(0);
@@ -146,7 +167,7 @@ export default function StatisticsPageClient() {
   });
 
   // UI colors
-  const pageBg = useColorModeValue("#F5F7FB", "#070B14");
+  const pageBg = useColorModeValue("#F5F8FF", "#070B14");
   const cardBg = useColorModeValue("rgba(255,255,255,0.92)", "rgba(11,16,27,0.92)");
   const subCardBg = useColorModeValue("rgba(255,255,255,0.78)", "rgba(15,21,35,0.82)");
   const accent = useColorModeValue("#111827", "#E5EEF9");
@@ -158,11 +179,12 @@ export default function StatisticsPageClient() {
     "0 20px 50px rgba(15,23,42,0.08)",
     "0 22px 60px rgba(0,0,0,0.34)"
   );
-  const topGlow = useColorModeValue("rgba(59,130,246,0.10)", "rgba(59,130,246,0.14)");
-  const bottomGlow = useColorModeValue("rgba(16,185,129,0.08)", "rgba(16,185,129,0.10)");
-  const heroGlow = useColorModeValue("rgba(59,130,246,0.08)", "rgba(59,130,246,0.12)");
-  const activeBlue = "#3B82F6";
-  const activeMint = "#10B981";
+  const activeBlue = "#2563EB";
+  const activeMint = "#0EA5E9";
+  const mobileHeroBg = useColorModeValue(
+    "linear-gradient(145deg, #0F172A 0%, #1D4ED8 58%, #0EA5E9 135%)",
+    "linear-gradient(145deg, #020617 0%, #1E3A8A 58%, #0369A1 135%)"
+  );
 
   const statGradients = [
     useColorModeValue(
@@ -170,8 +192,8 @@ export default function StatisticsPageClient() {
       "linear-gradient(135deg, rgba(59,130,246,0.16), rgba(255,255,255,0))"
     ),
     useColorModeValue(
-      "linear-gradient(135deg, rgba(16,185,129,0.10), rgba(255,255,255,0))",
-      "linear-gradient(135deg, rgba(16,185,129,0.16), rgba(255,255,255,0))"
+      "linear-gradient(135deg, rgba(14,165,233,0.11), rgba(255,255,255,0))",
+      "linear-gradient(135deg, rgba(14,165,233,0.17), rgba(255,255,255,0))"
     ),
     useColorModeValue(
       "linear-gradient(135deg, rgba(245,158,11,0.10), rgba(255,255,255,0))",
@@ -207,82 +229,103 @@ export default function StatisticsPageClient() {
           setPercentDone(0);
           setSessWeek(0);
           setMeasures([]);
+          setStatsLoading(false);
+          setProgressLoading(false);
           setLoading(false);
           return;
         }
 
         const cid = clientDoc.id;
         setClientId(cid);
+        setLoading(false);
+        setStatsLoading(true);
+        setProgressLoading(true);
 
-        // 2) données de base en parallèle, bornées pour éviter un premier affichage trop lent.
+        // 2) Données de base en parallèle, sans requête composite fragile.
         const weekAgo = Date.now() - 7 * 86400000;
-        const weekAgoTimestamp = Timestamp.fromMillis(weekAgo);
-        const sessionsQuery = query(
-          collection(db, "sessions"),
-          where("clientId", "==", cid),
-          where("start", ">=", weekAgoTimestamp),
-          limit(100)
-        );
-
-        const [progSnap, sessSnap, measSnap] = await Promise.all([
-          getDocs(query(collection(db, "clients", cid, "programmes"), limit(100))),
-          getDocs(sessionsQuery).catch(async () =>
-            getDocs(query(collection(db, "sessions"), where("clientId", "==", cid), limit(200)))
+        const sessionIds = Array.from(new Set([cid, user.uid].filter(Boolean)));
+        const [progSnap, sessionSnaps, measSnap] = await Promise.all([
+          getDocsSafe(query(collection(db, "clients", cid, "programmes"), limit(100)), "programmes"),
+          Promise.all(
+            sessionIds.map((id) =>
+              getDocsSafe(query(collection(db, "sessions"), where("clientId", "==", id), limit(200)), `sessions:${id}`)
+            )
           ),
-          getDocs(query(collection(db, "clients", cid, "measurements"), orderBy("date", "desc"), limit(80))).catch(async () =>
-            getDocs(query(collection(db, "clients", cid, "measurements"), limit(80)))
-          ),
+          getDocsSafe(query(collection(db, "clients", cid, "measurements"), orderBy("date", "desc"), limit(80)), "measurements:ordered")
+            .then((snap) => snap || getDocsSafe(query(collection(db, "clients", cid, "measurements"), limit(80)), "measurements")),
         ]);
         if (cancelled) return;
 
-        const progs = progSnap.docs.map((d) => ({ id: d.id, ...d.data() })) || [];
+        const progs = progSnap?.docs?.map((d) => ({ id: d.id, ...d.data() })) || [];
         setProgrammes(progs);
         setTotalProg(progs.length);
 
-        const sessions = sessSnap.docs.map((d) => d.data())
-          .filter((s) => s?.start?.toDate?.().getTime?.() >= weekAgo);
+        const sessionsById = new Map();
+        sessionSnaps
+          .filter(Boolean)
+          .forEach((snap) => {
+            snap.docs.forEach((docSnap) => sessionsById.set(docSnap.id, docSnap.data()));
+          });
+        const sessions = Array.from(sessionsById.values())
+          .filter((s) => toMillisSafe(s?.start) >= weekAgo);
         setSessWeek(sessions.length);
 
-        const arr = measSnap.docs
+        const arr = (measSnap?.docs || [])
           .map((d) => ({ id: d.id, ...d.data() }))
           .sort((a, b) => String(a.date).localeCompare(String(b.date)))
           .map(normalizeMeasurementDoc);
         setMeasures(arr);
-        setLoading(false);
+        setStatsLoading(false);
 
         // 3) progression : calcul secondaire, pour ne pas bloquer l'affichage initial.
-        let totalPlanned = 0;
+        const totalPlanned = progs.reduce((sum, p) => sum + getTotalSessionsFromProgrammeDoc(p), 0);
         let totalDone = 0;
-        await Promise.allSettled(
+        const progressRows = await Promise.allSettled(
           progs.map(async (p) => {
             const planned = getTotalSessionsFromProgrammeDoc(p);
-            totalPlanned += planned;
-            const effSnap = await getDocs(query(collection(db, "clients", cid, "programmes", p.id, "sessionsEffectuees"), limit(200)));
-            const eff = effSnap.docs.map((d) => d.data());
-            let doneCount = 0;
-            eff.forEach((s) => {
+            const effSnap = await getDocsSafe(
+              query(collection(db, "clients", cid, "programmes", p.id, "sessionsEffectuees"), limit(200)),
+              `sessionsEffectuees:${p.id}`
+            );
+            const eff = effSnap?.docs?.map((d) => d.data()) || [];
+            const validatedCount = eff.filter((s) => {
               const pct = typeof s.pourcentageTermine === "number" ? s.pourcentageTermine : 100;
-              if (pct >= 90) doneCount += 1;
-            });
-            if (eff.length > 0 && doneCount === 0) doneCount = eff.length;
-            totalDone += Math.min(doneCount, planned || doneCount);
+              return pct >= 90;
+            }).length;
+            const doneCount = eff.length > 0 && validatedCount === 0 ? eff.length : validatedCount;
+            return Math.min(doneCount, planned || doneCount);
           })
         );
+        progressRows.forEach((row) => {
+          if (row.status === "fulfilled") totalDone += row.value || 0;
+        });
         if (cancelled) return;
         setPercentDone(totalPlanned ? Math.round((totalDone / totalPlanned) * 100) : 0);
+        setProgressLoading(false);
       } catch (e) {
         if (cancelled) return;
-        toast({ status: "error", description: t("common.loading_details", "Chargement des détails…") });
+        console.warn("[StatisticsPageClient] load failed", e);
+        setProgrammes([]);
+        setTotalProg(0);
+        setPercentDone(0);
+        setSessWeek(0);
+        setMeasures([]);
+        setStatsLoading(false);
+        setProgressLoading(false);
         setLoading(false);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setStatsLoading(false);
+          setProgressLoading(false);
+        }
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [user, t, toast]);
+  }, [user]);
 
   const latestMeasure = useMemo(() => measures[measures.length - 1] || {}, [measures]);
 
@@ -384,7 +427,7 @@ export default function StatisticsPageClient() {
   const SurfaceCard = ({ children, ...props }) => (
     <Box
       bg={cardBg}
-      borderRadius="28px"
+      borderRadius={{ base: "24px", md: "28px" }}
       border="1px solid"
       borderColor={borderStrong}
       boxShadow={glassShadow}
@@ -398,12 +441,12 @@ export default function StatisticsPageClient() {
 
   const MiniStatCard = ({ icon, labelText, value, helper, glow, iconColor }) => (
     <Box
-      p={5}
-      bg={subCardBg}
-      borderRadius="24px"
+      p={{ base: 3.5, md: 5 }}
+      bg={{ base: "rgba(255,255,255,0.94)", md: subCardBg }}
+      borderRadius={{ base: "18px", md: "24px" }}
       border="1px solid"
-      borderColor={borderCol}
-      boxShadow={glassShadow}
+      borderColor={{ base: "rgba(255,255,255,0.62)", md: borderCol }}
+      boxShadow={{ base: "0 14px 28px rgba(15,23,42,0.12)", md: glassShadow }}
       position="relative"
       overflow="hidden"
     >
@@ -411,21 +454,27 @@ export default function StatisticsPageClient() {
         position="absolute"
         inset="0"
         bg={glow}
-        opacity={0.95}
+        opacity={{ base: 0, md: 0.95 }}
       />
       <HStack justify="space-between" align="flex-start" position="relative" zIndex={1}>
         <Box minW={0}>
-          <Text fontSize="sm" color={textMuted} fontWeight="600">
+          <Text
+            fontSize={{ base: "sm", md: "sm" }}
+            color={{ base: "#1E3A8A", md: textMuted }}
+            fontWeight="900"
+            lineHeight="1.2"
+            noOfLines={{ base: 1, md: 2 }}
+          >
             {labelText}
           </Text>
-          <Text mt={2} fontSize={{ base: "2xl", md: "3xl" }} fontWeight="900" letterSpacing="-0.03em" color={accent}>
+          <Text mt={2} fontSize={{ base: "2xl", md: "3xl" }} fontWeight="900" letterSpacing="0" color={{ base: "#0F172A", md: accent }}>
             {value}
           </Text>
-          <Text mt={2} fontSize="sm" color={subtleText}>
+          <Text mt={1} fontSize="sm" color={{ base: "#475569", md: subtleText }} display={{ base: "block", md: "block" }} noOfLines={{ base: 1, md: 2 }}>
             {helper}
           </Text>
         </Box>
-        <Circle size="44px" bg="rgba(59,130,246,0.10)" color={iconColor} flexShrink={0}>
+        <Circle size={{ base: "38px", md: "44px" }} bg={{ base: "#DBEAFE", md: "rgba(59,130,246,0.10)" }} color={iconColor} flexShrink={0}>
           <Icon as={icon} boxSize="20px" />
         </Circle>
       </HStack>
@@ -433,68 +482,41 @@ export default function StatisticsPageClient() {
   );
 
   return (
-    <Box data-tour-page="client-stats" p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
-      <Box position="absolute" top={{ base: 4, md: 6 }} left={{ base: 4, md: 6 }} zIndex={20}>
+    <Box data-tour-page="client-stats" p={{ base: 3, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
+      <Box display={{ base: "none", md: "block" }} position="absolute" top={{ base: 4, md: 6 }} left={{ base: 4, md: 6 }} zIndex={20}>
         <PageBackButton />
       </Box>
-      <Box
-        position="absolute"
-        top="-120px"
-        right="-90px"
-        w="360px"
-        h="360px"
-        borderRadius="full"
-        bg={topGlow}
-        filter="blur(90px)"
-        pointerEvents="none"
-      />
-      <Box
-        position="absolute"
-        bottom="-140px"
-        left="-110px"
-        w="340px"
-        h="340px"
-        borderRadius="full"
-        bg={bottomGlow}
-        filter="blur(90px)"
-        pointerEvents="none"
-      />
 
-      <VStack maxW="1120px" mx="auto" spacing={6} align="stretch" position="relative" zIndex={1}>
-        <SurfaceCard p={{ base: 5, md: 6 }}>
-          <Box
-            position="absolute"
-            top="-50px"
-            right="-30px"
-            w="220px"
-            h="220px"
-            borderRadius="full"
-            bg={heroGlow}
-            filter="blur(44px)"
-          />
+      <VStack maxW="1120px" mx="auto" spacing={{ base: 3.5, md: 6 }} align="stretch" position="relative" zIndex={1}>
+        <SurfaceCard
+          p={{ base: 4, md: 6 }}
+          bg={{ base: mobileHeroBg, md: cardBg }}
+          color={{ base: "white", md: accent }}
+          borderColor={{ base: "rgba(255,255,255,0.18)", md: borderStrong }}
+        >
           <Flex direction={{ base: "column", xl: "row" }} justify="space-between" gap={5} position="relative" zIndex={1}>
             <Box minW={0} flex="1">
-              <Heading size="lg" letterSpacing="-0.03em" color={accent}>
+              <Heading size={{ base: "md", md: "lg" }} letterSpacing="0" color={{ base: "white", md: accent }}>
                 {label("title", "Statistiques")}
               </Heading>
-              <Text mt={2} maxW="62ch" color={textMuted}>
+              <Text mt={2} maxW="62ch" color={{ base: "whiteAlpha.920", md: textMuted }} fontSize={{ base: "sm", md: "md" }}>
                 {label("subtitle", "Suis ta progression globale, tes mesures corporelles et compare tes séances pour visualiser les progrès.")}
               </Text>
               <HStack mt={4} spacing={3} wrap="wrap">
-                <Badge borderRadius="full" px={3} py={1} bg="rgba(59,130,246,0.10)" color={activeBlue}>
-                  {totalProg}{t("pdf.fileProgram", "programme")}{totalProg > 1 ? "s" : ""}{t("auto.StatisticsPageClient.actif", "actif")}{totalProg > 1 ? "s" : ""}
+                <Badge borderRadius="full" px={3} py={1} bg={{ base: "whiteAlpha.220", md: "rgba(59,130,246,0.10)" }} color={{ base: "white", md: activeBlue }}>
+                  {statsLoading ? "..." : totalProg} {t("pdf.fileProgram", "programme")}{totalProg > 1 ? "s" : ""} {t("auto.StatisticsPageClient.actif", "actif")}{totalProg > 1 ? "s" : ""}
                 </Badge>
-                <Badge borderRadius="full" px={3} py={1} bg="rgba(16,185,129,0.10)" color={activeMint}>
-                  {measures.length}{t("auto.StatisticsPageClient.mesure", "mesure")}{measures.length > 1 ? "s" : ""}{t("auto.StatisticsPageClient.enregistree", "enregistrée")}{measures.length > 1 ? "s" : ""}
+                <Badge borderRadius="full" px={3} py={1} bg={{ base: "whiteAlpha.220", md: "rgba(14,165,233,0.10)" }} color={{ base: "white", md: activeMint }}>
+                  {statsLoading ? "..." : measures.length} {t("auto.StatisticsPageClient.mesure", "mesure")}{measures.length > 1 ? "s" : ""} {t("auto.StatisticsPageClient.enregistree", "enregistrée")}{measures.length > 1 ? "s" : ""}
                 </Badge>
               </HStack>
             </Box>
 
-            <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={3} w={{ base: "100%", xl: "520px" }}>
+            <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={{ base: 2.5, md: 3 }} w={{ base: "100%", xl: "520px" }}>
               <MiniStatCard
                 icon={MdOutlineFitnessCenter}
                 labelText={label("kpis.totalPrograms", "Total programmes")}
-                value={nf0.format(totalProg)}
+                value={statsLoading ? "..." : nf0.format(totalProg)}
                 helper={t("auto.StatisticsPageClient.programmes_disponibles_dans_ton_espace", "programmes disponibles dans ton espace")}
                 glow={statGradients[0]}
                 iconColor={activeBlue}
@@ -502,7 +524,7 @@ export default function StatisticsPageClient() {
               <MiniStatCard
                 icon={MdOutlineInsights}
                 labelText={label("kpis.percentDone", "% terminé")}
-                value={`${nf0.format(percentDone)}%`}
+                value={progressLoading ? "..." : `${nf0.format(percentDone)}%`}
                 helper={t("auto.StatisticsPageClient.base_sur_les_seances_validees", "basé sur les séances validées")}
                 glow={statGradients[1]}
                 iconColor={activeMint}
@@ -510,7 +532,7 @@ export default function StatisticsPageClient() {
               <MiniStatCard
                 icon={MdOutlineCalendarMonth}
                 labelText={label("kpis.sessionsPerWeek", "Séances / sem.")}
-                value={nf0.format(sessWeek)}
+                value={statsLoading ? "..." : nf0.format(sessWeek)}
                 helper={t("auto.StatisticsPageClient.sur_les_7_derniers_jours", "sur les 7 derniers jours")}
                 glow={statGradients[2]}
                 iconColor="#F59E0B"
@@ -519,8 +541,13 @@ export default function StatisticsPageClient() {
           </Flex>
         </SurfaceCard>
 
-        {programmes.length > 0 && clientId ? (
-          <SurfaceCard p={{ base: 5, md: 6 }}>
+        {statsLoading ? (
+          <SurfaceCard p={{ base: 4, md: 6 }}>
+            <Skeleton h="28px" w="220px" borderRadius="full" mb={3} />
+            <Skeleton h="18px" w="80%" borderRadius="full" />
+          </SurfaceCard>
+        ) : programmes.length > 0 && clientId ? (
+          <SurfaceCard p={{ base: 4, md: 6 }}>
             <Flex justify="space-between" align={{ base: "stretch", md: "center" }} direction={{ base: "column", md: "row" }} gap={4} mb={4}>
               <HStack spacing={3} align="flex-start">
                 <Circle size="42px" bg="rgba(59,130,246,0.10)" color={activeBlue}>
@@ -558,7 +585,7 @@ export default function StatisticsPageClient() {
             )}
           </SurfaceCard>
         ) : (
-          <SurfaceCard p={{ base: 5, md: 6 }}>
+          <SurfaceCard p={{ base: 4, md: 6 }}>
             <HStack spacing={3} mb={2}>
               <Circle size="42px" bg="rgba(59,130,246,0.10)" color={activeBlue}>
                 <Icon as={MdOutlineTimeline} boxSize="20px" />
@@ -570,11 +597,11 @@ export default function StatisticsPageClient() {
         )}
 
         <SimpleGrid columns={{ base: 1, xl: 3 }} spacing={6}>
-          <SurfaceCard p={{ base: 5, md: 6 }} gridColumn={{ xl: "span 2" }}>
+          <SurfaceCard p={{ base: 4, md: 6 }} gridColumn={{ xl: "span 2" }}>
             <Flex justify="space-between" align={{ base: "stretch", md: "center" }} direction={{ base: "column", md: "row" }} gap={4} mb={5}>
               <Box>
                 <HStack spacing={3}>
-                  <Circle size="42px" bg="rgba(16,185,129,0.10)" color={activeMint}>
+                <Circle size="42px" bg="rgba(14,165,233,0.10)" color={activeMint}>
                     <Icon as={MdOutlineMonitorWeight} boxSize="20px" />
                   </Circle>
                   <Box>
@@ -601,9 +628,9 @@ export default function StatisticsPageClient() {
                 </FormControl>
                 <Button
                   onClick={addMeas.onOpen}
-                  bg="#0F172A"
+                  bg={activeBlue}
                   color="white"
-                  _hover={{ bg: "#111827" }}
+                  _hover={{ bg: "#1D4ED8" }}
                   borderRadius="full"
                   px={5}
                 >
@@ -612,19 +639,19 @@ export default function StatisticsPageClient() {
               </HStack>
             </Flex>
 
-            <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4} mb={5}>
+            <SimpleGrid columns={{ base: 2, md: 4 }} spacing={{ base: 2.5, md: 4 }} mb={5}>
               {FIELDS.map(({ k, field }) => (
                 <Box
                   key={field}
                   bg={subCardBg}
-                  p={4}
-                  borderRadius="22px"
+                  p={{ base: 3, md: 4 }}
+                  borderRadius={{ base: "18px", md: "22px" }}
                   borderWidth="1px"
                   borderColor={borderCol}
                   boxShadow="inset 0 1px 0 rgba(255,255,255,0.22)"
                 >
                   <Text fontSize="sm" color={textMuted}>{label(`fields.${k}`)}</Text>
-                  <Text mt={2} fontSize={{ base: "xl", md: "2xl" }} fontWeight="800" letterSpacing="-0.03em" color={accent}>
+                  <Text mt={2} fontSize={{ base: "xl", md: "2xl" }} fontWeight="800" letterSpacing="0" color={accent}>
                     {latestDisplay(field)}
                   </Text>
                 </Box>
@@ -633,7 +660,13 @@ export default function StatisticsPageClient() {
 
             <Divider my={5} borderColor={borderCol} />
 
-            {charts.length > 0 ? (
+            {statsLoading ? (
+              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                {[0, 1, 2, 3].map((item) => (
+                  <Skeleton key={item} h="220px" borderRadius="24px" />
+                ))}
+              </SimpleGrid>
+            ) : charts.length > 0 ? (
               <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
                 {charts.map(({ k, field, data }) => (
                   <Box
@@ -696,9 +729,9 @@ export default function StatisticsPageClient() {
                 <Box>
                   <HStack justify="space-between" mb={1}>
                     <Text fontSize="sm" color={textMuted}>{t("auto.StatisticsPageClient.mesures_renseignees", "Mesures renseignées")}</Text>
-                    <Text fontSize="sm" color={subtleText}>{measurementCompletion}/{FIELDS.length}</Text>
+                    <Text fontSize="sm" color={subtleText}>{statsLoading ? "..." : `${measurementCompletion}/${FIELDS.length}`}</Text>
                   </HStack>
-                  <Progress value={(measurementCompletion / FIELDS.length) * 100} borderRadius="full" size="sm" colorScheme="blue" />
+                  <Progress value={statsLoading ? 20 : (measurementCompletion / FIELDS.length) * 100} isIndeterminate={statsLoading} borderRadius="full" size="sm" colorScheme="blue" />
                 </Box>
                 <Box
                   bg={subCardBg}
@@ -727,7 +760,7 @@ export default function StatisticsPageClient() {
 
             <SurfaceCard p={5}>
               <HStack spacing={3} mb={4}>
-                <Circle size="40px" bg="rgba(16,185,129,0.10)" color={activeMint}>
+                <Circle size="40px" bg="rgba(14,165,233,0.10)" color={activeMint}>
                   <Icon as={MdOutlineShowChart} boxSize="18px" />
                 </Circle>
                 <Box>
@@ -738,7 +771,7 @@ export default function StatisticsPageClient() {
               <VStack spacing={4} align="stretch">
                 <Box>
                   <Text fontSize="sm" color={textMuted}>{t("clientView.globalProgress", "Progression globale")}</Text>
-                  <Text mt={1} fontSize="2xl" fontWeight="800" color={accent}>{percentDone}%</Text>
+                  <Text mt={1} fontSize="2xl" fontWeight="800" color={accent}>{progressLoading ? "..." : `${percentDone}%`}</Text>
                   <Text fontSize="sm" color={subtleText}>{t("auto.StatisticsPageClient.seances_validees_sur_l_ensemble_de_tes_programmes", "séances validées sur l’ensemble de tes programmes")}</Text>
                 </Box>
                 <Divider borderColor={borderCol} />

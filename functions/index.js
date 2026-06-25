@@ -1553,6 +1553,9 @@ exports.sendPasswordSetupEmail = onCall(
       if (displayName) {
         await auth.updateUser(uid, { displayName });
       }
+      const userRef = db.collection("users").doc(uid);
+      const existingUserSnap = await userRef.get().catch(() => null);
+      const existingRole = safeTrim(existingUserSnap?.data?.()?.role);
       await db.collection("users").doc(uid).set(
         {
           email: rawEmail,
@@ -1560,7 +1563,7 @@ exports.sendPasswordSetupEmail = onCall(
           firstName: firstName || "Utilisateur",
           lastName,
           displayName,
-          role: "particulier",
+          ...(!existingRole ? { role: "particulier" } : {}),
           preferredLang: lng,
           settings: {
             defaultLanguage: lng,

@@ -135,7 +135,9 @@
     "card_title": "Programa Premium",
     "default_desc": "Programa estructurado, listo para empezar.",
     "previewLockedTitle": "Contenido detallado incluido después de la compra",
-    "previewLockedText": "El calentamiento, los ejercicios, las series, los tiempos de descanso y la vuelta a la calma se desbloquean en tu espacio después de la compra."
+    "previewLockedText": "El calentamiento, los ejercicios, las series, los tiempos de descanso y la vuelta a la calma se desbloquean en tu espacio después de la compra.",
+    "emptyTitle": "No hay programas premium disponibles",
+    "emptyText": "Vuelve pronto para descubrir nuevos programas."
   },
   "home": {
     "hero_title": "Mejora tu vida con entrenamiento inteligente",
@@ -161,6 +163,7 @@
     "latest_programs": "Últimos programas",
     "col_name": "Nombre",
     "col_assigned_to": "Asignado a",
+    "assigned_programs_short": "Asignados",
     "col_created_on": "Creado el",
     "assign_program": "Asignar un programa",
     "add_session": "Agregar una sesión",
@@ -626,6 +629,26 @@
       "copy_error_title": "No se pudo copiar",
       "email_subject": "Feliz cumpleaños",
       "open_email": "Abrir email"
+    },
+    "mobile": {
+      "today": "Hoy",
+      "no_appointment": "Sin cita",
+      "no_session": "Sin sesión",
+      "ready_to_plan": "Todo está libre para planificar el próximo seguimiento.",
+      "validated": "Validadas",
+      "planned": "Planificadas",
+      "week": "Semana",
+      "new_followup": "Crear seguimiento",
+      "plan": "Planificar",
+      "open_planning": "Agenda",
+      "upcoming": "Próximo",
+      "open_event": "Abrir turno",
+      "open_events": "Ver turnos",
+      "open_decisions": "Ver decisiones",
+      "open_nutrition": "Abrir nutrición",
+      "priority": "Prioridad",
+      "recent": "Reciente",
+      "no_recent_client": "Sin seguimiento reciente"
     }
   },
   "calendar": {
@@ -667,6 +690,7 @@
     "new_program": "Nuevo programa",
     "not_found": "Programa no encontrado",
     "subtitle": "Encuentre, duplique y consulte rápidamente todos sus programas.",
+    "toAssign": "Por asignar",
     "untitled": "Programa sin título"
   },
   "exercise": {
@@ -2041,7 +2065,18 @@
     "energyQuestion": "Energía hoy",
     "energyLow": "bajo",
     "energyNormal": "normales",
-    "energyHigh": "bueno"
+    "energyHigh": "bueno",
+    "pause": "Pausa",
+    "resume": "Reanudar",
+    "restart": "Reiniciar",
+    "settingsShort": "Ajustes",
+    "playerSettings": "Ajustes del reproductor",
+    "units": "Unidades",
+    "unitWeight": "Peso",
+    "unitDistance": "Distancia",
+    "unitSpeed": "Velocidad",
+    "visibleParameters": "Parámetros mostrados",
+    "visibleParametersHelp": "Añade los campos útiles para este ejercicio, como en el builder."
   },
   "contact": {
     "title": "Contacto",
@@ -3467,7 +3502,57 @@
       "calendrier_personnel": "calendario personal",
       "genere_un_lien_prive_pour_synchroniser_tes_seances": "Genera un enlace privado para sincronizar tus sesiones en tu aplicación de calendario.",
       "clique_sur_generer_pour_obtenir_ton_lien_d_abonnem": "Haga clic en “Generar” para obtener su enlace de suscripción.",
-      "generer": "generar"
+      "generer": "generar",
+      "accueil": "Inicio",
+      "a_planifier": "Por planificar",
+      "actif_status": "Activo",
+      "aucune_seance_planifiee": "Ninguna sesión planificada",
+      "bilan": "Balance",
+      "bilan_menu_recettes_courses": "Balance, menú, recetas y compras en un solo lugar",
+      "bravo_tous_tes_programmes_sont_termines": "Enhorabuena, todos tus programas están terminados. Es un buen momento para analizar tus resultados y lanzar un nuevo ciclo.",
+      "calcul_en_cours": "Calculando",
+      "chargement": "cargando",
+      "chargement_de_tes_programmes_et_de_ton_suivi": "Cargando tus programas y tu seguimiento...",
+      "chargement_des_seances": "Cargando sesiones",
+      "choisir_la_suite": "Elegir la continuación",
+      "choisir_un_programme": "Elegir un programa",
+      "courses": "Compras",
+      "cycle_termine": "Ciclo terminado",
+      "depart_propre": "Inicio limpio",
+      "entretenir": "Mantener",
+      "inspiration": "Inspiración",
+      "lancer_la_seance": "Iniciar la sesión",
+      "liste_de_courses": "Lista de compras",
+      "liste_partagee": "lista compartida",
+      "menu": "Menú",
+      "menu_du_jour": "Menú del día",
+      "plan_menu_et_courses": "Plan, menú y compras",
+      "plan_nutrition": "Plan nutricional",
+      "planifiees": "planificadas",
+      "planifier_une_seance_libre": "Planificar una sesión libre",
+      "preparer_les_achats": "Preparar las compras",
+      "pret": "Listo",
+      "pret_pour_la_suite": "listo para continuar",
+      "programme_sport_nutrition_avec_kcal": "Tu programa deportivo y tu seguimiento nutricional avanzan juntos: referencia del día {{kcal}} kcal.",
+      "programme_sport_nutrition_ensemble": "Tu programa deportivo y tu seguimiento nutricional avanzan juntos.",
+      "programmes": "Programas",
+      "progression": "Progreso",
+      "progression_globale": "Progreso global",
+      "recuperation_de_tes_programmes": "Recuperando tus programas...",
+      "reprendre": "Reanudar",
+      "restant": "Restante",
+      "revoir_tes_cycles": "Revisar tus ciclos",
+      "seances_a_faire": "sesiones por hacer",
+      "seances_ce_mois_ci": "{{count}} sesión este mes",
+      "seances_completees_count": "{{done}}/{{total}} sesiones completadas",
+      "seances_prevues_count": "{{count}} sesión planificada",
+      "seances_validees_count": "{{done}}/{{total}} sesiones validadas",
+      "statistiques": "Estadísticas",
+      "stats": "Stats",
+      "suivi_disponible": "seguimiento disponible",
+      "synchronisation_du_suivi": "Sincronización del seguimiento",
+      "ton_suivi_nutrition_est_disponible_ici": "Tu seguimiento nutricional está disponible aquí, con comidas, recetas y compras compartidas.",
+      "voir_les_repas_partages": "Ver las comidas compartidas"
     },
     "Clients": {
       "total": "totales"
@@ -5523,6 +5608,15 @@
           "3": "Travailler en lien avec médecin, psychologue ou psychiatre si besoin."
         }
       }
+    },
+    "CoachMobileNav": {
+      "accueil": "Inicio",
+      "patients": "Pacientes",
+      "clients": "Clientes",
+      "planning": "Agenda",
+      "programmes": "Programas",
+      "stats": "Stats",
+      "new_patient": "Nuevo paciente"
     }
   },
   "guidedTutorial": {

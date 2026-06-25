@@ -23,6 +23,7 @@ import {
   WrapItem,
   Button,
   Spacer,
+  Stack,
 } from "@chakra-ui/react";
 import {
   MdPeople,
@@ -40,6 +41,7 @@ import {
 import { useTranslation } from "react-i18next";
 import AppLoading from "../components/ui/AppLoading";
 import { useAppTheme } from "../styles/appTheme";
+import { hasPlanModule } from "../utils/proPlanAccess";
 
 /* ---------------- helpers: dates & sessions ---------------- */
 function getDoneDate(s) {
@@ -188,18 +190,18 @@ function Card({ children, onClick, glow = "rgba(59, 130, 246, 0.12)", ...props }
 function StatTile({ icon, label, value, accent = "blue.500", glow, onClick, hint }) {
   const theme = useAppTheme();
   return (
-    <Card onClick={onClick} glow={glow}>
-      <HStack spacing={4} align="flex-start">
+    <Card onClick={onClick} glow={glow} p={{ base: 4, md: 6 }}>
+      <HStack spacing={{ base: 3, md: 4 }} align="flex-start">
         <Box
           bg={theme.surfaceSoft}
           color={accent}
           borderRadius="xl"
-          p={2.5}
+          p={{ base: 2, md: 2.5 }}
           display="inline-flex"
           alignItems="center"
           justifyContent="center"
         >
-          <Icon as={icon} boxSize={6} />
+          <Icon as={icon} boxSize={{ base: 5, md: 6 }} />
         </Box>
         <VStack align="flex-start" spacing={1} flex={1}>
           <HStack w="full" justify="space-between">
@@ -207,7 +209,7 @@ function StatTile({ icon, label, value, accent = "blue.500", glow, onClick, hint
               <StatLabel fontSize="sm" color={theme.mutedText}>
                 {label}
               </StatLabel>
-              <StatNumber fontSize={{ base: "2xl", md: "3xl" }} color={theme.textColor}>
+              <StatNumber fontSize={{ base: "2xl", md: "3xl" }} color={theme.textColor} lineHeight="1">
                 {value}
               </StatNumber>
             </Stat>
@@ -389,16 +391,8 @@ export default function StatisticsPageCoach() {
   const mutedText = theme.mutedText;
   const subtleText = theme.subtleText;
   const locale = (i18n.language || "fr").toLowerCase().startsWith("en") ? "en-GB" : "fr-FR";
-  const planModules = user?.proAccess?.modules || user?.modules;
-  const hasNutritionAccess = Boolean(user?.role === "admin");
-  const hasSportAccess = Boolean(
-    user?.sportAccess ||
-    user?.hasSportAccess ||
-    (Array.isArray(planModules) && planModules.includes("sport")) ||
-    planModules?.sport ||
-    user?.features?.sport ||
-    ["sport", "complete", "club"].includes(user?.packageKey)
-  );
+  const hasNutritionAccess = hasPlanModule(user, "nutrition");
+  const hasSportAccess = hasPlanModule(user, "sport");
   const nutritionOnlyStats = hasNutritionAccess && !hasSportAccess;
   const mixedStats = hasNutritionAccess && hasSportAccess;
 
@@ -625,10 +619,10 @@ export default function StatisticsPageCoach() {
         );
 
   return (
-    <Box data-tour-page="coach-stats" p={{ base: 5, md: 8 }} bg={pageBg} color={textColor} minH="calc(100vh - 112px)">
-      <VStack align="stretch" spacing={6} maxW="1680px" mx="auto">
+    <Box data-tour-page="coach-stats" p={{ base: 3, md: 8 }} pb={{ base: 28, md: 8 }} bg={pageBg} color={textColor} minH="calc(100vh - 112px)">
+      <VStack align="stretch" spacing={{ base: 4, md: 6 }} maxW="1680px" mx="auto">
         <Card glow="rgba(16, 185, 129, 0.12)" p={{ base: 5, md: 7 }}>
-          <HStack align="center" spacing={5}>
+          <Stack direction={{ base: "column", md: "row" }} align={{ base: "flex-start", md: "center" }} spacing={5}>
             <Box
               bg={theme.surfaceSoft}
               border="1px solid"
@@ -653,11 +647,11 @@ export default function StatisticsPageCoach() {
                 {headerSubtitle}
               </Text>
             </VStack>
-          </HStack>
+          </Stack>
         </Card>
 
       {/* KPIs */}
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={5}>
+      <SimpleGrid columns={{ base: 2, md: 2, lg: 4 }} spacing={{ base: 3, md: 5 }}>
         <StatTile
           icon={MdPeople}
           label={nutritionOnlyStats ? "Total patients" : mixedStats ? "Total clients/patients" : t("stats.totalClients", "Total clients")}

@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Grid,
+  SimpleGrid,
   Text,
   VStack,
   HStack,
@@ -1325,10 +1326,11 @@ export default function ClientView() {
   }
 
   return (
-    <Box minH="100vh" bg={pageBg} px={{ base: 2, md: 6 }} py={6}>
+    <Box minH="100vh" bg={pageBg} px={{ base: 3, md: 6 }} py={{ base: 4, md: 6 }} pb={{ base: 28, md: 6 }}>
       <Box
         layerStyle="glassPanel"
-        p={{ base: 4, md: 6 }}
+        bg={{ base: theme.surfaceGlow, md: panelBg }}
+        p={{ base: 5, md: 6 }}
         mb={5}
       >
         <Flex mb={4} align={{ base: "stretch", md: "center" }} justify="space-between" direction={{ base: "column", md: "row" }} gap={3}>
@@ -1340,7 +1342,7 @@ export default function ClientView() {
           </Button>
         </Flex>
 
-        <Text fontSize={{ base: "2xl", md: "3xl" }} fontWeight="900" letterSpacing="-0.03em">
+        <Text fontSize={{ base: "2xl", md: "3xl" }} fontWeight="900" letterSpacing="0" lineHeight="1.1">
           {client?.prenom} {client?.nom}
         </Text>
 
@@ -1400,39 +1402,39 @@ export default function ClientView() {
         </Box>
       )}
 
-      <Grid templateColumns={{ base: "1fr 1fr", md: "repeat(4,1fr)" }} gap={3} mb={3}>
-        <Box bg={panelBg} border="1px solid" borderColor={panelBorder} p={4} borderRadius="22px" boxShadow={shadow} backdropFilter="blur(14px)" textAlign="center">
-          <Text fontSize="sm" color={muted}>
+      <Grid templateColumns={{ base: "1fr 1fr", md: "repeat(4,1fr)" }} gap={{ base: 2, md: 3 }} mb={3}>
+        <Box bg={panelBg} border="1px solid" borderColor={panelBorder} p={{ base: 3, md: 4 }} borderRadius="22px" boxShadow={shadow} backdropFilter="blur(14px)" textAlign="center">
+          <Text fontSize={{ base: "xs", md: "sm" }} color={muted} fontWeight="800" noOfLines={1}>
             {t("clientView.totalPrograms", "Total programmes")}
           </Text>
-          <Text fontSize="xl" fontWeight="bold">
+          <Text fontSize={{ base: "2xl", md: "xl" }} fontWeight="900" lineHeight="1.1">
             {programmes.length}
           </Text>
         </Box>
 
-        <Box bg={panelBg} border="1px solid" borderColor={panelBorder} p={4} borderRadius="22px" boxShadow={shadow} backdropFilter="blur(14px)" textAlign="center">
-          <Text fontSize="sm" color={muted}>
+        <Box bg={panelBg} border="1px solid" borderColor={panelBorder} p={{ base: 3, md: 4 }} borderRadius="22px" boxShadow={shadow} backdropFilter="blur(14px)" textAlign="center">
+          <Text fontSize={{ base: "xs", md: "sm" }} color={muted} fontWeight="800" noOfLines={1}>
             {t("clientView.percentCompleted", "% terminé")}
           </Text>
-          <Text fontSize="xl" fontWeight="bold">
+          <Text fontSize={{ base: "2xl", md: "xl" }} fontWeight="900" lineHeight="1.1">
             {percentDone} %
           </Text>
         </Box>
 
-        <Box bg={panelBg} border="1px solid" borderColor={panelBorder} p={4} borderRadius="22px" boxShadow={shadow} backdropFilter="blur(14px)" textAlign="center">
-          <Text fontSize="sm" color={muted}>
+        <Box bg={panelBg} border="1px solid" borderColor={panelBorder} p={{ base: 3, md: 4 }} borderRadius="22px" boxShadow={shadow} backdropFilter="blur(14px)" textAlign="center">
+          <Text fontSize={{ base: "xs", md: "sm" }} color={muted} fontWeight="800" noOfLines={1}>
             {t("clientView.sessionsPerWeek", "Séances / sem.")}
           </Text>
-          <Text fontSize="xl" fontWeight="bold">
+          <Text fontSize={{ base: "2xl", md: "xl" }} fontWeight="900" lineHeight="1.1">
             {sessWeek}
           </Text>
         </Box>
 
-        <Box bg={panelBg} border="1px solid" borderColor={panelBorder} p={4} borderRadius="22px" boxShadow={shadow} backdropFilter="blur(14px)" textAlign="center">
-          <Text fontSize="sm" color={muted}>
+        <Box bg={panelBg} border="1px solid" borderColor={panelBorder} p={{ base: 3, md: 4 }} borderRadius="22px" boxShadow={shadow} backdropFilter="blur(14px)" textAlign="center">
+          <Text fontSize={{ base: "xs", md: "sm" }} color={muted} fontWeight="800" noOfLines={1}>
             {t("clientView.lastShort", "Dern. séance")}
           </Text>
-          <Text fontSize="xl" fontWeight="bold">
+          <Text fontSize={{ base: "lg", md: "xl" }} fontWeight="900" lineHeight="1.1">
             {lastGlobal ? lastGlobal.date.toLocaleDateString() : "—"}
           </Text>
           {lastGlobal?.name && (
@@ -1468,19 +1470,19 @@ export default function ClientView() {
         border="1px solid"
         borderColor={panelBorder}
         mb={4}
-        p={6}
+        p={{ base: 4, md: 6 }}
         borderRadius="24px"
         boxShadow={shadow}
         backdropFilter="blur(16px)"
         w="100%"
       >
-        <Flex justify="space-between" align="center" mb={4} wrap="wrap" gap={2}>
-          <Text fontWeight="bold">{t("clientView.assignedPrograms", "Programmes assignés")}</Text>
-          <HStack spacing={2} wrap="wrap">
-            <Button size="sm" variant="outline" onClick={assignProg.onOpen}>
+        <Flex justify="space-between" align={{ base: "stretch", md: "center" }} mb={4} direction={{ base: "column", md: "row" }} gap={2}>
+          <Text fontWeight="900" fontSize={{ base: "xl", md: "md" }}>{t("clientView.assignedPrograms", "Programmes assignés")}</Text>
+          <HStack spacing={2} wrap="wrap" w={{ base: "full", md: "auto" }}>
+            <Button size="sm" variant="outline" borderRadius="full" flex={{ base: 1, md: "initial" }} onClick={assignProg.onOpen}>
               {t("clientView.assignProgram", "Assigner un programme")}
             </Button>
-            <Button size="sm" onClick={() => navigate("/programmes")}>
+            <Button size="sm" borderRadius="full" flex={{ base: 1, md: "initial" }} onClick={() => navigate("/programmes")}>
               {t("clientView.viewAll", "Voir tous")}
             </Button>
           </HStack>
@@ -1621,22 +1623,9 @@ export default function ClientView() {
             {sortedProgrammes.map((p) => {
               const totalPrevues = getTotalSessionsFromProgrammeDoc(p);
               const nbSessEff = getCompletedSessionsForProgramme(p);
-
-              const lastSessObj = (p.sessionsEffectuees || [])
-                .map((s) => {
-                  const rawDone = s?.[FIELD_DONE_DATE];
-                  const d = rawDone?.toDate ? rawDone.toDate() : toJsDate(rawDone);
-                  return d instanceof Date && !isNaN(d)
-                    ? { date: d, name: getSessionName(s, p) || undefined }
-                    : null;
-                })
-                .filter(Boolean)
-                .sort((a, b) => b.date - a.date)[0];
-
               const percent =
                 totalPrevues > 0 ? Math.min(100, Math.round((nbSessEff / totalPrevues) * 100)) : 0;
 
-              const assignedDate = pickAssignedDate(p);
               const lastActivityDate = getProgrammeLastActivityDate(p);
 
               const noteTooltip = (() => {
@@ -1667,33 +1656,30 @@ export default function ClientView() {
                   backdropFilter="blur(10px)"
                 >
                   <VStack align="start" spacing={1}>
-                    <Text fontWeight="bold" fontSize="md">
+                    <Text fontWeight="900" fontSize="lg" lineHeight="1.2">
                       {p.nomProgramme || p.name || p.id}
                     </Text>
                     <StarsPreview value={p.__lastRating} tooltip={noteTooltip} />
                   </VStack>
 
-                  <HStack spacing={2} mt={2} wrap="wrap">
-                    <Badge variant="subtle" colorScheme="gray" borderRadius="full" px={2.5} py={1}>
-                      {t("clientView.lastActivity", "Dernière activité")}:{" "}
-                      {lastActivityDate ? lastActivityDate.toLocaleDateString() : "—"}
-                    </Badge>
-
-                    <Badge variant="subtle" colorScheme="gray" borderRadius="full" px={2.5} py={1}>
-                      {t("clientView.createdOn", "Créé le")}:{" "}
-                      {assignedDate ? assignedDate.toLocaleDateString() : "—"}
-                    </Badge>
-
-                    <Badge borderRadius="full" px={2.5} py={1}>
-                      {nbSessEff}/{totalPrevues} {t("dashboard.sessions", "Séances")}
-                    </Badge>
-
-                    <Badge variant="subtle" colorScheme="gray" borderRadius="full" px={2.5} py={1}>
-                      {t("clientView.lastShort", "Dern.")}:{" "}
-                      {lastSessObj ? lastSessObj.date.toLocaleDateString() : "—"}
-                      {lastSessObj?.name ? ` — ${lastSessObj.name}` : ""}
-                    </Badge>
-                  </HStack>
+                  <SimpleGrid columns={2} spacing={2} mt={3}>
+                    <Box bg={panelBg} border="1px solid" borderColor={panelBorder} borderRadius="16px" p={2.5}>
+                      <Text fontSize="10px" color={muted} fontWeight="900" textTransform="uppercase" noOfLines={1}>
+                        {t("clientView.lastActivity", "Dernière activité")}
+                      </Text>
+                      <Text mt={1} fontSize="sm" fontWeight="850" noOfLines={1}>
+                        {lastActivityDate ? lastActivityDate.toLocaleDateString() : "—"}
+                      </Text>
+                    </Box>
+                    <Box bg={panelBg} border="1px solid" borderColor={panelBorder} borderRadius="16px" p={2.5}>
+                      <Text fontSize="10px" color={muted} fontWeight="900" textTransform="uppercase" noOfLines={1}>
+                        {t("dashboard.sessions", "Séances")}
+                      </Text>
+                      <Text mt={1} fontSize="sm" fontWeight="850" noOfLines={1}>
+                        {nbSessEff}/{totalPrevues}
+                      </Text>
+                    </Box>
+                  </SimpleGrid>
 
                   <HStack justify="space-between" mt={3} mb={1}>
                     <Text fontSize="sm" color={muted}>
@@ -1705,10 +1691,10 @@ export default function ClientView() {
                   </HStack>
                   <Progress value={percent} size="sm" borderRadius="full" />
 
-                  <HStack spacing={2} mt={3}>
+                  <SimpleGrid columns={2} spacing={2} mt={4}>
                     <Button
                       size="sm"
-                      variant="outline"
+                      borderRadius="full"
                       leftIcon={<FiEye />}
                       onClick={() => navigate(`/clients/${clientId}/programmes/${p.id}`)}
                     >
@@ -1718,6 +1704,7 @@ export default function ClientView() {
                     <Button
                       size="sm"
                       variant="outline"
+                      borderRadius="full"
                       leftIcon={<FiCopy />}
                       isLoading={duplicatingId === p.id}
                       onClick={() => duplicateProgramme(p.id)}
@@ -1728,7 +1715,10 @@ export default function ClientView() {
                     <Button
                       size="sm"
                       colorScheme="red"
+                      variant="outline"
+                      borderRadius="full"
                       leftIcon={<FiXCircle />}
+                      gridColumn="1 / -1"
                       onClick={() => {
                         setToRemove(p.id);
                         confirmDesassign.onOpen();
@@ -1736,7 +1726,7 @@ export default function ClientView() {
                     >
                       {t("clientView.unassign", "Désassigner")}
                     </Button>
-                  </HStack>
+                  </SimpleGrid>
                 </Box>
               );
             })}

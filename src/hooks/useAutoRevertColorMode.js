@@ -4,6 +4,9 @@ import { useColorMode } from "@chakra-ui/react";
 
 const KEY_TS = "byl_color_mode_manual_ts";
 const KEY_MODE = "byl_color_mode_manual_value";
+const KEY_VERSION = "byl_color_mode_manual_version";
+const LEGACY_SUN_KEY = "byl_color_mode_manual";
+const MANUAL_VERSION = "2";
 const TTL_MS = 6 * 60 * 60 * 1000; // 6h
 
 const getSystemMode = () => {
@@ -14,7 +17,24 @@ const getSystemMode = () => {
 const hasManual = () => {
   const ts = Number(localStorage.getItem(KEY_TS) || 0);
   const manualValue = localStorage.getItem(KEY_MODE);
-  return !!ts && !!manualValue;
+  const version = localStorage.getItem(KEY_VERSION);
+  if (!ts || !manualValue || version !== MANUAL_VERSION) {
+    localStorage.removeItem("chakra-ui-color-mode");
+    localStorage.removeItem(KEY_TS);
+    localStorage.removeItem(KEY_MODE);
+    localStorage.removeItem(KEY_VERSION);
+    localStorage.removeItem(LEGACY_SUN_KEY);
+    return false;
+  }
+  if (Date.now() - ts >= TTL_MS) {
+    localStorage.removeItem("chakra-ui-color-mode");
+    localStorage.removeItem(KEY_TS);
+    localStorage.removeItem(KEY_MODE);
+    localStorage.removeItem(KEY_VERSION);
+    localStorage.removeItem(LEGACY_SUN_KEY);
+    return false;
+  }
+  return true;
 };
 
 export default function useAutoRevertColorMode() {
@@ -24,6 +44,8 @@ export default function useAutoRevertColorMode() {
     localStorage.removeItem("chakra-ui-color-mode");
     localStorage.removeItem(KEY_TS);
     localStorage.removeItem(KEY_MODE);
+    localStorage.removeItem(KEY_VERSION);
+    localStorage.removeItem(LEGACY_SUN_KEY);
   }, []);
 
   const checkExpiry = useCallback(() => {
@@ -80,6 +102,7 @@ export default function useAutoRevertColorMode() {
     try {
       localStorage.setItem(KEY_TS, String(Date.now()));
       localStorage.setItem(KEY_MODE, String(nextMode));
+      localStorage.setItem(KEY_VERSION, MANUAL_VERSION);
     } catch {}
   };
 
