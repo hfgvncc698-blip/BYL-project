@@ -3260,9 +3260,9 @@ export default function RationAutoGenerator(props) {
               <Text fontSize="sm" color={muted}>{i18n.t("auto.RationAutoGenerator.totaux_jour", "Totaux jour")}</Text>
               <HStack mt={2} align="baseline" gap={3} flexWrap="wrap">
                 <Text fontSize="2xl" fontWeight="900">
-                  {r0(computedByMeal.day.kcal)} / {r0(kcalTarget || kcalIndicatif)}{i18n.t("auto.RationAutoGenerator.kcal", "kcal")}</Text>
+                  {r0(computedByMeal.day.kcal)} / {r0(kcalTarget || kcalIndicatif)} {i18n.t("auto.RationAutoGenerator.kcal", "kcal")}</Text>
                 {kcalTarget > 0 && (
-                  <Badge colorScheme={Math.abs(computedByMeal.day.kcal - kcalTarget) <= 50 ? "green" : "yellow"}>{i18n.t("auto.RationAutoGenerator.ecart", "Écart")}{r0(computedByMeal.day.kcal - kcalTarget)}{i18n.t("auto.RationAutoGenerator.kcal", "kcal")}</Badge>
+                  <Badge colorScheme={Math.abs(computedByMeal.day.kcal - kcalTarget) <= 50 ? "green" : "yellow"}>{i18n.t("auto.RationAutoGenerator.ecart", "Écart")} {r0(computedByMeal.day.kcal - kcalTarget)} {i18n.t("auto.RationAutoGenerator.kcal", "kcal")}</Badge>
                 )}
               </HStack>
             </Box>
@@ -3270,7 +3270,7 @@ export default function RationAutoGenerator(props) {
             <Box textAlign={{ base: "left", md: "right" }}>
               <Text fontSize="xs" color={muted} fontWeight="800" textTransform="uppercase">{i18n.t("auto.RationAutoGenerator.cibles_macros", "Cibles macros")}</Text>
               <Text fontWeight="900">
-                P {r0(macroTargets.protG)}{i18n.t("auto.RationAutoGenerator.g_l", "g • L")}{r0(macroTargets.lipG)}{i18n.t("auto.RationAutoGenerator.g_g", "g • G")}{r0(macroTargets.gluG)}{i18n.t("auto.RationAutoGenerator.g", "g")}</Text>
+                P {r0(macroTargets.protG)} {i18n.t("auto.RationAutoGenerator.g", "g")} • L {r0(macroTargets.lipG)} {i18n.t("auto.RationAutoGenerator.g", "g")} • G {r0(macroTargets.gluG)} {i18n.t("auto.RationAutoGenerator.g", "g")}</Text>
               <Text fontSize="xs" opacity={0.75}>{i18n.t("auto.RationAutoGenerator.reperes_bilan_p", "Repères bilan : P")}{formatGramRange(context?.needs?.protG, macroTargets.protG)} (
                 {formatPctRange(context?.needs?.pctRanges?.protPctMin, context?.needs?.pctRanges?.protPctMax, ranges.prot)}{i18n.t("auto.RationAutoGenerator.l", ") • L")}{" "}
                 {formatGramRange(context?.needs?.lipG, macroTargets.lipG)} (
@@ -3284,17 +3284,17 @@ export default function RationAutoGenerator(props) {
           <Wrap mt={4} spacing={2}>
             <WrapItem>
               <Badge colorScheme={macroColorScheme(dayPct.prot, ranges.prot)} variant="subtle" border="1px solid" borderColor={border}>
-                P {r0(computedByMeal.day.prot)}{i18n.t("auto.RationAutoGenerator.g_3", "g •")}{r0(dayPct.prot)}%
+                P {r0(computedByMeal.day.prot)} {i18n.t("auto.RationAutoGenerator.g", "g")} • {r0(dayPct.prot)}%
               </Badge>
             </WrapItem>
             <WrapItem>
               <Badge colorScheme={macroColorScheme(dayPct.lip, ranges.lip)} variant="subtle" border="1px solid" borderColor={border}>
-                L {r0(computedByMeal.day.lip)}{i18n.t("auto.RationAutoGenerator.g_3", "g •")}{r0(dayPct.lip)}%
+                L {r0(computedByMeal.day.lip)} {i18n.t("auto.RationAutoGenerator.g", "g")} • {r0(dayPct.lip)}%
               </Badge>
             </WrapItem>
             <WrapItem>
               <Badge colorScheme={macroColorScheme(dayPct.glu, ranges.glu)} variant="subtle" border="1px solid" borderColor={border}>
-                G {r0(computedByMeal.day.glu)}{i18n.t("auto.RationAutoGenerator.g_3", "g •")}{r0(dayPct.glu)}%
+                G {r0(computedByMeal.day.glu)} {i18n.t("auto.RationAutoGenerator.g", "g")} • {r0(dayPct.glu)}%
               </Badge>
             </WrapItem>
           </Wrap>

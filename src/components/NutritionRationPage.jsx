@@ -21,6 +21,7 @@ import {
   TagLabel,
   Progress,
   Collapse,
+  useColorModeValue,
 } from "@chakra-ui/react";
 import { useNavigate, useParams } from "react-router-dom";
 import { doc, onSnapshot, updateDoc, serverTimestamp, getDoc } from "firebase/firestore";
@@ -53,6 +54,7 @@ import NutritionWorkflowBar from "./nutrition/NutritionWorkflowBar.jsx";
 
 import i18n from "../i18n/index";
 import { navigateWithDomFallback } from "../utils/navigationFallback";
+import { translateNutritionObjective } from "../utils/nutritionFoodI18n";
 
 /* ================= Utils ================= */
 const num = (v) => {
@@ -502,6 +504,41 @@ export default function NutritionRationPage() {
   const softBg = nutritionTheme.surfaceSoft;
   const borderCol = nutritionTheme.borderColor;
   const textMuted = nutritionTheme.mutedText;
+  const rationSummaryCards = {
+    energy: {
+      bg: useColorModeValue("blue.50", "rgba(37, 99, 235, 0.14)"),
+      border: useColorModeValue("blue.200", "rgba(96, 165, 250, 0.34)"),
+      label: useColorModeValue("blue.700", "blue.200"),
+      text: useColorModeValue("gray.900", "whiteAlpha.950"),
+      muted: useColorModeValue("blue.800", "whiteAlpha.760"),
+    },
+    mealsOk: {
+      bg: useColorModeValue("teal.50", "rgba(20, 184, 166, 0.13)"),
+      border: useColorModeValue("teal.300", "rgba(45, 212, 191, 0.34)"),
+      label: useColorModeValue("teal.800", "teal.200"),
+      text: useColorModeValue("gray.900", "whiteAlpha.950"),
+      progressTrack: useColorModeValue("teal.100", "rgba(45, 212, 191, 0.16)"),
+    },
+    mealsWarn: {
+      bg: useColorModeValue("orange.50", "rgba(251, 146, 60, 0.12)"),
+      border: useColorModeValue("orange.300", "rgba(251, 191, 36, 0.34)"),
+      label: useColorModeValue("orange.800", "orange.200"),
+      text: useColorModeValue("gray.900", "whiteAlpha.950"),
+      progressTrack: useColorModeValue("orange.100", "rgba(251, 191, 36, 0.16)"),
+    },
+    macros: {
+      bg: useColorModeValue("purple.50", "rgba(124, 58, 237, 0.13)"),
+      border: useColorModeValue("purple.200", "rgba(167, 139, 250, 0.34)"),
+      label: useColorModeValue("purple.700", "purple.200"),
+      text: useColorModeValue("gray.900", "whiteAlpha.950"),
+    },
+    check: {
+      bg: useColorModeValue("orange.50", "rgba(251, 146, 60, 0.11)"),
+      border: useColorModeValue("orange.200", "rgba(251, 191, 36, 0.32)"),
+      label: useColorModeValue("orange.700", "orange.200"),
+      text: useColorModeValue("orange.900", "whiteAlpha.860"),
+    },
+  };
   const sectionCardProps = {
     borderWidth: "1px",
     borderColor: borderCol,
@@ -875,7 +912,13 @@ export default function NutritionRationPage() {
   const statusColorScheme = (status) =>
     status === "ok" ? "green" : status === "high" ? "red" : status === "low" ? "orange" : "gray";
   const statusLabel = (status) =>
-    status === "ok" ? "Dans la cible" : status === "high" ? "Au-dessus" : status === "low" ? "Sous la cible" : "Sans cible";
+    status === "ok"
+      ? i18n.t("auto.NutritionRationPage.dans_la_cible", "Dans la cible")
+      : status === "high"
+      ? i18n.t("auto.NutritionRationPage.au_dessus", "Au-dessus")
+      : status === "low"
+      ? i18n.t("auto.NutritionRationPage.sous_la_cible", "Sous la cible")
+      : i18n.t("auto.NutritionRationPage.sans_cible", "Sans cible");
   const rangeProgress = (value, range) => {
     const max = num(range?.max);
     if (!(max > 0)) return 0;
@@ -941,22 +984,22 @@ export default function NutritionRationPage() {
     }
     return raw;
   }, [needs?.sex]);
+  const activeLanguage = i18n.language || i18n.resolvedLanguage || "fr";
+  const translatedObjectiveRaw = useMemo(
+    () => translateNutritionObjective(objectiveRaw, activeLanguage),
+    [activeLanguage, objectiveRaw]
+  );
   const clientSummary = useMemo(
     () =>
       [
         summaryAge !== null ? i18n.t("auto.NutritionRationPage.age_years", "{{age}} ans", { age: summaryAge }) : null,
         sexLabel || null,
-        objectiveRaw || null,
+        translatedObjectiveRaw || null,
       ]
         .filter(Boolean)
         .join(" • "),
-    [objectiveRaw, sexLabel, summaryAge]
+    [translatedObjectiveRaw, sexLabel, summaryAge]
   );
-  const pageTips = [
-    i18n.t("auto.NutritionRationPage.tip_choisir_mode", "Commencer par choisir le mode le plus adapté au niveau de personnalisation souhaité."),
-    i18n.t("auto.NutritionRationPage.tip_cadre_clinique", "S’appuyer sur le cadre clinique pour garder une ration cohérente avec les besoins estimés."),
-    i18n.t("auto.NutritionRationPage.tip_verifier_repartition", "Vérifier la répartition par repas avant de passer au menu journalier."),
-  ];
   const rationObservations = useMemo(() => {
     const observations = [];
     if (!readableRationLineCount) {
@@ -1056,26 +1099,143 @@ export default function NutritionRationPage() {
                     <Button variant="outline" onClick={goBack} data-testid="nutrition-ration-back-top">{i18n.t("programView.back", "Retour")}</Button>
                     <Heading size="md">{i18n.t("auto.NutritionRationPage.ration_alimentaire", "Ration alimentaire")}</Heading>
                     {blocked ? <Badge colorScheme="yellow">{i18n.t("auto.NutritionRationPage.bilan_non_valide", "BILAN NON VALIDÉ")}</Badge> : <Badge colorScheme="green">OK</Badge>}
-                    <Badge colorScheme={mode === "auto" ? "purple" : "blue"}>
-                      {mode === "auto"
-                        ? i18n.t("auto.NutritionRationPage.mode_auto_upper", "MODE AUTO")
-                        : i18n.t("auto.NutritionRationPage.mode_manuel_upper", "MODE MANUEL")}
-                    </Badge>
                   </HStack>
 
                   <Text mt={2} fontSize="sm" color={textMuted} maxW="760px">{i18n.t("auto.NutritionRationPage.cette_etape_sert_a_construire_la_ration_cible_a_pa", "Cette étape sert à construire la ration cible à partir du contexte clinique, des besoins estimés et du mode de travail choisi.")}</Text>
                 </Box>
 
+                <Box
+                  borderWidth="1px"
+                  borderColor={borderCol}
+                  borderRadius="lg"
+                  bg={softBg}
+                  p={2}
+                  minW={{ base: "100%", md: "340px" }}
+                >
+                  <Text px={2} mb={2} fontSize="xs" fontWeight="900" letterSpacing="0.08em" color={textMuted}>
+                    {i18n.t("auto.NutritionRationPage.mode_de_construction", "MODE DE CONSTRUCTION")}
+                  </Text>
+                  <HStack spacing={2}>
+                    <Button
+                      flex="1"
+                      h="42px"
+                      variant={mode === "auto" ? "solid" : "ghost"}
+                      {...(mode === "auto" ? nutritionTheme.primaryButtonProps : {})}
+                      onClick={() => changeMode("auto")}
+                      isDisabled={blocked}
+                    >
+                      {i18n.t("auto.NutritionRationPage.mode_auto", "Mode auto")}
+                    </Button>
+                    <Button
+                      flex="1"
+                      h="42px"
+                      variant={mode === "pro" ? "solid" : "ghost"}
+                      {...(mode === "pro" ? nutritionTheme.primaryButtonProps : {})}
+                      onClick={() => changeMode("pro")}
+                      isDisabled={blocked}
+                    >
+                      {i18n.t("auto.NutritionRationPage.mode_manuel", "Mode manuel")}
+                    </Button>
+                  </HStack>
+                </Box>
               </HStack>
 
-              <SimpleGrid columns={{ base: 1, md: 3 }} spacing={3}>
-                {pageTips.map((tip, index) => (
-                  <Box key={tip} p={3} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={softBg}>
-                    <Text fontSize="xs" fontWeight="900" color={textMuted}>0{index + 1}</Text>
-                    <Text fontSize="sm" fontWeight="700" mt={1}>{tip}</Text>
+              <Box borderWidth="1px" borderColor={borderCol} borderRadius="lg" bg={softBg} p={{ base: 3, md: 4 }}>
+                <HStack justify="space-between" align="start" gap={3} flexWrap="wrap" mb={3}>
+                  <Box>
+                    <Text fontSize="xs" fontWeight="900" letterSpacing="0.08em" color={textMuted}>
+                      {i18n.t("auto.NutritionRationPage.synthese_rapide", "SYNTHÈSE RAPIDE")}
+                    </Text>
+                    <Heading size="sm" mt={1}>{i18n.t("auto.NutritionRationPage.pilotage_de_la_ration", "Pilotage de la ration")}</Heading>
                   </Box>
-                ))}
-              </SimpleGrid>
+                  <Badge colorScheme={readableMealCount > 0 ? "teal" : "orange"} variant="subtle" borderRadius="full" px={3} py={1}>
+                    {i18n.t("auto.NutritionRationPage.repas_reference_short", "{{count}} repas de référence", { count: readableMealCount })}
+                  </Badge>
+                </HStack>
+
+                <SimpleGrid columns={{ base: 2, md: 2, xl: 4 }} spacing={{ base: 2.5, md: 3 }}>
+                  <Box
+                    p={{ base: 2.5, md: 3 }}
+                    borderWidth="1px"
+                    borderColor={rationSummaryCards.energy.border}
+                    borderRadius="md"
+                    bg={rationSummaryCards.energy.bg}
+                    color={rationSummaryCards.energy.text}
+                  >
+                    <Text fontSize="xs" fontWeight="900" color={rationSummaryCards.energy.label} textTransform="uppercase">{i18n.t("auto.NutritionRationPage.energie", "Énergie")}</Text>
+                    <Text mt={2} fontSize={{ base: "xl", md: "2xl" }} fontWeight="900" lineHeight="1">
+                      {r0(rationDayTotals.kcal)} kcal
+                    </Text>
+                    <Text mt={1} fontSize="sm" color={rationSummaryCards.energy.muted}>
+                      {needs.kcalTarget
+                        ? i18n.t("auto.NutritionRationPage.cible_kcal_value", "cible {{value}} kcal", { value: r0(needs.kcalTarget) })
+                        : i18n.t("auto.NutritionRationPage.cible_a_completer", "cible à compléter")}
+                    </Text>
+                    <Badge mt={3} colorScheme={statusColorScheme(rationComparisons[0]?.status)} variant="solid" borderRadius="full">
+                      {statusLabel(rationComparisons[0]?.status)}
+                    </Badge>
+                  </Box>
+
+                  <Box
+                    p={{ base: 2.5, md: 3 }}
+                    borderWidth="1px"
+                    borderColor={(readableMealCount > 0 ? rationSummaryCards.mealsOk : rationSummaryCards.mealsWarn).border}
+                    borderRadius="md"
+                    bg={(readableMealCount > 0 ? rationSummaryCards.mealsOk : rationSummaryCards.mealsWarn).bg}
+                    color={(readableMealCount > 0 ? rationSummaryCards.mealsOk : rationSummaryCards.mealsWarn).text}
+                  >
+                    <Text
+                      fontSize="xs"
+                      fontWeight="900"
+                      color={(readableMealCount > 0 ? rationSummaryCards.mealsOk : rationSummaryCards.mealsWarn).label}
+                      textTransform="uppercase"
+                    >
+                      {i18n.t("auto.NutritionRationPage.repas_reference_label", "Repas de référence")}
+                    </Text>
+                    <Text mt={2} fontSize={{ base: "xl", md: "2xl" }} fontWeight="900" lineHeight="1">
+                      {i18n.t("auto.NutritionRationPage.repas_reference_count", "{{count}} repas", { count: readableMealCount })}
+                    </Text>
+                    <Text mt={2} fontSize="sm" color={(readableMealCount > 0 ? rationSummaryCards.mealsOk : rationSummaryCards.mealsWarn).label}>
+                      {i18n.t("auto.NutritionRationPage.repas_reference_helper", "À respecter depuis la ration")}
+                    </Text>
+                  </Box>
+
+                  <Box
+                    p={{ base: 2.5, md: 3 }}
+                    borderWidth="1px"
+                    borderColor={rationSummaryCards.macros.border}
+                    borderRadius="md"
+                    bg={rationSummaryCards.macros.bg}
+                    color={rationSummaryCards.macros.text}
+                  >
+                    <Text fontSize="xs" fontWeight="900" color={rationSummaryCards.macros.label} textTransform="uppercase">{i18n.t("auto.NutritionRationPage.macros_ration", "Macros ration")}</Text>
+                    <Wrap mt={3} spacing={1.5}>
+                      <WrapItem>
+                        <Badge colorScheme={statusColorScheme(rationComparisons[1]?.status)} variant="subtle" borderRadius="full">P {r0(rationDayTotals.prot)} g</Badge>
+                      </WrapItem>
+                      <WrapItem>
+                        <Badge colorScheme={statusColorScheme(rationComparisons[2]?.status)} variant="subtle" borderRadius="full">L {r0(rationDayTotals.lip)} g</Badge>
+                      </WrapItem>
+                      <WrapItem>
+                        <Badge colorScheme={statusColorScheme(rationComparisons[3]?.status)} variant="subtle" borderRadius="full">G {r0(rationDayTotals.glu)} g</Badge>
+                      </WrapItem>
+                    </Wrap>
+                  </Box>
+
+                  <Box
+                    p={{ base: 2.5, md: 3 }}
+                    borderWidth="1px"
+                    borderColor={rationSummaryCards.check.border}
+                    borderRadius="md"
+                    bg={rationSummaryCards.check.bg}
+                  >
+                    <Text fontSize="xs" fontWeight="900" color={rationSummaryCards.check.label} textTransform="uppercase">{i18n.t("auto.NutritionRationPage.a_verifier", "À vérifier")}</Text>
+                    <Text mt={2} fontSize="sm" fontWeight="700" color={rationSummaryCards.check.text} noOfLines={4}>
+                      {rationObservations[0] || i18n.t("auto.NutritionRationPage.observation_reperes_coherents", "Les repères énergie et macros sont cohérents: la ration peut servir de base au menu.")}
+                    </Text>
+                  </Box>
+                </SimpleGrid>
+              </Box>
             </Stack>
           </Box>
         </Box>
@@ -1096,7 +1256,7 @@ export default function NutritionRationPage() {
             maxH={{ base: "none", lg: "calc(100vh - 104px)" }}
             overflowY={{ base: "visible", lg: "auto" }}
             pr={{ base: 0, lg: 1 }}
-            order={{ base: 0, lg: 1 }}
+            order={{ base: 1, lg: 1 }}
           >
         <Box {...sectionCardProps} p={{ base: 4, lg: 4, xl: 5 }} order={0}>
           <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>{i18n.t("auto.NutritionRationPage.dossier", "DOSSIER")}</Text>
@@ -1109,7 +1269,7 @@ export default function NutritionRationPage() {
           <SimpleGrid columns={{ base: 1, sm: 2, lg: 1 }} spacing={3} mt={4}>
             <Box p={3} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={softBg}>
               <Text fontSize="xs" fontWeight="800" color={textMuted}>{i18n.t("auto.NutritionRationPage.objectif", "OBJECTIF")}</Text>
-              <Text fontWeight="900">{objectiveRaw || i18n.t("auto.NutritionRationPage.a_preciser", "À préciser")}</Text>
+              <Text fontWeight="900">{translatedObjectiveRaw || i18n.t("auto.NutritionRationPage.a_preciser", "À préciser")}</Text>
               <Text fontSize="sm" color={textMuted}>{activeDiet.length ? activeDiet.join(", ") : i18n.t("auto.NutritionRationPage.aucun_regime_specifique", "Aucun régime spécifique")}</Text>
             </Box>
             <Box p={3} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={softBg}>
@@ -1122,10 +1282,9 @@ export default function NutritionRationPage() {
               <Text fontWeight="900">{mode === "auto" ? i18n.t("auto.NutritionRationPage.generation_automatique", "Génération automatique") : i18n.t("auto.NutritionRationPage.construction_manuelle", "Construction manuelle")}</Text>
               <Text fontSize="sm" color={textMuted}>
                 {readableRationLineCount
-                  ? i18n.t("auto.NutritionRationPage.ration_summary_kcal_meals", "{{kcal}} kcal • {{count}}/{{total}} repas couverts", {
+                  ? i18n.t("auto.NutritionRationPage.ration_summary_kcal_meals", "{{kcal}} kcal • {{count}} repas de référence", {
                       kcal: r0(rationDayTotals.kcal),
                       count: readableMealCount,
-                      total: MENU_MEALS_ORDER.length,
                     })
                   : i18n.t("auto.NutritionRationPage.aucune_ration_exploitable", "Aucune ration exploitable")}
               </Text>
@@ -1220,37 +1379,9 @@ export default function NutritionRationPage() {
           </SimpleGrid>
         </Box>
 
-        <Box {...sectionCardProps} p={{ base: 4, lg: 4, xl: 5 }} order={{ base: 1, lg: 2 }}>
-          <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>{i18n.t("auto.NutritionRationPage.mode_de_construction", "MODE DE CONSTRUCTION")}</Text>
-          <Heading size="sm" mt={1}>{i18n.t("auto.NutritionRationPage.choix_de_la_methode", "Choix de la méthode")}</Heading>
-          <HStack
-            mt={4}
-            spacing={0}
-            borderWidth="1px"
-            borderColor={borderCol}
-            borderRadius="md"
-            overflow="hidden"
-            w="fit-content"
-          >
-            <Button
-              borderRadius="0"
-              variant={mode === "pro" ? "solid" : "ghost"}
-              {...(mode === "pro" ? nutritionTheme.primaryButtonProps : {})}
-              onClick={() => changeMode("pro")}
-              isDisabled={blocked}
-            >{i18n.t("auto.NutritionRationPage.mode_manuel", "Mode manuel")}</Button>
-            <Button
-              borderRadius="0"
-              variant={mode === "auto" ? "solid" : "ghost"}
-              {...(mode === "auto" ? nutritionTheme.primaryButtonProps : {})}
-              onClick={() => changeMode("auto")}
-              isDisabled={blocked}
-            >{i18n.t("auto.NutritionRationPage.mode_auto", "Mode auto")}</Button>
-          </HStack>
-        </Box>
           </Stack>
 
-        <Box {...sectionCardProps} p={{ base: 4, md: 5 }} order={{ base: 1, lg: 0 }}>
+        <Box {...sectionCardProps} p={{ base: 4, md: 5 }} order={{ base: 2, lg: 0 }} minW={0} maxW="100%" overflow="hidden">
           <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>{i18n.t("auto.NutritionRationPage.construction_label", "CONSTRUCTION")}</Text>
           <Heading size="sm" mt={1}>{i18n.t("auto.NutritionRationPage.construction_de_la_ration", "Construction de la ration")}</Heading>
           <Text fontSize="sm" color={textMuted} mt={1} mb={4}>
@@ -1306,8 +1437,8 @@ export default function NutritionRationPage() {
               </Badge>
             </WrapItem>
             <WrapItem>
-              <Badge colorScheme={readableMealCount >= 3 ? "green" : "orange"} variant="subtle" px={3} py={1} borderRadius="full">
-                {i18n.t("auto.NutritionRationPage.repas_couverts_value", "Repas couverts : {{count}}/{{total}}", { count: readableMealCount, total: MENU_MEALS_ORDER.length })}
+              <Badge colorScheme={readableMealCount > 0 ? "teal" : "orange"} variant="subtle" px={3} py={1} borderRadius="full">
+                {i18n.t("auto.NutritionRationPage.repas_reference_value", "Repas de référence : {{count}}", { count: readableMealCount })}
               </Badge>
             </WrapItem>
             <WrapItem>

@@ -385,6 +385,9 @@ const formatQuickQtyLabel = (value, unit) => {
 export default function RationManualEditor({ blocked, initialState, onChange, context }) {
   const toast = useToast();
   const mountedRef = useRef(false);
+  const fillingAreaRef = useRef(null);
+  const mobileTrackerAnchorRef = useRef(null);
+  const mobileTrackerRef = useRef(null);
 
   const nutritionTheme = useNutritionTheme();
   const panelBg = nutritionTheme.surfaceBg;
@@ -396,6 +399,51 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
   const footerBorder = nutritionTheme.borderColor;
   const footerChipBg = nutritionTheme.surfaceSoft;
   const isMobile = useBreakpointValue({ base: true, md: false });
+  const [isMobileTrackerDocked, setIsMobileTrackerDocked] = useState(false);
+  const [mobileTrackerHeight, setMobileTrackerHeight] = useState(104);
+
+  useEffect(() => {
+    if (!isMobile || typeof window === "undefined") {
+      setIsMobileTrackerDocked(false);
+      return undefined;
+    }
+
+    let frameId = null;
+    const updateDockState = () => {
+      frameId = null;
+      const anchor = mobileTrackerAnchorRef.current;
+      const fillingArea = fillingAreaRef.current;
+      const tracker = mobileTrackerRef.current;
+      if (!anchor || !fillingArea || !tracker) {
+        setIsMobileTrackerDocked(false);
+        return;
+      }
+
+      const trackerHeight = Math.ceil(tracker.getBoundingClientRect().height || 104);
+      setMobileTrackerHeight((prev) => (Math.abs(prev - trackerHeight) > 2 ? trackerHeight : prev));
+
+      const dockTop = window.innerHeight - 92 - trackerHeight;
+      const anchorTop = anchor.getBoundingClientRect().top;
+      const fillingRect = fillingArea.getBoundingClientRect();
+      const nextDocked = fillingRect.top < dockTop && fillingRect.bottom > dockTop && anchorTop > dockTop;
+      setIsMobileTrackerDocked((prev) => (prev === nextDocked ? prev : nextDocked));
+    };
+
+    const scheduleUpdate = () => {
+      if (frameId !== null) return;
+      frameId = window.requestAnimationFrame(updateDockState);
+    };
+
+    scheduleUpdate();
+    window.addEventListener("scroll", scheduleUpdate, true);
+    window.addEventListener("resize", scheduleUpdate);
+
+    return () => {
+      if (frameId !== null) window.cancelAnimationFrame(frameId);
+      window.removeEventListener("scroll", scheduleUpdate, true);
+      window.removeEventListener("resize", scheduleUpdate);
+    };
+  }, [isMobile]);
 
   /* ========================= needs ========================= */
   const needs = useMemo(() => {
@@ -1041,6 +1089,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
 
   const StickyFooter = (
     <Box
+      display={{ base: "none", md: "block" }}
       mt={4}
       px={{ base: 3, md: 4 }}
       py={{ base: 2.5, md: 3 }}
@@ -1048,35 +1097,40 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
       borderColor={footerBorder}
       borderRadius="2xl"
       bg={footerBg}
-      position="sticky"
-      bottom={{ base: "8px", md: "8px" }}
+      position={{ base: "static", md: "sticky" }}
+      bottom={{ md: "8px" }}
       zIndex={20}
       boxShadow="0 18px 40px rgba(15, 23, 42, 0.08)"
       backdropFilter="blur(16px)"
     >
-      <VStack align="stretch" spacing={2}>
+      <VStack align="stretch" spacing={{ base: 1.5, md: 2 }}>
         <HStack justify="space-between" align="center" gap={3} flexWrap="wrap">
           <HStack spacing={2} flexWrap="wrap">
             <Badge colorScheme="blue" variant="solid" borderRadius="full" px={2.5} py={1}>{i18n.t("auto.RationManualEditor.manuel", "Manuel")}</Badge>
             <Text fontSize="sm" fontWeight="800" color={subtleText}>
-              {fmt0Plain(totals.day.kcal)} / {kcalTarget > 0 ? fmt0Plain(kcalTarget) : "—"}{i18n.t("auto.RationManualEditor.kcal", "kcal")}</Text>
+              {fmt0Plain(totals.day.kcal)} / {kcalTarget > 0 ? fmt0Plain(kcalTarget) : "—"} {i18n.t("auto.RationManualEditor.kcal", "kcal")}</Text>
           </HStack>
         </HStack>
 
-        <HStack spacing={2} flexWrap="wrap">
-          <Badge colorScheme={protSchemeDay} variant="subtle" borderRadius="full" px={3} py={1} fontWeight="800" textTransform="none">{i18n.t("auto.RationManualEditor.prot", "Prot")}{fmt0Plain(totals.day.prot)}{i18n.t("auto.RationManualEditor.g", "g")}{hasRange(needs?.protG) ? ` / ${fmt0Plain(needs.protG.min)}-${fmt0Plain(needs.protG.max)} g` : ""}
+        <HStack
+          spacing={{ base: 1.5, md: 2 }}
+          flexWrap="wrap"
+          overflowX="visible"
+          pb={{ base: 0.5, md: 0 }}
+        >
+          <Badge colorScheme={protSchemeDay} variant="subtle" borderRadius="full" px={{ base: 2, md: 3 }} py={1} fontSize={{ base: "11px", md: "xs" }} fontWeight="800" textTransform="none" whiteSpace={{ base: "normal", md: "nowrap" }} maxW="100%">{i18n.t("auto.RationManualEditor.prot", "Prot")} {fmt0Plain(totals.day.prot)} {i18n.t("auto.RationManualEditor.g", "g")}{hasRange(needs?.protG) ? ` / ${fmt0Plain(needs.protG.min)}-${fmt0Plain(needs.protG.max)} g` : ""}
             {needs?.pctRanges?.protPctMin ? ` • ${round0(dayPct.prot)}% / ${needs.pctRanges.protPctMin}-${needs.pctRanges.protPctMax}%` : ` • ${round0(dayPct.prot)}%`}
           </Badge>
-          <Badge colorScheme={lipSchemeDay} variant="subtle" borderRadius="full" px={3} py={1} fontWeight="800" textTransform="none">{i18n.t("auto.RationManualEditor.lip", "Lip")}{fmt0Plain(totals.day.lip)}{i18n.t("auto.RationManualEditor.g", "g")}{hasRange(needs?.lipG) ? ` / ${fmt0Plain(needs.lipG.min)}-${fmt0Plain(needs.lipG.max)} g` : ""}
+          <Badge colorScheme={lipSchemeDay} variant="subtle" borderRadius="full" px={{ base: 2, md: 3 }} py={1} fontSize={{ base: "11px", md: "xs" }} fontWeight="800" textTransform="none" whiteSpace={{ base: "normal", md: "nowrap" }} maxW="100%">{i18n.t("auto.RationManualEditor.lip", "Lip")} {fmt0Plain(totals.day.lip)} {i18n.t("auto.RationManualEditor.g", "g")}{hasRange(needs?.lipG) ? ` / ${fmt0Plain(needs.lipG.min)}-${fmt0Plain(needs.lipG.max)} g` : ""}
             {needs?.pctRanges?.lipPctMin ? ` • ${round0(dayPct.lip)}% / ${needs.pctRanges.lipPctMin}-${needs.pctRanges.lipPctMax}%` : ` • ${round0(dayPct.lip)}%`}
           </Badge>
-          <Badge colorScheme={gluSchemeDay} variant="subtle" borderRadius="full" px={3} py={1} fontWeight="800" textTransform="none">{i18n.t("auto.RationManualEditor.glu", "Glu")}{fmt0Plain(totals.day.glu)}{i18n.t("auto.RationManualEditor.g", "g")}{hasRange(needs?.glucG) ? ` / ${fmt0Plain(needs.glucG.min)}-${fmt0Plain(needs.glucG.max)} g` : ""}
+          <Badge colorScheme={gluSchemeDay} variant="subtle" borderRadius="full" px={{ base: 2, md: 3 }} py={1} fontSize={{ base: "11px", md: "xs" }} fontWeight="800" textTransform="none" whiteSpace={{ base: "normal", md: "nowrap" }} maxW="100%">{i18n.t("auto.RationManualEditor.glu", "Glu")} {fmt0Plain(totals.day.glu)} {i18n.t("auto.RationManualEditor.g", "g")}{hasRange(needs?.glucG) ? ` / ${fmt0Plain(needs.glucG.min)}-${fmt0Plain(needs.glucG.max)} g` : ""}
             {needs?.pctRanges?.glucPctMin ? ` • ${round0(dayPct.glu)}% / ${needs.pctRanges.glucPctMin}-${needs.pctRanges.glucPctMax}%` : ` • ${round0(dayPct.glu)}%`}
           </Badge>
-          <Badge bg={footerChipBg} color="inherit" borderRadius="full" px={3} py={1} fontWeight="700">
+          <Badge display={{ base: "none", md: "inline-flex" }} bg={footerChipBg} color="inherit" borderRadius="full" px={3} py={1} fontWeight="700">
             {i18n.t("auto.RationManualEditor.micros_count", "Micros {{count}}", { count: selectedMicroList.length })}
           </Badge>
-          <Badge colorScheme={kcalSchemeDay} variant="subtle" borderRadius="full" px={3} py={1} fontWeight="700">
+          <Badge display={{ base: "none", md: "inline-flex" }} colorScheme={kcalSchemeDay} variant="subtle" borderRadius="full" px={3} py={1} fontWeight="700">
             {i18n.t("auto.RationManualEditor.energie_delta", "Energie {{value}}", {
               value: kcalTarget > 0
                 ? `${fmt0Plain(totals.day.kcal - kcalTarget)} kcal`
@@ -1085,6 +1139,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
           </Badge>
           {selectedMicroList.length > 0 ? (
             <Button
+              display={{ base: "none", md: "inline-flex" }}
               size="xs"
               variant="outline"
               borderRadius="full"
@@ -1124,35 +1179,108 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
     </Box>
   );
 
+  const MobileRationTracker = (
+    <Box
+      ref={mobileTrackerRef}
+      data-mobile-ration-tracker
+      display={{ base: "block", md: "none" }}
+      position={isMobileTrackerDocked ? "fixed" : "static"}
+      left={isMobileTrackerDocked ? "20px" : "auto"}
+      right={isMobileTrackerDocked ? "20px" : "auto"}
+      bottom={isMobileTrackerDocked ? "calc(92px + env(safe-area-inset-bottom, 0px))" : "auto"}
+      w={isMobileTrackerDocked ? "auto" : "100%"}
+      zIndex={isMobileTrackerDocked ? 36 : "auto"}
+      mt={isMobileTrackerDocked ? 0 : 3}
+      mb={0}
+      px={2.5}
+      py={2}
+      borderWidth="1px"
+      borderColor={footerBorder}
+      borderRadius="xl"
+      bg={footerBg}
+      boxShadow={isMobileTrackerDocked ? "0 18px 44px rgba(15, 23, 42, 0.18)" : "0 12px 28px rgba(15, 23, 42, 0.10)"}
+      backdropFilter="blur(18px)"
+      transition="box-shadow 0.18s ease"
+    >
+      <VStack align="stretch" spacing={1.5}>
+        <HStack justify="space-between" align="center" gap={2}>
+          <Badge colorScheme="blue" variant="solid" borderRadius="full" px={2.5} py={1}>
+            {i18n.t("auto.RationManualEditor.manuel", "Manuel")}
+          </Badge>
+          <Text fontSize="sm" fontWeight="900" color={subtleText} textAlign="right" noOfLines={1}>
+            {fmt0Plain(totals.day.kcal)} / {kcalTarget > 0 ? fmt0Plain(kcalTarget) : "—"} {i18n.t("auto.RationManualEditor.kcal", "kcal")}
+          </Text>
+        </HStack>
+
+        <SimpleGrid columns={3} spacing={1}>
+          {[
+            {
+              label: i18n.t("auto.RationManualEditor.prot", "Prot"),
+              value: totals.day.prot,
+              percent: dayPct.prot,
+              scheme: protSchemeDay,
+            },
+            {
+              label: i18n.t("auto.RationManualEditor.lip", "Lip"),
+              value: totals.day.lip,
+              percent: dayPct.lip,
+              scheme: lipSchemeDay,
+            },
+            {
+              label: i18n.t("auto.RationManualEditor.glu", "Glu"),
+              value: totals.day.glu,
+              percent: dayPct.glu,
+              scheme: gluSchemeDay,
+            },
+          ].map((item) => (
+            <Box key={item.label} borderRadius="lg" bg={footerChipBg} px={2} py={1.5} minW={0}>
+              <HStack justify="space-between" spacing={1} minW={0}>
+                <Text fontSize="10px" fontWeight="900" opacity={0.65} noOfLines={1}>
+                  {item.label}
+                </Text>
+                <Badge colorScheme={item.scheme} variant="subtle" borderRadius="full" px={1.5} py={0.5} fontSize="10px">
+                  {round0(item.percent)}%
+                </Badge>
+              </HStack>
+              <Text fontSize="12px" fontWeight="900" lineHeight="1.15" noOfLines={1}>
+                {fmt0Plain(item.value)} {i18n.t("auto.RationManualEditor.g", "g")}
+              </Text>
+            </Box>
+          ))}
+        </SimpleGrid>
+      </VStack>
+    </Box>
+  );
+
   /* ========================= Render ========================= */
   return (
-    <Box>
-      <Box borderWidth="1px" borderColor={borderColor} borderRadius="lg" bg={softBg} p={4} mb={4}>
+    <Box w="100%" maxW="100%" minW={0}>
+      <Box w="100%" maxW="100%" minW={0} overflow="hidden" borderWidth="1px" borderColor={borderColor} borderRadius="lg" bg={softBg} p={{ base: 3, md: 4 }} mb={4}>
         <HStack justify="space-between" align="start" flexWrap="wrap" gap={3}>
-          <Box>
+          <Box minW={0} maxW="100%">
             <Heading size="md">{i18n.t("auto.RationManualEditor.ration_pro", "Ration pro")}</Heading>
-            <Text opacity={0.75} mt={1} maxW="760px">{i18n.t("auto.RationManualEditor.editeur_manuel_pense_comme_une_table_de_travail_cl", "Éditeur manuel pensé comme une table de travail clinique : tu gardes la main sur chaque quantité, repas et micro affiché.")}</Text>
+            <Text opacity={0.75} mt={1} maxW="760px" overflowWrap="anywhere">{i18n.t("auto.RationManualEditor.editeur_manuel_pense_comme_une_table_de_travail_cl", "Éditeur manuel pensé comme une table de travail clinique : tu gardes la main sur chaque quantité, repas et micro affiché.")}</Text>
           </Box>
 
-          <Wrap spacing={2}>
+          <Wrap spacing={1.5} maxW="100%">
             <WrapItem>
-              <Badge colorScheme={ciqualOk ? "green" : "gray"} borderRadius="full" px={3} py={1}>
+              <Badge colorScheme={ciqualOk ? "green" : "gray"} borderRadius="full" px={{ base: 2, md: 3 }} py={1} fontSize={{ base: "11px", md: "xs" }}>
                 {ciqualOk
                   ? i18n.t("auto.RationManualEditor.donnees_pretes", "Données prêtes")
                   : i18n.t("auto.RationManualEditor.donnees_a_charger", "Données à charger")}
               </Badge>
             </WrapItem>
             <WrapItem>
-              <Badge colorScheme="blue" variant="subtle" borderRadius="full" px={3} py={1}>
-                {filledFoodCount}{i18n.t("auto.RationManualEditor.ligne_s_remplies", "ligne(s) remplies")}</Badge>
+              <Badge colorScheme="blue" variant="subtle" borderRadius="full" px={{ base: 2, md: 3 }} py={1} fontSize={{ base: "11px", md: "xs" }}>
+                {filledFoodCount} {i18n.t("auto.RationManualEditor.ligne_s_remplies", "ligne(s) remplies")}</Badge>
             </WrapItem>
             <WrapItem>
-              <Badge colorScheme="purple" variant="subtle" borderRadius="full" px={3} py={1}>
-                {selectedMicroList.length}{i18n.t("auto.RationManualEditor.micro_s", "micro(s)")}</Badge>
+              <Badge colorScheme="purple" variant="subtle" borderRadius="full" px={{ base: 2, md: 3 }} py={1} fontSize={{ base: "11px", md: "xs" }}>
+                {selectedMicroList.length} {i18n.t("auto.RationManualEditor.micro_s", "micro(s)")}</Badge>
             </WrapItem>
             <WrapItem>
-              <Badge colorScheme="green" variant="subtle" borderRadius="full" px={3} py={1}>
-                {fmt0Plain(totals.day.kcal)}{i18n.t("auto.RationManualEditor.kcal", "kcal")}</Badge>
+              <Badge colorScheme="green" variant="subtle" borderRadius="full" px={{ base: 2, md: 3 }} py={1} fontSize={{ base: "11px", md: "xs" }}>
+                {fmt0Plain(totals.day.kcal)} {i18n.t("auto.RationManualEditor.kcal", "kcal")}</Badge>
             </WrapItem>
           </Wrap>
         </HStack>
@@ -1170,7 +1298,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
       </Box>
 
       {/* Title */}
-      <Box borderWidth="1px" borderColor={borderColor} borderRadius="lg" bg={panelBg} p={4} mb={4}>
+      <Box w="100%" maxW="100%" minW={0} overflow="hidden" borderWidth="1px" borderColor={borderColor} borderRadius="lg" bg={panelBg} p={{ base: 3, md: 4 }} mb={4}>
         <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
           <FormControl>
             <FormLabel>{i18n.t("auto.ClubDashboard.titre", "Titre")}</FormLabel>
@@ -1191,10 +1319,10 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
       </Box>
 
       {/* Micros */}
-      <Box borderWidth="1px" borderColor={borderColor} borderRadius="lg" bg={panelBg} p={4} mb={4}>
+      <Box w="100%" maxW="100%" minW={0} overflow="hidden" borderWidth="1px" borderColor={borderColor} borderRadius="lg" bg={panelBg} p={{ base: 3, md: 4 }} mb={4}>
         <Text fontWeight="800" mb={2}>{i18n.t("auto.RationManualEditor.choisir_les_micros_a_afficher_calculer_ciqual", "Choisir les micros à afficher / calculer (CIQUAL)")}</Text>
 
-        <Wrap spacing={3}>
+        <Wrap spacing={{ base: 2, md: 3 }} maxW="100%">
           {MICRO_DEFS.map((m) => (
             <WrapItem key={m.key}>
               <Checkbox isChecked={!!selectedMicros?.[m.key]} onChange={() => toggleMicro(m.key)} isDisabled={blocked}>
@@ -1211,9 +1339,9 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
         <Button size="sm" variant="outline" onClick={() => setAllCats(false)} isDisabled={blocked}>{i18n.t("auto.RationManualEditor.tout_fermer", "Tout fermer")}</Button>
       </HStack>
 
-      <Box>
+      <Box ref={fillingAreaRef} w="100%" maxW="100%" minW={0} overflow="hidden">
         {/* Table / Cards */}
-        <Box borderWidth="1px" borderColor={borderColor} borderRadius="lg" overflow="hidden">
+        <Box w="100%" maxW="100%" minW={0} borderWidth="1px" borderColor={borderColor} borderRadius="lg" overflow="hidden">
           {!isMobile && (
             <Box bg={softBg} borderBottomWidth="1px" borderColor={borderColor} px={4} py={2}>
               <HStack spacing={0} align="center">
@@ -1269,28 +1397,32 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
         </Box>
 
         {/* Totaux par repas */}
-        <Box mt={3} borderWidth="1px" borderColor={borderColor} borderRadius="lg" overflow="hidden" bg={panelBg}>
-          <Box bg={softBg} borderBottomWidth="1px" borderColor={borderColor} px={4} py={2}>
-            <HStack justify="space-between">
+        <Box mt={3} w="100%" maxW="100%" minW={0} borderWidth="1px" borderColor={borderColor} borderRadius="lg" overflow="hidden" bg={panelBg}>
+          <Box bg={softBg} borderBottomWidth="1px" borderColor={borderColor} px={{ base: 3, md: 4 }} py={2}>
+            <HStack justify="space-between" align="center" gap={2} flexWrap="wrap">
               <Text fontWeight="900">{i18n.t("auto.RationManualEditor.totaux_par_repas", "Totaux par repas")}</Text>
-              <Badge colorScheme={kcalSchemeDay} variant="subtle">{i18n.t("auto.RationManualEditor.jour", "JOUR:")}{fmt0Plain(totals.day.kcal)} KCAL
+              <Badge colorScheme={kcalSchemeDay} variant="subtle" whiteSpace="nowrap">{i18n.t("auto.RationManualEditor.jour", "JOUR:")} {fmt0Plain(totals.day.kcal)} KCAL
               </Badge>
             </HStack>
           </Box>
 
-          <Box px={4} py={3}>
+          <Box px={{ base: 3, md: 4 }} py={3} w="100%" maxW="100%" minW={0}>
             {isMobile ? (
-              <VStack align="stretch" spacing={3}>
+              <VStack align="stretch" spacing={2.5} w="100%" maxW="100%" minW={0}>
                 {MEALS.map((m) => {
                   const t = totals.perMeal[m.key];
                   return (
-                    <Box key={m.key} borderWidth="1px" borderColor={borderColor} borderRadius="lg" p={3} bg={panelBg}>
+                    <Box key={m.key} w="100%" maxW="100%" minW={0} borderWidth="1px" borderColor={borderColor} borderRadius="lg" p={3} bg={panelBg}>
                       <Text fontSize="xs" fontWeight="900" opacity={0.7}>
                         {m.label}
                       </Text>
                       <Text mt={1} fontWeight="900" lineHeight="1.25">
-                        {fmt0Plain(t.kcal)}{i18n.t("auto.RationManualEditor.kcal", "kcal")}</Text>
-                      <Text fontSize="sm" opacity={0.85} lineHeight="1.25">{i18n.t("auto.RationManualEditor.prot", "Prot")}{fmt0Plain(t.prot)}{i18n.t("auto.RationManualEditor.g_lip", "g • Lip")}{fmt0Plain(t.lip)}{i18n.t("auto.RationManualEditor.g_glu", "g • Glu")}{fmt0Plain(t.glu)}{i18n.t("auto.RationManualEditor.g", "g")}</Text>
+                        {fmt0Plain(t.kcal)} {i18n.t("auto.RationManualEditor.kcal", "kcal")}</Text>
+                      <Text fontSize="sm" opacity={0.85} lineHeight="1.35" overflowWrap="anywhere">
+                        {i18n.t("auto.RationManualEditor.prot", "Prot")} {fmt0Plain(t.prot)} {i18n.t("auto.RationManualEditor.g", "g")} •{" "}
+                        {i18n.t("auto.RationManualEditor.lip", "Lip")} {fmt0Plain(t.lip)} {i18n.t("auto.RationManualEditor.g", "g")} •{" "}
+                        {i18n.t("auto.RationManualEditor.glu", "Glu")} {fmt0Plain(t.glu)} {i18n.t("auto.RationManualEditor.g", "g")}
+                      </Text>
                     </Box>
                   );
                 })}
@@ -1327,6 +1459,10 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
             )}
           </Box>
         </Box>
+
+        <Box ref={mobileTrackerAnchorRef} height="1px" />
+        {MobileRationTracker}
+        <Box display={{ base: isMobileTrackerDocked ? "block" : "none", md: "none" }} height={`${mobileTrackerHeight + 12}px`} />
 
       </Box>
 

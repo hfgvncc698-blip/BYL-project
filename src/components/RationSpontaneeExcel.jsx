@@ -350,24 +350,24 @@ const badgeSchemeFromStatus = (status) => {
 };
 
 const compareToRange = (value, range) => {
-  if (!hasRange(range)) return { status: "na", label: "Sans cible" };
+  if (!hasRange(range)) return { status: "na", label: i18n.t("auto.RationSpontaneeExcel.sans_cible", "Sans cible") };
   const current = num(value);
   const min = num(range.min);
   const max = num(range.max);
-  if (current < min) return { status: "low", label: "Bas" };
-  if (current > max) return { status: "high", label: "Haut" };
-  return { status: "ok", label: "OK" };
+  if (current < min) return { status: "low", label: i18n.t("auto.RationSpontaneeExcel.bas", "Bas") };
+  if (current > max) return { status: "high", label: i18n.t("auto.RationSpontaneeExcel.haut", "Haut") };
+  return { status: "ok", label: i18n.t("auto.RationSpontaneeExcel.ok", "OK") };
 };
 
 const compareToTarget = (value, target, toleranceRatio = 0.1) => {
   const goal = num(target);
-  if (!(goal > 0)) return { status: "na", label: "Sans cible" };
+  if (!(goal > 0)) return { status: "na", label: i18n.t("auto.RationSpontaneeExcel.sans_cible", "Sans cible") };
   const current = num(value);
   const delta = current - goal;
   const tolerance = goal * toleranceRatio;
-  if (delta < -tolerance) return { status: "low", label: "Sous la cible" };
-  if (delta > tolerance) return { status: "high", label: "Au-dessus de la cible" };
-  return { status: "ok", label: "Dans la cible" };
+  if (delta < -tolerance) return { status: "low", label: i18n.t("auto.RationSpontaneeExcel.sous_la_cible", "Sous la cible") };
+  if (delta > tolerance) return { status: "high", label: i18n.t("auto.RationSpontaneeExcel.au_dessus_de_la_cible", "Au-dessus de la cible") };
+  return { status: "ok", label: i18n.t("auto.RationSpontaneeExcel.dans_la_cible", "Dans la cible") };
 };
 
 const clampPercent = (value) => Math.max(0, Math.min(100, num(value)));
@@ -479,63 +479,56 @@ function buildClinicalGuidance(context = {}) {
   const entries = [];
 
   entries.push({
-    title: "Socle de lecture",
+    title: i18n.t("auto.RationSpontaneeExcel.socle_de_lecture", "Socle de lecture"),
     tone: "blue",
-    body:
-      "Toujours relire au minimum énergie, protéines, calcium et fibres: ce sont les repères de base pour comparer la journée spontanée au cadre du bilan.",
+    body: i18n.t("auto.RationSpontaneeExcel.socle_de_lecture_body", "Toujours relire au minimum énergie, protéines, calcium et fibres: ce sont les repères de base pour comparer la journée spontanée au cadre du bilan."),
   });
 
   if (objectiveText.includes("perte") || objectiveText.includes("poids")) {
     entries.push({
-      title: "Objectif perte de poids",
+      title: i18n.t("auto.RationSpontaneeExcel.objectif_perte_de_poids", "Objectif perte de poids"),
       tone: "orange",
-      body:
-        "Repérer les boissons caloriques, grignotages, portions de féculents et matières grasses ajoutées avant de conclure sur un déficit réel.",
+      body: i18n.t("auto.RationSpontaneeExcel.objectif_perte_de_poids_body", "Repérer les boissons caloriques, grignotages, portions de féculents et matières grasses ajoutées avant de conclure sur un déficit réel."),
     });
   }
 
   if (objectiveText.includes("prise") || objectiveText.includes("masse")) {
     entries.push({
-      title: "Objectif prise de masse",
+      title: i18n.t("auto.RationSpontaneeExcel.objectif_prise_de_masse", "Objectif prise de masse"),
       tone: "green",
-      body:
-        "Vérifier que l’énergie, les protéines et les prises autour de l’entraînement sont suffisantes sans concentrer tout l’apport sur un seul repas.",
+      body: i18n.t("auto.RationSpontaneeExcel.objectif_prise_de_masse_body", "Vérifier que l’énergie, les protéines et les prises autour de l’entraînement sont suffisantes sans concentrer tout l’apport sur un seul repas."),
     });
   }
 
   if (path.diabete) {
     entries.push({
-      title: "Diabète",
+      title: i18n.t("auto.RationSpontaneeExcel.diabete", "Diabète"),
       tone: "orange",
-      body:
-        "Répartir les glucides sur la journée, éviter les sucres rapides isolés, associer les fruits à un repas ou une collation structurée et suivre les fibres.",
+      body: i18n.t("auto.RationSpontaneeExcel.diabete_body", "Répartir les glucides sur la journée, éviter les sucres rapides isolés, associer les fruits à un repas ou une collation structurée et suivre les fibres."),
     });
   }
 
   if (path.hta) {
     entries.push({
-      title: "HTA",
+      title: i18n.t("auto.RationSpontaneeExcel.hta", "HTA"),
       tone: "red",
-      body:
-        "Contrôler le sodium surtout sur pain, fromages, charcuteries et produits industriels; le potassium aide au repérage mais n’est pas une prescription isolée.",
+      body: i18n.t("auto.RationSpontaneeExcel.hta_body", "Contrôler le sodium surtout sur pain, fromages, charcuteries et produits industriels; le potassium aide au repérage mais n’est pas une prescription isolée."),
     });
   }
 
   if (path.hyperchol) {
     entries.push({
-      title: "Dyslipidémie",
+      title: i18n.t("auto.RationSpontaneeExcel.dyslipidemie", "Dyslipidémie"),
       tone: "yellow",
-      body:
-        "Surveiller cholestérol et qualité lipidique, modérer beurre, fromages et produits sucrés riches en graisses saturées.",
+      body: i18n.t("auto.RationSpontaneeExcel.dyslipidemie_body", "Surveiller cholestérol et qualité lipidique, modérer beurre, fromages et produits sucrés riches en graisses saturées."),
     });
   }
 
   if (path.tca) {
     entries.push({
-      title: "TCA / relation alimentaire",
+      title: i18n.t("auto.RationSpontaneeExcel.tca_relation_alimentaire", "TCA / relation alimentaire"),
       tone: "pink",
-      body:
-        "Éviter une lecture trop normative pendant l’entretien: noter surtout rythmes, évitements, pertes de contrôle et rigidités éventuelles.",
+      body: i18n.t("auto.RationSpontaneeExcel.tca_relation_alimentaire_body", "Éviter une lecture trop normative pendant l’entretien: noter surtout rythmes, évitements, pertes de contrôle et rigidités éventuelles."),
     });
   }
 
@@ -549,55 +542,51 @@ function buildClinicalGuidance(context = {}) {
     path.fodmap
   ) {
     entries.push({
-      title: "Tolérance digestive",
+      title: i18n.t("auto.RationSpontaneeExcel.tolerance_digestive", "Tolérance digestive"),
       tone: "purple",
-      body:
-        "Adapter texture, répartition et fibres à la tolérance réelle du patient; cette grille reste un support manuel et ne remplace pas le tri fin aliment par aliment.",
+      body: i18n.t("auto.RationSpontaneeExcel.tolerance_digestive_body", "Adapter texture, répartition et fibres à la tolérance réelle du patient; cette grille reste un support manuel et ne remplace pas le tri fin aliment par aliment."),
     });
   }
 
   if (path.renal) {
     entries.push({
-      title: "Atteinte rénale",
+      title: i18n.t("auto.RationSpontaneeExcel.atteinte_renale", "Atteinte rénale"),
       tone: "red",
-      body:
-        "Le sodium et le potassium sont visibles ici, mais le phosphore n’est pas calculé dans cette grille groupée: contrôle complémentaire indispensable selon le stade.",
+      body: i18n.t("auto.RationSpontaneeExcel.atteinte_renale_body", "Le sodium et le potassium sont visibles ici, mais le phosphore n’est pas calculé dans cette grille groupée: contrôle complémentaire indispensable selon le stade."),
     });
   }
 
   if (reg.vegetarian || reg.vegan || reg.pescetarian) {
     entries.push({
-      title: reg.vegan ? "Alimentation végétale stricte" : "Alimentation végétale",
+      title: reg.vegan
+        ? i18n.t("auto.RationSpontaneeExcel.alimentation_vegetale_stricte", "Alimentation végétale stricte")
+        : i18n.t("auto.RationSpontaneeExcel.alimentation_vegetale", "Alimentation végétale"),
       tone: "green",
-      body:
-        "Vérifier la couverture protéique globale et garder un œil sur le fer, la B12 et le calcium selon le niveau d’exclusion.",
+      body: i18n.t("auto.RationSpontaneeExcel.alimentation_vegetale_body", "Vérifier la couverture protéique globale et garder un œil sur le fer, la B12 et le calcium selon le niveau d’exclusion."),
     });
   }
 
   if (reg.vegan) {
     entries.push({
-      title: "Végétalien",
+      title: i18n.t("auto.RationSpontaneeExcel.vegetalien", "Végétalien"),
       tone: "green",
-      body:
-        "Contrôler B12, calcium, fer et qualité protéique; cette grille simplifiée ne valide pas à elle seule la complémentation.",
+      body: i18n.t("auto.RationSpontaneeExcel.vegetalien_body", "Contrôler B12, calcium, fer et qualité protéique; cette grille simplifiée ne valide pas à elle seule la complémentation."),
     });
   }
 
   if (reg.glutenFree || path.celiac) {
     entries.push({
-      title: "Sans gluten",
+      title: i18n.t("auto.RationSpontaneeExcel.sans_gluten", "Sans gluten"),
       tone: "blue",
-      body:
-        "Le mode manuel n’empêche pas la saisie de catégories non adaptées: l’exclusion et le risque de contamination restent à contrôler par le praticien.",
+      body: i18n.t("auto.RationSpontaneeExcel.sans_gluten_body", "Le mode manuel n’empêche pas la saisie de catégories non adaptées: l’exclusion et le risque de contamination restent à contrôler par le praticien."),
     });
   }
 
   if (reg.lactoseFree) {
     entries.push({
-      title: "Sans lactose",
+      title: i18n.t("auto.RationSpontaneeExcel.sans_lactose", "Sans lactose"),
       tone: "blue",
-      body:
-        "Surveiller le lactose et compenser les produits laitiers retirés pour préserver le calcium sur la journée.",
+      body: i18n.t("auto.RationSpontaneeExcel.sans_lactose_body", "Surveiller le lactose et compenser les produits laitiers retirés pour préserver le calcium sur la journée."),
     });
   }
 
@@ -605,35 +594,31 @@ function buildClinicalGuidance(context = {}) {
     entries.push({
       title: "Low FODMAP / SII",
       tone: "purple",
-      body:
-        "La catégorie seule ne suffit pas: noter les aliments précis, la quantité, le mode de cuisson et les symptômes associés.",
+      body: i18n.t("auto.RationSpontaneeExcel.low_fodmap_body", "La catégorie seule ne suffit pas: noter les aliments précis, la quantité, le mode de cuisson et les symptômes associés."),
     });
   }
 
   if (profile.isPreg1 || profile.isPreg2 || profile.isPreg3) {
     entries.push({
-      title: "Grossesse",
+      title: i18n.t("auto.RationSpontaneeExcel.grossesse", "Grossesse"),
       tone: "pink",
-      body:
-        "Sécuriser l’énergie, les protéines, le fer, les folates, le calcium et la vitamine D. L’iode n’est pas suivi dans cette grille groupée.",
+      body: i18n.t("auto.RationSpontaneeExcel.grossesse_body", "Sécuriser l’énergie, les protéines, le fer, les folates, le calcium et la vitamine D. L’iode n’est pas suivi dans cette grille groupée."),
     });
   }
 
   if (profile.isLact) {
     entries.push({
-      title: "Allaitement",
+      title: i18n.t("auto.RationSpontaneeExcel.allaitement", "Allaitement"),
       tone: "teal",
-      body:
-        "La couverture énergétique et calcique doit rester visible; l’hydratation et l’iode restent à apprécier en dehors de cette grille.",
+      body: i18n.t("auto.RationSpontaneeExcel.allaitement_body", "La couverture énergétique et calcique doit rester visible; l’hydratation et l’iode restent à apprécier en dehors de cette grille."),
     });
   }
 
   if (path.allergies || context?.allergies) {
     entries.push({
-      title: "Allergies / évictions",
+      title: i18n.t("auto.RationSpontaneeExcel.allergies_evictions", "Allergies / évictions"),
       tone: "red",
-      body:
-        "Le mode manuel reste libre: il faut donc vérifier manuellement chaque éviction, substitut et risque de réintroduction involontaire.",
+      body: i18n.t("auto.RationSpontaneeExcel.allergies_evictions_body", "Le mode manuel reste libre: il faut donc vérifier manuellement chaque éviction, substitut et risque de réintroduction involontaire."),
     });
   }
 
@@ -1053,7 +1038,7 @@ export default function RationSpontaneeExcel({
     const observations = [];
 
     if (!(filledFoodCount > 0)) {
-      observations.push("La journée n’est pas encore suffisamment saisie pour être interprétée.");
+      observations.push(i18n.t("auto.RationSpontaneeExcel.obs_not_enough_data", "La journée n’est pas encore suffisamment saisie pour être interprétée."));
     } else {
       if (breakfastKcal < 120) observations.push(i18n.t("auto.RationSpontaneeExcel.obs_breakfast_low", "Petit-déjeuner absent ou très faible sur le relevé."));
       if (mainMealCount < 3) observations.push(i18n.t("auto.RationSpontaneeExcel.obs_main_meals_incomplete", "La journée paraît incomplète ou très irrégulière sur les repas principaux."));
@@ -1076,39 +1061,41 @@ export default function RationSpontaneeExcel({
       observations,
       comparisons: [
         {
-          label: "Énergie",
-          currentText: `${fmt0Plain(totals?.day?.kcal)} kcal observées`,
-          targetText: surveyEnergyTarget ? `besoin actuel ${fmt0Plain(surveyEnergyTarget)} kcal` : "pas de besoin énergétique",
+          label: i18n.t("auto.RationSpontaneeExcel.energie", "Énergie"),
+          currentText: i18n.t("auto.RationSpontaneeExcel.kcal_observees", "{{value}} kcal observées", { value: fmt0Plain(totals?.day?.kcal) }),
+          targetText: surveyEnergyTarget
+            ? i18n.t("auto.RationSpontaneeExcel.besoin_actuel_kcal", "besoin actuel {{value}} kcal", { value: fmt0Plain(surveyEnergyTarget) })
+            : i18n.t("auto.RationSpontaneeExcel.pas_de_besoin_energetique", "pas de besoin énergétique"),
           helper: energyStatus.label,
           status: energyStatus.status,
           progress: progressFromTarget(totals?.day?.kcal, surveyEnergyTarget),
         },
         {
-          label: "Protéines",
-          currentText: `${fmt0Plain(totals?.day?.prot)} g observés`,
+          label: i18n.t("auto.RationSpontaneeExcel.proteines", "Protéines"),
+          currentText: i18n.t("auto.RationSpontaneeExcel.g_observes", "{{value}} g observés", { value: fmt0Plain(totals?.day?.prot) }),
           targetText: hasRange(effectiveNeeds?.protG)
-            ? `cible ${fmt0Plain(effectiveNeeds.protG.min)}–${fmt0Plain(effectiveNeeds.protG.max)} g`
-            : "pas de cible protéique",
+            ? i18n.t("auto.RationSpontaneeExcel.cible_g_range", "cible {{min}}–{{max}} g", { min: fmt0Plain(effectiveNeeds.protG.min), max: fmt0Plain(effectiveNeeds.protG.max) })
+            : i18n.t("auto.RationSpontaneeExcel.pas_de_cible_proteique", "pas de cible protéique"),
           helper: proteinStatus.label,
           status: proteinStatus.status,
           progress: progressFromRange(totals?.day?.prot, effectiveNeeds?.protG),
         },
         {
-          label: "Lipides",
-          currentText: `${fmt0Plain(totals?.day?.lip)} g observés`,
+          label: i18n.t("auto.RationSpontaneeExcel.lipides", "Lipides"),
+          currentText: i18n.t("auto.RationSpontaneeExcel.g_observes", "{{value}} g observés", { value: fmt0Plain(totals?.day?.lip) }),
           targetText: hasRange(effectiveNeeds?.lipG)
-            ? `cible ${fmt0Plain(effectiveNeeds.lipG.min)}–${fmt0Plain(effectiveNeeds.lipG.max)} g`
-            : "pas de cible lipidique",
+            ? i18n.t("auto.RationSpontaneeExcel.cible_g_range", "cible {{min}}–{{max}} g", { min: fmt0Plain(effectiveNeeds.lipG.min), max: fmt0Plain(effectiveNeeds.lipG.max) })
+            : i18n.t("auto.RationSpontaneeExcel.pas_de_cible_lipidique", "pas de cible lipidique"),
           helper: fatStatus.label,
           status: fatStatus.status,
           progress: progressFromRange(totals?.day?.lip, effectiveNeeds?.lipG),
         },
         {
-          label: "Glucides",
-          currentText: `${fmt0Plain(totals?.day?.glu)} g observés`,
+          label: i18n.t("auto.RationSpontaneeExcel.glucides", "Glucides"),
+          currentText: i18n.t("auto.RationSpontaneeExcel.g_observes", "{{value}} g observés", { value: fmt0Plain(totals?.day?.glu) }),
           targetText: hasRange(effectiveNeeds?.glucG)
-            ? `cible ${fmt0Plain(effectiveNeeds.glucG.min)}–${fmt0Plain(effectiveNeeds.glucG.max)} g`
-            : "pas de cible glucidique",
+            ? i18n.t("auto.RationSpontaneeExcel.cible_g_range", "cible {{min}}–{{max}} g", { min: fmt0Plain(effectiveNeeds.glucG.min), max: fmt0Plain(effectiveNeeds.glucG.max) })
+            : i18n.t("auto.RationSpontaneeExcel.pas_de_cible_glucidique", "pas de cible glucidique"),
           helper: carbStatus.label,
           status: carbStatus.status,
           progress: progressFromRange(totals?.day?.glu, effectiveNeeds?.glucG),
@@ -1164,10 +1151,10 @@ export default function RationSpontaneeExcel({
         };
       }),
       statuses: [
-        { label: "Énergie", value: energyStatus.label, scheme: badgeSchemeFromStatus(energyStatus.status) },
-        { label: "Prot", value: proteinStatus.label, scheme: badgeSchemeFromStatus(proteinStatus.status) },
-        { label: "Lip", value: fatStatus.label, scheme: badgeSchemeFromStatus(fatStatus.status) },
-        { label: "Glu", value: carbStatus.label, scheme: badgeSchemeFromStatus(carbStatus.status) },
+        { label: i18n.t("auto.RationSpontaneeExcel.energie", "Énergie"), value: energyStatus.label, scheme: badgeSchemeFromStatus(energyStatus.status) },
+        { label: i18n.t("auto.RationSpontaneeExcel.prot", "Prot"), value: proteinStatus.label, scheme: badgeSchemeFromStatus(proteinStatus.status) },
+        { label: i18n.t("auto.RationSpontaneeExcel.lip", "Lip"), value: fatStatus.label, scheme: badgeSchemeFromStatus(fatStatus.status) },
+        { label: i18n.t("auto.RationSpontaneeExcel.glu", "Glu"), value: carbStatus.label, scheme: badgeSchemeFromStatus(carbStatus.status) },
       ],
     });
   }, [
@@ -1404,7 +1391,21 @@ export default function RationSpontaneeExcel({
             <Text fontWeight="900">{i18n.t("auto.RationSpontaneeExcel.reperes_de_lecture", "Repères de lecture")}</Text>
             <Text fontSize="sm" opacity={0.72} mt={1}>{i18n.t("auto.RationSpontaneeExcel.le_releve_reste_manuel_cette_zone_sert_seulement_a", "Le relevé reste manuel; cette zone sert seulement à cadrer l’interprétation clinique.")}</Text>
           </Box>
-          <Badge colorScheme="orange" variant="subtle" px={3} py={1} borderRadius="full">{i18n.t("auto.RationSpontaneeExcel.cas_sensibles_valider_avec_le_detail_alimentaire_s", "Cas sensibles: valider avec le détail alimentaire si besoin")}</Badge>
+          <Badge
+            colorScheme="orange"
+            variant="subtle"
+            px={{ base: 2, md: 3 }}
+            py={1}
+            borderRadius={{ base: "lg", md: "full" }}
+            maxW="100%"
+            whiteSpace="normal"
+            textAlign="left"
+            overflowWrap="anywhere"
+            lineHeight="1.35"
+            fontSize={{ base: "2xs", md: "xs" }}
+          >
+            {i18n.t("auto.RationSpontaneeExcel.cas_sensibles_valider_avec_le_detail_alimentaire_s", "Cas sensibles: valider avec le détail alimentaire si besoin")}
+          </Badge>
         </HStack>
 
         <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={3}>

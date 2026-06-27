@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-06-25T21:30:33.836Z",
+  "updatedAt": "2026-06-27T08:07:53.549Z",
   "primaryKpi": "free_trial_starts",
   "secondaryKpi": "activation_day_7",
   "activationSignals": [
@@ -78,7 +78,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.facebook.com/857477100212912",
       "providerId": "857477100212912",
-      "performanceSyncedAt": "2026-06-25T21:30:33.836Z",
+      "performanceSyncedAt": "2026-06-27T08:07:53.549Z",
       "performanceSyncError": "Meta Graph GET 857477100212912: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
       "performanceSource": "meta_graph",
       "platformMeta": {
@@ -158,7 +158,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/reel/DZDX8QFgiWK/",
       "providerId": "18142983556524389",
-      "performanceSyncedAt": "2026-06-25T21:30:33.836Z",
+      "performanceSyncedAt": "2026-06-27T08:07:53.549Z",
       "performanceSyncError": "Meta Graph GET 18142983556524389: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
       "performanceSource": "meta_graph",
       "platformMeta": {
@@ -239,7 +239,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/reel/DZFY6JyDH_g/",
       "providerId": "18099111391988502",
-      "performanceSyncedAt": "2026-06-25T21:30:33.836Z",
+      "performanceSyncedAt": "2026-06-27T08:07:53.549Z",
       "performanceSyncError": "Meta Graph GET 18099111391988502: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
       "performanceSource": "meta_graph",
       "platformMeta": {
@@ -320,7 +320,7 @@
       "postUrl": "https://www.instagram.com/reel/DZKT9EkgXWx/",
       "providerId": "18138591487532730",
       "performanceSource": "meta_graph",
-      "performanceSyncedAt": "2026-06-25T21:30:33.836Z",
+      "performanceSyncedAt": "2026-06-27T08:07:53.549Z",
       "performanceSyncError": "Meta Graph GET 18138591487532730: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
       "platformMeta": {
         "permalink": "https://www.instagram.com/reel/DZKT9EkgXWx/",
@@ -398,7 +398,7 @@
       "postUrl": "https://www.facebook.com/27506921462235774",
       "providerId": "27506921462235774",
       "performanceSource": "meta_graph",
-      "performanceSyncedAt": "2026-06-25T21:30:33.836Z",
+      "performanceSyncedAt": "2026-06-27T08:07:53.549Z",
       "performanceSyncError": "Meta Graph GET 27506921462235774: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
       "platformMeta": {
         "permalink": "/reel/27506921462235774/",
@@ -476,7 +476,7 @@
       "postUrl": "https://www.facebook.com/2100509260510397",
       "providerId": "2100509260510397",
       "performanceSource": "meta_graph",
-      "performanceSyncedAt": "2026-06-25T21:30:33.836Z",
+      "performanceSyncedAt": "2026-06-27T08:07:53.549Z",
       "performanceSyncError": "Meta Graph GET 2100509260510397: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
       "platformMeta": {
         "permalink": "/reel/2100509260510397/",
@@ -553,7 +553,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3915827904589455795",
       "providerId": "17932227978271557",
-      "performanceSyncedAt": "2026-06-25T21:30:33.836Z",
+      "performanceSyncedAt": "2026-06-27T08:07:53.549Z",
       "performanceSyncError": "Meta Graph GET 17932227978271557: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
     },
     {
@@ -624,7 +624,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3916565310359403073",
       "providerId": "17872024971528291",
-      "performanceSyncedAt": "2026-06-25T21:30:33.836Z",
+      "performanceSyncedAt": "2026-06-27T08:07:53.549Z",
       "performanceSyncError": "Meta Graph GET 17872024971528291: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
     },
     {
@@ -695,7 +695,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3916569930502607113",
       "providerId": "18120144856683407",
-      "performanceSyncedAt": "2026-06-25T21:30:33.836Z",
+      "performanceSyncedAt": "2026-06-27T08:07:53.549Z",
       "performanceSyncError": "Meta Graph GET 18120144856683407: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
     },
     {
@@ -766,7 +766,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3919512526119830179",
       "providerId": "18096649379597904",
-      "performanceSyncedAt": "2026-06-25T21:30:33.836Z",
+      "performanceSyncedAt": "2026-06-27T08:07:53.549Z",
       "performanceSyncError": "Meta Graph GET 18096649379597904: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
     },
     {
@@ -838,7 +838,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3920000061462903500",
       "providerId": "18319661620272929",
-      "performanceSyncedAt": "2026-06-25T21:30:33.836Z",
+      "performanceSyncedAt": "2026-06-27T08:07:53.549Z",
       "performanceSyncError": "Meta Graph GET 18319661620272929: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
     },
     {
@@ -910,7 +910,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.facebook.com/110792515109412_1004547699093703",
       "providerId": "110792515109412_1004547699093703",
-      "performanceSyncedAt": "2026-06-25T21:30:33.836Z",
+      "performanceSyncedAt": "2026-06-27T08:07:53.549Z",
       "performanceSyncError": "Meta Graph GET 110792515109412_1004547699093703: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
     },
     {
@@ -982,7 +982,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3923071823542027930",
       "providerId": "17911835874416427",
-      "performanceSyncedAt": "2026-06-25T21:30:33.836Z",
+      "performanceSyncedAt": "2026-06-27T08:07:53.549Z",
       "performanceSyncError": "Meta Graph GET 17911835874416427: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
     },
     {
@@ -1053,7 +1053,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3925068438645318926",
       "providerId": "18380490814160929",
-      "performanceSyncedAt": "2026-06-25T21:30:33.836Z",
+      "performanceSyncedAt": "2026-06-27T08:07:53.549Z",
       "performanceSyncError": "Meta Graph GET 18380490814160929: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
     },
     {
@@ -1127,7 +1127,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/reel/DZ5RrgQj-yo/",
       "providerId": "18368913211230932",
-      "performanceSyncedAt": "2026-06-25T21:30:33.836Z",
+      "performanceSyncedAt": "2026-06-27T08:07:53.549Z",
       "performanceSyncError": "Meta Graph GET 18368913211230932: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
       "performanceSource": "meta_graph",
       "platformMeta": {
@@ -1136,6 +1136,78 @@
         "mediaProductType": "REELS",
         "timestamp": "2026-06-22T16:31:18+0000"
       }
+    },
+    {
+      "id": "2026-06-26-friday-09h30-facebook-facebook-studio-2026-06-26-friday-09h30-facebook-le-coach-qui-veut-scale",
+      "recordedAt": "2026-06-26T07:32:52.248Z",
+      "date": "2026-06-26",
+      "hook": "Vendredi matin, le coach ne doit pas repartir dans ses onglets.",
+      "theme": "Conversion organique coachs independants",
+      "angle": "rendre l'accompagnement plus fiable sans robotiser",
+      "cta": "Decouvrir l'essai gratuit de 14 jours",
+      "emotion": "soulagement",
+      "performance": {
+        "freeTrialStarts": 0,
+        "activationDay7": 0,
+        "activationEvents": {
+          "clientCreated": false,
+          "programCreated": false,
+          "programAssigned": false,
+          "clientLogin": false
+        },
+        "clicks": 0,
+        "views": 0,
+        "watchTime": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0
+      },
+      "platform": "facebook",
+      "audience": "coachs sportifs",
+      "audienceSegment": "coach_independant",
+      "segmentStrategy": {
+        "label": "Coach independant",
+        "pains": [
+          "perte de temps",
+          "Excel",
+          "WhatsApp",
+          "relances",
+          "suivi client disperse"
+        ],
+        "contentRule": "Parler d'un coach seul qui veut gagner du temps sans perdre la qualite du suivi."
+      },
+      "format": "post_long_b2b",
+      "slotId": "friday-09h30-facebook",
+      "variantId": "studio-2026-06-26-friday-09h30-facebook-le-coach-qui-veut-scale",
+      "conceptType": "trend_inspired_or_known_mechanic",
+      "experimentBucket": "proven",
+      "creativeFormatVariant": "",
+      "studioShotCount": 0,
+      "experimentId": "exp-2026-06-26-1ijxo42",
+      "experimentVersion": 1,
+      "experimentHypothesis": "le premium percu vient de la precision humaine, pas seulement de l'automatisation",
+      "attributionId": "sp-2026-06-26-01o6tsc",
+      "attributionLandingUrl": "https://boostyourlife.coach/plans/professionnel?utm_source=facebook&utm_medium=organic_social&utm_campaign=byl_social_publisher&utm_content=sp-2026-06-26-01o6tsc&sp_slot=friday-09h30-facebook&sp_variant=studio-2026-06-26-friday-09h30-facebook-le-coach-qui-veut-scale&sp_segment=coach_independant&sp_experiment=exp-2026-06-26-1ijxo42",
+      "attributionUtm": {
+        "utm_source": "facebook",
+        "utm_medium": "organic_social",
+        "utm_campaign": "byl_social_publisher",
+        "utm_content": "sp-2026-06-26-01o6tsc",
+        "sp_slot": "friday-09h30-facebook",
+        "sp_variant": "studio-2026-06-26-friday-09h30-facebook-le-coach-qui-veut-scale",
+        "sp_segment": "coach_independant",
+        "sp_experiment": "exp-2026-06-26-1ijxo42"
+      },
+      "conversionScore": 97,
+      "brandScore": 61,
+      "fatigueScore": 14,
+      "primaryKpi": "free_trial_starts",
+      "secondaryKpi": "activation_day_7",
+      "postUrl": "https://www.facebook.com/110792515109412_1010385408509932",
+      "providerId": "110792515109412_1010385408509932",
+      "performanceSyncedAt": "2026-06-27T08:07:53.549Z",
+      "performanceSyncError": "Meta Graph GET 110792515109412_1010385408509932: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
     }
   ],
   "experiments": [
@@ -1614,6 +1686,39 @@
       "cta": "Essai gratuit 14 jours - lien en bio",
       "hypothesis": "l'identification immediate du coach terrain augmente les reponses et les clics bio",
       "attributionId": "sp-2026-06-22-1pjrm7j",
+      "performance": {
+        "freeTrialStarts": 0,
+        "activationDay7": 0,
+        "activationEvents": {
+          "clientCreated": false,
+          "programCreated": false,
+          "programAssigned": false,
+          "clientLogin": false
+        },
+        "clicks": 0,
+        "views": 0,
+        "watchTime": 0,
+        "likes": 0,
+        "comments": 0,
+        "shares": 0,
+        "saves": 0
+      },
+      "primaryKpi": "free_trial_starts",
+      "secondaryKpi": "activation_day_7"
+    },
+    {
+      "id": "exp-2026-06-26-1ijxo42",
+      "version": 1,
+      "date": "2026-06-26",
+      "platform": "facebook",
+      "audienceSegment": "coach_independant",
+      "bucket": "proven",
+      "conceptType": "trend_inspired_or_known_mechanic",
+      "hook": "Vendredi matin, le coach ne doit pas repartir dans ses onglets.",
+      "angle": "rendre l'accompagnement plus fiable sans robotiser",
+      "cta": "Decouvrir l'essai gratuit de 14 jours",
+      "hypothesis": "le premium percu vient de la precision humaine, pas seulement de l'automatisation",
+      "attributionId": "sp-2026-06-26-01o6tsc",
       "performance": {
         "freeTrialStarts": 0,
         "activationDay7": 0,

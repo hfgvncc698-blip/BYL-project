@@ -25,6 +25,7 @@ import {
   useToast,
   Collapse,
   useColorModeValue,
+  useBreakpointValue,
 } from "@chakra-ui/react";
 import {
   ChevronLeftIcon,
@@ -39,9 +40,15 @@ import {
   extractRationLines as extractMenuRationLines,
   isSignificantRationMenuItem,
 } from "../utils/rationMenu";
-import { parseFoodExclusionFlags, parsePathologyFlags, parseRegimeFlags } from "../utils/nutritionContext";
+import {
+  computeMicronutrientTargets,
+  parseFoodExclusionFlags,
+  parsePathologyFlags,
+  parseRegimeFlags,
+} from "../utils/nutritionContext";
 import { parseAllergyFlags } from "../utils/nutritionRules";
 import { useNutritionTheme } from "../styles/nutritionTheme";
+import { translateNutritionFoodName } from "../utils/nutritionFoodI18n";
 import i18n from "../i18n/index";
 
 /* ================= Utils ================= */
@@ -227,6 +234,8 @@ const readAnyKey = (row, key) => {
   if (!row || !key) return undefined;
   if (Object.prototype.hasOwnProperty.call(row, key)) return row[key];
   if (row?.nutrients && Object.prototype.hasOwnProperty.call(row.nutrients, key)) return row.nutrients[key];
+  if (row?.NUTRIENTS && Object.prototype.hasOwnProperty.call(row.NUTRIENTS, key)) return row.NUTRIENTS[key];
+  if (row?.valeurs && Object.prototype.hasOwnProperty.call(row.valeurs, key)) return row.valeurs[key];
   return undefined;
 };
 
@@ -289,9 +298,20 @@ const buildCiqualColumnIndex = (ciqualArr) => {
     calcium: pickKey([/calcium/i]),
     fer: pickKey([/^fer/i, /iron/i]),
     sodium: pickKey([/sodium/i, /sel/i, /chlorure_de_sodium/i]),
-    vitamine_c: pickKey([/vit/i, /ascorb/i, /\bc\b/i]),
+    vitA: pickKey([/retinol/i, /vitamine_a/i, /vitaminique_a/i]),
+    vitB1: pickKey([/vitamine_b1/i, /thiamine/i]),
+    vitB2: pickKey([/vitamine_b2/i, /riboflavine/i]),
+    vitB6: pickKey([/vitamine_b6/i]),
+    vitB9: pickKey([/vitamine_b9/i, /folates/i]),
+    vitB12: pickKey([/vitamine_b12/i]),
+    vitC: pickKey([/vitamine_c/i, /ascorb/i]),
+    vitD: pickKey([/vitamine_d/i]),
+    vitE: pickKey([/vitamine_e/i]),
+    vitK: pickKey([/vitamine_k/i]),
     magnesium: pickKey([/magnes/i]),
     potassium: pickKey([/potass/i]),
+    lactose: pickKey([/lactose/i]),
+    cholesterol: pickKey([/cholesterol/i, /cholestérol/i]),
   };
 };
 
@@ -305,30 +325,88 @@ const getValFlexible = (row, key) => {
   return num(s);
 };
 
+const getMicroValFlexible = (row, microKey, indexedKey) => {
+  const direct = getValFlexible(row, indexedKey);
+  if (direct) return direct;
+  for (const key of MICRO_CIQUAL_KEYS[microKey] || []) {
+    const value = getValFlexible(row, key);
+    if (value) return value;
+  }
+  return 0;
+};
+
 /* ================= Micros (optional UI) ================= */
 const MICRO_LABEL = {
   calcium: "Calcium",
   fer: "Fer",
   sodium: "Sodium",
   fibres: "Fibres",
-  vitamine_c: "Vitamine C",
+  vitA: "Vitamine A",
+  vitB1: "Vitamine B1",
+  vitB2: "Vitamine B2",
+  vitB6: "Vitamine B6",
+  vitB9: "Vitamine B9",
+  vitB12: "Vitamine B12",
+  vitC: "Vitamine C",
+  vitD: "Vitamine D",
+  vitE: "Vitamine E",
+  vitK: "Vitamine K",
   magnesium: "Magnésium",
   potassium: "Potassium",
+  lactose: "Lactose",
+  cholesterol: "Cholestérol",
 };
 const MICRO_UNIT = {
   fibres: "g",
   calcium: "mg",
   fer: "mg",
   sodium: "mg",
-  vitamine_c: "mg",
+  vitA: "µg",
+  vitB1: "mg",
+  vitB2: "mg",
+  vitB6: "mg",
+  vitB9: "µg",
+  vitB12: "µg",
+  vitC: "mg",
+  vitD: "µg",
+  vitE: "mg",
+  vitK: "µg",
   magnesium: "mg",
   potassium: "mg",
+  lactose: "g",
+  cholesterol: "mg",
+};
+const MICRO_CIQUAL_KEYS = {
+  calcium: ["calcium_mg_100g"],
+  fer: ["fer_mg_100g"],
+  sodium: ["sodium_mg_100g"],
+  fibres: ["fibres_alimentaires_g_100g"],
+  vitA: ["retinol_ug_100g", "retinol_g_100g", "activite_vitaminique_a_equivalents_retinol_ug_100g", "activite_vitaminique_a_equivalents_retinol_g_100g"],
+  vitB1: ["vitamine_b1_ou_thiamine_mg_100g"],
+  vitB2: ["vitamine_b2_ou_riboflavine_mg_100g"],
+  vitB6: ["vitamine_b6_mg_100g"],
+  vitB9: ["vitamine_b9_ou_folates_totaux_ug_100g", "folates_totaux_ug_100g"],
+  vitB12: ["vitamine_b12_ug_100g", "vitamine_b12_g_100g"],
+  vitC: ["vitamine_c_mg_100g", "vit_c_mg_100g"],
+  vitD: ["vitamine_d_ug_100g", "vitamine_d_g_100g"],
+  vitE: ["vitamine_e_mg_100g"],
+  vitK: ["vitamine_k_ug_100g", "vitamine_k_g_100g"],
+  magnesium: ["magnesium_mg_100g"],
+  potassium: ["potassium_mg_100g"],
+  lactose: ["lactose_g_100g"],
+  cholesterol: ["cholesterol_mg_100g"],
 };
 const formatMicro = (k, v) => {
   const unit = MICRO_UNIT[k] || "mg";
   const n = num(v);
   if (!n) return `0 ${unit}`;
   return `${unit === "g" ? r1(n) : r0(n)} ${unit}`;
+};
+const formatMicroTargetValue = (target) => {
+  if (!target || target.value == null) return "";
+  const unit = target.unit || "mg";
+  const value = unit === "g" || num(target.value) < 10 ? r1(target.value) : r0(target.value);
+  return `${value} ${unit}`;
 };
 
 /* ================= Label cleanup ================= */
@@ -2840,6 +2918,7 @@ export default function MenuJournalierAuto({
   const planningMealBg = useColorModeValue("rgba(15,23,42,0.035)", "rgba(30,41,59,0.52)");
   const planningText = useColorModeValue("#0F172A", "#F8FAFC");
   const planningMuted = useColorModeValue("#475569", "rgba(226,232,240,0.84)");
+  const isMobile = useBreakpointValue({ base: true, md: false });
 
   const [loadingDoc, setLoadingDoc] = useState(true);
   const [docData, setDocData] = useState(null);
@@ -3001,10 +3080,25 @@ export default function MenuJournalierAuto({
     };
   }, [docData]);
 
+  const activeLanguage = i18n.language || i18n.resolvedLanguage || "fr";
+  const formatMenuFoodName = useCallback(
+    (rawName) => translateNutritionFoodName(prettyCiqualName(rawName, menuDisplayContext), activeLanguage),
+    [activeLanguage, menuDisplayContext]
+  );
+  const displayMenuFoodName = useCallback(
+    (rawName) => translateNutritionFoodName(rawName, activeLanguage),
+    [activeLanguage]
+  );
+
   // mapping du jour courant
   const dayKey = String(dayIndex);
   const mapping = useMemo(() => mappingByDay?.[dayKey] || {}, [mappingByDay, dayKey]);
   const dayRoles = useMemo(() => rolesByDay?.[dayKey] || {}, [rolesByDay, dayKey]);
+  const microTargets = useMemo(() => {
+    const inputs = docData?.inputs || docData || {};
+    const objectiveRaw = firstNonEmpty(inputs?.objectif, inputs?.objective, docData?.objectiveRaw);
+    return computeMicronutrientTargets({ inputs, objectiveRaw });
+  }, [docData]);
 
   const toggleMicro = (k) => {
     if (k === "calcium" || k === "fibres") return;
@@ -3134,8 +3228,7 @@ export default function MenuJournalierAuto({
 
       const micros = {};
       for (const mk of microsKeys || []) {
-        const key = colIndex[mk];
-        const v100 = getValFlexible(row, key);
+        const v100 = getMicroValFlexible(row, mk, colIndex[mk]);
         micros[mk] = v100 * factor;
       }
 
@@ -3216,7 +3309,7 @@ export default function MenuJournalierAuto({
           const role = mk === "dejeuner" || mk === "diner" ? roles?.[slot.key] || "" : "";
 
           preview[mk].push({
-            text: prettyCiqualName(ciqualName(row), menuDisplayContext),
+            text: formatMenuFoodName(ciqualName(row)),
             role,
             qty: info.qtyDisplay,
             unit: info.unitDisplay,
@@ -3238,7 +3331,7 @@ export default function MenuJournalierAuto({
         totals: { kcal: dayKcal, p: dayP, f: dayF, c: dayC },
       };
     },
-    [mappingByDay, rolesByDay, rationLinesByMealStatic, ciqualByCode, computeFoodTotals, menuDisplayContext]
+    [mappingByDay, rolesByDay, rationLinesByMealStatic, ciqualByCode, computeFoodTotals, formatMenuFoodName]
   );
 
   const weekDays = useMemo(() => {
@@ -3664,35 +3757,35 @@ export default function MenuJournalierAuto({
   };
 
   return (
-    <Box p={{ base: 3, md: 5 }} maxW="1200px" mx="auto">
+    <Box p={{ base: 0, md: 5 }} maxW="1200px" mx="auto">
       {/* HEADER */}
       <Box
         position={mode === "edit" ? "sticky" : "static"}
         top={mode === "edit" ? { base: "8px", md: "10px" } : undefined}
         zIndex={mode === "edit" ? 20 : undefined}
       >
-        <Card bg={panelBg} border="1px solid" borderColor={borderCol} rounded="2xl" mb={4}>
-          <CardBody py={mode === "edit" ? 3 : 5}>
-            <VStack align="stretch" spacing={4}>
+        <Card bg={panelBg} border="1px solid" borderColor={borderCol} rounded={{ base: "xl", md: "2xl" }} mb={4}>
+          <CardBody px={{ base: 3, md: 5 }} py={mode === "edit" ? 3 : { base: 3, md: 5 }}>
+            <VStack align="stretch" spacing={{ base: 3, md: 4 }}>
               <HStack gap={3} flexWrap="wrap" align="center">
                 <Box>
-                  <Heading size="sm">
+                  <Heading size={{ base: "xs", md: "sm" }}>
                     {mode === "edit"
                       ? i18n.t("auto.MenuJournalierAuto.day_number", "Jour {{day}}", { day: dayIndex })
                       : i18n.t("auto.MenuJournalierAuto.generation_du_menu", "Génération du menu")}
                   </Heading>
                   {mode !== "edit" ? (
-                    <Text fontSize="sm" opacity={0.72} mt={1}>{i18n.t("auto.MenuJournalierAuto.la_ration_retenue_sert_de_base_a_la_generation_des", "La ration retenue sert de base à la génération des journées.")}</Text>
+                    <Text fontSize={{ base: "xs", md: "sm" }} opacity={0.72} mt={1}>{i18n.t("auto.MenuJournalierAuto.la_ration_retenue_sert_de_base_a_la_generation_des", "La ration retenue sert de base à la génération des journées.")}</Text>
                   ) : null}
                 </Box>
 
                 <Spacer />
 
-                <HStack gap={2} flexWrap="wrap">
+                <HStack gap={2} flexWrap="wrap" w={{ base: "100%", md: "auto" }}>
                   <Select
                     value={daysCount}
                     onChange={(e) => onChangeDaysCount(e.target.value)}
-                    w={{ base: "92px", md: "100px" }}
+                    w={{ base: "88px", md: "100px" }}
                     size={mode === "edit" ? "sm" : "md"}
                   >
                     {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
@@ -3713,6 +3806,7 @@ export default function MenuJournalierAuto({
                     loadingText={i18n.t("auto.MenuJournalierAuto.generation", "Génération…")}
                     isDisabled={blocked || !ciqualOk}
                     size={mode === "edit" ? "sm" : "md"}
+                    flex={{ base: "1", md: "0 0 auto" }}
                   >{i18n.t("auto.MenuJournalierAuto.generer_les_menus", "Générer les menus")}</Button>
 
                   {saving ? (
@@ -3722,8 +3816,8 @@ export default function MenuJournalierAuto({
               </HStack>
 
               {mode !== "edit" ? (
-              <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={3}>
-                <Box bg={subtleCard} border="1px solid" borderColor={borderCol} rounded="xl" p={3}>
+              <SimpleGrid columns={{ base: 2, lg: 3 }} spacing={{ base: 2, md: 3 }}>
+                <Box bg={subtleCard} border="1px solid" borderColor={borderCol} rounded="xl" p={{ base: 3, md: 3 }} gridColumn={{ base: "1 / -1", lg: "auto" }}>
                   <Text fontSize="xs" textTransform="uppercase" opacity={0.65} fontWeight="900">{i18n.t("auto.MenuJournalierAuto.etat", "État")}</Text>
                   <Wrap mt={2} spacing={2}>
                     <WrapItem>
@@ -3774,10 +3868,10 @@ export default function MenuJournalierAuto({
                   </Wrap>
                 </Box>
 
-                <Box bg={subtleCard} border="1px solid" borderColor={borderCol} rounded="xl" p={3}>
+                <Box bg={subtleCard} border="1px solid" borderColor={borderCol} rounded="xl" p={{ base: 3, md: 3 }} minH={{ base: "116px", md: "auto" }}>
                   <Text fontSize="xs" textTransform="uppercase" opacity={0.65} fontWeight="900">{i18n.t("auto.MenuJournalierAuto.menu_genere", "Menu généré")}</Text>
                   <HStack mt={1} align="baseline" spacing={2}>
-                    <Text fontSize="2xl" fontWeight="900">
+                    <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="900">
                       {r0(totals?.day?.kcal)}
                     </Text>
                     <Text fontSize="sm" opacity={0.7}>{i18n.t("auto.MenuJournalierAuto.kcal", "kcal")}</Text>
@@ -3808,11 +3902,12 @@ export default function MenuJournalierAuto({
                   </Wrap>
                 </Box>
 
-                <Box bg={subtleCard} border="1px solid" borderColor={borderCol} rounded="xl" p={3}>
+                <Box bg={subtleCard} border="1px solid" borderColor={borderCol} rounded="xl" p={{ base: 3, md: 3 }} minH={{ base: "116px", md: "auto" }}>
                   <Text fontSize="xs" textTransform="uppercase" opacity={0.65} fontWeight="900">{i18n.t("auto.MenuJournalierAuto.controles", "Contrôles")}</Text>
                   <Button
                     mt={2}
                     size="sm"
+                    w={{ base: "100%", md: "auto" }}
                     variant="outline"
                     leftIcon={showMicros ? <ViewOffIcon /> : <ViewIcon />}
                     onClick={() => setShowMicros((v) => !v)}
@@ -3821,7 +3916,6 @@ export default function MenuJournalierAuto({
                       ? i18n.t("auto.MenuJournalierAuto.masquer_les_micros", "Masquer les micros")
                       : i18n.t("auto.MenuJournalierAuto.afficher_les_micros", "Afficher les micros")}
                   </Button>
-                  <Text fontSize="sm" opacity={0.75} mt={2}>{i18n.t("auto.MenuJournalierAuto.feculents_cuits_stricts_equivalents_cuits_plats_sa", "Féculents cuits stricts, équivalents cuits, plats sans morceaux gras, desserts sans boissons.")}</Text>
                 </Box>
               </SimpleGrid>
               ) : null}
@@ -3850,15 +3944,19 @@ export default function MenuJournalierAuto({
               </Wrap>
 
               <Wrap mt={3} spacing={2}>
-                {selectedMicros.map((k) => (
-                  <WrapItem key={`header_${k}`}>
-                    <Tag size="sm" variant="subtle" colorScheme="purple">
-                      <TagLabel fontWeight="900">
-                        {MICRO_LABEL[k]}: {formatMicro(k, totals?.day?.micros?.[k] || 0)}
-                      </TagLabel>
-                    </Tag>
-                  </WrapItem>
-                ))}
+                {selectedMicros.map((k) => {
+                  const targetDisplay = formatMicroTargetValue(microTargets?.[k]);
+                  return (
+                    <WrapItem key={`header_${k}`}>
+                      <Tag size="sm" variant="subtle" colorScheme="purple">
+                        <TagLabel fontWeight="900">
+                          {MICRO_LABEL[k]}: {formatMicro(k, totals?.day?.micros?.[k] || 0)}
+                          {targetDisplay ? ` / ${targetDisplay}` : ""}
+                        </TagLabel>
+                      </Tag>
+                    </WrapItem>
+                  );
+                })}
               </Wrap>
             </Collapse>
             </VStack>
@@ -3875,8 +3973,8 @@ export default function MenuJournalierAuto({
         <Alert status="warning" rounded="lg">
           <AlertIcon />{i18n.t("auto.MenuJournalierAuto.aucune_ligne_de_ration_detectee", "Aucune ligne de ration détectée.")}</Alert>
       ) : mode === "planning" ? (
-        <Card bg={panelBg} border="1px solid" borderColor={borderCol} rounded="2xl">
-          <CardBody>
+        <Card bg={panelBg} border="1px solid" borderColor={borderCol} rounded={{ base: "xl", md: "2xl" }}>
+          <CardBody px={{ base: 3, md: 5 }} py={{ base: 3, md: 5 }}>
             <HStack mb={3} align="center" flexWrap="wrap" gap={2}>
               <Heading size="sm">{i18n.t("auto.MenuJournalierAuto.planning_7_jours", "Planning (7 jours)")}</Heading>
               <Spacer />
@@ -3908,14 +4006,15 @@ export default function MenuJournalierAuto({
               </HStack>
             </HStack>
 
-            <Text fontSize="sm" opacity={0.75} mb={3}>{i18n.t("auto.MenuJournalierAuto.clique_sur_un_jour_pour_voir_le_detail", "Clique sur un jour pour voir le détail.")}<br />{i18n.t("auto.MenuJournalierAuto.astuce_si_tu_veux_des_menus_differents_d_un_coup", "Astuce : si tu veux des menus différents d’un coup →")}<b>{i18n.t("auto.MenuJournalierAuto.generer_les_menus_2", "“Générer les menus”")}</b>.
+            <Text display={{ base: "none", md: "block" }} fontSize={{ base: "xs", md: "sm" }} opacity={0.75} mb={3}>{i18n.t("auto.MenuJournalierAuto.clique_sur_un_jour_pour_voir_le_detail", "Clique sur un jour pour voir le détail.")}<br />{i18n.t("auto.MenuJournalierAuto.astuce_si_tu_veux_des_menus_differents_d_un_coup", "Astuce : si tu veux des menus différents d’un coup →")}<b>{i18n.t("auto.MenuJournalierAuto.generer_les_menus_2", "“Générer les menus”")}</b>.
             </Text>
 
-            <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} spacing={4}>
+            <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} spacing={{ base: 3, md: 4 }}>
               {weekDays.map((d) => {
                 const prev = weekPreview[d];
                 const t = prev?.totals || { kcal: 0, p: 0, f: 0, c: 0 };
-                const mealsToShow = allMealsNonZero;
+                const mealsToShow = isMobile ? allMealsNonZero.slice(0, 3) : allMealsNonZero;
+                const hiddenMealsCount = Math.max(0, allMealsNonZero.length - mealsToShow.length);
 
                 return (
                   <Card
@@ -3924,7 +4023,7 @@ export default function MenuJournalierAuto({
                     color={planningText}
                     border="1px solid"
                     borderColor={borderCol}
-                    rounded="xl"
+                    rounded={{ base: "lg", md: "xl" }}
                     cursor="pointer"
                     overflow="hidden"
                     _hover={{ transform: "translateY(-1px)", boxShadow: "lg" }}
@@ -3967,7 +4066,7 @@ export default function MenuJournalierAuto({
                       </HStack>
                     </Box>
 
-                    <CardBody color={planningText}>
+                    <CardBody color={planningText} px={{ base: 3, md: 5 }} py={{ base: 3, md: 5 }}>
                       <Wrap mb={2} spacing={1}>
                         <WrapItem>
                           <Tag size="sm" variant="subtle">
@@ -4014,7 +4113,7 @@ export default function MenuJournalierAuto({
                                   <HStack key={`${mk}_summary_${idx}`} align="start" spacing={2}>
                                     <Box flexShrink={0} w="5px" h="5px" rounded="full" bg="gray.400" mt="6px" />
                                     <Text fontSize="xs" lineHeight="1.3" noOfLines={2} color={planningText}>
-                                      {x.text}{" "}
+                                      {displayMenuFoodName(x.text)}{" "}
                                       <Box as="span" color={planningMuted}>
                                         ({r0(x.qty)} {x.unit})
                                       </Box>
@@ -4036,6 +4135,11 @@ export default function MenuJournalierAuto({
                         );
                       })}
                       </VStack>
+                      {hiddenMealsCount ? (
+                        <Text mt={2} fontSize="xs" fontWeight="800" color={planningMuted}>
+                          {i18n.t("auto.MenuJournalierAuto.more_meals_count", "+{{count}} autre(s) repas dans le détail", { count: hiddenMealsCount })}
+                        </Text>
+                      ) : null}
                     </CardBody>
                   </Card>
                 );
@@ -4102,7 +4206,7 @@ export default function MenuJournalierAuto({
                   return {
                     key: slot.key,
                     role,
-                    text: row ? prettyCiqualName(ciqualName(row), menuDisplayContext) : "—",
+                    text: row ? formatMenuFoodName(ciqualName(row)) : "—",
                     missing: !row,
                     qty: info.qtyDisplay,
                     unit: info.unitDisplay,
@@ -4163,7 +4267,7 @@ export default function MenuJournalierAuto({
                               {roleItems.map((x, idx) => (
                                 <Box key={`${role}_${idx}`} py={idx ? 2 : 0} borderTop={idx ? "1px solid" : "0"} borderColor={borderCol}>
                                   <Text fontSize="md" fontWeight="800" lineHeight="1.25">
-                                    {x.text}
+                                    {displayMenuFoodName(x.text)}
                                   </Text>
                                   <Wrap mt={2} spacing={2}>
                                     <WrapItem>
@@ -4195,7 +4299,7 @@ export default function MenuJournalierAuto({
                               {x.sourceLabel || i18n.t("auto.MenuJournalierAuto.element", "Élément")}
                             </Badge>
                             <Text fontSize="md" fontWeight="800" lineHeight="1.25">
-                              {x.text}
+                              {displayMenuFoodName(x.text)}
                             </Text>
                             <Wrap mt={2} spacing={2}>
                               <WrapItem>

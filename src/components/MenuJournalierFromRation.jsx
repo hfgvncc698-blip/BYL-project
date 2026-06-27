@@ -5,7 +5,6 @@ import {
   Box,
   Badge,
   Button,
-  Grid,
   Heading,
   HStack,
   SimpleGrid,
@@ -15,6 +14,7 @@ import {
   AlertTitle,
   AlertDescription,
   Stack,
+  useColorModeValue,
   useToast,
   Modal,
   ModalOverlay,
@@ -59,6 +59,7 @@ import { generateRecipesFromMealCourses } from "../utils/recipeGenerationService
 
 import { canUseCustomBranding } from "../utils/proPlanAccess";
 import { apiFetch } from "../utils/api";
+import { translateNutritionFoodName, translateNutritionObjective } from "../utils/nutritionFoodI18n";
 import i18n from "../i18n/index";
 import { navigateWithDomFallback } from "../utils/navigationFallback";
 import {
@@ -333,7 +334,7 @@ function MenuPdfDoc({
             <View style={menuPdfStyles.infoGrid}>
               <PdfInfoCard label={i18n.t("auto.MenuJournalierFromRation.source", "Source")} value={ration?.sourceLabel} />
               <PdfInfoCard label={i18n.t("auto.MenuJournalierFromRation.energie", "Énergie")} value={ration?.kcal ? `${r0(ration.kcal)} kcal` : i18n.t("auto.MenuJournalierFromRation.ration_a_relire", "Ration à relire")} />
-              <PdfInfoCard label={i18n.t("auto.MenuJournalierFromRation.repas_couverts", "Repas couverts")} value={`${ration?.coveredMeals || 0}/${MENU_MEALS_ORDER.length}`} />
+              <PdfInfoCard label={i18n.t("auto.MenuJournalierFromRation.repas_de_reference", "Repas de référence")} value={`${ration?.coveredMeals || 0} repas`} />
               <PdfInfoCard label={i18n.t("auto.MenuJournalierFromRation.macros", "Macros")} value={ration?.macroLine || "—"} />
             </View>
             {ration?.items?.length ? (
@@ -485,7 +486,7 @@ const inferMenuMicroKey = (key = "") => {
   if (value.includes("potassium")) return "potassium";
   if (value.includes("magnesium") || value.includes("magnésium")) return "magnesium";
   if (value.includes("fer") || value.includes("iron")) return "fer";
-  if (value.includes("vitamine_c") || value.includes("ascorb")) return "vitamine_c";
+  if (value.includes("vitamine c") || value.includes("vitamine_c") || value.includes("ascorb")) return "vitC";
   return "";
 };
 
@@ -553,6 +554,36 @@ export default function MenuJournalierFromRation() {
   const panelBg = nutritionTheme.surfaceBg;
   const borderCol = nutritionTheme.borderColor;
   const textMuted = nutritionTheme.mutedText;
+  const menuAccentCards = {
+    dossier: {
+      bg: useColorModeValue("blue.50", "rgba(37, 99, 235, 0.13)"),
+      border: useColorModeValue("blue.200", "rgba(96, 165, 250, 0.32)"),
+      label: useColorModeValue("blue.700", "blue.200"),
+      text: useColorModeValue("gray.900", "whiteAlpha.950"),
+      muted: useColorModeValue("gray.700", "whiteAlpha.750"),
+    },
+    nutrition: {
+      bg: useColorModeValue("teal.50", "rgba(20, 184, 166, 0.13)"),
+      border: useColorModeValue("teal.200", "rgba(45, 212, 191, 0.32)"),
+      label: useColorModeValue("teal.700", "teal.200"),
+      text: useColorModeValue("gray.900", "whiteAlpha.950"),
+      muted: useColorModeValue("gray.700", "whiteAlpha.750"),
+    },
+    ration: {
+      bg: useColorModeValue("purple.50", "rgba(124, 58, 237, 0.13)"),
+      border: useColorModeValue("purple.200", "rgba(167, 139, 250, 0.32)"),
+      label: useColorModeValue("purple.700", "purple.200"),
+      text: useColorModeValue("gray.900", "whiteAlpha.950"),
+      muted: useColorModeValue("gray.700", "whiteAlpha.750"),
+    },
+    output: {
+      bg: useColorModeValue("green.50", "rgba(34, 197, 94, 0.12)"),
+      border: useColorModeValue("green.200", "rgba(74, 222, 128, 0.30)"),
+      label: useColorModeValue("green.700", "green.200"),
+      text: useColorModeValue("gray.900", "whiteAlpha.950"),
+      muted: useColorModeValue("green.800", "whiteAlpha.750"),
+    },
+  };
   const sectionCardProps = {
     borderWidth: "1px",
     borderColor: borderCol,
@@ -746,6 +777,11 @@ export default function MenuJournalierFromRation() {
   );
   const inputs = useMemo(() => docData?.inputs || {}, [docData]);
   const objectiveRaw = useMemo(() => String(needs?.objectiveRaw || inputs?.objectif || inputs?.objective || "").trim(), [needs?.objectiveRaw, inputs]);
+  const activeLanguage = i18n.language || i18n.resolvedLanguage || "fr";
+  const translatedObjectiveRaw = useMemo(
+    () => translateNutritionObjective(objectiveRaw, activeLanguage),
+    [activeLanguage, objectiveRaw]
+  );
   const diet = useMemo(() => normalizeDietList(inputs), [inputs]);
   const activeDiet = useMemo(
     () => diet.filter((item) => String(item || "").toLowerCase() !== "normal"),
@@ -772,11 +808,11 @@ export default function MenuJournalierFromRation() {
           : needs?.sex === "Femme"
           ? i18n.t("auto.MenuJournalierFromRation.sex_female", "Femme")
           : needs?.sex || null,
-        objectiveRaw || null,
+        translatedObjectiveRaw || null,
       ]
         .filter(Boolean)
         .join(" • "),
-    [needs?.sex, objectiveRaw, summaryAge]
+    [needs?.sex, translatedObjectiveRaw, summaryAge]
   );
 
   const targets = useMemo(() => {
@@ -1043,7 +1079,9 @@ export default function MenuJournalierFromRation() {
                 : { code: "", part: "" };
             const row = entry.code ? ciqualByCode.get(String(entry.code || "")) : null;
             return {
-              name: row ? ciqualName(row) : firstNonEmpty(item?.resolvedLabel, item?.key, i18n.t("auto.MenuJournalierFromRation.aliment_a_associer", "Aliment à associer")),
+              name: row
+                ? translateNutritionFoodName(ciqualName(row), activeLanguage)
+                : firstNonEmpty(item?.resolvedLabel, item?.key, i18n.t("auto.MenuJournalierFromRation.aliment_a_associer", "Aliment à associer")),
               qty: `${r0(item?.meals?.[mealKey])} ${item?.unit || ""}`.trim(),
             };
           });
@@ -1054,7 +1092,7 @@ export default function MenuJournalierFromRation() {
       });
       return { label: i18n.t("auto.MenuJournalierFromRation.jour_count", "Jour {{count}}", { count: dayKey }), meals, totals: null };
     });
-  }, [activeTab, ciqualByCode, docData?.ration?.autoMenu, docData?.ration?.manualMenu, rationItems]);
+  }, [activeLanguage, activeTab, ciqualByCode, docData?.ration?.autoMenu, docData?.ration?.manualMenu, rationItems]);
 
   const pdfDays = useMemo(() => {
     const sourceDays = Array.isArray(menuPdfData?.days) && menuPdfData.days.length ? menuPdfData.days : fallbackPdfDays;
@@ -1067,7 +1105,10 @@ export default function MenuJournalierFromRation() {
           return {
             label: menuMealLabel(mealKey),
             items: previewItems.map((item) => ({
-              name: item.text || item.name || i18n.t("auto.MenuJournalierFromRation.aliment", "Aliment"),
+              name: translateNutritionFoodName(
+                item.text || item.name || i18n.t("auto.MenuJournalierFromRation.aliment", "Aliment"),
+                activeLanguage
+              ),
               qty: [item.qty, item.unit].filter(Boolean).join(" ") || (item.grams ? `${item.grams} g` : "—"),
               category: item.sourceLabel || item.category || "",
               role: item.role || "",
@@ -1078,7 +1119,7 @@ export default function MenuJournalierFromRation() {
         return fallbackMeal || { label: i18n.t("auto.MenuJournalierFromRation.repas", "Repas"), items: [] };
       }),
     }));
-  }, [fallbackPdfDays, menuPdfData]);
+  }, [activeLanguage, fallbackPdfDays, menuPdfData]);
 
   const displayedMenuPlan = useMemo(
     () => ({
@@ -1090,7 +1131,7 @@ export default function MenuJournalierFromRation() {
           label: meal.label || i18n.t("auto.MenuJournalierFromRation.repas", "Repas"),
           items: (meal.items || [])
             .map((item) => ({
-              name: item.name || item.text || "",
+              name: translateNutritionFoodName(item.name || item.text || "", activeLanguage),
               qty: item.qty || [item.quantity, item.unit].filter(Boolean).join(" "),
               category: item.category || meal.label || "",
               role: item.role || "",
@@ -1099,7 +1140,7 @@ export default function MenuJournalierFromRation() {
         })),
       })),
     }),
-    [pdfDays]
+    [activeLanguage, pdfDays]
   );
 
   const displayedMenuMeals = useMemo(
@@ -1311,7 +1352,7 @@ export default function MenuJournalierFromRation() {
           sections={selectedForPdf}
           summary={{
             clientSummary,
-            objective: objectiveRaw,
+            objective: translatedObjectiveRaw,
             diet: activeDiet,
             pathologies,
           }}
@@ -1368,7 +1409,6 @@ export default function MenuJournalierFromRation() {
     coachPdfName,
     coveredMealsCount,
     docData?.foodSurvey,
-    objectiveRaw,
     patientName,
     patientNote,
     pathologies,
@@ -1381,6 +1421,7 @@ export default function MenuJournalierFromRation() {
     sourceLabel,
     targets?.ration,
     toast,
+    translatedObjectiveRaw,
   ]);
 
   if (!isAdmin) {
@@ -1406,7 +1447,7 @@ export default function MenuJournalierFromRation() {
   }
 
   return (
-    <Box minH="100vh" p={{ base: 3, md: 6 }} bg={nutritionTheme.pageBg} color={nutritionTheme.textColor}>
+    <Box minH="100vh" p={{ base: 3, md: 6 }} pb={{ base: 28, md: 6 }} bg={nutritionTheme.pageBg} color={nutritionTheme.textColor}>
       <Stack spacing={4} maxW="7xl" mx="auto">
         <NutritionWorkflowBar
           activeStep="menu"
@@ -1417,12 +1458,12 @@ export default function MenuJournalierFromRation() {
 
         <Box {...sectionCardProps} overflow="hidden">
           <Box bg={panelBg} px={{ base: 4, md: 5 }} py={{ base: 4, md: 5 }}>
-            <HStack justify="space-between" align="center" gap={4} flexWrap="wrap">
-              <HStack spacing={3} flexWrap="wrap">
-                <Button variant="outline" onClick={goBack} data-testid="nutrition-menu-back-top">{i18n.t("programView.back", "Retour")}</Button>
+            <HStack justify="space-between" align={{ base: "stretch", md: "center" }} gap={4} flexDirection={{ base: "column", lg: "row" }}>
+              <HStack spacing={3} flexWrap="wrap" align="center">
+                <Button size={{ base: "sm", md: "md" }} variant="outline" onClick={goBack} data-testid="nutrition-menu-back-top">{i18n.t("programView.back", "Retour")}</Button>
                 <Box>
                   <HStack spacing={2} flexWrap="wrap">
-                    <Heading size="md">{i18n.t("auto.MenuJournalierFromRation.menu_journalier", "Menu journalier")}</Heading>
+                    <Heading size={{ base: "sm", md: "md" }}>{i18n.t("auto.MenuJournalierFromRation.menu_journalier", "Menu journalier")}</Heading>
                     <Badge colorScheme={blocked ? "yellow" : "green"}>
                       {blocked
                         ? i18n.t("auto.MenuJournalierFromRation.bilan_a_finaliser", "Bilan à finaliser")
@@ -1433,28 +1474,75 @@ export default function MenuJournalierFromRation() {
                 </Box>
               </HStack>
 
-              <Button variant="outline" onClick={loadCiqual} isLoading={ciqualLoading} loadingText={i18n.t("common.loading", "Chargement…")}>{i18n.t("auto.MenuJournalierFromRation.actualiser_les_donnees", "Actualiser les données")}</Button>
+              <HStack spacing={2} flexWrap={{ base: "wrap", md: "nowrap" }} justify={{ base: "stretch", lg: "flex-end" }} w={{ base: "100%", lg: "auto" }}>
+                <HStack
+                  spacing={2}
+                  borderWidth="1px"
+                  borderColor={borderCol}
+                  borderRadius="full"
+                  bg={nutritionTheme.surfaceSoft}
+                  p={1}
+                  w={{ base: "100%", md: "auto" }}
+                >
+                  <Text display={{ base: "none", md: "block" }} px={3} fontSize="xs" fontWeight="900" letterSpacing="0.08em" color={textMuted}>
+                    {i18n.t("auto.MenuJournalierFromRation.mode_de_travail", "MODE")}
+                  </Text>
+                    <Button
+                      flex="1"
+                      h={{ base: "40px", md: "38px" }}
+                      minW={{ base: 0, md: "96px" }}
+                      borderRadius="full"
+                      variant={activeTab === 0 ? "solid" : "ghost"}
+                      colorScheme="blue"
+                      onClick={() => changeActiveTab(0)}
+                      isDisabled={blocked}
+                    >{i18n.t("auto.MenuJournalierFromRation.manuel", "Manuel")}</Button>
+                    <Button
+                      flex="1"
+                      h={{ base: "40px", md: "38px" }}
+                      minW={{ base: 0, md: "96px" }}
+                      borderRadius="full"
+                      variant={activeTab === 1 ? "solid" : "ghost"}
+                      colorScheme="blue"
+                      onClick={() => changeActiveTab(1)}
+                      isDisabled={blocked}
+                    >{i18n.t("auto.MenuJournalierFromRation.auto", "Auto")}</Button>
+                </HStack>
+
+                <Button
+                  variant="outline"
+                  borderRadius="full"
+                  size={{ base: "xs", md: "md" }}
+                  flex={{ base: "0 0 auto", md: "0 0 auto" }}
+                  ml={{ base: "auto", md: 0 }}
+                  onClick={loadCiqual}
+                  isLoading={ciqualLoading}
+                  loadingText={i18n.t("common.loading", "Chargement…")}
+                >
+                  {i18n.t("auto.MenuJournalierFromRation.actualiser", "Actualiser")}
+                </Button>
+              </HStack>
             </HStack>
 
-            <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={3} mt={5}>
-              <Box p={4} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={nutritionTheme.surfaceSoft}>
-                <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>
+            <SimpleGrid display={{ base: "none", md: "grid" }} columns={{ md: 1, lg: 3 }} spacing={3} mt={5}>
+              <Box p={4} borderWidth="1px" borderColor={menuAccentCards.dossier.border} borderRadius="md" bg={menuAccentCards.dossier.bg} color={menuAccentCards.dossier.text}>
+                <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={menuAccentCards.dossier.label}>
                   {i18n.t("auto.MenuJournalierFromRation.dossier", "DOSSIER")}
                 </Text>
                 <Text mt={1} fontSize="xl" fontWeight="900" noOfLines={1}>
                   {patientName}
                 </Text>
-                <Text fontSize="sm" color={textMuted}>
+                <Text fontSize="sm" color={menuAccentCards.dossier.muted}>
                   {clientSummary || i18n.t("auto.MenuJournalierFromRation.contexte_general_a_completer", "Contexte général à compléter")}
                 </Text>
               </Box>
 
-              <Box p={4} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={nutritionTheme.surfaceSoft}>
-                <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>{i18n.t("auto.MenuJournalierFromRation.cadre_nutrition", "CADRE NUTRITION")}</Text>
+              <Box p={4} borderWidth="1px" borderColor={menuAccentCards.nutrition.border} borderRadius="md" bg={menuAccentCards.nutrition.bg} color={menuAccentCards.nutrition.text}>
+                <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={menuAccentCards.nutrition.label}>{i18n.t("auto.MenuJournalierFromRation.cadre_nutrition", "CADRE NUTRITION")}</Text>
                 <Text mt={1} fontSize="lg" fontWeight="800">
-                  {objectiveRaw || i18n.t("auto.MenuJournalierFromRation.objectif_a_preciser", "Objectif à préciser")}
+                  {translatedObjectiveRaw || i18n.t("auto.MenuJournalierFromRation.objectif_a_preciser", "Objectif à préciser")}
                 </Text>
-                <Text fontSize="sm" color={textMuted} noOfLines={2}>
+                <Text fontSize="sm" color={menuAccentCards.nutrition.muted} noOfLines={2}>
                   {[
                     activeDiet.length ? activeDiet.join(", ") : i18n.t("auto.MenuJournalierFromRation.aucun_regime_specifique", "Aucun régime spécifique"),
                     pathologies.length ? pathologies.slice(0, 2).join(", ") : i18n.t("auto.MenuJournalierFromRation.aucune_pathologie", "Aucune pathologie"),
@@ -1462,8 +1550,8 @@ export default function MenuJournalierFromRation() {
                 </Text>
               </Box>
 
-              <Box p={4} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={nutritionTheme.surfaceSoft}>
-                <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>{i18n.t("auto.MenuJournalierFromRation.ration_et_donnees", "RATION ET DONNÉES")}</Text>
+              <Box p={4} borderWidth="1px" borderColor={menuAccentCards.ration.border} borderRadius="md" bg={menuAccentCards.ration.bg} color={menuAccentCards.ration.text}>
+                <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={menuAccentCards.ration.label}>{i18n.t("auto.MenuJournalierFromRation.ration_et_donnees", "RATION ET DONNÉES")}</Text>
                 <Text mt={1} fontSize="lg" fontWeight="800">
                   {sourceLabel}
                 </Text>
@@ -1473,10 +1561,9 @@ export default function MenuJournalierFromRation() {
                       ? i18n.t("auto.MenuJournalierFromRation.ration_kcal", "Ration {{kcal}} kcal", { kcal: r0(targets.ration.kcal) })
                       : i18n.t("auto.MenuJournalierFromRation.ration_a_relire", "Ration à relire")}
                   </Badge>
-                  <Badge colorScheme={coveredMealsCount === MENU_MEALS_ORDER.length ? "green" : "blue"}>
-                    {i18n.t("auto.MenuJournalierFromRation.repas_couverts_count", "{{count}}/{{total}} repas", {
+                  <Badge colorScheme="teal">
+                    {i18n.t("auto.MenuJournalierFromRation.repas_reference_count", "{{count}} repas de référence", {
                       count: coveredMealsCount,
-                      total: MENU_MEALS_ORDER.length,
                     })}
                   </Badge>
                   <Badge colorScheme={ciqualOk ? "green" : "red"}>
@@ -1487,6 +1574,89 @@ export default function MenuJournalierFromRation() {
                 </HStack>
               </Box>
             </SimpleGrid>
+
+            <Box display={{ base: "block", md: "none" }} mt={4} borderWidth="1px" borderColor={borderCol} borderRadius="lg" bg={nutritionTheme.surfaceSoft} p={3}>
+              <HStack justify="space-between" align="start" gap={3}>
+                <Box minW={0}>
+                  <Text fontSize="xs" fontWeight="900" letterSpacing="0.08em" color={textMuted}>
+                    {i18n.t("auto.MenuJournalierFromRation.dossier", "DOSSIER")}
+                  </Text>
+                  <Text fontSize="lg" fontWeight="900" noOfLines={1}>{patientName}</Text>
+                  <Text fontSize="sm" color={textMuted} noOfLines={2}>
+                    {[translatedObjectiveRaw || i18n.t("auto.MenuJournalierFromRation.objectif_a_preciser", "Objectif à préciser"), sourceLabel].filter(Boolean).join(" • ")}
+                  </Text>
+                </Box>
+                <Badge colorScheme={ciqualOk ? "green" : "orange"} borderRadius="full" px={3} py={1}>
+                  {ciqualOk
+                    ? i18n.t("auto.MenuJournalierFromRation.donnees_pretes", "Données prêtes")
+                    : i18n.t("auto.MenuJournalierFromRation.donnees_a_charger", "Données à charger")}
+                </Badge>
+              </HStack>
+            </Box>
+
+            <Box mt={4} borderWidth="1px" borderColor={borderCol} borderRadius="lg" bg={nutritionTheme.surfaceSoft} p={4}>
+              <HStack justify="space-between" align="start" gap={3} flexWrap="wrap" mb={3}>
+                <Box>
+                  <Text fontSize="xs" fontWeight="900" letterSpacing="0.08em" color={textMuted}>
+                    {i18n.t("auto.MenuJournalierFromRation.synthese_rapide", "SYNTHÈSE RAPIDE")}
+                  </Text>
+                  <Heading size="sm" mt={1}>{i18n.t("auto.MenuJournalierFromRation.pilotage_du_menu", "Pilotage du menu")}</Heading>
+                </Box>
+                <Badge colorScheme={ciqualOk && rationHasAnyQty ? "green" : "orange"} borderRadius="full" px={3} py={1}>
+                  {activeTab === 1
+                    ? i18n.t("auto.MenuJournalierFromRation.mode_auto_upper", "MODE AUTO")
+                    : i18n.t("auto.MenuJournalierFromRation.mode_manuel_upper", "MODE MANUEL")}
+                </Badge>
+              </HStack>
+
+              <SimpleGrid columns={{ base: 2, lg: 4 }} spacing={3}>
+                <Box p={{ base: 3, md: 3 }} minH={{ base: "118px", md: "auto" }} borderWidth="1px" borderColor={menuAccentCards.dossier.border} borderRadius="md" bg={menuAccentCards.dossier.bg} color={menuAccentCards.dossier.text}>
+                  <Text fontSize="xs" fontWeight="900" color={menuAccentCards.dossier.label} textTransform="uppercase">
+                    {i18n.t("auto.MenuJournalierFromRation.jours", "Jours")}
+                  </Text>
+                  <Text mt={2} fontSize="2xl" fontWeight="900" lineHeight="1">
+                    {pdfDays.length || "—"}
+                  </Text>
+                  <Text mt={1} fontSize="sm" color={menuAccentCards.dossier.muted}>
+                    {i18n.t("auto.MenuJournalierFromRation.menu_a_relire", "Menu à relire")}
+                  </Text>
+                </Box>
+
+                <Box p={{ base: 3, md: 3 }} minH={{ base: "118px", md: "auto" }} borderWidth="1px" borderColor={menuAccentCards.nutrition.border} borderRadius="md" bg={menuAccentCards.nutrition.bg} color={menuAccentCards.nutrition.text}>
+                  <Text fontSize="xs" fontWeight="900" color={menuAccentCards.nutrition.label} textTransform="uppercase">
+                    {i18n.t("auto.MenuJournalierFromRation.repas_de_reference", "Repas de référence")}
+                  </Text>
+                  <Text mt={2} fontSize="2xl" fontWeight="900" lineHeight="1">
+                    {coveredMealsCount}
+                  </Text>
+                  <Text mt={1} fontSize="sm" color={menuAccentCards.nutrition.muted}>
+                    {i18n.t("auto.MenuJournalierFromRation.a_respecter_depuis_la_ration", "À respecter depuis la ration")}
+                  </Text>
+                </Box>
+
+                <Box p={{ base: 3, md: 3 }} minH={{ base: "118px", md: "auto" }} borderWidth="1px" borderColor={menuAccentCards.ration.border} borderRadius="md" bg={menuAccentCards.ration.bg} color={menuAccentCards.ration.text}>
+                  <Text fontSize="xs" fontWeight="900" color={menuAccentCards.ration.label} textTransform="uppercase">
+                    {i18n.t("auto.MenuJournalierFromRation.cible", "Cible")}
+                  </Text>
+                  <Text mt={2} fontSize="2xl" fontWeight="900" lineHeight="1">
+                    {targets?.ration?.kcal ? r0(targets.ration.kcal) : "—"}
+                  </Text>
+                  <Text mt={1} fontSize="sm" color={menuAccentCards.ration.muted}>kcal</Text>
+                </Box>
+
+                <Box p={{ base: 3, md: 3 }} minH={{ base: "118px", md: "auto" }} borderWidth="1px" borderColor={menuAccentCards.output.border} borderRadius="md" bg={menuAccentCards.output.bg} color={menuAccentCards.output.text}>
+                  <Text fontSize="xs" fontWeight="900" color={menuAccentCards.output.label} textTransform="uppercase">
+                    {i18n.t("auto.MenuJournalierFromRation.sorties", "Sorties")}
+                  </Text>
+                  <Text mt={2} fontSize="2xl" fontWeight="900" lineHeight="1">
+                    {aiRecipes.length + aiShoppingSections.length}
+                  </Text>
+                  <Text mt={1} fontSize="sm" color={menuAccentCards.output.muted}>
+                    {i18n.t("auto.MenuJournalierFromRation.recettes_et_courses", "recettes & courses")}
+                  </Text>
+                </Box>
+              </SimpleGrid>
+            </Box>
 
             {!ciqualOk ? (
               <Alert status="error" rounded="xl" mt={4}>
@@ -1512,41 +1682,6 @@ export default function MenuJournalierFromRation() {
             ) : null}
           </Box>
         </Box>
-
-        <Grid templateColumns={{ base: "1fr", lg: "minmax(0, 1fr) 320px" }} gap={4} alignItems="start">
-          <Stack
-            spacing={4}
-            position={{ base: "static", lg: "sticky" }}
-            top={{ lg: "88px" }}
-            maxH={{ base: "none", lg: "calc(100vh - 104px)" }}
-            overflowY={{ base: "visible", lg: "auto" }}
-            pr={{ base: 0, lg: 1 }}
-            order={{ base: -1, lg: 2 }}
-          >
-        <Box {...sectionCardProps} p={{ base: 4, md: 5 }} order={{ base: 0, xl: 1 }}>
-          <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>{i18n.t("auto.MenuJournalierFromRation.mode_de_travail", "MODE DE TRAVAIL")}</Text>
-          <Heading size="sm" mt={1}>{i18n.t("auto.MenuJournalierFromRation.choix_de_la_methode", "Choix de la méthode")}</Heading>
-          <Text fontSize="sm" color={textMuted} mt={1}>
-            {i18n.t("auto.MenuJournalierFromRation.choisis_la_logique_de_travail", "Choisis la logique de travail, puis construis le menu dans la zone principale.")}
-          </Text>
-          <HStack mt={4} spacing={0} borderWidth="1px" borderColor={borderCol} borderRadius="md" overflow="hidden" w="fit-content" maxW="100%" flexWrap="wrap">
-            <Button
-              borderRadius="0"
-              variant={activeTab === 0 ? "solid" : "ghost"}
-              colorScheme="blue"
-              onClick={() => changeActiveTab(0)}
-              isDisabled={blocked}
-            >{i18n.t("auto.MenuJournalierFromRation.manuel", "Manuel")}</Button>
-            <Button
-              borderRadius="0"
-              variant={activeTab === 1 ? "solid" : "ghost"}
-              colorScheme="purple"
-              onClick={() => changeActiveTab(1)}
-              isDisabled={blocked}
-            >{i18n.t("auto.MenuJournalierFromRation.auto", "Auto")}</Button>
-          </HStack>
-        </Box>
-          </Stack>
 
         <Box {...sectionCardProps} p={{ base: 4, md: 5 }}>
           <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>{i18n.t("auto.MenuJournalierFromRation.menu_a_relire", "MENU À RELIRE")}</Text>
@@ -1583,7 +1718,6 @@ export default function MenuJournalierFromRation() {
             />
           )}
         </Box>
-        </Grid>
 
         <Box {...sectionCardProps} p={{ base: 4, md: 5 }}>
           <HStack justify="space-between" align="start" gap={3} flexWrap="wrap">

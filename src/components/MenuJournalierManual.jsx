@@ -26,6 +26,7 @@ import {
   IconButton,
   Collapse,
   useColorModeValue,
+  useBreakpointValue,
 } from "@chakra-ui/react";
 import {
   ChevronLeftIcon,
@@ -517,6 +518,7 @@ export default function MenuJournalierManual({
   const planningMealBg = useColorModeValue("rgba(15,23,42,0.035)", "rgba(30,41,59,0.52)");
   const planningText = useColorModeValue("#0F172A", "#F8FAFC");
   const planningMuted = useColorModeValue("#475569", "rgba(226,232,240,0.84)");
+  const isMobile = useBreakpointValue({ base: true, md: false });
 
   const [loadingDoc, setLoadingDoc] = useState(true);
   const [docData, setDocData] = useState(null);
@@ -1253,10 +1255,10 @@ export default function MenuJournalierManual({
 
   /* ================= UI ================= */
   return (
-    <Box p={{ base: 2, md: 5 }}>
+    <Box p={{ base: 0, md: 5 }}>
       {/* HEADER */}
-      <Card bg={panelBg} border="1px solid" borderColor={borderCol} rounded="2xl" mb={4}>
-        <CardBody py={{ base: 4, md: 5 }}>
+      <Card bg={panelBg} border="1px solid" borderColor={borderCol} rounded={{ base: "xl", md: "2xl" }} mb={4}>
+        <CardBody px={{ base: 3, md: 5 }} py={{ base: 3, md: 5 }}>
           <HStack mb={3} gap={2} flexWrap="wrap" align="center">
             <Heading size="sm">{i18n.t("auto.MenuJournalierManual.association_manuelle", "Association manuelle")}</Heading>
 
@@ -1293,7 +1295,7 @@ export default function MenuJournalierManual({
             </HStack>
           </HStack>
 
-          <Text fontSize="sm" color={textMuted} mt={1}>{i18n.t("auto.MenuJournalierManual.on_part_de_la_ration_deja_construite_puis_on_assoc", "On part de la ration déjà construite puis on associe, jour par jour, les aliments CIQUAL les plus pertinents sans surcharger la lecture.")}</Text>
+          <Text display={{ base: "none", md: "block" }} fontSize="sm" color={textMuted} mt={1}>{i18n.t("auto.MenuJournalierManual.on_part_de_la_ration_deja_construite_puis_on_assoc", "On part de la ration déjà construite puis on associe, jour par jour, les aliments CIQUAL les plus pertinents sans surcharger la lecture.")}</Text>
 
           <Wrap mt={4} spacing={2}>
             <WrapItem>
@@ -1443,13 +1445,14 @@ export default function MenuJournalierManual({
               </HStack>
             </HStack>
 
-            <Text fontSize="sm" color={textMuted} mb={3}>{i18n.t("auto.MenuJournalierManual.clique_sur_un_jour_pour_editer_tu_peux_aussi", "Clique sur un jour pour éditer. Tu peux aussi")}<b>{i18n.t("auto.MenuJournalierManual.dupliquer", "dupliquer")}</b>{i18n.t("auto.MenuJournalierManual.un_jour_sur_un_autre", "un jour sur un autre.")}</Text>
+            <Text display={{ base: "none", md: "block" }} fontSize="sm" color={textMuted} mb={3}>{i18n.t("auto.MenuJournalierManual.clique_sur_un_jour_pour_editer_tu_peux_aussi", "Clique sur un jour pour éditer. Tu peux aussi")}<b>{i18n.t("auto.MenuJournalierManual.dupliquer", "dupliquer")}</b>{i18n.t("auto.MenuJournalierManual.un_jour_sur_un_autre", "un jour sur un autre.")}</Text>
 
             <SimpleGrid columns={{ base: 1, md: 7 }} spacing={3}>
               {weekDays.map((d) => {
                 const prev = weekPreview[d];
                 const t = prev?.totals || { kcal: 0, p: 0, f: 0, carbs: 0 };
-                const mealsToShow = allMealsNonZero;
+                const mealsToShow = isMobile ? allMealsNonZero.slice(0, 3) : allMealsNonZero;
+                const hiddenMealsCount = Math.max(0, allMealsNonZero.length - mealsToShow.length);
 
                 return (
                   <Card
@@ -1511,6 +1514,11 @@ export default function MenuJournalierManual({
                           </Box>
                         );
                       })}
+                      {hiddenMealsCount ? (
+                        <Text mt={3} fontSize="xs" fontWeight="800" color={planningMuted}>
+                          {i18n.t("auto.MenuJournalierManual.more_meals_count", "+{{count}} autre(s) repas dans le détail", { count: hiddenMealsCount })}
+                        </Text>
+                      ) : null}
                     </CardBody>
                   </Card>
                 );

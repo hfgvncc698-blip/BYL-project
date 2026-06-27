@@ -56,6 +56,7 @@ import { useNutritionTheme } from "../styles/nutritionTheme";
 import NutritionWorkflowBar from "./nutrition/NutritionWorkflowBar.jsx";
 import i18n from "../i18n/index";
 import { navigateWithDomFallback } from "../utils/navigationFallback";
+import { translateNutritionObjective } from "../utils/nutritionFoodI18n";
 
 /* ========================= Helpers ========================= */
 const num = (v) => {
@@ -209,6 +210,9 @@ const translatePreviousRationLabel = (label = "") => {
   return i18n.t(`auto.RationSpontaneeExcel.labels.${key}`, label);
 };
 
+const translatePreviousObjectiveLabel = (label = "") =>
+  translateNutritionObjective(label, i18n.language || i18n.resolvedLanguage || "fr");
+
 const translatePreviousMealLabel = (mealKey) => {
   const mealKeys = {
     petit_dej: "petit_dejeuner",
@@ -229,6 +233,7 @@ function UnifiedSurveyFooter({ needs, summary, mode, sticky = true, mt = 4, titl
   const borderCol = nutritionTheme.borderColor;
   const subtleText = nutritionTheme.mutedText;
   const chipBg = nutritionTheme.surfaceSoft;
+  const progressTrackBg = useColorModeValue("gray.100", "whiteAlpha.100");
 
   const kcal = needs?.dej ? round0(needs.dej) : needs?.kcalTarget ? round0(needs.kcalTarget) : null;
   const observedKcal = summary?.kcal != null ? round0(summary.kcal) : null;
@@ -244,6 +249,10 @@ function UnifiedSurveyFooter({ needs, summary, mode, sticky = true, mt = 4, titl
   const microCount = summary?.microCount ?? 0;
   const microItems = Array.isArray(summary?.microItems) ? summary.microItems : [];
   const [showDetails, setShowDetails] = useState(false);
+  const energyProgress =
+    observedKcal != null && kcal != null && kcal > 0
+      ? clampPercent((observedKcal / kcal) * 100)
+      : 0;
   const macroItems = [
     {
       key: "prot",
@@ -284,6 +293,7 @@ function UnifiedSurveyFooter({ needs, summary, mode, sticky = true, mt = 4, titl
         ? `${round0(item.value)} / ${formatRange(item.range, "g")}`
         : `— / ${formatRange(item.range, "g")}`,
       pctText,
+      progress: item.range?.max > 0 ? clampPercent((num(item.value) / num(item.range.max)) * 100) : 0,
       scheme: status?.scheme || schemeFromStatus(status?.status),
       statusText: status?.value,
     };
@@ -305,7 +315,7 @@ function UnifiedSurveyFooter({ needs, summary, mode, sticky = true, mt = 4, titl
       backdropFilter="blur(16px)"
       {...boxProps}
     >
-      <Stack spacing={2}>
+      <Stack spacing={3}>
         {title ? (
           <Box>
             <Text fontSize="xs" fontWeight="900" letterSpacing="0.08em" color={subtleText}>
@@ -318,8 +328,9 @@ function UnifiedSurveyFooter({ needs, summary, mode, sticky = true, mt = 4, titl
             ) : null}
           </Box>
         ) : null}
-        <HStack justify="space-between" align="center" gap={3} flexWrap="wrap">
-          <HStack spacing={2} flexWrap="wrap">
+
+        <Box p={3} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={chipBg}>
+          <HStack justify="space-between" align="start" gap={3} mb={2}>
             <Badge
               colorScheme={mode === "ciqual" ? "purple" : "blue"}
               variant="solid"
@@ -331,29 +342,51 @@ function UnifiedSurveyFooter({ needs, summary, mode, sticky = true, mt = 4, titl
                 ? i18n.t("auto.FoodSurvey.mode_detaille_short", "Détaillé")
                 : i18n.t("auto.FoodSurvey.mode_simplifie_badge", "Simplifié")}
             </Badge>
-            <Text fontSize="sm" fontWeight="800" color={subtleText}>
+            <Text fontSize="lg" lineHeight="1" fontWeight="900">
               {observedKcal != null
                 ? `${observedKcal} / ${kcal != null ? kcal : "—"} kcal`
                 : `— / ${kcal != null ? kcal : "—"} kcal`}
             </Text>
           </HStack>
-        </HStack>
+          <Progress
+            value={energyProgress}
+            colorScheme={energyProgress > 110 ? "red" : energyProgress > 85 ? "green" : "blue"}
+            borderRadius="full"
+            bg={progressTrackBg}
+            size="sm"
+          />
+        </Box>
+
+        <Stack spacing={2}>
+          {macroItems.map((item) => (
+            <Box
+              key={item.key}
+              px={3}
+              py={2.5}
+              borderWidth="1px"
+              borderColor={borderCol}
+              borderRadius="md"
+              bg={chipBg}
+            >
+              <HStack justify="space-between" align="center" gap={3}>
+                <Text fontSize="sm" fontWeight="900">{item.label}</Text>
+                <Text fontSize="xs" color={subtleText} fontWeight="800" textAlign="right">
+                  {item.observedText} • {item.pctText}
+                </Text>
+              </HStack>
+              <Progress
+                value={item.progress}
+                colorScheme={item.scheme || "gray"}
+                borderRadius="full"
+                bg={progressTrackBg}
+                size="xs"
+                mt={2}
+              />
+            </Box>
+          ))}
+        </Stack>
 
         <HStack spacing={2} flexWrap="wrap">
-          {macroItems.map((item) => (
-            <Badge
-              key={item.key}
-              colorScheme={item.scheme || "gray"}
-              variant="subtle"
-              borderRadius="full"
-              px={3}
-              py={1}
-              fontWeight="800"
-              textTransform="none"
-            >
-              {item.label} {item.observedText} • {item.pctText}
-            </Badge>
-          ))}
           <Badge bg={chipBg} color="inherit" borderRadius="full" px={3} py={1} fontWeight="700">
             {i18n.t("auto.FoodSurvey.micros_count", "Micros {{count}}", { count: microCount })}
           </Badge>
@@ -443,6 +476,16 @@ export default function FoodSurvey() {
   const borderCol = nutritionTheme.borderColor;
   const subtleText = nutritionTheme.mutedText;
   const progressTrackBg = useColorModeValue("gray.100", "whiteAlpha.100");
+  const surveyHeroBg = useColorModeValue(
+    "linear-gradient(135deg, rgba(239, 246, 255, 0.95) 0%, rgba(240, 253, 250, 0.88) 100%)",
+    "linear-gradient(135deg, rgba(30, 58, 138, 0.34) 0%, rgba(15, 118, 110, 0.18) 100%)"
+  );
+  const surveyBlueBg = useColorModeValue("blue.50", "whiteAlpha.100");
+  const surveyTealBg = useColorModeValue("teal.50", "whiteAlpha.100");
+  const surveyAmberBg = useColorModeValue("orange.50", "whiteAlpha.100");
+  const surveyGreenBg = useColorModeValue("green.50", "whiteAlpha.100");
+  const selectedCardBg = useColorModeValue("white", "whiteAlpha.100");
+  const selectedCardBorder = useColorModeValue("blue.400", "blue.300");
 
   useEffect(() => {
     if (!assessmentRef) return;
@@ -671,6 +714,8 @@ export default function FoodSurvey() {
 
   const activeBehaviorFlags = BEHAVIOR_FLAGS.filter((item) => !!surveyMeta?.behaviorFlags?.[item.key]);
   const referenceDayMeta = getReferenceDayMeta(surveyMeta.referenceDay);
+  const referenceDayLabel = i18n.t(referenceDayMeta.labelKey, referenceDayMeta.labelDefault);
+  const activeBehaviorCount = activeBehaviorFlags.length;
   const currentInsights = mode === "excel" ? excelInsights : ciqualInsights;
   const currentFooterSummary = mode === "excel" ? excelFooterSummary : ciqualFooterSummary;
   const missingForBlack = !needs.sex || !needs.weightKg || !needs.heightCm || !needs.ageY;
@@ -693,10 +738,37 @@ export default function FoodSurvey() {
     return raw;
   })();
   const activeRegimes = regimes.filter((item) => String(item || "").toLowerCase() !== "normal");
-  const surveyTips = [
-    i18n.t("auto.FoodSurvey.tip_chercher_journee", "Chercher ce que la personne a mangé la veille ou sur une journée type récente."),
-    i18n.t("auto.FoodSurvey.tip_reperer_horaires", "Repérer les horaires, les oublis de repas, les quantités approximatives et les grignotages."),
-    i18n.t("auto.FoodSurvey.tip_choisir_mode", "Choisir le mode simplifié pour aller vite, ou le mode détaillé pour une lecture aliment par aliment."),
+  const focusCards = [
+    {
+      label: i18n.t("auto.FoodSurvey.journee_analysee", "Journée analysée"),
+      value: referenceDayLabel,
+      helper: i18n.t(referenceDayMeta.helperKey, referenceDayMeta.helperDefault || i18n.t("auto.FoodSurvey.lecture_generale_journee", "Lecture générale de la journée")),
+      bg: surveyBlueBg,
+    },
+    {
+      label: i18n.t("auto.FoodSurvey.mode_actif", "MODE ACTIF"),
+      value:
+        mode === "ciqual"
+          ? i18n.t("auto.FoodSurvey.mode_detaille", "Mode détaillé")
+          : i18n.t("auto.FoodSurvey.mode_simplifie_short", "Mode simplifié"),
+      helper:
+        mode === "ciqual"
+          ? i18n.t("auto.FoodSurvey.analyse_fine_aliment_par_aliment", "Analyse fine aliment par aliment.")
+          : i18n.t("auto.FoodSurvey.vue_rapide_grandes_familles", "Vue rapide par grandes familles alimentaires."),
+      bg: surveyTealBg,
+    },
+    {
+      label: i18n.t("auto.FoodSurvey.comportements", "Comportements"),
+      value:
+        activeBehaviorCount > 0
+          ? i18n.t("auto.FoodSurvey.behavior_count", "{{count}} repère(s)", { count: activeBehaviorCount })
+          : i18n.t("auto.FoodSurvey.aucun_repere", "Aucun repère"),
+      helper:
+        activeBehaviorCount > 0
+          ? activeBehaviorFlags.map((item) => i18n.t(item.labelKey, item.labelDefault)).slice(0, 2).join(", ")
+          : i18n.t("auto.FoodSurvey.aucun_repere_selectionne", "Aucun signal particulier sélectionné."),
+      bg: surveyAmberBg,
+    },
   ];
 
   const queueChildState = (kind, next) => {
@@ -739,217 +811,93 @@ export default function FoodSurvey() {
             <Box
               borderWidth="1px"
               borderColor={borderCol}
-              borderRadius="lg"
-              bg={panelBg}
-              boxShadow="0 14px 34px rgba(15, 23, 42, 0.06)"
-              p={{ base: 4, md: 5 }}
+              borderRadius="xl"
+              bg={surveyHeroBg}
+              boxShadow="0 18px 46px rgba(15, 23, 42, 0.08)"
+              p={{ base: 4, md: 5, xl: 6 }}
+              overflow="hidden"
             >
-              <HStack justify="space-between" align="start" gap={3} flexWrap="wrap">
+              <Stack spacing={4}>
                 <Box minW={0}>
                   <HStack spacing={3} flexWrap="wrap">
                     <Button variant="outline" onClick={goBack} data-testid="nutrition-survey-back-top">{i18n.t("programView.back", "Retour")}</Button>
-                    <Heading size="md">{i18n.t("auto.FoodSurvey.ration_spontanee", "Ration spontanée")}</Heading>
                     {blocked ? (
                       <Badge colorScheme="yellow">{i18n.t("auto.FoodSurvey.bilan_non_valide", "BILAN NON VALIDÉ")}</Badge>
                     ) : (
                       <Badge colorScheme="green">OK</Badge>
                     )}
-                    <Badge colorScheme={mode === "ciqual" ? "purple" : "blue"}>
-                      {mode === "ciqual"
-                        ? i18n.t("auto.FoodSurvey.mode_detaille_upper", "MODE DÉTAILLÉ")
-                        : i18n.t("auto.FoodSurvey.mode_simplifie_upper", "MODE SIMPLIFIÉ")}
-                    </Badge>
                   </HStack>
-                  <Text mt={2} fontSize="sm" color={subtleText} maxW="760px">{i18n.t("auto.FoodSurvey.cette_page_sert_a_reconstituer_ce_que_la_personne_", "Cette page sert à reconstituer ce que la personne mange sur une journée type ou sur la veille, pour comprendre ses habitudes alimentaires avant de construire la ration.")}</Text>
-                </Box>
-              </HStack>
 
-              <SimpleGrid columns={{ base: 1, md: 3 }} spacing={3} mt={5}>
-                {surveyTips.map((tip, index) => (
-                  <Box key={tip} p={3} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={softBg}>
-                    <Text fontSize="xs" fontWeight="900" color={subtleText}>0{index + 1}</Text>
-                    <Text fontSize="sm" fontWeight="700" mt={1}>{tip}</Text>
-                  </Box>
-                ))}
-              </SimpleGrid>
-            </Box>
-
-            <Stack display={{ base: "flex", lg: "none" }} spacing={4}>
-              <Box borderWidth="1px" borderColor={borderCol} borderRadius="lg" bg={panelBg} p={4}>
-                <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={subtleText}>{i18n.t("auto.FoodSurvey.dossier", "DOSSIER")}</Text>
-                <Text mt={1} fontSize="lg" fontWeight="800" noOfLines={1}>
-                  {[inputs?.prenom, inputs?.nom].filter(Boolean).join(" ") || i18n.t("auto.FoodSurvey.patient", "Patient")}
-                </Text>
-                <Text fontSize="sm" color={subtleText}>
-                  {summaryAge !== null ? i18n.t("auto.FoodSurvey.age_years", "{{age}} ans", { age: summaryAge }) : i18n.t("auto.FoodSurvey.age_non_renseigne", "Âge non renseigné")}
-                  {sexLabel ? ` • ${sexLabel}` : ""}
-                </Text>
-                <Divider my={4} />
-                <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={3}>
-                  <Box p={3} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={softBg}>
-                    <Text fontSize="xs" fontWeight="800" color={subtleText}>{i18n.t("auto.FoodSurvey.objectif", "OBJECTIF")}</Text>
-                    <Text fontWeight="900">{needs.objectiveRaw || i18n.t("auto.FoodSurvey.a_preciser", "À préciser")}</Text>
-                    <Text fontSize="sm" color={subtleText}>{activeRegimes.length ? activeRegimes.join(", ") : i18n.t("auto.FoodSurvey.aucun_regime_specifique", "Aucun régime spécifique")}</Text>
-                  </Box>
-                  <Box p={3} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={softBg}>
-                    <Text fontSize="xs" fontWeight="800" color={subtleText}>{i18n.t("auto.FoodSurvey.contexte_clinique", "CONTEXTE CLINIQUE")}</Text>
-                    <Text fontWeight="900">{i18n.t("auto.FoodSurvey.elements_count", "{{count}} élément(s)", { count: pathologies.length })}</Text>
-                    <Text fontSize="sm" color={subtleText}>{pathologies.length ? pathologies.slice(0, 2).join(", ") : i18n.t("auto.FoodSurvey.aucune_pathologie", "Aucune pathologie")}</Text>
-                  </Box>
-                </SimpleGrid>
-              </Box>
-
-              <Box borderWidth="1px" borderColor={borderCol} borderRadius="lg" bg={panelBg} p={4}>
-                <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={subtleText}>{i18n.t("auto.FoodSurvey.mode_de_saisie", "MODE DE SAISIE")}</Text>
-                <Heading size="sm" mt={1}>{i18n.t("auto.FoodSurvey.choix_de_la_methode", "Choix de la méthode")}</Heading>
-                <Text fontSize="sm" color={subtleText} mt={1}>
-                  {mode === "ciqual"
-                    ? i18n.t("auto.FoodSurvey.analyse_fine_aliment_par_aliment", "Analyse fine aliment par aliment.")
-                    : i18n.t("auto.FoodSurvey.vue_rapide_grandes_familles", "Vue rapide par grandes familles alimentaires.")}
-                </Text>
-                <SimpleGrid columns={2} mt={4} spacing={2}>
-                  <Button
-                    borderRadius="md"
-                    variant={mode === "excel" ? "solid" : "ghost"}
-                    {...(mode === "excel" ? nutritionTheme.primaryButtonProps : {})}
-                    onClick={() => changeMode("excel")}
-                    isDisabled={blocked}
-                    whiteSpace="normal"
-                    h="auto"
-                    py={3}
-                  >{i18n.t("auto.FoodSurvey.mode_simplifie_short", "Mode simplifié")}</Button>
-                  <Button
-                    borderRadius="md"
-                    variant={mode === "ciqual" ? "solid" : "ghost"}
-                    {...(mode === "ciqual" ? nutritionTheme.primaryButtonProps : {})}
-                    onClick={() => changeMode("ciqual")}
-                    isDisabled={blocked}
-                    whiteSpace="normal"
-                    h="auto"
-                    py={3}
-                  >{i18n.t("auto.FoodSurvey.mode_detaille", "Mode détaillé")}</Button>
-                </SimpleGrid>
-              </Box>
-
-              <Box borderWidth="1px" borderColor={borderCol} borderRadius="lg" bg={panelBg} p={4}>
-                <HStack justify="space-between" align="start" gap={3} flexWrap="wrap" mb={4}>
-                  <Box>
-                    <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={subtleText}>{i18n.t("auto.FoodSurvey.reperes", "REPÈRES")}</Text>
-                    <Heading size="sm" mt={1}>{i18n.t("auto.FoodSurvey.reperes_nutritionnels", "Repères nutritionnels")}</Heading>
-                  </Box>
-                  <Button size="sm" variant="outline" borderRadius="full" onClick={() => setShowReferenceDetails((prev) => !prev)}>
-                    {showReferenceDetails ? i18n.t("auto.FoodSurvey.masquer", "Masquer") : i18n.t("auto.FoodSurvey.detail", "Détail")}
-                  </Button>
-                </HStack>
-
-                {(activeRegimes.length > 0 || pathologies.length > 0) && (
-                  <Box mb={4}>
-                    {activeRegimes.length > 0 && (
-                      <Box mb={pathologies.length > 0 ? 3 : 0}>
-                        <Text fontSize="xs" color={subtleText} mb={1}>{i18n.t("auto.FoodSurvey.regimes", "Régimes :")}</Text>
-                        <Wrap spacing={2}>
-                          {activeRegimes.map((r) => (
-                            <WrapItem key={r}>
-                              <Tag size="sm" colorScheme="blue" variant="subtle">
-                                <TagLabel>{r}</TagLabel>
-                              </Tag>
-                            </WrapItem>
-                          ))}
-                        </Wrap>
-                      </Box>
-                    )}
-
-                    {pathologies.length > 0 && (
-                      <Box>
-                        <Text fontSize="xs" color={subtleText} mb={1}>{i18n.t("auto.FoodSurvey.pathologies", "Pathologies :")}</Text>
-                        <Wrap spacing={2}>
-                          {pathologies.map((p) => (
-                            <WrapItem key={p}>
-                              <Tag size="sm" colorScheme="orange" variant="subtle">
-                                <TagLabel>{p}</TagLabel>
-                              </Tag>
-                            </WrapItem>
-                          ))}
-                        </Wrap>
-                      </Box>
-                    )}
-                  </Box>
-                )}
-
-                {missingForBlack && (
-                  <Text fontSize="xs" color="orange.500" mb={4}>
-                    {i18n.t("auto.FoodSurvey.donnees_manquantes_pour_black_et_al", "Données manquantes pour Black et al :")}{" "}
-                    {[
-                      !needs.sex ? i18n.t("auto.FoodSurvey.sexe", "sexe") : "",
-                      !needs.weightKg ? i18n.t("auto.FoodSurvey.poids", "poids") : "",
-                      !needs.heightCm ? i18n.t("auto.FoodSurvey.taille", "taille") : "",
-                      !needs.ageY ? i18n.t("auto.FoodSurvey.age", "âge") : "",
-                    ].filter(Boolean).join(", ")}
+                  <Text mt={5} fontSize="xs" fontWeight="900" letterSpacing="0.12em" color={subtleText}>
+                    {i18n.t("auto.FoodSurvey.parcours_habitudes", "PARCOURS HABITUDES")}
                   </Text>
-                )}
+                  <Heading size={{ base: "md", md: "lg" }} mt={1}>
+                    {i18n.t("auto.FoodSurvey.habitudes_alimentaires", "Habitudes alimentaires")}
+                  </Heading>
+                  <Text mt={2} fontSize="sm" color={subtleText} maxW="780px">
+                    {i18n.t("auto.FoodSurvey.cette_page_sert_a_reconstituer_ce_que_la_personne_", "Cette page sert à reconstituer ce que la personne mange sur une journée type ou sur la veille, pour comprendre ses habitudes alimentaires avant de construire la ration.")}
+                  </Text>
+                </Box>
 
-                <SimpleGrid columns={2} spacing={3}>
-                  {[
-                    ["MB (kcal/j)", needs.mb ? round0(needs.mb) : "—", ""],
-                    ["NAP", needs.nap ? round1(needs.nap) : "—", ""],
-                    ["DEJ (kcal/j)", needs.dej ? round0(needs.dej) : "—", ""],
-                    [
-                      i18n.t("auto.FoodSurvey.cible_kcal", "Cible kcal"),
-                      needs.kcalTarget ? round0(needs.kcalTarget) : "—",
-                      needs.dej
-                        ? i18n.t("auto.FoodSurvey.ecart_vs_dej", "écart vs DEJ : {{delta}} kcal", {
-                            delta: `${round0(needs.kcalTarget - needs.dej) > 0 ? "+" : ""}${round0(needs.kcalTarget - needs.dej)}`,
-                          })
-                        : i18n.t("auto.FoodSurvey.objectif_calcule_selon_contexte", "objectif calculé selon le contexte"),
-                    ],
-                  ].map(([label, value, helper]) => (
-                    <Box key={label} p={3} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={softBg}>
-                      <Text fontSize="xs" color={subtleText}>{label}</Text>
-                      <Text fontSize="lg" fontWeight="900">{value}</Text>
-                      {helper ? <Text fontSize="xs" color={subtleText}>{helper}</Text> : null}
+                <Box borderWidth="1px" borderColor={borderCol} borderRadius="lg" bg={selectedCardBg} p={3}>
+                  <Grid templateColumns={{ base: "1fr", md: "minmax(0, 1fr) minmax(320px, 420px)" }} gap={3} alignItems="center">
+                    <Box minW={0}>
+                      <Text fontSize="xs" fontWeight="900" letterSpacing="0.08em" color={subtleText}>
+                        {i18n.t("auto.FoodSurvey.methode_de_saisie", "MÉTHODE DE SAISIE")}
+                      </Text>
+                      <Text fontSize="sm" color={subtleText} mt={1}>
+                        {i18n.t("auto.FoodSurvey.choisir_comment_saisir", "Choisissez le niveau de détail avant de remplir la journée.")}
+                      </Text>
                     </Box>
-                  ))}
-                </SimpleGrid>
+                    <SimpleGrid columns={2} spacing={2}>
+                    <Button
+                      borderRadius="md"
+                      variant={mode === "excel" ? "solid" : "outline"}
+                      {...(mode === "excel" ? nutritionTheme.primaryButtonProps : {})}
+                      onClick={() => changeMode("excel")}
+                      isDisabled={blocked}
+                      whiteSpace="normal"
+                      h="auto"
+                      py={3}
+                    >
+                      {i18n.t("auto.FoodSurvey.mode_simplifie_short", "Mode simplifié")}
+                    </Button>
+                    <Button
+                      borderRadius="md"
+                      variant={mode === "ciqual" ? "solid" : "outline"}
+                      {...(mode === "ciqual" ? nutritionTheme.primaryButtonProps : {})}
+                      onClick={() => changeMode("ciqual")}
+                      isDisabled={blocked}
+                      whiteSpace="normal"
+                      h="auto"
+                      py={3}
+                    >
+                      {i18n.t("auto.FoodSurvey.mode_detaille", "Mode détaillé")}
+                    </Button>
+                    </SimpleGrid>
+                  </Grid>
+                </Box>
 
-                <Collapse in={showReferenceDetails} animateOpacity>
-                  <Divider my={4} />
-                  <Stack spacing={3}>
-                    {[
-                      [
-                        i18n.t("auto.FoodSurvey.protein_pct_range", "Protéines ({{min}}–{{max}}%)", {
-                          min: needs.pctRanges.protPctMin,
-                          max: needs.pctRanges.protPctMax,
-                        }),
-                        needs.protG.min ? `${round0(needs.protG.min)}–${round0(needs.protG.max)} g` : "—",
-                        needs.protPerKg.min ? `${round1(needs.protPerKg.min)}–${round1(needs.protPerKg.max)} g/kg` : "— g/kg",
-                      ],
-                      [
-                        i18n.t("auto.FoodSurvey.lipid_pct_range", "Lipides ({{min}}–{{max}}%)", {
-                          min: needs.pctRanges.lipPctMin,
-                          max: needs.pctRanges.lipPctMax,
-                        }),
-                        needs.lipG.min ? `${round0(needs.lipG.min)}–${round0(needs.lipG.max)} g` : "—",
-                        "",
-                      ],
-                      [
-                        i18n.t("auto.FoodSurvey.carbs_pct_range", "Glucides ({{min}}–{{max}}%)", {
-                          min: needs.pctRanges.glucPctMin,
-                          max: needs.pctRanges.glucPctMax,
-                        }),
-                        needs.glucG.min ? `${round0(needs.glucG.min)}–${round0(needs.glucG.max)} g` : "—",
-                        "",
-                      ],
-                    ].map(([label, value, helper]) => (
-                      <Box key={label} p={3} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={softBg}>
-                        <Text fontSize="xs" color={subtleText}>{label}</Text>
-                        <Text fontWeight="900">{value}</Text>
-                        {helper ? <Text fontSize="xs" color={subtleText}>{helper}</Text> : null}
-                      </Box>
+                <Box borderWidth="1px" borderColor={borderCol} borderRadius="lg" bg={selectedCardBg} p={3}>
+                  <HStack spacing={2} flexWrap="wrap">
+                    {focusCards.slice(0, 2).map((card) => (
+                      <Badge
+                        key={card.label}
+                        bg={card.bg}
+                        color="inherit"
+                        borderRadius="full"
+                        px={3}
+                        py={1.5}
+                        textTransform="none"
+                        fontWeight="800"
+                      >
+                        {card.label} : {card.value}
+                      </Badge>
                     ))}
-                  </Stack>
-                </Collapse>
-              </Box>
-            </Stack>
+                  </HStack>
+                </Box>
+              </Stack>
+            </Box>
 
             <Box
               borderWidth="1px"
@@ -960,7 +908,7 @@ export default function FoodSurvey() {
             >
           <HStack justify="space-between" align="start" gap={3} flexWrap="wrap" mb={4}>
             <Box>
-              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={subtleText}>{i18n.t("auto.FoodSurvey.etape_1", "ÉTAPE 1")}</Text>
+              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={subtleText}>{i18n.t("auto.FoodSurvey.preparation_releve", "PRÉPARATION DU RELEVÉ")}</Text>
               <Heading size="sm" mt={1}>{i18n.t("auto.FoodSurvey.saisie_de_la_journee_alimentaire", "Saisie de la journée alimentaire")}</Heading>
               <Text fontSize="sm" color={subtleText} mt={1}>
                 {mode === "excel"
@@ -970,78 +918,105 @@ export default function FoodSurvey() {
             </Box>
           </HStack>
 
-          <Box borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={softBg} p={4} mb={4}>
-            <Text fontWeight="800">{i18n.t("auto.FoodSurvey.comment_lire_cette_journee", "Comment lire cette journée")}</Text>
-            <Text fontSize="sm" color={subtleText} mt={1}>{i18n.t("auto.FoodSurvey.cela_permet_de_distinguer_une_veille_reelle_d_une_", "Cela permet de distinguer une veille réelle d’une journée type et de noter les éléments de comportement utiles pour l’analyse.")}</Text>
+          <Grid templateColumns={{ base: "1fr", xl: "1.05fr 0.95fr" }} gap={4} mb={4}>
+            <Box borderWidth="1px" borderColor={borderCol} borderRadius="lg" bg={surveyBlueBg} p={4}>
+              <Text fontSize="xs" fontWeight="900" letterSpacing="0.08em" color={subtleText}>
+                {i18n.t("auto.FoodSurvey.journee_de_reference", "JOURNÉE DE RÉFÉRENCE")}
+              </Text>
+              <Heading size="sm" mt={1}>{i18n.t("auto.FoodSurvey.comment_lire_cette_journee", "Comment lire cette journée")}</Heading>
+              <Text fontSize="sm" color={subtleText} mt={1}>
+                {i18n.t("auto.FoodSurvey.cela_permet_de_distinguer_une_veille_reelle_d_une_", "Cela permet de distinguer une veille réelle d’une journée type et de noter les éléments de comportement utiles pour l’analyse.")}
+              </Text>
 
-            <Wrap spacing={2} mt={4}>
-              {SURVEY_REFERENCE_OPTIONS.map((option) => (
-                <WrapItem key={option.key}>
-                  <Button
-                    size="sm"
-                    variant={surveyMeta.referenceDay === option.key ? "solid" : "outline"}
-                    colorScheme={surveyMeta.referenceDay === option.key ? "blue" : "gray"}
-                    onClick={() =>
-                      setSurveyMeta((prev) => ({ ...prev, referenceDay: option.key }))
-                    }
-                    isDisabled={blocked}
-                    borderRadius="full"
-                  >
-                    {i18n.t(option.labelKey, option.labelDefault)}
-                  </Button>
-                </WrapItem>
-              ))}
-            </Wrap>
+              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3} mt={4}>
+                {SURVEY_REFERENCE_OPTIONS.map((option) => {
+                  const selected = surveyMeta.referenceDay === option.key;
+                  return (
+                    <Button
+                      key={option.key}
+                      variant="outline"
+                      justifyContent="flex-start"
+                      alignItems="flex-start"
+                      textAlign="left"
+                      whiteSpace="normal"
+                      h="auto"
+                      p={3}
+                      borderRadius="lg"
+                      borderColor={selected ? selectedCardBorder : borderCol}
+                      borderWidth={selected ? "2px" : "1px"}
+                      bg={selected ? selectedCardBg : panelBg}
+                      color="inherit"
+                      _hover={{ bg: selected ? selectedCardBg : softBg }}
+                      onClick={() =>
+                        setSurveyMeta((prev) => ({ ...prev, referenceDay: option.key }))
+                      }
+                      isDisabled={blocked}
+                    >
+                      <Box>
+                        <Text fontWeight="900">{i18n.t(option.labelKey, option.labelDefault)}</Text>
+                        <Text mt={1} fontSize="xs" fontWeight="500" color={subtleText}>
+                          {i18n.t(option.helperKey, option.helperDefault)}
+                        </Text>
+                      </Box>
+                    </Button>
+                  );
+                })}
+              </SimpleGrid>
+            </Box>
 
-            <HStack mt={3} spacing={2} flexWrap="wrap">
-              <Badge colorScheme="blue" variant="subtle" borderRadius="full" px={3} py={1}>
-                {i18n.t(referenceDayMeta.labelKey, referenceDayMeta.labelDefault)}
+            <Box borderWidth="1px" borderColor={borderCol} borderRadius="lg" bg={surveyAmberBg} p={4}>
+              <Text fontSize="xs" fontWeight="900" letterSpacing="0.08em" color={subtleText}>
+                {i18n.t("auto.FoodSurvey.signaux_a_reperer", "SIGNAUX À REPÉRER")}
+              </Text>
+              <Heading size="sm" mt={1}>{i18n.t("auto.FoodSurvey.reperes_comportementaux", "Repères comportementaux")}</Heading>
+              <Text fontSize="sm" color={subtleText} mt={1}>
+                {i18n.t("auto.FoodSurvey.selectionner_les_signaux_utiles", "Sélectionnez seulement les signaux utiles pour guider l’analyse.")}
+              </Text>
+
+              <SimpleGrid columns={{ base: 1, md: 2, xl: 1 }} spacing={2.5} mt={4}>
+                {BEHAVIOR_FLAGS.map((item) => {
+                  const checked = !!surveyMeta?.behaviorFlags?.[item.key];
+                  return (
+                    <Checkbox
+                      key={item.key}
+                      isChecked={checked}
+                      onChange={() =>
+                        setSurveyMeta((prev) => ({
+                          ...prev,
+                          behaviorFlags: {
+                            ...(prev.behaviorFlags || {}),
+                            [item.key]: !prev?.behaviorFlags?.[item.key],
+                          },
+                        }))
+                      }
+                      isDisabled={blocked}
+                      borderWidth="1px"
+                      borderColor={checked ? "orange.300" : borderCol}
+                      borderRadius="md"
+                      bg={checked ? selectedCardBg : panelBg}
+                      px={3}
+                      py={2}
+                    >
+                      {i18n.t(item.labelKey, item.labelDefault)}
+                    </Checkbox>
+                  );
+                })}
+              </SimpleGrid>
+            </Box>
+          </Grid>
+
+          <Box borderWidth="1px" borderColor={borderCol} borderRadius="lg" bg={surveyGreenBg} p={4} mb={4}>
+            <HStack justify="space-between" align="start" gap={3} flexWrap="wrap">
+              <Box>
+                <Text fontSize="xs" fontWeight="900" letterSpacing="0.08em" color={subtleText}>
+                  {i18n.t("auto.FoodSurvey.note_de_contexte", "NOTE DE CONTEXTE")}
+                </Text>
+                <Heading size="sm" mt={1}>{i18n.t("auto.FoodSurvey.commentaire_praticien", "Commentaire praticien")}</Heading>
+              </Box>
+              <Badge colorScheme={surveyMeta.note ? "green" : "gray"} variant="subtle" borderRadius="full">
+                {surveyMeta.note ? i18n.t("auto.FoodSurvey.note_remplie", "Note remplie") : i18n.t("auto.FoodSurvey.facultatif", "Facultatif")}
               </Badge>
-              {activeBehaviorFlags.map((item) => (
-                <Badge
-                  key={item.key}
-                  colorScheme="orange"
-                  variant="subtle"
-                  borderRadius="full"
-                  px={3}
-                  py={1}
-                >
-                  {i18n.t(item.labelKey, item.labelDefault)}
-                </Badge>
-              ))}
             </HStack>
-
-            <Text fontSize="xs" color={subtleText} mt={3}>
-              {i18n.t(referenceDayMeta.helperKey, referenceDayMeta.helperDefault || i18n.t("auto.FoodSurvey.lecture_generale_journee", "Lecture générale de la journée"))}
-            </Text>
-
-            <Divider my={4} />
-
-            <Text fontWeight="800" mb={2}>{i18n.t("auto.FoodSurvey.reperes_comportementaux", "Repères comportementaux")}</Text>
-            <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2}>
-              {BEHAVIOR_FLAGS.map((item) => (
-                <Checkbox
-                  key={item.key}
-                  isChecked={!!surveyMeta?.behaviorFlags?.[item.key]}
-                  onChange={() =>
-                    setSurveyMeta((prev) => ({
-                      ...prev,
-                      behaviorFlags: {
-                        ...(prev.behaviorFlags || {}),
-                        [item.key]: !prev?.behaviorFlags?.[item.key],
-                      },
-                    }))
-                  }
-                  isDisabled={blocked}
-                >
-                  {i18n.t(item.labelKey, item.labelDefault)}
-                </Checkbox>
-              ))}
-            </SimpleGrid>
-
-            <Divider my={4} />
-
-            <Text fontWeight="800">{i18n.t("auto.FoodSurvey.commentaire_praticien", "Commentaire praticien")}</Text>
             <Textarea
               value={surveyMeta.note}
               onChange={(e) =>
@@ -1051,7 +1026,7 @@ export default function FoodSurvey() {
                 }))
               }
               placeholder={i18n.t("auto.FoodSurvey.exemple_journee_peu_representative_car_repas_de_fa", "Exemple : journée peu représentative car repas de famille le soir, patient incertain sur les quantités...")}
-              rows={4}
+              rows={3}
               isDisabled={blocked}
               bg={panelBg}
               mt={3}
@@ -1178,7 +1153,7 @@ export default function FoodSurvey() {
               </Box>
               <Box p={4} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={softBg}>
                 <Text fontSize="sm" fontWeight="800">
-                  {previousAssessment?.inputs?.objectif || previousAssessment?.inputs?.objective || i18n.t("auto.FoodSurvey.bilan_precedent", "Bilan précédent")}
+                  {translatePreviousObjectiveLabel(previousAssessment?.inputs?.objectif || previousAssessment?.inputs?.objective) || i18n.t("auto.FoodSurvey.bilan_precedent", "Bilan précédent")}
                 </Text>
                 <Text fontSize="xs" color={subtleText}>
                   {previousAssessment?.updatedAt?.toDate
@@ -1285,42 +1260,6 @@ export default function FoodSurvey() {
               description={i18n.t("auto.FoodSurvey.suivi_en_direct_description", "Repère calories, macros et micros pendant la saisie.")}
               display={{ base: "none", lg: "block" }}
             />
-
-            <Box borderWidth="1px" borderColor={borderCol} borderRadius="lg" bg={panelBg} p={{ base: 4, lg: 4, xl: 5 }}>
-              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={subtleText}>{i18n.t("auto.FoodSurvey.mode_de_saisie", "MODE DE SAISIE")}</Text>
-              <Heading size="sm" mt={1}>{i18n.t("auto.FoodSurvey.choix_de_la_methode", "Choix de la méthode")}</Heading>
-              <Text fontSize="sm" color={subtleText} mt={1}>
-                {mode === "ciqual"
-                  ? i18n.t("auto.FoodSurvey.analyse_fine_aliment_par_aliment", "Analyse fine aliment par aliment.")
-                  : i18n.t("auto.FoodSurvey.vue_rapide_grandes_familles", "Vue rapide par grandes familles alimentaires.")}
-              </Text>
-              <SimpleGrid
-                columns={{ base: 2, lg: 1 }}
-                mt={4}
-                spacing={2}
-              >
-                <Button
-                  borderRadius="md"
-                  variant={mode === "excel" ? "solid" : "ghost"}
-                  {...(mode === "excel" ? nutritionTheme.primaryButtonProps : {})}
-                  onClick={() => changeMode("excel")}
-                  isDisabled={blocked}
-                  whiteSpace="normal"
-                  h="auto"
-                  py={3}
-                >{i18n.t("auto.FoodSurvey.mode_simplifie_short", "Mode simplifié")}</Button>
-                <Button
-                  borderRadius="md"
-                  variant={mode === "ciqual" ? "solid" : "ghost"}
-                  {...(mode === "ciqual" ? nutritionTheme.primaryButtonProps : {})}
-                  onClick={() => changeMode("ciqual")}
-                  isDisabled={blocked}
-                  whiteSpace="normal"
-                  h="auto"
-                  py={3}
-                >{i18n.t("auto.FoodSurvey.mode_detaille", "Mode détaillé")}</Button>
-              </SimpleGrid>
-            </Box>
 
             <Box borderWidth="1px" borderColor={borderCol} borderRadius="lg" bg={panelBg} p={{ base: 4, lg: 4, xl: 5 }}>
               <HStack justify="space-between" align="start" gap={3} flexWrap="wrap" mb={4}>

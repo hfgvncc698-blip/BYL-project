@@ -61,6 +61,32 @@ const pretty = (k) =>
     .replace(/_/g, " ")
     .toUpperCase();
 
+const nutrientLabelKey = (key = "") =>
+  normalize(String(key || "").replace(/_100g$/i, ""))
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+const translateNutrientLabel = (key = "") => {
+  const normalizedKey = nutrientLabelKey(key);
+  if (!normalizedKey) return pretty(key);
+  const fallback = pretty(key);
+  return i18n.t(`auto.CiqualFoodPicker.nutrients.${normalizedKey}`, fallback);
+};
+
+const translateCiqualStatus = (status, fallback = "") => {
+  const statusKey =
+    status === "ok"
+      ? "ok"
+      : status === "high"
+      ? "haut"
+      : status === "low"
+      ? "bas"
+      : status === "na"
+      ? "sans_cible"
+      : "";
+  return statusKey ? i18n.t(`auto.CiqualFoodPicker.${statusKey}`, fallback) : fallback;
+};
+
 const nutrientUnitFromKey = (key = "") => {
   if (/_mg_100g$/i.test(key)) return "mg";
   if (/_g_100g$/i.test(key)) return "g";
@@ -76,24 +102,24 @@ const clampPercent = (value) => Math.max(0, Math.min(100, num(value)));
 const hasRange = (range) => num(range?.min) > 0 && num(range?.max) > 0;
 
 const compareToRange = (value, range) => {
-  if (!hasRange(range)) return { status: "na", label: "Sans cible" };
+  if (!hasRange(range)) return { status: "na", label: translateCiqualStatus("na", "Sans cible") };
   const current = num(value);
   const min = num(range.min);
   const max = num(range.max);
-  if (current < min) return { status: "low", label: "Bas" };
-  if (current > max) return { status: "high", label: "Haut" };
-  return { status: "ok", label: "OK" };
+  if (current < min) return { status: "low", label: translateCiqualStatus("low", "Bas") };
+  if (current > max) return { status: "high", label: translateCiqualStatus("high", "Haut") };
+  return { status: "ok", label: translateCiqualStatus("ok", "OK") };
 };
 
 const compareToTarget = (value, target, toleranceRatio = 0.1) => {
   const goal = num(target);
-  if (!(goal > 0)) return { status: "na", label: "Sans cible" };
+  if (!(goal > 0)) return { status: "na", label: translateCiqualStatus("na", "Sans cible") };
   const current = num(value);
   const delta = current - goal;
   const tolerance = goal * toleranceRatio;
-  if (delta < -tolerance) return { status: "low", label: "Sous la cible" };
-  if (delta > tolerance) return { status: "high", label: "Au-dessus de la cible" };
-  return { status: "ok", label: "Dans la cible" };
+  if (delta < -tolerance) return { status: "low", label: i18n.t("auto.CiqualFoodPicker.sous_la_cible", "Sous la cible") };
+  if (delta > tolerance) return { status: "high", label: i18n.t("auto.CiqualFoodPicker.au_dessus_de_la_cible", "Au-dessus de la cible") };
+  return { status: "ok", label: i18n.t("auto.CiqualFoodPicker.dans_la_cible", "Dans la cible") };
 };
 
 const progressFromTarget = (value, target) => {
@@ -212,51 +238,54 @@ const buildClinicalGuidance = (context = {}) => {
   const objectiveText = normalize(needs?.objectiveRaw || context?.objectiveRaw || "");
   const entries = [
     {
-      title: "Socle de lecture",
+      title: i18n.t("auto.CiqualFoodPicker.socle_de_lecture", "Socle de lecture"),
       tone: "blue",
-      body:
-        "Comparer au minimum énergie, protéines, calcium et fibres. En CIQUAL, les aliments précis permettent ensuite d’affiner sodium, lactose, cholestérol ou vitamines.",
+      body: i18n.t(
+        "auto.CiqualFoodPicker.socle_de_lecture_body",
+        "Comparer au minimum énergie, protéines, calcium et fibres. En CIQUAL, les aliments précis permettent ensuite d’affiner sodium, lactose, cholestérol ou vitamines."
+      ),
     },
   ];
 
   if (objectiveText.includes("perte") || objectiveText.includes("poids")) {
     entries.push({
-      title: "Objectif perte de poids",
+      title: i18n.t("auto.CiqualFoodPicker.objectif_perte_de_poids", "Objectif perte de poids"),
       tone: "orange",
-      body:
-        "Regarder boissons caloriques, grignotages, féculents et matières grasses ajoutées avant de conclure sur le niveau d’apport.",
+      body: i18n.t(
+        "auto.CiqualFoodPicker.objectif_perte_de_poids_body",
+        "Regarder boissons caloriques, grignotages, féculents et matières grasses ajoutées avant de conclure sur le niveau d’apport."
+      ),
     });
   }
   if (objectiveText.includes("prise") || objectiveText.includes("masse")) {
     entries.push({
-      title: "Objectif prise de masse",
+      title: i18n.t("auto.CiqualFoodPicker.objectif_prise_de_masse", "Objectif prise de masse"),
       tone: "green",
-      body:
-        "Vérifier que l’énergie, les protéines et les prises autour de l’entraînement sont réparties sans surcharge sur un seul repas.",
+      body: i18n.t(
+        "auto.CiqualFoodPicker.objectif_prise_de_masse_body",
+        "Vérifier que l’énergie, les protéines et les prises autour de l’entraînement sont réparties sans surcharge sur un seul repas."
+      ),
     });
   }
   if (path.diabete) {
     entries.push({
-      title: "Diabète",
+      title: i18n.t("auto.CiqualFoodPicker.diabete", "Diabète"),
       tone: "orange",
-      body:
-        "Suivre glucides et fibres, éviter les sucres rapides isolés et vérifier que les fruits restent rattachés à un repas ou une collation structurée.",
+      body: i18n.t("auto.CiqualFoodPicker.diabete_body", "Suivre glucides et fibres, éviter les sucres rapides isolés et vérifier que les fruits restent rattachés à un repas ou une collation structurée."),
     });
   }
   if (path.hta) {
     entries.push({
-      title: "HTA",
+      title: i18n.t("auto.CiqualFoodPicker.hta", "HTA"),
       tone: "red",
-      body:
-        "Contrôler le sodium sur pain, fromages, charcuteries, sauces et produits transformés; le potassium aide à lire l’équilibre global.",
+      body: i18n.t("auto.CiqualFoodPicker.hta_body", "Contrôler le sodium sur pain, fromages, charcuteries, sauces et produits transformés; le potassium aide à lire l’équilibre global."),
     });
   }
   if (path.hyperchol) {
     entries.push({
-      title: "Dyslipidémie",
+      title: i18n.t("auto.CiqualFoodPicker.dyslipidemie", "Dyslipidémie"),
       tone: "yellow",
-      body:
-        "Surveiller cholestérol, qualité des matières grasses, beurre, fromages et produits riches en graisses saturées.",
+      body: i18n.t("auto.CiqualFoodPicker.dyslipidemie_body", "Surveiller cholestérol, qualité des matières grasses, beurre, fromages et produits riches en graisses saturées."),
     });
   }
   if (
@@ -269,66 +298,60 @@ const buildClinicalGuidance = (context = {}) => {
     path.fodmap
   ) {
     entries.push({
-      title: "Tolérance digestive",
+      title: i18n.t("auto.CiqualFoodPicker.tolerance_digestive", "Tolérance digestive"),
       tone: "purple",
-      body:
-        "Croiser fibres, lactose, volumes et aliments déclencheurs avec les symptômes rapportés; le détail CIQUAL sert de support à cette relecture.",
+      body: i18n.t("auto.CiqualFoodPicker.tolerance_digestive_body", "Croiser fibres, lactose, volumes et aliments déclencheurs avec les symptômes rapportés; le détail CIQUAL sert de support à cette relecture."),
     });
   }
   if (path.renal) {
     entries.push({
-      title: "Atteinte rénale",
+      title: i18n.t("auto.CiqualFoodPicker.atteinte_renale", "Atteinte rénale"),
       tone: "red",
-      body:
-        "Sodium et potassium doivent rester visibles; le phosphore nécessite une lecture complémentaire selon le stade et la prescription.",
+      body: i18n.t("auto.CiqualFoodPicker.atteinte_renale_body", "Sodium et potassium doivent rester visibles; le phosphore nécessite une lecture complémentaire selon le stade et la prescription."),
     });
   }
   if (reg.vegetarian || reg.vegan || reg.pescetarian) {
     entries.push({
-      title: reg.vegan ? "Alimentation végétale stricte" : "Alimentation végétale",
+      title: reg.vegan
+        ? i18n.t("auto.CiqualFoodPicker.alimentation_vegetale_stricte", "Alimentation végétale stricte")
+        : i18n.t("auto.CiqualFoodPicker.alimentation_vegetale", "Alimentation végétale"),
       tone: "green",
-      body:
-        "Vérifier protéines, fer, calcium et B12 selon le niveau d’exclusion et les aliments réellement consommés.",
+      body: i18n.t("auto.CiqualFoodPicker.alimentation_vegetale_body", "Vérifier protéines, fer, calcium et B12 selon le niveau d’exclusion et les aliments réellement consommés."),
     });
   }
   if (reg.glutenFree || path.celiac) {
     entries.push({
-      title: "Sans gluten",
+      title: i18n.t("auto.CiqualFoodPicker.sans_gluten", "Sans gluten"),
       tone: "blue",
-      body:
-        "Garder les colonnes utiles, mais vérifier surtout les aliments exacts et le risque de contamination.",
+      body: i18n.t("auto.CiqualFoodPicker.sans_gluten_body", "Garder les colonnes utiles, mais vérifier surtout les aliments exacts et le risque de contamination."),
     });
   }
   if (reg.lactoseFree) {
     entries.push({
-      title: "Sans lactose",
+      title: i18n.t("auto.CiqualFoodPicker.sans_lactose", "Sans lactose"),
       tone: "blue",
-      body:
-        "Suivre lactose et calcium pour éviter qu’une éviction améliore la tolérance mais dégrade la couverture calcique.",
+      body: i18n.t("auto.CiqualFoodPicker.sans_lactose_body", "Suivre lactose et calcium pour éviter qu’une éviction améliore la tolérance mais dégrade la couverture calcique."),
     });
   }
   if (profile.isPreg1 || profile.isPreg2 || profile.isPreg3) {
     entries.push({
-      title: "Grossesse",
+      title: i18n.t("auto.CiqualFoodPicker.grossesse", "Grossesse"),
       tone: "pink",
-      body:
-        "Sécuriser énergie, protéines, fer, folates, calcium et vitamine D; garder une vigilance qualitative sur les aliments à risque.",
+      body: i18n.t("auto.CiqualFoodPicker.grossesse_body", "Sécuriser énergie, protéines, fer, folates, calcium et vitamine D; garder une vigilance qualitative sur les aliments à risque."),
     });
   }
   if (profile.isLact) {
     entries.push({
-      title: "Allaitement",
+      title: i18n.t("auto.CiqualFoodPicker.allaitement", "Allaitement"),
       tone: "teal",
-      body:
-        "Lire énergie, protéines, calcium et hydratation; l’iode reste à apprécier hors de ce relevé si nécessaire.",
+      body: i18n.t("auto.CiqualFoodPicker.allaitement_body", "Lire énergie, protéines, calcium et hydratation; l’iode reste à apprécier hors de ce relevé si nécessaire."),
     });
   }
   if (path.allergies || context?.allergies) {
     entries.push({
-      title: "Allergies / évictions",
+      title: i18n.t("auto.CiqualFoodPicker.allergies_evictions", "Allergies / évictions"),
       tone: "red",
-      body:
-        "Le détail aliment par aliment aide à repérer les évictions, substituts et risques de réintroduction involontaire.",
+      body: i18n.t("auto.CiqualFoodPicker.allergies_evictions_body", "Le détail aliment par aliment aide à repérer les évictions, substituts et risques de réintroduction involontaire."),
     });
   }
 
@@ -343,13 +366,15 @@ const microConceptFromNutrientKey = (key = "") => {
 };
 
 const MEAL_OPTIONS = [
-  { key: "petit_dej", label: "Petit-déjeuner" },
-  { key: "collation_1", label: "Collation matin" },
-  { key: "dejeuner", label: "Déjeuner" },
-  { key: "collation_2", label: "Collation après-midi" },
-  { key: "diner", label: "Dîner" },
-  { key: "collation_3", label: "Collation soir" },
+  { key: "petit_dej", labelKey: "petit_dejeuner", label: "Petit-déjeuner" },
+  { key: "collation_1", labelKey: "collation_matin", label: "Collation matin" },
+  { key: "dejeuner", labelKey: "dejeuner", label: "Déjeuner" },
+  { key: "collation_2", labelKey: "collation_apres_midi", label: "Collation après-midi" },
+  { key: "diner", labelKey: "diner", label: "Dîner" },
+  { key: "collation_3", labelKey: "collation_soir", label: "Collation soir" },
 ];
+
+const mealLabel = (meal = {}) => i18n.t(`auto.CiqualFoodPicker.${meal.labelKey || meal.key}`, meal.label || meal.key);
 
 const makeItemId = (code) =>
   `${code}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -642,26 +667,26 @@ export default function CiqualFoodPicker({
     const dinnerShare = totals.kcal > 0 ? (dinnerKcal / totals.kcal) * 100 : 0;
 
     if (items.length === 0) {
-      observations.push("Aucun aliment n’est encore saisi dans le relevé détaillé.");
+      observations.push(i18n.t("auto.CiqualFoodPicker.obs_aucun_aliment_saisi", "Aucun aliment n’est encore saisi dans le relevé détaillé."));
     } else {
-      if (energyStatus.status === "low") observations.push("Les apports énergétiques observés restent sous la cible calculée.");
-      if (energyStatus.status === "high") observations.push("Les apports énergétiques observés dépassent la cible calculée.");
-      if (proteinStatus.status === "low") observations.push("Les apports protéiques observés paraissent insuffisants.");
-      if (beverageFlags > 0) observations.push("Des boissons sucrées ou alcoolisées apparaissent dans le relevé détaillé.");
+      if (energyStatus.status === "low") observations.push(i18n.t("auto.CiqualFoodPicker.obs_energie_sous_cible", "Les apports énergétiques observés restent sous la cible calculée."));
+      if (energyStatus.status === "high") observations.push(i18n.t("auto.CiqualFoodPicker.obs_energie_au_dessus_cible", "Les apports énergétiques observés dépassent la cible calculée."));
+      if (proteinStatus.status === "low") observations.push(i18n.t("auto.CiqualFoodPicker.obs_proteines_insuffisantes", "Les apports protéiques observés paraissent insuffisants."));
+      if (beverageFlags > 0) observations.push(i18n.t("auto.CiqualFoodPicker.obs_boissons_sucrees", "Des boissons sucrées ou alcoolisées apparaissent dans le relevé détaillé."));
       if (MEAL_OPTIONS.filter((meal) => (groupedItems[meal.key] || []).length > 0).length === 1) {
-        observations.push("Un seul repas est renseigné pour le moment.");
+        observations.push(i18n.t("auto.CiqualFoodPicker.obs_un_seul_repas", "Un seul repas est renseigné pour le moment."));
       }
-      if (breakfastCount === 0) observations.push("Aucun aliment n’est rattaché au petit-déjeuner pour le moment.");
-      if (snackCount >= 2) observations.push("Plusieurs collations apparaissent sur la journée, à questionner qualitativement.");
-      if (dinnerShare >= 40) observations.push("Le dîner représente une part importante des apports de la journée.");
+      if (breakfastCount === 0) observations.push(i18n.t("auto.CiqualFoodPicker.obs_aucun_petit_dejeuner", "Aucun aliment n’est rattaché au petit-déjeuner pour le moment."));
+      if (snackCount >= 2) observations.push(i18n.t("auto.CiqualFoodPicker.obs_plusieurs_collations", "Plusieurs collations apparaissent sur la journée, à questionner qualitativement."));
+      if (dinnerShare >= 40) observations.push(i18n.t("auto.CiqualFoodPicker.obs_diner_important", "Le dîner représente une part importante des apports de la journée."));
     }
 
     return {
       summaryBadges: [
-        { label: "Aliments", value: String(items.length), scheme: "purple" },
-        { label: "Nutriments", value: String(selectedKeys.length), scheme: "blue" },
+        { label: i18n.t("auto.CiqualFoodPicker.aliments", "Aliments"), value: String(items.length), scheme: "purple" },
+        { label: i18n.t("auto.CiqualFoodPicker.nutriments", "Nutriments"), value: String(selectedKeys.length), scheme: "blue" },
         {
-          label: "Repas remplis",
+          label: i18n.t("auto.CiqualFoodPicker.repas_remplis", "Repas remplis"),
           value: String(MEAL_OPTIONS.filter((meal) => (groupedItems[meal.key] || []).length > 0).length),
           scheme: "green",
         },
@@ -669,39 +694,41 @@ export default function CiqualFoodPicker({
       observations,
       comparisons: [
         {
-          label: "Énergie",
-          currentText: `${fmt0Plain(totals.kcal)} kcal observées`,
-          targetText: effectiveNeeds?.kcalTarget ? `cible ${fmt0Plain(effectiveNeeds.kcalTarget)} kcal` : "pas de cible énergétique",
+          label: i18n.t("auto.CiqualFoodPicker.energie", "Énergie"),
+          currentText: i18n.t("auto.CiqualFoodPicker.kcal_observees", "{{value}} kcal observées", { value: fmt0Plain(totals.kcal) }),
+          targetText: effectiveNeeds?.kcalTarget
+            ? i18n.t("auto.CiqualFoodPicker.cible_kcal", "cible {{value}} kcal", { value: fmt0Plain(effectiveNeeds.kcalTarget) })
+            : i18n.t("auto.CiqualFoodPicker.pas_de_cible_energetique", "pas de cible énergétique"),
           helper: energyStatus.label,
           status: energyStatus.status,
           progress: progressFromTarget(totals.kcal, effectiveNeeds?.kcalTarget),
         },
         {
-          label: "Protéines",
-          currentText: `${fmt0Plain(totals.prot)} g observés`,
+          label: i18n.t("auto.CiqualFoodPicker.proteines", "Protéines"),
+          currentText: i18n.t("auto.CiqualFoodPicker.g_observes", "{{value}} g observés", { value: fmt0Plain(totals.prot) }),
           targetText: hasRange(effectiveNeeds?.protG)
-            ? `cible ${fmt0Plain(effectiveNeeds.protG.min)}–${fmt0Plain(effectiveNeeds.protG.max)} g`
-            : "pas de cible protéique",
+            ? i18n.t("auto.CiqualFoodPicker.cible_g_range", "cible {{min}}–{{max}} g", { min: fmt0Plain(effectiveNeeds.protG.min), max: fmt0Plain(effectiveNeeds.protG.max) })
+            : i18n.t("auto.CiqualFoodPicker.pas_de_cible_proteique", "pas de cible protéique"),
           helper: proteinStatus.label,
           status: proteinStatus.status,
           progress: progressFromRange(totals.prot, effectiveNeeds?.protG),
         },
         {
-          label: "Lipides",
-          currentText: `${fmt0Plain(totals.lip)} g observés`,
+          label: i18n.t("auto.CiqualFoodPicker.lipides", "Lipides"),
+          currentText: i18n.t("auto.CiqualFoodPicker.g_observes", "{{value}} g observés", { value: fmt0Plain(totals.lip) }),
           targetText: hasRange(effectiveNeeds?.lipG)
-            ? `cible ${fmt0Plain(effectiveNeeds.lipG.min)}–${fmt0Plain(effectiveNeeds.lipG.max)} g`
-            : "pas de cible lipidique",
+            ? i18n.t("auto.CiqualFoodPicker.cible_g_range", "cible {{min}}–{{max}} g", { min: fmt0Plain(effectiveNeeds.lipG.min), max: fmt0Plain(effectiveNeeds.lipG.max) })
+            : i18n.t("auto.CiqualFoodPicker.pas_de_cible_lipidique", "pas de cible lipidique"),
           helper: fatStatus.label,
           status: fatStatus.status,
           progress: progressFromRange(totals.lip, effectiveNeeds?.lipG),
         },
         {
-          label: "Glucides",
-          currentText: `${fmt0Plain(totals.glu)} g observés`,
+          label: i18n.t("auto.CiqualFoodPicker.glucides", "Glucides"),
+          currentText: i18n.t("auto.CiqualFoodPicker.g_observes", "{{value}} g observés", { value: fmt0Plain(totals.glu) }),
           targetText: hasRange(effectiveNeeds?.glucG)
-            ? `cible ${fmt0Plain(effectiveNeeds.glucG.min)}–${fmt0Plain(effectiveNeeds.glucG.max)} g`
-            : "pas de cible glucidique",
+            ? i18n.t("auto.CiqualFoodPicker.cible_g_range", "cible {{min}}–{{max}} g", { min: fmt0Plain(effectiveNeeds.glucG.min), max: fmt0Plain(effectiveNeeds.glucG.max) })
+            : i18n.t("auto.CiqualFoodPicker.pas_de_cible_glucidique", "pas de cible glucidique"),
           helper: carbStatus.label,
           status: carbStatus.status,
           progress: progressFromRange(totals.glu, effectiveNeeds?.glucG),
@@ -746,7 +773,7 @@ export default function CiqualFoodPicker({
       microCount: selectedKeys.length,
       microItems: selectedKeys.map((key) => ({
         key,
-        label: pretty(key),
+        label: translateNutrientLabel(key),
         value: fmt1Plain(totals.micros?.[key] || 0),
         unit: nutrientUnitFromKey(key),
         targetValue: (() => {
@@ -762,10 +789,10 @@ export default function CiqualFoodPicker({
         })(),
       })),
       statuses: [
-        { label: "Énergie", value: energyStatus.label, scheme: energyStatus.status === "ok" ? "green" : energyStatus.status === "high" ? "red" : energyStatus.status === "low" ? "orange" : "gray" },
-        { label: "Prot", value: proteinStatus.label, scheme: proteinStatus.status === "ok" ? "green" : proteinStatus.status === "high" ? "red" : proteinStatus.status === "low" ? "orange" : "gray" },
-        { label: "Lip", value: fatStatus.label, scheme: fatStatus.status === "ok" ? "green" : fatStatus.status === "high" ? "red" : fatStatus.status === "low" ? "orange" : "gray" },
-        { label: "Glu", value: carbStatus.label, scheme: carbStatus.status === "ok" ? "green" : carbStatus.status === "high" ? "red" : carbStatus.status === "low" ? "orange" : "gray" },
+        { label: i18n.t("auto.CiqualFoodPicker.energie", "Énergie"), value: energyStatus.label, scheme: energyStatus.status === "ok" ? "green" : energyStatus.status === "high" ? "red" : energyStatus.status === "low" ? "orange" : "gray" },
+        { label: i18n.t("auto.CiqualFoodPicker.prot", "Prot"), value: proteinStatus.label, scheme: proteinStatus.status === "ok" ? "green" : proteinStatus.status === "high" ? "red" : proteinStatus.status === "low" ? "orange" : "gray" },
+        { label: i18n.t("auto.CiqualFoodPicker.lip", "Lip"), value: fatStatus.label, scheme: fatStatus.status === "ok" ? "green" : fatStatus.status === "high" ? "red" : fatStatus.status === "low" ? "orange" : "gray" },
+        { label: i18n.t("auto.CiqualFoodPicker.gluc", "Gluc"), value: carbStatus.label, scheme: carbStatus.status === "ok" ? "green" : carbStatus.status === "high" ? "red" : carbStatus.status === "low" ? "orange" : "gray" },
       ],
     });
   }, [
@@ -867,7 +894,9 @@ export default function CiqualFoodPicker({
                 <Text fontSize="sm" color={nutritionTheme.mutedText} mt={2}>{i18n.t("auto.CiqualFoodPicker.calcium_et_fibres_restent_toujours_visibles_puis_l", "Calcium et fibres restent toujours visibles, puis les autres repères dépendent du contexte clinique.")}</Text>
               </Box>
               <Button size="xs" borderRadius="full" onClick={() => setNutrientsOpen((v) => !v)}>
-                {nutrientsOpen ? "Fermer" : "Choisir"}
+                {nutrientsOpen
+                  ? i18n.t("auto.CiqualFoodPicker.fermer", "Fermer")
+                  : i18n.t("auto.CiqualFoodPicker.choisir", "Choisir")}
               </Button>
             </HStack>
 
@@ -901,7 +930,7 @@ export default function CiqualFoodPicker({
               {recommendedNutrientKeys.slice(0, 7).map((key) => (
                 <WrapItem key={key}>
                   <Badge colorScheme="green" variant="subtle" px={3} py={1} borderRadius="full">
-                    {pretty(key)}
+                    {translateNutrientLabel(key)}
                   </Badge>
                 </WrapItem>
               ))}
@@ -919,7 +948,7 @@ export default function CiqualFoodPicker({
                 {selectedPreview.map((key) => (
                   <WrapItem key={key}>
                     <Badge colorScheme="purple" variant="subtle" px={3} py={1} borderRadius="full">
-                      {pretty(key)}
+                      {translateNutrientLabel(key)}
                     </Badge>
                   </WrapItem>
                 ))}
@@ -957,8 +986,8 @@ export default function CiqualFoodPicker({
                         }))
                       }
                     >
-                      <Text fontSize="sm" noOfLines={1} title={pretty(k)}>
-                        {pretty(k)}
+                      <Text fontSize="sm" noOfLines={1} title={translateNutrientLabel(k)}>
+                        {translateNutrientLabel(k)}
                       </Text>
                     </Checkbox>
                   ))}
@@ -981,7 +1010,9 @@ export default function CiqualFoodPicker({
                 borderRadius="full"
                 onClick={() => setShowAllGuidance((prev) => !prev)}
               >
-                {showAllGuidance ? "Réduire" : "Voir tout"}
+                {showAllGuidance
+                  ? i18n.t("auto.CiqualFoodPicker.reduire", "Réduire")
+                  : i18n.t("auto.CiqualFoodPicker.voir_tout", "Voir tout")}
               </Button>
             ) : null}
           </HStack>
@@ -1015,7 +1046,7 @@ export default function CiqualFoodPicker({
                   onClick={() => setActiveMeal(meal.key)}
                   borderRadius="full"
                 >
-                  {meal.label}
+                  {mealLabel(meal)}
                 </Button>
               </WrapItem>
             ))}
@@ -1087,7 +1118,7 @@ export default function CiqualFoodPicker({
                         size="sm"
                         variant="ghost"
                         icon={isOpen ? <ChevronDownIcon /> : <ChevronRightIcon />}
-                        aria-label={isOpen ? "Réduire le repas" : "Déplier le repas"}
+                        aria-label={isOpen ? i18n.t("auto.CiqualFoodPicker.reduire_le_repas", "Réduire le repas") : i18n.t("auto.CiqualFoodPicker.deplier_le_repas", "Déplier le repas")}
                         onClick={() =>
                           setOpenMeals((prev) => ({
                             ...(prev || {}),
@@ -1096,11 +1127,11 @@ export default function CiqualFoodPicker({
                         }
                       />
                       <Box>
-                        <Text fontWeight="800">{meal.label}</Text>
+                        <Text fontWeight="800">{mealLabel(meal)}</Text>
                         <Text fontSize="sm" color={textMuted} mt={1}>
                           {mealItems.length > 0
-                            ? `${mealItems.length} aliment(s) • ${fmt0Plain(mealTotals.kcal)} kcal`
-                            : "Aucun aliment rattaché à ce repas"}
+                            ? i18n.t("auto.CiqualFoodPicker.food_count_kcal", "{{count}} aliment(s) • {{kcal}} kcal", { count: mealItems.length, kcal: fmt0Plain(mealTotals.kcal) })
+                            : i18n.t("auto.CiqualFoodPicker.aucun_aliment_repas", "Aucun aliment rattaché à ce repas")}
                         </Text>
                       </Box>
                     </HStack>
@@ -1242,8 +1273,8 @@ export default function CiqualFoodPicker({
                       <Table size="sm">
                         <Thead bg={bgSoft}>
                           <Tr>
-                            <Th minW="260px">ALIMENT</Th>
-                            <Th minW="170px">REPAS</Th>
+                            <Th minW="260px">{i18n.t("auto.CiqualFoodPicker.aliment", "ALIMENT")}</Th>
+                            <Th minW="170px">{i18n.t("auto.CiqualFoodPicker.repas", "REPAS")}</Th>
                             <Th minW="120px">{i18n.t("auto.CiqualFoodPicker.qte", "QTÉ")}</Th>
                             <Th minW="110px">{i18n.t("auto.CiqualFoodPicker.unite_2", "UNITÉ")}</Th>
                             <Th isNumeric>KCAL</Th>
@@ -1252,7 +1283,7 @@ export default function CiqualFoodPicker({
                             <Th isNumeric>GLUC</Th>
                             {selectedKeys.map((k) => (
                               <Th key={`${meal.key}-${k}`} isNumeric>
-                                {pretty(k)}
+                                {translateNutrientLabel(k)}
                               </Th>
                             ))}
                             <Th />
