@@ -31,6 +31,8 @@ const campaignPath = resolve(root, "campaigns/byl-coach-ugc.json");
 const envPath = resolve(root, ".env.social");
 const runsDir = resolve(root, "runs");
 const learningLogPath = resolve(root, "marketing-agent/learning-log.jsonl");
+const autopilotStatePath = resolve(root, "marketing-agent/autopilot-state.json");
+const mediaIntakeStatePath = resolve(root, "marketing-agent/media-intake-state.json");
 const socialMediaDir = resolve(projectRoot, "public/social-media");
 const port = Number(process.env.PORT || 5182);
 const httpsPort = Number(process.env.HTTPS_PORT || 5443);
@@ -317,6 +319,31 @@ async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
 }
 
+async function readTodayAgentPlan() {
+  const now = parisParts();
+  try {
+    return JSON.parse(await readFile(resolve(root, "campaigns", `${now.date}-agent-plan.json`), "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+async function readAutopilotState() {
+  try {
+    return await readJson(autopilotStatePath);
+  } catch {
+    return null;
+  }
+}
+
+async function readMediaIntakeState() {
+  try {
+    return await readJson(mediaIntakeStatePath);
+  } catch {
+    return null;
+  }
+}
+
 async function readBody(req) {
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
@@ -538,6 +565,40 @@ function localAutoPublishStatus() {
 
 function alreadyPublished(variant, platform) {
   return Boolean(variant.publishedPosts?.[platform]);
+}
+
+function dailyMediaSources(copy = {}) {
+  return [copy.freshDailyMediaUrl, copy.dailyMediaUrl, copy.generatedMediaUrl, copy.dailyVideoPath].filter(Boolean);
+}
+
+function sourceIncludesToken(source = "", token = "") {
+  const raw = String(source || "");
+  let decoded = raw;
+  try {
+    decoded = decodeURIComponent(raw);
+  } catch {
+    decoded = raw;
+  }
+  return decoded.toLowerCase().includes(String(token || "").toLowerCase());
+}
+
+function dailyMediaFreshness({ copy = {}, now = {}, slot = {}, platform = "" } = {}) {
+  const sources = dailyMediaSources(copy);
+  if (!sources.length) return { fresh: false, reason: "daily_media_missing", sources };
+
+  const dateToken = `/daily/${now.date}/`;
+  const dateFresh = sources.some((source) => sourceIncludesToken(source, dateToken));
+  if (!dateFresh) return { fresh: false, reason: "daily_media_stale_or_not_dated", sources, expected: dateToken };
+
+  const slotToken = slot?.id || "";
+  const slotFresh = !slotToken || sources.some((source) => sourceIncludesToken(source, slotToken));
+  if (!slotFresh) return { fresh: false, reason: "daily_media_wrong_slot", sources, expected: slotToken };
+
+  const platformToken = platform.replaceAll("_", "-");
+  const platformFresh = !platformToken || sources.some((source) => sourceIncludesToken(source, platformToken));
+  if (!platformFresh) return { fresh: false, reason: "daily_media_wrong_platform", sources, expected: platformToken };
+
+  return { fresh: true, reason: "daily_media_current_slot", sources };
 }
 
 function chooseCalendarVariant(campaign, week, slot, force) {
@@ -863,7 +924,19 @@ async function enrichCampaign() {
     variants,
     connections,
   };
-  const [recentReports, learningEntries, marketingMemory, growthMemory, killSwitch, proofLibrary, objectionDatabase, brandMemory] = await Promise.all([
+  const [
+    recentReports,
+    learningEntries,
+    marketingMemory,
+    growthMemory,
+    killSwitch,
+    proofLibrary,
+    objectionDatabase,
+    brandMemory,
+    agentPlan,
+    autopilotState,
+    mediaIntakeState,
+  ] = await Promise.all([
     readRecentSlotReports(),
     readRecentLearningEntries(),
     readMarketingMemory(),
@@ -872,10 +945,16 @@ async function enrichCampaign() {
     readProofLibrary(),
     readObjectionDatabase(),
     readBrandMemory(),
+    readTodayAgentPlan(),
+    readAutopilotState(),
+    readMediaIntakeState(),
   ]);
   const latestGrowthReport = (growthMemory.reports || [])[Math.max(0, (growthMemory.reports || []).length - 1)] || null;
   return {
     ...enriched,
+    agentPlan,
+    autopilotState,
+    mediaIntakeState,
     todayPlan: buildTodayCreativePlan(enriched, recentReports, learningEntries, { marketingMemory, growthMemory }),
     learningSummary: buildLearningSummary(enriched, recentReports, learningEntries),
     marketingMemorySummary: {
@@ -2084,7 +2163,8 @@ async function publishCalendarSlot({ slot: slotId = "auto", execute = false, for
     readGrowthMemory(),
   ]);
   const mediaHistory = collectMediaHistory(campaign, recentReports, learningEntries);
-  const variant = chooseStudioVariantForSlot(campaign, now, slot) || chooseCalendarVariant(campaign, now.weekOfMonth, slot, force);
+  const studioVariant = chooseStudioVariantForSlot(campaign, now, slot);
+  const variant = studioVariant || chooseCalendarVariant(campaign, now.weekOfMonth, slot, force);
   if (!variant) throw new Error("Aucun contenu de campagne disponible pour ce créneau.");
 
   const results = [];
@@ -2096,21 +2176,37 @@ async function publishCalendarSlot({ slot: slotId = "auto", execute = false, for
     }
 
     const copy = platformCopy(variant, platform);
-    const freshValues = [copy.freshDailyMediaUrl, copy.dailyMediaUrl, copy.generatedMediaUrl, copy.dailyVideoPath].filter(Boolean);
+    if (!force && !studioVariant) {
+      const freshness = { fresh: false, reason: "daily_studio_variant_missing", sources: dailyMediaSources(copy) };
+      results.push({
+        ok: false,
+        network: platform,
+        mode: execute ? "execute" : "dry-run",
+        reason: "fresh_media_required",
+        detail: freshness.reason,
+        freshness,
+        variantId: variant.id,
+      });
+      skipped.push({ platform, reason: "fresh_media_required", detail: freshness.reason, freshness });
+      continue;
+    }
+
+    const freshness = dailyMediaFreshness({ copy, now, slot, platform });
     const mediaValues = mediaValuesForPlatform(variant, platform, copy);
     const mediaReuse = findMediaReuse(mediaHistory, { platform, values: mediaValues });
-    if (!force && (!freshValues.length || mediaReuse)) {
-      const reason = mediaReuse ? "media_reused_from_history" : "daily_media_missing";
+    if (!force && (!freshness.fresh || mediaReuse)) {
+      const reason = mediaReuse ? "media_reused_from_history" : freshness.reason;
       results.push({
         ok: false,
         network: platform,
         mode: execute ? "execute" : "dry-run",
         reason: "fresh_media_required",
         detail: reason,
+        freshness,
         previous: mediaReuse || undefined,
         variantId: variant.id,
       });
-      skipped.push({ platform, reason: "fresh_media_required", detail: reason, previous: mediaReuse || undefined });
+      skipped.push({ platform, reason: "fresh_media_required", detail: reason, freshness, previous: mediaReuse || undefined });
       continue;
     }
 

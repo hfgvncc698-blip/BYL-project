@@ -4,6 +4,10 @@ Ce dossier decrit le socle de l'agent marketing autonome BoostYourLife. Il sert 
 
 Objectif principal: maximiser les essais gratuits de 14 jours pour coachs sportifs, dieteticiens, nutritionnistes, salles de sport et structures de coaching, sans transformer la marque en usine a contenu generique.
 
+Le fonctionnement v2 executable est documente dans `MARKETING_AGENT_V2.md`: Trend Scout, Strategy Lead, Concept Builder, Creative Director, Preflight Gate, Publisher et Analyst. Cette version produit un plan agent quotidien dans `campaigns/<date>-agent-plan.json` avant toute production/publication. La commande principale est `npm run social:agent:autopilot`, qui lance le cycle autonome complet en dry-run et ecrit l'etat dans `autopilot-state.json`.
+
+Regle video: BYL ne depend pas d'un flux humain fourni manuellement. Par defaut, sans Pippit/CapCut/Sora/provider externe, l'agent utilise `byl_autonomous`: il cree un MP4 produit vertical avec mouvement, inserts app, voix off, musique discrete, overlays et CTA. Un provider `real_video` reste une amelioration premium quand il est disponible, mais l'agent doit deja fonctionner sans lui et bloquer seulement les rendus faibles, muets, recycles ou non publiables.
+
 ## Positionnement
 
 BoostYourLife doit etre presente comme une plateforme premium qui aide les professionnels a quitter Excel, Sheets, PDF, WhatsApp et les suivis disperses pour passer a une experience plus claire, plus fluide et plus professionnelle.

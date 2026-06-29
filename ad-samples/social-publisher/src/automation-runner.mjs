@@ -12,10 +12,20 @@ import { publishTikTokVideo } from "./tiktok-publish.mjs";
 import { chooseDiverseVariant, validateCreativeQuality } from "./creative-quality.mjs";
 import { ensureDailyStudioAssets } from "./creative-studio.mjs";
 import {
+  buildAutonomousContentPackage,
+  contentPackageMarkdown,
+  platformCopyFromContentPackage,
+} from "./autonomous-content-factory.mjs";
+import { agentPlanMarkdown, buildMarketingAgentDailyPlan, seedFromAgentSlot } from "./marketing-agent-core.mjs";
+import { runMediaIntakeAgent } from "./media-intake-agent.mjs";
+import { runTrendScout } from "./trend-scout.mjs";
+import {
   assessMarketingReadiness,
   assertAutomaticPublishingAllowed,
   buildNightlyGrowthReport,
   isTransientPublishNetworkError,
+  readObjectionDatabase,
+  readProofLibrary,
   readGrowthMemory,
   readMarketingMemory,
   recordMarketingSafetyAlert,
@@ -28,7 +38,9 @@ const projectRoot = resolve(root, "../..");
 const campaignPath = resolve(root, "campaigns/byl-coach-ugc.json");
 const calendarPath = resolve(root, "CONTENT_CALENDAR.md");
 const agentConfigPath = resolve(root, "marketing-agent/agent-config.json");
+const trendBriefPath = resolve(root, "marketing-agent/trend-brief.json");
 const learningLogPath = resolve(root, "marketing-agent/learning-log.jsonl");
+const autopilotStatePath = resolve(root, "marketing-agent/autopilot-state.json");
 const envPath = resolve(root, ".env.social");
 const runsDir = resolve(root, "runs");
 
@@ -237,12 +249,20 @@ function parseArgs(argv) {
     force: false,
     windowMinutes: 90,
     date: "",
+    skipTrendScout: false,
+    skipDailyPrep: false,
+    skipGrowthReport: false,
+    skipMediaIntake: false,
   };
   for (let i = 2; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--execute") args.execute = true;
     else if (arg === "--dry-run") args.execute = false;
     else if (arg === "--force") args.force = true;
+    else if (arg === "--skip-trend-scout") args.skipTrendScout = true;
+    else if (arg === "--skip-daily-prep") args.skipDailyPrep = true;
+    else if (arg === "--skip-growth-report") args.skipGrowthReport = true;
+    else if (arg === "--skip-media-intake") args.skipMediaIntake = true;
     else if (arg === "--mode") args.mode = argv[++i];
     else if (arg === "--slot") args.slot = argv[++i];
     else if (arg === "--campaign") args.campaign = resolve(root, argv[++i]);
@@ -271,6 +291,21 @@ async function loadLocalEnv() {
 
 async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
+}
+
+async function readTrendBrief() {
+  try {
+    return JSON.parse(await readFile(trendBriefPath, "utf8"));
+  } catch {
+    return {
+      updatedAt: "",
+      status: "missing",
+      operatingRule:
+        "Aucun trend brief local. Utiliser seulement calendrier + memoire locale, et ne pas pretendre suivre les tendances du jour.",
+      mechanics: [],
+      antiPatterns: [],
+    };
+  }
 }
 
 async function writeJson(path, value) {
@@ -373,7 +408,8 @@ function resolveSlot(slot, now) {
   return { id, ...definition };
 }
 
-function dailyStudioSlot(campaign, slot) {
+function dailyStudioSlot(campaign, slot, now = {}) {
+  if (!campaign.dailyStudioPlan || campaign.dailyStudioPlan.date !== now.date) return null;
   return campaign.dailyStudioPlan?.slots?.find((item) => item.slotId === slot.id) || null;
 }
 
@@ -528,6 +564,40 @@ function findMediaReuse(mediaHistory, { platform, values = [] }) {
   return mediaHistory.find((item) => signatures.includes(item.signature) && (item.platform === platform || item.platform === "unknown"));
 }
 
+function dailyMediaSources(copy = {}) {
+  return [copy.freshDailyMediaUrl, copy.dailyMediaUrl, copy.generatedMediaUrl, copy.dailyVideoPath].filter(Boolean);
+}
+
+function sourceIncludesToken(source = "", token = "") {
+  const raw = String(source || "");
+  let decoded = raw;
+  try {
+    decoded = decodeURIComponent(raw);
+  } catch {
+    decoded = raw;
+  }
+  return decoded.toLowerCase().includes(String(token || "").toLowerCase());
+}
+
+function dailyMediaFreshness({ copy = {}, now = {}, slot = {}, platform = "" } = {}) {
+  const sources = dailyMediaSources(copy);
+  if (!sources.length) return { fresh: false, reason: "daily_media_missing", sources };
+
+  const dateToken = `/daily/${now.date}/`;
+  const dateFresh = sources.some((source) => sourceIncludesToken(source, dateToken));
+  if (!dateFresh) return { fresh: false, reason: "daily_media_stale_or_not_dated", sources, expected: dateToken };
+
+  const slotToken = slot?.id || "";
+  const slotFresh = !slotToken || sources.some((source) => sourceIncludesToken(source, slotToken));
+  if (!slotFresh) return { fresh: false, reason: "daily_media_wrong_slot", sources, expected: slotToken };
+
+  const platformToken = platform.replaceAll("_", "-");
+  const platformFresh = !platformToken || sources.some((source) => sourceIncludesToken(source, platformToken));
+  if (!platformFresh) return { fresh: false, reason: "daily_media_wrong_platform", sources, expected: platformToken };
+
+  return { fresh: true, reason: "daily_media_current_slot", sources };
+}
+
 function instagramStoryCreativeStatus(variant, copy = platformCopy(variant, "instagram_story")) {
   const storyCopy = variant.platformCopy?.instagram_story || {};
   const storyMediaUrl =
@@ -679,14 +749,20 @@ function updatePublishedPost(variant, result) {
   };
 }
 
-function chooseVariant(campaign, week, slot, force, nowMs = Date.now()) {
-  const studioSlot = dailyStudioSlot(campaign, slot);
+function chooseVariant(campaign, week, slot, force, nowMs = Date.now(), now = {}) {
+  const studioSlot = dailyStudioSlot(campaign, slot, now);
   if (studioSlot?.variantId) {
     const studioVariant = (campaign.variants || []).find((variant) => variant.id === studioSlot.variantId);
     if (studioVariant) return studioVariant;
   }
   const ids = [...(weekPlans[week]?.variants || []), "04-voice-note", "02-after-hours", "01-evening-reply"];
   return chooseDiverseVariant({ campaign, weekIds: ids, slot, force, now: nowMs });
+}
+
+function chooseDailyStudioVariant(campaign, slot, now = {}) {
+  const studioSlot = dailyStudioSlot(campaign, slot, now);
+  if (!studioSlot?.variantId) return null;
+  return (campaign.variants || []).find((variant) => variant.id === studioSlot.variantId) || null;
 }
 
 async function publishFacebookVideo({ campaign, variant, video, copy }) {
@@ -1275,26 +1351,50 @@ function selectDailySeed({ now, slotId, usedAngles, marketingMemory = {} }) {
   return makeFreshSeedFromMemory(dailyCreativeSeeds[baseIndex], { now, slotId, memory: marketingMemory });
 }
 
-function platformDailyDirection(platform, seed) {
-  if (platform === "instagram_story") {
-    return `Story dediee: ${seed.interaction}. Pas de copie du Reel, pas le meme media.`;
-  }
-  if (platform === "instagram") {
-    return `Reel/carrousel premium: ${seed.hook}. Plans humains + sous-titres courts.`;
-  }
-  if (platform === "facebook") {
-    return `Post B2B plus explicatif: partir de "${seed.angle}" et relier au gain de temps concret.`;
-  }
-  if (platform === "tiktok") {
-    return `Short video humain: hook direct, rythme plus rapide, aucune publication tant que TikTok n'est pas approuve.`;
-  }
-  return seed.hook;
+function trendMechanicForSlot(trendBrief = {}, slotId = "", platform = "") {
+  const mechanics = Array.isArray(trendBrief.mechanics) ? trendBrief.mechanics : [];
+  const eligible = mechanics.filter((item) => {
+    const platforms = item.platforms || [];
+    const slots = item.slots || [];
+    return (!platforms.length || platforms.includes(platform)) && (!slots.length || slots.includes(slotId));
+  });
+  const selected = eligible[0] || mechanics[0] || null;
+  if (!selected) return null;
+  return {
+    id: selected.id || "",
+    name: selected.name || "",
+    instruction: selected.instruction || "",
+    hookShape: selected.hookShape || "",
+    editPattern: selected.editPattern || "",
+    proofMoment: selected.proofMoment || "",
+  };
 }
 
-function buildDailySlotPlan({ now, slotId, definition, campaign, usedAngles, marketingMemory = {} }) {
+function platformDailyDirection(platform, seed, trendMechanic = null) {
+  const trendLine = trendMechanic
+    ? ` Mecanique trend: ${trendMechanic.name || trendMechanic.id} - ${trendMechanic.instruction}`
+    : "";
+  if (platform === "instagram_story") {
+    return `Story dediee: ${seed.interaction}. Pas de copie du Reel, pas le meme media.${trendLine}`;
+  }
+  if (platform === "instagram") {
+    return `Reel/carrousel premium: ${seed.hook}. Plans humains + sous-titres courts.${trendLine}`;
+  }
+  if (platform === "facebook") {
+    return `Post B2B plus explicatif: partir de "${seed.angle}" et relier au gain de temps concret.${trendLine}`;
+  }
+  if (platform === "tiktok") {
+    return `Short video humain: hook direct, rythme plus rapide, aucune publication tant que TikTok n'est pas approuve.${trendLine}`;
+  }
+  return `${seed.hook}${trendLine}`;
+}
+
+function buildDailySlotPlan({ now, slotId, definition, campaign, usedAngles, marketingMemory = {}, trendBrief = {}, agentSlotPlan = null }) {
   const slot = { id: slotId, ...definition };
   const weekIds = weekPlans[now.weekOfMonth]?.variants || [];
-  const seed = selectDailySeed({ now, slotId, usedAngles, marketingMemory });
+  const seed = agentSlotPlan?.concept
+    ? seedFromAgentSlot(agentSlotPlan)
+    : selectDailySeed({ now, slotId, usedAngles, marketingMemory });
   const productionId = `${now.date}-${slotId}-${slug(seed.subject)}`;
   const referenceNow = slotReferenceTimeMs(now, slot);
   let variant = null;
@@ -1305,6 +1405,7 @@ function buildDailySlotPlan({ now, slotId, definition, campaign, usedAngles, mar
     selectionError = describeError(error);
   }
   const platformChecks = definition.platforms.map((platform) => {
+    const trendMechanic = trendMechanicForSlot(trendBrief, slotId, platform);
     const copy = variant ? platformCopy(variant, platform) : {};
     const quality = variant
       ? validateCreativeQuality({ campaign, variant, platform, copy, force: false, now: referenceNow })
@@ -1313,8 +1414,27 @@ function buildDailySlotPlan({ now, slotId, definition, campaign, usedAngles, mar
       platform,
       copy,
       quality,
-      direction: platformDailyDirection(platform, seed),
+      trendMechanic,
+      direction: platformDailyDirection(platform, seed, trendMechanic),
     };
+  });
+  const contentPackage = buildAutonomousContentPackage({
+    now,
+    slot,
+    agentSlotPlan: agentSlotPlan || {
+      slotId,
+      platforms: definition.platforms,
+      concept: {
+        ...seed,
+        audienceSegment: seed.audienceSegment,
+        subject: seed.subject,
+        problem: seed.angle,
+        proof: seed.discoveryMoment || "",
+        hook: seed.hook,
+        cta: "",
+      },
+    },
+    trendBrief,
   });
   const blockedReasons = [
     selectionError,
@@ -1331,6 +1451,14 @@ function buildDailySlotPlan({ now, slotId, definition, campaign, usedAngles, mar
     variantId: variant?.id || "",
     variantTitle: variant?.title || "",
     platformChecks,
+    trendBrief: {
+      status: trendBrief.status || "local",
+      updatedAt: trendBrief.updatedAt || "",
+      sourceCount: Array.isArray(trendBrief.sources) ? trendBrief.sources.length : 0,
+      antiPatterns: trendBrief.antiPatterns || [],
+    },
+    agentSlotPlan,
+    contentPackage,
     blockedReasons,
     decision:
       blockedReasons.length > 0
@@ -1342,7 +1470,10 @@ function buildDailySlotPlan({ now, slotId, definition, campaign, usedAngles, mar
 function dailySlotMarkdown(plan) {
   const platformLines = plan.platformChecks.map((check) => {
     const status = check.quality?.ok ? `OK qualite ${check.quality.score}` : `A refaire (${(check.quality?.errors || []).join(", ")})`;
-    return `- ${check.platform}: ${check.direction} | ${status}`;
+    const mechanic = check.trendMechanic
+      ? ` | mechanic=${check.trendMechanic.name || check.trendMechanic.id}; hook=${check.trendMechanic.hookShape || "a definir"}; edit=${check.trendMechanic.editPattern || "a definir"}`
+      : "";
+    return `- ${check.platform}: ${check.direction}${mechanic} | ${status}`;
   });
   return [
     `### ${plan.time} - ${plan.slotId}`,
@@ -1364,6 +1495,17 @@ function dailySlotMarkdown(plan) {
     `Voix: ${plan.seed.voiceDirection}`,
     `Interaction: ${plan.seed.interaction}`,
     `Hypothese testee: ${plan.seed.hypothesis}`,
+    plan.agentSlotPlan
+      ? `Decision agent: ${plan.agentSlotPlan.decision} | potentiel conversion ${plan.agentSlotPlan.conversionPotential}/100`
+      : "",
+    plan.agentSlotPlan?.concept?.objection?.label
+      ? `Objection traitee: ${plan.agentSlotPlan.concept.objection.label}`
+      : "",
+    plan.agentSlotPlan?.concept?.proof
+      ? `Preuve a montrer: ${plan.agentSlotPlan.concept.proof}`
+      : "",
+    "",
+    contentPackageMarkdown(plan.contentPackage),
     "",
     "#### Adaptation par reseau",
     "",
@@ -1377,6 +1519,9 @@ function dailySlotMarkdown(plan) {
     "- Story dediee: pas une miniature ou copie du reel/post.",
     "- Score qualite minimum: 80/100.",
     "- CTA: essai gratuit 14 jours ou lien en bio selon le reseau.",
+    ...(plan.trendBrief?.antiPatterns?.length
+      ? ["- Anti-patterns trends a eviter: " + plan.trendBrief.antiPatterns.join("; ")]
+      : []),
     "",
     `Decision: ${plan.decision}`,
     "",
@@ -1519,6 +1664,7 @@ function dailyCtaForPlatform(platform) {
 
 function buildStudioPlatformCopy({ platform, plan, previousCopy = {} }) {
   const seed = plan.seed || {};
+  const autonomousCopy = platformCopyFromContentPackage(plan.contentPackage, platform);
   const preservedFreshMedia =
     previousCopy.freshDailyMediaUrl ||
     previousCopy.dailyMediaUrl ||
@@ -1527,9 +1673,10 @@ function buildStudioPlatformCopy({ platform, plan, previousCopy = {} }) {
     "";
   const productionStatus = preservedFreshMedia ? "fresh_asset_attached" : "awaiting_fresh_video_asset";
   return {
-    caption: dailyCaptionForPlatform(platform, plan),
-    hashtags: dailyHashtags(platform, seed, previousCopy.hashtags || []),
-    cta: dailyCtaForPlatform(platform),
+    ...autonomousCopy,
+    caption: autonomousCopy.caption || dailyCaptionForPlatform(platform, plan),
+    hashtags: autonomousCopy.hashtags?.length ? autonomousCopy.hashtags : dailyHashtags(platform, seed, previousCopy.hashtags || []),
+    cta: autonomousCopy.cta || dailyCtaForPlatform(platform),
     freshDailyMediaUrl: preservedFreshMedia,
     dailyMediaUrl: previousCopy.dailyMediaUrl || preservedFreshMedia,
     generatedMediaUrl: previousCopy.generatedMediaUrl || "",
@@ -1540,6 +1687,7 @@ function buildStudioPlatformCopy({ platform, plan, previousCopy = {} }) {
     freshMediaRequired: true,
     productionStatus,
     creativeBrief: {
+      ...(autonomousCopy.creativeBrief || {}),
       productionId: plan.productionId,
       slotId: plan.slotId,
       platform,
@@ -1579,6 +1727,10 @@ function buildStudioVariant({ plan, previous }) {
       pillar: segment.pillar,
       audience: segment.audience,
       audienceSegment: segment.segment,
+      autonomousContentStatus: plan.contentPackage?.status || "",
+      experimentId: plan.contentPackage?.experiment?.id || "",
+      experimentBucket: plan.contentPackage?.experiment?.bucket || "",
+      experimentHypothesis: plan.contentPackage?.experiment?.hypothesis || "",
       formatFamily: plan.format,
       humanScenario: plan.seed.scenario,
       pointOfView: plan.seed.pointOfView,
@@ -1685,8 +1837,80 @@ async function writeRunReport({ now, slot, execute, variant, results, skipped, a
   return { path, report };
 }
 
+async function runAgentPlan({ now, slotId = "" }) {
+  const [
+    campaign,
+    recentReports,
+    learningEntries,
+    growthMemory,
+    marketingMemory,
+    trendBrief,
+    proofLibrary,
+    objectionDatabase,
+  ] = await Promise.all([
+    readJson(campaignPath).catch(() => ({ variants: [] })),
+    readRecentRunReports(12),
+    readLearningEntries(16),
+    readGrowthMemory(),
+    readMarketingMemory(),
+    readTrendBrief(),
+    readProofLibrary(),
+    readObjectionDatabase(),
+  ]);
+  const slotObjects = Object.entries(slotDefinitions)
+    .filter(([, definition]) => definition.day === now.weekday)
+    .filter(([id]) => !slotId || id === slotId)
+    .sort(([, a], [, b]) => minutesOf(a.time) - minutesOf(b.time))
+    .map(([id, definition]) => ({ id, ...definition }));
+  if (slotId && !slotObjects.length) {
+    throw new Error(`Unknown or inactive agent slot for today: ${slotId}`);
+  }
+  const agentDailyPlan = buildMarketingAgentDailyPlan({
+    now,
+    slots: slotObjects,
+    campaign,
+    marketingMemory,
+    growthMemory,
+    trendBrief,
+    proofLibrary,
+    objectionDatabase,
+    recentReports,
+    learningEntries,
+  });
+  const agentPlanPath = resolve(root, "campaigns", `${now.date}${slotId ? `-${slotId}` : ""}-agent-plan.json`);
+  const agentPlanMarkdownPath = resolve(root, "campaigns", `${now.date}${slotId ? `-${slotId}` : ""}-agent-plan.md`);
+  await writeJson(agentPlanPath, agentDailyPlan);
+  await writeFile(agentPlanMarkdownPath, agentPlanMarkdown(agentDailyPlan));
+  return {
+    ok: true,
+    reportType: "agent_plan",
+    date: now.date,
+    timeParis: now.time,
+    slot: slotId || "all",
+    agentPlanPath,
+    agentPlanMarkdownPath,
+    agentPlan: {
+      version: agentDailyPlan.version,
+      status: agentDailyPlan.status,
+      slotCount: agentDailyPlan.slots.length,
+      trendScout: agentDailyPlan.agents?.trendScout,
+    },
+  };
+}
+
 async function runDaily({ now, slotId = "" }) {
-  const [calendar, agentConfig, campaign, recentReports, learningEntries, growthMemory, marketingMemory] = await Promise.all([
+  const [
+    calendar,
+    agentConfig,
+    campaign,
+    recentReports,
+    learningEntries,
+    growthMemory,
+    marketingMemory,
+    trendBrief,
+    proofLibrary,
+    objectionDatabase,
+  ] = await Promise.all([
     readFile(calendarPath, "utf8").catch(() => ""),
     readJson(agentConfigPath).catch(() => ({})),
     readJson(campaignPath).catch(() => ({ variants: [] })),
@@ -1694,6 +1918,9 @@ async function runDaily({ now, slotId = "" }) {
     readLearningEntries(16),
     readGrowthMemory(),
     readMarketingMemory(),
+    readTrendBrief(),
+    readProofLibrary(),
+    readObjectionDatabase(),
   ]);
   const todaySlotEntries = Object.entries(slotDefinitions)
     .filter(([, definition]) => definition.day === now.weekday)
@@ -1703,8 +1930,31 @@ async function runDaily({ now, slotId = "" }) {
     throw new Error(`Unknown or inactive daily slot for today: ${slotId}`);
   }
   const usedAngles = recentPublishedAngles(campaign, now);
+  const slotObjects = todaySlotEntries.map(([id, definition]) => ({ id, ...definition }));
+  const agentDailyPlan = buildMarketingAgentDailyPlan({
+    now,
+    slots: slotObjects,
+    campaign,
+    marketingMemory,
+    growthMemory,
+    trendBrief,
+    proofLibrary,
+    objectionDatabase,
+    recentReports,
+    learningEntries,
+  });
+  const agentPlanPath = resolve(root, "campaigns", `${now.date}${slotId ? `-${slotId}` : ""}-agent-plan.json`);
   const dailyPlans = todaySlotEntries.map(([slotId, definition]) =>
-    buildDailySlotPlan({ now, slotId, definition, campaign, usedAngles, marketingMemory }),
+    buildDailySlotPlan({
+      now,
+      slotId,
+      definition,
+      campaign,
+      usedAngles,
+      marketingMemory,
+      trendBrief,
+      agentSlotPlan: agentDailyPlan.slots.find((slot) => slot.slotId === slotId) || null,
+    }),
   );
   const todaySlots = todaySlotEntries
     .map(([id, definition]) => `${definition.time} - ${id} - ${definition.platforms.join(", ")}`)
@@ -1724,8 +1974,19 @@ async function runDaily({ now, slotId = "" }) {
     );
   const blockedCount = dailyPlans.reduce((total, plan) => total + (plan.blockedReasons.length ? 1 : 0), 0);
   const productionIds = dailyPlans.map((plan) => plan.productionId);
+  const contentPlan = {
+    version: "1.0.0",
+    date: now.date,
+    generatedAt: new Date().toISOString(),
+    status: "autonomous_posts_created_pending_fresh_media",
+    objective: "Faire venir coachs sportifs, nutritionnistes et structures sur BYL pour lancer un essai gratuit de 14 jours.",
+    slotCount: dailyPlans.length,
+    packages: dailyPlans.map((plan) => plan.contentPackage),
+  };
   const studioPlan = applyDailyStudioPlanToCampaign({ campaign, dailyPlans, now, partial: Boolean(slotId) });
   const studioPlanPath = resolve(root, "campaigns", `${now.date}-studio-plan.json`);
+  const contentPlanPath = resolve(root, "campaigns", `${now.date}${slotId ? `-${slotId}` : ""}-content-plan.json`);
+  const contentPlanMarkdownPath = resolve(root, "campaigns", `${now.date}${slotId ? `-${slotId}` : ""}-content-plan.md`);
   const mediaHistory = collectMediaHistory(campaign, recentReports, learningEntries);
   const studioAssets = await ensureDailyStudioAssets({
     root,
@@ -1833,6 +2094,25 @@ async function runDaily({ now, slotId = "" }) {
       ? distributionAlertLines
       : ["- Aucun signal faible recent a corriger dans le dernier rapport de croissance."]),
     "",
+    "### Trend brief applique",
+    "",
+    `- Statut: ${trendBrief.status || "local"}`,
+    `- Mis a jour: ${trendBrief.updatedAt || "inconnu"}`,
+    `- Regle: ${trendBrief.operatingRule || "Adapter des mecaniques sociales recentes sans copier de createur."}`,
+    ...(Array.isArray(trendBrief.mechanics) && trendBrief.mechanics.length
+      ? trendBrief.mechanics
+          .slice(0, 8)
+          .map(
+            (item) =>
+              `- ${item.name || item.id}: ${item.instruction || ""} | hook=${item.hookShape || ""} | montage=${item.editPattern || ""}`,
+          )
+      : ["- Aucune mecanique trend locale disponible."]),
+    ...(Array.isArray(trendBrief.antiPatterns) && trendBrief.antiPatterns.length
+      ? ["- Anti-patterns: " + trendBrief.antiPatterns.join("; ")]
+      : []),
+    "",
+    agentPlanMarkdown(agentDailyPlan),
+    "",
     "## Slots du jour",
     "",
     todaySlots || "No planned slot today.",
@@ -1890,6 +2170,18 @@ async function runDaily({ now, slotId = "" }) {
   ].join("\n");
   const dailyPath = resolve(root, "campaigns", `${now.date}${slotId ? `-${slotId}` : ""}-daily-marketing-pack.md`);
   await writeFile(dailyPath, body);
+  await writeJson(agentPlanPath, agentDailyPlan);
+  await writeJson(contentPlanPath, contentPlan);
+  await writeFile(
+    contentPlanMarkdownPath,
+    [
+      `# BYL autonomous content plan - ${now.date}`,
+      "",
+      `Objectif: ${contentPlan.objective}`,
+      "",
+      ...dailyPlans.map((plan) => contentPackageMarkdown(plan.contentPackage)),
+    ].join("\n"),
+  );
   await writeJson(studioPlanPath, studioPlan);
   await writeJson(campaignPath, campaign);
   await appendJsonl(learningLogPath, {
@@ -1903,6 +2195,16 @@ async function runDaily({ now, slotId = "" }) {
     productionIds,
     path: dailyPath,
     studioPlanPath,
+    agentPlanPath,
+    contentPlanPath,
+    contentPlanMarkdownPath,
+    agentPlanStatus: agentDailyPlan.status,
+    trendBrief: {
+      status: trendBrief.status || "local",
+      updatedAt: trendBrief.updatedAt || "",
+      sourceCount: Array.isArray(trendBrief.sources) ? trendBrief.sources.length : 0,
+      mechanicCount: Array.isArray(trendBrief.mechanics) ? trendBrief.mechanics.length : 0,
+    },
     studioAssets,
     publicMediaReports,
   });
@@ -1923,6 +2225,16 @@ async function runDaily({ now, slotId = "" }) {
         type: "daily_prep",
         path: dailyPath,
         studioPlanPath,
+        agentPlanPath,
+        contentPlanPath,
+        contentPlanMarkdownPath,
+        agentPlanStatus: agentDailyPlan.status,
+        agentPlan: {
+          version: agentDailyPlan.version,
+          status: agentDailyPlan.status,
+          slotCount: agentDailyPlan.slots.length,
+          trendScout: agentDailyPlan.agents?.trendScout,
+        },
         slotCount: dailyPlans.length,
         productionIds,
         studioAssets,
@@ -1938,7 +2250,17 @@ async function runDaily({ now, slotId = "" }) {
     reportType: "daily",
   });
   const growth = await buildNightlyGrowthReport({ now, reports: recentReports, learningEntries });
-  return { reportPath: path, report, dailyPath, studioPlanPath, growthReportPath: growth.reportPath, slot: slotId || "all" };
+  return {
+    reportPath: path,
+    report,
+    dailyPath,
+    agentPlanPath,
+    contentPlanPath,
+    contentPlanMarkdownPath,
+    studioPlanPath,
+    growthReportPath: growth.reportPath,
+    slot: slotId || "all",
+  };
 }
 
 async function runNetworkCheck() {
@@ -2035,7 +2357,7 @@ async function runWatchdog({ args, now }) {
   for (const slot of dueSlots) {
     try {
       const output = await runSlotWithFreshMediaRetry({
-        args: { ...args, mode: "slot", slot: slot.id, execute: true },
+        args: { ...args, mode: "slot", slot: slot.id, execute: Boolean(args.execute) },
         now,
       });
       const report = output.report || {};
@@ -2140,6 +2462,255 @@ async function runDashboardWatchdog({ args, now }) {
   };
 }
 
+function summarizeAutopilotBlockers(steps = []) {
+  const blockers = [];
+  for (const step of steps) {
+    if (step.ok !== false) continue;
+    if (Array.isArray(step.output?.readiness?.blockers) && step.output.readiness.blockers.length) {
+      for (const reason of step.output.readiness.blockers) {
+        blockers.push({
+          step: step.step,
+          reason,
+          detail: step.output.readiness.recommendation || "",
+        });
+      }
+      continue;
+    }
+    blockers.push({
+      step: step.step,
+      reason: step.reason || step.error || "step_failed",
+    });
+  }
+  const extractReports = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.flatMap(extractReports);
+    if (typeof value !== "object") return [];
+    const direct = [
+      ...(Array.isArray(value.results) ? value.results : []),
+      ...(Array.isArray(value.skipped) ? value.skipped : []),
+    ];
+    const nested = Object.values(value).flatMap((item) => extractReports(item));
+    return [...direct, ...nested];
+  };
+  for (const step of steps) {
+    for (const item of extractReports(step.output)) {
+      if (item?.ok === false || item?.reason) {
+        blockers.push({
+          step: step.step,
+          platform: item.network || item.platform || "",
+          reason: item.reason || item.detail || item.error || "blocked",
+          detail: item.detail || item.error || "",
+        });
+      }
+    }
+  }
+  const genericReasons = new Set(["step_failed", "blocked"]);
+  return blockers
+    .filter((item) => {
+      if (!genericReasons.has(item.reason)) return true;
+      return !blockers.some((other) => other.step === item.step && !genericReasons.has(other.reason));
+    })
+    .slice(-30);
+}
+
+function nextAutopilotAction({ steps = [], blockers = [], execute = false } = {}) {
+  if (blockers.some((item) => /public_media|firebase|oauth|connector|access_token/i.test(`${item.reason} ${item.detail}`))) {
+    return execute
+      ? "Corriger l'upload public ou les connecteurs sociaux avant publication automatique."
+      : "Dry-run pret cote contenu. Verifier l'upload public/connecteurs avant de passer en --execute.";
+  }
+  if (blockers.some((item) => /fresh|media|realistic_video/i.test(`${item.reason} ${item.detail}`))) {
+    return "Generer une vraie video provider ou des sources visuelles fraiches BYL, puis relancer l'autopilot.";
+  }
+  if (blockers.some((item) => /trend|network|fetch|ENOTFOUND|timeout/i.test(`${item.reason} ${item.detail}`))) {
+    return "Relancer le scout tendances avec reseau disponible, sans pretendre a une veille live tant qu'elle echoue.";
+  }
+  if (blockers.some((item) => /missing_env|connector|access_token|tiktok_not_approved/i.test(`${item.reason} ${item.detail}`))) {
+    return "Completer les connecteurs sociaux avant publication automatique.";
+  }
+  if (!blockers.length) {
+    return execute
+      ? "Cycle execute. Attendre les performances, puis relancer l'apprentissage apres 24h, 72h et 7 jours."
+      : "Cycle pret en dry-run. Passer en --execute seulement apres verification des connecteurs publics.";
+  }
+  if (steps.every((step) => step.ok !== false)) {
+    return execute
+      ? "Cycle execute. Attendre les performances, puis relancer l'apprentissage apres 24h, 72h et 7 jours."
+      : "Cycle pret en dry-run. Passer en --execute seulement si les medias frais et connecteurs sont verts.";
+  }
+  return "Lire les blocages du rapport autopilot et corriger la premiere cause avant publication.";
+}
+
+function publishWatchdogSucceeded(steps = []) {
+  return steps.some((step) => /^publish_watchdog_/.test(step.step) && step.ok === true);
+}
+
+function dailyPrepFailureIsOnlyPublicMedia(step = {}) {
+  if (step.step !== "daily_production_prep" || step.ok !== false) return false;
+  const results = step.output?.report?.results || [];
+  if (!results.length) return false;
+  return results.every((result) => {
+    const blockingReasons = result.blockingReasons || [];
+    return (
+      result.type === "daily_prep" &&
+      blockingReasons.length > 0 &&
+      blockingReasons.every((reason) => reason === "public_media_not_ready")
+    );
+  });
+}
+
+function actionableAutopilotBlockers({ steps = [], blockers = [], execute = false } = {}) {
+  const softPublicMediaPrep =
+    !execute &&
+    publishWatchdogSucceeded(steps) &&
+    steps.some((step) => dailyPrepFailureIsOnlyPublicMedia(step));
+  if (!softPublicMediaPrep) return blockers;
+  return blockers.filter((item) => {
+    if (item.step !== "daily_production_prep") return true;
+    return !/daily_media_not_publishable|public_media_not_ready|step_failed/i.test(`${item.reason} ${item.detail}`);
+  });
+}
+
+async function runAutopilotStep(steps, step, fn, { critical = true } = {}) {
+  const startedAt = new Date().toISOString();
+  const startedMs = Date.now();
+  try {
+    const output = await fn();
+    const ok = output?.report ? output.report.ok !== false : output?.ok !== false;
+    const record = {
+      step,
+      ok,
+      critical,
+      startedAt,
+      durationMs: Date.now() - startedMs,
+      output,
+    };
+    steps.push(record);
+    return record;
+  } catch (error) {
+    const record = {
+      step,
+      ok: false,
+      critical,
+      startedAt,
+      durationMs: Date.now() - startedMs,
+      error: describeError(error),
+    };
+    steps.push(record);
+    return record;
+  }
+}
+
+async function runAutopilot({ args, now }) {
+  const startedAt = new Date().toISOString();
+  const slotId = args.slot && args.slot !== "auto" ? args.slot : "";
+  const steps = [];
+
+  if (!args.skipTrendScout) {
+    await runAutopilotStep(steps, "trend_scout", () => runTrendScout({ briefPath: trendBriefPath }), { critical: false });
+  }
+
+  if (!args.skipGrowthReport) {
+    await runAutopilotStep(
+      steps,
+      "learning_report",
+      async () => {
+        const [recentReports, learningEntries] = await Promise.all([readRecentRunReports(80), readLearningEntries(240)]);
+        const result = await buildNightlyGrowthReport({ now, reports: recentReports, learningEntries, env: process.env });
+        return {
+          ok: true,
+          reportPath: result.reportPath,
+          growthMemoryPath: result.growthMemoryPath,
+          marketingKnowledgePath: result.marketingKnowledgePath,
+          summary: result.report?.summary,
+          nextContentRules: result.report?.nextContentRules || [],
+          distributionAlerts: result.report?.distributionAlerts || [],
+          killSwitch: result.report?.killSwitch,
+        };
+      },
+      { critical: false },
+    );
+  }
+
+  if (!args.skipMediaIntake) {
+    await runAutopilotStep(
+      steps,
+      "media_intake",
+      () => runMediaIntakeAgent({ now }),
+      { critical: false },
+    );
+  }
+
+  await runAutopilotStep(steps, "strategy_plan", () => runAgentPlan({ now, slotId }), { critical: true });
+
+  if (!args.skipDailyPrep) {
+    await runAutopilotStep(steps, "daily_production_prep", () => runDaily({ now, slotId }), { critical: true });
+  }
+
+  await runAutopilotStep(
+    steps,
+    args.execute ? "publish_watchdog_execute" : "publish_watchdog_dry_run",
+    () => runWatchdog({ args: { ...args, execute: Boolean(args.execute) }, now }),
+    { critical: true },
+  );
+
+  const rawBlockers = summarizeAutopilotBlockers(steps);
+  const blockers = actionableAutopilotBlockers({ steps, blockers: rawBlockers, execute: args.execute });
+  const hardFailures = steps.filter(
+    (step) =>
+      step.critical &&
+      step.ok === false &&
+      !(dailyPrepFailureIsOnlyPublicMedia(step) && !args.execute && publishWatchdogSucceeded(steps)),
+  );
+  const output = {
+    ok: hardFailures.length === 0 && !blockers.some((item) => /publish_api_error|generic_or_incoherent|missing_env/i.test(item.reason || "")),
+    reportType: "autopilot",
+    date: now.date,
+    timeParis: now.time,
+    execute: Boolean(args.execute),
+    slot: slotId || "all_due_slots",
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    status: args.execute ? "autonomous_execute_cycle_finished" : "autonomous_dry_run_cycle_finished",
+    mission:
+      "Observer les tendances, apprendre des performances, preparer les contenus BYL, verifier les garde-fous, publier seulement si tout est vert.",
+    steps,
+    blockers,
+    nonBlockingWarnings: rawBlockers.filter((item) => !blockers.includes(item)),
+    nextAction: nextAutopilotAction({ steps, blockers, execute: args.execute }),
+  };
+  const filename = `${now.date}-autopilot-${args.execute ? "execute" : "dry-run"}${slotId ? `-${slotId}` : ""}.json`;
+  const reportPath = resolve(runsDir, filename);
+  await writeJson(reportPath, output);
+  await writeJson(autopilotStatePath, {
+    version: "1.0.0",
+    updatedAt: output.finishedAt,
+    lastRun: {
+      date: output.date,
+      timeParis: output.timeParis,
+      execute: output.execute,
+      slot: output.slot,
+      status: output.status,
+      ok: output.ok,
+      reportPath,
+      blockers,
+      nextAction: output.nextAction,
+    },
+  });
+  await appendJsonl(learningLogPath, {
+    at: output.finishedAt,
+    type: "autopilot_cycle",
+    date: now.date,
+    execute: Boolean(args.execute),
+    slot: slotId || "all_due_slots",
+    ok: output.ok,
+    reportPath,
+    blockers,
+    nextAction: output.nextAction,
+  });
+  return { ...output, reportPath, autopilotStatePath };
+}
+
 async function runSlot({ args, now }) {
   const [campaign, calendar, agentConfig] = await Promise.all([
     readJson(args.campaign),
@@ -2150,7 +2721,7 @@ async function runSlot({ args, now }) {
   const referenceNow = slotReferenceTimeMs(now, slot);
   const windowStatus = outsideExecutionWindow(slot, now);
   if (args.execute && !args.force && windowStatus.outside) {
-    const existingVariant = chooseVariant(campaign, now.weekOfMonth, slot, args.force, referenceNow);
+    const existingVariant = chooseVariant(campaign, now.weekOfMonth, slot, args.force, referenceNow, now);
     if (existingVariant && slot.platforms.every((platform) => alreadyPublished(existingVariant, platform))) {
       const skipped = slot.platforms.map((platform) => ({
         platform,
@@ -2190,7 +2761,8 @@ async function runSlot({ args, now }) {
     return { reportPath: path, report };
   }
   await assertAutomaticPublishingAllowed({ execute: args.execute, force: args.force, source: "automation_runner_slot" });
-  const variant = chooseVariant(campaign, now.weekOfMonth, slot, args.force, referenceNow);
+  const studioVariant = chooseDailyStudioVariant(campaign, slot, now);
+  const variant = chooseVariant(campaign, now.weekOfMonth, slot, args.force, referenceNow, now);
   if (!variant) {
     throw new Error(
       `No quality-approved fresh variant available for ${slot.id}. Create a new angle/media pack before publishing; the runner refuses to recycle recent content.`,
@@ -2232,16 +2804,33 @@ async function runSlot({ args, now }) {
     }
 
     const copy = platformCopy(variant, platform);
-    if (!args.force && !copy.freshDailyMediaUrl) {
+    if (!args.force && !studioVariant) {
+      const freshness = { fresh: false, reason: "daily_studio_variant_missing", sources: dailyMediaSources(copy) };
       results.push({
         ok: false,
         network: platform,
         mode: args.execute ? "execute" : "dry-run",
         reason: "fresh_media_required",
-        detail: "daily_media_missing",
+        detail: freshness.reason,
+        freshness,
         variantId: variant.id,
       });
-      skipped.push({ platform, reason: "fresh_media_required", detail: "daily_media_missing" });
+      skipped.push({ platform, reason: "fresh_media_required", detail: freshness.reason, freshness });
+      continue;
+    }
+
+    const freshness = dailyMediaFreshness({ copy, now, slot, platform });
+    if (!args.force && !freshness.fresh) {
+      results.push({
+        ok: false,
+        network: platform,
+        mode: args.execute ? "execute" : "dry-run",
+        reason: "fresh_media_required",
+        detail: freshness.reason,
+        freshness,
+        variantId: variant.id,
+      });
+      skipped.push({ platform, reason: "fresh_media_required", detail: freshness.reason, freshness });
       continue;
     }
 
@@ -2449,15 +3038,19 @@ async function main() {
   const output =
     args.mode === "daily"
       ? await runDaily({ now, slotId: args.slot && args.slot !== "auto" ? args.slot : "" })
-      : args.mode === "network-check"
-        ? await runNetworkCheck()
-        : args.mode === "dashboard-slot"
-          ? await runDashboardSlot({ args, now })
-          : args.mode === "dashboard-watchdog"
-            ? await runDashboardWatchdog({ args, now })
-        : args.mode === "watchdog"
-          ? await runWatchdog({ args, now })
-        : await runSlotWithFreshMediaRetry({ args, now });
+      : args.mode === "agent-plan"
+        ? await runAgentPlan({ now, slotId: args.slot && args.slot !== "auto" ? args.slot : "" })
+        : args.mode === "autopilot"
+          ? await runAutopilot({ args, now })
+          : args.mode === "network-check"
+            ? await runNetworkCheck()
+            : args.mode === "dashboard-slot"
+              ? await runDashboardSlot({ args, now })
+              : args.mode === "dashboard-watchdog"
+                ? await runDashboardWatchdog({ args, now })
+                : args.mode === "watchdog"
+                  ? await runWatchdog({ args, now })
+                  : await runSlotWithFreshMediaRetry({ args, now });
   const ok = output?.report ? output.report.ok !== false : output?.ok !== false;
   console.log(JSON.stringify({ ok, ...output }, null, 2));
 }

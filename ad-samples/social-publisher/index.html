@@ -2092,16 +2092,27 @@
       };
       const socialPublisherApiBase = String(window.SOCIAL_PUBLISHER_API_BASE || "").replace(/\/$/, "");
       const socialPublisherAuthorization = String(window.SOCIAL_PUBLISHER_AUTHORIZATION || "");
+      const socialPublisherPageOrigin = String(window.SOCIAL_PUBLISHER_PAGE_ORIGIN || "").replace(/\/$/, "");
+
+      function safeDashboardBaseUrl() {
+        const origin =
+          socialPublisherPageOrigin ||
+          (window.location.origin && window.location.origin !== "null" ? window.location.origin : "");
+        if (origin) return `${origin}/admin/social-publisher`;
+        return "https://boostyourlife.coach/admin/social-publisher";
+      }
 
       function socialPublisherUrl(path) {
         if (!path || /^https?:\/\//i.test(path) || path.startsWith("data:") || path.startsWith("blob:")) {
           return path;
         }
         if (!socialPublisherApiBase || !path.startsWith("/")) return path;
+        if (path === "/api/social-publisher") return socialPublisherApiBase;
+        if (path.startsWith("/api/social-publisher/")) {
+          return `${socialPublisherApiBase}${path.replace(/^\/api\/social-publisher/, "")}`;
+        }
         if (path.startsWith("/api/")) return `${socialPublisherApiBase}${path.replace(/^\/api/, "")}`;
-        if (path.startsWith("/media/")) return `${socialPublisherApiBase}${path}`;
-        if (path.startsWith("/social-media/")) return `${socialPublisherApiBase}${path}`;
-        return path;
+        return `${socialPublisherApiBase}${path}`;
       }
 
       function resolveAdminDashboardUrl() {
@@ -2931,7 +2942,7 @@
         if (/^\/public\/social-media\//i.test(value)) return value.replace(/^\/public\//i, "/");
         if (/^\/social-media\//i.test(value)) return value;
         try {
-          const parsed = new URL(value, window.location.href);
+          const parsed = new URL(value, safeDashboardBaseUrl());
           if (parsed.hostname === "boostyourlife.coach" && parsed.pathname.startsWith("/social-media/")) {
             return `${parsed.pathname}${parsed.search || ""}${parsed.hash || ""}`;
           }
@@ -3728,13 +3739,24 @@
         if (socialPublisherAuthorization && !headers.Authorization) {
           headers.Authorization = socialPublisherAuthorization;
         }
-        const response = await fetch(socialPublisherUrl(path), {
-          headers,
-          ...options,
-          body: options.body ? JSON.stringify(options.body) : undefined,
-        });
-        const data = await response.json();
-        if (!response.ok || !data.ok) throw new Error(data.error || "Erreur inconnue");
+        const url = socialPublisherUrl(path);
+        let response;
+        try {
+          response = await fetch(url, {
+            headers,
+            ...options,
+            body: options.body ? JSON.stringify(options.body) : undefined,
+          });
+        } catch (error) {
+          throw new Error(`Appel API impossible (${url}): ${error.message || String(error)}`);
+        }
+        let data = {};
+        try {
+          data = await response.json();
+        } catch (error) {
+          throw new Error(`Réponse API illisible (${url}, HTTP ${response.status}): ${error.message || String(error)}`);
+        }
+        if (!response.ok || !data.ok) throw new Error(data.error || `Erreur API ${response.status} (${url})`);
         return data;
       }
 

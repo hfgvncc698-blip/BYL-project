@@ -2,6 +2,7 @@ import { access, copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { dirname, relative, resolve } from "node:path";
+import { requestRealVideo } from "./real-video-provider.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -15,7 +16,11 @@ const MIN_QUALITY_SCORE = 86;
 const TARGET_QUALITY_SCORE = Number.parseInt(process.env.BYL_CREATIVE_STUDIO_TARGET_SCORE || "92", 10);
 const MAX_LOCAL_STUDIO_REVISIONS = Number.parseInt(process.env.BYL_CREATIVE_STUDIO_MAX_LOCAL_REVISIONS || "4", 10);
 const MAX_PROVIDER_STUDIO_REVISIONS = Number.parseInt(process.env.BYL_CREATIVE_STUDIO_MAX_PROVIDER_REVISIONS || "8", 10);
-const CREATIVE_STUDIO_PROVIDER = process.env.BYL_CREATIVE_STUDIO_PROVIDER || "ugc_human";
+const CREATIVE_STUDIO_PROVIDER = process.env.BYL_CREATIVE_STUDIO_PROVIDER || "byl_autonomous";
+const REAL_VIDEO_PROVIDER_ENABLED = /^(real_video|external_video|provider_video)$/i.test(CREATIVE_STUDIO_PROVIDER);
+const AUTONOMOUS_LOCAL_PROVIDER_ENABLED = /^(byl_autonomous|local_autonomous|autonomous_product|product_video)$/i.test(
+  CREATIVE_STUDIO_PROVIDER,
+);
 const UGC_RENDERER = process.env.BYL_UGC_RENDERER || "premium_multiplan";
 const PREMIUM_RENDER_STYLE_VERSION = "fluid_mobile_ui_v3";
 const SHOT_LIBRARY_VERSION = "1.0.0";
@@ -407,7 +412,10 @@ function requiredFreshHumanShotCountForMediaKind(mediaKind = "", platform = "") 
 }
 
 function maxStudioRevisions() {
-  const raw = CREATIVE_STUDIO_PROVIDER === "local_mockup" ? MAX_LOCAL_STUDIO_REVISIONS : MAX_PROVIDER_STUDIO_REVISIONS;
+  const raw =
+    CREATIVE_STUDIO_PROVIDER === "local_mockup" || AUTONOMOUS_LOCAL_PROVIDER_ENABLED
+      ? MAX_LOCAL_STUDIO_REVISIONS
+      : MAX_PROVIDER_STUDIO_REVISIONS;
   return Number.isFinite(raw) && raw > 0 ? raw : 4;
 }
 
@@ -426,7 +434,7 @@ function improvementLine(review) {
     reasons.has("legacy_human_source_reused") ||
     reasons.has("fresh_source_generation_failed")
   ) {
-    fixes.push("creer plusieurs nouvelles images humaines liees au sujet du jour");
+    fixes.push("creer plusieurs sources visuelles fraiches ou passer par un provider vraie video");
   }
   if (reasons.has("interface_insert_quality_failed")) {
     fixes.push("reprendre une capture mobile chargee, lisible et vraiment utile au message");
@@ -518,7 +526,7 @@ function buildPremiumPromptPackage({ plan, platform, script, revision, previousR
 
   return {
     provider: CREATIVE_STUDIO_PROVIDER,
-    providerRequired: REQUIRE_REALISTIC_VIDEO_PROVIDER,
+    providerRequired: REQUIRE_REALISTIC_VIDEO_PROVIDER && !AUTONOMOUS_LOCAL_PROVIDER_ENABLED,
     retryPolicy: {
       targetQualityScore: TARGET_QUALITY_SCORE,
       minimumPublishScore: MIN_QUALITY_SCORE,
@@ -664,6 +672,7 @@ function humanStudioReason(reason) {
     interface_insert_quality_failed: "La capture produit doit etre mobile, bien chargee, bien cadree et liee au sujet.",
     fresh_daily_human_source_count_below_minimum: "Le media doit contenir plusieurs nouveaux plans humains, pas une seule image fraiche.",
     fresh_source_provider_unavailable: "Le provider image est indisponible cote billing/quota; relance inutile avant correction du compte.",
+    real_video_provider_not_ready: "Le provider vraie video n'a pas encore livre de MP4 final.",
   };
   return map[reason] || reason;
 }
@@ -912,6 +921,137 @@ async function renderMotionVideo({ outputPath, frameDir, base, plan, platform, r
   ];
   await execFileAsync(ffmpeg, args, { maxBuffer: 1024 * 1024 * 8 });
   return { script };
+}
+
+async function renderAutonomousProductVideo({
+  root,
+  projectRoot,
+  outputPath,
+  frameDir,
+  reportsDir,
+  base,
+  plan,
+  platform,
+  revision,
+  previousReview,
+  mediaKind = "video",
+}) {
+  const duration = platform === "instagram_story" ? 9 : 18;
+  const kind = dailySourceKind(plan);
+  const script = makeStudioScript({ plan, platform, revision, previousReview });
+  const productSources = [];
+  for (const source of selectMobileInterfaceInserts({ plan, platform, kind })) {
+    const review = await mobileInterfaceSourceQuality(projectRoot, source, plan, kind);
+    if (review.ok) productSources.push(source);
+  }
+
+  const autonomousDir = resolve(root, "creative-studio", plan.productionId?.slice(0, 10) || "daily", "autonomous-product");
+  const motionBasePath = resolve(autonomousDir, `${base}-motion-base.mp4`);
+  const productBasePath = resolve(autonomousDir, `${base}-product-base.mp4`);
+  await mkdir(autonomousDir, { recursive: true });
+  await renderMotionVideo({ outputPath: motionBasePath, frameDir, base, plan, platform, revision, previousReview });
+
+  let finalBasePath = motionBasePath;
+  if (productSources.length) {
+    const ffmpeg = await findFfmpeg();
+    const productInputPaths = productSources.map((source) => resolvePremiumSourceImage(projectRoot, source));
+    const args = ["-y", "-i", motionBasePath];
+    for (const inputPath of productInputPaths) {
+      args.push("-loop", "1", "-t", String(duration), "-i", inputPath);
+    }
+    const windows =
+      platform === "instagram_story"
+        ? [
+            [3.0, 5.7],
+            [6.0, 8.4],
+          ]
+        : [
+            [6.2, 9.0],
+            [9.4, 12.1],
+            [12.5, 15.2],
+            [15.5, 17.7],
+          ];
+    const filters = ["[0:v]format=yuv420p[basev]"];
+    let previous = "[basev]";
+    productInputPaths.forEach((_, index) => {
+      const inputIndex = index + 1;
+      const overlayLabel = `[ui${index}]`;
+      const outputLabel = index === productInputPaths.length - 1 ? "[vout]" : `[pv${index}]`;
+      const [start, end] = windows[index % windows.length];
+      const scale = platform === "instagram_story" ? 390 : 430;
+      const x = index % 2 === 0 ? "main_w-overlay_w-74" : "74";
+      const y = platform === "instagram_story" ? "990" : "1030";
+      filters.push(`[${inputIndex}:v]scale=${scale}:-2,format=rgba${overlayLabel}`);
+      filters.push(`${previous}${overlayLabel}overlay=x=${x}:y=${y}:enable='between(t,${start},${end})'${outputLabel}`);
+      previous = outputLabel;
+    });
+    args.push(
+      "-filter_complex",
+      filters.join(";"),
+      "-map",
+      "[vout]",
+      "-t",
+      String(duration),
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast",
+      "-crf",
+      "18",
+      "-pix_fmt",
+      "yuv420p",
+      "-movflags",
+      "+faststart",
+      productBasePath,
+    );
+    await execFileAsync(ffmpeg, args, { maxBuffer: 1024 * 1024 * 16 });
+    finalBasePath = productBasePath;
+  }
+
+  const finalizerConfigPath = resolve(reportsDir, `${base}-autonomous-finalizer.json`);
+  const finalizerPath = resolve(root, "src/finalize-daily-media.mjs");
+  const job = {
+    id: base,
+    input: finalBasePath,
+    output: outputPath,
+    duration,
+    voice: kind === "nutrition" || kind === "studio" ? "Amélie" : "Thomas",
+    aiVoice: kind === "nutrition" || kind === "studio" ? "marin" : "cedar",
+    rate: kind === "studio" ? 166 : 164,
+    voiceover: buildAutonomousProductVoiceover({ plan, platform, script, kind }),
+    overlays: buildAutonomousProductOverlays({ plan, platform, script, kind }),
+  };
+  await writeFile(finalizerConfigPath, `${JSON.stringify({ date: plan.productionId?.slice(0, 10) || "", jobs: [job] }, null, 2)}\n`);
+  await execFileAsync(process.execPath, [finalizerPath, finalizerConfigPath], {
+    cwd: root,
+    env: {
+      ...process.env,
+      BYL_VOICE_PROVIDER: process.env.BYL_VOICE_PROVIDER || "local",
+      BYL_VOICE_SPEED: process.env.BYL_VOICE_SPEED || "1.04",
+    },
+    maxBuffer: 1024 * 1024 * 32,
+  });
+
+  return {
+    script,
+    finalizerConfigPath,
+    renderer: "byl_autonomous_product_video",
+    mediaKind,
+    sourceVideoPath: finalBasePath,
+    sourceImages: productSources,
+    freshSourceImages: [],
+    freshSourceRequiredCount: 0,
+    freshSourceActualCount: 0,
+    freshSourceGeneratedCount: 0,
+    freshSourceFallbackCount: 0,
+    freshSourceFallbackSources: [],
+    freshSourceGenerated: false,
+    freshSourceError: productSources.length ? "" : "autonomous_product_interface_missing",
+    sourceShotPaths: [motionBasePath, finalBasePath].map((path) => projectRelative(projectRoot, path)),
+    shotCount: platform === "instagram_story" ? 4 : 6,
+    renderStyleVersion: "byl_autonomous_product_video_v1",
+    autonomousProductVideo: true,
+  };
 }
 
 function cleanVideoLine(value = "") {
@@ -2037,6 +2177,84 @@ function buildPremiumUgcOverlays({ plan, platform, scene }) {
   }));
 }
 
+function buildAutonomousProductVoiceover({ plan, platform, script, kind }) {
+  const hook = cleanVideoLine(plan.seed?.hook || script.hook || "Le suivi client devient vite flou quand tout est disperse");
+  const problem = cleanVideoLine(
+    plan.seed?.problem ||
+      (kind === "studio"
+        ? "Entre les coachs, les relances et les programmes, une salle perd vite la vue d'ensemble."
+        : kind === "nutrition"
+          ? "Entre les repas, les retours clients et les ajustements, le suivi nutrition se disperse vite."
+          : "Entre WhatsApp, Excel et les programmes, le coach perd le contexte au mauvais moment."),
+  );
+  const payoff = cleanVideoLine(
+    plan.seed?.payoff ||
+      "BoostYourLife remet les clients, les programmes et les actions importantes dans un seul espace clair.",
+  );
+  if (platform === "instagram_story") {
+    return `${sentenceLine(hook)} ${sentenceLine(problem)} ${sentenceLine(payoff)} Reponds SUIVI si tu veux voir le fonctionnement.`;
+  }
+  return `${sentenceLine(hook)} ${sentenceLine(problem)} ${sentenceLine(payoff)} Essai gratuit quatorze jours.`;
+}
+
+function buildAutonomousProductOverlays({ plan, platform, script, kind }) {
+  const subject = cleanVideoLine(plan.seed?.subject || plan.title || "Situation terrain");
+  const hook = cleanVideoLine(plan.seed?.hook || script.hook || "Ton suivi client merite mieux.");
+  const problem =
+    kind === "studio"
+      ? "Clients, coachs, relances: tout doit rester lisible."
+      : kind === "nutrition"
+        ? "Plans, retours, adherence: le contexte doit rester clair."
+        : "Messages, notes, programmes: le contexte se perd vite.";
+  const product =
+    kind === "studio"
+      ? "Une vue claire pour piloter le studio."
+      : kind === "nutrition"
+        ? "Un suivi nutrition plus simple a tenir."
+        : "Le bon dossier client en quelques secondes.";
+  const cta = platform === "instagram_story" ? "Reponds SUIVI" : "Essai gratuit 14 jours";
+  const overlays = [
+    {
+      kicker: "POV terrain",
+      title: hook,
+      footer: subject,
+    },
+    {
+      kicker: "Le probleme",
+      title: problem,
+      footer: "Avant de montrer BYL, l'agent fait ressentir la friction.",
+    },
+    {
+      kicker: "Preuve produit",
+      title: product,
+      footer: "BoostYourLife centralise le suivi et les actions.",
+    },
+    {
+      kicker: "BoostYourLife",
+      title: cta,
+      footer: "Objectif: lancer un essai gratuit de 14 jours.",
+    },
+  ];
+  if (platform === "instagram_story") {
+    return [
+      { start: 0, end: 2.3, ...overlays[0] },
+      { start: 3, end: 5.6, ...overlays[2] },
+      { start: 6.2, end: 8.6, ...overlays[3] },
+    ];
+  }
+  const windows = [
+    [0, 3.0],
+    [3.5, 6.4],
+    [8.8, 12.1],
+    [13.2, 17.7],
+  ];
+  return overlays.map((overlay, index) => ({
+    start: windows[index][0],
+    end: windows[index][1],
+    ...overlay,
+  }));
+}
+
 function escapeDrawText(value = "") {
   return displayText(value)
     .replace(/\\/g, "\\\\")
@@ -2536,6 +2754,128 @@ async function renderUgcHumanVideo({
   };
 }
 
+async function renderRealProviderVideo({
+  root,
+  projectRoot,
+  outputPath,
+  reportsDir,
+  base,
+  plan,
+  platform,
+  revision,
+  previousReview,
+  mediaKind = "video",
+}) {
+  const script = makeStudioScript({ plan, platform, revision, previousReview });
+  const promptPackage = buildPremiumPromptPackage({ plan, platform, script, revision, previousReview });
+  const duration = platform === "instagram_story" ? 9 : 18;
+  const providerDir = resolve(root, "creative-studio", plan.productionId?.slice(0, 10) || "daily", "real-video");
+  const requestPath = resolve(providerDir, `${base}-real-video-request.json`);
+  const rawOutputPath = resolve(providerDir, `${base}-provider-raw.mp4`);
+  const request = {
+    version: "1.0.0",
+    kind: "byl_real_video_generation",
+    productionId: plan.productionId,
+    slotId: plan.slotId,
+    platform,
+    mediaKind,
+    format: "vertical 9:16, 1080x1920, mp4",
+    durationSeconds: duration,
+    objective: "Faire venir coachs sportifs, nutritionnistes et structures sur BYL pour lancer un essai gratuit de 14 jours.",
+    source: {
+      subject: plan.seed?.subject || "",
+      hook: plan.seed?.hook || "",
+      scenario: plan.seed?.scenario || "",
+      productDiscoveryPath: plan.seed?.productDiscoveryPath || [],
+      trendMechanic: plan.seed?.trendMechanicName || plan.seed?.trendMechanicId || "",
+    },
+    promptPackage,
+    requiredOutput: {
+      path: rawOutputPath,
+      minBytes: MIN_VIDEO_BYTES,
+      mustBeTrueVideo: true,
+      avoid: [
+        "simple slideshow",
+        "static images only",
+        "avatar IA evident",
+        "mains deformees",
+        "texte illisible",
+        "stock footage impersonnel",
+      ],
+    },
+  };
+  const providerResult = await requestRealVideo({ request, requestPath, rawOutputPath });
+  if (!providerResult.ok) {
+    await rm(outputPath, { force: true });
+    return {
+      script,
+      finalizerConfigPath: "",
+      renderer: "real_video_provider",
+      mediaKind,
+      trueVideoProvider: true,
+      providerRequestPath: requestPath,
+      providerOutputPath: rawOutputPath,
+      providerResult,
+      freshSourceError: providerResult.reason || "real_video_provider_not_ready",
+      finalizerSkipped: true,
+      finalizerSkipReason: providerResult.reason || "real_video_provider_not_ready",
+    };
+  }
+
+  const finalizerConfigPath = resolve(reportsDir, `${base}-real-video-finalizer.json`);
+  const finalizerPath = resolve(root, "src/finalize-daily-media.mjs");
+  const job = {
+    id: base,
+    input: providerResult.outputPath,
+    output: outputPath,
+    duration,
+    voice: /nutrition/i.test(plan.seed?.audienceSegment || plan.seed?.subject || "") ? "Amélie" : "Thomas",
+    aiVoice: /nutrition/i.test(plan.seed?.audienceSegment || plan.seed?.subject || "") ? "marin" : "cedar",
+    rate: 162,
+    voiceover:
+      platform === "instagram_story"
+        ? `${plan.seed?.hook || script.hook}. ${plan.seed?.interaction || "Reponds si tu veux voir comment ca marche."}`
+        : [plan.seed?.hook || script.hook, plan.seed?.scenario || script.scene2, "Essai gratuit 14 jours."].join(" "),
+    overlays: buildPremiumUgcOverlays({
+      plan,
+      platform,
+      scene: {
+        id: "real-video-provider",
+      },
+    }),
+  };
+  await writeFile(finalizerConfigPath, `${JSON.stringify({ date: plan.productionId?.slice(0, 10) || "", jobs: [job] }, null, 2)}\n`);
+  await execFileAsync(process.execPath, [finalizerPath, finalizerConfigPath], {
+    cwd: root,
+    env: {
+      ...process.env,
+      BYL_VOICE_PROVIDER: process.env.BYL_VOICE_PROVIDER || "openai",
+      BYL_VOICE_SPEED: process.env.BYL_VOICE_SPEED || "1.04",
+    },
+    maxBuffer: 1024 * 1024 * 32,
+  });
+  return {
+    script,
+    finalizerConfigPath,
+    renderer: "real_video_provider",
+    mediaKind,
+    trueVideoProvider: true,
+    providerRequestPath: requestPath,
+    providerOutputPath: providerResult.outputPath,
+    providerResult,
+    sourceVideoPath: providerResult.outputPath,
+    sourceImages: [],
+    freshSourceImages: [],
+    freshSourceRequiredCount: 0,
+    freshSourceActualCount: 0,
+    freshSourceGeneratedCount: 0,
+    freshSourceFallbackCount: 0,
+    freshSourceFallbackSources: [],
+    shotCount: 1,
+    renderStyleVersion: "real_video_provider_v1",
+  };
+}
+
 function normalizedHistory(mediaHistory = []) {
   return new Set(
     mediaHistory
@@ -2592,6 +2932,7 @@ async function critiqueAsset({
   }
 
   const sourceImages = Array.isArray(rendered?.sourceImages) ? rendered.sourceImages.filter(Boolean) : [];
+  const trueVideoProviderDelivered = Boolean(rendered?.trueVideoProvider && rendered?.providerResult?.ok);
   const sourceKeys = sourceImages.map(sourceImageKey);
   const duplicatedSources = sourceKeys.filter((key, index) => key && sourceKeys.indexOf(key) !== index);
   if (duplicatedSources.some((key) => !isMobileInterfaceSource(key))) {
@@ -2605,9 +2946,11 @@ async function critiqueAsset({
   const freshHumanSources = humanSources.filter((source) => isPublishableDailyHumanSource(source, date));
   const uniqueFreshHumanSources = uniqueImageList(freshHumanSources);
   const legacyHumanSources = humanSources.filter((source) => isLegacyHumanSource(source, date));
-  const requiredFreshCount =
-    rendered?.freshSourceRequiredCount || requiredFreshHumanShotCountForMediaKind(mediaKind, platform);
+  const requiredFreshCount = trueVideoProviderDelivered || REAL_VIDEO_PROVIDER_ENABLED
+    ? 0
+    : rendered?.freshSourceRequiredCount || requiredFreshHumanShotCountForMediaKind(mediaKind, platform);
   if (
+    !trueVideoProviderDelivered &&
     process.env.BYL_REQUIRE_DAILY_HUMAN_SOURCE !== "0" &&
     CREATIVE_STUDIO_PROVIDER === "ugc_human" &&
     UGC_RENDERER === "premium_multiplan" &&
@@ -2618,6 +2961,7 @@ async function critiqueAsset({
     warnings.push("Le media ne contient pas d'image humaine creee pour le jour courant.");
   }
   if (
+    !trueVideoProviderDelivered &&
     process.env.BYL_REQUIRE_DAILY_HUMAN_SOURCE !== "0" &&
     CREATIVE_STUDIO_PROVIDER === "ugc_human" &&
     UGC_RENDERER === "premium_multiplan" &&
@@ -2645,6 +2989,7 @@ async function critiqueAsset({
     warnings.push("Le studio a utilise une source de secours au lieu de creer toutes les images du jour.");
   }
   if (
+    !trueVideoProviderDelivered &&
     process.env.BYL_FORCE_FRESH_SOURCE_IMAGES === "1" &&
     process.env.BYL_REQUIRE_DAILY_HUMAN_SOURCE !== "0" &&
     CREATIVE_STUDIO_PROVIDER === "ugc_human" &&
@@ -2655,10 +3000,16 @@ async function critiqueAsset({
     reasons.push("fresh_source_generation_not_confirmed");
     warnings.push("Le bouton refaire exige plusieurs nouvelles images: toutes les sources humaines doivent etre regenerees.");
   }
-  if (rendered?.freshSourceError && uniqueFreshHumanSources.length < requiredFreshCount) {
+  if (!REAL_VIDEO_PROVIDER_ENABLED && !trueVideoProviderDelivered && rendered?.freshSourceError && uniqueFreshHumanSources.length < requiredFreshCount) {
     score -= 18;
     reasons.push("fresh_source_generation_failed");
     warnings.push(`Generation image du jour indisponible: ${rendered.freshSourceError}`);
+  }
+  if (REAL_VIDEO_PROVIDER_ENABLED && !trueVideoProviderDelivered) {
+    score -= 55;
+    reasons.push("real_video_provider_not_ready");
+    reasons.push("needs_realistic_video_provider");
+    warnings.push("Le provider vraie video n'a pas encore livre de MP4 final pour ce creneau.");
   }
 
   const interfaceSources = sourceImages.filter(isMobileInterfaceSource);
@@ -2733,14 +3084,16 @@ async function critiqueAsset({
       platformSpecific: !reasons.includes("same_asset_as_another_platform"),
       audioReady: !reasons.includes("audio_missing"),
       freshVisualSources:
-        !reasons.includes("fresh_daily_human_source_missing") &&
-        !reasons.includes("fresh_daily_human_source_count_below_minimum") &&
-        !reasons.includes("legacy_human_source_reused") &&
-        !reasons.includes("copied_local_library_source_reused") &&
-        !reasons.includes("fresh_source_fallback_used") &&
-        !reasons.includes("fresh_source_generation_not_confirmed") &&
-        !reasons.includes("fresh_source_generation_failed") &&
-        !reasons.includes("source_image_reused_inside_asset"),
+        trueVideoProviderDelivered ||
+        (!REAL_VIDEO_PROVIDER_ENABLED &&
+          !reasons.includes("fresh_daily_human_source_missing") &&
+          !reasons.includes("fresh_daily_human_source_count_below_minimum") &&
+          !reasons.includes("legacy_human_source_reused") &&
+          !reasons.includes("copied_local_library_source_reused") &&
+          !reasons.includes("fresh_source_fallback_used") &&
+          !reasons.includes("fresh_source_generation_not_confirmed") &&
+          !reasons.includes("fresh_source_generation_failed") &&
+          !reasons.includes("source_image_reused_inside_asset")),
       productScreenshotsReady: !reasons.includes("interface_insert_quality_failed"),
       ctaPresent: !reasons.includes("cta_missing_trial"),
       storyInteractive: platform !== "instagram_story" || !reasons.includes("story_not_interactive_enough"),
@@ -2759,7 +3112,16 @@ async function critiqueAsset({
       actual: uniqueFreshHumanSources.length,
       sources: uniqueFreshHumanSources,
       rejectedCopiedSources: copiedLocalLibrarySources,
+      bypassedByTrueVideoProvider: trueVideoProviderDelivered,
     },
+    realVideoProvider: rendered?.trueVideoProvider
+      ? {
+          delivered: trueVideoProviderDelivered,
+          requestPath: rendered.providerRequestPath || "",
+          outputPath: rendered.providerOutputPath || "",
+          reason: rendered.providerResult?.reason || "",
+        }
+      : null,
   };
 }
 
@@ -2782,7 +3144,7 @@ function finalReviewAfterRetries(review, attemptCount, maxRevisions) {
   if (attemptCount >= maxRevisions) reasons.add("quality_retry_limit_reached");
   if (reasons.has("needs_realistic_video_provider")) {
     warnings.push(
-      "L'agent a bien relance la creation, mais le provider local ne peut pas produire une vraie video humaine premium. Publication bloquee jusqu'au branchement d'un provider video realiste.",
+      "L'agent a bien cree la requete, mais aucun provider vraie video n'a livre de MP4 premium. Publication bloquee jusqu'au branchement ou retour du provider video.",
     );
   }
   warnings.push(
@@ -2908,7 +3270,34 @@ async function producePlatformAsset({
             revision,
             mediaKind,
           })
-        : CREATIVE_STUDIO_PROVIDER === "ugc_human"
+        : REAL_VIDEO_PROVIDER_ENABLED
+          ? await renderRealProviderVideo({
+            root,
+            projectRoot,
+            outputPath,
+            reportsDir,
+            base,
+            plan,
+            platform,
+            revision,
+            previousReview,
+            mediaKind,
+          })
+          : AUTONOMOUS_LOCAL_PROVIDER_ENABLED
+            ? await renderAutonomousProductVideo({
+              root,
+              projectRoot,
+              outputPath,
+              frameDir,
+              reportsDir,
+              base,
+              plan,
+              platform,
+              revision,
+              previousReview,
+              mediaKind,
+            })
+          : CREATIVE_STUDIO_PROVIDER === "ugc_human"
           ? await renderUgcHumanVideo({
             root,
             projectRoot,

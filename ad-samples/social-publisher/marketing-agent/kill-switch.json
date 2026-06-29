@@ -777,6 +777,69 @@
         "error": "Meta Graph POST 17841449330031780/media_publish: fetch failed | code=ECONNRESET | syscall=read | read ECONNRESET",
         "action": "retry_next_window"
       }
+    },
+    {
+      "at": "2026-06-29T05:28:45.139Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 16,
+        "total": 16,
+        "updated": 0,
+        "sampleErrors": [
+          "Meta Graph GET 857477100212912: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18142983556524389: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18099111391988502: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18138591487532730: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 27506921462235774: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+        ],
+        "rerunSkipped": "sandbox escalation disabled in this session"
+      }
+    },
+    {
+      "at": "2026-06-29T09:09:27.275Z",
+      "reason": "publish_network_transient",
+      "severity": "warning",
+      "source": "dashboard_publish_slot",
+      "details": {
+        "platform": "facebook",
+        "variantId": "studio-2026-06-24-wednesday-09h15-facebook-le-client-qui-a-beso",
+        "error": "fetch failed | code=ECONNRESET | syscall=read | read ECONNRESET",
+        "action": "retry_next_window"
+      }
+    },
+    {
+      "at": "2026-06-29T12:34:37.013Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 12,
+        "sampleErrors": [
+          "Meta Graph GET 857477100212912: The operation was aborted due to timeout",
+          "Meta Graph GET 18138591487532730: The operation was aborted due to timeout",
+          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
+          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
+        ]
+      }
+    },
+    {
+      "at": "2026-06-29T13:45:37.445Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 17,
+        "sampleErrors": [
+          "Meta Graph GET 857477100212912: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18142983556524389: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18099111391988502: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18138591487532730: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 27506921462235774: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+        ]
+      }
     }
   ]
 }

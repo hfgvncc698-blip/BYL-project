@@ -848,7 +848,11 @@ function scoreMarketingReasoning({ profile, variant = {}, copy = {}, slot = {}, 
     threeSecondBenefit: profile.hook || profile.angle,
   };
   const weakAnswers = Object.entries(answers)
-    .filter(([, value]) => /manque|pas encore|renforcer/.test(String(value)))
+    .filter(([, value]) =>
+      /Le probleme n'est pas encore|Il manque un deroule|doit etre rendue plus tangible|Probleme reel a renforcer|pas encore assez net/i.test(
+        String(value),
+      ),
+    )
     .map(([key]) => key);
 
   return {

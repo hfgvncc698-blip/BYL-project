@@ -24,6 +24,7 @@ function buildPublisherHtml(authorization = "") {
       window.SOCIAL_PUBLISHER_API_BASE = ${JSON.stringify(publisherApiBase)};
       window.SOCIAL_PUBLISHER_ADMIN_URL = "/admin";
       window.SOCIAL_PUBLISHER_AUTHORIZATION = ${JSON.stringify(authorization)};
+      window.SOCIAL_PUBLISHER_PAGE_ORIGIN = ${JSON.stringify(window.location.origin)};
     </script>
   `;
 

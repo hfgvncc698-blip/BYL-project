@@ -27,6 +27,15 @@
     "audit:sport-engine:samples": "node scripts/auditSportEngineSamples.cjs",
     "audit:public-pages": "node scripts/auditPublicPages.mjs",
     "social:daily:finalize": "node ad-samples/social-publisher/src/finalize-daily-media.mjs",
+    "social:agent:scout": "node ad-samples/social-publisher/src/trend-scout.mjs",
+    "social:agent:strategy": "node ad-samples/social-publisher/src/automation-runner.mjs --mode agent-plan",
+    "social:agent:daily": "node ad-samples/social-publisher/src/automation-runner.mjs --mode daily",
+    "social:agent:daily:real-video": "BYL_CREATIVE_STUDIO_PROVIDER=real_video node ad-samples/social-publisher/src/automation-runner.mjs --mode daily",
+    "social:agent:preflight": "node ad-samples/social-publisher/src/automation-runner.mjs --mode watchdog --dry-run",
+    "social:agent:autopilot": "node ad-samples/social-publisher/src/automation-runner.mjs --mode autopilot --dry-run",
+    "social:agent:autopilot:real-video": "BYL_CREATIVE_STUDIO_PROVIDER=real_video node ad-samples/social-publisher/src/automation-runner.mjs --mode autopilot --dry-run",
+    "social:agent:autopilot:execute": "node ad-samples/social-publisher/src/automation-runner.mjs --mode autopilot --execute",
+    "social:agent:media-intake": "node ad-samples/social-publisher/src/media-intake-agent.mjs",
     "social:meta:sync": "node ad-samples/social-publisher/src/sync-meta-insights.mjs"
   },
   "dependencies": {

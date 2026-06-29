@@ -1,0 +1,150 @@
+{
+  "version": "1.0.0",
+  "updatedAt": "2026-06-29",
+  "status": "local_seed_network_unavailable",
+  "operatingRule": "Veille live indisponible. Utiliser le seed local et ne pas pretendre que les tendances sont verifiees aujourd'hui.",
+  "sources": [
+    {
+      "label": "TikTok Creative Center - trend discovery",
+      "url": "https://ads.tiktok.com/business/creativecenter/inspiration/popular/hashtag/mobile/en",
+      "usage": "Verifier les hashtags, sons et mecanismes de montage avant les slots TikTok et Reels."
+    },
+    {
+      "label": "Instagram for Creators",
+      "url": "https://creators.instagram.com/",
+      "usage": "Verifier les formats Reels, carrousels et stories recommandes par la plateforme."
+    },
+    {
+      "label": "Google Trends France - coach/nutrition/gym demand",
+      "url": "https://trends.google.com/trends/explore?geo=FR&q=coach%20sportif,nutritionniste,salle%20de%20sport",
+      "usage": "Valider si l'angle coach, nutrition ou salle est le plus opportun localement."
+    }
+  ],
+  "mechanics": [
+    {
+      "id": "operator_pov_problem_first",
+      "name": "POV operateur, probleme avant produit",
+      "platforms": [
+        "instagram",
+        "tiktok",
+        "facebook"
+      ],
+      "slots": [],
+      "instruction": "Commencer dans une vraie situation de travail: notification client, planning charge, tableur ouvert, coach entre deux seances. Le produit apparait seulement apres la tension.",
+      "hookShape": "POV: tu dois repondre a un client, mais le contexte est partout sauf au bon endroit.",
+      "editPattern": "Plan 1 friction humaine 1-2s, plan 2 preuve du chaos, plan 3 micro-solution BYL, plan 4 payoff clair.",
+      "proofMoment": "Insert mobile court et lisible apres la friction, pas avant.",
+      "lastScoutAt": "2026-06-29T17:45:59.223Z",
+      "liveSourceSignals": []
+    },
+    {
+      "id": "comment_reply_story",
+      "name": "Reponse a objection/commentaire",
+      "platforms": [
+        "instagram",
+        "tiktok",
+        "instagram_story"
+      ],
+      "slots": [],
+      "instruction": "Transformer une objection reelle en mini-scene: prix, temps de migration, peur de perdre l'humain, clients peu adherents.",
+      "hookShape": "On m'a dit: encore un outil de plus. En vrai, le probleme est ailleurs.",
+      "editPattern": "Texte commentaire en ouverture, reponse par exemple concret, CTA conversationnel.",
+      "proofMoment": "Montrer l'avant/apres organisationnel en une seule preuve visuelle.",
+      "lastScoutAt": "2026-06-29T17:45:59.223Z",
+      "liveSourceSignals": []
+    },
+    {
+      "id": "quiet_workflow_reset",
+      "name": "Reset workflow calme",
+      "platforms": [
+        "instagram",
+        "facebook"
+      ],
+      "slots": [],
+      "instruction": "Mecanique premium et sobre: passer d'un espace mental disperse a une journee claire, sans surpromesse.",
+      "hookShape": "Le vrai luxe d'un coach, c'est une journee qui reste lisible.",
+      "editPattern": "Montage calme, plans courts, gestes reels, sous-titres sobres, pas de fond generique.",
+      "proofMoment": "Planning, fiche client ou programme centralise visible 1 seconde.",
+      "lastScoutAt": "2026-06-29T17:45:59.223Z",
+      "liveSourceSignals": []
+    },
+    {
+      "id": "story_poll_diagnostic",
+      "name": "Story diagnostic en 1 question",
+      "platforms": [
+        "instagram_story"
+      ],
+      "slots": [],
+      "instruction": "La story doit demander un choix simple et utile: messages, programmes, nutrition, relances, planning. Elle n'est jamais un extrait du Reel.",
+      "hookShape": "Tu perds le plus de temps sur quoi aujourd'hui ?",
+      "editPattern": "Une situation courte, une question sticker, une relance DM autorisee si reponse explicite.",
+      "proofMoment": "Aucun tunnel produit lourd; juste une preuve contextuelle courte.",
+      "lastScoutAt": "2026-06-29T17:45:59.223Z",
+      "liveSourceSignals": []
+    },
+    {
+      "id": "anti_ai_raw_detail",
+      "name": "Detail brut anti-rendu IA",
+      "platforms": [
+        "instagram",
+        "tiktok",
+        "facebook"
+      ],
+      "slots": [],
+      "instruction": "Ajouter des details imparfaits mais credibles: main qui hesite, carnet, salle en fond, lumiere naturelle, ecran mobile charge. Eviter les avatars et les scenes trop lisses.",
+      "hookShape": "Ce moment ou ton client pose une question simple et toi tu dois tout retrouver.",
+      "editPattern": "Camera epaule, micro-coupes, sous-titres courts, vraie respiration humaine.",
+      "proofMoment": "L'interface BYL sert a resoudre le moment, pas a faire une demo publicitaire.",
+      "lastScoutAt": "2026-06-29T17:45:59.223Z",
+      "liveSourceSignals": []
+    }
+  ],
+  "antiPatterns": [
+    "avatar IA ou visage trop parfait",
+    "fond statique avec texte marketing",
+    "hook generique du type arrete de faire ca",
+    "promesse business garantie",
+    "produit montre avant la douleur",
+    "story recyclee depuis un reel",
+    "meme media sur deux plateformes",
+    "trend mentionnee sans verification datee"
+  ],
+  "nextLiveAuditChecklist": [
+    "ouvrir TikTok Creative Center et relever 3 mecanismes adaptables",
+    "ouvrir Instagram for Creators et verifier le format prioritaire du jour",
+    "verifier Google Trends France pour coach sportif, nutritionniste et salle de sport",
+    "mettre a jour mechanics avec date, source, plateforme et angle BYL",
+    "relancer automation-runner --mode daily --date <date>",
+    "relancer les dry-runs exacts des slots du jour"
+  ],
+  "sourceSignals": [
+    {
+      "label": "TikTok Creative Center - trend discovery",
+      "url": "https://ads.tiktok.com/business/creativecenter/inspiration/popular/hashtag/mobile/en",
+      "usage": "Verifier les hashtags, sons et mecanismes de montage avant les slots TikTok et Reels.",
+      "ok": false,
+      "fetchedAt": "2026-06-29T17:45:59.221Z",
+      "latencyMs": 62,
+      "error": "fetch failed"
+    },
+    {
+      "label": "Instagram for Creators",
+      "url": "https://creators.instagram.com/",
+      "usage": "Verifier les formats Reels, carrousels et stories recommandes par la plateforme.",
+      "ok": false,
+      "fetchedAt": "2026-06-29T17:45:59.222Z",
+      "latencyMs": 1,
+      "error": "fetch failed"
+    },
+    {
+      "label": "Google Trends France - coach/nutrition/gym demand",
+      "url": "https://trends.google.com/trends/explore?geo=FR&q=coach%20sportif,nutritionniste,salle%20de%20sport",
+      "usage": "Valider si l'angle coach, nutrition ou salle est le plus opportun localement.",
+      "ok": false,
+      "fetchedAt": "2026-06-29T17:45:59.223Z",
+      "latencyMs": 1,
+      "error": "fetch failed"
+    }
+  ],
+  "lastScoutAt": "2026-06-29T17:45:59.223Z"
+}

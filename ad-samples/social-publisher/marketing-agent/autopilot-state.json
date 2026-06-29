@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "updatedAt": "2026-06-29T17:46:04.510Z",
+  "lastRun": {
+    "date": "2026-06-29",
+    "timeParis": "14:00",
+    "execute": false,
+    "slot": "monday-12h30-story",
+    "status": "autonomous_dry_run_cycle_finished",
+    "ok": true,
+    "reportPath": "/Users/tommarie/Projects/BYL-project/ad-samples/social-publisher/runs/2026-06-29-autopilot-dry-run-monday-12h30-story.json",
+    "blockers": [],
+    "nextAction": "Cycle pret en dry-run. Passer en --execute seulement apres verification des connecteurs publics."
+  }
+}
