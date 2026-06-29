@@ -2106,6 +2106,7 @@
         if (!path || /^https?:\/\//i.test(path) || path.startsWith("data:") || path.startsWith("blob:")) {
           return path;
         }
+        if (path.startsWith("/social-media/")) return `${safeDashboardBaseUrl().replace(/\/admin\/social-publisher$/, "")}${path}`;
         if (!socialPublisherApiBase || !path.startsWith("/")) return path;
         if (path === "/api/social-publisher") return socialPublisherApiBase;
         if (path.startsWith("/api/social-publisher/")) {

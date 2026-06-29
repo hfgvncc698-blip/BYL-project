@@ -293,7 +293,7 @@ tar \
 mkdir -p \
   "${BACKEND_STAGE}/ad-samples/social-publisher" \
   "${BACKEND_STAGE}/ad-samples/social-publisher/runs" \
-  "${BACKEND_STAGE}/ad-samples/social-publisher/public/social-media"
+  "${BACKEND_STAGE}/public/social-media"
 
 tar \
   --exclude ".cert" \
@@ -533,6 +533,7 @@ fi
 if command -v rsync >/dev/null 2>&1; then
   sudo rsync -a --delete \
     --exclude ".env" \
+    --exclude "public/social-media" \
     --exclude "ad-samples/social-publisher/.env.social" \
     --exclude "serviceAccountKey.json" \
     --exclude "firebase-service-account.json" \
@@ -540,11 +541,14 @@ if command -v rsync >/dev/null 2>&1; then
 else
   sudo find "\$REMOTE_BACKEND" -mindepth 1 -maxdepth 1 \
     ! -name ".env" \
+    ! -name "public" \
     ! -name "serviceAccountKey.json" \
     ! -name "firebase-service-account.json" \
     -exec rm -rf {} +
+  sudo mkdir -p "\$REMOTE_BACKEND/public/social-media"
   (cd "\$REMOTE_BACKEND_RELEASE" && tar \
     --exclude ".env" \
+    --exclude "public/social-media" \
     --exclude "ad-samples/social-publisher/.env.social" \
     --exclude "serviceAccountKey.json" \
     --exclude "firebase-service-account.json" \
