@@ -240,6 +240,7 @@ firebase_deploy_if_requested() {
 ts="$(date +%Y%m%d-%H%M%S)"
 ARCHIVE="byl-dist-${ts}.tgz"
 BACKEND_ARCHIVE="byl-backend-${ts}.tgz"
+BACKEND_STAGE="${TMPDIR:-/tmp}/byl-backend-stage-${ts}"
 SSH_CONTROL_PATH="${TMPDIR:-/tmp}/byl-deploy-${USER}-${HOST}-%p"
 SSH_OPTS=(-o ControlMaster=auto -o ControlPersist=10m -o ControlPath="${SSH_CONTROL_PATH}")
 REMOTE_SCRIPT="/tmp/byl-deploy-${ts}.sh"
@@ -248,6 +249,7 @@ REMOTE_SCRIPT_LOCAL="${TMPDIR:-/tmp}/byl-deploy-${ts}.sh"
 cleanup() {
   ssh "${SSH_OPTS[@]}" -O exit "${USER}@${HOST}" >/dev/null 2>&1 || true
   rm -f "${ARCHIVE}" "${BACKEND_ARCHIVE}" "${REMOTE_SCRIPT_LOCAL}"
+  rm -rf "${BACKEND_STAGE}"
 }
 trap cleanup EXIT
 
@@ -277,6 +279,8 @@ echo "Archive dist -> ${ARCHIVE}"
 tar -C dist -czf "${ARCHIVE}" .
 
 echo "Archive backend -> ${BACKEND_ARCHIVE}"
+rm -rf "${BACKEND_STAGE}"
+mkdir -p "${BACKEND_STAGE}"
 tar \
   --exclude "node_modules" \
   --exclude ".env" \
@@ -284,7 +288,26 @@ tar \
   --exclude "firebase-service-account.json" \
   --exclude "*.log" \
   -C backend \
-  -czf "${BACKEND_ARCHIVE}" .
+  -cf - . | tar -C "${BACKEND_STAGE}" -xf -
+
+mkdir -p \
+  "${BACKEND_STAGE}/ad-samples/social-publisher" \
+  "${BACKEND_STAGE}/ad-samples/social-publisher/runs" \
+  "${BACKEND_STAGE}/ad-samples/social-publisher/public/social-media"
+
+tar \
+  --exclude ".cert" \
+  --exclude ".env.social" \
+  --exclude "*.log" \
+  --exclude "chatgpt-assets" \
+  --exclude "creative-studio" \
+  --exclude "public/social-media" \
+  --exclude "runs" \
+  -C ad-samples \
+  -cf - social-publisher/src social-publisher/campaigns social-publisher/marketing-agent social-publisher/media-library social-publisher/demo-assets social-publisher/story-overlays | \
+  tar -C "${BACKEND_STAGE}/ad-samples" -xf -
+
+tar -C "${BACKEND_STAGE}" -czf "${BACKEND_ARCHIVE}" .
 
 echo "Preparation du script distant -> ${REMOTE_SCRIPT_LOCAL}"
 cat > "${REMOTE_SCRIPT_LOCAL}" <<EOF
@@ -367,6 +390,7 @@ echo "Preparation dossiers..."
 sudo mkdir -p "\$REMOTE_WEBROOT" "\$REMOTE_BACKUPS" "\$REMOTE_RELEASE" "\$REMOTE_BACKEND"
 BK=""
 BK_BACKEND=""
+SOCIAL_ENV_BACKUP="/tmp/byl-social-env-${ts}"
 
 echo "Extraction front dans release temporaire..."
 sudo rm -rf "\$REMOTE_RELEASE"
@@ -390,6 +414,10 @@ prepare_canary_env() {
   if [ -f "\$REMOTE_BACKEND/.env" ]; then
     cp "\$REMOTE_BACKEND/.env" "\$REMOTE_BACKEND_RELEASE/.env"
   fi
+  if [ -f "\$REMOTE_BACKEND/ad-samples/social-publisher/.env.social" ]; then
+    mkdir -p "\$REMOTE_BACKEND_RELEASE/ad-samples/social-publisher"
+    cp "\$REMOTE_BACKEND/ad-samples/social-publisher/.env.social" "\$REMOTE_BACKEND_RELEASE/ad-samples/social-publisher/.env.social"
+  fi
   if [ -f "\$REMOTE_BACKEND/serviceAccountKey.json" ]; then
     cp "\$REMOTE_BACKEND/serviceAccountKey.json" "\$REMOTE_BACKEND_RELEASE/serviceAccountKey.json"
   fi
@@ -411,6 +439,7 @@ prepare_canary_env() {
 run_backend_canary() {
   local canary_log="/tmp/byl-backend-canary-${ts}.log"
   local canary_pid=""
+  local admin_key=""
 
   echo "Test canary backend sur le port \$REMOTE_CANARY_PORT..."
   prepare_canary_env
@@ -422,6 +451,23 @@ run_backend_canary() {
   for attempt in \$(seq 1 15); do
     if curl --fail --silent --show-error --max-time 5 "http://127.0.0.1:\$REMOTE_CANARY_PORT/api/health" >/dev/null; then
       echo "Canary backend OK."
+      if [ -f "\$REMOTE_BACKEND_RELEASE/.env" ]; then
+        admin_key="\$(awk -F= '/^ADMIN_SEARCH_KEY=/ {print \$2; exit}' "\$REMOTE_BACKEND_RELEASE/.env" | tr -d '"'\''[:space:]' || true)"
+      fi
+      if [ -n "\$admin_key" ]; then
+        echo "Test canary Social Publisher..."
+        if ! curl --fail --silent --show-error --max-time 10 \
+          -H "x-admin-key: \$admin_key" \
+          "http://127.0.0.1:\$REMOTE_CANARY_PORT/api/social-publisher/connections" >/dev/null; then
+          echo "Le canary Social Publisher ne repond pas."
+          cat "\$canary_log" || true
+          kill "\$canary_pid" >/dev/null 2>&1 || true
+          wait "\$canary_pid" >/dev/null 2>&1 || true
+          return 1
+        fi
+      else
+        echo "ADMIN_SEARCH_KEY absent: test canary Social Publisher ignore."
+      fi
       kill "\$canary_pid" >/dev/null 2>&1 || true
       wait "\$canary_pid" >/dev/null 2>&1 || true
       rm -f "\$canary_log"
@@ -448,6 +494,7 @@ run_backend_canary
 echo "Nettoyage des secrets temporaires de la release backend..."
 rm -f \
   "\$REMOTE_BACKEND_RELEASE/.env" \
+  "\$REMOTE_BACKEND_RELEASE/ad-samples/social-publisher/.env.social" \
   "\$REMOTE_BACKEND_RELEASE/serviceAccountKey.json" \
   "\$REMOTE_BACKEND_RELEASE/firebase-service-account.json"
 
@@ -480,9 +527,13 @@ sudo chown -R www-data:www-data "\$REMOTE_WEBROOT"
 sudo chmod -R 755 "\$REMOTE_WEBROOT"
 
 echo "Publication backend..."
+if [ -f "\$REMOTE_BACKEND/ad-samples/social-publisher/.env.social" ]; then
+  cp "\$REMOTE_BACKEND/ad-samples/social-publisher/.env.social" "\$SOCIAL_ENV_BACKUP"
+fi
 if command -v rsync >/dev/null 2>&1; then
   sudo rsync -a --delete \
     --exclude ".env" \
+    --exclude "ad-samples/social-publisher/.env.social" \
     --exclude "serviceAccountKey.json" \
     --exclude "firebase-service-account.json" \
     "\$REMOTE_BACKEND_RELEASE"/ "\$REMOTE_BACKEND"/
@@ -494,9 +545,15 @@ else
     -exec rm -rf {} +
   (cd "\$REMOTE_BACKEND_RELEASE" && tar \
     --exclude ".env" \
+    --exclude "ad-samples/social-publisher/.env.social" \
     --exclude "serviceAccountKey.json" \
     --exclude "firebase-service-account.json" \
     -cf - .) | sudo tar -C "\$REMOTE_BACKEND" -xf -
+fi
+if [ -f "\$SOCIAL_ENV_BACKUP" ]; then
+  sudo mkdir -p "\$REMOTE_BACKEND/ad-samples/social-publisher"
+  sudo cp "\$SOCIAL_ENV_BACKUP" "\$REMOTE_BACKEND/ad-samples/social-publisher/.env.social"
+  rm -f "\$SOCIAL_ENV_BACKUP"
 fi
 sudo chown -R "\$USER":"\$USER" "\$REMOTE_BACKEND"
 

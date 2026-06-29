@@ -120,9 +120,20 @@ console.log(
   '[Stripe] Webhook mounted at /api/payments/stripe-webhook (raw body enabled)'
 );
 
-const socialPublisherModuleUrl = pathToFileURL(
-  path.join(__dirname, '..', 'ad-samples', 'social-publisher', 'src', 'dashboard-server.mjs')
-).href;
+const socialPublisherModuleCandidates = [
+  process.env.SOCIAL_PUBLISHER_DASHBOARD_MODULE,
+  path.join(__dirname, '..', 'ad-samples', 'social-publisher', 'src', 'dashboard-server.mjs'),
+  path.join(__dirname, 'ad-samples', 'social-publisher', 'src', 'dashboard-server.mjs'),
+].filter(Boolean);
+
+function resolveSocialPublisherModulePath() {
+  return (
+    socialPublisherModuleCandidates.find((candidate) => fs.existsSync(candidate)) ||
+    socialPublisherModuleCandidates[0]
+  );
+}
+
+const socialPublisherModuleUrl = pathToFileURL(resolveSocialPublisherModulePath()).href;
 let socialPublisherModulePromise;
 
 function getSocialPublisherModule() {
@@ -211,6 +222,14 @@ app.use('/api/social-publisher', async (req, res, next) => {
     return handleRequest(req, res);
   } catch (error) {
     req.url = originalUrl;
+    console.error('[social-publisher] request failed:', error?.stack || error?.message || error);
+    if (!res.headersSent) {
+      return res.status(500).json({
+        ok: false,
+        error: 'social_publisher_unavailable',
+        message: error?.message || 'Social Publisher unavailable',
+      });
+    }
     return next(error);
   } finally {
     req.url = originalUrl;
