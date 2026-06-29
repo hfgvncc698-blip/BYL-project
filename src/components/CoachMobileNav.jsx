@@ -19,7 +19,6 @@ import { useTranslation } from "react-i18next";
 import {
   MdOutlineCalendarMonth,
   MdOutlineFitnessCenter,
-  MdOutlineInsights,
   MdOutlinePeopleAlt,
   MdOutlineRestaurantMenu,
   MdOutlineSpaceDashboard,
@@ -71,6 +70,7 @@ export default function CoachMobileNav() {
   const hasSportAccess = hasPlanModule(user, "sport");
   const hasNutritionAccess = hasPlanModule(user, "nutrition");
   const nutritionOnly = hasNutritionAccess && !hasSportAccess;
+  const sportOnly = hasSportAccess && !hasNutritionAccess;
 
   const activeBlue = useColorModeValue("#2563EB", "#7CB7FF");
   const activeBlueDark = useColorModeValue("#1D4ED8", "#9BC7FF");
@@ -100,14 +100,12 @@ export default function CoachMobileNav() {
       path: nutritionOnly ? "/clients?view=nutrition" : "/clients",
     },
     { label: t("nav.new", "Nouveau"), icon: AddIcon, action: actionModal.onOpen },
-    { label: t("nutrition.title", "Nutrition"), icon: MdOutlineRestaurantMenu, path: "/nutrition-coach" },
-    {
-      label: nutritionOnly
-        ? t("auto.CoachMobileNav.stats", "Stats")
-        : t("auto.CoachMobileNav.programmes", "Programmes"),
-      icon: nutritionOnly ? MdOutlineInsights : MdOutlineFitnessCenter,
-      path: nutritionOnly ? "/statistics-coach" : "/programmes",
-    },
+    sportOnly
+      ? { label: t("auto.CoachMobileNav.planning", "Planning"), icon: MdOutlineCalendarMonth, path: "/coach-dashboard#planning" }
+      : { label: t("nutrition.title", "Nutrition"), icon: MdOutlineRestaurantMenu, path: "/nutrition-coach" },
+    nutritionOnly
+      ? { label: t("auto.CoachMobileNav.planning", "Planning"), icon: MdOutlineCalendarMonth, path: "/coach-dashboard#planning" }
+      : { label: t("auto.CoachMobileNav.programmes", "Programmes"), icon: MdOutlineFitnessCenter, path: "/programmes" },
   ];
 
   const preloadPath = React.useCallback((path = "") => {

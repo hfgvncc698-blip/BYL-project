@@ -8263,42 +8263,59 @@ alignItems="stretch">
               }
               icon={CalendarIcon}
               action={
-                <Box display={{ base: "none", md: "block" }}>
-                  {renderDashboardWidgetAction("calendar",
-                    <HStack spacing={2}>
-                      <Button
-                        size="sm"
-                        leftIcon={<AddIcon />}
-                        borderRadius="14px"
-                        bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
-                        color="white"
-                        _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
-                        _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          addSessionModal.onOpen();
-                        }}
-                      >
-                        {t("exerciseCard.add", "Ajouter")}
-                      </Button>
-                      {calendarConnectionChecked && calendarConnectedOnce ? (
+                <HStack spacing={2}>
+                  <IconButton
+                    display={{ base: "inline-flex", md: "none" }}
+                    aria-label={t("exerciseCard.add", "Ajouter")}
+                    icon={<AddIcon />}
+                    size="sm"
+                    borderRadius="14px"
+                    bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
+                    color="white"
+                    _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
+                    _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      addSessionModal.onOpen();
+                    }}
+                  />
+                  <Box display={{ base: "none", md: "block" }}>
+                    {renderDashboardWidgetAction("calendar",
+                      <HStack spacing={2}>
                         <Button
-                          data-tour="coach-calendar-sync"
                           size="sm"
+                          leftIcon={<AddIcon />}
                           borderRadius="14px"
-                          variant="outline"
-                          leftIcon={<Icon as={MdOutlineLink} />}
+                          bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
+                          color="white"
+                          _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
+                          _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleOpenCalendarLinkModal();
+                            addSessionModal.onOpen();
                           }}
                         >
-                          {t("auto.CoachDashboard.voir_le_lien_calendrier", "Voir le lien")}
+                          {t("exerciseCard.add", "Ajouter")}
                         </Button>
-                      ) : null}
-                    </HStack>
-                  )}
-                </Box>
+                        {calendarConnectionChecked && calendarConnectedOnce ? (
+                          <Button
+                            data-tour="coach-calendar-sync"
+                            size="sm"
+                            borderRadius="14px"
+                            variant="outline"
+                            leftIcon={<Icon as={MdOutlineLink} />}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenCalendarLinkModal();
+                            }}
+                          >
+                            {t("auto.CoachDashboard.voir_le_lien_calendrier", "Voir le lien")}
+                          </Button>
+                        ) : null}
+                      </HStack>
+                    )}
+                  </Box>
+                </HStack>
                 }
             >
               {isDashboardWidgetCollapsed("calendar") ? null : (
@@ -8376,48 +8393,89 @@ alignItems="stretch">
                 </SimpleGrid>
 
                 <VStack align="stretch" spacing={2.5}>
-                  {mobileCalendarWeekSessions.slice(0, 5).map((event) => (
-                    <Box
-                      key={event.id}
-                      as="button"
-                      type="button"
-                      textAlign="left"
-                      border="1px solid"
-                      borderColor={borderColor}
-                      borderRadius="18px"
-                      p={3}
-                      bg={modeValue("rgba(255,255,255,0.64)", "rgba(255,255,255,0.035)")}
-                      onClick={() => {
-                        setSelectedEvent(event);
-                        eventModal.onOpen();
-                      }}
-                      transition="all 0.2s ease"
-                      _hover={{ borderColor: activeBlue, transform: "translateY(-1px)" }}
-                    >
-                      <HStack justify="space-between" spacing={3}>
-                        <Box minW={0}>
-                          <Text fontWeight="850" noOfLines={1}>
-                            {event._clientName || t("dashboard.client", "Client")}
-                          </Text>
-                          <Text mt={1} fontSize="sm" color={mutedText} noOfLines={1}>
-                            {event._sessionTitle || event.title || (nutritionOnlyDashboard ? t("nutrition.title", "Nutrition") : t("form.session", "Séance"))}
-                          </Text>
-                          <Text mt={1} fontSize="xs" color={subtleText}>
-                            {event.start.toLocaleString(i18n.language || "fr", {
-                              weekday: "short",
-                              day: "2-digit",
-                              month: "short",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </Text>
-                        </Box>
-                        <Circle size="34px" bg={`${warningOrange}18`} color={warningOrange} flexShrink={0}>
-                          <Icon as={MdOutlineSchedule} boxSize="18px" />
-                        </Circle>
-                      </HStack>
-                    </Box>
-                  ))}
+                  {mobileCalendarWeekSessions.slice(0, 5).map((event) => {
+                    const status = String(event.status || "").trim().toLowerCase();
+                    const endMs = getEventEndMs(event);
+                    const isDone =
+                      event._kind === "completed" ||
+                      status === "validée" ||
+                      status === "validee" ||
+                      status === "done" ||
+                      status === "completed";
+                    const isMissed =
+                      status === "manquée" ||
+                      status === "manquee" ||
+                      status === "missed" ||
+                      status === "cancelled" ||
+                      status === "canceled";
+                    const isPastUnvalidated = !isDone && !isMissed && endMs > 0 && endMs <= Date.now();
+                    const rating = normRating(event.difficultyRating);
+                    const statusMeta = isDone
+                      ? { label: t("status.validated", "Validée"), colorScheme: "green", tone: activeGreen }
+                      : isMissed
+                        ? { label: t("status.missed", "Manquée"), colorScheme: "red", tone: dangerRed }
+                        : isPastUnvalidated
+                          ? { label: t("dashboard.calendar_not_validated", "Non validée"), colorScheme: "orange", tone: warningOrange }
+                          : { label: t("status.upcoming", "À venir"), colorScheme: "blue", tone: activeBlue };
+                    const noteLabel = rating
+                      ? t("dashboard.calendar_rated", "Notée {{rating}}/5", { rating })
+                      : isDone
+                        ? t("dashboard.calendar_not_rated", "Pas de note")
+                        : null;
+
+                    return (
+                      <Box
+                        key={event.id}
+                        as="button"
+                        type="button"
+                        textAlign="left"
+                        border="1px solid"
+                        borderColor={isPastUnvalidated ? `${warningOrange}66` : isDone ? `${activeGreen}55` : borderColor}
+                        borderRadius="18px"
+                        p={3}
+                        bg={modeValue("rgba(255,255,255,0.64)", "rgba(255,255,255,0.035)")}
+                        onClick={() => {
+                          setSelectedEvent(event);
+                          eventModal.onOpen();
+                        }}
+                        transition="all 0.2s ease"
+                        _hover={{ borderColor: activeBlue, transform: "translateY(-1px)" }}
+                      >
+                        <HStack justify="space-between" align="flex-start" spacing={3}>
+                          <Box minW={0} flex="1">
+                            <HStack spacing={2} mb={1} wrap="wrap">
+                              <Text fontWeight="850" noOfLines={1}>
+                                {event._clientName || t("dashboard.client", "Client")}
+                              </Text>
+                              <Badge colorScheme={statusMeta.colorScheme} borderRadius="full" px={2} py={0.5}>
+                                {statusMeta.label}
+                              </Badge>
+                              {noteLabel ? (
+                                <Badge colorScheme={rating ? "purple" : "gray"} borderRadius="full" px={2} py={0.5}>
+                                  {noteLabel}
+                                </Badge>
+                              ) : null}
+                            </HStack>
+                            <Text mt={1} fontSize="sm" color={mutedText} noOfLines={2}>
+                              {event._sessionTitle || event.title || (nutritionOnlyDashboard ? t("nutrition.title", "Nutrition") : t("form.session", "Séance"))}
+                            </Text>
+                            <Text mt={1} fontSize="xs" color={subtleText}>
+                              {event.start.toLocaleString(i18n.language || "fr", {
+                                weekday: "short",
+                                day: "2-digit",
+                                month: "short",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </Text>
+                          </Box>
+                          <Circle size="34px" bg={`${statusMeta.tone}18`} color={statusMeta.tone} flexShrink={0}>
+                            <Icon as={isDone ? CheckCircleIcon : MdOutlineSchedule} boxSize="18px" />
+                          </Circle>
+                        </HStack>
+                      </Box>
+                    );
+                  })}
                   {!mobileCalendarWeekSessions.length && (
                     <HStack spacing={3} align="flex-start">
                       <Circle size="34px" bg={`${warningOrange}18`} color={warningOrange} flexShrink={0}>

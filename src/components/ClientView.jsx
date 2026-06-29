@@ -74,6 +74,11 @@ import { notify } from "../utils/notify";
 import { useAppTheme } from "../styles/appTheme";
 import { useAuth } from "../AuthContext";
 import { apiFetch } from "../utils/api";
+import {
+  formatProgramActiveWeeks,
+  formatProgramWeekProgress,
+  getProgramActiveWeeksLabel,
+} from "../utils/programDuration";
 
 const SUBCOL_PROGRAMMES = "programmes";
 const SUBCOL_SESSIONS_DONE = "sessionsEffectuees";
@@ -159,6 +164,44 @@ function nameFromProgramme(s = {}, prog = {}) {
 
 function getSessionName(s, prog) {
   return directSessionName(s) ?? nameFromProgramme(s, prog) ?? null;
+}
+
+function getSessionFallbackLabel(s = {}, t = null) {
+  const zeroBased = [
+    s.sessionIndex,
+    s.seanceIndex,
+    s.indexSeance,
+    s.index,
+    s.idx,
+  ].find((v) => Number.isFinite(Number(v)));
+  if (zeroBased !== undefined) {
+    return `${typeof t === "function" ? t("form.session", "Séance") : "Séance"} ${Number(zeroBased) + 1}`;
+  }
+
+  const oneBased = [s.numeroSeance, s.num, s.seanceNumero].find((v) =>
+    Number.isFinite(Number(v))
+  );
+  if (oneBased !== undefined) {
+    return `${typeof t === "function" ? t("form.session", "Séance") : "Séance"} ${Number(oneBased)}`;
+  }
+
+  return typeof t === "function" ? t("form.session", "Séance") : "Séance";
+}
+
+function getLastSessionPlayedInfo(prog, t = null) {
+  return (prog?.sessionsEffectuees || [])
+    .map((s) => {
+      const rawDone = s?.[FIELD_DONE_DATE] ?? s?.completedAt ?? s?.validatedAt ?? s?.playedAt ?? s?.date;
+      const d = rawDone?.toDate ? rawDone.toDate() : toJsDate(rawDone);
+      return d instanceof Date && !isNaN(d)
+        ? {
+            date: d,
+            name: getSessionName(s, prog) || getSessionFallbackLabel(s, t),
+          }
+        : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.date - a.date)[0] || null;
 }
 
 /* --------- Conversions unités --------- */
@@ -1505,19 +1548,12 @@ export default function ClientView() {
                 const totalPrevues = getTotalSessionsFromProgrammeDoc(p);
                 const nbSessEff = getCompletedSessionsForProgramme(p);
 
-                const lastSessObj = (p.sessionsEffectuees || [])
-                  .map((s) => {
-                    const rawDone = s?.[FIELD_DONE_DATE];
-                    const d = rawDone?.toDate ? rawDone.toDate() : toJsDate(rawDone);
-                    return d instanceof Date && !isNaN(d)
-                      ? { date: d, name: getSessionName(s, p) || undefined }
-                      : null;
-                  })
-                  .filter(Boolean)
-                  .sort((a, b) => b.date - a.date)[0];
+                const lastSessObj = getLastSessionPlayedInfo(p, t);
 
                 const lastActivityDate = getProgrammeLastActivityDate(p);
                 const assignedDate = pickAssignedDate(p);
+                const activeWeeksLabel = formatProgramActiveWeeks(p, t);
+                const weekProgressLabel = formatProgramWeekProgress(p, t, { includeInitialWeek: true });
 
                 const noteTooltip = (() => {
                   if (!p.__lastRating) return null;
@@ -1550,6 +1586,16 @@ export default function ClientView() {
                         <Text fontSize="xs" color={muted}>
                           {assignedDate ? `Assigné/créé : ${assignedDate.toLocaleDateString()}` : "—"}
                         </Text>
+                        {activeWeeksLabel ? (
+                          <Text fontSize="xs" color={muted}>
+                            {getProgramActiveWeeksLabel(t)} : {activeWeeksLabel}
+                          </Text>
+                        ) : null}
+                        {weekProgressLabel ? (
+                          <Badge mt={1} variant="subtle" colorScheme="purple" borderRadius="full">
+                            {weekProgressLabel}
+                          </Badge>
+                        ) : null}
                       </VStack>
                     </Td>
 
@@ -1627,6 +1673,9 @@ export default function ClientView() {
                 totalPrevues > 0 ? Math.min(100, Math.round((nbSessEff / totalPrevues) * 100)) : 0;
 
               const lastActivityDate = getProgrammeLastActivityDate(p);
+              const lastSessObj = getLastSessionPlayedInfo(p, t);
+              const activeWeeksLabel = formatProgramActiveWeeks(p, t);
+              const weekProgressLabel = formatProgramWeekProgress(p, t, { includeInitialWeek: true });
 
               const noteTooltip = (() => {
                 if (!p.__lastRating) return null;
@@ -1665,11 +1714,16 @@ export default function ClientView() {
                   <SimpleGrid columns={2} spacing={2} mt={3}>
                     <Box bg={panelBg} border="1px solid" borderColor={panelBorder} borderRadius="16px" p={2.5}>
                       <Text fontSize="10px" color={muted} fontWeight="900" textTransform="uppercase" noOfLines={1}>
-                        {t("clientView.lastActivity", "Dernière activité")}
+                        {getProgramActiveWeeksLabel(t)}
                       </Text>
                       <Text mt={1} fontSize="sm" fontWeight="850" noOfLines={1}>
-                        {lastActivityDate ? lastActivityDate.toLocaleDateString() : "—"}
+                        {activeWeeksLabel || "—"}
                       </Text>
+                      {weekProgressLabel ? (
+                        <Text mt={1} fontSize="xs" color={muted} fontWeight="800" noOfLines={1}>
+                          {weekProgressLabel}
+                        </Text>
+                      ) : null}
                     </Box>
                     <Box bg={panelBg} border="1px solid" borderColor={panelBorder} borderRadius="16px" p={2.5}>
                       <Text fontSize="10px" color={muted} fontWeight="900" textTransform="uppercase" noOfLines={1}>
@@ -1678,6 +1732,27 @@ export default function ClientView() {
                       <Text mt={1} fontSize="sm" fontWeight="850" noOfLines={1}>
                         {nbSessEff}/{totalPrevues}
                       </Text>
+                    </Box>
+                    <Box bg={panelBg} border="1px solid" borderColor={panelBorder} borderRadius="16px" p={2.5}>
+                      <Text fontSize="10px" color={muted} fontWeight="900" textTransform="uppercase" noOfLines={1}>
+                        {t("clientView.lastActivity", "Dernière activité")}
+                      </Text>
+                      <Text mt={1} fontSize="sm" fontWeight="850" noOfLines={1}>
+                        {lastActivityDate ? lastActivityDate.toLocaleDateString() : "—"}
+                      </Text>
+                    </Box>
+                    <Box bg={panelBg} border="1px solid" borderColor={panelBorder} borderRadius="16px" p={2.5}>
+                      <Text fontSize="10px" color={muted} fontWeight="900" textTransform="uppercase" noOfLines={1}>
+                        {t("clientView.lastPlayedSession", "Dernière séance jouée")}
+                      </Text>
+                      <Text mt={1} fontSize="sm" fontWeight="850" noOfLines={1}>
+                        {lastSessObj?.name || "—"}
+                      </Text>
+                      {lastSessObj?.date ? (
+                        <Text mt={1} fontSize="xs" color={muted} noOfLines={1}>
+                          {lastSessObj.date.toLocaleDateString()}
+                        </Text>
+                      ) : null}
                     </Box>
                   </SimpleGrid>
 

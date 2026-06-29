@@ -176,6 +176,9 @@
       "suffix": ". Podrás elegir un plan al final de la prueba."
     },
     "calendar": "Calendario",
+    "calendar_not_validated": "No validada",
+    "calendar_rated": "Valorada {{rating}}/5",
+    "calendar_not_rated": "Sin valoración",
     "assigned_clients_count": "{{count}} cliente asignado",
     "assigned_clients_count_other": "{{count}} clientes asignados",
     "assigned_to_list": "Asignado a",
@@ -631,7 +634,8 @@
       "open_email": "Abrir email"
     },
     "mobile": {
-      "today": "Hoy",
+    "today": "Hoy",
+    "this_week": "Esta semana",
       "no_appointment": "Sin cita",
       "no_session": "Sin sesión",
       "ready_to_plan": "Todo está libre para planificar el próximo seguimiento.",
@@ -661,6 +665,7 @@
     "start_datetime": "Fecha y hora de inicio",
     "session_title": "Sesión",
     "validate": "Validar",
+    "validated": "Validado",
     "missed": "perdido",
     "move": "Mover…",
     "new_datetime": "Nueva fecha y hora",
@@ -3428,10 +3433,66 @@
       "aucun_menu_partage_pour_le_moment": "No hay menú compartido por el momento.",
       "prepa": "preparación",
       "min_cuisson": "min • Cocinar",
+      "prep_cooking_line": "Preparación {{prep}} min • Cocción {{cook}} min",
+      "prepare_ingredients": "Preparar los ingredientes:",
+      "recipe_steps": {
+        "assembler_la_base_laitiere_ou_cerealiere_dans_un_bol": "Montar la base láctea o de cereales en un bol.",
+        "ajouter_le_fruit_ou_la_compote_au_dernier_moment": "Añadir la fruta o la compota en el último momento."
+      },
       "aucune_recette_partagee_pour_le_moment": "Aún no se han compartido recetas.",
       "aucune_liste_de_courses_partagee_pour_le_moment": "Aún no se han compartido listas de compras.",
       "aucune_fiche_conseil_partagee": "No se comparte ninguna hoja de consejos",
-      "le_professionnel_n_a_pas_encore_selectionne_de_fic": "El profesional aún no ha seleccionado ningún archivo para este seguimiento."
+      "le_professionnel_n_a_pas_encore_selectionne_de_fic": "El profesional aún no ha seleccionado ningún archivo para este seguimiento.",
+      "patient": "Paciente",
+      "coach": "Coach",
+      "nutrition_upper": "NUTRICIÓN",
+      "objectif": "OBJETIVO",
+      "objectifs": "Objetivos",
+      "reperes": "Referencias",
+      "contexte_partage": "Contexto compartido",
+      "ration_spontanee": "Registro alimentario",
+      "ligne_count": "{{count}} línea(s)",
+      "jour_count": "{{count}} día(s)",
+      "recette_count": "{{count}} receta(s)",
+      "aliment_count": "{{count}} alimento(s)",
+      "fiche_count": "{{count}} ficha(s)",
+      "bilan_count": "{{count}} evaluación(es) disponible(s)",
+      "click_releve": "Toca para ver el registro compartido.",
+      "click_repas": "Toca para ver las comidas.",
+      "click_recettes": "Toca para ver las recetas propuestas.",
+      "click_courses": "Toca para ver la compra agrupada.",
+      "click_conseils": "Toca para ver los consejos personalizados.",
+      "preparation": "Preparación",
+      "liste_de_courses": "Lista de la compra",
+      "fiches_partagees": "Fichas compartidas",
+      "ouvert": "Abierto",
+      "recent": "Reciente",
+      "sans_contrainte_particuliere": "Sin restricción específica",
+      "aucun_regime_specifique": "Sin dieta específica",
+      "a_ajuster": "Por ajustar",
+      "standard": "Estándar",
+      "aucune_contrainte_partagee": "Sin restricción compartida",
+      "ration_partagee": "Ración compartida",
+      "aliment": "Alimento",
+      "bilan_nutrition": "Evaluación nutricional",
+      "bilan_number": "Evaluación {{number}}",
+      "day_value": "Día {{day}}",
+      "day_progress": "Día {{current}} / {{total}}",
+      "recette_value": "Receta {{index}}",
+      "rayon": "Sección",
+      "conseil": "Consejo",
+      "conseil_value": "Consejo {{index}}",
+      "last_share_on": "Último compartido el {{date}}",
+      "last_update_on": "Última actualización compartida por tu profesional el {{date}}.",
+      "last_update": "Última actualización compartida por tu profesional.",
+      "meals": {
+        "petit_dej": "Desayuno",
+        "collation_1": "Tentempié de mañana",
+        "dejeuner": "Comida",
+        "collation_2": "Tentempié de tarde",
+        "diner": "Cena",
+        "collation_3": "Tentempié nocturno"
+      }
     },
     "ClientView": {
       "une_erreur_empeche_l_affichage_du_comparateur": "Un error impide que se muestre el comparador.",
@@ -3548,7 +3609,7 @@
       "seances_prevues_count": "{{count}} sesión planificada",
       "seances_validees_count": "{{done}}/{{total}} sesiones validadas",
       "statistiques": "Estadísticas",
-      "stats": "Stats",
+      "stats": "Estadísticas",
       "suivi_disponible": "seguimiento disponible",
       "synchronisation_du_suivi": "Sincronización del seguimiento",
       "ton_suivi_nutrition_est_disponible_ici": "Tu seguimiento nutricional está disponible aquí, con comidas, recetas y compras compartidas.",
@@ -5848,6 +5909,9 @@
     "status": {
       "operational": "Operacional"
     },
+    "mobile": {
+      "planned": "Planificado"
+    },
     "capacity": {
       "usedPercent": "{{percent}}% de capacidad utilizada"
     },
@@ -6029,6 +6093,33 @@
       "doneForToday": "Tous les rendez-vous du jour sont passés.",
       "empty": "Aucun rendez-vous planifié aujourd’hui.",
       "progressLabel": "Progression journée"
+    },
+    "setup": {
+      "badge": "Configuración",
+      "emptyTitle": "Este club está listo, solo falta ponerlo en marcha",
+      "emptyDetail": "Todavía no hay profesionales, clientes, programas ni citas vinculados. Lo más eficaz es añadir el primer profesional y luego conectar sus clientes al club.",
+      "identity": "Identidad del club",
+      "stepPro": "Crear el primer profesional",
+      "stepProDetail": "Esta cuenta llevará los clientes, programas y citas del club.",
+      "stepBrand": "Comprobar la identidad",
+      "stepBrandDetail": "Nombre, logo e idioma servirán de base para los espacios compartidos.",
+      "stepFollow": "Planificar la primera cita",
+      "stepFollowDetail": "El calendario se vuelve útil en cuanto se programa una cita."
+    },
+    "guide": {
+      "badge": "Guía",
+      "proTitle": "El club crea el profesional",
+      "proDetail": "Nombre, apellido, correo electrónico y especialidad. El acceso queda vinculado a la suscripción del club.",
+      "activationTitle": "El profesional activa su acceso",
+      "activationDetail": "El enlace de activación permite al profesional definir su contraseña y entrar en su espacio.",
+      "separateTitle": "Cada profesional trabaja por separado",
+      "separateDetail": "Clientes, pacientes, programas y seguimientos se gestionan en la interfaz habitual del profesional.",
+      "supervisionTitle": "El club supervisa",
+      "supervisionDetail": "El dashboard consolida equipo, capacidad, citas y actividad reciente.",
+      "limitsTitle": "Los límites se aplican",
+      "limitsDetail": "La creación se bloquea cuando se alcanzan los límites del plan club.",
+      "identityTitle": "La identidad del club se reutiliza",
+      "identityDetail": "Logo, nombre y preferencias se usan en documentos y espacios compartidos."
     },
     "exports": {
       "downloadCsv": "Télécharger CSV"

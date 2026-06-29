@@ -12,6 +12,7 @@ import { AuthProvider, useAuth } from "./AuthContext";
 import Navbar from "./components/Navbar";
 import ClientMobileNav, { CLIENT_MOBILE_NAV_PATHS } from "./components/ClientMobileNav.jsx";
 import CoachMobileNav, { COACH_MOBILE_NAV_PREFIXES } from "./components/CoachMobileNav.jsx";
+import ClubMobileNav, { CLUB_MOBILE_NAV_PREFIXES } from "./components/ClubMobileNav.jsx";
 import { Footer } from "./components/Footer";
 import LanguageRouteSync from "./components/LanguageRouteSync.jsx";
 import AppLoading from "./components/ui/AppLoading.jsx";
@@ -303,7 +304,11 @@ function AppContent() {
     !isSessionPlayerRoute &&
     !isProgramBuilderRoute &&
     COACH_MOBILE_NAV_PREFIXES.some((prefix) => location.pathname === prefix || location.pathname.startsWith(`${prefix}/`));
-  const showBottomMobileNav = showClientMobileNav || showCoachMobileNav;
+  const showClubMobileNav =
+    (user?.role === "club" || user?.role === "admin") &&
+    !isSessionPlayerRoute &&
+    CLUB_MOBILE_NAV_PREFIXES.some((prefix) => location.pathname === prefix || location.pathname.startsWith(`${prefix}/`));
+  const showBottomMobileNav = showClientMobileNav || showCoachMobileNav || showClubMobileNav;
 
   return (
     <>
@@ -719,6 +724,7 @@ function AppContent() {
       </Box>
       {showClientMobileNav ? <ClientMobileNav /> : null}
       {showCoachMobileNav ? <CoachMobileNav /> : null}
+      {showClubMobileNav ? <ClubMobileNav /> : null}
 
       {showFooter && <Footer />}
 

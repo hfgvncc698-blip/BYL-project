@@ -3,7 +3,8 @@ const stripDiacritics = (value) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[œŒ]/g, "oe")
-    .replace(/[æÆ]/g, "ae");
+    .replace(/[æÆ]/g, "ae")
+    .replace(/_/g, " ");
 
 const normalizeFoodKey = (value) =>
   stripDiacritics(value)
@@ -167,6 +168,14 @@ const baseTranslations = {
     it: "Cereali per la colazione",
     ar: "حبوب الإفطار",
     ru: "Хлопья для завтрака",
+  },
+  "petales de cereales": {
+    en: "Breakfast cereal flakes",
+    es: "Copos de cereales",
+    de: "Getreideflocken",
+    it: "Fiocchi di cereali",
+    ar: "رقائق الحبوب",
+    ru: "Зерновые хлопья",
   },
   "cereales petit dejeuner tres riches en fibres": {
     en: "Very high-fibre breakfast cereals",
@@ -412,6 +421,14 @@ const baseTranslations = {
     ru: "Куриное бедро, вареное/приготовленное в воде",
   },
   dinde: { en: "Turkey", es: "Pavo", de: "Pute", it: "Tacchino", ar: "ديك رومي", ru: "Индейка" },
+  "dinde viande rotie cuite au four": {
+    en: "Roasted or oven-cooked turkey",
+    es: "Pavo asado o cocido al horno",
+    de: "Pute, gebraten oder im Ofen gegart",
+    it: "Tacchino arrosto o cotto al forno",
+    ar: "ديك رومي مشوي أو مطهو في الفرن",
+    ru: "Индейка, жареная или запечённая",
+  },
   agneau: { en: "Lamb", es: "Cordero", de: "Lamm", it: "Agnello", ar: "لحم ضأن", ru: "Баранина" },
   "filet de porc": {
     en: "Pork tenderloin",

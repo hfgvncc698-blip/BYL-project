@@ -47,7 +47,7 @@ import {
 import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { doc, setDoc, updateDoc } from "firebase/firestore";
-import { AddIcon, ArrowBackIcon, ChevronDownIcon, DeleteIcon, TimeIcon } from "@chakra-ui/icons";
+import { AddIcon, ArrowBackIcon, ChevronDownIcon, CloseIcon, DeleteIcon, TimeIcon } from "@chakra-ui/icons";
 import { Calendar, momentLocalizer } from "react-big-calendar";
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
 import moment from "moment";
@@ -325,6 +325,10 @@ export default function ClubDashboard() {
   const calendarActiveBg = useColorModeValue("rgba(59,130,246,0.10)", "rgba(96,165,250,0.24)");
   const calendarMutedBg = useColorModeValue("rgba(15,23,42,0.015)", "rgba(255,255,255,0.035)");
   const calendarTodayBg = useColorModeValue("rgba(59,130,246,0.06)", "rgba(96,165,250,0.18)");
+  const setupEmptyBg = useColorModeValue(
+    "linear-gradient(135deg, rgba(239,246,255,0.98), rgba(240,253,250,0.86))",
+    "linear-gradient(135deg, rgba(15,23,42,0.96), rgba(8,47,73,0.52))"
+  );
   const location = useLocation();
   const navigate = useNavigate();
   const adminClubId = useMemo(() => {
@@ -349,10 +353,10 @@ export default function ClubDashboard() {
     },
     [adminClubId]
   );
-  const addAppointmentModal = useDisclosure();
   const appointmentDetailModal = useDisclosure();
   const inviteProModal = useDisclosure();
   const proLimitModal = useDisclosure();
+  const [isAddAppointmentModalOpen, setIsAddAppointmentModalOpen] = useState(false);
   const [proLimitModalDismissed, setProLimitModalDismissed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -718,6 +722,13 @@ export default function ClubDashboard() {
         .slice(0, 6),
     [filteredCalendarEvents, now]
   );
+  const isClubSetupEmpty =
+    !teamPros.length &&
+    !clubClients.length &&
+    !clubPrograms.length &&
+    !clubNutrition.length &&
+    !clubSessions.length &&
+    !upcomingFilteredAppointments.length;
   const todayAppointments = useMemo(
     () =>
       filteredCalendarEvents
@@ -1109,20 +1120,37 @@ export default function ClubDashboard() {
   const planAppointmentForCoach = (coach) => {
     if (!coach?.uid) return;
     setAppointmentForm((current) => ({ ...current, coachUid: coach.uid }));
-    addAppointmentModal.onOpen();
+    setIsAddAppointmentModalOpen(true);
   };
 
-  const openCalendarAppointmentModal = () => {
-    const selectedCoach = calendarCoachFilter.length === 1 ? calendarCoachFilter[0] : "";
+  const selectedCalendarCoachUid = calendarCoachFilter.length === 1 ? calendarCoachFilter[0] : "";
+  const openCalendarAppointmentModal = useCallback(() => {
     setAppointmentForm((current) => ({
       ...current,
-      coachUid: selectedCoach || current.coachUid || "",
+      coachUid: selectedCalendarCoachUid || current.coachUid || "",
       clientId: "",
       programId: "",
       sessionIndex: "",
     }));
-    addAppointmentModal.onOpen();
-  };
+    setIsAddAppointmentModalOpen(true);
+  }, [selectedCalendarCoachUid]);
+
+  const closeCalendarAppointmentModal = useCallback((event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    setIsAddAppointmentModalOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (location.pathname !== "/club-dashboard/calendrier") return;
+    const params = new URLSearchParams(location.search);
+    if (params.get("action") !== "new-appointment") return;
+
+    openCalendarAppointmentModal();
+    params.delete("action");
+    const nextSearch = params.toString();
+    navigate(`${location.pathname}${nextSearch ? `?${nextSearch}` : ""}${location.hash || ""}`, { replace: true });
+  }, [location.hash, location.pathname, location.search, navigate, openCalendarAppointmentModal]);
 
   const toggleCalendarCoach = (uid) => {
     setCalendarCoachFilter((current) =>
@@ -1386,7 +1414,7 @@ export default function ClubDashboard() {
       });
       toast({ title: t("auto.ClubDashboard.rendez_vous_ajoute_au_calendrier_club", "Rendez-vous ajouté au calendrier club"), status: "success", duration: 3500, isClosable: true });
       setAppointmentForm({ coachUid: "", clientId: "", type: "sport", programId: "", sessionIndex: "", appointmentKind: "suivi", durationMin: 60, title: "", startsAt: "", note: "" });
-      addAppointmentModal.onClose();
+      setIsAddAppointmentModalOpen(false);
       await loadSummary();
     } catch (err) {
       setError(friendlyError(err) || "Création du rendez-vous impossible.");
@@ -1662,7 +1690,7 @@ export default function ClubDashboard() {
   if (loading) return <AppLoading label={t("auto.ClubDashboard.chargement_de_l_espace_club", "Chargement de l’espace club...")} />;
 
   return (
-    <Box data-tour-page="club-dashboard" bg={theme.pageBg} minH="100vh" py={{ base: 6, md: 10 }} px={{ base: 4, md: 6 }}>
+    <Box data-tour-page="club-dashboard" bg={theme.pageBg} minH="100vh" py={{ base: 4, md: 10 }} px={{ base: 3, md: 6 }}>
       <Container maxW="container.xl">
         <VStack align="stretch" spacing={6}>
           {isClubTrial && (
@@ -1701,37 +1729,6 @@ export default function ClubDashboard() {
             </Box>
           )}
 
-          {showGuideBlock && (
-            <Box {...theme.cardProps} id="club-guide" data-tour="club-guide" p={{ base: 5, md: 6 }}>
-              <Stack direction={{ base: "column", md: "row" }} justify="space-between" gap={3} mb={4}>
-                <Box>
-                  <Heading size="md">{t("auto.ClubDashboard.fonctionnement_global", "Fonctionnement global")}</Heading>
-                  <Text color={theme.mutedText} fontSize="sm" mt={1}>{t("auto.ClubDashboard.une_aide_de_demarrage_masquable_quand_le_parc", "Une aide de démarrage, masquable quand le parcours est compris.")}</Text>
-                </Box>
-                <Button {...theme.primaryButtonProps} onClick={() => toggleGuide(false)}>{t("clubDashboard.actions.understood", "J’ai compris")}</Button>
-              </Stack>
-              <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
-                {[
-                  ["1. Le club crée le pro", "Le responsable renseigne prénom, nom, email et spécialité. Le compte est rattaché à l’abonnement du club, sans abonnement individuel."],
-                  ["2. Le pro active son accès", "Un lien d’activation est généré. Le club l’envoie au pro, qui définit son mot de passe puis se connecte à son propre espace."],
-                  ["3. Chaque pro travaille séparément", "Le pro gère ses clients, patients, programmes et suivis dans son interface habituelle. Ses données restent marquées avec l’identifiant du club."],
-                  ["4. Le club supervise", "Le dashboard consolide les pros, le volume de clients, les programmes et les dernières activités pour suivre la structure."],
-                  ["5. Les limites sont appliquées", "Le nombre de pros et de clients dépend de l’offre Club choisie. Quand une limite est atteinte, la création est bloquée côté API."],
-                  ["6. L’identité visuelle descend du club", "Le logo du club peut être utilisé sur les documents et espaces partagés selon le niveau d’offre."],
-                ].map(([title, copy]) => (
-                  <Box key={title} {...theme.tileProps} p={4}>
-                    <Text fontWeight="900" mb={2}>
-                      {title}
-                    </Text>
-                    <Text fontSize="sm" color={theme.mutedText}>
-                      {copy}
-                    </Text>
-                  </Box>
-                ))}
-              </SimpleGrid>
-            </Box>
-          )}
-
           {!showDashboard && (
             <Box {...theme.cardProps} p={{ base: 5, md: 7 }}>
               <Button
@@ -1753,7 +1750,7 @@ export default function ClubDashboard() {
           )}
 
           {showDashboard && (
-          <Box {...theme.cardProps} id="club-overview" data-tour="club-hero" p={{ base: 5, md: 8 }}>
+          <Box {...theme.cardProps} id="club-overview" data-tour="club-hero" p={{ base: 4, md: 8 }}>
             <Stack direction={{ base: "column", lg: "row" }} justify="space-between" gap={6} align={{ base: "stretch", lg: "center" }}>
               <HStack flex="1" minW={0} spacing={{ base: 3, md: 4 }} align="flex-start">
                 <Flex
@@ -1794,58 +1791,59 @@ export default function ClubDashboard() {
                       </Badge>
                     )}
                   </HStack>
-                  <Heading size="lg" lineHeight="1.05">{summary?.club?.name || t("clubDashboard.pages.dashboard.title", "Dashboard club")}</Heading>
-                  <Text color={theme.subtleText} fontSize="sm" fontWeight="800" mt={3} textTransform="capitalize">
+                  <Heading size={{ base: "md", md: "lg" }} lineHeight="1.05">{summary?.club?.name || t("clubDashboard.pages.dashboard.title", "Dashboard club")}</Heading>
+                  <Text color={theme.subtleText} fontSize="sm" fontWeight="800" mt={{ base: 2, md: 3 }} textTransform="capitalize">
                     {formatFullDate(new Date())}
                   </Text>
-                  <Text fontSize={{ base: "lg", md: "xl" }} fontWeight="900" mt={3}>
+                  <Text fontSize={{ base: "md", md: "xl" }} fontWeight="900" mt={{ base: 2, md: 3 }}>
                     {getGreeting()}{t("auto.ClubDashboard.voici_le_cockpit_du_club", ", voici le cockpit du club.")}</Text>
-                  <Text color={theme.mutedText} mt={2} maxW="760px">{t("auto.ClubDashboard.priorites_equipe_clients_programmes_et_procha", "Priorités, équipe, clients, programmes et prochains rendez-vous au même endroit.")}</Text>
+                  <Text color={theme.mutedText} mt={2} maxW="760px" fontSize={{ base: "sm", md: "md" }}>{t("auto.ClubDashboard.priorites_equipe_clients_programmes_et_procha", "Priorités, équipe, clients, programmes et prochains rendez-vous au même endroit.")}</Text>
                 </Box>
               </HStack>
-              <HStack align={{ base: "stretch", sm: "center" }} justify={{ base: "stretch", lg: "end" }} spacing={3} flexWrap="wrap">
+              <HStack display={{ base: "none", md: "flex" }} align={{ base: "stretch", sm: "center" }} justify={{ base: "stretch", lg: "end" }} spacing={3} flexWrap="wrap">
                 <Button {...theme.primaryButtonProps} leftIcon={<AddIcon />} onClick={openCreateCoachSection}>{t("auto.ClubDashboard.inviter_un_pro", "Inviter un pro")}</Button>
                 <Button variant="outline" borderRadius="16px" onClick={openCalendarAppointmentModal}>{t("auto.ClubDashboard.planifier_un_rdv", "Planifier un RDV")}</Button>
+                <Button variant="outline" borderRadius="16px" onClick={() => openClubSection("settings")}>{t("settings.title", "Réglages")}</Button>
                 <Badge colorScheme={proLimitReached ? "red" : "green"} borderRadius="full" px={3} py={1} alignSelf="center">
                   {proLimitReached ? t("dashboard.client_quota_full", "Limite atteinte") : t("clubDashboard.status.operational", "Opérationnel")}
                 </Badge>
               </HStack>
             </Stack>
 
-            <SimpleGrid data-tour="club-stats" columns={{ base: 2, md: 3, xl: 6 }} spacing={3} mt={6}>
-              <Box {...theme.tileProps} p={4}>
+            <SimpleGrid data-tour="club-stats" columns={{ base: 2, md: 3, xl: 6 }} spacing={{ base: 2.5, md: 3 }} mt={{ base: 4, md: 6 }}>
+              <Box {...theme.tileProps} p={{ base: 3, md: 4 }}>
                 <Text color={theme.mutedText} fontSize="sm">{t("dashboard.banner.today_label", "Aujourd’hui")}</Text>
                 <Text fontSize="2xl" fontWeight="900">{todayClientCount + todayProgramCount + todayNutritionCount}</Text>
-                <Text color={theme.mutedText} fontSize="sm">
+                <Text color={theme.mutedText} fontSize="sm" noOfLines={{ base: 2, md: 3 }}>
                   {todayClientCount} {t("auto.ClubDashboard.client_s", "client(s),")} {todayProgramCount} {t("auto.ClubDashboard.programme_s", "programme(s),")} {todayNutritionCount} {t("auto.ClubDashboard.bilan_s", "bilan(s)")}</Text>
               </Box>
-              <Box {...theme.tileProps} p={4}>
+              <Box {...theme.tileProps} p={{ base: 3, md: 4 }}>
                 <Text color={theme.mutedText} fontSize="sm">{t("auto.ClubDashboard.pros_actifs", "Pros actifs")}</Text>
                 <Text fontSize="2xl" fontWeight="900">{proLimitLabel}</Text>
                 <Text color={theme.mutedText} fontSize="sm">{stats.activeCoachCount || 0} {t("auto.ClubDashboard.actif_s", "actif(s)")}</Text>
                 <Progress value={proUsage ?? 0} size="xs" borderRadius="full" colorScheme={proLimitReached ? "red" : "blue"} bg={theme.surfaceSoft} mt={3} />
               </Box>
-              <Box {...theme.tileProps} p={4}>
+              <Box {...theme.tileProps} p={{ base: 3, md: 4 }}>
                 <Text color={theme.mutedText} fontSize="sm">{t("auto.ClubDashboard.clients_suivis", "Clients suivis")}</Text>
                 <Text fontSize="2xl" fontWeight="900">{clientLimitLabel}</Text>
-                <Text color={theme.mutedText} fontSize="sm">
+                <Text color={theme.mutedText} fontSize="sm" noOfLines={{ base: 2, md: 3 }}>
                   {clientUsage !== null
                     ? t("clubDashboard.capacity.usedPercent", "{{percent}}% de capacité utilisée", { percent: clientUsage })
                     : t("dashboard.client_quota_unlimited", "Capacité illimitée")}
                 </Text>
                 <Progress value={clientUsage ?? 0} size="xs" borderRadius="full" colorScheme={clientUsage >= 90 ? "red" : "green"} bg={theme.surfaceSoft} mt={3} />
               </Box>
-              <Box {...theme.tileProps} p={4}>
+              <Box {...theme.tileProps} p={{ base: 3, md: 4 }}>
                 <Text color={theme.mutedText} fontSize="sm">{t("clientsList.table.programs", "Programmes")}</Text>
                 <Text fontSize="2xl" fontWeight="900">{stats.programCount || 0}</Text>
-                <Text color={theme.mutedText} fontSize="sm">{t("auto.ClubDashboard.crees_par_l_equipe", "Créés par l’équipe")}</Text>
+                <Text color={theme.mutedText} fontSize="sm" noOfLines={1}>{t("auto.ClubDashboard.crees_par_l_equipe", "Créés par l’équipe")}</Text>
               </Box>
-              <Box {...theme.tileProps} p={4}>
+              <Box {...theme.tileProps} p={{ base: 3, md: 4 }}>
                 <Text color={theme.mutedText} fontSize="sm">{t("auto.ClubDashboard.rendez_vous", "Rendez-vous")}</Text>
                 <Text fontSize="2xl" fontWeight="900">{upcomingFilteredAppointments.length}</Text>
                 <Text color={theme.mutedText} fontSize="sm">{todayAppointments.length} {t("auto.ClubDashboard.aujourd_hui", "aujourd’hui")}</Text>
               </Box>
-              <Box {...theme.tileProps} p={4}>
+              <Box {...theme.tileProps} p={{ base: 3, md: 4 }}>
                 <Text color={theme.mutedText} fontSize="sm">{t("auto.ClubDashboard.leader_actuel", "Leader actuel")}</Text>
                 <Text fontSize="lg" fontWeight="900" noOfLines={1}>{leaderCoach ? displayName(leaderCoach) : t("clubDashboard.empty.noPro", "Aucun pro")}</Text>
                 <Text color={theme.mutedText} fontSize="sm">
@@ -1896,7 +1894,7 @@ export default function ClubDashboard() {
               </Stack>
             </Box>
 
-            <SimpleGrid columns={{ base: 2, md: 4 }} spacing={3} mt={6}>
+            <SimpleGrid display={{ base: "none", md: "grid" }} columns={{ base: 2, md: 4 }} spacing={3} mt={6}>
               {[
                 [t("clubDashboard.actions.createPro", "Créer un pro"), "create"],
                 [t("clubDashboard.actions.viewTeam", "Voir l’équipe"), "team"],
@@ -1921,8 +1919,91 @@ export default function ClubDashboard() {
           </Box>
           )}
 
+          {showDashboard && isClubSetupEmpty && (
+            <Box
+              {...theme.cardProps}
+              p={{ base: 4, md: 6 }}
+              borderColor={theme.accentBlue}
+              bg={setupEmptyBg}
+            >
+              <Stack direction={{ base: "column", lg: "row" }} justify="space-between" align={{ base: "stretch", lg: "center" }} gap={5}>
+                <Box maxW="720px">
+                  <Badge colorScheme="blue" borderRadius="full" px={3} py={1} mb={3}>
+                    {t("clubDashboard.setup.badge", "Configuration")}
+                  </Badge>
+                  <Heading size="md">{t("clubDashboard.setup.emptyTitle", "Ce club est prêt, il reste à le lancer")}</Heading>
+                  <Text color={theme.mutedText} mt={2} fontSize={{ base: "sm", md: "md" }}>
+                    {t("clubDashboard.setup.emptyDetail", "Aucun pro, client, programme ou rendez-vous n’est encore rattaché. Le plus efficace est d’ajouter le premier intervenant, puis de relier ses clients au club.")}
+                  </Text>
+                </Box>
+                <HStack display={{ base: "none", md: "flex" }} justify={{ base: "stretch", lg: "end" }} flexWrap="wrap">
+                  <Button {...theme.primaryButtonProps} leftIcon={<AddIcon />} onClick={openCreateCoachSection}>
+                    {t("auto.ClubDashboard.inviter_un_pro", "Inviter un pro")}
+                  </Button>
+                  <Button variant="outline" borderRadius="16px" onClick={() => openClubSection("settings")}>
+                    {t("clubDashboard.setup.identity", "Identité du club")}
+                  </Button>
+                </HStack>
+              </Stack>
+              <SimpleGrid columns={{ base: 1, md: 3 }} spacing={3} mt={5}>
+                {[
+                  ["01", t("clubDashboard.setup.stepPro", "Créer le premier pro"), t("clubDashboard.setup.stepProDetail", "Le compte portera les clients, programmes et rendez-vous du club.")],
+                  ["02", t("clubDashboard.setup.stepBrand", "Vérifier l’identité"), t("clubDashboard.setup.stepBrandDetail", "Nom, logo et langue serviront de base aux espaces partagés.")],
+                  ["03", t("clubDashboard.setup.stepFollow", "Planifier le premier point"), t("clubDashboard.setup.stepFollowDetail", "Le calendrier devient utile dès qu’un rendez-vous est posé.")],
+                ].map(([number, title, detail]) => (
+                  <Box key={number} {...theme.tileProps} p={{ base: 3, md: 4 }}>
+                    <HStack spacing={3} align="start">
+                      <Circle size="34px" bg="rgba(59,130,246,0.12)" color={theme.accentBlue} fontWeight="900" flexShrink={0}>
+                        {number}
+                      </Circle>
+                      <Box>
+                        <Text fontWeight="900">{title}</Text>
+                        <Text color={theme.mutedText} fontSize="sm" mt={1}>{detail}</Text>
+                      </Box>
+                    </HStack>
+                  </Box>
+                ))}
+              </SimpleGrid>
+            </Box>
+          )}
+
+          {showGuideBlock && (
+            <Box {...theme.cardProps} id="club-guide" data-tour="club-guide" p={{ base: 5, md: 6 }} display={{ base: "none", md: "block" }}>
+              <Stack direction={{ base: "column", lg: "row" }} justify="space-between" gap={5} align={{ base: "stretch", lg: "center" }}>
+                <Box maxW="680px">
+                  <Badge colorScheme="gray" borderRadius="full" px={3} py={1} mb={3}>{t("clubDashboard.guide.badge", "Guide")}</Badge>
+                  <Heading size="md">{t("auto.ClubDashboard.fonctionnement_global", "Fonctionnement global")}</Heading>
+                  <Text color={theme.mutedText} fontSize="sm" mt={1}>{t("auto.ClubDashboard.une_aide_de_demarrage_masquable_quand_le_parc", "Une aide de démarrage, masquable quand le parcours est compris.")}</Text>
+                </Box>
+                <Button {...theme.primaryButtonProps} onClick={() => toggleGuide(false)}>{t("clubDashboard.actions.understood", "J’ai compris")}</Button>
+              </Stack>
+              <SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} spacing={3} mt={5}>
+                {[
+                  ["1", t("clubDashboard.guide.proTitle", "Le club crée le pro"), t("clubDashboard.guide.proDetail", "Prénom, nom, email et spécialité. L’accès est rattaché à l’abonnement du club.")],
+                  ["2", t("clubDashboard.guide.activationTitle", "Le pro active son accès"), t("clubDashboard.guide.activationDetail", "Le lien d’activation permet au pro de définir son mot de passe et d’entrer dans son espace.")],
+                  ["3", t("clubDashboard.guide.separateTitle", "Chaque pro travaille séparément"), t("clubDashboard.guide.separateDetail", "Clients, patients, programmes et suivis restent gérés dans l’interface habituelle du pro.")],
+                  ["4", t("clubDashboard.guide.supervisionTitle", "Le club supervise"), t("clubDashboard.guide.supervisionDetail", "Le dashboard consolide l’équipe, les capacités, les rendez-vous et les activités récentes.")],
+                  ["5", t("clubDashboard.guide.limitsTitle", "Les limites sont appliquées"), t("clubDashboard.guide.limitsDetail", "La création est bloquée quand les limites de l’offre club sont atteintes.")],
+                  ["6", t("clubDashboard.guide.identityTitle", "L’identité descend du club"), t("clubDashboard.guide.identityDetail", "Logo, nom et préférences servent de base aux documents et espaces partagés.")],
+                ].map(([number, title, copy]) => (
+                  <Box key={title} {...theme.tileProps} p={4}>
+                    <HStack spacing={3} align="start">
+                      <Circle size="30px" bg={theme.surfaceSoft} color={theme.textColor} fontWeight="900" flexShrink={0}>
+                        {number}
+                      </Circle>
+                      <Box minW={0}>
+                        <Text fontWeight="900" mb={1}>{title}</Text>
+                        <Text fontSize="sm" color={theme.mutedText}>{copy}</Text>
+                      </Box>
+                    </HStack>
+                  </Box>
+                ))}
+              </SimpleGrid>
+            </Box>
+          )}
+
           {showDashboard && (
-            <Box {...theme.cardProps} data-tour="club-tools-dashboard" p={{ base: 5, md: 6 }}>
+            <Box {...theme.cardProps} data-tour="club-tools-dashboard" p={{ base: 5, md: 6 }} display={{ base: "none", md: "block" }}>
               <Stack direction={{ base: "column", lg: "row" }} justify="space-between" gap={4} align={{ base: "stretch", lg: "center" }}>
                 <Box maxW="680px">
                   <Heading size="md">{t("clubDashboard.tools.title", "Pilotage club")}</Heading>
@@ -1987,7 +2068,48 @@ export default function ClubDashboard() {
                     <Button size="sm" variant="outline" as={RouterLink} to={withAdminClub("/club-dashboard/calendrier")}>{t("programs.open", "Ouvrir")}</Button>
                   </HStack>
                 </Stack>
+                <VStack display={{ base: "flex", md: "none" }} align="stretch" spacing={3}>
+                  {upcomingFilteredAppointments.length ? (
+                    upcomingFilteredAppointments.slice(0, 4).map((event) => {
+                      const normalized = String(event?.status || "").toLowerCase();
+                      const isDone =
+                        normalized === "validée" ||
+                        normalized === "validee" ||
+                        normalized === "done" ||
+                        normalized === "completed";
+                      return (
+                        <Box
+                          key={event.id || `${event.title}:${event.startsAt}`}
+                          {...theme.tileProps}
+                          p={4}
+                          borderColor={isDone ? "green.200" : theme.borderColor}
+                          onClick={() => openAppointmentDetail(event)}
+                          cursor="pointer"
+                        >
+                          <HStack justify="space-between" align="start" gap={3}>
+                            <Box minW={0}>
+                              <Text fontWeight="900" noOfLines={1}>{event.clientName || event.coachName || event.title}</Text>
+                              <Text color={theme.mutedText} fontSize="sm" noOfLines={1}>{event.title}</Text>
+                              <Text color={theme.mutedText} fontSize="xs" mt={1}>{formatShortDateTime(event.start)}</Text>
+                            </Box>
+                            <Badge colorScheme={isDone ? "green" : "blue"} borderRadius="full">
+                              {isDone ? t("calendar.validated", "Validé") : t("clubDashboard.mobile.planned", "Planifié")}
+                            </Badge>
+                          </HStack>
+                        </Box>
+                      );
+                    })
+                  ) : (
+                    <Box {...theme.tileProps} p={4}>
+                      <Text fontWeight="900">{t("clubDashboard.todaySchedule.empty", "Aucun rendez-vous planifié aujourd’hui.")}</Text>
+                      <Text color={theme.mutedText} fontSize="sm" mt={1}>
+                        {t("clubDashboard.setup.stepFollowDetail", "Le calendrier devient utile dès qu’un rendez-vous est posé.")}
+                      </Text>
+                    </Box>
+                  )}
+                </VStack>
                 <Box
+                  display={{ base: "none", md: "block" }}
                   sx={{
                     ".rbc-calendar": { background: "transparent", color: "inherit", borderRadius: "18px", overflow: "hidden" },
                     ".rbc-toolbar": {
@@ -2164,7 +2286,7 @@ export default function ClubDashboard() {
                 </VStack>
               </Box>
 
-              <Box {...theme.cardProps} p={{ base: 5, md: 6 }}>
+              <Box {...theme.cardProps} p={{ base: 5, md: 6 }} display={{ base: "none", md: "block" }}>
                 <Heading size="md" mb={4}>{t("auto.ClubDashboard.actions_rapides", "Actions rapides")}</Heading>
                 <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={3}>
                   <Button variant="outline" onClick={openCreateCoachSection}>{t("auto.ClubDashboard.inviter_un_pro", "Inviter un pro")}</Button>
@@ -3686,11 +3808,27 @@ export default function ClubDashboard() {
           </ModalFooter>
         </ModalContent>
       </Modal>
-      <Modal isOpen={addAppointmentModal.isOpen} onClose={addAppointmentModal.onClose} isCentered>
+      <Modal isOpen={isAddAppointmentModalOpen} onClose={closeCalendarAppointmentModal} isCentered>
         <ModalOverlay />
-        <ModalContent borderRadius="22px">
+        <ModalContent borderRadius="22px" mx={{ base: 3, md: 0 }}>
           <ModalHeader>{t("auto.ClubDashboard.ajouter_un_evenement_club", "Ajouter un évènement club")}</ModalHeader>
-          <ModalCloseButton />
+          <IconButton
+            type="button"
+            icon={<CloseIcon />}
+            top={4}
+            right={4}
+            boxSize="44px"
+            position="absolute"
+            zIndex={2}
+            borderRadius="full"
+            border="1px solid"
+            borderColor={theme.borderColor}
+            bg={theme.surfaceBg}
+            color={theme.textColor}
+            _hover={{ bg: theme.surfaceSoft }}
+            aria-label={t("exerciseCard.cancel", "Fermer")}
+            onClick={closeCalendarAppointmentModal}
+          />
           <Box as="form" onSubmit={createAppointment}>
             <ModalBody>
               <VStack align="stretch" spacing={4}>
@@ -3864,7 +4002,10 @@ export default function ClubDashboard() {
                 </FormControl>
               </VStack>
             </ModalBody>
-            <ModalFooter>
+            <ModalFooter gap={3}>
+              <Button type="button" variant="ghost" onClick={closeCalendarAppointmentModal}>
+                {t("exerciseCard.cancel", "Fermer")}
+              </Button>
               <Button type="submit" {...theme.primaryButtonProps} isLoading={actionSaving === "appointment"}>{t("exerciseCard.add", "Ajouter")}</Button>
             </ModalFooter>
           </Box>

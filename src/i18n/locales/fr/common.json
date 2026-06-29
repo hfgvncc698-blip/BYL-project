@@ -176,6 +176,9 @@
       "suffix": ". Vous pourrez choisir une formule à la fin de l’essai."
     },
     "calendar": "Calendrier",
+    "calendar_not_validated": "Non validée",
+    "calendar_rated": "Notée {{rating}}/5",
+    "calendar_not_rated": "Pas de note",
     "assigned_clients_count": "{{count}} client assigné",
     "assigned_clients_count_other": "{{count}} clients assignés",
     "assigned_to_list": "Assigné à",
@@ -661,10 +664,12 @@
     "start_datetime": "Date et heure de début",
     "session_title": "Séance",
     "validate": "Valider",
+    "validated": "Validé",
     "missed": "Manquée",
     "move": "Déplacer…",
     "new_datetime": "Nouvelle date & heure",
     "today": "Aujourd'hui",
+    "this_week": "Cette semaine",
     "prev": "Préc.",
     "previous": "Préc.",
     "next": "Suiv.",
@@ -3529,10 +3534,66 @@
       "aucun_menu_partage_pour_le_moment": "Aucun menu partagé pour le moment.",
       "prepa": "Prépa",
       "min_cuisson": "min • Cuisson",
+      "prep_cooking_line": "Prépa {{prep}} min • Cuisson {{cook}} min",
+      "prepare_ingredients": "Préparer les ingrédients :",
+      "recipe_steps": {
+        "assembler_la_base_laitiere_ou_cerealiere_dans_un_bol": "Assembler la base laitière ou céréalière dans un bol.",
+        "ajouter_le_fruit_ou_la_compote_au_dernier_moment": "Ajouter le fruit ou la compote au dernier moment."
+      },
       "aucune_recette_partagee_pour_le_moment": "Aucune recette partagée pour le moment.",
       "aucune_liste_de_courses_partagee_pour_le_moment": "Aucune liste de courses partagée pour le moment.",
       "aucune_fiche_conseil_partagee": "Aucune fiche conseil partagée",
-      "le_professionnel_n_a_pas_encore_selectionne_de_fic": "Le professionnel n’a pas encore sélectionné de fiche pour ce suivi."
+      "le_professionnel_n_a_pas_encore_selectionne_de_fic": "Le professionnel n’a pas encore sélectionné de fiche pour ce suivi.",
+      "patient": "Patient",
+      "coach": "Coach",
+      "nutrition_upper": "NUTRITION",
+      "objectif": "OBJECTIF",
+      "objectifs": "Objectifs",
+      "reperes": "Repères",
+      "contexte_partage": "Contexte partagé",
+      "ration_spontanee": "Ration spontanée",
+      "ligne_count": "{{count}} ligne(s)",
+      "jour_count": "{{count}} jour(s)",
+      "recette_count": "{{count}} recette(s)",
+      "aliment_count": "{{count}} aliment(s)",
+      "fiche_count": "{{count}} fiche(s)",
+      "bilan_count": "{{count}} bilan(s) disponible(s)",
+      "click_releve": "Clique pour voir le relevé partagé.",
+      "click_repas": "Clique pour voir les repas.",
+      "click_recettes": "Clique pour voir les recettes proposées.",
+      "click_courses": "Clique pour voir les achats regroupés.",
+      "click_conseils": "Clique pour voir les conseils personnalisés.",
+      "preparation": "Préparation",
+      "liste_de_courses": "Liste de courses",
+      "fiches_partagees": "Fiches partagées",
+      "ouvert": "Ouvert",
+      "recent": "Récent",
+      "sans_contrainte_particuliere": "Sans contrainte particulière",
+      "aucun_regime_specifique": "Aucun régime spécifique",
+      "a_ajuster": "À ajuster",
+      "standard": "Standard",
+      "aucune_contrainte_partagee": "Aucune contrainte partagée",
+      "ration_partagee": "Ration partagée",
+      "aliment": "Aliment",
+      "bilan_nutrition": "Bilan nutrition",
+      "bilan_number": "Bilan {{number}}",
+      "day_value": "Jour {{day}}",
+      "day_progress": "Jour {{current}} / {{total}}",
+      "recette_value": "Recette {{index}}",
+      "rayon": "Rayon",
+      "conseil": "Conseil",
+      "conseil_value": "Conseil {{index}}",
+      "last_share_on": "Dernier partage le {{date}}",
+      "last_update_on": "Dernière mise à jour partagée par ton professionnel le {{date}}.",
+      "last_update": "Dernière mise à jour partagée par ton professionnel.",
+      "meals": {
+        "petit_dej": "Petit-déjeuner",
+        "collation_1": "Collation matin",
+        "dejeuner": "Déjeuner",
+        "collation_2": "Collation après-midi",
+        "diner": "Dîner",
+        "collation_3": "Collation soir"
+      }
     },
     "ClientView": {
       "une_erreur_empeche_l_affichage_du_comparateur": "Une erreur empêche l’affichage du comparateur.",
@@ -6023,6 +6084,9 @@
     "status": {
       "operational": "Opérationnel"
     },
+    "mobile": {
+      "planned": "Planifié"
+    },
     "capacity": {
       "usedPercent": "{{percent}}% de capacité utilisée"
     },
@@ -6225,6 +6289,33 @@
       "doneForToday": "Tous les rendez-vous du jour sont passés.",
       "empty": "Aucun rendez-vous planifié aujourd’hui.",
       "progressLabel": "Progression journée"
+    },
+    "setup": {
+      "badge": "Configuration",
+      "emptyTitle": "Ce club est prêt, il reste à le lancer",
+      "emptyDetail": "Aucun pro, client, programme ou rendez-vous n’est encore rattaché. Le plus efficace est d’ajouter le premier intervenant, puis de relier ses clients au club.",
+      "identity": "Identité du club",
+      "stepPro": "Créer le premier pro",
+      "stepProDetail": "Le compte portera les clients, programmes et rendez-vous du club.",
+      "stepBrand": "Vérifier l’identité",
+      "stepBrandDetail": "Nom, logo et langue serviront de base aux espaces partagés.",
+      "stepFollow": "Planifier le premier point",
+      "stepFollowDetail": "Le calendrier devient utile dès qu’un rendez-vous est posé."
+    },
+    "guide": {
+      "badge": "Guide",
+      "proTitle": "Le club crée le pro",
+      "proDetail": "Prénom, nom, email et spécialité. L’accès est rattaché à l’abonnement du club.",
+      "activationTitle": "Le pro active son accès",
+      "activationDetail": "Le lien d’activation permet au pro de définir son mot de passe et d’entrer dans son espace.",
+      "separateTitle": "Chaque pro travaille séparément",
+      "separateDetail": "Clients, patients, programmes et suivis restent gérés dans l’interface habituelle du pro.",
+      "supervisionTitle": "Le club supervise",
+      "supervisionDetail": "Le dashboard consolide l’équipe, les capacités, les rendez-vous et les activités récentes.",
+      "limitsTitle": "Les limites sont appliquées",
+      "limitsDetail": "La création est bloquée quand les limites de l’offre club sont atteintes.",
+      "identityTitle": "L’identité descend du club",
+      "identityDetail": "Logo, nom et préférences servent de base aux documents et espaces partagés."
     }
   }
 }

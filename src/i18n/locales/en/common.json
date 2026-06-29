@@ -176,6 +176,9 @@
       "suffix": ". You will be able to choose a plan at the end of the trial."
     },
     "calendar": "Calendar",
+    "calendar_not_validated": "Not validated",
+    "calendar_rated": "Rated {{rating}}/5",
+    "calendar_not_rated": "No rating",
     "assigned_clients_count": "{{count}} assigned client",
     "assigned_clients_count_other": "{{count}} assigned clients",
     "assigned_to_list": "Assigned to",
@@ -661,10 +664,12 @@
     "start_datetime": "Start date and time",
     "session_title": "Session",
     "validate": "Validate",
+    "validated": "Validated",
     "missed": "Missed",
     "move": "Move…",
     "new_datetime": "New date & time",
     "today": "Today",
+    "this_week": "This week",
     "prev": "Prev.",
     "previous": "Prev.",
     "next": "Next.",
@@ -3434,10 +3439,66 @@
       "aucun_menu_partage_pour_le_moment": "No shared menu at the moment.",
       "prepa": "Prep",
       "min_cuisson": "min • Cooking",
+      "prep_cooking_line": "Prep {{prep}} min • Cooking {{cook}} min",
+      "prepare_ingredients": "Prepare the ingredients:",
+      "recipe_steps": {
+        "assembler_la_base_laitiere_ou_cerealiere_dans_un_bol": "Assemble the dairy or cereal base in a bowl.",
+        "ajouter_le_fruit_ou_la_compote_au_dernier_moment": "Add the fruit or compote at the last moment."
+      },
       "aucune_recette_partagee_pour_le_moment": "No recipes shared yet.",
       "aucune_liste_de_courses_partagee_pour_le_moment": "No shopping lists shared yet.",
       "aucune_fiche_conseil_partagee": "No advice sheet shared",
-      "le_professionnel_n_a_pas_encore_selectionne_de_fic": "The professional has not yet selected a file for this monitoring."
+      "le_professionnel_n_a_pas_encore_selectionne_de_fic": "The professional has not yet selected a file for this monitoring.",
+      "patient": "Patient",
+      "coach": "Coach",
+      "nutrition_upper": "NUTRITION",
+      "objectif": "GOAL",
+      "objectifs": "Goals",
+      "reperes": "Targets",
+      "contexte_partage": "Shared context",
+      "ration_spontanee": "Food survey",
+      "ligne_count": "{{count}} line(s)",
+      "jour_count": "{{count}} day(s)",
+      "recette_count": "{{count}} recipe(s)",
+      "aliment_count": "{{count}} food item(s)",
+      "fiche_count": "{{count}} sheet(s)",
+      "bilan_count": "{{count}} assessment(s) available",
+      "click_releve": "Tap to view the shared food survey.",
+      "click_repas": "Tap to view the meals.",
+      "click_recettes": "Tap to view the suggested recipes.",
+      "click_courses": "Tap to view grouped shopping items.",
+      "click_conseils": "Tap to view personalized advice.",
+      "preparation": "Preparation",
+      "liste_de_courses": "Shopping list",
+      "fiches_partagees": "Shared sheets",
+      "ouvert": "Open",
+      "recent": "Recent",
+      "sans_contrainte_particuliere": "No specific constraint",
+      "aucun_regime_specifique": "No specific diet",
+      "a_ajuster": "To adjust",
+      "standard": "Standard",
+      "aucune_contrainte_partagee": "No shared constraint",
+      "ration_partagee": "Shared ration",
+      "aliment": "Food item",
+      "bilan_nutrition": "Nutrition assessment",
+      "bilan_number": "Assessment {{number}}",
+      "day_value": "Day {{day}}",
+      "day_progress": "Day {{current}} / {{total}}",
+      "recette_value": "Recipe {{index}}",
+      "rayon": "Section",
+      "conseil": "Advice",
+      "conseil_value": "Advice {{index}}",
+      "last_share_on": "Last shared on {{date}}",
+      "last_update_on": "Last update shared by your professional on {{date}}.",
+      "last_update": "Last update shared by your professional.",
+      "meals": {
+        "petit_dej": "Breakfast",
+        "collation_1": "Morning snack",
+        "dejeuner": "Lunch",
+        "collation_2": "Afternoon snack",
+        "diner": "Dinner",
+        "collation_3": "Evening snack"
+      }
     },
     "ClientView": {
       "une_erreur_empeche_l_affichage_du_comparateur": "An error prevents the comparator from being displayed.",
@@ -5854,6 +5915,9 @@
     "status": {
       "operational": "Operational"
     },
+    "mobile": {
+      "planned": "Planned"
+    },
     "capacity": {
       "usedPercent": "{{percent}}% capacity used"
     },
@@ -6056,6 +6120,33 @@
       "doneForToday": "Tous les rendez-vous du jour sont passés.",
       "empty": "Aucun rendez-vous planifié aujourd’hui.",
       "progressLabel": "Progression journée"
+    },
+    "setup": {
+      "badge": "Setup",
+      "emptyTitle": "This club is ready; it just needs to be launched",
+      "emptyDetail": "No pro, client, program, or appointment is linked yet. The fastest path is to add the first practitioner, then connect their clients to the club.",
+      "identity": "Club identity",
+      "stepPro": "Create the first pro",
+      "stepProDetail": "This account will carry the club’s clients, programs, and appointments.",
+      "stepBrand": "Check the identity",
+      "stepBrandDetail": "Name, logo, and language will be reused across shared spaces.",
+      "stepFollow": "Schedule the first check-in",
+      "stepFollowDetail": "The calendar becomes useful as soon as the first appointment is set."
+    },
+    "guide": {
+      "badge": "Guide",
+      "proTitle": "The club creates the pro",
+      "proDetail": "First name, last name, email, and specialty. Access is attached to the club subscription.",
+      "activationTitle": "The pro activates access",
+      "activationDetail": "The activation link lets the pro set a password and enter their workspace.",
+      "separateTitle": "Each pro works separately",
+      "separateDetail": "Clients, patients, programs, and follow-ups remain managed in the pro’s usual interface.",
+      "supervisionTitle": "The club supervises",
+      "supervisionDetail": "The dashboard consolidates team, capacity, appointments, and recent activity.",
+      "limitsTitle": "Limits are applied",
+      "limitsDetail": "Creation is blocked when the club plan limits are reached.",
+      "identityTitle": "The club identity flows down",
+      "identityDetail": "Logo, name, and preferences are reused across documents and shared spaces."
     }
   }
 }

@@ -23,7 +23,13 @@ const SUPPORTED = LANGS.map((l) => l.code);
 export default function LanguageSwitcher({ buttonProps = {}, menuProps = {} }) {
   const { i18n } = useTranslation();
   const { user } = useAuth();
-  const current = (i18n.resolvedLanguage || "fr").split("-")[0];
+  const detectedLanguage =
+    i18n.language ||
+    i18n.resolvedLanguage ||
+    localStorage.getItem("i18nextLng") ||
+    document.documentElement.lang ||
+    "fr";
+  const current = String(detectedLanguage).split("-")[0].toLowerCase();
 
   const buttonBg = useColorModeValue("transparent", "rgba(255,255,255,0.08)");
   const buttonColor = useColorModeValue("black", "white");
