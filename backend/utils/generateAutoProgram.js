@@ -639,22 +639,189 @@ function estimateGeneratedExerciseSec(ex, sectionKey = "corps") {
   return series * effortSec + Math.max(0, series - 1) * rest + transitionSec;
 }
 
-function estimateGeneratedSessionSec(session) {
+function normalizeTimingProfile(timingProfile = null) {
+  if (!timingProfile || typeof timingProfile !== "object") return null;
+  const factor = Number(timingProfile.factor);
+  if (!Number.isFinite(factor) || factor <= 0) return null;
+  const samples = Number(timingProfile.samples || timingProfile.ratioSamples || 0) || 0;
+  const confidence = Number(timingProfile.confidence);
+  return {
+    ...timingProfile,
+    factor: Math.max(0.72, Math.min(1.4, factor)),
+    confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : samples > 0 ? 1 : 0,
+    samples,
+  };
+}
+
+function toTimestampMs(value) {
+  if (!value) return 0;
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (value instanceof Date) return value.getTime();
+  if (typeof value.toDate === "function") {
+    const date = value.toDate();
+    return date instanceof Date ? date.getTime() : 0;
+  }
+  if (typeof value.seconds === "number") {
+    return value.seconds * 1000 + Math.round((Number(value.nanoseconds || 0) || 0) / 1e6);
+  }
+  const parsed = Date.parse(String(value));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function median(numbers = []) {
+  const values = numbers
+    .map(Number)
+    .filter((value) => Number.isFinite(value))
+    .sort((a, b) => a - b);
+  if (!values.length) return null;
+  const mid = Math.floor(values.length / 2);
+  return values.length % 2 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
+}
+
+function isValidatedCompletionRecord(record = {}) {
+  const status = normalize(record.status || "");
+  return (
+    record.isPartial !== true &&
+    (
+      Number(record.pourcentageTermine || record.completionPct || 0) >= 90 ||
+      status === "validee" ||
+      status === "validée" ||
+      status === "done" ||
+      status === "completed" ||
+      status === "terminee" ||
+      status === "terminée"
+    )
+  );
+}
+
+function timingProfileFromCompletionRecords(records = []) {
+  const ratioSamples = [];
+  const sessionRatioSamples = [];
+  const sessionDurationSamples = [];
+
+  records
+    .filter(isValidatedCompletionRecord)
+    .forEach((record) => {
+      const timings = Array.isArray(record.exerciseTimings) ? record.exerciseTimings : [];
+      let plannedSum = 0;
+      let actualSum = 0;
+
+      timings.forEach((entry) => {
+        const planned = Number(entry?.plannedSeconds);
+        const actual = Number(entry?.actualSeconds);
+        if (Number.isFinite(planned) && planned > 10 && Number.isFinite(actual) && actual >= 5) {
+          const ratio = actual / planned;
+          if (ratio >= 0.35 && ratio <= 3) ratioSamples.push(ratio);
+          plannedSum += planned;
+          actualSum += actual;
+        }
+      });
+
+      if (plannedSum >= 120 && actualSum >= 120) {
+        const ratio = actualSum / plannedSum;
+        if (ratio >= 0.35 && ratio <= 3) sessionRatioSamples.push(ratio);
+      }
+
+      const startedAt = toTimestampMs(record.startedAt);
+      const finishedAt =
+        toTimestampMs(record.completedAt) ||
+        toTimestampMs(record.validatedAt) ||
+        toTimestampMs(record.dateEffectuee);
+      const durationSec = startedAt && finishedAt && finishedAt > startedAt
+        ? Math.round((finishedAt - startedAt) / 1000)
+        : 0;
+      if (durationSec >= 5 * 60 && durationSec <= 4 * 3600) sessionDurationSamples.push(durationSec);
+    });
+
+  const allRatios = [...ratioSamples, ...sessionRatioSamples];
+  const rawMedianRatio = median(allRatios);
+  if (!Number.isFinite(rawMedianRatio) || allRatios.length < 3) return null;
+
+  const confidence = Math.min(1, allRatios.length / 14);
+  const adjustedFactor = 1 + (rawMedianRatio - 1) * confidence;
+  const factor = Math.max(0.75, Math.min(1.35, adjustedFactor));
+  const sessionMedianSec = median(sessionDurationSamples);
+
+  return {
+    factor: Number(factor.toFixed(3)),
+    rawMedianRatio: Number(rawMedianRatio.toFixed(3)),
+    confidence: Number(confidence.toFixed(2)),
+    samples: allRatios.length,
+    ratioSamples: ratioSamples.length,
+    sessionSamples: sessionRatioSamples.length,
+    completedSessionSamples: sessionDurationSamples.length,
+    ...(Number.isFinite(sessionMedianSec) ? { medianCompletedSessionSec: Math.round(sessionMedianSec) } : {}),
+    source: "client_sessions_effectuees",
+  };
+}
+
+async function buildClientTimingProfile(db, clientId) {
+  const safeClientId = String(clientId || "").trim();
+  if (!safeClientId) return null;
+
+  try {
+    const programmesSnap = await db.collection("clients").doc(safeClientId).collection("programmes").get();
+    const recordsByProgram = await Promise.all(
+      programmesSnap.docs.map(async (programDoc) => {
+        try {
+          const doneSnap = await programDoc.ref.collection("sessionsEffectuees").get();
+          return doneSnap.docs.map((docSnap) => ({
+            id: `${programDoc.id}:${docSnap.id}`,
+            programId: programDoc.id,
+            ...docSnap.data(),
+          }));
+        } catch (error) {
+          console.warn("[AUTO][TIMING] lecture sessionsEffectuees impossible", {
+            clientId: safeClientId,
+            programId: programDoc.id,
+            message: error?.message || String(error),
+          });
+          return [];
+        }
+      })
+    );
+    const profile = timingProfileFromCompletionRecords(recordsByProgram.flat());
+    if (profile) {
+      console.log("[AUTO][TIMING] profil client appliqué", {
+        clientId: safeClientId,
+        factor: profile.factor,
+        samples: profile.samples,
+        rawMedianRatio: profile.rawMedianRatio,
+      });
+    }
+    return profile;
+  } catch (error) {
+    console.warn("[AUTO][TIMING] profil client indisponible", {
+      clientId: safeClientId,
+      message: error?.message || String(error),
+    });
+    return null;
+  }
+}
+
+function estimateGeneratedSessionSec(session, options = {}) {
+  const timingProfile = normalizeTimingProfile(options.timingProfile || session?.engineMeta?.timingProfile);
+  const factor = timingProfile?.factor || 1;
   return ["echauffement", "corps", "bonus", "retourCalme"].reduce((sum, key) => {
     const list = Array.isArray(session?.[key]) ? session[key] : [];
     return sum + list.reduce((acc, ex) => acc + estimateGeneratedExerciseSec(ex, key), 0);
-  }, 0);
+  }, 0) * factor;
 }
 
 function fitGeneratedSessionToTarget(session, targetMinutes, options = {}) {
-  const { expandToTarget = true, minFillRatio = expandToTarget ? 0.96 : 0 } = options;
+  const {
+    expandToTarget = true,
+    minFillRatio = expandToTarget ? 0.96 : 0,
+    timingProfile = null,
+  } = options;
   const targetSec = Number(targetMinutes) > 0 ? Number(targetMinutes) * 60 : 0;
   if (!targetSec) return session;
 
   const next = { ...session };
-  const isTooLong = () => estimateGeneratedSessionSec(next) > targetSec * 1.05;
-  const isTooShort = () => estimateGeneratedSessionSec(next) < targetSec * 0.96;
-  const isBelowMinimum = () => minFillRatio > 0 && estimateGeneratedSessionSec(next) < targetSec * minFillRatio;
+  const estimate = () => estimateGeneratedSessionSec(next, { timingProfile });
+  const isTooLong = () => estimate() > targetSec * 1.05;
+  const isTooShort = () => estimate() < targetSec * 0.96;
+  const isBelowMinimum = () => minFillRatio > 0 && estimate() < targetSec * minFillRatio;
   const reduceListVolume = (list, { includePrincipal = false } = {}) => {
     if (!Array.isArray(list)) return list;
     return list.map((exercise) => {
@@ -732,7 +899,7 @@ function fitGeneratedSessionToTarget(session, targetMinutes, options = {}) {
   }
 
   let reduceGuard = 0;
-  while (isTooLong() && estimateGeneratedSessionSec(next) > targetSec * 0.92 && reduceGuard < 4) {
+  while (isTooLong() && estimate() > targetSec * 0.92 && reduceGuard < 4) {
     next.corps = reduceListVolume(next.corps, { includePrincipal: true });
     next.echauffement = reduceListVolume(next.echauffement, { includePrincipal: true });
     reduceGuard += 1;
@@ -746,7 +913,7 @@ function fitGeneratedSessionToTarget(session, targetMinutes, options = {}) {
     next.bonus = next.bonus.slice(0, 1);
   }
 
-  if (estimateGeneratedSessionSec(next) > targetSec * 1.12 && Array.isArray(next.bonus) && next.bonus.length) {
+  if (estimate() > targetSec * 1.12 && Array.isArray(next.bonus) && next.bonus.length) {
     next.bonus = [];
   }
 
@@ -1687,7 +1854,7 @@ function trimSupportSectionsV2(session = {}, context = {}) {
     next.bonus = next.bonus.slice(0, 1);
   }
 
-  if (targetSec && estimateGeneratedSessionSec(next) > targetSec * 1.08 && Array.isArray(next.bonus)) {
+  if (targetSec && estimateGeneratedSessionSec(next, { timingProfile: context.timingProfile }) > targetSec * 1.08 && Array.isArray(next.bonus)) {
     next.bonus = next.bonus.slice(0, ["endurance", "perte_de_poids"].includes(objective) ? 1 : 0);
   }
 
@@ -1894,7 +2061,7 @@ function coachSplitV2(baseSplit = [], { objectif = "", nbSeances = 1 } = {}) {
 
 function assessProgramQuality(
   sessions = [],
-  { targetDurationMin = null, maxDuplicateBaseMovements = 0, allowShorterThanTarget = false } = {}
+  { targetDurationMin = null, maxDuplicateBaseMovements = 0, allowShorterThanTarget = false, timingProfile = null } = {}
 ) {
   const issues = [];
   const baseUsage = new Map();
@@ -1902,7 +2069,7 @@ function assessProgramQuality(
 
 	  sessions.forEach((session, sessionIdx) => {
 	    const body = Array.isArray(session?.corps) ? session.corps : [];
-	    const durationSec = estimateGeneratedSessionSec(session);
+	    const durationSec = estimateGeneratedSessionSec(session, { timingProfile });
 	    const sessionAngles = new Map();
 	    const sessionPatterns = new Map();
 	    const sessionNames = new Map();
@@ -2986,6 +3153,7 @@ async function generateAutoProgram({
   injuryProfile,
   exerciseBanks,
   engine,
+  timingProfile,
 }) {
   const db = admin.firestore();
   const sexeNormalized = normalizeSexeInput(sexe);
@@ -2993,6 +3161,7 @@ async function generateAutoProgram({
   const materialContext = resolveMaterialContext({ trainingLocation, equipmentAccess });
   const scoringObjectiveKey = toKey(scoringObjective || objectif || "endurance");
   const engineMode = resolveSportEngineMode(engine);
+  const normalizedTimingProfile = normalizeTimingProfile(timingProfile);
   const isSafeExercise = (exercise, sectionKey = "corps") =>
     !isContraindicatedForInjury(exercise, injuryProfile) &&
     !scoreExerciseCandidate(exercise, {
@@ -3781,6 +3950,7 @@ async function generateAutoProgram({
           injuryProfile,
           sessionGroups: groups,
           globalUsage,
+          timingProfile: normalizedTimingProfile,
         })
       : rawSession;
     const preFittedSession = engineMode === "v2"
@@ -3790,11 +3960,13 @@ async function generateAutoProgram({
           objectif: scoringObjectiveKey,
           nbSeances,
           materialContext,
+          timingProfile: normalizedTimingProfile,
         })
       : composedSession;
     const fittedSession = fitGeneratedSessionToTarget(preFittedSession, sessionDurationMin, {
       expandToTarget: engineMode !== "v2",
       minFillRatio: engineMode === "v2" ? 0.75 : undefined,
+      timingProfile: normalizedTimingProfile,
     });
     let ensuredSession = fittedSession;
     if (
@@ -3913,6 +4085,7 @@ async function generateAutoProgram({
           objectif: scoringObjectiveKey,
           nbSeances,
           materialContext,
+          timingProfile: normalizedTimingProfile,
         })
       : ensuredSession;
     if (engineMode === "v2") {
@@ -3933,13 +4106,16 @@ async function generateAutoProgram({
       finalSession = fitGeneratedSessionToTarget(finalSession, sessionDurationMin, {
         expandToTarget: false,
         minFillRatio: finalMinFillRatio,
+        timingProfile: normalizedTimingProfile,
       });
     }
     finalSession.engineMeta = {
       version: engineMode === "v1" ? LEGACY_ENGINE_VERSION : ENGINE_VERSION,
       activeEngine: engineMode,
       targetDurationMin: Number(sessionDurationMin) || null,
-      estimatedDurationSec: estimateGeneratedSessionSec(finalSession),
+      estimatedDurationSec: estimateGeneratedSessionSec(finalSession, { timingProfile: normalizedTimingProfile }),
+      baseEstimatedDurationSec: estimateGeneratedSessionSec(finalSession),
+      ...(normalizedTimingProfile ? { timingProfile: normalizedTimingProfile } : {}),
       niveau: niveauNormalized,
       objectif: scoringObjectiveKey,
       groups,
@@ -3953,6 +4129,7 @@ async function generateAutoProgram({
 	  engineSummary.quality = assessProgramQuality(programmeComplet, {
 	    targetDurationMin: sessionDurationMin,
 	    allowShorterThanTarget: engineMode === "v2",
+	    timingProfile: normalizedTimingProfile,
 	    maxDuplicateBaseMovements: allowedDuplicateBaseMovements({
         nbSeances,
         materialContext,
@@ -3960,6 +4137,9 @@ async function generateAutoProgram({
         objectif: scoringObjectiveKey,
       }),
 	  });
+	  if (normalizedTimingProfile) {
+	    engineSummary.timingProfile = normalizedTimingProfile;
+	  }
 	  return { sessions: programmeComplet, engineSummary };
 }
 
@@ -4017,6 +4197,7 @@ async function generateAndSaveAutoProgram({
   // choix candidats historiques puis applique une vraie composition coach :
   // durée cible, anti-doublons et volume d'exercices maîtrisé.
   const requestedEngine = resolveSavedProgramEngineMode(engine);
+  const timingProfile = clientId ? await buildClientTimingProfile(db, clientId) : null;
   const generatedProgram = await generateAutoProgram({
     sexe,
     niveau,
@@ -4030,6 +4211,7 @@ async function generateAndSaveAutoProgram({
     engine: requestedEngine,
     generationSeed,
     programVariant,
+    timingProfile,
   });
   const { sessions, engineSummary } = generatedProgram;
   const engineVersion = requestedEngine === "v1" ? LEGACY_ENGINE_VERSION : ENGINE_VERSION;

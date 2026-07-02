@@ -12,6 +12,7 @@ import { chooseDiverseVariant, validateCreativeQuality } from "./creative-qualit
 import {
   assessMarketingReadiness,
   assertAutomaticPublishingAllowed,
+  assertContentProductionAllowed,
   buildNightlyGrowthReport,
   isTransientPublishNetworkError,
   readBrandMemory,
@@ -2533,7 +2534,8 @@ async function preparePublish({ variantId, networks, execute }) {
   };
 }
 
-function runDailyPreparation({ slot = "", forceFreshSources = false } = {}) {
+async function runDailyPreparation({ slot = "", forceFreshSources = false } = {}) {
+  await assertContentProductionAllowed({ source: "dashboard_daily_prepare" });
   return new Promise((resolvePromise) => {
     const args = [resolve(root, "src/automation-runner.mjs"), "--mode", "daily"];
     if (slot && slot !== "auto") args.push("--slot", String(slot));

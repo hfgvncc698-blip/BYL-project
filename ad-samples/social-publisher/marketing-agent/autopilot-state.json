@@ -6,10 +6,15 @@
     "timeParis": "14:00",
     "execute": false,
     "slot": "monday-12h30-story",
-    "status": "autonomous_dry_run_cycle_finished",
-    "ok": true,
+    "status": "paused_by_user_review",
+    "ok": false,
     "reportPath": "/Users/tommarie/Projects/BYL-project/ad-samples/social-publisher/runs/2026-06-29-autopilot-dry-run-monday-12h30-story.json",
     "blockers": [],
-    "nextAction": "Cycle pret en dry-run. Passer en --execute seulement apres verification des connecteurs publics."
-  }
+    "nextAction": "Autopilot suspendu. Reprendre uniquement apres revue strategique commune avec Tom.",
+    "pausedAt": "2026-06-30T23:56:59.003Z"
+  },
+  "paused": true,
+  "pausedAt": "2026-06-30T23:56:59.003Z",
+  "pauseReason": "manual_pause_user_review_required",
+  "nextAction": "Autopilot suspendu. Reprendre uniquement apres revue strategique commune avec Tom."
 }

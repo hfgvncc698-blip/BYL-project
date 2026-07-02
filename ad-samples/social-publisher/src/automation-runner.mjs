@@ -22,6 +22,7 @@ import { runTrendScout } from "./trend-scout.mjs";
 import {
   assessMarketingReadiness,
   assertAutomaticPublishingAllowed,
+  assertContentProductionAllowed,
   buildNightlyGrowthReport,
   isTransientPublishNetworkError,
   readObjectionDatabase,
@@ -1899,6 +1900,7 @@ async function runAgentPlan({ now, slotId = "" }) {
 }
 
 async function runDaily({ now, slotId = "" }) {
+  await assertContentProductionAllowed({ source: "automation_runner_daily_production" });
   const [
     calendar,
     agentConfig,

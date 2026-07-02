@@ -270,6 +270,7 @@ function emptyBrandMemory() {
 function emptyKillSwitch() {
   return {
     version: "1.0.0",
+    contentProductionDisabled: false,
     automaticPublishingDisabled: false,
     trippedAt: "",
     reason: "",
@@ -348,6 +349,7 @@ export async function tripMarketingKillSwitch({ reason, severity = "high", sourc
   };
   const next = {
     ...current,
+    contentProductionDisabled: true,
     automaticPublishingDisabled: true,
     trippedAt: current.trippedAt || alert.at,
     reason: current.reason || alert.reason,
@@ -400,6 +402,7 @@ export async function resolveMarketingKillSwitch({ reason = "resolved", source =
   };
   const next = {
     ...current,
+    contentProductionDisabled: false,
     automaticPublishingDisabled: false,
     resolvedAt,
     resolvedReason: reason,
@@ -419,6 +422,17 @@ export async function assertAutomaticPublishingAllowed({ execute = false, force 
   if (execute && !force && state.automaticPublishingDisabled) {
     const error = new Error(`Publication automatique désactivée par kill switch: ${state.reason || "raison inconnue"}`);
     error.code = "MARKETING_KILL_SWITCH_ACTIVE";
+    error.killSwitch = { ...state, source };
+    throw error;
+  }
+  return state;
+}
+
+export async function assertContentProductionAllowed({ force = false, source = "" } = {}) {
+  const state = await readKillSwitch();
+  if (!force && state.contentProductionDisabled) {
+    const error = new Error(`Production de contenu désactivée par kill switch: ${state.reason || "raison inconnue"}`);
+    error.code = "MARKETING_CONTENT_PRODUCTION_PAUSED";
     error.killSwitch = { ...state, source };
     throw error;
   }

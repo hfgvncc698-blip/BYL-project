@@ -71,6 +71,7 @@ import {
   InfoOutlineIcon,
   CheckCircleIcon,
   SettingsIcon,
+  ChevronDownIcon,
 } from "@chakra-ui/icons";
 import { AnimatePresence, motion } from "framer-motion";
 import { playFeedback } from "../utils/feedback";
@@ -81,6 +82,7 @@ import AppLoading from "./ui/AppLoading";
 import { useAppTheme } from "../styles/appTheme";
 import { localizeExercise } from "../utils/exerciseI18n";
 import { getExerciseNotesText } from "../utils/exerciseNotes";
+import EXERCISE_TRANSLATION_ALIASES from "../data/exerciseTranslationAliases.json";
 import {
   applyProgressionStrategyToDecision,
   applySportProgressionToSession,
@@ -139,21 +141,55 @@ const toClockMMSS = (s) => {
   return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 };
 
+const toClockDuration = (s) => {
+  const n = Math.max(0, Math.round(Number(s) || 0));
+  const h = Math.floor(n / 3600);
+  const m = Math.floor((n % 3600) / 60);
+  const sec = n % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+};
+
+const getIndexedEntries = (value) => {
+  if (Array.isArray(value)) return value.map((item, index) => ({ item, index }));
+  if (!value || typeof value !== "object") return [];
+  return Object.entries(value)
+    .sort(([a], [b]) => {
+      const na = Number(a);
+      const nb = Number(b);
+      if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+      return String(a).localeCompare(String(b), "fr", { numeric: true });
+    })
+    .map(([key, item], fallbackIndex) => ({
+      item,
+      index: Number.isFinite(Number(key)) ? Number(key) : fallbackIndex,
+    }));
+};
+
 function flattenSession(sess) {
-  if (Array.isArray(sess?.exercises)) {
+  if (Array.isArray(sess)) {
     return {
-      flat: sess.exercises,
-      map: (sess.exercises || []).map((_, i) => ({ sectionKey: "exercises", index: i })),
+      flat: sess,
+      map: sess.map((_, i) => ({ sectionKey: "exercises", index: i })),
     };
   }
-  const order = [["echauffement"], ["corps"], ["bonus"], ["retourCalme"]];
+
+  if (Array.isArray(sess?.exercises) || (sess?.exercises && typeof sess.exercises === "object")) {
+    const entries = getIndexedEntries(sess.exercises);
+    return {
+      flat: entries.map(({ item }) => item),
+      map: entries.map(({ index }) => ({ sectionKey: "exercises", index })),
+    };
+  }
+
+  const order = [["echauffement"], ["corps"], ["bonus"], ["retourCalme"], ["exercices"]];
   const flat = [];
   const map = [];
   order.forEach(([key]) => {
-    const arr = Array.isArray(sess[key]) ? sess[key] : [];
-    arr.forEach((ex, i) => {
-      flat.push(ex);
-      map.push({ sectionKey: key, index: i });
+    const entries = getIndexedEntries(sess?.[key]);
+    entries.forEach(({ item, index }) => {
+      flat.push(item);
+      map.push({ sectionKey: key, index });
     });
   });
   return { flat, map };
@@ -162,36 +198,263 @@ function flattenSession(sess) {
 function useTimer(onComplete) {
   const [seconds, setSeconds] = useState(0);
   const intervalRef = useRef(null);
+  const targetAtRef = useRef(null);
+  const secondsRef = useRef(0);
+  const completingRef = useRef(false);
+  const onCompleteRef = useRef(onComplete);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    secondsRef.current = seconds;
+  }, [seconds]);
+
+  const clearTicker = () => {
+    clearInterval(intervalRef.current);
+    intervalRef.current = null;
+  };
+
+  const finish = () => {
+    if (completingRef.current) return;
+    completingRef.current = true;
+    targetAtRef.current = null;
+    clearTicker();
+    secondsRef.current = 0;
+    setSeconds(0);
+    onCompleteRef.current?.();
+  };
+
+  const tick = () => {
+    const targetAt = Number(targetAtRef.current || 0);
+    if (!targetAt) return;
+    const remaining = Math.max(0, Math.ceil((targetAt - Date.now()) / 1000));
+    secondsRef.current = remaining;
+    setSeconds(remaining);
+    if (remaining <= 0) finish();
+  };
 
   const start = () => {
     if (intervalRef.current) return;
-    intervalRef.current = setInterval(() => {
-      setSeconds((prev) => {
-        if (prev <= 1) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-          onComplete?.();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    completingRef.current = false;
+    targetAtRef.current = Date.now() + Math.max(0, Number(secondsRef.current) || 0) * 1000;
+    tick();
+    if (!targetAtRef.current || completingRef.current) return;
+    intervalRef.current = setInterval(tick, 1000);
   };
 
   const reset = (sec) => {
-    clearInterval(intervalRef.current);
-    intervalRef.current = null;
-    setSeconds(Math.max(0, sec || 0));
+    clearTicker();
+    targetAtRef.current = null;
+    completingRef.current = false;
+    const next = Math.max(0, sec || 0);
+    secondsRef.current = next;
+    setSeconds(next);
   };
 
   const stop = () => {
+    const targetAt = Number(targetAtRef.current || 0);
+    if (targetAt) {
+      const remaining = Math.max(0, Math.ceil((targetAt - Date.now()) / 1000));
+      secondsRef.current = remaining;
+      setSeconds(remaining);
+    }
+    targetAtRef.current = null;
+    completingRef.current = false;
+    clearTicker();
+  };
+
+  useEffect(() => {
+    const handleResume = () => tick();
+    window.addEventListener("focus", handleResume);
+    document.addEventListener("visibilitychange", handleResume);
+    return () => {
+      clearTicker();
+      window.removeEventListener("focus", handleResume);
+      document.removeEventListener("visibilitychange", handleResume);
+    };
+  }, []);
+
+  return { seconds, start, reset, stop };
+}
+
+function useStopwatchTimer() {
+  const [seconds, setSeconds] = useState(0);
+  const intervalRef = useRef(null);
+  const startedAtRef = useRef(null);
+  const baseSecondsRef = useRef(0);
+  const secondsRef = useRef(0);
+
+  useEffect(() => {
+    secondsRef.current = seconds;
+  }, [seconds]);
+
+  const clearTicker = () => {
     clearInterval(intervalRef.current);
     intervalRef.current = null;
   };
 
+  const tick = () => {
+    const startedAt = Number(startedAtRef.current || 0);
+    if (!startedAt) return;
+    const elapsed = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+    const next = Math.max(0, baseSecondsRef.current + elapsed);
+    secondsRef.current = next;
+    setSeconds(next);
+  };
+
+  const start = () => {
+    if (intervalRef.current) return;
+    startedAtRef.current = Date.now();
+    tick();
+    intervalRef.current = setInterval(tick, 1000);
+  };
+
+  const stop = () => {
+    const startedAt = Number(startedAtRef.current || 0);
+    if (startedAt) {
+      const elapsed = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+      const next = Math.max(0, baseSecondsRef.current + elapsed);
+      baseSecondsRef.current = next;
+      secondsRef.current = next;
+      setSeconds(next);
+    }
+    startedAtRef.current = null;
+    clearTicker();
+  };
+
+  const reset = (sec = 0) => {
+    clearTicker();
+    startedAtRef.current = null;
+    const next = Math.max(0, Number(sec) || 0);
+    baseSecondsRef.current = next;
+    secondsRef.current = next;
+    setSeconds(next);
+  };
+
+  useEffect(() => {
+    const handleResume = () => tick();
+    window.addEventListener("focus", handleResume);
+    document.addEventListener("visibilitychange", handleResume);
+    return () => {
+      clearTicker();
+      window.removeEventListener("focus", handleResume);
+      document.removeEventListener("visibilitychange", handleResume);
+    };
+  }, []);
+
+  return { seconds, start, stop, reset };
+}
+
+function readElapsedTimerState(storageKey) {
+  if (!storageKey || typeof window === "undefined") return { startedAt: 0, stoppedAt: 0 };
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(storageKey) || "{}");
+    const startedAt = Number(parsed?.startedAt || 0);
+    const stoppedAt = Number(parsed?.stoppedAt || 0);
+    if (!Number.isFinite(startedAt) || startedAt <= 0) return { startedAt: 0, stoppedAt: 0 };
+    return {
+      startedAt,
+      stoppedAt: Number.isFinite(stoppedAt) && stoppedAt > 0 ? stoppedAt : 0,
+    };
+  } catch {
+    return { startedAt: 0, stoppedAt: 0 };
+  }
+}
+
+function writeElapsedTimerState(storageKey, state) {
+  if (!storageKey || typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(state || {}));
+  } catch {}
+}
+
+function clearElapsedTimerState(storageKey) {
+  if (!storageKey || typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(storageKey);
+  } catch {}
+}
+
+function getElapsedTimerSeconds(state = {}) {
+  const startedAt = Number(state.startedAt || 0);
+  if (!Number.isFinite(startedAt) || startedAt <= 0) return 0;
+  const stoppedAt = Number(state.stoppedAt || 0);
+  const endAt = Number.isFinite(stoppedAt) && stoppedAt > 0 ? stoppedAt : Date.now();
+  return Math.max(0, Math.floor((endAt - startedAt) / 1000));
+}
+
+function useElapsedTimer(storageKey) {
+  const [seconds, setSeconds] = useState(0);
+  const [timerState, setTimerState] = useState({ startedAt: 0, stoppedAt: 0 });
+  const intervalRef = useRef(null);
+
+  const syncFromState = (state) => {
+    setTimerState(state);
+    setSeconds(getElapsedTimerSeconds(state));
+  };
+
+  const start = () => {
+    const current = readElapsedTimerState(storageKey);
+    if (current.startedAt && !current.stoppedAt) {
+      syncFromState(current);
+      return;
+    }
+    const next = { startedAt: Date.now(), stoppedAt: 0 };
+    writeElapsedTimerState(storageKey, next);
+    syncFromState(next);
+  };
+
+  const stop = () => {
+    const current = readElapsedTimerState(storageKey);
+    if (!current.startedAt || current.stoppedAt) {
+      syncFromState(current);
+      return;
+    }
+    const next = { ...current, stoppedAt: Date.now() };
+    writeElapsedTimerState(storageKey, next);
+    syncFromState(next);
+  };
+
+  const reset = () => {
+    clearElapsedTimerState(storageKey);
+    syncFromState({ startedAt: 0, stoppedAt: 0 });
+  };
+
+  useEffect(() => {
+    const stored = readElapsedTimerState(storageKey);
+    syncFromState(stored);
+  }, [storageKey]);
+
+  useEffect(() => {
+    clearInterval(intervalRef.current);
+    intervalRef.current = null;
+    if (!timerState.startedAt || timerState.stoppedAt) return undefined;
+
+    const tick = () => setSeconds(getElapsedTimerSeconds(readElapsedTimerState(storageKey)));
+    tick();
+    if (intervalRef.current) return;
+    intervalRef.current = setInterval(tick, 1000);
+
+    const handleResume = () => tick();
+    window.addEventListener("focus", handleResume);
+    document.addEventListener("visibilitychange", handleResume);
+
+    return () => {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+      window.removeEventListener("focus", handleResume);
+      document.removeEventListener("visibilitychange", handleResume);
+    };
+  }, [storageKey, timerState.startedAt, timerState.stoppedAt]);
+
   useEffect(() => () => clearInterval(intervalRef.current), []);
 
-  return { seconds, start, reset, stop };
+  const started = Boolean(timerState.startedAt);
+  const running = Boolean(timerState.startedAt && !timerState.stoppedAt);
+
+  return { seconds, running, started, startedAt: timerState.startedAt, start, stop, reset };
 }
 
 /* ---------------------- mapping options ---------------------- */
@@ -316,7 +579,9 @@ function labelWithUnit(units, label, t) {
   };
 
   if (label === "Charge (kg)") {
-    return units.weight === "lb" ? tr("labels.loadLb", "Charge (lb)") : "Charge (kg)";
+    return units.weight === "lb"
+      ? tr("labels.loadLb", "Charge (lb)")
+      : tr("sessionPlayer.historyFields.loadKg", "Charge (kg)");
   }
   if (label === "Distance") {
     return units.distance === "miles"
@@ -330,6 +595,12 @@ function labelWithUnit(units, label, t) {
   }
   if (label === "Repos (min:sec)") return `${tr("labels.rest", "Repos")} (mm:ss)`;
   if (label === "Durée (min:sec)") return `${tr("labels.duration", "Durée")} (mm:ss)`;
+  if (label === "Répétitions") return tr("sessionPlayer.historyFields.repetitions", "Répétitions");
+  if (label === "Séries") return tr("sessionPlayer.historyFields.sets", "Séries");
+  if (label === "Inclinaison (%)") return tr("sessionPlayer.historyFields.incline", "Inclinaison (%)");
+  if (label === "Objectif Calories") return tr("sessionPlayer.historyFields.calories", "Calories");
+  if (label === "Intensité") return tr("sessionPlayer.historyFields.intensity", "Intensité");
+  if (label === "Tempo") return tr("sessionPlayer.historyFields.tempo", "Tempo");
   return label || "";
 }
 
@@ -401,7 +672,7 @@ const getExerciseDisplayName = (exercise) =>
   exercise?.nom || exercise?.name || exercise?.title || exercise?.label || "Exercice";
 
 const estimateExercisePlannedSeconds = (exercise) => {
-  estimateExerciseDurationSeconds(exercise);
+  return estimateExerciseDurationSeconds(exercise);
 };
 
 /* ---------------------- Editable metric ---------------------- */
@@ -589,6 +860,434 @@ const isValidatedCalendarSession = (session = {}) => {
   );
 };
 
+const normalizeExerciseToken = (value = "") =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const EXERCISE_NAME_STOPWORDS = new Set([
+  "avec",
+  "sans",
+  "sur",
+  "machine",
+  "barre",
+  "haltere",
+  "halteres",
+  "dumbbell",
+  "dumbbells",
+  "barbell",
+  "bodyweight",
+  "poids",
+  "corps",
+  "assis",
+  "assise",
+  "debout",
+  "incline",
+  "decline",
+  "seated",
+  "standing",
+  "lying",
+  "machine",
+]);
+
+const getNameTokens = (name = "") =>
+  normalizeExerciseToken(name)
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3 && !EXERCISE_NAME_STOPWORDS.has(token));
+
+const collectTranslationNames = (translations = {}) => {
+  if (!translations || typeof translations !== "object") return [];
+  return Object.values(translations).flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    return [entry.nom, entry.name, entry.title, entry.label];
+  });
+};
+
+const parseMetricNumber = (value) => {
+  if (value == null || value === "") return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  const n = Number(String(value).replace(",", ".").trim());
+  return Number.isFinite(n) ? n : null;
+};
+
+function getExerciseIdentity(exercise = {}) {
+  const ids = [
+    exercise?.id,
+    exercise?.exerciseId,
+    exercise?.exercise_id,
+    exercise?._id,
+    exercise?.uid,
+    exercise?.__docId,
+  ]
+    .map((v) => String(v || "").trim())
+    .filter(Boolean);
+
+  const names = [
+    exercise?.nom,
+    exercise?.name,
+    exercise?.title,
+    exercise?.label,
+    exercise?.nameFr,
+    exercise?.nameEn,
+    exercise?.nomFr,
+    exercise?.nomEn,
+    exercise?.displayName,
+    ...(Array.isArray(exercise?.aliases) ? exercise.aliases : []),
+    ...(Array.isArray(exercise?.alias) ? exercise.alias : []),
+    ...(Array.isArray(exercise?.synonyms) ? exercise.synonyms : []),
+    ...collectTranslationNames(exercise?.translations),
+  ]
+    .map(normalizeExerciseToken)
+    .filter(Boolean);
+
+  return {
+    ids: Array.from(new Set(ids)),
+    names: Array.from(new Set(names)),
+    tokens: Array.from(new Set(names.flatMap(getNameTokens))),
+    primaryName:
+      exercise?.nom ||
+      exercise?.name ||
+      exercise?.title ||
+      exercise?.label ||
+      "Exercice",
+  };
+}
+
+const readExerciseMetric = (exercise, key, label, setIndex = 0) => {
+  const details = getSeriesDetails(exercise);
+  const seriesDiff = getSeriesDiffFlag(exercise);
+  if (seriesDiff && details && label !== "Séries") {
+    const row = details[Math.max(0, setIndex)] || {};
+    if (row[label] != null) return row[label];
+  }
+  return getFieldValue(exercise, FIELD_MAP[key]) ?? exercise?.[label] ?? null;
+};
+
+function buildExercisePerformanceSnapshots(flatExercises = [], mapping = [], timings = []) {
+  const timingByIndex = new Map(
+    (Array.isArray(timings) ? timings : [])
+      .filter((entry) => Number.isFinite(Number(entry?.exerciseIndex)))
+      .map((entry) => [Number(entry.exerciseIndex), entry])
+  );
+
+  return (flatExercises || []).map((exercise, exerciseIndex) => {
+    const identity = getExerciseIdentity(exercise);
+    const setsCount = Math.max(1, Math.round(parseMetricNumber(getFieldValue(exercise, FIELD_MAP.series)) || 1));
+    const sets = Array.from({ length: setsCount }).map((_, setIndex) => {
+      const reps = parseMetricNumber(readExerciseMetric(exercise, "repetitions", "Répétitions", setIndex));
+      const chargeKg = parseMetricNumber(readExerciseMetric(exercise, "charge", "Charge (kg)", setIndex));
+      const durationSec = toSeconds(readExerciseMetric(exercise, "temps", "Durée (min:sec)", setIndex) ?? 0);
+      const restSec = toSeconds(readExerciseMetric(exercise, "repos", "Repos (min:sec)", setIndex) ?? 0);
+      const distance = parseMetricNumber(readExerciseMetric(exercise, "distance", "Distance", setIndex));
+      const speed = parseMetricNumber(readExerciseMetric(exercise, "vitesse", "Vitesse", setIndex));
+      const incline = parseMetricNumber(readExerciseMetric(exercise, "inclinaison", "Inclinaison (%)", setIndex));
+      const calories = parseMetricNumber(readExerciseMetric(exercise, "calories", "Objectif Calories", setIndex));
+      const intensity = parseMetricNumber(readExerciseMetric(exercise, "intensite", "Intensité", setIndex));
+      const tempo = readExerciseMetric(exercise, "tempo", "Tempo", setIndex);
+      const values = {};
+      if (reps != null) values["Répétitions"] = { label: "Répétitions", raw: reps, display: formatHistoryValue("Répétitions", reps) };
+      if (chargeKg != null) values["Charge (kg)"] = { label: "Charge (kg)", raw: chargeKg, display: formatHistoryValue("Charge (kg)", chargeKg) };
+      if (durationSec > 0) values["Durée (min:sec)"] = { label: "Durée (min:sec)", raw: durationSec, display: formatHistoryValue("Durée (min:sec)", durationSec) };
+      if (restSec > 0) values["Repos (min:sec)"] = { label: "Repos (min:sec)", raw: restSec, display: formatHistoryValue("Repos (min:sec)", restSec) };
+      if (distance != null) values["Distance"] = { label: "Distance", raw: distance, display: formatHistoryValue("Distance", distance) };
+      if (speed != null) values["Vitesse"] = { label: "Vitesse", raw: speed, display: formatHistoryValue("Vitesse", speed) };
+      if (incline != null) values["Inclinaison (%)"] = { label: "Inclinaison (%)", raw: incline, display: formatHistoryValue("Inclinaison (%)", incline) };
+      if (calories != null) values["Objectif Calories"] = { label: "Objectif Calories", raw: calories, display: formatHistoryValue("Objectif Calories", calories) };
+      if (intensity != null) values["Intensité"] = { label: "Intensité", raw: intensity, display: formatHistoryValue("Intensité", intensity) };
+      if (tempo != null && tempo !== "") values["Tempo"] = { label: "Tempo", raw: tempo, display: formatHistoryValue("Tempo", tempo) };
+
+      return {
+        setIndex: setIndex + 1,
+        values,
+        ...(reps != null ? { reps } : {}),
+        ...(chargeKg != null ? { chargeKg } : {}),
+        ...(durationSec > 0 ? { durationSec } : {}),
+        ...(restSec > 0 ? { restSec } : {}),
+        ...(distance != null ? { distance } : {}),
+        ...(speed != null ? { speed } : {}),
+        ...(incline != null ? { incline } : {}),
+        ...(calories != null ? { calories } : {}),
+        ...(intensity != null ? { intensity } : {}),
+        ...(tempo != null && tempo !== "" ? { tempo } : {}),
+      };
+    });
+
+    const totalReps = sets.reduce((sum, set) => sum + (Number(set.reps) || 0), 0);
+    const totalVolumeKg = sets.reduce((sum, set) => {
+      const reps = Number(set.reps);
+      const charge = Number(set.chargeKg);
+      return sum + (Number.isFinite(reps) && Number.isFinite(charge) ? reps * charge : 0);
+    }, 0);
+    const topSet = sets.reduce((best, set) => {
+      if (!best) return set;
+      const load = Number(set.chargeKg) || 0;
+      const bestLoad = Number(best.chargeKg) || 0;
+      if (load !== bestLoad) return load > bestLoad ? set : best;
+      return (Number(set.reps) || 0) > (Number(best.reps) || 0) ? set : best;
+    }, null);
+    const timing = timingByIndex.get(exerciseIndex) || {};
+
+    return {
+      exerciseIndex,
+      sectionKey: mapping?.[exerciseIndex]?.sectionKey || "",
+      sectionIndex: mapping?.[exerciseIndex]?.index ?? null,
+      exerciseId: identity.ids[0] || "",
+      exerciseIds: identity.ids,
+      exerciseName: identity.primaryName,
+      exerciseNames: identity.names,
+      sets,
+      summary: {
+        totalSets: sets.length,
+        ...(totalReps > 0 ? { totalReps } : {}),
+        ...(totalVolumeKg > 0 ? { totalVolumeKg: Math.round(totalVolumeKg * 100) / 100 } : {}),
+        ...(topSet ? { topSet } : {}),
+      },
+      ...(timing?.plannedSeconds || timing?.actualSeconds ? { timing } : {}),
+    };
+  });
+}
+
+function exerciseSnapshotMatches(snapshot = {}, exercise = {}) {
+  if (!snapshot || !exercise) return false;
+  const current = getExerciseIdentity(exercise);
+  const snapshotIdentity = getExerciseIdentity(snapshot);
+  const snapshotIds = [
+    snapshot?.exerciseId,
+    ...(Array.isArray(snapshot?.exerciseIds) ? snapshot.exerciseIds : []),
+    ...snapshotIdentity.ids,
+  ]
+    .map((v) => String(v || "").trim())
+    .filter(Boolean);
+  if (current.ids.some((id) => snapshotIds.includes(id))) return true;
+
+  const snapshotNames = [
+    snapshot?.exerciseName,
+    ...(Array.isArray(snapshot?.exerciseNames) ? snapshot.exerciseNames : []),
+    ...snapshotIdentity.names,
+  ]
+    .map(normalizeExerciseToken)
+    .filter(Boolean);
+  if (current.names.some((name) => snapshotNames.includes(name))) return true;
+
+  const currentNames = current.names.filter(Boolean);
+  const hasContainedName = currentNames.some((name) =>
+    snapshotNames.some((candidate) =>
+      name.length >= 5 &&
+      candidate.length >= 5 &&
+      (name.includes(candidate) || candidate.includes(name))
+    )
+  );
+  if (hasContainedName) return true;
+
+  const snapshotTokens = Array.from(new Set(snapshotNames.flatMap(getNameTokens)));
+  if (!current.tokens.length || !snapshotTokens.length) return false;
+
+  const overlap = current.tokens.filter((token) => snapshotTokens.includes(token));
+  const shortest = Math.min(current.tokens.length, snapshotTokens.length);
+  return overlap.length >= 1 && overlap.length / Math.max(1, shortest) >= 0.5;
+}
+
+function exerciseMatchesAnyTarget(snapshot = {}, targets = []) {
+  return targets.filter(Boolean).some((target) => exerciseSnapshotMatches(snapshot, target));
+}
+
+function getProgramSessionList(programme = {}) {
+  if (Array.isArray(programme?.sessions)) return programme.sessions;
+  if (Array.isArray(programme?.seances)) return programme.seances;
+  if (programme?.sessions && typeof programme.sessions === "object") {
+    return getIndexedEntries(programme.sessions).map(({ item }) => item);
+  }
+  if (programme?.seances && typeof programme.seances === "object") {
+    return getIndexedEntries(programme.seances).map(({ item }) => item);
+  }
+  return [];
+}
+
+const isValidatedCompletionRecord = (record = {}) => {
+  const status = String(record?.status || "").trim().toLowerCase();
+  return (
+    !record?.isPartial &&
+    (
+      status === "validée" ||
+      status === "validee" ||
+      status === "done" ||
+      status === "completed" ||
+      status === "terminée" ||
+      status === "terminee" ||
+      Boolean(record?.validatedAt) ||
+      Boolean(record?.completedAt)
+    )
+  );
+};
+
+function getCompletionRecordDate(record = {}) {
+  return (
+    toDate(record?.dateEffectuee) ||
+    toDate(record?.completedAt) ||
+    toDate(record?.validatedAt) ||
+    toDate(record?.updatedAt) ||
+    toDate(record?.createdAt) ||
+    toDate(record?.startedAt)
+  );
+}
+
+function cleanHistoryFieldLabel(field = "") {
+  return String(field || "").replace(/\s*\(set\s*\d+\)\s*$/i, "").trim();
+}
+
+function getHistorySetIndex(field = "") {
+  const match = String(field || "").match(/\(set\s*(\d+)\)/i);
+  const n = match ? Number(match[1]) : 1;
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
+function formatHistoryValue(label = "", value) {
+  if (value == null || value === "") return "";
+  if (typeof value === "boolean") return value ? "Oui" : "Non";
+  const numericValue = parseMetricNumber(value);
+  if (label === "Durée (min:sec)" || label === "Repos (min:sec)") return toClockMMSS(toSeconds(value));
+  if (label === "Charge (kg)") return numericValue != null ? `${formatHistoryNumber(numericValue)} kg` : String(value);
+  if (label === "Inclinaison (%)") return numericValue != null ? `${formatHistoryNumber(numericValue)} %` : String(value);
+  if (label === "Objectif Calories") return numericValue != null ? `${formatHistoryNumber(numericValue)} kcal` : String(value);
+  return numericValue != null ? formatHistoryNumber(numericValue) : String(value);
+}
+
+const HISTORY_FIELD_LABEL_KEYS = {
+  "Répétitions": "repetitions",
+  "Charge (kg)": "loadKg",
+  "Durée (min:sec)": "duration",
+  "Repos (min:sec)": "rest",
+  Distance: "distance",
+  Vitesse: "speed",
+  "Inclinaison (%)": "incline",
+  "Objectif Calories": "calories",
+  Intensité: "intensity",
+  Tempo: "tempo",
+  Séries: "sets",
+  "Séries différentes": "differentSets",
+  notes: "notes",
+};
+
+function getHistoryFieldLabel(label = "", t) {
+  const clean = cleanHistoryFieldLabel(label);
+  const translate = typeof t === "function" ? t : (_key, fallback) => fallback;
+  if (clean.startsWith("Paramètre ")) {
+    const field = clean.replace(/^Paramètre\s+/i, "").trim();
+    return translate("sessionPlayer.historyFields.parameter", "Paramètre {{field}}", {
+      field: getHistoryFieldLabel(field, t),
+    });
+  }
+  const key = HISTORY_FIELD_LABEL_KEYS[clean];
+  return key ? translate(`sessionPlayer.historyFields.${key}`, clean) : clean || label;
+}
+
+function getHistoryChangeLabel(field = "") {
+  const raw = String(field || "").trim();
+  if (raw.startsWith("Paramètre ")) return raw.replace(/^Paramètre\s+/i, "Paramètre ");
+  return cleanHistoryFieldLabel(raw) || raw || "Changement";
+}
+
+function mapHistoryModificationToSet(set, mod) {
+  const field = cleanHistoryFieldLabel(mod?.field);
+  const value = mod?.value;
+  const numericValue = parseMetricNumber(value);
+  const values = {
+    ...(set.values || {}),
+    [field]: {
+      label: field,
+      raw: value,
+      display: formatHistoryValue(field, value),
+    },
+  };
+  const next = { ...set, values };
+  if (field === "Répétitions") return { ...next, reps: numericValue ?? value };
+  if (field === "Charge (kg)") return { ...next, chargeKg: numericValue ?? value };
+  if (field === "Durée (min:sec)") return { ...next, durationSec: toSeconds(value) };
+  if (field === "Repos (min:sec)") return { ...next, restSec: toSeconds(value) };
+  if (field === "Distance") return { ...next, distance: numericValue ?? value };
+  if (field === "Vitesse") return { ...next, speed: numericValue ?? value };
+  if (field === "Inclinaison (%)") return { ...next, incline: numericValue ?? value };
+  if (field === "Objectif Calories") return { ...next, calories: numericValue ?? value };
+  if (field === "Intensité") return { ...next, intensity: numericValue ?? value };
+  if (field === "Tempo") return { ...next, tempo: value };
+  return next;
+}
+
+function buildSnapshotFromHistoryModifications(mods = [], exercise = {}) {
+  const identity = getExerciseIdentity(exercise);
+  const sorted = [...mods].sort((a, b) => toMs(a.updatedAt || a.clientAt) - toMs(b.updatedAt || b.clientAt));
+  const baseSnapshot = buildExercisePerformanceSnapshots(exercise ? [exercise] : [])[0] || {};
+  const setMap = new Map(
+    (baseSnapshot.sets || []).map((set) => [
+      set.setIndex,
+      {
+        ...set,
+        values: { ...(set.values || {}) },
+      },
+    ])
+  );
+  const changes = [];
+
+  sorted.forEach((mod) => {
+    const field = cleanHistoryFieldLabel(mod?.field);
+    if (!field) return;
+    const isGeneralChange =
+      field === "Séries" ||
+      field === "Séries différentes" ||
+      field === "notes" ||
+      field.startsWith("Paramètre ");
+    if (isGeneralChange) {
+      changes.push({
+        label: getHistoryChangeLabel(mod?.field),
+        raw: mod?.value,
+        display: formatHistoryValue(field, mod?.value),
+      });
+      return;
+    }
+    const setIndex = getHistorySetIndex(mod?.field);
+    const existing = setMap.get(setIndex) || { setIndex };
+    const next = mapHistoryModificationToSet(existing, mod);
+    setMap.set(setIndex, next);
+  });
+
+  const sets = Array.from(setMap.values()).sort((a, b) => a.setIndex - b.setIndex);
+  if (!sets.length && !changes.length) return null;
+
+  const totalReps = sets.reduce((sum, set) => sum + (Number(set.reps) || 0), 0);
+  const totalVolumeKg = sets.reduce((sum, set) => {
+    const reps = Number(set.reps);
+    const charge = Number(set.chargeKg);
+    return sum + (Number.isFinite(reps) && Number.isFinite(charge) ? reps * charge : 0);
+  }, 0);
+  const topSet = sets.reduce((best, set) => {
+    if (!best) return set;
+    const load = Number(set.chargeKg) || 0;
+    const bestLoad = Number(best.chargeKg) || 0;
+    if (load !== bestLoad) return load > bestLoad ? set : best;
+    return (Number(set.reps) || 0) > (Number(best.reps) || 0) ? set : best;
+  }, null);
+
+  return {
+    exerciseIndex: Number(mods[0]?.exerciseIndex),
+    exerciseId: identity.ids[0] || "",
+    exerciseIds: identity.ids,
+    exerciseName: identity.primaryName,
+    exerciseNames: identity.names,
+    sets,
+    changes,
+    summary: {
+      totalSets: sets.length,
+      ...(totalReps > 0 ? { totalReps } : {}),
+      ...(totalVolumeKg > 0 ? { totalVolumeKg: Math.round(totalVolumeKg * 100) / 100 } : {}),
+      ...(topSet ? { topSet } : {}),
+    },
+  };
+}
+
 /* ====================== AUTO PROGRESSION ====================== */
 
 
@@ -625,6 +1324,80 @@ function readProgressionStrategy(programData) {
 /* ---------------------- MEDIA HELPERS ---------------------- */
 
 const EXERCISE_COLLECTIONS = ["training", "warmup", "cooldown", "ergometre"];
+const SUPPORTED_EXERCISE_TRANSLATION_LANGS = ["en", "it", "es", "de", "ru", "ar"];
+const EXERCISE_TRANSLATION_MODULES = import.meta.glob("../../exercise-translations/*.json");
+const exerciseTranslationCache = new Map();
+
+const normalizeExerciseTranslationLang = (lng = "fr") => {
+  const code = String(lng || "fr").toLowerCase().split(/[-_]/)[0];
+  return SUPPORTED_EXERCISE_TRANSLATION_LANGS.includes(code) ? code : "fr";
+};
+
+const normalizeExerciseTranslationKey = (value = "") =>
+  String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+async function loadExerciseTranslationMaps(lng = "fr") {
+  const lang = normalizeExerciseTranslationLang(lng);
+  if (lang === "fr") return {};
+  if (exerciseTranslationCache.has(lang)) return exerciseTranslationCache.get(lang);
+
+  const entries = await Promise.all(
+    EXERCISE_COLLECTIONS.map(async (collectionName) => {
+      const loader = EXERCISE_TRANSLATION_MODULES[`../../exercise-translations/${collectionName}.${lang}.json`];
+      if (!loader) return [collectionName, {}];
+      const mod = await loader();
+      return [collectionName, mod.default || mod];
+    })
+  );
+  const maps = Object.fromEntries(entries);
+  exerciseTranslationCache.set(lang, maps);
+  return maps;
+}
+
+function enrichExerciseWithTranslation(exercise, maps, lng = "fr") {
+  const lang = normalizeExerciseTranslationLang(lng);
+  if (!exercise || lang === "fr") return exercise;
+
+  const collectionName = exercise.__collection;
+  const normalizedName = normalizeExerciseTranslationKey(exercise.nom || exercise.name || exercise.title || "");
+  const byCollection = collectionName ? maps?.[collectionName] : null;
+  const aliasId = collectionName
+    ? EXERCISE_TRANSLATION_ALIASES?.[collectionName]?.[normalizedName]
+    : null;
+  const translated =
+    byCollection?.[exercise.id] ||
+    byCollection?.[exercise.docId] ||
+    byCollection?.[exercise.__docId] ||
+    byCollection?.[aliasId] ||
+    EXERCISE_COLLECTIONS.map((name) => {
+      const fallbackAliasId = EXERCISE_TRANSLATION_ALIASES?.[name]?.[normalizedName];
+      return (
+        maps?.[name]?.[exercise.id] ||
+        maps?.[name]?.[exercise.docId] ||
+        maps?.[name]?.[exercise.__docId] ||
+        maps?.[name]?.[fallbackAliasId]
+      );
+    }).find(Boolean);
+
+  if (!translated) return exercise;
+
+  return {
+    ...exercise,
+    translations: {
+      ...(exercise.translations || {}),
+      [lang]: {
+        ...translated,
+        ...(exercise.translations?.[lang] || {}),
+      },
+    },
+  };
+}
 
 function normalizeUrl(v) {
   const url = typeof v === "string" && v.trim() ? v.trim() : "";
@@ -1045,6 +1818,454 @@ function ExerciseMediaPanel({ exercise, preferredSex }) {
   );
 }
 
+function formatHistoryNumber(value, digits = 2) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "";
+  return Number.isInteger(n) ? String(n) : String(Number(n.toFixed(digits)));
+}
+
+function formatHistoryDate(date, language = "fr") {
+  if (!(date instanceof Date)) return "";
+  try {
+    return new Intl.DateTimeFormat(language || "fr", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(date);
+  } catch {
+    return date.toLocaleDateString();
+  }
+}
+
+const RM_PERCENT_TABLE = [
+  { reps: 1, percent: 100 },
+  { reps: 2, percent: 96.9 },
+  { reps: 3, percent: 93.1 },
+  { reps: 4, percent: 89.8 },
+  { reps: 5, percent: 87.4 },
+  { reps: 6, percent: 85.8 },
+  { reps: 7, percent: 82.9 },
+  { reps: 8, percent: 80.4 },
+  { reps: 9, percent: 78.6 },
+  { reps: 10, percent: 76.2 },
+  { reps: 15, percent: 70 },
+  { reps: 20, percent: 65 },
+  { reps: 25, percent: 60 },
+];
+
+const RM_DISPLAY_REPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25];
+
+const roundToHalfKg = (value) => Math.round((Number(value) || 0) * 2) / 2;
+
+function getOneRmPercentForReps(repsValue) {
+  const reps = Number(repsValue);
+  if (!Number.isFinite(reps) || reps <= 0) return null;
+  const exact = RM_PERCENT_TABLE.find((entry) => entry.reps === reps);
+  if (exact) return exact.percent;
+  const lower = [...RM_PERCENT_TABLE].reverse().find((entry) => entry.reps < reps);
+  const upper = RM_PERCENT_TABLE.find((entry) => entry.reps > reps);
+  if (lower && upper) {
+    const ratio = (reps - lower.reps) / (upper.reps - lower.reps);
+    return lower.percent + (upper.percent - lower.percent) * ratio;
+  }
+  return 100 / (1 + reps / 30);
+}
+
+function estimateOneRepMaxFromSet(set = {}) {
+  const charge = Number(set?.chargeKg);
+  const reps = Number(set?.reps);
+  const percent = getOneRmPercentForReps(reps);
+  if (!Number.isFinite(charge) || charge <= 0 || !percent) return 0;
+  return charge / (percent / 100);
+}
+
+function getBestStrengthSet(snapshot = {}) {
+  const sets = Array.isArray(snapshot?.sets) ? snapshot.sets : [];
+  return sets.reduce((best, set) => {
+    const estimate = estimateOneRepMaxFromSet(set);
+    if (estimate <= 0) return best;
+    if (!best || estimate > best.estimatedOneRepMax) {
+      return { set, estimatedOneRepMax: estimate };
+    }
+    return best;
+  }, null);
+}
+
+function getRmEstimateRows(snapshot = {}) {
+  const best = getBestStrengthSet(snapshot);
+  if (!best?.estimatedOneRepMax) return [];
+  return RM_DISPLAY_REPS.map((reps) => {
+    const percent = getOneRmPercentForReps(reps);
+    const charge = best.estimatedOneRepMax * (percent / 100);
+    return {
+      reps,
+      percent,
+      chargeKg: roundToHalfKg(charge),
+    };
+  });
+}
+
+function formatWeightRepsLine(charge, reps, t) {
+  const translate = typeof t === "function" ? t : (_key, fallback) => fallback;
+  return translate("sessionPlayer.weightXRepsLabel", "{{weight}} kg x {{reps}} reps", {
+    weight: formatHistoryNumber(charge),
+    reps: formatHistoryNumber(reps, 0),
+  });
+}
+
+function formatRepsLine(reps, t) {
+  const translate = typeof t === "function" ? t : (_key, fallback) => fallback;
+  return translate("sessionPlayer.repsValue", "{{reps}} reps", {
+    reps: formatHistoryNumber(reps, 0),
+  });
+}
+
+function localizeHistorySessionTitle(title = "", t) {
+  const translate = typeof t === "function" ? t : (_key, fallback) => fallback;
+  const raw = String(title || "").trim();
+  const match = raw.match(/^(?:séance|seance|session|sessione)\s*(\d+)$/i);
+  if (match) {
+    return translate("sessionPlayer.sessionN", "Séance {{n}}", { n: Number(match[1]) });
+  }
+  return raw;
+}
+
+function getHistoryMainLine(snapshot = {}, t) {
+  const top = snapshot?.summary?.topSet || {};
+  const charge = Number(top.chargeKg);
+  const reps = Number(top.reps);
+  if (Number.isFinite(charge) && charge > 0 && Number.isFinite(reps) && reps > 0) {
+    return formatWeightRepsLine(charge, reps, t);
+  }
+  if (Number.isFinite(charge) && charge > 0) return `${formatHistoryNumber(charge)} kg`;
+  if (Number.isFinite(reps) && reps > 0) return formatRepsLine(reps, t);
+  const duration = Number(top.durationSec || snapshot?.sets?.[0]?.durationSec);
+  if (Number.isFinite(duration) && duration > 0) return toClockMMSS(duration);
+  const distance = Number(top.distance || snapshot?.sets?.[0]?.distance);
+  if (Number.isFinite(distance) && distance > 0) return `${formatHistoryNumber(distance)} m`;
+  const firstValue = (snapshot?.sets || [])
+    .flatMap((set) => Object.values(set?.values || {}))
+    .find((entry) => entry?.display);
+  if (firstValue) return `${getHistoryFieldLabel(firstValue.label, t)} : ${firstValue.display}`;
+  const firstChange = Array.isArray(snapshot?.changes) ? snapshot.changes.find((entry) => entry?.display) : null;
+  if (firstChange) return `${getHistoryFieldLabel(firstChange.label, t)} : ${firstChange.display}`;
+  return "";
+}
+
+function getHistoryPrScore(snapshot = {}) {
+  const sets = Array.isArray(snapshot?.sets) ? snapshot.sets : [];
+  const strengthScore = getBestStrengthSet(snapshot)?.estimatedOneRepMax || 0;
+  if (strengthScore > 0) return strengthScore;
+
+  const topSet = snapshot?.summary?.topSet || {};
+  const fallbackSet = topSet && Object.keys(topSet).length ? topSet : sets[0] || {};
+  const charge = Number(fallbackSet.chargeKg);
+  if (Number.isFinite(charge) && charge > 0) return charge;
+  const reps = Number(fallbackSet.reps);
+  if (Number.isFinite(reps) && reps > 0) return reps;
+  const distance = Number(fallbackSet.distance);
+  if (Number.isFinite(distance) && distance > 0) return distance;
+  const speed = Number(fallbackSet.speed);
+  if (Number.isFinite(speed) && speed > 0) return speed;
+  const duration = Number(fallbackSet.durationSec);
+  if (Number.isFinite(duration) && duration > 0) return duration;
+  const calories = Number(fallbackSet.calories);
+  if (Number.isFinite(calories) && calories > 0) return calories;
+  return 0;
+}
+
+function getHistoryColumns(snapshots = [], t) {
+  const sets = snapshots.flatMap((snapshot) => Array.isArray(snapshot?.sets) ? snapshot.sets : []);
+  const preferredLabels = [
+    "Répétitions",
+    "Charge (kg)",
+    "Durée (min:sec)",
+    "Repos (min:sec)",
+    "Distance",
+    "Vitesse",
+    "Inclinaison (%)",
+    "Objectif Calories",
+    "Intensité",
+    "Tempo",
+  ];
+  const seen = new Set();
+  const labels = [];
+
+  preferredLabels.forEach((label) => {
+    if (sets.some((set) => set?.values?.[label])) {
+      seen.add(label);
+      labels.push(label);
+    }
+  });
+
+  sets.forEach((set) => {
+    Object.keys(set?.values || {}).forEach((label) => {
+      if (seen.has(label)) return;
+      seen.add(label);
+      labels.push(label);
+    });
+  });
+
+  return labels.map((label) => ({
+    key: label,
+    label: getHistoryFieldLabel(label, t),
+    render: (set) => set?.values?.[label]?.display || "",
+  }));
+}
+
+function ExerciseHistoryPanel({ historyItems, loading, language, textMute }) {
+  const { t } = useTranslation("common");
+  const panelBg = useColorModeValue("white", "gray.800");
+  const rowBg = useColorModeValue("gray.50", "whiteAlpha.100");
+  const expandedBg = useColorModeValue("gray.50", "whiteAlpha.50");
+  const border = useColorModeValue("gray.200", "gray.700");
+  const [expandedId, setExpandedId] = useState("");
+  const [activeView, setActiveView] = useState("history");
+  const [trackingOpen, setTrackingOpen] = useState(false);
+  const columns = getHistoryColumns(historyItems.map((item) => item.snapshot), t);
+  const prItem = historyItems.find((item) => item.rank === 1) || null;
+  const prSnapshot = prItem?.snapshot || null;
+  const prRmRows = getRmEstimateRows(prSnapshot || {});
+  const prBaseSet = getBestStrengthSet(prSnapshot || {})?.set || null;
+  const prMainLine = prSnapshot ? getHistoryMainLine(prSnapshot, t) : "";
+  const trackingSummary = loading
+    ? t("common.loading", "Chargement...")
+    : historyItems.length === 0
+      ? t("sessionPlayer.noExerciseHistory", "Aucun historique pour cet exercice.")
+      : prMainLine
+        ? t("sessionPlayer.trackingSummaryPr", "PR : {{value}}", { value: prMainLine })
+        : t("sessionPlayer.historyCount", "{{count}} entrée(s)", { count: historyItems.length });
+
+  useEffect(() => {
+    setExpandedId(historyItems[0]?.id || "");
+  }, [historyItems?.[0]?.id]);
+
+  return (
+    <Box
+      bg={panelBg}
+      border="1px solid"
+      borderColor={border}
+      borderRadius={{ base: "20px", md: "2xl" }}
+      p={{ base: 3, md: 4 }}
+      w="full"
+      minW={0}
+    >
+      <HStack justify="space-between" align="center" spacing={3}>
+        <VStack align="start" spacing={0} minW={0}>
+          <HStack spacing={2}>
+            <Heading size="sm" letterSpacing="0">
+              {t("sessionPlayer.exerciseTracking", "Suivi")}
+            </Heading>
+            <Badge borderRadius="full" px={2}>
+              {historyItems.length}
+            </Badge>
+          </HStack>
+          <Text fontSize="xs" color={textMute} fontWeight="800" noOfLines={1}>
+            {trackingSummary}
+          </Text>
+        </VStack>
+        <Tooltip
+          label={trackingOpen
+            ? t("sessionPlayer.closeTracking", "Fermer")
+            : t("sessionPlayer.openTracking", "Ouvrir")}
+          hasArrow
+        >
+          <IconButton
+            size="sm"
+            variant="ghost"
+            borderRadius="full"
+            aria-label={trackingOpen
+              ? t("sessionPlayer.closeTracking", "Fermer")
+              : t("sessionPlayer.openTracking", "Ouvrir")}
+            icon={<ChevronDownIcon boxSize={5} transform={trackingOpen ? "rotate(180deg)" : "none"} transition="transform .18s ease" />}
+            onClick={() => setTrackingOpen((open) => !open)}
+          />
+        </Tooltip>
+      </HStack>
+
+      {!trackingOpen ? null : (
+        <>
+      <HStack spacing={2} mt={3} mb={3}>
+        <Button
+          size="sm"
+          flex="1"
+          borderRadius="12px"
+          variant={activeView === "history" ? "solid" : "outline"}
+          colorScheme={activeView === "history" ? "blue" : "gray"}
+          onClick={() => setActiveView("history")}
+        >
+          {t("sessionPlayer.history", "Historique")}
+        </Button>
+        <Button
+          size="sm"
+          flex="1"
+          borderRadius="12px"
+          variant={activeView === "rm" ? "solid" : "outline"}
+          colorScheme={activeView === "rm" ? "blue" : "gray"}
+          onClick={() => setActiveView("rm")}
+        >
+          {t("sessionPlayer.rmTab", "RM")}
+        </Button>
+      </HStack>
+
+      {loading ? (
+        <Text fontSize="sm" color={textMute}>
+          {t("common.loading", "Chargement...")}
+        </Text>
+      ) : historyItems.length === 0 ? (
+        <Text fontSize="sm" color={textMute}>
+          {t("sessionPlayer.noExerciseHistory", "Aucun historique pour cet exercice.")}
+        </Text>
+      ) : activeView === "rm" ? (
+        prRmRows.length > 0 ? (
+          <Box border="1px solid" borderColor={border} borderRadius="16px" overflow="hidden">
+            <HStack justify="space-between" px={3} py={2.5} bg={rowBg} spacing={3}>
+              <VStack align="start" spacing={0} minW={0}>
+                <Text fontSize="xs" fontWeight="900">
+                  {t("sessionPlayer.rmEstimates", "Estimations RM")}
+                </Text>
+                <Text fontSize="xs" color={textMute} fontWeight="800" noOfLines={1}>
+                  {prMainLine || t("sessionPlayer.personalRecord", "PR")}
+                </Text>
+              </VStack>
+              {prBaseSet && (
+                <Badge colorScheme="green" borderRadius="full" px={2}>
+                  {t("sessionPlayer.weightXReps", "{{weight}} kg x {{reps}}", {
+                    weight: formatHistoryNumber(prBaseSet.chargeKg),
+                    reps: formatHistoryNumber(prBaseSet.reps, 0),
+                  })}
+                </Badge>
+              )}
+            </HStack>
+            <Box overflowX="auto">
+              <Table size="sm" minW="320px" sx={{ "th, td": { fontSize: "xs", px: 3, py: 1.5 } }}>
+                <Thead>
+                  <Tr>
+                    <Th>{t("sessionPlayer.rmColumn", "RM")}</Th>
+                    <Th>{t("sessionPlayer.percentOneRm", "% 1RM")}</Th>
+                    <Th isNumeric>{t("sessionPlayer.load", "Charge")}</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {prRmRows.map((row) => (
+                    <Tr key={row.reps} bg={row.reps === 1 ? rowBg : "transparent"}>
+                      <Td fontWeight="900">{row.reps}RM</Td>
+                      <Td>{formatHistoryNumber(row.percent, 1)}%</Td>
+                      <Td isNumeric fontWeight="900">{formatHistoryNumber(row.chargeKg)} kg</Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </Box>
+          </Box>
+        ) : (
+          <Text fontSize="sm" color={textMute}>
+            {t("sessionPlayer.noRmEstimate", "Aucune estimation RM disponible pour ce PR.")}
+          </Text>
+        )
+      ) : (
+        <VStack align="stretch" spacing={2}>
+          {historyItems.slice(0, 6).map((item) => {
+            const open = expandedId === item.id;
+            const snapshot = item.snapshot || {};
+            const sets = Array.isArray(snapshot.sets) ? snapshot.sets : [];
+            const changes = Array.isArray(snapshot.changes) ? snapshot.changes : [];
+            const mainLine = getHistoryMainLine(snapshot, t);
+            const totalVolume = Number(snapshot?.summary?.totalVolumeKg || 0);
+            return (
+              <Box key={item.id} border="1px solid" borderColor={border} borderRadius="16px" overflow="hidden">
+                <Button
+                  variant="ghost"
+                  w="full"
+                  h="auto"
+                  minH="48px"
+                  px={3}
+                  py={2.5}
+                  borderRadius="0"
+                  justifyContent="space-between"
+                  rightIcon={<ChevronDownIcon transform={open ? "rotate(180deg)" : "none"} transition="transform .18s ease" />}
+                  onClick={() => setExpandedId(open ? "" : item.id)}
+                >
+                  <HStack minW={0} spacing={2}>
+                    <Text fontWeight="900" fontSize="sm" noOfLines={1}>
+                      {mainLine || localizeHistorySessionTitle(item.sessionTitle, t) || t("form.session", "Séance")}
+                    </Text>
+                    {item.rank === 1 && (
+                      <Badge colorScheme="green" borderRadius="full">
+                        {t("sessionPlayer.personalRecordShort", "PR")}
+                      </Badge>
+                    )}
+                  </HStack>
+                  <Text fontSize="xs" color={textMute} flexShrink={0}>
+                    {formatHistoryDate(item.date, language)}
+                  </Text>
+                </Button>
+
+                {open && (
+                  <Box bg={expandedBg} px={3} py={3}>
+                    {sets.length > 0 && columns.length > 0 && (
+                      <Box overflowX="auto">
+                        <Table size="sm" minW="360px" sx={{ "th, td": { fontSize: "xs", px: 2, py: 1.5 } }}>
+                          <Thead>
+                            <Tr>
+                              <Th>#</Th>
+                              {columns.map((column) => (
+                                <Th key={column.key}>{column.label}</Th>
+                              ))}
+                            </Tr>
+                          </Thead>
+                          <Tbody>
+                            {sets.map((set) => (
+                              <Tr key={set.setIndex} bg={rowBg}>
+                                <Td fontWeight="800">{set.setIndex}</Td>
+                                {columns.map((column) => (
+                                  <Td key={column.key}>{column.render(set)}</Td>
+                                ))}
+                              </Tr>
+                            ))}
+                          </Tbody>
+                        </Table>
+                      </Box>
+                    )}
+
+                    {changes.length > 0 && (
+                      <VStack align="stretch" spacing={1.5} mt={sets.length > 0 ? 3 : 0}>
+                        {changes.map((change, idx) => (
+                          <HStack key={`${change.label}-${idx}`} justify="space-between" gap={3}>
+                            <Text fontSize="xs" color={textMute} fontWeight="800" noOfLines={1}>
+                              {getHistoryFieldLabel(change.label, t)}
+                            </Text>
+                            <Text fontSize="xs" fontWeight="900" textAlign="right" noOfLines={2}>
+                              {change.display}
+                            </Text>
+                          </HStack>
+                        ))}
+                      </VStack>
+                    )}
+
+                    <HStack justify="space-between" mt={3} spacing={3}>
+                      <Text fontSize="xs" color={textMute} fontWeight="800">
+                        {localizeHistorySessionTitle(item.sessionTitle, t) || t("form.session", "Séance")}
+                      </Text>
+                      {totalVolume > 0 && (
+                        <Text fontSize="xs" fontWeight="900">
+                          {formatHistoryNumber(totalVolume)} kg
+                        </Text>
+                      )}
+                    </HStack>
+                  </Box>
+                )}
+              </Box>
+            );
+          })}
+        </VStack>
+      )}
+        </>
+      )}
+    </Box>
+  );
+}
+
 /* ---------------------- Component ---------------------- */
 
 export default function SessionPlayer() {
@@ -1069,6 +2290,15 @@ export default function SessionPlayer() {
   const programId = params.programId || params.id;
   const sessionIndex = Number(params.sessionIndex ?? 0);
   const plannedCalendarEventId = String(location.state?.calendarEventId || "").trim();
+  const sessionTimerStorageKey = useMemo(
+    () => [
+      "byl-session-player-elapsed",
+      clientId || "no-client",
+      programId || "no-program",
+      Number.isFinite(sessionIndex) ? sessionIndex : 0,
+    ].join(":"),
+    [clientId, programId, sessionIndex]
+  );
 
   const theme = useAppTheme();
   const pageBg = theme.pageBg;
@@ -1090,9 +2320,14 @@ export default function SessionPlayer() {
     "0 18px 38px rgba(15,23,42,0.10)",
     "0 18px 44px rgba(0,0,0,0.36)"
   );
+  const activeLanguage = i18n.language || i18n.resolvedLanguage || "fr";
 
   const [programData, setProgramData] = useState(null);
   const [clientData, setClientData] = useState(null);
+  const [completionHistory, setCompletionHistory] = useState([]);
+  const [modificationHistory, setModificationHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [exerciseTranslationMaps, setExerciseTranslationMaps] = useState({});
   const [sessionObj, setSessionObj] = useState(null);
   const [flat, setFlat] = useState([]);
   const [mapIdx, setMapIdx] = useState([]);
@@ -1202,7 +2437,17 @@ export default function SessionPlayer() {
 
   function stageHistory({ sessionIndex, exerciseIndex, field, value }) {
     const key = `${sessionIndex}|${exerciseIndex}|${field}`;
-    historyBufferRef.current.set(key, { sessionIndex, exerciseIndex, field, value });
+    const exercise = flat?.[exerciseIndex] || null;
+    const identity = getExerciseIdentity(exercise || {});
+    historyBufferRef.current.set(key, {
+      sessionIndex,
+      exerciseIndex,
+      field,
+      value,
+      ...(identity.ids.length ? { exerciseId: identity.ids[0], exerciseIds: identity.ids } : {}),
+      ...(identity.primaryName ? { exerciseName: identity.primaryName } : {}),
+      ...(identity.names.length ? { exerciseNames: identity.names } : {}),
+    });
   }
 
   function getExerciseActualSeconds(index, { includeCurrent = true } = {}) {
@@ -1264,13 +2509,17 @@ export default function SessionPlayer() {
       const clientAt = Timestamp.fromDate(historyRunStartRef.current);
       const runId = historyRunIdRef.current;
 
-      items.forEach(({ sessionIndex, exerciseIndex, field, value }) => {
+      items.forEach(({ sessionIndex, exerciseIndex, field, value, exerciseId, exerciseIds, exerciseName, exerciseNames }) => {
         const ref = doc(colRef);
         batch.set(ref, {
           sessionIndex,
           exerciseIndex,
           field,
           value,
+          ...(exerciseId ? { exerciseId } : {}),
+          ...(Array.isArray(exerciseIds) && exerciseIds.length ? { exerciseIds } : {}),
+          ...(exerciseName ? { exerciseName } : {}),
+          ...(Array.isArray(exerciseNames) && exerciseNames.length ? { exerciseNames } : {}),
           runId,
           clientAt,
           updatedAt: serverTimestamp(),
@@ -1332,6 +2581,9 @@ export default function SessionPlayer() {
       const exerciseTimings = Array.isArray(meta.exerciseTimings)
         ? meta.exerciseTimings
         : buildExerciseTimingSnapshot({ includeCurrent: true });
+      const exerciseSnapshots = isPartial
+        ? []
+        : buildExercisePerformanceSnapshots(flat, mapIdx, exerciseTimings);
 
       await setDoc(
         sRef,
@@ -1347,6 +2599,7 @@ export default function SessionPlayer() {
           ...(lastExerciseIndex != null ? { lastExerciseIndex } : {}),
           ...(lastSet != null ? { lastSet } : {}),
           ...(exerciseTimings.length ? { exerciseTimings } : {}),
+          ...(exerciseSnapshots.length ? { exerciseSnapshots } : {}),
           ...(isPartial
             ? { progressUpdatedAt: serverTimestamp() }
             : {
@@ -1814,6 +3067,7 @@ export default function SessionPlayer() {
       } catch {}
     }
     onClose();
+    sessionElapsedTimer.reset();
     navigate(-1);
   };
 
@@ -1838,11 +3092,13 @@ export default function SessionPlayer() {
       } catch {}
     }
     onClose();
+    sessionElapsedTimer.reset();
     navigate(-1);
   };
 
   const handleCloseRatingModal = () => {
     onClose();
+    sessionElapsedTimer.reset();
     navigate(-1);
   };
 
@@ -1873,12 +3129,15 @@ export default function SessionPlayer() {
       setCurrentSet(1);
       goToExerciseIndex(info.end + 1 <= flat.length - 1 ? info.end + 1 : info.end);
       if (info.end === flat.length - 1) {
+        sessionElapsedTimer.stop();
         clientId && programId ? awaitCompletionAndOpenModal() : onOpen();
       }
     }
   };
 
-  const effortTimer = useTimer(() => {
+  const effortElapsedTimer = useStopwatchTimer();
+
+  const completeEffort = () => {
     playFeedback();
 
     const info = buildChainInfo(sessionObj, flat, exIndex);
@@ -1922,7 +3181,9 @@ export default function SessionPlayer() {
       if (currentSet < totalSetsRef.current) goNextSet();
       else nextExercise();
     }
-  });
+  };
+
+  const effortTimer = useTimer(completeEffort);
 
   const restTimer = useTimer(() => {
     playFeedback();
@@ -1935,8 +3196,17 @@ export default function SessionPlayer() {
       setCurrentSet((n) => n + 1);
       setPhase("ready");
       effortTimer.reset(durSecRef.current);
+      effortElapsedTimer.reset();
     } else nextExercise();
   });
+
+  const sessionElapsedTimer = useElapsedTimer(sessionTimerStorageKey);
+
+  useEffect(() => {
+    completionStartedAtRef.current = sessionElapsedTimer.startedAt
+      ? new Date(sessionElapsedTimer.startedAt)
+      : new Date();
+  }, [clientId, programId, sessionIndex, sessionElapsedTimer.startedAt]);
 
   /* ---------------------- Live load programme ---------------------- */
 
@@ -1953,7 +3223,8 @@ export default function SessionPlayer() {
       }
       const data = snap.data();
       setProgramData(data);
-      const sess = data.sessions?.[sessionIndex];
+      const sessions = getProgramSessionList(data);
+      const sess = sessions?.[sessionIndex];
       setSessionObj(sess || null);
       if (sess) {
         const { flat, map } = flattenSession(sess);
@@ -1966,6 +3237,122 @@ export default function SessionPlayer() {
     });
     return () => unsub();
   }, [programDocRef, sessionIndex]);
+
+  /* ---------------------- Load client exercise history ---------------------- */
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function run() {
+      if (!clientId || !programId) {
+        setCompletionHistory([]);
+        setModificationHistory([]);
+        setHistoryLoading(false);
+        return;
+      }
+
+      setHistoryLoading(true);
+      try {
+        let programmeDocs = [];
+        try {
+          const programmesSnap = await getDocs(collection(db, "clients", clientId, "programmes"));
+          programmeDocs = programmesSnap.docs.map((docSnap) => ({
+            id: docSnap.id,
+            data: docSnap.data() || {},
+          }));
+        } catch (e) {
+          console.warn("load client programmes for exercise history error:", e);
+        }
+
+        if (!programmeDocs.some((prog) => prog.id === programId)) {
+          programmeDocs.push({ id: programId, data: programData || {} });
+        }
+
+        const historyByProgram = await Promise.all(
+          programmeDocs.map(async ({ id: pid, data: programme }) => {
+            try {
+              const [sessionsDoneSnap, modificationsSnap] = await Promise.all([
+                getDocs(
+                collection(db, "clients", clientId, "programmes", pid, "sessionsEffectuees")
+                ),
+                getDocs(
+                  collection(db, "clients", clientId, "programmes", pid, "historique_modifications")
+                ),
+              ]);
+
+              const completions = sessionsDoneSnap.docs.map((docSnap) => ({
+                id: `${pid}:${docSnap.id}`,
+                completionId: docSnap.id,
+                programId: pid,
+                ...docSnap.data(),
+              }));
+
+              const modifications = modificationsSnap.docs.map((docSnap) => {
+                const data = docSnap.data() || {};
+                const modSessionIndex = Number(data.sessionIndex);
+                const modExerciseIndex = Number(data.exerciseIndex);
+                const programmeSessions = getProgramSessionList(programme);
+                const sourceSession = Number.isFinite(modSessionIndex)
+                  ? programmeSessions[modSessionIndex]
+                  : null;
+                const flattened = sourceSession ? flattenSession(sourceSession).flat : [];
+                const exerciseContext = Number.isFinite(modExerciseIndex) ? flattened[modExerciseIndex] || null : null;
+                const storedExerciseContext =
+                  data.exerciseId || data.exerciseName || (Array.isArray(data.exerciseNames) && data.exerciseNames.length)
+                    ? {
+                        exerciseId: data.exerciseId || "",
+                        exerciseIds: Array.isArray(data.exerciseIds) ? data.exerciseIds : [],
+                        exerciseName: data.exerciseName || "",
+                        exerciseNames: Array.isArray(data.exerciseNames) ? data.exerciseNames : [],
+                      }
+                    : null;
+                return {
+                  id: `${pid}:${docSnap.id}`,
+                  modificationId: docSnap.id,
+                  programId: pid,
+                  sessionTitle:
+                    sourceSession?.title ||
+                    sourceSession?.name ||
+                    sourceSession?.nom ||
+                    `Séance ${Number.isFinite(modSessionIndex) ? modSessionIndex + 1 : ""}`.trim(),
+                  exerciseContext,
+                  matchExerciseContext: storedExerciseContext || exerciseContext,
+                  programmeExerciseContext: exerciseContext,
+                  ...data,
+                };
+              });
+
+              return { completions, modifications };
+            } catch (e) {
+              console.warn("load programme history error:", e);
+              return { completions: [], modifications: [] };
+            }
+          })
+        );
+        if (cancelled) return;
+        const rows = historyByProgram
+          .flatMap((entry) => entry.completions)
+          .filter(isValidatedCompletionRecord)
+          .sort((a, b) => (getCompletionRecordDate(b)?.getTime() || 0) - (getCompletionRecordDate(a)?.getTime() || 0));
+        setCompletionHistory(rows);
+        setModificationHistory(historyByProgram.flatMap((entry) => entry.modifications));
+      } catch (e) {
+        console.error("load completion history error:", e);
+        if (!cancelled) {
+          setCompletionHistory([]);
+          setModificationHistory([]);
+        }
+      } finally {
+        if (!cancelled) setHistoryLoading(false);
+      }
+    }
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId, programId]);
 
   /* ---------------------- Load client data for sex preference ---------------------- */
 
@@ -1998,6 +3385,28 @@ export default function SessionPlayer() {
       cancelled = true;
     };
   }, [clientId]);
+
+  /* ---------------------- Load exercise translation maps ---------------------- */
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function run() {
+      try {
+        const maps = await loadExerciseTranslationMaps(activeLanguage);
+        if (!cancelled) setExerciseTranslationMaps(maps);
+      } catch (e) {
+        console.warn("load exercise translations error:", e);
+        if (!cancelled) setExerciseTranslationMaps({});
+      }
+    }
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeLanguage]);
 
   /* ---------------------- Resolve real exercise media from Firestore ---------------------- */
 
@@ -2099,6 +3508,7 @@ export default function SessionPlayer() {
     restSecRef.current = rest;
 
 	    effortTimer.reset(dur);
+	    effortElapsedTimer.reset();
 	    restTimer.reset(rest);
 	    setPhase("ready");
 	    setIsPaused(false);
@@ -2165,6 +3575,7 @@ export default function SessionPlayer() {
     restSecRef.current = rest;
     if (phase === "ready") {
       effortTimer.reset(dur);
+      effortElapsedTimer.reset();
       restTimer.reset(rest);
     }
 
@@ -2397,14 +3808,17 @@ export default function SessionPlayer() {
 
   function goNextSet() {
     restTimer.stop();
+    effortElapsedTimer.stop();
     playFeedback();
     setCurrentSet((n) => Math.min(n + 1, totalSetsRef.current));
     setPhase("ready");
     effortTimer.reset(durSecRef.current);
+    effortElapsedTimer.reset();
   }
 
   function nextExercise() {
     effortTimer.stop();
+    effortElapsedTimer.stop();
     restTimer.stop();
     setIsPaused(false);
     pausedPhaseRef.current = null;
@@ -2414,6 +3828,7 @@ export default function SessionPlayer() {
     if (flat.length && exIndex < flat.length - 1) {
       goToExerciseIndex(exIndex + 1);
     } else {
+      sessionElapsedTimer.stop();
       recordCurrentExerciseTiming();
       clientId && programId ? awaitCompletionAndOpenModal() : onOpen();
     }
@@ -2421,6 +3836,7 @@ export default function SessionPlayer() {
 
   function prevExercise() {
     effortTimer.stop();
+    effortElapsedTimer.stop();
     restTimer.stop();
     setIsPaused(false);
     pausedPhaseRef.current = null;
@@ -2442,14 +3858,18 @@ export default function SessionPlayer() {
         restTimer.start();
       } else {
         setPhase("effort");
-        effortTimer.start();
+        if (durSecRef.current > 0) effortTimer.start();
+        else effortElapsedTimer.start();
       }
       return;
     }
 
     if (timerOnlyChain && (phase === "effort" || phase === "rest")) {
       pausedPhaseRef.current = phase;
-      if (phase === "effort") effortTimer.stop();
+      if (phase === "effort") {
+        if (durSecRef.current > 0) effortTimer.stop();
+        else effortElapsedTimer.stop();
+      }
       if (phase === "rest") restTimer.stop();
       setIsPaused(true);
       return;
@@ -2457,8 +3877,9 @@ export default function SessionPlayer() {
 
     if (phase === "effort") {
       effortTimer.stop();
+      effortElapsedTimer.stop();
       effortTimer.reset(0);
-      effortTimer.start();
+      completeEffort();
     } else if (phase === "rest") {
       restTimer.stop();
 
@@ -2473,14 +3894,24 @@ export default function SessionPlayer() {
         nextExercise();
       }
     } else {
+      if (!sessionElapsedTimer.started && exIndex === 0 && currentSet === 1) {
+        completionStartedAtRef.current = new Date();
+        sessionElapsedTimer.start();
+      }
       setPhase("effort");
-      effortTimer.start();
+      if (durSecRef.current > 0) {
+        effortTimer.start();
+      } else {
+        effortElapsedTimer.reset();
+        effortElapsedTimer.start();
+      }
     }
   }
 
   function restartCurrentChain() {
     const info = buildChainInfo(sessionObj, flat, exIndex);
     effortTimer.stop();
+    effortElapsedTimer.stop();
     restTimer.stop();
     setIsPaused(false);
     pausedPhaseRef.current = null;
@@ -2491,6 +3922,7 @@ export default function SessionPlayer() {
       goToExerciseIndex(info.start);
     } else {
       effortTimer.reset(durSecRef.current);
+      effortElapsedTimer.reset();
       restTimer.reset(restSecRef.current);
     }
   }
@@ -2539,17 +3971,112 @@ export default function SessionPlayer() {
   const seriesDiffBg = useColorModeValue("gray.50", "gray.700");
   const effortGaugeColor = useColorModeValue("gray.900", "gray.100");
   const activeGaugeColor = phase === "rest" ? "green.400" : effortGaugeColor;
+  const historyExercise = resolvedExercise || flat[exIndex];
+  const historyExerciseTargets = useMemo(
+    () => [resolvedExercise, flat[exIndex]].filter(Boolean),
+    [resolvedExercise, flat, exIndex]
+  );
+  const exerciseHistoryItems = useMemo(() => {
+    if (!historyExercise) return [];
+
+    const modificationGroups = new Map();
+    (modificationHistory || [])
+      .filter((mod) => {
+        const sameCurrentExerciseSlot =
+          mod?.programId === programId &&
+          Number(mod?.sessionIndex) === Number(sessionIndex) &&
+          Number(mod?.exerciseIndex) === Number(exIndex);
+        if (sameCurrentExerciseSlot) return true;
+        if (exerciseMatchesAnyTarget(mod?.matchExerciseContext || mod?.exerciseContext, historyExerciseTargets)) return true;
+        return (
+          !mod?.exerciseContext &&
+          sameCurrentExerciseSlot
+        );
+      })
+      .forEach((mod) => {
+        const groupKey =
+          [
+            mod?.programId || "program",
+            Number.isFinite(Number(mod?.sessionIndex)) ? Number(mod.sessionIndex) : "session",
+            Number.isFinite(Number(mod?.exerciseIndex)) ? Number(mod.exerciseIndex) : "exercise",
+            String(mod?.runId || "").trim() || toMs(mod?.clientAt || mod?.updatedAt) || "unknown",
+          ].join("|");
+        if (!modificationGroups.has(groupKey)) modificationGroups.set(groupKey, []);
+        modificationGroups.get(groupKey).push(mod);
+      });
+
+    const modificationRows = Array.from(modificationGroups.entries())
+      .map(([groupKey, mods]) => {
+        const snapshot = buildSnapshotFromHistoryModifications(mods, mods[0]?.exerciseContext || historyExercise);
+        if (!snapshot) return null;
+        const date =
+          toDate(mods[0]?.clientAt) ||
+          toDate(mods[0]?.updatedAt) ||
+          toDate(mods[mods.length - 1]?.updatedAt);
+        if (!(date instanceof Date)) return null;
+        return {
+          id: `mods-${groupKey}`,
+          recordId: groupKey,
+          sessionTitle: mods[0]?.sessionTitle || t("sessionPlayer.sessionN", "Séance {{n}}", {
+            n: Number.isFinite(Number(mods[0]?.sessionIndex)) ? Number(mods[0].sessionIndex) + 1 : sessionIndex + 1,
+          }),
+          date,
+          snapshot,
+          source: "modifications",
+        };
+      })
+      .filter(Boolean);
+
+    const completionRows = (completionHistory || [])
+      .filter((record) => record.completionId !== completionDocIdRef.current)
+      .flatMap((record) => {
+        const snapshots = Array.isArray(record?.exerciseSnapshots) ? record.exerciseSnapshots : [];
+        const snapshot = snapshots.find((entry) => exerciseMatchesAnyTarget(entry, historyExerciseTargets));
+        if (!snapshot) return [];
+        const date = getCompletionRecordDate(record);
+        return [{
+          id: `${record.id}-${snapshot.exerciseIndex ?? snapshot.exerciseName}`,
+          recordId: record.id,
+          sessionTitle: record.sessionTitle,
+          date,
+          snapshot,
+          source: "completion",
+        }];
+      })
+      .filter((item) => item.date instanceof Date)
+      .sort((a, b) => b.date.getTime() - a.date.getTime());
+
+    const rows = [...modificationRows, ...completionRows]
+      .sort((a, b) => b.date.getTime() - a.date.getTime());
+
+    const scoredRows = rows.map((item) => ({
+      item,
+      score: getHistoryPrScore(item.snapshot),
+    }));
+    const bestScore = scoredRows.reduce((best, row) => Math.max(best, row.score), 0);
+    const prIndex = scoredRows.findIndex((row) => bestScore > 0 && row.score === bestScore);
+
+    return scoredRows.map(({ item, score }, index) => {
+      return { ...item, rank: index === prIndex && bestScore > 0 && score === bestScore ? 1 : null };
+    });
+  }, [completionHistory, modificationHistory, historyExercise, historyExerciseTargets, exIndex, sessionIndex, programId, t]);
+
   if (loading) return <AppLoading label={t("common.loading", "Chargement...")} />;
   if (!flat.length) return <Text p={6}>{t("sessionPlayer.empty", "Séance introuvable ou vide.")}</Text>;
 
   const ex = flat[exIndex];
-  const displayExercise = localizeExercise(
+  const translatedExercise = enrichExerciseWithTranslation(
     resolvedExercise || ex,
-    i18n.resolvedLanguage || i18n.language || "fr"
+    exerciseTranslationMaps,
+    activeLanguage
   );
+  const displayExercise = localizeExercise(translatedExercise, activeLanguage);
   const preferredSex = inferSexPreference(clientData, user, programData);
 
-	  const exNext = localizeExercise(flat[exIndex + 1], i18n.resolvedLanguage || i18n.language || "fr");
+	  const exNext = localizeExercise(
+	    enrichExerciseWithTranslation(flat[exIndex + 1], exerciseTranslationMaps, activeLanguage),
+	    activeLanguage
+	  );
 	  const chain = buildChainInfo(sessionObj, flat, exIndex);
 	  const timerOnlyChain = isTimerOnlyChain(chain, flat);
 
@@ -2692,11 +4219,24 @@ export default function SessionPlayer() {
               </Text>
             </HStack>
 
-            <Heading size={isMobile ? "sm" : "md"} noOfLines={1}>
-              {sessionObj?.title ||
-                sessionObj?.name ||
-                t("sessionPlayer.sessionN", "Séance {{n}}", { n: sessionIndex + 1 })}
-            </Heading>
+            <HStack spacing={2} justify="flex-end" minW={0}>
+              <Badge
+                colorScheme="gray"
+                variant="subtle"
+                borderRadius="full"
+                px={2.5}
+                py={1}
+                flexShrink={0}
+                fontSize={isMobile ? "0.68em" : "0.75em"}
+                letterSpacing="0"
+              >
+                {t("labels.duration", "Durée")} {toClockDuration(sessionElapsedTimer.seconds)}
+              </Badge>
+              <Heading size={isMobile ? "sm" : "md"} noOfLines={1} minW={0}>
+                {localizeHistorySessionTitle(sessionObj?.title || sessionObj?.name, t) ||
+                  t("sessionPlayer.sessionN", "Séance {{n}}", { n: sessionIndex + 1 })}
+              </Heading>
+            </HStack>
           </HStack>
 
           <Flex
@@ -2850,7 +4390,9 @@ export default function SessionPlayer() {
                     <CircularProgress
                       value={
                         phase === "effort"
-                          ? ((durSecRef.current - effortTimer.seconds) / Math.max(1, durSecRef.current)) * 100
+                          ? durSecRef.current > 0
+                            ? ((durSecRef.current - effortTimer.seconds) / Math.max(1, durSecRef.current)) * 100
+                            : 0
                           : phase === "rest"
                             ? ((restSecRef.current - restTimer.seconds) / Math.max(1, restSecRef.current)) * 100
                             : 0
@@ -2866,7 +4408,13 @@ export default function SessionPlayer() {
                             ? chain.inChain
                               ? `${t("sessionPlayer.roundShort", "Tour")} ${currentSet}/${totalSetsRef.current}`
                               : `${t("sessionPlayer.set", "Set")} ${currentSet}/${totalSetsRef.current}`
-                            : toClockMMSS(phase === "effort" ? effortTimer.seconds : restTimer.seconds)}
+                            : toClockMMSS(
+                                phase === "effort"
+                                  ? durSecRef.current > 0
+                                    ? effortTimer.seconds
+                                    : effortElapsedTimer.seconds
+                                  : restTimer.seconds
+                              )}
                         </Heading>
                       </CircularProgressLabel>
                     </CircularProgress>
@@ -3236,6 +4784,13 @@ export default function SessionPlayer() {
                         />
                       </Box>
                     )}
+
+                    <ExerciseHistoryPanel
+                      historyItems={exerciseHistoryItems}
+                      loading={historyLoading}
+                      language={i18n.language || i18n.resolvedLanguage || "fr"}
+                      textMute={textMute}
+                    />
                   </VStack>
                 </Box>
               </Box>
@@ -3339,6 +4894,7 @@ export default function SessionPlayer() {
                 <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={2}>
                   {builderParameterOptions.map((option) => {
                     const checked = option.required || activeParameterLabels.has(option.label);
+                    const optionLabel = labelWithUnit(units, option.label, t);
                     return (
                       <HStack
                         key={option.key}
@@ -3352,7 +4908,7 @@ export default function SessionPlayer() {
                         borderRadius="16px"
                       >
                         <Text fontSize="sm" fontWeight="800" noOfLines={1}>
-                          {option.label}
+                          {optionLabel}
                         </Text>
                         <Switch
                           size="sm"
