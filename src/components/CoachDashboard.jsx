@@ -272,6 +272,8 @@ function getTotalSessionsFromProgrammeDoc(p) {
   if (!p) return 0;
   if (Array.isArray(p.sessions)) return p.sessions.length;
   if (Array.isArray(p.seances)) return p.seances.length;
+  if (typeof p._total === "number") return p._total;
+  if (typeof p.sessionCount === "number") return p.sessionCount;
   if (typeof p.totalSessions === "number") return p.totalSessions;
   if (typeof p.nbSeances === "number") return p.nbSeances;
   return 0;
@@ -1021,6 +1023,13 @@ const isSessionExplicitlyValidatedRecord = (session) => {
 };
 
 const getValidatedSessionCountForProgram = (programme = {}) => {
+  const storedDone = Number(programme?._done ?? programme?.doneCount ?? programme?.completedSessions);
+  if (Number.isFinite(storedDone) && storedDone > 0) {
+    const totalSessions = getTotalSessionsFromProgrammeDoc(programme);
+    const safeDone = Math.max(0, Math.round(storedDone));
+    return totalSessions > 0 ? Math.min(safeDone, totalSessions) : safeDone;
+  }
+
   const sessionsEffectuees = Array.isArray(programme?.sessionsEffectuees)
     ? programme.sessionsEffectuees
     : [];
@@ -1038,7 +1047,35 @@ const getValidatedSessionCountForProgram = (programme = {}) => {
   return validatedIndexes.size + fallbackCount;
 };
 
+const getProgrammeNameForTiming = (programme = {}) =>
+  [
+    programme.nomProgramme,
+    programme.name,
+    programme.title,
+    programme.programName,
+    programme.programmeName,
+    programme._programmeName,
+    programme._programName,
+    programme._displayProgrammeName,
+    programme.label,
+    programme.displayName,
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .join(" ");
+
+const readSessionsPerWeekFromText = (text = "") => {
+  const match = String(text || "").match(/(\d+)\s*(?:x|fois|séances?|seances?)\s*(?:\/|par)?\s*(?:sem|semaine|week)/i);
+  if (!match) return 0;
+  const value = Number(match[1]);
+  return Number.isFinite(value) && value > 0 ? Math.max(1, Math.round(value)) : 0;
+};
+
 const getProgramSessionsPerWeek = (programme = {}) => {
+  const name = getProgrammeNameForTiming(programme);
+  const nameValue = readSessionsPerWeekFromText(name);
+  if (nameValue > 0) return nameValue;
+
   const direct =
     programme.sessionsPerWeek ??
     programme.seancesParSemaine ??
@@ -1048,19 +1085,22 @@ const getProgramSessionsPerWeek = (programme = {}) => {
   const directValue = Number(direct);
   if (Number.isFinite(directValue) && directValue > 0) return Math.max(1, Math.round(directValue));
 
-  const name = `${programme.nomProgramme || ""} ${programme.name || ""} ${programme.title || ""}`;
-  const match = name.match(/(\d+)\s*(?:x|fois|séances?|seances?)\s*(?:\/|par)?\s*(?:sem|semaine|week)/i);
-  if (match) {
-    const value = Number(match[1]);
-    if (Number.isFinite(value) && value > 0) return Math.max(1, Math.round(value));
-  }
-
-  const totalWeeks = readProgramActiveWeeks(programme);
   const totalSessions = getTotalSessionsFromProgrammeDoc(programme);
-  if (totalWeeks > 0 && totalSessions > 0) {
-    return Math.max(1, Math.round(totalSessions / totalWeeks));
+  if (totalSessions > 0) {
+    return Math.max(1, Math.round(totalSessions));
   }
   return 0;
+};
+
+const getProgramActiveSessionTotal = (programme = {}) => {
+  const templateTotal = getTotalSessionsFromProgrammeDoc(programme);
+  const totalWeeks = readProgramActiveWeeks(programme);
+  const sessionsPerWeek = getProgramSessionsPerWeek(programme);
+  const activeTotal =
+    totalWeeks > 1 && sessionsPerWeek > 0
+      ? totalWeeks * sessionsPerWeek
+      : 0;
+  return Math.max(templateTotal, activeTotal);
 };
 
 const getAssignedProgramWeekProgress = (programme = {}, t) => {
@@ -1069,10 +1109,10 @@ const getAssignedProgramWeekProgress = (programme = {}, t) => {
   const sessionsPerWeek = getProgramSessionsPerWeek(programme);
   if (!totalWeeks || !sessionsPerWeek) return "";
   const validatedCount = getValidatedSessionCountForProgram(programme);
-  const completedWeeks = Math.floor(validatedCount / sessionsPerWeek);
-  if (completedWeeks <= 0) return "";
+  const currentWeek = Math.floor(validatedCount / sessionsPerWeek) + 1;
+  if (currentWeek <= 0) return "";
   return t("dashboard.program_week_progress", "Semaine {{current}}/{{total}}", {
-    current: Math.min(completedWeeks, totalWeeks),
+    current: Math.min(currentWeek, totalWeeks),
     total: totalWeeks,
   });
 };
@@ -7691,18 +7731,27 @@ modeValue("rgba(59,130,246,0.18)",
 overflow="auto">
                     {recentCoachClients.slice(0, MAX_DISPLAY).map((c) => {
                       const programmesForCard = (c.programmesAssignes || []).map((prog) => {
+                        const displayProgramName = prettyAssignedProgramName(prog);
                         const baseId = prog.programId || prog.programID || prog.baseId || "";
-                        const titleKey = normalizeLooseText(prettyAssignedProgramName(prog));
+                        const titleKey = normalizeLooseText(displayProgramName);
                         const latestCalendarProgress =
                           latestCoachProgressByClientProgram.get(`${c.id}__${prog.id}`) ||
                           (baseId ? latestCoachProgressByClientProgram.get(`${c.id}__${baseId}`) : null) ||
                           (titleKey ? latestCoachProgressByClientProgram.get(`${c.id}__title:${titleKey}`) : null) ||
                           null;
-                        if (!latestCalendarProgress) return prog;
+                        if (!latestCalendarProgress) {
+                          return {
+                            ...prog,
+                            _displayProgrammeName: displayProgramName,
+                            _programmeName: prog._programmeName || displayProgramName,
+                          };
+                        }
                         const latestCalendarIndex = Number(latestCalendarProgress.sessionIndex);
                         const totalSessions = getTotalSessionsFromProgrammeDoc(prog);
                         return {
                           ...prog,
+                          _displayProgrammeName: displayProgramName,
+                          _programmeName: prog._programmeName || displayProgramName,
                           _coachLatestProgressMs: Math.max(
                             Number(prog._coachLatestProgressMs || 0),
                             Number(latestCalendarProgress.ms || 0)
@@ -7729,17 +7778,13 @@ overflow="auto">
 
                     programmesForCard.forEach((prog) =>
 {
-                      const nbTotalProg = Number.isFinite(Number(prog?._total))
-                        ? Number(prog._total)
-                        : getTotalSessionsFromProgrammeDoc(prog);
+                      const nbTotalProg = getProgramActiveSessionTotal(prog);
                       nbTotalSessions += nbTotalProg;
                       const sessionsEff = prog.sessionsEffectuees
 || [];
 
-                      let doneThisProg = Number.isFinite(Number(prog?._done))
-                        ? Number(prog._done)
-                        : 0;
-                      if (!Number.isFinite(Number(prog?._done))) {
+                      let doneThisProg = getValidatedSessionCountForProgram(prog);
+                      if (doneThisProg === 0) {
                         const doneIndexes = new Set();
                         let fallbackDoneCount = 0;
                         sessionsEff.forEach((s) => {
@@ -7780,6 +7825,20 @@ nbTotalProg);
                     nbTerminees = Math.min(nbTerminees,
 nbTotalSessions);
 
+                    const primaryProgramForCard =
+                      lastCompletedAssignedProg || programmesForCard?.[0] || c.programmesAssignes?.[0] || null;
+                    const primaryProgramNameForCard = primaryProgramForCard
+                      ? prettyAssignedProgramName(primaryProgramForCard)
+                      : "";
+                    const displayedSessionsPerWeek = readSessionsPerWeekFromText(primaryProgramNameForCard);
+                    if (displayedSessionsPerWeek > 0) {
+                      const displayedActiveTotal = displayedSessionsPerWeek * readProgramActiveWeeks(primaryProgramForCard);
+                      if (displayedActiveTotal > 0) {
+                        nbTotalSessions = displayedActiveTotal;
+                        nbTerminees = Math.min(nbTerminees, nbTotalSessions);
+                      }
+                    }
+
                     const percentDone =
                       nbTotalSessions > 0
                          ? Math.min(100, Math.round((nbTerminees /
@@ -7788,9 +7847,9 @@ nbTotalSessions) * 100))
                     const isProgramCompleted = nbTotalSessions > 0 && nbTerminees >= nbTotalSessions;
 
                     const programmeForLastSession =
-lastCompletedAssignedProg
+primaryProgramForCard
                       ?
-prettyAssignedProgramName(lastCompletedAssignedProg)
+primaryProgramNameForCard
                       : c.programmesAssignes?.[0]
                         ?
 prettyAssignedProgramName(c.programmesAssignes[0])
@@ -7800,8 +7859,25 @@ prettyAssignedProgramName(c.programmesAssignes[0])
                         ? lastCompletedTitle || t("dashboard.session_completed", "Séance validée")
                         : t("dashboard.no_validated_session", "Aucune séance validée");
                     const programForNextSession =
-                      lastCompletedAssignedProg || c.programmesAssignes?.[0] || null;
-                    const programWeekLabel = getAssignedProgramWeekProgress(programForNextSession, t);
+                      primaryProgramForCard;
+                    const programForNextSessionWithProgress = programForNextSession
+                      ? {
+                          ...programForNextSession,
+                          _displayProgrammeName:
+                            programForNextSession._displayProgrammeName ||
+                            prettyAssignedProgramName(programForNextSession),
+                          _programmeName:
+                            programForNextSession._programmeName ||
+                            prettyAssignedProgramName(programForNextSession),
+                          _done: Number.isFinite(Number(programForNextSession._done))
+                            ? Number(programForNextSession._done)
+                            : nbTerminees,
+                          _total: Number.isFinite(Number(programForNextSession._total))
+                            ? Number(programForNextSession._total)
+                            : nbTotalSessions,
+                        }
+                      : null;
+                    const programWeekLabel = getAssignedProgramWeekProgress(programForNextSessionWithProgress, t);
                     const activeProgramEndMs = getAssignedProgramActiveEndMs(programForNextSession);
                     const isProgramStillInActivePeriod =
                       isProgramCompleted && (!activeProgramEndMs || activeProgramEndMs >= Date.now());

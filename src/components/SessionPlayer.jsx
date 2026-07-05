@@ -265,6 +265,18 @@ function useTimer(onComplete) {
     clearTicker();
   };
 
+  const getSnapshot = () => {
+    const targetAt = Number(targetAtRef.current || 0);
+    const remaining = targetAt
+      ? Math.max(0, Math.ceil((targetAt - Date.now()) / 1000))
+      : Math.max(0, Math.round(Number(secondsRef.current) || 0));
+    return {
+      seconds: remaining,
+      targetAt,
+      running: Boolean(targetAt && intervalRef.current),
+    };
+  };
+
   useEffect(() => {
     const handleResume = () => tick();
     window.addEventListener("focus", handleResume);
@@ -276,7 +288,7 @@ function useTimer(onComplete) {
     };
   }, []);
 
-  return { seconds, start, reset, stop };
+  return { seconds, start, reset, stop, getSnapshot };
 }
 
 function useStopwatchTimer() {
@@ -333,6 +345,20 @@ function useStopwatchTimer() {
     setSeconds(next);
   };
 
+  const getSnapshot = () => {
+    const startedAt = Number(startedAtRef.current || 0);
+    const baseSeconds = Math.max(0, Math.round(Number(baseSecondsRef.current) || 0));
+    const secondsNow = startedAt
+      ? baseSeconds + Math.max(0, Math.floor((Date.now() - startedAt) / 1000))
+      : Math.max(0, Math.round(Number(secondsRef.current) || 0));
+    return {
+      seconds: secondsNow,
+      startedAt,
+      baseSeconds,
+      running: Boolean(startedAt && intervalRef.current),
+    };
+  };
+
   useEffect(() => {
     const handleResume = () => tick();
     window.addEventListener("focus", handleResume);
@@ -344,7 +370,7 @@ function useStopwatchTimer() {
     };
   }, []);
 
-  return { seconds, start, stop, reset };
+  return { seconds, start, stop, reset, getSnapshot };
 }
 
 function readElapsedTimerState(storageKey) {
@@ -371,6 +397,39 @@ function writeElapsedTimerState(storageKey, state) {
 }
 
 function clearElapsedTimerState(storageKey) {
+  if (!storageKey || typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(storageKey);
+  } catch {}
+}
+
+function readSessionResumeState(storageKey) {
+  if (!storageKey || typeof window === "undefined") return null;
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(storageKey) || "null");
+    if (!parsed || typeof parsed !== "object") return null;
+    if (parsed.version !== 1) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionResumeState(storageKey, state) {
+  if (!storageKey || typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      storageKey,
+      JSON.stringify({
+        ...(state || {}),
+        version: 1,
+        updatedAt: Date.now(),
+      })
+    );
+  } catch {}
+}
+
+function clearSessionResumeState(storageKey) {
   if (!storageKey || typeof window === "undefined") return;
   try {
     window.localStorage.removeItem(storageKey);
@@ -2290,9 +2349,27 @@ export default function SessionPlayer() {
   const programId = params.programId || params.id;
   const sessionIndex = Number(params.sessionIndex ?? 0);
   const plannedCalendarEventId = String(location.state?.calendarEventId || "").trim();
-  const sessionTimerStorageKey = useMemo(
+  const legacySessionTimerStorageKey = useMemo(
     () => [
       "byl-session-player-elapsed",
+      clientId || "no-client",
+      programId || "no-program",
+      Number.isFinite(sessionIndex) ? sessionIndex : 0,
+    ].join(":"),
+    [clientId, programId, sessionIndex]
+  );
+  const sessionTimerStorageKey = useMemo(
+    () => [
+      "byl-session-player-elapsed-open",
+      clientId || "no-client",
+      programId || "no-program",
+      Number.isFinite(sessionIndex) ? sessionIndex : 0,
+    ].join(":"),
+    [clientId, programId, sessionIndex]
+  );
+  const sessionResumeStorageKey = useMemo(
+    () => [
+      "byl-session-player-resume",
       clientId || "no-client",
       programId || "no-program",
       Number.isFinite(sessionIndex) ? sessionIndex : 0,
@@ -2352,6 +2429,15 @@ export default function SessionPlayer() {
   const [painArea, setPainArea] = useState("");
   const [notesOpen, setNotesOpen] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
+  const [autoFlowEnabled, setAutoFlowEnabled] = useState(() => {
+    try {
+      if (typeof window === "undefined") return true;
+      const stored = window.localStorage.getItem("BYL_PLAYER_AUTO_FLOW");
+      return stored == null ? true : stored !== "false";
+    } catch {
+      return true;
+    }
+  });
 
   const durSecRef = useRef(0);
   const restSecRef = useRef(0);
@@ -2366,6 +2452,8 @@ export default function SessionPlayer() {
   const [resolvedExercise, setResolvedExercise] = useState(null);
   const exerciseMediaCacheRef = useRef(new Map());
   const resumeAppliedRef = useRef(false);
+  const pendingTimerResumeRef = useRef(null);
+  const resumeClearedRef = useRef(false);
 
   const programDocRef = useMemo(
     () => getProgrammeDocRef({ clientId, programId }),
@@ -2373,6 +2461,16 @@ export default function SessionPlayer() {
   );
 
   const autoProgEnabled = useMemo(() => readAutoProgressionEnabled(programData), [programData]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("BYL_PLAYER_AUTO_FLOW", autoFlowEnabled ? "true" : "false");
+    } catch {}
+  }, [autoFlowEnabled]);
+
+  useEffect(() => {
+    clearElapsedTimerState(legacySessionTimerStorageKey);
+  }, [legacySessionTimerStorageKey]);
 
   const historyRunIdRef = useRef(randomId(10));
   const historyRunStartRef = useRef(new Date());
@@ -2397,6 +2495,8 @@ export default function SessionPlayer() {
     exerciseTimingStartedAtRef.current = Date.now();
     activeTimingExerciseIndexRef.current = 0;
     resumeAppliedRef.current = false;
+    pendingTimerResumeRef.current = null;
+    resumeClearedRef.current = false;
     pausedPhaseRef.current = null;
     autoStartNextRef.current = false;
     setIsPaused(false);
@@ -2406,34 +2506,47 @@ export default function SessionPlayer() {
     setPainLevel("");
     setPainArea("");
     clearTimeout(partialProgressTimerRef.current);
-  }, [clientId, programId, sessionIndex]);
+  }, [clientId, programId, sessionIndex, sessionResumeStorageKey]);
 
   useEffect(() => {
     if (resumeAppliedRef.current) return;
     if (!flat.length) return;
 
+    const storedResume = readSessionResumeState(sessionResumeStorageKey);
     const requestedIndex =
       location?.state?.resumeExerciseIndex ??
       location?.state?.exerciseIndex;
+    const storedIndex = storedResume?.exerciseIndex;
+    const targetIndex = Number.isFinite(Number(storedIndex)) ? storedIndex : requestedIndex;
 
-    if (!Number.isFinite(Number(requestedIndex))) {
+    if (!Number.isFinite(Number(targetIndex))) {
       resumeAppliedRef.current = true;
       return;
     }
 
-    const clampedIndex = Math.max(0, Math.min(flat.length - 1, Number(requestedIndex)));
+    const clampedIndex = Math.max(0, Math.min(flat.length - 1, Number(targetIndex)));
     const requestedSet =
       location?.state?.resumeSet ??
       location?.state?.currentSet;
-    const safeSet = Number.isFinite(Number(requestedSet))
-      ? Math.max(1, Number(requestedSet))
+    const storedSet = storedResume?.currentSet;
+    const targetSet = Number.isFinite(Number(storedSet)) ? storedSet : requestedSet;
+    const safeSet = Number.isFinite(Number(targetSet))
+      ? Math.max(1, Number(targetSet))
       : 1;
+    if (storedResume) pendingTimerResumeRef.current = storedResume;
     activeTimingExerciseIndexRef.current = clampedIndex;
-    exerciseTimingStartedAtRef.current = Date.now();
+    exerciseTimingStartedAtRef.current = Number(storedResume?.exerciseTimingStartedAt || 0) || Date.now();
+    if (Array.isArray(storedResume?.exerciseTimings)) {
+      exerciseTimingRef.current = new Map(
+        storedResume.exerciseTimings
+          .filter((entry) => Number.isFinite(Number(entry?.index)))
+          .map((entry) => [Number(entry.index), Number(entry.seconds) || 0])
+      );
+    }
     setExIndex(clampedIndex);
     setCurrentSet(safeSet);
     resumeAppliedRef.current = true;
-  }, [flat.length, location?.state]);
+  }, [flat.length, location?.state, sessionResumeStorageKey]);
 
   function stageHistory({ sessionIndex, exerciseIndex, field, value }) {
     const key = `${sessionIndex}|${exerciseIndex}|${field}`;
@@ -3067,7 +3180,7 @@ export default function SessionPlayer() {
       } catch {}
     }
     onClose();
-    sessionElapsedTimer.reset();
+    clearPlayerResumeSnapshot({ resetElapsedState: true });
     navigate(-1);
   };
 
@@ -3092,13 +3205,13 @@ export default function SessionPlayer() {
       } catch {}
     }
     onClose();
-    sessionElapsedTimer.reset();
+    clearPlayerResumeSnapshot({ resetElapsedState: true });
     navigate(-1);
   };
 
   const handleCloseRatingModal = () => {
     onClose();
-    sessionElapsedTimer.reset();
+    clearPlayerResumeSnapshot({ resetElapsedState: true });
     navigate(-1);
   };
 
@@ -3189,10 +3302,11 @@ export default function SessionPlayer() {
     playFeedback();
     const info = buildChainInfo(sessionObj, flat, exIndex);
     if (info.inChain) {
-      advanceInsideChain(info, { autoStart: isTimerOnlyChain(info, flat) });
+      advanceInsideChain(info, { autoStart: autoFlowEnabled || isTimerOnlyChain(info, flat) });
       return;
     }
     if (currentSet < totalSetsRef.current) {
+      if (autoFlowEnabled) autoStartNextRef.current = true;
       setCurrentSet((n) => n + 1);
       setPhase("ready");
       effortTimer.reset(durSecRef.current);
@@ -3207,6 +3321,101 @@ export default function SessionPlayer() {
       ? new Date(sessionElapsedTimer.startedAt)
       : new Date();
   }, [clientId, programId, sessionIndex, sessionElapsedTimer.startedAt]);
+
+  function buildPlayerResumeSnapshot() {
+    if (!flat.length) return null;
+    return {
+      exerciseIndex: exIndex,
+      currentSet,
+      phase,
+      isPaused,
+      pausedPhase: pausedPhaseRef.current,
+      autoFlowEnabled,
+      sessionElapsed: readElapsedTimerState(sessionTimerStorageKey),
+      effortTimer: effortTimer.getSnapshot(),
+      effortElapsedTimer: effortElapsedTimer.getSnapshot(),
+      restTimer: restTimer.getSnapshot(),
+      exerciseTimingStartedAt: exerciseTimingStartedAtRef.current,
+      activeTimingExerciseIndex: activeTimingExerciseIndexRef.current,
+      exerciseTimings: Array.from(exerciseTimingRef.current.entries()).map(([index, seconds]) => ({
+        index,
+        seconds,
+      })),
+    };
+  }
+
+  function persistPlayerResumeSnapshot() {
+    if (resumeClearedRef.current) return;
+    if (!resumeAppliedRef.current || pendingTimerResumeRef.current) return;
+    const snapshot = buildPlayerResumeSnapshot();
+    if (!snapshot) return;
+    writeSessionResumeState(sessionResumeStorageKey, snapshot);
+  }
+
+  function clearPlayerResumeSnapshot({ resetElapsedState = false } = {}) {
+    resumeClearedRef.current = true;
+    pendingTimerResumeRef.current = null;
+    clearSessionResumeState(sessionResumeStorageKey);
+    clearElapsedTimerState(sessionTimerStorageKey);
+    if (resetElapsedState) sessionElapsedTimer.reset();
+  }
+
+  function getRestoredCountdownSeconds(snapshot) {
+    if (!snapshot || typeof snapshot !== "object") return 0;
+    const targetAt = Number(snapshot.targetAt || 0);
+    if (targetAt > 0) return Math.max(0, Math.ceil((targetAt - Date.now()) / 1000));
+    return Math.max(0, Math.round(Number(snapshot.seconds) || 0));
+  }
+
+  function getRestoredStopwatchSeconds(snapshot) {
+    if (!snapshot || typeof snapshot !== "object") return 0;
+    const startedAt = Number(snapshot.startedAt || 0);
+    const baseSeconds = Math.max(0, Math.round(Number(snapshot.baseSeconds) || 0));
+    if (startedAt > 0) {
+      return baseSeconds + Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+    }
+    return Math.max(0, Math.round(Number(snapshot.seconds) || 0));
+  }
+
+  function handleBackExit() {
+    clearPlayerResumeSnapshot({ resetElapsedState: true });
+    navigate(-1);
+  }
+
+  useEffect(() => {
+    if (!flat.length) return;
+    persistPlayerResumeSnapshot();
+  }, [
+    flat.length,
+    exIndex,
+    currentSet,
+    phase,
+    isPaused,
+    autoFlowEnabled,
+    effortTimer.seconds,
+    effortElapsedTimer.seconds,
+    restTimer.seconds,
+    sessionElapsedTimer.seconds,
+    sessionResumeStorageKey,
+  ]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => persistPlayerResumeSnapshot();
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [
+    flat.length,
+    exIndex,
+    currentSet,
+    phase,
+    isPaused,
+    autoFlowEnabled,
+    effortTimer.seconds,
+    effortElapsedTimer.seconds,
+    restTimer.seconds,
+    sessionElapsedTimer.seconds,
+    sessionResumeStorageKey,
+  ]);
 
   /* ---------------------- Live load programme ---------------------- */
 
@@ -3513,14 +3722,17 @@ export default function SessionPlayer() {
 	    setPhase("ready");
 	    setIsPaused(false);
 	    pausedPhaseRef.current = null;
-	    if (autoStartNextRef.current && isTimerOnlyChain(info, flat) && dur > 0) {
+	    if (autoStartNextRef.current) {
 	      autoStartNextRef.current = false;
 	      autoStartTimer = setTimeout(() => {
 	        setPhase("effort");
-	        effortTimer.start();
+	        if (dur > 0) {
+	          effortTimer.start();
+	        } else {
+	          effortElapsedTimer.reset();
+	          effortElapsedTimer.start();
+	        }
 	      }, 0);
-	    } else if (autoStartNextRef.current) {
-	      autoStartNextRef.current = false;
 	    }
 	    topAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
@@ -3547,6 +3759,7 @@ export default function SessionPlayer() {
   useEffect(() => {
     const ex = flat[exIndex];
     if (!ex) return;
+    let autoStartTimer = null;
 
     const info = buildChainInfo(sessionObj, flat, exIndex);
     if (info.inChain) {
@@ -3577,9 +3790,66 @@ export default function SessionPlayer() {
       effortTimer.reset(dur);
       effortElapsedTimer.reset();
       restTimer.reset(rest);
+      if (autoStartNextRef.current) {
+        autoStartNextRef.current = false;
+        autoStartTimer = setTimeout(() => {
+          setPhase("effort");
+          if (dur > 0) {
+            effortTimer.start();
+          } else {
+            effortElapsedTimer.reset();
+            effortElapsedTimer.start();
+          }
+        }, 0);
+      }
     }
 
+    return () => {
+      if (autoStartTimer) clearTimeout(autoStartTimer);
+    };
   }, [flat, exIndex, currentSet, phase]);
+
+  useEffect(() => {
+    const resume = pendingTimerResumeRef.current;
+    if (!resume || !flat.length) return;
+    if (Number(resume.exerciseIndex) !== Number(exIndex)) return;
+    if (Number(resume.currentSet) !== Number(currentSet)) return;
+
+    pendingTimerResumeRef.current = null;
+    const restoredPhase = ["ready", "effort", "rest"].includes(resume.phase) ? resume.phase : "ready";
+    const restoredPaused = Boolean(resume.isPaused);
+    setIsPaused(restoredPaused);
+    pausedPhaseRef.current = resume.pausedPhase || null;
+    autoStartNextRef.current = false;
+    if (typeof resume.autoFlowEnabled === "boolean") setAutoFlowEnabled(resume.autoFlowEnabled);
+
+    if (restoredPhase === "effort") {
+      restTimer.reset(restSecRef.current);
+      if (durSecRef.current > 0) {
+        const remaining = getRestoredCountdownSeconds(resume.effortTimer);
+        effortElapsedTimer.reset();
+        effortTimer.reset(remaining);
+        if (!restoredPaused) effortTimer.start();
+      } else {
+        const elapsed = getRestoredStopwatchSeconds(resume.effortElapsedTimer);
+        effortTimer.reset(0);
+        effortElapsedTimer.reset(elapsed);
+        if (!restoredPaused) effortElapsedTimer.start();
+      }
+    } else if (restoredPhase === "rest") {
+      const remaining = getRestoredCountdownSeconds(resume.restTimer);
+      effortTimer.reset(durSecRef.current);
+      effortElapsedTimer.reset();
+      restTimer.reset(remaining);
+      if (!restoredPaused) restTimer.start();
+    } else {
+      effortTimer.reset(durSecRef.current);
+      effortElapsedTimer.reset();
+      restTimer.reset(restSecRef.current);
+    }
+
+    setPhase(restoredPhase);
+  }, [flat.length, exIndex, currentSet]);
 
   /* ---------------------- Value read ---------------------- */
 
@@ -3816,6 +4086,20 @@ export default function SessionPlayer() {
     effortElapsedTimer.reset();
   }
 
+  function goToSet(setNumber) {
+    const safeSet = Math.max(1, Math.min(Number(setNumber) || 1, totalSetsRef.current || 1));
+    effortTimer.stop();
+    effortElapsedTimer.stop();
+    restTimer.stop();
+    setIsPaused(false);
+    pausedPhaseRef.current = null;
+    autoStartNextRef.current = false;
+    setCurrentSet(safeSet);
+    setPhase("ready");
+    effortTimer.reset(durSecRef.current);
+    effortElapsedTimer.reset();
+  }
+
   function nextExercise() {
     effortTimer.stop();
     effortElapsedTimer.stop();
@@ -3884,17 +4168,18 @@ export default function SessionPlayer() {
       restTimer.stop();
 
       if (info.inChain) {
-        advanceInsideChain(info);
+        advanceInsideChain(info, { autoStart: autoFlowEnabled });
         return;
       }
 
       if (currentSet < totalSetsRef.current) {
+        if (autoFlowEnabled) autoStartNextRef.current = true;
         goNextSet();
       } else {
         nextExercise();
       }
     } else {
-      if (!sessionElapsedTimer.started && exIndex === 0 && currentSet === 1) {
+      if (!sessionElapsedTimer.started) {
         completionStartedAtRef.current = new Date();
         sessionElapsedTimer.start();
       }
@@ -3931,6 +4216,7 @@ export default function SessionPlayer() {
     recordCurrentExerciseTiming();
     activeTimingExerciseIndexRef.current = -1;
     exerciseTimingStartedAtRef.current = Date.now();
+    clearPlayerResumeSnapshot();
     onOpen();
   }
 
@@ -4139,6 +4425,12 @@ export default function SessionPlayer() {
     .filter((item) => item.label);
 
   const phaseColor = phase === "effort" ? "blue" : phase === "rest" ? "green" : "gray";
+  const setCount = Math.max(1, totalSetsRef.current);
+  const activeSetNumber =
+    phase === "rest" && currentSet < setCount
+      ? Math.min(currentSet + 1, setCount)
+      : Math.min(currentSet, setCount);
+  const setFractionLabel = `${activeSetNumber}/${setCount}`;
 
   const shortInfos = (exo) => {
     if (!exo) return [];
@@ -4205,7 +4497,7 @@ export default function SessionPlayer() {
               <IconButton
                 icon={<ArrowBackIcon />}
                 aria-label={t("common.back", "Retour")}
-                onClick={() => navigate(-1)}
+                onClick={handleBackExit}
                 variant="ghost"
                 borderRadius="full"
                 colorScheme="gray"
@@ -4387,37 +4679,50 @@ export default function SessionPlayer() {
                       </Tag>
                     )}
 
-                    <CircularProgress
-                      value={
-                        phase === "effort"
-                          ? durSecRef.current > 0
-                            ? ((durSecRef.current - effortTimer.seconds) / Math.max(1, durSecRef.current)) * 100
-                            : 0
-                          : phase === "rest"
-                            ? ((restSecRef.current - restTimer.seconds) / Math.max(1, restSecRef.current)) * 100
-                            : 0
-                      }
-                      size={progressSize}
-                      thickness={progressThickness}
-                      color={activeGaugeColor}
-                      trackColor={progressTrackColor}
-                    >
-                      <CircularProgressLabel>
-                        <Heading size={timeFontSize}>
-                          {phase === "ready"
-                            ? chain.inChain
-                              ? `${t("sessionPlayer.roundShort", "Tour")} ${currentSet}/${totalSetsRef.current}`
-                              : `${t("sessionPlayer.set", "Set")} ${currentSet}/${totalSetsRef.current}`
-                            : toClockMMSS(
-                                phase === "effort"
-                                  ? durSecRef.current > 0
-                                    ? effortTimer.seconds
-                                    : effortElapsedTimer.seconds
-                                  : restTimer.seconds
-                              )}
-                        </Heading>
-                      </CircularProgressLabel>
-                    </CircularProgress>
+                    <Box position="relative" lineHeight="0">
+                      <CircularProgress
+                        value={
+                          phase === "effort"
+                            ? durSecRef.current > 0
+                              ? ((durSecRef.current - effortTimer.seconds) / Math.max(1, durSecRef.current)) * 100
+                              : 0
+                            : phase === "rest"
+                              ? ((restSecRef.current - restTimer.seconds) / Math.max(1, restSecRef.current)) * 100
+                              : (Math.max(1, activeSetNumber) / Math.max(1, setCount)) * 100
+                        }
+                        size={progressSize}
+                        thickness={progressThickness}
+                        color={activeGaugeColor}
+                        trackColor={progressTrackColor}
+                      >
+                        <CircularProgressLabel>
+                          {phase === "ready" ? (
+                            <Heading
+                              fontSize={{ base: "40px", md: "52px" }}
+                              lineHeight="1"
+                              letterSpacing="0"
+                            >
+                              {setFractionLabel}
+                            </Heading>
+                          ) : (
+                            <VStack spacing={0.5}>
+                              <Heading size={timeFontSize} lineHeight="1">
+                                {toClockMMSS(
+                                  phase === "effort"
+                                    ? durSecRef.current > 0
+                                      ? effortTimer.seconds
+                                      : effortElapsedTimer.seconds
+                                    : restTimer.seconds
+                                )}
+                              </Heading>
+                              <Text fontSize="xs" fontWeight="900" color={textMute} lineHeight="1">
+                                {setFractionLabel}
+                              </Text>
+                            </VStack>
+                          )}
+                        </CircularProgressLabel>
+                      </CircularProgress>
+                    </Box>
 
                     <Button
                       bg={phase === "rest" ? "green.400" : primaryButtonBg}
@@ -4451,10 +4756,14 @@ export default function SessionPlayer() {
 	                                ? !chain.isLast
 	                                  ? t("sessionPlayer.nextExercise", "Exercice suivant")
 	                                  : currentSet < totalSetsRef.current
-	                                    ? t("sessionPlayer.nextRound", "Tour suivant")
+	                                    ? autoFlowEnabled
+	                                      ? t("sessionPlayer.startNow", "Démarrer maintenant")
+	                                      : t("sessionPlayer.nextRound", "Tour suivant")
 	                                    : t("sessionPlayer.nextExercise", "Exercice suivant")
 	                                : currentSet < totalSetsRef.current
-	                                  ? t("sessionPlayer.nextSet", "Set suivant")
+	                                  ? autoFlowEnabled
+	                                    ? t("sessionPlayer.startNow", "Démarrer maintenant")
+	                                    : t("sessionPlayer.nextSet", "Série suivante")
 	                                  : exIndex < flat.length - 1
 	                                    ? t("sessionPlayer.nextExercise", "Exercice suivant")
 	                                    : t("sessionPlayer.done", "Terminé")}
@@ -4496,8 +4805,6 @@ export default function SessionPlayer() {
                         {t("sessionPlayer.skip", "Passer l’exercice")}
                       </Button>
                     </HStack>
-
-                    <Divider my={{ base: 0, md: 1 }} />
 
                     {exNext && (
                       <Box
@@ -4714,10 +5021,14 @@ export default function SessionPlayer() {
                             {t("sessionPlayer.advSets", "Séries différentes")}
                           </Tag>
                           <Text fontSize="sm" color={textMute}>
-                            {t("sessionPlayer.currentSet", "Set en cours")} : <b>{currentSet}</b> /{" "}
+                            {String(t("sessionPlayer.currentSet", "Série en cours")).replace(/\s*:$/, "")} : <b>{currentSet}</b> /{" "}
                             {chain.inChain ? totalSetsRef.current : setsCount}
                           </Text>
                         </HStack>
+
+                        <Text fontSize="xs" color={textMute} mb={2}>
+                          {t("sessionPlayer.clickSetToEdit", "Cliquez sur une ligne pour revenir à cette série.")}
+                        </Text>
 
                         <Box overflowX="auto" w="full">
                           <Table
@@ -4737,8 +5048,25 @@ export default function SessionPlayer() {
                             <Tbody>
                               {Array.from({ length: chain.inChain ? totalSetsRef.current : setsCount }).map((_, i) => {
                                 const det = details?.[i] || {};
+                                const isActiveSet = i === currentSet - 1;
                                 return (
-                                  <Tr key={i} bg={i === currentSet - 1 ? rowHighlight : "transparent"}>
+                                  <Tr
+                                    key={i}
+                                    role="button"
+                                    tabIndex={0}
+                                    cursor="pointer"
+                                    bg={isActiveSet ? rowHighlight : "transparent"}
+                                    _hover={{ bg: rowHighlight }}
+                                    onClick={() => goToSet(i + 1)}
+                                    onKeyDown={(event) => {
+                                      if (event.key === "Enter" || event.key === " ") {
+                                        event.preventDefault();
+                                        goToSet(i + 1);
+                                      }
+                                    }}
+                                    aria-current={isActiveSet ? "step" : undefined}
+                                    aria-label={t("sessionPlayer.goToSet", "Revenir à la série {{n}}", { n: i + 1 })}
+                                  >
                                     <Td width="70px">
                                       {t("sessionPlayer.set", "Set")} {i + 1}
                                     </Td>
@@ -4879,6 +5207,41 @@ export default function SessionPlayer() {
                     </HStack>
                   ))}
                 </VStack>
+              </Box>
+
+              <Box>
+                <Text fontSize="sm" fontWeight="900" mb={1}>
+                  {t("sessionPlayer.playback", "Déroulé")}
+                </Text>
+                <HStack
+                  justify="space-between"
+                  gap={3}
+                  px={3}
+                  py={2.5}
+                  bg={unitRowBg}
+                  border="1px solid"
+                  borderColor={border}
+                  borderRadius="16px"
+                >
+                  <Box minW={0}>
+                    <Text fontSize="sm" fontWeight="800" noOfLines={1}>
+                      {t("sessionPlayer.autoFlow", "Enchaînement auto")}
+                    </Text>
+                    <Text fontSize="xs" color={textMute} noOfLines={2}>
+                      {t(
+                        "sessionPlayer.autoFlowSettingsHelp",
+                        "Lance automatiquement la série suivante après le repos."
+                      )}
+                    </Text>
+                  </Box>
+                  <Switch
+                    size="sm"
+                    colorScheme="green"
+                    isChecked={autoFlowEnabled}
+                    onChange={(event) => setAutoFlowEnabled(event.target.checked)}
+                    aria-label={t("sessionPlayer.autoFlow", "Enchaînement auto")}
+                  />
+                </HStack>
               </Box>
 
               <Box>
