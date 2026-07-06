@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-07-05T01:16:09.731Z",
+  "updatedAt": "2026-07-05T22:29:46.365Z",
   "primaryKpi": "free_trial_starts",
   "secondaryKpi": "activation_day_7",
   "activationSignals": [
@@ -1663,12 +1663,12 @@
       "counts": {
         "proven": 6,
         "optimization": 7,
-        "experiment": 2
+        "experiment": 1
       },
       "currentShare": {
-        "proven": 0.4,
-        "optimization": 0.47,
-        "experiment": 0.13
+        "proven": 0.43,
+        "optimization": 0.5,
+        "experiment": 0.07
       }
     },
     "falseSuccesses": []
@@ -1685,8 +1685,8 @@
         },
         {
           "value": "Le rendez-vous finit. Le vrai suivi commence.",
-          "count": 3,
-          "score": 13,
+          "count": 2,
+          "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
@@ -1721,13 +1721,6 @@
           "activationDay7": 0
         },
         {
-          "value": "reel_solution_demo",
-          "count": 1,
-          "score": 13,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
           "value": "story",
           "count": 9,
           "score": 0,
@@ -1752,8 +1745,8 @@
       "ctas": [
         {
           "value": "Essai gratuit 14 jours - lien en bio",
-          "count": 2,
-          "score": 35,
+          "count": 1,
+          "score": 22,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
@@ -1795,13 +1788,6 @@
           "activationDay7": 0
         },
         {
-          "value": "reel_solution_demo",
-          "count": 1,
-          "score": 13,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
           "value": "story",
           "count": 9,
           "score": 0,
@@ -1832,13 +1818,6 @@
           "activationDay7": 0
         },
         {
-          "value": "thursday-12h30-instagram",
-          "count": 1,
-          "score": 13,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
           "value": "monday-12h30-story",
           "count": 3,
           "score": 0,
@@ -1858,13 +1837,20 @@
           "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
+        },
+        {
+          "value": "wednesday-19h00-story",
+          "count": 2,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
         }
       ],
       "emotions": [
         {
           "value": "soulagement",
-          "count": 9,
-          "score": 35,
+          "count": 8,
+          "score": 22,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
@@ -1893,8 +1879,8 @@
         },
         {
           "value": "nutritionnistes et dieteticiens",
-          "count": 5,
-          "score": 13,
+          "count": 4,
+          "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
@@ -1909,7 +1895,7 @@
       "activatedHooks": [
         {
           "value": "Le rendez-vous finit. Le vrai suivi commence.",
-          "count": 3,
+          "count": 2,
           "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
@@ -1953,7 +1939,7 @@
         },
         {
           "value": "nutritionniste",
-          "count": 5,
+          "count": 4,
           "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
@@ -1968,9 +1954,9 @@
       ]
     },
     "latestReport": {
-      "id": "2026-07-04-growth-report",
-      "generatedAt": "2026-07-05T01:16:09.728Z",
-      "date": "2026-07-04",
+      "id": "2026-07-05-growth-report",
+      "generatedAt": "2026-07-05T22:29:46.362Z",
+      "date": "2026-07-05",
       "primaryKpi": "free_trial_starts",
       "secondaryKpi": "activation_day_7",
       "activationSignals": [
@@ -1990,8 +1976,8 @@
         },
         {
           "value": "Le rendez-vous finit. Le vrai suivi commence.",
-          "count": 3,
-          "score": 13,
+          "count": 2,
+          "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
@@ -2026,13 +2012,6 @@
           "activationDay7": 0
         },
         {
-          "value": "reel_solution_demo",
-          "count": 1,
-          "score": 13,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
           "value": "story",
           "count": 9,
           "score": 0,
@@ -2057,8 +2036,8 @@
       "topCtas": [
         {
           "value": "Essai gratuit 14 jours - lien en bio",
-          "count": 2,
-          "score": 35,
+          "count": 1,
+          "score": 22,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
@@ -2100,13 +2079,6 @@
           "activationDay7": 0
         },
         {
-          "value": "reel_solution_demo",
-          "count": 1,
-          "score": 13,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
           "value": "story",
           "count": 9,
           "score": 0,
@@ -2138,13 +2110,6 @@
           "activationDay7": 0
         },
         {
-          "value": "thursday-12h30-instagram",
-          "count": 1,
-          "score": 13,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
           "value": "monday-12h30-story",
           "count": 3,
           "score": 0,
@@ -2164,13 +2129,20 @@
           "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
+        },
+        {
+          "value": "wednesday-19h00-story",
+          "count": 2,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
         }
       ],
       "topEmotions": [
         {
           "value": "soulagement",
-          "count": 9,
-          "score": 35,
+          "count": 8,
+          "score": 22,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
@@ -2199,8 +2171,8 @@
         },
         {
           "value": "nutritionnistes et dieteticiens",
-          "count": 5,
-          "score": 13,
+          "count": 4,
+          "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
@@ -2215,7 +2187,7 @@
       "topActivatedHooks": [
         {
           "value": "Le rendez-vous finit. Le vrai suivi commence.",
-          "count": 3,
+          "count": 2,
           "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
@@ -2259,7 +2231,7 @@
         },
         {
           "value": "nutritionniste",
-          "count": 5,
+          "count": 4,
           "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
@@ -2275,11 +2247,11 @@
       "segmentPerformance": [
         {
           "segment": "nutritionniste",
-          "count": 5,
+          "count": 4,
           "freeTrialStarts": 0,
           "activationDay7": 0,
           "clicks": 0,
-          "views": 13,
+          "views": 0,
           "activationRate": 0,
           "trialRate": 0
         },
@@ -2307,23 +2279,6 @@
       "fatigueAngles": [],
       "falseSuccesses": [],
       "distributionAlerts": [
-        {
-          "date": "2026-06-04",
-          "platform": "instagram",
-          "hook": "Le rendez-vous finit. Le vrai suivi commence.",
-          "audienceSegment": "nutritionniste",
-          "views": 13,
-          "reach": 10,
-          "interactions": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0,
-          "reasons": [
-            "distribution_too_low_to_validate_creative",
-            "hook_or_interaction_did_not_trigger_action",
-            "no_trial_signal_yet"
-          ],
-          "recommendation": "Ne pas reproduire tel quel: renforcer les 2 premieres secondes, ajouter plus de plans humains, CTA natif plateforme et seed de distribution."
-        },
         {
           "date": "2026-06-09",
           "platform": "facebook",
@@ -2553,12 +2508,12 @@
         "counts": {
           "proven": 6,
           "optimization": 7,
-          "experiment": 2
+          "experiment": 1
         },
         "currentShare": {
-          "proven": 0.4,
-          "optimization": 0.47,
-          "experiment": 0.13
+          "proven": 0.43,
+          "optimization": 0.5,
+          "experiment": 0.07
         }
       },
       "proofLibrarySummary": {
@@ -2595,33 +2550,84 @@
         "source": "codex_user_request_2026_07_01",
         "resolvedAt": "",
         "resolvedReason": "",
-        "alertCount": 64,
+        "alertCount": 65,
         "latestAlert": {
-          "at": "2026-07-05T01:16:09.715Z",
+          "at": "2026-07-05T22:29:46.343Z",
           "reason": "meta_performance_sync_partial_failure",
           "severity": "warning",
-          "source": "social_meta_sync_nightly",
+          "source": "nightly_growth_report",
           "details": {
             "failedCount": 11,
             "updated": 7,
             "total": 18,
             "sampleErrors": [
-              "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation.",
-              "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation.",
-              "Meta Graph GET 18120144856683407: The operation was aborted due to timeout",
-              "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation.",
-              "Unsupported get request. Object with ID '18319661620272929' does not exist, cannot be loaded due to missing permissions, or does not support this operation."
+              "Unsupported get request. Object with ID 17932227978271557 does not exist, is missing permissions, or does not support this operation.",
+              "Unsupported get request. Object with ID 17872024971528291 does not exist, is missing permissions, or does not support this operation.",
+              "Unsupported get request. Object with ID 18120144856683407 does not exist, is missing permissions, or does not support this operation.",
+              "Unsupported get request. Object with ID 18096649379597904 does not exist, is missing permissions, or does not support this operation.",
+              "Unsupported get request. Object with ID 18319661620272929 does not exist, is missing permissions, or does not support this operation."
             ]
           }
         }
       },
-      "recentBlocks": [],
-      "learningEntryCount": 240
+      "recentBlocks": [
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        }
+      ],
+      "learningEntryCount": 288
     }
   },
   "brand": {
     "version": "1.0.0",
-    "updatedAt": "2026-07-05T01:16:09.727Z",
+    "updatedAt": "2026-07-05T22:29:46.361Z",
     "brandScore": 63,
     "dimensions": {
       "premium": 60,
@@ -2631,174 +2637,6 @@
     },
     "signals": [
       {
-        "at": "2026-06-04T10:46:53.763Z",
-        "source": "instagram",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:33:29.503Z",
-        "source": "facebook",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T07:45:36.435Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-09T16:52:24.813Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:03:53.288Z",
-        "source": "instagram_story",
-        "audienceSegment": "salle_de_sport",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-10T17:12:53.266Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-14T18:56:31.998Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-15T10:48:02.955Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-19T07:48:25.628Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-19T16:30:58.334Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 73,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-22T10:38:07.853Z",
-        "source": "instagram_story",
-        "audienceSegment": "nutritionniste",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-22T16:31:31.098Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-26T07:32:52.248Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 54,
-        "dimensions": {
-          "premium": 55,
-          "serious": 80,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-29T11:33:54.957Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 66,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
         "at": "2026-06-01T07:17:38.044Z",
         "source": "facebook",
         "audienceSegment": "coach_independant",
@@ -6060,6 +5898,174 @@
           "serious": 55,
           "innovative": 55,
           "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T07:33:29.503Z",
+        "source": "facebook",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T07:45:36.435Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 80,
+          "serious": 80,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-09T16:52:24.813Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-10T17:03:53.288Z",
+        "source": "instagram_story",
+        "audienceSegment": "salle_de_sport",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-10T17:12:53.266Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-14T18:56:31.998Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-15T10:48:02.955Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-19T07:48:25.628Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 80,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-19T16:30:58.334Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 73,
+        "dimensions": {
+          "premium": 80,
+          "serious": 80,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T10:38:07.853Z",
+        "source": "instagram_story",
+        "audienceSegment": "nutritionniste",
+        "brandScore": 61,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-22T16:31:31.098Z",
+        "source": "instagram",
+        "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-26T07:32:52.248Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 54,
+        "dimensions": {
+          "premium": 55,
+          "serious": 80,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-29T11:33:54.957Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 66,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-30T16:54:45.343Z",
+        "source": "instagram_story",
+        "audienceSegment": "salle_de_sport",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
         }
       },
       {
@@ -6241,22 +6247,22 @@
       "source": "codex_user_request_2026_07_01",
       "resolvedAt": "",
       "resolvedReason": "",
-      "alertCount": 64,
+      "alertCount": 65,
       "latestAlert": {
-        "at": "2026-07-05T01:16:09.715Z",
+        "at": "2026-07-05T22:29:46.343Z",
         "reason": "meta_performance_sync_partial_failure",
         "severity": "warning",
-        "source": "social_meta_sync_nightly",
+        "source": "nightly_growth_report",
         "details": {
           "failedCount": 11,
           "updated": 7,
           "total": 18,
           "sampleErrors": [
-            "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation.",
-            "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation.",
-            "Meta Graph GET 18120144856683407: The operation was aborted due to timeout",
-            "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation.",
-            "Unsupported get request. Object with ID '18319661620272929' does not exist, cannot be loaded due to missing permissions, or does not support this operation."
+            "Unsupported get request. Object with ID 17932227978271557 does not exist, is missing permissions, or does not support this operation.",
+            "Unsupported get request. Object with ID 17872024971528291 does not exist, is missing permissions, or does not support this operation.",
+            "Unsupported get request. Object with ID 18120144856683407 does not exist, is missing permissions, or does not support this operation.",
+            "Unsupported get request. Object with ID 18096649379597904 does not exist, is missing permissions, or does not support this operation.",
+            "Unsupported get request. Object with ID 18319661620272929 does not exist, is missing permissions, or does not support this operation."
           ]
         }
       }

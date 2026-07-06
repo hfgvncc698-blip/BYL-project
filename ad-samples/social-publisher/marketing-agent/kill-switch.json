@@ -1044,6 +1044,24 @@
           "Unsupported get request. Object with ID '18319661620272929' does not exist, cannot be loaded due to missing permissions, or does not support this operation."
         ]
       }
+    },
+    {
+      "at": "2026-07-05T22:29:46.343Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 11,
+        "updated": 7,
+        "total": 18,
+        "sampleErrors": [
+          "Unsupported get request. Object with ID 17932227978271557 does not exist, is missing permissions, or does not support this operation.",
+          "Unsupported get request. Object with ID 17872024971528291 does not exist, is missing permissions, or does not support this operation.",
+          "Unsupported get request. Object with ID 18120144856683407 does not exist, is missing permissions, or does not support this operation.",
+          "Unsupported get request. Object with ID 18096649379597904 does not exist, is missing permissions, or does not support this operation.",
+          "Unsupported get request. Object with ID 18319661620272929 does not exist, is missing permissions, or does not support this operation."
+        ]
+      }
     }
   ]
 }

@@ -3219,9 +3219,8 @@ export default function SessionPlayer() {
 
   const advanceInsideChain = async (info, { autoStart = false } = {}) => {
     if (!info.inChain) return nextExercise();
-    const shouldAutoStart = autoStart && isTimerOnlyChain(info, flat);
     const queueAutoStart = () => {
-      if (shouldAutoStart) autoStartNextRef.current = true;
+      if (autoStart) autoStartNextRef.current = true;
     };
     setIsPaused(false);
     pausedPhaseRef.current = null;
@@ -3282,7 +3281,7 @@ export default function SessionPlayer() {
         return;
       }
 
-      advanceInsideChain(info, { autoStart: isTimerOnlyChain(info, flat) });
+      advanceInsideChain(info, { autoStart: autoFlowEnabled || isTimerOnlyChain(info, flat) });
       return;
     }
 
@@ -4133,6 +4132,10 @@ export default function SessionPlayer() {
   function nextPhase() {
     const info = buildChainInfo(sessionObj, flat, exIndex);
     const timerOnlyChain = isTimerOnlyChain(info, flat);
+    const canPauseCurrentPhase =
+      phase === "rest"
+        ? timerOnlyChain
+        : phase === "effort" && (timerOnlyChain || durSecRef.current > 0);
 
     if (isPaused) {
       const pausedPhase = pausedPhaseRef.current;
@@ -4148,7 +4151,7 @@ export default function SessionPlayer() {
       return;
     }
 
-    if (timerOnlyChain && (phase === "effort" || phase === "rest")) {
+    if (canPauseCurrentPhase) {
       pausedPhaseRef.current = phase;
       if (phase === "effort") {
         if (durSecRef.current > 0) effortTimer.stop();
@@ -4160,10 +4163,7 @@ export default function SessionPlayer() {
     }
 
     if (phase === "effort") {
-      effortTimer.stop();
-      effortElapsedTimer.stop();
-      effortTimer.reset(0);
-      completeEffort();
+      finishCurrentEffortNow();
     } else if (phase === "rest") {
       restTimer.stop();
 
@@ -4191,6 +4191,16 @@ export default function SessionPlayer() {
         effortElapsedTimer.start();
       }
     }
+  }
+
+  function finishCurrentEffortNow() {
+    if (phase !== "effort") return;
+    effortTimer.stop();
+    effortElapsedTimer.stop();
+    effortTimer.reset(0);
+    setIsPaused(false);
+    pausedPhaseRef.current = null;
+    completeEffort();
   }
 
   function restartCurrentChain() {
@@ -4365,6 +4375,11 @@ export default function SessionPlayer() {
 	  );
 	  const chain = buildChainInfo(sessionObj, flat, exIndex);
 	  const timerOnlyChain = isTimerOnlyChain(chain, flat);
+  const isTimedEffort = phase === "effort" && durSecRef.current > 0;
+  const canPauseCurrentPhase =
+    phase === "rest"
+      ? timerOnlyChain
+      : phase === "effort" && (timerOnlyChain || durSecRef.current > 0);
 
   const orderFromBuilder = Array.isArray(ex?.optionsOrder)
     ? ex.optionsOrder
@@ -4746,7 +4761,7 @@ export default function SessionPlayer() {
                     >
 	                      {isPaused
 	                        ? t("sessionPlayer.resume", "Reprendre")
-	                        : timerOnlyChain && (phase === "effort" || phase === "rest")
+	                        : canPauseCurrentPhase
 	                          ? t("sessionPlayer.pause", "Pause")
 	                          : phase === "ready"
 	                            ? t("sessionPlayer.start", "Démarrer")
@@ -4768,6 +4783,19 @@ export default function SessionPlayer() {
 	                                    ? t("sessionPlayer.nextExercise", "Exercice suivant")
 	                                    : t("sessionPlayer.done", "Terminé")}
 	                    </Button>
+
+	                    {isTimedEffort && (
+	                      <Button
+	                        variant="outline"
+	                        w="full"
+	                        size={isMobile ? "md" : "md"}
+                          minH={{ base: "46px", md: "40px" }}
+	                        borderRadius="full"
+	                        onClick={finishCurrentEffortNow}
+	                      >
+	                        {t("sessionPlayer.finishSet", "Terminer")}
+	                      </Button>
+	                    )}
 
 	                    {timerOnlyChain && phase !== "ready" && (
 	                      <Button
