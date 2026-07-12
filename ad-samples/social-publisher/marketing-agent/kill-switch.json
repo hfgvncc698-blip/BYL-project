@@ -1062,6 +1062,106 @@
           "Unsupported get request. Object with ID 18319661620272929 does not exist, is missing permissions, or does not support this operation."
         ]
       }
+    },
+    {
+      "at": "2026-07-06T21:32:28.551Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 11,
+        "updated": 7,
+        "total": 18,
+        "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+        "sampleErrors": [
+          "Unsupported get request. Object with ID 17932227978271557 does not exist, missing permissions, or unsupported operation.",
+          "Unsupported get request. Object with ID 17872024971528291 does not exist, missing permissions, or unsupported operation.",
+          "Unsupported get request. Object with ID 18120144856683407 does not exist, missing permissions, or unsupported operation."
+        ]
+      }
+    },
+    {
+      "at": "2026-07-08T00:05:24.129Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "social_meta_sync_nightly",
+      "details": {
+        "failedCount": 11,
+        "updated": 7,
+        "total": 18,
+        "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+        "sampleErrors": [
+          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation.",
+          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation.",
+          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation."
+        ]
+      }
+    },
+    {
+      "at": "2026-07-09T05:55:58.397Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "social_meta_sync_nightly",
+      "details": {
+        "failedCount": 11,
+        "updated": 7,
+        "total": 18,
+        "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+        "sampleErrors": [
+          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation.",
+          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation.",
+          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation."
+        ]
+      }
+    },
+    {
+      "at": "2026-07-10T00:13:39.025Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "social_meta_sync",
+      "details": {
+        "failedCount": 11,
+        "updated": 7,
+        "total": 18,
+        "sampleErrors": [
+          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation.",
+          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation.",
+          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation."
+        ]
+      }
+    },
+    {
+      "at": "2026-07-10T22:34:51.461Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "social_meta_sync_nightly",
+      "details": {
+        "updated": 7,
+        "failedCount": 11,
+        "total": 18,
+        "sampleErrors": [
+          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation.",
+          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation.",
+          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation."
+        ]
+      }
+    },
+    {
+      "at": "2026-07-12T11:31:29.081Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "byl_social_publisher_rapport_growth_nightly",
+      "details": {
+        "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+        "failedCount": 11,
+        "updated": 7,
+        "total": 18,
+        "sampleErrors": [
+          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation.",
+          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation.",
+          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation."
+        ]
+      }
     }
   ]
 }

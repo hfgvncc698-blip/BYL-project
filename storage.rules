@@ -1,0 +1,58 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function isSafeImageUpload(maxSizeMb) {
+      return request.resource != null &&
+        request.resource.size <= maxSizeMb * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*');
+    }
+
+    function isSafeMediaUpload(maxSizeMb) {
+      return request.resource != null &&
+        request.resource.size <= maxSizeMb * 1024 * 1024 &&
+        (
+          request.resource.contentType.matches('image/.*') ||
+          request.resource.contentType.matches('video/.*') ||
+          request.resource.contentType == 'application/pdf'
+        );
+    }
+
+    // Assets used by the authenticated app: exercise media, logos with download
+    // tokens, and other existing files remain readable after test-mode expiry.
+    match /{allPaths=**} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // Coach custom branding uploaded from the client app.
+    match /logos/{uid}/{fileName} {
+      allow read: if signedIn();
+      allow create, update: if isOwner(uid) && isSafeImageUpload(5);
+      allow delete: if isOwner(uid);
+    }
+
+    // Club logos are normally written by the trusted backend Admin SDK, which
+    // bypasses these rules. Direct client writes stay closed.
+    match /clubs/{clubId}/{fileName} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // Reserved for future client attachments if the app starts uploading them
+    // directly. A client can only write inside their own folder.
+    match /clients/{uid}/{fileName} {
+      allow read: if isOwner(uid);
+      allow create, update: if isOwner(uid) && isSafeMediaUpload(10);
+      allow delete: if isOwner(uid);
+    }
+  }
+}

@@ -140,16 +140,26 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false, ownerUid = "" }
 
   const ensureClientCapacity = async () => {
     if (!user?.uid) return false;
-    const capacity = await apiFetch("/clubs/client-capacity");
-    if (capacity?.allowed || capacity?.limit == null) return true;
-    setLimitUsage({
-      used: capacity.used || 0,
-      limit: capacity.limit,
-      clubManaged: Boolean(capacity.clubManaged),
-      packageTier: capacity.packageTier || "",
-      upgradeMessage: capacity.upgradeMessage || "",
-    });
-    onLimitOpen();
+    try {
+      const capacity = await apiFetch("/clubs/client-capacity");
+      if (capacity?.allowed || capacity?.limit == null) return true;
+      setLimitUsage({
+        used: capacity.used || 0,
+        limit: capacity.limit,
+        clubManaged: Boolean(capacity.clubManaged),
+        packageTier: capacity.packageTier || "",
+        upgradeMessage: capacity.upgradeMessage || "",
+      });
+      onLimitOpen();
+    } catch (error) {
+      console.error("Client capacity check failed:", error);
+      notify(toast, "saveError", {
+        title: t("errors.update_error") || "Création impossible",
+        description:
+          error?.message ||
+          "Impossible de vérifier la limite de clients pour le moment. Réessayez dans quelques secondes.",
+      });
+    }
     return false;
   };
 
