@@ -1887,6 +1887,14 @@
     "options": {
       "title": "Options"
     },
+    "history": {
+      "open": "Open history",
+      "close": "Close history"
+    },
+    "historyLoad": {
+      "justification": "Load calculated from the client's history with the Berger table: {{baseCharge}} kg x {{baseReps}} reps -> {{suggested}} kg for {{targetReps}} reps. It remains editable.",
+      "justificationShort": "Load calculated from the client's history with the Berger table. It remains editable."
+    },
     "labels": {
       "weightKg": "Load (kg)",
       "weightLbs": "Weight (lbs)",
@@ -1932,7 +1940,8 @@
       "saved": "Changes saved successfully.",
       "savedDesc": "Your program has been saved successfully.",
       "errorTitle": "Error",
-      "assigned": "Assigned program"
+      "assigned": "Assigned program",
+      "historyLoadsApplied": "{{count}} load(s) prefilled from client history."
     },
     "exercise": {
       "label": "Exercise"

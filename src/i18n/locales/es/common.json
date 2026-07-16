@@ -1881,6 +1881,14 @@
     "options": {
       "title": "Opciones"
     },
+    "history": {
+      "open": "Abrir historial",
+      "close": "Cerrar historial"
+    },
+    "historyLoad": {
+      "justification": "Carga calculada desde el historial del cliente con la tabla de Berger: {{baseCharge}} kg x {{baseReps}} reps -> {{suggested}} kg para {{targetReps}} reps. Sigue siendo editable.",
+      "justificationShort": "Carga calculada desde el historial del cliente con la tabla de Berger. Sigue siendo editable."
+    },
     "labels": {
       "weightKg": "Cargar (kg)",
       "weightLbs": "Peso (libras)",
@@ -1926,7 +1934,8 @@
       "saved": "Los cambios se guardaron correctamente.",
       "savedDesc": "Su programa se ha guardado exitosamente.",
       "errorTitle": "error",
-      "assigned": "Programa asignado"
+      "assigned": "Programa asignado",
+      "historyLoadsApplied": "{{count}} carga(s) prerrellenada(s) desde el historial del cliente."
     },
     "exercise": {
       "label": "Ejercicio"

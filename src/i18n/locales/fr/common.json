@@ -1887,6 +1887,14 @@
     "options": {
       "title": "Options"
     },
+    "history": {
+      "open": "Ouvrir l'historique",
+      "close": "Fermer l'historique"
+    },
+    "historyLoad": {
+      "justification": "Charge calculée depuis l'historique client avec la table de Berger : {{baseCharge}} kg x {{baseReps}} reps -> {{suggested}} kg pour {{targetReps}} reps. Elle reste modifiable.",
+      "justificationShort": "Charge calculée depuis l'historique client avec la table de Berger. Elle reste modifiable."
+    },
     "labels": {
       "weightKg": "Charge (kg)",
       "weightLbs": "Weight (lbs)",
@@ -1932,7 +1940,8 @@
       "saved": "Modifications enregistrées avec succès.",
       "savedDesc": "Ton programme a bien été sauvegardé.",
       "errorTitle": "Erreur",
-      "assigned": "Programme assigné"
+      "assigned": "Programme assigné",
+      "historyLoadsApplied": "{{count}} charge(s) préremplie(s) depuis l'historique client."
     },
     "exercise": {
       "label": "Exercice"

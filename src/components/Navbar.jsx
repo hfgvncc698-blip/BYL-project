@@ -400,6 +400,7 @@ export default function Navbar() {
   return (
     <>
       <Flex
+        as="nav"
         position="sticky"
         top={0}
         zIndex={30}

@@ -1881,6 +1881,14 @@
     "options": {
       "title": "Opzioni"
     },
+    "history": {
+      "open": "Apri cronologia",
+      "close": "Chiudi cronologia"
+    },
+    "historyLoad": {
+      "justification": "Carico calcolato dallo storico cliente con la tabella di Berger: {{baseCharge}} kg x {{baseReps}} rip. -> {{suggested}} kg per {{targetReps}} rip. Resta modificabile.",
+      "justificationShort": "Carico calcolato dallo storico cliente con la tabella di Berger. Resta modificabile."
+    },
     "labels": {
       "weightKg": "Carica (kg)",
       "weightLbs": "Peso (libbre)",
@@ -1926,7 +1934,8 @@
       "saved": "Modifiche salvate con successo.",
       "savedDesc": "Il tuo programma è stato salvato con successo.",
       "errorTitle": "Errore",
-      "assigned": "Programma assegnato"
+      "assigned": "Programma assegnato",
+      "historyLoadsApplied": "{{count}} carico/carichi precompilati dallo storico cliente."
     },
     "exercise": {
       "label": "Esercizio"

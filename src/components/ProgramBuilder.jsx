@@ -272,6 +272,282 @@ function formatMinSec(v) {
   return `${m ? m + " min " : ""}${s ? s + " sec" : !m ? "0 sec" : ""}`.trim();
 }
 
+function toDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value?.toDate === "function") return value.toDate();
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function formatHistoryNumber(value, digits = 2) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "";
+  return Number.isInteger(n) ? String(n) : String(Number(n.toFixed(digits)));
+}
+
+function formatHistoryDate(date, language = "fr") {
+  if (!(date instanceof Date)) return "";
+  try {
+    return new Intl.DateTimeFormat(language || "fr", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(date);
+  } catch {
+    return date.toLocaleDateString();
+  }
+}
+
+function normalizeHistoryToken(value = "") {
+  return norm(value)
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getHistoryNameTokens(value = "") {
+  return normalizeHistoryToken(value)
+    .split(" ")
+    .filter((token) => token.length >= 3);
+}
+
+function getExerciseHistoryIdentity(exercise = {}) {
+  const ids = [
+    exercise?.id,
+    exercise?._id,
+    exercise?.exerciseId,
+    ...(Array.isArray(exercise?.exerciseIds) ? exercise.exerciseIds : []),
+    exercise?.sourceId,
+    exercise?.bankId,
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+
+  const names = [
+    exercise?.nom,
+    exercise?.name,
+    exercise?.title,
+    exercise?.label,
+    exercise?.exerciseName,
+    ...(Array.isArray(exercise?.exerciseNames) ? exercise.exerciseNames : []),
+  ]
+    .map(normalizeHistoryToken)
+    .filter(Boolean);
+
+  return {
+    ids: Array.from(new Set(ids)),
+    names: Array.from(new Set(names)),
+    tokens: Array.from(new Set(names.flatMap(getHistoryNameTokens))),
+  };
+}
+
+function exerciseHistoryMatches(snapshot = {}, exercise = {}) {
+  const current = getExerciseHistoryIdentity(exercise);
+  const stored = getExerciseHistoryIdentity(snapshot);
+  if (current.ids.some((id) => stored.ids.includes(id))) return true;
+  if (current.names.some((name) => stored.names.includes(name))) return true;
+
+  const contained = current.names.some((name) =>
+    stored.names.some((candidate) =>
+      name.length >= 5 &&
+      candidate.length >= 5 &&
+      (name.includes(candidate) || candidate.includes(name))
+    )
+  );
+  if (contained) return true;
+
+  if (!current.tokens.length || !stored.tokens.length) return false;
+  const overlap = current.tokens.filter((token) => stored.tokens.includes(token));
+  const shortest = Math.min(current.tokens.length, stored.tokens.length);
+  return overlap.length >= 1 && overlap.length / Math.max(1, shortest) >= 0.5;
+}
+
+function isValidatedCompletionRecord(record = {}) {
+  const status = String(record?.status || "").trim().toLowerCase();
+  return (
+    !record?.isPartial &&
+    (
+      status === "validée" ||
+      status === "validee" ||
+      status === "done" ||
+      status === "completed" ||
+      status === "terminée" ||
+      status === "terminee" ||
+      Boolean(record?.validatedAt) ||
+      Boolean(record?.completedAt)
+    )
+  );
+}
+
+function getCompletionRecordDate(record = {}) {
+  return (
+    toDate(record?.dateEffectuee) ||
+    toDate(record?.completedAt) ||
+    toDate(record?.validatedAt) ||
+    toDate(record?.updatedAt) ||
+    toDate(record?.createdAt) ||
+    toDate(record?.startedAt)
+  );
+}
+
+function getHistoryFieldLabel(label = "", t) {
+  const translate = typeof t === "function" ? t : (_key, fallback) => fallback;
+  const labels = {
+    "Répétitions": translate("sessionPlayer.historyFields.repetitions", "Répétitions"),
+    "Charge (kg)": translate("sessionPlayer.historyFields.loadKg", "Charge (kg)"),
+    "Durée (min:sec)": translate("sessionPlayer.historyFields.duration", "Durée"),
+    "Repos (min:sec)": translate("sessionPlayer.historyFields.rest", "Repos"),
+    Distance: translate("sessionPlayer.historyFields.distance", "Distance"),
+    Vitesse: translate("sessionPlayer.historyFields.speed", "Vitesse"),
+    "Inclinaison (%)": translate("sessionPlayer.historyFields.incline", "Inclinaison"),
+    "Objectif Calories": translate("sessionPlayer.historyFields.calories", "Calories"),
+    Intensité: translate("sessionPlayer.historyFields.intensity", "Intensité"),
+    Tempo: translate("sessionPlayer.historyFields.tempo", "Tempo"),
+  };
+  return labels[label] || label;
+}
+
+function getHistoryMainLine(snapshot = {}, t) {
+  const top = snapshot?.summary?.topSet || {};
+  const charge = Number(top.chargeKg);
+  const reps = Number(top.reps);
+  if (Number.isFinite(charge) && charge > 0 && Number.isFinite(reps) && reps > 0) {
+    return t("sessionPlayer.weightXRepsLabel", "{{weight}} kg x {{reps}} reps", {
+      weight: formatHistoryNumber(charge),
+      reps: formatHistoryNumber(reps, 0),
+    });
+  }
+  if (Number.isFinite(charge) && charge > 0) return `${formatHistoryNumber(charge)} kg`;
+  if (Number.isFinite(reps) && reps > 0) {
+    return t("sessionPlayer.repsValue", "{{reps}} reps", {
+      reps: formatHistoryNumber(reps, 0),
+    });
+  }
+  const duration = Number(top.durationSec || snapshot?.sets?.[0]?.durationSec);
+  if (Number.isFinite(duration) && duration > 0) return formatMinSec(duration);
+  const distance = Number(top.distance || snapshot?.sets?.[0]?.distance);
+  if (Number.isFinite(distance) && distance > 0) return `${formatHistoryNumber(distance)} m`;
+  const firstValue = (snapshot?.sets || [])
+    .flatMap((set) => Object.values(set?.values || {}))
+    .find((entry) => entry?.display);
+  if (firstValue) return `${getHistoryFieldLabel(firstValue.label, t)} : ${firstValue.display}`;
+  return "";
+}
+
+function getHistoryPrScore(snapshot = {}) {
+  const sets = Array.isArray(snapshot?.sets) ? snapshot.sets : [];
+  const bestStrength = getBestStrengthSet(snapshot)?.estimatedOneRepMax || 0;
+  if (bestStrength > 0) return bestStrength;
+
+  const topSet = snapshot?.summary?.topSet || sets[0] || {};
+  return Math.max(
+    Number(topSet.chargeKg) || 0,
+    Number(topSet.reps) || 0,
+    Number(topSet.distance) || 0,
+    Number(topSet.speed) || 0,
+    Number(topSet.durationSec) || 0
+  );
+}
+
+function getBuilderHistoryColumns(items = [], t) {
+  const preferredLabels = [
+    "Répétitions",
+    "Charge (kg)",
+    "Durée (min:sec)",
+    "Repos (min:sec)",
+    "Distance",
+    "Vitesse",
+    "Inclinaison (%)",
+    "Objectif Calories",
+    "Intensité",
+    "Tempo",
+  ];
+  const sets = items.flatMap((item) =>
+    Array.isArray(item?.snapshot?.sets) ? item.snapshot.sets : []
+  );
+  const labels = preferredLabels.filter((label) =>
+    sets.some((set) => set?.values?.[label])
+  );
+  return labels.slice(0, 5).map((label) => ({
+    key: label,
+    label: getHistoryFieldLabel(label, t),
+    render: (set) => set?.values?.[label]?.display || "",
+  }));
+}
+
+function buildExerciseHistoryItemsFromCompletions(completionHistory = [], exercise = {}, t) {
+  if (!exercise) return [];
+  const rows = (completionHistory || [])
+    .flatMap((record) => {
+      const snapshots = Array.isArray(record?.exerciseSnapshots) ? record.exerciseSnapshots : [];
+      const snapshot = snapshots.find((entry) => exerciseHistoryMatches(entry, exercise));
+      const date = snapshot ? getCompletionRecordDate(record) : null;
+      if (!snapshot || !(date instanceof Date)) return [];
+      return [{
+        id: `${record.id}-${snapshot.exerciseIndex ?? snapshot.exerciseName ?? "exercise"}`,
+        recordId: record.id,
+        sessionTitle: record.sessionTitle || t("form.session", "Séance"),
+        date,
+        snapshot,
+      }];
+    })
+    .sort((a, b) => b.date.getTime() - a.date.getTime());
+
+  const scored = rows.map((item) => ({ item, score: getHistoryPrScore(item.snapshot) }));
+  const bestScore = scored.reduce((best, row) => Math.max(best, row.score), 0);
+  const prIndex = scored.findIndex((row) => bestScore > 0 && row.score === bestScore);
+
+  return scored.map(({ item, score }, index) => ({
+    ...item,
+    rank: index === prIndex && bestScore > 0 && score === bestScore ? 1 : null,
+  }));
+}
+
+async function loadClientCompletionHistory(clientId, baseProgramId = null) {
+  if (!clientId) return [];
+
+  let programmeIds = baseProgramId ? [baseProgramId] : [];
+  try {
+    const programmesSnap = await getDocs(collection(db, "clients", clientId, "programmes"));
+    programmeIds = Array.from(
+      new Set([
+        ...programmeIds,
+        ...programmesSnap.docs.map((docSnap) => docSnap.id),
+      ].filter(Boolean))
+    );
+  } catch (e) {
+    console.warn("load client programmes for builder history error:", e);
+  }
+
+  if (!programmeIds.length) return [];
+
+  const historyByProgram = await Promise.all(
+    programmeIds.map(async (pid) => {
+      try {
+        const snap = await getDocs(
+          collection(db, "clients", clientId, "programmes", pid, "sessionsEffectuees")
+        );
+        return snap.docs.map((docSnap) => ({
+          id: `${pid}:${docSnap.id}`,
+          completionId: docSnap.id,
+          programId: pid,
+          ...docSnap.data(),
+        }));
+      } catch (e) {
+        console.warn("load builder exercise history error:", e);
+        return [];
+      }
+    })
+  );
+
+  return historyByProgram
+    .flat()
+    .filter(isValidatedCompletionRecord)
+    .filter((record) => Array.isArray(record?.exerciseSnapshots) && record.exerciseSnapshots.length > 0)
+    .sort((a, b) => (getCompletionRecordDate(b)?.getTime() || 0) - (getCompletionRecordDate(a)?.getTime() || 0));
+}
+
 /* ======= conversions & préférences d’unités ======= */
 const KG_TO_LB = 2.20462262185;
 const KMH_TO_MPH = 0.621371192237334;
@@ -285,6 +561,240 @@ const round = (n, p = 2) => Math.round((Number(n) || 0) * 10 ** p) / 10 ** p;
 const M_TO_MI = 0.000621371192237334;
 const mToMi = (m) => +(((Number(m) || 0) * M_TO_MI).toFixed(3));
 const miToM = (mi) => +(((Number(mi) || 0) / M_TO_MI).toFixed(0));
+
+const RM_PERCENT_TABLE = [
+  { reps: 1, percent: 100 },
+  { reps: 2, percent: 96.9 },
+  { reps: 3, percent: 93.1 },
+  { reps: 4, percent: 89.8 },
+  { reps: 5, percent: 87.4 },
+  { reps: 6, percent: 85.8 },
+  { reps: 7, percent: 82.9 },
+  { reps: 8, percent: 80.4 },
+  { reps: 9, percent: 78.6 },
+  { reps: 10, percent: 76.2 },
+  { reps: 15, percent: 70 },
+  { reps: 20, percent: 65 },
+  { reps: 25, percent: 60 },
+];
+
+const RM_DISPLAY_REPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25];
+const HISTORY_LOAD_INCREMENT_KG = 0.5;
+const HISTORY_LOAD_META_KEY = "_historyLoadAuto";
+
+function getOneRmPercentForReps(repsValue) {
+  const reps = parseNumberish(repsValue);
+  if (!Number.isFinite(reps) || reps <= 0) return null;
+  const exact = RM_PERCENT_TABLE.find((entry) => entry.reps === reps);
+  if (exact) return exact.percent;
+  const lower = [...RM_PERCENT_TABLE].reverse().find((entry) => entry.reps < reps);
+  const upper = RM_PERCENT_TABLE.find((entry) => entry.reps > reps);
+  if (lower && upper) {
+    const ratio = (reps - lower.reps) / (upper.reps - lower.reps);
+    return lower.percent + (upper.percent - lower.percent) * ratio;
+  }
+  return 100 / (1 + reps / 30);
+}
+
+const roundToHalfKg = (value) => Math.round((Number(value) || 0) * 2) / 2;
+
+function estimateOneRepMaxFromSet(set = {}) {
+  const charge = parseNumberish(set?.chargeKg);
+  const reps = parseNumberish(set?.reps);
+  const percent = getOneRmPercentForReps(reps);
+  if (!Number.isFinite(charge) || charge <= 0 || !percent) return 0;
+  return charge / (percent / 100);
+}
+
+function getBestStrengthSet(snapshot = {}) {
+  const sets = Array.isArray(snapshot?.sets) ? snapshot.sets : [];
+  return sets.reduce((best, set) => {
+    const estimate = estimateOneRepMaxFromSet(set);
+    if (estimate <= 0) return best;
+    if (!best || estimate > best.estimatedOneRepMax) {
+      return { set, estimatedOneRepMax: estimate };
+    }
+    return best;
+  }, null);
+}
+
+function getRmEstimateRows(snapshot = {}) {
+  const best = getBestStrengthSet(snapshot);
+  if (!best?.estimatedOneRepMax) return [];
+  return RM_DISPLAY_REPS.map((reps) => {
+    const percent = getOneRmPercentForReps(reps);
+    return {
+      reps,
+      percent,
+      chargeKg: roundToHalfKg(best.estimatedOneRepMax * (percent / 100)),
+    };
+  });
+}
+
+function getBestHistoryStrengthSource(historyItems = []) {
+  return historyItems
+    .flatMap((item) => {
+      const best = getBestStrengthSet(item?.snapshot || {});
+      return best
+        ? [{
+            ...best,
+            item,
+          }]
+        : [];
+    })
+    .reduce((best, source) => {
+      if (!best || source.estimatedOneRepMax > best.estimatedOneRepMax) return source;
+      return best;
+    }, null);
+}
+
+function suggestHistoryLoadForReps(historyItems = [], targetReps) {
+  const reps = parseNumberish(targetReps);
+  if (!Number.isFinite(reps) || reps <= 0) return null;
+
+  const source = getBestHistoryStrengthSource(historyItems);
+  const percent = getOneRmPercentForReps(reps);
+  if (!source?.estimatedOneRepMax || !percent) return null;
+
+  const load = source.estimatedOneRepMax * (percent / 100);
+  const rounded = Math.round(load / HISTORY_LOAD_INCREMENT_KG) * HISTORY_LOAD_INCREMENT_KG;
+  if (rounded <= 0) return null;
+
+  return {
+    chargeKg: round(rounded, 2),
+    meta: {
+      applied: true,
+      method: "berger",
+      source: "client_history",
+      targetReps: reps,
+      suggestedKg: round(rounded, 2),
+      percentOneRm: round(percent, 2),
+      baseChargeKg: round(parseNumberish(source.set?.chargeKg) || 0, 2),
+      baseReps: parseNumberish(source.set?.reps) || 0,
+      estimatedOneRepMaxKg: round(source.estimatedOneRepMax, 2),
+      sessionTitle: source.item?.sessionTitle || "",
+      recordId: source.item?.recordId || source.item?.id || "",
+    },
+  };
+}
+
+function withChargeOptionEnabled(ex = {}) {
+  const next = { ...ex };
+  const optionsOrder = Array.isArray(next.optionsOrder) ? [...next.optionsOrder] : [];
+  if (!optionsOrder.includes("Charge (kg)")) {
+    const repsIndex = optionsOrder.indexOf("Répétitions");
+    optionsOrder.splice(repsIndex >= 0 ? repsIndex + 1 : optionsOrder.length, 0, "Charge (kg)");
+    next.optionsOrder = optionsOrder;
+  }
+  return next;
+}
+
+function applyHistoryLoadToExercise(ex = {}, completionHistory = [], t) {
+  const historyItems = buildExerciseHistoryItemsFromCompletions(completionHistory, ex, t);
+  if (!historyItems.length) return { exercise: ex, appliedCount: 0 };
+
+  let next = structuredClone(ex);
+  let appliedCount = 0;
+
+  if (next.useAdvancedSets && Array.isArray(next.sets) && next.sets.length) {
+    const globalReps = parseNumberish(next["Répétitions"]) || 0;
+    const sets = next.sets.map((set) => {
+      const targetReps = parseNumberish(set?.reps) || globalReps;
+      const suggested = suggestHistoryLoadForReps(historyItems, targetReps);
+      if (suggested == null) return set;
+      appliedCount += 1;
+      return { ...(set || {}), chargeKg: suggested.chargeKg };
+    });
+
+    if (!appliedCount) return { exercise: ex, appliedCount: 0 };
+    next = withChargeOptionEnabled(next);
+    next.sets = sets;
+    const firstSuggested = sets.find((set) => Number(set?.chargeKg) > 0)?.chargeKg;
+    if (Number(firstSuggested) > 0) next["Charge (kg)"] = Number(firstSuggested);
+    const firstMeta = next.sets
+      .map((set) => suggestHistoryLoadForReps(historyItems, parseNumberish(set?.reps) || globalReps)?.meta)
+      .find(Boolean);
+    if (firstMeta) {
+      next[HISTORY_LOAD_META_KEY] = {
+        ...firstMeta,
+        suggestedKg: Number(firstSuggested) || firstMeta.suggestedKg,
+        perSet: next.sets
+          .map((set, setIndex) => {
+            const setMeta = suggestHistoryLoadForReps(historyItems, parseNumberish(set?.reps) || globalReps)?.meta;
+            return setMeta ? { setIndex: setIndex + 1, ...setMeta } : null;
+          })
+          .filter(Boolean),
+      };
+    }
+    next.seriesDetails = seriesDetailsFromSets(next.sets, next.optionsOrder);
+    return { exercise: next, appliedCount };
+  }
+
+  const suggested = suggestHistoryLoadForReps(historyItems, next["Répétitions"]);
+  if (suggested == null) return { exercise: ex, appliedCount: 0 };
+
+  next = withChargeOptionEnabled(next);
+  next["Charge (kg)"] = suggested.chargeKg;
+  next[HISTORY_LOAD_META_KEY] = suggested.meta;
+  if (Array.isArray(next.sets) && next.sets.length) {
+    next.sets = next.sets.map((set) => ({ ...(set || {}), chargeKg: suggested.chargeKg }));
+  }
+  return { exercise: next, appliedCount: 1 };
+}
+
+function applyHistoryLoadsToSessions(sourceSessions = [], completionHistory = [], t) {
+  let appliedCount = 0;
+  const sessionsWithLoads = applyAutoSessionNumbering(sourceSessions, t).map((sess) => {
+    const s = structuredClone(sess);
+    if (s.useSections) {
+      sectionDefs.forEach(({ key }) => {
+        s[key] = (s[key] || []).map((ex) => {
+          const result = applyHistoryLoadToExercise(ex, completionHistory, t);
+          appliedCount += result.appliedCount;
+          return serializeExerciseForSave(result.exercise);
+        });
+      });
+    } else {
+      s.exercises = (s.exercises || []).map((ex) => {
+        const result = applyHistoryLoadToExercise(ex, completionHistory, t);
+        appliedCount += result.appliedCount;
+        return serializeExerciseForSave(result.exercise);
+      });
+    }
+    return s;
+  });
+
+  return { sessions: sessionsWithLoads, appliedCount };
+}
+
+function clearHistoryLoadMeta(ex = {}) {
+  if (ex && Object.prototype.hasOwnProperty.call(ex, HISTORY_LOAD_META_KEY)) {
+    delete ex[HISTORY_LOAD_META_KEY];
+  }
+}
+
+function getHistoryLoadJustification(ex = {}, t) {
+  const meta = ex?.[HISTORY_LOAD_META_KEY];
+  if (!meta?.applied) return "";
+
+  const baseCharge = formatHistoryNumber(meta.baseChargeKg);
+  const baseReps = formatHistoryNumber(meta.baseReps, 0);
+  const targetReps = formatHistoryNumber(meta.targetReps, 0);
+  const suggested = formatHistoryNumber(meta.suggestedKg);
+
+  if (baseCharge && baseReps && targetReps && suggested) {
+    return t(
+      "programBuilder.historyLoad.justification",
+      "Charge calculée depuis l'historique client avec la table de Berger : {{baseCharge}} kg x {{baseReps}} reps -> {{suggested}} kg pour {{targetReps}} reps. Elle reste modifiable.",
+      { baseCharge, baseReps, suggested, targetReps }
+    );
+  }
+
+  return t(
+    "programBuilder.historyLoad.justificationShort",
+    "Charge calculée depuis l'historique client avec la table de Berger. Elle reste modifiable."
+  );
+}
 
 /* ======= display units stored at program level ======= */
 const DEFAULT_DISPLAY_UNITS = {
@@ -1195,6 +1705,206 @@ const buildAutoFollowUpdate = (nextVal, existingOptions = {}) => {
   };
 };
 
+function BuilderExerciseHistoryPanel({ items = [], loading = false, textMute, t, language }) {
+  const [open, setOpen] = useState(false);
+  const [activeView, setActiveView] = useState("history");
+  const panelBg = useColorModeValue("blue.50", "rgba(59,130,246,0.10)");
+  const rowBg = useColorModeValue("white", "whiteAlpha.80");
+  const border = useColorModeValue("blue.100", "whiteAlpha.200");
+  const columns = useMemo(() => getBuilderHistoryColumns(items, t), [items, t]);
+  const prItem = items.find((item) => item.rank === 1) || items[0] || null;
+  const prSnapshot = prItem?.snapshot || null;
+  const prRmRows = getRmEstimateRows(prSnapshot || {});
+  const prBaseSet = getBestStrengthSet(prSnapshot || {})?.set || null;
+  const prMainLine = prSnapshot ? getHistoryMainLine(prSnapshot, t) : "";
+  const summary = loading
+    ? t("common.loading", "Chargement...")
+    : items.length === 0
+      ? t("sessionPlayer.noExerciseHistory", "Aucun historique pour cet exercice.")
+      : prMainLine
+        ? t("sessionPlayer.trackingSummaryPr", "PR : {{value}}", { value: prMainLine })
+        : t("sessionPlayer.historyCount", "{{count}} entrée(s)", { count: items.length });
+
+  if (!loading && !items.length) return null;
+
+  return (
+    <Box
+      mt={4}
+      p={3}
+      border="1px solid"
+      borderColor={border}
+      borderRadius="18px"
+      bg={panelBg}
+      onMouseDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+    >
+      <HStack justify="space-between" gap={3} align="center">
+        <VStack align="start" spacing={0} minW={0}>
+          <HStack spacing={2}>
+            <Text fontWeight="900" fontSize="sm">
+              {t("sessionPlayer.exerciseTracking", "Suivi")}
+            </Text>
+            <Badge borderRadius="full" colorScheme={items.length ? "blue" : "gray"}>
+              {items.length}
+            </Badge>
+          </HStack>
+          <Text fontSize="xs" color={textMute} fontWeight="800" noOfLines={1}>
+            {summary}
+          </Text>
+        </VStack>
+        <IconButton
+          size="sm"
+          variant="ghost"
+          borderRadius="full"
+          aria-label={open
+            ? t("programBuilder.history.close", "Fermer l'historique")
+            : t("programBuilder.history.open", "Ouvrir l'historique")}
+          icon={<ChevronDownIcon transform={open ? "rotate(180deg)" : "none"} transition="transform .18s ease" />}
+          onClick={() => setOpen((value) => !value)}
+        />
+      </HStack>
+
+      <Collapse in={open} animateOpacity>
+        {loading ? (
+          <Text mt={3} fontSize="sm" color={textMute}>
+            {t("common.loading", "Chargement...")}
+          </Text>
+        ) : (
+          <>
+            <HStack spacing={2} mt={3} mb={3}>
+              <Button
+                size="sm"
+                flex="1"
+                borderRadius="12px"
+                variant={activeView === "history" ? "solid" : "outline"}
+                colorScheme={activeView === "history" ? "blue" : "gray"}
+                onClick={() => setActiveView("history")}
+              >
+                {t("sessionPlayer.history", "Historique")}
+              </Button>
+              <Button
+                size="sm"
+                flex="1"
+                borderRadius="12px"
+                variant={activeView === "rm" ? "solid" : "outline"}
+                colorScheme={activeView === "rm" ? "blue" : "gray"}
+                onClick={() => setActiveView("rm")}
+              >
+                {t("sessionPlayer.rmTab", "RM")}
+              </Button>
+            </HStack>
+
+            {activeView === "rm" ? (
+              prRmRows.length > 0 ? (
+                <Box border="1px solid" borderColor={border} borderRadius="16px" overflow="hidden">
+                  <HStack justify="space-between" px={3} py={2.5} bg={rowBg} spacing={3}>
+                    <VStack align="start" spacing={0} minW={0}>
+                      <Text fontSize="xs" fontWeight="900">
+                        {t("sessionPlayer.rmEstimates", "Estimations RM")}
+                      </Text>
+                      <Text fontSize="xs" color={textMute} fontWeight="800" noOfLines={1}>
+                        {prMainLine || t("sessionPlayer.personalRecord", "PR")}
+                      </Text>
+                    </VStack>
+                    {prBaseSet && (
+                      <Badge colorScheme="green" borderRadius="full" px={2}>
+                        {t("sessionPlayer.weightXReps", "{{weight}} kg x {{reps}}", {
+                          weight: formatHistoryNumber(prBaseSet.chargeKg),
+                          reps: formatHistoryNumber(prBaseSet.reps, 0),
+                        })}
+                      </Badge>
+                    )}
+                  </HStack>
+                  <Box overflowX="auto">
+                    <Table size="sm" minW="320px" sx={{ "th, td": { fontSize: "xs", px: 3, py: 1.5 } }}>
+                      <Thead>
+                        <Tr>
+                          <Th>{t("sessionPlayer.rmColumn", "RM")}</Th>
+                          <Th>{t("sessionPlayer.percentOneRm", "% 1RM")}</Th>
+                          <Th isNumeric>{t("sessionPlayer.load", "Charge")}</Th>
+                        </Tr>
+                      </Thead>
+                      <Tbody>
+                        {prRmRows.map((row) => (
+                          <Tr key={row.reps} bg={row.reps === 1 ? rowBg : "transparent"}>
+                            <Td fontWeight="900">{row.reps}RM</Td>
+                            <Td>{formatHistoryNumber(row.percent, 1)}%</Td>
+                            <Td isNumeric fontWeight="900">{formatHistoryNumber(row.chargeKg)} kg</Td>
+                          </Tr>
+                        ))}
+                      </Tbody>
+                    </Table>
+                  </Box>
+                </Box>
+              ) : (
+                <Text fontSize="sm" color={textMute}>
+                  {t("sessionPlayer.noRmEstimate", "Aucune estimation RM disponible pour ce PR.")}
+                </Text>
+              )
+            ) : (
+              <VStack align="stretch" spacing={2} mt={3}>
+                {items.slice(0, 5).map((item) => {
+                  const sets = Array.isArray(item?.snapshot?.sets) ? item.snapshot.sets : [];
+                  const mainLine = getHistoryMainLine(item.snapshot, t);
+                  return (
+                    <Box key={item.id} bg={rowBg} border="1px solid" borderColor={border} borderRadius="14px" overflow="hidden">
+                      <HStack justify="space-between" gap={3} px={3} py={2}>
+                        <VStack align="start" spacing={0} minW={0}>
+                          <HStack spacing={2} minW={0}>
+                            <Text fontSize="sm" fontWeight="900" noOfLines={1}>
+                              {mainLine || item.sessionTitle || t("form.session", "Séance")}
+                            </Text>
+                            {item.rank === 1 && (
+                              <Badge colorScheme="green" borderRadius="full">
+                                {t("sessionPlayer.personalRecordShort", "PR")}
+                              </Badge>
+                            )}
+                          </HStack>
+                          <Text fontSize="xs" color={textMute} fontWeight="700" noOfLines={1}>
+                            {item.sessionTitle || t("form.session", "Séance")}
+                          </Text>
+                        </VStack>
+                        <Text fontSize="xs" color={textMute} fontWeight="800" flexShrink={0}>
+                          {formatHistoryDate(item.date, language)}
+                        </Text>
+                      </HStack>
+
+                      {sets.length > 0 && columns.length > 0 && (
+                        <Box overflowX="auto">
+                          <Table size="sm" minW="360px" sx={{ "th, td": { fontSize: "xs", px: 2, py: 1.5 } }}>
+                            <Thead>
+                              <Tr>
+                                <Th>#</Th>
+                                {columns.map((column) => (
+                                  <Th key={column.key}>{column.label}</Th>
+                                ))}
+                              </Tr>
+                            </Thead>
+                            <Tbody>
+                              {sets.slice(0, 6).map((set, setIdx) => (
+                                <Tr key={`${item.id}-${set.setIndex || setIdx}`}>
+                                  <Td fontWeight="800">{set.setIndex || "-"}</Td>
+                                  {columns.map((column) => (
+                                    <Td key={column.key}>{column.render(set)}</Td>
+                                  ))}
+                                </Tr>
+                              ))}
+                            </Tbody>
+                          </Table>
+                        </Box>
+                      )}
+                    </Box>
+                  );
+                })}
+              </VStack>
+            )}
+          </>
+        )}
+      </Collapse>
+    </Box>
+  );
+}
+
 /* ===================== ExerciseCardRow ===================== */
 const ExerciseCardRow = memo(
   function ExerciseCardRow({
@@ -1237,6 +1947,10 @@ const ExerciseCardRow = memo(
     hasNext,
     onToggleLinkNext,
     dragHandleProps,
+    historyItems,
+    historyLoading,
+    showClientHistory,
+    historyLanguage,
   }) {
     const displayWeight =
       weightUnit === "kg"
@@ -1282,6 +1996,8 @@ const ExerciseCardRow = memo(
               color={textMute}
               flex="0 0 auto"
               userSelect="none"
+              sx={{ touchAction: "none" }}
+              _active={{ cursor: "grabbing" }}
               onMouseDown={(e) => e.stopPropagation()}
               onTouchStart={(e) => e.stopPropagation()}
             >
@@ -1459,6 +2175,16 @@ const ExerciseCardRow = memo(
                 )}
               </Droppable>
             </DragDropContext>
+
+            {showClientHistory && (
+              <BuilderExerciseHistoryPanel
+                items={historyItems}
+                loading={historyLoading}
+                textMute={textMute}
+                t={t}
+                language={historyLanguage}
+              />
+            )}
           </Box>
         </Collapse>
 
@@ -1487,6 +2213,7 @@ const ExerciseCardRow = memo(
             if (isWeight) value = displayWeight;
             if (isSpeed) value = displaySpeed;
             if (isDistance) value = displayDistance;
+            const historyLoadJustification = isWeight ? getHistoryLoadJustification(ex, t) : "";
 
             return (
               <Box key={`${opt}-${oIdx}`} minW="180px" flex="1 1 180px">
@@ -1553,6 +2280,12 @@ const ExerciseCardRow = memo(
                     bg={cardBg}
                     borderColor={border}
                   />
+                )}
+
+                {historyLoadJustification && (
+                  <Text fontSize="xs" mt={1.5} color="green.500" fontWeight="800" lineHeight="1.35">
+                    {historyLoadJustification}
+                  </Text>
                 )}
 
                 {isRestOrDur && <Text fontSize="xs" mt={1}>{formatMinSec(ex[opt] ?? 0)}</Text>}
@@ -1827,7 +2560,10 @@ const ExerciseCardRow = memo(
       prev.sectionEnabled === next.sectionEnabled &&
       prev.currentSection === next.currentSection &&
       prev.displayLabel === next.displayLabel &&
-      prev.hasNext === next.hasNext
+      prev.hasNext === next.hasNext &&
+      prev.showClientHistory === next.showClientHistory &&
+      prev.historyLoading === next.historyLoading &&
+      prev.historyItems === next.historyItems
     );
   }
 );
@@ -2091,6 +2827,8 @@ export default function ProgramBuilder({
   const deferredSearch = useDeferredValue(searchTerm);
   const [loadingClients, setLoadingClients] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
+  const [completionHistory, setCompletionHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const assignModal = useDisclosure();
   const addClientModal = useDisclosure();
   const autoProgressionImpactModal = useDisclosure();
@@ -2290,6 +3028,37 @@ export default function ProgramBuilder({
       [c.nom, c.prenom, c.email].some((f) => f?.toLowerCase().includes(q))
     );
   }, [clients, deferredSearch]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadClientExerciseHistory() {
+      if (!isAssignedClientProgram || !clientId || !programId) {
+        setCompletionHistory([]);
+        setHistoryLoading(false);
+        return;
+      }
+
+      setHistoryLoading(true);
+      try {
+        if (cancelled) return;
+        const rows = await loadClientCompletionHistory(clientId, programId);
+        if (cancelled) return;
+        setCompletionHistory(rows);
+      } catch (e) {
+        console.error("load builder completion history error:", e);
+        if (!cancelled) setCompletionHistory([]);
+      } finally {
+        if (!cancelled) setHistoryLoading(false);
+      }
+    }
+
+    loadClientExerciseHistory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAssignedClientProgram, clientId, programId]);
 
   /* --------- Ajout / Remplacement depuis la banque --------- */
   useEffect(() => {
@@ -2592,17 +3361,19 @@ export default function ProgramBuilder({
 
   const handleAssign = useCallback(async () => {
     if (!selectedClient || !programId) return;
-    const sessionsToAssign = applyAutoSessionNumbering(sessions, t).map((sess) => {
-      const s = structuredClone(sess);
-      if (s.useSections) {
-        sectionDefs.forEach(({ key }) => {
-          s[key] = (s[key] || []).map((ex) => serializeExerciseForSave(ex));
-        });
-      } else {
-        s.exercises = (s.exercises || []).map((ex) => serializeExerciseForSave(ex));
-      }
-      return s;
-    });
+
+    let selectedClientHistory = [];
+    try {
+      selectedClientHistory = await loadClientCompletionHistory(selectedClient.id);
+    } catch (e) {
+      console.warn("load selected client history before assignment error:", e);
+    }
+
+    const { sessions: sessionsToAssign, appliedCount: autoLoadCount } = applyHistoryLoadsToSessions(
+      sessions,
+      selectedClientHistory,
+      t
+    );
     const finalName = programName || makeDefaultProgramName(objectifUI, programmeGoal, sessionsToAssign.length || 1);
     const assignedRef = await addDoc(collection(db, "clients", selectedClient.id, "programmes"), {
       nomProgramme: finalName,
@@ -2652,6 +3423,14 @@ export default function ProgramBuilder({
     assignModal.onClose();
     toast({
       title: t("programBuilder.toasts.assigned", "Programme assigné"),
+      description:
+        autoLoadCount > 0
+          ? t(
+              "programBuilder.toasts.historyLoadsApplied",
+              "{{count}} charge(s) préremplie(s) depuis l'historique client.",
+              { count: autoLoadCount }
+            )
+          : undefined,
       status: "success",
       duration: 3000,
       position: "bottom",
@@ -2763,6 +3542,7 @@ export default function ProgramBuilder({
           weightUnit === "kg" ? Number(value) || 0 : lbToKg(Number(value) || 0),
           2
         );
+        clearHistoryLoadMeta(item);
       } else if (isSpeed) {
         item["Vitesse"] = round(
           speedUnit === "kmh" ? Number(value) || 0 : mphToKmh(Number(value) || 0),
@@ -2932,6 +3712,7 @@ export default function ProgramBuilder({
       sets[i] = cur;
       item.sets = sets;
       item["Séries"] = sets.length;
+      if (field === "chargeKg") clearHistoryLoadMeta(item);
     });
     markDirty();
   });
@@ -3063,7 +3844,143 @@ export default function ProgramBuilder({
     return res;
   }, [visibleList]);
 
+  const historyLanguage = i18n.language || i18n.resolvedLanguage || "fr";
+  const exerciseHistoryByKey = useMemo(() => {
+    const map = new Map();
+    if (!isAssignedClientProgram) return map;
+
+    visibleList.forEach((ex, index) => {
+      const key = ex?.id || `${index}`;
+      map.set(key, buildExerciseHistoryItemsFromCompletions(completionHistory, ex, t));
+    });
+    return map;
+  }, [completionHistory, isAssignedClientProgram, t, visibleList]);
+
   const totalTime = useMemo(() => getTotalTime(sessions[activeTab] || {}), [sessions, activeTab]);
+
+  const renderExerciseDraggable = useCallback(
+    (ex, eIdx, drProv, { isClone = false, isDragging = false } = {}) => {
+      if (!ex) return null;
+
+      const draggableStyle = drProv.draggableProps?.style;
+      const style = isDragging
+        ? {
+            ...draggableStyle,
+            zIndex: 1800,
+            pointerEvents: "none",
+          }
+        : draggableStyle;
+
+      return (
+        <Box
+          ref={drProv.innerRef}
+          data-tour={!isClone && eIdx === 0 ? "builder-demo-exercise" : undefined}
+          {...drProv.draggableProps}
+          style={style}
+        >
+          <ExerciseCardRow
+            ex={ex}
+            index={eIdx}
+            displayLabel={labels[eIdx] || `${eIdx + 1}.`}
+            sectionEnabled={sessions[activeTab].useSections}
+            sectionDefs={sectionDefs}
+            isCoach={isCoach}
+            weightUnit={weightUnit}
+            speedUnit={speedUnit}
+            distanceUnit={distanceUnit}
+            cardBg={cardBg}
+            border={border}
+            subBg={subBg}
+            textMute={textMute}
+            hoverRow={hoverRow}
+            softShadow={softShadow}
+            strongShadow={strongShadow}
+            currentSection={currentSection}
+            t={t}
+            hasNext={eIdx < visibleList.length - 1}
+            onToggleLinkNext={onToggleLinkNext}
+            onMoveTo={moveExerciseTo}
+            onReplaceToggle={onReplaceToggle}
+            replaceIndex={replaceIndex}
+            onDelete={onDeleteExercise}
+            onToggleExpand={onToggleExpand}
+            expanded={expandedIndex === eIdx}
+            onOptionsToggle={onOptionsToggle}
+            onOptionsReorder={(res, localEIdx) =>
+              onDragEndOptions(
+                res,
+                activeTab,
+                localEIdx,
+                sessions[activeTab].useSections ? currentSection : null
+              )
+            }
+            onGlobalChange={(localEIdx, opt, isW, isS, val) =>
+              applyGlobalChangeRaf(localEIdx, opt, isW, isS, val)
+            }
+            onToggleNotes={onToggleNotes}
+            onChangeNotes={onChangeNotes}
+            onToggleAdvanced={onToggleAdvanced}
+            onFillFromGlobals={onFillFromGlobals}
+            onAddSet={onAddSet}
+            onRemoveLastSet={onRemoveLastSet}
+            onDeleteSet={onDeleteSet}
+            onSetChange={(localEIdx, i, field, value) =>
+              onSetChange(localEIdx, i, field, value)
+            }
+            weightStep={weightStep}
+            speedStep={speedStep}
+            dragHandleProps={drProv.dragHandleProps}
+            showClientHistory={isAssignedClientProgram}
+            historyItems={exerciseHistoryByKey.get(ex?.id || `${eIdx}`) || []}
+            historyLoading={historyLoading}
+            historyLanguage={historyLanguage}
+          />
+        </Box>
+      );
+    },
+    [
+      activeTab,
+      applyGlobalChangeRaf,
+      border,
+      cardBg,
+      currentSection,
+      distanceUnit,
+      expandedIndex,
+      hoverRow,
+      historyLanguage,
+      historyLoading,
+      isCoach,
+      isAssignedClientProgram,
+      labels,
+      moveExerciseTo,
+      onAddSet,
+      onChangeNotes,
+      onDeleteExercise,
+      onDeleteSet,
+      onDragEndOptions,
+      onFillFromGlobals,
+      onOptionsToggle,
+      onRemoveLastSet,
+      onReplaceToggle,
+      onSetChange,
+      onToggleAdvanced,
+      onToggleExpand,
+      onToggleLinkNext,
+      replaceIndex,
+      sessions,
+      softShadow,
+      speedStep,
+      speedUnit,
+      strongShadow,
+      subBg,
+      t,
+      textMute,
+      visibleList.length,
+      weightStep,
+      weightUnit,
+      exerciseHistoryByKey,
+    ]
+  );
 
   const handleDragEndExercises = useCallback(
     (res) => {
@@ -3155,8 +4072,7 @@ export default function ProgramBuilder({
           as="main"
           data-builder-main-scroll="true"
           flex="1 1 auto"
-          overflowY="auto"
-          overflowX="hidden"
+          overflow="visible"
           pb={{ base: 6, md: 10 }}
           px={{ base: 3, md: 6 }}
           pt={{ base: 3, md: 5 }}
@@ -3655,6 +4571,13 @@ export default function ProgramBuilder({
                   droppableId={`ex-${activeTab}-${
                     sessions[activeTab].useSections ? currentSection : "flat"
                   }`}
+                  getContainerForClone={() => document.body}
+                  renderClone={(drProv, snapshot, rubric) =>
+                    renderExerciseDraggable(visibleList[rubric.source.index], rubric.source.index, drProv, {
+                      isClone: true,
+                      isDragging: snapshot.isDragging,
+                    })
+                  }
                 >
                   {(providedEx) => (
                     <VStack
@@ -3667,67 +4590,7 @@ export default function ProgramBuilder({
                     >
                       {visibleList.map((ex, eIdx) => (
                         <Draggable key={ex.id} draggableId={ex.id} index={eIdx}>
-                          {(drProv) => (
-                            <Box
-                              ref={drProv.innerRef}
-                              data-tour={eIdx === 0 ? "builder-demo-exercise" : undefined}
-                              {...drProv.draggableProps}
-                            >
-                              <ExerciseCardRow
-                                ex={ex}
-                                index={eIdx}
-                                displayLabel={labels[eIdx] || `${eIdx + 1}.`}
-                                sectionEnabled={sessions[activeTab].useSections}
-                                sectionDefs={sectionDefs}
-                                isCoach={isCoach}
-                                weightUnit={weightUnit}
-                                speedUnit={speedUnit}
-                                distanceUnit={distanceUnit}
-                                cardBg={cardBg}
-                                border={border}
-                                subBg={subBg}
-                                textMute={textMute}
-                                hoverRow={hoverRow}
-                                softShadow={softShadow}
-                                strongShadow={strongShadow}
-                                currentSection={currentSection}
-                                t={t}
-                                hasNext={eIdx < visibleList.length - 1}
-                                onToggleLinkNext={onToggleLinkNext}
-                                onMoveTo={moveExerciseTo}
-                                onReplaceToggle={onReplaceToggle}
-                                replaceIndex={replaceIndex}
-                                onDelete={onDeleteExercise}
-                                onToggleExpand={onToggleExpand}
-                                expanded={expandedIndex === eIdx}
-                                onOptionsToggle={onOptionsToggle}
-                                onOptionsReorder={(res, localEIdx) =>
-                                  onDragEndOptions(
-                                    res,
-                                    activeTab,
-                                    localEIdx,
-                                    sessions[activeTab].useSections ? currentSection : null
-                                  )
-                                }
-                                onGlobalChange={(localEIdx, opt, isW, isS, val) =>
-                                  applyGlobalChangeRaf(localEIdx, opt, isW, isS, val)
-                                }
-                                onToggleNotes={onToggleNotes}
-                                onChangeNotes={onChangeNotes}
-                                onToggleAdvanced={onToggleAdvanced}
-                                onFillFromGlobals={onFillFromGlobals}
-                                onAddSet={onAddSet}
-                                onRemoveLastSet={onRemoveLastSet}
-                                onDeleteSet={onDeleteSet}
-                                onSetChange={(localEIdx, i, field, value) =>
-                                  onSetChange(localEIdx, i, field, value)
-                                }
-                                weightStep={weightStep}
-                                speedStep={speedStep}
-                                dragHandleProps={drProv.dragHandleProps}
-                              />
-                            </Box>
-                          )}
+                          {(drProv) => renderExerciseDraggable(ex, eIdx, drProv)}
                         </Draggable>
                       ))}
                       {providedEx.placeholder}

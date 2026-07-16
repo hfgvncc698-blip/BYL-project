@@ -1881,6 +1881,14 @@
     "options": {
       "title": "Optionen"
     },
+    "history": {
+      "open": "Historie öffnen",
+      "close": "Historie schließen"
+    },
+    "historyLoad": {
+      "justification": "Last aus der Kundenhistorie mit der Berger-Tabelle berechnet: {{baseCharge}} kg x {{baseReps}} Wdh. -> {{suggested}} kg für {{targetReps}} Wdh. Sie bleibt bearbeitbar.",
+      "justificationShort": "Last aus der Kundenhistorie mit der Berger-Tabelle berechnet. Sie bleibt bearbeitbar."
+    },
     "labels": {
       "weightKg": "Laden (kg)",
       "weightLbs": "Gewicht (lbs)",
@@ -1926,7 +1934,8 @@
       "saved": "Änderungen erfolgreich gespeichert.",
       "savedDesc": "Ihr Programm wurde erfolgreich gespeichert.",
       "errorTitle": "Fehler",
-      "assigned": "Zugewiesenes Programm"
+      "assigned": "Zugewiesenes Programm",
+      "historyLoadsApplied": "{{count}} Last(en) aus der Kundenhistorie vorausgefüllt."
     },
     "exercise": {
       "label": "Übung"

@@ -1881,6 +1881,14 @@
     "options": {
       "title": "خيارات"
     },
+    "history": {
+      "open": "فتح السجل",
+      "close": "إغلاق السجل"
+    },
+    "historyLoad": {
+      "justification": "تم حساب الحمل من سجل العميل باستخدام جدول بيرغر: {{baseCharge}} كغ × {{baseReps}} تكرارات -> {{suggested}} كغ لـ {{targetReps}} تكرارات. يمكن تعديله.",
+      "justificationShort": "تم حساب الحمل من سجل العميل باستخدام جدول بيرغر. يمكن تعديله."
+    },
     "labels": {
       "weightKg": "تحميل (kg)",
       "weightLbs": "الوزن (رطل)",
@@ -1926,7 +1934,8 @@
       "saved": "تم حفظ التغييرات بنجاح.",
       "savedDesc": "لقد تم حفظ برنامجك بنجاح.",
       "errorTitle": "خطأ",
-      "assigned": "البرنامج المخصص"
+      "assigned": "البرنامج المخصص",
+      "historyLoadsApplied": "تم ملء {{count}} حمل/أحمال من سجل العميل."
     },
     "exercise": {
       "label": "تمرين"
