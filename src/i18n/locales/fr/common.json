@@ -1376,6 +1376,8 @@
     "notFound": "Programme introuvable",
     "notFoundHint": "Vérifie l’URL ou les droits d’accès.",
     "chooseVariant": "Choisissez une variante",
+    "loadingVariants": "Vérification des variantes disponibles...",
+    "noUsableVariants": "Aucune variante utilisable n’est disponible pour cet exercice.",
     "autoFollowHintOn": "IA activée : BYL ajuste automatiquement la progression (si disponible) selon tes séances validées.",
     "autoFollowHintOff": "IA désactivée : aucune progression automatique n’est appliquée.",
     "saving": "Sauvegarde",
@@ -1885,7 +1887,14 @@
       "cooldown": "Retour au calme"
     },
     "options": {
-      "title": "Options"
+      "title": "Options",
+      "activeCount": "{{count}} champs actifs",
+      "order": "Ordre",
+      "groups": {
+        "base": "Base",
+        "load": "Charge",
+        "cardio": "Cardio"
+      }
     },
     "history": {
       "open": "Ouvrir l'historique",

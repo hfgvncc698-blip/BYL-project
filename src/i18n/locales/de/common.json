@@ -1376,6 +1376,8 @@
     "notFound": "Programm nicht gefunden",
     "notFoundHint": "Überprüft URL oder Zugriffsrechte.",
     "chooseVariant": "Wählen Sie eine Variante",
+    "loadingVariants": "Verfügbare Varianten werden geprüft...",
+    "noUsableVariants": "Für diese Übung ist keine verwendbare Variante verfügbar.",
     "autoFollowHintOn": "IA aktiviert: BYL passt den Fortschritt (falls verfügbar) automatisch entsprechend Ihren validierten Sitzungen an.",
     "autoFollowHintOff": "IA deaktiviert: Es wird kein automatischer Fortschritt angewendet.",
     "saving": "Sicherung",
@@ -1879,7 +1881,14 @@
       "cooldown": "Kehren Sie zur Ruhe zurück"
     },
     "options": {
-      "title": "Optionen"
+      "title": "Optionen",
+      "activeCount": "{{count}} aktive Felder",
+      "order": "Reihenfolge",
+      "groups": {
+        "base": "Basis",
+        "load": "Last",
+        "cardio": "Cardio"
+      }
     },
     "history": {
       "open": "Historie öffnen",

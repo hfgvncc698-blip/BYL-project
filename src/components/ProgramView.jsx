@@ -746,7 +746,8 @@ async function findExerciseDocFromFirestore(exercise) {
 }
 
 async function findExerciseVariantDoc(variantLabel, originalExercise = null) {
-  const wanted = String(variantLabel || "").trim();
+  const variantObject = variantLabel && typeof variantLabel === "object" ? variantLabel : null;
+  const wanted = getVariantOptionLabel(variantLabel);
   if (!wanted) return null;
 
   const normalizedWanted = norm(wanted);
@@ -756,9 +757,20 @@ async function findExerciseVariantDoc(variantLabel, originalExercise = null) {
     .filter((token) => token.length > 2);
 
   const scoreCandidate = (data = {}) => {
-    const label = norm(data?.nom || data?.name || data?.title || data?.label || data?.id || "");
+    const rawLabels = [
+      data?.nom,
+      data?.name,
+      data?.title,
+      data?.label,
+      data?.id,
+      data?.exerciseId,
+      data?.slug,
+      ...Object.values(data?.translations || {}).flatMap((entry) => [entry?.nom, entry?.name]),
+      ...safeArray(data?.aliases),
+    ];
+    const label = norm(rawLabels.find(Boolean) || "");
     if (!label || label === norm(originalExercise?.nom || originalExercise?.name || "")) return -1;
-    if (label === normalizedWanted) return 1000;
+    if (rawLabels.some((entry) => norm(entry) === normalizedWanted)) return 1000;
 
     const labelTokens = label.split(/\s+/).filter((token) => token.length > 2);
     const wantedMatches = wantedTokens.filter((token) => labelTokens.includes(token)).length;
@@ -787,7 +799,39 @@ async function findExerciseVariantDoc(variantLabel, originalExercise = null) {
     if (!preferredCollections.includes(c)) preferredCollections.push(c);
   });
 
+  const directIds = [
+    variantObject?.__docId,
+    variantObject?.docId,
+    variantObject?.documentId,
+    variantObject?.exerciseId,
+    variantObject?.sourceId,
+    variantObject?.bankId,
+    variantObject?.id,
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+
   for (const col of preferredCollections) {
+    const directCollections = [
+      String(variantObject?.__collection || "").toLowerCase(),
+      String(variantObject?.collection || "").toLowerCase(),
+      col,
+    ].filter((value, index, arr) => value && arr.indexOf(value) === index);
+
+    for (const directCol of directCollections) {
+      if (!EXERCISE_COLLECTIONS.includes(directCol)) continue;
+      for (const id of directIds) {
+        try {
+          const directSnap = await getDoc(doc(db, directCol, id));
+          if (directSnap.exists()) {
+            return { ...directSnap.data(), __collection: directCol, __docId: directSnap.id };
+          }
+        } catch {
+          // ignore direct lookup failure
+        }
+      }
+    }
+
     try {
       const exactByNom = await getDocs(query(collection(db, col), where("nom", "==", wanted), limit(1)));
       if (!exactByNom.empty) {
@@ -800,6 +844,14 @@ async function findExerciseVariantDoc(variantLabel, originalExercise = null) {
         const d = exactByName.docs[0];
         return { ...d.data(), __collection: col, __docId: d.id };
       }
+
+      for (const id of directIds) {
+        const byFieldId = await getDocs(query(collection(db, col), where("id", "==", id), limit(1)));
+        if (!byFieldId.empty) {
+          const d = byFieldId.docs[0];
+          return { ...d.data(), __collection: col, __docId: d.id };
+        }
+      }
     } catch {
       // ignore
     }
@@ -809,6 +861,7 @@ async function findExerciseVariantDoc(variantLabel, originalExercise = null) {
       const matched = snap.docs.find((d) => {
         const data = d.data() || {};
         const candidates = [data?.nom, data?.name, data?.title, data?.label, data?.id]
+          .concat(Object.values(data?.translations || {}).flatMap((entry) => [entry?.nom, entry?.name]))
           .filter(Boolean)
           .map((v) => norm(v));
         return candidates.includes(normalizedWanted);
@@ -831,7 +884,24 @@ async function findExerciseVariantDoc(variantLabel, originalExercise = null) {
     }
   }
 
-  return null;
+  return variantObject && (variantObject.nom || variantObject.name)
+    ? { ...variantObject, nom: variantObject.nom || variantObject.name, name: variantObject.name || variantObject.nom }
+    : null;
+}
+
+function getVariantOptionLabel(variant) {
+  if (variant == null) return "";
+  if (typeof variant === "string") return variant.trim();
+  if (typeof variant !== "object") return String(variant || "").trim();
+  return String(
+    variant.nom ||
+    variant.name ||
+    variant.title ||
+    variant.label ||
+    variant.exerciseName ||
+    variant.id ||
+    ""
+  ).trim();
 }
 
 function buildReplacementExercise(oldExercise, newExercise) {
@@ -2321,6 +2391,9 @@ export default function ProgramView() {
   const [originalName, setOriginalName] = useState("");
   const [replaceMode, setReplaceMode] = useState(false);
   const [selVariant, setSelVariant] = useState("");
+  const [replaceTarget, setReplaceTarget] = useState(null);
+  const [replacementVariants, setReplacementVariants] = useState([]);
+  const [replacementVariantsLoading, setReplacementVariantsLoading] = useState(false);
   const detailsDlg = useDisclosure();
 
   const [clientName, setClientName] = useState("");
@@ -2805,12 +2878,40 @@ export default function ProgramView() {
     return nextImageMap;
   };
 
-  const openDetails = async (ex, replace = false) => {
+  const openDetails = async (ex, replace = false, target = null) => {
     setReplaceMode(replace);
     setSelVariant("");
+    setReplaceTarget(target);
     setOriginalName(ex?.nom || ex?.name || "");
-    setSelExo(resolveExerciseForDisplay(ex, "modal", i18n.language || "fr"));
+    setReplacementVariants([]);
+    setReplacementVariantsLoading(Boolean(replace));
+    const resolvedExercise = resolveExerciseForDisplay(ex, "modal", i18n.language || "fr");
+    setSelExo(resolvedExercise);
     detailsDlg.onOpen();
+
+    if (!replace) {
+      setReplacementVariantsLoading(false);
+      return;
+    }
+
+    try {
+      const variants = safeArray(pickFirst(resolvedExercise, ["variantes"]));
+      const resolvedVariants = await Promise.all(
+        variants.map(async (variant, index) => {
+          const label = getVariantOptionLabel(variant);
+          if (!label) return null;
+          const resolvedVariant = await findExerciseVariantDoc(variant, resolvedExercise);
+          if (!resolvedVariant) return null;
+          return { index, variant, label, resolvedVariant };
+        })
+      );
+      setReplacementVariants(resolvedVariants.filter(Boolean));
+    } catch (e) {
+      console.error(e);
+      setReplacementVariants([]);
+    } finally {
+      setReplacementVariantsLoading(false);
+    }
   };
 
   const stripUndefined = (v) => {
@@ -2825,11 +2926,15 @@ export default function ProgramView() {
     return v;
   };
 
-  const doReplacePersist = async (newName) => {
-    if (!newName || !progRef || !prog) return;
+  const doReplacePersist = async (variantIndexValue) => {
+    if (variantIndexValue === "" || variantIndexValue == null || !progRef || !prog) return;
 
     try {
-      const replacementSource = await findExerciseVariantDoc(newName, selExo);
+      const option = replacementVariants.find((item) => String(item.index) === String(variantIndexValue));
+      const variants = safeArray(pickFirst(selExo, ["variantes"]));
+      const selectedVariant = option?.variant ?? variants[Number(variantIndexValue)] ?? variantIndexValue;
+      const selectedVariantLabel = getVariantOptionLabel(selectedVariant);
+      const replacementSource = option?.resolvedVariant ?? await findExerciseVariantDoc(selectedVariant, selExo);
       if (!replacementSource) {
         notify(toast, "programMissing", {
           title: t("autoPreview.variantNotFound", "Variante introuvable"),
@@ -2840,15 +2945,19 @@ export default function ProgramView() {
 
       const keys = ["echauffement", "corps", "bonus", "retourCalme", "exercises"];
 
-      const nextSessions = (sessions ?? []).map((s) => {
+      const nextSessions = (sessions ?? []).map((s, sessionIdx) => {
         const block = { ...s };
 
         for (const k of keys) {
           if (!Array.isArray(block[k])) continue;
 
-          block[k] = block[k].map((ex) => {
+          block[k] = block[k].map((ex, exerciseIdx) => {
             const exName = ex?.nom || ex?.name || "";
-            const isTarget = exName === originalName;
+            const isTarget = replaceTarget
+              ? sessionIdx === replaceTarget.sessionIndex &&
+                k === replaceTarget.sectionKey &&
+                exerciseIdx === replaceTarget.exerciseIndex
+              : exName === originalName;
             if (!isTarget) return ex;
             return buildReplacementExercise(ex, replacementSource);
           });
@@ -2870,13 +2979,14 @@ export default function ProgramView() {
       setResolvedExerciseMap(nextResolved);
 
       exerciseMediaCacheRef.current.set(
-        getExerciseCacheKey(newResolvedEx, newName),
+        getExerciseCacheKey(newResolvedEx, selectedVariantLabel),
         replacementSource
       );
 
       setSelExo(newResolvedEx);
-      setOriginalName(newResolvedEx?.nom || newResolvedEx?.name || newName);
+      setOriginalName(newResolvedEx?.nom || newResolvedEx?.name || selectedVariantLabel);
       setSelVariant("");
+      setReplaceTarget(null);
       detailsDlg.onClose();
 
       notify(toast, "saveSuccess", {
@@ -3298,7 +3408,7 @@ export default function ProgramView() {
                           size="sm"
                           variant="outline"
                           leftIcon={<InfoOutlineIcon />}
-                          onClick={() => openDetails(ex, false)}
+                          onClick={() => openDetails(ex, false, { sessionIndex: tabIndex, sectionKey: key, exerciseIndex: idx })}
                         >
                           {t("autoPreview.details", "Détails")}
                         </Button>
@@ -3307,7 +3417,7 @@ export default function ProgramView() {
                             size="sm"
                             variant="outline"
                             leftIcon={<RepeatIcon />}
-                            onClick={() => openDetails(ex, true)}
+                            onClick={() => openDetails(ex, true, { sessionIndex: tabIndex, sectionKey: key, exerciseIndex: idx })}
                           >
                             {t("autoPreview.replace", "Remplacer")}
                           </Button>
@@ -3343,21 +3453,31 @@ export default function ProgramView() {
                       placeholder={t("autoPreview.chooseVariant", "Choisissez une variante")}
                       value={selVariant}
                       onChange={(e) => setSelVariant(e.target.value)}
+                      isDisabled={replacementVariantsLoading || replacementVariants.length === 0}
                       mb={4}
                     >
-                      {safeArray(pickFirst(selExo, ["variantes"])).map((v, i) => {
-                        const label = typeof v === "string" ? v : v.nom || v.name || JSON.stringify(v);
+                      {replacementVariants.map(({ index, label }) => {
                         return (
-                          <option key={i} value={label}>
+                          <option key={`${label}-${index}`} value={String(index)}>
                             {label}
                           </option>
                         );
                       })}
                     </Select>
+                    {replacementVariantsLoading && (
+                      <Text fontSize="sm" color={subText} mt={-2} mb={4}>
+                        {t("autoPreview.loadingVariants", "Vérification des variantes disponibles...")}
+                      </Text>
+                    )}
+                    {!replacementVariantsLoading && replacementVariants.length === 0 && (
+                      <Text fontSize="sm" color={subText} mt={-2} mb={4}>
+                        {t("autoPreview.noUsableVariants", "Aucune variante utilisable n’est disponible pour cet exercice.")}
+                      </Text>
+                    )}
                     <HStack align="center" spacing={2} wrap="wrap">
                       <Button
                         onClick={() => doReplacePersist(selVariant)}
-                        isDisabled={!selVariant}
+                        isDisabled={!selVariant || replacementVariantsLoading}
                         borderRadius="full"
                         bg={replaceButtonBg}
                         color="white"

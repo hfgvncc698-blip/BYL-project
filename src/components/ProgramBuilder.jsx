@@ -1968,6 +1968,16 @@ const ExerciseCardRow = memo(
         : mToMi(ex["Distance"]);
 
     const safeEx = useMemo(() => ensureSetsLengthPure(ex), [ex]);
+    const activeOptions = ex.optionsOrder || [];
+    const activeOptionCount = activeOptions.length;
+    const optionChipBg = useColorModeValue("whiteAlpha.900", "whiteAlpha.100");
+    const optionChipActiveBg = useColorModeValue("blue.50", "blue.900");
+    const optionChipActiveBorder = useColorModeValue("blue.300", "blue.500");
+    const optionChipHoverBg = useColorModeValue("gray.50", "whiteAlpha.200");
+    const optionGroupBg = useColorModeValue("whiteAlpha.700", "whiteAlpha.50");
+    const dragChipBg = useColorModeValue("white", "whiteAlpha.100");
+    const dragChipActiveBg = useColorModeValue("green.50", "green.900");
+    const dragChipActiveBorder = useColorModeValue("green.200", "green.600");
 
     return (
       <Box
@@ -2111,67 +2121,162 @@ const ExerciseCardRow = memo(
           <Box
             mt={4}
             bg={subBg}
-            p={4}
-            borderRadius="22px"
+            p={{ base: 2.5, md: 3 }}
+            borderRadius="18px"
             border="1px solid"
             borderColor={border}
             backdropFilter="blur(16px)"
           >
-            <Text fontWeight="semibold" mb={2}>
-              <MdSettings style={{ display: "inline", marginRight: 6 }} />
-              {t("programBuilder.options.title", "Options")}
-            </Text>
-
-            <Flex wrap="wrap" gap={4} mb={4}>
-              {allOptions.map((opt) => (
-                <Checkbox
-                  key={opt}
-                  isChecked={(ex.optionsOrder || []).includes(opt)}
-                  onChange={() => onOptionsToggle(index, opt)}
+            <Flex
+              align="center"
+              justify="space-between"
+              gap={3}
+              wrap="wrap"
+              mb={2}
+            >
+              <HStack spacing={3} minW={0}>
+                <Flex
+                  w="28px"
+                  h="28px"
+                  borderRadius="9px"
+                  align="center"
+                  justify="center"
+                  bg={dragChipBg}
+                  border="1px solid"
+                  borderColor={border}
+                  color={textMute}
+                  flexShrink={0}
                 >
-                  <Text fontSize="sm">{opt}</Text>
-                </Checkbox>
-              ))}
+                  <MdSettings size={18} />
+                </Flex>
+                <Text fontWeight="900" fontSize="sm" lineHeight="1.1">
+                  {t("programBuilder.options.title", "Options")}
+                </Text>
+              </HStack>
+
+              <Badge
+                borderRadius="full"
+                px={2.5}
+                py="4px"
+                bg={dragChipActiveBg}
+                color="green.700"
+                border="1px solid"
+                borderColor={dragChipActiveBorder}
+                fontWeight="900"
+              >
+                {activeOptionCount}/{allOptions.length}
+              </Badge>
+            </Flex>
+
+            <Flex wrap="wrap" gap={1} mb={2.5}>
+              {allOptions.map((opt) => {
+                const checked = activeOptions.includes(opt);
+                return (
+                  <Checkbox
+                    key={opt}
+                    isChecked={checked}
+                    onChange={() => onOptionsToggle(index, opt)}
+                    px={2}
+                    py={1}
+                    minH="28px"
+                    borderRadius="999px"
+                    bg={checked ? optionChipActiveBg : optionChipBg}
+                    border="1px solid"
+                    borderColor={checked ? optionChipActiveBorder : border}
+                    boxShadow={checked ? "0 4px 10px rgba(49, 130, 206, 0.08)" : "none"}
+                    transition="all .15s ease"
+                    _hover={{ bg: checked ? optionChipActiveBg : optionChipHoverBg }}
+                    sx={{
+                      ".chakra-checkbox__control": {
+                        borderRadius: "5px",
+                        w: "14px",
+                        h: "14px",
+                      },
+                      ".chakra-checkbox__label": {
+                        marginInlineStart: "6px",
+                      },
+                    }}
+                  >
+                    <Text fontSize="xs" fontWeight={checked ? "800" : "600"} whiteSpace="nowrap">
+                      {opt}
+                    </Text>
+                  </Checkbox>
+                );
+              })}
             </Flex>
 
             <DragDropContext onDragEnd={(res) => onOptionsReorder(res, index)}>
               <Droppable droppableId={`options-${index}`} direction="horizontal">
                 {(providedOpt) => (
-                  <Flex wrap="wrap" gap={4} ref={providedOpt.innerRef} {...providedOpt.droppableProps}>
-                    {(ex.optionsOrder || []).map((opt, oIdx) => (
-                      <Draggable
-                        key={`${opt}-${oIdx}-${ex.id}`}
-                        draggableId={`${opt}-${oIdx}-${ex.id}`}
-                        index={oIdx}
+                  <Box
+                    ref={providedOpt.innerRef}
+                    {...providedOpt.droppableProps}
+                    bg={optionGroupBg}
+                    border="1px solid"
+                    borderColor={border}
+                    borderRadius="12px"
+                    px={2}
+                    py={1.5}
+                  >
+                    <HStack justify="space-between" mb={1} wrap="wrap" spacing={2}>
+                      <Text
+                        fontSize="xs"
+                        color={textMute}
+                        fontWeight="900"
+                        textTransform="uppercase"
+                        letterSpacing="0.08em"
                       >
-                        {(providedDr) => (
-                          <Box
-                            ref={providedDr.innerRef}
-                            {...providedDr.draggableProps}
-                            display="flex"
-                            alignItems="center"
-                            bg={cardBg}
-                            borderRadius="md"
-                            px={3}
-                            py={1.5}
-                            boxShadow="none"
-                            minW="150px"
-                            gap={2}
-                            border="1px solid"
-                            borderColor={border}
-                          >
-                            <Box {...providedDr.dragHandleProps} cursor="grab" pr={1} color={textMute}>
-                              <RxDragHandleDots2 size={20} />
+                        {t("programBuilder.options.order", "Ordre")}
+                      </Text>
+                      <Badge borderRadius="full" px={2.5} py="3px" bg={dragChipActiveBg} color="green.700">
+                        {activeOptionCount}
+                      </Badge>
+                    </HStack>
+
+                    <Flex wrap="wrap" gap={1}>
+                      {activeOptions.map((opt, oIdx) => (
+                        <Draggable
+                          key={`${opt}-${oIdx}-${ex.id}`}
+                          draggableId={`${opt}-${oIdx}-${ex.id}`}
+                          index={oIdx}
+                        >
+                          {(providedDr, snapshot) => (
+                            <Box
+                              ref={providedDr.innerRef}
+                              {...providedDr.draggableProps}
+                              display="flex"
+                              alignItems="center"
+                              bg={snapshot.isDragging ? dragChipActiveBg : dragChipBg}
+                              borderRadius="999px"
+                              px={2}
+                              py={1}
+                              boxShadow={snapshot.isDragging ? "lg" : "none"}
+                              minW="auto"
+                              maxW="180px"
+                              gap={1.5}
+                              border="1px solid"
+                              borderColor={snapshot.isDragging ? dragChipActiveBorder : border}
+                              transition="box-shadow .15s ease, border-color .15s ease"
+                            >
+                              <Box
+                                {...providedDr.dragHandleProps}
+                                cursor="grab"
+                                color={textMute}
+                                display="flex"
+                                alignItems="center"
+                              >
+                                <RxDragHandleDots2 size={15} />
+                              </Box>
+                              <Text fontSize="xs" fontWeight="900" isTruncated>
+                                {opt}
+                              </Text>
                             </Box>
-                            <Text fontSize="sm" fontWeight="bold">
-                              {opt}
-                            </Text>
-                          </Box>
-                        )}
-                      </Draggable>
-                    ))}
-                    {providedOpt.placeholder}
-                  </Flex>
+                          )}
+                        </Draggable>
+                      ))}
+                      {providedOpt.placeholder}
+                    </Flex>
+                  </Box>
                 )}
               </Droppable>
             </DragDropContext>

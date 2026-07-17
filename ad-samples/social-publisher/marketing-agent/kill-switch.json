@@ -1235,6 +1235,22 @@
           "Unsupported get request / missing permissions for several Meta Graph objects"
         ]
       }
+    },
+    {
+      "at": "2026-07-17T04:36:50.521Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 11,
+        "updated": 7,
+        "total": 18,
+        "rerunEscalated": true,
+        "initialSandboxError": "fetch failed / ENOTFOUND graph.facebook.com",
+        "sampleErrors": [
+          "Unsupported get request. Object does not exist, missing permissions, or does not support this operation."
+        ]
+      }
     }
   ]
 }

@@ -105,6 +105,23 @@ export function formatProgramWeekProgress(program = {}, t = null, options = {}) 
   if (!totalWeeks || !sessionsPerWeek) return "";
 
   const validatedCount = getProgramValidatedSessionCount(program);
+  const totalSessions = getProgramTotalSessions(program);
+  const isCompleted =
+    (totalSessions > 0 && validatedCount >= totalSessions) ||
+    Number(program?._visualPercent ?? program?._percent ?? program?.progress ?? 0) >= 100 ||
+    ["completed", "done", "terminé", "termine", "terminée", "terminee"].includes(
+      String(program?.status || "").trim().toLowerCase()
+    );
+  if (isCompleted) {
+    if (typeof t === "function") {
+      return t("dashboard.program_week_progress", "Semaine {{current}}/{{total}}", {
+        current: totalWeeks,
+        total: totalWeeks,
+      });
+    }
+    return `Semaine ${totalWeeks}/${totalWeeks}`;
+  }
+
   const completedWeeks = Math.floor(validatedCount / sessionsPerWeek);
   const hasPartialWeek = validatedCount > 0 && validatedCount % sessionsPerWeek > 0;
   const includeInitialWeek = options.includeInitialWeek === true;

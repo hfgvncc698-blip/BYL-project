@@ -1376,6 +1376,8 @@
     "notFound": "Program not found",
     "notFoundHint": "Checks URL or access rights.",
     "chooseVariant": "Choose a variation",
+    "loadingVariants": "Checking available variants...",
+    "noUsableVariants": "No usable variant is available for this exercise.",
     "autoFollowHintOn": "IA activated: BYL automatically adjusts the progress (if available) according to your validated sessions.",
     "autoFollowHintOff": "IA disabled: no automatic progression is applied.",
     "saving": "Backup",
@@ -1885,7 +1887,14 @@
       "cooldown": "Return to calm"
     },
     "options": {
-      "title": "Options"
+      "title": "Options",
+      "activeCount": "{{count}} active fields",
+      "order": "Order",
+      "groups": {
+        "base": "Base",
+        "load": "Load",
+        "cardio": "Cardio"
+      }
     },
     "history": {
       "open": "Open history",
