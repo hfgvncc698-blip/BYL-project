@@ -1,0 +1,223 @@
+{
+  "mode": "dry-run",
+  "generatedAt": "2026-07-17T18:17:58.373Z",
+  "stats": {
+    "bankExercises": 637,
+    "programDocsScanned": 149,
+    "clientDocsScanned": 42,
+    "docsChanged": 147,
+    "embeddedExercisesScanned": 4838,
+    "embeddedExercisesSynced": 4838,
+    "unresolved": 0,
+    "noBankVariants": 0
+  },
+  "examples": {
+    "synced": [
+      {
+        "sectionKey": "echauffement",
+        "label": "Tapis marche inclinée",
+        "bank": "ergometre/Tapis_marche_inclinée",
+        "variants": [
+          "Tapis sprints",
+          "Tapis intervalles"
+        ]
+      },
+      {
+        "sectionKey": "corps",
+        "label": "Presse Pieds Serrés",
+        "bank": "training/Presse_Pieds_Serrés",
+        "variants": [
+          "Presse à Jambes",
+          "Presse Unilatérale",
+          "Presse Pieds Hauts"
+        ]
+      },
+      {
+        "sectionKey": "corps",
+        "label": "Leg Extension",
+        "bank": "training/Leg_Extension",
+        "variants": [
+          "Leg Extension Élastique",
+          "Leg Extension Poids Libre"
+        ]
+      },
+      {
+        "sectionKey": "corps",
+        "label": "Développé Incliné Barre",
+        "bank": "training/Développé_Incliné_Barre",
+        "variants": [
+          "Développé Couché Barre",
+          "Développé Incliné Haltères",
+          "Développé Décliné Barre"
+        ]
+      },
+      {
+        "sectionKey": "corps",
+        "label": "Extension triceps à la corde",
+        "bank": "training/Extension_triceps_à_la_corde",
+        "variants": [
+          "Extension triceps overhead à une main"
+        ]
+      },
+      {
+        "sectionKey": "corps",
+        "label": "Deadlift avec haltères",
+        "bank": "training/Deadlift_avec_haltères",
+        "variants": [
+          "Romanian Deadlift (RDL)",
+          "Deadlift avec kettlebell"
+        ]
+      },
+      {
+        "sectionKey": "corps",
+        "label": "Face pulls à la poulie",
+        "bank": "training/Face_pulls_à_la_poulie",
+        "variants": [
+          "Face pulls avec élastique",
+          "Face pulls TRX - anneaux"
+        ]
+      },
+      {
+        "sectionKey": "corps",
+        "label": "Développé militaire avec haltères (debout)",
+        "bank": "training/Développé_militaire_avec_haltères_(debout)",
+        "variants": [
+          "Développé militaire à la barre (debout)",
+          "Développé militaire avec haltères (assis)",
+          "Arnold Press (Développé épaules)"
+        ]
+      },
+      {
+        "sectionKey": "corps",
+        "label": "Élévations latérales légères",
+        "bank": "warmup/Élévations_latérales_légères",
+        "variants": [
+          "Élévations frontales légères"
+        ]
+      },
+      {
+        "sectionKey": "bonus",
+        "label": "Elliptique continu",
+        "bank": "ergometre/Elliptique_continu",
+        "variants": [
+          "Elliptique sprint",
+          "Elliptique inversé",
+          "Elliptique intervalles"
+        ]
+      },
+      {
+        "sectionKey": "retourCalme",
+        "label": "Stretching pectoraux bras en Y contre un mur",
+        "bank": "cooldown/Stretching_pectoraux_bras_en_Y_contre_un_mur",
+        "variants": [
+          "Stretching pectoraux debout bras contre un mur"
+        ]
+      },
+      {
+        "sectionKey": "retourCalme",
+        "label": "Mobilité épaules – Cercles bras tendus vers l’avant",
+        "bank": "cooldown/Mobilité_épaules_–_Cercles_bras_tendus_vers_l’avant",
+        "variants": [
+          "Mobilité épaules – Cercles d’épaules debout (contrôle scapulaire)"
+        ]
+      },
+      {
+        "sectionKey": "echauffement",
+        "label": "AirBike - Mouvement continu",
+        "bank": "ergometre/AirBike_-_Mouvement_continu",
+        "variants": [
+          "AirBike sprint",
+          "AirBike intervalles",
+          "AirBike bras seuls",
+          "AirBike jambes seules"
+        ]
+      },
+      {
+        "sectionKey": "corps",
+        "label": "Presse Pieds Hauts",
+        "bank": "training/Presse_Pieds_Hauts",
+        "variants": [
+          "Presse à Jambes",
+          "Presse Pieds Serrés",
+          "Presse Unilatérale"
+        ]
+      },
+      {
+        "sectionKey": "corps",
+        "label": "Leg Extension Élastique",
+        "bank": "training/Leg_Extension_Élastique",
+        "variants": [
+          "Leg Extension",
+          "Leg Extension Poids Libre"
+        ]
+      },
+      {
+        "sectionKey": "corps",
+        "label": "Chaise avec haltères",
+        "bank": "training/Chaise_avec_haltères",
+        "variants": [
+          "Chaise unilatérale",
+          "Chaise avec ballon médicinal"
+        ]
+      },
+      {
+        "sectionKey": "corps",
+        "label": "Chaise avec élastique (abduction)",
+        "bank": "training/Chaise_avec_élastique_(abduction)",
+        "variants": [
+          "Chaise avec ballon médicinal"
+        ]
+      },
+      {
+        "sectionKey": "corps",
+        "label": "Hip Thrust à la machine",
+        "bank": "training/Hip_Thrust_à_la_machine",
+        "variants": [
+          "Hip Thrust Barre"
+        ]
+      },
+      {
+        "sectionKey": "corps",
+        "label": "Leg Curl Assis",
+        "bank": "training/Leg_Curl_Assis",
+        "variants": [
+          "Leg Curl",
+          "Leg Curl Debout"
+        ]
+      },
+      {
+        "sectionKey": "corps",
+        "label": "Extension Mollets Debout",
+        "bank": "training/Extension_Mollets_Debout",
+        "variants": [
+          "Extension Mollets Assis",
+          "Extension Mollets à la Presse"
+        ]
+      }
+    ],
+    "unresolved": [],
+    "noBankVariants": [],
+    "changedDocs": [
+      "programmes/4ZSicpWA4oE3eHgdLx47",
+      "programmes/5EezCfY20ZGh8o63k6Ay",
+      "programmes/72sYxybUUdwAwcadatZJ",
+      "programmes/7S6ImWp75EkuhRSPDiqT",
+      "programmes/AjhuvQGAH7Xl2ZFsqdDj",
+      "programmes/B2s4QWYSlbWJkTiZvuw6",
+      "programmes/CfAcOAhyIh9TOXErlaAd",
+      "programmes/EIWnxOVrT6C7FD368udB",
+      "programmes/ESLfYce3aA8WQKYKa2D3",
+      "programmes/EitHCIeuS2I5juVVJwwv",
+      "programmes/FCZcSNG7alRCTJ597uPB",
+      "programmes/GU30Allls4zgOA9gOHMb",
+      "programmes/I4IlXRAylprEvsBM5rWP",
+      "programmes/V77TYe8JNGhUEPM9eWn1",
+      "programmes/VlAZfUuW6PnKoEWG4giz",
+      "programmes/XoYBt1NHZHSzHbzM6aaU",
+      "programmes/Z88lxfzeZBpgsE4VapQ0",
+      "programmes/ZBrxDJo8nRLGd9rpmO3u",
+      "programmes/apr993aerfhY54doUKbD",
+      "programmes/c1cAqgj6UCVGbabNeAmw"
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-07-17T04:36:50.581Z",
+  "updatedAt": "2026-07-17T21:31:56.560Z",
   "brandScore": 63,
   "dimensions": {
     "premium": 60,
@@ -10,90 +10,6 @@
   },
   "signals": [
     {
-      "at": "2026-06-19T16:30:58.334Z",
-      "source": "instagram_story",
-      "audienceSegment": "coach_independant",
-      "brandScore": 73,
-      "dimensions": {
-        "premium": 80,
-        "serious": 80,
-        "innovative": 55,
-        "reliable": 78
-      }
-    },
-    {
-      "at": "2026-06-22T10:38:07.853Z",
-      "source": "instagram_story",
-      "audienceSegment": "nutritionniste",
-      "brandScore": 61,
-      "dimensions": {
-        "premium": 55,
-        "serious": 55,
-        "innovative": 55,
-        "reliable": 78
-      }
-    },
-    {
-      "at": "2026-06-22T16:31:31.098Z",
-      "source": "instagram",
-      "audienceSegment": "coach_independant",
-      "brandScore": 55,
-      "dimensions": {
-        "premium": 55,
-        "serious": 55,
-        "innovative": 55,
-        "reliable": 55
-      }
-    },
-    {
-      "at": "2026-06-26T07:32:52.248Z",
-      "source": "facebook",
-      "audienceSegment": "coach_independant",
-      "brandScore": 54,
-      "dimensions": {
-        "premium": 55,
-        "serious": 80,
-        "innovative": 76,
-        "reliable": 78
-      }
-    },
-    {
-      "at": "2026-06-29T11:33:54.957Z",
-      "source": "instagram_story",
-      "audienceSegment": "coach_independant",
-      "brandScore": 66,
-      "dimensions": {
-        "premium": 55,
-        "serious": 55,
-        "innovative": 76,
-        "reliable": 78
-      }
-    },
-    {
-      "at": "2026-06-01T07:17:38.044Z",
-      "source": "facebook",
-      "audienceSegment": "coach_independant",
-      "brandScore": 55,
-      "dimensions": {
-        "premium": 55,
-        "serious": 55,
-        "innovative": 55,
-        "reliable": 55
-      }
-    },
-    {
-      "at": "2026-06-01T18:07:06.698Z",
-      "source": "instagram",
-      "audienceSegment": "coach_independant",
-      "brandScore": 66,
-      "dimensions": {
-        "premium": 55,
-        "serious": 55,
-        "innovative": 76,
-        "reliable": 78
-      }
-    },
-    {
       "at": "2026-06-02T12:53:58.230Z",
       "source": "instagram",
       "audienceSegment": "coach_independant",
@@ -3355,6 +3271,90 @@
         "serious": 55,
         "innovative": 55,
         "reliable": 78
+      }
+    },
+    {
+      "at": "2026-06-19T07:48:25.628Z",
+      "source": "facebook",
+      "audienceSegment": "coach_independant",
+      "brandScore": 61,
+      "dimensions": {
+        "premium": 80,
+        "serious": 55,
+        "innovative": 55,
+        "reliable": 55
+      }
+    },
+    {
+      "at": "2026-06-19T16:30:58.334Z",
+      "source": "instagram_story",
+      "audienceSegment": "coach_independant",
+      "brandScore": 73,
+      "dimensions": {
+        "premium": 80,
+        "serious": 80,
+        "innovative": 55,
+        "reliable": 78
+      }
+    },
+    {
+      "at": "2026-06-22T10:38:07.853Z",
+      "source": "instagram_story",
+      "audienceSegment": "nutritionniste",
+      "brandScore": 61,
+      "dimensions": {
+        "premium": 55,
+        "serious": 55,
+        "innovative": 55,
+        "reliable": 78
+      }
+    },
+    {
+      "at": "2026-06-22T16:31:31.098Z",
+      "source": "instagram",
+      "audienceSegment": "coach_independant",
+      "brandScore": 55,
+      "dimensions": {
+        "premium": 55,
+        "serious": 55,
+        "innovative": 55,
+        "reliable": 55
+      }
+    },
+    {
+      "at": "2026-06-26T07:32:52.248Z",
+      "source": "facebook",
+      "audienceSegment": "coach_independant",
+      "brandScore": 54,
+      "dimensions": {
+        "premium": 55,
+        "serious": 80,
+        "innovative": 76,
+        "reliable": 78
+      }
+    },
+    {
+      "at": "2026-06-29T11:33:54.957Z",
+      "source": "instagram_story",
+      "audienceSegment": "coach_independant",
+      "brandScore": 66,
+      "dimensions": {
+        "premium": 55,
+        "serious": 55,
+        "innovative": 76,
+        "reliable": 78
+      }
+    },
+    {
+      "at": "2026-06-30T16:54:45.343Z",
+      "source": "instagram_story",
+      "audienceSegment": "salle_de_sport",
+      "brandScore": 55,
+      "dimensions": {
+        "premium": 55,
+        "serious": 55,
+        "innovative": 55,
+        "reliable": 55
       }
     },
     {

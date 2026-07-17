@@ -2781,12 +2781,28 @@ export default function AutoProgramPreview() {
     }
 
     try {
-      const variants = safeArray(pickFirst(resolvedExercise, ["variantes"]));
+      const freshSource = await findExerciseDocFromFirestore(resolvedExercise);
+      const replacementBase = freshSource
+        ? resolveExerciseForDisplay({ ...resolvedExercise, ...freshSource }, "modal-fresh", i18n.language || "fr")
+        : resolvedExercise;
+
+      if (freshSource) {
+        const freshCacheKey = getExerciseCacheKey(resolvedExercise, "modal");
+        if (freshCacheKey) {
+          setResolvedExerciseMap((prev) => ({
+            ...prev,
+            [freshCacheKey]: { ...resolvedExercise, ...freshSource },
+          }));
+        }
+        setSelExo(replacementBase);
+      }
+
+      const variants = safeArray(pickFirst(replacementBase, ["variantes"]));
       const resolvedVariants = await Promise.all(
         variants.map(async (variant, index) => {
           const label = getVariantOptionLabel(variant);
           if (!label) return null;
-          const resolvedVariant = await findExerciseVariantDoc(variant, resolvedExercise);
+          const resolvedVariant = await findExerciseVariantDoc(variant, replacementBase);
           if (!resolvedVariant) return null;
           return { index, variant, label, resolvedVariant };
         })

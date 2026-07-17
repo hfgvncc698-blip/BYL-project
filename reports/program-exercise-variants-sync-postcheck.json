@@ -1,0 +1,20 @@
+{
+  "mode": "dry-run",
+  "generatedAt": "2026-07-17T18:20:53.984Z",
+  "stats": {
+    "bankExercises": 637,
+    "programDocsScanned": 149,
+    "clientDocsScanned": 42,
+    "docsChanged": 0,
+    "embeddedExercisesScanned": 4838,
+    "embeddedExercisesSynced": 0,
+    "unresolved": 0,
+    "noBankVariants": 0
+  },
+  "examples": {
+    "synced": [],
+    "unresolved": [],
+    "noBankVariants": [],
+    "changedDocs": []
+  }
+}

@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-07-17T04:36:50.583Z",
+  "updatedAt": "2026-07-17T21:31:56.561Z",
   "primaryKpi": "free_trial_starts",
   "secondaryKpi": "activation_day_7",
   "activationSignals": [
@@ -24509,7 +24509,7 @@
     },
     {
       "id": "2026-07-17-growth-report",
-      "generatedAt": "2026-07-17T04:36:50.582Z",
+      "generatedAt": "2026-07-17T21:31:56.561Z",
       "date": "2026-07-17",
       "primaryKpi": "free_trial_starts",
       "secondaryKpi": "activation_day_7",
@@ -24985,9 +24985,9 @@
         "source": "codex_user_request_2026_07_01",
         "resolvedAt": "",
         "resolvedReason": "",
-        "alertCount": 76,
+        "alertCount": 77,
         "latestAlert": {
-          "at": "2026-07-17T04:36:50.521Z",
+          "at": "2026-07-17T21:31:56.437Z",
           "reason": "meta_performance_sync_partial_failure",
           "severity": "warning",
           "source": "nightly_growth_report",
@@ -24995,65 +24995,89 @@
             "failedCount": 11,
             "updated": 7,
             "total": 18,
-            "rerunEscalated": true,
-            "initialSandboxError": "fetch failed / ENOTFOUND graph.facebook.com",
-            "sampleErrors": [
-              "Unsupported get request. Object does not exist, missing permissions, or does not support this operation."
-            ]
+            "initialSandbox": {
+              "ok": false,
+              "updated": 0,
+              "failed": 18,
+              "total": 18,
+              "sampleErrors": [
+                "Meta Graph GET 857477100212912: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+                "Meta Graph GET 18142983556524389: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+                "Meta Graph GET 18099111391988502: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+                "Meta Graph GET 18138591487532730: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+                "Meta Graph GET 27506921462235774: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+              ]
+            },
+            "escalated": {
+              "ok": false,
+              "updated": 7,
+              "failed": 11,
+              "total": 18,
+              "sampleErrors": [
+                "Unsupported get request. Object with ID 17932227978271557 does not exist, missing permissions, or does not support this operation.",
+                "Unsupported get request. Object with ID 17872024971528291 does not exist, missing permissions, or does not support this operation.",
+                "Unsupported get request. Object with ID 18120144856683407 does not exist, missing permissions, or does not support this operation.",
+                "Unsupported get request. Object with ID 18096649379597904 does not exist, missing permissions, or does not support this operation.",
+                "Unsupported get request. Object with ID 18319661620272929 does not exist, missing permissions, or does not support this operation."
+              ]
+            },
+            "rerunEscalated": true
           }
         }
       },
       "recentBlocks": [
         {
-          "network": "instagram",
-          "reason": "fresh_media_required",
-          "detail": "daily_media_missing"
-        },
-        {
-          "network": "instagram",
-          "reason": "fresh_media_required",
-          "detail": "daily_media_missing"
-        },
-        {
-          "network": "facebook",
-          "reason": "fresh_media_required",
-          "detail": "daily_media_missing"
-        },
-        {
-          "network": "facebook",
-          "reason": "fresh_media_required",
-          "detail": "daily_media_missing"
-        },
-        {
-          "network": "instagram",
-          "reason": "fresh_media_required",
-          "detail": "daily_media_missing"
-        },
-        {
-          "network": "facebook",
-          "reason": "fresh_media_required",
-          "detail": "daily_media_missing"
-        },
-        {
-          "reason": "daily_media_not_publishable",
+          "network": "calendar",
+          "reason": "kill_switch_active",
           "detail": ""
         },
         {
-          "network": "instagram_story",
+          "network": "tiktok",
           "reason": "fresh_media_required",
           "detail": "daily_media_missing"
         },
         {
-          "reason": "daily_media_not_publishable",
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
           "detail": ""
         },
         {
           "network": "instagram",
           "reason": "fresh_media_required",
           "detail": "daily_media_missing"
+        },
+        {
+          "network": "tiktok",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "tiktok",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "calendar",
+          "reason": "outside_calendar_window",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "outside_calendar_window",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "outside_calendar_window",
+          "detail": ""
         }
       ],
-      "learningEntryCount": 245
+      "learningEntryCount": 240
     }
   ],
   "currentWinners": {
