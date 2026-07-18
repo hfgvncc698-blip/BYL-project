@@ -1023,28 +1023,21 @@ const isSessionExplicitlyValidatedRecord = (session) => {
 };
 
 const getValidatedSessionCountForProgram = (programme = {}) => {
-  const storedDone = Number(programme?._done ?? programme?.doneCount ?? programme?.completedSessions);
-  if (Number.isFinite(storedDone) && storedDone > 0) {
-    const totalSessions = getTotalSessionsFromProgrammeDoc(programme);
-    const safeDone = Math.max(0, Math.round(storedDone));
-    return totalSessions > 0 ? Math.min(safeDone, totalSessions) : safeDone;
-  }
-
   const sessionsEffectuees = Array.isArray(programme?.sessionsEffectuees)
     ? programme.sessionsEffectuees
     : [];
-  const validatedIndexes = new Set();
-  let fallbackCount = 0;
+  let validatedCount = 0;
   sessionsEffectuees.forEach((sessionRecord) => {
     if (!isSessionExplicitlyValidatedRecord(sessionRecord)) return;
-    const index = getSessionIndex(sessionRecord);
-    if (Number.isFinite(Number(index)) && Number(index) >= 0) {
-      validatedIndexes.add(Number(index));
-    } else {
-      fallbackCount += 1;
-    }
+    validatedCount += 1;
   });
-  return validatedIndexes.size + fallbackCount;
+  if (sessionsEffectuees.length > 0) return validatedCount;
+
+  const storedDone = Number(programme?._done ?? programme?.doneCount ?? programme?.completedSessions);
+  if (Number.isFinite(storedDone) && storedDone > 0) {
+    return Math.max(0, Math.round(storedDone));
+  }
+  return validatedCount;
 };
 
 const getProgrammeNameForTiming = (programme = {}) =>
@@ -1109,7 +1102,7 @@ const getAssignedProgramWeekProgress = (programme = {}, t) => {
   const sessionsPerWeek = getProgramSessionsPerWeek(programme);
   if (!totalWeeks || !sessionsPerWeek) return "";
   const validatedCount = getValidatedSessionCountForProgram(programme);
-  const currentWeek = Math.floor(validatedCount / sessionsPerWeek) + 1;
+  const currentWeek = Math.max(1, Math.ceil(validatedCount / sessionsPerWeek));
   if (currentWeek <= 0) return "";
   return t("dashboard.program_week_progress", "Semaine {{current}}/{{total}}", {
     current: Math.min(currentWeek, totalWeeks),

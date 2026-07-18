@@ -41,6 +41,13 @@ export function getProgramTotalSessions(program = {}) {
 }
 
 export function getProgramSessionsPerWeek(program = {}) {
+  const name = `${program.nomProgramme || ""} ${program.name || ""} ${program.title || ""}`;
+  const match = name.match(/(\d+)\s*(?:x|fois|séances?|seances?)\s*(?:\/|par)?\s*(?:sem|semaine|week)/i);
+  if (match) {
+    const value = Number(match[1]);
+    if (Number.isFinite(value) && value > 0) return Math.max(1, Math.round(value));
+  }
+
   const direct =
     program.sessionsPerWeek ??
     program.seancesParSemaine ??
@@ -50,13 +57,6 @@ export function getProgramSessionsPerWeek(program = {}) {
   const directValue = Number(direct);
   if (Number.isFinite(directValue) && directValue > 0) return Math.max(1, Math.round(directValue));
 
-  const name = `${program.nomProgramme || ""} ${program.name || ""} ${program.title || ""}`;
-  const match = name.match(/(\d+)\s*(?:x|fois|séances?|seances?)\s*(?:\/|par)?\s*(?:sem|semaine|week)/i);
-  if (match) {
-    const value = Number(match[1]);
-    if (Number.isFinite(value) && value > 0) return Math.max(1, Math.round(value));
-  }
-
   const totalWeeks = readProgramActiveWeeks(program);
   const totalSessions = getProgramTotalSessions(program);
   if (totalWeeks > 0 && totalSessions > 0) {
@@ -65,38 +65,42 @@ export function getProgramSessionsPerWeek(program = {}) {
   return 0;
 }
 
-export function getProgramValidatedSessionCount(program = {}) {
-  if (typeof program._done === "number") return Math.max(0, Math.round(program._done));
-  if (typeof program.doneCount === "number") return Math.max(0, Math.round(program.doneCount));
-  if (typeof program.completedSessions === "number") return Math.max(0, Math.round(program.completedSessions));
+export function getProgramPlannedSessionTotal(program = {}) {
+  const templateTotal = getProgramTotalSessions(program);
+  const totalWeeks = readProgramActiveWeeks(program);
+  const sessionsPerWeek = getProgramSessionsPerWeek(program);
+  const activeTotal = totalWeeks > 1 && sessionsPerWeek > 0 ? totalWeeks * sessionsPerWeek : 0;
+  return Math.max(templateTotal, activeTotal);
+}
 
+export function getProgramValidatedSessionCount(program = {}) {
   const sessionsEffectuees = Array.isArray(program?.sessionsEffectuees)
     ? program.sessionsEffectuees
     : [];
-  const validatedIndexes = new Set();
-  let fallbackCount = 0;
+  let validatedCount = 0;
 
   sessionsEffectuees.forEach((sessionRecord) => {
     const status = String(sessionRecord?.status || "").toLowerCase();
+    if (!sessionRecord || sessionRecord?.isPartial === true || status === "en_cours" || status === "in_progress") {
+      return;
+    }
+
     const explicit =
       ["validée", "validee", "terminée", "terminee", "done", "completed"].includes(status) ||
       Boolean(sessionRecord?.validatedAt) ||
       Boolean(sessionRecord?.completedAt) ||
-      typeof sessionRecord?.pourcentageTermine !== "number" ||
+      Boolean(sessionRecord?.dateEffectuee) ||
+      Boolean(sessionRecord?.finishedAt) ||
       sessionRecord.pourcentageTermine >= 90;
     if (!explicit) return;
-
-    const rawIndex =
-      sessionRecord?.sessionIndex ??
-      sessionRecord?.seanceIndex ??
-      sessionRecord?.indexSeance ??
-      sessionRecord?.index;
-    const index = Number(rawIndex);
-    if (Number.isFinite(index) && index >= 0) validatedIndexes.add(index);
-    else fallbackCount += 1;
+    validatedCount += 1;
   });
 
-  return validatedIndexes.size + fallbackCount;
+  if (sessionsEffectuees.length > 0) return validatedCount;
+  if (typeof program._done === "number") return Math.max(0, Math.round(program._done));
+  if (typeof program.doneCount === "number") return Math.max(0, Math.round(program.doneCount));
+  if (typeof program.completedSessions === "number") return Math.max(0, Math.round(program.completedSessions));
+  return validatedCount;
 }
 
 export function formatProgramWeekProgress(program = {}, t = null, options = {}) {
@@ -105,29 +109,10 @@ export function formatProgramWeekProgress(program = {}, t = null, options = {}) 
   if (!totalWeeks || !sessionsPerWeek) return "";
 
   const validatedCount = getProgramValidatedSessionCount(program);
-  const totalSessions = getProgramTotalSessions(program);
-  const isCompleted =
-    (totalSessions > 0 && validatedCount >= totalSessions) ||
-    Number(program?._visualPercent ?? program?._percent ?? program?.progress ?? 0) >= 100 ||
-    ["completed", "done", "terminé", "termine", "terminée", "terminee"].includes(
-      String(program?.status || "").trim().toLowerCase()
-    );
-  if (isCompleted) {
-    if (typeof t === "function") {
-      return t("dashboard.program_week_progress", "Semaine {{current}}/{{total}}", {
-        current: totalWeeks,
-        total: totalWeeks,
-      });
-    }
-    return `Semaine ${totalWeeks}/${totalWeeks}`;
-  }
-
-  const completedWeeks = Math.floor(validatedCount / sessionsPerWeek);
-  const hasPartialWeek = validatedCount > 0 && validatedCount % sessionsPerWeek > 0;
   const includeInitialWeek = options.includeInitialWeek === true;
   const current = Math.min(
     totalWeeks,
-    Math.max(includeInitialWeek ? 1 : 0, completedWeeks + (hasPartialWeek ? 1 : 0))
+    Math.max(includeInitialWeek ? 1 : 0, Math.ceil(validatedCount / sessionsPerWeek))
   );
   if (current <= 0) return "";
 

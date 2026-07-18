@@ -75,9 +75,9 @@ import { useAppTheme } from "../styles/appTheme";
 import { useAuth } from "../AuthContext";
 import { apiFetch } from "../utils/api";
 import {
-  formatProgramActiveWeeks,
   formatProgramWeekProgress,
-  getProgramActiveWeeksLabel,
+  getProgramPlannedSessionTotal,
+  getProgramValidatedSessionCount,
 } from "../utils/programDuration";
 
 const SUBCOL_PROGRAMMES = "programmes";
@@ -278,18 +278,8 @@ function getTotalSessionsFromProgrammeDoc(p) {
 }
 
 function getCompletedSessionsForProgramme(prog) {
-  const totalSessions = Math.max(0, getTotalSessionsFromProgrammeDoc(prog));
-  const sessionsEff = Array.isArray(prog?.sessionsEffectuees) ? prog.sessionsEffectuees : [];
-
-  let doneCount = sessionsEff.reduce((acc, s) => {
-    const pct = typeof s?.pourcentageTermine === "number" ? s.pourcentageTermine : 100;
-    return acc + (pct >= 90 ? 1 : 0);
-  }, 0);
-
-  if (sessionsEff.length > 0 && doneCount === 0) {
-    doneCount = sessionsEff.length;
-  }
-
+  const totalSessions = Math.max(0, getProgramPlannedSessionTotal(prog));
+  const doneCount = getProgramValidatedSessionCount(prog);
   return totalSessions > 0 ? Math.min(doneCount, totalSessions) : doneCount;
 }
 
@@ -1262,7 +1252,7 @@ export default function ClientView() {
   let lastGlobal = null;
 
   programmes.forEach((prog) => {
-    const totalSessions = getTotalSessionsFromProgrammeDoc(prog);
+    const totalSessions = getProgramPlannedSessionTotal(prog);
     nbTotalSessions += totalSessions;
 
     const sessionsEff = prog.sessionsEffectuees || [];
@@ -1545,14 +1535,13 @@ export default function ClientView() {
             </Thead>
             <Tbody>
               {sortedProgrammes.map((p) => {
-                const totalPrevues = getTotalSessionsFromProgrammeDoc(p);
+                const totalPrevues = getProgramPlannedSessionTotal(p);
                 const nbSessEff = getCompletedSessionsForProgramme(p);
 
                 const lastSessObj = getLastSessionPlayedInfo(p, t);
 
                 const lastActivityDate = getProgrammeLastActivityDate(p);
                 const assignedDate = pickAssignedDate(p);
-                const activeWeeksLabel = formatProgramActiveWeeks(p, t);
                 const weekProgressLabel = formatProgramWeekProgress(p, t, { includeInitialWeek: true });
 
                 const noteTooltip = (() => {
@@ -1586,11 +1575,6 @@ export default function ClientView() {
                         <Text fontSize="xs" color={muted}>
                           {assignedDate ? `Assigné/créé : ${assignedDate.toLocaleDateString()}` : "—"}
                         </Text>
-                        {activeWeeksLabel ? (
-                          <Text fontSize="xs" color={muted}>
-                            {getProgramActiveWeeksLabel(t)} : {activeWeeksLabel}
-                          </Text>
-                        ) : null}
                         {weekProgressLabel ? (
                           <Badge mt={1} variant="subtle" colorScheme="purple" borderRadius="full">
                             {weekProgressLabel}
@@ -1667,14 +1651,13 @@ export default function ClientView() {
         <Box display={{ base: "block", md: "none" }}>
           <VStack spacing={3} align="stretch">
             {sortedProgrammes.map((p) => {
-              const totalPrevues = getTotalSessionsFromProgrammeDoc(p);
+              const totalPrevues = getProgramPlannedSessionTotal(p);
               const nbSessEff = getCompletedSessionsForProgramme(p);
               const percent =
                 totalPrevues > 0 ? Math.min(100, Math.round((nbSessEff / totalPrevues) * 100)) : 0;
 
               const lastActivityDate = getProgrammeLastActivityDate(p);
               const lastSessObj = getLastSessionPlayedInfo(p, t);
-              const activeWeeksLabel = formatProgramActiveWeeks(p, t);
               const weekProgressLabel = formatProgramWeekProgress(p, t, { includeInitialWeek: true });
 
               const noteTooltip = (() => {
@@ -1714,16 +1697,11 @@ export default function ClientView() {
                   <SimpleGrid columns={2} spacing={2} mt={3}>
                     <Box bg={panelBg} border="1px solid" borderColor={panelBorder} borderRadius="16px" p={2.5}>
                       <Text fontSize="10px" color={muted} fontWeight="900" textTransform="uppercase" noOfLines={1}>
-                        {getProgramActiveWeeksLabel(t)}
+                        {t("dashboard.week", "Semaine")}
                       </Text>
                       <Text mt={1} fontSize="sm" fontWeight="850" noOfLines={1}>
-                        {activeWeeksLabel || "—"}
+                        {weekProgressLabel || "—"}
                       </Text>
-                      {weekProgressLabel ? (
-                        <Text mt={1} fontSize="xs" color={muted} fontWeight="800" noOfLines={1}>
-                          {weekProgressLabel}
-                        </Text>
-                      ) : null}
                     </Box>
                     <Box bg={panelBg} border="1px solid" borderColor={panelBorder} borderRadius="16px" p={2.5}>
                       <Text fontSize="10px" color={muted} fontWeight="900" textTransform="uppercase" noOfLines={1}>
