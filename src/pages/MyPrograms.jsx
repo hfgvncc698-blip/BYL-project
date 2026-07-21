@@ -23,6 +23,9 @@ import AppLoading from "../components/ui/AppLoading";
 import PageBackButton from "../components/ui/PageBackButton";
 import { apiFetch } from "../utils/api";
 import { formatProgramActiveWeeks, formatProgramWeekProgress, getProgramActiveWeeksLabel } from "../utils/programDuration";
+import { readPageDataCache, runLimited, writePageDataCache } from "../utils/pageDataCache";
+
+const MY_PROGRAMS_CACHE_TTL_MS = 10 * 60 * 1000;
 
 /* ----------------- Helpers date ----------------- */
 function toDateSafe(v) {
@@ -295,7 +298,15 @@ export default function MyPrograms() {
     if (!user) return;
 
     const run = async () => {
-      setLoading(true);
+      const cacheKey = `byl:my-programs:v1:${user.uid}:${user.role || "client"}:${i18n.language || "fr"}`;
+      const cached = readPageDataCache(cacheKey, { ttlMs: MY_PROGRAMS_CACHE_TTL_MS });
+      if (cached) {
+        setRows(cached.rows || []);
+        setClientId(cached.clientId || null);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
       try {
         // ===== COACH : programmes base (createdBy == user.uid)
         if (user.role === "coach") {
@@ -341,6 +352,7 @@ export default function MyPrograms() {
 
           setRows(list);
           setClientId(null);
+          writePageDataCache(cacheKey, { rows: list, clientId: null });
           return;
         }
 
@@ -403,8 +415,12 @@ export default function MyPrograms() {
 
         setRows(prepareVisiblePrograms(baseRows));
         setLoading(false);
+        writePageDataCache(cacheKey, {
+          rows: prepareVisiblePrograms(baseRows),
+          clientId: cId,
+        });
 
-        const result = await Promise.all(assignedSnap.docs.map(async (p) => {
+        const result = await runLimited(assignedSnap.docs, async (p) => {
           const data = p.data();
           const baseId = data.programId || p.id;
 
@@ -524,12 +540,14 @@ export default function MyPrograms() {
             ...rowObj,
             nomProgramme: getProgrammeDisplayName(rowObj),
           };
-        }));
+        }, 6);
 
-        setRows(prepareVisiblePrograms(result));
+        const nextRows = prepareVisiblePrograms(result);
+        setRows(nextRows);
+        writePageDataCache(cacheKey, { rows: nextRows, clientId: cId });
       } catch (err) {
         console.error("Erreur fetch programmes:", err);
-        setRows([]);
+        if (!cached) setRows([]);
       } finally {
         setLoading(false);
       }

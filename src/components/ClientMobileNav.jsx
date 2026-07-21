@@ -16,6 +16,13 @@ export const CLIENT_MOBILE_NAV_PATHS = [
   "/statistiques",
 ];
 
+const ROUTE_PRELOADS = {
+  "/user-dashboard": () => import("./Clientdashboard.jsx"),
+  "/mes-programmes": () => import("../pages/MyPrograms.jsx"),
+  "/nutrition": () => import("../pages/ClientNutritionPage.jsx"),
+  "/statistiques": () => import("../pages/StatisticsPageClient.jsx"),
+};
+
 export default function ClientMobileNav() {
   const { t } = useTranslation();
   const location = useLocation();
@@ -37,6 +44,25 @@ export default function ClientMobileNav() {
     { label: t("nutrition.title", "Nutrition"), icon: MdOutlineRestaurantMenu, path: "/nutrition" },
     { label: t("auto.Clientdashboard.stats", "Stats"), icon: MdOutlineInsights, path: "/statistiques" },
   ];
+  const preloadPath = React.useCallback((path = "") => {
+    const pathname = String(path).split("?")[0].split("#")[0];
+    ROUTE_PRELOADS[pathname]?.().catch(() => {});
+  }, []);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const warmVisibleRoutes = () => items.map((item) => item.path).filter(Boolean).forEach(preloadPath);
+    const idleId = window.requestIdleCallback
+      ? window.requestIdleCallback(warmVisibleRoutes, { timeout: 1200 })
+      : window.setTimeout(warmVisibleRoutes, 450);
+    return () => {
+      if (window.cancelIdleCallback && typeof idleId === "number") {
+        window.cancelIdleCallback(idleId);
+      } else {
+        window.clearTimeout(idleId);
+      }
+    };
+  }, [items, preloadPath]);
 
   return (
     <Box
@@ -72,6 +98,10 @@ export default function ClientMobileNav() {
               bg={isActive ? activeBlue : "transparent"}
               color={isActive ? "white" : textColor}
               _hover={{ bg: isActive ? activeBlueDark : ghostHover }}
+              onMouseEnter={() => preloadPath(item.path)}
+              onTouchStart={() => preloadPath(item.path)}
+              onPointerDown={() => preloadPath(item.path)}
+              onFocus={() => preloadPath(item.path)}
               onClick={() => navigate(item.path)}
             >
               <Icon as={item.icon} boxSize="18px" />

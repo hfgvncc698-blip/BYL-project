@@ -1,6 +1,11 @@
 // src/firebaseConfig.js
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { initializeFirestore } from "firebase/firestore";
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 
@@ -19,11 +24,30 @@ const firebaseConfig = {
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 // --- Firestore ---
-export const db = initializeFirestore(app, {
+const firestoreSettings = {
   experimentalForceLongPolling: true,
   useFetchStreams: false,
   ignoreUndefinedProperties: true,
-});
+};
+
+let firestoreDb;
+try {
+  firestoreDb = initializeFirestore(app, {
+    ...firestoreSettings,
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager(),
+    }),
+  });
+} catch (error) {
+  console.warn("[Firebase] Persistent Firestore cache unavailable, using default cache.", error);
+  try {
+    firestoreDb = initializeFirestore(app, firestoreSettings);
+  } catch {
+    firestoreDb = getFirestore(app);
+  }
+}
+
+export const db = firestoreDb;
 
 // --- Auth & Storage ---
 export const auth = getAuth(app);

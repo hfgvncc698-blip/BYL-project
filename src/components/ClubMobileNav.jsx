@@ -28,6 +28,10 @@ import {
 
 export const CLUB_MOBILE_NAV_PREFIXES = ["/club-dashboard"];
 
+const ROUTE_PRELOADS = {
+  "/club-dashboard": () => import("../pages/ClubDashboard.jsx"),
+};
+
 function preserveClubQuery(path, search) {
   const current = new URLSearchParams(search || "");
   const clubId = current.get("clubId");
@@ -91,6 +95,11 @@ export default function ClubMobileNav() {
     actionModal.onClose();
     goTo(path);
   };
+  const preloadPath = React.useCallback((path = "") => {
+    const pathname = String(path).split("?")[0].split("#")[0];
+    const key = Object.keys(ROUTE_PRELOADS).find((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+    ROUTE_PRELOADS[key]?.().catch(() => {});
+  }, []);
 
   const items = [
     { label: t("auto.CoachMobileNav.accueil", "Accueil"), icon: MdOutlineHome, path: "/club-dashboard" },
@@ -122,6 +131,27 @@ export default function ClubMobileNav() {
       path: "/club-dashboard/programmes",
     },
   ];
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const visiblePaths = items.map((item) => item.path).filter(Boolean);
+    const warmVisibleRoutes = () => visiblePaths.forEach(preloadPath);
+    const idleId = window.requestIdleCallback
+      ? window.requestIdleCallback(warmVisibleRoutes, { timeout: 1200 })
+      : window.setTimeout(warmVisibleRoutes, 450);
+    return () => {
+      if (window.cancelIdleCallback && typeof idleId === "number") {
+        window.cancelIdleCallback(idleId);
+      } else {
+        window.clearTimeout(idleId);
+      }
+    };
+  }, [items, preloadPath]);
+
+  React.useEffect(() => {
+    if (!actionModal.isOpen) return;
+    actions.map((action) => action.path).filter(Boolean).forEach(preloadPath);
+  }, [actionModal.isOpen, actions, preloadPath]);
 
   return (
     <>
@@ -163,6 +193,10 @@ export default function ClubMobileNav() {
                 border={isAction ? "1px solid" : "0"}
                 borderColor={isAction ? fabBorder : "transparent"}
                 _hover={{ bg: isActive || isAction ? activeBlueDark : ghostHover }}
+                onMouseEnter={() => !isAction && preloadPath(item.path)}
+                onTouchStart={() => !isAction && preloadPath(item.path)}
+                onPointerDown={() => !isAction && preloadPath(item.path)}
+                onFocus={() => !isAction && preloadPath(item.path)}
                 onClick={isAction ? item.action : () => goTo(item.path)}
               >
                 <Icon as={item.icon} boxSize={isAction ? "24px" : "18px"} />
@@ -189,6 +223,10 @@ export default function ClubMobileNav() {
                   minH="54px"
                   justifyContent="flex-start"
                   leftIcon={<Icon as={action.icon} boxSize="20px" />}
+                  onMouseEnter={() => preloadPath(action.path)}
+                  onTouchStart={() => preloadPath(action.path)}
+                  onPointerDown={() => preloadPath(action.path)}
+                  onFocus={() => preloadPath(action.path)}
                   onClick={() => goAction(action.path)}
                 >
                   {action.label}

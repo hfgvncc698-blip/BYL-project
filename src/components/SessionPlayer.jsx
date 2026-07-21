@@ -2889,6 +2889,9 @@ export default function SessionPlayer() {
       const startDate = new Date(endDate.getTime() - estimatedDurationSec * 1000);
 
       const fullTitle = `${clientName ? `${clientName} - ` : ""}${programmeName} - ${sessionTitle}`;
+      const calendarDifficultyRating = Number.isFinite(Number(rating))
+        ? Math.max(1, Math.min(5, Math.round(Number(rating))))
+        : null;
       const completionDocId = completionDocIdRef.current;
       const completionRef = doc(
         db,
@@ -2927,6 +2930,14 @@ export default function SessionPlayer() {
         programmeId: sourceData.programmeId || sourceData.programId || programId,
         programId: sourceData.programId || sourceData.programmeId || programId,
         sessionIndex,
+        ...(calendarDifficultyRating
+          ? {
+              difficultyRating: calendarDifficultyRating,
+              rating: calendarDifficultyRating,
+              difficultyAt: serverTimestamp(),
+              ratingAt: serverTimestamp(),
+            }
+          : {}),
       });
 
       if (plannedCalendarEventId) {

@@ -1,5 +1,5 @@
 // src/components/CoachDashboard.jsx
-import React, { useState, useEffect, useMemo, useCallback } from
+import React, { useState, useEffect, useMemo, useCallback, useRef } from
 "react";
 import {
   Box,
@@ -75,17 +75,6 @@ import {
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { db } from "../firebaseConfig";
 import ClientCreation from "./ClientCreation";
-import { Calendar, momentLocalizer } from "react-big-calendar";
-import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
-import moment from "moment";
-import "moment/locale/fr";
-import "moment/locale/de";
-import "moment/locale/it";
-import "moment/locale/es";
-import "moment/locale/ru";
-import "moment/locale/ar";
-import "react-big-calendar/lib/css/react-big-calendar.css";
-import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 import { resolveStorageUrl } from "../utils/storageUrls";
 import { canUseGuidedProgram, hasPlanModule } from "../utils/proPlanAccess";
 import { apiFetch } from "../utils/api";
@@ -93,6 +82,7 @@ import { formatProgramActiveWeeks, getProgramActiveWeeksLabel, readProgramActive
 import { useTranslation } from "react-i18next";
 import i18n, { ensureLanguageLoaded } from "../i18n";
 import { getCalendarCulture, getCalendarFormats } from "../utils/calendarLocale";
+import { readPageDataCache, runLimited, writePageDataCache } from "../utils/pageDataCache";
 import {
   applySportProgressionToSession,
   formatDuration,
@@ -116,8 +106,7 @@ import {
   MdOutlineSchedule,
   MdArrowBack,
 } from "react-icons/md";
-const localizer = momentLocalizer(moment);
-const DnDCalendar = withDragAndDrop(Calendar);
+const CoachDashboardCalendar = React.lazy(() => import("./dashboard/CoachDashboardCalendar.jsx"));
 const MAX_DISPLAY = 5;
 const DAYS_ACTIVE_CUTOFF = 30;
 const FORCE_SESSION_DURATION_MIN = 60;
@@ -233,6 +222,206 @@ const scheduleIdleTask = (callback, timeout = 700) => {
     cancelled = true;
     window.clearTimeout(timeoutId);
   };
+};
+const DASHBOARD_DATA_CACHE_VERSION = 3;
+const DASHBOARD_DATA_CACHE_TTL_MS = 15 * 60 * 1000;
+const DASHBOARD_DATA_CACHE_CLIENT_LIMIT = 120;
+const DASHBOARD_DATA_CACHE_PROGRAM_LIMIT = 8;
+const DASHBOARD_DATA_CACHE_SESSION_LIMIT = 28;
+const DASHBOARD_NUTRITION_CACHE_TTL_MS = 10 * 60 * 1000;
+const DASHBOARD_SUMMARY_VERSION = 2;
+const dashboardDataMemoryCache = new Map();
+const DASHBOARD_DATA_LAST_CACHE_KEY = `byl:coach-dashboard:data:${DASHBOARD_DATA_CACHE_VERSION}:last`;
+const getDashboardDataCacheKey = (coachUid = "", clubId = "") =>
+  `byl:coach-dashboard:data:${DASHBOARD_DATA_CACHE_VERSION}:${coachUid || "coach"}:${clubId || "solo"}`;
+const getDashboardSummaryDocId = (coachUid = "", clubId = "") =>
+  `${String(coachUid || "coach").replace(/[^A-Za-z0-9_-]/g, "_")}__${String(clubId || "solo").replace(/[^A-Za-z0-9_-]/g, "_")}`;
+const getDashboardNutritionCacheKey = (coachUid = "", clubId = "") =>
+  `byl:coach-dashboard:nutrition:v1:${coachUid || "coach"}:${clubId || "solo"}`;
+const reviveDashboardDate = (value) => {
+  if (!value) return value;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date;
+};
+const compactDashboardSessionRecord = (record = {}) => ({
+  id: record.id || "",
+  sessionIndex: record.sessionIndex ?? record.index ?? null,
+  index: record.index ?? record.sessionIndex ?? null,
+  status: record.status || "",
+  pourcentageTermine: record.pourcentageTermine ?? null,
+  validatedAt: record.validatedAt || record.completedAt || record.date || record.createdAt || null,
+  completedAt: record.completedAt || record.validatedAt || null,
+  date: record.date || null,
+  createdAt: record.createdAt || null,
+  updatedAt: record.updatedAt || null,
+  calendarEventId: record.calendarEventId || "",
+  plannedEventId: record.plannedEventId || "",
+  coachVisible: record.coachVisible,
+  visibility: record.visibility || "",
+  lastExerciseIndex: record.lastExerciseIndex ?? null,
+  lastSet: record.lastSet ?? null,
+});
+const compactDashboardProgramSession = (session = {}) => ({
+  titre: session.titre || "",
+  title: session.title || "",
+  nom: session.nom || "",
+  name: session.name || "",
+  label: session.label || "",
+});
+const compactDashboardProgram = (program = {}) => {
+  const sessions = Array.isArray(program.sessions)
+    ? program.sessions.map(compactDashboardProgramSession)
+    : undefined;
+  return {
+    ...program,
+    sessions,
+    seances: Array.isArray(program.seances)
+      ? program.seances.map(compactDashboardProgramSession)
+      : undefined,
+    sessionsEffectuees: (Array.isArray(program.sessionsEffectuees) ? program.sessionsEffectuees : [])
+      .slice(-DASHBOARD_DATA_CACHE_SESSION_LIMIT)
+      .map(compactDashboardSessionRecord),
+    difficultyNotes: [],
+    difficultyMap: program.difficultyMap || {},
+  };
+};
+const compactDashboardClient = (client = {}) => ({
+  ...client,
+  programmesAssignes: (Array.isArray(client.programmesAssignes) ? client.programmesAssignes : [])
+    .slice(0, DASHBOARD_DATA_CACHE_PROGRAM_LIMIT)
+    .map(compactDashboardProgram),
+});
+const buildQuickAssignedProgramPlaceholders = (client = {}) => {
+  if (Array.isArray(client.programmesAssignes) && client.programmesAssignes.length) {
+    return client.programmesAssignes;
+  }
+  const ids = [
+    ...(Array.isArray(client.programmes) ? client.programmes : []),
+    ...(Array.isArray(client.programmeIds) ? client.programmeIds : []),
+    client.currentProgramme,
+    client.currentProgramId,
+    client.programmeId,
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+  return Array.from(new Set(ids)).map((id) => ({
+    id,
+    programId: id,
+    status: "active",
+    sessions: [],
+    seances: [],
+    sessionsEffectuees: [],
+    _quickPlaceholder: true,
+  }));
+};
+const hasSportProgramHint = (client = {}) =>
+  (Array.isArray(client.programmesAssignes) && client.programmesAssignes.length > 0) ||
+  (Array.isArray(client.programmes) && client.programmes.filter(Boolean).length > 0) ||
+  (Array.isArray(client.programmeIds) && client.programmeIds.filter(Boolean).length > 0) ||
+  Boolean(client.currentProgramme || client.currentProgramId || client.programmeId);
+const compactDashboardEvent = (event = {}) => ({
+  ...event,
+  start: event.start instanceof Date ? event.start.toISOString() : event.start || null,
+  end: event.end instanceof Date ? event.end.toISOString() : event.end || null,
+});
+const reviveDashboardEvent = (event = {}) => ({
+  ...event,
+  start: reviveDashboardDate(event.start),
+  end: reviveDashboardDate(event.end),
+});
+const compactDashboardPayload = ({ clients = [], programmesBase = [], sessions = [], assignedCounts = {}, assignedClientsMap = {} }) => ({
+  clients: clients.slice(0, DASHBOARD_DATA_CACHE_CLIENT_LIMIT).map(compactDashboardClient),
+  programmesBase: programmesBase.slice(0, 220),
+  sessions: sessions.map(compactDashboardEvent),
+  assignedCounts,
+  assignedClientsMap,
+});
+const readDashboardDataCacheByKey = (key) => {
+  const memoryPayload = dashboardDataMemoryCache.get(key);
+  if (memoryPayload && Date.now() - Number(memoryPayload.savedAt || 0) < DASHBOARD_DATA_CACHE_TTL_MS) {
+    return memoryPayload.data;
+  }
+  if (typeof window === "undefined") return null;
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(key) || "null");
+    if (!parsed || parsed.version !== DASHBOARD_DATA_CACHE_VERSION) return null;
+    if (Date.now() - Number(parsed.savedAt || 0) > DASHBOARD_DATA_CACHE_TTL_MS) return null;
+    const data = {
+      ...parsed.data,
+      sessions: (parsed.data?.sessions || []).map(reviveDashboardEvent),
+    };
+    dashboardDataMemoryCache.set(key, { savedAt: parsed.savedAt, data });
+    return data;
+  } catch {
+    return null;
+  }
+};
+const readDashboardDataCache = (coachUid, clubId) =>
+  readDashboardDataCacheByKey(getDashboardDataCacheKey(coachUid, clubId));
+const readLastDashboardDataCache = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    const lastKey = window.localStorage.getItem(DASHBOARD_DATA_LAST_CACHE_KEY);
+    if (!lastKey) return null;
+    return readDashboardDataCacheByKey(lastKey);
+  } catch {
+    return null;
+  }
+};
+const writeDashboardDataCache = (coachUid, clubId, payload) => {
+  const key = getDashboardDataCacheKey(coachUid, clubId);
+  const data = compactDashboardPayload(payload || {});
+  const savedAt = Date.now();
+  dashboardDataMemoryCache.set(key, { savedAt, data });
+  if (typeof window === "undefined") return;
+  scheduleIdleTask(() => {
+    try {
+      window.localStorage.setItem(
+        key,
+        JSON.stringify({
+          version: DASHBOARD_DATA_CACHE_VERSION,
+          savedAt,
+          data,
+        })
+      );
+      window.localStorage.setItem(DASHBOARD_DATA_LAST_CACHE_KEY, key);
+    } catch {}
+  }, 900);
+};
+const sanitizeForFirestore = (value) => {
+  try {
+    return JSON.parse(JSON.stringify(value || {}));
+  } catch {
+    return {};
+  }
+};
+const readDashboardSummaryDoc = async (coachUid, clubId) => {
+  if (!coachUid) return null;
+  const summaryRef = doc(db, "coachDashboardSummaries", getDashboardSummaryDocId(coachUid, clubId));
+  const snap = await getDoc(summaryRef);
+  if (!snap.exists()) return null;
+  const payload = snap.data() || {};
+  if (payload.version !== DASHBOARD_SUMMARY_VERSION) return null;
+  const data = payload.data || {};
+  return {
+    ...data,
+    sessions: (data.sessions || []).map(reviveDashboardEvent),
+  };
+};
+const writeDashboardSummaryDoc = async (coachUid, clubId, payload) => {
+  if (!coachUid) return;
+  const summaryRef = doc(db, "coachDashboardSummaries", getDashboardSummaryDocId(coachUid, clubId));
+  await setDoc(
+    summaryRef,
+    {
+      version: DASHBOARD_SUMMARY_VERSION,
+      coachUid,
+      clubId: clubId || "",
+      data: sanitizeForFirestore(compactDashboardPayload(payload || {})),
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
 };
 const getMonthKey = (date = new Date()) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -771,6 +960,8 @@ const toMillis = (ts) =>
        ? ts > 1e12
          ? ts
          : ts * 1000
+       : ts && typeof ts === "object" && Number.isFinite(Number(ts.seconds))
+         ? Number(ts.seconds) * 1000 + Math.floor(Number(ts.nanoseconds || 0) / 1e6)
        : ts instanceof Date
          ? ts.getTime()
          : typeof ts === "string"
@@ -1130,28 +1321,98 @@ const normRating = (v) => {
    return Math.max(1, Math.min(5, Math.round(n)));
 };
 
-const buildDifficultyMap = (notesDocs = []) => {
-  const map = {};
-  notesDocs.forEach((d) => {
-    const si = Number(d?.sessionIndex);
-    if (!Number.isFinite(si)) return;
-    const r = normRating(d?.rating);
-
-    if (!r) return;
-    const ms = toMillis(d?.createdAt) || 0;
-    const prev = map[si];
-    if (!prev || ms >= (prev.createdAtMs || 0)) {
-      map[si] = { rating: r, createdAtMs: ms };
-    }
-  });
-  return map;
-};
 const ratingColorScheme = (rating) => {
    const r = normRating(rating);
    if (!r) return "gray";
-   if (r <= 2) return "green";
-   if (r === 3) return "blue";
-   return "orange";
+   if (r === 1) return "cyan";
+   if (r === 2) return "teal";
+   if (r === 3) return "purple";
+   if (r === 4) return "orange";
+   return "red";
+};
+const getDifficultyCalendarVisual = (rating) => {
+  const r = normRating(rating);
+  if (r === 1) return { bg: "#0891B2", colorScheme: "cyan" };
+  if (r === 2) return { bg: "#0D9488", colorScheme: "teal" };
+  if (r === 3) return { bg: "#7C3AED", colorScheme: "purple" };
+  if (r === 4) return { bg: "#EA580C", colorScheme: "orange" };
+  if (r === 5) return { bg: "#E11D48", colorScheme: "red" };
+  return null;
+};
+const getCalendarEventColor = (event = {}, fallback = "#2563EB") => {
+  const status = String(event?.status || "").trim().toLowerCase();
+  const isMissed =
+    status === "manquée" ||
+    status === "manquee" ||
+    status === "missed" ||
+    status === "cancelled" ||
+    status === "canceled";
+  if (isMissed) return "#DC2626";
+  if (event?.eventType === "nutrition_appointment") return "#9333EA";
+  if (event?.eventType === "club_appointment") return "#CA8A04";
+
+  const difficultyVisual = getDifficultyCalendarVisual(event?.difficultyRating);
+  if (difficultyVisual) return difficultyVisual.bg;
+
+  if (event?._kind === "completed") return "#16A34A";
+  if (status === "validée" || status === "validee" || status === "done" || status === "completed") return "#22C55E";
+  return fallback;
+};
+const DIFFICULTY_NOTE_COLLECTIONS = ["difficulté_notes", "difficulte_notes"];
+const getSessionDifficultyRating = (session = {}) =>
+  normRating(
+    session?.difficultyRating ??
+    session?.rating ??
+    session?.difficulty?.rating ??
+    session?.difficultyNote?.rating ??
+    session?.feedback?.rating
+  );
+const getSessionDifficultyAtMs = (session = {}) =>
+  Math.max(
+    toMillis(session?.difficultyAt),
+    toMillis(session?.ratingAt),
+    toMillis(session?.difficulty?.createdAt),
+    toMillis(session?.difficultyNote?.createdAt),
+    toMillis(session?.feedback?.createdAt),
+    toMillis(session?.updatedAt),
+    toMillis(session?.createdAt)
+  );
+const buildDifficultyMapFromNotes = (notes = []) => {
+  const byIndex = {};
+  notes.forEach((note) => {
+    const idx = getSessionIndex(note);
+    const rating = normRating(note?.rating);
+    if (!Number.isFinite(idx) || !rating) return;
+    const createdAtMs = Math.max(
+      toMillis(note?.createdAt),
+      toMillis(note?.updatedAt),
+      toMillis(note?.date)
+    );
+    const previous = byIndex[idx];
+    if (!previous || createdAtMs >= Number(previous.createdAtMs || 0)) {
+      byIndex[idx] = { rating, createdAtMs };
+    }
+  });
+  return byIndex;
+};
+const loadProgramDifficultyNotes = async (clientId, programId) => {
+  if (!clientId || !programId) return [];
+  const noteSets = await Promise.all(
+    DIFFICULTY_NOTE_COLLECTIONS.map(async (collectionName) => {
+      try {
+        const snap = await getDocs(collection(db, "clients", clientId, "programmes", programId, collectionName));
+        return snap.docs.map((noteDoc) => ({
+          id: noteDoc.id,
+          _collection: collectionName,
+          ...noteDoc.data(),
+        }));
+      } catch (error) {
+        console.warn("[coach dashboard] difficulty notes load failed", collectionName, error);
+        return [];
+      }
+    })
+  );
+  return noteSets.flat();
 };
 const isAutoProgramme = (p) => {
    const o = String(p?.origine || "").toLowerCase();
@@ -1581,9 +1842,6 @@ export default function CoachDashboard() {
     [i18n.resolvedLanguage, i18n.language]
   );
   const calendarFormats = useMemo(() => getCalendarFormats(calendarCulture), [calendarCulture]);
-  useEffect(() => {
-    moment.locale(calendarCulture);
-  }, [calendarCulture]);
   const { user, loading } = useAuth();
   const isAdmin = user?.role === "admin";
   const navigate = useNavigate();
@@ -1700,12 +1958,13 @@ end && now < end;
   const calendarLinkModal = useDisclosure();
   const dashboardPrefsModal = useDisclosure();
   const birthdayMessageModal = useDisclosure();
-  const [clients, setClients] = useState([]);
-  const [programmesBase, setProgrammesBase] = useState([]);
-  const [sessions, setSessions] = useState([]);
+  const initialDashboardCache = useMemo(() => readLastDashboardDataCache(), []);
+  const [clients, setClients] = useState(() => initialDashboardCache?.clients || []);
+  const [programmesBase, setProgrammesBase] = useState(() => initialDashboardCache?.programmesBase || []);
+  const [sessions, setSessions] = useState(() => initialDashboardCache?.sessions || []);
   const [clubGoalPeriod, setClubGoalPeriod] = useState("month");
   const [clubGoalTargets, setClubGoalTargets] = useState(null);
-  const [loadingData, setLoadingData] = useState(false);
+  const [loadingData, setLoadingData] = useState(() => !initialDashboardCache);
   const [selectedClient, setSelectedClient] = useState("");
   const [clientToDelete, setClientToDelete] = useState(null);
   const [selectedProgramme, setSelectedProgramme] = useState("");
@@ -1737,9 +1996,9 @@ end && now < end;
     nutritionDurationMin: 30,
     notes: "",
   });
-  const [assignedCounts, setAssignedCounts] = useState({});
+  const [assignedCounts, setAssignedCounts] = useState(() => initialDashboardCache?.assignedCounts || {});
   const [assignedClientsMap, setAssignedClientsMap] =
-useState({});
+useState(() => initialDashboardCache?.assignedClientsMap || {});
   const clubGoalPeriodKey = useMemo(() => getGoalPeriodKey(clubGoalPeriod), [clubGoalPeriod]);
   useEffect(() => {
     let alive = true;
@@ -1782,6 +2041,7 @@ useState({});
   }, [adminCoachId, coachContext, isAdmin, user]);
   const [nutritionRows, setNutritionRows] = useState([]);
   const [nutritionFeedbackRows, setNutritionFeedbackRows] = useState([]);
+  const nutritionLoadKeyRef = useRef("");
   const [dismissedRadarIds, setDismissedRadarIds] = useState([]);
   const [radarCollapsed, setRadarCollapsed] = useState(false);
   const [dashboardWidgetPrefs, setDashboardWidgetPrefs] = useState(DEFAULT_DASHBOARD_WIDGET_PREFS);
@@ -2282,65 +2542,77 @@ useState(false);
         return;
       }
 
-      const clientIds = clients.map((client) => client.id).filter(Boolean);
+      const clientIds = Array.from(new Set(clients.map((client) => client.id).filter(Boolean))).sort();
       if (clientIds.length === 0) {
+        nutritionLoadKeyRef.current = "";
         setNutritionRows([]);
         setNutritionFeedbackRows([]);
         return;
       }
+      const nutritionCacheKey = getDashboardNutritionCacheKey(effectiveCoachUid, effectiveClubId);
+      const nutritionLoadKey = `${effectiveCoachUid || ""}:${effectiveClubId || ""}:${clientIds.join("|")}`;
+      const cachedNutrition = readPageDataCache(nutritionCacheKey, {
+        ttlMs: DASHBOARD_NUTRITION_CACHE_TTL_MS,
+      });
+      if (cachedNutrition) {
+        setNutritionRows(cachedNutrition.rows || []);
+        setNutritionFeedbackRows(cachedNutrition.feedbackRows || []);
+      }
+      if (nutritionLoadKeyRef.current === nutritionLoadKey) return;
+      nutritionLoadKeyRef.current = nutritionLoadKey;
 
       try {
-        const nutritionSnaps = [];
-        const feedbackSnaps = [];
-        for (let index = 0; index < clientIds.length; index += 12) {
-          const batch = clientIds.slice(index, index + 12);
-          const batchRows = await Promise.all(
-            batch.map(async (clientId) => {
-              const snap = await getDocs(collection(db, "clients", clientId, "nutrition_assessments"));
-              return snap.docs.map((docSnap) => ({ docSnap, clientId }));
-            })
-          );
-          const batchFeedbackRows = await Promise.all(
-            batch.map(async (clientId) => {
-              const snap = await getDocs(query(collection(db, "clients", clientId, "nutrition_feedback"), orderBy("createdAt", "desc"), limit(5)));
-              return snap.docs.map((docSnap) => ({ docSnap, clientId }));
-            })
-          );
-          nutritionSnaps.push(...batchRows);
-          feedbackSnaps.push(...batchFeedbackRows);
-          if (!alive) return;
-        }
+        const nutritionSnaps = await runLimited(
+          clientIds,
+          async (clientId) => {
+            const snap = await getDocs(collection(db, "clients", clientId, "nutrition_assessments"));
+            return snap.docs.map((docSnap) => ({ docSnap, clientId }));
+          },
+          8
+        );
         const nutritionDocs = nutritionSnaps.flat();
+        const nutritionClientIds = Array.from(new Set(nutritionDocs.map(({ clientId }) => clientId).filter(Boolean)));
+        const feedbackSnaps = await runLimited(
+          nutritionClientIds,
+          async (clientId) => {
+            const snap = await getDocs(query(collection(db, "clients", clientId, "nutrition_feedback"), orderBy("createdAt", "desc"), limit(5)));
+            return snap.docs.map((docSnap) => ({ docSnap, clientId }));
+          },
+          6
+        );
         const feedbackDocs = feedbackSnaps.flat();
         if (!alive) return;
-        setNutritionRows(
-          nutritionDocs.map(({ docSnap, clientId }) => ({
+        const nextRows = nutritionDocs.map(({ docSnap, clientId }) => ({
             id: docSnap.id,
             clientId,
             ...docSnap.data(),
-          }))
-        );
-        setNutritionFeedbackRows(
-          feedbackDocs.map(({ docSnap, clientId }) => ({
+          }));
+        const nextFeedbackRows = feedbackDocs.map(({ docSnap, clientId }) => ({
             id: docSnap.id,
             clientId,
             ...docSnap.data(),
-          }))
-        );
+          }));
+        setNutritionRows(nextRows);
+        setNutritionFeedbackRows(nextFeedbackRows);
+        writePageDataCache(nutritionCacheKey, {
+          rows: nextRows,
+          feedbackRows: nextFeedbackRows,
+        });
       } catch {
-        if (alive) {
+        nutritionLoadKeyRef.current = "";
+        if (alive && !cachedNutrition) {
           setNutritionRows([]);
           setNutritionFeedbackRows([]);
         }
       }
     };
 
-    const cancelLoad = scheduleIdleTask(loadNutritionRows, 900);
+    const cancelLoad = scheduleIdleTask(loadNutritionRows, 120);
     return () => {
       alive = false;
       cancelLoad();
     };
-  }, [clients, effectiveCoachUid, hasNutritionCalendarAccess]);
+  }, [clients, effectiveCoachUid, effectiveClubId, hasNutritionCalendarAccess]);
 
 	  const nutritionDashboardStats = useMemo(() => {
     const distinctClients = new Set(nutritionRows.map((row) => row.clientId).filter(Boolean)).size;
@@ -2583,6 +2855,18 @@ sessionIndex = null }) => {
       _lastCompletedTitle: latestCompletedRecord ? getSessionDisplayTitle(prog, latestCompletedRecord, t) : "",
     };
   }, [t]);
+
+  const hydrateDashboardData = useCallback((dashboardData) => {
+    if (!dashboardData) return false;
+    setProgrammesBase(dashboardData.programmesBase || []);
+    setClients(dashboardData.clients || []);
+    setSessions(dashboardData.sessions || []);
+    setAssignedCounts(dashboardData.assignedCounts || {});
+    setAssignedClientsMap(dashboardData.assignedClientsMap || {});
+    setLoadingData(false);
+    return true;
+  }, []);
+
   const startNextSessionForClient = useCallback(async (client, mode = "next") => {
     if (!client?.id) return;
     const clientProgramHints = new Map(
@@ -2758,24 +3042,50 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
 
   const fetchData = useCallback(async () => {
      if (!effectiveCoachUid) return;
-     setLoadingData(true);
+     const dashboardSummaryPromise = readDashboardSummaryDoc(effectiveCoachUid, effectiveClubId).catch((error) => {
+       console.warn("[coach dashboard] summary read failed", error);
+       return null;
+     });
+     const cachedDashboardData = readDashboardDataCache(effectiveCoachUid, effectiveClubId);
+     if (cachedDashboardData) {
+       hydrateDashboardData(cachedDashboardData);
+     } else {
+       setLoadingData(true);
+       dashboardSummaryPromise.then((summaryData) => {
+         if (summaryData) hydrateDashboardData(summaryData);
+       });
+     }
      try {
        const progsQ = query(
           collection(db, "programmes"),
           where("createdBy", "==", effectiveCoachUid),
           limit(200)
        );
-       const pSnap = await getDocs(progsQ);
+       const sessionQueries = [
+         query(collection(db, "sessions"), where("coachId", "==", effectiveCoachUid)),
+         query(collection(db, "sessions"), where("createdBy", "==", effectiveCoachUid)),
+         query(collection(db, "sessions"), where("ownerId", "==", effectiveCoachUid)),
+       ];
+       const programmesSnapPromise = getDocs(progsQ);
+       const clientSnapsPromise = Promise.all([
+          getDocs(query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(500))),
+          getDocs(query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(500))).catch(() => ({ docs: [] })),
+          getDocs(query(collection(db, "clients"), where("coachIds", "array-contains", effectiveCoachUid), limit(500))).catch(() => ({ docs: [] })),
+       ]);
+       const sessionSnapsPromise = Promise.all(
+         sessionQueries.map((sessionQuery) =>
+           getDocs(sessionQuery).catch((sessionQueryError) => {
+             console.warn("[coach dashboard] sessions query failed", sessionQueryError);
+             return { docs: [] };
+           })
+         )
+       );
+       const [pSnap, clientSnaps] = await Promise.all([programmesSnapPromise, clientSnapsPromise]);
        const progs = pSnap.docs.map((d) => ({ id: d.id, ...d.data()
 }));
        progs.sort((a, b) => toMillis(b.createdAt) -
 toMillis(a.createdAt));
        setProgrammesBase(progs);
-       const clientSnaps = await Promise.all([
-          getDocs(query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(500))),
-          getDocs(query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(500))).catch(() => ({ docs: [] })),
-          getDocs(query(collection(db, "clients"), where("coachIds", "array-contains", effectiveCoachUid), limit(500))).catch(() => ({ docs: [] })),
-       ]);
        const mergedClientMap = new Map();
        clientSnaps.forEach((snap) => {
           snap.docs.forEach((d) => mergedClientMap.set(d.id, { id: d.id, ...d.data() }));
@@ -2792,7 +3102,7 @@ toMillis(a.createdAt));
            );
            return {
              ...client,
-             programmesAssignes: Array.isArray(client.programmesAssignes) ? client.programmesAssignes : [],
+             programmesAssignes: buildQuickAssignedProgramPlaceholders(client),
              _lastCoachInteractionMs: quickActivityMs,
              _lastInteractionMs: quickActivityMs,
              _quickLoading: true,
@@ -2800,17 +3110,109 @@ toMillis(a.createdAt));
          })
          .filter((client) => client._lastCoachInteractionMs > 0)
          .sort((a, b) => (b._lastCoachInteractionMs || 0) - (a._lastCoachInteractionMs || 0));
-       if (quickClients.length) {
-         setClients(quickClients);
-         setLoadingData(false);
-       }
-      const clientsWithProgs = await Promise.all(
-        mergedClients.map(async (client) => {
+       setClients(quickClients.length ? quickClients : dedupeClientsForDashboard(mergedClients));
+       setLoadingData(false);
+      try {
+        const quickSessionSnaps = await sessionSnapsPromise;
+        const quickRootSessionsById = new Map();
+        quickSessionSnaps.forEach((snap) => {
+          snap.docs.forEach((d) => {
+            quickRootSessionsById.set(d.id, { id: d.id, ...d.data() });
+          });
+        });
+        const quickClientIdSet = new Set(
+          (quickClients.length ? quickClients : dedupeClientsForDashboard(mergedClients))
+            .map((client) => client.id)
+            .filter(Boolean)
+        );
+        const quickEvents = Array.from(quickRootSessionsById.values())
+          .filter((s) => quickClientIdSet.has(s.clientId))
+          .filter((s) => {
+            const visibility = s.visibility || "coach";
+            if (visibility !== "coach" && visibility !== "both") return false;
+            const sessionCoachId = s.coachId || s.createdBy || s.ownerId || "";
+            if (sessionCoachId && sessionCoachId !== effectiveCoachUid) return false;
+            return true;
+          })
+          .map((s) => {
+            const start =
+              s.start?.toDate?.() ||
+              (typeof s.start === "string" ? new Date(s.start) : null) ||
+              (typeof s.start === "number" ? new Date(s.start) : null);
+            if (!start || Number.isNaN(start.getTime())) return null;
+            const end =
+              s.end?.toDate?.() ||
+              (typeof s.end === "string" ? new Date(s.end) : null) ||
+              (typeof s.end === "number" ? new Date(s.end) : null) ||
+              new Date(start.getTime() + FORCE_SESSION_DURATION_MIN * 60000);
+            const eventType = String(s.type || s.eventType || "").trim();
+            const isNutritionAppointment = eventType === "nutrition_appointment";
+            const isClubAppointment = eventType === "club_appointment";
+            const rawStatus = String(s.status || "").trim().toLowerCase();
+            const isRootValidated =
+              rawStatus === "validée" ||
+              rawStatus === "validee" ||
+              rawStatus === "done" ||
+              Boolean(s.validatedAt) ||
+              Boolean(s.completedAt);
+            const titleSessionIndex = inferSessionIndexFromText(`${s.sessionTitle || ""} ${s.title || ""}`);
+            const explicitSessionIndex = getSessionIndex(s);
+            const sessionIndex = Number.isFinite(titleSessionIndex)
+              ? titleSessionIndex
+              : Number.isFinite(explicitSessionIndex)
+                ? explicitSessionIndex
+                : null;
+            const clientName = String(s.clientName || "").trim();
+            const storedSessionTitle = String(s.title || s.sessionTitle || "").trim();
+            const titlePieces = [];
+            if (clientName) titlePieces.push(clientName);
+            if (isNutritionAppointment) titlePieces.push("Nutrition");
+            else if (isClubAppointment) titlePieces.push("Club");
+            else if (s.programTitle || s.programmeName || s.programName) {
+              titlePieces.push(s.programTitle || s.programmeName || s.programName);
+            }
+            if (storedSessionTitle) titlePieces.push(storedSessionTitle);
+            return {
+              id: `planned__${s.id}`,
+              title: titlePieces.join(" - ") || t("dashboard.session_planned", "Séance planifiée"),
+              start,
+              end,
+              status: isRootValidated ? "validée" : s.status || "à venir",
+              visibility: s.visibility || "coach",
+              clientId: s.clientId,
+              programmeId: s.programmeId || s.programId || s.programID || "",
+              baseProgrammeId: s.baseProgrammeId || "",
+              sessionIndex,
+              eventType: isNutritionAppointment ? "nutrition_appointment" : isClubAppointment ? "club_appointment" : "sport_session",
+              appointmentKind: s.appointmentKind || "",
+              durationMin: Number.isFinite(Number(s.durationMin)) ? Number(s.durationMin) : null,
+              clubAppointmentId: s.clubAppointmentId || "",
+              _kind: "planned",
+              _clientName: clientName,
+              _programmeName: s.programTitle || s.programmeName || s.programName || "",
+              _sessionTitle: storedSessionTitle,
+              _sourceId: s.id,
+              _updatedMs: Math.max(toMillis(s.updatedAt), toMillis(s.createdAt), 0),
+              _rootCoachValidated: isRootValidated,
+              difficultyRating: getSessionDifficultyRating(s),
+              difficultyAtMs: getSessionDifficultyAtMs(s),
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) => (a.start?.getTime?.() || 0) - (b.start?.getTime?.() || 0));
+        if (quickEvents.length) setSessions(quickEvents);
+      } catch (quickCalendarError) {
+        console.warn("[coach dashboard] quick calendar hydration failed", quickCalendarError);
+      }
+      const clientsWithProgs = await runLimited(
+        mergedClients,
+        async (client) => {
           const subSnap = await getDocs(collection(db, "clients",
 client.id, "programmes"));
           let latestAssignMs = 0;
-          const progsWithSessions = await Promise.all(
-            subSnap.docs.map(async (d) => {
+          const progsWithSessions = await runLimited(
+            subSnap.docs,
+            async (d) => {
               const prog = d.data();
               const totalPrevues = getTotalSessionsFromProgrammeDoc(prog);
                 const assignMs =
@@ -2884,25 +3286,11 @@ d.id, "sessionsEffectuees")
                   ? getSessionActivityMs(latestCompletedRecord)
                   : 0;
                 const lastCompletedTitle = latestCompletedRecord ? getSessionDisplayTitle(prog, latestCompletedRecord, t) : "";
-                let difficultyNotes = [];
-                if (lastCompletedSessionMs > 0) {
-                  try {
-                     const diffSnap = await getDocs(
-                        query(
-                          collection(db, "clients", client.id,
-"programmes", d.id, "difficulté_notes"),
-                          orderBy("createdAt", "desc"),
-                          limit(Math.max(10, Math.min(40, (totalPrevues || 1) * 3)))
-                        )
-                     );
-                     difficultyNotes = diffSnap.docs.map((x) => ({ id:
-x.id, ...x.data() }));
-                  } catch {
-                     difficultyNotes = [];
-                  }
-                }
-                const difficultyMap =
-buildDifficultyMap(difficultyNotes);
+                const hasValidatedSession = sessionsEffectuees.some(isSessionValidatedRecord);
+                const difficultyNotes = hasValidatedSession
+                  ? await loadProgramDifficultyNotes(client.id, d.id)
+                  : [];
+                const difficultyMap = buildDifficultyMapFromNotes(difficultyNotes);
                 return {
                    id: d.id,
                    ...prog,
@@ -2925,7 +3313,8 @@ buildDifficultyMap(difficultyNotes);
                    difficultyNotes,
                    difficultyMap,
                 };
-             })
+             },
+             4
           );
           let latestSessionMs = 0;
           let latestCompletedSessionMs = 0;
@@ -2946,7 +3335,8 @@ buildDifficultyMap(difficultyNotes);
             const _lastInteractionMs = Math.max(latestSessionMs, latestAssignMs, lastClientUpdate);
             return { ...client, programmesAssignes:
 progsWithSessions, _lastInteractionMs, _latestAssignMs: latestAssignMs, _lastClientUpdateMs: lastClientUpdate, _clientListActivityMs: latestCompletedSessionMs };
-         })
+         },
+         6
       );
       const dashboardClients = dedupeClientsForDashboard(clientsWithProgs);
       const counts = {};
@@ -2987,19 +3377,7 @@ byBaseId });
       });
       const clientIdSet = new Set(dashboardClients.map((c) =>
 c.id));
-      const sessionQueries = [
-        query(collection(db, "sessions"), where("coachId", "==", effectiveCoachUid), limit(500)),
-        query(collection(db, "sessions"), where("createdBy", "==", effectiveCoachUid), limit(500)),
-        query(collection(db, "sessions"), where("ownerId", "==", effectiveCoachUid), limit(500)),
-      ];
-      const sessionSnaps = await Promise.all(
-        sessionQueries.map((sessionQuery) =>
-          getDocs(sessionQuery).catch((sessionQueryError) => {
-            console.warn("[coach dashboard] sessions query failed", sessionQueryError);
-            return { docs: [] };
-          })
-        )
-      );
+      const sessionSnaps = await sessionSnapsPromise;
       const rootSessionsById = new Map();
       sessionSnaps.forEach((snap) => {
         snap.docs.forEach((d) => {
@@ -3130,8 +3508,8 @@ t("dashboard.session_planned", "Séance planifiée"),
               _updatedMs: Math.max(toMillis(s.updatedAt),
 toMillis(s.createdAt), 0),
               _rootCoachValidated: rootCoachValidated,
-              difficultyRating: null,
-              difficultyAtMs: 0,
+              difficultyRating: getSessionDifficultyRating(s),
+              difficultyAtMs: getSessionDifficultyAtMs(s),
            };
         })
         .filter(Boolean)
@@ -3160,15 +3538,15 @@ toMillis(s.createdAt), 0),
 FORCE_SESSION_DURATION_MIN * 60000);
               const sessionIndex = getSessionIndex(sEff);
               const sessionTitle = getSessionDisplayTitle(prog, sEff, t);
-              let difficultyRating = null;
-              let difficultyAtMs = 0;
+              let difficultyRating = getSessionDifficultyRating(sEff);
+              let difficultyAtMs = getSessionDifficultyAtMs(sEff);
 
             if (sessionIndex != null && prog?.difficultyMap?.
 [sessionIndex]) {
               difficultyRating =
-prog.difficultyMap[sessionIndex].rating;
+prog.difficultyMap[sessionIndex].rating || difficultyRating;
               difficultyAtMs =
-prog.difficultyMap[sessionIndex].createdAtMs || 0;
+prog.difficultyMap[sessionIndex].createdAtMs || difficultyAtMs;
             }
             const titlePieces = [];
             if (clientName) titlePieces.push(clientName);
@@ -3232,8 +3610,7 @@ Number(ev.sessionIndex) : "x",
           const clubAppointmentSnap = await getDocs(
             query(
               collection(db, "clubs", coachClubId, "appointments"),
-              where("coachUid", "==", effectiveCoachUid),
-              limit(150)
+              where("coachUid", "==", effectiveCoachUid)
             )
           );
           const plannedSourceIds = new Set(plannedEventsRaw.map((ev) => ev._sourceId).filter(Boolean));
@@ -3468,13 +3845,24 @@ plannedEvt._sessionTitle,
         .sort((a, b) => (b._lastCoachInteractionMs || 0) - (a._lastCoachInteractionMs || 0));
       setClients(clientsForCoachDashboard);
       setSessions(merged);
+      const dashboardPayload = {
+        clients: clientsForCoachDashboard,
+        programmesBase: progs,
+        sessions: merged,
+        assignedCounts: counts,
+        assignedClientsMap: map,
+      };
+      writeDashboardDataCache(effectiveCoachUid, effectiveClubId, dashboardPayload);
+      writeDashboardSummaryDoc(effectiveCoachUid, effectiveClubId, dashboardPayload).catch((summaryError) => {
+        console.warn("[coach dashboard] summary write failed", summaryError);
+      });
     } catch (error) {
       console.error(error);
       notify(toast, "dataLoadError");
     } finally {
       setLoadingData(false);
     }
-  }, [effectiveClubId, prettyAssignedProgramName, prettyProgramNameBase, t, toast,
+  }, [effectiveClubId, hydrateDashboardData, prettyAssignedProgramName, prettyProgramNameBase, t, toast,
 effectiveCoachUid]);
   useEffect(() => {
 
@@ -4273,7 +4661,7 @@ modeValue("rgba(255,255,255,0.95)",
   const stats = useMemo(() => {
     const nutritionClientIds = new Set(nutritionRows.map((row) => row.clientId).filter(Boolean));
     const nutritionClients = clients.filter((client) => nutritionClientIds.has(client.id));
-    const sportClients = clients.filter((client) => (client.programmesAssignes || []).length > 0);
+    const sportClients = clients.filter(hasSportProgramHint);
     const mixedDashboard = hasNutritionCalendarAccess && hasSportAccess;
     const totalClients = clients.length;
     const totalPrograms = programmesBase.length;
@@ -5755,6 +6143,7 @@ month;
         if (event?._programmeName) fullLine.push(event._programmeName);
         if (event?._sessionTitle) fullLine.push(event._sessionTitle);
         const label = compactLine.join(" - ") || fullLine.join(" - ") || event.title;
+        const visibleLabel = r ? `${label} · ${r}/5` : label;
         const tooltipLabel = `${fullLine.join(" - ") || event.title || ""}${r ? ` · ${t("sessionPlayer.rateTitle", "Difficulté")} ${r}/5` : ""}`;
         return (
            <Tooltip label={tooltipLabel} hasArrow placement="top">
@@ -5767,8 +6156,8 @@ month;
                  fontWeight="700"
                  lineHeight="1.15"
                >
-                {label}
-               </Text>
+                {visibleLabel}
+	               </Text>
              </Box>
            </Tooltip>
         );
@@ -8462,7 +8851,7 @@ alignItems="stretch">
                 </SimpleGrid>
 
                 <VStack align="stretch" spacing={2.5}>
-                  {mobileCalendarWeekSessions.slice(0, 5).map((event) => {
+	                  {mobileCalendarWeekSessions.slice(0, 5).map((event) => {
                     const status = String(event.status || "").trim().toLowerCase();
                     const endMs = getEventEndMs(event);
                     const isDone =
@@ -8477,15 +8866,16 @@ alignItems="stretch">
                       status === "missed" ||
                       status === "cancelled" ||
                       status === "canceled";
-                    const isPastUnvalidated = !isDone && !isMissed && endMs > 0 && endMs <= Date.now();
-                    const rating = normRating(event.difficultyRating);
-                    const statusMeta = isDone
-                      ? { label: t("status.validated", "Validée"), colorScheme: "green", tone: activeGreen }
-                      : isMissed
-                        ? { label: t("status.missed", "Manquée"), colorScheme: "red", tone: dangerRed }
-                        : isPastUnvalidated
-                          ? { label: t("dashboard.calendar_not_validated", "Non validée"), colorScheme: "orange", tone: warningOrange }
-                          : { label: t("status.upcoming", "À venir"), colorScheme: "blue", tone: activeBlue };
+	                    const isPastUnvalidated = !isDone && !isMissed && endMs > 0 && endMs <= Date.now();
+	                    const rating = normRating(event.difficultyRating);
+	                    const eventTone = getCalendarEventColor(event, activeBlue);
+	                    const statusMeta = isDone
+	                      ? { label: t("status.validated", "Validée"), colorScheme: rating ? ratingColorScheme(rating) : "green", tone: eventTone }
+	                      : isMissed
+	                        ? { label: t("status.missed", "Manquée"), colorScheme: "red", tone: dangerRed }
+	                        : isPastUnvalidated
+	                          ? { label: t("dashboard.calendar_not_validated", "Non validée"), colorScheme: "orange", tone: warningOrange }
+	                          : { label: t("status.upcoming", "À venir"), colorScheme: "blue", tone: eventTone };
                     const noteLabel = rating
                       ? t("dashboard.calendar_rated", "Notée {{rating}}/5", { rating })
                       : isDone
@@ -8497,12 +8887,12 @@ alignItems="stretch">
                         key={event.id}
                         as="button"
                         type="button"
-                        textAlign="left"
-                        border="1px solid"
-                        borderColor={isPastUnvalidated ? `${warningOrange}66` : isDone ? `${activeGreen}55` : borderColor}
-                        borderRadius="18px"
-                        p={3}
-                        bg={modeValue("rgba(255,255,255,0.64)", "rgba(255,255,255,0.035)")}
+	                        textAlign="left"
+	                        border="1px solid"
+	                        borderColor={isPastUnvalidated ? `${warningOrange}66` : isDone ? `${eventTone}66` : borderColor}
+	                        borderRadius="18px"
+	                        p={3}
+	                        bg={modeValue(`${eventTone}0D`, `${eventTone}18`)}
                         onClick={() => {
                           setSelectedEvent(event);
                           eventModal.onOpen();
@@ -8520,7 +8910,7 @@ alignItems="stretch">
                                 {statusMeta.label}
                               </Badge>
                               {noteLabel ? (
-                                <Badge colorScheme={rating ? "purple" : "gray"} borderRadius="full" px={2} py={0.5}>
+                                <Badge colorScheme={rating ? ratingColorScheme(rating) : "gray"} borderRadius="full" px={2} py={0.5}>
                                   {noteLabel}
                                 </Badge>
                               ) : null}
@@ -8656,30 +9046,35 @@ modeValue("rgba(59,130,246,0.06)",
 { borderColor },
                  }}
                >
-	                 <DnDCalendar
-	                    localizer={localizer}
-                      culture={calendarCulture}
-                      formats={calendarFormats}
-	                    events={sessions}
+                 {(
+                   <React.Suspense
+                     fallback={
+                       <Flex
+                         h="620px"
+                         align="center"
+                         justify="center"
+                         border="1px solid"
+                         borderColor={borderColor}
+                         borderRadius="20px"
+                         bg={modeValue("rgba(15,23,42,0.01)", "rgba(255,255,255,0.02)")}
+                       >
+                         <HStack spacing={3} color={mutedText} fontWeight="800">
+                           <Spinner size="sm" />
+                           <Text>{t("calendar.loading", "Chargement du calendrier...")}</Text>
+                         </HStack>
+                       </Flex>
+                     }
+                   >
+	                   <CoachDashboardCalendar
+                        calendarCulture={calendarCulture}
+                        formats={calendarFormats}
+	                      events={sessions}
 
                   startAccessor="start"
                   endAccessor="end"
                   components={{ event: CalendarEvent }}
-	                    eventPropGetter={(evt) => {
-	                    let bg = effectivePrimaryColor || activeBlue;
-                      if (evt.eventType === "nutrition_appointment") bg = "#7C3AED";
-                      if (evt.eventType === "club_appointment") bg = "#D97706";
-	                    if (evt.status === "validée") bg = "#22C55E";
-                    if (evt.status === "manquée") bg = dangerRed;
-                    if (evt._kind === "completed") bg = "#16A34A";
-
-                    if (evt.status === "validée" &&
-normRating(evt.difficultyRating)) {
-                      const r = normRating(evt.difficultyRating);
-                      if (r <= 2) bg = "#0F766E";
-                      else if (r === 3) bg = "#2563EB";
-                      else bg = "#C2410C";
-                    }
+	                  eventPropGetter={(evt) => {
+	                    const bg = getCalendarEventColor(evt, effectivePrimaryColor || activeBlue);
 
                     return {
                        style: {
@@ -8714,6 +9109,8 @@ normRating(evt.difficultyRating)) {
 count: total, defaultValue: `+${total}` }),
                     }}
                  />
+                   </React.Suspense>
+                 )}
               </Box>
               </>
               )}

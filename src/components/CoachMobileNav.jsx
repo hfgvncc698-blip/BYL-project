@@ -59,6 +59,8 @@ const ROUTE_PRELOADS = {
   "/programmes": () => import("./ProgramsPage.jsx"),
   "/nutrition-coach": () => import("../pages/CoachNutritionPage.jsx"),
   "/statistics-coach": () => import("../pages/StatisticsPageCoach.jsx"),
+  "/exercise-bank/program-builder": () => import("./ProgramBuilderPage.jsx"),
+  "/auto-program-questionnaire": () => import("./AutoProgramQuestionnaire.jsx"),
 };
 
 export default function CoachMobileNav() {
@@ -109,7 +111,13 @@ export default function CoachMobileNav() {
   ];
 
   const preloadPath = React.useCallback((path = "") => {
-    const key = Object.keys(ROUTE_PRELOADS).find((prefix) => path === prefix || path.startsWith(`${prefix}?`) || path.startsWith(`${prefix}#`));
+    const key = Object.keys(ROUTE_PRELOADS).find(
+      (prefix) =>
+        path === prefix ||
+        path.startsWith(`${prefix}/`) ||
+        path.startsWith(`${prefix}?`) ||
+        path.startsWith(`${prefix}#`)
+    );
     ROUTE_PRELOADS[key]?.();
   }, []);
 
@@ -118,8 +126,8 @@ export default function CoachMobileNav() {
     const visiblePaths = items.map((item) => item.path).filter(Boolean);
     const warmVisibleRoutes = () => visiblePaths.forEach(preloadPath);
     const idleId = window.requestIdleCallback
-      ? window.requestIdleCallback(warmVisibleRoutes, { timeout: 1200 })
-      : window.setTimeout(warmVisibleRoutes, 450);
+      ? window.requestIdleCallback(warmVisibleRoutes, { timeout: 450 })
+      : window.setTimeout(warmVisibleRoutes, 180);
     return () => {
       if (window.cancelIdleCallback && typeof idleId === "number") {
         window.cancelIdleCallback(idleId);
@@ -200,6 +208,19 @@ export default function CoachMobileNav() {
         ]
       : []),
   ];
+
+  React.useEffect(() => {
+    if (!actionModal.isOpen) return;
+    [
+      "/coach-dashboard?quickAction=plan",
+      "/coach-dashboard?quickAction=client",
+      hasSportAccess ? "/exercise-bank/program-builder/new" : null,
+      hasSportAccess ? "/auto-program-questionnaire" : null,
+      hasNutritionAccess ? "/nutrition-coach?new=1" : null,
+    ]
+      .filter(Boolean)
+      .forEach(preloadPath);
+  }, [actionModal.isOpen, hasNutritionAccess, hasSportAccess, preloadPath]);
 
   return (
     <>

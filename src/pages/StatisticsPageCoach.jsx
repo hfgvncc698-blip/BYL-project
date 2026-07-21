@@ -42,6 +42,9 @@ import { useTranslation } from "react-i18next";
 import AppLoading from "../components/ui/AppLoading";
 import { useAppTheme } from "../styles/appTheme";
 import { hasPlanModule } from "../utils/proPlanAccess";
+import { readPageDataCache, runLimited, writePageDataCache } from "../utils/pageDataCache";
+
+const COACH_STATS_CACHE_TTL_MS = 10 * 60 * 1000;
 
 /* ---------------- helpers: dates & sessions ---------------- */
 function getDoneDate(s) {
@@ -57,6 +60,8 @@ function getDoneDate(s) {
 const toMillis = (ts) =>
   ts?.toDate
     ? ts.toDate().getTime()
+    : ts?.seconds
+    ? Number(ts.seconds) * 1000
     : typeof ts === "number"
     ? ts > 1e12
       ? ts
@@ -106,6 +111,18 @@ const isNutritionDraft = (assessment) => {
   if (hasSharedNutritionSections(assessment)) return false;
   if (assessment?.status === "final" || assessment?.validated || assessment?.inputs?.nutritionValidated) return false;
   return true;
+};
+
+const getNutritionCountHint = (client) => {
+  const candidates = [
+    client?.nutritionAssessmentCount,
+    client?.nutritionAssessmentsCount,
+    client?.nutritionFollowupCount,
+    client?.nutritionBilansCount,
+    client?.nbBilansNutrition,
+  ];
+  const found = candidates.map(Number).find((n) => Number.isFinite(n));
+  return Number.isFinite(found) ? found : null;
 };
 
 /* ---------------- normalization des objectifs ---------------- */
@@ -400,7 +417,28 @@ export default function StatisticsPageCoach() {
     (async () => {
       if (!user?.uid) return;
 
-      setLoading(true);
+      const cacheKey = `byl:coach-stats:v1:${user.uid}:${locale}:${hasNutritionAccess ? "nutrition" : "sport"}`;
+      const cached = readPageDataCache(cacheKey, { ttlMs: COACH_STATS_CACHE_TTL_MS });
+      if (cached) {
+        setTotalClients(cached.totalClients || 0);
+        setTotalPrograms(cached.totalPrograms || 0);
+        setActiveClients(cached.activeClients || 0);
+        setInactiveClients(cached.inactiveClients || 0);
+        setRetentionRate(cached.retentionRate || 0);
+        setObjectivesDistribution(cached.objectivesDistribution || {});
+        setMonthlySessions(cached.monthlySessions || []);
+        setNutritionStats(cached.nutritionStats || {
+          patients: 0,
+          assessments: 0,
+          shared: 0,
+          drafts: 0,
+          recent: 0,
+        });
+        setActiveClientList(cached.activeClientList || []);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
 
       try {
         // -----------------
@@ -420,8 +458,9 @@ export default function StatisticsPageCoach() {
         // -----------------
         // 2) Enrichissement: programmes assignés + sessionsEffectuees + _lastInteractionMs (même logique)
         // -----------------
-        const clientsWithMeta = await Promise.all(
-          mergedClients.map(async (client) => {
+        const clientsWithMeta = await runLimited(
+          mergedClients,
+          async (client) => {
             const subSnap = await getDocs(collection(db, "clients", client.id, "programmes"));
 
             let latestAssignMs = 0;
@@ -473,7 +512,8 @@ export default function StatisticsPageCoach() {
               _lastInteractionMs,
               _clientListActivityMs: latestSessionMs,
             };
-          })
+          },
+          6
         );
 
         clientsWithMeta.sort((a, b) => (b._lastInteractionMs || 0) - (a._lastInteractionMs || 0));
@@ -486,8 +526,13 @@ export default function StatisticsPageCoach() {
         const nutritionCutoffMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
         if (hasNutritionAccess) {
-          await Promise.all(
-            clientsWithMeta.map(async (client) => {
+          const nutritionClientsToInspect = clientsWithMeta.filter((client) => {
+            const count = getNutritionCountHint(client);
+            return nutritionOnlyStats || count == null || count > 0 || client?.hasNutritionFollowup || client?.nutritionFollowup;
+          });
+          await runLimited(
+            nutritionClientsToInspect,
+            async (client) => {
               try {
                 const snap = await getDocs(collection(db, "clients", client.id, "nutrition_assessments"));
                 if (!snap.size) return;
@@ -509,7 +554,8 @@ export default function StatisticsPageCoach() {
                 });
                 if (clientRecent) nutritionRecent += 1;
               } catch (_) {}
-            })
+            },
+            5
           );
         }
 
@@ -588,7 +634,25 @@ export default function StatisticsPageCoach() {
           });
         });
 
-        setMonthlySessions(Object.entries(perMonth).map(([label, count]) => ({ label, count })));
+        const nextMonthlySessions = Object.entries(perMonth).map(([label, count]) => ({ label, count }));
+        setMonthlySessions(nextMonthlySessions);
+        writePageDataCache(cacheKey, {
+          totalClients: totalC,
+          totalPrograms: progSnap.size,
+          activeClients: active30,
+          inactiveClients: inactive,
+          retentionRate: totalC ? Math.round((active30 / totalC) * 100) : 0,
+          objectivesDistribution: objDist,
+          monthlySessions: nextMonthlySessions,
+          nutritionStats: {
+            patients: nutritionOnlyStats ? clientsWithMeta.length : nutritionClientIds.size,
+            assessments: nutritionAssessments,
+            shared: nutritionShared,
+            drafts: nutritionDrafts,
+            recent: nutritionRecent,
+          },
+          activeClientList: active30List,
+        });
       } catch (e) {
         console.error(e);
       } finally {

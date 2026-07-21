@@ -56,8 +56,12 @@ import { useAppTheme } from "../styles/appTheme";
 import { canUseGuidedProgram } from "../utils/proPlanAccess";
 import { formatProgramActiveWeeks, getProgramActiveWeeksLabel } from "../utils/programDuration";
 import PageBackButton from "./ui/PageBackButton";
+import { deferPageTask, readPageDataCache, runLimited, writePageDataCache } from "../utils/pageDataCache";
+import { readCoachPageSummary, writeCoachPageSummary } from "../utils/coachPageSummary";
 
 /* -------- helpers -------- */
+const PROGRAMS_PAGE_CACHE_TTL_MS = 10 * 60 * 1000;
+
 function getSessionCount(p) {
   if (!p) return 0;
   if (Array.isArray(p.sessions)) return p.sessions.length;
@@ -130,6 +134,18 @@ const isAutoProgramme = (p) => {
   return o.includes("auto");
 };
 
+const getCachedAssignedProgramCount = (client) => {
+  const candidates = [
+    client?.sportProgramCount,
+    client?.programmesSportifs,
+    client?.programmesCount,
+    client?.programmeCount,
+    client?.nbProgrammes,
+  ];
+  const found = candidates.map(Number).find((n) => Number.isFinite(n));
+  return Number.isFinite(found) ? found : null;
+};
+
 const getClientDisplayName = (client) =>
   `${client?.prenom || client?.firstName || ""} ${client?.nom || client?.lastName || ""}`.trim() ||
   client?.displayName ||
@@ -172,6 +188,11 @@ export default function ProgramsPage() {
   const [assignedCounts, setAssignedCounts] = useState({});
   const [assignedClientsMap, setAssignedClientsMap] = useState({});
   const [loading, setLoading] = useState(true);
+	  const programsPageCacheKey = useMemo(
+	    () => (effectiveCoachUid ? `byl:programs-page:v1:${effectiveCoachUid}` : null),
+	    [effectiveCoachUid]
+	  );
+  const programsSummaryPageKey = "programs-page:v1";
 
   const choiceModal = useDisclosure();
   const confirmModal = useDisclosure();
@@ -289,10 +310,36 @@ export default function ProgramsPage() {
     [navigate, withAdminCoach]
   );
 
-  const fetchData = useCallback(async () => {
-    if (!effectiveCoachUid) return;
-    try {
-      setLoading(true);
+	  const fetchData = useCallback(async () => {
+	    if (!effectiveCoachUid) return;
+	    try {
+	      const cached = readPageDataCache(programsPageCacheKey, { ttlMs: PROGRAMS_PAGE_CACHE_TTL_MS });
+	      if (cached) {
+	        setProgrammes(cached.programmes || []);
+	        setClients(cached.clients || []);
+	        setAssignedCounts(cached.assignedCounts || {});
+	        setAssignedClientsMap(cached.assignedClientsMap || {});
+	        setLoading(false);
+	      } else {
+	        setLoading(true);
+          try {
+            const summary = await readCoachPageSummary({
+              coachUid: effectiveCoachUid,
+              pageKey: programsSummaryPageKey,
+              ttlMs: PROGRAMS_PAGE_CACHE_TTL_MS,
+            });
+            if (summary) {
+              setProgrammes(summary.programmes || []);
+              setClients(summary.clients || []);
+              setAssignedCounts(summary.assignedCounts || {});
+              setAssignedClientsMap(summary.assignedClientsMap || {});
+              setLoading(false);
+              writePageDataCache(programsPageCacheKey, summary);
+            }
+          } catch (summaryError) {
+            console.warn("[programs] coach page summary unavailable", summaryError);
+          }
+	      }
 
       const progQ = query(collection(db, "programmes"), where("createdBy", "==", effectiveCoachUid), limit(200));
       const pSnap = await getDocs(progQ);
@@ -314,11 +361,29 @@ export default function ProgramsPage() {
         getClientDisplayName(a).localeCompare(getClientDisplayName(b), "fr", { sensitivity: "base" })
       );
       setClients(clientList);
+	      const initialPayload = {
+	        programmes: progs,
+	        clients: clientList,
+	        assignedCounts: cached?.assignedCounts || {},
+	        assignedClientsMap: cached?.assignedClientsMap || {},
+	      };
+	      writePageDataCache(programsPageCacheKey, initialPayload);
+
+      await new Promise((resolve) => {
+        const cancel = deferPageTask(() => {
+          cancel?.();
+          resolve();
+        }, 450);
+      });
 
       const counts = {};
       const map = {};
+      const clientsToInspect = clientList.filter((clientData) => {
+        const count = getCachedAssignedProgramCount(clientData);
+        return count == null || count > 0;
+      });
 
-      await Promise.all(clientList.map(async (clientData) => {
+      await runLimited(clientsToInspect, async (clientData) => {
         const subSnap = await getDocs(collection(db, "clients", clientData.id, "programmes"));
         subSnap.docs.forEach((d) => {
           const prog = d.data() || {};
@@ -337,10 +402,24 @@ export default function ProgramsPage() {
             fallbackName: prettyProgramName(prog),
           });
         });
-      }));
+      }, 7);
 
       setAssignedCounts(counts);
       setAssignedClientsMap(map);
+	      const nextPayload = {
+	        programmes: progs,
+	        clients: clientList,
+	        assignedCounts: counts,
+	        assignedClientsMap: map,
+	      };
+	      writePageDataCache(programsPageCacheKey, nextPayload);
+        writeCoachPageSummary({
+          coachUid: effectiveCoachUid,
+          pageKey: programsSummaryPageKey,
+          data: nextPayload,
+        }).catch((summaryError) => {
+          console.warn("[programs] coach page summary write failed", summaryError);
+        });
     } catch (err) {
       console.error("Erreur chargement programmes:", err);
       notify(toast, "dataLoadError", {
@@ -349,7 +428,7 @@ export default function ProgramsPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast, effectiveCoachUid, t, prettyProgramName]);
+	  }, [toast, effectiveCoachUid, programsPageCacheKey, t, prettyProgramName]);
 
   useEffect(() => {
     if (!authLoading && effectiveCoachUid) fetchData();
@@ -374,12 +453,34 @@ export default function ProgramsPage() {
     };
   }, [assignedCounts, programmes]);
 
-  const handleDelete = async (id) => {
-    try {
-      await deleteDoc(doc(db, "programmes", id));
-      notify(toast, "programDeleted", {
-        title: t("common.delete", "Supprimer"),
-      });
+	  const handleDelete = async (id) => {
+	    try {
+	      await deleteDoc(doc(db, "programmes", id));
+	      const nextProgrammes = programmes.filter((program) => program.id !== id);
+	      const nextAssignedCounts = { ...assignedCounts };
+	      const nextAssignedClientsMap = { ...assignedClientsMap };
+	      delete nextAssignedCounts[id];
+	      delete nextAssignedClientsMap[id];
+	      const nextPayload = {
+	        programmes: nextProgrammes,
+	        clients,
+	        assignedCounts: nextAssignedCounts,
+	        assignedClientsMap: nextAssignedClientsMap,
+	      };
+	      setProgrammes(nextProgrammes);
+	      setAssignedCounts(nextAssignedCounts);
+	      setAssignedClientsMap(nextAssignedClientsMap);
+	      writePageDataCache(programsPageCacheKey, nextPayload);
+	      writeCoachPageSummary({
+	        coachUid: effectiveCoachUid,
+	        pageKey: programsSummaryPageKey,
+	        data: nextPayload,
+	      }).catch((summaryError) => {
+	        console.warn("[programs] coach page summary delete update failed", summaryError);
+	      });
+	      notify(toast, "programDeleted", {
+	        title: t("common.delete", "Supprimer"),
+	      });
       fetchData();
     } catch (err) {
       console.error("Erreur suppression programme:", err);

@@ -39,11 +39,25 @@ import { useAuth } from "../AuthContext.jsx";
 import NutritionQuickCreateModal from "../components/NutritionQuickCreateModal.jsx";
 import PageBackButton from "../components/ui/PageBackButton.jsx";
 import { useTranslation } from "react-i18next";
+import {
+  deferPageTask,
+  readPageDataCache,
+  runLimited,
+  updatePageDataCache,
+  writePageDataCache,
+} from "../utils/pageDataCache.js";
+import { readCoachPageSummary, writeCoachPageSummary } from "../utils/coachPageSummary.js";
+
+const NUTRITION_PAGE_CACHE_TTL_MS = 10 * 60 * 1000;
 
 function formatDate(ts, lng = "fr") {
   try {
     if (!ts) return "";
-    const d = ts?.toDate ? ts.toDate() : new Date(ts);
+    const d = ts?.toDate
+      ? ts.toDate()
+      : ts?.seconds
+        ? new Date(Number(ts.seconds) * 1000)
+        : new Date(ts);
     return d.toLocaleDateString(lng);
   } catch {
     return "";
@@ -68,6 +82,29 @@ function getClientName(assessment, t) {
   return [assessment?.inputs?.prenom, assessment?.inputs?.nom].filter(Boolean).join(" ").trim() || t("dashboard.client", "Client");
 }
 
+const getNutritionCountHint = (client) => {
+  const candidates = [
+    client?.nutritionAssessmentCount,
+    client?.nutritionAssessmentsCount,
+    client?.nutritionFollowupCount,
+    client?.nutritionBilansCount,
+    client?.nbBilansNutrition,
+  ];
+  const found = candidates.map(Number).find((n) => Number.isFinite(n));
+  return Number.isFinite(found) ? found : null;
+};
+
+const getAssessmentMs = (assessment) => {
+  const source = assessment?.docSnap?.data?.() || assessment || {};
+  const updated = source?.updatedAt;
+  const created = source?.createdAt;
+  const toMs = (value) =>
+    value?.toMillis?.() ||
+    (value?.seconds ? Number(value.seconds) * 1000 : 0) ||
+    (typeof value === "string" ? Date.parse(value) || 0 : 0);
+  return Math.max(toMs(updated), toMs(created), 0);
+};
+
 export default function CoachNutritionPage() {
   const { t, i18n } = useTranslation("common");
   const theme = useNutritionTheme();
@@ -91,6 +128,11 @@ export default function CoachNutritionPage() {
   const params = new URLSearchParams(location.search);
   const adminCoachId = params.get("adminCoachId") || "";
   const effectiveCoachUid = isAdmin && adminCoachId ? adminCoachId : user?.uid;
+	  const nutritionPageCacheKey = useMemo(
+	    () => (effectiveCoachUid ? `byl:nutrition-page:v1:${effectiveCoachUid}` : null),
+	    [effectiveCoachUid]
+	  );
+  const nutritionSummaryPageKey = "nutrition-page:v1";
   const withAdminCoach = useCallback(
     (path) => {
       if (!isAdmin || !adminCoachId) return path;
@@ -117,6 +159,28 @@ export default function CoachNutritionPage() {
       setRows([]);
       return;
     }
+    const cached = readPageDataCache(nutritionPageCacheKey, { ttlMs: NUTRITION_PAGE_CACHE_TTL_MS });
+	    if (cached) {
+	      setRows(cached.rows || []);
+	      setClientCount(Number(cached.clientCount || 0) || 0);
+	      setLoading(false);
+	    } else {
+	      try {
+	        const summary = await readCoachPageSummary({
+	          coachUid: effectiveCoachUid,
+	          pageKey: nutritionSummaryPageKey,
+	          ttlMs: NUTRITION_PAGE_CACHE_TTL_MS,
+	        });
+	        if (summary) {
+	          setRows(summary.rows || []);
+	          setClientCount(Number(summary.clientCount || 0) || 0);
+	          setLoading(false);
+	          writePageDataCache(nutritionPageCacheKey, summary);
+	        }
+	      } catch (summaryError) {
+	        console.warn("[nutrition] coach page summary unavailable", summaryError);
+	      }
+	    }
 
     const clientQueries = [
       query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(500)),
@@ -128,39 +192,97 @@ export default function CoachNutritionPage() {
         getDocs(clientQuery).catch(() => ({ docs: [] }))
       )
     );
-    const clientIds = new Set();
+    const clientsById = new Map();
     clientSnaps.forEach((clientSnap) => {
-      clientSnap.docs.forEach((clientDoc) => clientIds.add(clientDoc.id));
+      clientSnap.docs.forEach((clientDoc) => {
+        if (!clientsById.has(clientDoc.id)) {
+          clientsById.set(clientDoc.id, { id: clientDoc.id, ...clientDoc.data() });
+        }
+      });
     });
-    setClientCount(clientIds.size);
+    const clientList = Array.from(clientsById.values());
+    setClientCount(clientList.length);
 
-    const assessmentGroups = await Promise.all(
-      Array.from(clientIds).map(async (clientId) => {
+    const toRows = (groups) =>
+      groups
+        .flat()
+        .sort((a, b) => getAssessmentMs(b) - getAssessmentMs(a))
+        .map(({ docSnap, clientId }) => ({ id: docSnap.id, clientId, ...docSnap.data() }))
+        .filter(Boolean);
+
+    const fetchAssessmentGroup = async (client) => {
+      const clientId = client.id;
         const snap = await getDocs(collection(db, "clients", clientId, "nutrition_assessments"));
         return snap.docs.map((docSnap) => ({ docSnap, clientId }));
-      })
-    );
-    const docs = assessmentGroups.flat().sort((a, b) => {
-      const aTs = a.docSnap.data()?.updatedAt?.toMillis?.() || a.docSnap.data()?.createdAt?.toMillis?.() || 0;
-      const bTs = b.docSnap.data()?.updatedAt?.toMillis?.() || b.docSnap.data()?.createdAt?.toMillis?.() || 0;
-      return bTs - aTs;
+    };
+
+    const priorityClients = clientList.filter((client) => {
+      const count = getNutritionCountHint(client);
+      return count == null ? client?.hasNutritionFollowup || client?.nutritionFollowup : count > 0;
     });
-    setRows(
-      docs
-        .map(({ docSnap, clientId }) => {
-          return { id: docSnap.id, clientId, ...docSnap.data() };
-        })
-        .filter(Boolean)
-    );
-  }, [effectiveCoachUid]);
+    const priorityIds = new Set(priorityClients.map((client) => client.id));
+    const remainingClients = clientList.filter((client) => !priorityIds.has(client.id));
+
+    const priorityGroups = await runLimited(priorityClients, fetchAssessmentGroup, 7);
+    const priorityRows = toRows(priorityGroups);
+    if (priorityRows.length) {
+      setRows(priorityRows);
+      setLoading(false);
+      writePageDataCache(nutritionPageCacheKey, {
+        rows: priorityRows,
+        clientCount: clientList.length,
+      });
+      await new Promise((resolve) => {
+        const cancel = deferPageTask(() => {
+          cancel?.();
+          resolve();
+        }, 650);
+      });
+    }
+
+    const remainingGroups = await runLimited(remainingClients, fetchAssessmentGroup, 5);
+	    const nextRows = toRows([...priorityGroups, ...remainingGroups]);
+	    setRows(nextRows);
+	    const nextPayload = {
+	      rows: nextRows,
+	      clientCount: clientList.length,
+	    };
+	    writePageDataCache(nutritionPageCacheKey, nextPayload);
+      writeCoachPageSummary({
+        coachUid: effectiveCoachUid,
+        pageKey: nutritionSummaryPageKey,
+        data: nextPayload,
+      }).catch((summaryError) => {
+        console.warn("[nutrition] coach page summary write failed", summaryError);
+      });
+	  }, [effectiveCoachUid, nutritionPageCacheKey]);
 
   const handleDelete = useCallback(
-    async (clientId, assessmentId) => {
-      try {
-        await deleteDoc(doc(db, "clients", clientId, "nutrition_assessments", assessmentId));
-        setRows((currentRows) =>
-          currentRows.filter((row) => !(row.clientId === clientId && row.id === assessmentId))
-        );
+	    async (clientId, assessmentId) => {
+	      try {
+	        await deleteDoc(doc(db, "clients", clientId, "nutrition_assessments", assessmentId));
+	        const nextRows = rows.filter((row) => !(row.clientId === clientId && row.id === assessmentId));
+	        const nextPayload = {
+	          rows: nextRows,
+	          clientCount,
+	        };
+	        setRows(nextRows);
+	        updatePageDataCache(nutritionPageCacheKey, (cached) =>
+	          cached
+	            ? {
+	                ...cached,
+	                rows: nextRows,
+	              }
+	            : cached
+	        );
+	        writePageDataCache(nutritionPageCacheKey, nextPayload);
+	        writeCoachPageSummary({
+	          coachUid: effectiveCoachUid,
+	          pageKey: nutritionSummaryPageKey,
+	          data: nextPayload,
+	        }).catch((summaryError) => {
+	          console.warn("[nutrition] coach page summary delete update failed", summaryError);
+	        });
         toast({
           status: "success",
           title: t("nutritionCoach.toasts.deleted.title", "Bilan supprimé"),
@@ -174,8 +296,8 @@ export default function CoachNutritionPage() {
         });
       }
     },
-    [t, toast]
-  );
+	    [clientCount, effectiveCoachUid, nutritionPageCacheKey, rows, t, toast]
+	  );
 
   const askDelete = useCallback((row) => {
     setPendingDelete(row);

@@ -90,6 +90,31 @@ const ROUTES = {
 };
 /* ========================= */
 
+const NAV_ROUTE_PRELOADS = {
+  [ROUTES.home]: () => import("./HomePage.jsx"),
+  [ROUTES.login]: () => import("../pages/Login.jsx"),
+  [ROUTES.register]: () => import("../pages/Register.jsx"),
+  [ROUTES.autoQuestionnaire]: () => import("./AutoProgramQuestionnaire.jsx"),
+  [ROUTES.clientQuestionnaire]: () => import("./AutoProgramQuestionnaire.jsx"),
+  [ROUTES.coachBuilderNew]: () => import("./ProgramBuilderPage.jsx"),
+  [ROUTES.admin]: () => import("./AdminDashboard.jsx"),
+  [ROUTES.clubDashboard]: () => import("../pages/ClubDashboard.jsx"),
+  [ROUTES.coachDashboard]: () => import("./CoachDashboard.jsx"),
+  [ROUTES.coachProfile]: () => import("../pages/ProfilePageCoach.jsx"),
+  [ROUTES.coachSettings]: () => import("../pages/SettingsPageCoach.jsx"),
+  [ROUTES.coachPrograms]: () => import("./ProgramsPage.jsx"),
+  [ROUTES.coachClients]: () => import("./Clients.jsx"),
+  [ROUTES.coachNutrition]: () => import("../pages/CoachNutritionPage.jsx"),
+  [ROUTES.coachStats]: () => import("../pages/StatisticsPageCoach.jsx"),
+  [ROUTES.exerciseBank]: () => import("./ExerciseBank.jsx"),
+  [ROUTES.clientDashboard]: () => import("./Clientdashboard.jsx"),
+  [ROUTES.clientProfile]: () => import("../pages/ProfilePageClient.jsx"),
+  [ROUTES.clientPrograms]: () => import("../pages/MyPrograms.jsx"),
+  [ROUTES.clientNutrition]: () => import("../pages/ClientNutritionPage.jsx"),
+  [ROUTES.clientStats]: () => import("../pages/StatisticsPageClient.jsx"),
+  [ROUTES.clientSettings]: () => import("../pages/SettingsPageClient.jsx"),
+};
+
 const DEFAULT_BRAND_LABEL = "BoostYourLife.coach";
 
 export default function Navbar() {
@@ -174,6 +199,24 @@ export default function Navbar() {
     if (isClubContext || !isAdmin || !showCoachUI || !adminCoachId) return path;
     return `${path}${path.includes("?") ? "&" : "?"}adminCoachId=${encodeURIComponent(adminCoachId)}`;
   };
+  const preloadPath = React.useCallback((path = "") => {
+    const normalizedPath = String(path).split("?")[0].split("#")[0] || ROUTES.home;
+    const exactLoader = NAV_ROUTE_PRELOADS[normalizedPath];
+    const prefix = Object.keys(NAV_ROUTE_PRELOADS)
+      .filter((route) => route !== ROUTES.home)
+      .find((route) => normalizedPath.startsWith(`${route}/`));
+    const loader = exactLoader || NAV_ROUTE_PRELOADS[prefix];
+    loader?.().catch(() => {});
+  }, []);
+  const preloadInteractionProps = React.useCallback(
+    (path) => ({
+      onMouseEnter: () => preloadPath(path),
+      onTouchStart: () => preloadPath(path),
+      onPointerDown: () => preloadPath(path),
+      onFocus: () => preloadPath(path),
+    }),
+    [preloadPath]
+  );
 
   const handleLogout = () => {
     logout();
@@ -471,6 +514,7 @@ export default function Navbar() {
                 fontWeight="800"
                 _hover={{ bg: primaryActionHoverBg }}
                 _active={{ bg: primaryActionActiveBg }}
+                {...preloadInteractionProps(ROUTES.clientQuestionnaire)}
                 onClick={goToClientQuestionnaire}
               >
                 {clientCustomProgramLabel}
@@ -541,6 +585,7 @@ export default function Navbar() {
                         as={Link}
                         to={withAdminCoach(link.to)}
                         key={link.to}
+                        {...preloadInteractionProps(link.to)}
                         bg={isCurrentRoute(link.to) ? menuItemActiveBg : "transparent"}
                         py={3}
                         px={3}
@@ -603,6 +648,7 @@ export default function Navbar() {
                     <MenuItem
                       as={Link}
                       to={settingsTo}
+                      {...preloadInteractionProps(settingsTo)}
                       py={3}
                       px={3}
                       borderRadius="18px"
@@ -746,6 +792,7 @@ export default function Navbar() {
             <Button
               as={Link}
               to={ROUTES.login}
+              {...preloadInteractionProps(ROUTES.login)}
               variant="outline"
               borderRadius="16px"
               borderColor={actionBorder}
@@ -758,6 +805,7 @@ export default function Navbar() {
             <Button
               as={Link}
               to={ROUTES.register}
+              {...preloadInteractionProps(ROUTES.register)}
               variant="outline"
               borderRadius="16px"
               borderColor={actionBorder}
@@ -788,6 +836,7 @@ export default function Navbar() {
                 <Button
                   as={Link}
                   to={ROUTES.login}
+                  {...preloadInteractionProps(ROUTES.login)}
                   variant="outline"
                   borderRadius="16px"
                   borderColor={actionBorder}
@@ -800,6 +849,7 @@ export default function Navbar() {
                 <Button
                   as={Link}
                   to={ROUTES.register}
+                  {...preloadInteractionProps(ROUTES.register)}
                   variant="outline"
                   borderRadius="16px"
                   borderColor={actionBorder}
@@ -882,6 +932,7 @@ export default function Navbar() {
                   color="white"
                   _hover={{ bg: primaryActionHoverBg }}
                   _active={{ bg: primaryActionActiveBg }}
+                  {...preloadInteractionProps(ROUTES.clientQuestionnaire)}
                   onClick={goToClientQuestionnaire}
               >
                   {clientCustomProgramLabel}
@@ -913,6 +964,7 @@ export default function Navbar() {
                     <Button
                       as={Link}
                       to={withAdminCoach(link.to)}
+                      {...preloadInteractionProps(link.to)}
                       variant="ghost"
                       justifyContent="space-between"
                       w="full"
@@ -1003,6 +1055,7 @@ export default function Navbar() {
                   <Button
                     as={Link}
                     to={settingsTo}
+                    {...preloadInteractionProps(settingsTo)}
                     variant="ghost"
                     justifyContent="space-between"
                     w="full"
@@ -1189,6 +1242,7 @@ export default function Navbar() {
                       transform: "translateY(-1px)",
                       boxShadow: modalActionHoverShadow,
                     }}
+                    {...preloadInteractionProps(ROUTES.coachBuilderNew)}
                     onClick={() => {
                       choiceModal.onClose();
                       navigate(withAdminCoach(ROUTES.coachBuilderNew));
@@ -1213,6 +1267,7 @@ export default function Navbar() {
                         transform: "translateY(-1px)",
                         boxShadow: modalActionHoverShadow,
                       }}
+                      {...preloadInteractionProps(ROUTES.autoQuestionnaire)}
                       onClick={() => {
                         choiceModal.onClose();
                         mobileNav.onClose();
@@ -1262,6 +1317,7 @@ export default function Navbar() {
                         transform: "translateY(-1px)",
                         boxShadow: modalActionHoverShadow,
                       }}
+                      {...preloadInteractionProps(`${ROUTES.coachNutrition}?new=1`)}
                       onClick={() => {
                         choiceModal.onClose();
                         navigate(withAdminCoach(`${ROUTES.coachNutrition}?new=1`));
@@ -1278,6 +1334,7 @@ export default function Navbar() {
                   variant="solid"
                   w="full"
                   borderRadius="16px"
+                  {...preloadInteractionProps(ROUTES.clientQuestionnaire)}
                   onClick={goToClientQuestionnaire}
                 >
                   {nav("nav.build_my_program", "Construire mon programme")}

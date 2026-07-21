@@ -67,8 +67,11 @@ import { apiFetch } from "../utils/api";
 import { notify } from "../utils/notify";
 import { useAppTheme } from "../styles/appTheme";
 import { hasPlanModule } from "../utils/proPlanAccess";
+import { readPageDataCache, runLimited, updatePageDataCache, writePageDataCache } from "../utils/pageDataCache";
+import { readCoachPageSummary, writeCoachPageSummary } from "../utils/coachPageSummary";
 
 const DAYS_ACTIVE_CUTOFF = 30;
+const CLIENTS_PAGE_CACHE_TTL_MS = 10 * 60 * 1000;
 const SUBCOLL_PROGRAMMES = "programmes";
 const SUBCOLL_SESSIONS_DONE = "sessionsEffectuees";
 const FIELD_DONE_DATE = "dateEffectuee";
@@ -109,6 +112,8 @@ function getTotalSessionsFromProgrammeDoc(p) {
 const toMillis = (ts) =>
   ts?.toDate
     ? ts.toDate().getTime()
+    : ts?.seconds
+      ? Number(ts.seconds) * 1000
     : typeof ts === "number"
       ? ts > 1e12
         ? ts
@@ -442,19 +447,84 @@ const Clients = () => {
   }, []);
 
   const isFr = i18n.language?.startsWith?.("fr");
+  const clientsPageCacheKey = useMemo(
+    () =>
+      effectiveCoachUid
+        ? [
+            "byl:clients-page",
+            "v1",
+            effectiveCoachUid,
+            filter,
+            nutritionMode ? "nutrition" : "sport",
+            nutritionOnly ? "nutrition-all" : "nutrition-followed",
+            sportView ? "sport-only" : "all",
+          ].join(":")
+        : null,
+	    [effectiveCoachUid, filter, nutritionMode, nutritionOnly, sportView]
+	  );
+  const clientsSummaryPageKey = useMemo(
+    () =>
+      [
+        "clients-page",
+        "v1",
+        filter || "all",
+        nutritionMode ? "nutrition" : "sport",
+        nutritionOnly ? "nutrition-all" : "nutrition-followed",
+        sportView ? "sport-only" : "all",
+      ].join(":"),
+    [filter, nutritionMode, nutritionOnly, sportView]
+  );
 
-  const activeCutoffMs = useMemo(() => {
-    const now = Date.now();
-    return now - DAYS_ACTIVE_CUTOFF * 24 * 60 * 60 * 1000;
+	  const activeCutoffMs = useMemo(() => {
+	    const now = Date.now();
+	    return now - DAYS_ACTIVE_CUTOFF * 24 * 60 * 60 * 1000;
+	  }, []);
+
+  const hydrateClientsPagePayload = useCallback((payload = {}) => {
+    setClients(payload.clients || []);
+    setProgrammes(payload.programmes || []);
+    setProgressMap(payload.progressMap || {});
+    setSessionsPerWeekMap(payload.sessionsPerWeekMap || {});
+    setLastSessionMap(
+      Object.fromEntries(
+        Object.entries(payload.lastSessionMap || {}).map(([clientId, value]) => [
+          clientId,
+          value ? new Date(value) : null,
+        ])
+      )
+    );
+    setProgrammeCountMap(payload.programmeCountMap || {});
+    setLastInteractionMap(payload.lastInteractionMap || {});
+    setNutritionAssessmentCountMap(payload.nutritionAssessmentCountMap || {});
+    setNutritionLastFollowMap(payload.nutritionLastFollowMap || {});
+    setLoading(false);
   }, []);
 
-  const fetchData = useCallback(async () => {
+	  const fetchData = useCallback(async () => {
     if (!effectiveCoachUid) {
       setClients([]);
       setLoading(false);
       return;
     }
-    setLoading(true);
+	    const cached = readPageDataCache(clientsPageCacheKey, { ttlMs: CLIENTS_PAGE_CACHE_TTL_MS });
+	    if (cached) {
+	      hydrateClientsPagePayload(cached);
+	    } else {
+	      setLoading(true);
+        try {
+          const summary = await readCoachPageSummary({
+            coachUid: effectiveCoachUid,
+            pageKey: clientsSummaryPageKey,
+            ttlMs: CLIENTS_PAGE_CACHE_TTL_MS,
+          });
+          if (summary) {
+            hydrateClientsPagePayload(summary);
+            writePageDataCache(clientsPageCacheKey, summary);
+          }
+        } catch (summaryError) {
+          console.warn("[clients] coach page summary unavailable", summaryError);
+        }
+	    }
 
     try {
       const clientSnaps = await Promise.all([
@@ -570,26 +640,41 @@ const Clients = () => {
       const nutritionCountEntries = {};
       const nutritionLastEntries = {};
 
-      const enriched = await Promise.all(
-        list.map(async (c) => {
-          const computed = await buildClientComputedStats(c);
+      const enriched = await runLimited(
+        list,
+        async (c) => {
+          const computed = nutritionMode
+            ? {
+                progress: { percent: 0, completed: 0, total: 0 },
+                sessionsPerWeek: 0,
+                lastSessionDate: c?.lastSession?.toDate?.() || null,
+                programmeCount: getCachedSportProgramCount(c),
+                _lastInteractionMs: getCachedClientActivityMs(c),
+              }
+            : await buildClientComputedStats(c);
           let latestNutritionMs = 0;
-          try {
-            const nutritionSnap = await getDocs(collection(db, "clients", c.id, "nutrition_assessments"));
-            nutritionCountEntries[c.id] = nutritionSnap.size;
-            nutritionSnap.forEach((assessmentDoc) => {
-              const data = assessmentDoc.data() || {};
-              const ms = Math.max(
-                toMillis(data.sharedAt),
-                toMillis(data.updatedAt),
-                toMillis(data.createdAt),
-                toMillis(data.date),
-                0
-              );
-              if (ms > latestNutritionMs) latestNutritionMs = ms;
-            });
-          } catch (_) {
-            nutritionCountEntries[c.id] = 0;
+          if (nutritionMode || getCachedNutritionCount(c) > 0 || c?.hasNutritionFollowup || c?.nutritionFollowup) {
+            try {
+              const nutritionSnap = await getDocs(collection(db, "clients", c.id, "nutrition_assessments"));
+              nutritionCountEntries[c.id] = nutritionSnap.size;
+              nutritionSnap.forEach((assessmentDoc) => {
+                const data = assessmentDoc.data() || {};
+                const ms = Math.max(
+                  toMillis(data.sharedAt),
+                  toMillis(data.updatedAt),
+                  toMillis(data.createdAt),
+                  toMillis(data.date),
+                  0
+                );
+                if (ms > latestNutritionMs) latestNutritionMs = ms;
+              });
+            } catch (_) {
+              nutritionCountEntries[c.id] = quickNutritionCounts[c.id] || 0;
+              latestNutritionMs = quickNutritionLast[c.id] || 0;
+            }
+          } else {
+            nutritionCountEntries[c.id] = quickNutritionCounts[c.id] || 0;
+            latestNutritionMs = quickNutritionLast[c.id] || 0;
           }
 
           progressEntries[c.id] = computed.progress;
@@ -607,7 +692,8 @@ const Clients = () => {
           }
 
           return { ...c, _lastInteractionMs: computed._lastInteractionMs || 0 };
-        })
+        },
+        nutritionMode ? 5 : 6
       );
 
       setProgressMap(progressEntries);
@@ -637,13 +723,37 @@ const Clients = () => {
         });
       }
 
-      setClients(filtered);
+	      setClients(filtered);
+        const nextPayload = {
+	        clients: filtered,
+	        programmes: progs,
+	        progressMap: progressEntries,
+        sessionsPerWeekMap: perWeekEntries,
+        lastSessionMap: Object.fromEntries(
+          Object.entries(lastEntries).map(([clientId, value]) => [
+            clientId,
+            value?.toISOString ? value.toISOString() : value || null,
+          ])
+        ),
+        programmeCountMap: countEntries,
+	        lastInteractionMap: interactionEntries,
+	        nutritionAssessmentCountMap: nutritionCountEntries,
+	        nutritionLastFollowMap: nutritionLastEntries,
+	      };
+	      writePageDataCache(clientsPageCacheKey, nextPayload);
+        writeCoachPageSummary({
+          coachUid: effectiveCoachUid,
+          pageKey: clientsSummaryPageKey,
+          data: nextPayload,
+        }).catch((summaryError) => {
+          console.warn("[clients] coach page summary write failed", summaryError);
+        });
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [effectiveCoachUid, filter, activeCutoffMs, nutritionMode, nutritionOnly, sportView]);
+	  }, [effectiveCoachUid, clientsPageCacheKey, clientsSummaryPageKey, filter, activeCutoffMs, nutritionMode, nutritionOnly, sportView, hydrateClientsPagePayload]);
 
   useEffect(() => {
     fetchData();
@@ -722,12 +832,40 @@ const Clients = () => {
     setIsDeleteOpen(true);
   };
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    await deleteDoc(doc(db, "clients", deleteTarget));
-    setClients((prev) => prev.filter((c) => c.id !== deleteTarget));
-    setIsDeleteOpen(false);
-  };
+	  const handleDelete = async () => {
+	    if (!deleteTarget) return;
+	    await deleteDoc(doc(db, "clients", deleteTarget));
+	    const nextClients = clients.filter((c) => c.id !== deleteTarget);
+	    const nextPayload = {
+	      clients: nextClients,
+	      programmes,
+	      progressMap,
+	      sessionsPerWeekMap,
+	      lastSessionMap: Object.fromEntries(
+	        Object.entries(lastSessionMap).map(([clientId, value]) => [
+	          clientId,
+	          value?.toISOString ? value.toISOString() : value || null,
+	        ])
+	      ),
+	      programmeCountMap,
+	      lastInteractionMap,
+	      nutritionAssessmentCountMap,
+	      nutritionLastFollowMap,
+	    };
+	    setClients(nextClients);
+	    updatePageDataCache(clientsPageCacheKey, (cached) =>
+	      cached ? { ...cached, clients: (cached.clients || []).filter((c) => c.id !== deleteTarget) } : cached
+	    );
+	    writePageDataCache(clientsPageCacheKey, nextPayload);
+	    writeCoachPageSummary({
+	      coachUid: effectiveCoachUid,
+	      pageKey: clientsSummaryPageKey,
+	      data: nextPayload,
+	    }).catch((summaryError) => {
+	      console.warn("[clients] coach page summary delete update failed", summaryError);
+	    });
+	    setIsDeleteOpen(false);
+	  };
 
   const goalOptions = useMemo(
     () => (nutritionMode ? NUTRITION_GOALS : GOALS).map((g) => ({ value: g.value, label: isFr ? g.fr : g.en })),

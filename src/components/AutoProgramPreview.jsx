@@ -48,7 +48,6 @@ import {
   MdCheckCircle,
   MdAutoAwesome,
 } from "react-icons/md";
-import { pdf } from "@react-pdf/renderer";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../AuthContext";
 import AppLoading from "./ui/AppLoading";
@@ -56,7 +55,6 @@ import { notify } from "../utils/notify";
 import { localizeExercise } from "../utils/exerciseI18n";
 import { useAppTheme } from "../styles/appTheme";
 import { estimateSessionDurationSeconds, formatDuration } from "../utils/trainingEngine";
-import { SportProgramPdfDocument } from "../utils/sportProgramPdf";
 import { canUseCustomBranding } from "../utils/proPlanAccess";
 import { apiFetch } from "../utils/api";
 import * as firebaseConfig from "../firebaseConfig";
@@ -1315,6 +1313,18 @@ async function resolveCoachNameFromCreatedBy(createdBy) {
 /* =========================
    Nom séance
    ========================= */
+function localizeGenericSessionName(value, idx, L) {
+  const text = String(value || "").trim();
+  if (!text) return `${L.session} ${idx + 1}`;
+
+  const genericSessionMatch = text.match(
+    /^(?:séance|seance|session|einheit|seduta|sesión|sesion|тренировка|сессия|حصة)\s*(\d+)?$/i
+  );
+
+  if (genericSessionMatch) return `${L.session} ${genericSessionMatch[1] || idx + 1}`;
+  return text;
+}
+
 function getSessionDisplayName(session, idx, L) {
   const candidates = [
     session?.name,
@@ -1335,7 +1345,7 @@ function getSessionDisplayName(session, idx, L) {
     .filter((v) => typeof v === "string" && v.trim())
     .map((v) => v.trim());
 
-  if (candidates.length) return candidates[0];
+  if (candidates.length) return localizeGenericSessionName(candidates[0], idx, L);
   return `${L.session} ${idx + 1}`;
 }
 
@@ -1538,7 +1548,7 @@ function totalTime(session) {
 /* ---------------- PDF i18n ---------------- */
 const PDF_I18N = {
   fr: {
-    langName: "FR",
+    langName: "Français",
     sections: {
       warmup: "Échauffement",
       main: "Corps de séance",
@@ -1577,7 +1587,7 @@ const PDF_I18N = {
     continued: " (suite)",
   },
   en: {
-    langName: "EN",
+    langName: "English",
     sections: { warmup: "Warm-up", main: "Main session", bonus: "Bonus", cooldown: "Cool-down" },
     labels: {
       sets: "Sets",
@@ -1611,7 +1621,7 @@ const PDF_I18N = {
     continued: " (cont.)",
   },
   de: {
-    langName: "DE",
+    langName: "Deutsch",
     sections: { warmup: "Aufwärmen", main: "Hauptteil", bonus: "Bonus", cooldown: "Cooldown" },
     labels: {
       sets: "Sätze",
@@ -1645,7 +1655,7 @@ const PDF_I18N = {
     continued: " (Fortsetzung)",
   },
   it: {
-    langName: "IT",
+    langName: "Italiano",
     sections: { warmup: "Riscaldamento", main: "Allenamento", bonus: "Bonus", cooldown: "Defaticamento" },
     labels: {
       sets: "Serie",
@@ -1679,7 +1689,7 @@ const PDF_I18N = {
     continued: " (segue)",
   },
   es: {
-    langName: "ES",
+    langName: "Español",
     sections: {
       warmup: "Calentamiento",
       main: "Entrenamiento",
@@ -1718,7 +1728,7 @@ const PDF_I18N = {
     continued: " (continuación)",
   },
   ru: {
-    langName: "RU",
+    langName: "Русский",
     sections: { warmup: "Разминка", main: "Основная часть", bonus: "Бонус", cooldown: "Заминка" },
     labels: {
       sets: "Подходы",
@@ -1752,7 +1762,7 @@ const PDF_I18N = {
     continued: " (прод.)",
   },
   ar: {
-    langName: "AR",
+    langName: "العربية",
     sections: { warmup: "إحماء", main: "التمرين الرئيسي", bonus: "إضافة", cooldown: "تهدئة" },
     labels: {
       sets: "المجموعات",
@@ -1852,14 +1862,14 @@ const extractObjectifKeyFromNomProgrammeSmart = (nomProgramme = "", t) => {
 const extractNbSeancesFromNomProgramme = (nomProgramme = "") => {
   const s = String(nomProgramme || "");
   if (!s) return null;
-  const m = s.match(/(?:—\s*)?(\d+)\s*x\s*\/?\s*(?:sem|semaine|week)/i);
+  const m = s.match(/(?:—\s*)?(\d+)\s*x\s*\/?\s*(?:sem|semaine|week|settimana|semana|woche|нед|أسبوع)/i);
   if (m && m[1]) return Number(m[1]);
   return null;
 };
 
 const normalizeForFilename = (s = "") =>
   norm(String(s || ""))
-    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/[^\p{L}\p{N}]+/gu, "_")
     .replace(/^_+|_+$/g, "");
 
 const getObjectifUIFromProg = (prog) => {
@@ -2352,6 +2362,10 @@ export default function AutoProgramPreview() {
 
   const Llbl = PDF_I18N;
   const L = Llbl[pdfLang] || Llbl.fr;
+  const pdfT = useMemo(() => {
+    if (typeof i18n.getFixedT === "function") return i18n.getFixedT(pdfLang, "common");
+    return t;
+  }, [i18n, pdfLang, t]);
 
   const locale = useMemo(() => getLocaleFromLang(i18n.language || pdfLang || "fr"), [i18n.language, pdfLang]);
   const pdfLocale = useMemo(() => getLocaleFromLang(pdfLang), [pdfLang]);
@@ -2575,6 +2589,14 @@ export default function AutoProgramPreview() {
     return humanizeKey(objectifKeyDisplay);
   }, [objectifKeyDisplay, t]);
 
+  const objectifLabelPdf = useMemo(() => {
+    if (!objectifKeyDisplay) return "";
+    const i18nKey = GOAL_LABEL_BY_KEY[objectifKeyDisplay];
+    const translated = i18nKey ? pdfT(i18nKey) : null;
+    if (translated && translated !== i18nKey) return translated;
+    return humanizeKey(objectifKeyDisplay);
+  }, [objectifKeyDisplay, pdfT]);
+
   const nbSeances = useMemo(() => {
     if (Array.isArray(sessions) && sessions.length > 0) return sessions.length;
     if (nbSeancesFromNav) return nbSeancesFromNav;
@@ -2612,6 +2634,18 @@ export default function AutoProgramPreview() {
     const base = objectifLabelDisplay || t("autoPreview.generated", "Programme");
     return nbSeances ? `${base} — ${nbSeances}${perWeek}` : base;
   }, [customProgramName, isAutoProgram, objectifKeyDisplay, objectifKeyFromName, objectifLabelDisplay, nbSeances, pdfLang, Llbl, t]);
+
+  const programmePdfTitleDisplay = useMemo(() => {
+    const perWeek = (Llbl[pdfLang] || Llbl.fr).perWeek || "x/Sem";
+    const translatedAutoName = objectifLabelPdf
+      ? nbSeances
+        ? `${objectifLabelPdf} — ${nbSeances}${perWeek}`
+        : objectifLabelPdf
+      : "";
+
+    if (translatedAutoName) return translatedAutoName;
+    return (customProgramName || "").trim() || programmeTitleDisplay || L.fileProgram;
+  }, [L.fileProgram, Llbl, customProgramName, nbSeances, objectifLabelPdf, pdfLang, programmeTitleDisplay]);
 
   useEffect(() => {
     let alive = true;
@@ -2956,7 +2990,11 @@ export default function AutoProgramPreview() {
         status: "info",
         duration: 1400,
       });
-      const imageMap = await preloadPdfImagesForAllSessions();
+      const [{ pdf }, { SportProgramPdfDocument }, imageMap] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("../utils/sportProgramPdf"),
+        preloadPdfImagesForAllSessions(),
+      ]);
       const rawCoachName =
         getPrettyUserName(user) ||
         (user?.displayName && !/@/.test(user.displayName) ? user.displayName : "") ||
@@ -2982,7 +3020,7 @@ export default function AutoProgramPreview() {
 
       const blob = await pdf(
         <SportProgramPdfDocument
-          title={programmeTitleDisplay}
+          title={programmePdfTitleDisplay}
           clientName=""
           coachName={pdfHeaderName}
           logoDataUrl={pdfHeaderLogo}
@@ -2993,7 +3031,7 @@ export default function AutoProgramPreview() {
         />
       ).toBlob();
 
-      const base = normalizeForFilename(programmeTitleDisplay || L.fileProgram);
+      const base = normalizeForFilename(programmePdfTitleDisplay || L.fileProgram) || normalizeForFilename(L.fileProgram) || "programme";
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;

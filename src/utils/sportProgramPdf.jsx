@@ -1,4 +1,5 @@
 import React from "react";
+import { Buffer } from "buffer";
 import {
   Document,
   Page,
@@ -6,7 +7,23 @@ import {
   Text,
   Image,
   StyleSheet,
+  Font,
 } from "@react-pdf/renderer";
+
+const PDF_FONT_FAMILY = "BYL PDF Sans";
+
+if (typeof globalThis !== "undefined" && !globalThis.Buffer) {
+  globalThis.Buffer = Buffer;
+}
+
+Font.register({
+  family: PDF_FONT_FAMILY,
+  fonts: [
+    { src: "/fonts/Arial.ttf", fontWeight: 400 },
+    { src: "/fonts/Arial-Bold.ttf", fontWeight: 700 },
+  ],
+});
+Font.registerHyphenationCallback((word) => [word]);
 
 const styles = StyleSheet.create({
   page: {
@@ -15,7 +32,7 @@ const styles = StyleSheet.create({
     paddingBottom: 34,
     backgroundColor: "#F8FBFF",
     color: "#111827",
-    fontFamily: "Helvetica",
+    fontFamily: PDF_FONT_FAMILY,
   },
   header: {
     flexDirection: "row",

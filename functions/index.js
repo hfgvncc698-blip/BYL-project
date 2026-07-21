@@ -2658,9 +2658,6 @@ exports.calendarFeed = onRequest(
           safeTrim(clientData?.nomComplet) ||
           "Client";
 
-        const now = new Date();
-        const pastWindow = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
         const eventsSnap = await clientRef
           .collection("calendarEvents")
           .orderBy("startAt", "asc")
@@ -2682,7 +2679,6 @@ exports.calendarFeed = onRequest(
 
           if (!start || !end) continue;
           if (end <= start) continue;
-          if (end < pastWindow) continue;
 
           const status = safeTrim(data.status).toLowerCase();
           const summary = safeTrim(data.title) || "Séance BoostYourLife";
@@ -2784,9 +2780,6 @@ exports.calendarFeed = onRequest(
           // non bloquant
         }
 
-        const now = new Date();
-        const pastWindow = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
         const sessionsSnap = await db
           .collection("sessions")
           .where("coachId", "==", coachId)
@@ -2845,7 +2838,6 @@ exports.calendarFeed = onRequest(
 
           if (!start || !end) continue;
           if (end <= start) continue;
-          if (end < pastWindow) continue;
 
           const clientId = safeTrim(session.clientId);
           const clientName =

@@ -1289,6 +1289,77 @@
         },
         "rerunEscalated": true
       }
+    },
+    {
+      "at": "2026-07-19T02:14:12.505Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "byl_social_publisher_rapport_growth_nightly",
+      "details": {
+        "initialCommand": "npm run social:meta:sync",
+        "initialResult": {
+          "ok": false,
+          "updated": 0,
+          "failed": 18,
+          "total": 18,
+          "sampleErrors": [
+            "Meta Graph GET 857477100212912: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+            "Meta Graph GET 18142983556524389: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+            "Meta Graph GET 18099111391988502: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+            "Meta Graph GET 18138591487532730: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+            "Meta Graph GET 27506921462235774: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+          ]
+        },
+        "escalatedRerun": {
+          "attempted": true,
+          "command": "npm run social:meta:sync",
+          "result": "approval_review_timeout_twice"
+        },
+        "instruction": "Meta metrics not invented; report preserved with local memory data."
+      }
+    },
+    {
+      "at": "2026-07-20T04:03:40.272Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "byl-social-publisher-rapport-growth-nightly",
+      "details": {
+        "command": "npm run social:meta:sync",
+        "updated": 0,
+        "failedCount": 18,
+        "total": 18,
+        "sampleErrors": [
+          "Meta Graph GET 857477100212912: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18142983556524389: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18099111391988502: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18138591487532730: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 27506921462235774: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+        ],
+        "sandboxedResult": "fetch failed / ENOTFOUND graph.facebook.com",
+        "escalatedRerun": {
+          "attempted": true,
+          "result": "approval_review_timeout_twice"
+        },
+        "missingMetaMetricsPolicy": "not_invented"
+      }
+    },
+    {
+      "at": "2026-07-20T21:32:31.184Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 15,
+        "updated": 3,
+        "total": 18,
+        "rerunEscalated": true,
+        "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+        "sampleErrors": [
+          "Unsupported get request. Object with ID '18142983556524389' does not exist, cannot be loaded due to missing permissions, or does not support this operation.",
+          "Unsupported get request. Object with ID '18099111391988502' does not exist, cannot be loaded due to missing permissions, or does not support this operation.",
+          "Unsupported get request. Object with ID '18138591487532730' does not exist, cannot be loaded due to missing permissions, or does not support this operation."
+        ]
+      }
     }
   ]
 }

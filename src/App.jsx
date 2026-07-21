@@ -22,58 +22,194 @@ import { ConsentProvider, useConsent } from "./consent/ConsentContext.jsx";
 import SeoManager from "./components/SeoManager.jsx";
 import { SEO_ROUTES } from "./seo/seoConfig.js";
 
-const GeolocationBootstrap = lazy(() => import("./components/GeolocationBootstrap.jsx"));
-const GuidedTutorial = lazy(() => import("./components/GuidedTutorial.jsx"));
-const CookieConsentBanner = lazy(() => import("./components/CookieConsentBanner.jsx"));
-const RouteAnalyticsListener = lazy(() => import("./components/RouteAnalyticsListener.jsx"));
+const backgroundLoaders = {
+  GeolocationBootstrap: () => import("./components/GeolocationBootstrap.jsx"),
+  GuidedTutorial: () => import("./components/GuidedTutorial.jsx"),
+  CookieConsentBanner: () => import("./components/CookieConsentBanner.jsx"),
+  RouteAnalyticsListener: () => import("./components/RouteAnalyticsListener.jsx"),
+};
+
+const routeLoaders = {
+  HomePage: () => import("./components/HomePage.jsx"),
+  AboutPage: () => import("./pages/AboutPage.jsx"),
+  ContactPage: () => import("./pages/ContactPage.jsx"),
+  PrivacyPolicyPage: () => import("./pages/PrivacyPolicyPage.jsx"),
+  TermsOfServicePage: () => import("./pages/TermsOfServicePage.jsx"),
+  SalesPolicyPage: () => import("./pages/SalesPolicyPage.jsx"),
+  TikTokOAuthRelay: () => import("./pages/TikTokOAuthRelay.jsx"),
+  PremiumPrograms: () => import("./pages/PremiumPrograms.jsx"),
+  PlanProfessionnel: () => import("./pages/PlanProfessionnel.jsx"),
+  SeoLandingPage: () => import("./pages/SeoLandingPage.jsx"),
+  Checkout: () => import("./pages/Checkout.jsx"),
+  AccountBilling: () => import("./pages/AccountBilling.jsx"),
+  Login: () => import("./pages/Login.jsx"),
+  Register: () => import("./pages/Register.jsx"),
+  CoachDashboard: () => import("./components/CoachDashboard.jsx"),
+  ClubDashboard: () => import("./pages/ClubDashboard.jsx"),
+  ClientDashboard: () => import("./components/Clientdashboard.jsx"),
+  AdminDashboard: () => import("./components/AdminDashboard.jsx"),
+  ProfilePageClient: () => import("./pages/ProfilePageClient.jsx"),
+  MyPrograms: () => import("./pages/MyPrograms.jsx"),
+  Statistics: () => import("./pages/StatisticsPageClient.jsx"),
+  SettingsPageClient: () => import("./pages/SettingsPageClient.jsx"),
+  ClientNutritionPage: () => import("./pages/ClientNutritionPage.jsx"),
+  CoachNutritionPage: () => import("./pages/CoachNutritionPage.jsx"),
+  ProfilePageCoach: () => import("./pages/ProfilePageCoach.jsx"),
+  SettingsPageCoach: () => import("./pages/SettingsPageCoach.jsx"),
+  StatisticsPageCoach: () => import("./pages/StatisticsPageCoach.jsx"),
+  ExerciseBank: () => import("./components/ExerciseBank.jsx"),
+  ProgramsPage: () => import("./components/ProgramsPage.jsx"),
+  ProgramView: () => import("./components/ProgramView.jsx"),
+  ProgramBuilderPage: () => import("./components/ProgramBuilderPage.jsx"),
+  AutoProgramQuestionnaire: () => import("./components/AutoProgramQuestionnaire.jsx"),
+  AutoProgramPreview: () => import("./components/AutoProgramPreview.jsx"),
+  Clients: () => import("./components/Clients.jsx"),
+  SessionPlayer: () => import("./components/SessionPlayer.jsx"),
+  ClientView: () => import("./components/ClientView.jsx"),
+  NutritionAssessmentEditor: () => import("./components/NutritionAssessmentEditor.jsx"),
+  FoodSurvey: () => import("./components/FoodSurvey.jsx"),
+  NutritionRationPage: () => import("./components/NutritionRationPage.jsx"),
+  NutritionMenuJournalierPage: () => import("./components/MenuJournalierFromRation.jsx"),
+  Success: () => import("./pages/Success"),
+  Cancel: () => import("./pages/Cancel"),
+  AdminGeo: () => import("./pages/AdminGeo.jsx"),
+  AdminClient: () => import("./pages/AdminClient.jsx"),
+  AdminCoach: () => import("./pages/AdminCoach.jsx"),
+  AdminSocialPublisher: () => import("./pages/AdminSocialPublisher.jsx"),
+};
+
+const lazyFrom = (loaders, key) => lazy(loaders[key]);
+
+const GeolocationBootstrap = lazyFrom(backgroundLoaders, "GeolocationBootstrap");
+const GuidedTutorial = lazyFrom(backgroundLoaders, "GuidedTutorial");
+const CookieConsentBanner = lazyFrom(backgroundLoaders, "CookieConsentBanner");
+const RouteAnalyticsListener = lazyFrom(backgroundLoaders, "RouteAnalyticsListener");
 
 // Route-level code splitting: les écrans lourds ne partent plus dans le bundle initial.
-const HomePage = lazy(() => import("./components/HomePage.jsx"));
-const AboutPage = lazy(() => import("./pages/AboutPage.jsx"));
-const ContactPage = lazy(() => import("./pages/ContactPage.jsx"));
-const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage.jsx"));
-const TermsOfServicePage = lazy(() => import("./pages/TermsOfServicePage.jsx"));
-const SalesPolicyPage = lazy(() => import("./pages/SalesPolicyPage.jsx"));
-const TikTokOAuthRelay = lazy(() => import("./pages/TikTokOAuthRelay.jsx"));
-const PremiumPrograms = lazy(() => import("./pages/PremiumPrograms.jsx"));
-const PlanProfessionnel = lazy(() => import("./pages/PlanProfessionnel.jsx"));
-const SeoLandingPage = lazy(() => import("./pages/SeoLandingPage.jsx"));
-const Checkout = lazy(() => import("./pages/Checkout.jsx"));
-const AccountBilling = lazy(() => import("./pages/AccountBilling.jsx"));
-const Login = lazy(() => import("./pages/Login.jsx"));
-const Register = lazy(() => import("./pages/Register.jsx"));
-const CoachDashboard = lazy(() => import("./components/CoachDashboard.jsx"));
-const ClubDashboard = lazy(() => import("./pages/ClubDashboard.jsx"));
-const ClientDashboard = lazy(() => import("./components/Clientdashboard.jsx"));
-const AdminDashboard = lazy(() => import("./components/AdminDashboard.jsx"));
-const ProfilePageClient = lazy(() => import("./pages/ProfilePageClient.jsx"));
-const MyPrograms = lazy(() => import("./pages/MyPrograms.jsx"));
-const Statistics = lazy(() => import("./pages/StatisticsPageClient.jsx"));
-const SettingsPageClient = lazy(() => import("./pages/SettingsPageClient.jsx"));
-const ClientNutritionPage = lazy(() => import("./pages/ClientNutritionPage.jsx"));
-const CoachNutritionPage = lazy(() => import("./pages/CoachNutritionPage.jsx"));
-const ProfilePageCoach = lazy(() => import("./pages/ProfilePageCoach.jsx"));
-const SettingsPageCoach = lazy(() => import("./pages/SettingsPageCoach.jsx"));
-const StatisticsPageCoach = lazy(() => import("./pages/StatisticsPageCoach.jsx"));
-const ExerciseBank = lazy(() => import("./components/ExerciseBank.jsx"));
-const ProgramsPage = lazy(() => import("./components/ProgramsPage.jsx"));
-const ProgramView = lazy(() => import("./components/ProgramView.jsx"));
-const ProgramBuilderPage = lazy(() => import("./components/ProgramBuilderPage.jsx"));
-const AutoProgramQuestionnaire = lazy(() => import("./components/AutoProgramQuestionnaire.jsx"));
-const AutoProgramPreview = lazy(() => import("./components/AutoProgramPreview.jsx"));
-const Clients = lazy(() => import("./components/Clients.jsx"));
-const SessionPlayer = lazy(() => import("./components/SessionPlayer.jsx"));
-const ClientView = lazy(() => import("./components/ClientView.jsx"));
-const NutritionAssessmentEditor = lazy(() => import("./components/NutritionAssessmentEditor.jsx"));
-const FoodSurvey = lazy(() => import("./components/FoodSurvey.jsx"));
-const NutritionRationPage = lazy(() => import("./components/NutritionRationPage.jsx"));
-const NutritionMenuJournalierPage = lazy(() => import("./components/MenuJournalierFromRation.jsx"));
-const Success = lazy(() => import("./pages/Success"));
-const Cancel = lazy(() => import("./pages/Cancel"));
-const AdminGeo = lazy(() => import("./pages/AdminGeo.jsx"));
-const AdminClient = lazy(() => import("./pages/AdminClient.jsx"));
-const AdminCoach = lazy(() => import("./pages/AdminCoach.jsx"));
-const AdminSocialPublisher = lazy(() => import("./pages/AdminSocialPublisher.jsx"));
+const HomePage = lazyFrom(routeLoaders, "HomePage");
+const AboutPage = lazyFrom(routeLoaders, "AboutPage");
+const ContactPage = lazyFrom(routeLoaders, "ContactPage");
+const PrivacyPolicyPage = lazyFrom(routeLoaders, "PrivacyPolicyPage");
+const TermsOfServicePage = lazyFrom(routeLoaders, "TermsOfServicePage");
+const SalesPolicyPage = lazyFrom(routeLoaders, "SalesPolicyPage");
+const TikTokOAuthRelay = lazyFrom(routeLoaders, "TikTokOAuthRelay");
+const PremiumPrograms = lazyFrom(routeLoaders, "PremiumPrograms");
+const PlanProfessionnel = lazyFrom(routeLoaders, "PlanProfessionnel");
+const SeoLandingPage = lazyFrom(routeLoaders, "SeoLandingPage");
+const Checkout = lazyFrom(routeLoaders, "Checkout");
+const AccountBilling = lazyFrom(routeLoaders, "AccountBilling");
+const Login = lazyFrom(routeLoaders, "Login");
+const Register = lazyFrom(routeLoaders, "Register");
+const CoachDashboard = lazyFrom(routeLoaders, "CoachDashboard");
+const ClubDashboard = lazyFrom(routeLoaders, "ClubDashboard");
+const ClientDashboard = lazyFrom(routeLoaders, "ClientDashboard");
+const AdminDashboard = lazyFrom(routeLoaders, "AdminDashboard");
+const ProfilePageClient = lazyFrom(routeLoaders, "ProfilePageClient");
+const MyPrograms = lazyFrom(routeLoaders, "MyPrograms");
+const Statistics = lazyFrom(routeLoaders, "Statistics");
+const SettingsPageClient = lazyFrom(routeLoaders, "SettingsPageClient");
+const ClientNutritionPage = lazyFrom(routeLoaders, "ClientNutritionPage");
+const CoachNutritionPage = lazyFrom(routeLoaders, "CoachNutritionPage");
+const ProfilePageCoach = lazyFrom(routeLoaders, "ProfilePageCoach");
+const SettingsPageCoach = lazyFrom(routeLoaders, "SettingsPageCoach");
+const StatisticsPageCoach = lazyFrom(routeLoaders, "StatisticsPageCoach");
+const ExerciseBank = lazyFrom(routeLoaders, "ExerciseBank");
+const ProgramsPage = lazyFrom(routeLoaders, "ProgramsPage");
+const ProgramView = lazyFrom(routeLoaders, "ProgramView");
+const ProgramBuilderPage = lazyFrom(routeLoaders, "ProgramBuilderPage");
+const AutoProgramQuestionnaire = lazyFrom(routeLoaders, "AutoProgramQuestionnaire");
+const AutoProgramPreview = lazyFrom(routeLoaders, "AutoProgramPreview");
+const Clients = lazyFrom(routeLoaders, "Clients");
+const SessionPlayer = lazyFrom(routeLoaders, "SessionPlayer");
+const ClientView = lazyFrom(routeLoaders, "ClientView");
+const NutritionAssessmentEditor = lazyFrom(routeLoaders, "NutritionAssessmentEditor");
+const FoodSurvey = lazyFrom(routeLoaders, "FoodSurvey");
+const NutritionRationPage = lazyFrom(routeLoaders, "NutritionRationPage");
+const NutritionMenuJournalierPage = lazyFrom(routeLoaders, "NutritionMenuJournalierPage");
+const Success = lazyFrom(routeLoaders, "Success");
+const Cancel = lazyFrom(routeLoaders, "Cancel");
+const AdminGeo = lazyFrom(routeLoaders, "AdminGeo");
+const AdminClient = lazyFrom(routeLoaders, "AdminClient");
+const AdminCoach = lazyFrom(routeLoaders, "AdminCoach");
+const AdminSocialPublisher = lazyFrom(routeLoaders, "AdminSocialPublisher");
+
+const COACH_CORE_PRELOADS = [
+  "CoachDashboard",
+  "Clients",
+  "ProgramsPage",
+];
+const CLIENT_CORE_PRELOADS = [
+  "ClientDashboard",
+  "MyPrograms",
+];
+const CLUB_CORE_PRELOADS = ["ClubDashboard", "Clients", "ProgramsPage", "CoachDashboard"];
+const ADMIN_CORE_PRELOADS = ["AdminDashboard", "CoachDashboard", "Clients", "ProgramsPage", "AdminClient", "AdminCoach"];
+
+function preloadModules(keys) {
+  [...new Set(keys)].forEach((key) => {
+    const loader = routeLoaders[key] || backgroundLoaders[key];
+    loader?.().catch(() => {});
+  });
+}
+
+function schedulePreload(keys, delay = 250) {
+  if (typeof window === "undefined" || !keys.length) return undefined;
+  const run = () => preloadModules(keys);
+
+  if ("requestIdleCallback" in window) {
+    const idleId = window.requestIdleCallback(run, { timeout: Math.max(800, delay + 500) });
+    return () => window.cancelIdleCallback?.(idleId);
+  }
+
+  const timeoutId = window.setTimeout(run, delay);
+  return () => window.clearTimeout(timeoutId);
+}
+
+function preloadKeysForContext({ pathname, user, effectiveRole, isAdmin }) {
+  const keys = ["CookieConsentBanner"];
+  const role = effectiveRole || user?.role;
+  const hasSport = isAdmin || user?.proAccess?.modules?.includes?.("sport") || user?.modules?.includes?.("sport");
+  const hasNutrition =
+    isAdmin || user?.proAccess?.modules?.includes?.("nutrition") || user?.modules?.includes?.("nutrition");
+
+  if (!user) {
+    keys.push("HomePage", "Login", "Register", "PlanProfessionnel", "PremiumPrograms");
+    return keys;
+  }
+
+  if (isAdmin || role === "admin") keys.push(...ADMIN_CORE_PRELOADS);
+  if (role === "coach") keys.push(...COACH_CORE_PRELOADS);
+  if (role === "particulier") keys.push(...CLIENT_CORE_PRELOADS);
+  if (
+    role === "club" ||
+    user?.accountType === "club_owner" ||
+    user?.clubRole === "owner" ||
+    pathname.startsWith("/club-dashboard")
+  ) {
+    keys.push(...CLUB_CORE_PRELOADS);
+  }
+
+  if (hasNutrition && !pathname.startsWith("/coach-dashboard")) {
+    keys.push("CoachNutritionPage", "NutritionAssessmentEditor", "FoodSurvey", "NutritionRationPage");
+  }
+  if (hasSport && !pathname.startsWith("/coach-dashboard")) {
+    keys.push("ExerciseBank", "ProgramsPage");
+  }
+
+  if (pathname.startsWith("/clients")) {
+    keys.push("ClientView", "ProgramView", "ProgramBuilderPage", "SessionPlayer", "NutritionAssessmentEditor");
+  } else if (pathname.startsWith("/programmes")) {
+    keys.push("ProgramView", "ProgramBuilderPage", "SessionPlayer", "AutoProgramPreview");
+  } else if (pathname.startsWith("/coach-dashboard")) {
+    keys.push("Clients", "ProgramsPage");
+  } else if (pathname.startsWith("/user-dashboard") || pathname.startsWith("/mes-programmes")) {
+    keys.push("MyPrograms", "ProgramView", "SessionPlayer", "ClientNutritionPage", "Statistics");
+  } else if (pathname.startsWith("/admin")) {
+    keys.push("AdminGeo", "AdminSocialPublisher");
+  }
+
+  return keys;
+}
 
 function LazyBackground({ children }) {
   return <Suspense fallback={null}>{children}</Suspense>;
@@ -287,6 +423,8 @@ function AppContent() {
 
   const { prefs, loaded: consentLoaded } = useConsent();
   const { user, effectiveRole, isAdmin } = useAuth();
+  const preloadModulesKey = Array.isArray(user?.modules) ? user.modules.join("|") : "";
+  const preloadProModulesKey = Array.isArray(user?.proAccess?.modules) ? user.proAccess.modules.join("|") : "";
   const analyticsOn = !!prefs?.analytics || isAdmin || effectiveRole === "admin";
   const shouldTrackRoute = consentLoaded && (analyticsOn || !!user?.uid);
   const isSessionPlayerRoute =
@@ -309,6 +447,27 @@ function AppContent() {
     !isSessionPlayerRoute &&
     CLUB_MOBILE_NAV_PREFIXES.some((prefix) => location.pathname === prefix || location.pathname.startsWith(`${prefix}/`));
   const showBottomMobileNav = showClientMobileNav || showCoachMobileNav || showClubMobileNav;
+
+  React.useEffect(() => {
+    const keys = preloadKeysForContext({
+      pathname: location.pathname,
+      user,
+      effectiveRole,
+      isAdmin,
+    });
+    const delay = location.pathname.startsWith("/coach-dashboard") ? 900 : 300;
+    return schedulePreload(keys, delay);
+  }, [
+    effectiveRole,
+    isAdmin,
+    location.pathname,
+    preloadModulesKey,
+    preloadProModulesKey,
+    user?.accountType,
+    user?.clubRole,
+    user?.role,
+    user?.uid,
+  ]);
 
   return (
     <>
