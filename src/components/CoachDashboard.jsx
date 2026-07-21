@@ -74,7 +74,6 @@ import {
 } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { db } from "../firebaseConfig";
-import ClientCreation from "./ClientCreation";
 import { resolveStorageUrl } from "../utils/storageUrls";
 import { canUseGuidedProgram, hasPlanModule } from "../utils/proPlanAccess";
 import { apiFetch } from "../utils/api";
@@ -107,6 +106,7 @@ import {
   MdArrowBack,
 } from "react-icons/md";
 const CoachDashboardCalendar = React.lazy(() => import("./dashboard/CoachDashboardCalendar.jsx"));
+const ClientCreation = React.lazy(() => import("./ClientCreation"));
 const MAX_DISPLAY = 5;
 const DAYS_ACTIVE_CUTOFF = 30;
 const FORCE_SESSION_DURATION_MIN = 60;
@@ -337,9 +337,19 @@ const compactDashboardPayload = ({ clients = [], programmesBase = [], sessions =
   assignedClientsMap,
 });
 const readDashboardDataCacheByKey = (key) => {
+  const isUsableDashboardCache = (data = {}) => {
+    const clients = Array.isArray(data.clients) ? data.clients : [];
+    const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+    const programmesBase = Array.isArray(data.programmesBase) ? data.programmesBase : [];
+    const looksLikeQuickOnlyCache =
+      sessions.length === 0 &&
+      clients.length > 0 &&
+      clients.every((client) => client?._quickLoading === true);
+    return (clients.length > 0 || sessions.length > 0 || programmesBase.length > 0) && !looksLikeQuickOnlyCache;
+  };
   const memoryPayload = dashboardDataMemoryCache.get(key);
   if (memoryPayload && Date.now() - Number(memoryPayload.savedAt || 0) < DASHBOARD_DATA_CACHE_TTL_MS) {
-    return memoryPayload.data;
+    return isUsableDashboardCache(memoryPayload.data) ? memoryPayload.data : null;
   }
   if (typeof window === "undefined") return null;
   try {
@@ -350,6 +360,9 @@ const readDashboardDataCacheByKey = (key) => {
       ...parsed.data,
       sessions: (parsed.data?.sessions || []).map(reviveDashboardEvent),
     };
+    if (!isUsableDashboardCache(data)) {
+      return null;
+    }
     dashboardDataMemoryCache.set(key, { savedAt: parsed.savedAt, data });
     return data;
   } catch {
@@ -1374,7 +1387,6 @@ const getCalendarEventColor = (event = {}, fallback = "#2563EB") => {
   if (status === "validée" || status === "validee" || status === "done" || status === "completed") return "#22C55E";
   return fallback;
 };
-const DIFFICULTY_NOTE_COLLECTIONS = ["difficulté_notes", "difficulte_notes"];
 const getSessionDifficultyRating = (session = {}) =>
   normRating(
     session?.difficultyRating ??
@@ -1393,43 +1405,6 @@ const getSessionDifficultyAtMs = (session = {}) =>
     toMillis(session?.updatedAt),
     toMillis(session?.createdAt)
   );
-const buildDifficultyMapFromNotes = (notes = []) => {
-  const byIndex = {};
-  notes.forEach((note) => {
-    const idx = getSessionIndex(note);
-    const rating = normRating(note?.rating);
-    if (!Number.isFinite(idx) || !rating) return;
-    const createdAtMs = Math.max(
-      toMillis(note?.createdAt),
-      toMillis(note?.updatedAt),
-      toMillis(note?.date)
-    );
-    const previous = byIndex[idx];
-    if (!previous || createdAtMs >= Number(previous.createdAtMs || 0)) {
-      byIndex[idx] = { rating, createdAtMs };
-    }
-  });
-  return byIndex;
-};
-const loadProgramDifficultyNotes = async (clientId, programId) => {
-  if (!clientId || !programId) return [];
-  const noteSets = await Promise.all(
-    DIFFICULTY_NOTE_COLLECTIONS.map(async (collectionName) => {
-      try {
-        const snap = await getDocs(collection(db, "clients", clientId, "programmes", programId, collectionName));
-        return snap.docs.map((noteDoc) => ({
-          id: noteDoc.id,
-          _collection: collectionName,
-          ...noteDoc.data(),
-        }));
-      } catch (error) {
-        console.warn("[coach dashboard] difficulty notes load failed", collectionName, error);
-        return [];
-      }
-    })
-  );
-  return noteSets.flat();
-};
 const isAutoProgramme = (p) => {
    const o = String(p?.origine || "").toLowerCase();
    return o.includes("auto");
@@ -2099,6 +2074,7 @@ useState(() => initialDashboardCache?.assignedClientsMap || {});
   const [nutritionRows, setNutritionRows] = useState([]);
   const [nutritionFeedbackRows, setNutritionFeedbackRows] = useState([]);
   const nutritionLoadKeyRef = useRef("");
+  const dashboardLoadSeqRef = useRef(0);
   const [dismissedRadarIds, setDismissedRadarIds] = useState([]);
   const [radarCollapsed, setRadarCollapsed] = useState(false);
   const [dashboardWidgetPrefs, setDashboardWidgetPrefs] = useState(DEFAULT_DASHBOARD_WIDGET_PREFS);
@@ -2666,7 +2642,7 @@ useState(false);
       }
     };
 
-    const cancelLoad = scheduleIdleTask(loadNutritionRows, 120);
+    const cancelLoad = scheduleIdleTask(loadNutritionRows, 6500);
     return () => {
       alive = false;
       cancelLoad();
@@ -3117,22 +3093,33 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
     });
   }, [clients, eventModal, navigate, selectedEvent, withAdminCoach]);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async ({ force = false, silent = false, retryOnEmpty = 12 } = {}) => {
      if (!effectiveCoachUid) return;
-     const dashboardSummaryPromise = readDashboardSummaryDoc(effectiveCoachUid, effectiveClubId).catch((error) => {
-       console.warn("[coach dashboard] summary read failed", error);
-       return null;
-     });
-     const cachedDashboardData = readDashboardDataCache(effectiveCoachUid, effectiveClubId);
-     if (cachedDashboardData) {
-       hydrateDashboardData(cachedDashboardData);
-     } else {
-       setLoadingData(true);
-       dashboardSummaryPromise.then((summaryData) => {
-         if (summaryData) hydrateDashboardData(summaryData);
-       });
+     const loadSeq = dashboardLoadSeqRef.current + 1;
+     dashboardLoadSeqRef.current = loadSeq;
+     const isLatestLoad = () => dashboardLoadSeqRef.current === loadSeq;
+     let shouldCompleteFullLoad = force;
+     let deferredEmptyRetry = false;
+     if (!force) {
+       const cachedDashboardData = readDashboardDataCache(effectiveCoachUid, effectiveClubId);
+       if (cachedDashboardData) {
+         if (isLatestLoad()) hydrateDashboardData(cachedDashboardData);
+         return;
+       }
+       if (!silent && isLatestLoad()) setLoadingData(true);
+       try {
+         const summaryData = await readDashboardSummaryDoc(effectiveCoachUid, effectiveClubId);
+         if (summaryData) {
+           if (isLatestLoad()) hydrateDashboardData(summaryData);
+           return;
+         }
+       } catch (error) {
+         console.warn("[coach dashboard] summary read failed", error);
+       }
+       shouldCompleteFullLoad = true;
      }
      try {
+       if (!silent && isLatestLoad()) setLoadingData(true);
        const progsQ = query(
           collection(db, "programmes"),
           where("createdBy", "==", effectiveCoachUid),
@@ -3162,7 +3149,7 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
 }));
        progs.sort((a, b) => toMillis(b.createdAt) -
 toMillis(a.createdAt));
-       setProgrammesBase(progs);
+       if (!silent && isLatestLoad()) setProgrammesBase(progs);
        const mergedClientMap = new Map();
        clientSnaps.forEach((snap) => {
           snap.docs.forEach((d) => mergedClientMap.set(d.id, { id: d.id, ...d.data() }));
@@ -3187,8 +3174,32 @@ toMillis(a.createdAt));
          })
          .filter((client) => client._lastCoachInteractionMs > 0)
          .sort((a, b) => (b._lastCoachInteractionMs || 0) - (a._lastCoachInteractionMs || 0));
-       setClients(quickClients.length ? quickClients : dedupeClientsForDashboard(mergedClients));
-       setLoadingData(false);
+       const quickDashboardClients = quickClients.length ? quickClients : dedupeClientsForDashboard(mergedClients);
+       const quickCounts = {};
+       const quickAssignedMap = {};
+       quickDashboardClients.forEach((client) => {
+         (client.programmesAssignes || []).forEach((programme) => {
+           const baseId = programme.programId || programme.programID || programme.baseId;
+           if (!baseId) return;
+           quickCounts[baseId] = (quickCounts[baseId] || 0) + 1;
+           if (!quickAssignedMap[baseId]) quickAssignedMap[baseId] = [];
+           quickAssignedMap[baseId].push({
+             clientId: client.id,
+             prenom: client.prenom || "",
+             nom: client.nom || "",
+             assignedProgramId: programme.id,
+             isAuto: isAutoProgramme(programme),
+             fallbackName: prettyAssignedProgramName(programme),
+           });
+         });
+       });
+       if (!silent && !shouldCompleteFullLoad && isLatestLoad()) {
+         setClients(quickDashboardClients);
+         setAssignedCounts(quickCounts);
+         setAssignedClientsMap(quickAssignedMap);
+         setLoadingData(false);
+       }
+      let quickEvents = [];
       try {
         const quickSessionSnaps = await sessionSnapsPromise;
         const quickRootSessionsById = new Map();
@@ -3202,7 +3213,7 @@ toMillis(a.createdAt));
             .map((client) => client.id)
             .filter(Boolean)
         );
-        const quickEvents = Array.from(quickRootSessionsById.values())
+        quickEvents = Array.from(quickRootSessionsById.values())
           .filter((s) => quickClientIdSet.has(s.clientId))
           .filter((s) => {
             const visibility = s.visibility || "coach";
@@ -3277,12 +3288,15 @@ toMillis(a.createdAt));
           })
           .filter(Boolean)
           .sort((a, b) => (a.start?.getTime?.() || 0) - (b.start?.getTime?.() || 0));
-        if (quickEvents.length) setSessions(quickEvents);
+        if (!silent && !shouldCompleteFullLoad && isLatestLoad() && quickEvents.length) setSessions(quickEvents);
       } catch (quickCalendarError) {
         console.warn("[coach dashboard] quick calendar hydration failed", quickCalendarError);
       }
+      if (!shouldCompleteFullLoad) {
+        return;
+      }
       const clientsWithProgs = await runLimited(
-        mergedClients,
+        quickDashboardClients.slice(0, DASHBOARD_DATA_CACHE_CLIENT_LIMIT),
         async (client) => {
           const subSnap = await getDocs(collection(db, "clients",
 client.id, "programmes"));
@@ -3363,11 +3377,8 @@ d.id, "sessionsEffectuees")
                   ? getSessionActivityMs(latestCompletedRecord)
                   : 0;
                 const lastCompletedTitle = latestCompletedRecord ? getSessionDisplayTitle(prog, latestCompletedRecord, t) : "";
-                const hasValidatedSession = sessionsEffectuees.some(isSessionValidatedRecord);
-                const difficultyNotes = hasValidatedSession
-                  ? await loadProgramDifficultyNotes(client.id, d.id)
-                  : [];
-                const difficultyMap = buildDifficultyMapFromNotes(difficultyNotes);
+                const difficultyNotes = [];
+                const difficultyMap = {};
                 return {
                    id: d.id,
                    ...prog,
@@ -3920,8 +3931,24 @@ plannedEvt._sessionTitle,
           return { ...client, programmesAssignes, _lastCoachInteractionMs, _lastInteractionMs: _lastCoachInteractionMs, _clientListActivityMs };
         })
         .sort((a, b) => (b._lastCoachInteractionMs || 0) - (a._lastCoachInteractionMs || 0));
-      setClients(clientsForCoachDashboard);
-      setSessions(merged);
+      const remainingEmptyRetries = Number(retryOnEmpty) || 0;
+      const retryTodayFrom = startOfToday();
+      const retryTodayTo = endOfToday();
+      const hasTodayEvent = [...merged, ...quickEvents].some(
+        (event) => event.start instanceof Date && event.start >= retryTodayFrom && event.start <= retryTodayTo
+      );
+      if (!silent && remainingEmptyRetries > 0 && !hasTodayEvent) {
+        deferredEmptyRetry = true;
+        scheduleIdleTask(() => {
+          fetchData({ force: true, silent: false, retryOnEmpty: remainingEmptyRetries - 1 });
+        }, 700);
+        return;
+      }
+      if (isLatestLoad()) {
+        setProgrammesBase(progs);
+        setClients(clientsForCoachDashboard);
+        setSessions(merged);
+      }
       const dashboardPayload = {
         clients: clientsForCoachDashboard,
         programmesBase: progs,
@@ -3935,16 +3962,23 @@ plannedEvt._sessionTitle,
       });
     } catch (error) {
       console.error(error);
-      notify(toast, "dataLoadError");
+      if (!silent && isLatestLoad()) notify(toast, "dataLoadError");
     } finally {
-      setLoadingData(false);
+      if (!deferredEmptyRetry && isLatestLoad()) setLoadingData(false);
     }
   }, [effectiveClubId, hydrateDashboardData, prettyAssignedProgramName, prettyProgramNameBase, t, toast,
 effectiveCoachUid]);
+  const refreshDashboardData = useCallback(() => fetchData({ force: true }), [fetchData]);
   useEffect(() => {
 
      fetchData();
   }, [fetchData]);
+  useEffect(() => {
+    if (!effectiveCoachUid) return undefined;
+    return scheduleIdleTask(() => {
+      fetchData({ force: true, silent: true });
+    }, 1800);
+  }, [effectiveCoachUid, fetchData]);
 
   const getClubAppointmentIdFromEvent = useCallback((event) => {
     if (!event) return "";
@@ -4011,7 +4045,7 @@ effectiveCoachUid]);
        notify(toast, "programAssigned");
        assignModal.onClose();
        setSelectedProgramme("");
-       await fetchData();
+       await refreshDashboardData();
      } catch (error) {
        console.error(error);
        notify(toast, "programAssignError");
@@ -4027,7 +4061,7 @@ effectiveCoachUid]);
        await assignProgramToClient(selectedAssignedClientId, selectedAssignedBaseProgramId);
        notify(toast, "programAssigned");
        setSelectedAssignedClientId("");
-       await fetchData();
+       await refreshDashboardData();
      } catch (error) {
        console.error(error);
        notify(toast, "programAssignError");
@@ -4039,14 +4073,14 @@ effectiveCoachUid]);
      if (!clientToDelete) return;
      await deleteDoc(doc(db, "clients", clientToDelete));
      confirmClientModal.onClose();
-     fetchData();
+     refreshDashboardData();
   };
   const handleDeleteProgram = async () => {
      if (!programToDelete) return;
      await deleteDoc(doc(db, "programmes", programToDelete));
      confirmProgramModal.onClose();
 
-    fetchData();
+    refreshDashboardData();
   };
   const handleDuplicateProgram = async (prog) => {
      try {
@@ -4070,7 +4104,7 @@ effectiveCoachUid]);
          clubName: data.clubName || user?.clubName || null,
        });
        notify(toast, "programDuplicated");
-       fetchData();
+       refreshDashboardData();
      } catch (error) {
        console.error(error);
        notify(toast, "saveError", {
@@ -4162,7 +4196,7 @@ effectiveCoachUid]);
           nutritionNotes: "",
         });
         addSessionModal.onClose();
-        await fetchData();
+        await refreshDashboardData();
         notify(toast, "sessionPlanned");
         return;
       }
@@ -4236,7 +4270,7 @@ rootSessionPayload);
         nutritionNotes: "",
 	     });
      addSessionModal.onClose();
-     await fetchData();
+     await refreshDashboardData();
      notify(toast, "sessionPlanned");
   };
   const handleUpdateStatus = async (status) => {
@@ -4259,7 +4293,7 @@ selectedEvent.id.replace("planned__", "");
         console.error("[club appointments] update status failed", err);
       }
       eventModal.onClose();
-      fetchData();
+      refreshDashboardData();
       return;
     }
 
@@ -4283,7 +4317,7 @@ selectedEvent.id.replace("planned__", "");
       console.error("[club appointments] update status failed", err);
     }
     eventModal.onClose();
-    fetchData();
+    refreshDashboardData();
   };
   const openEventEdit = () => {
     if (!selectedEvent || selectedEvent?._kind === "completed") return;
@@ -4467,7 +4501,7 @@ selectedEvent.id.replace("planned__", "");
       );
       setEventEditOpen(false);
       eventModal.onClose();
-      await fetchData();
+      await refreshDashboardData();
       notify(toast, "settingsSaved", {
         description: isNutritionEdit ? "Rendez-vous mis à jour." : "Séance mise à jour.",
       });
@@ -4498,7 +4532,7 @@ selectedEvent.id.replace("planned__", "");
          await deleteDoc(doc(db, "clubs", effectiveClubId, "appointments", appointmentId));
        }
        eventModal.onClose();
-       fetchData();
+       refreshDashboardData();
        return;
      }
      await deleteDoc(doc(db, "sessions", sourceId));
@@ -4519,7 +4553,7 @@ selectedEvent.id.replace("planned__", "");
        }
      }
 	     eventModal.onClose();
-	     fetchData();
+	     refreshDashboardData();
 	  };
 
   const handleMoveCalendarEvent = async ({ event, start, end }) => {
@@ -4569,7 +4603,7 @@ selectedEvent.id.replace("planned__", "");
         title: t("dashboard.calendar_move_error", "Déplacement impossible"),
         description: "La séance n'a pas pu être déplacée.",
       });
-      fetchData();
+      refreshDashboardData();
     }
   };
 
@@ -4956,6 +4990,21 @@ modeValue("rgba(255,255,255,0.95)",
       );
   }, [clients, selectedAssignedClients]);
   const todayOverview = useMemo(() => {
+     const isLoadingInitialDashboard =
+       loadingData &&
+       sessions.length === 0 &&
+       clients.length === 0 &&
+       programmesBase.length === 0;
+     if (isLoadingInitialDashboard) {
+       return {
+         total: 0,
+         planned: 0,
+         validated: 0,
+         missed: 0,
+         upcoming: null,
+         loading: true,
+       };
+     }
      const from = startOfToday();
      const to = endOfToday();
      const todayEvents = sessions.filter((s) => s.start instanceof
@@ -4979,7 +5028,7 @@ Date && s.start >= from && s.start
         missed: missed.length,
         upcoming,
      };
-  }, [sessions]);
+  }, [clients.length, loadingData, programmesBase.length, sessions]);
   const weeklyLoad = useMemo(() => {
      const from = startOfWeek();
      const to = new Date(from);
@@ -6836,13 +6885,15 @@ noOfLines={2}>
                     {nutritionOnlyDashboard ? "Rendez-vous aujourd’hui" : t("dashboard.banner.today_label", "Aujourd’hui")}
                  </Text>
                  <Text fontWeight="900" fontSize={{ base: "md", md: "lg" }} lineHeight="1.1">
-                    {todayOverview.validated}
-{nutritionOnlyDashboard ? " réalisés" : t("dashboard.banner.validated_count", "Validées")}
+                    {todayOverview.loading
+                      ? t("common.loading", "Chargement...")
+                      : `${todayOverview.validated}${nutritionOnlyDashboard ? " réalisés" : t("dashboard.banner.validated_count", "Validées")}`}
                  </Text>
                  <Text fontSize={{ base: "xs", md: "sm" }} color={mutedText}
 noOfLines={1}>
-                    {todayOverview.planned}
-{nutritionOnlyDashboard ? " planifiés" : t("dashboard.banner.planned_count", "Planifiées")}
+                    {todayOverview.loading
+                      ? t("common.loading_page", "Chargement de la page...")
+                      : `${todayOverview.planned}${nutritionOnlyDashboard ? " planifiés" : t("dashboard.banner.planned_count", "Planifiées")}`}
                  </Text>
                </Box>
                <Box
@@ -6861,7 +6912,9 @@ noOfLines={1}>
                  </Text>
                  <Text fontWeight="900" fontSize={{ base: "md", md: "lg" }} lineHeight="1.1" noOfLines={1}
 >
-                    {todayOverview.upcoming
+                    {todayOverview.loading
+                      ? t("common.loading", "Chargement...")
+                      : todayOverview.upcoming
                       ? todayOverview.upcoming.start.toLocaleTimeString([], {
                           hour: "2-digit",
                           minute: "2-digit",
@@ -6872,7 +6925,9 @@ noOfLines={1}>
                  </Text>
                  <Text fontSize={{ base: "xs", md: "sm" }} color={mutedText}
 noOfLines={1}>
-                   {todayOverview.upcoming?._clientName || (nutritionOnlyDashboard ? "Aucun suivi planifié" : t("dashboard.nothing_planned", "Rien de planifié"))}
+                   {todayOverview.loading
+                     ? t("common.loading_page", "Chargement de la page...")
+                     : todayOverview.upcoming?._clientName || (nutritionOnlyDashboard ? "Aucun suivi planifié" : t("dashboard.nothing_planned", "Rien de planifié"))}
                 </Text>
               </Box>
               <Box
@@ -6942,14 +6997,18 @@ boxSize="20px" />
                   {t("dashboard.mobile.today", "Aujourd'hui")}
                 </Text>
                 <Heading mt={1} size="md" lineHeight="1.1" noOfLines={2}>
-                  {todayOverview.upcoming
+                  {todayOverview.loading
+                    ? t("common.loading", "Chargement...")
+                    : todayOverview.upcoming
                     ? todayOverview.upcoming._clientName || t("dashboard.client", "Client")
                     : nutritionOnlyDashboard
                       ? t("dashboard.mobile.no_appointment", "Aucun rendez-vous")
                       : t("dashboard.mobile.no_session", "Aucune séance")}
                 </Heading>
                 <Text mt={1.5} fontSize="sm" fontWeight="700" color={mutedText} noOfLines={2}>
-                  {todayOverview.upcoming
+                  {todayOverview.loading
+                    ? t("common.loading_page", "Chargement de la page...")
+                    : todayOverview.upcoming
                     ? `${todayOverview.upcoming._sessionTitle || todayOverview.upcoming.title || t("form.session", "Séance")} - ${todayOverview.upcoming.start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
                     : t("dashboard.mobile.ready_to_plan", "Tout est libre pour planifier le prochain point.")}
                 </Text>
@@ -6963,15 +7022,15 @@ boxSize="20px" />
               {[
                 {
                   label: t("dashboard.mobile.validated", "Validées"),
-                  value: todayOverview.validated,
+                  value: todayOverview.loading ? "..." : todayOverview.validated,
                 },
                 {
                   label: t("dashboard.mobile.planned", "Planifiées"),
-                  value: todayOverview.planned,
+                  value: todayOverview.loading ? "..." : todayOverview.planned,
                 },
                 {
                   label: t("dashboard.mobile.week", "Semaine"),
-                  value: `${weeklyLoad.rate}%`,
+                  value: todayOverview.loading ? "..." : `${weeklyLoad.rate}%`,
                 },
               ].map((item) => (
                 <Box key={item.label} bg={surfaceSoft} border="1px solid" borderColor={borderColor} borderRadius="16px" p={2.5}>
@@ -9799,8 +9858,10 @@ borderRadius="22px" border="1px solid" borderColor={borderColor}>
            <ModalHeader>{t("dashboard.add_client", "Ajouter un client")}</ModalHeader>
            <ModalCloseButton />
            <ModalBody>
-             <ClientCreation onClose={clientModal.onClose}
-onCreated={fetchData} />
+             <React.Suspense fallback={<HStack py={4} justify="center"><Spinner size="sm" /><Text>{t("common.loading", "Chargement...")}</Text></HStack>}>
+               <ClientCreation onClose={clientModal.onClose}
+onCreated={refreshDashboardData} />
+             </React.Suspense>
            </ModalBody>
         </ModalContent>
       </Modal>
