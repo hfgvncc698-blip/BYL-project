@@ -7,8 +7,26 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (!id.includes("node_modules")) return undefined;
-          if (id.includes("@firebase") || id.includes("firebase/")) return "vendor-firebase";
+          const normalizedId = id.replaceAll("\\", "/");
+          if (!normalizedId.includes("/node_modules/")) return undefined;
+          if (
+            normalizedId.includes("/node_modules/react/") ||
+            normalizedId.includes("/node_modules/react-dom/") ||
+            normalizedId.includes("/node_modules/react-router-dom/")
+          ) {
+            return "vendor-react";
+          }
+          if (
+            normalizedId.includes("/node_modules/@chakra-ui/") ||
+            normalizedId.includes("/node_modules/@emotion/") ||
+            normalizedId.includes("/node_modules/framer-motion/")
+          ) {
+            return "vendor-ui";
+          }
+          if (normalizedId.includes("/node_modules/react-icons/")) return "vendor-icons";
+          if (normalizedId.includes("/node_modules/@firebase/") || normalizedId.includes("/node_modules/firebase/")) {
+            return "vendor-firebase";
+          }
           return undefined;
         },
       },

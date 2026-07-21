@@ -10,9 +10,11 @@ import "./i18n";
 
 import { AuthProvider, useAuth } from "./AuthContext";
 import Navbar from "./components/Navbar";
-import ClientMobileNav, { CLIENT_MOBILE_NAV_PATHS } from "./components/ClientMobileNav.jsx";
-import CoachMobileNav, { COACH_MOBILE_NAV_PREFIXES } from "./components/CoachMobileNav.jsx";
-import ClubMobileNav, { CLUB_MOBILE_NAV_PREFIXES } from "./components/ClubMobileNav.jsx";
+import {
+  CLIENT_MOBILE_NAV_PATHS,
+  CLUB_MOBILE_NAV_PREFIXES,
+  COACH_MOBILE_NAV_PREFIXES,
+} from "./components/mobileNavPaths.js";
 import { Footer } from "./components/Footer";
 import LanguageRouteSync from "./components/LanguageRouteSync.jsx";
 import AppLoading from "./components/ui/AppLoading.jsx";
@@ -84,6 +86,9 @@ const GeolocationBootstrap = lazyFrom(backgroundLoaders, "GeolocationBootstrap")
 const GuidedTutorial = lazyFrom(backgroundLoaders, "GuidedTutorial");
 const CookieConsentBanner = lazyFrom(backgroundLoaders, "CookieConsentBanner");
 const RouteAnalyticsListener = lazyFrom(backgroundLoaders, "RouteAnalyticsListener");
+const ClientMobileNav = lazy(() => import("./components/ClientMobileNav.jsx"));
+const CoachMobileNav = lazy(() => import("./components/CoachMobileNav.jsx"));
+const ClubMobileNav = lazy(() => import("./components/ClubMobileNav.jsx"));
 
 // Route-level code splitting: les écrans lourds ne partent plus dans le bundle initial.
 const HomePage = lazyFrom(routeLoaders, "HomePage");
@@ -455,7 +460,7 @@ function AppContent() {
       effectiveRole,
       isAdmin,
     });
-    const delay = location.pathname.startsWith("/coach-dashboard") ? 900 : 300;
+    const delay = user ? 2800 : 1600;
     return schedulePreload(keys, delay);
   }, [
     effectiveRole,
@@ -881,9 +886,21 @@ function AppContent() {
           </Routes>
         </Suspense>
       </Box>
-      {showClientMobileNav ? <ClientMobileNav /> : null}
-      {showCoachMobileNav ? <CoachMobileNav /> : null}
-      {showClubMobileNav ? <ClubMobileNav /> : null}
+      {showClientMobileNav ? (
+        <LazyBackground>
+          <ClientMobileNav />
+        </LazyBackground>
+      ) : null}
+      {showCoachMobileNav ? (
+        <LazyBackground>
+          <CoachMobileNav />
+        </LazyBackground>
+      ) : null}
+      {showClubMobileNav ? (
+        <LazyBackground>
+          <ClubMobileNav />
+        </LazyBackground>
+      ) : null}
 
       {showFooter && <Footer />}
 

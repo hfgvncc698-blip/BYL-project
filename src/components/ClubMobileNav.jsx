@@ -25,8 +25,9 @@ import {
   MdOutlineFitnessCenter,
   MdOutlinePeopleAlt,
 } from "react-icons/md";
+import { CLUB_MOBILE_NAV_PREFIXES } from "./mobileNavPaths.js";
 
-export const CLUB_MOBILE_NAV_PREFIXES = ["/club-dashboard"];
+export { CLUB_MOBILE_NAV_PREFIXES };
 
 const ROUTE_PRELOADS = {
   "/club-dashboard": () => import("../pages/ClubDashboard.jsx"),
@@ -137,8 +138,8 @@ export default function ClubMobileNav() {
     const visiblePaths = items.map((item) => item.path).filter(Boolean);
     const warmVisibleRoutes = () => visiblePaths.forEach(preloadPath);
     const idleId = window.requestIdleCallback
-      ? window.requestIdleCallback(warmVisibleRoutes, { timeout: 1200 })
-      : window.setTimeout(warmVisibleRoutes, 450);
+      ? window.requestIdleCallback(warmVisibleRoutes, { timeout: 3600 })
+      : window.setTimeout(warmVisibleRoutes, 2200);
     return () => {
       if (window.cancelIdleCallback && typeof idleId === "number") {
         window.cancelIdleCallback(idleId);

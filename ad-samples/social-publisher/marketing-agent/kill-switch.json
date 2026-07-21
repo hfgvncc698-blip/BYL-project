@@ -1360,6 +1360,21 @@
           "Unsupported get request. Object with ID '18138591487532730' does not exist, cannot be loaded due to missing permissions, or does not support this operation."
         ]
       }
+    },
+    {
+      "at": "2026-07-21T21:32:33.710Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "byl-social-publisher-rapport-growth-nightly",
+      "details": {
+        "updated": 3,
+        "failedCount": 15,
+        "total": 18,
+        "rerunEscalated": true,
+        "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+        "remainingErrorType": "Meta Graph unsupported object, missing permissions, or unsupported operation",
+        "missingMetricsInvented": false
+      }
     }
   ]
 }

@@ -26,14 +26,9 @@ import {
 import { AddIcon } from "@chakra-ui/icons";
 import { useAuth } from "../AuthContext";
 import { hasPlanModule } from "../utils/proPlanAccess";
+import { COACH_MOBILE_NAV_PREFIXES } from "./mobileNavPaths.js";
 
-export const COACH_MOBILE_NAV_PREFIXES = [
-  "/coach-dashboard",
-  "/clients",
-  "/programmes",
-  "/nutrition-coach",
-  "/statistics-coach",
-];
+export { COACH_MOBILE_NAV_PREFIXES };
 
 function preserveAdminCoachQuery(path, search) {
   const current = new URLSearchParams(search || "");
@@ -126,8 +121,8 @@ export default function CoachMobileNav() {
     const visiblePaths = items.map((item) => item.path).filter(Boolean);
     const warmVisibleRoutes = () => visiblePaths.forEach(preloadPath);
     const idleId = window.requestIdleCallback
-      ? window.requestIdleCallback(warmVisibleRoutes, { timeout: 450 })
-      : window.setTimeout(warmVisibleRoutes, 180);
+      ? window.requestIdleCallback(warmVisibleRoutes, { timeout: 3600 })
+      : window.setTimeout(warmVisibleRoutes, 2200);
     return () => {
       if (window.cancelIdleCallback && typeof idleId === "number") {
         window.cancelIdleCallback(idleId);
