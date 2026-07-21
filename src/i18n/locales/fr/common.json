@@ -90,7 +90,10 @@
     "creating": "Création...",
     "cancelled": "Annulée",
     "retry": "Réessayer",
-    "done": "Terminé"
+    "done": "Terminé",
+    "see_more": "Voir plus ({{count}})",
+    "see_more_other": "Voir plus ({{count}})",
+    "see_less": "Voir moins"
   },
   "form": {
     "program": "Programme",
@@ -98,6 +101,7 @@
     "session": "Séance",
     "datetime": "Date et heure",
     "select_program": "Sélectionnez un programme",
+    "no_program_available": "Aucun programme disponible",
     "select_client": "Sélectionnez un client",
     "select_session": "Sélectionnez une séance",
     "status": "Statut"
@@ -179,6 +183,8 @@
     "calendar_not_validated": "Non validée",
     "calendar_rated": "Notée {{rating}}/5",
     "calendar_not_rated": "Pas de note",
+    "calendar_events_count": "{{count}} événement",
+    "calendar_events_count_other": "{{count}} événements",
     "assigned_clients_count": "{{count}} client assigné",
     "assigned_clients_count_other": "{{count}} clients assignés",
     "assigned_to_list": "Assigné à",
@@ -207,6 +213,21 @@
     "stats_total_clients": "Clients",
     "stats_total_programs": "Programmes",
     "weekly_execution_hint": "{{done}}/{{planned}} prévues cette semaine",
+    "add_session_errors": {
+      "client_required_title": "Client requis",
+      "client_required_description": "Sélectionnez un client pour planifier la séance.",
+      "client_missing_title": "Client introuvable",
+      "client_missing_description": "Sélectionnez un client valide pour cette séance.",
+      "date_required_title": "Date requise",
+      "date_required_description": "Choisissez une date et une heure valides.",
+      "action_unavailable_title": "Action impossible",
+      "nutrition_calendar_unavailable_description": "Le calendrier nutrition n'est pas disponible pour ce compte.",
+      "program_required_title": "Programme requis",
+      "program_required_description": "Sélectionnez un programme assigné à ce client.",
+      "no_plannable_program_description": "Ce client n'a pas encore de programme avec séances planifiables.",
+      "session_required_title": "Séance requise",
+      "session_required_description": "Sélectionnez une séance valide pour ce programme."
+    },
     "club_goals": {
       "title": "Objectifs club",
       "eyebrow": "Mois en cours",
@@ -637,6 +658,7 @@
       "today": "Aujourd'hui",
       "no_appointment": "Aucun rendez-vous",
       "no_session": "Aucune séance",
+      "no_session_for_day": "Aucune séance sur cette journée",
       "ready_to_plan": "Tout est libre pour planifier le prochain point.",
       "validated": "Validées",
       "planned": "Planifiées",

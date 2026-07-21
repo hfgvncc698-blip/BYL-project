@@ -90,7 +90,10 @@
     "creating": "Création...",
     "cancelled": "Annulée",
     "retry": "Réessayer",
-    "done": "Listo"
+    "done": "Listo",
+    "see_more": "Ver más ({{count}})",
+    "see_more_other": "Ver más ({{count}})",
+    "see_less": "Ver menos"
   },
   "form": {
     "program": "Programa",
@@ -98,6 +101,7 @@
     "session": "Sesión",
     "datetime": "Fecha y hora",
     "select_program": "Seleccione un programa",
+    "no_program_available": "Ningún programa disponible",
     "select_client": "Seleccione un cliente",
     "select_session": "Seleccione una sesión",
     "status": "Estado"
@@ -179,6 +183,8 @@
     "calendar_not_validated": "No validada",
     "calendar_rated": "Valorada {{rating}}/5",
     "calendar_not_rated": "Sin valoración",
+    "calendar_events_count": "{{count}} evento",
+    "calendar_events_count_other": "{{count}} eventos",
     "assigned_clients_count": "{{count}} cliente asignado",
     "assigned_clients_count_other": "{{count}} clientes asignados",
     "assigned_to_list": "Asignado a",
@@ -207,6 +213,21 @@
     "stats_total_clients": "Clientes",
     "stats_total_programs": "Programas",
     "weekly_execution_hint": "{{done}}/{{planned}} planeado esta semana",
+    "add_session_errors": {
+      "client_required_title": "Cliente requerido",
+      "client_required_description": "Selecciona un cliente para planificar la sesión.",
+      "client_missing_title": "Cliente no encontrado",
+      "client_missing_description": "Selecciona un cliente válido para esta sesión.",
+      "date_required_title": "Fecha requerida",
+      "date_required_description": "Elige una fecha y hora válidas.",
+      "action_unavailable_title": "Acción no disponible",
+      "nutrition_calendar_unavailable_description": "El calendario de nutrición no está disponible para esta cuenta.",
+      "program_required_title": "Programa requerido",
+      "program_required_description": "Selecciona un programa asignado a este cliente.",
+      "no_plannable_program_description": "Este cliente aún no tiene un programa con sesiones planificables.",
+      "session_required_title": "Sesión requerida",
+      "session_required_description": "Selecciona una sesión válida para este programa."
+    },
     "banner": {
       "birthdays_label": "cumpleaños del dia",
       "next_session_label": "Próxima sesión",
@@ -638,6 +659,7 @@
     "this_week": "Esta semana",
       "no_appointment": "Sin cita",
       "no_session": "Sin sesión",
+      "no_session_for_day": "Sin sesiones en este día",
       "ready_to_plan": "Todo está libre para planificar el próximo seguimiento.",
       "validated": "Validadas",
       "planned": "Planificadas",

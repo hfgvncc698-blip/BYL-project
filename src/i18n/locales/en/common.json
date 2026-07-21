@@ -90,7 +90,10 @@
     "creating": "Création...",
     "cancelled": "Annulée",
     "retry": "Réessayer",
-    "done": "Done"
+    "done": "Done",
+    "see_more": "See more ({{count}})",
+    "see_more_other": "See more ({{count}})",
+    "see_less": "See less"
   },
   "form": {
     "program": "Program",
@@ -98,6 +101,7 @@
     "session": "Session",
     "datetime": "Date and time",
     "select_program": "Select a program",
+    "no_program_available": "No program available",
     "select_client": "Select a customer",
     "select_session": "Select a session",
     "status": "Status"
@@ -179,6 +183,8 @@
     "calendar_not_validated": "Not validated",
     "calendar_rated": "Rated {{rating}}/5",
     "calendar_not_rated": "No rating",
+    "calendar_events_count": "{{count}} event",
+    "calendar_events_count_other": "{{count}} events",
     "assigned_clients_count": "{{count}} assigned client",
     "assigned_clients_count_other": "{{count}} assigned clients",
     "assigned_to_list": "Assigned to",
@@ -207,6 +213,21 @@
     "stats_total_clients": "Customers",
     "stats_total_programs": "Programs",
     "weekly_execution_hint": "{{done}}/{{planned}} planned this week",
+    "add_session_errors": {
+      "client_required_title": "Client required",
+      "client_required_description": "Select a client to schedule the session.",
+      "client_missing_title": "Client not found",
+      "client_missing_description": "Select a valid client for this session.",
+      "date_required_title": "Date required",
+      "date_required_description": "Choose a valid date and time.",
+      "action_unavailable_title": "Action unavailable",
+      "nutrition_calendar_unavailable_description": "The nutrition calendar is not available for this account.",
+      "program_required_title": "Program required",
+      "program_required_description": "Select a program assigned to this client.",
+      "no_plannable_program_description": "This client does not have a program with schedulable sessions yet.",
+      "session_required_title": "Session required",
+      "session_required_description": "Select a valid session for this program."
+    },
     "club_goals": {
       "title": "Club goals",
       "eyebrow": "Current month",
@@ -637,6 +658,7 @@
       "today": "Today",
       "no_appointment": "No appointment",
       "no_session": "No session",
+      "no_session_for_day": "No session on this day",
       "ready_to_plan": "Everything is clear to schedule the next check-in.",
       "validated": "Done",
       "planned": "Planned",

@@ -1197,6 +1197,22 @@ const getProgrammeSessionTitle = (programme, sessionIndex, t) => {
   return String(title || "").trim() || `${t("form.session", "Séance")} ${Number.isFinite(idx) ? idx + 1 : 1}`;
 };
 
+const getProgrammeBaseId = (programme = {}) =>
+  String(programme.programId || programme.programID || programme.baseId || "").trim();
+
+const findAssignedProgrammeByValue = (programmes = [], value = "") => {
+  const selectedValue = String(value || "").trim();
+  if (!selectedValue) return null;
+  return (
+    programmes.find((programme) => String(programme?.id || "").trim() === selectedValue) ||
+    programmes.find((programme) => getProgrammeBaseId(programme) === selectedValue) ||
+    null
+  );
+};
+
+const isSelectableAssignedProgramme = (programme = {}) =>
+  Boolean(programme?.id && !programme._quickPlaceholder && getProgrammeSessionList(programme).length > 0);
+
 const isSessionExplicitlyValidatedRecord = (session) => {
   const status = String(session?.status || "").trim().toLowerCase();
   return (
@@ -1981,6 +1997,47 @@ end && now < end;
     nutritionDurationMin: 30,
     nutritionNotes: "",
 	  });
+  const selectedNewSessionClient = useMemo(
+    () => clients.find((client) => client.id === newSession.clientId) || null,
+    [clients, newSession.clientId]
+  );
+  const selectedNewSessionProgrammes = useMemo(
+    () => (selectedNewSessionClient?.programmesAssignes || []).filter(isSelectableAssignedProgramme),
+    [selectedNewSessionClient]
+  );
+  const selectedNewSessionProgramme = useMemo(
+    () => findAssignedProgrammeByValue(selectedNewSessionProgrammes, newSession.programmeId),
+    [newSession.programmeId, selectedNewSessionProgrammes]
+  );
+  const selectedNewSessionSessions = useMemo(
+    () => getProgrammeSessionList(selectedNewSessionProgramme),
+    [selectedNewSessionProgramme]
+  );
+  useEffect(() => {
+    if (newSession.type === "nutrition" || !newSession.programmeId) return;
+    if (!selectedNewSessionProgramme) {
+      setNewSession((prev) =>
+        prev.programmeId === newSession.programmeId
+          ? { ...prev, programmeId: "", sessionIndex: null }
+          : prev
+      );
+      return;
+    }
+    const sessionIndex = Number(newSession.sessionIndex);
+    if (
+      newSession.sessionIndex !== null &&
+      newSession.sessionIndex !== "" &&
+      (!Number.isInteger(sessionIndex) || !selectedNewSessionSessions[sessionIndex])
+    ) {
+      setNewSession((prev) => ({ ...prev, sessionIndex: null }));
+    }
+  }, [
+    newSession.programmeId,
+    newSession.sessionIndex,
+    newSession.type,
+    selectedNewSessionProgramme,
+    selectedNewSessionSessions,
+  ]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [radarAdjustmentReviewItem, setRadarAdjustmentReviewItem] = useState(null);
   const [radarAdjustmentApplying, setRadarAdjustmentApplying] = useState(false);
@@ -2056,6 +2113,8 @@ useState(() => initialDashboardCache?.assignedClientsMap || {});
   const [birthdayMessageClient, setBirthdayMessageClient] = useState(null);
   const [birthdayMessageDraft, setBirthdayMessageDraft] = useState("");
   const [mobileCalendarWeekOffset, setMobileCalendarWeekOffset] = useState(0);
+  const [mobileCalendarSelectedDayKey, setMobileCalendarSelectedDayKey] = useState(() => formatLocalDateKey(new Date()));
+  const [mobileCalendarDayExpanded, setMobileCalendarDayExpanded] = useState(false);
 
   const [selectedAssignedBaseProgramId,
 setSelectedAssignedBaseProgramId] = useState(null);
@@ -2641,6 +2700,24 @@ useState(false);
   }, [adminCoachId, coachContext, isAdmin, user]);
 
   const nutritionOnlyDashboard = hasNutritionCalendarAccess && !hasSportAccess;
+  const canSubmitNewSession = useMemo(() => {
+    if (!selectedNewSessionClient || !newSession.startDateTime) return false;
+    if (newSession.type === "nutrition") return hasNutritionCalendarAccess;
+    const sessionIndex = Number(newSession.sessionIndex);
+    return Boolean(
+      selectedNewSessionProgramme &&
+      Number.isInteger(sessionIndex) &&
+      selectedNewSessionSessions[sessionIndex]
+    );
+  }, [
+    hasNutritionCalendarAccess,
+    newSession.sessionIndex,
+    newSession.startDateTime,
+    newSession.type,
+    selectedNewSessionClient,
+    selectedNewSessionProgramme,
+    selectedNewSessionSessions,
+  ]);
   const dashboardWidgetOptions = useMemo(() => (
     DASHBOARD_WIDGETS.filter((widget) => !widget.internal && (!widget.sportOnly || !nutritionOnlyDashboard))
   ), [nutritionOnlyDashboard]);
@@ -4003,15 +4080,38 @@ effectiveCoachUid]);
      }
 	  };
 		  const handleAddSession = async () => {
-		     if (!newSession.clientId) return;
-	     const client = clients.find((c) => c.id ===
-	newSession.clientId);
-	     if (!client) return;
+	     if (!newSession.clientId) {
+        notify(toast, "saveError", {
+          title: t("dashboard.add_session_errors.client_required_title", "Client requis"),
+          description: t("dashboard.add_session_errors.client_required_description", "Sélectionnez un client pour planifier la séance."),
+        });
+        return;
+      }
+	     const client = selectedNewSessionClient;
+	     if (!client) {
+        notify(toast, "saveError", {
+          title: t("dashboard.add_session_errors.client_missing_title", "Client introuvable"),
+          description: t("dashboard.add_session_errors.client_missing_description", "Sélectionnez un client valide pour cette séance."),
+        });
+        return;
+      }
       const start = new Date(newSession.startDateTime);
-      if (!newSession.startDateTime || Number.isNaN(start.getTime())) return;
+      if (!newSession.startDateTime || Number.isNaN(start.getTime())) {
+        notify(toast, "saveError", {
+          title: t("dashboard.add_session_errors.date_required_title", "Date requise"),
+          description: t("dashboard.add_session_errors.date_required_description", "Choisissez une date et une heure valides."),
+        });
+        return;
+      }
 
       if (newSession.type === "nutrition") {
-        if (!hasNutritionCalendarAccess) return;
+        if (!hasNutritionCalendarAccess) {
+          notify(toast, "saveError", {
+            title: t("dashboard.add_session_errors.action_unavailable_title", "Action impossible"),
+            description: t("dashboard.add_session_errors.nutrition_calendar_unavailable_description", "Le calendrier nutrition n'est pas disponible pour ce compte."),
+          });
+          return;
+        }
         const durationMin = Number(newSession.nutritionDurationMin) || 30;
         const end = new Date(start.getTime() + durationMin * 60000);
         const appointmentLabel =
@@ -4067,25 +4167,35 @@ effectiveCoachUid]);
         return;
       }
 
-	     const prog = client.programmesAssignes?.find((p) => p.id ===
-	newSession.programmeId);
-	     if (!prog) return;
-     const sessionList = Array.isArray(prog.sessions)
-       ? prog.sessions
-       : Array.isArray(prog.seances)
-         ? prog.seances
-         : [];
-     const seance = sessionList?.[newSession.sessionIndex];
-     if (!seance) return;
+	     const prog = selectedNewSessionProgramme;
+	     if (!prog) {
+        notify(toast, "saveError", {
+          title: t("dashboard.add_session_errors.program_required_title", "Programme requis"),
+          description: selectedNewSessionProgrammes.length
+            ? t("dashboard.add_session_errors.program_required_description", "Sélectionnez un programme assigné à ce client.")
+            : t("dashboard.add_session_errors.no_plannable_program_description", "Ce client n'a pas encore de programme avec séances planifiables."),
+        });
+        return;
+      }
+     const sessionList = selectedNewSessionSessions;
+     const sessionIndex = Number(newSession.sessionIndex);
+     const seance = Number.isInteger(sessionIndex) ? sessionList?.[sessionIndex] : null;
+     if (!seance) {
+        notify(toast, "saveError", {
+          title: t("dashboard.add_session_errors.session_required_title", "Séance requise"),
+          description: t("dashboard.add_session_errors.session_required_description", "Sélectionnez une séance valide pour ce programme."),
+        });
+        return;
+      }
 	     const end = new Date(start.getTime() +
 	FORCE_SESSION_DURATION_MIN * 60000);
-    const sessionTitle = getProgrammeSessionTitle(prog, newSession.sessionIndex, t);
+    const sessionTitle = getProgrammeSessionTitle(prog, sessionIndex, t);
      const rootSessionPayload = {
        clientId: client.id,
        clientName: getClientFullName(client),
 
       programmeId: prog.id,
-      sessionIndex: newSession.sessionIndex,
+      sessionIndex,
       title: sessionTitle,
       start: Timestamp.fromDate(start),
       end: Timestamp.fromDate(end),
@@ -4112,7 +4222,7 @@ rootSessionPayload);
         deepLink,
         programId: prog.id,
         sessionId: createdRef.id,
-        sessionIndex: newSession.sessionIndex,
+        sessionIndex,
      });
 	     setNewSession({
         type: nutritionOnlyDashboard ? "nutrition" : "sport",
@@ -4204,8 +4314,8 @@ selectedEvent.id.replace("planned__", "");
     const start = new Date(eventEditDraft.startDateTime);
     if (!eventEditDraft.startDateTime || Number.isNaN(start.getTime())) {
       notify(toast, "saveError", {
-        title: "Date invalide",
-        description: "Choisissez une date et une heure valides.",
+        title: t("dashboard.add_session_errors.date_required_title", "Date requise"),
+        description: t("dashboard.add_session_errors.date_required_description", "Choisissez une date et une heure valides."),
       });
       return;
     }
@@ -4213,8 +4323,8 @@ selectedEvent.id.replace("planned__", "");
     const nextClient = clients.find((c) => c.id === nextClientId);
     if (!nextClient) {
       notify(toast, "saveError", {
-        title: "Client introuvable",
-        description: "Sélectionnez un client valide pour cette séance.",
+        title: t("dashboard.add_session_errors.client_missing_title", "Client introuvable"),
+        description: t("dashboard.add_session_errors.client_missing_description", "Sélectionnez un client valide pour cette séance."),
       });
       return;
     }
@@ -5085,9 +5195,8 @@ to);
   }, [allUpcomingSessions]);
 
   const mobileCalendarDays = useMemo(() => {
-    const start = new Date();
+    const start = startOfWeek();
     start.setDate(start.getDate() + mobileCalendarWeekOffset * 7);
-    start.setHours(0, 0, 0, 0);
 
     return Array.from({ length: 7 }, (_, index) => {
       const day = new Date(start);
@@ -5110,16 +5219,34 @@ to);
     });
   }, [mobileCalendarWeekOffset, sessions]);
 
-  const mobileCalendarWeekSessions = useMemo(() => {
-    const start = mobileCalendarDays[0]?.date;
-    const last = mobileCalendarDays[6]?.date;
-    if (!start || !last) return [];
-    const end = new Date(last);
-    end.setDate(last.getDate() + 1);
+  useEffect(() => {
+    if (!mobileCalendarDays.length) return;
+    const selectedDayIsVisible = mobileCalendarDays.some((day) => day.key === mobileCalendarSelectedDayKey);
+    if (!selectedDayIsVisible) {
+      setMobileCalendarSelectedDayKey(mobileCalendarDays[0].key);
+      setMobileCalendarDayExpanded(false);
+    }
+  }, [mobileCalendarDays, mobileCalendarSelectedDayKey]);
+
+  const mobileCalendarSelectedDay = useMemo(
+    () => mobileCalendarDays.find((day) => day.key === mobileCalendarSelectedDayKey) || mobileCalendarDays[0] || null,
+    [mobileCalendarDays, mobileCalendarSelectedDayKey]
+  );
+
+  const mobileCalendarDaySessions = useMemo(() => {
+    const selectedDate = mobileCalendarSelectedDay?.date;
+    if (!selectedDate) return [];
+    const end = new Date(selectedDate);
+    end.setDate(selectedDate.getDate() + 1);
     return sessions
-      .filter((session) => session?.start instanceof Date && session.start >= start && session.start < end)
+      .filter((session) => session?.start instanceof Date && session.start >= selectedDate && session.start < end)
       .sort((a, b) => a.start - b.start);
-  }, [mobileCalendarDays, sessions]);
+  }, [mobileCalendarSelectedDay, sessions]);
+
+  const mobileCalendarVisibleDaySessions = useMemo(
+    () => mobileCalendarDayExpanded ? mobileCalendarDaySessions : mobileCalendarDaySessions.slice(0, 4),
+    [mobileCalendarDayExpanded, mobileCalendarDaySessions]
+  );
 
   const coachRadarItems = useMemo(() => {
     const items = [];
@@ -8812,30 +8939,43 @@ alignItems="stretch">
                   </Button>
                 </HStack>
                 <SimpleGrid columns={7} spacing={1.5} mb={4}>
-                  {mobileCalendarDays.map((day, index) => {
+                  {mobileCalendarDays.map((day) => {
                     const hasActivity = day.planned > 0 || day.done > 0;
+                    const isSelectedDay = day.key === mobileCalendarSelectedDay?.key;
+                    const isToday = sameCalendarDay(day.date, new Date());
                     return (
                       <Box
                         key={day.key}
+                        as="button"
+                        type="button"
+                        aria-pressed={isSelectedDay}
                         border="1px solid"
-                        borderColor={hasActivity ? `${activeBlue}55` : borderColor}
+                        borderColor={isSelectedDay ? activeBlue : hasActivity ? `${activeBlue}55` : borderColor}
                         borderRadius="14px"
                         py={2}
                         px={1}
                         bg={
-                          index === 0
+                          isSelectedDay
                             ? `${activeBlue}14`
                             : hasActivity
                               ? `${activeBlue}0D`
                               : modeValue("rgba(255,255,255,0.52)", "rgba(255,255,255,0.035)")
                         }
+                        boxShadow={isSelectedDay ? `0 0 0 1px ${activeBlue}44` : "none"}
+                        cursor="pointer"
                         textAlign="center"
                         minW={0}
+                        onClick={() => {
+                          setMobileCalendarSelectedDayKey(day.key);
+                          setMobileCalendarDayExpanded(false);
+                        }}
+                        transition="all 0.18s ease"
+                        _hover={{ borderColor: activeBlue, transform: "translateY(-1px)" }}
                       >
                         <Text fontSize="10px" color={subtleText} fontWeight="900" textTransform="uppercase" noOfLines={1}>
                           {day.date.toLocaleDateString(i18n.language || "fr", { weekday: "short" }).replace(".", "")}
                         </Text>
-                        <Text mt={1} fontSize="md" lineHeight="1" fontWeight="950">
+                        <Text mt={1} fontSize="md" lineHeight="1" fontWeight="950" color={isToday || isSelectedDay ? textColor : mutedText}>
                           {day.date.getDate()}
                         </Text>
                         <HStack justify="center" spacing={1} mt={2} minH="6px">
@@ -8850,8 +8990,29 @@ alignItems="stretch">
                   })}
                 </SimpleGrid>
 
+                <HStack justify="space-between" align="center" mb={2.5} spacing={3}>
+                  <Box minW={0}>
+                    <Text fontSize="xs" color={subtleText} fontWeight="900" textTransform="uppercase" noOfLines={1}>
+                      {t("calendar.day", "Jour")}
+                    </Text>
+                    <Text fontSize="md" fontWeight="900" noOfLines={1}>
+                      {mobileCalendarSelectedDay?.date.toLocaleDateString(i18n.language || "fr", {
+                        weekday: "long",
+                        day: "2-digit",
+                        month: "long",
+                      })}
+                    </Text>
+                  </Box>
+                  <Badge borderRadius="full" px={2.5} py={1} colorScheme={mobileCalendarDaySessions.length ? "blue" : "gray"}>
+                    {t("dashboard.calendar_events_count", {
+                      count: mobileCalendarDaySessions.length,
+                      defaultValue: `${mobileCalendarDaySessions.length} événement${mobileCalendarDaySessions.length > 1 ? "s" : ""}`,
+                    })}
+                  </Badge>
+                </HStack>
+
                 <VStack align="stretch" spacing={2.5}>
-	                  {mobileCalendarWeekSessions.slice(0, 5).map((event) => {
+	                  {mobileCalendarVisibleDaySessions.map((event) => {
                     const status = String(event.status || "").trim().toLowerCase();
                     const endMs = getEventEndMs(event);
                     const isDone =
@@ -8920,9 +9081,6 @@ alignItems="stretch">
                             </Text>
                             <Text mt={1} fontSize="xs" color={subtleText}>
                               {event.start.toLocaleString(i18n.language || "fr", {
-                                weekday: "short",
-                                day: "2-digit",
-                                month: "short",
                                 hour: "2-digit",
                                 minute: "2-digit",
                               })}
@@ -8935,7 +9093,33 @@ alignItems="stretch">
                       </Box>
                     );
                   })}
-                  {!mobileCalendarWeekSessions.length && (
+                  {mobileCalendarDaySessions.length > mobileCalendarVisibleDaySessions.length && (
+                    <Button
+                      size="sm"
+                      borderRadius="14px"
+                      variant="outline"
+                      borderColor={borderColor}
+                      color={textColor}
+                      onClick={() => setMobileCalendarDayExpanded(true)}
+                    >
+                      {t("common.see_more", {
+                        count: mobileCalendarDaySessions.length - mobileCalendarVisibleDaySessions.length,
+                        defaultValue: `Voir plus (${mobileCalendarDaySessions.length - mobileCalendarVisibleDaySessions.length})`,
+                      })}
+                    </Button>
+                  )}
+                  {mobileCalendarDayExpanded && mobileCalendarDaySessions.length > 4 && (
+                    <Button
+                      size="sm"
+                      borderRadius="14px"
+                      variant="ghost"
+                      color={mutedText}
+                      onClick={() => setMobileCalendarDayExpanded(false)}
+                    >
+                      {t("common.see_less", "Voir moins")}
+                    </Button>
+                  )}
+                  {!mobileCalendarDaySessions.length && (
                     <HStack spacing={3} align="flex-start">
                       <Circle size="34px" bg={`${warningOrange}18`} color={warningOrange} flexShrink={0}>
                         <Icon as={MdOutlineSchedule} boxSize="18px" />
@@ -8945,7 +9129,7 @@ alignItems="stretch">
                         <Text mt={1} fontSize="sm" color={mutedText}>
                           {nutritionOnlyDashboard
                             ? t("dashboard.mobile.no_appointment", "Aucun rendez-vous")
-                            : t("dashboard.mobile.no_session", "Aucune séance")}
+                            : t("dashboard.mobile.no_session_for_day", "Aucune séance sur cette journée")}
                         </Text>
                       </Box>
                     </HStack>
@@ -9969,19 +10153,22 @@ style={{ color: "black" }}>
                     <FormLabel>{t("form.program", "Programme")}</
 	FormLabel>
                     <Select
-                      placeholder={t("form.select_program", "Choisir un programme")}
+                      placeholder={
+                        selectedNewSessionClient && selectedNewSessionProgrammes.length === 0
+                          ? t("form.no_program_available", "Aucun programme disponible")
+                          : t("form.select_program", "Choisir un programme")
+                      }
                       value={newSession.programmeId}
                       borderRadius="16px"
                       bg={modeValue("rgba(15,23,42,0.03)",
 	"rgba(255,255,255,0.04)")}
                       borderColor={borderColor}
                       color={textColor}
+                      isDisabled={!selectedNewSessionClient || selectedNewSessionProgrammes.length === 0}
                       onChange={(e) => setNewSession((prev) =>
 	({ ...prev, programmeId: e.target.value, sessionIndex: null }))}
                     >
-                      {clients
-                        .find((c) => c.id === newSession.clientId)
-                        ?.programmesAssignes?.map((p) => (
+                      {selectedNewSessionProgrammes.map((p) => (
                           <option key={p.id} value={p.id}
 	style={{ color: "black" }}>
                             {prettyAssignedProgramName(p)}
@@ -10006,18 +10193,9 @@ FormLabel>
                      onChange={(e) => setNewSession((prev) =>
 ({ ...prev, sessionIndex:
 Number(e.target.value) }))}
+                     isDisabled={!selectedNewSessionProgramme || selectedNewSessionSessions.length === 0}
                    >
-                     {(clients
-                       .find((c) => c.id === newSession.clientId)
-                       ?.programmesAssignes?.find((p) => p.id ===
-newSession.programmeId)?.sessions ||
-                       clients
-                          .find((c) => c.id === newSession.clientId)
-                          ?.programmesAssignes?.find((p) => p.id ===
-newSession.programmeId)?.seances
-||
-                       []
-                     ).map((s, i) => (
+                     {selectedNewSessionSessions.map((s, i) => (
                        <option key={i} value={i} style={{ color:
 "black" }}>
                           {s.name || s.title || s.nom || `${t("form.session", "Séance")} ${i + 1}`}
@@ -10137,6 +10315,7 @@ FormLabel>
                 _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
                 _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
                 borderRadius="16px"
+                isDisabled={!canSubmitNewSession}
 	                onClick={handleAddSession}
              >
                 {t("common.add", "Ajouter")}

@@ -90,7 +90,10 @@
     "creating": "Création...",
     "cancelled": "Annulée",
     "retry": "Réessayer",
-    "done": "تم"
+    "done": "تم",
+    "see_more": "عرض المزيد ({{count}})",
+    "see_more_other": "عرض المزيد ({{count}})",
+    "see_less": "عرض أقل"
   },
   "form": {
     "program": "البرنامج",
@@ -98,6 +101,7 @@
     "session": "جلسة",
     "datetime": "التاريخ والوقت",
     "select_program": "حدد برنامجًا",
+    "no_program_available": "لا يوجد برنامج متاح",
     "select_client": "حدد عميلاً",
     "select_session": "حدد جلسة",
     "status": "الحالة"
@@ -179,6 +183,8 @@
     "calendar_not_validated": "غير مؤكدة",
     "calendar_rated": "تم تقييمها {{rating}}/5",
     "calendar_not_rated": "بدون تقييم",
+    "calendar_events_count": "{{count}} حدث",
+    "calendar_events_count_other": "{{count}} أحداث",
     "assigned_clients_count": "{{count}} العميل المعين",
     "assigned_clients_count_other": "{{count}} العملاء المعينون",
     "assigned_to_list": "المخصصة ل",
@@ -207,6 +213,21 @@
     "stats_total_clients": "العملاء",
     "stats_total_programs": "البرامج",
     "weekly_execution_hint": "{{done}}/{{planned}} مخطط له هذا الأسبوع",
+    "add_session_errors": {
+      "client_required_title": "العميل مطلوب",
+      "client_required_description": "حدد عميلاً لتخطيط الجلسة.",
+      "client_missing_title": "لم يتم العثور على العميل",
+      "client_missing_description": "حدد عميلاً صالحًا لهذه الجلسة.",
+      "date_required_title": "التاريخ مطلوب",
+      "date_required_description": "اختر تاريخًا ووقتًا صالحين.",
+      "action_unavailable_title": "الإجراء غير متاح",
+      "nutrition_calendar_unavailable_description": "تقويم التغذية غير متاح لهذا الحساب.",
+      "program_required_title": "البرنامج مطلوب",
+      "program_required_description": "حدد برنامجًا معينًا لهذا العميل.",
+      "no_plannable_program_description": "لا يملك هذا العميل بعد برنامجًا بجلسات قابلة للتخطيط.",
+      "session_required_title": "الجلسة مطلوبة",
+      "session_required_description": "حدد جلسة صالحة لهذا البرنامج."
+    },
     "banner": {
       "birthdays_label": "أعياد ميلاد اليوم",
       "next_session_label": "الجلسة القادمة",
@@ -637,6 +658,7 @@
       "today": "اليوم",
       "no_appointment": "لا يوجد موعد",
       "no_session": "لا توجد حصة",
+      "no_session_for_day": "لا توجد حصة في هذا اليوم",
       "ready_to_plan": "كل شيء متاح لتخطيط المتابعة القادمة.",
       "validated": "منجزة",
       "planned": "مجدولة",

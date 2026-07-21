@@ -90,7 +90,10 @@
     "creating": "Création...",
     "cancelled": "Annulée",
     "retry": "Réessayer",
-    "done": "Готово"
+    "done": "Готово",
+    "see_more": "Показать ещё ({{count}})",
+    "see_more_other": "Показать ещё ({{count}})",
+    "see_less": "Показать меньше"
   },
   "form": {
     "program": "Программа",
@@ -98,6 +101,7 @@
     "session": "Сессия",
     "datetime": "Дата и время",
     "select_program": "Выберите программу",
+    "no_program_available": "Нет доступных программ",
     "select_client": "Выберите клиента",
     "select_session": "Выберите сеанс",
     "status": "Статус"
@@ -179,6 +183,8 @@
     "calendar_not_validated": "Не подтверждено",
     "calendar_rated": "Оценено {{rating}}/5",
     "calendar_not_rated": "Без оценки",
+    "calendar_events_count": "{{count}} событие",
+    "calendar_events_count_other": "{{count}} событий",
     "assigned_clients_count": "{{count}} назначенный клиент",
     "assigned_clients_count_other": "{{count}} назначенные клиенты",
     "assigned_to_list": "Назначено",
@@ -207,6 +213,21 @@
     "stats_total_clients": "Клиенты",
     "stats_total_programs": "Программы",
     "weekly_execution_hint": "{{done}}/{{planned}} запланировано на эту неделю",
+    "add_session_errors": {
+      "client_required_title": "Требуется клиент",
+      "client_required_description": "Выберите клиента, чтобы запланировать сеанс.",
+      "client_missing_title": "Клиент не найден",
+      "client_missing_description": "Выберите действительного клиента для этого сеанса.",
+      "date_required_title": "Требуется дата",
+      "date_required_description": "Выберите действительные дату и время.",
+      "action_unavailable_title": "Действие недоступно",
+      "nutrition_calendar_unavailable_description": "Календарь питания недоступен для этой учетной записи.",
+      "program_required_title": "Требуется программа",
+      "program_required_description": "Выберите программу, назначенную этому клиенту.",
+      "no_plannable_program_description": "У этого клиента пока нет программы с сеансами, которые можно запланировать.",
+      "session_required_title": "Требуется сеанс",
+      "session_required_description": "Выберите действительный сеанс для этой программы."
+    },
     "banner": {
       "birthdays_label": "Дни рождения дня",
       "next_session_label": "Следующий сеанс",
@@ -637,6 +658,7 @@
       "today": "Сегодня",
       "no_appointment": "Нет встречи",
       "no_session": "Нет тренировки",
+      "no_session_for_day": "В этот день нет тренировок",
       "ready_to_plan": "Можно запланировать следующий контакт.",
       "validated": "Готово",
       "planned": "Заплан.",

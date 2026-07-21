@@ -185,10 +185,15 @@ const theme = extendTheme({
   },
   styles: {
     global: (props) => ({
-      "html, body, #root": { height: "100%" },
+      "html, body, #root": { minHeight: "100%" },
+      "html, body": {
+        overflowX: "hidden",
+      },
       "#root": {
         position: "relative",
-        overflowX: "hidden",
+        minHeight: "100%",
+        overflowX: "clip",
+        overflowY: "visible",
       },
       body: {
         bg: mode("#F6F9FC", "#0B1120")(props),
