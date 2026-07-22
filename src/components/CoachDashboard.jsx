@@ -34,6 +34,7 @@ import {
   Tooltip,
   Circle,
   useColorModeValue,
+  useBreakpointValue,
   Menu,
   MenuButton,
   MenuList,
@@ -1840,6 +1841,7 @@ async function deleteClientCalendarEvent({ clientId, eventId }) {
 }
 export default function CoachDashboard() {
   const { t } = useTranslation();
+  const isMobileDashboard = useBreakpointValue({ base: true, md: false }, { ssr: false }) ?? true;
   const calendarCulture = useMemo(
     () => getCalendarCulture(i18n.resolvedLanguage || i18n.language || "fr"),
     [i18n.resolvedLanguage, i18n.language]
@@ -2032,6 +2034,7 @@ end && now < end;
   const [radarAdjustmentReviewItem, setRadarAdjustmentReviewItem] = useState(null);
   const [radarAdjustmentApplying, setRadarAdjustmentApplying] = useState(false);
   const [eventEditOpen, setEventEditOpen] = useState(false);
+  const [eventEditSaving, setEventEditSaving] = useState(false);
   const [eventEditDraft, setEventEditDraft] = useState({
     type: "sport",
     clientId: "",
@@ -3977,7 +3980,9 @@ effectiveCoachUid]);
   }, [fetchData]);
   const getClubAppointmentIdFromEvent = useCallback((event) => {
     if (!event) return "";
-    return event.clubAppointmentId || String(event._sourceId || event.id || "").replace(/^club__/, "");
+    if (event.clubAppointmentId) return event.clubAppointmentId;
+    if (event._kind !== "club_appointment") return "";
+    return String(event._sourceId || event.id || "").replace(/^club__/, "");
   }, []);
 
   const syncClubAppointmentFromEvent = useCallback(
@@ -4334,7 +4339,7 @@ selectedEvent.id.replace("planned__", "");
   };
 
   const handleSaveEventEdit = async () => {
-    if (!selectedEvent || selectedEvent?._kind === "completed") return;
+    if (!selectedEvent || selectedEvent?._kind === "completed" || eventEditSaving) return;
     const sourceId = selectedEvent._sourceId || selectedEvent.id.replace("planned__", "");
     const previousClientId = selectedEvent.clientId;
     const nextClientId = eventEditDraft.clientId || previousClientId;
@@ -4450,29 +4455,37 @@ selectedEvent.id.replace("planned__", "");
       };
     }
 
+    setEventEditSaving(true);
     try {
-      await updateDoc(doc(db, "sessions", sourceId), rootPayload);
-      if (previousClientId && previousClientId !== nextClient.id) {
-        try {
-          await deleteClientCalendarEvent({ clientId: previousClientId, eventId: sourceId });
-        } catch (deleteError) {
-          console.warn("[calendarEvents] previous client event delete failed", deleteError);
-        }
-        await upsertClientCalendarEvent(calendarPayload);
-      } else {
-        await upsertClientCalendarEvent(calendarPayload);
-      }
-      try {
-        await syncClubAppointmentFromEvent(selectedEvent, {
+      const calendarWritePromise = previousClientId && previousClientId !== nextClient.id
+        ? (async () => {
+            try {
+              await deleteClientCalendarEvent({ clientId: previousClientId, eventId: sourceId });
+            } catch (deleteError) {
+              console.warn("[calendarEvents] previous client event delete failed", deleteError);
+            }
+            await upsertClientCalendarEvent(calendarPayload);
+          })()
+        : upsertClientCalendarEvent(calendarPayload);
+      const clubSyncPromise = syncClubAppointmentFromEvent(selectedEvent, {
           title: rootPayload.title,
           start,
           durationMin,
           status: eventEditDraft.status,
           note: eventEditDraft.notes || "",
+        }).catch((clubAppointmentError) => {
+          console.warn("[club appointments] edit sync failed", clubAppointmentError);
         });
-      } catch (clubAppointmentError) {
-        console.warn("[club appointments] edit sync failed", clubAppointmentError);
-      }
+      const savePromise = Promise.all([
+        updateDoc(doc(db, "sessions", sourceId), rootPayload),
+        calendarWritePromise,
+        clubSyncPromise,
+      ]);
+      const saveAck = await Promise.race([
+        savePromise.then(() => ({ confirmed: true })).catch((error) => ({ error })),
+        new Promise((resolve) => window.setTimeout(() => resolve({ pending: true }), 1800)),
+      ]);
+      if (saveAck.error) throw saveAck.error;
       setSelectedEvent((prev) =>
         prev
           ? {
@@ -4494,18 +4507,63 @@ selectedEvent.id.replace("planned__", "");
             }
           : prev
       );
+      const nextSessions = sessions.map((event) =>
+        event.id === selectedEvent.id || event._sourceId === sourceId
+          ? {
+              ...event,
+              clientId: nextClient.id,
+              _clientName: getClientFullName(nextClient),
+              programmeId: rootPayload.programmeId || "",
+              sessionIndex: rootPayload.sessionIndex ?? null,
+              eventType: rootPayload.eventType,
+              appointmentKind: rootPayload.appointmentKind || "",
+              durationMin,
+              _programmeName: isNutritionEdit ? "" : calendarPayload.description,
+              _sessionTitle: rootPayload.title,
+              title: calendarPayload.title || rootPayload.title,
+              start,
+              end,
+              status: eventEditDraft.status,
+              notes: eventEditDraft.notes || "",
+            }
+          : event
+      );
+      setSessions(nextSessions);
+      writeDashboardDataCache(effectiveCoachUid, effectiveClubId, {
+        clients,
+        programmesBase,
+        sessions: nextSessions,
+        assignedCounts,
+        assignedClientsMap,
+      });
       setEventEditOpen(false);
       eventModal.onClose();
-      await refreshDashboardData();
       notify(toast, "settingsSaved", {
-        description: isNutritionEdit ? "Rendez-vous mis à jour." : "Séance mise à jour.",
+        description: saveAck.confirmed
+          ? isNutritionEdit ? "Rendez-vous mis à jour." : "Séance mise à jour."
+          : "Modification enregistrée. Synchronisation en arrière-plan…",
       });
+      if (saveAck.confirmed) {
+        void refreshDashboardData();
+      } else {
+        void savePromise
+          .then(() => refreshDashboardData())
+          .catch((backgroundSaveError) => {
+            console.error("[calendar] background edit sync failed", backgroundSaveError);
+            notify(toast, "saveError", {
+              title: "Synchronisation impossible",
+              description: "La modification locale n'a pas encore pu être synchronisée.",
+            });
+          });
+      }
     } catch (error) {
       console.error("[calendar] edit failed", error);
       notify(toast, "saveError", {
         title: "Modification impossible",
         description: "L'évènement n'a pas pu être modifié.",
       });
+    } finally {
+      setEventEditSaving(false);
     }
   };
 
@@ -6854,8 +6912,8 @@ noOfLines={2}>
                 </Text>
               </Box>
             </Flex>
+            {!isMobileDashboard && (
             <Flex
-              display={{ base: "none", md: "flex" }}
               direction="row"
               gap={{ base: 1.5, md: 2 }}
               align="stretch"
@@ -6973,6 +7031,7 @@ boxSize="20px" />
                  </HStack>
                </Box>
             </Flex>
+            )}
           </Flex>
         </Box>
 
@@ -7167,6 +7226,8 @@ boxSize="20px" />
           </SimpleGrid>
         </Box>
 
+        {!isMobileDashboard && (
+        <>
         <Box
           display={{ base: "none", md: "grid" }}
           gridTemplateColumns={{
@@ -7686,6 +7747,8 @@ color={mutedText} noOfLines={1}>
             </Box>
           </Box>
         </Box>
+        </>
+        )}
 
 
         <Flex justify="flex-end" mb={2.5}>
@@ -8292,7 +8355,7 @@ modeValue("rgba(59,130,246,0.18)",
                ) : (
                   <VStack spacing={2.5} align="stretch" flex="1"
 overflow="auto">
-                    {recentCoachClients.slice(0, MAX_DISPLAY).map((c) => {
+                    {recentCoachClients.slice(0, isMobileDashboard ? 3 : MAX_DISPLAY).map((c) => {
                       const programmesForCard = (c.programmesAssignes || []).map((prog) => {
                         const displayProgramName = prettyAssignedProgramName(prog);
                         const baseId = prog.programId || prog.programID || prog.baseId || "";
@@ -8751,7 +8814,7 @@ overflow="auto">
                       <Text color={mutedText}
 >{t("dashboard.no_program_available", "Aucun programme disponible.")}</Text>
                     ) : (
-                      latestPrograms.map((p) => {
+                      latestPrograms.slice(0, isMobileDashboard ? 3 : latestPrograms.length).map((p) => {
                         const createdOn = p.createdAt?.toDate
                           ?
 p.createdAt.toDate().toLocaleDateString()
@@ -9191,8 +9254,8 @@ alignItems="stretch">
                 </VStack>
               </Box>
 
+              {!isMobileDashboard && (
               <Box
-                display={{ base: "none", md: "block" }}
                 sx={{
                    ".rbc-calendar": {
                       background: "transparent",
@@ -9350,6 +9413,7 @@ count: total, defaultValue: `+${total}` }),
                    </React.Suspense>
                  )}
               </Box>
+              )}
               </>
               )}
             </CardShell>
@@ -10704,12 +10768,14 @@ modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")
                       />
                     </FormControl>
                     <HStack justify="flex-end">
-                      <Button variant="ghost" borderRadius="14px" onClick={() => setEventEditOpen(false)}>{t("exerciseCard.cancel", "Annuler")}</Button>
+                      <Button variant="ghost" borderRadius="14px" isDisabled={eventEditSaving} onClick={() => setEventEditOpen(false)}>{t("exerciseCard.cancel", "Annuler")}</Button>
                       <Button
                         bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
                         color="white"
                         _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
                         borderRadius="14px"
+                        isLoading={eventEditSaving}
+                        loadingText={t("common.saving", "Enregistrement...")}
                         onClick={handleSaveEventEdit}
                       >{t("programBuilder.cta.saveShort", "Enregistrer")}</Button>
                     </HStack>
