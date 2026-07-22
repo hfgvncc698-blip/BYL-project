@@ -223,19 +223,16 @@ const scheduleIdleTask = (callback, timeout = 700) => {
     window.clearTimeout(timeoutId);
   };
 };
-const DASHBOARD_DATA_CACHE_VERSION = 3;
+const DASHBOARD_DATA_CACHE_VERSION = 5;
 const DASHBOARD_DATA_CACHE_TTL_MS = 15 * 60 * 1000;
 const DASHBOARD_DATA_CACHE_CLIENT_LIMIT = 120;
 const DASHBOARD_DATA_CACHE_PROGRAM_LIMIT = 8;
 const DASHBOARD_DATA_CACHE_SESSION_LIMIT = 28;
 const DASHBOARD_NUTRITION_CACHE_TTL_MS = 10 * 60 * 1000;
-const DASHBOARD_SUMMARY_VERSION = 2;
 const dashboardDataMemoryCache = new Map();
 const DASHBOARD_DATA_LAST_CACHE_KEY = `byl:coach-dashboard:data:${DASHBOARD_DATA_CACHE_VERSION}:last`;
 const getDashboardDataCacheKey = (coachUid = "", clubId = "") =>
   `byl:coach-dashboard:data:${DASHBOARD_DATA_CACHE_VERSION}:${coachUid || "coach"}:${clubId || "solo"}`;
-const getDashboardSummaryDocId = (coachUid = "", clubId = "") =>
-  `${String(coachUid || "coach").replace(/[^A-Za-z0-9_-]/g, "_")}__${String(clubId || "solo").replace(/[^A-Za-z0-9_-]/g, "_")}`;
 const getDashboardNutritionCacheKey = (coachUid = "", clubId = "") =>
   `byl:coach-dashboard:nutrition:v1:${coachUid || "coach"}:${clubId || "solo"}`;
 const reviveDashboardDate = (value) => {
@@ -272,7 +269,7 @@ const compactDashboardProgram = (program = {}) => {
   const sessions = Array.isArray(program.sessions)
     ? program.sessions.map(compactDashboardProgramSession)
     : undefined;
-  return {
+  const compact = {
     ...program,
     sessions,
     seances: Array.isArray(program.seances)
@@ -284,6 +281,19 @@ const compactDashboardProgram = (program = {}) => {
     difficultyNotes: [],
     difficultyMap: program.difficultyMap || {},
   };
+  [
+    "exercises",
+    "exercices",
+    "exerciseBank",
+    "generatedProgram",
+    "generationPayload",
+    "questionnaire",
+    "rawPayload",
+  ].forEach((key) => delete compact[key]);
+  ["weeks", "semaines"].forEach((key) => {
+    if (Array.isArray(compact[key])) delete compact[key];
+  });
+  return compact;
 };
 const compactDashboardClient = (client = {}) => ({
   ...client,
@@ -331,7 +341,7 @@ const reviveDashboardEvent = (event = {}) => ({
 });
 const compactDashboardPayload = ({ clients = [], programmesBase = [], sessions = [], assignedCounts = {}, assignedClientsMap = {} }) => ({
   clients: clients.slice(0, DASHBOARD_DATA_CACHE_CLIENT_LIMIT).map(compactDashboardClient),
-  programmesBase: programmesBase.slice(0, 220),
+  programmesBase: programmesBase.slice(0, 220).map(compactDashboardProgram),
   sessions: sessions.map(compactDashboardEvent),
   assignedCounts,
   assignedClientsMap,
@@ -400,41 +410,6 @@ const writeDashboardDataCache = (coachUid, clubId, payload) => {
       window.localStorage.setItem(DASHBOARD_DATA_LAST_CACHE_KEY, key);
     } catch {}
   }, 900);
-};
-const sanitizeForFirestore = (value) => {
-  try {
-    return JSON.parse(JSON.stringify(value || {}));
-  } catch {
-    return {};
-  }
-};
-const readDashboardSummaryDoc = async (coachUid, clubId) => {
-  if (!coachUid) return null;
-  const summaryRef = doc(db, "coachDashboardSummaries", getDashboardSummaryDocId(coachUid, clubId));
-  const snap = await getDoc(summaryRef);
-  if (!snap.exists()) return null;
-  const payload = snap.data() || {};
-  if (payload.version !== DASHBOARD_SUMMARY_VERSION) return null;
-  const data = payload.data || {};
-  return {
-    ...data,
-    sessions: (data.sessions || []).map(reviveDashboardEvent),
-  };
-};
-const writeDashboardSummaryDoc = async (coachUid, clubId, payload) => {
-  if (!coachUid) return;
-  const summaryRef = doc(db, "coachDashboardSummaries", getDashboardSummaryDocId(coachUid, clubId));
-  await setDoc(
-    summaryRef,
-    {
-      version: DASHBOARD_SUMMARY_VERSION,
-      coachUid,
-      clubId: clubId || "",
-      data: sanitizeForFirestore(compactDashboardPayload(payload || {})),
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true }
-  );
 };
 const getMonthKey = (date = new Date()) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -1387,6 +1362,7 @@ const getCalendarEventColor = (event = {}, fallback = "#2563EB") => {
   if (status === "validée" || status === "validee" || status === "done" || status === "completed") return "#22C55E";
   return fallback;
 };
+const DIFFICULTY_NOTE_COLLECTIONS = ["difficulté_notes", "difficulte_notes"];
 const getSessionDifficultyRating = (session = {}) =>
   normRating(
     session?.difficultyRating ??
@@ -1405,6 +1381,42 @@ const getSessionDifficultyAtMs = (session = {}) =>
     toMillis(session?.updatedAt),
     toMillis(session?.createdAt)
   );
+const buildDifficultyMapFromNotes = (notes = []) => {
+  const byIndex = {};
+  notes.forEach((note) => {
+    const idx = getSessionIndex(note);
+    const rating = normRating(note?.rating);
+    if (!Number.isFinite(idx) || !rating) return;
+    const createdAtMs = Math.max(
+      toMillis(note?.createdAt),
+      toMillis(note?.updatedAt),
+      toMillis(note?.date)
+    );
+    const previous = byIndex[idx];
+    if (!previous || createdAtMs >= Number(previous.createdAtMs || 0)) {
+      byIndex[idx] = { rating, createdAtMs };
+    }
+  });
+  return byIndex;
+};
+const loadProgramDifficultyNotes = async (clientId, programId) => {
+  if (!clientId || !programId) return [];
+  for (const collectionName of DIFFICULTY_NOTE_COLLECTIONS) {
+    try {
+      const snap = await getDocs(collection(db, "clients", clientId, "programmes", programId, collectionName));
+      if (!snap.empty) {
+        return snap.docs.map((noteDoc) => ({
+          id: noteDoc.id,
+          _collection: collectionName,
+          ...noteDoc.data(),
+        }));
+      }
+    } catch (error) {
+      console.warn("[coach dashboard] difficulty notes load failed", collectionName, error);
+    }
+  }
+  return [];
+};
 const isAutoProgramme = (p) => {
    const o = String(p?.origine || "").toLowerCase();
    return o.includes("auto");
@@ -1949,7 +1961,10 @@ end && now < end;
   const calendarLinkModal = useDisclosure();
   const dashboardPrefsModal = useDisclosure();
   const birthdayMessageModal = useDisclosure();
-  const initialDashboardCache = useMemo(() => readLastDashboardDataCache(), []);
+  const initialDashboardCache = useMemo(
+    () => readDashboardDataCache(effectiveCoachUid, effectiveClubId) || readLastDashboardDataCache(),
+    [effectiveClubId, effectiveCoachUid]
+  );
   const [clients, setClients] = useState(() => initialDashboardCache?.clients || []);
   const [programmesBase, setProgrammesBase] = useState(() => initialDashboardCache?.programmesBase || []);
   const [sessions, setSessions] = useState(() => initialDashboardCache?.sessions || []);
@@ -2071,8 +2086,16 @@ useState(() => initialDashboardCache?.assignedClientsMap || {});
     const accessSource = isAdmin && adminCoachId ? coachContext : user;
     return hasPlanModule(accessSource, "nutrition");
   }, [adminCoachId, coachContext, isAdmin, user]);
-  const [nutritionRows, setNutritionRows] = useState([]);
-  const [nutritionFeedbackRows, setNutritionFeedbackRows] = useState([]);
+  const initialNutritionDashboardCache = useMemo(
+    () => readPageDataCache(getDashboardNutritionCacheKey(effectiveCoachUid, effectiveClubId), {
+      ttlMs: DASHBOARD_NUTRITION_CACHE_TTL_MS,
+    }),
+    [effectiveClubId, effectiveCoachUid]
+  );
+  const [nutritionRows, setNutritionRows] = useState(() => initialNutritionDashboardCache?.rows || []);
+  const [nutritionFeedbackRows, setNutritionFeedbackRows] = useState(
+    () => initialNutritionDashboardCache?.feedbackRows || []
+  );
   const nutritionLoadKeyRef = useRef("");
   const dashboardLoadSeqRef = useRef(0);
   const [dismissedRadarIds, setDismissedRadarIds] = useState([]);
@@ -2592,6 +2615,8 @@ useState(false);
       if (cachedNutrition) {
         setNutritionRows(cachedNutrition.rows || []);
         setNutritionFeedbackRows(cachedNutrition.feedbackRows || []);
+        nutritionLoadKeyRef.current = nutritionLoadKey;
+        return;
       }
       if (nutritionLoadKeyRef.current === nutritionLoadKey) return;
       nutritionLoadKeyRef.current = nutritionLoadKey;
@@ -2642,7 +2667,7 @@ useState(false);
       }
     };
 
-    const cancelLoad = scheduleIdleTask(loadNutritionRows, 6500);
+    const cancelLoad = scheduleIdleTask(loadNutritionRows, 250);
     return () => {
       alive = false;
       cancelLoad();
@@ -3093,13 +3118,12 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
     });
   }, [clients, eventModal, navigate, selectedEvent, withAdminCoach]);
 
-  const fetchData = useCallback(async ({ force = false, silent = false, retryOnEmpty = 12 } = {}) => {
+  const fetchData = useCallback(async ({ force = false, silent = false } = {}) => {
      if (!effectiveCoachUid) return;
      const loadSeq = dashboardLoadSeqRef.current + 1;
      dashboardLoadSeqRef.current = loadSeq;
      const isLatestLoad = () => dashboardLoadSeqRef.current === loadSeq;
      let shouldCompleteFullLoad = force;
-     let deferredEmptyRetry = false;
      if (!force) {
        const cachedDashboardData = readDashboardDataCache(effectiveCoachUid, effectiveClubId);
        if (cachedDashboardData) {
@@ -3107,15 +3131,6 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
          return;
        }
        if (!silent && isLatestLoad()) setLoadingData(true);
-       try {
-         const summaryData = await readDashboardSummaryDoc(effectiveCoachUid, effectiveClubId);
-         if (summaryData) {
-           if (isLatestLoad()) hydrateDashboardData(summaryData);
-           return;
-         }
-       } catch (error) {
-         console.warn("[coach dashboard] summary read failed", error);
-       }
        shouldCompleteFullLoad = true;
      }
      try {
@@ -3193,7 +3208,7 @@ toMillis(a.createdAt));
            });
          });
        });
-       if (!silent && !shouldCompleteFullLoad && isLatestLoad()) {
+       if (!silent && isLatestLoad()) {
          setClients(quickDashboardClients);
          setAssignedCounts(quickCounts);
          setAssignedClientsMap(quickAssignedMap);
@@ -3288,7 +3303,7 @@ toMillis(a.createdAt));
           })
           .filter(Boolean)
           .sort((a, b) => (a.start?.getTime?.() || 0) - (b.start?.getTime?.() || 0));
-        if (!silent && !shouldCompleteFullLoad && isLatestLoad() && quickEvents.length) setSessions(quickEvents);
+        if (!silent && isLatestLoad() && quickEvents.length) setSessions(quickEvents);
       } catch (quickCalendarError) {
         console.warn("[coach dashboard] quick calendar hydration failed", quickCalendarError);
       }
@@ -3377,8 +3392,11 @@ d.id, "sessionsEffectuees")
                   ? getSessionActivityMs(latestCompletedRecord)
                   : 0;
                 const lastCompletedTitle = latestCompletedRecord ? getSessionDisplayTitle(prog, latestCompletedRecord, t) : "";
-                const difficultyNotes = [];
-                const difficultyMap = {};
+                const hasValidatedSession = sessionsEffectuees.some(isSessionValidatedRecord);
+                const difficultyNotes = hasValidatedSession
+                  ? await loadProgramDifficultyNotes(client.id, d.id)
+                  : [];
+                const difficultyMap = buildDifficultyMapFromNotes(difficultyNotes);
                 return {
                    id: d.id,
                    ...prog,
@@ -3931,19 +3949,6 @@ plannedEvt._sessionTitle,
           return { ...client, programmesAssignes, _lastCoachInteractionMs, _lastInteractionMs: _lastCoachInteractionMs, _clientListActivityMs };
         })
         .sort((a, b) => (b._lastCoachInteractionMs || 0) - (a._lastCoachInteractionMs || 0));
-      const remainingEmptyRetries = Number(retryOnEmpty) || 0;
-      const retryTodayFrom = startOfToday();
-      const retryTodayTo = endOfToday();
-      const hasTodayEvent = [...merged, ...quickEvents].some(
-        (event) => event.start instanceof Date && event.start >= retryTodayFrom && event.start <= retryTodayTo
-      );
-      if (!silent && remainingEmptyRetries > 0 && !hasTodayEvent) {
-        deferredEmptyRetry = true;
-        scheduleIdleTask(() => {
-          fetchData({ force: true, silent: false, retryOnEmpty: remainingEmptyRetries - 1 });
-        }, 700);
-        return;
-      }
       if (isLatestLoad()) {
         setProgrammesBase(progs);
         setClients(clientsForCoachDashboard);
@@ -3957,14 +3962,11 @@ plannedEvt._sessionTitle,
         assignedClientsMap: map,
       };
       writeDashboardDataCache(effectiveCoachUid, effectiveClubId, dashboardPayload);
-      writeDashboardSummaryDoc(effectiveCoachUid, effectiveClubId, dashboardPayload).catch((summaryError) => {
-        console.warn("[coach dashboard] summary write failed", summaryError);
-      });
     } catch (error) {
       console.error(error);
       if (!silent && isLatestLoad()) notify(toast, "dataLoadError");
     } finally {
-      if (!deferredEmptyRetry && isLatestLoad()) setLoadingData(false);
+      if (isLatestLoad()) setLoadingData(false);
     }
   }, [effectiveClubId, hydrateDashboardData, prettyAssignedProgramName, prettyProgramNameBase, t, toast,
 effectiveCoachUid]);
@@ -3973,13 +3975,6 @@ effectiveCoachUid]);
 
      fetchData();
   }, [fetchData]);
-  useEffect(() => {
-    if (!effectiveCoachUid) return undefined;
-    return scheduleIdleTask(() => {
-      fetchData({ force: true, silent: true });
-    }, 1800);
-  }, [effectiveCoachUid, fetchData]);
-
   const getClubAppointmentIdFromEvent = useCallback((event) => {
     if (!event) return "";
     return event.clubAppointmentId || String(event._sourceId || event.id || "").replace(/^club__/, "");

@@ -49,8 +49,8 @@ export default function ClientMobileNav() {
     if (typeof window === "undefined") return undefined;
     const warmVisibleRoutes = () => items.map((item) => item.path).filter(Boolean).forEach(preloadPath);
     const idleId = window.requestIdleCallback
-      ? window.requestIdleCallback(warmVisibleRoutes, { timeout: 3600 })
-      : window.setTimeout(warmVisibleRoutes, 2200);
+      ? window.requestIdleCallback(warmVisibleRoutes, { timeout: 1200 })
+      : window.setTimeout(warmVisibleRoutes, 450);
     return () => {
       if (window.cancelIdleCallback && typeof idleId === "number") {
         window.cancelIdleCallback(idleId);

@@ -401,6 +401,7 @@ function HomeRoute() {
 function AppContent() {
   const { t } = useTranslation("common");
   const location = useLocation();
+  const previousScrollPathRef = React.useRef(null);
   const footerRoutes = [
     ...Object.keys(SEO_ROUTES),
     "/plans/professionnel",
@@ -454,13 +455,32 @@ function AppContent() {
   const showBottomMobileNav = showClientMobileNav || showCoachMobileNav || showClubMobileNav;
 
   React.useEffect(() => {
+    if (!("scrollRestoration" in window.history)) return undefined;
+    const previousMode = window.history.scrollRestoration;
+    window.history.scrollRestoration = "manual";
+    return () => {
+      window.history.scrollRestoration = previousMode;
+    };
+  }, []);
+
+  React.useLayoutEffect(() => {
+    const previousPath = previousScrollPathRef.current;
+    previousScrollPathRef.current = location.pathname;
+    if (previousPath === location.pathname || location.hash) return;
+
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [location.hash, location.pathname]);
+
+  React.useEffect(() => {
     const keys = preloadKeysForContext({
       pathname: location.pathname,
       user,
       effectiveRole,
       isAdmin,
     });
-    const delay = user ? 2800 : 1600;
+    const delay = user ? 700 : 1400;
     return schedulePreload(keys, delay);
   }, [
     effectiveRole,

@@ -68,7 +68,6 @@ import { notify } from "../utils/notify";
 import { useAppTheme } from "../styles/appTheme";
 import { hasPlanModule } from "../utils/proPlanAccess";
 import { readPageDataCache, runLimited, updatePageDataCache, writePageDataCache } from "../utils/pageDataCache";
-import { readCoachPageSummary, writeCoachPageSummary } from "../utils/coachPageSummary";
 
 const DAYS_ACTIVE_CUTOFF = 30;
 const CLIENTS_PAGE_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -462,19 +461,6 @@ const Clients = () => {
         : null,
 	    [effectiveCoachUid, filter, nutritionMode, nutritionOnly, sportView]
 	  );
-  const clientsSummaryPageKey = useMemo(
-    () =>
-      [
-        "clients-page",
-        "v1",
-        filter || "all",
-        nutritionMode ? "nutrition" : "sport",
-        nutritionOnly ? "nutrition-all" : "nutrition-followed",
-        sportView ? "sport-only" : "all",
-      ].join(":"),
-    [filter, nutritionMode, nutritionOnly, sportView]
-  );
-
 	  const activeCutoffMs = useMemo(() => {
 	    const now = Date.now();
 	    return now - DAYS_ACTIVE_CUTOFF * 24 * 60 * 60 * 1000;
@@ -509,21 +495,9 @@ const Clients = () => {
 	    const cached = readPageDataCache(clientsPageCacheKey, { ttlMs: CLIENTS_PAGE_CACHE_TTL_MS });
 	    if (cached) {
 	      hydrateClientsPagePayload(cached);
+	      return;
 	    } else {
 	      setLoading(true);
-        try {
-          const summary = await readCoachPageSummary({
-            coachUid: effectiveCoachUid,
-            pageKey: clientsSummaryPageKey,
-            ttlMs: CLIENTS_PAGE_CACHE_TTL_MS,
-          });
-          if (summary) {
-            hydrateClientsPagePayload(summary);
-            writePageDataCache(clientsPageCacheKey, summary);
-          }
-        } catch (summaryError) {
-          console.warn("[clients] coach page summary unavailable", summaryError);
-        }
 	    }
 
     try {
@@ -741,19 +715,12 @@ const Clients = () => {
 	        nutritionLastFollowMap: nutritionLastEntries,
 	      };
 	      writePageDataCache(clientsPageCacheKey, nextPayload);
-        writeCoachPageSummary({
-          coachUid: effectiveCoachUid,
-          pageKey: clientsSummaryPageKey,
-          data: nextPayload,
-        }).catch((summaryError) => {
-          console.warn("[clients] coach page summary write failed", summaryError);
-        });
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-	  }, [effectiveCoachUid, clientsPageCacheKey, clientsSummaryPageKey, filter, activeCutoffMs, nutritionMode, nutritionOnly, sportView, hydrateClientsPagePayload]);
+	  }, [effectiveCoachUid, clientsPageCacheKey, filter, activeCutoffMs, nutritionMode, nutritionOnly, sportView, hydrateClientsPagePayload]);
 
   useEffect(() => {
     fetchData();
@@ -857,13 +824,6 @@ const Clients = () => {
 	      cached ? { ...cached, clients: (cached.clients || []).filter((c) => c.id !== deleteTarget) } : cached
 	    );
 	    writePageDataCache(clientsPageCacheKey, nextPayload);
-	    writeCoachPageSummary({
-	      coachUid: effectiveCoachUid,
-	      pageKey: clientsSummaryPageKey,
-	      data: nextPayload,
-	    }).catch((summaryError) => {
-	      console.warn("[clients] coach page summary delete update failed", summaryError);
-	    });
 	    setIsDeleteOpen(false);
 	  };
 

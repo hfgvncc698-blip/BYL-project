@@ -46,7 +46,6 @@ import {
   updatePageDataCache,
   writePageDataCache,
 } from "../utils/pageDataCache.js";
-import { readCoachPageSummary, writeCoachPageSummary } from "../utils/coachPageSummary.js";
 
 const NUTRITION_PAGE_CACHE_TTL_MS = 10 * 60 * 1000;
 
@@ -132,7 +131,6 @@ export default function CoachNutritionPage() {
 	    () => (effectiveCoachUid ? `byl:nutrition-page:v1:${effectiveCoachUid}` : null),
 	    [effectiveCoachUid]
 	  );
-  const nutritionSummaryPageKey = "nutrition-page:v1";
   const withAdminCoach = useCallback(
     (path) => {
       if (!isAdmin || !adminCoachId) return path;
@@ -164,22 +162,7 @@ export default function CoachNutritionPage() {
 	      setRows(cached.rows || []);
 	      setClientCount(Number(cached.clientCount || 0) || 0);
 	      setLoading(false);
-	    } else {
-	      try {
-	        const summary = await readCoachPageSummary({
-	          coachUid: effectiveCoachUid,
-	          pageKey: nutritionSummaryPageKey,
-	          ttlMs: NUTRITION_PAGE_CACHE_TTL_MS,
-	        });
-	        if (summary) {
-	          setRows(summary.rows || []);
-	          setClientCount(Number(summary.clientCount || 0) || 0);
-	          setLoading(false);
-	          writePageDataCache(nutritionPageCacheKey, summary);
-	        }
-	      } catch (summaryError) {
-	        console.warn("[nutrition] coach page summary unavailable", summaryError);
-	      }
+	      return;
 	    }
 
     const clientQueries = [
@@ -248,13 +231,6 @@ export default function CoachNutritionPage() {
 	      clientCount: clientList.length,
 	    };
 	    writePageDataCache(nutritionPageCacheKey, nextPayload);
-      writeCoachPageSummary({
-        coachUid: effectiveCoachUid,
-        pageKey: nutritionSummaryPageKey,
-        data: nextPayload,
-      }).catch((summaryError) => {
-        console.warn("[nutrition] coach page summary write failed", summaryError);
-      });
 	  }, [effectiveCoachUid, nutritionPageCacheKey]);
 
   const handleDelete = useCallback(
@@ -276,13 +252,6 @@ export default function CoachNutritionPage() {
 	            : cached
 	        );
 	        writePageDataCache(nutritionPageCacheKey, nextPayload);
-	        writeCoachPageSummary({
-	          coachUid: effectiveCoachUid,
-	          pageKey: nutritionSummaryPageKey,
-	          data: nextPayload,
-	        }).catch((summaryError) => {
-	          console.warn("[nutrition] coach page summary delete update failed", summaryError);
-	        });
         toast({
           status: "success",
           title: t("nutritionCoach.toasts.deleted.title", "Bilan supprimé"),

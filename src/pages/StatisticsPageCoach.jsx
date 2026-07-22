@@ -436,6 +436,7 @@ export default function StatisticsPageCoach() {
         });
         setActiveClientList(cached.activeClientList || []);
         setLoading(false);
+        return;
       } else {
         setLoading(true);
       }

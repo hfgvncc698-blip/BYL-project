@@ -57,7 +57,6 @@ import { canUseGuidedProgram } from "../utils/proPlanAccess";
 import { formatProgramActiveWeeks, getProgramActiveWeeksLabel } from "../utils/programDuration";
 import PageBackButton from "./ui/PageBackButton";
 import { deferPageTask, readPageDataCache, runLimited, writePageDataCache } from "../utils/pageDataCache";
-import { readCoachPageSummary, writeCoachPageSummary } from "../utils/coachPageSummary";
 
 /* -------- helpers -------- */
 const PROGRAMS_PAGE_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -192,7 +191,6 @@ export default function ProgramsPage() {
 	    () => (effectiveCoachUid ? `byl:programs-page:v1:${effectiveCoachUid}` : null),
 	    [effectiveCoachUid]
 	  );
-  const programsSummaryPageKey = "programs-page:v1";
 
   const choiceModal = useDisclosure();
   const confirmModal = useDisclosure();
@@ -320,25 +318,9 @@ export default function ProgramsPage() {
 	        setAssignedCounts(cached.assignedCounts || {});
 	        setAssignedClientsMap(cached.assignedClientsMap || {});
 	        setLoading(false);
+	        return;
 	      } else {
 	        setLoading(true);
-          try {
-            const summary = await readCoachPageSummary({
-              coachUid: effectiveCoachUid,
-              pageKey: programsSummaryPageKey,
-              ttlMs: PROGRAMS_PAGE_CACHE_TTL_MS,
-            });
-            if (summary) {
-              setProgrammes(summary.programmes || []);
-              setClients(summary.clients || []);
-              setAssignedCounts(summary.assignedCounts || {});
-              setAssignedClientsMap(summary.assignedClientsMap || {});
-              setLoading(false);
-              writePageDataCache(programsPageCacheKey, summary);
-            }
-          } catch (summaryError) {
-            console.warn("[programs] coach page summary unavailable", summaryError);
-          }
 	      }
 
       const progQ = query(collection(db, "programmes"), where("createdBy", "==", effectiveCoachUid), limit(200));
@@ -413,13 +395,6 @@ export default function ProgramsPage() {
 	        assignedClientsMap: map,
 	      };
 	      writePageDataCache(programsPageCacheKey, nextPayload);
-        writeCoachPageSummary({
-          coachUid: effectiveCoachUid,
-          pageKey: programsSummaryPageKey,
-          data: nextPayload,
-        }).catch((summaryError) => {
-          console.warn("[programs] coach page summary write failed", summaryError);
-        });
     } catch (err) {
       console.error("Erreur chargement programmes:", err);
       notify(toast, "dataLoadError", {
@@ -471,13 +446,6 @@ export default function ProgramsPage() {
 	      setAssignedCounts(nextAssignedCounts);
 	      setAssignedClientsMap(nextAssignedClientsMap);
 	      writePageDataCache(programsPageCacheKey, nextPayload);
-	      writeCoachPageSummary({
-	        coachUid: effectiveCoachUid,
-	        pageKey: programsSummaryPageKey,
-	        data: nextPayload,
-	      }).catch((summaryError) => {
-	        console.warn("[programs] coach page summary delete update failed", summaryError);
-	      });
 	      notify(toast, "programDeleted", {
 	        title: t("common.delete", "Supprimer"),
 	      });
