@@ -83,6 +83,13 @@ const TOUR_DEMO_CLIENT = {
   __tourDemo: true,
 };
 
+const normalizeClientSearchText = (value) =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase()
+    .trim();
+
 const getCachedClientActivityMs = (client) =>
   toMillis(client?.lastSession) || 0;
 
@@ -960,11 +967,12 @@ const Clients = () => {
   );
 
   const clientsForDisplay = showTourDemoClient ? [tourDemoClient, ...clients] : clients;
+  const normalizedSearchQuery = normalizeClientSearchText(searchQuery);
 
   const filteredClients = clientsForDisplay
     .filter((c) =>
       c.__tourDemo ||
-      `${c.prenom ?? ""} ${c.nom ?? ""}`.toLowerCase().includes(searchQuery.toLowerCase())
+      normalizeClientSearchText(`${c.prenom ?? ""} ${c.nom ?? ""}`).includes(normalizedSearchQuery)
     )
     .sort((a, b) =>
       `${a.prenom ?? ""} ${a.nom ?? ""}`.localeCompare(`${b.prenom ?? ""} ${b.nom ?? ""}`)

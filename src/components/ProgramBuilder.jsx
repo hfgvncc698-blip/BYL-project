@@ -90,6 +90,21 @@ function useDebouncedCallback(callback, deps, delay) {
   }, [...(deps || []), delay]);
 }
 
+const PROGRAM_SAVE_TIMEOUT_MS = 5000;
+
+function saveWithTimeout(request, timeoutMs = PROGRAM_SAVE_TIMEOUT_MS) {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      const error = new Error("program-save-timeout");
+      error.code = "program-save-timeout";
+      reject(error);
+    }, timeoutMs);
+  });
+
+  return Promise.race([request, timeout]).finally(() => clearTimeout(timeoutId));
+}
+
 function useRafCallback(fn) {
   const ref = useRef(0);
   return useCallback(
@@ -1459,11 +1474,13 @@ function getTotalTime(sess) {
 
 function useProgramDocRef(programIdState) {
   const { clientId, programId, id } = useParams();
-  if (clientId && programId) return doc(db, "clients", clientId, "programmes", programId);
-  if (programIdState) return doc(db, "programmes", programIdState);
-  if (id) return doc(db, "programmes", id);
-  if (programId) return doc(db, "programmes", programId);
-  return null;
+  return useMemo(() => {
+    if (clientId && programId) return doc(db, "clients", clientId, "programmes", programId);
+    if (programIdState) return doc(db, "programmes", programIdState);
+    if (id) return doc(db, "programmes", id);
+    if (programId) return doc(db, "programmes", programId);
+    return null;
+  }, [clientId, id, programId, programIdState]);
 }
 
 function deepEqual(a, b) {
@@ -2746,6 +2763,9 @@ export default function ProgramBuilder({
   const [programmeGoal, setProgrammeGoal] = useState("");
   const [objectifUI, setObjectifUI] = useState("");
   const [programActiveWeeks, setProgramActiveWeeks] = useState(4);
+  const [programActiveWeeksInput, setProgramActiveWeeksInput] = useState("4");
+  const [activeWeeksDirty, setActiveWeeksDirty] = useState(false);
+  const [activeWeeksSaving, setActiveWeeksSaving] = useState(false);
   const [progressionStrategy, setProgressionStrategy] = useState("linear");
 
   const [autoProgressionEnabled, setAutoProgressionEnabled] = useState(true);
@@ -2857,6 +2877,7 @@ export default function ProgramBuilder({
         setProgrammeGoal("Renforcement général");
         setObjectifUI("strength");
         setProgramActiveWeeks(4);
+        setProgramActiveWeeksInput("4");
         setProgressionStrategy("linear");
         setSessions([
           {
@@ -2903,6 +2924,7 @@ export default function ProgramBuilder({
       setProgrammeGoal(restore.programmeGoal);
       setObjectifUI(restore.objectifUI);
       setProgramActiveWeeks(restore.programActiveWeeks || 4);
+      setProgramActiveWeeksInput(String(sanitizeActiveWeeks(restore.programActiveWeeks || 4)));
       setProgressionStrategy(sanitizeProgressionStrategy(restore.progressionStrategy));
       setSessions(restore.sessions);
       setActiveTab(restore.activeTab);
@@ -2994,7 +3016,7 @@ export default function ProgramBuilder({
 
       const now = Date.now();
       if (now < ignoreSnapsUntilRef.current) return;
-      if (hasModifications || saving) return;
+      if (hasModifications || saving || activeWeeksDirty || activeWeeksSaving) return;
 
       const data = snap.data();
 
@@ -3080,6 +3102,7 @@ export default function ProgramBuilder({
 
         setProgramOptions(incomingState.options || {});
         setProgramActiveWeeks(incomingState.activeWeeks);
+        setProgramActiveWeeksInput(String(incomingState.activeWeeks));
         setProgressionStrategy(incomingState.progressionStrategy);
         setAutoProgressionEnabled(!!incomingState.autoProgressionEnabled);
 
@@ -3104,6 +3127,8 @@ export default function ProgramBuilder({
     programDocRef,
     hasModifications,
     saving,
+    activeWeeksDirty,
+    activeWeeksSaving,
     autoProgressionEnabled,
     programmeGoal,
     objectifUI,
@@ -3117,6 +3142,63 @@ export default function ProgramBuilder({
     distanceUnit,
     t,
   ]);
+
+  useDebouncedCallback(
+    async () => {
+      if (!activeWeeksDirty || activeWeeksSaving || !programDocRef || !isCoach) return;
+      const nextWeeks = sanitizeActiveWeeks(programActiveWeeks);
+      try {
+        setActiveWeeksSaving(true);
+        const saveRequest = updateDoc(programDocRef, {
+          activeWeeks: nextWeeks,
+          durationWeeks: nextWeeks,
+          ...(isAssignedClientProgram
+            ? buildAssignedProgressionUpdate(
+                progressionStrategy,
+                buildProgressionPlan(nextWeeks, progressionStrategy)
+              )
+            : {}),
+          updatedAt: serverTimestamp(),
+          _rev: Date.now(),
+        });
+        setProgramActiveWeeks(nextWeeks);
+        setProgramActiveWeeksInput(String(nextWeeks));
+        setActiveWeeksDirty(false);
+        setActiveWeeksSaving(false);
+        ignoreSnapsUntilRef.current = Date.now() + 1500;
+        if (!hasModifications) setIsSaved(true);
+        await saveRequest;
+      } catch (error) {
+        console.error("[program-builder] active weeks save failed", error);
+        setIsSaved(false);
+        toast({
+          title: t("programBuilder.toasts.errorTitle", "Erreur"),
+          description: t(
+            "programBuilder.toasts.activeWeeksError",
+            "La durée active n’a pas pu être enregistrée."
+          ),
+          status: "error",
+          duration: 3500,
+          position: "bottom",
+        });
+      } finally {
+        setActiveWeeksSaving(false);
+      }
+    },
+    [
+      activeWeeksDirty,
+      activeWeeksSaving,
+      hasModifications,
+      isAssignedClientProgram,
+      isCoach,
+      programActiveWeeks,
+      programDocRef,
+      progressionStrategy,
+      t,
+      toast,
+    ],
+    500
+  );
 
   useEffect(() => {
     setLoadingClients(true);
@@ -3261,31 +3343,34 @@ export default function ProgramBuilder({
             return s;
           });
 
-          await updateDoc(programDocRef, {
-            nomProgramme: finalName,
-            objectif: programmeGoal || "",
-            ...(objectifUI ? { objectifUI } : {}),
-            activeWeeks: sanitizeActiveWeeks(programActiveWeeks),
-            durationWeeks: sanitizeActiveWeeks(programActiveWeeks),
-            ...(isAssignedClientProgram
-              ? buildAssignedProgressionUpdate(progressionStrategy, progressionPlan)
-              : buildProgressionTemplateUpdate(progressionStrategy)),
-            ...buildAutoFollowUpdate(autoProgressionEnabled, programOptions || {}),
-            displayUnits: sanitizeDisplayUnits({
-              weight: weightUnit,
-              speed: speedUnit,
-              distance: distanceUnit,
-            }),
-            sessions: sessionsToSave,
-            updatedAt: serverTimestamp(),
-            _rev: Date.now(),
-          });
+          await saveWithTimeout(
+            updateDoc(programDocRef, {
+              nomProgramme: finalName,
+              objectif: programmeGoal || "",
+              ...(objectifUI ? { objectifUI } : {}),
+              activeWeeks: sanitizeActiveWeeks(programActiveWeeks),
+              durationWeeks: sanitizeActiveWeeks(programActiveWeeks),
+              ...(isAssignedClientProgram
+                ? buildAssignedProgressionUpdate(progressionStrategy, progressionPlan)
+                : buildProgressionTemplateUpdate(progressionStrategy)),
+              ...buildAutoFollowUpdate(autoProgressionEnabled, programOptions || {}),
+              displayUnits: sanitizeDisplayUnits({
+                weight: weightUnit,
+                speed: speedUnit,
+                distance: distanceUnit,
+              }),
+              sessions: sessionsToSave,
+              updatedAt: serverTimestamp(),
+              _rev: Date.now(),
+            })
+          );
 
           setIsSaved(true);
           setHasModifications(false);
           ignoreSnapsUntilRef.current = Date.now() + 1500;
-        } catch {
-          // noop
+        } catch (error) {
+          console.error("[program-builder] autosave failed", error);
+          setIsSaved(false);
         } finally {
           setSaving(false);
         }
@@ -3315,6 +3400,28 @@ export default function ProgramBuilder({
 
   /* --------- Créer / Enregistrer --------- */
   const saveProgramme = useCallback(async () => {
+    if (programId && programDocRef && !hasModifications && !activeWeeksDirty) {
+      setSaving(false);
+      toast({
+        title: t("programBuilder.toasts.alreadySavedTitle", "Programme déjà enregistré"),
+        description: t(
+          "programBuilder.toasts.alreadySavedDesc",
+          "Aucune nouvelle modification à enregistrer."
+        ),
+        status: "success",
+        duration: 1400,
+        position: "bottom",
+      });
+      setTimeout(() => {
+        if (returnToAfterSave) {
+          navigate(returnToAfterSave, { replace: true });
+        } else {
+          navigate(-1);
+        }
+      }, 300);
+      return;
+    }
+
     try {
       setSaving(true);
 
@@ -3385,25 +3492,27 @@ export default function ProgramBuilder({
       }
 
       if (programDocRef) {
-        await updateDoc(programDocRef, {
-          nomProgramme: finalName,
-          objectif: programmeGoal || "",
-          ...(objectifUI ? { objectifUI } : {}),
-          activeWeeks: sanitizeActiveWeeks(programActiveWeeks),
-          durationWeeks: sanitizeActiveWeeks(programActiveWeeks),
-          ...(isAssignedClientProgram
-            ? buildAssignedProgressionUpdate(progressionStrategy, progressionPlan)
-            : buildProgressionTemplateUpdate(progressionStrategy)),
-          ...buildAutoFollowUpdate(autoProgressionEnabled, programOptions || {}),
-          displayUnits: sanitizeDisplayUnits({
-            weight: weightUnit,
-            speed: speedUnit,
-            distance: distanceUnit,
-          }),
-          sessions: sessionsToSave,
-          updatedAt: serverTimestamp(),
-          _rev: Date.now(),
-        });
+        await saveWithTimeout(
+          updateDoc(programDocRef, {
+            nomProgramme: finalName,
+            objectif: programmeGoal || "",
+            ...(objectifUI ? { objectifUI } : {}),
+            activeWeeks: sanitizeActiveWeeks(programActiveWeeks),
+            durationWeeks: sanitizeActiveWeeks(programActiveWeeks),
+            ...(isAssignedClientProgram
+              ? buildAssignedProgressionUpdate(progressionStrategy, progressionPlan)
+              : buildProgressionTemplateUpdate(progressionStrategy)),
+            ...buildAutoFollowUpdate(autoProgressionEnabled, programOptions || {}),
+            displayUnits: sanitizeDisplayUnits({
+              weight: weightUnit,
+              speed: speedUnit,
+              distance: distanceUnit,
+            }),
+            sessions: sessionsToSave,
+            updatedAt: serverTimestamp(),
+            _rev: Date.now(),
+          })
+        );
 
         setIsSaved(true);
         setHasModifications(false);
@@ -3428,9 +3537,15 @@ export default function ProgramBuilder({
         }, 1200);
       }
     } catch (e) {
+      const isTimeout = e?.code === "program-save-timeout";
       toast({
         title: t("programBuilder.toasts.errorTitle", "Erreur"),
-        description: e.message,
+        description: isTimeout
+          ? t(
+              "programBuilder.toasts.saveTimeout",
+              "La connexion met trop de temps. Le chargement a été arrêté ; tu peux réessayer sans recharger la page."
+            )
+          : e.message,
         status: "error",
         duration: 3000,
         position: "bottom",
@@ -3442,6 +3557,8 @@ export default function ProgramBuilder({
     programDocRef,
     programId,
     clientId,
+    hasModifications,
+    activeWeeksDirty,
     programName,
     programActiveWeeks,
     programmeGoal,
@@ -4241,10 +4358,27 @@ export default function ProgramBuilder({
                   min={1}
                   max={52}
                   step={1}
-                  value={programActiveWeeks}
+                  value={programActiveWeeksInput}
                   onChange={(e) => {
-                    setProgramActiveWeeks(sanitizeActiveWeeks(e.target.value));
-                    markDirty();
+                    const rawValue = e.target.value;
+                    setProgramActiveWeeksInput(rawValue);
+                    if (rawValue === "") return;
+                    const nextWeeks = Number(rawValue);
+                    if (!Number.isInteger(nextWeeks) || nextWeeks < 1 || nextWeeks > 52) return;
+                    setProgramActiveWeeks(nextWeeks);
+                    if (programDocRef) {
+                      setIsSaved(false);
+                      setActiveWeeksDirty(true);
+                      localEditTimeRef.current = Date.now();
+                      ignoreSnapsUntilRef.current = Date.now() + 1500;
+                    } else {
+                      markDirty();
+                    }
+                  }}
+                  onBlur={() => {
+                    const nextWeeks = sanitizeActiveWeeks(programActiveWeeksInput || programActiveWeeks);
+                    setProgramActiveWeeks(nextWeeks);
+                    setProgramActiveWeeksInput(String(nextWeeks));
                   }}
                   bg={cardBg}
                   borderRadius="full"
@@ -4259,13 +4393,13 @@ export default function ProgramBuilder({
               <HStack spacing={3} align="center" flex="0 0 auto">
                 <Box
                   boxSize={2.5}
-                  bg={isSaved ? "green.400" : "orange.400"}
+                  bg={isSaved && !activeWeeksDirty ? "green.400" : "orange.400"}
                   borderRadius="full"
                 />
                 <Text fontSize="sm" color={textMute} whiteSpace="nowrap" fontWeight="medium">
-                  {isSaved
+                  {isSaved && !activeWeeksDirty
                     ? t("programBuilder.status.saved", "Sauvegardé")
-                    : saving
+                    : saving || activeWeeksSaving
                     ? t("programBuilder.status.saving", "Sauvegarde...")
                     : t("programBuilder.status.unsaved", "Non sauvé")}
                 </Text>

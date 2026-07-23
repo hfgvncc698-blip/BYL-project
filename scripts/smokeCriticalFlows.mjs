@@ -217,6 +217,54 @@ check("nutrition workflow uses the requested default modes", () => {
   );
 });
 
+check("program active weeks are editable and saved independently", () => {
+  const builder = read("src/components/ProgramBuilder.jsx");
+  assert.ok(
+    builder.includes("const [programActiveWeeksInput, setProgramActiveWeeksInput]") &&
+      builder.includes('if (rawValue === "") return'),
+    "The active-weeks input must allow clearing and replacing the current value"
+  );
+  assert.ok(
+    builder.includes("const saveRequest = updateDoc(programDocRef") &&
+      builder.includes("durationWeeks: nextWeeks") &&
+      builder.includes("setActiveWeeksDirty(false)"),
+    "Active weeks must use a focused background save instead of rewriting the whole program"
+  );
+  assert.ok(
+    builder.includes("return useMemo(() =>") &&
+      builder.includes("[clientId, id, programId, programIdState]"),
+    "The program document reference must stay stable between renders"
+  );
+  assert.ok(
+    builder.includes("const PROGRAM_SAVE_TIMEOUT_MS = 5000") &&
+      builder.includes("saveWithTimeout("),
+    "Program saves must stop loading after a finite timeout"
+  );
+  assert.ok(
+    builder.includes("!hasModifications && !activeWeeksDirty") &&
+      builder.includes("Aucune nouvelle modification à enregistrer."),
+    "Already-saved programs must not rewrite the full document"
+  );
+});
+
+check("client search ignores accents", () => {
+  const clients = read("src/components/Clients.jsx");
+  assert.ok(
+    clients.includes("const normalizeClientSearchText"),
+    "Client search must normalize both the query and client names"
+  );
+  assert.ok(
+    clients.includes('.normalize("NFD")') &&
+      clients.includes('.replace(/[\\u0300-\\u036f]/g, "")'),
+    "Client search must strip diacritical marks"
+  );
+  assert.ok(
+    clients.includes("normalizeClientSearchText(searchQuery)") &&
+      clients.includes("normalizeClientSearchText(`${c.prenom ?? \"\"} ${c.nom ?? \"\"}`)"),
+    "Client search must compare normalized values"
+  );
+});
+
 check("coach session planning is atomic, bounded and duplicate-safe", () => {
   const app = read("backend/app.js");
   const route = read("backend/routes/coachSessions.js");
