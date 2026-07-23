@@ -2926,7 +2926,17 @@ export default function AdminDashboard() {
 
 	                    <HStack justify="flex-end" flexWrap="wrap">
 	                      {club.ownerUid && (
-	                        <Button size="sm" variant="outline" onClick={() => openCoachDrawer({ id: club.ownerUid })}>{i18n.t("auto.AdminDashboard.responsable_2", "Responsable")}</Button>
+	                        <>
+	                          <Button size="sm" variant="outline" onClick={() => openCoachDrawer({ id: club.ownerUid })}>{i18n.t("auto.AdminDashboard.responsable_2", "Responsable")}</Button>
+	                          <Button
+	                            as={RouterLink}
+	                            to={`/admin/coach/${encodeURIComponent(club.ownerUid)}?tab=emails`}
+	                            size="sm"
+	                            variant="outline"
+	                          >
+	                            E-mails du club
+	                          </Button>
+	                        </>
 	                      )}
 	                      <Button
 	                        as={RouterLink}

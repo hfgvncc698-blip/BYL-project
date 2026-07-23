@@ -78,6 +78,8 @@ check("admin email history is lazy and automatic sends are deduplicated", () => 
   const route = read("backend/routes/adminEmails.js");
   const tracking = read("backend/routes/emailTracking.js");
   const page = read("src/pages/AdminClient.jsx");
+  const coachPage = read("src/pages/AdminCoach.jsx");
+  const adminDashboard = read("src/components/AdminDashboard.jsx");
   const emailPanel = read("src/components/admin/AdminClientEmailPanel.jsx");
   const functionsIndex = read("functions/index.js");
 
@@ -102,6 +104,15 @@ check("admin email history is lazy and automatic sends are deduplicated", () => 
   assert.ok(
     page.includes('lazy(() => import("../components/admin/AdminClientEmailPanel"))'),
     "Email management must be split into a lazy chunk"
+  );
+  assert.ok(
+    coachPage.includes('lazy(() => import("../components/admin/AdminClientEmailPanel"))') &&
+      coachPage.includes('<AdminClientEmailPanel profileId={id} audience={emailAudience} />'),
+    "Coach and club-owner profiles must expose the shared email management panel"
+  );
+  assert.ok(
+    adminDashboard.includes("E-mails du club") && adminDashboard.includes("?tab=emails"),
+    "Club cards must provide direct access to the owner email panel"
   );
   const appSource = read("src/App.jsx");
   const globalEmailPage = read("src/pages/AdminEmails.jsx");

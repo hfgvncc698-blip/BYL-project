@@ -118,7 +118,18 @@ async function readJsonResponse(response) {
   }
 }
 
-export default function AdminClientEmailPanel({ clientId }) {
+export default function AdminClientEmailPanel({ clientId, profileId, audience = "client" }) {
+  const resolvedProfileId = profileId || clientId;
+  const recipientLabel = audience === "club" ? "club" : audience === "coach" ? "coach" : "client";
+  const recipientArticle = audience === "club" ? "du club" : audience === "coach" ? "du coach" : "du client";
+  const preferenceLabels =
+    audience === "client"
+      ? PREFERENCE_LABELS
+      : PREFERENCE_LABELS.filter(([key]) => ["allAutomatic", "welcome", "subscription"].includes(key));
+  const allowedTemplateTypes =
+    audience === "client"
+      ? null
+      : new Set(["welcome", "subscriptionWelcome", "trialReminder", "paymentIssue"]);
   const toast = useToast();
   const theme = useAppTheme();
   const muted = theme.mutedText;
@@ -146,7 +157,7 @@ export default function AdminClientEmailPanel({ clientId }) {
   const load = async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
     try {
-      const response = await fetch(`${getApiBase()}/admin-emails/client/${encodeURIComponent(clientId)}`, {
+      const response = await fetch(`${getApiBase()}/admin-emails/client/${encodeURIComponent(resolvedProfileId)}`, {
         headers: { ...(await getAuthHeaders()) },
         credentials: "include",
       });
@@ -178,7 +189,7 @@ export default function AdminClientEmailPanel({ clientId }) {
 
   useEffect(() => {
     load();
-  }, [clientId]);
+  }, [resolvedProfileId]);
 
   useEffect(() => {
     const template = templates?.[templateType] || {};
@@ -187,7 +198,7 @@ export default function AdminClientEmailPanel({ clientId }) {
   }, [templateType, templates]);
 
   const request = async (path, options = {}) => {
-    const response = await fetch(`${getApiBase()}/admin-emails/client/${encodeURIComponent(clientId)}${path}`, {
+    const response = await fetch(`${getApiBase()}/admin-emails/client/${encodeURIComponent(resolvedProfileId)}${path}`, {
       ...options,
       headers: {
         ...(options.body ? { "Content-Type": "application/json" } : {}),
@@ -207,7 +218,7 @@ export default function AdminClientEmailPanel({ clientId }) {
       "retry-only-after-failure": "Le renvoi est disponible uniquement après un échec.",
       "email-delivery-suspended": "Les envois sont suspendus pour cette adresse.",
       "admin-test-email-missing": "Votre compte administrateur ne contient pas d’adresse de test.",
-      "test-email-must-not-be-client": "L’adresse de test doit être différente de celle du client.",
+      "test-email-must-not-be-client": `L’adresse de test doit être différente de celle ${recipientArticle}.`,
     };
     toast({
       title,
@@ -256,7 +267,7 @@ export default function AdminClientEmailPanel({ clientId }) {
   };
 
   const retry = async (event) => {
-    if (event.status !== "failed" || !window.confirm(`Renvoyer « ${event.subject || "cet e-mail"} » au client ?`)) return;
+    if (event.status !== "failed" || !window.confirm(`Renvoyer « ${event.subject || "cet e-mail"} » au ${recipientLabel} ?`)) return;
     setActionBusy(`retry-${event.id}`);
     try {
       await request(`/retry/${encodeURIComponent(event.id)}`, { method: "POST" });
@@ -348,7 +359,7 @@ export default function AdminClientEmailPanel({ clientId }) {
     setPreferenceBusy(key);
     try {
       const response = await fetch(
-        `${getApiBase()}/admin-emails/client/${encodeURIComponent(clientId)}/preferences`,
+        `${getApiBase()}/admin-emails/client/${encodeURIComponent(resolvedProfileId)}/preferences`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json", ...(await getAuthHeaders()) },
@@ -382,7 +393,7 @@ export default function AdminClientEmailPanel({ clientId }) {
     setSendBusy(true);
     try {
       const idempotencyKey = window.crypto?.randomUUID?.() || `${Date.now()}-${cleanSubject}`;
-      const response = await fetch(`${getApiBase()}/admin-emails/client/${encodeURIComponent(clientId)}/send`, {
+      const response = await fetch(`${getApiBase()}/admin-emails/client/${encodeURIComponent(resolvedProfileId)}/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(await getAuthHeaders()) },
         credentials: "include",
@@ -488,13 +499,17 @@ export default function AdminClientEmailPanel({ clientId }) {
           </CardHeader>
           <CardBody>
             <VStack align="stretch" spacing={0} divider={<Divider />}>
-              {PREFERENCE_LABELS.map(([key, label, description]) => {
+              {preferenceLabels.map(([key, label, description]) => {
                 const disabled = preferenceBusy === key || (key !== "allAutomatic" && !preferences.allAutomatic);
+                const contextualDescription =
+                  key === "allAutomatic" && audience !== "client"
+                    ? `Interrupteur général pour ce ${recipientLabel}.`
+                    : description;
                 return (
                   <HStack key={key} justify="space-between" py={3} gap={4} align="center">
                     <Box>
                       <Text fontWeight="700">{label}</Text>
-                      <Text color={muted} fontSize="sm">{description}</Text>
+                      <Text color={muted} fontSize="sm">{contextualDescription}</Text>
                     </Box>
                     <Switch
                       colorScheme="blue"
@@ -564,7 +579,7 @@ export default function AdminClientEmailPanel({ clientId }) {
                   isLoading={sendBusy}
                   isDisabled={!target || delivery?.suspended || !subject.trim() || !message.trim()}
                 >
-                  Envoyer au client
+                  Envoyer au {recipientLabel}
                 </Button>
               </HStack>
               <Text fontSize="xs" color={muted}>
@@ -581,7 +596,11 @@ export default function AdminClientEmailPanel({ clientId }) {
             <HStack justify="space-between" flexWrap="wrap">
               <Box>
                 <Heading size="md">Prochains e-mails prévus</Heading>
-                <Text color={muted} fontSize="sm">Rappels d’essai, d’inactivité et fins de programme déjà planifiés.</Text>
+                <Text color={muted} fontSize="sm">
+                  {audience === "client"
+                    ? "Rappels d’essai, d’inactivité et fins de programme déjà planifiés."
+                    : "Rappels d’essai et messages liés à l’abonnement déjà planifiés."}
+                </Text>
               </Box>
               <Badge colorScheme="orange">{upcoming.length} prévu(s)</Badge>
             </HStack>
@@ -620,14 +639,16 @@ export default function AdminClientEmailPanel({ clientId }) {
         <Card>
           <CardHeader>
             <Heading size="md">Modèles automatiques</Heading>
-            <Text color={muted} fontSize="sm">Modifications propres à ce client, avec restauration du texte d’origine.</Text>
+            <Text color={muted} fontSize="sm">Modifications propres à ce {recipientLabel}, avec restauration du texte d’origine.</Text>
           </CardHeader>
           <CardBody>
             <VStack align="stretch" spacing={4}>
               <FormControl>
                 <FormLabel>Type d’e-mail</FormLabel>
                 <Select value={templateType} onChange={(event) => setTemplateType(event.target.value)}>
-                  {Object.entries(templates).map(([key, template]) => (
+                  {Object.entries(templates)
+                    .filter(([key]) => !allowedTemplateTypes || allowedTemplateTypes.has(key))
+                    .map(([key, template]) => (
                     <option key={key} value={key}>{template.label || emailTypeLabel(key)}</option>
                   ))}
                 </Select>

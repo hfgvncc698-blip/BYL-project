@@ -1,5 +1,5 @@
 // src/pages/AdminCoach.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import {
   Box,
   Heading,
@@ -35,7 +35,7 @@ import {
   Wrap,
   WrapItem,
 } from "@chakra-ui/react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   doc,
   getDoc,
@@ -72,6 +72,8 @@ import { useAppTheme } from "../styles/appTheme";
 import { getAuthHeaders } from "../utils/authHeaders";
 import { getApiBase } from "../utils/apiBase";
 import i18n from "../i18n/index";
+
+const AdminClientEmailPanel = lazy(() => import("../components/admin/AdminClientEmailPanel"));
 
 function toLocale(v) {
   const d = v?.toDate
@@ -246,6 +248,7 @@ function getProgramOpenPath(p) {
 export default function AdminCoach() {
   const { id } = useParams(); // uid coach
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const toast = useToast();
 
   const theme = useAppTheme();
@@ -436,6 +439,10 @@ export default function AdminCoach() {
 
   const email = userData?.email || coachData?.email || "—";
   const role = userData?.role || "coach";
+  const emailAudience =
+    role === "club" || userData?.accountType === "club_owner" || userData?.clubRole === "owner"
+      ? "club"
+      : "coach";
 
   const subscriptionBadge = useMemo(() => {
     if (!userData) return null;
@@ -886,13 +893,14 @@ export default function AdminCoach() {
         </CardBody>
       </Card>
 
-      <Tabs variant="enclosed" colorScheme="blue">
+      <Tabs variant="enclosed" colorScheme="blue" defaultIndex={searchParams.get("tab") === "emails" ? 5 : 0} isLazy lazyBehavior="keepMounted">
         <TabList flexWrap="wrap">
           <Tab>{i18n.t("auto.AdminCoach.resume", "Résumé")}</Tab>
           <Tab>{i18n.t("dashboard.stats_total_clients", "Clients")}</Tab>
           <Tab>{i18n.t("clientsList.table.programs", "Programmes")}</Tab>
           <Tab>{i18n.t("nutritionCoach.table.actions", "Actions")}</Tab>
           <Tab>{i18n.t("auto.AdminCoach.stripe", "Stripe")}</Tab>
+          <Tab>E-mails</Tab>
           <Tab>{i18n.t("auto.AdminCoach.donnees_brutes", "Données brutes")}</Tab>
         </TabList>
 
@@ -1352,6 +1360,13 @@ export default function AdminCoach() {
                 </CardBody>
               </Card>
             </SimpleGrid>
+          </TabPanel>
+
+          {/* E-mails */}
+          <TabPanel px={0}>
+            <Suspense fallback={<AppLoading label="Chargement des e-mails..." />}>
+              <AdminClientEmailPanel profileId={id} audience={emailAudience} />
+            </Suspense>
           </TabPanel>
 
           {/* Données brutes */}
