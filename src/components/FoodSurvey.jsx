@@ -435,6 +435,8 @@ function UnifiedSurveyFooter({ needs, summary, mode, sticky = true, mt = 4, titl
 }
 
 /* ========================= Component ========================= */
+const DEFAULT_FOOD_SURVEY_MODE = "excel";
+
 export default function FoodSurvey() {
   const { clientId, assessmentId } = useParams();
   const navigate = useNavigate();
@@ -456,7 +458,7 @@ export default function FoodSurvey() {
   const [loading, setLoading] = useState(true);
   const [docData, setDocData] = useState(null);
 
-  const [mode, setMode] = useState("excel");
+  const [mode, setMode] = useState(DEFAULT_FOOD_SURVEY_MODE);
   const [excelState, setExcelState] = useState(null);
   const [ciqualState, setCiqualState] = useState(null);
   const [surveyMeta, setSurveyMeta] = useState(createDefaultSurveyMeta());
@@ -497,7 +499,10 @@ export default function FoodSurvey() {
         setDocData(d);
 
         const fs = d?.foodSurvey || {};
-        if (Date.now() > modeTouchedUntilRef.current) setMode(fs?.mode || "excel");
+        const savedMode = ["excel", "ciqual"].includes(fs?.mode)
+          ? fs.mode
+          : DEFAULT_FOOD_SURVEY_MODE;
+        if (Date.now() > modeTouchedUntilRef.current) setMode(savedMode);
         setExcelState(fs?.excel || null);
         setCiqualState(fs?.ciqual || null);
         setSurveyMeta(coerceSurveyMeta(fs?.meta));

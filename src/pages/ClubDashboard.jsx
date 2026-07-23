@@ -66,6 +66,7 @@ import i18n, { ensureLanguageLoaded } from "../i18n/index";
 import { getCalendarCulture } from "../utils/calendarLocale";
 import { useAppTheme } from "../styles/appTheme";
 import AppLoading from "../components/ui/AppLoading";
+import EmailNotificationPreferenceCard from "../components/EmailNotificationPreferenceCard";
 import { useAuth } from "../AuthContext";
 import { MdLanguage, MdOutlineCreditCard, MdOutlineLock } from "react-icons/md";
 
@@ -2402,6 +2403,15 @@ export default function ClubDashboard() {
                     </Select>
                   </FormControl>
                 </Box>
+
+                <EmailNotificationPreferenceCard
+                  surfaceProps={theme.cardProps}
+                  textColor={theme.textColor}
+                  mutedText={theme.mutedText}
+                  borderColor={theme.borderColor}
+                  softBg={theme.surfaceSoft}
+                  accentColor={theme.accentBlue}
+                />
 
                 <Box {...theme.cardProps} p={{ base: 5, md: 6 }}>
                   <HStack spacing={3} mb={4} align="flex-start">

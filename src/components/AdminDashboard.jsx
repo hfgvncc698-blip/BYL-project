@@ -101,6 +101,7 @@ import {
   MdHistory,
   MdDownload,
   MdNotes,
+  MdEmail,
 } from "react-icons/md";
 import AppLoading from "./ui/AppLoading";
 import { useAppTheme } from "../styles/appTheme";
@@ -2467,12 +2468,12 @@ export default function AdminDashboard() {
               <WrapItem>
                         <Button
                           as={RouterLink}
-                          to="/admin/social-publisher"
+                          to="/admin/emails"
                           size="sm"
                           variant="outline"
-                          leftIcon={<Icon as={MdLaunch} />}
+                          leftIcon={<Icon as={MdEmail} />}
                         >
-                  {i18n.t("auto.AdminDashboard.social_publisher", "Social Publisher")}
+                  E-mails prévus
                 </Button>
               </WrapItem>
             </Wrap>

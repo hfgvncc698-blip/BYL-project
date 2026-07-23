@@ -41,6 +41,7 @@ import {
 } from "react-icons/md";
 import AppLoading from "../components/ui/AppLoading";
 import TutorialSettingsPanel from "../components/TutorialSettingsPanel";
+import EmailNotificationPreferenceCard from "../components/EmailNotificationPreferenceCard";
 import { notify } from "../utils/notify";
 import { useAppTheme } from "../styles/appTheme";
 
@@ -469,6 +470,22 @@ export default function SettingsPageCoach() {
               </Select>
             </FormControl>
           </SurfaceCard>
+
+          <EmailNotificationPreferenceCard
+            surfaceProps={{
+              bg: cardBg,
+              borderRadius: "28px",
+              border: "1px solid",
+              borderColor: borderStrong,
+              boxShadow: glassShadow,
+              position: "relative",
+              overflow: "hidden",
+            }}
+            textColor={textColor}
+            mutedText={mutedText}
+            borderColor={borderColor}
+            softBg={subCardBg}
+          />
 
           <SurfaceCard p={{ base: 5, md: 6 }}>
             <HStack spacing={3} mb={4} align="flex-start">

@@ -600,7 +600,8 @@ export default function MenuJournalierFromRation() {
   const [ciqualError, setCiqualError] = useState("");
   const [ciqualData, setCiqualData] = useState([]);
 
-  const [activeTab, setActiveTab] = useState(1); // 0 manual, 1 auto
+  const DEFAULT_MENU_TAB = 1; // 0 manual, 1 auto
+  const [activeTab, setActiveTab] = useState(DEFAULT_MENU_TAB);
   const [pdfLogoDataUrl, setPdfLogoDataUrl] = useState(null);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [menuPdfData, setMenuPdfData] = useState(null);
@@ -682,12 +683,9 @@ export default function MenuJournalierFromRation() {
 
         if (Date.now() > tabTouchedUntilRef.current) {
           const tab = d?.ration?.menuTab;
-          const nextSelectedType = String(d?.ration?.selectedType || d?.ration?.mode || "").trim();
           if (tab === "auto") setActiveTab(1);
           else if (tab === "manual") setActiveTab(0);
-          else if (nextSelectedType === "auto") setActiveTab(1);
-          else if (nextSelectedType === "pro") setActiveTab(0);
-          else setActiveTab(1);
+          else setActiveTab(DEFAULT_MENU_TAB);
         }
 
         setLoadingDoc(false);

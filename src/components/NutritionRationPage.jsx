@@ -462,6 +462,8 @@ const hasAnyRationItems = (state) => {
   }
 };
 
+const DEFAULT_RATION_MODE = "auto";
+
 /* ========================= React-PDF Document ========================= */
 
 
@@ -489,7 +491,7 @@ export default function NutritionRationPage() {
   const [loading, setLoading] = useState(true);
   const [docData, setDocData] = useState(null);
 
-  const [mode, setMode] = useState("auto"); // "pro" | "auto"
+  const [mode, setMode] = useState(DEFAULT_RATION_MODE); // "pro" | "auto"
   const [proState, setProState] = useState(null);
   const [autoState, setAutoState] = useState(null);
 
@@ -598,7 +600,7 @@ export default function NutritionRationPage() {
             : d?.ration?.selectedType === "auto" || d?.ration?.selectedType === "pro"
             ? d.ration.selectedType
             : "";
-        const modeFromDoc = explicitMode || "auto";
+        const modeFromDoc = explicitMode || DEFAULT_RATION_MODE;
 
         if (Date.now() > modeTouchedUntilRef.current) setMode(modeFromDoc);
         setProState(d?.ration?.pro ?? d?.rationPro ?? null);

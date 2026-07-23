@@ -1361,6 +1361,8 @@ const getCalendarEventColor = (event = {}, fallback = "#2563EB") => {
 
   if (event?._kind === "completed") return "#16A34A";
   if (status === "validée" || status === "validee" || status === "done" || status === "completed") return "#22C55E";
+  const endMs = getEventEndMs(event);
+  if (endMs > 0 && endMs <= Date.now()) return "#DC2626";
   return fallback;
 };
 const DIFFICULTY_NOTE_COLLECTIONS = ["difficulté_notes", "difficulte_notes"];
@@ -1586,6 +1588,96 @@ const mapSessionStatusToCalendarStatus = (status) => {
      return "cancelled";
    }
    return "planned";
+};
+const mapRootSessionToQuickDashboardEvent = (session = {}, t) => {
+  const start =
+    session.start?.toDate?.() ||
+    (typeof session.start === "string" ? new Date(session.start) : null) ||
+    (typeof session.start === "number" ? new Date(session.start) : null);
+  if (!start || Number.isNaN(start.getTime())) return null;
+  const end =
+    session.end?.toDate?.() ||
+    (typeof session.end === "string" ? new Date(session.end) : null) ||
+    (typeof session.end === "number" ? new Date(session.end) : null) ||
+    new Date(start.getTime() + FORCE_SESSION_DURATION_MIN * 60000);
+  const eventType = String(session.type || session.eventType || "").trim();
+  const isNutritionAppointment = eventType === "nutrition_appointment";
+  const isClubAppointment = eventType === "club_appointment";
+  const rawStatus = String(session.status || "").trim().toLowerCase();
+  const isRootValidated =
+    rawStatus === "validée" ||
+    rawStatus === "validee" ||
+    rawStatus === "done" ||
+    Boolean(session.validatedAt) ||
+    Boolean(session.completedAt);
+  const titleSessionIndex = inferSessionIndexFromText(
+    `${session.sessionTitle || ""} ${session.title || ""}`
+  );
+  const explicitSessionIndex = getSessionIndex(session);
+  const sessionIndex = Number.isFinite(titleSessionIndex)
+    ? titleSessionIndex
+    : Number.isFinite(explicitSessionIndex)
+      ? explicitSessionIndex
+      : null;
+  const clientName = String(session.clientName || "").trim();
+  const storedSessionTitle = String(session.title || session.sessionTitle || "").trim();
+  const titlePieces = [];
+  if (clientName) titlePieces.push(clientName);
+  if (isNutritionAppointment) titlePieces.push("Nutrition");
+  else if (isClubAppointment) titlePieces.push("Club");
+  else if (session.programTitle || session.programmeName || session.programName) {
+    titlePieces.push(session.programTitle || session.programmeName || session.programName);
+  }
+  if (storedSessionTitle) titlePieces.push(storedSessionTitle);
+  return {
+    id: `planned__${session.id}`,
+    title: titlePieces.join(" - ") || t("dashboard.session_planned", "Séance planifiée"),
+    start,
+    end,
+    status: isRootValidated ? "validée" : session.status || "à venir",
+    visibility: session.visibility || "coach",
+    clientId: session.clientId,
+    programmeId: session.programmeId || session.programId || session.programID || "",
+    baseProgrammeId: session.baseProgrammeId || "",
+    sessionIndex,
+    eventType: isNutritionAppointment
+      ? "nutrition_appointment"
+      : isClubAppointment
+        ? "club_appointment"
+        : "sport_session",
+    appointmentKind: session.appointmentKind || "",
+    durationMin: Number.isFinite(Number(session.durationMin)) ? Number(session.durationMin) : null,
+    clubAppointmentId: session.clubAppointmentId || "",
+    _kind: "planned",
+    _clientName: clientName,
+    _programmeName: session.programTitle || session.programmeName || session.programName || "",
+    _sessionTitle: storedSessionTitle,
+    _sourceId: session.id,
+    _updatedMs: Math.max(toMillis(session.updatedAt), toMillis(session.createdAt), 0),
+    _rootCoachValidated: isRootValidated,
+    difficultyRating: getSessionDifficultyRating(session),
+    difficultyAtMs: getSessionDifficultyAtMs(session),
+  };
+};
+const dedupePlannedDashboardEvents = (events = []) => {
+  const byUniqueSession = new Map();
+  events.forEach((event) => {
+    const key = [
+      event.clientId || "",
+      event.programmeId || "",
+      event.baseProgrammeId || "",
+      Number.isFinite(Number(event.sessionIndex)) ? Number(event.sessionIndex) : "x",
+      event.start?.getFullYear?.(),
+      event.start?.getMonth?.(),
+      event.start?.getDate?.(),
+      normalizeLooseText(event._sessionTitle || event.title || ""),
+    ].join("__");
+    const previous = byUniqueSession.get(key);
+    if (!previous || (event._updatedMs || 0) >= (previous._updatedMs || 0)) {
+      byUniqueSession.set(key, event);
+    }
+  });
+  return Array.from(byUniqueSession.values());
 };
 const isSessionValidatedRecord = (session) => {
   const status = String(session?.status || "").trim().toLowerCase();
@@ -1989,6 +2081,7 @@ end && now < end;
     nutritionDurationMin: 30,
     nutritionNotes: "",
 	  });
+  const [sessionCreateSaving, setSessionCreateSaving] = useState(false);
   const selectedNewSessionClient = useMemo(
     () => clients.find((client) => client.id === newSession.clientId) || null,
     [clients, newSession.clientId]
@@ -3121,6 +3214,109 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
     });
   }, [clients, eventModal, navigate, selectedEvent, withAdminCoach]);
 
+  const refreshCachedSessionWidgets = useCallback(
+    async (cachedDashboardData, loadSeq) => {
+      const sessionQueries = [
+        query(collection(db, "sessions"), where("coachId", "==", effectiveCoachUid)),
+        query(collection(db, "sessions"), where("createdBy", "==", effectiveCoachUid)),
+        query(collection(db, "sessions"), where("ownerId", "==", effectiveCoachUid)),
+      ];
+      const sessionSnaps = await Promise.all(
+        sessionQueries.map((sessionQuery) =>
+          getDocs(sessionQuery).catch((sessionQueryError) => {
+            console.warn("[coach dashboard] cached session refresh query failed", sessionQueryError);
+            return null;
+          })
+        )
+      );
+      if (dashboardLoadSeqRef.current !== loadSeq) return;
+      const successfulSnaps = sessionSnaps.filter(Boolean);
+      if (successfulSnaps.length === 0) return;
+
+      const rootSessionsById = new Map();
+      successfulSnaps.forEach((snap) => {
+        snap.docs.forEach((sessionDoc) => {
+          rootSessionsById.set(sessionDoc.id, { id: sessionDoc.id, ...sessionDoc.data() });
+        });
+      });
+      const cachedClients = Array.isArray(cachedDashboardData?.clients)
+        ? cachedDashboardData.clients
+        : [];
+      const clientIdSet = new Set(cachedClients.map((client) => client.id).filter(Boolean));
+      const cachedPlannedEvents = (cachedDashboardData?.sessions || []).filter(
+        (event) => event?._kind === "planned" && !String(event?.id || "").startsWith("club__")
+      );
+      const cachedPlannedBySourceId = new Map(
+        cachedPlannedEvents
+          .filter((event) => event?._sourceId)
+          .map((event) => [event._sourceId, event])
+      );
+      const findCachedPlannedEvent = (event) => {
+        const exact = cachedPlannedBySourceId.get(event?._sourceId);
+        if (exact) return exact;
+        return cachedPlannedEvents.find((candidate) => {
+          if (candidate.clientId !== event.clientId) return false;
+          if (!sameCalendarDay(candidate.start, event.start)) return false;
+          if (event.eventType === "nutrition_appointment") {
+            return (
+              candidate.eventType === "nutrition_appointment" &&
+              candidate.appointmentKind === event.appointmentKind &&
+              Math.abs((candidate.start?.getTime?.() || 0) - (event.start?.getTime?.() || 0)) < 60_000
+            );
+          }
+          return (
+            sameProgramFamily(candidate, event) &&
+            Number(candidate.sessionIndex) === Number(event.sessionIndex)
+          );
+        });
+      };
+      const refreshedRootEvents = dedupePlannedDashboardEvents(
+        Array.from(rootSessionsById.values())
+          .filter((session) => clientIdSet.has(session.clientId))
+          .filter((session) => {
+            const visibility = session.visibility || "coach";
+            if (visibility !== "coach" && visibility !== "both") return false;
+            const sessionCoachId = session.coachId || session.createdBy || session.ownerId || "";
+            return !sessionCoachId || sessionCoachId === effectiveCoachUid;
+          })
+          .map((session) => mapRootSessionToQuickDashboardEvent(session, t))
+          .filter(Boolean)
+          .map((event) => {
+            const cachedEvent = findCachedPlannedEvent(event);
+            if (!cachedEvent) return event;
+            return {
+              ...cachedEvent,
+              ...event,
+              title: cachedEvent.title || event.title,
+              baseProgrammeId: event.baseProgrammeId || cachedEvent.baseProgrammeId || "",
+              _programmeName: cachedEvent._programmeName || event._programmeName || "",
+              _sessionTitle: cachedEvent._sessionTitle || event._sessionTitle || "",
+              difficultyRating:
+                normRating(event.difficultyRating) ??
+                normRating(cachedEvent.difficultyRating) ??
+                null,
+              difficultyAtMs: Math.max(
+                Number(event.difficultyAtMs || 0),
+                Number(cachedEvent.difficultyAtMs || 0)
+              ),
+            };
+          })
+      );
+
+      const preservedEvents = (cachedDashboardData?.sessions || []).filter(
+        (event) =>
+          event?._kind === "completed" ||
+          event?._kind === "club_appointment" ||
+          String(event?.id || "").startsWith("club__")
+      );
+      const mergedEvents = [...refreshedRootEvents, ...preservedEvents].sort(
+        (a, b) => (a.start?.getTime?.() || 0) - (b.start?.getTime?.() || 0)
+      );
+      setSessions(mergedEvents);
+    },
+    [effectiveCoachUid, t]
+  );
+
   const fetchData = useCallback(async ({ force = false, silent = false } = {}) => {
      if (!effectiveCoachUid) return;
      const loadSeq = dashboardLoadSeqRef.current + 1;
@@ -3131,6 +3327,9 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
        const cachedDashboardData = readDashboardDataCache(effectiveCoachUid, effectiveClubId);
        if (cachedDashboardData) {
          if (isLatestLoad()) hydrateDashboardData(cachedDashboardData);
+         void refreshCachedSessionWidgets(cachedDashboardData, loadSeq).catch((sessionRefreshError) => {
+           console.warn("[coach dashboard] cached session widgets refresh failed", sessionRefreshError);
+         });
          return;
        }
        if (!silent && isLatestLoad()) setLoadingData(true);
@@ -3971,7 +4170,7 @@ plannedEvt._sessionTitle,
     } finally {
       if (isLatestLoad()) setLoadingData(false);
     }
-  }, [effectiveClubId, hydrateDashboardData, prettyAssignedProgramName, prettyProgramNameBase, t, toast,
+  }, [effectiveClubId, hydrateDashboardData, prettyAssignedProgramName, prettyProgramNameBase, refreshCachedSessionWidgets, t, toast,
 effectiveCoachUid]);
   const refreshDashboardData = useCallback(() => fetchData({ force: true }), [fetchData]);
   useEffect(() => {
@@ -4114,6 +4313,7 @@ effectiveCoachUid]);
      }
 	  };
 		  const handleAddSession = async () => {
+      if (sessionCreateSaving) return;
 	     if (!newSession.clientId) {
         notify(toast, "saveError", {
           title: t("dashboard.add_session_errors.client_required_title", "Client requis"),
@@ -4138,6 +4338,7 @@ effectiveCoachUid]);
         return;
       }
 
+      let requestPayload;
       if (newSession.type === "nutrition") {
         if (!hasNutritionCalendarAccess) {
           notify(toast, "saveError", {
@@ -4146,46 +4347,62 @@ effectiveCoachUid]);
           });
           return;
         }
-        const durationMin = Number(newSession.nutritionDurationMin) || 30;
-        const end = new Date(start.getTime() + durationMin * 60000);
-        const appointmentLabel =
-          NUTRITION_APPOINTMENT_TYPES.find((item) => item.value === newSession.nutritionKind)?.label ||
-          "Rendez-vous nutrition";
-        const rootSessionPayload = {
-          type: "nutrition_appointment",
-          eventType: "nutrition_appointment",
-          appointmentKind: newSession.nutritionKind || "suivi",
-          durationMin,
+        requestPayload = {
+          type: "nutrition",
           clientId: client.id,
-          clientName: getClientFullName(client),
-          title: appointmentLabel,
-          start: Timestamp.fromDate(start),
-          end: Timestamp.fromDate(end),
+          startDateTime: start.toISOString(),
           status: "à venir",
-          visibility: "both",
-          description: newSession.nutritionNotes || "",
-          notes: newSession.nutritionNotes || "",
+          nutritionKind: newSession.nutritionKind || "suivi",
+          nutritionDurationMin: Number(newSession.nutritionDurationMin) || 30,
+          nutritionNotes: newSession.nutritionNotes || "",
           coachId: effectiveCoachUid,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
+          appOrigin: window.location.origin,
         };
-        const createdRef = await addDoc(collection(db, "sessions"), rootSessionPayload);
-        await upsertClientCalendarEvent({
+      } else {
+        const prog = selectedNewSessionProgramme;
+        if (!prog) {
+          notify(toast, "saveError", {
+            title: t("dashboard.add_session_errors.program_required_title", "Programme requis"),
+            description: selectedNewSessionProgrammes.length
+              ? t("dashboard.add_session_errors.program_required_description", "Sélectionnez un programme assigné à ce client.")
+              : t("dashboard.add_session_errors.no_plannable_program_description", "Ce client n'a pas encore de programme avec séances planifiables."),
+          });
+          return;
+        }
+        const sessionIndex = Number(newSession.sessionIndex);
+        const seance = Number.isInteger(sessionIndex)
+          ? selectedNewSessionSessions?.[sessionIndex]
+          : null;
+        if (!seance) {
+          notify(toast, "saveError", {
+            title: t("dashboard.add_session_errors.session_required_title", "Séance requise"),
+            description: t("dashboard.add_session_errors.session_required_description", "Sélectionnez une séance valide pour ce programme."),
+          });
+          return;
+        }
+        requestPayload = {
+          type: "sport",
           clientId: client.id,
-          eventId: createdRef.id,
-          title: appointmentLabel,
-          start,
-          end,
-          status: "à venir",
-          description: newSession.nutritionNotes || "Rendez-vous nutrition",
-          location: "",
-          deepLink: `${window.location.origin}/nutrition`,
-          eventType: "nutrition_appointment",
-          appointmentKind: newSession.nutritionKind || "suivi",
-          durationMin,
+          programmeId: prog.id,
+          sessionIndex,
+          startDateTime: start.toISOString(),
+          status: newSession.status,
+          coachId: effectiveCoachUid,
+          appOrigin: window.location.origin,
+        };
+      }
+
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 15000);
+      setSessionCreateSaving(true);
+      try {
+        const result = await apiFetch("/coach-sessions", {
+          method: "POST",
+          body: JSON.stringify(requestPayload),
+          signal: controller.signal,
         });
         setNewSession({
-          type: nutritionOnlyDashboard ? "nutrition" : "sport",
+        type: nutritionOnlyDashboard ? "nutrition" : "sport",
           clientId: "",
           programmeId: "",
           sessionIndex: null,
@@ -4196,83 +4413,40 @@ effectiveCoachUid]);
           nutritionNotes: "",
         });
         addSessionModal.onClose();
-        await refreshDashboardData();
-        notify(toast, "sessionPlanned");
-        return;
-      }
-
-	     const prog = selectedNewSessionProgramme;
-	     if (!prog) {
-        notify(toast, "saveError", {
-          title: t("dashboard.add_session_errors.program_required_title", "Programme requis"),
-          description: selectedNewSessionProgrammes.length
-            ? t("dashboard.add_session_errors.program_required_description", "Sélectionnez un programme assigné à ce client.")
-            : t("dashboard.add_session_errors.no_plannable_program_description", "Ce client n'a pas encore de programme avec séances planifiables."),
+        notify(toast, result?.duplicate ? "info" : "sessionPlanned", result?.duplicate
+          ? {
+              title: t("dashboard.session_already_planned_title", "Séance déjà planifiée"),
+              description: t(
+                "dashboard.session_already_planned_description",
+                "Ce rendez-vous existait déjà : aucun doublon n’a été créé."
+              ),
+            }
+          : undefined);
+        void refreshDashboardData().catch((refreshError) => {
+          console.warn("[coach dashboard] refresh after session creation failed", refreshError);
         });
-        return;
-      }
-     const sessionList = selectedNewSessionSessions;
-     const sessionIndex = Number(newSession.sessionIndex);
-     const seance = Number.isInteger(sessionIndex) ? sessionList?.[sessionIndex] : null;
-     if (!seance) {
+      } catch (error) {
+        const timedOut = error?.name === "AbortError";
+        console.error("[coach dashboard] session creation failed", error);
         notify(toast, "saveError", {
-          title: t("dashboard.add_session_errors.session_required_title", "Séance requise"),
-          description: t("dashboard.add_session_errors.session_required_description", "Sélectionnez une séance valide pour ce programme."),
+          title: timedOut
+            ? t("dashboard.add_session_errors.timeout_title", "Enregistrement trop long")
+            : t("dashboard.add_session_errors.save_title", "Séance non ajoutée"),
+          description: timedOut
+            ? t(
+                "dashboard.add_session_errors.timeout_description",
+                "Le serveur n’a pas répondu à temps. Réessayez : la protection anti-doublon évitera une double séance."
+              )
+            : t(
+                "dashboard.add_session_errors.save_description",
+                "La séance n’a pas été enregistrée. Vérifiez votre connexion puis réessayez."
+              ),
         });
-        return;
+      } finally {
+        window.clearTimeout(timeoutId);
+        setSessionCreateSaving(false);
       }
-	     const end = new Date(start.getTime() +
-	FORCE_SESSION_DURATION_MIN * 60000);
-    const sessionTitle = getProgrammeSessionTitle(prog, sessionIndex, t);
-     const rootSessionPayload = {
-       clientId: client.id,
-       clientName: getClientFullName(client),
-
-      programmeId: prog.id,
-      sessionIndex,
-      title: sessionTitle,
-      start: Timestamp.fromDate(start),
-      end: Timestamp.fromDate(end),
-      status: newSession.status,
-
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      visibility: "both",
-      coachId: effectiveCoachUid,
-     };
-     const createdRef = await addDoc(collection(db, "sessions"),
-rootSessionPayload);
-     const programmeName = prettyAssignedProgramName(prog);
-     const deepLink = `${window.location.origin}/clients/${client.id}/programmes/${prog.id}`;
-     await upsertClientCalendarEvent({
-        clientId: client.id,
-        eventId: createdRef.id,
-        title: `${sessionTitle} - ${programmeName}`,
-        start,
-        end,
-        status: newSession.status,
-        description: programmeName,
-        location: "",
-        deepLink,
-        programId: prog.id,
-        sessionId: createdRef.id,
-        sessionIndex,
-     });
-	     setNewSession({
-        type: nutritionOnlyDashboard ? "nutrition" : "sport",
-	        clientId: "",
-	        programmeId: "",
-	        sessionIndex: null,
-	        startDateTime: "",
-	        status: "à venir",
-        nutritionKind: "suivi",
-        nutritionDurationMin: 30,
-        nutritionNotes: "",
-	     });
-     addSessionModal.onClose();
-     await refreshDashboardData();
-     notify(toast, "sessionPlanned");
-  };
+    };
   const handleUpdateStatus = async (status) => {
      if (!selectedEvent) return;
      if (selectedEvent?._kind === "completed") {
@@ -4321,13 +4495,30 @@ selectedEvent.id.replace("planned__", "");
   };
   const openEventEdit = () => {
     if (!selectedEvent || selectedEvent?._kind === "completed") return;
+    const selectedStatus = String(selectedEvent.status || "").trim().toLowerCase();
+    const selectedIsDone =
+      selectedStatus === "validée" ||
+      selectedStatus === "validee" ||
+      selectedStatus === "done" ||
+      selectedStatus === "completed";
+    const selectedIsMissed =
+      selectedStatus === "manquée" ||
+      selectedStatus === "manquee" ||
+      selectedStatus === "missed" ||
+      selectedStatus === "cancelled" ||
+      selectedStatus === "canceled";
+    const selectedEndMs = getEventEndMs(selectedEvent);
+    const effectiveStatus =
+      !selectedIsDone && !selectedIsMissed && selectedEndMs > 0 && selectedEndMs <= Date.now()
+        ? "manquée"
+        : selectedEvent.status || "à venir";
     setEventEditDraft({
       type: selectedEvent.eventType === "nutrition_appointment" ? "nutrition" : "sport",
       clientId: selectedEvent.clientId || "",
       programmeId: selectedEvent.programmeId || "",
       sessionIndex: Number.isFinite(Number(selectedEvent.sessionIndex)) ? Number(selectedEvent.sessionIndex) : null,
       startDateTime: toDateTimeLocalValue(selectedEvent.start),
-      status: selectedEvent.status || "à venir",
+      status: effectiveStatus,
       nutritionKind: selectedEvent.appointmentKind || "suivi",
       nutritionDurationMin:
         Number.isFinite(Number(selectedEvent.durationMin)) && Number(selectedEvent.durationMin) > 0
@@ -7294,7 +7485,7 @@ boxSize="20px" />
 	                  <Button
                       size="sm"
                       borderRadius="14px"
-                      {...shortcutSecondaryButtonProps}
+                      {...shortcutPrimaryButtonProps}
                       onClick={nutritionOnlyDashboard ? () => navigate(withAdminCoach("/nutrition-coach?new=1")) : addSessionModal.onOpen}
                     >
                     {nutritionOnlyDashboard ? "Créer un suivi" : t("dashboard.plan_session", "Planifier une séance")}
@@ -9152,7 +9343,7 @@ alignItems="stretch">
 	                      : isMissed
 	                        ? { label: t("status.missed", "Manquée"), colorScheme: "red", tone: dangerRed }
 	                        : isPastUnvalidated
-	                          ? { label: t("dashboard.calendar_not_validated", "Non validée"), colorScheme: "orange", tone: warningOrange }
+	                          ? { label: t("status.missed", "Manquée"), colorScheme: "red", tone: dangerRed }
 	                          : { label: t("status.upcoming", "À venir"), colorScheme: "blue", tone: eventTone };
                     const noteLabel = rating
                       ? t("dashboard.calendar_rated", "Notée {{rating}}/5", { rating })
@@ -9167,7 +9358,7 @@ alignItems="stretch">
                         type="button"
 	                        textAlign="left"
 	                        border="1px solid"
-	                        borderColor={isPastUnvalidated ? `${warningOrange}66` : isDone ? `${eventTone}66` : borderColor}
+	                        borderColor={isPastUnvalidated ? `${dangerRed}66` : isDone ? `${eventTone}66` : borderColor}
 	                        borderRadius="18px"
 	                        p={3}
 	                        bg={modeValue(`${eventTone}0D`, `${eventTone}18`)}
@@ -10101,6 +10292,29 @@ onClose={choiceModal.onClose} isCentered>
            <ModalCloseButton />
            <ModalBody>
              <VStack spacing={4} py={4}>
+                {(hasSportAccess || hasNutritionCalendarAccess) && (
+                  <Button
+                    w="full"
+                    borderRadius="16px"
+                    variant="outline"
+                    borderColor={dashboardModalActionBorder}
+                    bg={dashboardModalActionBg}
+                    transition="all 0.18s ease"
+                    _hover={{
+                      bg: dashboardModalActionHoverBg,
+                      borderColor: dashboardModalActionHoverBorder,
+                      transform: "translateY(-1px)",
+                      boxShadow: dashboardModalActionHoverShadow,
+                    }}
+                    onClick={() => {
+                      choiceModal.onClose();
+                      addSessionModal.onOpen();
+                    }}
+                    leftIcon={<Icon as={MdOutlineSchedule} />}
+                  >
+                    {t("nav.new_appointment", "Nouveau rendez-vous")}
+                  </Button>
+                )}
                 {hasSportAccess && (
                   <Button
                     w="full"
@@ -10435,7 +10649,9 @@ FormLabel>
                 _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
                 _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
                 borderRadius="16px"
-                isDisabled={!canSubmitNewSession}
+                isDisabled={!canSubmitNewSession || sessionCreateSaving}
+                isLoading={sessionCreateSaving}
+                loadingText={t("common.saving", "Enregistrement…")}
 	                onClick={handleAddSession}
              >
                 {t("common.add", "Ajouter")}

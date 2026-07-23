@@ -1227,6 +1227,30 @@ export default function Navbar() {
             <VStack spacing={4} py={4}>
               {showCoachUI && (
                 <>
+                  {(hasSportAccess || hasNutritionAccess || isAdmin) && (
+                    <Button
+                      w="full"
+                      borderRadius="16px"
+                      variant="outline"
+                      leftIcon={<Icon as={MdOutlineCalendarMonth} />}
+                      borderColor={modalActionBorder}
+                      bg={modalActionBg}
+                      transition="all 0.18s ease"
+                      _hover={{
+                        bg: modalActionHoverBg,
+                        borderColor: modalActionHoverBorder,
+                        transform: "translateY(-1px)",
+                        boxShadow: modalActionHoverShadow,
+                      }}
+                      {...preloadInteractionProps(ROUTES.coachDashboard)}
+                      onClick={() => {
+                        choiceModal.onClose();
+                        navigate(withAdminCoach(`${ROUTES.coachDashboard}?quickAction=plan`));
+                      }}
+                    >
+                      {nav("nav.new_appointment", "Nouveau rendez-vous")}
+                    </Button>
+                  )}
                   {hasSportAccess && (
                   <Button
                     w="full"

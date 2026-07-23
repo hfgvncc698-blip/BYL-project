@@ -77,7 +77,7 @@ const routeLoaders = {
   AdminGeo: () => import("./pages/AdminGeo.jsx"),
   AdminClient: () => import("./pages/AdminClient.jsx"),
   AdminCoach: () => import("./pages/AdminCoach.jsx"),
-  AdminSocialPublisher: () => import("./pages/AdminSocialPublisher.jsx"),
+  AdminEmails: () => import("./pages/AdminEmails.jsx"),
 };
 
 const lazyFrom = (loaders, key) => lazy(loaders[key]);
@@ -136,7 +136,7 @@ const Cancel = lazyFrom(routeLoaders, "Cancel");
 const AdminGeo = lazyFrom(routeLoaders, "AdminGeo");
 const AdminClient = lazyFrom(routeLoaders, "AdminClient");
 const AdminCoach = lazyFrom(routeLoaders, "AdminCoach");
-const AdminSocialPublisher = lazyFrom(routeLoaders, "AdminSocialPublisher");
+const AdminEmails = lazyFrom(routeLoaders, "AdminEmails");
 
 const COACH_CORE_PRELOADS = [
   "CoachDashboard",
@@ -210,7 +210,7 @@ function preloadKeysForContext({ pathname, user, effectiveRole, isAdmin }) {
   } else if (pathname.startsWith("/user-dashboard") || pathname.startsWith("/mes-programmes")) {
     keys.push("MyPrograms", "ProgramView", "SessionPlayer", "ClientNutritionPage", "Statistics");
   } else if (pathname.startsWith("/admin")) {
-    keys.push("AdminGeo", "AdminSocialPublisher");
+    keys.push("AdminGeo", "AdminEmails");
   }
 
   return keys;
@@ -878,13 +878,14 @@ function AppContent() {
             }
           />
           <Route
-            path="/admin/social-publisher"
+            path="/admin/emails"
             element={
               <AdminRoute>
-                <AdminSocialPublisher />
+                <AdminEmails />
               </AdminRoute>
             }
           />
+          <Route path="/admin/social-publisher" element={<Navigate to="/admin/emails" replace />} />
           <Route
             path="/admin/client/:id"
             element={

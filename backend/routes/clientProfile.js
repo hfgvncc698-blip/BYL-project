@@ -67,6 +67,60 @@ async function scoreClient(docSnap, auth) {
   };
 }
 
+async function findLinkedClient(db, auth, user = {}) {
+  const linkedClientId = String(user.linkedClientId || "").trim();
+  if (linkedClientId) {
+    const linkedSnap = await db.collection("clients").doc(linkedClientId).get();
+    if (linkedSnap.exists) return linkedSnap;
+  }
+
+  const role = String(user.role || "").toLowerCase();
+  if (["admin", "coach"].includes(role)) return null;
+
+  const candidates = new Map();
+  const emailLower = normalizeEmail(auth.email || user.email);
+  await addDocCandidate(candidates, db.collection("clients").doc(auth.uid));
+  await Promise.all([
+    addQueryCandidates(
+      candidates,
+      db.collection("clients").where("linkedUserId", "==", auth.uid).limit(5)
+    ),
+    addQueryCandidates(candidates, db.collection("clients").where("uid", "==", auth.uid).limit(5)),
+    addQueryCandidates(
+      candidates,
+      db.collection("clients").where("accountUid", "==", auth.uid).limit(5)
+    ),
+    emailLower
+      ? addQueryCandidates(
+          candidates,
+          db.collection("clients").where("emailLower", "==", emailLower).limit(5)
+        )
+      : Promise.resolve(),
+    auth.email
+      ? addQueryCandidates(
+          candidates,
+          db.collection("clients").where("email", "==", auth.email).limit(5)
+        )
+      : Promise.resolve(),
+  ]);
+
+  const exactIdentity = Array.from(candidates.values()).find((snap) => {
+    const data = snap.data() || {};
+    return (
+      snap.id === auth.uid ||
+      data.uid === auth.uid ||
+      data.linkedUserId === auth.uid ||
+      data.accountUid === auth.uid
+    );
+  });
+  if (exactIdentity) return exactIdentity;
+
+  return Array.from(candidates.values()).find((snap) => {
+    const data = snap.data() || {};
+    return normalizeEmail(data.emailLower || data.email) === emailLower;
+  }) || null;
+}
+
 router.get("/resolve-client", requireFirebaseAuth, async (req, res) => {
   try {
     const db = admin.firestore();
@@ -107,6 +161,62 @@ router.get("/resolve-client", requireFirebaseAuth, async (req, res) => {
   } catch (error) {
     console.error("[client-profile] resolve-client failed:", error);
     return res.status(500).json({ error: "client-resolve-failed" });
+  }
+});
+
+router.get("/email-preferences", requireFirebaseAuth, async (req, res) => {
+  try {
+    const userSnap = await admin.firestore().collection("users").doc(req.auth.uid).get();
+    if (!userSnap.exists) {
+      return res.status(404).json({ error: "user-profile-not-found" });
+    }
+    const user = userSnap.data() || {};
+    return res.json({
+      enabled:
+        user.settings?.emailNotificationsEnabled !== false &&
+        user.emailPreferences?.allAutomatic !== false,
+    });
+  } catch (error) {
+    console.error("[client-profile] email preference read failed:", error);
+    return res.status(500).json({ error: "email-preference-read-failed" });
+  }
+});
+
+router.put("/email-preferences", requireFirebaseAuth, async (req, res) => {
+  try {
+    if (typeof req.body?.enabled !== "boolean") {
+      return res.status(400).json({ error: "enabled-boolean-required" });
+    }
+
+    const db = admin.firestore();
+    const userRef = db.collection("users").doc(req.auth.uid);
+    const userSnap = await userRef.get();
+    if (!userSnap.exists) {
+      return res.status(404).json({ error: "user-profile-not-found" });
+    }
+
+    const enabled = req.body.enabled;
+    const clientSnap = await findLinkedClient(db, req.auth, userSnap.data() || {});
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    const batch = db.batch();
+    const update = {
+      "emailPreferences.allAutomatic": enabled,
+      "settings.emailNotificationsEnabled": enabled,
+      emailPreferencesUpdatedAt: now,
+      emailPreferencesUpdatedBy: req.auth.uid,
+    };
+    batch.update(userRef, update);
+    if (clientSnap) batch.update(clientSnap.ref, update);
+    await batch.commit();
+
+    return res.json({
+      ok: true,
+      enabled,
+      linkedClientId: clientSnap?.id || null,
+    });
+  } catch (error) {
+    console.error("[client-profile] email preference update failed:", error);
+    return res.status(500).json({ error: "email-preference-update-failed" });
   }
 });
 

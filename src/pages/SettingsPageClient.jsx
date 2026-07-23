@@ -41,6 +41,7 @@ import {
 import AppLoading from "../components/ui/AppLoading";
 import PageBackButton from "../components/ui/PageBackButton";
 import TutorialSettingsPanel from "../components/TutorialSettingsPanel";
+import EmailNotificationPreferenceCard from "../components/EmailNotificationPreferenceCard";
 import { notify } from "../utils/notify";
 import { useAppTheme } from "../styles/appTheme";
 import { ensureLanguageLoaded } from "../i18n";
@@ -298,6 +299,22 @@ export default function SettingsPageClient() {
               </Select>
             </FormControl>
           </SurfaceCard>
+
+          <EmailNotificationPreferenceCard
+            surfaceProps={{
+              bg: cardBg,
+              borderRadius: "28px",
+              border: "1px solid",
+              borderColor: borderStrong,
+              boxShadow: glassShadow,
+              position: "relative",
+              overflow: "hidden",
+            }}
+            textColor={textColor}
+            mutedText={mutedText}
+            borderColor={borderColor}
+            softBg={subCardBg}
+          />
 
           <TutorialSettingsPanel
             role="client"

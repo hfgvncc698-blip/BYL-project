@@ -165,6 +165,7 @@ const normalizeUserDoc = (uid, data, fb) => {
     stripeCustomerId: data?.stripeCustomerId ?? null,
     stripeSubscriptionId: data?.stripeSubscriptionId ?? null,
     linkedClientId: data?.linkedClientId ?? null,
+    emailPreferences: data?.emailPreferences ?? {},
 
     logoUrl: data?.logoUrl ?? null,
     primaryColor: data?.primaryColor ?? null,

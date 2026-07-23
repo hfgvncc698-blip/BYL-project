@@ -1306,19 +1306,84 @@ function buildLifecycleTemplate({ subject, title, intro, cta, url, detail, lng }
   return { subject, html, text };
 }
 
+function createEmailTrackingId() {
+  return db.collection("email_events").doc().id;
+}
+
+function emailTrackingPixelUrl(eventId) {
+  const origin = getBaseUrlFromSecret().replace(/\/+$/, "").replace(/\/api$/, "");
+  return `${origin}/api/email-tracking/open/${encodeURIComponent(eventId)}.gif`;
+}
+
+function withEmailTrackingPixel(html, eventId) {
+  if (!eventId) return html;
+  return `${html}<img src="${emailTrackingPixelUrl(eventId)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;opacity:0" />`;
+}
+
+function emailDeliveryEvent(info, to) {
+  const accepted = Array.isArray(info?.accepted)
+    ? info.accepted.map((value) => safeTrim(value).toLowerCase()).filter(Boolean)
+    : [];
+  const recipient = safeTrim(to).toLowerCase();
+  return {
+    id: info?.trackingEventId || null,
+    accepted,
+    deliveryStatus: accepted.includes(recipient) ? "accepted" : "unknown",
+  };
+}
+
+async function primeEmailTrackingEvent(eventId, to, subject) {
+  await db.collection("email_events").doc(eventId).set({
+    to: safeTrim(to).toLowerCase(),
+    subject: safeTrim(subject).slice(0, 220),
+    status: "sending",
+    deliveryStatus: "unknown",
+    source: "cloud-function",
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+}
+
+async function sendTrackedTemplateEmail({ to, subject, text, html }) {
+  const trackingEventId = createEmailTrackingId();
+  await primeEmailTrackingEvent(trackingEventId, to, subject);
+  try {
+    const transporter = getTransporterFromSecrets();
+    const info = await transporter.sendMail({
+      from: `"BoostYourLife" <${SMTP_USER.value()}>`,
+      to,
+      subject,
+      text,
+      html: withEmailTrackingPixel(html, trackingEventId),
+      replyTo: SMTP_USER.value(),
+    });
+    return { ...info, trackingEventId };
+  } catch (error) {
+    error.trackingEventId = trackingEventId;
+    throw error;
+  }
+}
+
 async function sendLifecycleEmail({ to, subject, title, intro, cta, url, detail, lng }) {
   if (!to) return null;
   const transporter = getTransporterFromSecrets();
   const from = `"BoostYourLife" <${SMTP_USER.value()}>`;
   const message = buildLifecycleTemplate({ subject, title, intro, cta, url, detail, lng });
-  return transporter.sendMail({
-    from,
-    to,
-    subject: message.subject,
-    text: message.text,
-    html: message.html,
-    replyTo: SMTP_USER.value(),
-  });
+  const trackingEventId = createEmailTrackingId();
+  await primeEmailTrackingEvent(trackingEventId, to, message.subject);
+  try {
+    const info = await transporter.sendMail({
+      from,
+      to,
+      subject: message.subject,
+      text: message.text,
+      html: withEmailTrackingPixel(message.html, trackingEventId),
+      replyTo: SMTP_USER.value(),
+    });
+    return { ...info, trackingEventId };
+  } catch (error) {
+    error.trackingEventId = trackingEventId;
+    throw error;
+  }
 }
 
 function lifecycleCopy(kind, lng, vars = {}) {
@@ -1397,6 +1462,116 @@ function messageField(name) {
   return `lifecycleEmails.${name}MessageId`;
 }
 
+function lifecycleValue(data, name, suffix) {
+  return data?.lifecycleEmails?.[`${name}${suffix}`] || data?.[`lifecycleEmails.${name}${suffix}`];
+}
+
+function hasLifecycleEmailMarker(data, name) {
+  return Boolean(lifecycleValue(data, name, "SentAt"));
+}
+
+function hasLifecycleEmailCancellation(data, name) {
+  return Boolean(lifecycleValue(data, name, "CancelledAt"));
+}
+
+function normalizeAutomaticTemplateKind(kind) {
+  return ["trialReminder1", "trialReminder3"].includes(kind) ? "trialReminder" : kind;
+}
+
+function applyAutomaticTemplate(profile, kind, defaults) {
+  const template = profile?.emailTemplates?.[normalizeAutomaticTemplateKind(kind)] || {};
+  return {
+    ...defaults,
+    ...(safeTrim(template.subject) ? { subject: safeTrim(template.subject).slice(0, 180) } : {}),
+    ...(safeTrim(template.message) ? { intro: safeTrim(template.message).slice(0, 12000) } : {}),
+    customized: Boolean(safeTrim(template.subject) || safeTrim(template.message)),
+  };
+}
+
+function automaticEmailPreferenceKey(kind) {
+  if (kind === "welcome") return "welcome";
+  if (["programCompleted"].includes(kind)) return "programCompleted";
+  if (["inactivity"].includes(kind)) return "inactivity";
+  if (["nutritionAssigned"].includes(kind)) return "nutritionAssigned";
+  if (["subscriptionWelcome", "paymentIssue", "trialReminder1", "trialReminder3"].includes(kind)) {
+    return "subscription";
+  }
+  return "programAssigned";
+}
+
+function isAutomaticEmailEnabled(profile, kind) {
+  const preferences = profile?.emailPreferences || {};
+  if (profile?.emailDelivery?.suspended === true) return false;
+  if (profile?.settings?.emailNotificationsEnabled === false) return false;
+  if (preferences.allAutomatic === false) return false;
+  return preferences[automaticEmailPreferenceKey(kind)] !== false;
+}
+
+async function claimLifecycleEmail(ref, name) {
+  return db.runTransaction(async (transaction) => {
+    const snap = await transaction.get(ref);
+    if (!snap.exists) return false;
+    const data = snap.data() || {};
+    if (
+      hasLifecycleEmailMarker(data, name) ||
+      hasLifecycleEmailCancellation(data, name) ||
+      lifecycleValue(data, name, "AttemptedAt")
+    ) return false;
+    transaction.update(ref, {
+      [`lifecycleEmails.${name}AttemptedAt`]: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return true;
+  });
+}
+
+async function recordEmailEvent(event) {
+  try {
+    const ref = event?.id
+      ? db.collection("email_events").doc(event.id)
+      : db.collection("email_events").doc();
+    const eventData = { ...(event || {}) };
+    delete eventData.id;
+    const accepted = Array.isArray(event?.accepted) ? event.accepted : [];
+    await ref.set({
+      ...eventData,
+      to: safeTrim(event?.to).toLowerCase(),
+      status: event?.status || "sent",
+      source: event?.source || "cloud-function",
+      deliveryStatus: event?.deliveryStatus || "unknown",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      ...(event?.deliveryStatus === "accepted" && accepted.length
+        ? { acceptedAt: admin.firestore.FieldValue.serverTimestamp() }
+        : {}),
+      ...(["failed", "bounced"].includes(event?.status)
+        ? { failedAt: admin.firestore.FieldValue.serverTimestamp() }
+        : { sentAt: admin.firestore.FieldValue.serverTimestamp() }),
+    }, { merge: true });
+  } catch (error) {
+    console.warn("[email-events] log failed", error?.message || error);
+  }
+}
+
+function isPermanentEmailFailure(error) {
+  const code = Number(error?.responseCode || 0);
+  const message = String(error?.response || error?.message || "").toLowerCase();
+  return code >= 500 || /mailbox unavailable|user unknown|unknown user|invalid recipient|recipient address rejected|no such user/.test(message);
+}
+
+async function suspendAutomaticEmailDelivery(ref, error, eventId = null) {
+  if (!ref || !isPermanentEmailFailure(error)) return false;
+  await ref.set({
+    emailDelivery: {
+      suspended: true,
+      reason: "permanent-bounce",
+      eventId,
+      smtpCode: Number(error?.responseCode || 0) || null,
+      detail: safeTrim(error?.response || error?.message || error).slice(0, 500),
+      suspendedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+  }, { merge: true });
+  return true;
+}
+
 function getSubscriptionDashboardPath(user = {}) {
   const role = String(user.role || user.accountType || "").toLowerCase();
   const pack = String(user.packageKey || user.planKey || user.subscriptionPack || "").toLowerCase();
@@ -1416,15 +1591,15 @@ function programViewerUrl(baseUrl, clientId, programmeId) {
 }
 
 async function markLifecycleEmail(ref, name, info, extra = {}) {
-  await ref.set(
-    {
-      [sentField(name)]: admin.firestore.FieldValue.serverTimestamp(),
-      ...(info?.messageId ? { [messageField(name)]: info.messageId } : {}),
-      ...extra,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
+  // update() interprète les clés avec des points comme des chemins Firestore.
+  // set(..., { merge: true }) les enregistrait comme des clés littérales, donc
+  // les contrôles ci-dessus ne retrouvaient jamais le marqueur anti-doublon.
+  await ref.update({
+    [sentField(name)]: admin.firestore.FieldValue.serverTimestamp(),
+    ...(info?.messageId ? { [messageField(name)]: info.messageId } : {}),
+    ...extra,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
 }
 
 function countProgramSessions(program = {}) {
@@ -1472,27 +1647,57 @@ async function getCompletedSessionCount(programRef, program = {}) {
 }
 
 async function sendProgramLifecycleEmail({ programRef, program, clientId, programmeId, kind, dueExtra = {} }) {
-  if (program?.lifecycleEmails?.[`${kind}SentAt`]) return false;
+  if (hasLifecycleEmailMarker(program, kind)) return false;
 
   const clientSnap = await db.doc(`clients/${clientId}`).get();
   const client = clientSnap.exists ? clientSnap.data() || {} : {};
   const to = safeTrim(client.email).toLowerCase();
-  if (!to) return false;
+  if (!to || !isAutomaticEmailEnabled(client, kind)) return false;
+  if (!(await claimLifecycleEmail(programRef, kind))) return false;
 
   const lng = getClientLngFromAny(client);
   const programName = pickProgramName(program);
   const baseUrl = getBaseUrlFromSecret();
-  const copy = lifecycleCopy(kind, lng, { programName });
-  const info = await sendLifecycleEmail({
-    to,
-    ...copy,
-    detail: programName,
-    url: programViewerUrl(baseUrl, clientId, programmeId),
-    lng,
-  });
+  const copy = applyAutomaticTemplate(client, kind, lifecycleCopy(kind, lng, { programName }));
+  try {
+    const info = await sendLifecycleEmail({
+      to,
+      ...copy,
+      detail: programName,
+      url: programViewerUrl(baseUrl, clientId, programmeId),
+      lng,
+    });
 
-  await markLifecycleEmail(programRef, kind, info, dueExtra);
-  return true;
+    await markLifecycleEmail(programRef, kind, info, dueExtra);
+    await recordEmailEvent({
+      clientId,
+      programmeId,
+      to,
+      type: kind,
+      subject: copy.subject,
+      detail: programName,
+      messageId: info?.messageId || null,
+      ...emailDeliveryEvent(info, to),
+    });
+    return true;
+  } catch (error) {
+    const bounced = await suspendAutomaticEmailDelivery(clientSnap.ref, error, error?.trackingEventId || null);
+    await programRef.update({
+      [`lifecycleEmails.${kind}FailedAt`]: admin.firestore.FieldValue.serverTimestamp(),
+    }).catch(() => null);
+    await recordEmailEvent({
+      clientId,
+      programmeId,
+      to,
+      type: kind,
+      subject: copy.subject,
+      detail: programName,
+      status: bounced ? "bounced" : "failed",
+      id: error?.trackingEventId || null,
+      error: safeTrim(error?.message || error).slice(0, 500),
+    });
+    throw error;
+  }
 }
 
 /* =======================================================================
@@ -1683,35 +1888,74 @@ exports.sendWelcomeEmail = onCall(
   async (request) => {
     const data = request.data || {};
 
-    const email = safeTrim(data.email).toLowerCase();
-    const firstName = safeTrim(data.firstName);
-    const role = safeTrim(data.role) || "particulier";
-    const lng = resolveLng(data.lang || data.language || data.locale || data.lng || "fr");
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Authentification requise.");
+    }
 
-    if (!email) throw new HttpsError("invalid-argument", "Email requis.");
+    const userRef = db.doc(`users/${request.auth.uid}`);
+    const userSnap = await userRef.get();
+    if (!userSnap.exists) {
+      throw new HttpsError("failed-precondition", "Profil utilisateur introuvable.");
+    }
+    const user = userSnap.data() || {};
+    const authEmail = safeTrim(request.auth.token?.email).toLowerCase();
+    const profileEmail = safeTrim(user.email || user.contactEmail).toLowerCase();
+    const requestedEmail = safeTrim(data.email).toLowerCase();
+    const email = profileEmail || authEmail;
+    if (!email || (requestedEmail && requestedEmail !== email) || (authEmail && authEmail !== email)) {
+      throw new HttpsError("permission-denied", "Adresse e-mail non autorisée.");
+    }
+
+    const firstName = safeTrim(data.firstName || user.firstName || user.prenom);
+    const role = safeTrim(data.role || user.role) || "particulier";
+    const lng = resolveLng(
+      data.lang || data.language || data.locale || data.lng || user.preferredLanguage || user.language || "fr"
+    );
+
+    if (!isAutomaticEmailEnabled(user, "welcome")) {
+      return { ok: true, skipped: true, reason: "disabled-by-preference" };
+    }
+    if (!(await claimLifecycleEmail(userRef, "welcome"))) {
+      return { ok: true, skipped: true, duplicateBlocked: true };
+    }
 
     const baseUrl = getBaseUrlFromSecret();
     const loginUrl = `${baseUrl}/login`;
 
     try {
-      const transporter = getTransporterFromSecrets();
-
-      const { subject, html, text } = buildWelcomeTemplate({
+      const welcomeTemplate = buildWelcomeTemplate({
         firstName: firstName || "👋",
         role,
         loginUrl,
         lng,
       });
+      const custom = applyAutomaticTemplate(user, "welcome", {
+        subject: welcomeTemplate.subject,
+        title: welcomeTemplate.subject,
+        intro: welcomeTemplate.text,
+        cta: "Se connecter",
+      });
+      const rendered = custom.customized
+        ? buildLifecycleTemplate({ ...custom, url: loginUrl, lng })
+        : welcomeTemplate;
+      const { subject, html, text } = rendered;
 
-      const from = `"BoostYourLife" <${SMTP_USER.value()}>`;
-
-      const info = await transporter.sendMail({
-        from,
+      const info = await sendTrackedTemplateEmail({
         to: email,
         subject,
         text,
         html,
-        replyTo: SMTP_USER.value(),
+      });
+
+      await markLifecycleEmail(userRef, "welcome", info);
+      await recordEmailEvent({
+        id: info.trackingEventId,
+        userId: request.auth.uid,
+        to: email,
+        type: "welcome",
+        subject,
+        messageId: info?.messageId || null,
+        ...emailDeliveryEvent(info, email),
       });
 
       console.log("[sendWelcomeEmail] OK", {
@@ -1723,6 +1967,19 @@ exports.sendWelcomeEmail = onCall(
 
       return { ok: true, email, role, lng };
     } catch (err) {
+      const bounced = await suspendAutomaticEmailDelivery(userRef, err, err?.trackingEventId || null);
+      await userRef.update({
+        "lifecycleEmails.welcomeFailedAt": admin.firestore.FieldValue.serverTimestamp(),
+      }).catch(() => null);
+      await recordEmailEvent({
+        id: err?.trackingEventId || null,
+        userId: request.auth.uid,
+        to: email,
+        type: "welcome",
+        subject: "Bienvenue sur BoostYourLife",
+        status: bounced ? "bounced" : "failed",
+        error: safeTrim(err?.message || err).slice(0, 500),
+      });
       return logAndThrowHttpsError("internal", "[sendWelcomeEmail] SMTP send failed", err);
     }
   }
@@ -1844,11 +2101,13 @@ exports.onProgramAssigned = onDocumentCreated(
       return;
     }
 
+    let clientEmailForEvent = "";
     try {
       const clientSnap = await db.doc(`clients/${clientId}`).get();
       const client = clientSnap.exists ? clientSnap.data() : null;
 
       const clientEmail = safeTrim(client?.email).toLowerCase();
+      clientEmailForEvent = clientEmail;
       const clientFirstName = safeTrim(client?.prenom) || safeTrim(client?.firstName) || "";
       const clientLastName = safeTrim(client?.nom) || safeTrim(client?.lastName) || "";
       const clientFullName = normalizeSpaces(`${clientFirstName} ${clientLastName}`);
@@ -1883,6 +2142,16 @@ exports.onProgramAssigned = onDocumentCreated(
       const baseUrl = getBaseUrlFromSecret();
       const dashboardUrl = `${baseUrl}/user-dashboard`;
       const programRef = event.data.ref;
+      const lifecycleKind = isPremiumProgram(progData) ? "premiumPurchase" : "programAssigned";
+
+      if (!isAutomaticEmailEnabled(client, lifecycleKind)) {
+        console.log("[onProgramAssigned] disabled by client preference", { clientId, programmeId });
+        return;
+      }
+      if (!(await claimLifecycleEmail(programRef, lifecycleKind))) {
+        console.log("[onProgramAssigned] duplicate blocked", { clientId, programmeId, lifecycleKind });
+        return;
+      }
 
       const activeWeeks = readActiveWeeks(progData);
       await programRef.set(
@@ -1896,7 +2165,11 @@ exports.onProgramAssigned = onDocumentCreated(
       );
 
       if (isPremiumProgram(progData)) {
-        const copy = lifecycleCopy("premiumPurchase", lng, { programName });
+        const copy = applyAutomaticTemplate(
+          client,
+          "premiumPurchase",
+          lifecycleCopy("premiumPurchase", lng, { programName })
+        );
         const info = await sendLifecycleEmail({
           to: clientEmail,
           ...copy,
@@ -1906,6 +2179,16 @@ exports.onProgramAssigned = onDocumentCreated(
         });
 
         await markLifecycleEmail(programRef, "premiumPurchase", info);
+        await recordEmailEvent({
+          clientId,
+          programmeId,
+          to: clientEmail,
+          type: "premiumPurchase",
+          subject: copy.subject,
+          detail: programName,
+          messageId: info?.messageId || null,
+          ...emailDeliveryEvent(info, clientEmail),
+        });
 
         console.log("[onProgramAssigned] premium purchase email sent", {
           clientId,
@@ -1918,24 +2201,41 @@ exports.onProgramAssigned = onDocumentCreated(
         return;
       }
 
-      const transporter = getTransporterFromSecrets();
-      const from = `"BoostYourLife" <${SMTP_USER.value()}>`;
-
-      const { subject, html, text } = buildProgramAssignedTemplate({
+      const defaultMessage = buildProgramAssignedTemplate({
         firstName: clientFirstName || clientFullName || "👋",
         coachName,
         programName,
         dashboardUrl,
         lng,
       });
+      const customMessage = applyAutomaticTemplate(client, "programAssigned", {
+        subject: defaultMessage.subject,
+        title: defaultMessage.subject,
+        intro: defaultMessage.text,
+        cta: "Voir mon programme",
+      });
+      const renderedMessage = customMessage.customized
+        ? buildLifecycleTemplate({ ...customMessage, url: dashboardUrl, detail: programName, lng })
+        : defaultMessage;
+      const { subject, html, text } = renderedMessage;
 
-      const info = await transporter.sendMail({
-        from,
+      const info = await sendTrackedTemplateEmail({
         to: clientEmail,
         subject,
         text,
         html,
-        replyTo: SMTP_USER.value(),
+      });
+
+      await markLifecycleEmail(programRef, "programAssigned", info);
+      await recordEmailEvent({
+        clientId,
+        programmeId,
+        to: clientEmail,
+        type: "programAssigned",
+        subject,
+        detail: programName,
+        messageId: info?.messageId || null,
+        ...emailDeliveryEvent(info, clientEmail),
       });
 
       console.log("[onProgramAssigned] email sent", {
@@ -1947,6 +2247,21 @@ exports.onProgramAssigned = onDocumentCreated(
         messageId: info.messageId,
       });
     } catch (err) {
+      const bounced = await suspendAutomaticEmailDelivery(
+        db.doc(`clients/${clientId}`),
+        err,
+        err?.trackingEventId || null
+      ).catch(() => false);
+      await recordEmailEvent({
+        id: err?.trackingEventId || null,
+        clientId,
+        programmeId,
+        to: clientEmailForEvent,
+        type: isPremiumProgram(progData) ? "premiumPurchase" : "programAssigned",
+        subject: pickProgramName(progData),
+        status: bounced ? "bounced" : "failed",
+        error: safeTrim(err?.message || err).slice(0, 500),
+      });
       console.error("[onProgramAssigned] FAILED", { clientId, programmeId }, err);
     }
   }
@@ -1981,9 +2296,11 @@ exports.onUserSubscriptionLifecycle = onDocumentWritten(
       if (
         isSubscriptionActiveStatus(afterStatus) &&
         !isSubscriptionActiveStatus(beforeStatus) &&
-        !after.lifecycleEmails?.subscriptionWelcomeSentAt
+        !hasLifecycleEmailMarker(after, "subscriptionWelcome") &&
+        isAutomaticEmailEnabled(after, "subscriptionWelcome") &&
+        (await claimLifecycleEmail(ref, "subscriptionWelcome"))
       ) {
-        const copy = lifecycleCopy("subscriptionWelcome", lng);
+        const copy = applyAutomaticTemplate(after, "subscriptionWelcome", lifecycleCopy("subscriptionWelcome", lng));
         const info = await sendLifecycleEmail({
           to: email,
           ...copy,
@@ -1992,15 +2309,25 @@ exports.onUserSubscriptionLifecycle = onDocumentWritten(
           lng,
         });
         await markLifecycleEmail(ref, "subscriptionWelcome", info);
+        await recordEmailEvent({
+          userId: uid,
+          to: email,
+          type: "subscriptionWelcome",
+          subject: copy.subject,
+          messageId: info?.messageId || null,
+          ...emailDeliveryEvent(info, email),
+        });
         console.log("[onUserSubscriptionLifecycle] welcome sent", { uid, email, afterStatus });
       }
 
       if (
         isPaymentIssueStatus(afterStatus) &&
         !isPaymentIssueStatus(beforeStatus) &&
-        !after.lifecycleEmails?.paymentIssueSentAt
+        !hasLifecycleEmailMarker(after, "paymentIssue") &&
+        isAutomaticEmailEnabled(after, "paymentIssue") &&
+        (await claimLifecycleEmail(ref, "paymentIssue"))
       ) {
-        const copy = lifecycleCopy("paymentIssue", lng);
+        const copy = applyAutomaticTemplate(after, "paymentIssue", lifecycleCopy("paymentIssue", lng));
         const info = await sendLifecycleEmail({
           to: email,
           ...copy,
@@ -2009,9 +2336,18 @@ exports.onUserSubscriptionLifecycle = onDocumentWritten(
           lng,
         });
         await markLifecycleEmail(ref, "paymentIssue", info);
+        await recordEmailEvent({
+          userId: uid,
+          to: email,
+          type: "paymentIssue",
+          subject: copy.subject,
+          messageId: info?.messageId || null,
+          ...emailDeliveryEvent(info, email),
+        });
         console.log("[onUserSubscriptionLifecycle] payment issue sent", { uid, email, afterStatus });
       }
     } catch (err) {
+      await suspendAutomaticEmailDelivery(ref, err, err?.trackingEventId || null).catch(() => null);
       console.error("[onUserSubscriptionLifecycle] FAILED", { uid }, err);
     }
   }
@@ -2035,7 +2371,7 @@ exports.onProgramSessionCompleted = onDocumentCreated(
       if (!programSnap.exists) return;
 
       const program = programSnap.data() || {};
-      if (program.lifecycleEmails?.programCompletedSentAt) return;
+      if (hasLifecycleEmailMarker(program, "programCompleted")) return;
 
       const totalSessions = countProgramSessions(program);
       if (!totalSessions) return;
@@ -2105,17 +2441,51 @@ exports.runLifecycleEmailJobs = onSchedule(
         if (![3, 1].includes(daysLeft)) return;
 
         const lifecycleKey = `trialReminder${daysLeft}`;
-        if (user.lifecycleEmails?.[`${lifecycleKey}SentAt`]) return;
+        if (
+          hasLifecycleEmailMarker(user, lifecycleKey) ||
+          hasLifecycleEmailCancellation(user, lifecycleKey) ||
+          !isAutomaticEmailEnabled(user, lifecycleKey)
+        ) return;
 
         const lng = getUserLng(user);
-        const copy = lifecycleCopy("trialReminder", lng, { days: daysLeft });
+        const copy = applyAutomaticTemplate(user, lifecycleKey, lifecycleCopy("trialReminder", lng, { days: daysLeft }));
         tasks.push(
-          sendLifecycleEmail({
-            to: email,
-            ...copy,
-            url: `${baseUrl}${getBillingPath(user)}`,
-            lng,
-          }).then((info) => markLifecycleEmail(docSnap.ref, lifecycleKey, info))
+          (async () => {
+            if (!(await claimLifecycleEmail(docSnap.ref, lifecycleKey))) return;
+            try {
+              const info = await sendLifecycleEmail({
+                to: email,
+                ...copy,
+                url: `${baseUrl}${getBillingPath(user)}`,
+                lng,
+              });
+              await markLifecycleEmail(docSnap.ref, lifecycleKey, info);
+              await recordEmailEvent({
+                userId: docSnap.id,
+                to: email,
+                type: lifecycleKey,
+                subject: copy.subject,
+                messageId: info?.messageId || null,
+                ...emailDeliveryEvent(info, email),
+              });
+            } catch (error) {
+              const bounced = await suspendAutomaticEmailDelivery(
+                docSnap.ref,
+                error,
+                error?.trackingEventId || null
+              );
+              await recordEmailEvent({
+                id: error?.trackingEventId || null,
+                userId: docSnap.id,
+                to: email,
+                type: lifecycleKey,
+                subject: copy.subject,
+                status: bounced ? "bounced" : "failed",
+                error: safeTrim(error?.message || error).slice(0, 500),
+              });
+              throw error;
+            }
+          })()
         );
       });
       await Promise.allSettled(tasks);
@@ -2130,7 +2500,10 @@ exports.runLifecycleEmailJobs = onSchedule(
       const tasks = [];
       snap.forEach((docSnap) => {
         const program = docSnap.data() || {};
-        if (program.lifecycleEmails?.programCompletedSentAt) return;
+        if (
+          hasLifecycleEmailMarker(program, "programCompleted") ||
+          hasLifecycleEmailCancellation(program, "programCompleted")
+        ) return;
         const parts = docSnap.ref.path.split("/");
         if (parts[0] !== "clients" || parts[2] !== "programmes") return;
         const clientId = parts[1];
@@ -2158,7 +2531,11 @@ exports.runLifecycleEmailJobs = onSchedule(
       const tasks = [];
       for (const docSnap of snap.docs) {
         const program = docSnap.data() || {};
-        if (program.lifecycleEmails?.inactivitySentAt || program.lifecycleEmails?.programCompletedSentAt) continue;
+        if (
+          hasLifecycleEmailMarker(program, "inactivity") ||
+          hasLifecycleEmailCancellation(program, "inactivity") ||
+          hasLifecycleEmailMarker(program, "programCompleted")
+        ) continue;
         const parts = docSnap.ref.path.split("/");
         if (parts[0] !== "clients" || parts[2] !== "programmes") continue;
         const clientId = parts[1];
@@ -2234,17 +2611,28 @@ exports.onNutritionProgramAttached = onDocumentWritten(
       return;
     }
 
+    let clientEmailForEvent = "";
     try {
       const clientSnap = await db.doc(`clients/${clientId}`).get();
       const client = clientSnap.exists ? clientSnap.data() : null;
 
       const clientEmail = safeTrim(client?.email).toLowerCase();
+      clientEmailForEvent = clientEmail;
       const clientFirstName = safeTrim(client?.prenom) || safeTrim(client?.firstName) || "";
       const clientLastName = safeTrim(client?.nom) || safeTrim(client?.lastName) || "";
       const clientFullName = normalizeSpaces(`${clientFirstName} ${clientLastName}`);
 
       if (!clientEmail) {
         console.log("[onNutritionProgramAttached] client email missing -> skip", { clientId, assessmentId });
+        return;
+      }
+
+      if (!isAutomaticEmailEnabled(client, "nutritionAssigned")) {
+        console.log("[onNutritionProgramAttached] disabled by client preference", { clientId, assessmentId });
+        return;
+      }
+      if (!(await claimLifecycleEmail(afterSnap.ref, "nutritionAssigned"))) {
+        console.log("[onNutritionProgramAttached] duplicate blocked", { clientId, assessmentId });
         return;
       }
 
@@ -2266,24 +2654,29 @@ exports.onNutritionProgramAttached = onDocumentWritten(
       const baseUrl = getBaseUrlFromSecret();
       const dashboardUrl = `${baseUrl}/user-dashboard`;
 
-      const transporter = getTransporterFromSecrets();
-      const from = `"BoostYourLife" <${SMTP_USER.value()}>`;
-
-      const { subject, html, text } = buildNutritionAssignedTemplate({
+      const defaultMessage = buildNutritionAssignedTemplate({
         firstName: clientFirstName || clientFullName || "👋",
         coachName,
         programName,
         dashboardUrl,
         lng,
       });
+      const customMessage = applyAutomaticTemplate(client, "nutritionAssigned", {
+        subject: defaultMessage.subject,
+        title: defaultMessage.subject,
+        intro: defaultMessage.text,
+        cta: "Voir mon suivi",
+      });
+      const renderedMessage = customMessage.customized
+        ? buildLifecycleTemplate({ ...customMessage, url: dashboardUrl, detail: programName, lng })
+        : defaultMessage;
+      const { subject, html, text } = renderedMessage;
 
-      const info = await transporter.sendMail({
-        from,
+      const info = await sendTrackedTemplateEmail({
         to: clientEmail,
         subject,
         text,
         html,
-        replyTo: SMTP_USER.value(),
       });
 
       await afterSnap.ref.update({
@@ -2291,6 +2684,17 @@ exports.onNutritionProgramAttached = onDocumentWritten(
         "clientShare.emailSentTo": clientEmail,
         "clientShare.emailLang": lng,
         "clientShare.emailMessageId": info.messageId || null,
+      });
+      await markLifecycleEmail(afterSnap.ref, "nutritionAssigned", info);
+      await recordEmailEvent({
+        clientId,
+        assessmentId,
+        to: clientEmail,
+        type: "nutritionAssigned",
+        subject,
+        detail: programName,
+        messageId: info?.messageId || null,
+        ...emailDeliveryEvent(info, clientEmail),
       });
 
       console.log("[onNutritionProgramAttached] email sent", {
@@ -2302,6 +2706,21 @@ exports.onNutritionProgramAttached = onDocumentWritten(
         messageId: info.messageId,
       });
     } catch (err) {
+      const bounced = await suspendAutomaticEmailDelivery(
+        db.doc(`clients/${clientId}`),
+        err,
+        err?.trackingEventId || null
+      ).catch(() => false);
+      await recordEmailEvent({
+        id: err?.trackingEventId || null,
+        clientId,
+        assessmentId,
+        to: clientEmailForEvent,
+        type: "nutritionAssigned",
+        subject: pickNutritionPlanName(assessment),
+        status: bounced ? "bounced" : "failed",
+        error: safeTrim(err?.message || err).slice(0, 500),
+      });
       console.error("[onNutritionProgramAttached] FAILED", { clientId, assessmentId }, err);
     }
   }

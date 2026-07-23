@@ -19,6 +19,7 @@ export async function apiFetch(path, { json = true, ...opts } = {}) {
   try {
     res = await fetch(url, { credentials: 'include', ...opts, headers });
   } catch (cause) {
+    if (cause?.name === "AbortError") throw cause;
     const err = new Error(
       import.meta.env.DEV
         ? "API locale indisponible. Lance le backend avec npm run dev:api, puis réessaie."
