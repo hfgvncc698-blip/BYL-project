@@ -38,6 +38,12 @@ import {
   ModalBody,
   ModalFooter,
   ModalCloseButton,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
   useDisclosure,
   Badge,
   CircularProgress,
@@ -62,6 +68,7 @@ import {
   Kbd,
   Tooltip,
   SimpleGrid,
+  useToast,
 } from "@chakra-ui/react";
 import {
   ArrowBackIcon,
@@ -72,6 +79,8 @@ import {
   CheckCircleIcon,
   SettingsIcon,
   ChevronDownIcon,
+  RepeatIcon,
+  DeleteIcon,
 } from "@chakra-ui/icons";
 import { AnimatePresence, motion } from "framer-motion";
 import { playFeedback } from "../utils/feedback";
@@ -84,6 +93,11 @@ import { localizeExercise } from "../utils/exerciseI18n";
 import { getExerciseNotesText } from "../utils/exerciseNotes";
 import EXERCISE_TRANSLATION_ALIASES from "../data/exerciseTranslationAliases.json";
 import { exerciseHistoryMatches } from "../utils/exerciseHistoryIdentity";
+import { hasPlanModule } from "../utils/proPlanAccess";
+import {
+  applyPlayerExerciseDeletion,
+  applyPlayerExerciseEdit,
+} from "../utils/playerExerciseEditing";
 import {
   applyProgressionStrategyToDecision,
   applySportProgressionToSession,
@@ -92,6 +106,13 @@ import {
   evaluateSportAdaptation,
   getExerciseTimingAdjustmentTargets,
 } from "../utils/trainingEngine";
+
+const loadExerciseBankModule = () => import("./ExerciseBank.jsx");
+const warmExerciseBank = () =>
+  loadExerciseBankModule()
+    .then((module) => module.preloadExerciseBankData?.())
+    .catch(() => {});
+const ExerciseBank = React.lazy(loadExerciseBankModule);
 
 /* ---------------------- Helpers ---------------------- */
 
@@ -2327,6 +2348,12 @@ export default function SessionPlayer() {
     uiRole === "coach" ||
     realRole === "coach" ||
     realRole === "admin";
+  const canEditPlayerExercises =
+    isCoachContext && hasPlanModule(user, "sport");
+  useEffect(() => {
+    if (!canEditPlayerExercises) return;
+    void warmExerciseBank();
+  }, [canEditPlayerExercises]);
   const actingCoachId = realRole === "admin" && adminCoachId ? adminCoachId : user?.uid || null;
 
   const clientId = params.clientId || null;
@@ -2362,11 +2389,14 @@ export default function SessionPlayer() {
   );
 
   const theme = useAppTheme();
+  const toast = useToast();
   const pageBg = theme.pageBg;
   const cardBg = theme.surfaceBg;
   const border = theme.borderColor;
   const textMute = theme.mutedText;
   const rowHighlight = useColorModeValue("purple.50", "whiteAlpha.100");
+  const exerciseActionHelpBg = useColorModeValue("blue.50", "whiteAlpha.100");
+  const exerciseActionHelpBorder = useColorModeValue("blue.100", "whiteAlpha.200");
 
   const isMobile = useBreakpointValue({ base: true, md: false });
   const progressSize = useBreakpointValue({ base: "88px", md: "160px" });
@@ -2405,6 +2435,23 @@ export default function SessionPlayer() {
     onOpen: openSettingsModal,
     onClose: closeSettingsModal,
   } = useDisclosure();
+  const {
+    isOpen: exerciseEditorOpen,
+    onOpen: openExerciseEditor,
+    onClose: closeExerciseEditor,
+  } = useDisclosure();
+  const {
+    isOpen: deleteExerciseConfirmOpen,
+    onOpen: openDeleteExerciseConfirm,
+    onClose: closeDeleteExerciseConfirm,
+  } = useDisclosure();
+  const [exerciseEditMode, setExerciseEditMode] = useState("replace");
+  const [exerciseEditSaving, setExerciseEditSaving] = useState(false);
+  const deleteExerciseCancelRef = useRef(null);
+  const handleOpenExerciseEditor = () => {
+    setExerciseEditMode("replace");
+    openExerciseEditor();
+  };
 
   const [rating, setRating] = useState(null);
   const [energyLevel, setEnergyLevel] = useState("normal");
@@ -2596,17 +2643,17 @@ export default function SessionPlayer() {
   }
 
   async function flushHistory() {
-    try {
-      if (!clientId || !programId) return;
-      const items = Array.from(historyBufferRef.current.values());
-      if (items.length === 0) return;
+    if (!clientId || !programId) return;
+    const entries = Array.from(historyBufferRef.current.entries());
+    if (entries.length === 0) return;
 
+    try {
       const batch = writeBatch(db);
       const colRef = collection(db, "clients", clientId, "programmes", programId, "historique_modifications");
       const clientAt = Timestamp.fromDate(historyRunStartRef.current);
       const runId = historyRunIdRef.current;
 
-      items.forEach(({ sessionIndex, exerciseIndex, field, value, exerciseId, exerciseIds, exerciseName, exerciseNames }) => {
+      entries.forEach(([, { sessionIndex, exerciseIndex, field, value, exerciseId, exerciseIds, exerciseName, exerciseNames }]) => {
         const ref = doc(colRef);
         batch.set(ref, {
           sessionIndex,
@@ -2627,7 +2674,11 @@ export default function SessionPlayer() {
     } catch (e) {
       console.error("flushHistory error:", e);
     } finally {
-      historyBufferRef.current.clear();
+      entries.forEach(([key, item]) => {
+        if (historyBufferRef.current.get(key) === item) {
+          historyBufferRef.current.delete(key);
+        }
+      });
       historyRunIdRef.current = randomId(10);
       historyRunStartRef.current = new Date();
     }
@@ -2645,6 +2696,228 @@ export default function SessionPlayer() {
       }
     }, 500);
   };
+
+  async function handlePlayerExerciseSelection(selectedExercise) {
+    if (
+      !canEditPlayerExercises ||
+      exerciseEditSaving ||
+      !programDocRef ||
+      !programData ||
+      !mapIdx[exIndex]
+    ) {
+      return;
+    }
+
+    setExerciseEditSaving(true);
+    let rollbackState = null;
+    try {
+      clearTimeout(saveTimer.current);
+
+      const edit = applyPlayerExerciseEdit({
+        programData,
+        sessionIndex,
+        mapping: mapIdx[exIndex],
+        selectedExercise,
+        mode: exerciseEditMode,
+        instanceId: `player_${randomId(14)}`,
+      });
+
+      const nextProgramData = {
+        ...(programData || {}),
+        [edit.sessionField]: edit.sessions,
+      };
+      const updated = flattenSession(edit.session);
+      const nextExerciseIndex =
+        exerciseEditMode === "addAfter"
+          ? Math.min(updated.flat.length - 1, exIndex + 1)
+          : Math.min(updated.flat.length - 1, exIndex);
+      rollbackState = {
+        programData,
+        sessionObj,
+        flat,
+        mapIdx,
+        exIndex,
+        resolvedExercise,
+      };
+
+      const historySave = flushHistory();
+      const programSave = updateDoc(programDocRef, {
+        [edit.sessionField]: edit.sessions,
+        updatedAt: serverTimestamp(),
+      });
+
+      effortTimer.stop();
+      effortElapsedTimer.stop();
+      restTimer.stop();
+      recordCurrentExerciseTiming();
+      activeTimingExerciseIndexRef.current = nextExerciseIndex;
+      exerciseTimingStartedAtRef.current = Date.now();
+
+      setProgramData(nextProgramData);
+      setSessionObj(edit.session);
+      setFlat(updated.flat);
+      setMapIdx(updated.map);
+      setExIndex(nextExerciseIndex);
+      setCurrentSet(1);
+      setPhase("ready");
+      setIsPaused(false);
+      pausedPhaseRef.current = null;
+      autoStartNextRef.current = false;
+      setResolvedExercise(edit.exercise);
+      closeExerciseEditor();
+
+      await Promise.all([historySave, programSave]);
+
+      toast({
+        status: "success",
+        duration: 2400,
+        title:
+          exerciseEditMode === "replace"
+            ? t("sessionPlayer.exerciseReplaced", "Exercice remplacé")
+            : t("sessionPlayer.exerciseAdded", "Exercice ajouté"),
+        description: t(
+          "sessionPlayer.exerciseEditSaved",
+          "La séance du programme a été mise à jour."
+        ),
+      });
+    } catch (error) {
+      console.error("player exercise edit error:", error);
+      if (rollbackState) {
+        setProgramData(rollbackState.programData);
+        setSessionObj(rollbackState.sessionObj);
+        setFlat(rollbackState.flat);
+        setMapIdx(rollbackState.mapIdx);
+        setExIndex(rollbackState.exIndex);
+        setResolvedExercise(rollbackState.resolvedExercise);
+        openExerciseEditor();
+      }
+      toast({
+        status: "error",
+        title: t("common.error", "Erreur"),
+        description:
+          error?.message ||
+          t(
+            "sessionPlayer.exerciseEditError",
+            "Impossible de modifier cet exercice."
+          ),
+      });
+    } finally {
+      setExerciseEditSaving(false);
+    }
+  }
+
+  async function handleDeleteCurrentExercise() {
+    if (
+      !canEditPlayerExercises ||
+      exerciseEditSaving ||
+      !programDocRef ||
+      !programData ||
+      !mapIdx[exIndex]
+    ) {
+      return;
+    }
+
+    if (flat.length <= 1) {
+      toast({
+        status: "warning",
+        title: t("sessionPlayer.deleteExerciseBlocked", "Suppression impossible"),
+        description: t(
+          "sessionPlayer.keepOneExercise",
+          "La séance doit conserver au moins un exercice."
+        ),
+      });
+      return;
+    }
+
+    setExerciseEditSaving(true);
+    let rollbackState = null;
+    try {
+      clearTimeout(saveTimer.current);
+
+      const edit = applyPlayerExerciseDeletion({
+        programData,
+        sessionIndex,
+        mapping: mapIdx[exIndex],
+      });
+
+      const nextProgramData = {
+        ...(programData || {}),
+        [edit.sessionField]: edit.sessions,
+      };
+      const updated = flattenSession(edit.session);
+      const nextExerciseIndex = Math.min(exIndex, updated.flat.length - 1);
+      rollbackState = {
+        programData,
+        sessionObj,
+        flat,
+        mapIdx,
+        exIndex,
+        resolvedExercise,
+      };
+
+      const historySave = flushHistory();
+      const programSave = updateDoc(programDocRef, {
+        [edit.sessionField]: edit.sessions,
+        updatedAt: serverTimestamp(),
+      });
+
+      effortTimer.stop();
+      effortElapsedTimer.stop();
+      restTimer.stop();
+      recordCurrentExerciseTiming();
+      activeTimingExerciseIndexRef.current = nextExerciseIndex;
+      exerciseTimingStartedAtRef.current = Date.now();
+
+      setProgramData(nextProgramData);
+      setSessionObj(edit.session);
+      setFlat(updated.flat);
+      setMapIdx(updated.map);
+      setExIndex(nextExerciseIndex);
+      setCurrentSet(1);
+      setPhase("ready");
+      setIsPaused(false);
+      pausedPhaseRef.current = null;
+      autoStartNextRef.current = false;
+      setResolvedExercise(updated.flat[nextExerciseIndex] || null);
+      closeDeleteExerciseConfirm();
+      closeExerciseEditor();
+
+      await Promise.all([historySave, programSave]);
+
+      toast({
+        status: "success",
+        duration: 2400,
+        title: t("sessionPlayer.exerciseDeleted", "Exercice supprimé"),
+        description: t(
+          "sessionPlayer.exerciseEditSaved",
+          "La séance du programme a été mise à jour."
+        ),
+      });
+    } catch (error) {
+      console.error("player exercise delete error:", error);
+      if (rollbackState) {
+        setProgramData(rollbackState.programData);
+        setSessionObj(rollbackState.sessionObj);
+        setFlat(rollbackState.flat);
+        setMapIdx(rollbackState.mapIdx);
+        setExIndex(rollbackState.exIndex);
+        setResolvedExercise(rollbackState.resolvedExercise);
+        openExerciseEditor();
+      }
+      toast({
+        status: "error",
+        title: t("common.error", "Erreur"),
+        description:
+          error?.message ||
+          t(
+            "sessionPlayer.exerciseDeleteError",
+            "Impossible de supprimer cet exercice."
+          ),
+      });
+    } finally {
+      setExerciseEditSaving(false);
+    }
+  }
 
   const saveSessionCompletion = async (pourcentage, meta = {}) => {
     try {
@@ -4968,19 +5241,47 @@ export default function SessionPlayer() {
                   w="full"
                 >
                   <VStack align="stretch" spacing={{ base: 3, md: 4 }}>
-                    <HStack justify="space-between" align="center" flexWrap="wrap" gap={2}>
+                    <HStack align="center" spacing={1.5}>
                       <Heading size="sm" letterSpacing="0">{t("sessionPlayer.settings", "Paramètres de l’exercice")}</Heading>
-                      <Button
-                        leftIcon={<SettingsIcon />}
-                        variant="outline"
-                        size="xs"
-                        h="30px"
-                        px={3}
-                        borderRadius="full"
-                        onClick={openSettingsModal}
+                      <Tooltip
+                        label={t("sessionPlayer.settingsShort", "Réglages")}
+                        hasArrow
+                        placement="top"
                       >
-                        {t("sessionPlayer.settingsShort", "Réglages")}
-                      </Button>
+                        <IconButton
+                          aria-label={t("sessionPlayer.settingsShort", "Réglages")}
+                          icon={<SettingsIcon />}
+                          variant="outline"
+                          size="xs"
+                          boxSize="30px"
+                          minW="30px"
+                          borderRadius="full"
+                          onClick={openSettingsModal}
+                        />
+                      </Tooltip>
+                      {canEditPlayerExercises && (
+                        <Tooltip
+                          label={t("sessionPlayer.adapt", "Adapter")}
+                          hasArrow
+                          placement="top"
+                        >
+                          <IconButton
+                            data-testid="player-exercise-editor"
+                            aria-label={t("sessionPlayer.adapt", "Adapter")}
+                            icon={<RepeatIcon />}
+                            variant="outline"
+                            size="xs"
+                            boxSize="30px"
+                            minW="30px"
+                            borderRadius="full"
+                            isDisabled={exerciseEditSaving}
+                            onMouseEnter={warmExerciseBank}
+                            onFocus={warmExerciseBank}
+                            onTouchStart={warmExerciseBank}
+                            onClick={handleOpenExerciseEditor}
+                          />
+                        </Tooltip>
+                      )}
                     </HStack>
 
                     <Wrap spacing={4} align="center">
@@ -5162,6 +5463,188 @@ export default function SessionPlayer() {
           </motion.div>
         </AnimatePresence>
       </Container>
+
+      <Modal
+        isOpen={exerciseEditorOpen}
+        onClose={exerciseEditSaving ? () => {} : closeExerciseEditor}
+        size={{ base: "full", md: "6xl" }}
+        scrollBehavior="inside"
+        isCentered={!isMobile}
+      >
+        <ModalOverlay />
+        <ModalContent
+          h={{ base: "100dvh", md: "min(88vh, 900px)" }}
+          maxH={{ base: "100dvh", md: "min(88vh, 900px)" }}
+          borderRadius={{ base: 0, md: "24px" }}
+          overflow="hidden"
+        >
+          <ModalHeader pb={2} pr={12}>
+            <Text fontSize={{ base: "lg", md: "xl" }} fontWeight="900">
+              {t("sessionPlayer.adaptExercise", "Adapter l’exercice")}
+            </Text>
+            <Text fontSize="sm" color={textMute} fontWeight="600" noOfLines={1}>
+              {displayExercise?.nom || displayExercise?.name}
+            </Text>
+          </ModalHeader>
+          <ModalCloseButton isDisabled={exerciseEditSaving} />
+          <ModalBody
+            px={{ base: 3, md: 5 }}
+            pb={{ base: 3, md: 5 }}
+            display="flex"
+            flexDirection="column"
+            minH={0}
+            overflow="hidden"
+          >
+            <VStack align="stretch" spacing={2.5} mb={3} flexShrink={0}>
+              <Wrap spacing={2}>
+                <Button
+                  size="sm"
+                  borderRadius="full"
+                  variant={exerciseEditMode === "replace" ? "solid" : "outline"}
+                  colorScheme={exerciseEditMode === "replace" ? "blue" : "gray"}
+                  onClick={() => setExerciseEditMode("replace")}
+                  isDisabled={exerciseEditSaving}
+                >
+                  {t("sessionPlayer.replaceCurrent", "Remplacer l’actuel")}
+                </Button>
+                <Button
+                  size="sm"
+                  borderRadius="full"
+                  variant={exerciseEditMode === "addAfter" ? "solid" : "outline"}
+                  colorScheme={exerciseEditMode === "addAfter" ? "blue" : "gray"}
+                  leftIcon={<AddIcon />}
+                  onClick={() => setExerciseEditMode("addAfter")}
+                  isDisabled={exerciseEditSaving}
+                >
+                  {t("sessionPlayer.addAfterCurrent", "Ajouter après l’actuel")}
+                </Button>
+                <Button
+                  size="sm"
+                  borderRadius="full"
+                  variant="outline"
+                  colorScheme="red"
+                  leftIcon={<DeleteIcon />}
+                  onClick={openDeleteExerciseConfirm}
+                  isDisabled={exerciseEditSaving || flat.length <= 1}
+                >
+                  {t("sessionPlayer.deleteCurrent", "Supprimer l’actuel")}
+                </Button>
+                {exerciseEditSaving && (
+                  <Text fontSize="xs" color={textMute} alignSelf="center">
+                    {t("common.saving", "Enregistrement…")}
+                  </Text>
+                )}
+              </Wrap>
+
+              <Box
+                px={3}
+                py={2.5}
+                borderRadius="xl"
+                bg={exerciseActionHelpBg}
+                border="1px solid"
+                borderColor={exerciseActionHelpBorder}
+              >
+                <Text fontSize="sm" fontWeight="700">
+                  {exerciseEditMode === "replace"
+                    ? t(
+                        "sessionPlayer.replaceInstruction",
+                        "Choisissez un exercice puis cliquez sur « Remplacer par cet exercice »."
+                      )
+                    : t(
+                        "sessionPlayer.addAfterInstruction",
+                        "Choisissez un exercice puis cliquez sur « Ajouter cet exercice après »."
+                      )}
+                </Text>
+                <Text fontSize="xs" color={textMute} mt={0.5}>
+                  {exerciseEditMode === "replace"
+                    ? t(
+                        "sessionPlayer.replaceKeepsSettings",
+                        "Les séries, répétitions, charges et notes actuelles seront conservées."
+                      )
+                    : t(
+                        "sessionPlayer.addAfterPosition",
+                        "Le nouvel exercice sera placé juste après l’exercice actuel."
+                      )}
+                </Text>
+              </Box>
+            </VStack>
+
+            <Box flex="1 1 auto" minH={0} overflow="hidden">
+              <React.Suspense
+                fallback={
+                  <AppLoading
+                    label={t("sessionPlayer.loadingExerciseBank", "Chargement de la banque…")}
+                    minH="320px"
+                  />
+                }
+              >
+                <ExerciseBank
+                  showSelectionActions
+                  replaceMode={exerciseEditMode === "replace"}
+                  onReplace={handlePlayerExerciseSelection}
+                  onAdd={handlePlayerExerciseSelection}
+                  onCancelReplace={() => setExerciseEditMode("addAfter")}
+                  selectionActionLabel={
+                    exerciseEditMode === "replace"
+                      ? t(
+                          "sessionPlayer.replaceWithExercise",
+                          "Remplacer par cet exercice"
+                        )
+                      : t(
+                          "sessionPlayer.addExerciseAfter",
+                          "Ajouter cet exercice après"
+                        )
+                  }
+                />
+              </React.Suspense>
+            </Box>
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+
+      <AlertDialog
+        isOpen={deleteExerciseConfirmOpen}
+        leastDestructiveRef={deleteExerciseCancelRef}
+        onClose={exerciseEditSaving ? () => {} : closeDeleteExerciseConfirm}
+        isCentered
+      >
+        <AlertDialogOverlay />
+        <AlertDialogContent mx={4} borderRadius="2xl">
+          <AlertDialogHeader fontSize="lg" fontWeight="900">
+            {t("sessionPlayer.confirmDeleteExercise", "Supprimer cet exercice ?")}
+          </AlertDialogHeader>
+          <AlertDialogBody>
+            <Text fontWeight="700">
+              {displayExercise?.nom || displayExercise?.name}
+            </Text>
+            <Text mt={1} color={textMute}>
+              {t(
+                "sessionPlayer.deleteExerciseWarning",
+                "L’exercice sera retiré de cette séance du programme."
+              )}
+            </Text>
+          </AlertDialogBody>
+          <AlertDialogFooter>
+            <Button
+              ref={deleteExerciseCancelRef}
+              onClick={closeDeleteExerciseConfirm}
+              isDisabled={exerciseEditSaving}
+            >
+              {t("common.cancel", "Annuler")}
+            </Button>
+            <Button
+              colorScheme="red"
+              ml={3}
+              leftIcon={<DeleteIcon />}
+              onClick={handleDeleteCurrentExercise}
+              isLoading={exerciseEditSaving}
+              loadingText={t("common.saving", "Enregistrement…")}
+            >
+              {t("common.delete", "Supprimer")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Modal isOpen={settingsModalOpen} onClose={closeSettingsModal} isCentered size={isMobile ? "full" : "lg"}>
         <ModalOverlay />

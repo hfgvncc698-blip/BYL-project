@@ -25,6 +25,7 @@
     "test:footer-i18n": "node scripts/testFooterI18n.mjs",
     "test:sport-engine": "node scripts/testSportEngineMatrix.cjs",
     "test:exercise-history": "node scripts/testExerciseHistoryIdentity.mjs",
+    "test:player-exercise-editing": "node scripts/testPlayerExerciseEditing.mjs",
     "perf:check": "node scripts/checkPerformanceBudgets.mjs",
     "audit:sport-engine:samples": "node scripts/auditSportEngineSamples.cjs",
     "audit:public-pages": "node scripts/auditPublicPages.mjs",

@@ -50,6 +50,7 @@ import {
   setDoc,
   doc,
   getDocs,
+  getDocsFromCache,
   serverTimestamp,
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
@@ -103,6 +104,80 @@ const dedupeByUid = (arr) => {
   const m = new Map();
   for (const x of arr) m.set(uidFor(x), x);
   return [...m.values()];
+};
+
+const EXERCISE_BANK_MEMORY_TTL_MS = 5 * 60 * 1000;
+let exerciseBankDataCache = null;
+let exerciseBankDataSavedAt = 0;
+let exerciseBankLoadPromise = null;
+let exerciseBankRefreshPromise = null;
+const exerciseBankSubscribers = new Set();
+
+const normalizeExerciseSnapshots = (snaps) =>
+  dedupeByUid(
+    snaps
+      .flatMap((snap, idx) =>
+        snap.docs.map((d) => ({
+          docId: d.id,
+          ...d.data(),
+          __collection: EXERCISE_COLLECTIONS[idx],
+        }))
+      )
+      .filter((exercise) => exercise.nom)
+  );
+
+const readExerciseCollections = async (reader) => {
+  const snaps = await Promise.all(
+    EXERCISE_COLLECTIONS.map((collectionName) =>
+      reader(collection(db, collectionName))
+    )
+  );
+  return normalizeExerciseSnapshots(snaps);
+};
+
+const publishExerciseBankData = (data) => {
+  if (!Array.isArray(data) || !data.length) return data || [];
+  exerciseBankDataCache = data;
+  exerciseBankDataSavedAt = Date.now();
+  exerciseBankSubscribers.forEach((subscriber) => subscriber(data));
+  return data;
+};
+
+const refreshExerciseBankData = () => {
+  if (exerciseBankRefreshPromise) return exerciseBankRefreshPromise;
+  exerciseBankRefreshPromise = readExerciseCollections(getDocs)
+    .then(publishExerciseBankData)
+    .finally(() => {
+      exerciseBankRefreshPromise = null;
+    });
+  return exerciseBankRefreshPromise;
+};
+
+export const preloadExerciseBankData = () => {
+  const memoryIsFresh =
+    exerciseBankDataCache &&
+    Date.now() - exerciseBankDataSavedAt < EXERCISE_BANK_MEMORY_TTL_MS;
+  if (memoryIsFresh) return Promise.resolve(exerciseBankDataCache);
+  if (exerciseBankLoadPromise) return exerciseBankLoadPromise;
+
+  exerciseBankLoadPromise = (async () => {
+    try {
+      const cached = await readExerciseCollections(getDocsFromCache);
+      if (cached.length) {
+        publishExerciseBankData(cached);
+        void refreshExerciseBankData().catch(() => {});
+        return cached;
+      }
+    } catch (_) {
+      // Firestore's persistent cache can be empty on the first visit.
+    }
+
+    return refreshExerciseBankData();
+  })().finally(() => {
+    exerciseBankLoadPromise = null;
+  });
+
+  return exerciseBankLoadPromise;
 };
 
 const normalizeLangCode = (lng = "fr") => {
@@ -951,8 +1026,8 @@ const generateDefaultParams = () =>
     ])
   );
 
-const INITIAL_RENDER_COUNT = 20;
-const RENDER_BATCH_SIZE = 20;
+const INITIAL_RENDER_COUNT = 8;
+const RENDER_BATCH_SIZE = 12;
 
 const FilterSelect = React.memo(function FilterSelect({
   label,
@@ -989,6 +1064,8 @@ export default function ExerciseBank({
   replaceMode = false,
   onReplace = () => {},
   onCancelReplace = () => {},
+  showSelectionActions = false,
+  selectionActionLabel = "",
 }) {
   const { t, i18n } = useTranslation();
   const L = i18n.language?.toLowerCase().startsWith("fr") ? "fr" : "en";
@@ -1054,9 +1131,9 @@ export default function ExerciseBank({
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const deferredFilters = useDeferredValue(filters);
 
-  const [exercises, setExercises] = useState([]);
+  const [exercises, setExercises] = useState(() => exerciseBankDataCache || []);
   const [exerciseTranslationMaps, setExerciseTranslationMaps] = useState({});
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(() => !exerciseBankDataCache);
   const [savingExercise, setSavingExercise] = useState(false);
 
   const [section, setSection] = useState("");
@@ -1085,29 +1162,20 @@ export default function ExerciseBank({
 
   useEffect(() => {
     let alive = true;
+    const handleData = (data) => {
+      if (!alive) return;
+      startTransition(() => {
+        setExercises(data);
+      });
+      setLoading(false);
+    };
+    exerciseBankSubscribers.add(handleData);
 
     (async () => {
-      setLoading(true);
+      if (!exerciseBankDataCache) setLoading(true);
       try {
-        const snaps = await Promise.all(
-          EXERCISE_COLLECTIONS.map((c) => getDocs(collection(db, c)))
-        );
-
-        const all = snaps.flatMap((snap, idx) =>
-          snap.docs.map((d) => ({
-            docId: d.id,
-            ...d.data(),
-            __collection: EXERCISE_COLLECTIONS[idx],
-          }))
-        );
-
-        const unique = dedupeByUid(all.filter((x) => x.nom));
-
-        if (alive) {
-          startTransition(() => {
-            setExercises(unique);
-          });
-        }
+        const data = await preloadExerciseBankData();
+        handleData(data);
       } catch (e) {
         toast({
           status: "error",
@@ -1121,6 +1189,7 @@ export default function ExerciseBank({
 
     return () => {
       alive = false;
+      exerciseBankSubscribers.delete(handleData);
     };
   }, [toast, TXT.loadErrorTitle]);
 
@@ -1196,7 +1265,30 @@ export default function ExerciseBank({
     [deferredSearchTermUI]
   );
 
+  const hasActiveFilters = useMemo(
+    () =>
+      [
+        [deferredFilters.muscle, muscleOptions[0]],
+        [deferredFilters.secondaryMuscle, secondaryMuscleOptions[0]],
+        [deferredFilters.joint, jointOptions[0]],
+        [deferredFilters.position, positionOptions[0]],
+        [deferredFilters.equipment, equipmentOptions[0]],
+        [deferredFilters.objective, objectiveOptions[0]],
+      ].some(([value, defaultValue]) => value && value !== defaultValue),
+    [
+      deferredFilters,
+      muscleOptions,
+      secondaryMuscleOptions,
+      jointOptions,
+      positionOptions,
+      equipmentOptions,
+      objectiveOptions,
+    ]
+  );
+  const shouldBuildSearchIndex = searchTokens.length > 0 || hasActiveFilters;
+
   const indexed = useMemo(() => {
+    if (!shouldBuildSearchIndex) return [];
     return displayExercises.map((ex) => {
       const multilingualSearchRaw = collectExerciseSearchStrings(ex);
       const nameNorm = normalize([ex.nom, ex.name, ...multilingualSearchRaw].filter(Boolean).join(" "));
@@ -1314,9 +1406,11 @@ export default function ExerciseBank({
         blob,
       };
     });
-  }, [displayExercises]);
+  }, [displayExercises, shouldBuildSearchIndex]);
 
   const filtered = useMemo(() => {
+    if (!shouldBuildSearchIndex) return dedupeByUid(displayExercises);
+
     const pickCanon = (domain, value) =>
       value ? canonize(domain, value) : null;
 
@@ -1454,9 +1548,11 @@ export default function ExerciseBank({
     results.sort((a, b) => b.score - a.score);
     return dedupeByUid(results.map((r) => r.ex));
   }, [
+    displayExercises,
     indexed,
     deferredFilters,
     searchTokens,
+    shouldBuildSearchIndex,
     muscleOptions,
     secondaryMuscleOptions,
     jointOptions,
@@ -1489,7 +1585,7 @@ export default function ExerciseBank({
       },
       {
         root,
-        rootMargin: "300px 0px",
+        rootMargin: "80px 0px",
         threshold: 0.01,
       }
     );
@@ -1956,6 +2052,8 @@ export default function ExerciseBank({
                     onCancelReplace={onCancelReplace}
                     replaceMode={replaceMode}
                     isTarget={false}
+                    showSelectionAction={showSelectionActions}
+                    selectionActionLabel={selectionActionLabel}
                   />
                 ))}
               </SimpleGrid>

@@ -33,8 +33,10 @@ export default function DeferredViewport({
     <Box
       ref={mountRef}
       minH={`${minHeight}px`}
-      contentVisibility="auto"
-      containIntrinsicSize={`${minHeight}px`}
+      sx={{
+        contentVisibility: "auto",
+        containIntrinsicSize: `${minHeight}px`,
+      }}
     >
       {ready ? children : null}
     </Box>

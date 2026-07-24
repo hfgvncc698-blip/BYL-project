@@ -9,6 +9,7 @@ import React, {
 import {
   Box,
   Button,
+  IconButton,
   Image,
   Text,
   Modal,
@@ -541,6 +542,8 @@ function ExerciseCardComponent({
   isTarget = false,
   onCancelReplace,
   preferredGender,
+  showSelectionAction = false,
+  selectionActionLabel = "",
 }) {
   const { t, i18n } = useTranslation();
   const location = useLocation();
@@ -774,6 +777,9 @@ function ExerciseCardComponent({
       ? t("exerciseCard.cancel", "Annuler")
       : t("exerciseCard.replace", "Remplacer");
   }
+  if (showSelectionAction && selectionActionLabel) {
+    label = selectionActionLabel;
+  }
 
   const fireAction = useCallback(() => {
     if (addingRef.current) return;
@@ -915,12 +921,16 @@ function ExerciseCardComponent({
               border="1px solid"
               borderColor={border}
             >
-              <AspectRatio ratio={4 / 3}>
+              <AspectRatio ratio={showSelectionAction ? 16 / 9 : 4 / 3}>
                 <Box
                   position="relative"
                   w="100%"
                   h="100%"
-                  minH={{ base: "220px", md: "260px" }}
+                  minH={
+                    showSelectionAction
+                      ? { base: "150px", md: "170px" }
+                      : { base: "220px", md: "260px" }
+                  }
                   display="flex"
                   alignItems="center"
                   justifyContent="center"
@@ -959,8 +969,8 @@ function ExerciseCardComponent({
           </Box>
         )}
 
-        <Box px={4} py={4}>
-          <VStack align="stretch" spacing={3}>
+        <Box px={4} py={showSelectionAction ? 3 : 4}>
+          <VStack align="stretch" spacing={showSelectionAction ? 2 : 3}>
             <HStack spacing={3} align="center">
               <Box
                 w="38px"
@@ -1006,33 +1016,37 @@ function ExerciseCardComponent({
               </Tag>
             </HStack>
 
-            <HStack spacing={2} wrap="wrap">
-              <Badge borderRadius="full" px={2.5} py={1} colorScheme="gray">
-                {niveau}
-              </Badge>
+            {!showSelectionAction && (
+              <>
+                <HStack spacing={2} wrap="wrap">
+                  <Badge borderRadius="full" px={2.5} py={1} colorScheme="gray">
+                    {niveau}
+                  </Badge>
 
-              {mediaResolved && canShowVideo && (
-                <Badge borderRadius="full" px={2.5} py={1} colorScheme="gray">
-                  {t("exerciseCard.video.badge", "Vidéo")}
-                </Badge>
-              )}
+                  {mediaResolved && canShowVideo && (
+                    <Badge borderRadius="full" px={2.5} py={1} colorScheme="gray">
+                      {t("exerciseCard.video.badge", "Vidéo")}
+                    </Badge>
+                  )}
 
-              {mediaResolved && !canShowVideo && canShowImages && (
-                <Badge borderRadius="full" px={2.5} py={1} colorScheme="gray">
-                  {t("exerciseCard.images.badge", "Images")}
-                </Badge>
-              )}
-            </HStack>
+                  {mediaResolved && !canShowVideo && canShowImages && (
+                    <Badge borderRadius="full" px={2.5} py={1} colorScheme="gray">
+                      {t("exerciseCard.images.badge", "Images")}
+                    </Badge>
+                  )}
+                </HStack>
 
-            <Text fontSize="xs" color={muted} noOfLines={2}>
-              {t(
-                "exerciseCard.meta.fast",
-                "Voir détails pour consignes, média et informations complètes"
-              )}
-            </Text>
+                <Text fontSize="xs" color={muted} noOfLines={2}>
+                  {t(
+                    "exerciseCard.meta.fast",
+                    "Voir détails pour consignes, média et informations complètes"
+                  )}
+                </Text>
+              </>
+            )}
 
             <HStack spacing={2}>
-              {isProgramBuilder && (
+              {(isProgramBuilder || showSelectionAction) && (
                 <Button
                   leftIcon={leftIcon}
                   onClick={handleClick}
@@ -1042,7 +1056,7 @@ function ExerciseCardComponent({
                   bg={primaryBtnBg}
                   color={primaryBtnColor}
                   fontWeight="700"
-                  fontSize="sm"
+                  fontSize={showSelectionAction ? "xs" : "sm"}
                   _hover={{ bg: primaryBtnHover }}
                   _active={{ transform: "scale(0.99)" }}
                   type="button"
@@ -1052,26 +1066,45 @@ function ExerciseCardComponent({
                 </Button>
               )}
 
-              <Button
-                leftIcon={<InfoOutlineIcon boxSize={4} />}
-                onClick={openDetails}
-                h="38px"
-                px={4}
-                borderRadius="full"
-                bg={detailsBtnBg}
-                border="1px solid"
-                borderColor={detailsBtnBorder}
-                color={detailsBtnColor}
-                fontWeight="800"
-                fontSize="sm"
-                boxShadow="0 8px 20px rgba(15,23,42,0.06)"
-                _hover={{ bg: detailsBtnHover, transform: "translateY(-1px)" }}
-                _active={{ transform: "scale(0.99)" }}
-                type="button"
-                flex="1"
-              >
-                {t("exerciseCard.details", "Détails")}
-              </Button>
+              {showSelectionAction ? (
+                <IconButton
+                  aria-label={t("exerciseCard.details", "Détails")}
+                  icon={<InfoOutlineIcon boxSize={4} />}
+                  onClick={openDetails}
+                  boxSize="38px"
+                  minW="38px"
+                  borderRadius="full"
+                  bg={detailsBtnBg}
+                  border="1px solid"
+                  borderColor={detailsBtnBorder}
+                  color={detailsBtnColor}
+                  boxShadow="0 8px 20px rgba(15,23,42,0.06)"
+                  _hover={{ bg: detailsBtnHover, transform: "translateY(-1px)" }}
+                  _active={{ transform: "scale(0.99)" }}
+                  type="button"
+                />
+              ) : (
+                <Button
+                  leftIcon={<InfoOutlineIcon boxSize={4} />}
+                  onClick={openDetails}
+                  h="38px"
+                  px={4}
+                  borderRadius="full"
+                  bg={detailsBtnBg}
+                  border="1px solid"
+                  borderColor={detailsBtnBorder}
+                  color={detailsBtnColor}
+                  fontWeight="800"
+                  fontSize="sm"
+                  boxShadow="0 8px 20px rgba(15,23,42,0.06)"
+                  _hover={{ bg: detailsBtnHover, transform: "translateY(-1px)" }}
+                  _active={{ transform: "scale(0.99)" }}
+                  type="button"
+                  flex="1"
+                >
+                  {t("exerciseCard.details", "Détails")}
+                </Button>
+              )}
             </HStack>
           </VStack>
         </Box>
@@ -1345,6 +1378,7 @@ export default React.memo(
   (prev, next) =>
     prev.exercise?.id === next.exercise?.id &&
     prev.replaceMode === next.replaceMode &&
+    prev.showSelectionAction === next.showSelectionAction &&
     prev.isTarget === next.isTarget &&
     prev.preferredGender === next.preferredGender
 );
