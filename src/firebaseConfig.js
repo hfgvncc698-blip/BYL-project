@@ -7,7 +7,6 @@ import {
   persistentMultipleTabManager,
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-import { getStorage } from "firebase/storage";
 
 // ✅ Configuration correcte
 const firebaseConfig = {
@@ -25,8 +24,10 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 // --- Firestore ---
 const firestoreSettings = {
-  experimentalForceLongPolling: true,
-  useFetchStreams: false,
+  // Le long-polling forcé dégrade les performances. L'auto-détection conserve
+  // le fallback pour les réseaux/proxies qui en ont réellement besoin.
+  experimentalAutoDetectLongPolling: true,
+  useFetchStreams: true,
   ignoreUndefinedProperties: true,
 };
 
@@ -49,8 +50,7 @@ try {
 
 export const db = firestoreDb;
 
-// --- Auth & Storage ---
+// --- Auth ---
 export const auth = getAuth(app);
-export const storage = getStorage(app);
 
 export default app;

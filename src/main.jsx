@@ -6,8 +6,8 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App.jsx";
 import theme from "./theme.js";
 
-ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
+const app = (
+  <>
     {/* IMPORTANT: place ce script pour hydrater le mode dès le 1er paint */}
     <ColorModeScript initialColorMode={theme.config.initialColorMode} />
     <ChakraProvider
@@ -30,5 +30,16 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <App />
       </BrowserRouter>
     </ChakraProvider>
-  </React.StrictMode>
+  </>
 );
+
+// StrictMode relance volontairement les effects en développement. Sur cette
+// application orientée Firestore cela doublait les lectures de chaque page et
+// rendait localhost nettement plus lent que la production. Il reste activable
+// explicitement pour les sessions de diagnostic.
+const rootTree =
+  import.meta.env.DEV && import.meta.env.VITE_REACT_STRICT_MODE === "true"
+    ? <React.StrictMode>{app}</React.StrictMode>
+    : app;
+
+ReactDOM.createRoot(document.getElementById("root")).render(rootTree);

@@ -78,6 +78,7 @@ import { useTranslation } from "react-i18next";
 import i18n from "../i18n";
 import { useAppTheme } from "../styles/appTheme";
 import { estimateSessionDurationSeconds, formatDuration } from "../utils/trainingEngine";
+import { exerciseHistoryMatches as matchesExerciseHistory } from "../utils/exerciseHistoryIdentity";
 import PageBackButton from "./ui/PageBackButton";
 
 /* ------------------ utils ------------------ */
@@ -314,68 +315,8 @@ function formatHistoryDate(date, language = "fr") {
   }
 }
 
-function normalizeHistoryToken(value = "") {
-  return norm(value)
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function getHistoryNameTokens(value = "") {
-  return normalizeHistoryToken(value)
-    .split(" ")
-    .filter((token) => token.length >= 3);
-}
-
-function getExerciseHistoryIdentity(exercise = {}) {
-  const ids = [
-    exercise?.id,
-    exercise?._id,
-    exercise?.exerciseId,
-    ...(Array.isArray(exercise?.exerciseIds) ? exercise.exerciseIds : []),
-    exercise?.sourceId,
-    exercise?.bankId,
-  ]
-    .map((value) => String(value || "").trim())
-    .filter(Boolean);
-
-  const names = [
-    exercise?.nom,
-    exercise?.name,
-    exercise?.title,
-    exercise?.label,
-    exercise?.exerciseName,
-    ...(Array.isArray(exercise?.exerciseNames) ? exercise.exerciseNames : []),
-  ]
-    .map(normalizeHistoryToken)
-    .filter(Boolean);
-
-  return {
-    ids: Array.from(new Set(ids)),
-    names: Array.from(new Set(names)),
-    tokens: Array.from(new Set(names.flatMap(getHistoryNameTokens))),
-  };
-}
-
 function exerciseHistoryMatches(snapshot = {}, exercise = {}) {
-  const current = getExerciseHistoryIdentity(exercise);
-  const stored = getExerciseHistoryIdentity(snapshot);
-  if (current.ids.some((id) => stored.ids.includes(id))) return true;
-  if (current.names.some((name) => stored.names.includes(name))) return true;
-
-  const contained = current.names.some((name) =>
-    stored.names.some((candidate) =>
-      name.length >= 5 &&
-      candidate.length >= 5 &&
-      (name.includes(candidate) || candidate.includes(name))
-    )
-  );
-  if (contained) return true;
-
-  if (!current.tokens.length || !stored.tokens.length) return false;
-  const overlap = current.tokens.filter((token) => stored.tokens.includes(token));
-  const shortest = Math.min(current.tokens.length, stored.tokens.length);
-  return overlap.length >= 1 && overlap.length / Math.max(1, shortest) >= 0.5;
+  return matchesExerciseHistory(snapshot, exercise);
 }
 
 function isValidatedCompletionRecord(record = {}) {

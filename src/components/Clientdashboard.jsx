@@ -14,19 +14,7 @@ import {
   collection, getDocs, query, where, onSnapshot,
   doc, addDoc, updateDoc, deleteDoc, Timestamp, getDoc
 } from 'firebase/firestore';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../firebaseConfig';
-import { Calendar, momentLocalizer } from 'react-big-calendar';
-import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
-import moment from 'moment';
-import 'moment/locale/fr';
-import 'moment/locale/de';
-import 'moment/locale/it';
-import 'moment/locale/es';
-import 'moment/locale/ru';
-import 'moment/locale/ar';
-import 'react-big-calendar/lib/css/react-big-calendar.css';
-import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import { useAuth } from '../AuthContext';
 import { useTranslation } from 'react-i18next';
 import { getCalendarCulture, getCalendarFormats } from '../utils/calendarLocale';
@@ -36,7 +24,6 @@ import { resolveClientSnapshotForUser } from "../utils/clientResolver";
 import { estimateSessionDurationSeconds } from "../utils/trainingEngine";
 import { formatProgramActiveWeeks, formatProgramWeekProgress, getProgramActiveWeeksLabel } from "../utils/programDuration";
 import { runClientDataAccessDiagnostic } from "../utils/firestoreAccessDiagnostics";
-import ClientNutritionSharedSection from "./ClientNutritionSharedSection.jsx";
 import {
   MdOutlineCalendarMonth,
   MdOutlineChecklist,
@@ -56,10 +43,13 @@ import {
   MdOutlineTrendingUp,
 } from "react-icons/md";
 import AppLoading from "./ui/AppLoading";
+import DeferredViewport from "./ui/DeferredViewport.jsx";
 // ✅ base centralisée
 import { getApiBase } from '../utils/apiBase';
 import { getAuthHeaders } from '../utils/authHeaders';
 import { apiFetch } from '../utils/api';
+const ClientNutritionSharedSection = React.lazy(() => import("./ClientNutritionSharedSection.jsx"));
+const ClientDashboardCalendar = React.lazy(() => import("./dashboard/ClientDashboardCalendar.jsx"));
 const API_BASE = getApiBase();
 
 // log de debug une seule fois
@@ -69,9 +59,6 @@ if (typeof window !== 'undefined' && !window.__API_BASE_LOGGED__) {
 }
 
 const STRIPE_FALLBACK_PRICE = 'price_1RYSG1JSoFLulz8xg9fLZLQR';
-
-const localizer = momentLocalizer(moment);
-const DnDCalendar = withDragAndDrop(Calendar);
 
 /* ----------------------- Helpers réseau (fallback) ----------------------- */
 async function postJson(url, body, opts = {}) {
@@ -575,9 +562,6 @@ export default function ClientDashboard() {
     [i18n.resolvedLanguage, i18n.language]
   );
   const calendarFormats = useMemo(() => getCalendarFormats(calendarCulture), [calendarCulture]);
-  useEffect(() => {
-    moment.locale(calendarCulture);
-  }, [calendarCulture]);
   const { user } = useAuth();
   const colorMode = useColorModeValue("light", "dark");
   const modeValue = useCallback(
@@ -714,6 +698,7 @@ export default function ClientDashboard() {
 
     try {
       setCalendarLinkLoading(true);
+      const { getFunctions, httpsCallable } = await import("firebase/functions");
       const functions = getFunctions(undefined, 'europe-west1');
       const callable = httpsCallable(functions, 'ensureCalendarSubscription');
       const result = await callable({ clientId, timezone: getBrowserTimezone() });
@@ -2533,11 +2518,13 @@ export default function ClientDashboard() {
       </Box>
 
       {user && hasNutritionFollowUp ? (
-        <ClientNutritionSharedSection
-          clientId={clientId}
-          variant="compact"
-          onOpenNutrition={() => navigate('/nutrition')}
-        />
+        <React.Suspense fallback={<Box minH="220px" />}>
+          <ClientNutritionSharedSection
+            clientId={clientId}
+            variant="compact"
+            onOpenNutrition={() => navigate('/nutrition')}
+          />
+        </React.Suspense>
       ) : null}
 
       <Box display={{ base: "none", md: "none" }} mb={5}>
@@ -3428,34 +3415,37 @@ export default function ClientDashboard() {
           '.rbc-agenda-table td, .rbc-agenda-table th': { borderColor }
         }}
       >
-        <DnDCalendar
-          localizer={localizer}
-          culture={calendarCulture}
-          formats={calendarFormats}
-          events={sessions}
-          startAccessor="start"
-          endAccessor="end"
-          selectable
-          onSelectEvent={(evt)=>{ setSelectedEvent(evt); setEventOpen(true); }}
-          components={{ event: CalendarEvent }}
-          onEventDrop={isTouchDevice() ? undefined : moveEvent}
-          resizable={!isTouchDevice()}
-          onEventResize={isTouchDevice() ? undefined : moveEvent}
-          views={['month','week','day','agenda']}
-          style={{height:500, borderRadius:8}}
-          messages={{
-            today: t('calendar.today'),
-            previous: t('calendar.prev'),
-            next: t('calendar.next'),
-            month: t('calendar.month'),
-            week: t('calendar.week'),
-            day: t('calendar.day'),
-            agenda: t('calendar.agenda'),
-            showMore: (total) => t('calendar.show_more', { count: total, defaultValue: `+${total}` }),
-          }}
-          eventPropGetter={eventPropGetter}
-          draggableAccessor={() => !isTouchDevice()}
-        />
+        <DeferredViewport minHeight={500}>
+          <React.Suspense fallback={<Box minH="500px" />}>
+            <ClientDashboardCalendar
+              culture={calendarCulture}
+              formats={calendarFormats}
+              events={sessions}
+              startAccessor="start"
+              endAccessor="end"
+              selectable
+              onSelectEvent={(evt)=>{ setSelectedEvent(evt); setEventOpen(true); }}
+              components={{ event: CalendarEvent }}
+              onEventDrop={isTouchDevice() ? undefined : moveEvent}
+              resizable={!isTouchDevice()}
+              onEventResize={isTouchDevice() ? undefined : moveEvent}
+              views={['month','week','day','agenda']}
+              style={{height:500, borderRadius:8}}
+              messages={{
+                today: t('calendar.today'),
+                previous: t('calendar.prev'),
+                next: t('calendar.next'),
+                month: t('calendar.month'),
+                week: t('calendar.week'),
+                day: t('calendar.day'),
+                agenda: t('calendar.agenda'),
+                showMore: (total) => t('calendar.show_more', { count: total, defaultValue: `+${total}` }),
+              }}
+              eventPropGetter={eventPropGetter}
+              draggableAccessor={() => !isTouchDevice()}
+            />
+          </React.Suspense>
+        </DeferredViewport>
       </ClientCardShell>
 
       </Box>

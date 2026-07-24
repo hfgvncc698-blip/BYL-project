@@ -57,11 +57,13 @@ import {
   MdOutlineCalendarMonth,
 } from "react-icons/md";
 import { useAuth } from "../AuthContext";
-import ClientCreation from "./ClientCreation";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "./LanguageSwitcher";
 import useAutoRevertColorMode from "../hooks/useAutoRevertColorMode";
 import { canUseGuidedProgram, canUseNavbarBranding, hasPlanModule } from "../utils/proPlanAccess";
+
+const loadClientCreation = () => import("./ClientCreation.jsx");
+const ClientCreation = React.lazy(loadClientCreation);
 
 /* ========= ROUTES ========= */
 const ROUTES = {
@@ -1195,14 +1197,16 @@ export default function Navbar() {
         </DrawerContent>
       </Drawer>
 
-      {showCoachUI && (
+      {showCoachUI && clientModal.isOpen && (
         <Modal isOpen={clientModal.isOpen} onClose={clientModal.onClose} isCentered>
           <ModalOverlay />
           <ModalContent borderRadius="24px">
             <ModalHeader>{nav("nav.new_client", "Nouveau client")}</ModalHeader>
             <ModalCloseButton />
             <ModalBody>
-              <ClientCreation onClose={clientModal.onClose} ownerUid={adminCoachId} />
+              <React.Suspense fallback={<Box minH="180px" />}>
+                <ClientCreation onClose={clientModal.onClose} ownerUid={adminCoachId} />
+              </React.Suspense>
             </ModalBody>
           </ModalContent>
         </Modal>
@@ -1318,6 +1322,7 @@ export default function Navbar() {
                       boxShadow: modalActionHoverShadow,
                     }}
                     onClick={() => {
+                      loadClientCreation().catch(() => {});
                       choiceModal.onClose();
                       clientModal.onOpen();
                     }}

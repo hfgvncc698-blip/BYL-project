@@ -1391,6 +1391,23 @@
           "Unsupported get request: object missing, permission denied, or operation unsupported"
         ]
       }
+    },
+    {
+      "at": "2026-07-24T01:14:09.329Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 15,
+        "updated": 3,
+        "total": 18,
+        "rerunEscalated": true,
+        "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+        "sampleErrors": [
+          "Unsupported get request. Object with ID '18142983556524389' does not exist, cannot be loaded due to missing permissions, or does not support this operation.",
+          "Unsupported get request. Object with ID '18099111391988502' does not exist, cannot be loaded due to missing permissions, or does not support this operation."
+        ]
+      }
     }
   ]
 }

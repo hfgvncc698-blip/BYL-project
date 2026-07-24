@@ -80,6 +80,78 @@ const routeLoaders = {
   AdminEmails: () => import("./pages/AdminEmails.jsx"),
 };
 
+function routeLoaderKeyForPath(pathname = "/") {
+  const path = String(pathname || "/").replace(/\/+$/, "") || "/";
+  const exact = {
+    "/": "HomePage",
+    "/about": "AboutPage",
+    "/contact": "ContactPage",
+    "/privacy": "PrivacyPolicyPage",
+    "/terms": "TermsOfServicePage",
+    "/sales-policy": "SalesPolicyPage",
+    "/oauth/tiktok/callback": "TikTokOAuthRelay",
+    "/programmes-premium": "PremiumPrograms",
+    "/plans/professionnel": "PlanProfessionnel",
+    "/login": "Login",
+    "/register": "Register",
+    "/coach-dashboard": "CoachDashboard",
+    "/club-dashboard": "ClubDashboard",
+    "/user-dashboard": "ClientDashboard",
+    "/profile": "ProfilePageClient",
+    "/mes-programmes": "MyPrograms",
+    "/statistiques": "Statistics",
+    "/settings": "SettingsPageClient",
+    "/nutrition": "ClientNutritionPage",
+    "/nutrition-coach": "CoachNutritionPage",
+    "/coach/profile": "ProfilePageCoach",
+    "/settings-coach": "SettingsPageCoach",
+    "/statistics-coach": "StatisticsPageCoach",
+    "/exercise-bank": "ExerciseBank",
+    "/programmes": "ProgramsPage",
+    "/clients": "Clients",
+    "/questionnaire": "AutoProgramQuestionnaire",
+    "/auto-program-questionnaire": "AutoProgramQuestionnaire",
+    "/admin": "AdminDashboard",
+    "/admin/geo": "AdminGeo",
+    "/admin/emails": "AdminEmails",
+    "/success": "Success",
+    "/cancel": "Cancel",
+    "/payment-success": "Success",
+    "/payment-cancel": "Cancel",
+  };
+  if (exact[path]) return exact[path];
+  if (path.startsWith("/club-dashboard/")) return "ClubDashboard";
+  if (/^\/checkout\/[^/]+$/.test(path)) return "Checkout";
+  if (/^\/account\/billing$/.test(path)) return "AccountBilling";
+  if (/^\/admin\/client\/[^/]+$/.test(path)) return "AdminClient";
+  if (/^\/admin\/coach\/[^/]+$/.test(path)) return "AdminCoach";
+  if (/^\/exercise-bank\/program-builder\/[^/]+$/.test(path)) return "ProgramBuilderPage";
+  if (/^\/clients\/[^/]+\/programmes\/[^/]+\/program-builder$/.test(path)) return "ProgramBuilderPage";
+  if (/^\/clients\/[^/]+\/programmes\/[^/]+\/session\/[^/]+\/play$/.test(path)) return "SessionPlayer";
+  if (/^\/programmes\/[^/]+\/session\/[^/]+\/play$/.test(path)) return "SessionPlayer";
+  if (/^\/clients\/[^/]+\/nutrition\/[^/]+\/food-survey$/.test(path)) return "FoodSurvey";
+  if (/^\/clients\/[^/]+\/nutrition\/[^/]+\/ration$/.test(path)) return "NutritionRationPage";
+  if (/^\/clients\/[^/]+\/nutrition\/[^/]+\/menu$/.test(path)) return "NutritionMenuJournalierPage";
+  if (/^\/clients\/[^/]+\/nutrition\/[^/]+$/.test(path)) return "NutritionAssessmentEditor";
+  if (/^\/clients\/[^/]+\/programmes-auto\/[^/]+$/.test(path)) return "AutoProgramPreview";
+  if (/^\/auto-program-preview\/[^/]+(?:\/[^/]+)?$/.test(path)) return "AutoProgramPreview";
+  if (/^\/clients\/[^/]+\/programmes\/[^/]+$/.test(path)) return "ProgramView";
+  if (/^\/programmes\/[^/]+$/.test(path)) return "ProgramView";
+  if (/^\/clients\/[^/]+$/.test(path)) return "ClientView";
+  if (/^\/[^/]+$/.test(path)) return "SeoLandingPage";
+  return null;
+}
+
+function preloadRouteForPath(pathname) {
+  const key = routeLoaderKeyForPath(pathname);
+  if (!key) return;
+  routeLoaders[key]?.().catch(() => {});
+}
+
+// Démarre le téléchargement du chunk de la route en parallèle de la
+// restauration Firebase, au lieu d'attendre la fin de l'authentification.
+if (typeof window !== "undefined") preloadRouteForPath(window.location.pathname);
+
 const lazyFrom = (loaders, key) => lazy(loaders[key]);
 
 const GeolocationBootstrap = lazyFrom(backgroundLoaders, "GeolocationBootstrap");
@@ -159,15 +231,25 @@ function preloadModules(keys) {
 
 function schedulePreload(keys, delay = 250) {
   if (typeof window === "undefined" || !keys.length) return undefined;
-  const run = () => preloadModules(keys);
-
-  if ("requestIdleCallback" in window) {
-    const idleId = window.requestIdleCallback(run, { timeout: Math.max(800, delay + 500) });
-    return () => window.cancelIdleCallback?.(idleId);
+  const connection = window.navigator?.connection;
+  if (connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType || "")) {
+    return undefined;
   }
 
-  const timeoutId = window.setTimeout(run, delay);
-  return () => window.clearTimeout(timeoutId);
+  const run = () => preloadModules(keys);
+  let idleId = 0;
+  const timeoutId = window.setTimeout(() => {
+    if ("requestIdleCallback" in window) {
+      idleId = window.requestIdleCallback(run, { timeout: 1500 });
+    } else {
+      run();
+    }
+  }, delay);
+
+  return () => {
+    window.clearTimeout(timeoutId);
+    if (idleId) window.cancelIdleCallback?.(idleId);
+  };
 }
 
 function preloadKeysForContext({ pathname, user, effectiveRole, isAdmin }) {
@@ -233,11 +315,13 @@ function IdleMount({ children, delay = 900 }) {
     let idleId = 0;
     const done = () => setReady(true);
 
-    if ("requestIdleCallback" in window) {
-      idleId = window.requestIdleCallback(done, { timeout: delay });
-    } else {
-      timeoutId = window.setTimeout(done, delay);
-    }
+    timeoutId = window.setTimeout(() => {
+      if ("requestIdleCallback" in window) {
+        idleId = window.requestIdleCallback(done, { timeout: 1200 });
+      } else {
+        done();
+      }
+    }, delay);
 
     return () => {
       if (idleId && "cancelIdleCallback" in window) window.cancelIdleCallback(idleId);
@@ -268,7 +352,7 @@ function ProtectedRoute({ children }) {
   const { t } = useTranslation("common");
   const { user, loading } = useAuth();
   const location = useLocation();
-  if (loading) return <AppLoading label={t("common.loading_space", "Chargement de votre espace...")} />;
+  if (loading && !user) return <AppLoading label={t("common.loading_space", "Chargement de votre espace...")} />;
   if (!user) return <Navigate to={loginRedirectFor(location)} replace />;
   return children;
 }
@@ -277,7 +361,7 @@ function CoachActiveRoute({ children }) {
   const { t } = useTranslation("common");
   const { user, loading, isAdmin, hasCoachAccess } = useAuth();
   const location = useLocation();
-  if (loading) return <AppLoading label={t("common.loading_space", "Chargement de votre espace...")} />;
+  if (loading && !user) return <AppLoading label={t("common.loading_space", "Chargement de votre espace...")} />;
   if (!user) return <Navigate to={loginRedirectFor(location)} replace />;
 
   // Admin : accès OK
@@ -296,7 +380,7 @@ function ClubRoute({ children }) {
   const { t } = useTranslation("common");
   const { user, loading, isAdmin, hasCoachAccess } = useAuth();
   const location = useLocation();
-  if (loading) return <AppLoading label={t("club.loading", "Chargement de l'espace club...")} />;
+  if (loading && !user) return <AppLoading label={t("club.loading", "Chargement de l'espace club...")} />;
   if (!user) return <Navigate to={loginRedirectFor(location)} replace />;
   if (isAdmin) return children;
   if (user.role !== "coach") return <Navigate to="/" replace />;
@@ -311,7 +395,7 @@ function ModuleRoute({ module, children }) {
   const { t } = useTranslation("common");
   const { user, loading, isAdmin, hasCoachAccess } = useAuth();
   const location = useLocation();
-  if (loading) return <AppLoading label={t("plans.checkingPackage", "Vérification de votre package...")} />;
+  if (loading && !user) return <AppLoading label={t("plans.checkingPackage", "Vérification de votre package...")} />;
   if (!user) return <Navigate to={loginRedirectFor(location)} replace />;
   if (isAdmin) return children;
   if (user.role !== "coach") return <Navigate to="/" replace />;
@@ -327,7 +411,7 @@ function AdminRoute({ children }) {
   const { t } = useTranslation("common");
   const { user, loading, isAdmin } = useAuth();
   const location = useLocation();
-  if (loading) return <AppLoading label={t("admin.loading", "Chargement de l'administration...")} />;
+  if (loading && !user) return <AppLoading label={t("admin.loading", "Chargement de l'administration...")} />;
   if (!user) return <Navigate to={loginRedirectFor(location)} replace />;
   if (!isAdmin) return <Navigate to="/" replace />;
   return children;
@@ -340,7 +424,7 @@ function ClientOnlyRoute({ children }) {
   const { t } = useTranslation("common");
   const { user, loading, isAdmin, effectiveRole, hasCoachAccess } = useAuth();
   const location = useLocation();
-  if (loading) return <AppLoading label={t("common.loading_space", "Chargement de votre espace...")} />;
+  if (loading && !user) return <AppLoading label={t("common.loading_space", "Chargement de votre espace...")} />;
   if (!user) return <Navigate to={loginRedirectFor(location)} replace />;
 
   // Admin : jamais sur l'espace client
@@ -474,13 +558,17 @@ function AppContent() {
   }, [location.hash, location.pathname]);
 
   React.useEffect(() => {
+    preloadRouteForPath(location.pathname);
+  }, [location.pathname]);
+
+  React.useEffect(() => {
     const keys = preloadKeysForContext({
       pathname: location.pathname,
       user,
       effectiveRole,
       isAdmin,
     });
-    const delay = user ? 700 : 1400;
+    const delay = user ? 2500 : 4000;
     return schedulePreload(keys, delay);
   }, [
     effectiveRole,

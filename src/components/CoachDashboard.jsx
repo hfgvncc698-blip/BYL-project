@@ -54,6 +54,7 @@ import {
 } from "@chakra-ui/icons";
 import { useAuth } from "../AuthContext";
 import AppLoading from "./ui/AppLoading";
+import DeferredViewport from "./ui/DeferredViewport.jsx";
 import { notify } from "../utils/notify";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import {
@@ -73,7 +74,6 @@ import {
   orderBy,
   arrayUnion,
 } from "firebase/firestore";
-import { getFunctions, httpsCallable } from "firebase/functions";
 import { db } from "../firebaseConfig";
 import { resolveStorageUrl } from "../utils/storageUrls";
 import { canUseGuidedProgram, hasPlanModule } from "../utils/proPlanAccess";
@@ -224,6 +224,7 @@ const scheduleIdleTask = (callback, timeout = 700) => {
     window.clearTimeout(timeoutId);
   };
 };
+
 const DASHBOARD_DATA_CACHE_VERSION = 5;
 const DASHBOARD_DATA_CACHE_TTL_MS = 15 * 60 * 1000;
 const DASHBOARD_DATA_CACHE_CLIENT_LIMIT = 120;
@@ -4863,6 +4864,7 @@ selectedEvent.id.replace("planned__", "");
     try {
 
        setCalendarLinkLoading(true);
+       const { getFunctions, httpsCallable } = await import("firebase/functions");
        const functions = getFunctions(undefined, "europe-west1");
        const callable = httpsCallable(functions,
 "ensureCoachCalendarSubscription");
@@ -6909,7 +6911,7 @@ letterSpacing="-0.02em" lineHeight="1.15">
   const showPrimaryWidgetRow = showRecentClientsWidget || showLatestProgramsWidget;
   const showSideWidgetColumn = showPopularProgramsWidget || showRecentActionsWidget;
   const showSecondaryWidgetRow = showCalendarWidget || showSideWidgetColumn;
-  if (loading) return <AppLoading label={t("common.loading", "Chargement...")} />;
+  if (loading && !user) return <AppLoading label={t("common.loading", "Chargement...")} />;
 
   return (
     <Box data-tour-page="coach-dashboard" minH="100vh" bg={pageBg} color={textColor}
@@ -9446,6 +9448,7 @@ alignItems="stretch">
               </Box>
 
               {!isMobileDashboard && (
+              <DeferredViewport minHeight={620}>
               <Box
                 sx={{
                    ".rbc-calendar": {
@@ -9604,6 +9607,7 @@ count: total, defaultValue: `+${total}` }),
                    </React.Suspense>
                  )}
               </Box>
+              </DeferredViewport>
               )}
               </>
               )}

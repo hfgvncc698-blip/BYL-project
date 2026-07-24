@@ -24,6 +24,18 @@ export default defineConfig({
             return "vendor-ui";
           }
           if (normalizedId.includes("/node_modules/react-icons/")) return "vendor-icons";
+          if (
+            normalizedId.includes("/node_modules/@firebase/storage/") ||
+            normalizedId.includes("/node_modules/firebase/storage/")
+          ) {
+            return "vendor-firebase-storage";
+          }
+          if (
+            normalizedId.includes("/node_modules/@firebase/functions/") ||
+            normalizedId.includes("/node_modules/firebase/functions/")
+          ) {
+            return "vendor-firebase-functions";
+          }
           if (normalizedId.includes("/node_modules/@firebase/") || normalizedId.includes("/node_modules/firebase/")) {
             return "vendor-firebase";
           }

@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-07-22T21:33:00.426Z",
+  "updatedAt": "2026-07-24T01:14:09.464Z",
   "primaryKpi": "free_trial_starts",
   "secondaryKpi": "activation_day_7",
   "activationSignals": [
@@ -1661,13 +1661,13 @@
         "experiment": 0.1
       },
       "counts": {
-        "proven": 3,
-        "optimization": 2,
+        "proven": 2,
+        "optimization": 1,
         "experiment": 0
       },
       "currentShare": {
-        "proven": 0.6,
-        "optimization": 0.4,
+        "proven": 0.67,
+        "optimization": 0.33,
         "experiment": 0
       }
     },
@@ -1676,20 +1676,6 @@
   "performances": {
     "growthWinners": {
       "hooks": [
-        {
-          "value": "Le vrai gain de temps, c'est de ne plus chercher l'info.",
-          "count": 1,
-          "score": 23,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
-          "value": "Un plan nutrition ne suffit pas si le client decroche entre deux messages.",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
         {
           "value": "Vendredi matin, le coach ne doit pas repartir dans ses onglets.",
           "count": 1,
@@ -1714,15 +1700,8 @@
       ],
       "videos": [
         {
-          "value": "reel",
-          "count": 1,
-          "score": 23,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
           "value": "story",
-          "count": 3,
+          "count": 2,
           "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
@@ -1737,21 +1716,14 @@
       ],
       "ctas": [
         {
-          "value": "Essai gratuit 14 jours - lien en bio",
+          "value": "Decouvrir l'essai gratuit de 14 jours",
           "count": 1,
-          "score": 23,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
-          "value": "Reponds SUIVI si tu veux voir comment ca marche.",
-          "count": 2,
           "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
-          "value": "Decouvrir l'essai gratuit de 14 jours",
+          "value": "Reponds SUIVI si tu veux voir comment ca marche.",
           "count": 1,
           "score": 0,
           "freeTrialStarts": 0,
@@ -1767,15 +1739,8 @@
       ],
       "formats": [
         {
-          "value": "reel",
-          "count": 1,
-          "score": 23,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
           "value": "story",
-          "count": 3,
+          "count": 2,
           "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
@@ -1790,21 +1755,14 @@
       ],
       "times": [
         {
-          "value": "monday-18h30-instagram",
+          "value": "friday-09h30-facebook",
           "count": 1,
-          "score": 23,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
-          "value": "monday-12h30-story",
-          "count": 2,
           "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
-          "value": "friday-09h30-facebook",
+          "value": "monday-12h30-story",
           "count": 1,
           "score": 0,
           "freeTrialStarts": 0,
@@ -1821,8 +1779,8 @@
       "emotions": [
         {
           "value": "soulagement",
-          "count": 5,
-          "score": 23,
+          "count": 3,
+          "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
         }
@@ -1830,14 +1788,7 @@
       "audiences": [
         {
           "value": "coachs sportifs",
-          "count": 3,
-          "score": 23,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
-          "value": "nutritionnistes et dieteticiens",
-          "count": 1,
+          "count": 2,
           "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
@@ -1851,20 +1802,6 @@
         }
       ],
       "activatedHooks": [
-        {
-          "value": "Un plan nutrition ne suffit pas si le client decroche entre deux messages.",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
-          "value": "Le vrai gain de temps, c'est de ne plus chercher l'info.",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
         {
           "value": "Vendredi matin, le coach ne doit pas repartir dans ses onglets.",
           "count": 1,
@@ -1890,14 +1827,7 @@
       "activatedAudiences": [
         {
           "value": "coach_independant",
-          "count": 3,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
-          "value": "nutritionniste",
-          "count": 1,
+          "count": 2,
           "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
@@ -1912,9 +1842,9 @@
       ]
     },
     "latestReport": {
-      "id": "2026-07-22-growth-report",
-      "generatedAt": "2026-07-22T21:33:00.423Z",
-      "date": "2026-07-22",
+      "id": "2026-07-23-growth-report",
+      "generatedAt": "2026-07-24T01:14:09.458Z",
+      "date": "2026-07-23",
       "primaryKpi": "free_trial_starts",
       "secondaryKpi": "activation_day_7",
       "activationSignals": [
@@ -1925,20 +1855,6 @@
       ],
       "summary": "Optimisation orientee essais gratuits demarres puis activation J+7. Les vues, likes et commentaires restent des signaux secondaires.",
       "topHooks": [
-        {
-          "value": "Le vrai gain de temps, c'est de ne plus chercher l'info.",
-          "count": 1,
-          "score": 23,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
-          "value": "Un plan nutrition ne suffit pas si le client decroche entre deux messages.",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
         {
           "value": "Vendredi matin, le coach ne doit pas repartir dans ses onglets.",
           "count": 1,
@@ -1963,15 +1879,8 @@
       ],
       "topVideos": [
         {
-          "value": "reel",
-          "count": 1,
-          "score": 23,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
           "value": "story",
-          "count": 3,
+          "count": 2,
           "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
@@ -1986,21 +1895,14 @@
       ],
       "topCtas": [
         {
-          "value": "Essai gratuit 14 jours - lien en bio",
+          "value": "Decouvrir l'essai gratuit de 14 jours",
           "count": 1,
-          "score": 23,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
-          "value": "Reponds SUIVI si tu veux voir comment ca marche.",
-          "count": 2,
           "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
-          "value": "Decouvrir l'essai gratuit de 14 jours",
+          "value": "Reponds SUIVI si tu veux voir comment ca marche.",
           "count": 1,
           "score": 0,
           "freeTrialStarts": 0,
@@ -2016,15 +1918,8 @@
       ],
       "topFormats": [
         {
-          "value": "reel",
-          "count": 1,
-          "score": 23,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
           "value": "story",
-          "count": 3,
+          "count": 2,
           "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
@@ -2040,21 +1935,14 @@
       "topCreativeFormatVariants": [],
       "topTimes": [
         {
-          "value": "monday-18h30-instagram",
+          "value": "friday-09h30-facebook",
           "count": 1,
-          "score": 23,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
-          "value": "monday-12h30-story",
-          "count": 2,
           "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
         },
         {
-          "value": "friday-09h30-facebook",
+          "value": "monday-12h30-story",
           "count": 1,
           "score": 0,
           "freeTrialStarts": 0,
@@ -2071,8 +1959,8 @@
       "topEmotions": [
         {
           "value": "soulagement",
-          "count": 5,
-          "score": 23,
+          "count": 3,
+          "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
         }
@@ -2080,14 +1968,7 @@
       "topAudiences": [
         {
           "value": "coachs sportifs",
-          "count": 3,
-          "score": 23,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
-          "value": "nutritionnistes et dieteticiens",
-          "count": 1,
+          "count": 2,
           "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
@@ -2101,20 +1982,6 @@
         }
       ],
       "topActivatedHooks": [
-        {
-          "value": "Un plan nutrition ne suffit pas si le client decroche entre deux messages.",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
-          "value": "Le vrai gain de temps, c'est de ne plus chercher l'info.",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
         {
           "value": "Vendredi matin, le coach ne doit pas repartir dans ses onglets.",
           "count": 1,
@@ -2140,14 +2007,7 @@
       "topActivatedAudiences": [
         {
           "value": "coach_independant",
-          "count": 3,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        },
-        {
-          "value": "nutritionniste",
-          "count": 1,
+          "count": 2,
           "score": 0,
           "freeTrialStarts": 0,
           "activationDay7": 0
@@ -2162,22 +2022,12 @@
       ],
       "segmentPerformance": [
         {
-          "segment": "nutritionniste",
-          "count": 1,
+          "segment": "coach_independant",
+          "count": 2,
           "freeTrialStarts": 0,
           "activationDay7": 0,
           "clicks": 0,
           "views": 0,
-          "activationRate": 0,
-          "trialRate": 0
-        },
-        {
-          "segment": "coach_independant",
-          "count": 3,
-          "freeTrialStarts": 0,
-          "activationDay7": 0,
-          "clicks": 0,
-          "views": 23,
           "activationRate": 0,
           "trialRate": 0
         },
@@ -2195,38 +2045,6 @@
       "fatigueAngles": [],
       "falseSuccesses": [],
       "distributionAlerts": [
-        {
-          "date": "2026-06-22",
-          "platform": "instagram_story",
-          "hook": "Un plan nutrition ne suffit pas si le client decroche entre deux messages.",
-          "audienceSegment": "nutritionniste",
-          "views": 0,
-          "reach": 0,
-          "interactions": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0,
-          "reasons": [
-            "no_trial_signal_yet"
-          ],
-          "recommendation": "Ne pas reproduire tel quel: renforcer les 2 premieres secondes, ajouter plus de plans humains, CTA natif plateforme et seed de distribution."
-        },
-        {
-          "date": "2026-06-22",
-          "platform": "instagram",
-          "hook": "Le vrai gain de temps, c'est de ne plus chercher l'info.",
-          "audienceSegment": "coach_independant",
-          "views": 23,
-          "reach": 17,
-          "interactions": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0,
-          "reasons": [
-            "distribution_too_low_to_validate_creative",
-            "hook_or_interaction_did_not_trigger_action",
-            "no_trial_signal_yet"
-          ],
-          "recommendation": "Ne pas reproduire tel quel: renforcer les 2 premieres secondes, ajouter plus de plans humains, CTA natif plateforme et seed de distribution."
-        },
         {
           "date": "2026-06-26",
           "platform": "facebook",
@@ -2287,13 +2105,13 @@
           "experiment": 0.1
         },
         "counts": {
-          "proven": 3,
-          "optimization": 2,
+          "proven": 2,
+          "optimization": 1,
           "experiment": 0
         },
         "currentShare": {
-          "proven": 0.6,
-          "optimization": 0.4,
+          "proven": 0.67,
+          "optimization": 0.33,
           "experiment": 0
         }
       },
@@ -2331,9 +2149,9 @@
         "source": "codex_user_request_2026_07_01",
         "resolvedAt": "",
         "resolvedReason": "",
-        "alertCount": 82,
+        "alertCount": 83,
         "latestAlert": {
-          "at": "2026-07-22T21:33:00.416Z",
+          "at": "2026-07-24T01:14:09.329Z",
           "reason": "meta_performance_sync_partial_failure",
           "severity": "warning",
           "source": "nightly_growth_report",
@@ -2342,15 +2160,36 @@
             "updated": 3,
             "total": 18,
             "rerunEscalated": true,
-            "initialSandboxError": "fetch failed | ENOTFOUND graph.facebook.com",
+            "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
             "sampleErrors": [
-              "Unsupported get request: object missing, permission denied, or operation unsupported"
+              "Unsupported get request. Object with ID '18142983556524389' does not exist, cannot be loaded due to missing permissions, or does not support this operation.",
+              "Unsupported get request. Object with ID '18099111391988502' does not exist, cannot be loaded due to missing permissions, or does not support this operation."
             ]
           }
         }
       },
       "recentBlocks": [
         {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
           "network": "tiktok",
           "reason": "tiktok_not_approved",
           "detail": ""
@@ -2379,34 +2218,14 @@
           "network": "calendar",
           "reason": "kill_switch_active",
           "detail": ""
-        },
-        {
-          "network": "calendar",
-          "reason": "kill_switch_active",
-          "detail": ""
-        },
-        {
-          "network": "tiktok",
-          "reason": "tiktok_not_approved",
-          "detail": ""
-        },
-        {
-          "network": "calendar",
-          "reason": "kill_switch_active",
-          "detail": ""
-        },
-        {
-          "network": "instagram",
-          "reason": "fresh_media_required",
-          "detail": "daily_media_missing"
         }
       ],
-      "learningEntryCount": 240
+      "learningEntryCount": 245
     }
   },
   "brand": {
     "version": "1.0.0",
-    "updatedAt": "2026-07-22T21:33:00.423Z",
+    "updatedAt": "2026-07-24T01:14:09.457Z",
     "brandScore": 63,
     "dimensions": {
       "premium": 60,
@@ -2416,42 +2235,6 @@
     },
     "signals": [
       {
-        "at": "2026-06-22T16:31:31.098Z",
-        "source": "instagram",
-        "audienceSegment": "coach_independant",
-        "brandScore": 55,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-26T07:32:52.248Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 54,
-        "dimensions": {
-          "premium": 55,
-          "serious": 80,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
-        "at": "2026-06-29T11:33:54.957Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 66,
-        "dimensions": {
-          "premium": 55,
-          "serious": 55,
-          "innovative": 76,
-          "reliable": 78
-        }
-      },
-      {
         "at": "2026-06-01T07:17:38.044Z",
         "source": "facebook",
         "audienceSegment": "coach_independant",
@@ -5971,6 +5754,42 @@
         "at": "2026-06-22T16:31:31.098Z",
         "source": "instagram",
         "audienceSegment": "coach_independant",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
+        }
+      },
+      {
+        "at": "2026-06-26T07:32:52.248Z",
+        "source": "facebook",
+        "audienceSegment": "coach_independant",
+        "brandScore": 54,
+        "dimensions": {
+          "premium": 55,
+          "serious": 80,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-29T11:33:54.957Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 66,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-30T16:54:45.343Z",
+        "source": "instagram_story",
+        "audienceSegment": "salle_de_sport",
         "brandScore": 55,
         "dimensions": {
           "premium": 55,
@@ -6026,9 +5845,9 @@
       "source": "codex_user_request_2026_07_01",
       "resolvedAt": "",
       "resolvedReason": "",
-      "alertCount": 82,
+      "alertCount": 83,
       "latestAlert": {
-        "at": "2026-07-22T21:33:00.416Z",
+        "at": "2026-07-24T01:14:09.329Z",
         "reason": "meta_performance_sync_partial_failure",
         "severity": "warning",
         "source": "nightly_growth_report",
@@ -6037,9 +5856,10 @@
           "updated": 3,
           "total": 18,
           "rerunEscalated": true,
-          "initialSandboxError": "fetch failed | ENOTFOUND graph.facebook.com",
+          "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
           "sampleErrors": [
-            "Unsupported get request: object missing, permission denied, or operation unsupported"
+            "Unsupported get request. Object with ID '18142983556524389' does not exist, cannot be loaded due to missing permissions, or does not support this operation.",
+            "Unsupported get request. Object with ID '18099111391988502' does not exist, cannot be loaded due to missing permissions, or does not support this operation."
           ]
         }
       }

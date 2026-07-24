@@ -46,6 +46,22 @@ const ADMIN_PRO_ACCESS = getProPlanAccess("complete", "unlimited");
 const FULL_PRO_TRIAL_ACCESS = getProPlanAccess("complete", "unlimited");
 const FULL_CLUB_TRIAL_ACCESS = getProPlanAccess("club", "network");
 
+const readCachedUser = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    const cached = JSON.parse(window.localStorage.getItem("user") || "null");
+    if (!cached?.uid || !cached?.role) return null;
+    return {
+      ...cached,
+      trialStartedAt: cached.trialStartedAt ? new Date(cached.trialStartedAt) : null,
+      trialEndsAt: cached.trialEndsAt ? new Date(cached.trialEndsAt) : null,
+      nextInvoiceAt: cached.nextInvoiceAt ? new Date(cached.nextInvoiceAt) : null,
+    };
+  } catch {
+    return null;
+  }
+};
+
 async function createStripeCustomerForRegisteredUser(fbUser, payload) {
   if (!fbUser?.getIdToken) return;
   try {
@@ -229,7 +245,9 @@ async function seedUserDocFromClient(firebaseUser, provider = null) {
 
 /* ----------------- Provider ----------------- */
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null); // <-- doc Firestore normalisé
+  // Affiche immédiatement le dernier profil validé, puis on le resynchronise
+  // en arrière-plan avec Firebase Auth et Firestore.
+  const [user, setUser] = useState(readCachedUser); // <-- doc Firestore normalisé
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const unsubUserRef = useRef(null); // pour nettoyer l’ancienne souscription

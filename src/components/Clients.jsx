@@ -60,14 +60,15 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { FiTrash2 } from "react-icons/fi";
-import ClientCreation from "../components/ClientCreation";
-import AppLoading from "./ui/AppLoading";
 import PageBackButton from "./ui/PageBackButton";
 import { apiFetch } from "../utils/api";
 import { notify } from "../utils/notify";
 import { useAppTheme } from "../styles/appTheme";
 import { hasPlanModule } from "../utils/proPlanAccess";
 import { readPageDataCache, runLimited, updatePageDataCache, writePageDataCache } from "../utils/pageDataCache";
+
+const loadClientCreation = () => import("../components/ClientCreation.jsx");
+const ClientCreation = React.lazy(loadClientCreation);
 
 const DAYS_ACTIVE_CUTOFF = 30;
 const CLIENTS_PAGE_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -1042,13 +1043,18 @@ const Clients = () => {
     return withAdminCoach(`/clients${queryString ? `?${queryString}` : ""}`);
   };
 
-  if (loading) {
-    return <AppLoading label={t("common.loading", "Chargement...")} />;
-  }
-
   return (
     <Box data-tour-page="coach-clients" bg={bg} minH="100vh" pb={{ base: 28, md: 0 }}>
       <Container maxW="7xl" py={{ base: 4, md: 10 }} px={{ base: 3, md: 6 }}>
+        {loading && (
+          <Progress
+            aria-label={t("common.loading", "Chargement...")}
+            isIndeterminate
+            size="xs"
+            borderRadius="full"
+            mb={3}
+          />
+        )}
         <Box
           mb={{ base: 4, md: 6 }}
           bg={{ base: theme.surfaceGlow, md: "transparent" }}
@@ -1141,7 +1147,14 @@ const Clients = () => {
             size="sm"
             display={{ base: hasSearch ? "none" : "inline-flex", md: "inline-flex" }}
             ml={{ base: 0, md: "auto" }}
-            onClick={nutritionMode ? () => navigate(withAdminCoach("/nutrition-coach?new=1")) : createClientModal.onOpen}
+            onClick={
+              nutritionMode
+                ? () => navigate(withAdminCoach("/nutrition-coach?new=1"))
+                : () => {
+                    loadClientCreation().catch(() => {});
+                    createClientModal.onOpen();
+                  }
+            }
           >
             {newClientLabel}
           </Button>
@@ -1508,21 +1521,25 @@ const Clients = () => {
           </ModalContent>
         </Modal>
 
-        <Modal isOpen={createClientModal.isOpen} onClose={createClientModal.onClose} isCentered>
+        {createClientModal.isOpen && (
+        <Modal isOpen onClose={createClientModal.onClose} isCentered>
           <ModalOverlay />
           <ModalContent>
             <ModalHeader>{newClientLabel}</ModalHeader>
             <ModalCloseButton />
             <ModalBody>
-              <ClientCreation
-                onClose={async () => {
-                  createClientModal.onClose();
-                  await fetchData();
-                }}
-              />
+              <React.Suspense fallback={<Box minH="180px" />}>
+                <ClientCreation
+                  onClose={async () => {
+                    createClientModal.onClose();
+                    await fetchData();
+                  }}
+                />
+              </React.Suspense>
             </ModalBody>
           </ModalContent>
         </Modal>
+        )}
 
         <Modal
           isOpen={isClientModalOpen}

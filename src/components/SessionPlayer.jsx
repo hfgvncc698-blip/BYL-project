@@ -83,6 +83,7 @@ import { useAppTheme } from "../styles/appTheme";
 import { localizeExercise } from "../utils/exerciseI18n";
 import { getExerciseNotesText } from "../utils/exerciseNotes";
 import EXERCISE_TRANSLATION_ALIASES from "../data/exerciseTranslationAliases.json";
+import { exerciseHistoryMatches } from "../utils/exerciseHistoryIdentity";
 import {
   applyProgressionStrategyToDecision,
   applySportProgressionToSession,
@@ -1111,43 +1112,7 @@ function buildExercisePerformanceSnapshots(flatExercises = [], mapping = [], tim
 }
 
 function exerciseSnapshotMatches(snapshot = {}, exercise = {}) {
-  if (!snapshot || !exercise) return false;
-  const current = getExerciseIdentity(exercise);
-  const snapshotIdentity = getExerciseIdentity(snapshot);
-  const snapshotIds = [
-    snapshot?.exerciseId,
-    ...(Array.isArray(snapshot?.exerciseIds) ? snapshot.exerciseIds : []),
-    ...snapshotIdentity.ids,
-  ]
-    .map((v) => String(v || "").trim())
-    .filter(Boolean);
-  if (current.ids.some((id) => snapshotIds.includes(id))) return true;
-
-  const snapshotNames = [
-    snapshot?.exerciseName,
-    ...(Array.isArray(snapshot?.exerciseNames) ? snapshot.exerciseNames : []),
-    ...snapshotIdentity.names,
-  ]
-    .map(normalizeExerciseToken)
-    .filter(Boolean);
-  if (current.names.some((name) => snapshotNames.includes(name))) return true;
-
-  const currentNames = current.names.filter(Boolean);
-  const hasContainedName = currentNames.some((name) =>
-    snapshotNames.some((candidate) =>
-      name.length >= 5 &&
-      candidate.length >= 5 &&
-      (name.includes(candidate) || candidate.includes(name))
-    )
-  );
-  if (hasContainedName) return true;
-
-  const snapshotTokens = Array.from(new Set(snapshotNames.flatMap(getNameTokens)));
-  if (!current.tokens.length || !snapshotTokens.length) return false;
-
-  const overlap = current.tokens.filter((token) => snapshotTokens.includes(token));
-  const shortest = Math.min(current.tokens.length, snapshotTokens.length);
-  return overlap.length >= 1 && overlap.length / Math.max(1, shortest) >= 0.5;
+  return exerciseHistoryMatches(snapshot, exercise);
 }
 
 function exerciseMatchesAnyTarget(snapshot = {}, targets = []) {
@@ -1191,6 +1156,25 @@ function getCompletionRecordDate(record = {}) {
     toDate(record?.updatedAt) ||
     toDate(record?.createdAt) ||
     toDate(record?.startedAt)
+  );
+}
+
+function getHistorySnapshotSignature(snapshot = {}) {
+  const sets = Array.isArray(snapshot?.sets) ? snapshot.sets : [];
+  return JSON.stringify(
+    sets.map((set) => ({
+      setIndex: Number(set?.setIndex) || 0,
+      reps: parseMetricNumber(set?.reps),
+      chargeKg: parseMetricNumber(set?.chargeKg),
+      durationSec: parseMetricNumber(set?.durationSec),
+      restSec: parseMetricNumber(set?.restSec),
+      distance: parseMetricNumber(set?.distance),
+      speed: parseMetricNumber(set?.speed),
+      incline: parseMetricNumber(set?.incline),
+      calories: parseMetricNumber(set?.calories),
+      intensity: parseMetricNumber(set?.intensity),
+      tempo: set?.tempo ?? null,
+    }))
   );
 }
 
@@ -3536,6 +3520,7 @@ export default function SessionPlayer() {
                     `Séance ${Number.isFinite(modSessionIndex) ? modSessionIndex + 1 : ""}`.trim(),
                   exerciseContext,
                   matchExerciseContext: storedExerciseContext || exerciseContext,
+                  hasStoredExerciseIdentity: Boolean(storedExerciseContext),
                   programmeExerciseContext: exerciseContext,
                   ...data,
                 };
@@ -4289,15 +4274,13 @@ export default function SessionPlayer() {
     const modificationGroups = new Map();
     (modificationHistory || [])
       .filter((mod) => {
-        const sameCurrentExerciseSlot =
-          mod?.programId === programId &&
-          Number(mod?.sessionIndex) === Number(sessionIndex) &&
-          Number(mod?.exerciseIndex) === Number(exIndex);
-        if (sameCurrentExerciseSlot) return true;
-        if (exerciseMatchesAnyTarget(mod?.matchExerciseContext || mod?.exerciseContext, historyExerciseTargets)) return true;
+        // A session/exercise index is only a mutable position. If an exercise
+        // was replaced there, using the slot would attach the old history to
+        // the new movement. Only modifications carrying a stored identity are
+        // safe to associate.
         return (
-          !mod?.exerciseContext &&
-          sameCurrentExerciseSlot
+          mod?.hasStoredExerciseIdentity === true &&
+          exerciseMatchesAnyTarget(mod?.matchExerciseContext, historyExerciseTargets)
         );
       })
       .forEach((mod) => {
@@ -4324,6 +4307,8 @@ export default function SessionPlayer() {
         return {
           id: `mods-${groupKey}`,
           recordId: groupKey,
+          programId: mods[0]?.programId || "",
+          sessionIndex: Number(mods[0]?.sessionIndex),
           sessionTitle: mods[0]?.sessionTitle || t("sessionPlayer.sessionN", "Séance {{n}}", {
             n: Number.isFinite(Number(mods[0]?.sessionIndex)) ? Number(mods[0].sessionIndex) + 1 : sessionIndex + 1,
           }),
@@ -4344,6 +4329,8 @@ export default function SessionPlayer() {
         return [{
           id: `${record.id}-${snapshot.exerciseIndex ?? snapshot.exerciseName}`,
           recordId: record.id,
+          programId: record.programId || "",
+          sessionIndex: Number(record.sessionIndex),
           sessionTitle: record.sessionTitle,
           date,
           snapshot,
@@ -4353,7 +4340,17 @@ export default function SessionPlayer() {
       .filter((item) => item.date instanceof Date)
       .sort((a, b) => b.date.getTime() - a.date.getTime());
 
-    const rows = [...modificationRows, ...completionRows]
+    const deduplicatedModificationRows = modificationRows.filter((modification) => {
+      const signature = getHistorySnapshotSignature(modification.snapshot);
+      return !completionRows.some((completion) => (
+        completion.programId === modification.programId &&
+        Number(completion.sessionIndex) === Number(modification.sessionIndex) &&
+        sameCalendarDay(completion.date, modification.date) &&
+        getHistorySnapshotSignature(completion.snapshot) === signature
+      ));
+    });
+
+    const rows = [...deduplicatedModificationRows, ...completionRows]
       .sort((a, b) => b.date.getTime() - a.date.getTime());
 
     const scoredRows = rows.map((item) => ({

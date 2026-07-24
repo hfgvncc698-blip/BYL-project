@@ -57,7 +57,7 @@ import { useAppTheme } from "../styles/appTheme";
 import { estimateSessionDurationSeconds, formatDuration } from "../utils/trainingEngine";
 import { canUseCustomBranding } from "../utils/proPlanAccess";
 import { apiFetch } from "../utils/api";
-import * as firebaseConfig from "../firebaseConfig";
+import { db } from "../firebaseConfig";
 import {
   getStorage,
   ref as storageRef,
@@ -76,8 +76,7 @@ import {
   limit,
 } from "firebase/firestore";
 
-const db = firebaseConfig.db;
-const storage = firebaseConfig.storage || null;
+const storage = getStorage();
 
 /* ---------------- perf caches ---------------- */
 const resolvedStorageUrlCache = new Map();
