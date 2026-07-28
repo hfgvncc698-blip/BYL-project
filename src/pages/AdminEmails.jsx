@@ -282,7 +282,7 @@ export default function AdminEmails() {
                 <Table size="sm">
                   <Thead>
                     <Tr>
-                      <Th>Date prévue</Th>
+                      <Th>Éligible à partir du</Th>
                       <Th>Client</Th>
                       <Th>Type</Th>
                       <Th>Objet</Th>
@@ -296,6 +296,9 @@ export default function AdminEmails() {
                         <Tr key={row.id}>
                           <Td minW="165px" fontWeight="700">
                             {toLocale(row.dueAt)}
+                            <Text color={muted} fontSize="xs" fontWeight="500">
+                              Traitement vers 09:00
+                            </Text>
                           </Td>
                           <Td minW="220px">
                             <Text fontWeight="700">{row.clientName || "Client"}</Text>

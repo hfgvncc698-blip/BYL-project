@@ -48,6 +48,7 @@ import DeferredViewport from "./ui/DeferredViewport.jsx";
 import { getApiBase } from '../utils/apiBase';
 import { getAuthHeaders } from '../utils/authHeaders';
 import { apiFetch } from '../utils/api';
+import { runLimited } from '../utils/pageDataCache';
 const ClientNutritionSharedSection = React.lazy(() => import("./ClientNutritionSharedSection.jsx"));
 const ClientDashboardCalendar = React.lazy(() => import("./dashboard/ClientDashboardCalendar.jsx"));
 const API_BASE = getApiBase();
@@ -314,7 +315,13 @@ async function resolveCoachDisplay(p) {
     } catch {}
     if (isLikelyEmail(createdBy)) {
       try {
-        const snap = await getDocs(query(collection(db, 'users'), where('email', '==', createdBy)));
+        const snap = await getDocs(
+          query(
+            collection(db, 'users'),
+            where('email', '==', createdBy),
+            where('role', '==', 'coach')
+          )
+        );
         const name = snap.docs.map((d) => getPersonDisplayName(d.data())).find(Boolean);
         if (name) return name;
       } catch {}
@@ -852,6 +859,7 @@ export default function ClientDashboard() {
     let unsubPrograms = null;
     let unsubSessA = null;
     let unsubSessB = null;
+    let programLoadVersion = 0;
 
     (async () => {
       setLoading(true);
@@ -955,8 +963,64 @@ export default function ClientDashboard() {
       // ✅ programmes (mes programmes)
       const progCol = collection(db, 'clients', cId, 'programmes');
       unsubPrograms = onSnapshot(progCol, async (snap) => {
-        const items = await Promise.all(
-          snap.docs.map(async d => {
+        const loadVersion = ++programLoadVersion;
+        const quickItems = snap.docs.map((d) => {
+          const p = { id: d.id, ...d.data() };
+          const assignedAtMs = toMillis(
+            p.assignedAt || p.dateAssignation || p.dateAffectation ||
+            p.createdAt || p.createdOn || p.created_date
+          );
+          const createdAtMs =
+            toMillis(p.createdAt) ||
+            toMillis(p.createdOn) ||
+            toMillis(p.created_date) ||
+            0;
+          const total = getTotalSessionsFromProgrammeDoc(p);
+          const nextIndex = 0;
+          return {
+            ...p,
+            sessionsEffectuees: [],
+            nomProgramme: getProgrammeDisplayName(p),
+            createdByName: p.createdByName || p.coachName || "",
+            _done: 0,
+            _doneRaw: 0,
+            _total: total,
+            _percent: 0,
+            _visualPercent: 0,
+            _nextIndex: nextIndex,
+            _nextSessionLabel: getProgrammeSessionTitle(p, nextIndex, t),
+            _freshNextSessionIndex: nextIndex,
+            _freshNextSessionLabel: getProgrammeSessionTitle(p, nextIndex, t),
+            _resumeSessionIndex: nextIndex,
+            _resumeSessionLabel: getProgrammeSessionTitle(p, nextIndex, t),
+            _resumeExerciseIndex: 0,
+            _resumeSet: 1,
+            _resumePct: null,
+            _hasResumePoint: false,
+            _assignedAtMs: assignedAtMs,
+            _createdAtMs: createdAtMs,
+            _lastSessionMs: 0,
+            _lastOrAssignedMs: assignedAtMs || createdAtMs,
+            _displayDateFormatted: assignedAtMs || createdAtMs
+              ? formatDate(assignedAtMs || createdAtMs, i18n.language)
+              : "",
+            _rating: null,
+            _difficultyMap: {},
+          };
+        });
+        const quickSorted = [...quickItems].sort(
+          (a, b) => (b._lastOrAssignedMs || 0) - (a._lastOrAssignedMs || 0)
+        );
+        setProgrammes(quickSorted);
+        setHasPremiumOwned(quickItems.some(p =>
+          (p.origine && String(p.origine).toLowerCase().includes('premium')) ||
+          p.isPremiumOnly === true
+        ));
+        setLoading(false);
+
+        const items = await runLimited(
+          snap.docs,
+          async d => {
             const p = { id: d.id, ...d.data() };
 
             const rawAssignTs =
@@ -1135,9 +1199,11 @@ export default function ClientDashboard() {
               _rating: (typeof rating === "number" && isFinite(rating)) ? rating : null,
               _difficultyMap: difficultyMap || {},
             };
-          })
+          },
+          4
         );
 
+        if (loadVersion !== programLoadVersion) return;
         const ownsPremium = items.some(p =>
           (p.origine && String(p.origine).toLowerCase().includes('premium')) ||
           p.isPremiumOnly === true
@@ -1148,6 +1214,7 @@ export default function ClientDashboard() {
         setProgrammes(sorted);
         setLoading(false);
       }, () => {
+        programLoadVersion += 1;
         setProgrammes([]);
         setLoading(false);
       });

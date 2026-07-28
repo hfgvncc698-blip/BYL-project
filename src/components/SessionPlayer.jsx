@@ -97,6 +97,9 @@ import { hasPlanModule } from "../utils/proPlanAccess";
 import {
   applyPlayerExerciseDeletion,
   applyPlayerExerciseEdit,
+  buildPlayerExerciseAuditDetails,
+  getPlayerExerciseContinuation,
+  remapPlayerExerciseTimings,
 } from "../utils/playerExerciseEditing";
 import {
   applyProgressionStrategyToDecision,
@@ -1303,6 +1306,7 @@ function buildSnapshotFromHistoryModifications(mods = [], exercise = {}) {
       field === "Séries" ||
       field === "Séries différentes" ||
       field === "notes" ||
+      field.startsWith("Exercice ") ||
       field.startsWith("Paramètre ");
     if (isGeneralChange) {
       changes.push({
@@ -2506,6 +2510,9 @@ export default function SessionPlayer() {
   const historyRunIdRef = useRef(randomId(10));
   const historyRunStartRef = useRef(new Date());
   const historyBufferRef = useRef(new Map());
+  const historyFlushTimerRef = useRef(null);
+  const historyFlushPromiseRef = useRef(null);
+  const historyFlushRetryCountRef = useRef(0);
 
   const completionDocIdRef = useRef(randomId(12));
   const completionStartedAtRef = useRef(new Date());
@@ -2518,6 +2525,7 @@ export default function SessionPlayer() {
   useEffect(() => {
     historyRunIdRef.current = randomId(10);
     historyRunStartRef.current = new Date();
+    historyFlushRetryCountRef.current = 0;
 
     completionDocIdRef.current = randomId(12);
     completionStartedAtRef.current = new Date();
@@ -2537,6 +2545,11 @@ export default function SessionPlayer() {
     setPainLevel("");
     setPainArea("");
     clearTimeout(partialProgressTimerRef.current);
+    return () => {
+      clearTimeout(partialProgressTimerRef.current);
+      clearTimeout(historyFlushTimerRef.current);
+      void flushHistory();
+    };
   }, [clientId, programId, sessionIndex, sessionResumeStorageKey]);
 
   useEffect(() => {
@@ -2592,6 +2605,10 @@ export default function SessionPlayer() {
       ...(identity.primaryName ? { exerciseName: identity.primaryName } : {}),
       ...(identity.names.length ? { exerciseNames: identity.names } : {}),
     });
+    clearTimeout(historyFlushTimerRef.current);
+    historyFlushTimerRef.current = setTimeout(() => {
+      void flushHistory();
+    }, 1200);
   }
 
   function getExerciseActualSeconds(index, { includeCurrent = true } = {}) {
@@ -2643,44 +2660,188 @@ export default function SessionPlayer() {
   }
 
   async function flushHistory() {
+    clearTimeout(historyFlushTimerRef.current);
+    historyFlushTimerRef.current = null;
+
+    if (historyFlushPromiseRef.current) {
+      const previousSucceeded = await historyFlushPromiseRef.current;
+      if (!previousSucceeded) return false;
+      if (historyBufferRef.current.size > 0) return flushHistory();
+      return true;
+    }
+
     if (!clientId || !programId) return;
     const entries = Array.from(historyBufferRef.current.entries());
-    if (entries.length === 0) return;
+    if (entries.length === 0) return true;
 
-    try {
-      const batch = writeBatch(db);
-      const colRef = collection(db, "clients", clientId, "programmes", programId, "historique_modifications");
-      const clientAt = Timestamp.fromDate(historyRunStartRef.current);
-      const runId = historyRunIdRef.current;
+    const flushPromise = (async () => {
+      try {
+        const batch = writeBatch(db);
+        const colRef = collection(db, "clients", clientId, "programmes", programId, "historique_modifications");
+        const clientAt = Timestamp.fromDate(historyRunStartRef.current);
+        const runId = historyRunIdRef.current;
 
-      entries.forEach(([, { sessionIndex, exerciseIndex, field, value, exerciseId, exerciseIds, exerciseName, exerciseNames }]) => {
-        const ref = doc(colRef);
-        batch.set(ref, {
-          sessionIndex,
-          exerciseIndex,
-          field,
-          value,
-          ...(exerciseId ? { exerciseId } : {}),
-          ...(Array.isArray(exerciseIds) && exerciseIds.length ? { exerciseIds } : {}),
-          ...(exerciseName ? { exerciseName } : {}),
-          ...(Array.isArray(exerciseNames) && exerciseNames.length ? { exerciseNames } : {}),
-          runId,
-          clientAt,
-          updatedAt: serverTimestamp(),
+        entries.forEach(([, { sessionIndex, exerciseIndex, field, value, exerciseId, exerciseIds, exerciseName, exerciseNames }]) => {
+          const ref = doc(colRef);
+          batch.set(ref, {
+            sessionIndex,
+            exerciseIndex,
+            field,
+            value,
+            ...(exerciseId ? { exerciseId } : {}),
+            ...(Array.isArray(exerciseIds) && exerciseIds.length ? { exerciseIds } : {}),
+            ...(exerciseName ? { exerciseName } : {}),
+            ...(Array.isArray(exerciseNames) && exerciseNames.length ? { exerciseNames } : {}),
+            runId,
+            clientAt,
+            updatedAt: serverTimestamp(),
+          });
         });
-      });
 
-      await batch.commit();
-    } catch (e) {
-      console.error("flushHistory error:", e);
-    } finally {
-      entries.forEach(([key, item]) => {
-        if (historyBufferRef.current.get(key) === item) {
-          historyBufferRef.current.delete(key);
+        await batch.commit();
+        entries.forEach(([key, item]) => {
+          if (historyBufferRef.current.get(key) === item) {
+            historyBufferRef.current.delete(key);
+          }
+        });
+        historyFlushRetryCountRef.current = 0;
+        historyRunIdRef.current = randomId(10);
+        historyRunStartRef.current = new Date();
+        return true;
+      } catch (e) {
+        console.error("flushHistory error:", e);
+        if (historyFlushRetryCountRef.current < 3) {
+          historyFlushRetryCountRef.current += 1;
+          clearTimeout(historyFlushTimerRef.current);
+          historyFlushTimerRef.current = setTimeout(() => {
+            void flushHistory();
+          }, 1500 * historyFlushRetryCountRef.current);
         }
-      });
-      historyRunIdRef.current = randomId(10);
-      historyRunStartRef.current = new Date();
+        return false;
+      }
+    })();
+
+    historyFlushPromiseRef.current = flushPromise;
+    try {
+      return await flushPromise;
+    } finally {
+      if (historyFlushPromiseRef.current === flushPromise) {
+        historyFlushPromiseRef.current = null;
+      }
+    }
+  }
+
+  async function persistPlayerExerciseChange({
+    edit,
+    mode,
+    exerciseIndex,
+  }) {
+    const beforeExercise =
+      mode === "addAfter"
+        ? null
+        : edit.previousExercise || edit.removedExercise || null;
+    const afterExercise = mode === "delete" ? null : edit.exercise || null;
+    const beforeIdentity = getExerciseIdentity(beforeExercise || {});
+    const afterIdentity = getExerciseIdentity(afterExercise || {});
+    const beforeName = beforeExercise
+      ? beforeIdentity.primaryName || getExerciseDisplayName(beforeExercise)
+      : "";
+    const afterName = afterExercise
+      ? afterIdentity.primaryName || getExerciseDisplayName(afterExercise)
+      : "";
+    const auditDetails = buildPlayerExerciseAuditDetails({
+      mode,
+      beforeIdentity,
+      afterIdentity,
+      beforeName,
+      afterName,
+    });
+    const {
+      exerciseIds,
+      exerciseNames,
+      field,
+      operation,
+      value,
+    } = auditDetails;
+    const clientAt = Timestamp.fromDate(new Date());
+    const runId = historyRunIdRef.current;
+    const batch = writeBatch(db);
+
+    batch.update(programDocRef, {
+      [edit.sessionField]: edit.sessions,
+      updatedAt: serverTimestamp(),
+    });
+
+    let auditRef = null;
+    let auditData = null;
+    if (clientId && programId) {
+      auditRef = doc(
+        collection(
+          db,
+          "clients",
+          clientId,
+          "programmes",
+          programId,
+          "historique_modifications"
+        )
+      );
+      auditData = {
+        sessionIndex,
+        exerciseIndex,
+        operation,
+        field,
+        value,
+        ...(exerciseIds[0] ? { exerciseId: exerciseIds[0] } : {}),
+        ...(exerciseIds.length ? { exerciseIds } : {}),
+        ...(exerciseNames[0] ? { exerciseName: exerciseNames[0] } : {}),
+        ...(exerciseNames.length ? { exerciseNames } : {}),
+        beforeExercise: {
+          id: beforeIdentity.ids[0] || "",
+          ids: beforeIdentity.ids,
+          name: beforeName,
+          names: beforeIdentity.names,
+        },
+        afterExercise: {
+          id: afterIdentity.ids[0] || "",
+          ids: afterIdentity.ids,
+          name: afterName,
+          names: afterIdentity.names,
+        },
+        runId,
+        clientAt,
+        updatedAt: serverTimestamp(),
+      };
+      batch.set(auditRef, auditData);
+    }
+
+    await batch.commit();
+
+    if (auditRef && auditData) {
+      const matchExerciseContext = {
+        exerciseId: exerciseIds[0] || "",
+        exerciseIds,
+        exerciseName: exerciseNames[0] || "",
+        exerciseNames,
+      };
+      setModificationHistory((previous) => [
+        {
+          id: `${programId}:${auditRef.id}`,
+          modificationId: auditRef.id,
+          programId,
+          sessionTitle:
+            sessionObj?.title ||
+            sessionObj?.name ||
+            sessionObj?.nom ||
+            `Séance ${sessionIndex + 1}`,
+          exerciseContext: afterExercise || beforeExercise,
+          matchExerciseContext,
+          hasStoredExerciseIdentity: true,
+          programmeExerciseContext: afterExercise || beforeExercise,
+          ...auditData,
+          updatedAt: new Date(),
+        },
+        ...previous.filter((item) => item.modificationId !== auditRef.id),
+      ]);
     }
   }
 
@@ -2727,43 +2888,51 @@ export default function SessionPlayer() {
         [edit.sessionField]: edit.sessions,
       };
       const updated = flattenSession(edit.session);
-      const nextExerciseIndex =
-        exerciseEditMode === "addAfter"
-          ? Math.min(updated.flat.length - 1, exIndex + 1)
-          : Math.min(updated.flat.length - 1, exIndex);
+      const continuation = getPlayerExerciseContinuation({
+        mode: exerciseEditMode,
+        currentIndex: exIndex,
+        currentSet,
+        phase,
+        isPaused,
+        updatedLength: updated.flat.length,
+      });
+      const nextExerciseIndex = continuation.exerciseIndex;
       rollbackState = {
         programData,
         sessionObj,
         flat,
         mapIdx,
         exIndex,
+        currentSet,
+        phase,
+        isPaused,
         resolvedExercise,
+        exerciseTimings: new Map(exerciseTimingRef.current),
       };
 
       const historySave = flushHistory();
-      const programSave = updateDoc(programDocRef, {
-        [edit.sessionField]: edit.sessions,
-        updatedAt: serverTimestamp(),
+      const programSave = persistPlayerExerciseChange({
+        edit,
+        mode: exerciseEditMode,
+        exerciseIndex: exerciseEditMode === "addAfter" ? exIndex + 1 : exIndex,
       });
 
-      effortTimer.stop();
-      effortElapsedTimer.stop();
-      restTimer.stop();
-      recordCurrentExerciseTiming();
-      activeTimingExerciseIndexRef.current = nextExerciseIndex;
-      exerciseTimingStartedAtRef.current = Date.now();
+      if (exerciseEditMode === "addAfter") {
+        exerciseTimingRef.current = remapPlayerExerciseTimings(
+          exerciseTimingRef.current,
+          { mode: "addAfter", currentIndex: exIndex }
+        );
+      }
 
       setProgramData(nextProgramData);
       setSessionObj(edit.session);
       setFlat(updated.flat);
       setMapIdx(updated.map);
       setExIndex(nextExerciseIndex);
-      setCurrentSet(1);
-      setPhase("ready");
-      setIsPaused(false);
-      pausedPhaseRef.current = null;
-      autoStartNextRef.current = false;
-      setResolvedExercise(edit.exercise);
+      setCurrentSet(continuation.currentSet);
+      setPhase(continuation.phase);
+      setIsPaused(continuation.isPaused);
+      setResolvedExercise(updated.flat[nextExerciseIndex] || edit.exercise);
       closeExerciseEditor();
 
       await Promise.all([historySave, programSave]);
@@ -2788,7 +2957,11 @@ export default function SessionPlayer() {
         setFlat(rollbackState.flat);
         setMapIdx(rollbackState.mapIdx);
         setExIndex(rollbackState.exIndex);
+        setCurrentSet(rollbackState.currentSet);
+        setPhase(rollbackState.phase);
+        setIsPaused(rollbackState.isPaused);
         setResolvedExercise(rollbackState.resolvedExercise);
+        exerciseTimingRef.current = rollbackState.exerciseTimings;
         openExerciseEditor();
       }
       toast({
@@ -2845,26 +3018,47 @@ export default function SessionPlayer() {
         [edit.sessionField]: edit.sessions,
       };
       const updated = flattenSession(edit.session);
-      const nextExerciseIndex = Math.min(exIndex, updated.flat.length - 1);
+      const continuation = getPlayerExerciseContinuation({
+        mode: "delete",
+        currentIndex: exIndex,
+        currentSet,
+        phase,
+        isPaused,
+        updatedLength: updated.flat.length,
+      });
+      const nextExerciseIndex = continuation.exerciseIndex;
       rollbackState = {
         programData,
         sessionObj,
         flat,
         mapIdx,
         exIndex,
+        currentSet,
+        phase,
+        isPaused,
         resolvedExercise,
+        pausedPhase: pausedPhaseRef.current,
+        effortTimer: effortTimer.getSnapshot(),
+        effortElapsedTimer: effortElapsedTimer.getSnapshot(),
+        restTimer: restTimer.getSnapshot(),
+        exerciseTimings: new Map(exerciseTimingRef.current),
       };
 
       const historySave = flushHistory();
-      const programSave = updateDoc(programDocRef, {
-        [edit.sessionField]: edit.sessions,
-        updatedAt: serverTimestamp(),
+      const programSave = persistPlayerExerciseChange({
+        edit,
+        mode: "delete",
+        exerciseIndex: exIndex,
       });
 
       effortTimer.stop();
       effortElapsedTimer.stop();
       restTimer.stop();
       recordCurrentExerciseTiming();
+      exerciseTimingRef.current = remapPlayerExerciseTimings(
+        exerciseTimingRef.current,
+        { mode: "delete", currentIndex: exIndex }
+      );
       activeTimingExerciseIndexRef.current = nextExerciseIndex;
       exerciseTimingStartedAtRef.current = Date.now();
 
@@ -2873,9 +3067,9 @@ export default function SessionPlayer() {
       setFlat(updated.flat);
       setMapIdx(updated.map);
       setExIndex(nextExerciseIndex);
-      setCurrentSet(1);
-      setPhase("ready");
-      setIsPaused(false);
+      setCurrentSet(continuation.currentSet);
+      setPhase(continuation.phase);
+      setIsPaused(continuation.isPaused);
       pausedPhaseRef.current = null;
       autoStartNextRef.current = false;
       setResolvedExercise(updated.flat[nextExerciseIndex] || null);
@@ -2901,7 +3095,33 @@ export default function SessionPlayer() {
         setFlat(rollbackState.flat);
         setMapIdx(rollbackState.mapIdx);
         setExIndex(rollbackState.exIndex);
+        setCurrentSet(rollbackState.currentSet);
+        setPhase(rollbackState.phase);
+        setIsPaused(rollbackState.isPaused);
         setResolvedExercise(rollbackState.resolvedExercise);
+        pausedPhaseRef.current = rollbackState.pausedPhase;
+        exerciseTimingRef.current = rollbackState.exerciseTimings;
+        activeTimingExerciseIndexRef.current = rollbackState.exIndex;
+        exerciseTimingStartedAtRef.current = Date.now();
+        effortTimer.stop();
+        effortElapsedTimer.stop();
+        restTimer.stop();
+        if (rollbackState.phase === "effort") {
+          if (durSecRef.current > 0) {
+            effortTimer.reset(
+              getRestoredCountdownSeconds(rollbackState.effortTimer)
+            );
+            if (!rollbackState.isPaused) effortTimer.start();
+          } else {
+            effortElapsedTimer.reset(
+              getRestoredStopwatchSeconds(rollbackState.effortElapsedTimer)
+            );
+            if (!rollbackState.isPaused) effortElapsedTimer.start();
+          }
+        } else if (rollbackState.phase === "rest") {
+          restTimer.reset(getRestoredCountdownSeconds(rollbackState.restTimer));
+          if (!rollbackState.isPaused) restTimer.start();
+        }
         openExerciseEditor();
       }
       toast({
@@ -3645,6 +3865,20 @@ export default function SessionPlayer() {
   }
 
   function handleBackExit() {
+    recordCurrentExerciseTiming();
+    const pct = Math.max(
+      1,
+      Math.min(89, Math.round(((exIndex + 1) / (flat.length || 1)) * 100))
+    );
+    void Promise.allSettled([
+      saveSessionCompletion(pct, {
+        partial: true,
+        exerciseIndex: exIndex,
+        currentSet,
+        exerciseTimings: buildExerciseTimingSnapshot({ includeCurrent: false }),
+      }),
+      flushHistory(),
+    ]);
     clearPlayerResumeSnapshot({ resetElapsedState: true });
     navigate(-1);
   }
@@ -3667,7 +3901,10 @@ export default function SessionPlayer() {
   ]);
 
   useEffect(() => {
-    const handleBeforeUnload = () => persistPlayerResumeSnapshot();
+    const handleBeforeUnload = () => {
+      persistPlayerResumeSnapshot();
+      void flushHistory();
+    };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [

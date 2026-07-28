@@ -3,6 +3,9 @@ import {
   applyPlayerExerciseEdit,
   applyPlayerExerciseDeletion,
   buildPlayerExerciseFromBank,
+  buildPlayerExerciseAuditDetails,
+  getPlayerExerciseContinuation,
+  remapPlayerExerciseTimings,
 } from "../src/utils/playerExerciseEditing.js";
 
 const previous = {
@@ -96,5 +99,59 @@ const deletedLinked = applyPlayerExerciseDeletion({
   mapping: { sectionKey: "corps", index: 1 },
 });
 assert.equal(deletedLinked.session.corps[0].linkNext, false);
+
+const runningContinuation = getPlayerExerciseContinuation({
+  mode: "replace",
+  currentIndex: 2,
+  currentSet: 3,
+  phase: "rest",
+  isPaused: true,
+  updatedLength: 8,
+});
+assert.deepEqual(runningContinuation, {
+  exerciseIndex: 2,
+  currentSet: 3,
+  phase: "rest",
+  isPaused: true,
+  preserveTimers: true,
+});
+
+const addContinuation = getPlayerExerciseContinuation({
+  mode: "addAfter",
+  currentIndex: 2,
+  currentSet: 3,
+  phase: "effort",
+  isPaused: false,
+  updatedLength: 9,
+});
+assert.equal(addContinuation.exerciseIndex, 2);
+assert.equal(addContinuation.currentSet, 3);
+assert.equal(addContinuation.phase, "effort");
+assert.equal(addContinuation.preserveTimers, true);
+
+const shiftedAfterAdd = remapPlayerExerciseTimings(
+  new Map([[0, 12], [2, 34], [3, 56]]),
+  { mode: "addAfter", currentIndex: 2 }
+);
+assert.deepEqual(Array.from(shiftedAfterAdd.entries()), [[0, 12], [2, 34], [4, 56]]);
+
+const shiftedAfterDelete = remapPlayerExerciseTimings(
+  new Map([[0, 12], [2, 34], [3, 56]]),
+  { mode: "delete", currentIndex: 2 }
+);
+assert.deepEqual(Array.from(shiftedAfterDelete.entries()), [[0, 12], [2, 56]]);
+
+const replacementAudit = buildPlayerExerciseAuditDetails({
+  mode: "replace",
+  beforeIdentity: { ids: ["old-id"], names: ["ancien exercice"] },
+  afterIdentity: { ids: ["new-id"], names: ["nouvel exercice"] },
+  beforeName: "Ancien exercice",
+  afterName: "Nouvel exercice",
+});
+assert.equal(replacementAudit.operation, "replace");
+assert.equal(replacementAudit.field, "Exercice remplacé");
+assert.equal(replacementAudit.value, "Ancien exercice → Nouvel exercice");
+assert.deepEqual(replacementAudit.exerciseIds, ["old-id", "new-id"]);
+assert.deepEqual(replacementAudit.exerciseNames, ["ancien exercice", "nouvel exercice"]);
 
 console.log("Player exercise editing tests passed.");

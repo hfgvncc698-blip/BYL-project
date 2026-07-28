@@ -213,8 +213,12 @@ service cloud.firestore {
           request.resource.data.subscriptionStatus in ["active", "trialing"]
         )
       );
-      allow get: if isOwnUser(uid) || isAdmin() || isCoach() || (signedIn() && resource.data.role in ["coach", "admin"]);
-      allow list: if isAdmin() || isCoach();
+      allow get: if isOwnUser(uid) || isAdmin() || (
+        signedIn() && resource.data.role in ["coach", "admin"]
+      );
+      allow list: if isAdmin() || (
+        signedIn() && resource.data.role in ["coach", "admin"]
+      );
       allow update: if (isAdmin() && userRoleUnchanged()) || (isOwnUser(uid) && userSelfProtectedFieldsUnchanged());
       allow delete: if isAdmin();
 
@@ -338,7 +342,8 @@ service cloud.firestore {
     }
 
     match /coachs/{coachId} {
-      allow read: if signedIn();
+      allow get: if signedIn();
+      allow list: if isAdmin();
       allow write: if isAdmin() || isOwnUser(coachId);
     }
 

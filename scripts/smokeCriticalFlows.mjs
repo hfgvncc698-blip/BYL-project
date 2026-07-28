@@ -68,6 +68,44 @@ check("stripe diagnostics are admin-only and do not expose key fragments", () =>
   assert.ok(!diagBlock.includes("slice("), "Stripe diagnostic must not expose key fragments");
 });
 
+check("program generation and client data access are scoped", () => {
+  const programsRoute = read("backend/routes/programs.js");
+  const rules = read("firestore.rules");
+  const clientCreation = read("src/components/ClientCreation.jsx");
+  const clientDashboard = read("src/components/Clientdashboard.jsx");
+  const adminDashboard = read("src/components/AdminDashboard.jsx");
+
+  assert.ok(
+    programsRoute.includes('router.post("/generate", requireFirebaseAuth'),
+    "Program generation must require Firebase authentication"
+  );
+  assert.ok(
+    programsRoute.includes("resolveGenerationScope(req, clientIdFromBody, firebaseUid)") &&
+      programsRoute.includes("consumeGenerationQuota(req.auth.uid)"),
+    "Program generation must validate ownership and enforce a per-user quota"
+  );
+  assert.ok(
+    !rules.includes("allow list: if isAdmin() || isCoach();"),
+    "Coaches must not be able to list every user account"
+  );
+  assert.ok(
+    clientCreation.includes("clubId: base.clubId || clubId || null") &&
+      !clientCreation.includes("clubId: base.clubId || user?.clubId"),
+    "Personal clients must not inherit a coach club implicitly"
+  );
+  assert.ok(
+    clientDashboard.includes("const quickItems = snap.docs.map") &&
+      clientDashboard.includes("await runLimited("),
+    "Client programs must render before bounded history enrichment"
+  );
+  assert.ok(
+    adminDashboard.includes("const initialReads = {") &&
+      adminDashboard.includes("setRefreshing(true)") &&
+      adminDashboard.includes("Actualisation…"),
+    "Admin data must load concurrently behind a visible progressive state"
+  );
+});
+
 check("cloud functions source has a single toDate helper", () => {
   const functionsIndex = read("functions/index.js");
   assert.equal(countMatches(functionsIndex, /function toDate\(/g), 1, "functions/index.js must define toDate once");
@@ -119,7 +157,11 @@ check("admin email history is lazy and automatic sends are deduplicated", () => 
   assert.ok(appSource.includes('AdminEmails: () => import("./pages/AdminEmails.jsx")'), "Global admin email page must be lazy");
   assert.ok(appSource.includes('path="/admin/social-publisher" element={<Navigate to="/admin/emails" replace />}'), "Old Social Publisher route must redirect to global emails");
   assert.ok(globalEmailPage.includes("Ne pas envoyer"), "Global email planning must allow cancellation");
-  assert.ok(globalEmailPage.includes("Date prévue"), "Global email planning must show scheduled dates");
+  assert.ok(
+    globalEmailPage.includes("Éligible à partir du") &&
+      globalEmailPage.includes("Traitement vers 09:00"),
+    "Global email planning must explain the daily delivery window"
+  );
   assert.ok(page.includes('lazyBehavior="keepMounted"'), "Admin tabs must preserve lazily loaded email state");
   assert.ok(functionsIndex.includes("async function claimLifecycleEmail"), "Automatic emails need an atomic claim");
   assert.ok(tracking.includes("firstOpenedAt"), "Email pixel must record the first open time");
@@ -127,7 +169,7 @@ check("admin email history is lazy and automatic sends are deduplicated", () => 
   assert.ok(emailPanel.includes('["welcome", "Bienvenue"'), "Welcome email must be listed in admin preferences");
   [
     "Prochains e-mails prévus",
-    "Envoi prévu le",
+    "Éligible à partir du",
     "Modèles automatiques",
     "Journal administrateur",
     "Échecs et rebonds",
@@ -153,6 +195,41 @@ check("admin email history is lazy and automatic sends are deduplicated", () => 
   assert.ok(
     functionsIndex.includes("if (!(await claimLifecycleEmail(programRef, kind))) return false"),
     "Program lifecycle emails must claim delivery before SMTP"
+  );
+  assert.ok(
+    functionsIndex.includes("function completedSessionIndex") &&
+      functionsIndex.includes("if (index !== null) indexes.add(index)") &&
+      functionsIndex.includes("return indexes.size"),
+    "Program completion must count only unique, validated session indexes"
+  );
+  const completedSessionHelperSource = functionsIndex.match(
+    /(function completedSessionIndex[\s\S]*?\n})\n\nasync function getCompletedSessionCount/
+  )?.[1];
+  assert.ok(completedSessionHelperSource, "Completed-session helper must remain testable");
+  const completedSessionIndex = new Function(
+    "safeTrim",
+    `"use strict"; return (${completedSessionHelperSource});`
+  )((value) => String(value || "").trim());
+  assert.equal(
+    completedSessionIndex(
+      { status: "validée", isPartial: false, pourcentageTermine: 35, sessionIndex: 0 },
+      3
+    ),
+    0,
+    "Clicking Terminer la séance must validate the session even below 90%"
+  );
+  assert.equal(
+    completedSessionIndex(
+      { status: "en_cours", isPartial: true, pourcentageTermine: 95, sessionIndex: 0 },
+      3
+    ),
+    null,
+    "Partial progress must never validate a session"
+  );
+  assert.ok(
+    functionsIndex.includes("const completedSessions = await getCompletedSessionCount(docSnap.ref, program)") &&
+      functionsIndex.includes("completionEmailDueAt: admin.firestore.FieldValue.delete()"),
+    "Scheduled completion emails must revalidate every session before sending"
   );
 });
 
@@ -317,6 +394,36 @@ check("coach session planning is atomic, bounded and duplicate-safe", () => {
     dashboard.includes("{...shortcutPrimaryButtonProps}") &&
       dashboard.includes('t("dashboard.plan_session", "Planifier une séance")'),
     "Session planning must remain the primary dashboard shortcut"
+  );
+  assert.ok(
+    dashboard.includes("const resolveCoachAccessContext") &&
+      dashboard.includes('getProPlanAccess(') &&
+      dashboard.includes('isClubAccount ? "club" : "complete"'),
+    "Admin coach preview must resolve active trial modules like a real coach login"
+  );
+  assert.ok(
+    dashboard.includes("{hasNutritionCalendarAccess && (") &&
+      dashboard.includes('t("auto.CoachDashboard.faire_une_ration", "Faire une ration")') &&
+      dashboard.includes("onClick={() => rationShortcutModal.onOpen()}") &&
+      dashboard.includes('data-testid="nutrition-plan-followup-shortcut"') &&
+      dashboard.includes('onClick={() => openNutritionAppointmentForClient("")}') &&
+      dashboard.includes(
+        "`/clients/${entry.clientId}/nutrition/${entry.assessmentId}/ration`"
+      ),
+    "Nutrition-only dashboards must expose creation, ration and appointment planning as distinct actions"
+  );
+  assert.ok(
+    dashboard.includes('params.get("adminPlan")') &&
+      dashboard.includes('["sport", "nutrition", "complete"].includes(requestedAdminPlan)') &&
+      dashboard.includes("&adminPlan=") &&
+      dashboard.includes('role: "coach"'),
+    "Admin plan previews must be explicit, bounded and preserved during navigation"
+  );
+  assert.ok(
+    dashboard.includes("const isNutritionOnlyPatient = Boolean(nutritionRow && !hasSportProgram)") &&
+      dashboard.includes('t("nutritionCoach.openAssessment", "Ouvrir le bilan")') &&
+      dashboard.includes('t("dashboard.plan_nutrition_appointment", "Planifier un suivi")'),
+    "Nutrition-only patient cards must replace sport session actions with nutrition actions"
   );
 });
 

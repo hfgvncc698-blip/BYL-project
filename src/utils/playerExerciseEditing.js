@@ -250,3 +250,97 @@ export function applyPlayerExerciseDeletion({
     removedLocalIndex: localIndex,
   };
 }
+
+export function getPlayerExerciseContinuation({
+  mode,
+  currentIndex,
+  currentSet,
+  phase,
+  isPaused,
+  updatedLength,
+}) {
+  const safeLength = Math.max(0, Number(updatedLength) || 0);
+  const safeIndex = Math.max(
+    0,
+    Math.min(Number(currentIndex) || 0, Math.max(0, safeLength - 1))
+  );
+
+  if (mode === "replace" || mode === "addAfter") {
+    return {
+      exerciseIndex: safeIndex,
+      currentSet: Math.max(1, Number(currentSet) || 1),
+      phase: ["ready", "effort", "rest"].includes(phase) ? phase : "ready",
+      isPaused: Boolean(isPaused),
+      preserveTimers: true,
+    };
+  }
+
+  return {
+    exerciseIndex: safeIndex,
+    currentSet: 1,
+    phase: "ready",
+    isPaused: false,
+    preserveTimers: false,
+  };
+}
+
+export function remapPlayerExerciseTimings(entries, { mode, currentIndex } = {}) {
+  const editedIndex = Math.max(0, Number(currentIndex) || 0);
+  const source = entries instanceof Map ? Array.from(entries.entries()) : Array.from(entries || []);
+
+  return new Map(
+    source.flatMap(([index, seconds]) => {
+      const safeIndex = Number(index);
+      if (!Number.isFinite(safeIndex)) return [];
+      if (mode === "addAfter" && safeIndex > editedIndex) {
+        return [[safeIndex + 1, seconds]];
+      }
+      if (mode === "delete") {
+        if (safeIndex === editedIndex) return [];
+        if (safeIndex > editedIndex) return [[safeIndex - 1, seconds]];
+      }
+      return [[safeIndex, seconds]];
+    })
+  );
+}
+
+export function buildPlayerExerciseAuditDetails({
+  mode,
+  beforeIdentity = {},
+  afterIdentity = {},
+  beforeName = "",
+  afterName = "",
+}) {
+  const exerciseIds = Array.from(
+    new Set([
+      ...(Array.isArray(beforeIdentity.ids) ? beforeIdentity.ids : []),
+      ...(Array.isArray(afterIdentity.ids) ? afterIdentity.ids : []),
+    ].filter(Boolean))
+  );
+  const exerciseNames = Array.from(
+    new Set([
+      ...(Array.isArray(beforeIdentity.names) ? beforeIdentity.names : []),
+      ...(Array.isArray(afterIdentity.names) ? afterIdentity.names : []),
+    ].filter(Boolean))
+  );
+  const field =
+    mode === "replace"
+      ? "Exercice remplacé"
+      : mode === "addAfter"
+        ? "Exercice ajouté"
+        : "Exercice supprimé";
+  const value =
+    mode === "replace"
+      ? `${beforeName} → ${afterName}`
+      : mode === "addAfter"
+        ? afterName
+        : beforeName;
+
+  return {
+    operation: mode,
+    field,
+    value,
+    exerciseIds,
+    exerciseNames,
+  };
+}

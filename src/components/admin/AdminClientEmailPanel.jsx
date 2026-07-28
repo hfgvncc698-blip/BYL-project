@@ -616,7 +616,8 @@ export default function AdminClientEmailPanel({ clientId, profileId, audience = 
                       <Badge colorScheme="orange">{emailTypeLabel(item.type)}</Badge>
                       <Text fontWeight="700" mt={1}>{item.subject}</Text>
                       <Text color={muted} fontSize="sm">
-                        Envoi prévu le {toLocale(item.dueAt)}{item.detail ? ` • ${item.detail}` : ""}
+                        Éligible à partir du {toLocale(item.dueAt)} · traitement automatique vers 09:00
+                        {item.detail ? ` • ${item.detail}` : ""}
                       </Text>
                     </Box>
                     <Button

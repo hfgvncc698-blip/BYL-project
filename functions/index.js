@@ -1626,24 +1626,60 @@ async function hasStartedProgram(programRef) {
   return !doneSnap.empty;
 }
 
+function completedSessionIndex(data = {}, totalSessions = 0) {
+  const status = safeTrim(data.status).toLowerCase();
+  if (
+    data.isPartial === true ||
+    status === "en_cours" ||
+    status === "in_progress"
+  ) {
+    return null;
+  }
+
+  const rawProgress =
+    data.pourcentageTermine ?? data.progress ?? data.completionPercent;
+  const progress = rawProgress == null ? null : Number(rawProgress);
+  const explicitlyCompleted =
+    ["validée", "validee", "terminée", "terminee", "done", "completed"].includes(status) ||
+    Boolean(data.validatedAt) ||
+    Boolean(data.completedAt) ||
+    Boolean(data.dateEffectuee) ||
+    Boolean(data.finishedAt);
+
+  if (
+    !explicitlyCompleted &&
+    (!Number.isFinite(progress) || progress < 90)
+  ) {
+    return null;
+  }
+
+  const zeroBasedValue = data.sessionIndex ?? data.index ?? data.sessionIdx;
+  if (zeroBasedValue !== undefined && zeroBasedValue !== null && zeroBasedValue !== "") {
+    const index = Number(zeroBasedValue);
+    return Number.isInteger(index) && index >= 0 && index < totalSessions ? index : null;
+  }
+
+  if (data.sessionNumber !== undefined && data.sessionNumber !== null && data.sessionNumber !== "") {
+    const oneBasedNumber = Number(data.sessionNumber);
+    const index = oneBasedNumber - 1;
+    return Number.isInteger(index) && index >= 0 && index < totalSessions ? index : null;
+  }
+
+  return null;
+}
+
 async function getCompletedSessionCount(programRef, program = {}) {
   const total = countProgramSessions(program);
+  if (!total) return 0;
   const doneSnap = await programRef.collection("sessionsEffectuees").get();
   if (doneSnap.empty) return 0;
   const indexes = new Set();
-  let fallbackCount = 0;
   doneSnap.forEach((docSnap) => {
     const data = docSnap.data() || {};
-    const pct = Number(data.pourcentageTermine ?? data.progress ?? data.completionPercent ?? 100);
-    if (pct < 90) return;
-    const idx = data.sessionIndex ?? data.index ?? data.sessionIdx ?? data.sessionNumber;
-    if (idx !== undefined && idx !== null && idx !== "") {
-      indexes.add(String(idx));
-    } else {
-      fallbackCount += 1;
-    }
+    const index = completedSessionIndex(data, total);
+    if (index !== null) indexes.add(index);
   });
-  return Math.max(indexes.size, fallbackCount, total > 0 && doneSnap.size >= total ? total : 0);
+  return indexes.size;
 }
 
 async function sendProgramLifecycleEmail({ programRef, program, clientId, programmeId, kind, dueExtra = {} }) {
@@ -2356,7 +2392,7 @@ exports.onUserSubscriptionLifecycle = onDocumentWritten(
 /* =======================================================================
  * 6) onProgramSessionCompleted (TRIGGER Firestore)
  * ======================================================================= */
-exports.onProgramSessionCompleted = onDocumentCreated(
+exports.onProgramSessionCompleted = onDocumentWritten(
   {
     region: "europe-west1",
     document: "clients/{clientId}/programmes/{programmeId}/sessionsEffectuees/{sessionDoneId}",
@@ -2367,6 +2403,14 @@ exports.onProgramSessionCompleted = onDocumentCreated(
     const programRef = db.doc(`clients/${clientId}/programmes/${programmeId}`);
 
     try {
+      const completedSession = event.data?.after?.exists
+        ? event.data.after.data() || {}
+        : null;
+      const previousSession = event.data?.before?.exists
+        ? event.data.before.data() || {}
+        : null;
+      if (!completedSession) return;
+
       const programSnap = await programRef.get();
       if (!programSnap.exists) return;
 
@@ -2375,6 +2419,8 @@ exports.onProgramSessionCompleted = onDocumentCreated(
 
       const totalSessions = countProgramSessions(program);
       if (!totalSessions) return;
+      if (completedSessionIndex(completedSession, totalSessions) === null) return;
+      if (previousSession && completedSessionIndex(previousSession, totalSessions) !== null) return;
 
       const completed = await getCompletedSessionCount(programRef, program);
       if (completed < totalSessions) return;
@@ -2510,13 +2556,29 @@ exports.runLifecycleEmailJobs = onSchedule(
         const programmeId = parts[3];
         if (!clientId || !programmeId) return;
         tasks.push(
-          sendProgramLifecycleEmail({
-            programRef: docSnap.ref,
-            program,
-            clientId,
-            programmeId,
-            kind: "programCompleted",
-          })
+          (async () => {
+            const totalSessions = countProgramSessions(program);
+            const completedSessions = await getCompletedSessionCount(docSnap.ref, program);
+            if (!totalSessions || completedSessions < totalSessions) {
+              await docSnap.ref.update({
+                completionEmailDueAt: admin.firestore.FieldValue.delete(),
+                completedAt: admin.firestore.FieldValue.delete(),
+                "lifecycleEmails.programCompletedEligibilityCheckedAt":
+                  admin.firestore.FieldValue.serverTimestamp(),
+                "lifecycleEmails.programCompletedEligibilityStatus": "incomplete",
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              });
+              return false;
+            }
+
+            return sendProgramLifecycleEmail({
+              programRef: docSnap.ref,
+              program,
+              clientId,
+              programmeId,
+              kind: "programCompleted",
+            });
+          })()
         );
       });
       await Promise.allSettled(tasks);

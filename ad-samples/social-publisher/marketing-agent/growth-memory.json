@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-07-24T01:14:09.458Z",
+  "updatedAt": "2026-07-27T23:36:39.378Z",
   "primaryKpi": "free_trial_starts",
   "secondaryKpi": "activation_day_7",
   "activationSignals": [
@@ -28054,17 +28054,1481 @@
         }
       ],
       "learningEntryCount": 245
+    },
+    {
+      "id": "2026-07-24-growth-report",
+      "generatedAt": "2026-07-25T03:47:15.968Z",
+      "date": "2026-07-24",
+      "primaryKpi": "free_trial_starts",
+      "secondaryKpi": "activation_day_7",
+      "activationSignals": [
+        "client_created",
+        "program_created",
+        "program_assigned",
+        "client_login"
+      ],
+      "summary": "Optimisation orientee essais gratuits demarres puis activation J+7. Les vues, likes et commentaires restent des signaux secondaires.",
+      "topHooks": [
+        {
+          "value": "Vendredi matin, le coach ne doit pas repartir dans ses onglets.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Ton client ne voit pas ton admin. Il ressent ton suivi.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Avant le premier cours, tu dois deja savoir quels clients actifs risquent de decrocher.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topVideos": [
+        {
+          "value": "story",
+          "count": 2,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "post_long_b2b",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topCtas": [
+        {
+          "value": "Decouvrir l'essai gratuit de 14 jours",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Reponds SUIVI si tu veux voir comment ca marche.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Reponds CLUB si tu veux voir comment ca marche",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topFormats": [
+        {
+          "value": "story",
+          "count": 2,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "post_long_b2b",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topCreativeFormatVariants": [],
+      "topTimes": [
+        {
+          "value": "friday-09h30-facebook",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "monday-12h30-story",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "tuesday-18h30-story",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topEmotions": [
+        {
+          "value": "soulagement",
+          "count": 3,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topAudiences": [
+        {
+          "value": "coachs sportifs",
+          "count": 2,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "salles et studios fitness",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topActivatedHooks": [
+        {
+          "value": "Vendredi matin, le coach ne doit pas repartir dans ses onglets.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Ton client ne voit pas ton admin. Il ressent ton suivi.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Avant le premier cours, tu dois deja savoir quels clients actifs risquent de decrocher.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topActivatedAudiences": [
+        {
+          "value": "coach_independant",
+          "count": 2,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "salle_de_sport",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "segmentPerformance": [
+        {
+          "segment": "coach_independant",
+          "count": 2,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "clicks": 0,
+          "views": 0,
+          "activationRate": 0,
+          "trialRate": 0
+        },
+        {
+          "segment": "salle_de_sport",
+          "count": 1,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "clicks": 0,
+          "views": 0,
+          "activationRate": 0,
+          "trialRate": 0
+        }
+      ],
+      "fatigueAngles": [],
+      "falseSuccesses": [],
+      "distributionAlerts": [
+        {
+          "date": "2026-06-26",
+          "platform": "facebook",
+          "hook": "Vendredi matin, le coach ne doit pas repartir dans ses onglets.",
+          "audienceSegment": "coach_independant",
+          "views": 0,
+          "reach": 0,
+          "interactions": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "reasons": [
+            "no_trial_signal_yet"
+          ],
+          "recommendation": "Ne pas reproduire tel quel: renforcer les 2 premieres secondes, ajouter plus de plans humains, CTA natif plateforme et seed de distribution."
+        },
+        {
+          "date": "2026-06-29",
+          "platform": "instagram_story",
+          "hook": "Ton client ne voit pas ton admin. Il ressent ton suivi.",
+          "audienceSegment": "coach_independant",
+          "views": 0,
+          "reach": 0,
+          "interactions": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "reasons": [
+            "no_trial_signal_yet"
+          ],
+          "recommendation": "Ne pas reproduire tel quel: renforcer les 2 premieres secondes, ajouter plus de plans humains, CTA natif plateforme et seed de distribution."
+        },
+        {
+          "date": "2026-06-30",
+          "platform": "instagram_story",
+          "hook": "Avant le premier cours, tu dois deja savoir quels clients actifs risquent de decrocher.",
+          "audienceSegment": "salle_de_sport",
+          "views": 0,
+          "reach": 0,
+          "interactions": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "reasons": [
+            "no_trial_signal_yet"
+          ],
+          "recommendation": "Ne pas reproduire tel quel: renforcer les 2 premieres secondes, ajouter plus de plans humains, CTA natif plateforme et seed de distribution."
+        }
+      ],
+      "nextContentRules": [
+        "Ne pas considerer une video a moins de 50 vues comme creative winner: il faut d'abord resoudre hook, timing ou distribution.",
+        "Ouvrir par une friction terrain visible en moins de 2 secondes, puis montrer la preuve produit seulement apres le probleme ressenti.",
+        "Monter plus vite: 5 a 7 plans, coupes de 1.5 a 2.8 secondes, texte overlay court et lisible.",
+        "Adapter le CTA par plateforme: Instagram/TikTok vers bio ou reponse, Facebook avec lien cliquable.",
+        "Prevoir un seed manuel de distribution quand Meta donne moins de 50 vues: story, commentaire epingle, repartage ou publication au creneau exact."
+      ],
+      "experimentMix": {
+        "targetShare": {
+          "proven": 0.7,
+          "optimization": 0.2,
+          "experiment": 0.1
+        },
+        "counts": {
+          "proven": 2,
+          "optimization": 1,
+          "experiment": 0
+        },
+        "currentShare": {
+          "proven": 0.67,
+          "optimization": 0.33,
+          "experiment": 0
+        }
+      },
+      "proofLibrarySummary": {
+        "totalProofs": 0,
+        "testimonials": 0,
+        "timeSavings": 0,
+        "screenshots": 0,
+        "stats": 0,
+        "transformations": 0
+      },
+      "objectionSummary": {
+        "prix": 0,
+        "complexite": 0,
+        "confiance": 0,
+        "migration": 0,
+        "ia": 0,
+        "securite": 0,
+        "temps": 0
+      },
+      "brandScore": {
+        "score": 63,
+        "dimensions": {
+          "premium": 60,
+          "serious": 60,
+          "innovative": 60,
+          "reliable": 72
+        }
+      },
+      "killSwitch": {
+        "automaticPublishingDisabled": true,
+        "trippedAt": "2026-06-30T23:56:49.458Z",
+        "reason": "manual_pause_user_review_required",
+        "severity": "high",
+        "source": "codex_user_request_2026_07_01",
+        "resolvedAt": "",
+        "resolvedReason": "",
+        "alertCount": 84,
+        "latestAlert": {
+          "at": "2026-07-25T03:47:15.960Z",
+          "reason": "meta_performance_sync_blocked",
+          "severity": "warning",
+          "source": "byl-social-publisher-rapport-growth-nightly",
+          "details": {
+            "updated": 0,
+            "failedCount": 18,
+            "total": 18,
+            "initialError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+            "rerunEscalated": false,
+            "escalatedRerun": {
+              "attempts": 2,
+              "result": "approval_review_timeout_twice"
+            },
+            "sampleErrors": [
+              "Meta Graph GET 857477100212912: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+              "Meta Graph GET 18142983556524389: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+              "Meta Graph GET 18099111391988502: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+            ]
+          }
+        }
+      },
+      "recentBlocks": [
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "reason": "daily_media_not_publishable",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "reason": "daily_media_not_publishable",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "reason": "daily_media_not_publishable",
+          "detail": ""
+        },
+        {
+          "network": "instagram_story",
+          "reason": "creative_quality_blocked",
+          "detail": ""
+        }
+      ],
+      "learningEntryCount": 245
+    },
+    {
+      "id": "2026-07-25-growth-report",
+      "generatedAt": "2026-07-25T23:08:15.691Z",
+      "date": "2026-07-25",
+      "primaryKpi": "free_trial_starts",
+      "secondaryKpi": "activation_day_7",
+      "activationSignals": [
+        "client_created",
+        "program_created",
+        "program_assigned",
+        "client_login"
+      ],
+      "summary": "Optimisation orientee essais gratuits demarres puis activation J+7. Les vues, likes et commentaires restent des signaux secondaires.",
+      "topHooks": [
+        {
+          "value": "Vendredi matin, le coach ne doit pas repartir dans ses onglets.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Ton client ne voit pas ton admin. Il ressent ton suivi.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Avant le premier cours, tu dois deja savoir quels clients actifs risquent de decrocher.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topVideos": [
+        {
+          "value": "story",
+          "count": 2,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "post_long_b2b",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topCtas": [
+        {
+          "value": "Decouvrir l'essai gratuit de 14 jours",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Reponds SUIVI si tu veux voir comment ca marche.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Reponds CLUB si tu veux voir comment ca marche",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topFormats": [
+        {
+          "value": "story",
+          "count": 2,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "post_long_b2b",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topCreativeFormatVariants": [],
+      "topTimes": [
+        {
+          "value": "friday-09h30-facebook",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "monday-12h30-story",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "tuesday-18h30-story",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topEmotions": [
+        {
+          "value": "soulagement",
+          "count": 3,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topAudiences": [
+        {
+          "value": "coachs sportifs",
+          "count": 2,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "salles et studios fitness",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topActivatedHooks": [
+        {
+          "value": "Vendredi matin, le coach ne doit pas repartir dans ses onglets.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Ton client ne voit pas ton admin. Il ressent ton suivi.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Avant le premier cours, tu dois deja savoir quels clients actifs risquent de decrocher.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topActivatedAudiences": [
+        {
+          "value": "coach_independant",
+          "count": 2,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "salle_de_sport",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "segmentPerformance": [
+        {
+          "segment": "coach_independant",
+          "count": 2,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "clicks": 0,
+          "views": 0,
+          "activationRate": 0,
+          "trialRate": 0
+        },
+        {
+          "segment": "salle_de_sport",
+          "count": 1,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "clicks": 0,
+          "views": 0,
+          "activationRate": 0,
+          "trialRate": 0
+        }
+      ],
+      "fatigueAngles": [],
+      "falseSuccesses": [],
+      "distributionAlerts": [
+        {
+          "date": "2026-06-26",
+          "platform": "facebook",
+          "hook": "Vendredi matin, le coach ne doit pas repartir dans ses onglets.",
+          "audienceSegment": "coach_independant",
+          "views": 0,
+          "reach": 0,
+          "interactions": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "reasons": [
+            "no_trial_signal_yet"
+          ],
+          "recommendation": "Ne pas reproduire tel quel: renforcer les 2 premieres secondes, ajouter plus de plans humains, CTA natif plateforme et seed de distribution."
+        },
+        {
+          "date": "2026-06-29",
+          "platform": "instagram_story",
+          "hook": "Ton client ne voit pas ton admin. Il ressent ton suivi.",
+          "audienceSegment": "coach_independant",
+          "views": 0,
+          "reach": 0,
+          "interactions": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "reasons": [
+            "no_trial_signal_yet"
+          ],
+          "recommendation": "Ne pas reproduire tel quel: renforcer les 2 premieres secondes, ajouter plus de plans humains, CTA natif plateforme et seed de distribution."
+        },
+        {
+          "date": "2026-06-30",
+          "platform": "instagram_story",
+          "hook": "Avant le premier cours, tu dois deja savoir quels clients actifs risquent de decrocher.",
+          "audienceSegment": "salle_de_sport",
+          "views": 0,
+          "reach": 0,
+          "interactions": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "reasons": [
+            "no_trial_signal_yet"
+          ],
+          "recommendation": "Ne pas reproduire tel quel: renforcer les 2 premieres secondes, ajouter plus de plans humains, CTA natif plateforme et seed de distribution."
+        }
+      ],
+      "nextContentRules": [
+        "Ne pas considerer une video a moins de 50 vues comme creative winner: il faut d'abord resoudre hook, timing ou distribution.",
+        "Ouvrir par une friction terrain visible en moins de 2 secondes, puis montrer la preuve produit seulement apres le probleme ressenti.",
+        "Monter plus vite: 5 a 7 plans, coupes de 1.5 a 2.8 secondes, texte overlay court et lisible.",
+        "Adapter le CTA par plateforme: Instagram/TikTok vers bio ou reponse, Facebook avec lien cliquable.",
+        "Prevoir un seed manuel de distribution quand Meta donne moins de 50 vues: story, commentaire epingle, repartage ou publication au creneau exact."
+      ],
+      "experimentMix": {
+        "targetShare": {
+          "proven": 0.7,
+          "optimization": 0.2,
+          "experiment": 0.1
+        },
+        "counts": {
+          "proven": 2,
+          "optimization": 1,
+          "experiment": 0
+        },
+        "currentShare": {
+          "proven": 0.67,
+          "optimization": 0.33,
+          "experiment": 0
+        }
+      },
+      "proofLibrarySummary": {
+        "totalProofs": 0,
+        "testimonials": 0,
+        "timeSavings": 0,
+        "screenshots": 0,
+        "stats": 0,
+        "transformations": 0
+      },
+      "objectionSummary": {
+        "prix": 0,
+        "complexite": 0,
+        "confiance": 0,
+        "migration": 0,
+        "ia": 0,
+        "securite": 0,
+        "temps": 0
+      },
+      "brandScore": {
+        "score": 63,
+        "dimensions": {
+          "premium": 60,
+          "serious": 60,
+          "innovative": 60,
+          "reliable": 72
+        }
+      },
+      "killSwitch": {
+        "automaticPublishingDisabled": true,
+        "trippedAt": "2026-06-30T23:56:49.458Z",
+        "reason": "manual_pause_user_review_required",
+        "severity": "high",
+        "source": "codex_user_request_2026_07_01",
+        "resolvedAt": "",
+        "resolvedReason": "",
+        "alertCount": 85,
+        "latestAlert": {
+          "at": "2026-07-25T23:08:15.685Z",
+          "reason": "meta_performance_sync_blocked",
+          "severity": "warning",
+          "source": "byl-social-publisher-rapport-growth-nightly",
+          "details": {
+            "updated": 0,
+            "failedCount": 18,
+            "total": 18,
+            "initialError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+            "sampleErrors": [
+              "Meta Graph GET 857477100212912: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+              "Meta Graph GET 18142983556524389: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+            ],
+            "escalatedRerun": {
+              "attempted": true,
+              "result": "approval_review_timeout_twice"
+            },
+            "missingMetricsInvented": false
+          }
+        }
+      },
+      "recentBlocks": [
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        }
+      ],
+      "learningEntryCount": 245
+    },
+    {
+      "id": "2026-07-26-growth-report",
+      "generatedAt": "2026-07-26T22:53:44.422Z",
+      "date": "2026-07-26",
+      "primaryKpi": "free_trial_starts",
+      "secondaryKpi": "activation_day_7",
+      "activationSignals": [
+        "client_created",
+        "program_created",
+        "program_assigned",
+        "client_login"
+      ],
+      "summary": "Optimisation orientee essais gratuits demarres puis activation J+7. Les vues, likes et commentaires restent des signaux secondaires.",
+      "topHooks": [
+        {
+          "value": "Vendredi matin, le coach ne doit pas repartir dans ses onglets.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Ton client ne voit pas ton admin. Il ressent ton suivi.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Avant le premier cours, tu dois deja savoir quels clients actifs risquent de decrocher.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topVideos": [
+        {
+          "value": "story",
+          "count": 2,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "post_long_b2b",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topCtas": [
+        {
+          "value": "Decouvrir l'essai gratuit de 14 jours",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Reponds SUIVI si tu veux voir comment ca marche.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Reponds CLUB si tu veux voir comment ca marche",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topFormats": [
+        {
+          "value": "story",
+          "count": 2,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "post_long_b2b",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topCreativeFormatVariants": [],
+      "topTimes": [
+        {
+          "value": "friday-09h30-facebook",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "monday-12h30-story",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "tuesday-18h30-story",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topEmotions": [
+        {
+          "value": "soulagement",
+          "count": 3,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topAudiences": [
+        {
+          "value": "coachs sportifs",
+          "count": 2,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "salles et studios fitness",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topActivatedHooks": [
+        {
+          "value": "Vendredi matin, le coach ne doit pas repartir dans ses onglets.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Ton client ne voit pas ton admin. Il ressent ton suivi.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Avant le premier cours, tu dois deja savoir quels clients actifs risquent de decrocher.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topActivatedAudiences": [
+        {
+          "value": "coach_independant",
+          "count": 2,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "salle_de_sport",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "segmentPerformance": [
+        {
+          "segment": "coach_independant",
+          "count": 2,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "clicks": 0,
+          "views": 0,
+          "activationRate": 0,
+          "trialRate": 0
+        },
+        {
+          "segment": "salle_de_sport",
+          "count": 1,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "clicks": 0,
+          "views": 0,
+          "activationRate": 0,
+          "trialRate": 0
+        }
+      ],
+      "fatigueAngles": [],
+      "falseSuccesses": [],
+      "distributionAlerts": [
+        {
+          "date": "2026-06-26",
+          "platform": "facebook",
+          "hook": "Vendredi matin, le coach ne doit pas repartir dans ses onglets.",
+          "audienceSegment": "coach_independant",
+          "views": 0,
+          "reach": 0,
+          "interactions": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "reasons": [
+            "no_trial_signal_yet"
+          ],
+          "recommendation": "Ne pas reproduire tel quel: renforcer les 2 premieres secondes, ajouter plus de plans humains, CTA natif plateforme et seed de distribution."
+        },
+        {
+          "date": "2026-06-29",
+          "platform": "instagram_story",
+          "hook": "Ton client ne voit pas ton admin. Il ressent ton suivi.",
+          "audienceSegment": "coach_independant",
+          "views": 0,
+          "reach": 0,
+          "interactions": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "reasons": [
+            "no_trial_signal_yet"
+          ],
+          "recommendation": "Ne pas reproduire tel quel: renforcer les 2 premieres secondes, ajouter plus de plans humains, CTA natif plateforme et seed de distribution."
+        },
+        {
+          "date": "2026-06-30",
+          "platform": "instagram_story",
+          "hook": "Avant le premier cours, tu dois deja savoir quels clients actifs risquent de decrocher.",
+          "audienceSegment": "salle_de_sport",
+          "views": 0,
+          "reach": 0,
+          "interactions": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "reasons": [
+            "no_trial_signal_yet"
+          ],
+          "recommendation": "Ne pas reproduire tel quel: renforcer les 2 premieres secondes, ajouter plus de plans humains, CTA natif plateforme et seed de distribution."
+        }
+      ],
+      "nextContentRules": [
+        "Ne pas considerer une video a moins de 50 vues comme creative winner: il faut d'abord resoudre hook, timing ou distribution.",
+        "Ouvrir par une friction terrain visible en moins de 2 secondes, puis montrer la preuve produit seulement apres le probleme ressenti.",
+        "Monter plus vite: 5 a 7 plans, coupes de 1.5 a 2.8 secondes, texte overlay court et lisible.",
+        "Adapter le CTA par plateforme: Instagram/TikTok vers bio ou reponse, Facebook avec lien cliquable.",
+        "Prevoir un seed manuel de distribution quand Meta donne moins de 50 vues: story, commentaire epingle, repartage ou publication au creneau exact."
+      ],
+      "experimentMix": {
+        "targetShare": {
+          "proven": 0.7,
+          "optimization": 0.2,
+          "experiment": 0.1
+        },
+        "counts": {
+          "proven": 2,
+          "optimization": 1,
+          "experiment": 0
+        },
+        "currentShare": {
+          "proven": 0.67,
+          "optimization": 0.33,
+          "experiment": 0
+        }
+      },
+      "proofLibrarySummary": {
+        "totalProofs": 0,
+        "testimonials": 0,
+        "timeSavings": 0,
+        "screenshots": 0,
+        "stats": 0,
+        "transformations": 0
+      },
+      "objectionSummary": {
+        "prix": 0,
+        "complexite": 0,
+        "confiance": 0,
+        "migration": 0,
+        "ia": 0,
+        "securite": 0,
+        "temps": 0
+      },
+      "brandScore": {
+        "score": 63,
+        "dimensions": {
+          "premium": 60,
+          "serious": 60,
+          "innovative": 60,
+          "reliable": 72
+        }
+      },
+      "killSwitch": {
+        "automaticPublishingDisabled": true,
+        "trippedAt": "2026-06-30T23:56:49.458Z",
+        "reason": "manual_pause_user_review_required",
+        "severity": "high",
+        "source": "codex_user_request_2026_07_01",
+        "resolvedAt": "",
+        "resolvedReason": "",
+        "alertCount": 86,
+        "latestAlert": {
+          "at": "2026-07-26T22:53:44.414Z",
+          "reason": "meta_performance_sync_partial_failure",
+          "severity": "warning",
+          "source": "byl-social-publisher-rapport-growth-nightly",
+          "details": {
+            "updated": 3,
+            "failedCount": 15,
+            "total": 18,
+            "rerunEscalated": true,
+            "initialSandboxError": "fetch failed | ENOTFOUND graph.facebook.com",
+            "sampleErrors": [
+              "Unsupported get request: object missing, inaccessible, or operation unsupported"
+            ]
+          }
+        }
+      },
+      "recentBlocks": [
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        }
+      ],
+      "learningEntryCount": 245
+    },
+    {
+      "id": "2026-07-27-growth-report",
+      "generatedAt": "2026-07-27T23:36:39.377Z",
+      "date": "2026-07-27",
+      "primaryKpi": "free_trial_starts",
+      "secondaryKpi": "activation_day_7",
+      "activationSignals": [
+        "client_created",
+        "program_created",
+        "program_assigned",
+        "client_login"
+      ],
+      "summary": "Optimisation orientee essais gratuits demarres puis activation J+7. Les vues, likes et commentaires restent des signaux secondaires.",
+      "topHooks": [
+        {
+          "value": "Ton client ne voit pas ton admin. Il ressent ton suivi.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Avant le premier cours, tu dois deja savoir quels clients actifs risquent de decrocher.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topVideos": [
+        {
+          "value": "story",
+          "count": 2,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topCtas": [
+        {
+          "value": "Reponds SUIVI si tu veux voir comment ca marche.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Reponds CLUB si tu veux voir comment ca marche",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topFormats": [
+        {
+          "value": "story",
+          "count": 2,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topCreativeFormatVariants": [],
+      "topTimes": [
+        {
+          "value": "monday-12h30-story",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "tuesday-18h30-story",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topEmotions": [
+        {
+          "value": "soulagement",
+          "count": 2,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topAudiences": [
+        {
+          "value": "coachs sportifs",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "salles et studios fitness",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topActivatedHooks": [
+        {
+          "value": "Ton client ne voit pas ton admin. Il ressent ton suivi.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Avant le premier cours, tu dois deja savoir quels clients actifs risquent de decrocher.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topActivatedAudiences": [
+        {
+          "value": "coach_independant",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "salle_de_sport",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "segmentPerformance": [
+        {
+          "segment": "coach_independant",
+          "count": 1,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "clicks": 0,
+          "views": 0,
+          "activationRate": 0,
+          "trialRate": 0
+        },
+        {
+          "segment": "salle_de_sport",
+          "count": 1,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "clicks": 0,
+          "views": 0,
+          "activationRate": 0,
+          "trialRate": 0
+        }
+      ],
+      "fatigueAngles": [],
+      "falseSuccesses": [],
+      "distributionAlerts": [
+        {
+          "date": "2026-06-29",
+          "platform": "instagram_story",
+          "hook": "Ton client ne voit pas ton admin. Il ressent ton suivi.",
+          "audienceSegment": "coach_independant",
+          "views": 0,
+          "reach": 0,
+          "interactions": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "reasons": [
+            "no_trial_signal_yet"
+          ],
+          "recommendation": "Ne pas reproduire tel quel: renforcer les 2 premieres secondes, ajouter plus de plans humains, CTA natif plateforme et seed de distribution."
+        },
+        {
+          "date": "2026-06-30",
+          "platform": "instagram_story",
+          "hook": "Avant le premier cours, tu dois deja savoir quels clients actifs risquent de decrocher.",
+          "audienceSegment": "salle_de_sport",
+          "views": 0,
+          "reach": 0,
+          "interactions": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "reasons": [
+            "no_trial_signal_yet"
+          ],
+          "recommendation": "Ne pas reproduire tel quel: renforcer les 2 premieres secondes, ajouter plus de plans humains, CTA natif plateforme et seed de distribution."
+        }
+      ],
+      "nextContentRules": [
+        "Ne pas considerer une video a moins de 50 vues comme creative winner: il faut d'abord resoudre hook, timing ou distribution.",
+        "Ouvrir par une friction terrain visible en moins de 2 secondes, puis montrer la preuve produit seulement apres le probleme ressenti.",
+        "Monter plus vite: 5 a 7 plans, coupes de 1.5 a 2.8 secondes, texte overlay court et lisible.",
+        "Adapter le CTA par plateforme: Instagram/TikTok vers bio ou reponse, Facebook avec lien cliquable.",
+        "Prevoir un seed manuel de distribution quand Meta donne moins de 50 vues: story, commentaire epingle, repartage ou publication au creneau exact."
+      ],
+      "experimentMix": {
+        "targetShare": {
+          "proven": 0.7,
+          "optimization": 0.2,
+          "experiment": 0.1
+        },
+        "counts": {
+          "proven": 1,
+          "optimization": 1,
+          "experiment": 0
+        },
+        "currentShare": {
+          "proven": 0.5,
+          "optimization": 0.5,
+          "experiment": 0
+        }
+      },
+      "proofLibrarySummary": {
+        "totalProofs": 0,
+        "testimonials": 0,
+        "timeSavings": 0,
+        "screenshots": 0,
+        "stats": 0,
+        "transformations": 0
+      },
+      "objectionSummary": {
+        "prix": 0,
+        "complexite": 0,
+        "confiance": 0,
+        "migration": 0,
+        "ia": 0,
+        "securite": 0,
+        "temps": 0
+      },
+      "brandScore": {
+        "score": 63,
+        "dimensions": {
+          "premium": 60,
+          "serious": 60,
+          "innovative": 60,
+          "reliable": 71
+        }
+      },
+      "killSwitch": {
+        "automaticPublishingDisabled": true,
+        "trippedAt": "2026-06-30T23:56:49.458Z",
+        "reason": "manual_pause_user_review_required",
+        "severity": "high",
+        "source": "codex_user_request_2026_07_01",
+        "resolvedAt": "",
+        "resolvedReason": "",
+        "alertCount": 87,
+        "latestAlert": {
+          "at": "2026-07-27T23:36:39.370Z",
+          "reason": "meta_performance_sync_partial_failure",
+          "severity": "warning",
+          "source": "nightly_growth_report",
+          "details": {
+            "updated": 3,
+            "failedCount": 15,
+            "total": 18,
+            "rerunEscalated": true,
+            "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+            "sampleErrors": [
+              "Unsupported get request: object inaccessible, missing permissions, or unsupported operation"
+            ]
+          }
+        }
+      },
+      "recentBlocks": [
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        }
+      ],
+      "learningEntryCount": 245
     }
   ],
   "currentWinners": {
     "hooks": [
-      {
-        "value": "Vendredi matin, le coach ne doit pas repartir dans ses onglets.",
-        "count": 1,
-        "score": 0,
-        "freeTrialStarts": 0,
-        "activationDay7": 0
-      },
       {
         "value": "Ton client ne voit pas ton admin. Il ressent ton suivi.",
         "count": 1,
@@ -28087,23 +29551,9 @@
         "score": 0,
         "freeTrialStarts": 0,
         "activationDay7": 0
-      },
-      {
-        "value": "post_long_b2b",
-        "count": 1,
-        "score": 0,
-        "freeTrialStarts": 0,
-        "activationDay7": 0
       }
     ],
     "ctas": [
-      {
-        "value": "Decouvrir l'essai gratuit de 14 jours",
-        "count": 1,
-        "score": 0,
-        "freeTrialStarts": 0,
-        "activationDay7": 0
-      },
       {
         "value": "Reponds SUIVI si tu veux voir comment ca marche.",
         "count": 1,
@@ -28126,23 +29576,9 @@
         "score": 0,
         "freeTrialStarts": 0,
         "activationDay7": 0
-      },
-      {
-        "value": "post_long_b2b",
-        "count": 1,
-        "score": 0,
-        "freeTrialStarts": 0,
-        "activationDay7": 0
       }
     ],
     "times": [
-      {
-        "value": "friday-09h30-facebook",
-        "count": 1,
-        "score": 0,
-        "freeTrialStarts": 0,
-        "activationDay7": 0
-      },
       {
         "value": "monday-12h30-story",
         "count": 1,
@@ -28161,7 +29597,7 @@
     "emotions": [
       {
         "value": "soulagement",
-        "count": 3,
+        "count": 2,
         "score": 0,
         "freeTrialStarts": 0,
         "activationDay7": 0
@@ -28170,7 +29606,7 @@
     "audiences": [
       {
         "value": "coachs sportifs",
-        "count": 2,
+        "count": 1,
         "score": 0,
         "freeTrialStarts": 0,
         "activationDay7": 0
@@ -28184,13 +29620,6 @@
       }
     ],
     "activatedHooks": [
-      {
-        "value": "Vendredi matin, le coach ne doit pas repartir dans ses onglets.",
-        "count": 1,
-        "score": 0,
-        "freeTrialStarts": 0,
-        "activationDay7": 0
-      },
       {
         "value": "Ton client ne voit pas ton admin. Il ressent ton suivi.",
         "count": 1,
@@ -28209,7 +29638,7 @@
     "activatedAudiences": [
       {
         "value": "coach_independant",
-        "count": 2,
+        "count": 1,
         "score": 0,
         "freeTrialStarts": 0,
         "activationDay7": 0

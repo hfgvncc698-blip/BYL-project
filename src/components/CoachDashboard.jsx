@@ -76,7 +76,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { resolveStorageUrl } from "../utils/storageUrls";
-import { canUseGuidedProgram, hasPlanModule } from "../utils/proPlanAccess";
+import { canUseGuidedProgram, getProPlanAccess, hasPlanModule } from "../utils/proPlanAccess";
 import { apiFetch } from "../utils/api";
 import { formatProgramActiveWeeks, getProgramActiveWeeksLabel, readProgramActiveWeeks } from "../utils/programDuration";
 import { useTranslation } from "react-i18next";
@@ -957,6 +957,42 @@ const toMillis = (ts) =>
          : typeof ts === "string"
            ? Date.parse(ts) || 0
            : 0;
+
+const resolveCoachAccessContext = (rawCoach = {}) => {
+  const coach = rawCoach || {};
+  const trialEndMs = toMillis(coach.trialEndsAt || coach.trialEnd);
+  const hasActiveTrial =
+    coach.role === "coach" &&
+    coach.subscriptionStatus === "trialing" &&
+    trialEndMs > Date.now();
+
+  if (!hasActiveTrial) return coach;
+
+  const isClubAccount =
+    coach.accountType === "club_owner" ||
+    coach.accountType === "club_member" ||
+    coach.clubRole === "owner" ||
+    coach.onboardingPackage === "club" ||
+    coach.packageKey === "club";
+  const access = getProPlanAccess(
+    isClubAccount ? "club" : "complete",
+    isClubAccount ? "network" : "unlimited"
+  );
+
+  return {
+    ...coach,
+    packageKey: access.packageKey,
+    packageTier: access.packageTier,
+    clientLimit: access.clientLimit,
+    proLimit: access.proLimit,
+    modules: [...access.modules],
+    proAccess: {
+      ...access,
+      modules: [...access.modules],
+    },
+  };
+};
+
 const getAssignedProgramStartMs = (program = {}) => {
   const p = program || {};
   return Math.max(
@@ -1947,10 +1983,14 @@ export default function CoachDashboard() {
   const params = new URLSearchParams(location.search);
   const adminCoachId = params.get("adminCoachId") || "";
   const adminClubId = isAdmin ? params.get("adminClubId") || params.get("clubId") || "" : "";
+  const requestedAdminPlan = isAdmin && adminCoachId ? params.get("adminPlan") || "" : "";
+  const adminPlanPreview = ["sport", "nutrition", "complete"].includes(requestedAdminPlan)
+    ? requestedAdminPlan
+    : "";
   const effectiveCoachUid = isAdmin && adminCoachId ? adminCoachId : user?.uid;
   const adminBackPath = adminCoachId ? `/admin/coach/${adminCoachId}` : "/admin";
   const adminCoachQuery = isAdmin && adminCoachId
-    ? `adminCoachId=${encodeURIComponent(adminCoachId)}${adminClubId ? `&clubId=${encodeURIComponent(adminClubId)}&adminClubId=${encodeURIComponent(adminClubId)}` : ""}`
+    ? `adminCoachId=${encodeURIComponent(adminCoachId)}${adminPlanPreview ? `&adminPlan=${encodeURIComponent(adminPlanPreview)}` : ""}${adminClubId ? `&clubId=${encodeURIComponent(adminClubId)}&adminClubId=${encodeURIComponent(adminClubId)}` : ""}`
     : "";
   const withAdminCoach = useCallback(
     (path) => {
@@ -1984,7 +2024,26 @@ export default function CoachDashboard() {
       alive = false;
     };
   }, [isAdmin, adminCoachId]);
-  const coachContext = adminCoachData || user || {};
+  const rawCoachContext =
+    isAdmin && adminCoachId ? adminCoachData || {} : user || {};
+  const coachContext = useMemo(() => {
+    const resolved = resolveCoachAccessContext(rawCoachContext);
+    if (!adminPlanPreview) return resolved;
+    const previewAccess = getProPlanAccess(adminPlanPreview, "unlimited");
+    return {
+      ...resolved,
+      role: "coach",
+      packageKey: previewAccess.packageKey,
+      packageTier: previewAccess.packageTier,
+      clientLimit: previewAccess.clientLimit,
+      proLimit: previewAccess.proLimit,
+      modules: [...previewAccess.modules],
+      proAccess: {
+        ...previewAccess,
+        modules: [...previewAccess.modules],
+      },
+    };
+  }, [adminPlanPreview, rawCoachContext]);
   const effectiveClubId = adminClubId || coachContext?.clubId || user?.clubId || "";
   const colorMode = useColorModeValue("light", "dark");
   const modeValue = useCallback(
@@ -2056,6 +2115,7 @@ end && now < end;
   const calendarLinkModal = useDisclosure();
   const dashboardPrefsModal = useDisclosure();
   const birthdayMessageModal = useDisclosure();
+  const rationShortcutModal = useDisclosure();
   const initialDashboardCache = useMemo(
     () => readDashboardDataCache(effectiveCoachUid, effectiveClubId) || readLastDashboardDataCache(),
     [effectiveClubId, effectiveCoachUid]
@@ -2083,6 +2143,21 @@ end && now < end;
     nutritionNotes: "",
 	  });
   const [sessionCreateSaving, setSessionCreateSaving] = useState(false);
+  const openNutritionAppointmentForClient = useCallback(
+    (clientId) => {
+      setNewSession((prev) => ({
+        ...prev,
+        type: "nutrition",
+        clientId,
+        programmeId: "",
+        sessionIndex: null,
+        nutritionKind: "suivi",
+        nutritionDurationMin: Number(prev.nutritionDurationMin) || 30,
+      }));
+      addSessionModal.onOpen();
+    },
+    [addSessionModal]
+  );
   const selectedNewSessionClient = useMemo(
     () => clients.find((client) => client.id === newSession.clientId) || null,
     [clients, newSession.clientId]
@@ -5373,6 +5448,49 @@ to);
     });
     return map;
   }, [nutritionRows]);
+  const latestNutritionByClient = useMemo(() => {
+    const map = new Map();
+    nutritionRows.forEach((row) => {
+      if (!row?.clientId) return;
+      const ms = Math.max(
+        toMillis(row.sharedAt),
+        toMillis(row.updatedAt),
+        toMillis(row.createdAt),
+        toMillis(row.date),
+        0
+      );
+      const previous = map.get(row.clientId);
+      if (!previous || ms >= previous.ms) {
+        map.set(row.clientId, { row, ms });
+      }
+    });
+    return map;
+  }, [nutritionRows]);
+  const rationShortcutRows = useMemo(
+    () =>
+      Array.from(latestNutritionByClient.entries())
+        .map(([clientId, entry]) => {
+          const client = clients.find((candidate) => candidate.id === clientId);
+          const profileName = [entry?.row?.inputs?.prenom, entry?.row?.inputs?.nom]
+            .filter(Boolean)
+            .join(" ")
+            .trim();
+          const clientName = [client?.prenom, client?.nom].filter(Boolean).join(" ").trim();
+          return {
+            clientId,
+            assessmentId: entry?.row?.id || "",
+            name: clientName || profileName || t("dashboard.client", "Patient"),
+            objective:
+              entry?.row?.inputs?.objectif ||
+              entry?.row?.inputs?.objective ||
+              t("nutritionCoach.defaultObjective", "Bilan nutrition"),
+            ms: Number(entry?.ms || 0),
+          };
+        })
+        .filter((entry) => entry.clientId && entry.assessmentId)
+        .sort((a, b) => b.ms - a.ms),
+    [clients, latestNutritionByClient, t]
+  );
   const latestCoachProgressByClientProgram = useMemo(() => {
     const map = new Map();
     const putProgress = (key, entry) => {
@@ -7494,11 +7612,23 @@ boxSize="20px" />
                   </Button>
                   {hasNutritionCalendarAccess && (
                     <Button
+                      data-testid="nutrition-ration-shortcut"
                       size="sm"
                       borderRadius="14px"
                       {...shortcutSecondaryButtonProps}
-                      onClick={() => navigate(withAdminCoach("/nutrition-coach?new=1"))}
+                      onClick={() => rationShortcutModal.onOpen()}
                     >{t("auto.CoachDashboard.faire_une_ration", "Faire une ration")}</Button>
+                  )}
+                  {nutritionOnlyDashboard && (
+                    <Button
+                      data-testid="nutrition-plan-followup-shortcut"
+                      size="sm"
+                      borderRadius="14px"
+                      {...shortcutSecondaryButtonProps}
+                      onClick={() => openNutritionAppointmentForClient("")}
+                    >
+                      {t("dashboard.plan_nutrition_appointment", "Planifier un suivi")}
+                    </Button>
                   )}
                 </VStack>
               </PriorityCard>
@@ -7711,6 +7841,7 @@ fontWeight="900" lineHeight="1">
                  <VStack spacing={2} align="stretch"
 justify="center" h="100%">
                    <Button
+                     size="sm"
                      borderRadius="16px"
                      {...shortcutPrimaryButtonProps}
                        onClick={nutritionOnlyDashboard ? () => navigate(withAdminCoach("/nutrition-coach?new=1")) : addSessionModal.onOpen}
@@ -7719,10 +7850,23 @@ justify="center" h="100%">
                    </Button>
                    {hasNutritionCalendarAccess && (
                      <Button
+                       data-testid="nutrition-ration-shortcut"
+                       size="sm"
                        borderRadius="16px"
                        {...shortcutSecondaryButtonProps}
-                       onClick={() => navigate(withAdminCoach("/nutrition-coach?new=1"))}
+                       onClick={() => rationShortcutModal.onOpen()}
                      >{t("auto.CoachDashboard.faire_une_ration", "Faire une ration")}</Button>
+                   )}
+                   {nutritionOnlyDashboard && (
+                     <Button
+                       data-testid="nutrition-plan-followup-shortcut"
+                       size="sm"
+                       borderRadius="16px"
+                       {...shortcutSecondaryButtonProps}
+                       onClick={() => openNutritionAppointmentForClient("")}
+                     >
+                       {t("dashboard.plan_nutrition_appointment", "Planifier un suivi")}
+                     </Button>
                    )}
                  </VStack>
                </PriorityCard>
@@ -8719,6 +8863,38 @@ prettyAssignedProgramName(c.programmesAssignes[0])
 activeSportMs > 0 &&
 (activeSportMs >= Date.now() || Date.now() - activeSportMs <= 30 * 24 * 60 * 60 * 1000);
                     const followKind = getDashboardFollowKind(c);
+                    const nutritionEntry = latestNutritionByClient.get(c.id) || null;
+                    const nutritionRow = nutritionEntry?.row || null;
+                    const hasSportProgram = programmesForCard.length > 0;
+                    const isNutritionOnlyPatient = Boolean(nutritionRow && !hasSportProgram);
+                    const nutritionSections = nutritionRow?.clientShare?.sections || {};
+                    const nutritionIsShared =
+                      nutritionRow?.clientShare?.enabled === true &&
+                      Object.values(nutritionSections).some(Boolean);
+                    const nutritionIsValidated =
+                      nutritionRow?.status === "final" ||
+                      nutritionRow?.validated === true ||
+                      nutritionRow?.inputs?.nutritionValidated === true;
+                    const nutritionHasWork =
+                      Boolean(nutritionRow?.ration || nutritionRow?.foodSurvey);
+                    const nutritionStatusLabel = nutritionIsShared
+                      ? t("nutritionCoach.status.shared", "Partagé")
+                      : nutritionIsValidated
+                        ? t("nutritionCoach.status.validated", "Validé")
+                        : nutritionHasWork
+                          ? t("nutritionCoach.status.inProgress", "En cours")
+                          : t("nutritionCoach.status.draft", "Brouillon");
+                    const nutritionProgress = nutritionIsShared
+                      ? 100
+                      : nutritionIsValidated
+                        ? 80
+                        : nutritionHasWork
+                          ? 50
+                          : 20;
+                    const nutritionObjective =
+                      nutritionRow?.inputs?.objectif ||
+                      nutritionRow?.inputs?.objective ||
+                      t("nutritionCoach.defaultObjective", "Bilan nutrition");
 
                     return (
                       <Box
@@ -8784,23 +8960,51 @@ mb={2.5}>
                                  >
                                    {c.prenom} {c.nom}
                                  </ChakraLink>
-                                 <Text fontSize="xs"
-color={mutedText} noOfLines={1}>
-                                   {programmeForLastSession}
-                                 </Text>
-                                 {programWeekLabel ? (
-                                   <Badge mt={0.5} px={1.5} py={0} borderRadius="full" colorScheme="blue" variant="subtle" fontSize="9px" lineHeight="1.4">
-                                     {programWeekLabel}
-                                   </Badge>
-                                 ) : null}
-                                 <Text fontSize="xs" color={subtleText} noOfLines={1}>
-                                   {lastCompletedSessionLabel}
-                                 </Text>
-                                 <Text fontSize="xs" color={mutedText} noOfLines={1}>
-                                   {isProgramExpired
-                                     ? t("dashboard.program_completed_hint", "Toutes les séances prévues sont validées.")
-                                     : `${t("dashboard.next_label", "Suivante")} : ${nextSessionTitle}`}
-                                 </Text>
+                                 {isNutritionOnlyPatient ? (
+                                   <>
+                                     <Text fontSize="xs" color={mutedText} noOfLines={1}>
+                                       {nutritionObjective}
+                                     </Text>
+                                     <Badge
+                                       mt={0.5}
+                                       px={1.5}
+                                       py={0}
+                                       borderRadius="full"
+                                       colorScheme={nutritionIsShared ? "green" : nutritionIsValidated ? "blue" : "orange"}
+                                       variant="subtle"
+                                       fontSize="9px"
+                                       lineHeight="1.4"
+                                     >
+                                       {nutritionStatusLabel}
+                                     </Badge>
+                                     <Text fontSize="xs" color={subtleText} noOfLines={1}>
+                                       {nutritionEntry?.ms
+                                         ? t("dashboard.nutrition_last_update", "Dernière mise à jour : {{date}}", {
+                                             date: new Date(nutritionEntry.ms).toLocaleDateString(),
+                                           })
+                                         : t("dashboard.nutrition_followup_started", "Suivi nutrition commencé")}
+                                     </Text>
+                                   </>
+                                 ) : (
+                                   <>
+                                     <Text fontSize="xs" color={mutedText} noOfLines={1}>
+                                       {programmeForLastSession}
+                                     </Text>
+                                     {programWeekLabel ? (
+                                       <Badge mt={0.5} px={1.5} py={0} borderRadius="full" colorScheme="blue" variant="subtle" fontSize="9px" lineHeight="1.4">
+                                         {programWeekLabel}
+                                       </Badge>
+                                     ) : null}
+                                     <Text fontSize="xs" color={subtleText} noOfLines={1}>
+                                       {lastCompletedSessionLabel}
+                                     </Text>
+                                     <Text fontSize="xs" color={mutedText} noOfLines={1}>
+                                       {isProgramExpired
+                                         ? t("dashboard.program_completed_hint", "Toutes les séances prévues sont validées.")
+                                         : `${t("dashboard.next_label", "Suivante")} : ${nextSessionTitle}`}
+                                     </Text>
+                                   </>
+                                 )}
                               </Box>
                             </HStack>
 
@@ -8855,17 +9059,18 @@ coachActivityDate.toLocaleDateString() : "—"}
 mb={1}>
                                   <Text fontSize="sm"
 color={mutedText}>
-                                  {nbTerminees}/{nbTotalSessions}
-{t("dashboard.sessions", "séances").toLowerCase()}
+                                  {isNutritionOnlyPatient
+                                    ? t("dashboard.nutrition_followup_progress", "Avancement du suivi")
+                                    : `${nbTerminees}/${nbTotalSessions} ${t("dashboard.sessions", "séances").toLowerCase()}`}
                                 </Text>
                                 <Text fontSize="sm"
 fontWeight="800" color={textColor}>
-                                  {percentDone}%
+                                  {isNutritionOnlyPatient ? nutritionProgress : percentDone}%
                                 </Text>
                               </HStack>
 
                                <Progress
-                                 value={percentDone}
+                                 value={isNutritionOnlyPatient ? nutritionProgress : percentDone}
                                  size="sm"
                                  borderRadius="full"
 
@@ -8883,56 +9088,93 @@ bg={modeValue("rgba(15,23,42,0.06)",
 
                           <Box w={{ base: "100%", md: "165px" }}>
                             <SimpleGrid columns={{ base: 2, md: 1 }} spacing={2}>
-                              <Button
-                                size="sm"
-                                w="100%"
-                                bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
-                                color="white"
-                                _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
-                                _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
-                                borderRadius="16px"
-                                isDisabled={isProgramExpired}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (isProgramExpired) return;
-                                  startNextSessionForClient(clientForCardActions, "next");
-                                }}
-                              >
-                                {isProgramExpired ? t("dashboard.program_completed_cta", "Séances terminées") : t("dashboard.banner.start_now", "Démarrer la séance")}
-                              </Button>
-                              {!isProgramExpired && (
-                                <Button
-                                  size="sm"
-                                  w="100%"
-                                  variant="outline"
-                                  borderColor={borderStrong}
-                                  color={textColor}
-                                  _hover={{ bg: modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)") }}
-                                  borderRadius="16px"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    startNextSessionForClient(clientForCardActions, "resume");
-                                  }}
-                                >
-                                  {t("dashboard.resume_session", "Reprendre")}
-                                </Button>
+                              {isNutritionOnlyPatient ? (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    w="100%"
+                                    bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
+                                    color="white"
+                                    _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
+                                    _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
+                                    borderRadius="16px"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(withAdminCoach(`/clients/${c.id}/nutrition/${nutritionRow.id}`));
+                                    }}
+                                  >
+                                    {t("nutritionCoach.openAssessment", "Ouvrir le bilan")}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    w="100%"
+                                    variant="outline"
+                                    borderColor={borderStrong}
+                                    color={textColor}
+                                    _hover={{ bg: modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)") }}
+                                    borderRadius="16px"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openNutritionAppointmentForClient(c.id);
+                                    }}
+                                  >
+                                    {t("dashboard.plan_nutrition_appointment", "Planifier un suivi")}
+                                  </Button>
+                                </>
+                              ) : (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    w="100%"
+                                    bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
+                                    color="white"
+                                    _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
+                                    _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
+                                    borderRadius="16px"
+                                    isDisabled={isProgramExpired}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (isProgramExpired) return;
+                                      startNextSessionForClient(clientForCardActions, "next");
+                                    }}
+                                  >
+                                    {isProgramExpired ? t("dashboard.program_completed_cta", "Séances terminées") : t("dashboard.banner.start_now", "Démarrer la séance")}
+                                  </Button>
+                                  {!isProgramExpired && (
+                                    <Button
+                                      size="sm"
+                                      w="100%"
+                                      variant="outline"
+                                      borderColor={borderStrong}
+                                      color={textColor}
+                                      _hover={{ bg: modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)") }}
+                                      borderRadius="16px"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        startNextSessionForClient(clientForCardActions, "resume");
+                                      }}
+                                    >
+                                      {t("dashboard.resume_session", "Reprendre")}
+                                    </Button>
+                                  )}
+                                  <Button
+                                    size="sm"
+                                    w="100%"
+                                    variant="outline"
+                                    borderColor={borderStrong}
+                                    color={textColor}
+                                    _hover={{ bg: modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)") }}
+                                    borderRadius="16px"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedClient(c.id);
+                                      assignModal.onOpen();
+                                    }}
+                                  >
+                                    {t("dashboard.assign", "Assigner")}
+                                  </Button>
+                                </>
                               )}
-                              <Button
-                                size="sm"
-                                w="100%"
-                                variant="outline"
-                                borderColor={borderStrong}
-                                color={textColor}
-                                _hover={{ bg: modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)") }}
-                                borderRadius="16px"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedClient(c.id);
-                                  assignModal.onOpen();
-                                }}
-                              >
-                                {t("dashboard.assign", "Assigner")}
-                              </Button>
                               <Button
                                 size="sm"
                                 w="100%"
@@ -10277,6 +10519,93 @@ onClick={confirmProgramModal.onClose}>
                onClick={handleDeleteProgram}
             >
                {t("common.delete", "Supprimer")}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <Modal
+        isOpen={rationShortcutModal.isOpen}
+        onClose={rationShortcutModal.onClose}
+        isCentered
+        size="lg"
+      >
+        <ModalOverlay />
+        <ModalContent
+          bg={surfaceBgStrong}
+          color={textColor}
+          borderRadius="24px"
+          border="1px solid"
+          borderColor={borderColor}
+        >
+          <ModalHeader>
+            {t("dashboard.choose_patient_for_ration", "Choisir le patient pour la ration")}
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {rationShortcutRows.length > 0 ? (
+              <VStack align="stretch" spacing={2}>
+                <Text fontSize="sm" color={mutedText} mb={1}>
+                  {t(
+                    "dashboard.choose_patient_for_ration_help",
+                    "La dernière ration du patient s’ouvrira directement."
+                  )}
+                </Text>
+                {rationShortcutRows.map((entry) => (
+                  <Button
+                    key={`${entry.clientId}:${entry.assessmentId}`}
+                    h="auto"
+                    minH="58px"
+                    py={3}
+                    px={4}
+                    variant="outline"
+                    borderRadius="16px"
+                    borderColor={borderColor}
+                    justifyContent="space-between"
+                    onClick={() => {
+                      rationShortcutModal.onClose();
+                      navigate(
+                        withAdminCoach(
+                          `/clients/${entry.clientId}/nutrition/${entry.assessmentId}/ration`
+                        )
+                      );
+                    }}
+                  >
+                    <Box textAlign="left" minW={0}>
+                      <Text fontWeight="800" noOfLines={1}>
+                        {entry.name}
+                      </Text>
+                      <Text fontSize="xs" color={mutedText} noOfLines={1}>
+                        {entry.objective}
+                      </Text>
+                    </Box>
+                    <ChevronRightIcon flexShrink={0} />
+                  </Button>
+                ))}
+              </VStack>
+            ) : (
+              <VStack align="stretch" spacing={3}>
+                <Text color={mutedText}>
+                  {t(
+                    "dashboard.no_nutrition_followup_for_ration",
+                    "Aucun suivi nutrition n’est encore disponible. Créez d’abord le bilan du patient avant de construire sa ration."
+                  )}
+                </Text>
+                <Button
+                  borderRadius="16px"
+                  onClick={() => {
+                    rationShortcutModal.onClose();
+                    navigate(withAdminCoach("/nutrition-coach?new=1"));
+                  }}
+                >
+                  {t("nutritionCoach.createFollowup", "Créer un suivi nutrition")}
+                </Button>
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" borderRadius="14px" onClick={rationShortcutModal.onClose}>
+              {t("common.close", "Fermer")}
             </Button>
           </ModalFooter>
         </ModalContent>

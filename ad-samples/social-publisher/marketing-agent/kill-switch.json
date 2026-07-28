@@ -1408,6 +1408,81 @@
           "Unsupported get request. Object with ID '18099111391988502' does not exist, cannot be loaded due to missing permissions, or does not support this operation."
         ]
       }
+    },
+    {
+      "at": "2026-07-25T03:47:15.960Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "byl-social-publisher-rapport-growth-nightly",
+      "details": {
+        "updated": 0,
+        "failedCount": 18,
+        "total": 18,
+        "initialError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+        "rerunEscalated": false,
+        "escalatedRerun": {
+          "attempts": 2,
+          "result": "approval_review_timeout_twice"
+        },
+        "sampleErrors": [
+          "Meta Graph GET 857477100212912: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18142983556524389: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18099111391988502: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+        ]
+      }
+    },
+    {
+      "at": "2026-07-25T23:08:15.685Z",
+      "reason": "meta_performance_sync_blocked",
+      "severity": "warning",
+      "source": "byl-social-publisher-rapport-growth-nightly",
+      "details": {
+        "updated": 0,
+        "failedCount": 18,
+        "total": 18,
+        "initialError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+        "sampleErrors": [
+          "Meta Graph GET 857477100212912: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "Meta Graph GET 18142983556524389: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+        ],
+        "escalatedRerun": {
+          "attempted": true,
+          "result": "approval_review_timeout_twice"
+        },
+        "missingMetricsInvented": false
+      }
+    },
+    {
+      "at": "2026-07-26T22:53:44.414Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "byl-social-publisher-rapport-growth-nightly",
+      "details": {
+        "updated": 3,
+        "failedCount": 15,
+        "total": 18,
+        "rerunEscalated": true,
+        "initialSandboxError": "fetch failed | ENOTFOUND graph.facebook.com",
+        "sampleErrors": [
+          "Unsupported get request: object missing, inaccessible, or operation unsupported"
+        ]
+      }
+    },
+    {
+      "at": "2026-07-27T23:36:39.370Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "updated": 3,
+        "failedCount": 15,
+        "total": 18,
+        "rerunEscalated": true,
+        "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+        "sampleErrors": [
+          "Unsupported get request: object inaccessible, missing permissions, or unsupported operation"
+        ]
+      }
     }
   ]
 }

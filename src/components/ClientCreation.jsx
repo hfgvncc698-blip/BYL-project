@@ -45,7 +45,14 @@ const langCodeFromAny = (value) => {
   return "fr";
 };
 
-const ClientCreation = ({ onClose, onCreated, hideTitle = false, ownerUid = "" }) => {
+const ClientCreation = ({
+  onClose,
+  onCreated,
+  hideTitle = false,
+  ownerUid = "",
+  clubId = "",
+  clubName = "",
+}) => {
   const { t } = useTranslation("common");
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -183,8 +190,8 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false, ownerUid = "" }
 
     return {
       ...base,
-      clubId: base.clubId || user?.clubId || null,
-      clubName: base.clubName || user?.clubName || null,
+      clubId: base.clubId || clubId || null,
+      clubName: base.clubName || clubName || null,
       heightCm: heightCmOut,
       weightKg: weightKgOut,
       settings: {
@@ -322,6 +329,8 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false, ownerUid = "" }
               objectifs: client.objectifs || "",
               notes: client.notes || "",
               langue: client.langue || "",
+              clubId: clubId || null,
+              clubName: clubName || null,
             }),
           });
 
@@ -369,6 +378,8 @@ const ClientCreation = ({ onClose, onCreated, hideTitle = false, ownerUid = "" }
                 objectifs: client.objectifs || "",
                 notes: client.notes || "",
                 langue: client.langue || "",
+                clubId: clubId || null,
+                clubName: clubName || null,
               }),
             });
             await deleteApp(secondary).catch(() => {});

@@ -962,6 +962,13 @@ router.post("/link-existing-client", requireFirebaseAuth, async (req, res) => {
     const lastName = cleanText(req.body?.lastName || req.body?.nom || existingUser.lastName || existingClient.nom, 80);
     const language = cleanText(req.body?.langue || req.body?.language || existingClient.langue || existingUser.preferredLang || "fr", 40);
     const langCode = langCodeFromAny(language);
+    const requestedClubId = cleanText(req.body?.clubId, 160);
+    if (requestedClubId && requestedClubId !== cleanText(requester.clubId, 160)) {
+      return res.status(403).json({ error: "club-scope-forbidden" });
+    }
+    const requestedClubName = requestedClubId
+      ? cleanText(req.body?.clubName || requester.clubName, 180)
+      : "";
 
     const clientPayload = {
       email,
@@ -981,8 +988,8 @@ router.post("/link-existing-client", requireFirebaseAuth, async (req, res) => {
       updatedAt: now,
       createdBy: existingClient.createdBy || req.auth.uid,
       coachId: existingClient.coachId || req.auth.uid,
-      clubId: existingClient.clubId || requester.clubId || null,
-      clubName: existingClient.clubName || requester.clubName || null,
+      clubId: existingClient.clubId || requestedClubId || null,
+      clubName: existingClient.clubName || requestedClubName || null,
       settings: {
         ...(existingClient.settings || {}),
         defaultLanguage: language || existingClient.settings?.defaultLanguage || "Français",

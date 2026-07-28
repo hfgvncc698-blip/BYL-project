@@ -21,6 +21,7 @@ import {
   createUserWithEmailAndPassword as createUserSecondary,
   sendPasswordResetEmail,
 } from "firebase/auth";
+import { apiFetch } from "./api";
 
 const normalizeList = (value) =>
   Array.isArray(value)
@@ -288,28 +289,25 @@ async function createEmailClient(profile = {}, createdByUid, clubId = null) {
     return { clientId: uid, status: "created_email" };
   } catch (error) {
     if (error?.code === "auth/email-already-in-use") {
-      const userSnap = await getDocs(query(collection(db, "users"), where("email", "==", email), limit(1)));
-      if (!userSnap.empty) {
-        const uid = userSnap.docs[0].id;
-        const clientRef = doc(db, "clients", uid);
-        const clientSnap = await getDoc(clientRef);
-        const existingClient = clientSnap.exists() ? clientSnap.data() : null;
-        const payload = buildNutritionClientPayload(profile, createdByUid, existingClient, clubId);
-        if (existingClient) {
-          await updateDoc(clientRef, createdByUid ? {
-            ...payload,
-            coachIds: arrayUnion(createdByUid),
-            ...(clubId ? { clubIds: arrayUnion(clubId), ...(existingClient?.clubId ? {} : { clubId }) } : {}),
-          } : payload);
-        } else {
-          await setDoc(clientRef, {
-            ...payload,
-            creeLe: serverTimestamp(),
-            coachIds: createdByUid ? [createdByUid] : [],
-            clubIds: clubId ? [clubId] : [],
-          });
+      const lookup = await apiFetch(
+        `/clubs/client-lookup?email=${encodeURIComponent(email)}`
+      ).catch(() => null);
+      if (lookup?.authExists && lookup?.canLink) {
+        const linked = await apiFetch("/clubs/link-existing-client", {
+          method: "POST",
+          body: JSON.stringify({
+            email,
+            firstName: profile.prenom || profile.firstName || "",
+            lastName: profile.nom || profile.lastName || "",
+            telephone: profile.telephone || profile.phone || "",
+            langue: profile.langue || profile.language || profile.lang || "fr",
+            objectifs: profile.objectif || profile.objective || "",
+            clubId: clubId || null,
+          }),
+        });
+        if (linked?.clientId) {
+          return { clientId: linked.clientId, status: "existing" };
         }
-        return { clientId: uid, status: "existing" };
       }
 
       const existing = await findExistingClientByIdentity(profile);
