@@ -27,10 +27,7 @@ import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useTranslation } from "react-i18next";
 
-// 🔐 Firebase Auth (email + reset)
-import { getAuth, sendPasswordResetEmail } from "firebase/auth";
-// ☁️ Cloud Functions (changeClientEmail)
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { getAuth } from "firebase/auth";
 import {
   MdOutlineFitnessCenter,
   MdOutlineLanguage,
@@ -42,6 +39,8 @@ import AppLoading from "../components/ui/AppLoading";
 import PageBackButton from "../components/ui/PageBackButton";
 import { notify } from "../utils/notify";
 import { ensureLanguageLoaded } from "../i18n";
+import { resolveClientSnapshotForUser } from "../utils/clientResolver";
+import { apiFetch } from "../utils/api";
 
 /* ---- conversions identiques à ClientCreation.jsx ---- */
 const KG_PER_LB = 0.45359237;
@@ -165,10 +164,9 @@ export default function ProfilePageClient() {
   const { user } = useAuth();
   const auth = getAuth();
   const toast = useToast();
-  const functions = getFunctions(undefined, "europe-west1");
-  const changeClientEmailFn = httpsCallable(functions, "changeClientEmail");
 
   const [isLoading, setLoading] = useState(true);
+  const [clientDocId, setClientDocId] = useState(null);
 
   // unités & taille/poids
   const [heightUnit, setHeightUnit] = useState("cm"); // "cm" | "ft"
@@ -234,25 +232,54 @@ export default function ProfilePageClient() {
     const load = async () => {
       try {
         const usersRef = doc(db, "users", user.uid);
-        const clientsRef = doc(db, "clients", user.uid);
         const [userSnap, clientSnap] = await Promise.all([
           getDoc(usersRef),
-          getDoc(clientsRef),
+          resolveClientSnapshotForUser(user, { logPrefix: "ProfilePageClient" }),
         ]);
+        setClientDocId(clientSnap?.id || null);
 
         if (userSnap.exists()) {
           const u = userSnap.data();
+          const accountEmail = (auth.currentUser?.email || u.email || "").trim();
           setForm((prev) => ({
             ...prev,
             firstName: u.firstName || "",
             lastName: u.lastName || "",
-            email: u.email || "",
+            email: accountEmail,
             phone: u.telephone || u.phone || "",
           }));
-          setInitialEmail(u.email || "");
+          setInitialEmail(accountEmail);
+
+          if (
+            accountEmail &&
+            accountEmail.toLowerCase() !== String(u.email || "").trim().toLowerCase()
+          ) {
+            const emailSyncWrites = [
+              updateDoc(usersRef, {
+                email: accountEmail,
+                pendingEmailChange: null,
+                updatedAt: serverTimestamp(),
+              }),
+            ];
+            if (clientSnap?.exists()) {
+              emailSyncWrites.push(
+                updateDoc(clientSnap.ref, {
+                  email: accountEmail,
+                  pendingEmailChange: null,
+                  updatedAt: serverTimestamp(),
+                })
+              );
+            }
+            Promise.all(emailSyncWrites).catch((syncError) => {
+              console.warn(
+                "[ProfilePageClient] verified email sync skipped",
+                syncError?.message || syncError
+              );
+            });
+          }
         }
 
-        if (clientSnap.exists()) {
+        if (clientSnap?.exists()) {
           const c = clientSnap.data();
 
           // unités (défaut cm/kg)
@@ -421,20 +448,28 @@ export default function ProfilePageClient() {
   const updateFirestoreDocs = async (emailOverride) => {
     const emailToUse = (emailOverride ?? form.email ?? "").trim();
     const usersRef = doc(db, "users", user.uid);
-    const clientsRef = doc(db, "clients", user.uid);
     const langLabel = labelFromCode(langCode);
 
-    await updateDoc(usersRef, {
-      firstName: form.firstName?.trim(),
-      lastName: form.lastName?.trim(),
-      email: emailToUse,
-      telephone: (form.phone || "").trim(),
-      defaultLanguage: langLabel,
-      updatedAt: serverTimestamp(),
-    });
+    const writes = [
+      updateDoc(usersRef, {
+        firstName: form.firstName?.trim(),
+        lastName: form.lastName?.trim(),
+        email: emailToUse,
+        telephone: (form.phone || "").trim(),
+        defaultLanguage: langLabel,
+        updatedAt: serverTimestamp(),
+      }),
+    ];
 
-    const clientPayload = buildComputedClientPayload(emailToUse);
-    await updateDoc(clientsRef, clientPayload);
+    if (clientDocId) {
+      writes.push(
+        updateDoc(
+          doc(db, "clients", clientDocId),
+          buildComputedClientPayload(emailToUse)
+        )
+      );
+    }
+    await Promise.all(writes);
   };
 
   /* ---------- Submit ---------- */
@@ -451,33 +486,24 @@ export default function ProfilePageClient() {
         newEmail.toLowerCase() !== initialEmail.toLowerCase();
 
       if (emailChanged) {
-        console.log("[PROF] email change via callable", {
-          initialEmail,
-          newEmail,
+        await apiFetch("/client-profile/email-change-verification", {
+          method: "POST",
+          body: JSON.stringify({
+            newEmail,
+            lang: langCode,
+          }),
         });
 
-        // 1) Appel Cloud Function -> met à jour l'utilisateur dans Firebase Auth
-        const result = await changeClientEmailFn({ newEmail });
-        console.log("[PROF] changeClientEmail result:", result.data);
-
-        // 2) Envoi de l'email via Firebase Auth (pas Resend)
-        const actionCodeSettings = {
-          // en dev
-          url: `http://localhost:5173/login?from=email-change&lang=${langCode}`,
-          handleCodeInApp: false,
-        };
-
-        await sendPasswordResetEmail(auth, newEmail, actionCodeSettings);
-
-        // 3) Mise à jour Firestore (users + clients)
-        await updateFirestoreDocs(newEmail);
-        setInitialEmail(newEmail);
+        // L'ancienne adresse reste la référence tant que le lien reçu n'a
+        // pas été confirmé.
+        await updateFirestoreDocs(initialEmail);
+        setForm((current) => ({ ...current, email: initialEmail }));
 
         notify(toast, "profileSaved", {
           title: t("profile.toasts.updated_title", "Profil mis à jour"),
           description: t(
             "profile.toasts.email_changed",
-            "Un email de confirmation a été envoyé à votre nouvelle adresse. Le changement sera effectif après validation du lien."
+            "Un e-mail de vérification a été envoyé à la nouvelle adresse. Elle ne remplacera l’ancienne qu’après validation du lien."
           ),
         });
       } else {
@@ -501,6 +527,13 @@ export default function ProfilePageClient() {
         msg = t("errors.email_in_use", "Cette adresse e-mail est déjà utilisée.");
       } else if (error?.code === "auth/invalid-email") {
         msg = t("errors.invalid_email", "Adresse e-mail invalide.");
+      } else if (error?.message === "email-already-in-use") {
+        msg = t("errors.email_in_use", "Cette adresse e-mail est déjà utilisée.");
+      } else if (error?.message === "recent-login-required") {
+        msg = t(
+          "auth.requires_recent_login",
+          "Pour votre sécurité, reconnectez-vous puis recommencez la modification."
+        );
       }
 
       notify(toast, "saveError", {

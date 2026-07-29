@@ -941,7 +941,16 @@ export default function AdminClient() {
         body: JSON.stringify({
           uid: userData?.id || linkedUserByEmail?.id || id,
           email: targetEmail,
-          lang: (i18n.resolvedLanguage || i18n.language || "fr").split("-")[0],
+          lang:
+            userData?.preferredLang ||
+            userData?.preferredLanguage ||
+            userData?.settings?.langCode ||
+            userData?.settings?.defaultLanguage ||
+            clientData?.preferredLang ||
+            clientData?.settings?.langCode ||
+            clientData?.settings?.defaultLanguage ||
+            clientData?.langue ||
+            "fr",
         }),
       });
       const data = await readJsonResponse(r);

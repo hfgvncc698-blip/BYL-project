@@ -17,14 +17,6 @@ import { useTranslation } from "react-i18next";
 import { apiFetch } from "../utils/api";
 import { notify } from "../utils/notify";
 
-// App secondaire pour créer un user sans déconnecter le coach
-import { initializeApp, getApps, getApp, deleteApp } from "firebase/app";
-import {
-  getAuth as getAuthSecondary,
-  createUserWithEmailAndPassword as createUserSecondary,
-  sendPasswordResetEmail, // ✅ email intégré Firebase (pas de provider externe)
-} from "firebase/auth";
-
 /* ---- conversions ---- */
 const KG_PER_LB = 0.45359237;
 const IN_PER_FT = 12;
@@ -236,9 +228,31 @@ const ClientCreation = ({
     setWeightUnit(next);
   };
 
-  /* --------- Lier un compte existant par e-mail --------- */
-  
+  const buildAccountRequest = (email) => {
+    const computed = buildComputedPayload({
+      ...client,
+      email,
+      prenom: client.prenom.trim(),
+      nom: client.nom.trim(),
+    });
+    return {
+      ...computed,
+      updatedAt: undefined,
+      firstName: client.prenom.trim(),
+      lastName: client.nom.trim(),
+      ownerUid: effectiveOwnerUid,
+      clubId: clubId || null,
+      clubName: clubName || null,
+      units: { height: heightUnit, weight: weightUnit },
+    };
+  };
 
+  /* --------- Lier un compte existant par e-mail --------- */
+  const linkExistingAccount = async (email) =>
+    apiFetch("/clubs/link-existing-client", {
+      method: "POST",
+      body: JSON.stringify(buildAccountRequest(email)),
+    });
   /* ----------------- fusion (doublon offline) ----------------- */
   const handleMerge = async () => {
     if (!mergeClientId) return;
@@ -307,32 +321,18 @@ const ClientCreation = ({
 
       try {
         const existing = existingLookup || (await lookupExistingClient());
-        if (existing?.exists) {
+        if (existing?.exists && existing?.authExists !== false) {
           if (!existing.canLink) {
             notify(toast, "saveError", {
-              title: "Compte existant incompatible",
-              description: "Cet email appartient déjà à un compte coach ou admin.",
+              title: "Compte existant non rattachable",
+              description:
+                "Ce compte appartient déjà à un autre espace ou à un profil professionnel. Un administrateur doit valider son transfert.",
             });
             setLoading(false);
             return;
           }
 
-          const linked = await apiFetch("/clubs/link-existing-client", {
-            method: "POST",
-            body: JSON.stringify({
-              email,
-              firstName: client.prenom.trim(),
-              lastName: client.nom.trim(),
-              telephone: client.telephone?.trim() || "",
-              dateNaissance: client.dateNaissance || "",
-              niveauSportif: client.niveauSportif || "",
-              objectifs: client.objectifs || "",
-              notes: client.notes || "",
-              langue: client.langue || "",
-              clubId: clubId || null,
-              clubName: clubName || null,
-            }),
-          });
+          const linked = await linkExistingAccount(email);
 
           notify(toast, "clientLinked", {
             title: "Client existant rattaché",
@@ -347,43 +347,19 @@ const ClientCreation = ({
           return;
         }
 
-        // essayer de créer le compte via app secondaire
-        const baseConfig = getApp().options;
-        const secondary =
-          getApps().find((a) => a.name === "BYL-Secondary")
-          ?? initializeApp(baseConfig, "BYL-Secondary");
-        const secondaryAuth = getAuthSecondary(secondary);
-        const langCode = langCodeFromAny(client.langue);
-        secondaryAuth.languageCode = langCode;
-
-        const tempPwd = Math.random().toString(36).slice(-10) + "A!1$";
-
-        let createdUser;
+        let created;
         try {
-          createdUser = await createUserSecondary(secondaryAuth, email, tempPwd);
-        } catch (err) {
-          console.error("Auth create error:", err?.code, err?.message);
-
-          // s'il existe déjà -> lier au coach + mettre à jour clients/{uid}
-          if (err?.code === "auth/email-already-in-use") {
-            const linked = await apiFetch("/clubs/link-existing-client", {
-              method: "POST",
-              body: JSON.stringify({
-                email,
-                firstName: client.prenom.trim(),
-                lastName: client.nom.trim(),
-                telephone: client.telephone?.trim() || "",
-                dateNaissance: client.dateNaissance || "",
-                niveauSportif: client.niveauSportif || "",
-                objectifs: client.objectifs || "",
-                notes: client.notes || "",
-                langue: client.langue || "",
-                clubId: clubId || null,
-                clubName: clubName || null,
-              }),
-            });
-            await deleteApp(secondary).catch(() => {});
-
+          created = await apiFetch("/clubs/clients", {
+            method: "POST",
+            body: JSON.stringify(buildAccountRequest(email)),
+          });
+        } catch (createError) {
+          if (
+            createError?.status === 409 &&
+            createError?.data?.error === "client-account-already-exists" &&
+            createError?.data?.canLink
+          ) {
+            const linked = await linkExistingAccount(email);
             notify(toast, "clientLinked", {
               title: "Client existant rattaché",
               description: linked?.hasPrograms
@@ -391,77 +367,28 @@ const ClientCreation = ({
                 : "Le compte existant a été rattaché au coach.",
             });
             setClient(initialClientState);
-            onCreated?.(); onClose?.();
-            setLoading(false);
+            setExistingLookup(null);
+            onCreated?.();
+            onClose?.();
             return;
           }
-
-          if (err?.code === "auth/operation-not-allowed") {
-            notify(toast, "saveError", {
-              title: "Connexion e-mail indisponible",
-              description: "L'authentification e-mail/mot de passe est désactivée dans Firebase.",
-            });
-            await deleteApp(secondary).catch(() => {});
-            setLoading(false);
-            return;
-          }
-          throw err;
+          throw createError;
         }
 
-        const uid = createdUser.user.uid;
-
-        // ✅ ENVOI EMAIL INTÉGRÉ (définir / réinitialiser le mot de passe)
-        try {
-          await sendPasswordResetEmail(secondaryAuth, email, {
-            url: "https://boostyourlife.coach/login",
-            handleCodeInApp: false,
+        if (created?.emailSent) {
+          notify(toast, "clientCreatedWithEmail");
+        } else {
+          notify(toast, "clientCreated", {
+            status: "warning",
+            title: "Client créé, e-mail non envoyé",
+            description:
+              "Le compte est bien créé, mais l’e-mail d’accès n’a pas pu partir. Ouvre la fiche client puis utilise « Renvoyer l’accès ».",
+            duration: 7000,
           });
-        } catch (err) {
-          console.error("Firebase reset email error:", err);
-          // on n’arrête pas le flux pour autant : le compte est créé
         }
-
-        await deleteApp(secondary).catch(() => {});
-
-        // Ecritures Firestore
-        await setDoc(doc(db, "users", uid), {
-          email,
-          emailLower: email,
-          role: "particulier",
-          firstName: client.prenom.trim(),
-          lastName: client.nom.trim(),
-          displayName: `${client.prenom.trim()} ${client.nom.trim()}`.trim(),
-          telephone: client.telephone?.trim() || null,
-          createdAt: serverTimestamp(),
-          loginMethod: "email",
-          linkedClientId: uid,
-          preferredLang: langCode,
-          settings: {
-            defaultLanguage: client.langue,
-            langCode,
-          }
-        });
-
-        const clientPayload = buildComputedPayload({
-          ...client,
-          email,
-          prenom: client.prenom.trim(),
-          nom: client.nom.trim(),
-          creeLe: serverTimestamp(),
-          createdBy: effectiveOwnerUid,
-        });
-
-        await setDoc(doc(db, "clients", uid), {
-          ...clientPayload,
-          emailLower: email,
-          uid,
-          linkedUserId: uid,
-          coachIds: [effectiveOwnerUid],
-        });
-
-        notify(toast, "clientCreatedWithEmail");
 
         setClient(initialClientState);
+        setExistingLookup(null);
         onCreated?.(); onClose?.();
       } catch (error) {
         console.error("Client creation failed:", error);

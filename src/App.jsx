@@ -46,6 +46,7 @@ const routeLoaders = {
   AccountBilling: () => import("./pages/AccountBilling.jsx"),
   Login: () => import("./pages/Login.jsx"),
   Register: () => import("./pages/Register.jsx"),
+  ActivateAccount: () => import("./pages/ActivateAccount.jsx"),
   CoachDashboard: () => import("./components/CoachDashboard.jsx"),
   ClubDashboard: () => import("./pages/ClubDashboard.jsx"),
   ClientDashboard: () => import("./components/Clientdashboard.jsx"),
@@ -94,6 +95,9 @@ function routeLoaderKeyForPath(pathname = "/") {
     "/plans/professionnel": "PlanProfessionnel",
     "/login": "Login",
     "/register": "Register",
+    "/activate-account": "ActivateAccount",
+    "/reset-password": "ActivateAccount",
+    "/verify-email": "ActivateAccount",
     "/coach-dashboard": "CoachDashboard",
     "/club-dashboard": "ClubDashboard",
     "/user-dashboard": "ClientDashboard",
@@ -177,6 +181,7 @@ const Checkout = lazyFrom(routeLoaders, "Checkout");
 const AccountBilling = lazyFrom(routeLoaders, "AccountBilling");
 const Login = lazyFrom(routeLoaders, "Login");
 const Register = lazyFrom(routeLoaders, "Register");
+const ActivateAccount = lazyFrom(routeLoaders, "ActivateAccount");
 const CoachDashboard = lazyFrom(routeLoaders, "CoachDashboard");
 const ClubDashboard = lazyFrom(routeLoaders, "ClubDashboard");
 const ClientDashboard = lazyFrom(routeLoaders, "ClientDashboard");
@@ -516,7 +521,12 @@ function AppContent() {
   const preloadModulesKey = Array.isArray(user?.modules) ? user.modules.join("|") : "";
   const preloadProModulesKey = Array.isArray(user?.proAccess?.modules) ? user.proAccess.modules.join("|") : "";
   const analyticsOn = !!prefs?.analytics || isAdmin || effectiveRole === "admin";
-  const shouldTrackRoute = consentLoaded && (analyticsOn || !!user?.uid);
+  const isAccountActivationRoute =
+    location.pathname === "/activate-account" ||
+    location.pathname === "/reset-password" ||
+    location.pathname === "/verify-email";
+  const shouldTrackRoute =
+    !isAccountActivationRoute && consentLoaded && (analyticsOn || !!user?.uid);
   const isSessionPlayerRoute =
     /^\/programmes\/[^/]+\/session\/[^/]+\/play(?:\/)?$/.test(location.pathname) ||
     /^\/clients\/[^/]+\/programmes\/[^/]+\/session\/[^/]+\/play(?:\/)?$/.test(location.pathname);
@@ -595,8 +605,8 @@ function AppContent() {
         </IdleMount>
       )}
 
-      {!isSessionPlayerRoute && <Navbar />}
-      {user && (
+      {!isSessionPlayerRoute && !isAccountActivationRoute && <Navbar />}
+      {user && !isAccountActivationRoute && (
         <IdleMount delay={1200}>
           <LazyBackground>
             <GuidedTutorial />
@@ -671,6 +681,9 @@ function AppContent() {
           {/* Auth */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/activate-account" element={<ActivateAccount />} />
+          <Route path="/reset-password" element={<ActivateAccount />} />
+          <Route path="/verify-email" element={<ActivateAccount />} />
 
           {/* Dashboards */}
           <Route

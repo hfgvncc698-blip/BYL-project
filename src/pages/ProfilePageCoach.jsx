@@ -47,13 +47,12 @@ import {
 import AppLoading from "../components/ui/AppLoading";
 import { notify } from "../utils/notify";
 import { canUseCustomBranding } from "../utils/proPlanAccess";
+import { apiFetch } from "../utils/api";
 
 import {
   getAuth,
-  updateEmail as updateAuthEmail,
   reauthenticateWithCredential,
   EmailAuthProvider,
-  sendEmailVerification,
 } from "firebase/auth";
 
 const storage = getStorage();
@@ -180,7 +179,7 @@ function SectionCard({
 }
 
 export default function ProfilePageCoach() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const auth = getAuth();
   const toast = useToast();
@@ -237,15 +236,26 @@ export default function ProfilePageCoach() {
         const snapshot = await getDoc(doc(db, "users", user.uid));
         if (snapshot.exists()) {
           const data = snapshot.data();
+          const accountEmail = (auth.currentUser?.email || data.email || user.email || "").trim();
           setForm((prev) => ({
             ...prev,
             firstName: data.firstName ?? "",
             lastName: data.lastName ?? "",
-            email: data.email ?? user.email ?? "",
+            email: accountEmail,
             phone: data.telephone ?? data.phone ?? "",
             logoUrl: data.logoUrl ?? "",
           }));
-          setInitialEmail(data.email ?? user.email ?? "");
+          setInitialEmail(accountEmail);
+          if (
+            accountEmail &&
+            accountEmail.toLowerCase() !== String(data.email || "").trim().toLowerCase()
+          ) {
+            updateDoc(doc(db, "users", user.uid), {
+              email: accountEmail,
+              pendingEmailChange: null,
+              updatedAt: serverTimestamp(),
+            }).catch(() => null);
+          }
         } else {
           setForm((prev) => ({ ...prev, email: user.email ?? "" }));
           setInitialEmail(user.email ?? "");
@@ -316,6 +326,15 @@ export default function ProfilePageCoach() {
     setForm((prev) => ({ ...prev, logoUrl: payload.logoUrl }));
   };
 
+  const requestEmailChange = (newEmail) =>
+    apiFetch("/client-profile/email-change-verification", {
+      method: "POST",
+      body: JSON.stringify({
+        newEmail,
+        lang: String(i18n.resolvedLanguage || i18n.language || "fr").split("-")[0],
+      }),
+    });
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!user || !auth.currentUser) return;
@@ -338,27 +357,29 @@ export default function ProfilePageCoach() {
               "Votre compte est lié à un fournisseur externe. Changez votre e-mail depuis ce fournisseur ou contactez le support."
             ),
           });
-          await updateFirestore({ email: newEmail, logoUrl: url || "" });
-          setInitialEmail(newEmail);
+          await updateFirestore({ email: initialEmail, logoUrl: url || "" });
+          setForm((current) => ({ ...current, email: initialEmail }));
           setUploadProgress(0);
           setLoading(false);
           return;
         }
 
         try {
-          await updateAuthEmail(auth.currentUser, newEmail);
-          await sendEmailVerification(auth.currentUser).catch(() => {});
-          await updateFirestore({ email: newEmail, logoUrl: url || "" });
-          setInitialEmail(newEmail);
+          await requestEmailChange(newEmail);
+          await updateFirestore({ email: initialEmail, logoUrl: url || "" });
+          setForm((current) => ({ ...current, email: initialEmail }));
           notify(toast, "profileSaved", {
             title: t("profile.toasts.updated_title"),
             description: t(
               "profile.toasts.email_changed",
-              "Votre email de connexion a été mis à jour. Vérifiez votre boîte mail pour confirmer."
+              "Un e-mail de vérification a été envoyé. L’adresse changera après confirmation du lien."
             ),
           });
         } catch (err) {
-          if (err?.code === "auth/requires-recent-login") {
+          if (
+            err?.code === "auth/requires-recent-login" ||
+            err?.message === "recent-login-required"
+          ) {
             setPendingNewEmail(newEmail);
             setReauthPwd("");
             setReauthOpen(true);
@@ -367,7 +388,10 @@ export default function ProfilePageCoach() {
             return;
           }
           let msg = t("profile.toasts.update_error_desc");
-          if (err?.code === "auth/email-already-in-use") {
+          if (
+            err?.code === "auth/email-already-in-use" ||
+            err?.message === "email-already-in-use"
+          ) {
             msg = t("errors.email_in_use", "Cette adresse e-mail est déjà utilisée.");
           } else if (err?.code === "auth/invalid-email") {
             msg = t("errors.invalid_email", "Adresse e-mail invalide.");
@@ -402,15 +426,14 @@ export default function ProfilePageCoach() {
     try {
       const cred = EmailAuthProvider.credential(initialEmail, reauthPwd);
       await reauthenticateWithCredential(authUser, cred);
-      await updateAuthEmail(authUser, pendingNewEmail);
-      await sendEmailVerification(authUser).catch(() => {});
-      await updateFirestore({ email: pendingNewEmail });
-      setInitialEmail(pendingNewEmail);
+      await requestEmailChange(pendingNewEmail);
+      await updateFirestore({ email: initialEmail });
+      setForm((current) => ({ ...current, email: initialEmail }));
       notify(toast, "profileSaved", {
         title: t("profile.toasts.updated_title"),
         description: t(
           "profile.toasts.email_changed",
-          "Votre email de connexion a été mis à jour. Vérifiez votre boîte mail pour confirmer."
+          "Un e-mail de vérification a été envoyé. L’adresse changera après confirmation du lien."
         ),
       });
       setReauthOpen(false);
@@ -422,7 +445,10 @@ export default function ProfilePageCoach() {
         msg = t("errors.wrong_password", "Mot de passe incorrect.");
       } else if (err?.code === "auth/too-many-requests") {
         msg = t("errors.too_many_requests", "Trop de tentatives, réessayez plus tard.");
-      } else if (err?.code === "auth/email-already-in-use") {
+      } else if (
+        err?.code === "auth/email-already-in-use" ||
+        err?.message === "email-already-in-use"
+      ) {
         msg = t("errors.email_in_use", "Cette adresse e-mail est déjà utilisée.");
       } else if (err?.code === "auth/invalid-email") {
         msg = t("errors.invalid_email", "Adresse e-mail invalide.");

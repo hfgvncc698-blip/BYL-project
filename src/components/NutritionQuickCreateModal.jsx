@@ -129,7 +129,7 @@ export default function NutritionQuickCreateModal({ isOpen, onClose, user, clien
     try {
       const hasCapacity = await ensureClientCapacity();
       if (!hasCapacity) return;
-      const { clientId, assessmentId, clientStatus } = await createNutritionAssessmentFromProfile({
+      const { clientId, assessmentId, clientStatus, emailSent } = await createNutritionAssessmentFromProfile({
         profile: {
           ...form,
           heightCm: form.heightCm ? Number(String(form.heightCm).replace(",", ".")) : null,
@@ -142,11 +142,14 @@ export default function NutritionQuickCreateModal({ isOpen, onClose, user, clien
       const description =
         clientStatus === "existing"
           ? "Le dossier existant a été repris avec son historique nutrition."
+          : hasEmail && emailSent
+          ? "Le client a été créé et son e-mail d’accès a bien été envoyé."
           : hasEmail
-          ? "Le client a été créé et une invitation de connexion a été préparée."
+          ? "Le client est créé, mais l’e-mail d’accès n’a pas pu partir. Tu peux le renvoyer depuis sa fiche."
           : "Une fiche hors-ligne a été créée. Tu pourras ajouter l’accès patient plus tard.";
 
       notify(toast, "nutritionDraftCreated", {
+        status: hasEmail && clientStatus !== "existing" && !emailSent ? "warning" : "success",
         title: "Suivi nutrition créé",
         description,
       });

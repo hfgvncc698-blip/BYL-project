@@ -3,6 +3,7 @@ const express = require("express");
 const nodemailer = require("nodemailer");
 const admin = require("../firebaseAdmin");
 const { getBearerToken, getUserRole } = require("../utils/firebaseAuth");
+const { brandedEmailHtml } = require("../utils/brandedEmail");
 
 const router = express.Router();
 const db = admin.firestore();
@@ -55,15 +56,6 @@ function serialize(value) {
   return value;
 }
 
-function escapeHtml(value) {
-  return String(value || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
 function getTransporter() {
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT || 465);
@@ -85,11 +77,29 @@ function trackingPixelUrl(eventId) {
   return `${origin}/api/email-tracking/open/${encodeURIComponent(eventId)}.gif`;
 }
 
-function emailHtml(message, eventId = "") {
+function profileLanguage(profile = {}) {
+  const data = profile.client || profile.user || {};
+  return (
+    data.preferredLang ||
+    data.preferredLanguage ||
+    data.settings?.langCode ||
+    data.settings?.defaultLanguage ||
+    data.langue ||
+    data.language ||
+    "fr"
+  );
+}
+
+function emailHtml(message, eventId = "", title = "BoostYourLife", lang = "fr") {
   const pixel = eventId
     ? `<img src="${trackingPixelUrl(eventId)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;opacity:0" />`
     : "";
-  return `<div style="font-family:Arial,sans-serif;line-height:1.6;white-space:pre-wrap">${escapeHtml(message)}</div>${pixel}`;
+  return brandedEmailHtml({
+    lang,
+    title,
+    intro: message,
+    trackingPixel: pixel,
+  });
 }
 
 function isPermanentSmtpFailure(error) {
@@ -290,6 +300,45 @@ async function loadStoredEvents(profile, id) {
 }
 
 async function loadLegacyEvents(profile, events) {
+  const hasType = (type) =>
+    Array.from(events.values()).some((event) => event?.type === type);
+  const addProfileMarker = (type, subject, sentAt, source = "legacy-profile-marker") => {
+    if (!sentAt || hasType(type)) return;
+    const ownerId = profile.user?.id || profile.client?.id || "profile";
+    events.set(`legacy-${ownerId}-${type}`, {
+      id: `legacy-${ownerId}-${type}`,
+      clientId: profile.client?.id || null,
+      userId: profile.user?.id || null,
+      to: profile.email,
+      type,
+      subject,
+      status: "sent",
+      sentAt,
+      source,
+      deliveryProvider: "firebase",
+      deliveryStatus: "unknown",
+    });
+  };
+
+  addProfileMarker(
+    "passwordReset",
+    "Réinitialisation du mot de passe",
+    profile.user?.passwordResetEmailSentAt ||
+      profile.client?.passwordResetEmailSentAt
+  );
+  addProfileMarker(
+    "accountActivation",
+    "Activation du compte et création du mot de passe",
+    profile.user?.passwordSetupEmailSentAt ||
+      profile.client?.passwordSetupEmailSentAt
+  );
+  addProfileMarker(
+    "welcome",
+    DEFAULT_TEMPLATES.welcome.subject,
+    lifecycleValue(profile.user || {}, "welcome", "SentAt") ||
+      lifecycleValue(profile.client || {}, "welcome", "SentAt")
+  );
+
   if (!profile.client?.id) return;
   const clientRef = db.collection("clients").doc(profile.client.id);
   const programs = await clientRef.collection("programmes").get();
@@ -669,7 +718,7 @@ router.post("/client/:id/send", async (req, res) => {
         to: profile.email,
         subject,
         text: message,
-        html: emailHtml(message, eventRef.id),
+        html: emailHtml(message, eventRef.id, subject, profileLanguage(profile)),
         replyTo: fromEmail,
       });
       const accepted = Array.isArray(info?.accepted) ? info.accepted.map(cleanEmail).filter(Boolean) : [];
@@ -711,7 +760,12 @@ router.post("/client/:id/preview", async (req, res) => {
     const subject = cleanText(req.body?.subject || template.subject, 180);
     const message = cleanText(req.body?.message || template.message, 12000);
     if (!subject || !message) return res.status(400).json({ error: "subject-and-message-required" });
-    return res.json({ ok: true, subject, message, html: emailHtml(message) });
+    return res.json({
+      ok: true,
+      subject,
+      message,
+      html: emailHtml(message, "", subject, profileLanguage(profile)),
+    });
   } catch (error) {
     console.error("[admin-emails] preview failed:", error);
     return res.status(500).json({ error: error?.message || "email-preview-failed" });
@@ -763,7 +817,7 @@ router.post("/client/:id/test", async (req, res) => {
         to: testEmail,
         subject: `[TEST] ${subject}`,
         text: message,
-        html: emailHtml(message, eventRef.id),
+        html: emailHtml(message, eventRef.id, subject, profileLanguage(profile)),
         replyTo: fromEmail,
       });
       await eventRef.update({
@@ -847,7 +901,7 @@ router.post("/client/:id/retry/:eventId", async (req, res) => {
         to: profile.email,
         subject,
         text: message,
-        html: emailHtml(message, retryRef.id),
+        html: emailHtml(message, retryRef.id, subject, profileLanguage(profile)),
         replyTo: fromEmail,
       });
       const accepted = Array.isArray(info?.accepted) ? info.accepted.map(cleanEmail).filter(Boolean) : [];

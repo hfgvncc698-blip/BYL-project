@@ -3,6 +3,8 @@ const express = require("express");
 const admin = require('../firebaseAdmin');
 const nodemailer = require("nodemailer");
 const { requireFirebaseAuth } = require("../utils/firebaseAuth");
+const { recordEmailEvent } = require("../utils/emailEvents");
+const { brandedEmailHtml } = require("../utils/brandedEmail");
 
 const router = express.Router();
 const db = admin.firestore();
@@ -13,6 +15,10 @@ function cleanText(value, max = 120) {
 
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeEmail(value));
 }
 
 function asBool(value) {
@@ -163,10 +169,10 @@ function publicFrontendBaseUrl() {
 }
 
 function activationContinueUrl() {
-  return `${publicFrontendBaseUrl()}/login?reset=1`;
+  return `${publicFrontendBaseUrl()}/login?activated=1`;
 }
 
-async function sendActivationEmail(email, lang = "fr") {
+async function sendFirebaseActivationFallback(email, lang = "fr") {
   const apiKey =
     process.env.WEB_API_KEY ||
     process.env.FIREBASE_WEB_API_KEY ||
@@ -192,6 +198,208 @@ async function sendActivationEmail(email, lang = "fr") {
     throw new Error(text || "activation-email-failed");
   }
   return true;
+}
+
+const ACTIVATION_EMAIL_COPY = {
+  fr: {
+    subject: "Activez votre compte BoostYourLife",
+    title: "Votre espace BoostYourLife est prêt",
+    intro: ({ clientName, coachName }) =>
+      `Bonjour ${clientName || ""},\n\n${coachName || "Votre professionnel"} vient de créer votre espace personnel BoostYourLife.`,
+    action: "Créez maintenant votre mot de passe pour accéder à vos programmes et à votre suivi.",
+    cta: "Créer mon mot de passe",
+    safety: "Ce lien est personnel. Ne le transmettez à personne.",
+    closing: "À très vite,\nL’équipe BoostYourLife",
+  },
+  en: {
+    subject: "Activate your BoostYourLife account",
+    title: "Your BoostYourLife space is ready",
+    intro: ({ clientName, coachName }) =>
+      `Hello ${clientName || ""},\n\n${coachName || "Your professional"} has created your personal BoostYourLife space.`,
+    action: "Create your password now to access your programs and follow-up.",
+    cta: "Create my password",
+    safety: "This link is personal. Do not share it with anyone.",
+    closing: "See you soon,\nThe BoostYourLife team",
+  },
+  es: {
+    subject: "Activa tu cuenta BoostYourLife",
+    title: "Tu espacio BoostYourLife está listo",
+    intro: ({ clientName, coachName }) =>
+      `Hola ${clientName || ""},\n\n${coachName || "Tu profesional"} ha creado tu espacio personal BoostYourLife.`,
+    action: "Crea ahora tu contraseña para acceder a tus programas y a tu seguimiento.",
+    cta: "Crear mi contraseña",
+    safety: "Este enlace es personal. No lo compartas con nadie.",
+    closing: "Hasta pronto,\nEl equipo de BoostYourLife",
+  },
+  de: {
+    subject: "Aktivieren Sie Ihr BoostYourLife-Konto",
+    title: "Ihr BoostYourLife-Bereich ist bereit",
+    intro: ({ clientName, coachName }) =>
+      `Hallo ${clientName || ""},\n\n${coachName || "Ihre Fachkraft"} hat Ihren persönlichen BoostYourLife-Bereich erstellt.`,
+    action: "Erstellen Sie jetzt Ihr Passwort, um auf Ihre Programme und Ihre Betreuung zuzugreifen.",
+    cta: "Mein Passwort erstellen",
+    safety: "Dieser Link ist persönlich. Geben Sie ihn nicht weiter.",
+    closing: "Bis bald,\nIhr BoostYourLife-Team",
+  },
+  it: {
+    subject: "Attiva il tuo account BoostYourLife",
+    title: "Il tuo spazio BoostYourLife è pronto",
+    intro: ({ clientName, coachName }) =>
+      `Ciao ${clientName || ""},\n\n${coachName || "Il tuo professionista"} ha creato il tuo spazio personale BoostYourLife.`,
+    action: "Crea ora la tua password per accedere ai programmi e al monitoraggio.",
+    cta: "Crea la mia password",
+    safety: "Questo link è personale. Non condividerlo con nessuno.",
+    closing: "A presto,\nIl team BoostYourLife",
+  },
+  ru: {
+    subject: "Активируйте аккаунт BoostYourLife",
+    title: "Ваше пространство BoostYourLife готово",
+    intro: ({ clientName, coachName }) =>
+      `Здравствуйте, ${clientName || ""}!\n\n${coachName || "Ваш специалист"} создал для вас личное пространство BoostYourLife.`,
+    action: "Создайте пароль, чтобы получить доступ к программам и сопровождению.",
+    cta: "Создать пароль",
+    safety: "Эта ссылка предназначена только для вас. Не передавайте её другим.",
+    closing: "До скорой встречи,\nКоманда BoostYourLife",
+  },
+  ar: {
+    subject: "فعّل حسابك على BoostYourLife",
+    title: "مساحتك على BoostYourLife جاهزة",
+    intro: ({ clientName, coachName }) =>
+      `مرحباً ${clientName || ""}،\n\nقام ${coachName || "المختص المتابع لك"} بإنشاء مساحتك الشخصية على BoostYourLife.`,
+    action: "أنشئ كلمة المرور الآن للوصول إلى برامجك ومتابعتك.",
+    cta: "إنشاء كلمة المرور",
+    safety: "هذا الرابط شخصي. لا تشاركه مع أي شخص.",
+    closing: "نراك قريباً،\nفريق BoostYourLife",
+  },
+};
+
+async function activationSenderName(uid) {
+  if (!uid) return "";
+  const snap = await db.collection("users").doc(String(uid)).get().catch(() => null);
+  const data = snap?.data?.() || {};
+  return fullName(data, data.clubName || data.email || "");
+}
+
+async function generateClientActivationLink(email, lang = "fr") {
+  const locale = langCodeFromAny(lang);
+  const firebaseLink = await admin.auth().generatePasswordResetLink(email, {
+    url: activationContinueUrl(),
+    handleCodeInApp: false,
+  });
+  try {
+    const actionUrl = new URL(firebaseLink);
+    const oobCode = actionUrl.searchParams.get("oobCode");
+    if (!oobCode) return firebaseLink;
+    const params = new URLSearchParams({
+      mode: "resetPassword",
+      oobCode,
+      lang: locale,
+    });
+    return `${publicFrontendBaseUrl()}/activate-account?${params.toString()}`;
+  } catch {
+    return firebaseLink;
+  }
+}
+
+function buildActivationEmail(lang, { clientName, coachName, activationLink }) {
+  const locale = langCodeFromAny(lang);
+  const copy = ACTIVATION_EMAIL_COPY[locale] || ACTIVATION_EMAIL_COPY.fr;
+  const intro = copy.intro({ clientName, coachName });
+  const dir = locale === "ar" ? "rtl" : "ltr";
+  const text = `${copy.title}\n\n${intro}\n\n${copy.action}\n\n${copy.cta}: ${activationLink}\n\n${copy.safety}\n\n${copy.closing}`;
+  const html = `<!doctype html>
+<html lang="${locale}" dir="${dir}">
+  <body style="margin:0;background:#f4f7fb;font-family:Arial,sans-serif;color:#111827;">
+    <div style="max-width:620px;margin:0 auto;padding:32px 18px;">
+      <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:20px;padding:32px;">
+        <div style="font-size:22px;font-weight:800;color:#234f84;margin-bottom:24px;">BoostYourLife.coach</div>
+        <h1 style="font-size:26px;line-height:1.25;margin:0 0 20px;">${escapeHtml(copy.title)}</h1>
+        <p style="font-size:16px;line-height:1.65;white-space:pre-line;">${escapeHtml(intro)}</p>
+        <p style="font-size:16px;line-height:1.65;">${escapeHtml(copy.action)}</p>
+        <p style="margin:28px 0;">
+          <a href="${escapeHtml(activationLink)}" style="display:inline-block;background:#17213a;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 22px;border-radius:12px;">${escapeHtml(copy.cta)}</a>
+        </p>
+        <p style="font-size:13px;line-height:1.55;color:#64748b;">${escapeHtml(copy.safety)}</p>
+        <p style="font-size:15px;line-height:1.6;white-space:pre-line;margin-top:28px;">${escapeHtml(copy.closing)}</p>
+      </div>
+    </div>
+  </body>
+</html>`;
+  return { ...copy, locale, html, text };
+}
+
+async function sendTrackedActivationEmail({
+  email,
+  lang,
+  userId = "",
+  clientId = "",
+  initiatedBy = "",
+  source = "client-activation",
+  clientName = "",
+  coachName = "",
+}) {
+  const locale = langCodeFromAny(lang);
+  const resolvedCoachName = coachName || (await activationSenderName(initiatedBy));
+  let activationLink = "";
+  try {
+    activationLink = await generateClientActivationLink(email, locale);
+    const transporter = getMailTransporter();
+    let provider = "smtp";
+    let messageId = null;
+    if (transporter) {
+      const copy = buildActivationEmail(locale, {
+        clientName,
+        coachName: resolvedCoachName,
+        activationLink,
+      });
+      const fromName = process.env.CONTACT_FROM_NAME || "BoostYourLife";
+      const fromEmail = process.env.SMTP_USER;
+      const info = await transporter.sendMail({
+        from: `${fromName} <${fromEmail}>`,
+        to: email,
+        subject: copy.subject,
+        text: copy.text,
+        html: copy.html,
+      });
+      messageId = info?.messageId || null;
+    } else {
+      provider = "firebase";
+      await sendFirebaseActivationFallback(email, locale);
+    }
+    await recordEmailEvent({
+      to: email,
+      type: "accountActivation",
+      subject: (ACTIVATION_EMAIL_COPY[locale] || ACTIVATION_EMAIL_COPY.fr).subject,
+      userId,
+      clientId,
+      initiatedBy,
+      source,
+      status: "sent",
+      deliveryProvider: provider,
+      deliveryStatus: "accepted",
+      messageId,
+      language: locale,
+    }).catch((error) => {
+      console.warn("[clubs] activation email event log failed:", error?.message || error);
+    });
+    return { sent: true, activationLink, provider };
+  } catch (error) {
+    await recordEmailEvent({
+      to: email,
+      type: "accountActivation",
+      subject: (ACTIVATION_EMAIL_COPY[locale] || ACTIVATION_EMAIL_COPY.fr).subject,
+      userId,
+      clientId,
+      initiatedBy,
+      source,
+      status: "failed",
+      deliveryProvider: "smtp",
+      deliveryStatus: "failed",
+      language: locale,
+      error: String(error?.message || error).slice(0, 500),
+    }).catch(() => null);
+    throw error;
+  }
 }
 
 function nutritionShareEmailCopy(lang, { clientName, coachName, link, requiresPasswordSetup = false }) {
@@ -291,25 +499,41 @@ function nutritionShareEmailCopy(lang, { clientName, coachName, link, requiresPa
     "",
     effectiveCopy.footer,
   ].filter(Boolean).join("\n");
-  const html = `
-    <div style="font-family:Arial,sans-serif;line-height:1.55;color:#0f172a">
-      <p>${escapeHtml(safeName)}</p>
-      <h2>${escapeHtml(effectiveCopy.title)}</h2>
-      <p>${escapeHtml(effectiveCopy.intro)}</p>
-      <p>
-        <a href="${escapeHtml(link)}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;padding:12px 18px;border-radius:999px;font-weight:700">
-          ${escapeHtml(effectiveCopy.cta)}
-        </a>
-      </p>
-      <p style="color:#64748b;font-size:13px">${escapeHtml(effectiveCopy.footer)}</p>
-    </div>
-  `;
+  const html = brandedEmailHtml({
+    lang,
+    title: effectiveCopy.title,
+    intro: [safeName, effectiveCopy.intro].filter(Boolean).join("\n\n"),
+    ctaLabel: effectiveCopy.cta,
+    ctaUrl: link,
+    footer: effectiveCopy.footer,
+  });
   return { ...effectiveCopy, text, html };
 }
 
 async function getRequester(uid) {
   const snap = await db.collection("users").doc(uid).get();
   return snap.exists ? { id: snap.id, ...snap.data() } : null;
+}
+
+function isProfessionalUser(user) {
+  const role = String(user?.role || "").trim().toLowerCase();
+  return Boolean(
+    role === "coach" ||
+      user?.accountType === "club_owner" ||
+      user?.accountType === "club_member" ||
+      user?.clubRole === "owner" ||
+      user?.clubRole === "member"
+  );
+}
+
+function isClientManagerRequester(req, user) {
+  return isAdminRequester(req, user) || isProfessionalUser(user);
+}
+
+function assertClientManager(req, res, user) {
+  if (isClientManagerRequester(req, user)) return true;
+  res.status(403).json({ error: "client-management-forbidden" });
+  return false;
 }
 
 async function findUserProfileByEmail(email) {
@@ -750,33 +974,29 @@ router.get("/summary", requireFirebaseAuth, assertClubOwner, async (req, res) =>
   }
 });
 
-router.get("/client-capacity", requireFirebaseAuth, async (req, res) => {
-  try {
-    const requester = await getRequester(req.auth?.uid);
-    if (!requester) return res.status(404).json({ error: "user-not-found" });
-
-    if (requester.clubId) {
-      const clubSnap = await db.collection("clubs").doc(requester.clubId).get();
+async function getClientCapacityForOwner(owner, ownerUid) {
+  if (owner?.clubId) {
+      const clubSnap = await db.collection("clubs").doc(owner.clubId).get();
       const club = clubSnap.exists ? clubSnap.data() || {} : {};
       const limit =
         typeof club.clientLimit === "number"
           ? club.clientLimit
-          : typeof requester.proAccess?.clientLimit === "number"
-          ? requester.proAccess.clientLimit
-          : typeof requester.clientLimit === "number"
-          ? requester.clientLimit
+          : typeof owner.proAccess?.clientLimit === "number"
+          ? owner.proAccess.clientLimit
+          : typeof owner.clientLimit === "number"
+          ? owner.clientLimit
           : null;
       if (limit == null) {
-        return res.json({ ok: true, allowed: true, used: 0, limit: null, clubManaged: true });
+        return { ok: true, allowed: true, used: 0, limit: null, clubManaged: true };
       }
-      const clientsSnap = await db.collection("clients").where("clubId", "==", requester.clubId).limit(limit + 1).get();
+      const clientsSnap = await db.collection("clients").where("clubId", "==", owner.clubId).limit(limit + 1).get();
       const used = clientsSnap.size;
-      const packageTier = club.packageTier || requester.packageTier || requester.proAccess?.packageTier || "";
+      const packageTier = club.packageTier || owner.packageTier || owner.proAccess?.packageTier || "";
       const upgradeMessage =
         packageTier === "network"
           ? "Vous êtes au maximum du pack Réseau. Contactez contact@boostyourlife.coach pour augmenter votre capacité."
           : "La capacité est partagée par tout le club. Passez à l’offre Club supérieure pour ajouter de nouveaux clients.";
-      return res.json({
+      return {
         ok: true,
         allowed: used < limit,
         used,
@@ -784,38 +1004,46 @@ router.get("/client-capacity", requireFirebaseAuth, async (req, res) => {
         clubManaged: true,
         packageTier,
         upgradeMessage,
-      });
+      };
     }
 
     const limit =
-      typeof requester.proAccess?.clientLimit === "number"
-        ? requester.proAccess.clientLimit
-        : typeof requester.clientLimit === "number"
-        ? requester.clientLimit
+      typeof owner?.proAccess?.clientLimit === "number"
+        ? owner.proAccess.clientLimit
+        : typeof owner?.clientLimit === "number"
+        ? owner.clientLimit
         : null;
     if (limit == null) {
-      return res.json({ ok: true, allowed: true, used: 0, limit: null, clubManaged: false });
+      return { ok: true, allowed: true, used: 0, limit: null, clubManaged: false };
     }
 
     const [createdSnap, coachSnap, sharedSnap] = await Promise.all([
-      db.collection("clients").where("createdBy", "==", req.auth.uid).limit(limit + 1).get(),
-      db.collection("clients").where("coachId", "==", req.auth.uid).limit(limit + 1).get(),
-      db.collection("clients").where("coachIds", "array-contains", req.auth.uid).limit(limit + 1).get(),
+      db.collection("clients").where("createdBy", "==", ownerUid).limit(limit + 1).get(),
+      db.collection("clients").where("coachId", "==", ownerUid).limit(limit + 1).get(),
+      db.collection("clients").where("coachIds", "array-contains", ownerUid).limit(limit + 1).get(),
     ]);
     const ids = new Set();
     createdSnap.forEach((doc) => ids.add(doc.id));
     coachSnap.forEach((doc) => ids.add(doc.id));
     sharedSnap.forEach((doc) => ids.add(doc.id));
     const used = ids.size;
-    return res.json({
+    return {
       ok: true,
       allowed: used < limit,
       used,
       limit,
       clubManaged: false,
-      packageTier: requester.packageTier || requester.proAccess?.packageTier || "",
+      packageTier: owner?.packageTier || owner?.proAccess?.packageTier || "",
       upgradeMessage: "Passez au palier supérieur pour ajouter de nouveaux clients et débloquer plus de capacité.",
-    });
+    };
+}
+
+router.get("/client-capacity", requireFirebaseAuth, async (req, res) => {
+  try {
+    const requester = await getRequester(req.auth?.uid);
+    if (!requester) return res.status(404).json({ error: "user-not-found" });
+    if (!assertClientManager(req, res, requester)) return;
+    return res.json(await getClientCapacityForOwner(requester, req.auth.uid));
   } catch (error) {
     console.error("[clubs] client capacity failed:", error);
     return res.status(500).json({ error: error?.message || "club-client-capacity-failed" });
@@ -877,10 +1105,319 @@ function publicClientSummary(snap, programCount = 0) {
   };
 }
 
+async function resolveClientOwnerContext(req, requester) {
+  const requestedOwnerUid = cleanText(req.body?.ownerUid, 180);
+  const requesterIsAdmin = isAdminRequester(req, requester);
+  const ownerUid =
+    requesterIsAdmin && requestedOwnerUid
+      ? requestedOwnerUid
+      : req.auth.uid;
+  const owner =
+    ownerUid === req.auth.uid
+      ? requester
+      : await getRequester(ownerUid);
+
+  if (!owner || (!isProfessionalUser(owner) && ownerUid !== req.auth.uid)) {
+    const error = new Error("client-owner-forbidden");
+    error.statusCode = 403;
+    throw error;
+  }
+  if (!requesterIsAdmin && requestedOwnerUid && requestedOwnerUid !== req.auth.uid) {
+    const error = new Error("client-owner-forbidden");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const requestedClubId = cleanText(req.body?.clubId, 160);
+  const ownerClubId = cleanText(owner.clubId, 160);
+  if (
+    requestedClubId &&
+    !requesterIsAdmin &&
+    requestedClubId !== ownerClubId
+  ) {
+    const error = new Error("club-scope-forbidden");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const isClubAccount = Boolean(
+    ownerClubId &&
+      (
+        owner.accountType === "club_owner" ||
+        owner.accountType === "club_member" ||
+        owner.clubRole === "owner" ||
+        owner.clubRole === "member"
+      )
+  );
+  const clubId = requestedClubId || (isClubAccount ? ownerClubId : "");
+  let clubName = cleanText(req.body?.clubName || owner.clubName, 180);
+  if (clubId && !clubName) {
+    const clubSnap = await db.collection("clubs").doc(clubId).get().catch(() => null);
+    clubName = cleanText(clubSnap?.data?.()?.name || clubSnap?.data?.()?.clubName, 180);
+  }
+
+  return { ownerUid, owner, clubId, clubName };
+}
+
+function canAttachExistingClient(req, requester, clientData = {}, ownerUid, clubId) {
+  if (isAdminRequester(req, requester)) return true;
+  const coachIds = Array.isArray(clientData.coachIds) ? clientData.coachIds : [];
+  const assignedCoachIds = [
+    clientData.createdBy,
+    clientData.coachId,
+    clientData.ownerId,
+    ...coachIds,
+  ].filter(Boolean);
+  const assignedClubIds = [
+    clientData.clubId,
+    ...(Array.isArray(clientData.clubIds) ? clientData.clubIds : []),
+  ].filter(Boolean);
+  if (!assignedCoachIds.length && !assignedClubIds.length) return true;
+  if (ownerUid && assignedCoachIds.includes(ownerUid)) return true;
+  if (clubId && assignedClubIds.includes(clubId)) return true;
+  return false;
+}
+
+router.post("/clients", requireFirebaseAuth, async (req, res) => {
+  let createdAuthUid = "";
+  try {
+    const requester = await getRequester(req.auth?.uid);
+    if (!requester) return res.status(404).json({ error: "user-not-found" });
+    if (!assertClientManager(req, res, requester)) return;
+
+    const email = normalizeEmail(req.body?.email);
+    const firstName = cleanText(req.body?.firstName || req.body?.prenom, 80);
+    const lastName = cleanText(req.body?.lastName || req.body?.nom, 80);
+    if (!isValidEmail(email)) return res.status(400).json({ error: "valid-email-required" });
+    if (!firstName || !lastName) return res.status(400).json({ error: "client-name-required" });
+
+    const ownerContext = await resolveClientOwnerContext(req, requester);
+    const { ownerUid, owner, clubId, clubName } = ownerContext;
+
+    let existingAuth = null;
+    try {
+      existingAuth = await admin.auth().getUserByEmail(email);
+    } catch (error) {
+      if (error?.code !== "auth/user-not-found") throw error;
+    }
+    if (existingAuth) {
+      return res.status(409).json({
+        error: "client-account-already-exists",
+        authExists: true,
+        canLink: true,
+      });
+    }
+
+    const duplicateClientSnap = await db
+      .collection("clients")
+      .where("emailLower", "==", email)
+      .limit(1)
+      .get()
+      .catch(() => null);
+    const existingClientDoc = duplicateClientSnap?.docs?.[0] || null;
+    if (
+      existingClientDoc &&
+      !canAttachExistingClient(
+        req,
+        requester,
+        existingClientDoc.data() || {},
+        ownerUid,
+        clubId
+      )
+    ) {
+      return res.status(403).json({ error: "existing-client-scope-forbidden" });
+    }
+    if (!existingClientDoc) {
+      const capacity = await getClientCapacityForOwner(owner, ownerUid);
+      if (!capacity.allowed && capacity.limit != null) {
+        return res.status(409).json({ error: "client-limit-reached", capacity });
+      }
+    }
+
+    const displayName = `${firstName} ${lastName}`.trim();
+    const authUser = await admin.auth().createUser({
+      email,
+      password: randomPassword(),
+      displayName,
+      emailVerified: false,
+      disabled: false,
+    });
+    createdAuthUid = authUser.uid;
+
+    const uid = authUser.uid;
+    const langCode = langCodeFromAny(
+      req.body?.preferredLang ||
+        req.body?.langue ||
+        req.body?.language ||
+        "fr"
+    );
+    const phone = cleanText(req.body?.telephone || req.body?.phone, 40);
+    const birthDateInput = cleanText(req.body?.dateNaissance || req.body?.birthDate, 40);
+    const heightCm = Number(req.body?.heightCm);
+    const weightKg = Number(req.body?.weightKg);
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    const units = {
+      height: req.body?.units?.height === "ft" || req.body?.units?.height === "in" ? req.body.units.height : "cm",
+      weight: req.body?.units?.weight === "lbs" ? "lbs" : "kg",
+    };
+    const objective = cleanText(
+      req.body?.objectifs || req.body?.objectif || req.body?.objective || req.body?.goal,
+      160
+    );
+    const existingClient = existingClientDoc?.data?.() || {};
+    const clientRef = existingClientDoc?.ref || db.collection("clients").doc(uid);
+    const userRef = db.collection("users").doc(uid);
+    const batch = db.batch();
+
+    batch.set(userRef, {
+      email,
+      emailLower: email,
+      role: "particulier",
+      firstName,
+      lastName,
+      displayName,
+      telephone: phone || null,
+      phone: phone || null,
+      createdAt: now,
+      updatedAt: now,
+      loginMethod: "email",
+      linkedClientId: clientRef.id,
+      preferredLang: langCode,
+      accountCreationSource: "coach-created",
+      passwordSetupRequired: true,
+      passwordSetupEmailAttemptedAt: now,
+      settings: {
+        defaultLanguage: langCode,
+        langCode,
+      },
+    });
+    const newClientPayload = {
+      email,
+      emailLower: email,
+      prenom: firstName,
+      nom: lastName,
+      firstName,
+      lastName,
+      displayName,
+      telephone: phone || null,
+      phone: phone || null,
+      dateNaissance: birthDateInput || null,
+      birthDate: timestampFromDateInput(birthDateInput),
+      niveauSportif: cleanText(req.body?.niveauSportif || req.body?.niveau || req.body?.level, 80),
+      niveau: cleanText(req.body?.niveau || req.body?.niveauSportif || req.body?.level, 80),
+      objectifs: objective,
+      objectif: objective,
+      notes: cleanText(req.body?.notes, 4000),
+      sexe: cleanText(req.body?.sexe || req.body?.gender, 40),
+      heightCm: Number.isFinite(heightCm) && heightCm > 0 ? heightCm : null,
+      weightKg: Number.isFinite(weightKg) && weightKg > 0 ? weightKg : null,
+      langue: langCode,
+      language: langCode,
+      preferredLang: langCode,
+      uid,
+      linkedUserId: uid,
+      accountUid: uid,
+      loginMethod: "email",
+      source: existingClient.source || "coach-created",
+      accountCreationSource: existingClient.accountCreationSource || "coach-created",
+      passwordSetupRequired: true,
+      createdBy: existingClient.createdBy || ownerUid,
+      coachId: existingClient.coachId || ownerUid,
+      coachIds: existingClientDoc
+        ? admin.firestore.FieldValue.arrayUnion(ownerUid)
+        : [ownerUid],
+      clubId: existingClient.clubId || clubId || null,
+      clubName: existingClient.clubName || clubName || null,
+      clubIds: clubId
+        ? existingClientDoc
+          ? admin.firestore.FieldValue.arrayUnion(clubId)
+          : [clubId]
+        : existingClient.clubIds || [],
+      creeLe: existingClient.creeLe || now,
+      createdAt: existingClient.createdAt || now,
+      updatedAt: now,
+      settings: {
+        units,
+        defaultLanguage: langCode,
+        langCode,
+      },
+    };
+    if (existingClientDoc) {
+      batch.set(clientRef, newClientPayload, { merge: true });
+    } else {
+      batch.set(clientRef, newClientPayload);
+    }
+
+    try {
+      await batch.commit();
+    } catch (writeError) {
+      await admin.auth().deleteUser(uid).catch((rollbackError) => {
+        console.error("[clubs] client auth rollback failed:", rollbackError?.message || rollbackError);
+      });
+      createdAuthUid = "";
+      throw writeError;
+    }
+
+    let emailSent = false;
+    let emailWarning = "";
+    try {
+      const activationResult = await sendTrackedActivationEmail({
+        email,
+        lang: langCode,
+        userId: uid,
+        clientId: clientRef.id,
+        initiatedBy: req.auth.uid,
+        source: "client-creation",
+        clientName: displayName,
+      });
+      emailSent = activationResult.sent === true;
+    } catch (emailError) {
+      emailWarning = "activation-email-failed";
+      console.warn("[clubs] client activation email failed:", emailError?.message || emailError);
+    }
+
+    const emailResultPatch = emailSent
+      ? {
+          passwordSetupEmailSentAt: admin.firestore.FieldValue.serverTimestamp(),
+          passwordSetupEmailLastError: admin.firestore.FieldValue.delete(),
+        }
+      : {
+          passwordSetupEmailLastError: emailWarning || "activation-email-not-sent",
+        };
+    await Promise.all([
+      userRef.set(emailResultPatch, { merge: true }),
+      clientRef.set(emailResultPatch, { merge: true }),
+    ]).catch((emailLogError) => {
+      console.warn("[clubs] client activation result log failed:", emailLogError?.message || emailLogError);
+    });
+
+    createdAuthUid = "";
+    return res.status(201).json({
+      ok: true,
+      clientId: clientRef.id,
+      uid,
+      ownerUid,
+      activatedExistingClient: Boolean(existingClientDoc),
+      emailAttempted: true,
+      emailSent,
+      emailDelivery: emailSent ? "activation-email-sent" : "not-sent",
+      emailWarning: emailSent ? null : emailWarning || "activation-email-not-sent",
+    });
+  } catch (error) {
+    if (createdAuthUid) {
+      await admin.auth().deleteUser(createdAuthUid).catch(() => {});
+    }
+    console.error("[clubs] create client failed:", error);
+    const status = Number(error?.statusCode) || 500;
+    return res.status(status).json({ error: error?.message || "club-create-client-failed" });
+  }
+});
+
 router.get("/client-lookup", requireFirebaseAuth, async (req, res) => {
   try {
     const requester = await getRequester(req.auth?.uid);
     if (!requester) return res.status(404).json({ error: "user-not-found" });
+    if (!assertClientManager(req, res, requester)) return;
 
     const email = normalizeEmail(req.query?.email);
     if (!email) return res.status(400).json({ error: "email-required" });
@@ -896,13 +1433,22 @@ router.get("/client-lookup", requireFirebaseAuth, async (req, res) => {
       const emailSnap = await db.collection("clients").where("emailLower", "==", email).limit(1).get().catch(() => null);
       const clientSnap = emailSnap?.docs?.[0] || null;
       const programCount = clientSnap ? await countClientPrograms(clientSnap.ref) : 0;
+      const canLink = clientSnap
+        ? canAttachExistingClient(
+            req,
+            requester,
+            clientSnap.data() || {},
+            req.auth.uid,
+            cleanText(requester.clubId, 160)
+          )
+        : false;
       return res.json({
         ok: true,
         exists: Boolean(clientSnap),
         authExists: false,
-        client: publicClientSummary(clientSnap, programCount),
-        canLink: Boolean(clientSnap),
-        hasPrograms: programCount > 0,
+        client: canLink ? publicClientSummary(clientSnap, programCount) : null,
+        canLink,
+        hasPrograms: canLink && programCount > 0,
       });
     }
 
@@ -912,6 +1458,16 @@ router.get("/client-lookup", requireFirebaseAuth, async (req, res) => {
     const clientSnap = await findClientSnapForUser({ uid: authUser.uid, email });
     const programCount = clientSnap ? await countClientPrograms(clientSnap.ref) : 0;
     const isClientRole = !role || !["admin", "coach"].includes(role);
+    const canAttach = clientSnap
+      ? canAttachExistingClient(
+          req,
+          requester,
+          clientSnap.data() || {},
+          req.auth.uid,
+          cleanText(requester.clubId, 160)
+        )
+      : true;
+    const canLink = isClientRole && canAttach;
 
     return res.json({
       ok: true,
@@ -919,9 +1475,9 @@ router.get("/client-lookup", requireFirebaseAuth, async (req, res) => {
       authExists: true,
       uid: authUser.uid,
       role: role || "particulier",
-      client: publicClientSummary(clientSnap, programCount),
-      canLink: isClientRole,
-      hasPrograms: programCount > 0,
+      client: canLink ? publicClientSummary(clientSnap, programCount) : null,
+      canLink,
+      hasPrograms: canLink && programCount > 0,
     });
   } catch (error) {
     console.error("[clubs] client lookup failed:", error);
@@ -933,6 +1489,7 @@ router.post("/link-existing-client", requireFirebaseAuth, async (req, res) => {
   try {
     const requester = await getRequester(req.auth?.uid);
     if (!requester) return res.status(404).json({ error: "user-not-found" });
+    if (!assertClientManager(req, res, requester)) return;
 
     const email = normalizeEmail(req.body?.email);
     if (!email) return res.status(400).json({ error: "email-required" });
@@ -954,7 +1511,32 @@ router.post("/link-existing-client", requireFirebaseAuth, async (req, res) => {
       return res.status(409).json({ error: "existing-account-is-not-client" });
     }
 
+    const ownerContext = await resolveClientOwnerContext(req, requester);
+    const {
+      ownerUid,
+      owner,
+      clubId: resolvedClubId,
+      clubName: resolvedClubName,
+    } = ownerContext;
     const clientSnap = await findClientSnapForUser({ uid, email });
+    if (
+      clientSnap?.exists &&
+      !canAttachExistingClient(
+        req,
+        requester,
+        clientSnap.data() || {},
+        ownerUid,
+        resolvedClubId
+      )
+    ) {
+      return res.status(403).json({ error: "existing-client-scope-forbidden" });
+    }
+    if (!clientSnap?.exists) {
+      const capacity = await getClientCapacityForOwner(owner, ownerUid);
+      if (!capacity.allowed && capacity.limit != null) {
+        return res.status(409).json({ error: "client-limit-reached", capacity });
+      }
+    }
     const clientRef = clientSnap?.ref || db.collection("clients").doc(uid);
     const existingClient = clientSnap?.exists ? clientSnap.data() || {} : {};
     const now = admin.firestore.FieldValue.serverTimestamp();
@@ -962,14 +1544,6 @@ router.post("/link-existing-client", requireFirebaseAuth, async (req, res) => {
     const lastName = cleanText(req.body?.lastName || req.body?.nom || existingUser.lastName || existingClient.nom, 80);
     const language = cleanText(req.body?.langue || req.body?.language || existingClient.langue || existingUser.preferredLang || "fr", 40);
     const langCode = langCodeFromAny(language);
-    const requestedClubId = cleanText(req.body?.clubId, 160);
-    if (requestedClubId && requestedClubId !== cleanText(requester.clubId, 160)) {
-      return res.status(403).json({ error: "club-scope-forbidden" });
-    }
-    const requestedClubName = requestedClubId
-      ? cleanText(req.body?.clubName || requester.clubName, 180)
-      : "";
-
     const clientPayload = {
       email,
       emailLower: email,
@@ -984,12 +1558,15 @@ router.post("/link-existing-client", requireFirebaseAuth, async (req, res) => {
       uid,
       linkedUserId: uid,
       accountUid: uid,
-      coachIds: admin.firestore.FieldValue.arrayUnion(req.auth.uid),
+      coachIds: admin.firestore.FieldValue.arrayUnion(ownerUid),
       updatedAt: now,
-      createdBy: existingClient.createdBy || req.auth.uid,
-      coachId: existingClient.coachId || req.auth.uid,
-      clubId: existingClient.clubId || requestedClubId || null,
-      clubName: existingClient.clubName || requestedClubName || null,
+      createdBy: existingClient.createdBy || ownerUid,
+      coachId: existingClient.coachId || ownerUid,
+      clubId: existingClient.clubId || resolvedClubId || null,
+      clubName: existingClient.clubName || resolvedClubName || null,
+      ...(resolvedClubId
+        ? { clubIds: admin.firestore.FieldValue.arrayUnion(resolvedClubId) }
+        : {}),
       settings: {
         ...(existingClient.settings || {}),
         defaultLanguage: language || existingClient.settings?.defaultLanguage || "Français",
@@ -1026,12 +1603,14 @@ router.post("/link-existing-client", requireFirebaseAuth, async (req, res) => {
       ok: true,
       uid,
       clientId: clientRef.id,
+      ownerUid,
       linkedExistingClient: Boolean(clientSnap?.exists),
       hasPrograms: Boolean(programmesSnap && !programmesSnap.empty),
     });
   } catch (error) {
     console.error("[clubs] link existing client failed:", error);
-    return res.status(500).json({ error: error?.message || "club-link-existing-client-failed" });
+    const status = Number(error?.statusCode) || 500;
+    return res.status(status).json({ error: error?.message || "club-link-existing-client-failed" });
   }
 });
 
@@ -1229,6 +1808,12 @@ router.patch("/clients/:clientId", requireFirebaseAuth, async (req, res) => {
       clientPayload.uid = linkedAuthUid;
       clientPayload.linkedUserId = linkedAuthUid;
       clientPayload.accountUid = linkedAuthUid;
+      if (createdAuth) {
+        clientPayload.passwordSetupRequired = true;
+        clientPayload.source = existingClient.source || "coach-created";
+        clientPayload.accountCreationSource =
+          existingClient.accountCreationSource || "coach-created";
+      }
     }
 
     const writes = [clientRef.set(clientPayload, { merge: true })];
@@ -1246,13 +1831,29 @@ router.patch("/clients/:clientId", requireFirebaseAuth, async (req, res) => {
             preferredLang: langCode,
             settings: { defaultLanguage: langCode, langCode },
             updatedAt: now,
-            ...(createdAuth ? { createdAt: now } : {}),
+            ...(createdAuth
+              ? {
+                  createdAt: now,
+                  accountCreationSource: "coach-created",
+                  passwordSetupRequired: true,
+                  passwordSetupEmailAttemptedAt: now,
+                }
+              : {}),
           },
           { merge: true }
         )
       );
     }
-    await Promise.all(writes);
+    try {
+      await Promise.all(writes);
+    } catch (writeError) {
+      if (createdAuth && linkedAuthUid) {
+        await admin.auth().deleteUser(linkedAuthUid).catch((rollbackError) => {
+          console.error("[clubs] update client auth rollback failed:", rollbackError?.message || rollbackError);
+        });
+      }
+      throw writeError;
+    }
 
     let resetLink = "";
     let emailSent = false;
@@ -1265,18 +1866,40 @@ router.patch("/clients/:clientId", requireFirebaseAuth, async (req, res) => {
     if (shouldSendActivation) {
       emailAttempted = true;
       try {
-        resetLink = await admin.auth().generatePasswordResetLink(email, {
-          url: activationContinueUrl(),
-          handleCodeInApp: false,
+        const activationResult = await sendTrackedActivationEmail({
+          email,
+          lang: langCode,
+          userId: linkedAuthUid,
+          clientId,
+          initiatedBy: req.auth.uid,
+          source: "client-update",
+          clientName: [firstName, lastName].filter(Boolean).join(" "),
         });
-      } catch (error) {
-        emailWarning = error?.message || "activation-link-generation-failed";
-      }
-      try {
-        emailSent = await sendActivationEmail(email, langCode);
+        emailSent = activationResult.sent === true;
+        resetLink = activationResult.activationLink || "";
       } catch (error) {
         emailWarning = error?.message || emailWarning || "activation-email-failed";
         console.warn("[clubs] client activation email failed:", error?.message || error);
+      }
+      if (emailSent && linkedAuthUid) {
+        await Promise.all([
+          db.collection("users").doc(linkedAuthUid).set(
+            {
+              passwordSetupEmailSentAt: admin.firestore.FieldValue.serverTimestamp(),
+              passwordSetupEmailLastError: admin.firestore.FieldValue.delete(),
+            },
+            { merge: true }
+          ),
+          clientRef.set(
+            {
+              passwordSetupEmailSentAt: admin.firestore.FieldValue.serverTimestamp(),
+              passwordSetupEmailLastError: admin.firestore.FieldValue.delete(),
+            },
+            { merge: true }
+          ),
+        ]).catch((logError) => {
+          console.warn("[clubs] activation email result log failed:", logError?.message || logError);
+        });
       }
     }
 
@@ -1507,19 +2130,19 @@ router.post("/coaches", requireFirebaseAuth, assertClubOwner, async (req, res) =
     );
 
     let resetLink = "";
-    try {
-      resetLink = await admin.auth().generatePasswordResetLink(email, {
-        url: activationContinueUrl(),
-        handleCodeInApp: false,
-      });
-    } catch (error) {
-      console.warn("[clubs] reset link generation failed:", error?.message || error);
-    }
-
     let emailSent = false;
     try {
       const coachLang = langCodeFromAny(req.body?.preferredLang || req.body?.langue || req.clubUser?.preferredLang || req.clubUser?.settings?.defaultLanguage || "fr");
-      emailSent = await sendActivationEmail(email, coachLang);
+      const activationResult = await sendTrackedActivationEmail({
+        email,
+        lang: coachLang,
+        userId: uid,
+        initiatedBy: req.auth.uid,
+        source: "club-member-creation",
+        clientName: [firstName, lastName].filter(Boolean).join(" "),
+      });
+      emailSent = activationResult.sent === true;
+      resetLink = activationResult.activationLink || "";
     } catch (error) {
       console.warn("[clubs] activation email failed:", error?.message || error);
     }
@@ -1921,6 +2544,7 @@ router.post("/nutrition-share-email", requireFirebaseAuth, async (req, res) => {
   try {
     const requester = await getRequester(req.auth?.uid);
     if (!requester) return res.status(404).json({ error: "user-not-found" });
+    if (!assertClientManager(req, res, requester)) return;
 
     const clientId = cleanText(req.body?.clientId, 160);
     const assessmentId = cleanText(req.body?.assessmentId, 160);

@@ -900,7 +900,7 @@ export default function ClientView() {
           title: t("clientView.inviteSent", "Invitation envoyée"),
           description: t("clientView.inviteSentDesc", {
             email: newEmail,
-            defaultValue: `Un email a été envoyé à ${newEmail} pour créer ou réinitialiser son mot de passe.`,
+            defaultValue: `Une invitation d’activation a été envoyée à ${newEmail} pour créer son mot de passe.`,
           }),
         });
       } else if (emailChanged || result.emailAttempted || result.emailDelivery === "activation-link-generated") {

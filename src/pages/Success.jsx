@@ -20,6 +20,7 @@ import { doc, onSnapshot, collection, getDocs } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
 
 import { apiFetch } from "../utils/api";
+import { resolveClientSnapshotForUser } from "../utils/clientResolver";
 
 export default function Success() {
   const { user } = useAuth();
@@ -141,8 +142,15 @@ export default function Success() {
         // Si achat 'program', attendre que le programme apparaisse
         if (action === "program") {
           (async () => {
+            const clientSnap = await resolveClientSnapshotForUser(user, {
+              logPrefix: "PaymentSuccess",
+            });
+            if (!clientSnap?.id) {
+              navigate("/auto-program-preview");
+              return;
+            }
             const snapProgs = await getDocs(
-              collection(db, "clients", user.uid, "programmes")
+              collection(db, "clients", clientSnap.id, "programmes")
             );
             const all = snapProgs.docs.map((d) => ({ id: d.id, ...d.data() }));
             const latest = all

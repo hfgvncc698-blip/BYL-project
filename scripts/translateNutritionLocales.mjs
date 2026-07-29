@@ -140,6 +140,22 @@ const collectCandidates = (source, target, out) => {
   });
 };
 
+const addMissingValues = (source, target) => {
+  if (!isObject(source) || !isObject(target)) return 0;
+  let added = 0;
+  Object.entries(source).forEach(([key, sourceValue]) => {
+    if (!(key in target)) {
+      target[key] = structuredClone(sourceValue);
+      added += 1;
+      return;
+    }
+    if (isObject(sourceValue) && isObject(target[key])) {
+      added += addMissingValues(sourceValue, target[key]);
+    }
+  });
+  return added;
+};
+
 const applyTranslations = (source, target, dictionary) => {
   if (!isObject(source) || !isObject(target)) return 0;
   let changed = 0;
@@ -185,17 +201,26 @@ async function main() {
     const relativePath = `src/i18n/locales/${lang}/common.json`;
     const locale = readJson(relativePath);
     const candidates = new Set();
+    let added = 0;
 
     SECTIONS.forEach((section) => {
+      if (fr.auto?.[section] && !locale.auto?.[section]) {
+        locale.auto = locale.auto || {};
+        locale.auto[section] = {};
+      }
+      added += addMissingValues(fr.auto?.[section], locale.auto?.[section]);
       collectCandidates(fr.auto?.[section], locale.auto?.[section], candidates);
     });
     ROOT_SECTIONS.forEach((section) => {
+      if (fr?.[section] && !locale?.[section]) locale[section] = {};
+      added += addMissingValues(fr?.[section], locale?.[section]);
       collectCandidates(fr?.[section], locale?.[section], candidates);
     });
 
     const items = [...candidates].sort();
     if (!items.length) {
-      console.log(`${lang}: nothing to translate`);
+      if (added) writeJson(relativePath, locale);
+      console.log(`${lang}: nothing to translate (${added} missing key(s) added)`);
       continue;
     }
 
@@ -220,7 +245,7 @@ async function main() {
     });
 
     writeJson(relativePath, locale);
-    console.log(`${lang}: translated ${changed} value(s)`);
+    console.log(`${lang}: added ${added} key(s), translated ${changed} value(s)`);
   }
 }
 

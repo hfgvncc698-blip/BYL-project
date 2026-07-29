@@ -24,6 +24,7 @@ import PageBackButton from "../components/ui/PageBackButton";
 import { apiFetch } from "../utils/api";
 import { formatProgramActiveWeeks, formatProgramWeekProgress, getProgramActiveWeeksLabel } from "../utils/programDuration";
 import { readPageDataCache, runLimited, writePageDataCache } from "../utils/pageDataCache";
+import { isSessionValidatedRecord } from "../utils/sessionCompletion";
 
 const MY_PROGRAMS_CACHE_TTL_MS = 10 * 60 * 1000;
 
@@ -80,34 +81,6 @@ const getSessionIndex = (session) => {
     if (Number.isFinite(displayNumber)) return Math.max(0, displayNumber - 1);
   }
   return null;
-};
-
-const isSessionValidatedRecord = (session) => {
-  if (!session) return false;
-  const status = String(session?.status || "").trim().toLowerCase();
-  if (
-    session?.isPartial === true ||
-    status === "en_cours" ||
-    status === "in_progress" ||
-    status === "partial"
-  ) {
-    return false;
-  }
-
-  const pct = Number(session?.pourcentageTermine);
-  if (Number.isFinite(pct)) return pct >= 90;
-
-  return (
-    status === "validée" ||
-    status === "validee" ||
-    status === "done" ||
-    status === "completed" ||
-    status === "terminée" ||
-    status === "terminee" ||
-    session?.validated === true ||
-    session?.isValidated === true ||
-    Boolean(session?.dateEffectuee || session?.completedAt || session?.validatedAt || session?.playedAt || session?.timestamp || session?.date)
-  );
 };
 
 const isAutoProgramme = (p) => String(p?.origine || "").toLowerCase().includes("auto");

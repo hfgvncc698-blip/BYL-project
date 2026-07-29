@@ -1658,7 +1658,7 @@
     "viewAll": "Vedi tutto",
     "deleteProgram": "Elimina programma",
     "inviteSent": "Invito inviato",
-    "inviteSentDesc": "È stata inviata un'e-mail a {{email}} per creare o reimpostare la sua password.",
+    "inviteSentDesc": "È stato inviato a {{email}} un invito di attivazione per creare la password.",
     "selectProgram": "Seleziona un programma da assegnare.",
     "programNotFound": "Il programma selezionato non esiste.",
     "assigned": "Programma assegnato",

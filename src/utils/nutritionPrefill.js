@@ -15,12 +15,6 @@ import {
   arrayUnion,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
-import { initializeApp, getApps, getApp, deleteApp } from "firebase/app";
-import {
-  getAuth as getAuthSecondary,
-  createUserWithEmailAndPassword as createUserSecondary,
-  sendPasswordResetEmail,
-} from "firebase/auth";
 import { apiFetch } from "./api";
 
 const normalizeList = (value) =>
@@ -235,60 +229,29 @@ async function ensureExistingClientLinked(clientId, profile = {}, createdByUid, 
 
 async function createEmailClient(profile = {}, createdByUid, clubId = null) {
   const email = normalizeEmail(profile.email);
-  const baseConfig = getApp().options;
-  const secondary =
-    getApps().find((app) => app.name === "BYL-Secondary") ??
-    initializeApp(baseConfig, "BYL-Secondary");
-  const secondaryAuth = getAuthSecondary(secondary);
-  secondaryAuth.languageCode = langCodeFromAny(profile.langue || profile.language || profile.lang || "fr");
-  const langCode = secondaryAuth.languageCode || "fr";
-  const tempPwd = Math.random().toString(36).slice(-10) + "A!1$";
-
   try {
-    const createdUser = await createUserSecondary(secondaryAuth, email, tempPwd);
-    const uid = createdUser.user.uid;
     const payload = buildNutritionClientPayload(profile, createdByUid, null, clubId);
-
-    try {
-      await sendPasswordResetEmail(secondaryAuth, email, {
-        url: `https://boostyourlife.coach/nutrition?lang=${encodeURIComponent(langCode)}`,
-        handleCodeInApp: false,
-      });
-    } catch {
-      // On garde le flux principal même si l'email de définition du mot de passe échoue.
-    }
-
-    await setDoc(doc(db, "users", uid), {
-      email,
-      role: "particulier",
-      firstName: payload.firstName,
-      lastName: payload.lastName,
-      telephone: payload.telephone,
-      preferredLang: payload.settings?.langCode || "fr",
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      loginMethod: "email",
-      linkedClientId: uid,
-      passwordSetupRequired: true,
-      passwordSetupEmailSentAt: serverTimestamp(),
-      settings: {
-        defaultLanguage: payload.settings?.defaultLanguage || "fr",
-        langCode: payload.settings?.langCode || "fr",
-      },
+    const created = await apiFetch("/clubs/clients", {
+      method: "POST",
+      body: JSON.stringify({
+        ...payload,
+        updatedAt: undefined,
+        ownerUid: createdByUid || undefined,
+        clubId: clubId || null,
+        units: payload.settings?.units || { height: "cm", weight: "kg" },
+      }),
     });
-
-    await setDoc(doc(db, "clients", uid), {
-      ...payload,
-      uid,
-      linkedUserId: uid,
-      creeLe: serverTimestamp(),
-      coachIds: createdByUid ? [createdByUid] : [],
-      clubIds: clubId ? [clubId] : [],
-    });
-
-    return { clientId: uid, status: "created_email" };
+    return {
+      clientId: created.clientId,
+      status: "created_email",
+      emailSent: created.emailSent === true,
+      emailWarning: created.emailWarning || "",
+    };
   } catch (error) {
-    if (error?.code === "auth/email-already-in-use") {
+    if (
+      error?.status === 409 &&
+      error?.data?.error === "client-account-already-exists"
+    ) {
       const lookup = await apiFetch(
         `/clubs/client-lookup?email=${encodeURIComponent(email)}`
       ).catch(() => null);
@@ -316,8 +279,6 @@ async function createEmailClient(profile = {}, createdByUid, clubId = null) {
       }
     }
     throw error;
-  } finally {
-    await deleteApp(secondary).catch(() => {});
   }
 }
 
@@ -339,6 +300,20 @@ async function createOfflineClient(profile = {}, createdByUid, clubId = null) {
 export async function createOrResolveNutritionClient({ profile = {}, createdByUid, clubId = null }) {
   const existing = await findExistingClientByIdentity(profile);
   if (existing?.clientId) {
+    const email = normalizeEmail(profile.email);
+    if (email) {
+      const lookup = await apiFetch(
+        `/clubs/client-lookup?email=${encodeURIComponent(email)}`
+      ).catch(() => null);
+      if (lookup?.exists && lookup?.canLink === false) {
+        throw new Error(
+          "Ce compte appartient déjà à un autre espace. Un administrateur doit valider son transfert."
+        );
+      }
+      if (lookup && lookup.authExists === false) {
+        return createEmailClient(profile, createdByUid, clubId);
+      }
+    }
     return ensureExistingClientLinked(existing.clientId, profile, createdByUid, clubId);
   }
 
@@ -612,7 +587,14 @@ export async function createNutritionAssessmentDraft({ clientId, createdByUid, c
 }
 
 export async function createNutritionAssessmentFromProfile({ profile = {}, createdByUid, clubId = null }) {
-  const { clientId, status } = await createOrResolveNutritionClient({ profile, createdByUid, clubId });
+  const clientResult = await createOrResolveNutritionClient({ profile, createdByUid, clubId });
+  const { clientId, status } = clientResult;
   const { assessmentId } = await createNutritionAssessmentDraft({ clientId, createdByUid, clubId });
-  return { clientId, assessmentId, clientStatus: status };
+  return {
+    clientId,
+    assessmentId,
+    clientStatus: status,
+    emailSent: clientResult.emailSent,
+    emailWarning: clientResult.emailWarning || "",
+  };
 }

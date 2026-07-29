@@ -46,8 +46,7 @@ import {
   orderBy,
   limit,
 } from "firebase/firestore";
-import { sendPasswordResetEmail } from "firebase/auth";
-import { auth, db } from "../firebaseConfig";
+import { db } from "../firebaseConfig";
 import {
   MdOpenInNew,
   MdArrowBack,
@@ -796,7 +795,21 @@ export default function AdminCoach() {
     setBusy((s) => ({ ...s, resetPassword: true }));
     try {
       if (!email || email === "—") throw new Error("email manquant");
-      await sendPasswordResetEmail(auth, email);
+      const response = await fetch(`${getApiBase()}/payments/admin/send-password-reset`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(await getAuthHeaders()),
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          uid: userData?.id || id,
+          email,
+          lang: userData?.preferredLang || userData?.settings?.defaultLanguage || "fr",
+        }),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) throw new Error(data?.error || "password-reset-email-failed");
       toast({ title: i18n.t("auto.AdminCoach.email_envoye", "Email envoyé"), description: i18n.t("auto.AdminCoach.lien_de_reinitialisation_du_mot_de_passe_envoye", "Lien de réinitialisation du mot de passe envoyé."), status: "success", duration: 4000, isClosable: true });
     } catch (e) {
       toast({ title: i18n.t("auto.AdminCoach.mot_de_passe_oublie", "Mot de passe oublié"), description: e.message || "Erreur", status: "error", duration: 6000, isClosable: true });

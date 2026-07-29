@@ -131,27 +131,45 @@ async function resolveClientSnapshotForUserUncached(user, options = {}) {
     }
   }
 
+  try {
+    const uidSnap = await getDoc(doc(db, "clients", user.uid));
+    if (uidSnap.exists()) return uidSnap;
+  } catch {
+    // Les anciens dossiers n'utilisent pas toujours l'UID comme identifiant.
+  }
+
+  const [linkedUserSnap, uidFieldSnap] = await Promise.all([
+    tryGetDocsFromQuery(
+      query(collection(db, "clients"), where("linkedUserId", "==", user.uid), limit(2))
+    ),
+    tryGetDocsFromQuery(
+      query(collection(db, "clients"), where("uid", "==", user.uid), limit(2))
+    ),
+  ]);
+  const identityMatches = [
+    ...(linkedUserSnap?.docs || []),
+    ...(uidFieldSnap?.docs || []),
+  ];
+  if (identityMatches.length) {
+    const uniqueIdentityMatches = new Map(
+      identityMatches.map((snap) => [snap.id, snap])
+    );
+    return uniqueIdentityMatches.values().next().value || null;
+  }
+
   const localClientId = readLocalClientId(user);
   if (localClientId) {
     try {
       const localSnap = await getDoc(doc(db, "clients", localClientId));
-      if (localSnap.exists()) return localSnap;
+      const localData = localSnap.data() || {};
+      const isStrongIdentityMatch =
+        localSnap.id === user.uid ||
+        localData.linkedUserId === user.uid ||
+        localData.accountUid === user.uid ||
+        localData.uid === user.uid;
+      if (localSnap.exists() && isStrongIdentityMatch) return localSnap;
     } catch {
       // Si le cache local est obsolète ou refusé, on retombe sur les pistes robustes.
-    }
-  }
-
-  if (emailLower) {
-    const exactEmailLowerSnap = await tryGetDocsFromQuery(
-      query(collection(db, "clients"), where("emailLower", "==", emailLower), limit(10))
-    );
-    if (exactEmailLowerSnap?.size === 1) return exactEmailLowerSnap.docs[0];
-    if (exactEmailLowerSnap?.size > 1) {
-      const scoredExact = await Promise.all(
-        exactEmailLowerSnap.docs.map((snap) => scoreClientSnapshot(snap, user, options))
-      );
-      scoredExact.sort((a, b) => b.score - a.score);
-      return scoredExact[0]?.snap || exactEmailLowerSnap.docs[0];
     }
   }
 
@@ -170,8 +188,27 @@ async function resolveClientSnapshotForUserUncached(user, options = {}) {
       const backendSnap = candidates.get(resolved.clientId);
       if (backendSnap) return backendSnap;
     }
-  } catch {
+  } catch (error) {
+    if (
+      error?.status === 409 &&
+      error?.data?.error === "client-profile-ambiguous"
+    ) {
+      if (options.logPrefix) {
+        console.error(
+          `[${options.logPrefix}] Plusieurs dossiers utilisent le même e-mail; résolution bloquée par sécurité.`
+        );
+      }
+      return null;
+    }
     // Le backend est un accélérateur sécurisé; en dev/offline on conserve les anciens fallbacks Firestore.
+  }
+
+  if (emailLower) {
+    const exactEmailLowerSnap = await tryGetDocsFromQuery(
+      query(collection(db, "clients"), where("emailLower", "==", emailLower), limit(10))
+    );
+    if (exactEmailLowerSnap?.size === 1) return exactEmailLowerSnap.docs[0];
+    if (exactEmailLowerSnap?.size > 1) return null;
   }
 
   if (email) {

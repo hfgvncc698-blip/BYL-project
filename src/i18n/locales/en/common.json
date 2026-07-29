@@ -1658,7 +1658,7 @@
     "viewAll": "See all",
     "deleteProgram": "Delete program",
     "inviteSent": "Invitation sent",
-    "inviteSentDesc": "An email was sent to {{email}} to create or reset his password.",
+    "inviteSentDesc": "An activation invitation was sent to {{email}} to create a password.",
     "selectProgram": "Selects a program to assign.",
     "programNotFound": "The selected program does not exist.",
     "assigned": "Assigned program",

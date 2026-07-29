@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import AppLoading from "../components/ui/AppLoading";
 import PageBackButton from "../components/ui/PageBackButton";
 import { resolveClientSnapshotForUser } from "../utils/clientResolver";
+import { isSessionValidatedRecord } from "../utils/sessionCompletion";
 import {
   MdOutlineCalendarMonth,
   MdOutlineFitnessCenter,
@@ -288,11 +289,7 @@ export default function StatisticsPageClient() {
               `sessionsEffectuees:${p.id}`
             );
             const eff = effSnap?.docs?.map((d) => d.data()) || [];
-            const validatedCount = eff.filter((s) => {
-              const pct = typeof s.pourcentageTermine === "number" ? s.pourcentageTermine : 100;
-              return pct >= 90;
-            }).length;
-            const doneCount = eff.length > 0 && validatedCount === 0 ? eff.length : validatedCount;
+            const doneCount = eff.filter(isSessionValidatedRecord).length;
             return Math.min(doneCount, planned || doneCount);
           })
         );

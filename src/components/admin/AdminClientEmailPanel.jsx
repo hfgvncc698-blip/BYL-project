@@ -78,6 +78,9 @@ function emailTypeLabel(type) {
   const labels = {
     manual: "Manuel",
     welcome: "Bienvenue",
+    accountActivation: "Activation du compte",
+    accountEmailVerification: "Vérification de l’adresse",
+    passwordReset: "Réinitialisation du mot de passe",
     programAssigned: "Nouveau programme",
     programCompleted: "Programme terminé",
     inactivity: "Rappel d’inactivité",
@@ -481,10 +484,11 @@ export default function AdminClientEmailPanel({ clientId, profileId, audience = 
       <Alert status="info" borderRadius="lg" alignItems="flex-start">
         <AlertIcon mt="2px" />
         <Box>
-          <Text fontWeight="700">Les e-mails de sécurité restent séparés</Text>
+          <Text fontWeight="700">Les e-mails de sécurité sont aussi journalisés</Text>
           <Text fontSize="sm">
             Invitation ou création du mot de passe, réinitialisation et vérification d’adresse sont envoyées
-            uniquement après une action explicite. Les factures et reçus Stripe dépendent aussi des réglages Stripe.
+            uniquement après une action explicite, puis apparaissent dans l’historique ci-dessous.
+            Les factures et reçus Stripe dépendent aussi des réglages Stripe.
           </Text>
         </Box>
       </Alert>
@@ -761,7 +765,11 @@ export default function AdminClientEmailPanel({ clientId, profileId, audience = 
                       <Td minW="170px">
                         {event.deliveryStatus === "accepted" ? (
                           <Box>
-                            <Badge colorScheme="green">Accepté par SMTP</Badge>
+                            <Badge colorScheme="green">
+                              {event.deliveryProvider === "firebase"
+                                ? "Accepté par Firebase"
+                                : "Accepté par SMTP"}
+                            </Badge>
                             <Text color={muted} fontSize="xs">{toLocale(event.acceptedAt)}</Text>
                           </Box>
                         ) : (

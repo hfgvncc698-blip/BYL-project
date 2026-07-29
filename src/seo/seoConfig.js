@@ -259,6 +259,7 @@ export const SEO_ROUTES = {
 export const NOINDEX_PREFIXES = [
   "/admin",
   "/account",
+  "/activate-account",
   "/auto-program-preview",
   "/cancel",
   "/checkout",
@@ -278,6 +279,8 @@ export const NOINDEX_PREFIXES = [
   "/programmes/",
   "/questionnaire",
   "/register",
+  "/reset-password",
+  "/verify-email",
   "/settings",
   "/settings-coach",
   "/statistics-coach",
@@ -287,8 +290,11 @@ export const NOINDEX_PREFIXES = [
 ];
 
 export const NOINDEX_STATIC_ROUTES = [
+  "/activate-account",
   "/login",
   "/register",
+  "/reset-password",
+  "/verify-email",
   "/programmes-premium",
   "/coach-dashboard",
   "/user-dashboard",

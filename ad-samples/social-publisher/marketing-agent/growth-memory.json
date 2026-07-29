@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-07-27T23:36:39.378Z",
+  "updatedAt": "2026-07-28T22:24:17.829Z",
   "primaryKpi": "free_trial_starts",
   "secondaryKpi": "activation_day_7",
   "activationSignals": [
@@ -29522,6 +29522,330 @@
           "network": "instagram",
           "reason": "fresh_media_required",
           "detail": "daily_media_missing"
+        }
+      ],
+      "learningEntryCount": 245
+    },
+    {
+      "id": "2026-07-28-growth-report",
+      "generatedAt": "2026-07-28T22:24:17.828Z",
+      "date": "2026-07-28",
+      "primaryKpi": "free_trial_starts",
+      "secondaryKpi": "activation_day_7",
+      "activationSignals": [
+        "client_created",
+        "program_created",
+        "program_assigned",
+        "client_login"
+      ],
+      "summary": "Optimisation orientee essais gratuits demarres puis activation J+7. Les vues, likes et commentaires restent des signaux secondaires.",
+      "topHooks": [
+        {
+          "value": "Ton client ne voit pas ton admin. Il ressent ton suivi.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Avant le premier cours, tu dois deja savoir quels clients actifs risquent de decrocher.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topVideos": [
+        {
+          "value": "story",
+          "count": 2,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topCtas": [
+        {
+          "value": "Reponds SUIVI si tu veux voir comment ca marche.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Reponds CLUB si tu veux voir comment ca marche",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topFormats": [
+        {
+          "value": "story",
+          "count": 2,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topCreativeFormatVariants": [],
+      "topTimes": [
+        {
+          "value": "monday-12h30-story",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "tuesday-18h30-story",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topEmotions": [
+        {
+          "value": "soulagement",
+          "count": 2,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topAudiences": [
+        {
+          "value": "coachs sportifs",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "salles et studios fitness",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topActivatedHooks": [
+        {
+          "value": "Ton client ne voit pas ton admin. Il ressent ton suivi.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "Avant le premier cours, tu dois deja savoir quels clients actifs risquent de decrocher.",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "topActivatedAudiences": [
+        {
+          "value": "coach_independant",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        },
+        {
+          "value": "salle_de_sport",
+          "count": 1,
+          "score": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0
+        }
+      ],
+      "segmentPerformance": [
+        {
+          "segment": "coach_independant",
+          "count": 1,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "clicks": 0,
+          "views": 0,
+          "activationRate": 0,
+          "trialRate": 0
+        },
+        {
+          "segment": "salle_de_sport",
+          "count": 1,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "clicks": 0,
+          "views": 0,
+          "activationRate": 0,
+          "trialRate": 0
+        }
+      ],
+      "fatigueAngles": [],
+      "falseSuccesses": [],
+      "distributionAlerts": [
+        {
+          "date": "2026-06-29",
+          "platform": "instagram_story",
+          "hook": "Ton client ne voit pas ton admin. Il ressent ton suivi.",
+          "audienceSegment": "coach_independant",
+          "views": 0,
+          "reach": 0,
+          "interactions": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "reasons": [
+            "no_trial_signal_yet"
+          ],
+          "recommendation": "Ne pas reproduire tel quel: renforcer les 2 premieres secondes, ajouter plus de plans humains, CTA natif plateforme et seed de distribution."
+        },
+        {
+          "date": "2026-06-30",
+          "platform": "instagram_story",
+          "hook": "Avant le premier cours, tu dois deja savoir quels clients actifs risquent de decrocher.",
+          "audienceSegment": "salle_de_sport",
+          "views": 0,
+          "reach": 0,
+          "interactions": 0,
+          "freeTrialStarts": 0,
+          "activationDay7": 0,
+          "reasons": [
+            "no_trial_signal_yet"
+          ],
+          "recommendation": "Ne pas reproduire tel quel: renforcer les 2 premieres secondes, ajouter plus de plans humains, CTA natif plateforme et seed de distribution."
+        }
+      ],
+      "nextContentRules": [
+        "Ne pas considerer une video a moins de 50 vues comme creative winner: il faut d'abord resoudre hook, timing ou distribution.",
+        "Ouvrir par une friction terrain visible en moins de 2 secondes, puis montrer la preuve produit seulement apres le probleme ressenti.",
+        "Monter plus vite: 5 a 7 plans, coupes de 1.5 a 2.8 secondes, texte overlay court et lisible.",
+        "Adapter le CTA par plateforme: Instagram/TikTok vers bio ou reponse, Facebook avec lien cliquable.",
+        "Prevoir un seed manuel de distribution quand Meta donne moins de 50 vues: story, commentaire epingle, repartage ou publication au creneau exact."
+      ],
+      "experimentMix": {
+        "targetShare": {
+          "proven": 0.7,
+          "optimization": 0.2,
+          "experiment": 0.1
+        },
+        "counts": {
+          "proven": 1,
+          "optimization": 1,
+          "experiment": 0
+        },
+        "currentShare": {
+          "proven": 0.5,
+          "optimization": 0.5,
+          "experiment": 0
+        }
+      },
+      "proofLibrarySummary": {
+        "totalProofs": 0,
+        "testimonials": 0,
+        "timeSavings": 0,
+        "screenshots": 0,
+        "stats": 0,
+        "transformations": 0
+      },
+      "objectionSummary": {
+        "prix": 0,
+        "complexite": 0,
+        "confiance": 0,
+        "migration": 0,
+        "ia": 0,
+        "securite": 0,
+        "temps": 0
+      },
+      "brandScore": {
+        "score": 63,
+        "dimensions": {
+          "premium": 60,
+          "serious": 60,
+          "innovative": 60,
+          "reliable": 71
+        }
+      },
+      "killSwitch": {
+        "automaticPublishingDisabled": true,
+        "trippedAt": "2026-06-30T23:56:49.458Z",
+        "reason": "manual_pause_user_review_required",
+        "severity": "high",
+        "source": "codex_user_request_2026_07_01",
+        "resolvedAt": "",
+        "resolvedReason": "",
+        "alertCount": 88,
+        "latestAlert": {
+          "at": "2026-07-28T22:24:17.821Z",
+          "reason": "meta_performance_sync_partial_failure",
+          "severity": "warning",
+          "source": "nightly_growth_report",
+          "details": {
+            "failedCount": 15,
+            "updated": 3,
+            "total": 18,
+            "rerunEscalated": true,
+            "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+            "sampleErrors": [
+              "Unsupported get request: object missing, unavailable, or lacking permissions"
+            ],
+            "note": "No missing Meta metrics invented."
+          }
+        }
+      },
+      "recentBlocks": [
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
         }
       ],
       "learningEntryCount": 245

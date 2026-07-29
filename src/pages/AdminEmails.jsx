@@ -34,6 +34,10 @@ import { getAuthHeaders } from "../utils/authHeaders";
 import { useAppTheme } from "../styles/appTheme";
 
 const TYPE_LABELS = {
+  welcome: "Bienvenue",
+  accountActivation: "Activation du compte",
+  accountEmailVerification: "Vérification de l’adresse",
+  passwordReset: "Réinitialisation du mot de passe",
   programCompleted: "Programme terminé",
   inactivity: "Rappel d’inactivité",
   trialReminder3: "Essai — J-3",

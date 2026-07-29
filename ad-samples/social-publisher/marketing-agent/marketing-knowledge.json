@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-07-27T23:36:39.381Z",
+  "updatedAt": "2026-07-28T22:24:17.831Z",
   "primaryKpi": "free_trial_starts",
   "secondaryKpi": "activation_day_7",
   "activationSignals": [
@@ -1800,9 +1800,9 @@
       ]
     },
     "latestReport": {
-      "id": "2026-07-27-growth-report",
-      "generatedAt": "2026-07-27T23:36:39.377Z",
-      "date": "2026-07-27",
+      "id": "2026-07-28-growth-report",
+      "generatedAt": "2026-07-28T22:24:17.828Z",
+      "date": "2026-07-28",
       "primaryKpi": "free_trial_starts",
       "secondaryKpi": "activation_day_7",
       "activationSignals": [
@@ -2050,39 +2050,30 @@
         "source": "codex_user_request_2026_07_01",
         "resolvedAt": "",
         "resolvedReason": "",
-        "alertCount": 87,
+        "alertCount": 88,
         "latestAlert": {
-          "at": "2026-07-27T23:36:39.370Z",
+          "at": "2026-07-28T22:24:17.821Z",
           "reason": "meta_performance_sync_partial_failure",
           "severity": "warning",
           "source": "nightly_growth_report",
           "details": {
-            "updated": 3,
             "failedCount": 15,
+            "updated": 3,
             "total": 18,
             "rerunEscalated": true,
             "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
             "sampleErrors": [
-              "Unsupported get request: object inaccessible, missing permissions, or unsupported operation"
-            ]
+              "Unsupported get request: object missing, unavailable, or lacking permissions"
+            ],
+            "note": "No missing Meta metrics invented."
           }
         }
       },
       "recentBlocks": [
         {
-          "network": "calendar",
-          "reason": "kill_switch_active",
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
           "detail": ""
-        },
-        {
-          "network": "calendar",
-          "reason": "kill_switch_active",
-          "detail": ""
-        },
-        {
-          "network": "instagram",
-          "reason": "fresh_media_required",
-          "detail": "daily_media_missing"
         },
         {
           "network": "calendar",
@@ -2115,9 +2106,19 @@
           "detail": ""
         },
         {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
           "network": "instagram",
           "reason": "fresh_media_required",
           "detail": "daily_media_missing"
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
         }
       ],
       "learningEntryCount": 245
@@ -2125,7 +2126,7 @@
   },
   "brand": {
     "version": "1.0.0",
-    "updatedAt": "2026-07-27T23:36:39.376Z",
+    "updatedAt": "2026-07-28T22:24:17.828Z",
     "brandScore": 63,
     "dimensions": {
       "premium": 60,
@@ -2135,30 +2136,6 @@
     },
     "signals": [
       {
-        "at": "2026-06-19T07:48:25.628Z",
-        "source": "facebook",
-        "audienceSegment": "coach_independant",
-        "brandScore": 61,
-        "dimensions": {
-          "premium": 80,
-          "serious": 55,
-          "innovative": 55,
-          "reliable": 55
-        }
-      },
-      {
-        "at": "2026-06-19T16:30:58.334Z",
-        "source": "instagram_story",
-        "audienceSegment": "coach_independant",
-        "brandScore": 73,
-        "dimensions": {
-          "premium": 80,
-          "serious": 80,
-          "innovative": 55,
-          "reliable": 78
-        }
-      },
-      {
         "at": "2026-06-22T10:38:07.853Z",
         "source": "instagram_story",
         "audienceSegment": "nutritionniste",
@@ -5684,6 +5661,30 @@
           "serious": 80,
           "innovative": 76,
           "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-29T11:33:54.957Z",
+        "source": "instagram_story",
+        "audienceSegment": "coach_independant",
+        "brandScore": 66,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 76,
+          "reliable": 78
+        }
+      },
+      {
+        "at": "2026-06-30T16:54:45.343Z",
+        "source": "instagram_story",
+        "audienceSegment": "salle_de_sport",
+        "brandScore": 55,
+        "dimensions": {
+          "premium": 55,
+          "serious": 55,
+          "innovative": 55,
+          "reliable": 55
         }
       },
       {
@@ -5745,21 +5746,22 @@
       "source": "codex_user_request_2026_07_01",
       "resolvedAt": "",
       "resolvedReason": "",
-      "alertCount": 87,
+      "alertCount": 88,
       "latestAlert": {
-        "at": "2026-07-27T23:36:39.370Z",
+        "at": "2026-07-28T22:24:17.821Z",
         "reason": "meta_performance_sync_partial_failure",
         "severity": "warning",
         "source": "nightly_growth_report",
         "details": {
-          "updated": 3,
           "failedCount": 15,
+          "updated": 3,
           "total": 18,
           "rerunEscalated": true,
           "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
           "sampleErrors": [
-            "Unsupported get request: object inaccessible, missing permissions, or unsupported operation"
-          ]
+            "Unsupported get request: object missing, unavailable, or lacking permissions"
+          ],
+          "note": "No missing Meta metrics invented."
         }
       }
     }

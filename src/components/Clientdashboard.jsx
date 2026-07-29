@@ -49,6 +49,7 @@ import { getApiBase } from '../utils/apiBase';
 import { getAuthHeaders } from '../utils/authHeaders';
 import { apiFetch } from '../utils/api';
 import { runLimited } from '../utils/pageDataCache';
+import { isSessionValidatedRecord } from '../utils/sessionCompletion';
 const ClientNutritionSharedSection = React.lazy(() => import("./ClientNutritionSharedSection.jsx"));
 const ClientDashboardCalendar = React.lazy(() => import("./dashboard/ClientDashboardCalendar.jsx"));
 const API_BASE = getApiBase();
@@ -188,34 +189,6 @@ const getSessionIndex = (session) => {
   }
 
   return null;
-};
-
-const isSessionValidatedRecord = (session) => {
-  if (!session) return false;
-  const status = String(session?.status || "").trim().toLowerCase();
-  if (
-    session?.isPartial === true ||
-    status === "en_cours" ||
-    status === "in_progress" ||
-    status === "partial"
-  ) {
-    return false;
-  }
-
-  const pct = Number(session?.pourcentageTermine);
-  if (Number.isFinite(pct)) return pct >= 90;
-
-  return (
-    status === "validée" ||
-    status === "validee" ||
-    status === "done" ||
-    status === "completed" ||
-    status === "terminée" ||
-    status === "terminee" ||
-    session?.validated === true ||
-    session?.isValidated === true ||
-    Boolean(session?.dateEffectuee || session?.completedAt || session?.validatedAt || session?.playedAt || session?.timestamp || session?.date)
-  );
 };
 
 const getNextSessionIndexAfterLatest = ({ totalPrevues, finishedIdx, latestSessionRecord }) => {
@@ -1242,14 +1215,7 @@ export default function ClientDashboard() {
 
           const s = change.doc.data();
 
-          const pct = (typeof s.pourcentageTermine === 'number') ? s.pourcentageTermine : 100;
-          const isValidated =
-            pct >= 90 ||
-            s.status === 'validée' ||
-            s.validated === true ||
-            s.isValidated === true;
-
-          if (!isValidated) continue;
+          if (!isSessionValidatedRecord(s)) continue;
 
           const startDate =
             s.dateEffectuee?.toDate?.() ||

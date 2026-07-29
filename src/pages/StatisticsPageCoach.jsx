@@ -43,6 +43,7 @@ import AppLoading from "../components/ui/AppLoading";
 import { useAppTheme } from "../styles/appTheme";
 import { hasPlanModule } from "../utils/proPlanAccess";
 import { readPageDataCache, runLimited, writePageDataCache } from "../utils/pageDataCache";
+import { isSessionValidatedRecord } from "../utils/sessionCompletion";
 
 const COACH_STATS_CACHE_TTL_MS = 10 * 60 * 1000;
 
@@ -87,20 +88,6 @@ function formatDateShort(d, locale) {
 }
 
 const DAYS_ACTIVE_CUTOFF = 30;
-
-const isSessionValidatedRecord = (session) => {
-  const pct = typeof session?.pourcentageTermine === "number" ? session.pourcentageTermine : 100;
-  const status = String(session?.status || "").trim().toLowerCase();
-  return (
-    pct >= 90 ||
-    status === "validée" ||
-    status === "validee" ||
-    status === "done" ||
-    session?.validated === true ||
-    session?.isValidated === true ||
-    Boolean(session?.validatedAt)
-  );
-};
 
 const hasSharedNutritionSections = (assessment) => {
   const sections = assessment?.clientShare?.sections || {};

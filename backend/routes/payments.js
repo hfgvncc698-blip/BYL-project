@@ -10,18 +10,14 @@ const {
   requireFirebaseAuth,
   requireSelfOrAdmin,
 } = require("../utils/firebaseAuth");
+const { recordEmailEvent } = require("../utils/emailEvents");
+const { sendBrandedPasswordReset } = require("../utils/brandedEmail");
 
 /* ============================================================
    FRONTEND base (URLs de retour Stripe)
 ============================================================ */
 const FRONTEND_BASE_URL =
   process.env.FRONTEND_BASE_URL || process.env.FRONTEND_BASE_URL_ADMIN || "http://localhost:5173";
-
-const FIREBASE_WEB_API_KEY =
-  process.env.WEB_API_KEY ||
-  process.env.FIREBASE_WEB_API_KEY ||
-  process.env.VITE_FIREBASE_API_KEY ||
-  "AIzaSyDpM1cjpDpbXy8Alo_zCBYViQB0E09cTNA";
 
 function getPublicFrontendBaseUrl() {
   const raw =
@@ -35,19 +31,6 @@ function getPublicFrontendBaseUrl() {
     return "https://boostyourlife.coach";
   }
   return base;
-}
-
-function safePasswordResetContinueUrl(value) {
-  const fallback = `${getPublicFrontendBaseUrl()}/login?reset=1`;
-  if (!value) return fallback;
-  try {
-    const url = new URL(String(value));
-    const host = url.hostname.toLowerCase();
-    if (host === "boostyourlife.coach" || host === "www.boostyourlife.coach") {
-      return url.toString();
-    }
-  } catch {}
-  return fallback;
 }
 
 /* ============================================================
@@ -366,33 +349,6 @@ async function getUserByUidOrEmail(uid, email) {
     console.error("[PAYMENTS] getUserByUidOrEmail error:", e);
   }
   return null;
-}
-
-async function sendFirebasePasswordResetEmail(email, { lang = "fr", continueUrl = "" } = {}) {
-  const safeEmail = normalizeEmail(email);
-  if (!safeEmail) throw new Error("email-required");
-  if (!FIREBASE_WEB_API_KEY) throw new Error("firebase-web-api-key-missing");
-
-  const endpoint = `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${encodeURIComponent(FIREBASE_WEB_API_KEY)}`;
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Firebase-Locale": String(lang || "fr").slice(0, 8),
-    },
-    body: JSON.stringify({
-      requestType: "PASSWORD_RESET",
-      email: safeEmail,
-      continueUrl: safePasswordResetContinueUrl(continueUrl),
-    }),
-  });
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(text || "password-reset-email-failed");
-  }
-
-  return response.json().catch(() => ({}));
 }
 
 async function addClientCandidate(candidates, refOrQuery) {
@@ -1046,9 +1002,11 @@ router.post("/admin/send-password-reset", requireAdminKey, async (req, res) => {
     if (!email) return res.status(400).json({ error: "user-email-missing" });
 
     await admin.auth().getUserByEmail(email);
-    await sendFirebasePasswordResetEmail(email, {
+    const resetDelivery = await sendBrandedPasswordReset({
+      admin,
+      email,
       lang,
-      continueUrl: req.body?.continueUrl,
+      baseUrl: getPublicFrontendBaseUrl(),
     });
 
     await admin.firestore().collection("users").doc(user.id).set(
@@ -1059,6 +1017,22 @@ router.post("/admin/send-password-reset", requireAdminKey, async (req, res) => {
       },
       { merge: true }
     );
+    await recordEmailEvent({
+      to: email,
+      type: "passwordReset",
+      subject: resetDelivery.subject || "Réinitialisation du mot de passe",
+      userId: user.id,
+      clientId: user.linkedClientId || "",
+      initiatedBy: req.auth?.uid || "admin",
+      source: "admin-password-reset",
+      status: "sent",
+      deliveryProvider: "smtp",
+      deliveryStatus: "accepted",
+      messageId: resetDelivery.info?.messageId || null,
+      language: resetDelivery.language || null,
+    }).catch((logError) => {
+      console.warn("[ADMIN send-password-reset] email event log failed:", logError?.message || logError);
+    });
 
     return res.json({ ok: true, uid: user.id, email });
   } catch (e) {

@@ -201,8 +201,28 @@ service cloud.firestore {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(["role"]);
     }
 
+    function safeSelfUserCreate(uid, data) {
+      return isOwnUser(uid) &&
+        data.role in ["particulier", "coach"] &&
+        (!data.keys().hasAny(["hasActiveSubscription"]) || data.hasActiveSubscription != true) &&
+        (!data.keys().hasAny(["stripeCustomerId"]) || data.stripeCustomerId == null) &&
+        (!data.keys().hasAny(["stripeSubscriptionId"]) || data.stripeSubscriptionId == null) &&
+        (
+          (
+            data.role == "particulier" &&
+            (!data.keys().hasAny(["subscriptionStatus"]) || data.subscriptionStatus == "free")
+          ) ||
+          (
+            data.role == "coach" &&
+            data.subscriptionStatus == "trialing" &&
+            data.trialEndsAt is timestamp &&
+            data.trialEndsAt <= request.time + duration.value(30, "d")
+          )
+        );
+    }
+
     match /users/{uid} {
-      allow create: if isOwnUser(uid) || isAdmin() || (
+      allow create: if safeSelfUserCreate(uid, request.resource.data) || isAdmin() || (
         hasCoachAccess() &&
         request.resource.data.role == "particulier" &&
         request.resource.data.linkedClientId == uid &&

@@ -18,8 +18,8 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  sendPasswordResetEmail,
   updateProfile,
+  deleteUser,
 } from "firebase/auth";
 import {
   doc,
@@ -30,12 +30,15 @@ import {
   where,
   limit,
   setDoc,
+  writeBatch,
   serverTimestamp,
   Timestamp,
   onSnapshot,
 } from "firebase/firestore";
 import { getApiBase } from "./utils/apiBase";
 import { getProPlanAccess } from "./utils/proPlanAccess";
+import i18n, { ensureLanguageLoaded } from "./i18n";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
@@ -112,6 +115,53 @@ const langCodeFromAny = (value) => {
   if (raw.startsWith("ar") || raw.includes("العربية") || raw.includes("arab")) return "ar";
   return "fr";
 };
+
+async function syncAccountLanguage(data = {}) {
+  const storedLanguage =
+    data?.settings?.defaultLanguage ||
+    data?.settings?.langCode ||
+    data?.preferredLang ||
+    data?.preferredLanguage;
+  if (!storedLanguage) return;
+  const langCode = langCodeFromAny(storedLanguage);
+  await ensureLanguageLoaded(langCode);
+  if ((i18n.language || "").split("-")[0] !== langCode) {
+    await i18n.changeLanguage(langCode);
+  }
+  try {
+    localStorage.setItem("i18nextLng", langCode);
+  } catch {}
+}
+
+function queueWelcomeEmail(fbUser, data = {}) {
+  if (!fbUser?.uid || !fbUser?.email) return;
+  const lifecycle = data.lifecycleEmails || {};
+  if (
+    lifecycle.welcomeSentAt ||
+    lifecycle.welcomeAttemptedAt ||
+    data["lifecycleEmails.welcomeSentAt"] ||
+    data["lifecycleEmails.welcomeAttemptedAt"]
+  ) {
+    return;
+  }
+  const sendWelcomeEmail = httpsCallable(
+    getFunctions(undefined, "europe-west1"),
+    "sendWelcomeEmail"
+  );
+  void sendWelcomeEmail({
+    email: fbUser.email,
+    firstName: data.firstName || data.prenom || fbUser.displayName || "",
+    role: data.role || "particulier",
+    lang:
+      data.preferredLang ||
+      data.preferredLanguage ||
+      data.settings?.defaultLanguage ||
+      i18n.language ||
+      "fr",
+  }).catch((error) => {
+    console.warn("[auth] welcome email skipped:", error?.message || error);
+  });
+}
 
 const normalizeUserDoc = (uid, data, fb) => {
   const isClubAccount =
@@ -441,6 +491,8 @@ export const AuthProvider = ({ children }) => {
           if (!userDoc.exists()) {
             await setDoc(userRef, await seedUserDocFromClient(u, "apple"), { merge: true });
           }
+          const latestUserDoc = await getDoc(userRef);
+          queueWelcomeEmail(u, latestUserDoc.data() || {});
         }
       } catch {
         // silencieux
@@ -464,6 +516,7 @@ export const AuthProvider = ({ children }) => {
         const ref = doc(db, "users", fbUser.uid);
         const snap = await getDoc(ref);
         const data = snap.data() || {};
+        await syncAccountLanguage(data);
         const normalized = normalizeUserDoc(fbUser.uid, data, fbUser);
         setUser(normalized);
         try {
@@ -480,6 +533,7 @@ export const AuthProvider = ({ children }) => {
         ).catch((writeError) => {
           console.warn("[auth] post-login user update skipped:", writeError?.message || writeError);
         });
+        queueWelcomeEmail(fbUser, data);
 
         // ✅ callback historique mais inclut l'accès trial
         const endsAt = toDate(data.trialEndsAt);
@@ -524,6 +578,7 @@ export const AuthProvider = ({ children }) => {
       if (callback) {
         const snap = await getDoc(userRef);
         const data = snap.data() || {};
+        await syncAccountLanguage(data);
         const normalized = normalizeUserDoc(fbUser.uid, data, fbUser);
         setUser(normalized);
         try {
@@ -540,6 +595,7 @@ export const AuthProvider = ({ children }) => {
         ).catch((writeError) => {
           console.warn("[auth] post-login user update skipped:", writeError?.message || writeError);
         });
+        queueWelcomeEmail(fbUser, data);
 
         const endsAt = toDate(data.trialEndsAt);
         const endsAtMs = safeTime(endsAt);
@@ -592,6 +648,19 @@ export const AuthProvider = ({ children }) => {
       if (callback) {
         const snap = await getDoc(userRef);
         const data = snap.data() || {};
+        await syncAccountLanguage(data);
+        setDoc(
+          userRef,
+          {
+            passwordSetupRequired: false,
+            lastLoginAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        ).catch((writeError) => {
+          console.warn("[auth] post-login user update skipped:", writeError?.message || writeError);
+        });
+        queueWelcomeEmail(fbUser, data);
 
         const endsAt = toDate(data.trialEndsAt);
         const endsAtMs = safeTime(endsAt);
@@ -623,12 +692,14 @@ export const AuthProvider = ({ children }) => {
   ) => {
     setError(null);
     setLoading(true);
+    let createdUser = null;
     try {
       const { user: fbUser } = await createUserWithEmailAndPassword(
         auth,
         email,
         password
       );
+      createdUser = fbUser;
 
       // Facultatif: displayName côté Firebase Auth
       try {
@@ -657,7 +728,11 @@ export const AuthProvider = ({ children }) => {
         clubRole: isClubOwner ? "owner" : consent?.clubRole || "",
         clubName,
         birthDate: birthDate || "",
-        preferredLang: (navigator.language || "fr").slice(0, 2).toLowerCase(),
+        accountCreationSource: "self-registration",
+        passwordSetupRequired: false,
+        preferredLang: langCodeFromAny(
+          consent?.preferredLanguage || navigator.language || "fr"
+        ),
         ageVerified: !!consent?.ageVerified,
         cguAccepted: !!consent?.cguAccepted,
         cgvAccepted: !!consent?.cgvAccepted,
@@ -713,10 +788,38 @@ export const AuthProvider = ({ children }) => {
         };
       }
 
-      await setDoc(userRef, { ...base, ...trialPart }, { merge: true });
+      const registrationBatch = writeBatch(db);
+      registrationBatch.set(userRef, { ...base, ...trialPart }, { merge: true });
+
+      if (role !== "coach") {
+        registrationBatch.set(
+          doc(db, "clients", fbUser.uid),
+          {
+            uid: fbUser.uid,
+            authUid: fbUser.uid,
+            linkedUserId: fbUser.uid,
+            accountUid: fbUser.uid,
+            email: normalizeEmail(email),
+            emailLower: normalizeEmail(email),
+            firstName: firstName || "Utilisateur",
+            lastName: lastName || "",
+            prenom: firstName || "Utilisateur",
+            nom: lastName || "",
+            role: "particulier",
+            source: "self-registration",
+            accountCreationSource: "self-registration",
+            passwordSetupRequired: false,
+            preferredLang: base.preferredLang,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }
+
       if (isClubOwner) {
         const clubRef = doc(db, "clubs", clubId);
-        await setDoc(
+        registrationBatch.set(
           clubRef,
           {
             name: clubName || `${firstName || "Club"} ${lastName || ""}`.trim(),
@@ -730,7 +833,7 @@ export const AuthProvider = ({ children }) => {
           },
           { merge: true }
         );
-        await setDoc(
+        registrationBatch.set(
           doc(db, "clubs", clubId, "members", fbUser.uid),
           {
             uid: fbUser.uid,
@@ -745,6 +848,7 @@ export const AuthProvider = ({ children }) => {
           { merge: true }
         );
       }
+      await registrationBatch.commit();
       await createStripeCustomerForRegisteredUser(fbUser, {
         email,
         firstName,
@@ -754,7 +858,16 @@ export const AuthProvider = ({ children }) => {
       // le onSnapshot remplira `user`
     } catch (err) {
       console.error(err);
+      if (createdUser) {
+        await deleteUser(createdUser).catch((cleanupError) => {
+          console.warn(
+            "[register] orphan auth cleanup skipped:",
+            cleanupError?.message || cleanupError
+          );
+        });
+      }
       setError("Inscription échouée.");
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -790,26 +903,30 @@ export const AuthProvider = ({ children }) => {
   // Reset password
   const resetPassword = async (email, lang) => {
     setError(null);
+    const selected = String(i18n.resolvedLanguage || i18n.language || "")
+      .split("-")[0]
+      .toLowerCase();
     const browser = (navigator?.language || "en").slice(0, 2).toLowerCase();
     const supported = ["fr", "en", "de", "it", "es", "ru", "ar"];
-    const langCode = supported.includes(lang)
-      ? lang
+    const requested = String(lang || "").split("-")[0].toLowerCase();
+    const langCode = supported.includes(requested)
+      ? requested
+      : supported.includes(selected)
+      ? selected
       : supported.includes(browser)
       ? browser
       : "en";
-    auth.languageCode = langCode;
-
-    const origin =
-      typeof window !== "undefined"
-        ? window.location.origin
-        : "https://boost-your-life.com";
-    const actionCodeSettings = {
-      url: `${origin}/login?reset=1`,
-      handleCodeInApp: false,
-    };
-
     try {
-      await sendPasswordResetEmail(auth, email, actionCodeSettings);
+      const response = await fetch(`${getApiBase()}/client-profile/password-reset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email: normalizeEmail(email), lang: langCode }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || "password-reset-unavailable");
+      }
       return true;
     } catch (err) {
       console.error("resetPassword error:", err);

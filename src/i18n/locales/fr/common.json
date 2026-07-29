@@ -1658,7 +1658,7 @@
     "viewAll": "Voir tous",
     "deleteProgram": "Supprimer programme",
     "inviteSent": "Invitation envoyée",
-    "inviteSentDesc": "Un email a été envoyé à {{email}} pour créer ou réinitialiser son mot de passe.",
+    "inviteSentDesc": "Une invitation d’activation a été envoyée à {{email}} pour créer son mot de passe.",
     "selectProgram": "Sélectionne un programme à assigner.",
     "programNotFound": "Le programme sélectionné n’existe pas.",
     "assigned": "Programme assigné",

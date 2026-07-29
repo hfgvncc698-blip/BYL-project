@@ -1,7 +1,7 @@
 // functions/index.js
 // =======================================================
 // BoostYourLife - Cloud Functions (Node 22 / v2)
-// - sendPasswordSetupEmail : invitation client depuis COACH (Firebase sendOobCode)
+// - sendPasswordSetupEmail : invitation client depuis COACH (lien Firebase + SMTP)
 // - changeClientEmail      : changement d'email depuis CLIENT (Admin update)
 // - sendWelcomeEmail       : email de bienvenue via SMTP (Zimbra OVH)
 // - onProgramAssigned      : email auto quand un coach assigne un programme à un élève
@@ -30,8 +30,6 @@ initializeApp();
 const db = getFirestore();
 
 /* ------------------------ SECRETS ------------------------ */
-// Pour sendOobCode (API key Firebase Web)
-const WEB_API_KEY = defineSecret("WEB_API_KEY");
 
 // SMTP (Zimbra/OVH)
 const SMTP_HOST = defineSecret("SMTP_HOST"); // ex: ssl0.ovh.net
@@ -1040,6 +1038,80 @@ function getBaseUrlFromSecret() {
 }
 
 /* ------------------------ Templates (i18n) ------------------------ */
+function escapeEmailHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function buildBrandedEmailLayout({
+  lng,
+  title,
+  intro,
+  bullets = [],
+  detailLabel = "",
+  detail = "",
+  cta = "",
+  url = "",
+  hint = "",
+  closing = "",
+  team = "",
+}) {
+  const locale = resolveLng(lng);
+  const dir = locale === "ar" ? "rtl" : "ltr";
+  const safeUrl = escapeEmailHtml(url);
+  return `<!doctype html>
+<html lang="${locale}" dir="${dir}">
+  <body style="margin:0;background:#f4f7fb;font-family:Arial,Helvetica,sans-serif;color:#111827;">
+    <div style="max-width:620px;margin:0 auto;padding:32px 18px;">
+      <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:20px;padding:32px;box-shadow:0 12px 32px rgba(15,23,42,.08);">
+        <div style="font-size:22px;font-weight:800;color:#234f84;margin-bottom:24px;">BoostYourLife.coach</div>
+        <h1 style="font-size:26px;line-height:1.25;margin:0 0 20px;color:#111827;">${escapeEmailHtml(title)}</h1>
+        ${intro ? `<p style="color:#374151;font-size:16px;line-height:1.65;margin:0 0 18px;">${escapeEmailHtml(intro)}</p>` : ""}
+        ${
+          Array.isArray(bullets) && bullets.length
+            ? `<ul style="color:#374151;font-size:15px;line-height:1.7;padding-${dir === "rtl" ? "right" : "left"}:20px;margin:0 0 24px;">${bullets
+                .map((item) => `<li>${escapeEmailHtml(item)}</li>`)
+                .join("")}</ul>`
+            : ""
+        }
+        ${
+          detail
+            ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin:20px 0;">
+                ${detailLabel ? `<div style="color:#64748b;font-size:12px;margin-bottom:6px;">${escapeEmailHtml(detailLabel)}</div>` : ""}
+                <div style="color:#111827;font-size:16px;font-weight:800;">${escapeEmailHtml(detail)}</div>
+              </div>`
+            : ""
+        }
+        ${
+          url && cta
+            ? `<p style="margin:28px 0 20px;">
+                <a href="${safeUrl}" style="display:inline-block;background:#17213a;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 22px;border-radius:12px;">${escapeEmailHtml(cta)}</a>
+              </p>`
+            : ""
+        }
+        ${hint ? `<p style="color:#64748b;font-size:13px;line-height:1.55;margin:0 0 22px;">${escapeEmailHtml(hint)}</p>` : ""}
+        ${
+          closing || team
+            ? `<p style="margin:0;color:#374151;font-size:14px;line-height:1.6;">${closing ? `${escapeEmailHtml(closing)}<br/>` : ""}${team ? `<strong>${escapeEmailHtml(team)}</strong>` : ""}</p>`
+            : ""
+        }
+        ${
+          url
+            ? `<div style="margin-top:22px;padding-top:18px;border-top:1px solid #e5e7eb;color:#94a3b8;font-size:12px;line-height:1.5;word-break:break-all;">${escapeEmailHtml(
+                t("common.copyPaste", {}, lng)
+              )}<br/>${safeUrl}</div>`
+            : ""
+        }
+      </div>
+    </div>
+  </body>
+</html>`;
+}
+
 function buildWelcomeTemplate({ firstName, role, loginUrl, lng }) {
   const isCoach = role === "coach";
 
@@ -1064,43 +1136,17 @@ function buildWelcomeTemplate({ firstName, role, loginUrl, lng }) {
   const signature = t("welcome.signature", {}, lng);
   const team = t("common.brandTeam", {}, lng);
 
-  const html = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:#f7f9fc; padding:30px;">
-    <div style="max-width:600px; margin:auto; background:#ffffff; border-radius:10px; padding:32px; border:1px solid #e5e7eb;">
-      <h2 style="color:#111827; margin:0 0 12px 0;">${title}</h2>
-
-      <p style="color:#374151; font-size:15px; margin:0 0 16px 0;">
-        ${intro}
-      </p>
-
-      <ul style="color:#374151; font-size:14px; line-height:1.7; padding-left:18px; margin:0 0 24px 0;">
-        ${Array.isArray(bullets) ? bullets.map((b) => `<li>${b}</li>`).join("") : ""}
-      </ul>
-
-      <div style="margin:26px 0 18px 0;">
-        <a href="${loginUrl}"
-           style="display:inline-block; background:#2563eb; color:#ffffff; padding:12px 18px;
-                  border-radius:8px; text-decoration:none; font-weight:700;">
-          ${cta}
-        </a>
-      </div>
-
-      <p style="color:#6b7280; font-size:13px; margin:0 0 22px 0;">
-        ${help}
-      </p>
-
-      <p style="margin:0; color:#374151; font-size:14px;">
-        ${signature}<br/>
-        <strong>${team}</strong>
-      </p>
-
-      <div style="margin-top:22px; color:#9ca3af; font-size:12px;">
-        ${t("common.copyPaste", {}, lng)}<br/>
-        <span style="word-break:break-all;">${loginUrl}</span>
-      </div>
-    </div>
-  </div>
-  `;
+  const html = buildBrandedEmailLayout({
+    lng,
+    title,
+    intro,
+    bullets: Array.isArray(bullets) ? bullets : [],
+    cta,
+    url: loginUrl,
+    hint: help,
+    closing: signature,
+    team,
+  });
 
   const text = `${title}
 
@@ -1139,46 +1185,18 @@ function buildProgramAssignedTemplate({
   const closing = t("assigned.closing", {}, lng);
   const team = t("common.brandTeam", {}, lng);
 
-  const html = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:#f7f9fc; padding:30px;">
-    <div style="max-width:600px; margin:auto; background:#ffffff; border-radius:10px; padding:32px; border:1px solid #e5e7eb;">
-
-      <h2 style="color:#111827; margin:0 0 12px 0;">${title}</h2>
-
-      <p style="color:#374151; font-size:15px; margin:0 0 14px 0;">
-        ${intro}
-      </p>
-
-      <div style="background:#f3f4f6; border:1px solid #e5e7eb; border-radius:10px; padding:14px 16px; margin:18px 0 22px 0;">
-        <div style="color:#6b7280; font-size:12px; margin-bottom:6px;">${programLabel}</div>
-        <div style="color:#111827; font-size:16px; font-weight:800;">${programName}</div>
-      </div>
-
-      <div style="margin:10px 0 18px 0;">
-        <a href="${dashboardUrl}"
-           style="display:inline-block; background:#2563eb; color:#ffffff; padding:12px 18px;
-                  border-radius:8px; text-decoration:none; font-weight:700;">
-          ${cta}
-        </a>
-      </div>
-
-      <p style="color:#6b7280; font-size:13px; margin:0 0 16px 0;">
-        ${hint}
-      </p>
-
-      <p style="margin:0; color:#374151; font-size:14px;">
-        ${closing}<br/>
-        <strong>${team}</strong>
-      </p>
-
-      <div style="margin-top:22px; color:#9ca3af; font-size:12px;">
-        ${t("common.copyPaste", {}, lng)}<br/>
-        <span style="word-break:break-all;">${dashboardUrl}</span>
-      </div>
-
-    </div>
-  </div>
-  `;
+  const html = buildBrandedEmailLayout({
+    lng,
+    title,
+    intro,
+    detailLabel: programLabel,
+    detail: programName,
+    cta,
+    url: dashboardUrl,
+    hint,
+    closing,
+    team,
+  });
 
   const text = `${title}
 
@@ -1217,46 +1235,18 @@ function buildNutritionAssignedTemplate({
   const closing = t("nutritionAssigned.closing", {}, lng);
   const team = t("common.brandTeam", {}, lng);
 
-  const html = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:#f7f9fc; padding:30px;">
-    <div style="max-width:600px; margin:auto; background:#ffffff; border-radius:10px; padding:32px; border:1px solid #e5e7eb;">
-
-      <h2 style="color:#111827; margin:0 0 12px 0;">${title}</h2>
-
-      <p style="color:#374151; font-size:15px; margin:0 0 14px 0;">
-        ${intro}
-      </p>
-
-      <div style="background:#f3f4f6; border:1px solid #e5e7eb; border-radius:10px; padding:14px 16px; margin:18px 0 22px 0;">
-        <div style="color:#6b7280; font-size:12px; margin-bottom:6px;">${programLabel}</div>
-        <div style="color:#111827; font-size:16px; font-weight:800;">${programName}</div>
-      </div>
-
-      <div style="margin:10px 0 18px 0;">
-        <a href="${dashboardUrl}"
-           style="display:inline-block; background:#2563eb; color:#ffffff; padding:12px 18px;
-                  border-radius:8px; text-decoration:none; font-weight:700;">
-          ${cta}
-        </a>
-      </div>
-
-      <p style="color:#6b7280; font-size:13px; margin:0 0 16px 0;">
-        ${hint}
-      </p>
-
-      <p style="margin:0; color:#374151; font-size:14px;">
-        ${closing}<br/>
-        <strong>${team}</strong>
-      </p>
-
-      <div style="margin-top:22px; color:#9ca3af; font-size:12px;">
-        ${t("common.copyPaste", {}, lng)}<br/>
-        <span style="word-break:break-all;">${dashboardUrl}</span>
-      </div>
-
-    </div>
-  </div>
-  `;
+  const html = buildBrandedEmailLayout({
+    lng,
+    title,
+    intro,
+    detailLabel: programLabel,
+    detail: programName,
+    cta,
+    url: dashboardUrl,
+    hint,
+    closing,
+    team,
+  });
 
   const text = `${title}
 
@@ -1277,31 +1267,15 @@ ${team}
 
 function buildLifecycleTemplate({ subject, title, intro, cta, url, detail, lng }) {
   const team = t("common.brandTeam", {}, lng);
-  const html = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:#f7f9fc; padding:30px;">
-    <div style="max-width:600px; margin:auto; background:#ffffff; border-radius:10px; padding:32px; border:1px solid #e5e7eb;">
-      <h2 style="color:#111827; margin:0 0 12px 0;">${title}</h2>
-      <p style="color:#374151; font-size:15px; line-height:1.55; margin:0 0 18px 0;">${intro}</p>
-      ${
-        detail
-          ? `<div style="background:#f3f4f6; border:1px solid #e5e7eb; border-radius:10px; padding:14px 16px; margin:18px 0 22px 0; color:#111827; font-size:15px; font-weight:700;">${detail}</div>`
-          : ""
-      }
-      ${
-        url
-          ? `<div style="margin:10px 0 18px 0;">
-              <a href="${url}" style="display:inline-block; background:#2563eb; color:#ffffff; padding:12px 18px; border-radius:8px; text-decoration:none; font-weight:700;">${cta}</a>
-            </div>`
-          : ""
-      }
-      <p style="margin:0; color:#374151; font-size:14px;"><strong>${team}</strong></p>
-      ${
-        url
-          ? `<div style="margin-top:22px; color:#9ca3af; font-size:12px;">${t("common.copyPaste", {}, lng)}<br/><span style="word-break:break-all;">${url}</span></div>`
-          : ""
-      }
-    </div>
-  </div>`;
+  const html = buildBrandedEmailLayout({
+    lng,
+    title,
+    intro,
+    detail,
+    cta,
+    url,
+    team,
+  });
   const text = [title, "", intro, detail || "", url ? `${cta} : ${url}` : "", "", team].filter(Boolean).join("\n");
   return { subject, html, text };
 }
@@ -1451,6 +1425,31 @@ function lifecycleCopy(kind, lng, vars = {}) {
     title: selected[1],
     intro: selected[2],
     cta: selected[3],
+  };
+}
+
+function activationEmailCopy(lng, { firstName = "", coachName = "" } = {}) {
+  const locale = resolveLng(lng);
+  const copies = {
+    fr: ["Activez votre compte BoostYourLife", "Votre espace BoostYourLife est prêt", "vient de créer votre espace personnel BoostYourLife.", "Créez maintenant votre mot de passe pour accéder à vos programmes et à votre suivi.", "Créer mon mot de passe", "Ce lien est personnel. Ne le transmettez à personne."],
+    en: ["Activate your BoostYourLife account", "Your BoostYourLife space is ready", "has created your personal BoostYourLife space.", "Create your password now to access your programs and follow-up.", "Create my password", "This link is personal. Do not share it with anyone."],
+    es: ["Activa tu cuenta BoostYourLife", "Tu espacio BoostYourLife está listo", "ha creado tu espacio personal BoostYourLife.", "Crea ahora tu contraseña para acceder a tus programas y a tu seguimiento.", "Crear mi contraseña", "Este enlace es personal. No lo compartas con nadie."],
+    de: ["Aktivieren Sie Ihr BoostYourLife-Konto", "Ihr BoostYourLife-Bereich ist bereit", "hat Ihren persönlichen BoostYourLife-Bereich erstellt.", "Erstellen Sie jetzt Ihr Passwort, um auf Ihre Programme und Ihre Betreuung zuzugreifen.", "Mein Passwort erstellen", "Dieser Link ist persönlich. Geben Sie ihn nicht weiter."],
+    it: ["Attiva il tuo account BoostYourLife", "Il tuo spazio BoostYourLife è pronto", "ha creato il tuo spazio personale BoostYourLife.", "Crea ora la tua password per accedere ai programmi e al monitoraggio.", "Crea la mia password", "Questo link è personale. Non condividerlo con nessuno."],
+    ru: ["Активируйте аккаунт BoostYourLife", "Ваше пространство BoostYourLife готово", "создал для вас личное пространство BoostYourLife.", "Создайте пароль, чтобы получить доступ к программам и сопровождению.", "Создать пароль", "Эта ссылка предназначена только для вас. Не передавайте её другим."],
+    ar: ["فعّل حسابك على BoostYourLife", "مساحتك على BoostYourLife جاهزة", "قام بإنشاء مساحتك الشخصية على BoostYourLife.", "أنشئ كلمة المرور الآن للوصول إلى برامجك ومتابعتك.", "إنشاء كلمة المرور", "هذا الرابط شخصي. لا تشاركه مع أي شخص."],
+  };
+  const [subject, title, createdText, action, cta, safety] =
+    copies[locale] || copies.fr;
+  const recipient = firstName ? `${firstName}, ` : "";
+  const sender = coachName || (locale === "fr" ? "Votre professionnel" : "Your professional");
+  return {
+    subject,
+    title,
+    intro: `${recipient}${sender} ${createdText}`,
+    action,
+    cta,
+    safety,
   };
 }
 
@@ -1742,12 +1741,28 @@ async function sendProgramLifecycleEmail({ programRef, program, clientId, progra
 exports.sendPasswordSetupEmail = onCall(
   {
     region: "europe-west1",
-    secrets: [WEB_API_KEY],
+    secrets: [SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, APP_BASE_URL],
   },
   async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Authentification requise.");
+    }
+    const requesterSnap = await db.doc(`users/${request.auth.uid}`).get();
+    const requester = requesterSnap.exists ? requesterSnap.data() || {} : {};
+    const requesterRole = safeTrim(requester.role).toLowerCase();
+    const canManageClients =
+      requesterRole === "admin" ||
+      requesterRole === "coach" ||
+      requester.accountType === "club_owner" ||
+      requester.accountType === "club_member" ||
+      requester.clubRole === "owner" ||
+      requester.clubRole === "member";
+    if (!canManageClients) {
+      throw new HttpsError("permission-denied", "Création de client non autorisée.");
+    }
+
     const data = request.data || {};
     const rawEmail = safeTrim(data.email).toLowerCase();
-    const redirectUrl = data.redirectUrl || "https://boostyourlife.coach/login";
     const lng = resolveLng(data.lang || data.language || data.locale || data.lng || "fr");
     const firstName = normalizeSpaces(data.firstName || data.prenom || "");
     const lastName = normalizeSpaces(data.lastName || data.nom || "");
@@ -1758,12 +1773,19 @@ exports.sendPasswordSetupEmail = onCall(
 
     const auth = getAuth();
     let uid;
+    let createdNewUser = false;
 
     try {
       const existing = await auth.getUserByEmail(rawEmail);
       uid = existing.uid;
+      const existingUserSnap = await db.doc(`users/${uid}`).get().catch(() => null);
+      const existingRole = safeTrim(existingUserSnap?.data?.()?.role).toLowerCase();
+      if (existingRole === "admin" || existingRole === "coach") {
+        throw new HttpsError("already-exists", "Cet e-mail appartient à un compte professionnel.");
+      }
       console.log("[sendPasswordSetupEmail] user déjà existant", rawEmail, uid);
     } catch (err) {
+      if (err instanceof HttpsError) throw err;
       if (err.code === "auth/user-not-found") {
         try {
           const created = await auth.createUser({
@@ -1772,6 +1794,7 @@ exports.sendPasswordSetupEmail = onCall(
             disabled: false,
           });
           uid = created.uid;
+          createdNewUser = true;
           console.log("[sendPasswordSetupEmail] user créé", rawEmail, uid);
         } catch (createErr) {
           return logAndThrowHttpsError(
@@ -1806,6 +1829,8 @@ exports.sendPasswordSetupEmail = onCall(
           displayName,
           ...(!existingRole ? { role: "particulier" } : {}),
           preferredLang: lng,
+          passwordSetupRequired: true,
+          passwordSetupEmailAttemptedAt: admin.firestore.FieldValue.serverTimestamp(),
           settings: {
             defaultLanguage: lng,
             langCode: lng,
@@ -1818,41 +1843,86 @@ exports.sendPasswordSetupEmail = onCall(
       console.warn("[sendPasswordSetupEmail] profile sync warning", err?.message || err);
     }
 
-    const apiKey = WEB_API_KEY.value();
-    if (!apiKey) {
-      throw new HttpsError("failed-precondition", "WEB_API_KEY n'est pas configuré.");
-    }
-
-    const endpoint =
-      "https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=" +
-      encodeURIComponent(apiKey);
-
-    const payload = {
-      requestType: "PASSWORD_RESET",
-      email: rawEmail,
-      continueUrl: redirectUrl,
-    };
-
     try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Firebase-Locale": lng },
-        body: JSON.stringify(payload),
+      const baseUrl = getBaseUrlFromSecret();
+      const firebaseLink = await auth.generatePasswordResetLink(rawEmail, {
+        url: `${baseUrl}/login?activated=1`,
+        handleCodeInApp: false,
       });
-
-      if (!res.ok) {
-        const text = await res.text();
-        console.error("[sendPasswordSetupEmail] sendOobCode error", res.status, text);
-        throw new HttpsError("internal", "Erreur lors de l'envoi de l'e-mail.");
-      }
-
-      const json = await res.json();
-      console.log("[sendPasswordSetupEmail] sendOobCode OK", rawEmail, json);
+      const parsed = new URL(firebaseLink);
+      const oobCode = parsed.searchParams.get("oobCode");
+      const activationUrl = oobCode
+        ? `${baseUrl}/activate-account?${new URLSearchParams({
+            mode: "resetPassword",
+            oobCode,
+            lang: lng,
+          }).toString()}`
+        : firebaseLink;
+      const requesterName =
+        normalizeSpaces(
+          `${requester.firstName || requester.prenom || ""} ${requester.lastName || requester.nom || ""}`
+        ) || safeTrim(requester.displayName || requester.clubName);
+      const copy = activationEmailCopy(lng, { firstName, coachName: requesterName });
+      const html = buildBrandedEmailLayout({
+        lng,
+        title: copy.title,
+        intro: `${copy.intro} ${copy.action}`,
+        cta: copy.cta,
+        url: activationUrl,
+        hint: copy.safety,
+        team: t("common.brandTeam", {}, lng),
+      });
+      const text = `${copy.title}\n\n${copy.intro}\n\n${copy.action}\n\n${copy.cta}: ${activationUrl}\n\n${copy.safety}`;
+      const info = await sendTrackedTemplateEmail({
+        to: rawEmail,
+        subject: copy.subject,
+        text,
+        html,
+      });
+      await db.doc(`users/${uid}`).set(
+        {
+          passwordSetupEmailSentAt: admin.firestore.FieldValue.serverTimestamp(),
+          passwordSetupEmailLastError: admin.firestore.FieldValue.delete(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+      await recordEmailEvent({
+        id: info?.trackingEventId || null,
+        userId: uid,
+        to: rawEmail,
+        type: "accountActivation",
+        subject: copy.subject,
+        status: "sent",
+        source: "cloud-function",
+        deliveryProvider: "smtp",
+        messageId: info?.messageId || null,
+        ...emailDeliveryEvent(info, rawEmail),
+      });
+      console.log("[sendPasswordSetupEmail] custom activation OK", rawEmail);
       return { ok: true, uid, email: rawEmail, lng };
     } catch (err) {
+      await recordEmailEvent({
+        id: err?.trackingEventId || null,
+        userId: uid || null,
+        to: rawEmail,
+        type: "accountActivation",
+        subject: "Activation du compte et création du mot de passe",
+        status: "failed",
+        source: "cloud-function",
+        deliveryProvider: "smtp",
+        deliveryStatus: "failed",
+        error: safeTrim(err?.message || err).slice(0, 500),
+      });
+      if (createdNewUser && uid) {
+        await Promise.all([
+          auth.deleteUser(uid).catch(() => {}),
+          db.doc(`users/${uid}`).delete().catch(() => {}),
+        ]);
+      }
       return logAndThrowHttpsError(
         "internal",
-        "[sendPasswordSetupEmail] Erreur réseau / fetch vers l'API Firebase.",
+        "[sendPasswordSetupEmail] Erreur d'envoi de l'invitation.",
         err
       );
     }
@@ -1865,51 +1935,17 @@ exports.sendPasswordSetupEmail = onCall(
 exports.changeClientEmail = onCall(
   { region: "europe-west1" },
   async (request) => {
-    const ctxAuth = request.auth;
-    const data = request.data || {};
-
-    if (!ctxAuth?.uid) {
+    if (!request.auth?.uid) {
       throw new HttpsError("unauthenticated", "Authentification requise.");
     }
 
-    const newEmail = safeTrim(data.newEmail).toLowerCase();
-    if (!newEmail) {
-      throw new HttpsError("invalid-argument", "Nouvel e-mail requis.");
-    }
-
-    const auth = getAuth();
-
-    try {
-      try {
-        const existing = await auth.getUserByEmail(newEmail);
-        if (existing && existing.uid !== ctxAuth.uid) {
-          throw new HttpsError("already-exists", "Adresse e-mail déjà utilisée.");
-        }
-      } catch (err) {
-        if (err.code !== "auth/user-not-found") {
-          return logAndThrowHttpsError(
-            "internal",
-            "[changeClientEmail] Erreur vérification email.",
-            err
-          );
-        }
-      }
-
-      await auth.updateUser(ctxAuth.uid, {
-        email: newEmail,
-        emailVerified: false,
-      });
-
-      console.log("[changeClientEmail] email mis à jour", ctxAuth.uid, "->", newEmail);
-      return { ok: true, email: newEmail, uid: ctxAuth.uid };
-    } catch (err) {
-      if (err instanceof HttpsError) throw err;
-      return logAndThrowHttpsError(
-        "internal",
-        "[changeClientEmail] Erreur changement email.",
-        err
-      );
-    }
+    // Ancien flux désactivé : il remplaçait l'adresse Auth avant que la
+    // nouvelle boîte e-mail soit vérifiée. Le client web utilise désormais
+    // verifyBeforeUpdateEmail, qui applique le changement après le clic.
+    throw new HttpsError(
+      "failed-precondition",
+      "Utilisez la vérification d’adresse depuis la page Profil."
+    );
   }
 );
 

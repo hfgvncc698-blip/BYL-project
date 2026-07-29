@@ -45,7 +45,7 @@ export const notificationCopy = {
   clientCreatedWithEmail: {
     status: "success",
     title: "Client créé",
-    description: "Un e-mail de configuration vient de lui être envoyé.",
+    description: "Son invitation d’activation BoostYourLife vient de lui être envoyée.",
     duration: 4600,
   },
   clientLinked: {
@@ -57,7 +57,7 @@ export const notificationCopy = {
   clientInviteSent: {
     status: "success",
     title: "Invitation envoyée",
-    description: "Le client peut maintenant rejoindre son espace.",
+    description: "Le client peut maintenant créer son mot de passe et rejoindre son espace.",
   },
   clientMissingPhone: {
     status: "warning",

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import assert from "node:assert/strict";
 import { getLegalPageCopy } from "../src/pages/legalPageCopy.js";
+import { isSessionValidatedRecord } from "../src/utils/sessionCompletion.js";
 
 const root = process.cwd();
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
@@ -35,9 +36,100 @@ check("critical app routes are registered", () => {
     'path="/checkout/:productId"',
     'path="/club-dashboard/*"',
     'path="/admin/emails"',
+    'path="/activate-account"',
+    'path="/reset-password"',
+    'path="/verify-email"',
     'path="/clients/:clientId/nutrition/:assessmentId/ration"',
     'path="/programmes/:id/session/:sessionIndex/play"',
   ].forEach((route) => assert.ok(app.includes(route), `Missing route ${route}`));
+});
+
+check("customer emails share the BoostYourLife visual system", () => {
+  const app = read("src/App.jsx");
+  const actionPage = read("src/pages/ActivateAccount.jsx");
+  const brandedEmail = read("backend/utils/brandedEmail.js");
+  const clientProfile = read("backend/routes/clientProfile.js");
+  const payments = read("backend/routes/payments.js");
+  const adminEmails = read("backend/routes/adminEmails.js");
+  const clubs = read("backend/routes/clubs.js");
+  const functionsIndex = read("functions/index.js");
+
+  assert.ok(
+    app.includes('path="/reset-password"') &&
+      app.includes('path="/verify-email"') &&
+      actionPage.includes("const RECOVERY_COPY") &&
+      actionPage.includes("const EMAIL_VERIFICATION_COPY"),
+    "Password recovery and email verification must use dedicated branded pages"
+  );
+  ["fr", "en", "es", "de", "it", "ru", "ar"].forEach((lang) => {
+    assert.ok(
+      brandedEmail.includes(`  ${lang}: {`) &&
+        actionPage.includes(`  ${lang}: {`),
+      `Password recovery email and page must include ${lang}`
+    );
+  });
+  assert.ok(
+    brandedEmail.includes("BoostYourLife.coach") &&
+      brandedEmail.includes("background:#17213a") &&
+      brandedEmail.includes("border-radius:20px"),
+    "The shared backend email shell must preserve the approved brand design"
+  );
+  assert.ok(
+    clientProfile.includes("sendBrandedPasswordReset") &&
+      clientProfile.includes("sendBrandedEmailChangeVerification") &&
+      payments.includes("sendBrandedPasswordReset") &&
+      !clientProfile.includes("accounts:sendOobCode") &&
+      !payments.includes("accounts:sendOobCode"),
+    "Client and admin password resets must use the custom tracked SMTP flow"
+  );
+  assert.ok(
+    adminEmails.includes("brandedEmailHtml") &&
+      clubs.includes("brandedEmailHtml"),
+    "Manual admin and nutrition emails must use the shared backend shell"
+  );
+  assert.ok(
+    functionsIndex.includes("function buildBrandedEmailLayout") &&
+      countMatches(functionsIndex, /buildBrandedEmailLayout\(\{/g) >= 5,
+    "All automatic Cloud Function templates must use the common branded layout"
+  );
+});
+
+check("coach invitations and self-registration stay distinct", () => {
+  const app = read("src/App.jsx");
+  const activationPage = read("src/pages/ActivateAccount.jsx");
+  const authContext = read("src/AuthContext.jsx");
+  const clubsRoute = read("backend/routes/clubs.js");
+  const clientProfile = read("backend/routes/clientProfile.js");
+  const functionsIndex = read("functions/index.js");
+
+  assert.ok(
+    app.includes('path="/activate-account"') &&
+      app.includes('location.pathname === "/activate-account"'),
+    "The account activation page must be public and excluded from normal navigation"
+  );
+  ["fr", "en", "es", "de", "it", "ru", "ar"].forEach((lang) => {
+    assert.ok(
+      clubsRoute.includes(`  ${lang}: {`) && activationPage.includes(`  ${lang}: {`),
+      `Activation email and page copy must include ${lang}`
+    );
+  });
+  assert.ok(
+    clubsRoute.includes('accountCreationSource: "coach-created"') &&
+      authContext.includes('accountCreationSource: "self-registration"'),
+    "Coach-created invitations and direct registrations must keep distinct origins"
+  );
+  assert.ok(
+    clubsRoute.includes("generateClientActivationLink") &&
+      clubsRoute.includes('type: "accountActivation"') &&
+      clubsRoute.includes('deliveryProvider: provider'),
+    "Coach invitations must use the tracked custom activation flow"
+  );
+  assert.ok(
+    clientProfile.includes('router.post("/activation-complete", requireFirebaseAuth') &&
+      activationPage.includes('"sendWelcomeEmail"') &&
+      functionsIndex.includes('claimLifecycleEmail(userRef, "welcome")'),
+    "A completed activation must trigger the deduplicated welcome email"
+  );
 });
 
 check("contact form uses the shared API base", () => {
@@ -106,6 +198,121 @@ check("program generation and client data access are scoped", () => {
   );
 });
 
+check("client account creation and identity resolution are fail-safe", () => {
+  const clubsRoute = read("backend/routes/clubs.js");
+  const clientProfileRoute = read("backend/routes/clientProfile.js");
+  const clientCreation = read("src/components/ClientCreation.jsx");
+  const nutritionPrefill = read("src/utils/nutritionPrefill.js");
+  const functionsIndex = read("functions/index.js");
+  const authContext = read("src/AuthContext.jsx");
+  const clientProfile = read("src/pages/ProfilePageClient.jsx");
+  const paymentSuccess = read("src/pages/Success.jsx");
+  const firestoreRules = read("firestore.rules");
+
+  assert.ok(
+    clubsRoute.includes('router.post("/clients", requireFirebaseAuth') &&
+      clubsRoute.includes("if (!assertClientManager(req, res, requester)) return"),
+    "Client creation must require an authenticated professional account"
+  );
+  assert.ok(
+    clubsRoute.includes("await batch.commit()") &&
+      clubsRoute.includes("await admin.auth().deleteUser(uid)") &&
+      clubsRoute.includes("passwordSetupRequired: true"),
+    "Auth and Firestore client creation must be atomic with rollback and password setup tracking"
+  );
+  assert.ok(
+    clubsRoute.includes('router.get("/client-lookup", requireFirebaseAuth') &&
+      clubsRoute.includes('router.post("/link-existing-client", requireFirebaseAuth'),
+    "Client lookup and linking must remain authenticated"
+  );
+  assert.ok(
+    clientCreation.includes('apiFetch("/clubs/clients"') &&
+      !clientCreation.includes("createUserWithEmailAndPassword") &&
+      !clientCreation.includes("sendPasswordResetEmail"),
+    "Sport client creation must use the audited server endpoint"
+  );
+  assert.ok(
+    nutritionPrefill.includes('apiFetch("/clubs/clients"') &&
+      !nutritionPrefill.includes("createUserWithEmailAndPassword") &&
+      !nutritionPrefill.includes("sendPasswordResetEmail"),
+    "Nutrition client creation must use the same audited server endpoint"
+  );
+  assert.ok(
+    clientProfileRoute.includes("resolvedBy: \"linkedClientId\"") &&
+      clientProfileRoute.includes('error: "client-profile-ambiguous"'),
+    "Client identity must prefer the explicit link and block ambiguous legacy emails"
+  );
+  assert.ok(
+    functionsIndex.includes('throw new HttpsError("unauthenticated", "Authentification requise.")') &&
+      functionsIndex.includes("Création de client non autorisée."),
+    "Legacy password setup callable must reject anonymous and non-professional callers"
+  );
+  assert.ok(
+    authContext.includes("await syncAccountLanguage(data)") &&
+      authContext.includes('localStorage.setItem("i18nextLng", langCode)'),
+    "The client account language must be applied immediately after login"
+  );
+  assert.ok(
+    authContext.includes("const registrationBatch = writeBatch(db)") &&
+      authContext.includes('doc(db, "clients", fbUser.uid)') &&
+      authContext.includes("await deleteUser(createdUser)") &&
+      authContext.includes("throw err"),
+    "Public registration must atomically create the client profile, clean orphan Auth users and propagate failures"
+  );
+  assert.ok(
+    clientProfile.includes('/client-profile/email-change-verification') &&
+      clientProfile.includes("resolveClientSnapshotForUser") &&
+      !clientProfile.includes("sendPasswordResetEmail") &&
+      !clientProfile.includes("http://localhost:5173/login?from=email-change"),
+    "Client email changes must be verified and legacy client profiles must use safe identity resolution"
+  );
+  assert.ok(
+    paymentSuccess.includes("resolveClientSnapshotForUser") &&
+      paymentSuccess.includes("collection(db, \"clients\", clientSnap.id, \"programmes\")"),
+    "Program checkout must resolve the real client document before reading generated programs"
+  );
+  assert.ok(
+    firestoreRules.includes("function safeSelfUserCreate") &&
+      firestoreRules.includes('data.role in ["particulier", "coach"]') &&
+      firestoreRules.includes('data.subscriptionStatus == "trialing"') &&
+      firestoreRules.includes('duration.value(30, "d")'),
+    "Self registration rules must reject admin roles, paid flags and unbounded trials"
+  );
+});
+
+check("session completion is consistent across client views", () => {
+  assert.equal(
+    isSessionValidatedRecord({
+      status: "validée",
+      isPartial: false,
+      pourcentageTermine: 35,
+    }),
+    true,
+    "A session explicitly finished by the user must count below 90%"
+  );
+  assert.equal(
+    isSessionValidatedRecord({
+      status: "en_cours",
+      isPartial: true,
+      pourcentageTermine: 95,
+    }),
+    false,
+    "Autosaved partial progress must not count as a completed session"
+  );
+  [
+    "src/components/Clientdashboard.jsx",
+    "src/pages/MyPrograms.jsx",
+    "src/pages/StatisticsPageClient.jsx",
+    "src/pages/StatisticsPageCoach.jsx",
+  ].forEach((file) => {
+    assert.ok(
+      read(file).includes('from "../utils/sessionCompletion"') ||
+        read(file).includes("from '../utils/sessionCompletion'"),
+      `${file} must use the shared completion rule`
+    );
+  });
+});
+
 check("cloud functions source has a single toDate helper", () => {
   const functionsIndex = read("functions/index.js");
   assert.equal(countMatches(functionsIndex, /function toDate\(/g), 1, "functions/index.js must define toDate once");
@@ -114,12 +321,16 @@ check("cloud functions source has a single toDate helper", () => {
 check("admin email history is lazy and automatic sends are deduplicated", () => {
   const app = read("backend/app.js");
   const route = read("backend/routes/adminEmails.js");
+  const clubsRoute = read("backend/routes/clubs.js");
+  const paymentsRoute = read("backend/routes/payments.js");
+  const clientProfileRoute = read("backend/routes/clientProfile.js");
   const tracking = read("backend/routes/emailTracking.js");
   const page = read("src/pages/AdminClient.jsx");
   const coachPage = read("src/pages/AdminCoach.jsx");
   const adminDashboard = read("src/components/AdminDashboard.jsx");
   const emailPanel = read("src/components/admin/AdminClientEmailPanel.jsx");
   const functionsIndex = read("functions/index.js");
+  const authContext = read("src/AuthContext.jsx");
 
   assert.ok(app.includes("app.use('/api/admin-emails', adminEmailRoutes)"), "Admin email API must be mounted");
   assert.ok(app.includes("app.use('/api/email-tracking', emailTrackingRoutes)"), "Email open tracking must be mounted");
@@ -166,6 +377,25 @@ check("admin email history is lazy and automatic sends are deduplicated", () => 
   assert.ok(functionsIndex.includes("async function claimLifecycleEmail"), "Automatic emails need an atomic claim");
   assert.ok(tracking.includes("firstOpenedAt"), "Email pixel must record the first open time");
   assert.ok(functionsIndex.includes("withEmailTrackingPixel"), "Automatic email HTML must include open tracking");
+  assert.ok(
+    clubsRoute.includes('source: "client-update"') &&
+      clubsRoute.includes('type: "accountActivation"') &&
+      paymentsRoute.includes('source: "admin-password-reset"'),
+    "Client activation and admin password reset emails must create history events"
+  );
+  assert.ok(
+    clientProfileRoute.includes('router.post("/password-reset"') &&
+      clientProfileRoute.includes("allowPasswordResetAttempt") &&
+      authContext.includes("/client-profile/password-reset") &&
+      !authContext.includes("sendPasswordResetEmail"),
+    "Self-service password resets must use the rate-limited tracked backend flow"
+  );
+  assert.ok(
+    route.includes('"passwordReset"') &&
+      route.includes("passwordResetEmailSentAt") &&
+      authContext.includes("queueWelcomeEmail"),
+    "Legacy password reset markers and first-login welcome emails must appear in admin history"
+  );
   assert.ok(emailPanel.includes('["welcome", "Bienvenue"'), "Welcome email must be listed in admin preferences");
   [
     "Prochains e-mails prévus",
