@@ -341,6 +341,10 @@ const reviveDashboardEvent = (event = {}) => ({
   start: reviveDashboardDate(event.start),
   end: reviveDashboardDate(event.end),
 });
+const reviveDashboardPayload = (data = {}) => ({
+  ...data,
+  sessions: (data.sessions || []).map(reviveDashboardEvent),
+});
 const compactDashboardPayload = ({ clients = [], programmesBase = [], sessions = [], assignedCounts = {}, assignedClientsMap = {} }) => ({
   clients: clients.slice(0, DASHBOARD_DATA_CACHE_CLIENT_LIMIT).map(compactDashboardClient),
   programmesBase: programmesBase.slice(0, 220).map(compactDashboardProgram),
@@ -361,17 +365,17 @@ const readDashboardDataCacheByKey = (key) => {
   };
   const memoryPayload = dashboardDataMemoryCache.get(key);
   if (memoryPayload && Date.now() - Number(memoryPayload.savedAt || 0) < DASHBOARD_DATA_CACHE_TTL_MS) {
-    return isUsableDashboardCache(memoryPayload.data) ? memoryPayload.data : null;
+    const data = reviveDashboardPayload(memoryPayload.data);
+    if (!isUsableDashboardCache(data)) return null;
+    dashboardDataMemoryCache.set(key, { ...memoryPayload, data });
+    return data;
   }
   if (typeof window === "undefined") return null;
   try {
     const parsed = JSON.parse(window.localStorage.getItem(key) || "null");
     if (!parsed || parsed.version !== DASHBOARD_DATA_CACHE_VERSION) return null;
     if (Date.now() - Number(parsed.savedAt || 0) > DASHBOARD_DATA_CACHE_TTL_MS) return null;
-    const data = {
-      ...parsed.data,
-      sessions: (parsed.data?.sessions || []).map(reviveDashboardEvent),
-    };
+    const data = reviveDashboardPayload(parsed.data);
     if (!isUsableDashboardCache(data)) {
       return null;
     }
@@ -3379,15 +3383,32 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
           })
       );
 
-      const preservedEvents = (cachedDashboardData?.sessions || []).filter(
-        (event) =>
-          event?._kind === "completed" ||
-          event?._kind === "club_appointment" ||
-          String(event?.id || "").startsWith("club__")
+      const cachedEvents = cachedDashboardData?.sessions || [];
+      const refreshedSourceIds = new Set(
+        refreshedRootEvents.map((event) => event?._sourceId).filter(Boolean)
       );
-      const mergedEvents = [...refreshedRootEvents, ...preservedEvents].sort(
+      const preservedPlannedEvents = cachedEvents.filter(
+        (event) =>
+          event?._kind === "planned" &&
+          (!event?._sourceId || !refreshedSourceIds.has(event._sourceId))
+      );
+      const preservedOtherEvents = cachedEvents.filter(
+        (event) => event?._kind !== "planned"
+      );
+      const mergedEvents = [
+        ...dedupePlannedDashboardEvents([
+          ...preservedPlannedEvents,
+          ...refreshedRootEvents,
+        ]),
+        ...preservedOtherEvents,
+      ].sort(
         (a, b) => (a.start?.getTime?.() || 0) - (b.start?.getTime?.() || 0)
       );
+      // Une requête rapide vide ne doit jamais effacer les dernières valeurs
+      // fiables affichées. La revalidation complète qui suit fera autorité.
+      if (mergedEvents.length === 0 && (cachedDashboardData?.sessions || []).length > 0) {
+        return;
+      }
       setSessions(mergedEvents);
     },
     [effectiveCoachUid, t]
@@ -3399,20 +3420,28 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
      dashboardLoadSeqRef.current = loadSeq;
      const isLatestLoad = () => dashboardLoadSeqRef.current === loadSeq;
      let shouldCompleteFullLoad = force;
+     let usedCachedDashboardData = false;
      if (!force) {
        const cachedDashboardData = readDashboardDataCache(effectiveCoachUid, effectiveClubId);
        if (cachedDashboardData) {
+         usedCachedDashboardData = true;
          if (isLatestLoad()) hydrateDashboardData(cachedDashboardData);
          void refreshCachedSessionWidgets(cachedDashboardData, loadSeq).catch((sessionRefreshError) => {
            console.warn("[coach dashboard] cached session widgets refresh failed", sessionRefreshError);
          });
-         return;
+         // Le cache rend le retour instantané, mais il peut avoir été écrit
+         // avant la fin du calcul des séances. On poursuit donc toujours avec
+         // une revalidation complète et silencieuse.
+         shouldCompleteFullLoad = true;
        }
-       if (!silent && isLatestLoad()) setLoadingData(true);
-       shouldCompleteFullLoad = true;
+       if (!cachedDashboardData) {
+         if (!silent && isLatestLoad()) setLoadingData(true);
+         shouldCompleteFullLoad = true;
+       }
      }
+     const backgroundRefresh = silent || usedCachedDashboardData;
      try {
-       if (!silent && isLatestLoad()) setLoadingData(true);
+       if (!backgroundRefresh && isLatestLoad()) setLoadingData(true);
        const progsQ = query(
           collection(db, "programmes"),
           where("createdBy", "==", effectiveCoachUid),
@@ -3442,7 +3471,7 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
 }));
        progs.sort((a, b) => toMillis(b.createdAt) -
 toMillis(a.createdAt));
-       if (!silent && isLatestLoad()) setProgrammesBase(progs);
+       if (!backgroundRefresh && isLatestLoad()) setProgrammesBase(progs);
        const mergedClientMap = new Map();
        clientSnaps.forEach((snap) => {
           snap.docs.forEach((d) => mergedClientMap.set(d.id, { id: d.id, ...d.data() }));
@@ -3486,7 +3515,7 @@ toMillis(a.createdAt));
            });
          });
        });
-       if (!silent && isLatestLoad()) {
+       if (!backgroundRefresh && isLatestLoad()) {
          setClients(quickDashboardClients);
          setAssignedCounts(quickCounts);
          setAssignedClientsMap(quickAssignedMap);
@@ -3581,7 +3610,7 @@ toMillis(a.createdAt));
           })
           .filter(Boolean)
           .sort((a, b) => (a.start?.getTime?.() || 0) - (b.start?.getTime?.() || 0));
-        if (!silent && isLatestLoad() && quickEvents.length) setSessions(quickEvents);
+        if (!backgroundRefresh && isLatestLoad() && quickEvents.length) setSessions(quickEvents);
       } catch (quickCalendarError) {
         console.warn("[coach dashboard] quick calendar hydration failed", quickCalendarError);
       }
@@ -4242,7 +4271,7 @@ plannedEvt._sessionTitle,
       writeDashboardDataCache(effectiveCoachUid, effectiveClubId, dashboardPayload);
     } catch (error) {
       console.error(error);
-      if (!silent && isLatestLoad()) notify(toast, "dataLoadError");
+      if (!backgroundRefresh && isLatestLoad()) notify(toast, "dataLoadError");
     } finally {
       if (isLatestLoad()) setLoadingData(false);
     }

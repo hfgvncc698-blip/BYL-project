@@ -603,6 +603,12 @@ check("coach session planning is atomic, bounded and duplicate-safe", () => {
     "Cached dashboard returns must revalidate session widgets in the background"
   );
   assert.ok(
+    dashboard.includes("usedCachedDashboardData = true") &&
+      dashboard.includes("shouldCompleteFullLoad = true") &&
+      dashboard.includes("const backgroundRefresh = silent || usedCachedDashboardData"),
+    "A cached dashboard must keep rendering immediately while a full silent refresh repairs incomplete planning data"
+  );
+  assert.ok(
     dashboard.includes("mapRootSessionToQuickDashboardEvent"),
     "Cached session refreshes must rebuild dashboard calendar events"
   );
@@ -614,6 +620,23 @@ check("coach session planning is atomic, bounded and duplicate-safe", () => {
     dashboard.includes("cachedPlannedBySourceId") &&
       dashboard.includes("normRating(cachedEvent.difficultyRating)"),
     "Quick session refreshes must preserve cached difficulty colors"
+  );
+  assert.ok(
+    dashboard.includes(
+      "if (mergedEvents.length === 0 && (cachedDashboardData?.sessions || []).length > 0)"
+    ),
+    "An empty quick refresh must not erase reliable cached dashboard widgets"
+  );
+  assert.ok(
+    dashboard.includes("preservedPlannedEvents") &&
+      dashboard.includes("refreshedSourceIds") &&
+      dashboard.includes("...preservedPlannedEvents"),
+    "Quick session refreshes must retain cached planned sessions until the authoritative refresh completes"
+  );
+  assert.ok(
+    dashboard.includes("const reviveDashboardPayload") &&
+      dashboard.includes("const data = reviveDashboardPayload(memoryPayload.data)"),
+    "In-memory dashboard cache dates must be revived before weekly widgets consume them"
   );
   assert.ok(
     navbar.includes('nav("nav.new_appointment", "Nouveau rendez-vous")') &&
