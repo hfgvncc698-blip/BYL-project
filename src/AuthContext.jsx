@@ -135,6 +135,12 @@ async function syncAccountLanguage(data = {}) {
 
 function queueWelcomeEmail(fbUser, data = {}) {
   if (!fbUser?.uid || !fbUser?.email) return;
+  const authCreatedAtMs = Date.parse(fbUser.metadata?.creationTime || "");
+  const isRecentlyCreatedAccount =
+    Number.isFinite(authCreatedAtMs) &&
+    Date.now() - authCreatedAtMs >= 0 &&
+    Date.now() - authCreatedAtMs <= 24 * 60 * 60 * 1000;
+  if (!isRecentlyCreatedAccount) return;
   const lifecycle = data.lifecycleEmails || {};
   if (
     lifecycle.welcomeSentAt ||
@@ -245,6 +251,7 @@ async function findClientProfileForAuthUser(firebaseUser) {
 
   if (firebaseUser?.uid) {
     queries.push(query(collection(db, "clients"), where("linkedUserId", "==", firebaseUser.uid), limit(1)));
+    queries.push(query(collection(db, "clients"), where("accountUid", "==", firebaseUser.uid), limit(1)));
     queries.push(query(collection(db, "clients"), where("uid", "==", firebaseUser.uid), limit(1)));
   }
   if (email) {
@@ -252,14 +259,28 @@ async function findClientProfileForAuthUser(firebaseUser) {
     queries.push(query(collection(db, "clients"), where("email", "==", email), limit(1)));
   }
 
-  for (const q of queries) {
-    try {
-      const snap = await getDocs(q);
-      if (!snap.empty) return { id: snap.docs[0].id, data: snap.docs[0].data() || {} };
-    } catch {}
-  }
-
-  return null;
+  const candidates = new Map();
+  await Promise.all(
+    queries.map(async (q) => {
+      try {
+        const snap = await getDocs(q);
+        snap.docs.forEach((docSnap) => candidates.set(docSnap.id, docSnap));
+      } catch {}
+    })
+  );
+  const ranked = Array.from(candidates.values())
+    .map((docSnap) => {
+      const data = docSnap.data() || {};
+      const candidateEmail = normalizeEmail(data.emailLower || data.email);
+      let score = candidateEmail && candidateEmail === email ? 100 : 0;
+      if (data.linkedUserId === firebaseUser.uid) score += 160;
+      if (data.accountUid === firebaseUser.uid) score += 150;
+      if (data.uid === firebaseUser.uid) score += 70;
+      return { docSnap, score };
+    })
+    .sort((a, b) => b.score - a.score);
+  const best = ranked[0]?.docSnap;
+  return best ? { id: best.id, data: best.data() || {} } : null;
 }
 
 async function seedUserDocFromClient(firebaseUser, provider = null) {

@@ -1500,6 +1500,21 @@
         ],
         "note": "No missing Meta metrics invented."
       }
+    },
+    {
+      "at": "2026-07-29T21:31:43.145Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "byl-social-publisher-rapport-growth-nightly",
+      "details": {
+        "updated": 3,
+        "failedCount": 15,
+        "total": 18,
+        "rerunEscalated": true,
+        "initialNetworkError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+        "blocker": "Meta Graph unsupported object, missing permissions, or unsupported operation",
+        "missingMetricsInvented": false
+      }
     }
   ]
 }

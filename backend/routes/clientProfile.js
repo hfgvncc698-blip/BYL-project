@@ -338,6 +338,26 @@ async function addQueryCandidates(candidates, queryRef) {
   }
 }
 
+function scoreClientIdentityCandidate(snap, auth, emailLower) {
+  const data = snap?.data?.() || {};
+  const candidateEmail = normalizeEmail(data.emailLower || data.email);
+  let score = candidateEmail && candidateEmail === emailLower ? 100 : 0;
+  if (data.linkedUserId === auth.uid) score += 160;
+  if (data.accountUid === auth.uid) score += 150;
+  if (snap.id === auth.uid) score += 80;
+  if (data.uid === auth.uid) score += 70;
+  return score;
+}
+
+function pickBestIdentityCandidate(candidates, auth, emailLower) {
+  return Array.from(candidates.values())
+    .map((snap) => ({
+      snap,
+      score: scoreClientIdentityCandidate(snap, auth, emailLower),
+    }))
+    .sort((a, b) => b.score - a.score)[0]?.snap || null;
+}
+
 async function findLinkedClient(db, auth, user = {}) {
   const linkedClientId = String(user.linkedClientId || "").trim();
   if (linkedClientId) {
@@ -375,7 +395,7 @@ async function findLinkedClient(db, auth, user = {}) {
       : Promise.resolve(),
   ]);
 
-  const exactIdentity = Array.from(candidates.values()).find((snap) => {
+  const exactIdentity = Array.from(candidates.values()).filter((snap) => {
     const data = snap.data() || {};
     return (
       snap.id === auth.uid ||
@@ -384,7 +404,9 @@ async function findLinkedClient(db, auth, user = {}) {
       data.accountUid === auth.uid
     );
   });
-  if (exactIdentity) return exactIdentity;
+  if (exactIdentity.length) {
+    return pickBestIdentityCandidate(new Map(exactIdentity.map((snap) => [snap.id, snap])), auth, emailLower);
+  }
 
   return Array.from(candidates.values()).find((snap) => {
     const data = snap.data() || {};
@@ -449,10 +471,11 @@ router.get("/resolve-client", requireFirebaseAuth, async (req, res) => {
       );
     });
     if (exactIdentity.length) {
-      const best =
-        exactIdentity.find((snap) => snap.id === req.auth.uid) ||
-        exactIdentity.find((snap) => snap.data()?.linkedUserId === req.auth.uid) ||
-        exactIdentity[0];
+      const best = pickBestIdentityCandidate(
+        new Map(exactIdentity.map((snap) => [snap.id, snap])),
+        req.auth,
+        emailLower
+      );
       return res.json({
         clientId: best.id,
         client: publicClientData(best.data() || {}),

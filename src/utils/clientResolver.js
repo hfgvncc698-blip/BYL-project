@@ -131,31 +131,22 @@ async function resolveClientSnapshotForUserUncached(user, options = {}) {
     }
   }
 
-  try {
-    const uidSnap = await getDoc(doc(db, "clients", user.uid));
-    if (uidSnap.exists()) return uidSnap;
-  } catch {
-    // Les anciens dossiers n'utilisent pas toujours l'UID comme identifiant.
-  }
+  await tryReadDoc(candidates, doc(db, "clients", user.uid));
 
-  const [linkedUserSnap, uidFieldSnap] = await Promise.all([
+  const [linkedUserSnap, accountUidSnap, uidFieldSnap] = await Promise.all([
     tryGetDocsFromQuery(
       query(collection(db, "clients"), where("linkedUserId", "==", user.uid), limit(2))
+    ),
+    tryGetDocsFromQuery(
+      query(collection(db, "clients"), where("accountUid", "==", user.uid), limit(2))
     ),
     tryGetDocsFromQuery(
       query(collection(db, "clients"), where("uid", "==", user.uid), limit(2))
     ),
   ]);
-  const identityMatches = [
-    ...(linkedUserSnap?.docs || []),
-    ...(uidFieldSnap?.docs || []),
-  ];
-  if (identityMatches.length) {
-    const uniqueIdentityMatches = new Map(
-      identityMatches.map((snap) => [snap.id, snap])
-    );
-    return uniqueIdentityMatches.values().next().value || null;
-  }
+  addQuerySnapshots(candidates, linkedUserSnap);
+  addQuerySnapshots(candidates, accountUidSnap);
+  addQuerySnapshots(candidates, uidFieldSnap);
 
   const localClientId = readLocalClientId(user);
   if (localClientId) {
@@ -167,7 +158,7 @@ async function resolveClientSnapshotForUserUncached(user, options = {}) {
         localData.linkedUserId === user.uid ||
         localData.accountUid === user.uid ||
         localData.uid === user.uid;
-      if (localSnap.exists() && isStrongIdentityMatch) return localSnap;
+      if (localSnap.exists() && isStrongIdentityMatch) addExistingSnapshot(candidates, localSnap);
     } catch {
       // Si le cache local est obsolète ou refusé, on retombe sur les pistes robustes.
     }

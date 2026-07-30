@@ -130,6 +130,18 @@ check("coach invitations and self-registration stay distinct", () => {
       functionsIndex.includes('claimLifecycleEmail(userRef, "welcome")'),
     "A completed activation must trigger the deduplicated welcome email"
   );
+  assert.ok(
+    authContext.includes("isRecentlyCreatedAccount") &&
+      functionsIndex.includes('reason: "historical-account"') &&
+      functionsIndex.includes("isRecentActivation"),
+    "Historical accounts must never receive a first-login welcome email"
+  );
+  assert.ok(
+    clientProfile.includes("scoreClientIdentityCandidate") &&
+      clientProfile.includes("data.accountUid === auth.uid") &&
+      authContext.includes('where("accountUid", "==", firebaseUser.uid)'),
+    "Duplicate legacy client profiles must resolve to the account-linked profile"
+  );
 });
 
 check("contact form uses the shared API base", () => {

@@ -1983,6 +1983,24 @@ exports.sendWelcomeEmail = onCall(
     const lng = resolveLng(
       data.lang || data.language || data.locale || data.lng || user.preferredLanguage || user.language || "fr"
     );
+    const authUser = await getAuth().getUser(request.auth.uid);
+    const authCreatedAtMs = Date.parse(authUser.metadata?.creationTime || "");
+    const activationAtMs = Math.max(
+      toTimestampMs(user.activationCompletedAt),
+      toTimestampMs(user.accountActivatedAt)
+    );
+    const nowMs = Date.now();
+    const isRecentAuthAccount =
+      Number.isFinite(authCreatedAtMs) &&
+      nowMs - authCreatedAtMs >= 0 &&
+      nowMs - authCreatedAtMs <= 24 * 60 * 60 * 1000;
+    const isRecentActivation =
+      activationAtMs > 0 &&
+      nowMs - activationAtMs >= 0 &&
+      nowMs - activationAtMs <= 2 * 60 * 60 * 1000;
+    if (!isRecentAuthAccount && !isRecentActivation) {
+      return { ok: true, skipped: true, reason: "historical-account" };
+    }
 
     if (!isAutomaticEmailEnabled(user, "welcome")) {
       return { ok: true, skipped: true, reason: "disabled-by-preference" };
