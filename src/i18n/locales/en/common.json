@@ -1964,6 +1964,7 @@
       "set": "Set"
     },
     "aria": {
+      "renameSession": "Rename session",
       "deleteSession": "Delete session",
       "replace": "Replace",
       "replaceThis": "Replace this exercise",

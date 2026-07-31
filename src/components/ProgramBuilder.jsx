@@ -48,7 +48,13 @@ import {
   Textarea,
   Tooltip,
 } from "@chakra-ui/react";
-import { CloseIcon, ChevronUpIcon, ChevronDownIcon, InfoOutlineIcon } from "@chakra-ui/icons";
+import {
+  CloseIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+  EditIcon,
+  InfoOutlineIcon,
+} from "@chakra-ui/icons";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   doc,
@@ -4540,7 +4546,7 @@ export default function ProgramBuilder({
                           <HStack spacing={2} maxW="100%">
                             {editIndex === i ? (
                               <Input
-                                size="xs"
+                                size="sm"
                                 value={sessions[i].name}
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onTouchStart={(e) => e.stopPropagation()}
@@ -4554,6 +4560,7 @@ export default function ProgramBuilder({
                                 }}
                                 onBlur={() => setEditIndex(null)}
                                 onKeyDown={(e) => e.key === "Enter" && setEditIndex(null)}
+                                enterKeyHint="done"
                                 autoFocus
                                 bg={sessionEditBg}
                                 color={sessionEditColor}
@@ -4563,6 +4570,8 @@ export default function ProgramBuilder({
                                 w={{ base: "220px", md: "260px" }}
                                 minW={{ base: "200px", md: "240px" }}
                                 maxW="80vw"
+                                h={{ base: "44px", md: "32px" }}
+                                fontSize={{ base: "16px", md: "sm" }}
                                 borderRadius="md"
                               />
                             ) : (
@@ -4578,10 +4587,29 @@ export default function ProgramBuilder({
                                   })}
                               </Text>
                             )}
-                            {s.useSections && (
+                            {s.useSections && editIndex !== i && (
                               <Badge colorScheme="gray" borderRadius="md" px={2.5} py={1}>
                                 {t("programBuilder.badge.sections", "SECTIONS")}
                               </Badge>
+                            )}
+                            {isCoach && i === activeTab && editIndex !== i && (
+                              <IconButton
+                                size="sm"
+                                minW={{ base: "44px", md: "32px" }}
+                                minH={{ base: "44px", md: "32px" }}
+                                icon={<EditIcon />}
+                                variant="ghost"
+                                aria-label={t(
+                                  "programBuilder.aria.renameSession",
+                                  "Renommer la séance"
+                                )}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onTouchStart={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditIndex(i);
+                                }}
+                              />
                             )}
                             {isCoach && (
                               <IconButton

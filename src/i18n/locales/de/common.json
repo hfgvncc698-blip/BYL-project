@@ -1958,6 +1958,7 @@
       "set": "Set"
     },
     "aria": {
+      "renameSession": "Sitzung umbenennen",
       "deleteSession": "Sitzung löschen",
       "replace": "Ersetzen",
       "replaceThis": "Ersetzen Sie diese Übung",

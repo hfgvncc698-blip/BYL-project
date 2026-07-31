@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-07-29T21:31:43.151Z",
+  "updatedAt": "2026-07-31T04:19:22.953Z",
   "brandScore": 63,
   "dimensions": {
     "premium": 60,
@@ -10,18 +10,6 @@
   },
   "signals": [
     {
-      "at": "2026-06-26T07:32:52.248Z",
-      "source": "facebook",
-      "audienceSegment": "coach_independant",
-      "brandScore": 54,
-      "dimensions": {
-        "premium": 55,
-        "serious": 80,
-        "innovative": 76,
-        "reliable": 78
-      }
-    },
-    {
       "at": "2026-06-29T11:33:54.957Z",
       "source": "instagram_story",
       "audienceSegment": "coach_independant",
@@ -3595,6 +3583,18 @@
         "serious": 55,
         "innovative": 76,
         "reliable": 78
+      }
+    },
+    {
+      "at": "2026-06-30T16:54:45.343Z",
+      "source": "instagram_story",
+      "audienceSegment": "salle_de_sport",
+      "brandScore": 55,
+      "dimensions": {
+        "premium": 55,
+        "serious": 55,
+        "innovative": 55,
+        "reliable": 55
       }
     },
     {

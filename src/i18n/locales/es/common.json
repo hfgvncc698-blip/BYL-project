@@ -1958,6 +1958,7 @@
       "set": "conjunto"
     },
     "aria": {
+      "renameSession": "Cambiar el nombre de la sesión",
       "deleteSession": "Eliminar sesión",
       "replace": "Reemplazar",
       "replaceThis": "Reemplazar este ejercicio",

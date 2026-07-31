@@ -1958,6 +1958,7 @@
       "set": "تعيين"
     },
     "aria": {
+      "renameSession": "إعادة تسمية الجلسة",
       "deleteSession": "حذف الجلسة",
       "replace": "استبدال",
       "replaceThis": "استبدل هذا التمرين",

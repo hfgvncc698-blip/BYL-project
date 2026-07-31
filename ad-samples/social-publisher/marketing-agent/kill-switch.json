@@ -1515,6 +1515,20 @@
         "blocker": "Meta Graph unsupported object, missing permissions, or unsupported operation",
         "missingMetricsInvented": false
       }
+    },
+    {
+      "at": "2026-07-31T04:19:22.947Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+        "rerunEscalated": true,
+        "updated": 3,
+        "failedCount": 15,
+        "total": 18,
+        "blocker": "Meta Graph API unsupported object, missing permission, or unsupported operation; missing figures not invented"
+      }
     }
   ]
 }

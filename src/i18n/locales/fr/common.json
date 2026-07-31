@@ -1964,6 +1964,7 @@
       "set": "Set"
     },
     "aria": {
+      "renameSession": "Renommer la séance",
       "deleteSession": "Supprimer séance",
       "replace": "Remplacer",
       "replaceThis": "Remplacer cet exercice",
