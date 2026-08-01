@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-07-31T04:19:22.957Z",
+  "updatedAt": "2026-08-01T07:08:44.814Z",
   "primaryKpi": "free_trial_starts",
   "secondaryKpi": "activation_day_7",
   "activationSignals": [
@@ -1662,12 +1662,12 @@
       },
       "counts": {
         "proven": 0,
-        "optimization": 1,
+        "optimization": 0,
         "experiment": 0
       },
       "currentShare": {
         "proven": 0,
-        "optimization": 1,
+        "optimization": 0,
         "experiment": 0
       }
     },
@@ -1675,92 +1675,20 @@
   },
   "performances": {
     "growthWinners": {
-      "hooks": [
-        {
-          "value": "Avant le premier cours, tu dois deja savoir quels clients actifs risquent de decrocher.",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        }
-      ],
-      "videos": [
-        {
-          "value": "story",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        }
-      ],
-      "ctas": [
-        {
-          "value": "Reponds CLUB si tu veux voir comment ca marche",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        }
-      ],
-      "formats": [
-        {
-          "value": "story",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        }
-      ],
-      "times": [
-        {
-          "value": "tuesday-18h30-story",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        }
-      ],
-      "emotions": [
-        {
-          "value": "soulagement",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        }
-      ],
-      "audiences": [
-        {
-          "value": "salles et studios fitness",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        }
-      ],
-      "activatedHooks": [
-        {
-          "value": "Avant le premier cours, tu dois deja savoir quels clients actifs risquent de decrocher.",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        }
-      ],
-      "activatedAudiences": [
-        {
-          "value": "salle_de_sport",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        }
-      ]
+      "hooks": [],
+      "videos": [],
+      "ctas": [],
+      "formats": [],
+      "times": [],
+      "emotions": [],
+      "audiences": [],
+      "activatedHooks": [],
+      "activatedAudiences": []
     },
     "latestReport": {
-      "id": "2026-07-30-growth-report",
-      "generatedAt": "2026-07-31T04:19:22.954Z",
-      "date": "2026-07-30",
+      "id": "2026-08-01-growth-report",
+      "generatedAt": "2026-08-01T07:08:44.807Z",
+      "date": "2026-08-01",
       "primaryKpi": "free_trial_starts",
       "secondaryKpi": "activation_day_7",
       "activationSignals": [
@@ -1770,125 +1698,23 @@
         "client_login"
       ],
       "summary": "Optimisation orientee essais gratuits demarres puis activation J+7. Les vues, likes et commentaires restent des signaux secondaires.",
-      "topHooks": [
-        {
-          "value": "Avant le premier cours, tu dois deja savoir quels clients actifs risquent de decrocher.",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        }
-      ],
-      "topVideos": [
-        {
-          "value": "story",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        }
-      ],
-      "topCtas": [
-        {
-          "value": "Reponds CLUB si tu veux voir comment ca marche",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        }
-      ],
-      "topFormats": [
-        {
-          "value": "story",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        }
-      ],
+      "topHooks": [],
+      "topVideos": [],
+      "topCtas": [],
+      "topFormats": [],
       "topCreativeFormatVariants": [],
-      "topTimes": [
-        {
-          "value": "tuesday-18h30-story",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        }
-      ],
-      "topEmotions": [
-        {
-          "value": "soulagement",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        }
-      ],
-      "topAudiences": [
-        {
-          "value": "salles et studios fitness",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        }
-      ],
-      "topActivatedHooks": [
-        {
-          "value": "Avant le premier cours, tu dois deja savoir quels clients actifs risquent de decrocher.",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        }
-      ],
-      "topActivatedAudiences": [
-        {
-          "value": "salle_de_sport",
-          "count": 1,
-          "score": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0
-        }
-      ],
-      "segmentPerformance": [
-        {
-          "segment": "salle_de_sport",
-          "count": 1,
-          "freeTrialStarts": 0,
-          "activationDay7": 0,
-          "clicks": 0,
-          "views": 0,
-          "activationRate": 0,
-          "trialRate": 0
-        }
-      ],
+      "topTimes": [],
+      "topEmotions": [],
+      "topAudiences": [],
+      "topActivatedHooks": [],
+      "topActivatedAudiences": [],
+      "segmentPerformance": [],
       "fatigueAngles": [],
       "falseSuccesses": [],
-      "distributionAlerts": [
-        {
-          "date": "2026-06-30",
-          "platform": "instagram_story",
-          "hook": "Avant le premier cours, tu dois deja savoir quels clients actifs risquent de decrocher.",
-          "audienceSegment": "salle_de_sport",
-          "views": 0,
-          "reach": 0,
-          "interactions": 0,
-          "freeTrialStarts": 0,
-          "activationDay7": 0,
-          "reasons": [
-            "no_trial_signal_yet"
-          ],
-          "recommendation": "Ne pas reproduire tel quel: renforcer les 2 premieres secondes, ajouter plus de plans humains, CTA natif plateforme et seed de distribution."
-        }
-      ],
+      "distributionAlerts": [],
       "nextContentRules": [
-        "Ne pas considerer une video a moins de 50 vues comme creative winner: il faut d'abord resoudre hook, timing ou distribution.",
-        "Ouvrir par une friction terrain visible en moins de 2 secondes, puis montrer la preuve produit seulement apres le probleme ressenti.",
-        "Monter plus vite: 5 a 7 plans, coupes de 1.5 a 2.8 secondes, texte overlay court et lisible.",
-        "Adapter le CTA par plateforme: Instagram/TikTok vers bio ou reponse, Facebook avec lien cliquable.",
-        "Prevoir un seed manuel de distribution quand Meta donne moins de 50 vues: story, commentaire epingle, repartage ou publication au creneau exact."
+        "Continuer a tester des concepts distincts par audience et mesurer essais gratuits puis activation J+7.",
+        "Garder au moins 4 plans humains frais par video et eviter tout recyclage d'image."
       ],
       "experimentMix": {
         "targetShare": {
@@ -1898,12 +1724,12 @@
         },
         "counts": {
           "proven": 0,
-          "optimization": 1,
+          "optimization": 0,
           "experiment": 0
         },
         "currentShare": {
           "proven": 0,
-          "optimization": 1,
+          "optimization": 0,
           "experiment": 0
         }
       },
@@ -1941,80 +1767,29 @@
         "source": "codex_user_request_2026_07_01",
         "resolvedAt": "",
         "resolvedReason": "",
-        "alertCount": 90,
+        "alertCount": 91,
         "latestAlert": {
-          "at": "2026-07-31T04:19:22.947Z",
+          "at": "2026-08-01T07:08:44.779Z",
           "reason": "meta_performance_sync_partial_failure",
           "severity": "warning",
-          "source": "nightly_growth_report",
+          "source": "byl-social-publisher-rapport-growth-nightly",
           "details": {
             "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
             "rerunEscalated": true,
             "updated": 3,
             "failedCount": 15,
             "total": 18,
-            "blocker": "Meta Graph API unsupported object, missing permission, or unsupported operation; missing figures not invented"
+            "blocker": "Meta Graph objects unavailable, missing permissions, or unsupported; missing metrics not invented"
           }
         }
       },
-      "recentBlocks": [
-        {
-          "network": "instagram",
-          "reason": "fresh_media_required",
-          "detail": "daily_media_missing"
-        },
-        {
-          "network": "tiktok",
-          "reason": "tiktok_not_approved",
-          "detail": ""
-        },
-        {
-          "network": "tiktok",
-          "reason": "tiktok_not_approved",
-          "detail": ""
-        },
-        {
-          "network": "calendar",
-          "reason": "kill_switch_active",
-          "detail": ""
-        },
-        {
-          "network": "tiktok",
-          "reason": "tiktok_not_approved",
-          "detail": ""
-        },
-        {
-          "network": "calendar",
-          "reason": "kill_switch_active",
-          "detail": ""
-        },
-        {
-          "network": "calendar",
-          "reason": "kill_switch_active",
-          "detail": ""
-        },
-        {
-          "network": "instagram",
-          "reason": "fresh_media_required",
-          "detail": "daily_media_missing"
-        },
-        {
-          "network": "tiktok",
-          "reason": "tiktok_not_approved",
-          "detail": ""
-        },
-        {
-          "network": "calendar",
-          "reason": "kill_switch_active",
-          "detail": ""
-        }
-      ],
+      "recentBlocks": [],
       "learningEntryCount": 245
     }
   },
   "brand": {
     "version": "1.0.0",
-    "updatedAt": "2026-07-31T04:19:22.953Z",
+    "updatedAt": "2026-08-01T07:08:44.806Z",
     "brandScore": 63,
     "dimensions": {
       "premium": 60,
@@ -5634,19 +5409,19 @@
       "source": "codex_user_request_2026_07_01",
       "resolvedAt": "",
       "resolvedReason": "",
-      "alertCount": 90,
+      "alertCount": 91,
       "latestAlert": {
-        "at": "2026-07-31T04:19:22.947Z",
+        "at": "2026-08-01T07:08:44.779Z",
         "reason": "meta_performance_sync_partial_failure",
         "severity": "warning",
-        "source": "nightly_growth_report",
+        "source": "byl-social-publisher-rapport-growth-nightly",
         "details": {
           "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
           "rerunEscalated": true,
           "updated": 3,
           "failedCount": 15,
           "total": 18,
-          "blocker": "Meta Graph API unsupported object, missing permission, or unsupported operation; missing figures not invented"
+          "blocker": "Meta Graph objects unavailable, missing permissions, or unsupported; missing metrics not invented"
         }
       }
     }

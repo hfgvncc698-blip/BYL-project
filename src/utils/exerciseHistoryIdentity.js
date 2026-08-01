@@ -74,3 +74,20 @@ export function exerciseHistoryMatches(snapshot = {}, exercise = {}) {
   // word such as "poulie" or "développé" must not merge two exercises.
   return current.names.some((name) => stored.names.includes(name));
 }
+
+export function isValidatedExerciseCompletion(record = {}) {
+  const status = String(record?.status || "").trim().toLowerCase();
+  return (
+    !record?.isPartial &&
+    (
+      status === "validée" ||
+      status === "validee" ||
+      status === "done" ||
+      status === "completed" ||
+      status === "terminée" ||
+      status === "terminee" ||
+      Boolean(record?.validatedAt) ||
+      Boolean(record?.completedAt)
+    )
+  );
+}

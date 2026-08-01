@@ -3067,6 +3067,7 @@ export default function ProgramView() {
         return {
           name: pickFirst(resolved, ["nom", "name"]) || "",
           infos: buildInfosFromExercise(resolved, displayUnits, pdfLocale, L),
+          notes: getExerciseNoteLines(resolved, pdfLang),
           images: (pdfImages.images || [])
             .map((item) => item?.dataUrl || item?.finalUrl)
             .filter(Boolean),
@@ -3138,6 +3139,7 @@ export default function ProgramView() {
           footerLogoDataUrl={footerLogo || headerLogo}
           dateLabel={L.date(new Date())}
           footerText={L.generatedWith(window.location.hostname)}
+          notesLabel={L.notes}
           sessions={buildSportPdfSessions(imageMap)}
         />
       ).toBlob();

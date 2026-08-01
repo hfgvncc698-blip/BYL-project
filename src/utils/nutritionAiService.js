@@ -28,6 +28,7 @@ const sanitizeForAi = (basePlan = {}, clientProfile = {}, feedbackHistory = []) 
   totals: basePlan.totals || {},
   initialMenu: basePlan.initialMenu || [],
   feedbackHistory: (feedbackHistory || []).slice(0, 30),
+  clinicalSafety: basePlan.clinicalSafety || {},
 });
 
 const normalizeAiResponse = (value) => ({

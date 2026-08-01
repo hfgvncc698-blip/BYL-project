@@ -12,6 +12,19 @@ export function parseAllergyFlags(allergiesText = "") {
     fish: hasAny(["poisson", "fish", "fruit de mer", "fruits de mer", "crustace", "crustacé"]),
     gluten: hasAny(["gluten", "ble", "blé", "wheat"]),
     soy: hasAny(["soja", "soy"]),
+    peanuts: hasAny(["arachide", "arachides", "cacahuete", "cacahuète", "peanut"]),
+    treeNuts: hasAny([
+      "fruits a coque",
+      "fruits à coque",
+      "noix",
+      "noisette",
+      "amande",
+      "pistache",
+      "cajou",
+      "pecan",
+      "pécan",
+      "macadamia",
+    ]),
   };
 }
 
@@ -27,7 +40,7 @@ export function buildNutritionRuleSet({
   const vegetarianLike = bool(regimeFlags.vegetarian || regimeFlags.vegan);
   const veganLike = bool(regimeFlags.vegan);
   const pescetarianLike = bool(regimeFlags.pescetarian);
-  const milkAvoided = bool(regimeFlags.lactoseFree || allergies.milk);
+  const milkAvoided = bool(regimeFlags.lactoseFree || allergies.milk || foodExclusionFlags.milk);
   const digestiveSensitive = bool(
     regimeFlags.lowFodmap ||
       pathologyFlags.lowFodmap ||
@@ -55,14 +68,21 @@ export function buildNutritionRuleSet({
     lactating: bool(objectiveProfile.isLact || pathologyFlags.lactating),
     massObjective: bool(objectiveProfile.isMass),
     allergies,
+    glutenAvoided: bool(regimeFlags.glutenFree || pathologyFlags.celiac || allergies.gluten || foodExclusionFlags.gluten),
+    soyAvoided: bool(allergies.soy || foodExclusionFlags.soy),
+    peanutAvoided: bool(allergies.peanuts || foodExclusionFlags.peanuts),
+    treeNutsAvoided: bool(allergies.treeNuts || foodExclusionFlags.treeNuts),
+    alcoholAvoided: bool(foodExclusionFlags.alcohol),
+    sugaryDrinksAvoided: bool(foodExclusionFlags.sugaryDrinks),
+    ultraProcessedAvoided: bool(foodExclusionFlags.ultraProcessed),
     allowEggs,
     allowFish,
     allowPoultry,
     allowRedMeat,
     allowPork,
     allowAnimalDairy: !veganLike && !milkAvoided,
-    preferPlantDairy: veganLike || milkAvoided || digestiveSensitive,
-    allowPlantDairy: !allergies.soy,
+    preferPlantDairy: veganLike || milkAvoided,
+    allowPlantDairy: !allergies.soy && !foodExclusionFlags.soy,
     allowWhey: !veganLike && !milkAvoided,
   };
 }

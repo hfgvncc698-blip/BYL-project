@@ -1,7 +1,9 @@
 import {
+  assessAutomaticRationSafety,
   computeMicronutrientTargets,
   computeNutritionNeeds,
   normalizeDietList,
+  normalizeFoodExclusionList,
   normalizePathologyList,
 } from "./nutritionContext";
 import { extractRationLines, rationMenuNum } from "./rationMenu";
@@ -35,6 +37,7 @@ export function generateBaseNutritionPlan(clientProfile = {}) {
   const computed = assessment?.computed || clientProfile?.computed || {};
   const objectiveRaw = inputs?.objectif || inputs?.objective || clientProfile?.objective || "";
   const needs = computeNutritionNeeds({ inputs, computed, objectiveRaw });
+  const clinicalSafety = assessAutomaticRationSafety({ inputs, computed, objectiveRaw });
   const microTargets = computeMicronutrientTargets({ inputs, objectiveRaw: needs.objectiveRaw });
   const selectedRation = pickSelectedRation(assessment);
   const rationLines = extractRationLines(assessment);
@@ -45,14 +48,14 @@ export function generateBaseNutritionPlan(clientProfile = {}) {
     {};
 
   const forbiddenFoods = [
-    ...compactList(inputs?.forbiddenFoods),
-    ...compactList(inputs?.alimentsInterdits),
+    ...normalizeFoodExclusionList(inputs),
     ...compactList(inputs?.allergies),
     ...compactList(inputs?.medical?.allergies),
-  ];
+  ].filter((value, index, values) => values.indexOf(value) === index);
 
   return {
     source: "algorithmic",
+    clinicalSafety,
     objective: needs.objectiveRaw || objectiveRaw,
     calorieNeeds: {
       mb: rationMenuNum(needs.mb),

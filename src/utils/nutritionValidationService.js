@@ -1,5 +1,12 @@
 import { findBestCiqualFood, getCiqualPer100Macros, loadCiqualOnce } from "../components/ciqualClient";
-import { parsePathologyFlags, parseRegimeFlags } from "./nutritionContext";
+import {
+  assessAutomaticRationSafety,
+  normalizeFoodExclusionList,
+  parseFoodExclusionFlags,
+  parsePathologyFlags,
+  parseRegimeFlags,
+} from "./nutritionContext";
+import { parseAllergyFlags } from "./nutritionRules";
 import { rationMenuNum } from "./rationMenu";
 
 const normalize = (value = "") =>
@@ -90,6 +97,77 @@ function validatePathologies(items, clientProfile = {}) {
   return warnings;
 }
 
+function validateClinicalRestrictions(items, clientProfile = {}) {
+  const inputs = clientProfile.inputs || clientProfile.assessment?.inputs || clientProfile || {};
+  const reg = parseRegimeFlags(inputs);
+  const excluded = parseFoodExclusionFlags(inputs);
+  const allergyText = inputs?.medical?.allergies || inputs?.allergies || clientProfile?.allergies || "";
+  const allergies = parseAllergyFlags(allergyText);
+  const errors = [];
+
+  const add = (message) => {
+    if (!errors.includes(message)) errors.push(message);
+  };
+
+  for (const item of items) {
+    const rawName = foodName(item);
+    const name = normalize(rawName);
+    if (!name) continue;
+
+    const plantDairy = /(vegetal|végétal|soja|amande|avoine|riz|coco|noisette)/.test(name);
+    const animalDairy =
+      !plantDairy && /(lait|yaourt|yogourt|fromage|beurre|creme|crème|caseine|caséine|brebis|chevre|chèvre)/.test(name);
+    const egg = /(oeuf|œuf|egg)/.test(name);
+    const fish = /(poisson|saumon|thon|truite|sardine|maquereau|cabillaud|crustace|crustacé|crevette|moule|huitre|huître)/.test(name);
+    const pork = /(porc|jambon|lardon|saucisson|chorizo|bacon|charcuterie)/.test(name);
+    const poultry = /(poulet|dinde|volaille|canard)/.test(name);
+    const redMeat = /(boeuf|bœuf|veau|agneau|mouton)/.test(name);
+    const containsGluten =
+      !name.includes("sans gluten") &&
+      /(ble|blé|orge|seigle|epeautre|épeautre|boulgour|semoule|pain|pates|pâtes|biscuit)/.test(name);
+
+    if (reg.vegan && (animalDairy || egg || fish || pork || poultry || redMeat)) {
+      add(`Régime végan non respecté: ${rawName}.`);
+    }
+    if (reg.vegetarian && (fish || pork || poultry || redMeat)) {
+      add(`Régime végétarien non respecté: ${rawName}.`);
+    }
+    if (reg.pescetarian && (pork || poultry || redMeat)) {
+      add(`Régime pescétarien non respecté: ${rawName}.`);
+    }
+    if ((allergies.milk || excluded.milk) && animalDairy) {
+      add(`Lait/produit laitier exclu détecté: ${rawName}.`);
+    } else if (reg.lactoseFree && animalDairy && !name.includes("sans lactose")) {
+      add(`Lactose détecté dans un plan sans lactose: ${rawName}.`);
+    }
+    if ((allergies.gluten || excluded.gluten || reg.glutenFree) && containsGluten) {
+      add(`Gluten détecté dans un plan sans gluten: ${rawName}.`);
+    }
+    if ((allergies.soy || excluded.soy) && /(soja|soy)/.test(name)) {
+      add(`Soja exclu détecté: ${rawName}.`);
+    }
+    if ((allergies.peanuts || excluded.peanuts) && /(arachide|cacahuete|cacahuète|peanut)/.test(name)) {
+      add(`Arachide exclue détectée: ${rawName}.`);
+    }
+    if (
+      (allergies.treeNuts || excluded.treeNuts) &&
+      /(noix|noisette|amande|pistache|cajou|pecan|pécan|macadamia)/.test(name)
+    ) {
+      add(`Fruit à coque exclu détecté: ${rawName}.`);
+    }
+    if ((allergies.egg || excluded.eggs) && egg) add(`Œuf exclu détecté: ${rawName}.`);
+    if ((allergies.fish || excluded.fish || excluded.seafood) && fish) add(`Poisson/fruit de mer exclu détecté: ${rawName}.`);
+    if (excluded.pork && pork) add(`Porc exclu détecté: ${rawName}.`);
+    if (excluded.poultry && poultry) add(`Volaille exclue détectée: ${rawName}.`);
+    if (excluded.redMeat && redMeat) add(`Viande rouge exclue détectée: ${rawName}.`);
+    if (excluded.alcohol && /(alcool|vin|biere|bière|cidre|champagne|liqueur)/.test(name)) {
+      add(`Alcool exclu détecté: ${rawName}.`);
+    }
+  }
+
+  return errors;
+}
+
 function targetFromProfile(clientProfile = {}) {
   const base = clientProfile.basePlan || clientProfile.algorithmicPlan || clientProfile;
   return {
@@ -146,7 +224,21 @@ export async function validateNutritionPlanWithCiqual(aiPlan, clientProfile = {}
     });
   }
 
-  errors.push(...validateForbiddenFoods(items, clientProfile.forbiddenFoods || clientProfile.alimentsInterdits));
+  const profileInputs = clientProfile.inputs || clientProfile.assessment?.inputs || clientProfile || {};
+  const profileComputed = clientProfile.computed || clientProfile.assessment?.computed || {};
+  const clinicalSafety = assessAutomaticRationSafety({
+    inputs: profileInputs,
+    computed: profileComputed,
+    objectiveRaw: profileInputs?.objectif || profileInputs?.objective || "",
+  });
+  if (clinicalSafety.blockAutoGeneration) errors.push(...clinicalSafety.errors);
+  warnings.push(...clinicalSafety.warnings);
+  const explicitForbiddenFoods = [
+    ...normalizeFoodExclusionList(profileInputs),
+    ...compactList(clientProfile.forbiddenFoods || clientProfile.alimentsInterdits),
+  ];
+  errors.push(...validateForbiddenFoods(items, explicitForbiddenFoods));
+  errors.push(...validateClinicalRestrictions(items, clientProfile));
   warnings.push(...validatePathologies(items, clientProfile));
 
   const target = targetFromProfile(clientProfile);

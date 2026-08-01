@@ -40,6 +40,7 @@ import {
   normalizePathologyList,
 } from "../utils/nutritionContext";
 import {
+  buildRationFingerprint,
   MENU_MEALS_ORDER,
   extractRationLines,
   countRationMealsCovered,
@@ -83,6 +84,11 @@ const safeSetSmallLocal = (key, value) => {
 
 const r0 = (value) => Math.round(rationMenuNum(value));
 const LEGACY_BYL_LOCAL = "/logo-byl.png";
+const formatValidationDate = (value) => {
+  const date = value?.toDate?.() || (value ? new Date(value) : null);
+  if (!date || Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
+};
 const normalizeAdviceText = (value = "") =>
   String(value || "")
     .toLowerCase()
@@ -609,6 +615,8 @@ export default function MenuJournalierFromRation() {
   const [shareSelection, setShareSelection] = useState(() => allShareSections());
   const [patientNote, setPatientNote] = useState("");
   const [sharePatientNote, setSharePatientNote] = useState(false);
+  const [professionalReviewConfirmed, setProfessionalReviewConfirmed] = useState(false);
+  const [professionalValidationNote, setProfessionalValidationNote] = useState("");
   const [preparingShare, setPreparingShare] = useState(false);
   const [savingShare, setSavingShare] = useState(false);
   const [clientEmail, setClientEmail] = useState("");
@@ -714,6 +722,26 @@ export default function MenuJournalierFromRation() {
   }, [clientId]);
 
   const rationItems = useMemo(() => extractRationLines(docData), [docData]);
+  const rationFingerprint = useMemo(() => buildRationFingerprint(rationItems), [rationItems]);
+  const activeMenuState = activeTab === 1 ? docData?.ration?.autoMenu : docData?.ration?.manualMenu;
+  const menuHasAssociations = useMemo(
+    () =>
+      Object.values(activeMenuState?.mappingByDay || {}).some((day) =>
+        Object.values(day || {}).some((entry) =>
+          Boolean(typeof entry === "object" ? entry?.code : entry)
+        )
+      ),
+    [activeMenuState?.mappingByDay]
+  );
+  const menuSourceFingerprint = String(activeMenuState?.sourceFingerprint || "");
+  const menuIsStale = menuHasAssociations && menuSourceFingerprint !== rationFingerprint;
+  const clinicalSafetyMessages = useMemo(
+    () => [
+      ...(docData?.ration?.clinicalSafety?.errors || []),
+      ...(docData?.ration?.clinicalSafety?.warnings || []),
+    ].filter(Boolean),
+    [docData?.ration?.clinicalSafety?.errors, docData?.ration?.clinicalSafety?.warnings]
+  );
 
   const rationHasAnyQty = useMemo(() => {
     return rationItems.some((item) =>
@@ -1018,8 +1046,53 @@ export default function MenuJournalierFromRation() {
     navigateWithFallback(`/clients/${clientId}/nutrition/${assessmentId}/ration`);
   }, [assessmentId, clientId, navigateWithFallback]);
 
+  const menuEnergyQuality = useMemo(() => {
+    const targetKcal = rationMenuNum(targets?.ration?.kcal);
+    const days = Array.isArray(menuPdfData?.days) ? menuPdfData.days : [];
+    const reviewedDays = days.map((day) => ({
+      kcal: rationMenuNum(day?.totals?.kcal),
+      p: rationMenuNum(day?.totals?.p),
+      f: rationMenuNum(day?.totals?.f),
+      c: rationMenuNum(day?.totals?.c),
+      label: day?.label || i18n.t("auto.MenuJournalierFromRation.jour", "Jour"),
+    }));
+    const macroTargets = {
+      p: rationMenuNum(targets?.ration?.p),
+      f: rationMenuNum(targets?.ration?.f),
+      c: rationMenuNum(targets?.ration?.c),
+    };
+    const invalidDays = targetKcal > 0
+      ? reviewedDays.filter(({ kcal, p, f, c }) => {
+          const energyInvalid = !(kcal > 0) || Math.abs(kcal - targetKcal) / targetKcal > 0.15;
+          const macrosInvalid = [[p, macroTargets.p], [f, macroTargets.f], [c, macroTargets.c]].some(
+            ([value, target]) => target > 0 && Math.abs(value - target) / target > 0.25
+          );
+          return energyInvalid || macrosInvalid;
+        })
+      : reviewedDays;
+    return {
+      targetKcal,
+      invalidDays,
+      ready: targetKcal > 0 && reviewedDays.length > 0 && invalidDays.length === 0,
+    };
+  }, [menuPdfData?.days, targets?.ration?.c, targets?.ration?.f, targets?.ration?.kcal, targets?.ration?.p]);
+  const menuReadyToShare = ciqualOk && rationHasAnyQty && menuEnergyQuality.ready;
+
   const openShareModal = useCallback(async () => {
     if (!assessmentRef || blocked) return;
+    if (!menuReadyToShare) {
+      toast({
+        title: i18n.t("auto.MenuJournalierFromRation.menu_a_corriger", "Menu à corriger avant partage"),
+        description: i18n.t(
+          "auto.MenuJournalierFromRation.ecarts_energetiques_a_corriger",
+          "Chaque journée doit être générée, rester à ±15 % de la cible énergétique et conserver des macronutriments cohérents."
+        ),
+        status: "warning",
+        duration: 3500,
+        isClosable: true,
+      });
+      return;
+    }
     setPreparingShare(true);
     try {
       await persistMenuDraft();
@@ -1035,6 +1108,8 @@ export default function MenuJournalierFromRation() {
     }
     const previous = docData?.clientShare?.sections;
     const savedNote = docData?.nutritionPatientNote;
+    setProfessionalReviewConfirmed(false);
+    setProfessionalValidationNote(String(docData?.nutritionProfessionalValidation?.note || ""));
     setSharePatientNote(Boolean(savedNote?.shared && String(savedNote?.text || "").trim()));
     setShareSelection(
       previous && typeof previous === "object"
@@ -1045,7 +1120,7 @@ export default function MenuJournalierFromRation() {
         : allShareSections()
     );
     setShareModalOpen(true);
-  }, [assessmentRef, blocked, docData?.clientShare?.sections, docData?.nutritionPatientNote, persistMenuDraft, toast]);
+  }, [assessmentRef, blocked, docData?.clientShare?.sections, docData?.nutritionPatientNote, docData?.nutritionProfessionalValidation?.note, menuReadyToShare, persistMenuDraft, toast]);
 
   const ciqualByCode = useMemo(() => {
     const map = new Map();
@@ -1212,6 +1287,20 @@ export default function MenuJournalierFromRation() {
         });
         return;
       }
+      if (share && menuIsStale) {
+        notify(toast, "saveError", {
+          title: i18n.t("auto.MenuJournalierFromRation.menus_a_regenerer", "Menus à régénérer"),
+          description: i18n.t("auto.MenuJournalierFromRation.ration_changee_regenerer_avant_partage", "La ration a changé depuis la dernière génération. Régénère les menus avant de les partager."),
+        });
+        return;
+      }
+      if (share && !professionalReviewConfirmed) {
+        notify(toast, "saveError", {
+          title: i18n.t("auto.MenuJournalierFromRation.relecture_professionnelle_requise", "Relecture professionnelle requise"),
+          description: i18n.t("auto.MenuJournalierFromRation.confirmer_relecture_avant_partage", "Confirme la relecture clinique et alimentaire avant le partage."),
+        });
+        return;
+      }
 
       setSavingShare(true);
       try {
@@ -1226,6 +1315,32 @@ export default function MenuJournalierFromRation() {
             shared: hasSharedPatientNote,
             updatedAt: serverTimestamp(),
           },
+          ...(share
+            ? {
+                nutritionProfessionalValidation: {
+                  confirmed: true,
+                  note: String(professionalValidationNote || "").trim(),
+                  validatedAt: serverTimestamp(),
+                  validatedBy: user?.uid || null,
+                  validatedByName: coachPdfName,
+                  nutritionEngineVersion: "nutrition-engine-v23",
+                  calculationVersion: "nutrition-needs-v2",
+                  rationFingerprint,
+                  menuFingerprint: menuSourceFingerprint,
+                  menuMode: activeTab === 1 ? "auto" : "manual",
+                  clinicalAlerts: clinicalSafetyMessages,
+                  calculationSnapshot: {
+                    mb: rationMenuNum(needs?.mb),
+                    nap: rationMenuNum(needs?.nap),
+                    dej: rationMenuNum(needs?.dej),
+                    kcalTarget: rationMenuNum(needs?.kcalTarget),
+                    protG: needs?.protG || null,
+                    lipG: needs?.lipG || null,
+                    glucG: needs?.glucG || null,
+                  },
+                },
+              }
+            : {}),
           clientShare: {
             enabled: !!share && hasSharedSection,
             sections,
@@ -1244,6 +1359,14 @@ export default function MenuJournalierFromRation() {
               shoppingList: sections.shoppingList ? aiShoppingList : [],
               adviceSheets: adviceSheetsToShare,
               patientNote: hasSharedPatientNote ? { text: cleanPatientNote } : null,
+              validation: share
+                ? {
+                    validatedByName: coachPdfName,
+                    validatedAt: new Date().toISOString(),
+                    rationFingerprint,
+                    menuFingerprint: menuSourceFingerprint,
+                  }
+                : null,
             },
           },
           updatedAt: serverTimestamp(),
@@ -1297,6 +1420,13 @@ export default function MenuJournalierFromRation() {
       docData?.ration,
       docData?.nutritionAdviceSheets,
       menuPdfData?.view,
+      menuIsStale,
+      menuSourceFingerprint,
+      professionalReviewConfirmed,
+      professionalValidationNote,
+      rationFingerprint,
+      clinicalSafetyMessages,
+      needs,
       aiRecipes,
       aiShoppingList,
       navigateWithFallback,
@@ -1522,12 +1652,12 @@ export default function MenuJournalierFromRation() {
               </HStack>
             </HStack>
 
-            <SimpleGrid display={{ base: "none", md: "grid" }} columns={{ md: 1, lg: 3 }} spacing={3} mt={5}>
-              <Box p={4} borderWidth="1px" borderColor={menuAccentCards.dossier.border} borderRadius="md" bg={menuAccentCards.dossier.bg} color={menuAccentCards.dossier.text}>
+            <SimpleGrid display={{ base: "none", md: "grid" }} columns={{ md: 1, lg: 3 }} spacing={2.5} mt={4}>
+              <Box p={3} borderWidth="1px" borderColor={menuAccentCards.dossier.border} borderRadius="md" bg={menuAccentCards.dossier.bg} color={menuAccentCards.dossier.text}>
                 <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={menuAccentCards.dossier.label}>
                   {i18n.t("auto.MenuJournalierFromRation.dossier", "DOSSIER")}
                 </Text>
-                <Text mt={1} fontSize="xl" fontWeight="900" noOfLines={1}>
+                <Text mt={1} fontSize="lg" fontWeight="900" noOfLines={1}>
                   {patientName}
                 </Text>
                 <Text fontSize="sm" color={menuAccentCards.dossier.muted}>
@@ -1535,7 +1665,7 @@ export default function MenuJournalierFromRation() {
                 </Text>
               </Box>
 
-              <Box p={4} borderWidth="1px" borderColor={menuAccentCards.nutrition.border} borderRadius="md" bg={menuAccentCards.nutrition.bg} color={menuAccentCards.nutrition.text}>
+              <Box p={3} borderWidth="1px" borderColor={menuAccentCards.nutrition.border} borderRadius="md" bg={menuAccentCards.nutrition.bg} color={menuAccentCards.nutrition.text}>
                 <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={menuAccentCards.nutrition.label}>{i18n.t("auto.MenuJournalierFromRation.cadre_nutrition", "CADRE NUTRITION")}</Text>
                 <Text mt={1} fontSize="lg" fontWeight="800">
                   {translatedObjectiveRaw || i18n.t("auto.MenuJournalierFromRation.objectif_a_preciser", "Objectif à préciser")}
@@ -1548,7 +1678,7 @@ export default function MenuJournalierFromRation() {
                 </Text>
               </Box>
 
-              <Box p={4} borderWidth="1px" borderColor={menuAccentCards.ration.border} borderRadius="md" bg={menuAccentCards.ration.bg} color={menuAccentCards.ration.text}>
+              <Box p={3} borderWidth="1px" borderColor={menuAccentCards.ration.border} borderRadius="md" bg={menuAccentCards.ration.bg} color={menuAccentCards.ration.text}>
                 <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={menuAccentCards.ration.label}>{i18n.t("auto.MenuJournalierFromRation.ration_et_donnees", "RATION ET DONNÉES")}</Text>
                 <Text mt={1} fontSize="lg" fontWeight="800">
                   {sourceLabel}
@@ -1690,6 +1820,41 @@ export default function MenuJournalierFromRation() {
               : i18n.t("auto.MenuJournalierFromRation.mode_auto_description", "Le mode auto génère une base multi-jours, à relire avant validation.")}
           </Text>
 
+          {menuIsStale ? (
+            <Alert status="warning" variant="left-accent" borderRadius="lg" mb={4}>
+              <AlertIcon />
+              <Box>
+                <AlertTitle>{i18n.t("auto.MenuJournalierFromRation.ration_modifiee_menus_a_regenerer", "Ration modifiée — menus à régénérer")}</AlertTitle>
+                <AlertDescription>
+                  {i18n.t("auto.MenuJournalierFromRation.menus_conserves_mais_non_synchronises", "Les menus affichés sont conservés, mais ils ne correspondent plus exactement à la ration actuelle. Régénère-les avant le partage.")}
+                </AlertDescription>
+              </Box>
+            </Alert>
+          ) : menuHasAssociations ? (
+            <Alert status="success" variant="subtle" borderRadius="lg" mb={4}>
+              <AlertIcon />
+              <AlertDescription>{i18n.t("auto.MenuJournalierFromRation.menus_synchronises", "Menus synchronisés avec la ration actuelle.")}</AlertDescription>
+            </Alert>
+          ) : null}
+
+          {docData?.nutritionProfessionalValidation?.confirmed ? (
+            <Box borderWidth="1px" borderColor={borderCol} borderRadius="lg" p={3} mb={4} bg={nutritionTheme.surfaceSoft}>
+              <Text fontSize="xs" fontWeight="900" color={textMuted} textTransform="uppercase">{i18n.t("auto.MenuJournalierFromRation.derniere_validation_professionnelle", "Dernière validation professionnelle")}</Text>
+              <Text fontSize="sm" mt={1}>
+                {docData.nutritionProfessionalValidation.validatedByName || i18n.t("auto.MenuJournalierFromRation.professionnel", "Professionnel")}
+                {formatValidationDate(docData.nutritionProfessionalValidation.validatedAt)
+                  ? ` • ${formatValidationDate(docData.nutritionProfessionalValidation.validatedAt)}`
+                  : ""}
+                {docData.nutritionProfessionalValidation.nutritionEngineVersion
+                  ? ` • ${docData.nutritionProfessionalValidation.nutritionEngineVersion}`
+                  : ""}
+              </Text>
+              {docData.nutritionProfessionalValidation.note ? (
+                <Text fontSize="sm" color={textMuted} mt={1}>{docData.nutritionProfessionalValidation.note}</Text>
+              ) : null}
+            </Box>
+          ) : null}
+
           {activeTab === 0 ? (
             <MenuJournalierManual
               assessmentRef={assessmentRef}
@@ -1735,7 +1900,11 @@ export default function MenuJournalierFromRation() {
                   ? i18n.t("auto.MenuJournalierFromRation.masquer_la_liste_de_courses", "Masquer la liste de courses")
                   : i18n.t("auto.MenuJournalierFromRation.voir_la_liste_de_courses", "Voir la liste de courses")}
               </Button>
-              <Badge colorScheme="green" px={3} py={1} borderRadius="full">{i18n.t("auto.MenuJournalierFromRation.pret_a_partager", "Prêt à partager")}</Badge>
+              <Badge colorScheme={menuReadyToShare ? "green" : "orange"} px={3} py={1} borderRadius="full">
+                {menuReadyToShare
+                  ? i18n.t("auto.MenuJournalierFromRation.pret_a_partager", "Prêt à partager")
+                  : i18n.t("auto.MenuJournalierFromRation.a_corriger_avant_partage", "À corriger avant partage")}
+              </Badge>
             </HStack>
           </HStack>
 
@@ -1856,7 +2025,7 @@ export default function MenuJournalierFromRation() {
               {...nutritionTheme.primaryButtonProps}
               onClick={openShareModal}
               data-testid="nutrition-menu-validate-share"
-              isDisabled={blocked}
+              isDisabled={blocked || !menuReadyToShare}
               isLoading={preparingShare || savingShare}
               loadingText={i18n.t("auto.MenuJournalierFromRation.preparation", "Préparation")}
             >{i18n.t("auto.MenuJournalierFromRation.valider_partager", "Valider / partager")}</Button>
@@ -1879,6 +2048,48 @@ export default function MenuJournalierFromRation() {
             <Text color={textMuted} fontSize="sm">{i18n.t("auto.MenuJournalierFromRation.choisis_ce_que_le_client_pourra_consulter_dans_son", "Choisis ce que le client pourra consulter dans son espace. Si tu sauvegardes sans partager, le dossier reste uniquement visible côté professionnel.")}</Text>
 
             <Stack spacing={3} mt={5}>
+              {menuIsStale ? (
+                <Alert status="error" borderRadius="md" alignItems="flex-start">
+                  <AlertIcon mt={0.5} />
+                  <Box>
+                    <AlertTitle>{i18n.t("auto.MenuJournalierFromRation.menus_obsoletes", "Menus obsolètes")}</AlertTitle>
+                    <AlertDescription>{i18n.t("auto.MenuJournalierFromRation.partage_indisponible_jusqu_a_regeneration", "La ration a été modifiée. Le partage restera indisponible jusqu’à la régénération des menus.")}</AlertDescription>
+                  </Box>
+                </Alert>
+              ) : null}
+              {clinicalSafetyMessages.length ? (
+                <Alert status="warning" borderRadius="md" alignItems="flex-start">
+                  <AlertIcon mt={0.5} />
+                  <Box>
+                    <AlertTitle>{i18n.t("auto.MenuJournalierFromRation.points_cliniques_a_relire", "Points cliniques à relire")}</AlertTitle>
+                    <AlertDescription>
+                      <Stack spacing={1} mt={1}>
+                        {clinicalSafetyMessages.slice(0, 6).map((message) => (
+                          <Text key={message} fontSize="sm">• {message}</Text>
+                        ))}
+                      </Stack>
+                    </AlertDescription>
+                  </Box>
+                </Alert>
+              ) : null}
+              <Box borderWidth="1px" borderColor={borderCol} borderRadius="md" p={4} bg={nutritionTheme.surfaceSoft}>
+                <Text fontWeight="900">{i18n.t("auto.MenuJournalierFromRation.validation_professionnelle", "Validation professionnelle")}</Text>
+                <Text color={textMuted} fontSize="sm" mt={1}>
+                  {i18n.t("auto.MenuJournalierFromRation.validation_professionnelle_description", "La génération reste libre. Cette confirmation atteste uniquement que la ration, les menus, les exclusions et les alertes ont été relus avant partage.")}
+                </Text>
+                <Checkbox
+                  mt={3}
+                  isChecked={professionalReviewConfirmed}
+                  onChange={(event) => setProfessionalReviewConfirmed(event.target.checked)}
+                >{i18n.t("auto.MenuJournalierFromRation.contenu_patient_relu_valide", "J’ai relu et validé le contenu destiné au patient")}</Checkbox>
+                <Textarea
+                  mt={3}
+                  value={professionalValidationNote}
+                  onChange={(event) => setProfessionalValidationNote(event.target.value)}
+                  placeholder={i18n.t("auto.MenuJournalierFromRation.note_professionnelle_facultative", "Note professionnelle ou justification des adaptations (facultatif)")}
+                  minH="80px"
+                />
+              </Box>
               <Checkbox
                 isChecked={SHARE_SECTION_KEYS.every((key) => !!shareSelection[key]) && (!patientNote.trim() || !!sharePatientNote)}
                 isIndeterminate={
@@ -1980,6 +2191,7 @@ export default function MenuJournalierFromRation() {
               onClick={() => saveMenuAndShare({ share: true })}
               data-testid="nutrition-share-save-public"
               isLoading={savingShare}
+              isDisabled={savingShare || menuIsStale || !professionalReviewConfirmed}
               w={{ base: "100%", sm: "auto" }}
             >{i18n.t("auto.MenuJournalierFromRation.sauvegarder_partager", "Sauvegarder & partager")}</Button>
           </ModalFooter>

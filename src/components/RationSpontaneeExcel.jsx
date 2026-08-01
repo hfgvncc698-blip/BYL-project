@@ -22,7 +22,8 @@ import {
 } from "@chakra-ui/react";
 import { ChevronDownIcon, ChevronRightIcon, RepeatIcon } from "@chakra-ui/icons";
 import { getCiqualMicro100 } from "./ciqualClient.js";
-import { computeMicronutrientTargets } from "../utils/nutritionContext";
+import { computeMicronutrientTargets, parseFoodExclusionFlags } from "../utils/nutritionContext";
+import { parseAllergyFlags } from "../utils/nutritionRules";
 import { useNutritionTheme } from "../styles/nutritionTheme";
 import i18n from "../i18n/index";
 
@@ -426,6 +427,9 @@ function buildRecommendedMicroKeys(context = {}) {
   const path = needs?.pathologyFlags || {};
   const reg = needs?.regimeFlags || {};
   const profile = needs?.objectiveProfile || {};
+  const inputs = context?.inputs || {};
+  const excluded = parseFoodExclusionFlags(inputs);
+  const allergies = parseAllergyFlags(inputs?.medical?.allergies || inputs?.allergies || "");
   const keys = new Set(["calcium", "fibres"]);
 
   if (path.diabete) keys.add("fibres");
@@ -444,13 +448,13 @@ function buildRecommendedMicroKeys(context = {}) {
     path.fodmap
   ) {
     keys.add("fibres");
-    keys.add("lactose");
   }
   if (path.renal) {
     keys.add("sodium");
     keys.add("potassium");
   }
-  if (reg.lactoseFree || path.allergies) {
+
+  if (reg.lactoseFree || allergies.milk || excluded.milk) {
     keys.add("lactose");
     keys.add("calcium");
   }
@@ -553,6 +557,17 @@ function buildClinicalGuidance(context = {}) {
       title: i18n.t("auto.RationSpontaneeExcel.atteinte_renale", "Atteinte rénale"),
       tone: "red",
       body: i18n.t("auto.RationSpontaneeExcel.atteinte_renale_body", "Le sodium et le potassium sont visibles ici, mais le phosphore n’est pas calculé dans cette grille groupée: contrôle complémentaire indispensable selon le stade."),
+    });
+  }
+
+  if (path.hypo || path.hyper) {
+    entries.push({
+      title: i18n.t("auto.RationSpontaneeExcel.pathologie_thyroidienne", "Pathologie thyroïdienne"),
+      tone: "blue",
+      body: i18n.t(
+        "auto.RationSpontaneeExcel.pathologie_thyroidienne_body",
+        "Aucune éviction n’est appliquée automatiquement: vérifier le traitement, ses horaires de prise et les consignes médicales individualisées."
+      ),
     });
   }
 

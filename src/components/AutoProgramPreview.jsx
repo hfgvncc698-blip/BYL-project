@@ -53,6 +53,7 @@ import { useAuth } from "../AuthContext";
 import AppLoading from "./ui/AppLoading";
 import { notify } from "../utils/notify";
 import { localizeExercise } from "../utils/exerciseI18n";
+import { getExerciseNoteLines } from "../utils/exerciseNotes";
 import { useAppTheme } from "../styles/appTheme";
 import { estimateSessionDurationSeconds, formatDuration } from "../utils/trainingEngine";
 import { canUseCustomBranding } from "../utils/proPlanAccess";
@@ -2955,6 +2956,7 @@ export default function AutoProgramPreview() {
         return {
           name: pickFirst(resolved, ["nom", "name"]) || "",
           infos: buildInfosFromExercise(resolved, displayUnits, pdfLocale, L),
+          notes: getExerciseNoteLines(resolved, pdfLang),
           images: (pdfImages.images || [])
             .map((item) => item?.dataUrl || item?.finalUrl)
             .filter(Boolean),
@@ -3026,6 +3028,7 @@ export default function AutoProgramPreview() {
           footerLogoDataUrl={footerLogo || headerLogo}
           dateLabel={L.date(new Date())}
           footerText={L.generatedWith(window.location.hostname)}
+          notesLabel={L.notes}
           sessions={buildSportPdfSessions(imageMap)}
         />
       ).toBlob();

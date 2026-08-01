@@ -54,7 +54,7 @@ function listFromUnknown(value) {
 
   if (typeof value === "string") {
     return value
-      .split(/[,\n;/]+/)
+      .split(/[,\n;]+/)
       .map((item) => item.trim())
       .filter(Boolean);
   }
@@ -278,10 +278,12 @@ export function getObjectiveProfile(objectiveRaw = "", inputs = {}) {
 
 export function computeKcalMultiplier({ objectiveRaw = "", inputs = {} } = {}) {
   const profile = getObjectiveProfile(objectiveRaw, inputs);
+  const pathologyFlags = parsePathologyFlags(inputs);
 
   if (profile.isLact) return 1.2;
   if (profile.isPreg3) return 1.2;
   if (profile.isPreg2) return 1.12;
+  if (pathologyFlags.tca && (profile.isLoss || profile.isMass)) return 1.0;
   if (profile.isLoss) return 0.8;
   if (profile.isMass) return 1.2;
   return 1.0;
@@ -332,6 +334,21 @@ export function gramsRangeFromPct({ kcalTarget, pctMin, pctMax, kcalPerG }) {
   };
 }
 
+function constrainProteinRangeToBodyWeight(range, { weightKg, ageY, profile } = {}) {
+  const weight = toNutritionNumber(weightKg);
+  if (!(weight > 0) || !range) return range;
+
+  const minPerKg = profile?.isMass ? 1.4 : profile?.isLoss ? 1.2 : ageY >= 65 ? 1.0 : 0.83;
+  const maxPerKg = ageY >= 65 ? 1.5 : 2.0;
+  const weightRange = { min: weight * minPerKg, max: weight * maxPerKg };
+  const intersected = {
+    min: Math.max(toNutritionNumber(range.min), weightRange.min),
+    max: Math.min(toNutritionNumber(range.max), weightRange.max),
+  };
+
+  return intersected.min <= intersected.max ? intersected : weightRange;
+}
+
 export function normalizeDietList(inputs = {}) {
   const values = [
     ...listFromUnknown(inputs?.medical?.diets),
@@ -364,6 +381,7 @@ export function normalizePathologyList(inputs = {}) {
   const details = [];
   if (selectedKeys.some((value) => value.includes("diab"))) {
     details.push(...listFromUnknown(inputs?.medical?.details?.diabeteType));
+    details.push(...listFromUnknown(inputs?.medical?.details?.diabeteAutre));
   }
   if (
     selectedKeys.some(
@@ -377,9 +395,11 @@ export function normalizePathologyList(inputs = {}) {
     )
   ) {
     details.push(...listFromUnknown(inputs?.medical?.details?.digestifType));
+    details.push(...listFromUnknown(inputs?.medical?.details?.digestifAutre));
   }
   if (selectedKeys.some((value) => value.includes("tca") || value.includes("comportement alimentaire"))) {
     details.push(...listFromUnknown(inputs?.medical?.details?.tcaType));
+    details.push(...listFromUnknown(inputs?.medical?.details?.tcaAutre));
   }
 
   const legacyText =
@@ -459,6 +479,31 @@ export function parseFoodExclusionFlags(inputs = {}) {
       "viande rouge",
       "carne rossa",
     ]),
+    milk: hasAnyNormalized(entries, ["lait", "lactose", "produits laitiers", "milk", "caseine", "caséine"]),
+    gluten: hasAnyNormalized(entries, ["gluten", "ble", "blé", "wheat"]),
+    soy: hasAnyNormalized(entries, ["soja", "soy"]),
+    peanuts: hasAnyNormalized(entries, ["arachide", "arachides", "cacahuete", "cacahuète", "peanut"]),
+    treeNuts: hasAnyNormalized(entries, [
+      "fruits a coque",
+      "fruits à coque",
+      "noix",
+      "noisette",
+      "amande",
+      "pistache",
+      "cajou",
+      "pecan",
+      "pécan",
+      "macadamia",
+    ]),
+    alcohol: hasAnyNormalized(entries, ["alcool", "alcohol"]),
+    sugaryDrinks: hasAnyNormalized(entries, ["boissons sucrees", "boissons sucrées", "soda", "soft drink"]),
+    ultraProcessed: hasAnyNormalized(entries, [
+      "produits ultra-transformes",
+      "produits ultra-transformés",
+      "ultra-transforme",
+      "ultra-transformé",
+      "ultra processed",
+    ]),
   };
 }
 
@@ -509,6 +554,8 @@ export function parsePathologyFlags(inputs = {}) {
     endometriosis: hasAnyNormalized(entries, ["endometriose", "endometriosi"]),
     pcos: hasAnyNormalized(entries, ["sopk", "pcos"]),
     menopause: hasAnyNormalized(entries, ["menopause"]),
+    pregnant: hasAnyNormalized(entries, ["grossesse", "enceinte", "pregnan", "incinta"]),
+    lactating: hasAnyNormalized(entries, ["allait", "lactating", "breastfeeding"]),
     allergies: !!allergiesText,
   };
 }
@@ -601,15 +648,18 @@ export function computeNutritionNeeds({
   const computedTarget = firstNonZero(computed?.kcalTarget, computed?.kcal_target);
   const kcalTarget = explicitTarget || (dej > 0 ? dej * kcalMul : computedTarget);
   const pctRanges = computeMacroPercentRanges({ objectiveRaw: resolvedObjective, inputs });
+  const objectiveProfile = getObjectiveProfile(resolvedObjective, inputs);
 
-  const protG =
+  const protG = constrainProteinRangeToBodyWeight(
     pickComputedRange(computed, "prot") ||
-    gramsRangeFromPct({
-      kcalTarget,
-      pctMin: pctRanges.protPctMin,
-      pctMax: pctRanges.protPctMax,
-      kcalPerG: 4,
-    });
+      gramsRangeFromPct({
+        kcalTarget,
+        pctMin: pctRanges.protPctMin,
+        pctMax: pctRanges.protPctMax,
+        kcalPerG: 4,
+      }),
+    { weightKg, ageY, profile: objectiveProfile }
+  );
 
   const glucG =
     pickComputedRange(computed, "glu") ||
@@ -648,7 +698,281 @@ export function computeNutritionNeeds({
     pathologies: normalizePathologyList(inputs),
     regimeFlags: parseRegimeFlags(inputs),
     pathologyFlags: parsePathologyFlags(inputs),
-    objectiveProfile: getObjectiveProfile(resolvedObjective, inputs),
+    objectiveProfile,
+  };
+}
+
+const KNOWN_PATHOLOGY_TERMS = [
+  "diabete",
+  "type 1",
+  "type 2",
+  "gestationnel",
+  "gestazionale",
+  "hta",
+  "hypertension",
+  "ipertensione",
+  "hypothyroid",
+  "hyperthyroid",
+  "ipotiroid",
+  "ipertiroid",
+  "hyperchol",
+  "dyslipid",
+  "cholesterol",
+  "colesterolo",
+  "troubles digestifs",
+  "disturbi digestivi",
+  "reflux",
+  "rgo",
+  "reflusso",
+  "intestin irritable",
+  "intestino irritabile",
+  "sii",
+  "crohn",
+  "rectocolite",
+  "rch",
+  "constipation",
+  "diarrhe",
+  "diarrea",
+  "ballonnement",
+  "gonfiore",
+  "fodmap",
+  "celiaque",
+  "coeliaque",
+  "celiachia",
+  "celiaca",
+  "insuffisance renale",
+  "renal",
+  "renale",
+  "dialyse",
+  "dialisi",
+  "ckd",
+  "tca",
+  "dca",
+  "comportement alimentaire",
+  "disturbi alimentari",
+  "anorex",
+  "boulim",
+  "bulim",
+  "hyperphag",
+  "orthorex",
+  "endometriose",
+  "endometriosi",
+  "sopk",
+  "pcos",
+  "menopause",
+  "grossesse",
+  "enceinte",
+  "pregnan",
+  "incinta",
+  "allait",
+  "lactating",
+  "breastfeeding",
+];
+
+const KNOWN_ALLERGY_TERMS = [
+  "oeuf",
+  "egg",
+  "lait",
+  "milk",
+  "lactose",
+  "caseine",
+  "poisson",
+  "fish",
+  "fruit de mer",
+  "crustace",
+  "gluten",
+  "ble",
+  "wheat",
+  "soja",
+  "soy",
+  "arachide",
+  "cacahuete",
+  "peanut",
+  "fruit a coque",
+  "noix",
+  "noisette",
+  "amande",
+  "pistache",
+  "cajou",
+  "pecan",
+  "macadamia",
+];
+
+const KNOWN_EXCLUSION_TERMS = [
+  "porc",
+  "cochon",
+  "maiale",
+  "viande rouge",
+  "carne rossa",
+  "volaille",
+  "poulet",
+  "dinde",
+  "pollame",
+  "poisson",
+  "pesce",
+  "fruit de mer",
+  "crustace",
+  "oeuf",
+  "uovo",
+  "lait",
+  "lactose",
+  "gluten",
+  "arachide",
+  "cacahuete",
+  "fruit a coque",
+  "noix",
+  "soja",
+  "boisson sucree",
+  "soda",
+  "alcool",
+  "alcohol",
+  "ultra-transforme",
+  "ultra processed",
+];
+
+const containsKnownTerm = (value, terms) => {
+  const normalized = normalizeNutritionText(value);
+  return terms.some((term) => normalized.includes(normalizeNutritionText(term)));
+};
+
+const uniqueMessages = (messages = []) => Array.from(new Set(messages.filter(Boolean)));
+
+export function assessAutomaticRationSafety({
+  inputs = {},
+  computed = {},
+  objectiveRaw = "",
+} = {}) {
+  const needs = computeNutritionNeeds({ inputs, computed, objectiveRaw });
+  const profile = needs.objectiveProfile;
+  const path = needs.pathologyFlags;
+  const errors = [];
+  const warnings = [];
+  const normalizedSex = normalizeNutritionText(needs.sex);
+  const knownSex =
+    normalizedSex === "m" ||
+    normalizedSex === "f" ||
+    normalizedSex.includes("homme") ||
+    normalizedSex.includes("femme") ||
+    normalizedSex.includes("male") ||
+    normalizedSex.includes("female") ||
+    normalizedSex.includes("mascul") ||
+    normalizedSex.includes("feminin");
+
+  if (!(needs.ageY > 0)) errors.push("Âge manquant ou invalide.");
+  else if (needs.ageY < 18) errors.push("Le calcul automatique adulte ne doit pas être utilisé avant 18 ans.");
+  else if (needs.ageY > 110) errors.push("Âge hors plage de calcul plausible (> 110 ans).");
+  else if (needs.ageY >= 65) warnings.push("À partir de 65 ans, fragilité, sarcopénie et état nutritionnel doivent être vérifiés.");
+
+  if (!(needs.weightKg > 0)) errors.push("Poids manquant ou invalide.");
+  else if (needs.weightKg < 25 || needs.weightKg > 350) errors.push("Poids hors plage de calcul plausible (25–350 kg).");
+  else if (needs.weightKg < 40 || needs.weightKg > 250) warnings.push("Poids inhabituel : confirmer la mesure et individualiser la ration.");
+
+  if (!(needs.heightCm > 0)) errors.push("Taille manquante ou invalide.");
+  else if (needs.heightCm < 100 || needs.heightCm > 240) errors.push("Taille hors plage de calcul plausible (100–240 cm).");
+  else if (needs.heightCm < 135 || needs.heightCm > 220) warnings.push("Taille inhabituelle : confirmer la mesure avant validation.");
+
+  if (!knownSex) errors.push("Sexe physiologique manquant ou non reconnu pour le calcul des besoins.");
+  if (!(needs.nap >= 1.1 && needs.nap <= 2.4)) errors.push("Niveau d’activité (NAP) hors plage plausible (1,1–2,4).");
+
+  const heightM = needs.heightCm / 100;
+  const bmi = needs.weightKg > 0 && heightM > 0 ? needs.weightKg / (heightM * heightM) : 0;
+  if (bmi > 0 && (bmi < 12 || bmi >= 60)) errors.push("IMC extrême : calcul automatique non autorisé.");
+  else if (bmi > 0 && (bmi < 18.5 || bmi >= 40)) errors.push("IMC à haut risque : ration à individualiser par un professionnel.");
+  else if (bmi >= 30) warnings.push("Obésité : vérifier les comorbidités, le comportement alimentaire et la trajectoire pondérale.");
+
+  if (!(needs.kcalTarget > 0)) errors.push("Cible énergétique absente ou impossible à calculer.");
+  else if (needs.kcalTarget < 800 || needs.kcalTarget > 6000) errors.push("Cible énergétique hors plage de sécurité (800–6000 kcal/j).");
+  else if (needs.kcalTarget < 1200 || needs.kcalTarget > 4500) warnings.push("Cible énergétique inhabituelle : validation professionnelle requise.");
+
+  if (profile.isLoss && bmi > 0 && bmi < 20) errors.push("Un déficit calorique automatique n’est pas autorisé avec un IMC inférieur à 20.");
+  if ((profile.isPreg1 || profile.isPreg2 || profile.isPreg3 || profile.isLact) && normalizedSex.includes("homme")) {
+    errors.push("Incohérence entre le sexe renseigné et l’état grossesse/allaitement.");
+  }
+
+  if (profile.isPreg1 || profile.isPreg2 || profile.isPreg3 || path.pregnant) {
+    errors.push("Grossesse : la ration doit intégrer le trimestre, la prise de poids, les analyses et le suivi obstétrical.");
+  }
+  if (profile.isLact || path.lactating) errors.push("Allaitement : les besoins doivent être individualisés avec le contexte maternel et infantile.");
+  if (path.renal) errors.push("Atteinte rénale : stade, fonction rénale, kaliémie, traitements et risque de dénutrition indispensables.");
+  if (path.tca) errors.push("TCA : ration automatique interdite sans prise en charge spécialisée et coordonnée.");
+  if (path.crohn || path.rch) errors.push("Maladie inflammatoire digestive : activité, tolérance et risque de dénutrition doivent être documentés.");
+
+  const pathologyEntries = normalizePathologyList(inputs);
+  const normalizedPathologies = pathologyEntries.map((entry) => normalizeNutritionText(entry));
+  const hasType1 = normalizedPathologies.some((entry) => entry.includes("type 1"));
+  const hasType2 = normalizedPathologies.some((entry) => entry.includes("type 2") || entry.includes("tipo 2"));
+  const hasGestational = normalizedPathologies.some((entry) => entry.includes("gestation"));
+  if (path.diabete && (hasType1 || hasGestational)) {
+    errors.push("Diabète de type 1 ou gestationnel : glucides et repas doivent être coordonnés au traitement et au suivi glycémique.");
+  } else if (path.diabete && !hasType2) {
+    errors.push("Type de diabète non précisé : génération automatique non autorisée.");
+  } else if (hasType2) {
+    warnings.push("Diabète de type 2 : valider la répartition glucidique avec le traitement et les objectifs glycémiques.");
+  }
+
+  const hasSpecificDigestiveContext = Boolean(
+    path.rgo || path.ibs || path.crohn || path.rch || path.constipation || path.diarrhee || path.ballonnements || path.fodmap
+  );
+  if (path.troublesDigestifs && !hasSpecificDigestiveContext) {
+    errors.push("Trouble digestif non précisé : le moteur ne peut pas choisir une stratégie sûre.");
+  } else if (path.troublesDigestifs && !path.crohn && !path.rch) {
+    warnings.push("Trouble digestif : vérifier la tolérance individuelle et éviter les évictions prolongées non supervisées.");
+  }
+
+  if (path.hta) warnings.push("HTA : vérifier le sodium réel, les traitements et les comorbidités cardiovasculaires/rénales.");
+  if (path.hyperchol) warnings.push("Dyslipidémie : privilégier la qualité des graisses plutôt qu’un simple objectif de cholestérol alimentaire.");
+  if (path.celiac) warnings.push("Maladie cœliaque : contrôler les ingrédients, les traces et la contamination croisée au gluten.");
+  if (path.hypo || path.hyper) warnings.push("Pathologie thyroïdienne : confirmer l’équilibre du traitement et les interactions alimentaires.");
+  if (path.endometriosis || path.pcos || path.menopause) warnings.push("Contexte hormonal : objectifs et symptômes doivent être individualisés.");
+  if (needs.regimeFlags.lowFodmap) warnings.push("Régime pauvre en FODMAP : prévoir une phase limitée et une réintroduction supervisée.");
+
+  const unknownPathologies = pathologyEntries.filter(
+    (entry) => !containsKnownTerm(entry, KNOWN_PATHOLOGY_TERMS) && normalizeNutritionText(entry) !== "autre"
+  );
+  if (unknownPathologies.length) {
+    errors.push(`Pathologie non prise en charge automatiquement : ${unknownPathologies.join(", ")}.`);
+  }
+  if (normalizedPathologies.some((entry) => entry === "autre")) {
+    errors.push("Une pathologie « Autre » doit être précisée avant toute génération automatique.");
+  }
+
+  const allergyEntries = listFromUnknown(firstNonEmpty(inputs?.medical?.allergies, inputs?.allergies));
+  const unknownAllergies = allergyEntries.filter((entry) => !containsKnownTerm(entry, KNOWN_ALLERGY_TERMS));
+  if (unknownAllergies.length) errors.push(`Allergie non gérée automatiquement : ${unknownAllergies.join(", ")}.`);
+  if (allergyEntries.length) warnings.push("Allergies : contrôler les ingrédients exacts, traces et contaminations croisées.");
+
+  const exclusionEntries = normalizeFoodExclusionList(inputs);
+  const unknownExclusions = exclusionEntries.filter((entry) => !containsKnownTerm(entry, KNOWN_EXCLUSION_TERMS));
+  if (unknownExclusions.length) errors.push(`Éviction alimentaire non gérée automatiquement : ${unknownExclusions.join(", ")}.`);
+
+  const activeClinicalFlags = [
+    path.diabete,
+    path.hta,
+    path.hyperchol,
+    path.troublesDigestifs,
+    path.renal,
+    path.tca,
+    path.hypo,
+    path.hyper,
+  ].filter(Boolean).length;
+  if (activeClinicalFlags >= 2) warnings.push("Pathologies associées : rechercher les conflits entre recommandations avant validation.");
+
+  const safeErrors = uniqueMessages(errors);
+  const safeWarnings = uniqueMessages(warnings);
+  return {
+    status: safeErrors.length ? "blocked" : safeWarnings.length ? "review" : "safe",
+    blockAutoGeneration: safeErrors.length > 0,
+    requiresProfessionalReview: safeErrors.length > 0 || safeWarnings.length > 0,
+    errors: safeErrors,
+    warnings: safeWarnings,
+    metrics: {
+      ageY: needs.ageY,
+      weightKg: needs.weightKg,
+      heightCm: needs.heightCm,
+      bmi,
+      nap: needs.nap,
+      kcalTarget: needs.kcalTarget,
+    },
   };
 }
 
@@ -662,6 +986,16 @@ export function computeMicronutrientTargets({
 
   const regimeFlags = parseRegimeFlags(inputs);
   const pathologyFlags = parsePathologyFlags(inputs);
+  const foodExclusionFlags = parseFoodExclusionFlags(inputs);
+  const allergyText = normalizeNutritionText(
+    firstNonEmpty(inputs?.medical?.allergies, inputs?.allergies)
+  );
+  const avoidsLactose =
+    regimeFlags.lactoseFree ||
+    foodExclusionFlags.milk ||
+    ["lait", "milk", "lactose", "caseine", "caséine"].some((term) =>
+      allergyText.includes(normalizeNutritionText(term))
+    );
   const objectiveProfile = getObjectiveProfile(objectiveRaw, inputs);
   const medical = inputs?.medical || {};
   const microContext = normalizeNutritionText(
@@ -680,7 +1014,7 @@ export function computeMicronutrientTargets({
     calcium: { value: 900, unit: "mg", label: "Calcium" },
     fer: { value: isMale ? 11 : 16, unit: "mg", label: "Fer" },
     sodium: { value: pathologyFlags.hta || pathologyFlags.renal ? 1500 : 2000, unit: "mg", label: "Sodium" },
-    fibres: { value: pathologyFlags.diabete ? 30 : 25, unit: "g", label: "Fibres" },
+    fibres: { value: pathologyFlags.diabete || pathologyFlags.constipation ? 30 : 25, unit: "g", label: "Fibres" },
     vitA: { value: isMale ? 900 : 750, unit: "µg", label: "Vitamine A" },
     vitB1: { value: isMale ? 1.3 : 1.1, unit: "mg", label: "Vitamine B1" },
     vitB2: { value: isMale ? 1.6 : 1.4, unit: "mg", label: "Vitamine B2" },
@@ -693,7 +1027,7 @@ export function computeMicronutrientTargets({
     vitK: { value: 55, unit: "µg", label: "Vitamine K" },
     magnesium: { value: isMale ? 380 : 300, unit: "mg", label: "Magnésium" },
     potassium: { value: 3500, unit: "mg", label: "Potassium" },
-    lactose: { value: pathologyFlags.troublesDigestifs || regimeFlags.lactoseFree ? 0 : 12, unit: "g", label: "Lactose" },
+    lactose: { value: avoidsLactose ? 0 : 12, unit: "g", label: "Lactose" },
     cholesterol: { value: pathologyFlags.hyperchol ? 200 : 300, unit: "mg", label: "Cholestérol" },
   };
 
@@ -725,7 +1059,8 @@ export function computeMicronutrientTargets({
   }
 
   if (pathologyFlags.renal) {
-    targets.potassium.value = 3000;
+    targets.potassium.requiresClinicalReview = true;
+    targets.potassium.note = "À individualiser selon le stade rénal, la kaliémie et le traitement.";
   }
 
   if (microContext.includes("fatigue") || microContext.includes("energie")) {
@@ -753,6 +1088,13 @@ export function computeMicronutrientTargets({
     targets.magnesium.value = Math.max(targets.magnesium.value, isMale ? 420 : 360);
     if (!pathologyFlags.renal) targets.potassium.value = Math.max(targets.potassium.value, 3500);
   }
+
+  Object.entries(targets).forEach(([key, target]) => {
+    if (target.requiresClinicalReview) target.direction = "review";
+    else if (key === "sodium" || key === "cholesterol") target.direction = "max";
+    else if (key === "lactose") target.direction = avoidsLactose ? "max" : "info";
+    else target.direction = "min";
+  });
 
   return targets;
 }

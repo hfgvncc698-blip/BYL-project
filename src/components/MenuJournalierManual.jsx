@@ -36,7 +36,7 @@ import {
   CopyIcon,
 } from "@chakra-ui/icons";
 import { onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore";
-import { extractRationLines as extractMenuRationLines } from "../utils/rationMenu";
+import { buildRationFingerprint, extractRationLines as extractMenuRationLines } from "../utils/rationMenu";
 import { useNutritionTheme } from "../styles/nutritionTheme";
 import i18n from "../i18n/index";
 
@@ -544,6 +544,7 @@ export default function MenuJournalierManual({
   const [weekStart, setWeekStart] = useState(1);
 
   const [mappingByDay, setMappingByDay] = useState({});
+  const [menuSourceFingerprint, setMenuSourceFingerprint] = useState("");
   const [saving, setSaving] = useState(false);
   const autoSaveHashRef = useRef("");
 
@@ -585,6 +586,7 @@ export default function MenuJournalierManual({
         const legacy =
           d?.ration?.ciqualMapping && typeof d.ration.ciqualMapping === "object" ? d.ration.ciqualMapping : null;
         const mm = d?.ration?.manualMenu && typeof d.ration.manualMenu === "object" ? d.ration.manualMenu : null;
+        setMenuSourceFingerprint(String(mm?.sourceFingerprint || ""));
 
         const nextDaysCount = Math.min(31, Math.max(1, num(mm?.daysCount || 0) || 7));
         setDaysCount(nextDaysCount);
@@ -615,6 +617,28 @@ export default function MenuJournalierManual({
     if (Array.isArray(rationItemsProp)) return rationItemsProp;
     return extractMenuRationLines(docData);
   }, [rationItemsProp, docData]);
+  const rationFingerprint = useMemo(() => buildRationFingerprint(rationItems), [rationItems]);
+
+  useEffect(() => {
+    if (!docDataProp) return;
+    const mm = docDataProp?.ration?.manualMenu && typeof docDataProp.ration.manualMenu === "object"
+      ? docDataProp.ration.manualMenu
+      : null;
+    const legacy = docDataProp?.ration?.ciqualMapping && typeof docDataProp.ration.ciqualMapping === "object"
+      ? docDataProp.ration.ciqualMapping
+      : null;
+    const nextDaysCount = Math.min(31, Math.max(1, num(mm?.daysCount || 0) || 7));
+    let nextMappingByDay = mm?.mappingByDay && typeof mm.mappingByDay === "object" ? mm.mappingByDay : {};
+    if (!Object.keys(nextMappingByDay).length && legacy) nextMappingByDay = { "1": legacy };
+    const filled = { ...nextMappingByDay };
+    for (let index = 1; index <= nextDaysCount; index += 1) {
+      const key = String(index);
+      if (!filled[key] || typeof filled[key] !== "object") filled[key] = {};
+    }
+    setDaysCount(nextDaysCount);
+    setMappingByDay(filled);
+    setMenuSourceFingerprint(String(mm?.sourceFingerprint || ""));
+  }, [docDataProp]);
 
   /* ================= Mapping helpers ================= */
   const dayKey = String(dayIndex);
@@ -633,6 +657,7 @@ export default function MenuJournalierManual({
 
   const setMappingCode = useCallback(
     (rationKey, nextCode) => {
+      setMenuSourceFingerprint(rationFingerprint);
       setMappingByDay((prev) => {
         const p = prev || {};
         const d = { ...(p[dayKey] || {}) };
@@ -648,11 +673,12 @@ export default function MenuJournalierManual({
         return { ...p, [dayKey]: d };
       });
     },
-    [dayKey]
+    [dayKey, rationFingerprint]
   );
 
   const setMappingPart = useCallback(
     (rationKey, nextPart) => {
+      setMenuSourceFingerprint(rationFingerprint);
       setMappingByDay((prev) => {
         const p = prev || {};
         const d = { ...(p[dayKey] || {}) };
@@ -674,7 +700,7 @@ export default function MenuJournalierManual({
         return { ...p, [dayKey]: d };
       });
     },
-    [dayKey]
+    [dayKey, rationFingerprint]
   );
 
   /* ================= Lines by meal (qty>0) ================= */
@@ -1070,6 +1096,7 @@ export default function MenuJournalierManual({
       const t = String(toDay);
       if (!f || !t || f === t) return;
 
+      setMenuSourceFingerprint(rationFingerprint);
       setMappingByDay((prev) => {
         const p = { ...(prev || {}) };
         const from = p[f] && typeof p[f] === "object" ? p[f] : {};
@@ -1085,7 +1112,7 @@ export default function MenuJournalierManual({
         isClosable: true,
       });
     },
-    [toast]
+    [rationFingerprint, toast]
   );
 
   /* ================= Auto-save ================= */
@@ -1124,6 +1151,7 @@ export default function MenuJournalierManual({
             ...(docData?.ration?.manualMenu || {}),
             daysCount,
             mappingByDay: mappingByDay || {},
+            sourceFingerprint: menuSourceFingerprint || null,
             updatedAt: serverTimestamp(),
           },
           ciqualMapping: mappingByDay?.["1"] || docData?.ration?.ciqualMapping || {},
@@ -1147,12 +1175,12 @@ export default function MenuJournalierManual({
     } finally {
       if (!silent) setSaving(false);
     }
-  }, [assessmentRef, blocked, daysCount, docData?.ration, mappingByDay, toast]);
+  }, [assessmentRef, blocked, daysCount, docData?.ration, mappingByDay, menuSourceFingerprint, toast]);
 
   useEffect(() => {
     if (!assessmentRef || blocked || !docData) return undefined;
 
-    const hash = JSON.stringify({ daysCount, mappingByDay });
+    const hash = JSON.stringify({ daysCount, mappingByDay, menuSourceFingerprint });
     if (autoSaveHashRef.current === hash) return undefined;
 
     const timer = window.setTimeout(() => {
@@ -1164,7 +1192,7 @@ export default function MenuJournalierManual({
     }, 1200);
 
     return () => window.clearTimeout(timer);
-  }, [assessmentRef, blocked, daysCount, docData, mappingByDay, persistManualMenu]);
+  }, [assessmentRef, blocked, daysCount, docData, mappingByDay, menuSourceFingerprint, persistManualMenu]);
 
   const onChangeDaysCount = (n) => {
     const next = Math.min(31, Math.max(1, num(n) || 1));

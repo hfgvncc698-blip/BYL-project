@@ -22,6 +22,8 @@
     "audit:firestore-identity": "node scripts/auditFirestoreIdentity.cjs",
     "plan:firestore-identity-migration": "node scripts/planFirestoreIdentityMigration.cjs",
     "test:smoke": "node scripts/smokeCriticalFlows.mjs",
+    "test:nutrition": "node scripts/auditNutritionMatrix.mjs && node scripts/auditNutritionTranslations.mjs",
+    "test:nutrition-i18n": "node scripts/auditNutritionTranslations.mjs",
     "test:footer-i18n": "node scripts/testFooterI18n.mjs",
     "test:sport-engine": "node scripts/testSportEngineMatrix.cjs",
     "test:exercise-history": "node scripts/testExerciseHistoryIdentity.mjs",

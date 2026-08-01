@@ -29,6 +29,13 @@ import {
   parseRegimeFlags,
 } from "../utils/nutritionContext";
 import { parseAllergyFlags } from "../utils/nutritionRules";
+import {
+  canCompensateRationQuantity,
+  getRationMealEnergyDistribution,
+  isManualRationQuantity,
+  markRationQuantityManual,
+  preserveManualRationQuantities,
+} from "../utils/rationAutoOverrides";
 
 /* ================= Utils ================= */
 const num = (v) => {
@@ -616,6 +623,21 @@ function findFoodUnit(label) {
   return FOOD_ITEMS.find((x) => x.label === label)?.defaultUnit || "g";
 }
 
+function usesRestrictiveDigestivePattern(path = {}) {
+  const specificRestriction = Boolean(
+    path.rgo ||
+      path.ibs ||
+      path.fodmap ||
+      path.crohn ||
+      path.rch ||
+      path.diarrhee ||
+      path.ballonnements
+  );
+  if (specificRestriction) return true;
+  if (path.constipation) return false;
+  return Boolean(path.troublesDigestifs);
+}
+
 /* ==================== alcool ==================== */
 const ETHANOL_DENSITY = 0.789;
 const DEFAULT_ABV = 0.12;
@@ -690,9 +712,14 @@ function resolveFamilyLabel(mealKey, slotDef, reg, path = {}) {
   if (g === "Boissons") return "Eau";
   if (g === "Légumineuses") return "Légumineuse";
   if (g === "Produits sucrés") return "Confiture";
-  if (g === "Compléments protéinés") return reg.vegan ? "Whey vegan" : "Isolate";
+  if (g === "Compléments protéinés") {
+    if ((reg.vegan || reg.lactoseFree) && reg.soyFree) return "";
+    return reg.vegan || reg.lactoseFree ? "Whey vegan" : "Isolate";
+  }
 
   if (g === "Produits laitiers") {
+    if ((reg.vegan || reg.lactoseFree) && reg.soyFree) return "";
+
     if (reg.vegan) {
       if (mealKey === "petit_dej") return "Lait végétal";
       return "Yaourt végétal";
@@ -943,9 +970,25 @@ const microTargetKeyFromNutrient = (key = "") => {
   if (normalized.includes("vitamine d")) return "vitD";
   if (normalized.includes("vitamine e")) return "vitE";
   if (normalized.includes("vitamine k")) return "vitK";
-  if (normalized.includes("lactose")) return "lactose";
+  if (normalized.split(/\s+/).includes("lactose")) return "lactose";
   if (normalized.includes("cholesterol")) return "cholesterol";
   return "";
+};
+
+const formatMicroTargetHint = (target) => {
+  if (!target) return "";
+  if (target.direction === "review" || target.requiresClinicalReview) {
+    return i18n.t("auto.RationAutoGenerator.a_individualiser", "à individualiser");
+  }
+
+  const value = r1(target.value);
+  const unit = String(target.unit || "").trim();
+  const formattedValue = `${value}${unit ? ` ${unit}` : ""}`;
+  if (target.direction === "max") return `maximum ${formattedValue}`;
+  if (target.direction === "info") {
+    return i18n.t("auto.RationAutoGenerator.repere_value", "repère {{value}}", { value: formattedValue });
+  }
+  return `cible ≥ ${formattedValue}`;
 };
 
 function pickRecommendedMicroKeys(allKeys, context = {}, objectiveRaw = "") {
@@ -969,7 +1012,7 @@ function pickRecommendedMicroKeys(allKeys, context = {}, objectiveRaw = "") {
   if (path.hta || path.renal) ["sodium", "potassium"].forEach((key) => wantedTargets.add(key));
   if (path.hyperchol) wantedTargets.add("cholesterol");
   if (path.diabete || path.constipation || path.troublesDigestifs) wantedTargets.add("fibres");
-  if (path.troublesDigestifs || reg.lactoseFree) wantedTargets.add("lactose");
+  if (reg.lactoseFree) wantedTargets.add("lactose");
   if (reg.vegetarian || reg.vegan) ["fer", "vitB12", "vitD"].forEach((key) => wantedTargets.add(key));
   if (reg.vegan) wantedTargets.add("calcium");
   if (targets?.vitB9?.value >= 500) wantedTargets.add("vitB9");
@@ -1056,8 +1099,9 @@ function parseRegimes(inputs) {
   const regimeFlags = parseRegimeFlags(inputs);
   return {
     ...regimeFlags,
-    lactoseFree: Boolean(regimeFlags.lactoseFree || allergies.milk),
-    glutenFree: Boolean(regimeFlags.glutenFree || allergies.gluten),
+    lactoseFree: Boolean(regimeFlags.lactoseFree || allergies.milk || foodExclusionFlags.milk),
+    glutenFree: Boolean(regimeFlags.glutenFree || allergies.gluten || foodExclusionFlags.gluten),
+    soyFree: Boolean(allergies.soy || foodExclusionFlags.soy),
     foodExclusionFlags: {
       ...foodExclusionFlags,
       eggs: Boolean(foodExclusionFlags.eggs || allergies.egg),
@@ -1128,6 +1172,15 @@ function capsForContext(reg, path) {
     caps.labelMaxMult["Yaourt nature"] = 0;
     caps.labelMaxMult["Fromage blanc"] = 0;
     caps.labelMaxMult["Lait 1/2 écrémé"] = 0;
+    caps.labelMaxMult["Isolate"] = 0;
+    caps.labelMaxMult["Hydrolisate"] = 0;
+    caps.labelMaxMult["100% whey"] = 0;
+  }
+
+  if (reg.soyFree) {
+    caps.labelMaxMult["Lait végétal"] = 0;
+    caps.labelMaxMult["Yaourt végétal"] = 0;
+    caps.labelMaxMult["Whey vegan"] = 0;
   }
 
   if (reg.glutenFree || path.celiac) {
@@ -1156,6 +1209,12 @@ function capsForContext(reg, path) {
     caps.labelMaxMult["Alcool"] = 0;
   }
 
+  if (excluded.alcohol) caps.labelMaxMult["Alcool"] = 0;
+  if (excluded.sugaryDrinks) {
+    caps.labelMaxMult["Soda"] = 0;
+    caps.labelMaxMult["Jus de fruits"] = 0;
+  }
+
   if (path.hyperchol) {
     caps.labelMaxMult["Beurre"] = 0;
     caps.labelMaxMult["Crème fraîche"] = 0;
@@ -1163,7 +1222,7 @@ function capsForContext(reg, path) {
     caps.labelMaxMult["Viande moyenne"] = 0;
   }
 
-  if (path.troublesDigestifs || path.rgo) {
+  if (usesRestrictiveDigestivePattern(path)) {
     caps.labelMaxMult["Soda"] = 0;
     caps.labelMaxMult["Jus de fruits"] = 0;
     caps.labelMaxMult["Alcool"] = 0;
@@ -1192,36 +1251,12 @@ function capsForContext(reg, path) {
 
 /* ==================== logique auto ==================== */
 function getTargetMealKcalDistribution(hasMorningSnack, hasAfternoonSnack, hasNightSnack, path = {}) {
-  const digestiveMode = path?.troublesDigestifs || path?.rgo;
-
-  if (digestiveMode) {
-    const collation_matin = hasMorningSnack ? 0.16 : 0;
-    const collation_apm = hasAfternoonSnack ? 0.16 : 0;
-    const collation_soir = hasNightSnack ? 0.12 : 0;
-    const petit_dej = 0.16;
-    const dejeuner = 0.20;
-    const diner = 0.20;
-    const total = petit_dej + dejeuner + diner + collation_matin + collation_apm + collation_soir;
-    return {
-      petit_dej: petit_dej / total,
-      dejeuner: dejeuner / total,
-      diner: diner / total,
-      collation_matin: collation_matin / total,
-      collation_apm: collation_apm / total,
-      collation_soir: collation_soir / total,
-    };
-  }
-
-  const collation_matin = hasMorningSnack ? 0.1 : 0;
-  const collation_apm = hasAfternoonSnack ? 0.1 : 0;
-  const collation_soir = hasNightSnack ? 0.1 : 0;
-  const snacksTotal = collation_matin + collation_apm + collation_soir;
-  const petit_dej = 0.2;
-  const remainingMain = Math.max(0, 1 - petit_dej - snacksTotal);
-  const dejeuner = remainingMain / 2;
-  const diner = remainingMain / 2;
-
-  return { petit_dej, dejeuner, diner, collation_matin, collation_apm, collation_soir };
+  void path;
+  return getRationMealEnergyDistribution({
+    hasMorningSnack,
+    hasAfternoonSnack,
+    hasNightSnack,
+  });
 }
 
 function getDefaultMultiplierForSelectedLabel({
@@ -1265,7 +1300,7 @@ function deriveMealAutoPattern(mealKey, slotKey, label, group, reg, path, object
   const mass = isMassObjective(objectiveRaw);
   const fakeSlot = { mealKey, slotKey, group, label, multiplier: 0 };
   const effectiveLabel = getResolvedLabelForSlot(fakeSlot, slotDefById, reg, path);
-  const digestiveMode = path.troublesDigestifs || path.rgo;
+  const digestiveMode = usesRestrictiveDigestivePattern(path);
   const proteinAssistanceNeeded = reg.vegetarian || reg.vegan;
 
   if (!effectiveLabel) return 0;
@@ -1517,7 +1552,7 @@ function getMealFloorMultiplier(st, def, reg, path) {
 
   if (def.mealKey === "petit_dej" && def.slotKey === "fruit") return 1;
   if (def.group === "Boissons") return 1;
-  if (def.group === "Légumes") return path?.troublesDigestifs || path?.rgo ? 0.5 : 1;
+  if (def.group === "Légumes") return usesRestrictiveDigestivePattern(path) ? 0.5 : 1;
   if (def.group === "Produits laitiers" && def.mealKey === "petit_dej") return 1;
   if (def.group === "Produits laitiers" && def.mealKey === "dejeuner") return 1;
   if (def.group === "Produits laitiers" && def.mealKey === "diner") return 1;
@@ -1554,6 +1589,20 @@ function enforceMainMealStarchFloor(draftSlots = {}, slotDefById = {}, reg = {},
 function sanitizeSlotLabelByMeal(st, slotDefById, reg, path) {
   const def = slotDefById[makeSlotId(st.mealKey, st.slotKey)];
   if (!def) return st;
+
+  if (def.group === "Produits laitiers" && reg.soyFree && (reg.vegan || reg.lactoseFree)) {
+    return { ...st, label: def.group, manualLabel: false, multiplier: 0 };
+  }
+
+  if (def.group === "Compléments protéinés") {
+    const needsPlantProtein = reg.vegan || reg.lactoseFree;
+    if (needsPlantProtein && reg.soyFree) {
+      return { ...st, label: def.group, manualLabel: false, multiplier: 0 };
+    }
+    if (needsPlantProtein && st.label !== def.group && st.label !== "Whey vegan") {
+      return { ...st, label: def.group, manualLabel: false };
+    }
+  }
 
   if (def.group === "Produits céréaliers") {
     if (def.slotKey === "cereales") {
@@ -1690,6 +1739,9 @@ export default function RationAutoGenerator(props) {
   const autoInitDone = useRef(false);
   const microInitDone = useRef(false);
   const autoTuneRef = useRef(false);
+  const [openMeals, setOpenMeals] = useState(() =>
+    Object.fromEntries(MEAL_KEYS.map((meal) => [meal.key, true]))
+  );
 
   const panelBg = useColorModeValue("white", "gray.800");
   const softBg = useColorModeValue("gray.50", "whiteAlpha.50");
@@ -1717,6 +1769,10 @@ export default function RationAutoGenerator(props) {
   const groupOptions = useMemo(() => buildGroupOptions(), []);
 
   const objectiveRaw = String(context?.objectiveRaw || "");
+  const micronutrientTargets = useMemo(
+    () => computeMicronutrientTargets({ inputs: context?.inputs || {}, objectiveRaw }),
+    [context?.inputs, objectiveRaw]
+  );
   const kcalIndicatif = context?.kcalIndicatif || 0;
   const coeff = 1;
   const kcalTarget = useMemo(() => {
@@ -1796,7 +1852,7 @@ export default function RationAutoGenerator(props) {
 
   const snackFlags = useMemo(() => {
     const k = kcalTarget || kcalIndicatif || 0;
-    const digestiveMode = path.troublesDigestifs || path.rgo;
+    const digestiveMode = usesRestrictiveDigestivePattern(path);
     return {
       beforeLunch: digestiveMode || forcedSnacks.collation_matin || k >= SNACK_BEFORE_LUNCH_MIN_KCAL,
       afterLunch: digestiveMode || forcedSnacks.collation_apm || k >= SNACK_AFTER_LUNCH_MIN_KCAL,
@@ -1854,12 +1910,25 @@ export default function RationAutoGenerator(props) {
         const def = slotDefById[id];
         if (!def || !st) return;
 
-        if (st.manualLabel) return;
         if (!st.label) return;
 
         const mealKey = st.mealKey || def.mealKey;
         const defaultResolved = resolveFamilyLabel(mealKey, def, reg, path);
         if (!defaultResolved) return;
+
+        const requiresExplicitClinicalAlternative =
+          (def.group === "Produits laitiers" || def.group === "Compléments protéinés") &&
+          (reg.vegan || reg.lactoseFree);
+
+        if (requiresExplicitClinicalAlternative) {
+          if (isFamilySelection(st.label, def.group)) {
+            next[id] = { ...st, label: defaultResolved, manualLabel: false };
+            changed = true;
+          }
+          return;
+        }
+
+        if (st.manualLabel) return;
 
         if (st.label === defaultResolved && st.label !== def.group) {
           next[id] = { ...st, label: def.group };
@@ -2097,7 +2166,9 @@ export default function RationAutoGenerator(props) {
         const shakeSlotId = findBestShakeSlotForMeal(st.mealKey);
         const shakeMealKey = (next[shakeSlotId]?.mealKey) || st.mealKey;
         const shakeSlotKey = (next[shakeSlotId]?.slotKey) || "shake";
-        const shakeLabel = reg.vegan ? "Whey vegan" : "Isolate";
+        const shakeLabel = reg.vegan || reg.lactoseFree ? "Whey vegan" : "Isolate";
+        const shakeMax = caps?.labelMaxMult?.[shakeLabel];
+        if (shakeMax !== undefined && num(shakeMax) <= 0) return;
         const protPerShake = num(computeLine(shakeLabel, findFoodUnit(shakeLabel), 1).prot);
         const neededShakeMult = protPerShake > 0 ? Math.min(2, Math.ceil((missingProt / protPerShake) * 2) / 2) : 0;
 
@@ -2228,6 +2299,7 @@ export default function RationAutoGenerator(props) {
     (draft, slotId, nextMult) => {
       if (!draft[slotId]) return;
       const st = draft[slotId];
+      if (isManualRationQuantity(st)) return;
       const resolvedLabel = getResolvedLabelForSlot(st, slotDefById, reg, path);
       const max = caps?.labelMaxMult?.[resolvedLabel];
       const clamped = max !== undefined ? clamp(nextMult, 0, num(max)) : Math.max(0, nextMult);
@@ -2300,6 +2372,7 @@ export default function RationAutoGenerator(props) {
   }, [setSlotMultiplierSafe]);
 
   const applyCompositionRules = useCallback((draftSlots, prevSlots = null, changedSlotId = null) => {
+    const manualQuantityReference = draftSlots;
     let next = { ...draftSlots };
 
     next = enforceLunchDinnerMandatoryItems(next);
@@ -2324,7 +2397,8 @@ export default function RationAutoGenerator(props) {
     next = enforceFromageCap(next);
     next = enforceBreadWithCheese(next);
 
-    return next;
+    next = preserveManualRationQuantities(manualQuantityReference, next);
+    return applyCapsToSlots(next, caps, slotDefById, reg, path);
   }, [
     enforceLunchDinnerMandatoryItems,
     enforceBreakfastCerealBase,
@@ -2388,17 +2462,26 @@ export default function RationAutoGenerator(props) {
   }, [reg, path, snackFlags, caps, slotDefById, objectiveRaw, kcalTarget, applyCompositionRules, computeTotals]);
 
   const closeKcalGapWithAllowedSteps = useCallback(
-    (baseSlots) => {
+    (baseSlots, preferredMealKey = "") => {
       if (!(kcalTarget > 0)) return baseSlots;
 
-      const activeMealKeys = MEAL_KEYS.filter((m) => {
+      let activeMealKeys = MEAL_KEYS.filter((m) => {
         if (m.key === "collation_matin") return snackFlags.beforeLunch;
         if (m.key === "collation_apm") return snackFlags.afterLunch;
         if (m.key === "collation_soir") return snackFlags.afterDinner;
         return true;
       }).map((m) => m.key);
+      const preferredMealIndex = activeMealKeys.indexOf(preferredMealKey);
+      if (preferredMealIndex >= 0) activeMealKeys = activeMealKeys.slice(preferredMealIndex);
 
       let next = sanitizeSlotsHard(baseSlots, slotDefById, reg, path, caps, computeTotals);
+      next = applyCapsToSlots(
+        preserveManualRationQuantities(baseSlots, next),
+        caps,
+        slotDefById,
+        reg,
+        path
+      );
 
       const allowedMultipliersForSlot = (slotId, st) => {
         const def = slotDefById[slotId];
@@ -2452,6 +2535,7 @@ export default function RationAutoGenerator(props) {
         Object.entries(next).forEach(([slotId, st]) => {
           const def = slotDefById[slotId];
           if (!def || !st?.label) return;
+          if (isManualRationQuantity(st)) return;
           if (!activeMealKeys.includes(st.mealKey)) return;
 
           const resolvedLabel = getResolvedLabelForSlot(st, slotDefById, reg, path);
@@ -2483,16 +2567,127 @@ export default function RationAutoGenerator(props) {
         });
 
         if (!best) break;
-        next = best.slots;
+        next = applyCapsToSlots(
+          preserveManualRationQuantities(baseSlots, best.slots),
+          caps,
+          slotDefById,
+          reg,
+          path
+        );
       }
 
-      return next;
+      return applyCapsToSlots(
+        preserveManualRationQuantities(baseSlots, next),
+        caps,
+        slotDefById,
+        reg,
+        path
+      );
     },
     [kcalTarget, snackFlags, slotDefById, reg, path, caps, computeTotals, applyCompositionRules]
   );
 
+  const rebalanceAfterManualQuantity = useCallback(
+    (baseSlots, changedSlotId) => {
+      if (!(kcalTarget > 0)) return baseSlots;
+
+      const changedSlot = baseSlots?.[changedSlotId];
+      if (!changedSlot) return baseSlots;
+      const preferredMealKey = changedSlot.mealKey;
+
+      let activeMealKeys = MEAL_KEYS.filter((meal) => {
+        if (meal.key === "collation_matin") return snackFlags.beforeLunch;
+        if (meal.key === "collation_apm") return snackFlags.afterLunch;
+        if (meal.key === "collation_soir") return snackFlags.afterDinner;
+        return true;
+      }).map((meal) => meal.key);
+
+      const preferredIndex = activeMealKeys.indexOf(preferredMealKey);
+      if (preferredIndex >= 0) activeMealKeys = activeMealKeys.slice(preferredIndex);
+
+      let next = applyCapsToSlots({ ...baseSlots }, caps, slotDefById, reg, path);
+
+      for (let iteration = 0; iteration < 24; iteration += 1) {
+        const currentTotals = computeTotals(next);
+        const currentDiff = num(kcalTarget) - num(currentTotals.day.kcal);
+        const currentAbs = Math.abs(currentDiff);
+        if (currentAbs <= 50) break;
+
+        const needsIncrease = currentDiff > 0;
+        let best = null;
+
+        // Respect the reading order: current meal first, then only later meals.
+        for (const mealKey of activeMealKeys) {
+          let bestForMeal = null;
+
+          Object.entries(next).forEach(([slotId, slot]) => {
+            const def = slotDefById[slotId];
+            if (!def || !slot?.label || slot.mealKey !== mealKey) return;
+            if (slotId === changedSlotId) return;
+            if (isManualRationQuantity(slot)) return;
+            if (!canCompensateRationQuantity(changedSlot, slot)) return;
+
+            const resolvedLabel = getResolvedLabelForSlot(slot, slotDefById, reg, path);
+            if (!resolvedLabel) return;
+
+            const max = caps?.labelMaxMult?.[resolvedLabel];
+            const capMax = max !== undefined ? num(max) : Infinity;
+            const current = snapMultiplierDownToOption(slot.multiplier, def.group, resolvedLabel, caps);
+            const floor = getMealFloorMultiplier(slot, def, reg, path);
+            const options = getMultiplierOptionsFor(def.group, resolvedLabel, caps)
+              .map((option) => num(option.value))
+              .filter((value) => Number.isFinite(value) && value <= capMax + 0.001)
+              .filter((value) =>
+                needsIncrease
+                  ? value > current + 0.001
+                  : value < current - 0.001 && value >= floor - 0.001
+              );
+
+            options.forEach((multiplier) => {
+              const candidate = applyCapsToSlots(
+                {
+                  ...next,
+                  [slotId]: { ...slot, multiplier },
+                },
+                caps,
+                slotDefById,
+                reg,
+                path
+              );
+              const totals = computeTotals(candidate);
+              const mealCap = mealKey.startsWith("collation") ? MAX_SNACK_KCAL_HARD : MAX_MEAL_KCAL_HARD;
+              if (num(totals.day.kcal) > MAX_DAY_KCAL_HARD) return;
+              if (num(totals.perMeal?.[mealKey]?.kcal) > mealCap) return;
+
+              const abs = Math.abs(num(kcalTarget) - num(totals.day.kcal));
+              if (abs >= currentAbs - 0.001) return;
+              if (!bestForMeal || abs < bestForMeal.abs) bestForMeal = { slots: candidate, abs };
+            });
+          });
+
+          if (bestForMeal) {
+            best = bestForMeal;
+            break;
+          }
+        }
+
+        if (!best) break;
+        next = best.slots;
+      }
+
+      return applyCapsToSlots(
+        preserveManualRationQuantities(baseSlots, next),
+        caps,
+        slotDefById,
+        reg,
+        path
+      );
+    },
+    [kcalTarget, snackFlags, caps, slotDefById, reg, path, computeTotals]
+  );
+
   const adjustSlotsForTarget = useCallback(
-    (baseSlots = slots) => {
+    (baseSlots = slots, preferredMealKey = "") => {
       if (!(kcalTarget > 0)) return baseSlots;
 
       let next = applyCapsToSlots({ ...baseSlots }, caps, slotDefById, reg, path);
@@ -2512,20 +2707,24 @@ export default function RationAutoGenerator(props) {
 
       const bump = (slotId, delta = 0.5) => {
         if (!slotId || !next[slotId]) return;
+        if (isManualRationQuantity(next[slotId])) return;
         setSlotMultiplierSafe(next, slotId, num(next[slotId].multiplier) + delta);
       };
 
       const down = (slotId, delta = 0.5, floor = 0) => {
         if (!slotId || !next[slotId]) return;
+        if (isManualRationQuantity(next[slotId])) return;
         setSlotMultiplierSafe(next, slotId, Math.max(floor, num(next[slotId].multiplier) - delta));
       };
 
-      const activeMealKeys = MEAL_KEYS.filter((m) => {
+      let activeMealKeys = MEAL_KEYS.filter((m) => {
         if (m.key === "collation_matin") return snackFlags.beforeLunch;
         if (m.key === "collation_apm") return snackFlags.afterLunch;
         if (m.key === "collation_soir") return snackFlags.afterDinner;
         return true;
       }).map((m) => m.key);
+      const preferredMealIndex = activeMealKeys.indexOf(preferredMealKey);
+      if (preferredMealIndex >= 0) activeMealKeys = activeMealKeys.slice(preferredMealIndex);
 
       for (let i = 0; i < 28; i += 1) {
         const totals = computeTotals(next);
@@ -2564,7 +2763,12 @@ export default function RationAutoGenerator(props) {
             return { mealKey, gap: target - current };
           });
 
-          mealEntries.sort((a, b) => b.gap - a.gap);
+          mealEntries.sort((a, b) => {
+            if (preferredMealIndex >= 0) {
+              return activeMealKeys.indexOf(a.mealKey) - activeMealKeys.indexOf(b.mealKey);
+            }
+            return b.gap - a.gap;
+          });
 
           let didSomething = false;
 
@@ -2575,6 +2779,7 @@ export default function RationAutoGenerator(props) {
               .filter(([id, st]) => {
                 const def = slotDefById[id];
                 if (!def) return false;
+                if (isManualRationQuantity(st)) return false;
                 if (st.mealKey !== meal.mealKey) return false;
                 if (!st.label) return false;
 
@@ -2616,6 +2821,8 @@ export default function RationAutoGenerator(props) {
               .filter(([id, st]) => {
                 const def = slotDefById[id];
                 if (!def || !st.label) return false;
+                if (isManualRationQuantity(st)) return false;
+                if (!activeMealKeys.includes(st.mealKey)) return false;
                 const resolvedLabel = getResolvedLabelForSlot(st, slotDefById, reg, path);
                 const max = caps?.labelMaxMult?.[resolvedLabel];
                 if (max !== undefined && num(st.multiplier) >= num(max)) return false;
@@ -2637,6 +2844,8 @@ export default function RationAutoGenerator(props) {
             .filter(([id, st]) => {
               const def = slotDefById[id];
               if (!def || !st.label) return false;
+              if (isManualRationQuantity(st)) return false;
+              if (!activeMealKeys.includes(st.mealKey)) return false;
               const floor = getMealFloorMultiplier(st, def, reg, path);
               return num(st.multiplier) > floor;
             })
@@ -2660,6 +2869,7 @@ export default function RationAutoGenerator(props) {
           Object.entries(next).forEach(([id]) => {
             const def = slotDefById[id];
             if (!def) return;
+            if (!activeMealKeys.includes(next[id]?.mealKey)) return;
             if (
               def.group === "VPO" ||
               def.group === "Produits laitiers" ||
@@ -2675,6 +2885,7 @@ export default function RationAutoGenerator(props) {
           Object.entries(next).forEach(([id]) => {
             const def = slotDefById[id];
             if (!def) return;
+            if (!activeMealKeys.includes(next[id]?.mealKey)) return;
             if (def.group === "Produits céréaliers" || def.group === "Pain") {
               bump(id, 0.25);
             }
@@ -2685,6 +2896,7 @@ export default function RationAutoGenerator(props) {
           Object.entries(next).forEach(([id]) => {
             const def = slotDefById[id];
             if (!def) return;
+            if (!activeMealKeys.includes(next[id]?.mealKey)) return;
             if (def.group === "Matières grasses") {
               bump(id, 0.25);
             }
@@ -2695,6 +2907,7 @@ export default function RationAutoGenerator(props) {
           Object.entries(next).forEach(([id, st]) => {
             const def = slotDefById[id];
             if (!def) return;
+            if (!activeMealKeys.includes(st.mealKey)) return;
             if (def.group === "Compléments protéinés") {
               const floor = getMealFloorMultiplier(st, def, reg, path);
               down(id, 0.25, floor);
@@ -2706,6 +2919,7 @@ export default function RationAutoGenerator(props) {
           Object.entries(next).forEach(([id, st]) => {
             const def = slotDefById[id];
             if (!def) return;
+            if (!activeMealKeys.includes(st.mealKey)) return;
             if (def.group === "Produits sucrés") {
               const floor = getMealFloorMultiplier(st, def, reg, path);
               down(id, 0.25, floor);
@@ -2717,6 +2931,7 @@ export default function RationAutoGenerator(props) {
           Object.entries(next).forEach(([id, st]) => {
             const def = slotDefById[id];
             if (!def) return;
+            if (!activeMealKeys.includes(st.mealKey)) return;
             if (def.group === "Matières grasses") {
               const floor = getMealFloorMultiplier(st, def, reg, path);
               down(id, 0.25, floor);
@@ -2727,9 +2942,23 @@ export default function RationAutoGenerator(props) {
         next = applyCapsToSlots(next, caps, slotDefById, reg, path);
         next = applyCompositionRules(next);
         next = sanitizeSlotsHard(next, slotDefById, reg, path, caps, computeTotals);
+        next = applyCapsToSlots(
+          preserveManualRationQuantities(baseSlots, next),
+          caps,
+          slotDefById,
+          reg,
+          path
+        );
       }
 
-      return closeKcalGapWithAllowedSteps(next);
+      const closed = closeKcalGapWithAllowedSteps(next, preferredMealKey);
+      return applyCapsToSlots(
+        preserveManualRationQuantities(baseSlots, closed),
+        caps,
+        slotDefById,
+        reg,
+        path
+      );
     },
     [
       kcalTarget,
@@ -2931,8 +3160,16 @@ export default function RationAutoGenerator(props) {
     const protOk = pct.prot >= ranges.prot.min - 1.5 && pct.prot <= ranges.prot.max + 1.5;
     const lipOk = pct.lip >= ranges.lip.min - 1.5 && pct.lip <= ranges.lip.max + 1.5;
     const gluOk = pct.glu >= ranges.glu.min - 1.5 && pct.glu <= ranges.glu.max + 1.5;
+    const hasManualQuantityOverrides = Object.values(slots || {}).some(isManualRationQuantity);
 
-    if (num(day.kcal) <= 0 || num(day.kcal) < kcalTarget * 0.78 || num(day.kcal) > MAX_DAY_KCAL_HARD) {
+    // A professional edit is rebalanced synchronously in updateSlot. Do not run a
+    // second background pass afterwards: it could move quantities to earlier meals
+    // or make the edited value appear to revert.
+    if (hasManualQuantityOverrides) return;
+
+    if (
+      (num(day.kcal) <= 0 || num(day.kcal) < kcalTarget * 0.78 || num(day.kcal) > MAX_DAY_KCAL_HARD)
+    ) {
       autoTuneRef.current = true;
 
       let regen = buildExcelLikeDefaultSlots({
@@ -2987,6 +3224,13 @@ export default function RationAutoGenerator(props) {
       autoTuneRef.current = true;
       let next = adjustSlotsForTarget(slots);
       next = sanitizeSlotsHard(next, slotDefById, reg, path, caps, computeTotals);
+      next = applyCapsToSlots(
+        preserveManualRationQuantities(slots, next),
+        caps,
+        slotDefById,
+        reg,
+        path
+      );
       setSlots(normalizeSlotsToFamilyDefaults(next));
       setTimeout(() => {
         autoTuneRef.current = false;
@@ -3064,7 +3308,7 @@ export default function RationAutoGenerator(props) {
     });
 
     onChange?.({
-      version: 23,
+      version: 24,
       slots: normalizedSlots,
       items: normalizedItems,
       poolBudgets,
@@ -3125,6 +3369,10 @@ export default function RationAutoGenerator(props) {
       const cur = next[slotId] || {};
       let candidate = { ...cur, ...patch };
 
+      if (Object.prototype.hasOwnProperty.call(patch, "multiplier")) {
+        candidate = markRationQuantityManual(candidate, patch.multiplier);
+      }
+
       candidate = sanitizeSlotLabelByMeal(candidate, slotDefById, reg, path);
 
       const resolvedCandidateLabel = getResolvedLabelForSlot(candidate, slotDefById, reg, path);
@@ -3160,8 +3408,28 @@ export default function RationAutoGenerator(props) {
       );
 
       next[slotId] = candidate;
+      const manualQuantityReference = next;
+
+      if (Object.prototype.hasOwnProperty.call(patch, "multiplier")) {
+        next = rebalanceAfterManualQuantity(next, slotId);
+        return applyCapsToSlots(
+          preserveManualRationQuantities(manualQuantityReference, next),
+          caps,
+          slotDefById,
+          reg,
+          path
+        );
+      }
+
       next = applyCompositionRules(next, prev, slotId);
       next = sanitizeSlotsHard(next, slotDefById, reg, path, caps, computeTotals);
+      next = applyCapsToSlots(
+        preserveManualRationQuantities(manualQuantityReference, next),
+        caps,
+        slotDefById,
+        reg,
+        path
+      );
 
       return next;
     });
@@ -3230,9 +3498,13 @@ export default function RationAutoGenerator(props) {
       items.push("Mode végétarien : protéines rééquilibrées avec œufs, laitages si autorisés, légumineuses et shakers si nécessaire.");
     }
     if (reg.vegan) {
-      items.push("Mode végan : remplacement automatique par légumineuses, lait végétal, yaourt végétal et whey vegan.");
+      items.push(
+        reg.soyFree
+          ? i18n.t("auto.RationAutoGenerator.ajustement_vegan_sans_soja", "Mode végan avec éviction du soja : les substituts végétaux génériques sont désactivés et doivent être individualisés.")
+          : i18n.t("auto.RationAutoGenerator.ajustement_vegan", "Mode végan : remplacement automatique par légumineuses, lait végétal, yaourt végétal et whey vegan.")
+      );
     }
-    if (reg.glutenFree) {
+    if (reg.glutenFree || path.celiac) {
       items.push("Mode sans gluten : seules les options céréalières sans gluten sont conservées.");
     }
     if (path.hyperchol) {
@@ -3241,11 +3513,20 @@ export default function RationAutoGenerator(props) {
     if (path.diabete) {
       items.push("Diabète : boissons sucrées et produits sucrés retirés ou fortement limités.");
     }
-    if (path.troublesDigestifs || path.rgo) {
+    if (usesRestrictiveDigestivePattern(path)) {
       items.push("RGO / troubles digestifs : repas volontairement plus petits, collations plus présentes, aliments irritants limités.");
     }
+    if (path.constipation && !usesRestrictiveDigestivePattern(path)) {
+      items.push(i18n.t("auto.RationAutoGenerator.ajustement_constipation", "Constipation : les légumes et légumineuses ne sont pas réduits automatiquement; fibres, hydratation et tolérance restent à contrôler."));
+    }
     if (path.tca) {
-      items.push("TCA : prévoir un bloc de conseils / accompagnement spécifique en complément de la ration.");
+      items.push(i18n.t("auto.RationAutoGenerator.ajustement_tca", "TCA : aucun déficit ou surplus calorique automatique n’est appliqué; accompagnement spécialisé indispensable."));
+    }
+    if (path.renal) {
+      items.push(i18n.t("auto.RationAutoGenerator.ajustement_renal", "Atteinte rénale : sodium, potassium et protéines doivent être individualisés selon le stade, la biologie et le traitement."));
+    }
+    if (path.hypo || path.hyper) {
+      items.push(i18n.t("auto.RationAutoGenerator.ajustement_thyroide", "Pathologie thyroïdienne : aucune éviction automatique; contrôler le traitement, les horaires de prise et le contexte clinique."));
     }
 
     return items;
@@ -3391,13 +3672,17 @@ export default function RationAutoGenerator(props) {
                   <Text fontSize="sm" opacity={0.7}>{i18n.t("auto.RationAutoGenerator.selectionne_des_nutriments_pour_afficher_les_micro", "Sélectionne des nutriments pour afficher les micros.")}</Text>
                 ) : (
                   <Wrap spacing={2}>
-                    {Object.entries(microsTotals).map(([k, v]) => (
-                      <WrapItem key={k}>
-                        <Badge colorScheme="purple" variant="subtle" px={3} py={1} borderRadius="md">
-                          {prettyNutrient(k)} : {r1(v)}
-                        </Badge>
-                      </WrapItem>
-                    ))}
+                    {Object.entries(microsTotals).map(([k, v]) => {
+                      const targetKey = microTargetKeyFromNutrient(k);
+                      const targetHint = formatMicroTargetHint(micronutrientTargets[targetKey]);
+                      return (
+                        <WrapItem key={k}>
+                          <Badge colorScheme="purple" variant="subtle" px={3} py={1} borderRadius="md">
+                            {prettyNutrient(k)} : {r1(v)}{targetHint ? ` • ${targetHint}` : ""}
+                          </Badge>
+                        </WrapItem>
+                      );
+                    })}
                   </Wrap>
                 )}
               </Box>
@@ -3416,6 +3701,7 @@ export default function RationAutoGenerator(props) {
     const defs = SLOTS_BY_MEAL[mealKey] || [];
     const totals = computedByMeal.perMeal[mealKey] || { kcal: 0, prot: 0, lip: 0, glu: 0, alcG: 0 };
     const mealLabelText = translateAutoLabel(mealLabel);
+    const mealIsOpen = openMeals[mealKey] !== false;
 
     return (
       <Card bg={panelBg} border="1px solid" borderColor={border} overflow="hidden">
@@ -3437,12 +3723,23 @@ export default function RationAutoGenerator(props) {
                 L {r0(totals.lip)}{i18n.t("auto.RationAutoGenerator.g", "g")}</Badge>
               <Badge bg={chipBg} border="1px solid" borderColor={border}>
                 G {r0(totals.glu)}{i18n.t("auto.RationAutoGenerator.g", "g")}</Badge>
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={() => setOpenMeals((prev) => ({ ...prev, [mealKey]: !mealIsOpen }))}
+                aria-expanded={mealIsOpen}
+              >
+                {mealIsOpen
+                  ? i18n.t("auto.RationAutoGenerator.reduire", "Réduire")
+                  : i18n.t("auto.RationAutoGenerator.developper", "Développer")}
+              </Button>
             </HStack>
           </SimpleGrid>
 
-          <Divider my={3} />
+          <Collapse in={mealIsOpen} animateOpacity>
+            <Divider my={3} />
 
-          <VStack align="stretch" spacing={3}>
+            <VStack align="stretch" spacing={3}>
             {defs.map((d) => {
               const slotId = makeSlotId(mealKey, d.slotKey);
               const st = slots?.[slotId] || {
@@ -3473,10 +3770,30 @@ export default function RationAutoGenerator(props) {
                 }
               }
 
-              if (reg.lactoseFree && d.group === "Produits laitiers") {
+              if ((reg.vegan || reg.lactoseFree) && d.group === "Produits laitiers") {
                 opts = opts.filter(
-                  (o) => o.label === d.group || o.label === "Lait végétal" || o.label === "Yaourt végétal"
+                  (o) => o.label === "Lait végétal" || o.label === "Yaourt végétal"
                 );
+              }
+
+              if (reg.soyFree && d.group === "Produits laitiers") {
+                opts = [];
+              }
+
+              if ((reg.vegan || reg.lactoseFree) && d.group === "Compléments protéinés") {
+                opts = opts.filter((o) => o.label === "Whey vegan");
+              }
+
+              if (reg.soyFree && (reg.vegan || reg.lactoseFree) && d.group === "Compléments protéinés") {
+                opts = [];
+              }
+
+              if (reg.foodExclusionFlags?.alcohol && d.group === "Boissons") {
+                opts = opts.filter((o) => o.label !== "Alcool");
+              }
+
+              if (reg.foodExclusionFlags?.sugaryDrinks && d.group === "Boissons") {
+                opts = opts.filter((o) => o.label !== "Soda" && o.label !== "Jus de fruits");
               }
 
               if (d.group === "Produits céréaliers") {
@@ -3522,11 +3839,11 @@ export default function RationAutoGenerator(props) {
                 opts = opts.filter((o) => o.label === d.group || o.label === "Eau");
               }
 
-              if ((path.troublesDigestifs || path.rgo) && d.group === "Boissons") {
+              if (usesRestrictiveDigestivePattern(path) && d.group === "Boissons") {
                 opts = opts.filter((o) => o.label === d.group || o.label === "Eau");
               }
 
-              if ((path.troublesDigestifs || path.rgo) && d.group === "Produits sucrés") {
+              if (usesRestrictiveDigestivePattern(path) && d.group === "Produits sucrés") {
                 opts = opts.filter((o) => o.label === d.group);
               }
 
@@ -3537,11 +3854,18 @@ export default function RationAutoGenerator(props) {
               const categoryLabel = d.group;
               const categoryOptFromBase = (groupOptions?.[d.group] || []).find((o) => o.label === categoryLabel);
               const hasCategoryOpt = opts.some((o) => o.label === categoryLabel);
-              opts = hasCategoryOpt
-                ? [...opts.filter((o) => o.label === categoryLabel), ...opts.filter((o) => o.label !== categoryLabel)]
-                : categoryOptFromBase
-                ? [categoryOptFromBase, ...opts]
-                : opts;
+              const shouldOfferCategoryOption =
+                !(
+                  (d.group === "Produits laitiers" || d.group === "Compléments protéinés") &&
+                  (reg.vegan || reg.lactoseFree)
+                );
+              if (shouldOfferCategoryOption) {
+                opts = hasCategoryOpt
+                  ? [...opts.filter((o) => o.label === categoryLabel), ...opts.filter((o) => o.label !== categoryLabel)]
+                  : categoryOptFromBase
+                  ? [categoryOptFromBase, ...opts]
+                  : opts;
+              }
               const seenOptionLabels = new Set();
               opts = opts.filter((option) => {
                 const optionKey = String(option?.label || "");
@@ -3552,8 +3876,14 @@ export default function RationAutoGenerator(props) {
 
               const selectedCandidate = st.label || d.group;
               const familyDefaultResolved = resolveFamilyLabel(mealKey, d, reg, path);
+              const requiresExplicitClinicalAlternative =
+                (d.group === "Produits laitiers" || d.group === "Compléments protéinés") &&
+                (reg.vegan || reg.lactoseFree);
               const shouldCollapseToFamily =
-                !st.manualLabel && !!familyDefaultResolved && selectedCandidate === familyDefaultResolved;
+                !requiresExplicitClinicalAlternative &&
+                !st.manualLabel &&
+                !!familyDefaultResolved &&
+                selectedCandidate === familyDefaultResolved;
 
               const preferredDisplayCandidate = shouldCollapseToFamily ? d.group : selectedCandidate;
               const displaySelected = opts.some((o) => o.label === preferredDisplayCandidate)
@@ -3588,9 +3918,30 @@ export default function RationAutoGenerator(props) {
               const capsMax = caps?.labelMaxMult?.[resolvedLabel];
               const capInfo = capsMax !== undefined ? `Cap: x${capsMax}` : "";
               const multiplierOptions = multipliersFor(d.group, resolvedLabel);
-              const translatedSlotLabel = translateAutoLabel(d.label);
-              const translatedGroupLabel = translateAutoLabel(d.group);
-              const translatedPreciseLabel = preciseLabel ? translateAutoLabel(preciseLabel) : "";
+              const displaysPlantDairyAlternative =
+                d.group === "Produits laitiers" && (reg.vegan || reg.lactoseFree);
+              const displaysPlantProteinAlternative =
+                d.group === "Compléments protéinés" && (reg.vegan || reg.lactoseFree);
+              const displaysExplicitClinicalAlternative =
+                displaysPlantDairyAlternative || displaysPlantProteinAlternative;
+              const translatedSlotLabel = displaysExplicitClinicalAlternative
+                ? translateAutoLabel(resolvedLabel || preciseLabel || d.label)
+                : translateAutoLabel(d.label);
+              const translatedGroupLabel = displaysPlantDairyAlternative
+                ? i18n.t(
+                    "auto.RationAutoGenerator.alternative_vegetale_sans_lactose",
+                    "Alternative végétale sans lactose"
+                  )
+                : displaysPlantProteinAlternative
+                  ? i18n.t(
+                      "auto.RationAutoGenerator.complement_proteine_vegetal",
+                      "Complément protéiné végétal"
+                    )
+                  : translateAutoLabel(d.group);
+              const translatedPreciseLabel =
+                !displaysExplicitClinicalAlternative && preciseLabel
+                  ? translateAutoLabel(preciseLabel)
+                  : "";
 
               return (
                 <Box key={slotId} p={{ base: 3, md: 4 }} bg={softBg} border="1px solid" borderColor={border} rounded="lg">
@@ -3610,9 +3961,27 @@ export default function RationAutoGenerator(props) {
                         </Text>
                       </Box>
 
-                      {mult <= 0.001 && (
-                        <Badge bg={chipBg} border="1px solid" borderColor={border} opacity={0.75}>{i18n.t("auto.RationAutoGenerator.off", "Off")}</Badge>
-                      )}
+                      <HStack spacing={1.5} flexShrink={0}>
+                        {isManualRationQuantity(st) && (
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            px={2}
+                            h="24px"
+                            onClick={() => updateSlot(slotId, { manualQuantity: false })}
+                            isDisabled={blocked || snackDisabled}
+                            title={i18n.t(
+                              "auto.RationAutoGenerator.repasser_quantite_auto",
+                              "Repasser cette quantité en ajustement automatique"
+                            )}
+                          >
+                            {i18n.t("auto.RationAutoGenerator.fixe", "Fixé")}
+                          </Button>
+                        )}
+                        {mult <= 0.001 && (
+                          <Badge bg={chipBg} border="1px solid" borderColor={border} opacity={0.75}>{i18n.t("auto.RationAutoGenerator.off", "Off")}</Badge>
+                        )}
+                      </HStack>
                     </HStack>
 
                     <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2}>
@@ -3698,7 +4067,8 @@ export default function RationAutoGenerator(props) {
                 </Box>
               );
             })}
-          </VStack>
+            </VStack>
+          </Collapse>
         </CardBody>
       </Card>
     );
@@ -3729,7 +4099,21 @@ export default function RationAutoGenerator(props) {
 
       <Divider my={4} />
 
-      <Text fontSize="sm" opacity={0.75} mb={3}>{i18n.t("auto.RationAutoGenerator.structure_par_defaut_seules_les_familles_alimentai", "Structure : par défaut seules les familles alimentaires sont sélectionnées avec les quantités adaptées. Tous les détails restent accessibles uniquement dans les menus déroulants.")}</Text>
+      <HStack justify="space-between" align="center" gap={3} flexWrap="wrap" mb={3}>
+        <Text fontSize="sm" opacity={0.75}>{i18n.t("auto.RationAutoGenerator.structure_par_defaut_seules_les_familles_alimentai", "Structure : par défaut seules les familles alimentaires sont sélectionnées avec les quantités adaptées. Tous les détails restent accessibles uniquement dans les menus déroulants.")}</Text>
+        <HStack spacing={2}>
+          <Button
+            size="xs"
+            variant="outline"
+            onClick={() => setOpenMeals(Object.fromEntries(MEAL_KEYS.map((meal) => [meal.key, false])))}
+          >{i18n.t("auto.RationAutoGenerator.tout_reduire", "Tout réduire")}</Button>
+          <Button
+            size="xs"
+            variant="outline"
+            onClick={() => setOpenMeals(Object.fromEntries(MEAL_KEYS.map((meal) => [meal.key, true])))}
+          >{i18n.t("auto.RationAutoGenerator.tout_developper", "Tout développer")}</Button>
+        </HStack>
+      </HStack>
 
       <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4}>
         {MEAL_KEYS.map((m) => {

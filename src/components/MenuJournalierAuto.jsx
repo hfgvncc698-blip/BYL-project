@@ -37,7 +37,9 @@ import {
 } from "@chakra-ui/icons";
 import { onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore";
 import {
+  buildRationFingerprint,
   extractRationLines as extractMenuRationLines,
+  isRationFamilySelection,
   isSignificantRationMenuItem,
 } from "../utils/rationMenu";
 import {
@@ -334,6 +336,41 @@ const getMicroValFlexible = (row, microKey, indexedKey) => {
   }
   return 0;
 };
+
+const VIRTUAL_MENU_FOODS = [
+  { code: "byl_eau", name: "Eau", p: 0, c: 0, f: 0 },
+  { code: "byl_lait_vegetal", name: "Lait végétal", p: 1, c: 3, f: 2 },
+  { code: "byl_yaourt_vegetal", name: "Yaourt végétal nature", p: 3.5, c: 4, f: 2.5 },
+  { code: "byl_feculents_cuits", name: "Féculents cuits", p: 2.5, c: 28, f: 0.3 },
+  { code: "byl_legumineuse", name: "Légumineuse", p: 9, c: 18, f: 1.5 },
+  { code: "byl_isolate", name: "Isolate", p: 85, c: 3, f: 3 },
+  { code: "byl_hydrolisate", name: "Hydrolisate", p: 85, c: 3, f: 3 },
+  { code: "byl_whey", name: "100% whey", p: 75, c: 8, f: 6 },
+  { code: "byl_whey_vegan", name: "Whey vegan", p: 75, c: 8, f: 6 },
+].map((food) => ({
+  code: food.code,
+  name: food.name,
+  alim_grp_nom_fr: "aliments dédiés à la ration",
+  alim_ssgrp_nom_fr:
+    food.name === "Eau"
+      ? "eaux"
+      : food.name === "Lait végétal" || food.name === "Yaourt végétal nature"
+        ? "alternatives végétales"
+        : ["Féculents cuits", "Légumineuse"].includes(food.name)
+          ? "féculents et légumineuses"
+          : "compléments protéinés",
+  nutrients: {
+    energie_reglement_ue_n_1169_2011_kcal_100g: kcalFromMacros(food.p, food.c, food.f),
+    proteines_n_x_facteur_de_jones_g_100g: food.p,
+    proteines_g_100g: food.p,
+    glucides_g_100g: food.c,
+    lipides_g_100g: food.f,
+  },
+}));
+
+const VIRTUAL_MENU_FOOD_CODES = Object.fromEntries(
+  VIRTUAL_MENU_FOODS.map((food) => [normalize(food.name), food.code])
+);
 
 /* ================= Micros (optional UI) ================= */
 const MICRO_LABEL = {
@@ -748,6 +785,9 @@ const PREPARED_DISH_PATTERNS = [
   /couscous\s+a/i,
   /poelee/i,
   /poêlée/i,
+  /\bbrick\b/i,
+  /omelette\s+norv[eé]gienne/i,
+  /\bsouffl[eé]\b/i,
 ];
 
 const looksLikePreparedDish = (name) => {
@@ -908,6 +948,7 @@ const isSimpleFruitCandidate = (name, group = "", subGroup = "") => {
   const sub = normalize(subGroup);
   if (isBeverageName(name)) return false;
   if (n.includes("pomme de terre") || n.includes("poireau") || n.includes("chou") || n.includes("brocoli")) return false;
+  if (NAME_HAS(n, ["seche", "séché", "deshydrate", "déshydraté", "confite", "confit", "au sirop", "chips de fruit"])) return false;
   if (NAME_HAS(n, ["confiture", "marmelade", "gelee", "gelée", "fourrage", "tarte", "beignet", "macaron", "rosti", "rösti", "galette"])) return false;
   if (grp.includes("produits sucres") || grp.includes("produits sucrés")) return n.includes("compote") || n.includes("puree de fruits") || n.includes("purée de fruits");
   if (sub.includes("fruits")) return true;
@@ -1003,6 +1044,7 @@ const pickClearSnackCerealCode = (codes, ciqualByCode, seed = "", preferredType 
 const resolvedLabelAliases = (label = "") => {
   const normalized = normalize(label);
   const map = {
+    "lait 1/2 ecreme": ["lait demi-ecreme", "lait demi écrémé", "lait demi ecreme"],
     "lait vegetal": ["boisson vegetale", "boisson au soja", "boisson a l'amande", "boisson à l'amande", "boisson a l'avoine", "boisson à l'avoine", "boisson au riz", "boisson a la noix de coco", "boisson à la noix de coco"],
     "yaourt vegetal": ["dessert vegetal", "dessert végétal", "dessert vegetal sans soja", "dessert végétal sans soja", "dessert au soja"],
     "yaourt nature": ["yaourt ou lait fermente, nature", "yaourt ou lait fermenté, nature", "lait fermente type yaourt au bifidus, nature", "yaourt au lait de chevre, nature", "yaourt au lait de chèvre, nature", "yaourt au lait de brebis, nature"],
@@ -1025,31 +1067,12 @@ const slotGroupText = (slot) => normalize(firstNonEmpty(slot?.group, slot?.categ
 const slotResolvedText = (slot) =>
   normalize(firstNonEmpty(slot?.resolvedLabel, slot?.label, slot?.shortKey, slot?.key, ""));
 
-const FAMILY_EQUIVALENTS = {
-  boissons: ["boisson", "boissons"],
-  fruits: ["fruit", "fruits"],
-  legumes: ["legume", "legumes", "légume", "légumes"],
-  vpo: ["vpo"],
-  pain: ["pain"],
-  "matières grasses": ["matiere grasse", "matieres grasses", "matières grasses"],
-  "produits laitiers": ["produit laitier", "produits laitiers"],
-  "produits céréaliers": ["produit cerealier", "produits cerealiers", "produits céréaliers"],
-  "compléments protéinés": ["complement proteine", "complements proteines", "compléments protéinés"],
-  "légumineuses": ["legumineuse", "legumineuses", "légumineuse", "légumineuses"],
-  "produits sucrés": ["produit sucre", "produits sucres", "produits sucrés"],
-};
-
-const isFamilySelectionFromSlot = (slot) => {
-  const group = slotGroupText(slot);
-  const resolved = slotResolvedText(slot);
-  if (!group || !resolved) return false;
-  if (group === resolved) return true;
-  return (FAMILY_EQUIVALENTS[group] || []).includes(resolved);
-};
+const isFamilySelectionFromSlot = (slot) => isRationFamilySelection(slot);
 
 const prettySlotSourceLabel = (slot) => {
   const groupLabel = cleanMenuLabel(firstNonEmpty(slot?.group, slot?.category, ""));
   const explicit = cleanMenuLabel(firstNonEmpty(slot?.resolvedLabel, slot?.label, slot?.shortKey, slot?.key));
+  if (explicit && !isFamilySelectionFromSlot(slot)) return explicit;
   if (normalize(groupLabel).includes("produits cerealiers") && normalize(explicit).includes("cereales petit dejeuner")) {
     return "Base céréalière";
   }
@@ -1262,6 +1285,8 @@ const buildPoolsStrict = (ciqualData) => {
     butter_simple: [],
     margarine_simple: [],
     cream_simple: [],
+
+    supplement_protein: [],
 
     any: [],
   };
@@ -1576,7 +1601,7 @@ const buildPoolsStrict = (ciqualData) => {
       if (NAME_HAS(n, otherWhiteWords)) pools.plat_white_other.push(code);
 
       if (NAME_HAS(n, redMeatWords)) pools.plat_red_meat.push(code);
-      if (NAME_HAS(n, eggWords)) pools.plat_eggs.push(code);
+      if (NAME_HAS(n, eggWords) && sub === "oeufs") pools.plat_eggs.push(code);
       if (NAME_HAS(n, legumesWords)) pools.plat_legumes.push(code);
       if (NAME_HAS(n, charcWords)) pools.plat_charcuterie.push(code);
     }
@@ -1611,6 +1636,30 @@ const buildPoolsStrict = (ciqualData) => {
     ...(pools.butter_simple || []),
     ...(pools.margarine_simple || []),
     ...(pools.cream_simple || []),
+  ]);
+
+  pools.plant_yogurt_plain = uniq([
+    VIRTUAL_MENU_FOOD_CODES[normalize("Yaourt végétal nature")],
+    ...(pools.plant_yogurt_plain || []),
+  ]);
+  pools.water = uniq([VIRTUAL_MENU_FOOD_CODES[normalize("Eau")], ...(pools.water || [])]);
+  pools.plant_milk_plain = uniq([
+    VIRTUAL_MENU_FOOD_CODES[normalize("Lait végétal")],
+    ...(pools.plant_milk_plain || []),
+  ]);
+  pools.starch_cooked = uniq([
+    VIRTUAL_MENU_FOOD_CODES[normalize("Féculents cuits")],
+    ...(pools.starch_cooked || []),
+  ]);
+  pools.starch_legumes = uniq([
+    VIRTUAL_MENU_FOOD_CODES[normalize("Légumineuse")],
+    ...(pools.starch_legumes || []),
+  ]);
+  pools.supplement_protein = uniq([
+    VIRTUAL_MENU_FOOD_CODES[normalize("Isolate")],
+    VIRTUAL_MENU_FOOD_CODES[normalize("Hydrolisate")],
+    VIRTUAL_MENU_FOOD_CODES[normalize("100% whey")],
+    VIRTUAL_MENU_FOOD_CODES[normalize("Whey vegan")],
   ]);
 
   for (const k of Object.keys(pools)) pools[k] = uniq(pools[k]);
@@ -1942,7 +1991,7 @@ const displayQtyForSlot = (slot) => {
   return {
     qtyDisplay: q,
     unitDisplay: unit,
-    gramsForCalc: g,
+    gramsForCalc: cookedEquivalent || g,
     cookedEquivalent,
   };
 };
@@ -1967,6 +2016,11 @@ const filterCodesByName = (
     forbidPoultry = false,
     forbidRedMeat = false,
     forbidSoy = false,
+    forbidPeanuts = false,
+    forbidTreeNuts = false,
+    forbidAlcohol = false,
+    forbidSugaryDrinks = false,
+    forbidUltraProcessed = false,
   } = {}
 ) => {
   const out = [];
@@ -2023,8 +2077,42 @@ const filterCodesByName = (
     if (forbidPoultry && nameHasAny(n, PROTEIN_EXCLUSION_WORDS.poultry)) continue;
     if (forbidRedMeat && nameHasAny(n, PROTEIN_EXCLUSION_WORDS.redMeat)) continue;
     if (forbidSoy && (n.includes("soja") || n.includes("soy"))) continue;
+    if (forbidPeanuts && nameHasAny(n, ["arachide", "cacahuete", "cacahuète", "peanut"])) continue;
+    if (
+      forbidTreeNuts &&
+      nameHasAny(n, ["noix", "noisette", "amande", "pistache", "cajou", "pecan", "pécan", "macadamia"])
+    ) {
+      continue;
+    }
+    if (
+      forbidAlcohol &&
+      nameHasAny(n, ["alcool", "vin", "biere", "bière", "cidre", "champagne", "spiritueux", "liqueur"])
+    ) {
+      continue;
+    }
+    if (
+      forbidSugaryDrinks &&
+      nameHasAny(n, ["soda", "boisson sucree", "boisson sucrée", "limonade", "nectar", "boisson energisante", "boisson énergisante"])
+    ) {
+      continue;
+    }
+    if (forbidUltraProcessed && looksLikePreparedDish(nm)) continue;
 
-    if (forbidMilk && (n.includes("lait") || n.includes("brebis") || n.includes("chevre") || n.includes("chèvre"))) {
+    const looksPlantAlternative =
+      n.includes("vegetal") ||
+      n.includes("végétal") ||
+      n.includes("soja") ||
+      n.includes("amande") ||
+      n.includes("avoine") ||
+      n.includes("riz") ||
+      n.includes("coco") ||
+      n.includes("noisette");
+
+    if (
+      forbidMilk &&
+      !looksPlantAlternative &&
+      (n.includes("lait") || n.includes("brebis") || n.includes("chevre") || n.includes("chèvre"))
+    ) {
       continue;
     }
 
@@ -2042,7 +2130,7 @@ const filterCodesByName = (
         n.includes("chèvre") ||
         n.includes("vache");
 
-      if (looksAnimalDairy && !n.includes("sans lactose")) continue;
+      if (looksAnimalDairy && !looksPlantAlternative && !n.includes("sans lactose")) continue;
     }
 
     if (preferNoLactose) {
@@ -2085,12 +2173,85 @@ const isOptionalSnackNoiseMeal = (mealKey, slots = []) => {
   );
 };
 
+const getCiqualKcal100 = (row, colIndex = {}) => {
+  if (!row) return 0;
+  const kcal = getValFlexible(row, colIndex?.kcal);
+  if (kcal > 0) return kcal;
+  return kcalFromMacros(
+    getValFlexible(row, colIndex?.prot),
+    getValFlexible(row, colIndex?.glu),
+    getValFlexible(row, colIndex?.lip)
+  );
+};
+
+// A ration quantity can only be preserved if the CIQUAL substitute has a
+// comparable energy density. This also prevents semantic false positives such
+// as “omelette norvégienne” (dessert) for eggs or dried fruit for fresh fruit.
+const expectedEnergyProfileForSlot = (slot, role = "") => {
+  const slotType = slotTypeFromRationSlot(slot);
+  const label = slotResolvedText(slot);
+
+  if (slotType === "beverage" || role === "boisson") {
+    if (label.includes("eau")) return { min: 0, max: 15, target: 0 };
+    if (label.includes("alcool")) return { min: 25, max: 350, target: 80 };
+    return { min: 10, max: 100, target: 45 };
+  }
+  if (slotType === "sweet") return { min: 100, max: 700, target: 350 };
+  if (slotType === "fruit" || role === "dessert") return { min: 10, max: 140, target: 55 };
+  if (slotType === "veg" || role === "entree") return { min: 5, max: 180, target: 35 };
+  if (slotType === "dairy" || role === "produit_laitier") {
+    if (label.includes("fromage") && !label.includes("fromage blanc")) return { min: 150, max: 520, target: 330 };
+    if (label.includes("lait vegetal") || label.includes("lait végétal")) return { min: 10, max: 75, target: 34 };
+    if (label.includes("yaourt vegetal") || label.includes("yaourt végétal")) return { min: 25, max: 90, target: 53 };
+    if (label.includes("lait") && !label.includes("yaourt")) return { min: 20, max: 90, target: 50 };
+    return { min: 25, max: 130, target: 75 };
+  }
+  if (slotType === "bread") return { min: 160, max: 410, target: 255 };
+  if (slotType === "breakfast_cereal" || slotType === "starch_raw") return { min: 200, max: 540, target: 350 };
+  if (slotType === "starch_cooked" || slotType === "legumes" || role === "accompagnement") {
+    return { min: 40, max: 280, target: 125 };
+  }
+  if (slotType === "protein" || role === "plat") {
+    if (label.includes("oeuf")) return { min: 80, max: 280, target: 145 };
+    return { min: 55, max: 380, target: 170 };
+  }
+  if (slotType === "assaisonnement" || role === "assaisonnement") {
+    if (label.includes("creme") || label.includes("crème")) return { min: 80, max: 500, target: 300 };
+    return { min: 450, max: 1000, target: 850 };
+  }
+  if (slotType === "supplement") return { min: 280, max: 500, target: 385 };
+  return null;
+};
+
+const isCiqualEnergyCompatible = (row, colIndex, profile) => {
+  if (!profile) return true;
+  const kcal100 = getCiqualKcal100(row, colIndex);
+  if (profile.target === 0) return kcal100 <= profile.max;
+  return kcal100 >= profile.min && kcal100 <= profile.max;
+};
+
+const virtualFallbackCodeForSlot = (slot, role = "") => {
+  const slotType = slotTypeFromRationSlot(slot);
+  const label = slotResolvedText(slot);
+  if (slotType === "beverage" || role === "boisson") return VIRTUAL_MENU_FOOD_CODES[normalize("Eau")];
+  if (slotType === "dairy" || role === "produit_laitier") {
+    if (label.includes("lait") && !label.includes("yaourt")) return VIRTUAL_MENU_FOOD_CODES[normalize("Lait végétal")];
+    if (label.includes("yaourt")) return VIRTUAL_MENU_FOOD_CODES[normalize("Yaourt végétal nature")];
+  }
+  if (slotType === "legumes") return VIRTUAL_MENU_FOOD_CODES[normalize("Légumineuse")];
+  if (slotType === "starch_cooked" || slotType === "starch_raw") {
+    return VIRTUAL_MENU_FOOD_CODES[normalize("Féculents cuits")];
+  }
+  return "";
+};
+
 /* ================= Candidate choice STRICT ================= */
 const pickCiqualForRole = ({
   slot,
   mealKey,
   role,
   ciqualByCode,
+  colIndex,
   pools,
   plannedProteinType,
   plannedDessertType,
@@ -2113,6 +2274,7 @@ const pickCiqualForRole = ({
   const familySelection = isFamilySelectionFromSlot(slot);
   const slotUnitNorm = normalize(slot?.unit || "");
   const dairyForbidBeverage = !(slotType === "dairy" && (slotUnitNorm === "ml" || exactLabel.includes("lait")));
+  const energyProfile = expectedEnergyProfileForSlot(slot, role);
 
   const rankCodes = (codes, extraTokens = []) => {
     const scored = [];
@@ -2123,7 +2285,12 @@ const pickCiqualForRole = ({
       const row = ciqualByCode.get(code);
       const name = row ? ciqualName(row) : "";
       if (!name) continue;
-      const s = scoreCiqualName({ name, queryTokens: tok });
+      if (!isCiqualEnergyCompatible(row, colIndex, energyProfile)) continue;
+      let s = scoreCiqualName({ name, queryTokens: tok });
+      const kcal100 = getCiqualKcal100(row, colIndex);
+      if (s > 0 && energyProfile?.target > 0 && kcal100 > 0) {
+        s -= Math.abs(Math.log(kcal100 / energyProfile.target)) * 35;
+      }
       if (s > 0) scored.push({ code, s });
     }
     scored.sort((a, b) => b.s - a.s);
@@ -2164,6 +2331,7 @@ const pickCiqualForRole = ({
     const inList = (list = []) => (list || []).includes(code);
 
     if (slotType === "dairy") {
+      const foodName = normalize(ciqualName(ciqualByCode.get(String(code))));
       const wantsPlant = exactLabel.includes("vegetal") || exactLabel.includes("végétal");
       const wantsLiquid = slotUnitNorm === "ml" || exactLabel.includes("lait");
       const wantsFromageBlanc = exactLabel.includes("fromage blanc");
@@ -2173,11 +2341,26 @@ const pickCiqualForRole = ({
       if (wantsPlant && wantsLiquid) return inList(pools.plant_milk_plain);
       if (wantsPlant && wantsYogurt) return inList(pools.plant_yogurt_plain);
       if (wantsPlant) return inList(pools.plant_milk_plain) || inList(pools.plant_yogurt_plain);
+      if (exactLabel.includes("1/2") || exactLabel.includes("demi")) {
+        return inList(pools.milk_plain) && (foodName.includes("demi-ecreme") || foodName.includes("demi ecreme"));
+      }
       if (wantsLiquid) return inList(pools.milk_plain) || inList(pools.plant_milk_plain);
       if (wantsFromageBlanc) return inList(pools.fromage_blanc_plain);
       if (wantsCheese) return inList(pools.cheese_plain);
       if (wantsYogurt) return inList(pools.yogurt_plain) || inList(pools.plant_yogurt_plain);
       if (slotUnitNorm === "ml") return inList(pools.milk_plain) || inList(pools.plant_milk_plain);
+    }
+
+    if (slotType === "protein" && !familySelection) {
+      if (exactLabel.includes("volaille")) {
+        return inList(pools.plat_white_poulet) || inList(pools.plat_white_dinde);
+      }
+      if (exactLabel.includes("poisson")) return inList(pools.plat_fish);
+      if (exactLabel.includes("oeuf") || exactLabel.includes("œuf")) return inList(pools.plat_eggs);
+      if (exactLabel.includes("viande maigre")) {
+        return inList(pools.plat_white_poulet) || inList(pools.plat_white_dinde) || inList(pools.plat_red_meat);
+      }
+      if (exactLabel.includes("viande moyenne")) return inList(pools.plat_red_meat);
     }
 
     if (slotType === "assaisonnement") {
@@ -2265,7 +2448,7 @@ const pickCiqualForRole = ({
     };
     const genericDairyIntent = inferGenericDairyIntent();
 
-    if (mealKey === "diner") {
+    if (familySelection && mealKey === "diner") {
       const dinnerBase =
         clinicalOptions.forbidLactose || clinicalOptions.forbidMilk || clinicalOptions.forbidAnimalDairy
           ? pools.plant_yogurt_plain || []
@@ -2552,7 +2735,19 @@ const pickCiqualForRole = ({
     return pools.water;
   };
 
-  const pickBreadPool = () => pools.bread_plain;
+  const pickBreadPool = () => {
+    const base = !clinicalOptions.keepSansGluten
+      ? pools.bread_plain
+      : (pools.bread_plain || []).filter((code) => {
+      const row = ciqualByCode.get(String(code));
+      return row && normalize(ciqualName(row)).includes("sans gluten");
+    });
+    if (!familySelection) {
+      const direct = pickDirectCodesFromResolvedLabel(base);
+      if (direct.length) return direct;
+    }
+    return base;
+  };
 
   const pickBreakfastCerealPool = () => {
     if (mealKey !== "petit_dej" && pools.cereal_snack.length) {
@@ -2565,7 +2760,7 @@ const pickCiqualForRole = ({
           const row = ciqualByCode.get(String(code));
           return row && isGlutenFreeCerealOrSnackName(ciqualName(row));
         });
-        if (glutenFreeSnack.length) snackBase = glutenFreeSnack;
+        snackBase = glutenFreeSnack;
       }
       const directSnack = pickDirectCodesFromResolvedLabel(snackBase);
       if (directSnack.length) return directSnack;
@@ -2584,7 +2779,7 @@ const pickCiqualForRole = ({
         const row = ciqualByCode.get(String(code));
         return row && isGlutenFreeCerealOrSnackName(ciqualName(row));
       });
-      if (glutenFreeCereals.length) source = glutenFreeCereals;
+      source = glutenFreeCereals;
     }
     const muesli = filterCodesByWords(source, ciqualByCode, ["muesli"]);
     const oats = filterCodesByWords(source, ciqualByCode, ["flocons d'avoine", "flocons d avoine", "avoine"]);
@@ -2660,7 +2855,7 @@ const pickCiqualForRole = ({
         const row = ciqualByCode.get(String(code));
         return row && isGlutenFreeStarchName(ciqualName(row));
       });
-      if (glutenFreeStarches.length) filtered = glutenFreeStarches;
+      filtered = glutenFreeStarches;
     } else {
       filtered = filtered.filter((code) => !normalize(ciqualName(ciqualByCode.get(code))).includes("sans gluten"));
     }
@@ -2693,12 +2888,16 @@ const pickCiqualForRole = ({
       return applyProteinRestrictions(pools.plat_fish);
     }
     if (exactLabel.includes("volaille")) {
-      return pickProteinPoolFromPlan();
+      return pickAllowedProteinPool(pools.plat_white_poulet || [], pools.plat_white_dinde || []);
     }
     if (exactLabel.includes("viande maigre")) {
-      return pickProteinPoolFromPlan();
+      return pickAllowedProteinPool(
+        pools.plat_white_poulet || [],
+        pools.plat_white_dinde || [],
+        pools.plat_red_meat || []
+      );
     }
-    if (exactLabel.includes("viande moyenne")) return pickAllowedProteinPool(pools.plat_red_meat || [], pickProteinPoolFromPlan());
+    if (exactLabel.includes("viande moyenne")) return pickAllowedProteinPool(pools.plat_red_meat || []);
     if (exactLabel.includes("legumineuse")) return pools.plat_legumes;
     return pickProteinPoolFromPlan();
   };
@@ -2802,10 +3001,20 @@ const pickCiqualForRole = ({
     } else if (slotType === "sweet") {
       poolCodes = pools.dessert_sweet_simple.length ? pools.dessert_sweet_simple : pools.any;
     } else if (slotType === "supplement") {
-      return null;
+      const wantedCode = VIRTUAL_MENU_FOOD_CODES[exactLabel];
+      poolCodes = wantedCode ? [wantedCode] : pools.supplement_protein;
     } else {
       poolCodes = pools.any;
     }
+  }
+
+  const glutenSensitiveSlot =
+    slotType === "bread" ||
+    slotType === "breakfast_cereal" ||
+    slotType === "starch_cooked" ||
+    slotType === "starch_raw";
+  if (clinicalOptions.keepSansGluten && glutenSensitiveSlot && (!poolCodes || !poolCodes.length)) {
+    return null;
   }
 
   if (!poolCodes || !poolCodes.length) {
@@ -2861,6 +3070,36 @@ const pickCiqualForRole = ({
     ]);
     if (fruitLike.length) poolCodes = fruitLike;
   }
+
+  poolCodes = filterCodesByName(poolCodes, ciqualByCode, {
+    forbidLactose: clinicalOptions.forbidLactose,
+    forbidMilk: clinicalOptions.forbidMilk,
+    preferNoLactose: clinicalOptions.preferNoLactose,
+    forbidAnimalDairy: clinicalOptions.forbidAnimalDairy,
+    forbidPork: clinicalOptions.forbidPork,
+    forbidFish: clinicalOptions.forbidFish,
+    forbidSeafood: clinicalOptions.forbidSeafood,
+    forbidEggs: clinicalOptions.forbidEggs,
+    forbidPoultry: clinicalOptions.forbidPoultry,
+    forbidRedMeat: clinicalOptions.forbidRedMeat,
+    forbidSoy: clinicalOptions.forbidSoy,
+    forbidPeanuts: clinicalOptions.forbidPeanuts,
+    forbidTreeNuts: clinicalOptions.forbidTreeNuts,
+    forbidAlcohol: clinicalOptions.forbidAlcohol,
+    forbidSugaryDrinks: clinicalOptions.forbidSugaryDrinks,
+    forbidUltraProcessed: clinicalOptions.forbidUltraProcessed,
+  });
+
+  if (energyProfile) {
+    poolCodes = poolCodes.filter((code) =>
+      isCiqualEnergyCompatible(ciqualByCode.get(code), colIndex, energyProfile)
+    );
+  }
+  if (!poolCodes.length) {
+    const fallbackCode = virtualFallbackCodeForSlot(slot, role);
+    if (fallbackCode && ciqualByCode.has(fallbackCode)) poolCodes = [fallbackCode];
+  }
+  if (!poolCodes.length) return null;
 
   const ranked = rankCodes(poolCodes, extraTok);
   const avoidSet = new Set((avoidCodes || []).map((code) => String(code || "").trim()).filter(Boolean));
@@ -2947,6 +3186,7 @@ export default function MenuJournalierAuto({
   const [mappingByDay, setMappingByDay] = useState({});
   const [rolesByDay, setRolesByDay] = useState({});
   const [generationNonce, setGenerationNonce] = useState(0);
+  const [menuSourceFingerprint, setMenuSourceFingerprint] = useState("");
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const autoSaveHashRef = useRef("");
@@ -2955,7 +3195,7 @@ export default function MenuJournalierAuto({
 
   const ciqualByCode = useMemo(() => {
     const m = new Map();
-    for (const row of ciqualData || []) {
+    for (const row of [...(ciqualData || []), ...VIRTUAL_MENU_FOODS]) {
       const code = ciqualCode(row);
       if (code) m.set(code, row);
     }
@@ -2988,6 +3228,7 @@ export default function MenuJournalierAuto({
 
         const nextDaysCount = Math.min(31, Math.max(1, num(am?.daysCount || 0) || 7));
         setGenerationNonce(num(am?.generationNonce || 0));
+        setMenuSourceFingerprint(String(am?.sourceFingerprint || ""));
         setDaysCount(nextDaysCount);
         setDayIndex((prev) => Math.min(nextDaysCount, Math.max(1, prev || 1)));
         setWeekStart((prev) => Math.min(Math.max(1, prev || 1), Math.max(1, nextDaysCount - 6)));
@@ -3024,6 +3265,7 @@ export default function MenuJournalierAuto({
     const am = d?.ration?.autoMenu && typeof d.ration.autoMenu === "object" ? d.ration.autoMenu : null;
     const nextDaysCount = Math.min(31, Math.max(1, num(am?.daysCount || 0) || 7));
     setGenerationNonce(num(am?.generationNonce || 0));
+    setMenuSourceFingerprint(String(am?.sourceFingerprint || ""));
 
     setDaysCount(nextDaysCount);
     setDayIndex((prev) => Math.min(nextDaysCount, Math.max(1, prev || 1)));
@@ -3050,6 +3292,7 @@ export default function MenuJournalierAuto({
     const source = Array.isArray(rationItemsProp) ? rationItemsProp : extractMenuRationLines(docData);
     return source.map(enrichLine);
   }, [rationItemsProp, docData]);
+  const rationFingerprint = useMemo(() => buildRationFingerprint(rationItems), [rationItems]);
 
   const menuDisplayContext = useMemo(() => {
     const docInputs = docData?.inputs || docData || {};
@@ -3064,13 +3307,20 @@ export default function MenuJournalierAuto({
     ).trim();
     const allergyFlags = parseAllergyFlags(allergyText);
     return {
-      keepSansGluten: Boolean(regimeFlags.glutenFree || pathologyFlags.celiac || allergyFlags.gluten),
+      keepSansGluten: Boolean(
+        regimeFlags.glutenFree || pathologyFlags.celiac || allergyFlags.gluten || foodExclusionFlags.gluten
+      ),
       keepSansSel: Boolean(pathologyFlags.hta || pathologyFlags.renal),
-      forbidLactose: Boolean(regimeFlags.lactoseFree || allergyFlags.milk),
-      preferNoLactose: Boolean(regimeFlags.lactoseFree || allergyFlags.milk),
-      forbidMilk: Boolean(allergyFlags.milk),
-      forbidAnimalDairy: Boolean(regimeFlags.vegan || allergyFlags.milk),
-      forbidSoy: Boolean(allergyFlags.soy),
+      forbidLactose: Boolean(regimeFlags.lactoseFree || allergyFlags.milk || foodExclusionFlags.milk),
+      preferNoLactose: Boolean(regimeFlags.lactoseFree || allergyFlags.milk || foodExclusionFlags.milk),
+      forbidMilk: Boolean(allergyFlags.milk || foodExclusionFlags.milk),
+      forbidAnimalDairy: Boolean(regimeFlags.vegan || allergyFlags.milk || foodExclusionFlags.milk),
+      forbidSoy: Boolean(allergyFlags.soy || foodExclusionFlags.soy),
+      forbidPeanuts: Boolean(allergyFlags.peanuts || foodExclusionFlags.peanuts),
+      forbidTreeNuts: Boolean(allergyFlags.treeNuts || foodExclusionFlags.treeNuts),
+      forbidAlcohol: Boolean(foodExclusionFlags.alcohol),
+      forbidSugaryDrinks: Boolean(foodExclusionFlags.sugaryDrinks),
+      forbidUltraProcessed: Boolean(foodExclusionFlags.ultraProcessed),
       forbidPork: Boolean(foodExclusionFlags.pork || regimeFlags.halal || regimeFlags.kosher || regimeFlags.vegetarian || regimeFlags.vegan || regimeFlags.pescetarian),
       forbidFish: Boolean(foodExclusionFlags.fish || regimeFlags.vegetarian || regimeFlags.vegan || allergyFlags.fish),
       forbidSeafood: Boolean(foodExclusionFlags.seafood || regimeFlags.vegetarian || regimeFlags.vegan || allergyFlags.fish),
@@ -3276,6 +3526,18 @@ export default function MenuJournalierAuto({
     return { mapped, total: allKeys.length };
   }, [rationLinesByMealStatic, mapping]);
 
+  const rationKcalTarget = num(targets?.ration?.kcal);
+  const currentKcalGapPct = rationKcalTarget > 0
+    ? Math.abs(num(totals?.day?.kcal) - rationKcalTarget) / rationKcalTarget
+    : 0;
+  const currentMacroNeedsReview = [
+    [totals?.day?.p, targets?.ration?.p],
+    [totals?.day?.f, targets?.ration?.f],
+    [totals?.day?.c, targets?.ration?.c],
+  ].some(([value, target]) => num(target) > 0 && Math.abs(num(value) - num(target)) / num(target) > 0.25);
+  const currentMenuNeedsReview =
+    (rationKcalTarget > 0 && currentKcalGapPct > 0.15) || currentMacroNeedsReview;
+
   // ---------- Planning preview ----------
   const computeDayPreview = useCallback(
     (dIndex) => {
@@ -3422,7 +3684,7 @@ export default function MenuJournalierAuto({
       for (let d = 1; d <= daysCount; d++) {
         const dk = String(d);
         const daySeed = `D${d}:${seed}`;
-        const dayMap = { ...(nextMappingByDay[dk] || {}) };
+        const dayMap = {};
         const dayRolesLocal = { ...(nextRolesByDay[dk] || {}) };
 
         for (const mk of MEALS_ORDER) {
@@ -3442,6 +3704,7 @@ export default function MenuJournalierAuto({
               mealKey: mk,
               role,
               ciqualByCode,
+              colIndex,
               pools,
               plannedProteinType: planned.proteinType,
               plannedDessertType: planned.dessertType,
@@ -3476,6 +3739,7 @@ export default function MenuJournalierAuto({
       setMappingByDay(nextMappingByDay);
       setRolesByDay(nextRolesByDay);
       setGenerationNonce(nextNonce);
+      setMenuSourceFingerprint(rationFingerprint);
 
       if (assessmentRef && !blocked) {
         updateDoc(assessmentRef, {
@@ -3483,6 +3747,7 @@ export default function MenuJournalierAuto({
           "ration.autoMenu.generationNonce": nextNonce,
           "ration.autoMenu.mappingByDay": nextMappingByDay,
           "ration.autoMenu.rolesByDay": nextRolesByDay,
+          "ration.autoMenu.sourceFingerprint": rationFingerprint,
           "ration.autoMenu.updatedAt": serverTimestamp(),
           updatedAt: serverTimestamp(),
         }).catch((e) => {
@@ -3512,7 +3777,7 @@ export default function MenuJournalierAuto({
     } finally {
       setGenerating(false);
     }
-  }, [assessmentRef, blocked, ciqualOk, rationItems.length, daysCount, docData, rationLinesByMealStatic, ciqualByCode, pools, menuDisplayContext, toast]);
+  }, [assessmentRef, blocked, ciqualOk, rationItems.length, rationFingerprint, daysCount, docData, rationLinesByMealStatic, ciqualByCode, colIndex, pools, menuDisplayContext, toast]);
 
   const regenerateDay = useCallback(
     (d) => {
@@ -3546,6 +3811,7 @@ export default function MenuJournalierAuto({
             mealKey: mk,
             role,
             ciqualByCode,
+            colIndex,
             pools,
             plannedProteinType: planned.proteinType,
             plannedDessertType: planned.dessertType,
@@ -3584,7 +3850,7 @@ export default function MenuJournalierAuto({
         isClosable: true,
       });
     },
-    [ciqualOk, docData, daysCount, rationLinesByMealStatic, ciqualByCode, pools, menuDisplayContext, toast]
+    [ciqualOk, docData, daysCount, rationLinesByMealStatic, ciqualByCode, colIndex, pools, menuDisplayContext, toast]
   );
 
   // ---------- Auto-save ----------
@@ -3621,6 +3887,7 @@ export default function MenuJournalierAuto({
         "ration.autoMenu.generationNonce": generationNonce,
         "ration.autoMenu.mappingByDay": mappingByDay || {},
         "ration.autoMenu.rolesByDay": rolesByDay || {},
+        "ration.autoMenu.sourceFingerprint": menuSourceFingerprint || null,
         "ration.autoMenu.updatedAt": serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -3641,7 +3908,7 @@ export default function MenuJournalierAuto({
     } finally {
       if (!silent) setSaving(false);
     }
-  }, [assessmentRef, blocked, daysCount, generationNonce, mappingByDay, rolesByDay, toast]);
+  }, [assessmentRef, blocked, daysCount, generationNonce, mappingByDay, menuSourceFingerprint, rolesByDay, toast]);
 
   useEffect(() => {
     if (!assessmentRef || blocked || !docData) return undefined;
@@ -3650,6 +3917,7 @@ export default function MenuJournalierAuto({
       daysCount,
       generationNonce,
       mappingByDay,
+      menuSourceFingerprint,
       rolesByDay,
     });
     if (autoSaveHashRef.current === hash) return undefined;
@@ -3663,7 +3931,7 @@ export default function MenuJournalierAuto({
     }, 1200);
 
     return () => window.clearTimeout(timer);
-  }, [assessmentRef, blocked, daysCount, docData, generationNonce, mappingByDay, persistAutoMenu, rolesByDay]);
+  }, [assessmentRef, blocked, daysCount, docData, generationNonce, mappingByDay, menuSourceFingerprint, persistAutoMenu, rolesByDay]);
 
   const onChangeDaysCount = (n) => {
     const next = Math.min(31, Math.max(1, num(n) || 1));
@@ -3922,6 +4190,17 @@ export default function MenuJournalierAuto({
 
               {mode !== "edit" ? <TargetsBar /> : null}
 
+              {currentMenuNeedsReview ? (
+                <Alert status="warning" rounded="lg">
+                  <AlertIcon />
+                  {i18n.t(
+                    "auto.MenuJournalierAuto.ecart_energetique_important",
+                    "Écart nutritionnel important sur le jour affiché ({{menu}} kcal pour {{target}} kcal ciblées). Régénérez puis relisez aussi les protéines, lipides et glucides avant validation.",
+                    { menu: r0(totals?.day?.kcal), target: r0(rationKcalTarget) }
+                  )}
+                </Alert>
+              ) : null}
+
             <Collapse in={showMicros} animateOpacity>
               <Divider my={4} />
               <Text fontSize="sm" opacity={0.75} mb={2}>{i18n.t("auto.MenuJournalierAuto.micros_affiches_et_suivis_sur_le_jour_courant", "Micros affichés et suivis sur le jour courant")}</Text>
@@ -4013,6 +4292,12 @@ export default function MenuJournalierAuto({
               {weekDays.map((d) => {
                 const prev = weekPreview[d];
                 const t = prev?.totals || { kcal: 0, p: 0, f: 0, c: 0 };
+                const dayGapPct = rationKcalTarget > 0 ? Math.abs(num(t.kcal) - rationKcalTarget) / rationKcalTarget : 0;
+                const dayMacroNeedsReview = [
+                  [t.p, targets?.ration?.p],
+                  [t.f, targets?.ration?.f],
+                  [t.c, targets?.ration?.c],
+                ].some(([value, target]) => num(target) > 0 && Math.abs(num(value) - num(target)) / num(target) > 0.25);
                 const mealsToShow = isMobile ? allMealsNonZero.slice(0, 3) : allMealsNonZero;
                 const hiddenMealsCount = Math.max(0, allMealsNonZero.length - mealsToShow.length);
 
@@ -4048,7 +4333,7 @@ export default function MenuJournalierAuto({
                           </Text>
                         </Box>
                         <Spacer />
-                        <Tag size="sm" variant="subtle" colorScheme="blue">
+                        <Tag size="sm" variant="subtle" colorScheme={dayGapPct > 0.15 || dayMacroNeedsReview ? "orange" : "green"}>
                           <TagLabel fontWeight="900">{r0(t.kcal)}{i18n.t("auto.MenuJournalierAuto.kcal", "kcal")}</TagLabel>
                         </Tag>
                       </HStack>
@@ -4238,10 +4523,10 @@ export default function MenuJournalierAuto({
                           {items.length}{i18n.t("auto.MenuJournalierAuto.element_s_lecture_par_role_alimentaire", "élément(s) • lecture par rôle alimentaire")}</Text>
                       </Box>
                       <Spacer />
-                      <Badge colorScheme={items.some((x) => x.missing) ? "yellow" : "green"}>
+                      <Badge colorScheme={items.some((x) => x.missing) ? "yellow" : "blue"}>
                         {items.some((x) => x.missing)
                           ? i18n.t("auto.MenuJournalierAuto.a_generer_badge", "À générer")
-                          : "OK"}
+                          : i18n.t("auto.MenuJournalierAuto.associe", "Associé")}
                       </Badge>
                     </HStack>
                   </Box>

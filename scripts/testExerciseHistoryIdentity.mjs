@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
-import { exerciseHistoryMatches } from "../src/utils/exerciseHistoryIdentity.js";
+import {
+  exerciseHistoryMatches,
+  isValidatedExerciseCompletion,
+} from "../src/utils/exerciseHistoryIdentity.js";
+import { getExerciseNoteLines } from "../src/utils/exerciseNotes.js";
 
 assert.equal(
   exerciseHistoryMatches(
@@ -8,6 +12,30 @@ assert.equal(
   ),
   true,
   "a stable exercise id must match across languages"
+);
+
+assert.deepEqual(
+  getExerciseNoteLines({ notes: "10’’ hold", consigne: "À réaliser par jambe." }, "en"),
+  ["10’’ hold", "Perform on each leg."],
+  "PDF note extraction must preserve custom notes and localize known instructions"
+);
+
+assert.equal(
+  isValidatedExerciseCompletion({ status: "validée", isPartial: false }),
+  true,
+  "a validated session must count as a performance follow-up"
+);
+
+assert.equal(
+  isValidatedExerciseCompletion({ status: "en_cours", isPartial: true }),
+  false,
+  "a partial session must not count as a performance follow-up"
+);
+
+assert.equal(
+  isValidatedExerciseCompletion({ field: "Répétitions", value: 15, runId: "edit-1" }),
+  false,
+  "a programme setting change must not count as a completed performance or PR"
 );
 
 assert.equal(

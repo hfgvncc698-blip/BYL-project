@@ -21,6 +21,10 @@ import {
   TagLabel,
   Progress,
   Collapse,
+  Alert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription,
   useColorModeValue,
 } from "@chakra-ui/react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -29,6 +33,7 @@ import { db } from "../firebaseConfig";
 import { useAuth } from "../AuthContext.jsx";
 import {
   
+  assessAutomaticRationSafety,
   computeNutritionNeeds,
   computeMicronutrientTargets,
   normalizeDietList,
@@ -641,6 +646,10 @@ export default function NutritionRationPage() {
     [computed, inputs]
   );
   const objectiveRaw = useMemo(() => String(needs?.objectiveRaw || "").trim(), [needs?.objectiveRaw]);
+  const autoSafety = useMemo(
+    () => assessAutomaticRationSafety({ inputs, computed, objectiveRaw }),
+    [computed, inputs, objectiveRaw]
+  );
   const microTargets = useMemo(
     () => computeMicronutrientTargets({ inputs, objectiveRaw }),
     [inputs, objectiveRaw]
@@ -706,6 +715,10 @@ export default function NutritionRationPage() {
       "ration.auto": safeAutoState,
       "ration.selectedType": selectedType,
       "ration.selected": selected,
+      "ration.clinicalSafety": cleanForFirestore({
+        ...autoSafety,
+        assessedAt: new Date().toISOString(),
+      }),
       "ration.selectedAt": serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
@@ -714,7 +727,7 @@ export default function NutritionRationPage() {
     if (selectedType === "auto" && safeAutoState) payload.rationAuto = safeAutoState;
 
     return payload;
-  }, [mode, proState, autoState]);
+  }, [mode, proState, autoState, autoSafety]);
 
   const changeMode = useCallback(
     (nextMode) => {
@@ -738,7 +751,7 @@ export default function NutritionRationPage() {
   useEffect(() => {
     if (!assessmentRef || blocked || !docData) return undefined;
     const payload = buildRationPayload();
-    const hash = JSON.stringify(cleanForFirestore({ mode, proState, autoState }));
+    const hash = JSON.stringify(cleanForFirestore({ mode, proState, autoState, autoSafety }));
     if (rationAutosaveHashRef.current === hash) return undefined;
 
     const timer = window.setTimeout(() => {
@@ -750,7 +763,7 @@ export default function NutritionRationPage() {
     }, 4000);
 
     return () => window.clearTimeout(timer);
-  }, [assessmentRef, autoState, blocked, buildRationPayload, docData, mode, proState]);
+  }, [assessmentRef, autoSafety, autoState, blocked, buildRationPayload, docData, mode, proState]);
 
   const runNutritionAiOptimization = useCallback(async () => {
     if (!assessmentRef || blocked || !docData) return;
@@ -885,7 +898,28 @@ export default function NutritionRationPage() {
         const target = microTargets?.[targetKey];
         if (!target) return null;
         const value = num(totals?.[key] ?? totals?.[targetKey]);
-        const percent = target.value > 0 ? (value / target.value) * 100 : 0;
+        const direction = target.direction || "min";
+        const percent = target.value > 0 ? (value / target.value) * 100 : value > 0 ? 100 : 0;
+        const colorScheme =
+          direction === "review"
+            ? "gray"
+            : direction === "info"
+            ? "blue"
+            : direction === "max"
+            ? target.value <= 0
+              ? value <= 0
+                ? "green"
+                : "red"
+              : percent <= 100
+              ? "green"
+              : percent <= 110
+              ? "orange"
+              : "red"
+            : percent >= 90
+            ? "green"
+            : percent >= 60
+            ? "orange"
+            : "red";
         return {
           key,
           label: target.label || microLabelForPdf(key),
@@ -893,6 +927,8 @@ export default function NutritionRationPage() {
           target: target.value,
           unit: target.unit || "",
           percent,
+          direction,
+          colorScheme,
         };
       })
       .filter(Boolean)
@@ -972,6 +1008,8 @@ export default function NutritionRationPage() {
     ],
     [needs, rationDayTotals, rationMacroPct]
   );
+  const rationNeedsAdjustment =
+    readableMealCount < 3 || rationComparisons.some((item) => item.status !== "ok");
 
   
   const sexLabel = useMemo(() => {
@@ -1100,7 +1138,19 @@ export default function NutritionRationPage() {
                   <HStack spacing={3} flexWrap="wrap">
                     <Button variant="outline" onClick={goBack} data-testid="nutrition-ration-back-top">{i18n.t("programView.back", "Retour")}</Button>
                     <Heading size="md">{i18n.t("auto.NutritionRationPage.ration_alimentaire", "Ration alimentaire")}</Heading>
-                    {blocked ? <Badge colorScheme="yellow">{i18n.t("auto.NutritionRationPage.bilan_non_valide", "BILAN NON VALIDÉ")}</Badge> : <Badge colorScheme="green">OK</Badge>}
+                    {blocked ? (
+                      <Badge colorScheme="yellow">
+                        {i18n.t("auto.NutritionRationPage.bilan_non_valide", "BILAN NON VALIDÉ")}
+                      </Badge>
+                    ) : mode === "auto" && autoSafety.blockAutoGeneration ? (
+                      <Badge colorScheme="red">REVUE CLINIQUE INDISPENSABLE</Badge>
+                    ) : rationNeedsAdjustment ? (
+                      <Badge colorScheme="orange">
+                        {i18n.t("auto.NutritionRationPage.ration_a_ajuster", "RATION À AJUSTER")}
+                      </Badge>
+                    ) : (
+                      <Badge colorScheme="green">OK</Badge>
+                    )}
                   </HStack>
 
                   <Text mt={2} fontSize="sm" color={textMuted} maxW="760px">{i18n.t("auto.NutritionRationPage.cette_etape_sert_a_construire_la_ration_cible_a_pa", "Cette étape sert à construire la ration cible à partir du contexte clinique, des besoins estimés et du mode de travail choisi.")}</Text>
@@ -1141,6 +1191,36 @@ export default function NutritionRationPage() {
                   </HStack>
                 </Box>
               </HStack>
+
+              {autoSafety.requiresProfessionalReview ? (
+                <Alert
+                  status={autoSafety.blockAutoGeneration ? "error" : "warning"}
+                  variant="left-accent"
+                  borderRadius="lg"
+                  alignItems="flex-start"
+                >
+                  <AlertIcon mt={0.5} />
+                  <Box>
+                    <AlertTitle>
+                      {autoSafety.blockAutoGeneration
+                        ? i18n.t("auto.NutritionRationPage.validation_clinique_indispensable", "Validation clinique indispensable")
+                        : i18n.t("auto.NutritionRationPage.validation_professionnelle_requise", "Validation professionnelle requise")}
+                    </AlertTitle>
+                    <AlertDescription display="block" mt={1}>
+                      <Stack spacing={1}>
+                        {[...autoSafety.errors, ...autoSafety.warnings].slice(0, 6).map((message) => (
+                          <Text key={message} fontSize="sm">• {message}</Text>
+                        ))}
+                        {autoSafety.blockAutoGeneration ? (
+                          <Text fontSize="sm" fontWeight="700">
+                            {i18n.t("auto.NutritionRationPage.mode_auto_relecture_obligatoire", "Le mode automatique reste disponible, mais son résultat doit être relu et validé avant utilisation.")}
+                          </Text>
+                        ) : null}
+                      </Stack>
+                    </AlertDescription>
+                  </Box>
+                </Alert>
+              ) : null}
 
               <Box borderWidth="1px" borderColor={borderCol} borderRadius="lg" bg={softBg} p={{ base: 3, md: 4 }}>
                 <HStack justify="space-between" align="start" gap={3} flexWrap="wrap" mb={3}>
@@ -1253,11 +1333,13 @@ export default function NutritionRationPage() {
         >
           <Stack
             spacing={{ base: 4, lg: 3, xl: 4 }}
-            position={{ base: "static", lg: "sticky" }}
-            top={{ lg: "88px" }}
-            maxH={{ base: "none", lg: "calc(100vh - 104px)" }}
-            overflowY={{ base: "visible", lg: "auto" }}
-            pr={{ base: 0, lg: 1 }}
+            position="static"
+            sx={{
+              "@media screen and (min-width: 62em) and (min-height: 900px)": {
+                position: "sticky",
+                top: "88px",
+              },
+            }}
             order={{ base: 1, lg: 1 }}
           >
         <Box {...sectionCardProps} p={{ base: 4, lg: 4, xl: 5 }} order={0}>
@@ -1495,14 +1577,20 @@ export default function NutritionRationPage() {
                           {item.label}
                         </Text>
                         <Text fontSize="sm" color={textMuted}>
-                          {formatMicroSummaryValue(item.value, item.unit)} /{" "}
-                          {formatMicroSummaryValue(item.target, item.unit)} {item.unit}
+                          {formatMicroSummaryValue(item.value, item.unit)} {item.unit}{" "}
+                          {item.direction === "max"
+                            ? `• max ${formatMicroSummaryValue(item.target, item.unit)} ${item.unit}`
+                            : item.direction === "review"
+                            ? i18n.t("auto.NutritionRationPage.a_individualiser", "• à individualiser")
+                            : item.direction === "info"
+                            ? "• information"
+                            : `• cible ${formatMicroSummaryValue(item.target, item.unit)} ${item.unit}`}
                         </Text>
                       </HStack>
                       <Progress
                         mt={2}
                         value={clampPercent(item.percent)}
-                        colorScheme={item.percent >= 90 ? "green" : item.percent >= 60 ? "orange" : "red"}
+                        colorScheme={item.colorScheme}
                         bg={nutritionTheme.surfaceBgStrong}
                         borderRadius="full"
                         size="sm"

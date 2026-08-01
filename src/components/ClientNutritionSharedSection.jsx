@@ -40,6 +40,7 @@ import {
   countRationMealsCovered,
   extractRationLines,
   rationMenuNum,
+  sortRationRowsForMeal,
 } from "../utils/rationMenu";
 import { translateNutritionFoodName, translateNutritionObjective } from "../utils/nutritionFoodI18n";
 import { useNutritionTheme } from "../styles/nutritionTheme";
@@ -907,7 +908,13 @@ export default function ClientNutritionSharedSection({
       ),
     [rationLines]
   );
-  const rationByMeal = useMemo(() => groupRowsByMeal(rationRows), [rationRows]);
+  const rationByMeal = useMemo(() => {
+    const grouped = groupRowsByMeal(rationRows);
+    MENU_MEALS_ORDER.forEach((mealKey) => {
+      grouped[mealKey] = sortRationRowsForMeal(grouped[mealKey], mealKey);
+    });
+    return grouped;
+  }, [rationRows]);
   const menuDays = latest?.clientShare?.snapshot?.menuDays || [];
   const recipes = latest?.clientShare?.snapshot?.recipes || [];
   const shoppingList = latest?.clientShare?.snapshot?.shoppingList || [];

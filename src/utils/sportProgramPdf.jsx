@@ -182,6 +182,24 @@ const styles = StyleSheet.create({
     fontWeight: 700,
     color: "#486581",
   },
+  notesBox: {
+    marginTop: 7,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: "#E5EDF7",
+  },
+  notesTitle: {
+    fontSize: 9.3,
+    fontWeight: 700,
+    color: "#334E68",
+    marginBottom: 3,
+  },
+  noteLine: {
+    fontSize: 9,
+    color: "#486581",
+    lineHeight: 1.35,
+    marginBottom: 2,
+  },
   footer: {
     position: "absolute",
     left: 32,
@@ -210,9 +228,10 @@ function cleanText(value) {
   return String(value ?? "").replace(/\s+/g, " ").trim();
 }
 
-function ExerciseCard({ exercise, index }) {
+function ExerciseCard({ exercise, index, notesLabel }) {
   const images = Array.isArray(exercise.images) ? exercise.images.filter(Boolean).slice(0, 4) : [];
   const infos = Array.isArray(exercise.infos) ? exercise.infos.filter(Boolean).slice(0, 8) : [];
+  const notes = Array.isArray(exercise.notes) ? exercise.notes.filter(Boolean).slice(0, 6) : [];
 
   return (
     <View style={styles.card} wrap={false}>
@@ -244,11 +263,22 @@ function ExerciseCard({ exercise, index }) {
           </Text>
         ))}
       </View>
+
+      {notes.length ? (
+        <View style={styles.notesBox}>
+          <Text style={styles.notesTitle}>{cleanText(notesLabel) || "Notes"}</Text>
+          {notes.map((note, noteIndex) => (
+            <Text key={`${exercise.name}-note-${noteIndex}`} style={styles.noteLine}>
+              • {cleanText(note)}
+            </Text>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
 
-function SectionBlock({ section }) {
+function SectionBlock({ section, notesLabel }) {
   const exercises = Array.isArray(section.exercises) ? section.exercises : [];
   if (!exercises.length) return null;
 
@@ -264,6 +294,7 @@ function SectionBlock({ section }) {
             key={`${section.label}-${exercise.name}-${index}`}
             exercise={exercise}
             index={index + 1}
+            notesLabel={notesLabel}
           />
         ))}
       </View>
@@ -279,6 +310,7 @@ export function SportProgramPdfDocument({
   footerLogoDataUrl,
   dateLabel,
   footerText,
+  notesLabel,
   sessions = [],
 }) {
   return (
@@ -306,7 +338,11 @@ export function SportProgramPdfDocument({
           </View>
 
           {(session.sections || []).map((section, index) => (
-            <SectionBlock key={`${session.title}-section-${index}`} section={section} />
+            <SectionBlock
+              key={`${session.title}-section-${index}`}
+              section={section}
+              notesLabel={notesLabel}
+            />
           ))}
 
           <View style={styles.footer} fixed>

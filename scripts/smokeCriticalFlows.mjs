@@ -44,6 +44,65 @@ check("critical app routes are registered", () => {
   ].forEach((route) => assert.ok(app.includes(route), `Missing route ${route}`));
 });
 
+check("sport PDFs include localized exercise notes", () => {
+  const programView = read("src/components/ProgramView.jsx");
+  const autoPreview = read("src/components/AutoProgramPreview.jsx");
+  const sportPdf = read("src/utils/sportProgramPdf.jsx");
+
+  [programView, autoPreview].forEach((source) => {
+    assert.ok(
+      source.includes("notes: getExerciseNoteLines(resolved, pdfLang)") &&
+        source.includes("notesLabel={L.notes}"),
+      "Each sport PDF entry point must pass localized exercise notes to the PDF document"
+    );
+  });
+  assert.ok(
+    sportPdf.includes("const notes = Array.isArray(exercise.notes)") &&
+      sportPdf.includes("styles.notesBox"),
+    "The shared sport PDF renderer must display exercise notes"
+  );
+});
+
+check("session performance history freezes actual values per completed set", () => {
+  const player = read("src/components/SessionPlayer.jsx");
+  assert.ok(
+    player.includes("function captureCurrentSetPerformance()") &&
+      player.includes("const completedSetKey = captureCurrentSetPerformance()"),
+    "A set must be captured when the effort ends"
+  );
+  assert.ok(
+    player.includes("stageCurrentSetPerformance(field, value)") &&
+      player.includes("performedSetsRef.current.values()") &&
+      player.includes("seedFollowingSetPerformance(exIndex, currentSet, currentSet + 1)"),
+    "Live values must feed completion snapshots and become the starting point of the next set"
+  );
+  assert.ok(
+    player.includes("finalizeCurrentSetRestPerformance()") &&
+      player.includes("activeRestPerformance"),
+    "Actual rest time must be finalized and survive session resume"
+  );
+  ["fr", "en", "es", "de", "it", "ru", "ar"].forEach((lang) => {
+    const common = JSON.parse(read(`src/i18n/locales/${lang}/common.json`));
+    [
+      "currentSessionHistory",
+      "pendingSessionValidation",
+      "inProgress",
+      "completedSetsAppearHere",
+      "pendingValidation",
+      "setN",
+      "setRecorded",
+    ].forEach((key) => {
+      assert.ok(common.sessionPlayer?.[key], `Missing session-in-progress translation ${lang}.${key}`);
+    });
+  });
+  assert.ok(
+    player.includes("performanceDraftsRef.current = new Map()") &&
+      player.includes("clearSessionResumeState(sessionResumeStorageKey)") &&
+      !player.includes("performanceDrafts: Array.from(performanceDraftsRef.current.values())"),
+    "Leaving an unfinished session must discard its provisional performance values"
+  );
+});
+
 check("customer emails share the BoostYourLife visual system", () => {
   const app = read("src/App.jsx");
   const actionPage = read("src/pages/ActivateAccount.jsx");

@@ -6,10 +6,64 @@ const stripDiacritics = (value = "") =>
 export const normalizeRationText = (value = "") =>
   stripDiacritics(String(value || "").toLowerCase()).trim().replace(/\s+/g, " ");
 
+const RATION_FAMILY_EQUIVALENTS = {
+  boissons: ["boisson", "boissons"],
+  fruits: ["fruit", "fruits"],
+  legumes: ["legume", "legumes"],
+  vpo: ["vpo"],
+  pain: ["pain"],
+  "matieres grasses": ["matiere grasse", "matieres grasses"],
+  "produits laitiers": ["produit laitier", "produits laitiers"],
+  "produits cerealiers": ["produit cerealier", "produits cerealiers"],
+  "complements proteines": ["complement proteine", "complements proteines"],
+  legumineuses: ["legumineuse", "legumineuses"],
+  "produits sucres": ["produit sucre", "produits sucres"],
+};
+
+export function isRationFamilySelection(item = {}) {
+  const group = normalizeRationText(item?.group || item?.category || item?.categorie || "");
+  const resolved = normalizeRationText(
+    item?.resolvedLabel || item?.label || item?.shortKey || item?.key || ""
+  );
+  if (!group || !resolved) return false;
+  if (group === resolved) return true;
+  return (RATION_FAMILY_EQUIVALENTS[group] || []).includes(resolved);
+}
+
 export const rationMenuNum = (value) => {
   const n = Number(String(value ?? "").replace(",", "."));
   return Number.isFinite(n) ? n : 0;
 };
+
+const stableRationHash = (value = "") => {
+  let hash = 2166136261;
+  const text = String(value || "");
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+};
+
+export function buildRationFingerprint(rationItems = []) {
+  const canonical = (Array.isArray(rationItems) ? rationItems : [])
+    .map((item) => ({
+      key: String(item?.key || ""),
+      group: normalizeRationText(item?.group || item?.category || ""),
+      resolvedLabel: normalizeRationText(item?.resolvedLabel || item?.label || ""),
+      unit: normalizeRationText(item?.unit || ""),
+      meals: Object.fromEntries(
+        Object.entries(item?.meals || {})
+          .filter(([, qty]) => rationMenuNum(qty) > 0)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([mealKey, qty]) => [mealKey, Math.round(rationMenuNum(qty) * 1000) / 1000])
+      ),
+    }))
+    .filter((item) => Object.keys(item.meals).length > 0)
+    .sort((a, b) => a.key.localeCompare(b.key) || a.resolvedLabel.localeCompare(b.resolvedLabel));
+
+  return `ration-v1-${stableRationHash(JSON.stringify(canonical))}`;
+}
 
 export const firstNonEmptyRationValue = (...values) => {
   for (const value of values) {
@@ -36,6 +90,66 @@ export const MENU_MEAL_LABEL = {
   diner: "Dîner",
   collation_3: "Collation soir",
 };
+
+const MAIN_MEAL_FAMILY_ORDER = {
+  legumes: 10,
+  vpo: 20,
+  complements_proteines: 25,
+  legumineuses: 30,
+  produits_cerealiers: 40,
+  matieres_grasses: 50,
+  pain: 55,
+  produits_laitiers: 60,
+  fruits: 70,
+  produits_sucres: 80,
+  boissons: 90,
+};
+
+const BREAKFAST_FAMILY_ORDER = {
+  boissons: 10,
+  produits_cerealiers: 20,
+  pain: 25,
+  matieres_grasses: 30,
+  produits_laitiers: 40,
+  complements_proteines: 45,
+  fruits: 50,
+  produits_sucres: 60,
+};
+
+const SNACK_FAMILY_ORDER = {
+  produits_cerealiers: 10,
+  pain: 15,
+  matieres_grasses: 20,
+  complements_proteines: 25,
+  produits_laitiers: 30,
+  fruits: 40,
+  produits_sucres: 50,
+  boissons: 60,
+};
+
+const rationFamilyKey = (row = {}) =>
+  normalizeRationText(row?.group || row?.category || row?.categorie || row?.label || "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+export function sortRationRowsForMeal(rows = [], mealKey = "") {
+  const normalizedMealKey = normalizeMenuMealKey(mealKey) || mealKey;
+  const order =
+    normalizedMealKey === "petit_dej"
+      ? BREAKFAST_FAMILY_ORDER
+      : String(normalizedMealKey).startsWith("collation_")
+      ? SNACK_FAMILY_ORDER
+      : MAIN_MEAL_FAMILY_ORDER;
+
+  return (Array.isArray(rows) ? rows : [])
+    .map((row, index) => ({ row, index }))
+    .sort((a, b) => {
+      const rankA = order[rationFamilyKey(a.row)] ?? 65;
+      const rankB = order[rationFamilyKey(b.row)] ?? 65;
+      return rankA - rankB || a.index - b.index;
+    })
+    .map(({ row }) => row);
+}
 
 const MENU_MEAL_ALIASES = {
   petit_dej: ["petit_dejeuner", "pdj", "breakfast"],

@@ -2,6 +2,7 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import LanguageDetector from "i18next-browser-languagedetector";
+import nutritionRecentTranslations from "./nutritionRecentTranslations";
 
 /* ---------- Ressources JSON (toutes les langues) ---------- */
 import fr from "./locales/fr/common.json";
@@ -44,6 +45,7 @@ export const ensureLanguageLoaded = async (lng) => {
 
   const mod = await loader();
   i18n.addResourceBundle(base, "common", mod.default || mod, true, true);
+  i18n.addResourceBundle(base, "common", nutritionRecentTranslations[base] || {}, true, true);
   loadedLanguages.add(base);
   return { base, loadedNow: true };
 };
@@ -98,6 +100,8 @@ i18n
 
     // debug: true,
   });
+
+i18n.addResourceBundle("fr", "common", nutritionRecentTranslations.fr, true, true);
 
 // Applique direction + lang au chargement
 applyDocumentLangAndDir(i18n.resolvedLanguage || i18n.language || "fr");

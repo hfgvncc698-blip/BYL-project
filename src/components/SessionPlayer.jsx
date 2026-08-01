@@ -83,7 +83,7 @@ import {
   DeleteIcon,
 } from "@chakra-ui/icons";
 import { AnimatePresence, motion } from "framer-motion";
-import { playFeedback } from "../utils/feedback";
+import { playFeedback, primeFeedbackAudio } from "../utils/feedback";
 import { useTranslation } from "react-i18next";
 import i18n from "../i18n";
 import { useAuth } from "../AuthContext";
@@ -92,7 +92,10 @@ import { useAppTheme } from "../styles/appTheme";
 import { localizeExercise } from "../utils/exerciseI18n";
 import { getExerciseNotesText } from "../utils/exerciseNotes";
 import EXERCISE_TRANSLATION_ALIASES from "../data/exerciseTranslationAliases.json";
-import { exerciseHistoryMatches } from "../utils/exerciseHistoryIdentity";
+import {
+  exerciseHistoryMatches,
+  isValidatedExerciseCompletion,
+} from "../utils/exerciseHistoryIdentity";
 import { hasPlanModule } from "../utils/proPlanAccess";
 import {
   applyPlayerExerciseDeletion,
@@ -1051,54 +1054,84 @@ const readExerciseMetric = (exercise, key, label, setIndex = 0) => {
   return getFieldValue(exercise, FIELD_MAP[key]) ?? exercise?.[label] ?? null;
 };
 
-function buildExercisePerformanceSnapshots(flatExercises = [], mapping = [], timings = []) {
+const getPerformanceSetKey = (exerciseIndex, setIndex) =>
+  `${Math.max(0, Number(exerciseIndex) || 0)}:${Math.max(1, Number(setIndex) || 1)}`;
+
+function buildExercisePerformanceSet(exercise = {}, setIndex = 0, overrides = {}) {
+  const readMetric = (key, label) =>
+    Object.prototype.hasOwnProperty.call(overrides || {}, label)
+      ? overrides[label]
+      : readExerciseMetric(exercise, key, label, setIndex);
+  const reps = parseMetricNumber(readMetric("repetitions", "Répétitions"));
+  const chargeKg = parseMetricNumber(readMetric("charge", "Charge (kg)"));
+  const durationSec = toSeconds(readMetric("temps", "Durée (min:sec)") ?? 0);
+  const restSec = toSeconds(readMetric("repos", "Repos (min:sec)") ?? 0);
+  const distance = parseMetricNumber(readMetric("distance", "Distance"));
+  const speed = parseMetricNumber(readMetric("vitesse", "Vitesse"));
+  const incline = parseMetricNumber(readMetric("inclinaison", "Inclinaison (%)"));
+  const calories = parseMetricNumber(readMetric("calories", "Objectif Calories"));
+  const intensity = parseMetricNumber(readMetric("intensite", "Intensité"));
+  const tempo = readMetric("tempo", "Tempo");
+  const values = {};
+  if (reps != null) values["Répétitions"] = { label: "Répétitions", raw: reps, display: formatHistoryValue("Répétitions", reps) };
+  if (chargeKg != null) values["Charge (kg)"] = { label: "Charge (kg)", raw: chargeKg, display: formatHistoryValue("Charge (kg)", chargeKg) };
+  if (durationSec > 0) values["Durée (min:sec)"] = { label: "Durée (min:sec)", raw: durationSec, display: formatHistoryValue("Durée (min:sec)", durationSec) };
+  if (restSec > 0) values["Repos (min:sec)"] = { label: "Repos (min:sec)", raw: restSec, display: formatHistoryValue("Repos (min:sec)", restSec) };
+  if (distance != null) values.Distance = { label: "Distance", raw: distance, display: formatHistoryValue("Distance", distance) };
+  if (speed != null) values.Vitesse = { label: "Vitesse", raw: speed, display: formatHistoryValue("Vitesse", speed) };
+  if (incline != null) values["Inclinaison (%)"] = { label: "Inclinaison (%)", raw: incline, display: formatHistoryValue("Inclinaison (%)", incline) };
+  if (calories != null) values["Objectif Calories"] = { label: "Objectif Calories", raw: calories, display: formatHistoryValue("Objectif Calories", calories) };
+  if (intensity != null) values["Intensité"] = { label: "Intensité", raw: intensity, display: formatHistoryValue("Intensité", intensity) };
+  if (tempo != null && tempo !== "") values.Tempo = { label: "Tempo", raw: tempo, display: formatHistoryValue("Tempo", tempo) };
+
+  return {
+    setIndex: setIndex + 1,
+    values,
+    ...(reps != null ? { reps } : {}),
+    ...(chargeKg != null ? { chargeKg } : {}),
+    ...(durationSec > 0 ? { durationSec } : {}),
+    ...(restSec > 0 ? { restSec } : {}),
+    ...(distance != null ? { distance } : {}),
+    ...(speed != null ? { speed } : {}),
+    ...(incline != null ? { incline } : {}),
+    ...(calories != null ? { calories } : {}),
+    ...(intensity != null ? { intensity } : {}),
+    ...(tempo != null && tempo !== "" ? { tempo } : {}),
+  };
+}
+
+function buildExercisePerformanceSnapshots(
+  flatExercises = [],
+  mapping = [],
+  timings = [],
+  performedSetEntries = null
+) {
   const timingByIndex = new Map(
     (Array.isArray(timings) ? timings : [])
       .filter((entry) => Number.isFinite(Number(entry?.exerciseIndex)))
       .map((entry) => [Number(entry.exerciseIndex), entry])
   );
+  const usePerformedSets = Array.isArray(performedSetEntries);
+  const performedByExercise = new Map();
+  if (usePerformedSets) {
+    performedSetEntries.forEach((entry) => {
+      const exerciseIndex = Number(entry?.exerciseIndex);
+      const setIndex = Math.max(1, Number(entry?.setIndex) || Number(entry?.set?.setIndex) || 1);
+      if (!Number.isFinite(exerciseIndex) || !entry?.set) return;
+      if (!performedByExercise.has(exerciseIndex)) performedByExercise.set(exerciseIndex, []);
+      performedByExercise.get(exerciseIndex).push({ ...entry.set, setIndex });
+    });
+  }
 
   return (flatExercises || []).map((exercise, exerciseIndex) => {
     const identity = getExerciseIdentity(exercise);
     const setsCount = Math.max(1, Math.round(parseMetricNumber(getFieldValue(exercise, FIELD_MAP.series)) || 1));
-    const sets = Array.from({ length: setsCount }).map((_, setIndex) => {
-      const reps = parseMetricNumber(readExerciseMetric(exercise, "repetitions", "Répétitions", setIndex));
-      const chargeKg = parseMetricNumber(readExerciseMetric(exercise, "charge", "Charge (kg)", setIndex));
-      const durationSec = toSeconds(readExerciseMetric(exercise, "temps", "Durée (min:sec)", setIndex) ?? 0);
-      const restSec = toSeconds(readExerciseMetric(exercise, "repos", "Repos (min:sec)", setIndex) ?? 0);
-      const distance = parseMetricNumber(readExerciseMetric(exercise, "distance", "Distance", setIndex));
-      const speed = parseMetricNumber(readExerciseMetric(exercise, "vitesse", "Vitesse", setIndex));
-      const incline = parseMetricNumber(readExerciseMetric(exercise, "inclinaison", "Inclinaison (%)", setIndex));
-      const calories = parseMetricNumber(readExerciseMetric(exercise, "calories", "Objectif Calories", setIndex));
-      const intensity = parseMetricNumber(readExerciseMetric(exercise, "intensite", "Intensité", setIndex));
-      const tempo = readExerciseMetric(exercise, "tempo", "Tempo", setIndex);
-      const values = {};
-      if (reps != null) values["Répétitions"] = { label: "Répétitions", raw: reps, display: formatHistoryValue("Répétitions", reps) };
-      if (chargeKg != null) values["Charge (kg)"] = { label: "Charge (kg)", raw: chargeKg, display: formatHistoryValue("Charge (kg)", chargeKg) };
-      if (durationSec > 0) values["Durée (min:sec)"] = { label: "Durée (min:sec)", raw: durationSec, display: formatHistoryValue("Durée (min:sec)", durationSec) };
-      if (restSec > 0) values["Repos (min:sec)"] = { label: "Repos (min:sec)", raw: restSec, display: formatHistoryValue("Repos (min:sec)", restSec) };
-      if (distance != null) values["Distance"] = { label: "Distance", raw: distance, display: formatHistoryValue("Distance", distance) };
-      if (speed != null) values["Vitesse"] = { label: "Vitesse", raw: speed, display: formatHistoryValue("Vitesse", speed) };
-      if (incline != null) values["Inclinaison (%)"] = { label: "Inclinaison (%)", raw: incline, display: formatHistoryValue("Inclinaison (%)", incline) };
-      if (calories != null) values["Objectif Calories"] = { label: "Objectif Calories", raw: calories, display: formatHistoryValue("Objectif Calories", calories) };
-      if (intensity != null) values["Intensité"] = { label: "Intensité", raw: intensity, display: formatHistoryValue("Intensité", intensity) };
-      if (tempo != null && tempo !== "") values["Tempo"] = { label: "Tempo", raw: tempo, display: formatHistoryValue("Tempo", tempo) };
-
-      return {
-        setIndex: setIndex + 1,
-        values,
-        ...(reps != null ? { reps } : {}),
-        ...(chargeKg != null ? { chargeKg } : {}),
-        ...(durationSec > 0 ? { durationSec } : {}),
-        ...(restSec > 0 ? { restSec } : {}),
-        ...(distance != null ? { distance } : {}),
-        ...(speed != null ? { speed } : {}),
-        ...(incline != null ? { incline } : {}),
-        ...(calories != null ? { calories } : {}),
-        ...(intensity != null ? { intensity } : {}),
-        ...(tempo != null && tempo !== "" ? { tempo } : {}),
-      };
-    });
+    const sets = usePerformedSets
+      ? [...(performedByExercise.get(exerciseIndex) || [])].sort((a, b) => a.setIndex - b.setIndex)
+      : Array.from({ length: setsCount }).map((_, setIndex) =>
+          buildExercisePerformanceSet(exercise, setIndex)
+        );
+    if (!sets.length) return null;
 
     const totalReps = sets.reduce((sum, set) => sum + (Number(set.reps) || 0), 0);
     const totalVolumeKg = sets.reduce((sum, set) => {
@@ -1132,7 +1165,7 @@ function buildExercisePerformanceSnapshots(flatExercises = [], mapping = [], tim
       },
       ...(timing?.plannedSeconds || timing?.actualSeconds ? { timing } : {}),
     };
-  });
+  }).filter(Boolean);
 }
 
 function exerciseSnapshotMatches(snapshot = {}, exercise = {}) {
@@ -1155,23 +1188,6 @@ function getProgramSessionList(programme = {}) {
   return [];
 }
 
-const isValidatedCompletionRecord = (record = {}) => {
-  const status = String(record?.status || "").trim().toLowerCase();
-  return (
-    !record?.isPartial &&
-    (
-      status === "validée" ||
-      status === "validee" ||
-      status === "done" ||
-      status === "completed" ||
-      status === "terminée" ||
-      status === "terminee" ||
-      Boolean(record?.validatedAt) ||
-      Boolean(record?.completedAt)
-    )
-  );
-};
-
 function getCompletionRecordDate(record = {}) {
   return (
     toDate(record?.dateEffectuee) ||
@@ -1183,33 +1199,8 @@ function getCompletionRecordDate(record = {}) {
   );
 }
 
-function getHistorySnapshotSignature(snapshot = {}) {
-  const sets = Array.isArray(snapshot?.sets) ? snapshot.sets : [];
-  return JSON.stringify(
-    sets.map((set) => ({
-      setIndex: Number(set?.setIndex) || 0,
-      reps: parseMetricNumber(set?.reps),
-      chargeKg: parseMetricNumber(set?.chargeKg),
-      durationSec: parseMetricNumber(set?.durationSec),
-      restSec: parseMetricNumber(set?.restSec),
-      distance: parseMetricNumber(set?.distance),
-      speed: parseMetricNumber(set?.speed),
-      incline: parseMetricNumber(set?.incline),
-      calories: parseMetricNumber(set?.calories),
-      intensity: parseMetricNumber(set?.intensity),
-      tempo: set?.tempo ?? null,
-    }))
-  );
-}
-
 function cleanHistoryFieldLabel(field = "") {
   return String(field || "").replace(/\s*\(set\s*\d+\)\s*$/i, "").trim();
-}
-
-function getHistorySetIndex(field = "") {
-  const match = String(field || "").match(/\(set\s*(\d+)\)/i);
-  const n = match ? Number(match[1]) : 1;
-  return Number.isFinite(n) && n > 0 ? n : 1;
 }
 
 function formatHistoryValue(label = "", value) {
@@ -1250,110 +1241,6 @@ function getHistoryFieldLabel(label = "", t) {
   }
   const key = HISTORY_FIELD_LABEL_KEYS[clean];
   return key ? translate(`sessionPlayer.historyFields.${key}`, clean) : clean || label;
-}
-
-function getHistoryChangeLabel(field = "") {
-  const raw = String(field || "").trim();
-  if (raw.startsWith("Paramètre ")) return raw.replace(/^Paramètre\s+/i, "Paramètre ");
-  return cleanHistoryFieldLabel(raw) || raw || "Changement";
-}
-
-function mapHistoryModificationToSet(set, mod) {
-  const field = cleanHistoryFieldLabel(mod?.field);
-  const value = mod?.value;
-  const numericValue = parseMetricNumber(value);
-  const values = {
-    ...(set.values || {}),
-    [field]: {
-      label: field,
-      raw: value,
-      display: formatHistoryValue(field, value),
-    },
-  };
-  const next = { ...set, values };
-  if (field === "Répétitions") return { ...next, reps: numericValue ?? value };
-  if (field === "Charge (kg)") return { ...next, chargeKg: numericValue ?? value };
-  if (field === "Durée (min:sec)") return { ...next, durationSec: toSeconds(value) };
-  if (field === "Repos (min:sec)") return { ...next, restSec: toSeconds(value) };
-  if (field === "Distance") return { ...next, distance: numericValue ?? value };
-  if (field === "Vitesse") return { ...next, speed: numericValue ?? value };
-  if (field === "Inclinaison (%)") return { ...next, incline: numericValue ?? value };
-  if (field === "Objectif Calories") return { ...next, calories: numericValue ?? value };
-  if (field === "Intensité") return { ...next, intensity: numericValue ?? value };
-  if (field === "Tempo") return { ...next, tempo: value };
-  return next;
-}
-
-function buildSnapshotFromHistoryModifications(mods = [], exercise = {}) {
-  const identity = getExerciseIdentity(exercise);
-  const sorted = [...mods].sort((a, b) => toMs(a.updatedAt || a.clientAt) - toMs(b.updatedAt || b.clientAt));
-  const baseSnapshot = buildExercisePerformanceSnapshots(exercise ? [exercise] : [])[0] || {};
-  const setMap = new Map(
-    (baseSnapshot.sets || []).map((set) => [
-      set.setIndex,
-      {
-        ...set,
-        values: { ...(set.values || {}) },
-      },
-    ])
-  );
-  const changes = [];
-
-  sorted.forEach((mod) => {
-    const field = cleanHistoryFieldLabel(mod?.field);
-    if (!field) return;
-    const isGeneralChange =
-      field === "Séries" ||
-      field === "Séries différentes" ||
-      field === "notes" ||
-      field.startsWith("Exercice ") ||
-      field.startsWith("Paramètre ");
-    if (isGeneralChange) {
-      changes.push({
-        label: getHistoryChangeLabel(mod?.field),
-        raw: mod?.value,
-        display: formatHistoryValue(field, mod?.value),
-      });
-      return;
-    }
-    const setIndex = getHistorySetIndex(mod?.field);
-    const existing = setMap.get(setIndex) || { setIndex };
-    const next = mapHistoryModificationToSet(existing, mod);
-    setMap.set(setIndex, next);
-  });
-
-  const sets = Array.from(setMap.values()).sort((a, b) => a.setIndex - b.setIndex);
-  if (!sets.length && !changes.length) return null;
-
-  const totalReps = sets.reduce((sum, set) => sum + (Number(set.reps) || 0), 0);
-  const totalVolumeKg = sets.reduce((sum, set) => {
-    const reps = Number(set.reps);
-    const charge = Number(set.chargeKg);
-    return sum + (Number.isFinite(reps) && Number.isFinite(charge) ? reps * charge : 0);
-  }, 0);
-  const topSet = sets.reduce((best, set) => {
-    if (!best) return set;
-    const load = Number(set.chargeKg) || 0;
-    const bestLoad = Number(best.chargeKg) || 0;
-    if (load !== bestLoad) return load > bestLoad ? set : best;
-    return (Number(set.reps) || 0) > (Number(best.reps) || 0) ? set : best;
-  }, null);
-
-  return {
-    exerciseIndex: Number(mods[0]?.exerciseIndex),
-    exerciseId: identity.ids[0] || "",
-    exerciseIds: identity.ids,
-    exerciseName: identity.primaryName,
-    exerciseNames: identity.names,
-    sets,
-    changes,
-    summary: {
-      totalSets: sets.length,
-      ...(totalReps > 0 ? { totalReps } : {}),
-      ...(totalVolumeKg > 0 ? { totalVolumeKg: Math.round(totalVolumeKg * 100) / 100 } : {}),
-      ...(topSet ? { topSet } : {}),
-    },
-  };
 }
 
 /* ====================== AUTO PROGRESSION ====================== */
@@ -2042,6 +1929,34 @@ function getHistoryPrScore(snapshot = {}) {
   return 0;
 }
 
+function getConfirmedPersonalRecordCount(currentSnapshots = [], completionRecords = []) {
+  const candidates = [];
+  (Array.isArray(currentSnapshots) ? currentSnapshots : []).forEach((snapshot) => {
+    const score = getHistoryPrScore(snapshot);
+    if (!(score > 0)) return;
+    const existingIndex = candidates.findIndex((candidate) =>
+      exerciseSnapshotMatches(candidate.snapshot, snapshot)
+    );
+    if (existingIndex < 0) {
+      candidates.push({ snapshot, score });
+    } else if (score > candidates[existingIndex].score) {
+      candidates[existingIndex] = { snapshot, score };
+    }
+  });
+
+  return candidates.reduce((count, { snapshot, score: currentScore }) => {
+
+    const previousBest = (Array.isArray(completionRecords) ? completionRecords : [])
+      .filter(isValidatedExerciseCompletion)
+      .flatMap((record) => Array.isArray(record?.exerciseSnapshots) ? record.exerciseSnapshots : [])
+      .filter((previousSnapshot) => exerciseSnapshotMatches(previousSnapshot, snapshot))
+      .reduce((best, previousSnapshot) => Math.max(best, getHistoryPrScore(previousSnapshot)), 0);
+
+    // Une première mesure crée une référence, mais n'est pas annoncée comme un nouveau record.
+    return previousBest > 0 && currentScore > previousBest + 0.0001 ? count + 1 : count;
+  }, 0);
+}
+
 function getHistoryColumns(snapshots = [], t) {
   const sets = snapshots.flatMap((snapshot) => Array.isArray(snapshot?.sets) ? snapshot.sets : []);
   const preferredLabels = [
@@ -2081,16 +1996,25 @@ function getHistoryColumns(snapshots = [], t) {
   }));
 }
 
-function ExerciseHistoryPanel({ historyItems, loading, language, textMute }) {
+function ExerciseHistoryPanel({
+  historyItems,
+  currentSessionSets = [],
+  loading,
+  language,
+  textMute,
+}) {
   const { t } = useTranslation("common");
   const panelBg = useColorModeValue("white", "gray.800");
   const rowBg = useColorModeValue("gray.50", "whiteAlpha.100");
   const expandedBg = useColorModeValue("gray.50", "whiteAlpha.50");
   const border = useColorModeValue("gray.200", "gray.700");
+  const inProgressBorder = useColorModeValue("blue.200", "blue.600");
+  const inProgressBg = useColorModeValue("blue.50", "whiteAlpha.100");
   const [expandedId, setExpandedId] = useState("");
   const [activeView, setActiveView] = useState("history");
   const [trackingOpen, setTrackingOpen] = useState(false);
   const columns = getHistoryColumns(historyItems.map((item) => item.snapshot), t);
+  const currentColumns = getHistoryColumns([{ sets: currentSessionSets }], t);
   const prItem = historyItems.find((item) => item.rank === 1) || null;
   const prSnapshot = prItem?.snapshot || null;
   const prRmRows = getRmEstimateRows(prSnapshot || {});
@@ -2105,8 +2029,8 @@ function ExerciseHistoryPanel({ historyItems, loading, language, textMute }) {
         : t("sessionPlayer.historyCount", "{{count}} entrée(s)", { count: historyItems.length });
 
   useEffect(() => {
-    setExpandedId(historyItems[0]?.id || "");
-  }, [historyItems?.[0]?.id]);
+    setExpandedId(currentSessionSets.length > 0 ? "current-session" : historyItems[0]?.id || "");
+  }, [currentSessionSets.length, historyItems?.[0]?.id]);
 
   return (
     <Box
@@ -2180,10 +2104,6 @@ function ExerciseHistoryPanel({ historyItems, loading, language, textMute }) {
         <Text fontSize="sm" color={textMute}>
           {t("common.loading", "Chargement...")}
         </Text>
-      ) : historyItems.length === 0 ? (
-        <Text fontSize="sm" color={textMute}>
-          {t("sessionPlayer.noExerciseHistory", "Aucun historique pour cet exercice.")}
-        </Text>
       ) : activeView === "rm" ? (
         prRmRows.length > 0 ? (
           <Box border="1px solid" borderColor={border} borderRadius="16px" overflow="hidden">
@@ -2231,8 +2151,94 @@ function ExerciseHistoryPanel({ historyItems, loading, language, textMute }) {
             {t("sessionPlayer.noRmEstimate", "Aucune estimation RM disponible pour ce PR.")}
           </Text>
         )
+      ) : historyItems.length === 0 && currentSessionSets.length === 0 ? (
+        <Text fontSize="sm" color={textMute}>
+          {t("sessionPlayer.noExerciseHistory", "Aucun historique pour cet exercice.")}
+        </Text>
       ) : (
         <VStack align="stretch" spacing={2}>
+          {currentSessionSets.length > 0 && (
+            <Box
+              border="1px solid"
+              borderColor={inProgressBorder}
+              borderRadius="16px"
+              overflow="hidden"
+            >
+              <Button
+                variant="ghost"
+                w="full"
+                h="auto"
+                minH="48px"
+                px={3}
+                py={2.5}
+                borderRadius="0"
+                bg={inProgressBg}
+                justifyContent="space-between"
+                rightIcon={(
+                  <ChevronDownIcon
+                    transform={expandedId === "current-session" ? "rotate(180deg)" : "none"}
+                    transition="transform .18s ease"
+                  />
+                )}
+                onClick={() => setExpandedId(
+                  expandedId === "current-session" ? "" : "current-session"
+                )}
+              >
+                <VStack align="start" spacing={0} minW={0}>
+                  <HStack spacing={2} minW={0}>
+                    <Text fontWeight="900" fontSize="sm" noOfLines={1}>
+                      {t("sessionPlayer.currentSessionHistory", "Série en cours")}
+                    </Text>
+                    <Badge colorScheme="orange" borderRadius="full" flexShrink={0}>
+                      {t("sessionPlayer.inProgress", "En cours")}
+                    </Badge>
+                  </HStack>
+                  <Text fontSize="xs" color={textMute}>
+                    {formatHistoryDate(new Date(), language)}
+                  </Text>
+                </VStack>
+              </Button>
+
+              {expandedId === "current-session" && (
+                <Box bg={expandedBg} px={3} py={3}>
+                  {currentColumns.length > 0 && (
+                    <Box overflowX="auto">
+                      <Table
+                        size="sm"
+                        minW="280px"
+                        sx={{ "th, td": { fontSize: "xs", px: 1.5, py: 1.5 } }}
+                      >
+                        <Thead>
+                          <Tr>
+                            <Th>#</Th>
+                            {currentColumns.map((column) => (
+                              <Th key={column.key}>{column.label}</Th>
+                            ))}
+                          </Tr>
+                        </Thead>
+                        <Tbody>
+                          {currentSessionSets.map((set) => (
+                            <Tr key={set.setIndex} bg={rowBg}>
+                              <Td fontWeight="800">{set.setIndex}</Td>
+                              {currentColumns.map((column) => (
+                                <Td key={column.key}>{column.render(set)}</Td>
+                              ))}
+                            </Tr>
+                          ))}
+                        </Tbody>
+                      </Table>
+                    </Box>
+                  )}
+                  <Text fontSize="xs" color={textMute} fontWeight="700" mt={2.5}>
+                    {t(
+                      "sessionPlayer.pendingSessionValidation",
+                      "Provisoire jusqu’à la validation de la séance."
+                    )}
+                  </Text>
+                </Box>
+              )}
+            </Box>
+          )}
           {historyItems.slice(0, 6).map((item) => {
             const open = expandedId === item.id;
             const snapshot = item.snapshot || {};
@@ -2420,7 +2426,6 @@ export default function SessionPlayer() {
   const [programData, setProgramData] = useState(null);
   const [clientData, setClientData] = useState(null);
   const [completionHistory, setCompletionHistory] = useState([]);
-  const [modificationHistory, setModificationHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [exerciseTranslationMaps, setExerciseTranslationMaps] = useState({});
   const [sessionObj, setSessionObj] = useState(null);
@@ -2473,6 +2478,22 @@ export default function SessionPlayer() {
       return true;
     }
   });
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    try {
+      if (typeof window === "undefined") return true;
+      return window.localStorage.getItem("BYL_PLAYER_SOUND") !== "false";
+    } catch {
+      return true;
+    }
+  });
+  const [hapticsEnabled, setHapticsEnabled] = useState(() => {
+    try {
+      if (typeof window === "undefined") return true;
+      return window.localStorage.getItem("BYL_PLAYER_HAPTICS") !== "false";
+    } catch {
+      return true;
+    }
+  });
 
   const durSecRef = useRef(0);
   const restSecRef = useRef(0);
@@ -2481,6 +2502,14 @@ export default function SessionPlayer() {
   const notesInitKeyRef = useRef("");
   const pausedPhaseRef = useRef(null);
   const autoStartNextRef = useRef(false);
+  const autoStartDelayRef = useRef(0);
+  const performanceDraftsRef = useRef(new Map());
+  const performedSetsRef = useRef(new Map());
+  const activeRestPerformanceRef = useRef(null);
+  const restEndingFeedbackPlayedRef = useRef(false);
+  const workoutCompletionFeedbackPlayedRef = useRef(false);
+  const personalRecordFeedbackPlayedRef = useRef(false);
+  const [performanceDraftRevision, refreshPerformanceDrafts] = useState(0);
 
   const [units, setUnits] = useState(DEFAULT_UNITS);
 
@@ -2504,32 +2533,42 @@ export default function SessionPlayer() {
   }, [autoFlowEnabled]);
 
   useEffect(() => {
+    try {
+      window.localStorage.setItem("BYL_PLAYER_SOUND", soundEnabled ? "true" : "false");
+    } catch {}
+  }, [soundEnabled]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("BYL_PLAYER_HAPTICS", hapticsEnabled ? "true" : "false");
+    } catch {}
+  }, [hapticsEnabled]);
+
+  useEffect(() => {
+    if (!soundEnabled) return undefined;
+    const unlockAudio = () => {
+      primeFeedbackAudio();
+    };
+    window.addEventListener("pointerdown", unlockAudio, { once: true });
+    return () => window.removeEventListener("pointerdown", unlockAudio);
+  }, [soundEnabled]);
+
+  const emitPlayerFeedback = (cueName) =>
+    playFeedback(cueName, { soundEnabled, hapticsEnabled });
+
+  useEffect(() => {
     clearElapsedTimerState(legacySessionTimerStorageKey);
   }, [legacySessionTimerStorageKey]);
 
-  const historyRunIdRef = useRef(randomId(10));
-  const historyRunStartRef = useRef(new Date());
-  const historyBufferRef = useRef(new Map());
-  const historyFlushTimerRef = useRef(null);
-  const historyFlushPromiseRef = useRef(null);
-  const historyFlushRetryCountRef = useRef(0);
-
   const completionDocIdRef = useRef(randomId(12));
   const completionStartedAtRef = useRef(new Date());
-  const completionSavedRef = useRef(false);
-  const partialProgressTimerRef = useRef(null);
   const exerciseTimingRef = useRef(new Map());
   const exerciseTimingStartedAtRef = useRef(Date.now());
   const activeTimingExerciseIndexRef = useRef(0);
 
   useEffect(() => {
-    historyRunIdRef.current = randomId(10);
-    historyRunStartRef.current = new Date();
-    historyFlushRetryCountRef.current = 0;
-
     completionDocIdRef.current = randomId(12);
     completionStartedAtRef.current = new Date();
-    completionSavedRef.current = false;
     exerciseTimingRef.current = new Map();
     exerciseTimingStartedAtRef.current = Date.now();
     activeTimingExerciseIndexRef.current = 0;
@@ -2538,19 +2577,24 @@ export default function SessionPlayer() {
     resumeClearedRef.current = false;
     pausedPhaseRef.current = null;
     autoStartNextRef.current = false;
+    autoStartDelayRef.current = 0;
+    performanceDraftsRef.current = new Map();
+    performedSetsRef.current = new Map();
+    activeRestPerformanceRef.current = null;
+    restEndingFeedbackPlayedRef.current = false;
+    workoutCompletionFeedbackPlayedRef.current = false;
+    personalRecordFeedbackPlayedRef.current = false;
     setIsPaused(false);
     setRating(null);
     setEnergyLevel("normal");
     setPainFlag(false);
     setPainLevel("");
     setPainArea("");
-    clearTimeout(partialProgressTimerRef.current);
     return () => {
-      clearTimeout(partialProgressTimerRef.current);
-      clearTimeout(historyFlushTimerRef.current);
-      void flushHistory();
+      clearSessionResumeState(sessionResumeStorageKey);
+      clearElapsedTimerState(sessionTimerStorageKey);
     };
-  }, [clientId, programId, sessionIndex, sessionResumeStorageKey]);
+  }, [clientId, programId, sessionIndex, sessionResumeStorageKey, sessionTimerStorageKey]);
 
   useEffect(() => {
     if (resumeAppliedRef.current) return;
@@ -2591,25 +2635,6 @@ export default function SessionPlayer() {
     setCurrentSet(safeSet);
     resumeAppliedRef.current = true;
   }, [flat.length, location?.state, sessionResumeStorageKey]);
-
-  function stageHistory({ sessionIndex, exerciseIndex, field, value }) {
-    const key = `${sessionIndex}|${exerciseIndex}|${field}`;
-    const exercise = flat?.[exerciseIndex] || null;
-    const identity = getExerciseIdentity(exercise || {});
-    historyBufferRef.current.set(key, {
-      sessionIndex,
-      exerciseIndex,
-      field,
-      value,
-      ...(identity.ids.length ? { exerciseId: identity.ids[0], exerciseIds: identity.ids } : {}),
-      ...(identity.primaryName ? { exerciseName: identity.primaryName } : {}),
-      ...(identity.names.length ? { exerciseNames: identity.names } : {}),
-    });
-    clearTimeout(historyFlushTimerRef.current);
-    historyFlushTimerRef.current = setTimeout(() => {
-      void flushHistory();
-    }, 1200);
-  }
 
   function getExerciseActualSeconds(index, { includeCurrent = true } = {}) {
     const safeIndex = Number(index);
@@ -2659,78 +2684,6 @@ export default function SessionPlayer() {
       .filter(Boolean);
   }
 
-  async function flushHistory() {
-    clearTimeout(historyFlushTimerRef.current);
-    historyFlushTimerRef.current = null;
-
-    if (historyFlushPromiseRef.current) {
-      const previousSucceeded = await historyFlushPromiseRef.current;
-      if (!previousSucceeded) return false;
-      if (historyBufferRef.current.size > 0) return flushHistory();
-      return true;
-    }
-
-    if (!clientId || !programId) return;
-    const entries = Array.from(historyBufferRef.current.entries());
-    if (entries.length === 0) return true;
-
-    const flushPromise = (async () => {
-      try {
-        const batch = writeBatch(db);
-        const colRef = collection(db, "clients", clientId, "programmes", programId, "historique_modifications");
-        const clientAt = Timestamp.fromDate(historyRunStartRef.current);
-        const runId = historyRunIdRef.current;
-
-        entries.forEach(([, { sessionIndex, exerciseIndex, field, value, exerciseId, exerciseIds, exerciseName, exerciseNames }]) => {
-          const ref = doc(colRef);
-          batch.set(ref, {
-            sessionIndex,
-            exerciseIndex,
-            field,
-            value,
-            ...(exerciseId ? { exerciseId } : {}),
-            ...(Array.isArray(exerciseIds) && exerciseIds.length ? { exerciseIds } : {}),
-            ...(exerciseName ? { exerciseName } : {}),
-            ...(Array.isArray(exerciseNames) && exerciseNames.length ? { exerciseNames } : {}),
-            runId,
-            clientAt,
-            updatedAt: serverTimestamp(),
-          });
-        });
-
-        await batch.commit();
-        entries.forEach(([key, item]) => {
-          if (historyBufferRef.current.get(key) === item) {
-            historyBufferRef.current.delete(key);
-          }
-        });
-        historyFlushRetryCountRef.current = 0;
-        historyRunIdRef.current = randomId(10);
-        historyRunStartRef.current = new Date();
-        return true;
-      } catch (e) {
-        console.error("flushHistory error:", e);
-        if (historyFlushRetryCountRef.current < 3) {
-          historyFlushRetryCountRef.current += 1;
-          clearTimeout(historyFlushTimerRef.current);
-          historyFlushTimerRef.current = setTimeout(() => {
-            void flushHistory();
-          }, 1500 * historyFlushRetryCountRef.current);
-        }
-        return false;
-      }
-    })();
-
-    historyFlushPromiseRef.current = flushPromise;
-    try {
-      return await flushPromise;
-    } finally {
-      if (historyFlushPromiseRef.current === flushPromise) {
-        historyFlushPromiseRef.current = null;
-      }
-    }
-  }
-
   async function persistPlayerExerciseChange({
     edit,
     mode,
@@ -2764,7 +2717,7 @@ export default function SessionPlayer() {
       value,
     } = auditDetails;
     const clientAt = Timestamp.fromDate(new Date());
-    const runId = historyRunIdRef.current;
+    const runId = randomId(10);
     const batch = writeBatch(db);
 
     batch.update(programDocRef, {
@@ -2816,47 +2769,7 @@ export default function SessionPlayer() {
 
     await batch.commit();
 
-    if (auditRef && auditData) {
-      const matchExerciseContext = {
-        exerciseId: exerciseIds[0] || "",
-        exerciseIds,
-        exerciseName: exerciseNames[0] || "",
-        exerciseNames,
-      };
-      setModificationHistory((previous) => [
-        {
-          id: `${programId}:${auditRef.id}`,
-          modificationId: auditRef.id,
-          programId,
-          sessionTitle:
-            sessionObj?.title ||
-            sessionObj?.name ||
-            sessionObj?.nom ||
-            `Séance ${sessionIndex + 1}`,
-          exerciseContext: afterExercise || beforeExercise,
-          matchExerciseContext,
-          hasStoredExerciseIdentity: true,
-          programmeExerciseContext: afterExercise || beforeExercise,
-          ...auditData,
-          updatedAt: new Date(),
-        },
-        ...previous.filter((item) => item.modificationId !== auditRef.id),
-      ]);
-    }
   }
-
-  const saveTimer = useRef();
-  const scheduleSave = (nextSessions) => {
-    if (!programDocRef) return;
-    clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      try {
-        await updateDoc(programDocRef, { sessions: nextSessions, updatedAt: serverTimestamp() });
-      } catch (e) {
-        console.error(e);
-      }
-    }, 500);
-  };
 
   async function handlePlayerExerciseSelection(selectedExercise) {
     if (
@@ -2872,8 +2785,6 @@ export default function SessionPlayer() {
     setExerciseEditSaving(true);
     let rollbackState = null;
     try {
-      clearTimeout(saveTimer.current);
-
       const edit = applyPlayerExerciseEdit({
         programData,
         sessionIndex,
@@ -2910,7 +2821,6 @@ export default function SessionPlayer() {
         exerciseTimings: new Map(exerciseTimingRef.current),
       };
 
-      const historySave = flushHistory();
       const programSave = persistPlayerExerciseChange({
         edit,
         mode: exerciseEditMode,
@@ -2935,7 +2845,7 @@ export default function SessionPlayer() {
       setResolvedExercise(updated.flat[nextExerciseIndex] || edit.exercise);
       closeExerciseEditor();
 
-      await Promise.all([historySave, programSave]);
+      await programSave;
 
       toast({
         status: "success",
@@ -3005,8 +2915,6 @@ export default function SessionPlayer() {
     setExerciseEditSaving(true);
     let rollbackState = null;
     try {
-      clearTimeout(saveTimer.current);
-
       const edit = applyPlayerExerciseDeletion({
         programData,
         sessionIndex,
@@ -3044,7 +2952,6 @@ export default function SessionPlayer() {
         exerciseTimings: new Map(exerciseTimingRef.current),
       };
 
-      const historySave = flushHistory();
       const programSave = persistPlayerExerciseChange({
         edit,
         mode: "delete",
@@ -3072,11 +2979,12 @@ export default function SessionPlayer() {
       setIsPaused(continuation.isPaused);
       pausedPhaseRef.current = null;
       autoStartNextRef.current = false;
+      autoStartDelayRef.current = 0;
       setResolvedExercise(updated.flat[nextExerciseIndex] || null);
       closeDeleteExerciseConfirm();
       closeExerciseEditor();
 
-      await Promise.all([historySave, programSave]);
+      await programSave;
 
       toast({
         status: "success",
@@ -3141,7 +3049,9 @@ export default function SessionPlayer() {
 
   const saveSessionCompletion = async (pourcentage, meta = {}) => {
     try {
-      if (!clientId || !programId || sessionIndex == null) return;
+      if (!clientId || !programId || sessionIndex == null) {
+        return { saved: false, newPersonalRecordCount: 0 };
+      }
 
       const completionDocId = completionDocIdRef.current;
       const sRef = doc(
@@ -3173,7 +3083,15 @@ export default function SessionPlayer() {
         : buildExerciseTimingSnapshot({ includeCurrent: true });
       const exerciseSnapshots = isPartial
         ? []
-        : buildExercisePerformanceSnapshots(flat, mapIdx, exerciseTimings);
+        : buildExercisePerformanceSnapshots(
+            flat,
+            mapIdx,
+            exerciseTimings,
+            Array.from(performedSetsRef.current.values())
+          );
+      const newPersonalRecordCount = isPartial
+        ? 0
+        : getConfirmedPersonalRecordCount(exerciseSnapshots, completionHistory);
 
       await setDoc(
         sRef,
@@ -3262,33 +3180,12 @@ export default function SessionPlayer() {
         );
       }
 
-      if (!isPartial) completionSavedRef.current = true;
+      return { saved: true, newPersonalRecordCount };
     } catch (e) {
       console.error("saveSessionCompletion error:", e);
+      return { saved: false, newPersonalRecordCount: 0 };
     }
   };
-
-  useEffect(() => {
-    if (!clientId || !programId || sessionIndex == null) return undefined;
-    if (!flat.length) return undefined;
-    if (completionSavedRef.current) return undefined;
-    if (isOpen) return undefined;
-
-    clearTimeout(partialProgressTimerRef.current);
-    partialProgressTimerRef.current = setTimeout(() => {
-      const pct = Math.max(
-        1,
-        Math.min(89, Math.round(((exIndex + 1) / (flat.length || 1)) * 100))
-      );
-      saveSessionCompletion(pct, {
-        partial: true,
-        exerciseIndex: exIndex,
-        currentSet,
-      });
-    }, 700);
-
-    return () => clearTimeout(partialProgressTimerRef.current);
-  }, [clientId, programId, sessionIndex, flat.length, exIndex, currentSet, isOpen]);
 
   const estimateSessionDurationSec = (sess) => {
     const total = estimateSessionDurationSeconds(sess);
@@ -3614,6 +3511,25 @@ export default function SessionPlayer() {
     }
   }
 
+  const celebrateConfirmedPersonalRecords = (completionResult) => {
+    const count = Number(completionResult?.newPersonalRecordCount) || 0;
+    if (!completionResult?.saved || count <= 0 || personalRecordFeedbackPlayedRef.current) return;
+    personalRecordFeedbackPlayedRef.current = true;
+    emitPlayerFeedback("personalRecord");
+    toast({
+      status: "success",
+      duration: 5000,
+      isClosable: true,
+      title: count === 1
+        ? t("sessionPlayer.personalRecordConfirmed", "Nouveau record confirmé !")
+        : t("sessionPlayer.personalRecordsConfirmed", "{{count}} nouveaux records confirmés !", { count }),
+      description: t(
+        "sessionPlayer.personalRecordSaved",
+        "Le résultat est enregistré dans l’historique."
+      ),
+    });
+  };
+
   const handleSubmitRating = async () => {
     if (clientId && programId) {
       recordCurrentExerciseTiming();
@@ -3652,15 +3568,12 @@ export default function SessionPlayer() {
       } catch {}
 
       try {
-        await saveSessionCompletion(100, {
+        const completionResult = await saveSessionCompletion(100, {
           exerciseIndex: Math.max(0, flat.length - 1),
           currentSet: totalSetsRef.current,
           exerciseTimings,
         });
-      } catch {}
-
-      try {
-        await flushHistory();
+        celebrateConfirmedPersonalRecords(completionResult);
       } catch {}
 
       try {
@@ -3677,15 +3590,12 @@ export default function SessionPlayer() {
       recordCurrentExerciseTiming();
       const exerciseTimings = buildExerciseTimingSnapshot({ includeCurrent: false });
       try {
-        await saveSessionCompletion(100, {
+        const completionResult = await saveSessionCompletion(100, {
           exerciseIndex: Math.max(0, flat.length - 1),
           currentSet: totalSetsRef.current,
           exerciseTimings,
         });
-      } catch {}
-
-      try {
-        await flushHistory();
+        celebrateConfirmedPersonalRecords(completionResult);
       } catch {}
 
       try {
@@ -3707,8 +3617,10 @@ export default function SessionPlayer() {
 
   const advanceInsideChain = async (info, { autoStart = false } = {}) => {
     if (!info.inChain) return nextExercise();
-    const queueAutoStart = () => {
-      if (autoStart) autoStartNextRef.current = true;
+    const queueAutoStart = (delayMs = 0) => {
+      if (!autoStart) return;
+      autoStartDelayRef.current = Math.max(0, Number(delayMs) || 0);
+      autoStartNextRef.current = true;
     };
     setIsPaused(false);
     pausedPhaseRef.current = null;
@@ -3720,15 +3632,19 @@ export default function SessionPlayer() {
       return;
     }
     if (currentSet < totalSetsRef.current) {
-      queueAutoStart();
+      seedFollowingChainSet(info, currentSet, currentSet + 1);
+      emitPlayerFeedback("roundComplete");
+      queueAutoStart(430);
       setPhase("ready");
       setCurrentSet((n) => n + 1);
       goToExerciseIndex(info.start);
     } else {
+      const finishesWorkout = info.end === flat.length - 1;
+      if (!finishesWorkout) emitPlayerFeedback("roundComplete");
       setPhase("ready");
       setCurrentSet(1);
       goToExerciseIndex(info.end + 1 <= flat.length - 1 ? info.end + 1 : info.end);
-      if (info.end === flat.length - 1) {
+      if (finishesWorkout) {
         sessionElapsedTimer.stop();
         clientId && programId ? awaitCompletionAndOpenModal() : onOpen();
       }
@@ -3738,46 +3654,52 @@ export default function SessionPlayer() {
   const effortElapsedTimer = useStopwatchTimer();
 
   const completeEffort = () => {
-    playFeedback();
-
     const info = buildChainInfo(sessionObj, flat, exIndex);
     const ex = flat[exIndex];
     const seriesDiff = getSeriesDiffFlag(ex);
     const details = getSeriesDetails(ex);
     const curDet = seriesDiff && details ? details[Math.max(0, currentSet - 1)] : null;
 
-    const restRaw =
+    const plannedRestRaw =
       curDet && curDet["Repos (min:sec)"] != null
         ? curDet["Repos (min:sec)"]
         : getFieldValue(ex, FIELD_MAP.repos) ?? 0;
+    const restRaw = getCurrentPerformanceValue("Repos (min:sec)", plannedRestRaw);
     const restNow = toSeconds(restRaw);
+    restSecRef.current = restNow;
+    const completedSetKey = captureCurrentSetPerformance();
+    activeRestPerformanceRef.current = null;
+    const startRest = () => {
+      restEndingFeedbackPlayedRef.current = false;
+      emitPlayerFeedback("restStart");
+      beginCurrentSetRestPerformance(completedSetKey, restNow);
+      setPhase("rest");
+      restTimer.reset(restNow);
+      restTimer.start();
+    };
 
     if (info.inChain) {
       const mode = info.mode;
 
       if (!info.isLast && (mode === "each" || mode === "both") && restNow > 0) {
-        setPhase("rest");
-        restTimer.reset(restNow);
-        restTimer.start();
+        startRest();
         return;
       }
 
       if (info.isLast && (mode === "last" || mode === "both") && restNow > 0) {
-        setPhase("rest");
-        restTimer.reset(restNow);
-        restTimer.start();
+        startRest();
         return;
       }
 
+      emitPlayerFeedback("setComplete");
       advanceInsideChain(info, { autoStart: autoFlowEnabled || isTimerOnlyChain(info, flat) });
       return;
     }
 
     if (restNow > 0) {
-      setPhase("rest");
-      restTimer.reset(restNow);
-      restTimer.start();
+      startRest();
     } else {
+      emitPlayerFeedback("setComplete");
       if (currentSet < totalSetsRef.current) goNextSet();
       else nextExercise();
     }
@@ -3786,13 +3708,14 @@ export default function SessionPlayer() {
   const effortTimer = useTimer(completeEffort);
 
   const restTimer = useTimer(() => {
-    playFeedback();
+    finalizeCurrentSetRestPerformance();
     const info = buildChainInfo(sessionObj, flat, exIndex);
     if (info.inChain) {
       advanceInsideChain(info, { autoStart: autoFlowEnabled || isTimerOnlyChain(info, flat) });
       return;
     }
     if (currentSet < totalSetsRef.current) {
+      seedFollowingSetPerformance(exIndex, currentSet, currentSet + 1);
       if (autoFlowEnabled) autoStartNextRef.current = true;
       setCurrentSet((n) => n + 1);
       setPhase("ready");
@@ -3800,6 +3723,14 @@ export default function SessionPlayer() {
       effortElapsedTimer.reset();
     } else nextExercise();
   });
+
+  useEffect(() => {
+    if (phase !== "rest" || isPaused) return;
+    if (restEndingFeedbackPlayedRef.current) return;
+    if (restSecRef.current <= 5 || Number(restTimer.seconds) !== 5) return;
+    restEndingFeedbackPlayedRef.current = true;
+    emitPlayerFeedback("restEnding");
+  }, [phase, isPaused, restTimer.seconds]);
 
   const sessionElapsedTimer = useElapsedTimer(sessionTimerStorageKey);
 
@@ -3865,20 +3796,9 @@ export default function SessionPlayer() {
   }
 
   function handleBackExit() {
-    recordCurrentExerciseTiming();
-    const pct = Math.max(
-      1,
-      Math.min(89, Math.round(((exIndex + 1) / (flat.length || 1)) * 100))
-    );
-    void Promise.allSettled([
-      saveSessionCompletion(pct, {
-        partial: true,
-        exerciseIndex: exIndex,
-        currentSet,
-        exerciseTimings: buildExerciseTimingSnapshot({ includeCurrent: false }),
-      }),
-      flushHistory(),
-    ]);
+    performanceDraftsRef.current = new Map();
+    performedSetsRef.current = new Map();
+    activeRestPerformanceRef.current = null;
     clearPlayerResumeSnapshot({ resetElapsedState: true });
     navigate(-1);
   }
@@ -3897,28 +3817,20 @@ export default function SessionPlayer() {
     effortElapsedTimer.seconds,
     restTimer.seconds,
     sessionElapsedTimer.seconds,
+    performanceDraftRevision,
     sessionResumeStorageKey,
   ]);
 
   useEffect(() => {
     const handleBeforeUnload = () => {
-      persistPlayerResumeSnapshot();
-      void flushHistory();
+      clearSessionResumeState(sessionResumeStorageKey);
+      clearElapsedTimerState(sessionTimerStorageKey);
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [
-    flat.length,
-    exIndex,
-    currentSet,
-    phase,
-    isPaused,
-    autoFlowEnabled,
-    effortTimer.seconds,
-    effortElapsedTimer.seconds,
-    restTimer.seconds,
-    sessionElapsedTimer.seconds,
     sessionResumeStorageKey,
+    sessionTimerStorageKey,
   ]);
 
   /* ---------------------- Live load programme ---------------------- */
@@ -3959,7 +3871,6 @@ export default function SessionPlayer() {
     async function run() {
       if (!clientId || !programId) {
         setCompletionHistory([]);
-        setModificationHistory([]);
         setHistoryLoading(false);
         return;
       }
@@ -3982,16 +3893,11 @@ export default function SessionPlayer() {
         }
 
         const historyByProgram = await Promise.all(
-          programmeDocs.map(async ({ id: pid, data: programme }) => {
+          programmeDocs.map(async ({ id: pid }) => {
             try {
-              const [sessionsDoneSnap, modificationsSnap] = await Promise.all([
-                getDocs(
+              const sessionsDoneSnap = await getDocs(
                 collection(db, "clients", clientId, "programmes", pid, "sessionsEffectuees")
-                ),
-                getDocs(
-                  collection(db, "clients", clientId, "programmes", pid, "historique_modifications")
-                ),
-              ]);
+              );
 
               const completions = sessionsDoneSnap.docs.map((docSnap) => ({
                 id: `${pid}:${docSnap.id}`,
@@ -4000,61 +3906,23 @@ export default function SessionPlayer() {
                 ...docSnap.data(),
               }));
 
-              const modifications = modificationsSnap.docs.map((docSnap) => {
-                const data = docSnap.data() || {};
-                const modSessionIndex = Number(data.sessionIndex);
-                const modExerciseIndex = Number(data.exerciseIndex);
-                const programmeSessions = getProgramSessionList(programme);
-                const sourceSession = Number.isFinite(modSessionIndex)
-                  ? programmeSessions[modSessionIndex]
-                  : null;
-                const flattened = sourceSession ? flattenSession(sourceSession).flat : [];
-                const exerciseContext = Number.isFinite(modExerciseIndex) ? flattened[modExerciseIndex] || null : null;
-                const storedExerciseContext =
-                  data.exerciseId || data.exerciseName || (Array.isArray(data.exerciseNames) && data.exerciseNames.length)
-                    ? {
-                        exerciseId: data.exerciseId || "",
-                        exerciseIds: Array.isArray(data.exerciseIds) ? data.exerciseIds : [],
-                        exerciseName: data.exerciseName || "",
-                        exerciseNames: Array.isArray(data.exerciseNames) ? data.exerciseNames : [],
-                      }
-                    : null;
-                return {
-                  id: `${pid}:${docSnap.id}`,
-                  modificationId: docSnap.id,
-                  programId: pid,
-                  sessionTitle:
-                    sourceSession?.title ||
-                    sourceSession?.name ||
-                    sourceSession?.nom ||
-                    `Séance ${Number.isFinite(modSessionIndex) ? modSessionIndex + 1 : ""}`.trim(),
-                  exerciseContext,
-                  matchExerciseContext: storedExerciseContext || exerciseContext,
-                  hasStoredExerciseIdentity: Boolean(storedExerciseContext),
-                  programmeExerciseContext: exerciseContext,
-                  ...data,
-                };
-              });
-
-              return { completions, modifications };
+              return completions;
             } catch (e) {
               console.warn("load programme history error:", e);
-              return { completions: [], modifications: [] };
+              return [];
             }
           })
         );
         if (cancelled) return;
         const rows = historyByProgram
-          .flatMap((entry) => entry.completions)
-          .filter(isValidatedCompletionRecord)
+          .flat()
+          .filter(isValidatedExerciseCompletion)
           .sort((a, b) => (getCompletionRecordDate(b)?.getTime() || 0) - (getCompletionRecordDate(a)?.getTime() || 0));
         setCompletionHistory(rows);
-        setModificationHistory(historyByProgram.flatMap((entry) => entry.modifications));
       } catch (e) {
         console.error("load completion history error:", e);
         if (!cancelled) {
           setCompletionHistory([]);
-          setModificationHistory([]);
         }
       } finally {
         if (!cancelled) setHistoryLoading(false);
@@ -4229,7 +4097,10 @@ export default function SessionPlayer() {
 	    pausedPhaseRef.current = null;
 	    if (autoStartNextRef.current) {
 	      autoStartNextRef.current = false;
+	      const autoStartDelay = autoStartDelayRef.current;
+	      autoStartDelayRef.current = 0;
 	      autoStartTimer = setTimeout(() => {
+	        emitPlayerFeedback("exerciseStart");
 	        setPhase("effort");
 	        if (dur > 0) {
 	          effortTimer.start();
@@ -4237,7 +4108,7 @@ export default function SessionPlayer() {
 	          effortElapsedTimer.reset();
 	          effortElapsedTimer.start();
 	        }
-	      }, 0);
+	      }, autoStartDelay);
 	    }
 	    topAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
@@ -4297,7 +4168,10 @@ export default function SessionPlayer() {
       restTimer.reset(rest);
       if (autoStartNextRef.current) {
         autoStartNextRef.current = false;
+        const autoStartDelay = autoStartDelayRef.current;
+        autoStartDelayRef.current = 0;
         autoStartTimer = setTimeout(() => {
+          emitPlayerFeedback("exerciseStart");
           setPhase("effort");
           if (dur > 0) {
             effortTimer.start();
@@ -4305,7 +4179,7 @@ export default function SessionPlayer() {
             effortElapsedTimer.reset();
             effortElapsedTimer.start();
           }
-        }, 0);
+        }, autoStartDelay);
       }
     }
 
@@ -4326,6 +4200,7 @@ export default function SessionPlayer() {
     setIsPaused(restoredPaused);
     pausedPhaseRef.current = resume.pausedPhase || null;
     autoStartNextRef.current = false;
+    autoStartDelayRef.current = 0;
     if (typeof resume.autoFlowEnabled === "boolean") setAutoFlowEnabled(resume.autoFlowEnabled);
 
     if (restoredPhase === "effort") {
@@ -4358,10 +4233,140 @@ export default function SessionPlayer() {
 
   /* ---------------------- Value read ---------------------- */
 
+  const getPerformanceDraft = (exerciseIndex, setIndex) =>
+    performanceDraftsRef.current.get(getPerformanceSetKey(exerciseIndex, setIndex));
+
+  const getCurrentPerformanceValue = (label, fallback) => {
+    const draft = getPerformanceDraft(exIndex, currentSet);
+    return Object.prototype.hasOwnProperty.call(draft?.values || {}, label)
+      ? draft.values[label]
+      : fallback;
+  };
+
+  function stageCurrentSetPerformance(field, value) {
+    const key = getPerformanceSetKey(exIndex, currentSet);
+    const previous = performanceDraftsRef.current.get(key);
+    const nextDraft = {
+      exerciseIndex: exIndex,
+      setIndex: currentSet,
+      values: {
+        ...(previous?.values || {}),
+        [field]: value,
+      },
+    };
+    performanceDraftsRef.current.set(key, nextDraft);
+    if (phase === "rest" && performedSetsRef.current.has(key) && flat[exIndex]) {
+      performedSetsRef.current.set(key, {
+        exerciseIndex: exIndex,
+        setIndex: currentSet,
+        set: buildExercisePerformanceSet(
+          flat[exIndex],
+          Math.max(0, currentSet - 1),
+          nextDraft.values
+        ),
+      });
+    }
+    refreshPerformanceDrafts((revision) => revision + 1);
+  }
+
+  function seedFollowingSetPerformance(exerciseIndex, fromSet, toSet) {
+    const sourceSet = Math.max(1, Number(fromSet) || 1);
+    const targetSet = Math.max(1, Number(toSet) || sourceSet + 1);
+    const exercise = flat[exerciseIndex];
+    if (!exercise || targetSet <= sourceSet || getSeriesDiffFlag(exercise)) return;
+
+    const source = performanceDraftsRef.current.get(
+      getPerformanceSetKey(exerciseIndex, sourceSet)
+    );
+    if (!source?.values || !Object.keys(source.values).length) return;
+
+    const targetKey = getPerformanceSetKey(exerciseIndex, targetSet);
+    const target = performanceDraftsRef.current.get(targetKey);
+    performanceDraftsRef.current.set(targetKey, {
+      exerciseIndex,
+      setIndex: targetSet,
+      values: {
+        ...source.values,
+        ...(target?.values || {}),
+      },
+    });
+  }
+
+  function seedFollowingChainSet(info, fromSet, toSet) {
+    if (!info?.inChain) {
+      seedFollowingSetPerformance(exIndex, fromSet, toSet);
+      return;
+    }
+    for (let exerciseIndex = info.start; exerciseIndex <= info.end; exerciseIndex += 1) {
+      seedFollowingSetPerformance(exerciseIndex, fromSet, toSet);
+    }
+  }
+
+  function captureCurrentSetPerformance() {
+    const exercise = flat[exIndex];
+    if (!exercise) return null;
+    const key = getPerformanceSetKey(exIndex, currentSet);
+    const draft = performanceDraftsRef.current.get(key);
+    const set = buildExercisePerformanceSet(
+      exercise,
+      Math.max(0, currentSet - 1),
+      draft?.values || {}
+    );
+    performedSetsRef.current.set(key, {
+      exerciseIndex: exIndex,
+      setIndex: currentSet,
+      set,
+    });
+    refreshPerformanceDrafts((revision) => revision + 1);
+    return key;
+  }
+
+  function beginCurrentSetRestPerformance(key, plannedSeconds) {
+    activeRestPerformanceRef.current = key
+      ? {
+          key,
+          exerciseIndex: exIndex,
+          setIndex: currentSet,
+          plannedSeconds: Math.max(0, Number(plannedSeconds) || 0),
+        }
+      : null;
+  }
+
+  function finalizeCurrentSetRestPerformance() {
+    const activeRest = activeRestPerformanceRef.current;
+    if (!activeRest?.key) return;
+    const entry = performedSetsRef.current.get(activeRest.key);
+    activeRestPerformanceRef.current = null;
+    if (!entry?.set) return;
+
+    const plannedSeconds = Math.max(0, Number(activeRest.plannedSeconds) || 0);
+    const remainingSeconds = Math.max(0, Number(restTimer.seconds) || 0);
+    const actualRestSeconds = Math.max(0, Math.min(plannedSeconds, plannedSeconds - remainingSeconds));
+    const values = { ...(entry.set.values || {}) };
+    if (actualRestSeconds > 0) {
+      values["Repos (min:sec)"] = {
+        label: "Repos (min:sec)",
+        raw: actualRestSeconds,
+        display: formatHistoryValue("Repos (min:sec)", actualRestSeconds),
+      };
+    } else {
+      delete values["Repos (min:sec)"];
+    }
+    const nextSet = { ...entry.set, values };
+    if (actualRestSeconds > 0) nextSet.restSec = actualRestSeconds;
+    else delete nextSet.restSec;
+    performedSetsRef.current.set(activeRest.key, { ...entry, set: nextSet });
+  }
+
   const valueFor = (ex, key, label, setIndex, units) => {
     const details = getSeriesDetails(ex);
     const seriesDiff = getSeriesDiffFlag(ex);
     const isTimeLbl = label === "Repos (min:sec)" || label === "Durée (min:sec)";
+    const draft = getPerformanceDraft(exIndex, setIndex);
+    if (Object.prototype.hasOwnProperty.call(draft?.values || {}, label)) {
+      const value = draft.values[label];
+      return isTimeLbl ? toSeconds(value) : displayFromBase({ units, label, value });
+    }
 
     if (seriesDiff && details && setIndex - 1 < details.length && label !== "Séries") {
       const v = details[setIndex - 1]?.[label];
@@ -4375,10 +4380,17 @@ export default function SessionPlayer() {
   /* ---------------------- Update values ---------------------- */
 
   async function updateValue(field, newVal) {
-    if (!programData || !sessionObj || !flat.length) return;
+    if (!sessionObj || !flat.length) return;
 
     const isTimeLbl = field === "Repos (min:sec)" || field === "Durée (min:sec)";
     const value = isTimeLbl ? toSeconds(newVal) : Number(newVal) || 0;
+
+    if (field !== "Séries") {
+      stageCurrentSetPerformance(field, value);
+      return;
+    }
+
+    if (!programData) return;
 
     const sessionsCopy = structuredClone(programData.sessions || []);
     const sessCopy = sessionsCopy[sessionIndex] || {};
@@ -4404,12 +4416,6 @@ export default function SessionPlayer() {
       det[idx] = { ...(det[idx] || {}), [field]: value };
       ex.seriesDetails = det;
 
-      stageHistory({
-        sessionIndex,
-        exerciseIndex: exIndex,
-        field: `${field} (set ${idx + 1})`,
-        value,
-      });
     } else {
       ex[field] = value;
       if (field === "Séries") {
@@ -4417,19 +4423,12 @@ export default function SessionPlayer() {
         const baseForNew = mergeBaseFromDetail0(ex);
         ex.seriesDetails = ensureDetailsLength(getSeriesDetails(ex), setsCount, baseForNew);
       }
-      stageHistory({
-        sessionIndex,
-        exerciseIndex: exIndex,
-        field,
-        value,
-      });
     }
 
     list[mapping.index] = ex;
     sessCopy[key] = list;
     sessionsCopy[sessionIndex] = sessCopy;
 
-    scheduleSave(sessionsCopy);
     setProgramData((prev) => ({ ...(prev || {}), sessions: sessionsCopy }));
     setSessionObj(sessCopy);
 
@@ -4463,12 +4462,6 @@ export default function SessionPlayer() {
       ex.seriesDetails = det;
       ex.seriesDiff = true;
 
-      stageHistory({
-        sessionIndex,
-        exerciseIndex: exIndex,
-        field: "Séries différentes",
-        value: true,
-      });
     } else {
       ex.seriesDiff = false;
       const base = mergeBaseFromDetail0(ex);
@@ -4476,19 +4469,12 @@ export default function SessionPlayer() {
         ex[lbl] = base[lbl];
       });
 
-      stageHistory({
-        sessionIndex,
-        exerciseIndex: exIndex,
-        field: "Séries différentes",
-        value: false,
-      });
     }
 
     list[mapping.index] = ex;
     sessCopy[key] = list;
     sessionsCopy[sessionIndex] = sessCopy;
 
-    scheduleSave(sessionsCopy);
     setProgramData((prev) => ({ ...(prev || {}), sessions: sessionsCopy }));
     setSessionObj(sessCopy);
 
@@ -4537,18 +4523,10 @@ export default function SessionPlayer() {
 
     if (enabled) ex.optionsOrder = currentOrder;
 
-    stageHistory({
-      sessionIndex,
-      exerciseIndex: exIndex,
-      field: `Paramètre ${label}`,
-      value: enabled,
-    });
-
     list[mapping.index] = ex;
     sessCopy[key] = list;
     sessionsCopy[sessionIndex] = sessCopy;
 
-    scheduleSave(sessionsCopy);
     setProgramData((prev) => ({ ...(prev || {}), sessions: sessionsCopy }));
     setSessionObj(sessCopy);
 
@@ -4569,22 +4547,19 @@ export default function SessionPlayer() {
     list[mapping.index].notes = val;
     sessCopy[key] = list;
     sessionsCopy[sessionIndex] = sessCopy;
-    scheduleSave(sessionsCopy);
     setProgramData((prev) => ({ ...(prev || {}), sessions: sessionsCopy }));
     setSessionObj(sessCopy);
-
-    stageHistory({
-      sessionIndex,
-      exerciseIndex: exIndex,
-      field: "notes",
-      value: val || "",
-    });
+    const updated = flattenSession(sessCopy);
+    setFlat(updated.flat);
+    setMapIdx(updated.map);
+    setResolvedExercise((prev) => ({ ...(prev || {}), ...list[mapping.index] }));
   }
 
   function goNextSet() {
+    if (phase === "rest") finalizeCurrentSetRestPerformance();
+    seedFollowingSetPerformance(exIndex, currentSet, currentSet + 1);
     restTimer.stop();
     effortElapsedTimer.stop();
-    playFeedback();
     setCurrentSet((n) => Math.min(n + 1, totalSetsRef.current));
     setPhase("ready");
     effortTimer.reset(durSecRef.current);
@@ -4593,12 +4568,14 @@ export default function SessionPlayer() {
 
   function goToSet(setNumber) {
     const safeSet = Math.max(1, Math.min(Number(setNumber) || 1, totalSetsRef.current || 1));
+    if (phase === "rest") finalizeCurrentSetRestPerformance();
     effortTimer.stop();
     effortElapsedTimer.stop();
     restTimer.stop();
     setIsPaused(false);
     pausedPhaseRef.current = null;
     autoStartNextRef.current = false;
+    autoStartDelayRef.current = 0;
     setCurrentSet(safeSet);
     setPhase("ready");
     effortTimer.reset(durSecRef.current);
@@ -4606,12 +4583,14 @@ export default function SessionPlayer() {
   }
 
   function nextExercise() {
+    if (phase === "rest") finalizeCurrentSetRestPerformance();
     effortTimer.stop();
     effortElapsedTimer.stop();
     restTimer.stop();
     setIsPaused(false);
     pausedPhaseRef.current = null;
     autoStartNextRef.current = false;
+    autoStartDelayRef.current = 0;
     setPhase("ready");
     setCurrentSet(1);
     if (flat.length && exIndex < flat.length - 1) {
@@ -4624,12 +4603,14 @@ export default function SessionPlayer() {
   }
 
   function prevExercise() {
+    if (phase === "rest") finalizeCurrentSetRestPerformance();
     effortTimer.stop();
     effortElapsedTimer.stop();
     restTimer.stop();
     setIsPaused(false);
     pausedPhaseRef.current = null;
     autoStartNextRef.current = false;
+    autoStartDelayRef.current = 0;
     setPhase("ready");
     setCurrentSet(1);
     if (exIndex > 0) goToExerciseIndex(exIndex - 1);
@@ -4671,6 +4652,7 @@ export default function SessionPlayer() {
     if (phase === "effort") {
       finishCurrentEffortNow();
     } else if (phase === "rest") {
+      finalizeCurrentSetRestPerformance();
       restTimer.stop();
 
       if (info.inChain) {
@@ -4689,6 +4671,7 @@ export default function SessionPlayer() {
         completionStartedAtRef.current = new Date();
         sessionElapsedTimer.start();
       }
+      emitPlayerFeedback("exerciseStart");
       setPhase("effort");
       if (durSecRef.current > 0) {
         effortTimer.start();
@@ -4711,12 +4694,14 @@ export default function SessionPlayer() {
 
   function restartCurrentChain() {
     const info = buildChainInfo(sessionObj, flat, exIndex);
+    activeRestPerformanceRef.current = null;
     effortTimer.stop();
     effortElapsedTimer.stop();
     restTimer.stop();
     setIsPaused(false);
     pausedPhaseRef.current = null;
     autoStartNextRef.current = false;
+    autoStartDelayRef.current = 0;
     setCurrentSet(1);
     setPhase("ready");
     if (info.inChain) {
@@ -4729,10 +4714,15 @@ export default function SessionPlayer() {
   }
 
   async function awaitCompletionAndOpenModal() {
+    if (phase === "rest") finalizeCurrentSetRestPerformance();
     recordCurrentExerciseTiming();
     activeTimingExerciseIndexRef.current = -1;
     exerciseTimingStartedAtRef.current = Date.now();
     clearPlayerResumeSnapshot();
+    if (!workoutCompletionFeedbackPlayedRef.current) {
+      workoutCompletionFeedbackPlayedRef.current = true;
+      emitPlayerFeedback("workoutComplete");
+    }
     onOpen();
   }
 
@@ -4781,54 +4771,6 @@ export default function SessionPlayer() {
   const exerciseHistoryItems = useMemo(() => {
     if (!historyExercise) return [];
 
-    const modificationGroups = new Map();
-    (modificationHistory || [])
-      .filter((mod) => {
-        // A session/exercise index is only a mutable position. If an exercise
-        // was replaced there, using the slot would attach the old history to
-        // the new movement. Only modifications carrying a stored identity are
-        // safe to associate.
-        return (
-          mod?.hasStoredExerciseIdentity === true &&
-          exerciseMatchesAnyTarget(mod?.matchExerciseContext, historyExerciseTargets)
-        );
-      })
-      .forEach((mod) => {
-        const groupKey =
-          [
-            mod?.programId || "program",
-            Number.isFinite(Number(mod?.sessionIndex)) ? Number(mod.sessionIndex) : "session",
-            Number.isFinite(Number(mod?.exerciseIndex)) ? Number(mod.exerciseIndex) : "exercise",
-            String(mod?.runId || "").trim() || toMs(mod?.clientAt || mod?.updatedAt) || "unknown",
-          ].join("|");
-        if (!modificationGroups.has(groupKey)) modificationGroups.set(groupKey, []);
-        modificationGroups.get(groupKey).push(mod);
-      });
-
-    const modificationRows = Array.from(modificationGroups.entries())
-      .map(([groupKey, mods]) => {
-        const snapshot = buildSnapshotFromHistoryModifications(mods, mods[0]?.exerciseContext || historyExercise);
-        if (!snapshot) return null;
-        const date =
-          toDate(mods[0]?.clientAt) ||
-          toDate(mods[0]?.updatedAt) ||
-          toDate(mods[mods.length - 1]?.updatedAt);
-        if (!(date instanceof Date)) return null;
-        return {
-          id: `mods-${groupKey}`,
-          recordId: groupKey,
-          programId: mods[0]?.programId || "",
-          sessionIndex: Number(mods[0]?.sessionIndex),
-          sessionTitle: mods[0]?.sessionTitle || t("sessionPlayer.sessionN", "Séance {{n}}", {
-            n: Number.isFinite(Number(mods[0]?.sessionIndex)) ? Number(mods[0].sessionIndex) + 1 : sessionIndex + 1,
-          }),
-          date,
-          snapshot,
-          source: "modifications",
-        };
-      })
-      .filter(Boolean);
-
     const completionRows = (completionHistory || [])
       .filter((record) => record.completionId !== completionDocIdRef.current)
       .flatMap((record) => {
@@ -4850,18 +4792,7 @@ export default function SessionPlayer() {
       .filter((item) => item.date instanceof Date)
       .sort((a, b) => b.date.getTime() - a.date.getTime());
 
-    const deduplicatedModificationRows = modificationRows.filter((modification) => {
-      const signature = getHistorySnapshotSignature(modification.snapshot);
-      return !completionRows.some((completion) => (
-        completion.programId === modification.programId &&
-        Number(completion.sessionIndex) === Number(modification.sessionIndex) &&
-        sameCalendarDay(completion.date, modification.date) &&
-        getHistorySnapshotSignature(completion.snapshot) === signature
-      ));
-    });
-
-    const rows = [...deduplicatedModificationRows, ...completionRows]
-      .sort((a, b) => b.date.getTime() - a.date.getTime());
+    const rows = completionRows;
 
     const scoredRows = rows.map((item) => ({
       item,
@@ -4873,7 +4804,14 @@ export default function SessionPlayer() {
     return scoredRows.map(({ item, score }, index) => {
       return { ...item, rank: index === prIndex && bestScore > 0 && score === bestScore ? 1 : null };
     });
-  }, [completionHistory, modificationHistory, historyExercise, historyExerciseTargets, exIndex, sessionIndex, programId, t]);
+  }, [completionHistory, historyExercise, historyExerciseTargets]);
+  const currentExerciseSessionSets = useMemo(
+    () => Array.from(performedSetsRef.current.values())
+      .filter((entry) => Number(entry?.exerciseIndex) === Number(exIndex) && entry?.set)
+      .map((entry) => entry.set)
+      .sort((a, b) => Number(a?.setIndex || 0) - Number(b?.setIndex || 0)),
+    [exIndex, performanceDraftRevision]
+  );
 
   if (loading) return <AppLoading label={t("common.loading", "Chargement...")} />;
   if (!flat.length) return <Text p={6}>{t("sessionPlayer.empty", "Séance introuvable ou vide.")}</Text>;
@@ -5689,6 +5627,7 @@ export default function SessionPlayer() {
 
                     <ExerciseHistoryPanel
                       historyItems={exerciseHistoryItems}
+                      currentSessionSets={currentExerciseSessionSets}
                       loading={historyLoading}
                       language={i18n.language || i18n.resolvedLanguage || "fr"}
                       textMute={textMute}
@@ -5998,6 +5937,83 @@ export default function SessionPlayer() {
                     aria-label={t("sessionPlayer.autoFlow", "Enchaînement auto")}
                   />
                 </HStack>
+              </Box>
+
+              <Box>
+                <HStack justify="space-between" align="center" mb={2}>
+                  <Text fontSize="sm" fontWeight="900">
+                    {t("sessionPlayer.feedback", "Sons et vibrations")}
+                  </Text>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    colorScheme="blue"
+                    isDisabled={!soundEnabled}
+                    onClick={() => emitPlayerFeedback("exerciseStart")}
+                  >
+                    {t("sessionPlayer.previewSound", "Écouter")}
+                  </Button>
+                </HStack>
+                <VStack align="stretch" spacing={2}>
+                  <HStack
+                    justify="space-between"
+                    gap={3}
+                    px={3}
+                    py={2.5}
+                    bg={unitRowBg}
+                    border="1px solid"
+                    borderColor={border}
+                    borderRadius="16px"
+                  >
+                    <Box minW={0}>
+                      <Text fontSize="sm" fontWeight="800">
+                        {t("sessionPlayer.sounds", "Signaux sonores")}
+                      </Text>
+                      <Text fontSize="xs" color={textMute} noOfLines={2}>
+                        {t(
+                          "sessionPlayer.soundsHelp",
+                          "Distingue le début de l’effort, le repos et la fin de séance."
+                        )}
+                      </Text>
+                    </Box>
+                    <Switch
+                      size="sm"
+                      colorScheme="blue"
+                      isChecked={soundEnabled}
+                      onChange={(event) => setSoundEnabled(event.target.checked)}
+                      aria-label={t("sessionPlayer.sounds", "Signaux sonores")}
+                    />
+                  </HStack>
+                  <HStack
+                    justify="space-between"
+                    gap={3}
+                    px={3}
+                    py={2.5}
+                    bg={unitRowBg}
+                    border="1px solid"
+                    borderColor={border}
+                    borderRadius="16px"
+                  >
+                    <Box minW={0}>
+                      <Text fontSize="sm" fontWeight="800">
+                        {t("sessionPlayer.vibrations", "Vibrations")}
+                      </Text>
+                      <Text fontSize="xs" color={textMute} noOfLines={2}>
+                        {t(
+                          "sessionPlayer.vibrationsHelp",
+                          "Ajoute un retour discret sur les appareils compatibles."
+                        )}
+                      </Text>
+                    </Box>
+                    <Switch
+                      size="sm"
+                      colorScheme="blue"
+                      isChecked={hapticsEnabled}
+                      onChange={(event) => setHapticsEnabled(event.target.checked)}
+                      aria-label={t("sessionPlayer.vibrations", "Vibrations")}
+                    />
+                  </HStack>
+                </VStack>
               </Box>
 
               <Box>
