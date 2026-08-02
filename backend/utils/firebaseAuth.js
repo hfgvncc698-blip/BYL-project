@@ -1,4 +1,12 @@
 const admin = require('../firebaseAdmin');
+const crypto = require('crypto');
+
+function safeSecretEqual(provided, expected) {
+  const left = Buffer.from(String(provided || ''), 'utf8');
+  const right = Buffer.from(String(expected || ''), 'utf8');
+  if (!left.length || left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
+}
 
 function getBearerToken(req) {
   const header = req.headers.authorization || req.headers.Authorization || "";
@@ -10,6 +18,32 @@ async function getUserRole(uid) {
   if (!uid) return null;
   const snap = await admin.firestore().collection("users").doc(uid).get();
   return snap.exists ? snap.data()?.role || null : null;
+}
+
+function valueToMillis(value) {
+  if (!value) return 0;
+  if (typeof value.toMillis === "function") return value.toMillis();
+  if (typeof value.toDate === "function") return value.toDate().getTime();
+  if (typeof value.seconds === "number") return value.seconds * 1000;
+  const millis = new Date(value).getTime();
+  return Number.isFinite(millis) ? millis : 0;
+}
+
+function hasActiveProfessionalAccess(user = {}, authToken = {}) {
+  const role = String(user.role || "").trim().toLowerCase();
+  if (role === "admin") return authToken.email_verified === true;
+  if (role !== "coach") return false;
+  if (
+    user.emailVerificationRequired === true &&
+    user.emailVerified !== true &&
+    authToken.email_verified !== true
+  ) {
+    return false;
+  }
+  if (user.hasActiveSubscription === true) return true;
+  const status = String(user.subscriptionStatus || "").trim().toLowerCase();
+  if (status === "active" || status === "club_active") return true;
+  return status === "trialing" && valueToMillis(user.trialEndsAt || user.trialEnd) > Date.now();
 }
 
 async function requireFirebaseAuth(req, res, next) {
@@ -50,7 +84,7 @@ async function requireSelfOrAdmin(req, res, next) {
     if (requestedUid && requestedUid === req.auth.uid) return next();
 
     const role = await getUserRole(req.auth.uid);
-    if (role === "admin") return next();
+    if (role === "admin" && req.auth?.token?.email_verified === true) return next();
 
     return res.status(403).json({ error: "forbidden" });
   } catch (error) {
@@ -62,6 +96,8 @@ async function requireSelfOrAdmin(req, res, next) {
 module.exports = {
   getBearerToken,
   getUserRole,
+  hasActiveProfessionalAccess,
   requireFirebaseAuth,
   requireSelfOrAdmin,
+  safeSecretEqual,
 };

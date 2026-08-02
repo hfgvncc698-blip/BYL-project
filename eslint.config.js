@@ -34,7 +34,10 @@ export default [
       ...js.configs.recommended.rules,
       ...react.configs.recommended.rules,
       ...react.configs['jsx-runtime'].rules,
-      ...reactHooks.configs.recommended.rules,
+      // Keep the established React 18 hook checks. Plugin v7's generic
+      // "recommended" preset also enables React Compiler migration rules,
+      // which are intentionally audited separately from correctness linting.
+      'react-hooks/rules-of-hooks': 'error',
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_|^e$', varsIgnorePattern: '^React$|^_' }],
       'no-empty': ['warn', { allowEmptyCatch: true }],
       'react/prop-types': 'off',

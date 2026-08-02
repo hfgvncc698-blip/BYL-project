@@ -6,7 +6,7 @@ const router = express.Router();
 
 async function requireAdmin(req, res, next) {
   try {
-    if ((await getUserRole(req.auth?.uid)) !== "admin") {
+    if (req.auth?.token?.email_verified !== true || (await getUserRole(req.auth?.uid)) !== "admin") {
       return res.status(403).json({ error: "admin-required" });
     }
     return next();

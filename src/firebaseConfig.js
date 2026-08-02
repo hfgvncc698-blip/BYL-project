@@ -7,6 +7,10 @@ import {
   persistentMultipleTabManager,
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+import {
+  initializeAppCheck,
+  ReCaptchaEnterpriseProvider,
+} from "firebase/app-check";
 
 // ✅ Configuration correcte
 const firebaseConfig = {
@@ -21,6 +25,24 @@ const firebaseConfig = {
 };
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+
+// App Check becomes active as soon as the reCAPTCHA Enterprise site key is
+// configured in the deployed frontend. Enforcement must only be enabled in
+// Firebase after the valid-request metrics have been observed.
+const appCheckSiteKey = String(import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY || "").trim();
+if (typeof window !== "undefined" && appCheckSiteKey) {
+  if (import.meta.env.DEV && import.meta.env.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN) {
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = import.meta.env.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN;
+  }
+  try {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
+      isTokenAutoRefreshEnabled: true,
+    });
+  } catch (error) {
+    console.warn("[Firebase] App Check initialization skipped.", error?.message || error);
+  }
+}
 
 // --- Firestore ---
 const firestoreSettings = {

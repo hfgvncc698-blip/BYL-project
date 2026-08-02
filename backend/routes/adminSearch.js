@@ -3,18 +3,21 @@ const router = express.Router();
 
 const { db } = require('../utils/db');
 const withRetry = require('../utils/withRetry');
+const { requireFirebaseAuth, getUserRole } = require('../utils/firebaseAuth');
 
-/* ---------- middleware: clé admin ---------- */
-function requireAdminKey(req, res, next) {
-  const hdr = req.header('x-admin-key');
-  const expected = process.env.ADMIN_SEARCH_KEY;
-  if (!expected || hdr !== expected) {
-    return res.status(401).json({ error: 'Unauthorized' });
+async function requireAdmin(req, res, next) {
+  try {
+    if (req.auth?.token?.email_verified !== true || (await getUserRole(req.auth?.uid)) !== 'admin') {
+      return res.status(403).json({ error: 'admin-required' });
+    }
+    return next();
+  } catch (error) {
+    console.error('[admin-search] authorization failed:', error?.message || error);
+    return res.status(500).json({ error: 'admin-check-failed' });
   }
-  next();
 }
 
-router.use(requireAdminKey);
+router.use(requireFirebaseAuth, requireAdmin);
 
 /* ---------- helpers ---------- */
 const norm = (s) =>
@@ -279,4 +282,3 @@ router.get('/search', async (req, res) => {
 });
 
 module.exports = router;
-

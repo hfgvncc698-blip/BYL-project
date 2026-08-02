@@ -356,7 +356,8 @@ check("client account creation and identity resolution are fail-safe", () => {
   );
   assert.ok(
     functionsIndex.includes('throw new HttpsError("unauthenticated", "Authentification requise.")') &&
-      functionsIndex.includes("Création de client non autorisée."),
+      functionsIndex.includes("const requester = await requireProfessionalCaller(request)") &&
+      functionsIndex.includes("Accès professionnel actif requis."),
     "Legacy password setup callable must reject anonymous and non-professional callers"
   );
   assert.ok(
@@ -428,6 +429,54 @@ check("session completion is consistent across client views", () => {
 check("cloud functions source has a single toDate helper", () => {
   const functionsIndex = read("functions/index.js");
   assert.equal(countMatches(functionsIndex, /function toDate\(/g), 1, "functions/index.js must define toDate once");
+});
+
+check("security boundaries stay fail-closed", () => {
+  const app = read("backend/app.js");
+  const payments = read("backend/routes/payments.js");
+  const adminEmails = read("backend/routes/adminEmails.js");
+  const firestoreRules = read("firestore.rules");
+  const storageRules = read("storage.rules");
+  const socialPage = read("src/pages/AdminSocialPublisher.jsx");
+  const nginxHeaders = read("nginx/boostyourlife-security-headers.conf");
+
+  assert.ok(app.includes("app.set('trust proxy', 'loopback')"), "The API must only trust the local reverse proxy");
+  assert.ok(!app.includes("skip: (req) => req.path === '/api/health'"), "Health checks must remain rate limited");
+  assert.ok(
+    payments.includes("ADMIN GUARD — identité Firebase vérifiée") &&
+      !payments.includes('req.headers["x-admin-key"]'),
+    "Interactive billing administration must not accept a shared machine key"
+  );
+  assert.ok(
+    !adminEmails.includes('req.headers["x-admin-key"]') && adminEmails.includes("getUserRole(decoded.uid)"),
+    "Email administration must require a verified Firebase administrator"
+  );
+  [
+    '"accountType"',
+    '"isAdmin"',
+    '"clubId"',
+    '"subscriptionStatus"',
+    '"hasActiveSubscription"',
+    '"proAccess"',
+  ].forEach((field) => assert.ok(firestoreRules.includes(field), `Protected user field missing: ${field}`));
+  assert.ok(
+    firestoreRules.includes("function clientSecurityFieldsUnchanged()") &&
+      firestoreRules.includes("safeSelfClientCreate(clientId, data)"),
+    "Clients must not be able to assign coaches or alter entitlement fields on their own record"
+  );
+  assert.ok(
+    !storageRules.includes("match /{allPaths=**} {\n      allow read: if signedIn()"),
+    "Storage must not grant every authenticated user a global read"
+  );
+  assert.ok(
+    socialPage.includes('sandbox="allow-scripts allow-forms allow-popups allow-downloads"') &&
+      !socialPage.includes("SOCIAL_PUBLISHER_AUTHORIZATION"),
+    "The embedded publisher must be sandboxed and must never receive the Firebase token"
+  );
+  assert.ok(
+    nginxHeaders.includes("Content-Security-Policy") && nginxHeaders.includes("Strict-Transport-Security"),
+    "The production web server must have a reviewed security header include"
+  );
 });
 
 check("admin email history is lazy and automatic sends are deduplicated", () => {

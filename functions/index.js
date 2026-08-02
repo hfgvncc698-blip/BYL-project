@@ -56,6 +56,131 @@ function safeTrim(v) {
   return String(v || "").trim();
 }
 
+function valueToMillis(value) {
+  if (!value) return 0;
+  if (typeof value.toMillis === "function") return value.toMillis();
+  if (typeof value.toDate === "function") return value.toDate().getTime();
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function hasProfessionalAccess(user = {}, authToken = {}) {
+  const role = safeTrim(user.role).toLowerCase();
+  if (role === "admin") return authToken.email_verified === true;
+  if (role !== "coach") return false;
+  if (
+    user.emailVerificationRequired === true &&
+    user.emailVerified !== true &&
+    authToken.email_verified !== true
+  ) {
+    return false;
+  }
+  if (user.hasActiveSubscription === true) return true;
+  const status = safeTrim(user.subscriptionStatus).toLowerCase();
+  if (status === "active" || status === "club_active") return true;
+  return status === "trialing" && valueToMillis(user.trialEndsAt || user.trialEnd) > Date.now();
+}
+
+async function getRequesterProfile(uid) {
+  if (!uid) return null;
+  const snap = await db.doc(`users/${uid}`).get();
+  return snap.exists ? { id: snap.id, ...(snap.data() || {}) } : null;
+}
+
+async function requireProfessionalCaller(request) {
+  const requester = await getRequesterProfile(request.auth?.uid);
+  if (!requester || !hasProfessionalAccess(requester, request.auth?.token || {})) {
+    throw new HttpsError("permission-denied", "Accès professionnel actif requis.");
+  }
+  return requester;
+}
+
+async function assertClientAccess(request, clientId) {
+  const requester = await getRequesterProfile(request.auth?.uid);
+  const clientSnap = await db.doc(`clients/${clientId}`).get();
+  if (!clientSnap.exists) throw new HttpsError("not-found", "Client introuvable.");
+  const client = clientSnap.data() || {};
+  if (requester?.role === "admin") return { requester, clientSnap };
+
+  const uid = request.auth?.uid;
+  const self =
+    clientId === uid ||
+    client.uid === uid ||
+    client.authUid === uid ||
+    client.linkedUserId === uid ||
+    client.accountUid === uid ||
+    requester?.linkedClientId === clientId;
+  if (self) return { requester, clientSnap };
+
+  const coachIds = Array.isArray(client.coachIds) ? client.coachIds : [];
+  const professional = requester && hasProfessionalAccess(requester, request.auth?.token || {});
+  const assigned = professional && (
+    client.createdBy === uid ||
+    client.coachId === uid ||
+    client.coachUid === uid ||
+    client.ownerUid === uid ||
+    coachIds.includes(uid) ||
+    (requester.clubId && client.clubId === requester.clubId)
+  );
+  if (!assigned) throw new HttpsError("permission-denied", "Accès client refusé.");
+  return { requester, clientSnap };
+}
+
+async function assertCanInviteExistingClient(request, clientUid, email) {
+  const requester = await getRequesterProfile(request.auth?.uid);
+  if (requester?.role === "admin") return;
+  const candidates = new Map();
+  const add = (snap) => {
+    if (snap?.exists) candidates.set(snap.ref.path, snap.data() || {});
+  };
+  add(await db.doc(`clients/${clientUid}`).get().catch(() => null));
+  const queries = [
+    db.collection("clients").where("linkedUserId", "==", clientUid).limit(10).get().catch(() => null),
+    db.collection("clients").where("uid", "==", clientUid).limit(10).get().catch(() => null),
+  ];
+  if (email) {
+    queries.push(db.collection("clients").where("emailLower", "==", email).limit(10).get().catch(() => null));
+  }
+  (await Promise.all(queries)).forEach((snap) => snap?.forEach?.((docSnap) => add(docSnap)));
+  const callerUid = request.auth.uid;
+  const authorized = [...candidates.values()].some((client) => {
+    const coachIds = Array.isArray(client.coachIds) ? client.coachIds : [];
+    return (
+      client.createdBy === callerUid ||
+      client.coachId === callerUid ||
+      client.coachUid === callerUid ||
+      client.ownerUid === callerUid ||
+      coachIds.includes(callerUid) ||
+      (requester?.clubId && client.clubId === requester.clubId)
+    );
+  });
+  if (!authorized) {
+    throw new HttpsError("permission-denied", "Ce compte existe déjà et ne vous est pas attribué.");
+  }
+}
+
+async function enforceUserRateLimit(scope, uid, limit, windowMs) {
+  const id = crypto.createHash("sha256").update(`${scope}:${uid}`).digest("hex");
+  const ref = db.collection("security_rate_limits").doc(id);
+  const now = Date.now();
+  await db.runTransaction(async (transaction) => {
+    const snap = await transaction.get(ref);
+    const data = snap.exists ? snap.data() || {} : {};
+    const resetAt = valueToMillis(data.resetAt);
+    const count = resetAt > now ? Number(data.count || 0) : 0;
+    if (count >= limit) {
+      throw new HttpsError("resource-exhausted", "Limite temporaire atteinte. Réessayez plus tard.");
+    }
+    transaction.set(ref, {
+      scope,
+      uid,
+      count: count + 1,
+      resetAt: admin.firestore.Timestamp.fromMillis(resetAt > now ? resetAt : now + windowMs),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+  });
+}
+
 function normalizeSpaces(s = "") {
   return String(s || "").replace(/\s+/g, " ").trim();
 }
@@ -1747,19 +1872,8 @@ exports.sendPasswordSetupEmail = onCall(
     if (!request.auth?.uid) {
       throw new HttpsError("unauthenticated", "Authentification requise.");
     }
-    const requesterSnap = await db.doc(`users/${request.auth.uid}`).get();
-    const requester = requesterSnap.exists ? requesterSnap.data() || {} : {};
-    const requesterRole = safeTrim(requester.role).toLowerCase();
-    const canManageClients =
-      requesterRole === "admin" ||
-      requesterRole === "coach" ||
-      requester.accountType === "club_owner" ||
-      requester.accountType === "club_member" ||
-      requester.clubRole === "owner" ||
-      requester.clubRole === "member";
-    if (!canManageClients) {
-      throw new HttpsError("permission-denied", "Création de client non autorisée.");
-    }
+    const requester = await requireProfessionalCaller(request);
+    await enforceUserRateLimit("client-invitation", request.auth.uid, 30, 60 * 60 * 1000);
 
     const data = request.data || {};
     const rawEmail = safeTrim(data.email).toLowerCase();
@@ -1783,6 +1897,7 @@ exports.sendPasswordSetupEmail = onCall(
       if (existingRole === "admin" || existingRole === "coach") {
         throw new HttpsError("already-exists", "Cet e-mail appartient à un compte professionnel.");
       }
+      await assertCanInviteExistingClient(request, uid, rawEmail);
       console.log("[sendPasswordSetupEmail] user déjà existant", rawEmail, uid);
     } catch (err) {
       if (err instanceof HttpsError) throw err;
@@ -2089,6 +2204,8 @@ exports.optimizeNutritionPlanWithAI = onCall(
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Connexion requise.");
     }
+    await requireProfessionalCaller(request);
+    await enforceUserRateLimit("nutrition-ai", request.auth.uid, 20, 60 * 60 * 1000);
 
     const apiKey = safeTrim(OPENAI_API_KEY.value());
     if (!apiKey) {
@@ -2980,6 +3097,7 @@ exports.ensureCalendarSubscription = onCall(
     if (!clientId) {
       throw new HttpsError("invalid-argument", "clientId manquant.");
     }
+    await assertClientAccess(request, clientId);
 
     const ref = db.doc(`clients/${clientId}/private/calendar`);
     const snap = await ref.get();
@@ -3051,6 +3169,7 @@ exports.ensureCoachCalendarSubscription = onCall(
     if (coachId !== request.auth.uid) {
       throw new HttpsError("permission-denied", "Accès refusé.");
     }
+    await requireProfessionalCaller(request);
 
     const ref = db.collection("coachCalendarSubscriptions").doc(coachId);
     const snap = await ref.get();
@@ -3119,6 +3238,15 @@ exports.calendarFeed = onRequest(
   },
   async (req, res) => {
     try {
+      if (req.method !== "GET" && req.method !== "HEAD") {
+        res.set("Allow", "GET, HEAD").status(405).send("Method Not Allowed");
+        return;
+      }
+      res.set({
+        "Cache-Control": "private, no-store, max-age=0",
+        "Referrer-Policy": "no-referrer",
+        "X-Content-Type-Options": "nosniff",
+      });
       const token = safeTrim(req.query.token);
       if (!token) {
         res.status(400).send("Missing token");

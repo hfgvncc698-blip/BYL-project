@@ -33,6 +33,18 @@ function getPublicFrontendBaseUrl() {
   return base;
 }
 
+function getTrustedFrontendReturnUrl(value, fallbackPath = "/account/billing") {
+  const publicBase = getPublicFrontendBaseUrl();
+  const fallback = `${publicBase}${fallbackPath.startsWith("/") ? fallbackPath : `/${fallbackPath}`}`;
+  try {
+    const expectedOrigin = new URL(publicBase).origin;
+    const candidate = new URL(String(value || fallback), publicBase);
+    return candidate.origin === expectedOrigin ? candidate.toString() : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 /* ============================================================
    Stripe: initialisation "lazy" + auto-détection de clé
 ============================================================ */
@@ -425,7 +437,7 @@ function stablePremiumAssignmentDocId({ checkoutSessionId, programmeId }) {
 
 async function requesterIsAdmin(req) {
   const uid = req.auth?.uid;
-  if (!uid) return false;
+  if (!uid || req.auth?.token?.email_verified !== true) return false;
   try {
     const snap = await admin.firestore().collection("users").doc(uid).get();
     return snap.exists && snap.data()?.role === "admin";
@@ -771,38 +783,18 @@ async function copyPremiumProgramToClient({ firebaseUid, programmeId, session })
 }
 
 /* ============================================================
-   ADMIN GUARD (clé simple) — protège les routes sensibles
+   ADMIN GUARD — identité Firebase vérifiée + rôle Firestore.
+   Une clé machine ne doit jamais pouvoir supprimer un compte ou
+   modifier un abonnement depuis ces routes interactives.
 ============================================================ */
 async function requireAdminKey(req, res, next) {
-  const host = String(req.hostname || req.headers.host || "");
-  const isLocalRequest =
-    host.includes("localhost") ||
-    host.includes("127.0.0.1") ||
-    req.ip === "::1" ||
-    req.ip === "127.0.0.1";
-  if (!process.env.ADMIN_SEARCH_KEY && process.env.NODE_ENV !== "production" && isLocalRequest) {
-    req.auth = { uid: "local-admin", email: null, localDev: true };
-    return next();
-  }
-
-  const key =
-    req.headers["x-admin-key"] ||
-    req.headers["x_admin_key"] ||
-    (req.query && req.query.adminKey) ||
-    "";
-
-  const expected = process.env.ADMIN_SEARCH_KEY || "";
-  if (expected && String(key) === String(expected)) {
-    return next();
-  }
-
   try {
     const authHeader = req.headers.authorization || req.headers.Authorization || "";
     const match = String(authHeader).match(/^Bearer\s+(.+)$/i);
     if (match) {
       const decoded = await admin.auth().verifyIdToken(match[1].trim());
       const roleSnap = await admin.firestore().collection("users").doc(decoded.uid).get();
-      if (roleSnap.exists && roleSnap.data()?.role === "admin") {
+      if (decoded.email_verified === true && roleSnap.exists && roleSnap.data()?.role === "admin") {
         req.auth = { uid: decoded.uid, email: decoded.email || null, token: decoded };
         return next();
       }
@@ -810,12 +802,7 @@ async function requireAdminKey(req, res, next) {
   } catch (error) {
     console.warn("[ADMIN guard] invalid auth:", error?.message || error);
   }
-
-  if (!expected) {
-    return res.status(403).json({ error: "admin-auth-required" });
-  }
-
-  return res.status(403).json({ error: "forbidden" });
+  return res.status(403).json({ error: "admin-auth-required" });
 }
 
 /* ============================================================
@@ -1655,10 +1642,9 @@ router.post(
 
     const portal = await ensureStripe().billingPortal.sessions.create({
       customer: customerId,
-      return_url:
-        returnUrl ||
-        STRIPE_PORTAL_RETURN_URL ||
-        `${FRONTEND_BASE_URL}/account/billing`,
+      return_url: getTrustedFrontendReturnUrl(
+        returnUrl || STRIPE_PORTAL_RETURN_URL || `${FRONTEND_BASE_URL}/account/billing`
+      ),
     });
 
     return res.json({ url: portal.url });
@@ -1860,12 +1846,12 @@ router.post("/recover-premium-purchases", requireFirebaseAuth, requireSelfOrAdmi
 /* ============================================================
    2) Checkout Session Stripe — QUESTIONNAIRE + PREMIUM
 ============================================================ */
-router.post("/create-checkout-session", async (req, res) => {
+router.post("/create-checkout-session", requireFirebaseAuth, requireSelfOrAdmin, async (req, res) => {
   try {
     const {
       mode = "subscription",
-      customer_email,
-      firebaseUid,
+      customer_email: requestedCustomerEmail,
+      firebaseUid: requestedFirebaseUid,
 
       role,
       plan,
@@ -1878,28 +1864,27 @@ router.post("/create-checkout-session", async (req, res) => {
       packageKey,
       packageTier,
       trialDays,
-    } = req.body;
+    } = req.body || {};
 
-    const inferredFromProxy = (() => {
-      try {
-        const proto = (req.headers["x-forwarded-proto"] || "https")
-          .split(",")[0]
-          .trim();
-        const host = (req.headers["x-forwarded-host"] || req.headers.host || "")
-          .split(",")[0]
-          .trim();
-        return proto && host ? `${proto}://${host}` : null;
-      } catch {
-        return null;
-      }
-    })();
+    const adminRequester = await requesterIsAdmin(req);
+    const firebaseUid = adminRequester && requestedFirebaseUid
+      ? String(requestedFirebaseUid).trim()
+      : req.auth.uid;
+    const customer_email = !adminRequester && req.auth?.email
+      ? String(req.auth.email).trim().toLowerCase()
+      : String(requestedCustomerEmail || "").trim().toLowerCase();
 
     const allowedFrontendBase = (() => {
       if (!frontendBaseUrl || !/^https?:\/\//.test(frontendBaseUrl)) return null;
       try {
         const parsed = new URL(frontendBaseUrl);
         const host = parsed.hostname.toLowerCase();
-        if (host === "localhost" || host === "127.0.0.1" || host.endsWith("boostyourlife.coach")) {
+        if (
+          host === "localhost" ||
+          host === "127.0.0.1" ||
+          host === "boostyourlife.coach" ||
+          host.endsWith(".boostyourlife.coach")
+        ) {
           return parsed.origin;
         }
       } catch {}
@@ -1908,9 +1893,7 @@ router.post("/create-checkout-session", async (req, res) => {
 
     const BASE =
       allowedFrontendBase ||
-      FRONTEND_BASE_URL ||
-      inferredFromProxy ||
-      "https://boostyourlife.coach";
+      getPublicFrontendBaseUrl();
 
     function guessAudience() {
       const r = String(role || "").toLowerCase();
@@ -2591,7 +2574,7 @@ const webhookHandler = async (req, res) => {
 /* ============================================================
    4) DEV ONLY : démarrer un essai local
 ============================================================ */
-router.post("/start-trial-local", async (req, res) => {
+router.post("/start-trial-local", requireFirebaseAuth, requireSelfOrAdmin, async (req, res) => {
   if (process.env.NODE_ENV === "production")
     return res.status(403).json({ error: "forbidden" });
 
@@ -2616,7 +2599,7 @@ router.post("/start-trial-local", async (req, res) => {
 /* ============================================================
    5) DEV ONLY : recompute access
 ============================================================ */
-router.post("/recompute-access", async (req, res) => {
+router.post("/recompute-access", requireFirebaseAuth, requireSelfOrAdmin, async (req, res) => {
   if (process.env.NODE_ENV === "production")
     return res.status(403).json({ error: "forbidden" });
 

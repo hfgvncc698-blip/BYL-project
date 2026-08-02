@@ -186,24 +186,11 @@ function toDate(value) {
 }
 
 async function requireAdmin(req, res, next) {
-  const host = String(req.hostname || req.headers.host || "");
-  const local = host.includes("localhost") || host.includes("127.0.0.1") || req.ip === "::1";
-  if (!process.env.ADMIN_SEARCH_KEY && process.env.NODE_ENV !== "production" && local) {
-    req.auth = { uid: "local-admin", localDev: true };
-    return next();
-  }
-
-  const key = req.headers["x-admin-key"] || req.headers["x_admin_key"] || req.query?.adminKey || "";
-  if (process.env.ADMIN_SEARCH_KEY && String(key) === String(process.env.ADMIN_SEARCH_KEY)) {
-    req.auth = { uid: "admin-key" };
-    return next();
-  }
-
   try {
     const token = getBearerToken(req);
     if (token) {
       const decoded = await admin.auth().verifyIdToken(token);
-      if ((await getUserRole(decoded.uid)) === "admin") {
+      if (decoded.email_verified === true && (await getUserRole(decoded.uid)) === "admin") {
         req.auth = { uid: decoded.uid, email: decoded.email || null };
         return next();
       }

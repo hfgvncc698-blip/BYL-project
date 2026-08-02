@@ -1,7 +1,7 @@
 const crypto = require("crypto");
 const express = require("express");
 const admin = require("../firebaseAdmin");
-const { requireFirebaseAuth } = require("../utils/firebaseAuth");
+const { requireFirebaseAuth, hasActiveProfessionalAccess } = require("../utils/firebaseAuth");
 
 const router = express.Router();
 const db = admin.firestore();
@@ -94,7 +94,13 @@ router.post("/", requireFirebaseAuth, async (req, res) => {
     ]);
     const requester = requesterSnap.exists ? requesterSnap.data() || {} : {};
     const role = cleanText(requester.role || req.auth.token?.role, 60).toLowerCase();
-    const adminRequester = isAdminRole(role);
+    const adminRequester = isAdminRole(role) && req.auth?.token?.email_verified === true;
+    if (isAdminRole(role) && !adminRequester) {
+      return res.status(403).json({ error: "verified-admin-required" });
+    }
+    if (!adminRequester && !hasActiveProfessionalAccess(requester, req.auth?.token || {})) {
+      return res.status(403).json({ error: "professional-access-required" });
+    }
 
     if (!clientSnap.exists) return res.status(404).json({ error: "client-not-found" });
 

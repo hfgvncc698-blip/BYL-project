@@ -41,12 +41,7 @@ function getTransporter() {
 }
 
 function getRequesterKey(req) {
-  const fwd = req.headers["x-forwarded-for"];
-  const ip =
-    (Array.isArray(fwd) ? fwd[0] : fwd || "").split(",")[0].trim() ||
-    req.ip ||
-    req.socket?.remoteAddress ||
-    "unknown";
+  const ip = req.ip || req.socket?.remoteAddress || "unknown";
   return ip.replace("::ffff:", "");
 }
 

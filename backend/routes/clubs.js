@@ -526,8 +526,28 @@ function isProfessionalUser(user) {
   );
 }
 
+function hasProfessionalAccess(req, user) {
+  if (isAdminRequester(req, user)) return true;
+  if (!isProfessionalUser(user) || String(user?.role || "").toLowerCase() !== "coach") return false;
+  if (
+    user?.emailVerificationRequired === true &&
+    user?.emailVerified !== true &&
+    req?.auth?.token?.email_verified !== true
+  ) {
+    return false;
+  }
+  if (user?.hasActiveSubscription === true) return true;
+  if (["active", "club_active"].includes(String(user?.subscriptionStatus || "").toLowerCase())) {
+    return true;
+  }
+  return (
+    String(user?.subscriptionStatus || "").toLowerCase() === "trialing" &&
+    toMillis(user?.trialEndsAt || user?.trialEnd) > Date.now()
+  );
+}
+
 function isClientManagerRequester(req, user) {
-  return isAdminRequester(req, user) || isProfessionalUser(user);
+  return hasProfessionalAccess(req, user);
 }
 
 function assertClientManager(req, res, user) {
@@ -552,7 +572,7 @@ async function findUserProfileByEmail(email) {
 }
 
 function isAdminRequester(req, user) {
-  return (
+  return req?.auth?.token?.email_verified === true && (
     user?.role === "admin" ||
     user?.isAdmin === true ||
     req?.auth?.token?.role === "admin" ||
@@ -565,7 +585,10 @@ function requestedClubId(req) {
 }
 
 function isClubOwner(req, user) {
-  return isAdminRequester(req, user) || user?.accountType === "club_owner" || user?.clubRole === "owner";
+  return isAdminRequester(req, user) || (
+    hasProfessionalAccess(req, user) &&
+    (user?.accountType === "club_owner" || user?.clubRole === "owner")
+  );
 }
 
 async function assertClubOwner(req, res, next) {
@@ -1650,6 +1673,7 @@ router.patch("/clients/:clientId", requireFirebaseAuth, async (req, res) => {
   try {
     const requester = await getRequester(req.auth?.uid);
     if (!requester) return res.status(404).json({ error: "user-not-found" });
+    if (!assertClientManager(req, res, requester)) return;
 
     const clientId = cleanText(req.params.clientId, 180);
     if (!clientId) return res.status(400).json({ error: "clientId-required" });
@@ -1669,13 +1693,7 @@ router.patch("/clients/:clientId", requireFirebaseAuth, async (req, res) => {
       existingClient.ownerId === requesterUid ||
       coachIds.includes(requesterUid);
     const sameClub = requesterClubId && belongsToClub(existingClient, requesterClubId);
-    const selfClient =
-      clientId === requesterUid ||
-      existingClient.uid === requesterUid ||
-      existingClient.linkedUserId === requesterUid ||
-      existingClient.accountUid === requesterUid;
-
-    if (!isAdmin && !sameCoach && !sameClub && !selfClient) {
+    if (!isAdmin && !sameCoach && !sameClub) {
       return res.status(403).json({ error: "client-update-forbidden" });
     }
 
@@ -2386,6 +2404,9 @@ router.get("/coach-goals", requireFirebaseAuth, async (req, res) => {
   try {
     const requester = await getRequester(req.auth?.uid);
     if (!requester) return res.status(404).json({ error: "user-not-found" });
+    if (!hasProfessionalAccess(req, requester)) {
+      return res.status(403).json({ error: "professional-access-required" });
+    }
 
     const targetClubId = requestedClubId(req);
     const adminRequester = isAdminRequester(req, requester);
@@ -2659,12 +2680,17 @@ router.post("/nutrition-share-email", requireFirebaseAuth, async (req, res) => {
 
 router.post("/logo", requireFirebaseAuth, assertClubOwner, async (req, res) => {
   try {
-    const fileName = cleanText(req.body?.fileName, 180) || "club-logo.png";
-    const contentType = cleanText(req.body?.contentType, 80) || "image/png";
+    const contentType = cleanText(req.body?.contentType, 80).toLowerCase() || "image/png";
     const dataUrl = String(req.body?.dataUrl || "");
     const base64 = String(req.body?.base64 || "");
+    const allowedTypes = {
+      "image/png": "png",
+      "image/jpeg": "jpg",
+      "image/webp": "webp",
+      "image/gif": "gif",
+    };
 
-    if (!contentType.startsWith("image/")) {
+    if (!allowedTypes[contentType]) {
       return res.status(400).json({ error: "club-logo-invalid-type" });
     }
 
@@ -2681,11 +2707,19 @@ router.post("/logo", requireFirebaseAuth, assertClubOwner, async (req, res) => {
       return res.status(413).json({ error: "club-logo-too-large" });
     }
 
-    const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/^-+/, "") || "club-logo.png";
+    const signatureMatches =
+      (contentType === "image/png" && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) ||
+      (contentType === "image/jpeg" && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) ||
+      (contentType === "image/gif" && ["GIF87a", "GIF89a"].includes(buffer.subarray(0, 6).toString("ascii"))) ||
+      (contentType === "image/webp" && buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP");
+    if (!signatureMatches) {
+      return res.status(400).json({ error: "club-logo-content-mismatch" });
+    }
+
     const token = crypto.randomUUID();
     const bucketName = process.env.FIREBASE_STORAGE_BUCKET || "boost-your-life-f6b3e.firebasestorage.app";
     const bucket = admin.storage().bucket(bucketName);
-    const path = `clubs/${req.clubId}/logo-${Date.now()}-${safeName}`;
+    const path = `clubs/${req.clubId}/logo-${Date.now()}.${allowedTypes[contentType]}`;
     const file = bucket.file(path);
 
     await file.save(buffer, {

@@ -188,7 +188,7 @@ const normalizeUserDoc = (uid, data, fb) => {
     data?.onboardingPackage === "club" ||
     data?.packageKey === "club";
   const rawRole = data?.role ?? "particulier"; // "admin" | "coach" | "particulier"
-  const role = rawRole === "particulier" && isClubAccount ? "coach" : rawRole;
+  const role = rawRole;
   const isAdminUser = role === "admin";
   const trialEndsAt = toDate(data?.trialEndsAt);
   const isActiveCoachTrial =
@@ -470,7 +470,13 @@ export const AuthProvider = ({ children }) => {
   const isTrialActive = useMemo(() => {
     if (!user) return false;
     if (user.role !== "coach") return false;
-    if (user.accountType === "club_member" && user.clubId) return true;
+    if (
+      user.subscriptionStatus === "club_active" &&
+      user.accountType === "club_member" &&
+      user.clubId
+    ) {
+      return true;
+    }
 
     // accepte trialing + endsAt futur
     const endsAtMs = safeTime(user.trialEndsAt);
@@ -493,7 +499,12 @@ export const AuthProvider = ({ children }) => {
 
     if (!isEmailVerified) return false;
 
-    return user.hasActiveSubscription === true || isTrialActive === true;
+    return (
+      user.hasActiveSubscription === true ||
+      user.subscriptionStatus === "active" ||
+      user.subscriptionStatus === "club_active" ||
+      isTrialActive === true
+    );
   }, [user, isTrialActive, isEmailVerified]);
 
   /* -- Compat : ancien flag showAdminView/toggleAdminView (mappés sur viewAs) -- */
@@ -667,9 +678,9 @@ export const AuthProvider = ({ children }) => {
           endsAtMs &&
           endsAtMs > Date.now();
         const clubAccessOk =
-          (data.accountType === "club_member" && data.clubId) ||
-          data.accountType === "club_owner" ||
-          data.clubRole === "owner";
+          data.subscriptionStatus === "club_active" &&
+          data.accountType === "club_member" &&
+          data.clubId;
         const callbackRole = clubAccessOk ? "coach" : data.role || "particulier";
 
         callback(
@@ -733,9 +744,9 @@ export const AuthProvider = ({ children }) => {
           endsAtMs &&
           endsAtMs > Date.now();
         const clubAccessOk =
-          (data.accountType === "club_member" && data.clubId) ||
-          data.accountType === "club_owner" ||
-          data.clubRole === "owner";
+          data.subscriptionStatus === "club_active" &&
+          data.accountType === "club_member" &&
+          data.clubId;
         const callbackRole = clubAccessOk ? "coach" : data.role || "particulier";
 
         callback(callbackRole, !!data.hasActiveSubscription || !!trialOk || !!clubAccessOk, data);

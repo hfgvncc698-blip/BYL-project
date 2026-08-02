@@ -865,13 +865,16 @@ export default function AdminClientEmailPanel({ clientId, profileId, audience = 
           <ModalHeader>Prévisualisation — {preview?.subject || "E-mail"}</ModalHeader>
           <ModalBody>
             <Box
+              as="iframe"
+              title="Prévisualisation sécurisée de l’e-mail"
+              srcDoc={preview?.html || ""}
+              sandbox=""
+              referrerPolicy="no-referrer"
               borderWidth="1px"
               borderRadius="lg"
-              p={5}
               bg="white"
-              color="gray.900"
-              minH="220px"
-              dangerouslySetInnerHTML={{ __html: preview?.html || "" }}
+              w="100%"
+              minH="360px"
             />
           </ModalBody>
           <ModalFooter>

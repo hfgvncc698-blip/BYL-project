@@ -3,7 +3,7 @@ const express = require("express");
 const router = express.Router();
 const admin = require("../firebaseAdmin");
 const { generateAndSaveAutoProgram } = require("../utils/generateAutoProgram");
-const { requireFirebaseAuth } = require("../utils/firebaseAuth");
+const { requireFirebaseAuth, hasActiveProfessionalAccess } = require("../utils/firebaseAuth");
 
 const GENERATION_WINDOW_MS = 15 * 60 * 1000;
 const GENERATION_LIMIT = 12;
@@ -31,8 +31,14 @@ async function resolveGenerationScope(req, requestedClientId, requestedCreatorId
 
   const requester = requesterSnap.data() || {};
   const role = String(requester.role || "").toLowerCase();
-  const isAdmin = role === "admin";
-  const isCoach = role === "coach";
+  const isAdmin = role === "admin" && req.auth?.token?.email_verified === true;
+  if (role === "admin" && !isAdmin) {
+    return { error: "verified-admin-required", status: 403 };
+  }
+  const isCoach = hasActiveProfessionalAccess(requester, req.auth?.token || {});
+  if (role === "coach" && !isCoach) {
+    return { error: "professional-access-required", status: 403 };
+  }
   const ownClientId = String(requester.linkedClientId || req.auth.uid);
   let createdBy = req.auth.uid;
 

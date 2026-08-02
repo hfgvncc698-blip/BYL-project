@@ -13,22 +13,21 @@ service firebase.storage {
     function isSafeImageUpload(maxSizeMb) {
       return request.resource != null &&
         request.resource.size <= maxSizeMb * 1024 * 1024 &&
-        request.resource.contentType.matches('image/.*');
+        request.resource.contentType.matches('image/(png|jpeg|webp|gif)');
     }
 
     function isSafeMediaUpload(maxSizeMb) {
       return request.resource != null &&
         request.resource.size <= maxSizeMb * 1024 * 1024 &&
         (
-          request.resource.contentType.matches('image/.*') ||
+          request.resource.contentType.matches('image/(png|jpeg|webp|gif)') ||
           request.resource.contentType.matches('video/.*') ||
           request.resource.contentType == 'application/pdf'
         );
     }
 
-    // Assets used by the authenticated app: exercise media, logos with download
-    // tokens, and other existing files remain readable after test-mode expiry.
-    match /{allPaths=**} {
+    // Banque d'exercices partagée par les utilisateurs authentifiés.
+    match /Exercices/{allPaths=**} {
       allow read: if signedIn();
       allow write: if false;
     }

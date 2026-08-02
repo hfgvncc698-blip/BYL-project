@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -16,16 +16,22 @@ import { useAppTheme } from "../styles/appTheme";
 import { getApiBase } from "../utils/apiBase";
 import { getAuthHeaders } from "../utils/authHeaders";
 
-function buildPublisherHtml(authorization = "") {
+function escapeHtmlAttribute(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function buildPublisherHtml() {
   const publisherApiBase = `${getApiBase().replace(/\/$/, "")}/social-publisher`;
   const bridge = `
     <base href="/" />
-    <script>
-      window.SOCIAL_PUBLISHER_API_BASE = ${JSON.stringify(publisherApiBase)};
-      window.SOCIAL_PUBLISHER_ADMIN_URL = "/admin";
-      window.SOCIAL_PUBLISHER_AUTHORIZATION = ${JSON.stringify(authorization)};
-      window.SOCIAL_PUBLISHER_PAGE_ORIGIN = ${JSON.stringify(window.location.origin)};
-    </script>
+    <meta name="byl-social-publisher-api-base" content="${escapeHtmlAttribute(publisherApiBase)}" />
+    <meta name="byl-social-publisher-admin-url" content="/admin" />
+    <meta name="byl-social-publisher-page-origin" content="${escapeHtmlAttribute(window.location.origin)}" />
+    <meta name="byl-social-publisher-parent-bridge" content="true" />
   `;
 
   return publisherHtml.replace("<head>", `<head>${bridge}`);
@@ -33,20 +39,81 @@ function buildPublisherHtml(authorization = "") {
 
 export default function AdminSocialPublisher() {
   const theme = useAppTheme();
-  const [authorization, setAuthorization] = useState("");
-  const dashboardHtml = useMemo(() => buildPublisherHtml(authorization), [authorization]);
+  const iframeRef = useRef(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const dashboardHtml = useMemo(() => buildPublisherHtml(), []);
 
   useEffect(() => {
     let cancelled = false;
     getAuthHeaders({ forceRefresh: true })
       .then((headers) => {
-        if (!cancelled) setAuthorization(headers.Authorization || "");
+        if (!cancelled) setIsAuthenticated(Boolean(headers.Authorization));
       })
       .catch(() => {
-        if (!cancelled) setAuthorization("");
+        if (!cancelled) setIsAuthenticated(false);
       });
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const allowedPath = /^\/api\/(?:campaign|publish|connections\/config|daily\/prepare|variants\/[A-Za-z0-9._~-]+\/status)$/;
+    const allowedMethods = new Set(["GET", "POST", "PATCH"]);
+
+    async function handlePublisherRequest(event) {
+      if (event.source !== iframeRef.current?.contentWindow) return;
+      const message = event.data;
+      if (!message || message.type !== "byl-social-publisher-request") return;
+
+      const requestId = String(message.requestId || "").slice(0, 160);
+      const path = String(message.path || "");
+      const method = String(message.method || "GET").toUpperCase();
+      if (!requestId || !allowedPath.test(path) || !allowedMethods.has(method)) {
+        event.source.postMessage({
+          type: "byl-social-publisher-response",
+          requestId,
+          status: 403,
+          data: { ok: false, error: "publisher_request_forbidden" },
+        }, "*");
+        return;
+      }
+
+      try {
+        const authHeaders = await getAuthHeaders();
+        const apiPath = path.replace(/^\/api/, "");
+        const response = await fetch(`${getApiBase().replace(/\/$/, "")}/social-publisher${apiPath}`, {
+          method,
+          headers: { "content-type": "application/json", ...authHeaders },
+          credentials: "same-origin",
+          body: method === "GET" ? undefined : JSON.stringify(message.body ?? {}),
+        });
+        const data = await response.json().catch(() => ({ ok: false, error: "invalid_api_response" }));
+        if (!cancelled) {
+          event.source.postMessage({
+            type: "byl-social-publisher-response",
+            requestId,
+            status: response.status,
+            data,
+          }, "*");
+        }
+      } catch (error) {
+        if (!cancelled) {
+          event.source.postMessage({
+            type: "byl-social-publisher-response",
+            requestId,
+            status: 502,
+            data: { ok: false, error: error?.message || "publisher_bridge_failed" },
+          }, "*");
+        }
+      }
+    }
+
+    window.addEventListener("message", handlePublisherRequest);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("message", handlePublisherRequest);
     };
   }, []);
 
@@ -84,7 +151,7 @@ export default function AdminSocialPublisher() {
           </Button>
         </HStack>
 
-        {authorization ? (
+        {isAuthenticated ? (
           <Box
             borderWidth="1px"
             borderColor="blackAlpha.200"
@@ -97,8 +164,11 @@ export default function AdminSocialPublisher() {
           >
             <Box
               as="iframe"
+              ref={iframeRef}
               title="Social Publisher BYL"
               srcDoc={dashboardHtml}
+              sandbox="allow-scripts allow-forms allow-popups allow-downloads"
+              referrerPolicy="no-referrer"
               w="100%"
               h="100%"
               border="0"

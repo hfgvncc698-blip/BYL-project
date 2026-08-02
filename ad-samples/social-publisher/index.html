@@ -2090,9 +2090,15 @@
         selectedCalendarDay: null,
         activeDailyPrepareSlot: "",
       };
-      const socialPublisherApiBase = String(window.SOCIAL_PUBLISHER_API_BASE || "").replace(/\/$/, "");
+      const metaValue = (name) => document.querySelector(`meta[name="${name}"]`)?.content || "";
+      const socialPublisherApiBase = String(
+        window.SOCIAL_PUBLISHER_API_BASE || metaValue("byl-social-publisher-api-base"),
+      ).replace(/\/$/, "");
       const socialPublisherAuthorization = String(window.SOCIAL_PUBLISHER_AUTHORIZATION || "");
-      const socialPublisherPageOrigin = String(window.SOCIAL_PUBLISHER_PAGE_ORIGIN || "").replace(/\/$/, "");
+      const socialPublisherPageOrigin = String(
+        window.SOCIAL_PUBLISHER_PAGE_ORIGIN || metaValue("byl-social-publisher-page-origin"),
+      ).replace(/\/$/, "");
+      const useParentBridge = metaValue("byl-social-publisher-parent-bridge") === "true";
 
       function safeDashboardBaseUrl() {
         const origin =
@@ -2118,7 +2124,7 @@
 
       function resolveAdminDashboardUrl() {
         const params = new URLSearchParams(window.location.search);
-        const injectedUrl = window.SOCIAL_PUBLISHER_ADMIN_URL;
+        const injectedUrl = window.SOCIAL_PUBLISHER_ADMIN_URL || metaValue("byl-social-publisher-admin-url");
         if (injectedUrl) return injectedUrl;
         const explicitUrl = params.get("adminUrl") || params.get("admin") || params.get("adminDashboardUrl");
         if (explicitUrl) return explicitUrl;
@@ -3735,7 +3741,47 @@
         document.querySelector("#result").textContent = JSON.stringify(payload, null, 2);
       }
 
+      const pendingParentRequests = new Map();
+      window.addEventListener("message", (event) => {
+        if (event.source !== window.parent) return;
+        const message = event.data;
+        if (!message || message.type !== "byl-social-publisher-response") return;
+        const pending = pendingParentRequests.get(message.requestId);
+        if (!pending) return;
+        pendingParentRequests.delete(message.requestId);
+        clearTimeout(pending.timeoutId);
+        pending.resolve(message);
+      });
+
+      function apiThroughParent(path, options = {}) {
+        const requestId =
+          globalThis.crypto?.randomUUID?.() ||
+          `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        return new Promise((resolve, reject) => {
+          const timeoutId = setTimeout(() => {
+            pendingParentRequests.delete(requestId);
+            reject(new Error("Le pont sécurisé vers l'API n'a pas répondu."));
+          }, 30000);
+          pendingParentRequests.set(requestId, { resolve, reject, timeoutId });
+          window.parent.postMessage({
+            type: "byl-social-publisher-request",
+            requestId,
+            path,
+            method: String(options.method || "GET").toUpperCase(),
+            body: options.body ?? null,
+          }, "*");
+        });
+      }
+
       async function api(path, options = {}) {
+        if (useParentBridge) {
+          const response = await apiThroughParent(path, options);
+          const data = response.data || {};
+          if (response.status < 200 || response.status >= 300 || !data.ok) {
+            throw new Error(data.error || `Erreur API ${response.status}`);
+          }
+          return data;
+        }
         const headers = { "content-type": "application/json", ...(options.headers || {}) };
         if (socialPublisherAuthorization && !headers.Authorization) {
           headers.Authorization = socialPublisherAuthorization;

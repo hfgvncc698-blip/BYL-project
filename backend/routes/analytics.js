@@ -1,7 +1,7 @@
 const express = require("express");
 const admin = require('../firebaseAdmin');
 const crypto = require("crypto");
-const { getBearerToken, getUserRole } = require("../utils/firebaseAuth");
+const { getBearerToken, getUserRole, safeSecretEqual } = require("../utils/firebaseAuth");
 
 const router = express.Router();
 
@@ -120,13 +120,7 @@ function pickPersonName(data = {}, fallback = "") {
 }
 
 function getRequesterKey(req) {
-  const fwd = req.headers["x-forwarded-for"];
-  return (
-    (Array.isArray(fwd) ? fwd[0] : fwd || "").split(",")[0].trim() ||
-    req.ip ||
-    req.socket?.remoteAddress ||
-    "unknown"
-  ).replace("::ffff:", "");
+  return (req.ip || req.socket?.remoteAddress || "unknown").replace("::ffff:", "");
 }
 
 function checkRateLimit(req) {
@@ -161,17 +155,16 @@ async function requireAnalyticsAdmin(req, res, next) {
   const key =
     req.headers["x-admin-key"] ||
     req.headers["x_admin_key"] ||
-    req.query?.adminKey ||
     "";
   const expected = process.env.ADMIN_SEARCH_KEY || "";
-  if (expected && String(key) === String(expected)) return next();
+  if (safeSecretEqual(key, expected)) return next();
 
   try {
     const token = getBearerToken(req);
     if (token) {
       const decoded = await admin.auth().verifyIdToken(token);
       const role = await getUserRole(decoded.uid);
-      if (role === "admin") {
+      if (decoded.email_verified === true && role === "admin") {
         req.auth = { uid: decoded.uid, email: decoded.email || null };
         return next();
       }

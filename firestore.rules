@@ -18,7 +18,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return signedIn() && currentUser().role == "admin";
+      return signedIn() && verifiedEmail() && currentUser().role == "admin";
     }
 
     function verifiedEmail() {
@@ -48,9 +48,6 @@ service cloud.firestore {
           user.hasActiveSubscription == true ||
           user.subscriptionStatus == "active" ||
           user.subscriptionStatus == "club_active" ||
-          user.accountType == "club_owner" ||
-          user.clubRole == "owner" ||
-          (user.accountType == "club_member" && user.keys().hasAny(["clubId"])) ||
           (
             user.subscriptionStatus == "trialing" &&
             user.keys().hasAny(["trialEndsAt"]) &&
@@ -67,7 +64,7 @@ service cloud.firestore {
         (
           currentUser().role == "coach" &&
           currentUser().clubId == clubId &&
-          emailAccessReady(currentUser()) &&
+          hasCoachAccess() &&
           (
             currentUser().accountType == "club_owner" ||
             currentUser().clubRole == "owner"
@@ -122,9 +119,62 @@ service cloud.firestore {
       return isAdmin() || clientIsOwnProfile(clientId, data) || coachOwnsRecord(data);
     }
 
+    function clientSecurityFieldsUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        "createdBy",
+        "coachId",
+        "coachUid",
+        "coachIds",
+        "ownerId",
+        "ownerUid",
+        "assignedBy",
+        "sharedWith",
+        "clubId",
+        "clubIds",
+        "uid",
+        "authUid",
+        "userId",
+        "linkedUserId",
+        "accountUid",
+        "role",
+        "isAdmin",
+        "admin",
+        "hasActiveSubscription",
+        "subscriptionStatus",
+        "stripeCustomerId",
+        "stripeSubscriptionId"
+      ]);
+    }
+
+    function safeSelfClientCreate(clientId, data) {
+      return clientIsOwnProfile(clientId, data) &&
+        (!data.keys().hasAny(["uid"]) || data.uid == request.auth.uid) &&
+        (!data.keys().hasAny(["authUid"]) || data.authUid == request.auth.uid) &&
+        (!data.keys().hasAny(["userId"]) || data.userId == request.auth.uid) &&
+        (!data.keys().hasAny(["linkedUserId"]) || data.linkedUserId == request.auth.uid) &&
+        (!data.keys().hasAny(["accountUid"]) || data.accountUid == request.auth.uid) &&
+        !data.keys().hasAny([
+          "createdBy",
+          "coachId",
+          "coachUid",
+          "coachIds",
+          "ownerId",
+          "ownerUid",
+          "assignedBy",
+          "sharedWith",
+          "clubId",
+          "clubIds",
+          "isAdmin",
+          "admin",
+          "stripeCustomerId",
+          "stripeSubscriptionId"
+        ]) &&
+        (!data.keys().hasAny(["hasActiveSubscription"]) || data.hasActiveSubscription != true);
+    }
+
     function canCreateClient(clientId, data) {
       return isAdmin() ||
-        clientIsOwnProfile(clientId, data) ||
+        safeSelfClientCreate(clientId, data) ||
         (
           hasCoachAccess() &&
           (
@@ -199,6 +249,8 @@ service cloud.firestore {
     function userSelfProtectedFieldsUnchanged() {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
         "role",
+        "isAdmin",
+        "admin",
         "hasActiveSubscription",
         "subscriptionStatus",
         "stripeCustomerId",
@@ -208,8 +260,49 @@ service cloud.firestore {
         "linkedClientId",
         "emailVerified",
         "emailVerifiedAt",
-        "emailVerificationRequired"
+        "emailVerificationRequired",
+        "email",
+        "emailLower",
+        "accountType",
+        "clubId",
+        "clubRole",
+        "accessViaClub",
+        "packageKey",
+        "packageTier",
+        "onboardingPackage",
+        "onboardingPackageTier",
+        "requestedPackageKey",
+        "requestedPackageTier",
+        "clientLimit",
+        "proLimit",
+        "modules",
+        "proAccess",
+        "planType",
+        "trialStatus",
+        "trialDays",
+        "appTrialUsed",
+        "hasPurchasedCustomProgram",
+        "premiumFirstClaimed",
+        "firstPremiumClaimed",
+        "premiumFirstClaimAt",
+        "firstPremiumClaimAt"
       ]);
+    }
+
+    function canSyncAuthenticatedEmail() {
+      return signedIn() &&
+        request.auth.token.email is string &&
+        request.resource.data.email == request.auth.token.email &&
+        (
+          !request.resource.data.keys().hasAny(["emailLower"]) ||
+          request.resource.data.emailLower == request.auth.token.email
+        ) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "email",
+          "emailLower",
+          "pendingEmailChange",
+          "updatedAt"
+        ]);
     }
 
     function canActivateVerifiedCoachTrial() {
@@ -271,15 +364,25 @@ service cloud.firestore {
       return isOwnUser(uid) &&
         data.role in ["particulier", "coach"] &&
         (!data.keys().hasAny(["hasActiveSubscription"]) || data.hasActiveSubscription != true) &&
+        (!data.keys().hasAny(["isAdmin"]) || data.isAdmin != true) &&
+        (!data.keys().hasAny(["admin"]) || data.admin != true) &&
         (!data.keys().hasAny(["stripeCustomerId"]) || data.stripeCustomerId == null) &&
         (!data.keys().hasAny(["stripeSubscriptionId"]) || data.stripeSubscriptionId == null) &&
         (
           (
             data.role == "particulier" &&
-            (!data.keys().hasAny(["subscriptionStatus"]) || data.subscriptionStatus == "free")
+            (!data.keys().hasAny(["subscriptionStatus"]) || data.subscriptionStatus == "free") &&
+            (!data.keys().hasAny(["accountType"]) || data.accountType == "") &&
+            (!data.keys().hasAny(["clubId"]) || data.clubId == null) &&
+            (!data.keys().hasAny(["clubRole"]) || data.clubRole == "")
           ) ||
           (
             data.role == "coach" &&
+            data.accountType in ["pro", "club_owner"] &&
+            (
+              (data.accountType == "pro" && data.clubId == null && data.clubRole == "") ||
+              (data.accountType == "club_owner" && data.clubId == uid && data.clubRole == "owner")
+            ) &&
             (
               (
                 data.subscriptionStatus == "pending_verification" &&
@@ -311,16 +414,15 @@ service cloud.firestore {
         )
       );
       allow get: if isOwnUser(uid) || isAdmin() || (
-        signedIn() && resource.data.role in ["coach", "admin"]
+        signedIn() && resource.data.role == "coach"
       );
-      allow list: if isAdmin() || (
-        signedIn() && resource.data.role in ["coach", "admin"]
-      );
+      allow list: if isAdmin();
       allow update: if (isAdmin() && userRoleUnchanged()) ||
         (isOwnUser(uid) && (
           userSelfProtectedFieldsUnchanged() ||
           canActivateVerifiedCoachTrial() ||
-          canSyncVerifiedEmail()
+          canSyncVerifiedEmail() ||
+          canSyncAuthenticatedEmail()
         ));
       allow delete: if isAdmin();
 
@@ -336,7 +438,13 @@ service cloud.firestore {
     match /clients/{clientId} {
       allow read: if canAccessClient(clientId, resource.data);
       allow create: if canCreateClient(clientId, request.resource.data);
-      allow update: if canAccessClient(clientId, resource.data) && canAccessClient(clientId, request.resource.data);
+      allow update: if isAdmin() || (
+        coachOwnsRecord(resource.data) && coachOwnsRecord(request.resource.data)
+      ) || (
+        clientIsOwnProfile(clientId, resource.data) &&
+        clientIsOwnProfile(clientId, request.resource.data) &&
+        clientSecurityFieldsUnchanged()
+      );
       allow delete: if isAdmin() || coachOwnsRecord(resource.data);
 
       match /programmes/{document=**} {
@@ -386,7 +494,10 @@ service cloud.firestore {
       allow delete: if isAdmin() || coachOwnsRecord(resource.data);
 
       match /{subCollection}/{document=**} {
-        allow read, write: if canAccessProgram(
+        allow read: if canAccessProgram(
+          get(/databases/$(database)/documents/programmes/$(programId)).data
+        );
+        allow write: if isAdmin() || coachOwnsRecord(
           get(/databases/$(database)/documents/programmes/$(programId)).data
         );
       }
@@ -456,7 +567,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
 
       match /members/{memberId} {
-        allow create: if isClubOwner(clubId) || (isOwnUser(memberId) && request.resource.data.role == "owner");
+        allow create: if isClubOwner(clubId) || (
+          isOwnUser(memberId) &&
+          clubId == request.auth.uid &&
+          request.resource.data.role == "owner"
+        );
         allow read: if isClubOwner(clubId) || (isCoach() && currentUser().clubId == clubId);
         allow update, delete: if isClubOwner(clubId);
       }

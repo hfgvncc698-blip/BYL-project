@@ -9,6 +9,7 @@ const http = require('http');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const { rateLimit } = require('express-rate-limit');
 const { monitorEventLoopDelay } = require('perf_hooks');
 const admin = require('./firebaseAdmin');
 
@@ -42,13 +43,27 @@ if (!admin.apps.length) {
 
 // ====================== App de base ======================
 const app = express();
-app.set('trust proxy', true);
-const { getBearerToken, getUserRole } = require('./utils/firebaseAuth');
+app.disable('x-powered-by');
+// Nginx est le seul proxy de confiance en production. Ne jamais faire confiance
+// à toute la chaîne X-Forwarded-For, sinon un client peut falsifier son IP et
+// contourner les limites de requêtes.
+app.set('trust proxy', 'loopback');
+const { getBearerToken, getUserRole, safeSecretEqual } = require('./utils/firebaseAuth');
 
 // Sécurité
 app.use(
   helmet({
     crossOriginResourcePolicy: false,
+  })
+);
+
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 600,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: { error: 'too-many-requests' },
   })
 );
 
@@ -66,7 +81,7 @@ const extraOrigins = (process.env.CORS_EXTRA_ORIGINS || '')
   .map((s) => s.trim())
   .filter(Boolean);
 
-const allowedOriginSuffixes = (process.env.CORS_ALLOWED_ORIGIN_SUFFIXES || '.boostyourlife.coach')
+const allowedOriginSuffixes = (process.env.CORS_ALLOWED_ORIGIN_SUFFIXES || '')
   .split(',')
   .map((s) => s.trim().toLowerCase())
   .filter(Boolean);
@@ -192,17 +207,16 @@ async function hasSocialPublisherAdminAccess(req) {
   const key =
     req.headers['x-admin-key'] ||
     req.headers['x_admin_key'] ||
-    req.query?.adminKey ||
     '';
   const expected = process.env.ADMIN_SEARCH_KEY || '';
-  if (expected && String(key) === String(expected)) return true;
+  if (safeSecretEqual(key, expected)) return true;
 
   try {
     const token = getBearerToken(req);
     if (!token) return false;
     const decoded = await admin.auth().verifyIdToken(token);
     const role = await getUserRole(decoded.uid);
-    return role === 'admin';
+    return decoded.email_verified === true && role === 'admin';
   } catch (error) {
     console.warn('[social-publisher/admin] invalid auth:', error?.message || error);
     return false;
@@ -227,7 +241,6 @@ app.use('/api/social-publisher', async (req, res, next) => {
       return res.status(500).json({
         ok: false,
         error: 'social_publisher_unavailable',
-        message: error?.message || 'Social Publisher unavailable',
       });
     }
     return next(error);
@@ -236,8 +249,10 @@ app.use('/api/social-publisher', async (req, res, next) => {
   }
 });
 
-// JSON normal pour le reste. Les logos club peuvent transiter en base64 via l'API admin.
-app.use(express.json({ limit: '8mb' }));
+// Le corps général reste volontairement petit. Seul l'upload de logo club a
+// besoin d'une enveloppe plus large à cause de l'encodage base64.
+app.use('/api/clubs/logo', express.json({ limit: '8mb' }));
+app.use(express.json({ limit: '1mb' }));
 
 // Paiements & portail
 app.use('/api/payments', payments);
@@ -284,36 +299,46 @@ const withRetry = require('./utils/withRetry');
 const loopLag = monitorEventLoopDelay({ resolution: 20 });
 loopLag.enable();
 
+let healthCache = { checkedAt: 0, ok: false };
 app.get('/api/health', async (_req, res) => {
+  const now = Date.now();
+  if (now - healthCache.checkedAt < (healthCache.ok ? 10_000 : 3_000)) {
+    return res.status(healthCache.ok ? 200 : 503).json({ ok: healthCache.ok });
+  }
   try {
     await withRetry(() => db.collection('health').limit(1).get());
-    res.json({
-      ok: true,
-      env: process.env.NODE_ENV || 'development',
-      frontendAllowed: Array.from(allowedOrigins),
-      eventLoopLagMs: Math.round(loopLag.mean / 1e6),
-      cronEnabled: process.env.CRON_ENABLED === 'true',
-    });
+    healthCache = { checkedAt: now, ok: true };
+    return res.json({ ok: true });
   } catch (e) {
-    res.status(503).json({
-      ok: false,
-      error: String(e?.message || e),
-      eventLoopLagMs: Math.round(loopLag.mean / 1e6),
-      cronEnabled: process.env.CRON_ENABLED === 'true',
-    });
+    console.error('[health] dependency check failed:', e?.message || e);
+    healthCache = { checkedAt: now, ok: false };
+    return res.status(503).json({ ok: false });
   }
 });
 
 // 404
 app.use((req, res) =>
-  res.status(404).json({ error: 'Not Found', path: req.originalUrl })
+  res.status(404).json({ error: 'not-found' })
 );
+
+app.use((error, _req, res, _next) => {
+  console.error('[api] unhandled error:', error?.stack || error?.message || error);
+  if (res.headersSent) return;
+  const status = Number(error?.status || error?.statusCode || 500);
+  res.status(status >= 400 && status < 600 ? status : 500).json({
+    error: status === 413 ? 'payload-too-large' : 'internal-server-error',
+  });
+});
 
 // ====================== Server ======================
 const PORT = process.env.PORT || 5050;
+const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '127.0.0.1' : '0.0.0.0');
 const server = http.createServer(app);
-server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+server.headersTimeout = 15_000;
+server.requestTimeout = 120_000;
+server.keepAliveTimeout = 5_000;
+server.listen(PORT, HOST, () => {
+  console.log(`Server running on http://${HOST}:${PORT}`);
   if (!process.env.STRIPE_WEBHOOK_SECRET)
     console.warn('[WARN] STRIPE_WEBHOOK_SECRET manquant');
   if (!process.env.STRIPE_SECRET_KEY)
