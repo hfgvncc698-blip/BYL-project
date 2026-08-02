@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-08-01T07:08:44.808Z",
+  "updatedAt": "2026-08-02T07:02:11.618Z",
   "primaryKpi": "free_trial_starts",
   "secondaryKpi": "activation_day_7",
   "activationSignals": [
@@ -30428,7 +30428,7 @@
     },
     {
       "id": "2026-08-01-growth-report",
-      "generatedAt": "2026-08-01T07:08:44.807Z",
+      "generatedAt": "2026-08-02T07:02:11.617Z",
       "date": "2026-08-01",
       "primaryKpi": "free_trial_starts",
       "secondaryKpi": "activation_day_7",
@@ -30508,23 +30508,78 @@
         "source": "codex_user_request_2026_07_01",
         "resolvedAt": "",
         "resolvedReason": "",
-        "alertCount": 91,
+        "alertCount": 92,
         "latestAlert": {
-          "at": "2026-08-01T07:08:44.779Z",
+          "at": "2026-08-02T07:02:11.610Z",
           "reason": "meta_performance_sync_partial_failure",
           "severity": "warning",
           "source": "byl-social-publisher-rapport-growth-nightly",
           "details": {
-            "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
-            "rerunEscalated": true,
-            "updated": 3,
-            "failedCount": 15,
+            "updated": 2,
+            "failedCount": 16,
             "total": 18,
-            "blocker": "Meta Graph objects unavailable, missing permissions, or unsupported; missing metrics not invented"
+            "rerunEscalated": true,
+            "initialSandboxError": "fetch failed | ENOTFOUND | graph.facebook.com",
+            "sampleErrors": [
+              "Meta Graph request timeout",
+              "Unsupported get request: object missing, unavailable, or insufficient permissions"
+            ],
+            "missingMetricsInvented": false
           }
         }
       },
-      "recentBlocks": [],
+      "recentBlocks": [
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        }
+      ],
       "learningEntryCount": 245
     }
   ],

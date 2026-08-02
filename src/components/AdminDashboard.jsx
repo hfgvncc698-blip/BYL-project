@@ -107,6 +107,7 @@ import {
 import AppLoading from "./ui/AppLoading";
 import { useAppTheme } from "../styles/appTheme";
 import i18n from "../i18n/index";
+import { apiFetch } from "../utils/api";
 
 /* ================= helpers ================= */
 function todayMinus(n) {
@@ -242,6 +243,9 @@ const pickProgramName = (program = {}, fallback = "Programme") =>
 
 const getAccessBadge = (row = {}) => {
   const status = norm(row.subscriptionStatus || row.accessStatus || row.status);
+  if (status === "pending_verification") {
+    return { label: "E-mail à confirmer", colorScheme: "orange" };
+  }
   if (row.hasActiveSubscription || status === "active") {
     return { label: "Actif", colorScheme: "green" };
   }
@@ -253,6 +257,16 @@ const getAccessBadge = (row = {}) => {
     return { label: "Accès coupé", colorScheme: "red" };
   }
   return { label: status ? status.toUpperCase() : "Free", colorScheme: "gray" };
+};
+
+const getEmailVerificationBadge = (row = {}) => {
+  if (row.emailVerified === true) {
+    return { label: "E-mail vérifié", colorScheme: "green" };
+  }
+  if (row.emailVerified === false || row.emailVerificationRequired === true) {
+    return { label: "E-mail non vérifié", colorScheme: "red" };
+  }
+  return { label: "Vérification inconnue", colorScheme: "gray" };
 };
 
 function VisitCell({ value, location }) {
@@ -1129,9 +1143,23 @@ export default function AdminDashboard() {
         }
 
         const coachDocs = await initialReads.coaches;
+        let coachAuthStatuses = {};
+        try {
+          const response = await apiFetch("/admin-users/email-verification-statuses", {
+            method: "POST",
+            body: JSON.stringify({ uids: coachDocs.docs.map((coachDoc) => coachDoc.id) }),
+          });
+          coachAuthStatuses = response.statuses || {};
+        } catch (error) {
+          console.warn(
+            "admin email verification statuses unavailable:",
+            error?.message || error
+          );
+        }
         const coachList = [];
         coachDocs.forEach((d) => {
           const data = d.data() || {};
+          const authStatus = coachAuthStatuses[d.id] || {};
           const visitFallback = visitByUid.get(d.id) || {};
           const lastVisitValue = lastVisitAfterCreation(
             data.createdAt,
@@ -1147,6 +1175,14 @@ export default function AdminDashboard() {
             id: d.id,
             name: `${data.firstName || ""} ${data.lastName || ""}`.trim() || d.id,
             email: data.email || "",
+            emailVerified:
+              typeof authStatus.emailVerified === "boolean"
+                ? authStatus.emailVerified
+                : typeof data.emailVerified === "boolean"
+                ? data.emailVerified
+                : null,
+            emailVerificationRequired: data.emailVerificationRequired === true,
+            authProviderIds: authStatus.providerIds || [],
             createdAt: toIso(data.createdAt),
             createdAtMs: toMillis(data.createdAt),
             trialEndsAt: toIso(data.trialEndsAt || data.trialEnd),
@@ -1782,11 +1818,28 @@ export default function AdminDashboard() {
       (row) => row.lastVisit && row.lastVisit !== "—" && !row.lastVisitLocation
     );
     const clientsWithoutCoach = clientsRows.filter((row) => !row.coach || row.coach === "—");
+    const unverifiedNewCoaches = coaches.filter(
+      (coach) =>
+        coach.emailVerified === false &&
+        coach.createdAtMs &&
+        coach.createdAtMs >= now - 30 * 24 * 60 * 60 * 1000
+    );
     const unnamedPrograms = programRows.filter(
       (program) => !program.name || looksLikeId(program.name) || program.name === program.id
     );
 
     return [
+      {
+        key: "unverifiedEmail",
+        label: "E-mails non vérifiés",
+        count: unverifiedNewCoaches.length,
+        color: unverifiedNewCoaches.length ? "orange" : "green",
+        detail: "Nouveaux comptes coach dont l’adresse n’a pas encore été confirmée.",
+        sectionId: "admin-coaches",
+        rows: unverifiedNewCoaches.map((coach) =>
+          coachAction(coach, "Adresse e-mail non vérifiée")
+        ),
+      },
       {
         key: "trialSoon",
         label: "Essais à suivre",
@@ -1876,6 +1929,7 @@ export default function AdminDashboard() {
       [
         { label: "Nom", get: (row) => row.name },
         { label: "Email", get: (row) => row.email },
+        { label: "Vérification e-mail", get: (row) => getEmailVerificationBadge(row).label },
         { label: "Accès", get: (row) => getAccessBadge(row).label },
         { label: "Clients", get: (row) => row.clients },
         { label: "Programmes", get: (row) => row.programs },
@@ -2237,6 +2291,7 @@ export default function AdminDashboard() {
 
       const u = coachDoc.data() || {};
       const name = `${u.firstName || ""} ${u.lastName || ""}`.trim() || id;
+      const listedCoach = coaches.find((coach) => coach.id === id);
 
       setDrawerData({
         drawerKind: "coach",
@@ -2244,6 +2299,13 @@ export default function AdminDashboard() {
         id,
         name,
         email: u.email || "—",
+        emailVerified:
+          typeof listedCoach?.emailVerified === "boolean"
+            ? listedCoach.emailVerified
+            : typeof u.emailVerified === "boolean"
+            ? u.emailVerified
+            : null,
+        emailVerificationRequired: u.emailVerificationRequired === true,
         createdAt: toIso(u.createdAt),
         lastVisit: toIso(lastVisitAfterCreation(
           u.createdAt,
@@ -2518,7 +2580,19 @@ export default function AdminDashboard() {
           : `${row.clients || 0} client${row.clients === 1 ? "" : "s"} · ${
               row.programs || 0
             } programme${row.programs === 1 ? "" : "s"}`,
-      badge: (row) => row.packageTier || row.packageKey || row.subscriptionStatus || "gratuit",
+      badge: (row) => {
+        if (
+          row.emailVerified === false ||
+          (row.emailVerificationRequired === true && row.emailVerified !== true)
+        ) {
+          return "E-mail non vérifié";
+        }
+        if (norm(row.subscriptionStatus).includes("trial")) {
+          const tier = row.packageTier || row.packageKey;
+          return tier ? `Essai · ${tier}` : "Essai";
+        }
+        return row.packageTier || row.packageKey || row.subscriptionStatus || "gratuit";
+      },
     },
     {
       key: "clients",
@@ -3239,6 +3313,7 @@ export default function AdminDashboard() {
           <VStack align="stretch" spacing={3} display={{ base: "flex", md: "none" }}>
             {visibleCoaches.map((c) => {
               const accessBadge = getAccessBadge(c);
+              const emailBadge = getEmailVerificationBadge(c);
               return (
                 <MobileAdminRow
                   key={c.id}
@@ -3252,6 +3327,9 @@ export default function AdminDashboard() {
                     <>
                       <WrapItem>
                         <Badge colorScheme={accessBadge.colorScheme}>{accessBadge.label}</Badge>
+                      </WrapItem>
+                      <WrapItem>
+                        <Badge colorScheme={emailBadge.colorScheme}>{emailBadge.label}</Badge>
                       </WrapItem>
                       <WrapItem>
                         <Tag size="sm" colorScheme="blue">{c.clients}{i18n.t("auto.ClubDashboard.client_s_2", "client(s)")}</Tag>
@@ -3282,6 +3360,7 @@ export default function AdminDashboard() {
               <Tbody>
                 {visibleCoaches.map((c) => {
                   const accessBadge = getAccessBadge(c);
+                  const emailBadge = getEmailVerificationBadge(c);
                   return (
                     <Tr
                       key={c.id}
@@ -3295,6 +3374,9 @@ export default function AdminDashboard() {
                       </Td>
                       <Td maxW={{ base: "180px", md: "260px" }}>
                         <Text noOfLines={1}>{c.email || "—"}</Text>
+                        <Badge mt={1} colorScheme={emailBadge.colorScheme} variant="subtle">
+                          {emailBadge.label}
+                        </Badge>
                       </Td>
                       <Td>
                         <VStack align="flex-start" spacing={1}>
@@ -4004,6 +4086,9 @@ export default function AdminDashboard() {
                   {!drawerData.hasActiveSubscription && drawerData.subscriptionStatus && (
                     <Badge colorScheme="gray">{drawerData.subscriptionStatus}</Badge>
                   )}
+                  <Badge colorScheme={getEmailVerificationBadge(drawerData).colorScheme}>
+                    {getEmailVerificationBadge(drawerData).label}
+                  </Badge>
                   <Badge colorScheme="purple">{i18n.t("auto.AdminDashboard.clients", "clients:")}{coachClients.length}</Badge>
                   <Badge colorScheme="blue">{i18n.t("auto.AdminDashboard.programmes", "programmes:")}{coachPrograms.length}</Badge>
                 </HStack>

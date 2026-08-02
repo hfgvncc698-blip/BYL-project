@@ -25,7 +25,6 @@ import { LockIcon, ViewIcon, ViewOffIcon } from "@chakra-ui/icons";
 import { FcGoogle } from "react-icons/fc";
 import { useTranslation, Trans } from "react-i18next";
 
-import { getFunctions, httpsCallable } from "firebase/functions";
 import i18n from "../i18n"; // ✅ pour récupérer la langue active
 
 function calcAge(birthDateStr) {
@@ -161,32 +160,9 @@ const Register = () => {
         }
       );
 
-      // ✅ Envoi email bienvenue (coach vs élève) via Functions (app default)
-      try {
-        const functions = getFunctions(undefined, "europe-west1");
-        const sendWelcomeEmail = httpsCallable(functions, "sendWelcomeEmail");
-
-        console.log("[Register] calling sendWelcomeEmail...", { lang: activeLang });
-        const res = await sendWelcomeEmail({
-          email,
-          firstName,
-          role: firestoreRole, // coach / particulier
-          lang: activeLang, // ✅ langue active détectée
-        });
-
-        console.log("[Register] sendWelcomeEmail OK:", res?.data);
-      } catch (mailErr) {
-        console.warn("[Register] sendWelcomeEmail failed:", mailErr);
-        // On n'empêche pas l'inscription si l'email échoue
-      }
-
-      if (redirect) {
-        navigate(redirect, { replace: true });
-      } else if (role === "club") {
-        navigate("/club-dashboard", { replace: true });
-      } else {
-        navigate(firestoreRole === "coach" ? "/coach-dashboard" : "/user-dashboard", { replace: true });
-      }
+      const verificationParams = new URLSearchParams({ pending: "1", lang: activeLang });
+      if (redirect) verificationParams.set("next", redirect);
+      navigate(`/verify-email?${verificationParams.toString()}`, { replace: true });
     } catch (err) {
       console.error(err);
       setErrorMessage(t("auth.register.errors.failed"));

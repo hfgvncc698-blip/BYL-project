@@ -342,6 +342,17 @@ function loginRedirectFor(location) {
   return `/login?next=${encodeURIComponent(next)}`;
 }
 
+function emailVerificationRedirectFor(location) {
+  const next = `${location.pathname || "/"}${location.search || ""}${location.hash || ""}`;
+  const params = new URLSearchParams({ pending: "1" });
+  if (location.pathname !== "/") params.set("next", next);
+  return `/verify-email?${params.toString()}`;
+}
+
+function needsEmailVerification(user) {
+  return user?.emailVerificationRequired === true && user?.emailVerified !== true;
+}
+
 function LegacyClientDashboardRoute() {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
@@ -359,6 +370,9 @@ function ProtectedRoute({ children }) {
   const location = useLocation();
   if (loading && !user) return <AppLoading label={t("common.loading_space", "Chargement de votre espace...")} />;
   if (!user) return <Navigate to={loginRedirectFor(location)} replace />;
+  if (needsEmailVerification(user)) {
+    return <Navigate to={emailVerificationRedirectFor(location)} replace />;
+  }
   return children;
 }
 
@@ -368,6 +382,9 @@ function CoachActiveRoute({ children }) {
   const location = useLocation();
   if (loading && !user) return <AppLoading label={t("common.loading_space", "Chargement de votre espace...")} />;
   if (!user) return <Navigate to={loginRedirectFor(location)} replace />;
+  if (needsEmailVerification(user)) {
+    return <Navigate to={emailVerificationRedirectFor(location)} replace />;
+  }
 
   // Admin : accès OK
   if (isAdmin) return children;
@@ -387,6 +404,9 @@ function ClubRoute({ children }) {
   const location = useLocation();
   if (loading && !user) return <AppLoading label={t("club.loading", "Chargement de l'espace club...")} />;
   if (!user) return <Navigate to={loginRedirectFor(location)} replace />;
+  if (needsEmailVerification(user)) {
+    return <Navigate to={emailVerificationRedirectFor(location)} replace />;
+  }
   if (isAdmin) return children;
   if (user.role !== "coach") return <Navigate to="/" replace />;
   if (!hasCoachAccess) return <Navigate to="/plans/professionnel" replace />;
@@ -402,6 +422,9 @@ function ModuleRoute({ module, children }) {
   const location = useLocation();
   if (loading && !user) return <AppLoading label={t("plans.checkingPackage", "Vérification de votre package...")} />;
   if (!user) return <Navigate to={loginRedirectFor(location)} replace />;
+  if (needsEmailVerification(user)) {
+    return <Navigate to={emailVerificationRedirectFor(location)} replace />;
+  }
   if (isAdmin) return children;
   if (user.role !== "coach") return <Navigate to="/" replace />;
   if (!hasCoachAccess) return <Navigate to="/plans/professionnel" replace />;
@@ -431,6 +454,9 @@ function ClientOnlyRoute({ children }) {
   const location = useLocation();
   if (loading && !user) return <AppLoading label={t("common.loading_space", "Chargement de votre espace...")} />;
   if (!user) return <Navigate to={loginRedirectFor(location)} replace />;
+  if (needsEmailVerification(user)) {
+    return <Navigate to={emailVerificationRedirectFor(location)} replace />;
+  }
 
   // Admin : jamais sur l'espace client
   if (isAdmin) {
@@ -462,6 +488,9 @@ function HomeRoute() {
 
   if (loading && !user) return <HomePage />;
   if (!user) return <HomePage />;
+  if (needsEmailVerification(user)) {
+    return <Navigate to="/verify-email?pending=1" replace />;
+  }
 
   if (isAdmin) {
     return effectiveRole === "admin" ? (

@@ -1543,6 +1543,24 @@
         "total": 18,
         "blocker": "Meta Graph objects unavailable, missing permissions, or unsupported; missing metrics not invented"
       }
+    },
+    {
+      "at": "2026-08-02T07:02:11.610Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "byl-social-publisher-rapport-growth-nightly",
+      "details": {
+        "updated": 2,
+        "failedCount": 16,
+        "total": 18,
+        "rerunEscalated": true,
+        "initialSandboxError": "fetch failed | ENOTFOUND | graph.facebook.com",
+        "sampleErrors": [
+          "Meta Graph request timeout",
+          "Unsupported get request: object missing, unavailable, or insufficient permissions"
+        ],
+        "missingMetricsInvented": false
+      }
     }
   ]
 }

@@ -83,7 +83,11 @@ import {
   DeleteIcon,
 } from "@chakra-ui/icons";
 import { AnimatePresence, motion } from "framer-motion";
-import { playFeedback, primeFeedbackAudio } from "../utils/feedback";
+import {
+  getVibrationFeedbackAvailability,
+  playFeedback,
+  primeFeedbackAudio,
+} from "../utils/feedback";
 import { useTranslation } from "react-i18next";
 import i18n from "../i18n";
 import { useAuth } from "../AuthContext";
@@ -2494,6 +2498,7 @@ export default function SessionPlayer() {
       return true;
     }
   });
+  const vibrationAvailability = useMemo(() => getVibrationFeedbackAvailability(), []);
 
   const durSecRef = useRef(0);
   const restSecRef = useRef(0);
@@ -2554,7 +2559,16 @@ export default function SessionPlayer() {
   }, [soundEnabled]);
 
   const emitPlayerFeedback = (cueName) =>
-    playFeedback(cueName, { soundEnabled, hapticsEnabled });
+    playFeedback(cueName, {
+      soundEnabled,
+      hapticsEnabled: hapticsEnabled && vibrationAvailability.supported,
+    });
+
+  const testPlayerVibration = () =>
+    playFeedback("setComplete", {
+      soundEnabled: false,
+      hapticsEnabled: vibrationAvailability.supported,
+    });
 
   useEffect(() => {
     clearElapsedTimerState(legacySessionTimerStorageKey);
@@ -5995,23 +6009,48 @@ export default function SessionPlayer() {
                     borderRadius="16px"
                   >
                     <Box minW={0}>
-                      <Text fontSize="sm" fontWeight="800">
-                        {t("sessionPlayer.vibrations", "Vibrations")}
-                      </Text>
-                      <Text fontSize="xs" color={textMute} noOfLines={2}>
-                        {t(
-                          "sessionPlayer.vibrationsHelp",
-                          "Ajoute un retour discret sur les appareils compatibles."
+                      <HStack spacing={2} mb={0.5}>
+                        <Text fontSize="sm" fontWeight="800">
+                          {t("sessionPlayer.vibrations", "Vibrations")}
+                        </Text>
+                        {!vibrationAvailability.supported && (
+                          <Badge colorScheme="gray" borderRadius="full" fontSize="0.62em">
+                            {t("sessionPlayer.unavailable", "Indisponible")}
+                          </Badge>
                         )}
+                      </HStack>
+                      <Text fontSize="xs" color={textMute} noOfLines={2}>
+                        {vibrationAvailability.supported
+                          ? t(
+                              "sessionPlayer.vibrationsHelp",
+                              "Ajoute un retour discret sur les appareils compatibles."
+                            )
+                          : t(
+                              "sessionPlayer.vibrationsUnavailable",
+                              "Non pris en charge par ce navigateur. Disponible sur Android compatible."
+                            )}
                       </Text>
                     </Box>
-                    <Switch
-                      size="sm"
-                      colorScheme="blue"
-                      isChecked={hapticsEnabled}
-                      onChange={(event) => setHapticsEnabled(event.target.checked)}
-                      aria-label={t("sessionPlayer.vibrations", "Vibrations")}
-                    />
+                    <VStack spacing={1} align="flex-end" flexShrink={0}>
+                      <Switch
+                        size="sm"
+                        colorScheme="blue"
+                        isChecked={vibrationAvailability.supported && hapticsEnabled}
+                        isDisabled={!vibrationAvailability.supported}
+                        onChange={(event) => setHapticsEnabled(event.target.checked)}
+                        aria-label={t("sessionPlayer.vibrations", "Vibrations")}
+                      />
+                      {vibrationAvailability.supported && hapticsEnabled && (
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          colorScheme="blue"
+                          onClick={testPlayerVibration}
+                        >
+                          {t("sessionPlayer.testVibration", "Tester")}
+                        </Button>
+                      )}
+                    </VStack>
                   </HStack>
                 </VStack>
               </Box>

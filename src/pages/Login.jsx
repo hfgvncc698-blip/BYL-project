@@ -96,7 +96,11 @@ export default function Login() {
     try {
       setAuthLoading(true);
       await loginWithEmail(loginEmail, password, (role, hasActiveSubscription, profile) => {
-        if (targetAfterLogin) {
+        if (profile?.emailVerificationRequired && !profile?.emailVerified) {
+          const verificationParams = new URLSearchParams({ pending: "1" });
+          if (targetAfterLogin) verificationParams.set("next", targetAfterLogin);
+          navigate(`/verify-email?${verificationParams.toString()}`, { replace: true });
+        } else if (targetAfterLogin) {
           navigate(targetAfterLogin, { replace: true });
         } else if ((proIntent || role === "coach") && !hasActiveSubscription) {
           navigate("/plans/professionnel", { replace: true });

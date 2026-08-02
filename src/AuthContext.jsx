@@ -20,6 +20,8 @@ import {
   onAuthStateChanged,
   updateProfile,
   deleteUser,
+  reload,
+  sendEmailVerification,
 } from "firebase/auth";
 import {
   doc,
@@ -104,6 +106,14 @@ const safeTime = (d) => {
 
 const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
 
+const verificationReturnUrl = (lang = "fr") => {
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://boostyourlife.coach";
+  const url = new URL("/verify-email", origin);
+  url.searchParams.set("pending", "1");
+  url.searchParams.set("lang", langCodeFromAny(lang));
+  return url.toString();
+};
+
 const langCodeFromAny = (value) => {
   const raw = String(value || "").trim().toLowerCase();
   if (!raw) return (navigator.language || "fr").slice(0, 2).toLowerCase();
@@ -135,6 +145,7 @@ async function syncAccountLanguage(data = {}) {
 
 function queueWelcomeEmail(fbUser, data = {}) {
   if (!fbUser?.uid || !fbUser?.email) return;
+  if (data.emailVerificationRequired === true && fbUser.emailVerified !== true) return;
   const authCreatedAtMs = Date.parse(fbUser.metadata?.creationTime || "");
   const isRecentlyCreatedAccount =
     Number.isFinite(authCreatedAtMs) &&
@@ -202,6 +213,11 @@ const normalizeUserDoc = (uid, data, fb) => {
   return {
     uid,
     email: fb?.email ?? data?.email ?? null,
+    emailVerified:
+      typeof fb?.emailVerified === "boolean"
+        ? fb.emailVerified
+        : data?.emailVerified === true,
+    emailVerificationRequired: data?.emailVerificationRequired === true,
     firstName: data?.firstName ?? data?.prenom ?? "Utilisateur",
     lastName: data?.lastName ?? data?.nom ?? "",
     role,
@@ -314,6 +330,84 @@ async function seedUserDocFromClient(firebaseUser, provider = null) {
   };
 }
 
+function verifiedCoachTrialPatch(data = {}) {
+  const isClubOwner =
+    data.accountType === "club_owner" ||
+    data.clubRole === "owner" ||
+    data.onboardingPackage === "club" ||
+    data.packageKey === "club";
+  const selectedAccess = isClubOwner ? FULL_CLUB_TRIAL_ACCESS : FULL_PRO_TRIAL_ACCESS;
+  const requestedTrialDays = Number(data.trialDays || TRIAL_DAYS);
+  const trialDays =
+    Number.isFinite(requestedTrialDays) && requestedTrialDays > 0
+      ? Math.min(Math.round(requestedTrialDays), 30)
+      : TRIAL_DAYS;
+  const now = Date.now();
+
+  return {
+    subscriptionStatus: "trialing",
+    trialStatus: "running",
+    trialStartedAt: Timestamp.fromDate(new Date(now)),
+    trialEndsAt: Timestamp.fromDate(new Date(now + trialDays * 24 * 60 * 60 * 1000)),
+    trialDays,
+    onboardingPackage: selectedAccess.packageKey,
+    onboardingPackageTier: selectedAccess.packageTier,
+    packageKey: selectedAccess.packageKey,
+    packageTier: selectedAccess.packageTier,
+    clientLimit: selectedAccess.clientLimit,
+    proLimit: selectedAccess.proLimit,
+    modules: selectedAccess.modules,
+    proAccess: selectedAccess,
+    hasActiveSubscription: false,
+  };
+}
+
+async function syncVerifiedEmailAccount(fbUser, initialData = {}) {
+  if (!fbUser?.uid || fbUser.emailVerified !== true) return initialData;
+  if (
+    initialData.emailVerified === true &&
+    initialData.subscriptionStatus !== "pending_verification"
+  ) {
+    return initialData;
+  }
+  const userRef = doc(db, "users", fbUser.uid);
+  const trialPatch =
+    initialData.role === "coach" && initialData.subscriptionStatus === "pending_verification"
+      ? verifiedCoachTrialPatch(initialData)
+      : {};
+  const patch = {
+    ...trialPatch,
+    emailVerified: true,
+    emailVerifiedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+
+  await setDoc(userRef, patch, { merge: true });
+
+  if (
+    initialData.role === "coach" &&
+    initialData.subscriptionStatus === "pending_verification" &&
+    (initialData.accountType === "club_owner" || initialData.clubRole === "owner")
+  ) {
+    const clubId = initialData.clubId || fbUser.uid;
+    await setDoc(
+      doc(db, "clubs", clubId),
+      {
+        status: "trialing",
+        trialStartedAt: trialPatch.trialStartedAt,
+        trialEndsAt: trialPatch.trialEndsAt,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    ).catch((error) => {
+      console.warn("[auth] club trial activation sync skipped:", error?.message || error);
+    });
+  }
+
+  const updatedSnap = await getDoc(userRef);
+  return updatedSnap.data() || { ...initialData, ...patch };
+}
+
 /* ----------------- Provider ----------------- */
 export const AuthProvider = ({ children }) => {
   // Affiche immédiatement le dernier profil validé, puis on le resynchronise
@@ -369,6 +463,8 @@ export const AuthProvider = ({ children }) => {
   const isAuthenticated = Boolean(user);
   const isAdmin = user?.role === "admin";
   const isCoach = effectiveRole === "coach";
+  const requiresEmailVerification = user?.emailVerificationRequired === true;
+  const isEmailVerified = !requiresEmailVerification || user?.emailVerified === true;
 
   /* ----------------- ✅ TRIAL + ACCÈS PRO (FIX) ----------------- */
   const isTrialActive = useMemo(() => {
@@ -395,8 +491,10 @@ export const AuthProvider = ({ children }) => {
     // admin a accès
     if (user.role === "admin") return true;
 
+    if (!isEmailVerified) return false;
+
     return user.hasActiveSubscription === true || isTrialActive === true;
-  }, [user, isTrialActive]);
+  }, [user, isTrialActive, isEmailVerified]);
 
   /* -- Compat : ancien flag showAdminView/toggleAdminView (mappés sur viewAs) -- */
   const showAdminView = isAdmin && effectiveRole === "admin";
@@ -536,7 +634,11 @@ export const AuthProvider = ({ children }) => {
       if (callback) {
         const ref = doc(db, "users", fbUser.uid);
         const snap = await getDoc(ref);
-        const data = snap.data() || {};
+        let data = snap.data() || {};
+        if (fbUser.emailVerified === true && data.emailVerificationRequired === true) {
+          await fbUser.getIdToken(true);
+          data = await syncVerifiedEmailAccount(fbUser, data);
+        }
         await syncAccountLanguage(data);
         const normalized = normalizeUserDoc(fbUser.uid, data, fbUser);
         setUser(normalized);
@@ -570,7 +672,12 @@ export const AuthProvider = ({ children }) => {
           data.clubRole === "owner";
         const callbackRole = clubAccessOk ? "coach" : data.role || "particulier";
 
-        callback(callbackRole, !!data.hasActiveSubscription || !!trialOk || !!clubAccessOk, data);
+        callback(
+          callbackRole,
+          (!normalized.emailVerificationRequired || normalized.emailVerified) &&
+            (!!data.hasActiveSubscription || !!trialOk || !!clubAccessOk),
+          normalized
+        );
       }
     } catch (err) {
       console.error(err);
@@ -741,6 +848,8 @@ export const AuthProvider = ({ children }) => {
 
       const base = {
         email,
+        emailVerified: false,
+        emailVerificationRequired: true,
         firstName: firstName || "Utilisateur",
         lastName: lastName || "",
         role,
@@ -769,19 +878,14 @@ export const AuthProvider = ({ children }) => {
         const requestedPackageKey = consent?.onboardingPackage || "";
         const requestedPackageTier = consent?.onboardingPackageTier || "";
         const selectedAccess = isClubOwner ? FULL_CLUB_TRIAL_ACCESS : FULL_PRO_TRIAL_ACCESS;
-        const now = Date.now();
         const requestedTrialDays = Number(consent?.trialDays || TRIAL_DAYS);
         const trialDays =
           Number.isFinite(requestedTrialDays) && requestedTrialDays > 0
             ? Math.min(Math.round(requestedTrialDays), 30)
             : TRIAL_DAYS;
         trialPart = {
-          subscriptionStatus: "trialing",
-          trialStartedAt: Timestamp.fromDate(new Date(now)),
-          trialEndsAt: Timestamp.fromDate(
-            new Date(now + trialDays * 24 * 60 * 60 * 1000)
-          ),
-          trialStatus: "running",
+          subscriptionStatus: "pending_verification",
+          trialStatus: "pending_verification",
           trialDays,
           requestedPackageKey,
           requestedPackageTier,
@@ -848,7 +952,7 @@ export const AuthProvider = ({ children }) => {
             ownerEmail: email,
             planTier: trialPart.packageTier || "network",
             trialDays: trialPart.trialDays || 30,
-            status: "trialing",
+            status: "pending_verification",
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           },
@@ -870,13 +974,25 @@ export const AuthProvider = ({ children }) => {
         );
       }
       await registrationBatch.commit();
-      await createStripeCustomerForRegisteredUser(fbUser, {
-        email,
-        firstName,
-        lastName,
-        role,
-      });
+      try {
+        auth.languageCode = base.preferredLang;
+        await sendEmailVerification(fbUser, {
+          url: verificationReturnUrl(base.preferredLang),
+          handleCodeInApp: false,
+        });
+        await setDoc(
+          userRef,
+          { emailVerificationSentAt: serverTimestamp(), updatedAt: serverTimestamp() },
+          { merge: true }
+        );
+      } catch (verificationError) {
+        console.warn(
+          "[register] verification email will need to be resent:",
+          verificationError?.message || verificationError
+        );
+      }
       // le onSnapshot remplira `user`
+      return { emailVerificationRequired: true };
     } catch (err) {
       console.error(err);
       if (createdUser) {
@@ -892,6 +1008,62 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const resendEmailVerification = async (lang) => {
+    const fbUser = auth.currentUser;
+    if (!fbUser) throw new Error("auth-required");
+    if (fbUser.emailVerified) return true;
+    const langCode = langCodeFromAny(lang || user?.preferredLang || i18n.language || "fr");
+    auth.languageCode = langCode;
+    await sendEmailVerification(fbUser, {
+      url: verificationReturnUrl(langCode),
+      handleCodeInApp: false,
+    });
+    await setDoc(
+      doc(db, "users", fbUser.uid),
+      { emailVerificationSentAt: serverTimestamp(), updatedAt: serverTimestamp() },
+      { merge: true }
+    );
+    return true;
+  };
+
+  const refreshEmailVerification = async () => {
+    const fbUser = auth.currentUser;
+    if (!fbUser) return { verified: false, reason: "auth-required" };
+
+    await reload(fbUser);
+    if (fbUser.emailVerified !== true) {
+      return { verified: false, reason: "not-verified" };
+    }
+
+    await fbUser.getIdToken(true);
+    const userRef = doc(db, "users", fbUser.uid);
+    const snap = await getDoc(userRef);
+    const previousData = snap.data() || {};
+    const activatedTrial =
+      previousData.role === "coach" &&
+      previousData.subscriptionStatus === "pending_verification";
+    const data = await syncVerifiedEmailAccount(fbUser, previousData);
+
+    if (activatedTrial && !data.stripeCustomerId) {
+      await createStripeCustomerForRegisteredUser(fbUser, {
+        email: fbUser.email || data.email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        role: data.role,
+      });
+    }
+
+    const latestSnap = await getDoc(userRef);
+    const latestData = latestSnap.data() || data;
+    const normalized = normalizeUserDoc(fbUser.uid, latestData, fbUser);
+    setUser(normalized);
+    try {
+      localStorage.setItem("user", JSON.stringify(normalized));
+    } catch {}
+    queueWelcomeEmail(fbUser, latestData);
+    return { verified: true, user: normalized };
   };
 
   // Démarrer un essai coach pour un utilisateur existant
@@ -988,6 +1160,8 @@ export const AuthProvider = ({ children }) => {
       // ✅ accès pro
       isTrialActive,
       hasCoachAccess, // <= C'EST CE FLAG QU'IL FAUT UTILISER DANS LES GUARDS
+      isEmailVerified,
+      requiresEmailVerification,
 
       // compat (si du code existant l’utilise)
       showAdminView, // true quand l’admin est en vue Admin
@@ -998,6 +1172,8 @@ export const AuthProvider = ({ children }) => {
       loginWithGoogle,
       loginWithApple,
       registerWithEmail,
+      resendEmailVerification,
+      refreshEmailVerification,
       logout,
       resetPassword,
       startCoachTrialIfNeeded,
@@ -1014,6 +1190,8 @@ export const AuthProvider = ({ children }) => {
       showAdminView,
       isTrialActive,
       hasCoachAccess,
+      isEmailVerified,
+      requiresEmailVerification,
     ]
   );
 

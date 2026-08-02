@@ -21,6 +21,16 @@ service cloud.firestore {
       return signedIn() && currentUser().role == "admin";
     }
 
+    function verifiedEmail() {
+      return signedIn() && request.auth.token.email_verified == true;
+    }
+
+    function emailAccessReady(user) {
+      return !user.keys().hasAny(["emailVerificationRequired"]) ||
+        user.emailVerificationRequired != true ||
+        verifiedEmail();
+    }
+
     function isCoach() {
       return signedIn() && (
         currentUser().role == "coach" ||
@@ -33,6 +43,7 @@ service cloud.firestore {
       return isAdmin() || (
         signedIn() &&
         user.role == "coach" &&
+        emailAccessReady(user) &&
         (
           user.hasActiveSubscription == true ||
           user.subscriptionStatus == "active" ||
@@ -56,6 +67,7 @@ service cloud.firestore {
         (
           currentUser().role == "coach" &&
           currentUser().clubId == clubId &&
+          emailAccessReady(currentUser()) &&
           (
             currentUser().accountType == "club_owner" ||
             currentUser().clubRole == "owner"
@@ -193,8 +205,62 @@ service cloud.firestore {
         "stripeSubscriptionId",
         "trialStartedAt",
         "trialEndsAt",
-        "linkedClientId"
+        "linkedClientId",
+        "emailVerified",
+        "emailVerifiedAt",
+        "emailVerificationRequired"
       ]);
+    }
+
+    function canActivateVerifiedCoachTrial() {
+      return signedIn() &&
+        verifiedEmail() &&
+        resource.data.role == "coach" &&
+        resource.data.subscriptionStatus == "pending_verification" &&
+        resource.data.emailVerificationRequired == true &&
+        request.resource.data.role == "coach" &&
+        request.resource.data.subscriptionStatus == "trialing" &&
+        request.resource.data.trialStatus == "running" &&
+        request.resource.data.emailVerificationRequired == true &&
+        request.resource.data.emailVerified == true &&
+        request.resource.data.hasActiveSubscription != true &&
+        request.resource.data.trialStartedAt is timestamp &&
+        request.resource.data.trialStartedAt <= request.time + duration.value(5, "m") &&
+        request.resource.data.trialEndsAt is timestamp &&
+        request.resource.data.trialEndsAt > request.time &&
+        request.resource.data.trialEndsAt <= request.time + duration.value(30, "d") &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "subscriptionStatus",
+          "trialStatus",
+          "trialStartedAt",
+          "trialEndsAt",
+          "trialDays",
+          "onboardingPackage",
+          "onboardingPackageTier",
+          "packageKey",
+          "packageTier",
+          "clientLimit",
+          "proLimit",
+          "modules",
+          "proAccess",
+          "hasActiveSubscription",
+          "emailVerified",
+          "emailVerifiedAt",
+          "updatedAt"
+        ]);
+    }
+
+    function canSyncVerifiedEmail() {
+      return signedIn() &&
+        verifiedEmail() &&
+        resource.data.emailVerificationRequired == true &&
+        request.resource.data.emailVerificationRequired == true &&
+        request.resource.data.emailVerified == true &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "emailVerified",
+          "emailVerifiedAt",
+          "updatedAt"
+        ]);
     }
 
     function userRoleUnchanged() {
@@ -214,9 +280,20 @@ service cloud.firestore {
           ) ||
           (
             data.role == "coach" &&
-            data.subscriptionStatus == "trialing" &&
-            data.trialEndsAt is timestamp &&
-            data.trialEndsAt <= request.time + duration.value(30, "d")
+            (
+              (
+                data.subscriptionStatus == "pending_verification" &&
+                data.emailVerificationRequired == true &&
+                data.emailVerified == false &&
+                !data.keys().hasAny(["trialStartedAt", "trialEndsAt"])
+              ) ||
+              (
+                verifiedEmail() &&
+                data.subscriptionStatus == "trialing" &&
+                data.trialEndsAt is timestamp &&
+                data.trialEndsAt <= request.time + duration.value(30, "d")
+              )
+            )
           )
         );
     }
@@ -239,7 +316,12 @@ service cloud.firestore {
       allow list: if isAdmin() || (
         signedIn() && resource.data.role in ["coach", "admin"]
       );
-      allow update: if (isAdmin() && userRoleUnchanged()) || (isOwnUser(uid) && userSelfProtectedFieldsUnchanged());
+      allow update: if (isAdmin() && userRoleUnchanged()) ||
+        (isOwnUser(uid) && (
+          userSelfProtectedFieldsUnchanged() ||
+          canActivateVerifiedCoachTrial() ||
+          canSyncVerifiedEmail()
+        ));
       allow delete: if isAdmin();
 
       match /privacy/{document=**} {

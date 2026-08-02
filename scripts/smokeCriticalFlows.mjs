@@ -203,6 +203,47 @@ check("coach invitations and self-registration stay distinct", () => {
   );
 });
 
+check("new self-registrations require a verified email before trial access", () => {
+  const authContext = read("src/AuthContext.jsx");
+  const register = read("src/pages/Register.jsx");
+  const login = read("src/pages/Login.jsx");
+  const verificationPage = read("src/pages/ActivateAccount.jsx");
+  const adminDashboard = read("src/components/AdminDashboard.jsx");
+  const adminUsersRoute = read("backend/routes/adminUsers.js");
+  const rules = read("firestore.rules");
+
+  assert.ok(
+    authContext.includes('subscriptionStatus: "pending_verification"') &&
+      authContext.includes("await sendEmailVerification(fbUser") &&
+      authContext.includes("syncVerifiedEmailAccount"),
+    "Email/password registration must defer the trial and send a verification link"
+  );
+  assert.ok(
+    register.includes('navigate(`/verify-email?') &&
+      login.includes("profile?.emailVerificationRequired") &&
+      verificationPage.includes("const PENDING_EMAIL_COPY"),
+    "Registration and login must route unverified users through the confirmation screen"
+  );
+  ["fr", "en", "es", "de", "it", "ru", "ar"].forEach((lang) => {
+    assert.ok(
+      verificationPage.includes(`  ${lang}: {`),
+      `Email verification screen must include ${lang}`
+    );
+  });
+  assert.ok(
+    rules.includes("function verifiedEmail()") &&
+      rules.includes("function canActivateVerifiedCoachTrial()") &&
+      rules.includes('resource.data.subscriptionStatus == "pending_verification"'),
+    "Firestore must verify the Auth email claim before activating a pending trial"
+  );
+  assert.ok(
+    adminUsersRoute.includes('router.post("/email-verification-statuses"') &&
+      adminDashboard.includes("getEmailVerificationBadge") &&
+      adminDashboard.includes('return "E-mail non vérifié"'),
+    "The admin must use Firebase Auth as the source of truth for email verification"
+  );
+});
+
 check("contact form uses the shared API base", () => {
   const contact = read("src/pages/ContactPage.jsx");
   assert.ok(contact.includes('apiFetch("/contact"'), "Contact form must call /api/contact via apiFetch");

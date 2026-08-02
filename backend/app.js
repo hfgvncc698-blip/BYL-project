@@ -271,6 +271,9 @@ app.use('/api/admin', adminSearchRoutes);
 const adminEmailRoutes = require('./routes/adminEmails');
 app.use('/api/admin-emails', adminEmailRoutes);
 
+const adminUserRoutes = require('./routes/adminUsers');
+app.use('/api/admin-users', adminUserRoutes);
+
 const coachSessionRoutes = require('./routes/coachSessions');
 app.use('/api/coach-sessions', coachSessionRoutes);
 

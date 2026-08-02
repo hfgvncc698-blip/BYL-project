@@ -63,6 +63,31 @@ export const PLAYER_FEEDBACK_CUES = Object.freeze({
 let sharedAudioContext = null;
 let activeOscillators = [];
 
+export function getVibrationFeedbackAvailability() {
+  if (typeof window === "undefined" || typeof window.navigator === "undefined") {
+    return { supported: false, apiAvailable: false, mobileDevice: false };
+  }
+  const nav = window.navigator;
+  const apiAvailable = typeof nav.vibrate === "function";
+  const userAgent = String(nav.userAgent || "");
+  const mobileDevice = /Android/i.test(userAgent) || nav.userAgentData?.mobile === true;
+  return {
+    supported: apiAvailable && mobileDevice,
+    apiAvailable,
+    mobileDevice,
+  };
+}
+
+export function triggerFeedbackVibration(pattern) {
+  const availability = getVibrationFeedbackAvailability();
+  if (!availability.supported) return false;
+  try {
+    return window.navigator.vibrate(pattern) !== false;
+  } catch {
+    return false;
+  }
+}
+
 function getAudioContext() {
   if (typeof window === "undefined") return null;
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -99,11 +124,7 @@ export async function playFeedback(
 ) {
   const cue = PLAYER_FEEDBACK_CUES[cueName] || PLAYER_FEEDBACK_CUES.setComplete;
 
-  if (hapticsEnabled && typeof navigator !== "undefined" && "vibrate" in navigator) {
-    try {
-      navigator.vibrate(cue.vibration);
-    } catch {}
-  }
+  if (hapticsEnabled) triggerFeedbackVibration(cue.vibration);
 
   if (!soundEnabled) return false;
 

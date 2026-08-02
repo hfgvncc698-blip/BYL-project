@@ -26,6 +26,7 @@ import {
 } from "firebase/auth";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { auth } from "../firebaseConfig";
+import { useAuth } from "../AuthContext";
 import i18n from "../i18n";
 import { apiFetch } from "../utils/api";
 
@@ -240,7 +241,7 @@ const EMAIL_VERIFICATION_COPY = {
     invalidTitle: "Ce lien de confirmation n’est plus valide",
     invalidText: "Le lien a peut-être expiré ou a déjà été utilisé. Relancez la modification depuis votre profil.",
     successTitle: "Adresse e-mail confirmée",
-    successText: "Votre nouvelle adresse est maintenant associée à votre compte. Vous pouvez vous reconnecter.",
+    successText: "Votre adresse est confirmée. Si vous avez choisi une offre professionnelle, votre essai démarre maintenant.",
   },
   en: {
     ...COPY.en,
@@ -248,7 +249,7 @@ const EMAIL_VERIFICATION_COPY = {
     invalidTitle: "This confirmation link is no longer valid",
     invalidText: "The link may have expired or already been used. Start the change again from your profile.",
     successTitle: "Email address confirmed",
-    successText: "Your new address is now linked to your account. You can log in again.",
+    successText: "Your address is confirmed. If you selected a professional plan, your trial starts now.",
   },
   es: {
     ...COPY.es,
@@ -256,7 +257,7 @@ const EMAIL_VERIFICATION_COPY = {
     invalidTitle: "Este enlace de confirmación ya no es válido",
     invalidText: "Es posible que haya caducado o ya se haya utilizado. Vuelve a iniciar el cambio desde tu perfil.",
     successTitle: "Dirección de correo confirmada",
-    successText: "Tu nueva dirección ya está asociada a tu cuenta. Puedes volver a iniciar sesión.",
+    successText: "Tu dirección está confirmada. Si elegiste un plan profesional, tu prueba empieza ahora.",
   },
   de: {
     ...COPY.de,
@@ -264,7 +265,7 @@ const EMAIL_VERIFICATION_COPY = {
     invalidTitle: "Dieser Bestätigungslink ist nicht mehr gültig",
     invalidText: "Der Link ist möglicherweise abgelaufen oder wurde bereits verwendet. Starten Sie die Änderung erneut in Ihrem Profil.",
     successTitle: "E-Mail-Adresse bestätigt",
-    successText: "Ihre neue Adresse ist jetzt mit Ihrem Konto verknüpft. Sie können sich erneut anmelden.",
+    successText: "Ihre Adresse ist bestätigt. Wenn Sie einen Profi-Tarif gewählt haben, beginnt Ihr Testzeitraum jetzt.",
   },
   it: {
     ...COPY.it,
@@ -272,7 +273,7 @@ const EMAIL_VERIFICATION_COPY = {
     invalidTitle: "Questo link di conferma non è più valido",
     invalidText: "Il link potrebbe essere scaduto o già utilizzato. Avvia nuovamente la modifica dal profilo.",
     successTitle: "Indirizzo e-mail confermato",
-    successText: "Il nuovo indirizzo è ora associato al tuo account. Puoi accedere di nuovo.",
+    successText: "Il tuo indirizzo è confermato. Se hai scelto un piano professionale, la prova inizia ora.",
   },
   ru: {
     ...COPY.ru,
@@ -280,7 +281,7 @@ const EMAIL_VERIFICATION_COPY = {
     invalidTitle: "Эта ссылка для подтверждения больше не действительна",
     invalidText: "Срок действия ссылки мог истечь или она уже была использована. Запустите изменение снова в профиле.",
     successTitle: "Адрес электронной почты подтверждён",
-    successText: "Новый адрес привязан к вашему аккаунту. Теперь вы можете снова войти.",
+    successText: "Адрес подтверждён. Если вы выбрали профессиональный тариф, пробный период начинается сейчас.",
   },
   ar: {
     ...COPY.ar,
@@ -288,7 +289,87 @@ const EMAIL_VERIFICATION_COPY = {
     invalidTitle: "رابط التأكيد هذا لم يعد صالحاً",
     invalidText: "ربما انتهت صلاحية الرابط أو تم استخدامه. أعد بدء التغيير من ملفك الشخصي.",
     successTitle: "تم تأكيد عنوان البريد الإلكتروني",
-    successText: "تم ربط عنوانك الجديد بحسابك. يمكنك تسجيل الدخول من جديد.",
+    successText: "تم تأكيد عنوانك. إذا اخترت خطة احترافية، فستبدأ الفترة التجريبية الآن.",
+  },
+};
+
+const PENDING_EMAIL_COPY = {
+  fr: {
+    pendingTitle: "Confirmez votre adresse e-mail",
+    pendingText: "Nous vous avons envoyé un lien de confirmation. Votre essai démarrera seulement après cette validation.",
+    check: "J’ai confirmé mon adresse",
+    checking: "Vérification…",
+    resend: "Renvoyer l’e-mail",
+    sent: "Un nouveau lien de confirmation vient d’être envoyé.",
+    notYet: "L’adresse n’est pas encore confirmée. Ouvrez le lien reçu puis réessayez.",
+    resendError: "L’envoi a échoué. Patientez quelques instants avant de réessayer.",
+    continue: "Continuer vers mon espace",
+  },
+  en: {
+    pendingTitle: "Confirm your email address",
+    pendingText: "We sent you a confirmation link. Your trial will start only after verification.",
+    check: "I confirmed my address",
+    checking: "Checking…",
+    resend: "Resend email",
+    sent: "A new confirmation link has been sent.",
+    notYet: "The address is not confirmed yet. Open the link you received and try again.",
+    resendError: "We could not send the email. Wait a moment before trying again.",
+    continue: "Continue to my account",
+  },
+  es: {
+    pendingTitle: "Confirma tu correo electrónico",
+    pendingText: "Te hemos enviado un enlace. Tu prueba empezará únicamente después de la confirmación.",
+    check: "He confirmado mi dirección",
+    checking: "Comprobando…",
+    resend: "Reenviar el correo",
+    sent: "Se ha enviado un nuevo enlace de confirmación.",
+    notYet: "La dirección aún no está confirmada. Abre el enlace recibido e inténtalo de nuevo.",
+    resendError: "No se pudo enviar el correo. Espera un momento antes de volver a intentarlo.",
+    continue: "Continuar a mi espacio",
+  },
+  de: {
+    pendingTitle: "Bestätigen Sie Ihre E-Mail-Adresse",
+    pendingText: "Wir haben Ihnen einen Bestätigungslink gesendet. Ihr Testzeitraum beginnt erst nach der Bestätigung.",
+    check: "Ich habe meine Adresse bestätigt",
+    checking: "Prüfung…",
+    resend: "E-Mail erneut senden",
+    sent: "Ein neuer Bestätigungslink wurde gesendet.",
+    notYet: "Die Adresse ist noch nicht bestätigt. Öffnen Sie den Link und versuchen Sie es erneut.",
+    resendError: "Die E-Mail konnte nicht gesendet werden. Versuchen Sie es später erneut.",
+    continue: "Zu meinem Bereich",
+  },
+  it: {
+    pendingTitle: "Conferma il tuo indirizzo e-mail",
+    pendingText: "Ti abbiamo inviato un link. La prova inizierà solo dopo la conferma.",
+    check: "Ho confermato il mio indirizzo",
+    checking: "Verifica…",
+    resend: "Invia di nuovo l’e-mail",
+    sent: "È stato inviato un nuovo link di conferma.",
+    notYet: "L’indirizzo non è ancora confermato. Apri il link ricevuto e riprova.",
+    resendError: "Invio non riuscito. Attendi qualche istante prima di riprovare.",
+    continue: "Continua nel mio spazio",
+  },
+  ru: {
+    pendingTitle: "Подтвердите адрес электронной почты",
+    pendingText: "Мы отправили ссылку для подтверждения. Пробный период начнётся только после проверки.",
+    check: "Я подтвердил адрес",
+    checking: "Проверяем…",
+    resend: "Отправить письмо повторно",
+    sent: "Новая ссылка для подтверждения отправлена.",
+    notYet: "Адрес ещё не подтверждён. Откройте полученную ссылку и повторите попытку.",
+    resendError: "Не удалось отправить письмо. Повторите попытку немного позже.",
+    continue: "Перейти в личный кабинет",
+  },
+  ar: {
+    pendingTitle: "أكّد عنوان بريدك الإلكتروني",
+    pendingText: "أرسلنا إليك رابط تأكيد. لن تبدأ الفترة التجريبية إلا بعد التحقق.",
+    check: "لقد أكدت عنواني",
+    checking: "جارٍ التحقق…",
+    resend: "إعادة إرسال البريد",
+    sent: "تم إرسال رابط تأكيد جديد.",
+    notYet: "لم يتم تأكيد العنوان بعد. افتح الرابط ثم حاول مرة أخرى.",
+    resendError: "تعذر إرسال البريد. انتظر قليلاً قبل المحاولة مجدداً.",
+    continue: "المتابعة إلى حسابي",
   },
 };
 
@@ -300,21 +381,33 @@ function languageFromSearch(search) {
 export default function ActivateAccount() {
   const location = useLocation();
   const navigate = useNavigate();
+  const {
+    user,
+    resendEmailVerification,
+    refreshEmailVerification,
+  } = useAuth();
   const lang = useMemo(() => languageFromSearch(location.search), [location.search]);
   const isRecovery = location.pathname === "/reset-password";
   const isEmailVerification = location.pathname === "/verify-email";
   const copySet = isEmailVerification ? EMAIL_VERIFICATION_COPY : isRecovery ? RECOVERY_COPY : COPY;
-  const copy = copySet[lang] || copySet.fr;
+  const copy = {
+    ...(copySet[lang] || copySet.fr),
+    ...(isEmailVerification ? PENDING_EMAIL_COPY[lang] || PENDING_EMAIL_COPY.fr : {}),
+  };
   const isRtl = lang === "ar";
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const oobCode = params.get("oobCode") || "";
-  const isLocalPreview = import.meta.env.DEV && params.get("preview") === "1";
+  const previewMode = import.meta.env.DEV ? params.get("preview") || "" : "";
+  const isLocalPreview = previewMode === "1" || previewMode === "success";
+  const isPendingPreview = previewMode === "pending";
   const [status, setStatus] = useState("checking");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState("");
+  const [noticeStatus, setNoticeStatus] = useState("info");
+  const [pendingAction, setPendingAction] = useState("");
   const cardBg = useColorModeValue("white", "gray.800");
   const pageBg = useColorModeValue("gray.50", "gray.900");
 
@@ -324,6 +417,10 @@ export default function ActivateAccount() {
 
   useEffect(() => {
     let cancelled = false;
+    if (isPendingPreview && isEmailVerification) {
+      setStatus("pending");
+      return undefined;
+    }
     if (isLocalPreview) {
       if (isEmailVerification) {
         setStatus("success");
@@ -334,7 +431,11 @@ export default function ActivateAccount() {
       return undefined;
     }
     if (isEmailVerification) {
-      if (!oobCode || params.get("mode") !== "verifyAndChangeEmail") {
+      if (!oobCode) {
+        setStatus("pending");
+        return undefined;
+      }
+      if (!["verifyEmail", "verifyAndChangeEmail"].includes(params.get("mode"))) {
         setStatus("invalid");
         return undefined;
       }
@@ -365,7 +466,7 @@ export default function ActivateAccount() {
     return () => {
       cancelled = true;
     };
-  }, [isEmailVerification, isLocalPreview, oobCode, params]);
+  }, [isEmailVerification, isLocalPreview, isPendingPreview, oobCode, params]);
 
   const finishActivation = async (event) => {
     event.preventDefault();
@@ -421,6 +522,81 @@ export default function ActivateAccount() {
     }
   };
 
+  const verifiedDestination = (profile = user) => {
+    const requested = params.get("next") || "";
+    if (requested.startsWith("/") && !requested.startsWith("//")) return requested;
+    if (profile?.accountType === "club_owner" || profile?.clubRole === "owner") {
+      return "/club-dashboard";
+    }
+    return profile?.role === "coach" ? "/coach-dashboard" : "/user-dashboard";
+  };
+
+  const handleVerificationCheck = async () => {
+    setMessage("");
+    setPendingAction("check");
+    if (isPendingPreview) {
+      setStatus("success");
+      setPendingAction("");
+      return;
+    }
+    try {
+      const result = await refreshEmailVerification();
+      if (!result?.verified) {
+        setNoticeStatus("warning");
+        setMessage(copy.notYet);
+        return;
+      }
+      setStatus("success");
+      setNoticeStatus("success");
+    } catch (error) {
+      console.error("[email-verification] refresh failed:", error);
+      setNoticeStatus("error");
+      setMessage(copy.genericError);
+    } finally {
+      setPendingAction("");
+    }
+  };
+
+  const handleVerificationResend = async () => {
+    setMessage("");
+    setPendingAction("resend");
+    if (isPendingPreview) {
+      setNoticeStatus("success");
+      setMessage(copy.sent);
+      setPendingAction("");
+      return;
+    }
+    try {
+      await resendEmailVerification(lang);
+      setNoticeStatus("success");
+      setMessage(copy.sent);
+    } catch (error) {
+      console.error("[email-verification] resend failed:", error);
+      setNoticeStatus("error");
+      setMessage(copy.resendError);
+    } finally {
+      setPendingAction("");
+    }
+  };
+
+  const handleVerifiedContinue = async () => {
+    if (!auth.currentUser) {
+      navigate("/login", { replace: true });
+      return;
+    }
+    setPendingAction("continue");
+    try {
+      const result = await refreshEmailVerification();
+      if (!result?.verified) {
+        navigate("/login", { replace: true });
+        return;
+      }
+      navigate(verifiedDestination(result.user), { replace: true });
+    } finally {
+      setPendingAction("");
+    }
+  };
+
   return (
     <Box minH="calc(100vh - 72px)" bg={pageBg} py={{ base: 8, md: 16 }} dir={isRtl ? "rtl" : "ltr"}>
       <Container maxW="lg">
@@ -449,6 +625,51 @@ export default function ActivateAccount() {
             </VStack>
           )}
 
+          {status === "pending" && (
+            <VStack align="stretch" spacing={5}>
+              <Heading size="lg">{copy.pendingTitle}</Heading>
+              <Text color="gray.500">{copy.pendingText}</Text>
+              {(isPendingPreview || user?.email || auth.currentUser?.email) && (
+                <Box borderWidth="1px" borderRadius="xl" px={4} py={3}>
+                  <Text fontSize="sm" color="gray.500">{copy.email}</Text>
+                  <Text fontWeight="700">
+                    {isPendingPreview ? "coach@exemple.fr" : user?.email || auth.currentUser?.email}
+                  </Text>
+                </Box>
+              )}
+              {message && (
+                <Alert status={noticeStatus} borderRadius="xl">
+                  <AlertIcon />
+                  {message}
+                </Alert>
+              )}
+              {auth.currentUser || isPendingPreview ? (
+                <VStack align="stretch" spacing={3}>
+                  <Button
+                    colorScheme="blue"
+                    size="lg"
+                    onClick={handleVerificationCheck}
+                    isLoading={pendingAction === "check"}
+                    loadingText={copy.checking}
+                  >
+                    {copy.check}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleVerificationResend}
+                    isLoading={pendingAction === "resend"}
+                  >
+                    {copy.resend}
+                  </Button>
+                </VStack>
+              ) : (
+                <Button onClick={() => navigate("/login")} colorScheme="blue">
+                  {copy.login}
+                </Button>
+              )}
+            </VStack>
+          )}
+
           {status === "success" && (
             <VStack align="stretch" spacing={5}>
               <Heading size="lg">{copy.successTitle}</Heading>
@@ -456,8 +677,12 @@ export default function ActivateAccount() {
                 <AlertIcon />
                 {copy.successText}
               </Alert>
-              <Button onClick={() => navigate("/login")} colorScheme="blue">
-                {copy.login}
+              <Button
+                onClick={handleVerifiedContinue}
+                colorScheme="blue"
+                isLoading={pendingAction === "continue"}
+              >
+                {auth.currentUser || isLocalPreview ? copy.continue : copy.login}
               </Button>
             </VStack>
           )}
