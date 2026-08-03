@@ -438,6 +438,7 @@ check("security boundaries stay fail-closed", () => {
   const firestoreRules = read("firestore.rules");
   const storageRules = read("storage.rules");
   const socialPage = read("src/pages/AdminSocialPublisher.jsx");
+  const indexHtml = read("index.html");
   const nginxHeaders = read("nginx/boostyourlife-security-headers.conf");
 
   assert.ok(app.includes("app.set('trust proxy', 'loopback')"), "The API must only trust the local reverse proxy");
@@ -476,6 +477,13 @@ check("security boundaries stay fail-closed", () => {
   assert.ok(
     nginxHeaders.includes("Content-Security-Policy") && nginxHeaders.includes("Strict-Transport-Security"),
     "The production web server must have a reviewed security header include"
+  );
+  assert.ok(
+    indexHtml.includes("media-src") &&
+      indexHtml.includes("https://storage.googleapis.com") &&
+      nginxHeaders.includes("media-src") &&
+      nginxHeaders.includes("https://storage.googleapis.com"),
+    "Exercise images and videos must remain allowed by the security policy"
   );
 });
 

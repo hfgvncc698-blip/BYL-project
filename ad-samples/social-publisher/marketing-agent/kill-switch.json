@@ -1561,6 +1561,28 @@
         ],
         "missingMetricsInvented": false
       }
+    },
+    {
+      "at": "2026-08-02T23:45:35.827Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "byl-social-publisher-rapport-growth-nightly",
+      "details": {
+        "command": "npm run social:meta:sync",
+        "initialSandboxResult": {
+          "updated": 0,
+          "failed": 18,
+          "total": 18,
+          "error": "fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+        },
+        "escalatedRerun": {
+          "updated": 3,
+          "failed": 15,
+          "total": 18
+        },
+        "blocker": "Meta Graph unsupported object, missing permission, or unsupported operation",
+        "missingMetricsInvented": false
+      }
     }
   ]
 }

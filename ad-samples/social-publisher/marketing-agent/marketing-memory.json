@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-08-02T09:08:12.407Z",
+  "updatedAt": "2026-08-02T23:44:39.676Z",
   "primaryKpi": "free_trial_starts",
   "secondaryKpi": "activation_day_7",
   "activationSignals": [
@@ -78,8 +78,8 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.facebook.com/857477100212912",
       "providerId": "857477100212912",
-      "performanceSyncedAt": "2026-08-02T09:08:12.407Z",
-      "performanceSyncError": "Meta Graph GET 857477100212912: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+      "performanceSyncedAt": "2026-08-02T23:44:39.676Z",
+      "performanceSyncError": "",
       "performanceSource": "meta_graph",
       "platformMeta": {
         "permalink": "/reel/857477100212912/",
@@ -158,8 +158,8 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/reel/DZDX8QFgiWK/",
       "providerId": "18142983556524389",
-      "performanceSyncedAt": "2026-08-02T09:08:12.407Z",
-      "performanceSyncError": "Meta Graph GET 18142983556524389: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+      "performanceSyncedAt": "2026-08-02T23:44:39.676Z",
+      "performanceSyncError": "Unsupported get request. Object with ID '18142983556524389' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
       "performanceSource": "meta_graph",
       "platformMeta": {
         "permalink": "https://www.instagram.com/reel/DZDX8QFgiWK/",
@@ -239,8 +239,8 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/reel/DZFY6JyDH_g/",
       "providerId": "18099111391988502",
-      "performanceSyncedAt": "2026-08-02T09:08:12.407Z",
-      "performanceSyncError": "Meta Graph GET 18099111391988502: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+      "performanceSyncedAt": "2026-08-02T23:44:39.676Z",
+      "performanceSyncError": "Unsupported get request. Object with ID '18099111391988502' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
       "performanceSource": "meta_graph",
       "platformMeta": {
         "permalink": "https://www.instagram.com/reel/DZFY6JyDH_g/",
@@ -320,8 +320,8 @@
       "postUrl": "https://www.instagram.com/reel/DZKT9EkgXWx/",
       "providerId": "18138591487532730",
       "performanceSource": "meta_graph",
-      "performanceSyncedAt": "2026-08-02T09:08:12.407Z",
-      "performanceSyncError": "Meta Graph GET 18138591487532730: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+      "performanceSyncedAt": "2026-08-02T23:44:39.676Z",
+      "performanceSyncError": "Unsupported get request. Object with ID '18138591487532730' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
       "platformMeta": {
         "permalink": "https://www.instagram.com/reel/DZKT9EkgXWx/",
         "mediaType": "VIDEO",
@@ -398,8 +398,8 @@
       "postUrl": "https://www.facebook.com/27506921462235774",
       "providerId": "27506921462235774",
       "performanceSource": "meta_graph",
-      "performanceSyncedAt": "2026-08-02T09:08:12.407Z",
-      "performanceSyncError": "Meta Graph GET 27506921462235774: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+      "performanceSyncedAt": "2026-08-02T23:44:39.676Z",
+      "performanceSyncError": "",
       "platformMeta": {
         "permalink": "/reel/27506921462235774/",
         "createdTime": "2026-06-09T07:33:24+0000",
@@ -476,8 +476,8 @@
       "postUrl": "https://www.facebook.com/2100509260510397",
       "providerId": "2100509260510397",
       "performanceSource": "meta_graph",
-      "performanceSyncedAt": "2026-08-02T09:08:12.407Z",
-      "performanceSyncError": "Meta Graph GET 2100509260510397: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+      "performanceSyncedAt": "2026-08-02T23:44:39.676Z",
+      "performanceSyncError": "",
       "platformMeta": {
         "permalink": "/reel/2100509260510397/",
         "createdTime": "2026-06-09T07:45:30+0000",
@@ -553,8 +553,8 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3915827904589455795",
       "providerId": "17932227978271557",
-      "performanceSyncedAt": "2026-08-02T09:08:12.407Z",
-      "performanceSyncError": "Meta Graph GET 17932227978271557: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+      "performanceSyncedAt": "2026-08-02T23:44:39.676Z",
+      "performanceSyncError": "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
     },
     {
       "id": "2026-06-10-wednesday-19h00-story-instagram_story-studio-2026-06-03-wednesday-19h00-story-la-gerante-qui-ouvre-so",
@@ -624,8 +624,8 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3916565310359403073",
       "providerId": "17872024971528291",
-      "performanceSyncedAt": "2026-08-02T09:08:12.407Z",
-      "performanceSyncError": "Meta Graph GET 17872024971528291: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+      "performanceSyncedAt": "2026-08-02T23:44:39.676Z",
+      "performanceSyncError": "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
     },
     {
       "id": "2026-06-10-wednesday-19h00-story-instagram_story-studio-2026-06-07-sunday-20h30-story-le-suivi-nutrition-entre-d",
@@ -695,8 +695,8 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3916569930502607113",
       "providerId": "18120144856683407",
-      "performanceSyncedAt": "2026-08-02T09:08:12.407Z",
-      "performanceSyncError": "Meta Graph GET 18120144856683407: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+      "performanceSyncedAt": "2026-08-02T23:44:39.676Z",
+      "performanceSyncError": "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
     },
     {
       "id": "2026-06-14-sunday-20h30-story-instagram_story-studio-2026-06-02-tuesday-18h30-story-le-suivi-nutrition-entre-",
@@ -766,8 +766,8 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3919512526119830179",
       "providerId": "18096649379597904",
-      "performanceSyncedAt": "2026-08-02T09:08:12.407Z",
-      "performanceSyncError": "Meta Graph GET 18096649379597904: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+      "performanceSyncedAt": "2026-08-02T23:44:39.676Z",
+      "performanceSyncError": "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
     },
     {
       "id": "2026-06-15-monday-12h30-story-instagram_story-studio-2026-06-05-friday-18h30-story-le-client-qui-a-besoin-d-u",
@@ -838,8 +838,8 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3920000061462903500",
       "providerId": "18319661620272929",
-      "performanceSyncedAt": "2026-08-02T09:08:12.407Z",
-      "performanceSyncError": "Meta Graph GET 18319661620272929: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+      "performanceSyncedAt": "2026-08-02T23:44:39.676Z",
+      "performanceSyncError": "Unsupported get request. Object with ID '18319661620272929' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
     },
     {
       "id": "2026-06-19-friday-09h30-facebook-facebook-studio-2026-06-17-wednesday-09h15-facebook-le-coach-qui-veut-sc",
@@ -910,8 +910,8 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.facebook.com/110792515109412_1004547699093703",
       "providerId": "110792515109412_1004547699093703",
-      "performanceSyncedAt": "2026-08-02T09:08:12.407Z",
-      "performanceSyncError": "Meta Graph GET 110792515109412_1004547699093703: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+      "performanceSyncedAt": "2026-08-02T23:44:39.676Z",
+      "performanceSyncError": "(#12) deprecate_post_aggregated_fields_for_attachement is deprecated for versions v3.3 and higher"
     },
     {
       "id": "2026-06-19-friday-18h30-story-instagram_story-studio-2026-06-06-saturday-10h30-story-le-passage-d-excel-a-une",
@@ -982,8 +982,8 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3923071823542027930",
       "providerId": "17911835874416427",
-      "performanceSyncedAt": "2026-08-02T09:08:12.407Z",
-      "performanceSyncError": "Meta Graph GET 17911835874416427: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+      "performanceSyncedAt": "2026-08-02T23:44:39.676Z",
+      "performanceSyncError": "Unsupported get request. Object with ID '17911835874416427' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
     },
     {
       "id": "2026-06-22-monday-12h30-story-instagram_story-studio-2026-06-19-friday-18h30-story-le-suivi-nutrition-entre-d",
@@ -1053,8 +1053,8 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3925068438645318926",
       "providerId": "18380490814160929",
-      "performanceSyncedAt": "2026-08-02T09:08:12.407Z",
-      "performanceSyncError": "Meta Graph GET 18380490814160929: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+      "performanceSyncedAt": "2026-08-02T23:44:39.676Z",
+      "performanceSyncError": "Unsupported get request. Object with ID '18380490814160929' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
     },
     {
       "id": "2026-06-22-monday-18h30-instagram-instagram-studio-2026-06-22-monday-18h30-instagram-le-coach-qui-repond-en",
@@ -1127,8 +1127,8 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/reel/DZ5RrgQj-yo/",
       "providerId": "18368913211230932",
-      "performanceSyncedAt": "2026-08-02T09:08:12.407Z",
-      "performanceSyncError": "Meta Graph GET 18368913211230932: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+      "performanceSyncedAt": "2026-08-02T23:44:39.676Z",
+      "performanceSyncError": "Unsupported get request. Object with ID '18368913211230932' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
       "performanceSource": "meta_graph",
       "platformMeta": {
         "permalink": "https://www.instagram.com/reel/DZ5RrgQj-yo/",
@@ -1206,8 +1206,8 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.facebook.com/110792515109412_1010385408509932",
       "providerId": "110792515109412_1010385408509932",
-      "performanceSyncedAt": "2026-08-02T09:08:12.407Z",
-      "performanceSyncError": "Meta Graph GET 110792515109412_1010385408509932: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+      "performanceSyncedAt": "2026-08-02T23:44:39.676Z",
+      "performanceSyncError": "(#12) deprecate_post_aggregated_fields_for_attachement is deprecated for versions v3.3 and higher"
     },
     {
       "id": "2026-06-29-monday-12h30-story-instagram_story-studio-2026-06-16-tuesday-18h30-story-le-client-qui-a-besoin-d-",
@@ -1278,8 +1278,8 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3930167421747173196",
       "providerId": "17907673146440215",
-      "performanceSyncedAt": "2026-08-02T09:08:12.407Z",
-      "performanceSyncError": "Meta Graph GET 17907673146440215: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+      "performanceSyncedAt": "2026-08-02T23:44:39.676Z",
+      "performanceSyncError": "Unsupported get request. Object with ID '17907673146440215' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
     },
     {
       "id": "2026-06-30-tuesday-18h30-story-instagram_story-studio-2026-06-30-tuesday-18h30-story-salle-de-sport-planning-e",
@@ -1349,8 +1349,8 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3931053820604388994",
       "providerId": "18130402363620109",
-      "performanceSyncedAt": "2026-08-02T09:08:12.407Z",
-      "performanceSyncError": "Meta Graph GET 18130402363620109: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+      "performanceSyncedAt": "2026-08-02T23:44:39.676Z",
+      "performanceSyncError": "Unsupported get request. Object with ID '18130402363620109' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
     }
   ],
   "experiments": [
