@@ -12,7 +12,15 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 
 const localizer = momentLocalizer(moment);
-const DnDCalendar = withDragAndDrop(Calendar);
+// react-big-calendar exposes this CommonJS addon differently depending on the
+// bundler. Vite 8 can return { default: factory } for the default import.
+const dragAndDropFactory =
+  typeof withDragAndDrop === "function"
+    ? withDragAndDrop
+    : typeof withDragAndDrop?.default === "function"
+      ? withDragAndDrop.default
+      : null;
+const DnDCalendar = dragAndDropFactory ? dragAndDropFactory(Calendar) : Calendar;
 
 export default function CoachDashboardCalendar({ calendarCulture = "fr", ...props }) {
   React.useEffect(() => {

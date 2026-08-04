@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-08-02T23:45:35.836Z",
+  "updatedAt": "2026-08-04T01:08:47.598Z",
   "primaryKpi": "free_trial_starts",
   "secondaryKpi": "activation_day_7",
   "activationSignals": [
@@ -1686,9 +1686,9 @@
       "activatedAudiences": []
     },
     "latestReport": {
-      "id": "2026-08-02-growth-report",
-      "generatedAt": "2026-08-02T23:45:35.833Z",
-      "date": "2026-08-02",
+      "id": "2026-08-03-growth-report",
+      "generatedAt": "2026-08-04T01:08:47.595Z",
+      "date": "2026-08-03",
       "primaryKpi": "free_trial_starts",
       "secondaryKpi": "activation_day_7",
       "activationSignals": [
@@ -1767,56 +1767,25 @@
         "source": "codex_user_request_2026_07_01",
         "resolvedAt": "",
         "resolvedReason": "",
-        "alertCount": 93,
+        "alertCount": 94,
         "latestAlert": {
-          "at": "2026-08-02T23:45:35.827Z",
+          "at": "2026-08-04T01:08:47.588Z",
           "reason": "meta_performance_sync_partial_failure",
           "severity": "warning",
-          "source": "byl-social-publisher-rapport-growth-nightly",
+          "source": "nightly_growth_report",
           "details": {
-            "command": "npm run social:meta:sync",
-            "initialSandboxResult": {
-              "updated": 0,
-              "failed": 18,
-              "total": 18,
-              "error": "fetch failed | code=ENOTFOUND | host=graph.facebook.com"
-            },
-            "escalatedRerun": {
-              "updated": 3,
-              "failed": 15,
-              "total": 18
-            },
-            "blocker": "Meta Graph unsupported object, missing permission, or unsupported operation",
-            "missingMetricsInvented": false
+            "failedCount": 15,
+            "updated": 3,
+            "total": 18,
+            "rerunEscalated": true,
+            "initialNetworkError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+            "sampleErrors": [
+              "Unsupported get request: object missing, inaccessible due to permissions, or unsupported operation"
+            ]
           }
         }
       },
       "recentBlocks": [
-        {
-          "network": "tiktok",
-          "reason": "tiktok_not_approved",
-          "detail": ""
-        },
-        {
-          "network": "tiktok",
-          "reason": "tiktok_not_approved",
-          "detail": ""
-        },
-        {
-          "network": "tiktok",
-          "reason": "tiktok_not_approved",
-          "detail": ""
-        },
-        {
-          "network": "calendar",
-          "reason": "kill_switch_active",
-          "detail": ""
-        },
-        {
-          "network": "calendar",
-          "reason": "kill_switch_active",
-          "detail": ""
-        },
         {
           "network": "calendar",
           "reason": "kill_switch_active",
@@ -1838,8 +1807,33 @@
           "detail": ""
         },
         {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
           "network": "tiktok",
           "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
           "detail": ""
         }
       ],
@@ -1848,7 +1842,7 @@
   },
   "brand": {
     "version": "1.0.0",
-    "updatedAt": "2026-08-02T23:45:35.833Z",
+    "updatedAt": "2026-08-04T01:08:47.594Z",
     "brandScore": 63,
     "dimensions": {
       "premium": 60,
@@ -5468,27 +5462,21 @@
       "source": "codex_user_request_2026_07_01",
       "resolvedAt": "",
       "resolvedReason": "",
-      "alertCount": 93,
+      "alertCount": 94,
       "latestAlert": {
-        "at": "2026-08-02T23:45:35.827Z",
+        "at": "2026-08-04T01:08:47.588Z",
         "reason": "meta_performance_sync_partial_failure",
         "severity": "warning",
-        "source": "byl-social-publisher-rapport-growth-nightly",
+        "source": "nightly_growth_report",
         "details": {
-          "command": "npm run social:meta:sync",
-          "initialSandboxResult": {
-            "updated": 0,
-            "failed": 18,
-            "total": 18,
-            "error": "fetch failed | code=ENOTFOUND | host=graph.facebook.com"
-          },
-          "escalatedRerun": {
-            "updated": 3,
-            "failed": 15,
-            "total": 18
-          },
-          "blocker": "Meta Graph unsupported object, missing permission, or unsupported operation",
-          "missingMetricsInvented": false
+          "failedCount": 15,
+          "updated": 3,
+          "total": 18,
+          "rerunEscalated": true,
+          "initialNetworkError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "sampleErrors": [
+            "Unsupported get request: object missing, inaccessible due to permissions, or unsupported operation"
+          ]
         }
       }
     }

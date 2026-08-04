@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-08-02T23:45:35.834Z",
+  "updatedAt": "2026-08-04T01:08:47.595Z",
   "primaryKpi": "free_trial_starts",
   "secondaryKpi": "activation_day_7",
   "activationSignals": [
@@ -30737,6 +30737,160 @@
         {
           "network": "tiktok",
           "reason": "tiktok_not_approved",
+          "detail": ""
+        }
+      ],
+      "learningEntryCount": 245
+    },
+    {
+      "id": "2026-08-03-growth-report",
+      "generatedAt": "2026-08-04T01:08:47.595Z",
+      "date": "2026-08-03",
+      "primaryKpi": "free_trial_starts",
+      "secondaryKpi": "activation_day_7",
+      "activationSignals": [
+        "client_created",
+        "program_created",
+        "program_assigned",
+        "client_login"
+      ],
+      "summary": "Optimisation orientee essais gratuits demarres puis activation J+7. Les vues, likes et commentaires restent des signaux secondaires.",
+      "topHooks": [],
+      "topVideos": [],
+      "topCtas": [],
+      "topFormats": [],
+      "topCreativeFormatVariants": [],
+      "topTimes": [],
+      "topEmotions": [],
+      "topAudiences": [],
+      "topActivatedHooks": [],
+      "topActivatedAudiences": [],
+      "segmentPerformance": [],
+      "fatigueAngles": [],
+      "falseSuccesses": [],
+      "distributionAlerts": [],
+      "nextContentRules": [
+        "Continuer a tester des concepts distincts par audience et mesurer essais gratuits puis activation J+7.",
+        "Garder au moins 4 plans humains frais par video et eviter tout recyclage d'image."
+      ],
+      "experimentMix": {
+        "targetShare": {
+          "proven": 0.7,
+          "optimization": 0.2,
+          "experiment": 0.1
+        },
+        "counts": {
+          "proven": 0,
+          "optimization": 0,
+          "experiment": 0
+        },
+        "currentShare": {
+          "proven": 0,
+          "optimization": 0,
+          "experiment": 0
+        }
+      },
+      "proofLibrarySummary": {
+        "totalProofs": 0,
+        "testimonials": 0,
+        "timeSavings": 0,
+        "screenshots": 0,
+        "stats": 0,
+        "transformations": 0
+      },
+      "objectionSummary": {
+        "prix": 0,
+        "complexite": 0,
+        "confiance": 0,
+        "migration": 0,
+        "ia": 0,
+        "securite": 0,
+        "temps": 0
+      },
+      "brandScore": {
+        "score": 63,
+        "dimensions": {
+          "premium": 60,
+          "serious": 60,
+          "innovative": 60,
+          "reliable": 71
+        }
+      },
+      "killSwitch": {
+        "automaticPublishingDisabled": true,
+        "trippedAt": "2026-06-30T23:56:49.458Z",
+        "reason": "manual_pause_user_review_required",
+        "severity": "high",
+        "source": "codex_user_request_2026_07_01",
+        "resolvedAt": "",
+        "resolvedReason": "",
+        "alertCount": 94,
+        "latestAlert": {
+          "at": "2026-08-04T01:08:47.588Z",
+          "reason": "meta_performance_sync_partial_failure",
+          "severity": "warning",
+          "source": "nightly_growth_report",
+          "details": {
+            "failedCount": 15,
+            "updated": 3,
+            "total": 18,
+            "rerunEscalated": true,
+            "initialNetworkError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+            "sampleErrors": [
+              "Unsupported get request: object missing, inaccessible due to permissions, or unsupported operation"
+            ]
+          }
+        }
+      },
+      "recentBlocks": [
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
           "detail": ""
         }
       ],

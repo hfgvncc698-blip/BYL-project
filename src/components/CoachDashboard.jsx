@@ -55,6 +55,7 @@ import {
 import { useAuth } from "../AuthContext";
 import AppLoading from "./ui/AppLoading";
 import DeferredViewport from "./ui/DeferredViewport.jsx";
+import DeferredWidgetBoundary from "./ui/DeferredWidgetBoundary.jsx";
 import { notify } from "../utils/notify";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import {
@@ -82,6 +83,10 @@ import { formatProgramActiveWeeks, getProgramActiveWeeksLabel, readProgramActive
 import { useTranslation } from "react-i18next";
 import i18n, { ensureLanguageLoaded } from "../i18n";
 import { getCalendarCulture, getCalendarFormats } from "../utils/calendarLocale";
+import {
+  clearProgramSessionResumeStates,
+  findLatestSessionResumeState,
+} from "../utils/sessionResume";
 import { readPageDataCache, runLimited, writePageDataCache } from "../utils/pageDataCache";
 import {
   applySportProgressionToSession,
@@ -3184,12 +3189,39 @@ sessionIndex = null }) => {
         Number(newestAssignedProgram?._coachLatestProgressMs || 0)
       ) > 0;
 
-    const targetProgram =
+    const fallbackTargetProgram =
       !latestCompletedProgram
         ? newestAssignedProgram
         : newestAssignedProgram && newestAssignedMs > globalLastCompletedMs && !newestHasOwnHistory
           ? newestAssignedProgram
           : latestCompletedProgram;
+
+    const latestLocalResume = mode === "resume"
+      ? filteredPrograms
+          .map((prog) => ({
+            prog,
+            resume: findLatestSessionResumeState({
+              clientId: client.id,
+              programId: prog.id,
+              sessionCount: getProgrammeSessionList(prog).length,
+            }),
+          }))
+          .filter(
+            (entry) =>
+              entry.resume &&
+              Number(entry.resume.updatedAt || 0) > Number(entry.prog?._lastSessionMs || 0)
+          )
+          .sort((a, b) => Number(b.resume.updatedAt || 0) - Number(a.resume.updatedAt || 0))[0] || null
+      : null;
+
+    const targetProgram = latestLocalResume
+      ? {
+          ...latestLocalResume.prog,
+          _resumeSessionIndex: latestLocalResume.resume.sessionIndex,
+          _resumeExerciseIndex: Math.max(0, Number(latestLocalResume.resume.exerciseIndex) || 0),
+          _resumeSet: Math.max(1, Number(latestLocalResume.resume.currentSet) || 1),
+        }
+      : fallbackTargetProgram;
 
     if (!targetProgram?.id) {
       navigate(withAdminCoach(`/clients/${client.id}`));
@@ -3212,6 +3244,14 @@ sessionIndex = null }) => {
       ? Math.max(1, Number(targetProgram._resumeSet))
       : 1;
 
+    if (mode !== "resume") {
+      clearProgramSessionResumeStates({
+        clientId: client.id,
+        programId: targetProgram.id,
+        sessionCount: getProgrammeSessionList(targetProgram).length,
+      });
+    }
+
     navigate(withAdminCoach(`/clients/${client.id}/programmes/${targetProgram.id}/session/${sessionToPlay}/play`), {
       state: {
         exerciseIndex: mode === "resume" ? resumeExerciseIndex : 0,
@@ -3220,6 +3260,7 @@ sessionIndex = null }) => {
         resumeSet: mode === "resume" ? resumeSet : 1,
         resumeSessionIndex: sessionToPlay,
         resumePct: mode === "resume" ? targetProgram?._resumePct ?? null : null,
+        discardStoredResume: mode !== "resume",
       },
     });
   }, [enrichAssignedProgram, navigate, withAdminCoach]);
@@ -8762,43 +8803,12 @@ overflow="auto">
                         };
                       });
                       const clientForCardActions = { ...c, programmesAssignes: programmesForCard };
-                      let nbTerminees = 0;
-                      let nbTotalSessions = 0;
                       let lastCompletedMs = 0;
                       let lastCompletedAssignedProg = null;
                       let lastCompletedTitle = "";
 
                     programmesForCard.forEach((prog) =>
 {
-                      const nbTotalProg = getProgramActiveSessionTotal(prog);
-                      nbTotalSessions += nbTotalProg;
-                      const sessionsEff = prog.sessionsEffectuees
-|| [];
-
-                      let doneThisProg = getValidatedSessionCountForProgram(prog);
-                      if (doneThisProg === 0) {
-                        const doneIndexes = new Set();
-                        let fallbackDoneCount = 0;
-                        sessionsEff.forEach((s) => {
-                          if (!isSessionValidatedRecord(s)) return;
-                          const idx = getSessionIndex(s);
-                          if (idx !== null && idx >= 0)
-doneIndexes.add(idx);
-                          else fallbackDoneCount += 1;
-                        });
-                        doneThisProg = doneIndexes.size > 0 ?
-doneIndexes.size : fallbackDoneCount;
-                        if (sessionsEff.length > 0 && doneThisProg
-=== 0) {
-                          doneThisProg =
-Math.min(sessionsEff.length, nbTotalProg);
-                        }
-                      }
-
-                        doneThisProg = Math.min(doneThisProg,
-nbTotalProg);
-                      nbTerminees += doneThisProg;
-
                       const sessionCompletedMs =
                         Number(prog?._lastCompletedSessionMs || 0) ||
                         Number(prog?._lastSessionMs || 0);
@@ -8814,14 +8824,16 @@ nbTotalProg);
                       }
                     });
 
-                    nbTerminees = Math.min(nbTerminees,
-nbTotalSessions);
-
                     const primaryProgramForCard =
                       lastCompletedAssignedProg || programmesForCard?.[0] || c.programmesAssignes?.[0] || null;
                     const primaryProgramNameForCard = primaryProgramForCard
                       ? prettyAssignedProgramName(primaryProgramForCard)
                       : "";
+                    let nbTotalSessions = getProgramActiveSessionTotal(primaryProgramForCard);
+                    let nbTerminees = Math.min(
+                      getValidatedSessionCountForProgram(primaryProgramForCard),
+                      nbTotalSessions
+                    );
                     const displayedSessionsPerWeek = readSessionsPerWeekFromText(primaryProgramNameForCard);
                     if (displayedSessionsPerWeek > 0) {
                       const displayedActiveTotal = displayedSessionsPerWeek * readProgramActiveWeeks(primaryProgramForCard);
@@ -9812,7 +9824,22 @@ modeValue("rgba(59,130,246,0.06)",
 { borderColor },
                  }}
                >
-                 {(
+                 <DeferredWidgetBoundary
+                   fallback={
+                     <Flex
+                       h="620px"
+                       align="center"
+                       justify="center"
+                       border="1px solid"
+                       borderColor={borderColor}
+                       borderRadius="20px"
+                       color={mutedText}
+                       fontWeight="800"
+                     >
+                       <Text>{t("calendar.load_error", "Le calendrier est temporairement indisponible.")}</Text>
+                     </Flex>
+                   }
+                 >
                    <React.Suspense
                      fallback={
                        <Flex
@@ -9876,7 +9903,7 @@ count: total, defaultValue: `+${total}` }),
                     }}
                  />
                    </React.Suspense>
-                 )}
+                 </DeferredWidgetBoundary>
               </Box>
               </DeferredViewport>
               )}

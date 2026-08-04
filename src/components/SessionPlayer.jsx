@@ -116,6 +116,12 @@ import {
   evaluateSportAdaptation,
   getExerciseTimingAdjustmentTargets,
 } from "../utils/trainingEngine";
+import {
+  clearSessionResumeState,
+  getSessionResumeStorageKey,
+  readSessionResumeState,
+  writeSessionResumeState,
+} from "../utils/sessionResume";
 
 const loadExerciseBankModule = () => import("./ExerciseBank.jsx");
 const warmExerciseBank = () =>
@@ -429,39 +435,6 @@ function writeElapsedTimerState(storageKey, state) {
 }
 
 function clearElapsedTimerState(storageKey) {
-  if (!storageKey || typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(storageKey);
-  } catch {}
-}
-
-function readSessionResumeState(storageKey) {
-  if (!storageKey || typeof window === "undefined") return null;
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(storageKey) || "null");
-    if (!parsed || typeof parsed !== "object") return null;
-    if (parsed.version !== 1) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function writeSessionResumeState(storageKey, state) {
-  if (!storageKey || typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(
-      storageKey,
-      JSON.stringify({
-        ...(state || {}),
-        version: 1,
-        updatedAt: Date.now(),
-      })
-    );
-  } catch {}
-}
-
-function clearSessionResumeState(storageKey) {
   if (!storageKey || typeof window === "undefined") return;
   try {
     window.localStorage.removeItem(storageKey);
@@ -1174,6 +1147,35 @@ function buildExercisePerformanceSnapshots(
 
 function exerciseSnapshotMatches(snapshot = {}, exercise = {}) {
   return exerciseHistoryMatches(snapshot, exercise);
+}
+
+function getLatestRecordedExerciseLoad(exercise = {}, completionRecords = []) {
+  const sortedRecords = [...(Array.isArray(completionRecords) ? completionRecords : [])]
+    .filter(isValidatedExerciseCompletion)
+    .sort(
+      (a, b) =>
+        (getCompletionRecordDate(b)?.getTime() || 0) -
+        (getCompletionRecordDate(a)?.getTime() || 0)
+    );
+
+  for (const record of sortedRecords) {
+    const snapshots = Array.isArray(record?.exerciseSnapshots) ? record.exerciseSnapshots : [];
+    const snapshot = snapshots.find((entry) => exerciseSnapshotMatches(entry, exercise));
+    if (!snapshot) continue;
+
+    const sets = [...(Array.isArray(snapshot?.sets) ? snapshot.sets : [])].sort(
+      (a, b) => Number(a?.setIndex || 0) - Number(b?.setIndex || 0)
+    );
+    for (let index = sets.length - 1; index >= 0; index -= 1) {
+      const charge = parseMetricNumber(sets[index]?.chargeKg);
+      if (charge != null && charge > 0) return charge;
+    }
+
+    const topSetCharge = parseMetricNumber(snapshot?.summary?.topSet?.chargeKg);
+    if (topSetCharge != null && topSetCharge > 0) return topSetCharge;
+  }
+
+  return null;
 }
 
 function exerciseMatchesAnyTarget(snapshot = {}, targets = []) {
@@ -2393,12 +2395,7 @@ export default function SessionPlayer() {
     [clientId, programId, sessionIndex]
   );
   const sessionResumeStorageKey = useMemo(
-    () => [
-      "byl-session-player-resume",
-      clientId || "no-client",
-      programId || "no-program",
-      Number.isFinite(sessionIndex) ? sessionIndex : 0,
-    ].join(":"),
+    () => getSessionResumeStorageKey({ clientId, programId, sessionIndex }),
     [clientId, programId, sessionIndex]
   );
 
@@ -2604,17 +2601,15 @@ export default function SessionPlayer() {
     setPainFlag(false);
     setPainLevel("");
     setPainArea("");
-    return () => {
-      clearSessionResumeState(sessionResumeStorageKey);
-      clearElapsedTimerState(sessionTimerStorageKey);
-    };
   }, [clientId, programId, sessionIndex, sessionResumeStorageKey, sessionTimerStorageKey]);
 
   useEffect(() => {
     if (resumeAppliedRef.current) return;
     if (!flat.length) return;
 
-    const storedResume = readSessionResumeState(sessionResumeStorageKey);
+    const discardStoredResume = location?.state?.discardStoredResume === true;
+    if (discardStoredResume) clearSessionResumeState(sessionResumeStorageKey);
+    const storedResume = discardStoredResume ? null : readSessionResumeState(sessionResumeStorageKey);
     const requestedIndex =
       location?.state?.resumeExerciseIndex ??
       location?.state?.exerciseIndex;
@@ -3756,17 +3751,29 @@ export default function SessionPlayer() {
 
   function buildPlayerResumeSnapshot() {
     if (!flat.length) return null;
+    const freezeCountdown = (snapshot = {}) => ({
+      ...snapshot,
+      targetAt: 0,
+      running: false,
+    });
+    const freezeStopwatch = (snapshot = {}) => ({
+      ...snapshot,
+      startedAt: 0,
+      baseSeconds: Math.max(0, Number(snapshot.seconds) || 0),
+      running: false,
+    });
+    const shouldPauseOnResume = phase === "effort" || phase === "rest";
     return {
       exerciseIndex: exIndex,
       currentSet,
       phase,
-      isPaused,
-      pausedPhase: pausedPhaseRef.current,
+      isPaused: shouldPauseOnResume ? true : isPaused,
+      pausedPhase: shouldPauseOnResume ? phase : pausedPhaseRef.current,
       autoFlowEnabled,
       sessionElapsed: readElapsedTimerState(sessionTimerStorageKey),
-      effortTimer: effortTimer.getSnapshot(),
-      effortElapsedTimer: effortElapsedTimer.getSnapshot(),
-      restTimer: restTimer.getSnapshot(),
+      effortTimer: freezeCountdown(effortTimer.getSnapshot()),
+      effortElapsedTimer: freezeStopwatch(effortElapsedTimer.getSnapshot()),
+      restTimer: freezeCountdown(restTimer.getSnapshot()),
       exerciseTimingStartedAt: exerciseTimingStartedAtRef.current,
       activeTimingExerciseIndex: activeTimingExerciseIndexRef.current,
       exerciseTimings: Array.from(exerciseTimingRef.current.entries()).map(([index, seconds]) => ({
@@ -3810,10 +3817,11 @@ export default function SessionPlayer() {
   }
 
   function handleBackExit() {
+    persistPlayerResumeSnapshot();
+    sessionElapsedTimer.stop();
     performanceDraftsRef.current = new Map();
     performedSetsRef.current = new Map();
     activeRestPerformanceRef.current = null;
-    clearPlayerResumeSnapshot({ resetElapsedState: true });
     navigate(-1);
   }
 
@@ -3833,18 +3841,6 @@ export default function SessionPlayer() {
     sessionElapsedTimer.seconds,
     performanceDraftRevision,
     sessionResumeStorageKey,
-  ]);
-
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      clearSessionResumeState(sessionResumeStorageKey);
-      clearElapsedTimerState(sessionTimerStorageKey);
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [
-    sessionResumeStorageKey,
-    sessionTimerStorageKey,
   ]);
 
   /* ---------------------- Live load programme ---------------------- */
@@ -3949,6 +3945,40 @@ export default function SessionPlayer() {
       cancelled = true;
     };
   }, [clientId, programId]);
+
+  useEffect(() => {
+    if (!flat.length || !completionHistory.length) return;
+
+    let seeded = false;
+    flat.forEach((exercise, exerciseIndex) => {
+      const plannedLoad = parseMetricNumber(getFieldValue(exercise, FIELD_MAP.charge));
+      if (plannedLoad != null && plannedLoad > 0) return;
+
+      const latestLoad = getLatestRecordedExerciseLoad(exercise, completionHistory);
+      if (latestLoad == null) return;
+
+      const totalSets = Math.max(
+        1,
+        Math.round(parseMetricNumber(getFieldValue(exercise, FIELD_MAP.series)) || 1)
+      );
+      for (let setIndex = 1; setIndex <= totalSets; setIndex += 1) {
+        const key = getPerformanceSetKey(exerciseIndex, setIndex);
+        const previous = performanceDraftsRef.current.get(key);
+        if (Object.prototype.hasOwnProperty.call(previous?.values || {}, "Charge (kg)")) continue;
+        performanceDraftsRef.current.set(key, {
+          exerciseIndex,
+          setIndex,
+          values: {
+            ...(previous?.values || {}),
+            "Charge (kg)": latestLoad,
+          },
+        });
+        seeded = true;
+      }
+    });
+
+    if (seeded) refreshPerformanceDrafts((revision) => revision + 1);
+  }, [flat, completionHistory]);
 
   /* ---------------------- Load client data for sex preference ---------------------- */
 

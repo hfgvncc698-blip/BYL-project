@@ -700,6 +700,8 @@
     "week": "Week",
     "day": "Day",
     "agenda": "Agenda",
+    "loading": "Loading calendar...",
+    "load_error": "The calendar is temporarily unavailable.",
     "no_events_in_range": "No appointment in this period.",
     "show_more": "+ {{count}} more"
   },

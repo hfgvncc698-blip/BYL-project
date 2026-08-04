@@ -1583,6 +1583,22 @@
         "blocker": "Meta Graph unsupported object, missing permission, or unsupported operation",
         "missingMetricsInvented": false
       }
+    },
+    {
+      "at": "2026-08-04T01:08:47.588Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 15,
+        "updated": 3,
+        "total": 18,
+        "rerunEscalated": true,
+        "initialNetworkError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+        "sampleErrors": [
+          "Unsupported get request: object missing, inaccessible due to permissions, or unsupported operation"
+        ]
+      }
     }
   ]
 }

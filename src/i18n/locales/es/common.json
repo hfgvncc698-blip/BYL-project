@@ -700,6 +700,8 @@
     "week": "Semana",
     "day": "dia",
     "agenda": "Agenda",
+    "loading": "Cargando el calendario...",
+    "load_error": "El calendario no está disponible temporalmente.",
     "no_events_in_range": "Ninguna cita en este periodo.",
     "show_more": "+ {{count}} más"
   },

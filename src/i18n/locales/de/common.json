@@ -700,6 +700,8 @@
     "week": "Woche",
     "day": "Tag",
     "agenda": "Tagesordnung",
+    "loading": "Kalender wird geladen...",
+    "load_error": "Der Kalender ist vorübergehend nicht verfügbar.",
     "no_events_in_range": "Kein Termin in diesem Zeitraum.",
     "show_more": "+ {{count}} mehr"
   },

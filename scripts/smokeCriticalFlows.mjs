@@ -103,6 +103,44 @@ check("session performance history freezes actual values per completed set", () 
   );
 });
 
+check("session player resumes the latest recorded load when the plan has none", () => {
+  const player = read("src/components/SessionPlayer.jsx");
+  assert.ok(
+    player.includes("function getLatestRecordedExerciseLoad(") &&
+      player.includes("getLatestRecordedExerciseLoad(exercise, completionHistory)"),
+    "The player must resolve the latest validated load for the current exercise"
+  );
+  assert.ok(
+    player.includes("plannedLoad != null && plannedLoad > 0") &&
+      player.includes('"Charge (kg)": latestLoad'),
+    "A planned load must remain authoritative while an empty load falls back to history"
+  );
+});
+
+check("dashboard resume keeps the exact unfinished player position", () => {
+  const player = read("src/components/SessionPlayer.jsx");
+  const dashboard = read("src/components/CoachDashboard.jsx");
+  const resumeState = read("src/utils/sessionResume.js");
+  assert.ok(
+    player.includes("persistPlayerResumeSnapshot();") &&
+      !player.includes("handleBeforeUnload = () => {\n      clearSessionResumeState"),
+    "Leaving the player must keep its local resume checkpoint"
+  );
+  assert.ok(
+    dashboard.includes("findLatestSessionResumeState({") &&
+      dashboard.includes("_resumeExerciseIndex: Math.max(0, Number(latestLocalResume.resume.exerciseIndex) || 0)") &&
+      dashboard.includes("_resumeSet: Math.max(1, Number(latestLocalResume.resume.currentSet) || 1)"),
+    "The dashboard resume action must target the latest local session, exercise and set"
+  );
+  assert.ok(
+    resumeState.includes("byl-session-player-resume") &&
+      player.includes("discardStoredResume: mode !== \"resume\"") === false &&
+      dashboard.includes("discardStoredResume: mode !== \"resume\"") &&
+      dashboard.includes("clearProgramSessionResumeStates({"),
+    "Starting a new session must explicitly ignore an old resume checkpoint"
+  );
+});
+
 check("customer emails share the BoostYourLife visual system", () => {
   const app = read("src/App.jsx");
   const actionPage = read("src/pages/ActivateAccount.jsx");
@@ -429,6 +467,37 @@ check("session completion is consistent across client views", () => {
 check("cloud functions source has a single toDate helper", () => {
   const functionsIndex = read("functions/index.js");
   assert.equal(countMatches(functionsIndex, /function toDate\(/g), 1, "functions/index.js must define toDate once");
+});
+
+check("deferred dashboard widgets cannot crash the whole dashboard", () => {
+  const dashboard = read("src/components/CoachDashboard.jsx");
+  const calendar = read("src/components/dashboard/CoachDashboardCalendar.jsx");
+  const boundary = read("src/components/ui/DeferredWidgetBoundary.jsx");
+  assert.ok(
+    calendar.includes('typeof withDragAndDrop?.default === "function"') &&
+      calendar.includes("dragAndDropFactory ? dragAndDropFactory(Calendar) : Calendar"),
+    "The calendar addon must support Vite CommonJS interop and retain a safe fallback"
+  );
+  assert.ok(
+    dashboard.includes("<DeferredWidgetBoundary") &&
+      dashboard.includes('t("calendar.load_error"') &&
+      boundary.includes("static getDerivedStateFromError()"),
+    "Deferred widgets must be isolated behind an error boundary"
+  );
+});
+
+check("recent-client progress only counts the displayed program", () => {
+  const dashboard = read("src/components/CoachDashboard.jsx");
+  assert.ok(
+    dashboard.includes("getValidatedSessionCountForProgram(primaryProgramForCard)") &&
+      dashboard.includes("getProgramActiveSessionTotal(primaryProgramForCard)"),
+    "The progress numerator and denominator must come from the displayed program"
+  );
+  assert.ok(
+    !dashboard.includes("nbTerminees += doneThisProg") &&
+      !dashboard.includes("nbTotalSessions += nbTotalProg"),
+    "Historical programs must not inflate the displayed program progress"
+  );
 });
 
 check("security boundaries stay fail-closed", () => {
