@@ -1935,8 +1935,10 @@
       "close": "Historie schließen"
     },
     "historyLoad": {
-      "justification": "Last aus der Kundenhistorie mit der Berger-Tabelle berechnet: {{baseCharge}} kg x {{baseReps}} Wdh. -> {{suggested}} kg für {{targetReps}} Wdh. Sie bleibt bearbeitbar.",
-      "justificationShort": "Last aus der Kundenhistorie mit der Berger-Tabelle berechnet. Sie bleibt bearbeitbar."
+      "justification": "Unverbindlicher RM-Vorschlag (Berger-Tabelle): {{baseCharge}} {{unit}} x {{baseReps}} Wdh. -> {{suggested}} {{unit}} für {{targetReps}} Wdh. Gib eine Last ein, um ihn zu ersetzen.",
+      "justificationShort": "Unverbindlicher RM-Vorschlag aus dem Kundenverlauf. Gib eine Last ein, um ihn zu ersetzen.",
+      "setSuggestion": "RM-Vorschlag: {{weight}} {{unit}} für {{reps}} Wdh.",
+      "placeholderSuffix": "RM-Vorschlag"
     },
     "labels": {
       "weightKg": "Laden (kg)",
@@ -1985,7 +1987,7 @@
       "savedDesc": "Ihr Programm wurde erfolgreich gespeichert.",
       "errorTitle": "Fehler",
       "assigned": "Zugewiesenes Programm",
-      "historyLoadsApplied": "{{count}} Last(en) aus der Kundenhistorie vorausgefüllt."
+      "historyLoadsApplied": "{{count}} RM-Vorschlag/Vorschläge aus dem Kundenverlauf hinzugefügt."
     },
     "exercise": {
       "label": "Übung"

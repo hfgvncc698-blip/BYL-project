@@ -1935,8 +1935,10 @@
       "close": "Закрыть историю"
     },
     "historyLoad": {
-      "justification": "Вес рассчитан по истории клиента с помощью таблицы Бергера: {{baseCharge}} кг x {{baseReps}} повт. -> {{suggested}} кг на {{targetReps}} повт. Его можно изменить.",
-      "justificationShort": "Вес рассчитан по истории клиента с помощью таблицы Бергера. Его можно изменить."
+      "justification": "Ориентировочная RM-рекомендация (таблица Бергера): {{baseCharge}} {{unit}} x {{baseReps}} повт. -> {{suggested}} {{unit}} на {{targetReps}} повт. Введите вес, чтобы заменить её.",
+      "justificationShort": "Ориентировочная RM-рекомендация по истории клиента. Введите вес, чтобы заменить её.",
+      "setSuggestion": "RM-рекомендация: {{weight}} {{unit}} на {{reps}} повт.",
+      "placeholderSuffix": "RM-рекомендация"
     },
     "labels": {
       "weightKg": "Загрузить (kg)",
@@ -1985,7 +1987,7 @@
       "savedDesc": "Ваша программа успешно сохранена.",
       "errorTitle": "Ошибка",
       "assigned": "Назначенная программа",
-      "historyLoadsApplied": "{{count}} нагрузок заполнено из истории клиента."
+      "historyLoadsApplied": "{{count}} RM-рекомендаций добавлено из истории клиента."
     },
     "exercise": {
       "label": "Упражнение"

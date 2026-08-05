@@ -1599,6 +1599,22 @@
           "Unsupported get request: object missing, inaccessible due to permissions, or unsupported operation"
         ]
       }
+    },
+    {
+      "at": "2026-08-04T23:31:03.753Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 15,
+        "updated": 3,
+        "total": 18,
+        "rerunEscalated": true,
+        "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+        "sampleErrors": [
+          "Unsupported get request: object absent, missing permissions, or unsupported operation"
+        ]
+      }
     }
   ]
 }

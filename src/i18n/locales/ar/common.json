@@ -1935,8 +1935,10 @@
       "close": "إغلاق السجل"
     },
     "historyLoad": {
-      "justification": "تم حساب الحمل من سجل العميل باستخدام جدول بيرغر: {{baseCharge}} كغ × {{baseReps}} تكرارات -> {{suggested}} كغ لـ {{targetReps}} تكرارات. يمكن تعديله.",
-      "justificationShort": "تم حساب الحمل من سجل العميل باستخدام جدول بيرغر. يمكن تعديله."
+      "justification": "اقتراح RM إرشادي (جدول بيرغر): {{baseCharge}} {{unit}} × {{baseReps}} تكرارات -> {{suggested}} {{unit}} لـ {{targetReps}} تكرارات. أدخل حملاً لاستبداله.",
+      "justificationShort": "اقتراح RM إرشادي محسوب من سجل العميل. أدخل حملاً لاستبداله.",
+      "setSuggestion": "اقتراح RM: {{weight}} {{unit}} لـ {{reps}} تكرارات",
+      "placeholderSuffix": "اقتراح RM"
     },
     "labels": {
       "weightKg": "تحميل (kg)",
@@ -1985,7 +1987,7 @@
       "savedDesc": "لقد تم حفظ برنامجك بنجاح.",
       "errorTitle": "خطأ",
       "assigned": "البرنامج المخصص",
-      "historyLoadsApplied": "تم ملء {{count}} حمل/أحمال من سجل العميل."
+      "historyLoadsApplied": "تمت إضافة {{count}} من اقتراحات RM من سجل العميل."
     },
     "exercise": {
       "label": "تمرين"

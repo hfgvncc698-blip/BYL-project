@@ -1935,8 +1935,10 @@
       "close": "Chiudi cronologia"
     },
     "historyLoad": {
-      "justification": "Carico calcolato dallo storico cliente con la tabella di Berger: {{baseCharge}} kg x {{baseReps}} rip. -> {{suggested}} kg per {{targetReps}} rip. Resta modificabile.",
-      "justificationShort": "Carico calcolato dallo storico cliente con la tabella di Berger. Resta modificabile."
+      "justification": "Suggerimento RM indicativo (tabella di Berger): {{baseCharge}} {{unit}} x {{baseReps}} rip. -> {{suggested}} {{unit}} per {{targetReps}} rip. Inserisci un carico per sostituirlo.",
+      "justificationShort": "Suggerimento RM indicativo calcolato dallo storico cliente. Inserisci un carico per sostituirlo.",
+      "setSuggestion": "Suggerimento RM: {{weight}} {{unit}} per {{reps}} rip.",
+      "placeholderSuffix": "suggerimento RM"
     },
     "labels": {
       "weightKg": "Carica (kg)",
@@ -1985,7 +1987,7 @@
       "savedDesc": "Il tuo programma è stato salvato con successo.",
       "errorTitle": "Errore",
       "assigned": "Programma assegnato",
-      "historyLoadsApplied": "{{count}} carico/carichi precompilati dallo storico cliente."
+      "historyLoadsApplied": "{{count}} suggerimento/i RM aggiunto/i dallo storico cliente."
     },
     "exercise": {
       "label": "Esercizio"

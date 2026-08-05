@@ -1941,8 +1941,10 @@
       "close": "Fermer l'historique"
     },
     "historyLoad": {
-      "justification": "Charge calculée depuis l'historique client avec la table de Berger : {{baseCharge}} kg x {{baseReps}} reps -> {{suggested}} kg pour {{targetReps}} reps. Elle reste modifiable.",
-      "justificationShort": "Charge calculée depuis l'historique client avec la table de Berger. Elle reste modifiable."
+      "justification": "Suggestion RM indicative (table de Berger) : {{baseCharge}} {{unit}} x {{baseReps}} reps -> {{suggested}} {{unit}} pour {{targetReps}} reps. Saisissez une charge pour la remplacer.",
+      "justificationShort": "Suggestion RM indicative calculée depuis l'historique client. Saisissez une charge pour la remplacer.",
+      "setSuggestion": "Suggestion RM : {{weight}} {{unit}} pour {{reps}} reps",
+      "placeholderSuffix": "suggéré RM"
     },
     "labels": {
       "weightKg": "Charge (kg)",
@@ -1991,7 +1993,7 @@
       "savedDesc": "Ton programme a bien été sauvegardé.",
       "errorTitle": "Erreur",
       "assigned": "Programme assigné",
-      "historyLoadsApplied": "{{count}} charge(s) préremplie(s) depuis l'historique client."
+      "historyLoadsApplied": "{{count}} suggestion(s) RM ajoutée(s) depuis l'historique client."
     },
     "exercise": {
       "label": "Exercice"

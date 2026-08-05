@@ -100,6 +100,7 @@ import {
   exerciseHistoryMatches,
   isValidatedExerciseCompletion,
 } from "../utils/exerciseHistoryIdentity";
+import { isPerformanceOptionTracked } from "../utils/playerBuilderSync";
 import { hasPlanModule } from "../utils/proPlanAccess";
 import {
   applyPlayerExerciseDeletion,
@@ -529,6 +530,8 @@ const OPTION_FLAG = {
   repos: "Repos (min:sec)",
   temps: "Durée (min:sec)",
   charge: "Charge (kg)",
+  resistance: "Résistance",
+  watts: "Watts",
   calories: "Objectif Calories",
   tempo: "Tempo",
   vitesse: "Vitesse",
@@ -543,6 +546,8 @@ const FIELD_MAP = {
   repos: ["Repos (min:sec)", "Repos", "repos", "pause", "duree_repos", "rest"],
   temps: ["Durée (min:sec)", "duree", "durée", "duree_effort", "temps_effort", "temps", "time"],
   charge: ["Charge (kg)", "charge", "poids", "weight"],
+  resistance: ["Résistance", "resistance"],
+  watts: ["Watts", "watts", "watt", "power", "puissance"],
   calories: ["Objectif Calories", "calories", "objectif_calories", "kcal"],
   tempo: ["Tempo", "tempo", "tempo_pattern", "cadence"],
   vitesse: ["Vitesse", "vitesse", "speed", "kmh", "km/h"],
@@ -557,6 +562,8 @@ const METADATA = {
   repos: { step: 15, isTime: true },
   temps: { step: 15, isTime: true },
   charge: { step: 0.25, isTime: false },
+  resistance: { step: 1, isTime: false },
+  watts: { step: 5, isTime: false },
   calories: { step: 1, isTime: false },
   tempo: { step: 1, isTime: false },
   vitesse: { step: 1, isTime: false },
@@ -1035,23 +1042,50 @@ const getPerformanceSetKey = (exerciseIndex, setIndex) =>
   `${Math.max(0, Number(exerciseIndex) || 0)}:${Math.max(1, Number(setIndex) || 1)}`;
 
 function buildExercisePerformanceSet(exercise = {}, setIndex = 0, overrides = {}) {
+  const isTracked = (label) => isPerformanceOptionTracked(exercise, label);
   const readMetric = (key, label) =>
     Object.prototype.hasOwnProperty.call(overrides || {}, label)
       ? overrides[label]
       : readExerciseMetric(exercise, key, label, setIndex);
-  const reps = parseMetricNumber(readMetric("repetitions", "Répétitions"));
-  const chargeKg = parseMetricNumber(readMetric("charge", "Charge (kg)"));
-  const durationSec = toSeconds(readMetric("temps", "Durée (min:sec)") ?? 0);
-  const restSec = toSeconds(readMetric("repos", "Repos (min:sec)") ?? 0);
-  const distance = parseMetricNumber(readMetric("distance", "Distance"));
-  const speed = parseMetricNumber(readMetric("vitesse", "Vitesse"));
-  const incline = parseMetricNumber(readMetric("inclinaison", "Inclinaison (%)"));
-  const calories = parseMetricNumber(readMetric("calories", "Objectif Calories"));
-  const intensity = parseMetricNumber(readMetric("intensite", "Intensité"));
-  const tempo = readMetric("tempo", "Tempo");
+  const reps = isTracked("Répétitions")
+    ? parseMetricNumber(readMetric("repetitions", "Répétitions"))
+    : null;
+  const chargeKg = isTracked("Charge (kg)")
+    ? parseMetricNumber(readMetric("charge", "Charge (kg)"))
+    : null;
+  const resistance = isTracked("Résistance")
+    ? parseMetricNumber(readMetric("resistance", "Résistance"))
+    : null;
+  const watts = isTracked("Watts")
+    ? parseMetricNumber(readMetric("watts", "Watts"))
+    : null;
+  const durationSec = isTracked("Durée (min:sec)")
+    ? toSeconds(readMetric("temps", "Durée (min:sec)") ?? 0)
+    : 0;
+  const restSec = isTracked("Repos (min:sec)")
+    ? toSeconds(readMetric("repos", "Repos (min:sec)") ?? 0)
+    : 0;
+  const distance = isTracked("Distance")
+    ? parseMetricNumber(readMetric("distance", "Distance"))
+    : null;
+  const speed = isTracked("Vitesse")
+    ? parseMetricNumber(readMetric("vitesse", "Vitesse"))
+    : null;
+  const incline = isTracked("Inclinaison (%)")
+    ? parseMetricNumber(readMetric("inclinaison", "Inclinaison (%)"))
+    : null;
+  const calories = isTracked("Objectif Calories")
+    ? parseMetricNumber(readMetric("calories", "Objectif Calories"))
+    : null;
+  const intensity = isTracked("Intensité")
+    ? parseMetricNumber(readMetric("intensite", "Intensité"))
+    : null;
+  const tempo = isTracked("Tempo") ? readMetric("tempo", "Tempo") : null;
   const values = {};
   if (reps != null) values["Répétitions"] = { label: "Répétitions", raw: reps, display: formatHistoryValue("Répétitions", reps) };
   if (chargeKg != null) values["Charge (kg)"] = { label: "Charge (kg)", raw: chargeKg, display: formatHistoryValue("Charge (kg)", chargeKg) };
+  if (resistance != null) values.Résistance = { label: "Résistance", raw: resistance, display: formatHistoryValue("Résistance", resistance) };
+  if (watts != null) values.Watts = { label: "Watts", raw: watts, display: formatHistoryValue("Watts", watts) };
   if (durationSec > 0) values["Durée (min:sec)"] = { label: "Durée (min:sec)", raw: durationSec, display: formatHistoryValue("Durée (min:sec)", durationSec) };
   if (restSec > 0) values["Repos (min:sec)"] = { label: "Repos (min:sec)", raw: restSec, display: formatHistoryValue("Repos (min:sec)", restSec) };
   if (distance != null) values.Distance = { label: "Distance", raw: distance, display: formatHistoryValue("Distance", distance) };
@@ -1066,8 +1100,12 @@ function buildExercisePerformanceSet(exercise = {}, setIndex = 0, overrides = {}
     values,
     ...(reps != null ? { reps } : {}),
     ...(chargeKg != null ? { chargeKg } : {}),
+    ...(resistance != null ? { resistance } : {}),
+    ...(watts != null ? { watts } : {}),
     ...(durationSec > 0 ? { durationSec } : {}),
-    ...(restSec > 0 ? { restSec } : {}),
+    // `restSec` is the rest duration validated in the player. Keep an explicit
+    // planned value as well so consumers never confuse it with elapsed rest.
+    ...(restSec > 0 ? { restSec, plannedRestSec: restSec } : {}),
     ...(distance != null ? { distance } : {}),
     ...(speed != null ? { speed } : {}),
     ...(incline != null ? { incline } : {}),
@@ -1133,6 +1171,13 @@ function buildExercisePerformanceSnapshots(
       exerciseIds: identity.ids,
       exerciseName: identity.primaryName,
       exerciseNames: identity.names,
+      // The player can change which metrics define the exercise (for example,
+      // replacing repetitions with a duration). Persist that choice with the
+      // performance snapshot so the builder can mirror the same structure.
+      optionsOrder: Array.isArray(exercise?.optionsOrder)
+        ? [...exercise.optionsOrder]
+        : [],
+      seriesDiff: getSeriesDiffFlag(exercise),
       sets,
       summary: {
         totalSets: sets.length,
@@ -4118,14 +4163,16 @@ export default function SessionPlayer() {
     const details = getSeriesDetails(ex);
     const currentDetail = seriesDiff && details ? details[Math.max(0, currentSet - 1)] : null;
 
-    const durRaw =
+    const plannedDurRaw =
       currentDetail && currentDetail["Durée (min:sec)"] != null
         ? currentDetail["Durée (min:sec)"]
         : getFieldValue(ex, FIELD_MAP.temps) ?? 0;
-    const restRaw =
+    const plannedRestRaw =
       currentDetail && currentDetail["Repos (min:sec)"] != null
         ? currentDetail["Repos (min:sec)"]
         : getFieldValue(ex, FIELD_MAP.repos) ?? 0;
+    const durRaw = getCurrentPerformanceValue("Durée (min:sec)", plannedDurRaw);
+    const restRaw = getCurrentPerformanceValue("Repos (min:sec)", plannedRestRaw);
 
     const dur = toSeconds(durRaw);
     const rest = toSeconds(restRaw);
@@ -4194,14 +4241,16 @@ export default function SessionPlayer() {
     const seriesDiff = getSeriesDiffFlag(ex);
     const details = getSeriesDetails(ex);
     const curDet = seriesDiff && details ? details[Math.max(0, currentSet - 1)] : null;
-    const durRaw =
+    const plannedDurRaw =
       curDet && curDet["Durée (min:sec)"] != null
         ? curDet["Durée (min:sec)"]
         : getFieldValue(ex, FIELD_MAP.temps) ?? 0;
-    const restRaw =
+    const plannedRestRaw =
       curDet && curDet["Repos (min:sec)"] != null
         ? curDet["Repos (min:sec)"]
         : getFieldValue(ex, FIELD_MAP.repos) ?? 0;
+    const durRaw = getCurrentPerformanceValue("Durée (min:sec)", plannedDurRaw);
+    const restRaw = getCurrentPerformanceValue("Repos (min:sec)", plannedRestRaw);
     const dur = toSeconds(durRaw);
     const rest = toSeconds(restRaw);
     durSecRef.current = dur;
@@ -4387,18 +4436,27 @@ export default function SessionPlayer() {
     const remainingSeconds = Math.max(0, Number(restTimer.seconds) || 0);
     const actualRestSeconds = Math.max(0, Math.min(plannedSeconds, plannedSeconds - remainingSeconds));
     const values = { ...(entry.set.values || {}) };
-    if (actualRestSeconds > 0) {
+    if (plannedSeconds > 0) {
       values["Repos (min:sec)"] = {
         label: "Repos (min:sec)",
-        raw: actualRestSeconds,
-        display: formatHistoryValue("Repos (min:sec)", actualRestSeconds),
+        raw: plannedSeconds,
+        display: formatHistoryValue("Repos (min:sec)", plannedSeconds),
       };
     } else {
       delete values["Repos (min:sec)"];
     }
     const nextSet = { ...entry.set, values };
-    if (actualRestSeconds > 0) nextSet.restSec = actualRestSeconds;
-    else delete nextSet.restSec;
+    if (plannedSeconds > 0) {
+      nextSet.restSec = plannedSeconds;
+      nextSet.plannedRestSec = plannedSeconds;
+    } else {
+      delete nextSet.restSec;
+      delete nextSet.plannedRestSec;
+    }
+    // Actual waiting time remains useful for analysis, but it must never
+    // become the next prescribed rest duration in the program builder.
+    if (actualRestSeconds > 0) nextSet.actualRestSec = actualRestSeconds;
+    else delete nextSet.actualRestSec;
     performedSetsRef.current.set(activeRest.key, { ...entry, set: nextSet });
   }
 
@@ -4431,6 +4489,39 @@ export default function SessionPlayer() {
 
     if (field !== "Séries") {
       stageCurrentSetPerformance(field, value);
+
+      if (field === "Durée (min:sec)") {
+        durSecRef.current = value;
+
+        if (phase === "effort") {
+          effortTimer.stop();
+          effortElapsedTimer.stop();
+          effortTimer.reset(value);
+          effortElapsedTimer.reset();
+          if (!isPaused) {
+            if (value > 0) effortTimer.start();
+            else effortElapsedTimer.start();
+          }
+        } else if (phase === "ready") {
+          effortTimer.reset(value);
+          effortElapsedTimer.reset();
+        }
+      }
+
+      if (field === "Repos (min:sec)") {
+        restSecRef.current = value;
+
+        if (phase === "rest") {
+          restTimer.stop();
+          restTimer.reset(value);
+          if (activeRestPerformanceRef.current) {
+            activeRestPerformanceRef.current.plannedSeconds = value;
+          }
+          if (!isPaused && value > 0) restTimer.start();
+        } else if (phase === "ready") {
+          restTimer.reset(value);
+        }
+      }
       return;
     }
 
@@ -4892,6 +4983,8 @@ export default function SessionPlayer() {
     "repetitions",
     "temps",
     "charge",
+    "resistance",
+    "watts",
     "repos",
     "vitesse",
     "inclinaison",

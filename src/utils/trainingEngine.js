@@ -106,25 +106,50 @@ function getSeriesDetails(exercise) {
   return null;
 }
 
+function isMetricTracked(exercise, label) {
+  return !Array.isArray(exercise?.optionsOrder) || exercise.optionsOrder.includes(label);
+}
+
 function getAdvancedSets(exercise) {
-  const globalRest = toSeconds(getFieldValue(exercise, FIELD_MAP.repos) ?? 0);
-  const globalDuration = toSeconds(getFieldValue(exercise, FIELD_MAP.temps) ?? 0);
-  const globalReps = Number(getFieldValue(exercise, FIELD_MAP.repetitions) ?? 0) || 0;
+  const trackRest = isMetricTracked(exercise, "Repos (min:sec)");
+  const trackDuration = isMetricTracked(exercise, "Durée (min:sec)");
+  const trackReps = isMetricTracked(exercise, "Répétitions");
+  const globalRest = trackRest
+    ? toSeconds(getFieldValue(exercise, FIELD_MAP.repos) ?? 0)
+    : 0;
+  const globalDuration = trackDuration
+    ? toSeconds(getFieldValue(exercise, FIELD_MAP.temps) ?? 0)
+    : 0;
+  const globalReps = trackReps
+    ? Number(getFieldValue(exercise, FIELD_MAP.repetitions) ?? 0) || 0
+    : 0;
 
   if (Array.isArray(exercise?.sets) && exercise.sets.length) {
     return exercise.sets.map((set) => ({
-      reps: Number(set?.reps ?? set?.repetitions ?? set?.["Répétitions"] ?? globalReps) || 0,
-      restSec: toSeconds(set?.restSec ?? set?.rest ?? set?.repos ?? set?.["Repos (min:sec)"] ?? globalRest),
-      durationSec: toSeconds(set?.durationSec ?? set?.duration ?? set?.temps ?? set?.["Durée (min:sec)"] ?? globalDuration),
+      reps: trackReps
+        ? Number(set?.reps ?? set?.repetitions ?? set?.["Répétitions"] ?? globalReps) || 0
+        : 0,
+      restSec: trackRest
+        ? toSeconds(set?.restSec ?? set?.rest ?? set?.repos ?? set?.["Repos (min:sec)"] ?? globalRest)
+        : 0,
+      durationSec: trackDuration
+        ? toSeconds(set?.durationSec ?? set?.duration ?? set?.temps ?? set?.["Durée (min:sec)"] ?? globalDuration)
+        : 0,
     }));
   }
 
   const details = getSeriesDetails(exercise);
   if (Array.isArray(details) && details.length) {
     return details.map((set) => ({
-      reps: Number(set?.reps ?? set?.repetitions ?? set?.["Répétitions"] ?? globalReps) || 0,
-      restSec: toSeconds(set?.restSec ?? set?.rest ?? set?.repos ?? set?.["Repos (min:sec)"] ?? globalRest),
-      durationSec: toSeconds(set?.durationSec ?? set?.duration ?? set?.temps ?? set?.["Durée (min:sec)"] ?? globalDuration),
+      reps: trackReps
+        ? Number(set?.reps ?? set?.repetitions ?? set?.["Répétitions"] ?? globalReps) || 0
+        : 0,
+      restSec: trackRest
+        ? toSeconds(set?.restSec ?? set?.rest ?? set?.repos ?? set?.["Repos (min:sec)"] ?? globalRest)
+        : 0,
+      durationSec: trackDuration
+        ? toSeconds(set?.durationSec ?? set?.duration ?? set?.temps ?? set?.["Durée (min:sec)"] ?? globalDuration)
+        : 0,
     }));
   }
 
@@ -132,6 +157,7 @@ function getAdvancedSets(exercise) {
 }
 
 function getTempoSecondsPerRep(exercise) {
+  if (!isMetricTracked(exercise, "Tempo")) return 4;
   const rawTempo = getFieldValue(exercise, FIELD_MAP.tempo);
   const tempoText = String(rawTempo || "").trim();
   if (tempoText) {
@@ -153,9 +179,15 @@ function getTempoSecondsPerRep(exercise) {
 
 function getEffortAndRestForSet(exercise, setIndex) {
   const tempoPerRep = getTempoSecondsPerRep(exercise);
-  const globalRest = toSeconds(getFieldValue(exercise, FIELD_MAP.repos) ?? 0);
-  const globalDuration = toSeconds(getFieldValue(exercise, FIELD_MAP.temps) ?? 0);
-  const globalReps = Number(getFieldValue(exercise, FIELD_MAP.repetitions) ?? 0) || 0;
+  const globalRest = isMetricTracked(exercise, "Repos (min:sec)")
+    ? toSeconds(getFieldValue(exercise, FIELD_MAP.repos) ?? 0)
+    : 0;
+  const globalDuration = isMetricTracked(exercise, "Durée (min:sec)")
+    ? toSeconds(getFieldValue(exercise, FIELD_MAP.temps) ?? 0)
+    : 0;
+  const globalReps = isMetricTracked(exercise, "Répétitions")
+    ? Number(getFieldValue(exercise, FIELD_MAP.repetitions) ?? 0) || 0
+    : 0;
   const advancedSets = getAdvancedSets(exercise);
 
   if (advancedSets.length) {

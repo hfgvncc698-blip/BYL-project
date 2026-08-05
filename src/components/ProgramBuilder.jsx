@@ -85,6 +85,7 @@ import i18n from "../i18n";
 import { useAppTheme } from "../styles/appTheme";
 import { estimateSessionDurationSeconds, formatDuration } from "../utils/trainingEngine";
 import { exerciseHistoryMatches as matchesExerciseHistory } from "../utils/exerciseHistoryIdentity";
+import { selectLatestExercisePerformance } from "../utils/playerBuilderSync";
 import PageBackButton from "./ui/PageBackButton";
 
 /* ------------------ utils ------------------ */
@@ -216,6 +217,12 @@ const advancedSetOptions = [
   { label: "Durée (min:sec)", fields: ["durationSec", "duration", "temps"] },
   { label: "Vitesse", fields: ["speedKmh", "speed", "vitesse"] },
   { label: "Inclinaison (%)", fields: ["inclinePct", "inclinaison", "incline", "slope"] },
+  { label: "Résistance", fields: ["resistance"] },
+  { label: "Watts", fields: ["watts", "watt", "power"] },
+  { label: "Distance", fields: ["distance"] },
+  { label: "Objectif Calories", fields: ["calories"] },
+  { label: "Intensité", fields: ["intensity", "intensite"] },
+  { label: "Tempo", fields: ["tempo"] },
 ];
 
 const norm = (s = "") =>
@@ -364,6 +371,8 @@ function getHistoryFieldLabel(label = "", t) {
     Vitesse: translate("sessionPlayer.historyFields.speed", "Vitesse"),
     "Inclinaison (%)": translate("sessionPlayer.historyFields.incline", "Inclinaison"),
     "Objectif Calories": translate("sessionPlayer.historyFields.calories", "Calories"),
+    Résistance: translate("sessionPlayer.historyFields.resistance", "Résistance"),
+    Watts: translate("sessionPlayer.historyFields.watts", "Watts"),
     Intensité: translate("sessionPlayer.historyFields.intensity", "Intensité"),
     Tempo: translate("sessionPlayer.historyFields.tempo", "Tempo"),
   };
@@ -422,6 +431,8 @@ function getBuilderHistoryColumns(items = [], t) {
     "Vitesse",
     "Inclinaison (%)",
     "Objectif Calories",
+    "Résistance",
+    "Watts",
     "Intensité",
     "Tempo",
   ];
@@ -438,6 +449,53 @@ function getBuilderHistoryColumns(items = [], t) {
   }));
 }
 
+const SNAPSHOT_METRIC_FIELDS = {
+  "Répétitions": "reps",
+  "Charge (kg)": "chargeKg",
+  "Durée (min:sec)": "durationSec",
+  "Repos (min:sec)": "restSec",
+  Distance: "distance",
+  Vitesse: "speed",
+  "Inclinaison (%)": "incline",
+  "Objectif Calories": "calories",
+  Résistance: "resistance",
+  Watts: "watts",
+  Intensité: "intensity",
+  Tempo: "tempo",
+};
+
+function filterSnapshotToTrackedOptions(snapshot = {}, exercise = {}) {
+  const trackedOptions =
+    Array.isArray(snapshot?.optionsOrder) && snapshot.optionsOrder.length
+      ? snapshot.optionsOrder
+      : exercise?.optionsOrder;
+  if (!Array.isArray(trackedOptions)) return snapshot;
+
+  const tracked = new Set(trackedOptions);
+  const filterSet = (set = {}) => {
+    const nextSet = { ...set, values: { ...(set.values || {}) } };
+    Object.entries(SNAPSHOT_METRIC_FIELDS).forEach(([label, field]) => {
+      if (tracked.has(label)) return;
+      delete nextSet.values[label];
+      delete nextSet[field];
+      if (label === "Repos (min:sec)") {
+        delete nextSet.plannedRestSec;
+        delete nextSet.actualRestSec;
+      }
+    });
+    return nextSet;
+  };
+
+  const sets = (Array.isArray(snapshot?.sets) ? snapshot.sets : []).map(filterSet);
+  const summary = { ...(snapshot?.summary || {}) };
+  if (summary.topSet) summary.topSet = filterSet(summary.topSet);
+  if (!tracked.has("Répétitions")) delete summary.totalReps;
+  if (!tracked.has("Répétitions") || !tracked.has("Charge (kg)")) {
+    delete summary.totalVolumeKg;
+  }
+  return { ...snapshot, optionsOrder: [...trackedOptions], sets, summary };
+}
+
 function buildExerciseHistoryItemsFromCompletions(completionHistory = [], exercise = {}, t) {
   if (!exercise) return [];
   const rows = (completionHistory || [])
@@ -451,7 +509,7 @@ function buildExerciseHistoryItemsFromCompletions(completionHistory = [], exerci
         recordId: record.id,
         sessionTitle: record.sessionTitle || t("form.session", "Séance"),
         date,
-        snapshot,
+        snapshot: filterSnapshotToTrackedOptions(snapshot, exercise),
       }];
     })
     .sort((a, b) => b.date.getTime() - a.date.getTime());
@@ -464,6 +522,145 @@ function buildExerciseHistoryItemsFromCompletions(completionHistory = [], exerci
     ...item,
     rank: index === prIndex && bestScore > 0 && score === bestScore ? 1 : null,
   }));
+}
+
+const PLAYER_VALIDATED_SYNC_META_KEY = "_playerValidatedSync";
+
+function readValidatedSetMetric(set = {}, field, label, allowValuesFallback = true) {
+  const direct = set?.[field];
+  if (direct != null && direct !== "") return direct;
+  return allowValuesFallback ? set?.values?.[label]?.raw : undefined;
+}
+
+function applyValidatedSnapshotToExercise(exercise = {}, source = null) {
+  if (!source?.record || !source?.snapshot) return exercise;
+
+  const recordId = String(source.record.id || source.record.completionId || "");
+  if (
+    recordId &&
+    exercise?.[PLAYER_VALIDATED_SYNC_META_KEY]?.recordId === recordId &&
+    Number(exercise?.[PLAYER_VALIDATED_SYNC_META_KEY]?.version) === 6
+  ) {
+    return exercise;
+  }
+
+  const recordedSets = [...source.snapshot.sets].sort(
+    (a, b) => (Number(a?.setIndex) || 0) - (Number(b?.setIndex) || 0)
+  );
+  if (!recordedSets.length) return exercise;
+
+  const next = structuredClone(exercise);
+  if (Array.isArray(source.snapshot.optionsOrder) && source.snapshot.optionsOrder.length) {
+    next.optionsOrder = [...source.snapshot.optionsOrder];
+  }
+  if (typeof source.snapshot.seriesDiff === "boolean") {
+    next.useAdvancedSets = source.snapshot.seriesDiff;
+    next.seriesDiff = source.snapshot.seriesDiff;
+  }
+  const metricDefs = [
+    { label: "Répétitions", field: "reps", setField: "reps" },
+    { label: "Charge (kg)", field: "chargeKg", setField: "chargeKg" },
+    { label: "Résistance", field: "resistance", setField: "resistance" },
+    { label: "Watts", field: "watts", setField: "watts" },
+    // Only the explicit player prescription is synchronized. Older records
+    // stored elapsed waiting time in `restSec`, which could turn 2:30 into 0:16.
+    {
+      label: "Repos (min:sec)",
+      field: "plannedRestSec",
+      setField: "restSec",
+      allowValuesFallback: false,
+    },
+    { label: "Durée (min:sec)", field: "durationSec", setField: "durationSec" },
+    { label: "Distance", field: "distance", setField: "distance" },
+    { label: "Vitesse", field: "speed", setField: "speedKmh" },
+    { label: "Inclinaison (%)", field: "incline", setField: "inclinePct" },
+    { label: "Objectif Calories", field: "calories", setField: "calories" },
+    { label: "Intensité", field: "intensity", setField: "intensity" },
+    { label: "Tempo", field: "tempo", setField: "tempo" },
+  ];
+  const activeOptions = new Set(next.optionsOrder || []);
+  const isUsable = (value) =>
+    value != null && value !== "" && (typeof value !== "number" || value > 0);
+
+  if (next.useAdvancedSets) {
+    next.sets = recordedSets.map((recordedSet, index) => {
+      const target = {
+        ...(next.sets?.[index] || {}),
+        _id: next.sets?.[index]?._id || uid(),
+      };
+      metricDefs.forEach(({ label, field, setField, allowValuesFallback = true }) => {
+        if (!activeOptions.has(label)) return;
+        const value = readValidatedSetMetric(recordedSet, field, label, allowValuesFallback);
+        if (isUsable(value)) target[setField] = value;
+      });
+      return target;
+    });
+    next["Séries"] = next.sets.length;
+    next.seriesDiff = true;
+    next.seriesDetails = seriesDetailsFromSets(next.sets, next.optionsOrder);
+  } else {
+    const representativeSet = recordedSets[recordedSets.length - 1];
+    next["Séries"] = recordedSets.length;
+    metricDefs.forEach(({ label, field, allowValuesFallback = true }) => {
+      if (!activeOptions.has(label)) return;
+      const value = readValidatedSetMetric(
+        representativeSet,
+        field,
+        label,
+        allowValuesFallback
+      );
+      if (isUsable(value)) next[label] = value;
+    });
+    Object.assign(next, ensureSetsLengthPure(next));
+  }
+
+  const validatedCharge = next.useAdvancedSets
+    ? next.sets.some((set) => Number(set?.chargeKg) > 0)
+    : Number(next["Charge (kg)"]) > 0;
+  if (validatedCharge) clearHistoryLoadMeta(next);
+
+  next[PLAYER_VALIDATED_SYNC_META_KEY] = {
+    version: 6,
+    recordId,
+    completionId: source.record.completionId || "",
+    completedAt: getCompletionRecordDate(source.record)?.toISOString?.() || "",
+  };
+  return next;
+}
+
+function applyValidatedPerformanceToSessions(
+  sourceSessions = [],
+  completionRecords = [],
+  syncContext = {}
+) {
+  let updatedCount = 0;
+  const sessions = sourceSessions.map((session, sessionIndex) => {
+    const nextSession = structuredClone(session);
+    const listKeys = nextSession.useSections
+      ? sectionDefs.map(({ key }) => key)
+      : ["exercises"];
+    let exerciseIndex = 0;
+
+    listKeys.forEach((key) => {
+      nextSession[key] = (nextSession[key] || []).map((exercise, sectionIndex) => {
+        const source = selectLatestExercisePerformance(completionRecords, exercise, {
+          sessionIndex,
+          sectionKey: key,
+          sectionIndex,
+          exerciseIndex,
+          programId: syncContext.programId,
+          clientId: syncContext.clientId,
+        });
+        exerciseIndex += 1;
+        const nextExercise = applyValidatedSnapshotToExercise(exercise, source);
+        if (nextExercise !== exercise) updatedCount += 1;
+        return nextExercise;
+      });
+    });
+    return nextSession;
+  });
+
+  return { sessions, updatedCount };
 }
 
 async function loadClientCompletionHistory(clientId, baseProgramId = null) {
@@ -508,6 +705,59 @@ async function loadClientCompletionHistory(clientId, baseProgramId = null) {
     .filter(isValidatedCompletionRecord)
     .filter((record) => Array.isArray(record?.exerciseSnapshots) && record.exerciseSnapshots.length > 0)
     .sort((a, b) => (getCompletionRecordDate(b)?.getTime() || 0) - (getCompletionRecordDate(a)?.getTime() || 0));
+}
+
+async function subscribeClientCompletionHistory(clientId, baseProgramId, onRows, onError) {
+  if (!clientId) return () => {};
+
+  let programmeIds = baseProgramId ? [baseProgramId] : [];
+  try {
+    const programmesSnap = await getDocs(collection(db, "clients", clientId, "programmes"));
+    programmeIds = Array.from(
+      new Set([
+        ...programmeIds,
+        ...programmesSnap.docs.map((docSnap) => docSnap.id),
+      ].filter(Boolean))
+    );
+  } catch (error) {
+    onError?.(error);
+  }
+
+  if (!programmeIds.length) {
+    onRows?.([]);
+    return () => {};
+  }
+
+  const rowsByProgram = new Map();
+  const publish = () => {
+    const rows = Array.from(rowsByProgram.values())
+      .flat()
+      .filter(isValidatedCompletionRecord)
+      .filter((record) => Array.isArray(record?.exerciseSnapshots) && record.exerciseSnapshots.length > 0)
+      .sort((a, b) => (getCompletionRecordDate(b)?.getTime() || 0) - (getCompletionRecordDate(a)?.getTime() || 0));
+    onRows?.(rows);
+  };
+
+  const unsubscribers = programmeIds.map((pid) =>
+    onSnapshot(
+      collection(db, "clients", clientId, "programmes", pid, "sessionsEffectuees"),
+      (snap) => {
+        rowsByProgram.set(
+          pid,
+          snap.docs.map((docSnap) => ({
+            id: `${pid}:${docSnap.id}`,
+            completionId: docSnap.id,
+            programId: pid,
+            ...docSnap.data(),
+          }))
+        );
+        publish();
+      },
+      (error) => onError?.(error)
+    )
+  );
+
+  return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
 }
 
 /* ======= conversions & préférences d’unités ======= */
@@ -655,6 +905,11 @@ function applyHistoryLoadToExercise(ex = {}, completionHistory = [], t) {
   const historyItems = buildExerciseHistoryItemsFromCompletions(completionHistory, ex, t);
   if (!historyItems.length) return { exercise: ex, appliedCount: 0 };
 
+  // Une charge déjà saisie par le coach reste toujours prioritaire.
+  // Les calculs RM ne sont que des indications et ne doivent pas l'écraser.
+  const hasManualGlobalLoad = Number(ex?.["Charge (kg)"]) > 0 && !ex?.[HISTORY_LOAD_META_KEY]?.applied;
+  if (hasManualGlobalLoad) return { exercise: ex, appliedCount: 0 };
+
   let next = structuredClone(ex);
   let appliedCount = 0;
 
@@ -663,23 +918,22 @@ function applyHistoryLoadToExercise(ex = {}, completionHistory = [], t) {
     const sets = next.sets.map((set) => {
       const targetReps = parseNumberish(set?.reps) || globalReps;
       const suggested = suggestHistoryLoadForReps(historyItems, targetReps);
-      if (suggested == null) return set;
+      const hasManualSetLoad = Number(set?.chargeKg) > 0 && !next?.[HISTORY_LOAD_META_KEY]?.applied;
+      if (suggested == null || hasManualSetLoad) return set;
       appliedCount += 1;
-      return { ...(set || {}), chargeKg: suggested.chargeKg };
+      return { ...(set || {}), chargeKg: 0 };
     });
 
     if (!appliedCount) return { exercise: ex, appliedCount: 0 };
     next = withChargeOptionEnabled(next);
     next.sets = sets;
-    const firstSuggested = sets.find((set) => Number(set?.chargeKg) > 0)?.chargeKg;
-    if (Number(firstSuggested) > 0) next["Charge (kg)"] = Number(firstSuggested);
+    next["Charge (kg)"] = 0;
     const firstMeta = next.sets
       .map((set) => suggestHistoryLoadForReps(historyItems, parseNumberish(set?.reps) || globalReps)?.meta)
       .find(Boolean);
     if (firstMeta) {
       next[HISTORY_LOAD_META_KEY] = {
         ...firstMeta,
-        suggestedKg: Number(firstSuggested) || firstMeta.suggestedKg,
         perSet: next.sets
           .map((set, setIndex) => {
             const setMeta = suggestHistoryLoadForReps(historyItems, parseNumberish(set?.reps) || globalReps)?.meta;
@@ -696,10 +950,10 @@ function applyHistoryLoadToExercise(ex = {}, completionHistory = [], t) {
   if (suggested == null) return { exercise: ex, appliedCount: 0 };
 
   next = withChargeOptionEnabled(next);
-  next["Charge (kg)"] = suggested.chargeKg;
+  next["Charge (kg)"] = 0;
   next[HISTORY_LOAD_META_KEY] = suggested.meta;
   if (Array.isArray(next.sets) && next.sets.length) {
-    next.sets = next.sets.map((set) => ({ ...(set || {}), chargeKg: suggested.chargeKg }));
+    next.sets = next.sets.map((set) => ({ ...(set || {}), chargeKg: 0 }));
   }
   return { exercise: next, appliedCount: 1 };
 }
@@ -733,29 +987,6 @@ function clearHistoryLoadMeta(ex = {}) {
   if (ex && Object.prototype.hasOwnProperty.call(ex, HISTORY_LOAD_META_KEY)) {
     delete ex[HISTORY_LOAD_META_KEY];
   }
-}
-
-function getHistoryLoadJustification(ex = {}, t) {
-  const meta = ex?.[HISTORY_LOAD_META_KEY];
-  if (!meta?.applied) return "";
-
-  const baseCharge = formatHistoryNumber(meta.baseChargeKg);
-  const baseReps = formatHistoryNumber(meta.baseReps, 0);
-  const targetReps = formatHistoryNumber(meta.targetReps, 0);
-  const suggested = formatHistoryNumber(meta.suggestedKg);
-
-  if (baseCharge && baseReps && targetReps && suggested) {
-    return t(
-      "programBuilder.historyLoad.justification",
-      "Charge calculée depuis l'historique client avec la table de Berger : {{baseCharge}} kg x {{baseReps}} reps -> {{suggested}} kg pour {{targetReps}} reps. Elle reste modifiable.",
-      { baseCharge, baseReps, suggested, targetReps }
-    );
-  }
-
-  return t(
-    "programBuilder.historyLoad.justificationShort",
-    "Charge calculée depuis l'historique client avec la table de Berger. Elle reste modifiable."
-  );
 }
 
 /* ======= display units stored at program level ======= */
@@ -1301,8 +1532,30 @@ function detectType(ex) {
   return "musculation";
 }
 
+function removeLegacyAutomaticHistoryLoads(ex = {}) {
+  const next = structuredClone(ex || {});
+  if (!next?.[HISTORY_LOAD_META_KEY]?.applied) return next;
+
+  next["Charge (kg)"] = 0;
+  ["charge", "poids", "weight", "load", "Charge"].forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(next, key)) next[key] = 0;
+  });
+
+  if (Array.isArray(next.sets)) {
+    next.sets = next.sets.map((set) => ({ ...(set || {}), chargeKg: 0 }));
+  }
+  if (Array.isArray(next.seriesDetails)) {
+    next.seriesDetails = next.seriesDetails.map((detail) => ({
+      ...(detail || {}),
+      "Charge (kg)": 0,
+    }));
+  }
+
+  return next;
+}
+
 function normalizeExercise(ex) {
-  const base = migrateAliases(ex || {});
+  const base = removeLegacyAutomaticHistoryLoads(migrateAliases(ex || {}));
   const type = detectType(base);
   const opts = defaultOptions[type] || ["Répétitions", "Séries", "Repos (min:sec)"];
   const stableId = base.id || base._id || uid();
@@ -1528,16 +1781,26 @@ const StepperInput = memo(function StepperInput({
   bg,
   borderColor,
   w = "full",
+  placeholder = "",
+  emptyWhenZero = false,
+  suggestedValue = null,
 }) {
-  const [txt, setTxt] = useState(toDisplayString(value, precision));
+  const displayText = useCallback(
+    (nextValue) =>
+      emptyWhenZero && Number(nextValue || 0) === 0
+        ? ""
+        : toDisplayString(nextValue, precision),
+    [emptyWhenZero, precision]
+  );
+  const [txt, setTxt] = useState(displayText(value));
   const stepperBtnBg = useColorModeValue("transparent", "transparent");
   const stepperBtnHoverBg = useColorModeValue("gray.100", "whiteAlpha.100");
   const stepperBtnBorder = useColorModeValue("gray.200", "whiteAlpha.200");
   const stepperBtnColor = useColorModeValue("gray.600", "gray.300");
 
   useEffect(() => {
-    setTxt(toDisplayString(value, precision));
-  }, [value, precision]);
+    setTxt(displayText(value));
+  }, [displayText, value]);
 
   const commit = useCallback(
     (nextTxt) => {
@@ -1555,7 +1818,8 @@ const StepperInput = memo(function StepperInput({
 
   const bump = useCallback(
     (dir) => {
-      const cur = Number(value) || 0;
+      const currentValue = Number(value) || 0;
+      const cur = currentValue > 0 ? currentValue : Number(suggestedValue) || 0;
       let v = cur + dir * step;
       if (min != null) v = Math.max(min, v);
       if (max != null) v = Math.min(max, v);
@@ -1565,7 +1829,7 @@ const StepperInput = memo(function StepperInput({
       }
       onChange(v);
     },
-    [max, min, onChange, precision, step, value]
+    [max, min, onChange, precision, step, suggestedValue, value]
   );
 
   return (
@@ -1579,11 +1843,13 @@ const StepperInput = memo(function StepperInput({
         }}
         onMouseDown={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
-        onBlur={() => setTxt(toDisplayString(value, precision))}
+        onBlur={() => setTxt(displayText(value))}
         bg={bg}
         borderColor={borderColor}
         isDisabled={disabled}
         inputMode="decimal"
+        placeholder={placeholder}
+        _placeholder={{ color: "green.500", opacity: 0.9, fontWeight: "800" }}
       />
       <Flex
         direction="column"
@@ -2282,7 +2548,15 @@ const ExerciseCardRow = memo(
             if (isWeight) value = displayWeight;
             if (isSpeed) value = displaySpeed;
             if (isDistance) value = displayDistance;
-            const historyLoadJustification = isWeight ? getHistoryLoadJustification(ex, t) : "";
+            const historyLoadSuggestion =
+              isWeight && showClientHistory && Number(ex["Charge (kg)"] || 0) <= 0
+                ? suggestHistoryLoadForReps(historyItems, ex["Répétitions"])
+                : null;
+            const suggestedDisplayWeight = historyLoadSuggestion
+              ? weightUnit === "kg"
+                ? historyLoadSuggestion.chargeKg
+                : kgToLb(historyLoadSuggestion.chargeKg)
+              : null;
 
             return (
               <Box key={`${opt}-${oIdx}`} minW="180px" flex="1 1 180px">
@@ -2311,6 +2585,16 @@ const ExerciseCardRow = memo(
                     disabled={!isCoach}
                     bg={cardBg}
                     borderColor={border}
+                    emptyWhenZero={Boolean(historyLoadSuggestion)}
+                    suggestedValue={suggestedDisplayWeight}
+                    placeholder={
+                      historyLoadSuggestion
+                        ? `${formatHistoryNumber(suggestedDisplayWeight)} (${t(
+                            "programBuilder.historyLoad.placeholderSuffix",
+                            "suggéré RM"
+                          )})`
+                        : ""
+                    }
                   />
                 ) : isSpeed ? (
                   <StepperInput
@@ -2349,12 +2633,6 @@ const ExerciseCardRow = memo(
                     bg={cardBg}
                     borderColor={border}
                   />
-                )}
-
-                {historyLoadJustification && (
-                  <Text fontSize="xs" mt={1.5} color="green.500" fontWeight="800" lineHeight="1.35">
-                    {historyLoadJustification}
-                  </Text>
                 )}
 
                 {isRestOrDur && <Text fontSize="xs" mt={1}>{formatMinSec(ex[opt] ?? 0)}</Text>}
@@ -2458,6 +2736,13 @@ const ExerciseCardRow = memo(
                         speedUnit === "kmh"
                           ? Number(s.speedKmh) || 0
                           : round(kmhToMph(s.speedKmh || 0), 2);
+                      const setLoadSuggestion =
+                        showClientHistory && Number(s.chargeKg || 0) <= 0
+                          ? suggestHistoryLoadForReps(
+                              historyItems,
+                              Number(s.reps) || Number(ex["Répétitions"]) || 0
+                            )
+                          : null;
 
                       return (
                         <Tr key={s._id}>
@@ -2487,25 +2772,47 @@ const ExerciseCardRow = memo(
                               if (opt === "Charge (kg)") {
                                 return (
                                   <Td key={`kg-${s._id}-${cIdx}`}>
-                                    <StepperInput
-                                      value={Number(dispKg ?? 0)}
-                                      onChange={(val) =>
-                                        onSetChange(
-                                          index,
-                                          i,
-                                          "chargeKg",
-                                          weightUnit === "kg"
-                                            ? Number(val) || 0
-                                            : lbToKg(Number(val) || 0)
-                                        )
-                                      }
-                                      step={weightStep}
-                                      precision={2}
-                                      min={0}
-                                      disabled={!isCoach}
-                                      bg={cardBg}
-                                      borderColor={border}
-                                    />
+                                    <VStack align="stretch" spacing={1}>
+                                      <StepperInput
+                                        value={Number(dispKg ?? 0)}
+                                        onChange={(val) =>
+                                          onSetChange(
+                                            index,
+                                            i,
+                                            "chargeKg",
+                                            weightUnit === "kg"
+                                              ? Number(val) || 0
+                                              : lbToKg(Number(val) || 0)
+                                          )
+                                        }
+                                        step={weightStep}
+                                        precision={2}
+                                        min={0}
+                                        disabled={!isCoach}
+                                        bg={cardBg}
+                                        borderColor={border}
+                                        emptyWhenZero={Boolean(setLoadSuggestion)}
+                                        suggestedValue={
+                                          setLoadSuggestion
+                                            ? weightUnit === "kg"
+                                              ? setLoadSuggestion.chargeKg
+                                              : kgToLb(setLoadSuggestion.chargeKg)
+                                            : null
+                                        }
+                                        placeholder={
+                                          setLoadSuggestion
+                                            ? `${formatHistoryNumber(
+                                                weightUnit === "kg"
+                                                  ? setLoadSuggestion.chargeKg
+                                                  : kgToLb(setLoadSuggestion.chargeKg)
+                                              )} (${t(
+                                                "programBuilder.historyLoad.placeholderSuffix",
+                                                "suggéré RM"
+                                              )})`
+                                            : ""
+                                        }
+                                      />
+                                    </VStack>
                                   </Td>
                                 );
                               }
@@ -3165,6 +3472,7 @@ export default function ProgramBuilder({
 
   useEffect(() => {
     let cancelled = false;
+    let unsubscribeHistory = () => {};
 
     async function loadClientExerciseHistory() {
       if (!isAssignedClientProgram || !clientId || !programId) {
@@ -3175,10 +3483,21 @@ export default function ProgramBuilder({
 
       setHistoryLoading(true);
       try {
-        if (cancelled) return;
-        const rows = await loadClientCompletionHistory(clientId, programId);
-        if (cancelled) return;
-        setCompletionHistory(rows);
+        const stopHistorySubscription = await subscribeClientCompletionHistory(
+          clientId,
+          programId,
+          (rows) => {
+            if (cancelled) return;
+            setCompletionHistory(rows);
+            setHistoryLoading(false);
+          },
+          (error) => {
+            console.error("load builder completion history error:", error);
+            if (!cancelled) setHistoryLoading(false);
+          }
+        );
+        if (cancelled) stopHistorySubscription();
+        else unsubscribeHistory = stopHistorySubscription;
       } catch (e) {
         console.error("load builder completion history error:", e);
         if (!cancelled) setCompletionHistory([]);
@@ -3191,8 +3510,35 @@ export default function ProgramBuilder({
 
     return () => {
       cancelled = true;
+      unsubscribeHistory();
     };
   }, [isAssignedClientProgram, clientId, programId]);
+
+  useEffect(() => {
+    if (!isAssignedClientProgram || !programId || historyLoading || isFirstLoad.current) return;
+
+    const currentProgramCompletions = completionHistory.filter(
+      (record) => String(record?.programId || "") === String(programId)
+    );
+    if (!currentProgramCompletions.length) return;
+
+    const result = applyValidatedPerformanceToSessions(sessions, currentProgramCompletions, {
+      programId,
+      clientId,
+    });
+    if (!result.updatedCount || deepEqual(result.sessions, sessions)) return;
+
+    setSessions(result.sessions);
+    markDirty();
+  }, [
+    clientId,
+    completionHistory,
+    historyLoading,
+    isAssignedClientProgram,
+    markDirty,
+    programId,
+    sessions,
+  ]);
 
   /* --------- Ajout / Remplacement depuis la banque --------- */
   useEffect(() => {
@@ -3596,7 +3942,7 @@ export default function ProgramBuilder({
         autoLoadCount > 0
           ? t(
               "programBuilder.toasts.historyLoadsApplied",
-              "{{count}} charge(s) préremplie(s) depuis l'historique client.",
+              "{{count}} suggestion(s) RM ajoutée(s) depuis l'historique client.",
               { count: autoLoadCount }
             )
           : undefined,

@@ -1941,8 +1941,10 @@
       "close": "Close history"
     },
     "historyLoad": {
-      "justification": "Load calculated from the client's history with the Berger table: {{baseCharge}} kg x {{baseReps}} reps -> {{suggested}} kg for {{targetReps}} reps. It remains editable.",
-      "justificationShort": "Load calculated from the client's history with the Berger table. It remains editable."
+      "justification": "Indicative RM suggestion (Berger table): {{baseCharge}} {{unit}} x {{baseReps}} reps -> {{suggested}} {{unit}} for {{targetReps}} reps. Enter a load to replace it.",
+      "justificationShort": "Indicative RM suggestion calculated from client history. Enter a load to replace it.",
+      "setSuggestion": "RM suggestion: {{weight}} {{unit}} for {{reps}} reps",
+      "placeholderSuffix": "RM suggestion"
     },
     "labels": {
       "weightKg": "Load (kg)",
@@ -1991,7 +1993,7 @@
       "savedDesc": "Your program has been saved successfully.",
       "errorTitle": "Error",
       "assigned": "Assigned program",
-      "historyLoadsApplied": "{{count}} load(s) prefilled from client history."
+      "historyLoadsApplied": "{{count}} RM suggestion(s) added from client history."
     },
     "exercise": {
       "label": "Exercise"
