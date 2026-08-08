@@ -907,7 +907,10 @@ export default function ClientDashboard() {
       let cacheA = [];
       let cacheB = [];
       const qA = query(collection(db, 'sessions'), where('clientId', '==', user.uid));
-      const qB = query(collection(db, 'sessions'), where('clientId', '==', cId));
+      // Assigned/offline client documents are linked through `clientDocId`.
+      // Querying `clientId == cId` cannot be authorized for a distinct auth UID
+      // and caused a permanent rejected listener on the client dashboard.
+      const qB = query(collection(db, 'sessions'), where('clientDocId', '==', cId));
 
       unsubSessA = onSnapshot(
         qA,
@@ -1206,84 +1209,113 @@ export default function ClientDashboard() {
   useEffect(() => {
     if (!clientId || programmes.length === 0 || !user?.uid) return;
 
+    const knownCalendarKeys = new Set();
+    const pendingCalendarKeys = new Set();
+    const loadKnownCalendarKeys = Promise.all([
+      getDocs(query(collection(db, 'sessions'), where('clientId', '==', user.uid))),
+      getDocs(query(collection(db, 'sessions'), where('clientDocId', '==', clientId))),
+    ])
+      .then((snapshots) => {
+        snapshots.forEach((snapshot) => {
+          snapshot.docs.forEach((sessionDoc) => {
+            const dedupeKey = String(sessionDoc.data()?.dedupeKey || '').trim();
+            if (dedupeKey) knownCalendarKeys.add(dedupeKey);
+          });
+        });
+      })
+      .catch((error) => {
+        // The live calendar remains usable even if legacy events cannot be
+        // inspected. New writes are still protected by the in-memory lock.
+        console.warn('[ClientDashboard] calendar dedupe history unavailable', error);
+      });
+
     const unsubs = programmes.map(p => {
       const colRef = collection(db, 'clients', clientId, 'programmes', p.id, 'sessionsEffectuees');
 
       return onSnapshot(colRef, async (snap) => {
-        for (const change of snap.docChanges()) {
-          if (change.type !== 'added' && change.type !== 'modified') continue;
+        try {
+          await loadKnownCalendarKeys;
 
-          const s = change.doc.data();
+          for (const change of snap.docChanges()) {
+            if (change.type !== 'added' && change.type !== 'modified') continue;
 
-          if (!isSessionValidatedRecord(s)) continue;
+            const s = change.doc.data();
 
-          const startDate =
-            s.dateEffectuee?.toDate?.() ||
-            s.completedAt?.toDate?.() ||
-            s.playedAt?.toDate?.() ||
-            s.timestamp?.toDate?.() ||
-            new Date();
-          const endDate = new Date(startDate.getTime() + 60 * 60000);
+            if (!isSessionValidatedRecord(s)) continue;
 
-          const idx = (typeof s.sessionIndex === 'number')
-            ? s.sessionIndex
-            : Number(s.sessionIndex) || 0;
+            const startDate =
+              s.dateEffectuee?.toDate?.() ||
+              s.completedAt?.toDate?.() ||
+              s.playedAt?.toDate?.() ||
+              s.timestamp?.toDate?.() ||
+              new Date();
+            const endDate = new Date(startDate.getTime() + 60 * 60000);
 
-          const progName = getProgrammeDisplayName(p);
-          const sessionTitle =
-            s.sessionName || s.titre || s.title ||
-            p?.sessions?.[idx]?.title || p?.sessions?.[idx]?.name ||
-            t('client_dash.session_n', { n: idx + 1 });
+            const idx = (typeof s.sessionIndex === 'number')
+              ? s.sessionIndex
+              : Number(s.sessionIndex) || 0;
 
-          const title = `${progName} — ${sessionTitle}`;
-          const dayKey = formatLocalDateKey(startDate);
+            const progName = getProgrammeDisplayName(p);
+            const sessionTitle =
+              s.sessionName || s.titre || s.title ||
+              p?.sessions?.[idx]?.title || p?.sessions?.[idx]?.name ||
+              t('client_dash.session_n', { n: idx + 1 });
 
-          const keys = [
-            `${user.uid}_${p.id}_${idx}_${dayKey}`,
-            `${clientId}_${p.id}_${idx}_${dayKey}`,
-          ];
+            const title = `${progName} — ${sessionTitle}`;
+            const dayKey = formatLocalDateKey(startDate);
 
-          let exists = false;
-          for (const dedupeKey of keys) {
-            const existingSnap = await getDocs(
-              query(collection(db, 'sessions'), where('dedupeKey', '==', dedupeKey))
-            );
-            if (!existingSnap.empty) { exists = true; break; }
-          }
-          if (exists) continue;
+            const keys = [
+              `${user.uid}_${p.id}_${idx}_${dayKey}`,
+              `${clientId}_${p.id}_${idx}_${dayKey}`,
+            ];
+            if (keys.some((key) => knownCalendarKeys.has(key) || pendingCalendarKeys.has(key))) {
+              continue;
+            }
 
-          const newRef = await addDoc(collection(db, 'sessions'), {
-            clientId: user.uid,
-            clientDocId: clientId,
-            programmeId: p.id,
-            sessionIndex: idx,
-            title,
-            start: Timestamp.fromDate(startDate),
-            end: Timestamp.fromDate(endDate),
-            createdAt: Timestamp.now(),
-            visibility: 'client',
-            status: 'validée',
-            source: 'auto-complete',
-            dedupeKey: `${user.uid}_${p.id}_${idx}_${dayKey}`,
-          });
+            keys.forEach((key) => pendingCalendarKeys.add(key));
+            const canonicalDedupeKey = keys[0];
 
-          setSessionsRaw(prev => {
-            const already = prev.some(ev => ev.id === newRef.id);
-            if (already) return prev;
-            return [
-              ...prev,
-              {
-                id: newRef.id,
-                title,
-                start: startDate,
-                end: endDate,
-                status: 'validée',
-                visibility: 'client',
+            try {
+              const newRef = await addDoc(collection(db, 'sessions'), {
+                clientId: user.uid,
+                clientDocId: clientId,
                 programmeId: p.id,
                 sessionIndex: idx,
-              }
-            ];
-          });
+                title,
+                start: Timestamp.fromDate(startDate),
+                end: Timestamp.fromDate(endDate),
+                createdAt: Timestamp.now(),
+                visibility: 'client',
+                status: 'validée',
+                source: 'auto-complete',
+                dedupeKey: canonicalDedupeKey,
+              });
+              keys.forEach((key) => knownCalendarKeys.add(key));
+
+              setSessionsRaw(prev => {
+                const already = prev.some(ev => ev.id === newRef.id);
+                if (already) return prev;
+                return [
+                  ...prev,
+                  {
+                    id: newRef.id,
+                    title,
+                    start: startDate,
+                    end: endDate,
+                    status: 'validée',
+                    visibility: 'client',
+                    programmeId: p.id,
+                    sessionIndex: idx,
+                    dedupeKey: canonicalDedupeKey,
+                  }
+                ];
+              });
+            } finally {
+              keys.forEach((key) => pendingCalendarKeys.delete(key));
+            }
+          }
+        } catch (error) {
+          console.warn('[ClientDashboard] automatic calendar sync unavailable', error);
         }
       }, () => {});
     });
