@@ -991,8 +991,11 @@ function getExerciseIdentity(exercise = {}) {
     exercise?.exerciseId,
     exercise?.exercise_id,
     exercise?._id,
+    ...(Array.isArray(exercise?.exerciseIds) ? exercise.exerciseIds : []),
     exercise?.uid,
     exercise?.__docId,
+    exercise?.sourceId,
+    exercise?.bankId,
   ]
     .map((v) => String(v || "").trim())
     .filter(Boolean);
@@ -3921,73 +3924,104 @@ export default function SessionPlayer() {
   /* ---------------------- Load client exercise history ---------------------- */
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function run() {
-      if (!clientId || !programId) {
-        setCompletionHistory([]);
-        setHistoryLoading(false);
-        return;
-      }
-
-      setHistoryLoading(true);
-      try {
-        let programmeDocs = [];
-        try {
-          const programmesSnap = await getDocs(collection(db, "clients", clientId, "programmes"));
-          programmeDocs = programmesSnap.docs.map((docSnap) => ({
-            id: docSnap.id,
-            data: docSnap.data() || {},
-          }));
-        } catch (e) {
-          console.warn("load client programmes for exercise history error:", e);
-        }
-
-        if (!programmeDocs.some((prog) => prog.id === programId)) {
-          programmeDocs.push({ id: programId, data: programData || {} });
-        }
-
-        const historyByProgram = await Promise.all(
-          programmeDocs.map(async ({ id: pid }) => {
-            try {
-              const sessionsDoneSnap = await getDocs(
-                collection(db, "clients", clientId, "programmes", pid, "sessionsEffectuees")
-              );
-
-              const completions = sessionsDoneSnap.docs.map((docSnap) => ({
-                id: `${pid}:${docSnap.id}`,
-                completionId: docSnap.id,
-                programId: pid,
-                ...docSnap.data(),
-              }));
-
-              return completions;
-            } catch (e) {
-              console.warn("load programme history error:", e);
-              return [];
-            }
-          })
-        );
-        if (cancelled) return;
-        const rows = historyByProgram
-          .flat()
-          .filter(isValidatedExerciseCompletion)
-          .sort((a, b) => (getCompletionRecordDate(b)?.getTime() || 0) - (getCompletionRecordDate(a)?.getTime() || 0));
-        setCompletionHistory(rows);
-      } catch (e) {
-        console.error("load completion history error:", e);
-        if (!cancelled) {
-          setCompletionHistory([]);
-        }
-      } finally {
-        if (!cancelled) setHistoryLoading(false);
-      }
+    if (!clientId || !programId) {
+      setCompletionHistory([]);
+      setHistoryLoading(false);
+      return undefined;
     }
 
-    run();
+    let cancelled = false;
+    const rowsByProgram = new Map();
+    const historyUnsubscribers = new Map();
+    const awaitingFirstSnapshot = new Set();
+
+    const publish = () => {
+      if (cancelled) return;
+
+      const uniqueRows = new Map();
+      Array.from(rowsByProgram.values())
+        .flat()
+        .filter(isValidatedExerciseCompletion)
+        .forEach((record) => {
+          const key = `${record.programId || ""}:${record.completionId || record.id || ""}`;
+          const previous = uniqueRows.get(key);
+          const recordTime = getCompletionRecordDate(record)?.getTime() || 0;
+          const previousTime = getCompletionRecordDate(previous)?.getTime() || 0;
+          if (!previous || recordTime >= previousTime) uniqueRows.set(key, record);
+        });
+
+      setCompletionHistory(
+        Array.from(uniqueRows.values()).sort(
+          (a, b) =>
+            (getCompletionRecordDate(b)?.getTime() || 0) -
+            (getCompletionRecordDate(a)?.getTime() || 0)
+        )
+      );
+      if (awaitingFirstSnapshot.size === 0) setHistoryLoading(false);
+    };
+
+    const subscribeToProgramHistory = (pid) => {
+      if (!pid || historyUnsubscribers.has(pid)) return;
+      awaitingFirstSnapshot.add(pid);
+
+      const unsubscribe = onSnapshot(
+        collection(db, "clients", clientId, "programmes", pid, "sessionsEffectuees"),
+        (snap) => {
+          if (cancelled) return;
+          rowsByProgram.set(
+            pid,
+            snap.docs.map((docSnap) => ({
+              id: `${pid}:${docSnap.id}`,
+              completionId: docSnap.id,
+              programId: pid,
+              ...docSnap.data(),
+            }))
+          );
+          awaitingFirstSnapshot.delete(pid);
+          publish();
+        },
+        (error) => {
+          console.warn("subscribe programme history error:", error);
+          awaitingFirstSnapshot.delete(pid);
+          rowsByProgram.delete(pid);
+          publish();
+        }
+      );
+      historyUnsubscribers.set(pid, unsubscribe);
+    };
+
+    const syncProgramSubscriptions = (programmeIds) => {
+      const nextIds = new Set([programId, ...programmeIds].filter(Boolean));
+
+      historyUnsubscribers.forEach((unsubscribe, pid) => {
+        if (nextIds.has(pid)) return;
+        unsubscribe();
+        historyUnsubscribers.delete(pid);
+        rowsByProgram.delete(pid);
+        awaitingFirstSnapshot.delete(pid);
+      });
+      nextIds.forEach(subscribeToProgramHistory);
+      publish();
+    };
+
+    setHistoryLoading(true);
+    setCompletionHistory([]);
+    subscribeToProgramHistory(programId);
+
+    const unsubscribeProgrammes = onSnapshot(
+      collection(db, "clients", clientId, "programmes"),
+      (snap) => syncProgramSubscriptions(snap.docs.map((docSnap) => docSnap.id)),
+      (error) => {
+        console.warn("subscribe client programmes for exercise history error:", error);
+        syncProgramSubscriptions([programId]);
+      }
+    );
 
     return () => {
       cancelled = true;
+      unsubscribeProgrammes();
+      historyUnsubscribers.forEach((unsubscribe) => unsubscribe());
+      historyUnsubscribers.clear();
     };
   }, [clientId, programId]);
 
@@ -4907,7 +4941,11 @@ export default function SessionPlayer() {
     if (!historyExercise) return [];
 
     const completionRows = (completionHistory || [])
-      .filter((record) => record.completionId !== completionDocIdRef.current)
+      .filter(
+        (record) =>
+          record.programId !== programId ||
+          record.completionId !== completionDocIdRef.current
+      )
       .flatMap((record) => {
         const snapshots = Array.isArray(record?.exerciseSnapshots) ? record.exerciseSnapshots : [];
         const snapshot = snapshots.find((entry) => exerciseMatchesAnyTarget(entry, historyExerciseTargets));
@@ -4939,7 +4977,7 @@ export default function SessionPlayer() {
     return scoredRows.map(({ item, score }, index) => {
       return { ...item, rank: index === prIndex && bestScore > 0 && score === bestScore ? 1 : null };
     });
-  }, [completionHistory, historyExercise, historyExerciseTargets]);
+  }, [completionHistory, historyExercise, historyExerciseTargets, programId]);
   const currentExerciseSessionSets = useMemo(
     () => Array.from(performedSetsRef.current.values())
       .filter((entry) => Number(entry?.exerciseIndex) === Number(exIndex) && entry?.set)

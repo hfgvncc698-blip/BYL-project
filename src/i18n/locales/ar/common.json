@@ -2197,6 +2197,8 @@
       "speed": "السرعة",
       "incline": "الميل (%)",
       "calories": "السعرات",
+      "resistance": "المقاومة",
+      "watts": "واط",
       "intensity": "الشدة",
       "tempo": "الإيقاع",
       "sets": "المجموعات",

@@ -2197,6 +2197,8 @@
       "speed": "Velocidad",
       "incline": "Inclinación (%)",
       "calories": "Calorías",
+      "resistance": "Resistencia",
+      "watts": "Vatios",
       "intensity": "Intensidad",
       "tempo": "Tempo",
       "sets": "Series",

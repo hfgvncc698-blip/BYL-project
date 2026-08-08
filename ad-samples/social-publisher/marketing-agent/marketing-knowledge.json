@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-08-04T23:31:03.762Z",
+  "updatedAt": "2026-08-08T04:17:52.593Z",
   "primaryKpi": "free_trial_starts",
   "secondaryKpi": "activation_day_7",
   "activationSignals": [
@@ -1686,9 +1686,9 @@
       "activatedAudiences": []
     },
     "latestReport": {
-      "id": "2026-08-04-growth-report",
-      "generatedAt": "2026-08-04T23:31:03.759Z",
-      "date": "2026-08-04",
+      "id": "2026-08-07-growth-report",
+      "generatedAt": "2026-08-08T04:17:52.590Z",
+      "date": "2026-08-07",
       "primaryKpi": "free_trial_starts",
       "secondaryKpi": "activation_day_7",
       "activationSignals": [
@@ -1767,21 +1767,19 @@
         "source": "codex_user_request_2026_07_01",
         "resolvedAt": "",
         "resolvedReason": "",
-        "alertCount": 95,
+        "alertCount": 98,
         "latestAlert": {
-          "at": "2026-08-04T23:31:03.753Z",
+          "at": "2026-08-08T04:17:52.585Z",
           "reason": "meta_performance_sync_partial_failure",
           "severity": "warning",
           "source": "nightly_growth_report",
           "details": {
-            "failedCount": 15,
             "updated": 3,
+            "failedCount": 15,
             "total": 18,
             "rerunEscalated": true,
-            "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
-            "sampleErrors": [
-              "Unsupported get request: object absent, missing permissions, or unsupported operation"
-            ]
+            "initialSandboxError": "fetch failed | ENOTFOUND | graph.facebook.com",
+            "blocker": "Meta Graph unsupported object, missing permissions, or unsupported operation"
           }
         }
       },
@@ -1792,23 +1790,8 @@
           "detail": ""
         },
         {
-          "network": "tiktok",
-          "reason": "tiktok_not_approved",
-          "detail": ""
-        },
-        {
           "network": "calendar",
           "reason": "kill_switch_active",
-          "detail": ""
-        },
-        {
-          "network": "tiktok",
-          "reason": "tiktok_not_approved",
-          "detail": ""
-        },
-        {
-          "network": "tiktok",
-          "reason": "tiktok_not_approved",
           "detail": ""
         },
         {
@@ -1822,8 +1805,23 @@
           "detail": "daily_media_missing"
         },
         {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
           "network": "tiktok",
           "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
           "detail": ""
         },
         {
@@ -1832,9 +1830,9 @@
           "detail": "daily_media_missing"
         },
         {
-          "network": "instagram",
-          "reason": "fresh_media_required",
-          "detail": "daily_media_missing"
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
         }
       ],
       "learningEntryCount": 245
@@ -1842,7 +1840,7 @@
   },
   "brand": {
     "version": "1.0.0",
-    "updatedAt": "2026-08-04T23:31:03.759Z",
+    "updatedAt": "2026-08-08T04:17:52.590Z",
     "brandScore": 63,
     "dimensions": {
       "premium": 60,
@@ -5462,21 +5460,19 @@
       "source": "codex_user_request_2026_07_01",
       "resolvedAt": "",
       "resolvedReason": "",
-      "alertCount": 95,
+      "alertCount": 98,
       "latestAlert": {
-        "at": "2026-08-04T23:31:03.753Z",
+        "at": "2026-08-08T04:17:52.585Z",
         "reason": "meta_performance_sync_partial_failure",
         "severity": "warning",
         "source": "nightly_growth_report",
         "details": {
-          "failedCount": 15,
           "updated": 3,
+          "failedCount": 15,
           "total": 18,
           "rerunEscalated": true,
-          "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
-          "sampleErrors": [
-            "Unsupported get request: object absent, missing permissions, or unsupported operation"
-          ]
+          "initialSandboxError": "fetch failed | ENOTFOUND | graph.facebook.com",
+          "blocker": "Meta Graph unsupported object, missing permissions, or unsupported operation"
         }
       }
     }

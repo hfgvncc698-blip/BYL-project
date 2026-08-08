@@ -1615,6 +1615,50 @@
           "Unsupported get request: object absent, missing permissions, or unsupported operation"
         ]
       }
+    },
+    {
+      "at": "2026-08-05T21:33:54.118Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "byl-social-publisher-rapport-growth-nightly",
+      "details": {
+        "updated": 3,
+        "failedCount": 15,
+        "total": 18,
+        "rerunEscalated": true,
+        "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+        "blocker": "Meta Graph unsupported object, missing permissions, or unsupported operation; missing metrics not invented"
+      }
+    },
+    {
+      "at": "2026-08-07T00:26:20.800Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "failedCount": 15,
+        "updated": 3,
+        "total": 18,
+        "rerunEscalated": true,
+        "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+        "sampleErrors": [
+          "Unsupported get request for Meta object; missing permission or unavailable object"
+        ]
+      }
+    },
+    {
+      "at": "2026-08-08T04:17:52.585Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "updated": 3,
+        "failedCount": 15,
+        "total": 18,
+        "rerunEscalated": true,
+        "initialSandboxError": "fetch failed | ENOTFOUND | graph.facebook.com",
+        "blocker": "Meta Graph unsupported object, missing permissions, or unsupported operation"
+      }
     }
   ]
 }
