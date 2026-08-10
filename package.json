@@ -29,6 +29,7 @@
     "test:exercise-history": "node scripts/testExerciseHistoryIdentity.mjs",
     "test:player-exercise-editing": "node scripts/testPlayerExerciseEditing.mjs",
     "test:player-builder-sync": "node scripts/testPlayerBuilderSync.mjs",
+    "test:exercise-search": "node scripts/testExerciseSearchRanking.mjs",
     "perf:check": "node scripts/checkPerformanceBudgets.mjs",
     "audit:sport-engine:samples": "node scripts/auditSportEngineSamples.cjs",
     "audit:public-pages": "node scripts/auditPublicPages.mjs",

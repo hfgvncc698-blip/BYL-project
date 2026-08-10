@@ -59,6 +59,7 @@ import ExerciseCard from "./ExerciseCard";
 import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import EXERCISE_TRANSLATION_ALIASES from "../data/exerciseTranslationAliases.json";
+import { scoreExerciseSearch } from "../utils/exerciseSearchRanking";
 
 /* ---------- helpers ---------- */
 const EXERCISE_COLLECTIONS = ["warmup", "training", "cooldown", "ergometre"];
@@ -1264,6 +1265,10 @@ export default function ExerciseBank({
     () => tokens(deferredSearchTermUI),
     [deferredSearchTermUI]
   );
+  const normalizedSearchTerm = useMemo(
+    () => normalize(deferredSearchTermUI),
+    [deferredSearchTermUI]
+  );
 
   const hasActiveFilters = useMemo(
     () =>
@@ -1291,9 +1296,12 @@ export default function ExerciseBank({
     if (!shouldBuildSearchIndex) return [];
     return displayExercises.map((ex) => {
       const multilingualSearchRaw = collectExerciseSearchStrings(ex);
-      const nameNorm = normalize([ex.nom, ex.name, ...multilingualSearchRaw].filter(Boolean).join(" "));
+      const primaryNameNorm = normalize([ex.nom, ex.name].filter(Boolean).join(" "));
+      const aliasNorms = [
+        ...new Set(multilingualSearchRaw.map((value) => normalize(value)).filter(Boolean)),
+      ];
       const idNorm = normalize(ex.id || ex.docId || "");
-      const multilingualSearchNorm = normalize(multilingualSearchRaw.join(" "));
+      const multilingualSearchNorm = aliasNorms.join(" ");
 
       const musclesPrimaryRaw = extractStrings(ex.groupe_musculaire);
       const musclesSecondaryRaw = extractStrings(ex.muscles_secondaires);
@@ -1393,7 +1401,8 @@ export default function ExerciseBank({
 
       return {
         raw: ex,
-        nameNorm,
+        primaryNameNorm,
+        aliasNorms,
         idNorm,
         multilingualSearchNorm,
         primarySet,
@@ -1515,7 +1524,7 @@ export default function ExerciseBank({
       if (searchTokens.length) {
         let ok = true;
         for (const w of searchTokens) {
-          const inName = it.nameNorm.includes(w);
+          const inName = it.primaryNameNorm.includes(w);
           const inId = it.idNorm.includes(w);
           const inMultilingual = it.multilingualSearchNorm.includes(w);
           const inBlob = it.blob.includes(w);
@@ -1527,13 +1536,14 @@ export default function ExerciseBank({
         if (!ok) continue;
       }
 
-      let score = 0;
-      for (const w of searchTokens) {
-        if (it.nameNorm.includes(w)) score += 6;
-        if (it.multilingualSearchNorm.includes(w)) score += 6;
-        if (it.idNorm.includes(w)) score += 4;
-        if (it.blob.includes(w)) score += 1;
-      }
+      let score = scoreExerciseSearch({
+        queryNorm: normalizedSearchTerm,
+        queryTokens: searchTokens,
+        primaryNameNorm: it.primaryNameNorm,
+        aliasNorms: it.aliasNorms,
+        idNorm: it.idNorm,
+        blob: it.blob,
+      });
 
       if (wanted.muscle) score += 1;
       if (wanted.secondaryMuscle) score += 1;
@@ -1542,17 +1552,21 @@ export default function ExerciseBank({
       if (wanted.equipment) score += 1;
       if (wanted.objective) score += 1;
 
-      results.push({ score, ex: it.raw });
+      results.push({ score, ex: it.raw, name: it.primaryNameNorm });
     }
 
-    results.sort((a, b) => b.score - a.score);
+    results.sort(
+      (a, b) => b.score - a.score || a.name.localeCompare(b.name, locale)
+    );
     return dedupeByUid(results.map((r) => r.ex));
   }, [
     displayExercises,
     indexed,
     deferredFilters,
     searchTokens,
+    normalizedSearchTerm,
     shouldBuildSearchIndex,
+    locale,
     muscleOptions,
     secondaryMuscleOptions,
     jointOptions,
