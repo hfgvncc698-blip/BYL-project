@@ -64,6 +64,8 @@ import { useAppTheme } from "../styles/appTheme";
 import { estimateSessionDurationSeconds, formatDuration } from "../utils/trainingEngine";
 import { canUseCustomBranding } from "../utils/proPlanAccess";
 import { formatProgramActiveWeeks, getProgramActiveWeeksLabel } from "../utils/programDuration";
+import { isValidatedExerciseCompletion } from "../utils/exerciseHistoryIdentity";
+import { selectLatestExercisePerformance } from "../utils/playerBuilderSync";
 import { db } from "../firebaseConfig";
 import {
   getStorage,
@@ -1221,6 +1223,8 @@ const getDisplayFieldLabel = (key, units, L) => {
       return L?.labels?.intensity || "Intensité";
     case "watts":
       return L?.labels?.watts || "Watts";
+    case "resistance":
+      return L?.labels?.resistance || "Résistance";
     case "inclinaison":
       return L?.labels?.incline || "Inclinaison (%)";
     case "calories":
@@ -1360,6 +1364,7 @@ const FIELD_MAP = {
   charge: ["charge", "poids", "weight", "Charge (kg)", "Charge (lbs)"],
   intensite: ["Intensité", "intensite"],
   watts: ["Watts", "watts"],
+  resistance: ["Résistance", "resistance"],
   inclinaison: ["Inclinaison (%)", "inclinaison", "incline"],
   calories: ["Objectif Calories", "calories"],
   tempo: ["Tempo", "tempo"],
@@ -1381,6 +1386,7 @@ const OPTION_FLAG = {
   distance: "Distance",
   intensite: "Intensité",
   watts: "Watts",
+  resistance: "Résistance",
   inclinaison: "Inclinaison (%)",
 };
 
@@ -1432,6 +1438,7 @@ const buildInfosFromExercise = (ex, units, locale = "fr-FR", L = null) => {
     charge: getFieldValue(ex, FIELD_MAP.charge),
     intensite: getFieldValue(ex, FIELD_MAP.intensite),
     watts: getFieldValue(ex, FIELD_MAP.watts),
+    resistance: getFieldValue(ex, FIELD_MAP.resistance),
     inclinaison: getFieldValue(ex, FIELD_MAP.inclinaison),
     calories: getFieldValue(ex, FIELD_MAP.calories),
     tempo: getFieldValue(ex, FIELD_MAP.tempo),
@@ -1465,12 +1472,87 @@ const buildInfosFromExercise = (ex, units, locale = "fr-FR", L = null) => {
     push("repos"),
     push("intensite"),
     push("watts"),
+    push("resistance"),
     push("inclinaison"),
     push("calories"),
     push("tempo"),
     push("vitesse"),
     push("distance"),
   ].filter(Boolean);
+};
+
+const SNAPSHOT_DISPLAY_METRICS = [
+  { label: "Répétitions", field: "reps" },
+  { label: "Charge (kg)", field: "chargeKg" },
+  { label: "Durée (min:sec)", field: "durationSec" },
+  { label: "Repos (min:sec)", field: "plannedRestSec", valuesFallback: true },
+  { label: "Distance", field: "distance" },
+  { label: "Vitesse", field: "speed" },
+  { label: "Inclinaison (%)", field: "incline" },
+  { label: "Objectif Calories", field: "calories" },
+  { label: "Résistance", field: "resistance" },
+  { label: "Watts", field: "watts" },
+  { label: "Intensité", field: "intensity" },
+  { label: "Tempo", field: "tempo" },
+];
+
+const readPerformedMetric = (set, { label, field, valuesFallback = true }) => {
+  if (set?.[field] != null && set[field] !== "") return set[field];
+  if (label === "Repos (min:sec)" && set?.plannedRestSec == null) {
+    return valuesFallback ? set?.values?.[label]?.raw : undefined;
+  }
+  return valuesFallback ? set?.values?.[label]?.raw : undefined;
+};
+
+const buildExerciseWithLatestPerformance = (completionHistory, exercise, context) => {
+  const performance = selectLatestExercisePerformance(
+    completionHistory,
+    exercise,
+    context
+  );
+  const sets = Array.isArray(performance?.snapshot?.sets)
+    ? [...performance.snapshot.sets].sort(
+        (a, b) => Number(a?.setIndex || 0) - Number(b?.setIndex || 0)
+      )
+    : [];
+
+  if (!sets.length) return exercise;
+
+  const snapshot = performance.snapshot;
+  const next = { ...exercise, "Séries": sets.length };
+  if (Array.isArray(snapshot.optionsOrder) && snapshot.optionsOrder.length) {
+    next.optionsOrder = [...snapshot.optionsOrder];
+  }
+  if (typeof snapshot.seriesDiff === "boolean") {
+    next.seriesDiff = snapshot.seriesDiff;
+    next.useAdvancedSets = snapshot.seriesDiff;
+  }
+
+  if (snapshot.seriesDiff) {
+    const performedSets = sets.map((set, index) => {
+      const row = { _id: set?._id || `performed-${index}`, setIndex: index + 1 };
+      SNAPSHOT_DISPLAY_METRICS.forEach((metric) => {
+        const value = readPerformedMetric(set, metric);
+        if (value != null && value !== "") row[metric.label] = value;
+      });
+      return row;
+    });
+    next.sets = performedSets;
+    next.seriesDetails = performedSets;
+    const representativeSet = sets[sets.length - 1];
+    SNAPSHOT_DISPLAY_METRICS.forEach((metric) => {
+      const value = readPerformedMetric(representativeSet, metric);
+      if (value != null && value !== "") next[metric.label] = value;
+    });
+    return next;
+  }
+
+  const representativeSet = sets[sets.length - 1];
+  SNAPSHOT_DISPLAY_METRICS.forEach((metric) => {
+    const value = readPerformedMetric(representativeSet, metric);
+    if (value != null && value !== "") next[metric.label] = value;
+  });
+  return next;
 };
 
 /* ---- Séries différentes ---- */
@@ -1566,6 +1648,7 @@ const PDF_I18N = {
       loadLbs: "Charge (lbs)",
       intensity: "Intensité",
       watts: "Watts",
+      resistance: "Résistance",
       incline: "Inclinaison (%)",
       calories: "Objectif Calories",
       tempo: "Tempo",
@@ -1601,6 +1684,7 @@ const PDF_I18N = {
       loadLbs: "Load (lbs)",
       intensity: "Intensity",
       watts: "Watts",
+      resistance: "Resistance",
       incline: "Incline (%)",
       calories: "Calories goal",
       tempo: "Tempo",
@@ -1636,6 +1720,7 @@ const PDF_I18N = {
       loadLbs: "Last (lbs)",
       intensity: "Intensität",
       watts: "Watt",
+      resistance: "Widerstand",
       incline: "Steigung (%)",
       calories: "Kalorienziel",
       tempo: "Tempo",
@@ -1671,6 +1756,7 @@ const PDF_I18N = {
       loadLbs: "Carico (lbs)",
       intensity: "Intensità",
       watts: "Watt",
+      resistance: "Resistenza",
       incline: "Inclinazione (%)",
       calories: "Obiettivo Calorie",
       tempo: "Tempo",
@@ -1711,6 +1797,7 @@ const PDF_I18N = {
       loadLbs: "Carga (lbs)",
       intensity: "Intensidad",
       watts: "Vatios",
+      resistance: "Resistencia",
       incline: "Inclinación (%)",
       calories: "Objetivo Calorías",
       tempo: "Tempo",
@@ -1746,6 +1833,7 @@ const PDF_I18N = {
       loadLbs: "Вес (lbs)",
       intensity: "Интенсивность",
       watts: "Вт",
+      resistance: "Сопротивление",
       incline: "Наклон (%)",
       calories: "Цель калорий",
       tempo: "Темп",
@@ -1781,6 +1869,7 @@ const PDF_I18N = {
       loadLbs: "الوزن (lbs)",
       intensity: "الشدة",
       watts: "واط",
+      resistance: "المقاومة",
       incline: "الميل (%)",
       calories: "هدف السعرات",
       tempo: "الإيقاع",
@@ -2393,6 +2482,7 @@ export default function ProgramView() {
 
   const [prog, setProg] = useState(null);
   const [progRef, setProgRef] = useState(null);
+  const [completionHistory, setCompletionHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tabIndex, setTabIndex] = useState(0);
 
@@ -2488,6 +2578,41 @@ export default function ProgramView() {
       );
     })();
     return () => unsub && unsub();
+  }, [clientId, programId]);
+
+  useEffect(() => {
+    if (!clientId || !programId) {
+      setCompletionHistory([]);
+      return undefined;
+    }
+
+    return onSnapshot(
+      collection(
+        db,
+        "clients",
+        clientId,
+        "programmes",
+        programId,
+        "sessionsEffectuees"
+      ),
+      (snapshot) => {
+        setCompletionHistory(
+          snapshot.docs
+            .map((completionDoc) => ({
+              id: completionDoc.id,
+              completionId: completionDoc.id,
+              clientId,
+              programId,
+              ...completionDoc.data(),
+            }))
+            .filter(isValidatedExerciseCompletion)
+        );
+      },
+      (error) => {
+        console.warn("load program performance history error:", error);
+        setCompletionHistory([]);
+      }
+    );
   }, [clientId, programId]);
 
   const sessions = useMemo(() => (Array.isArray(prog?.sessions) ? prog.sessions : []), [prog]);
@@ -3346,8 +3471,24 @@ export default function ProgramView() {
                 {list.map((ex, idx) => {
                   const displayExercise = resolveExerciseForDisplay(ex, `${key}-${idx}`, i18n.language || "fr");
                   const nom = (pickFirst(displayExercise || ex, ["nom", "name"]) || "").toString();
-                  const infos = buildInfosFromExercise(ex, displayUnits, locale, L);
-                  const adv = getAdvancedSets(ex);
+                  const performedExercise = buildExerciseWithLatestPerformance(
+                    completionHistory,
+                    ex,
+                    {
+                      clientId,
+                      programId,
+                      sessionIndex: tabIndex,
+                      sectionKey: key,
+                      sectionIndex: idx,
+                    }
+                  );
+                  const infos = buildInfosFromExercise(
+                    performedExercise,
+                    displayUnits,
+                    locale,
+                    L
+                  );
+                  const adv = getAdvancedSets(performedExercise);
                   const noteLines = getExerciseNoteLines(ex, i18n.language || i18n.resolvedLanguage || "fr");
                   const variantOptions = safeArray(pickFirst(displayExercise || ex, ["variantes"]));
 
