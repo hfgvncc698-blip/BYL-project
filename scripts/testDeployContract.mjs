@@ -37,6 +37,29 @@ const checks = [
     description: "le rollback reutilise une release complete",
     valid: deployScript.includes('activate_front_release "\\$PREVIOUS_FRONT_TARGET"'),
   },
+  {
+    description: "les attributs macOS ne sont pas ajoutes aux archives",
+    valid:
+      deployScript.includes("COPYFILE_DISABLE=1 COPY_EXTENDED_ATTRIBUTES_DISABLE=1 tar -C dist") &&
+      deployScript.includes("COPYFILE_DISABLE=1 COPY_EXTENDED_ATTRIBUTES_DISABLE=1 tar -C \"${BACKEND_STAGE}\""),
+  },
+  {
+    description: "les fichiers temporaires distants sont nettoyes meme apres un echec",
+    valid:
+      deployScript.includes("cleanup_remote_stage()") &&
+      deployScript.includes("trap cleanup_remote_stage EXIT"),
+  },
+  {
+    description: "les medias persistants ne gonflent pas chaque backup backend",
+    valid: deployScript.includes('--exclude "./public/social-media"'),
+  },
+  {
+    description: "l'espace disque est controle avant l'upload",
+    valid:
+      deployScript.includes('REMOTE_MIN_FREE_MB="${REMOTE_MIN_FREE_MB:-1024}"') &&
+      deployScript.indexOf('echo "Liberation de l\'espace distant avant upload..."') <
+        deployScript.indexOf('echo "Upload vers ${USER}@${HOST}:/tmp/"'),
+  },
 ];
 
 const failures = checks.filter(({ valid }) => !valid);

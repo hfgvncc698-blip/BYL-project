@@ -12,6 +12,7 @@ LOCAL_API_HEALTH_URL="${LOCAL_API_HEALTH_URL:-http://127.0.0.1:5050/api/health}"
 REMOTE_API_HEALTH_URL="${REMOTE_API_HEALTH_URL:-http://127.0.0.1:5000/api/health}"
 REMOTE_NODE_VERSION="${REMOTE_NODE_VERSION:-22}"
 REMOTE_CANARY_PORT="${REMOTE_CANARY_PORT:-5099}"
+REMOTE_MIN_FREE_MB="${REMOTE_MIN_FREE_MB:-1024}"
 # =================================
 
 ASSUME_YES=false
@@ -297,6 +298,7 @@ echo "- Firebase Storage rules: ${DEPLOY_STORAGE_RULES}"
 echo "- Firebase functions: ${DEPLOY_FIREBASE_FUNCTIONS}"
 echo "- Node distant cible: ${REMOTE_NODE_VERSION}"
 echo "- Port canary backend: ${REMOTE_CANARY_PORT}"
+echo "- Espace distant minimal: ${REMOTE_MIN_FREE_MB} Mo"
 echo
 confirm "Lancer le deploy maintenant ?" || exit 1
 
@@ -306,12 +308,12 @@ if [ ! -d dist ]; then
 fi
 
 echo "Archive dist -> ${ARCHIVE}"
-tar -C dist -czf "${ARCHIVE}" .
+COPYFILE_DISABLE=1 COPY_EXTENDED_ATTRIBUTES_DISABLE=1 tar -C dist -czf "${ARCHIVE}" .
 
 echo "Archive backend -> ${BACKEND_ARCHIVE}"
 rm -rf "${BACKEND_STAGE}"
 mkdir -p "${BACKEND_STAGE}"
-tar \
+COPYFILE_DISABLE=1 COPY_EXTENDED_ATTRIBUTES_DISABLE=1 tar \
   --exclude "node_modules" \
   --exclude ".env" \
   --exclude "serviceAccountKey.json" \
@@ -325,7 +327,7 @@ mkdir -p \
   "${BACKEND_STAGE}/ad-samples/social-publisher/runs" \
   "${BACKEND_STAGE}/public/social-media"
 
-tar \
+COPYFILE_DISABLE=1 COPY_EXTENDED_ATTRIBUTES_DISABLE=1 tar \
   --exclude ".cert" \
   --exclude ".env.social" \
   --exclude "*.log" \
@@ -337,7 +339,7 @@ tar \
   -cf - social-publisher/src social-publisher/campaigns social-publisher/marketing-agent social-publisher/media-library social-publisher/demo-assets social-publisher/story-overlays | \
   tar -C "${BACKEND_STAGE}/ad-samples" -xf -
 
-tar -C "${BACKEND_STAGE}" -czf "${BACKEND_ARCHIVE}" .
+COPYFILE_DISABLE=1 COPY_EXTENDED_ATTRIBUTES_DISABLE=1 tar -C "${BACKEND_STAGE}" -czf "${BACKEND_ARCHIVE}" .
 
 echo "Preparation du script distant -> ${REMOTE_SCRIPT_LOCAL}"
 cat > "${REMOTE_SCRIPT_LOCAL}" <<EOF
@@ -356,12 +358,26 @@ REMOTE_BACKEND_RELEASE="/tmp/byl-backend-release-${ts}"
 REMOTE_API_HEALTH_URL="${REMOTE_API_HEALTH_URL}"
 REMOTE_NODE_VERSION="${REMOTE_NODE_VERSION}"
 REMOTE_CANARY_PORT="${REMOTE_CANARY_PORT}"
+REMOTE_MIN_FREE_MB="${REMOTE_MIN_FREE_MB}"
 
 [ -f "\$ARCHIVE" ] || { echo "Archive manquante: \$ARCHIVE"; exit 1; }
 [ -f "\$BACKEND_ARCHIVE" ] || { echo "Archive backend manquante: \$BACKEND_ARCHIVE"; exit 1; }
 [[ "\$REMOTE_WEBROOT" == /var/www/* ]] || { echo "REMOTE_WEBROOT non autorise"; exit 1; }
 [[ "\$REMOTE_FRONT_RELEASES" == /var/www/* ]] || { echo "REMOTE_FRONT_RELEASES non autorise"; exit 1; }
+[[ "\$REMOTE_FRONT_RELEASE" == "\$REMOTE_FRONT_RELEASES"/release-* ]] || { echo "REMOTE_FRONT_RELEASE non autorise"; exit 1; }
 [[ "\$REMOTE_BACKEND" == /var/www/* ]] || { echo "REMOTE_BACKEND non autorise"; exit 1; }
+
+cleanup_remote_stage() {
+  rm -rf "\$REMOTE_BACKEND_RELEASE"
+  rm -f "\$ARCHIVE" "\$BACKEND_ARCHIVE" "\$REMOTE_SCRIPT"
+
+  local active_front=""
+  active_front="\$(readlink -f "\$REMOTE_WEBROOT" 2>/dev/null || true)"
+  if [ -d "\$REMOTE_FRONT_RELEASE" ] && [ "\$active_front" != "\$REMOTE_FRONT_RELEASE" ]; then
+    sudo rm -rf "\$REMOTE_FRONT_RELEASE"
+  fi
+}
+trap cleanup_remote_stage EXIT
 
 need_remote_command() {
   command -v "\$1" >/dev/null 2>&1 || {
@@ -562,6 +578,10 @@ if [ "\$(ls -A "\$REMOTE_BACKEND" 2>/dev/null | wc -l)" -gt 0 ]; then
   sudo tar \
     --exclude "./node_modules" \
     --exclude "./*.log" \
+    --exclude "./public/social-media" \
+    --exclude "./ad-samples/social-publisher/runs" \
+    --exclude "./ad-samples/social-publisher/creative-studio" \
+    --exclude "./ad-samples/social-publisher/chatgpt-assets" \
     -C "\$REMOTE_BACKEND" \
     -czf "\$BK_BACKEND" .
   echo "Backup backend: \$BK_BACKEND"
@@ -760,8 +780,68 @@ while IFS= read -r old_release; do
   fi
 done < <(sudo find "\$REMOTE_FRONT_RELEASES" -mindepth 1 -maxdepth 1 -type d -mtime +9 -print)
 
+trap - EXIT
+
 echo "Deploy distant termine."
 EOF
+
+echo "Liberation de l'espace distant avant upload..."
+ssh -tt "${SSH_OPTS[@]}" "${USER}@${HOST}" \
+  "bash -s -- '${REMOTE_WEBROOT}' '${REMOTE_FRONT_RELEASES}' '${REMOTE_BACKUPS}' '${REMOTE_MIN_FREE_MB}'" <<'REMOTE_STORAGE_CLEANUP'
+set -euo pipefail
+
+remote_webroot="$1"
+front_releases="$2"
+remote_backups="$3"
+minimum_free_mb="$4"
+
+[[ "$remote_webroot" == /var/www/* ]] || exit 1
+[[ "$front_releases" == /var/www/* ]] || exit 1
+[[ "$remote_backups" == /var/www/* ]] || exit 1
+
+echo "Nettoyage des fichiers temporaires BYL abandonnes..."
+find /tmp -mindepth 1 -maxdepth 1 -user "$(id -un)" -type d -name 'byl-backend-release-*' -exec rm -rf -- {} +
+find /tmp -mindepth 1 -maxdepth 1 -user "$(id -un)" -type f \
+  \( -name 'byl-backend-*.tgz' -o -name 'byl-dist-*.tgz' -o -name 'byl-deploy-*.sh' -o -name 'byl-backend-canary-*.log' \) \
+  -delete
+
+active_front="$(readlink -f "$remote_webroot" 2>/dev/null || true)"
+if [ -d "$front_releases" ]; then
+  while IFS= read -r abandoned_release; do
+    if [ "$abandoned_release" != "$active_front" ]; then
+      sudo rm -rf "$abandoned_release"
+    fi
+  done < <(sudo find "$front_releases" -mindepth 1 -maxdepth 1 -type d -name 'release-*' -print)
+fi
+
+prune_backups() {
+  local pattern="$1"
+  local keep="$2"
+  local index
+  local -a files=()
+
+  [ -d "$remote_backups" ] || return 0
+  mapfile -t files < <(sudo find "$remote_backups" -maxdepth 1 -type f -name "$pattern" -printf '%T@ %p\n' | sort -nr | cut -d' ' -f2-)
+  for ((index = keep; index < ${#files[@]}; index += 1)); do
+    sudo rm -f "${files[$index]}"
+  done
+}
+
+# Deux sauvegardes de chaque type suffisent pour un rollback tout en evitant
+# que les archives backend ne saturent le VPS au fil des deploiements.
+prune_backups 'byl-backend-*.tgz' 2
+prune_backups 'byl-20*.tgz' 2
+
+available_kb="$(df -Pk /var/www | awk 'NR == 2 { print $4 }')"
+required_kb="$((minimum_free_mb * 1024))"
+if [ "${available_kb:-0}" -lt "$required_kb" ]; then
+  echo "Espace disque insuffisant apres nettoyage: $((available_kb / 1024)) Mo disponibles, ${minimum_free_mb} Mo requis."
+  echo "Le deploiement est arrete avant l'upload."
+  exit 1
+fi
+
+echo "Espace disque disponible: $((available_kb / 1024)) Mo."
+REMOTE_STORAGE_CLEANUP
 
 echo "Upload vers ${USER}@${HOST}:/tmp/"
 scp "${SSH_OPTS[@]}" "${ARCHIVE}" "${BACKEND_ARCHIVE}" "${REMOTE_SCRIPT_LOCAL}" "${USER}@${HOST}:/tmp/"
