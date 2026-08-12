@@ -66,6 +66,9 @@ import { canUseCustomBranding } from "../utils/proPlanAccess";
 import { formatProgramActiveWeeks, getProgramActiveWeeksLabel } from "../utils/programDuration";
 import { isValidatedExerciseCompletion } from "../utils/exerciseHistoryIdentity";
 import { selectLatestExercisePerformance } from "../utils/playerBuilderSync";
+import {
+  readProgramDisplayMetric,
+} from "../utils/programDisplayMetrics";
 import { db } from "../firebaseConfig";
 import {
   getStorage,
@@ -75,6 +78,7 @@ import {
 } from "firebase/storage";
 import {
   doc,
+  getDocFromCache,
   getDoc,
   getDocs,
   onSnapshot,
@@ -93,6 +97,7 @@ const storageDataUrlCache = new Map();
 const genericImageDataUrlCache = new Map();
 const firestoreExerciseCache = new Map();
 const firestoreExercisePromiseCache = new Map();
+const programmeSnapshotCache = new Map();
 
 /* ---------------- utils ---------------- */
 const norm = (s = "") =>
@@ -1355,25 +1360,6 @@ function getSessionDisplayName(session, idx, L) {
   return `${L.session} ${idx + 1}`;
 }
 
-/* ---- champs normalisés ---- */
-const FIELD_MAP = {
-  series: ["series", "Séries", "séries"],
-  repetitions: ["repetitions", "Répétitions", "répétitions", "reps"],
-  repos: ["repos", "pause", "Repos (min:sec)", "Repos", "rest", "duree_repos"],
-  temps: ["temps", "temps_effort", "duree", "durée", "duree_effort", "Durée (min:sec)", "time"],
-  charge: ["charge", "poids", "weight", "Charge (kg)", "Charge (lbs)"],
-  intensite: ["Intensité", "intensite"],
-  watts: ["Watts", "watts"],
-  resistance: ["Résistance", "resistance"],
-  inclinaison: ["Inclinaison (%)", "inclinaison", "incline"],
-  calories: ["Objectif Calories", "calories"],
-  tempo: ["Tempo", "tempo"],
-  vitesse: ["Vitesse", "vitesse", "speed", "Vitesse (km/h)", "Vitesse (mph)"],
-  distance: ["Distance", "distance", "Distance (m)", "Distance (miles)"],
-};
-
-const getFieldValue = (obj, keys) => pickFirst(obj, keys);
-
 const OPTION_FLAG = {
   series: "Séries",
   repetitions: "Répétitions",
@@ -1393,11 +1379,14 @@ const OPTION_FLAG = {
 const isOptionEnabled = (ex, key) => {
   const label = OPTION_FLAG[key];
   if (!label) return false;
-  const byOrder = Array.isArray(ex?.optionsOrder) && ex.optionsOrder.includes(label);
+  // Once the player/builder has an explicit order, it is also the source of
+  // truth for enabled fields. This prevents old boolean aliases from bringing
+  // back a metric that the coach or client unchecked during the session.
+  if (Array.isArray(ex?.optionsOrder)) return ex.optionsOrder.includes(label);
   const oe = ex?.optionsEnabled || ex?.options || ex?.details?.optionsEnabled || ex?.details?.options || {};
   const byBool = oe[key] === true || oe[label] === true || oe[key?.toLowerCase?.()] === true;
   const byChecked = ex?.[`${key}Checked`] === true || ex?.[`${key}_checked`] === true;
-  return !!(byOrder || byBool || byChecked);
+  return !!(byBool || byChecked);
 };
 
 const detectSourceUnitForField = (ex, key) => {
@@ -1431,19 +1420,19 @@ const detectSourceUnitForField = (ex, key) => {
 
 const buildInfosFromExercise = (ex, units, locale = "fr-FR", L = null) => {
   const values = {
-    series: getFieldValue(ex, FIELD_MAP.series),
-    repetitions: getFieldValue(ex, FIELD_MAP.repetitions),
-    repos: getFieldValue(ex, FIELD_MAP.repos),
-    temps: getFieldValue(ex, FIELD_MAP.temps),
-    charge: getFieldValue(ex, FIELD_MAP.charge),
-    intensite: getFieldValue(ex, FIELD_MAP.intensite),
-    watts: getFieldValue(ex, FIELD_MAP.watts),
-    resistance: getFieldValue(ex, FIELD_MAP.resistance),
-    inclinaison: getFieldValue(ex, FIELD_MAP.inclinaison),
-    calories: getFieldValue(ex, FIELD_MAP.calories),
-    tempo: getFieldValue(ex, FIELD_MAP.tempo),
-    vitesse: getFieldValue(ex, FIELD_MAP.vitesse),
-    distance: getFieldValue(ex, FIELD_MAP.distance),
+    series: readProgramDisplayMetric(ex, "series"),
+    repetitions: readProgramDisplayMetric(ex, "repetitions"),
+    repos: readProgramDisplayMetric(ex, "repos"),
+    temps: readProgramDisplayMetric(ex, "temps"),
+    charge: readProgramDisplayMetric(ex, "charge"),
+    intensite: readProgramDisplayMetric(ex, "intensite"),
+    watts: readProgramDisplayMetric(ex, "watts"),
+    resistance: readProgramDisplayMetric(ex, "resistance"),
+    inclinaison: readProgramDisplayMetric(ex, "inclinaison"),
+    calories: readProgramDisplayMetric(ex, "calories"),
+    tempo: readProgramDisplayMetric(ex, "tempo"),
+    vitesse: readProgramDisplayMetric(ex, "vitesse"),
+    distance: readProgramDisplayMetric(ex, "distance"),
   };
 
   const push = (key) => {
@@ -1908,6 +1897,31 @@ async function readProgramme(clientId, programId) {
     const p = doc(db, "programmes", id);
     const snap = await getDoc(p);
     if (snap.exists()) return { id, data: snap.data(), ref: p };
+  }
+  return null;
+}
+
+function getProgrammeCacheKey(clientId, programId) {
+  return clientId && programId
+    ? `client:${clientId}:${programId}`
+    : `base:${programId || clientId || ""}`;
+}
+
+async function readProgrammeFromCache(clientId, programId) {
+  const candidates = [];
+  if (clientId && programId) {
+    candidates.push({ id: programId, ref: doc(db, "clients", clientId, "programmes", programId) });
+  }
+  const id = programId || clientId;
+  if (id) candidates.push({ id, ref: doc(db, "programmes", id) });
+
+  for (const candidate of candidates) {
+    try {
+      const snap = await getDocFromCache(candidate.ref);
+      if (snap.exists()) return { ...candidate, data: snap.data() };
+    } catch {
+      // No local Firestore entry yet.
+    }
   }
   return null;
 }
@@ -2559,7 +2573,15 @@ export default function ProgramView() {
   useEffect(() => {
     let unsub;
     (async () => {
-      setLoading(true);
+      const cacheKey = getProgrammeCacheKey(clientId, programId);
+      const cachedHit = programmeSnapshotCache.get(cacheKey) || await readProgrammeFromCache(clientId, programId);
+      if (cachedHit) {
+        setProgRef(cachedHit.ref);
+        setProg({ id: cachedHit.id, ...cachedHit.data });
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
       const hit = await readProgramme(clientId, programId);
       if (!hit) {
         setProg(null);
@@ -2571,7 +2593,9 @@ export default function ProgramView() {
       unsub = onSnapshot(
         hit.ref,
         (snap) => {
-          setProg(snap.exists() ? { id: hit.id, ...snap.data() } : null);
+          const data = snap.exists() ? snap.data() : null;
+          if (data) programmeSnapshotCache.set(cacheKey, { ...hit, data });
+          setProg(data ? { id: hit.id, ...data } : null);
           setLoading(false);
         },
         () => setLoading(false)
@@ -2627,9 +2651,10 @@ export default function ProgramView() {
     let cancelled = false;
 
     async function run() {
-      const allExercises = (sessions || []).flatMap((sess) =>
-        Object.values(asSections(sess)).flatMap((arr) => arr || [])
-      );
+      const visibleSession = sessions?.[tabIndex];
+      const allExercises = visibleSession
+        ? Object.values(asSections(visibleSession)).flatMap((arr) => arr || [])
+        : [];
 
       if (!allExercises.length) {
         setResolvedExerciseMap({});
@@ -2639,6 +2664,13 @@ export default function ProgramView() {
       const tasks = allExercises.map(async (exercise, idx) => {
         const cacheKey = getExerciseCacheKey(exercise, `fallback-${idx}`);
         if (!cacheKey) return null;
+
+        // Assigned programmes already contain their media in the common case.
+        // Avoid a cascade of Firestore lookups when nothing needs enriching.
+        if (extractExerciseMedia(exercise, preferredSex).length > 0) {
+          exerciseMediaCacheRef.current.set(cacheKey, exercise);
+          return [cacheKey, exercise];
+        }
 
         if (exerciseMediaCacheRef.current.has(cacheKey)) {
           const cached = exerciseMediaCacheRef.current.get(cacheKey);
@@ -2693,7 +2725,7 @@ export default function ProgramView() {
     return () => {
       cancelled = true;
     };
-  }, [sessions, preferredSex]);
+  }, [sessions, tabIndex, preferredSex]);
 
   useEffect(() => {
     const currentSession = sessions?.[tabIndex];

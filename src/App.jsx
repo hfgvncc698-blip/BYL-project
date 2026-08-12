@@ -288,8 +288,12 @@ function preloadKeysForContext({ pathname, user, effectiveRole, isAdmin }) {
     keys.push("ExerciseBank", "ProgramsPage");
   }
 
-  if (pathname.startsWith("/clients")) {
-    keys.push("ClientView", "ProgramView", "ProgramBuilderPage", "SessionPlayer", "NutritionAssessmentEditor");
+  if (/^\/clients\/[^/]+\/programmes\/[^/]+/.test(pathname)) {
+    keys.push("ProgramView", "ProgramBuilderPage", "SessionPlayer");
+  } else if (/^\/clients\/[^/]+/.test(pathname)) {
+    keys.push("ClientView", "ProgramView");
+  } else if (pathname.startsWith("/clients")) {
+    keys.push("Clients", "ClientView");
   } else if (pathname.startsWith("/programmes")) {
     keys.push("ProgramView", "ProgramBuilderPage", "SessionPlayer", "AutoProgramPreview");
   } else if (pathname.startsWith("/coach-dashboard")) {

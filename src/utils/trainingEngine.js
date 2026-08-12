@@ -238,7 +238,7 @@ function groupLinkedExercises(list = []) {
   return groups;
 }
 
-export function estimateSessionDurationSeconds(session) {
+export function estimateSessionDurationSeconds(session, options = {}) {
   const engineEstimated = Number(session?.engineMeta?.estimatedDurationSec ?? session?.estimatedDurationSec);
   const entries = flattenSessionEntries(session);
   if (!entries.length) return Number.isFinite(engineEstimated) && engineEstimated > 0 ? Math.round(engineEstimated) : 0;
@@ -267,11 +267,16 @@ export function estimateSessionDurationSeconds(session) {
     return sum + groupTotal;
   }, 0);
 
-  if (Number.isFinite(engineEstimated) && engineEstimated > 0) {
-    return Math.max(Math.round(computed), Math.round(engineEstimated));
-  }
+  const baseline = Number.isFinite(engineEstimated) && engineEstimated > 0
+    ? Math.max(Math.round(computed), Math.round(engineEstimated))
+    : Math.max(0, Math.round(computed));
+  if (options?.ignoreTimingCalibration === true) return baseline;
 
-  return Math.max(0, Math.round(computed));
+  const timingFactor = Number(session?.timingCalibration?.factor);
+  const safeFactor = Number.isFinite(timingFactor)
+    ? Math.max(0.7, Math.min(1.4, timingFactor))
+    : 1;
+  return Math.max(0, Math.round(baseline * safeFactor));
 }
 
 export function estimateSessionDurationBreakdown(session) {

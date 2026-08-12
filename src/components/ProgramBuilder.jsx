@@ -86,6 +86,7 @@ import { useAppTheme } from "../styles/appTheme";
 import { estimateSessionDurationSeconds, formatDuration } from "../utils/trainingEngine";
 import { exerciseHistoryMatches as matchesExerciseHistory } from "../utils/exerciseHistoryIdentity";
 import { selectLatestExercisePerformance } from "../utils/playerBuilderSync";
+import { applyValidatedSnapshotToAssignedExercise } from "../utils/playerProgramSync";
 import PageBackButton from "./ui/PageBackButton";
 
 /* ------------------ utils ------------------ */
@@ -526,93 +527,24 @@ function buildExerciseHistoryItemsFromCompletions(completionHistory = [], exerci
 
 const PLAYER_VALIDATED_SYNC_META_KEY = "_playerValidatedSync";
 
-function readValidatedSetMetric(set = {}, field, label, allowValuesFallback = true) {
-  const direct = set?.[field];
-  if (direct != null && direct !== "") return direct;
-  return allowValuesFallback ? set?.values?.[label]?.raw : undefined;
-}
-
 function applyValidatedSnapshotToExercise(exercise = {}, source = null) {
   if (!source?.record || !source?.snapshot) return exercise;
 
   const recordId = String(source.record.id || source.record.completionId || "");
+  const completionId = String(source.record.completionId || source.record.id || "");
   if (
-    recordId &&
-    exercise?.[PLAYER_VALIDATED_SYNC_META_KEY]?.recordId === recordId &&
-    Number(exercise?.[PLAYER_VALIDATED_SYNC_META_KEY]?.version) === 6
+    completionId &&
+    exercise?.[PLAYER_VALIDATED_SYNC_META_KEY]?.completionId === completionId &&
+    Number(exercise?.[PLAYER_VALIDATED_SYNC_META_KEY]?.version) >= 7
   ) {
     return exercise;
   }
 
-  const recordedSets = [...source.snapshot.sets].sort(
-    (a, b) => (Number(a?.setIndex) || 0) - (Number(b?.setIndex) || 0)
-  );
-  if (!recordedSets.length) return exercise;
-
-  const next = structuredClone(exercise);
-  if (Array.isArray(source.snapshot.optionsOrder) && source.snapshot.optionsOrder.length) {
-    next.optionsOrder = [...source.snapshot.optionsOrder];
-  }
-  if (typeof source.snapshot.seriesDiff === "boolean") {
-    next.useAdvancedSets = source.snapshot.seriesDiff;
-    next.seriesDiff = source.snapshot.seriesDiff;
-  }
-  const metricDefs = [
-    { label: "Répétitions", field: "reps", setField: "reps" },
-    { label: "Charge (kg)", field: "chargeKg", setField: "chargeKg" },
-    { label: "Résistance", field: "resistance", setField: "resistance" },
-    { label: "Watts", field: "watts", setField: "watts" },
-    // Only the explicit player prescription is synchronized. Older records
-    // stored elapsed waiting time in `restSec`, which could turn 2:30 into 0:16.
-    {
-      label: "Repos (min:sec)",
-      field: "plannedRestSec",
-      setField: "restSec",
-      allowValuesFallback: false,
-    },
-    { label: "Durée (min:sec)", field: "durationSec", setField: "durationSec" },
-    { label: "Distance", field: "distance", setField: "distance" },
-    { label: "Vitesse", field: "speed", setField: "speedKmh" },
-    { label: "Inclinaison (%)", field: "incline", setField: "inclinePct" },
-    { label: "Objectif Calories", field: "calories", setField: "calories" },
-    { label: "Intensité", field: "intensity", setField: "intensity" },
-    { label: "Tempo", field: "tempo", setField: "tempo" },
-  ];
-  const activeOptions = new Set(next.optionsOrder || []);
-  const isUsable = (value) =>
-    value != null && value !== "" && (typeof value !== "number" || value > 0);
-
-  if (next.useAdvancedSets) {
-    next.sets = recordedSets.map((recordedSet, index) => {
-      const target = {
-        ...(next.sets?.[index] || {}),
-        _id: next.sets?.[index]?._id || uid(),
-      };
-      metricDefs.forEach(({ label, field, setField, allowValuesFallback = true }) => {
-        if (!activeOptions.has(label)) return;
-        const value = readValidatedSetMetric(recordedSet, field, label, allowValuesFallback);
-        if (isUsable(value)) target[setField] = value;
-      });
-      return target;
-    });
-    next["Séries"] = next.sets.length;
-    next.seriesDiff = true;
-    next.seriesDetails = seriesDetailsFromSets(next.sets, next.optionsOrder);
-  } else {
-    const representativeSet = recordedSets[recordedSets.length - 1];
-    next["Séries"] = recordedSets.length;
-    metricDefs.forEach(({ label, field, allowValuesFallback = true }) => {
-      if (!activeOptions.has(label)) return;
-      const value = readValidatedSetMetric(
-        representativeSet,
-        field,
-        label,
-        allowValuesFallback
-      );
-      if (isUsable(value)) next[label] = value;
-    });
-    Object.assign(next, ensureSetsLengthPure(next));
-  }
+  const next = applyValidatedSnapshotToAssignedExercise(exercise, {
+    ...source.snapshot,
+    completionId,
+  });
+  if (next === exercise) return exercise;
 
   const validatedCharge = next.useAdvancedSets
     ? next.sets.some((set) => Number(set?.chargeKg) > 0)
@@ -620,9 +552,9 @@ function applyValidatedSnapshotToExercise(exercise = {}, source = null) {
   if (validatedCharge) clearHistoryLoadMeta(next);
 
   next[PLAYER_VALIDATED_SYNC_META_KEY] = {
-    version: 6,
+    version: 7,
     recordId,
-    completionId: source.record.completionId || "",
+    completionId,
     completedAt: getCompletionRecordDate(source.record)?.toISOString?.() || "",
   };
   return next;

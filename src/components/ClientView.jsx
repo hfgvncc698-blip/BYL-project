@@ -1,5 +1,5 @@
 // src/components/ClientView.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -57,18 +57,7 @@ import {
   arrayUnion,
   arrayRemove,
 } from "firebase/firestore";
-import {
-  ResponsiveContainer,
-  LineChart,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip as RechartsTooltip,
-  Line,
-} from "recharts";
 import { FiEye, FiXCircle, FiCopy } from "react-icons/fi";
-import SessionComparator from "./SessionComparator";
-import ClientNutritionSection from "./ClientNutritionSection";
 import AppLoading from "./ui/AppLoading";
 import { notify } from "../utils/notify";
 import { useAppTheme } from "../styles/appTheme";
@@ -79,6 +68,10 @@ import {
   getProgramPlannedSessionTotal,
   getProgramValidatedSessionCount,
 } from "../utils/programDuration";
+
+const SessionComparator = lazy(() => import("./SessionComparator"));
+const ClientNutritionSection = lazy(() => import("./ClientNutritionSection"));
+const ClientMeasurementCharts = lazy(() => import("./client/ClientMeasurementCharts"));
 
 const SUBCOL_PROGRAMMES = "programmes";
 const SUBCOL_SESSIONS_DONE = "sessionsEffectuees";
@@ -596,6 +589,7 @@ export default function ClientView() {
   const [client, setClient] = useState(null);
   const [programmes, setProgrammes] = useState([]);
   const [measures, setMeasures] = useState([]);
+  const [secondaryContentReady, setSecondaryContentReady] = useState(false);
 
   const addMeas = useDisclosure();
   const editClient = useDisclosure();
@@ -702,9 +696,41 @@ export default function ClientView() {
     return unsub;
   }, [clientId]);
 
+  useEffect(() => {
+    if (!client) return undefined;
+    let timeoutId;
+    let idleId;
+    const reveal = () => setSecondaryContentReady(true);
+    if (typeof window.requestIdleCallback === "function") {
+      idleId = window.requestIdleCallback(reveal, { timeout: 1400 });
+    } else {
+      timeoutId = window.setTimeout(reveal, 350);
+    }
+    return () => {
+      if (idleId) window.cancelIdleCallback?.(idleId);
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, [client]);
+
   /* ----- Programmes + sessionsEffectuees + dernière note difficulté ----- */
   const reloadProgrammes = async () => {
     const progSnap = await getDocs(collection(db, "clients", clientId, SUBCOL_PROGRAMMES));
+
+    // Paint the programme cards immediately; detailed histories and ratings
+    // continue loading without holding the whole client page hostage.
+    setProgrammes(
+      progSnap.docs.map((d) => {
+        const data = d.data() || {};
+        const resolvedName = String(data?.nomProgramme || data?.name || "").trim() || prettyProgramNameBase(data) || d.id;
+        return {
+          id: d.id,
+          ...data,
+          nomProgramme: resolvedName,
+          name: String(data?.name || "").trim() || resolvedName,
+          sessionsEffectuees: [],
+        };
+      })
+    );
 
     const progs = await Promise.all(
       progSnap.docs.map(async (d) => {
@@ -1805,13 +1831,17 @@ export default function ClientView() {
             <Text fontWeight="bold" mb={3}>
               {t("clientView.compareSession", "Comparer des séances")}
             </Text>
-            <SafeBoundary>
-              <SessionComparator
-                key={comparatorKey}
-                clientId={clientId}
-                programmes={sortedProgrammes}
-              />
-            </SafeBoundary>
+            {secondaryContentReady && (
+              <SafeBoundary>
+                <Suspense fallback={<Spinner size="sm" />}>
+                  <SessionComparator
+                    key={comparatorKey}
+                    clientId={clientId}
+                    programmes={sortedProgrammes}
+                  />
+                </Suspense>
+              </SafeBoundary>
+            )}
           </Box>
 
           <Box display={{ base: "block", md: "none" }} mb={6}>
@@ -1831,11 +1861,13 @@ export default function ClientView() {
                 <ModalBody overflowY="auto" px={{ base: 3, md: 6 }}>
                   <Box bg={panelBg} border="1px solid" borderColor={panelBorder} p={4} borderRadius="24px" boxShadow={shadow} overflowX="auto">
                     <SafeBoundary>
-                      <SessionComparator
-                        key={comparatorKey}
-                        clientId={clientId}
-                        programmes={sortedProgrammes}
-                      />
+                      <Suspense fallback={<Spinner size="sm" />}>
+                        <SessionComparator
+                          key={comparatorKey}
+                          clientId={clientId}
+                          programmes={sortedProgrammes}
+                        />
+                      </Suspense>
                     </SafeBoundary>
                   </Box>
                 </ModalBody>
@@ -1861,7 +1893,9 @@ export default function ClientView() {
               </Box>
             }
           >
-            <ClientNutritionSection clientId={clientId} client={client} isAdminOnly />
+            <Suspense fallback={<Spinner size="sm" />}>
+              <ClientNutritionSection clientId={clientId} client={client} isAdminOnly />
+            </Suspense>
           </SafeBoundary>
         </Box>
       )}
@@ -1964,70 +1998,18 @@ export default function ClientView() {
           </Box>
         </Grid>
 
-        <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap={6}>
-          {[
-            {
-              f: "poids",
-              label: weightLabel,
-              map: (v) => (weightUnit === "kg" ? v : kgToLbs(v)),
-            },
-            { f: "bmi", label: t("stats.fields.bmi", "IMC"), map: (v) => v },
-            { f: "fatMass", label: t("stats.fields.fat", "Masse grasse"), map: (v) => v },
-            {
-              f: "muscleMass",
-              label: `${t("stats.fields.muscle", "Masse musculaire")} (${weightUnit})`,
-              map: (v) => (weightUnit === "kg" ? v : kgToLbs(v)),
-            },
-            { f: "waterMass", label: t("stats.fields.water", "Eau"), map: (v) => v },
-            {
-              f: "boneMass",
-              label: `${t("stats.fields.bone", "Masse osseuse")} (${weightUnit})`,
-              map: (v) => (weightUnit === "kg" ? v : kgToLbs(v)),
-            },
-            {
-              f: "metabolicAge",
-              label: t("stats.fields.metabolicAge", "Âge métabolique"),
-              map: (v) => v,
-            },
-            {
-              f: "visceralFatScore",
-              label: t("stats.fields.visceralFat", "Graisse viscérale"),
-              map: (v) => v,
-            },
-          ].map(({ f, label, map }) => {
-            let data = measures
-              .filter((x) => x[f] != null)
-              .map((x) => ({ date: x.date, value: map(x[f]) }));
-
-            if (f === "bmi") {
-              data = measures
-                .filter((x) => x.poids != null && x.taille != null)
-                .map((x) => ({
-                  date: x.date,
-                  value: +(x.poids / (x.taille / 100) ** 2).toFixed(1),
-                }));
-            }
-
-            if (!data.length || data.length < 2) return null;
-
-            return (
-              <Box key={f} bg={subtlePanelBg} border="1px solid" borderColor={panelBorder} p={4} borderRadius="22px" boxShadow={shadow}>
-                <Text fontWeight="bold" mb={2}>
-                  {label}
-                </Text>
-                <ResponsiveContainer width="100%" height={160}>
-                  <LineChart data={data}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis allowDecimals={false} />
-                    <RechartsTooltip />
-                    <Line type="monotone" dataKey="value" stroke={lineStroke} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </Box>
-            );
-          })}
-        </Grid>
+        {secondaryContentReady && (
+          <Suspense fallback={null}>
+            <ClientMeasurementCharts
+              measures={measures}
+              weightUnit={weightUnit}
+              subtlePanelBg={subtlePanelBg}
+              panelBorder={panelBorder}
+              shadow={shadow}
+              lineStroke={lineStroke}
+            />
+          </Suspense>
+        )}
       </Box>
 
       {/* Modal désassign */}

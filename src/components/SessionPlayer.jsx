@@ -15,6 +15,7 @@ import {
   where,
   Timestamp,
   writeBatch,
+  runTransaction,
   limit,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
@@ -101,6 +102,11 @@ import {
   isValidatedExerciseCompletion,
 } from "../utils/exerciseHistoryIdentity";
 import { isPerformanceOptionTracked } from "../utils/playerBuilderSync";
+import { applyValidatedSnapshotsToAssignedProgram } from "../utils/playerProgramSync";
+import {
+  applyTimingCalibrationToSessions,
+  updateSessionTimingCalibration,
+} from "../utils/sessionTimingCalibration";
 import { hasPlanModule } from "../utils/proPlanAccess";
 import {
   applyPlayerExerciseDeletion,
@@ -3149,6 +3155,15 @@ export default function SessionPlayer() {
       const newPersonalRecordCount = isPartial
         ? 0
         : getConfirmedPersonalRecordCount(exerciseSnapshots, completionHistory);
+      const basePlannedDurationSec = estimateSessionDurationSeconds(sessionObj, {
+        ignoreTimingCalibration: true,
+      });
+      const plannedDurationSec = estimateSessionDurationSeconds(sessionObj);
+      const elapsedState = readElapsedTimerState(sessionTimerStorageKey);
+      const actualDurationSec = Math.max(
+        0,
+        Math.round(getElapsedTimerSeconds(elapsedState) || sessionElapsedTimer.seconds || 0)
+      );
 
       await setDoc(
         sRef,
@@ -3165,6 +3180,17 @@ export default function SessionPlayer() {
           ...(lastSet != null ? { lastSet } : {}),
           ...(exerciseTimings.length ? { exerciseTimings } : {}),
           ...(exerciseSnapshots.length ? { exerciseSnapshots } : {}),
+          ...(!isPartial && actualDurationSec > 0
+            ? {
+                actualDurationSec,
+                plannedDurationSec,
+                basePlannedDurationSec,
+                durationDeltaSec: actualDurationSec - plannedDurationSec,
+                durationRatio: plannedDurationSec > 0
+                  ? Number((actualDurationSec / plannedDurationSec).toFixed(3))
+                  : null,
+              }
+            : {}),
           ...(isPartial
             ? { progressUpdatedAt: serverTimestamp() }
             : {
@@ -3185,6 +3211,42 @@ export default function SessionPlayer() {
         },
         { merge: true }
       );
+
+      if (!isPartial && programDocRef) {
+        await runTransaction(db, async (transaction) => {
+          const latestProgramSnap = await transaction.get(programDocRef);
+          if (!latestProgramSnap.exists()) return;
+          const result = applyValidatedSnapshotsToAssignedProgram(
+            latestProgramSnap.data() || {},
+            sessionIndex,
+            exerciseSnapshots,
+            completionDocId
+          );
+          const calibrationResult = updateSessionTimingCalibration(
+            latestProgramSnap.data()?.timingCalibration,
+            {
+              basePlannedDurationSec,
+              actualDurationSec,
+              completionId: completionDocId,
+              completedAt: new Date().toISOString(),
+            }
+          );
+          const calibratedSessions = calibrationResult.accepted
+            ? applyTimingCalibrationToSessions(result.sessions, calibrationResult.profile)
+            : result.sessions;
+          if (!result.updatedCount && !calibrationResult.accepted) return;
+          transaction.update(programDocRef, {
+            [result.sessionsField]: calibratedSessions,
+            ...(calibrationResult.accepted
+              ? { timingCalibration: calibrationResult.profile }
+              : {}),
+            lastPlayerSyncAt: serverTimestamp(),
+            lastPlayerSyncCompletionId: completionDocId,
+            lastPlayerSyncActorRole: isCoachContext ? "coach" : "client",
+            updatedAt: serverTimestamp(),
+          });
+        });
+      }
 
       const isClientSelfVisit =
         !!user?.uid &&

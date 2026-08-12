@@ -717,7 +717,15 @@ function timingProfileFromCompletionRecords(records = []) {
         }
       });
 
-      if (plannedSum >= 120 && actualSum >= 120) {
+      const recordedPlanned = Number(record.basePlannedDurationSec);
+      const recordedActual = Number(record.actualDurationSec);
+      if (
+        Number.isFinite(recordedPlanned) && recordedPlanned >= 120 &&
+        Number.isFinite(recordedActual) && recordedActual >= 120
+      ) {
+        const ratio = recordedActual / recordedPlanned;
+        if (ratio >= 0.35 && ratio <= 3) sessionRatioSamples.push(ratio);
+      } else if (plannedSum >= 120 && actualSum >= 120) {
         const ratio = actualSum / plannedSum;
         if (ratio >= 0.35 && ratio <= 3) sessionRatioSamples.push(ratio);
       }
@@ -727,9 +735,11 @@ function timingProfileFromCompletionRecords(records = []) {
         toTimestampMs(record.completedAt) ||
         toTimestampMs(record.validatedAt) ||
         toTimestampMs(record.dateEffectuee);
-      const durationSec = startedAt && finishedAt && finishedAt > startedAt
-        ? Math.round((finishedAt - startedAt) / 1000)
-        : 0;
+      const durationSec = Number.isFinite(recordedActual) && recordedActual > 0
+        ? Math.round(recordedActual)
+        : startedAt && finishedAt && finishedAt > startedAt
+          ? Math.round((finishedAt - startedAt) / 1000)
+          : 0;
       if (durationSec >= 5 * 60 && durationSec <= 4 * 3600) sessionDurationSamples.push(durationSec);
     });
 
