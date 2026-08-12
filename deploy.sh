@@ -274,15 +274,84 @@ SSH_CONTROL_PATH="${TMPDIR:-/tmp}/byl-deploy-${USER}-${HOST}-%p"
 SSH_OPTS=(-o ControlMaster=auto -o ControlPersist=10m -o ControlPath="${SSH_CONTROL_PATH}")
 REMOTE_SCRIPT="/tmp/byl-deploy-${ts}.sh"
 REMOTE_SCRIPT_LOCAL="${TMPDIR:-/tmp}/byl-deploy-${ts}.sh"
+REMOTE_STORAGE_SCRIPT="/tmp/byl-storage-cleanup-${ts}.sh"
+REMOTE_STORAGE_SCRIPT_LOCAL="${TMPDIR:-/tmp}/byl-storage-cleanup-${ts}.sh"
 
 cleanup() {
   ssh "${SSH_OPTS[@]}" -O exit "${USER}@${HOST}" >/dev/null 2>&1 || true
-  rm -f "${ARCHIVE}" "${BACKEND_ARCHIVE}" "${REMOTE_SCRIPT_LOCAL}"
+  rm -f "${ARCHIVE}" "${BACKEND_ARCHIVE}" "${REMOTE_SCRIPT_LOCAL}" "${REMOTE_STORAGE_SCRIPT_LOCAL}"
   rm -rf "${BACKEND_STAGE}"
 }
 trap cleanup EXIT
 
+prepare_remote_storage() {
+  echo "Preparation du nettoyage distant -> ${REMOTE_STORAGE_SCRIPT_LOCAL}"
+  cat > "${REMOTE_STORAGE_SCRIPT_LOCAL}" <<'REMOTE_STORAGE_CLEANUP'
+#!/usr/bin/env bash
+set -euo pipefail
+
+remote_webroot="$1"
+front_releases="$2"
+remote_backups="$3"
+minimum_free_mb="$4"
+
+[[ "$remote_webroot" == /var/www/* ]] || exit 1
+[[ "$front_releases" == /var/www/* ]] || exit 1
+[[ "$remote_backups" == /var/www/* ]] || exit 1
+
+echo "Nettoyage des fichiers temporaires BYL abandonnes..."
+find /tmp -mindepth 1 -maxdepth 1 -type d -name 'byl-backend-release-*' -exec rm -rf -- {} +
+find /tmp -mindepth 1 -maxdepth 1 -type f \
+  \( -name 'byl-backend-*.tgz' -o -name 'byl-dist-*.tgz' -o -name 'byl-deploy-*.sh' -o -name 'byl-backend-canary-*.log' \) \
+  -delete
+
+active_front="$(readlink -f "$remote_webroot" 2>/dev/null || true)"
+if [ -d "$front_releases" ]; then
+  while IFS= read -r abandoned_release; do
+    if [ "$abandoned_release" != "$active_front" ]; then
+      rm -rf "$abandoned_release"
+    fi
+  done < <(find "$front_releases" -mindepth 1 -maxdepth 1 -type d -name 'release-*' -print)
+fi
+
+prune_backups() {
+  local pattern="$1"
+  local keep="$2"
+  local index
+  local -a files=()
+
+  [ -d "$remote_backups" ] || return 0
+  mapfile -t files < <(find "$remote_backups" -maxdepth 1 -type f -name "$pattern" -printf '%T@ %p\n' | sort -nr | cut -d' ' -f2-)
+  for ((index = keep; index < ${#files[@]}; index += 1)); do
+    rm -f "${files[$index]}"
+  done
+}
+
+prune_backups 'byl-backend-*.tgz' 2
+prune_backups 'byl-20*.tgz' 2
+
+available_kb="$(df -Pk /var/www | awk 'NR == 2 { print $4 }')"
+required_kb="$((minimum_free_mb * 1024))"
+if [ "${available_kb:-0}" -lt "$required_kb" ]; then
+  echo "Espace disque insuffisant apres nettoyage: $((available_kb / 1024)) Mo disponibles, ${minimum_free_mb} Mo requis."
+  echo "Le deploiement est arrete avant Firebase et avant l'upload principal."
+  exit 1
+fi
+
+echo "Espace disque disponible: $((available_kb / 1024)) Mo."
+REMOTE_STORAGE_CLEANUP
+
+  chmod 700 "${REMOTE_STORAGE_SCRIPT_LOCAL}"
+  echo "Envoi du controle d'espace distant..."
+  scp "${SSH_OPTS[@]}" "${REMOTE_STORAGE_SCRIPT_LOCAL}" "${USER}@${HOST}:${REMOTE_STORAGE_SCRIPT}"
+
+  echo "Liberation et controle de l'espace distant..."
+  ssh -tt "${SSH_OPTS[@]}" "${USER}@${HOST}" \
+    "sudo bash '${REMOTE_STORAGE_SCRIPT}' '${REMOTE_WEBROOT}' '${REMOTE_FRONT_RELEASES}' '${REMOTE_BACKUPS}' '${REMOTE_MIN_FREE_MB}'; cleanup_status=\$?; rm -f '${REMOTE_STORAGE_SCRIPT}'; exit \$cleanup_status"
+}
+
 preflight
+prepare_remote_storage
 firebase_deploy_if_requested
 
 echo
@@ -784,64 +853,6 @@ trap - EXIT
 
 echo "Deploy distant termine."
 EOF
-
-echo "Liberation de l'espace distant avant upload..."
-ssh -tt "${SSH_OPTS[@]}" "${USER}@${HOST}" \
-  "bash -s -- '${REMOTE_WEBROOT}' '${REMOTE_FRONT_RELEASES}' '${REMOTE_BACKUPS}' '${REMOTE_MIN_FREE_MB}'" <<'REMOTE_STORAGE_CLEANUP'
-set -euo pipefail
-
-remote_webroot="$1"
-front_releases="$2"
-remote_backups="$3"
-minimum_free_mb="$4"
-
-[[ "$remote_webroot" == /var/www/* ]] || exit 1
-[[ "$front_releases" == /var/www/* ]] || exit 1
-[[ "$remote_backups" == /var/www/* ]] || exit 1
-
-echo "Nettoyage des fichiers temporaires BYL abandonnes..."
-find /tmp -mindepth 1 -maxdepth 1 -user "$(id -un)" -type d -name 'byl-backend-release-*' -exec rm -rf -- {} +
-find /tmp -mindepth 1 -maxdepth 1 -user "$(id -un)" -type f \
-  \( -name 'byl-backend-*.tgz' -o -name 'byl-dist-*.tgz' -o -name 'byl-deploy-*.sh' -o -name 'byl-backend-canary-*.log' \) \
-  -delete
-
-active_front="$(readlink -f "$remote_webroot" 2>/dev/null || true)"
-if [ -d "$front_releases" ]; then
-  while IFS= read -r abandoned_release; do
-    if [ "$abandoned_release" != "$active_front" ]; then
-      sudo rm -rf "$abandoned_release"
-    fi
-  done < <(sudo find "$front_releases" -mindepth 1 -maxdepth 1 -type d -name 'release-*' -print)
-fi
-
-prune_backups() {
-  local pattern="$1"
-  local keep="$2"
-  local index
-  local -a files=()
-
-  [ -d "$remote_backups" ] || return 0
-  mapfile -t files < <(sudo find "$remote_backups" -maxdepth 1 -type f -name "$pattern" -printf '%T@ %p\n' | sort -nr | cut -d' ' -f2-)
-  for ((index = keep; index < ${#files[@]}; index += 1)); do
-    sudo rm -f "${files[$index]}"
-  done
-}
-
-# Deux sauvegardes de chaque type suffisent pour un rollback tout en evitant
-# que les archives backend ne saturent le VPS au fil des deploiements.
-prune_backups 'byl-backend-*.tgz' 2
-prune_backups 'byl-20*.tgz' 2
-
-available_kb="$(df -Pk /var/www | awk 'NR == 2 { print $4 }')"
-required_kb="$((minimum_free_mb * 1024))"
-if [ "${available_kb:-0}" -lt "$required_kb" ]; then
-  echo "Espace disque insuffisant apres nettoyage: $((available_kb / 1024)) Mo disponibles, ${minimum_free_mb} Mo requis."
-  echo "Le deploiement est arrete avant l'upload."
-  exit 1
-fi
-
-echo "Espace disque disponible: $((available_kb / 1024)) Mo."
-REMOTE_STORAGE_CLEANUP
 
 echo "Upload vers ${USER}@${HOST}:/tmp/"
 scp "${SSH_OPTS[@]}" "${ARCHIVE}" "${BACKEND_ARCHIVE}" "${REMOTE_SCRIPT_LOCAL}" "${USER}@${HOST}:/tmp/"

@@ -55,10 +55,23 @@ const checks = [
   },
   {
     description: "l'espace disque est controle avant l'upload",
+    valid: (() => {
+      const storageCheck = deployScript.indexOf("prepare_remote_storage\nfirebase_deploy_if_requested");
+      const mainUpload = deployScript.indexOf('echo "Upload vers ${USER}@${HOST}:/tmp/"');
+      return (
+        deployScript.includes('REMOTE_MIN_FREE_MB="${REMOTE_MIN_FREE_MB:-1024}"') &&
+        deployScript.includes("sudo bash '${REMOTE_STORAGE_SCRIPT}'") &&
+        storageCheck >= 0 &&
+        mainUpload >= 0 &&
+        storageCheck < mainUpload
+      );
+    })(),
+  },
+  {
+    description: "sudo recoit le mot de passe depuis un vrai terminal et non depuis le script",
     valid:
-      deployScript.includes('REMOTE_MIN_FREE_MB="${REMOTE_MIN_FREE_MB:-1024}"') &&
-      deployScript.indexOf('echo "Liberation de l\'espace distant avant upload..."') <
-        deployScript.indexOf('echo "Upload vers ${USER}@${HOST}:/tmp/"'),
+      deployScript.includes('scp "${SSH_OPTS[@]}" "${REMOTE_STORAGE_SCRIPT_LOCAL}"') &&
+      !deployScript.includes('"bash -s -- \'${REMOTE_WEBROOT}\''),
   },
 ];
 
