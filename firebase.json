@@ -26,6 +26,7 @@
         "*.local"
       ],
       "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" test"
       ]
     }
   ]

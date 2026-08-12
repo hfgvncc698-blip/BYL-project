@@ -39,7 +39,6 @@ import {
   deleteDoc,
   doc,
   getDoc,
-  addDoc,
   setDoc,
   updateDoc,
   arrayUnion,
@@ -57,6 +56,7 @@ import { canUseGuidedProgram } from "../utils/proPlanAccess";
 import { formatProgramActiveWeeks, getProgramActiveWeeksLabel } from "../utils/programDuration";
 import PageBackButton from "./ui/PageBackButton";
 import { deferPageTask, readPageDataCache, runLimited, writePageDataCache } from "../utils/pageDataCache";
+import { buildDuplicatedProgramPayload } from "../utils/programDuplication";
 
 /* -------- helpers -------- */
 const PROGRAMS_PAGE_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -202,6 +202,7 @@ export default function ProgramsPage() {
   const [selectedProgramForAssign, setSelectedProgramForAssign] = useState(null);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [assigningClient, setAssigningClient] = useState(false);
+  const [duplicatingProgramId, setDuplicatingProgramId] = useState(null);
 
   const pageBg = theme.pageBg;
   const cardBg = theme.surfaceBg;
@@ -308,10 +309,12 @@ export default function ProgramsPage() {
     [navigate, withAdminCoach]
   );
 
-	  const fetchData = useCallback(async () => {
+	  const fetchData = useCallback(async ({ force = false } = {}) => {
 	    if (!effectiveCoachUid) return;
 	    try {
-	      const cached = readPageDataCache(programsPageCacheKey, { ttlMs: PROGRAMS_PAGE_CACHE_TTL_MS });
+	      const cached = force
+	        ? null
+	        : readPageDataCache(programsPageCacheKey, { ttlMs: PROGRAMS_PAGE_CACHE_TTL_MS });
 	      if (cached) {
 	        setProgrammes(cached.programmes || []);
 	        setClients(cached.clients || []);
@@ -325,7 +328,7 @@ export default function ProgramsPage() {
 
       const progQ = query(collection(db, "programmes"), where("createdBy", "==", effectiveCoachUid), limit(200));
       const pSnap = await getDocs(progQ);
-      let progs = pSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      let progs = pSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
       progs.sort((a, b) => getMillis(b) - getMillis(a));
       setProgrammes(progs);
       setLoading(false);
@@ -447,7 +450,8 @@ export default function ProgramsPage() {
 	      setAssignedClientsMap(nextAssignedClientsMap);
 	      writePageDataCache(programsPageCacheKey, nextPayload);
 	      notify(toast, "programDeleted", {
-	        title: t("common.delete", "Supprimer"),
+	        title: t("programs.deletedTitle", "Programme supprimé"),
+	        description: t("programs.deletedDescription", "La liste des programmes est à jour."),
 	      });
       fetchData();
     } catch (err) {
@@ -460,6 +464,9 @@ export default function ProgramsPage() {
   };
 
   const handleDuplicate = async (progId) => {
+    if (!progId || duplicatingProgramId) return;
+
+    setDuplicatingProgramId(progId);
     try {
       const snap = await getDoc(doc(db, "programmes", progId));
       if (!snap.exists()) {
@@ -471,28 +478,39 @@ export default function ProgramsPage() {
       const data = snap.data();
 
       const baseName = prettyProgramName(data);
-      const newName = `${baseName} (${t("common.copy", "copie")})`;
+      const newName = `${baseName} ${t("programBuilder.copySuffix", "(copie)")}`;
+      const newRef = doc(collection(db, "programmes"));
+      const timestamp = serverTimestamp();
 
-      await addDoc(collection(db, "programmes"), {
-        ...data,
-        nomProgramme: newName,
-        createdAt: serverTimestamp(),
-        createdBy: effectiveCoachUid || user?.uid || data.createdBy || null,
-        clubId: data.clubId || user?.clubId || null,
-        clubName: data.clubName || user?.clubName || null,
-        origine: "duplicate-from-programs-page",
-      });
+      await setDoc(
+        newRef,
+        buildDuplicatedProgramPayload(data, {
+          newProgramId: newRef.id,
+          sourceProgramId: progId,
+          newName,
+          timestamp,
+          createdBy: effectiveCoachUid || user?.uid || data.createdBy || null,
+          clubId: data.clubId || user?.clubId || null,
+          clubName: data.clubName || user?.clubName || null,
+        })
+      );
 
       notify(toast, "programDuplicated", {
-        title: t("common.duplicate", "Dupliquer"),
+        title: t("programs.duplicatedTitle", "Programme dupliqué"),
+        description: t(
+          "programs.duplicatedDescription",
+          "Une copie indépendante est prête à être modifiée."
+        ),
       });
-      fetchData();
+      await fetchData({ force: true });
     } catch (err) {
       console.error("Erreur duplication programme:", err);
       notify(toast, "saveError", {
         title: t("settings.toasts.update_error", "Erreur lors de la duplication"),
         description: "La copie du programme n'a pas pu être créée.",
       });
+    } finally {
+      setDuplicatingProgramId(null);
     }
   };
 
@@ -940,6 +958,8 @@ export default function ProgramsPage() {
                           <IconButton
                             aria-label={t("common.duplicate", "Dupliquer")}
                             icon={<CopyIcon />}
+                            isLoading={duplicatingProgramId === p.id}
+                            isDisabled={Boolean(duplicatingProgramId) && duplicatingProgramId !== p.id}
                             size="sm"
                             variant="ghost"
                             borderRadius="full"
@@ -1061,6 +1081,8 @@ export default function ProgramsPage() {
                       <IconButton
                         aria-label={t("common.duplicate", "Dupliquer")}
                         icon={<CopyIcon />}
+                        isLoading={duplicatingProgramId === p.id}
+                        isDisabled={Boolean(duplicatingProgramId) && duplicatingProgramId !== p.id}
                         size="sm"
                         variant="ghost"
                         borderRadius="full"

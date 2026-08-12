@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-08-10T00:25:22.590Z",
+  "updatedAt": "2026-08-12T04:09:56.380Z",
   "primaryKpi": "free_trial_starts",
   "secondaryKpi": "activation_day_7",
   "activationSignals": [
@@ -1686,9 +1686,9 @@
       "activatedAudiences": []
     },
     "latestReport": {
-      "id": "2026-08-09-growth-report",
-      "generatedAt": "2026-08-10T00:25:22.587Z",
-      "date": "2026-08-09",
+      "id": "2026-08-11-growth-report",
+      "generatedAt": "2026-08-12T04:09:56.377Z",
+      "date": "2026-08-11",
       "primaryKpi": "free_trial_starts",
       "secondaryKpi": "activation_day_7",
       "activationSignals": [
@@ -1769,42 +1769,29 @@
         "resolvedReason": "",
         "alertCount": 100,
         "latestAlert": {
-          "at": "2026-08-10T00:25:22.581Z",
-          "reason": "meta_performance_sync_partial_failure",
+          "at": "2026-08-12T04:09:56.372Z",
+          "reason": "meta_performance_sync_blocked",
           "severity": "warning",
-          "source": "nightly_growth_report",
+          "source": "byl-social-publisher-rapport-growth-nightly",
           "details": {
-            "failedCount": 16,
-            "updated": 2,
-            "total": 18,
-            "rerunEscalated": true,
-            "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
-            "sampleErrors": [
-              "Unsupported get request: object missing, permissions insufficient, or operation unsupported",
-              "Meta Graph request aborted due to timeout"
-            ]
+            "initialSync": {
+              "updated": 0,
+              "failed": 18,
+              "total": 18,
+              "error": "fetch failed | ENOTFOUND graph.facebook.com"
+            },
+            "escalatedRerun": {
+              "attempted": true,
+              "result": "approval_review_timeout_twice"
+            },
+            "missingMetricsInvented": false
           }
         }
       },
       "recentBlocks": [
         {
-          "network": "tiktok",
-          "reason": "tiktok_not_approved",
-          "detail": ""
-        },
-        {
-          "network": "tiktok",
-          "reason": "tiktok_not_approved",
-          "detail": ""
-        },
-        {
           "network": "calendar",
           "reason": "kill_switch_active",
-          "detail": ""
-        },
-        {
-          "network": "tiktok",
-          "reason": "tiktok_not_approved",
           "detail": ""
         },
         {
@@ -1823,6 +1810,16 @@
           "detail": "daily_media_missing"
         },
         {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
           "network": "tiktok",
           "reason": "tiktok_not_approved",
           "detail": ""
@@ -1836,6 +1833,11 @@
           "network": "instagram",
           "reason": "fresh_media_required",
           "detail": "daily_media_missing"
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
         }
       ],
       "learningEntryCount": 245
@@ -1843,7 +1845,7 @@
   },
   "brand": {
     "version": "1.0.0",
-    "updatedAt": "2026-08-10T00:25:22.587Z",
+    "updatedAt": "2026-08-12T04:09:56.377Z",
     "brandScore": 63,
     "dimensions": {
       "premium": 60,
@@ -5465,20 +5467,22 @@
       "resolvedReason": "",
       "alertCount": 100,
       "latestAlert": {
-        "at": "2026-08-10T00:25:22.581Z",
-        "reason": "meta_performance_sync_partial_failure",
+        "at": "2026-08-12T04:09:56.372Z",
+        "reason": "meta_performance_sync_blocked",
         "severity": "warning",
-        "source": "nightly_growth_report",
+        "source": "byl-social-publisher-rapport-growth-nightly",
         "details": {
-          "failedCount": 16,
-          "updated": 2,
-          "total": 18,
-          "rerunEscalated": true,
-          "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
-          "sampleErrors": [
-            "Unsupported get request: object missing, permissions insufficient, or operation unsupported",
-            "Meta Graph request aborted due to timeout"
-          ]
+          "initialSync": {
+            "updated": 0,
+            "failed": 18,
+            "total": 18,
+            "error": "fetch failed | ENOTFOUND graph.facebook.com"
+          },
+          "escalatedRerun": {
+            "attempted": true,
+            "result": "approval_review_timeout_twice"
+          },
+          "missingMetricsInvented": false
         }
       }
     }

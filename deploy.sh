@@ -6,7 +6,7 @@ HOST="141.94.244.26"                 # IP ou domaine du VPS
 USER="tom"                           # utilisateur SSH
 REMOTE_WEBROOT="/var/www/byl-dist"   # root Nginx
 REMOTE_BACKUPS="/var/www/byl_backups"
-REMOTE_RELEASE="/var/www/byl_release"
+REMOTE_FRONT_RELEASES="/var/www/byl-front-releases"
 REMOTE_BACKEND="/var/www/byl-backend"
 LOCAL_API_HEALTH_URL="${LOCAL_API_HEALTH_URL:-http://127.0.0.1:5050/api/health}"
 REMOTE_API_HEALTH_URL="${REMOTE_API_HEALTH_URL:-http://127.0.0.1:5000/api/health}"
@@ -228,6 +228,7 @@ preflight() {
 
   run_step npm run lint
   run_step npm run test:smoke
+  run_step npm run test:deploy
   run_step npm run test:footer-i18n
   run_step npm run test:sport-engine
   run_step npm run build
@@ -288,6 +289,7 @@ echo "Resume du deploy:"
 echo "- VPS: front + backend"
 echo "- Host: ${USER}@${HOST}"
 echo "- Webroot: ${REMOTE_WEBROOT}"
+echo "- Releases front: ${REMOTE_FRONT_RELEASES}"
 echo "- Backend: ${REMOTE_BACKEND}"
 echo "- Firestore rules: ${DEPLOY_FIRESTORE_RULES}"
 echo "- Firestore indexes: ${DEPLOY_FIRESTORE_INDEXES}"
@@ -347,7 +349,8 @@ BACKEND_ARCHIVE="/tmp/${BACKEND_ARCHIVE}"
 REMOTE_SCRIPT="${REMOTE_SCRIPT}"
 REMOTE_WEBROOT="${REMOTE_WEBROOT}"
 REMOTE_BACKUPS="${REMOTE_BACKUPS}"
-REMOTE_RELEASE="${REMOTE_RELEASE}"
+REMOTE_FRONT_RELEASES="${REMOTE_FRONT_RELEASES}"
+REMOTE_FRONT_RELEASE="${REMOTE_FRONT_RELEASES}/release-${ts}"
 REMOTE_BACKEND="${REMOTE_BACKEND}"
 REMOTE_BACKEND_RELEASE="/tmp/byl-backend-release-${ts}"
 REMOTE_API_HEALTH_URL="${REMOTE_API_HEALTH_URL}"
@@ -357,6 +360,7 @@ REMOTE_CANARY_PORT="${REMOTE_CANARY_PORT}"
 [ -f "\$ARCHIVE" ] || { echo "Archive manquante: \$ARCHIVE"; exit 1; }
 [ -f "\$BACKEND_ARCHIVE" ] || { echo "Archive backend manquante: \$BACKEND_ARCHIVE"; exit 1; }
 [[ "\$REMOTE_WEBROOT" == /var/www/* ]] || { echo "REMOTE_WEBROOT non autorise"; exit 1; }
+[[ "\$REMOTE_FRONT_RELEASES" == /var/www/* ]] || { echo "REMOTE_FRONT_RELEASES non autorise"; exit 1; }
 [[ "\$REMOTE_BACKEND" == /var/www/* ]] || { echo "REMOTE_BACKEND non autorise"; exit 1; }
 
 need_remote_command() {
@@ -415,15 +419,32 @@ activate_remote_node() {
 activate_remote_node
 
 echo "Preparation dossiers..."
-sudo mkdir -p "\$REMOTE_WEBROOT" "\$REMOTE_BACKUPS" "\$REMOTE_RELEASE" "\$REMOTE_BACKEND"
+sudo mkdir -p "\$REMOTE_BACKUPS" "\$REMOTE_FRONT_RELEASES" "\$REMOTE_BACKEND"
 BK=""
 BK_BACKEND=""
+PREVIOUS_FRONT_TARGET=""
 SOCIAL_ENV_BACKUP="/tmp/byl-social-env-${ts}"
 
 echo "Extraction front dans release temporaire..."
-sudo rm -rf "\$REMOTE_RELEASE"
-sudo mkdir -p "\$REMOTE_RELEASE"
-sudo tar -C "\$REMOTE_RELEASE" -xzf "\$ARCHIVE"
+sudo rm -rf "\$REMOTE_FRONT_RELEASE"
+sudo mkdir -p "\$REMOTE_FRONT_RELEASE"
+sudo tar -C "\$REMOTE_FRONT_RELEASE" -xzf "\$ARCHIVE"
+
+if [ ! -f "\$REMOTE_FRONT_RELEASE/index.html" ] || [ ! -d "\$REMOTE_FRONT_RELEASE/assets" ]; then
+  echo "Release front invalide: index.html ou assets manquant."
+  exit 1
+fi
+
+# Les chunks Vite portent un hash et sont caches 7 jours par Nginx. Une page
+# deja ouverte peut encore les demander apres un deploy. On les reporte dans
+# la nouvelle release avant la bascule, puis on ne garde que huit jours.
+if [ -d "\$REMOTE_WEBROOT/assets" ]; then
+  echo "Conservation des assets encore references par les navigateurs..."
+  sudo cp -an "\$REMOTE_WEBROOT/assets/." "\$REMOTE_FRONT_RELEASE/assets/"
+fi
+sudo find "\$REMOTE_FRONT_RELEASE/assets" -type f -mtime +8 -delete
+sudo chown -R www-data:www-data "\$REMOTE_FRONT_RELEASE"
+sudo chmod -R 755 "\$REMOTE_FRONT_RELEASE"
 
 echo "Extraction backend dans release temporaire..."
 rm -rf "\$REMOTE_BACKEND_RELEASE"
@@ -527,7 +548,7 @@ rm -f \
   "\$REMOTE_BACKEND_RELEASE/firebase-service-account.json"
 
 echo "Backup front actuel..."
-if [ "\$(ls -A "\$REMOTE_WEBROOT" 2>/dev/null | wc -l)" -gt 0 ]; then
+if [ -d "\$REMOTE_WEBROOT" ] && [ "\$(ls -A "\$REMOTE_WEBROOT" 2>/dev/null | wc -l)" -gt 0 ]; then
   BK="\$REMOTE_BACKUPS/byl-\$(date +%Y%m%d-%H%M%S).tgz"
   sudo tar -C "\$REMOTE_WEBROOT" -czf "\$BK" .
   echo "Backup front: \$BK"
@@ -548,11 +569,40 @@ else
   echo "Pas de backend existant a sauvegarder."
 fi
 
-echo "Publication front..."
-sudo rm -rf "\$REMOTE_WEBROOT"/*
-sudo cp -a "\$REMOTE_RELEASE"/. "\$REMOTE_WEBROOT"/
-sudo chown -R www-data:www-data "\$REMOTE_WEBROOT"
-sudo chmod -R 755 "\$REMOTE_WEBROOT"
+activate_front_release() {
+  local target="\$1"
+  local next_link="\${REMOTE_WEBROOT}.next-${ts}"
+
+  [ -d "\$target" ] || { echo "Release front introuvable: \$target"; return 1; }
+  sudo rm -f "\$next_link"
+  sudo ln -s "\$target" "\$next_link"
+
+  if [ -L "\$REMOTE_WEBROOT" ]; then
+    # mv -T remplace le lien courant en une seule operation atomique.
+    sudo mv -Tf "\$next_link" "\$REMOTE_WEBROOT"
+    return 0
+  fi
+
+  if [ -d "\$REMOTE_WEBROOT" ]; then
+    # Migration unique depuis l'ancien dossier physique. Les deploys suivants
+    # passent uniquement par la branche atomique ci-dessus.
+    local legacy_release="\${REMOTE_FRONT_RELEASES}/legacy-${ts}"
+    sudo mv "\$REMOTE_WEBROOT" "\$legacy_release"
+    PREVIOUS_FRONT_TARGET="\$legacy_release"
+  fi
+
+  sudo mv -Tf "\$next_link" "\$REMOTE_WEBROOT"
+}
+
+if [ -L "\$REMOTE_WEBROOT" ]; then
+  PREVIOUS_FRONT_TARGET="\$(readlink -f "\$REMOTE_WEBROOT")"
+elif [ -d "\$REMOTE_WEBROOT" ]; then
+  PREVIOUS_FRONT_TARGET="\$REMOTE_WEBROOT"
+fi
+
+echo "Publication front atomique..."
+activate_front_release "\$REMOTE_FRONT_RELEASE"
+echo "Front actif: \$(readlink -f "\$REMOTE_WEBROOT")"
 
 echo "Publication backend..."
 if [ -f "\$REMOTE_BACKEND/ad-samples/social-publisher/.env.social" ]; then
@@ -613,12 +663,18 @@ rollback_release() {
     echo "Aucun backup backend disponible pour rollback."
   fi
 
-  if [ -n "\$BK" ] && [ -f "\$BK" ]; then
-    echo "Restauration front: \$BK"
-    sudo rm -rf "\$REMOTE_WEBROOT"/*
-    sudo tar -C "\$REMOTE_WEBROOT" -xzf "\$BK"
-    sudo chown -R www-data:www-data "\$REMOTE_WEBROOT"
-    sudo chmod -R 755 "\$REMOTE_WEBROOT"
+  if [ -n "\$PREVIOUS_FRONT_TARGET" ] && [ -d "\$PREVIOUS_FRONT_TARGET" ]; then
+    echo "Restauration atomique du front: \$PREVIOUS_FRONT_TARGET"
+    activate_front_release "\$PREVIOUS_FRONT_TARGET"
+  elif [ -n "\$BK" ] && [ -f "\$BK" ]; then
+    local rollback_front="\${REMOTE_FRONT_RELEASES}/rollback-${ts}"
+    echo "Restauration du backup front: \$BK"
+    sudo rm -rf "\$rollback_front"
+    sudo mkdir -p "\$rollback_front"
+    sudo tar -C "\$rollback_front" -xzf "\$BK"
+    sudo chown -R www-data:www-data "\$rollback_front"
+    sudo chmod -R 755 "\$rollback_front"
+    activate_front_release "\$rollback_front"
   else
     echo "Aucun backup front disponible pour rollback."
   fi
@@ -693,9 +749,16 @@ fi
 
 echo "Nettoyage distant..."
 sudo rm -f "\$ARCHIVE" "\$BACKEND_ARCHIVE"
-sudo rm -rf "\$REMOTE_RELEASE"
 rm -rf "\$REMOTE_BACKEND_RELEASE"
 rm -f "\$REMOTE_SCRIPT"
+
+echo "Nettoyage des anciennes releases front (plus de 9 jours)..."
+active_front_target="\$(readlink -f "\$REMOTE_WEBROOT")"
+while IFS= read -r old_release; do
+  if [ "\$old_release" != "\$active_front_target" ]; then
+    sudo rm -rf "\$old_release"
+  fi
+done < <(sudo find "\$REMOTE_FRONT_RELEASES" -mindepth 1 -maxdepth 1 -type d -mtime +9 -print)
 
 echo "Deploy distant termine."
 EOF
