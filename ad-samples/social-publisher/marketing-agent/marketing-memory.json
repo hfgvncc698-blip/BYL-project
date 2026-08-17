@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-08-12T11:36:53.663Z",
+  "updatedAt": "2026-08-17T11:51:07.461Z",
   "primaryKpi": "free_trial_starts",
   "secondaryKpi": "activation_day_7",
   "activationSignals": [
@@ -78,7 +78,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.facebook.com/857477100212912",
       "providerId": "857477100212912",
-      "performanceSyncedAt": "2026-08-12T11:36:53.663Z",
+      "performanceSyncedAt": "2026-08-17T11:51:07.461Z",
       "performanceSyncError": "Meta Graph GET 857477100212912: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
       "performanceSource": "meta_graph",
       "platformMeta": {
@@ -158,7 +158,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/reel/DZDX8QFgiWK/",
       "providerId": "18142983556524389",
-      "performanceSyncedAt": "2026-08-12T11:36:53.663Z",
+      "performanceSyncedAt": "2026-08-17T11:51:07.461Z",
       "performanceSyncError": "Meta Graph GET 18142983556524389: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
       "performanceSource": "meta_graph",
       "platformMeta": {
@@ -239,7 +239,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/reel/DZFY6JyDH_g/",
       "providerId": "18099111391988502",
-      "performanceSyncedAt": "2026-08-12T11:36:53.663Z",
+      "performanceSyncedAt": "2026-08-17T11:51:07.461Z",
       "performanceSyncError": "Meta Graph GET 18099111391988502: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
       "performanceSource": "meta_graph",
       "platformMeta": {
@@ -320,7 +320,7 @@
       "postUrl": "https://www.instagram.com/reel/DZKT9EkgXWx/",
       "providerId": "18138591487532730",
       "performanceSource": "meta_graph",
-      "performanceSyncedAt": "2026-08-12T11:36:53.663Z",
+      "performanceSyncedAt": "2026-08-17T11:51:07.461Z",
       "performanceSyncError": "Meta Graph GET 18138591487532730: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
       "platformMeta": {
         "permalink": "https://www.instagram.com/reel/DZKT9EkgXWx/",
@@ -398,7 +398,7 @@
       "postUrl": "https://www.facebook.com/27506921462235774",
       "providerId": "27506921462235774",
       "performanceSource": "meta_graph",
-      "performanceSyncedAt": "2026-08-12T11:36:53.663Z",
+      "performanceSyncedAt": "2026-08-17T11:51:07.461Z",
       "performanceSyncError": "Meta Graph GET 27506921462235774: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
       "platformMeta": {
         "permalink": "/reel/27506921462235774/",
@@ -476,7 +476,7 @@
       "postUrl": "https://www.facebook.com/2100509260510397",
       "providerId": "2100509260510397",
       "performanceSource": "meta_graph",
-      "performanceSyncedAt": "2026-08-12T11:36:53.663Z",
+      "performanceSyncedAt": "2026-08-17T11:51:07.461Z",
       "performanceSyncError": "Meta Graph GET 2100509260510397: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
       "platformMeta": {
         "permalink": "/reel/2100509260510397/",
@@ -553,7 +553,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3915827904589455795",
       "providerId": "17932227978271557",
-      "performanceSyncedAt": "2026-08-12T11:36:53.663Z",
+      "performanceSyncedAt": "2026-08-17T11:51:07.461Z",
       "performanceSyncError": "Meta Graph GET 17932227978271557: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
     },
     {
@@ -624,7 +624,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3916565310359403073",
       "providerId": "17872024971528291",
-      "performanceSyncedAt": "2026-08-12T11:36:53.663Z",
+      "performanceSyncedAt": "2026-08-17T11:51:07.461Z",
       "performanceSyncError": "Meta Graph GET 17872024971528291: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
     },
     {
@@ -695,7 +695,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3916569930502607113",
       "providerId": "18120144856683407",
-      "performanceSyncedAt": "2026-08-12T11:36:53.663Z",
+      "performanceSyncedAt": "2026-08-17T11:51:07.461Z",
       "performanceSyncError": "Meta Graph GET 18120144856683407: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
     },
     {
@@ -766,7 +766,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3919512526119830179",
       "providerId": "18096649379597904",
-      "performanceSyncedAt": "2026-08-12T11:36:53.663Z",
+      "performanceSyncedAt": "2026-08-17T11:51:07.461Z",
       "performanceSyncError": "Meta Graph GET 18096649379597904: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
     },
     {
@@ -838,7 +838,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3920000061462903500",
       "providerId": "18319661620272929",
-      "performanceSyncedAt": "2026-08-12T11:36:53.663Z",
+      "performanceSyncedAt": "2026-08-17T11:51:07.461Z",
       "performanceSyncError": "Meta Graph GET 18319661620272929: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
     },
     {
@@ -910,7 +910,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.facebook.com/110792515109412_1004547699093703",
       "providerId": "110792515109412_1004547699093703",
-      "performanceSyncedAt": "2026-08-12T11:36:53.663Z",
+      "performanceSyncedAt": "2026-08-17T11:51:07.461Z",
       "performanceSyncError": "Meta Graph GET 110792515109412_1004547699093703: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
     },
     {
@@ -982,7 +982,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3923071823542027930",
       "providerId": "17911835874416427",
-      "performanceSyncedAt": "2026-08-12T11:36:53.663Z",
+      "performanceSyncedAt": "2026-08-17T11:51:07.461Z",
       "performanceSyncError": "Meta Graph GET 17911835874416427: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
     },
     {
@@ -1053,7 +1053,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3925068438645318926",
       "providerId": "18380490814160929",
-      "performanceSyncedAt": "2026-08-12T11:36:53.663Z",
+      "performanceSyncedAt": "2026-08-17T11:51:07.461Z",
       "performanceSyncError": "Meta Graph GET 18380490814160929: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
     },
     {
@@ -1127,7 +1127,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/reel/DZ5RrgQj-yo/",
       "providerId": "18368913211230932",
-      "performanceSyncedAt": "2026-08-12T11:36:53.663Z",
+      "performanceSyncedAt": "2026-08-17T11:51:07.461Z",
       "performanceSyncError": "Meta Graph GET 18368913211230932: fetch failed | code=ENOTFOUND | host=graph.facebook.com",
       "performanceSource": "meta_graph",
       "platformMeta": {
@@ -1206,7 +1206,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.facebook.com/110792515109412_1010385408509932",
       "providerId": "110792515109412_1010385408509932",
-      "performanceSyncedAt": "2026-08-12T11:36:53.663Z",
+      "performanceSyncedAt": "2026-08-17T11:51:07.461Z",
       "performanceSyncError": "Meta Graph GET 110792515109412_1010385408509932: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
     },
     {
@@ -1278,7 +1278,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3930167421747173196",
       "providerId": "17907673146440215",
-      "performanceSyncedAt": "2026-08-12T11:36:53.663Z",
+      "performanceSyncedAt": "2026-08-17T11:51:07.461Z",
       "performanceSyncError": "Meta Graph GET 17907673146440215: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
     },
     {
@@ -1349,7 +1349,7 @@
       "secondaryKpi": "activation_day_7",
       "postUrl": "https://www.instagram.com/stories/boostyourlife.coach/3931053820604388994",
       "providerId": "18130402363620109",
-      "performanceSyncedAt": "2026-08-12T11:36:53.663Z",
+      "performanceSyncedAt": "2026-08-17T11:51:07.461Z",
       "performanceSyncError": "Meta Graph GET 18130402363620109: fetch failed | code=ENOTFOUND | host=graph.facebook.com"
     }
   ],

@@ -2494,10 +2494,19 @@ export default function ProgramView() {
     return `${path}${path.includes("?") ? "&" : "?"}adminCoachId=${encodeURIComponent(adminCoachId)}`;
   };
 
-  const [prog, setProg] = useState(null);
-  const [progRef, setProgRef] = useState(null);
+  const prefetchedProgram = location.state?.prefetchedProgram;
+  const prefetchedClient = location.state?.prefetchedClient;
+  const validPrefetchedProgram = prefetchedProgram && String(prefetchedProgram.id || "") === String(programId || "")
+    ? prefetchedProgram
+    : null;
+  const [prog, setProg] = useState(() => validPrefetchedProgram);
+  const [progRef, setProgRef] = useState(() =>
+    validPrefetchedProgram && clientId && programId
+      ? doc(db, "clients", clientId, "programmes", programId)
+      : null
+  );
   const [completionHistory, setCompletionHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !validPrefetchedProgram);
   const [tabIndex, setTabIndex] = useState(0);
 
   const [selExo, setSelExo] = useState(null);
@@ -2509,8 +2518,10 @@ export default function ProgramView() {
   const [replacementVariantsLoading, setReplacementVariantsLoading] = useState(false);
   const detailsDlg = useDisclosure();
 
-  const [clientName, setClientName] = useState("");
-  const [clientData, setClientData] = useState(null);
+  const [clientName, setClientName] = useState(() =>
+    [prefetchedClient?.prenom, prefetchedClient?.nom].filter(Boolean).join(" ")
+  );
+  const [clientData, setClientData] = useState(() => prefetchedClient || null);
   const [coachPdfName, setCoachPdfName] = useState("");
 
   const supportedPdfLangs = useMemo(() => Object.keys(PDF_I18N), []);
@@ -2579,10 +2590,16 @@ export default function ProgramView() {
         setProgRef(cachedHit.ref);
         setProg({ id: cachedHit.id, ...cachedHit.data });
         setLoading(false);
-      } else {
+      } else if (!validPrefetchedProgram) {
         setLoading(true);
       }
-      const hit = await readProgramme(clientId, programId);
+      const hit = validPrefetchedProgram && clientId && programId
+        ? {
+            id: programId,
+            data: validPrefetchedProgram,
+            ref: doc(db, "clients", clientId, "programmes", programId),
+          }
+        : await readProgramme(clientId, programId);
       if (!hit) {
         setProg(null);
         setProgRef(null);
@@ -2602,7 +2619,7 @@ export default function ProgramView() {
       );
     })();
     return () => unsub && unsub();
-  }, [clientId, programId]);
+  }, [clientId, programId, validPrefetchedProgram]);
 
   useEffect(() => {
     if (!clientId || !programId) {
@@ -2610,33 +2627,48 @@ export default function ProgramView() {
       return undefined;
     }
 
-    return onSnapshot(
-      collection(
-        db,
-        "clients",
-        clientId,
-        "programmes",
-        programId,
-        "sessionsEffectuees"
-      ),
-      (snapshot) => {
-        setCompletionHistory(
-          snapshot.docs
-            .map((completionDoc) => ({
-              id: completionDoc.id,
-              completionId: completionDoc.id,
-              clientId,
-              programId,
-              ...completionDoc.data(),
-            }))
-            .filter(isValidatedExerciseCompletion)
-        );
-      },
-      (error) => {
-        console.warn("load program performance history error:", error);
-        setCompletionHistory([]);
-      }
-    );
+    let unsubscribe;
+    let timeoutId;
+    let idleId;
+    const subscribe = () => {
+      unsubscribe = onSnapshot(
+        collection(
+          db,
+          "clients",
+          clientId,
+          "programmes",
+          programId,
+          "sessionsEffectuees"
+        ),
+        (snapshot) => {
+          setCompletionHistory(
+            snapshot.docs
+              .map((completionDoc) => ({
+                id: completionDoc.id,
+                completionId: completionDoc.id,
+                clientId,
+                programId,
+                ...completionDoc.data(),
+              }))
+              .filter(isValidatedExerciseCompletion)
+          );
+        },
+        (error) => {
+          console.warn("load program performance history error:", error);
+          setCompletionHistory([]);
+        }
+      );
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      idleId = window.requestIdleCallback(subscribe, { timeout: 900 });
+    } else {
+      timeoutId = window.setTimeout(subscribe, 180);
+    }
+    return () => {
+      if (idleId) window.cancelIdleCallback?.(idleId);
+      if (timeoutId) window.clearTimeout(timeoutId);
+      unsubscribe?.();
+    };
   }, [clientId, programId]);
 
   const sessions = useMemo(() => (Array.isArray(prog?.sessions) ? prog.sessions : []), [prog]);

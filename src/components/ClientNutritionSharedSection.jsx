@@ -5,6 +5,7 @@ import {
   Badge,
   Box,
   Button,
+  Collapse,
   Heading,
   HStack,
   IconButton,
@@ -15,8 +16,9 @@ import {
   Text,
   Tooltip,
   Wrap,
+  useBreakpointValue,
 } from "@chakra-ui/react";
-import { DownloadIcon } from "@chakra-ui/icons";
+import { ChevronDownIcon, DownloadIcon } from "@chakra-ui/icons";
 import { collection, doc, getDoc, onSnapshot, orderBy, query } from "firebase/firestore";
 import { useLocation } from "react-router-dom";
 import { db } from "../firebaseConfig";
@@ -840,9 +842,11 @@ export default function ClientNutritionSharedSection({
   const [selectedMenuDayIndex, setSelectedMenuDayIndex] = useState(0);
   const [selectedRecipeDayIndex, setSelectedRecipeDayIndex] = useState(0);
   const [activePanel, setActivePanel] = useState("summary");
+  const [compactExpanded, setCompactExpanded] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [coachProfile, setCoachProfile] = useState(null);
   const [pdfLogoDataUrl, setPdfLogoDataUrl] = useState(null);
+  const isCompactMobile = useBreakpointValue({ base: true, md: false }) ?? true;
 
   useEffect(() => {
     if (!clientId) {
@@ -1166,6 +1170,35 @@ export default function ClientNutritionSharedSection({
 
   if (variant === "compact") {
     const sharedCount = assessments.length;
+    const sharedPanelLinks = [
+      sections.summary ? { key: "summary", label: i18n.t("auto.ClientNutritionSharedSection.resume", "Résumé") } : null,
+      sections.foodSurvey ? { key: "foodSurvey", label: i18n.t("auto.ClientNutritionSharedSection.habitudes", "Habitudes") } : null,
+      sections.ration ? { key: "ration", label: i18n.t("auto.ClientNutritionSharedSection.ration", "Ration") } : null,
+      sections.menu ? { key: "menu", label: i18n.t("nav.menu", "Menu") } : null,
+      sections.recipes ? { key: "recipes", label: i18n.t("auto.ClientNutritionSharedSection.recettes", "Recettes") } : null,
+      sections.shoppingList ? { key: "shoppingList", label: i18n.t("auto.ClientNutritionSharedSection.courses", "Courses") } : null,
+      sections.adviceSheets ? { key: "adviceSheets", label: i18n.t("auto.ClientNutritionSharedSection.conseils", "Conseils") } : null,
+    ].filter(Boolean);
+    const renderSharedPanelLinks = () =>
+      sharedPanelLinks.map((panel) => (
+        <Button
+          key={panel.key}
+          size="xs"
+          h="30px"
+          px={3}
+          borderRadius="full"
+          variant="outline"
+          borderColor={theme.borderColor}
+          bg={theme.surfaceBg}
+          color={theme.textColor}
+          fontWeight="850"
+          onClick={() => onOpenNutrition?.(panel.key)}
+          _hover={{ borderColor: "blue.300", bg: "blue.50", color: "blue.700" }}
+          _active={{ bg: "blue.100" }}
+        >
+          {panel.label}
+        </Button>
+      ));
     return (
       <Box mb={5} p={{ base: 4, md: 5 }} {...panelProps}>
         <HStack justify="space-between" align="start" gap={3} flexWrap="wrap">
@@ -1196,7 +1229,64 @@ export default function ClientNutritionSharedSection({
           </HStack>
         </HStack>
 
-        <SimpleGrid data-tour="client-nutrition-summary" columns={{ base: 1, md: 3 }} spacing={3} mt={4}>
+        <SimpleGrid
+          data-tour="client-nutrition-summary"
+          display={{ base: "grid", md: "none" }}
+          columns={2}
+          spacing={2.5}
+          mt={4}
+        >
+          <Box {...tileProps} p={3} bg="rgba(59,130,246,0.08)" minW={0}>
+            <Text fontSize="xs" fontWeight="900" color={theme.subtleText}>{i18n.t("auto.ClientNutritionSharedSection.objectif", "OBJECTIF")}</Text>
+            <Text mt={1} fontWeight="900" fontSize="sm" noOfLines={2}>{translatedObjective || i18n.t("auto.ClientNutritionSharedSection.suivi_nutrition", "Suivi nutrition")}</Text>
+          </Box>
+          <Box {...tileProps} p={3} bg="rgba(16,185,129,0.08)" minW={0}>
+            <Text fontSize="xs" fontWeight="900" color={theme.subtleText}>{i18n.t("auto.ClientNutritionSharedSection.repere_jour", "REPÈRE JOUR")}</Text>
+            <Text mt={1} fontWeight="900" fontSize="sm">{needs?.kcalTarget ? `${r0(needs.kcalTarget)} kcal` : i18n.t("auto.ClientNutritionSharedSection.a_ajuster", "À ajuster")}</Text>
+            <Text mt={1} fontSize="xs" lineHeight="1.45" color={theme.mutedText}>
+              P {needs?.protG?.min ? `${r0(needs.protG.min)}–${r0(needs.protG.max)} g` : "—"} • L {needs?.lipG?.min ? `${r0(needs.lipG.min)}–${r0(needs.lipG.max)} g` : "—"} • G {needs?.glucG?.min ? `${r0(needs.glucG.min)}–${r0(needs.glucG.max)} g` : "—"}
+            </Text>
+          </Box>
+        </SimpleGrid>
+
+        <Button
+          display={{ base: "inline-flex", md: "none" }}
+          mt={3}
+          px={0}
+          h="36px"
+          variant="ghost"
+          colorScheme="blue"
+          rightIcon={
+            <ChevronDownIcon
+              boxSize={5}
+              transition="transform 0.2s ease"
+              transform={compactExpanded ? "rotate(180deg)" : "none"}
+            />
+          }
+          onClick={() => setCompactExpanded((current) => !current)}
+          aria-expanded={compactExpanded}
+        >
+          {compactExpanded
+            ? i18n.t("auto.ClientNutritionSharedSection.masquer_details", "Masquer les détails")
+            : i18n.t("auto.ClientNutritionSharedSection.voir_details", "Voir les détails")}
+        </Button>
+
+        <Collapse in={!isCompactMobile || compactExpanded} animateOpacity>
+          <Box
+            display={{ base: "block", md: "none" }}
+            {...tileProps}
+            p={3}
+            mt={1}
+            bg="rgba(139,92,246,0.08)"
+          >
+            <Text fontSize="xs" fontWeight="900" color={theme.subtleText}>{i18n.t("auto.ClientNutritionSharedSection.partage", "PARTAGÉ")}</Text>
+            <Wrap spacing={2} mt={2}>
+              {renderSharedPanelLinks()}
+            </Wrap>
+          </Box>
+        </Collapse>
+
+        <SimpleGrid display={{ base: "none", md: "grid" }} columns={3} spacing={3} mt={4}>
           <Box {...tileProps} p={4} bg="rgba(59,130,246,0.08)">
             <Text fontSize="xs" fontWeight="900" color={theme.subtleText}>{i18n.t("auto.ClientNutritionSharedSection.objectif", "OBJECTIF")}</Text>
             <Text mt={1} fontWeight="900" noOfLines={1}>{translatedObjective || i18n.t("auto.ClientNutritionSharedSection.suivi_nutrition", "Suivi nutrition")}</Text>
@@ -1206,19 +1296,13 @@ export default function ClientNutritionSharedSection({
             <Text fontSize="xs" fontWeight="900" color={theme.subtleText}>{i18n.t("auto.ClientNutritionSharedSection.repere_jour", "REPÈRE JOUR")}</Text>
             <Text mt={1} fontWeight="900">{needs?.kcalTarget ? `${r0(needs.kcalTarget)} kcal` : i18n.t("auto.ClientNutritionSharedSection.a_ajuster", "À ajuster")}</Text>
             <Text fontSize="sm" color={theme.mutedText}>
-              P {needs?.protG?.min ? `${r0(needs.protG.min)}-${r0(needs.protG.max)} g` : "—"}{i18n.t("auto.ClientNutritionSharedSection.l", "• L")}{needs?.lipG?.min ? `${r0(needs.lipG.min)}-${r0(needs.lipG.max)} g` : "—"}{i18n.t("auto.ClientNutritionSharedSection.g_2", "• G")}{needs?.glucG?.min ? `${r0(needs.glucG.min)}-${r0(needs.glucG.max)} g` : "—"}
+              P {needs?.protG?.min ? `${r0(needs.protG.min)}–${r0(needs.protG.max)} g` : "—"} • L {needs?.lipG?.min ? `${r0(needs.lipG.min)}–${r0(needs.lipG.max)} g` : "—"} • G {needs?.glucG?.min ? `${r0(needs.glucG.min)}–${r0(needs.glucG.max)} g` : "—"}
             </Text>
           </Box>
           <Box {...tileProps} p={4} bg="rgba(139,92,246,0.08)">
             <Text fontSize="xs" fontWeight="900" color={theme.subtleText}>{i18n.t("auto.ClientNutritionSharedSection.partage", "PARTAGÉ")}</Text>
             <Wrap spacing={2} mt={2}>
-              {sections.summary ? <Badge borderRadius="full" px={3} py={1}>{i18n.t("auto.ClientNutritionSharedSection.resume", "Résumé")}</Badge> : null}
-              {sections.foodSurvey ? <Badge borderRadius="full" px={3} py={1}>{i18n.t("auto.ClientNutritionSharedSection.habitudes", "Habitudes")}</Badge> : null}
-              {sections.ration ? <Badge borderRadius="full" px={3} py={1}>{i18n.t("auto.ClientNutritionSharedSection.ration", "Ration")}</Badge> : null}
-              {sections.menu ? <Badge borderRadius="full" px={3} py={1}>{i18n.t("nav.menu", "Menu")}</Badge> : null}
-              {sections.recipes ? <Badge borderRadius="full" px={3} py={1}>{i18n.t("auto.ClientNutritionSharedSection.recettes", "Recettes")}</Badge> : null}
-              {sections.shoppingList ? <Badge borderRadius="full" px={3} py={1}>{i18n.t("auto.ClientNutritionSharedSection.courses", "Courses")}</Badge> : null}
-              {sections.adviceSheets ? <Badge borderRadius="full" px={3} py={1}>{i18n.t("auto.ClientNutritionSharedSection.conseils", "Conseils")}</Badge> : null}
+              {renderSharedPanelLinks()}
             </Wrap>
           </Box>
         </SimpleGrid>

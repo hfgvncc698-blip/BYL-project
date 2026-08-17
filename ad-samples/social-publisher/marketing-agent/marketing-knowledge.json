@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-08-12T04:09:56.380Z",
+  "updatedAt": "2026-08-17T00:25:37.444Z",
   "primaryKpi": "free_trial_starts",
   "secondaryKpi": "activation_day_7",
   "activationSignals": [
@@ -1686,9 +1686,9 @@
       "activatedAudiences": []
     },
     "latestReport": {
-      "id": "2026-08-11-growth-report",
-      "generatedAt": "2026-08-12T04:09:56.377Z",
-      "date": "2026-08-11",
+      "id": "2026-08-16-growth-report",
+      "generatedAt": "2026-08-17T00:25:37.440Z",
+      "date": "2026-08-16",
       "primaryKpi": "free_trial_starts",
       "secondaryKpi": "activation_day_7",
       "activationSignals": [
@@ -1769,45 +1769,31 @@
         "resolvedReason": "",
         "alertCount": 100,
         "latestAlert": {
-          "at": "2026-08-12T04:09:56.372Z",
-          "reason": "meta_performance_sync_blocked",
+          "at": "2026-08-17T00:25:37.434Z",
+          "reason": "meta_performance_sync_partial_failure",
           "severity": "warning",
           "source": "byl-social-publisher-rapport-growth-nightly",
           "details": {
-            "initialSync": {
-              "updated": 0,
-              "failed": 18,
-              "total": 18,
-              "error": "fetch failed | ENOTFOUND graph.facebook.com"
-            },
-            "escalatedRerun": {
-              "attempted": true,
-              "result": "approval_review_timeout_twice"
-            },
+            "updated": 3,
+            "failedCount": 15,
+            "total": 18,
+            "rerunEscalated": true,
+            "initialSandboxError": "fetch failed | ENOTFOUND graph.facebook.com",
+            "blocker": "Meta Graph objects unavailable, missing permissions, or unsupported",
             "missingMetricsInvented": false
           }
         }
       },
       "recentBlocks": [
         {
-          "network": "calendar",
-          "reason": "kill_switch_active",
-          "detail": ""
-        },
-        {
-          "network": "calendar",
-          "reason": "kill_switch_active",
-          "detail": ""
-        },
-        {
-          "network": "calendar",
-          "reason": "kill_switch_active",
-          "detail": ""
-        },
-        {
           "network": "instagram",
           "reason": "fresh_media_required",
           "detail": "daily_media_missing"
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
         },
         {
           "network": "calendar",
@@ -1825,18 +1811,28 @@
           "detail": ""
         },
         {
-          "network": "calendar",
-          "reason": "kill_switch_active",
-          "detail": ""
-        },
-        {
           "network": "instagram",
           "reason": "fresh_media_required",
           "detail": "daily_media_missing"
         },
         {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
           "network": "tiktok",
           "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
           "detail": ""
         }
       ],
@@ -1845,7 +1841,7 @@
   },
   "brand": {
     "version": "1.0.0",
-    "updatedAt": "2026-08-12T04:09:56.377Z",
+    "updatedAt": "2026-08-17T00:25:37.440Z",
     "brandScore": 63,
     "dimensions": {
       "premium": 60,
@@ -5467,21 +5463,17 @@
       "resolvedReason": "",
       "alertCount": 100,
       "latestAlert": {
-        "at": "2026-08-12T04:09:56.372Z",
-        "reason": "meta_performance_sync_blocked",
+        "at": "2026-08-17T00:25:37.434Z",
+        "reason": "meta_performance_sync_partial_failure",
         "severity": "warning",
         "source": "byl-social-publisher-rapport-growth-nightly",
         "details": {
-          "initialSync": {
-            "updated": 0,
-            "failed": 18,
-            "total": 18,
-            "error": "fetch failed | ENOTFOUND graph.facebook.com"
-          },
-          "escalatedRerun": {
-            "attempted": true,
-            "result": "approval_review_timeout_twice"
-          },
+          "updated": 3,
+          "failedCount": 15,
+          "total": 18,
+          "rerunEscalated": true,
+          "initialSandboxError": "fetch failed | ENOTFOUND graph.facebook.com",
+          "blocker": "Meta Graph objects unavailable, missing permissions, or unsupported",
           "missingMetricsInvented": false
         }
       }

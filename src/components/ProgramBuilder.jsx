@@ -100,6 +100,16 @@ function useDebouncedCallback(callback, deps, delay) {
 }
 
 const PROGRAM_SAVE_TIMEOUT_MS = 5000;
+const MOBILE_EXERCISE_AUTO_SCROLLER_OPTIONS = {
+  startFromPercentage: 0.18,
+  maxScrollAtPercentage: 0.035,
+  maxPixelScroll: 10,
+  ease: (percentage) => percentage ** 2.4,
+  durationDampening: {
+    accelerateAt: 650,
+    stopDampeningAt: 1800,
+  },
+};
 
 function saveWithTimeout(request, timeoutMs = PROGRAM_SAVE_TIMEOUT_MS) {
   let timeoutId;
@@ -4219,7 +4229,10 @@ export default function ProgramBuilder({
           ? target.getBoundingClientRect()
           : { top: 0, bottom: window.innerHeight, height: window.innerHeight };
 
-      const edge = Math.min(190, Math.max(90, rect.height * 0.24));
+      const compactViewport = window.matchMedia?.("(max-width: 767px)")?.matches;
+      const edge = compactViewport
+        ? Math.min(125, Math.max(76, rect.height * 0.16))
+        : Math.min(190, Math.max(90, rect.height * 0.24));
       let direction = 0;
       let intensity = 0;
 
@@ -4232,7 +4245,11 @@ export default function ProgramBuilder({
       }
 
       if (direction) {
-        const speed = direction * Math.max(12, Math.round(Math.min(1, intensity) ** 1.45 * 58));
+        const minimumSpeed = compactViewport ? 5 : 12;
+        const maximumSpeed = compactViewport ? 28 : 58;
+        const speed =
+          direction *
+          Math.max(minimumSpeed, Math.round(Math.min(1, intensity) ** 1.45 * maximumSpeed));
         scrollBuilderTargetBy(target, speed);
       }
     }
@@ -4257,6 +4274,9 @@ export default function ProgramBuilder({
 
   const startExerciseDragAutoScroll = useCallback(() => {
     if (typeof window === "undefined") return;
+    // @hello-pangea/dnd possède déjà son propre auto-scroll tactile. En lancer
+    // un second sur mobile doublait la vitesse et rendait le dépôt imprécis.
+    if (window.matchMedia?.("(pointer: coarse), (max-width: 767px)")?.matches) return;
     const state = exerciseDragAutoScrollRef.current;
     state.active = true;
     state.pointerY = null;
@@ -4441,6 +4461,7 @@ export default function ProgramBuilder({
 
   const ctaSize = useBreakpointValue({ base: "sm", md: "md" });
   const ctaPx = useBreakpointValue({ base: 4, md: 6 });
+  const useMobileExerciseAutoScroller = useBreakpointValue({ base: true, md: false }) ?? false;
   const progressionDeloadBg = useColorModeValue("green.50", "rgba(34,197,94,0.12)");
   const progressionStrategyOptions = useMemo(
     () => [
@@ -5052,6 +5073,11 @@ export default function ProgramBuilder({
               <DragDropContext
                 onDragStart={startExerciseDragAutoScroll}
                 onDragEnd={handleDragEndExercises}
+                autoScrollerOptions={
+                  useMobileExerciseAutoScroller
+                    ? MOBILE_EXERCISE_AUTO_SCROLLER_OPTIONS
+                    : undefined
+                }
               >
                 <Droppable
                   droppableId={`ex-${activeTab}-${

@@ -72,6 +72,15 @@ import {
 const SessionComparator = lazy(() => import("./SessionComparator"));
 const ClientNutritionSection = lazy(() => import("./ClientNutritionSection"));
 const ClientMeasurementCharts = lazy(() => import("./client/ClientMeasurementCharts"));
+const clientViewMemoryCache = new Map();
+const warmedProgramRoutes = new Set();
+
+const warmProgramRoute = (clientId, programmeId) => {
+  const key = `${clientId || ""}:${programmeId || ""}`;
+  if (!clientId || !programmeId || warmedProgramRoutes.has(key)) return;
+  warmedProgramRoutes.add(key);
+  void import("./ProgramView.jsx");
+};
 
 const SUBCOL_PROGRAMMES = "programmes";
 const SUBCOL_SESSIONS_DONE = "sessionsEffectuees";
@@ -586,9 +595,10 @@ export default function ClientView() {
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const toast = useToast();
 
-  const [client, setClient] = useState(null);
-  const [programmes, setProgrammes] = useState([]);
-  const [measures, setMeasures] = useState([]);
+  const initialCachedClientView = clientViewMemoryCache.get(clientId) || {};
+  const [client, setClient] = useState(() => location.state?.prefetchedClient || initialCachedClientView.client || null);
+  const [programmes, setProgrammes] = useState(() => initialCachedClientView.programmes || []);
+  const [measures, setMeasures] = useState(() => initialCachedClientView.measures || []);
   const [secondaryContentReady, setSecondaryContentReady] = useState(false);
 
   const addMeas = useDisclosure();
@@ -691,7 +701,12 @@ export default function ClientView() {
   useEffect(() => {
     if (!clientId) return;
     const unsub = onSnapshot(doc(db, "clients", clientId), (snap) => {
-      setClient({ id: snap.id, ...snap.data() });
+      const nextClient = { id: snap.id, ...snap.data() };
+      setClient(nextClient);
+      clientViewMemoryCache.set(clientId, {
+        ...(clientViewMemoryCache.get(clientId) || {}),
+        client: nextClient,
+      });
     });
     return unsub;
   }, [clientId]);
@@ -718,8 +733,7 @@ export default function ClientView() {
 
     // Paint the programme cards immediately; detailed histories and ratings
     // continue loading without holding the whole client page hostage.
-    setProgrammes(
-      progSnap.docs.map((d) => {
+    const quickProgrammes = progSnap.docs.map((d) => {
         const data = d.data() || {};
         const resolvedName = String(data?.nomProgramme || data?.name || "").trim() || prettyProgramNameBase(data) || d.id;
         return {
@@ -729,8 +743,12 @@ export default function ClientView() {
           name: String(data?.name || "").trim() || resolvedName,
           sessionsEffectuees: [],
         };
-      })
-    );
+      });
+    setProgrammes(quickProgrammes);
+    clientViewMemoryCache.set(clientId, {
+      ...(clientViewMemoryCache.get(clientId) || {}),
+      programmes: quickProgrammes,
+    });
 
     const progs = await Promise.all(
       progSnap.docs.map(async (d) => {
@@ -810,6 +828,10 @@ export default function ClientView() {
     );
 
     setProgrammes(progs);
+    clientViewMemoryCache.set(clientId, {
+      ...(clientViewMemoryCache.get(clientId) || {}),
+      programmes: progs,
+    });
   };
 
   useEffect(() => {
@@ -853,6 +875,10 @@ export default function ClientView() {
         .filter(Boolean)
         .sort((a, b) => new Date(a.date) - new Date(b.date));
       setMeasures(arr);
+      clientViewMemoryCache.set(clientId, {
+        ...(clientViewMemoryCache.get(clientId) || {}),
+        measures: arr,
+      });
     });
     return unsub;
   }, [clientId]);
@@ -1630,7 +1656,11 @@ export default function ClientView() {
                           size="sm"
                           leftIcon={<FiEye />}
                           variant="outline"
-                          onClick={() => navigate(`/clients/${clientId}/programmes/${p.id}`)}
+                          onPointerEnter={() => warmProgramRoute(clientId, p.id)}
+                          onFocus={() => warmProgramRoute(clientId, p.id)}
+                          onClick={() => navigate(`/clients/${clientId}/programmes/${p.id}`, {
+                            state: { prefetchedProgram: p, prefetchedClient: client },
+                          })}
                         >
                           {t("common.view", "Voir")}
                         </Button>
@@ -1775,7 +1805,11 @@ export default function ClientView() {
                       size="sm"
                       borderRadius="full"
                       leftIcon={<FiEye />}
-                      onClick={() => navigate(`/clients/${clientId}/programmes/${p.id}`)}
+                      onPointerEnter={() => warmProgramRoute(clientId, p.id)}
+                      onFocus={() => warmProgramRoute(clientId, p.id)}
+                      onClick={() => navigate(`/clients/${clientId}/programmes/${p.id}`, {
+                        state: { prefetchedProgram: p, prefetchedClient: client },
+                      })}
                     >
                       {t("common.view", "Voir")}
                     </Button>

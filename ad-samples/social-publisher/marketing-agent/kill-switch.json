@@ -16,86 +16,6 @@
   },
   "alerts": [
     {
-      "at": "2026-06-22T11:56:27.576Z",
-      "reason": "meta_performance_sync_blocked",
-      "severity": "warning",
-      "source": "nightly_growth_report",
-      "details": {
-        "failedCount": 8,
-        "sampleErrors": [
-          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-          "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-          "Unsupported get request. Object with ID '18319661620272929' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
-        ]
-      }
-    },
-    {
-      "at": "2026-06-22T11:57:01.021Z",
-      "reason": "meta_performance_sync_blocked",
-      "severity": "warning",
-      "source": "nightly_growth_report",
-      "details": {
-        "failedCount": 8,
-        "sampleErrors": [
-          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-          "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-          "Unsupported get request. Object with ID '18319661620272929' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
-        ]
-      }
-    },
-    {
-      "at": "2026-06-22T11:57:07.778Z",
-      "reason": "meta_performance_sync_blocked",
-      "severity": "warning",
-      "source": "nightly_growth_report",
-      "details": {
-        "failedCount": 8,
-        "sampleErrors": [
-          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-          "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-          "Unsupported get request. Object with ID '18319661620272929' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
-        ]
-      }
-    },
-    {
-      "at": "2026-06-22T11:57:07.862Z",
-      "reason": "meta_performance_sync_blocked",
-      "severity": "warning",
-      "source": "nightly_growth_report",
-      "details": {
-        "failedCount": 8,
-        "sampleErrors": [
-          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-          "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-          "Unsupported get request. Object with ID '18319661620272929' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
-        ]
-      }
-    },
-    {
-      "at": "2026-06-22T11:57:08.941Z",
-      "reason": "meta_performance_sync_blocked",
-      "severity": "warning",
-      "source": "nightly_growth_report",
-      "details": {
-        "failedCount": 8,
-        "sampleErrors": [
-          "Unsupported get request. Object with ID '17932227978271557' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-          "Unsupported get request. Object with ID '17872024971528291' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-          "Unsupported get request. Object with ID '18120144856683407' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-          "Unsupported get request. Object with ID '18096649379597904' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api",
-          "Unsupported get request. Object with ID '18319661620272929' does not exist, cannot be loaded due to missing permissions, or does not support this operation. Please read the Graph API documentation at https://developers.facebook.com/docs/graph-api"
-        ]
-      }
-    },
-    {
       "at": "2026-06-22T12:51:41.049Z",
       "reason": "meta_performance_sync_blocked",
       "severity": "warning",
@@ -1697,6 +1617,85 @@
           "attempted": true,
           "result": "approval_review_timeout_twice"
         },
+        "missingMetricsInvented": false
+      }
+    },
+    {
+      "at": "2026-08-13T02:47:12.335Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "byl-social-publisher-rapport-growth-nightly",
+      "details": {
+        "updated": 3,
+        "failedCount": 15,
+        "total": 18,
+        "rerunEscalated": true,
+        "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+        "blocker": "Meta Graph unsupported object, missing permissions, or unsupported operation; missing metrics not inferred"
+      }
+    },
+    {
+      "at": "2026-08-13T21:35:50.010Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "byl-social-publisher-rapport-growth-nightly",
+      "details": {
+        "initialSandboxResult": {
+          "updated": 0,
+          "failed": 18,
+          "total": 18,
+          "error": "fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+        },
+        "escalatedRerun": {
+          "updated": 3,
+          "failed": 15,
+          "total": 18
+        },
+        "remainingBlocker": "Meta objects unavailable, permission-restricted, or unsupported",
+        "missingMetricsInvented": false
+      }
+    },
+    {
+      "at": "2026-08-14T23:08:19.459Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "byl-social-publisher-rapport-growth-nightly",
+      "details": {
+        "failedCount": 15,
+        "updated": 3,
+        "total": 18,
+        "rerunEscalated": true,
+        "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+        "blocker": "Meta Graph objects unavailable, missing permissions, or unsupported",
+        "missingMetricsInvented": false
+      }
+    },
+    {
+      "at": "2026-08-15T23:51:25.492Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "nightly_growth_report",
+      "details": {
+        "updated": 3,
+        "failedCount": 15,
+        "total": 18,
+        "rerunEscalated": true,
+        "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+        "blocker": "Meta Graph objects unavailable, missing permissions, or unsupported operation"
+      }
+    },
+    {
+      "at": "2026-08-17T00:25:37.434Z",
+      "reason": "meta_performance_sync_partial_failure",
+      "severity": "warning",
+      "source": "byl-social-publisher-rapport-growth-nightly",
+      "details": {
+        "updated": 3,
+        "failedCount": 15,
+        "total": 18,
+        "rerunEscalated": true,
+        "initialSandboxError": "fetch failed | ENOTFOUND graph.facebook.com",
+        "blocker": "Meta Graph objects unavailable, missing permissions, or unsupported",
         "missingMetricsInvented": false
       }
     }

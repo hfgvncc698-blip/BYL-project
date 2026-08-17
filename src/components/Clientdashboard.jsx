@@ -1656,15 +1656,6 @@ export default function ClientDashboard() {
     };
   };
 
-  const countThisMonth = useMemo(() => {
-    const now = new Date();
-    const m = now.getMonth(), y = now.getFullYear();
-    return sessions.filter(s => {
-      const st = (s.start instanceof Date) ? s.start : new Date(s.start);
-      return s.status === 'validée' && st.getMonth() === m && st.getFullYear() === y;
-    }).length;
-  }, [sessions]);
-
   const sportDataPending = loading && programmes.length === 0;
   const hasSportPrograms = programmes.length > 0 || sportDataPending;
   const showSportSections = programmes.length > 0;
@@ -1867,20 +1858,6 @@ export default function ClientDashboard() {
       })
     : rawDisplayedProgrammes;
 
-  const motivationalText = sportDataPending
-    ? t("auto.Clientdashboard.chargement_de_tes_programmes_et_de_ton_suivi", "Chargement de tes programmes et de ton suivi...")
-    : allProgramsCompleted
-    ? t("auto.Clientdashboard.bravo_tous_tes_programmes_sont_termines", "Bravo, tous tes programmes sont terminés. C'est le bon moment pour analyser tes résultats et lancer un nouveau cycle.")
-    : !hasSportPrograms
-    ? t("auto.Clientdashboard.ton_suivi_nutrition_est_disponible_ici", "Ton suivi nutrition est disponible ici, avec les repas, recettes et courses partagés.")
-    : hasMixedFollowUp
-    ? nutritionSummary?.kcal
-      ? t("auto.Clientdashboard.programme_sport_nutrition_avec_kcal", "Ton programme sport et ton suivi nutrition avancent ensemble : repère jour {{kcal}} kcal.", { kcal: Math.round(Number(nutritionSummary.kcal)) })
-      : t("auto.Clientdashboard.programme_sport_nutrition_ensemble", "Ton programme sport et ton suivi nutrition avancent ensemble.")
-    : countThisMonth === 0 ? t('client_dash.motivation.none')
-  : countThisMonth === 1 ? t('client_dash.motivation.one')
-  : t('client_dash.motivation.many', { n: countThisMonth });
-
   const averageRating = useMemo(() => {
     const values = programmes
       .map((p) => Number(p?._rating))
@@ -1901,6 +1878,53 @@ export default function ClientDashboard() {
       return (b._lastOrAssignedMs || 0) - (a._lastOrAssignedMs || 0);
     })[0];
   }, [programmes]);
+
+  const focusSessionLabel = focusProgramme
+    ? (focusProgramme._hasResumePoint
+        ? focusProgramme._resumeSessionLabel || getProgrammeSessionTitle(focusProgramme, focusProgramme._resumeSessionIndex, t)
+        : focusProgramme._nextSessionLabel || getProgrammeSessionTitle(focusProgramme, focusProgramme._nextIndex, t))
+    : "";
+  const plannedSessionLabel = String(
+    todayOverview.upcoming?.title ||
+    todayOverview.upcoming?.sessionTitle ||
+    t("auto.Clientdashboard.la_seance_du_jour", "la séance du jour")
+  ).trim();
+  const plannedSessionTime = todayOverview.upcoming?._start
+    ? todayOverview.upcoming._start.toLocaleTimeString(i18n.language || "fr", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "";
+  const nutritionTodayText = !hasNutritionFollowUp
+    ? ""
+    : nutritionSummary?.kcal
+      ? t("auto.Clientdashboard.rappel_nutrition_kcal", "Côté nutrition, consulte ton menu et garde ton repère de {{kcal}} kcal en tête.", {
+          kcal: Math.round(Number(nutritionSummary.kcal)),
+        })
+      : t("auto.Clientdashboard.rappel_nutrition", "Côté nutrition, consulte ton menu et les conseils partagés.");
+  const trainingTodayText = allProgramsCompleted
+    ? t("auto.Clientdashboard.bravo_tous_tes_programmes_sont_termines", "Bravo, tous tes programmes sont terminés. C'est le bon moment pour analyser tes résultats et lancer un nouveau cycle.")
+    : todayOverview.upcoming
+      ? t("auto.Clientdashboard.seance_prevue_aujourd_hui", "Séance prévue aujourd’hui à {{time}} : {{session}}.", {
+          time: plannedSessionTime,
+          session: plannedSessionLabel,
+        })
+      : focusProgramme?._hasResumePoint
+        ? t("auto.Clientdashboard.objectif_du_jour_reprendre", "Objectif du jour : reprends {{session}} là où tu t’es arrêté.", {
+            session: focusSessionLabel,
+          })
+        : todayOverview.validated > 0
+          ? t("auto.Clientdashboard.seance_du_jour_terminee", "Ta séance du jour est terminée. Profite maintenant d’un temps de récupération.")
+          : focusProgramme
+            ? t("auto.Clientdashboard.objectif_du_jour_lancer", "Objectif du jour : lance {{session}} pour continuer ton programme.", {
+                session: focusSessionLabel,
+              })
+            : t("auto.Clientdashboard.objectif_du_jour_planifier", "Aucune séance n’est prévue aujourd’hui : planifie la prochaine pour garder ton rythme.");
+  const motivationalText = sportDataPending
+    ? t("auto.Clientdashboard.chargement_de_tes_programmes_et_de_ton_suivi", "Chargement de tes programmes et de ton suivi...")
+    : !hasSportPrograms
+      ? nutritionTodayText || t("auto.Clientdashboard.objectif_du_jour_planifier", "Aucune séance n’est prévue aujourd’hui : planifie la prochaine pour garder ton rythme.")
+      : `${trainingTodayText}${nutritionTodayText ? ` ${nutritionTodayText}` : ""}`;
 
   const nextSessionLabel = motivationStats.upcoming?._start
     ? new Date(motivationStats.upcoming._start).toLocaleString(i18n.language || 'fr', {
@@ -2362,54 +2386,19 @@ export default function ClientDashboard() {
                         </SimpleGrid>
                       </Box>
 
-                      <SimpleGrid columns={hasSportPrograms && hasNutritionFollowUp ? 2 : 3} spacing={2.5} mt={3}>
-                        {hasSportPrograms ? (
-                          <Button
-                            h="54px"
-                            borderRadius="18px"
-                            variant="outline"
-                            leftIcon={<Icon as={MdOutlineFitnessCenter} />}
-                            onClick={() => navigate('/mes-programmes')}
-                            isDisabled={sportDataPending}
-                            fontSize="xs"
-                          >
-                            {t("auto.Clientdashboard.programmes", "Programmes")}
-                          </Button>
-                        ) : null}
-                        {hasNutritionFollowUp ? (
-                          <Button
-                            h="54px"
-                            borderRadius="18px"
-                            variant="outline"
-                            leftIcon={<Icon as={MdOutlineRestaurantMenu} />}
-                            onClick={() => navigate('/nutrition')}
-                            fontSize="xs"
-                          >
-                            {t("nutrition.title", "Nutrition")}
-                          </Button>
-                        ) : null}
-                        <Button
-                          h="54px"
-                          borderRadius="18px"
-                          variant="outline"
-                          leftIcon={<Icon as={MdOutlineInsights} />}
-                          onClick={() => navigate(hasSportPrograms ? '/statistiques' : '/nutrition?tab=menu')}
-                          fontSize="xs"
-                        >
-                          {hasSportPrograms ? t("auto.Clientdashboard.stats", "Stats") : t("auto.Clientdashboard.menu", "Menu")}
-                        </Button>
-                        <Button
-                          h="54px"
-                          borderRadius="18px"
-                          variant="outline"
-                          leftIcon={<Icon as={MdOutlineCalendarMonth} />}
-                          onClick={hasSportPrograms ? () => setAddOpen(true) : handleOpenCalendarLinkModal}
-                          isLoading={!hasSportPrograms && calendarLinkLoading}
-                          fontSize="xs"
-                        >
-                          {hasSportPrograms ? t("auto.Clientdashboard.planifier", "Planifier") : t("calendar.title", "Calendrier")}
-                        </Button>
-                      </SimpleGrid>
+                      <Button
+                        mt={3}
+                        w="full"
+                        h="48px"
+                        borderRadius="16px"
+                        variant="outline"
+                        leftIcon={<Icon as={MdOutlineCalendarMonth} />}
+                        onClick={hasSportPrograms ? () => setAddOpen(true) : handleOpenCalendarLinkModal}
+                        isLoading={!hasSportPrograms && calendarLinkLoading}
+                        fontWeight="850"
+                      >
+                        {hasSportPrograms ? t("auto.Clientdashboard.planifier", "Planifier") : t("calendar.title", "Calendrier")}
+                      </Button>
                     </Box>
 
                     <SimpleGrid display={{ base: "none", md: "grid" }} columns={{ base: 1, sm: 2, lg: hasMixedFollowUp ? 5 : 4 }} spacing={2.5} mt={4} maxW={hasMixedFollowUp ? "1120px" : "980px"}>
@@ -2587,7 +2576,9 @@ export default function ClientDashboard() {
           <ClientNutritionSharedSection
             clientId={clientId}
             variant="compact"
-            onOpenNutrition={() => navigate('/nutrition')}
+            onOpenNutrition={(panelKey) =>
+              navigate(panelKey ? `/nutrition?tab=${encodeURIComponent(panelKey)}` : '/nutrition')
+            }
           />
         </React.Suspense>
       ) : null}

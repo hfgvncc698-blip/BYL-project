@@ -92,6 +92,8 @@ function routeLoaderKeyForPath(pathname = "/") {
     "/sales-policy": "SalesPolicyPage",
     "/oauth/tiktok/callback": "TikTokOAuthRelay",
     "/programmes-premium": "PremiumPrograms",
+    "/tarifs": "PremiumPrograms",
+    "/pricing": "PremiumPrograms",
     "/plans/professionnel": "PlanProfessionnel",
     "/login": "Login",
     "/register": "Register",
@@ -101,6 +103,7 @@ function routeLoaderKeyForPath(pathname = "/") {
     "/coach-dashboard": "CoachDashboard",
     "/club-dashboard": "ClubDashboard",
     "/user-dashboard": "ClientDashboard",
+    "/client-dashboard": "ClientDashboard",
     "/profile": "ProfilePageClient",
     "/mes-programmes": "MyPrograms",
     "/statistiques": "Statistics",
@@ -122,6 +125,8 @@ function routeLoaderKeyForPath(pathname = "/") {
     "/cancel": "Cancel",
     "/payment-success": "Success",
     "/payment-cancel": "Cancel",
+    "/programmes-premium/success": "Success",
+    "/questionnaire/success": "Success",
   };
   if (exact[path]) return exact[path];
   if (path.startsWith("/club-dashboard/")) return "ClubDashboard";
@@ -146,10 +151,92 @@ function routeLoaderKeyForPath(pathname = "/") {
   return null;
 }
 
+const preloadedRouteKeys = new Set();
+
 function preloadRouteForPath(pathname) {
   const key = routeLoaderKeyForPath(pathname);
-  if (!key) return;
-  routeLoaders[key]?.().catch(() => {});
+  if (!key || preloadedRouteKeys.has(key)) return;
+  const loader = routeLoaders[key];
+  if (!loader) return;
+
+  preloadedRouteKeys.add(key);
+  loader().catch(() => {
+    // Une erreur réseau temporaire ne doit pas empêcher une nouvelle tentative.
+    preloadedRouteKeys.delete(key);
+  });
+}
+
+function internalRoutePathFromTarget(target) {
+  const anchor = target?.closest?.("a[href]");
+  if (!anchor || anchor.hasAttribute("download") || anchor.target === "_blank") return null;
+
+  try {
+    const url = new URL(anchor.getAttribute("href"), window.location.href);
+    if (url.origin !== window.location.origin) return null;
+    if (!/^https?:$/.test(url.protocol)) return null;
+    if (url.pathname === window.location.pathname && url.search === window.location.search) return null;
+    return url.pathname;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Précharge le code de toute route interne dès que l'utilisateur montre une
+ * intention de navigation. L'écoute déléguée couvre aussi les liens ajoutés
+ * plus tard par les écrans lazy-loadés, sans modifier chaque composant.
+ */
+function RouteIntentPreloader() {
+  React.useEffect(() => {
+    const connection = window.navigator?.connection;
+    const avoidSpeculation =
+      connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType || "");
+    let hoverTimer = 0;
+    let pendingPath = null;
+
+    const preloadNow = (event) => {
+      const path = internalRoutePathFromTarget(event.target);
+      if (path) preloadRouteForPath(path);
+    };
+
+    const preloadAfterShortIntent = (event) => {
+      if (avoidSpeculation) return;
+      const path = internalRoutePathFromTarget(event.target);
+      if (!path || path === pendingPath) return;
+
+      window.clearTimeout(hoverTimer);
+      pendingPath = path;
+      hoverTimer = window.setTimeout(() => {
+        preloadRouteForPath(path);
+        pendingPath = null;
+      }, 60);
+    };
+
+    const cancelHoverIntent = (event) => {
+      const anchor = event.target?.closest?.("a[href]");
+      if (!anchor || anchor.contains(event.relatedTarget)) return;
+      window.clearTimeout(hoverTimer);
+      hoverTimer = 0;
+      pendingPath = null;
+    };
+
+    document.addEventListener("pointerover", preloadAfterShortIntent, true);
+    document.addEventListener("pointerout", cancelHoverIntent, true);
+    document.addEventListener("focusin", preloadNow, true);
+    document.addEventListener("pointerdown", preloadNow, true);
+    document.addEventListener("touchstart", preloadNow, { capture: true, passive: true });
+
+    return () => {
+      window.clearTimeout(hoverTimer);
+      document.removeEventListener("pointerover", preloadAfterShortIntent, true);
+      document.removeEventListener("pointerout", cancelHoverIntent, true);
+      document.removeEventListener("focusin", preloadNow, true);
+      document.removeEventListener("pointerdown", preloadNow, true);
+      document.removeEventListener("touchstart", preloadNow, true);
+    };
+  }, []);
+
+  return null;
 }
 
 // Démarre le téléchargement du chunk de la route en parallèle de la
@@ -215,17 +302,40 @@ const AdminClient = lazyFrom(routeLoaders, "AdminClient");
 const AdminCoach = lazyFrom(routeLoaders, "AdminCoach");
 const AdminEmails = lazyFrom(routeLoaders, "AdminEmails");
 
-const COACH_CORE_PRELOADS = [
+const COACH_ROUTE_PRELOADS = [
   "CoachDashboard",
   "Clients",
+  "ClientView",
   "ProgramsPage",
+  "ProgramView",
+  "ProgramBuilderPage",
+  "SessionPlayer",
+  "ExerciseBank",
+  "AutoProgramQuestionnaire",
+  "AutoProgramPreview",
+  "ProfilePageCoach",
+  "SettingsPageCoach",
+  "StatisticsPageCoach",
 ];
-const CLIENT_CORE_PRELOADS = [
+const CLIENT_ROUTE_PRELOADS = [
   "ClientDashboard",
   "MyPrograms",
+  "ProgramView",
+  "SessionPlayer",
+  "ClientNutritionPage",
+  "ProfilePageClient",
+  "SettingsPageClient",
+  "Statistics",
 ];
-const CLUB_CORE_PRELOADS = ["ClubDashboard", "Clients", "ProgramsPage", "CoachDashboard"];
-const ADMIN_CORE_PRELOADS = ["AdminDashboard", "CoachDashboard", "Clients", "ProgramsPage", "AdminClient", "AdminCoach"];
+const CLUB_ROUTE_PRELOADS = ["ClubDashboard", ...COACH_ROUTE_PRELOADS];
+const ADMIN_ROUTE_PRELOADS = [
+  "AdminDashboard",
+  "AdminGeo",
+  "AdminEmails",
+  "AdminClient",
+  "AdminCoach",
+  ...CLUB_ROUTE_PRELOADS,
+];
 
 function preloadModules(keys) {
   [...new Set(keys)].forEach((key) => {
@@ -269,22 +379,28 @@ function preloadKeysForContext({ pathname, user, effectiveRole, isAdmin }) {
     return keys;
   }
 
-  if (isAdmin || role === "admin") keys.push(...ADMIN_CORE_PRELOADS);
-  if (role === "coach") keys.push(...COACH_CORE_PRELOADS);
-  if (role === "particulier") keys.push(...CLIENT_CORE_PRELOADS);
+  if (isAdmin || role === "admin") keys.push(...ADMIN_ROUTE_PRELOADS);
+  if (role === "coach") keys.push(...COACH_ROUTE_PRELOADS);
+  if (role === "particulier") keys.push(...CLIENT_ROUTE_PRELOADS);
   if (
     role === "club" ||
     user?.accountType === "club_owner" ||
     user?.clubRole === "owner" ||
     pathname.startsWith("/club-dashboard")
   ) {
-    keys.push(...CLUB_CORE_PRELOADS);
+    keys.push(...CLUB_ROUTE_PRELOADS);
   }
 
-  if (hasNutrition && !pathname.startsWith("/coach-dashboard")) {
-    keys.push("CoachNutritionPage", "NutritionAssessmentEditor", "FoodSurvey", "NutritionRationPage");
+  if (hasNutrition) {
+    keys.push(
+      "CoachNutritionPage",
+      "NutritionAssessmentEditor",
+      "FoodSurvey",
+      "NutritionRationPage",
+      "NutritionMenuJournalierPage"
+    );
   }
-  if (hasSport && !pathname.startsWith("/coach-dashboard")) {
+  if (hasSport) {
     keys.push("ExerciseBank", "ProgramsPage");
   }
 
@@ -627,6 +743,7 @@ function AppContent() {
 
   return (
     <>
+      <RouteIntentPreloader />
       <SeoManager />
       <LanguageRouteSync />
 

@@ -614,16 +614,27 @@ export default function PremiumPrograms(){
                       </Box>
                     </HStack>
 
-                    <Stack direction={{ base: "column", sm: "row" }} spacing={3}>
-                      <Button variant="outline" borderColor={theme.borderStrong} color={theme.textColor} onClick={() => openPremDetails(p)} flex="1" borderRadius="12px">
+                    <Stack direction="row" spacing={2.5}>
+                      <Button
+                        variant="outline"
+                        borderColor={theme.borderStrong}
+                        color={theme.textColor}
+                        onClick={() => openPremDetails(p)}
+                        flex="1 1 0"
+                        minW={0}
+                        h="50px"
+                        px={{ base: 2, sm: 4 }}
+                        fontSize={{ base: "sm", sm: "md" }}
+                        borderRadius="14px"
+                      >
                         {t("actions.view_details")}
                       </Button>
                       {freeAvailable ? (
-                        <Button {...theme.primaryButtonProps} bg={theme.accentGreen} borderRadius="12px" _hover={{ bg: "#059669", transform: "translateY(-1px)" }} onClick={() => handleClaimFree(p)} flex="1">
+                        <Button {...theme.primaryButtonProps} bg={theme.accentGreen} borderRadius="14px" _hover={{ bg: "#059669", transform: "translateY(-1px)" }} onClick={() => handleClaimFree(p)} flex="1 1 0" minW={0} h="50px" px={{ base: 2, sm: 4 }} fontSize={{ base: "xs", sm: "md" }} whiteSpace="normal" lineHeight="1.15">
                           {t("premium.claim_free")}
                         </Button>
                       ) : (
-                        <Button {...theme.primaryButtonProps} borderRadius="12px" onClick={() => handleBuy(p)} flex="1">
+                        <Button {...theme.primaryButtonProps} borderRadius="14px" onClick={() => handleBuy(p)} flex="1 1 0" minW={0} h="50px" px={{ base: 2, sm: 4 }} fontSize={{ base: "sm", sm: "md" }}>
                           {t("actions.buy_now")}
                         </Button>
                       )}

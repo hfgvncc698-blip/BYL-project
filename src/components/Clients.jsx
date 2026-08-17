@@ -69,6 +69,14 @@ import { readPageDataCache, runLimited, updatePageDataCache, writePageDataCache 
 
 const loadClientCreation = () => import("../components/ClientCreation.jsx");
 const ClientCreation = React.lazy(loadClientCreation);
+const warmedClientRoutes = new Set();
+
+const warmClientRoute = (clientId) => {
+  if (!clientId || warmedClientRoutes.has(clientId)) return;
+  warmedClientRoutes.add(clientId);
+  void import("./ClientView.jsx");
+  void getDocs(collection(db, "clients", clientId, "programmes")).catch(() => {});
+};
 
 const DAYS_ACTIVE_CUTOFF = 30;
 const CLIENTS_PAGE_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -1233,6 +1241,9 @@ const Clients = () => {
                           <ChakraLink
                             as={c.__tourDemo ? "span" : Link}
                             to={c.__tourDemo ? undefined : `/clients/${c.id}`}
+                            state={c.__tourDemo ? undefined : { prefetchedClient: c }}
+                            onPointerEnter={() => !c.__tourDemo && warmClientRoute(c.id)}
+                            onFocus={() => !c.__tourDemo && warmClientRoute(c.id)}
                             color={headColor}
                             fontWeight="800"
                           >
@@ -1363,7 +1374,14 @@ const Clients = () => {
                     <HStack justify="space-between" align="start" spacing={3}>
                       <Box minW={0}>
                         <Text fontWeight="900" fontSize="lg" lineHeight="1.2" noOfLines={1}>
-                          <ChakraLink as={c.__tourDemo ? "span" : Link} to={clientPath} color={headColor}>
+                          <ChakraLink
+                            as={c.__tourDemo ? "span" : Link}
+                            to={clientPath}
+                            state={c.__tourDemo ? undefined : { prefetchedClient: c }}
+                            onPointerEnter={() => !c.__tourDemo && warmClientRoute(c.id)}
+                            onFocus={() => !c.__tourDemo && warmClientRoute(c.id)}
+                            color={headColor}
+                          >
                             {c.prenom} {c.nom}
                           </ChakraLink>
                         </Text>
@@ -1429,7 +1447,9 @@ const Clients = () => {
                         borderRadius="full"
                         flex="1"
                         isDisabled={c.__tourDemo}
-                        onClick={() => clientPath && navigate(clientPath)}
+                        onPointerEnter={() => !c.__tourDemo && warmClientRoute(c.id)}
+                        onFocus={() => !c.__tourDemo && warmClientRoute(c.id)}
+                        onClick={() => clientPath && navigate(clientPath, { state: { prefetchedClient: c } })}
                       >
                         {t("common.view", "Voir")}
                       </Button>

@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-08-12T04:09:56.377Z",
+  "updatedAt": "2026-08-17T00:25:37.441Z",
   "primaryKpi": "free_trial_starts",
   "secondaryKpi": "activation_day_7",
   "activationSignals": [
@@ -32128,6 +32128,775 @@
         {
           "network": "tiktok",
           "reason": "tiktok_not_approved",
+          "detail": ""
+        }
+      ],
+      "learningEntryCount": 245
+    },
+    {
+      "id": "2026-08-12-growth-report",
+      "generatedAt": "2026-08-13T02:47:12.344Z",
+      "date": "2026-08-12",
+      "primaryKpi": "free_trial_starts",
+      "secondaryKpi": "activation_day_7",
+      "activationSignals": [
+        "client_created",
+        "program_created",
+        "program_assigned",
+        "client_login"
+      ],
+      "summary": "Optimisation orientee essais gratuits demarres puis activation J+7. Les vues, likes et commentaires restent des signaux secondaires.",
+      "topHooks": [],
+      "topVideos": [],
+      "topCtas": [],
+      "topFormats": [],
+      "topCreativeFormatVariants": [],
+      "topTimes": [],
+      "topEmotions": [],
+      "topAudiences": [],
+      "topActivatedHooks": [],
+      "topActivatedAudiences": [],
+      "segmentPerformance": [],
+      "fatigueAngles": [],
+      "falseSuccesses": [],
+      "distributionAlerts": [],
+      "nextContentRules": [
+        "Continuer a tester des concepts distincts par audience et mesurer essais gratuits puis activation J+7.",
+        "Garder au moins 4 plans humains frais par video et eviter tout recyclage d'image."
+      ],
+      "experimentMix": {
+        "targetShare": {
+          "proven": 0.7,
+          "optimization": 0.2,
+          "experiment": 0.1
+        },
+        "counts": {
+          "proven": 0,
+          "optimization": 0,
+          "experiment": 0
+        },
+        "currentShare": {
+          "proven": 0,
+          "optimization": 0,
+          "experiment": 0
+        }
+      },
+      "proofLibrarySummary": {
+        "totalProofs": 0,
+        "testimonials": 0,
+        "timeSavings": 0,
+        "screenshots": 0,
+        "stats": 0,
+        "transformations": 0
+      },
+      "objectionSummary": {
+        "prix": 0,
+        "complexite": 0,
+        "confiance": 0,
+        "migration": 0,
+        "ia": 0,
+        "securite": 0,
+        "temps": 0
+      },
+      "brandScore": {
+        "score": 63,
+        "dimensions": {
+          "premium": 60,
+          "serious": 60,
+          "innovative": 60,
+          "reliable": 71
+        }
+      },
+      "killSwitch": {
+        "automaticPublishingDisabled": true,
+        "trippedAt": "2026-06-30T23:56:49.458Z",
+        "reason": "manual_pause_user_review_required",
+        "severity": "high",
+        "source": "codex_user_request_2026_07_01",
+        "resolvedAt": "",
+        "resolvedReason": "",
+        "alertCount": 100,
+        "latestAlert": {
+          "at": "2026-08-13T02:47:12.335Z",
+          "reason": "meta_performance_sync_partial_failure",
+          "severity": "warning",
+          "source": "byl-social-publisher-rapport-growth-nightly",
+          "details": {
+            "updated": 3,
+            "failedCount": 15,
+            "total": 18,
+            "rerunEscalated": true,
+            "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+            "blocker": "Meta Graph unsupported object, missing permissions, or unsupported operation; missing metrics not inferred"
+          }
+        }
+      },
+      "recentBlocks": [
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        }
+      ],
+      "learningEntryCount": 245
+    },
+    {
+      "id": "2026-08-13-growth-report",
+      "generatedAt": "2026-08-13T21:35:50.045Z",
+      "date": "2026-08-13",
+      "primaryKpi": "free_trial_starts",
+      "secondaryKpi": "activation_day_7",
+      "activationSignals": [
+        "client_created",
+        "program_created",
+        "program_assigned",
+        "client_login"
+      ],
+      "summary": "Optimisation orientee essais gratuits demarres puis activation J+7. Les vues, likes et commentaires restent des signaux secondaires.",
+      "topHooks": [],
+      "topVideos": [],
+      "topCtas": [],
+      "topFormats": [],
+      "topCreativeFormatVariants": [],
+      "topTimes": [],
+      "topEmotions": [],
+      "topAudiences": [],
+      "topActivatedHooks": [],
+      "topActivatedAudiences": [],
+      "segmentPerformance": [],
+      "fatigueAngles": [],
+      "falseSuccesses": [],
+      "distributionAlerts": [],
+      "nextContentRules": [
+        "Continuer a tester des concepts distincts par audience et mesurer essais gratuits puis activation J+7.",
+        "Garder au moins 4 plans humains frais par video et eviter tout recyclage d'image."
+      ],
+      "experimentMix": {
+        "targetShare": {
+          "proven": 0.7,
+          "optimization": 0.2,
+          "experiment": 0.1
+        },
+        "counts": {
+          "proven": 0,
+          "optimization": 0,
+          "experiment": 0
+        },
+        "currentShare": {
+          "proven": 0,
+          "optimization": 0,
+          "experiment": 0
+        }
+      },
+      "proofLibrarySummary": {
+        "totalProofs": 0,
+        "testimonials": 0,
+        "timeSavings": 0,
+        "screenshots": 0,
+        "stats": 0,
+        "transformations": 0
+      },
+      "objectionSummary": {
+        "prix": 0,
+        "complexite": 0,
+        "confiance": 0,
+        "migration": 0,
+        "ia": 0,
+        "securite": 0,
+        "temps": 0
+      },
+      "brandScore": {
+        "score": 63,
+        "dimensions": {
+          "premium": 60,
+          "serious": 60,
+          "innovative": 60,
+          "reliable": 71
+        }
+      },
+      "killSwitch": {
+        "automaticPublishingDisabled": true,
+        "trippedAt": "2026-06-30T23:56:49.458Z",
+        "reason": "manual_pause_user_review_required",
+        "severity": "high",
+        "source": "codex_user_request_2026_07_01",
+        "resolvedAt": "",
+        "resolvedReason": "",
+        "alertCount": 100,
+        "latestAlert": {
+          "at": "2026-08-13T21:35:50.010Z",
+          "reason": "meta_performance_sync_partial_failure",
+          "severity": "warning",
+          "source": "byl-social-publisher-rapport-growth-nightly",
+          "details": {
+            "initialSandboxResult": {
+              "updated": 0,
+              "failed": 18,
+              "total": 18,
+              "error": "fetch failed | code=ENOTFOUND | host=graph.facebook.com"
+            },
+            "escalatedRerun": {
+              "updated": 3,
+              "failed": 15,
+              "total": 18
+            },
+            "remainingBlocker": "Meta objects unavailable, permission-restricted, or unsupported",
+            "missingMetricsInvented": false
+          }
+        }
+      },
+      "recentBlocks": [
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        }
+      ],
+      "learningEntryCount": 245
+    },
+    {
+      "id": "2026-08-14-growth-report",
+      "generatedAt": "2026-08-14T23:08:19.480Z",
+      "date": "2026-08-14",
+      "primaryKpi": "free_trial_starts",
+      "secondaryKpi": "activation_day_7",
+      "activationSignals": [
+        "client_created",
+        "program_created",
+        "program_assigned",
+        "client_login"
+      ],
+      "summary": "Optimisation orientee essais gratuits demarres puis activation J+7. Les vues, likes et commentaires restent des signaux secondaires.",
+      "topHooks": [],
+      "topVideos": [],
+      "topCtas": [],
+      "topFormats": [],
+      "topCreativeFormatVariants": [],
+      "topTimes": [],
+      "topEmotions": [],
+      "topAudiences": [],
+      "topActivatedHooks": [],
+      "topActivatedAudiences": [],
+      "segmentPerformance": [],
+      "fatigueAngles": [],
+      "falseSuccesses": [],
+      "distributionAlerts": [],
+      "nextContentRules": [
+        "Continuer a tester des concepts distincts par audience et mesurer essais gratuits puis activation J+7.",
+        "Garder au moins 4 plans humains frais par video et eviter tout recyclage d'image."
+      ],
+      "experimentMix": {
+        "targetShare": {
+          "proven": 0.7,
+          "optimization": 0.2,
+          "experiment": 0.1
+        },
+        "counts": {
+          "proven": 0,
+          "optimization": 0,
+          "experiment": 0
+        },
+        "currentShare": {
+          "proven": 0,
+          "optimization": 0,
+          "experiment": 0
+        }
+      },
+      "proofLibrarySummary": {
+        "totalProofs": 0,
+        "testimonials": 0,
+        "timeSavings": 0,
+        "screenshots": 0,
+        "stats": 0,
+        "transformations": 0
+      },
+      "objectionSummary": {
+        "prix": 0,
+        "complexite": 0,
+        "confiance": 0,
+        "migration": 0,
+        "ia": 0,
+        "securite": 0,
+        "temps": 0
+      },
+      "brandScore": {
+        "score": 63,
+        "dimensions": {
+          "premium": 60,
+          "serious": 60,
+          "innovative": 60,
+          "reliable": 71
+        }
+      },
+      "killSwitch": {
+        "automaticPublishingDisabled": true,
+        "trippedAt": "2026-06-30T23:56:49.458Z",
+        "reason": "manual_pause_user_review_required",
+        "severity": "high",
+        "source": "codex_user_request_2026_07_01",
+        "resolvedAt": "",
+        "resolvedReason": "",
+        "alertCount": 100,
+        "latestAlert": {
+          "at": "2026-08-14T23:08:19.459Z",
+          "reason": "meta_performance_sync_partial_failure",
+          "severity": "warning",
+          "source": "byl-social-publisher-rapport-growth-nightly",
+          "details": {
+            "failedCount": 15,
+            "updated": 3,
+            "total": 18,
+            "rerunEscalated": true,
+            "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+            "blocker": "Meta Graph objects unavailable, missing permissions, or unsupported",
+            "missingMetricsInvented": false
+          }
+        }
+      },
+      "recentBlocks": [
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        }
+      ],
+      "learningEntryCount": 245
+    },
+    {
+      "id": "2026-08-15-growth-report",
+      "generatedAt": "2026-08-15T23:51:25.508Z",
+      "date": "2026-08-15",
+      "primaryKpi": "free_trial_starts",
+      "secondaryKpi": "activation_day_7",
+      "activationSignals": [
+        "client_created",
+        "program_created",
+        "program_assigned",
+        "client_login"
+      ],
+      "summary": "Optimisation orientee essais gratuits demarres puis activation J+7. Les vues, likes et commentaires restent des signaux secondaires.",
+      "topHooks": [],
+      "topVideos": [],
+      "topCtas": [],
+      "topFormats": [],
+      "topCreativeFormatVariants": [],
+      "topTimes": [],
+      "topEmotions": [],
+      "topAudiences": [],
+      "topActivatedHooks": [],
+      "topActivatedAudiences": [],
+      "segmentPerformance": [],
+      "fatigueAngles": [],
+      "falseSuccesses": [],
+      "distributionAlerts": [],
+      "nextContentRules": [
+        "Continuer a tester des concepts distincts par audience et mesurer essais gratuits puis activation J+7.",
+        "Garder au moins 4 plans humains frais par video et eviter tout recyclage d'image."
+      ],
+      "experimentMix": {
+        "targetShare": {
+          "proven": 0.7,
+          "optimization": 0.2,
+          "experiment": 0.1
+        },
+        "counts": {
+          "proven": 0,
+          "optimization": 0,
+          "experiment": 0
+        },
+        "currentShare": {
+          "proven": 0,
+          "optimization": 0,
+          "experiment": 0
+        }
+      },
+      "proofLibrarySummary": {
+        "totalProofs": 0,
+        "testimonials": 0,
+        "timeSavings": 0,
+        "screenshots": 0,
+        "stats": 0,
+        "transformations": 0
+      },
+      "objectionSummary": {
+        "prix": 0,
+        "complexite": 0,
+        "confiance": 0,
+        "migration": 0,
+        "ia": 0,
+        "securite": 0,
+        "temps": 0
+      },
+      "brandScore": {
+        "score": 63,
+        "dimensions": {
+          "premium": 60,
+          "serious": 60,
+          "innovative": 60,
+          "reliable": 71
+        }
+      },
+      "killSwitch": {
+        "automaticPublishingDisabled": true,
+        "trippedAt": "2026-06-30T23:56:49.458Z",
+        "reason": "manual_pause_user_review_required",
+        "severity": "high",
+        "source": "codex_user_request_2026_07_01",
+        "resolvedAt": "",
+        "resolvedReason": "",
+        "alertCount": 100,
+        "latestAlert": {
+          "at": "2026-08-15T23:51:25.492Z",
+          "reason": "meta_performance_sync_partial_failure",
+          "severity": "warning",
+          "source": "nightly_growth_report",
+          "details": {
+            "updated": 3,
+            "failedCount": 15,
+            "total": 18,
+            "rerunEscalated": true,
+            "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+            "blocker": "Meta Graph objects unavailable, missing permissions, or unsupported operation"
+          }
+        }
+      },
+      "recentBlocks": [
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        }
+      ],
+      "learningEntryCount": 245
+    },
+    {
+      "id": "2026-08-16-growth-report",
+      "generatedAt": "2026-08-17T00:25:37.440Z",
+      "date": "2026-08-16",
+      "primaryKpi": "free_trial_starts",
+      "secondaryKpi": "activation_day_7",
+      "activationSignals": [
+        "client_created",
+        "program_created",
+        "program_assigned",
+        "client_login"
+      ],
+      "summary": "Optimisation orientee essais gratuits demarres puis activation J+7. Les vues, likes et commentaires restent des signaux secondaires.",
+      "topHooks": [],
+      "topVideos": [],
+      "topCtas": [],
+      "topFormats": [],
+      "topCreativeFormatVariants": [],
+      "topTimes": [],
+      "topEmotions": [],
+      "topAudiences": [],
+      "topActivatedHooks": [],
+      "topActivatedAudiences": [],
+      "segmentPerformance": [],
+      "fatigueAngles": [],
+      "falseSuccesses": [],
+      "distributionAlerts": [],
+      "nextContentRules": [
+        "Continuer a tester des concepts distincts par audience et mesurer essais gratuits puis activation J+7.",
+        "Garder au moins 4 plans humains frais par video et eviter tout recyclage d'image."
+      ],
+      "experimentMix": {
+        "targetShare": {
+          "proven": 0.7,
+          "optimization": 0.2,
+          "experiment": 0.1
+        },
+        "counts": {
+          "proven": 0,
+          "optimization": 0,
+          "experiment": 0
+        },
+        "currentShare": {
+          "proven": 0,
+          "optimization": 0,
+          "experiment": 0
+        }
+      },
+      "proofLibrarySummary": {
+        "totalProofs": 0,
+        "testimonials": 0,
+        "timeSavings": 0,
+        "screenshots": 0,
+        "stats": 0,
+        "transformations": 0
+      },
+      "objectionSummary": {
+        "prix": 0,
+        "complexite": 0,
+        "confiance": 0,
+        "migration": 0,
+        "ia": 0,
+        "securite": 0,
+        "temps": 0
+      },
+      "brandScore": {
+        "score": 63,
+        "dimensions": {
+          "premium": 60,
+          "serious": 60,
+          "innovative": 60,
+          "reliable": 71
+        }
+      },
+      "killSwitch": {
+        "automaticPublishingDisabled": true,
+        "trippedAt": "2026-06-30T23:56:49.458Z",
+        "reason": "manual_pause_user_review_required",
+        "severity": "high",
+        "source": "codex_user_request_2026_07_01",
+        "resolvedAt": "",
+        "resolvedReason": "",
+        "alertCount": 100,
+        "latestAlert": {
+          "at": "2026-08-17T00:25:37.434Z",
+          "reason": "meta_performance_sync_partial_failure",
+          "severity": "warning",
+          "source": "byl-social-publisher-rapport-growth-nightly",
+          "details": {
+            "updated": 3,
+            "failedCount": 15,
+            "total": 18,
+            "rerunEscalated": true,
+            "initialSandboxError": "fetch failed | ENOTFOUND graph.facebook.com",
+            "blocker": "Meta Graph objects unavailable, missing permissions, or unsupported",
+            "missingMetricsInvented": false
+          }
+        }
+      },
+      "recentBlocks": [
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "instagram",
+          "reason": "fresh_media_required",
+          "detail": "daily_media_missing"
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
           "detail": ""
         }
       ],
