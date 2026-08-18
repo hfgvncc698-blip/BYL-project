@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-08-17T00:25:37.444Z",
+  "updatedAt": "2026-08-18T06:21:05.534Z",
   "primaryKpi": "free_trial_starts",
   "secondaryKpi": "activation_day_7",
   "activationSignals": [
@@ -1686,9 +1686,9 @@
       "activatedAudiences": []
     },
     "latestReport": {
-      "id": "2026-08-16-growth-report",
-      "generatedAt": "2026-08-17T00:25:37.440Z",
-      "date": "2026-08-16",
+      "id": "2026-08-17-growth-report",
+      "generatedAt": "2026-08-18T06:21:05.531Z",
+      "date": "2026-08-17",
       "primaryKpi": "free_trial_starts",
       "secondaryKpi": "activation_day_7",
       "activationSignals": [
@@ -1769,23 +1769,49 @@
         "resolvedReason": "",
         "alertCount": 100,
         "latestAlert": {
-          "at": "2026-08-17T00:25:37.434Z",
+          "at": "2026-08-18T06:21:05.525Z",
           "reason": "meta_performance_sync_partial_failure",
           "severity": "warning",
-          "source": "byl-social-publisher-rapport-growth-nightly",
+          "source": "nightly_growth_report",
           "details": {
-            "updated": 3,
             "failedCount": 15,
+            "updated": 3,
             "total": 18,
             "rerunEscalated": true,
-            "initialSandboxError": "fetch failed | ENOTFOUND graph.facebook.com",
-            "blocker": "Meta Graph objects unavailable, missing permissions, or unsupported",
-            "missingMetricsInvented": false
+            "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+            "sampleErrors": [
+              "Meta Graph objects unavailable or missing permissions after escalated sync"
+            ]
           }
         }
       },
       "recentBlocks": [
         {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
           "network": "instagram",
           "reason": "fresh_media_required",
           "detail": "daily_media_missing"
@@ -1801,11 +1827,6 @@
           "detail": ""
         },
         {
-          "network": "calendar",
-          "reason": "kill_switch_active",
-          "detail": ""
-        },
-        {
           "network": "tiktok",
           "reason": "tiktok_not_approved",
           "detail": ""
@@ -1814,26 +1835,6 @@
           "network": "instagram",
           "reason": "fresh_media_required",
           "detail": "daily_media_missing"
-        },
-        {
-          "network": "calendar",
-          "reason": "kill_switch_active",
-          "detail": ""
-        },
-        {
-          "network": "tiktok",
-          "reason": "tiktok_not_approved",
-          "detail": ""
-        },
-        {
-          "network": "tiktok",
-          "reason": "tiktok_not_approved",
-          "detail": ""
-        },
-        {
-          "network": "calendar",
-          "reason": "kill_switch_active",
-          "detail": ""
         }
       ],
       "learningEntryCount": 245
@@ -1841,7 +1842,7 @@
   },
   "brand": {
     "version": "1.0.0",
-    "updatedAt": "2026-08-17T00:25:37.440Z",
+    "updatedAt": "2026-08-18T06:21:05.530Z",
     "brandScore": 63,
     "dimensions": {
       "premium": 60,
@@ -5463,18 +5464,19 @@
       "resolvedReason": "",
       "alertCount": 100,
       "latestAlert": {
-        "at": "2026-08-17T00:25:37.434Z",
+        "at": "2026-08-18T06:21:05.525Z",
         "reason": "meta_performance_sync_partial_failure",
         "severity": "warning",
-        "source": "byl-social-publisher-rapport-growth-nightly",
+        "source": "nightly_growth_report",
         "details": {
-          "updated": 3,
           "failedCount": 15,
+          "updated": 3,
           "total": 18,
           "rerunEscalated": true,
-          "initialSandboxError": "fetch failed | ENOTFOUND graph.facebook.com",
-          "blocker": "Meta Graph objects unavailable, missing permissions, or unsupported",
-          "missingMetricsInvented": false
+          "initialSandboxError": "fetch failed | code=ENOTFOUND | host=graph.facebook.com",
+          "sampleErrors": [
+            "Meta Graph objects unavailable or missing permissions after escalated sync"
+          ]
         }
       }
     }

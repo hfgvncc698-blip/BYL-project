@@ -5,6 +5,7 @@ import { ChakraProvider, ColorModeScript } from "@chakra-ui/react";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App.jsx";
 import theme from "./theme.js";
+import AppErrorBoundary from "./components/ui/AppErrorBoundary.jsx";
 
 const app = (
   <>
@@ -27,7 +28,9 @@ const app = (
       }}
     >
       <BrowserRouter>
-        <App />
+        <AppErrorBoundary>
+          <App />
+        </AppErrorBoundary>
       </BrowserRouter>
     </ChakraProvider>
   </>

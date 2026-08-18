@@ -1,10 +1,11 @@
 export function readProgramActiveWeeks(program = {}) {
+  const safeProgram = program && typeof program === "object" ? program : {};
   const raw =
-    program.activeWeeks ??
-    program.durationWeeks ??
-    program.programDurationWeeks ??
-    program.dureeSemaines ??
-    program.weeksActive;
+    safeProgram.activeWeeks ??
+    safeProgram.durationWeeks ??
+    safeProgram.programDurationWeeks ??
+    safeProgram.dureeSemaines ??
+    safeProgram.weeksActive;
   const weeks = Math.round(Number(raw) || 4);
   if (!Number.isFinite(weeks) || weeks <= 0) return 4;
   return Math.max(1, Math.min(52, weeks));
@@ -41,7 +42,8 @@ export function getProgramTotalSessions(program = {}) {
 }
 
 export function getProgramSessionsPerWeek(program = {}) {
-  const name = `${program.nomProgramme || ""} ${program.name || ""} ${program.title || ""}`;
+  const safeProgram = program && typeof program === "object" ? program : {};
+  const name = `${safeProgram.nomProgramme || ""} ${safeProgram.name || ""} ${safeProgram.title || ""}`;
   const match = name.match(/(\d+)\s*(?:x|fois|séances?|seances?)\s*(?:\/|par)?\s*(?:sem|semaine|week)/i);
   if (match) {
     const value = Number(match[1]);
@@ -49,16 +51,16 @@ export function getProgramSessionsPerWeek(program = {}) {
   }
 
   const direct =
-    program.sessionsPerWeek ??
-    program.seancesParSemaine ??
-    program.nbSeancesSemaine ??
-    program.nbSeancesParSemaine ??
-    program.sessions_per_week;
+    safeProgram.sessionsPerWeek ??
+    safeProgram.seancesParSemaine ??
+    safeProgram.nbSeancesSemaine ??
+    safeProgram.nbSeancesParSemaine ??
+    safeProgram.sessions_per_week;
   const directValue = Number(direct);
   if (Number.isFinite(directValue) && directValue > 0) return Math.max(1, Math.round(directValue));
 
-  const totalWeeks = readProgramActiveWeeks(program);
-  const totalSessions = getProgramTotalSessions(program);
+  const totalWeeks = readProgramActiveWeeks(safeProgram);
+  const totalSessions = getProgramTotalSessions(safeProgram);
   if (totalWeeks > 0 && totalSessions > 0) {
     return Math.max(1, Math.round(totalSessions / totalWeeks));
   }

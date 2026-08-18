@@ -39,6 +39,57 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="manifest" href="/manifest.webmanifest" />
 
+    <style>
+      #app-boot-shell {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        box-sizing: border-box;
+        color: #111827;
+        background:
+          radial-gradient(circle at 82% 12%, rgba(59, 130, 246, 0.14), transparent 30%),
+          radial-gradient(circle at 12% 100%, rgba(16, 185, 129, 0.1), transparent 32%),
+          #f8fafc;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      #app-boot-shell > div {
+        width: min(88vw, 340px);
+        padding: 30px 28px;
+        text-align: center;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-radius: 28px;
+        background: rgba(255, 255, 255, 0.82);
+        box-shadow: 0 24px 70px rgba(15, 23, 42, 0.1);
+      }
+      #app-boot-shell span {
+        display: block;
+        width: 34px;
+        height: 34px;
+        margin: 0 auto 16px;
+        border: 3px solid rgba(14, 86, 163, 0.18);
+        border-top-color: #0e56a3;
+        border-radius: 50%;
+        animation: byl-boot-spin 0.75s linear infinite;
+      }
+      #app-boot-shell strong { font-size: 16px; }
+      @keyframes byl-boot-spin { to { transform: rotate(360deg); } }
+      @media (prefers-color-scheme: dark) {
+        #app-boot-shell {
+          color: #f8fafc;
+          background:
+            radial-gradient(circle at 82% 12%, rgba(59, 130, 246, 0.18), transparent 32%),
+            radial-gradient(circle at 12% 100%, rgba(16, 185, 129, 0.14), transparent 34%),
+            #0f172a;
+        }
+        #app-boot-shell > div {
+          border-color: rgba(255, 255, 255, 0.1);
+          background: rgba(15, 23, 42, 0.82);
+          box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+        }
+      }
+    </style>
+
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://boostyourlife.coach/" />
@@ -56,7 +107,12 @@
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="app-boot-shell" role="status" aria-live="polite">
+        <div><span aria-hidden="true"></span><strong>Chargement de votre espace…</strong></div>
+      </div>
+    </div>
+    <noscript>JavaScript doit être activé pour utiliser BoostYourLife.coach.</noscript>
     <!-- En dev, Vite charge /src/main.jsx ; en prod, remplacé par les assets buildés -->
     <script type="module" src="/src/main.jsx"></script>
   </body>

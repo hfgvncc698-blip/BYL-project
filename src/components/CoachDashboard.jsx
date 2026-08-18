@@ -1328,6 +1328,7 @@ const getProgramSessionsPerWeek = (programme = {}) => {
 };
 
 const getProgramActiveSessionTotal = (programme = {}) => {
+  if (!programme || typeof programme !== "object") return 0;
   const templateTotal = getTotalSessionsFromProgrammeDoc(programme);
   const totalWeeks = readProgramActiveWeeks(programme);
   const sessionsPerWeek = getProgramSessionsPerWeek(programme);

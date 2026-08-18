@@ -44,6 +44,25 @@ check("critical app routes are registered", () => {
   ].forEach((route) => assert.ok(app.includes(route), `Missing route ${route}`));
 });
 
+check("slow loads and render failures never leave an empty application root", () => {
+  const main = read("src/main.jsx");
+  const index = read("index.html");
+  const boundary = read("src/components/ui/AppErrorBoundary.jsx");
+
+  assert.ok(
+    main.includes("<AppErrorBoundary>") && main.includes("</AppErrorBoundary>"),
+    "The complete application tree must remain protected by a recovery boundary"
+  );
+  assert.ok(
+    index.includes('id="app-boot-shell"') && index.includes('role="status"'),
+    "A visible loading shell must exist before JavaScript finishes loading"
+  );
+  assert.ok(
+    boundary.includes("static getDerivedStateFromError") && boundary.includes("window.location.reload()"),
+    "The recovery screen must catch render errors and offer a clean reload"
+  );
+});
+
 check("sport PDFs include localized exercise notes", () => {
   const programView = read("src/components/ProgramView.jsx");
   const autoPreview = read("src/components/AutoProgramPreview.jsx");

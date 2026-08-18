@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
 import { readProgramDisplayMetric } from "../src/utils/programDisplayMetrics.js";
+import {
+  getProgramPlannedSessionTotal,
+  getProgramSessionsPerWeek,
+  readProgramActiveWeeks,
+} from "../src/utils/programDuration.js";
 
 const synchronizedExercise = {
   repetitions: 9,
@@ -28,5 +33,9 @@ assert.equal(
   12,
   "a canonical synchronized value wins even when stored in a supported nested pool"
 );
+
+assert.equal(readProgramActiveWeeks(null), 4, "a missing primary program must keep the dashboard renderable");
+assert.equal(getProgramSessionsPerWeek(null), 0, "missing program data must not fabricate weekly sessions");
+assert.equal(getProgramPlannedSessionTotal(null), 0, "missing program data must produce an empty total");
 
 console.log("Program display metric priority: OK");
