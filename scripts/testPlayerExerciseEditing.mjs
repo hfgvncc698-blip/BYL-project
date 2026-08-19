@@ -4,6 +4,8 @@ import {
   applyPlayerExerciseDeletion,
   buildPlayerExerciseFromBank,
   buildPlayerExerciseAuditDetails,
+  getPlayerExerciseSourceId,
+  getPlayerExerciseViewKey,
   getPlayerExerciseContinuation,
   remapPlayerExerciseTimings,
 } from "../src/utils/playerExerciseEditing.js";
@@ -31,6 +33,21 @@ assert.equal(replacement["Répétitions"], 8);
 assert.equal(replacement["Séries"], 4);
 assert.equal(replacement["Charge (kg)"], 70);
 assert.equal(replacement.notes, "Rester gainé");
+assert.equal(getPlayerExerciseSourceId(replacement), "chest-press");
+assert.notEqual(
+  getPlayerExerciseViewKey(previous, { sessionIndex: 0, exerciseIndex: 0 }),
+  getPlayerExerciseViewKey(replacement, { sessionIndex: 0, exerciseIndex: 0 })
+);
+
+const canonicalSourceWinsOverInstance = {
+  id: "player-temporary-instance",
+  exerciseId: "stable-bank-document",
+  sourceExerciseId: "stable-bank-document",
+};
+assert.equal(
+  getPlayerExerciseSourceId(canonicalSourceWinsOverInstance),
+  "stable-bank-document"
+);
 
 const sourceProgram = {
   sessions: [

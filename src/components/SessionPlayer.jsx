@@ -112,9 +112,15 @@ import {
   applyPlayerExerciseDeletion,
   applyPlayerExerciseEdit,
   buildPlayerExerciseAuditDetails,
+  getPlayerExerciseSourceId,
+  getPlayerExerciseViewKey,
   getPlayerExerciseContinuation,
   remapPlayerExerciseTimings,
 } from "../utils/playerExerciseEditing";
+import {
+  getCappedCountdownSeconds,
+  getTrackedTimerSeconds,
+} from "../utils/playerTimerEditing";
 import {
   applyProgressionStrategyToDecision,
   applySportProgressionToSession,
@@ -322,6 +328,17 @@ function useTimer(onComplete) {
     };
   };
 
+  const capAt = (sec) => {
+    const snapshot = getSnapshot();
+    const cap = Math.max(0, Number(sec) || 0);
+    const next = getCappedCountdownSeconds(snapshot.seconds, cap);
+    if (next === snapshot.seconds) return snapshot;
+
+    reset(next);
+    if (snapshot.running) start();
+    return { ...snapshot, seconds: next };
+  };
+
   useEffect(() => {
     const handleResume = () => tick();
     window.addEventListener("focus", handleResume);
@@ -333,7 +350,7 @@ function useTimer(onComplete) {
     };
   }, []);
 
-  return { seconds, start, reset, stop, getSnapshot };
+  return { seconds, start, reset, stop, getSnapshot, capAt };
 }
 
 function useStopwatchTimer() {
@@ -1557,10 +1574,7 @@ function extractExerciseMedia(exercise, preferredSex = "") {
 }
 
 async function findExerciseDocFromFirestore(exercise) {
-  const exId =
-    String(exercise?.id || "").trim() ||
-    String(exercise?.exerciseId || "").trim() ||
-    String(exercise?.exercise_id || "").trim();
+  const exId = getPlayerExerciseSourceId(exercise);
 
   const exName =
     String(exercise?.nom || "").trim() ||
@@ -2571,6 +2585,7 @@ export default function SessionPlayer() {
 
   const [resolvedExercise, setResolvedExercise] = useState(null);
   const exerciseMediaCacheRef = useRef(new Map());
+  const exerciseResolutionRevisionRef = useRef(0);
   const resumeAppliedRef = useRef(false);
   const pendingTimerResumeRef = useRef(null);
   const resumeClearedRef = useRef(false);
@@ -2905,7 +2920,15 @@ export default function SessionPlayer() {
       setCurrentSet(continuation.currentSet);
       setPhase(continuation.phase);
       setIsPaused(continuation.isPaused);
-      setResolvedExercise(updated.flat[nextExerciseIndex] || edit.exercise);
+      exerciseResolutionRevisionRef.current += 1;
+      const nextExercise = updated.flat[nextExerciseIndex] || edit.exercise;
+      setResolvedExercise({
+        ...(nextExercise || {}),
+        __playerViewKey: getPlayerExerciseViewKey(nextExercise, {
+          sessionIndex,
+          exerciseIndex: nextExerciseIndex,
+        }),
+      });
       closeExerciseEditor();
 
       await programSave;
@@ -3043,7 +3066,19 @@ export default function SessionPlayer() {
       pausedPhaseRef.current = null;
       autoStartNextRef.current = false;
       autoStartDelayRef.current = 0;
-      setResolvedExercise(updated.flat[nextExerciseIndex] || null);
+      exerciseResolutionRevisionRef.current += 1;
+      const nextExercise = updated.flat[nextExerciseIndex] || null;
+      setResolvedExercise(
+        nextExercise
+          ? {
+              ...nextExercise,
+              __playerViewKey: getPlayerExerciseViewKey(nextExercise, {
+                sessionIndex,
+                exerciseIndex: nextExerciseIndex,
+              }),
+            }
+          : null
+      );
       closeDeleteExerciseConfirm();
       closeExerciseEditor();
 
@@ -3784,7 +3819,11 @@ export default function SessionPlayer() {
         ? curDet["Repos (min:sec)"]
         : getFieldValue(ex, FIELD_MAP.repos) ?? 0;
     const restRaw = getCurrentPerformanceValue("Repos (min:sec)", plannedRestRaw);
-    const restNow = toSeconds(restRaw);
+    const restNow = getTrackedTimerSeconds(
+      ex,
+      "Repos (min:sec)",
+      toSeconds(restRaw)
+    );
     restSecRef.current = restNow;
     const completedSetKey = captureCurrentSetPerformance();
     activeRestPerformanceRef.current = null;
@@ -3846,7 +3885,13 @@ export default function SessionPlayer() {
   useEffect(() => {
     if (phase !== "rest" || isPaused) return;
     if (restEndingFeedbackPlayedRef.current) return;
-    if (restSecRef.current <= 5 || Number(restTimer.seconds) !== 5) return;
+    const activeTimerDuration = Math.max(
+      0,
+      Number(
+        activeRestPerformanceRef.current?.timerDurationSeconds ?? restSecRef.current
+      ) || 0
+    );
+    if (activeTimerDuration <= 5 || Number(restTimer.seconds) !== 5) return;
     restEndingFeedbackPlayedRef.current = true;
     emitPlayerFeedback("restEnding");
   }, [phase, isPaused, restTimer.seconds]);
@@ -4179,6 +4224,7 @@ export default function SessionPlayer() {
 
   useEffect(() => {
     let cancelled = false;
+    const resolutionRevision = ++exerciseResolutionRevisionRef.current;
 
     async function run() {
       const currentExercise = flat[exIndex];
@@ -4188,17 +4234,30 @@ export default function SessionPlayer() {
       }
 
       const preferredSex = inferSexPreference(clientData, user, programData);
+      const exerciseViewKey = getPlayerExerciseViewKey(currentExercise, {
+        sessionIndex,
+        exerciseIndex: exIndex,
+      });
+      const sourceId = getPlayerExerciseSourceId(currentExercise);
       const cacheKey =
         `${preferredSex}::` +
         (
-          String(currentExercise?.id || currentExercise?.exerciseId || "") ||
+          sourceId ||
           String(currentExercise?.nom || currentExercise?.name || "") ||
           `${sessionIndex}-${exIndex}`
         );
 
+      setResolvedExercise({
+        ...currentExercise,
+        __playerViewKey: exerciseViewKey,
+      });
+
       if (exerciseMediaCacheRef.current.has(cacheKey)) {
         const cached = exerciseMediaCacheRef.current.get(cacheKey);
-        if (!cancelled) {
+        if (
+          !cancelled &&
+          resolutionRevision === exerciseResolutionRevisionRef.current
+        ) {
           setResolvedExercise({
             ...cached,
             ...currentExercise,
@@ -4206,6 +4265,7 @@ export default function SessionPlayer() {
             name: cached?.name || currentExercise?.name,
             translations: cached?.translations || currentExercise?.translations,
             media: cached?.media || currentExercise?.media,
+            __playerViewKey: exerciseViewKey,
           });
         }
         return;
@@ -4213,7 +4273,10 @@ export default function SessionPlayer() {
 
       try {
         const source = await findExerciseDocFromFirestore(currentExercise);
-        if (cancelled) return;
+        if (
+          cancelled ||
+          resolutionRevision !== exerciseResolutionRevisionRef.current
+        ) return;
 
         if (source) {
           exerciseMediaCacheRef.current.set(cacheKey, source);
@@ -4224,13 +4287,25 @@ export default function SessionPlayer() {
             name: source?.name || currentExercise?.name,
             translations: source?.translations || currentExercise?.translations,
             media: source?.media || currentExercise?.media,
+            __playerViewKey: exerciseViewKey,
           });
         } else {
-          setResolvedExercise(currentExercise);
+          setResolvedExercise({
+            ...currentExercise,
+            __playerViewKey: exerciseViewKey,
+          });
         }
       } catch (err) {
         console.error("resolve exercise media error:", err);
-        if (!cancelled) setResolvedExercise(currentExercise);
+        if (
+          !cancelled &&
+          resolutionRevision === exerciseResolutionRevisionRef.current
+        ) {
+          setResolvedExercise({
+            ...currentExercise,
+            __playerViewKey: exerciseViewKey,
+          });
+        }
       }
     }
 
@@ -4270,8 +4345,16 @@ export default function SessionPlayer() {
     const durRaw = getCurrentPerformanceValue("Durée (min:sec)", plannedDurRaw);
     const restRaw = getCurrentPerformanceValue("Repos (min:sec)", plannedRestRaw);
 
-    const dur = toSeconds(durRaw);
-    const rest = toSeconds(restRaw);
+    const dur = getTrackedTimerSeconds(
+      ex,
+      "Durée (min:sec)",
+      toSeconds(durRaw)
+    );
+    const rest = getTrackedTimerSeconds(
+      ex,
+      "Repos (min:sec)",
+      toSeconds(restRaw)
+    );
 
     durSecRef.current = dur;
     restSecRef.current = rest;
@@ -4347,10 +4430,24 @@ export default function SessionPlayer() {
         : getFieldValue(ex, FIELD_MAP.repos) ?? 0;
     const durRaw = getCurrentPerformanceValue("Durée (min:sec)", plannedDurRaw);
     const restRaw = getCurrentPerformanceValue("Repos (min:sec)", plannedRestRaw);
-    const dur = toSeconds(durRaw);
-    const rest = toSeconds(restRaw);
+    const previousDuration = durSecRef.current;
+    const dur = getTrackedTimerSeconds(
+      ex,
+      "Durée (min:sec)",
+      toSeconds(durRaw)
+    );
+    const rest = getTrackedTimerSeconds(
+      ex,
+      "Repos (min:sec)",
+      toSeconds(restRaw)
+    );
     durSecRef.current = dur;
     restSecRef.current = rest;
+    if (phase === "effort" && previousDuration > 0 && dur === 0) {
+      effortTimer.stop();
+      effortElapsedTimer.reset();
+      if (!isPaused) effortElapsedTimer.start();
+    }
     if (phase === "ready") {
       effortTimer.reset(dur);
       effortElapsedTimer.reset();
@@ -4511,12 +4608,16 @@ export default function SessionPlayer() {
   }
 
   function beginCurrentSetRestPerformance(key, plannedSeconds) {
+    const normalizedSeconds = Math.max(0, Number(plannedSeconds) || 0);
     activeRestPerformanceRef.current = key
       ? {
           key,
           exerciseIndex: exIndex,
           setIndex: currentSet,
-          plannedSeconds: Math.max(0, Number(plannedSeconds) || 0),
+          plannedSeconds: normalizedSeconds,
+          timerDurationSeconds: normalizedSeconds,
+          timerOriginalDurationSeconds: normalizedSeconds,
+          timerAdjustmentSeconds: 0,
         }
       : null;
   }
@@ -4529,8 +4630,26 @@ export default function SessionPlayer() {
     if (!entry?.set) return;
 
     const plannedSeconds = Math.max(0, Number(activeRest.plannedSeconds) || 0);
+    const timerDurationSeconds = Math.max(
+      0,
+      Number(activeRest.timerDurationSeconds ?? plannedSeconds) || 0
+    );
+    const timerOriginalDurationSeconds = Math.max(
+      0,
+      Number(activeRest.timerOriginalDurationSeconds ?? timerDurationSeconds) || 0
+    );
+    const timerAdjustmentSeconds = Math.max(
+      0,
+      Number(activeRest.timerAdjustmentSeconds) || 0
+    );
     const remainingSeconds = Math.max(0, Number(restTimer.seconds) || 0);
-    const actualRestSeconds = Math.max(0, Math.min(plannedSeconds, plannedSeconds - remainingSeconds));
+    const actualRestSeconds = Math.max(
+      0,
+      Math.min(
+        timerOriginalDurationSeconds,
+        timerOriginalDurationSeconds - remainingSeconds - timerAdjustmentSeconds
+      )
+    );
     const values = { ...(entry.set.values || {}) };
     if (plannedSeconds > 0) {
       values["Repos (min:sec)"] = {
@@ -4608,12 +4727,26 @@ export default function SessionPlayer() {
         restSecRef.current = value;
 
         if (phase === "rest") {
-          restTimer.stop();
-          restTimer.reset(value);
+          // Never add time to a running rest. A shorter prescription caps the
+          // remaining countdown; a longer one is saved only for future sets.
+          const beforeCap = restTimer.getSnapshot();
+          const capped = restTimer.capAt(value);
           if (activeRestPerformanceRef.current) {
             activeRestPerformanceRef.current.plannedSeconds = value;
+            activeRestPerformanceRef.current.timerDurationSeconds = Math.max(
+              capped.seconds,
+              Math.min(
+                Number(activeRestPerformanceRef.current.timerDurationSeconds) ||
+                  beforeCap.seconds,
+                value
+              )
+            );
+            activeRestPerformanceRef.current.timerAdjustmentSeconds =
+              Math.max(
+                0,
+                Number(activeRestPerformanceRef.current.timerAdjustmentSeconds) || 0
+              ) + Math.max(0, beforeCap.seconds - capped.seconds);
           }
-          if (!isPaused && value > 0) restTimer.start();
         } else if (phase === "ready") {
           restTimer.reset(value);
         }
@@ -4994,10 +5127,25 @@ export default function SessionPlayer() {
   const seriesDiffBg = useColorModeValue("gray.50", "gray.700");
   const effortGaugeColor = useColorModeValue("gray.900", "gray.100");
   const activeGaugeColor = phase === "rest" ? "green.400" : effortGaugeColor;
-  const historyExercise = resolvedExercise || flat[exIndex];
+  const activeRestTimerDuration = Math.max(
+    0,
+    Number(
+      activeRestPerformanceRef.current?.timerDurationSeconds ?? restSecRef.current
+    ) || 0
+  );
+  const currentFlatExercise = flat[exIndex];
+  const currentExerciseViewKey = getPlayerExerciseViewKey(currentFlatExercise, {
+    sessionIndex,
+    exerciseIndex: exIndex,
+  });
+  const visibleResolvedExercise =
+    resolvedExercise?.__playerViewKey === currentExerciseViewKey
+      ? resolvedExercise
+      : currentFlatExercise;
+  const historyExercise = visibleResolvedExercise || currentFlatExercise;
   const historyExerciseTargets = useMemo(
-    () => [resolvedExercise, flat[exIndex]].filter(Boolean),
-    [resolvedExercise, flat, exIndex]
+    () => [visibleResolvedExercise, currentFlatExercise].filter(Boolean),
+    [visibleResolvedExercise, currentFlatExercise]
   );
   const exerciseHistoryItems = useMemo(() => {
     if (!historyExercise) return [];
@@ -5053,7 +5201,7 @@ export default function SessionPlayer() {
 
   const ex = flat[exIndex];
   const translatedExercise = enrichExerciseWithTranslation(
-    resolvedExercise || ex,
+    visibleResolvedExercise || ex,
     exerciseTranslationMaps,
     activeLanguage
   );
@@ -5345,7 +5493,7 @@ export default function SessionPlayer() {
 
         <AnimatePresence mode="wait">
           <motion.div
-            key={`${ex.nom || ex.id || exIndex}-${preferredSex}`}
+            key={`${currentExerciseViewKey}-${preferredSex}`}
             initial={{ opacity: 0, x: 40 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -40 }}
@@ -5390,12 +5538,11 @@ export default function SessionPlayer() {
                     <Box position="relative" lineHeight="0">
                       <CircularProgress
                         value={
-                          phase === "effort"
-                            ? durSecRef.current > 0
-                              ? ((durSecRef.current - effortTimer.seconds) / Math.max(1, durSecRef.current)) * 100
-                              : 0
+                          phase === "effort" && durSecRef.current > 0
+                            ? ((durSecRef.current - effortTimer.seconds) / Math.max(1, durSecRef.current)) * 100
                             : phase === "rest"
-                              ? ((restSecRef.current - restTimer.seconds) / Math.max(1, restSecRef.current)) * 100
+                              ? ((activeRestTimerDuration - restTimer.seconds) /
+                                  Math.max(1, activeRestTimerDuration)) * 100
                               : (Math.max(1, activeSetNumber) / Math.max(1, setCount)) * 100
                         }
                         size={progressSize}
@@ -5404,7 +5551,8 @@ export default function SessionPlayer() {
                         trackColor={progressTrackColor}
                       >
                         <CircularProgressLabel>
-                          {phase === "ready" ? (
+                          {phase === "ready" ||
+                          (phase === "effort" && durSecRef.current <= 0) ? (
                             <Heading
                               fontSize={{ base: "40px", md: "52px" }}
                               lineHeight="1"
@@ -5593,7 +5741,11 @@ export default function SessionPlayer() {
                   )}
                 </HStack>
 
-                <ExerciseMediaPanel exercise={displayExercise} preferredSex={preferredSex} />
+                <ExerciseMediaPanel
+                  key={`${currentExerciseViewKey}-${preferredSex}`}
+                  exercise={displayExercise}
+                  preferredSex={preferredSex}
+                />
 
                 <Box display={{ base: "none", lg: "block" }}>
                   {displayExercise?.contraintes && (

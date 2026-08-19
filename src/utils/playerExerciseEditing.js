@@ -57,9 +57,10 @@ const indexedEntries = (value) => {
     }));
 };
 
-const exerciseCanonicalId = (exercise = {}) =>
+export const getPlayerExerciseSourceId = (exercise = {}) =>
   String(
-    exercise.exerciseId ||
+    exercise.sourceExerciseId ||
+      exercise.exerciseId ||
       exercise.exercise_id ||
       exercise.__docId ||
       exercise.docId ||
@@ -67,6 +68,21 @@ const exerciseCanonicalId = (exercise = {}) =>
       exercise.id ||
       ""
   ).trim();
+
+export const getPlayerExerciseViewKey = (
+  exercise = {},
+  { sessionIndex = "", exerciseIndex = "" } = {}
+) => {
+  const sourceId = getPlayerExerciseSourceId(exercise);
+  const instanceId = String(exercise?.id || "").trim();
+  const name = String(
+    exercise?.nom || exercise?.name || exercise?.title || ""
+  ).trim();
+
+  return [sessionIndex, exerciseIndex, instanceId, sourceId, name]
+    .map((value) => String(value ?? "").trim())
+    .join("::");
+};
 
 const isTimedExercise = (exercise = {}) => {
   const source = [
@@ -93,7 +109,7 @@ export function buildPlayerExerciseFromBank(
 ) {
   const selected = clone(selectedExercise || {});
   const previous = previousExercise ? clone(previousExercise) : null;
-  const canonicalId = exerciseCanonicalId(selected);
+  const canonicalId = getPlayerExerciseSourceId(selected);
   const timed = isTimedExercise(selected);
   const optionsOrder =
     Array.isArray(selected.optionsOrder) && selected.optionsOrder.length
@@ -130,7 +146,7 @@ export function buildPlayerExerciseFromBank(
     PRESERVED_REPLACEMENT_FIELDS.forEach((field) => {
       if (previous[field] !== undefined) next[field] = clone(previous[field]);
     });
-    const previousId = exerciseCanonicalId(previous);
+    const previousId = getPlayerExerciseSourceId(previous);
     if (previousId) next.replacesExerciseId = previousId;
   }
 

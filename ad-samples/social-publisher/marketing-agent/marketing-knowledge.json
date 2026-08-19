@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updatedAt": "2026-08-18T06:21:05.534Z",
+  "updatedAt": "2026-08-18T23:53:13.297Z",
   "primaryKpi": "free_trial_starts",
   "secondaryKpi": "activation_day_7",
   "activationSignals": [
@@ -1686,9 +1686,9 @@
       "activatedAudiences": []
     },
     "latestReport": {
-      "id": "2026-08-17-growth-report",
-      "generatedAt": "2026-08-18T06:21:05.531Z",
-      "date": "2026-08-17",
+      "id": "2026-08-18-growth-report",
+      "generatedAt": "2026-08-18T23:53:13.294Z",
+      "date": "2026-08-18",
       "primaryKpi": "free_trial_starts",
       "secondaryKpi": "activation_day_7",
       "activationSignals": [
@@ -1792,6 +1792,21 @@
           "detail": ""
         },
         {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
+          "network": "tiktok",
+          "reason": "tiktok_not_approved",
+          "detail": ""
+        },
+        {
+          "network": "calendar",
+          "reason": "kill_switch_active",
+          "detail": ""
+        },
+        {
           "network": "tiktok",
           "reason": "tiktok_not_approved",
           "detail": ""
@@ -1820,29 +1835,14 @@
           "network": "calendar",
           "reason": "kill_switch_active",
           "detail": ""
-        },
-        {
-          "network": "calendar",
-          "reason": "kill_switch_active",
-          "detail": ""
-        },
-        {
-          "network": "tiktok",
-          "reason": "tiktok_not_approved",
-          "detail": ""
-        },
-        {
-          "network": "instagram",
-          "reason": "fresh_media_required",
-          "detail": "daily_media_missing"
         }
       ],
-      "learningEntryCount": 245
+      "learningEntryCount": 240
     }
   },
   "brand": {
     "version": "1.0.0",
-    "updatedAt": "2026-08-18T06:21:05.530Z",
+    "updatedAt": "2026-08-18T23:53:13.293Z",
     "brandScore": 63,
     "dimensions": {
       "premium": 60,

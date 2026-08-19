@@ -33,6 +33,7 @@
     "test:sport-engine": "node scripts/testSportEngineMatrix.cjs",
     "test:exercise-history": "node scripts/testExerciseHistoryIdentity.mjs",
     "test:player-exercise-editing": "node scripts/testPlayerExerciseEditing.mjs",
+    "test:player-timer-editing": "node scripts/testPlayerTimerEditing.mjs",
     "test:player-builder-sync": "node scripts/testPlayerBuilderSync.mjs",
     "test:calendar-functions": "npm --prefix functions test",
     "test:exercise-search": "node scripts/testExerciseSearchRanking.mjs",
