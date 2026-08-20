@@ -5538,8 +5538,10 @@ export default function SessionPlayer() {
                     <Box position="relative" lineHeight="0">
                       <CircularProgress
                         value={
-                          phase === "effort" && durSecRef.current > 0
-                            ? ((durSecRef.current - effortTimer.seconds) / Math.max(1, durSecRef.current)) * 100
+                          phase === "effort"
+                            ? durSecRef.current > 0
+                              ? ((durSecRef.current - effortTimer.seconds) / Math.max(1, durSecRef.current)) * 100
+                              : 0
                             : phase === "rest"
                               ? ((activeRestTimerDuration - restTimer.seconds) /
                                   Math.max(1, activeRestTimerDuration)) * 100
@@ -5551,8 +5553,7 @@ export default function SessionPlayer() {
                         trackColor={progressTrackColor}
                       >
                         <CircularProgressLabel>
-                          {phase === "ready" ||
-                          (phase === "effort" && durSecRef.current <= 0) ? (
+                          {phase === "ready" ? (
                             <Heading
                               fontSize={{ base: "40px", md: "52px" }}
                               lineHeight="1"

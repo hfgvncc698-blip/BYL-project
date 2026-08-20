@@ -1136,7 +1136,6 @@ function AppContent() {
               </AdminRoute>
             }
           />
-          <Route path="/admin/social-publisher" element={<Navigate to="/admin/emails" replace />} />
           <Route
             path="/admin/client/:id"
             element={

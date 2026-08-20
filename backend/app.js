@@ -1,6 +1,5 @@
 const path = require('path');
 const fs = require('fs');
-const { pathToFileURL } = require('url');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 require('dotenv').config({ path: path.join(__dirname, '.env'), override: true });
 
@@ -48,7 +47,6 @@ app.disable('x-powered-by');
 // à toute la chaîne X-Forwarded-For, sinon un client peut falsifier son IP et
 // contourner les limites de requêtes.
 app.set('trust proxy', 'loopback');
-const { getBearerToken, getUserRole, safeSecretEqual } = require('./utils/firebaseAuth');
 
 // Sécurité
 app.use(
@@ -135,119 +133,6 @@ console.log(
   '[Stripe] Webhook mounted at /api/payments/stripe-webhook (raw body enabled)'
 );
 
-const socialPublisherModuleCandidates = [
-  process.env.SOCIAL_PUBLISHER_DASHBOARD_MODULE,
-  path.join(__dirname, '..', 'ad-samples', 'social-publisher', 'src', 'dashboard-server.mjs'),
-  path.join(__dirname, 'ad-samples', 'social-publisher', 'src', 'dashboard-server.mjs'),
-].filter(Boolean);
-
-function resolveSocialPublisherModulePath() {
-  return (
-    socialPublisherModuleCandidates.find((candidate) => fs.existsSync(candidate)) ||
-    socialPublisherModuleCandidates[0]
-  );
-}
-
-const socialPublisherModuleUrl = pathToFileURL(resolveSocialPublisherModulePath()).href;
-let socialPublisherModulePromise;
-
-function getSocialPublisherModule() {
-  if (!socialPublisherModulePromise) {
-    socialPublisherModulePromise = import(socialPublisherModuleUrl);
-  }
-  return socialPublisherModulePromise;
-}
-
-function mapSocialPublisherUrl(url = '/') {
-  const raw = url || '/';
-  if (
-    raw.startsWith('/api/') ||
-    raw.startsWith('/media/') ||
-    raw.startsWith('/social-media/') ||
-    raw.startsWith('/oauth/')
-  ) {
-    return raw;
-  }
-  if (raw === '/' || raw === '') return '/api/campaign';
-  if (
-    raw.startsWith('/campaign') ||
-    raw.startsWith('/connections') ||
-    raw.startsWith('/variants/') ||
-    raw.startsWith('/publish') ||
-    raw.startsWith('/daily/') ||
-    raw.startsWith('/learning/')
-  ) {
-    return `/api${raw}`;
-  }
-  return raw;
-}
-
-function isLocalAdminRequest(req) {
-  const host = String(req.hostname || req.headers.host || '');
-  return (
-    host.includes('localhost') ||
-    host.includes('127.0.0.1') ||
-    req.ip === '::1' ||
-    req.ip === '127.0.0.1'
-  );
-}
-
-function isSocialPublisherPublicAsset(req) {
-  return (
-    (req.method === 'GET' || req.method === 'HEAD') &&
-    (req.path.startsWith('/media/') || req.path.startsWith('/social-media/'))
-  );
-}
-
-async function hasSocialPublisherAdminAccess(req) {
-  if (!process.env.ADMIN_SEARCH_KEY && process.env.NODE_ENV !== 'production' && isLocalAdminRequest(req)) {
-    return true;
-  }
-
-  const key =
-    req.headers['x-admin-key'] ||
-    req.headers['x_admin_key'] ||
-    '';
-  const expected = process.env.ADMIN_SEARCH_KEY || '';
-  if (safeSecretEqual(key, expected)) return true;
-
-  try {
-    const token = getBearerToken(req);
-    if (!token) return false;
-    const decoded = await admin.auth().verifyIdToken(token);
-    const role = await getUserRole(decoded.uid);
-    return decoded.email_verified === true && role === 'admin';
-  } catch (error) {
-    console.warn('[social-publisher/admin] invalid auth:', error?.message || error);
-    return false;
-  }
-}
-
-// Social Publisher: mêmes données que le dashboard local, exposées derrière l'API admin.
-// Cette route est placée avant express.json afin de laisser le serveur publisher lire les POST.
-app.use('/api/social-publisher', async (req, res, next) => {
-  const originalUrl = req.url;
-  try {
-    if (!isSocialPublisherPublicAsset(req) && !(await hasSocialPublisherAdminAccess(req))) {
-      return res.status(403).json({ error: 'forbidden' });
-    }
-    const { handleRequest } = await getSocialPublisherModule();
-    req.url = mapSocialPublisherUrl(req.url);
-    return handleRequest(req, res);
-  } catch (error) {
-    req.url = originalUrl;
-    console.error('[social-publisher] request failed:', error?.stack || error?.message || error);
-    if (!res.headersSent) {
-      return res.status(500).json({
-        ok: false,
-        error: 'social_publisher_unavailable',
-      });
-    }
-    return next(error);
-  } finally {
-    req.url = originalUrl;
-  }
-});
 
 // Le corps général reste volontairement petit. Seul l'upload de logo club a
 // besoin d'une enveloppe plus large à cause de l'encodage base64.

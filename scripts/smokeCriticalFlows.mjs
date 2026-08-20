@@ -525,7 +525,6 @@ check("security boundaries stay fail-closed", () => {
   const adminEmails = read("backend/routes/adminEmails.js");
   const firestoreRules = read("firestore.rules");
   const storageRules = read("storage.rules");
-  const socialPage = read("src/pages/AdminSocialPublisher.jsx");
   const indexHtml = read("index.html");
   const nginxHeaders = read("nginx/boostyourlife-security-headers.conf");
 
@@ -556,11 +555,6 @@ check("security boundaries stay fail-closed", () => {
   assert.ok(
     !storageRules.includes("match /{allPaths=**} {\n      allow read: if signedIn()"),
     "Storage must not grant every authenticated user a global read"
-  );
-  assert.ok(
-    socialPage.includes('sandbox="allow-scripts allow-forms allow-popups allow-downloads"') &&
-      !socialPage.includes("SOCIAL_PUBLISHER_AUTHORIZATION"),
-    "The embedded publisher must be sandboxed and must never receive the Firebase token"
   );
   assert.ok(
     nginxHeaders.includes("Content-Security-Policy") && nginxHeaders.includes("Strict-Transport-Security"),
@@ -623,7 +617,6 @@ check("admin email history is lazy and automatic sends are deduplicated", () => 
   const appSource = read("src/App.jsx");
   const globalEmailPage = read("src/pages/AdminEmails.jsx");
   assert.ok(appSource.includes('AdminEmails: () => import("./pages/AdminEmails.jsx")'), "Global admin email page must be lazy");
-  assert.ok(appSource.includes('path="/admin/social-publisher" element={<Navigate to="/admin/emails" replace />}'), "Old Social Publisher route must redirect to global emails");
   assert.ok(globalEmailPage.includes("Ne pas envoyer"), "Global email planning must allow cancellation");
   assert.ok(
     globalEmailPage.includes("Éligible à partir du") &&
