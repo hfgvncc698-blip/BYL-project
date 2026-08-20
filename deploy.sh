@@ -270,19 +270,97 @@ ts="$(date +%Y%m%d-%H%M%S)"
 ARCHIVE="byl-dist-${ts}.tgz"
 BACKEND_ARCHIVE="byl-backend-${ts}.tgz"
 BACKEND_STAGE="${TMPDIR:-/tmp}/byl-backend-stage-${ts}"
-SSH_CONTROL_PATH="${TMPDIR:-/tmp}/byl-deploy-${USER}-${HOST}-%p"
-SSH_OPTS=(-o ControlMaster=auto -o ControlPersist=10m -o ControlPath="${SSH_CONTROL_PATH}")
+# Le chemin doit rester court (macOS limite fortement la longueur des sockets Unix).
+# La connexion maitre evite de redemander le mot de passe SSH a chaque scp/ssh.
+SSH_CONTROL_PATH="/tmp/byl-ssh-${UID}-%C"
+SSH_OPTS=(
+  -o ControlMaster=auto
+  -o ControlPersist=yes
+  -o ControlPath="${SSH_CONTROL_PATH}"
+  -o ServerAliveInterval=30
+  -o ServerAliveCountMax=4
+)
+SSH_MASTER_STARTED=false
+REMOTE_SUDO_PASSWORD=""
+REMOTE_SUDO_REQUIRES_PASSWORD=false
 REMOTE_SCRIPT="/tmp/byl-deploy-${ts}.sh"
 REMOTE_SCRIPT_LOCAL="${TMPDIR:-/tmp}/byl-deploy-${ts}.sh"
 REMOTE_STORAGE_SCRIPT="/tmp/byl-storage-cleanup-${ts}.sh"
 REMOTE_STORAGE_SCRIPT_LOCAL="${TMPDIR:-/tmp}/byl-storage-cleanup-${ts}.sh"
 
 cleanup() {
-  ssh "${SSH_OPTS[@]}" -O exit "${USER}@${HOST}" >/dev/null 2>&1 || true
+  if [ "$SSH_MASTER_STARTED" = true ]; then
+    ssh "${SSH_OPTS[@]}" -O exit "${USER}@${HOST}" >/dev/null 2>&1 || true
+  fi
+  REMOTE_SUDO_PASSWORD=""
   rm -f "${ARCHIVE}" "${BACKEND_ARCHIVE}" "${REMOTE_SCRIPT_LOCAL}" "${REMOTE_STORAGE_SCRIPT_LOCAL}"
   rm -rf "${BACKEND_STAGE}"
 }
 trap cleanup EXIT
+
+open_remote_connection() {
+  echo "Ouverture d'une connexion SSH persistante vers ${USER}@${HOST}..."
+  ssh "${SSH_OPTS[@]}" -MNf "${USER}@${HOST}"
+  SSH_MASTER_STARTED=true
+  ssh "${SSH_OPTS[@]}" -O check "${USER}@${HOST}" >/dev/null
+  echo "Connexion SSH validee. Elle sera reutilisee pendant tout le deploy."
+}
+
+prepare_remote_sudo() {
+  # Verifie le vrai mode sans mot de passe, independamment d'un ancien cache sudo.
+  if ssh -T "${SSH_OPTS[@]}" "${USER}@${HOST}" "sudo -n -k true" >/dev/null 2>&1; then
+    REMOTE_SUDO_REQUIRES_PASSWORD=false
+    echo "Autorisation sudo distante sans mot de passe validee."
+    return 0
+  fi
+
+  REMOTE_SUDO_REQUIRES_PASSWORD=true
+  local attempt
+  for attempt in 1 2 3; do
+    read -r -s -p "Mot de passe sudo du VPS (saisi une seule fois) : " REMOTE_SUDO_PASSWORD
+    echo
+
+    if [ -z "$REMOTE_SUDO_PASSWORD" ]; then
+      echo "Le mot de passe ne peut pas etre vide."
+      continue
+    fi
+
+    # Le secret passe uniquement par stdin : jamais dans un fichier ni dans
+    # les arguments visibles par les autres processus.
+    if printf '%s\n' "$REMOTE_SUDO_PASSWORD" |
+      ssh -T "${SSH_OPTS[@]}" "${USER}@${HOST}" "sudo -S -k -p '' -v"; then
+      echo "Mot de passe sudo valide."
+      return 0
+    fi
+
+    REMOTE_SUDO_PASSWORD=""
+    echo "Mot de passe sudo refuse (tentative ${attempt}/3)."
+  done
+
+  echo "Impossible de valider sudo apres 3 tentatives. Deploy annule."
+  return 1
+}
+
+run_remote_root_script() {
+  local remote_command="$1"
+  if [ "$REMOTE_SUDO_REQUIRES_PASSWORD" = true ]; then
+    printf '%s\n' "$REMOTE_SUDO_PASSWORD" |
+      ssh -T "${SSH_OPTS[@]}" "${USER}@${HOST}" "sudo -S -k -p '' -- ${remote_command}"
+  else
+    ssh -T "${SSH_OPTS[@]}" "${USER}@${HOST}" "sudo -n -- ${remote_command}"
+  fi
+}
+
+run_remote_deploy_script() {
+  if [ "$REMOTE_SUDO_REQUIRES_PASSWORD" = true ]; then
+    printf '%s\n' "$REMOTE_SUDO_PASSWORD" |
+      ssh -T "${SSH_OPTS[@]}" "${USER}@${HOST}" \
+        "sudo -S -k -p '' -v && exec bash '${REMOTE_SCRIPT}'"
+  else
+    ssh -T "${SSH_OPTS[@]}" "${USER}@${HOST}" \
+      "sudo -n -v && exec bash '${REMOTE_SCRIPT}'"
+  fi
+}
 
 prepare_remote_storage() {
   echo "Preparation du nettoyage distant -> ${REMOTE_STORAGE_SCRIPT_LOCAL}"
@@ -346,13 +424,15 @@ REMOTE_STORAGE_CLEANUP
   scp "${SSH_OPTS[@]}" "${REMOTE_STORAGE_SCRIPT_LOCAL}" "${USER}@${HOST}:${REMOTE_STORAGE_SCRIPT}"
 
   echo "Liberation et controle de l'espace distant..."
-  ssh -tt "${SSH_OPTS[@]}" "${USER}@${HOST}" \
-    "sudo bash '${REMOTE_STORAGE_SCRIPT}' '${REMOTE_WEBROOT}' '${REMOTE_FRONT_RELEASES}' '${REMOTE_BACKUPS}' '${REMOTE_MIN_FREE_MB}'; cleanup_status=\$?; rm -f '${REMOTE_STORAGE_SCRIPT}'; exit \$cleanup_status"
+  if ! run_remote_root_script \
+    "bash '${REMOTE_STORAGE_SCRIPT}' '${REMOTE_WEBROOT}' '${REMOTE_FRONT_RELEASES}' '${REMOTE_BACKUPS}' '${REMOTE_MIN_FREE_MB}'"; then
+    ssh -T "${SSH_OPTS[@]}" "${USER}@${HOST}" "rm -f '${REMOTE_STORAGE_SCRIPT}'" || true
+    return 1
+  fi
+  ssh -T "${SSH_OPTS[@]}" "${USER}@${HOST}" "rm -f '${REMOTE_STORAGE_SCRIPT}'"
 }
 
 preflight
-prepare_remote_storage
-firebase_deploy_if_requested
 
 echo
 echo "Resume du deploy:"
@@ -370,6 +450,11 @@ echo "- Port canary backend: ${REMOTE_CANARY_PORT}"
 echo "- Espace distant minimal: ${REMOTE_MIN_FREE_MB} Mo"
 echo
 confirm "Lancer le deploy maintenant ?" || exit 1
+
+open_remote_connection
+prepare_remote_sudo
+prepare_remote_storage
+firebase_deploy_if_requested
 
 if [ ! -d dist ]; then
   echo "dist introuvable apres build."
@@ -411,6 +496,7 @@ REMOTE_API_HEALTH_URL="${REMOTE_API_HEALTH_URL}"
 REMOTE_NODE_VERSION="${REMOTE_NODE_VERSION}"
 REMOTE_CANARY_PORT="${REMOTE_CANARY_PORT}"
 REMOTE_MIN_FREE_MB="${REMOTE_MIN_FREE_MB}"
+SUDO_KEEPALIVE_PID=""
 
 [ -f "\$ARCHIVE" ] || { echo "Archive manquante: \$ARCHIVE"; exit 1; }
 [ -f "\$BACKEND_ARCHIVE" ] || { echo "Archive backend manquante: \$BACKEND_ARCHIVE"; exit 1; }
@@ -420,13 +506,16 @@ REMOTE_MIN_FREE_MB="${REMOTE_MIN_FREE_MB}"
 [[ "\$REMOTE_BACKEND" == /var/www/* ]] || { echo "REMOTE_BACKEND non autorise"; exit 1; }
 
 cleanup_remote_stage() {
+  if [ -n "\$SUDO_KEEPALIVE_PID" ]; then
+    kill "\$SUDO_KEEPALIVE_PID" >/dev/null 2>&1 || true
+  fi
   rm -rf "\$REMOTE_BACKEND_RELEASE"
   rm -f "\$ARCHIVE" "\$BACKEND_ARCHIVE" "\$REMOTE_SCRIPT"
 
   local active_front=""
   active_front="\$(readlink -f "\$REMOTE_WEBROOT" 2>/dev/null || true)"
   if [ -d "\$REMOTE_FRONT_RELEASE" ] && [ "\$active_front" != "\$REMOTE_FRONT_RELEASE" ]; then
-    sudo rm -rf "\$REMOTE_FRONT_RELEASE"
+    sudo -n rm -rf "\$REMOTE_FRONT_RELEASE"
   fi
 }
 trap cleanup_remote_stage EXIT
@@ -441,6 +530,20 @@ need_remote_command() {
 need_remote_command sudo
 need_remote_command tar
 need_remote_command curl
+
+# Le mot de passe a deja ete valide et transmis une seule fois par le script
+# local. Les appels suivants ne doivent jamais ouvrir un nouveau prompt.
+sudo -n -v || {
+  echo "L'autorisation sudo distante n'est pas disponible. Deploy annule."
+  exit 1
+}
+(
+  while true; do
+    sleep 30
+    sudo -n -v || exit 1
+  done
+) &
+SUDO_KEEPALIVE_PID="\$!"
 
 activate_remote_node() {
   local requested_major="\$REMOTE_NODE_VERSION"
@@ -487,15 +590,15 @@ activate_remote_node() {
 activate_remote_node
 
 echo "Preparation dossiers..."
-sudo mkdir -p "\$REMOTE_BACKUPS" "\$REMOTE_FRONT_RELEASES" "\$REMOTE_BACKEND"
+sudo -n mkdir -p "\$REMOTE_BACKUPS" "\$REMOTE_FRONT_RELEASES" "\$REMOTE_BACKEND"
 BK=""
 BK_BACKEND=""
 PREVIOUS_FRONT_TARGET=""
 
 echo "Extraction front dans release temporaire..."
-sudo rm -rf "\$REMOTE_FRONT_RELEASE"
-sudo mkdir -p "\$REMOTE_FRONT_RELEASE"
-sudo tar -C "\$REMOTE_FRONT_RELEASE" -xzf "\$ARCHIVE"
+sudo -n rm -rf "\$REMOTE_FRONT_RELEASE"
+sudo -n mkdir -p "\$REMOTE_FRONT_RELEASE"
+sudo -n tar -C "\$REMOTE_FRONT_RELEASE" -xzf "\$ARCHIVE"
 
 if [ ! -f "\$REMOTE_FRONT_RELEASE/index.html" ] || [ ! -d "\$REMOTE_FRONT_RELEASE/assets" ]; then
   echo "Release front invalide: index.html ou assets manquant."
@@ -507,11 +610,11 @@ fi
 # la nouvelle release avant la bascule, puis on ne garde que huit jours.
 if [ -d "\$REMOTE_WEBROOT/assets" ]; then
   echo "Conservation des assets encore references par les navigateurs..."
-  sudo cp -an "\$REMOTE_WEBROOT/assets/." "\$REMOTE_FRONT_RELEASE/assets/"
+  sudo -n cp -an "\$REMOTE_WEBROOT/assets/." "\$REMOTE_FRONT_RELEASE/assets/"
 fi
-sudo find "\$REMOTE_FRONT_RELEASE/assets" -type f -mtime +8 -delete
-sudo chown -R www-data:www-data "\$REMOTE_FRONT_RELEASE"
-sudo chmod -R 755 "\$REMOTE_FRONT_RELEASE"
+sudo -n find "\$REMOTE_FRONT_RELEASE/assets" -type f -mtime +8 -delete
+sudo -n chown -R www-data:www-data "\$REMOTE_FRONT_RELEASE"
+sudo -n chmod -R 755 "\$REMOTE_FRONT_RELEASE"
 
 echo "Extraction backend dans release temporaire..."
 rm -rf "\$REMOTE_BACKEND_RELEASE"
@@ -594,7 +697,7 @@ rm -f \
 echo "Backup front actuel..."
 if [ -d "\$REMOTE_WEBROOT" ] && [ "\$(ls -A "\$REMOTE_WEBROOT" 2>/dev/null | wc -l)" -gt 0 ]; then
   BK="\$REMOTE_BACKUPS/byl-\$(date +%Y%m%d-%H%M%S).tgz"
-  sudo tar -C "\$REMOTE_WEBROOT" -czf "\$BK" .
+  sudo -n tar -C "\$REMOTE_WEBROOT" -czf "\$BK" .
   echo "Backup front: \$BK"
 else
   echo "Pas de front existant a sauvegarder."
@@ -603,7 +706,7 @@ fi
 echo "Backup backend actuel..."
 if [ "\$(ls -A "\$REMOTE_BACKEND" 2>/dev/null | wc -l)" -gt 0 ]; then
   BK_BACKEND="\$REMOTE_BACKUPS/byl-backend-\$(date +%Y%m%d-%H%M%S).tgz"
-  sudo tar \
+  sudo -n tar \
     --exclude "./node_modules" \
     --exclude "./*.log" \
     -C "\$REMOTE_BACKEND" \
@@ -618,12 +721,12 @@ activate_front_release() {
   local next_link="\${REMOTE_WEBROOT}.next-${ts}"
 
   [ -d "\$target" ] || { echo "Release front introuvable: \$target"; return 1; }
-  sudo rm -f "\$next_link"
-  sudo ln -s "\$target" "\$next_link"
+  sudo -n rm -f "\$next_link"
+  sudo -n ln -s "\$target" "\$next_link"
 
   if [ -L "\$REMOTE_WEBROOT" ]; then
     # mv -T remplace le lien courant en une seule operation atomique.
-    sudo mv -Tf "\$next_link" "\$REMOTE_WEBROOT"
+    sudo -n mv -Tf "\$next_link" "\$REMOTE_WEBROOT"
     return 0
   fi
 
@@ -631,11 +734,11 @@ activate_front_release() {
     # Migration unique depuis l'ancien dossier physique. Les deploys suivants
     # passent uniquement par la branche atomique ci-dessus.
     local legacy_release="\${REMOTE_FRONT_RELEASES}/legacy-${ts}"
-    sudo mv "\$REMOTE_WEBROOT" "\$legacy_release"
+    sudo -n mv "\$REMOTE_WEBROOT" "\$legacy_release"
     PREVIOUS_FRONT_TARGET="\$legacy_release"
   fi
 
-  sudo mv -Tf "\$next_link" "\$REMOTE_WEBROOT"
+  sudo -n mv -Tf "\$next_link" "\$REMOTE_WEBROOT"
 }
 
 if [ -L "\$REMOTE_WEBROOT" ]; then
@@ -650,13 +753,13 @@ echo "Front actif: \$(readlink -f "\$REMOTE_WEBROOT")"
 
 echo "Publication backend..."
 if command -v rsync >/dev/null 2>&1; then
-  sudo rsync -a --delete \
+  sudo -n rsync -a --delete \
     --exclude ".env" \
     --exclude "serviceAccountKey.json" \
     --exclude "firebase-service-account.json" \
     "\$REMOTE_BACKEND_RELEASE"/ "\$REMOTE_BACKEND"/
 else
-  sudo find "\$REMOTE_BACKEND" -mindepth 1 -maxdepth 1 \
+  sudo -n find "\$REMOTE_BACKEND" -mindepth 1 -maxdepth 1 \
     ! -name ".env" \
     ! -name "public" \
     ! -name "serviceAccountKey.json" \
@@ -666,9 +769,9 @@ else
     --exclude ".env" \
     --exclude "serviceAccountKey.json" \
     --exclude "firebase-service-account.json" \
-    -cf - .) | sudo tar -C "\$REMOTE_BACKEND" -xf -
+    -cf - .) | sudo -n tar -C "\$REMOTE_BACKEND" -xf -
 fi
-sudo chown -R "\$USER":"\$USER" "\$REMOTE_BACKEND"
+sudo -n chown -R "\$USER":"\$USER" "\$REMOTE_BACKEND"
 
 cd "\$REMOTE_BACKEND"
 echo "Reload PM2..."
@@ -680,9 +783,9 @@ rollback_release() {
 
   if [ -n "\$BK_BACKEND" ] && [ -f "\$BK_BACKEND" ]; then
     echo "Restauration backend: \$BK_BACKEND"
-    sudo find "\$REMOTE_BACKEND" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-    sudo tar -C "\$REMOTE_BACKEND" -xzf "\$BK_BACKEND"
-    sudo chown -R "\$USER":"\$USER" "\$REMOTE_BACKEND"
+    sudo -n find "\$REMOTE_BACKEND" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+    sudo -n tar -C "\$REMOTE_BACKEND" -xzf "\$BK_BACKEND"
+    sudo -n chown -R "\$USER":"\$USER" "\$REMOTE_BACKEND"
     cd "\$REMOTE_BACKEND"
     echo "Reinstallation dependances backend apres rollback..."
     if [ -f package-lock.json ]; then
@@ -700,11 +803,11 @@ rollback_release() {
   elif [ -n "\$BK" ] && [ -f "\$BK" ]; then
     local rollback_front="\${REMOTE_FRONT_RELEASES}/rollback-${ts}"
     echo "Restauration du backup front: \$BK"
-    sudo rm -rf "\$rollback_front"
-    sudo mkdir -p "\$rollback_front"
-    sudo tar -C "\$rollback_front" -xzf "\$BK"
-    sudo chown -R www-data:www-data "\$rollback_front"
-    sudo chmod -R 755 "\$rollback_front"
+    sudo -n rm -rf "\$rollback_front"
+    sudo -n mkdir -p "\$rollback_front"
+    sudo -n tar -C "\$rollback_front" -xzf "\$BK"
+    sudo -n chown -R www-data:www-data "\$rollback_front"
+    sudo -n chmod -R 755 "\$rollback_front"
     activate_front_release "\$rollback_front"
   else
     echo "Aucun backup front disponible pour rollback."
@@ -779,7 +882,7 @@ if [ "\$api_ready" != true ]; then
 fi
 
 echo "Nettoyage distant..."
-sudo rm -f "\$ARCHIVE" "\$BACKEND_ARCHIVE"
+sudo -n rm -f "\$ARCHIVE" "\$BACKEND_ARCHIVE"
 rm -rf "\$REMOTE_BACKEND_RELEASE"
 rm -f "\$REMOTE_SCRIPT"
 
@@ -787,9 +890,9 @@ echo "Nettoyage des anciennes releases front (plus de 9 jours)..."
 active_front_target="\$(readlink -f "\$REMOTE_WEBROOT")"
 while IFS= read -r old_release; do
   if [ "\$old_release" != "\$active_front_target" ]; then
-    sudo rm -rf "\$old_release"
+    sudo -n rm -rf "\$old_release"
   fi
-done < <(sudo find "\$REMOTE_FRONT_RELEASES" -mindepth 1 -maxdepth 1 -type d -mtime +9 -print)
+done < <(sudo -n find "\$REMOTE_FRONT_RELEASES" -mindepth 1 -maxdepth 1 -type d -mtime +9 -print)
 
 trap - EXIT
 
@@ -800,6 +903,6 @@ echo "Upload vers ${USER}@${HOST}:/tmp/"
 scp "${SSH_OPTS[@]}" "${ARCHIVE}" "${BACKEND_ARCHIVE}" "${REMOTE_SCRIPT_LOCAL}" "${USER}@${HOST}:/tmp/"
 
 echo "Deploiement sur le serveur..."
-ssh -tt "${SSH_OPTS[@]}" "${USER}@${HOST}" "bash '${REMOTE_SCRIPT}'"
+run_remote_deploy_script
 
 echo "Deploy termine."

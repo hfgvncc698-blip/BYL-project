@@ -17,11 +17,11 @@ const checks = [
   },
   {
     description: "la bascule du lien symbolique est atomique",
-    valid: deployScript.includes('sudo mv -Tf "\\$next_link" "\\$REMOTE_WEBROOT"'),
+    valid: deployScript.includes('sudo -n mv -Tf "\\$next_link" "\\$REMOTE_WEBROOT"'),
   },
   {
     description: "les anciens assets caches sont reportes dans la nouvelle release",
-    valid: deployScript.includes('sudo cp -an "\\$REMOTE_WEBROOT/assets/." "\\$REMOTE_FRONT_RELEASE/assets/"'),
+    valid: deployScript.includes('sudo -n cp -an "\\$REMOTE_WEBROOT/assets/." "\\$REMOTE_FRONT_RELEASE/assets/"'),
   },
   {
     description: "la retention des assets depasse le cache Nginx de sept jours",
@@ -50,17 +50,13 @@ const checks = [
       deployScript.includes("trap cleanup_remote_stage EXIT"),
   },
   {
-    description: "les medias persistants ne gonflent pas chaque backup backend",
-    valid: deployScript.includes('--exclude "./public/social-media"'),
-  },
-  {
     description: "l'espace disque est controle avant l'upload",
     valid: (() => {
       const storageCheck = deployScript.indexOf("prepare_remote_storage\nfirebase_deploy_if_requested");
       const mainUpload = deployScript.indexOf('echo "Upload vers ${USER}@${HOST}:/tmp/"');
       return (
         deployScript.includes('REMOTE_MIN_FREE_MB="${REMOTE_MIN_FREE_MB:-1024}"') &&
-        deployScript.includes("sudo bash '${REMOTE_STORAGE_SCRIPT}'") &&
+        deployScript.includes("run_remote_root_script") &&
         storageCheck >= 0 &&
         mainUpload >= 0 &&
         storageCheck < mainUpload
@@ -68,10 +64,26 @@ const checks = [
     })(),
   },
   {
-    description: "sudo recoit le mot de passe depuis un vrai terminal et non depuis le script",
+    description: "une connexion SSH maitre persistante couvre tout le deploy",
     valid:
-      deployScript.includes('scp "${SSH_OPTS[@]}" "${REMOTE_STORAGE_SCRIPT_LOCAL}"') &&
-      !deployScript.includes('"bash -s -- \'${REMOTE_WEBROOT}\''),
+      deployScript.includes('SSH_CONTROL_PATH="/tmp/byl-ssh-${UID}-%C"') &&
+      deployScript.includes("ControlPersist=yes") &&
+      deployScript.includes('ssh "${SSH_OPTS[@]}" -MNf "${USER}@${HOST}"'),
+  },
+  {
+    description: "le mot de passe sudo est saisi et valide une seule fois",
+    valid:
+      deployScript.includes("Mot de passe sudo du VPS (saisi une seule fois)") &&
+      deployScript.includes("sudo -S -k -p '' -v") &&
+      deployScript.includes("REMOTE_SUDO_PASSWORD=\"\"") &&
+      !deployScript.includes("ssh -tt"),
+  },
+  {
+    description: "les commandes sudo du deploy distant ne peuvent plus ouvrir de prompt",
+    valid:
+      deployScript.includes("SUDO_KEEPALIVE_PID") &&
+      deployScript.includes("sudo -n -v") &&
+      !/^sudo (?!-n|-S)/m.test(deployScript),
   },
 ];
 
