@@ -17,11 +17,11 @@ const checks = [
   },
   {
     description: "la bascule du lien symbolique est atomique",
-    valid: deployScript.includes('sudo -n mv -Tf "\\$next_link" "\\$REMOTE_WEBROOT"'),
+    valid: deployScript.includes('sudo_run mv -Tf "\\$next_link" "\\$REMOTE_WEBROOT"'),
   },
   {
     description: "les anciens assets caches sont reportes dans la nouvelle release",
-    valid: deployScript.includes('sudo -n cp -an "\\$REMOTE_WEBROOT/assets/." "\\$REMOTE_FRONT_RELEASE/assets/"'),
+    valid: deployScript.includes('sudo_run cp -an "\\$REMOTE_WEBROOT/assets/." "\\$REMOTE_FRONT_RELEASE/assets/"'),
   },
   {
     description: "la retention des assets depasse le cache Nginx de sept jours",
@@ -79,11 +79,13 @@ const checks = [
       !deployScript.includes("ssh -tt"),
   },
   {
-    description: "les commandes sudo du deploy distant ne peuvent plus ouvrir de prompt",
+    description: "le deploy distant reutilise en memoire le secret deja valide",
     valid:
-      deployScript.includes("SUDO_KEEPALIVE_PID") &&
-      deployScript.includes("sudo -n -v") &&
-      !/^sudo (?!-n|-S)/m.test(deployScript),
+      deployScript.includes('"exec bash \'${REMOTE_SCRIPT}\' --sudo-password-stdin"') &&
+      deployScript.includes("IFS= read -r REMOTE_SUDO_PASSWORD") &&
+      deployScript.includes("sudo_run()") &&
+      deployScript.includes("command sudo -S -p '' --") &&
+      !deployScript.includes("SUDO_KEEPALIVE_PID"),
   },
 ];
 
