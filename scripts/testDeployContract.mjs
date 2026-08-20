@@ -40,8 +40,8 @@ const checks = [
   {
     description: "les attributs macOS ne sont pas ajoutes aux archives",
     valid:
-      deployScript.includes("COPYFILE_DISABLE=1 COPY_EXTENDED_ATTRIBUTES_DISABLE=1 tar -C dist") &&
-      deployScript.includes("COPYFILE_DISABLE=1 COPY_EXTENDED_ATTRIBUTES_DISABLE=1 tar -C \"${BACKEND_STAGE}\""),
+      deployScript.includes("COPYFILE_DISABLE=1 COPY_EXTENDED_ATTRIBUTES_DISABLE=1 tar --no-xattrs -C dist") &&
+      deployScript.includes("COPYFILE_DISABLE=1 COPY_EXTENDED_ATTRIBUTES_DISABLE=1 tar --no-xattrs -C \"${BACKEND_STAGE}\""),
   },
   {
     description: "les fichiers temporaires distants sont nettoyes meme apres un echec",
@@ -86,6 +86,30 @@ const checks = [
       deployScript.includes("sudo_run()") &&
       deployScript.includes("command sudo -S -p '' --") &&
       !deployScript.includes("SUDO_KEEPALIVE_PID"),
+  },
+  {
+    description: "la publication backend ne partage jamais stdin entre sudo et tar",
+    valid:
+      !/\|\s*sudo_run/.test(deployScript) &&
+      deployScript.includes('REMOTE_BACKEND_SYNC_ARCHIVE="/tmp/byl-backend-sync-${ts}.tar"') &&
+      deployScript.includes('tar -tf "\\$REMOTE_BACKEND_SYNC_ARCHIVE" >/dev/null') &&
+      deployScript.includes('sudo_run tar -C "\\$REMOTE_BACKEND" -xf "\\$REMOTE_BACKEND_SYNC_ARCHIVE"'),
+  },
+  {
+    description: "tout echec de publication declenche un rollback automatique",
+    valid:
+      deployScript.includes("set -Eeuo pipefail") &&
+      deployScript.includes("handle_release_error()") &&
+      deployScript.includes("trap handle_release_error ERR") &&
+      deployScript.includes("Echec pendant la publication. Restauration de la version precedente."),
+  },
+  {
+    description: "un backend incomplet n'ecrase pas la derniere sauvegarde exploitable",
+    valid:
+      deployScript.includes('[ -f "\\$REMOTE_BACKEND/app.js" ]') &&
+      deployScript.includes('[ -f "\\$REMOTE_BACKEND/package.json" ]') &&
+      deployScript.includes("Derniere sauvegarde backend complete reutilisee") &&
+      deployScript.includes("Aucune sauvegarde backend complete disponible pour un rollback"),
   },
 ];
 

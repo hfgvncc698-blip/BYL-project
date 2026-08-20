@@ -463,26 +463,27 @@ if [ ! -d dist ]; then
 fi
 
 echo "Archive dist -> ${ARCHIVE}"
-COPYFILE_DISABLE=1 COPY_EXTENDED_ATTRIBUTES_DISABLE=1 tar -C dist -czf "${ARCHIVE}" .
+COPYFILE_DISABLE=1 COPY_EXTENDED_ATTRIBUTES_DISABLE=1 tar --no-xattrs -C dist -czf "${ARCHIVE}" .
 
 echo "Archive backend -> ${BACKEND_ARCHIVE}"
 rm -rf "${BACKEND_STAGE}"
 mkdir -p "${BACKEND_STAGE}"
 COPYFILE_DISABLE=1 COPY_EXTENDED_ATTRIBUTES_DISABLE=1 tar \
+  --no-xattrs \
   --exclude "node_modules" \
   --exclude ".env" \
   --exclude "serviceAccountKey.json" \
   --exclude "firebase-service-account.json" \
   --exclude "*.log" \
   -C backend \
-  -cf - . | tar -C "${BACKEND_STAGE}" -xf -
+  -cf - . | tar --no-xattrs -C "${BACKEND_STAGE}" -xf -
 
-COPYFILE_DISABLE=1 COPY_EXTENDED_ATTRIBUTES_DISABLE=1 tar -C "${BACKEND_STAGE}" -czf "${BACKEND_ARCHIVE}" .
+COPYFILE_DISABLE=1 COPY_EXTENDED_ATTRIBUTES_DISABLE=1 tar --no-xattrs -C "${BACKEND_STAGE}" -czf "${BACKEND_ARCHIVE}" .
 
 echo "Preparation du script distant -> ${REMOTE_SCRIPT_LOCAL}"
 cat > "${REMOTE_SCRIPT_LOCAL}" <<EOF
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 ARCHIVE="/tmp/${ARCHIVE}"
 BACKEND_ARCHIVE="/tmp/${BACKEND_ARCHIVE}"
@@ -493,6 +494,7 @@ REMOTE_FRONT_RELEASES="${REMOTE_FRONT_RELEASES}"
 REMOTE_FRONT_RELEASE="${REMOTE_FRONT_RELEASES}/release-${ts}"
 REMOTE_BACKEND="${REMOTE_BACKEND}"
 REMOTE_BACKEND_RELEASE="/tmp/byl-backend-release-${ts}"
+REMOTE_BACKEND_SYNC_ARCHIVE="/tmp/byl-backend-sync-${ts}.tar"
 REMOTE_API_HEALTH_URL="${REMOTE_API_HEALTH_URL}"
 REMOTE_NODE_VERSION="${REMOTE_NODE_VERSION}"
 REMOTE_CANARY_PORT="${REMOTE_CANARY_PORT}"
@@ -509,7 +511,7 @@ REMOTE_SUDO_PASSWORD=""
 
 cleanup_remote_stage() {
   rm -rf "\$REMOTE_BACKEND_RELEASE"
-  rm -f "\$ARCHIVE" "\$BACKEND_ARCHIVE" "\$REMOTE_SCRIPT"
+  rm -f "\$ARCHIVE" "\$BACKEND_ARCHIVE" "\$REMOTE_BACKEND_SYNC_ARCHIVE" "\$REMOTE_SCRIPT"
 
   local active_front=""
   active_front="\$(readlink -f "\$REMOTE_WEBROOT" 2>/dev/null || true)"
@@ -720,7 +722,7 @@ else
 fi
 
 echo "Backup backend actuel..."
-if [ "\$(ls -A "\$REMOTE_BACKEND" 2>/dev/null | wc -l)" -gt 0 ]; then
+if [ -f "\$REMOTE_BACKEND/app.js" ] && [ -f "\$REMOTE_BACKEND/package.json" ]; then
   BK_BACKEND="\$REMOTE_BACKUPS/byl-backend-\$(date +%Y%m%d-%H%M%S).tgz"
   sudo_run tar \
     --exclude "./node_modules" \
@@ -729,7 +731,23 @@ if [ "\$(ls -A "\$REMOTE_BACKEND" 2>/dev/null | wc -l)" -gt 0 ]; then
     -czf "\$BK_BACKEND" .
   echo "Backup backend: \$BK_BACKEND"
 else
-  echo "Pas de backend existant a sauvegarder."
+  echo "Backend actuel incomplet: il ne sera pas utilise comme sauvegarde."
+  while IFS= read -r backup_candidate; do
+    backup_listing="\$(sudo_run tar -tzf "\$backup_candidate" 2>/dev/null || true)"
+    if grep -Eq '(^|/)app\.js$' <<<"\$backup_listing" &&
+      grep -Eq '(^|/)package\.json$' <<<"\$backup_listing"; then
+      BK_BACKEND="\$backup_candidate"
+      echo "Derniere sauvegarde backend complete reutilisee: \$BK_BACKEND"
+      break
+    fi
+  done < <(
+    sudo_run find "\$REMOTE_BACKUPS" -maxdepth 1 -type f -name 'byl-backend-*.tgz' -printf '%T@ %p\n' |
+      sort -nr |
+      cut -d' ' -f2-
+  )
+  if [ -z "\$BK_BACKEND" ]; then
+    echo "Aucune sauvegarde backend complete disponible pour un rollback."
+  fi
 fi
 
 activate_front_release() {
@@ -756,42 +774,6 @@ activate_front_release() {
 
   sudo_run mv -Tf "\$next_link" "\$REMOTE_WEBROOT"
 }
-
-if [ -L "\$REMOTE_WEBROOT" ]; then
-  PREVIOUS_FRONT_TARGET="\$(readlink -f "\$REMOTE_WEBROOT")"
-elif [ -d "\$REMOTE_WEBROOT" ]; then
-  PREVIOUS_FRONT_TARGET="\$REMOTE_WEBROOT"
-fi
-
-echo "Publication front atomique..."
-activate_front_release "\$REMOTE_FRONT_RELEASE"
-echo "Front actif: \$(readlink -f "\$REMOTE_WEBROOT")"
-
-echo "Publication backend..."
-if command -v rsync >/dev/null 2>&1; then
-  sudo_run rsync -a --delete \
-    --exclude ".env" \
-    --exclude "serviceAccountKey.json" \
-    --exclude "firebase-service-account.json" \
-    "\$REMOTE_BACKEND_RELEASE"/ "\$REMOTE_BACKEND"/
-else
-  sudo_run find "\$REMOTE_BACKEND" -mindepth 1 -maxdepth 1 \
-    ! -name ".env" \
-    ! -name "public" \
-    ! -name "serviceAccountKey.json" \
-    ! -name "firebase-service-account.json" \
-    -exec rm -rf {} +
-  (cd "\$REMOTE_BACKEND_RELEASE" && tar \
-    --exclude ".env" \
-    --exclude "serviceAccountKey.json" \
-    --exclude "firebase-service-account.json" \
-    -cf - .) | sudo_run tar -C "\$REMOTE_BACKEND" -xf -
-fi
-sudo_run chown -R "\$USER":"\$USER" "\$REMOTE_BACKEND"
-
-cd "\$REMOTE_BACKEND"
-echo "Reload PM2..."
-NODE_INTERPRETER="\$NODE_INTERPRETER" pm2 startOrReload ecosystem.config.js --update-env
 
 rollback_release() {
   echo
@@ -834,6 +816,60 @@ rollback_release() {
     NODE_INTERPRETER="\$NODE_INTERPRETER" pm2 startOrReload ecosystem.config.js --update-env || true
   fi
 }
+
+handle_release_error() {
+  local failure_status="\$?"
+  trap - ERR
+  set +e
+  echo "Echec pendant la publication. Restauration de la version precedente."
+  rollback_release
+  exit "\$failure_status"
+}
+
+if [ -L "\$REMOTE_WEBROOT" ]; then
+  PREVIOUS_FRONT_TARGET="\$(readlink -f "\$REMOTE_WEBROOT")"
+elif [ -d "\$REMOTE_WEBROOT" ]; then
+  PREVIOUS_FRONT_TARGET="\$REMOTE_WEBROOT"
+fi
+
+trap handle_release_error ERR
+
+echo "Publication front atomique..."
+activate_front_release "\$REMOTE_FRONT_RELEASE"
+echo "Front actif: \$(readlink -f "\$REMOTE_WEBROOT")"
+
+echo "Publication backend..."
+if command -v rsync >/dev/null 2>&1; then
+  sudo_run rsync -a --delete \
+    --exclude ".env" \
+    --exclude "serviceAccountKey.json" \
+    --exclude "firebase-service-account.json" \
+    "\$REMOTE_BACKEND_RELEASE"/ "\$REMOTE_BACKEND"/
+else
+  echo "Preparation de l'archive de synchronisation backend..."
+  rm -f "\$REMOTE_BACKEND_SYNC_ARCHIVE"
+  tar \
+    --exclude ".env" \
+    --exclude "serviceAccountKey.json" \
+    --exclude "firebase-service-account.json" \
+    -C "\$REMOTE_BACKEND_RELEASE" \
+    -cf "\$REMOTE_BACKEND_SYNC_ARCHIVE" .
+  tar -tf "\$REMOTE_BACKEND_SYNC_ARCHIVE" >/dev/null
+
+  sudo_run find "\$REMOTE_BACKEND" -mindepth 1 -maxdepth 1 \
+    ! -name ".env" \
+    ! -name "public" \
+    ! -name "serviceAccountKey.json" \
+    ! -name "firebase-service-account.json" \
+    -exec rm -rf {} +
+  sudo_run tar -C "\$REMOTE_BACKEND" -xf "\$REMOTE_BACKEND_SYNC_ARCHIVE"
+  rm -f "\$REMOTE_BACKEND_SYNC_ARCHIVE"
+fi
+sudo_run chown -R "\$USER":"\$USER" "\$REMOTE_BACKEND"
+
+cd "\$REMOTE_BACKEND"
+echo "Reload PM2..."
+NODE_INTERPRETER="\$NODE_INTERPRETER" pm2 startOrReload ecosystem.config.js --update-env
 
 echo "Verification API..."
 remote_env_port=""
@@ -896,6 +932,8 @@ if [ "\$api_ready" != true ]; then
   fi
   exit 1
 fi
+
+trap - ERR
 
 echo "Nettoyage distant..."
 sudo_run rm -f "\$ARCHIVE" "\$BACKEND_ARCHIVE"
