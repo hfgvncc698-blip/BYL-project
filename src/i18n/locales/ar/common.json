@@ -2174,6 +2174,7 @@
     "historyCount": "{{count}} سجلات",
     "history": "السجل",
     "noExerciseHistory": "لا يوجد سجل لهذا التمرين.",
+    "legacyHistoryDetailsUnavailable": "تم إكمال الحصة. لم يكن الإصدار السابق من المشغّل يسجّل الأوزان والتكرارات بعد.",
     "currentSessionHistory": "المجموعة الحالية",
     "pendingSessionValidation": "مؤقتة حتى اعتماد الجلسة.",
     "inProgress": "قيد التنفيذ",

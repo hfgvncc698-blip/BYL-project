@@ -2174,6 +2174,7 @@
     "historyCount": "{{count}} Einträge",
     "history": "Historie",
     "noExerciseHistory": "Kein Verlauf für diese Übung.",
+    "legacyHistoryDetailsUnavailable": "Training abgeschlossen. Gewichte und Wiederholungen wurden von der früheren Player-Version noch nicht gespeichert.",
     "currentSessionHistory": "Laufender Satz",
     "pendingSessionValidation": "Vorläufig bis zur Bestätigung der Einheit.",
     "inProgress": "Laufend",

@@ -2174,6 +2174,7 @@
     "historyCount": "{{count}} elementi",
     "history": "Cronologia",
     "noExerciseHistory": "Nessuna cronologia per questo esercizio.",
+    "legacyHistoryDetailsUnavailable": "Sessione completata. La versione precedente del player non registrava ancora carichi e ripetizioni.",
     "currentSessionHistory": "Serie in corso",
     "pendingSessionValidation": "Provvisoria fino alla convalida della sessione.",
     "inProgress": "In corso",

@@ -62,7 +62,9 @@ export function getProgramSessionsPerWeek(program = {}) {
   const totalWeeks = readProgramActiveWeeks(safeProgram);
   const totalSessions = getProgramTotalSessions(safeProgram);
   if (totalWeeks > 0 && totalSessions > 0) {
-    return Math.max(1, Math.round(totalSessions / totalWeeks));
+    // Les sessions du builder constituent la semaine type du programme. Elles
+    // sont rejouees chaque semaine pendant toute la duree active.
+    return Math.max(1, Math.round(totalSessions));
   }
   return 0;
 }
@@ -105,17 +107,71 @@ export function getProgramValidatedSessionCount(program = {}) {
   return validatedCount;
 }
 
+function programDateToMillis(value) {
+  if (!value) return 0;
+  if (typeof value?.toMillis === "function") return Number(value.toMillis()) || 0;
+  if (typeof value?.toDate === "function") return value.toDate()?.getTime?.() || 0;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? 0 : value.getTime();
+  if (typeof value === "object" && Number.isFinite(Number(value.seconds))) {
+    return Number(value.seconds) * 1000 + Math.floor(Number(value.nanoseconds || 0) / 1e6);
+  }
+  if (typeof value === "number") return value > 0 && value < 1e12 ? value * 1000 : value;
+  if (typeof value === "string") {
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+  return 0;
+}
+
+export function getProgramStartMillis(program = {}) {
+  const safeProgram = program && typeof program === "object" ? program : {};
+  const candidates = [
+    safeProgram.assignedAt,
+    safeProgram.assigned_at,
+    safeProgram.dateAssignation,
+    safeProgram.dateAffectation,
+    safeProgram.startDate,
+    safeProgram.startedAt,
+    safeProgram._assignedAtMs,
+    safeProgram.createdAt,
+    safeProgram.created_at,
+    safeProgram._createdAtMs,
+    safeProgram.purchasedAt,
+    safeProgram.boughtAt,
+  ];
+  for (const candidate of candidates) {
+    const millis = programDateToMillis(candidate);
+    if (millis > 0) return millis;
+  }
+  return 0;
+}
+
+export function getProgramCurrentWeek(program = {}, options = {}) {
+  const totalWeeks = readProgramActiveWeeks(program);
+  if (!totalWeeks) return 0;
+
+  const startMillis = getProgramStartMillis(program);
+  if (startMillis > 0) {
+    const requestedNow = programDateToMillis(options.now ?? options.nowMs);
+    const nowMillis = requestedNow > 0 ? requestedNow : Date.now();
+    const elapsedDays = Math.max(0, Math.floor((nowMillis - startMillis) / 86_400_000));
+    return Math.min(totalWeeks, Math.floor(elapsedDays / 7) + 1);
+  }
+
+  // Compatibilite avec les anciens documents sans date d'assignation.
+  const sessionsPerWeek = getProgramSessionsPerWeek(program);
+  if (!sessionsPerWeek) return options.includeInitialWeek === true ? 1 : 0;
+  const validatedCount = getProgramValidatedSessionCount(program);
+  return Math.min(
+    totalWeeks,
+    Math.max(options.includeInitialWeek === true ? 1 : 0, Math.ceil(validatedCount / sessionsPerWeek))
+  );
+}
+
 export function formatProgramWeekProgress(program = {}, t = null, options = {}) {
   const totalWeeks = readProgramActiveWeeks(program);
-  const sessionsPerWeek = getProgramSessionsPerWeek(program);
-  if (!totalWeeks || !sessionsPerWeek) return "";
-
-  const validatedCount = getProgramValidatedSessionCount(program);
-  const includeInitialWeek = options.includeInitialWeek === true;
-  const current = Math.min(
-    totalWeeks,
-    Math.max(includeInitialWeek ? 1 : 0, Math.ceil(validatedCount / sessionsPerWeek))
-  );
+  if (!totalWeeks) return "";
+  const current = getProgramCurrentWeek(program, options);
   if (current <= 0) return "";
 
   if (typeof t === "function") {

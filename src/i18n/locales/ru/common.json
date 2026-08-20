@@ -2174,6 +2174,7 @@
     "historyCount": "{{count}} записей",
     "history": "История",
     "noExerciseHistory": "Нет истории для этого упражнения.",
+    "legacyHistoryDetailsUnavailable": "Тренировка завершена. Предыдущая версия плеера ещё не сохраняла вес и повторения.",
     "currentSessionHistory": "Текущий подход",
     "pendingSessionValidation": "Предварительно до подтверждения тренировки.",
     "inProgress": "В процессе",

@@ -2180,6 +2180,7 @@
     "historyCount": "{{count}} entry/entries",
     "history": "History",
     "noExerciseHistory": "No history for this exercise.",
+    "legacyHistoryDetailsUnavailable": "Workout completed. Loads and repetitions were not yet recorded by the previous player version.",
     "currentSessionHistory": "Current set",
     "pendingSessionValidation": "Provisional until the session is validated.",
     "inProgress": "In progress",

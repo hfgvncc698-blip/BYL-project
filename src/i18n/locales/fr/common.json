@@ -2180,6 +2180,7 @@
     "historyCount": "{{count}} entrée(s)",
     "history": "Historique",
     "noExerciseHistory": "Aucun historique pour cet exercice.",
+    "legacyHistoryDetailsUnavailable": "Séance effectuée. Les charges et répétitions n’étaient pas encore enregistrées par l’ancienne version du player.",
     "currentSessionHistory": "Série en cours",
     "pendingSessionValidation": "Provisoire jusqu’à la validation de la séance.",
     "inProgress": "En cours",

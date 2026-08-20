@@ -84,7 +84,13 @@ import { useTranslation } from "react-i18next";
 import i18n from "../i18n";
 import { useAppTheme } from "../styles/appTheme";
 import { estimateSessionDurationSeconds, formatDuration } from "../utils/trainingEngine";
-import { exerciseHistoryMatches as matchesExerciseHistory } from "../utils/exerciseHistoryIdentity";
+import {
+  findCompletionExerciseSnapshot,
+} from "../utils/exerciseHistoryIdentity";
+import {
+  buildCompletionRecordsFromModifications,
+  mergeCompletionHistoryRecords,
+} from "../utils/exerciseModificationHistory";
 import { selectLatestExercisePerformance } from "../utils/playerBuilderSync";
 import { applyValidatedSnapshotToAssignedExercise } from "../utils/playerProgramSync";
 import PageBackButton from "./ui/PageBackButton";
@@ -339,10 +345,6 @@ function formatHistoryDate(date, language = "fr") {
   }
 }
 
-function exerciseHistoryMatches(snapshot = {}, exercise = {}) {
-  return matchesExerciseHistory(snapshot, exercise);
-}
-
 function isValidatedCompletionRecord(record = {}) {
   const status = String(record?.status || "").trim().toLowerCase();
   return (
@@ -354,6 +356,7 @@ function isValidatedCompletionRecord(record = {}) {
       status === "completed" ||
       status === "terminée" ||
       status === "terminee" ||
+      Boolean(record?.dateEffectuee) ||
       Boolean(record?.validatedAt) ||
       Boolean(record?.completedAt)
     )
@@ -511,8 +514,7 @@ function buildExerciseHistoryItemsFromCompletions(completionHistory = [], exerci
   if (!exercise) return [];
   const rows = (completionHistory || [])
     .flatMap((record) => {
-      const snapshots = Array.isArray(record?.exerciseSnapshots) ? record.exerciseSnapshots : [];
-      const snapshot = snapshots.find((entry) => exerciseHistoryMatches(entry, exercise));
+      const snapshot = findCompletionExerciseSnapshot(record, exercise);
       const date = snapshot ? getCompletionRecordDate(record) : null;
       if (!snapshot || !(date instanceof Date)) return [];
       return [{
@@ -605,12 +607,26 @@ function applyValidatedPerformanceToSessions(
   return { sessions, updatedCount };
 }
 
+function getProgramSessions(programme = {}) {
+  const source = programme?.sessions ?? programme?.seances;
+  if (Array.isArray(source)) return source;
+  if (!source || typeof source !== "object") return [];
+  return Object.entries(source)
+    .sort(([left], [right]) => Number(left) - Number(right))
+    .map(([, session]) => session)
+    .filter(Boolean);
+}
+
 async function loadClientCompletionHistory(clientId, baseProgramId = null) {
   if (!clientId) return [];
 
   let programmeIds = baseProgramId ? [baseProgramId] : [];
+  const sessionsByProgram = new Map();
   try {
     const programmesSnap = await getDocs(collection(db, "clients", clientId, "programmes"));
+    programmesSnap.docs.forEach((docSnap) => {
+      sessionsByProgram.set(docSnap.id, getProgramSessions(docSnap.data() || {}));
+    });
     programmeIds = Array.from(
       new Set([
         ...programmeIds,
@@ -626,15 +642,29 @@ async function loadClientCompletionHistory(clientId, baseProgramId = null) {
   const historyByProgram = await Promise.all(
     programmeIds.map(async (pid) => {
       try {
-        const snap = await getDocs(
-          collection(db, "clients", clientId, "programmes", pid, "sessionsEffectuees")
-        );
-        return snap.docs.map((docSnap) => ({
+        const [snap, modificationsSnap] = await Promise.all([
+          getDocs(collection(db, "clients", clientId, "programmes", pid, "sessionsEffectuees")),
+          getDocs(collection(db, "clients", clientId, "programmes", pid, "historique_modifications")),
+        ]);
+        const completions = snap.docs.map((docSnap) => ({
           id: `${pid}:${docSnap.id}`,
           completionId: docSnap.id,
           programId: pid,
+          programSessions: sessionsByProgram.get(pid) || [],
           ...docSnap.data(),
         }));
+        const modifications = modificationsSnap.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+        }));
+        return mergeCompletionHistoryRecords(
+          completions,
+          buildCompletionRecordsFromModifications({
+            modifications,
+            programSessions: sessionsByProgram.get(pid) || [],
+            programId: pid,
+          })
+        );
       } catch (e) {
         console.warn("load builder exercise history error:", e);
         return [];
@@ -645,16 +675,20 @@ async function loadClientCompletionHistory(clientId, baseProgramId = null) {
   return historyByProgram
     .flat()
     .filter(isValidatedCompletionRecord)
-    .filter((record) => Array.isArray(record?.exerciseSnapshots) && record.exerciseSnapshots.length > 0)
     .sort((a, b) => (getCompletionRecordDate(b)?.getTime() || 0) - (getCompletionRecordDate(a)?.getTime() || 0));
 }
 
 async function subscribeClientCompletionHistory(clientId, baseProgramId, onRows, onError) {
   if (!clientId) return () => {};
+  let active = true;
 
   let programmeIds = baseProgramId ? [baseProgramId] : [];
+  const sessionsByProgram = new Map();
   try {
     const programmesSnap = await getDocs(collection(db, "clients", clientId, "programmes"));
+    programmesSnap.docs.forEach((docSnap) => {
+      sessionsByProgram.set(docSnap.id, getProgramSessions(docSnap.data() || {}));
+    });
     programmeIds = Array.from(
       new Set([
         ...programmeIds,
@@ -671,17 +705,39 @@ async function subscribeClientCompletionHistory(clientId, baseProgramId, onRows,
   }
 
   const rowsByProgram = new Map();
+  const modificationsByProgram = new Map();
   const publish = () => {
-    const rows = Array.from(rowsByProgram.values())
-      .flat()
+    const rows = Array.from(new Set([
+      ...rowsByProgram.keys(),
+      ...modificationsByProgram.keys(),
+    ])).flatMap((pid) => mergeCompletionHistoryRecords(
+      rowsByProgram.get(pid) || [],
+      buildCompletionRecordsFromModifications({
+        modifications: modificationsByProgram.get(pid) || [],
+        programSessions: sessionsByProgram.get(pid) || [],
+        programId: pid,
+      })
+    ))
       .filter(isValidatedCompletionRecord)
-      .filter((record) => Array.isArray(record?.exerciseSnapshots) && record.exerciseSnapshots.length > 0)
       .sort((a, b) => (getCompletionRecordDate(b)?.getTime() || 0) - (getCompletionRecordDate(a)?.getTime() || 0));
     onRows?.(rows);
   };
 
-  const unsubscribers = programmeIds.map((pid) =>
-    onSnapshot(
+  const unsubscribers = programmeIds.map((pid) => {
+    getDocs(collection(db, "clients", clientId, "programmes", pid, "historique_modifications"))
+      .then((snap) => {
+        if (!active) return;
+        modificationsByProgram.set(
+          pid,
+          snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+        );
+        publish();
+      })
+      .catch((error) => {
+        if (active) onError?.(error);
+      });
+
+    return onSnapshot(
       collection(db, "clients", clientId, "programmes", pid, "sessionsEffectuees"),
       (snap) => {
         rowsByProgram.set(
@@ -690,16 +746,20 @@ async function subscribeClientCompletionHistory(clientId, baseProgramId, onRows,
             id: `${pid}:${docSnap.id}`,
             completionId: docSnap.id,
             programId: pid,
+            programSessions: sessionsByProgram.get(pid) || [],
             ...docSnap.data(),
           }))
         );
         publish();
       },
       (error) => onError?.(error)
-    )
-  );
+    );
+  });
 
-  return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+  return () => {
+    active = false;
+    unsubscribers.forEach((unsubscribe) => unsubscribe());
+  };
 }
 
 /* ======= conversions & préférences d’unités ======= */
@@ -2064,6 +2124,14 @@ function BuilderExerciseHistoryPanel({ items = [], loading = false, textMute, t,
                             </Tbody>
                           </Table>
                         </Box>
+                      )}
+                      {item?.snapshot?.legacyDetailsUnavailable && (
+                        <Text px={3} pb={2.5} fontSize="xs" color={textMute} fontWeight="700">
+                          {t(
+                            "sessionPlayer.legacyHistoryDetailsUnavailable",
+                            "Séance effectuée. Les charges et répétitions n’étaient pas encore enregistrées par l’ancienne version du player."
+                          )}
+                        </Text>
                       )}
                     </Box>
                   );

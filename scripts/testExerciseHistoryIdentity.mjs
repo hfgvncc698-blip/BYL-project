@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   exerciseHistoryMatches,
+  findCompletionExerciseSnapshot,
   isValidatedExerciseCompletion,
 } from "../src/utils/exerciseHistoryIdentity.js";
 import { getExerciseNoteLines } from "../src/utils/exerciseNotes.js";
@@ -36,6 +37,31 @@ assert.equal(
   isValidatedExerciseCompletion({ field: "Répétitions", value: 15, runId: "edit-1" }),
   false,
   "a programme setting change must not count as a completed performance or PR"
+);
+
+assert.equal(
+  isValidatedExerciseCompletion({ dateEffectuee: new Date(), pourcentageTermine: 100 }),
+  true,
+  "legacy completions identified by dateEffectuee must remain visible"
+);
+
+const legacySnapshot = findCompletionExerciseSnapshot(
+  {
+    dateEffectuee: new Date(),
+    sessionIndex: 0,
+    programSessions: [{ corps: [{ id: "legacy-lunge", nom: "Fente Bulgare Haltères" }] }],
+  },
+  { id: "new-lunge-id", nom: "Fente Bulgare Haltères" }
+);
+assert.equal(
+  legacySnapshot?.legacyDetailsUnavailable,
+  true,
+  "legacy sessions must count the exercise occurrence without inventing performance metrics"
+);
+assert.deepEqual(
+  legacySnapshot?.sets,
+  [],
+  "legacy occurrence markers must not fabricate loads or repetitions"
 );
 
 assert.equal(

@@ -2174,6 +2174,7 @@
     "historyCount": "{{count}} entradas",
     "history": "Historial",
     "noExerciseHistory": "Sin historial para este ejercicio.",
+    "legacyHistoryDetailsUnavailable": "Sesión completada. La versión anterior del reproductor aún no registraba las cargas ni las repeticiones.",
     "currentSessionHistory": "Serie en curso",
     "pendingSessionValidation": "Provisional hasta que se valide la sesión.",
     "inProgress": "En curso",

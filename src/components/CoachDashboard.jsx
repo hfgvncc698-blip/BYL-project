@@ -79,7 +79,12 @@ import { db } from "../firebaseConfig";
 import { resolveStorageUrl } from "../utils/storageUrls";
 import { canUseGuidedProgram, getProPlanAccess, hasPlanModule } from "../utils/proPlanAccess";
 import { apiFetch } from "../utils/api";
-import { formatProgramActiveWeeks, getProgramActiveWeeksLabel, readProgramActiveWeeks } from "../utils/programDuration";
+import {
+  formatProgramActiveWeeks,
+  formatProgramWeekProgress,
+  getProgramActiveWeeksLabel,
+  readProgramActiveWeeks,
+} from "../utils/programDuration";
 import { useTranslation } from "react-i18next";
 import i18n, { ensureLanguageLoaded } from "../i18n";
 import { getCalendarCulture, getCalendarFormats } from "../utils/calendarLocale";
@@ -1340,17 +1345,7 @@ const getProgramActiveSessionTotal = (programme = {}) => {
 };
 
 const getAssignedProgramWeekProgress = (programme = {}, t) => {
-  if (!programme) return "";
-  const totalWeeks = readProgramActiveWeeks(programme);
-  const sessionsPerWeek = getProgramSessionsPerWeek(programme);
-  if (!totalWeeks || !sessionsPerWeek) return "";
-  const validatedCount = getValidatedSessionCountForProgram(programme);
-  const currentWeek = Math.max(1, Math.ceil(validatedCount / sessionsPerWeek));
-  if (currentWeek <= 0) return "";
-  return t("dashboard.program_week_progress", "Semaine {{current}}/{{total}}", {
-    current: Math.min(currentWeek, totalWeeks),
-    total: totalWeeks,
-  });
+  return formatProgramWeekProgress(programme, t, { includeInitialWeek: true });
 };
 
 const getSessionDisplayTitle = (programme, session, t) => {

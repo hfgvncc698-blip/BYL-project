@@ -75,6 +75,69 @@ export function exerciseHistoryMatches(snapshot = {}, exercise = {}) {
   return current.names.some((name) => stored.names.includes(name));
 }
 
+const getIndexedValues = (value) => {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== "object") return [];
+  return Object.entries(value)
+    .sort(([a], [b]) => {
+      const left = Number(a);
+      const right = Number(b);
+      if (Number.isFinite(left) && Number.isFinite(right)) return left - right;
+      return String(a).localeCompare(String(b), "fr", { numeric: true });
+    })
+    .map(([, item]) => item)
+    .filter(Boolean);
+};
+
+const getSessionExercises = (session = {}) => {
+  if (Array.isArray(session)) return session;
+  const direct = getIndexedValues(session?.exercises || session?.exercices);
+  if (direct.length) return direct;
+  return ["echauffement", "corps", "bonus", "retourCalme"]
+    .flatMap((key) => getIndexedValues(session?.[key]));
+};
+
+/**
+ * Returns the detailed snapshot when it exists. For legacy completion records
+ * (date + percentage only), returns an occurrence marker if the completed
+ * session still contains the exercise. The marker is deliberately metric-free:
+ * old player versions did not persist the performed sets, so inventing loads or
+ * repetitions from today's programme would corrupt the RM history.
+ */
+export function findCompletionExerciseSnapshot(record = {}, exercise = {}) {
+  const snapshots = Array.isArray(record?.exerciseSnapshots)
+    ? record.exerciseSnapshots
+    : [];
+  const detailed = snapshots.find((snapshot) =>
+    exerciseHistoryMatches(snapshot, exercise)
+  );
+  if (detailed) return detailed;
+
+  // A modern record with snapshots represents only exercises actually
+  // performed. Do not turn omitted exercises into legacy occurrences.
+  if (snapshots.length > 0) return null;
+
+  const sessions = getIndexedValues(record?.programSessions);
+  const sessionIndex = Number(record?.sessionIndex);
+  if (!Number.isInteger(sessionIndex) || !sessions[sessionIndex]) return null;
+  const matched = getSessionExercises(sessions[sessionIndex]).find((candidate) =>
+    exerciseHistoryMatches(candidate, exercise)
+  );
+  if (!matched) return null;
+
+  const identity = getExerciseHistoryIdentity(matched);
+  return {
+    exerciseIndex: null,
+    exerciseId: identity.ids[0] || "",
+    exerciseIds: identity.ids,
+    exerciseName: identity.primaryName,
+    exerciseNames: identity.names,
+    sets: [],
+    summary: {},
+    legacyDetailsUnavailable: true,
+  };
+}
+
 export function isValidatedExerciseCompletion(record = {}) {
   const status = String(record?.status || "").trim().toLowerCase();
   return (
@@ -86,6 +149,7 @@ export function isValidatedExerciseCompletion(record = {}) {
       status === "completed" ||
       status === "terminée" ||
       status === "terminee" ||
+      Boolean(record?.dateEffectuee) ||
       Boolean(record?.validatedAt) ||
       Boolean(record?.completedAt)
     )

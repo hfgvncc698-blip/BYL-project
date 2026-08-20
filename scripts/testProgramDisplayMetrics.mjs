@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readProgramDisplayMetric } from "../src/utils/programDisplayMetrics.js";
 import {
+  formatProgramWeekProgress,
   getProgramPlannedSessionTotal,
   getProgramSessionsPerWeek,
   readProgramActiveWeeks,
@@ -37,5 +38,35 @@ assert.equal(
 assert.equal(readProgramActiveWeeks(null), 4, "a missing primary program must keep the dashboard renderable");
 assert.equal(getProgramSessionsPerWeek(null), 0, "missing program data must not fabricate weekly sessions");
 assert.equal(getProgramPlannedSessionTotal(null), 0, "missing program data must produce an empty total");
+
+const fourWeekProgram = {
+  activeWeeks: 4,
+  assignedAt: "2026-08-12T10:00:00.000Z",
+  sessions: Array.from({ length: 5 }, (_, index) => ({ id: `session-${index + 1}` })),
+  sessionsEffectuees: Array.from({ length: 5 }, (_, index) => ({
+    sessionIndex: index,
+    status: "completed",
+    completedAt: "2026-08-19T10:00:00.000Z",
+  })),
+};
+
+assert.equal(
+  getProgramSessionsPerWeek(fourWeekProgram),
+  5,
+  "builder sessions describe the weekly template"
+);
+assert.equal(
+  getProgramPlannedSessionTotal(fourWeekProgram),
+  20,
+  "a five-session weekly template over four weeks plans twenty sessions"
+);
+assert.equal(
+  formatProgramWeekProgress(fourWeekProgram, null, {
+    includeInitialWeek: true,
+    now: "2026-08-20T10:00:00.000Z",
+  }),
+  "Semaine 2/4",
+  "the displayed week follows elapsed time since assignment, not completed-session count"
+);
 
 console.log("Program display metric priority: OK");

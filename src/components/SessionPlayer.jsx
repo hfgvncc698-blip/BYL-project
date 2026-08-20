@@ -99,8 +99,13 @@ import { getExerciseNotesText } from "../utils/exerciseNotes";
 import EXERCISE_TRANSLATION_ALIASES from "../data/exerciseTranslationAliases.json";
 import {
   exerciseHistoryMatches,
+  findCompletionExerciseSnapshot,
   isValidatedExerciseCompletion,
 } from "../utils/exerciseHistoryIdentity";
+import {
+  buildCompletionRecordsFromModifications,
+  mergeCompletionHistoryRecords,
+} from "../utils/exerciseModificationHistory";
 import { isPerformanceOptionTracked } from "../utils/playerBuilderSync";
 import { applyValidatedSnapshotsToAssignedProgram } from "../utils/playerProgramSync";
 import {
@@ -1152,7 +1157,13 @@ function buildExercisePerformanceSnapshots(
       .filter((entry) => Number.isFinite(Number(entry?.exerciseIndex)))
       .map((entry) => [Number(entry.exerciseIndex), entry])
   );
-  const usePerformedSets = Array.isArray(performedSetEntries);
+  // A validated session must never produce an empty history document merely
+  // because it was confirmed from the global "Terminer la séance" action.
+  // When no set transition was captured, preserve the validated parameters as
+  // the best available snapshot. Once at least one set was captured, keep the
+  // strict performed-only behaviour so skipped exercises are not invented.
+  const usePerformedSets =
+    Array.isArray(performedSetEntries) && performedSetEntries.length > 0;
   const performedByExercise = new Map();
   if (usePerformedSets) {
     performedSetEntries.forEach((entry) => {
@@ -1247,10 +1258,6 @@ function getLatestRecordedExerciseLoad(exercise = {}, completionRecords = []) {
   }
 
   return null;
-}
-
-function exerciseMatchesAnyTarget(snapshot = {}, targets = []) {
-  return targets.filter(Boolean).some((target) => exerciseSnapshotMatches(snapshot, target));
 }
 
 function getProgramSessionList(programme = {}) {
@@ -2087,7 +2094,6 @@ function ExerciseHistoryPanel({
   const [expandedId, setExpandedId] = useState("");
   const [activeView, setActiveView] = useState("history");
   const [trackingOpen, setTrackingOpen] = useState(false);
-  const columns = getHistoryColumns(historyItems.map((item) => item.snapshot), t);
   const currentColumns = getHistoryColumns([{ sets: currentSessionSets }], t);
   const prItem = historyItems.find((item) => item.rank === 1) || null;
   const prSnapshot = prItem?.snapshot || null;
@@ -2199,26 +2205,36 @@ function ExerciseHistoryPanel({
                 </Badge>
               )}
             </HStack>
-            <Box overflowX="auto">
-              <Table size="sm" minW="320px" sx={{ "th, td": { fontSize: "xs", px: 3, py: 1.5 } }}>
-                <Thead>
-                  <Tr>
-                    <Th>{t("sessionPlayer.rmColumn", "RM")}</Th>
-                    <Th>{t("sessionPlayer.percentOneRm", "% 1RM")}</Th>
-                    <Th isNumeric>{t("sessionPlayer.load", "Charge")}</Th>
+            <Table
+              size="sm"
+              w="full"
+              tableLayout="fixed"
+              sx={{
+                "th, td": {
+                  fontSize: "10px",
+                  px: 3,
+                  py: 1.15,
+                  whiteSpace: "nowrap",
+                },
+              }}
+            >
+              <Thead>
+                <Tr>
+                  <Th w="28%">{t("sessionPlayer.rmColumn", "RM")}</Th>
+                  <Th w="42%" isNumeric>{t("sessionPlayer.load", "Charge")}</Th>
+                  <Th w="30%" isNumeric>{t("sessionPlayer.percentOneRm", "% 1RM")}</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {prRmRows.map((row) => (
+                  <Tr key={row.reps} bg={row.reps === 1 ? rowBg : "transparent"}>
+                    <Td fontWeight="900">{row.reps}RM</Td>
+                    <Td isNumeric fontWeight="900">{formatHistoryNumber(row.chargeKg)} kg</Td>
+                    <Td isNumeric color={textMute}>{formatHistoryNumber(row.percent, 1)}%</Td>
                   </Tr>
-                </Thead>
-                <Tbody>
-                  {prRmRows.map((row) => (
-                    <Tr key={row.reps} bg={row.reps === 1 ? rowBg : "transparent"}>
-                      <Td fontWeight="900">{row.reps}RM</Td>
-                      <Td>{formatHistoryNumber(row.percent, 1)}%</Td>
-                      <Td isNumeric fontWeight="900">{formatHistoryNumber(row.chargeKg)} kg</Td>
-                    </Tr>
-                  ))}
-                </Tbody>
-              </Table>
-            </Box>
+                ))}
+              </Tbody>
+            </Table>
           </Box>
         ) : (
           <Text fontSize="sm" color={textMute}>
@@ -2276,11 +2292,20 @@ function ExerciseHistoryPanel({
               {expandedId === "current-session" && (
                 <Box bg={expandedBg} px={3} py={3}>
                   {currentColumns.length > 0 && (
-                    <Box overflowX="auto">
+                    <Box>
                       <Table
                         size="sm"
-                        minW="280px"
-                        sx={{ "th, td": { fontSize: "xs", px: 1.5, py: 1.5 } }}
+                        w="full"
+                        tableLayout="fixed"
+                        sx={{
+                          "th, td": {
+                            fontSize: "10px",
+                            px: 1,
+                            py: 1.25,
+                            whiteSpace: "normal",
+                            wordBreak: "break-word",
+                          },
+                        }}
                       >
                         <Thead>
                           <Tr>
@@ -2320,6 +2345,7 @@ function ExerciseHistoryPanel({
             const changes = Array.isArray(snapshot.changes) ? snapshot.changes : [];
             const mainLine = getHistoryMainLine(snapshot, t);
             const totalVolume = Number(snapshot?.summary?.totalVolumeKg || 0);
+            const itemColumns = getHistoryColumns([snapshot], t);
             return (
               <Box key={item.id} border="1px solid" borderColor={border} borderRadius="16px" overflow="hidden">
                 <Button
@@ -2351,13 +2377,26 @@ function ExerciseHistoryPanel({
 
                 {open && (
                   <Box bg={expandedBg} px={3} py={3}>
-                    {sets.length > 0 && columns.length > 0 && (
-                      <Box overflowX="auto">
-                        <Table size="sm" minW="360px" sx={{ "th, td": { fontSize: "xs", px: 2, py: 1.5 } }}>
+                    {sets.length > 0 && itemColumns.length > 0 && (
+                      <Box>
+                        <Table
+                          size="sm"
+                          w="full"
+                          tableLayout="fixed"
+                          sx={{
+                            "th, td": {
+                              fontSize: "10px",
+                              px: 1,
+                              py: 1.25,
+                              whiteSpace: "normal",
+                              wordBreak: "break-word",
+                            },
+                          }}
+                        >
                           <Thead>
                             <Tr>
-                              <Th>#</Th>
-                              {columns.map((column) => (
+                              <Th w="14%">#</Th>
+                              {itemColumns.map((column) => (
                                 <Th key={column.key}>{column.label}</Th>
                               ))}
                             </Tr>
@@ -2366,7 +2405,7 @@ function ExerciseHistoryPanel({
                             {sets.map((set) => (
                               <Tr key={set.setIndex} bg={rowBg}>
                                 <Td fontWeight="800">{set.setIndex}</Td>
-                                {columns.map((column) => (
+                                {itemColumns.map((column) => (
                                   <Td key={column.key}>{column.render(set)}</Td>
                                 ))}
                               </Tr>
@@ -2389,6 +2428,15 @@ function ExerciseHistoryPanel({
                           </HStack>
                         ))}
                       </VStack>
+                    )}
+
+                    {snapshot.legacyDetailsUnavailable && (
+                      <Text fontSize="xs" color={textMute} fontWeight="700">
+                        {t(
+                          "sessionPlayer.legacyHistoryDetailsUnavailable",
+                          "Séance effectuée. Les charges et répétitions n’étaient pas encore enregistrées par l’ancienne version du player."
+                        )}
+                      </Text>
                     )}
 
                     <HStack justify="space-between" mt={3} spacing={3}>
@@ -4039,15 +4087,27 @@ export default function SessionPlayer() {
 
     let cancelled = false;
     const rowsByProgram = new Map();
+    const modificationsByProgram = new Map();
+    const sessionsByProgram = new Map();
     const historyUnsubscribers = new Map();
     const awaitingFirstSnapshot = new Set();
 
     const publish = () => {
       if (cancelled) return;
 
+      const completionRows = Array.from(rowsByProgram.values()).flat().map((record) => ({
+        ...record,
+        programSessions: sessionsByProgram.get(record.programId) || [],
+      }));
+      const modificationRows = Array.from(modificationsByProgram.entries()).flatMap(
+        ([pid, modifications]) => buildCompletionRecordsFromModifications({
+          modifications,
+          programSessions: sessionsByProgram.get(pid) || [],
+          programId: pid,
+        })
+      );
       const uniqueRows = new Map();
-      Array.from(rowsByProgram.values())
-        .flat()
+      mergeCompletionHistoryRecords(completionRows, modificationRows)
         .filter(isValidatedExerciseCompletion)
         .forEach((record) => {
           const key = `${record.programId || ""}:${record.completionId || record.id || ""}`;
@@ -4069,7 +4129,8 @@ export default function SessionPlayer() {
 
     const subscribeToProgramHistory = (pid) => {
       if (!pid || historyUnsubscribers.has(pid)) return;
-      awaitingFirstSnapshot.add(pid);
+      awaitingFirstSnapshot.add(`completion:${pid}`);
+      awaitingFirstSnapshot.add(`modifications:${pid}`);
 
       const unsubscribe = onSnapshot(
         collection(db, "clients", clientId, "programmes", pid, "sessionsEffectuees"),
@@ -4084,17 +4145,35 @@ export default function SessionPlayer() {
               ...docSnap.data(),
             }))
           );
-          awaitingFirstSnapshot.delete(pid);
+          awaitingFirstSnapshot.delete(`completion:${pid}`);
           publish();
         },
         (error) => {
           console.warn("subscribe programme history error:", error);
-          awaitingFirstSnapshot.delete(pid);
+          awaitingFirstSnapshot.delete(`completion:${pid}`);
           rowsByProgram.delete(pid);
           publish();
         }
       );
       historyUnsubscribers.set(pid, unsubscribe);
+
+      getDocs(collection(db, "clients", clientId, "programmes", pid, "historique_modifications"))
+        .then((snap) => {
+          if (cancelled) return;
+          modificationsByProgram.set(
+            pid,
+            snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+          );
+          awaitingFirstSnapshot.delete(`modifications:${pid}`);
+          publish();
+        })
+        .catch((error) => {
+          if (cancelled) return;
+          console.warn("subscribe programme modification history error:", error);
+          awaitingFirstSnapshot.delete(`modifications:${pid}`);
+          modificationsByProgram.delete(pid);
+          publish();
+        });
     };
 
     const syncProgramSubscriptions = (programmeIds) => {
@@ -4105,7 +4184,9 @@ export default function SessionPlayer() {
         unsubscribe();
         historyUnsubscribers.delete(pid);
         rowsByProgram.delete(pid);
-        awaitingFirstSnapshot.delete(pid);
+        modificationsByProgram.delete(pid);
+        awaitingFirstSnapshot.delete(`completion:${pid}`);
+        awaitingFirstSnapshot.delete(`modifications:${pid}`);
       });
       nextIds.forEach(subscribeToProgramHistory);
       publish();
@@ -4117,7 +4198,13 @@ export default function SessionPlayer() {
 
     const unsubscribeProgrammes = onSnapshot(
       collection(db, "clients", clientId, "programmes"),
-      (snap) => syncProgramSubscriptions(snap.docs.map((docSnap) => docSnap.id)),
+      (snap) => {
+        sessionsByProgram.clear();
+        snap.docs.forEach((docSnap) => {
+          sessionsByProgram.set(docSnap.id, getProgramSessionList(docSnap.data() || {}));
+        });
+        syncProgramSubscriptions(snap.docs.map((docSnap) => docSnap.id));
+      },
       (error) => {
         console.warn("subscribe client programmes for exercise history error:", error);
         syncProgramSubscriptions([programId]);
@@ -5157,8 +5244,9 @@ export default function SessionPlayer() {
           record.completionId !== completionDocIdRef.current
       )
       .flatMap((record) => {
-        const snapshots = Array.isArray(record?.exerciseSnapshots) ? record.exerciseSnapshots : [];
-        const snapshot = snapshots.find((entry) => exerciseMatchesAnyTarget(entry, historyExerciseTargets));
+        const snapshot = historyExerciseTargets
+          .map((target) => findCompletionExerciseSnapshot(record, target))
+          .find(Boolean);
         if (!snapshot) return [];
         const date = getCompletionRecordDate(record);
         return [{
