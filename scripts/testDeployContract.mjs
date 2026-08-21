@@ -108,8 +108,10 @@ const checks = [
     valid:
       deployScript.includes('NGINX_SECURITY_HEADERS_LOCAL="nginx/boostyourlife-security-headers.conf"') &&
       deployScript.includes("install_nginx_security_headers()") &&
-      deployScript.includes('sudo_run nginx -t') &&
-      deployScript.includes('sudo_run nginx -s reload'),
+      deployScript.includes("resolve_remote_nginx()") &&
+      deployScript.includes("/usr/sbin/nginx") &&
+      deployScript.includes('sudo_run "\\$NGINX_BIN" -t') &&
+      deployScript.includes('sudo_run "\\$NGINX_BIN" -s reload'),
   },
   {
     description: "un backend incomplet n'ecrase pas la derniere sauvegarde exploitable",

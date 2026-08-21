@@ -506,6 +506,7 @@ REMOTE_NGINX_SECURITY_HEADERS_UPLOAD="${REMOTE_NGINX_SECURITY_HEADERS_UPLOAD}"
 REMOTE_NGINX_SECURITY_HEADERS="${REMOTE_NGINX_SECURITY_HEADERS}"
 SUDO_MODE="\${1:-}"
 REMOTE_SUDO_PASSWORD=""
+NGINX_BIN=""
 
 [ -f "\$ARCHIVE" ] || { echo "Archive manquante: \$ARCHIVE"; exit 1; }
 [ -f "\$BACKEND_ARCHIVE" ] || { echo "Archive backend manquante: \$BACKEND_ARCHIVE"; exit 1; }
@@ -539,7 +540,6 @@ need_remote_command() {
 need_remote_command sudo
 need_remote_command tar
 need_remote_command curl
-need_remote_command nginx
 
 # Le secret est lu une seule fois depuis stdin, reste uniquement en memoire et
 # n'apparait jamais dans un fichier ou dans les arguments des processus.
@@ -568,6 +568,29 @@ sudo_run true || {
   echo "L'autorisation sudo distante n'est pas disponible. Deploy annule."
   exit 1
 }
+
+resolve_remote_nginx() {
+  local detected=""
+  local candidate=""
+  detected="\$(command -v nginx 2>/dev/null || true)"
+
+  # Les connexions SSH non interactives n'incluent pas toujours /usr/sbin
+  # dans PATH, même lorsque Nginx est bien installé et utilisable via sudo.
+  for candidate in "\$detected" /usr/sbin/nginx /usr/local/sbin/nginx /snap/bin/nginx; do
+    [ -n "\$candidate" ] || continue
+    if sudo_run test -x "\$candidate"; then
+      NGINX_BIN="\$candidate"
+      echo "Nginx distant actif: \$NGINX_BIN"
+      return 0
+    fi
+  done
+
+  echo "Nginx est introuvable sur le VPS (PATH, /usr/sbin, /usr/local/sbin, /snap/bin)."
+  echo "Le deploy est annule avant toute publication."
+  return 1
+}
+
+resolve_remote_nginx
 
 activate_remote_node() {
   local requested_major="\$REMOTE_NODE_VERSION"
@@ -727,7 +750,7 @@ install_nginx_security_headers() {
   sudo_run mkdir -p "\$(dirname "\$REMOTE_NGINX_SECURITY_HEADERS")"
   sudo_run install -m 644 "\$REMOTE_NGINX_SECURITY_HEADERS_UPLOAD" "\$REMOTE_NGINX_SECURITY_HEADERS"
 
-  if ! sudo_run nginx -t; then
+  if ! sudo_run "\$NGINX_BIN" -t; then
     echo "Configuration Nginx invalide, restauration de la version precedente."
     if sudo_run test -f "\$backup"; then
       sudo_run cp "\$backup" "\$REMOTE_NGINX_SECURITY_HEADERS"
@@ -738,7 +761,7 @@ install_nginx_security_headers() {
     return 1
   fi
 
-  sudo_run nginx -s reload
+  sudo_run "\$NGINX_BIN" -s reload
   sudo_run rm -f "\$backup"
   echo "En-tetes de securite Nginx actualises."
 }
