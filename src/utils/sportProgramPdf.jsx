@@ -140,6 +140,9 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 12,
   },
+  cardWide: {
+    width: "100%",
+  },
   imageGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -181,6 +184,51 @@ const styles = StyleSheet.create({
   infoLabel: {
     fontWeight: 700,
     color: "#486581",
+  },
+  advancedBox: {
+    marginTop: 7,
+    borderWidth: 1,
+    borderColor: "#DDD6FE",
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  advancedTitle: {
+    paddingVertical: 5,
+    paddingHorizontal: 7,
+    fontSize: 8.8,
+    fontWeight: 700,
+    color: "#6D28D9",
+    backgroundColor: "#F5F3FF",
+  },
+  advancedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#EDE9FE",
+  },
+  advancedHeader: {
+    backgroundColor: "#FAF9FF",
+  },
+  advancedCell: {
+    flexGrow: 1,
+    flexBasis: 0,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    fontSize: 7.8,
+    color: "#334155",
+  },
+  advancedHeaderCell: {
+    fontSize: 7.2,
+    fontWeight: 700,
+    color: "#64748B",
+  },
+  advancedSetCell: {
+    flexGrow: 0,
+    flexBasis: 42,
+    width: 42,
+    fontWeight: 700,
+    color: "#5B21B6",
   },
   notesBox: {
     marginTop: 7,
@@ -232,9 +280,12 @@ function ExerciseCard({ exercise, index, notesLabel }) {
   const images = Array.isArray(exercise.images) ? exercise.images.filter(Boolean).slice(0, 4) : [];
   const infos = Array.isArray(exercise.infos) ? exercise.infos.filter(Boolean).slice(0, 8) : [];
   const notes = Array.isArray(exercise.notes) ? exercise.notes.filter(Boolean).slice(0, 6) : [];
+  const advancedSets = exercise?.advancedSets;
+  const advancedColumns = Array.isArray(advancedSets?.columns) ? advancedSets.columns : [];
+  const advancedRows = Array.isArray(advancedSets?.rows) ? advancedSets.rows : [];
 
   return (
-    <View style={styles.card} wrap={false}>
+    <View style={[styles.card, advancedRows.length ? styles.cardWide : null]} wrap={false}>
       {images.length > 0 ? (
         <View style={styles.imageGrid}>
           {images.map((src, imageIndex) => (
@@ -263,6 +314,41 @@ function ExerciseCard({ exercise, index, notesLabel }) {
           </Text>
         ))}
       </View>
+
+      {advancedRows.length && advancedColumns.length ? (
+        <View style={styles.advancedBox}>
+          <Text style={styles.advancedTitle}>{cleanText(advancedSets.label)}</Text>
+          <View style={[styles.advancedRow, styles.advancedHeader]}>
+            {advancedColumns.map((column, columnIndex) => (
+              <Text
+                key={`advanced-header-${column.key}`}
+                style={[
+                  styles.advancedCell,
+                  styles.advancedHeaderCell,
+                  columnIndex === 0 ? styles.advancedSetCell : null,
+                ]}
+              >
+                {cleanText(column.label)}
+              </Text>
+            ))}
+          </View>
+          {advancedRows.map((row, rowIndex) => (
+            <View key={`advanced-row-${rowIndex}`} style={styles.advancedRow}>
+              {advancedColumns.map((column, columnIndex) => (
+                <Text
+                  key={`advanced-${rowIndex}-${column.key}`}
+                  style={[
+                    styles.advancedCell,
+                    columnIndex === 0 ? styles.advancedSetCell : null,
+                  ]}
+                >
+                  {cleanText(row?.[column.key])}
+                </Text>
+              ))}
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       {notes.length ? (
         <View style={styles.notesBox}>

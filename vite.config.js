@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import process from "node:process";
 
 export default defineConfig({
   plugins: [react()],
@@ -46,10 +47,12 @@ export default defineConfig({
   },
   server: {
     host: "0.0.0.0",
+    port: Number(process.env.VITE_PORT || 5173),
+    strictPort: true,
     proxy: {
       // ✅ En DEV : /api -> backend local
       "/api": {
-        target: "http://localhost:5050",
+        target: `http://localhost:${process.env.PORT || 5050}`,
         changeOrigin: true,
       },
     },

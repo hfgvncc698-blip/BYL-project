@@ -70,7 +70,7 @@ check("sport PDFs include localized exercise notes", () => {
 
   [programView, autoPreview].forEach((source) => {
     assert.ok(
-      source.includes("notes: getExerciseNoteLines(resolved, pdfLang)") &&
+      /notes:\s*getExerciseNoteLines\((resolved|performedExercise), pdfLang\)/.test(source) &&
         source.includes("notesLabel={L.notes}"),
       "Each sport PDF entry point must pass localized exercise notes to the PDF document"
     );
@@ -79,6 +79,12 @@ check("sport PDFs include localized exercise notes", () => {
     sportPdf.includes("const notes = Array.isArray(exercise.notes)") &&
       sportPdf.includes("styles.notesBox"),
     "The shared sport PDF renderer must display exercise notes"
+  );
+  assert.ok(
+    programView.includes("advancedSets: advanced.enabled") &&
+      sportPdf.includes("const advancedSets = exercise?.advancedSets") &&
+      sportPdf.includes("styles.advancedBox"),
+    "Program PDFs must include the configured per-set values"
   );
 });
 

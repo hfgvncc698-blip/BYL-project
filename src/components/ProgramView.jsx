@@ -3250,13 +3250,61 @@ export default function ProgramView() {
   const buildSportPdfSessions = (imageMap) =>
     (sessions || []).map((sess, sIdx) => {
       const S = asSections(sess);
-      const makeExercise = (exercise, indexPrefix) => {
-        const resolved = resolveExerciseForDisplay(exercise, indexPrefix, pdfLang);
+      const makeExercise = (exercise, indexPrefix, sectionKey, sectionIndex) => {
+        const performedExercise = buildExerciseWithLatestPerformance(
+          completionHistory,
+          exercise,
+          {
+            clientId,
+            programId,
+            sessionIndex: sIdx,
+            sectionKey,
+            sectionIndex,
+          }
+        );
+        const resolved = resolveExerciseForDisplay(performedExercise, indexPrefix, pdfLang);
         const pdfImages = getPdfImagesForExerciseFromMap(imageMap, resolved, indexPrefix);
+        const advanced = getAdvancedSets(performedExercise);
+        const advancedColumns = advanced.enabled
+          ? [
+              { key: "set", label: "#" },
+              ...(advanced.visible?.reps ? [{ key: "reps", label: L.labels.reps }] : []),
+              ...(advanced.visible?.charge
+                ? [{
+                    key: "charge",
+                    label: displayUnits.weight === "lbs" ? L.labels.loadLbs : L.labels.loadKg,
+                  }]
+                : []),
+              ...(advanced.visible?.rest ? [{ key: "rest", label: L.labels.rest }] : []),
+              ...(advanced.visible?.duration ? [{ key: "duration", label: L.labels.duration }] : []),
+              ...(advanced.visible?.incline ? [{ key: "incline", label: L.labels.incline }] : []),
+            ]
+          : [];
         return {
           name: pickFirst(resolved, ["nom", "name"]) || "",
-          infos: buildInfosFromExercise(resolved, displayUnits, pdfLocale, L),
-          notes: getExerciseNoteLines(resolved, pdfLang),
+          infos: buildInfosFromExercise(performedExercise, displayUnits, pdfLocale, L),
+          notes: getExerciseNoteLines(performedExercise, pdfLang),
+          advancedSets: advanced.enabled && advanced.sets.length > 0
+            ? {
+                label: L.advSets,
+                columns: advancedColumns,
+                rows: advanced.sets.map((set, setIndex) => ({
+                  set: L.setN(setIndex + 1),
+                  reps: formatDisplayNumber(set.reps ?? 0, pdfLocale),
+                  charge: formatDisplayNumber(
+                    convertWeight(
+                      set.chargeValue ?? 0,
+                      displayUnits.weight,
+                      set.chargeUnit || "kg"
+                    ),
+                    pdfLocale
+                  ),
+                  rest: fmtSec(set.restSec ?? 0),
+                  duration: fmtSec(set.durationSec ?? 0),
+                  incline: formatDisplayNumber(set.inclinePct ?? 0, pdfLocale),
+                })),
+              }
+            : null,
           images: (pdfImages.images || [])
             .map((item) => item?.dataUrl || item?.finalUrl)
             .filter(Boolean),
@@ -3266,7 +3314,7 @@ export default function ProgramView() {
       const makeSection = (label, list, key) => ({
         label,
         exercises: (list || []).map((exercise, index) =>
-          makeExercise(exercise, `sport-pdf-${sIdx}-${key}-${index}`)
+          makeExercise(exercise, `sport-pdf-${sIdx}-${key}-${index}`, key, index)
         ),
       });
 
@@ -3558,7 +3606,10 @@ export default function ProgramView() {
                     L
                   );
                   const adv = getAdvancedSets(performedExercise);
-                  const noteLines = getExerciseNoteLines(ex, i18n.language || i18n.resolvedLanguage || "fr");
+                  const noteLines = getExerciseNoteLines(
+                    performedExercise,
+                    i18n.language || i18n.resolvedLanguage || "fr"
+                  );
                   const variantOptions = safeArray(pickFirst(displayExercise || ex, ["variantes"]));
 
                   return (
@@ -3609,11 +3660,36 @@ export default function ProgramView() {
                                 {t("autoPreview.advancedSets", "Séries différentes")}
                               </Tag>
                             </HStack>
-                            <Box overflowX="auto">
-                              <Table size="sm" variant="simple" minW="520px">
+                            <Box
+                              w="full"
+                              overflow="hidden"
+                              border="1px solid"
+                              borderColor={theme.borderColor}
+                              borderRadius="lg"
+                            >
+                              <Table
+                                size="sm"
+                                variant="simple"
+                                w="full"
+                                tableLayout="fixed"
+                                sx={{
+                                  "th, td": {
+                                    px: 1.5,
+                                    py: 1.25,
+                                    fontSize: "11px",
+                                    lineHeight: "1.15",
+                                    whiteSpace: "nowrap",
+                                  },
+                                  th: {
+                                    fontSize: "9px",
+                                    whiteSpace: "normal",
+                                    overflowWrap: "anywhere",
+                                  },
+                                }}
+                              >
                                 <Thead>
 	                                  <Tr>
-	                                    <Th>#</Th>
+	                                    <Th w="34px">#</Th>
 	                                    {adv.visible?.reps && <Th>{L.labels.reps}</Th>}
 	                                    {adv.visible?.charge && (
 	                                      <Th>{displayUnits.weight === "lbs" ? L.labels.loadLbs : L.labels.loadKg}</Th>
@@ -3626,7 +3702,7 @@ export default function ProgramView() {
 	                                <Tbody>
 	                                  {adv.sets.map((s, i) => (
 	                                    <Tr key={i}>
-	                                      <Td>{L.setN(i + 1)}</Td>
+	                                      <Td fontWeight="800">{i + 1}</Td>
 	                                      {adv.visible?.reps && <Td>{formatDisplayNumber(s.reps ?? 0, locale)}</Td>}
 	                                      {adv.visible?.charge && (
 	                                        <Td>
