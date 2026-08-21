@@ -561,6 +561,10 @@ check("security boundaries stay fail-closed", () => {
     "The production web server must have a reviewed security header include"
   );
   assert.ok(
+    indexHtml.includes("'wasm-unsafe-eval'") && nginxHeaders.includes("'wasm-unsafe-eval'"),
+    "The browser and production CSP must allow the WebAssembly PDF renderer"
+  );
+  assert.ok(
     indexHtml.includes("media-src") &&
       indexHtml.includes("https://storage.googleapis.com") &&
       nginxHeaders.includes("media-src") &&

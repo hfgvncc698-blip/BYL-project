@@ -1431,7 +1431,8 @@
     "autoFollowShort": "Seguimiento",
     "enabled": "Habilitado",
     "disabled": "Discapacitado",
-    "pdfPreparing": "Preparación de PDF..."
+    "pdfPreparing": "Preparación de PDF...",
+    "pdfReady": "PDF descargado"
   },
   "pdf": {
     "sections": {
@@ -2094,14 +2095,16 @@
     "upNext": "Continuará",
     "finishWorkout": "Terminar la sesión",
     "advSets": "Serie diferente",
+    "customSets": "Series personalizadas",
+    "identicalSets": "Series idénticas",
+    "automaticSetDetection": "Detección automática",
+    "inProgress": "En curso",
     "notes": "Notas",
     "addNotePh": "Añade una nota para este ejercicio...",
     "constraints": "Restricciones",
     "cues": "Instrucciones",
     "currentSet": "Serie actual:",
     "setN": "Establecer {{n}}",
-    "clickSetToEdit": "Haz clic en una fila para volver a esa serie.",
-    "goToSet": "Volver a la serie {{n}}",
     "empty": "Sesión no encontrada o vacía.",
     "rateTitle": "Califica la dificultad",
     "restBetween": "Entre ejercicios",
@@ -2181,6 +2184,7 @@
     "completedSetsAppearHere": "Las series terminadas aparecerán aquí.",
     "pendingValidation": "Pendiente",
     "setN": "Serie {{n}}",
+    "goToSet": "Volver a la serie {{n}}",
     "setRecorded": "Registrada",
     "rmTab": "RM",
     "rmEstimates": "Estimaciones RM",

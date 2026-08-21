@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import {
   isPerformanceOptionTracked,
+  haveDifferentPlayerSetValues,
+  haveDifferentReachedPlayerSetValues,
+  resolvePlayerSetMetricValue,
   selectLatestExercisePerformance,
+  shouldShowPlayerSetDetails,
 } from "../src/utils/playerBuilderSync.js";
 import { estimateExerciseDurationSeconds } from "../src/utils/trainingEngine.js";
 
@@ -124,6 +128,76 @@ assert.equal(
   ),
   true,
   "a checked metric must be recorded"
+);
+
+assert.equal(
+  resolvePlayerSetMetricValue({
+    draftValues: { "Répétitions": 17 },
+    detail: { "Répétitions": 15 },
+    label: "Répétitions",
+    baseValue: 20,
+  }),
+  17,
+  "the active player edit must immediately replace the planned advanced-set value"
+);
+assert.equal(
+  resolvePlayerSetMetricValue({
+    draftValues: {},
+    detail: { "Répétitions": 15 },
+    label: "Répétitions",
+    baseValue: 20,
+  }),
+  15,
+  "an untouched advanced set must keep its own planned value"
+);
+
+assert.equal(
+  haveDifferentPlayerSetValues(
+    [
+      { "Répétitions": 15, "Repos (min:sec)": "01:00" },
+      { "Répétitions": 17, "Repos (min:sec)": 60 },
+    ],
+    ["Répétitions", "Repos (min:sec)"]
+  ),
+  true,
+  "a set edited differently from the first one must enable custom sets"
+);
+assert.equal(
+  haveDifferentPlayerSetValues(
+    [
+      { "Répétitions": 15, "Repos (min:sec)": "01:00" },
+      { "Répétitions": 15, "Repos (min:sec)": 60 },
+    ],
+    ["Répétitions", "Repos (min:sec)"]
+  ),
+  false,
+  "equivalent set values must keep the identical-sets state"
+);
+
+const plannedDifferentSets = [
+  { "Répétitions": 20 },
+  { "Répétitions": 15 },
+  { "Répétitions": 12 },
+];
+assert.equal(
+  haveDifferentReachedPlayerSetValues(plannedDifferentSets, ["Répétitions"], 1),
+  false,
+  "the first set must only establish the reference, even when future sets are planned differently"
+);
+assert.equal(
+  haveDifferentReachedPlayerSetValues(plannedDifferentSets, ["Répétitions"], 2),
+  true,
+  "custom sets must activate once the second reached set differs from the first"
+);
+assert.equal(
+  shouldShowPlayerSetDetails({
+    configuredDifferentSets: true,
+    rows: plannedDifferentSets,
+    labels: ["Répétitions"],
+    currentSet: 1,
+  }),
+  true,
+  "sets deliberately configured as different in the builder must be visible from set 1"
 );
 
 assert.equal(

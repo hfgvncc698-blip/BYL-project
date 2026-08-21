@@ -1431,7 +1431,8 @@
     "autoFollowShort": "Monitoraggio",
     "enabled": "Abilitato",
     "disabled": "Disabilitato",
-    "pdfPreparing": "Preparazione di PDF..."
+    "pdfPreparing": "Preparazione di PDF...",
+    "pdfReady": "PDF scaricato"
   },
   "pdf": {
     "sections": {
@@ -2092,16 +2093,19 @@
     "upNext": "A seguire",
     "finishWorkout": "Termina la sessione",
     "advSets": "Serie diverse",
+    "customSets": "Serie personalizzate",
+    "identicalSets": "Serie identiche",
+    "automaticSetDetection": "Rilevamento automatico",
+    "inProgress": "In corso",
     "notes": "Note",
     "addNotePh": "Aggiungi una nota per questo esercizio...",
     "constraints": "Vincoli",
     "cues": "Istruzioni",
     "currentSet": "Serie attuale:",
     "setN": "Serie {{n}}",
+    "goToSet": "Torna alla serie {{n}}",
     "seriesCounter": "Serie {{i}}/{{n}}",
     "nextSeriesCounter": "Prossima serie {{i}}/{{n}}",
-    "clickSetToEdit": "Tocca una riga per tornare a quella serie.",
-    "goToSet": "Torna alla serie {{n}}",
     "empty": "Sessione non trovata o vuota.",
     "rateTitle": "Valuta la difficoltà",
     "restBetween": "Tra gli esercizi",

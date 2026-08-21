@@ -3342,7 +3342,12 @@ export default function ProgramView() {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+      notify(toast, "pdfReady", {
+        title: t("autoPreview.pdfReady", "PDF téléchargé"),
+        status: "success",
+        duration: 3000,
+      });
     } catch (e) {
       console.error(e);
       notify(toast, "pdfError", {

@@ -1431,7 +1431,8 @@
     "autoFollowShort": "Отслеживание",
     "enabled": "Включено",
     "disabled": "Отключено",
-    "pdfPreparing": "Подготовка PDF..."
+    "pdfPreparing": "Подготовка PDF...",
+    "pdfReady": "PDF загружен"
   },
   "pdf": {
     "sections": {
@@ -2094,14 +2095,16 @@
     "upNext": "Продолжение следует",
     "finishWorkout": "Завершить сеанс",
     "advSets": "Разные серии",
+    "customSets": "Индивидуальные подходы",
+    "identicalSets": "Одинаковые подходы",
+    "automaticSetDetection": "Автоматическое определение",
+    "inProgress": "Выполняется",
     "notes": "Примечания",
     "addNotePh": "Добавьте примечание к этому упражнению…",
     "constraints": "Ограничения",
     "cues": "Инструкции",
     "currentSet": "Текущий подход:",
     "setN": "Установить {{n}}",
-    "clickSetToEdit": "Нажмите на строку, чтобы вернуться к этому подходу.",
-    "goToSet": "Вернуться к подходу {{n}}",
     "empty": "Сессия не найдена или пуста.",
     "rateTitle": "Оцените сложность",
     "restBetween": "Между упражнениями",
@@ -2181,6 +2184,7 @@
     "completedSetsAppearHere": "Завершённые подходы появятся здесь.",
     "pendingValidation": "Ожидает",
     "setN": "Подход {{n}}",
+    "goToSet": "Вернуться к подходу {{n}}",
     "setRecorded": "Записан",
     "rmTab": "RM",
     "rmEstimates": "Оценки RM",

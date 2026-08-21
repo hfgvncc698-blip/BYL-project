@@ -106,7 +106,12 @@ import {
   buildCompletionRecordsFromModifications,
   mergeCompletionHistoryRecords,
 } from "../utils/exerciseModificationHistory";
-import { isPerformanceOptionTracked } from "../utils/playerBuilderSync";
+import {
+  haveDifferentPlayerSetValues,
+  isPerformanceOptionTracked,
+  resolvePlayerSetMetricValue,
+  shouldShowPlayerSetDetails,
+} from "../utils/playerBuilderSync";
 import { applyValidatedSnapshotsToAssignedProgram } from "../utils/playerProgramSync";
 import {
   applyTimingCalibrationToSessions,
@@ -1199,6 +1204,18 @@ function buildExercisePerformanceSnapshots(
       return (Number(set.reps) || 0) > (Number(best.reps) || 0) ? set : best;
     }, null);
     const timing = timingByIndex.get(exerciseIndex) || {};
+    const comparableRows = sets.map((set) =>
+      Object.fromEntries(
+        Object.entries(set?.values || {}).map(([label, metric]) => [label, metric?.raw ?? metric])
+      )
+    );
+    const comparableLabels = Array.from(
+      new Set(comparableRows.flatMap((row) => Object.keys(row || {})))
+    );
+    const performedSetsAreDifferent = haveDifferentPlayerSetValues(
+      comparableRows,
+      comparableLabels
+    );
 
     return {
       exerciseIndex,
@@ -1214,7 +1231,8 @@ function buildExercisePerformanceSnapshots(
       optionsOrder: Array.isArray(exercise?.optionsOrder)
         ? [...exercise.optionsOrder]
         : [],
-      seriesDiff: getSeriesDiffFlag(exercise),
+      seriesDiff:
+        sets.length > 1 ? performedSetsAreDifferent : getSeriesDiffFlag(exercise),
       sets,
       summary: {
         totalSets: sets.length,
@@ -4889,52 +4907,6 @@ export default function SessionPlayer() {
     setResolvedExercise((prev) => ({ ...(prev || {}), ...ex }));
   }
 
-  async function toggleSeriesDiff(on) {
-    if (!programData || !sessionObj || !flat.length) return;
-
-    const sessionsCopy = structuredClone(programData.sessions || []);
-    const sessCopy = sessionsCopy[sessionIndex] || {};
-    const mapping = mapIdx[exIndex];
-    if (!mapping) return;
-
-    const key = mapping.sectionKey === "exercises" ? "exercises" : mapping.sectionKey;
-    const list = Array.isArray(sessCopy[key]) ? sessCopy[key] : [];
-    if (!list[mapping.index]) return;
-
-    const ex = list[mapping.index];
-    const setsCount = Number(getFieldValue(ex, FIELD_MAP.series) ?? 1) || 1;
-
-    if (on) {
-      const seed = {};
-      Object.values(OPTION_FLAG).forEach((lbl) => {
-        if (ex[lbl] != null) seed[lbl] = ex[lbl];
-      });
-      const det = ensureDetailsLength(getSeriesDetails(ex), setsCount, seed);
-      ex.seriesDetails = det;
-      ex.seriesDiff = true;
-
-    } else {
-      ex.seriesDiff = false;
-      const base = mergeBaseFromDetail0(ex);
-      Object.keys(base).forEach((lbl) => {
-        ex[lbl] = base[lbl];
-      });
-
-    }
-
-    list[mapping.index] = ex;
-    sessCopy[key] = list;
-    sessionsCopy[sessionIndex] = sessCopy;
-
-    setProgramData((prev) => ({ ...(prev || {}), sessions: sessionsCopy }));
-    setSessionObj(sessCopy);
-
-    const updated = flattenSession(sessCopy);
-    setFlat(updated.flat);
-    setMapIdx(updated.map);
-    setResolvedExercise((prev) => ({ ...(prev || {}), ...ex }));
-  }
-
   async function toggleExerciseParameter(keyToToggle, enabled) {
     if (!programData || !sessionObj || !flat.length) return;
     const label = OPTION_FLAG[keyToToggle];
@@ -5019,6 +4991,7 @@ export default function SessionPlayer() {
 
   function goToSet(setNumber) {
     const safeSet = Math.max(1, Math.min(Number(setNumber) || 1, totalSetsRef.current || 1));
+    if (safeSet === currentSet) return;
     if (phase === "rest") finalizeCurrentSetRestPerformance();
     effortTimer.stop();
     effortElapsedTimer.stop();
@@ -5029,8 +5002,6 @@ export default function SessionPlayer() {
     autoStartDelayRef.current = 0;
     setCurrentSet(safeSet);
     setPhase("ready");
-    effortTimer.reset(durSecRef.current);
-    effortElapsedTimer.reset();
   }
 
   function nextExercise() {
@@ -5419,6 +5390,35 @@ export default function SessionPlayer() {
   const tableColumns = metrics
     .map((m) => m.label || OPTION_FLAG[m.key] || m.key)
     .filter((lbl) => lbl !== "Séries");
+  const renderedSetCount = chain.inChain ? totalSetsRef.current : setsCount;
+  const playerSetRows = Array.from({ length: renderedSetCount }).map((_, index) => {
+    const detail = seriesDiff ? details?.[index] || {} : {};
+    const draftValues = getPerformanceDraft(exIndex, index + 1)?.values || {};
+    return Object.fromEntries(
+      tableColumns.map((label) => {
+        const mapEntry = Object.entries(OPTION_FLAG).find(([, value]) => value === label)?.[0];
+        const baseValue = getFieldValue(ex, FIELD_MAP[mapEntry] || [label]);
+        return [
+          label,
+          resolvePlayerSetMetricValue({
+            draftValues,
+            detail,
+            label,
+            baseValue,
+          }),
+        ];
+      })
+    );
+  });
+  // The first set establishes the reference. Do not announce custom sets from
+  // future planned rows before the athlete reaches them; comparison starts
+  // with set 2 and only includes sets already reached in the player.
+  const hasDifferentSeries = shouldShowPlayerSetDetails({
+    configuredDifferentSets: seriesDiff,
+    rows: playerSetRows,
+    labels: tableColumns,
+    currentSet,
+  });
 
   const restHint = chain.inChain
     ? !chain.isLast && (chain.mode === "each" || chain.mode === "both")
@@ -5938,17 +5938,22 @@ export default function SessionPlayer() {
                     </HStack>
 
                     <Wrap spacing={4} align="center">
-                      <FormControl display="flex" alignItems="center" w="auto">
-                        <FormLabel htmlFor="series-diff" mb="0" fontWeight="semibold" fontSize="sm">
-                          {t("sessionPlayer.advSets", "Séries différentes")}
-                        </FormLabel>
-                        <Switch
-                          id="series-diff"
-                          colorScheme="purple"
-                          isChecked={!!seriesDiff}
-                          onChange={(e) => toggleSeriesDiff(e.target.checked)}
-                        />
-                      </FormControl>
+                      <Box>
+                        <Badge
+                          colorScheme={hasDifferentSeries ? "purple" : "gray"}
+                          variant={hasDifferentSeries ? "solid" : "subtle"}
+                          borderRadius="full"
+                          px={2.5}
+                          py={1}
+                        >
+                          {hasDifferentSeries
+                            ? t("sessionPlayer.customSets", "Séries personnalisées")
+                            : t("sessionPlayer.identicalSets", "Séries identiques")}
+                        </Badge>
+                        <Text fontSize="xs" color={textMute} mt={1}>
+                          {t("sessionPlayer.automaticSetDetection", "Détection automatique")}
+                        </Text>
+                      </Box>
 
                       <FormControl display="flex" alignItems="center" w="auto">
                         <FormLabel htmlFor="notes-toggle" mb="0" fontWeight="semibold" fontSize="sm">
@@ -5962,6 +5967,97 @@ export default function SessionPlayer() {
                         />
                       </FormControl>
                     </Wrap>
+
+                    {hasDifferentSeries && (
+                      <Box
+                        w="full"
+                        overflowX="auto"
+                        border="1px solid"
+                        borderColor={border}
+                        borderRadius="xl"
+                        bg={seriesDiffBg}
+                      >
+                        <Table
+                          size="sm"
+                          w="full"
+                          minW={`${Math.max(280, 52 + tableColumns.length * 74)}px`}
+                          tableLayout="fixed"
+                          sx={{
+                            "th, td": {
+                              px: 2,
+                              py: 1.5,
+                              whiteSpace: "nowrap",
+                              borderColor: border,
+                            },
+                          }}
+                        >
+                          <Thead>
+                            <Tr>
+                              <Th w="52px" fontSize="2xs">#</Th>
+                              {tableColumns.map((label) => (
+                                <Th key={label} fontSize="2xs" overflow="hidden" textOverflow="ellipsis">
+                                  {labelWithUnit(units, label, t)}
+                                </Th>
+                              ))}
+                            </Tr>
+                          </Thead>
+                          <Tbody>
+                            {playerSetRows.map((row, i) => {
+                              const isActiveSet = i === currentSet - 1;
+                              return (
+                                <Tr
+                                  key={i}
+                                  bg={isActiveSet ? rowHighlight : "transparent"}
+                                  aria-current={isActiveSet ? "step" : undefined}
+                                  aria-label={t("sessionPlayer.goToSet", "Revenir à la série {{n}}", {
+                                    n: i + 1,
+                                  })}
+                                  role="button"
+                                  tabIndex={0}
+                                  cursor="pointer"
+                                  transition="background-color 0.15s ease"
+                                  _hover={{ bg: rowHighlight }}
+                                  _focusVisible={{ outline: "2px solid", outlineColor: "purple.400" }}
+                                  onClick={() => goToSet(i + 1)}
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Enter" || event.key === " ") {
+                                      event.preventDefault();
+                                      goToSet(i + 1);
+                                    }
+                                  }}
+                                >
+                                  <Td
+                                    fontSize="xs"
+                                    fontWeight="900"
+                                    color={isActiveSet ? "purple.500" : undefined}
+                                  >
+                                    <HStack spacing={1}>
+                                      <Text>{i + 1}</Text>
+                                      {isActiveSet && (
+                                        <Box boxSize="6px" borderRadius="full" bg="purple.400" flexShrink={0} />
+                                      )}
+                                    </HStack>
+                                  </Td>
+                                  {tableColumns.map((label) => {
+                                    const cellRaw = row[label];
+                                    const isTimeLabel =
+                                      label === "Repos (min:sec)" || label === "Durée (min:sec)";
+                                    const content = isTimeLabel
+                                      ? toClockMMSS(toSeconds(cellRaw || 0))
+                                      : displayFromBase({ units, label, value: cellRaw ?? 0 });
+                                    return (
+                                      <Td key={label} fontSize="xs" fontWeight={isActiveSet ? "800" : "600"}>
+                                        {content}
+                                      </Td>
+                                    );
+                                  })}
+                                </Tr>
+                              );
+                            })}
+                          </Tbody>
+                        </Table>
+                      </Box>
+                    )}
 
                     <Grid
                       templateColumns={{
@@ -5995,89 +6091,6 @@ export default function SessionPlayer() {
                         />
                       ))}
                     </Grid>
-
-                    {seriesDiff && (
-                      <Box
-                        border="1px solid"
-                        borderColor={border}
-                        borderRadius="xl"
-                        p={3}
-                        bg={seriesDiffBg}
-                        w="full"
-                        minW={0}
-                      >
-                        <HStack justify="space-between" mb={2} flexWrap="wrap" gap={2}>
-                          <Tag size="sm" colorScheme="purple">
-                            {t("sessionPlayer.advSets", "Séries différentes")}
-                          </Tag>
-                          <Text fontSize="sm" color={textMute}>
-                            {String(t("sessionPlayer.currentSet", "Série en cours")).replace(/\s*:$/, "")} : <b>{currentSet}</b> /{" "}
-                            {chain.inChain ? totalSetsRef.current : setsCount}
-                          </Text>
-                        </HStack>
-
-                        <Text fontSize="xs" color={textMute} mb={2}>
-                          {t("sessionPlayer.clickSetToEdit", "Cliquez sur une ligne pour revenir à cette série.")}
-                        </Text>
-
-                        <Box overflowX="auto" w="full">
-                          <Table
-                            size="sm"
-                            variant="simple"
-                            minW="520px"
-                            sx={{ "th, td": { fontSize: "xs", py: 1, px: 2 } }}
-                          >
-                            <Thead>
-                              <Tr>
-                                <Th>#</Th>
-                                {tableColumns.map((lbl) => (
-                                  <Th key={lbl}>{labelWithUnit(units, lbl, t)}</Th>
-                                ))}
-                              </Tr>
-                            </Thead>
-                            <Tbody>
-                              {Array.from({ length: chain.inChain ? totalSetsRef.current : setsCount }).map((_, i) => {
-                                const det = details?.[i] || {};
-                                const isActiveSet = i === currentSet - 1;
-                                return (
-                                  <Tr
-                                    key={i}
-                                    role="button"
-                                    tabIndex={0}
-                                    cursor="pointer"
-                                    bg={isActiveSet ? rowHighlight : "transparent"}
-                                    _hover={{ bg: rowHighlight }}
-                                    onClick={() => goToSet(i + 1)}
-                                    onKeyDown={(event) => {
-                                      if (event.key === "Enter" || event.key === " ") {
-                                        event.preventDefault();
-                                        goToSet(i + 1);
-                                      }
-                                    }}
-                                    aria-current={isActiveSet ? "step" : undefined}
-                                    aria-label={t("sessionPlayer.goToSet", "Revenir à la série {{n}}", { n: i + 1 })}
-                                  >
-                                    <Td width="70px">
-                                      {t("sessionPlayer.set", "Set")} {i + 1}
-                                    </Td>
-                                    {tableColumns.map((lbl) => {
-                                      const isTimeLbl = lbl === "Repos (min:sec)" || lbl === "Durée (min:sec)";
-                                      const mapEntry = Object.entries(OPTION_FLAG).find(([, v]) => v === lbl)?.[0];
-                                      const base = getFieldValue(ex, FIELD_MAP[mapEntry] || [lbl]);
-                                      const cellRaw = det[lbl] != null ? det[lbl] : base;
-                                      const content = isTimeLbl
-                                        ? toClockMMSS(toSeconds(cellRaw || 0))
-                                        : displayFromBase({ units, label: lbl, value: cellRaw ?? 0 });
-                                      return <Td key={lbl}>{content}</Td>;
-                                    })}
-                                  </Tr>
-                                );
-                              })}
-                            </Tbody>
-                          </Table>
-                        </Box>
-                      </Box>
-                    )}
 
                     {notesOpen && (
                       <Box

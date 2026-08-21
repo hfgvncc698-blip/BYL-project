@@ -287,6 +287,9 @@ REMOTE_SCRIPT="/tmp/byl-deploy-${ts}.sh"
 REMOTE_SCRIPT_LOCAL="${TMPDIR:-/tmp}/byl-deploy-${ts}.sh"
 REMOTE_STORAGE_SCRIPT="/tmp/byl-storage-cleanup-${ts}.sh"
 REMOTE_STORAGE_SCRIPT_LOCAL="${TMPDIR:-/tmp}/byl-storage-cleanup-${ts}.sh"
+NGINX_SECURITY_HEADERS_LOCAL="nginx/boostyourlife-security-headers.conf"
+REMOTE_NGINX_SECURITY_HEADERS_UPLOAD="/tmp/byl-security-headers-${ts}.conf"
+REMOTE_NGINX_SECURITY_HEADERS="/etc/nginx/snippets/boostyourlife-security-headers.conf"
 
 cleanup() {
   if [ "$SSH_MASTER_STARTED" = true ]; then
@@ -499,6 +502,8 @@ REMOTE_API_HEALTH_URL="${REMOTE_API_HEALTH_URL}"
 REMOTE_NODE_VERSION="${REMOTE_NODE_VERSION}"
 REMOTE_CANARY_PORT="${REMOTE_CANARY_PORT}"
 REMOTE_MIN_FREE_MB="${REMOTE_MIN_FREE_MB}"
+REMOTE_NGINX_SECURITY_HEADERS_UPLOAD="${REMOTE_NGINX_SECURITY_HEADERS_UPLOAD}"
+REMOTE_NGINX_SECURITY_HEADERS="${REMOTE_NGINX_SECURITY_HEADERS}"
 SUDO_MODE="\${1:-}"
 REMOTE_SUDO_PASSWORD=""
 
@@ -511,7 +516,7 @@ REMOTE_SUDO_PASSWORD=""
 
 cleanup_remote_stage() {
   rm -rf "\$REMOTE_BACKEND_RELEASE"
-  rm -f "\$ARCHIVE" "\$BACKEND_ARCHIVE" "\$REMOTE_BACKEND_SYNC_ARCHIVE" "\$REMOTE_SCRIPT"
+  rm -f "\$ARCHIVE" "\$BACKEND_ARCHIVE" "\$REMOTE_BACKEND_SYNC_ARCHIVE" "\$REMOTE_NGINX_SECURITY_HEADERS_UPLOAD" "\$REMOTE_SCRIPT"
 
   local active_front=""
   active_front="\$(readlink -f "\$REMOTE_WEBROOT" 2>/dev/null || true)"
@@ -534,6 +539,7 @@ need_remote_command() {
 need_remote_command sudo
 need_remote_command tar
 need_remote_command curl
+need_remote_command nginx
 
 # Le secret est lu une seule fois depuis stdin, reste uniquement en memoire et
 # n'apparait jamais dans un fichier ou dans les arguments des processus.
@@ -705,6 +711,39 @@ run_backend_canary() {
 }
 
 run_backend_canary
+
+install_nginx_security_headers() {
+  local backup="/tmp/byl-security-headers-backup-${ts}.conf"
+
+  [ -f "\$REMOTE_NGINX_SECURITY_HEADERS_UPLOAD" ] || {
+    echo "Configuration de securite Nginx manquante: \$REMOTE_NGINX_SECURITY_HEADERS_UPLOAD"
+    return 1
+  }
+
+  if sudo_run test -f "\$REMOTE_NGINX_SECURITY_HEADERS"; then
+    sudo_run cp "\$REMOTE_NGINX_SECURITY_HEADERS" "\$backup"
+  fi
+
+  sudo_run mkdir -p "\$(dirname "\$REMOTE_NGINX_SECURITY_HEADERS")"
+  sudo_run install -m 644 "\$REMOTE_NGINX_SECURITY_HEADERS_UPLOAD" "\$REMOTE_NGINX_SECURITY_HEADERS"
+
+  if ! sudo_run nginx -t; then
+    echo "Configuration Nginx invalide, restauration de la version precedente."
+    if sudo_run test -f "\$backup"; then
+      sudo_run cp "\$backup" "\$REMOTE_NGINX_SECURITY_HEADERS"
+    else
+      sudo_run rm -f "\$REMOTE_NGINX_SECURITY_HEADERS"
+    fi
+    sudo_run rm -f "\$backup"
+    return 1
+  fi
+
+  sudo_run nginx -s reload
+  sudo_run rm -f "\$backup"
+  echo "En-tetes de securite Nginx actualises."
+}
+
+install_nginx_security_headers
 
 echo "Nettoyage des secrets temporaires de la release backend..."
 rm -f \
@@ -956,6 +995,7 @@ EOF
 
 echo "Upload vers ${USER}@${HOST}:/tmp/"
 scp "${SSH_OPTS[@]}" "${ARCHIVE}" "${BACKEND_ARCHIVE}" "${REMOTE_SCRIPT_LOCAL}" "${USER}@${HOST}:/tmp/"
+scp "${SSH_OPTS[@]}" "${NGINX_SECURITY_HEADERS_LOCAL}" "${USER}@${HOST}:${REMOTE_NGINX_SECURITY_HEADERS_UPLOAD}"
 
 echo "Deploiement sur le serveur..."
 run_remote_deploy_script

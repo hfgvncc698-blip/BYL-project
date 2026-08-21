@@ -103,3 +103,82 @@ export function selectLatestExercisePerformance(
 export function isPerformanceOptionTracked(exercise = {}, label) {
   return !Array.isArray(exercise?.optionsOrder) || exercise.optionsOrder.includes(label);
 }
+
+/**
+ * Resolves the value displayed for one set in the player. A value edited
+ * during the current workout must take precedence over the planned advanced
+ * set, without changing the other sets before the workout is validated.
+ */
+export function resolvePlayerSetMetricValue({
+  draftValues = {},
+  detail = {},
+  label,
+  baseValue,
+} = {}) {
+  if (Object.prototype.hasOwnProperty.call(draftValues || {}, label)) {
+    return draftValues[label];
+  }
+  if (Object.prototype.hasOwnProperty.call(detail || {}, label)) {
+    return detail[label];
+  }
+  return baseValue;
+}
+
+const comparablePlayerSetValue = (value, label = "") => {
+  const raw = value && typeof value === "object" && "raw" in value ? value.raw : value;
+  if (raw == null || raw === "") return null;
+
+  if (label === "Repos (min:sec)" || label === "Durée (min:sec)") {
+    if (typeof raw === "string" && raw.includes(":")) {
+      const [minutes, seconds] = raw.split(":").map(Number);
+      if (Number.isFinite(minutes) && Number.isFinite(seconds)) return minutes * 60 + seconds;
+    }
+  }
+
+  const numeric = Number(raw);
+  if (Number.isFinite(numeric)) return numeric;
+  return String(raw).trim().toLocaleLowerCase();
+};
+
+/**
+ * Detects whether at least one set differs from the first one for the metrics
+ * currently tracked by the exercise. It accepts planned values as well as
+ * history value objects shaped like { raw, display }.
+ */
+export function haveDifferentPlayerSetValues(rows = [], labels = []) {
+  if (!Array.isArray(rows) || rows.length < 2 || !Array.isArray(labels)) return false;
+  const first = rows[0] || {};
+  return rows.slice(1).some((row) =>
+    labels.some(
+      (label) =>
+        comparablePlayerSetValue(row?.[label], label) !==
+        comparablePlayerSetValue(first?.[label], label)
+    )
+  );
+}
+
+/**
+ * The first set is the workout reference. Future planned sets must not reveal
+ * the custom-sets state before the athlete reaches set 2 (or a later set).
+ */
+export function haveDifferentReachedPlayerSetValues(
+  rows = [],
+  labels = [],
+  currentSet = 1
+) {
+  const reachedCount = Math.max(1, Math.round(Number(currentSet) || 1));
+  if (reachedCount < 2) return false;
+  return haveDifferentPlayerSetValues(rows.slice(0, reachedCount), labels);
+}
+
+export function shouldShowPlayerSetDetails({
+  configuredDifferentSets = false,
+  rows = [],
+  labels = [],
+  currentSet = 1,
+} = {}) {
+  return (
+    configuredDifferentSets === true ||
+    haveDifferentReachedPlayerSetValues(rows, labels, currentSet)
+  );
+}

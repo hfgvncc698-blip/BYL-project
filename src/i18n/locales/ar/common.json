@@ -1431,7 +1431,8 @@
     "autoFollowShort": "تتبع",
     "enabled": "ممكّن",
     "disabled": "معطل",
-    "pdfPreparing": "تحضير PDF..."
+    "pdfPreparing": "تحضير PDF...",
+    "pdfReady": "تم تنزيل ملف PDF"
   },
   "pdf": {
     "sections": {
@@ -2094,14 +2095,16 @@
     "upNext": "يجب أن يستمر",
     "finishWorkout": "قم بإنهاء الجلسة",
     "advSets": "سلسلة مختلفة",
+    "customSets": "مجموعات مخصصة",
+    "identicalSets": "مجموعات متطابقة",
+    "automaticSetDetection": "اكتشاف تلقائي",
+    "inProgress": "قيد التنفيذ",
     "notes": "ملاحظات",
     "addNotePh": "أضف ملاحظة لهذا التمرين...",
     "constraints": "القيود",
     "cues": "تعليمات",
     "currentSet": "المجموعة الحالية:",
     "setN": "تعيين {{n}}",
-    "clickSetToEdit": "اضغط على صف للعودة إلى هذه المجموعة.",
-    "goToSet": "العودة إلى المجموعة {{n}}",
     "empty": "لم يتم العثور على الجلسة أو أنها فارغة.",
     "rateTitle": "قيم الصعوبة",
     "restBetween": "بين التمارين",
@@ -2181,6 +2184,7 @@
     "completedSetsAppearHere": "ستظهر المجموعات المكتملة هنا.",
     "pendingValidation": "قيد الانتظار",
     "setN": "المجموعة {{n}}",
+    "goToSet": "العودة إلى المجموعة {{n}}",
     "setRecorded": "مسجلة",
     "rmTab": "RM",
     "rmEstimates": "تقديرات RM",

@@ -1431,7 +1431,8 @@
     "autoFollowShort": "Verfolgung",
     "enabled": "Aktiviert",
     "disabled": "Deaktiviert",
-    "pdfPreparing": "Vorbereitung von PDF..."
+    "pdfPreparing": "Vorbereitung von PDF...",
+    "pdfReady": "PDF heruntergeladen"
   },
   "pdf": {
     "sections": {
@@ -1460,6 +1461,7 @@
     "notes": "Notizen",
     "session": "Sitzung",
     "setN": "Setze {{n}}",
+    "goToSet": "Zurück zu Satz {{n}}",
     "generatedWith": "Erstellt mit Boost Your Life • {{host}}",
     "date": "{{date, DD/MM/YYYY}}",
     "fileProgram": "Programm",
@@ -2094,14 +2096,16 @@
     "upNext": "Fortsetzung folgt",
     "finishWorkout": "Beenden Sie die Sitzung",
     "advSets": "Verschiedene Serien",
+    "customSets": "Individuelle Sätze",
+    "identicalSets": "Identische Sätze",
+    "automaticSetDetection": "Automatische Erkennung",
+    "inProgress": "Läuft",
     "notes": "Notizen",
     "addNotePh": "Fügen Sie eine Notiz für diese Übung hinzu…",
     "constraints": "Einschränkungen",
     "cues": "Anweisungen",
     "currentSet": "Aktueller Satz:",
     "setN": "Setze {{n}}",
-    "clickSetToEdit": "Klicken Sie auf eine Zeile, um zu diesem Satz zurückzukehren.",
-    "goToSet": "Zurück zu Satz {{n}}",
     "empty": "Sitzung nicht gefunden oder leer.",
     "rateTitle": "Bewerten Sie die Schwierigkeit",
     "restBetween": "Zwischen den Übungen",

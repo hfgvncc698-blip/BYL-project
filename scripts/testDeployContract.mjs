@@ -104,6 +104,14 @@ const checks = [
       deployScript.includes("Echec pendant la publication. Restauration de la version precedente."),
   },
   {
+    description: "la politique de securite du navigateur est publiee et verifiee par Nginx",
+    valid:
+      deployScript.includes('NGINX_SECURITY_HEADERS_LOCAL="nginx/boostyourlife-security-headers.conf"') &&
+      deployScript.includes("install_nginx_security_headers()") &&
+      deployScript.includes('sudo_run nginx -t') &&
+      deployScript.includes('sudo_run nginx -s reload'),
+  },
+  {
     description: "un backend incomplet n'ecrase pas la derniere sauvegarde exploitable",
     valid:
       deployScript.includes('[ -f "\\$REMOTE_BACKEND/app.js" ]') &&

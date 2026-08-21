@@ -1431,7 +1431,8 @@
     "autoFollowShort": "Tracking",
     "enabled": "Enabled",
     "disabled": "Disabled",
-    "pdfPreparing": "Preparation of PDF..."
+    "pdfPreparing": "Preparation of PDF...",
+    "pdfReady": "PDF downloaded"
   },
   "pdf": {
     "sections": {
@@ -1460,6 +1461,7 @@
     "notes": "Notes",
     "session": "Session",
     "setN": "Set {{n}}",
+    "goToSet": "Return to set {{n}}",
     "generatedWith": "Generated with Boost Your Life • {{host}}",
     "date": "{{date, DD/MM/YYYY}}",
     "fileProgram": "program",
@@ -2098,6 +2100,10 @@
     "upNext": "To be continued",
     "finishWorkout": "End the session",
     "advSets": "Different series",
+    "customSets": "Custom sets",
+    "identicalSets": "Identical sets",
+    "automaticSetDetection": "Automatic detection",
+    "inProgress": "In progress",
     "notes": "Notes",
     "addNotePh": "Add a note for this exercise…",
     "constraints": "Constraints",
@@ -2106,8 +2112,6 @@
     "setN": "Set {{n}}",
     "seriesCounter": "Set {{i}}/{{n}}",
     "nextSeriesCounter": "Next set {{i}}/{{n}}",
-    "clickSetToEdit": "Click a row to return to that set.",
-    "goToSet": "Return to set {{n}}",
     "empty": "Session not found or empty.",
     "rateTitle": "Rate the difficulty",
     "restBetween": "Between exercises",
