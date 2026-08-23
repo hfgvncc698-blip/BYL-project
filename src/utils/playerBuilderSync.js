@@ -124,6 +124,23 @@ export function resolvePlayerSetMetricValue({
   return baseValue;
 }
 
+/**
+ * Keeps the player focused on the set whose performance is being edited.
+ * During rest, that is still the set that just finished; the following set is
+ * exposed separately so callers do not accidentally use it as the edit target.
+ */
+export function getPlayerSetCursor({ currentSet = 1, totalSets = 1, phase = "ready" } = {}) {
+  const count = Math.max(1, Math.round(Number(totalSets) || 1));
+  const editableSet = Math.max(1, Math.min(Math.round(Number(currentSet) || 1), count));
+  const upcomingSet = phase === "rest" && editableSet < count ? editableSet + 1 : editableSet;
+
+  return {
+    editableSet,
+    displayedSet: editableSet,
+    upcomingSet,
+  };
+}
+
 const comparablePlayerSetValue = (value, label = "") => {
   const raw = value && typeof value === "object" && "raw" in value ? value.raw : value;
   if (raw == null || raw === "") return null;

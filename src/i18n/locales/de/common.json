@@ -203,6 +203,13 @@
     "nutrition_drafts_short": "{{count}} Bilanz(en) müssen noch finalisiert werden",
     "no_assigned_clients": "Keine Kunden zugewiesen",
     "no_client_to_relaunch": "Keine Kunden zum Weiterverfolgen",
+    "relaunch": {
+      "open_actions": "Nachfassaktionen bearbeiten",
+      "modal_title": "Kunden zum Nachfassen",
+      "modal_title_nutrition": "Patienten zum Nachfassen",
+      "modal_description": "Bereiten Sie eine Nachricht vor, öffnen Sie direkt das Profil oder planen Sie einen Termin mit jedem Kunden.",
+      "no_patient": "Keine Patienten zum Nachfassen"
+    },
     "no_program_available": "Keine Programme verfügbar",
     "no_recent_action": "Keine aktuellen Aktionen",
     "no_upcoming_session": "Keine bevorstehenden Sitzungen",

@@ -203,6 +203,13 @@
     "nutrition_drafts_short": "{{count}} stato/i patrimoniale/i da finalizzare",
     "no_assigned_clients": "Nessun cliente assegnato",
     "no_client_to_relaunch": "Nessun cliente da seguire",
+    "relaunch": {
+      "open_actions": "Gestisci i follow-up",
+      "modal_title": "Clienti da ricontattare",
+      "modal_title_nutrition": "Pazienti da ricontattare",
+      "modal_description": "Prepara un follow-up, apri direttamente la scheda o pianifica un incontro con ogni cliente.",
+      "no_patient": "Nessun paziente da ricontattare"
+    },
     "no_program_available": "Nessun programma disponibile",
     "no_recent_action": "Nessuna azione recente",
     "no_upcoming_session": "Nessuna sessione imminente",

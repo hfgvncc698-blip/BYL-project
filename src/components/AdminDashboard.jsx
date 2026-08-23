@@ -161,6 +161,8 @@ const toPairs = (obj = {}) =>
     .map(([k, v]) => ({ key: k, value: v }))
     .sort((a, b) => b.value - a.value);
 
+const asArray = (value) => (Array.isArray(value) ? value : []);
+
 const toDateObject = (v) => {
   const d = v?.toDate
     ? v.toDate()
@@ -1730,8 +1732,8 @@ export default function AdminDashboard() {
         row.clubName,
         row.ownerName,
         row.ownerEmail,
-        ...(row.coaches || []).flatMap((coach) => [coach.name, coach.email, coach.id]),
-        ...(row.clients || []).flatMap((client) => [client.name, client.email, client.id]),
+        ...asArray(row.coaches).flatMap((coach) => [coach?.name, coach?.email, coach?.id]),
+        ...asArray(row.clients).flatMap((client) => [client?.name, client?.email, client?.id]),
       ]
         .filter(Boolean)
         .some((field) => String(field).toLowerCase().includes(term))
@@ -1967,7 +1969,7 @@ export default function AdminDashboard() {
         { label: "Créé le", get: (row) => row.createdAt },
         { label: "Mis à jour", get: (row) => row.updatedAt },
         { label: "Clients", get: (row) => row.assignedCount },
-        { label: "Clients liés", get: (row) => (row.clients || []).map((client) => client.name).join(" | ") },
+        { label: "Clients liés", get: (row) => asArray(row.clients).map((client) => client?.name).filter(Boolean).join(" | ") },
         { label: "Séances jouées", get: (row) => row.playedCount },
         { label: "ID", get: (row) => row.id },
         { label: "Créateur ID", get: (row) => row.createdBy },
@@ -1983,9 +1985,9 @@ export default function AdminDashboard() {
         { label: "Responsable", get: (row) => row.ownerName },
         { label: "Email responsable", get: (row) => row.ownerEmail },
         { label: "Coachs", get: (row) => row.coachCount },
-        { label: "Coachs rattachés", get: (row) => (row.coaches || []).map((coach) => coach.name || coach.id).join(" | ") },
+        { label: "Coachs rattachés", get: (row) => asArray(row.coaches).map((coach) => coach?.name || coach?.id).filter(Boolean).join(" | ") },
         { label: "Clients", get: (row) => row.clientCount },
-        { label: "Clients rattachés", get: (row) => (row.clients || []).map((client) => client.name || client.id).join(" | ") },
+        { label: "Clients rattachés", get: (row) => asArray(row.clients).map((client) => client?.name || client?.id).filter(Boolean).join(" | ") },
         { label: "Dernière activité", get: (row) => row.lastActivity },
         { label: "ID", get: (row) => row.id },
       ],
@@ -2040,8 +2042,8 @@ export default function AdminDashboard() {
         club.name,
         club.ownerName,
         club.ownerEmail,
-        ...(club.coaches || []).flatMap((coach) => [coach.id, coach.name, coach.email]),
-        ...(club.clients || []).flatMap((client) => [client.id, client.name, client.email]),
+        ...asArray(club.coaches).flatMap((coach) => [coach?.id, coach?.name, coach?.email]),
+        ...asArray(club.clients).flatMap((client) => [client?.id, client?.name, client?.email]),
       ]
         .filter(Boolean)
         .join(" ")

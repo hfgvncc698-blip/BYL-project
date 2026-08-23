@@ -108,6 +108,7 @@ import {
 } from "../utils/exerciseModificationHistory";
 import {
   haveDifferentPlayerSetValues,
+  getPlayerSetCursor,
   isPerformanceOptionTracked,
   resolvePlayerSetMetricValue,
   shouldShowPlayerSetDetails,
@@ -797,8 +798,12 @@ const EditableMetric = ({ label, isTime = false, value, onChange, step = 1, comp
   const padding = compact ? 2 : 3;
 
   const [text, setText] = useState(isTime ? toClockMMSS(value) : String(value ?? 0));
+  const isEditingRef = useRef(false);
 
   useEffect(() => {
+    // A set can become "custom" (or the timer can advance) while the athlete
+    // is typing. Keep the unfinished text instead of replacing it mid-entry.
+    if (isEditingRef.current) return;
     setText(isTime ? toClockMMSS(value) : String(value ?? 0));
   }, [value, isTime, label]);
 
@@ -845,7 +850,13 @@ const EditableMetric = ({ label, isTime = false, value, onChange, step = 1, comp
           <Input
             value={text}
             onChange={(e) => setText(e.target.value)}
-            onBlur={commitTime}
+            onFocus={() => {
+              isEditingRef.current = true;
+            }}
+            onBlur={() => {
+              isEditingRef.current = false;
+              commitTime();
+            }}
             onKeyDown={onEnter}
             textAlign="center"
             fontSize={inputFont}
@@ -859,7 +870,13 @@ const EditableMetric = ({ label, isTime = false, value, onChange, step = 1, comp
           <Input
             value={text}
             onChange={(e) => setText(e.target.value)}
-            onBlur={commitNumber}
+            onFocus={() => {
+              isEditingRef.current = true;
+            }}
+            onBlur={() => {
+              isEditingRef.current = false;
+              commitNumber();
+            }}
             onKeyDown={onEnter}
             textAlign="center"
             fontSize={inputFont}
@@ -5307,6 +5324,9 @@ export default function SessionPlayer() {
   const seriesDiff = getSeriesDiffFlag(ex);
   const setsCount = Number(getFieldValue(ex, FIELD_MAP.series) ?? 1) || 1;
   const details = getSeriesDetails(ex);
+  const setCount = Math.max(1, totalSetsRef.current);
+  const setCursor = getPlayerSetCursor({ currentSet, totalSets: setCount, phase });
+  const performanceSetNumber = setCursor.editableSet;
 
   const metrics = [];
   effectiveOrder.forEach((key) => {
@@ -5319,7 +5339,7 @@ export default function SessionPlayer() {
     const hasValue = raw !== undefined || (seriesDiff && label !== "Séries");
 
     if (isEnabled || (!hasBuilderOrder && hasValue)) {
-      const value = valueFor(ex, key, OPTION_FLAG[key] || label, currentSet, units);
+      const value = valueFor(ex, key, OPTION_FLAG[key] || label, performanceSetNumber, units);
       metrics.push({
         key,
         label: OPTION_FLAG[key] || label,
@@ -5340,11 +5360,7 @@ export default function SessionPlayer() {
     .filter((item) => item.label);
 
   const phaseColor = phase === "effort" ? "blue" : phase === "rest" ? "green" : "gray";
-  const setCount = Math.max(1, totalSetsRef.current);
-  const activeSetNumber =
-    phase === "rest" && currentSet < setCount
-      ? Math.min(currentSet + 1, setCount)
-      : Math.min(currentSet, setCount);
+  const activeSetNumber = setCursor.displayedSet;
   const setFractionLabel = `${activeSetNumber}/${setCount}`;
 
   const shortInfos = (exo) => {
@@ -5417,7 +5433,7 @@ export default function SessionPlayer() {
     configuredDifferentSets: seriesDiff,
     rows: playerSetRows,
     labels: tableColumns,
-    currentSet,
+    currentSet: performanceSetNumber,
   });
 
   const restHint = chain.inChain
@@ -5937,7 +5953,13 @@ export default function SessionPlayer() {
                       )}
                     </HStack>
 
-                    <Wrap spacing={4} align="center">
+                    <Grid
+                      templateColumns="minmax(0, 1fr) auto"
+                      gap={4}
+                      alignItems="center"
+                      w="full"
+                      minH="52px"
+                    >
                       <Box>
                         <Badge
                           colorScheme={hasDifferentSeries ? "purple" : "gray"}
@@ -5966,9 +5988,43 @@ export default function SessionPlayer() {
                           onChange={(e) => setNotesOpen(e.target.checked)}
                         />
                       </FormControl>
-                    </Wrap>
+                    </Grid>
 
-                    {hasDifferentSeries && (
+                    <Grid
+                      key="player-metric-editor"
+                      templateColumns={{
+                        base: "1fr",
+                        sm: "repeat(2, minmax(0,1fr))",
+                        lg: "1fr",
+                      }}
+                      gap={3}
+                      alignItems="stretch"
+                      w="full"
+                    >
+                      {metrics.map(({ field, step, isTime, value }) => (
+                        <EditableMetric
+                          key={field}
+                          label={
+                            field === "Repos (min:sec)" && chain.inChain
+                              ? `${labelWithUnit(units, field, t)} ${restHint ? `— ${restHint}` : ""}`
+                              : labelWithUnit(units, field, t)
+                          }
+                          isTime={isTime}
+                          value={value}
+                          step={step}
+                          compact={false}
+                          onChange={(v) => {
+                            const forStore =
+                              field === "Repos (min:sec)" || field === "Durée (min:sec)"
+                                ? v
+                                : baseFromDisplay({ units, label: field, value: v });
+                            updateValue(field, forStore);
+                          }}
+                        />
+                      ))}
+                    </Grid>
+
+                    {hasDifferentSeries && renderedSetCount > 1 && tableColumns.length > 0 && (
                       <Box
                         w="full"
                         overflowX="auto"
@@ -5981,8 +6037,8 @@ export default function SessionPlayer() {
                           size="sm"
                           w="full"
                           minW={`${Math.max(280, 52 + tableColumns.length * 74)}px`}
-                          tableLayout="fixed"
                           sx={{
+                            tableLayout: "fixed",
                             "th, td": {
                               px: 2,
                               py: 1.5,
@@ -6003,7 +6059,7 @@ export default function SessionPlayer() {
                           </Thead>
                           <Tbody>
                             {playerSetRows.map((row, i) => {
-                              const isActiveSet = i === currentSet - 1;
+                              const isActiveSet = i === performanceSetNumber - 1;
                               return (
                                 <Tr
                                   key={i}
@@ -6058,39 +6114,6 @@ export default function SessionPlayer() {
                         </Table>
                       </Box>
                     )}
-
-                    <Grid
-                      templateColumns={{
-                        base: "1fr",
-                        sm: "repeat(2, minmax(0,1fr))",
-                        lg: "1fr",
-                      }}
-                      gap={3}
-                      alignItems="stretch"
-                      w="full"
-                    >
-                      {metrics.map(({ field, step, isTime, value }) => (
-                        <EditableMetric
-                          key={field}
-                          label={
-                            field === "Repos (min:sec)" && chain.inChain
-                              ? `${labelWithUnit(units, field, t)} ${restHint ? `— ${restHint}` : ""}`
-                              : labelWithUnit(units, field, t)
-                          }
-                          isTime={isTime}
-                          value={value}
-                          step={step}
-                          compact={false}
-                          onChange={(v) => {
-                            const forStore =
-                              field === "Repos (min:sec)" || field === "Durée (min:sec)"
-                                ? v
-                                : baseFromDisplay({ units, label: field, value: v });
-                            updateValue(field, forStore);
-                          }}
-                        />
-                      ))}
-                    </Grid>
 
                     {notesOpen && (
                       <Box

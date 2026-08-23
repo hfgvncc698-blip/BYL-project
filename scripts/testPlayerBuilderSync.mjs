@@ -3,6 +3,7 @@ import {
   isPerformanceOptionTracked,
   haveDifferentPlayerSetValues,
   haveDifferentReachedPlayerSetValues,
+  getPlayerSetCursor,
   resolvePlayerSetMetricValue,
   selectLatestExercisePerformance,
   shouldShowPlayerSetDetails,
@@ -20,6 +21,17 @@ const snapshot = (sessionPosition, reps, extra = {}) => ({
   sets: set(reps),
   ...extra,
 });
+
+assert.deepEqual(
+  getPlayerSetCursor({ currentSet: 2, totalSets: 4, phase: "rest" }),
+  { editableSet: 2, displayedSet: 2, upcomingSet: 3 },
+  "rest edits and the visible cursor must stay on the completed set"
+);
+assert.deepEqual(
+  getPlayerSetCursor({ currentSet: 3, totalSets: 4, phase: "ready" }),
+  { editableSet: 3, displayedSet: 3, upcomingSet: 3 },
+  "the ready phase must focus the set about to start"
+);
 
 const records = [
   {

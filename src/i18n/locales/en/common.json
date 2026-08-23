@@ -203,6 +203,13 @@
     "nutrition_drafts_short": "{{count}} balance sheet(s) to be finalized",
     "no_assigned_clients": "No clients assigned",
     "no_client_to_relaunch": "No customers to follow up",
+    "relaunch": {
+      "open_actions": "Handle follow-ups",
+      "modal_title": "Clients to follow up",
+      "modal_title_nutrition": "Patients to follow up",
+      "modal_description": "Prepare a follow-up, open the profile directly, or schedule a check-in with each client.",
+      "no_patient": "No patients to follow up"
+    },
     "no_program_available": "No programs available",
     "no_recent_action": "No recent actions",
     "no_upcoming_session": "No upcoming sessions",

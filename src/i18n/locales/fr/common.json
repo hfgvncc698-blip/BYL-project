@@ -203,6 +203,13 @@
     "nutrition_drafts_short": "{{count}} bilan(s) à finaliser",
     "no_assigned_clients": "Aucun client assigné",
     "no_client_to_relaunch": "Aucun client à relancer",
+    "relaunch": {
+      "open_actions": "Traiter les relances",
+      "modal_title": "Clients à relancer",
+      "modal_title_nutrition": "Patients à relancer",
+      "modal_description": "Préparez une relance, ouvrez directement la fiche ou planifiez un point avec chaque client.",
+      "no_patient": "Aucun patient à relancer"
+    },
     "no_program_available": "Aucun programme disponible",
     "no_recent_action": "Aucune action récente",
     "no_upcoming_session": "Aucune séance à venir",

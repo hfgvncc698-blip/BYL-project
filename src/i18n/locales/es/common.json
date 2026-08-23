@@ -203,6 +203,13 @@
     "nutrition_drafts_short": "{{count}} balance(s) por finalizar",
     "no_assigned_clients": "No hay clientes asignados",
     "no_client_to_relaunch": "No hay clientes para seguir",
+    "relaunch": {
+      "open_actions": "Gestionar seguimientos",
+      "modal_title": "Clientes por contactar",
+      "modal_title_nutrition": "Pacientes por contactar",
+      "modal_description": "Prepara un seguimiento, abre directamente la ficha o programa una cita con cada cliente.",
+      "no_patient": "No hay pacientes por contactar"
+    },
     "no_program_available": "No hay programas disponibles",
     "no_recent_action": "Ninguna acción reciente",
     "no_upcoming_session": "No hay próximas sesiones",

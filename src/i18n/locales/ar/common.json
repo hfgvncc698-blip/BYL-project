@@ -203,6 +203,13 @@
     "nutrition_drafts_short": "{{count}} الميزانية (الميزانيات) العمومية التي سيتم الانتهاء منها",
     "no_assigned_clients": "لم يتم تعيين أي عملاء",
     "no_client_to_relaunch": "لا يوجد عملاء للمتابعة",
+    "relaunch": {
+      "open_actions": "معالجة المتابعات",
+      "modal_title": "عملاء يحتاجون إلى متابعة",
+      "modal_title_nutrition": "مرضى يحتاجون إلى متابعة",
+      "modal_description": "حضّر رسالة متابعة، أو افتح الملف مباشرة، أو حدّد موعداً مع كل عميل.",
+      "no_patient": "لا يوجد مرضى يحتاجون إلى متابعة"
+    },
     "no_program_available": "لا توجد برامج متاحة",
     "no_recent_action": "لا توجد إجراءات الأخيرة",
     "no_upcoming_session": "لا توجد جلسات قادمة",

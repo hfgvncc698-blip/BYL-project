@@ -2114,6 +2114,7 @@ end && now < end;
   const upcomingSessionsModal = useDisclosure();
   const radarAdjustmentModal = useDisclosure();
   const copilotMemoryModal = useDisclosure();
+  const relaunchModal = useDisclosure();
   const confirmClientModal = useDisclosure();
   const confirmProgramModal = useDisclosure();
   const assignedToModal = useDisclosure();
@@ -6253,6 +6254,37 @@ const DAY_MS = 24 * 60 * 60 * 1000;
       .slice(0, 9);
   }, [copilotDecisionItems, nutritionCopilotItems, t]);
 
+  const relaunchItems = useMemo(
+    () =>
+      inactiveClients.map((client) => {
+        const existing = copilotQueueItems.find(
+          (item) => item.clientId === client.id && getCopilotDecisionKind(item) === "follow_up"
+        );
+        if (existing) return existing;
+
+        const title = getClientFullName(client) || client.email || t("dashboard.client", "Client");
+        const lastCoachMs = Number(client._lastCoachInteractionMs || 0);
+        return {
+          id: `inactive__${client.id}`,
+          clientId: client.id,
+          clientPath: `/clients/${client.id}`,
+          targetPath: `/clients/${client.id}`,
+          title,
+          eyebrow: t("dashboard.radar.eyebrows.follow_up", "À relancer"),
+          reason: t("dashboard.radar.reasons.no_recent_coach_interaction", "Aucune interaction coach récente."),
+          detail: lastCoachMs
+            ? t("dashboard.radar.details.last_follow_up", "Dernier suivi : {{date}}", {
+                date: new Date(lastCoachMs).toLocaleDateString(),
+              })
+            : t("dashboard.radar.details.no_follow_up", "Aucun suivi détecté"),
+          quickActions: ["plan_session", "open_client"],
+          primaryAction: "copy_followup",
+          primaryLabel: t("dashboard.copilot.actions.copy_message", "Copier relance"),
+        };
+      }),
+    [copilotQueueItems, inactiveClients, t]
+  );
+
   const copilotWeeklySummary = useMemo(() => {
     const difficultCount = coachRadarItems.filter((item) => item.quickActions?.includes("adjust_session")).length;
     const followUpCount = coachRadarItems.filter((item) => getCopilotDecisionKind(item) === "follow_up").length;
@@ -7871,7 +7903,7 @@ fontWeight="900" lineHeight="1">{weeklyLoad.rate}%</Text>
                      icon={MdOutlineNotificationsActive}
                      accent={warningOrange}
                      clickable
-                     onClick={() => navigate(withAdminCoach("/clients"))}
+                     onClick={relaunchModal.onOpen}
                  >
                 <Text fontSize={{ base: "2xl", md: "3xl" }}
 fontWeight="900" lineHeight="1">
@@ -7882,6 +7914,12 @@ fontWeight="900" lineHeight="1">
                      ? inactiveClients.slice(0, 2).map((c) => `${c.prenom} ${c.nom}`.trim()).join(", ")
                      : nutritionOnlyDashboard ? "Aucun patient à relancer" : t("dashboard.no_client_to_relaunch", "Aucun client à relancer")}
                 </Text>
+                {inactiveClients.length > 0 && (
+                  <HStack mt={2} spacing={1} color={warningOrange} fontSize="xs" fontWeight="900">
+                    <Text>{t("dashboard.relaunch.open_actions", "Traiter les relances")}</Text>
+                    <Icon as={ChevronRightIcon} boxSize="14px" />
+                  </HStack>
+                )}
               </PriorityCard>
 
             </HStack>
@@ -8127,7 +8165,7 @@ fontWeight="900">{weeklyLoad.rate}%</Text>
                    icon={MdOutlineNotificationsActive}
                    accent={warningOrange}
                    clickable
-                   onClick={() => navigate(withAdminCoach("/clients"))}
+                   onClick={relaunchModal.onOpen}
                >
 
                <Text fontSize={{ base: "2xl", md: "3xl" }}
@@ -8146,6 +8184,12 @@ color={mutedText} noOfLines={1}>
                      ))
                   )}
                </VStack>
+               {inactiveClients.length > 0 && (
+                 <HStack mt={2} spacing={1} color={warningOrange} fontSize="xs" fontWeight="900">
+                   <Text>{t("dashboard.relaunch.open_actions", "Traiter les relances")}</Text>
+                   <Icon as={ChevronRightIcon} boxSize="14px" />
+                 </HStack>
+               )}
              </PriorityCard>
             </Box>
           </Box>
@@ -10107,6 +10151,101 @@ MdOutlineLibraryBooks : CheckCircleIcon} />
 
       </Box>
       {/* Modals */}
+      <Modal isOpen={relaunchModal.isOpen} onClose={relaunchModal.onClose} isCentered size="lg" scrollBehavior="inside">
+        <ModalOverlay />
+        <ModalContent
+          bg={surfaceBgStrong}
+          color={textColor}
+          borderRadius="22px"
+          border="1px solid"
+          borderColor={borderColor}
+        >
+          <ModalHeader>
+            {nutritionOnlyDashboard
+              ? t("dashboard.relaunch.modal_title_nutrition", "Patients à relancer")
+              : t("dashboard.relaunch.modal_title", "Clients à relancer")}
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={5}>
+            <Text mb={4} fontSize="sm" color={mutedText}>
+              {t(
+                "dashboard.relaunch.modal_description",
+                "Préparez une relance, ouvrez directement la fiche ou planifiez un point avec chaque client."
+              )}
+            </Text>
+            <VStack align="stretch" spacing={3}>
+              {relaunchItems.length === 0 ? (
+                <Box p={4} borderRadius="16px" bg={surfaceSoft} border="1px solid" borderColor={borderColor}>
+                  <Text fontWeight="800">
+                    {nutritionOnlyDashboard
+                      ? t("dashboard.relaunch.no_patient", "Aucun patient à relancer")
+                      : t("dashboard.no_client_to_relaunch", "Aucun client à relancer")}
+                  </Text>
+                </Box>
+              ) : (
+                relaunchItems.map((item) => (
+                  <Box
+                    key={item.id}
+                    p={4}
+                    borderRadius="18px"
+                    bg={surfaceSoft}
+                    border="1px solid"
+                    borderColor={borderColor}
+                  >
+                    <HStack justify="space-between" align="start" spacing={3}>
+                      <Box minW={0}>
+                        <Text fontWeight="900" noOfLines={1}>{item.title}</Text>
+                        <Text mt={1} fontSize="sm" color={mutedText} noOfLines={2}>{item.reason}</Text>
+                      </Box>
+                      <Badge flexShrink={0} colorScheme="orange" variant="subtle" borderRadius="full" px={2.5} py={1}>
+                        {item.detail || t("dashboard.radar.details.no_follow_up", "Aucun suivi détecté")}
+                      </Badge>
+                    </HStack>
+                    <HStack mt={3} spacing={2} flexWrap="wrap">
+                      <Button
+                        size="sm"
+                        borderRadius="14px"
+                        leftIcon={<CopyIcon />}
+                        bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
+                        color="white"
+                        _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
+                        onClick={() => handleCopyCopilotMessage(item)}
+                      >
+                        {t("dashboard.copilot.actions.copy_message", "Copier relance")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        borderRadius="14px"
+                        variant="outline"
+                        leftIcon={<CalendarIcon />}
+                        onClick={() => {
+                          relaunchModal.onClose();
+                          handleRadarQuickAction(item, "plan_session");
+                        }}
+                      >
+                        {t("dashboard.radar.actions.plan_appointment", "Planifier RDV")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        borderRadius="14px"
+                        variant="ghost"
+                        rightIcon={<ChevronRightIcon />}
+                        onClick={() => {
+                          relaunchModal.onClose();
+                          handleRadarQuickAction(item, "open_client");
+                        }}
+                      >
+                        {t("dashboard.radar.actions.see_client", "Voir le client")}
+                      </Button>
+                    </HStack>
+                  </Box>
+                ))
+              )}
+            </VStack>
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+
       <Modal isOpen={dashboardPrefsModal.isOpen}
 onClose={dashboardPrefsModal.onClose} isCentered size="xl">
         <ModalOverlay />
