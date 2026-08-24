@@ -42,7 +42,7 @@ import { useTranslation } from "react-i18next";
 import AppLoading from "../components/ui/AppLoading";
 import { useAppTheme } from "../styles/appTheme";
 import { hasPlanModule } from "../utils/proPlanAccess";
-import { readPageDataCache, runLimited, writePageDataCache } from "../utils/pageDataCache";
+import { readPageDataCacheEntry, runLimited, writePageDataCache } from "../utils/pageDataCache";
 import { isSessionValidatedRecord } from "../utils/sessionCompletion";
 
 const COACH_STATS_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -405,7 +405,8 @@ export default function StatisticsPageCoach() {
       if (!user?.uid) return;
 
       const cacheKey = `byl:coach-stats:v1:${user.uid}:${locale}:${hasNutritionAccess ? "nutrition" : "sport"}`;
-      const cached = readPageDataCache(cacheKey, { ttlMs: COACH_STATS_CACHE_TTL_MS });
+      const cachedEntry = readPageDataCacheEntry(cacheKey, { ttlMs: COACH_STATS_CACHE_TTL_MS });
+      const cached = cachedEntry?.data || null;
       if (cached) {
         setTotalClients(cached.totalClients || 0);
         setTotalPrograms(cached.totalPrograms || 0);
@@ -423,7 +424,7 @@ export default function StatisticsPageCoach() {
         });
         setActiveClientList(cached.activeClientList || []);
         setLoading(false);
-        return;
+        if (!cachedEntry.isStale) return;
       } else {
         setLoading(true);
       }

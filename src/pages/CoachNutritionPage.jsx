@@ -34,14 +34,14 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { db } from "../firebaseConfig";
 import { useNutritionTheme } from "../styles/nutritionTheme";
 import AppLoading from "../components/ui/AppLoading.jsx";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useAuth } from "../AuthContext.jsx";
 import NutritionQuickCreateModal from "../components/NutritionQuickCreateModal.jsx";
 import PageBackButton from "../components/ui/PageBackButton.jsx";
 import { useTranslation } from "react-i18next";
 import {
   deferPageTask,
-  readPageDataCache,
+  readPageDataCacheEntry,
   runLimited,
   updatePageDataCache,
   writePageDataCache,
@@ -131,6 +131,11 @@ export default function CoachNutritionPage() {
 	    () => (effectiveCoachUid ? `byl:nutrition-page:v1:${effectiveCoachUid}` : null),
 	    [effectiveCoachUid]
 	  );
+  const initialNutritionPageCacheEntry = useMemo(
+    () => readPageDataCacheEntry(nutritionPageCacheKey, { ttlMs: NUTRITION_PAGE_CACHE_TTL_MS }),
+    [nutritionPageCacheKey]
+  );
+  const initialNutritionPageCache = initialNutritionPageCacheEntry?.data || null;
   const withAdminCoach = useCallback(
     (path) => {
       if (!isAdmin || !adminCoachId) return path;
@@ -140,11 +145,23 @@ export default function CoachNutritionPage() {
   );
   const createModal = useDisclosure();
   const deleteModal = useDisclosure();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !initialNutritionPageCache);
   const [loadError, setLoadError] = useState(null);
-  const [rows, setRows] = useState([]);
-  const [clientCount, setClientCount] = useState(0);
+  const [rows, setRows] = useState(() => initialNutritionPageCache?.rows || []);
+  const [clientCount, setClientCount] = useState(
+    () => Number(initialNutritionPageCache?.clientCount || 0) || 0
+  );
   const [pendingDelete, setPendingDelete] = useState(null);
+
+  useLayoutEffect(() => {
+    const entry = readPageDataCacheEntry(nutritionPageCacheKey, {
+      ttlMs: NUTRITION_PAGE_CACHE_TTL_MS,
+    });
+    if (!entry) return;
+    setRows(entry.data.rows || []);
+    setClientCount(Number(entry.data.clientCount || 0) || 0);
+    setLoading(false);
+  }, [nutritionPageCacheKey]);
   const clientLimit =
     typeof user?.proAccess?.clientLimit === "number"
       ? user.proAccess.clientLimit
@@ -157,12 +174,14 @@ export default function CoachNutritionPage() {
       setRows([]);
       return;
     }
-    const cached = readPageDataCache(nutritionPageCacheKey, { ttlMs: NUTRITION_PAGE_CACHE_TTL_MS });
-	    if (cached) {
-	      setRows(cached.rows || []);
-	      setClientCount(Number(cached.clientCount || 0) || 0);
+    const cachedEntry = readPageDataCacheEntry(nutritionPageCacheKey, {
+      ttlMs: NUTRITION_PAGE_CACHE_TTL_MS,
+    });
+	    if (cachedEntry) {
+	      setRows(cachedEntry.data.rows || []);
+	      setClientCount(Number(cachedEntry.data.clientCount || 0) || 0);
 	      setLoading(false);
-	      return;
+	      if (!cachedEntry.isStale && !cachedEntry.data?.partial) return;
 	    }
 
     const clientQueries = [
@@ -214,6 +233,7 @@ export default function CoachNutritionPage() {
       writePageDataCache(nutritionPageCacheKey, {
         rows: priorityRows,
         clientCount: clientList.length,
+        partial: true,
       });
       await new Promise((resolve) => {
         const cancel = deferPageTask(() => {
@@ -229,6 +249,7 @@ export default function CoachNutritionPage() {
 	    const nextPayload = {
 	      rows: nextRows,
 	      clientCount: clientList.length,
+	      partial: false,
 	    };
 	    writePageDataCache(nutritionPageCacheKey, nextPayload);
 	  }, [effectiveCoachUid, nutritionPageCacheKey]);

@@ -1,5 +1,5 @@
 // src/pages/Clients.jsx
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useState, useCallback } from "react";
 import {
   Box,
   Heading,
@@ -39,6 +39,7 @@ import {
   Stack,
   useDisclosure,
   useToast,
+  useBreakpointValue,
 } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useLocation, Link } from "react-router-dom";
@@ -46,6 +47,7 @@ import { useAuth } from "../AuthContext";
 import {
   collection,
   getDocs,
+  getDocsFromCache,
   getDoc,
   updateDoc,
   doc,
@@ -65,7 +67,13 @@ import { apiFetch } from "../utils/api";
 import { notify } from "../utils/notify";
 import { useAppTheme } from "../styles/appTheme";
 import { hasPlanModule } from "../utils/proPlanAccess";
-import { readPageDataCache, runLimited, updatePageDataCache, writePageDataCache } from "../utils/pageDataCache";
+import {
+  deferPageTask,
+  readPageDataCacheEntry,
+  runLimited,
+  updatePageDataCache,
+  writePageDataCache,
+} from "../utils/pageDataCache";
 
 const loadClientCreation = () => import("../components/ClientCreation.jsx");
 const ClientCreation = React.lazy(loadClientCreation);
@@ -138,6 +146,34 @@ const toMillis = (ts) =>
         : typeof ts === "string"
           ? Date.parse(ts) || 0
           : 0;
+
+const selectCachedClientRows = (
+  payload = {},
+  { sportView = false, filter = "", activeCutoffMs = 0 } = {}
+) => {
+  const programmeCounts = payload.programmeCountMap || {};
+  const interactionMap = payload.lastInteractionMap || {};
+  const lastSessionMap = payload.lastSessionMap || {};
+  let visibleClients = payload.clients || [];
+
+  if (sportView) {
+    visibleClients = visibleClients.filter(
+      (client) => Number(programmeCounts[client.id] ?? getCachedSportProgramCount(client) ?? 0) > 0
+    );
+  }
+  if (filter === "active" || filter === "inactive") {
+    visibleClients = visibleClients.filter((client) => {
+      const lastSessionValue = lastSessionMap[client.id];
+      const activityMs = Math.max(
+        Number(interactionMap[client.id] || 0),
+        lastSessionValue ? new Date(lastSessionValue).getTime() || 0 : 0,
+        getCachedClientActivityMs(client)
+      );
+      return filter === "active" ? activityMs >= activeCutoffMs : activityMs < activeCutoffMs;
+    });
+  }
+  return visibleClients;
+};
 
 const getCompletedDate = (s) => {
   const d =
@@ -409,6 +445,10 @@ async function buildClientComputedStats(client) {
 const Clients = () => {
   const { t, i18n } = useTranslation();
   const { user, isAdmin } = useAuth();
+  const isMobileClientsLayout = useBreakpointValue(
+    { base: true, md: false },
+    { ssr: false }
+  ) ?? true;
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
@@ -424,14 +464,52 @@ const Clients = () => {
   const mixedNutritionView = hasNutritionAccess && hasSportAccess && listView === "nutrition";
   const sportView = hasSportAccess && listView === "sport";
   const nutritionMode = nutritionOnly || mixedNutritionView;
+  const activeCutoffMs = useMemo(
+    () => Date.now() - DAYS_ACTIVE_CUTOFF * 24 * 60 * 60 * 1000,
+    []
+  );
   const withAdminCoach = (path) => {
     if (!isAdmin || !adminCoachId) return path;
     return `${path}${path.includes("?") ? "&" : "?"}adminCoachId=${encodeURIComponent(adminCoachId)}`;
   };
 
-  const [clients, setClients] = useState([]);
-  const [programmes, setProgrammes] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const clientsPageCacheKey = useMemo(
+    () =>
+      effectiveCoachUid
+        ? [
+            "byl:clients-page",
+            "v2",
+            effectiveCoachUid,
+            filter,
+            nutritionMode ? "nutrition" : "sport",
+            nutritionOnly ? "nutrition-all" : "nutrition-followed",
+            sportView ? "sport-only" : "all",
+          ].join(":")
+        : null,
+    [effectiveCoachUid, filter, nutritionMode, nutritionOnly, sportView]
+  );
+  const clientsOverviewCacheKey = useMemo(
+    () => (effectiveCoachUid ? `byl:clients-overview:v1:${effectiveCoachUid}` : null),
+    [effectiveCoachUid]
+  );
+  const canUseDashboardOverview = !nutritionMode;
+  const initialClientsPageCacheEntry = useMemo(
+    () =>
+      readPageDataCacheEntry(clientsPageCacheKey, { ttlMs: CLIENTS_PAGE_CACHE_TTL_MS }) ||
+      (canUseDashboardOverview
+        ? readPageDataCacheEntry(clientsOverviewCacheKey, { ttlMs: CLIENTS_PAGE_CACHE_TTL_MS })
+        : null),
+    [canUseDashboardOverview, clientsOverviewCacheKey, clientsPageCacheKey]
+  );
+  const initialClientsPageCache = initialClientsPageCacheEntry?.data || null;
+  const initialVisibleClients = useMemo(
+    () => selectCachedClientRows(initialClientsPageCache || {}, { sportView, filter, activeCutoffMs }),
+    [activeCutoffMs, filter, initialClientsPageCache, sportView]
+  );
+
+  const [clients, setClients] = useState(() => initialVisibleClients);
+  const [programmes, setProgrammes] = useState(() => initialClientsPageCache?.programmes || []);
+  const [loading, setLoading] = useState(() => !initialClientsPageCache);
 
   const [selectedClient, setSelectedClient] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -442,13 +520,30 @@ const Clients = () => {
 
   const [searchQuery, setSearchQuery] = useState("");
 
-  const [progressMap, setProgressMap] = useState({});
-  const [sessionsPerWeekMap, setSessionsPerWeekMap] = useState({});
-  const [lastSessionMap, setLastSessionMap] = useState({});
-  const [programmeCountMap, setProgrammeCountMap] = useState({});
-  const [lastInteractionMap, setLastInteractionMap] = useState({});
-  const [nutritionAssessmentCountMap, setNutritionAssessmentCountMap] = useState({});
-  const [nutritionLastFollowMap, setNutritionLastFollowMap] = useState({});
+  const [progressMap, setProgressMap] = useState(() => initialClientsPageCache?.progressMap || {});
+  const [sessionsPerWeekMap, setSessionsPerWeekMap] = useState(
+    () => initialClientsPageCache?.sessionsPerWeekMap || {}
+  );
+  const [lastSessionMap, setLastSessionMap] = useState(() =>
+    Object.fromEntries(
+      Object.entries(initialClientsPageCache?.lastSessionMap || {}).map(([clientId, value]) => [
+        clientId,
+        value ? new Date(value) : null,
+      ])
+    )
+  );
+  const [programmeCountMap, setProgrammeCountMap] = useState(
+    () => initialClientsPageCache?.programmeCountMap || {}
+  );
+  const [lastInteractionMap, setLastInteractionMap] = useState(
+    () => initialClientsPageCache?.lastInteractionMap || {}
+  );
+  const [nutritionAssessmentCountMap, setNutritionAssessmentCountMap] = useState(
+    () => initialClientsPageCache?.nutritionAssessmentCountMap || {}
+  );
+  const [nutritionLastFollowMap, setNutritionLastFollowMap] = useState(
+    () => initialClientsPageCache?.nutritionLastFollowMap || {}
+  );
   const [showTourDemoClient, setShowTourDemoClient] = useState(false);
 
   const createClientModal = useDisclosure();
@@ -462,28 +557,9 @@ const Clients = () => {
   }, []);
 
   const isFr = i18n.language?.startsWith?.("fr");
-  const clientsPageCacheKey = useMemo(
-    () =>
-      effectiveCoachUid
-        ? [
-            "byl:clients-page",
-            "v1",
-            effectiveCoachUid,
-            filter,
-            nutritionMode ? "nutrition" : "sport",
-            nutritionOnly ? "nutrition-all" : "nutrition-followed",
-            sportView ? "sport-only" : "all",
-          ].join(":")
-        : null,
-	    [effectiveCoachUid, filter, nutritionMode, nutritionOnly, sportView]
-	  );
-	  const activeCutoffMs = useMemo(() => {
-	    const now = Date.now();
-	    return now - DAYS_ACTIVE_CUTOFF * 24 * 60 * 60 * 1000;
-	  }, []);
 
   const hydrateClientsPagePayload = useCallback((payload = {}) => {
-    setClients(payload.clients || []);
+    setClients(selectCachedClientRows(payload, { sportView, filter, activeCutoffMs }));
     setProgrammes(payload.programmes || []);
     setProgressMap(payload.progressMap || {});
     setSessionsPerWeekMap(payload.sessionsPerWeekMap || {});
@@ -500,7 +576,16 @@ const Clients = () => {
     setNutritionAssessmentCountMap(payload.nutritionAssessmentCountMap || {});
     setNutritionLastFollowMap(payload.nutritionLastFollowMap || {});
     setLoading(false);
-  }, []);
+  }, [activeCutoffMs, filter, sportView]);
+
+  useLayoutEffect(() => {
+    const entry =
+      readPageDataCacheEntry(clientsPageCacheKey, { ttlMs: CLIENTS_PAGE_CACHE_TTL_MS }) ||
+      (canUseDashboardOverview
+        ? readPageDataCacheEntry(clientsOverviewCacheKey, { ttlMs: CLIENTS_PAGE_CACHE_TTL_MS })
+        : null);
+    if (entry) hydrateClientsPagePayload(entry.data);
+  }, [canUseDashboardOverview, clientsOverviewCacheKey, clientsPageCacheKey, hydrateClientsPagePayload]);
 
 	  const fetchData = useCallback(async () => {
     if (!effectiveCoachUid) {
@@ -508,68 +593,90 @@ const Clients = () => {
       setLoading(false);
       return;
     }
-	    const cached = readPageDataCache(clientsPageCacheKey, { ttlMs: CLIENTS_PAGE_CACHE_TTL_MS });
-	    if (cached) {
-	      hydrateClientsPagePayload(cached);
-	      return;
-	    } else {
-	      setLoading(true);
+	    const cachedEntry = readPageDataCacheEntry(clientsPageCacheKey, {
+        ttlMs: CLIENTS_PAGE_CACHE_TTL_MS,
+      });
+	    if (cachedEntry) {
+	      hydrateClientsPagePayload(cachedEntry.data);
+        if (!cachedEntry.isStale && !cachedEntry.data?.partial) return;
 	    }
+      const dashboardOverviewEntry = !cachedEntry && canUseDashboardOverview
+        ? readPageDataCacheEntry(clientsOverviewCacheKey, { ttlMs: CLIENTS_PAGE_CACHE_TTL_MS })
+        : null;
+      if (dashboardOverviewEntry) hydrateClientsPagePayload(dashboardOverviewEntry.data);
+      else if (!cachedEntry) setLoading(true);
+
+    const getCachedNutritionCount = (client) => {
+      const candidates = [
+        client?.nutritionAssessmentCount,
+        client?.nutritionAssessmentsCount,
+        client?.nutritionFollowupCount,
+        client?.nutritionBilansCount,
+        client?.nbBilansNutrition,
+      ];
+      const value = candidates.map(Number).find((n) => Number.isFinite(n) && n > 0);
+      return value || 0;
+    };
+    const getCachedNutritionActivityMs = (client) =>
+      Math.max(
+        toMillis(client?.lastNutritionFollow),
+        toMillis(client?.nutritionLastFollow),
+        toMillis(client?.lastNutritionAssessmentAt),
+        toMillis(client?.nutritionUpdatedAt),
+        getCachedClientActivityMs(client),
+        0
+      );
+    const applyQuickFilter = (items) => {
+      let quickList = nutritionMode
+        ? nutritionOnly
+          ? items
+          : items.filter((c) => getCachedNutritionCount(c) > 0 || c?.hasNutritionFollowup || c?.nutritionFollowup)
+        : sportView
+          ? items.filter((c) => getCachedSportProgramCount(c) > 0)
+          : items;
+
+      if (filter === "active") {
+        quickList = quickList.filter((c) => {
+          const ms = nutritionMode ? getCachedNutritionActivityMs(c) : getCachedClientActivityMs(c);
+          return (Number(ms || 0) || 0) >= activeCutoffMs;
+        });
+      } else if (filter === "inactive") {
+        quickList = quickList.filter((c) => {
+          const ms = nutritionMode ? getCachedNutritionActivityMs(c) : getCachedClientActivityMs(c);
+          return !((Number(ms || 0) || 0) >= activeCutoffMs);
+        });
+      }
+      return quickList;
+    };
 
     try {
-      const clientSnaps = await Promise.all([
-        getDocs(query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(150))),
-        getDocs(query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(150))).catch(() => ({ docs: [] })),
-        getDocs(query(collection(db, "clients"), where("coachIds", "array-contains", effectiveCoachUid), limit(150))).catch(() => ({ docs: [] })),
-      ]);
+      const clientQueries = [
+        query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(150)),
+        query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(150)),
+        query(collection(db, "clients"), where("coachIds", "array-contains", effectiveCoachUid), limit(150)),
+      ];
+      const serverClientSnapsPromise = Promise.all(
+        clientQueries.map((clientQuery) => getDocs(clientQuery).catch(() => ({ docs: [] })))
+      );
+      if (!cachedEntry && !dashboardOverviewEntry) {
+        const localClientSnaps = await Promise.all(
+          clientQueries.map((clientQuery) => getDocsFromCache(clientQuery).catch(() => ({ docs: [] })))
+        );
+        const localClientById = new Map();
+        localClientSnaps.forEach((snap) => {
+          snap.docs.forEach((d) => localClientById.set(d.id, { id: d.id, ...d.data() }));
+        });
+        if (localClientById.size > 0) {
+          setClients(applyQuickFilter([...localClientById.values()]));
+          setLoading(false);
+        }
+      }
+      const clientSnaps = await serverClientSnapsPromise;
       const clientById = new Map();
       clientSnaps.forEach((snap) => {
         snap.docs.forEach((d) => clientById.set(d.id, { id: d.id, ...d.data() }));
       });
       let list = [...clientById.values()];
-
-      const getCachedNutritionCount = (client) => {
-        const candidates = [
-          client?.nutritionAssessmentCount,
-          client?.nutritionAssessmentsCount,
-          client?.nutritionFollowupCount,
-          client?.nutritionBilansCount,
-          client?.nbBilansNutrition,
-        ];
-        const value = candidates.map(Number).find((n) => Number.isFinite(n) && n > 0);
-        return value || 0;
-      };
-      const getCachedNutritionActivityMs = (client) =>
-        Math.max(
-          toMillis(client?.lastNutritionFollow),
-          toMillis(client?.nutritionLastFollow),
-          toMillis(client?.lastNutritionAssessmentAt),
-          toMillis(client?.nutritionUpdatedAt),
-          getCachedClientActivityMs(client),
-          0
-        );
-      const applyQuickFilter = (items) => {
-        let quickList = nutritionMode
-          ? nutritionOnly
-            ? items
-            : items.filter((c) => getCachedNutritionCount(c) > 0 || c?.hasNutritionFollowup || c?.nutritionFollowup)
-          : sportView
-            ? items.filter((c) => getCachedSportProgramCount(c) > 0)
-            : items;
-
-        if (filter === "active") {
-          quickList = quickList.filter((c) => {
-            const ms = nutritionMode ? getCachedNutritionActivityMs(c) : getCachedClientActivityMs(c);
-            return (Number(ms || 0) || 0) >= activeCutoffMs;
-          });
-        } else if (filter === "inactive") {
-          quickList = quickList.filter((c) => {
-            const ms = nutritionMode ? getCachedNutritionActivityMs(c) : getCachedClientActivityMs(c);
-            return !((Number(ms || 0) || 0) >= activeCutoffMs);
-          });
-        }
-        return quickList;
-      };
 
       const quickProgrammeCounts = {};
       const quickNutritionCounts = {};
@@ -629,6 +736,12 @@ const Clients = () => {
       const interactionEntries = {};
       const nutritionCountEntries = {};
       const nutritionLastEntries = {};
+
+      // La liste et les actions sont déjà disponibles. On laisse le navigateur
+      // peindre et répondre aux interactions avant le calcul détaillé par client.
+      await new Promise((resolve) => {
+        deferPageTask(resolve, 650);
+      });
 
       const enriched = await runLimited(
         list,
@@ -727,16 +840,20 @@ const Clients = () => {
         ),
         programmeCountMap: countEntries,
 	        lastInteractionMap: interactionEntries,
-	        nutritionAssessmentCountMap: nutritionCountEntries,
+        nutritionAssessmentCountMap: nutritionCountEntries,
 	        nutritionLastFollowMap: nutritionLastEntries,
+          partial: false,
 	      };
 	      writePageDataCache(clientsPageCacheKey, nextPayload);
+        if (canUseDashboardOverview) {
+          writePageDataCache(clientsOverviewCacheKey, { ...nextPayload, partial: false });
+        }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-	  }, [effectiveCoachUid, clientsPageCacheKey, filter, activeCutoffMs, nutritionMode, nutritionOnly, sportView, hydrateClientsPagePayload]);
+	  }, [effectiveCoachUid, clientsPageCacheKey, clientsOverviewCacheKey, canUseDashboardOverview, filter, activeCutoffMs, nutritionMode, nutritionOnly, sportView, hydrateClientsPagePayload]);
 
   useEffect(() => {
     fetchData();
@@ -1213,7 +1330,8 @@ const Clients = () => {
         </SimpleGrid>
 
         <Box id="clients-results" layerStyle="glassCard" p={{ base: 3, md: 6 }} mb={8} scrollMarginTop={{ base: "150px", md: "24px" }}>
-          <Box display={{ base: "none", md: "block" }}>
+          {!isMobileClientsLayout && (
+          <Box>
             <Table variant="simple" colorScheme="gray" width="100%">
               <Thead bg={tableHeadBg}>
                 <Tr>
@@ -1345,8 +1463,10 @@ const Clients = () => {
               </Tbody>
             </Table>
           </Box>
+          )}
 
-          <Box display={{ base: "block", md: "none" }}>
+          {isMobileClientsLayout && (
+          <Box>
             <VStack spacing={3} align="stretch">
               {filteredClients.map((c) => {
                 const last = nutritionMode ? nutritionLastFollowDate(c) : c.__tourDemo ? new Date() : lastSessionMap[c.id] || c.lastSession?.toDate?.() || null;
@@ -1488,6 +1608,7 @@ const Clients = () => {
               })}
             </VStack>
           </Box>
+          )}
         </Box>
 
         <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} isCentered>

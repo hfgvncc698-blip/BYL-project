@@ -45,21 +45,6 @@ export default function ClientMobileNav() {
     ROUTE_PRELOADS[pathname]?.().catch(() => {});
   }, []);
 
-  React.useEffect(() => {
-    if (typeof window === "undefined") return undefined;
-    const warmVisibleRoutes = () => items.map((item) => item.path).filter(Boolean).forEach(preloadPath);
-    const idleId = window.requestIdleCallback
-      ? window.requestIdleCallback(warmVisibleRoutes, { timeout: 1200 })
-      : window.setTimeout(warmVisibleRoutes, 450);
-    return () => {
-      if (window.cancelIdleCallback && typeof idleId === "number") {
-        window.cancelIdleCallback(idleId);
-      } else {
-        window.clearTimeout(idleId);
-      }
-    };
-  }, [items, preloadPath]);
-
   return (
     <Box
       display={{ base: "block", md: "none" }}

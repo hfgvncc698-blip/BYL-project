@@ -1,6 +1,7 @@
 const memoryCache = new Map();
 
 export const DEFAULT_PAGE_DATA_CACHE_TTL_MS = 10 * 60 * 1000;
+export const DEFAULT_PAGE_DATA_STALE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 const now = () => Date.now();
 
@@ -13,24 +14,50 @@ const defer = (callback) => {
   window.setTimeout(callback, 250);
 };
 
-export function readPageDataCache(key, { ttlMs = DEFAULT_PAGE_DATA_CACHE_TTL_MS } = {}) {
+export function readPageDataCacheEntry(
+  key,
+  {
+    ttlMs = DEFAULT_PAGE_DATA_CACHE_TTL_MS,
+    staleTtlMs = DEFAULT_PAGE_DATA_STALE_TTL_MS,
+  } = {}
+) {
   if (!key) return null;
 
-  const memoryPayload = memoryCache.get(key);
-  if (memoryPayload && now() - Number(memoryPayload.savedAt || 0) < ttlMs) {
-    return memoryPayload.data || null;
+  let payload = memoryCache.get(key) || null;
+
+  if (!payload && typeof window !== "undefined") {
+    try {
+      payload = JSON.parse(window.localStorage.getItem(key) || "null");
+      if (payload) memoryCache.set(key, payload);
+    } catch (_) {
+      return null;
+    }
   }
 
-  if (typeof window === "undefined") return null;
+  if (!payload?.data) return null;
+  const savedAt = Number(payload.savedAt || 0);
+  const ageMs = Math.max(0, now() - savedAt);
+  if (!savedAt || ageMs > Math.max(ttlMs, staleTtlMs)) return null;
 
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(key) || "null");
-    if (!parsed || now() - Number(parsed.savedAt || 0) > ttlMs) return null;
-    memoryCache.set(key, parsed);
-    return parsed.data || null;
-  } catch (_) {
-    return null;
-  }
+  return {
+    data: payload.data,
+    savedAt,
+    ageMs,
+    isStale: ageMs >= ttlMs,
+  };
+}
+
+export function readPageDataCache(
+  key,
+  {
+    ttlMs = DEFAULT_PAGE_DATA_CACHE_TTL_MS,
+    allowStale = false,
+    staleTtlMs = DEFAULT_PAGE_DATA_STALE_TTL_MS,
+  } = {}
+) {
+  const entry = readPageDataCacheEntry(key, { ttlMs, staleTtlMs });
+  if (!entry || (entry.isStale && !allowStale)) return null;
+  return entry.data || null;
 }
 
 export function writePageDataCache(key, data) {

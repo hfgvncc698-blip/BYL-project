@@ -1,5 +1,5 @@
 // src/components/ProgramsPage.jsx
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo } from "react";
 import {
   Box,
   Heading,
@@ -29,6 +29,7 @@ import {
   useToast,
   Link as ChakraLink,
   Select,
+  useBreakpointValue,
 } from "@chakra-ui/react";
 import { AddIcon, DeleteIcon, CopyIcon } from "@chakra-ui/icons";
 import { useNavigate, Link, useLocation } from "react-router-dom";
@@ -36,6 +37,7 @@ import AppLoading from "./ui/AppLoading";
 import {
   collection,
   getDocs,
+  getDocsFromCache,
   deleteDoc,
   doc,
   getDoc,
@@ -55,7 +57,12 @@ import { useAppTheme } from "../styles/appTheme";
 import { canUseGuidedProgram } from "../utils/proPlanAccess";
 import { formatProgramActiveWeeks, getProgramActiveWeeksLabel } from "../utils/programDuration";
 import PageBackButton from "./ui/PageBackButton";
-import { deferPageTask, readPageDataCache, runLimited, writePageDataCache } from "../utils/pageDataCache";
+import {
+  deferPageTask,
+  readPageDataCacheEntry,
+  runLimited,
+  writePageDataCache,
+} from "../utils/pageDataCache";
 import { buildDuplicatedProgramPayload } from "../utils/programDuplication";
 
 /* -------- helpers -------- */
@@ -160,6 +167,10 @@ export default function ProgramsPage() {
   const location = useLocation();
   const toast = useToast();
   const { user, loading: authLoading, isAdmin } = useAuth();
+  const isMobileProgramsLayout = useBreakpointValue(
+    { base: true, md: false },
+    { ssr: false }
+  ) ?? true;
   const params = new URLSearchParams(location.search);
   const adminCoachId = params.get("adminCoachId") || "";
   const effectiveCoachUid = isAdmin && adminCoachId ? adminCoachId : user?.uid;
@@ -181,16 +192,35 @@ export default function ProgramsPage() {
       ),
     [user?.branding, user?.packageKey, user?.packageTier, user?.proAccess]
   );
-
-  const [programmes, setProgrammes] = useState([]);
-  const [clients, setClients] = useState([]);
-  const [assignedCounts, setAssignedCounts] = useState({});
-  const [assignedClientsMap, setAssignedClientsMap] = useState({});
-  const [loading, setLoading] = useState(true);
 	  const programsPageCacheKey = useMemo(
 	    () => (effectiveCoachUid ? `byl:programs-page:v1:${effectiveCoachUid}` : null),
 	    [effectiveCoachUid]
 	  );
+  const initialProgramsPageCacheEntry = useMemo(
+    () => readPageDataCacheEntry(programsPageCacheKey, { ttlMs: PROGRAMS_PAGE_CACHE_TTL_MS }),
+    [programsPageCacheKey]
+  );
+  const initialProgramsPageCache = initialProgramsPageCacheEntry?.data || null;
+
+  const [programmes, setProgrammes] = useState(() => initialProgramsPageCache?.programmes || []);
+  const [clients, setClients] = useState(() => initialProgramsPageCache?.clients || []);
+  const [assignedCounts, setAssignedCounts] = useState(() => initialProgramsPageCache?.assignedCounts || {});
+  const [assignedClientsMap, setAssignedClientsMap] = useState(
+    () => initialProgramsPageCache?.assignedClientsMap || {}
+  );
+  const [loading, setLoading] = useState(() => !initialProgramsPageCache);
+
+  useLayoutEffect(() => {
+    const entry = readPageDataCacheEntry(programsPageCacheKey, {
+      ttlMs: PROGRAMS_PAGE_CACHE_TTL_MS,
+    });
+    if (!entry) return;
+    setProgrammes(entry.data.programmes || []);
+    setClients(entry.data.clients || []);
+    setAssignedCounts(entry.data.assignedCounts || {});
+    setAssignedClientsMap(entry.data.assignedClientsMap || {});
+    setLoading(false);
+  }, [programsPageCacheKey]);
 
   const choiceModal = useDisclosure();
   const confirmModal = useDisclosure();
@@ -312,22 +342,33 @@ export default function ProgramsPage() {
 	  const fetchData = useCallback(async ({ force = false } = {}) => {
 	    if (!effectiveCoachUid) return;
 	    try {
-	      const cached = force
+	      const cachedEntry = force
 	        ? null
-	        : readPageDataCache(programsPageCacheKey, { ttlMs: PROGRAMS_PAGE_CACHE_TTL_MS });
+	        : readPageDataCacheEntry(programsPageCacheKey, { ttlMs: PROGRAMS_PAGE_CACHE_TTL_MS });
+	      const cached = cachedEntry?.data || null;
 	      if (cached) {
 	        setProgrammes(cached.programmes || []);
 	        setClients(cached.clients || []);
 	        setAssignedCounts(cached.assignedCounts || {});
 	        setAssignedClientsMap(cached.assignedClientsMap || {});
 	        setLoading(false);
-	        return;
+	        if (!cachedEntry.isStale && !cached.partial) return;
 	      } else {
 	        setLoading(true);
-	      }
+      }
 
       const progQ = query(collection(db, "programmes"), where("createdBy", "==", effectiveCoachUid), limit(200));
-      const pSnap = await getDocs(progQ);
+      const serverProgramsPromise = getDocs(progQ);
+      if (!cached) {
+        const localProgramsSnap = await getDocsFromCache(progQ).catch(() => null);
+        if (localProgramsSnap && !localProgramsSnap.empty) {
+          const localPrograms = localProgramsSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
+          localPrograms.sort((a, b) => getMillis(b) - getMillis(a));
+          setProgrammes(localPrograms);
+          setLoading(false);
+        }
+      }
+      const pSnap = await serverProgramsPromise;
       let progs = pSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
       progs.sort((a, b) => getMillis(b) - getMillis(a));
       setProgrammes(progs);
@@ -351,6 +392,7 @@ export default function ProgramsPage() {
 	        clients: clientList,
 	        assignedCounts: cached?.assignedCounts || {},
 	        assignedClientsMap: cached?.assignedClientsMap || {},
+	        partial: true,
 	      };
 	      writePageDataCache(programsPageCacheKey, initialPayload);
 
@@ -396,6 +438,7 @@ export default function ProgramsPage() {
 	        clients: clientList,
 	        assignedCounts: counts,
 	        assignedClientsMap: map,
+	        partial: false,
 	      };
 	      writePageDataCache(programsPageCacheKey, nextPayload);
     } catch (err) {
@@ -872,7 +915,8 @@ export default function ProgramsPage() {
         backdropFilter="blur(16px)"
       >
         {/* Desktop */}
-        <Box display={{ base: "none", md: "block" }} overflowX="auto">
+        {!isMobileProgramsLayout && (
+        <Box overflowX="auto">
           <Table variant="simple" minW="720px">
             <Thead>
               <Tr>
@@ -992,9 +1036,11 @@ export default function ProgramsPage() {
             </Tbody>
           </Table>
         </Box>
+        )}
 
         {/* Mobile */}
-        <Box display={{ base: "block", md: "none" }}>
+        {isMobileProgramsLayout && (
+        <Box>
           <VStack spacing={3} align="stretch">
             {programmes.length > 0 ? (
               programmes.map((p) => {
@@ -1109,6 +1155,7 @@ export default function ProgramsPage() {
             )}
           </VStack>
         </Box>
+        )}
       </Box>
     </Box>
   );

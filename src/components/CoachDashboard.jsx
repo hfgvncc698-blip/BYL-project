@@ -118,6 +118,15 @@ import {
 } from "react-icons/md";
 const CoachDashboardCalendar = React.lazy(() => import("./dashboard/CoachDashboardCalendar.jsx"));
 const ClientCreation = React.lazy(() => import("./ClientCreation"));
+const warmDashboardDestination = (route = "") => {
+  if (route.startsWith("/clients")) {
+    void import("./Clients.jsx");
+  } else if (route.startsWith("/programmes")) {
+    void import("./ProgramsPage.jsx");
+  } else if (route.startsWith("/nutrition-coach")) {
+    void import("../pages/CoachNutritionPage.jsx");
+  }
+};
 const MAX_DISPLAY = 5;
 const DAYS_ACTIVE_CUTOFF = 30;
 const FORCE_SESSION_DURATION_MIN = 60;
@@ -237,6 +246,7 @@ const scheduleIdleTask = (callback, timeout = 700) => {
 
 const DASHBOARD_DATA_CACHE_VERSION = 5;
 const DASHBOARD_DATA_CACHE_TTL_MS = 15 * 60 * 1000;
+const DASHBOARD_DATA_STALE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const DASHBOARD_DATA_CACHE_CLIENT_LIMIT = 120;
 const DASHBOARD_DATA_CACHE_PROGRAM_LIMIT = 8;
 const DASHBOARD_DATA_CACHE_SESSION_LIMIT = 28;
@@ -362,7 +372,7 @@ const compactDashboardPayload = ({ clients = [], programmesBase = [], sessions =
   assignedCounts,
   assignedClientsMap,
 });
-const readDashboardDataCacheByKey = (key) => {
+const readDashboardDataCacheEntryByKey = (key, { allowStale = false } = {}) => {
   const isUsableDashboardCache = (data = {}) => {
     const clients = Array.isArray(data.clients) ? data.clients : [];
     const sessions = Array.isArray(data.sessions) ? data.sessions : [];
@@ -373,36 +383,41 @@ const readDashboardDataCacheByKey = (key) => {
       clients.every((client) => client?._quickLoading === true);
     return (clients.length > 0 || sessions.length > 0 || programmesBase.length > 0) && !looksLikeQuickOnlyCache;
   };
-  const memoryPayload = dashboardDataMemoryCache.get(key);
-  if (memoryPayload && Date.now() - Number(memoryPayload.savedAt || 0) < DASHBOARD_DATA_CACHE_TTL_MS) {
-    const data = reviveDashboardPayload(memoryPayload.data);
-    if (!isUsableDashboardCache(data)) return null;
-    dashboardDataMemoryCache.set(key, { ...memoryPayload, data });
-    return data;
-  }
-  if (typeof window === "undefined") return null;
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(key) || "null");
-    if (!parsed || parsed.version !== DASHBOARD_DATA_CACHE_VERSION) return null;
-    if (Date.now() - Number(parsed.savedAt || 0) > DASHBOARD_DATA_CACHE_TTL_MS) return null;
-    const data = reviveDashboardPayload(parsed.data);
-    if (!isUsableDashboardCache(data)) {
+  let payload = dashboardDataMemoryCache.get(key) || null;
+  if (!payload && typeof window !== "undefined") {
+    try {
+      const parsed = JSON.parse(window.localStorage.getItem(key) || "null");
+      if (!parsed || parsed.version !== DASHBOARD_DATA_CACHE_VERSION) return null;
+      payload = { savedAt: parsed.savedAt, data: parsed.data };
+    } catch {
       return null;
     }
-    dashboardDataMemoryCache.set(key, { savedAt: parsed.savedAt, data });
-    return data;
-  } catch {
-    return null;
   }
+  if (!payload) return null;
+  const savedAt = Number(payload.savedAt || 0);
+  const ageMs = Math.max(0, Date.now() - savedAt);
+  const maxAgeMs = allowStale ? DASHBOARD_DATA_STALE_TTL_MS : DASHBOARD_DATA_CACHE_TTL_MS;
+  if (!savedAt || ageMs > maxAgeMs) return null;
+  const data = reviveDashboardPayload(payload.data);
+  if (!isUsableDashboardCache(data)) return null;
+  dashboardDataMemoryCache.set(key, { savedAt, data });
+  return {
+    data,
+    savedAt,
+    ageMs,
+    isStale: ageMs >= DASHBOARD_DATA_CACHE_TTL_MS,
+  };
 };
-const readDashboardDataCache = (coachUid, clubId) =>
-  readDashboardDataCacheByKey(getDashboardDataCacheKey(coachUid, clubId));
-const readLastDashboardDataCache = () => {
+const readDashboardDataCacheEntry = (coachUid, clubId, options) =>
+  readDashboardDataCacheEntryByKey(getDashboardDataCacheKey(coachUid, clubId), options);
+const readDashboardDataCache = (coachUid, clubId, options) =>
+  readDashboardDataCacheEntry(coachUid, clubId, options)?.data || null;
+const readLastDashboardDataCache = (options) => {
   if (typeof window === "undefined") return null;
   try {
     const lastKey = window.localStorage.getItem(DASHBOARD_DATA_LAST_CACHE_KEY);
     if (!lastKey) return null;
-    return readDashboardDataCacheByKey(lastKey);
+    return readDashboardDataCacheEntryByKey(lastKey, options)?.data || null;
   } catch {
     return null;
   }
@@ -2123,7 +2138,9 @@ end && now < end;
   const birthdayMessageModal = useDisclosure();
   const rationShortcutModal = useDisclosure();
   const initialDashboardCache = useMemo(
-    () => readDashboardDataCache(effectiveCoachUid, effectiveClubId) || readLastDashboardDataCache(),
+    () =>
+      readDashboardDataCache(effectiveCoachUid, effectiveClubId, { allowStale: true }) ||
+      readLastDashboardDataCache({ allowStale: true }),
     [effectiveClubId, effectiveCoachUid]
   );
   const [clients, setClients] = useState(() => initialDashboardCache?.clients || []);
@@ -2836,6 +2853,11 @@ useState(false);
           rows: nextRows,
           feedbackRows: nextFeedbackRows,
         });
+        writePageDataCache(`byl:nutrition-page:v1:${effectiveCoachUid}`, {
+          rows: nextRows,
+          clientCount: clientIds.length,
+          partial: false,
+        });
       } catch {
         nutritionLoadKeyRef.current = "";
         if (alive && !cachedNutrition) {
@@ -3112,6 +3134,55 @@ sessionIndex = null }) => {
     };
   }, [t]);
 
+  const primeCoachDestinationCaches = useCallback((dashboardData, { partial = false } = {}) => {
+    if (!effectiveCoachUid || !dashboardData) return;
+    const cachedClients = dashboardData.clients || [];
+    const cachedPrograms = dashboardData.programmesBase || [];
+    const clientsOverview = cachedClients.map((client) => ({
+      ...client,
+      programmesAssignes: undefined,
+    }));
+    const progressMap = {};
+    const sessionsPerWeekMap = {};
+    const lastSessionMap = {};
+    const programmeCountMap = {};
+    const lastInteractionMap = {};
+    cachedClients.forEach((client) => {
+      const assigned = client.programmesAssignes || [];
+      const completed = assigned.reduce((sum, programme) => sum + Number(programme._done || 0), 0);
+      const total = assigned.reduce((sum, programme) => sum + Number(programme._total || 0), 0);
+      const lastMs = Number(client._clientListActivityMs || client._lastInteractionMs || 0);
+      progressMap[client.id] = {
+        completed,
+        total,
+        percent: total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0,
+      };
+      sessionsPerWeekMap[client.id] = 0;
+      lastSessionMap[client.id] = lastMs > 0 ? new Date(lastMs).toISOString() : null;
+      programmeCountMap[client.id] = assigned.length;
+      lastInteractionMap[client.id] = lastMs;
+    });
+    writePageDataCache(`byl:programs-page:v1:${effectiveCoachUid}`, {
+      programmes: cachedPrograms,
+      clients: clientsOverview,
+      assignedCounts: dashboardData.assignedCounts || {},
+      assignedClientsMap: dashboardData.assignedClientsMap || {},
+      partial,
+    });
+    writePageDataCache(`byl:clients-overview:v1:${effectiveCoachUid}`, {
+      clients: clientsOverview,
+      programmes: cachedPrograms,
+      progressMap,
+      sessionsPerWeekMap,
+      lastSessionMap,
+      programmeCountMap,
+      lastInteractionMap,
+      nutritionAssessmentCountMap: {},
+      nutritionLastFollowMap: {},
+      partial: true,
+    });
+  }, [effectiveCoachUid]);
+
   const hydrateDashboardData = useCallback((dashboardData) => {
     if (!dashboardData) return false;
     setProgrammesBase(dashboardData.programmesBase || []);
@@ -3119,9 +3190,14 @@ sessionIndex = null }) => {
     setSessions(dashboardData.sessions || []);
     setAssignedCounts(dashboardData.assignedCounts || {});
     setAssignedClientsMap(dashboardData.assignedClientsMap || {});
+    primeCoachDestinationCaches(dashboardData);
     setLoadingData(false);
     return true;
-  }, []);
+  }, [primeCoachDestinationCaches]);
+
+  useEffect(() => {
+    if (initialDashboardCache) primeCoachDestinationCaches(initialDashboardCache);
+  }, [initialDashboardCache, primeCoachDestinationCaches]);
 
   const startNextSessionForClient = useCallback(async (client, mode = "next") => {
     if (!client?.id) return;
@@ -3457,27 +3533,30 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
      const loadSeq = dashboardLoadSeqRef.current + 1;
      dashboardLoadSeqRef.current = loadSeq;
      const isLatestLoad = () => dashboardLoadSeqRef.current === loadSeq;
-     let shouldCompleteFullLoad = force;
-     let usedCachedDashboardData = false;
+     let hasCachedDashboardData = false;
      if (!force) {
-       const cachedDashboardData = readDashboardDataCache(effectiveCoachUid, effectiveClubId);
-       if (cachedDashboardData) {
-         usedCachedDashboardData = true;
+       const cachedDashboardEntry = readDashboardDataCacheEntry(
+         effectiveCoachUid,
+         effectiveClubId,
+         { allowStale: true }
+       );
+       const cachedDashboardData = cachedDashboardEntry?.data || null;
+       if (cachedDashboardEntry) {
+         hasCachedDashboardData = true;
          if (isLatestLoad()) hydrateDashboardData(cachedDashboardData);
          void refreshCachedSessionWidgets(cachedDashboardData, loadSeq).catch((sessionRefreshError) => {
            console.warn("[coach dashboard] cached session widgets refresh failed", sessionRefreshError);
          });
-         // Le cache rend le retour instantané, mais il peut avoir été écrit
-         // avant la fin du calcul des séances. On poursuit donc toujours avec
-         // une revalidation complète et silencieuse.
-         shouldCompleteFullLoad = true;
+         // Le cache est complet et encore valide. Relancer ici les lectures
+         // clients -> programmes -> séances créait un important N+1 à chaque
+         // retour sur le dashboard. Les séances racines sont rafraîchies juste
+         // au-dessus ; les mutations explicites utilisent force=true.
+         if (isLatestLoad()) setLoadingData(false);
+         if (!cachedDashboardEntry.isStale) return;
        }
-       if (!cachedDashboardData) {
-         if (!silent && isLatestLoad()) setLoadingData(true);
-         shouldCompleteFullLoad = true;
-       }
+       if (!silent && !hasCachedDashboardData && isLatestLoad()) setLoadingData(true);
      }
-     const backgroundRefresh = silent || usedCachedDashboardData;
+     const backgroundRefresh = silent || hasCachedDashboardData;
      try {
        if (!backgroundRefresh && isLatestLoad()) setLoadingData(true);
        const progsQ = query(
@@ -3559,6 +3638,42 @@ toMillis(a.createdAt));
          setAssignedClientsMap(quickAssignedMap);
          setLoadingData(false);
        }
+
+       // Dès que les collections racines sont disponibles, les destinations
+       // les plus fréquentes peuvent s'afficher sans attendre l'enrichissement
+       // client -> programmes -> séances effectué plus bas.
+       const quickClientRows = quickDashboardClients.map((client) => ({
+         ...client,
+         programmesAssignes: undefined,
+       }));
+       const quickProgrammeCountMap = {};
+       const quickLastInteractionMap = {};
+       const quickLastSessionMap = {};
+       quickDashboardClients.forEach((client) => {
+         const lastMs = Number(client._lastInteractionMs || client._lastCoachInteractionMs || 0);
+         quickProgrammeCountMap[client.id] = (client.programmesAssignes || []).length;
+         quickLastInteractionMap[client.id] = lastMs;
+         quickLastSessionMap[client.id] = lastMs > 0 ? new Date(lastMs).toISOString() : null;
+       });
+       writePageDataCache(`byl:programs-page:v1:${effectiveCoachUid}`, {
+         programmes: progs,
+         clients: quickClientRows,
+         assignedCounts: quickCounts,
+         assignedClientsMap: quickAssignedMap,
+         partial: true,
+       });
+       writePageDataCache(`byl:clients-overview:v1:${effectiveCoachUid}`, {
+         clients: quickClientRows,
+         programmes: progs,
+         progressMap: {},
+         sessionsPerWeekMap: {},
+         lastSessionMap: quickLastSessionMap,
+         programmeCountMap: quickProgrammeCountMap,
+         lastInteractionMap: quickLastInteractionMap,
+         nutritionAssessmentCountMap: {},
+         nutritionLastFollowMap: {},
+         partial: true,
+       });
       let quickEvents = [];
       try {
         const quickSessionSnaps = await sessionSnapsPromise;
@@ -3652,9 +3767,12 @@ toMillis(a.createdAt));
       } catch (quickCalendarError) {
         console.warn("[coach dashboard] quick calendar hydration failed", quickCalendarError);
       }
-      if (!shouldCompleteFullLoad) {
-        return;
-      }
+      // Les widgets essentiels sont peints avec les données racines. Le détail
+      // coûteux client -> programmes -> séances attend une fenêtre inactive.
+      await new Promise((resolve) => {
+        scheduleIdleTask(resolve, 650);
+      });
+      if (!isLatestLoad()) return;
       const clientsWithProgs = await runLimited(
         quickDashboardClients.slice(0, DASHBOARD_DATA_CACHE_CLIENT_LIMIT),
         async (client) => {
@@ -4307,6 +4425,54 @@ plannedEvt._sessionTitle,
         assignedClientsMap: map,
       };
       writeDashboardDataCache(effectiveCoachUid, effectiveClubId, dashboardPayload);
+      // Les deux destinations les plus fréquentes peuvent réutiliser ce que le
+      // dashboard vient déjà de charger, sans nouvelle attente réseau.
+      writePageDataCache(`byl:programs-page:v1:${effectiveCoachUid}`, {
+        programmes: progs,
+        clients: clientsForCoachDashboard.map((client) => ({
+          ...client,
+          programmesAssignes: undefined,
+        })),
+        assignedCounts: counts,
+        assignedClientsMap: map,
+        partial: false,
+      });
+      const clientsOverview = clientsForCoachDashboard.map((client) => ({
+        ...client,
+        programmesAssignes: undefined,
+      }));
+      const clientsProgressMap = {};
+      const clientsSessionsPerWeekMap = {};
+      const clientsLastSessionMap = {};
+      const clientsProgrammeCountMap = {};
+      const clientsLastInteractionMap = {};
+      clientsForCoachDashboard.forEach((client) => {
+        const assigned = client.programmesAssignes || [];
+        const completed = assigned.reduce((sum, programme) => sum + Number(programme._done || 0), 0);
+        const total = assigned.reduce((sum, programme) => sum + Number(programme._total || 0), 0);
+        const lastMs = Number(client._clientListActivityMs || client._lastInteractionMs || 0);
+        clientsProgressMap[client.id] = {
+          completed,
+          total,
+          percent: total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0,
+        };
+        clientsSessionsPerWeekMap[client.id] = 0;
+        clientsLastSessionMap[client.id] = lastMs > 0 ? new Date(lastMs).toISOString() : null;
+        clientsProgrammeCountMap[client.id] = assigned.length;
+        clientsLastInteractionMap[client.id] = lastMs;
+      });
+      writePageDataCache(`byl:clients-overview:v1:${effectiveCoachUid}`, {
+        clients: clientsOverview,
+        programmes: progs,
+        progressMap: clientsProgressMap,
+        sessionsPerWeekMap: clientsSessionsPerWeekMap,
+        lastSessionMap: clientsLastSessionMap,
+        programmeCountMap: clientsProgrammeCountMap,
+        lastInteractionMap: clientsLastInteractionMap,
+        nutritionAssessmentCountMap: {},
+        nutritionLastFollowMap: {},
+        partial: true,
+      });
     } catch (error) {
       console.error(error);
       if (!backgroundRefresh && isLatestLoad()) notify(toast, "dataLoadError");
@@ -6804,7 +6970,7 @@ month;
   );
 
   const StatTile = ({ label, value, hint, icon, accent, glow, featured =
-false, onClick, clickable = false }) => (
+false, onClick, onPointerEnter, onPointerDown, onFocus, clickable = false }) => (
     <Box
 
       position="relative"
@@ -6823,6 +6989,9 @@ modeValue("rgba(59,130,246,0.18)",
       cursor={clickable ? "pointer" : "default"}
       transition="all 0.2s ease"
       onClick={onClick}
+      onPointerEnter={onPointerEnter}
+      onPointerDown={onPointerDown}
+      onFocus={onFocus}
       _hover={clickable ? {
          transform: "translateY(-2px)",
          borderColor: modeValue("rgba(59,130,246,0.18)",
@@ -7660,6 +7829,9 @@ boxSize="20px" />
                   accent={s.accent}
                   glow={s.glow}
                   clickable
+                  onPointerEnter={() => warmDashboardDestination(s.route)}
+                  onPointerDown={() => warmDashboardDestination(s.route)}
+                  onFocus={() => warmDashboardDestination(s.route)}
                   onClick={() => {
                      navigate(withAdminCoach(s.route || "/clients"));
                   }}
@@ -8788,6 +8960,8 @@ h="100%">
                icon={nutritionOnlyDashboard ? MdOutlineRestaurantMenu : MdOutlinePeopleAlt}
                action={renderDashboardWidgetAction("recentClients")}
                cursor="pointer"
+               onPointerEnter={() => warmDashboardDestination("/clients")}
+               onPointerDown={() => warmDashboardDestination("/clients")}
                onClick={() => navigate(withAdminCoach("/clients"))}
                _hover={{
                   borderColor:
@@ -9965,6 +10139,8 @@ subtitle={t("dashboard.cards.popular_programs_subtitle", "Les programmes les plu
                  icon={MdOutlineLibraryBooks}
                  action={renderDashboardWidgetAction("popularPrograms")}
                  cursor="pointer"
+                 onPointerEnter={() => warmDashboardDestination("/programmes")}
+                 onPointerDown={() => warmDashboardDestination("/programmes")}
                  onClick={() => navigate(withAdminCoach("/programmes"))}
                  _hover={{
                     borderColor:

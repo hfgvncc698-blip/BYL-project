@@ -272,7 +272,10 @@ export default function MyPrograms() {
 
     const run = async () => {
       const cacheKey = `byl:my-programs:v1:${user.uid}:${user.role || "client"}:${i18n.language || "fr"}`;
-      const cached = readPageDataCache(cacheKey, { ttlMs: MY_PROGRAMS_CACHE_TTL_MS });
+      const cached = readPageDataCache(cacheKey, {
+        ttlMs: MY_PROGRAMS_CACHE_TTL_MS,
+        allowStale: true,
+      });
       if (cached) {
         setRows(cached.rows || []);
         setClientId(cached.clientId || null);

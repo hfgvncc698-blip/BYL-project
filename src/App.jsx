@@ -302,48 +302,6 @@ const AdminClient = lazyFrom(routeLoaders, "AdminClient");
 const AdminCoach = lazyFrom(routeLoaders, "AdminCoach");
 const AdminEmails = lazyFrom(routeLoaders, "AdminEmails");
 
-const COACH_ROUTE_PRELOADS = [
-  "CoachDashboard",
-  "Clients",
-  "ClientView",
-  "ProgramsPage",
-  "ProgramView",
-  "ProgramBuilderPage",
-  "SessionPlayer",
-  "ExerciseBank",
-  "AutoProgramQuestionnaire",
-  "AutoProgramPreview",
-  "ProfilePageCoach",
-  "SettingsPageCoach",
-  "StatisticsPageCoach",
-];
-const CLIENT_ROUTE_PRELOADS = [
-  "ClientDashboard",
-  "MyPrograms",
-  "ProgramView",
-  "SessionPlayer",
-  "ClientNutritionPage",
-  "ProfilePageClient",
-  "SettingsPageClient",
-  "Statistics",
-];
-const CLUB_ROUTE_PRELOADS = ["ClubDashboard", ...COACH_ROUTE_PRELOADS];
-const ADMIN_ROUTE_PRELOADS = [
-  "AdminDashboard",
-  "AdminGeo",
-  "AdminEmails",
-  "AdminClient",
-  "AdminCoach",
-  ...CLUB_ROUTE_PRELOADS,
-];
-
-function preloadModules(keys) {
-  [...new Set(keys)].forEach((key) => {
-    const loader = routeLoaders[key] || backgroundLoaders[key];
-    loader?.().catch(() => {});
-  });
-}
-
 function schedulePreload(keys, delay = 250) {
   if (typeof window === "undefined" || !keys.length) return undefined;
   const connection = window.navigator?.connection;
@@ -351,18 +309,50 @@ function schedulePreload(keys, delay = 250) {
     return undefined;
   }
 
-  const run = () => preloadModules(keys);
+  const uniqueKeys = [...new Set(keys)].filter(
+    (key) => (routeLoaders[key] || backgroundLoaders[key]) && !preloadedRouteKeys.has(key)
+  );
+  if (!uniqueKeys.length) return undefined;
+
+  let cancelled = false;
   let idleId = 0;
+  let staggerId = 0;
+  let currentIndex = 0;
+
+  // Charge les écrans voisins un par un. Les importer tous simultanément
+  // provoquait un pic réseau + compilation JS perceptible quelques secondes
+  // après l'ouverture de chaque page.
+  const runNext = () => {
+    if (cancelled || currentIndex >= uniqueKeys.length) return;
+    const key = uniqueKeys[currentIndex];
+    currentIndex += 1;
+    const loader = routeLoaders[key] || backgroundLoaders[key];
+    preloadedRouteKeys.add(key);
+    Promise.resolve(loader?.())
+      .catch(() => preloadedRouteKeys.delete(key))
+      .finally(() => {
+        if (cancelled || currentIndex >= uniqueKeys.length) return;
+        staggerId = window.setTimeout(() => {
+          if ("requestIdleCallback" in window) {
+            idleId = window.requestIdleCallback(runNext, { timeout: 1200 });
+          } else {
+            runNext();
+          }
+        }, 280);
+      });
+  };
   const timeoutId = window.setTimeout(() => {
     if ("requestIdleCallback" in window) {
-      idleId = window.requestIdleCallback(run, { timeout: 1500 });
+      idleId = window.requestIdleCallback(runNext, { timeout: 1500 });
     } else {
-      run();
+      runNext();
     }
   }, delay);
 
   return () => {
+    cancelled = true;
     window.clearTimeout(timeoutId);
+    window.clearTimeout(staggerId);
     if (idleId) window.cancelIdleCallback?.(idleId);
   };
 }
@@ -375,52 +365,41 @@ function preloadKeysForContext({ pathname, user, effectiveRole, isAdmin }) {
     isAdmin || user?.proAccess?.modules?.includes?.("nutrition") || user?.modules?.includes?.("nutrition");
 
   if (!user) {
-    keys.push("HomePage", "Login", "Register", "PlanProfessionnel", "PremiumPrograms");
+    if (pathname === "/") keys.push("Login", "Register");
+    else keys.push("HomePage");
     return keys;
   }
 
-  if (isAdmin || role === "admin") keys.push(...ADMIN_ROUTE_PRELOADS);
-  if (role === "coach") keys.push(...COACH_ROUTE_PRELOADS);
-  if (role === "particulier") keys.push(...CLIENT_ROUTE_PRELOADS);
-  if (
-    role === "club" ||
-    user?.accountType === "club_owner" ||
-    user?.clubRole === "owner" ||
-    pathname.startsWith("/club-dashboard")
-  ) {
-    keys.push(...CLUB_ROUTE_PRELOADS);
-  }
-
-  if (hasNutrition) {
-    keys.push(
-      "CoachNutritionPage",
-      "NutritionAssessmentEditor",
-      "FoodSurvey",
-      "NutritionRationPage",
-      "NutritionMenuJournalierPage"
-    );
-  }
-  if (hasSport) {
-    keys.push("ExerciseBank", "ProgramsPage");
-  }
-
+  // Ne précharge que les destinations les plus probables depuis la page
+  // courante. Les autres routes sont déjà préchargées au survol/toucher.
   if (/^\/clients\/[^/]+\/programmes\/[^/]+/.test(pathname)) {
-    keys.push("ProgramView", "ProgramBuilderPage", "SessionPlayer");
+    keys.push("ProgramBuilderPage", "SessionPlayer");
   } else if (/^\/clients\/[^/]+/.test(pathname)) {
-    keys.push("ClientView", "ProgramView");
+    keys.push("ProgramView", hasNutrition ? "NutritionAssessmentEditor" : null);
   } else if (pathname.startsWith("/clients")) {
-    keys.push("Clients", "ClientView");
+    keys.push("ClientView");
   } else if (pathname.startsWith("/programmes")) {
-    keys.push("ProgramView", "ProgramBuilderPage", "SessionPlayer", "AutoProgramPreview");
+    keys.push("ProgramView", "ProgramBuilderPage");
   } else if (pathname.startsWith("/coach-dashboard")) {
-    keys.push("Clients", "ProgramsPage");
+    keys.push("Clients");
+    if (hasSport) keys.push("ProgramsPage");
+    if (hasNutrition) keys.push("CoachNutritionPage");
   } else if (pathname.startsWith("/user-dashboard") || pathname.startsWith("/mes-programmes")) {
-    keys.push("MyPrograms", "ProgramView", "SessionPlayer", "ClientNutritionPage", "Statistics");
+    keys.push("MyPrograms", "ProgramView");
+    if (hasNutrition) keys.push("ClientNutritionPage");
   } else if (pathname.startsWith("/admin")) {
     keys.push("AdminGeo", "AdminEmails");
+  } else if (pathname.startsWith("/club-dashboard")) {
+    keys.push("CoachDashboard", "Clients");
+  } else if (role === "coach") {
+    keys.push("CoachDashboard");
+  } else if (role === "particulier") {
+    keys.push("ClientDashboard");
+  } else if (isAdmin || role === "admin") {
+    keys.push("AdminDashboard");
   }
 
-  return keys;
+  return keys.filter(Boolean);
 }
 
 function LazyBackground({ children }) {
@@ -727,7 +706,9 @@ function AppContent() {
       effectiveRole,
       isAdmin,
     });
-    const delay = user ? 2500 : 4000;
+    // Une session connectée a peu de routes voisines à préchauffer et elles
+    // sont désormais séquencées : on peut démarrer tôt sans créer de pic.
+    const delay = user ? 650 : 2500;
     return schedulePreload(keys, delay);
   }, [
     effectiveRole,

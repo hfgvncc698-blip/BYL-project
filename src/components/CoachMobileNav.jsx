@@ -116,22 +116,6 @@ export default function CoachMobileNav() {
     ROUTE_PRELOADS[key]?.();
   }, []);
 
-  React.useEffect(() => {
-    if (typeof window === "undefined") return undefined;
-    const visiblePaths = items.map((item) => item.path).filter(Boolean);
-    const warmVisibleRoutes = () => visiblePaths.forEach(preloadPath);
-    const idleId = window.requestIdleCallback
-      ? window.requestIdleCallback(warmVisibleRoutes, { timeout: 1200 })
-      : window.setTimeout(warmVisibleRoutes, 450);
-    return () => {
-      if (window.cancelIdleCallback && typeof idleId === "number") {
-        window.cancelIdleCallback(idleId);
-      } else {
-        window.clearTimeout(idleId);
-      }
-    };
-  }, [items, preloadPath]);
-
   const goTo = (path) => {
     preloadPath(path);
     const target = preserveAdminCoachQuery(path, location.search);

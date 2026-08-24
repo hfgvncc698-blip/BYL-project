@@ -63,6 +63,67 @@ check("slow loads and render failures never leave an empty application root", ()
   );
 });
 
+check("navigation preloads stay bounded and reuse warm page data", () => {
+  const app = read("src/App.jsx");
+  const dashboard = read("src/components/CoachDashboard.jsx");
+  const clients = read("src/components/Clients.jsx");
+  const programs = read("src/components/ProgramsPage.jsx");
+  const pageCache = read("src/utils/pageDataCache.js");
+  const clientMobileNav = read("src/components/ClientMobileNav.jsx");
+  const coachMobileNav = read("src/components/CoachMobileNav.jsx");
+  const clubMobileNav = read("src/components/ClubMobileNav.jsx");
+
+  assert.ok(
+    app.includes("const runNext = () =>") && app.includes("currentIndex += 1") && app.includes("staggerId"),
+    "Background route chunks must be loaded progressively instead of in one CPU/network burst"
+  );
+  assert.ok(
+    !app.includes("COACH_ROUTE_PRELOADS") && !app.includes("ADMIN_ROUTE_PRELOADS"),
+    "Role detection must not eagerly preload every heavy route"
+  );
+  [clientMobileNav, coachMobileNav, clubMobileNav].forEach((source) => {
+    assert.ok(
+      !source.includes("warmVisibleRoutes"),
+      "Mobile navigation must preload on user intent instead of compiling every tab at mount"
+    );
+  });
+  assert.ok(
+    dashboard.includes("`byl:programs-page:v1:${effectiveCoachUid}`") &&
+      dashboard.includes("`byl:clients-overview:v1:${effectiveCoachUid}`"),
+    "Dashboard data must warm the next common coach pages"
+  );
+  assert.ok(
+    clients.includes("initialClientsPageCache") && programs.includes("initialProgramsPageCache"),
+    "Warm list pages must hydrate before their first loading paint"
+  );
+  assert.ok(
+    pageCache.includes("DEFAULT_PAGE_DATA_STALE_TTL_MS") &&
+      pageCache.includes("export function readPageDataCacheEntry") &&
+      pageCache.includes("isStale: ageMs >= ttlMs"),
+    "Expired page data must remain available instantly while the network refreshes it"
+  );
+  assert.ok(
+    clients.includes("getDocsFromCache") &&
+      programs.includes("getDocsFromCache") &&
+      clients.includes("serverClientSnapsPromise") &&
+      programs.includes("serverProgramsPromise"),
+    "Client and program lists must read Firestore persistence before waiting for the server"
+  );
+  assert.ok(
+    dashboard.includes("warmDashboardDestination") &&
+      dashboard.includes("partial: true") &&
+      programs.includes("!cachedEntry.isStale && !cached.partial"),
+    "Dashboard destinations must warm their code and accept partial data without blocking"
+  );
+  assert.ok(
+    clients.includes("!isMobileClientsLayout &&") &&
+      clients.includes("isMobileClientsLayout &&") &&
+      programs.includes("!isMobileProgramsLayout &&") &&
+      programs.includes("isMobileProgramsLayout &&"),
+    "Large responsive lists must render only the active layout instead of duplicating every row"
+  );
+});
+
 check("sport PDFs include localized exercise notes", () => {
   const programView = read("src/components/ProgramView.jsx");
   const autoPreview = read("src/components/AutoProgramPreview.jsx");
@@ -863,10 +924,11 @@ check("coach session planning is atomic, bounded and duplicate-safe", () => {
     "Cached dashboard returns must revalidate session widgets in the background"
   );
   assert.ok(
-    dashboard.includes("usedCachedDashboardData = true") &&
-      dashboard.includes("shouldCompleteFullLoad = true") &&
-      dashboard.includes("const backgroundRefresh = silent || usedCachedDashboardData"),
-    "A cached dashboard must keep rendering immediately while a full silent refresh repairs incomplete planning data"
+    dashboard.includes("if (isLatestLoad()) setLoadingData(false);") &&
+      dashboard.includes("refreshCachedSessionWidgets(cachedDashboardData, loadSeq)") &&
+      !dashboard.includes("usedCachedDashboardData = true") &&
+      !dashboard.includes("shouldCompleteFullLoad = true"),
+    "A valid dashboard cache must avoid repeating the expensive client/program/session N+1 load"
   );
   assert.ok(
     dashboard.includes("mapRootSessionToQuickDashboardEvent"),
@@ -891,11 +953,11 @@ check("coach session planning is atomic, bounded and duplicate-safe", () => {
     dashboard.includes("preservedPlannedEvents") &&
       dashboard.includes("refreshedSourceIds") &&
       dashboard.includes("...preservedPlannedEvents"),
-    "Quick session refreshes must retain cached planned sessions until the authoritative refresh completes"
+    "Quick session refreshes must retain cached planned sessions that are not present in a partial refresh"
   );
   assert.ok(
     dashboard.includes("const reviveDashboardPayload") &&
-      dashboard.includes("const data = reviveDashboardPayload(memoryPayload.data)"),
+      dashboard.includes("const data = reviveDashboardPayload(payload.data)"),
     "In-memory dashboard cache dates must be revived before weekly widgets consume them"
   );
   assert.ok(
