@@ -160,10 +160,6 @@ export default function Navbar() {
   const isClubContext =
     (user?.role === "coach" || user?.role === "admin") &&
     (isClubOwner || location.pathname.startsWith(ROUTES.clubDashboard));
-  const clubBrandAllowed =
-    isClubOwner &&
-    user?.clubName &&
-    (user?.packageTier === "network" || Number(user?.proLimit || 0) >= 20);
   const navbarBrandAllowed = canUseNavbarBranding(
     user?.proAccess || {
       packageKey: user?.packageKey,
@@ -182,19 +178,11 @@ export default function Navbar() {
   const hasSportAccess = hasPlanModule(user, "sport");
   const isNutritionOnlyCoach = showCoachUI && hasNutritionAccess && !hasSportAccess;
   const isMixedCoach = showCoachUI && hasNutritionAccess && hasSportAccess;
-  const customNavbarName = (
-    user?.settings?.navbarBrandName ||
-    user?.companyName ||
-    user?.businessName ||
-    user?.cabinetName ||
-    displayFullName
-  )?.trim?.();
+  const customNavbarName = user?.settings?.navbarBrandName?.trim?.();
   const brandLabel =
-    clubBrandAllowed && user?.clubName
-      ? user.clubName
-      : navbarBrandAllowed && customNavbarName
-        ? customNavbarName
-        : DEFAULT_BRAND_LABEL;
+    navbarBrandAllowed && customNavbarName
+      ? customNavbarName
+      : DEFAULT_BRAND_LABEL;
   const adminCoachId = new URLSearchParams(location.search).get("adminCoachId") || "";
   const clientCustomProgramLabel = nav("nav.create_my_program", "Créer mon programme");
   const withAdminCoach = (path) => {

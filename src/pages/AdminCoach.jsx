@@ -299,7 +299,7 @@ export default function AdminCoach() {
   // Stripe
   const [stripeLoading, setStripeLoading] = useState(false);
   const [stripeInfo, setStripeInfo] = useState(null);
-  const [invoiceAmount, setInvoiceAmount] = useState("39.99");
+  const [invoiceAmount, setInvoiceAmount] = useState("29.00");
   const [invoiceCurrency, setInvoiceCurrency] = useState("eur");
   const [invoiceDesc, setInvoiceDesc] = useState("Facture manuelle (admin)");
   const [invoicePriceId, setInvoicePriceId] = useState("");
@@ -1196,6 +1196,29 @@ export default function AdminCoach() {
                         <Tbody>
                           <Tr><Th>{i18n.t("auto.AdminCoach.customer", "Customer")}</Th><Td>{stripeInfo.customer?.id || stripeInfo.firestore?.stripeCustomerId || "—"}</Td></Tr>
                           <Tr><Th>{i18n.t("clientsList.table.subscription", "Abonnement")}</Th><Td>{stripeInfo.subscription?.status || stripeInfo.firestore?.subscriptionStatus || "—"}</Td></Tr>
+                          <Tr>
+                            <Th>{i18n.t("auto.AdminCoach.offre_facturee", "Offre facturée")}</Th>
+                            <Td>
+                              {stripeInfo.subscription?.price
+                                ? [
+                                    stripeInfo.subscription.price.productName || stripeInfo.subscription.price.nickname,
+                                    stripeInfo.subscription.price.metadata?.packageTier,
+                                  ].filter(Boolean).join(" · ") || "—"
+                                : "—"}
+                            </Td>
+                          </Tr>
+                          <Tr>
+                            <Th>{i18n.t("auto.AdminCoach.tarif_recurrent", "Tarif récurrent")}</Th>
+                            <Td>
+                              {stripeInfo.subscription?.price
+                                ? `${stripeInfo.subscription.price.amountLabel}${
+                                    stripeInfo.subscription.price.recurring?.interval === "year"
+                                      ? i18n.t("auto.AdminCoach.par_an", " / an")
+                                      : i18n.t("auto.AdminCoach.par_mois", " / mois")
+                                  }`
+                                : "—"}
+                            </Td>
+                          </Tr>
                           <Tr><Th>{i18n.t("auto.AdminCoach.depuis_le", "Depuis le")}</Th><Td>{toLocale(stripeInfo.subscription?.startedAt || stripeInfo.firestore?.trialStartedAt)}</Td></Tr>
                           <Tr><Th>{i18n.t("auto.AdminCoach.periode_en_cours", "Période en cours")}</Th><Td>{toLocale(stripeInfo.subscription?.currentPeriodStart)} → {toLocale(stripeInfo.subscription?.currentPeriodEnd || stripeInfo.firestore?.nextInvoiceAt)}</Td></Tr>
                           <Tr><Th>{i18n.t("auto.AdminCoach.retard_paiement", "Retard paiement")}</Th><Td>{stripeInfo.hasPaymentDelay ? "Oui" : "Non"}</Td></Tr>
@@ -1339,7 +1362,7 @@ export default function AdminCoach() {
                     </FormControl>
                     <FormControl>
                       <FormLabel>{i18n.t("auto.AdminCoach.montant", "Montant")}</FormLabel>
-                      <Input value={invoiceAmount} onChange={(e) => setInvoiceAmount(e.target.value)} placeholder="39.99" isDisabled={!!invoicePriceId} />
+                      <Input value={invoiceAmount} onChange={(e) => setInvoiceAmount(e.target.value)} placeholder="29.00" isDisabled={!!invoicePriceId} />
                     </FormControl>
                     <FormControl>
                       <FormLabel>{i18n.t("auto.AdminCoach.devise", "Devise")}</FormLabel>

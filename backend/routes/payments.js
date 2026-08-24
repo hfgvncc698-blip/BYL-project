@@ -1310,6 +1310,8 @@ function firestoreBillingSummary(user, email, reason = null) {
           trialEnd: user.trialEndsAt || user.trialEnd || null,
           currentPeriodStart: user.trialStartedAt || user.trialStart || null,
           currentPeriodEnd: user.nextInvoiceAt || user.trialEndsAt || user.trialEnd || null,
+          price: null,
+          quantity: 1,
         }
       : status
       ? {
@@ -1347,6 +1349,8 @@ router.get("/admin/billing-summary", requireAdminKey, async (req, res) => {
     ]);
 
     const subscription = subs.data?.[0] || null;
+    const subscriptionItem = subscription?.items?.data?.[0] || null;
+    const subscriptionPrice = subscriptionItem?.price || null;
     const invoiceList = invoices.data || [];
     const openInvoices = invoiceList.filter((invoice) =>
       ["open", "uncollectible"].includes(invoice.status)
@@ -1393,6 +1397,8 @@ router.get("/admin/billing-summary", requireAdminKey, async (req, res) => {
             currentPeriodEnd: subscription.current_period_end
               ? new Date(subscription.current_period_end * 1000)
               : null,
+            price: subscriptionPrice ? serializeStripePrice(subscriptionPrice) : null,
+            quantity: Number(subscriptionItem?.quantity || 1),
           }
         : null,
       invoices: invoiceList.map(serializeInvoice),

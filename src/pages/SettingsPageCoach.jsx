@@ -94,7 +94,7 @@ export default function SettingsPageCoach() {
     "fr";
   const [selectedLang, setSelectedLang] = useState(initialLang);
   const [navbarBrandName, setNavbarBrandName] = useState(
-    user?.settings?.navbarBrandName || user?.companyName || user?.businessName || ""
+    user?.settings?.navbarBrandName || ""
   );
   const navbarBrandDirtyRef = useRef(false);
   const navbarBrandInputRef = useRef(null);
@@ -106,12 +106,12 @@ export default function SettingsPageCoach() {
 
   useEffect(() => {
     if (navbarBrandDirtyRef.current || savingNavbarBrand) return;
-    const nextName = user?.settings?.navbarBrandName || user?.companyName || user?.businessName || "";
+    const nextName = user?.settings?.navbarBrandName || "";
     setNavbarBrandName(nextName);
     if (navbarBrandInputRef.current) {
       navbarBrandInputRef.current.value = nextName;
     }
-  }, [savingNavbarBrand, user?.settings?.navbarBrandName, user?.companyName, user?.businessName]);
+  }, [savingNavbarBrand, user?.settings?.navbarBrandName]);
 
   const subStatus = user?.subscriptionStatus || "canceled";
   const hasStripeCustomer = Boolean(user?.stripeCustomerId || user?.stripe?.customerId);
@@ -519,7 +519,7 @@ export default function SettingsPageCoach() {
                     navbarBrandDirtyRef.current = true;
                   }}
                   maxLength={48}
-                  placeholder={t("auto.SettingsPageCoach.nom_prenom_ou_cabinet", "Nom, prénom ou cabinet")}
+                  placeholder="BoostYourLife.coach"
                   borderRadius="full"
                   bg={subCardBg}
                 />

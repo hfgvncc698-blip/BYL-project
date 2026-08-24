@@ -23,7 +23,7 @@ const plans = [
     packageKey: "sport",
     title: "Pro Sport",
     tiers: [
-      { key: "solo", label: "Solo", monthly: 3900, yearly: 39000, clientLimit: 10, proLimit: 1 },
+      { key: "solo", label: "Solo", monthly: 2900, yearly: 29000, clientLimit: 10, proLimit: 1 },
       { key: "growth", label: "Croissance", monthly: 5900, yearly: 59000, clientLimit: 30, proLimit: 1 },
       { key: "unlimited", label: "Illimité", monthly: 7900, yearly: 79000, clientLimit: null, proLimit: 1 },
     ],
@@ -32,7 +32,7 @@ const plans = [
     packageKey: "nutrition",
     title: "Pro Nutrition",
     tiers: [
-      { key: "solo", label: "Solo", monthly: 3900, yearly: 39000, clientLimit: 10, proLimit: 1 },
+      { key: "solo", label: "Solo", monthly: 2900, yearly: 29000, clientLimit: 10, proLimit: 1 },
       { key: "growth", label: "Croissance", monthly: 5900, yearly: 59000, clientLimit: 30, proLimit: 1 },
       { key: "unlimited", label: "Illimité", monthly: 7900, yearly: 79000, clientLimit: null, proLimit: 1 },
     ],
@@ -79,15 +79,15 @@ const metadataFor = ({ packageKey, tier, billing }) => ({
   proLimit: tier.proLimit == null ? "unlimited" : String(tier.proLimit),
 });
 
-async function searchPrice(planCode) {
+async function searchPrices(planCode) {
   try {
     const result = await stripe.prices.search({
       query: `active:'true' AND metadata['byl_plan_code']:'${planCode}'`,
-      limit: 1,
+      limit: 100,
     });
-    return result.data[0] || null;
+    return result.data || [];
   } catch {
-    return null;
+    return [];
   }
 }
 
@@ -125,8 +125,20 @@ async function ensureProduct({ plan, tier }) {
 
 async function ensurePrice({ plan, tier, billing, unitAmount }) {
   const planCode = priceCodeFor({ packageKey: plan.packageKey, tierKey: tier.key, billing });
-  const existing = await searchPrice(planCode);
-  if (existing) return { price: existing, created: false };
+  const existingPrices = await searchPrices(planCode);
+  const expectedInterval = billing === "yearly" ? "year" : "month";
+  const matchingPrice = existingPrices.find(
+    (price) =>
+      price.currency === "eur" &&
+      Number(price.unit_amount) === Number(unitAmount) &&
+      price.recurring?.interval === expectedInterval
+  );
+
+  if (matchingPrice) {
+    const obsoletePrices = existingPrices.filter((price) => price.id !== matchingPrice.id);
+    await Promise.all(obsoletePrices.map((price) => stripe.prices.update(price.id, { active: false })));
+    return { price: matchingPrice, created: false, archived: obsoletePrices.length };
+  }
 
   const product = await ensureProduct({ plan, tier });
   const taxBehavior = isTaxExclusivePlan(plan.packageKey) ? "exclusive" : "inclusive";
@@ -134,12 +146,13 @@ async function ensurePrice({ plan, tier, billing, unitAmount }) {
     currency: "eur",
     unit_amount: unitAmount,
     tax_behavior: taxBehavior,
-    recurring: { interval: billing === "yearly" ? "year" : "month" },
+    recurring: { interval: expectedInterval },
     product: product.id,
     nickname: `${plan.title} ${tier.label} ${billing === "yearly" ? "Annuel" : "Mensuel"}${taxBehavior === "exclusive" ? " HT" : ""}`,
     metadata: metadataFor({ packageKey: plan.packageKey, tier, billing }),
   });
-  return { price, created: true };
+  await Promise.all(existingPrices.map((existing) => stripe.prices.update(existing.id, { active: false })));
+  return { price, created: true, archived: existingPrices.length };
 }
 
 (async () => {
@@ -150,11 +163,12 @@ async function ensurePrice({ plan, tier, billing, unitAmount }) {
         ["monthly", tier.monthly],
         ["yearly", tier.yearly],
       ]) {
-        const { price, created } = await ensurePrice({ plan, tier, billing, unitAmount: amount });
+        const { price, created, archived = 0 } = await ensurePrice({ plan, tier, billing, unitAmount: amount });
         rows.push({
           env: envName({ packageKey: plan.packageKey, tierKey: tier.key, billing }),
           id: price.id,
           created,
+          archived,
           amount,
           taxBehavior: isTaxExclusivePlan(plan.packageKey) ? "exclusive" : "inclusive",
         });
@@ -169,7 +183,7 @@ async function ensurePrice({ plan, tier, billing, unitAmount }) {
   console.log("\n# Summary");
   for (const row of rows) {
     const taxLabel = row.taxBehavior === "exclusive" ? "HT" : "TTC";
-    console.log(`${row.created ? "created" : "existing"} ${row.env} ${row.amount / 100} EUR ${taxLabel} -> ${row.id}`);
+    console.log(`${row.created ? "created" : "existing"} ${row.env} ${row.amount / 100} EUR ${taxLabel} -> ${row.id}${row.archived ? ` (${row.archived} ancien(s) prix désactivé(s))` : ""}`);
   }
 })().catch((error) => {
   console.error(error);
