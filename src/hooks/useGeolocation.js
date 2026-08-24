@@ -2,6 +2,26 @@
 import { useState, useEffect, useRef } from "react";
 import { resolveCityCountry } from "../utils/geocoding";
 
+export const GEO_PERMISSION_DECISION_KEY = "BYL_GEO_PERMISSION_DECISION_V1";
+
+const readStoredGeoDecision = () => {
+  try {
+    const value = localStorage.getItem(GEO_PERMISSION_DECISION_KEY);
+    return value === "granted" || value === "denied" ? value : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeStoredGeoDecision = (decision) => {
+  if (decision !== "granted" && decision !== "denied") return;
+  try {
+    localStorage.setItem(GEO_PERMISSION_DECISION_KEY, decision);
+  } catch {
+    // Le navigateur reste l'autorité si le stockage local est indisponible.
+  }
+};
+
 /**
  * useGeolocation({
  *   uid: string|null,
@@ -28,7 +48,10 @@ export default function useGeolocation({
   });
 
   const watchIdRef = useRef(null);
-  const [permissionTick, setPermissionTick] = useState(0);
+  const autoRequestAttemptedRef = useRef(false);
+  const [browserPermission, setBrowserPermission] = useState(() =>
+    typeof navigator !== "undefined" && navigator.permissions?.query ? "checking" : "unsupported"
+  );
 
   const isUsablePosition = (lat, lng) =>
     Number.isFinite(lat) &&
@@ -50,6 +73,16 @@ export default function useGeolocation({
       };
     } catch {
       return null;
+    }
+  };
+
+  const clearCachedGeo = () => {
+    try {
+      ["BYL_COUNTRY", "BYL_CITY", "BYL_LAT", "BYL_LNG", "BYL_GEO_UPDATED_AT"].forEach((key) => {
+        localStorage.removeItem(key);
+      });
+    } catch {
+      // ignore
     }
   };
 
@@ -94,7 +127,11 @@ export default function useGeolocation({
   };
 
   useEffect(() => {
-    if (!enabled || !navigator.permissions?.query) return undefined;
+    if (!enabled) return undefined;
+    if (!navigator.permissions?.query) {
+      setBrowserPermission("unsupported");
+      return undefined;
+    }
     let permissionStatus = null;
     let cancelled = false;
 
@@ -103,9 +140,10 @@ export default function useGeolocation({
       .then((status) => {
         if (cancelled) return;
         permissionStatus = status;
-        status.onchange = () => setPermissionTick((tick) => tick + 1);
+        setBrowserPermission(status.state || "prompt");
+        status.onchange = () => setBrowserPermission(status.state || "prompt");
       })
-      .catch(() => {});
+      .catch(() => setBrowserPermission("unsupported"));
 
     return () => {
       cancelled = true;
@@ -125,25 +163,48 @@ export default function useGeolocation({
       return;
     }
 
-    if (reuseCachedPosition) {
-      const cached = readCachedGeo();
-      if (cached) {
-        const ageMs = Date.now() - Number(cached.timestamp || 0);
-        setState({
-          status: "granted",
-          position: {
-            lat: cached.lat,
-            lng: cached.lng,
-            accuracy: null,
-            timestamp: cached.timestamp,
-            source: "cache",
-          },
-          error: null,
-        });
-        writeGeoToStorageAndNotify(cached);
-        if (ageMs < 6 * 60 * 60 * 1000) return;
-      }
+    if (browserPermission === "checking") return;
+
+    let storedDecision = readStoredGeoDecision();
+    if (browserPermission === "granted" && storedDecision === "denied") {
+      storedDecision = "granted";
+      writeStoredGeoDecision("granted");
     }
+    if (storedDecision === "denied" || browserPermission === "denied") {
+      if (browserPermission === "denied") writeStoredGeoDecision("denied");
+      clearCachedGeo();
+      setState({
+        status: "denied",
+        position: null,
+        error: new Error("Permission denied"),
+      });
+      return;
+    }
+
+    const cached = reuseCachedPosition ? readCachedGeo() : null;
+    if (cached && !storedDecision) {
+      // Migration des utilisateurs ayant déjà accepté avant l'ajout du choix
+      // persistant. La coordonnée historique n'est toutefois plus considérée
+      // comme leur position actuelle.
+      storedDecision = "granted";
+      writeStoredGeoDecision("granted");
+    }
+
+    // Une autorisation "une seule fois" peut redevenir `prompt` sur iPhone.
+    // Dans ce cas on efface l'ancien lieu et on ne sollicite pas à nouveau
+    // l'utilisateur automatiquement.
+    if (storedDecision === "granted" && browserPermission !== "granted") {
+      clearCachedGeo();
+      setState({ status: "idle", position: null, error: null });
+      return;
+    }
+
+    if (autoRequestAttemptedRef.current) return;
+    autoRequestAttemptedRef.current = true;
+    // Ne jamais envoyer l'ancien lieu pendant que la nouvelle position est en
+    // cours d'acquisition. L'analytics attendra BYL_GEO_READY ou utilisera son
+    // fallback approximatif après son délai normal.
+    clearCachedGeo();
 
     const success = async (pos) => {
       const base = {
@@ -163,6 +224,7 @@ export default function useGeolocation({
         return;
       }
 
+      writeStoredGeoDecision("granted");
       setState({ status: "granted", position: base, error: null });
 
       // L'écriture Firestore se fait côté backend via /api/analytics/pageview.
@@ -190,13 +252,14 @@ export default function useGeolocation({
           ? "Timeout"
           : err?.message || "Unknown geolocation error";
 
-      setState({ status: "denied", position: null, error: new Error(readable) });
+      if (err?.code === 1) writeStoredGeoDecision("denied");
+      setState({ status: err?.code === 1 ? "denied" : "idle", position: null, error: new Error(readable) });
     };
 
     const geoOptions = {
       enableHighAccuracy: true,
       timeout: 10000,
-      maximumAge: 24 * 60 * 60 * 1000,
+      maximumAge: 0,
       ...(options || {}),
     };
 
@@ -217,7 +280,7 @@ export default function useGeolocation({
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
     };
-  }, [enabled, uid, watch, saveUserLocation, saveAnalytics, reuseCachedPosition, permissionTick, JSON.stringify(options ?? {})]);
+  }, [enabled, uid, watch, saveUserLocation, saveAnalytics, reuseCachedPosition, browserPermission, JSON.stringify(options ?? {})]);
 
   const refresh = async () => {
     if (!("geolocation" in navigator)) return;
@@ -241,6 +304,7 @@ export default function useGeolocation({
           return;
         }
 
+        writeStoredGeoDecision("granted");
         setState({ status: "granted", position: base, error: null });
 
         // Si on veut aussi mettre à jour la geo analytics lors d’un refresh
@@ -257,6 +321,7 @@ export default function useGeolocation({
         }
       },
       (err) => {
+        if (err?.code === 1) writeStoredGeoDecision("denied");
         setState({ status: "denied", position: null, error: err });
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }

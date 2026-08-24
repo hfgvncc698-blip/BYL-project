@@ -63,6 +63,38 @@ check("slow loads and render failures never leave an empty application root", ()
   );
 });
 
+check("geolocation permission is requested at most once automatically", () => {
+  const geolocation = read("src/hooks/useGeolocation.js");
+  const deniedGuardIndex = geolocation.indexOf(
+    'if (storedDecision === "denied" || browserPermission === "denied")'
+  );
+  const automaticRequestIndex = geolocation.indexOf(
+    "navigator.geolocation.getCurrentPosition(success, fail, geoOptions)"
+  );
+
+  assert.ok(
+    geolocation.includes('GEO_PERMISSION_DECISION_KEY = "BYL_GEO_PERMISSION_DECISION_V1"') &&
+      geolocation.includes('writeStoredGeoDecision("granted")') &&
+      geolocation.includes('writeStoredGeoDecision("denied")'),
+    "Geolocation consent decisions must survive page reloads"
+  );
+  assert.ok(
+    geolocation.includes('storedDecision === "granted" && browserPermission !== "granted"') &&
+      geolocation.includes("autoRequestAttemptedRef.current"),
+    "Expired one-time iPhone permissions must not open another automatic prompt"
+  );
+  assert.ok(
+    geolocation.includes("const clearCachedGeo") &&
+      geolocation.includes("maximumAge: 0") &&
+      geolocation.includes("clearCachedGeo();\n\n    const success"),
+    "Every app opening must discard stale coordinates before acquiring a genuinely current position"
+  );
+  assert.ok(
+    deniedGuardIndex >= 0 && automaticRequestIndex > deniedGuardIndex,
+    "A saved refusal must be checked before any automatic browser permission request"
+  );
+});
+
 check("navigation preloads stay bounded and reuse warm page data", () => {
   const app = read("src/App.jsx");
   const dashboard = read("src/components/CoachDashboard.jsx");
