@@ -2115,6 +2115,7 @@
     "setN": "Setze {{n}}",
     "empty": "Sitzung nicht gefunden oder leer.",
     "rateTitle": "Bewerten Sie die Schwierigkeit",
+    "completionSaveError": "Die Trainingseinheit konnte nicht gespeichert werden. Versuchen Sie es erneut, ohne dieses Fenster zu schließen.",
     "restBetween": "Zwischen den Übungen",
     "restEndOfBlock": "Ende des Blocks",
     "restIgnored": "Ignoriert (Fortsetzung)",

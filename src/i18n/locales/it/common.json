@@ -2115,6 +2115,7 @@
     "nextSeriesCounter": "Prossima serie {{i}}/{{n}}",
     "empty": "Sessione non trovata o vuota.",
     "rateTitle": "Valuta la difficoltà",
+    "completionSaveError": "Non è stato possibile salvare la sessione. Riprova senza chiudere questa finestra.",
     "restBetween": "Tra gli esercizi",
     "restEndOfBlock": "Fine del blocco",
     "restIgnored": "Ignorato (continua)",

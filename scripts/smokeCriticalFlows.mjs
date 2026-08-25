@@ -167,6 +167,11 @@ check("sport PDFs include localized exercise notes", () => {
         source.includes("notesLabel={L.notes}"),
       "Each sport PDF entry point must pass localized exercise notes to the PDF document"
     );
+    assert.ok(
+      source.includes("settleWithTimeout(preloadPdfImagesForAllSessions(), 8000, {})") &&
+        source.includes("if (!blob) throw new Error(\"PDF generation timed out\")"),
+      "PDF generation must fall back when a remote image hangs and must always release its loading state"
+    );
   });
   assert.ok(
     sportPdf.includes("const notes = Array.isArray(exercise.notes)") &&
@@ -256,6 +261,22 @@ check("dashboard resume keeps the exact unfinished player position", () => {
       dashboard.includes("discardStoredResume: mode !== \"resume\"") &&
       dashboard.includes("clearProgramSessionResumeStates({"),
     "Starting a new session must explicitly ignore an old resume checkpoint"
+  );
+});
+
+check("session completion modal only waits for the critical save", () => {
+  const player = read("src/components/SessionPlayer.jsx");
+  assert.ok(
+    player.includes("deferSecondarySync: true") &&
+      player.includes("secondarySyncPromise") &&
+      player.includes("Promise.allSettled") &&
+      player.includes("isLoading={completionSubmitting"),
+    "The completion modal must confirm the workout first and defer calendar and progression sync"
+  );
+  assert.ok(
+    player.includes("if (!completionResult?.saved)") &&
+      player.includes("showCompletionSaveError();"),
+    "A failed critical save must keep the completion modal open"
   );
 });
 

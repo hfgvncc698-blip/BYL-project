@@ -2121,6 +2121,7 @@
     "nextSeriesCounter": "Next set {{i}}/{{n}}",
     "empty": "Session not found or empty.",
     "rateTitle": "Rate the difficulty",
+    "completionSaveError": "The workout could not be saved. Try again without closing this window.",
     "restBetween": "Between exercises",
     "restEndOfBlock": "End of block",
     "restIgnored": "Ignored (continuation)",

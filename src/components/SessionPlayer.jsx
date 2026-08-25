@@ -17,6 +17,7 @@ import {
   writeBatch,
   runTransaction,
   limit,
+  deleteField,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import {
@@ -141,9 +142,17 @@ import {
   getExerciseTimingAdjustmentTargets,
 } from "../utils/trainingEngine";
 import {
+  buildFrozenElapsedState,
   clearSessionResumeState,
+  findLatestRemoteSessionResumeRecord,
+  getPartialSessionProgress,
+  getRemoteCheckpointDelay,
+  getRestoredCountdownSeconds,
+  getRestoredStopwatchSeconds,
   getSessionResumeStorageKey,
+  getSessionResumeUpdatedAt,
   readSessionResumeState,
+  selectLatestSessionResumeState,
   writeSessionResumeState,
 } from "../utils/sessionResume";
 
@@ -521,6 +530,20 @@ function useElapsedTimer(storageKey) {
     syncFromState({ startedAt: 0, stoppedAt: 0 });
   };
 
+  const restore = (state = {}) => {
+    const restoredSeconds = getElapsedTimerSeconds(state);
+    if (!restoredSeconds) {
+      reset();
+      return;
+    }
+    const next = {
+      startedAt: Date.now() - restoredSeconds * 1000,
+      stoppedAt: 0,
+    };
+    writeElapsedTimerState(storageKey, next);
+    syncFromState(next);
+  };
+
   useEffect(() => {
     const stored = readElapsedTimerState(storageKey);
     syncFromState(stored);
@@ -553,7 +576,7 @@ function useElapsedTimer(storageKey) {
   const started = Boolean(timerState.startedAt);
   const running = Boolean(timerState.startedAt && !timerState.stoppedAt);
 
-  return { seconds, running, started, startedAt: timerState.startedAt, start, stop, reset };
+  return { seconds, running, started, startedAt: timerState.startedAt, start, stop, reset, restore };
 }
 
 /* ---------------------- mapping options ---------------------- */
@@ -2549,6 +2572,11 @@ export default function SessionPlayer() {
     () => getSessionResumeStorageKey({ clientId, programId, sessionIndex }),
     [clientId, programId, sessionIndex]
   );
+  const [remoteResumeResult, setRemoteResumeResult] = useState({
+    key: "",
+    loaded: false,
+    state: null,
+  });
 
   const theme = useAppTheme();
   const toast = useToast();
@@ -2619,6 +2647,8 @@ export default function SessionPlayer() {
   const [painFlag, setPainFlag] = useState(false);
   const [painLevel, setPainLevel] = useState("");
   const [painArea, setPainArea] = useState("");
+  const [completionSubmitting, setCompletionSubmitting] = useState(false);
+  const completionSubmitActionRef = useRef("");
   const [notesOpen, setNotesOpen] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
   const [autoFlowEnabled, setAutoFlowEnabled] = useState(() => {
@@ -2672,6 +2702,12 @@ export default function SessionPlayer() {
   const resumeAppliedRef = useRef(false);
   const pendingTimerResumeRef = useRef(null);
   const resumeClearedRef = useRef(false);
+  const remoteCheckpointTimerRef = useRef(null);
+  const remoteCheckpointLastAtRef = useRef(0);
+  const remoteCheckpointInFlightRef = useRef(false);
+  const remoteCheckpointPromiseRef = useRef(null);
+  const remoteCheckpointMeaningfulRef = useRef(null);
+  const remoteCheckpointUrgentAtRef = useRef(0);
 
   const programDocRef = useMemo(
     () => getProgrammeDocRef({ clientId, programId }),
@@ -2738,6 +2774,15 @@ export default function SessionPlayer() {
     resumeAppliedRef.current = false;
     pendingTimerResumeRef.current = null;
     resumeClearedRef.current = false;
+    remoteCheckpointLastAtRef.current = 0;
+    remoteCheckpointInFlightRef.current = false;
+    remoteCheckpointPromiseRef.current = null;
+    remoteCheckpointMeaningfulRef.current = null;
+    remoteCheckpointUrgentAtRef.current = 0;
+    if (remoteCheckpointTimerRef.current) {
+      clearTimeout(remoteCheckpointTimerRef.current);
+      remoteCheckpointTimerRef.current = null;
+    }
     pausedPhaseRef.current = null;
     autoStartNextRef.current = false;
     autoStartDelayRef.current = 0;
@@ -2753,15 +2798,78 @@ export default function SessionPlayer() {
     setPainFlag(false);
     setPainLevel("");
     setPainArea("");
+    setCompletionSubmitting(false);
+    completionSubmitActionRef.current = "";
   }, [clientId, programId, sessionIndex, sessionResumeStorageKey, sessionTimerStorageKey]);
+
+  useEffect(() => {
+    const resumeKey = sessionResumeStorageKey;
+    let cancelled = false;
+    setRemoteResumeResult({ key: resumeKey, loaded: false, state: null });
+
+    if (!clientId || !programId) {
+      setRemoteResumeResult({ key: resumeKey, loaded: true, state: null });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    getDocs(
+      query(
+        collection(db, "clients", clientId, "programmes", programId, "sessionsEffectuees"),
+        where("sessionIndex", "==", sessionIndex)
+      )
+    )
+      .then((snap) => {
+        if (cancelled) return;
+        const latest = findLatestRemoteSessionResumeRecord(
+          snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })),
+          sessionIndex
+        );
+        const discardStoredResume = location?.state?.discardStoredResume === true;
+        if (latest?.id && !discardStoredResume) {
+          completionDocIdRef.current = latest.id;
+          const startedAt = latest.startedAt?.toDate?.() || new Date(latest.startedAt || 0);
+          if (!Number.isNaN(startedAt.getTime())) completionStartedAtRef.current = startedAt;
+        }
+        const basicState = latest
+          ? {
+              exerciseIndex: latest.lastExerciseIndex,
+              currentSet: latest.lastSet,
+              checkpointUpdatedAt:
+                getSessionResumeUpdatedAt(latest?.resumeState) ||
+                getSessionResumeUpdatedAt(latest),
+            }
+          : null;
+        setRemoteResumeResult({
+          key: resumeKey,
+          loaded: true,
+          state: latest ? { ...basicState, ...(latest.resumeState || {}) } : null,
+        });
+      })
+      .catch((error) => {
+        console.warn("remote session resume unavailable:", error);
+        if (!cancelled) setRemoteResumeResult({ key: resumeKey, loaded: true, state: null });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId, location?.state?.discardStoredResume, programId, sessionIndex, sessionResumeStorageKey]);
 
   useEffect(() => {
     if (resumeAppliedRef.current) return;
     if (!flat.length) return;
+    if (remoteResumeResult.key !== sessionResumeStorageKey || !remoteResumeResult.loaded) return;
 
     const discardStoredResume = location?.state?.discardStoredResume === true;
     if (discardStoredResume) clearSessionResumeState(sessionResumeStorageKey);
-    const storedResume = discardStoredResume ? null : readSessionResumeState(sessionResumeStorageKey);
+    const localResume = discardStoredResume ? null : readSessionResumeState(sessionResumeStorageKey);
+    const remoteResume = discardStoredResume ? null : remoteResumeResult.state;
+    const storedResume = selectLatestSessionResumeState(localResume, remoteResume);
+    const restoredSession = storedResume?.sessionDraft;
+    const restoredSessionLayout = restoredSession ? flattenSession(restoredSession) : null;
+    const resumeFlatLength = restoredSessionLayout?.flat?.length || flat.length;
     const requestedIndex =
       location?.state?.resumeExerciseIndex ??
       location?.state?.exerciseIndex;
@@ -2773,7 +2881,7 @@ export default function SessionPlayer() {
       return;
     }
 
-    const clampedIndex = Math.max(0, Math.min(flat.length - 1, Number(targetIndex)));
+    const clampedIndex = Math.max(0, Math.min(resumeFlatLength - 1, Number(targetIndex)));
     const requestedSet =
       location?.state?.resumeSet ??
       location?.state?.currentSet;
@@ -2783,6 +2891,23 @@ export default function SessionPlayer() {
       ? Math.max(1, Number(targetSet))
       : 1;
     if (storedResume) pendingTimerResumeRef.current = storedResume;
+    if (restoredSessionLayout?.flat?.length) {
+      setSessionObj(restoredSession);
+      setFlat(restoredSessionLayout.flat);
+      setMapIdx(restoredSessionLayout.map);
+    }
+    if (Array.isArray(storedResume?.performanceDrafts)) {
+      performanceDraftsRef.current = new Map(storedResume.performanceDrafts);
+      refreshPerformanceDrafts((revision) => revision + 1);
+    }
+    if (Array.isArray(storedResume?.performedSets)) {
+      performedSetsRef.current = new Map(storedResume.performedSets);
+    }
+    activeRestPerformanceRef.current = storedResume?.activeRestPerformance || null;
+    const restoredCompletionStartedAt = Number(storedResume?.completionStartedAt || 0);
+    if (restoredCompletionStartedAt > 0) {
+      completionStartedAtRef.current = new Date(restoredCompletionStartedAt);
+    }
     activeTimingExerciseIndexRef.current = clampedIndex;
     exerciseTimingStartedAtRef.current = Number(storedResume?.exerciseTimingStartedAt || 0) || Date.now();
     if (Array.isArray(storedResume?.exerciseTimings)) {
@@ -2795,7 +2920,7 @@ export default function SessionPlayer() {
     setExIndex(clampedIndex);
     setCurrentSet(safeSet);
     resumeAppliedRef.current = true;
-  }, [flat.length, location?.state, sessionResumeStorageKey]);
+  }, [flat.length, location?.state, remoteResumeResult, sessionResumeStorageKey]);
 
   function getExerciseActualSeconds(index, { includeCurrent = true } = {}) {
     const safeIndex = Number(index);
@@ -3233,6 +3358,9 @@ export default function SessionPlayer() {
       if (!clientId || !programId || sessionIndex == null) {
         return { saved: false, newPersonalRecordCount: 0 };
       }
+      if (!meta.partial && remoteCheckpointPromiseRef.current) {
+        await remoteCheckpointPromiseRef.current;
+      }
 
       const completionDocId = completionDocIdRef.current;
       const sRef = doc(
@@ -3298,6 +3426,11 @@ export default function SessionPlayer() {
           ...(lastSet != null ? { lastSet } : {}),
           ...(exerciseTimings.length ? { exerciseTimings } : {}),
           ...(exerciseSnapshots.length ? { exerciseSnapshots } : {}),
+          ...(isPartial && meta.resumeState
+            ? { resumeState: meta.resumeState }
+            : !isPartial
+              ? { resumeState: deleteField() }
+              : {}),
           ...(!isPartial && actualDurationSec > 0
             ? {
                 actualDurationSec,
@@ -3330,8 +3463,9 @@ export default function SessionPlayer() {
         { merge: true }
       );
 
-      if (!isPartial && programDocRef) {
-        await runTransaction(db, async (transaction) => {
+      const syncCompletionSideEffects = async () => {
+        if (!isPartial && programDocRef) {
+          await runTransaction(db, async (transaction) => {
           const latestProgramSnap = await transaction.get(programDocRef);
           if (!latestProgramSnap.exists()) return;
           const result = applyValidatedSnapshotsToAssignedProgram(
@@ -3363,61 +3497,72 @@ export default function SessionPlayer() {
             lastPlayerSyncActorRole: isCoachContext ? "coach" : "client",
             updatedAt: serverTimestamp(),
           });
-        });
-      }
+          });
+        }
 
-      const isClientSelfVisit =
-        !!user?.uid &&
-        (
-          user.uid === clientId ||
-          user.uid === clientData?.uid ||
-          user.uid === clientData?.linkedUserId ||
-          user.uid === clientData?.userUid
-        );
+        const isClientSelfVisit =
+          !!user?.uid &&
+          (
+            user.uid === clientId ||
+            user.uid === clientData?.uid ||
+            user.uid === clientData?.linkedUserId ||
+            user.uid === clientData?.userUid
+          );
 
-      if (isClientSelfVisit) {
-        const location = getCachedVisitLocation();
-        const visitPatch = {
-          lastVisitAt: serverTimestamp(),
-          lastSeenAt: serverTimestamp(),
-          lastVisitedPath: window.location.pathname,
-          lastVisitSource: "client-self",
-          lastVisitActorUid: user.uid,
-          ...(location ? { location } : {}),
-          updatedAt: serverTimestamp(),
-        };
-        const visitBatch = writeBatch(db);
-        visitBatch.set(doc(db, "clients", clientId), visitPatch, { merge: true });
-        visitBatch.set(
-          doc(db, "users", user.uid),
-          {
-            ...visitPatch,
-            linkedClientId: clientId,
-          },
-          { merge: true }
-        );
-        await visitBatch.commit();
-      }
-
-      if (!isPartial && isCoachContext) {
-        await setDoc(
-          doc(db, "clients", clientId),
-          {
-            lastActivityAt: serverTimestamp(),
-            lastCoachInteractionAt: serverTimestamp(),
-            lastSessionAt: serverTimestamp(),
-            lastSessionProgramId: programId,
-            lastSessionIndex: sessionIndex,
-            lastSessionTitle: sessionTitle,
-            lastSessionSource: "coach",
-            ...(actingCoachId ? { lastSessionCoachId: actingCoachId } : {}),
+        if (isClientSelfVisit && !isPartial) {
+          const location = getCachedVisitLocation();
+          const visitPatch = {
+            lastVisitAt: serverTimestamp(),
+            lastSeenAt: serverTimestamp(),
+            lastVisitedPath: window.location.pathname,
+            lastVisitSource: "client-self",
+            lastVisitActorUid: user.uid,
+            ...(location ? { location } : {}),
             updatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
+          };
+          const visitBatch = writeBatch(db);
+          visitBatch.set(doc(db, "clients", clientId), visitPatch, { merge: true });
+          visitBatch.set(
+            doc(db, "users", user.uid),
+            {
+              ...visitPatch,
+              linkedClientId: clientId,
+            },
+            { merge: true }
+          );
+          await visitBatch.commit();
+        }
+
+        if (!isPartial && isCoachContext) {
+          await setDoc(
+            doc(db, "clients", clientId),
+            {
+              lastActivityAt: serverTimestamp(),
+              lastCoachInteractionAt: serverTimestamp(),
+              lastSessionAt: serverTimestamp(),
+              lastSessionProgramId: programId,
+              lastSessionIndex: sessionIndex,
+              lastSessionTitle: sessionTitle,
+              lastSessionSource: "coach",
+              ...(actingCoachId ? { lastSessionCoachId: actingCoachId } : {}),
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        }
+      };
+
+      let secondarySyncPromise = null;
+      if (meta.deferSecondarySync) {
+        secondarySyncPromise = syncCompletionSideEffects().catch((error) => {
+          console.error("completion secondary sync error:", error);
+          return false;
+        });
+      } else {
+        await syncCompletionSideEffects();
       }
 
-      return { saved: true, newPersonalRecordCount };
+      return { saved: true, newPersonalRecordCount, secondarySyncPromise };
     } catch (e) {
       console.error("saveSessionCompletion error:", e);
       return { saved: false, newPersonalRecordCount: 0 };
@@ -3767,88 +3912,103 @@ export default function SessionPlayer() {
     });
   };
 
-  const handleSubmitRating = async () => {
-    if (clientId && programId) {
-      recordCurrentExerciseTiming();
-      const exerciseTimings = buildExerciseTimingSnapshot({ includeCurrent: false });
-      const feedbackPayload = {
-        sessionIndex,
-        rating,
-        energy: energyLevel,
-        energyLevel,
-        pain: painFlag,
-        painLevel: painFlag ? painLevel || "mild" : "",
-        painArea: painFlag ? painArea.trim() : "",
-        completionPct: 100,
-        exerciseTimings,
-      };
-      const adaptationDecision = applyProgressionStrategyToDecision(
-        evaluateSportAdaptation(feedbackPayload),
-        readProgressionStrategy(programData)
-      );
-
-      try {
-        await addDoc(
-          collection(db, "clients", clientId, "programmes", programId, "difficulté_notes"),
-          {
-            ...feedbackPayload,
-            adaptationDecision,
-            createdAt: serverTimestamp(),
-          }
-        );
-      } catch (e) {
-        console.error("rating add error", e);
-      }
-
-      try {
-        await applyAutoProgressionAfterRating(feedbackPayload);
-      } catch {}
-
-      try {
-        const completionResult = await saveSessionCompletion(100, {
-          exerciseIndex: Math.max(0, flat.length - 1),
-          currentSet: totalSetsRef.current,
-          exerciseTimings,
-        });
-        celebrateConfirmedPersonalRecords(completionResult);
-      } catch {}
-
-      try {
-        await upsertCoachCalendarEvent();
-      } catch {}
-    }
+  const leaveCompletedSession = () => {
     onClose();
     clearPlayerResumeSnapshot({ resetElapsedState: true });
     navigate(-1);
+  };
+
+  const showCompletionSaveError = () => {
+    setCompletionSubmitting(false);
+    completionSubmitActionRef.current = "";
+    toast({
+      status: "error",
+      title: t("common.error", "Erreur"),
+      description: t(
+        "sessionPlayer.completionSaveError",
+        "La séance n’a pas pu être enregistrée. Réessayez sans fermer cette fenêtre."
+      ),
+    });
+  };
+
+  const handleSubmitRating = async () => {
+    if (completionSubmitting) return;
+    setCompletionSubmitting(true);
+    completionSubmitActionRef.current = "submit";
+    recordCurrentExerciseTiming();
+    const exerciseTimings = buildExerciseTimingSnapshot({ includeCurrent: false });
+    const feedbackPayload = {
+      sessionIndex,
+      rating,
+      energy: energyLevel,
+      energyLevel,
+      pain: painFlag,
+      painLevel: painFlag ? painLevel || "mild" : "",
+      painArea: painFlag ? painArea.trim() : "",
+      completionPct: 100,
+      exerciseTimings,
+    };
+    const adaptationDecision = applyProgressionStrategyToDecision(
+      evaluateSportAdaptation(feedbackPayload),
+      readProgressionStrategy(programData)
+    );
+    const completionResult = clientId && programId
+      ? await saveSessionCompletion(100, {
+          exerciseIndex: Math.max(0, flat.length - 1),
+          currentSet: totalSetsRef.current,
+          exerciseTimings,
+          deferSecondarySync: true,
+        })
+      : { saved: true, secondarySyncPromise: null };
+    if (!completionResult?.saved) {
+      showCompletionSaveError();
+      return;
+    }
+    celebrateConfirmedPersonalRecords(completionResult);
+    const ratingSavePromise = clientId && programId
+      ? addDoc(
+          collection(db, "clients", clientId, "programmes", programId, "difficulté_notes"),
+          { ...feedbackPayload, adaptationDecision, createdAt: serverTimestamp() }
+        )
+      : Promise.resolve();
+    const progressionPromise = clientId && programId
+      ? Promise.resolve(completionResult.secondarySyncPromise)
+          .then(() => applyAutoProgressionAfterRating(feedbackPayload))
+      : Promise.resolve();
+    const calendarPromise = clientId && programId ? upsertCoachCalendarEvent() : Promise.resolve();
+    void Promise.allSettled([ratingSavePromise, progressionPromise, calendarPromise]);
+    leaveCompletedSession();
   };
 
   const handleIgnoreRating = async () => {
-    if (clientId && programId) {
-      recordCurrentExerciseTiming();
-      const exerciseTimings = buildExerciseTimingSnapshot({ includeCurrent: false });
-      try {
-        const completionResult = await saveSessionCompletion(100, {
+    if (completionSubmitting) return;
+    setCompletionSubmitting(true);
+    completionSubmitActionRef.current = "skip";
+    recordCurrentExerciseTiming();
+    const exerciseTimings = buildExerciseTimingSnapshot({ includeCurrent: false });
+    const completionResult = clientId && programId
+      ? await saveSessionCompletion(100, {
           exerciseIndex: Math.max(0, flat.length - 1),
           currentSet: totalSetsRef.current,
           exerciseTimings,
-        });
-        celebrateConfirmedPersonalRecords(completionResult);
-      } catch {}
-
-      try {
-        await upsertCoachCalendarEvent();
-      } catch {}
+          deferSecondarySync: true,
+        })
+      : { saved: true, secondarySyncPromise: null };
+    if (!completionResult?.saved) {
+      showCompletionSaveError();
+      return;
     }
-    onClose();
-    clearPlayerResumeSnapshot({ resetElapsedState: true });
-    navigate(-1);
+    celebrateConfirmedPersonalRecords(completionResult);
+    if (clientId && programId) {
+      void Promise.allSettled([
+        Promise.resolve(completionResult.secondarySyncPromise),
+        upsertCoachCalendarEvent(),
+      ]);
+    }
+    leaveCompletedSession();
   };
 
-  const handleCloseRatingModal = () => {
-    onClose();
-    clearPlayerResumeSnapshot({ resetElapsedState: true });
-    navigate(-1);
-  };
+  const handleCloseRatingModal = () => void handleIgnoreRating();
 
   /* ---------------------- Timers ---------------------- */
 
@@ -3989,6 +4149,8 @@ export default function SessionPlayer() {
 
   function buildPlayerResumeSnapshot() {
     if (!flat.length) return null;
+    const checkpointUpdatedAt = Date.now();
+    const sessionElapsedSeconds = Math.max(0, Number(sessionElapsedTimer.seconds) || 0);
     const freezeCountdown = (snapshot = {}) => ({
       ...snapshot,
       targetAt: 0,
@@ -4002,13 +4164,15 @@ export default function SessionPlayer() {
     });
     const shouldPauseOnResume = phase === "effort" || phase === "rest";
     return {
+      checkpointUpdatedAt,
+      completionStartedAt: completionStartedAtRef.current?.getTime?.() || 0,
       exerciseIndex: exIndex,
       currentSet,
       phase,
       isPaused: shouldPauseOnResume ? true : isPaused,
       pausedPhase: shouldPauseOnResume ? phase : pausedPhaseRef.current,
       autoFlowEnabled,
-      sessionElapsed: readElapsedTimerState(sessionTimerStorageKey),
+      sessionElapsed: buildFrozenElapsedState(sessionElapsedSeconds, checkpointUpdatedAt),
       effortTimer: freezeCountdown(effortTimer.getSnapshot()),
       effortElapsedTimer: freezeStopwatch(effortElapsedTimer.getSnapshot()),
       restTimer: freezeCountdown(restTimer.getSnapshot()),
@@ -4018,6 +4182,10 @@ export default function SessionPlayer() {
         index,
         seconds,
       })),
+      performanceDrafts: Array.from(performanceDraftsRef.current.entries()),
+      performedSets: Array.from(performedSetsRef.current.entries()),
+      activeRestPerformance: activeRestPerformanceRef.current,
+      sessionDraft: sessionObj,
     };
   }
 
@@ -4035,23 +4203,6 @@ export default function SessionPlayer() {
     clearSessionResumeState(sessionResumeStorageKey);
     clearElapsedTimerState(sessionTimerStorageKey);
     if (resetElapsedState) sessionElapsedTimer.reset();
-  }
-
-  function getRestoredCountdownSeconds(snapshot) {
-    if (!snapshot || typeof snapshot !== "object") return 0;
-    const targetAt = Number(snapshot.targetAt || 0);
-    if (targetAt > 0) return Math.max(0, Math.ceil((targetAt - Date.now()) / 1000));
-    return Math.max(0, Math.round(Number(snapshot.seconds) || 0));
-  }
-
-  function getRestoredStopwatchSeconds(snapshot) {
-    if (!snapshot || typeof snapshot !== "object") return 0;
-    const startedAt = Number(snapshot.startedAt || 0);
-    const baseSeconds = Math.max(0, Math.round(Number(snapshot.baseSeconds) || 0));
-    if (startedAt > 0) {
-      return baseSeconds + Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
-    }
-    return Math.max(0, Math.round(Number(snapshot.seconds) || 0));
   }
 
   function handleBackExit() {
@@ -4078,6 +4229,108 @@ export default function SessionPlayer() {
     restTimer.seconds,
     sessionElapsedTimer.seconds,
     performanceDraftRevision,
+    sessionResumeStorageKey,
+  ]);
+
+  useEffect(() => {
+    if (!clientId || !programId || !flat.length) return undefined;
+    if (resumeClearedRef.current || !resumeAppliedRef.current || pendingTimerResumeRef.current) {
+      return undefined;
+    }
+    if (remoteResumeResult.key !== sessionResumeStorageKey || !remoteResumeResult.loaded) {
+      return undefined;
+    }
+    const hasCheckpointableProgress =
+      sessionElapsedTimer.started ||
+      phase !== "ready" ||
+      exIndex > 0 ||
+      currentSet > 1 ||
+      performanceDraftsRef.current.size > 0 ||
+      performedSetsRef.current.size > 0 ||
+      Boolean(remoteResumeResult.state);
+    if (!hasCheckpointableProgress) return undefined;
+
+    if (remoteCheckpointTimerRef.current) clearTimeout(remoteCheckpointTimerRef.current);
+    const meaningfulState = {
+      exIndex,
+      currentSet,
+      phase,
+      isPaused,
+      performanceDraftRevision,
+      sessionObj,
+    };
+    const now = Date.now();
+    const suggestedDelay = getRemoteCheckpointDelay(
+      remoteCheckpointMeaningfulRef.current,
+      meaningfulState,
+      remoteCheckpointLastAtRef.current,
+      now
+    );
+    if (suggestedDelay === 450) {
+      const urgentAt = now + 450;
+      remoteCheckpointUrgentAtRef.current = remoteCheckpointUrgentAtRef.current
+        ? Math.min(remoteCheckpointUrgentAtRef.current, urgentAt)
+        : urgentAt;
+    }
+    const urgentDelay = remoteCheckpointUrgentAtRef.current
+      ? Math.max(50, remoteCheckpointUrgentAtRef.current - now)
+      : Number.POSITIVE_INFINITY;
+    const delay = Math.min(suggestedDelay, urgentDelay);
+    remoteCheckpointMeaningfulRef.current = meaningfulState;
+    remoteCheckpointTimerRef.current = setTimeout(async () => {
+      if (remoteCheckpointInFlightRef.current || resumeClearedRef.current) return;
+      const resumeState = buildPlayerResumeSnapshot();
+      if (!resumeState) return;
+      remoteCheckpointInFlightRef.current = true;
+      const partialPct = getPartialSessionProgress(
+        exIndex,
+        currentSet,
+        totalSetsRef.current,
+        flat.length
+      );
+      try {
+        const checkpointPromise = saveSessionCompletion(partialPct, {
+          partial: true,
+          exerciseIndex: exIndex,
+          currentSet,
+          exerciseTimings: buildExerciseTimingSnapshot({ includeCurrent: true }),
+          resumeState,
+        });
+        remoteCheckpointPromiseRef.current = checkpointPromise;
+        const result = await checkpointPromise;
+        if (result?.saved) {
+          remoteCheckpointLastAtRef.current = Date.now();
+          remoteCheckpointUrgentAtRef.current = 0;
+        } else {
+          remoteCheckpointUrgentAtRef.current = Date.now() + 3000;
+        }
+      } finally {
+        remoteCheckpointInFlightRef.current = false;
+        remoteCheckpointPromiseRef.current = null;
+      }
+    }, delay);
+
+    return () => {
+      if (remoteCheckpointTimerRef.current) {
+        clearTimeout(remoteCheckpointTimerRef.current);
+        remoteCheckpointTimerRef.current = null;
+      }
+    };
+  }, [
+    clientId,
+    programId,
+    flat.length,
+    exIndex,
+    currentSet,
+    phase,
+    isPaused,
+    effortTimer.seconds,
+    effortElapsedTimer.seconds,
+    restTimer.seconds,
+    sessionElapsedTimer.seconds,
+    performanceDraftRevision,
+    sessionObj,
+    remoteResumeResult,
     sessionResumeStorageKey,
   ]);
 
@@ -4603,6 +4856,9 @@ export default function SessionPlayer() {
     if (Number(resume.currentSet) !== Number(currentSet)) return;
 
     pendingTimerResumeRef.current = null;
+    if (resume.sessionElapsed?.startedAt) {
+      sessionElapsedTimer.restore(resume.sessionElapsed);
+    }
     const restoredPhase = ["ready", "effort", "rest"].includes(resume.phase) ? resume.phase : "ready";
     const restoredPaused = Boolean(resume.isPaused);
     setIsPaused(restoredPaused);
@@ -6606,13 +6862,19 @@ export default function SessionPlayer() {
         </ModalContent>
       </Modal>
 
-      <Modal isOpen={isOpen} onClose={handleCloseRatingModal} isCentered>
+      <Modal
+        isOpen={isOpen}
+        onClose={handleCloseRatingModal}
+        closeOnEsc={!completionSubmitting}
+        closeOnOverlayClick={!completionSubmitting}
+        isCentered
+      >
         <ModalOverlay />
         <ModalContent maxW="lg">
           <ModalHeader textAlign="center">
             {t("sessionPlayer.rateTitle", "Évaluez la difficulté")}
           </ModalHeader>
-          <ModalCloseButton />
+          <ModalCloseButton isDisabled={completionSubmitting} />
           <ModalBody>
             <VStack align="stretch" spacing={5}>
               <Box>
@@ -6727,10 +6989,23 @@ export default function SessionPlayer() {
             </VStack>
           </ModalBody>
           <ModalFooter justifyContent="space-between">
-            <Button variant="ghost" onClick={handleIgnoreRating}>
+            <Button
+              variant="ghost"
+              onClick={handleIgnoreRating}
+              isLoading={completionSubmitting && completionSubmitActionRef.current === "skip"}
+              isDisabled={completionSubmitting && completionSubmitActionRef.current !== "skip"}
+              loadingText={t("common.saving", "Enregistrement…")}
+            >
               {t("common.skip", "Ignorer")}
             </Button>
-            <Button colorScheme="gray" onClick={handleSubmitRating} isDisabled={!rating} borderRadius="full">
+            <Button
+              colorScheme="gray"
+              onClick={handleSubmitRating}
+              isDisabled={!rating}
+              isLoading={completionSubmitting && completionSubmitActionRef.current === "submit"}
+              loadingText={t("common.saving", "Enregistrement…")}
+              borderRadius="full"
+            >
               {t("common.submit", "Soumettre")}
             </Button>
           </ModalFooter>

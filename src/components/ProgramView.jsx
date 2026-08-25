@@ -66,6 +66,8 @@ import { canUseCustomBranding } from "../utils/proPlanAccess";
 import { formatProgramActiveWeeks, getProgramActiveWeeksLabel } from "../utils/programDuration";
 import { isValidatedExerciseCompletion } from "../utils/exerciseHistoryIdentity";
 import { selectLatestExercisePerformance } from "../utils/playerBuilderSync";
+import { isUnmodifiedAutomaticProgramTitle } from "../utils/programPdfTitle";
+import { settleWithTimeout } from "../utils/asyncTimeout";
 import {
   readProgramDisplayMetric,
 } from "../utils/programDisplayMetrics";
@@ -2938,6 +2940,16 @@ export default function ProgramView() {
   }, [customProgramName, isAutoProgram, objectifKeyDisplay, objectifKeyFromName, objectifLabelDisplay, nbSeances, pdfLang, Llbl, t]);
 
   const programmePdfTitleDisplay = useMemo(() => {
+    const custom = (customProgramName || "").trim();
+    const shouldTranslateAutoTitle = isUnmodifiedAutomaticProgramTitle({
+      title: custom,
+      isAutoProgram,
+      objectiveKey: objectifKeyDisplay,
+      objectiveKeyFromTitle: objectifKeyFromName,
+      sessionCount: nbSeances,
+    });
+    if (custom && !shouldTranslateAutoTitle) return custom;
+
     const perWeek = (Llbl[pdfLang] || Llbl.fr).perWeek || "x/Sem";
     const translatedAutoName = objectifLabelPdf
       ? nbSeances
@@ -2946,8 +2958,8 @@ export default function ProgramView() {
       : "";
 
     if (translatedAutoName) return translatedAutoName;
-    return (customProgramName || "").trim() || programmeTitleDisplay || L.fileProgram;
-  }, [L.fileProgram, Llbl, customProgramName, nbSeances, objectifLabelPdf, pdfLang, programmeTitleDisplay]);
+    return custom || programmeTitleDisplay || L.fileProgram;
+  }, [L.fileProgram, Llbl, customProgramName, isAutoProgram, nbSeances, objectifKeyDisplay, objectifKeyFromName, objectifLabelPdf, pdfLang, programmeTitleDisplay]);
 
   useEffect(() => {
     let alive = true;
@@ -3058,12 +3070,20 @@ export default function ProgramView() {
         if (!cacheKey) return null;
 
         const rawCandidates = getExerciseImageUrls(resolved, preferredSex);
-        const resolvedCandidates = await resolveImageCandidatesToUrls(rawCandidates);
+        const resolvedCandidates = await settleWithTimeout(
+          resolveImageCandidatesToUrls(rawCandidates),
+          3000,
+          []
+        );
         const allCandidates = uniqStrings([...rawCandidates, ...resolvedCandidates]).slice(0, 4);
 
         const candidateResults = await Promise.all(
           allCandidates.map(async (candidate) => {
-            const dataUrl = await anyImageSourceToDataUrl(candidate);
+            const dataUrl = await settleWithTimeout(
+              anyImageSourceToDataUrl(candidate),
+              4000,
+              null
+            );
             return {
               dataUrl: dataUrl || null,
               finalUrl: candidate,
@@ -3075,7 +3095,8 @@ export default function ProgramView() {
         const seen = new Set();
 
         candidateResults.forEach((item) => {
-          const dedupeKey = item.dataUrl || item.finalUrl;
+          if (!item.dataUrl) return;
+          const dedupeKey = item.dataUrl;
           if (!dedupeKey || seen.has(dedupeKey)) return;
           seen.add(dedupeKey);
           images.push(item);
@@ -3342,7 +3363,7 @@ export default function ProgramView() {
       const [{ pdf }, { SportProgramPdfDocument }, imageMap] = await Promise.all([
         import("@react-pdf/renderer"),
         import("../utils/sportProgramPdf"),
-        preloadPdfImagesForAllSessions(),
+        settleWithTimeout(preloadPdfImagesForAllSessions(), 8000, {}),
       ]);
       const rawCoachName = viewerIsCoach
         ? getPrettyUserName(user) ||
@@ -3367,7 +3388,7 @@ export default function ProgramView() {
       const pdfHeaderLogo =
         isBylGeneratedPdf || isAdminWorkspacePdf ? footerLogo || headerLogo : headerLogo || footerLogo;
 
-      const blob = await pdf(
+      const blob = await settleWithTimeout(pdf(
         <SportProgramPdfDocument
           title={programmePdfTitleDisplay}
           clientName={clientName}
@@ -3379,7 +3400,8 @@ export default function ProgramView() {
           notesLabel={L.notes}
           sessions={buildSportPdfSessions(imageMap)}
         />
-      ).toBlob();
+      ).toBlob(), 20000, null);
+      if (!blob) throw new Error("PDF generation timed out");
 
       const base = normalizeForFilename(programmePdfTitleDisplay || L.fileProgram) || normalizeForFilename(L.fileProgram) || "programme";
       const clientBase = normalizeForFilename(clientName || L.fileClient) || normalizeForFilename(L.fileClient) || "client";

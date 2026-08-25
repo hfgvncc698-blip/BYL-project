@@ -2121,6 +2121,7 @@
     "nextSeriesCounter": "Prochaine série {{i}}/{{n}}",
     "empty": "Séance introuvable ou vide.",
     "rateTitle": "Évaluez la difficulté",
+    "completionSaveError": "La séance n’a pas pu être enregistrée. Réessayez sans fermer cette fenêtre.",
     "restBetween": "Entre les exercices",
     "restEndOfBlock": "Fin du bloc",
     "restIgnored": "Ignoré (enchaînement)",

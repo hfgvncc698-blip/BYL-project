@@ -2114,6 +2114,7 @@
     "setN": "Establecer {{n}}",
     "empty": "Sesión no encontrada o vacía.",
     "rateTitle": "Califica la dificultad",
+    "completionSaveError": "No se pudo guardar la sesión. Inténtalo de nuevo sin cerrar esta ventana.",
     "restBetween": "Entre ejercicios",
     "restEndOfBlock": "Fin del bloque",
     "restIgnored": "Ignorado (continuación)",
