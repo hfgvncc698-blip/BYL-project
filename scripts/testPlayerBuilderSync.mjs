@@ -4,6 +4,7 @@ import {
   haveDifferentPlayerSetValues,
   haveDifferentReachedPlayerSetValues,
   getPlayerSetCursor,
+  isBuilderConfiguredDifferentSets,
   resolvePlayerSetMetricValue,
   selectLatestExercisePerformance,
   shouldShowPlayerSetDetails,
@@ -26,6 +27,33 @@ assert.deepEqual(
   getPlayerSetCursor({ currentSet: 2, totalSets: 4, phase: "rest" }),
   { editableSet: 2, displayedSet: 2, upcomingSet: 3 },
   "rest edits and the visible cursor must stay on the completed set"
+);
+
+assert.equal(
+  isBuilderConfiguredDifferentSets({
+    seriesDiff: true,
+    useAdvancedSets: true,
+    _playerValidatedSync: { version: 7 },
+  }),
+  false,
+  "legacy performance-inferred custom sets must return to simple mode"
+);
+assert.equal(
+  isBuilderConfiguredDifferentSets({
+    seriesDiff: true,
+    seriesDiffSource: "builder",
+    _playerValidatedSync: { version: 7 },
+  }),
+  true,
+  "builder-authored advanced sets must remain configured as different"
+);
+assert.equal(
+  isBuilderConfiguredDifferentSets({
+    seriesDiff: true,
+    _playerValidatedSync: { version: 8, configuredSeriesDiff: true },
+  }),
+  true,
+  "new sync metadata must preserve the builder intent"
 );
 assert.deepEqual(
   getPlayerSetCursor({ currentSet: 3, totalSets: 4, phase: "ready" }),

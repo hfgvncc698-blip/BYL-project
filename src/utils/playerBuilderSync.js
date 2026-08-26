@@ -199,3 +199,25 @@ export function shouldShowPlayerSetDetails({
     haveDifferentReachedPlayerSetValues(rows, labels, currentSet)
   );
 }
+
+/**
+ * Returns the prescribed per-set mode, independently from differences merely
+ * performed during a workout. Version 7 player syncs inferred `seriesDiff`
+ * from performance; unmarked records from that version are normalized back to
+ * simple sets. Builder-authored advanced sets carry an explicit source marker.
+ */
+export function isBuilderConfiguredDifferentSets(exercise = {}) {
+  const syncMeta = exercise?._playerValidatedSync || {};
+  if (typeof syncMeta.configuredSeriesDiff === "boolean") {
+    return syncMeta.configuredSeriesDiff;
+  }
+  if (exercise?.seriesDiffSource === "builder") return true;
+  if (Number(syncMeta.version) === 7) return false;
+  return Boolean(
+    exercise?.seriesDiff ||
+    exercise?.series_differentes ||
+    exercise?.seriesDifferentes ||
+    exercise?.seriesDifferent ||
+    exercise?.perSet
+  );
+}

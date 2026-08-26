@@ -91,7 +91,10 @@ import {
   buildCompletionRecordsFromModifications,
   mergeCompletionHistoryRecords,
 } from "../utils/exerciseModificationHistory";
-import { selectLatestExercisePerformance } from "../utils/playerBuilderSync";
+import {
+  isBuilderConfiguredDifferentSets,
+  selectLatestExercisePerformance,
+} from "../utils/playerBuilderSync";
 import { applyValidatedSnapshotToAssignedExercise } from "../utils/playerProgramSync";
 import PageBackButton from "./ui/PageBackButton";
 
@@ -1322,14 +1325,7 @@ function fillSetsFromGlobalsPure(ex) {
 }
 
 /* --------- SessionPlayer compatibility --------- */
-const getSeriesDiffFlag = (ex) =>
-  !!(
-    ex?.seriesDiff ||
-    ex?.series_differentes ||
-    ex?.seriesDifferentes ||
-    ex?.seriesDifferent ||
-    ex?.perSet
-  );
+const getSeriesDiffFlag = (ex) => isBuilderConfiguredDifferentSets(ex);
 
 const getSeriesDetails = (ex) =>
   Array.isArray(ex?.seriesDetails)
@@ -1422,9 +1418,11 @@ function serializeExerciseForSave(ex) {
     out["Séries"] = out.sets.length;
 
     out.seriesDiff = true;
+    out.seriesDiffSource = "builder";
     out.seriesDetails = seriesDetailsFromSets(out.sets, out.optionsOrder);
   } else {
     delete out.seriesDiff;
+    delete out.seriesDiffSource;
     delete out.seriesDetails;
     delete out.series_sets;
     delete out.series_differentes;

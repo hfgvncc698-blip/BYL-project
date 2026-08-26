@@ -110,7 +110,9 @@ export function applyValidatedSnapshotToAssignedExercise(exercise = {}, snapshot
     if (hasValue(value)) next[metric.label] = value;
   });
 
-  const seriesDiff = snapshot?.seriesDiff === true;
+  const seriesDiff = typeof snapshot?.configuredSeriesDiff === "boolean"
+    ? snapshot.configuredSeriesDiff
+    : snapshot?.seriesDiff === true;
   delete next.series_differentes;
   delete next.seriesDifferentes;
   delete next.seriesDifferent;
@@ -119,6 +121,7 @@ export function applyValidatedSnapshotToAssignedExercise(exercise = {}, snapshot
   next.seriesDiff = seriesDiff;
   next.useAdvancedSets = seriesDiff;
   if (seriesDiff) {
+    next.seriesDiffSource = "builder";
     next.sets = recordedSets.map((set, index) =>
       buildAdvancedSet(next.sets?.[index], set, index, tracked)
     );
@@ -126,12 +129,14 @@ export function applyValidatedSnapshotToAssignedExercise(exercise = {}, snapshot
       buildSeriesDetail(set, recordedSets[index], tracked)
     );
   } else {
+    delete next.seriesDiffSource;
     delete next.seriesDetails;
   }
 
   next._playerValidatedSync = {
-    version: 7,
+    version: 8,
     completionId: snapshot?.completionId || "",
+    configuredSeriesDiff: seriesDiff,
   };
   return next;
 }

@@ -110,6 +110,7 @@ import {
 import {
   haveDifferentPlayerSetValues,
   getPlayerSetCursor,
+  isBuilderConfiguredDifferentSets,
   isPerformanceOptionTracked,
   resolvePlayerSetMetricValue,
   shouldShowPlayerSetDetails,
@@ -638,14 +639,7 @@ const getFieldValue = (obj, fieldKeys) => {
 
 /* ------- Séries différentes : helpers ------- */
 
-const getSeriesDiffFlag = (ex) =>
-  !!(
-    ex?.seriesDiff ||
-    ex?.series_differentes ||
-    ex?.seriesDifferentes ||
-    ex?.seriesDifferent ||
-    ex?.perSet
-  );
+const getSeriesDiffFlag = (ex) => isBuilderConfiguredDifferentSets(ex);
 
 const getSeriesDetails = (ex) =>
   Array.isArray(ex?.seriesDetails)
@@ -1256,6 +1250,7 @@ function buildExercisePerformanceSnapshots(
       comparableRows,
       comparableLabels
     );
+    const configuredDifferentSets = isBuilderConfiguredDifferentSets(exercise);
 
     return {
       exerciseIndex,
@@ -1271,8 +1266,12 @@ function buildExercisePerformanceSnapshots(
       optionsOrder: Array.isArray(exercise?.optionsOrder)
         ? [...exercise.optionsOrder]
         : [],
-      seriesDiff:
-        sets.length > 1 ? performedSetsAreDifferent : getSeriesDiffFlag(exercise),
+      // Keep the builder's intent separate from what happened during this
+      // workout. Different performed loads/reps belong to history, but must
+      // not permanently turn a simple exercise into advanced per-set mode.
+      configuredSeriesDiff: configuredDifferentSets,
+      seriesDiff: configuredDifferentSets,
+      performedSetsAreDifferent,
       sets,
       summary: {
         totalSets: sets.length,

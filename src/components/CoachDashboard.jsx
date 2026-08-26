@@ -6054,6 +6054,19 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
         if (latestRiskNote) {
           const severePain = String(latestRiskNote.painLevel || "").toLowerCase() === "severe";
+          const painAreaValue = String(latestRiskNote.painArea || "").trim();
+          const painLevelValue = String(latestRiskNote.painLevel || "").trim().toLowerCase();
+          const painAreaLabel = painAreaValue
+            ? t(`sessionPlayer.painAreas.${painAreaValue}`, painAreaValue)
+            : t("dashboard.radar.details.not_specified", "Non renseignée");
+          const painLevelLabels = {
+            mild: t("sessionPlayer.painMild", "Légère"),
+            moderate: t("sessionPlayer.painModerate", "Moyenne"),
+            severe: t("sessionPlayer.painSevere", "Forte"),
+          };
+          const painLevelLabel = painLevelLabels[painLevelValue]
+            || painLevelValue
+            || t("dashboard.radar.details.not_specified", "Non renseignée");
           const riskSessionIndex = Number(latestRiskNote.sessionIndex);
           const riskSession = Number.isFinite(riskSessionIndex) ? programmeSessions[riskSessionIndex] : null;
           const riskSessionTitle = Number.isFinite(riskSessionIndex)
@@ -6084,8 +6097,11 @@ const DAY_MS = 24 * 60 * 60 * 1000;
             reason: `${programmeName} · note ${latestRiskNote._rating || "?"}/5`,
             sessionTitle: riskSessionTitle,
             programWeekLabel,
+            painDetails: latestRiskNote._pain
+              ? { area: painAreaLabel, level: painLevelLabel }
+              : null,
             detail: latestRiskNote.painArea
-              ? t("dashboard.radar.details.pain_area", "Zone : {{area}}", { area: latestRiskNote.painArea })
+              ? t("dashboard.radar.details.pain_area", "Zone : {{area}}", { area: painAreaLabel })
               : translateRadarDecisionReason(latestRiskNote.adaptationDecision?.reason, t) ||
                 t("dashboard.radar.details.check_load_recovery", "Vérifier la charge et la récupération."),
             explanation: latestRiskNote._pain
@@ -8507,6 +8523,16 @@ color={mutedText} noOfLines={1}>
                               <Text mt={0.5} fontSize="xs" color={mutedText} noOfLines={1}>
                                 {t("form.session", "Séance")} : {item.sessionTitle}
                               </Text>
+                            ) : null}
+                            {item.painDetails ? (
+                              <HStack mt={2} spacing={2} flexWrap="wrap">
+                                <Badge px={2} py={1} borderRadius="full" colorScheme="red" variant="subtle" textTransform="none">
+                                  {t("dashboard.radar.details.pain_zone", "Zone")} : {item.painDetails.area}
+                                </Badge>
+                                <Badge px={2} py={1} borderRadius="full" colorScheme="orange" variant="subtle" textTransform="none">
+                                  {t("dashboard.radar.details.pain_intensity", "Intensité")} : {item.painDetails.level}
+                                </Badge>
+                              </HStack>
                             ) : null}
                             <Text mt={1} fontSize="sm" color={mutedText} noOfLines={2}>
                               {item.adjustmentPlan?.summary || item.detail}

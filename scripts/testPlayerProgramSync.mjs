@@ -58,6 +58,7 @@ assert.equal(Object.hasOwn(timed, "repetitions"), false);
 
 const advanced = applyValidatedSnapshotToAssignedExercise(exercise, {
   ...snapshot,
+  configuredSeriesDiff: true,
   seriesDiff: true,
   sets: [
     { setIndex: 1, reps: 10, chargeKg: 8, plannedRestSec: 60 },
@@ -67,6 +68,26 @@ const advanced = applyValidatedSnapshotToAssignedExercise(exercise, {
 assert.equal(advanced.seriesDiff, true);
 assert.equal(advanced.sets[1].reps, 12);
 assert.equal(advanced.seriesDetails[1]["Charge (kg)"], 6);
+
+const performedDifferenceIsNotAConfiguration = applyValidatedSnapshotToAssignedExercise(exercise, {
+  ...snapshot,
+  configuredSeriesDiff: false,
+  // Historical snapshots may still describe what was performed separately.
+  seriesDiff: true,
+  performedSetsAreDifferent: true,
+  sets: [
+    { setIndex: 1, reps: 12, chargeKg: 30, plannedRestSec: 45 },
+    { setIndex: 2, reps: 12, chargeKg: 35, plannedRestSec: 45 },
+    { setIndex: 3, reps: 12, chargeKg: 40, plannedRestSec: 45 },
+    { setIndex: 4, reps: 12, chargeKg: 40, plannedRestSec: 45 },
+  ],
+});
+assert.equal(performedDifferenceIsNotAConfiguration.seriesDiff, false);
+assert.equal(performedDifferenceIsNotAConfiguration.useAdvancedSets, false);
+assert.equal(performedDifferenceIsNotAConfiguration["Répétitions"], 12);
+assert.equal(performedDifferenceIsNotAConfiguration["Charge (kg)"], 40);
+assert.equal(performedDifferenceIsNotAConfiguration["Repos (min:sec)"], 45);
+assert.equal(Object.hasOwn(performedDifferenceIsNotAConfiguration, "seriesDetails"), false);
 
 const staleAdvanced = applyValidatedSnapshotToAssignedExercise(
   {
