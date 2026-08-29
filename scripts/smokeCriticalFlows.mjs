@@ -328,6 +328,12 @@ check("customer emails share the BoostYourLife visual system", () => {
       countMatches(functionsIndex, /buildBrandedEmailLayout\(\{/g) >= 5,
     "All automatic Cloud Function templates must use the common branded layout"
   );
+  assert.ok(
+    functionsIndex.includes("exports.onNutritionProgramAttached = onDocumentWritten(") &&
+      functionsIndex.includes('document: "clients/{clientId}/nutrition_assessments/{assessmentId}"') &&
+      functionsIndex.includes('claimLifecycleEmail(afterSnap.ref, "nutritionAssigned")'),
+    "Nutrition sharing must retain its deployed, duplicate-safe email trigger"
+  );
 });
 
 check("coach invitations and self-registration stay distinct", () => {
