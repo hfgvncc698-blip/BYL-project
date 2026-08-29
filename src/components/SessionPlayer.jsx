@@ -3409,6 +3409,9 @@ export default function SessionPlayer() {
         0,
         Math.round(getElapsedTimerSeconds(elapsedState) || sessionElapsedTimer.seconds || 0)
       );
+      const completionDifficultyRating = Number.isFinite(Number(meta.difficultyRating))
+        ? Math.max(1, Math.min(5, Math.round(Number(meta.difficultyRating))))
+        : null;
 
       await setDoc(
         sRef,
@@ -3425,6 +3428,21 @@ export default function SessionPlayer() {
           ...(lastSet != null ? { lastSet } : {}),
           ...(exerciseTimings.length ? { exerciseTimings } : {}),
           ...(exerciseSnapshots.length ? { exerciseSnapshots } : {}),
+          ...(meta.clearDifficulty
+            ? {
+                difficultyRating: deleteField(),
+                rating: deleteField(),
+                difficultyAt: deleteField(),
+                ratingAt: deleteField(),
+              }
+            : completionDifficultyRating
+              ? {
+                  difficultyRating: completionDifficultyRating,
+                  rating: completionDifficultyRating,
+                  difficultyAt: serverTimestamp(),
+                  ratingAt: serverTimestamp(),
+                }
+              : {}),
           ...(isPartial && meta.resumeState
             ? { resumeState: meta.resumeState }
             : !isPartial
@@ -3615,7 +3633,7 @@ export default function SessionPlayer() {
     await batch.commit();
   }
 
-  async function upsertCoachCalendarEvent() {
+  async function upsertCoachCalendarEvent({ ratingOverride, clearDifficulty = false } = {}) {
     if (!isCoachContext || !clientId || !programId) return;
 
     try {
@@ -3644,8 +3662,9 @@ export default function SessionPlayer() {
       const startDate = new Date(endDate.getTime() - estimatedDurationSec * 1000);
 
       const fullTitle = `${clientName ? `${clientName} - ` : ""}${programmeName} - ${sessionTitle}`;
-      const calendarDifficultyRating = Number.isFinite(Number(rating))
-        ? Math.max(1, Math.min(5, Math.round(Number(rating))))
+      const ratingSource = ratingOverride !== undefined ? ratingOverride : rating;
+      const calendarDifficultyRating = Number.isFinite(Number(ratingSource))
+        ? Math.max(1, Math.min(5, Math.round(Number(ratingSource))))
         : null;
       const completionDocId = completionDocIdRef.current;
       const completionRef = doc(
@@ -3685,7 +3704,14 @@ export default function SessionPlayer() {
         programmeId: sourceData.programmeId || sourceData.programId || programId,
         programId: sourceData.programId || sourceData.programmeId || programId,
         sessionIndex,
-        ...(calendarDifficultyRating
+        ...(clearDifficulty
+          ? {
+              difficultyRating: deleteField(),
+              rating: deleteField(),
+              difficultyAt: deleteField(),
+              ratingAt: deleteField(),
+            }
+          : calendarDifficultyRating
           ? {
               difficultyRating: calendarDifficultyRating,
               rating: calendarDifficultyRating,
@@ -3937,6 +3963,7 @@ export default function SessionPlayer() {
     recordCurrentExerciseTiming();
     const exerciseTimings = buildExerciseTimingSnapshot({ includeCurrent: false });
     const feedbackPayload = {
+      completionId: completionDocIdRef.current,
       sessionIndex,
       rating,
       energy: energyLevel,
@@ -3956,6 +3983,7 @@ export default function SessionPlayer() {
           exerciseIndex: Math.max(0, flat.length - 1),
           currentSet: totalSetsRef.current,
           exerciseTimings,
+          difficultyRating: rating,
           deferSecondarySync: true,
         })
       : { saved: true, secondarySyncPromise: null };
@@ -3974,7 +4002,9 @@ export default function SessionPlayer() {
       ? Promise.resolve(completionResult.secondarySyncPromise)
           .then(() => applyAutoProgressionAfterRating(feedbackPayload))
       : Promise.resolve();
-    const calendarPromise = clientId && programId ? upsertCoachCalendarEvent() : Promise.resolve();
+    const calendarPromise = clientId && programId
+      ? upsertCoachCalendarEvent({ ratingOverride: rating })
+      : Promise.resolve();
     void Promise.allSettled([ratingSavePromise, progressionPromise, calendarPromise]);
     leaveCompletedSession();
   };
@@ -3990,6 +4020,7 @@ export default function SessionPlayer() {
           exerciseIndex: Math.max(0, flat.length - 1),
           currentSet: totalSetsRef.current,
           exerciseTimings,
+          clearDifficulty: true,
           deferSecondarySync: true,
         })
       : { saved: true, secondarySyncPromise: null };
@@ -4001,7 +4032,7 @@ export default function SessionPlayer() {
     if (clientId && programId) {
       void Promise.allSettled([
         Promise.resolve(completionResult.secondarySyncPromise),
-        upsertCoachCalendarEvent(),
+        upsertCoachCalendarEvent({ ratingOverride: null, clearDifficulty: true }),
       ]);
     }
     leaveCompletedSession();

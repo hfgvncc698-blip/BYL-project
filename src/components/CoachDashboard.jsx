@@ -247,7 +247,7 @@ const scheduleIdleTask = (callback, timeout = 700) => {
   };
 };
 
-const DASHBOARD_DATA_CACHE_VERSION = 6;
+const DASHBOARD_DATA_CACHE_VERSION = 7;
 const DASHBOARD_DATA_CACHE_TTL_MS = 15 * 60 * 1000;
 const DASHBOARD_DATA_STALE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const DASHBOARD_DATA_CACHE_CLIENT_LIMIT = 120;
@@ -283,6 +283,11 @@ const compactDashboardSessionRecord = (record = {}) => ({
   plannedEventId: record.plannedEventId || "",
   coachVisible: record.coachVisible,
   visibility: record.visibility || "",
+  difficultyRating: record.difficultyRating ?? record.rating ?? null,
+  rating: record.rating ?? record.difficultyRating ?? null,
+  difficultyAt: record.difficultyAt || null,
+  ratingAt: record.ratingAt || null,
+  runId: record.runId || record.id || "",
   lastExerciseIndex: record.lastExerciseIndex ?? null,
   lastSet: record.lastSet ?? null,
 });
@@ -306,7 +311,18 @@ const compactDashboardProgram = (program = {}) => {
     sessionsEffectuees: (Array.isArray(program.sessionsEffectuees) ? program.sessionsEffectuees : [])
       .slice(-DASHBOARD_DATA_CACHE_SESSION_LIMIT)
       .map(compactDashboardSessionRecord),
-    difficultyNotes: [],
+    difficultyNotes: (Array.isArray(program.difficultyNotes) ? program.difficultyNotes : [])
+      .slice(-DASHBOARD_DATA_CACHE_SESSION_LIMIT)
+      .map((note) => ({
+        id: note.id || "",
+        sessionIndex: note.sessionIndex ?? note.index ?? null,
+        rating: note.rating ?? null,
+        completionId: note.completionId || note.runId || "",
+        runId: note.runId || note.completionId || "",
+        createdAt: note.createdAt || null,
+        updatedAt: note.updatedAt || null,
+        date: note.date || null,
+      })),
     difficultyMap: program.difficultyMap || {},
   };
   [
@@ -1468,6 +1484,43 @@ const buildDifficultyMapFromNotes = (notes = []) => {
     }
   });
   return byIndex;
+};
+const COMPLETION_RATING_MATCH_WINDOW_MS = 10 * 60 * 1000;
+const findDifficultyNoteForCompletion = (notes = [], completion = {}) => {
+  const completionId = String(completion?.id || completion?.runId || "").trim();
+  const sessionIndex = getSessionIndex(completion);
+  const completionMs = getSessionActivityMs(completion);
+  const candidates = notes
+    .map((note) => ({
+      note,
+      rating: normRating(note?.rating),
+      noteSessionIndex: getSessionIndex(note),
+      createdAtMs: Math.max(
+        Number(note?.createdAtMs || 0),
+        toMillis(note?.createdAt),
+        toMillis(note?.updatedAt),
+        toMillis(note?.date)
+      ),
+    }))
+    .filter(({ note, rating, noteSessionIndex }) => {
+      if (!rating || noteSessionIndex !== sessionIndex) return false;
+      const noteCompletionId = String(note?.completionId || note?.runId || "").trim();
+      if (completionId && noteCompletionId) return noteCompletionId === completionId;
+      return true;
+    })
+    .filter(({ note, createdAtMs }) => {
+      const noteCompletionId = String(note?.completionId || note?.runId || "").trim();
+      if (completionId && noteCompletionId === completionId) return true;
+      return completionMs > 0 && createdAtMs > 0 &&
+        Math.abs(createdAtMs - completionMs) <= COMPLETION_RATING_MATCH_WINDOW_MS;
+    })
+    .sort((a, b) => {
+      const aExact = completionId && String(a.note?.completionId || a.note?.runId || "").trim() === completionId;
+      const bExact = completionId && String(b.note?.completionId || b.note?.runId || "").trim() === completionId;
+      if (aExact !== bExact) return aExact ? -1 : 1;
+      return b.createdAtMs - a.createdAtMs;
+    });
+  return candidates[0] || null;
 };
 const loadProgramDifficultyNotes = async (clientId, programId) => {
   if (!clientId || !programId) return [];
@@ -4129,12 +4182,15 @@ FORCE_SESSION_DURATION_MIN * 60000);
               let difficultyRating = getSessionDifficultyRating(sEff);
               let difficultyAtMs = getSessionDifficultyAtMs(sEff);
 
-            if (sessionIndex != null && prog?.difficultyMap?.
-[sessionIndex]) {
-              difficultyRating =
-prog.difficultyMap[sessionIndex].rating || difficultyRating;
-              difficultyAtMs =
-prog.difficultyMap[sessionIndex].createdAtMs || difficultyAtMs;
+            if (!difficultyRating && sessionIndex != null) {
+              const matchingDifficulty = findDifficultyNoteForCompletion(
+                prog?.difficultyNotes || [],
+                sEff
+              );
+              if (matchingDifficulty) {
+                difficultyRating = matchingDifficulty.rating;
+                difficultyAtMs = matchingDifficulty.createdAtMs || difficultyAtMs;
+              }
             }
             const titlePieces = [];
             if (clientName) titlePieces.push(clientName);
