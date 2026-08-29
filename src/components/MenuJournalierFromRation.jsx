@@ -28,8 +28,9 @@ import {
   Textarea,
   Wrap,
   WrapItem,
+  IconButton,
 } from "@chakra-ui/react";
-import { DownloadIcon } from "@chakra-ui/icons";
+import { ChevronDownIcon, DownloadIcon, RepeatIcon } from "@chakra-ui/icons";
 import { useNavigate, useParams } from "react-router-dom";
 import { doc, getDoc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "../firebaseConfig";
@@ -520,6 +521,11 @@ const recipeIngredientsText = (recipe = {}) =>
     })
     .filter(Boolean);
 
+const recipeDayNumber = (recipe = {}) => {
+  const match = String(recipe.dayLabel || recipe.day || recipe.jour || "").match(/\d+/);
+  return match ? Math.max(1, Number(match[0])) : 1;
+};
+
 const RECIPE_MEAL_GROUPS = [
   { key: "petit_dej", labelKey: "auto.MenuJournalierFromRation.petit_dejeuner", labelDefault: "Petit-déjeuner" },
   { key: "dejeuner", labelKey: "auto.MenuJournalierFromRation.dejeuner", labelDefault: "Déjeuner" },
@@ -557,34 +563,34 @@ export default function MenuJournalierFromRation() {
   }, [clientId, assessmentId]);
 
   const nutritionTheme = useNutritionTheme();
-  const panelBg = nutritionTheme.surfaceBg;
+  const panelBg = nutritionTheme.surfaceBgStrong;
   const borderCol = nutritionTheme.borderColor;
   const textMuted = nutritionTheme.mutedText;
   const menuAccentCards = {
     dossier: {
-      bg: useColorModeValue("blue.50", "rgba(37, 99, 235, 0.13)"),
-      border: useColorModeValue("blue.200", "rgba(96, 165, 250, 0.32)"),
+      bg: nutritionTheme.surfaceSoft,
+      border: borderCol,
       label: useColorModeValue("blue.700", "blue.200"),
       text: useColorModeValue("gray.900", "whiteAlpha.950"),
       muted: useColorModeValue("gray.700", "whiteAlpha.750"),
     },
     nutrition: {
-      bg: useColorModeValue("teal.50", "rgba(20, 184, 166, 0.13)"),
-      border: useColorModeValue("teal.200", "rgba(45, 212, 191, 0.32)"),
+      bg: nutritionTheme.surfaceSoft,
+      border: borderCol,
       label: useColorModeValue("teal.700", "teal.200"),
       text: useColorModeValue("gray.900", "whiteAlpha.950"),
       muted: useColorModeValue("gray.700", "whiteAlpha.750"),
     },
     ration: {
-      bg: useColorModeValue("purple.50", "rgba(124, 58, 237, 0.13)"),
-      border: useColorModeValue("purple.200", "rgba(167, 139, 250, 0.32)"),
+      bg: nutritionTheme.surfaceSoft,
+      border: borderCol,
       label: useColorModeValue("purple.700", "purple.200"),
       text: useColorModeValue("gray.900", "whiteAlpha.950"),
       muted: useColorModeValue("gray.700", "whiteAlpha.750"),
     },
     output: {
-      bg: useColorModeValue("green.50", "rgba(34, 197, 94, 0.12)"),
-      border: useColorModeValue("green.200", "rgba(74, 222, 128, 0.30)"),
+      bg: nutritionTheme.surfaceSoft,
+      border: borderCol,
       label: useColorModeValue("green.700", "green.200"),
       text: useColorModeValue("gray.900", "whiteAlpha.950"),
       muted: useColorModeValue("green.800", "whiteAlpha.750"),
@@ -593,7 +599,7 @@ export default function MenuJournalierFromRation() {
   const sectionCardProps = {
     borderWidth: "1px",
     borderColor: borderCol,
-    borderRadius: "lg",
+    borderRadius: "22px",
     bg: panelBg,
     boxShadow: "0 14px 34px rgba(15, 23, 42, 0.06)",
   };
@@ -622,6 +628,7 @@ export default function MenuJournalierFromRation() {
   const [clientEmail, setClientEmail] = useState("");
   const [showPatientRecipes, setShowPatientRecipes] = useState(false);
   const [showPatientShoppingList, setShowPatientShoppingList] = useState(false);
+  const [selectedRecipeDay, setSelectedRecipeDay] = useState(1);
   const menuAutosaveHashRef = useRef("");
   const tabTouchedUntilRef = useRef(0);
   const documentBrandingAllowed = canUseCustomBranding(
@@ -774,6 +781,7 @@ export default function MenuJournalierFromRation() {
       if (!assessmentRef || blocked) return;
       updateDoc(assessmentRef, {
         "ration.menuTab": safeTab === 1 ? "auto" : "manual",
+        "clientShare.noNotify": true,
         updatedAt: serverTimestamp(),
       }).catch((e) => {
         console.error("Menu mode save failed:", e);
@@ -970,6 +978,7 @@ export default function MenuJournalierFromRation() {
     await updateDoc(assessmentRef, {
       "ration.menuTab": activeTab === 1 ? "auto" : "manual",
       "nutritionAdviceSheets.selectedIds": selectedAdviceSheetIds,
+      "clientShare.noNotify": true,
       nutritionPatientNote: {
         text: cleanPatientNote,
         shared: !!sharePatientNote && cleanPatientNote.length > 0,
@@ -1109,7 +1118,7 @@ export default function MenuJournalierFromRation() {
     const previous = docData?.clientShare?.sections;
     const savedNote = docData?.nutritionPatientNote;
     setProfessionalReviewConfirmed(false);
-    setProfessionalValidationNote(String(docData?.nutritionProfessionalValidation?.note || ""));
+    setProfessionalValidationNote("");
     setSharePatientNote(Boolean(savedNote?.shared && String(savedNote?.text || "").trim()));
     setShareSelection(
       previous && typeof previous === "object"
@@ -1120,7 +1129,7 @@ export default function MenuJournalierFromRation() {
         : allShareSections()
     );
     setShareModalOpen(true);
-  }, [assessmentRef, blocked, docData?.clientShare?.sections, docData?.nutritionPatientNote, docData?.nutritionProfessionalValidation?.note, menuReadyToShare, persistMenuDraft, toast]);
+  }, [assessmentRef, blocked, docData?.clientShare?.sections, docData?.nutritionPatientNote, menuReadyToShare, persistMenuDraft, toast]);
 
   const ciqualByCode = useMemo(() => {
     const map = new Map();
@@ -1243,18 +1252,28 @@ export default function MenuJournalierFromRation() {
     const meals = normalizeAiList(aiPlan?.meals || aiFinalPlan?.meals);
     return meals.slice(0, 6).flatMap((meal) => generateRecipesFromMealCourses(meal));
   }, [aiFinalPlan?.meals, aiFinalPlan?.recipes, aiPlan?.meals, aiPlan?.recipes, displayedMenuMeals]);
+  const aiRecipeDays = useMemo(
+    () => Array.from(new Set(aiRecipes.map(recipeDayNumber))).sort((a, b) => a - b),
+    [aiRecipes]
+  );
+  useEffect(() => {
+    if (aiRecipeDays.length && !aiRecipeDays.includes(selectedRecipeDay)) {
+      setSelectedRecipeDay(aiRecipeDays[0]);
+    }
+  }, [aiRecipeDays, selectedRecipeDay]);
   const aiRecipeGroups = useMemo(() => {
     const buckets = RECIPE_MEAL_GROUPS.reduce((acc, group) => {
       acc[group.key] = { ...group, recipes: [] };
       return acc;
     }, {});
     aiRecipes.forEach((recipe, index) => {
+      if (recipeDayNumber(recipe) !== selectedRecipeDay) return;
       const key = recipeMealGroupKey(recipe);
       const bucket = buckets[key] || buckets.autre;
       bucket.recipes.push({ ...recipe, __recipeIndex: index });
     });
     return RECIPE_MEAL_GROUPS.map((group) => buckets[group.key]).filter((group) => group.recipes.length);
-  }, [aiRecipes]);
+  }, [aiRecipes, selectedRecipeDay]);
   const aiShoppingList = useMemo(() => {
     const fromDisplayedMenu = generateShoppingListFromNutritionPlan(displayedMenuPlan);
     if (fromDisplayedMenu.some((section) => normalizeAiList(section?.items).length)) return fromDisplayedMenu;
@@ -1343,6 +1362,7 @@ export default function MenuJournalierFromRation() {
             : {}),
           clientShare: {
             enabled: !!share && hasSharedSection,
+            noNotify: true,
             sections,
             sharedAt: share ? serverTimestamp() : null,
             sharedBy: share ? user?.uid || null : null,
@@ -1582,13 +1602,13 @@ export default function MenuJournalierFromRation() {
           clientId={clientId}
           assessmentId={assessmentId}
           navigate={navigateWithFallback}
+          onBack={goBack}
         />
 
         <Box {...sectionCardProps} overflow="hidden">
           <Box bg={panelBg} px={{ base: 4, md: 5 }} py={{ base: 4, md: 5 }}>
             <HStack justify="space-between" align={{ base: "stretch", md: "center" }} gap={4} flexDirection={{ base: "column", lg: "row" }}>
               <HStack spacing={3} flexWrap="wrap" align="center">
-                <Button size={{ base: "sm", md: "md" }} variant="outline" onClick={goBack} data-testid="nutrition-menu-back-top">{i18n.t("programView.back", "Retour")}</Button>
                 <Box>
                   <HStack spacing={2} flexWrap="wrap">
                     <Heading size={{ base: "sm", md: "md" }}>{i18n.t("auto.MenuJournalierFromRation.menu_journalier", "Menu journalier")}</Heading>
@@ -1602,7 +1622,7 @@ export default function MenuJournalierFromRation() {
                 </Box>
               </HStack>
 
-              <HStack spacing={2} flexWrap={{ base: "wrap", md: "nowrap" }} justify={{ base: "stretch", lg: "flex-end" }} w={{ base: "100%", lg: "auto" }}>
+              <HStack spacing={2} flexWrap="nowrap" justify={{ base: "stretch", lg: "flex-end" }} w={{ base: "100%", lg: "auto" }}>
                 <HStack
                   spacing={2}
                   borderWidth="1px"
@@ -1610,7 +1630,8 @@ export default function MenuJournalierFromRation() {
                   borderRadius="full"
                   bg={nutritionTheme.surfaceSoft}
                   p={1}
-                  w={{ base: "100%", md: "auto" }}
+                  w={{ base: "auto", md: "auto" }}
+                  flex={{ base: "1", md: "0 0 auto" }}
                 >
                   <Text display={{ base: "none", md: "block" }} px={3} fontSize="xs" fontWeight="900" letterSpacing="0.08em" color={textMuted}>
                     {i18n.t("auto.MenuJournalierFromRation.mode_de_travail", "MODE")}
@@ -1637,18 +1658,18 @@ export default function MenuJournalierFromRation() {
                     >{i18n.t("auto.MenuJournalierFromRation.auto", "Auto")}</Button>
                 </HStack>
 
-                <Button
+                <IconButton
                   variant="outline"
                   borderRadius="full"
-                  size={{ base: "xs", md: "md" }}
+                  size="md"
                   flex={{ base: "0 0 auto", md: "0 0 auto" }}
                   ml={{ base: "auto", md: 0 }}
+                  icon={<RepeatIcon />}
+                  aria-label={i18n.t("auto.MenuJournalierFromRation.actualiser", "Actualiser")}
+                  title={i18n.t("auto.MenuJournalierFromRation.actualiser", "Actualiser")}
                   onClick={loadCiqual}
                   isLoading={ciqualLoading}
-                  loadingText={i18n.t("common.loading", "Chargement…")}
-                >
-                  {i18n.t("auto.MenuJournalierFromRation.actualiser", "Actualiser")}
-                </Button>
+                />
               </HStack>
             </HStack>
 
@@ -1890,16 +1911,6 @@ export default function MenuJournalierFromRation() {
               <Text fontSize="sm" color={textMuted} mt={1}>{i18n.t("auto.MenuJournalierFromRation.preparees_a_partir_du_menu_affiche_avec_les_quanti", "Préparées à partir du menu affiché, avec les quantités validées.")}</Text>
             </Box>
             <HStack spacing={2} flexWrap="wrap">
-              <Button size="sm" variant="outline" onClick={() => setShowPatientRecipes((prev) => !prev)}>
-                {showPatientRecipes
-                  ? i18n.t("auto.MenuJournalierFromRation.masquer_les_recettes", "Masquer les recettes")
-                  : i18n.t("auto.MenuJournalierFromRation.voir_les_recettes_jour_par_jour", "Voir les recettes jour par jour")}
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setShowPatientShoppingList((prev) => !prev)}>
-                {showPatientShoppingList
-                  ? i18n.t("auto.MenuJournalierFromRation.masquer_la_liste_de_courses", "Masquer la liste de courses")
-                  : i18n.t("auto.MenuJournalierFromRation.voir_la_liste_de_courses", "Voir la liste de courses")}
-              </Button>
               <Badge colorScheme={menuReadyToShare ? "green" : "orange"} px={3} py={1} borderRadius="full">
                 {menuReadyToShare
                   ? i18n.t("auto.MenuJournalierFromRation.pret_a_partager", "Prêt à partager")
@@ -1909,16 +1920,31 @@ export default function MenuJournalierFromRation() {
           </HStack>
 
           <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={4} mt={4} alignItems="start">
-            <Box borderWidth="1px" borderColor={borderCol} borderRadius="md" p={4} bg={nutritionTheme.surfaceSoft}>
-              <HStack justify="space-between" align="center" gap={3} flexWrap="wrap">
+            <Box role="button" tabIndex={0} w="100%" textAlign="left" borderWidth="1px" borderColor={borderCol} borderRadius="md" p={4} bg={nutritionTheme.surfaceSoft} cursor="pointer" onClick={() => setShowPatientRecipes((prev) => !prev)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setShowPatientRecipes((prev) => !prev); } }}>
+              <HStack justify="space-between" align="center" gap={3}>
                 <Heading size="xs">{i18n.t("auto.MenuJournalierFromRation.recettes_jour_par_jour", "Recettes jour par jour")}</Heading>
-                <Badge colorScheme="blue">{aiRecipes.length}</Badge>
+                <HStack spacing={2}><Badge colorScheme="blue">{aiRecipes.length}</Badge><ChevronDownIcon transform={showPatientRecipes ? "rotate(180deg)" : "none"} /></HStack>
               </HStack>
               <Stack spacing={3} mt={3}>
                 {!showPatientRecipes ? (
                   <Text fontSize="sm" color={textMuted}>{i18n.t("auto.MenuJournalierFromRation.les_recettes_sont_pretes_pour_le_partage_patient_o", "Les recettes sont prêtes pour le partage patient. Ouvre-les uniquement si tu veux les relire côté pro.")}</Text>
                 ) : aiRecipeGroups.length ? (
-                  aiRecipeGroups.map((group) => (
+                  <>
+                  <HStack spacing={2} overflowX="auto" pb={1} onClick={(event) => event.stopPropagation()}>
+                    {aiRecipeDays.map((day) => (
+                      <Button
+                        key={`recipe_day_${day}`}
+                        size="xs"
+                        flexShrink={0}
+                        borderRadius="full"
+                        variant={selectedRecipeDay === day ? "solid" : "outline"}
+                        onClick={() => setSelectedRecipeDay(day)}
+                      >
+                        {i18n.t("auto.MenuJournalierAuto.day_number", "Jour {{day}}", { day })}
+                      </Button>
+                    ))}
+                  </HStack>
+                  {aiRecipeGroups.map((group) => (
                     <Box key={group.key}>
                       <HStack justify="space-between" align="center" mb={2}>
                         <Heading size="xs">{i18n.t(group.labelKey, group.labelDefault)}</Heading>
@@ -1939,8 +1965,16 @@ export default function MenuJournalierFromRation() {
                               </Text>
                               <Wrap spacing={1.5} mt={2}>
                                 {recipeIngredientsText(recipe).slice(0, 8).map((ingredient) => (
-                                  <WrapItem key={ingredient}>
-                                    <Badge variant="subtle" colorScheme="blue">
+                                  <WrapItem key={ingredient} maxW="100%" minW={0}>
+                                    <Badge
+                                      variant="subtle"
+                                      colorScheme="blue"
+                                      maxW="100%"
+                                      whiteSpace="normal"
+                                      overflowWrap="anywhere"
+                                      textAlign="left"
+                                      lineHeight="1.25"
+                                    >
                                       {ingredient}
                                     </Badge>
                                   </WrapItem>
@@ -1961,17 +1995,21 @@ export default function MenuJournalierFromRation() {
                         ))}
                       </Stack>
                     </Box>
-                  ))
+                  ))}
+                  </>
                 ) : (
                   <Text fontSize="sm" color={textMuted}>{i18n.t("auto.MenuJournalierFromRation.les_recettes_apparaitront_apres_une_optimisation_i", "Les recettes apparaîtront après une optimisation IA validée ou dès qu’un menu exploitable sera structuré en repas.")}</Text>
                 )}
               </Stack>
             </Box>
 
-            <Box borderWidth="1px" borderColor={borderCol} borderRadius="md" p={4} bg={nutritionTheme.surfaceSoft}>
-              <HStack justify="space-between" align="center" gap={3} flexWrap="wrap">
-                <Heading size="xs">{i18n.t("auto.MenuJournalierFromRation.liste_de_courses", "Liste de courses")}</Heading>
-                <Badge colorScheme="green">{aiShoppingSections.length}</Badge>
+            <Box role="button" tabIndex={0} w="100%" textAlign="left" borderWidth="1px" borderColor={borderCol} borderRadius="md" p={4} bg={nutritionTheme.surfaceSoft} cursor="pointer" onClick={() => setShowPatientShoppingList((prev) => !prev)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setShowPatientShoppingList((prev) => !prev); } }}>
+              <HStack justify="space-between" align="center" gap={3}>
+                <Box>
+                  <Heading size="xs">{i18n.t("auto.MenuJournalierFromRation.shopping_list_week", "Liste de courses · semaine")}</Heading>
+                  <Text fontSize="xs" color={textMuted} mt={1}>{i18n.t("auto.MenuJournalierFromRation.shopping_list_week_help", "Quantités regroupées pour l’ensemble du menu de la semaine.")}</Text>
+                </Box>
+                <HStack spacing={2}><Badge colorScheme="green">{aiShoppingSections.length}</Badge><ChevronDownIcon transform={showPatientShoppingList ? "rotate(180deg)" : "none"} /></HStack>
               </HStack>
               <Stack spacing={3} mt={3}>
                 {!showPatientShoppingList ? (
@@ -2018,9 +2056,7 @@ export default function MenuJournalierFromRation() {
         />
 
         <Box {...sectionCardProps} p={4}>
-          <HStack spacing={3} flexWrap="wrap" align="center" justify="space-between">
-            <Button variant="outline" onClick={goBack} data-testid="nutrition-menu-back-bottom">{i18n.t("programView.back", "Retour")}</Button>
-
+          <HStack spacing={3} flexWrap="wrap" align="center" justify="flex-end">
             <Button
               {...nutritionTheme.primaryButtonProps}
               onClick={openShareModal}
@@ -2044,8 +2080,25 @@ export default function MenuJournalierFromRation() {
         <ModalContent borderRadius={{ base: 0, md: "lg" }} bg={panelBg}>
           <ModalHeader>{i18n.t("auto.MenuJournalierFromRation.validation_du_suivi_client", "Validation du suivi client")}</ModalHeader>
           <ModalCloseButton />
-          <ModalBody>
-            <Text color={textMuted} fontSize="sm">{i18n.t("auto.MenuJournalierFromRation.choisis_ce_que_le_client_pourra_consulter_dans_son", "Choisis ce que le client pourra consulter dans son espace. Si tu sauvegardes sans partager, le dossier reste uniquement visible côté professionnel.")}</Text>
+          <ModalBody pb={{ base: 56, md: 6 }}>
+            <HStack align="start" justify="space-between" gap={3}>
+              <Text color={textMuted} fontSize="sm">{i18n.t("auto.MenuJournalierFromRation.choisis_ce_que_le_client_pourra_consulter_dans_son", "Choisis ce que le client pourra consulter dans son espace. Si tu sauvegardes sans partager, le dossier reste uniquement visible côté professionnel.")}</Text>
+              <IconButton
+                flexShrink={0}
+                size="sm"
+                variant="outline"
+                borderRadius="full"
+                icon={<DownloadIcon />}
+                aria-label={i18n.t("auto.MenuJournalierFromRation.pdf_elements_coches", "PDF des éléments cochés")}
+                title={i18n.t("auto.MenuJournalierFromRation.pdf_elements_coches", "PDF des éléments cochés")}
+                onClick={handleDownloadPDF}
+                isLoading={exportingPdf}
+                isDisabled={
+                  !SHARE_SECTION_KEYS.some((key) => !!shareSelection[key]) &&
+                  !(sharePatientNote && patientNote.trim())
+                }
+              />
+            </HStack>
 
             <Stack spacing={3} mt={5}>
               {menuIsStale ? (
@@ -2072,24 +2125,6 @@ export default function MenuJournalierFromRation() {
                   </Box>
                 </Alert>
               ) : null}
-              <Box borderWidth="1px" borderColor={borderCol} borderRadius="md" p={4} bg={nutritionTheme.surfaceSoft}>
-                <Text fontWeight="900">{i18n.t("auto.MenuJournalierFromRation.validation_professionnelle", "Validation professionnelle")}</Text>
-                <Text color={textMuted} fontSize="sm" mt={1}>
-                  {i18n.t("auto.MenuJournalierFromRation.validation_professionnelle_description", "La génération reste libre. Cette confirmation atteste uniquement que la ration, les menus, les exclusions et les alertes ont été relus avant partage.")}
-                </Text>
-                <Checkbox
-                  mt={3}
-                  isChecked={professionalReviewConfirmed}
-                  onChange={(event) => setProfessionalReviewConfirmed(event.target.checked)}
-                >{i18n.t("auto.MenuJournalierFromRation.contenu_patient_relu_valide", "J’ai relu et validé le contenu destiné au patient")}</Checkbox>
-                <Textarea
-                  mt={3}
-                  value={professionalValidationNote}
-                  onChange={(event) => setProfessionalValidationNote(event.target.value)}
-                  placeholder={i18n.t("auto.MenuJournalierFromRation.note_professionnelle_facultative", "Note professionnelle ou justification des adaptations (facultatif)")}
-                  minH="80px"
-                />
-              </Box>
               <Checkbox
                 isChecked={SHARE_SECTION_KEYS.every((key) => !!shareSelection[key]) && (!patientNote.trim() || !!sharePatientNote)}
                 isIndeterminate={
@@ -2145,34 +2180,22 @@ export default function MenuJournalierFromRation() {
                 placeholder={i18n.t("auto.MenuJournalierFromRation.note_visible_cote_patient_si_elle_est_cochee", "Note visible côté patient si elle est cochée...")}
                 minH="90px"
               />
-              <Box borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={nutritionTheme.surfaceSoft} p={4}>
-                <Text fontWeight="800">{i18n.t("auto.MenuJournalierFromRation.documents_pdf", "Documents PDF")}</Text>
-                <Text color={textMuted} fontSize="sm" mt={1}>
-                  {i18n.t("auto.MenuJournalierFromRation.genere_un_pdf_selon_les_sections_cochees", "Génère un seul PDF avec uniquement les sections cochées ci-dessus.")}
-                </Text>
-                <Button
-                  mt={3}
-                  variant="outline"
-                  leftIcon={<DownloadIcon />}
-                  onClick={handleDownloadPDF}
-                  isLoading={exportingPdf}
-                  isDisabled={
-                    !SHARE_SECTION_KEYS.some((key) => !!shareSelection[key]) &&
-                    !(sharePatientNote && patientNote.trim())
-                  }
-                >
-                  {i18n.t("auto.MenuJournalierFromRation.pdf_elements_coches", "PDF des éléments cochés")}
-                </Button>
-              </Box>
+              <Checkbox
+                isChecked={professionalReviewConfirmed}
+                onChange={(event) => setProfessionalReviewConfirmed(event.target.checked)}
+                py={2}
+              >{i18n.t("auto.MenuJournalierFromRation.contenu_patient_relu_valide", "J’ai relu et validé le contenu destiné au patient")}</Checkbox>
             </Stack>
           </ModalBody>
           <ModalFooter
-            gap={3}
-            flexWrap="wrap"
+            gap={{ base: 3, sm: 2 }}
+            flexWrap="nowrap"
             flexDirection={{ base: "column", sm: "row" }}
             alignItems={{ base: "stretch", sm: "center" }}
+            justifyContent={{ base: "stretch", sm: "flex-end" }}
           >
             <Button
+              size="sm"
               variant="ghost"
               onClick={() => setShareModalOpen(false)}
               data-testid="nutrition-share-cancel"
@@ -2180,6 +2203,7 @@ export default function MenuJournalierFromRation() {
               w={{ base: "100%", sm: "auto" }}
             >{i18n.t("auto.MenuJournalierFromRation.annuler_validation", "Annuler")}</Button>
             <Button
+              size="sm"
               variant="outline"
               onClick={() => saveMenuAndShare({ share: false })}
               data-testid="nutrition-share-save-private"
@@ -2187,6 +2211,7 @@ export default function MenuJournalierFromRation() {
               w={{ base: "100%", sm: "auto" }}
             >{i18n.t("auto.MenuJournalierFromRation.sauvegarder_sans_partager", "Sauvegarder sans partager")}</Button>
             <Button
+              size="sm"
               {...nutritionTheme.primaryButtonProps}
               onClick={() => saveMenuAndShare({ share: true })}
               data-testid="nutrition-share-save-public"

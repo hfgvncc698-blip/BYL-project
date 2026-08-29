@@ -21,6 +21,8 @@ import {
   MdOutlineFitnessCenter,
   MdOutlinePeopleAlt,
   MdOutlineRestaurantMenu,
+  MdOutlineNoteAdd,
+  MdAutoAwesome,
   MdOutlineSpaceDashboard,
 } from "react-icons/md";
 import { AddIcon } from "@chakra-ui/icons";
@@ -69,18 +71,28 @@ export default function CoachMobileNav() {
   const nutritionOnly = hasNutritionAccess && !hasSportAccess;
   const sportOnly = hasSportAccess && !hasNutritionAccess;
 
-  const activeBlue = useColorModeValue("#2563EB", "#7CB7FF");
-  const activeBlueDark = useColorModeValue("#1D4ED8", "#9BC7FF");
+  const activeBg = useColorModeValue("#0F172A", "rgba(255,255,255,0.14)");
+  const activeHoverBg = useColorModeValue("#1E293B", "rgba(255,255,255,0.20)");
+  const actionGradient = "linear-gradient(90deg, #1F5EFF 0%, #257CFF 52%, #00B8FF 100%)";
   const textColor = useColorModeValue("#0F172A", "white");
-  const borderColor = useColorModeValue("rgba(37,99,235,0.20)", "rgba(124,183,255,0.22)");
+  const borderColor = useColorModeValue("rgba(15,23,42,0.12)", "rgba(255,255,255,0.12)");
   const bg = useColorModeValue("rgba(255,255,255,0.94)", "rgba(8,13,26,0.94)");
-  const ghostHover = useColorModeValue("rgba(37,99,235,0.08)", "rgba(124,183,255,0.12)");
+  const ghostHover = useColorModeValue("rgba(15,23,42,0.06)", "rgba(255,255,255,0.08)");
   const shadow = useColorModeValue(
     "0 18px 44px rgba(15,23,42,0.16)",
     "0 18px 44px rgba(0,0,0,0.44)"
   );
-  const modalBg = useColorModeValue("white", "rgba(11,16,27,0.98)");
-  const modalBorder = useColorModeValue("rgba(15,23,42,0.10)", "rgba(255,255,255,0.12)");
+  const modalBg = useColorModeValue("white", "#0F172A");
+  const modalColor = useColorModeValue("gray.900", "white");
+  const modalBorder = useColorModeValue("blackAlpha.100", "whiteAlpha.120");
+  const modalActionBorder = useColorModeValue("rgba(15,23,42,0.10)", "rgba(255,255,255,0.14)");
+  const modalActionBg = useColorModeValue("white", "rgba(255,255,255,0.03)");
+  const modalActionHoverBg = useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.06)");
+  const modalActionHoverBorder = useColorModeValue("rgba(15,23,42,0.18)", "rgba(255,255,255,0.26)");
+  const modalActionHoverShadow = useColorModeValue(
+    "0 10px 24px rgba(15,23,42,0.08)",
+    "0 12px 26px rgba(0,0,0,0.24)"
+  );
   const fabBorder = useColorModeValue("rgba(255,255,255,0.95)", "rgba(147,197,253,0.36)");
   const fabShadow = useColorModeValue(
     "0 16px 32px rgba(37,99,235,0.34)",
@@ -150,18 +162,9 @@ export default function CoachMobileNav() {
 
   const actions = [
     {
-      label: nutritionOnly
-        ? t("dashboard.mobile.new_followup", "Créer suivi")
-        : t("dashboard.mobile.plan", "Planifier"),
+      label: t("nav.new_appointment", "Nouveau rendez-vous"),
       icon: MdOutlineCalendarMonth,
       path: "/coach-dashboard?quickAction=plan",
-    },
-    {
-      label: nutritionOnly
-        ? t("auto.CoachMobileNav.new_patient", "Nouveau patient")
-        : t("nav.new_client", "Nouveau client"),
-      icon: MdOutlinePeopleAlt,
-      path: "/coach-dashboard?quickAction=client",
     },
     ...(hasSportAccess
       ? [
@@ -172,16 +175,23 @@ export default function CoachMobileNav() {
           },
           {
             label: t("nav.new_program_guided", "Nouveau programme guidé"),
-            icon: MdOutlineSpaceDashboard,
+            icon: MdAutoAwesome,
             path: "/auto-program-questionnaire",
           },
         ]
       : []),
+    {
+      label: nutritionOnly
+        ? t("auto.CoachMobileNav.new_patient", "Nouveau patient")
+        : t("nav.new_client", "Nouveau client"),
+      icon: MdOutlinePeopleAlt,
+      path: "/coach-dashboard?quickAction=client",
+    },
     ...(hasNutritionAccess
       ? [
           {
             label: t("nav.new_nutrition_followup", "Nouveau suivi diététique"),
-            icon: MdOutlineRestaurantMenu,
+            icon: MdOutlineNoteAdd,
             path: "/nutrition-coach?new=1",
           },
         ]
@@ -238,12 +248,15 @@ export default function CoachMobileNav() {
               px={1}
               flexDirection="column"
               gap={1}
-              bg={isActive || isAction ? activeBlue : "transparent"}
+              bg={isAction ? actionGradient : isActive ? activeBg : "transparent"}
               color={isActive || isAction ? "white" : textColor}
               boxShadow={isAction ? fabShadow : "none"}
               border={isAction ? "1px solid" : "0"}
               borderColor={isAction ? fabBorder : "transparent"}
-              _hover={{ bg: isActive || isAction ? activeBlueDark : ghostHover }}
+              _hover={{
+                bg: isAction ? actionGradient : isActive ? activeHoverBg : ghostHover,
+                filter: isAction ? "brightness(1.08)" : "none",
+              }}
               onMouseEnter={() => !isAction && preloadPath(item.path)}
               onTouchStart={() => !isAction && preloadPath(item.path)}
               onPointerDown={() => !isAction && preloadPath(item.path)}
@@ -260,22 +273,35 @@ export default function CoachMobileNav() {
         </SimpleGrid>
       </Box>
 
-      <Modal isOpen={actionModal.isOpen} onClose={actionModal.onClose} isCentered size="sm">
-        <ModalOverlay bg="blackAlpha.500" backdropFilter="blur(6px)" />
-        <ModalContent mx={4} borderRadius="24px" bg={modalBg} border="1px solid" borderColor={modalBorder}>
-          <ModalHeader pb={2}>{t("nav.new", "Nouveau")}</ModalHeader>
+      <Modal isOpen={actionModal.isOpen} onClose={actionModal.onClose} isCentered>
+        <ModalOverlay />
+        <ModalContent
+          borderRadius="24px"
+          bg={modalBg}
+          color={modalColor}
+          border="1px solid"
+          borderColor={modalBorder}
+        >
+          <ModalHeader>{t("nav.new", "Nouveau")}</ModalHeader>
           <ModalCloseButton />
-          <ModalBody pb={5}>
-            <SimpleGrid columns={1} spacing={2}>
+          <ModalBody>
+            <SimpleGrid columns={1} spacing={4} py={4}>
               {actions.map((action) => (
                 <Button
                   key={action.path}
-                  justifyContent="flex-start"
-                  h="54px"
-                  borderRadius="18px"
-                  leftIcon={<Icon as={action.icon} boxSize="19px" />}
+                  w="full"
+                  borderRadius="16px"
+                  leftIcon={<Icon as={action.icon} />}
                   variant="outline"
-                  borderColor={modalBorder}
+                  borderColor={modalActionBorder}
+                  bg={modalActionBg}
+                  transition="all 0.18s ease"
+                  _hover={{
+                    bg: modalActionHoverBg,
+                    borderColor: modalActionHoverBorder,
+                    transform: "translateY(-1px)",
+                    boxShadow: modalActionHoverShadow,
+                  }}
                   onMouseEnter={() => preloadPath(action.path)}
                   onTouchStart={() => preloadPath(action.path)}
                   onPointerDown={() => preloadPath(action.path)}

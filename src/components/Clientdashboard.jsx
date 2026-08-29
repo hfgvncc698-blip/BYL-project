@@ -22,7 +22,12 @@ import { FaStar, FaRegStar } from "react-icons/fa";
 import { resolveStorageUrl } from "../utils/storageUrls";
 import { resolveClientSnapshotForUser } from "../utils/clientResolver";
 import { estimateSessionDurationSeconds } from "../utils/trainingEngine";
-import { formatProgramActiveWeeks, formatProgramWeekProgress, getProgramActiveWeeksLabel } from "../utils/programDuration";
+import {
+  formatProgramActiveWeeks,
+  formatProgramWeekProgress,
+  getProgramActiveWeeksLabel,
+  getProgramPlannedSessionTotal,
+} from "../utils/programDuration";
 import { runClientDataAccessDiagnostic } from "../utils/firestoreAccessDiagnostics";
 import {
   MdOutlineCalendarMonth,
@@ -139,8 +144,19 @@ const getPremiumGoalIcon = (program) => {
 };
 
 const isAutoProgramme = (p) => {
-  const o = String(p?.origine || '').toLowerCase();
-  return o.includes('auto');
+  const source = [
+    p?.origine,
+    p?.origin,
+    p?.source,
+    p?.generatedBy,
+    p?.meta?.source,
+    p?.createdBy,
+    p?.createdByUid,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return source.includes('auto') || source.includes('byl');
 };
 
 function getTotalSessionsFromProgrammeDoc(p) {
@@ -243,16 +259,28 @@ function getBrowserTimezone() {
 const isLikelyEmail = (value) =>
   typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 
+// Compatibilité avec les anciens programmes qui ne conservaient que l'adresse
+// du coach. Les nouveaux programmes enregistrent désormais directement son nom.
+const LEGACY_COACH_NAME_BY_EMAIL = Object.freeze({
+  'tomarie@hotmail.fr': 'Tom Marie',
+});
+
 const getPersonDisplayName = (source) => {
   if (!source || typeof source !== 'object') return null;
-  const composed = [source.firstName || source.prenom, source.lastName || source.nom]
+  const composed = [
+    source.firstName || source.first_name || source.prenom,
+    source.lastName || source.last_name || source.nom,
+  ]
     .filter(Boolean)
     .join(' ')
     .trim();
   const candidates = [
     composed,
     source.displayName,
+    source.display_name,
     source.fullName,
+    source.full_name,
+    source.nomComplet,
     source.name,
     source.coachName,
     source.createdByDisplayName,
@@ -266,11 +294,74 @@ const getPersonDisplayName = (source) => {
   return null;
 };
 
-async function resolveCoachDisplay(p) {
-  const createdBy = p?.createdBy || p?.createdByUid || p?.coachId || '';
-  if (typeof createdBy === 'string' && createdBy.toLowerCase().includes('auto')) return 'BYL';
+const getProgrammeAuthorLabel = (programme) => {
+  if (isAutoProgramme(programme)) return 'BYL';
+  const directName = getPersonDisplayName(programme);
+  if (directName) return directName;
+  const createdBy = String(
+    programme?.createdByEmail ||
+    programme?.coachEmail ||
+    programme?.createdByName ||
+    programme?.coachName ||
+    programme?.createdBy ||
+    ''
+  ).trim();
+  if (isLikelyEmail(createdBy)) {
+    return LEGACY_COACH_NAME_BY_EMAIL[createdBy.toLowerCase()] || createdBy;
+  }
+  if (createdBy) return 'Coach';
+  const source = String(
+    programme?.origine ||
+    programme?.origin ||
+    programme?.source ||
+    programme?.meta?.source ||
+    ''
+  ).toLowerCase();
+  if (/(coach|manual|assign|duplicate|club)/.test(source)) return 'Coach';
+  // Les anciens programmes générés automatiquement n'enregistraient pas
+  // toujours leur origine. Sans auteur explicite, ils appartiennent à BYL.
+  return 'BYL';
+};
+
+async function resolveCoachDisplay(p, currentUser = null, currentClient = null) {
+  if (isAutoProgramme(p)) return 'BYL';
+  const authorEmail = [
+    p?.createdByEmail,
+    p?.coachEmail,
+    p?.createdByName,
+    p?.coachName,
+    p?.createdBy,
+  ]
+    .map((value) => String(value || '').trim())
+    .find(isLikelyEmail) || '';
+  const legacyCoachName = LEGACY_COACH_NAME_BY_EMAIL[authorEmail.toLowerCase()];
+  if (legacyCoachName) return legacyCoachName;
+  const createdBy = String(
+    p?.createdBy ||
+    p?.createdByUid ||
+    p?.coachId ||
+    p?.createdByEmail ||
+    p?.coachEmail ||
+    (isLikelyEmail(p?.createdByName) ? p.createdByName : '') ||
+    (isLikelyEmail(p?.coachName) ? p.coachName : '') ||
+    ''
+  ).trim();
   const programmeCoachName = getPersonDisplayName(p);
   if (programmeCoachName) return programmeCoachName;
+  if (
+    authorEmail &&
+    String(currentUser?.email || '').trim().toLowerCase() === authorEmail.toLowerCase()
+  ) {
+    const currentUserName = getPersonDisplayName(currentUser);
+    if (currentUserName) return currentUserName;
+  }
+  if (
+    authorEmail &&
+    String(currentClient?.email || '').trim().toLowerCase() === authorEmail.toLowerCase()
+  ) {
+    const clientProfileName = getPersonDisplayName(currentClient);
+    if (clientProfileName) return clientProfileName;
+  }
   if (createdBy) {
     try {
       const u = await getDoc(doc(db, 'users', createdBy));
@@ -286,26 +377,20 @@ async function resolveCoachDisplay(p) {
         if (name) return name;
       }
     } catch {}
-    if (isLikelyEmail(createdBy)) {
+    if (authorEmail) {
       try {
-        const snap = await getDocs(
-          query(
-            collection(db, 'users'),
-            where('email', '==', createdBy),
-            where('role', '==', 'coach')
-          )
-        );
+        const snap = await getDocs(query(collection(db, 'users'), where('email', '==', authorEmail)));
         const name = snap.docs.map((d) => getPersonDisplayName(d.data())).find(Boolean);
         if (name) return name;
       } catch {}
       try {
-        const snap = await getDocs(query(collection(db, 'coachs'), where('email', '==', createdBy)));
+        const snap = await getDocs(query(collection(db, 'coachs'), where('email', '==', authorEmail)));
         const name = snap.docs.map((d) => getPersonDisplayName(d.data())).find(Boolean);
         if (name) return name;
       } catch {}
     }
   }
-  return 'Coach';
+  return authorEmail || getProgrammeAuthorLabel(p);
 }
 
 function getAvgDurationRounded15FromSessions(sessions) {
@@ -951,16 +1036,18 @@ export default function ClientDashboard() {
             toMillis(p.createdOn) ||
             toMillis(p.created_date) ||
             0;
-          const total = getTotalSessionsFromProgrammeDoc(p);
+          const templateTotal = getTotalSessionsFromProgrammeDoc(p);
+          const total = getProgramPlannedSessionTotal(p);
           const nextIndex = 0;
           return {
             ...p,
             sessionsEffectuees: [],
             nomProgramme: getProgrammeDisplayName(p),
-            createdByName: p.createdByName || p.coachName || "",
+            createdByName: getProgrammeAuthorLabel(p),
             _done: 0,
             _doneRaw: 0,
             _total: total,
+            _templateTotal: templateTotal,
             _percent: 0,
             _visualPercent: 0,
             _nextIndex: nextIndex,
@@ -1064,7 +1151,8 @@ export default function ClientDashboard() {
                 return bms - ams;
               })[0] || null;
 
-            const totalPrevues = getTotalSessionsFromProgrammeDoc(p);
+            const templateTotal = getTotalSessionsFromProgrammeDoc(p);
+            const totalPrevues = getProgramPlannedSessionTotal(p);
             let done = 0;
             const finishedIdx = new Set();
             sessionsEffectuees.forEach(s => {
@@ -1079,7 +1167,7 @@ export default function ClientDashboard() {
             const percent = totalPrevues > 0 ? Math.min(100, Math.round((doneForProgress / totalPrevues) * 100)) : 0;
 
 	            const nextIndex = getNextSessionIndexAfterLatest({
-	              totalPrevues,
+	              totalPrevues: templateTotal,
 	              finishedIdx,
 	              latestSessionRecord,
 	            });
@@ -1101,7 +1189,7 @@ export default function ClientDashboard() {
             const resumeSessionLabel = getProgrammeSessionTitle(p, resumeSessionIndex, t);
             const freshNextSessionIndex =
               hasResumePoint && Number.isFinite(latestSessionIndex)
-                ? Math.min(totalPrevues - 1, latestSessionIndex + 1)
+                ? Math.min(Math.max(0, templateTotal - 1), latestSessionIndex + 1)
                 : nextIndex;
             const freshNextSessionLabel = getProgrammeSessionTitle(p, freshNextSessionIndex, t);
             const resumeExerciseCount = getSessionExerciseCount(resumeSession);
@@ -1129,7 +1217,7 @@ export default function ClientDashboard() {
               : percent;
 
             const nomProgramme = getProgrammeDisplayName(p);
-            const coachDisplay = await resolveCoachDisplay(p);
+            const coachDisplay = await resolveCoachDisplay(p, user, clientData);
 
             // ✅ difficulty map (sessionIndex -> rating)
             const difficultyMap = await fetchDifficultyMap({ cId, programmeId: d.id });
@@ -1155,6 +1243,7 @@ export default function ClientDashboard() {
               _done: doneForProgress,
               _doneRaw: done,
               _total: totalPrevues,
+              _templateTotal: templateTotal,
               _percent: percent,
               _visualPercent: visualPercent,
               _nextIndex: nextIndex,
@@ -1570,19 +1659,22 @@ export default function ClientDashboard() {
   const surfaceBgStrong = modeValue("rgba(255,255,255,0.95)", "rgba(11,16,27,0.95)");
   const cardBg = surfaceBgStrong;
   const textColor = modeValue("#111827", "white");
-  const headerBg = modeValue("rgba(248,251,255,0.95)", "rgba(255,255,255,0.03)");
   const borderColor = modeValue("rgba(15,23,42,0.08)", "rgba(255,255,255,0.08)");
   const borderStrong = modeValue("rgba(15,23,42,0.12)", "rgba(255,255,255,0.12)");
-  const offRangeBg = modeValue('#edf2f7','#1f2736');
-  const todayBg = modeValue('#DBEAFE','#183B6B');
   const activeBlue = modeValue("#2563EB", "#7CB7FF");
+  const brandProgressGradient = "linear-gradient(90deg, #1F5EFF 0%, #257CFF 52%, #00B8FF 100%)";
+  const progressTrackBg = modeValue("rgba(15,23,42,0.06)", "rgba(255,255,255,0.08)");
+  const brandProgressSx = {
+    "& > div": {
+      background: brandProgressGradient,
+      borderRadius: "999px",
+    },
+  };
   const warmAccent = modeValue("#0EA5E9", "#7DD3FC");
   const violetAccent = modeValue("#4F46E5", "#A5B4FC");
   const isMobileDashboard = useBreakpointValue({ base: true, md: false });
-  const mobileHeroBg = modeValue(
-    "linear-gradient(145deg, #0F172A 0%, #1D4ED8 56%, #0EA5E9 135%)",
-    "linear-gradient(145deg, #020617 0%, #1E3A8A 58%, #0369A1 135%)"
-  );
+  const mobileHeroText = modeValue("#111827", "white");
+  const mobileHeroMuted = modeValue("rgba(17,24,39,0.68)", "rgba(255,255,255,0.80)");
 
   // ⭐ map programmeId -> difficultyMap (sessionIndex -> {rating,...})
   const difficultyByProgramme = useMemo(() => {
@@ -1898,33 +1990,46 @@ export default function ClientDashboard() {
   const nutritionTodayText = !hasNutritionFollowUp
     ? ""
     : nutritionSummary?.kcal
-      ? t("auto.Clientdashboard.rappel_nutrition_kcal", "Côté nutrition, consulte ton menu et garde ton repère de {{kcal}} kcal en tête.", {
+      ? t("auto.Clientdashboard.rappel_nutrition_kcal", "Ton menu du jour t’attend — repère : {{kcal}} kcal.", {
           kcal: Math.round(Number(nutritionSummary.kcal)),
         })
-      : t("auto.Clientdashboard.rappel_nutrition", "Côté nutrition, consulte ton menu et les conseils partagés.");
+      : t("auto.Clientdashboard.rappel_nutrition", "Ton menu et tes conseils t’attendent.");
+  const nutritionEncouragementText = nutritionSummary?.kcal
+    ? t("auto.Clientdashboard.encouragement_nutrition_kcal", "Chaque repas compte — ton repère du jour : {{kcal}} kcal.", {
+        kcal: Math.round(Number(nutritionSummary.kcal)),
+      })
+    : t("auto.Clientdashboard.encouragement_nutrition", "Chaque petit choix nourrit ta progression.");
+  const mixedEncouragementText = t(
+    "auto.Clientdashboard.encouragement_mixed",
+    "Nourris ton énergie, lance ta séance — aujourd’hui, tu avances pour toi."
+  );
   const trainingTodayText = allProgramsCompleted
-    ? t("auto.Clientdashboard.bravo_tous_tes_programmes_sont_termines", "Bravo, tous tes programmes sont terminés. C'est le bon moment pour analyser tes résultats et lancer un nouveau cycle.")
+    ? t("auto.Clientdashboard.bravo_tous_tes_programmes_sont_termines", "Bravo, cycle terminé — prêt pour la suite ?")
     : todayOverview.upcoming
-      ? t("auto.Clientdashboard.seance_prevue_aujourd_hui", "Séance prévue aujourd’hui à {{time}} : {{session}}.", {
+      ? t("auto.Clientdashboard.seance_prevue_aujourd_hui", "{{session}} à {{time}} — ton rendez-vous du jour.", {
           time: plannedSessionTime,
           session: plannedSessionLabel,
         })
       : focusProgramme?._hasResumePoint
-        ? t("auto.Clientdashboard.objectif_du_jour_reprendre", "Objectif du jour : reprends {{session}} là où tu t’es arrêté.", {
+        ? t("auto.Clientdashboard.objectif_du_jour_reprendre", "On reprend {{session}} — tu connais déjà le chemin.", {
             session: focusSessionLabel,
           })
         : todayOverview.validated > 0
-          ? t("auto.Clientdashboard.seance_du_jour_terminee", "Ta séance du jour est terminée. Profite maintenant d’un temps de récupération.")
+          ? t("auto.Clientdashboard.seance_du_jour_terminee", "Séance terminée — place à la récupération.")
           : focusProgramme
-            ? t("auto.Clientdashboard.objectif_du_jour_lancer", "Objectif du jour : lance {{session}} pour continuer ton programme.", {
+            ? t("auto.Clientdashboard.objectif_du_jour_lancer", "Prêt pour {{session}} ? Une séance suffit pour avancer.", {
                 session: focusSessionLabel,
               })
-            : t("auto.Clientdashboard.objectif_du_jour_planifier", "Aucune séance n’est prévue aujourd’hui : planifie la prochaine pour garder ton rythme.");
+            : t("auto.Clientdashboard.objectif_du_jour_planifier", "Planifie ta prochaine séance pour garder le rythme.");
   const motivationalText = sportDataPending
     ? t("auto.Clientdashboard.chargement_de_tes_programmes_et_de_ton_suivi", "Chargement de tes programmes et de ton suivi...")
-    : !hasSportPrograms
-      ? nutritionTodayText || t("auto.Clientdashboard.objectif_du_jour_planifier", "Aucune séance n’est prévue aujourd’hui : planifie la prochaine pour garder ton rythme.")
-      : `${trainingTodayText}${nutritionTodayText ? ` ${nutritionTodayText}` : ""}`;
+    : hasMixedFollowUp
+      ? mixedEncouragementText
+      : hasSportPrograms
+        ? trainingTodayText
+        : hasNutritionFollowUp
+          ? nutritionEncouragementText
+          : nutritionTodayText || t("auto.Clientdashboard.objectif_du_jour_planifier", "Planifie ta prochaine séance pour garder le rythme.");
 
   const nextSessionLabel = motivationStats.upcoming?._start
     ? new Date(motivationStats.upcoming._start).toLocaleString(i18n.language || 'fr', {
@@ -1941,12 +2046,18 @@ export default function ClientDashboard() {
     : hasSportPrograms
       ? MdOutlinePlayCircle
       : MdOutlineRestaurantMenu;
+  const hasLowProgressResume =
+    Boolean(focusProgramme?._hasResumePoint) &&
+    Number.isFinite(Number(focusProgramme?._resumePct)) &&
+    Number(focusProgramme._resumePct) < 50;
   const primaryTodayTitle = sportDataPending
     ? t("common.loading", "Chargement")
     : allProgramsCompleted
       ? t("auto.Clientdashboard.nouveau_cycle", "Nouveau cycle")
       : hasSportPrograms
-        ? (focusProgramme?._hasResumePoint
+        ? (hasLowProgressResume
+            ? t("auto.Clientdashboard.lancer_la_seance", "Lancer la séance")
+            : focusProgramme?._hasResumePoint
             ? t("auto.Clientdashboard.reprendre", "Reprendre")
             : Number(focusProgramme?._done || 0) > 0
               ? t("auto.Clientdashboard.seance_suivante", "Séance suivante")
@@ -1959,7 +2070,9 @@ export default function ClientDashboard() {
       : hasSportPrograms
         ? (focusProgramme
             ? `${getProgrammeDisplayName(focusProgramme)} · ${
-                focusProgramme._hasResumePoint
+                hasLowProgressResume
+                  ? focusProgramme._freshNextSessionLabel || getProgrammeSessionTitle(focusProgramme, focusProgramme._freshNextSessionIndex, t)
+                  : focusProgramme._hasResumePoint
                   ? focusProgramme._resumeSessionLabel || getProgrammeSessionTitle(focusProgramme, focusProgramme._resumeSessionIndex, t)
                   : focusProgramme._nextSessionLabel || getProgrammeSessionTitle(focusProgramme, focusProgramme._nextIndex, t)
               }`
@@ -1975,6 +2088,9 @@ export default function ClientDashboard() {
     Boolean(focusProgramme?._hasResumePoint) &&
     Number.isFinite(Number(focusProgramme?._freshNextSessionIndex)) &&
     Number(focusProgramme._freshNextSessionIndex) !== Number(focusProgramme?._resumeSessionIndex);
+  const canResumePreviousLowProgressSession =
+    canStartFreshNextSession &&
+    hasLowProgressResume;
   const handlePrimaryTodayAction = () => {
     if (allProgramsCompleted) {
       navigate('/programmes-premium');
@@ -1989,47 +2105,48 @@ export default function ClientDashboard() {
   };
   const ClientStatTile = ({ label, value, helper, icon, accent = activeBlue, action = null }) => (
     <Box
-      bg={modeValue("rgba(255,255,255,0.78)", "rgba(255,255,255,0.045)")}
+      bg={surfaceBgStrong}
       border="1px solid"
       borderColor={borderColor}
-      borderRadius="18px"
+      borderRadius={{ base: "20px", md: "22px" }}
       p={{ base: 3.5, md: 4 }}
       boxShadow={modeValue("0 10px 28px rgba(15,23,42,0.055)", "none")}
-      minH="116px"
+      minH="112px"
       position="relative"
       overflow="hidden"
     >
-      <Flex justify="space-between" align="flex-start" gap={4} position="relative" zIndex={1}>
-        <Box minW={0}>
-          <Text fontSize="sm" color={mutedText} fontWeight="600" lineHeight="1.2">
-            {label}
-          </Text>
-          <Text mt={2} fontSize={{ base: '2xl', md: '3xl' }} fontWeight="900" letterSpacing="0" lineHeight="1">
-            {value}
-          </Text>
-          {helper ? (
-            <Text mt={2.5} fontSize="sm" color={subtleText} lineHeight="1.35">
-              {helper}
+      <Flex justify="space-between" align="center" gap={4} position="relative" zIndex={1} minH="58px">
+        <HStack spacing={3} minW={0} align="center">
+          <Flex
+            w="44px"
+            h="44px"
+            borderRadius="14px"
+            bg={modeValue("rgba(15,23,42,0.035)", "rgba(255,255,255,0.045)")}
+            border="1px solid"
+            borderColor={borderColor}
+            color={accent}
+            align="center"
+            justify="center"
+            flexShrink={0}
+          >
+            <Icon as={icon} boxSize="21px" />
+          </Flex>
+          <Box minW={0}>
+            <Text fontSize={{ base: "md", md: "lg" }} color={textColor} fontWeight="900" lineHeight="1.15">
+              {label}
             </Text>
-          ) : null}
-          {action ? (
-            <Box mt={3}>
-              {action}
-            </Box>
-          ) : null}
-        </Box>
-
-        <Circle
-          size="46px"
-          bg={`${accent}18`}
-          border="1px solid"
-          borderColor={`${accent}33`}
-          color={accent}
-          flexShrink={0}
-        >
-          <Icon as={icon} boxSize="22px" />
-        </Circle>
+            {helper ? (
+              <Text mt={1} fontSize="sm" color={subtleText} lineHeight="1.3" noOfLines={2}>
+                {helper}
+              </Text>
+            ) : null}
+          </Box>
+        </HStack>
+        <Text fontSize={{ base: "2xl", md: "3xl" }} fontWeight="950" letterSpacing="-0.04em" lineHeight="1" flexShrink={0}>
+          {value}
+        </Text>
       </Flex>
+      {action ? <Box mt={3}>{action}</Box> : null}
     </Box>
   );
 
@@ -2038,10 +2155,8 @@ export default function ClientDashboard() {
       bg={surfaceBgStrong}
       border="1px solid"
       borderColor={borderColor}
-      borderTop="3px solid"
-      borderTopColor={accent}
-      borderRadius="20px"
-      p={{ base: 3.5, md: 4 }}
+      borderRadius={{ base: "20px", md: "22px" }}
+      p={{ base: 3, md: 4 }}
       boxShadow={glassShadow}
       backdropFilter="blur(14px)"
       minH={minH}
@@ -2052,17 +2167,12 @@ export default function ClientDashboard() {
       <Flex justify="space-between" align="flex-start" gap={4} mb={4} position="relative" zIndex={1}>
         <HStack spacing={3} align="flex-start">
           {icon ? (
-            <Circle
-              size="40px"
-              bg={`${accent}20`}
-              color={accent}
-              flexShrink={0}
-            >
+            <Circle size="40px" bg={modeValue("rgba(59,130,246,0.10)", "rgba(59,130,246,0.16)")} color={accent} flexShrink={0}>
               <Icon as={icon} boxSize="20px" />
             </Circle>
           ) : null}
           <Box>
-            <Heading size="md" letterSpacing="0">
+            <Heading size="md" letterSpacing="-0.02em" fontWeight="900">
               {title}
             </Heading>
             {subtitle ? (
@@ -2072,7 +2182,29 @@ export default function ClientDashboard() {
             ) : null}
           </Box>
         </HStack>
-        {action}
+        {React.isValidElement(action)
+          ? React.cloneElement(action, {
+              h: "40px",
+              w: { base: "112px", md: "auto" },
+              minW: "112px",
+              px: 4,
+              borderRadius: "full",
+              variant: "outline",
+              bg: modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.08)"),
+              borderColor,
+              color: textColor,
+              fontFamily: "inherit",
+              fontSize: "sm",
+              fontWeight: "800",
+              letterSpacing: "-0.01em",
+              lineHeight: "1",
+              boxShadow: "none",
+              _hover: {
+                bg: modeValue("rgba(15,23,42,0.08)", "rgba(255,255,255,0.13)"),
+                borderColor,
+              },
+            })
+          : action}
       </Flex>
       <Box position="relative" zIndex={1}>{children}</Box>
     </Box>
@@ -2080,49 +2212,50 @@ export default function ClientDashboard() {
 
   const DashboardAction = ({ icon, title, helper, onClick, variant = "solid", isDisabled = false }) => {
     const isSolid = variant === "solid";
-    const solidBg = modeValue(activeBlue, "rgba(124,183,255,0.18)");
-    const solidHoverBg = modeValue("#1D4ED8", "rgba(124,183,255,0.26)");
-    const solidBorder = modeValue(activeBlue, "rgba(124,183,255,0.45)");
+    const solidBg = modeValue("#0F172A", "#111827");
+    const solidHoverBg = modeValue("#1E293B", "#1F2937");
+    const solidBorder = modeValue("rgba(15,23,42,0.82)", "rgba(255,255,255,0.14)");
     return (
       <Button
-        h="auto"
-        minH="64px"
+        h="100%"
+        minH="92px"
+        w="full"
         justifyContent="flex-start"
         alignItems="center"
+        flexDirection="row"
         gap={3}
-        px={4}
-        py={3}
-        borderRadius="18px"
+        px={3.5}
+        py={2.5}
+        borderRadius="14px"
         whiteSpace="normal"
         textAlign="left"
-        leftIcon={
-          <Circle
-            size="34px"
-            bg={isSolid ? modeValue("rgba(255,255,255,0.18)", "rgba(124,183,255,0.18)") : `${activeBlue}18`}
-            color={isSolid ? modeValue("white", activeBlue) : activeBlue}
-            flexShrink={0}
-          >
-            <Icon as={icon} boxSize="18px" />
-          </Circle>
-        }
         bg={isSolid ? solidBg : modeValue("rgba(255,255,255,0.66)", "rgba(255,255,255,0.04)")}
         color={isSolid ? "white" : textColor}
         border="1px solid"
         borderColor={isSolid ? solidBorder : borderColor}
-        _hover={isDisabled ? undefined : {
-          transform: "translateY(-1px)",
-          bg: isSolid ? solidHoverBg : modeValue("white", "rgba(255,255,255,0.075)"),
-        }}
-        _active={{ transform: "translateY(0)" }}
+        boxShadow={isSolid ? modeValue("0 10px 22px rgba(15,23,42,0.14)", "none") : "none"}
+        _hover={isDisabled ? undefined : { bg: isSolid ? solidHoverBg : modeValue("white", "rgba(255,255,255,0.075)") }}
         onClick={onClick}
         isDisabled={isDisabled}
       >
-        <Box>
-          <Text as="span" display="block" fontSize="sm" fontWeight="900" lineHeight="1.2">
+        <Flex
+          w="36px"
+          h="36px"
+          borderRadius="11px"
+          bg={isSolid ? modeValue("rgba(255,255,255,0.18)", "rgba(124,183,255,0.18)") : `${activeBlue}18`}
+          color={isSolid ? modeValue("white", activeBlue) : activeBlue}
+          align="center"
+          justify="center"
+          flexShrink={0}
+        >
+          <Icon as={icon} boxSize="18px" />
+        </Flex>
+        <Box minW={0} flex="1">
+          <Text as="span" display="block" fontSize="sm" fontWeight="850" lineHeight="1.15" noOfLines={2}>
             {title}
           </Text>
           {helper ? (
-            <Text as="span" display="block" mt={1} fontSize="xs" fontWeight="600" color={isSolid ? "whiteAlpha.800" : subtleText} lineHeight="1.25">
+            <Text as="span" display="block" mt={0.5} fontSize="xs" fontWeight="600" color={isSolid ? "whiteAlpha.800" : subtleText} lineHeight="1.2" noOfLines={2}>
               {helper}
             </Text>
           ) : null}
@@ -2142,9 +2275,9 @@ export default function ClientDashboard() {
       _last={{ borderBottom: 0, pb: 0 }}
     >
       <HStack spacing={3} minW={0}>
-        <Circle size="38px" bg={`${accent}18`} color={accent} flexShrink={0}>
+        <Flex w="40px" h="40px" borderRadius="14px" bg={modeValue("rgba(15,23,42,0.035)", "rgba(255,255,255,0.045)")} border="1px solid" borderColor={borderColor} color={accent} align="center" justify="center" flexShrink={0}>
           <Icon as={icon} boxSize="19px" />
-        </Circle>
+        </Flex>
         <Box minW={0}>
           <Text fontWeight="800" noOfLines={1}>{label}</Text>
           {helper ? <Text fontSize="sm" color={subtleText} noOfLines={1}>{helper}</Text> : null}
@@ -2168,9 +2301,9 @@ export default function ClientDashboard() {
       _last={{ borderBottom: 0, pb: 0 }}
     >
       <HStack spacing={3} minW={0} align="flex-start">
-        <Circle size="40px" bg={`${accent}18`} color={accent} flexShrink={0}>
+        <Flex w="40px" h="40px" borderRadius="14px" bg={modeValue("rgba(15,23,42,0.035)", "rgba(255,255,255,0.045)")} border="1px solid" borderColor={borderColor} color={accent} align="center" justify="center" flexShrink={0}>
           <Icon as={icon} boxSize="20px" />
-        </Circle>
+        </Flex>
         <Box minW={0}>
           <Text fontSize="sm" color={subtleText} fontWeight="800">{label}</Text>
           <Text mt={1} fontSize="md" fontWeight="900" noOfLines={2}>{value}</Text>
@@ -2181,7 +2314,7 @@ export default function ClientDashboard() {
         <Button
           size="sm"
           variant="outline"
-          borderRadius="14px"
+          borderRadius="full"
           onClick={onClick}
           isDisabled={isDisabled}
           flexShrink={0}
@@ -2195,33 +2328,51 @@ export default function ClientDashboard() {
   if (!user) return <AppLoading label={t("common.loading", "Chargement...")} />;
 
   return (
-    <Box data-tour-page="client-dashboard" bg={pageBg} minH="100vh" p={{base:3,md:6}} color={textColor} position="relative">
+    <Box
+      data-tour-page="client-dashboard"
+      bg={pageBg}
+      minH="100vh"
+      p={{ base: 3, md: 4 }}
+      color={textColor}
+      position="relative"
+      sx={{ "& [role='button']": { cursor: "pointer" } }}
+    >
       <Box position="relative" zIndex={1}>
-      <Box mb={5}>
+      <Box mb={4}>
           <Box
             bg={surfaceBgStrong}
+            bgImage={modeValue(
+              "linear-gradient(112deg, rgba(255,255,255,0.98) 0%, rgba(239,246,255,0.98) 58%, rgba(224,242,254,0.92) 100%)",
+              "linear-gradient(180deg, rgba(11,16,27,0.99) 0%, rgba(15,21,35,0.97) 100%)"
+            )}
             border="1px solid"
-            borderColor={borderStrong}
-            p={{ base: 3.5, md: 5 }}
-            borderRadius={{ base: "20px", md: "24px" }}
-            boxShadow={glassShadow}
+            borderColor={modeValue("rgba(59,130,246,0.22)", "rgba(255,255,255,0.12)")}
+            p={{ base: 3, md: 3 }}
+            borderRadius={{ base: "22px", md: "24px" }}
+            boxShadow={modeValue("0 12px 30px rgba(37,99,235,0.08)", "0 14px 36px rgba(0,0,0,0.22)")}
             position="relative"
             overflow="hidden"
           >
             <Flex
               position="relative"
               zIndex={1}
-              direction={{ base: 'column', xl: 'row' }}
+              direction={{ base: 'column', lg: 'row' }}
               justify="space-between"
-              align={{ base: 'stretch', xl: 'stretch' }}
-              gap={{ base: 4, lg: 5 }}
+              align={{ base: 'stretch', lg: 'stretch' }}
+              gap={{ base: 3, lg: 3 }}
             >
-              <Flex align="flex-start" gap={3.5} minW={0} flex="1.15">
+              <Box minW={0} flex="1.15">
                 <Flex
-                  display={{ base: "none", sm: "flex" }}
-                  w={{ base: "48px", md: "64px" }}
-                  h={{ base: "48px", md: "64px" }}
-                  borderRadius="18px"
+                  align={{ base: "center", md: "flex-start" }}
+                  direction={{ base: "column", md: "row" }}
+                  textAlign={{ base: "center", md: "left" }}
+                  gap={{ base: 2, md: 3 }}
+                >
+                  <Flex
+                  display={{ base: "none", md: "flex" }}
+                  w={{ base: "50px", md: "56px" }}
+                  h={{ base: "50px", md: "56px" }}
+                  borderRadius={{ base: "15px", md: "16px" }}
                   bg={modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")}
                   border="1px solid"
                   borderColor={borderStrong}
@@ -2241,40 +2392,48 @@ export default function ClientDashboard() {
                     objectFit="contain"
                   />
                 </Flex>
-                <Box minW={0}>
-                    <Text fontSize="xs" fontWeight="900" color={subtleText} textTransform="uppercase" letterSpacing="0">{t("auto.Clientdashboard.tableau_de_bord_client", "Tableau de bord client")}</Text>
-                    <Heading mt={1.5} size={{ base: 'md', md: 'lg' }} lineHeight="1.08" letterSpacing="0" color={textColor}>
-                      {t('client_dash.hello_name', { name: firstName || user.displayName || t('client_dash.client') })}
+                  <Box minW={0} w="full">
+                    <Heading size={{ base: 'md', md: 'md' }} lineHeight="1.08" letterSpacing="-0.025em" color={textColor}>
+                      {t('client_dash.hello_name', { name: firstName || user.displayName || t('client_dash.client') })} 👋
                     </Heading>
-                    <Text mt={{ base: 2, md: 2.5 }} fontSize={{ base: 'sm', md: 'lg' }} color={mutedText} fontWeight="650" lineHeight="1.45" maxW="760px">
+                    <Text
+                      mt={{ base: 1.5, md: 1.5 }}
+                      mx={{ base: "auto", md: 0 }}
+                      fontSize={{ base: 'sm', md: 'md' }}
+                      color={mutedText}
+                      fontWeight="550"
+                      lineHeight="1.35"
+                      maxW="760px"
+                    >
                       {motivationalText}
                     </Text>
 
                     <Box display={{ base: "block", md: "none" }} mt={4}>
                       <Box
-                        bg={mobileHeroBg}
-                        color="white"
-                        borderRadius="24px"
-                        p={4}
-                        boxShadow={modeValue("0 18px 44px rgba(29,78,216,0.22)", "0 18px 46px rgba(0,0,0,0.42)")}
+                        color={mobileHeroText}
+                        px={{ base: 0, sm: 2 }}
                       >
-                        <HStack justify="space-between" align="flex-start" spacing={3}>
+                        <VStack spacing={1.5} textAlign="center">
                           <Box minW={0}>
-                            <Text fontSize="xs" fontWeight="900" textTransform="uppercase" color="whiteAlpha.760">
-                              {t("calendar.today", "Aujourd'hui")}
-                            </Text>
-                            <Heading mt={1.5} size="md" lineHeight="1.08" noOfLines={2}>
+                            <HStack spacing={2.5} justify="center">
+                              <Box w="28px" h="1px" bg={modeValue("rgba(59,130,246,0.38)", "rgba(147,197,253,0.46)")} />
+                              <Text fontSize="xs" fontWeight="900" textTransform="uppercase" color={mobileHeroMuted}>
+                                {t("calendar.today", "Aujourd'hui")}
+                              </Text>
+                              <Box w="28px" h="1px" bg={modeValue("rgba(59,130,246,0.38)", "rgba(147,197,253,0.46)")} />
+                            </HStack>
+                            <Heading mt={1} size="md" lineHeight="1.08" noOfLines={2}>
                               {primaryTodayTitle}
                             </Heading>
-                            <Text mt={2} fontSize="sm" color="whiteAlpha.820" fontWeight="650" noOfLines={2}>
+                            <Text mt={1.5} fontSize="sm" color={mobileHeroMuted} fontWeight="650" noOfLines={2}>
                               {primaryTodayHelper}
                             </Text>
                             {(primaryTodayDurationLabel || primaryTodayWeekLabel) && (
-                              <HStack mt={3} spacing={2} flexWrap="wrap">
+                              <HStack mt={2.5} spacing={2} flexWrap="wrap" justify="center">
                                 {primaryTodayDurationLabel ? (
                                   <Badge
-                                    bg="whiteAlpha.220"
-                                    color="white"
+                                    bg={modeValue("rgba(59,130,246,0.10)", "whiteAlpha.220")}
+                                    color={mobileHeroText}
                                     borderRadius="full"
                                     px={2.5}
                                     py={1}
@@ -2285,8 +2444,8 @@ export default function ClientDashboard() {
                                 ) : null}
                                 {primaryTodayWeekLabel ? (
                                   <Badge
-                                    bg="whiteAlpha.220"
-                                    color="white"
+                                    bg={modeValue("rgba(59,130,246,0.10)", "whiteAlpha.220")}
+                                    color={mobileHeroText}
                                     borderRadius="full"
                                     px={2.5}
                                     py={1}
@@ -2298,45 +2457,43 @@ export default function ClientDashboard() {
                               </HStack>
                             )}
                           </Box>
-                          <Circle size="48px" bg="whiteAlpha.220" color="white" flexShrink={0}>
-                            <Icon as={primaryTodayIcon} boxSize="24px" />
-                          </Circle>
-                        </HStack>
+                        </VStack>
 
                         <Stack mt={4} spacing={2}>
-                          {canStartFreshNextSession ? (
+                          {canResumePreviousLowProgressSession ? (
                             <>
                               <Button
                                 w="full"
                                 h="48px"
                                 borderRadius="16px"
-                                bg="white"
-                                color="#0F172A"
+                                bg={modeValue("#0F172A", "#F8FAFC")}
+                                color={modeValue("white", "#0F172A")}
                                 fontWeight="900"
                                 leftIcon={<Icon as={MdOutlineFitnessCenter} />}
                                 onClick={() => startUpcomingSession(focusProgramme)}
                                 isDisabled={!focusProgramme._total}
-                                _hover={{ bg: "whiteAlpha.900" }}
-                                _active={{ bg: "whiteAlpha.800" }}
+                                boxShadow={modeValue("none", "0 10px 28px rgba(0,0,0,0.28)")}
+                                _hover={{ bg: modeValue("#1E293B", "#E2E8F0") }}
+                                _active={{ bg: modeValue("#020617", "#CBD5E1") }}
                               >
-                                {focusProgramme?._freshNextSessionLabel || t("auto.Clientdashboard.seance_suivante", "Séance suivante")}
+                                {t("auto.Clientdashboard.lancer_la_seance", "Lancer la séance")}
                               </Button>
                               <Button
                                 w="full"
                                 h="42px"
                                 borderRadius="14px"
                                 variant="outline"
-                                borderColor="whiteAlpha.420"
-                                color="white"
-                                bg="whiteAlpha.120"
+                                borderColor={modeValue("rgba(15,23,42,0.14)", "whiteAlpha.420")}
+                                color={mobileHeroText}
+                                bg={modeValue("rgba(255,255,255,0.72)", "whiteAlpha.120")}
                                 fontWeight="850"
                                 leftIcon={<Icon as={primaryTodayIcon} />}
                                 onClick={handlePrimaryTodayAction}
                                 isDisabled={sportDataPending || (!allProgramsCompleted && hasSportPrograms && !focusProgramme && !programmes.length)}
-                                _hover={{ bg: "whiteAlpha.220" }}
-                                _active={{ bg: "whiteAlpha.260" }}
+                                _hover={{ bg: modeValue("white", "whiteAlpha.220") }}
+                                _active={{ bg: modeValue("rgba(255,255,255,0.86)", "whiteAlpha.260") }}
                               >
-                                {primaryTodayTitle}
+                                {t("auto.Clientdashboard.reprendre_la_seance", "Reprendre la séance")}
                               </Button>
                             </>
                           ) : (
@@ -2344,39 +2501,40 @@ export default function ClientDashboard() {
                               w="full"
                               h="48px"
                               borderRadius="16px"
-                              bg="white"
-                              color="#0F172A"
+                              bg={modeValue("#0F172A", "#F8FAFC")}
+                              color={modeValue("white", "#0F172A")}
                               fontWeight="900"
                               leftIcon={<Icon as={primaryTodayIcon} />}
                               onClick={handlePrimaryTodayAction}
                               isDisabled={sportDataPending || (!allProgramsCompleted && hasSportPrograms && !focusProgramme && !programmes.length)}
-                              _hover={{ bg: "whiteAlpha.900" }}
-                              _active={{ bg: "whiteAlpha.800" }}
+                              boxShadow={modeValue("none", "0 10px 28px rgba(0,0,0,0.28)")}
+                              _hover={{ bg: modeValue("#1E293B", "#E2E8F0") }}
+                              _active={{ bg: modeValue("#020617", "#CBD5E1") }}
                             >
                               {primaryTodayTitle}
                             </Button>
                           )}
                         </Stack>
 
-                        <SimpleGrid columns={3} spacing={2.5} mt={4}>
-                          <Box>
-                            <Text fontSize="xs" color="whiteAlpha.680" fontWeight="800">
+                        <SimpleGrid columns={3} spacing={2.5} mt={4} textAlign="center">
+                          <Box minW={0}>
+                            <Text fontSize="xs" color={mobileHeroMuted} fontWeight="800">
                               {t("auto.Clientdashboard.progression", "Progression")}
                             </Text>
                             <Text mt={1} fontSize="lg" fontWeight="900" lineHeight="1">
                               {sportDataPending ? "..." : hasSportPrograms ? `${motivationStats.percentAll}%` : t("auto.Clientdashboard.actif_status", "Actif")}
                             </Text>
                           </Box>
-                          <Box>
-                            <Text fontSize="xs" color="whiteAlpha.680" fontWeight="800">
+                          <Box minW={0}>
+                            <Text fontSize="xs" color={mobileHeroMuted} fontWeight="800">
                               {t("auto.Clientdashboard.planifiees", "Planifiées")}
                             </Text>
                             <Text mt={1} fontSize="lg" fontWeight="900" lineHeight="1">
                               {sportDataPending ? "..." : hasSportPrograms ? todayOverview.planned : "OK"}
                             </Text>
                           </Box>
-                          <Box>
-                            <Text fontSize="xs" color="whiteAlpha.680" fontWeight="800">
+                          <Box minW={0}>
+                            <Text fontSize="xs" color={mobileHeroMuted} fontWeight="800">
                               {hasSportPrograms ? t("auto.Clientdashboard.restant", "Restant") : t("nutrition.title", "Nutrition")}
                             </Text>
                             <Text mt={1} fontSize="lg" fontWeight="900" lineHeight="1">
@@ -2401,7 +2559,10 @@ export default function ClientDashboard() {
                       </Button>
                     </Box>
 
-                    <SimpleGrid display={{ base: "none", md: "grid" }} columns={{ base: 1, sm: 2, lg: hasMixedFollowUp ? 5 : 4 }} spacing={2.5} mt={4} maxW={hasMixedFollowUp ? "1120px" : "980px"}>
+                  </Box>
+                </Flex>
+
+                <SimpleGrid display={{ base: "none", md: "grid" }} columns={{ base: 1, sm: 2, lg: hasMixedFollowUp ? 3 : 2 }} spacing={2} mt={3} w="full" alignItems="stretch">
                       <DashboardAction
                         icon={allProgramsCompleted ? MdOutlineStars : hasSportPrograms ? MdOutlinePlayCircle : MdOutlineRestaurantMenu}
                         title={
@@ -2426,16 +2587,6 @@ export default function ClientDashboard() {
                         onClick={() => allProgramsCompleted ? navigate('/programmes-premium') : hasSportPrograms ? (focusProgramme ? startNextSession(focusProgramme) : navigate('/mes-programmes')) : navigate('/nutrition')}
                         isDisabled={sportDataPending || (!allProgramsCompleted && hasSportPrograms && !focusProgramme && !programmes.length)}
                       />
-                      {hasSportPrograms ? (
-                        <DashboardAction
-                          icon={MdOutlineFitnessCenter}
-                          title={sportDataPending ? t("auto.Clientdashboard.seance_suivante", "Séance suivante") : allProgramsCompleted ? t("auto.Clientdashboard.entretenir", "Entretenir") : t("auto.Clientdashboard.seance_suivante", "Séance suivante")}
-                          helper={sportDataPending ? t("common.loading", "Chargement") : allProgramsCompleted ? t("auto.Clientdashboard.planifier_une_seance_libre", "Planifier une séance libre") : focusProgramme ? t("auto.Clientdashboard.depart_propre", "Départ propre") : t("auto.Clientdashboard.choisir_un_programme", "Choisir un programme")}
-                          variant={focusProgramme?._hasResumePoint ? "solid" : "outline"}
-                          onClick={() => allProgramsCompleted ? setAddOpen(true) : focusProgramme ? startUpcomingSession(focusProgramme) : navigate('/mes-programmes')}
-                          isDisabled={sportDataPending || (!allProgramsCompleted && !focusProgramme && !programmes.length)}
-                        />
-                      ) : null}
                       {hasMixedFollowUp ? (
                         <DashboardAction
                           icon={MdOutlineRestaurantMenu}
@@ -2454,32 +2605,24 @@ export default function ClientDashboard() {
                         onClick={() => allProgramsCompleted ? navigate('/statistiques') : hasSportPrograms ? setAddOpen(true) : navigate('/nutrition?tab=menu')}
                         isDisabled={sportDataPending}
                       />
-                      <DashboardAction
-                        icon={allProgramsCompleted ? MdOutlineFitnessCenter : MdOutlineInsights}
-                        title={sportDataPending ? t("auto.Clientdashboard.statistiques", "Statistiques") : allProgramsCompleted ? t("auto.Clientdashboard.programmes", "Programmes") : hasSportPrograms ? t("auto.ClubDashboard.voir_les_stats", "Voir les stats") : t("auto.Clientdashboard.liste_de_courses", "Liste de courses")}
-                        helper={sportDataPending ? t("auto.Clientdashboard.calcul_en_cours", "Calcul en cours") : allProgramsCompleted ? t("auto.Clientdashboard.revoir_tes_cycles", "Revoir tes cycles") : hasSportPrograms ? t("auto.Clientdashboard.seances_ce_mois_ci", "{{count}} séance ce mois-ci", { count: motivationStats.validatedThisMonth }) : t("auto.Clientdashboard.preparer_les_achats", "Préparer les achats")}
-                        variant="outline"
-                        onClick={() => navigate(allProgramsCompleted ? '/mes-programmes' : hasSportPrograms ? '/statistiques' : '/nutrition?tab=shoppingList')}
-                        isDisabled={sportDataPending}
-                      />
-                    </SimpleGrid>
-                </Box>
-              </Flex>
+                </SimpleGrid>
+              </Box>
 
               <Flex
-                direction="column"
-                gap={2.5}
+                direction={{ md: "row", lg: "column" }}
+                gap={2}
                 align="stretch"
-                minW={{ base: "100%", xl: "360px" }}
+                minW={{ base: "100%", lg: "330px", xl: "350px" }}
+                w={{ md: "100%", lg: "auto" }}
                 flexShrink={0}
                 display={{ base: "none", md: "flex" }}
               >
                 <Box
                   as="button"
                   type="button"
-                  px={4}
-                  py={3}
-                  borderRadius="18px"
+                  px={3}
+                  py={2.5}
+                  borderRadius="14px"
                   bg={modeValue("rgba(15,23,42,0.03)", "rgba(255,255,255,0.04)")}
                   border="1px solid"
                   borderColor={borderColor}
@@ -2488,22 +2631,23 @@ export default function ClientDashboard() {
                   transition="all 0.2s ease"
                   onClick={sportDataPending ? undefined : () => navigate(hasSportPrograms ? '/mes-programmes' : '/nutrition')}
                   _hover={sportDataPending ? undefined : { borderColor: borderStrong, transform: "translateY(-1px)" }}
+                  flex={{ md: "1.6", lg: "1.15" }}
                 >
                   <HStack justify="space-between" align="center">
                     <Box>
                       <Text fontSize="xs" color={subtleText} fontWeight="900" textTransform="uppercase">
                         {allProgramsCompleted ? t("auto.Clientdashboard.cycle_termine", "Cycle terminé") : hasSportPrograms ? t("auto.Clientdashboard.progression_globale", "Progression globale") : t("auto.Clientdashboard.plan_nutrition", "Plan nutrition")}
                       </Text>
-                      <Text mt={1.5} fontWeight="900" fontSize="3xl" lineHeight="1">
+                      <Text mt={1} fontWeight="900" fontSize="2xl" lineHeight="1">
                         {sportDataPending ? "..." : hasSportPrograms ? `${motivationStats.percentAll}%` : t("auto.Clientdashboard.actif_status", "Actif")}
                       </Text>
                     </Box>
-                    <Circle size="58px" bg={`${activeBlue}18`} color={activeBlue}>
-                      <Icon as={allProgramsCompleted ? MdOutlineStars : hasSportPrograms ? MdOutlineFlag : MdOutlineRestaurantMenu} boxSize="26px" />
+                    <Circle size="46px" bg={`${activeBlue}18`} color={activeBlue}>
+                      <Icon as={allProgramsCompleted ? MdOutlineStars : hasSportPrograms ? MdOutlineFlag : MdOutlineRestaurantMenu} boxSize="22px" />
                     </Circle>
                   </HStack>
-                  <Progress mt={3} value={sportDataPending ? 12 : hasSportPrograms ? motivationStats.percentAll : 100} size="sm" borderRadius="full" isIndeterminate={sportDataPending} />
-                  <Text mt={2} fontSize="sm" color={mutedText}>
+                  <Progress mt={2} value={sportDataPending ? 12 : hasSportPrograms ? motivationStats.percentAll : 100} size="sm" borderRadius="full" isIndeterminate={sportDataPending} bg={progressTrackBg} sx={brandProgressSx} />
+                  <Text mt={1.5} fontSize="sm" color={mutedText}>
                     {sportDataPending
                       ? t("auto.Clientdashboard.recuperation_de_tes_programmes", "Récupération de tes programmes...")
                       : allProgramsCompleted
@@ -2514,13 +2658,13 @@ export default function ClientDashboard() {
                   </Text>
                 </Box>
 
-                <SimpleGrid columns={2} spacing={2.5}>
+                <SimpleGrid columns={2} spacing={2} flex="1">
                   <Box
                     as="button"
                     type="button"
-                    px={3.5}
-                    py={3}
-                    borderRadius="16px"
+                    px={3}
+                    py={2.5}
+                    borderRadius="14px"
                     border="1px solid"
                     borderColor={borderColor}
                     textAlign="left"
@@ -2529,24 +2673,28 @@ export default function ClientDashboard() {
                     onClick={sportDataPending ? undefined : () => hasSportPrograms ? setAddOpen(true) : navigate('/nutrition?tab=menu')}
                     _hover={sportDataPending ? undefined : { borderColor: borderStrong, transform: "translateY(-1px)" }}
                   >
-                    <Text fontSize="xs" color={subtleText} fontWeight="800">{t("calendar.today", "Aujourd'hui")}</Text>
-                    <Text mt={1} fontWeight="900" fontSize="xl">
-                      {sportDataPending ? "..." : hasSportPrograms ? todayOverview.validated : t("auto.Clientdashboard.pret", "Prêt")}
-                    </Text>
-                    <Text fontSize="xs" color={mutedText} noOfLines={1}>
-                      {sportDataPending
-                        ? t("auto.Clientdashboard.chargement", "chargement")
-                        : hasSportPrograms
-                        ? t("auto.Clientdashboard.seances_prevues_count", "{{count}} séance prévue", { count: todayOverview.planned })
-                        : t("auto.Clientdashboard.suivi_disponible", "suivi disponible")}
-                    </Text>
+                    <Flex align="center" justify="space-between" gap={3} minH="44px">
+                      <Box minW={0}>
+                        <Text fontSize="md" color={textColor} fontWeight="900" lineHeight="1.15">{t("calendar.today", "Aujourd'hui")}</Text>
+                        <Text mt={1} fontSize="sm" color={mutedText} noOfLines={1}>
+                          {sportDataPending
+                            ? t("auto.Clientdashboard.chargement", "chargement")
+                            : hasSportPrograms
+                            ? t("auto.Clientdashboard.seances_prevues_count", "{{count}} séance prévue", { count: todayOverview.planned })
+                            : t("auto.Clientdashboard.suivi_disponible", "suivi disponible")}
+                        </Text>
+                      </Box>
+                      <Text fontWeight="950" fontSize="2xl" lineHeight="1" letterSpacing="-0.04em" flexShrink={0}>
+                        {sportDataPending ? "..." : hasSportPrograms ? todayOverview.validated : t("auto.Clientdashboard.pret", "Prêt")}
+                      </Text>
+                    </Flex>
                   </Box>
                   <Box
                     as="button"
                     type="button"
-                    px={3.5}
-                    py={3}
-                    borderRadius="16px"
+                    px={3}
+                    py={2.5}
+                    borderRadius="14px"
                     border="1px solid"
                     borderColor={borderColor}
                     textAlign="left"
@@ -2555,15 +2703,19 @@ export default function ClientDashboard() {
                     onClick={sportDataPending ? undefined : () => navigate(hasSportPrograms ? '/mes-programmes' : '/nutrition?tab=shoppingList')}
                     _hover={sportDataPending ? undefined : { borderColor: borderStrong, transform: "translateY(-1px)" }}
                   >
-                    <Text fontSize="xs" color={subtleText} fontWeight="800">
-                      {allProgramsCompleted ? t("sessionPlayer.done", "Terminé") : hasSportPrograms ? t("auto.Clientdashboard.restant", "Restant") : t("auto.Clientdashboard.courses", "Courses")}
-                    </Text>
-                    <Text mt={1} fontWeight="900" fontSize="xl">
-                      {sportDataPending ? "..." : allProgramsCompleted ? t("common.yes", "Oui") : hasSportPrograms ? remainingSessions : "OK"}
-                    </Text>
-                    <Text fontSize="xs" color={mutedText} noOfLines={1}>
-                      {sportDataPending ? t("auto.Clientdashboard.chargement", "chargement") : allProgramsCompleted ? t("auto.Clientdashboard.pret_pour_la_suite", "prêt pour la suite") : hasSportPrograms ? t("auto.Clientdashboard.seances_a_faire", "séances à faire") : t("auto.Clientdashboard.liste_partagee", "liste partagée")}
-                    </Text>
+                    <Flex align="center" justify="space-between" gap={3} minH="44px">
+                      <Box minW={0}>
+                        <Text fontSize="md" color={textColor} fontWeight="900" lineHeight="1.15">
+                          {allProgramsCompleted ? t("sessionPlayer.done", "Terminé") : hasSportPrograms ? t("auto.Clientdashboard.restant", "Restant") : t("auto.Clientdashboard.courses", "Courses")}
+                        </Text>
+                        <Text mt={1} fontSize="sm" color={mutedText} noOfLines={1}>
+                          {sportDataPending ? t("auto.Clientdashboard.chargement", "chargement") : allProgramsCompleted ? t("auto.Clientdashboard.pret_pour_la_suite", "prêt pour la suite") : hasSportPrograms ? t("auto.Clientdashboard.seances_a_faire", "séances à faire") : t("auto.Clientdashboard.liste_partagee", "liste partagée")}
+                        </Text>
+                      </Box>
+                      <Text fontWeight="950" fontSize="2xl" lineHeight="1" letterSpacing="-0.04em" flexShrink={0}>
+                        {sportDataPending ? "..." : allProgramsCompleted ? t("common.yes", "Oui") : hasSportPrograms ? remainingSessions : "OK"}
+                      </Text>
+                    </Flex>
                   </Box>
                 </SimpleGrid>
               </Flex>
@@ -2694,8 +2846,8 @@ export default function ClientDashboard() {
         />
       </SimpleGrid>
 
-      <SimpleGrid display={{ base: "none", md: showSportSections ? "grid" : "none" }} columns={{ base: 1, xl: 12 }} spacing={5} mb={5}>
-        <Box gridColumn={{ base: 'span 1', xl: 'span 4' }}>
+      <SimpleGrid display={{ base: "none", md: showSportSections ? "grid" : "none" }} columns={{ base: 1, lg: 12 }} spacing={5} mb={5}>
+        <Box gridColumn={{ base: 'span 1', lg: 'span 4' }}>
           <ClientCardShell
             title={t("auto.Clientdashboard.rythme_actuel", "Rythme actuel")}
             subtitle={t("auto.Clientdashboard.ce_qui_compte_vraiment_cette_semaine", "Ce qui compte vraiment cette semaine.")}
@@ -2727,7 +2879,7 @@ export default function ClientDashboard() {
           </ClientCardShell>
         </Box>
 
-        <Box gridColumn={{ base: 'span 1', xl: 'span 8' }}>
+        <Box gridColumn={{ base: 'span 1', lg: 'span 8' }}>
           <ClientCardShell
             title={allProgramsCompleted ? "Objectif atteint" : "Prochaine meilleure action"}
             subtitle={allProgramsCompleted ? "Le cycle est terminé, on passe au bilan puis à la suite." : "Une seule décision claire pour continuer."}
@@ -2770,7 +2922,7 @@ export default function ClientDashboard() {
                     {getProgrammeDisplayName(focusProgramme)}
                   </Text>
                   <Text mt={1} fontSize="sm" color={mutedText}>
-                    {t("auto.Clientdashboard.par", "Par")} {focusProgramme.createdByName}
+                    {t("auto.Clientdashboard.par", "Par")} {getProgrammeAuthorLabel(focusProgramme)}
                   </Text>
                   <HStack mt={4} spacing={3} flexWrap="wrap">
                     <Badge px={3} py={1.5} borderRadius="full" variant="subtle">
@@ -2789,30 +2941,36 @@ export default function ClientDashboard() {
                       {focusProgramme._done}/{focusProgramme._total}
                     </Text>
                   </HStack>
-                  <Progress mt={2} value={focusProgramme._visualPercent ?? focusProgramme._percent} size="sm" borderRadius="full" />
+                  <Progress mt={2} value={focusProgramme._visualPercent ?? focusProgramme._percent} size="sm" borderRadius="full" bg={progressTrackBg} sx={brandProgressSx} />
                   {focusProgramme._hasResumePoint ? (
                     <Text mt={2} fontSize="sm" color={subtleText}>{t("auto.Clientdashboard.progression_estimee_coherente_avec_une_reprise_ver", "Progression estimée cohérente avec une reprise vers")}{focusProgramme._resumePct}{t("auto.Clientdashboard.de_la_seance_en_cours", "% de la séance en cours.")}</Text>
                   ) : null}
-                  <Stack mt={4} direction={{ base: 'column', md: 'row' }} spacing={3}>
+                  <Stack mt={4} direction={{ base: 'column', '2xl': 'row' }} spacing={2}>
                     <Button
-                      flex="1"
+                      flex={{ base: "none", "2xl": "1" }}
+                      h="42px"
+                      borderRadius="full"
                       variant={focusProgramme._hasResumePoint ? "solid" : "outline"}
                       onClick={() => startUpcomingSession(focusProgramme)}
                       isDisabled={!focusProgramme._total}
                     >{t("auto.Clientdashboard.seance_suivante", "Séance suivante")}</Button>
                     <Button
-                      flex="1"
+                      flex={{ base: "none", "2xl": "1" }}
+                      h="42px"
+                      borderRadius="full"
+                      variant="outline"
+                      onClick={() => navigateToProgram(focusProgramme)}
+                    >{t("auto.Clientdashboard.ouvrir_le_programme", "Ouvrir le programme")}</Button>
+                    <Button
+                      flex={{ base: "none", "2xl": "1" }}
+                      h="42px"
+                      borderRadius="full"
                       variant={focusProgramme._hasResumePoint ? "outline" : "solid"}
                       onClick={() => startNextSession(focusProgramme)}
                       isDisabled={!focusProgramme._total}
                     >
                       {focusProgramme._hasResumePoint ? "Reprendre au bon endroit" : "Reprendre"}
                     </Button>
-                    <Button
-                      flex="1"
-                      variant="outline"
-                      onClick={() => navigateToProgram(focusProgramme)}
-                    >{t("auto.Clientdashboard.ouvrir_le_programme", "Ouvrir le programme")}</Button>
                   </Stack>
                 </Box>
               </SimpleGrid>
@@ -2823,8 +2981,8 @@ export default function ClientDashboard() {
         </Box>
       </SimpleGrid>
 
-      <SimpleGrid display={{ base: "none", md: showSportSections ? "grid" : "none" }} columns={{ base: 1, xl: 12 }} spacing={5} mb={5}>
-        <Box gridColumn={{ base: 'span 1', xl: 'span 8' }}>
+      <SimpleGrid display={{ base: "none", md: showSportSections ? "grid" : "none" }} columns={{ base: 1, lg: 12 }} spacing={5} mb={5}>
+        <Box gridColumn={{ base: 'span 1', lg: 'span 8' }}>
           <ClientCardShell
             title={allProgramsCompleted ? "Après la réussite" : "Actions utiles"}
             subtitle={allProgramsCompleted ? "Des suites logiques plutôt qu'une séance de plus." : "Des raccourcis concrets, sans surcharge."}
@@ -2862,7 +3020,7 @@ export default function ClientDashboard() {
           </ClientCardShell>
         </Box>
 
-        <Box gridColumn={{ base: 'span 1', xl: 'span 4' }}>
+        <Box gridColumn={{ base: 'span 1', lg: 'span 4' }}>
           <ClientCardShell
             data-tour="client-upcoming-card"
             title={t("auto.Clientdashboard.prochaines_dates", "Prochaines dates")}
@@ -3029,7 +3187,7 @@ export default function ClientDashboard() {
         ) : (
           <>
             {/* Desktop */}
-            <Box display={{ base:'none', md:'block' }} overflowX="auto">
+            <Box display="none">
               <Table variant="simple" colorScheme="gray">
                 <Thead>
                   <Tr>
@@ -3059,7 +3217,7 @@ export default function ClientDashboard() {
                           {getProgrammeDisplayName(p)}
                         </ChakraLink>
                       </Td>
-                      <Td>{p.createdByName}</Td>
+                      <Td>{getProgrammeAuthorLabel(p)}</Td>
 
                       <Td>
                         <Tooltip
@@ -3094,7 +3252,7 @@ export default function ClientDashboard() {
                             </Text>
                             <Text fontSize="sm" fontWeight="semibold">{p._visualPercent ?? p._percent}%</Text>
                           </HStack>
-                          <Progress value={p._visualPercent ?? p._percent} size="sm" borderRadius="md" />
+                          <Progress value={p._visualPercent ?? p._percent} size="sm" borderRadius="full" bg={progressTrackBg} sx={brandProgressSx} />
                         </Box>
                       </Td>
 
@@ -3129,8 +3287,8 @@ export default function ClientDashboard() {
             </Box>
 
             {/* Mobile */}
-            <Box display={{ base:'block', md:'none' }}>
-              <VStack spacing={3} align="stretch">
+            <Box display="block">
+              <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={3} alignItems="stretch">
                 {displayedProgrammes.map((p)=>{
                   const programmeCompleted = isProgrammeCompleted(p);
                   const programmeCycleCompleted = isProgrammeCycleCompleted(p);
@@ -3162,7 +3320,7 @@ export default function ClientDashboard() {
                             </ChakraLink>
                           </Text>
                           <Text mt={1} fontSize="xs" color={subtleText} fontWeight="800" noOfLines={1}>
-                            {t("auto.Clientdashboard.par", "Par")} {p.createdByName}
+                            {t("auto.Clientdashboard.par", "Par")} {getProgrammeAuthorLabel(p)}
                           </Text>
                         </Box>
                       </HStack>
@@ -3202,7 +3360,7 @@ export default function ClientDashboard() {
                       </Text>
                       <Text fontSize="sm" fontWeight="semibold">{p._visualPercent ?? p._percent}%</Text>
                     </HStack>
-                    <Progress value={p._visualPercent ?? p._percent} size="sm" borderRadius="full" colorScheme="blue" />
+                    <Progress value={p._visualPercent ?? p._percent} size="sm" borderRadius="full" bg={progressTrackBg} sx={brandProgressSx} />
 
                     {p._hasResumePoint && !programmeCycleCompleted ? (
                       <Text mt={2.5} fontSize="sm" color={subtleText}>{t("auto.Clientdashboard.reprise_estimee_vers", "Reprise estimée vers")}{p._resumePct}{t("auto.Clientdashboard.de_la_seance_en_cours", "% de la séance en cours.")}</Text>
@@ -3223,7 +3381,7 @@ export default function ClientDashboard() {
                   </Box>
                   );
                 })}
-              </VStack>
+              </SimpleGrid>
             </Box>
           </>
         )}
@@ -3434,45 +3592,56 @@ export default function ClientDashboard() {
         icon={MdOutlineCalendarMonth}
         action={
           <HStack spacing={2}>
-            {showSportSections ? (
-              <Button leftIcon={<AddIcon/>} size="sm" onClick={()=>setAddOpen(true)}>
-                {t('calendar.add_session')}
-              </Button>
-            ) : null}
+            {calendarConnectedOnce ? (
               <Button
                 leftIcon={<MdOutlineCalendarMonth />}
                 size="sm"
+                borderRadius="14px"
                 variant="outline"
                 onClick={handleOpenCalendarLinkModal}
                 isLoading={calendarLinkLoading}
               >
-                {calendarConnectedOnce
-                  ? t("auto.Clientdashboard.voir_le_lien", "Voir le lien")
-                  : t("auto.Clientdashboard.synchroniser", "Synchroniser")}
+                {t("auto.Clientdashboard.voir_le_lien", "Voir le lien")}
               </Button>
+            ) : null}
+            {showSportSections ? (
+              <Button
+                leftIcon={<AddIcon/>}
+                size="sm"
+                borderRadius="14px"
+                bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
+                color="white"
+                _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
+                onClick={()=>setAddOpen(true)}
+              >
+                {t("exerciseCard.add", "Ajouter")}
+              </Button>
+            ) : null}
           </HStack>
         }
         mb={0}
         display={{ base: "none", md: "block" }}
         sx={{
-          '.rbc-calendar': { background: surfaceBgStrong, color: textColor },
-          '.rbc-toolbar': { background: headerBg, padding: '0.5rem', borderRadius: '8px', marginBottom: '12px' },
-          '.rbc-toolbar button': { color: textColor, background: 'transparent', border: '1px solid', borderColor, borderRadius: '6px', padding: '4px 8px' },
-          '.rbc-toolbar button:hover': { background: modeValue('#edf2f7','#4a5568') },
-          '.rbc-toolbar .rbc-active': { background: modeValue('#e2e8f0','#2d3748') },
-          '.rbc-month-view, .rbc-time-view, .rbc-agenda-view': { border: '1px solid', borderColor },
+          '.rbc-calendar': { background: 'transparent', color: textColor, borderRadius: '18px', overflow: 'hidden' },
+          '.rbc-toolbar': { background: modeValue('rgba(15,23,42,0.03)', 'rgba(255,255,255,0.03)'), padding: '0.9rem', borderRadius: '18px', marginBottom: '14px', border: '1px solid', borderColor },
+          '.rbc-toolbar button': { color: textColor, background: 'transparent', border: '1px solid', borderColor, borderRadius: '14px', padding: '8px 12px', fontWeight: 700 },
+          '.rbc-toolbar button:hover': { background: modeValue('rgba(15,23,42,0.05)', 'rgba(255,255,255,0.06)') },
+          '.rbc-toolbar .rbc-active': { background: modeValue('rgba(59,130,246,0.10)', 'rgba(59,130,246,0.16)') },
+          '.rbc-month-view, .rbc-time-view, .rbc-agenda-view': { border: '1px solid', borderColor, borderRadius: '20px', overflow: 'hidden', background: modeValue('rgba(15,23,42,0.01)', 'rgba(255,255,255,0.02)') },
           '.rbc-month-row': { borderTop: '1px solid', borderColor },
-          '.rbc-header': { background: headerBg, color: textColor, borderBottom: '1px solid', borderColor, padding: '0.5rem' },
-          '.rbc-off-range-bg': { background: offRangeBg },
-          '.rbc-today': { background: todayBg },
+          '.rbc-header': { background: modeValue('rgba(15,23,42,0.03)', 'rgba(255,255,255,0.03)'), color: textColor, borderBottom: '1px solid', borderColor, padding: '0.75rem 0.5rem', fontWeight: 800 },
+          '.rbc-off-range-bg': { background: modeValue('rgba(15,23,42,0.015)', 'rgba(255,255,255,0.015)') },
+          '.rbc-today': { background: modeValue('rgba(59,130,246,0.06)', 'rgba(59,130,246,0.08)') },
+          '.rbc-event': { borderRadius: '12px', padding: '4px 6px', fontSize: '0.88rem', border: 'none', overflow: 'hidden', boxShadow: modeValue('0 8px 18px rgba(15,23,42,0.08)', '0 8px 20px rgba(0,0,0,0.18)') },
+          '.rbc-event-content': { overflow: 'hidden', minWidth: 0 },
           '.rbc-day-bg + .rbc-day-bg, .rbc-time-slot + .rbc-time-slot': { borderColor },
           '.rbc-time-header, .rbc-time-content': { borderColor },
           '.rbc-agenda-table': { borderColor },
           '.rbc-agenda-table td, .rbc-agenda-table th': { borderColor }
         }}
       >
-        <DeferredViewport minHeight={500}>
-          <React.Suspense fallback={<Box minH="500px" />}>
+        <DeferredViewport minHeight={620}>
+          <React.Suspense fallback={<Box minH="620px" />}>
             <ClientDashboardCalendar
               culture={calendarCulture}
               formats={calendarFormats}
@@ -3486,7 +3655,7 @@ export default function ClientDashboard() {
               resizable={!isTouchDevice()}
               onEventResize={isTouchDevice() ? undefined : moveEvent}
               views={['month','week','day','agenda']}
-              style={{height:500, borderRadius:8}}
+              style={{height:620, borderRadius:12}}
               messages={{
                 today: t('calendar.today'),
                 previous: t('calendar.prev'),

@@ -20,7 +20,6 @@ import {
   Tag,
   TagLabel,
   Text,
-  Textarea,
   useColorModeValue,
 } from "@chakra-ui/react";
 import { } from "firebase/firestore";
@@ -38,10 +37,6 @@ export default function NutritionAdviceSheetsPanel({
   docData,
   selectedIds,
   onSelectedIdsChange,
-  patientNote,
-  onPatientNoteChange,
-  patientNoteShared,
-  onPatientNoteSharedChange,
   blocked,
   theme,
 }) {
@@ -93,22 +88,20 @@ export default function NutritionAdviceSheetsPanel({
       p={{ base: 4, md: 5 }}
       boxShadow="0 14px 34px rgba(15, 23, 42, 0.06)"
     >
-      <HStack justify="space-between" align="start" gap={3} flexWrap="wrap">
+      <Stack spacing={3}>
         <Box>
           <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={theme.mutedText}>{i18n.t("auto.NutritionAdviceSheetsPanel.etape_3", "ÉTAPE 3")}</Text>
           <Heading size="sm" mt={1}>{i18n.t("auto.NutritionAdviceSheetsPanel.fiches_conseils_a_partager", "Fiches conseils à partager")}</Heading>
           <Text fontSize="sm" color={theme.mutedText} mt={1}>{i18n.t("auto.NutritionAdviceSheetsPanel.selectionne_les_fiches_web_visibles_cote_patient_l", "Sélectionne les fiches web visibles côté patient. Les fiches non cochées restent internes.")}</Text>
         </Box>
-        <HStack spacing={2} flexWrap="wrap" justify="flex-end">
-          <Button variant="outline" onClick={() => setLibraryOpen((value) => !value)}>
+        <Button variant="outline" alignSelf="flex-end" onClick={() => setLibraryOpen((value) => !value)}>
             {libraryOpen
               ? i18n.t("auto.NutritionAdviceSheetsPanel.masquer_les_fiches", "Masquer les fiches")
               : i18n.t("auto.NutritionAdviceSheetsPanel.voir_les_fiches_count", "Voir les fiches ({{count}} sélectionnée(s))", {
                   count: selectedSet.size,
                 })}
-          </Button>
-        </HStack>
-      </HStack>
+        </Button>
+      </Stack>
 
       {!libraryOpen ? (
         <Box mt={4} p={4} borderWidth="1px" borderColor={theme.borderColor} borderRadius="md" bg={theme.surfaceSoft}>
@@ -140,28 +133,6 @@ export default function NutritionAdviceSheetsPanel({
           </HStack>
         </Box>
       ) : null}
-
-      <Box mt={4} p={4} borderWidth="1px" borderColor={theme.borderColor} borderRadius="md" bg={theme.surfaceSoft}>
-        <HStack justify="space-between" align="start" gap={3} flexWrap="wrap">
-          <Box>
-            <Heading size="sm">{i18n.t("auto.NutritionAdviceSheetsPanel.note_patient", "Note patient")}</Heading>
-            <Text fontSize="sm" color={theme.mutedText} mt={1}>{i18n.t("auto.NutritionAdviceSheetsPanel.ajoute_une_note_simple_a_transmettre_au_patient_ou", "Ajoute une note simple à transmettre au patient, ou garde-la en interne si elle n’est pas cochée.")}</Text>
-          </Box>
-          <Checkbox
-            isChecked={!!patientNoteShared}
-            onChange={(e) => onPatientNoteSharedChange?.(e.target.checked)}
-            isDisabled={blocked || !String(patientNote || "").trim()}
-          >{i18n.t("auto.NutritionAdviceSheetsPanel.transmettre", "Transmettre")}</Checkbox>
-        </HStack>
-        <Textarea
-          mt={3}
-          value={patientNote || ""}
-          onChange={(e) => onPatientNoteChange?.(e.target.value)}
-          placeholder={i18n.t("auto.NutritionAdviceSheetsPanel.exemple_priorite_sur_l_hydratation_cette_semaine_g", "Exemple : priorité sur l’hydratation cette semaine, garder le yaourt du soir, limiter les boissons sucrées...")}
-          bg={theme.surfaceBg}
-          isDisabled={blocked}
-        />
-      </Box>
 
       {libraryOpen ? (
         <SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} spacing={4} mt={4}>

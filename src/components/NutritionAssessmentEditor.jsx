@@ -53,7 +53,9 @@ import { computeBMI, toNumber } from "../utils/nutritionPrefill";
 import { useAuth } from "../AuthContext.jsx";
 import { useNutritionTheme } from "../styles/nutritionTheme";
 import NutritionWorkflowBar from "./nutrition/NutritionWorkflowBar.jsx";
+import PageBackButton from "./ui/PageBackButton.jsx";
 import i18n from "../i18n/index";
+import { navigateWithDomFallback } from "../utils/navigationFallback";
 
 /* ------------------------ Units helpers ------------------------ */
 const round1 = (n) => (Number.isFinite(n) ? Math.round(n * 10) / 10 : n);
@@ -409,6 +411,10 @@ export default function NutritionAssessmentEditor() {
   const { clientId, assessmentId } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
+  const navigateWithFallback = useCallback(
+    (path) => navigateWithDomFallback(navigate, path),
+    [navigate]
+  );
 
   const authCtx = useAuth?.() || {};
   const user = authCtx.user || authCtx.userData || null;
@@ -745,6 +751,7 @@ export default function NutritionAssessmentEditor() {
             validated: isComplete,
             validatedAt: isComplete ? serverTimestamp() : null,
             computed: { ...(docData?.computed || {}), imc: computedBMI },
+            "clientShare.noNotify": true,
             updatedAt: serverTimestamp(),
           }),
           setDoc(
@@ -837,39 +844,27 @@ export default function NutritionAssessmentEditor() {
 
   const nutritionTheme = useNutritionTheme();
   const pageBg = nutritionTheme.pageBg;
-  const panelBg = nutritionTheme.surfaceBg;
+  const panelBg = nutritionTheme.surfaceBgStrong;
   const subtleBg = nutritionTheme.surfaceSoft;
   const borderColor = nutritionTheme.borderColor;
   const mutedText = nutritionTheme.mutedText;
   const accentBlue = useColorModeValue("#2563EB", "#7CB7FF");
   const accentTeal = useColorModeValue("#0F766E", "#5EEAD4");
   const accentAmber = useColorModeValue("#B45309", "#FBBF24");
-  const visualBlueBg = useColorModeValue("rgba(37,99,235,0.08)", "rgba(124,183,255,0.14)");
-  const visualTealBg = useColorModeValue("rgba(15,118,110,0.08)", "rgba(94,234,212,0.14)");
-  const visualAmberBg = useColorModeValue("rgba(180,83,9,0.08)", "rgba(251,191,36,0.14)");
-  const sectionBlueBg = useColorModeValue(
-    "linear-gradient(135deg, rgba(37,99,235,0.08) 0%, rgba(255,255,255,0.98) 48%, rgba(239,246,255,0.9) 100%)",
-    "linear-gradient(135deg, rgba(30,64,175,0.18) 0%, rgba(15,23,42,0.98) 54%, rgba(30,41,59,0.92) 100%)"
-  );
-  const sectionTealBg = useColorModeValue(
-    "linear-gradient(135deg, rgba(15,118,110,0.08) 0%, rgba(255,255,255,0.98) 48%, rgba(240,253,250,0.92) 100%)",
-    "linear-gradient(135deg, rgba(13,148,136,0.16) 0%, rgba(15,23,42,0.98) 54%, rgba(19,47,54,0.9) 100%)"
-  );
-  const sectionAmberBg = useColorModeValue(
-    "linear-gradient(135deg, rgba(180,83,9,0.08) 0%, rgba(255,255,255,0.98) 48%, rgba(255,251,235,0.94) 100%)",
-    "linear-gradient(135deg, rgba(180,83,9,0.16) 0%, rgba(15,23,42,0.98) 54%, rgba(48,34,18,0.88) 100%)"
-  );
-  const sectionBlueBorder = useColorModeValue("rgba(37,99,235,0.2)", "rgba(124,183,255,0.28)");
-  const sectionTealBorder = useColorModeValue("rgba(15,118,110,0.2)", "rgba(94,234,212,0.28)");
-  const sectionAmberBorder = useColorModeValue("rgba(180,83,9,0.22)", "rgba(251,191,36,0.28)");
-  const heroBg = useColorModeValue(
-    "linear-gradient(135deg, rgba(239,246,255,0.96) 0%, rgba(240,253,250,0.88) 48%, rgba(255,255,255,0.96) 100%)",
-    "linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(18,38,63,0.92) 48%, rgba(13,30,35,0.92) 100%)"
-  );
+  const visualBlueBg = nutritionTheme.surfaceSoft;
+  const visualTealBg = nutritionTheme.surfaceSoft;
+  const visualAmberBg = nutritionTheme.surfaceSoft;
+  const sectionBlueBg = nutritionTheme.surfaceBgStrong;
+  const sectionTealBg = nutritionTheme.surfaceBgStrong;
+  const sectionAmberBg = nutritionTheme.surfaceBgStrong;
+  const sectionBlueBorder = borderColor;
+  const sectionTealBorder = borderColor;
+  const sectionAmberBorder = borderColor;
+  const heroBg = nutritionTheme.surfaceBgStrong;
   const sectionCardProps = {
     borderWidth: "1px",
     borderColor,
-    borderRadius: "lg",
+    borderRadius: "22px",
     bg: panelBg,
     boxShadow: "0 14px 34px rgba(15, 23, 42, 0.06)",
   };
@@ -898,7 +893,7 @@ export default function NutritionAssessmentEditor() {
     return (
       <Box p={6}>
         <Heading size="md">{i18n.t("auto.NutritionAssessmentEditor.bilan_introuvable", "Bilan introuvable")}</Heading>
-        <Button mt={4} onClick={() => navigate(-1)}>{i18n.t("programView.back", "Retour")}</Button>
+        <PageBackButton mt={4} label={i18n.t("programView.back", "Retour")} onClick={() => navigate(-1)} />
       </Box>
     );
   }
@@ -954,14 +949,14 @@ export default function NutritionAssessmentEditor() {
           activeStep="bilan"
           clientId={clientId}
           assessmentId={assessmentId}
-          navigate={navigate}
+          navigate={navigateWithFallback}
+          onBack={() => navigate(-1)}
         />
 
-        <Box {...sectionCardProps} overflow="hidden" bg={heroBg} borderRadius={{ base: "2xl", md: "lg" }}>
+        <Box {...sectionCardProps} overflow="hidden" bg={heroBg} borderRadius="22px">
           <Box display="grid" gridTemplateColumns={{ base: "1fr", lg: "minmax(0, 1fr) 320px" }}>
             <Box px={{ base: 4, md: 6 }} py={{ base: 4, md: 6 }}>
               <HStack spacing={3} flexWrap="wrap">
-                <Button size={{ base: "sm", md: "md" }} variant="outline" borderRadius="full" onClick={() => navigate(-1)}>{i18n.t("programView.back", "Retour")}</Button>
                 <Badge colorScheme={isValidated ? "green" : "yellow"} variant="subtle">
                   {isValidated
                     ? i18n.t("auto.NutritionAssessmentEditor.valide", "VALIDÉ")
@@ -1033,7 +1028,7 @@ export default function NutritionAssessmentEditor() {
           </Box>
         </Box>
 
-        <Box {...sectionCardProps} p={{ base: 3, md: 5 }} bg={sectionBlueBg} borderColor={sectionBlueBorder} borderRadius={{ base: "2xl", md: "lg" }}>
+        <Box {...sectionCardProps} p={{ base: 3, md: 5 }} bg={sectionBlueBg} borderColor={sectionBlueBorder} borderRadius="22px">
           <HStack justify="space-between" align="start" gap={3} flexWrap="wrap" mb={{ base: 3, md: 4 }}>
             <Box>
               <Text fontSize="xs" fontWeight="900" letterSpacing="0.08em" color={mutedText} textTransform="uppercase">
@@ -1150,7 +1145,7 @@ export default function NutritionAssessmentEditor() {
         </Box>
 
         <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={4} alignItems="start">
-        <Box {...sectionCardProps} p={{ base: 3, md: 5 }} bg={sectionBlueBg} borderColor={sectionBlueBorder} borderRadius={{ base: "2xl", md: "lg" }} position="relative" overflow="hidden">
+        <Box {...sectionCardProps} p={{ base: 3, md: 5 }} bg={sectionBlueBg} borderColor={sectionBlueBorder} borderRadius="22px" position="relative" overflow="hidden">
           <Box position="absolute" insetY={0} left={0} w="4px" bg={accentBlue} opacity={0.85} />
           <HStack justify="space-between" align="start" gap={3} flexWrap="wrap" mb={{ base: 3, md: 4 }}>
             <HStack align="start" spacing={3}>
@@ -1273,7 +1268,7 @@ export default function NutritionAssessmentEditor() {
           </SimpleGrid>
         </Box>
 
-        <Box {...sectionCardProps} p={{ base: 3, md: 5 }} bg={sectionTealBg} borderColor={sectionTealBorder} borderRadius={{ base: "2xl", md: "lg" }} position="relative" overflow="hidden">
+        <Box {...sectionCardProps} p={{ base: 3, md: 5 }} bg={sectionTealBg} borderColor={sectionTealBorder} borderRadius="22px" position="relative" overflow="hidden">
           <Box position="absolute" insetY={0} left={0} w="4px" bg={accentTeal} opacity={0.85} />
           <HStack justify="space-between" align="start" gap={3} flexWrap="wrap" mb={{ base: 3, md: 4 }}>
             <HStack align="start" spacing={3}>
@@ -1416,8 +1411,7 @@ export default function NutritionAssessmentEditor() {
                 <Text display={{ base: "none", md: "block" }} fontSize="sm" color={mutedText} mt={1}>{i18n.t("auto.NutritionAssessmentEditor.donnees_issues_de_la_derniere_mesure_ou_a_complete", "Données issues de la dernière mesure ou à compléter manuellement.")}</Text>
               </Box>
               <HStack spacing={2}>
-                <Badge display={{ base: "none", md: "inline-flex" }} colorScheme="blue" variant="subtle" borderRadius="full" px={3} py={1}>{i18n.t("auto.NutritionAssessmentEditor.donnees_avancees", "Données avancées")}</Badge>
-                <Text fontSize="sm" color={mutedText} fontWeight="800">{i18n.t("auto.NutritionAssessmentEditor.open_section", "Ouvrir")}</Text>
+                <ChevronDownIcon boxSize={6} aria-hidden="true" />
               </HStack>
             </HStack>
             <Box px={4} pb={4}>
@@ -1481,7 +1475,7 @@ export default function NutritionAssessmentEditor() {
           </Box>
         </Box>
 
-        <Box {...sectionCardProps} p={{ base: 3, md: 5 }} bg={sectionAmberBg} borderColor={sectionAmberBorder} borderRadius={{ base: "2xl", md: "lg" }} position="relative" overflow="hidden" gridColumn={{ base: "auto", xl: "1 / span 2" }}>
+        <Box {...sectionCardProps} p={{ base: 3, md: 5 }} bg={sectionAmberBg} borderColor={sectionAmberBorder} borderRadius="22px" position="relative" overflow="hidden" gridColumn={{ base: "auto", xl: "1 / span 2" }}>
           <Box position="absolute" insetY={0} left={0} w="4px" bg={accentAmber} opacity={0.85} />
           <HStack justify="space-between" align="start" gap={3} flexWrap="wrap" mb={{ base: 3, md: 4 }}>
             <HStack align="start" spacing={3}>
@@ -1682,7 +1676,7 @@ export default function NutritionAssessmentEditor() {
                   <Heading size="sm">{i18n.t("auto.NutritionAssessmentEditor.micronutrition", "Micronutrition")}</Heading>
                   <Text display={{ base: "none", md: "block" }} fontSize="sm" color={mutedText} mt={1}>{i18n.t("auto.NutritionAssessmentEditor.reperes_rapides_pour_orienter_les_priorites_de_fib", "Repères rapides pour orienter les priorités de fibres, minéraux, vitamines et hydratation.")}</Text>
                 </Box>
-                <Text fontSize="sm" color={mutedText} fontWeight="800">{i18n.t("auto.NutritionAssessmentEditor.open_section", "Ouvrir")}</Text>
+                <ChevronDownIcon boxSize={6} aria-hidden="true" />
               </HStack>
               <Box px={4} pb={4}>
               <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
@@ -1786,9 +1780,7 @@ export default function NutritionAssessmentEditor() {
           px={0}
           py={3}
         >
-          <HStack justify="space-between" gap={3} flexWrap="nowrap">
-            <Button variant="outline" onClick={() => navigate(-1)}>{i18n.t("programView.back", "Retour")}</Button>
-
+          <HStack justify="flex-end" gap={3} flexWrap="nowrap">
             <HStack spacing={3} flexWrap="nowrap" justify="flex-end">
               <Button
                 colorScheme="blue"

@@ -37,7 +37,7 @@ import {
   Image as ChakraImage,
 } from "@chakra-ui/react";
 import { useNavigate, useParams, useLocation, useSearchParams } from "react-router-dom";
-import { InfoOutlineIcon, RepeatIcon, DownloadIcon, EditIcon, ArrowBackIcon } from "@chakra-ui/icons";
+import { InfoOutlineIcon, RepeatIcon, DownloadIcon, EditIcon } from "@chakra-ui/icons";
 import {
   MdOutlineMenuBook,
   MdOutlineAccessibilityNew,
@@ -51,6 +51,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../AuthContext";
 import AppLoading from "./ui/AppLoading";
+import PageBackButton from "./ui/PageBackButton";
 import { notify } from "../utils/notify";
 import { localizeExercise } from "../utils/exerciseI18n";
 import { getExerciseNoteLines } from "../utils/exerciseNotes";
@@ -3142,7 +3143,7 @@ export default function AutoProgramPreview() {
       <Box bg={bg} p={6}>
         <Box {...theme.cardProps} p={6} maxW="5xl" mx="auto">
           <HStack mb={4}>
-            <IconButton icon={<ArrowBackIcon />} aria-label={t("auto.AutoProgramPreview.back", "back")} onClick={() => navigate(-1)} />
+            <PageBackButton label={t("auto.AutoProgramPreview.back", "Retour")} onClick={() => navigate(-1)} />
             <Heading size="md">{t("autoPreview.notFound", "Programme introuvable")}</Heading>
           </HStack>
           <Text opacity={0.8}>{t("autoPreview.notFoundHint", "Vérifie l’URL ou les droits d’accès.")}</Text>
@@ -3470,7 +3471,6 @@ function TopBar({
   const primaryButtonBg = useColorModeValue("gray.900", "whiteAlpha.200");
   const primaryButtonHoverBg = useColorModeValue("gray.800", "whiteAlpha.300");
   const primaryButtonActiveBg = useColorModeValue("gray.700", "whiteAlpha.400");
-  const iconButtonColor = useColorModeValue("gray.700", "white");
   const autoFollowBg = useColorModeValue("purple.600", "purple.400");
   const autoFollowText = useColorModeValue("gray.800", "gray.100");
   const autoFollowBorder = useColorModeValue("1px solid #e3e7ef", "1px solid #2b3b64");
@@ -3492,16 +3492,9 @@ function TopBar({
     >
       <HStack spacing={3} align="center">
         <Tooltip label={t("autoPreview.back", "Retour")}>
-          <IconButton
-            icon={<ArrowBackIcon />}
-            aria-label={t("autoPreview.back", "Retour")}
+          <PageBackButton
+            label={t("autoPreview.back", "Retour")}
             onClick={onBack}
-            borderRadius="full"
-            bg={iconButtonBg}
-            color={iconButtonColor}
-            border="1px solid"
-            borderColor={iconButtonBorder}
-            _hover={{ bg: iconButtonHoverBg }}
           />
         </Tooltip>
         <Heading fontSize={{ base: "xl", md: "2xl" }} noOfLines={2} wordBreak="break-word">

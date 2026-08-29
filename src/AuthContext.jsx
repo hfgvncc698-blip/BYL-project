@@ -27,6 +27,7 @@ import {
   doc,
   collection,
   getDoc,
+  getDocFromCache,
   getDocs,
   query,
   where,
@@ -50,6 +51,57 @@ const VIEW_AS_KEY = "BYL_VIEW_AS"; // persistance de la vue choisie (admin/coach
 const ADMIN_PRO_ACCESS = getProPlanAccess("complete", "unlimited");
 const FULL_PRO_TRIAL_ACCESS = getProPlanAccess("complete", "unlimited");
 const FULL_CLUB_TRIAL_ACCESS = getProPlanAccess("club", "network");
+const AUTH_REQUEST_TIMEOUT_MS = 15000;
+const PROFILE_REQUEST_TIMEOUT_MS = 12000;
+
+function rejectAfterTimeout(promise, timeoutMs, code) {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = globalThis.setTimeout(() => {
+      const timeoutError = new Error(code);
+      timeoutError.code = code;
+      reject(timeoutError);
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => {
+    globalThis.clearTimeout(timeoutId);
+  });
+}
+
+function getLoginErrorMessage(error) {
+  const code = String(error?.code || "");
+  if (code === "auth/request-timeout" || code === "auth/profile-timeout") {
+    return i18n.t(
+      "auth.login.errors.timeout",
+      "La connexion prend trop de temps. Vérifiez votre réseau puis réessayez."
+    );
+  }
+  if (code === "auth/network-request-failed") {
+    return i18n.t(
+      "auth.login.errors.network",
+      "Problème réseau. Vérifiez votre connexion et réessayez."
+    );
+  }
+  if (code === "auth/too-many-requests") {
+    return i18n.t(
+      "auth.login.errors.tooMany",
+      "Trop de tentatives. Réessayez plus tard."
+    );
+  }
+  if (
+    code === "auth/invalid-credential" ||
+    code === "auth/invalid-login-credentials" ||
+    code === "auth/user-not-found" ||
+    code === "auth/wrong-password"
+  ) {
+    return i18n.t(
+      "auth.login.errors.invalidCredentials",
+      "E-mail ou mot de passe incorrect."
+    );
+  }
+  return i18n.t("auth.login.errors.generic", "Échec de la connexion.");
+}
 
 const readCachedUser = () => {
   if (typeof window === "undefined") return null;
@@ -637,20 +689,40 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     setLoading(true);
     try {
-      const { user: fbUser } = await signInWithEmailAndPassword(
-        auth,
-        email,
-        password
+      const { user: fbUser } = await rejectAfterTimeout(
+        signInWithEmailAndPassword(auth, email, password),
+        AUTH_REQUEST_TIMEOUT_MS,
+        "auth/request-timeout"
       );
       if (callback) {
         const ref = doc(db, "users", fbUser.uid);
-        const snap = await getDoc(ref);
+        let snap;
+        try {
+          snap = await rejectAfterTimeout(
+            getDoc(ref),
+            PROFILE_REQUEST_TIMEOUT_MS,
+            "auth/profile-timeout"
+          );
+        } catch (profileError) {
+          if (profileError?.code !== "auth/profile-timeout") throw profileError;
+          try {
+            snap = await getDocFromCache(ref);
+          } catch {
+            throw profileError;
+          }
+        }
         let data = snap.data() || {};
         if (fbUser.emailVerified === true && data.emailVerificationRequired === true) {
           await fbUser.getIdToken(true);
           data = await syncVerifiedEmailAccount(fbUser, data);
         }
-        await syncAccountLanguage(data);
+        await rejectAfterTimeout(
+          syncAccountLanguage(data),
+          5000,
+          "auth/language-timeout"
+        ).catch((languageError) => {
+          console.warn("[auth] account language sync skipped:", languageError?.message || languageError);
+        });
         const normalized = normalizeUserDoc(fbUser.uid, data, fbUser);
         setUser(normalized);
         try {
@@ -692,7 +764,8 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (err) {
       console.error(err);
-      setError("Email ou mot de passe incorrect.");
+      setError(getLoginErrorMessage(err));
+      throw err;
     } finally {
       setLoading(false);
     }

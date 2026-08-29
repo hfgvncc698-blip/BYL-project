@@ -13,12 +13,10 @@ import { db } from "../firebaseConfig";
 import { useTranslation } from "react-i18next";
 import AppLoading from "../components/ui/AppLoading";
 import PageBackButton from "../components/ui/PageBackButton";
+import { AppSectionHeader, AppSurface } from "../components/ui/AppPrimitives";
 import { resolveClientSnapshotForUser } from "../utils/clientResolver";
 import { isSessionValidatedRecord } from "../utils/sessionCompletion";
 import {
-  MdOutlineCalendarMonth,
-  MdOutlineFitnessCenter,
-  MdOutlineInsights,
   MdOutlineMonitorWeight,
   MdOutlineShowChart,
   MdOutlineStraighten,
@@ -148,7 +146,6 @@ export default function StatisticsPageClient() {
 
   const [measures, setMeasures] = useState([]);
   const addMeas = useDisclosure();
-  const comparePanel = useDisclosure();
   const [saving, setSaving] = useState(false);
 
   // unités UI
@@ -180,27 +177,11 @@ export default function StatisticsPageClient() {
     "0 20px 50px rgba(15,23,42,0.08)",
     "0 22px 60px rgba(0,0,0,0.34)"
   );
-  const activeBlue = "#2563EB";
+  const activeBlue = "#257CFF";
   const activeMint = "#0EA5E9";
-  const mobileHeroBg = useColorModeValue(
-    "linear-gradient(145deg, #0F172A 0%, #1D4ED8 58%, #0EA5E9 135%)",
-    "linear-gradient(145deg, #020617 0%, #1E3A8A 58%, #0369A1 135%)"
-  );
-
-  const statGradients = [
-    useColorModeValue(
-      "linear-gradient(135deg, rgba(59,130,246,0.10), rgba(255,255,255,0))",
-      "linear-gradient(135deg, rgba(59,130,246,0.16), rgba(255,255,255,0))"
-    ),
-    useColorModeValue(
-      "linear-gradient(135deg, rgba(14,165,233,0.11), rgba(255,255,255,0))",
-      "linear-gradient(135deg, rgba(14,165,233,0.17), rgba(255,255,255,0))"
-    ),
-    useColorModeValue(
-      "linear-gradient(135deg, rgba(245,158,11,0.10), rgba(255,255,255,0))",
-      "linear-gradient(135deg, rgba(245,158,11,0.16), rgba(255,255,255,0))"
-    ),
-  ];
+  const primaryButtonBg = useColorModeValue("#0F172A", "rgba(255,255,255,0.10)");
+  const primaryButtonColor = useColorModeValue("white", "#F8FAFC");
+  const primaryButtonHoverBg = useColorModeValue("#1E293B", "rgba(255,255,255,0.16)");
 
   const nf0 = useMemo(
     () => new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 0 }),
@@ -424,7 +405,7 @@ export default function StatisticsPageClient() {
   const SurfaceCard = ({ children, ...props }) => (
     <Box
       bg={cardBg}
-      borderRadius={{ base: "24px", md: "28px" }}
+      borderRadius="22px"
       border="1px solid"
       borderColor={borderStrong}
       boxShadow={glassShadow}
@@ -436,107 +417,70 @@ export default function StatisticsPageClient() {
     </Box>
   );
 
-  const MiniStatCard = ({ icon, labelText, value, helper, glow, iconColor }) => (
-    <Box
-      p={{ base: 3.5, md: 5 }}
-      bg={{ base: "rgba(255,255,255,0.94)", md: subCardBg }}
-      borderRadius={{ base: "18px", md: "24px" }}
+  const MiniStatCard = ({ labelText, value, helper }) => (
+    <AppSurface
+      variant="tile"
+      p={{ base: 3.5, md: 4 }}
+      bg={cardBg}
+      borderRadius="18px"
       border="1px solid"
-      borderColor={{ base: "rgba(255,255,255,0.62)", md: borderCol }}
-      boxShadow={{ base: "0 14px 28px rgba(15,23,42,0.12)", md: glassShadow }}
-      position="relative"
-      overflow="hidden"
+      borderColor={borderCol}
+      minH="92px"
     >
-      <Box
-        position="absolute"
-        inset="0"
-        bg={glow}
-        opacity={{ base: 0, md: 0.95 }}
-      />
-      <HStack justify="space-between" align="flex-start" position="relative" zIndex={1}>
+      <HStack justify="space-between" align="center" gap={4}>
         <Box minW={0}>
           <Text
-            fontSize={{ base: "sm", md: "sm" }}
-            color={{ base: "#1E3A8A", md: textMuted }}
+            fontSize="sm"
+            color={textMuted}
             fontWeight="900"
             lineHeight="1.2"
-            noOfLines={{ base: 1, md: 2 }}
+            noOfLines={1}
           >
             {labelText}
           </Text>
-          <Text mt={2} fontSize={{ base: "2xl", md: "3xl" }} fontWeight="900" letterSpacing="0" color={{ base: "#0F172A", md: accent }}>
-            {value}
-          </Text>
-          <Text mt={1} fontSize="sm" color={{ base: "#475569", md: subtleText }} display={{ base: "block", md: "block" }} noOfLines={{ base: 1, md: 2 }}>
+          <Text mt={1} fontSize="xs" color={subtleText} noOfLines={2}>
             {helper}
           </Text>
         </Box>
-        <Circle size={{ base: "38px", md: "44px" }} bg={{ base: "#DBEAFE", md: "rgba(59,130,246,0.10)" }} color={iconColor} flexShrink={0}>
-          <Icon as={icon} boxSize="20px" />
-        </Circle>
+        <Text fontSize={{ base: "2xl", md: "3xl" }} fontWeight="950" letterSpacing="-0.04em" color={accent} flexShrink={0}>
+          {value}
+        </Text>
       </HStack>
-    </Box>
+    </AppSurface>
   );
 
   return (
     <Box data-tour-page="client-stats" p={{ base: 3, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
-      <Box display={{ base: "none", md: "block" }} position="absolute" top={{ base: 4, md: 6 }} left={{ base: 4, md: 6 }} zIndex={20}>
-        <PageBackButton />
-      </Box>
-
       <VStack maxW="1120px" mx="auto" spacing={{ base: 3.5, md: 6 }} align="stretch" position="relative" zIndex={1}>
-        <SurfaceCard
-          p={{ base: 4, md: 6 }}
-          bg={{ base: mobileHeroBg, md: cardBg }}
-          color={{ base: "white", md: accent }}
-          borderColor={{ base: "rgba(255,255,255,0.18)", md: borderStrong }}
-        >
-          <Flex direction={{ base: "column", xl: "row" }} justify="space-between" gap={5} position="relative" zIndex={1}>
-            <Box minW={0} flex="1">
-              <Heading size={{ base: "md", md: "lg" }} letterSpacing="0" color={{ base: "white", md: accent }}>
-                {label("title", "Statistiques")}
-              </Heading>
-              <Text mt={2} maxW="62ch" color={{ base: "whiteAlpha.920", md: textMuted }} fontSize={{ base: "sm", md: "md" }}>
-                {label("subtitle", "Suis ta progression globale, tes mesures corporelles et compare tes séances pour visualiser les progrès.")}
-              </Text>
-              <HStack mt={4} spacing={3} wrap="wrap">
-                <Badge borderRadius="full" px={3} py={1} bg={{ base: "whiteAlpha.220", md: "rgba(59,130,246,0.10)" }} color={{ base: "white", md: activeBlue }}>
-                  {statsLoading ? "..." : totalProg} {t("pdf.fileProgram", "programme")}{totalProg > 1 ? "s" : ""} {t("auto.StatisticsPageClient.actif", "actif")}{totalProg > 1 ? "s" : ""}
-                </Badge>
-                <Badge borderRadius="full" px={3} py={1} bg={{ base: "whiteAlpha.220", md: "rgba(14,165,233,0.10)" }} color={{ base: "white", md: activeMint }}>
-                  {statsLoading ? "..." : measures.length} {t("auto.StatisticsPageClient.mesure", "mesure")}{measures.length > 1 ? "s" : ""} {t("auto.StatisticsPageClient.enregistree", "enregistrée")}{measures.length > 1 ? "s" : ""}
-                </Badge>
-              </HStack>
-            </Box>
-
-            <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={{ base: 2.5, md: 3 }} w={{ base: "100%", xl: "520px" }}>
-              <MiniStatCard
-                icon={MdOutlineFitnessCenter}
-                labelText={label("kpis.totalPrograms", "Total programmes")}
-                value={statsLoading ? "..." : nf0.format(totalProg)}
-                helper={t("auto.StatisticsPageClient.programmes_disponibles_dans_ton_espace", "programmes disponibles dans ton espace")}
-                glow={statGradients[0]}
-                iconColor={activeBlue}
-              />
-              <MiniStatCard
-                icon={MdOutlineInsights}
-                labelText={label("kpis.percentDone", "% terminé")}
-                value={progressLoading ? "..." : `${nf0.format(percentDone)}%`}
-                helper={t("auto.StatisticsPageClient.base_sur_les_seances_validees", "basé sur les séances validées")}
-                glow={statGradients[1]}
-                iconColor={activeMint}
-              />
-              <MiniStatCard
-                icon={MdOutlineCalendarMonth}
-                labelText={label("kpis.sessionsPerWeek", "Séances / sem.")}
-                value={statsLoading ? "..." : nf0.format(sessWeek)}
-                helper={t("auto.StatisticsPageClient.sur_les_7_derniers_jours", "sur les 7 derniers jours")}
-                glow={statGradients[2]}
-                iconColor="#F59E0B"
-              />
-            </SimpleGrid>
+        <AppSurface p={{ base: 4, md: 5 }}>
+          <Flex align="flex-start" gap={3}>
+            <PageBackButton />
+            <AppSectionHeader
+              flex="1"
+              title={label("title", "Statistiques")}
+              subtitle={label("subtitle", "Suis ta progression globale, tes mesures corporelles et compare tes séances pour visualiser les progrès.")}
+              headingAs="h1"
+            />
           </Flex>
-        </SurfaceCard>
+        </AppSurface>
+
+        <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={{ base: 2.5, md: 3 }}>
+          <MiniStatCard
+            labelText={label("kpis.totalPrograms", "Total programmes")}
+            value={statsLoading ? "..." : nf0.format(totalProg)}
+            helper={t("auto.StatisticsPageClient.programmes_disponibles_dans_ton_espace", "programmes disponibles dans ton espace")}
+          />
+          <MiniStatCard
+            labelText={label("kpis.percentDone", "% terminé")}
+            value={progressLoading ? "..." : `${nf0.format(percentDone)}%`}
+            helper={t("auto.StatisticsPageClient.base_sur_les_seances_validees", "basé sur les séances validées")}
+          />
+          <MiniStatCard
+            labelText={label("kpis.sessionsPerWeek", "Séances / sem.")}
+            value={statsLoading ? "..." : nf0.format(sessWeek)}
+            helper={t("auto.StatisticsPageClient.sur_les_7_derniers_jours", "sur les 7 derniers jours")}
+          />
+        </SimpleGrid>
 
         {statsLoading ? (
           <SurfaceCard p={{ base: 4, md: 6 }}>
@@ -555,31 +499,10 @@ export default function StatisticsPageClient() {
                   <Text mt={1} color={textMuted}>{t("auto.StatisticsPageClient.visualise_les_ecarts_entre_deux_occurrences_d_une_", "Visualise les écarts entre deux occurrences d’une même séance sans quitter la page.")}</Text>
                 </Box>
               </HStack>
-              <Button
-                onClick={comparePanel.onToggle}
-                variant={comparePanel.isOpen ? "solid" : "outline"}
-                colorScheme="blue"
-                borderRadius="full"
-                alignSelf={{ base: "stretch", md: "center" }}
-              >
-                {comparePanel.isOpen ? "Masquer le comparateur" : "Comparer une séance"}
-              </Button>
             </Flex>
-            {comparePanel.isOpen ? (
-              <Suspense fallback={<Skeleton h="220px" borderRadius="24px" />}>
-                <SessionComparator clientId={clientId} programmes={programmes} />
-              </Suspense>
-            ) : (
-              <Box
-                bg={subCardBg}
-                border="1px solid"
-                borderColor={borderCol}
-                borderRadius="24px"
-                p={5}
-              >
-                <Text color={textMuted}>{t("auto.StatisticsPageClient.aucune_comparaison_ouverte", "Aucune comparaison ouverte.")}</Text>
-              </Box>
-            )}
+            <Suspense fallback={<Skeleton h="220px" borderRadius="24px" />}>
+              <SessionComparator clientId={clientId} programmes={programmes} embedded />
+            </Suspense>
           </SurfaceCard>
         ) : (
           <SurfaceCard p={{ base: 4, md: 6 }}>
@@ -608,15 +531,15 @@ export default function StatisticsPageClient() {
                 </HStack>
               </Box>
 
-              <HStack spacing={3} align="end" wrap="wrap">
-                <FormControl w="auto" minW="92px">
+              <HStack spacing={{ base: 2, md: 3 }} align="end" flexWrap="nowrap" w={{ base: "full", md: "auto" }}>
+                <FormControl w={{ base: "72px", md: "auto" }} minW={{ base: "72px", md: "92px" }} flexShrink={0}>
                   <FormLabel fontSize="xs" mb={1} color={subtleText}>{label("units.height", "Taille")}</FormLabel>
                   <Select size="sm" value={heightUnit} onChange={(e) => setHeightUnit(e.target.value)} borderRadius="full" bg={subCardBg}>
                     <option value="cm">{t("units.cm", "cm")}</option>
                     <option value="in">{t("auto.StatisticsPageClient.in", "in")}</option>
                   </Select>
                 </FormControl>
-                <FormControl w="auto" minW="92px">
+                <FormControl w={{ base: "72px", md: "auto" }} minW={{ base: "72px", md: "92px" }} flexShrink={0}>
                   <FormLabel fontSize="xs" mb={1} color={subtleText}>{label("units.weight", "Poids")}</FormLabel>
                   <Select size="sm" value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)} borderRadius="full" bg={subCardBg}>
                     <option value="kg">{t("units.kg", "kg")}</option>
@@ -625,11 +548,17 @@ export default function StatisticsPageClient() {
                 </FormControl>
                 <Button
                   onClick={addMeas.onOpen}
-                  bg={activeBlue}
-                  color="white"
-                  _hover={{ bg: "#1D4ED8" }}
+                  bg={primaryButtonBg}
+                  color={primaryButtonColor}
+                  _hover={{ bg: primaryButtonHoverBg }}
                   borderRadius="full"
-                  px={5}
+                  h="40px"
+                  px={{ base: 2, md: 5 }}
+                  minW={0}
+                  flex={{ base: "1", md: "initial" }}
+                  fontSize={{ base: "xs", sm: "sm", md: "md" }}
+                  whiteSpace="nowrap"
+                  fontWeight="800"
                 >
                   {label("addMeasure", "Ajouter mesure")}
                 </Button>
@@ -786,7 +715,7 @@ export default function StatisticsPageClient() {
       {/* Modal ajout mesure */}
       <Modal isOpen={addMeas.isOpen} onClose={addMeas.onClose} isCentered>
         <ModalOverlay />
-        <ModalContent borderRadius="28px" bg={cardBg} border="1px solid" borderColor={borderStrong} boxShadow={glassShadow}>
+        <ModalContent borderRadius="22px" bg={cardBg} border="1px solid" borderColor={borderStrong} boxShadow={glassShadow}>
           <ModalHeader>{label("modal.title", "Nouvelle mesure")}</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
@@ -836,8 +765,20 @@ export default function StatisticsPageClient() {
             </VStack>
           </ModalBody>
           <ModalFooter justifyContent="space-between">
-            <Button variant="ghost" onClick={addMeas.onClose}>{t("common.cancel", "Annuler")}</Button>
-            <Button onClick={handleAdd} isLoading={saving}>
+            <Button variant="outline" borderRadius="full" h="40px" px={5} onClick={addMeas.onClose}>
+              {t("common.cancel", "Annuler")}
+            </Button>
+            <Button
+              onClick={handleAdd}
+              isLoading={saving}
+              bg={primaryButtonBg}
+              color={primaryButtonColor}
+              _hover={{ bg: primaryButtonHoverBg }}
+              borderRadius="full"
+              h="40px"
+              px={5}
+              fontWeight="800"
+            >
               {t("actions.confirm", "Confirmer")}
             </Button>
           </ModalFooter>

@@ -40,7 +40,7 @@ const langCodeFromAny = (value) => {
 const ClientCreation = ({
   onClose,
   onCreated,
-  hideTitle = false,
+  hideTitle = true,
   ownerUid = "",
   clubId = "",
   clubName = "",
@@ -459,7 +459,7 @@ const ClientCreation = ({
   const heightPlaceholderCm = `${t("clientCreation.height")} (cm)`;
 
   return (
-    <Box layerStyle="glassCard" p={{ base: 4, md: 6 }}>
+    <Box pb={{ base: 4, md: 5 }}>
       {!hideTitle && (
         <Box mb={5}>
           <Heading size="md" mb={1}>
@@ -471,25 +471,6 @@ const ClientCreation = ({
 
       <form onSubmit={handleSubmit}>
         <VStack spacing={5} align="stretch">
-          <Box>
-            <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.08em" color="textMuted" fontWeight="800">{t("auto.SettingsPageCoach.acces", "Accès")}</Text>
-            <Text mt={1} fontSize="sm" color={fieldHint}>{t("auto.ClientCreation.choisissez_comment_le_client_activera_son_compte", "Choisissez comment le client activera son compte.")}</Text>
-          </Box>
-
-          <FormControl isRequired>
-            <FormLabel>{t("clientCreation.loginMethod")}</FormLabel>
-            <Select name="loginMethod" value={client.loginMethod} onChange={handleChange}>
-              <option value="email">{t("clientCreation.loginMethodEmail")}</option>
-              <option value="phone" disabled>
-                {t("clientCreation.loginMethodPhoneSoon") || `${t("clientCreation.loginMethodPhone")} (bientôt)`}
-              </option>
-            </Select>
-            <Text mt={2} fontSize="xs" color={fieldHint}>
-              {t("clientCreation.phoneLoginHint") ||
-                "La connexion par téléphone sera branchée avec une validation SMS dédiée. Pour le moment, l’accès client sécurisé se fait par email."}
-            </Text>
-          </FormControl>
-
           <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
             <FormControl isRequired>
               <FormLabel>{t("clientCreation.firstName")}</FormLabel>
@@ -501,58 +482,51 @@ const ClientCreation = ({
             </FormControl>
           </SimpleGrid>
 
-          {client.loginMethod === "email" && (
-            <FormControl>
-              <FormLabel>{t("clientCreation.email")}</FormLabel>
-              <Input
-                type="email"
-                name="email"
-                placeholder={t("clientCreation.email")}
-                value={client.email}
-                onChange={handleChange}
-                onBlur={lookupExistingClient}
-              />
-              {lookupLoading && (
-                <Text mt={2} fontSize="xs" color={fieldHint}>
-                  Vérification du compte existant...
-                </Text>
-              )}
-              {existingLookup?.exists && (
-                <Alert mt={3} status={existingLookup.canLink ? "info" : "warning"} borderRadius="lg">
-                  <AlertIcon />
-                  <Box>
-                    <HStack spacing={2} flexWrap="wrap">
-                      <Text fontWeight="800">
-                        {existingLookup.canLink ? "Compte client existant trouvé" : "Email déjà utilisé"}
-                      </Text>
-                      {existingLookup.hasPrograms && (
-                        <Badge colorScheme="blue">
-                          {existingLookup.client?.programCount || 0} programme(s)
-                        </Badge>
-                      )}
-                    </HStack>
-                    <Text fontSize="sm">
-                      {existingLookup.canLink
-                        ? "À la validation, cette fiche sera rattachée au coach sans créer de doublon."
-                        : "Cet email appartient déjà à un compte pro/admin et ne peut pas être ajouté comme client."}
+          <FormControl>
+            <FormLabel>{t("clientCreation.email")}</FormLabel>
+            <Input
+              type="email"
+              name="email"
+              placeholder={t("clientCreation.email")}
+              value={client.email}
+              onChange={handleChange}
+              onBlur={lookupExistingClient}
+            />
+            <Text mt={2} fontSize="xs" color={fieldHint}>
+              {t("clientCreation.emailAccessHint", "L’accès sécurisé du client sera envoyé uniquement par e-mail.")}
+            </Text>
+            {lookupLoading && (
+              <Text mt={2} fontSize="xs" color={fieldHint}>
+                Vérification du compte existant...
+              </Text>
+            )}
+            {existingLookup?.exists && (
+              <Alert mt={3} status={existingLookup.canLink ? "info" : "warning"} borderRadius="lg">
+                <AlertIcon />
+                <Box>
+                  <HStack spacing={2} flexWrap="wrap">
+                    <Text fontWeight="800">
+                      {existingLookup.canLink ? "Compte client existant trouvé" : "Email déjà utilisé"}
                     </Text>
-                  </Box>
-                </Alert>
-              )}
-            </FormControl>
-          )}
-          {client.loginMethod === "phone" && (
-            <FormControl isRequired>
-              <FormLabel>{t("clientCreation.phone")}</FormLabel>
-              <Input type="tel" name="telephone" placeholder={t("clientCreation.phone")} value={client.telephone} onChange={handleChange} required />
-            </FormControl>
-          )}
-          {client.loginMethod === "email" && (
-            <FormControl>
-              <FormLabel>{t("clientCreation.phoneOptional")}</FormLabel>
-              <Input name="telephone" placeholder={t("clientCreation.phoneOptional")} value={client.telephone} onChange={handleChange} />
-            </FormControl>
-          )}
+                    {existingLookup.hasPrograms && (
+                      <Badge colorScheme="blue">
+                        {existingLookup.client?.programCount || 0} programme(s)
+                      </Badge>
+                    )}
+                  </HStack>
+                  <Text fontSize="sm">
+                    {existingLookup.canLink
+                      ? "À la validation, cette fiche sera rattachée au coach sans créer de doublon."
+                      : "Cet email appartient déjà à un compte pro/admin et ne peut pas être ajouté comme client."}
+                  </Text>
+                </Box>
+              </Alert>
+            )}
+          </FormControl>
+          <FormControl>
+            <FormLabel>{t("clientCreation.phoneOptional")}</FormLabel>
+            <Input name="telephone" placeholder={t("clientCreation.phoneOptional")} value={client.telephone} onChange={handleChange} />
+          </FormControl>
 
           <Divider borderColor="borderSubtle" />
 

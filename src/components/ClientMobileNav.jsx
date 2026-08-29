@@ -23,12 +23,12 @@ export default function ClientMobileNav() {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
-  const activeBlue = useColorModeValue("#2563EB", "#7CB7FF");
-  const activeBlueDark = useColorModeValue("#1D4ED8", "#9BC7FF");
+  const activeBg = useColorModeValue("#0F172A", "rgba(255,255,255,0.14)");
+  const activeHoverBg = useColorModeValue("#1E293B", "rgba(255,255,255,0.20)");
   const textColor = useColorModeValue("#0F172A", "white");
-  const borderColor = useColorModeValue("rgba(37,99,235,0.20)", "rgba(124,183,255,0.22)");
+  const borderColor = useColorModeValue("rgba(15,23,42,0.12)", "rgba(255,255,255,0.12)");
   const bg = useColorModeValue("rgba(255,255,255,0.94)", "rgba(8,13,26,0.94)");
-  const ghostHover = useColorModeValue("rgba(37,99,235,0.08)", "rgba(124,183,255,0.12)");
+  const ghostHover = useColorModeValue("rgba(15,23,42,0.06)", "rgba(255,255,255,0.08)");
   const shadow = useColorModeValue(
     "0 18px 44px rgba(15,23,42,0.16)",
     "0 18px 44px rgba(0,0,0,0.44)"
@@ -76,9 +76,9 @@ export default function ClientMobileNav() {
               px={1}
               flexDirection="column"
               gap={1}
-              bg={isActive ? activeBlue : "transparent"}
+              bg={isActive ? activeBg : "transparent"}
               color={isActive ? "white" : textColor}
-              _hover={{ bg: isActive ? activeBlueDark : ghostHover }}
+              _hover={{ bg: isActive ? activeHoverBg : ghostHover }}
               onMouseEnter={() => preloadPath(item.path)}
               onTouchStart={() => preloadPath(item.path)}
               onPointerDown={() => preloadPath(item.path)}

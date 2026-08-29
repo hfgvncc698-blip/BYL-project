@@ -2,7 +2,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState, useCallback } from "react";
 import {
   Box,
-  Heading,
   Flex,
   Table,
   Thead,
@@ -11,7 +10,10 @@ import {
   Th,
   Td,
   Button,
+  Heading,
   Input,
+  InputGroup,
+  InputLeftElement,
   useColorModeValue,
   Modal,
   ModalOverlay,
@@ -41,6 +43,7 @@ import {
   useToast,
   useBreakpointValue,
 } from "@chakra-ui/react";
+import { AddIcon, SearchIcon } from "@chakra-ui/icons";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "../AuthContext";
@@ -63,10 +66,15 @@ import {
 import { db } from "../firebaseConfig";
 import { FiTrash2 } from "react-icons/fi";
 import PageBackButton from "./ui/PageBackButton";
+import { AppMetricValue, AppSectionHeader, AppSurface } from "./ui/AppPrimitives.jsx";
 import { apiFetch } from "../utils/api";
 import { notify } from "../utils/notify";
 import { useAppTheme } from "../styles/appTheme";
 import { hasPlanModule } from "../utils/proPlanAccess";
+import {
+  getProgramPlannedSessionTotal,
+  getProgramValidatedSessionCount,
+} from "../utils/programDuration";
 import {
   deferPageTask,
   readPageDataCacheEntry,
@@ -205,20 +213,6 @@ const getCompletedDate = (s) => {
 
   if (!d || Number.isNaN(d.getTime())) return null;
   return d;
-};
-
-const getSessionIndex = (s) => {
-  const v =
-    s?.sessionIndex ??
-    s?.seanceIndex ??
-    s?.indexSeance ??
-    s?.index ??
-    s?.session_number ??
-    s?.sessionNumber ??
-    null;
-
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
 };
 
 // ✅ Helpers “nom identique Builder” (copié de CoachDashboard)
@@ -365,18 +359,18 @@ async function buildClientComputedStats(client) {
   let latestDoneMs = 0;
   const computedProgrammes = await Promise.all(progSnap.docs.map(async (d) => {
     const progData = d.data() || {};
-    const totalProgSessions = getTotalSessionsFromProgrammeDoc(progData);
+    const totalProgSessions = getProgramPlannedSessionTotal(progData);
 
     const sessEffCol = collection(db, "clients", clientId, SUBCOLL_PROGRAMMES, d.id, SUBCOLL_SESSIONS_DONE);
     const sessEffSnap = await getDocs(sessEffCol);
 
-    const doneIndexes = new Set();
-    let fallbackDoneCount = 0;
+    const sessionsEffectuees = [];
     let programmeSessions7j = 0;
     let programmeLatestDoneMs = 0;
 
     sessEffSnap.forEach((s) => {
       const data = s.data() || {};
+      sessionsEffectuees.push(data);
       const pct = typeof data.pourcentageTermine === "number" ? data.pourcentageTermine : 100;
       if (pct < 90) return;
 
@@ -394,21 +388,15 @@ async function buildClientComputedStats(client) {
         }
       }
 
-      const idx = getSessionIndex(data);
-      if (idx !== null && idx >= 0) {
-        doneIndexes.add(idx);
-      } else {
-        fallbackDoneCount += 1;
-      }
     });
 
-    let doneForProg = doneIndexes.size > 0 ? doneIndexes.size : fallbackDoneCount;
-
-    if (sessEffSnap.size > 0 && doneForProg === 0) {
-      doneForProg = Math.min(sessEffSnap.size, totalProgSessions);
-    }
-
-    doneForProg = Math.min(doneForProg, totalProgSessions);
+    const validatedCount = getProgramValidatedSessionCount({
+      ...progData,
+      sessionsEffectuees,
+    });
+    const doneForProg = totalProgSessions > 0
+      ? Math.min(validatedCount, totalProgSessions)
+      : validatedCount;
     return {
       totalProgSessions,
       doneForProg,
@@ -478,7 +466,7 @@ const Clients = () => {
       effectiveCoachUid
         ? [
             "byl:clients-page",
-            "v2",
+            "v3",
             effectiveCoachUid,
             filter,
             nutritionMode ? "nutrition" : "sport",
@@ -1111,10 +1099,9 @@ const Clients = () => {
   const headColor = theme.textColor;
   const borderColor = theme.borderColor;
   const muted = theme.mutedText;
-  const subhead = theme.mutedText;
   const filterBg = theme.surfaceBg;
   const statBg = useColorModeValue("rgba(59,130,246,0.08)", "rgba(59,130,246,0.12)");
-  const tableHeadBg = useColorModeValue("rgba(15,23,42,0.03)", "rgba(255,255,255,0.03)");
+  const tableHeadBg = theme.surfaceBgStrong;
   const rowHover = useColorModeValue("rgba(59,130,246,0.05)", "rgba(59,130,246,0.08)");
 
   const newClientLabel = nutritionMode
@@ -1180,167 +1167,165 @@ const Clients = () => {
             mb={3}
           />
         )}
-        <Box
-          mb={{ base: 4, md: 6 }}
-          bg={{ base: theme.surfaceGlow, md: "transparent" }}
-          border={{ base: "1px solid", md: "0" }}
-          borderColor={{ base: borderColor, md: "transparent" }}
-          borderRadius={{ base: "28px", md: 0 }}
-          p={{ base: 5, md: 0 }}
-          boxShadow={{ base: "0 20px 52px rgba(15,23,42,0.12)", md: "none" }}
-          overflow="hidden"
-        >
-          <HStack spacing={3} align="center" mb={1}>
+        <AppSurface bg={theme.surfaceBg} mb={{ base: 4, md: 6 }} p={{ base: 4, md: 5 }}>
+          <Flex align="flex-start" gap={3}>
             <PageBackButton fallbackTo={withAdminCoach("/coach-dashboard")} />
-            <Heading color={headColor} fontSize={{ base: "2xl", md: "3xl" }} letterSpacing="0">
-              {nutritionMode ? t("clientsList.headingPatients", "Mes patients") : t("clientsList.heading")}
-            </Heading>
-          </HStack>
-          <Text color={subhead} fontSize={{ base: "md", md: "inherit" }} fontWeight={{ base: "650", md: "normal" }}>
-            {nutritionMode ? t("clientsList.nutritionSubtitle", "Gérez vos patients, leurs coordonnées et leurs suivis nutrition depuis un seul espace.") : t(
-              "clientsList.sportOnlySubtitle",
-              "Gérez vos clients sportifs, leur activité récente et leurs programmes depuis un seul espace."
-            )}
-          </Text>
-        </Box>
-
-        <Box
-          layerStyle="glassCard"
-          mb={{ base: hasSearch ? 3 : 6, md: 6 }}
-          p={{ base: hasSearch ? 3 : 4, md: 5 }}
-          position={{ base: "sticky", md: "static" }}
-          top={{ base: 2, md: "auto" }}
-          zIndex={{ base: 5, md: "auto" }}
-          borderRadius={{ base: "24px", md: "card" }}
-        >
-          <Flex gap={3} flexWrap="wrap" align="center">
-          <Button
-            data-tour="clients-filters"
-            size="sm"
-            variant={filter === "active" ? "solid" : "outline"}
-            onClick={() => navigate(buildClientsPath("active"))}
-          >
-            {filterLabels.active}
-          </Button>
-
-          <Button
-            size="sm"
-            variant={filter === "inactive" ? "solid" : "outline"}
-            onClick={() => navigate(buildClientsPath("inactive"))}
-          >
-            {filterLabels.inactive}
-          </Button>
-
-          <Button size="sm" variant={!filter ? "solid" : "outline"} onClick={() => navigate(buildClientsPath())}>
-            {filterLabels.all}
-          </Button>
-
-          <Input
-            placeholder={nutritionMode ? t("clientsList.searchPatientPlaceholder", "Rechercher un patient") : t("clientsList.searchPlaceholder")}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            maxW={{ base: "100%", md: "340px" }}
-            flex={{ base: "1 1 100%", md: "0 0 auto" }}
-            minW={0}
-          />
-
-          {hasSearch && (
-            <HStack
-              display={{ base: "flex", md: "none" }}
-              w="full"
-              justify="space-between"
-              color={muted}
-              fontSize="sm"
-              fontWeight="700"
-            >
-              <Text noOfLines={1}>
-                {filteredClients.length} {nutritionMode ? "patient(s)" : "client(s)"}
-              </Text>
-              <Button
-                size="xs"
-                variant="ghost"
-                borderRadius="full"
-                onClick={() => setSearchQuery("")}
-              >
-                Effacer
-              </Button>
-            </HStack>
-          )}
-
-          <Button
-            data-tour="clients-new-client"
-            size="sm"
-            display={{ base: hasSearch ? "none" : "inline-flex", md: "inline-flex" }}
-            ml={{ base: 0, md: "auto" }}
-            onClick={
-              nutritionMode
-                ? () => navigate(withAdminCoach("/nutrition-coach?new=1"))
-                : () => {
-                    loadClientCreation().catch(() => {});
-                    createClientModal.onOpen();
+            <AppSectionHeader
+              flex="1"
+              title={nutritionMode ? t("clientsList.headingPatients", "Mes patients") : t("clientsList.heading")}
+              subtitle={nutritionMode ? t("clientsList.nutritionSubtitle", "Gérez vos patients, leurs coordonnées et leurs suivis nutrition depuis un seul espace.") : t(
+                "clientsList.sportOnlySubtitle",
+                "Gérez vos clients sportifs, leur activité récente et leurs programmes depuis un seul espace."
+              )}
+              headingAs="h1"
+              action={(
+                <Button
+                  data-tour="clients-new-client"
+                  {...theme.primaryButtonProps}
+                  leftIcon={<AddIcon boxSize="14px" />}
+                  onClick={
+                    nutritionMode
+                      ? () => navigate(withAdminCoach("/nutrition-coach?new=1"))
+                      : () => {
+                          loadClientCreation().catch(() => {});
+                          createClientModal.onOpen();
+                        }
                   }
-            }
-          >
-            {newClientLabel}
-          </Button>
+                >
+                  {newClientLabel}
+                </Button>
+              )}
+              direction={{ base: "column", lg: "row" }}
+              align={{ base: "stretch", lg: "center" }}
+            />
           </Flex>
-        </Box>
+        </AppSurface>
 
         <SimpleGrid
-          columns={{ base: 3, md: 3 }}
+          columns={{ base: 1, sm: 3 }}
           spacing={{ base: 2, md: 4 }}
           mb={6}
-          display={{ base: hasSearch ? "none" : "grid", md: "grid" }}
         >
-          <Box layerStyle="glassCard" p={4}>
-            <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.08em" color="textMuted" fontWeight="800">{t("auto.Clients.total", "Total")}</Text>
-            <Text mt={2} fontSize={{ base: "2xl", md: "3xl" }} fontWeight="900" color={headColor}>
-              {clients.length}
-            </Text>
-            <Text fontSize={{ base: "xs", md: "sm" }} color={subhead}>
-              {nutritionMode ? t("clientsList.stats.patients", "Patients suivis") : t("clientsList.stats.clients", "Clients")}
-            </Text>
-          </Box>
-          <Box layerStyle="glassCard" p={4}>
-            <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.08em" color="textMuted" fontWeight="800">
-              {nutritionMode ? t("clientsList.stats.recentFollows", "Suivis récents") : t("clientsList.stats.active", "Actifs")}
-            </Text>
-            <Text mt={2} fontSize={{ base: "2xl", md: "3xl" }} fontWeight="900" color="green.400">
-              {clients.filter((c) => isActiveByInteraction(c.id)).length}
-            </Text>
-            <Text fontSize={{ base: "xs", md: "sm" }} color={subhead}>
-              {nutritionMode
-                ? t("clientsList.stats.nutritionInteraction", "Interaction nutrition sur {{days}} jours", { days: DAYS_ACTIVE_CUTOFF })
-                : t("clientsList.stats.sportInteraction", "Interaction sur les {{days}} derniers jours", { days: DAYS_ACTIVE_CUTOFF })}
-            </Text>
-          </Box>
-          <Box layerStyle="glassCard" p={4}>
-            <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.08em" color="textMuted" fontWeight="800">
-              {nutritionMode ? t("clientsList.stats.filteredPatients", "Patients filtrés") : t("clientsList.stats.shown", "Affichés")}
-            </Text>
-            <Text mt={2} fontSize={{ base: "2xl", md: "3xl" }} fontWeight="900" color="brand.400">
-              {filteredClients.length}
-            </Text>
-            <Text fontSize="sm" color={subhead}>
-              {nutritionMode
-                ? t("clientsList.stats.nutritionFilteredHint", "Selon le suivi et la recherche")
-                : t("clientsList.stats.shownHint", "Résultats selon vos filtres et votre recherche")}
-            </Text>
-          </Box>
+          <AppSurface variant="tile" bg={theme.surfaceBgStrong} p={{ base: 3, md: 4 }}>
+            <Flex align="center" justify="space-between" gap={{ base: 2, md: 4 }} h="100%">
+              <Stack spacing={1} minW={0} justify="center">
+                <Heading as="h2" size="md" color={theme.textColor} fontWeight="900" lineHeight="1.15" noOfLines={2}>{t("auto.Clients.total", "Total")}</Heading>
+                <Text fontSize="xs" color={theme.subtleText} fontWeight="400" lineHeight="1.25" noOfLines={2}>
+                  {nutritionMode ? t("clientsList.stats.patients", "Patients suivis") : t("clientsList.stats.clients", "Clients")}
+                </Text>
+              </Stack>
+              <AppMetricValue flexShrink={0} fontSize={{ base: "2xl", md: "32px" }}>{clients.length}</AppMetricValue>
+            </Flex>
+          </AppSurface>
+          <AppSurface variant="tile" bg={theme.surfaceBgStrong} p={{ base: 3, md: 4 }}>
+            <Flex align="center" justify="space-between" gap={{ base: 2, md: 4 }} h="100%">
+              <Stack spacing={1} minW={0} justify="center">
+                <Heading as="h2" size="md" color={theme.textColor} fontWeight="900" lineHeight="1.15" noOfLines={2}>
+                  {nutritionMode ? t("clientsList.stats.recentFollows", "Suivis récents") : t("clientsList.stats.active", "Actifs")}
+                </Heading>
+                <Text fontSize="xs" color={theme.subtleText} fontWeight="400" lineHeight="1.25" noOfLines={2}>
+                  {nutritionMode
+                    ? t("clientsList.stats.nutritionInteraction", "Interaction nutrition sur {{days}} jours", { days: DAYS_ACTIVE_CUTOFF })
+                    : t("clientsList.stats.sportInteraction", "Interaction sur les {{days}} derniers jours", { days: DAYS_ACTIVE_CUTOFF })}
+                </Text>
+              </Stack>
+              <AppMetricValue flexShrink={0} fontSize={{ base: "2xl", md: "32px" }}>{clients.filter((c) => isActiveByInteraction(c.id)).length}</AppMetricValue>
+            </Flex>
+          </AppSurface>
+          <AppSurface variant="tile" bg={theme.surfaceBgStrong} p={{ base: 3, md: 4 }}>
+            <Flex align="center" justify="space-between" gap={{ base: 2, md: 4 }} h="100%">
+              <Stack spacing={1} minW={0} justify="center">
+                <Heading as="h2" size="md" color={theme.textColor} fontWeight="900" lineHeight="1.15" noOfLines={2}>
+                  {nutritionMode ? t("clientsList.stats.filteredPatients", "Patients filtrés") : t("clientsList.stats.shown", "Affichés")}
+                </Heading>
+                <Text fontSize="xs" color={theme.subtleText} fontWeight="400" lineHeight="1.25" noOfLines={2}>
+                  {nutritionMode
+                    ? t("clientsList.stats.nutritionFilteredHint", "Selon le suivi et la recherche")
+                    : t("clientsList.stats.shownHint", "Résultats selon vos filtres et votre recherche")}
+                </Text>
+              </Stack>
+              <AppMetricValue flexShrink={0} fontSize={{ base: "2xl", md: "32px" }}>{filteredClients.length}</AppMetricValue>
+            </Flex>
+          </AppSurface>
         </SimpleGrid>
 
         <Box id="clients-results" layerStyle="glassCard" p={{ base: 3, md: 6 }} mb={8} scrollMarginTop={{ base: "150px", md: "24px" }}>
+          <Flex gap={3} mb={{ base: 4, md: 5 }} direction={{ base: "column", md: "row" }} align={{ base: "stretch", md: "center" }} justify="space-between">
+            <InputGroup maxW={{ base: "100%", md: "430px" }}>
+              <InputLeftElement pointerEvents="none">
+                <SearchIcon color={theme.mutedText} />
+              </InputLeftElement>
+              <Input
+                placeholder={nutritionMode ? t("clientsList.searchPatientPlaceholder", "Rechercher un patient") : t("clientsList.searchPlaceholder")}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                borderRadius="full"
+                bg={theme.surfaceSoft}
+                borderColor={theme.borderColor}
+                _hover={{ borderColor: theme.borderColorStrong }}
+                _focusVisible={{ borderColor: "#3B82F6", boxShadow: "0 0 0 1px #3B82F6" }}
+              />
+            </InputGroup>
+
+            <HStack spacing={2} flexWrap="wrap" justify={{ base: "flex-start", md: "flex-end" }}>
+              <Button
+                data-tour="clients-filters"
+                size="sm"
+                borderRadius="full"
+                variant={filter === "active" ? "solid" : "outline"}
+                onClick={() => navigate(buildClientsPath("active"))}
+              >
+                {filterLabels.active}
+              </Button>
+              <Button
+                size="sm"
+                borderRadius="full"
+                variant={filter === "inactive" ? "solid" : "outline"}
+                onClick={() => navigate(buildClientsPath("inactive"))}
+              >
+                {filterLabels.inactive}
+              </Button>
+              <Button size="sm" borderRadius="full" variant={!filter ? "solid" : "outline"} onClick={() => navigate(buildClientsPath())}>
+                {filterLabels.all}
+              </Button>
+            </HStack>
+
+            {hasSearch && (
+              <HStack
+                display={{ base: "flex", md: "none" }}
+                w="full"
+                justify="space-between"
+                color={muted}
+                fontSize="sm"
+                fontWeight="700"
+              >
+                <Text noOfLines={1}>
+                  {filteredClients.length} {nutritionMode ? "patient(s)" : "client(s)"}
+                </Text>
+                <Button size="xs" variant="ghost" borderRadius="full" onClick={() => setSearchQuery("")}>
+                  Effacer
+                </Button>
+              </HStack>
+            )}
+          </Flex>
+
           {!isMobileClientsLayout && (
-          <Box>
-            <Table variant="simple" colorScheme="gray" width="100%">
+          <Box overflowX="auto">
+            <Table
+              variant="simple"
+              colorScheme="gray"
+              width="100%"
+              tableLayout="fixed"
+              sx={{ "& th, & td": { px: 2 } }}
+            >
               <Thead bg={tableHeadBg}>
                 <Tr>
-                  <Th>{nutritionMode ? "Patient" : t("clientsList.table.client")}</Th>
-                  {!nutritionMode && <Th>{t("clientsList.table.programs")}</Th>}
-                  <Th>{nutritionMode ? "Dernier suivi" : t("clientsList.table.lastSession")}</Th>
-                  <Th>{nutritionMode ? "Statut nutrition" : t("clientsList.table.activity")}</Th>
-                  {!nutritionMode && <Th>{t("clientsList.table.progress")}</Th>}
-                  <Th isNumeric>{t("clientsList.table.action")}</Th>
+                  <Th w={nutritionMode ? "25%" : "24%"}>{nutritionMode ? "Patient" : t("clientsList.table.client")}</Th>
+                  {!nutritionMode && <Th w="8%">{t("clientsList.table.programs")}</Th>}
+                  <Th w={nutritionMode ? "15%" : "12%"}>{nutritionMode ? "Dernier suivi" : t("clientsList.table.lastSession")}</Th>
+                  <Th w={nutritionMode ? "14%" : "10%"}>{nutritionMode ? "Statut nutrition" : t("clientsList.table.activity")}</Th>
+                  {!nutritionMode && <Th w="21%">{t("clientsList.table.progress")}</Th>}
+                  <Th w={nutritionMode ? "46%" : "25%"} isNumeric>{t("clientsList.table.action")}</Th>
                 </Tr>
               </Thead>
               <Tbody>
@@ -1407,7 +1392,7 @@ const Clients = () => {
 
                       {!nutritionMode && (
                       <Td>
-                        <Box minW="240px">
+                        <Box minW={0} w="100%">
                           <HStack justify="space-between" mb={1}>
                             <Text fontSize="sm" color={muted}>
                               {t("clientsList.progress.sessions", {
@@ -1427,8 +1412,8 @@ const Clients = () => {
                       </Td>
                       )}
 
-                      <Td isNumeric>
-                        <ButtonGroup spacing={2} display="inline-flex" whiteSpace="nowrap">
+                      <Td isNumeric w={nutritionMode ? "46%" : "25%"}>
+                        <ButtonGroup spacing={1.5} display="inline-flex" whiteSpace="nowrap">
                           <Button
                             data-tour={c.__tourDemo ? "clients-demo-edit" : undefined}
                             size="sm"
@@ -1562,6 +1547,15 @@ const Clients = () => {
                     )}
 
                     <HStack spacing={2} mt={4}>
+                      <IconButton
+                        aria-label={t("clientsList.actions.deleteAria")}
+                        icon={<FiTrash2 />}
+                        size="sm"
+                        borderRadius="full"
+                        colorScheme="red"
+                        isDisabled={c.__tourDemo}
+                        onClick={() => !c.__tourDemo && openDeleteModal(c.id)}
+                      />
                       <Button
                         size="sm"
                         borderRadius="full"
@@ -1593,15 +1587,6 @@ const Clients = () => {
                           {t("clientsList.actions.assign")}
                         </Button>
                       )}
-                      <IconButton
-                        aria-label={t("clientsList.actions.deleteAria")}
-                        icon={<FiTrash2 />}
-                        size="sm"
-                        borderRadius="full"
-                        colorScheme="red"
-                        isDisabled={c.__tourDemo}
-                        onClick={() => !c.__tourDemo && openDeleteModal(c.id)}
-                      />
                     </HStack>
                   </Box>
                 );

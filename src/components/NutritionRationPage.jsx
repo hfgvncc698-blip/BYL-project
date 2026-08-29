@@ -506,42 +506,42 @@ export default function NutritionRationPage() {
   const modeTouchedUntilRef = useRef(0);
 
   const nutritionTheme = useNutritionTheme();
-  const panelBg = nutritionTheme.surfaceBg;
+  const panelBg = nutritionTheme.surfaceBgStrong;
   const pageBg = nutritionTheme.pageBg;
   const softBg = nutritionTheme.surfaceSoft;
   const borderCol = nutritionTheme.borderColor;
   const textMuted = nutritionTheme.mutedText;
   const rationSummaryCards = {
     energy: {
-      bg: useColorModeValue("blue.50", "rgba(37, 99, 235, 0.14)"),
-      border: useColorModeValue("blue.200", "rgba(96, 165, 250, 0.34)"),
+      bg: softBg,
+      border: borderCol,
       label: useColorModeValue("blue.700", "blue.200"),
       text: useColorModeValue("gray.900", "whiteAlpha.950"),
       muted: useColorModeValue("blue.800", "whiteAlpha.760"),
     },
     mealsOk: {
-      bg: useColorModeValue("teal.50", "rgba(20, 184, 166, 0.13)"),
-      border: useColorModeValue("teal.300", "rgba(45, 212, 191, 0.34)"),
+      bg: softBg,
+      border: borderCol,
       label: useColorModeValue("teal.800", "teal.200"),
       text: useColorModeValue("gray.900", "whiteAlpha.950"),
       progressTrack: useColorModeValue("teal.100", "rgba(45, 212, 191, 0.16)"),
     },
     mealsWarn: {
-      bg: useColorModeValue("orange.50", "rgba(251, 146, 60, 0.12)"),
-      border: useColorModeValue("orange.300", "rgba(251, 191, 36, 0.34)"),
+      bg: softBg,
+      border: borderCol,
       label: useColorModeValue("orange.800", "orange.200"),
       text: useColorModeValue("gray.900", "whiteAlpha.950"),
       progressTrack: useColorModeValue("orange.100", "rgba(251, 191, 36, 0.16)"),
     },
     macros: {
-      bg: useColorModeValue("purple.50", "rgba(124, 58, 237, 0.13)"),
-      border: useColorModeValue("purple.200", "rgba(167, 139, 250, 0.34)"),
+      bg: softBg,
+      border: borderCol,
       label: useColorModeValue("purple.700", "purple.200"),
       text: useColorModeValue("gray.900", "whiteAlpha.950"),
     },
     check: {
-      bg: useColorModeValue("orange.50", "rgba(251, 146, 60, 0.11)"),
-      border: useColorModeValue("orange.200", "rgba(251, 191, 36, 0.32)"),
+      bg: softBg,
+      border: borderCol,
       label: useColorModeValue("orange.700", "orange.200"),
       text: useColorModeValue("orange.900", "whiteAlpha.860"),
     },
@@ -549,7 +549,7 @@ export default function NutritionRationPage() {
   const sectionCardProps = {
     borderWidth: "1px",
     borderColor: borderCol,
-    borderRadius: "lg",
+    borderRadius: "22px",
     bg: panelBg,
     boxShadow: "0 14px 34px rgba(15, 23, 42, 0.06)",
   };
@@ -720,6 +720,7 @@ export default function NutritionRationPage() {
         assessedAt: new Date().toISOString(),
       }),
       "ration.selectedAt": serverTimestamp(),
+      "clientShare.noNotify": true,
       updatedAt: serverTimestamp(),
     };
 
@@ -738,6 +739,7 @@ export default function NutritionRationPage() {
       updateDoc(assessmentRef, {
         "ration.mode": cleanMode,
         "ration.selectedType": cleanMode === "auto" ? "auto" : "pro",
+        "clientShare.noNotify": true,
         updatedAt: serverTimestamp(),
       }).catch((e) => {
         console.error("Ration mode save failed:", e);
@@ -795,6 +797,7 @@ export default function NutritionRationPage() {
         coachAlerts: result.coachAlerts,
         updatedAt: new Date().toISOString(),
       }),
+      "clientShare.noNotify": true,
       updatedAt: serverTimestamp(),
     });
   }, [assessmentRef, autoState, blocked, clientId, computed, docData, inputs, mode, proState]);
@@ -1127,7 +1130,8 @@ export default function NutritionRationPage() {
           activeStep="ration"
           clientId={clientId}
           assessmentId={assessmentId}
-          navigate={navigate}
+          navigate={navigateWithFallback}
+          onBack={goBack}
         />
 
         <Box {...sectionCardProps} overflow="hidden">
@@ -1136,7 +1140,6 @@ export default function NutritionRationPage() {
               <HStack justify="space-between" align="start" gap={3} flexWrap="wrap">
                 <Box>
                   <HStack spacing={3} flexWrap="wrap">
-                    <Button variant="outline" onClick={goBack} data-testid="nutrition-ration-back-top">{i18n.t("programView.back", "Retour")}</Button>
                     <Heading size="md">{i18n.t("auto.NutritionRationPage.ration_alimentaire", "Ration alimentaire")}</Heading>
                     {blocked ? (
                       <Badge colorScheme="yellow">
@@ -1513,32 +1516,27 @@ export default function NutritionRationPage() {
           <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>{i18n.t("auto.NutritionRationPage.synthese_consultation", "SYNTHÈSE CONSULTATION")}</Text>
           <Heading size="sm" mt={2}>{i18n.t("auto.NutritionRationPage.lecture_rapide_de_la_ration", "Lecture rapide de la ration")}</Heading>
 
-          <HStack justify="space-between" align="center" gap={3} flexWrap="wrap" mt={4}>
-          <Wrap spacing={2}>
-            <WrapItem>
-              <Badge colorScheme={mode === "auto" ? "purple" : "blue"} variant="subtle" px={3} py={1} borderRadius="full">
-                {i18n.t("auto.NutritionRationPage.mode_value", "Mode : {{mode}}", { mode: mode === "auto" ? "auto" : "manuel" })}
-              </Badge>
-            </WrapItem>
-            <WrapItem>
-              <Badge colorScheme={readableMealCount > 0 ? "teal" : "orange"} variant="subtle" px={3} py={1} borderRadius="full">
-                {i18n.t("auto.NutritionRationPage.repas_reference_value", "Repas de référence : {{count}}", { count: readableMealCount })}
-              </Badge>
-            </WrapItem>
-            <WrapItem>
-              <Badge colorScheme="blue" variant="subtle" px={3} py={1} borderRadius="full">
-                {i18n.t("auto.NutritionRationPage.cible_value", "Cible : {{value}}", { value: needs.kcalTarget ? `${r0(needs.kcalTarget)} kcal` : "—" })}
-              </Badge>
-            </WrapItem>
-          </Wrap>
+          <Stack spacing={3} mt={4}>
+          <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={2} flex="1" w="100%">
+            {[
+              [i18n.t("auto.NutritionRationPage.mode", "Mode"), mode === "auto" ? "Auto" : "Manuel"],
+              [i18n.t("auto.NutritionRationPage.repas_reference_label", "Repas de référence"), readableMealCount],
+              [i18n.t("auto.NutritionRationPage.cible", "Cible"), needs.kcalTarget ? `${r0(needs.kcalTarget)} kcal` : "—"],
+            ].map(([label, value]) => (
+              <Box key={label} borderWidth="1px" borderColor={borderCol} borderRadius="md" bg={panelBg} px={3} py={2.5}>
+                <Text fontSize="10px" color={textMuted} fontWeight="900" textTransform="uppercase" letterSpacing="0.06em">{label}</Text>
+                <Text mt={1} fontWeight="900">{value}</Text>
+              </Box>
+            ))}
+          </SimpleGrid>
             {rationMicroSummary.length ? (
-              <Button size="sm" variant="outline" onClick={() => setShowSummaryMicros((v) => !v)}>
+              <Button size="sm" variant="outline" w={{ base: "100%", sm: "fit-content" }} alignSelf={{ base: "stretch", sm: "flex-end" }} onClick={() => setShowSummaryMicros((v) => !v)}>
                 {showSummaryMicros
                   ? i18n.t("auto.NutritionRationPage.masquer_les_micronutriments", "Masquer les micronutriments")
                   : i18n.t("auto.NutritionRationPage.voir_les_micronutriments_count", "Voir les micronutriments ({{count}})", { count: rationMicroSummary.length })}
               </Button>
             ) : null}
-          </HStack>
+          </Stack>
 
           <Stack spacing={3} mt={4}>
             {rationComparisons.map((item) => (
@@ -1614,8 +1612,6 @@ export default function NutritionRationPage() {
 
         <Box {...sectionCardProps} p={4}>
           <HStack spacing={3} flexWrap="wrap" align="center">
-            <Button variant="outline" onClick={goBack} data-testid="nutrition-ration-back-bottom">{i18n.t("programView.back", "Retour")}</Button>
-
             <Spacer />
 
             <Button

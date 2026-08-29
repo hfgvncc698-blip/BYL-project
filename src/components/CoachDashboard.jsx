@@ -40,6 +40,7 @@ import {
   MenuList,
   MenuItem,
   MenuDivider,
+  Portal,
 } from "@chakra-ui/react";
 import {
   DeleteIcon,
@@ -56,6 +57,7 @@ import { useAuth } from "../AuthContext";
 import AppLoading from "./ui/AppLoading";
 import DeferredViewport from "./ui/DeferredViewport.jsx";
 import DeferredWidgetBoundary from "./ui/DeferredWidgetBoundary.jsx";
+import { AppNavigationArrow } from "./ui/AppPrimitives.jsx";
 import { notify } from "../utils/notify";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import {
@@ -104,17 +106,18 @@ import {
   MdOutlineBolt,
   MdAutoAwesome,
   MdOutlineInsights,
-  MdOutlineAutoGraph,
   MdOutlineNotificationsActive,
   MdOutlineTrendingUp,
   MdOutlineLibraryBooks,
   MdOutlineRestaurantMenu,
-  MdCake,
   MdOutlineLink,
   MdOutlineNoteAlt,
   MdOutlineNoteAdd,
   MdOutlineSchedule,
+  MdToday,
   MdArrowBack,
+  MdTune,
+  MdPlayArrow,
 } from "react-icons/md";
 const CoachDashboardCalendar = React.lazy(() => import("./dashboard/CoachDashboardCalendar.jsx"));
 const ClientCreation = React.lazy(() => import("./ClientCreation"));
@@ -244,7 +247,7 @@ const scheduleIdleTask = (callback, timeout = 700) => {
   };
 };
 
-const DASHBOARD_DATA_CACHE_VERSION = 5;
+const DASHBOARD_DATA_CACHE_VERSION = 6;
 const DASHBOARD_DATA_CACHE_TTL_MS = 15 * 60 * 1000;
 const DASHBOARD_DATA_STALE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const DASHBOARD_DATA_CACHE_CLIENT_LIMIT = 120;
@@ -267,9 +270,12 @@ const compactDashboardSessionRecord = (record = {}) => ({
   sessionIndex: record.sessionIndex ?? record.index ?? null,
   index: record.index ?? record.sessionIndex ?? null,
   status: record.status || "",
+  isPartial: record.isPartial === true,
   pourcentageTermine: record.pourcentageTermine ?? null,
-  validatedAt: record.validatedAt || record.completedAt || record.date || record.createdAt || null,
+  validatedAt: record.validatedAt || record.completedAt || record.dateEffectuee || record.finishedAt || null,
   completedAt: record.completedAt || record.validatedAt || null,
+  dateEffectuee: record.dateEffectuee || null,
+  finishedAt: record.finishedAt || null,
   date: record.date || null,
   createdAt: record.createdAt || null,
   updatedAt: record.updatedAt || null,
@@ -637,17 +643,6 @@ const getCopilotFieldPriorityFromRules = (rules = DEFAULT_COPILOT_MEMORY_RULES) 
   const disabled = new Set(normalized.disabledAdjustmentPoints || []);
   return (normalized.adjustmentOrder || []).filter((value) => !disabled.has(value));
 };
-const translateCopilotRuleLabel = (label, t) => {
-  const known = {
-    "Réduire les répétitions avant la charge": ["dashboard.copilot.memory_rules.reps_first", "Réduire les répétitions avant la charge"],
-    "Ajuster la charge avant les répétitions": ["dashboard.copilot.memory_rules.load_first", "Ajuster la charge avant les répétitions"],
-    "Augmenter le repos en priorité": ["dashboard.copilot.memory_rules.rest_first", "Augmenter le repos en priorité"],
-    "Augmenter le repos en priorité quand c'est possible": ["dashboard.copilot.memory_rules.rest_first_when_possible", "Augmenter le repos en priorité quand c'est possible"],
-    "Prudence douleur détectée : information visible, pas d'action automatique": ["dashboard.copilot.memory_rules.pain_caution", "Prudence douleur détectée : information visible, pas d'action automatique"],
-  };
-  const match = known[label];
-  return match ? t(match[0], match[1]) : label;
-};
 const parseCopilotMemoryPreferences = (_memory = "", rules = DEFAULT_COPILOT_MEMORY_RULES) => {
   const normalizedRules = normalizeCopilotMemoryRules(rules);
   const fieldPriority = getCopilotFieldPriorityFromRules(normalizedRules);
@@ -716,7 +711,7 @@ const getCopilotPrimaryAction = (item = {}) => {
   return (item.quickActions || [])[0] || "open_program";
 };
 const getCopilotPrimaryLabel = (item = {}, primaryAction, t) => {
-  if (primaryAction === "copy_followup") return t("dashboard.copilot.actions.copy_message", "Copier relance");
+  if (primaryAction === "copy_followup") return t("dashboard.copilot.actions.copy_message", "Copier la relance");
   if (primaryAction === "adjust_session") return t("dashboard.copilot.actions.review_adjustment", "Valider l'ajustement");
   if (primaryAction === "assign_program") return t("dashboard.copilot.actions.prepare_block", "Préparer un bloc");
   if (primaryAction === "open_nutrition") {
@@ -986,6 +981,21 @@ const toMillis = (ts) =>
          : typeof ts === "string"
            ? Date.parse(ts) || 0
            : 0;
+
+const getProgramCreatedAtMs = (program = {}) => {
+  const p = program || {};
+  return (
+    toMillis(p.createdAt) ||
+    toMillis(p.createdOn) ||
+    toMillis(p.created_date) ||
+    toMillis(p.creationDate) ||
+    toMillis(p.dateCreation) ||
+    toMillis(p.duplicatedAt) ||
+    toMillis(p.generatedAt) ||
+    Number(p._createdAtMs || 0) ||
+    0
+  );
+};
 
 const resolveCoachAccessContext = (rawCoach = {}) => {
   const coach = rawCoach || {};
@@ -2123,12 +2133,14 @@ end && now < end;
   const clientModal = useDisclosure();
 
   const choiceModal = useDisclosure();
+  const programChoiceModal = useDisclosure();
   const assignModal = useDisclosure();
   const addSessionModal = useDisclosure();
   const eventModal = useDisclosure();
   const upcomingSessionsModal = useDisclosure();
   const radarAdjustmentModal = useDisclosure();
   const copilotMemoryModal = useDisclosure();
+  const copilotHistoryModal = useDisclosure();
   const relaunchModal = useDisclosure();
   const confirmClientModal = useDisclosure();
   const confirmProgramModal = useDisclosure();
@@ -2934,6 +2946,13 @@ useState(false);
     nutritionOnlyDashboard && String(firstName || "").trim().toLowerCase() === "coach"
       ? "Nutrition"
       : firstName || (nutritionOnlyDashboard ? "Nutrition" : t("greeting.coach", "Coach"));
+  const [greetingHour, setGreetingHour] = useState(() => new Date().getHours());
+
+  useEffect(() => {
+    const refreshGreetingHour = () => setGreetingHour(new Date().getHours());
+    const intervalId = window.setInterval(refreshGreetingHour, 60 * 1000);
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   useEffect(() => {
     setNewSession((prev) => {
@@ -5258,6 +5277,7 @@ modeValue("rgba(255,255,255,0.95)",
      "0 20px 60px rgba(0,0,0,0.35)"
   );
   const activeBlue = "#3B82F6";
+  const brandProgressGradient = "linear-gradient(90deg, #1F5EFF 0%, #257CFF 52%, #00B8FF 100%)";
   const activeGreen = "#10B981";
   const dangerRed = "#EF4444";
   const warningOrange = "#F59E0B";
@@ -5274,21 +5294,6 @@ modeValue("rgba(255,255,255,0.95)",
     },
     _active: {
       bg: modeValue("#374151", "rgba(59,130,246,0.42)"),
-      transform: "translateY(0)",
-    },
-  };
-  const shortcutSecondaryButtonProps = {
-    bg: modeValue("rgba(239,246,255,0.96)", "rgba(255,255,255,0.10)"),
-    color: modeValue("#0F172A", "white"),
-    border: "1px solid",
-    borderColor: modeValue("rgba(59,130,246,0.24)", "rgba(255,255,255,0.18)"),
-    _hover: {
-      bg: modeValue("rgba(219,234,254,0.98)", "rgba(59,130,246,0.20)"),
-      borderColor: modeValue("rgba(59,130,246,0.36)", "rgba(96,165,250,0.38)"),
-      transform: "translateY(-1px)",
-    },
-    _active: {
-      bg: modeValue("rgba(191,219,254,0.96)", "rgba(59,130,246,0.26)"),
       transform: "translateY(0)",
     },
   };
@@ -5345,17 +5350,44 @@ modeValue("rgba(255,255,255,0.95)",
     };
   }, [activeBlue, clients.length, clientLimit, dangerRed, t, warningOrange]);
   const greetingSubtitle = useMemo(() => {
-     if (nutritionOnlyDashboard) {
-       return t("dashboard.nutrition_greeting_subtitle", "Heureux de vous revoir — prêt·e à accompagner vos patients ?");
-     }
-     const h = new Date().getHours();
-     const isNight = h >= 22 || h < 5;
-     if (isNight) return t("greeting.subline.night", "Bonne nuit, pensez à vous reposer 🌙 ");
-    if (h < 12) return t("greeting.subline.morning", "Belle matinée — prêt·e pour une nouvelle journée ?");
+    const planKey = nutritionOnlyDashboard
+      ? "nutrition"
+      : hasNutritionCalendarAccess && hasSportAccess
+        ? "mixed"
+        : "sport";
+    const periodKey = greetingHour >= 22 || greetingHour < 5
+      ? "night"
+      : greetingHour < 12
+        ? "morning"
+        : greetingHour < 18
+          ? "afternoon"
+          : "evening";
+    const frenchFallbacks = {
+      nutrition: {
+        night: "La journée se termine — vos patients peuvent attendre demain 🌙",
+        morning: "Belle matinée — prêt·e à prendre soin de vos patients ?",
+        afternoon: "Heureux de vous revoir — prêt·e à faire avancer vos suivis nutrition ?",
+        evening: "Un dernier regard sur vos suivis nutrition avant de décrocher ?",
+      },
+      sport: {
+        night: "Les séances sont terminées — place à la récupération 🌙",
+        morning: "Belle matinée — prêt·e à faire bouger vos clients ?",
+        afternoon: "Heureux de vous revoir — prêt·e à coacher ?",
+        evening: "On termine les dernières séances en beauté 💪",
+      },
+      mixed: {
+        night: "Sport, nutrition… tout peut attendre demain. Reposez-vous 🌙",
+        morning: "Belle matinée — prêt·e à faire progresser vos clients sur tous les fronts ?",
+        afternoon: "Heureux de vous revoir — prêt·e à poursuivre les accompagnements du jour ?",
+        evening: "Un dernier point sur vos séances et suivis avant de décrocher ?",
+      },
+    };
 
-    if (h < 18) return t("greeting.subline.afternoon", "Heureux de vous revoir — prêt·e à coacher ?");
-    return t("greeting.subline.evening", "On boucle la journée en beauté 💪 ");
-  }, [nutritionOnlyDashboard, t]);
+    return t(
+      `greeting.subline.${planKey}.${periodKey}`,
+      frenchFallbacks[planKey][periodKey]
+    );
+  }, [greetingHour, hasNutritionCalendarAccess, hasSportAccess, nutritionOnlyDashboard, t]);
   const stats = useMemo(() => {
     const nutritionClientIds = new Set(nutritionRows.map((row) => row.clientId).filter(Boolean));
     const nutritionClients = clients.filter((client) => nutritionClientIds.has(client.id));
@@ -5365,10 +5397,6 @@ modeValue("rgba(255,255,255,0.95)",
     const totalPrograms = programmesBase.length;
     const activeCutoffMs = Date.now() - DAYS_ACTIVE_CUTOFF * 24 * 60 * 60 * 1000;
     const active30 = clients.filter((c) => {
-      const ms = Number(c._clientListActivityMs || 0);
-      return ms > 0 && ms >= activeCutoffMs;
-    }).length;
-    const sportActive30 = sportClients.filter((c) => {
       const ms = Number(c._clientListActivityMs || 0);
       return ms > 0 && ms >= activeCutoffMs;
     }).length;
@@ -5413,15 +5441,12 @@ modeValue("rgba(255,255,255,0.95)",
     if (mixedDashboard) {
       return [
         {
-           label: t("dashboard.stats_shared_capacity", "Capacité clients/patients"),
-           value: clientQuota.value,
-           hint: t("dashboard.stats_shared_capacity_hint", "{{hint}} · quota commun sport + nutrition", {
-             hint: clientQuota.hint,
-           }),
-           icon: MdOutlinePeopleAlt,
-           accent: clientQuota.accent,
-           glow: clientQuota.limit != null && clientQuota.used >= clientQuota.limit ? "rgba(239,68,68,0.20)" : "rgba(59,130,246,0.22)",
-           route: "/clients",
+           label: t("dashboard.stats_active_30", "Actifs (30j)"),
+           value: active30,
+           hint: t("dashboard.stats_active_30_hint", "{{count}} client(s) accompagnés", { count: totalClients }),
+           icon: MdOutlineBolt,
+           accent: activeGreen,
+           route: "/clients?filter=active",
         },
         {
            label: t("dashboard.stats_sport_clients", "Clients sportifs"),
@@ -5442,31 +5467,14 @@ modeValue("rgba(255,255,255,0.95)",
            route: "/clients?view=nutrition",
         },
         {
-           label: t("dashboard.stats_nutrition_followups", "Suivis nutrition"),
-           value: nutritionDashboardStats.assessments,
-           hint: t("dashboard.stats_nutrition_followups_hint", "{{count}} à finaliser", {
-             count: nutritionDashboardStats.drafts,
+           label: t("dashboard.stats_nutrition_to_finalize", "Suivis à finaliser"),
+           value: nutritionDashboardStats.drafts,
+           hint: t("dashboard.stats_nutrition_total_hint", "{{count}} suivi(s) nutrition", {
+             count: nutritionDashboardStats.assessments,
            }),
            icon: MdOutlineNoteAlt,
-           accent: activeGreen,
-           glow: "rgba(16,185,129,0.22)",
+           accent: nutritionDashboardStats.drafts > 0 ? warningOrange : activeGreen,
            route: "/nutrition-coach",
-        },
-        {
-           label: t("dashboard.stats_total_programs", "Programmes sport"),
-           value: totalPrograms,
-           icon: MdOutlineFitnessCenter,
-           accent: "#8B5CF6",
-           glow: "rgba(139,92,246,0.24)",
-           route: "/programmes",
-        },
-        {
-           label: t("dashboard.stats_active_30", "Actifs (30j)"),
-           value: sportActive30,
-           icon: MdOutlineBolt,
-           accent: activeGreen,
-           glow: "rgba(16,185,129,0.22)",
-           route: "/clients?view=sport&filter=active",
         },
       ];
     }
@@ -5518,6 +5526,7 @@ modeValue("rgba(255,255,255,0.95)",
     }
     return cards;
   }, [activeBlue, activeGreen, clients, clientQuota, hasNutritionCalendarAccess, hasSportAccess, nutritionDashboardStats, nutritionOnlyDashboard, nutritionRows, programmesBase, t]);
+  const usePlanningSummaryLayout = hasNutritionCalendarAccess && hasSportAccess;
   const selectedAssignedClients = useMemo(() => {
 
      if (!selectedAssignedBaseProgramId) return [];
@@ -5556,6 +5565,8 @@ modeValue("rgba(255,255,255,0.95)",
          validated: 0,
          missed: 0,
          upcoming: null,
+         plannedEvents: [],
+         validatedEvents: [],
          loading: true,
        };
      }
@@ -5564,10 +5575,12 @@ modeValue("rgba(255,255,255,0.95)",
      const todayEvents = sessions.filter((s) => s.start instanceof
 Date && s.start >= from && s.start
 <= to);
-     const planned = todayEvents.filter((s) => s._kind ===
-"planned" && s.status !== "validée");
-     const validated = todayEvents.filter((s) => s.status ===
-"validée" || s._kind === "completed");
+     const plannedEvents = todayEvents
+       .filter((s) => s._kind === "planned" && s.status !== "validée" && s.status !== "manquée")
+       .sort((a, b) => a.start - b.start);
+     const validatedEvents = todayEvents
+       .filter((s) => s.status === "validée" || s._kind === "completed")
+       .sort((a, b) => a.start - b.start);
      const missed = todayEvents.filter((s) => s.status ===
 "manquée");
      const nowMs = Date.now();
@@ -5577,12 +5590,18 @@ Date && s.start >= from && s.start
         .sort((a, b) => a.start - b.start)[0];
      return {
         total: todayEvents.length,
-        planned: planned.length,
-        validated: validated.length,
+        planned: plannedEvents.length,
+        validated: validatedEvents.length,
         missed: missed.length,
         upcoming,
+        plannedEvents,
+        validatedEvents,
      };
   }, [clients.length, loadingData, programmesBase.length, sessions]);
+  const todaySessionCount = todayOverview.validated + todayOverview.planned;
+  const todayCompletionPercent = todaySessionCount > 0
+    ? Math.round((todayOverview.validated / todaySessionCount) * 100)
+    : 0;
   const weeklyLoad = useMemo(() => {
      const from = startOfWeek();
      const to = new Date(from);
@@ -5829,16 +5848,46 @@ to);
   );
 
   const allUpcomingSessions = useMemo(() => {
-    const nowMs = Date.now();
+    const afterTodayMs = endOfToday().getTime();
 
     return [...sessions]
-      .filter((s) => s?._kind === "planned" && s?.start instanceof Date && getEventEndMs(s) > nowMs && s.status !== "validée")
+      .filter(
+        (session) =>
+          session?._kind === "planned" &&
+          session?.start instanceof Date &&
+          session.start.getTime() > afterTodayMs &&
+          session.status !== "validée" &&
+          session.status !== "manquée"
+      )
       .sort((a, b) => a.start - b.start);
   }, [sessions]);
 
   const nextUpcomingSessions = useMemo(() => {
-    return allUpcomingSessions.slice(0, 2);
+    return allUpcomingSessions.slice(0, 3);
   }, [allUpcomingSessions]);
+
+  const openMobileCalendarForDate = useCallback((dateValue) => {
+    const targetDate = dateValue instanceof Date ? new Date(dateValue) : new Date(dateValue || Date.now());
+    if (Number.isNaN(targetDate.getTime())) return;
+
+    targetDate.setHours(0, 0, 0, 0);
+    const targetWeekStart = new Date(targetDate);
+    const targetWeekDay = targetWeekStart.getDay();
+    targetWeekStart.setDate(targetWeekStart.getDate() + (targetWeekDay === 0 ? -6 : 1 - targetWeekDay));
+    const currentWeekStart = startOfWeek();
+    const weekOffset = Math.round((targetWeekStart.getTime() - currentWeekStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
+
+    setMobileCalendarWeekOffset(weekOffset);
+    setMobileCalendarSelectedDayKey(formatLocalDateKey(targetDate));
+    setMobileCalendarDayExpanded(false);
+    setDashboardWidgetVisible("calendar", true);
+    setDashboardWidgetCollapsedValue("calendar", false);
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        document.getElementById("coach-calendar-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+  }, [setDashboardWidgetCollapsedValue, setDashboardWidgetVisible]);
 
   const mobileCalendarDays = useMemo(() => {
     const start = startOfWeek();
@@ -6504,8 +6553,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
   }, [programmesBase, assignedCounts]);
   const latestPrograms = useMemo(() => {
     return [...programmesBase]
-       .sort((a, b) => toMillis(b.createdAt) -
-toMillis(a.createdAt))
+       .sort((a, b) => getProgramCreatedAtMs(b) - getProgramCreatedAtMs(a))
        .slice(0, 8);
   }, [programmesBase]);
   const birthdaysToday = useMemo(() => {
@@ -6524,7 +6572,7 @@ month;
        })
        .slice(0, 3);
   }, [clients]);
-  const openBirthdayMessage = useCallback(
+  const _openBirthdayMessage = useCallback(
     (client) => {
       if (!client) return;
       setBirthdayMessageClient(client);
@@ -6985,20 +7033,18 @@ month;
      [t]
   );
 
-  const StatTile = ({ label, value, hint, icon, accent, glow, featured =
+  const StatTile = ({ label, value, hint, icon, accent, featured =
 false, onClick, onPointerEnter, onPointerDown, onFocus, clickable = false }) => (
     <Box
 
       position="relative"
-      bg={surfaceBg}
+      bg={surfaceBgStrong}
       border="1px solid"
-      borderColor={featured ?
-modeValue("rgba(59,130,246,0.18)",
-"rgba(59,130,246,0.26)") : borderColor}
+      borderColor={borderColor}
       borderRadius={{ base: featured ? "22px" : "18px", md: featured ? "26px" : "22px" }}
-      p={{ base: featured ? 3 : 2.5, md: featured ? 4 : 3.5 }}
+      p={{ base: featured ? 3 : 3, md: featured ? 4 : 4 }}
       overflow="hidden"
-      boxShadow={glassShadow}
+      boxShadow={modeValue("0 8px 24px rgba(15,23,42,0.045)", "0 10px 28px rgba(0,0,0,0.22)")}
       h="100%"
       minH={featured ? { base: "92px", md: "118px" } : { base:
 "80px", md: "104px" }}
@@ -7013,65 +7059,58 @@ modeValue("rgba(59,130,246,0.18)",
          borderColor: modeValue("rgba(59,130,246,0.18)",
 "rgba(59,130,246,0.24)"),
       } : undefined}
-      _before={{
-         content: '""',
-         position: "absolute",
-         inset: featured ? "auto -20px -20px auto" : "auto auto -24px -24px",
-         w: featured ? "130px" : "105px",
-         h: featured ? "130px" : "105px",
-         borderRadius: "full",
-         bg: glow,
-         filter: "blur(26px)",
-      }}
     >
-      <HStack justify="space-between" align="center" spacing={2}
+      <HStack align="flex-start" spacing={{ base: 3, md: 4 }}
 position="relative" zIndex={1} h="100%">
-         <Flex direction="column" justify="center" h="100%"
-minW={0}>
-           <Text fontSize={{ base: "xs", md: "sm" }} color={mutedText} fontWeight="700"
-lineHeight="1.15">
-             {label}
-           </Text>
-           <Text
-             mt={1.5}
-             fontSize={featured ? { base: "xl", md: "2.5xl" } :
-{ base: "lg", md: "2xl" }}
-             fontWeight="900"
-             color={textColor}
-             lineHeight="1"
-             letterSpacing="-0.03em"
-           >
-             {value}
-           </Text>
-           {hint && (
-             <Text mt={1.5} fontSize="xs" color={mutedText} fontWeight="700" noOfLines={1}>
-               {hint}
-             </Text>
-           )}
-
-          </Flex>
-
           <Flex
-            w={{ base: featured ? "42px" : "36px", md: featured ? "50px" : "44px" }}
-            h={{ base: featured ? "42px" : "36px", md: featured ? "50px" : "44px" }}
-            borderRadius={{ base: featured ? "16px" : "14px", md: featured ? "18px" : "16px" }}
+            w={{ base: featured ? "40px" : "36px", md: featured ? "46px" : "44px" }}
+            h={{ base: featured ? "40px" : "36px", md: featured ? "46px" : "44px" }}
+            borderRadius={{ base: "12px", md: featured ? "14px" : "12px" }}
             align="center"
             justify="center"
-            bg={`${accent}22`}
+            bg={modeValue("rgba(15,23,42,0.045)", "rgba(255,255,255,0.06)")}
             border="1px solid"
-            borderColor={`${accent}55`}
+            borderColor={borderColor}
             color={accent}
             flexShrink={0}
-            boxShadow={featured ? `0 12px 24px ${accent}22` :
-"none"}
           >
-           <Icon as={icon} boxSize={{ base: featured ? "19px" : "17px", md: featured ? "22px" : "20px" }} />
-        </Flex>
+           <Icon as={icon} boxSize={{ base: featured ? "18px" : "16px", md: featured ? "21px" : "20px" }} />
+          </Flex>
+
+          <Flex direction="column" justify="flex-start" h="100%" minW={0} flex="1">
+            <Text
+              fontSize={{ base: "md", md: featured ? "xl" : "lg" }}
+              color={textColor}
+              fontWeight="850"
+              lineHeight="1.15"
+              noOfLines={2}
+            >
+              {label}
+            </Text>
+            {hint && (
+              <Text mt={1} fontSize={{ base: "11px", md: "xs" }} color={subtleText} fontWeight="400" lineHeight="1.25" noOfLines={2}>
+                {hint}
+              </Text>
+            )}
+          </Flex>
+
+          <Text
+            ml="auto"
+            flexShrink={0}
+            fontSize={featured ? { base: "4xl", md: "5xl" } : "24px"}
+            fontWeight="950"
+            color={textColor}
+            lineHeight="1"
+            letterSpacing="-0.04em"
+            textAlign="right"
+          >
+            {value}
+          </Text>
       </HStack>
     </Box>
   );
-const CardShell = ({ title, subtitle, action, children, icon,
-minH, ...boxProps }) => (
+const CardShell = ({ title, titleRoute, subtitle, action, children, icon,
+minH, stackHeaderOnMobile = false, ...boxProps }) => (
      <Box
        bg={surfaceBg}
        border="1px solid"
@@ -7086,8 +7125,14 @@ minH, ...boxProps }) => (
        flexDirection="column"
        {...boxProps}
      >
-       <HStack justify="space-between" mb={2.5} align="center">
-          <HStack spacing={2} align="center">
+       <Flex
+         justify="space-between"
+         mb={2.5}
+         align={{ base: stackHeaderOnMobile ? "stretch" : "center", sm: "center" }}
+         direction={{ base: stackHeaderOnMobile ? "column" : "row", sm: "row" }}
+         gap={stackHeaderOnMobile ? 2.5 : 2}
+       >
+          <HStack spacing={2} align="center" minW={0} w={{ base: stackHeaderOnMobile ? "full" : "auto", sm: "auto" }}>
             {icon ? (
               <Circle
                 size="40px"
@@ -7098,9 +7143,20 @@ minH, ...boxProps }) => (
                 <Icon as={icon} boxSize="20px" />
               </Circle>
             ) : null}
-            <Box>
-              <Heading size="md" color={textColor}
-letterSpacing="-0.02em">
+            <Box minW={0}>
+              <Heading
+                as={titleRoute ? Link : "h2"}
+                to={titleRoute ? withAdminCoach(titleRoute) : undefined}
+                size="md"
+                color={textColor}
+                letterSpacing="-0.02em"
+                cursor={titleRoute ? "pointer" : undefined}
+                textDecoration="none"
+                onPointerEnter={() => titleRoute && warmDashboardDestination(titleRoute)}
+                onFocus={() => titleRoute && warmDashboardDestination(titleRoute)}
+                onClick={titleRoute ? (event) => event.stopPropagation() : undefined}
+                _hover={titleRoute ? { color: textColor, textDecoration: "none" } : undefined}
+              >
 
                {title}
              </Heading>
@@ -7111,8 +7167,10 @@ letterSpacing="-0.02em">
              ) : null}
            </Box>
         </HStack>
-        {action}
-      </HStack>
+        <Box w={{ base: stackHeaderOnMobile ? "full" : "auto", sm: "auto" }}>
+          {action}
+        </Box>
+      </Flex>
       <Box flex="1" display="flex" flexDirection="column" minH={0}>
         {children}
       </Box>
@@ -7121,19 +7179,27 @@ letterSpacing="-0.02em">
   const renderDashboardWidgetAction = (widgetId, extraAction = null) => (
     <HStack spacing={2} flexWrap="wrap" justify="flex-end">
       {extraAction}
-      <Button
+      <IconButton
+        aria-label={
+          isDashboardWidgetCollapsed(widgetId)
+            ? t("dashboard.widgets.actions.expand", "Afficher")
+            : t("dashboard.widgets.actions.collapse", "Réduire")
+        }
+        icon={
+          isDashboardWidgetCollapsed(widgetId)
+            ? <ChevronRightIcon boxSize="18px" />
+            : <ChevronDownIcon boxSize="18px" />
+        }
         size="sm"
+        minW="36px"
+        h="36px"
         borderRadius="full"
         variant="outline"
         onClick={(e) => {
           e.stopPropagation();
           toggleDashboardWidgetCollapsed(widgetId);
         }}
-      >
-        {isDashboardWidgetCollapsed(widgetId)
-          ? t("dashboard.widgets.actions.expand", "Afficher")
-          : t("dashboard.widgets.actions.collapse", "Réduire")}
-      </Button>
+      />
     </HStack>
   );
   const PriorityCard = ({
@@ -7147,53 +7213,62 @@ letterSpacing="-0.02em">
      minH,
      onClick,
      clickable = false,
+     disableHover = false,
+     summaryLayout = false,
+     metricValue,
      ...props
   }) => (
      <Box
        {...props}
        minW={{ base: featured ? "78vw" : "68vw", md: "auto" }}
-       bg={surfaceBg}
+       bg={surfaceBgStrong}
        border="1px solid"
-       borderColor={featured ?
-modeValue("rgba(59,130,246,0.18)",
-"rgba(59,130,246,0.24)") : borderColor}
+       borderColor={borderColor}
        borderRadius={{ base: featured ? "22px" : "20px", md: featured ? "24px" : "22px" }}
-       p={{ base: featured ? 3 : 2.75, md: featured ? 4 : 3.5 }}
-       boxShadow={glassShadow}
+       p={{ base: 3, md: featured ? 4 : 3.5 }}
+       boxShadow={modeValue("0 8px 24px rgba(15,23,42,0.045)", "0 10px 28px rgba(0,0,0,0.22)")}
        position="relative"
        overflow="hidden"
        h="100%"
        minH={minH}
        scrollSnapAlign="start"
        cursor={clickable ? "pointer" : "default"}
-       transition="all 0.2s ease"
+       transition={clickable && !disableHover ? "all 0.2s ease" : "none"}
        onClick={onClick}
-       _hover={clickable ? {
+       _hover={clickable && !disableHover ? {
           transform: "translateY(-2px)",
           borderColor: modeValue("rgba(59,130,246,0.18)",
 "rgba(59,130,246,0.24)"),
        } : undefined}
-       _before={{
-          content: '""',
-
-              position: "absolute",
-              right: featured ? "-10px" : "-20px",
-              top: featured ? "-16px" : "auto",
-              bottom: featured ? "auto" : "-24px",
-              w: featured ? "150px" : "110px",
-              h: featured ? "150px" : "110px",
-              borderRadius: "full",
-              bg: `${accent}20`,
-              filter: "blur(26px)",
-         }}
      >
       <Flex direction="column" justify="space-between"
 position="relative" zIndex={1} h="100%">
-        <Box>
+        <Box
+          flex={summaryLayout ? "1" : undefined}
+          display={summaryLayout ? "flex" : "block"}
+          flexDirection={summaryLayout ? "column" : undefined}
+          minH={0}
+        >
           <HStack justify="space-between" align="center"
-spacing={2} mb={featured ? 3.5 : 3}>
-            <Box minW={0}>
-              {eyebrow ? (
+spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
+            {summaryLayout ? (
+              <Flex
+                w={{ base: "38px", md: "44px" }}
+                h={{ base: "38px", md: "44px" }}
+                borderRadius={{ base: "12px", md: "14px" }}
+                align="center"
+                justify="center"
+                bg={modeValue("rgba(15,23,42,0.045)", "rgba(255,255,255,0.06)")}
+                color={accent}
+                border="1px solid"
+                borderColor={borderColor}
+                flexShrink={0}
+              >
+                <Icon as={icon} boxSize={{ base: "17px", md: "20px" }} />
+              </Flex>
+            ) : null}
+            <Box minW={0} flex="1">
+              {eyebrow && !summaryLayout ? (
                 <Text
                    fontSize="xs"
                    textTransform="uppercase"
@@ -7206,26 +7281,67 @@ spacing={2} mb={featured ? 3.5 : 3}>
                    {eyebrow}
                 </Text>
               ) : null}
-              <Heading size="sm" color={textColor}
-letterSpacing="-0.02em" lineHeight="1.15">
+              <Heading
+                size={summaryLayout ? "md" : "sm"}
+                color={textColor}
+                fontWeight={summaryLayout ? "900" : "800"}
+                letterSpacing="-0.02em"
+                lineHeight="1.15"
+              >
                 {title}
               </Heading>
+              {eyebrow && summaryLayout ? (
+                <Text
+                  mt={1}
+                  fontSize="xs"
+                  color={subtleText}
+                  fontWeight="400"
+                  lineHeight="1.25"
+                  noOfLines={1}
+                >
+                  {eyebrow}
+                </Text>
+              ) : null}
             </Box>
 
-                  <Circle
+                  {summaryLayout && metricValue !== undefined && metricValue !== null ? (
+                    <Text
+                      fontSize={{ base: "28px", md: "32px" }}
+                      fontWeight="950"
+                      letterSpacing="-0.04em"
+                      lineHeight="1"
+                      color={textColor}
+                      flexShrink={0}
+                      minW={{ base: "32px", md: "40px" }}
+                      pl={{ base: 2, md: 3 }}
+                      textAlign="right"
+                    >
+                      {metricValue}
+                    </Text>
+                  ) : null}
+                  {!summaryLayout ? <Circle
                     size={{ base: featured ? "38px" : "34px", md: featured ? "42px" : "38px" }}
-                    bg={`${accent}20`}
+                    bg={modeValue("rgba(15,23,42,0.045)", "rgba(255,255,255,0.06)")}
                     color={accent}
                     border="1px solid"
-                    borderColor={`${accent}40`}
+                    borderColor={borderColor}
                     flexShrink={0}
                   >
                     <Icon as={icon} boxSize={{ base: featured ? "17px" : "16px", md: featured ? "19px" : "17px" }}
 />
-                  </Circle>
+                  </Circle> : null}
                 </HStack>
 
-                <Box>{children}</Box>
+                <Box
+                  flex={summaryLayout ? "1" : undefined}
+                  display={summaryLayout ? "flex" : "block"}
+                  flexDirection={summaryLayout ? "column" : undefined}
+                  justifyContent={summaryLayout ? "center" : undefined}
+                  w="full"
+                  minH={0}
+                >
+                  {children}
+                </Box>
               </Box>
 
            {action ? <Box mt={3}>{action}</Box> : null}
@@ -7233,7 +7349,490 @@ letterSpacing="-0.02em" lineHeight="1.15">
        </Box>
   );
 
-  const renderClubGoalsCard = (props = {}) => {
+  const QuickMetricCard = ({
+    title,
+    value,
+    hint,
+    icon,
+    accent = activeBlue,
+    addLabel,
+    onAdd,
+    titleRoute,
+    ...props
+  }) => (
+    <Box
+      {...props}
+      minW={{ base: "68vw", md: "240px", lg: "auto" }}
+      minH="168px"
+      h="100%"
+      p={{ base: 3, md: 3.5 }}
+      bg={surfaceBgStrong}
+      border="1px solid"
+      borderColor={borderColor}
+      borderRadius={{ base: "20px", md: "22px" }}
+      boxShadow={modeValue("0 8px 24px rgba(15,23,42,0.045)", "0 10px 28px rgba(0,0,0,0.22)")}
+      scrollSnapAlign="start"
+      position="relative"
+    >
+      {titleRoute ? (
+        <AppNavigationArrow
+          to={withAdminCoach(titleRoute)}
+          label={title}
+          position="absolute"
+          top={{ base: 3, md: 3.5 }}
+          right={{ base: 3, md: 3.5 }}
+          zIndex={2}
+          onPointerEnter={() => warmDashboardDestination(titleRoute)}
+          onFocus={() => warmDashboardDestination(titleRoute)}
+          onClick={(event) => event.stopPropagation()}
+        />
+      ) : null}
+      <Flex direction="column" h="100%">
+        <HStack align="center" spacing={3} pr={titleRoute ? 6 : 0}>
+          <Flex
+            w={{ base: "38px", md: "44px" }}
+            h={{ base: "38px", md: "44px" }}
+            borderRadius={{ base: "12px", md: "14px" }}
+            align="center"
+            justify="center"
+            bg={modeValue("rgba(15,23,42,0.045)", "rgba(255,255,255,0.06)")}
+            color={accent}
+            border="1px solid"
+            borderColor={borderColor}
+            flexShrink={0}
+          >
+            <Icon as={icon} boxSize={{ base: "17px", md: "20px" }} />
+          </Flex>
+          <Box minW={0} flex="1">
+            <Heading
+              as={titleRoute ? Link : "h2"}
+              to={titleRoute ? withAdminCoach(titleRoute) : undefined}
+              size="md"
+              color={textColor}
+              fontWeight="900"
+              lineHeight="1.15"
+              noOfLines={2}
+              cursor={titleRoute ? "pointer" : "default"}
+              textDecoration="none"
+              onPointerEnter={() => titleRoute && warmDashboardDestination(titleRoute)}
+              onFocus={() => titleRoute && warmDashboardDestination(titleRoute)}
+              onClick={(event) => event.stopPropagation()}
+              transition="none"
+              sx={{ WebkitTapHighlightColor: "transparent" }}
+              _hover={titleRoute ? { color: textColor, textDecoration: "none" } : undefined}
+              _active={titleRoute ? { color: textColor } : undefined}
+            >
+              {title}
+            </Heading>
+            <Text mt={1} fontSize="xs" color={subtleText} fontWeight="400" lineHeight="1.25" noOfLines={2}>
+              {hint}
+            </Text>
+          </Box>
+        </HStack>
+
+        <HStack mt="auto" pt={4} justify="space-between" align="end">
+          <Text
+            fontSize="32px"
+            fontWeight="950"
+            letterSpacing="-0.04em"
+            lineHeight="1"
+            color={textColor}
+          >
+            {value}
+          </Text>
+          <Tooltip label={addLabel} hasArrow>
+            <IconButton
+              aria-label={addLabel}
+              icon={<AddIcon boxSize="12px" />}
+              size="sm"
+              w="34px"
+              h="34px"
+              minW="34px"
+              borderRadius="11px"
+              color={modeValue("#2563EB", "#93C5FD")}
+              bg={modeValue("rgba(59,130,246,0.10)", "rgba(96,165,250,0.14)")}
+              border="1px solid"
+              borderColor={modeValue("rgba(59,130,246,0.22)", "rgba(147,197,253,0.22)")}
+              boxShadow="none"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onAdd?.();
+              }}
+              _hover={{
+                bg: modeValue("rgba(59,130,246,0.10)", "rgba(96,165,250,0.14)"),
+                borderColor: modeValue("rgba(59,130,246,0.22)", "rgba(147,197,253,0.22)"),
+              }}
+              _active={{
+                bg: modeValue("rgba(59,130,246,0.10)", "rgba(96,165,250,0.14)"),
+                borderColor: modeValue("rgba(59,130,246,0.22)", "rgba(147,197,253,0.22)"),
+              }}
+              transition="none"
+            />
+          </Tooltip>
+        </HStack>
+      </Flex>
+    </Box>
+  );
+
+  const renderClientsQuickCard = (props = {}) => (
+    <QuickMetricCard
+      data-tour="coach-clients-quick-card"
+      title={
+        nutritionOnlyDashboard
+          ? t("auto.CoachMobileNav.patients", "Patients")
+          : hasNutritionCalendarAccess
+            ? t("dashboard.cards.supported_people", "Accompagnées")
+            : t("auto.CoachMobileNav.clients", "Clients")
+      }
+      value={clients.length}
+      hint={nutritionOnlyDashboard ? t("auto.CoachMobileNav.new_patient", "Nouveau patient") : t("nav.new_client", "Nouveau client")}
+      icon={MdOutlinePeopleAlt}
+      accent={activeBlue}
+      titleRoute="/clients"
+      addLabel={nutritionOnlyDashboard ? t("auto.CoachMobileNav.new_patient", "Nouveau patient") : t("nav.new_client", "Nouveau client")}
+      onAdd={clientModal.onOpen}
+      {...props}
+    />
+  );
+
+  const renderNutritionQuickCard = (props = {}) => (
+    <QuickMetricCard
+      data-tour="coach-nutrition-quick-card"
+      title={t("nav.nutrition", "Nutrition")}
+      value={nutritionDashboardStats.assessments}
+      hint={t("auto.CoachDashboard.faire_une_ration", "Faire une ration")}
+      icon={MdOutlineRestaurantMenu}
+      accent="#14B8A6"
+      titleRoute="/nutrition-coach"
+      addLabel={t("auto.CoachDashboard.faire_une_ration", "Faire une ration")}
+      onAdd={rationShortcutModal.onOpen}
+      {...props}
+    />
+  );
+
+  const renderProgramsQuickCard = (props = {}) => (
+    <QuickMetricCard
+      data-tour="coach-programs-quick-card"
+      title={t("dashboard.stats_total_programs", "Programmes")}
+      value={programmesBase.length}
+      hint={t("programs.create", "Créer un programme")}
+      icon={MdOutlineFitnessCenter}
+      accent="#8B5CF6"
+      titleRoute="/programmes"
+      addLabel={t("programs.create", "Créer un programme")}
+      onAdd={programChoiceModal.onOpen}
+      {...props}
+    />
+  );
+
+  const renderTodayQuickCard = ({ detailed = false, ...props } = {}) => {
+    const birthdaySummary = birthdaysToday.length > 0
+      ? `${t("dashboard.banner.birthdays_label", "Anniversaires du jour")} : ${birthdaysToday
+          .map((client) => client.prenom || client.nom)
+          .filter(Boolean)
+          .join(", ")}`
+      : t("dashboard.banner.no_birthdays_today", "Aucun anniversaire aujourd’hui");
+
+    const renderTodaySession = (event, index, accent) => {
+      const sessionLabel = event?._sessionTitle || event?.title || t("form.session", "Séance");
+      const clientLabel = event?._clientName || t("dashboard.client", "Client");
+      const timeLabel = event?.start instanceof Date
+        ? event.start.toLocaleTimeString(i18n.language || "fr", { hour: "2-digit", minute: "2-digit" })
+        : "—";
+
+      return (
+        <Box
+          as="button"
+          type="button"
+          key={event?.id || `${timeLabel}-${clientLabel}-${index}`}
+          w="full"
+          px={2}
+          py={1.5}
+          borderRadius="10px"
+          border="1px solid"
+          borderColor={borderColor}
+          bg={modeValue("rgba(15,23,42,0.025)", "rgba(255,255,255,0.035)")}
+          textAlign="left"
+          transition="none"
+          onClick={() => {
+            setSelectedEvent(event);
+            eventModal.onOpen();
+          }}
+          _hover={{ bg: modeValue("rgba(15,23,42,0.025)", "rgba(255,255,255,0.035)") }}
+        >
+          <HStack spacing={2} align="center">
+            <Text minW="40px" fontSize="xs" fontWeight="900" color={accent}>
+              {timeLabel}
+            </Text>
+            <Box minW={0}>
+              <Text fontSize="xs" fontWeight="800" color={textColor} noOfLines={1}>
+                {clientLabel}
+              </Text>
+              <Text fontSize="11px" fontWeight="400" color={subtleText} noOfLines={1}>
+                {sessionLabel}
+              </Text>
+            </Box>
+          </HStack>
+        </Box>
+      );
+    };
+
+    return (
+      <PriorityCard
+        data-tour="coach-today"
+        minH="168px"
+        title={
+          nutritionOnlyDashboard
+            ? t("dashboard.today_appointments_label", "Rendez-vous aujourd’hui")
+            : t("dashboard.banner.today_label", "Aujourd’hui")
+        }
+        eyebrow={detailed ? birthdaySummary : t("dashboard.cards.eyebrow_tracking", "Suivi")}
+        icon={MdToday}
+        accent={activeBlue}
+        summaryLayout
+        disableHover
+        {...props}
+      >
+        {detailed ? (
+          <VStack align="stretch" spacing={3} h="full" minH={0} overflow="hidden">
+            <Box minH={0}>
+              <Text mb={1.5} fontSize="xs" fontWeight="900" color={textColor}>
+                {nutritionOnlyDashboard
+                  ? t("dashboard.banner.completed_appointments", {
+                      count: todayOverview.validated,
+                      defaultValue: `${todayOverview.validated} rendez-vous réalisés`,
+                    })
+                  : t("dashboard.banner.validated_count", {
+                      count: todayOverview.validated,
+                      defaultValue: `${todayOverview.validated} séances validées`,
+                    })}
+              </Text>
+              <VStack align="stretch" spacing={1.5} maxH="235px" overflowY="auto" pr={1}>
+                {todayOverview.validatedEvents?.length > 0
+                  ? todayOverview.validatedEvents.map((event, index) => renderTodaySession(event, index, activeGreen))
+                  : <Text fontSize="xs" color={subtleText}>{t("dashboard.no_validated_session", "Aucune séance validée")}</Text>}
+              </VStack>
+            </Box>
+
+            <Box
+              mt={todayOverview.plannedEvents?.length > 0 ? 0 : "auto"}
+              minH={0}
+              flex={todayOverview.plannedEvents?.length > 0 ? "1 1 0" : "0 0 auto"}
+              display="flex"
+              flexDirection="column"
+            >
+              <Divider mb={3} borderColor={borderColor} />
+              <Box minH={0} flex="1" display="flex" flexDirection="column">
+                <Text mb={1.5} fontSize="xs" fontWeight="900" color={textColor}>
+                  {nutritionOnlyDashboard
+                    ? t("dashboard.banner.planned_appointments", {
+                        count: todayOverview.planned,
+                        defaultValue: `${todayOverview.planned} rendez-vous planifiés`,
+                      })
+                    : t("dashboard.banner.planned_count", {
+                        count: todayOverview.planned,
+                        defaultValue: `${todayOverview.planned} séances planifiées`,
+                      })}
+                </Text>
+                <VStack align="stretch" spacing={1.5} minH={0} flex="1" overflowY="auto" pr={1}>
+                  {todayOverview.plannedEvents?.length > 0
+                    ? todayOverview.plannedEvents.map((event, index) => renderTodaySession(event, index, activeBlue))
+                    : <Text fontSize="xs" color={subtleText}>{t("dashboard.nothing_planned", "Rien de planifié")}</Text>}
+                </VStack>
+              </Box>
+            </Box>
+          </VStack>
+        ) : (
+          <>
+            <Text fontSize={{ base: "lg", md: "xl" }} fontWeight="900" color={textColor} lineHeight="1.15">
+              {todayOverview.loading
+                ? t("common.loading", "Chargement...")
+                : nutritionOnlyDashboard
+                  ? t("dashboard.banner.completed_appointments", {
+                      count: todayOverview.validated,
+                      defaultValue: `${todayOverview.validated} rendez-vous réalisés`,
+                    })
+                  : t("dashboard.banner.validated_count", {
+                      count: todayOverview.validated,
+                      defaultValue: `${todayOverview.validated} séances validées`,
+                    })}
+            </Text>
+            <Text mt={2} fontSize="sm" fontWeight="400" color={mutedText}>
+              {todayOverview.loading
+                ? t("common.loading_page", "Chargement de la page...")
+                : nutritionOnlyDashboard
+                  ? t("dashboard.banner.planned_appointments", {
+                      count: todayOverview.planned,
+                      defaultValue: `${todayOverview.planned} rendez-vous planifiés`,
+                    })
+                  : t("dashboard.banner.planned_count", {
+                      count: todayOverview.planned,
+                      defaultValue: `${todayOverview.planned} séances planifiées`,
+                    })}
+            </Text>
+          </>
+        )}
+      </PriorityCard>
+    );
+  };
+
+  const renderUpcomingSummaryCard = ({ minH = "168px" } = {}) => (
+    <PriorityCard
+      data-tour="coach-upcoming-summary"
+      minH={minH}
+      title={
+        nutritionOnlyDashboard
+          ? t("dashboard.cards.upcoming_appointments_title", "Rendez-vous à venir")
+          : t("dashboard.cards.upcoming_title", "Séances à venir")
+      }
+      eyebrow={t("dashboard.cards.eyebrow_planning", "Planning")}
+      icon={CalendarIcon}
+      accent={activeBlue}
+      featured
+      summaryLayout
+      clickable
+      onClick={() => {
+        if (nextUpcomingSessions[0]) {
+          setSelectedEvent(nextUpcomingSessions[0]);
+          eventModal.onOpen();
+          return;
+        }
+        document.getElementById("coach-calendar-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }}
+    >
+      <VStack align="stretch" spacing={2} h="100%" minH={0}>
+        {nextUpcomingSessions.length === 0 ? (
+          <Flex minH="132px" flex="1" align="center" justify="center" direction="column" gap={3}>
+            <Text fontSize="sm" color={mutedText} fontWeight="400" textAlign="center">
+              {nutritionOnlyDashboard
+                ? t("dashboard.no_upcoming_appointment", "Aucun rendez-vous à venir")
+                : t("dashboard.no_upcoming_session", "Aucune séance à venir")}
+            </Text>
+            <Button
+              size="sm"
+              borderRadius="full"
+              leftIcon={<AddIcon />}
+              {...shortcutPrimaryButtonProps}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (nutritionOnlyDashboard) {
+                  openNutritionAppointmentForClient("");
+                  return;
+                }
+                addSessionModal.onOpen();
+              }}
+            >
+              {nutritionOnlyDashboard
+                ? t("dashboard.plan_nutrition_appointment", "Planifier un suivi")
+                : t("dashboard.add_session", "Ajouter une séance")}
+            </Button>
+          </Flex>
+        ) : (
+          <VStack
+            align="stretch"
+            spacing={2}
+            flex="1"
+            minH={0}
+            overflowY="auto"
+            overscrollBehavior="contain"
+            pr={allUpcomingSessions.length > 3 ? 1 : 0}
+            sx={{
+              scrollbarWidth: "thin",
+              scrollbarColor: `${modeValue("rgba(59,130,246,0.35)", "rgba(147,197,253,0.35)")} transparent`,
+              "&::-webkit-scrollbar": { width: "5px" },
+              "&::-webkit-scrollbar-track": { background: "transparent" },
+              "&::-webkit-scrollbar-thumb": {
+                background: modeValue("rgba(59,130,246,0.28)", "rgba(147,197,253,0.28)"),
+                borderRadius: "999px",
+              },
+            }}
+          >
+            {allUpcomingSessions.map((evt) => (
+              <Box
+                key={evt.id}
+                p={2.5}
+                borderRadius="16px"
+                bg={surfaceSoft}
+                border="1px solid"
+                borderColor={borderColor}
+                cursor="pointer"
+                flexShrink={0}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setSelectedEvent(evt);
+                  eventModal.onOpen();
+                }}
+                _hover={{
+                  borderColor: borderStrong,
+                  transform: "translateY(-1px)",
+                }}
+              >
+                <Text fontWeight="850" fontSize="sm" noOfLines={1}>
+                  {evt._clientName || t("dashboard.client", "Client")}
+                </Text>
+                <Text fontSize="sm" color={mutedText} fontWeight="400" noOfLines={1}>
+                  {evt._sessionTitle ||
+                    evt.title ||
+                    (nutritionOnlyDashboard
+                      ? t("dashboard.nutrition_appointment", "Rendez-vous nutrition")
+                      : t("form.session", "Séance"))}
+                </Text>
+                <Text fontSize="11px" color={subtleText} fontWeight="400" mt={1}>
+                  {evt.start.toLocaleDateString()} · {evt.start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </Text>
+              </Box>
+            ))}
+          </VStack>
+        )}
+        {nextUpcomingSessions.length > 0 && (
+          <HStack flexShrink={0} pt={2} justify="flex-end" align="center">
+            <Button
+              aria-label={
+                nutritionOnlyDashboard
+                  ? t("dashboard.plan_nutrition_appointment", "Planifier un suivi")
+                  : t("dashboard.add_session", "Ajouter une séance")
+              }
+              leftIcon={<AddIcon boxSize="12px" />}
+              size="sm"
+              h="34px"
+              minW="34px"
+              px={3}
+              borderRadius="11px"
+              color={modeValue("#2563EB", "#93C5FD")}
+              bg={modeValue("rgba(59,130,246,0.10)", "rgba(96,165,250,0.14)")}
+              border="1px solid"
+              borderColor={modeValue("rgba(59,130,246,0.22)", "rgba(147,197,253,0.22)")}
+              boxShadow="none"
+              onClick={(event) => {
+                event.stopPropagation();
+                if (nutritionOnlyDashboard) {
+                  openNutritionAppointmentForClient("");
+                  return;
+                }
+                addSessionModal.onOpen();
+              }}
+              _hover={{
+                bg: modeValue("rgba(59,130,246,0.10)", "rgba(96,165,250,0.14)"),
+                borderColor: modeValue("rgba(59,130,246,0.22)", "rgba(147,197,253,0.22)"),
+              }}
+              _active={{
+                bg: modeValue("rgba(59,130,246,0.10)", "rgba(96,165,250,0.14)"),
+                borderColor: modeValue("rgba(59,130,246,0.22)", "rgba(147,197,253,0.22)"),
+              }}
+              transition="none"
+            >
+              {nutritionOnlyDashboard
+                ? t("dashboard.plan_nutrition_appointment", "Planifier un suivi")
+                : t("dashboard.add_session", "Ajouter une séance")}
+            </Button>
+          </HStack>
+        )}
+      </VStack>
+    </PriorityCard>
+  );
+
+  const _renderClubGoalsCard = (props = {}) => {
     if (!coachGoalProgress.hasTarget) return null;
     return (
       <PriorityCard
@@ -7242,6 +7841,8 @@ letterSpacing="-0.02em" lineHeight="1.15">
         eyebrow={t(`dashboard.club_goals.periods.${clubGoalPeriod}`, clubGoalPeriod)}
         icon={MdOutlineTrendingUp}
         accent={activeGreen}
+        summaryLayout
+        metricValue={`${coachGoalProgress.progress}%`}
         {...props}
       >
         <HStack spacing={1.5} mb={3} flexWrap="wrap">
@@ -7262,10 +7863,7 @@ letterSpacing="-0.02em" lineHeight="1.15">
         </HStack>
         <HStack justify="space-between" align="end">
           <Box>
-            <Text fontSize={{ base: "2xl", md: "3xl" }} fontWeight="900" lineHeight="1">
-              {coachGoalProgress.progress}%
-            </Text>
-            <Text mt={2} fontSize="sm" color={mutedText}>
+            <Text mt={2} fontSize="xs" fontWeight="400" color={mutedText}>
               {t("dashboard.club_goals.progress_hint", "Avancement sur les objectifs fixés par le club")}
             </Text>
           </Box>
@@ -7276,12 +7874,12 @@ letterSpacing="-0.02em" lineHeight="1.15">
         <Progress
           mt={3}
           value={coachGoalProgress.progress}
-          size="sm"
+          size="xs"
           borderRadius="full"
           bg={modeValue("rgba(15,23,42,0.06)", "rgba(255,255,255,0.08)")}
           sx={{
             "& > div": {
-              background: modeValue("#16a34a", "rgba(134,239,172,0.78)"),
+              background: brandProgressGradient,
               borderRadius: "999px",
             },
           }}
@@ -7406,11 +8004,18 @@ position="relative" overflow="hidden">
         <Box
            position="relative"
            bg={surfaceBgStrong}
+           bgImage={modeValue(
+             "linear-gradient(112deg, rgba(255,255,255,0.98) 0%, rgba(239,246,255,0.98) 58%, rgba(224,242,254,0.92) 100%)",
+             "linear-gradient(112deg, rgba(15,23,42,0.98) 0%, rgba(17,36,68,0.96) 58%, rgba(12,45,67,0.94) 100%)"
+           )}
            border="1px solid"
-           borderColor={borderStrong}
+           borderColor={modeValue("rgba(59,130,246,0.22)", "rgba(96,165,250,0.28)")}
            borderRadius={{ base: "24px", md: "30px" }}
            p={{ base: 3, md: 4 }}
-           boxShadow={glassShadow}
+           boxShadow={modeValue(
+             "0 16px 38px rgba(37,99,235,0.10)",
+             "0 18px 46px rgba(0,0,0,0.30)"
+           )}
            overflow="hidden"
            mb={2.5}
         >
@@ -7499,7 +8104,7 @@ objectFit: "contain" }}
 
 👋
                      </Heading>
-                     <Text mt={{ base: 1, md: 2 }} color={mutedText} fontSize={{ base: "sm", md: "md" }} maxW="760px"
+                     <Text mt={{ base: 0.5, md: 1 }} color={mutedText} fontSize={{ base: "sm", md: "md" }} maxW="760px"
 noOfLines={2}>
                        {greetingSubtitle}
 
@@ -7508,297 +8113,176 @@ noOfLines={2}>
             </Flex>
             {!isMobileDashboard && (
             <Flex
-              direction="row"
-              gap={{ base: 1.5, md: 2 }}
-              align="stretch"
-              justify={{ base: "stretch", md: "flex-end" }}
-              flexWrap="wrap"
-              minW={{ base: "100%", md: "360px", xl: "520px" }}
+              align="center"
+              justify="flex-end"
+              gap={{ md: 5, xl: 7 }}
+              minW={{ base: "100%", md: "390px", xl: "500px" }}
               flexShrink={0}
-
             >
-               <Box
-                 px={{ base: 2.5, md: 3 }}
-                 py={{ base: 2, md: 2.5 }}
-                 flex={{ base: "1 1 140px", md: "1 1 150px" }}
-                 minW={{ base: "118px", md: "140px" }}
-                 borderRadius={{ base: "15px", md: "18px" }}
-                 bg={modeValue("rgba(15,23,42,0.03)",
-"rgba(255,255,255,0.04)")}
-                 border="1px solid"
-                 borderColor={borderColor}
-               >
-                 <Text fontSize="xs" color={subtleText} mb={0.5} noOfLines={1}>
-                    {nutritionOnlyDashboard ? "Rendez-vous aujourd’hui" : t("dashboard.banner.today_label", "Aujourd’hui")}
-                 </Text>
-                 <Text fontWeight="900" fontSize={{ base: "md", md: "lg" }} lineHeight="1.1">
-                    {todayOverview.loading
-                      ? t("common.loading", "Chargement...")
-                      : `${todayOverview.validated}${nutritionOnlyDashboard ? " réalisés" : t("dashboard.banner.validated_count", "Validées")}`}
-                 </Text>
-                 <Text fontSize={{ base: "xs", md: "sm" }} color={mutedText}
-noOfLines={1}>
-                    {todayOverview.loading
-                      ? t("common.loading_page", "Chargement de la page...")
-                      : `${todayOverview.planned}${nutritionOnlyDashboard ? " planifiés" : t("dashboard.banner.planned_count", "Planifiées")}`}
-                 </Text>
-               </Box>
-               <Box
-                 px={{ base: 2.5, md: 3 }}
-                 py={{ base: 2, md: 2.5 }}
-                 flex={{ base: "1 1 140px", md: "1 1 150px" }}
-                 minW={{ base: "118px", md: "140px" }}
-                 borderRadius={{ base: "15px", md: "18px" }}
-                 bg={modeValue("rgba(15,23,42,0.03)",
-"rgba(255,255,255,0.04)")}
-                 border="1px solid"
-                 borderColor={borderColor}
-               >
-                 <Text fontSize="xs" color={subtleText} mb={0.5} noOfLines={1}>
-                    {nutritionOnlyDashboard ? "Prochain rendez-vous" : t("dashboard.banner.next_session_label", "Prochaine séance")}
-                 </Text>
-                 <Text fontWeight="900" fontSize={{ base: "md", md: "lg" }} lineHeight="1.1" noOfLines={1}
->
-                    {todayOverview.loading
-                      ? t("common.loading", "Chargement...")
-                      : todayOverview.upcoming
-                      ? todayOverview.upcoming.start.toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : nutritionOnlyDashboard
-                      ? "Aucun rendez-vous"
-                      : t("dashboard.no_upcoming_session", "Aucune séance à venir")}
-                 </Text>
-                 <Text fontSize={{ base: "xs", md: "sm" }} color={mutedText}
-noOfLines={1}>
-                   {todayOverview.loading
-                     ? t("common.loading_page", "Chargement de la page...")
-                     : todayOverview.upcoming?._clientName || (nutritionOnlyDashboard ? "Aucun suivi planifié" : t("dashboard.nothing_planned", "Rien de planifié"))}
-                </Text>
-              </Box>
-              <Box
-                px={{ base: 2.5, md: 3 }}
-                py={{ base: 2, md: 2.5 }}
-                flex={{ base: "1 1 140px", md: "1 1 150px" }}
-                minW={{ base: "118px", md: "140px" }}
-                borderRadius={{ base: "15px", md: "18px" }}
-                bg={modeValue("rgba(15,23,42,0.03)",
-"rgba(255,255,255,0.04)")}
-                border="1px solid"
-                borderColor={borderColor}
+              <SimpleGrid
+                columns={3}
+                spacing={{ md: 4, xl: 7 }}
+                flex="1"
+                minW={0}
               >
-                <HStack justify="space-between" align="flex-start">
-                   <Box minW={0}>
-                     <Text fontSize="xs" color={subtleText} mb={0.5} noOfLines={1}>
-                       {t("dashboard.banner.birthdays_label", "Anniversaires du jour")}
-                     </Text>
-
-                       <Text fontWeight="900" fontSize={{ base: "md", md: "lg" }} lineHeight="1.1">
-                         {birthdaysToday.length}
-                       </Text>
-                       <Text fontSize={{ base: "xs", md: "sm" }} color={mutedText}
-noOfLines={1}>
-                         {birthdaysToday.length > 0
-                           ? birthdaysToday.map((c) =>
-c.prenom).join(", ")
-                          : t("dashboard.banner.today_no_missed", "Aucune manquée")}
-                     </Text>
-                     {birthdaysToday.length > 0 ? (
-                       <Button
-                         mt={2}
-                         size="xs"
-                         borderRadius="full"
-                         variant="outline"
-                         borderColor={borderColor}
-                         onClick={(e) => {
-                           e.stopPropagation();
-                           openBirthdayMessage(birthdaysToday[0]);
-                         }}
-                       >
-                         {t("dashboard.birthdays.prepare_message", "Préparer message")}
-                       </Button>
-                     ) : null}
-                   </Box>
-                   <Icon as={MdCake} color={warningOrange}
-boxSize="20px" />
-                 </HStack>
-               </Box>
+                {[
+                  {
+                    label: t("dashboard.mobile.sessions_today", "Séances du jour"),
+                    value: todayOverview.loading
+                      ? "…"
+                      : todaySessionCount,
+                  },
+                  {
+                    label: t("dashboard.mobile.validated", "Validées"),
+                    value: todayOverview.loading ? "…" : todayOverview.validated,
+                  },
+                  {
+                    label: t("dashboard.mobile.planned", "Planifiées"),
+                    value: todayOverview.loading
+                      ? "…"
+                      : todayOverview.planned + allUpcomingSessions.length,
+                  },
+                ].map((item) => (
+                  <VStack key={item.label} spacing={1} px={1}>
+                    <Text fontSize="2xl" fontWeight="950" lineHeight="1">
+                      {item.value}
+                    </Text>
+                    <Text fontSize="xs" color={subtleText} textAlign="center" noOfLines={1}>
+                      {item.label}
+                    </Text>
+                  </VStack>
+                ))}
+              </SimpleGrid>
+              <Box w={{ md: "104px", xl: "124px" }} flexShrink={0}>
+                <HStack mb={1} justify="space-between" spacing={3}>
+                  <Text fontSize="10px" color={subtleText} fontWeight="500">
+                    {t("dashboard.daily_progress", "Progression du jour")}
+                  </Text>
+                  <Text fontSize="10px" color={subtleText} fontWeight="700">
+                    {todayOverview.loading ? "…" : `${todayCompletionPercent}%`}
+                  </Text>
+                </HStack>
+                <Box h="6px" borderRadius="full" bg={modeValue("rgba(59,130,246,0.10)", "rgba(147,197,253,0.12)")} overflow="hidden">
+                  <Box
+                    h="full"
+                    w={`${todayOverview.loading ? 0 : todayCompletionPercent}%`}
+                    borderRadius="full"
+                    bgGradient="linear(to-r, #2563EB, #38BDF8)"
+                    transition="width 0.25s ease"
+                  />
+                </Box>
+              </Box>
             </Flex>
             )}
           </Flex>
         </Box>
 
         <Box display={{ base: "block", md: "none" }} mb={2.5}>
-          <Box
-            bg={surfaceBgStrong}
-            color={textColor}
-            border="1px solid"
-            borderColor={borderStrong}
-            borderRadius="24px"
-            p={3.5}
-            boxShadow={glassShadow}
-          >
-            <HStack justify="space-between" align="start" spacing={3}>
-              <Box minW={0}>
-                <Text fontSize="xs" fontWeight="900" textTransform="uppercase" color={subtleText}>
-                  {t("dashboard.mobile.today", "Aujourd'hui")}
-                </Text>
-                <Heading mt={1} size="md" lineHeight="1.1" noOfLines={2}>
-                  {todayOverview.loading
-                    ? t("common.loading", "Chargement...")
-                    : todayOverview.upcoming
-                    ? todayOverview.upcoming._clientName || t("dashboard.client", "Client")
-                    : nutritionOnlyDashboard
-                      ? t("dashboard.mobile.no_appointment", "Aucun rendez-vous")
-                      : t("dashboard.mobile.no_session", "Aucune séance")}
-                </Heading>
-                <Text mt={1.5} fontSize="sm" fontWeight="700" color={mutedText} noOfLines={2}>
-                  {todayOverview.loading
-                    ? t("common.loading_page", "Chargement de la page...")
-                    : todayOverview.upcoming
-                    ? `${todayOverview.upcoming._sessionTitle || todayOverview.upcoming.title || t("form.session", "Séance")} - ${todayOverview.upcoming.start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-                    : t("dashboard.mobile.ready_to_plan", "Tout est libre pour planifier le prochain point.")}
-                </Text>
-              </Box>
-              <Circle size="40px" bg="rgba(59,130,246,0.12)" color={activeBlue} border="1px solid" borderColor="rgba(59,130,246,0.18)" flexShrink={0}>
-                <Icon as={CalendarIcon} boxSize="20px" />
-              </Circle>
-            </HStack>
-
-            <SimpleGrid columns={3} spacing={2} mt={3}>
-              {[
-                {
-                  label: t("dashboard.mobile.validated", "Validées"),
-                  value: todayOverview.loading ? "..." : todayOverview.validated,
-                },
-                {
-                  label: t("dashboard.mobile.planned", "Planifiées"),
-                  value: todayOverview.loading ? "..." : todayOverview.planned,
-                },
-                {
-                  label: t("dashboard.mobile.week", "Semaine"),
-                  value: todayOverview.loading ? "..." : `${weeklyLoad.rate}%`,
-                },
-              ].map((item) => (
-                <Box key={item.label} bg={surfaceSoft} border="1px solid" borderColor={borderColor} borderRadius="16px" p={2.5}>
-                  <Text fontSize="xs" color={mutedText} fontWeight="800" noOfLines={1}>
-                    {item.label}
-                  </Text>
-                  <Text mt={1} fontSize="xl" fontWeight="950" lineHeight="1" color={textColor}>
-                    {item.value}
-                  </Text>
-                </Box>
-              ))}
-            </SimpleGrid>
-          </Box>
-
-          <SimpleGrid columns={2} spacing={2} mt={2.5}>
+          <SimpleGrid columns={2} spacing={2.5}>
             <Box
+              as="button"
+              type="button"
               bg={surfaceBgStrong}
               border="1px solid"
               borderColor={borderColor}
-              borderRadius="22px"
-              p={3}
+              borderRadius="24px"
+              p={3.5}
               boxShadow={glassShadow}
               cursor="pointer"
-              onClick={() => document.querySelector('[data-tour="coach-copilot"]')?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              minH="184px"
+              display="flex"
+              flexDirection="column"
+              textAlign="left"
+              onClick={() => openMobileCalendarForDate(new Date())}
             >
-              <HStack justify="space-between" align="start">
-                <Box minW={0}>
-                  <Text fontSize="xs" color={subtleText} fontWeight="900" textTransform="uppercase" noOfLines={1}>
-                    {t("dashboard.copilot.decision_queue", "File de décisions")}
+              <HStack justify="space-between" align="flex-start" spacing={1.5}>
+                <Circle size="30px" bg="rgba(59,130,246,0.14)" color={activeBlue} flexShrink={0}>
+                  <Icon as={MdToday} boxSize="15px" />
+                </Circle>
+                <Box minW={0} flex="1">
+                  <Text fontSize="11px" color={subtleText} fontWeight="900" textTransform="uppercase" noOfLines={1}>
+                    {t("dashboard.mobile.today", "Aujourd'hui")}
                   </Text>
-                  <Heading size="sm" mt={1} noOfLines={1}>
-                    {t("dashboard.copilot.title", "Copilote Coach")}
+                  <Heading fontSize="md" mt={1} lineHeight="1.15" noOfLines={2}>
+                    {t("dashboard.mobile.sessions_today", "Séances du jour")}
                   </Heading>
                 </Box>
-                <Circle size="34px" bg="rgba(59,130,246,0.12)" color={activeBlue}>
-                  <Icon as={MdOutlineBolt} boxSize="18px" />
-                </Circle>
-              </HStack>
-              <Text mt={3} fontSize="2xl" fontWeight="950" lineHeight="1">
-                {copilotQueueItems.length}
-              </Text>
-              {copilotQueueItems[0] ? (
-                <>
-                  <Text mt={1.5} fontSize="xs" color={textColor} fontWeight="850" noOfLines={1}>
-                    {copilotQueueItems[0].title}
-                  </Text>
-                  <Text mt={0.5} fontSize="xs" color={mutedText} noOfLines={2}>
-                    {copilotQueueItems[0].reason}
-                  </Text>
-                  <HStack
-                    mt={2.5}
-                    spacing={1}
-                    color={activeBlue}
-                    fontSize="xs"
-                    fontWeight="900"
-                    lineHeight="1"
-                  >
-                    <Text noOfLines={1}>{t("dashboard.mobile.open_decisions", "Voir les décisions")}</Text>
-                    <Icon as={ChevronRightIcon} boxSize="15px" />
-                  </HStack>
-                </>
-              ) : (
-                <Text mt={1.5} fontSize="xs" color={mutedText} noOfLines={2}>
-                  {t("dashboard.copilot.empty_title", "Aucune décision urgente.")}
+                <Text fontSize="2xl" fontWeight="950" lineHeight="1" flexShrink={0} textAlign="right">
+                  {todayOverview.loading ? "…" : todaySessionCount}
                 </Text>
-              )}
+              </HStack>
+              <VStack mt={3} spacing={1.5} align="stretch">
+                <HStack justify="space-between" spacing={2}>
+                  <Text fontSize="xs" color={mutedText}>{t("dashboard.mobile.validated", "Validées")}</Text>
+                  <Text fontSize="sm" color={textColor} fontWeight="900">{todayOverview.validated}</Text>
+                </HStack>
+                <HStack justify="space-between" spacing={2}>
+                  <Text fontSize="xs" color={mutedText}>{t("dashboard.mobile.planned", "Planifiées")}</Text>
+                  <Text fontSize="sm" color={textColor} fontWeight="900">{todayOverview.planned}</Text>
+                </HStack>
+              </VStack>
+              <HStack mt="auto" pt={3} borderTop="1px solid" borderColor={borderColor} spacing={1} color={activeBlue} fontSize="xs" fontWeight="900" lineHeight="1">
+                <Text noOfLines={1}>{t("dashboard.mobile.open_today", "Voir aujourd'hui")}</Text>
+                <Icon as={ChevronRightIcon} boxSize="15px" />
+              </HStack>
             </Box>
 
             <Box
+              as="button"
+              type="button"
               bg={surfaceBgStrong}
               border="1px solid"
               borderColor={borderColor}
-              borderRadius="22px"
-              p={3}
+              borderRadius="24px"
+              p={3.5}
               boxShadow={glassShadow}
               cursor="pointer"
-              onClick={() => {
-                if (hasNutritionCalendarAccess && nutritionDashboardStats.drafts > 0) {
-                  navigate(withAdminCoach("/nutrition-coach"));
-                  return;
-                }
-                if (allUpcomingSessions.length === 1 && nextUpcomingSessions[0]) {
-                  setSelectedEvent(nextUpcomingSessions[0]);
-                  eventModal.onOpen();
-                  return;
-                }
-                document.getElementById("coach-calendar-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
-              }}
+              minH="184px"
+              display="flex"
+              flexDirection="column"
+              textAlign="left"
+              onClick={() => openMobileCalendarForDate(nextUpcomingSessions[0]?.start || new Date())}
             >
-              <HStack justify="space-between" align="start">
-                <Box minW={0}>
-                  <Text fontSize="xs" color={subtleText} fontWeight="900" textTransform="uppercase" noOfLines={1}>
-                    {hasNutritionCalendarAccess && nutritionDashboardStats.drafts > 0
-                      ? t("dashboard.cards.eyebrow_priority", "Priorité")
-                      : t("dashboard.mobile.upcoming", "À venir")}
+              <HStack justify="space-between" align="flex-start" spacing={1.5}>
+                <Circle
+                  size="30px"
+                  bg="rgba(245,158,11,0.14)"
+                  color={warningOrange}
+                  flexShrink={0}
+                >
+                  <Icon as={CalendarIcon} boxSize="15px" />
+                </Circle>
+                <Box minW={0} flex="1">
+                  <Text fontSize="11px" color={subtleText} fontWeight="900" textTransform="uppercase" noOfLines={1}>
+                    {t("dashboard.mobile.upcoming", "À venir")}
                   </Text>
-                  <Heading size="sm" mt={1} noOfLines={1}>
-                    {hasNutritionCalendarAccess && nutritionDashboardStats.drafts > 0
-                      ? t("dashboard.stats_nutrition_followups", "Suivis nutrition")
-                      : t("dashboard.mobile.open_planning", "Planning")}
+                  <Heading fontSize="md" mt={1} lineHeight="1.15" noOfLines={2}>
+                    {t("dashboard.mobile.upcoming_sessions", "Séances à venir")}
                   </Heading>
                 </Box>
-                <Circle size="34px" bg={hasNutritionCalendarAccess && nutritionDashboardStats.drafts > 0 ? "rgba(20,184,166,0.14)" : "rgba(245,158,11,0.14)"} color={hasNutritionCalendarAccess && nutritionDashboardStats.drafts > 0 ? "#14B8A6" : warningOrange}>
-                  <Icon as={hasNutritionCalendarAccess && nutritionDashboardStats.drafts > 0 ? MdOutlineRestaurantMenu : CalendarIcon} boxSize="18px" />
-                </Circle>
+                <Text fontSize="2xl" fontWeight="950" lineHeight="1" flexShrink={0} textAlign="right">
+                  {allUpcomingSessions.length}
+                </Text>
               </HStack>
-              <Text mt={3} fontSize="2xl" fontWeight="950" lineHeight="1">
-                {hasNutritionCalendarAccess && nutritionDashboardStats.drafts > 0
-                  ? nutritionDashboardStats.drafts
-                  : allUpcomingSessions.length}
-              </Text>
-              <Text mt={1.5} fontSize="xs" color={mutedText} noOfLines={2}>
-                {hasNutritionCalendarAccess && nutritionDashboardStats.drafts > 0
-                  ? t("dashboard.nutrition_drafts_short", "{{count}} assessment(s) to finalize", { count: nutritionDashboardStats.drafts })
-                  : nextUpcomingSessions[0]
-                    ? `${nextUpcomingSessions[0]._clientName || t("dashboard.client", "Client")} - ${nextUpcomingSessions[0].start.toLocaleDateString(i18n.language || "fr")} à ${nextUpcomingSessions[0].start.toLocaleTimeString(i18n.language || "fr", { hour: "2-digit", minute: "2-digit" })}`
-                    : t("dashboard.mobile.ready_to_plan", "Tout est libre pour planifier le prochain point.")}
-              </Text>
+              {nextUpcomingSessions[0] ? (
+                <Box mt={3} minW={0}>
+                  <Text fontSize="xs" color={textColor} fontWeight="850" noOfLines={1}>
+                    {nextUpcomingSessions[0]._clientName || t("dashboard.client", "Client")}
+                  </Text>
+                  <Text mt={1} fontSize="xs" color={mutedText} noOfLines={1}>
+                    {nextUpcomingSessions[0].start.toLocaleDateString(i18n.language || "fr")} · {nextUpcomingSessions[0].start.toLocaleTimeString(i18n.language || "fr", { hour: "2-digit", minute: "2-digit" })}
+                  </Text>
+                </Box>
+              ) : (
+                <Text mt={3} fontSize="xs" color={mutedText} noOfLines={2}>
+                  {t("dashboard.mobile.ready_to_plan", "Tout est libre pour planifier le prochain point.")}
+                </Text>
+              )}
               <HStack
-                mt={2.5}
+                mt="auto"
+                pt={3}
+                borderTop="1px solid"
+                borderColor={borderColor}
                 spacing={1}
                 color={activeBlue}
                 fontSize="xs"
@@ -7806,9 +8290,7 @@ boxSize="20px" />
                 lineHeight="1"
               >
                 <Text noOfLines={1}>
-                  {hasNutritionCalendarAccess && nutritionDashboardStats.drafts > 0
-                    ? t("dashboard.mobile.open_nutrition", "Ouvrir nutrition")
-                    : allUpcomingSessions.length > 1
+                  {allUpcomingSessions.length > 1
                       ? t("dashboard.mobile.open_events", "Voir les créneaux")
                       : nextUpcomingSessions[0]
                         ? t("dashboard.mobile.open_event", "Ouvrir le créneau")
@@ -7822,12 +8304,16 @@ boxSize="20px" />
 
         {!isMobileDashboard && (
         <>
+        <Flex direction="column">
         <Box
-          display={{ base: "none", md: "grid" }}
+          order={2}
+          display={{ base: "none", md: "grid", lg: usePlanningSummaryLayout ? "none" : "grid" }}
           gridTemplateColumns={{
             base: "repeat(2, minmax(0, 1fr))",
             md: "repeat(3, minmax(0, 1fr))",
-            xl: "repeat(6, minmax(0, 1fr))",
+            lg: usePlanningSummaryLayout
+              ? "repeat(3, minmax(0, 1fr))"
+              : "repeat(6, minmax(0, 1fr))",
           }}
           gap={2}
 
@@ -7854,547 +8340,138 @@ boxSize="20px" />
                />
             </Box>
           ))}
+          {usePlanningSummaryLayout && (
+            <Box
+              display={{ base: "none", lg: "block" }}
+              gridColumn="3"
+              gridRow="1 / span 2"
+              minH="100%"
+            >
+              {renderUpcomingSummaryCard({ minH: "100%" })}
+            </Box>
+          )}
         </Box>
 
 
-        <Box mb={2.5}>
+        <Box order={1} mb={2.5}>
           <Box
-             display={{ base: "none", md: "block", xl: "none" }}
-             overflowX="auto"
-             overflowY="hidden"
-             sx={{
-                scrollSnapType: "x mandatory",
-                WebkitOverflowScrolling: "touch",
-                "&::-webkit-scrollbar": { display: "none" },
-                scrollbarWidth: "none",
-             }}
+            display={{ base: "none", md: "block", lg: "none" }}
+            overflowX="auto"
+            overflowY="hidden"
+            sx={{
+              scrollSnapType: "x mandatory",
+              WebkitOverflowScrolling: "touch",
+              "&::-webkit-scrollbar": { display: "none" },
+              scrollbarWidth: "none",
+            }}
           >
-             <HStack spacing={2} align="stretch" pb={1}>
-                <PriorityCard
-                data-tour="coach-shortcuts"
-                title={t("dashboard.cards.shortcuts_title", "Raccourcis")}
-                eyebrow={t("dashboard.cards.eyebrow_actions", "Actions")}
-                icon={MdOutlineLink}
-                accent={activeBlue}
-              >
-                <VStack spacing={2} align="stretch" justify="center" h="100%">
-                  <Button
-                    display={{ base: "inline-flex", md: "none" }}
-                    size="sm"
-                    borderRadius="14px"
-                    {...shortcutPrimaryButtonProps}
-                    leftIcon={<AddIcon />}
-                    onClick={choiceModal.onOpen}
-                  >
-                    {t("nav.new", "Nouveau")}
-                  </Button>
-	                  <Button
-                      size="sm"
-                      borderRadius="14px"
-                      {...shortcutPrimaryButtonProps}
-                      onClick={nutritionOnlyDashboard ? () => navigate(withAdminCoach("/nutrition-coach?new=1")) : addSessionModal.onOpen}
-                    >
-                    {nutritionOnlyDashboard ? "Créer un suivi" : t("dashboard.plan_session", "Planifier une séance")}
-                  </Button>
-                  {hasNutritionCalendarAccess && (
-                    <Button
-                      data-testid="nutrition-ration-shortcut"
-                      size="sm"
-                      borderRadius="14px"
-                      {...shortcutSecondaryButtonProps}
-                      onClick={() => rationShortcutModal.onOpen()}
-                    >{t("auto.CoachDashboard.faire_une_ration", "Faire une ration")}</Button>
-                  )}
-                  {nutritionOnlyDashboard && (
-                    <Button
-                      data-testid="nutrition-plan-followup-shortcut"
-                      size="sm"
-                      borderRadius="14px"
-                      {...shortcutSecondaryButtonProps}
-                      onClick={() => openNutritionAppointmentForClient("")}
-                    >
-                      {t("dashboard.plan_nutrition_appointment", "Planifier un suivi")}
-                    </Button>
-                  )}
-                </VStack>
-              </PriorityCard>
-
-              <PriorityCard
-                  data-tour="coach-upcoming"
-                  title={t("dashboard.cards.upcoming_title",
-"Prochains rendez-vous")}
-                  eyebrow={t("dashboard.cards.eyebrow_planning",
-"Planning")}
-                  icon={CalendarIcon}
-
-                accent={activeBlue}
-                featured
-                clickable
-                onClick={() => {
-                   if (nextUpcomingSessions[0]) {
-                     setSelectedEvent(nextUpcomingSessions[0]);
-                     eventModal.onOpen();
-                     return;
-                   }
-                   document.getElementById("coach-calendar-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }}
-              >
-                <VStack align="stretch" spacing={2.5}>
-                   {nextUpcomingSessions.length === 0 ? (
-                     <Text fontSize="sm" color={mutedText}>
-                       {nutritionOnlyDashboard ? "Aucun rendez-vous à venir" : t("dashboard.no_upcoming_session", "Aucune séance à venir")}
-                     </Text>
-                   ) : (
-                     nextUpcomingSessions.map((evt) => (
-                       <Box
-                         key={evt.id}
-                         p={2.5}
-                         borderRadius="16px"
-
-bg={modeValue("rgba(255,255,255,0.04)",
-"rgba(255,255,255,0.03)")}
-                        border="1px solid"
-                        borderColor={borderColor}
-                        cursor="pointer"
-                        onClick={(e) => {
-                           e.stopPropagation();
-                           setSelectedEvent(evt);
-                           eventModal.onOpen();
-                        }}
-                        _hover={{
-                           borderColor:
-modeValue("rgba(59,130,246,0.22)",
-"rgba(59,130,246,0.28)"),
-                           transform: "translateY(-1px)",
-                        }}
-                      >
-                        <Text fontWeight="800" fontSize="sm"
-noOfLines={1}>
-                           {evt._clientName || t("dashboard.client", "Client")}
-                        </Text>
-                        <Text fontSize="sm" color={mutedText}
-noOfLines={1}>
-                           {evt._sessionTitle || evt.title ||
-(nutritionOnlyDashboard ? "Rendez-vous nutrition" : t("form.session", "Séance"))}
-                        </Text>
-                        <Text fontSize="xs" color={subtleText}
-mt={1}>
-
-                            {evt.start.toLocaleDateString()} ·
-{evt.start.toLocaleTimeString([], {
-                               hour: "2-digit",
-                               minute: "2-digit",
-                            })}
-                          </Text>
-                        </Box>
-                     ))
-                  )}
-                  {allUpcomingSessions.length > 2 && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      mt={2}
-                      onClick={upcomingSessionsModal.onOpen}
-                   >
-                      {nutritionOnlyDashboard ? "Voir tous les rendez-vous" : t("dashboard.view_more_sessions", "Voir toutes les séances")}
-                    </Button>
-                  )}
-                  {calendarConnectionChecked && !calendarConnectedOnce ? (
-                    <Button
-                      data-tour="coach-calendar-sync"
-                      size="sm"
-                      borderRadius="14px"
-                      variant="outline"
-                      leftIcon={<Icon as={MdOutlineLink} />}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenCalendarLinkModal();
-                      }}
-                    >
-                      {t("dashboard.connect_calendar", "Connecter le calendrier")}
-                    </Button>
-                  ) : null}
-                </VStack>
-              </PriorityCard>
-
-              <PriorityCard
-                data-tour="coach-week"
-                title={t("dashboard.cards.week_title", "Semaine")}
-                eyebrow={t("dashboard.cards.eyebrow_tracking",
-"Suivi")}
-                icon={MdOutlineAutoGraph}
-                accent={activeGreen}
-                clickable
-                onClick={() => {
-                   document.getElementById("coach-calendar-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }}
-              >
-                <Text fontSize={{ base: "2xl", md: "3xl" }}
-fontWeight="900" lineHeight="1">{weeklyLoad.rate}%</Text>
-                <Progress
-                   mt={3}
-                   value={weeklyLoad.rate}
-                   size="sm"
-                   borderRadius="full"
-                   bg={modeValue("rgba(15,23,42,0.06)",
-"rgba(255,255,255,0.08)")}
-                   sx={{
-                      "& > div": {
-                         background: modeValue("#111827", "rgba(255,255,255,0.22)"),
-                         borderRadius: "999px",
-                      },
-                   }}
-                />
-                <HStack mt={3} justify="space-between">
-                   <Text fontSize="sm" color={mutedText}>{t("dashboard.weekly_planned_label", { count: weeklyLoad.planned, defaultValue: `Prévu: ${weeklyLoad.planned}` })}</Text>
-                   <Text fontSize="sm" color={mutedText}>{t("dashboard.weekly_validated_label", { count: weeklyLoad.validated, defaultValue: `Validé: ${weeklyLoad.validated}` })}</Text>
-                </HStack>
-              </PriorityCard>
-
-              {renderClubGoalsCard()}
-
-              {hasNutritionCalendarAccess && (
-                <PriorityCard
-                  data-tour="coach-nutrition-card"
-                  title={t("nav.nutrition", "Nutrition")}
-                  eyebrow={t("dashboard.cards.eyebrow_nutrition", "Nutrition")}
-                  icon={MdOutlineNoteAlt}
-                  accent={activeBlue}
-                  clickable
-                  onClick={() => navigate(withAdminCoach("/nutrition-coach"))}
-                >
-                  <Text fontSize={{ base: "2xl", md: "3xl" }} fontWeight="900" lineHeight="1">
-                    {nutritionDashboardStats.assessments}
-                  </Text>
-                  <Text mt={2} fontSize="sm" color={mutedText}>
-                    {nutritionOnlyDashboard
-                      ? `${nutritionDashboardStats.clients} patient(s) • ${nutritionDashboardStats.shared} partagé(s)`
-                      : t("dashboard.nutrition_clients_shared", "{{clients}} client(s) • {{shared}} shared", {
-                          clients: nutritionDashboardStats.clients,
-                          shared: nutritionDashboardStats.shared,
-                        })}
-                  </Text>
-                  <Text mt={1} fontSize="sm" color={subtleText}>
-                    {t("dashboard.nutrition_drafts_full", "{{count}} assessment(s) to finalize", {
-                      count: nutritionDashboardStats.drafts,
-                    })}
-                  </Text>
-                </PriorityCard>
-              )}
-
-              <PriorityCard
-                data-tour="coach-relaunch"
-                title={nutritionOnlyDashboard ? "Patients à relancer" : t("dashboard.cards.relaunch_title", "À relancer")}
-
-                     eyebrow={t("dashboard.cards.eyebrow_priority",
-"Priorité")}
-                     icon={MdOutlineNotificationsActive}
-                     accent={warningOrange}
-                     clickable
-                     onClick={relaunchModal.onOpen}
-                 >
-                <Text fontSize={{ base: "2xl", md: "3xl" }}
-fontWeight="900" lineHeight="1">
-                  {inactiveClients.length}
-                </Text>
-                <Text mt={2} fontSize="sm" color={mutedText}>
-                  {inactiveClients.length > 0
-                     ? inactiveClients.slice(0, 2).map((c) => `${c.prenom} ${c.nom}`.trim()).join(", ")
-                     : nutritionOnlyDashboard ? "Aucun patient à relancer" : t("dashboard.no_client_to_relaunch", "Aucun client à relancer")}
-                </Text>
-                {inactiveClients.length > 0 && (
-                  <HStack mt={2} spacing={1} color={warningOrange} fontSize="xs" fontWeight="900">
-                    <Text>{t("dashboard.relaunch.open_actions", "Traiter les relances")}</Text>
-                    <Icon as={ChevronRightIcon} boxSize="14px" />
-                  </HStack>
-                )}
-              </PriorityCard>
-
+            <HStack spacing={2} align="stretch" pb={1}>
+              {usePlanningSummaryLayout ? renderTodayQuickCard() : renderClientsQuickCard()}
+              {renderNutritionQuickCard()}
+              {renderProgramsQuickCard()}
+              {!usePlanningSummaryLayout ? renderTodayQuickCard() : null}
+              {renderUpcomingSummaryCard()}
             </HStack>
           </Box>
 
           <Box
-             display={{ base: "none", xl: "grid" }}
-             gridTemplateColumns="repeat(12, minmax(0, 1fr))"
-             gap={2.5}
-             alignItems="stretch"
+            display={{ base: "none", lg: usePlanningSummaryLayout ? "none" : "grid" }}
+            gridTemplateColumns="repeat(4, minmax(0, 1fr))"
+            gap={2.5}
+            alignItems="stretch"
           >
-            <Box gridColumn="span 2">
-               <PriorityCard
-                 data-tour="coach-shortcuts"
-                 minH="168px"
-                 title={t("dashboard.cards.shortcuts_title",
-"Raccourcis")}
-                 eyebrow={t("dashboard.cards.eyebrow_actions",
-"Actions")}
-                 icon={MdOutlineLink}
-                 accent={activeBlue}
-               >
-                 <VStack spacing={2} align="stretch"
-justify="center" h="100%">
-                   <Button
-                     size="sm"
-                     borderRadius="16px"
-                     {...shortcutPrimaryButtonProps}
-                       onClick={nutritionOnlyDashboard ? () => navigate(withAdminCoach("/nutrition-coach?new=1")) : addSessionModal.onOpen}
-                     >
-                     {nutritionOnlyDashboard ? "Créer un suivi" : t("dashboard.plan_session", "Planifier une séance")}
-                   </Button>
-                   {hasNutritionCalendarAccess && (
-                     <Button
-                       data-testid="nutrition-ration-shortcut"
-                       size="sm"
-                       borderRadius="16px"
-                       {...shortcutSecondaryButtonProps}
-                       onClick={() => rationShortcutModal.onOpen()}
-                     >{t("auto.CoachDashboard.faire_une_ration", "Faire une ration")}</Button>
-                   )}
-                   {nutritionOnlyDashboard && (
-                     <Button
-                       data-testid="nutrition-plan-followup-shortcut"
-                       size="sm"
-                       borderRadius="16px"
-                       {...shortcutSecondaryButtonProps}
-                       onClick={() => openNutritionAppointmentForClient("")}
-                     >
-                       {t("dashboard.plan_nutrition_appointment", "Planifier un suivi")}
-                     </Button>
-                   )}
-                 </VStack>
-               </PriorityCard>
-            </Box>
-
-            <Box gridColumn="span 4">
-               <PriorityCard
-                 data-tour="coach-upcoming"
-                 minH="168px"
-                 title={t("dashboard.cards.upcoming_title",
-"Prochains rendez-vous")}
-                 eyebrow={t("dashboard.cards.eyebrow_planning",
-"Planning")}
-                 icon={CalendarIcon}
-                 accent={activeBlue}
-                 featured
-                 clickable
-                 onClick={() => {
-                    if (nextUpcomingSessions[0]) {
-                      setSelectedEvent(nextUpcomingSessions[0]);
-                      eventModal.onOpen();
-                      return;
-                    }
-                    document.getElementById("coach-calendar-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                 }}
-               >
-                 <VStack align="stretch" spacing={2.5}>
-                    {nextUpcomingSessions.length === 0 ? (
-                      <Flex minH="54px" align="center">
-                        <Text fontSize="sm" color={mutedText}>
-                          {t("dashboard.no_upcoming_session", "Aucune séance à venir")}
-
-                      </Text>
-                    </Flex>
-                  ) : (
-                    nextUpcomingSessions.map((evt) => (
-                      <Box
-                        key={evt.id}
-                        p={2.5}
-                        borderRadius="16px"
-
-bg={modeValue("rgba(255,255,255,0.04)",
-"rgba(255,255,255,0.03)")}
-                           border="1px solid"
-                           borderColor={borderColor}
-                           cursor="pointer"
-                           onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedEvent(evt);
-                              eventModal.onOpen();
-                           }}
-                           _hover={{
-                              borderColor:
-modeValue("rgba(59,130,246,0.22)",
-"rgba(59,130,246,0.28)"),
-                              transform: "translateY(-1px)",
-                           }}
-                         >
-                           <Text fontWeight="800" fontSize="sm"
-noOfLines={1}>
-                              {evt._clientName || t("dashboard.client", "Client")}
-                           </Text>
-                           <Text fontSize="sm" color={mutedText}
-noOfLines={1}>
-                              {evt._sessionTitle || evt.title ||
-t("form.session", "Séance")}
-                           </Text>
-                           <Text fontSize="xs" color={subtleText}
-mt={1}>
-                              {evt.start.toLocaleDateString()} ·
-{evt.start.toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                           </Text>
-                         </Box>
-                      ))
-                   )}
-                   {allUpcomingSessions.length > 2 && (
-                     <Button
-                       data-tour="coach-calendar-sync"
-                       size="sm"
-                       variant="outline"
-                       mt={2}
-                       onClick={upcomingSessionsModal.onOpen}
-                     >
-                       {t("dashboard.view_more_sessions", "Voir toutes les séances")}
-                     </Button>
-                   )}
-                   {calendarConnectionChecked && !calendarConnectedOnce ? (
-                     <Button
-                       size="sm"
-                       borderRadius="14px"
-                       variant="outline"
-                       leftIcon={<Icon as={MdOutlineLink} />}
-                       onClick={(e) => {
-                         e.stopPropagation();
-                         handleOpenCalendarLinkModal();
-                       }}
-                     >
-                       {t("dashboard.connect_calendar", "Connecter le calendrier")}
-                     </Button>
-                   ) : null}
-                 </VStack>
-               </PriorityCard>
-            </Box>
-
-            <Box gridColumn="span 2">
-               <PriorityCard
-                 data-tour="coach-week"
-                 minH="168px"
-
-                     title={t("dashboard.cards.week_title", "Semaine")}
-                     eyebrow={t("dashboard.cards.eyebrow_tracking",
-"Suivi")}
-                 icon={MdOutlineAutoGraph}
-                 accent={activeGreen}
-                 clickable
-                 onClick={() => {
-                    document.getElementById("coach-calendar-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                 }}
-               >
-                 <Text fontSize={{ base: "2xl", md: "3xl" }}
-fontWeight="900">{weeklyLoad.rate}%</Text>
-                 <Progress
-                    mt={3}
-                    value={weeklyLoad.rate}
-                    size="sm"
-                    borderRadius="full"
-                    bg={modeValue("rgba(15,23,42,0.06)",
-"rgba(255,255,255,0.08)")}
-                    sx={{
-                       "& > div": {
-                          background: modeValue("#111827", "rgba(255,255,255,0.22)"),
-                          borderRadius: "999px",
-                       },
-                    }}
-                 />
-                 <HStack mt={3} justify="space-between">
-                    <Text fontSize="sm" color={mutedText}>{t("dashboard.weekly_planned_label", { count: weeklyLoad.planned, defaultValue: `Prévu: ${weeklyLoad.planned}` })}</Text>
-                    <Text fontSize="sm" color={mutedText}>{t("dashboard.weekly_validated_label", { count: weeklyLoad.validated, defaultValue: `Validé: ${weeklyLoad.validated}` })}</Text>
-                 </HStack>
-                 <Text mt={4} fontSize="sm" color={mutedText}>
-                    {t("dashboard.weekly_execution_hint", { done: weeklyLoad.validated, planned: weeklyLoad.planned, defaultValue: `${weeklyLoad.validated}/${weeklyLoad.planned} prévues cette semaine` })}
-                 </Text>
-               </PriorityCard>
-            </Box>
-
-            {coachGoalProgress.hasTarget && (
-              <Box gridColumn="span 2">
-                {renderClubGoalsCard({ minH: "168px" })}
-              </Box>
-            )}
-
-            {hasNutritionCalendarAccess && <Box gridColumn="span 2">
-               <PriorityCard
-                 data-tour="coach-nutrition-card"
-                 minH="168px"
-                 title={t("nutrition.title", "Nutrition")}
-                 eyebrow={t("autoPreview.autoFollowShort", "Suivi")}
-                 icon={MdOutlineNoteAlt}
-                 accent={activeBlue}
-                 clickable
-                 onClick={() => navigate(withAdminCoach("/nutrition-coach"))}
-               >
-                 <Text fontSize={{ base: "2xl", md: "3xl" }} fontWeight="900">
-                   {nutritionDashboardStats.assessments}
-                 </Text>
-                 <Text mt={3} fontSize="sm" color={mutedText}>
-                   {nutritionOnlyDashboard
-                     ? `${nutritionDashboardStats.clients} patient(s) • ${nutritionDashboardStats.shared} partagé(s)`
-                     : t("dashboard.nutrition_clients_shared", "{{clients}} client(s) • {{shared}} shared", {
-                         clients: nutritionDashboardStats.clients,
-                         shared: nutritionDashboardStats.shared,
-                       })}
-                 </Text>
-                 <Text mt={1} fontSize="sm" color={subtleText}>
-                   {t("dashboard.nutrition_drafts_short", "{{count}} assessment(s) to finalize", {
-                     count: nutritionDashboardStats.drafts,
-                   })}
-                 </Text>
-               </PriorityCard>
-            </Box>}
-
-            <Box gridColumn="span 2">
-               <PriorityCard
-                 data-tour="coach-relaunch"
-                 minH="168px"
-                 title={nutritionOnlyDashboard ? "Patients à relancer" : t("dashboard.cards.relaunch_title", "À relancer")}
-                   eyebrow={t("dashboard.cards.eyebrow_priority",
-"Priorité")}
-                   icon={MdOutlineNotificationsActive}
-                   accent={warningOrange}
-                   clickable
-                   onClick={relaunchModal.onOpen}
-               >
-
-               <Text fontSize={{ base: "2xl", md: "3xl" }}
-fontWeight="900">{inactiveClients.length}</Text>
-               <VStack mt={3} spacing={2} align="stretch">
-                  {inactiveClients.length === 0 ? (
-                     <Text fontSize="sm" color={mutedText}>
-                        {nutritionOnlyDashboard ? "Aucun patient à relancer" : t("dashboard.no_client_to_relaunch", "Aucun client à relancer")}
-                     </Text>
-                  ) : (
-                     inactiveClients.slice(0, 2).map((c) => (
-                        <Text key={c.id} fontSize="sm"
-color={mutedText} noOfLines={1}>
-                          {c.prenom} {c.nom}
-                        </Text>
-                     ))
-                  )}
-               </VStack>
-               {inactiveClients.length > 0 && (
-                 <HStack mt={2} spacing={1} color={warningOrange} fontSize="xs" fontWeight="900">
-                   <Text>{t("dashboard.relaunch.open_actions", "Traiter les relances")}</Text>
-                   <Icon as={ChevronRightIcon} boxSize="14px" />
-                 </HStack>
-               )}
-             </PriorityCard>
-            </Box>
+            {renderClientsQuickCard()}
+            {renderNutritionQuickCard()}
+            {renderProgramsQuickCard()}
+            {renderTodayQuickCard()}
           </Box>
+
+          {usePlanningSummaryLayout ? (
+            <Box
+              display={{ base: "none", lg: "grid" }}
+              gridTemplateColumns="repeat(4, minmax(0, 1fr))"
+              gridTemplateRows="minmax(168px, auto) repeat(2, minmax(104px, auto))"
+              gap={2.5}
+              alignItems="stretch"
+            >
+              <Box gridColumn="1" gridRow="1 / span 3" minH="100%">
+                {renderTodayQuickCard({ detailed: true, minH: "100%" })}
+              </Box>
+
+              <Box gridColumn="2" gridRow="1">
+                {renderNutritionQuickCard()}
+              </Box>
+              <Box gridColumn="3" gridRow="1">
+                {renderProgramsQuickCard()}
+              </Box>
+
+              {stats.map((stat, index) => (
+                <Box
+                  key={stat.label}
+                  gridColumn={2 + (index % 2)}
+                  gridRow={2 + Math.floor(index / 2)}
+                  minH="100%"
+                >
+                  <StatTile
+                    label={stat.label}
+                    value={stat.value}
+                    hint={stat.hint}
+                    icon={stat.icon}
+                    accent={stat.accent}
+                    glow={stat.glow}
+                    clickable
+                    onPointerEnter={() => warmDashboardDestination(stat.route)}
+                    onPointerDown={() => warmDashboardDestination(stat.route)}
+                    onFocus={() => warmDashboardDestination(stat.route)}
+                    onClick={() => navigate(withAdminCoach(stat.route || "/clients"))}
+                  />
+                </Box>
+              ))}
+
+              <Box gridColumn="4" gridRow="1 / span 3" minH="100%">
+                {renderUpcomingSummaryCard({ minH: "100%" })}
+              </Box>
+            </Box>
+          ) : null}
+
         </Box>
+        </Flex>
         </>
         )}
 
 
-        <Flex justify="flex-end" mb={2.5}>
+        <Flex
+          align={{ base: "stretch", sm: "center" }}
+          justify="space-between"
+          direction={{ base: "column", sm: "row" }}
+          gap={3}
+          px={{ base: 1, md: 2 }}
+          py={1}
+          mb={2.5}
+        >
+          <Heading
+            as="h1"
+            color={textColor}
+            fontSize={{ base: "2xl", md: "3xl" }}
+            fontWeight="900"
+            lineHeight="shorter"
+          >
+            {t("dashboard.widgets.applications_title", "Applications")}
+          </Heading>
           <Button
             size="sm"
+            h="auto"
+            px={5}
+            py={2.5}
             borderRadius="full"
             variant="outline"
             borderColor={borderColor}
+            leftIcon={<Icon as={MdTune} boxSize="16px" />}
+            alignSelf={{ base: "flex-end", sm: "center" }}
+            ml="auto"
             onClick={dashboardPrefsModal.onOpen}
           >
-            {t("dashboard.widgets.customize_button", "Personnaliser le dashboard")}
+            {t("dashboard.widgets.customize_button", "Personnaliser les applications")}
           </Button>
         </Flex>
 
@@ -8404,33 +8481,58 @@ color={mutedText} noOfLines={1}>
           title={t("dashboard.copilot.title", "Copilote Coach")}
           subtitle={t("dashboard.copilot.subtitle", "Décisions à valider, résumé de la semaine et mémoire de coaching.")}
           icon={MdOutlineBolt}
+          stackHeaderOnMobile
           mb={2.5}
-          action={
-            <HStack spacing={2} flexWrap="wrap">
-              {renderDashboardWidgetAction("copilot")}
+          action={renderDashboardWidgetAction(
+            "copilot",
+            <HStack spacing={2}>
+              <Tooltip label={t("dashboard.copilot.memory_title", "Mémoire coach")} hasArrow>
+                <IconButton
+                  aria-label={t("dashboard.copilot.memory_title", "Mémoire coach")}
+                  icon={<Icon as={MdOutlineLibraryBooks} boxSize="17px" />}
+                  size="sm"
+                  minW="36px"
+                  h="36px"
+                  borderRadius="full"
+                  variant="outline"
+                  borderColor={borderColor}
+                  onClick={() => {
+                    setCopilotMemoryRulesDraft(copilotMemoryRules);
+                    copilotMemoryModal.onOpen();
+                  }}
+                />
+              </Tooltip>
+              <Tooltip label={t("dashboard.copilot.history_title", "Dernières décisions")} hasArrow>
+                <IconButton
+                  aria-label={t("dashboard.copilot.history_title", "Dernières décisions")}
+                  icon={<Icon as={MdOutlineNoteAlt} boxSize="17px" />}
+                  size="sm"
+                  minW="36px"
+                  h="36px"
+                  borderRadius="full"
+                  variant="outline"
+                  borderColor={borderColor}
+                  onClick={copilotHistoryModal.onOpen}
+                />
+              </Tooltip>
+              <Badge
+                borderRadius="full"
+                px={3}
+                py={1.5}
+                colorScheme={copilotQueueItems.length ? "blue" : "green"}
+              >
+                {t("dashboard.copilot.pending_count", "{{count}} à traiter", { count: copilotQueueItems.length })}
+              </Badge>
             </HStack>
-          }
+          )}
         >
           {isDashboardWidgetCollapsed("copilot") ? null : !copilotReady || loadingData ? (
             <Flex py={8} justify="center">
               <Spinner color={textColor} size="lg" />
             </Flex>
           ) : (
-            <VStack align="stretch" spacing={3}>
-              <HStack justify="space-between" align={{ base: "stretch", md: "center" }} direction={{ base: "column", md: "row" }}>
-                <Box>
-                  <Text fontSize="xs" color={subtleText} fontWeight="900" textTransform="uppercase" letterSpacing="0">
-                    {t("dashboard.copilot.decision_queue", "File de décisions")}
-                  </Text>
-                  <Text fontSize="sm" color={mutedText}>
-                    {t("dashboard.copilot.decision_queue_hint", "Le Copilote propose, le coach garde la validation finale.")}
-                  </Text>
-                </Box>
-                <Badge alignSelf={{ base: "flex-start", md: "center" }} borderRadius="full" px={3} py={1.5} colorScheme={copilotQueueItems.length ? "blue" : "green"}>
-                  {t("dashboard.copilot.pending_count", "{{count}} à traiter", { count: copilotQueueItems.length })}
-                </Badge>
-              </HStack>
-
+            <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={2.5} alignItems="start">
+              <Box minW={0}>
               {copilotQueueItems.length === 0 ? (
                 <Box p={4} borderRadius="18px" bg={surfaceSoft} border="1px solid" borderColor={borderColor}>
                   <Text fontWeight="850">{t("dashboard.copilot.empty_title", "Aucune décision urgente.")}</Text>
@@ -8439,7 +8541,7 @@ color={mutedText} noOfLines={1}>
                   </Text>
                 </Box>
               ) : (
-                <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={2.5}>
+                <SimpleGrid columns={1} spacing={2.5}>
                   {copilotQueueItems.map((item) => {
                     const accent =
                       item.severity === "high"
@@ -8458,17 +8560,13 @@ color={mutedText} noOfLines={1}>
                     return (
                       <Box
                         key={item.id}
-                        p={3.5}
-                        borderRadius="20px"
-                        bg={surfaceSoft}
+                        p={{ base: 3, md: 3.5 }}
+                        borderRadius={{ base: "20px", md: "22px" }}
+                        bg={surfaceBgStrong}
                         border="1px solid"
                         borderColor={borderColor}
                         position="relative"
-                        transition="all 0.2s ease"
-                        _hover={{
-                          borderColor: `${accent}55`,
-                          boxShadow: modeValue("0 16px 32px rgba(15,23,42,0.08)", "0 18px 36px rgba(0,0,0,0.22)"),
-                        }}
+                        boxShadow={modeValue("0 8px 24px rgba(15,23,42,0.045)", "0 10px 28px rgba(0,0,0,0.22)")}
                       >
                         <Tooltip label={t("dashboard.copilot.actions.hide_event", "Masquer cet événement")} hasArrow>
                           <IconButton
@@ -8487,31 +8585,25 @@ color={mutedText} noOfLines={1}>
                             }}
                           />
                         </Tooltip>
-                        <HStack align="flex-start" spacing={3}>
-                          <Circle size="38px" bg={softBg} color={accent} flexShrink={0}>
-                            <Icon as={item.copilotKind === "adjust" ? MdOutlineInsights : MdAutoAwesome} boxSize="18px" />
-                          </Circle>
-                          <Box minW={0} flex="1">
-                            <HStack justify="space-between" spacing={2} align="flex-start">
-                              <Box minW={0}>
-                                <HStack mb={2} spacing={1.5} flexWrap="wrap">
-                                  <Badge px={2.5} py={1} borderRadius="full" bg={softBg} color={accent} border="1px solid" borderColor={`${accent}33`}>
-                                    {item.eyebrow}
-                                  </Badge>
-                                  <Badge px={2.5} py={1} borderRadius="full" colorScheme={priorityMeta.tone} variant="subtle">
-                                    {priorityMeta.label}
-                                  </Badge>
-                                </HStack>
-                                <Text fontWeight="900" noOfLines={1}>{item.title}</Text>
-                              </Box>
-                              <Box textAlign="right" flexShrink={0} pr={6}>
+                        <Box minW={0}>
+                            <Flex justify="space-between" gap={3} align="flex-start" pr={6}>
+                              <HStack spacing={1.5} flexWrap="wrap" align="center">
+                                <Badge px={2.5} py={1} borderRadius="full" bg={softBg} color={accent} border="1px solid" borderColor={`${accent}33`}>
+                                  {item.eyebrow}
+                                </Badge>
+                                <Badge px={2.5} py={1} borderRadius="full" colorScheme={priorityMeta.tone} variant="subtle">
+                                  {priorityMeta.label}
+                                </Badge>
+                              </HStack>
+                              <Box textAlign="right" flexShrink={0}>
                                 <Text color={accent} fontWeight="900" fontSize="lg" lineHeight="1">{item.score}</Text>
                                 <Text fontSize="10px" color={mutedText} fontWeight="800" textTransform="uppercase" letterSpacing="0">
                                   {t("dashboard.radar.score_label", "Score /100")}
                                 </Text>
                               </Box>
-                            </HStack>
-                            <Text mt={1.5} fontSize="sm" color={textColor} noOfLines={1}>
+                            </Flex>
+                            <Text mt={2.5} fontWeight="900" noOfLines={1}>{item.title}</Text>
+                            <Text mt={1.5} fontSize="sm" color={textColor} noOfLines={2}>
                               {item.reason}
                             </Text>
                             {item.programWeekLabel ? (
@@ -8534,7 +8626,7 @@ color={mutedText} noOfLines={1}>
                                 </Badge>
                               </HStack>
                             ) : null}
-                            <Text mt={1} fontSize="sm" color={mutedText} noOfLines={2}>
+                            <Text mt={1} fontSize="sm" color={mutedText} noOfLines={3}>
                               {item.adjustmentPlan?.summary || item.detail}
                             </Text>
                             <Box
@@ -8549,7 +8641,7 @@ color={mutedText} noOfLines={1}>
                               <Text fontSize="10px" color={subtleText} fontWeight="900" textTransform="uppercase" letterSpacing="0">
                                 {t("dashboard.copilot.decision_label", "Décision proposée")}
                               </Text>
-                              <Text mt={0.5} fontSize="xs" color={textColor} noOfLines={2}>
+                              <Text mt={0.5} fontSize="xs" color={textColor} noOfLines={3}>
                                 {decisionNote}
                               </Text>
                             </Box>
@@ -8568,124 +8660,97 @@ color={mutedText} noOfLines={1}>
                                 {t("dashboard.radar.view_adjustments", "Voir les {{count}} ajustements proposés", { count: item.adjustmentPlan.changedCount })}
                               </Button>
                             )}
-                            <HStack mt={3} spacing={2} flexWrap="wrap">
+                            <SimpleGrid mt={3} columns={{ base: 1, sm: 3 }} spacing={2}>
+                              <Box>
+                                <Menu placement="bottom-start">
+                                  <MenuButton
+                                    as={Button}
+                                    size="sm"
+                                    w="full"
+                                    borderRadius="full"
+                                    variant="outline"
+                                    borderColor={borderStrong}
+                                    color={textColor}
+                                    _hover={{ bg: modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)") }}
+                                    rightIcon={<ChevronDownIcon />}
+                                  >
+                                    {t("dashboard.copilot.actions.manage", "Gérer")}
+                                  </MenuButton>
+                                  <Portal>
+                                    <MenuList zIndex="popover" bg={surfaceBgStrong} borderColor={borderColor} boxShadow={glassShadow}>
+                                      <MenuItem bg="transparent" onClick={() => suppressCopilotItem(item, "resolved")}>
+                                        {t("dashboard.copilot.actions.mark_resolved", "Marquer traité")}
+                                      </MenuItem>
+                                      <MenuItem bg="transparent" onClick={() => suppressCopilotItem(item, "snoozed")}>
+                                        {t("dashboard.copilot.actions.snooze_7_days", "Rappeler dans 7 jours")}
+                                      </MenuItem>
+                                      <MenuDivider />
+                                      <MenuItem bg="transparent" onClick={() => suppressCopilotItem(item, "muted_client")}>
+                                        {t("dashboard.copilot.actions.mute_client", "Ne plus afficher pour ce client")}
+                                      </MenuItem>
+                                    </MenuList>
+                                  </Portal>
+                                </Menu>
+                              </Box>
                               <Button
                                 size="sm"
-                                borderRadius="14px"
-                                bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
-                                color="white"
-                                _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
+                                w="full"
+                                borderRadius="full"
+                                {...shortcutPrimaryButtonProps}
                                 onClick={() => handleCopilotDecision(item)}
                               >
                                 {item.primaryLabel}
                               </Button>
                               <Button
                                 size="sm"
-                                borderRadius="14px"
+                                w="full"
+                                borderRadius="full"
                                 variant="outline"
-                                borderColor={`${accent}55`}
+                                borderColor={borderStrong}
+                                color={textColor}
+                                _hover={{ bg: modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)") }}
                                 onClick={() => handleRadarQuickAction(item, item.analysisPath ? "open_program" : "open_client")}
                               >
-                                {t("dashboard.copilot.actions.context", "Voir contexte")}
+                                {t("dashboard.copilot.actions.context", "Voir le contexte")}
                               </Button>
-                              <Menu placement="bottom-end">
-                                <MenuButton
-                                  as={Button}
-                                  size="sm"
-                                  borderRadius="14px"
-                                  variant="ghost"
-                                  color={mutedText}
-                                  rightIcon={<ChevronDownIcon />}
-                                >
-                                  {t("dashboard.copilot.actions.manage", "Gérer")}
-                                </MenuButton>
-                                <MenuList>
-                                  <MenuItem onClick={() => suppressCopilotItem(item, "resolved")}>
-                                    {t("dashboard.copilot.actions.mark_resolved", "Marquer traité")}
-                                  </MenuItem>
-                                  <MenuItem onClick={() => suppressCopilotItem(item, "snoozed")}>
-                                    {t("dashboard.copilot.actions.snooze_7_days", "Rappeler dans 7 jours")}
-                                  </MenuItem>
-                                  <MenuDivider />
-                                  <MenuItem onClick={() => suppressCopilotItem(item, "muted_client")}>
-                                    {t("dashboard.copilot.actions.mute_client", "Ne plus afficher pour ce client")}
-                                  </MenuItem>
-                                </MenuList>
-                              </Menu>
-                            </HStack>
-                          </Box>
-                        </HStack>
+                            </SimpleGrid>
+                        </Box>
                       </Box>
                     );
                   })}
                 </SimpleGrid>
               )}
+              </Box>
 
-              <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={2.5}>
-                <Box
-                  p={3.5}
-                  borderRadius="18px"
-                  bg={modeValue("linear-gradient(135deg, rgba(59,130,246,0.08), rgba(255,255,255,0.88))", "linear-gradient(135deg, rgba(59,130,246,0.14), rgba(15,23,42,0.72))")}
-                  border="1px solid"
-                  borderColor={modeValue("rgba(59,130,246,0.18)", "rgba(96,165,250,0.22)")}
-                  boxShadow={modeValue("inset 0 1px 0 rgba(255,255,255,0.75)", "inset 0 1px 0 rgba(255,255,255,0.06)")}
-                >
-                  <HStack justify="space-between" align="flex-start" spacing={3}>
-                    <Box minW={0}>
-                      <HStack spacing={2} align="center">
-                        <Circle size="28px" bg={modeValue("rgba(59,130,246,0.12)", "rgba(96,165,250,0.18)")} color={activeBlue}>
-                          <Icon as={MdOutlineLibraryBooks} boxSize="15px" />
-                        </Circle>
-                        <Text fontSize="xs" color={subtleText} fontWeight="900" textTransform="uppercase" letterSpacing="0">
-                          {t("dashboard.copilot.memory_title", "Mémoire coach")}
-                        </Text>
-                      </HStack>
-                      <Text mt={1} fontSize="sm" color={mutedText} noOfLines={2}>
-                        {t("dashboard.copilot.memory_rules_summary", "Ordre appliqué aux ajustements proposés.")}
-                      </Text>
-                      {copilotMemoryPreferences.labels.length > 0 ? (
-                        <VStack mt={3} align="stretch" spacing={1.5}>
-                          {copilotMemoryPreferences.labels.slice(0, 4).map((label, index) => (
-                            <HStack
-                              key={`${label}-${index}`}
-                              spacing={2}
-                              px={2.5}
-                              py={1.5}
-                              borderRadius="12px"
-                              bg={modeValue("rgba(255,255,255,0.62)", "rgba(255,255,255,0.06)")}
-                              border="1px solid"
-                              borderColor={modeValue("rgba(59,130,246,0.12)", "rgba(96,165,250,0.14)")}
-                            >
-                              <Circle size="18px" bg={activeBlue} color="white" fontSize="10px" fontWeight="900">
-                                {index + 1}
-                              </Circle>
-                              <Text fontSize="xs" fontWeight="800" noOfLines={1}>
-                                {translateCopilotRuleLabel(label, t)}
-                              </Text>
-                            </HStack>
-                          ))}
-                        </VStack>
-                      ) : null}
-                    </Box>
-                    <Button
-                      size="sm"
-                      borderRadius="14px"
-                      variant="outline"
-                      onClick={() => {
-                        setCopilotMemoryRulesDraft(copilotMemoryRules);
-                        copilotMemoryModal.onOpen();
-                      }}
-                    >
-                      {t("dashboard.copilot.actions.edit_memory", "Modifier")}
-                    </Button>
-                  </HStack>
-                </Box>
-
+              <SimpleGrid columns={1} spacing={2.5}>
                 {showWeeklyCopilotSummary ? (
-                  <Box p={3.5} borderRadius="18px" bg={surfaceSoft} border="1px solid" borderColor={borderColor}>
-                    <Text fontSize="xs" color={subtleText} fontWeight="900" textTransform="uppercase" letterSpacing="0">
-                      {t("dashboard.copilot.weekly_summary", "Résumé hebdo")}
-                    </Text>
+                  <Box
+                    p={{ base: 3, md: 3.5 }}
+                    borderRadius={{ base: "20px", md: "22px" }}
+                    bg={surfaceBgStrong}
+                    border="1px solid"
+                    borderColor={borderColor}
+                    boxShadow={modeValue("0 8px 24px rgba(15,23,42,0.045)", "0 10px 28px rgba(0,0,0,0.22)")}
+                  >
+                    <HStack spacing={2} align="center">
+                      <Flex
+                        w="38px"
+                        h="38px"
+                        borderRadius="12px"
+                        align="center"
+                        justify="center"
+                        bg={modeValue("rgba(15,23,42,0.045)", "rgba(255,255,255,0.06)")}
+                        color={activeBlue}
+                        border="1px solid"
+                        borderColor={borderColor}
+                        flexShrink={0}
+                      >
+                        <Icon as={MdOutlineTrendingUp} boxSize="17px" />
+                      </Flex>
+                      <Text fontSize="md" color={textColor} fontWeight="900" lineHeight="1.15">
+                        {t("dashboard.copilot.weekly_summary", "Résumé hebdo")}
+                      </Text>
+                    </HStack>
                     <VStack mt={2.5} align="stretch" spacing={2}>
                       {copilotWeeklySummary.slice(0, 3).map((line, index) => (
                         <HStack key={`${line}-${index}`} spacing={2} align="flex-start">
@@ -8697,41 +8762,8 @@ color={mutedText} noOfLines={1}>
                   </Box>
                 ) : null}
 
-                <Box
-                  p={3.5}
-                  borderRadius="18px"
-                  bg={modeValue("rgba(15,23,42,0.035)", "rgba(255,255,255,0.045)")}
-                  border="1px solid"
-                  borderColor={modeValue("rgba(15,23,42,0.08)", "rgba(255,255,255,0.12)")}
-                >
-                  <HStack spacing={2}>
-                    <Circle size="28px" bg={modeValue("rgba(15,23,42,0.07)", "rgba(255,255,255,0.08)")} color={mutedText}>
-                      <Icon as={MdOutlineNoteAlt} boxSize="15px" />
-                    </Circle>
-                    <Text fontSize="xs" color={subtleText} fontWeight="900" textTransform="uppercase" letterSpacing="0">
-                      {t("dashboard.copilot.history_title", "Dernières décisions")}
-                    </Text>
-                  </HStack>
-                  <VStack mt={2.5} align="stretch" spacing={2}>
-                    {copilotHistory.length === 0 ? (
-                      <Text fontSize="sm" color={mutedText}>
-                        {t("dashboard.copilot.history_empty", "Les validations du Copilote apparaîtront ici.")}
-                      </Text>
-                    ) : (
-                      copilotHistory.slice(0, 2).map((entry) => (
-                        <HStack key={entry.id} align="flex-start" spacing={2.5}>
-                          <Box w="2px" alignSelf="stretch" borderRadius="full" bg={modeValue("rgba(15,23,42,0.16)", "rgba(255,255,255,0.18)")} />
-                          <Box minW={0}>
-                            <Text fontSize="sm" fontWeight="800" noOfLines={1}>{entry.title}</Text>
-                            <Text fontSize="xs" color={mutedText} noOfLines={2}>{entry.detail}</Text>
-                          </Box>
-                        </HStack>
-                      ))
-                    )}
-                  </VStack>
-                </Box>
               </SimpleGrid>
-            </VStack>
+            </SimpleGrid>
           )}
         </CardShell>
         )}
@@ -8981,19 +9013,11 @@ alignItems="stretch" mb={2.5}>
 h="100%">
              <CardShell
                title={nutritionOnlyDashboard ? t("dashboard.recent_patients", "Patients récents") : t("dashboard.recent_clients", "Clients récents")}
+               titleRoute="/clients"
                h="100%"
                subtitle={nutritionOnlyDashboard ? t("dashboard.cards.recent_patients_subtitle", "Les derniers patients créés ou suivis dans votre espace nutrition.") : t("dashboard.cards.recent_clients_subtitle", "Modifications récentes faites côté coach uniquement.")}
                icon={nutritionOnlyDashboard ? MdOutlineRestaurantMenu : MdOutlinePeopleAlt}
                action={renderDashboardWidgetAction("recentClients")}
-               cursor="pointer"
-               onPointerEnter={() => warmDashboardDestination("/clients")}
-               onPointerDown={() => warmDashboardDestination("/clients")}
-               onClick={() => navigate(withAdminCoach("/clients"))}
-               _hover={{
-                  borderColor:
-modeValue("rgba(59,130,246,0.18)",
-"rgba(59,130,246,0.24)"),
-               }}
              >
                {isDashboardWidgetCollapsed("recentClients") ? null : loadingData ? (
                   <Flex py={10} justify="center">
@@ -9180,35 +9204,36 @@ activeSportMs > 0 &&
                     return (
                       <Box
                         key={c.id}
+                        position="relative"
                         p={3.5}
                         bg={surfaceSoft}
                         border="1px solid"
                         borderColor={borderColor}
                         borderRadius="22px"
-                        transition="all 0.2s ease"
-                        cursor="pointer"
-                        onClick={() => navigate(withAdminCoach(`/clients/${c.id}`))}
-                        _hover={{
-                           transform: "translateY(-2px)",
-                           borderColor:
-modeValue("rgba(15,23,42,0.12)",
-"rgba(255,255,255,0.16)"),
-                           boxShadow: modeValue(
-                              "0 16px 30px rgba(15,23,42,0.08)",
-                              "0 18px 35px rgba(0,0,0,0.22)"
-                           ),
-                        }}
+                        onClick={(event) => event.stopPropagation()}
                       >
+                        <AppNavigationArrow
+                          to={withAdminCoach(`/clients/${c.id}`)}
+                          label={`${t("nav.profile", "Profil")} — ${`${c.prenom || ""} ${c.nom || ""}`.trim()}`}
+                          position="absolute"
+                          top={3.5}
+                          right={3.5}
+                          zIndex={1}
+                          onClick={(e) => e.stopPropagation()}
+                        />
                         <Flex
-                           direction={{ base: "column", md:
-"row" }}
+                           direction="column"
                            justify="space-between"
-                           align={{ base: "stretch", md: "flex-start" }}
+                           align="stretch"
                            gap={2.5}
                         >
-                           <Box flex="1" minW={0}>
-                              <HStack spacing={2.5} align="center"
-mb={2.5}>
+                           <Box flex="1" minW={0} position="relative">
+                              <Flex
+                                gap={{ base: 2.5, md: 4 }}
+                                align={{ base: "flex-start", md: "center" }}
+                                mb={2.5}
+                                w="100%"
+                              >
                                 <Flex
                                   w="48px"
                                   h="48px"
@@ -9225,22 +9250,16 @@ mb={2.5}>
                                 {`${c?.prenom?.[0] || ""}${c?.nom?.[0] || ""}`.toUpperCase() || "C"}
                               </Flex>
 
-                              <Box minW={0}>
-                                 <ChakraLink
-                                   as={Link}
-                                   to={withAdminCoach(`/clients/${c.id}`)}
+                              <Box minW={0} flex={{ base: 1, md: "0 1 220px" }}>
+                                 <Text
                                    color={textColor}
                                    fontWeight="800"
                                    fontSize="md"
                                    noOfLines={1}
-                                   onClick={(e) => {
-                                     e.preventDefault();
-                                     e.stopPropagation();
-                                     navigate(withAdminCoach(`/clients/${c.id}`));
-                                   }}
+                                   pr={7}
                                  >
                                    {c.prenom} {c.nom}
-                                 </ChakraLink>
+                                 </Text>
                                  {isNutritionOnlyPatient ? (
                                    <>
                                      <Text fontSize="xs" color={mutedText} noOfLines={1}>
@@ -9271,26 +9290,136 @@ mb={2.5}>
                                      <Text fontSize="xs" color={mutedText} noOfLines={1}>
                                        {programmeForLastSession}
                                      </Text>
-                                     {programWeekLabel ? (
-                                       <Badge mt={0.5} px={1.5} py={0} borderRadius="full" colorScheme="blue" variant="subtle" fontSize="9px" lineHeight="1.4">
-                                         {programWeekLabel}
-                                       </Badge>
-                                     ) : null}
-                                     <Text fontSize="xs" color={subtleText} noOfLines={1}>
-                                       {lastCompletedSessionLabel}
-                                     </Text>
-                                     <Text fontSize="xs" color={mutedText} noOfLines={1}>
-                                       {isProgramExpired
-                                         ? t("dashboard.program_completed_hint", "Toutes les séances prévues sont validées.")
-                                         : `${t("dashboard.next_label", "Suivante")} : ${nextSessionTitle}`}
-                                     </Text>
+                                     <Box display={{ base: "block", md: "none" }}>
+                                       {programWeekLabel ? (
+                                         <Badge
+                                           mt={0.5}
+                                           px={1.5}
+                                           py={0.5}
+                                           display="inline-flex"
+                                           alignItems="center"
+                                           gap={1}
+                                           borderRadius="full"
+                                           bg={modeValue("rgba(37,99,235,0.10)", "rgba(59,130,246,0.18)")}
+                                           color={modeValue("#2563EB", "#93C5FD")}
+                                           border="1px solid"
+                                           borderColor={modeValue("rgba(37,99,235,0.22)", "rgba(96,165,250,0.32)")}
+                                           fontSize="9px"
+                                           lineHeight="1.4"
+                                         >
+                                           <CalendarIcon boxSize={3} />
+                                           {programWeekLabel}
+                                         </Badge>
+                                       ) : null}
+                                       <Text fontSize="xs" color={subtleText} noOfLines={1}>
+                                         {lastCompletedSessionLabel}
+                                       </Text>
+                                       <Text fontSize="xs" color={mutedText} noOfLines={1}>
+                                         {isProgramExpired
+                                           ? t("dashboard.program_completed_hint", "Toutes les séances prévues sont validées.")
+                                           : `${t("dashboard.next_label", "Suivante")} : ${nextSessionTitle}`}
+                                       </Text>
+                                     </Box>
                                    </>
                                  )}
                               </Box>
-                            </HStack>
 
-                            <HStack spacing={2} mb={2.5}
-flexWrap="wrap">
+                              <HStack
+                                display={{ base: "none", md: "flex" }}
+                                spacing={{ md: 1, lg: 2 }}
+                                flex="1"
+                                minW={0}
+                                justify="flex-end"
+                                alignSelf="flex-start"
+                                mt={0.5}
+                                pr={12}
+                              >
+                                <Badge
+                                  px={1.5}
+                                  py={0.5}
+                                  borderRadius="full"
+                                  bg={isActiveClient ? "rgba(16,185,129,0.16)" : "rgba(245,158,11,0.14)"}
+                                  color={isActiveClient ? "#10B981" : warningOrange}
+                                  border="1px solid"
+                                  borderColor={isActiveClient ? "rgba(16,185,129,0.24)" : "rgba(245,158,11,0.24)"}
+                                  flexShrink={0}
+                                  fontSize="10px"
+                                >
+                                  {isActiveClient ? t("dashboard.cards.active_status", "Actif") : t("dashboard.cards.inactive_status", "Inactif")}
+                                </Badge>
+                                <Badge
+                                  px={1.5}
+                                  py={0.5}
+                                  borderRadius="full"
+                                  bg={followKind.bg}
+                                  color={followKind.color}
+                                  border="1px solid"
+                                  borderColor={followKind.borderColor}
+                                  flexShrink={0}
+                                  fontSize="10px"
+                                >
+                                  {followKind.label}
+                                </Badge>
+                                <Badge
+                                  px={1.5}
+                                  py={0.5}
+                                  borderRadius="full"
+                                  bg={modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")}
+                                  color={mutedText}
+                                  border="1px solid"
+                                  borderColor={borderColor}
+                                  flexShrink={0}
+                                  fontSize="10px"
+                                >
+                                  {coachActivityDate ? coachActivityDate.toLocaleDateString() : "—"}
+                                </Badge>
+                                {!isNutritionOnlyPatient && programWeekLabel ? (
+                                  <Badge
+                                    px={2}
+                                    py={0.5}
+                                    display="inline-flex"
+                                    alignItems="center"
+                                    gap={1}
+                                    flexShrink={0}
+                                    borderRadius="full"
+                                    bg={modeValue("rgba(37,99,235,0.10)", "rgba(59,130,246,0.18)")}
+                                    color={modeValue("#2563EB", "#93C5FD")}
+                                    border="1px solid"
+                                    borderColor={modeValue("rgba(37,99,235,0.22)", "rgba(96,165,250,0.32)")}
+                                    fontSize="9px"
+                                  >
+                                    <CalendarIcon boxSize={3} />
+                                    {programWeekLabel}
+                                  </Badge>
+                                ) : null}
+                                {!isNutritionOnlyPatient && (
+                                  <HStack spacing={{ md: 1, lg: 2 }} minW={0}>
+                                    <HStack spacing={1.5} minW={0}>
+                                      <CheckCircleIcon boxSize={3.5} color={subtleText} flexShrink={0} />
+                                      <Text fontSize="xs" color={subtleText} noOfLines={1}>
+                                        {lastCompletedSessionLabel}
+                                      </Text>
+                                    </HStack>
+                                    <HStack spacing={1.5} minW={0}>
+                                      <ChevronRightIcon boxSize={5} color={mutedText} flexShrink={0} />
+                                      <Text fontSize="xs" color={mutedText} noOfLines={1}>
+                                        {isProgramExpired
+                                          ? t("dashboard.program_completed_hint", "Toutes les séances prévues sont validées.")
+                                          : `${t("dashboard.next_label", "Suivante")} : ${nextSessionTitle}`}
+                                      </Text>
+                                    </HStack>
+                                  </HStack>
+                                )}
+                              </HStack>
+
+                            </Flex>
+
+                            <HStack
+                              display={{ base: "flex", md: "none" }}
+                              spacing={2}
+                              mb={2.5}
+                              flexWrap="wrap"
+                            >
                               <Badge
                                 px={2.5}
                                 py={1}
@@ -9333,9 +9462,10 @@ bg={modeValue("rgba(15,23,42,0.04)",
                                 {coachActivityDate ?
 coachActivityDate.toLocaleDateString() : "—"}
                               </Badge>
+
                             </HStack>
 
-                             <Box>
+                             <Box pb="12px">
                                <HStack justify="space-between"
 mb={1}>
                                   <Text fontSize="sm"
@@ -9352,28 +9482,59 @@ fontWeight="800" color={textColor}>
 
                                <Progress
                                  value={isNutritionOnlyPatient ? nutritionProgress : percentDone}
-                                 size="sm"
+                                 size="xs"
                                  borderRadius="full"
 
 bg={modeValue("rgba(15,23,42,0.06)",
 "rgba(255,255,255,0.08)")}
                                   sx={{
                                      "& > div": {
-                                        background: modeValue("#111827", "rgba(255,255,255,0.22)"),
+                                        background: brandProgressGradient,
                                         borderRadius: "999px",
                                      },
                                   }}
                                />
                              </Box>
-                           </Box>
+                          </Box>
 
-                          <Box w={{ base: "100%", md: "165px" }}>
-                            <SimpleGrid columns={{ base: 2, md: 1 }} spacing={2}>
+                          <Box w="100%">
+                            <SimpleGrid
+                              columns={{
+                                base: 2,
+                                md: isNutritionOnlyPatient
+                                  ? 3
+                                  : isProgramExpired
+                                    ? primaryProgramForCard?.id ? 4 : 3
+                                    : primaryProgramForCard?.id ? 5 : 4,
+                              }}
+                              spacing={2}
+                            >
+                              <Button
+                                size="sm"
+                                w="100%"
+                                aria-label={t("common.delete", "Supprimer")}
+                                title={t("common.delete", "Supprimer")}
+                                variant="outline"
+                                borderRadius="16px"
+                                borderColor="rgba(239,68,68,0.38)"
+                                bg="transparent"
+                                color={dangerRed}
+                                _hover={{ bg: "rgba(239,68,68,0.10)", borderColor: dangerRed }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setClientToDelete(c.id);
+                                  confirmClientModal.onOpen();
+                                }}
+                              >
+                                {t("common.delete", "Supprimer")}
+                              </Button>
                               {isNutritionOnlyPatient ? (
                                 <>
                                   <Button
                                     size="sm"
                                     w="100%"
+                                    aria-label={t("nutritionCoach.openAssessment", "Ouvrir le bilan")}
+                                    title={t("nutritionCoach.openAssessment", "Ouvrir le bilan")}
                                     bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
                                     color="white"
                                     _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
@@ -9389,6 +9550,8 @@ bg={modeValue("rgba(15,23,42,0.06)",
                                   <Button
                                     size="sm"
                                     w="100%"
+                                    aria-label={t("dashboard.plan_nutrition_appointment", "Planifier un suivi")}
+                                    title={t("dashboard.plan_nutrition_appointment", "Planifier un suivi")}
                                     variant="outline"
                                     borderColor={borderStrong}
                                     color={textColor}
@@ -9404,27 +9567,12 @@ bg={modeValue("rgba(15,23,42,0.06)",
                                 </>
                               ) : (
                                 <>
-                                  <Button
-                                    size="sm"
-                                    w="100%"
-                                    bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
-                                    color="white"
-                                    _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
-                                    _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
-                                    borderRadius="16px"
-                                    isDisabled={isProgramExpired}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (isProgramExpired) return;
-                                      startNextSessionForClient(clientForCardActions, "next");
-                                    }}
-                                  >
-                                    {isProgramExpired ? t("dashboard.program_completed_cta", "Séances terminées") : t("dashboard.banner.start_now", "Démarrer la séance")}
-                                  </Button>
                                   {!isProgramExpired && (
                                     <Button
                                       size="sm"
                                       w="100%"
+                                      aria-label={t("dashboard.resume_session", "Reprendre")}
+                                      title={t("dashboard.resume_session", "Reprendre")}
                                       variant="outline"
                                       borderColor={borderStrong}
                                       color={textColor}
@@ -9441,6 +9589,8 @@ bg={modeValue("rgba(15,23,42,0.06)",
                                   <Button
                                     size="sm"
                                     w="100%"
+                                    aria-label={t("dashboard.assign", "Assigner")}
+                                    title={t("dashboard.assign", "Assigner")}
                                     variant="outline"
                                     borderColor={borderStrong}
                                     color={textColor}
@@ -9456,38 +9606,60 @@ bg={modeValue("rgba(15,23,42,0.06)",
                                   </Button>
                                 </>
                               )}
-                              <Button
-                                size="sm"
-                                w="100%"
-                                variant="outline"
-                                borderColor={borderStrong}
-                                color={textColor}
-                                _hover={{ bg: modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)") }}
-                                borderRadius="16px"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(withAdminCoach(`/clients/${c.id}`));
-                                }}
-                              >
-                                {t("common.view", "Voir")}
-                              </Button>
+                              {!isNutritionOnlyPatient && primaryProgramForCard?.id ? (
+                                <Button
+                                  size="sm"
+                                  w="100%"
+                                  aria-label={t("client_dash.view_program", "Voir le programme")}
+                                  title={t("client_dash.view_program", "Voir le programme")}
+                                  variant="outline"
+                                  borderColor={borderStrong}
+                                  color={textColor}
+                                  _hover={{ bg: modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)") }}
+                                  borderRadius="16px"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openAssignedProgramForClient({
+                                      clientId: c.id,
+                                      assignedProgramId: primaryProgramForCard.id,
+                                      isAuto: Boolean(isAutoProgramme(primaryProgramForCard)),
+                                      fallbackName: primaryProgramNameForCard,
+                                    });
+                                  }}
+                                >
+                                  {t("client_dash.view_program", "Voir le programme")}
+                                </Button>
+                              ) : null}
+                              {!isNutritionOnlyPatient && (
+                                <Button
+                                  size="sm"
+                                  w="100%"
+                                  gridColumn={{ base: "1 / -1", md: "auto" }}
+                                  aria-label={isProgramExpired ? t("dashboard.program_completed_cta", "Séances terminées") : t("dashboard.banner.start_now", "Démarrer la séance")}
+                                  title={isProgramExpired ? t("dashboard.program_completed_cta", "Séances terminées") : t("dashboard.banner.start_now", "Démarrer la séance")}
+                                  bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
+                                  color="white"
+                                  _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
+                                  _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
+                                  borderRadius="16px"
+                                  isDisabled={isProgramExpired}
+                                  leftIcon={
+                                    !isProgramExpired ? (
+                                      <Icon as={MdPlayArrow} boxSize="18px" color="white" />
+                                    ) : undefined
+                                  }
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (isProgramExpired) return;
+                                    startNextSessionForClient(clientForCardActions, "next");
+                                  }}
+                                >
+                                  {isProgramExpired
+                                    ? t("dashboard.program_completed_cta", "Séances terminées")
+                                    : t("dashboard.banner.start_now", "Démarrer la séance")}
+                                </Button>
+                              )}
                             </SimpleGrid>
-                            <IconButton
-                               aria-label={t("dashboard.delete_client", "Supprimer")}
-                               icon={<DeleteIcon />}
-                               size="sm"
-                               w="100%"
-                               mt={2}
-                               borderRadius="16px"
-                               bg="rgba(239,68,68,0.14)"
-                               color={dangerRed}
-                               _hover={{ bg: "rgba(239,68,68,0.22)" }}
-                               onClick={(e) => {
-                                  e.stopPropagation();
-                                  setClientToDelete(c.id);
-                                  confirmClientModal.onOpen();
-                               }}
-                            />
                           </Box>
                          </Flex>
                        </Box>
@@ -9509,31 +9681,25 @@ h="100%">
                 flexDirection="column"
                 title={t("dashboard.cards.latest_programs_title",
 "Derniers programmes")}
+                titleRoute="/programmes"
                 h="100%"
 
 subtitle={t("dashboard.cards.latest_programs_subtitle", "Accès rapide aux plus récents")}
                  icon={MdOutlineFitnessCenter}
                  action={renderDashboardWidgetAction("latestPrograms")}
-                 minH="calc(100vh - 250px)"
-                 cursor="pointer"
-                 onClick={() => navigate(withAdminCoach("/programmes"))}
-                 _hover={{
-                    borderColor:
-modeValue("rgba(59,130,246,0.18)",
-"rgba(59,130,246,0.24)"),
-                 }}
               >
                  {isDashboardWidgetCollapsed("latestPrograms") ? null : (
-                 <VStack spacing={2.5} align="stretch" flex="1"
-overflow="auto">
+                 <Box flex="1">
                     {latestPrograms.length === 0 ? (
                       <Text color={mutedText}
 >{t("dashboard.no_program_available", "Aucun programme disponible.")}</Text>
                     ) : (
+                      <SimpleGrid columns={{ base: 1, lg: 2, "2xl": 3 }} spacing={2.5}>
+                      {
                       latestPrograms.slice(0, isMobileDashboard ? 3 : latestPrograms.length).map((p) => {
-                        const createdOn = p.createdAt?.toDate
-                          ?
-p.createdAt.toDate().toLocaleDateString()
+                        const createdAtMs = getProgramCreatedAtMs(p);
+                        const createdOn = createdAtMs
+                          ? new Date(createdAtMs).toLocaleDateString()
                           : "—";
                         const assignedCount = assignedCounts[p.id]
 || 0;
@@ -9543,23 +9709,33 @@ p.createdAt.toDate().toLocaleDateString()
                           <Box
                             key={p.id}
                             p={2.5}
-                            flex={latestPrograms.length <= 3 ? 1 : "0 0 auto"}
                             borderRadius="16px"
                             bg={surfaceSoft}
                             border="1px solid"
                             borderColor={borderColor}
-                            cursor="pointer"
-                            onClick={() => openBaseProgram(p)}
+                            position="relative"
+                            display="flex"
+                            flexDirection="column"
+                            onClick={(e) => e.stopPropagation()}
 
                            _hover={{
                               borderColor:
 modeValue("rgba(59,130,246,0.18)",
 "rgba(59,130,246,0.24)"),
-                              transform: "translateY(-1px)",
                            }}
                          >
-                           <VStack align="stretch" spacing={2} h="100%">
-                              <Box minW={0}>
+                            <AppNavigationArrow
+                              label={t("common.view", "Voir")}
+                              position="absolute"
+                              top={2}
+                              right={2}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openBaseProgram(p);
+                              }}
+                            />
+
+                              <Box minW={0} pr={8}>
                                 <Text fontWeight="800" noOfLines={1}
 >
                                   {prettyProgramNameBase(p)}
@@ -9576,85 +9752,140 @@ p.objectif)
                                     {getProgramActiveWeeksLabel(t)} : {activeWeeksLabel}
                                   </Text>
                                 )}
-                                <HStack mt={1} spacing={2}
-justify="space-between">
-                                  <Text fontSize="11px"
-color={subtleText}>
-                                    {t("dashboard.created_on", "Created on {{date}}", { date: createdOn })}
-                                  </Text>
-                                  <Button
-                                    size="xs"
-                                    variant="ghost"
-                                    color={activeBlue}
-                                    px={2}
-                                    h="24px"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
+                                <Text mt={1} fontSize="11px"
+color={subtleText} noOfLines={1}>
+                                  {t("dashboard.created_on", "Created on {{date}}", { date: createdOn })}
+                                </Text>
+                              </Box>
 
-setSelectedAssignedBaseProgramId(p.id);
-                                      setSelectedAssignedClientId("");
-                                      assignedToModal.onOpen();
-                                   }}
+                              <Flex
+                                mt="auto"
+                                pt={2}
+                                w="full"
+                                direction="row"
+                                align="center"
+                                justify="space-between"
+                                gap={2}
+                              >
+                                <Button
+                                  aria-label={t("dashboard.assigned_to_list", "Clients assignés")}
+                                  rightIcon={<ChevronDownIcon />}
+                                  size={isMobileDashboard ? "sm" : "xs"}
+                                  h={isMobileDashboard ? "40px" : undefined}
+                                  minW={0}
+                                  px={isMobileDashboard ? 3 : 2.5}
+                                  borderRadius="full"
+                                  bg={modeValue("rgba(37,99,235,0.10)", "rgba(59,130,246,0.18)")}
+                                  color={activeBlue}
+                                  border="1px solid"
+                                  borderColor={modeValue("rgba(37,99,235,0.20)", "rgba(96,165,250,0.30)")}
+                                  _hover={{ bg: modeValue("rgba(37,99,235,0.16)", "rgba(59,130,246,0.26)") }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedAssignedBaseProgramId(p.id);
+                                    setSelectedAssignedClientId("");
+                                    assignedToModal.onOpen();
+                                  }}
                                 >
-                                   {assignedCount}{t("pdf.fileClient", "client")}{assignedCount > 1 ? "s" : ""}
+                                  {t("dashboard.assigned_clients_count", {
+                                    count: assignedCount,
+                                    defaultValue: `${assignedCount} client assigné`,
+                                  })}
                                 </Button>
-                              </HStack>
-                            </Box>
-
-                            <Box flex="1" />
-                            <HStack spacing={1.5} justify="space-between">
-                              <IconButton
-                                aria-label={t("common.duplicate",
-"Dupliquer")}
-                                 icon={<CopyIcon />}
-                                 size="xs"
-
-                                     borderRadius="10px"
-                                     variant="outline"
-                                     borderColor={borderStrong}
-                                     color={textColor}
-                                     _hover={{
-                                        bg:
-modeValue("rgba(15,23,42,0.04)",
-"rgba(255,255,255,0.05)"),
-                                     }}
-                                     onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDuplicateProgram(p);
-                                     }}
-                                  />
-                                  <Button
-                                     size="xs"
-                                     flex="1"
-                                     borderRadius="12px"
-                                     onClick={(e) => {
-                                        e.stopPropagation();
-                                        openBaseProgram(p);
-                                     }}
-                                  >
-                                     {t("common.view", "Voir")}
-                                  </Button>
-                                  <IconButton
-                                    aria-label={t("dashboard.delete_program", "Supprimer le programme")}
-                                    icon={<DeleteIcon />}
-                                    size="xs"
-                                    borderRadius="10px"
-                                    bg="rgba(239,68,68,0.14)"
-                                    color={dangerRed}
-                                    _hover={{ bg: "rgba(239,68,68,0.22)" }}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setProgramToDelete(p.id);
-                                      confirmProgramModal.onOpen();
-                                    }}
-                                  />
-                               </HStack>
-                             </VStack>
+                                <HStack
+                                  spacing={1.5}
+                                  w="auto"
+                                  ml="auto"
+                                >
+                                  {isMobileDashboard ? (
+                                    <>
+                                      <Tooltip label={t("common.duplicate", "Dupliquer")} hasArrow>
+                                        <IconButton
+                                          aria-label={t("common.duplicate", "Dupliquer")}
+                                          icon={<CopyIcon boxSize="16px" />}
+                                          size="sm"
+                                          boxSize="40px"
+                                          borderRadius="full"
+                                          variant="outline"
+                                          borderColor={borderStrong}
+                                          color={textColor}
+                                          _hover={{
+                                            bg: modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)"),
+                                          }}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDuplicateProgram(p);
+                                          }}
+                                        />
+                                      </Tooltip>
+                                      <Tooltip label={t("dashboard.delete_program", "Supprimer le programme")} hasArrow>
+                                        <IconButton
+                                          aria-label={t("dashboard.delete_program", "Supprimer le programme")}
+                                          icon={<DeleteIcon boxSize="16px" />}
+                                          size="sm"
+                                          boxSize="40px"
+                                          borderRadius="full"
+                                          bg="rgba(239,68,68,0.14)"
+                                          color={dangerRed}
+                                          _hover={{ bg: "rgba(239,68,68,0.22)" }}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setProgramToDelete(p.id);
+                                            confirmProgramModal.onOpen();
+                                          }}
+                                        />
+                                      </Tooltip>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Button
+                                        aria-label={t("dashboard.delete_program", "Supprimer le programme")}
+                                        leftIcon={<DeleteIcon />}
+                                        size="xs"
+                                        minW={0}
+                                        px={2}
+                                        borderRadius="full"
+                                        bg="rgba(239,68,68,0.14)"
+                                        color={dangerRed}
+                                        _hover={{ bg: "rgba(239,68,68,0.22)" }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setProgramToDelete(p.id);
+                                          confirmProgramModal.onOpen();
+                                        }}
+                                      >
+                                        {t("common.delete", "Supprimer")}
+                                      </Button>
+                                      <Button
+                                        size="xs"
+                                        minW={0}
+                                        px={2}
+                                        leftIcon={<CopyIcon />}
+                                        borderRadius="full"
+                                        variant="outline"
+                                        borderColor={borderStrong}
+                                        color={textColor}
+                                        _hover={{
+                                          bg: modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)"),
+                                        }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDuplicateProgram(p);
+                                        }}
+                                      >
+                                        {t("common.duplicate", "Dupliquer")}
+                                      </Button>
+                                    </>
+                                  )}
+                                </HStack>
+                              </Flex>
                            </Box>
                         );
                      })
+                      }
+                      </SimpleGrid>
                   )}
-                </VStack>
+                </Box>
                  )}
               </CardShell>
 
@@ -9700,21 +9931,6 @@ alignItems="stretch">
                   <Box display={{ base: "none", md: "block" }}>
                     {renderDashboardWidgetAction("calendar",
                       <HStack spacing={2}>
-                        <Button
-                          size="sm"
-                          leftIcon={<AddIcon />}
-                          borderRadius="14px"
-                          bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
-                          color="white"
-                          _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
-                          _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            addSessionModal.onOpen();
-                          }}
-                        >
-                          {t("exerciseCard.add", "Ajouter")}
-                        </Button>
                         {calendarConnectionChecked && calendarConnectedOnce ? (
                           <Button
                             data-tour="coach-calendar-sync"
@@ -9730,6 +9946,21 @@ alignItems="stretch">
                             {t("auto.CoachDashboard.voir_le_lien_calendrier", "Voir le lien")}
                           </Button>
                         ) : null}
+                        <Button
+                          size="sm"
+                          leftIcon={<AddIcon />}
+                          borderRadius="14px"
+                          bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
+                          color="white"
+                          _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
+                          _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addSessionModal.onOpen();
+                          }}
+                        >
+                          {t("exerciseCard.add", "Ajouter")}
+                        </Button>
                       </HStack>
                     )}
                   </Box>
@@ -10622,6 +10853,50 @@ borderRadius="22px" border="1px solid" borderColor={borderColor}>
         </ModalContent>
       </Modal>
 
+      <Modal isOpen={copilotHistoryModal.isOpen} onClose={copilotHistoryModal.onClose} isCentered size="lg">
+        <ModalOverlay />
+        <ModalContent bg={surfaceBgStrong} color={textColor} borderRadius="22px" border="1px solid" borderColor={borderColor}>
+          <ModalHeader>{t("dashboard.copilot.history_title", "Dernières décisions")}</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {copilotHistory.length === 0 ? (
+              <Box p={4} borderRadius="16px" bg={surfaceSoft} border="1px solid" borderColor={borderColor}>
+                <Text fontSize="sm" color={mutedText}>
+                  {t("dashboard.copilot.history_empty", "Les validations du Copilote apparaîtront ici.")}
+                </Text>
+              </Box>
+            ) : (
+              <VStack align="stretch" spacing={2.5} maxH="60vh" overflowY="auto" pr={1}>
+                {copilotHistory.map((entry) => {
+                  const historyDate = entry?.createdAt ? new Date(entry.createdAt) : null;
+                  const historyDateLabel = historyDate && !Number.isNaN(historyDate.getTime())
+                    ? historyDate.toLocaleString(i18n.language || "fr", { dateStyle: "medium", timeStyle: "short" })
+                    : "";
+                  return (
+                    <Box key={entry.id} p={3.5} borderRadius="16px" bg={surfaceSoft} border="1px solid" borderColor={borderColor}>
+                      <HStack justify="space-between" align="flex-start" spacing={3}>
+                        <Box minW={0}>
+                          <Text fontSize="sm" fontWeight="900" color={textColor}>{entry.title}</Text>
+                          <Text mt={1} fontSize="sm" color={mutedText}>{entry.detail}</Text>
+                        </Box>
+                        {historyDateLabel ? (
+                          <Text fontSize="10px" color={subtleText} flexShrink={0}>{historyDateLabel}</Text>
+                        ) : null}
+                      </HStack>
+                    </Box>
+                  );
+                })}
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="outline" borderRadius="14px" borderColor={borderStrong} onClick={copilotHistoryModal.onClose}>
+              {t("common.close", "Fermer")}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
       <Modal isOpen={birthdayMessageModal.isOpen}
 onClose={birthdayMessageModal.onClose} isCentered size="lg">
         <ModalOverlay />
@@ -10921,60 +11196,147 @@ onClick={confirmProgramModal.onClose}>
         isOpen={rationShortcutModal.isOpen}
         onClose={rationShortcutModal.onClose}
         isCentered
-        size="lg"
+        size="xl"
+        scrollBehavior="inside"
       >
         <ModalOverlay />
         <ModalContent
           bg={surfaceBgStrong}
           color={textColor}
-          borderRadius="24px"
-          border="1px solid"
-          borderColor={borderColor}
+          borderRadius={{ base: "20px", md: "26px" }}
+          border="none"
+          boxShadow={modeValue("0 24px 70px rgba(15,23,42,0.20)", "0 28px 80px rgba(0,0,0,0.48)")}
+          overflow="hidden"
+          maxH={{ base: "92vh", md: "86vh" }}
         >
-          <ModalHeader>
+          <ModalHeader px={{ base: 5, md: 6 }} pt={{ base: 5, md: 6 }} pb={3}>
             {t("dashboard.choose_patient_for_ration", "Choisir le patient pour la ration")}
           </ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
+          <ModalCloseButton top={{ base: 4, md: 5 }} right={{ base: 4, md: 5 }} />
+          <ModalBody px={{ base: 5, md: 6 }} pb={{ base: 5, md: 6 }}>
             {rationShortcutRows.length > 0 ? (
-              <VStack align="stretch" spacing={2}>
-                <Text fontSize="sm" color={mutedText} mb={1}>
+              <VStack align="stretch" spacing={3}>
+                <Button
+                  {...shortcutPrimaryButtonProps}
+                  h="auto"
+                  minH="64px"
+                  py={2.5}
+                  px={3.5}
+                  borderRadius="16px"
+                  justifyContent="flex-start"
+                  onClick={() => {
+                    rationShortcutModal.onClose();
+                    navigate(withAdminCoach("/nutrition-coach?new=1"));
+                  }}
+                >
+                  <HStack w="full" spacing={3}>
+                    <Flex
+                      w="38px"
+                      h="38px"
+                      borderRadius="12px"
+                      align="center"
+                      justify="center"
+                      bg="rgba(255,255,255,0.12)"
+                      color="white"
+                      border="1px solid"
+                      borderColor="rgba(255,255,255,0.18)"
+                      flexShrink={0}
+                    >
+                      <AddIcon boxSize="13px" />
+                    </Flex>
+                    <Text flex="1" textAlign="left" fontWeight="850" fontSize="md">
+                      {t("dashboard.create_new_ration", "Créer une nouvelle ration")}
+                    </Text>
+                    <Flex
+                      w="30px"
+                      h="30px"
+                      borderRadius="10px"
+                      align="center"
+                      justify="center"
+                      color="white"
+                      bg="rgba(255,255,255,0.10)"
+                      flexShrink={0}
+                    >
+                      <ChevronRightIcon boxSize="18px" />
+                    </Flex>
+                  </HStack>
+                </Button>
+                <Text fontSize="sm" color={mutedText} px={1}>
                   {t(
                     "dashboard.choose_patient_for_ration_help",
-                    "La dernière ration du patient s’ouvrira directement."
+                    "Ou reprenez une ration existante en choisissant un patient ci-dessous."
                   )}
                 </Text>
-                {rationShortcutRows.map((entry) => (
-                  <Button
-                    key={`${entry.clientId}:${entry.assessmentId}`}
-                    h="auto"
-                    minH="58px"
-                    py={3}
-                    px={4}
-                    variant="outline"
-                    borderRadius="16px"
-                    borderColor={borderColor}
-                    justifyContent="space-between"
-                    onClick={() => {
-                      rationShortcutModal.onClose();
-                      navigate(
-                        withAdminCoach(
-                          `/clients/${entry.clientId}/nutrition/${entry.assessmentId}/ration`
-                        )
-                      );
-                    }}
-                  >
-                    <Box textAlign="left" minW={0}>
-                      <Text fontWeight="800" noOfLines={1}>
-                        {entry.name}
-                      </Text>
-                      <Text fontSize="xs" color={mutedText} noOfLines={1}>
-                        {entry.objective}
-                      </Text>
-                    </Box>
-                    <ChevronRightIcon flexShrink={0} />
-                  </Button>
-                ))}
+                <VStack
+                  align="stretch"
+                  spacing={0}
+                  border="1px solid"
+                  borderColor={borderColor}
+                  borderRadius="18px"
+                  overflow="hidden"
+                  bg={modeValue("rgba(248,250,252,0.72)", "rgba(255,255,255,0.025)")}
+                >
+                  {rationShortcutRows.map((entry, index) => (
+                    <Button
+                      key={`${entry.clientId}:${entry.assessmentId}`}
+                      h="auto"
+                      minH="64px"
+                      py={2.5}
+                      px={3.5}
+                      variant="ghost"
+                      borderRadius="0"
+                      borderBottom={index < rationShortcutRows.length - 1 ? "1px solid" : "none"}
+                      borderColor={borderColor}
+                      bg="transparent"
+                      justifyContent="flex-start"
+                      boxShadow="none"
+                      _hover={{ bg: modeValue("rgba(15,23,42,0.045)", "rgba(255,255,255,0.055)") }}
+                      _active={{ bg: modeValue("rgba(15,23,42,0.07)", "rgba(255,255,255,0.08)") }}
+                      onClick={() => {
+                        rationShortcutModal.onClose();
+                        navigate(
+                          withAdminCoach(
+                            `/clients/${entry.clientId}/nutrition/${entry.assessmentId}/ration`
+                          )
+                        );
+                      }}
+                    >
+                      <HStack w="full" spacing={3}>
+                        <Flex
+                          w="36px"
+                          h="36px"
+                          borderRadius="11px"
+                          align="center"
+                          justify="center"
+                          bg={modeValue("rgba(20,184,166,0.08)", "rgba(45,212,191,0.10)")}
+                          color={modeValue("#0F766E", "#5EEAD4")}
+                          border="1px solid"
+                          borderColor={modeValue("rgba(20,184,166,0.15)", "rgba(94,234,212,0.16)")}
+                          fontSize="11px"
+                          fontWeight="900"
+                          flexShrink={0}
+                        >
+                          {(entry.name || "?")
+                            .split(/\s+/)
+                            .filter(Boolean)
+                            .slice(0, 2)
+                            .map((part) => part[0])
+                            .join("")
+                            .toUpperCase()}
+                        </Flex>
+                        <Box textAlign="left" minW={0} flex="1">
+                          <Text fontWeight="800" fontSize="sm" noOfLines={1}>
+                            {entry.name}
+                          </Text>
+                          <Text mt={0.5} fontSize="xs" fontWeight="400" color={mutedText} noOfLines={1}>
+                            {entry.objective}
+                          </Text>
+                        </Box>
+                        <ChevronRightIcon boxSize="19px" color={activeBlue} flexShrink={0} />
+                      </HStack>
+                    </Button>
+                  ))}
+                </VStack>
               </VStack>
             ) : (
               <VStack align="stretch" spacing={3}>
@@ -10985,7 +11347,13 @@ onClick={confirmProgramModal.onClose}>
                   )}
                 </Text>
                 <Button
+                  {...shortcutPrimaryButtonProps}
+                  h="auto"
+                  minH="58px"
+                  px={3.5}
+                  justifyContent="flex-start"
                   borderRadius="16px"
+                  leftIcon={<AddIcon />}
                   onClick={() => {
                     rationShortcutModal.onClose();
                     navigate(withAdminCoach("/nutrition-coach?new=1"));
@@ -10996,11 +11364,67 @@ onClick={confirmProgramModal.onClose}>
               </VStack>
             )}
           </ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" borderRadius="14px" onClick={rationShortcutModal.onClose}>
-              {t("common.close", "Fermer")}
-            </Button>
-          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <Modal isOpen={programChoiceModal.isOpen} onClose={programChoiceModal.onClose} isCentered>
+        <ModalOverlay />
+        <ModalContent
+          bg={surfaceBgStrong}
+          color={textColor}
+          borderRadius="24px"
+          border="1px solid"
+          borderColor={borderColor}
+        >
+          <ModalHeader>{t("programs.create", "Créer un programme")}</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={6}>
+            <VStack spacing={3} align="stretch">
+              <Button
+                minH="58px"
+                justifyContent="flex-start"
+                borderRadius="16px"
+                variant="outline"
+                borderColor={dashboardModalActionBorder}
+                bg={dashboardModalActionBg}
+                leftIcon={<Icon as={MdOutlineFitnessCenter} boxSize="20px" />}
+                _hover={{
+                  bg: dashboardModalActionHoverBg,
+                  borderColor: dashboardModalActionHoverBorder,
+                  transform: "translateY(-1px)",
+                  boxShadow: dashboardModalActionHoverShadow,
+                }}
+                onClick={() => {
+                  programChoiceModal.onClose();
+                  navigate(withAdminCoach("/exercise-bank/program-builder/new"));
+                }}
+              >
+                {t("nav.new_program_manual", "Nouveau programme manuel")}
+              </Button>
+              <Button
+                minH="58px"
+                justifyContent="flex-start"
+                borderRadius="16px"
+                variant="outline"
+                borderColor={dashboardModalActionBorder}
+                bg={dashboardModalActionBg}
+                leftIcon={<Icon as={MdAutoAwesome} boxSize="20px" />}
+                isDisabled={!guidedProgramAllowed}
+                _hover={{
+                  bg: dashboardModalActionHoverBg,
+                  borderColor: dashboardModalActionHoverBorder,
+                  transform: "translateY(-1px)",
+                  boxShadow: dashboardModalActionHoverShadow,
+                }}
+                onClick={() => {
+                  programChoiceModal.onClose();
+                  navigate(withAdminCoach("/auto-program-questionnaire"));
+                }}
+              >
+                {t("nav.new_program_guided", "Nouveau programme guidé")}
+              </Button>
+            </VStack>
+          </ModalBody>
         </ModalContent>
       </Modal>
 

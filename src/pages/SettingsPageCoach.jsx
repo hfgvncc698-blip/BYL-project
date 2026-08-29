@@ -20,7 +20,6 @@ import {
   Badge,
   HStack,
   VStack,
-  Stack,
   useColorModeValue,
   Circle,
   Icon,
@@ -36,10 +35,11 @@ import {
   MdOutlineBadge,
   MdOutlineCreditCard,
   MdOutlineLock,
-  MdOutlineSettings,
   MdOutlineWarningAmber,
 } from "react-icons/md";
 import AppLoading from "../components/ui/AppLoading";
+import PageBackButton from "../components/ui/PageBackButton";
+import { AppSectionHeader, AppSurface } from "../components/ui/AppPrimitives";
 import TutorialSettingsPanel from "../components/TutorialSettingsPanel";
 import EmailNotificationPreferenceCard from "../components/EmailNotificationPreferenceCard";
 import { notify } from "../utils/notify";
@@ -72,7 +72,7 @@ export default function SettingsPageCoach() {
   const [stripeLoading, setStripeLoading] = useState(false);
   const [savingNavbarBrand, setSavingNavbarBrand] = useState(false);
   const pageBg = theme.pageBg;
-  const cardBg = theme.surfaceBg;
+  const cardBg = theme.surfaceBgStrong;
   const subCardBg = theme.surfaceSoft;
   const borderColor = theme.borderColor;
   const borderStrong = theme.borderStrong;
@@ -83,9 +83,9 @@ export default function SettingsPageCoach() {
     "0 20px 50px rgba(15,23,42,0.08)",
     "0 22px 60px rgba(0,0,0,0.34)"
   );
-  const heroGlow = useColorModeValue("rgba(59,130,246,0.10)", "rgba(59,130,246,0.14)");
-  const topGlow = useColorModeValue("rgba(59,130,246,0.08)", "rgba(59,130,246,0.12)");
-  const bottomGlow = useColorModeValue("rgba(16,185,129,0.08)", "rgba(16,185,129,0.10)");
+  const primaryButtonBg = useColorModeValue("#0F172A", "rgba(255,255,255,0.10)");
+  const primaryButtonColor = useColorModeValue("white", "#F8FAFC");
+  const primaryButtonHoverBg = useColorModeValue("#1E293B", "rgba(255,255,255,0.16)");
 
   const initialLang =
     user?.settings?.defaultLanguage ||
@@ -346,9 +346,9 @@ export default function SettingsPageCoach() {
   }
 
   const SurfaceCard = ({ children, ...props }) => (
-    <Box
+    <AppSurface
       bg={cardBg}
-      borderRadius="28px"
+      borderRadius="22px"
       border="1px solid"
       borderColor={borderStrong}
       boxShadow={glassShadow}
@@ -357,89 +357,63 @@ export default function SettingsPageCoach() {
       {...props}
     >
       {children}
-    </Box>
+    </AppSurface>
+  );
+
+  const MetricTile = ({ label, value, helper }) => (
+    <AppSurface variant="tile" bg={cardBg} borderRadius="18px" p={{ base: 3.5, md: 4 }} minH="92px">
+      <HStack justify="space-between" align="center" gap={4}>
+        <Box minW={0}>
+          <Text fontSize="sm" color={mutedText} fontWeight="900" lineHeight="1.2" noOfLines={1}>
+            {label}
+          </Text>
+          {helper ? (
+            <Text mt={1} fontSize="xs" color={subtleText} lineHeight="1.3" noOfLines={2}>
+              {helper}
+            </Text>
+          ) : null}
+        </Box>
+        <Text fontSize={{ base: "2xl", md: "3xl" }} fontWeight="950" letterSpacing="-0.04em" color={textColor} flexShrink={0}>
+          {value}
+        </Text>
+      </HStack>
+    </AppSurface>
   );
 
   return (
-    <Box data-tour-page="settings" p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
-      <Box
-        position="absolute"
-        top="-120px"
-        right="-90px"
-        w="360px"
-        h="360px"
-        borderRadius="full"
-        bg={topGlow}
-        filter="blur(90px)"
-        pointerEvents="none"
-      />
-      <Box
-        position="absolute"
-        bottom="-140px"
-        left="-100px"
-        w="340px"
-        h="340px"
-        borderRadius="full"
-        bg={bottomGlow}
-        filter="blur(90px)"
-        pointerEvents="none"
-      />
-
-      <VStack maxW="980px" mx="auto" spacing={6} align="stretch" position="relative" zIndex={1}>
-        <SurfaceCard p={{ base: 5, md: 6 }}>
-          <Box
-            position="absolute"
-            top="-50px"
-            right="-28px"
-            w="220px"
-            h="220px"
-            borderRadius="full"
-            bg={heroGlow}
-            filter="blur(42px)"
-          />
-          <Flex position="relative" zIndex={1} direction={{ base: "column", xl: "row" }} justify="space-between" gap={5}>
-            <HStack spacing={4} align="flex-start" flex="1">
-              <Circle
-                size={{ base: "58px", md: "64px" }}
-                bg={subCardBg}
-                border="1px solid"
-                borderColor={borderColor}
-                color={textColor}
-                flexShrink={0}
-              >
-                <Icon as={MdOutlineSettings} boxSize="26px" />
-              </Circle>
-              <Box minW={0}>
-                <Heading as="h1" size="lg" color={textColor} letterSpacing="-0.03em">
-                  {t("settings.title")}
-                </Heading>
-                <Text mt={2} color={mutedText} maxW="60ch">
-                  {settingsIntro}
-                </Text>
-              </Box>
-            </HStack>
-
-            <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={3} w={{ base: "100%", xl: "520px" }}>
-              <Box bg={subCardBg} border="1px solid" borderColor={borderColor} borderRadius="22px" p={4}>
-                <Text fontSize="sm" color={mutedText}>{t("auto.SettingsPageCoach.langue_active", "Langue active")}</Text>
-                <Text mt={2} fontSize="xl" fontWeight="800" color={textColor}>{selectedLang.toUpperCase()}</Text>
-                <Text mt={1} fontSize="sm" color={subtleText}>{t("auto.SettingsPageCoach.preference_enregistree", "Préférence enregistrée")}</Text>
-              </Box>
-              <Box bg={subCardBg} border="1px solid" borderColor={borderColor} borderRadius="22px" p={4}>
-                <Text fontSize="sm" color={mutedText}>{t("auto.SettingsPageCoach.compte", "Compte")}</Text>
-                <Text mt={2} fontSize="xl" fontWeight="800" color={textColor}>{roleLabel}</Text>
-                <Text mt={1} fontSize="sm" color={subtleText}>{workspaceLabel}</Text>
-              </Box>
-              <Box bg={subCardBg} border="1px solid" borderColor={borderColor} borderRadius="22px" p={4}>
-                <Text fontSize="sm" color={mutedText}>{t("auto.SettingsPageCoach.acces", "Accès")}</Text>
-                <Text mt={2} fontSize="xl" fontWeight="800" color={textColor}>{accessTitle}</Text>
-                <Text mt={1} fontSize="sm" color={subtleText}>{accessHelper}</Text>
-              </Box>
-            </SimpleGrid>
+    <Box data-tour-page="settings" p={{ base: 3, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
+      <VStack maxW="1120px" mx="auto" spacing={{ base: 3.5, md: 6 }} align="stretch" position="relative" zIndex={1}>
+        <AppSurface p={{ base: 4, md: 5 }}>
+          <Flex align="flex-start" gap={3}>
+            <PageBackButton />
+            <AppSectionHeader
+              flex="1"
+              title={t("settings.title")}
+              subtitle={settingsIntro}
+              headingAs="h1"
+            />
           </Flex>
-        </SurfaceCard>
+        </AppSurface>
 
-        <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={6}>
+        <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={{ base: 2.5, md: 3 }}>
+          <MetricTile
+            label={t("auto.SettingsPageCoach.langue_active", "Langue active")}
+            helper={t("auto.SettingsPageCoach.preference_enregistree", "Préférence enregistrée")}
+            value={selectedLang.toUpperCase()}
+          />
+          <MetricTile
+            label={t("auto.SettingsPageCoach.compte", "Compte")}
+            helper={workspaceLabel}
+            value={roleLabel}
+          />
+          <MetricTile
+            label={t("auto.SettingsPageCoach.acces", "Accès")}
+            helper={accessHelper}
+            value={accessTitle}
+          />
+        </SimpleGrid>
+
+        <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={{ base: 3.5, md: 6 }}>
           <SurfaceCard p={{ base: 5, md: 6 }}>
             <HStack spacing={3} mb={4}>
               <Circle size="42px" bg="rgba(59,130,246,0.10)" color="#3B82F6">
@@ -474,7 +448,7 @@ export default function SettingsPageCoach() {
           <EmailNotificationPreferenceCard
             surfaceProps={{
               bg: cardBg,
-              borderRadius: "28px",
+              borderRadius: "22px",
               border: "1px solid",
               borderColor: borderStrong,
               boxShadow: glassShadow,
@@ -509,8 +483,8 @@ export default function SettingsPageCoach() {
               </Box>
             </HStack>
 
-            <Stack spacing={3}>
-              <FormControl isDisabled={!navbarBrandAllowed}>
+            <Flex direction={{ base: "column", md: "row" }} align={{ base: "stretch", md: "flex-end" }} gap={3}>
+              <FormControl isDisabled={!navbarBrandAllowed} flex="1">
                 <FormLabel mb="1" color={subtleText}>{t("auto.SettingsPageCoach.nom_affiche", "Nom affiché")}</FormLabel>
                 <Input
                   ref={navbarBrandInputRef}
@@ -525,16 +499,19 @@ export default function SettingsPageCoach() {
                 />
               </FormControl>
               <Button
-                alignSelf="flex-start"
-                bg="#0F172A"
-                color="white"
-                _hover={{ bg: "#111827" }}
+                alignSelf={{ base: "stretch", md: "flex-end" }}
+                bg={primaryButtonBg}
+                color={primaryButtonColor}
+                _hover={{ bg: primaryButtonHoverBg }}
                 borderRadius="full"
+                h="40px"
+                px={5}
+                fontWeight="700"
                 isDisabled={!navbarBrandAllowed}
                 isLoading={savingNavbarBrand}
                 onClick={handleNavbarBrandSave}
               >{t("auto.SettingsPageCoach.enregistrer_le_nom", "Enregistrer le nom")}</Button>
-            </Stack>
+            </Flex>
           </SurfaceCard>
 
           <TutorialSettingsPanel
@@ -562,36 +539,32 @@ export default function SettingsPageCoach() {
               </Box>
             </HStack>
 
-            <HStack spacing={3} mb={4} wrap="wrap">
-              <Badge borderRadius="full" px={3} py={1} colorScheme={subBadge.color}>
-                {subBadge.label}
-              </Badge>
-              {user?.hasActiveSubscription ? (
-                <Badge borderRadius="full" px={3} py={1} colorScheme="green">{t("auto.SettingsPageCoach.acces_actif", "ACCÈS ACTIF")}</Badge>
-              ) : (
-                <Badge borderRadius="full" px={3} py={1}>{t("auto.SettingsPageCoach.annule_inactif", "ANNULÉ / INACTIF")}</Badge>
-              )}
-            </HStack>
-
             {isClubMember ? (
               <Box bg={subCardBg} border="1px solid" borderColor={borderColor} borderRadius="22px" p={4}>
                 <Text fontWeight="800" color={textColor}>{t("auto.SettingsPageCoach.abonnement_gere_par_le_club", "Abonnement géré par le club")}</Text>
                 <Text mt={1} color={mutedText} fontSize="sm">{t("auto.SettingsPageCoach.les_factures_le_portail_stripe_le_logo_du_clu", "Les factures, le portail Stripe, le logo du club et les capacités sont administrés par le responsable de la structure.")}</Text>
               </Box>
             ) : (
-              <Button
-                bg="#0F172A"
-                color="white"
-                _hover={{ bg: "#111827" }}
-                borderRadius="full"
-                fontWeight="700"
-                onClick={openStripePortal}
-                isLoading={stripeLoading}
-                loadingText={t("autoQ.connectingStripe", "Connexion à Stripe…")}
-                isDisabled={!hasStripeCustomer}
-              >
-                {t("settings.buttons.open_stripe_portal")}
-              </Button>
+              <Flex direction={{ base: "column", sm: "row" }} justify="space-between" align={{ base: "stretch", sm: "center" }} gap={3}>
+                <Badge alignSelf={{ base: "flex-start", sm: "center" }} borderRadius="full" px={3} py={1} colorScheme={subBadge.color}>
+                  {subBadge.label}
+                </Badge>
+                <Button
+                  bg={primaryButtonBg}
+                  color={primaryButtonColor}
+                  _hover={{ bg: primaryButtonHoverBg }}
+                  borderRadius="full"
+                  h="40px"
+                  px={5}
+                  fontWeight="700"
+                  onClick={openStripePortal}
+                  isLoading={stripeLoading}
+                  loadingText={t("autoQ.connectingStripe", "Connexion à Stripe…")}
+                  isDisabled={!hasStripeCustomer}
+                >
+                  {t("settings.buttons.open_stripe_portal")}
+                </Button>
+              </Flex>
             )}
           </SurfaceCard>
 
@@ -610,18 +583,23 @@ export default function SettingsPageCoach() {
               </Box>
             </HStack>
 
-            <Stack spacing={4}>
-              <Box bg={subCardBg} border="1px solid" borderColor={borderColor} borderRadius="22px" p={4}>
+            <Flex direction={{ base: "column", md: "row" }} align={{ base: "stretch", md: "center" }} gap={4}>
+              <Box flex="1" bg={subCardBg} border="1px solid" borderColor={borderColor} borderRadius="22px" p={4}>
                 <Text fontSize="sm" color={mutedText}>{t("auto.SettingsPageCoach.adresse_utilisee", "Adresse utilisée")}</Text>
                 <Text mt={1} fontWeight="700" color={textColor}>
                   {user.email}
                 </Text>
               </Box>
               <Button
-                bg="#0F172A"
-                color="white"
-                _hover={{ bg: "#111827" }}
+                bg={primaryButtonBg}
+                color={primaryButtonColor}
+                _hover={{ bg: primaryButtonHoverBg }}
                 borderRadius="full"
+                h="40px"
+                px={5}
+                fontWeight="800"
+                alignSelf={{ base: "stretch", md: "center" }}
+                minW={{ md: "280px" }}
                 isLoading={sendingReset}
                 onClick={async () => {
                   setSendingReset(true);
@@ -642,49 +620,55 @@ export default function SettingsPageCoach() {
               >
                 {t("settings.buttons.send_reset")}
               </Button>
-            </Stack>
+            </Flex>
           </SurfaceCard>
 
           <SurfaceCard p={{ base: 5, md: 6 }}>
-            <HStack spacing={3} mb={4}>
-              <Circle size="42px" bg="rgba(239,68,68,0.10)" color="#EF4444">
-                <Icon as={MdOutlineWarningAmber} boxSize="20px" />
-              </Circle>
-              <Box>
-                <Heading as="h2" size="md" color="#EF4444">
-                  {t("settings.sections.danger_zone")}
-                </Heading>
-                <Text mt={1} color={mutedText}>
-                  {t("settings.delete_hint")}
-                </Text>
-              </Box>
-            </HStack>
+            <Flex direction={{ base: "column", sm: "row" }} justify="space-between" align={{ base: "stretch", sm: "center" }} gap={4}>
+              <HStack spacing={3}>
+                <Circle size="42px" bg="rgba(239,68,68,0.10)" color="#EF4444" flexShrink={0}>
+                  <Icon as={MdOutlineWarningAmber} boxSize="20px" />
+                </Circle>
+                <Box>
+                  <Heading as="h2" size="md" color="#EF4444">
+                    {t("settings.sections.danger_zone")}
+                  </Heading>
+                  <Text mt={1} color={mutedText}>
+                    {t("settings.delete_hint")}
+                  </Text>
+                </Box>
+              </HStack>
 
-            <Button
-              variant="outline"
-              borderRadius="full"
-              color="#EF4444"
-              borderColor="rgba(239,68,68,0.32)"
-              _hover={{ bg: "rgba(239,68,68,0.06)" }}
-              onClick={onOpen}
-            >
-              {t("settings.buttons.delete_account")}
-            </Button>
+              <Button
+                flexShrink={0}
+                variant="outline"
+                borderRadius="full"
+                color="#EF4444"
+                borderColor="rgba(239,68,68,0.32)"
+                _hover={{ bg: "rgba(239,68,68,0.06)" }}
+                onClick={onOpen}
+              >
+                {t("settings.buttons.delete_account")}
+              </Button>
+            </Flex>
           </SurfaceCard>
         </SimpleGrid>
       </VStack>
 
       <Modal isOpen={isOpen} onClose={onClose} isCentered>
         <ModalOverlay />
-        <ModalContent borderRadius="28px" bg={cardBg} border="1px solid" borderColor={borderStrong} boxShadow={glassShadow}>
+        <ModalContent borderRadius="22px" bg={cardBg} border="1px solid" borderColor={borderStrong} boxShadow={glassShadow}>
           <ModalHeader>{t("settings.modal.confirm_title")}</ModalHeader>
           <ModalBody>{t("settings.modal.confirm_body")}</ModalBody>
           <ModalFooter>
-            <Button mr={3} onClick={onClose}>
+            <Button mr={3} variant="outline" borderRadius="full" h="40px" px={5} onClick={onClose}>
               {t("common.cancel")}
             </Button>
             <Button
               colorScheme="red"
+              borderRadius="full"
+              h="40px"
+              px={5}
               onClick={() => {
                 onClose();
                 toast({

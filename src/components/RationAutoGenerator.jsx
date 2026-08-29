@@ -12,6 +12,7 @@ import {
   Heading,
   SimpleGrid,
   Select,
+  Stack,
   Text,
   VStack,
   useColorModeValue,
@@ -3583,8 +3584,8 @@ export default function RationAutoGenerator(props) {
           <Divider my={3} />
 
           <Box bg={bgSoft2} border="1px solid" borderColor={border} p={3} rounded="lg">
-            <HStack justify="space-between" align="start" spacing={3} flexWrap="wrap">
-              <HStack spacing={2}>
+            <Stack spacing={3}>
+              <HStack spacing={2} justify="space-between" align="center">
                 <Text fontWeight="900">{i18n.t("auto.RationAutoGenerator.micronutriments", "Micronutriments")}</Text>
                 <Badge colorScheme={ciqualOk ? "green" : "yellow"}>
                   {ciqualOk
@@ -3593,7 +3594,7 @@ export default function RationAutoGenerator(props) {
                 </Badge>
               </HStack>
 
-              <HStack spacing={2} flexWrap="wrap">
+              <SimpleGrid columns={{ base: 2, sm: 4 }} spacing={2}>
                 <Button size="xs" onClick={() => setNutrientsOpen((v) => !v)}>
                   {nutrientsOpen
                     ? i18n.t("auto.RationAutoGenerator.fermer", "Fermer")
@@ -3610,8 +3611,8 @@ export default function RationAutoGenerator(props) {
                   }}
                 >{i18n.t("auto.RationAutoGenerator.tout_cocher", "Tout cocher")}</Button>
                 <Button size="xs" variant="outline" onClick={() => setSelectedNutrients({})}>{i18n.t("auto.RationAutoGenerator.tout_decocher", "Tout décocher")}</Button>
-              </HStack>
-            </HStack>
+              </SimpleGrid>
+            </Stack>
 
             {ciqualLoading && (
               <HStack mt={2} spacing={2}>

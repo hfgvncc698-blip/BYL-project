@@ -73,7 +73,6 @@ import {
   useToast,
 } from "@chakra-ui/react";
 import {
-  ArrowBackIcon,
   AddIcon,
   MinusIcon,
   WarningTwoIcon,
@@ -94,6 +93,7 @@ import { useTranslation } from "react-i18next";
 import i18n from "../i18n";
 import { useAuth } from "../AuthContext";
 import AppLoading from "./ui/AppLoading";
+import PageBackButton from "./ui/PageBackButton";
 import { useAppTheme } from "../styles/appTheme";
 import { localizeExercise } from "../utils/exerciseI18n";
 import { getExerciseNotesText } from "../utils/exerciseNotes";
@@ -5709,14 +5709,9 @@ export default function SessionPlayer() {
         <VStack align="stretch" spacing={{ base: 2, md: 3 }} mb={{ base: 3, md: 4 }}>
           <HStack justify="space-between" align="center" wrap="wrap" gap={3}>
             <HStack minW={0}>
-              <IconButton
-                icon={<ArrowBackIcon />}
-                aria-label={t("common.back", "Retour")}
+              <PageBackButton
+                label={t("common.back", "Retour")}
                 onClick={handleBackExit}
-                variant="ghost"
-                borderRadius="full"
-                colorScheme="gray"
-                size={isMobile ? "sm" : "md"}
               />
               <Text fontSize="sm" color={textMute} noOfLines={1}>
                 {t("sessionPlayer.exerciseCounter", "Exercice {{i}} / {{n}}", {

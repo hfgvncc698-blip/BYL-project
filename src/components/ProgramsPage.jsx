@@ -2,7 +2,6 @@
 import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo } from "react";
 import {
   Box,
-  Heading,
   Table,
   Thead,
   Tbody,
@@ -10,6 +9,7 @@ import {
   Th,
   Td,
   Button,
+  Icon,
   SimpleGrid,
   useColorModeValue,
   Stack,
@@ -30,8 +30,14 @@ import {
   Link as ChakraLink,
   Select,
   useBreakpointValue,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  InputRightElement,
+  Flex,
 } from "@chakra-ui/react";
-import { AddIcon, DeleteIcon, CopyIcon } from "@chakra-ui/icons";
+import { AddIcon, DeleteIcon, CopyIcon, SearchIcon, CloseIcon } from "@chakra-ui/icons";
+import { MdAutoAwesome, MdOutlineFitnessCenter } from "react-icons/md";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import AppLoading from "./ui/AppLoading";
 import {
@@ -57,6 +63,7 @@ import { useAppTheme } from "../styles/appTheme";
 import { canUseGuidedProgram } from "../utils/proPlanAccess";
 import { formatProgramActiveWeeks, getProgramActiveWeeksLabel } from "../utils/programDuration";
 import PageBackButton from "./ui/PageBackButton";
+import { AppSectionHeader, AppSurface } from "./ui/AppPrimitives.jsx";
 import {
   deferPageTask,
   readPageDataCacheEntry,
@@ -110,6 +117,13 @@ const normalizeNameForCompare = (s = "") =>
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
+
+const normalizeSearchText = (value = "") =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase()
+    .trim();
 
 const isLegacyAutoName = (existingName, objectifUIKey, objectifFallback, nbSeances) => {
   const n = Number(nbSeances) || 1;
@@ -233,6 +247,7 @@ export default function ProgramsPage() {
   const [selectedClientId, setSelectedClientId] = useState("");
   const [assigningClient, setAssigningClient] = useState(false);
   const [duplicatingProgramId, setDuplicatingProgramId] = useState(null);
+  const [programSearch, setProgramSearch] = useState("");
 
   const pageBg = theme.pageBg;
   const cardBg = theme.surfaceBg;
@@ -242,6 +257,17 @@ export default function ProgramsPage() {
   const textMuted = theme.mutedText;
   const titleColor = theme.textColor;
   const hoverBg = useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)");
+  const choiceModalBg = useColorModeValue("white", "#0F172A");
+  const choiceModalColor = useColorModeValue("gray.900", "white");
+  const choiceModalBorder = useColorModeValue("blackAlpha.100", "whiteAlpha.120");
+  const choiceActionBorder = useColorModeValue("rgba(15,23,42,0.10)", "rgba(255,255,255,0.14)");
+  const choiceActionBg = useColorModeValue("white", "rgba(255,255,255,0.03)");
+  const choiceActionHoverBg = useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.06)");
+  const choiceActionHoverBorder = useColorModeValue("rgba(15,23,42,0.18)", "rgba(255,255,255,0.26)");
+  const choiceActionHoverShadow = useColorModeValue(
+    "0 10px 24px rgba(15,23,42,0.08)",
+    "0 12px 26px rgba(0,0,0,0.24)"
+  );
   const softShadow = useColorModeValue(
     "0 22px 70px rgba(15,23,42,0.08)",
     "0 22px 70px rgba(0,0,0,0.28)"
@@ -301,6 +327,19 @@ export default function ProgramsPage() {
     },
     [t]
   );
+
+  const filteredProgrammes = useMemo(() => {
+    const queryText = normalizeSearchText(programSearch);
+    if (!queryText) return programmes;
+
+    return programmes.filter((program) => {
+      const goal = program?.objectifUI || program?.objectif || "";
+      const searchableText = normalizeSearchText(
+        `${prettyProgramName(program)} ${prettyGoal(goal)} ${prettifyKey(goal)}`
+      );
+      return searchableText.includes(queryText);
+    });
+  }, [prettyGoal, prettyProgramName, programSearch, programmes]);
 
   const openBaseProgram = useCallback(
     (baseProg) => {
@@ -641,47 +680,31 @@ export default function ProgramsPage() {
 
   return (
     <Box data-tour-page="coach-programs" minH="100vh" bg={pageBg} px={{ base: 3, md: 5 }} py={{ base: 4, md: 7 }} pb={{ base: 28, md: 7 }}>
-      <Box mb={{ base: 3, md: 4 }}>
-        <PageBackButton fallbackTo="/coach-dashboard" />
-      </Box>
-
-      <Box
-        bg={{ base: theme.surfaceGlow, md: panelBg }}
-        border="1px solid"
-        borderColor={borderColor}
-        borderRadius={{ base: "24px", md: "28px" }}
-        boxShadow={softShadow}
-        backdropFilter="blur(16px)"
-        p={{ base: 4, md: 5 }}
-        mb={6}
-      >
-        <Stack
-          direction={{ base: "column", md: "row" }}
-          justify="space-between"
-          align={{ base: "stretch", md: "center" }}
-          spacing={{ base: 4, md: 6 }}
-        >
-          <Box>
-            <Heading fontSize={{ base: "2xl", md: "2xl" }} color={titleColor} letterSpacing="0">
-              {t("myPrograms.titleCoach", "Mes Programmes (Coach)")}
-            </Heading>
-            <Text mt={1.5} color={textMuted} fontSize={{ base: "md", md: "sm" }} fontWeight={{ base: "650", md: "normal" }}>
-              {t(
-                "programs.subtitle",
-                "Retrouve, duplique et consulte rapidement tous tes programmes."
-              )}
-            </Text>
-          </Box>
-          <Button
-            w={{ base: "full", md: "auto" }}
-            leftIcon={<AddIcon />}
-            onClick={choiceModal.onOpen}
-            borderRadius="full"
-          >
-            {t("nav.new_program", "Nouveau programme")}
-          </Button>
-        </Stack>
-      </Box>
+      <AppSurface bg={theme.surfaceGlow} p={{ base: 4, md: 5 }} mb={6}>
+        <Flex align="flex-start" gap={3}>
+          <PageBackButton fallbackTo="/coach-dashboard" />
+          <AppSectionHeader
+            flex="1"
+            title={t("myPrograms.titleCoach", "Mes Programmes (Coach)")}
+            subtitle={t(
+              "programs.subtitle",
+              "Retrouve, duplique et consulte rapidement tous tes programmes."
+            )}
+            headingAs="h1"
+            action={(
+              <Button
+                w={{ base: "full", md: "auto" }}
+                leftIcon={<AddIcon />}
+                onClick={choiceModal.onOpen}
+              >
+                {t("nav.new_program", "Nouveau programme")}
+              </Button>
+            )}
+            direction={{ base: "column", md: "row" }}
+            align={{ base: "stretch", md: "center" }}
+          />
+        </Flex>
+      </AppSurface>
 
       <SimpleGrid display={{ base: "grid", md: "none" }} columns={3} spacing={2} mb={4}>
         {[
@@ -719,33 +742,60 @@ export default function ProgramsPage() {
 
       {/* Modal de choix */}
       <Modal isOpen={choiceModal.isOpen} onClose={choiceModal.onClose} isCentered>
-        <ModalOverlay backdropFilter="blur(6px)" />
-        <ModalContent bg={cardBg} border="1px solid" borderColor={borderColor} borderRadius="2xl">
-          <ModalHeader>{t("nav.program_type", "Type de programme")}</ModalHeader>
+        <ModalOverlay />
+        <ModalContent
+          bg={choiceModalBg}
+          color={choiceModalColor}
+          border="1px solid"
+          borderColor={choiceModalBorder}
+          borderRadius="24px"
+        >
+          <ModalHeader>{t("nav.new", "Nouveau")}</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             <VStack spacing={4} py={4}>
               <Button
                 w="full"
-                borderRadius="xl"
+                borderRadius="16px"
+                variant="outline"
+                leftIcon={<Icon as={MdOutlineFitnessCenter} />}
+                borderColor={choiceActionBorder}
+                bg={choiceActionBg}
+                transition="all 0.18s ease"
+                _hover={{
+                  bg: choiceActionHoverBg,
+                  borderColor: choiceActionHoverBorder,
+                  transform: "translateY(-1px)",
+                  boxShadow: choiceActionHoverShadow,
+                }}
                 onClick={() => {
                   choiceModal.onClose();
                   navigate(withAdminCoach("/exercise-bank/program-builder/new"));
                 }}
               >
-                {t("nav.create_manual", "Créer manuel")}
+                {t("nav.new_program_manual", "Nouveau programme manuel")}
               </Button>
               {guidedProgramAllowed && (
                 <Button
                   variant="outline"
                   w="full"
-                  borderRadius="xl"
+                  borderRadius="16px"
+                  leftIcon={<Icon as={MdAutoAwesome} />}
+                  borderColor={choiceActionBorder}
+                  bg={choiceActionBg}
+                  transition="all 0.18s ease"
+                  _hover={{
+                    bg: choiceActionHoverBg,
+                    borderColor: choiceActionHoverBorder,
+                    transform: "translateY(-1px)",
+                    boxShadow: choiceActionHoverShadow,
+                  }}
                   onClick={() => {
                     choiceModal.onClose();
                     navigate(withAdminCoach("/auto-program-questionnaire"));
                   }}
                 >
-                  {t("nav.guided_creation", "Création guidée")}
+                  {t("nav.new_program_guided", "Nouveau programme guidé")}
                 </Button>
               )}
             </VStack>
@@ -908,12 +958,60 @@ export default function ProgramsPage() {
       <Box
         bg={panelBg}
         p={{ base: 3, md: 5 }}
-        borderRadius={{ base: "24px", md: "28px" }}
+        borderRadius="22px"
         border="1px solid"
         borderColor={borderColor}
         boxShadow={softShadow}
         backdropFilter="blur(16px)"
       >
+        <HStack
+          mb={{ base: 4, md: 5 }}
+          spacing={3}
+          justify="space-between"
+          align={{ base: "stretch", sm: "center" }}
+          flexDirection={{ base: "column", sm: "row" }}
+        >
+          <InputGroup maxW={{ base: "full", sm: "430px" }}>
+            <InputLeftElement pointerEvents="none" color={textMuted}>
+              <SearchIcon />
+            </InputLeftElement>
+            <Input
+              value={programSearch}
+              onChange={(event) => setProgramSearch(event.target.value)}
+              placeholder={t("programs.searchPlaceholder", "Rechercher un programme…")}
+              aria-label={t("programs.searchPlaceholder", "Rechercher un programme…")}
+              bg={subtleBg}
+              borderColor={borderColor}
+              borderRadius="full"
+              pr={programSearch ? 10 : 4}
+              _hover={{ borderColor: "blue.300" }}
+              _focusVisible={{ borderColor: "blue.400", boxShadow: "0 0 0 1px var(--chakra-colors-blue-400)" }}
+            />
+            {programSearch && (
+              <InputRightElement>
+                <IconButton
+                  aria-label={t("programs.clearSearch", "Effacer la recherche")}
+                  title={t("programs.clearSearch", "Effacer la recherche")}
+                  icon={<CloseIcon boxSize={2.5} />}
+                  variant="ghost"
+                  size="sm"
+                  borderRadius="full"
+                  onClick={() => setProgramSearch("")}
+                />
+              </InputRightElement>
+            )}
+          </InputGroup>
+
+          {programSearch && (
+            <Text fontSize="sm" color={textMuted} whiteSpace="nowrap">
+              {t("programs.searchResults", {
+                count: filteredProgrammes.length,
+                defaultValue: "{{count}} résultat(s)",
+              })}
+            </Text>
+          )}
+        </HStack>
+
         {/* Desktop */}
         {!isMobileProgramsLayout && (
         <Box overflowX="auto">
@@ -928,8 +1026,8 @@ export default function ProgramsPage() {
               </Tr>
             </Thead>
             <Tbody>
-              {programmes.length > 0 ? (
-                programmes.map((p) => {
+              {filteredProgrammes.length > 0 ? (
+                filteredProgrammes.map((p) => {
                   const nbSessions = getSessionCount(p);
                   const nbAssigned = assignedCounts[p.id] || 0;
                   const goalForSubtitle = p.objectifUI || p.objectif || "";
@@ -1005,8 +1103,9 @@ export default function ProgramsPage() {
                             isLoading={duplicatingProgramId === p.id}
                             isDisabled={Boolean(duplicatingProgramId) && duplicatingProgramId !== p.id}
                             size="sm"
-                            variant="ghost"
+                            variant="outline"
                             borderRadius="full"
+                            borderColor={borderColor}
                             onClick={() => handleDuplicate(p.id)}
                           />
 
@@ -1029,7 +1128,9 @@ export default function ProgramsPage() {
               ) : (
                 <Tr>
                   <Td colSpan={5} textAlign="center">
-                    {t("programs.empty", "Aucun programme trouvé.")}
+                    {programSearch
+                      ? t("programs.noSearchResults", "Aucun programme ne correspond à cette recherche.")
+                      : t("programs.empty", "Aucun programme trouvé.")}
                   </Td>
                 </Tr>
               )}
@@ -1042,8 +1143,8 @@ export default function ProgramsPage() {
         {isMobileProgramsLayout && (
         <Box>
           <VStack spacing={3} align="stretch">
-            {programmes.length > 0 ? (
-              programmes.map((p) => {
+            {filteredProgrammes.length > 0 ? (
+              filteredProgrammes.map((p) => {
                 const nbSessions = getSessionCount(p);
                 const nbAssigned = assignedCounts[p.id] || 0;
                 const goalForSubtitle = p.objectifUI || p.objectif || "";
@@ -1102,39 +1203,7 @@ export default function ProgramsPage() {
                       </Badge>
                     </HStack>
 
-                    <SimpleGrid columns={2} spacing={2} mt={4}>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        borderRadius="full"
-                        onClick={() => openBaseProgram(p)}
-                        flex="1"
-                      >
-                        {t("common.view", "Voir")}
-                      </Button>
-
-                      <Button
-                        size="sm"
-                        borderRadius="full"
-                        onClick={() => openAssignClientModal(p)}
-                        flex="1"
-                      >
-                        {t("common.assign", "Assigner")}
-                      </Button>
-                    </SimpleGrid>
-
-                    <HStack spacing={2} mt={2} justify="flex-end">
-                      <IconButton
-                        aria-label={t("common.duplicate", "Dupliquer")}
-                        icon={<CopyIcon />}
-                        isLoading={duplicatingProgramId === p.id}
-                        isDisabled={Boolean(duplicatingProgramId) && duplicatingProgramId !== p.id}
-                        size="sm"
-                        variant="ghost"
-                        borderRadius="full"
-                        onClick={() => handleDuplicate(p.id)}
-                      />
-
+                    <HStack spacing={2} mt={4} align="center" w="full">
                       <IconButton
                         aria-label={t("common.delete", "Supprimer")}
                         icon={<DeleteIcon />}
@@ -1146,12 +1215,49 @@ export default function ProgramsPage() {
                           confirmModal.onOpen();
                         }}
                       />
+
+                      <IconButton
+                        aria-label={t("common.duplicate", "Dupliquer")}
+                        icon={<CopyIcon />}
+                        isLoading={duplicatingProgramId === p.id}
+                        isDisabled={Boolean(duplicatingProgramId) && duplicatingProgramId !== p.id}
+                        size="sm"
+                        variant="outline"
+                        borderRadius="full"
+                        borderColor={borderColor}
+                        onClick={() => handleDuplicate(p.id)}
+                      />
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        borderRadius="full"
+                        onClick={() => openBaseProgram(p)}
+                        flex="1"
+                        minW={0}
+                      >
+                        {t("common.view", "Voir")}
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        borderRadius="full"
+                        onClick={() => openAssignClientModal(p)}
+                        flex="1"
+                        minW={0}
+                      >
+                        {t("common.assign", "Assigner")}
+                      </Button>
                     </HStack>
                   </Box>
                 );
               })
             ) : (
-              <Text textAlign="center">{t("programs.empty", "Aucun programme trouvé.")}</Text>
+              <Text textAlign="center" color={textMuted} py={6}>
+                {programSearch
+                  ? t("programs.noSearchResults", "Aucun programme ne correspond à cette recherche.")
+                  : t("programs.empty", "Aucun programme trouvé.")}
+              </Text>
             )}
           </VStack>
         </Box>

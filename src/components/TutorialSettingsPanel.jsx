@@ -62,7 +62,7 @@ export default function TutorialSettingsPanel({
     <Box
       data-tour="tutorial-settings"
       bg={cardBg || fallbackBg}
-      borderRadius="28px"
+      borderRadius="22px"
       border="1px solid"
       borderColor={borderColor || fallbackBorder}
       p={{ base: 5, md: 6 }}
@@ -83,7 +83,7 @@ export default function TutorialSettingsPanel({
         {shortcuts.map((shortcut) => (
           <Button
             key={shortcut.id}
-            borderRadius="16px"
+            borderRadius="full"
             variant="outline"
             justifyContent="flex-start"
             h="44px"

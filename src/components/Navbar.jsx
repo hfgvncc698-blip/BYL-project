@@ -430,12 +430,18 @@ export default function Navbar() {
     </HStack>
   );
 
+  const isCoachDashboard = location.pathname === ROUTES.coachDashboard;
+  const isClientDashboard = location.pathname === ROUTES.clientDashboard;
+  const useDashboardMenuTrigger = isCoachDashboard || isClientDashboard;
+
   return (
     <>
       <Flex
         as="nav"
-        position="sticky"
+        position={isCoachDashboard ? "fixed" : "sticky"}
         top={0}
+        left={isCoachDashboard ? 0 : undefined}
+        right={isCoachDashboard ? 0 : undefined}
         zIndex={30}
         px={{ base: 3, md: 5 }}
         py={3}
@@ -489,29 +495,30 @@ export default function Navbar() {
               </FormControl>
             )}
 
-            {showCoachUI && !isClubContext && <QuickCoachActions compact />}
+            <HStack spacing={3} flexShrink={0}>
+                {showCoachUI && !isClubContext && <QuickCoachActions compact />}
 
-            {isClient && (
-              <Button
-                data-tour="client-custom-program"
-                leftIcon={<AddIcon />}
-                size="sm"
-                h="40px"
-                px={4}
-                borderRadius="16px"
-                bg={primaryActionBg}
-                color="white"
-                fontWeight="800"
-                _hover={{ bg: primaryActionHoverBg }}
-                _active={{ bg: primaryActionActiveBg }}
-                {...preloadInteractionProps(ROUTES.clientQuestionnaire)}
-                onClick={goToClientQuestionnaire}
-              >
-                {clientCustomProgramLabel}
-              </Button>
-            )}
+                {isClient && (
+                  <Button
+                    data-tour="client-custom-program"
+                    leftIcon={<AddIcon />}
+                    size="sm"
+                    h="40px"
+                    px={4}
+                    borderRadius="16px"
+                    bg={primaryActionBg}
+                    color="white"
+                    fontWeight="800"
+                    _hover={{ bg: primaryActionHoverBg }}
+                    _active={{ bg: primaryActionActiveBg }}
+                    {...preloadInteractionProps(ROUTES.clientQuestionnaire)}
+                    onClick={goToClientQuestionnaire}
+                  >
+                    {clientCustomProgramLabel}
+                  </Button>
+                )}
 
-            <Menu placement="bottom-end" isLazy strategy="fixed" gutter={10}>
+                <Menu placement="bottom-end" isLazy strategy="fixed" gutter={10}>
               <MenuButton
                 as={Button}
                 rightIcon={<ChevronDownIcon />}
@@ -527,14 +534,30 @@ export default function Navbar() {
                 h="44px"
               >
                 <HStack spacing={2}>
-                  <Avatar
-                    size="sm"
-                    name={displayFullName}
-                    bg={avatarBg}
-                    color={avatarColor}
-                  />
+                  {useDashboardMenuTrigger ? (
+                    <Flex
+                      w="32px"
+                      h="32px"
+                      align="center"
+                      justify="center"
+                      borderRadius="10px"
+                      bg={avatarBg}
+                      color={avatarColor}
+                    >
+                      <Icon as={MdOutlineSpaceDashboard} boxSize="19px" />
+                    </Flex>
+                  ) : (
+                    <Avatar
+                      size="sm"
+                      name={displayFullName}
+                      bg={avatarBg}
+                      color={avatarColor}
+                    />
+                  )}
                   <Text display={{ base: "none", xl: "block" }} maxW="120px" noOfLines={1} fontWeight="800">
-                    {displayFirstName || nav("greeting.coach", "Compte")}
+                    {useDashboardMenuTrigger
+                      ? nav("nav.menu", "Menu")
+                      : displayFirstName || nav("greeting.coach", "Compte")}
                   </Text>
                 </HStack>
               </MenuButton>
@@ -773,7 +796,8 @@ export default function Navbar() {
                   </VStack>
                 </MenuList>
               </Portal>
-            </Menu>
+                </Menu>
+              </HStack>
           </HStack>
         ) : null}
 
@@ -854,6 +878,10 @@ export default function Navbar() {
           </HStack>
         )}
       </Flex>
+
+      {isCoachDashboard && (
+        <Box aria-hidden="true" h={{ base: "64px", md: "61px" }} flexShrink={0} />
+      )}
 
       <Drawer isOpen={mobileNav.isOpen} onClose={mobileNav.onClose} placement="right" size="xs">
         <DrawerOverlay bg={useColorModeValue("blackAlpha.400", "blackAlpha.700")} backdropFilter="blur(6px)" />

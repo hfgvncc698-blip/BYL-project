@@ -49,7 +49,7 @@ import { useTranslation } from "react-i18next";
 import { doc, setDoc, updateDoc } from "firebase/firestore";
 import { AddIcon, ArrowBackIcon, ChevronDownIcon, CloseIcon, DeleteIcon, TimeIcon } from "@chakra-ui/icons";
 import { Calendar, momentLocalizer } from "react-big-calendar";
-import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
+import dragAndDropAddon from "react-big-calendar/lib/addons/dragAndDrop";
 import moment from "moment";
 import "moment/locale/fr";
 import "moment/locale/de";
@@ -69,10 +69,12 @@ import AppLoading from "../components/ui/AppLoading";
 import EmailNotificationPreferenceCard from "../components/EmailNotificationPreferenceCard";
 import { useAuth } from "../AuthContext";
 import { MdLanguage, MdOutlineCreditCard, MdOutlineLock } from "react-icons/md";
+import { resolveDragAndDropFactory } from "../utils/reactBigCalendarDnd";
 
 moment.locale("fr");
 const localizer = momentLocalizer(moment);
-const DnDCalendar = withDragAndDrop(Calendar);
+const withDragAndDrop = resolveDragAndDropFactory(dragAndDropAddon);
+const DnDCalendar = withDragAndDrop ? withDragAndDrop(Calendar) : Calendar;
 const calendarFormats = {
   monthHeaderFormat: (date) =>
     new Intl.DateTimeFormat(i18n.resolvedLanguage || i18n.language || "fr-FR", { month: "long", year: "numeric" }).format(date),

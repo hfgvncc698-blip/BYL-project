@@ -398,7 +398,7 @@ function collectAllTrackedFieldsForExercise(occList, exIdx) {
 }
 
 /* ==================== Component ==================== */
-export default function SessionComparator({ clientId, programmes }) {
+export default function SessionComparator({ clientId, programmes, embedded = false }) {
   const cardBg = useColorModeValue("rgba(255,255,255,0.78)", "rgba(15,23,42,0.78)");
   const border = useColorModeValue("rgba(15,23,42,0.08)", "rgba(255,255,255,0.10)");
   const muted = useColorModeValue("gray.600", "gray.300");
@@ -578,31 +578,34 @@ export default function SessionComparator({ clientId, programmes }) {
 
   return (
     <Box
-      bg={cardBg}
-      p={{ base: 4, md: 6 }}
-      borderRadius="24px"
-      boxShadow={shadow}
-      borderWidth="1px"
-      borderColor={border}
-      backdropFilter="blur(16px)"
+      bg={embedded ? "transparent" : cardBg}
+      p={embedded ? 0 : { base: 4, md: 6 }}
+      borderRadius={embedded ? 0 : "24px"}
+      boxShadow={embedded ? "none" : shadow}
+      borderWidth={embedded ? 0 : "1px"}
+      borderColor={embedded ? "transparent" : border}
+      backdropFilter={embedded ? "none" : "blur(16px)"}
     >
-      <Flex justify="space-between" align={{ base: "stretch", md: "center" }} direction={{ base: "column", md: "row" }} wrap="wrap" gap={4}>
-        <Box>
-          <Text fontWeight="900" fontSize={{ base: "lg", md: "xl" }} letterSpacing="-0.02em">{i18n.t("statsShort.compareSession", "Comparer une séance")}</Text>
-          <Text mt={1} fontSize="sm" color={muted}>{i18n.t("auto.SessionComparator.comparez_deux_occurrences_d_une_meme_seance_pour_v", "Comparez deux occurrences d’une même séance pour visualiser les évolutions exercice par exercice.")}</Text>
-        </Box>
+      <Flex justify={embedded ? "flex-start" : "space-between"} align={{ base: "stretch", md: "center" }} direction={{ base: "column", md: "row" }} wrap="wrap" gap={4}>
+        {!embedded ? (
+          <Box>
+            <Text fontWeight="900" fontSize={{ base: "lg", md: "xl" }} letterSpacing="-0.02em">{i18n.t("statsShort.compareSession", "Comparer une séance")}</Text>
+            <Text mt={1} fontSize="sm" color={muted}>{i18n.t("auto.SessionComparator.comparez_deux_occurrences_d_une_meme_seance_pour_v", "Comparez deux occurrences d’une même séance pour visualiser les évolutions exercice par exercice.")}</Text>
+          </Box>
+        ) : null}
 
         <HStack
           spacing={3}
-          flexWrap="wrap"
+          flexWrap={{ base: "wrap", md: "nowrap" }}
           align="center"
+          w={{ base: "100%", md: "fit-content" }}
           bg={subtleBg}
           border="1px solid"
           borderColor={border}
           borderRadius="20px"
           p={3}
         >
-          <Select size="sm" value={progId} onChange={(e) => setProgId(e.target.value)} maxW={{ base: "100%", md: "220px" }}>
+          <Select size="sm" value={progId} onChange={(e) => setProgId(e.target.value)} w={{ base: "100%", md: "220px" }} flexShrink={0}>
             {(programmes || []).map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nomProgramme || p.name || p.id}
@@ -610,14 +613,14 @@ export default function SessionComparator({ clientId, programmes }) {
             ))}
           </Select>
 
-          <Select size="sm" value={sessionIndex} onChange={(e) => setSessionIndex(Number(e.target.value))} maxW={{ base: "100%", md: "160px" }}>
+          <Select size="sm" value={sessionIndex} onChange={(e) => setSessionIndex(Number(e.target.value))} w={{ base: "100%", md: "160px" }} flexShrink={0}>
             {(currentProg?.sessions || []).map((_s, i) => (
               <option key={i} value={i}>{i18n.t("programView.session", "Séance")}{i + 1}
               </option>
             ))}
           </Select>
 
-          <HStack pl={{ base: 0, md: 2 }}>
+          <HStack pl={{ base: 0, md: 2 }} flexShrink={0} whiteSpace="nowrap">
             <Text fontSize="sm">{i18n.t("auto.SessionComparator.uniquement_modifies", "Uniquement modifiés")}</Text>
             <Switch size="sm" isChecked={onlyChanged} onChange={(e) => setOnlyChanged(e.target.checked)} />
           </HStack>

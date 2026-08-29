@@ -59,6 +59,7 @@ import {
 } from "firebase/firestore";
 import { FiEye, FiXCircle, FiCopy } from "react-icons/fi";
 import AppLoading from "./ui/AppLoading";
+import PageBackButton from "./ui/PageBackButton";
 import { notify } from "../utils/notify";
 import { useAppTheme } from "../styles/appTheme";
 import { useAuth } from "../AuthContext";
@@ -1419,9 +1420,7 @@ export default function ClientView() {
         mb={5}
       >
         <Flex mb={4} align={{ base: "stretch", md: "center" }} justify="space-between" direction={{ base: "column", md: "row" }} gap={3}>
-          <Button variant="ghost" size="sm" alignSelf={{ base: "flex-start", md: "auto" }} onClick={() => navigate(-1)}>
-            ← {t("common.back", "Retour")}
-          </Button>
+          <PageBackButton label={t("common.back", "Retour")} onClick={() => navigate(-1)} />
           <Button size="sm" onClick={editClient.onOpen}>
             {t("clientView.editClient", "Modifier client")}
           </Button>

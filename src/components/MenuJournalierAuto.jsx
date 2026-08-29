@@ -3139,7 +3139,7 @@ export default function MenuJournalierAuto({
   const toast = useToast();
 
   const nutritionTheme = useNutritionTheme();
-  const panelBg = nutritionTheme.surfaceBg;
+  const panelBg = nutritionTheme.surfaceBgStrong;
   const borderCol = nutritionTheme.borderColor;
   const subtleCard = nutritionTheme.surfaceSoft;
   const planningDayBg = useColorModeValue(
@@ -3180,6 +3180,8 @@ export default function MenuJournalierAuto({
   const [daysCount, setDaysCount] = useState(7);
   const [dayIndex, setDayIndex] = useState(1);
   const [mode, setMode] = useState("planning"); // planning | edit
+  const [planningDisplay, setPlanningDisplay] = useState("day"); // day | week
+  const [planningDayIndex, setPlanningDayIndex] = useState(1);
   const [weekStart, setWeekStart] = useState(1);
 
   // Auto state
@@ -3231,6 +3233,7 @@ export default function MenuJournalierAuto({
         setMenuSourceFingerprint(String(am?.sourceFingerprint || ""));
         setDaysCount(nextDaysCount);
         setDayIndex((prev) => Math.min(nextDaysCount, Math.max(1, prev || 1)));
+        setPlanningDayIndex((prev) => Math.min(nextDaysCount, Math.max(1, prev || 1)));
         setWeekStart((prev) => Math.min(Math.max(1, prev || 1), Math.max(1, nextDaysCount - 6)));
 
         const nextMappingByDay = am?.mappingByDay && typeof am.mappingByDay === "object" ? am.mappingByDay : {};
@@ -3269,6 +3272,7 @@ export default function MenuJournalierAuto({
 
     setDaysCount(nextDaysCount);
     setDayIndex((prev) => Math.min(nextDaysCount, Math.max(1, prev || 1)));
+    setPlanningDayIndex((prev) => Math.min(nextDaysCount, Math.max(1, prev || 1)));
     setWeekStart((prev) => Math.min(Math.max(1, prev || 1), Math.max(1, nextDaysCount - 6)));
 
     const nextMappingByDay = am?.mappingByDay && typeof am.mappingByDay === "object" ? am.mappingByDay : {};
@@ -3603,6 +3607,11 @@ export default function MenuJournalierAuto({
     for (let d = start; d <= end; d++) arr.push(d);
     return arr;
   }, [weekStart, daysCount]);
+
+  const planningDays = useMemo(
+    () => planningDisplay === "day" ? [Math.min(daysCount, Math.max(1, planningDayIndex))] : weekDays,
+    [daysCount, planningDayIndex, planningDisplay, weekDays]
+  );
 
   const weekPreview = useMemo(() => {
     const out = {};
@@ -4084,7 +4093,7 @@ export default function MenuJournalierAuto({
               </HStack>
 
               {mode !== "edit" ? (
-              <SimpleGrid columns={{ base: 2, lg: 3 }} spacing={{ base: 2, md: 3 }}>
+              <SimpleGrid columns={{ base: 1, md: 3 }} spacing={{ base: 2, md: 3 }}>
                 <Box bg={subtleCard} border="1px solid" borderColor={borderCol} rounded="xl" p={{ base: 3, md: 3 }} gridColumn={{ base: "1 / -1", lg: "auto" }}>
                   <Text fontSize="xs" textTransform="uppercase" opacity={0.65} fontWeight="900">{i18n.t("auto.MenuJournalierAuto.etat", "État")}</Text>
                   <Wrap mt={2} spacing={2}>
@@ -4136,7 +4145,7 @@ export default function MenuJournalierAuto({
                   </Wrap>
                 </Box>
 
-                <Box bg={subtleCard} border="1px solid" borderColor={borderCol} rounded="xl" p={{ base: 3, md: 3 }} minH={{ base: "116px", md: "auto" }}>
+                <Box bg={subtleCard} border="1px solid" borderColor={borderCol} rounded="xl" p={{ base: 3, md: 3 }}>
                   <Text fontSize="xs" textTransform="uppercase" opacity={0.65} fontWeight="900">{i18n.t("auto.MenuJournalierAuto.menu_genere", "Menu généré")}</Text>
                   <HStack mt={1} align="baseline" spacing={2}>
                     <Text fontSize={{ base: "xl", md: "2xl" }} fontWeight="900">
@@ -4170,7 +4179,7 @@ export default function MenuJournalierAuto({
                   </Wrap>
                 </Box>
 
-                <Box bg={subtleCard} border="1px solid" borderColor={borderCol} rounded="xl" p={{ base: 3, md: 3 }} minH={{ base: "116px", md: "auto" }}>
+                <Box bg={subtleCard} border="1px solid" borderColor={borderCol} rounded="xl" p={{ base: 3, md: 3 }}>
                   <Text fontSize="xs" textTransform="uppercase" opacity={0.65} fontWeight="900">{i18n.t("auto.MenuJournalierAuto.controles", "Contrôles")}</Text>
                   <Button
                     mt={2}
@@ -4188,7 +4197,9 @@ export default function MenuJournalierAuto({
               </SimpleGrid>
               ) : null}
 
-              {mode !== "edit" ? <TargetsBar /> : null}
+              {mode !== "edit" ? (
+                <Box display={{ base: "none", md: "block" }}><TargetsBar /></Box>
+              ) : null}
 
               {currentMenuNeedsReview ? (
                 <Alert status="warning" rounded="lg">
@@ -4255,32 +4266,46 @@ export default function MenuJournalierAuto({
         <Card bg={panelBg} border="1px solid" borderColor={borderCol} rounded={{ base: "xl", md: "2xl" }}>
           <CardBody px={{ base: 3, md: 5 }} py={{ base: 3, md: 5 }}>
             <HStack mb={3} align="center" flexWrap="wrap" gap={2}>
-              <Heading size="sm">{i18n.t("auto.MenuJournalierAuto.planning_7_jours", "Planning (7 jours)")}</Heading>
+              <Heading size="sm">
+                {planningDisplay === "day"
+                  ? i18n.t("auto.MenuJournalierAuto.day_view", "Jour par jour")
+                  : i18n.t("auto.MenuJournalierAuto.planning_7_jours", "Planning (7 jours)")}
+              </Heading>
               <Spacer />
-              <HStack>
+              <HStack w={{ base: "100%", sm: "auto" }} justify="space-between">
+                <HStack spacing={1} borderWidth="1px" borderColor={borderCol} borderRadius="full" p={1}>
+                  <Button size="xs" borderRadius="full" variant={planningDisplay === "day" ? "solid" : "ghost"} onClick={() => setPlanningDisplay("day")}>Jour</Button>
+                  <Button size="xs" borderRadius="full" variant={planningDisplay === "week" ? "solid" : "ghost"} onClick={() => setPlanningDisplay("week")}>Semaine</Button>
+                </HStack>
                 <IconButton
-                  aria-label={i18n.t("auto.MenuJournalierAuto.semaine_precedente", "Semaine précédente")}
+                  aria-label={planningDisplay === "day" ? "Jour précédent" : i18n.t("auto.MenuJournalierAuto.semaine_precedente", "Semaine précédente")}
                   icon={<ChevronLeftIcon />}
                   size="sm"
                   variant="outline"
-                  onClick={() => setWeekStart((s) => Math.max(1, (s || 1) - 7))}
-                  isDisabled={weekStart <= 1}
+                  onClick={() => planningDisplay === "day"
+                    ? setPlanningDayIndex((day) => Math.max(1, (day || 1) - 1))
+                    : setWeekStart((start) => Math.max(1, (start || 1) - 7))}
+                  isDisabled={planningDisplay === "day" ? planningDayIndex <= 1 : weekStart <= 1}
                 />
                 <Tag size="sm" variant="subtle">
                   <TagLabel fontWeight="900">
-                    {i18n.t("auto.MenuJournalierAuto.week_range", "J{{start}} → J{{end}}", {
-                      start: weekDays[0],
-                      end: weekDays[weekDays.length - 1],
-                    })}
+                    {planningDisplay === "day"
+                      ? `J${planningDays[0]}`
+                      : i18n.t("auto.MenuJournalierAuto.week_range", "J{{start}} → J{{end}}", {
+                          start: weekDays[0],
+                          end: weekDays[weekDays.length - 1],
+                        })}
                   </TagLabel>
                 </Tag>
                 <IconButton
-                  aria-label={i18n.t("auto.MenuJournalierAuto.semaine_suivante", "Semaine suivante")}
+                  aria-label={planningDisplay === "day" ? "Jour suivant" : i18n.t("auto.MenuJournalierAuto.semaine_suivante", "Semaine suivante")}
                   icon={<ChevronRightIcon />}
                   size="sm"
                   variant="outline"
-                  onClick={() => setWeekStart((s) => Math.min(Math.max(1, daysCount - 6), (s || 1) + 7))}
-                  isDisabled={weekStart >= Math.max(1, daysCount - 6)}
+                  onClick={() => planningDisplay === "day"
+                    ? setPlanningDayIndex((day) => Math.min(daysCount, (day || 1) + 1))
+                    : setWeekStart((start) => Math.min(Math.max(1, daysCount - 6), (start || 1) + 7))}
+                  isDisabled={planningDisplay === "day" ? planningDayIndex >= daysCount : weekStart >= Math.max(1, daysCount - 6)}
                 />
               </HStack>
             </HStack>
@@ -4288,9 +4313,12 @@ export default function MenuJournalierAuto({
             <Text display={{ base: "none", md: "block" }} fontSize={{ base: "xs", md: "sm" }} opacity={0.75} mb={3}>{i18n.t("auto.MenuJournalierAuto.clique_sur_un_jour_pour_voir_le_detail", "Clique sur un jour pour voir le détail.")}<br />{i18n.t("auto.MenuJournalierAuto.astuce_si_tu_veux_des_menus_differents_d_un_coup", "Astuce : si tu veux des menus différents d’un coup →")}<b>{i18n.t("auto.MenuJournalierAuto.generer_les_menus_2", "“Générer les menus”")}</b>.
             </Text>
 
-            <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} spacing={{ base: 3, md: 4 }}>
-              {weekDays.map((d) => {
-                const prev = weekPreview[d];
+            <SimpleGrid
+              columns={planningDisplay === "day" ? 1 : { base: 1, md: 2, xl: 4 }}
+              spacing={{ base: 3, md: 4 }}
+            >
+              {planningDays.map((d) => {
+                const prev = planningDisplay === "day" ? computeDayPreview(d) : weekPreview[d];
                 const t = prev?.totals || { kcal: 0, p: 0, f: 0, c: 0 };
                 const dayGapPct = rationKcalTarget > 0 ? Math.abs(num(t.kcal) - rationKcalTarget) / rationKcalTarget : 0;
                 const dayMacroNeedsReview = [
@@ -4304,6 +4332,7 @@ export default function MenuJournalierAuto({
                 return (
                   <Card
                     key={d}
+                    w="100%"
                     bg={planningDayBg}
                     color={planningText}
                     border="1px solid"
@@ -4376,7 +4405,8 @@ export default function MenuJournalierAuto({
                         const hasAny = (rationLinesByMealStatic?.[mk] || []).length > 0;
                         if (!hasAny) return null;
 
-                        const summaryItems = compactMealSummary(mk, items);
+                        const showFullDay = planningDisplay === "day" && !isMobile;
+                        const summaryItems = showFullDay ? items : compactMealSummary(mk, items);
 
                         return (
                           <Box key={mk} p={2.5} bg={planningMealBg} border="1px solid" borderColor={borderCol} rounded="lg">
@@ -4397,7 +4427,12 @@ export default function MenuJournalierAuto({
                                 {summaryItems.map((x, idx) => (
                                   <HStack key={`${mk}_summary_${idx}`} align="start" spacing={2}>
                                     <Box flexShrink={0} w="5px" h="5px" rounded="full" bg="gray.400" mt="6px" />
-                                    <Text fontSize="xs" lineHeight="1.3" noOfLines={2} color={planningText}>
+                                    <Text
+                                      fontSize={showFullDay ? "sm" : "xs"}
+                                      lineHeight="1.35"
+                                      noOfLines={showFullDay ? undefined : 2}
+                                      color={planningText}
+                                    >
                                       {displayMenuFoodName(x.text)}{" "}
                                       <Box as="span" color={planningMuted}>
                                         ({r0(x.qty)} {x.unit})

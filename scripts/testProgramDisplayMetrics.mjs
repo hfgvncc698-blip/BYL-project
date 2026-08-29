@@ -4,6 +4,7 @@ import {
   formatProgramWeekProgress,
   getProgramPlannedSessionTotal,
   getProgramSessionsPerWeek,
+  getProgramValidatedSessionCount,
   readProgramActiveWeeks,
 } from "../src/utils/programDuration.js";
 
@@ -61,12 +62,30 @@ assert.equal(
   "a five-session weekly template over four weeks plans twenty sessions"
 );
 assert.equal(
+  getProgramValidatedSessionCount({
+    ...fourWeekProgram,
+    sessionsEffectuees: Array.from({ length: 10 }, (_, index) => ({
+      sessionIndex: index % 5,
+      status: "completed",
+      completedAt: "2026-08-27T10:00:00.000Z",
+    })),
+  }),
+  10,
+  "weekly repetitions must count every validation rather than deduplicating template indexes"
+);
+assert.equal(
   formatProgramWeekProgress(fourWeekProgram, null, {
     includeInitialWeek: true,
     now: "2026-08-20T10:00:00.000Z",
   }),
-  "Semaine 2/4",
-  "the displayed week follows elapsed time since assignment, not completed-session count"
+  "Semaine 1/4",
+  "a displayed week is validated only after every weekly session is completed"
+);
+
+assert.equal(
+  formatProgramWeekProgress({ ...fourWeekProgram, sessionsEffectuees: fourWeekProgram.sessionsEffectuees.slice(0, 4) }),
+  "Semaine 0/4",
+  "a partial week must not be presented as validated"
 );
 
 console.log("Program display metric priority: OK");

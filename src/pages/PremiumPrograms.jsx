@@ -439,12 +439,6 @@ export default function PremiumPrograms(){
   return (
     <Box bg={theme.pageBg} minH="100vh" px={{ base: 4, md: 8 }} py={{ base: 6, md: 10 }}>
       <Box maxW="1180px" mx="auto">
-        <HStack mb={4}>
-          <PageBackButton fallbackTo="/user-dashboard" label={t("programView.back", "Retour")} />
-          <Text color={theme.mutedText} fontWeight="800" fontSize="sm">
-            {t("programView.back", "Retour")}
-          </Text>
-        </HStack>
         <Box
           bg={headerPanelBg}
           border="1px solid"
@@ -455,6 +449,11 @@ export default function PremiumPrograms(){
           mb={6}
           boxShadow={headerShadow}
         >
+          <PageBackButton
+            fallbackTo="/user-dashboard"
+            label={t("programView.back", "Retour")}
+            mb={4}
+          />
           <HStack justify="space-between" align={{ base: "flex-start", md: "center" }} spacing={4} flexWrap="wrap">
             <Box>
               <HStack spacing={3} mb={3}>

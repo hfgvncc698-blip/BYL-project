@@ -6,11 +6,7 @@ import { db } from "../firebaseConfig";
 import { useAuth } from "../AuthContext";
 import {
   Box,
-  Heading,
   SimpleGrid,
-  Stat,
-  StatLabel,
-  StatNumber,
   VStack,
   HStack,
   Icon,
@@ -23,7 +19,6 @@ import {
   WrapItem,
   Button,
   Spacer,
-  Stack,
 } from "@chakra-ui/react";
 import {
   MdPeople,
@@ -40,6 +35,7 @@ import {
 } from "react-icons/md";
 import { useTranslation } from "react-i18next";
 import AppLoading from "../components/ui/AppLoading";
+import { AppMetricTile, AppSectionHeader, AppSurface } from "../components/ui/AppPrimitives.jsx";
 import { useAppTheme } from "../styles/appTheme";
 import { hasPlanModule } from "../utils/proPlanAccess";
 import { readPageDataCacheEntry, runLimited, writePageDataCache } from "../utils/pageDataCache";
@@ -165,8 +161,7 @@ function objectiveLabel(key, t) {
 function Card({ children, onClick, glow = "rgba(59, 130, 246, 0.12)", ...props }) {
   const theme = useAppTheme();
   return (
-    <Box
-      {...theme.cardProps}
+    <AppSurface
       position="relative"
       overflow="hidden"
       p={{ base: 5, md: 6 }}
@@ -177,57 +172,28 @@ function Card({ children, onClick, glow = "rgba(59, 130, 246, 0.12)", ...props }
         pointerEvents: "none",
         background: `radial-gradient(circle at 92% 12%, ${glow}, transparent 34%)`,
       }}
-      _hover={{
-        ...theme.cardProps._hover,
-        transform: onClick ? "translateY(-2px)" : "none",
-      }}
-      transition="all .18s ease"
+      _hover={onClick ? { borderColor: theme.borderStrong } : undefined}
+      transition="border-color .15s ease"
       cursor={onClick ? "pointer" : "default"}
       onClick={onClick}
       {...props}
     >
       <Box position="relative">{children}</Box>
-    </Box>
+    </AppSurface>
   );
 }
 
 function StatTile({ icon, label, value, accent = "blue.500", glow, onClick, hint }) {
-  const theme = useAppTheme();
   return (
-    <Card onClick={onClick} glow={glow} p={{ base: 4, md: 6 }}>
-      <HStack spacing={{ base: 3, md: 4 }} align="flex-start">
-        <Box
-          bg={theme.surfaceSoft}
-          color={accent}
-          borderRadius="xl"
-          p={{ base: 2, md: 2.5 }}
-          display="inline-flex"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <Icon as={icon} boxSize={{ base: 5, md: 6 }} />
-        </Box>
-        <VStack align="flex-start" spacing={1} flex={1}>
-          <HStack w="full" justify="space-between">
-            <Stat>
-              <StatLabel fontSize="sm" color={theme.mutedText}>
-                {label}
-              </StatLabel>
-              <StatNumber fontSize={{ base: "2xl", md: "3xl" }} color={theme.textColor} lineHeight="1">
-                {value}
-              </StatNumber>
-            </Stat>
-            {hint && (
-              <Tooltip label={hint} hasArrow>
-                <Box color={theme.subtleText}>
-                  <Icon as={MdInsights} />
-                </Box>
-              </Tooltip>
-            )}
-          </HStack>
-        </VStack>
-      </HStack>
-    </Card>
+    <AppMetricTile
+      icon={icon}
+      title={label}
+      subtitle={hint}
+      value={value}
+      accent={accent}
+      onOpen={onClick}
+      data-glow={glow}
+    />
   );
 }
 
@@ -675,32 +641,14 @@ export default function StatisticsPageCoach() {
     <Box data-tour-page="coach-stats" p={{ base: 3, md: 8 }} pb={{ base: 28, md: 8 }} bg={pageBg} color={textColor} minH="calc(100vh - 112px)">
       <VStack align="stretch" spacing={{ base: 4, md: 6 }} maxW="1680px" mx="auto">
         <Card glow="rgba(16, 185, 129, 0.12)" p={{ base: 5, md: 7 }}>
-          <Stack direction={{ base: "column", md: "row" }} align={{ base: "flex-start", md: "center" }} spacing={5}>
-            <Box
-              bg={theme.surfaceSoft}
-              border="1px solid"
-              borderColor={theme.borderColor}
-              borderRadius="2xl"
-              p={3}
-              display="inline-flex"
-              color={theme.accentBlue}
-            >
-              <Icon as={MdInsights} boxSize={7} />
-            </Box>
-            <VStack align="flex-start" spacing={2} flex="1" minW={{ base: "100%", lg: 0 }}>
-              <HStack spacing={3} flexWrap="wrap">
-                <Heading letterSpacing="-0.04em" size={{ base: "lg", md: "xl" }}>
-                  {t("coachStats.title", "Statistiques")}
-                </Heading>
-                <Badge borderRadius="full" px={3}>
-                  {headerBadge}
-                </Badge>
-              </HStack>
-              <Text color={mutedText} maxW="760px">
-                {headerSubtitle}
-              </Text>
-            </VStack>
-          </Stack>
+          <AppSectionHeader
+            icon={MdInsights}
+            iconAccent={theme.accentBlue}
+            title={t("coachStats.title", "Statistiques")}
+            subtitle={headerSubtitle}
+            headingAs="h1"
+            action={<Badge borderRadius="full" px={3}>{headerBadge}</Badge>}
+          />
         </Card>
 
       {/* KPIs */}

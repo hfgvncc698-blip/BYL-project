@@ -3012,12 +3012,16 @@ export default function ProgramBuilder({
       : isAdminCoachMode
       ? adminCoachId
       : user?.uid || "unknown";
+  const authenticatedCoachName = [user?.firstName || user?.prenom, user?.lastName || user?.nom]
+    .filter(Boolean)
+    .join(" ")
+    .trim() || user?.displayName || user?.fullName || "";
   const createdByNameForSave =
     user?.role === "admin" && adminCreatedBy === "BYL"
       ? "BYL"
       : isAdminCoachMode
       ? adminCoachId
-      : user?.email || user?.uid || "unknown";
+      : authenticatedCoachName || user?.email || user?.uid || "unknown";
   const programDocRef = useProgramDocRef(programId);
   const [, startTransition] = useTransition();
 
@@ -3921,6 +3925,7 @@ export default function ProgramBuilder({
       nbSeances: sessionsToAssign.length || null,
       coachId: createdByForSave,
       createdBy: createdByForSave,
+      createdByName: createdByNameForSave,
       assignedBy: createdByForSave,
       clubId: user?.clubId || null,
       clubName: user?.clubName || null,

@@ -7,9 +7,14 @@ import {
   Badge,
   Box,
   Button,
+  Flex,
   Heading,
   HStack,
   IconButton,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  InputRightElement,
   SimpleGrid,
   Stack,
   Table,
@@ -29,6 +34,7 @@ import {
   ModalBody,
   ModalFooter,
 } from "@chakra-ui/react";
+import { CloseIcon, DeleteIcon, SearchIcon } from "@chakra-ui/icons";
 import { collection, deleteDoc, doc, getDocs, limit, query, where } from "firebase/firestore";
 import { useLocation, useNavigate } from "react-router-dom";
 import { db } from "../firebaseConfig";
@@ -38,6 +44,7 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { useAuth } from "../AuthContext.jsx";
 import NutritionQuickCreateModal from "../components/NutritionQuickCreateModal.jsx";
 import PageBackButton from "../components/ui/PageBackButton.jsx";
+import { AppMetricValue, AppSectionHeader, AppSurface } from "../components/ui/AppPrimitives.jsx";
 import { useTranslation } from "react-i18next";
 import {
   deferPageTask,
@@ -81,6 +88,13 @@ function getClientName(assessment, t) {
   return [assessment?.inputs?.prenom, assessment?.inputs?.nom].filter(Boolean).join(" ").trim() || t("dashboard.client", "Client");
 }
 
+const normalizeNutritionSearch = (value) =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase()
+    .trim();
+
 const getNutritionCountHint = (client) => {
   const candidates = [
     client?.nutritionAssessmentCount,
@@ -111,7 +125,7 @@ export default function CoachNutritionPage() {
     borderWidth: "1px",
     borderColor: theme.borderColor,
     borderRadius: "24px",
-    bg: theme.surfaceBg,
+    bg: theme.surfaceBgStrong,
     boxShadow: "0 14px 34px rgba(15, 23, 42, 0.06)",
   };
   const tileProps = {
@@ -152,6 +166,7 @@ export default function CoachNutritionPage() {
     () => Number(initialNutritionPageCache?.clientCount || 0) || 0
   );
   const [pendingDelete, setPendingDelete] = useState(null);
+  const [nutritionSearch, setNutritionSearch] = useState("");
 
   useLayoutEffect(() => {
     const entry = readPageDataCacheEntry(nutritionPageCacheKey, {
@@ -368,55 +383,109 @@ export default function CoachNutritionPage() {
     };
   }, [clientCount, clientLimit, t]);
 
+  const filteredRows = useMemo(() => {
+    const queryText = normalizeNutritionSearch(nutritionSearch);
+    if (!queryText) return rows;
+    const language = i18n.resolvedLanguage || i18n.language || "fr";
+    return rows.filter((row) => {
+      const objective = row?.inputs?.objectif || row?.inputs?.objective || t("nutritionCoach.defaultObjective", "Bilan nutrition");
+      const date = formatDate(row?.updatedAt || row?.createdAt, language);
+      return normalizeNutritionSearch([getClientName(row, t), objective, date].join(" ")).includes(queryText);
+    });
+  }, [i18n.language, i18n.resolvedLanguage, nutritionSearch, rows, t]);
+
   if (loading) return <AppLoading label={t("nutritionCoach.loading", "Chargement de l’espace nutrition...")} />;
 
   return (
     <Box data-tour-page="coach-nutrition" minH="100vh" bg={theme.pageBg} color={theme.textColor} p={{ base: 3, md: 6 }} pb={{ base: 28, md: 6 }}>
       <Box maxW="7xl" mx="auto">
-        <Box {...panelProps} bg={{ base: theme.surfaceGlow, md: theme.surfaceBg }} p={{ base: 5, md: 5 }} mb={4}>
-          <HStack justify="space-between" align="start" gap={4} flexWrap="wrap">
-            <Box>
-              <Text fontSize="xs" fontWeight="900" letterSpacing="0.12em" color={theme.subtleText}>
-                {t("nutritionCoach.eyebrow", "ESPACE NUTRITION")}
-              </Text>
-              <HStack spacing={3} align="center" mt={1}>
-                <PageBackButton fallbackTo={withAdminCoach("/coach-dashboard")} />
-                <Heading fontSize={{ base: "2xl", md: "3xl" }} letterSpacing="0">{t("nav.nutrition", "Nutrition")}</Heading>
-              </HStack>
-              <Text color={theme.mutedText} mt={2} fontSize={{ base: "md", md: "inherit" }} fontWeight={{ base: "650", md: "normal" }}>
-                {t("nutritionCoach.subtitle", "Retrouve ici les patients qui ont déjà un suivi nutrition afin de relancer, ajuster ou ouvrir leur dossier.")}
-              </Text>
-            </Box>
-            <HStack spacing={3} w={{ base: "full", md: "auto" }} flexWrap="wrap">
-              <Button w={{ base: "full", sm: "auto" }} variant="outline" borderRadius="16px" onClick={() => navigate(withAdminCoach("/clients"))}>
-                {t("nutritionCoach.openPatientFiles", "Ouvrir les fiches patients")}
-              </Button>
-              <Button w={{ base: "full", sm: "auto" }} data-tour="nutrition-new" {...theme.primaryButtonProps} onClick={createModal.onOpen}>
-                {t("nutritionCoach.createFollowup", "Créer un suivi nutrition")}
-              </Button>
-            </HStack>
-          </HStack>
-        </Box>
+        <AppSurface p={{ base: 4, md: 5 }} mb={4}>
+          <Flex align="flex-start" gap={3}>
+            <PageBackButton fallbackTo={withAdminCoach("/coach-dashboard")} />
+            <AppSectionHeader
+              flex="1"
+              title={t("nav.nutrition", "Nutrition")}
+              subtitle={t("nutritionCoach.subtitle", "Retrouve ici les patients qui ont déjà un suivi nutrition afin de relancer, ajuster ou ouvrir leur dossier.")}
+              headingAs="h1"
+              action={(
+                <HStack spacing={2} flexWrap="wrap" justify="flex-end">
+                  <Button data-tour="nutrition-new" {...theme.primaryButtonProps} onClick={createModal.onOpen}>
+                    {t("nutritionCoach.createFollowup", "Créer un suivi nutrition")}
+                  </Button>
+                </HStack>
+              )}
+              direction={{ base: "column", lg: "row" }}
+              align={{ base: "stretch", lg: "center" }}
+            />
+          </Flex>
+        </AppSurface>
 
-        <SimpleGrid data-tour="nutrition-stats" columns={{ base: 3, sm: 3 }} spacing={{ base: 2, md: 4 }} mb={4}>
-          <Box {...tileProps} p={{ base: 3, md: 4 }}>
-            <Text fontSize="xs" fontWeight="900" color={theme.subtleText} noOfLines={1}>{t("nutritionCoach.stats.patients", "PATIENTS")}</Text>
-            <Text mt={1} fontSize={{ base: "2xl", md: "2xl" }} fontWeight="900">{clientQuota.value}</Text>
-            <Text fontSize={{ base: "xs", md: "sm" }} color={theme.mutedText} noOfLines={{ base: 2, md: 1 }}>{clientQuota.hint}</Text>
-          </Box>
-          <Box {...tileProps} p={{ base: 3, md: 4 }}>
-            <Text fontSize="xs" fontWeight="900" color={theme.subtleText} noOfLines={1}>{t("nutritionCoach.stats.assessments", "BILANS")}</Text>
-            <Text mt={1} fontSize={{ base: "2xl", md: "2xl" }} fontWeight="900">{stats.totalAssessments}</Text>
-            <Text fontSize={{ base: "xs", md: "sm" }} color={theme.mutedText} noOfLines={{ base: 2, md: 1 }}>{t("nutritionCoach.stats.assessmentsHint", "historique nutrition disponible")}</Text>
-          </Box>
-          <Box {...tileProps} p={{ base: 3, md: 4 }}>
-            <Text fontSize="xs" fontWeight="900" color={theme.subtleText} noOfLines={1}>{t("nutritionCoach.stats.sharedFollowup", "PARTAGÉS / À SUIVRE")}</Text>
-            <Text mt={1} fontSize={{ base: "2xl", md: "2xl" }} fontWeight="900">{stats.shared} / {stats.inProgress}</Text>
-            <Text fontSize={{ base: "xs", md: "sm" }} color={theme.mutedText} noOfLines={{ base: 2, md: 1 }}>{t("nutritionCoach.stats.sharedFollowupHint", "partagés côté patient / dossiers en cours")}</Text>
-          </Box>
+        <SimpleGrid data-tour="nutrition-stats" columns={{ base: 1, sm: 3 }} spacing={{ base: 2, md: 4 }} mb={4}>
+          <AppSurface variant="tile" p={{ base: 3, md: 4 }}>
+            <Flex align="center" justify="space-between" gap={{ base: 2, md: 4 }} h="100%">
+              <Stack spacing={1} minW={0} justify="center">
+                <Heading as="h2" size="md" color={theme.textColor} fontWeight="900" lineHeight="1.15" noOfLines={2}>{t("nutritionCoach.stats.patients", "PATIENTS")}</Heading>
+                <Text fontSize="xs" color={theme.subtleText} fontWeight="400" lineHeight="1.25" noOfLines={2}>{clientQuota.hint}</Text>
+              </Stack>
+              <AppMetricValue flexShrink={0} fontSize={{ base: "2xl", md: "32px" }}>{clientQuota.value}</AppMetricValue>
+            </Flex>
+          </AppSurface>
+          <AppSurface variant="tile" p={{ base: 3, md: 4 }}>
+            <Flex align="center" justify="space-between" gap={{ base: 2, md: 4 }} h="100%">
+              <Stack spacing={1} minW={0} justify="center">
+                <Heading as="h2" size="md" color={theme.textColor} fontWeight="900" lineHeight="1.15" noOfLines={2}>{t("nutritionCoach.stats.assessments", "BILANS")}</Heading>
+                <Text fontSize="xs" color={theme.subtleText} fontWeight="400" lineHeight="1.25" noOfLines={2}>{t("nutritionCoach.stats.assessmentsHint", "historique nutrition disponible")}</Text>
+              </Stack>
+              <AppMetricValue flexShrink={0} fontSize={{ base: "2xl", md: "32px" }}>{stats.totalAssessments}</AppMetricValue>
+            </Flex>
+          </AppSurface>
+          <AppSurface variant="tile" p={{ base: 3, md: 4 }}>
+            <Flex align="center" justify="space-between" gap={{ base: 2, md: 4 }} h="100%">
+              <Stack spacing={1} minW={0} justify="center">
+                <Heading as="h2" size="md" color={theme.textColor} fontWeight="900" lineHeight="1.15" noOfLines={2}>{t("nutritionCoach.stats.sharedFollowup", "PARTAGÉS / À SUIVRE")}</Heading>
+                <Text fontSize="xs" color={theme.subtleText} fontWeight="400" lineHeight="1.25" noOfLines={2}>{t("nutritionCoach.stats.sharedFollowupHint", "partagés côté patient / dossiers en cours")}</Text>
+              </Stack>
+              <AppMetricValue flexShrink={0} fontSize={{ base: "2xl", md: "32px" }}>{stats.shared} / {stats.inProgress}</AppMetricValue>
+            </Flex>
+          </AppSurface>
         </SimpleGrid>
 
         <Box data-tour="nutrition-bilans" {...panelProps} p={4}>
+          <HStack align="center" justify="space-between" gap={3} mb={4} flexWrap="wrap">
+            <InputGroup maxW={{ base: "100%", md: "430px" }}>
+              <InputLeftElement pointerEvents="none">
+                <SearchIcon color={theme.mutedText} />
+              </InputLeftElement>
+              <Input
+                value={nutritionSearch}
+                onChange={(event) => setNutritionSearch(event.target.value)}
+                placeholder={t("nutritionCoach.searchPlaceholder", "Rechercher un patient, un objectif ou une date…")}
+                aria-label={t("nutritionCoach.searchPlaceholder", "Rechercher un patient, un objectif ou une date…")}
+                borderRadius="full"
+                bg={theme.surfaceSoft}
+                borderColor={theme.borderColor}
+                _hover={{ borderColor: theme.borderColorStrong }}
+                _focusVisible={{ borderColor: "#3B82F6", boxShadow: "0 0 0 1px #3B82F6" }}
+              />
+              {nutritionSearch ? (
+                <InputRightElement>
+                  <IconButton
+                    aria-label={t("nutritionCoach.clearSearch", "Effacer la recherche")}
+                    icon={<CloseIcon boxSize="10px" />}
+                    size="xs"
+                    variant="ghost"
+                    borderRadius="full"
+                    onClick={() => setNutritionSearch("")}
+                  />
+                </InputRightElement>
+              ) : null}
+            </InputGroup>
+            {nutritionSearch ? (
+              <Text fontSize="sm" color={theme.mutedText} fontWeight="700">
+                {t("nutritionCoach.searchResults", "{{count}} résultat(s)", { count: filteredRows.length })}
+              </Text>
+            ) : null}
+          </HStack>
           {loadError ? (
             <Alert status="error" borderRadius="16px" alignItems="flex-start">
               <AlertIcon mt={1} />
@@ -435,16 +504,18 @@ export default function CoachNutritionPage() {
             </Alert>
           ) : rows.length === 0 ? (
             <Text color={theme.mutedText}>{t("nutritionCoach.empty", "Aucun dossier nutrition détecté pour le moment.")}</Text>
+          ) : filteredRows.length === 0 ? (
+            <Text color={theme.mutedText}>{t("nutritionCoach.noSearchResults", "Aucun suivi nutrition ne correspond à cette recherche.")}</Text>
           ) : (
             <>
             <Stack spacing={3} display={{ base: "flex", md: "none" }}>
-              {rows.map((row) => {
+              {filteredRows.map((row) => {
                 const status = getStatus(row, t);
                 const clientName = getClientName(row, t);
                 const objective = row?.inputs?.objectif || row?.inputs?.objective || t("nutritionCoach.defaultObjective", "Bilan nutrition");
                 return (
-                  <Box key={row.id} {...tileProps} p={3}>
-                    <HStack justify="space-between" align="start" gap={3}>
+                  <Box key={row.id} {...tileProps} bg={theme.surfaceBgStrong} borderRadius="24px" p={4} boxShadow="0 10px 24px rgba(15, 23, 42, 0.05)">
+                    <Stack spacing={3}>
                       <Box minW={0}>
                         <Text fontWeight="900" noOfLines={1}>{clientName}</Text>
                         <Text fontSize="sm" color={theme.mutedText}>{formatDate(row?.updatedAt || row?.createdAt, i18n.resolvedLanguage) || t("common.unknownDate", "Date inconnue")}</Text>
@@ -456,10 +527,27 @@ export default function CoachNutritionPage() {
                           </Badge>
                         </HStack>
                       </Box>
-                      <Button size="sm" borderRadius="12px" onClick={() => navigate(withAdminCoach(`/clients/${row.clientId}/nutrition/${row.id}`))}>
-                        {t("common.open", "Ouvrir")}
-                      </Button>
-                    </HStack>
+                      <HStack spacing={2} align="stretch">
+                        <IconButton
+                          size="sm"
+                          w="42px"
+                          h="44px"
+                          minW="42px"
+                          aria-label={t("nutritionCoach.deleteAssessment", "Supprimer le bilan")}
+                          bg="rgba(239,68,68,0.14)"
+                          color="#EF4444"
+                          borderRadius="full"
+                          icon={<DeleteIcon boxSize="15px" />}
+                          onClick={() => askDelete(row)}
+                        />
+                        <Button flex="1" minW={0} px={2} size="sm" variant="outline" borderRadius="full" h="44px" whiteSpace="normal" lineHeight="1.1" fontSize="xs" onClick={() => navigate(withAdminCoach(`/clients/${row.clientId}`))}>
+                          {t("nutritionCoach.openFile", "Voir le dossier patient")}
+                        </Button>
+                        <Button flex="1" minW={0} px={2} size="sm" {...theme.primaryButtonProps} borderRadius="full" h="44px" whiteSpace="normal" lineHeight="1.1" fontSize="xs" onClick={() => navigate(withAdminCoach(`/clients/${row.clientId}/nutrition/${row.id}`))}>
+                          {t("nutritionCoach.openAssessment", "Consulter le bilan nutrition")}
+                        </Button>
+                      </HStack>
+                    </Stack>
                   </Box>
                 );
               })}
@@ -478,7 +566,7 @@ export default function CoachNutritionPage() {
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {rows.map((row) => {
+                  {filteredRows.map((row) => {
                     const status = getStatus(row, t);
                     const clientName = getClientName(row, t);
                     const objective = row?.inputs?.objectif || row?.inputs?.objective || t("nutritionCoach.defaultObjective", "Bilan nutrition");
@@ -499,19 +587,19 @@ export default function CoachNutritionPage() {
                         </Td>
                         <Td isNumeric>
                           <HStack data-tour="nutrition-actions" justify="flex-end">
-                            <Button size="sm" borderRadius="12px" onClick={() => navigate(withAdminCoach(`/clients/${row.clientId}`))}>
-                              {t("nutritionCoach.openFile", "Ouvrir la fiche")}
+                            <Button size="sm" borderRadius="full" onClick={() => navigate(withAdminCoach(`/clients/${row.clientId}`))}>
+                              {t("nutritionCoach.openFile", "Voir le dossier patient")}
                             </Button>
-                            <Button size="sm" variant="outline" borderRadius="12px" onClick={() => navigate(withAdminCoach(`/clients/${row.clientId}/nutrition/${row.id}`))}>
-                              {t("nutritionCoach.openAssessment", "Ouvrir le bilan")}
+                            <Button size="sm" variant="outline" borderRadius="full" onClick={() => navigate(withAdminCoach(`/clients/${row.clientId}/nutrition/${row.id}`))}>
+                              {t("nutritionCoach.openAssessment", "Consulter le bilan nutrition")}
                             </Button>
                             <IconButton
                               size="sm"
                               aria-label={t("nutritionCoach.deleteAssessment", "Supprimer le bilan")}
                               bg="rgba(239,68,68,0.14)"
                               color="#EF4444"
-                              borderRadius="12px"
-                              icon={<span style={{ fontWeight: 700 }}>{t("auto.CoachNutritionPage.text", "×")}</span>}
+                              borderRadius="14px"
+                              icon={<DeleteIcon boxSize="15px" />}
                               onClick={() => askDelete(row)}
                             />
                           </HStack>

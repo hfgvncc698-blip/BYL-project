@@ -146,34 +146,21 @@ export function getProgramStartMillis(program = {}) {
   return 0;
 }
 
-export function getProgramCurrentWeek(program = {}, options = {}) {
+export function getProgramCurrentWeek(program = {}) {
   const totalWeeks = readProgramActiveWeeks(program);
   if (!totalWeeks) return 0;
-
-  const startMillis = getProgramStartMillis(program);
-  if (startMillis > 0) {
-    const requestedNow = programDateToMillis(options.now ?? options.nowMs);
-    const nowMillis = requestedNow > 0 ? requestedNow : Date.now();
-    const elapsedDays = Math.max(0, Math.floor((nowMillis - startMillis) / 86_400_000));
-    return Math.min(totalWeeks, Math.floor(elapsedDays / 7) + 1);
-  }
-
-  // Compatibilite avec les anciens documents sans date d'assignation.
   const sessionsPerWeek = getProgramSessionsPerWeek(program);
-  if (!sessionsPerWeek) return options.includeInitialWeek === true ? 1 : 0;
+  if (!sessionsPerWeek) return 0;
   const validatedCount = getProgramValidatedSessionCount(program);
-  return Math.min(
-    totalWeeks,
-    Math.max(options.includeInitialWeek === true ? 1 : 0, Math.ceil(validatedCount / sessionsPerWeek))
-  );
+  // Une semaine n'est acquise qu'une fois toutes ses séances validées. La date
+  // d'attribution ne doit jamais faire avancer ce compteur à elle seule.
+  return Math.min(totalWeeks, Math.floor(validatedCount / sessionsPerWeek));
 }
 
 export function formatProgramWeekProgress(program = {}, t = null, options = {}) {
   const totalWeeks = readProgramActiveWeeks(program);
   if (!totalWeeks) return "";
   const current = getProgramCurrentWeek(program, options);
-  if (current <= 0) return "";
-
   if (typeof t === "function") {
     return t("dashboard.program_week_progress", "Semaine {{current}}/{{total}}", {
       current,

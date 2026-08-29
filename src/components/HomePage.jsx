@@ -41,7 +41,8 @@ import {
 
 const MotionVStack = motion(VStack);
 
-const HERO_URL = "/hero-bg.png";
+const HERO_LIGHT_URL = "/hero-fitness-nutrition-light-v5.jpg";
+const HERO_DARK_URL = "/hero-fitness-nutrition-v5.jpg";
 const MOCKUP_URL = "/Mockup.jpg";
 const stripStepPrefix = (text = "") => String(text).replace(/^\s*\d+\)\s*/, "");
 
@@ -137,6 +138,11 @@ export default function HomePage() {
   const { t } = useTranslation();
 
   const bgHero = useColorModeValue("white", "gray.900");
+  const heroUrl = useColorModeValue(HERO_LIGHT_URL, HERO_DARK_URL);
+  const heroOverlay = useColorModeValue(
+    "linear-gradient(to bottom, rgba(15,23,42,0.34) 0%, rgba(15,23,42,0.46) 52%, rgba(15,23,42,0.58) 100%)",
+    "linear-gradient(to bottom, rgba(3,11,24,0.24) 0%, rgba(3,11,24,0.38) 52%, rgba(3,11,24,0.56) 100%)"
+  );
   const bgSection = useColorModeValue("white", "gray.800");
   const bgSoft = useColorModeValue("gray.50", "gray.900");
   
@@ -228,21 +234,28 @@ export default function HomePage() {
       {/* ================= HERO ================= */}
       <Box
         position="relative"
+        bg={{ base: "#07101F", md: "transparent" }}
         _before={{
           content: '""',
           position: "absolute",
-          inset: 0,
-          backgroundImage: `url("${HERO_URL}")`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
+          top: 0,
+          right: 0,
+          bottom: { base: "auto", md: 0 },
+          left: 0,
+          h: { base: "390px", md: "auto" },
+          backgroundImage: `url("${heroUrl}")`,
+          backgroundSize: { base: "auto 390px", md: "cover" },
+          backgroundPosition: { base: "48% center", md: "center" },
           backgroundRepeat: "no-repeat",
         }}
         _after={{
           content: '""',
           position: "absolute",
           inset: 0,
-          background:
-            "linear-gradient(to bottom, rgba(0,0,0,0.44) 0%, rgba(0,0,0,0.78) 48%, rgba(0,0,0,0.92) 100%)",
+          background: {
+            base: "linear-gradient(to bottom, rgba(3,11,24,0.24) 0px, rgba(3,11,24,0.50) 230px, rgba(7,16,31,0.96) 360px, #07101F 430px, #07101F 100%)",
+            md: heroOverlay,
+          },
         }}
       >
         <Container maxW="container.xl" position="relative" zIndex={1}>

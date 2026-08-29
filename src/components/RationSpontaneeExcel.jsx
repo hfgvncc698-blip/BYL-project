@@ -13,7 +13,9 @@ import {
   Input,
   Select,
   SimpleGrid,
+  Stack,
   Text,
+  Tooltip,
   VStack,
   Wrap,
   WrapItem,
@@ -656,7 +658,7 @@ export default function RationSpontaneeExcel({
   const [showMicroChooser, setShowMicroChooser] = useState(false);
 
   const nutritionTheme = useNutritionTheme();
-  const panelBg = nutritionTheme.surfaceBg;
+  const panelBg = nutritionTheme.surfaceBgStrong;
   const softBg = nutritionTheme.surfaceSoft;
   const borderColor = nutritionTheme.borderColor;
   const muted = nutritionTheme.mutedText;
@@ -1485,19 +1487,26 @@ export default function RationSpontaneeExcel({
             </Text>
           </Box>
 
-          <Box borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={softBg} p={3}>
-            <HStack justify="space-between" align="start" gap={2}>
-              <Box minW={0}>
+          <Box borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={softBg} p={3} minW={0}>
+            <Stack spacing={3}>
+              <Box>
                 <Text fontSize="xs" fontWeight="900" opacity={0.65} textTransform="uppercase">{i18n.t("auto.RationSpontaneeExcel.micronutriments_conseilles", "Micronutriments conseillés")}</Text>
                 <Text mt={1} fontSize="sm" opacity={0.72}>{i18n.t("auto.RationSpontaneeExcel.calcium_et_fibres_sont_toujours_suivis_au_minimum", "Calcium et fibres sont toujours suivis au minimum.")}</Text>
               </Box>
-              <HStack spacing={2} flexWrap="wrap" justify="flex-end">
-                <Button size="xs" variant="outline" onClick={applyRecommendedMicros} isDisabled={blocked}>{i18n.t("auto.RationSpontaneeExcel.precocher", "Précocher")}</Button>
-                <Button size="xs" variant="ghost" onClick={() => setShowMicroChooser((v) => !v)}>
+              <SimpleGrid columns={{ base: 1, sm: 2, lg: 1, xl: 2 }} spacing={2}>
+                <Tooltip
+                  label={i18n.t("auto.RationSpontaneeExcel.preselect_help", "Sélectionne automatiquement les micronutriments recommandés selon le bilan et le contexte clinique. Tu peux ensuite modifier la sélection.")}
+                  hasArrow
+                >
+                  <Button size="xs" variant="outline" onClick={applyRecommendedMicros} isDisabled={blocked}>
+                    {i18n.t("auto.RationSpontaneeExcel.precocher_recommandes", "Précocher les recommandés")}
+                  </Button>
+                </Tooltip>
+                <Button size="xs" variant="outline" onClick={() => setShowMicroChooser((v) => !v)}>
                   {showMicroChooser ? "Masquer" : `Personnaliser (${selectedMicroList.length})`}
                 </Button>
-              </HStack>
-            </HStack>
+              </SimpleGrid>
+            </Stack>
             <Wrap spacing={2} mt={3}>
               {recommendedMicroList.map((micro) => (
                 <WrapItem key={micro.key}>
@@ -1576,13 +1585,15 @@ export default function RationSpontaneeExcel({
             <HStack flexWrap="wrap" gap={2}>
               <Button size="sm" variant="outline" onClick={() => setAllCats(true)}>{i18n.t("auto.RationSpontaneeExcel.tout_ouvrir", "Tout ouvrir")}</Button>
               <Button size="sm" variant="outline" onClick={() => setAllCats(false)}>{i18n.t("auto.RationSpontaneeExcel.tout_fermer", "Tout fermer")}</Button>
-              <Button
+              <IconButton
                 size="sm"
-                leftIcon={<RepeatIcon />}
+                icon={<RepeatIcon />}
+                aria-label={i18n.t("auto.RationSpontaneeExcel.actualiser_les_donnees", "Actualiser les données")}
+                title={i18n.t("auto.RationSpontaneeExcel.actualiser_les_donnees", "Actualiser les données")}
+                borderRadius="full"
                 onClick={reloadCiqual}
                 isLoading={ciqualLoading}
-                loadingText={i18n.t("common.loading", "Chargement…")}
-              >{i18n.t("auto.RationSpontaneeExcel.actualiser_les_donnees", "Actualiser les données")}</Button>
+              />
             </HStack>
           </HStack>
         </Box>

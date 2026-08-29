@@ -10,16 +10,17 @@ import "moment/locale/ru";
 import "moment/locale/ar";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
+import { resolveDragAndDropFactory } from "../../utils/reactBigCalendarDnd";
+
+const MONDAY_FIRST_LOCALES = ["fr", "en", "de", "it", "es", "ru", "ar"];
+MONDAY_FIRST_LOCALES.forEach((locale) => {
+  moment.updateLocale(locale, { week: { dow: 1, doy: 4 } });
+});
 
 const localizer = momentLocalizer(moment);
-// react-big-calendar exposes this CommonJS addon differently depending on the
-// bundler. Vite 8 can return { default: factory } for the default import.
-const dragAndDropFactory =
-  typeof withDragAndDrop === "function"
-    ? withDragAndDrop
-    : typeof withDragAndDrop?.default === "function"
-      ? withDragAndDrop.default
-      : null;
+// Conserver la même semaine visuelle sur les dashboards coach et client.
+localizer.startOfWeek = () => 1;
+const dragAndDropFactory = resolveDragAndDropFactory(withDragAndDrop);
 const DnDCalendar = dragAndDropFactory ? dragAndDropFactory(Calendar) : Calendar;
 
 export default function CoachDashboardCalendar({ calendarCulture = "fr", ...props }) {

@@ -208,7 +208,6 @@ export default function ProfilePageClient() {
   const bottomGlow = useColorModeValue("rgba(16,185,129,0.08)", "rgba(16,185,129,0.10)");
   const heroGlow = useColorModeValue("rgba(59,130,246,0.08)", "rgba(59,130,246,0.10)");
   const heroSecondaryGlow = useColorModeValue("rgba(16,185,129,0.08)", "rgba(16,185,129,0.10)");
-  const heroAvatarBg = useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)");
   const activeBlue = "#3B82F6";
   const activeGreen = "#10B981";
   const activePurple = "#8B5CF6";
@@ -575,9 +574,6 @@ export default function ProfilePageClient() {
 
   return (
     <Box data-tour-page="client-profile" p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
-      <Box position="absolute" top={{ base: 4, md: 6 }} left={{ base: 4, md: 6 }} zIndex={20}>
-        <PageBackButton />
-      </Box>
       <Box
         position="absolute"
         top="-140px"
@@ -640,18 +636,7 @@ export default function ProfilePageClient() {
             gap={3}
           >
             <HStack spacing={3} align="center" minW={0} flex="1">
-              <Circle
-                size={{ base: "56px", md: "64px" }}
-                bg={heroAvatarBg}
-                border="1px solid"
-                borderColor={borderStrong}
-                color={textColor}
-                fontWeight="900"
-                fontSize="xl"
-                flexShrink={0}
-              >
-                {(form.firstName || user?.firstName || "U").slice(0, 1).toUpperCase()}
-              </Circle>
+              <PageBackButton />
               <Box minW={0}>
                 <Heading as="h1" size={{ base: "md", md: "lg" }} lineHeight="1.05" letterSpacing="-0.03em" color={textColor}>
                   {t("profile.title", "Mon profil")}

@@ -14,16 +14,7 @@ export function useAppTheme() {
       "linear-gradient(135deg, rgba(15,21,35,0.92), rgba(11,16,27,0.86))",
     ].join(", ")
   );
-  const surfaceBgStrong = useColorModeValue(
-    [
-      "radial-gradient(circle at 90% 10%, rgba(59,130,246,0.10), transparent 26%)",
-      "linear-gradient(135deg, rgba(255,255,255,0.98), rgba(248,250,252,0.9))",
-    ].join(", "),
-    [
-      "radial-gradient(circle at 90% 10%, rgba(59,130,246,0.13), transparent 28%)",
-      "linear-gradient(135deg, rgba(11,16,27,0.98), rgba(15,23,42,0.92))",
-    ].join(", ")
-  );
+  const surfaceBgStrong = useColorModeValue("#FFFFFF", "#111827");
   const surfaceSoft = useColorModeValue(
     [
       "radial-gradient(circle at 100% 100%, rgba(59,130,246,0.09), transparent 30%)",
@@ -59,10 +50,10 @@ export function useAppTheme() {
   const accentGreen = "#10B981";
 
   const cardProps = {
-    bg: surfaceBg,
+    bg: surfaceBgStrong,
     border: "1px solid",
     borderColor,
-    borderRadius: "28px",
+    borderRadius: "22px",
     position: "relative",
     overflow: "hidden",
     boxShadow: useColorModeValue("0 22px 70px rgba(15,23,42,0.08)", "0 22px 70px rgba(0,0,0,0.28)"),
@@ -82,8 +73,8 @@ export function useAppTheme() {
     bg: primary,
     color: "white",
     borderRadius: "16px",
-    _hover: { bg: primaryHover, transform: "translateY(-1px)" },
-    _active: { transform: "translateY(0)" },
+    _hover: { bg: primaryHover },
+    _active: { bg: primaryHover },
   };
 
   const inputProps = {

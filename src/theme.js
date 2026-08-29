@@ -5,6 +5,7 @@ import { createMultiStyleConfigHelpers } from "@chakra-ui/styled-system";
 import { mode } from "@chakra-ui/theme-tools";
 
 const isNeutralAccentScheme = (scheme) => !scheme || scheme === "blue" || scheme === "brand";
+const brandProgressGradient = "linear-gradient(90deg, #1F5EFF 0%, #257CFF 52%, #00B8FF 100%)";
 const { definePartsStyle, defineMultiStyleConfig } = createMultiStyleConfigHelpers(alertAnatomy.keys);
 
 const alertVariantToast = definePartsStyle((props) => {
@@ -149,9 +150,8 @@ const theme = extendTheme({
       overflow: "hidden",
     },
     glassCard: {
-      bg: "surface",
-      backgroundImage:
-        "radial-gradient(circle at 92% 8%, rgba(59,130,246,0.10), transparent 28%), radial-gradient(circle at 4% 100%, rgba(16,185,129,0.08), transparent 30%)",
+      bg: "surfaceStrong",
+      backgroundImage: "none",
       border: "1px solid",
       borderColor: "borderSubtle",
       borderRadius: "card",
@@ -187,12 +187,15 @@ const theme = extendTheme({
     global: (props) => ({
       "html, body, #root": { minHeight: "100%" },
       "html, body": {
-        overflowX: "hidden",
+        overflowX: "clip",
       },
       "#root": {
         position: "relative",
         minHeight: "100%",
-        overflowX: "clip",
+        // Keep the app root out of the scroll-container chain so viewport
+        // sticky panels (notably the nutrition live summary) can follow the
+        // page. The html/body rule above still clips horizontal overflow.
+        overflowX: "visible",
         overflowY: "visible",
       },
       body: {
@@ -224,7 +227,7 @@ const theme = extendTheme({
     Button: {
       baseStyle: {
         fontWeight: "800",
-        borderRadius: "control",
+        borderRadius: "14px",
       },
       variants: {
         solid: (props) => ({
@@ -239,14 +242,12 @@ const theme = extendTheme({
               props.colorScheme === "red"
                 ? mode("red.600", "red.300")(props)
                 : mode("#1F2937", "rgba(255,255,255,0.22)")(props),
-            transform: "translateY(-1px)",
           },
           _active: {
             bg:
               props.colorScheme === "red"
                 ? mode("red.700", "red.200")(props)
                 : mode("#374151", "rgba(255,255,255,0.28)")(props),
-            transform: "translateY(0)",
           },
         }),
         outline: (props) => ({
@@ -271,12 +272,18 @@ const theme = extendTheme({
         colorScheme: "brand",
       },
     },
+    Heading: {
+      baseStyle: {
+        color: "textPrimary",
+        fontWeight: "900",
+        letterSpacing: "-0.02em",
+      },
+    },
     Card: {
       baseStyle: {
         container: {
-          bg: "surface",
-          backgroundImage:
-            "radial-gradient(circle at 92% 8%, rgba(59,130,246,0.10), transparent 28%), radial-gradient(circle at 4% 100%, rgba(16,185,129,0.08), transparent 30%)",
+          bg: "surfaceStrong",
+          backgroundImage: "none",
           border: "1px solid",
           borderColor: "borderSubtle",
           borderRadius: "card",
@@ -382,7 +389,7 @@ const theme = extendTheme({
         },
         filledTrack: isNeutralAccentScheme(props.colorScheme)
           ? {
-              bg: mode("#111827", "rgba(255,255,255,0.24)")(props),
+              background: brandProgressGradient,
               borderRadius: "999px",
             }
           : {

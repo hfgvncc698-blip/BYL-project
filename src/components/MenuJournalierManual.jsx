@@ -506,7 +506,7 @@ export default function MenuJournalierManual({
   const toast = useToast();
 
   const nutritionTheme = useNutritionTheme();
-  const panelBg = nutritionTheme.surfaceBg;
+  const panelBg = nutritionTheme.surfaceBgStrong;
   const borderCol = nutritionTheme.borderColor;
   const textMuted = nutritionTheme.mutedText;
   const softBg = nutritionTheme.surfaceSoft;

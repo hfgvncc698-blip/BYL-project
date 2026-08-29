@@ -108,6 +108,9 @@ export default function Login() {
           navigate(routeAfterAuth(role, profile), { replace: true });
         }
       });
+    } catch {
+      // Le fournisseur d'authentification expose déjà le message traduit.
+      // Cette capture garantit que le formulaire quitte toujours son état de chargement.
     } finally {
       setAuthLoading(false);
     }

@@ -333,10 +333,12 @@ function UnifiedSurveyFooter({ needs, summary, mode, sticky = true, mt = 4, titl
           <HStack justify="space-between" align="start" gap={3} mb={2}>
             <Badge
               colorScheme={mode === "ciqual" ? "purple" : "blue"}
-              variant="solid"
-              borderRadius="full"
+              variant="subtle"
+              borderRadius="md"
               px={2.5}
               py={1}
+              fontSize="10px"
+              letterSpacing="0.08em"
             >
               {mode === "ciqual"
                 ? i18n.t("auto.FoodSurvey.mode_detaille_short", "Détaillé")
@@ -386,23 +388,29 @@ function UnifiedSurveyFooter({ needs, summary, mode, sticky = true, mt = 4, titl
           ))}
         </Stack>
 
-        <HStack spacing={2} flexWrap="wrap">
-          <Badge bg={chipBg} color="inherit" borderRadius="full" px={3} py={1} fontWeight="700">
-            {i18n.t("auto.FoodSurvey.micros_count", "Micros {{count}}", { count: microCount })}
-          </Badge>
-          {displayStatusBadges.map((item) => (
-            <Badge
-              key={`${item.label}-${item.value}`}
-              colorScheme={item.scheme || "gray"}
-              variant="subtle"
-              borderRadius="full"
-              px={3}
-              py={1}
-              fontWeight="700"
-            >
-              {item.label} {item.value}
-            </Badge>
-          ))}
+        <HStack justify="space-between" align="center" gap={3} flexWrap="wrap">
+          <Wrap spacing={2} flex="1">
+            <WrapItem>
+              <Badge bg={chipBg} color="inherit" borderRadius="md" px={2.5} py={1} fontWeight="800">
+                {i18n.t("auto.FoodSurvey.micros_count", "Micros {{count}}", { count: microCount })}
+              </Badge>
+            </WrapItem>
+            {displayStatusBadges.map((item) => (
+              <WrapItem key={`${item.label}-${item.value}`}>
+                <Badge
+                  colorScheme={item.scheme || "gray"}
+                  variant="subtle"
+                  borderRadius="md"
+                  px={2.5}
+                  py={1}
+                  fontWeight="700"
+                  whiteSpace="normal"
+                >
+                  {item.label} {item.value}
+                </Badge>
+              </WrapItem>
+            ))}
+          </Wrap>
           {microItems.length > 0 ? (
             <Button
               size="xs"
@@ -472,21 +480,18 @@ export default function FoodSurvey() {
   const modeTouchedUntilRef = useRef(0);
 
   const nutritionTheme = useNutritionTheme();
-  const panelBg = nutritionTheme.surfaceBg;
+  const panelBg = nutritionTheme.surfaceBgStrong;
   const pageBg = nutritionTheme.pageBg;
   const softBg = nutritionTheme.surfaceSoft;
   const borderCol = nutritionTheme.borderColor;
   const subtleText = nutritionTheme.mutedText;
   const progressTrackBg = useColorModeValue("gray.100", "whiteAlpha.100");
-  const surveyHeroBg = useColorModeValue(
-    "linear-gradient(135deg, rgba(239, 246, 255, 0.95) 0%, rgba(240, 253, 250, 0.88) 100%)",
-    "linear-gradient(135deg, rgba(30, 58, 138, 0.34) 0%, rgba(15, 118, 110, 0.18) 100%)"
-  );
-  const surveyBlueBg = useColorModeValue("blue.50", "whiteAlpha.100");
-  const surveyTealBg = useColorModeValue("teal.50", "whiteAlpha.100");
-  const surveyAmberBg = useColorModeValue("orange.50", "whiteAlpha.100");
-  const surveyGreenBg = useColorModeValue("green.50", "whiteAlpha.100");
-  const selectedCardBg = useColorModeValue("white", "whiteAlpha.100");
+  const surveyHeroBg = nutritionTheme.surfaceBgStrong;
+  const surveyBlueBg = nutritionTheme.surfaceSoft;
+  const surveyTealBg = nutritionTheme.surfaceSoft;
+  const surveyAmberBg = nutritionTheme.surfaceSoft;
+  const surveyGreenBg = nutritionTheme.surfaceSoft;
+  const selectedCardBg = nutritionTheme.surfaceSoft;
   const selectedCardBorder = useColorModeValue("blue.400", "blue.300");
 
   useEffect(() => {
@@ -575,6 +580,7 @@ export default function FoodSurvey() {
       if (!assessmentRef || blocked) return;
       updateDoc(assessmentRef, {
         "foodSurvey.mode": cleanMode,
+        "clientShare.noNotify": true,
         updatedAt: serverTimestamp(),
       }).catch((e) => {
         console.error("Food survey mode save failed:", e);
@@ -637,7 +643,7 @@ export default function FoodSurvey() {
 
     if (Object.keys(patch).length === 0) return;
 
-    updateDoc(assessmentRef, { ...patch, updatedAt: serverTimestamp() }).catch((e) => {
+    updateDoc(assessmentRef, { ...patch, "clientShare.noNotify": true, updatedAt: serverTimestamp() }).catch((e) => {
       console.error("Auto-save computed failed:", e);
     });
   }, [assessmentRef, docData, needs.kcalTarget, needs.mb, needs.dej, needs.nap]);
@@ -654,6 +660,7 @@ export default function FoodSurvey() {
           ciqual: mode === "ciqual" ? ciqualState : docData?.foodSurvey?.ciqual || null,
           meta: surveyMeta,
         },
+        "clientShare.noNotify": true,
         updatedAt: serverTimestamp(),
       });
 
@@ -683,6 +690,7 @@ export default function FoodSurvey() {
       autosaveHashRef.current = hash;
       updateDoc(assessmentRef, {
         foodSurvey: payload,
+        "clientShare.noNotify": true,
         updatedAt: serverTimestamp(),
       }).catch((e) => {
         console.error("Food survey autosave failed:", e);
@@ -801,6 +809,7 @@ export default function FoodSurvey() {
           clientId={clientId}
           assessmentId={assessmentId}
           navigate={navigateWithFallback}
+          onBack={goBack}
         />
 
         <Grid
@@ -816,7 +825,7 @@ export default function FoodSurvey() {
             <Box
               borderWidth="1px"
               borderColor={borderCol}
-              borderRadius="xl"
+              borderRadius="22px"
               bg={surveyHeroBg}
               boxShadow="0 18px 46px rgba(15, 23, 42, 0.08)"
               p={{ base: 4, md: 5, xl: 6 }}
@@ -825,7 +834,6 @@ export default function FoodSurvey() {
               <Stack spacing={4}>
                 <Box minW={0}>
                   <HStack spacing={3} flexWrap="wrap">
-                    <Button variant="outline" onClick={goBack} data-testid="nutrition-survey-back-top">{i18n.t("programView.back", "Retour")}</Button>
                     {blocked ? (
                       <Badge colorScheme="yellow">{i18n.t("auto.FoodSurvey.bilan_non_valide", "BILAN NON VALIDÉ")}</Badge>
                     ) : (
@@ -844,7 +852,7 @@ export default function FoodSurvey() {
                   </Text>
                 </Box>
 
-                <Box borderWidth="1px" borderColor={borderCol} borderRadius="lg" bg={selectedCardBg} p={3}>
+                <Box borderWidth="1px" borderColor={borderCol} borderRadius="18px" bg={selectedCardBg} p={3}>
                   <Grid templateColumns={{ base: "1fr", md: "minmax(0, 1fr) minmax(320px, 420px)" }} gap={3} alignItems="center">
                     <Box minW={0}>
                       <Text fontSize="xs" fontWeight="900" letterSpacing="0.08em" color={subtleText}>
@@ -856,7 +864,7 @@ export default function FoodSurvey() {
                     </Box>
                     <SimpleGrid columns={2} spacing={2}>
                     <Button
-                      borderRadius="md"
+                      borderRadius="16px"
                       variant={mode === "excel" ? "solid" : "outline"}
                       {...(mode === "excel" ? nutritionTheme.primaryButtonProps : {})}
                       onClick={() => changeMode("excel")}
@@ -868,7 +876,7 @@ export default function FoodSurvey() {
                       {i18n.t("auto.FoodSurvey.mode_simplifie_short", "Mode simplifié")}
                     </Button>
                     <Button
-                      borderRadius="md"
+                      borderRadius="16px"
                       variant={mode === "ciqual" ? "solid" : "outline"}
                       {...(mode === "ciqual" ? nutritionTheme.primaryButtonProps : {})}
                       onClick={() => changeMode("ciqual")}
@@ -883,23 +891,21 @@ export default function FoodSurvey() {
                   </Grid>
                 </Box>
 
-                <Box borderWidth="1px" borderColor={borderCol} borderRadius="lg" bg={selectedCardBg} p={3}>
-                  <HStack spacing={2} flexWrap="wrap">
+                <Box borderWidth="1px" borderColor={borderCol} borderRadius="18px" bg={selectedCardBg} p={3}>
+                  <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={2}>
                     {focusCards.slice(0, 2).map((card) => (
-                      <Badge
+                      <Box
                         key={card.label}
                         bg={card.bg}
-                        color="inherit"
-                        borderRadius="full"
-                        px={3}
-                        py={1.5}
-                        textTransform="none"
-                        fontWeight="800"
+                        borderRadius="xl"
+                        px={3.5}
+                        py={3}
                       >
-                        {card.label} : {card.value}
-                      </Badge>
+                        <Text fontSize="10px" fontWeight="900" letterSpacing="0.08em" color={subtleText} textTransform="uppercase">{card.label}</Text>
+                        <Text mt={1} fontSize="sm" fontWeight="900">{card.value}</Text>
+                      </Box>
                     ))}
-                  </HStack>
+                  </SimpleGrid>
                 </Box>
               </Stack>
             </Box>
@@ -907,7 +913,7 @@ export default function FoodSurvey() {
             <Box
               borderWidth="1px"
               borderColor={borderCol}
-              borderRadius="lg"
+              borderRadius="22px"
               bg={panelBg}
               p={{ base: 4, md: 5 }}
             >
@@ -1213,8 +1219,7 @@ export default function FoodSurvey() {
         ) : null}
 
         <Box borderWidth="1px" borderColor={borderCol} borderRadius="lg" bg={panelBg} p={4}>
-          <HStack justify="space-between" spacing={3} flexWrap="wrap">
-            <Button variant="outline" onClick={goBack} data-testid="nutrition-survey-back-bottom">{i18n.t("programView.back", "Retour")}</Button>
+          <HStack justify="flex-end" spacing={3} flexWrap="wrap">
             <Button {...nutritionTheme.primaryButtonProps} onClick={onSaveAndNext} data-testid="nutrition-survey-next" isDisabled={blocked}>{i18n.t("auto.FoodSurvey.etape_suivante", "Étape suivante")}</Button>
           </HStack>
         </Box>
@@ -1224,10 +1229,10 @@ export default function FoodSurvey() {
             spacing={{ base: 4, lg: 3, xl: 4 }}
             display={{ base: "none", lg: "flex" }}
             order={0}
-            position={{ base: "static", lg: "sticky" }}
-            top={{ lg: "88px" }}
-            maxH={{ base: "none", lg: "calc(100vh - 104px)" }}
-            overflowY={{ base: "visible", lg: "auto" }}
+            position="static"
+            maxH="none"
+            overflowY="visible"
+            alignSelf="stretch"
             pr={{ base: 0, lg: 1 }}
             minW={0}
           >
@@ -1254,17 +1259,6 @@ export default function FoodSurvey() {
                 </Box>
               </SimpleGrid>
             </Box>
-
-            <UnifiedSurveyFooter
-              needs={needs}
-              summary={currentFooterSummary}
-              mode={mode}
-              sticky={false}
-              mt={0}
-              title={i18n.t("auto.FoodSurvey.suivi_en_direct", "SUIVI EN DIRECT")}
-              description={i18n.t("auto.FoodSurvey.suivi_en_direct_description", "Repère calories, macros et micros pendant la saisie.")}
-              display={{ base: "none", lg: "block" }}
-            />
 
             <Box borderWidth="1px" borderColor={borderCol} borderRadius="lg" bg={panelBg} p={{ base: 4, lg: 4, xl: 5 }}>
               <HStack justify="space-between" align="start" gap={3} flexWrap="wrap" mb={4}>
@@ -1383,6 +1377,19 @@ export default function FoodSurvey() {
                   ))}
                 </Stack>
               </Collapse>
+            </Box>
+
+            <Box position="sticky" top="88px" zIndex={10}>
+              <UnifiedSurveyFooter
+                needs={needs}
+                summary={currentFooterSummary}
+                mode={mode}
+                sticky={false}
+                mt={0}
+                title={i18n.t("auto.FoodSurvey.suivi_en_direct", "SUIVI EN DIRECT")}
+                description={i18n.t("auto.FoodSurvey.suivi_en_direct_description", "Repère calories, macros et micros pendant la saisie.")}
+                display={{ base: "none", lg: "block" }}
+              />
             </Box>
           </Stack>
         </Grid>

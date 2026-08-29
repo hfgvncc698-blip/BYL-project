@@ -1,9 +1,9 @@
 // src/pages/MyPrograms.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Box, Heading, Table, Thead, Tbody, Tr, Th, Td, Button, Text,
+  Box, Table, Thead, Tbody, Tr, Th, Td, Button, Text,
   HStack, Stack, useColorModeValue, useBreakpointValue, Progress, Badge,
-  SimpleGrid, Circle, Icon, Flex, VStack,
+  SimpleGrid, Flex, VStack,
 } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
@@ -13,16 +13,16 @@ import {
 import { db } from "../firebaseConfig";
 import { resolveClientSnapshotForUser } from "../utils/clientResolver";
 import { useTranslation } from "react-i18next";
-import {
-  MdOutlineCalendarMonth,
-  MdOutlineFitnessCenter,
-  MdOutlineInsights,
-  MdOutlinePlayArrow,
-} from "react-icons/md";
 import AppLoading from "../components/ui/AppLoading";
 import PageBackButton from "../components/ui/PageBackButton";
+import { AppSectionHeader, AppSurface } from "../components/ui/AppPrimitives";
 import { apiFetch } from "../utils/api";
-import { formatProgramActiveWeeks, formatProgramWeekProgress, getProgramActiveWeeksLabel } from "../utils/programDuration";
+import {
+  formatProgramActiveWeeks,
+  formatProgramWeekProgress,
+  getProgramActiveWeeksLabel,
+  getProgramPlannedSessionTotal,
+} from "../utils/programDuration";
 import { readPageDataCache, runLimited, writePageDataCache } from "../utils/pageDataCache";
 import { isSessionValidatedRecord } from "../utils/sessionCompletion";
 
@@ -205,23 +205,15 @@ export default function MyPrograms() {
   const pageBg = useColorModeValue("#F5F8FF", "#070B14");
   const surfaceBg = useColorModeValue("rgba(255,255,255,0.85)", "rgba(15,21,35,0.86)");
   const surfaceBgStrong = useColorModeValue("rgba(255,255,255,0.95)", "rgba(11,16,27,0.95)");
-  const bg = surfaceBgStrong;
   const cardBg = surfaceBg;
   const textColor = useColorModeValue("#111827", "white");
   const mutedText = useColorModeValue("rgba(17,24,39,0.68)", "rgba(255,255,255,0.68)");
   const subtleText = useColorModeValue("rgba(17,24,39,0.52)", "rgba(255,255,255,0.46)");
   const borderColor = useColorModeValue("rgba(15,23,42,0.08)", "rgba(255,255,255,0.08)");
-  const borderStrong = useColorModeValue("rgba(15,23,42,0.12)", "rgba(255,255,255,0.12)");
   const hoverBg = useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.06)");
   const glassShadow = useColorModeValue(
     "0 20px 50px rgba(15,23,42,0.08)",
     "0 20px 60px rgba(0,0,0,0.35)"
-  );
-  const iconCircleBg = useColorModeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)");
-  const activeBlue = "#2563EB";
-  const mobileHeroBg = useColorModeValue(
-    "linear-gradient(145deg, #0F172A 0%, #1D4ED8 58%, #0EA5E9 135%)",
-    "linear-gradient(145deg, #020617 0%, #1E3A8A 58%, #0369A1 135%)"
   );
   const isMobile = useBreakpointValue({ base: true, md: false });
 
@@ -372,6 +364,7 @@ export default function MyPrograms() {
             origine: data.origine || data.source || "",
             createdAtFormatted,
             sessionCount,
+            plannedSessionCount: getProgramPlannedSessionTotal({ ...data, sessions, sessionCount }),
             progressionPct: 0,
             lastActivityDate: null,
             lastActivityStr: "—",
@@ -478,10 +471,11 @@ export default function MyPrograms() {
             Number.isFinite(latestSessionIndex) &&
             !finishedIdx.has(latestSessionIndex);
 
-          const doneForProgress = sessionCount > 0 ? Math.min(doneCount, sessionCount) : doneCount;
+          const plannedSessionCount = getProgramPlannedSessionTotal({ ...data, sessions, sessionCount });
+          const doneForProgress = plannedSessionCount > 0 ? Math.min(doneCount, plannedSessionCount) : doneCount;
           const partialSessionFraction = hasResumePoint ? Math.max(0, Math.min(0.99, latestPct / 100)) : 0;
-          const progressionPct = sessionCount > 0
-            ? Math.min(100, Math.round(((doneForProgress + partialSessionFraction) / sessionCount) * 100))
+          const progressionPct = plannedSessionCount > 0
+            ? Math.min(100, Math.round(((doneForProgress + partialSessionFraction) / plannedSessionCount) * 100))
             : 0;
 
           const rowObj = {
@@ -492,6 +486,7 @@ export default function MyPrograms() {
             origine: data.origine || data.source || "",
             createdAtFormatted,
             sessionCount,
+            plannedSessionCount,
             progressionPct,
             lastActivityDate: lastDone?.date || null,
             lastActivityStr: fmtLocale(lastDone?.date, i18n.language),
@@ -546,7 +541,8 @@ export default function MyPrograms() {
   };
 
   const isProgramCompleted = (p) =>
-    (Number(p?.sessionCount) || 0) > 0 && (Number(p?.doneCount) || 0) >= (Number(p?.sessionCount) || 0);
+    (Number(p?.plannedSessionCount) || 0) > 0 &&
+    (Number(p?.doneCount) || 0) >= (Number(p?.plannedSessionCount) || 0);
 
   const startSession = (p, { replay = false } = {}) => {
     if (user?.role === "coach") {
@@ -598,45 +594,32 @@ export default function MyPrograms() {
     return { total, completed, inProgress, upcoming };
   }, [rows]);
 
-  const MiniStat = ({ label, value, helper, icon }) => (
-    <Box
-      bg={{ base: "rgba(255,255,255,0.16)", md: surfaceBg }}
+  const MiniStat = ({ label, value, helper }) => (
+    <AppSurface
+      variant="tile"
+      bg={surfaceBgStrong}
       border="1px solid"
-      borderColor={{ base: "rgba(255,255,255,0.24)", md: borderColor }}
-      borderRadius={{ base: "18px", md: "22px" }}
-      p={{ base: 3.5, md: 4 }}
-      boxShadow={{ base: "none", md: glassShadow }}
-      position="relative"
-      overflow="hidden"
-      minH={{ base: "120px", md: "auto" }}
+      borderColor={borderColor}
+      borderRadius="18px"
+      p={{ base: 3, md: 3.5 }}
+      minH="88px"
     >
-      <Circle
-        size={{ base: "34px", md: "42px" }}
-        bg={{ base: "rgba(255,255,255,0.16)", md: "rgba(59,130,246,0.12)" }}
-        color={{ base: "white", md: activeBlue }}
-        position={{ base: "absolute", md: "static" }}
-        top={{ base: 3, md: "auto" }}
-        right={{ base: 3, md: "auto" }}
-        flexShrink={0}
-      >
-        <Icon as={icon} boxSize={{ base: "17px", md: "20px" }} />
-      </Circle>
-      <HStack justify="space-between" align="flex-start" position="relative" zIndex={1} pr={{ base: 9, md: 0 }}>
+      <HStack justify="space-between" align="center" gap={3}>
         <Box minW={0}>
-          <Text fontSize={{ base: "sm", md: "sm" }} color={{ base: "whiteAlpha.860", md: mutedText }} fontWeight="850" lineHeight="1.2" noOfLines={2}>
+          <Text fontSize="sm" color={mutedText} fontWeight="850" lineHeight="1.2" noOfLines={1}>
             {label}
           </Text>
-          <Text mt={2.5} fontSize={{ base: "2xl", md: "2xl" }} color={{ base: "white", md: textColor }} fontWeight="950" letterSpacing="0">
-            {value}
-          </Text>
           {helper ? (
-            <Text mt={2} fontSize={{ base: "xs", md: "sm" }} color={{ base: "whiteAlpha.760", md: subtleText }} lineHeight="1.35" noOfLines={{ base: 2, md: 3 }}>
+            <Text mt={1} fontSize="xs" color={subtleText} lineHeight="1.3" noOfLines={2}>
               {helper}
             </Text>
           ) : null}
         </Box>
+        <Text fontSize={{ base: "2xl", md: "3xl" }} color={textColor} fontWeight="950" letterSpacing="-0.04em">
+          {value}
+        </Text>
       </HStack>
-    </Box>
+    </AppSurface>
   );
 
   /* ------------------ Rendu ------------------ */
@@ -647,92 +630,37 @@ export default function MyPrograms() {
   if (rows.length === 0) {
     return (
       <Box p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh" position="relative">
-        <Box display={{ base: "none", md: "block" }} position="absolute" top={{ base: 4, md: 6 }} left={{ base: 4, md: 6 }} zIndex={20}>
-          <PageBackButton />
-        </Box>
-        <Box p={{ base: 5, md: 6 }} bg={{ base: mobileHeroBg, md: bg }} borderRadius={{ base: "28px", md: "2xl" }} boxShadow="sm" borderWidth="1px" borderColor={{ base: "rgba(255,255,255,0.18)", md: borderStrong }}>
-          <Heading size="lg" mb={2} color={{ base: "white", md: textColor }} letterSpacing="0">
-            {t("client_dash.my_programs")}
-          </Heading>
-          <Text color={{ base: "whiteAlpha.850", md: textColor }}>{t("programs.empty")}</Text>
-        </Box>
+        <AppSurface p={{ base: 4, md: 5 }}>
+          <Flex align="flex-start" gap={3}>
+            <PageBackButton />
+            <AppSectionHeader flex="1" title={t("client_dash.my_programs")} subtitle={t("programs.empty")} headingAs="h1" />
+          </Flex>
+        </AppSurface>
       </Box>
     );
   }
 
   return (
     <Box data-tour-page="client-programs" p={{ base: 3, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
-      <Box display={{ base: "none", md: "block" }} position="absolute" top={{ base: 4, md: 6 }} left={{ base: 4, md: 6 }} zIndex={20}>
-        <PageBackButton />
-      </Box>
-
       <VStack maxW="1120px" mx="auto" spacing={{ base: 3.5, md: 6 }} align="stretch" position="relative" zIndex={1}>
-      <Box
-        p={{ base: 4, md: 5 }}
-        bg={{ base: mobileHeroBg, md: bg }}
-        color={{ base: "white", md: textColor }}
-        borderRadius={{ base: "28px", md: "30px" }}
-        boxShadow={glassShadow}
-        border="1px solid"
-        borderColor={{ base: "rgba(255,255,255,0.18)", md: borderStrong }}
-        position="relative"
-        overflow="hidden"
-      >
-        <Flex
-          position="relative"
-          zIndex={1}
-          direction={{ base: "column", "2xl": "row" }}
-          justify="space-between"
-          align={{ base: "stretch", "2xl": "center" }}
-          gap={4}
-        >
-          <Flex
-            direction={{ base: "column", md: "row" }}
-            gap={3}
-            align={{ base: "flex-start", md: "center" }}
-            minW={0}
-            w="full"
+      <AppSurface p={{ base: 4, md: 5 }}>
+        <Flex align="flex-start" gap={3}>
+          <PageBackButton />
+          <AppSectionHeader
             flex="1"
-          >
-            <Circle
-              size={{ base: "56px", md: "64px" }}
-              bg={{ base: "whiteAlpha.180", md: iconCircleBg }}
-              border="1px solid"
-              borderColor={{ base: "whiteAlpha.260", md: borderStrong }}
-              color={{ base: "white", md: textColor }}
-              flexShrink={0}
-            >
-              <Icon as={MdOutlineFitnessCenter} boxSize="26px" />
-            </Circle>
-            <Box minW={0} flex="1" w="full">
-              <Heading
-                size={{ base: "md", md: "lg" }}
-                lineHeight="1.05"
-                letterSpacing="0"
-                color={{ base: "white", md: textColor }}
-                wordBreak="keep-all"
-                whiteSpace="normal"
-              >
-                {title}
-              </Heading>
-              <Text mt={2} color={{ base: "whiteAlpha.820", md: mutedText }} maxW="56ch" fontSize={{ base: "sm", md: "md" }}>{t("auto.MyPrograms.retrouvez_vos_programmes_actifs_votre_progression_", "Retrouvez vos programmes actifs, votre progression et relancez directement la prochaine séance utile.")}</Text>
-            </Box>
-          </Flex>
-
-          <SimpleGrid
-            columns={{ base: 2, sm: 2, xl: 4 }}
-            spacing={{ base: 2, md: 3 }}
-            w="full"
-            minW={0}
-            maxW={{ base: "100%", "2xl": "560px" }}
-          >
-            <MiniStat label={t("clientsList.table.programs", "Programmes")} value={summary.total} helper={t("auto.MyPrograms.actifs_dans_votre_espace", "actifs dans votre espace")} icon={MdOutlineFitnessCenter} />
-            <MiniStat label={t("nutritionCoach.status.inProgress", "En cours")} value={summary.inProgress} helper={t("auto.MyPrograms.progression_deja_entamee", "progression déjà entamée")} icon={MdOutlineInsights} />
-            <MiniStat label={t("auto.MyPrograms.a_relancer", "À relancer")} value={summary.upcoming} helper={t("auto.MyPrograms.seances_encore_a_jouer", "séances encore à jouer")} icon={MdOutlinePlayArrow} />
-            <MiniStat label={t("auto.MyPrograms.termines", "Terminés")} value={summary.completed} helper={t("auto.MyPrograms.programmes_completes", "programmes complétés")} icon={MdOutlineCalendarMonth} />
-          </SimpleGrid>
+            title={title}
+            subtitle={t("auto.MyPrograms.retrouvez_vos_programmes_actifs_votre_progression_", "Retrouvez vos programmes actifs, votre progression et relancez directement la prochaine séance utile.")}
+            headingAs="h1"
+          />
         </Flex>
-      </Box>
+      </AppSurface>
+
+      <SimpleGrid columns={{ base: 2, md: 4 }} spacing={{ base: 2, md: 3 }}>
+        <MiniStat label={t("clientsList.table.programs", "Programmes")} value={summary.total} helper={t("auto.MyPrograms.actifs_dans_votre_espace", "actifs dans votre espace")} />
+        <MiniStat label={t("nutritionCoach.status.inProgress", "En cours")} value={summary.inProgress} helper={t("auto.MyPrograms.progression_deja_entamee", "progression déjà entamée")} />
+        <MiniStat label={t("auto.MyPrograms.a_relancer", "À relancer")} value={summary.upcoming} helper={t("auto.MyPrograms.seances_encore_a_jouer", "séances encore à jouer")} />
+        <MiniStat label={t("auto.MyPrograms.termines", "Terminés")} value={summary.completed} helper={t("auto.MyPrograms.programmes_completes", "programmes complétés")} />
+      </SimpleGrid>
 
       {isMobile ? (
         <Stack spacing={4}>
@@ -796,19 +724,19 @@ export default function MyPrograms() {
                 <Text color={mutedText} fontSize="sm" mt={1.5}>
                   {t("client_dash.done_total_sessions", {
                     done: p.doneCount || 0,
-                    total: p.sessionCount || 0,
+                    total: p.plannedSessionCount || p.sessionCount || 0,
                   })}
                 </Text>
               )}
 
               <HStack mt={3.5} spacing={2}>
-                <Button flex={1} h="42px" borderRadius="15px" variant="outline" onClick={() => goToProgram(p)}>
+                <Button flex={1} h="42px" borderRadius="full" variant="outline" onClick={() => goToProgram(p)}>
                   {t("client_dash.view")}
                 </Button>
                 <Button
                   flex={1}
                   h="42px"
-                  borderRadius="15px"
+                  borderRadius="full"
                   onClick={() => startSession(p, { replay: completed })}
                 >
                   {completed ? "Refaire" : p._hasResumePoint ? "Reprendre" : t("client_dash.start")}
@@ -868,7 +796,7 @@ export default function MyPrograms() {
                     </VStack>
                   </Td>
 
-                  <Td color={textColor}>{p.sessionCount}</Td>
+                  <Td color={textColor}>{p.plannedSessionCount || p.sessionCount}</Td>
 
                   <Td color={textColor} minW="240px">
                     <HStack spacing={3}>
@@ -885,10 +813,10 @@ export default function MyPrograms() {
 
                   <Td>
                     <HStack spacing={2}>
-                      <Button variant="outline" size="sm" onClick={() => goToProgram(p)}>
+                      <Button variant="outline" size="sm" borderRadius="full" onClick={() => goToProgram(p)}>
                         {t("client_dash.view_program")}
                       </Button>
-                      <Button size="sm" onClick={() => startSession(p, { replay: completed })}>
+                      <Button size="sm" borderRadius="full" onClick={() => startSession(p, { replay: completed })}>
                         {completed ? "Refaire" : p._hasResumePoint ? "Reprendre" : t("client_dash.start_session")}
                       </Button>
                     </HStack>

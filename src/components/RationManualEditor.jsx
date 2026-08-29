@@ -390,7 +390,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
   const mobileTrackerRef = useRef(null);
 
   const nutritionTheme = useNutritionTheme();
-  const panelBg = nutritionTheme.surfaceBg;
+  const panelBg = nutritionTheme.surfaceBgStrong;
   const softBg = nutritionTheme.surfaceSoft;
   const borderColor = nutritionTheme.borderColor;
   const muted = nutritionTheme.mutedText;

@@ -35,11 +35,11 @@ import {
   MdLanguage,
   MdOutlineCreditCard,
   MdOutlineLock,
-  MdOutlineSettings,
   MdOutlineWarningAmber,
 } from "react-icons/md";
 import AppLoading from "../components/ui/AppLoading";
 import PageBackButton from "../components/ui/PageBackButton";
+import { AppSectionHeader, AppSurface } from "../components/ui/AppPrimitives";
 import TutorialSettingsPanel from "../components/TutorialSettingsPanel";
 import EmailNotificationPreferenceCard from "../components/EmailNotificationPreferenceCard";
 import { notify } from "../utils/notify";
@@ -59,7 +59,7 @@ export default function SettingsPageClient() {
   const [sendingReset, setSendingReset] = useState(false);
   const [stripeLoading, setStripeLoading] = useState(false);
   const pageBg = theme.pageBg;
-  const cardBg = theme.surfaceBg;
+  const cardBg = theme.surfaceBgStrong;
   const subCardBg = theme.surfaceSoft;
   const borderColor = theme.borderColor;
   const borderStrong = theme.borderStrong;
@@ -70,9 +70,9 @@ export default function SettingsPageClient() {
     "0 20px 50px rgba(15,23,42,0.08)",
     "0 22px 60px rgba(0,0,0,0.34)"
   );
-  const heroGlow = useColorModeValue("rgba(59,130,246,0.10)", "rgba(59,130,246,0.14)");
-  const topGlow = useColorModeValue("rgba(59,130,246,0.08)", "rgba(59,130,246,0.12)");
-  const bottomGlow = useColorModeValue("rgba(16,185,129,0.08)", "rgba(16,185,129,0.10)");
+  const primaryButtonBg = useColorModeValue("#0F172A", "rgba(255,255,255,0.10)");
+  const primaryButtonColor = useColorModeValue("white", "#F8FAFC");
+  const primaryButtonHoverBg = useColorModeValue("#1E293B", "rgba(255,255,255,0.16)");
 
   // Langue initiale: Firestore -> user -> i18n
   const initialLang =
@@ -181,9 +181,9 @@ export default function SettingsPageClient() {
   }
 
   const SurfaceCard = ({ children, ...props }) => (
-    <Box
+    <AppSurface
       bg={cardBg}
-      borderRadius="28px"
+      borderRadius="22px"
       border="1px solid"
       borderColor={borderStrong}
       boxShadow={glassShadow}
@@ -192,87 +192,63 @@ export default function SettingsPageClient() {
       {...props}
     >
       {children}
-    </Box>
+    </AppSurface>
+  );
+
+  const MetricTile = ({ label, value, helper }) => (
+    <AppSurface variant="tile" bg={cardBg} borderRadius="18px" p={{ base: 3.5, md: 4 }} minH="92px">
+      <HStack justify="space-between" align="center" gap={4}>
+        <Box minW={0}>
+          <Text fontSize="sm" color={mutedText} fontWeight="900" lineHeight="1.2" noOfLines={1}>
+            {label}
+          </Text>
+          {helper ? (
+            <Text mt={1} fontSize="xs" color={subtleText} lineHeight="1.3" noOfLines={2}>
+              {helper}
+            </Text>
+          ) : null}
+        </Box>
+        <Text fontSize={{ base: "2xl", md: "3xl" }} fontWeight="950" letterSpacing="-0.04em" color={textColor} flexShrink={0}>
+          {value}
+        </Text>
+      </HStack>
+    </AppSurface>
   );
 
   return (
-    <Box data-tour-page="settings" p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
-      <Box position="absolute" top={{ base: 4, md: 6 }} left={{ base: 4, md: 6 }} zIndex={20}>
-        <PageBackButton />
-      </Box>
-      <Box
-        position="absolute"
-        top="-120px"
-        right="-90px"
-        w="360px"
-        h="360px"
-        borderRadius="full"
-        bg={topGlow}
-        filter="blur(90px)"
-        pointerEvents="none"
-      />
-      <Box
-        position="absolute"
-        bottom="-140px"
-        left="-100px"
-        w="340px"
-        h="340px"
-        borderRadius="full"
-        bg={bottomGlow}
-        filter="blur(90px)"
-        pointerEvents="none"
-      />
-
-      <VStack maxW="980px" mx="auto" spacing={6} align="stretch" position="relative" zIndex={1}>
-        <SurfaceCard p={{ base: 5, md: 6 }}>
-          <Box
-            position="absolute"
-            top="-50px"
-            right="-28px"
-            w="220px"
-            h="220px"
-            borderRadius="full"
-            bg={heroGlow}
-            filter="blur(42px)"
-          />
-          <Flex position="relative" zIndex={1} direction={{ base: "column", xl: "row" }} justify="space-between" gap={5}>
-            <HStack spacing={4} align="flex-start" flex="1">
-              <Circle
-                size={{ base: "58px", md: "64px" }}
-                bg={subCardBg}
-                border="1px solid"
-                borderColor={borderColor}
-                color={textColor}
-                flexShrink={0}
-              >
-                <Icon as={MdOutlineSettings} boxSize="26px" />
-              </Circle>
-              <Box minW={0}>
-                <Heading as="h1" size="lg" color={textColor} letterSpacing="-0.03em">
-                  {t("settings.title")}
-                </Heading>
-                <Text mt={2} color={mutedText} maxW="60ch">{t("auto.SettingsPageClient.gerez_votre_langue_votre_acces_votre_securite", "Gérez votre langue, votre accès, votre sécurité et les préférences de votre compte dans un espace plus clair et plus simple.")}</Text>
-              </Box>
-            </HStack>
-
-            <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={3} w={{ base: "100%", xl: "420px" }}>
-              <Box bg={subCardBg} border="1px solid" borderColor={borderColor} borderRadius="22px" p={4}>
-                <Text fontSize="sm" color={mutedText}>{t("auto.SettingsPageClient.langue_active", "Langue active")}</Text>
-                <Text mt={2} fontSize="xl" fontWeight="800" color={textColor}>{selectedLang.toUpperCase()}</Text>
-              </Box>
-              <Box bg={subCardBg} border="1px solid" borderColor={borderColor} borderRadius="22px" p={4}>
-                <Text fontSize="sm" color={mutedText}>{t("clientsList.table.subscription", "Abonnement")}</Text>
-                <Text mt={2} fontSize="xl" fontWeight="800" color={textColor}>{subStatus === "active" ? "Actif" : subStatus === "trialing" ? "Essai" : "Inactif"}</Text>
-              </Box>
-              <Box bg={subCardBg} border="1px solid" borderColor={borderColor} borderRadius="22px" p={4}>
-                <Text fontSize="sm" color={mutedText}>{t("settings.sections.security", "Sécurité")}</Text>
-                <Text mt={2} fontSize="xl" fontWeight="800" color={textColor}>{t("clientCreation.email", "Email")}</Text>
-              </Box>
-            </SimpleGrid>
+    <Box data-tour-page="settings" p={{ base: 3, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
+      <VStack maxW="1120px" mx="auto" spacing={{ base: 3.5, md: 6 }} align="stretch" position="relative" zIndex={1}>
+        <AppSurface p={{ base: 4, md: 5 }}>
+          <Flex align="flex-start" gap={3}>
+            <PageBackButton />
+            <AppSectionHeader
+              flex="1"
+              title={t("settings.title")}
+              subtitle={t("auto.SettingsPageClient.gerez_votre_langue_votre_acces_votre_securite", "Gérez votre langue, votre accès, votre sécurité et les préférences de votre compte dans un espace plus clair et plus simple.")}
+              headingAs="h1"
+            />
           </Flex>
-        </SurfaceCard>
+        </AppSurface>
 
-        <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={6}>
+        <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={{ base: 2.5, md: 3 }}>
+          <MetricTile
+            label={t("auto.SettingsPageClient.langue_active", "Langue active")}
+            helper={t("settings.fields.default_language", "Langue par défaut")}
+            value={selectedLang.toUpperCase()}
+          />
+          <MetricTile
+            label={t("clientsList.table.subscription", "Abonnement")}
+            helper={t("settings.subscription_hint")}
+            value={subStatus === "active" ? "Actif" : subStatus === "trialing" ? "Essai" : "Inactif"}
+          />
+          <MetricTile
+            label={t("settings.sections.security", "Sécurité")}
+            helper={t("auto.SettingsPageClient.adresse_utilisee", "Adresse utilisée")}
+            value={t("clientCreation.email", "Email")}
+          />
+        </SimpleGrid>
+
+        <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={{ base: 3.5, md: 6 }}>
           <SurfaceCard p={{ base: 5, md: 6 }}>
             <HStack spacing={3} mb={4}>
               <Circle size="42px" bg="rgba(59,130,246,0.10)" color="#3B82F6">
@@ -303,7 +279,7 @@ export default function SettingsPageClient() {
           <EmailNotificationPreferenceCard
             surfaceProps={{
               bg: cardBg,
-              borderRadius: "28px",
+              borderRadius: "22px",
               border: "1px solid",
               borderColor: borderStrong,
               boxShadow: glassShadow,
@@ -343,18 +319,15 @@ export default function SettingsPageClient() {
               <Badge borderRadius="full" px={3} py={1} colorScheme={subBadge.color}>
                 {subBadge.label}
               </Badge>
-              {user?.hasActiveSubscription ? (
-                <Badge borderRadius="full" px={3} py={1} colorScheme="green">{t("auto.SettingsPageClient.acces_actif", "ACCÈS ACTIF")}</Badge>
-              ) : (
-                <Badge borderRadius="full" px={3} py={1}>{t("auto.SettingsPageClient.annule_inactif", "ANNULÉ / INACTIF")}</Badge>
-              )}
             </HStack>
 
             <Button
-              bg="#0F172A"
-              color="white"
-              _hover={{ bg: "#111827" }}
+              bg={primaryButtonBg}
+              color={primaryButtonColor}
+              _hover={{ bg: primaryButtonHoverBg }}
               borderRadius="full"
+              h="40px"
+              px={5}
               fontWeight="700"
               onClick={handleOpenStripePortal}
               isLoading={stripeLoading}
@@ -386,10 +359,15 @@ export default function SettingsPageClient() {
                 <Text mt={1} fontWeight="700" color={textColor}>{user.email}</Text>
               </Box>
               <Button
-                bg="#0F172A"
-                color="white"
-                _hover={{ bg: "#111827" }}
+                bg={primaryButtonBg}
+                color={primaryButtonColor}
+                _hover={{ bg: primaryButtonHoverBg }}
                 borderRadius="full"
+                h="40px"
+                px={5}
+                fontWeight="800"
+                alignSelf={{ base: "stretch", sm: "flex-start" }}
+                minW={{ sm: "280px" }}
                 isLoading={sendingReset}
                 onClick={async () => {
                   setSendingReset(true);
@@ -446,15 +424,18 @@ export default function SettingsPageClient() {
       {/* Confirmation suppression */}
       <Modal isOpen={isOpen} onClose={onClose} isCentered>
         <ModalOverlay />
-        <ModalContent borderRadius="28px" bg={cardBg} border="1px solid" borderColor={borderStrong} boxShadow={glassShadow}>
+        <ModalContent borderRadius="22px" bg={cardBg} border="1px solid" borderColor={borderStrong} boxShadow={glassShadow}>
           <ModalHeader>{t("settings.modal.confirm_title")}</ModalHeader>
           <ModalBody>{t("settings.modal.confirm_body")}</ModalBody>
           <ModalFooter>
-            <Button mr={3} onClick={onClose}>
+            <Button mr={3} variant="outline" borderRadius="full" h="40px" px={5} onClick={onClose}>
               {t("common.cancel")}
             </Button>
             <Button
               colorScheme="red"
+              borderRadius="full"
+              h="40px"
+              px={5}
               onClick={() => {
                 onClose();
                 toast({

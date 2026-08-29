@@ -12,7 +12,7 @@ import {
   Text,
   VStack,
 } from "@chakra-ui/react";
-import { ArrowBackIcon, CheckCircleIcon } from "@chakra-ui/icons";
+import { CheckCircleIcon } from "@chakra-ui/icons";
 import { Link as RouterLink, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -22,6 +22,7 @@ import {
   MdOutlineRestaurantMenu,
 } from "react-icons/md";
 import { useAppTheme } from "../styles/appTheme";
+import PageBackButton from "../components/ui/PageBackButton";
 import { SEO_PUBLIC_LINKS, SEO_ROUTES, seoHrefForPath } from "../seo/seoConfig";
 
 const PAGE_COPY = {
@@ -504,23 +505,19 @@ export default function SeoLandingPage() {
           background: "linear-gradient(110deg, rgba(2,6,23,0.92), rgba(15,23,42,0.78) 48%, rgba(15,23,42,0.36))",
         }}
       >
-        <Button
+        <PageBackButton
           position="absolute"
           top={{ base: 5, md: 8 }}
           left={{ base: 4, md: 8 }}
           zIndex={2}
-          leftIcon={<ArrowBackIcon />}
           onClick={goBack}
-          variant="ghost"
+          label={t("programView.back", "Retour")}
           color="white"
           bg="whiteAlpha.100"
           border="1px solid"
           borderColor="whiteAlpha.300"
-          borderRadius="full"
           _hover={{ bg: "whiteAlpha.200" }}
-        >
-          {t("programView.back", "Retour")}
-        </Button>
+        />
         <Container maxW="6xl" position="relative" zIndex={1} py={{ base: 16, md: 20 }}>
           <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={{ base: 10, lg: 14 }} alignItems="center">
             <VStack align="start" spacing={6}>
