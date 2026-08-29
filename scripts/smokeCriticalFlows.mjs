@@ -611,10 +611,14 @@ check("cloud functions source has a single toDate helper", () => {
 check("deferred dashboard widgets cannot crash the whole dashboard", () => {
   const dashboard = read("src/components/CoachDashboard.jsx");
   const calendar = read("src/components/dashboard/CoachDashboardCalendar.jsx");
+  const calendarInterop = read("src/utils/reactBigCalendarDnd.js");
   const boundary = read("src/components/ui/DeferredWidgetBoundary.jsx");
   assert.ok(
-    calendar.includes('typeof withDragAndDrop?.default === "function"') &&
-      calendar.includes("dragAndDropFactory ? dragAndDropFactory(Calendar) : Calendar"),
+    calendar.includes("resolveDragAndDropFactory(withDragAndDrop)") &&
+      calendar.includes("dragAndDropFactory ? dragAndDropFactory(Calendar) : Calendar") &&
+      calendarInterop.includes("current.default") &&
+      calendarInterop.includes('current["module.exports"]') &&
+      calendarInterop.includes('typeof current === "function" ? current : null'),
     "The calendar addon must support Vite CommonJS interop and retain a safe fallback"
   );
   assert.ok(
@@ -1020,7 +1024,8 @@ check("coach session planning is atomic, bounded and duplicate-safe", () => {
   );
   assert.ok(
     dashboard.includes("{...shortcutPrimaryButtonProps}") &&
-      dashboard.includes('t("dashboard.plan_session", "Planifier une séance")'),
+      dashboard.includes('t("dashboard.add_session", "Ajouter une séance")') &&
+      dashboard.includes("addSessionModal.onOpen()"),
     "Session planning must remain the primary dashboard shortcut"
   );
   assert.ok(
@@ -1031,10 +1036,11 @@ check("coach session planning is atomic, bounded and duplicate-safe", () => {
   );
   assert.ok(
     dashboard.includes("{hasNutritionCalendarAccess && (") &&
+      dashboard.includes('t("nav.new_nutrition_followup", "Nouveau suivi diététique")') &&
+      dashboard.includes('navigate(withAdminCoach("/nutrition-coach?new=1"))') &&
       dashboard.includes('t("auto.CoachDashboard.faire_une_ration", "Faire une ration")') &&
-      dashboard.includes("onClick={() => rationShortcutModal.onOpen()}") &&
-      dashboard.includes('data-testid="nutrition-plan-followup-shortcut"') &&
-      dashboard.includes('onClick={() => openNutritionAppointmentForClient("")}') &&
+      dashboard.includes("onAdd={rationShortcutModal.onOpen}") &&
+      dashboard.includes('openNutritionAppointmentForClient("")') &&
       dashboard.includes(
         "`/clients/${entry.clientId}/nutrition/${entry.assessmentId}/ration`"
       ),

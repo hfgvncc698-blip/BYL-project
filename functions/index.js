@@ -1038,7 +1038,7 @@ function pickProgramName(progData = {}) {
   return "Nouveau programme";
 }
 
-function hasSharedNutritionContent(assessment = {}) {
+function _hasSharedNutritionContent(assessment = {}) {
   const share = assessment?.clientShare || {};
   const sections = share.sections || {};
   const snapshot = share.snapshot || {};
@@ -1057,7 +1057,7 @@ function hasSharedNutritionContent(assessment = {}) {
   );
 }
 
-function pickNutritionPlanName(assessment = {}) {
+function _pickNutritionPlanName(assessment = {}) {
   const raw =
     safeTrim(assessment?.title) ||
     safeTrim(assessment?.name) ||
@@ -1117,7 +1117,7 @@ function getClientLngFromAny(client = {}) {
   );
 }
 
-function getCoachUidFromNutritionShare(assessment = {}, client = {}) {
+function _getCoachUidFromNutritionShare(assessment = {}, client = {}) {
   return (
     assessment?.clientShare?.sharedBy ||
     assessment?.sharedBy ||
@@ -1340,7 +1340,7 @@ ${team}
   return { subject, html, text };
 }
 
-function buildNutritionAssignedTemplate({
+function _buildNutritionAssignedTemplate({
   firstName,
   coachName,
   programName,
