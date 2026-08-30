@@ -3921,7 +3921,14 @@ function TopBar({
         </Heading>
       </HStack>
 
-      <HStack spacing={3} justify={{ base: "flex-start", md: "flex-end" }} wrap="wrap">
+      <Box
+        display={{ base: "grid", md: "flex" }}
+        gridTemplateColumns={{ base: "auto minmax(0, 1fr) auto auto", md: undefined }}
+        gap={{ base: 2, md: 3 }}
+        alignItems="center"
+        justifyContent={{ md: "flex-end" }}
+        w={{ base: "full", md: "auto" }}
+      >
         {showAutoFollowToggle && (
           <Tooltip
             hasArrow
@@ -3940,8 +3947,10 @@ function TopBar({
           >
             <Button
               size="sm"
+              h={{ base: "38px", md: "32px" }}
+              justifyContent="center"
               borderRadius="9999px"
-              px={4}
+              px={{ base: 3, md: 4 }}
               fontWeight={700}
               onClick={() => onToggleAutoFollow?.(!autoFollow)}
               isLoading={!!savingAutoFollow}
@@ -3962,31 +3971,30 @@ function TopBar({
               _active={{ transform: "translateY(0px)" }}
               transition="all .15s ease"
             >
-              <HStack spacing={2}>
+              <HStack spacing={{ base: 1.5, md: 2 }} justify="center">
                 <Text lineHeight="1" noOfLines={1}>
-                  {t("autoPreview.autoFollowShort", "Suivi")}
+                  <Box as="span" display={{ base: "none", md: "inline" }}>
+                    {t("autoPreview.autoFollowShort", "Suivi")} IA
+                  </Box>
+                  <Box as="span" display={{ base: "inline", md: "none" }}>
+                    IA
+                  </Box>
                 </Text>
-
-                <Tag
-                  size="sm"
-                  borderRadius="full"
-                  variant={autoFollow ? "solid" : "subtle"}
-                  colorScheme={autoFollow ? "purple" : "gray"}
-                  fontWeight={800}
-                  letterSpacing="0.6px"
-                >
-                  IA
-                </Tag>
 
                 <Badge
                   borderRadius="full"
                   px={2}
                   py="2px"
-                  fontSize="0.72rem"
+                  fontSize={{ base: "0.62rem", md: "0.72rem" }}
                   variant={autoFollow ? "solid" : "subtle"}
                   colorScheme={autoFollow ? "green" : "gray"}
                 >
-                  {autoFollow ? t("autoPreview.enabled", "Activé") : t("autoPreview.disabled", "Désactivé")}
+                  <Box as="span" display={{ base: "none", md: "inline" }}>
+                    {autoFollow ? t("autoPreview.enabled", "Activé") : t("autoPreview.disabled", "Désactivé")}
+                  </Box>
+                  <Box as="span" display={{ base: "inline", md: "none" }}>
+                    {autoFollow ? "ON" : "OFF"}
+                  </Box>
                 </Badge>
               </HStack>
             </Button>
@@ -3995,7 +4003,10 @@ function TopBar({
 
         <Select
           size="sm"
-          w={{ base: "180px", md: "200px" }}
+          gridColumn={{ base: showAutoFollowToggle ? "2" : "1 / 3", md: "auto" }}
+          w={{ base: "full", md: "200px" }}
+          h={{ base: "38px", md: "32px" }}
+          borderRadius="full"
           value={pdfLang}
           onChange={(e) => setPdfLang(e.target.value)}
         >
@@ -4007,22 +4018,18 @@ function TopBar({
         </Select>
 
         {canEdit && (
-          <Button leftIcon={<EditIcon />} variant="outline" size="sm" onClick={onEdit}>
-            {t("autoPreview.edit", "Modifier")}
-          </Button>
+          <IconButton
+            display={{ base: "inline-flex", md: "none" }}
+            icon={<EditIcon />}
+            aria-label={t("autoPreview.edit", "Modifier")}
+            title={t("autoPreview.edit", "Modifier")}
+            onClick={onEdit}
+            size="sm"
+            boxSize="38px"
+            borderRadius="full"
+            variant="outline"
+          />
         )}
-
-        <Button
-          size="sm"
-          onClick={onPlay}
-          borderRadius="full"
-          bg={primaryButtonBg}
-          color="white"
-          _hover={{ bg: primaryButtonHoverBg }}
-          _active={{ bg: primaryButtonActiveBg }}
-        >
-          {t("autoPreview.start", "Démarrer séance")}
-        </Button>
 
         <Tooltip label={t("autoPreview.downloadPdf", "Télécharger le PDF")}>
           <IconButton
@@ -4032,6 +4039,7 @@ function TopBar({
             isLoading={pdfGenerating}
             isDisabled={pdfGenerating}
             size="sm"
+            boxSize={{ base: "38px", md: "32px" }}
             borderRadius="full"
             bg={iconButtonBg}
             color={iconButtonColor}
@@ -4040,7 +4048,46 @@ function TopBar({
             _hover={{ bg: iconButtonHoverBg }}
           />
         </Tooltip>
-      </HStack>
+
+        <HStack
+          gridColumn={{ base: "1 / -1", md: "auto" }}
+          spacing={2}
+          justify={{ base: "center", md: "flex-end" }}
+        >
+          {canEdit && (
+            <Button
+              display={{ base: "none", md: "inline-flex" }}
+              leftIcon={<EditIcon />}
+              variant="outline"
+              size="sm"
+              h={{ base: "38px", md: "32px" }}
+              borderRadius="full"
+              px={{ base: 4, md: 3 }}
+              onClick={onEdit}
+            >
+              {t("autoPreview.edit", "Modifier")}
+            </Button>
+          )}
+
+          <Button
+            size="sm"
+            w={{ base: "full", md: "auto" }}
+            h={{ base: "38px", md: "32px" }}
+            px={{ base: 4, md: 3 }}
+            onClick={onPlay}
+            borderRadius="full"
+            bg={primaryButtonBg}
+            color="white"
+            fontWeight="850"
+            boxShadow="0 7px 18px rgba(15, 23, 42, 0.18)"
+            _hover={{ bg: primaryButtonHoverBg, transform: "translateY(-1px)" }}
+            _active={{ bg: primaryButtonActiveBg, transform: "translateY(0)" }}
+            transition="all .15s ease"
+          >
+            {t("autoPreview.start", "Démarrer séance")}
+          </Button>
+        </HStack>
+      </Box>
     </Flex>
   );
 }

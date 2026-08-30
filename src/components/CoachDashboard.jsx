@@ -9062,10 +9062,10 @@ noOfLines={2}>
         )}
 
          {showPrimaryWidgetRow && (
-         <SimpleGrid columns={{ base: 1, xl: 12 }} spacing={2.5}
+         <SimpleGrid columns={{ base: 1, "2xl": 12 }} spacing={2.5}
 alignItems="stretch" mb={2.5}>
            {showRecentClientsWidget && (
-           <Box gridColumn={{ base: "auto", xl: nutritionOnlyDashboard || !showLatestProgramsWidget ? "span 12" : "span 8" }}
+           <Box gridColumn={{ base: "auto", "2xl": nutritionOnlyDashboard || !showLatestProgramsWidget ? "span 12" : "span 8" }}
 h="100%">
              <CardShell
                title={nutritionOnlyDashboard ? t("dashboard.recent_patients", "Patients récents") : t("dashboard.recent_clients", "Clients récents")}
@@ -9729,7 +9729,7 @@ bg={modeValue("rgba(15,23,42,0.06)",
            )}
 
             {showLatestProgramsWidget && (
-            <Box gridColumn={{ base: "auto", xl: "span 4" }}
+            <Box gridColumn={{ base: "auto", "2xl": "span 4" }}
 h="100%">
             <VStack spacing={2.5} align="stretch" h="100%">
               <CardShell

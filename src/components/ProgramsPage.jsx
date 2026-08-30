@@ -1178,7 +1178,10 @@ export default function ProgramsPage() {
 
                     <HStack spacing={2} mb={2} flexWrap="wrap">
                       <Badge borderRadius="full" px={2.5} py={1} colorScheme="gray">
-                        {nbSessions} {t("client_dash.table.sessions", "Nombre séances")}
+                        {nbSessions}{" "}
+                        {nbSessions === 1
+                          ? t("form.session", "Séance")
+                          : t("client_dash.sessions", "Séances")}
                       </Badge>
 
                       <Badge
