@@ -7,6 +7,7 @@ const CLIENT_RESOLVE_CACHE_TTL_MS = 2 * 60 * 1000;
 const CLIENT_RESOLVE_LOCAL_TTL_MS = 24 * 60 * 60 * 1000;
 const clientResolveCache = new Map();
 const pendingClientResolve = new Map();
+const clientResolveCacheEpoch = new Map();
 
 const getClientResolveCacheKey = (user) =>
   user?.uid ? `${user.uid}:${normalizeEmail(user.email)}` : "";
@@ -247,16 +248,30 @@ export async function resolveClientSnapshotForUser(user, options = {}) {
     return pendingClientResolve.get(cacheKey);
   }
 
+  const cacheEpoch = clientResolveCacheEpoch.get(cacheKey) || 0;
   const promise = resolveClientSnapshotForUserUncached(user, options)
     .then((snap) => {
-      clientResolveCache.set(cacheKey, { at: Date.now(), snap });
+      if ((clientResolveCacheEpoch.get(cacheKey) || 0) === cacheEpoch) {
+        clientResolveCache.set(cacheKey, { at: Date.now(), snap });
+      }
       if (snap?.id) writeLocalClientId(user, snap.id);
       return snap;
     })
     .finally(() => {
-      pendingClientResolve.delete(cacheKey);
+      if (pendingClientResolve.get(cacheKey) === promise) {
+        pendingClientResolve.delete(cacheKey);
+      }
     });
 
   if (!options.disableCache) pendingClientResolve.set(cacheKey, promise);
   return promise;
+}
+
+export function invalidateClientSnapshotForUser(user) {
+  const cacheKey = getClientResolveCacheKey(user);
+  if (!cacheKey) return;
+
+  clientResolveCacheEpoch.set(cacheKey, (clientResolveCacheEpoch.get(cacheKey) || 0) + 1);
+  clientResolveCache.delete(cacheKey);
+  pendingClientResolve.delete(cacheKey);
 }

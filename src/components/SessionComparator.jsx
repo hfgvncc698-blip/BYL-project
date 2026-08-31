@@ -21,6 +21,11 @@ import {
 import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import i18n from "../i18n/index";
+import {
+  buildCompletionRecordsFromModifications,
+  mergeCompletionHistoryRecords,
+} from "../utils/exerciseModificationHistory";
+import { isValidatedExerciseCompletion } from "../utils/exerciseHistoryIdentity";
 
 /* ==================== Helpers ==================== */
 const isNil = (v) => v == null || v === "";
@@ -91,8 +96,6 @@ const areEqualMeaningfully = (kind, a, b) => {
 };
 
 const isDifferent = (kind, a, b) => !areEqualMeaningfully(kind, a, b);
-
-const pick = (obj, keys) => keys.map((k) => obj?.[k]).find((v) => v !== undefined);
 
 const toDateLoose = (v) => {
   if (!v) return null;
@@ -293,66 +296,72 @@ function getPlannedValueForExercise(ex, descriptor) {
   return descriptor.kind === "time" ? toSeconds(raw) : raw;
 }
 
-/* ==================== Runs (group by runId) ==================== */
-function buildRuns(mods, sessionIndex, exIdToIdx) {
-  if (!mods?.length) return [];
+/* ==================== Runs (séances validées + compatibilité legacy) ==================== */
+function buildRunsFromCompletionRecords(records, sessionIndex, exIdToIdx) {
+  return (records || [])
+    .filter(
+      (record) =>
+        isValidatedExerciseCompletion(record) &&
+        Number(record?.sessionIndex ?? record?.seanceIndex) === sessionIndex
+    )
+    .map((record) => {
+      const byExercise = {};
+      (record?.exerciseSnapshots || []).forEach((snapshot) => {
+        const rawIndex = Number(snapshot?.exerciseIndex ?? snapshot?.exerciceIndex);
+        const exerciseId = snapshot?.exerciseId || snapshot?.exerciceId || null;
+        const resolvedIndex = Number.isInteger(rawIndex)
+          ? rawIndex
+          : exIdToIdx?.[String(exerciseId)];
+        if (!Number.isInteger(resolvedIndex)) return;
 
-  const sIdxKeys = ["sessionIndex", "seanceIndex"];
-  const exIdxKeys = ["exerciseIndex", "exerciceIndex"];
-  const tsKeys = ["updatedAt", "createdAt", "timestamp", "clientAt"];
-  const runIdKeys = ["runId", "run"];
-  const exNameKeys = ["exerciseName", "exerciceName", "_exerciseName", "nomExercice", "name", "nom"];
-  const exIdKeys = ["exerciseId", "exerciceId", "_exerciseId", "id", "uid"];
+        const cells = {
+          _exerciseName:
+            snapshot?.exerciseName || snapshot?.exerciceName || snapshot?.name || null,
+          _exerciseId: exerciseId,
+        };
+        const sets = Array.isArray(snapshot?.sets) ? snapshot.sets : [];
+        if (sets.length) {
+          cells.series = {
+            value: sets.length,
+            label: FIELD_DEFS.series.label,
+            key: "series",
+            kind: FIELD_DEFS.series.kind,
+            setIndex: null,
+          };
+        }
 
-  const shouldFilter =
-    mods.filter((m) => pick(m, sIdxKeys) != null).length >= mods.length * 0.5;
+        sets.forEach((set, setOffset) => {
+          const setIndex = Math.max(1, Number(set?.setIndex) || setOffset + 1);
+          Object.entries(set?.values || {}).forEach(([label, cell]) => {
+            const descriptor = parseFieldDescriptor(`${label} (set ${setIndex})`);
+            const value = cell?.raw ?? cell?.value ?? cell;
+            if (!descriptor || !isCompatibleValue(descriptor.kind, value)) return;
+            cells[descriptor.id] = {
+              value,
+              label: descriptor.label,
+              key: descriptor.key,
+              kind: descriptor.kind,
+              setIndex: descriptor.setIndex,
+            };
+          });
+        });
 
-  const runs = new Map();
+        byExercise[resolvedIndex] = cells;
+      });
 
-  for (const m of mods) {
-    const sIdx = Number(pick(m, sIdxKeys));
-    if (shouldFilter && sIdx !== sessionIndex) continue;
-
-    const runId = pick(m, runIdKeys) || "noRun";
-    const ts = toDateLoose(pick(m, tsKeys)) || new Date();
-
-    const rawExIdx = pick(m, exIdxKeys);
-    const exIdx = Number(rawExIdx);
-    const exName = pick(m, exNameKeys) || null;
-    const exId = pick(m, exIdKeys) || null;
-
-    let resolvedIdx = Number.isFinite(exIdx) ? exIdx : null;
-    if (resolvedIdx == null && exId && exIdToIdx?.[String(exId)] != null) {
-      resolvedIdx = exIdToIdx[String(exId)];
-    }
-    if (resolvedIdx == null) continue;
-
-    const field = m.field || m.champ || m.name || "valeur";
-    const value = m.value ?? m.valeur ?? m.to ?? m.newValue ?? m.v;
-    const descriptor = parseFieldDescriptor(field);
-
-    if (!descriptor) continue;
-    if (!isCompatibleValue(descriptor.kind, value)) continue;
-
-    if (!runs.has(runId)) runs.set(runId, { runId, ts, byExercise: {} });
-    const run = runs.get(runId);
-
-    if (ts > (run.ts || 0)) run.ts = ts;
-
-    if (!run.byExercise[resolvedIdx]) run.byExercise[resolvedIdx] = {};
-    run.byExercise[resolvedIdx]._exerciseName = exName;
-    run.byExercise[resolvedIdx]._exerciseId = exId;
-    run.byExercise[resolvedIdx][descriptor.id] = {
-      value,
-      label: descriptor.label,
-      key: descriptor.key,
-      kind: descriptor.kind,
-      setIndex: descriptor.setIndex,
-    };
-  }
-
-  // tri desc (newest first)
-  return Array.from(runs.values()).sort((a, b) => b.ts - a.ts);
+      return {
+        runId: record?.runId || record?.completionId || record?.id,
+        ts:
+          toDateLoose(
+            record?.dateEffectuee ||
+              record?.completedAt ||
+              record?.validatedAt ||
+              record?.updatedAt
+          ) || new Date(),
+        byExercise,
+      };
+    })
+    .sort((a, b) => b.ts - a.ts);
 }
 
 /* ==================== Timeline reconstruction ==================== */
@@ -414,7 +423,7 @@ export default function SessionComparator({ clientId, programmes, embedded = fal
   const [loading, setLoading] = useState(false);
   const [progId, setProgId] = useState(() => programmes?.[0]?.id || "");
   const [sessionIndex, setSessionIndex] = useState(0);
-  const [mods, setMods] = useState([]);
+  const [completionRecords, setCompletionRecords] = useState([]);
   const [occList, setOccList] = useState([]);
   const [occAIdx, setOccAIdx] = useState(1);
   const [occBIdx, setOccBIdx] = useState(0);
@@ -425,7 +434,11 @@ export default function SessionComparator({ clientId, programmes, embedded = fal
     [progId, programmes]
   );
 
-  const sessionObj = currentProg?.sessions?.[sessionIndex] || null;
+  const programSessions = useMemo(
+    () => currentProg?.sessions || currentProg?.seances || [],
+    [currentProg]
+  );
+  const sessionObj = programSessions?.[sessionIndex] || null;
 
   const flattened = useMemo(() => flattenSessionExercises(sessionObj), [sessionObj]);
   const planExercises = useMemo(() => flattened.map((x) => x.ex), [flattened]);
@@ -445,7 +458,15 @@ export default function SessionComparator({ clientId, programmes, embedded = fal
     (async () => {
       setLoading(true);
       try {
-        const ref = collection(
+        const completionsRef = collection(
+          db,
+          "clients",
+          clientId,
+          "programmes",
+          progId,
+          "sessionsEffectuees"
+        );
+        const modificationsRef = collection(
           db,
           "clients",
           clientId,
@@ -454,36 +475,84 @@ export default function SessionComparator({ clientId, programmes, embedded = fal
           "historique_modifications"
         );
 
-        let snap;
-        try {
-          const qy = query(ref, orderBy("updatedAt", "asc"));
-          snap = await getDocs(qy);
-        } catch (e) {
-          snap = await getDocs(ref);
-        }
+        const [completionsSnap, modificationsSnap] = await Promise.all([
+          getDocs(completionsRef),
+          getDocs(query(modificationsRef, orderBy("updatedAt", "asc"))).catch(() =>
+            getDocs(modificationsRef)
+          ),
+        ]);
+        const completions = completionsSnap.docs.map((document) => ({
+          id: document.id,
+          completionId: document.id,
+          programId: progId,
+          programSessions,
+          ...document.data(),
+        }));
+        const modifications = modificationsSnap.docs.map((document) => ({
+          id: document.id,
+          ...document.data(),
+        }));
+        const mergedRecords = mergeCompletionHistoryRecords(
+          completions,
+          buildCompletionRecordsFromModifications({
+            modifications,
+            programSessions,
+            programId: progId,
+          })
+        );
+        setCompletionRecords(mergedRecords);
 
-        setMods(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        // À l'ouverture, afficher directement une séance réellement comparable
+        // au lieu de rester sur la séance 1 lorsqu'elle n'a été faite qu'une fois.
+        setSessionIndex((currentIndex) => {
+          const countFor = (index) =>
+            mergedRecords.filter(
+              (record) =>
+                isValidatedExerciseCompletion(record) &&
+                Number(record?.sessionIndex ?? record?.seanceIndex) === index
+            ).length;
+          if (countFor(currentIndex) >= 2) return currentIndex;
+          const comparableIndex = programSessions.findIndex(
+            (_session, index) => countFor(index) >= 2
+          );
+          return comparableIndex >= 0 ? comparableIndex : 0;
+        });
       } catch (e) {
         console.error("SessionComparator>getDocs error:", e);
-        setMods([]);
+        setCompletionRecords([]);
       } finally {
         setLoading(false);
       }
     })();
-  }, [clientId, progId]);
+  }, [clientId, progId, programSessions]);
 
   useEffect(() => {
-    if (!mods.length) {
+    if (!completionRecords.length) {
       setOccList([]);
       setOccAIdx(1);
       setOccBIdx(0);
       return;
     }
-    const runs = buildRuns(mods, sessionIndex, exIdToIdx);
+    const runs = buildRunsFromCompletionRecords(
+      completionRecords,
+      sessionIndex,
+      exIdToIdx
+    );
     setOccList(runs);
     setOccBIdx(0);
     setOccAIdx(runs.length > 1 ? 1 : 0);
-  }, [mods, sessionIndex, exIdToIdx]);
+  }, [completionRecords, sessionIndex, exIdToIdx]);
+
+  const occurrenceCounts = useMemo(() => {
+    const counts = new Map();
+    completionRecords.forEach((record) => {
+      if (!isValidatedExerciseCompletion(record)) return;
+      const index = Number(record?.sessionIndex ?? record?.seanceIndex);
+      if (!Number.isInteger(index)) return;
+      counts.set(index, (counts.get(index) || 0) + 1);
+    });
+    return counts;
+  }, [completionRecords]);
 
   const DiffBadge = ({ kind, from, to }) => {
     if (!isDifferent(kind, from, to)) return <Badge variant="subtle">=</Badge>;
@@ -614,8 +683,8 @@ export default function SessionComparator({ clientId, programmes, embedded = fal
           </Select>
 
           <Select size="sm" value={sessionIndex} onChange={(e) => setSessionIndex(Number(e.target.value))} w={{ base: "100%", md: "160px" }} flexShrink={0}>
-            {(currentProg?.sessions || []).map((_s, i) => (
-              <option key={i} value={i}>{i18n.t("programView.session", "Séance")}{i + 1}
+            {programSessions.map((_s, i) => (
+              <option key={i} value={i}>{i18n.t("programView.session", "Séance")} {i + 1} ({occurrenceCounts.get(i) || 0})
               </option>
             ))}
           </Select>
@@ -638,7 +707,13 @@ export default function SessionComparator({ clientId, programmes, embedded = fal
           borderColor={border}
           borderRadius="20px"
         >
-          <Text fontSize="sm" color={muted}>{i18n.t("auto.SessionComparator.pas_encore_assez_d_occurrences_pour_comparer_cette", "Pas encore assez d’occurrences pour comparer cette séance. Il faut au moins 2 enregistrements.")}</Text>
+          <Text fontSize="sm" color={muted}>
+            {i18n.t(
+              "compare.needMoreDetailed",
+              "{{count}}/2 occurrences enregistrées pour cette séance. Choisissez une séance réalisée au moins 2 fois.",
+              { count: occList.length }
+            )}
+          </Text>
         </Box>
       ) : (
         <>

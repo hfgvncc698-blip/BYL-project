@@ -9306,13 +9306,17 @@ activeSportMs > 0 &&
                                 {`${c?.prenom?.[0] || ""}${c?.nom?.[0] || ""}`.toUpperCase() || "C"}
                               </Flex>
 
-                              <Box minW={0} flex={{ base: 1, md: "0 1 220px" }}>
+                              <Box
+                                minW={0}
+                                flex={{ base: 1, md: "0 1 220px", lg: "0 0 270px" }}
+                              >
                                  <Text
                                    color={textColor}
                                    fontWeight="800"
                                    fontSize="md"
                                    noOfLines={1}
-                                   pr={7}
+                                   pr={{ base: 7, md: 0 }}
+                                   title={`${c.prenom || ""} ${c.nom || ""}`.trim()}
                                  >
                                    {c.prenom} {c.nom}
                                  </Text>

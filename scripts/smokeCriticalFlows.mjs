@@ -188,6 +188,7 @@ check("sport PDFs include localized exercise notes", () => {
 
 check("session performance history freezes actual values per completed set", () => {
   const player = read("src/components/SessionPlayer.jsx");
+  const comparator = read("src/components/SessionComparator.jsx");
   assert.ok(
     player.includes("function captureCurrentSetPerformance()") &&
       player.includes("const completedSetKey = captureCurrentSetPerformance()"),
@@ -223,6 +224,13 @@ check("session performance history freezes actual values per completed set", () 
       player.includes("clearSessionResumeState(sessionResumeStorageKey)") &&
       !player.includes("performanceDrafts: Array.from(performanceDraftsRef.current.values())"),
     "Leaving an unfinished session must discard its provisional performance values"
+  );
+  assert.ok(
+    comparator.includes('"sessionsEffectuees"') &&
+      comparator.includes("buildRunsFromCompletionRecords") &&
+      comparator.includes("isValidatedExerciseCompletion(record)") &&
+      comparator.includes("record?.exerciseSnapshots || []"),
+    "Session comparison must read validated completion snapshots, even when no value was manually modified"
   );
 });
 
@@ -498,6 +506,7 @@ check("client account creation and identity resolution are fail-safe", () => {
   const clientProfileRoute = read("backend/routes/clientProfile.js");
   const clientCreation = read("src/components/ClientCreation.jsx");
   const nutritionPrefill = read("src/utils/nutritionPrefill.js");
+  const clientResolver = read("src/utils/clientResolver.js");
   const functionsIndex = read("functions/index.js");
   const authContext = read("src/AuthContext.jsx");
   const clientProfile = read("src/pages/ProfilePageClient.jsx");
@@ -561,6 +570,14 @@ check("client account creation and identity resolution are fail-safe", () => {
       !clientProfile.includes("sendPasswordResetEmail") &&
       !clientProfile.includes("http://localhost:5173/login?from=email-change"),
     "Client email changes must be verified and legacy client profiles must use safe identity resolution"
+  );
+  assert.ok(
+    clientResolver.includes("export function invalidateClientSnapshotForUser") &&
+      clientResolver.includes("clientResolveCacheEpoch") &&
+      clientProfile.includes("invalidateClientSnapshotForUser(user)") &&
+      clientProfile.includes("const batch = writeBatch(db)") &&
+      clientProfile.includes('throw new Error("client-profile-not-resolved")'),
+    "Profile saves must atomically update both identities and invalidate stale snapshots"
   );
   assert.ok(
     paymentSuccess.includes("resolveClientSnapshotForUser") &&

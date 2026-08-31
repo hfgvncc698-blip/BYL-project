@@ -23,7 +23,7 @@ import {
   Flex,
 } from "@chakra-ui/react";
 import { useAuth } from "../AuthContext";
-import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, updateDoc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useTranslation } from "react-i18next";
 
@@ -39,7 +39,10 @@ import AppLoading from "../components/ui/AppLoading";
 import PageBackButton from "../components/ui/PageBackButton";
 import { notify } from "../utils/notify";
 import { ensureLanguageLoaded } from "../i18n";
-import { resolveClientSnapshotForUser } from "../utils/clientResolver";
+import {
+  invalidateClientSnapshotForUser,
+  resolveClientSnapshotForUser,
+} from "../utils/clientResolver";
 import { apiFetch } from "../utils/api";
 
 /* ---- conversions identiques à ClientCreation.jsx ---- */
@@ -449,26 +452,40 @@ export default function ProfilePageClient() {
     const usersRef = doc(db, "users", user.uid);
     const langLabel = labelFromCode(langCode);
 
-    const writes = [
-      updateDoc(usersRef, {
-        firstName: form.firstName?.trim(),
-        lastName: form.lastName?.trim(),
-        email: emailToUse,
-        telephone: (form.phone || "").trim(),
-        defaultLanguage: langLabel,
-        updatedAt: serverTimestamp(),
-      }),
-    ];
-
-    if (clientDocId) {
-      writes.push(
-        updateDoc(
-          doc(db, "clients", clientDocId),
-          buildComputedClientPayload(emailToUse)
-        )
-      );
+    let resolvedClientId = clientDocId;
+    if (!resolvedClientId) {
+      const resolvedClient = await resolveClientSnapshotForUser(user, {
+        disableCache: true,
+        logPrefix: "ProfilePageClientSave",
+      });
+      resolvedClientId = resolvedClient?.id || null;
+      if (resolvedClientId) setClientDocId(resolvedClientId);
     }
-    await Promise.all(writes);
+
+    if (!resolvedClientId) {
+      throw new Error("client-profile-not-resolved");
+    }
+
+    const batch = writeBatch(db);
+    batch.update(usersRef, {
+      firstName: form.firstName?.trim(),
+      lastName: form.lastName?.trim(),
+      email: emailToUse,
+      telephone: (form.phone || "").trim(),
+      defaultLanguage: langLabel,
+      updatedAt: serverTimestamp(),
+    });
+    batch.update(
+      doc(db, "clients", resolvedClientId),
+      buildComputedClientPayload(emailToUse)
+    );
+
+    // Le listener users/{uid} peut se déclencher dès le commit. Le cache doit
+    // donc être vidé avant, puis à nouveau après pour bloquer toute ancienne
+    // résolution encore en vol.
+    invalidateClientSnapshotForUser(user);
+    await batch.commit();
+    invalidateClientSnapshotForUser(user);
   };
 
   /* ---------- Submit ---------- */
@@ -532,6 +549,11 @@ export default function ProfilePageClient() {
         msg = t(
           "auth.requires_recent_login",
           "Pour votre sécurité, reconnectez-vous puis recommencez la modification."
+        );
+      } else if (error?.message === "client-profile-not-resolved") {
+        msg = t(
+          "profile.toasts.client_link_missing",
+          "Votre dossier client n’a pas pu être identifié. Contactez votre coach avant de réessayer."
         );
       }
 
