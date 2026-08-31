@@ -36,6 +36,7 @@ check("critical app routes are registered", () => {
     'path="/checkout/:productId"',
     'path="/club-dashboard/*"',
     'path="/admin/emails"',
+    'path="/admin/client-preview/:clientId"',
     'path="/activate-account"',
     'path="/reset-password"',
     'path="/verify-email"',
@@ -507,6 +508,9 @@ check("client account creation and identity resolution are fail-safe", () => {
   const clientCreation = read("src/components/ClientCreation.jsx");
   const nutritionPrefill = read("src/utils/nutritionPrefill.js");
   const clientResolver = read("src/utils/clientResolver.js");
+  const clientView = read("src/components/ClientView.jsx");
+  const clientDashboard = read("src/components/Clientdashboard.jsx");
+  const adminClient = read("src/pages/AdminClient.jsx");
   const functionsIndex = read("functions/index.js");
   const authContext = read("src/AuthContext.jsx");
   const clientProfile = read("src/pages/ProfilePageClient.jsx");
@@ -578,6 +582,20 @@ check("client account creation and identity resolution are fail-safe", () => {
       clientProfile.includes("const batch = writeBatch(db)") &&
       clientProfile.includes('throw new Error("client-profile-not-resolved")'),
     "Profile saves must atomically update both identities and invalidate stale snapshots"
+  );
+  assert.ok(
+    clientResolver.includes("export async function resolveClientSnapshotFromIdentifier") &&
+      clientView.includes("resolveClientSnapshotFromIdentifier(clientId)") &&
+      clientView.includes("replace: true") &&
+      clientDashboard.includes("disableCache: true") &&
+      clientDashboard.includes("adminPreview = false") &&
+      clientDashboard.includes("notifyPreviewReadOnly") &&
+      clientDashboard.includes('aria-readonly={previewMode ? "true" : undefined}') &&
+      clientDashboard.includes("Modifier le dossier") &&
+      !clientDashboard.includes('pointerEvents={previewMode ? "none" : "auto"}') &&
+      clientDashboard.includes("if (previewMode || !clientId") &&
+      adminClient.includes("clientData?.id || userData?.linkedClientId || id"),
+    "Coach views must canonicalize account UIDs to the linked client document before loading progress"
   );
   assert.ok(
     paymentSuccess.includes("resolveClientSnapshotForUser") &&

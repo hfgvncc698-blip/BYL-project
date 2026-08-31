@@ -69,6 +69,7 @@ import {
   getProgramPlannedSessionTotal,
   getProgramValidatedSessionCount,
 } from "../utils/programDuration";
+import { resolveClientSnapshotFromIdentifier } from "../utils/clientResolver";
 
 const SessionComparator = lazy(() => import("./SessionComparator"));
 const ClientNutritionSection = lazy(() => import("./ClientNutritionSection"));
@@ -701,7 +702,17 @@ export default function ClientView() {
   /* ------------------ Client ------------------ */
   useEffect(() => {
     if (!clientId) return;
-    const unsub = onSnapshot(doc(db, "clients", clientId), (snap) => {
+    let active = true;
+    const unsub = onSnapshot(doc(db, "clients", clientId), async (snap) => {
+      if (!snap.exists()) {
+        const resolved = await resolveClientSnapshotFromIdentifier(clientId);
+        if (active && resolved?.id && resolved.id !== clientId) {
+          navigate(`/clients/${resolved.id}${location.search || ""}`, {
+            replace: true,
+          });
+        }
+        return;
+      }
       const nextClient = { id: snap.id, ...snap.data() };
       setClient(nextClient);
       clientViewMemoryCache.set(clientId, {
@@ -709,8 +720,11 @@ export default function ClientView() {
         client: nextClient,
       });
     });
-    return unsub;
-  }, [clientId]);
+    return () => {
+      active = false;
+      unsub();
+    };
+  }, [clientId, location.search, navigate]);
 
   useEffect(() => {
     if (!client) return undefined;

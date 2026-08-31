@@ -9,7 +9,7 @@ import {
   SimpleGrid, Icon, Tooltip, Circle, Stack, useBreakpointValue,
 } from '@chakra-ui/react';
 import { AddIcon } from '@chakra-ui/icons';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   collection, getDocs, query, where, onSnapshot,
   doc, addDoc, updateDoc, deleteDoc, Timestamp, getDoc
@@ -620,25 +620,91 @@ function PremiumDetailsModal({ isOpen, onClose, program, loadingDetails, onBuy, 
 }
 
 /* ============================== COMPONENT ============================== */
-export default function ClientDashboard() {
+export default function ClientDashboard({ adminPreview = false }) {
   const { t, i18n } = useTranslation();
   const calendarCulture = useMemo(
     () => getCalendarCulture(i18n.resolvedLanguage || i18n.language || "fr"),
     [i18n.resolvedLanguage, i18n.language]
   );
   const calendarFormats = useMemo(() => getCalendarFormats(calendarCulture), [calendarCulture]);
-  const { user } = useAuth();
+  const { user: authenticatedUser, isAdmin } = useAuth();
+  const { clientId: previewClientIdParam } = useParams();
+  const previewMode = Boolean(adminPreview && isAdmin && previewClientIdParam);
+  const [previewUser, setPreviewUser] = useState(null);
+  const user = previewMode ? previewUser : authenticatedUser;
   const colorMode = useColorModeValue("light", "dark");
   const modeValue = useCallback(
     (lightValue, darkValue) => (colorMode === "light" ? lightValue : darkValue),
     [colorMode]
   );
-  const navigate = useNavigate();
+  const routerNavigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
+  const notifyPreviewReadOnly = useCallback(() => {
+    toast({
+      status: "info",
+      title: "Aperçu en lecture seule",
+      description:
+        "Utilisez « Modifier le dossier » pour quitter l’aperçu avant d’effectuer une action.",
+      duration: 3200,
+    });
+  }, [toast]);
+  const navigate = useCallback(
+    (to, options) => {
+      if (previewMode) {
+        notifyPreviewReadOnly();
+        return;
+      }
+      routerNavigate(to, options);
+    },
+    [notifyPreviewReadOnly, previewMode, routerNavigate]
+  );
   const { firstName, logoUrl, primaryColor } = user || {};
   const [resolvedLogoUrl, setResolvedLogoUrl] = useState(null);
   const calendarModalHelpColor = modeValue('gray.600', 'gray.300');
+
+  useEffect(() => {
+    if (!previewMode) {
+      setPreviewUser(null);
+      return undefined;
+    }
+
+    let active = true;
+    (async () => {
+      const clientSnap = await getDoc(doc(db, "clients", previewClientIdParam));
+      if (!clientSnap.exists() || !active) return;
+      const clientData = clientSnap.data() || {};
+      const accountUid = String(
+        clientData.linkedUserId || clientData.accountUid || clientData.uid || ""
+      ).trim();
+      const accountSnap = accountUid
+        ? await getDoc(doc(db, "users", accountUid)).catch(() => null)
+        : null;
+      const accountData = accountSnap?.data?.() || {};
+
+      if (active) {
+        setPreviewUser({
+          ...clientData,
+          ...accountData,
+          uid: accountUid || previewClientIdParam,
+          linkedClientId: previewClientIdParam,
+          role: "particulier",
+          firstName:
+            accountData.firstName || clientData.firstName || clientData.prenom || "Client",
+          lastName:
+            accountData.lastName || clientData.lastName || clientData.nom || "",
+          email: accountData.email || clientData.email || "",
+        });
+      }
+    })().catch((error) => {
+      console.error("[ClientDashboardPreview] client unavailable", error);
+      if (active) setPreviewUser(null);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [previewClientIdParam, previewMode]);
 
   useEffect(() => {
     let alive = true;
@@ -734,7 +800,13 @@ export default function ClientDashboard() {
 
   /* ---------- Résolution robuste du client ---------- */
   async function resolveClientRef(u) {
-    return resolveClientSnapshotForUser(u, { logPrefix: "ClientDashboard" });
+    // Le tableau de bord doit toujours repartir de l'identité liée actuelle :
+    // une ancienne résolution en cache ne doit jamais masquer les programmes
+    // ni leur progression après l'activation ou la liaison du compte.
+    return resolveClientSnapshotForUser(u, {
+      disableCache: true,
+      logPrefix: "ClientDashboard",
+    });
   }
 
   useEffect(() => {
@@ -756,6 +828,10 @@ export default function ClientDashboard() {
   };
 
   const handleGenerateCalendarLink = async () => {
+    if (previewMode) {
+      notifyPreviewReadOnly();
+      return;
+    }
     if (!user?.uid || !clientId) {
       toast({ status: 'error', title: t("auto.Clientdashboard.client_introuvable", "Client introuvable"), description: t("auto.Clientdashboard.impossible_de_generer_le_lien_sans_compte_client", "Impossible de générer le lien sans compte client.") });
       return;
@@ -873,13 +949,15 @@ export default function ClientDashboard() {
           setPremiumEligibility({ freeAvailable: false, claimed: true });
         }
 
-        try {
-          await apiFetch('/payments/recover-premium-purchases', {
-            method: 'POST',
-            body: JSON.stringify({ firebaseUid: user.uid }),
-          });
-        } catch (recoverError) {
-          console.warn('[ClientDashboard] premium recovery unavailable', recoverError);
+        if (!previewMode) {
+          try {
+            await apiFetch('/payments/recover-premium-purchases', {
+              method: 'POST',
+              body: JSON.stringify({ firebaseUid: user.uid }),
+            });
+          } catch (recoverError) {
+            console.warn('[ClientDashboard] premium recovery unavailable', recoverError);
+          }
         }
 
         let catalog = [];
@@ -1290,13 +1368,13 @@ export default function ClientDashboard() {
       if (unsubSessA) unsubSessA();
       if (unsubSessB) unsubSessB();
     };
-  }, [user, i18n.language]);  
+  }, [user, i18n.language, previewMode]);
 
   /* ====== Auto ajout au calendrier quand séance validée ====== */
   const programmeIdsKey = useMemo(() => programmes.map(p => p.id).sort().join(','), [programmes]);
 
   useEffect(() => {
-    if (!clientId || programmes.length === 0 || !user?.uid) return;
+    if (previewMode || !clientId || programmes.length === 0 || !user?.uid) return;
 
     const knownCalendarKeys = new Set();
     const pendingCalendarKeys = new Set();
@@ -1410,7 +1488,7 @@ export default function ClientDashboard() {
     });
 
     return () => { unsubs.forEach(u => u && u()); };
-  }, [clientId, programmeIdsKey, user?.uid, t]);  
+  }, [clientId, previewMode, programmeIdsKey, user?.uid, t]);
 
   /* ------------------ Navigation ------------------ */
   const navigateToProgram = (p) => {
@@ -1435,6 +1513,10 @@ export default function ClientDashboard() {
     navigateToProgramSession(prog, event.sessionIndex ?? 0);
   };
   const startNextSession = (p) => {
+    if (previewMode) {
+      notifyPreviewReadOnly();
+      return;
+    }
     if (!clientId || !(p?._total >= 1)) return;
     const resumeSessionIndex = Number.isFinite(Number(p?._resumeSessionIndex))
       ? Number(p._resumeSessionIndex)
@@ -1462,6 +1544,10 @@ export default function ClientDashboard() {
   };
 
   const startUpcomingSession = (p) => {
+    if (previewMode) {
+      notifyPreviewReadOnly();
+      return;
+    }
     if (!clientId || !(p?._total >= 1)) return;
     const nextSessionIndex = Number.isFinite(Number(p?._freshNextSessionIndex))
       ? Number(p._freshNextSessionIndex)
@@ -1485,6 +1571,10 @@ export default function ClientDashboard() {
   };
 
   const replayProgramme = (p) => {
+    if (previewMode) {
+      notifyPreviewReadOnly();
+      return;
+    }
     if (!clientId || !(p?._total >= 1)) return;
     navigate(
       `/clients/${clientId}/programmes/${p.id}/session/0/play`,
@@ -1503,6 +1593,10 @@ export default function ClientDashboard() {
   };
   /* ------------------ Achat premium / 1er gratuit (fallback endpoints) ------------------ */
   const handleBuyPremium = async (prog) => {
+    if (previewMode) {
+      notifyPreviewReadOnly();
+      return;
+    }
     try {
       const priceId = prog.stripePriceId || STRIPE_FALLBACK_PRICE;
 
@@ -1535,6 +1629,10 @@ export default function ClientDashboard() {
   };
 
   const handleClaimFree = async (prog) => {
+    if (previewMode) {
+      notifyPreviewReadOnly();
+      return;
+    }
     try {
       const { ok, data, error } = await tryPostWithFallback(
         [
@@ -1580,6 +1678,10 @@ export default function ClientDashboard() {
 
   /* -------------------- Calendrier: CRUD -------------------- */
   const handleAddSession = async () => {
+    if (previewMode) {
+      notifyPreviewReadOnly();
+      return;
+    }
     const { programmeId, sessionIndex, startDateTime } = newSession;
     if (!programmeId || sessionIndex == null || !startDateTime) return;
 
@@ -1612,22 +1714,38 @@ export default function ClientDashboard() {
   };
 
   const handleValidate = async () => {
+    if (previewMode) {
+      notifyPreviewReadOnly();
+      return;
+    }
     if (!selectedEvent) return;
     await updateDoc(doc(db, 'sessions', selectedEvent.id), { status: 'validée' });
     setEventOpen(false);
   };
   const handleMissed = async () => {
+    if (previewMode) {
+      notifyPreviewReadOnly();
+      return;
+    }
     if (!selectedEvent) return;
     await updateDoc(doc(db, 'sessions', selectedEvent.id), { status: 'manquée' });
     setEventOpen(false);
   };
   const handleDelete = async () => {
+    if (previewMode) {
+      notifyPreviewReadOnly();
+      return;
+    }
     if (!selectedEvent) return;
     await deleteDoc(doc(db, 'sessions', selectedEvent.id));
     setEventOpen(false);
   };
 
   const moveEvent = async ({ event, start, end }) => {
+    if (previewMode) {
+      notifyPreviewReadOnly();
+      return;
+    }
     if (isTouchDevice()) return;
     await updateDoc(doc(db, 'sessions', event.id), {
       start: Timestamp.fromDate(start),
@@ -1642,6 +1760,10 @@ export default function ClientDashboard() {
     setRescheduleOpen(true);
   };
   const confirmReschedule = async () => {
+    if (previewMode) {
+      notifyPreviewReadOnly();
+      return;
+    }
     if (!rescheduleDateTime || !selectedEvent) return;
     const start = new Date(rescheduleDateTime);
     const constDuration = (selectedEvent.end - selectedEvent.start);
@@ -2335,9 +2457,67 @@ export default function ClientDashboard() {
       p={{ base: 3, md: 4 }}
       color={textColor}
       position="relative"
+      onClickCapture={(event) => {
+        if (!previewMode) return;
+        const anchor = event.target?.closest?.("a[href]");
+        if (!anchor) return;
+        event.preventDefault();
+        event.stopPropagation();
+        notifyPreviewReadOnly();
+      }}
       sx={{ "& [role='button']": { cursor: "pointer" } }}
     >
-      <Box position="relative" zIndex={1}>
+      {previewMode ? (
+        <Flex
+          position="sticky"
+          top="12px"
+          zIndex={20}
+          mb={3}
+          px={4}
+          py={3}
+          direction={{ base: "column", md: "row" }}
+          align={{ base: "stretch", md: "center" }}
+          justify="space-between"
+          gap={3}
+          borderRadius="16px"
+          bg={modeValue("orange.50", "rgba(124,45,18,0.92)")}
+          border="1px solid"
+          borderColor={modeValue("orange.200", "orange.700")}
+          boxShadow="0 12px 30px rgba(15,23,42,0.12)"
+        >
+          <Box>
+            <Text fontWeight="900">Aperçu de l’espace client</Text>
+            <Text fontSize="sm" color={modeValue("orange.800", "orange.100")}>
+              Lecture seule — aucune action ne sera enregistrée.
+            </Text>
+          </Box>
+          <HStack spacing={2} flexShrink={0} flexWrap="wrap">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                routerNavigate(`/clients/${previewClientIdParam}?adminMode=1`)
+              }
+            >
+              Modifier le dossier
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                routerNavigate(`/admin/client/${previewClientIdParam}`)
+              }
+            >
+              Quitter l’aperçu
+            </Button>
+          </HStack>
+        </Flex>
+      ) : null}
+      <Box
+        position="relative"
+        zIndex={1}
+        aria-readonly={previewMode ? "true" : undefined}
+      >
       <Box mb={4}>
           <Box
             bg={surfaceBgStrong}

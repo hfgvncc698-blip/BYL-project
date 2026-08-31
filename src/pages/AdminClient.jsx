@@ -52,6 +52,7 @@ import {
   MdCheckCircle,
   MdCancel,
   MdReport,
+  MdVisibility,
 } from "react-icons/md";
 import AppLoading from "../components/ui/AppLoading";
 import { useAppTheme } from "../styles/appTheme";
@@ -1065,7 +1066,15 @@ export default function AdminClient() {
             </Box>
 
             <HStack flexWrap="wrap" gap={2}>
-              <Button variant="outline" rightIcon={<Icon as={MdOpenInNew} />} onClick={() => navigate(`/clients/${id}?adminMode=1`)}>{i18n.t("auto.AdminClient.ouvrir_fiche_en_vue_coach", "Ouvrir fiche en vue coach")}</Button>
+              <Button variant="outline" rightIcon={<Icon as={MdOpenInNew} />} onClick={() => navigate(`/clients/${clientData?.id || userData?.linkedClientId || id}?adminMode=1`)}>{i18n.t("auto.AdminClient.ouvrir_fiche_en_vue_coach", "Ouvrir fiche en vue coach")}</Button>
+              <Button
+                variant="outline"
+                rightIcon={<Icon as={MdVisibility} />}
+                isDisabled={!clientData?.id && !userData?.linkedClientId}
+                onClick={() => navigate(`/admin/client-preview/${clientData?.id || userData?.linkedClientId}`)}
+              >
+                Voir l’espace client
+              </Button>
             </HStack>
           </HStack>
 

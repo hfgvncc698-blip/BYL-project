@@ -275,3 +275,47 @@ export function invalidateClientSnapshotForUser(user) {
   clientResolveCache.delete(cacheKey);
   pendingClientResolve.delete(cacheKey);
 }
+
+export async function resolveClientSnapshotFromIdentifier(identifier) {
+  const candidateId = String(identifier || "").trim();
+  if (!candidateId) return null;
+
+  const directSnap = await getDoc(doc(db, "clients", candidateId)).catch(() => null);
+  if (directSnap?.exists?.()) return directSnap;
+
+  const userSnap = await getDoc(doc(db, "users", candidateId)).catch(() => null);
+  const userData = userSnap?.data?.() || {};
+  const linkedClientId = String(
+    userData.linkedClientId || userData.clientId || ""
+  ).trim();
+  if (linkedClientId) {
+    const linkedSnap = await getDoc(doc(db, "clients", linkedClientId)).catch(
+      () => null
+    );
+    if (linkedSnap?.exists?.()) return linkedSnap;
+  }
+
+  const linkedQueries = await Promise.all(
+    ["linkedUserId", "accountUid", "uid", "userId"].map((field) =>
+      tryGetDocsFromQuery(
+        query(collection(db, "clients"), where(field, "==", candidateId), limit(5))
+      )
+    )
+  );
+  const candidates = new Map();
+  linkedQueries.forEach((snap) => addQuerySnapshots(candidates, snap));
+  if (!candidates.size) return null;
+
+  const pseudoUser = {
+    uid: candidateId,
+    email: userData.email || "",
+    linkedClientId,
+  };
+  const scored = await Promise.all(
+    Array.from(candidates.values()).map((snap) =>
+      scoreClientSnapshot(snap, pseudoUser)
+    )
+  );
+  scored.sort((a, b) => b.score - a.score);
+  return scored[0]?.snap || null;
+}

@@ -1126,6 +1126,14 @@ function AppContent() {
             }
           />
           <Route
+            path="/admin/client-preview/:clientId"
+            element={
+              <AdminRoute>
+                <ClientDashboard adminPreview />
+              </AdminRoute>
+            }
+          />
+          <Route
             path="/admin/coach/:id"
             element={
               <AdminRoute>

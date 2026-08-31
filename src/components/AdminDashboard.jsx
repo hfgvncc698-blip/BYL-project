@@ -2167,6 +2167,18 @@ export default function AdminDashboard() {
         }
 
         const linkedClientDocs = [];
+        const explicitLinkedClientId = String(u.linkedClientId || u.clientId || "").trim();
+        if (explicitLinkedClientId) {
+          const explicitLinkedClient = await getDoc(
+            doc(db, "clients", explicitLinkedClientId)
+          ).catch(() => null);
+          if (explicitLinkedClient?.exists()) {
+            linkedClientDocs.push({
+              id: explicitLinkedClient.id,
+              ...(explicitLinkedClient.data() || {}),
+            });
+          }
+        }
         const emailKey = String(u.email || row.email || "").trim().toLowerCase();
         if (emailKey) {
           const linkedSnap = await getDocs(
@@ -2177,6 +2189,9 @@ export default function AdminDashboard() {
           });
         }
         const linkedClientIds = [...new Set(linkedClientDocs.map((c) => c.id).filter(Boolean))];
+        const canonicalClientId = linkedClientIds.includes(explicitLinkedClientId)
+          ? explicitLinkedClientId
+          : linkedClientIds[0] || "";
         const firestoreLastVisit = lastVisitAfterCreation(
           u.createdAt,
           u.lastVisitAt,
@@ -2206,6 +2221,7 @@ export default function AdminDashboard() {
           nextInvoiceAt: toIso(u.nextInvoiceAt),
           role: u.role || "-",
           linkedClientIds,
+          canonicalClientId,
         });
 
         const programSources = [userLookupId, ...linkedClientIds];
@@ -3830,7 +3846,7 @@ export default function AdminDashboard() {
                     size="sm"
                     variant="outline"
                     rightIcon={<Icon as={MdOpenInNew} />}
-                    onClick={() => navigate(`/clients/${drawerData.id}`)}
+                    onClick={() => navigate(`/clients/${drawerData.canonicalClientId || drawerData.linkedClientIds?.[0] || drawerData.id}`)}
                   >{i18n.t("auto.AdminDashboard.ouvrir_la_fiche_cote_coach", "Ouvrir la fiche côté coach")}</Button>
                 </HStack>
 
