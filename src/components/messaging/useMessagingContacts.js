@@ -105,11 +105,15 @@ export default function useMessagingContacts() {
 
   const enrichedContacts = useMemo(() => contacts.map((contact) => {
     const conversation = conversationById.get(contact.id) || null;
+    const lastActivityAt = toMessageMillis(conversation?.lastMessageAt) || toMessageMillis(conversation?.lastMessageAtIso);
+    const hiddenAtMillis = toMessageMillis(conversation?.hiddenAtBy?.[user?.uid]);
+    const isHidden = Boolean(conversation && hiddenAtMillis && lastActivityAt <= hiddenAtMillis);
     return {
       ...contact,
-      conversation,
-      unread: conversationUnreadFor(conversation, user?.uid),
-      lastActivityAt: toMessageMillis(conversation?.lastMessageAt) || toMessageMillis(conversation?.lastMessageAtIso),
+      conversation: isHidden ? null : conversation,
+      hiddenAtMillis,
+      unread: isHidden ? false : conversationUnreadFor(conversation, user?.uid),
+      lastActivityAt: isHidden ? 0 : lastActivityAt,
     };
   }).sort((a, b) => (b.lastActivityAt || 0) - (a.lastActivityAt || 0) || a.title.localeCompare(b.title)), [contacts, conversationById, user?.uid]);
 

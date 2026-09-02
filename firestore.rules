@@ -270,9 +270,39 @@ service cloud.firestore {
         newData.participantUids.size() == 2 &&
         changed.hasOnly([
           "coachUid", "clientName", "professionalName", "lastMessage", "lastMessageAt",
-          "lastMessageAtIso", "lastSenderUid", "updatedAt", "readAtBy"
+          "lastMessageAtIso", "lastSenderUid", "updatedAt", "readAtBy", "hiddenAtBy"
         ]) &&
         requesterOnlyChangedOwnReadReceipt(oldData, newData) &&
+        (
+          !changed.hasAny(["hiddenAtBy"]) || (
+            (
+              (
+                oldData.keys().hasAny(["hiddenAtBy"]) &&
+                oldData.hiddenAtBy is map &&
+                newData.keys().hasAny(["hiddenAtBy"]) &&
+                newData.hiddenAtBy is map &&
+                newData.hiddenAtBy.diff(oldData.hiddenAtBy).affectedKeys().hasOnly([request.auth.uid]) &&
+                (
+                  !newData.hiddenAtBy.keys().hasAny([request.auth.uid]) ||
+                  newData.hiddenAtBy[request.auth.uid] == request.time
+                )
+              ) ||
+              (
+                oldData.keys().hasAny(["hiddenAtBy"]) &&
+                oldData.hiddenAtBy is map &&
+                oldData.hiddenAtBy.keys().hasOnly([request.auth.uid]) &&
+                !newData.keys().hasAny(["hiddenAtBy"])
+              ) ||
+              (
+                !oldData.keys().hasAny(["hiddenAtBy"]) &&
+                newData.keys().hasAny(["hiddenAtBy"]) &&
+                newData.hiddenAtBy is map &&
+                newData.hiddenAtBy.keys().hasOnly([request.auth.uid]) &&
+                newData.hiddenAtBy[request.auth.uid] == request.time
+              )
+            )
+          )
+        ) &&
         (
           !changed.hasAny(["lastMessage", "lastMessageAt", "lastMessageAtIso", "lastSenderUid"]) ||
           (

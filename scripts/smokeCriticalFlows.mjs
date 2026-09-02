@@ -205,6 +205,7 @@ check("messaging stays unified and keeps its dashboard launcher", () => {
   const thread = read("src/components/messaging/MessagingThread.jsx");
   const messagingPage = read("src/pages/MessagingPage.jsx");
   const contacts = read("src/components/messaging/useMessagingContacts.js");
+  const contactList = read("src/components/messaging/MessagingContactList.jsx");
   const rules = read("firestore.rules");
 
   assert.ok(
@@ -276,6 +277,21 @@ check("messaging stays unified and keeps its dashboard launcher", () => {
       bubble.includes('duration: 1800') &&
       navbar.includes('link.to === ROUTES.messaging && messagingUnreadCount'),
     "Unread messages must update live, notify only on new activity and remain visible on the launcher and navigation menu"
+  );
+  assert.ok(
+    contactList.includes("onTouchStart") &&
+      contactList.includes("onTouchMove") &&
+      contactList.includes("DeleteIcon") &&
+      contactList.includes("AlertDialog") &&
+      contactList.includes('messaging.deleteConversationTitle') &&
+      contactList.includes('common.cancel') &&
+      messagingPage.includes("hiddenAtBy.${user.uid}") &&
+      contacts.includes("conversation?.hiddenAtBy?.[user?.uid]") &&
+      thread.includes("contact?.hiddenAtMillis") &&
+      thread.includes("batch.update(conversationRef") &&
+      !thread.includes("deleteField") &&
+      rules.includes('newData.hiddenAtBy.diff(oldData.hiddenAtBy).affectedKeys().hasOnly([request.auth.uid])'),
+    "Mobile conversations must support a private swipe-to-remove action without deleting the other participant's history"
   );
   assert.ok(
     messaging.includes('export const clientAccountUid = (client = {}, fallback = "") =>\n  client?.authUid\n  || client?.accountUid\n  || client?.linkedUserId\n  || client?.userId\n  || client?.uid') &&

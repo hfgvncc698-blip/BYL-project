@@ -54,11 +54,13 @@ export default function MessagingThread({ contact, compact = false, onBack }) {
   const pageSize = compact ? COMPACT_PAGE_SIZE : FULL_PAGE_SIZE;
   const messages = useMemo(() => {
     const byId = new Map([...olderMessages, ...liveMessages].map((message) => [message.id, message]));
-    return [...byId.values()].sort((a, b) => (
+    return [...byId.values()].filter((message) => (
+      (toMessageMillis(message.createdAt) || toMessageMillis(message.createdAtIso)) > (contact?.hiddenAtMillis || 0)
+    )).sort((a, b) => (
       (toMessageMillis(a.createdAt) || toMessageMillis(a.createdAtIso)) -
       (toMessageMillis(b.createdAt) || toMessageMillis(b.createdAtIso))
     ));
-  }, [liveMessages, olderMessages]);
+  }, [contact?.hiddenAtMillis, liveMessages, olderMessages]);
   const latestMessageId = messages[messages.length - 1]?.id || "";
   const locale = i18n.resolvedLanguage || i18n.language || "fr";
   const loadErrorLabel = t("messaging.loadError");
@@ -160,7 +162,7 @@ export default function MessagingThread({ contact, compact = false, onBack }) {
       const batch = writeBatch(db);
       const conversationRef = doc(db, "conversations", conversationId);
       const messageRef = doc(collection(db, "conversations", conversationId, "messages"));
-      batch.set(conversationRef, {
+      const conversationData = {
         clientId: contact.clientId,
         clientUid: contact.clientUid,
         coachUid: contact.coachUid,
@@ -173,8 +175,18 @@ export default function MessagingThread({ contact, compact = false, onBack }) {
         lastMessageAtIso: nowIso,
         lastSenderUid: user.uid,
         updatedAt: serverTimestamp(),
-        readAtBy: { [user.uid]: serverTimestamp() },
-      }, { merge: true });
+      };
+      if (contact.conversation || contact.hiddenAtMillis) {
+        batch.update(conversationRef, {
+          ...conversationData,
+          [`readAtBy.${user.uid}`]: serverTimestamp(),
+        });
+      } else {
+        batch.set(conversationRef, {
+          ...conversationData,
+          readAtBy: { [user.uid]: serverTimestamp() },
+        });
+      }
       batch.set(messageRef, {
         text,
         senderUid: user.uid,
