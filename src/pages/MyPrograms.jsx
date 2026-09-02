@@ -629,8 +629,8 @@ export default function MyPrograms() {
 
   if (rows.length === 0) {
     return (
-      <Box p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh" position="relative">
-        <AppSurface p={{ base: 4, md: 5 }}>
+      <Box data-tour-page="client-programs" p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh" position="relative">
+        <AppSurface data-tour="client-programs-empty" p={{ base: 4, md: 5 }}>
           <Flex align="flex-start" gap={3}>
             <PageBackButton />
             <AppSectionHeader flex="1" title={t("client_dash.my_programs")} subtitle={t("programs.empty")} headingAs="h1" />
@@ -655,7 +655,7 @@ export default function MyPrograms() {
         </Flex>
       </AppSurface>
 
-      <SimpleGrid columns={{ base: 2, md: 4 }} spacing={{ base: 2, md: 3 }}>
+      <SimpleGrid data-tour="client-programs-summary" columns={{ base: 2, md: 4 }} spacing={{ base: 2, md: 3 }}>
         <MiniStat label={t("clientsList.table.programs", "Programmes")} value={summary.total} helper={t("auto.MyPrograms.actifs_dans_votre_espace", "actifs dans votre espace")} />
         <MiniStat label={t("nutritionCoach.status.inProgress", "En cours")} value={summary.inProgress} helper={t("auto.MyPrograms.progression_deja_entamee", "progression déjà entamée")} />
         <MiniStat label={t("auto.MyPrograms.a_relancer", "À relancer")} value={summary.upcoming} helper={t("auto.MyPrograms.seances_encore_a_jouer", "séances encore à jouer")} />
@@ -663,7 +663,7 @@ export default function MyPrograms() {
       </SimpleGrid>
 
       {isMobile ? (
-        <Stack spacing={4}>
+        <Stack data-tour="client-programs-list" spacing={4}>
           {rows.map((p) => (
             (() => {
               const completed = isProgramCompleted(p);
@@ -749,7 +749,7 @@ export default function MyPrograms() {
           ))}
         </Stack>
       ) : (
-        <Box overflowX="auto" borderRadius="22px" border="1px solid" borderColor={borderColor} boxShadow={glassShadow}>
+        <Box data-tour="client-programs-list" overflowX="auto" borderRadius="22px" border="1px solid" borderColor={borderColor} boxShadow={glassShadow}>
           <Table variant="simple" color={textColor} bg={cardBg}>
             <Thead>
               <Tr>

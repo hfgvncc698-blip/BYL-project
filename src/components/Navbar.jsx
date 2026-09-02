@@ -36,6 +36,7 @@ import {
   Text,
   Icon,
   Avatar,
+  Badge,
   Portal,
 } from "@chakra-ui/react";
 import { AddIcon, HamburgerIcon, ChevronDownIcon } from "@chakra-ui/icons";
@@ -55,11 +56,13 @@ import {
   MdOutlineNoteAdd,
   MdAutoAwesome,
   MdOutlineCalendarMonth,
+  MdOutlineChat,
 } from "react-icons/md";
 import { useAuth } from "../AuthContext";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "./LanguageSwitcher";
 import useAutoRevertColorMode from "../hooks/useAutoRevertColorMode";
+import useMessagingContacts from "./messaging/useMessagingContacts";
 import { canUseGuidedProgram, canUseNavbarBranding, hasPlanModule } from "../utils/proPlanAccess";
 
 const loadClientCreation = () => import("./ClientCreation.jsx");
@@ -87,6 +90,7 @@ const ROUTES = {
   clientNutrition: "/nutrition",
   clientStats: "/statistiques",
   clientSettings: "/settings",
+  messaging: "/messages",
   login: "/login",
   register: "/register",
 };
@@ -115,6 +119,7 @@ const NAV_ROUTE_PRELOADS = {
   [ROUTES.clientNutrition]: () => import("../pages/ClientNutritionPage.jsx"),
   [ROUTES.clientStats]: () => import("../pages/StatisticsPageClient.jsx"),
   [ROUTES.clientSettings]: () => import("../pages/SettingsPageClient.jsx"),
+  [ROUTES.messaging]: () => import("../pages/MessagingPage.jsx"),
 };
 
 const DEFAULT_BRAND_LABEL = "BoostYourLife.coach";
@@ -123,6 +128,7 @@ export default function Navbar() {
   const { t } = useTranslation();
   const nav = (k, fb) => t(k, fb);
   const { user, logout, isAdmin, effectiveRole, setViewAs } = useAuth();
+  const { unreadCount: messagingUnreadCount } = useMessagingContacts();
 
   const displayFirstName =
     user?.firstName ||
@@ -221,6 +227,7 @@ export default function Navbar() {
 
   const coachLinks = [
     { label: nav("nav.dashboard", "Tableau de bord"), to: ROUTES.coachDashboard, icon: MdOutlineSpaceDashboard },
+    { label: nav("messaging.title", "Messagerie"), to: ROUTES.messaging, icon: MdOutlineChat },
     { label: isNutritionOnlyCoach ? nav("nav.my_patients", "Mes patients") : nav("nav.my_clients", "Mes clients"), to: ROUTES.coachClients, icon: MdOutlinePeopleAlt },
     { label: nav("nav.my_patients", "Mes patients"), to: `${ROUTES.coachClients}?view=nutrition`, icon: MdOutlineRestaurant, mixedOnly: true },
     { label: nav("nav.nutrition", "Nutrition"), to: ROUTES.coachNutrition, icon: MdOutlineRestaurant },
@@ -232,6 +239,7 @@ export default function Navbar() {
 
   const clientLinks = [
     { label: nav("nav.dashboard", "Tableau de bord"), to: ROUTES.clientDashboard, icon: MdOutlineSpaceDashboard },
+    { label: nav("messaging.title", "Messagerie"), to: ROUTES.messaging, icon: MdOutlineChat },
     { label: nav("nav.profile", "Profil"), to: ROUTES.clientProfile, icon: MdOutlinePerson },
     { label: nav("nav.my_programs", "Mes programmes"), to: ROUTES.clientPrograms, icon: MdOutlineFitnessCenter },
     { label: nav("nav.nutrition", "Nutrition"), to: ROUTES.clientNutrition, icon: MdOutlineRestaurant },
@@ -641,7 +649,14 @@ export default function Navbar() {
                               {link.label}
                             </Text>
                           </HStack>
-                          <Icon as={MdChevronRight} boxSize="18px" color={menuMuted} flexShrink={0} />
+                          <HStack spacing={2} flexShrink={0}>
+                            {link.to === ROUTES.messaging && messagingUnreadCount ? (
+                              <Badge minW="22px" h="22px" display="flex" alignItems="center" justifyContent="center" borderRadius="full" bg="red.500" color="white">
+                                {messagingUnreadCount > 9 ? "9+" : messagingUnreadCount}
+                              </Badge>
+                            ) : null}
+                            <Icon as={MdChevronRight} boxSize="18px" color={menuMuted} />
+                          </HStack>
                         </HStack>
                       </MenuItem>
                     ))}
@@ -1026,7 +1041,14 @@ export default function Navbar() {
                           {link.label}
                         </Text>
                       </HStack>
-                      <Icon as={MdChevronRight} boxSize="18px" color={menuMuted} />
+                      <HStack spacing={2} flexShrink={0}>
+                        {link.to === ROUTES.messaging && messagingUnreadCount ? (
+                          <Badge minW="22px" h="22px" display="flex" alignItems="center" justifyContent="center" borderRadius="full" bg="red.500" color="white">
+                            {messagingUnreadCount > 9 ? "9+" : messagingUnreadCount}
+                          </Badge>
+                        ) : null}
+                        <Icon as={MdChevronRight} boxSize="18px" color={menuMuted} />
+                      </HStack>
                     </Button>
                   ))}
                 </VStack>

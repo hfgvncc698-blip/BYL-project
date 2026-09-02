@@ -121,6 +121,9 @@ import {
   updateSessionTimingCalibration,
 } from "../utils/sessionTimingCalibration";
 import { hasPlanModule } from "../utils/proPlanAccess";
+import { getProgramSessionsPerWeek } from "../utils/programDuration";
+
+const SessionScheduleSuggestionModal = React.lazy(() => import("./session/SessionScheduleSuggestionModal.jsx"));
 import {
   applyPlayerExerciseDeletion,
   applyPlayerExerciseEdit,
@@ -2619,6 +2622,11 @@ export default function SessionPlayer() {
 
   const { isOpen, onOpen, onClose } = useDisclosure();
   const {
+    isOpen: scheduleSuggestionOpen,
+    onOpen: openScheduleSuggestion,
+    onClose: closeScheduleSuggestion,
+  } = useDisclosure();
+  const {
     isOpen: settingsModalOpen,
     onOpen: openSettingsModal,
     onClose: closeSettingsModal,
@@ -2647,6 +2655,8 @@ export default function SessionPlayer() {
   const [painLevel, setPainLevel] = useState("");
   const [painArea, setPainArea] = useState("");
   const [completionSubmitting, setCompletionSubmitting] = useState(false);
+  const [scheduleSuggestion, setScheduleSuggestion] = useState(null);
+  const [scheduleSuggestionSaving, setScheduleSuggestionSaving] = useState(false);
   const completionSubmitActionRef = useRef("");
   const [notesOpen, setNotesOpen] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
@@ -3937,6 +3947,89 @@ export default function SessionPlayer() {
     });
   };
 
+  const buildScheduleSuggestionAfterCompletion = async () => {
+    if (!clientId || !programId) return null;
+    const currentStart = completionStartedAtRef.current || new Date();
+    const clientName = `${clientData?.prenom || ""} ${clientData?.nom || ""}`.trim() || t("dashboard.client", "Client");
+    const programSessions = getProgramSessionList(programData);
+    const nextSessionIndex = programSessions.length ? (sessionIndex + 1) % programSessions.length : sessionIndex;
+    const nextSession = programSessions[nextSessionIndex] || {};
+    const nextSessionTitle = nextSession.title || nextSession.name || nextSession.nom || t("sessionPlayer.sessionN", "Séance {{n}}", { n: nextSessionIndex + 1 });
+    const programTitle = programData?.nomProgramme || programData?.name || programData?.title || t("form.program", "Programme");
+
+    try {
+      const completedDates = completionHistory
+        .filter((record) => !record.programId || record.programId === programId)
+        .map(getCompletionRecordDate)
+        .filter(Boolean);
+      const { buildSessionScheduleSuggestion } = await import("../utils/sessionScheduleSuggestion");
+      return await buildSessionScheduleSuggestion({
+        isCoachContext,
+        clientId,
+        currentStart,
+        sessionsPerWeek: getProgramSessionsPerWeek(programData),
+        completionDates: completedDates,
+        details: { clientName, programTitle, nextSessionIndex, nextSessionTitle },
+      });
+    } catch (error) {
+      console.error("schedule suggestion learning error:", error);
+      return null;
+    }
+  };
+
+  const showScheduleSuggestionOrLeave = async () => {
+    const suggestion = await buildScheduleSuggestionAfterCompletion();
+    if (!suggestion) {
+      leaveCompletedSession();
+      return;
+    }
+    onClose();
+    clearPlayerResumeSnapshot({ resetElapsedState: true });
+    setCompletionSubmitting(false);
+    completionSubmitActionRef.current = "";
+    setScheduleSuggestion(suggestion);
+    openScheduleSuggestion();
+  };
+
+  const scheduleSuggestedSession = async () => {
+    if (!scheduleSuggestion || !clientId || !programId || scheduleSuggestionSaving) return;
+    setScheduleSuggestionSaving(true);
+    try {
+      const durationMin = Math.max(15, Math.round(estimateSessionDurationSec(getProgramSessionList(programData)[scheduleSuggestion.nextSessionIndex]) / 60));
+      const { saveSessionScheduleSuggestion } = await import("../utils/sessionScheduleSuggestion");
+      await saveSessionScheduleSuggestion({
+        suggestion: scheduleSuggestion,
+        isCoachContext,
+        clientId,
+        programId,
+        durationMin,
+        actingCoachId,
+        userId: user?.uid,
+      });
+      toast({
+        status: "success",
+        title: t("sessionPlayer.scheduleSuggestionSaved", "Prochaine séance ajoutée au calendrier"),
+      });
+      closeScheduleSuggestion();
+      navigate(-1);
+    } catch (error) {
+      console.error("schedule suggested session error:", error);
+      toast({
+        status: "error",
+        title: t("common.error", "Erreur"),
+        description: t("sessionPlayer.scheduleSuggestionError", "La séance n’a pas pu être ajoutée au calendrier."),
+      });
+    } finally {
+      setScheduleSuggestionSaving(false);
+    }
+  };
+
+  const dismissScheduleSuggestion = () => {
+    if (scheduleSuggestionSaving) return;
+    closeScheduleSuggestion();
+    navigate(-1);
+  };
+
   const leaveCompletedSession = () => {
     onClose();
     clearPlayerResumeSnapshot({ resetElapsedState: true });
@@ -4006,7 +4099,7 @@ export default function SessionPlayer() {
       ? upsertCoachCalendarEvent({ ratingOverride: rating })
       : Promise.resolve();
     void Promise.allSettled([ratingSavePromise, progressionPromise, calendarPromise]);
-    leaveCompletedSession();
+    await showScheduleSuggestionOrLeave();
   };
 
   const handleIgnoreRating = async () => {
@@ -4035,7 +4128,7 @@ export default function SessionPlayer() {
         upsertCoachCalendarEvent({ ratingOverride: null, clearDifficulty: true }),
       ]);
     }
-    leaveCompletedSession();
+    await showScheduleSuggestionOrLeave();
   };
 
   const handleCloseRatingModal = () => void handleIgnoreRating();
@@ -7036,6 +7129,19 @@ export default function SessionPlayer() {
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      {scheduleSuggestionOpen && (
+        <React.Suspense fallback={null}>
+          <SessionScheduleSuggestionModal
+            isOpen={scheduleSuggestionOpen}
+            onClose={dismissScheduleSuggestion}
+            onConfirm={scheduleSuggestedSession}
+            isSaving={scheduleSuggestionSaving}
+            suggestion={scheduleSuggestion}
+            activeLanguage={activeLanguage}
+          />
+        </React.Suspense>
+      )}
     </Box>
   );
 }

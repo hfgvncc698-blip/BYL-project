@@ -25,6 +25,9 @@ import {
   ModalFooter,
   Checkbox,
   Divider,
+  FormControl,
+  FormLabel,
+  Input,
   Textarea,
   Wrap,
   WrapItem,
@@ -59,7 +62,7 @@ import { getAdviceSheetPreview, mergeAdviceSheets } from "../utils/nutritionAdvi
 import { generateShoppingListFromNutritionPlan } from "../utils/shoppingListService";
 import { generateRecipesFromMealCourses } from "../utils/recipeGenerationService";
 
-import { canUseCustomBranding } from "../utils/proPlanAccess";
+import { canUseCustomBranding, hasPlanModule } from "../utils/proPlanAccess";
 import { apiFetch } from "../utils/api";
 import { translateNutritionFoodName, translateNutritionObjective } from "../utils/nutritionFoodI18n";
 import i18n from "../i18n/index";
@@ -552,10 +555,10 @@ export default function MenuJournalierFromRation() {
   const user = authCtx.user || authCtx.userData || null;
   const effectiveRole = authCtx.effectiveRole || user?.effectiveRole || null;
 
-  const isAdmin = useMemo(() => {
-    const role = user?.role || user?.userRole || effectiveRole || "";
-    return role === "admin";
-  }, [user, effectiveRole]);
+  const canManageNutrition = useMemo(
+    () => hasPlanModule({ ...user, role: user?.role || user?.userRole || effectiveRole }, "nutrition"),
+    [effectiveRole, user]
+  );
 
   const assessmentRef = useMemo(() => {
     if (!clientId || !assessmentId) return null;
@@ -628,6 +631,7 @@ export default function MenuJournalierFromRation() {
   const [clientEmail, setClientEmail] = useState("");
   const [showPatientRecipes, setShowPatientRecipes] = useState(false);
   const [showPatientShoppingList, setShowPatientShoppingList] = useState(false);
+  const [shoppingListPeriod, setShoppingListPeriod] = useState("");
   const [selectedRecipeDay, setSelectedRecipeDay] = useState(1);
   const menuAutosaveHashRef = useRef("");
   const tabTouchedUntilRef = useRef(0);
@@ -1192,6 +1196,10 @@ export default function MenuJournalierFromRation() {
                 activeLanguage
               ),
               qty: [item.qty, item.unit].filter(Boolean).join(" ") || (item.grams ? `${item.grams} g` : "—"),
+              kcal: rationMenuNum(item.kcal),
+              p: rationMenuNum(item.p),
+              f: rationMenuNum(item.f),
+              c: rationMenuNum(item.c || item.carbs),
               category: item.sourceLabel || item.category || "",
               role: item.role || "",
             })),
@@ -1285,6 +1293,13 @@ export default function MenuJournalierFromRation() {
     () => aiShoppingList.filter((section) => normalizeAiList(section?.items).length),
     [aiShoppingList]
   );
+  const inferredShoppingListDays = Math.max(1, displayedMenuPlan?.days?.length || 7);
+  const effectiveShoppingListPeriod = String(
+    shoppingListPeriod ||
+      docData?.nutritionShoppingListPeriod ||
+      docData?.clientShare?.snapshot?.shoppingListPeriod ||
+      i18n.t("auto.MenuJournalierFromRation.shopping_list_period_days", "{{count}} jours", { count: inferredShoppingListDays })
+  ).trim();
   
 
   
@@ -1328,6 +1343,7 @@ export default function MenuJournalierFromRation() {
         let shareEmailWarning = "";
         await updateDoc(assessmentRef, {
           "ration.menuTab": activeTab === 1 ? "auto" : "manual",
+          nutritionShoppingListPeriod: effectiveShoppingListPeriod,
           "nutritionAdviceSheets.selectedIds": selectedAdviceSheetIds,
           nutritionPatientNote: {
             text: cleanPatientNote,
@@ -1377,6 +1393,7 @@ export default function MenuJournalierFromRation() {
               menuDays: sections.menu ? pdfDays : [],
               recipes: sections.recipes ? aiRecipes : [],
               shoppingList: sections.shoppingList ? aiShoppingList : [],
+              shoppingListPeriod: sections.shoppingList ? effectiveShoppingListPeriod : "",
               adviceSheets: adviceSheetsToShare,
               patientNote: hasSharedPatientNote ? { text: cleanPatientNote } : null,
               validation: share
@@ -1449,6 +1466,7 @@ export default function MenuJournalierFromRation() {
       needs,
       aiRecipes,
       aiShoppingList,
+      effectiveShoppingListPeriod,
       navigateWithFallback,
       pdfDays,
       patientNote,
@@ -1572,7 +1590,7 @@ export default function MenuJournalierFromRation() {
     translatedObjectiveRaw,
   ]);
 
-  if (!isAdmin) {
+  if (!canManageNutrition) {
     return (
       <Box p={6}>
         <Heading size="md">{i18n.t("auto.MenuJournalierFromRation.acces_refuse", "Accès refusé")}</Heading>
@@ -2003,14 +2021,44 @@ export default function MenuJournalierFromRation() {
               </Stack>
             </Box>
 
-            <Box role="button" tabIndex={0} w="100%" textAlign="left" borderWidth="1px" borderColor={borderCol} borderRadius="md" p={4} bg={nutritionTheme.surfaceSoft} cursor="pointer" onClick={() => setShowPatientShoppingList((prev) => !prev)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setShowPatientShoppingList((prev) => !prev); } }}>
-              <HStack justify="space-between" align="center" gap={3}>
+            <Box w="100%" textAlign="left" borderWidth="1px" borderColor={borderCol} borderRadius="md" p={4} bg={nutritionTheme.surfaceSoft}>
+              <HStack
+                role="button"
+                tabIndex={0}
+                cursor="pointer"
+                justify="space-between"
+                align="center"
+                gap={3}
+                onClick={() => setShowPatientShoppingList((prev) => !prev)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setShowPatientShoppingList((prev) => !prev);
+                  }
+                }}
+              >
                 <Box>
                   <Heading size="xs">{i18n.t("auto.MenuJournalierFromRation.shopping_list_week", "Liste de courses · semaine")}</Heading>
                   <Text fontSize="xs" color={textMuted} mt={1}>{i18n.t("auto.MenuJournalierFromRation.shopping_list_week_help", "Quantités regroupées pour l’ensemble du menu de la semaine.")}</Text>
                 </Box>
                 <HStack spacing={2}><Badge colorScheme="green">{aiShoppingSections.length}</Badge><ChevronDownIcon transform={showPatientShoppingList ? "rotate(180deg)" : "none"} /></HStack>
               </HStack>
+              <FormControl mt={3} onClick={(event) => event.stopPropagation()}>
+                <FormLabel fontSize="xs" fontWeight="800" mb={1}>
+                  {i18n.t("auto.MenuJournalierFromRation.shopping_list_period_label", "Période couverte")}
+                </FormLabel>
+                <Input
+                  size="sm"
+                  borderRadius="full"
+                  bg={panelBg}
+                  value={effectiveShoppingListPeriod}
+                  onChange={(event) => setShoppingListPeriod(event.target.value)}
+                  placeholder={i18n.t("auto.MenuJournalierFromRation.shopping_list_period_placeholder", "Ex. 7 jours ou du 2 au 8 septembre")}
+                />
+                <Text fontSize="xs" color={textMuted} mt={1}>
+                  {i18n.t("auto.MenuJournalierFromRation.shopping_list_period_help", "Cette période sera visible par le client et dans la liste partagée.")}
+                </Text>
+              </FormControl>
               <Stack spacing={3} mt={3}>
                 {!showPatientShoppingList ? (
                   <Text fontSize="sm" color={textMuted}>

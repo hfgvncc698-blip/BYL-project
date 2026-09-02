@@ -18,6 +18,7 @@ import {
 import { Footer } from "./components/Footer";
 import LanguageRouteSync from "./components/LanguageRouteSync.jsx";
 import AppLoading from "./components/ui/AppLoading.jsx";
+import { hasPlanModule } from "./utils/proPlanAccess.js";
 
 import { ConsentProvider, useConsent } from "./consent/ConsentContext.jsx";
 
@@ -56,7 +57,9 @@ const routeLoaders = {
   Statistics: () => import("./pages/StatisticsPageClient.jsx"),
   SettingsPageClient: () => import("./pages/SettingsPageClient.jsx"),
   ClientNutritionPage: () => import("./pages/ClientNutritionPage.jsx"),
+  ClientNutritionJournalPage: () => import("./pages/ClientNutritionJournalPage.jsx"),
   CoachNutritionPage: () => import("./pages/CoachNutritionPage.jsx"),
+  CoachNutritionJournalPage: () => import("./pages/CoachNutritionJournalPage.jsx"),
   ProfilePageCoach: () => import("./pages/ProfilePageCoach.jsx"),
   SettingsPageCoach: () => import("./pages/SettingsPageCoach.jsx"),
   StatisticsPageCoach: () => import("./pages/StatisticsPageCoach.jsx"),
@@ -79,6 +82,7 @@ const routeLoaders = {
   AdminClient: () => import("./pages/AdminClient.jsx"),
   AdminCoach: () => import("./pages/AdminCoach.jsx"),
   AdminEmails: () => import("./pages/AdminEmails.jsx"),
+  MessagingPage: () => import("./pages/MessagingPage.jsx"),
 };
 
 function routeLoaderKeyForPath(pathname = "/") {
@@ -109,6 +113,7 @@ function routeLoaderKeyForPath(pathname = "/") {
     "/statistiques": "Statistics",
     "/settings": "SettingsPageClient",
     "/nutrition": "ClientNutritionPage",
+    "/nutrition/journal": "ClientNutritionJournalPage",
     "/nutrition-coach": "CoachNutritionPage",
     "/coach/profile": "ProfilePageCoach",
     "/settings-coach": "SettingsPageCoach",
@@ -121,6 +126,7 @@ function routeLoaderKeyForPath(pathname = "/") {
     "/admin": "AdminDashboard",
     "/admin/geo": "AdminGeo",
     "/admin/emails": "AdminEmails",
+    "/messages": "MessagingPage",
     "/success": "Success",
     "/cancel": "Cancel",
     "/payment-success": "Success",
@@ -139,6 +145,7 @@ function routeLoaderKeyForPath(pathname = "/") {
   if (/^\/clients\/[^/]+\/programmes\/[^/]+\/session\/[^/]+\/play$/.test(path)) return "SessionPlayer";
   if (/^\/programmes\/[^/]+\/session\/[^/]+\/play$/.test(path)) return "SessionPlayer";
   if (/^\/clients\/[^/]+\/nutrition\/[^/]+\/food-survey$/.test(path)) return "FoodSurvey";
+  if (/^\/clients\/[^/]+\/nutrition-journal$/.test(path)) return "CoachNutritionJournalPage";
   if (/^\/clients\/[^/]+\/nutrition\/[^/]+\/ration$/.test(path)) return "NutritionRationPage";
   if (/^\/clients\/[^/]+\/nutrition\/[^/]+\/menu$/.test(path)) return "NutritionMenuJournalierPage";
   if (/^\/clients\/[^/]+\/nutrition\/[^/]+$/.test(path)) return "NutritionAssessmentEditor";
@@ -252,6 +259,7 @@ const RouteAnalyticsListener = lazyFrom(backgroundLoaders, "RouteAnalyticsListen
 const ClientMobileNav = lazy(() => import("./components/ClientMobileNav.jsx"));
 const CoachMobileNav = lazy(() => import("./components/CoachMobileNav.jsx"));
 const ClubMobileNav = lazy(() => import("./components/ClubMobileNav.jsx"));
+const DashboardMessagingBubble = lazy(() => import("./components/messaging/DashboardMessagingBubble.jsx"));
 
 // Route-level code splitting: les écrans lourds ne partent plus dans le bundle initial.
 const HomePage = lazyFrom(routeLoaders, "HomePage");
@@ -278,7 +286,9 @@ const MyPrograms = lazyFrom(routeLoaders, "MyPrograms");
 const Statistics = lazyFrom(routeLoaders, "Statistics");
 const SettingsPageClient = lazyFrom(routeLoaders, "SettingsPageClient");
 const ClientNutritionPage = lazyFrom(routeLoaders, "ClientNutritionPage");
+const ClientNutritionJournalPage = lazyFrom(routeLoaders, "ClientNutritionJournalPage");
 const CoachNutritionPage = lazyFrom(routeLoaders, "CoachNutritionPage");
+const CoachNutritionJournalPage = lazyFrom(routeLoaders, "CoachNutritionJournalPage");
 const ProfilePageCoach = lazyFrom(routeLoaders, "ProfilePageCoach");
 const SettingsPageCoach = lazyFrom(routeLoaders, "SettingsPageCoach");
 const StatisticsPageCoach = lazyFrom(routeLoaders, "StatisticsPageCoach");
@@ -301,6 +311,7 @@ const AdminGeo = lazyFrom(routeLoaders, "AdminGeo");
 const AdminClient = lazyFrom(routeLoaders, "AdminClient");
 const AdminCoach = lazyFrom(routeLoaders, "AdminCoach");
 const AdminEmails = lazyFrom(routeLoaders, "AdminEmails");
+const MessagingPage = lazyFrom(routeLoaders, "MessagingPage");
 
 function schedulePreload(keys, delay = 250) {
   if (typeof window === "undefined" || !keys.length) return undefined;
@@ -527,8 +538,7 @@ function ModuleRoute({ module, children }) {
   if (isAdmin) return children;
   if (user.role !== "coach") return <Navigate to="/" replace />;
   if (!hasCoachAccess) return <Navigate to="/plans/professionnel" replace />;
-  const modules = user.proAccess?.modules || user.modules || [];
-  if (Array.isArray(modules) && modules.length && !modules.includes(module) && !modules.includes("club")) {
+  if (!hasPlanModule(user, module)) {
     return <Navigate to="/plans/professionnel" replace />;
   }
   return children;
@@ -658,9 +668,12 @@ function AppContent() {
   const isSessionPlayerRoute =
     /^\/programmes\/[^/]+\/session\/[^/]+\/play(?:\/)?$/.test(location.pathname) ||
     /^\/clients\/[^/]+\/programmes\/[^/]+\/session\/[^/]+\/play(?:\/)?$/.test(location.pathname);
+  const isFocusedMessagingRoute =
+    location.pathname === "/messages" && new URLSearchParams(location.search).has("conversation");
   const showClientMobileNav =
     user?.role === "particulier" &&
     !isSessionPlayerRoute &&
+    !isFocusedMessagingRoute &&
     CLIENT_MOBILE_NAV_PATHS.includes(location.pathname);
   const isProgramBuilderRoute =
     /^\/exercise-bank\/program-builder\/[^/]+(?:\/)?$/.test(location.pathname) ||
@@ -669,13 +682,16 @@ function AppContent() {
     (user?.role === "coach" || user?.role === "admin") &&
     !isSessionPlayerRoute &&
     !isProgramBuilderRoute &&
+    !isFocusedMessagingRoute &&
     COACH_MOBILE_NAV_PREFIXES.some((prefix) => location.pathname === prefix || location.pathname.startsWith(`${prefix}/`));
   const showClubMobileNav =
     (user?.role === "club" || user?.role === "admin") &&
     !isSessionPlayerRoute &&
     CLUB_MOBILE_NAV_PREFIXES.some((prefix) => location.pathname === prefix || location.pathname.startsWith(`${prefix}/`));
   const showBottomMobileNav = showClientMobileNav || showCoachMobileNav || showClubMobileNav;
-
+  const showDashboardMessaging = Boolean(user?.uid) && (
+    location.pathname === "/user-dashboard" || location.pathname === "/coach-dashboard"
+  );
   React.useEffect(() => {
     if (!("scrollRestoration" in window.history)) return undefined;
     const previousMode = window.history.scrollRestoration;
@@ -841,6 +857,14 @@ function AppContent() {
               </ClientOnlyRoute>
             }
           />
+          <Route
+            path="/messages"
+            element={
+              <ProtectedRoute>
+                <MessagingPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Profil Client (✅ particuliers seulement) */}
           <Route
@@ -864,6 +888,14 @@ function AppContent() {
             element={
               <ClientOnlyRoute>
                 <ClientNutritionPage />
+              </ClientOnlyRoute>
+            }
+          />
+          <Route
+            path="/nutrition/journal"
+            element={
+              <ClientOnlyRoute>
+                <ClientNutritionJournalPage />
               </ClientOnlyRoute>
             }
           />
@@ -961,6 +993,14 @@ function AppContent() {
               <CoachActiveRoute>
                 <ClientView />
               </CoachActiveRoute>
+            }
+          />
+          <Route
+            path="/clients/:clientId/nutrition-journal"
+            element={
+              <ModuleRoute module="nutrition">
+                <CoachNutritionJournalPage />
+              </ModuleRoute>
             }
           />
 
@@ -1146,6 +1186,12 @@ function AppContent() {
           </Routes>
         </Suspense>
       </Box>
+
+      {showDashboardMessaging ? (
+        <Suspense fallback={null}>
+          <DashboardMessagingBubble />
+        </Suspense>
+      ) : null}
       {showClientMobileNav ? (
         <LazyBackground>
           <ClientMobileNav />

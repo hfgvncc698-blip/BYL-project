@@ -11,7 +11,7 @@ import {
 import { AddIcon } from '@chakra-ui/icons';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
-  collection, getDocs, query, where, onSnapshot,
+  collection, getDocs, query, where, onSnapshot, orderBy, limit,
   doc, addDoc, updateDoc, deleteDoc, Timestamp, getDoc
 } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
@@ -26,7 +26,11 @@ import {
   formatProgramActiveWeeks,
   formatProgramWeekProgress,
   getProgramActiveWeeksLabel,
+  getProgramMinimumRestDays,
   getProgramPlannedSessionTotal,
+  getProgramSessionsPerWeek,
+  isProgramRestDay,
+  readProgramActiveWeeks,
 } from "../utils/programDuration";
 import { runClientDataAccessDiagnostic } from "../utils/firestoreAccessDiagnostics";
 import {
@@ -54,7 +58,17 @@ import { getApiBase } from '../utils/apiBase';
 import { getAuthHeaders } from '../utils/authHeaders';
 import { apiFetch } from '../utils/api';
 import { runLimited } from '../utils/pageDataCache';
-import { isSessionValidatedRecord } from '../utils/sessionCompletion';
+import {
+  hasReachedMainWorkoutCompletion,
+  isSessionValidatedRecord,
+} from '../utils/sessionCompletion';
+import { inferNutritionMealHabits, nutritionMealKeysForDate } from '../utils/nutritionMealTiming';
+import {
+  createDefaultRecurrence,
+  createRecurrenceGroupId,
+  expandRecurringDates,
+} from '../utils/calendarRecurrence';
+import CalendarRecurrenceFields from './calendar/CalendarRecurrenceFields.jsx';
 const ClientNutritionSharedSection = React.lazy(() => import("./ClientNutritionSharedSection.jsx"));
 const ClientDashboardCalendar = React.lazy(() => import("./dashboard/ClientDashboardCalendar.jsx"));
 const API_BASE = getApiBase();
@@ -754,11 +768,34 @@ export default function ClientDashboard({ adminPreview = false }) {
   const [clientId, setClientId] = useState(null);
   const [clientProfile, setClientProfile] = useState(null);
   const [nutritionSummary, setNutritionSummary] = useState(null);
+  const [nutritionMealHabits, setNutritionMealHabits] = useState({});
   const [programmes, setProgrammes] = useState([]);
   const [premiumPrograms, setPremiumPrograms] = useState([]);
   const [sessionsRaw, setSessionsRaw] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingPremium, setLoadingPremium] = useState(true);
+  const [dayClock, setDayClock] = useState(() => new Date());
+  const [quickMealOpenRequest, setQuickMealOpenRequest] = useState({ id: 0, mealKey: "" });
+  const [dashboardNutritionMealKeys, setDashboardNutritionMealKeys] = useState(null);
+  const [dashboardSeenRevision, setDashboardSeenRevision] = useState(0);
+
+  const hasSeenDashboardItem = useCallback((key) => {
+    if (!key) return false;
+    void dashboardSeenRevision;
+    try {
+      return window.localStorage.getItem(`byl:dashboard-seen:${key}`) === "1";
+    } catch {
+      return false;
+    }
+  }, [dashboardSeenRevision]);
+
+  const markDashboardItemSeen = useCallback((key) => {
+    if (!key) return;
+    try {
+      window.localStorage.setItem(`byl:dashboard-seen:${key}`, "1");
+    } catch {}
+    setDashboardSeenRevision((revision) => revision + 1);
+  }, []);
 
   const [, setHasPremiumOwned] = useState(false);
   const [premiumEligibility, setPremiumEligibility] = useState(null);
@@ -768,7 +805,13 @@ export default function ClientDashboard({ adminPreview = false }) {
   const [loadingPremDetails, setLoadingPremDetails] = useState(false);
 
   const [isAddOpen, setAddOpen] = useState(false);
-  const [newSession, setNewSession] = useState({ programmeId:'', sessionIndex:null, startDateTime:'' });
+  const [newSession, setNewSession] = useState({
+    programmeId: '',
+    sessionIndex: null,
+    startDateTime: '',
+    recurrence: createDefaultRecurrence(),
+  });
+  const [sessionCreateSaving, setSessionCreateSaving] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isEventOpen, setEventOpen] = useState(false);
   const [isRescheduleOpen, setRescheduleOpen] = useState(false);
@@ -814,6 +857,12 @@ export default function ClientDashboard({ adminPreview = false }) {
     const key = `byl:calendar-connected:client:${clientId || user.uid}`;
     setCalendarConnectedOnce(localStorage.getItem(key) === "1");
   }, [clientId, user?.uid]);
+
+  useEffect(() => {
+    const refreshDayClock = () => setDayClock(new Date());
+    const timer = window.setInterval(refreshDayClock, 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const markCalendarConnectedOnce = useCallback(() => {
     if (!user?.uid && !clientId) return;
@@ -995,6 +1044,8 @@ export default function ClientDashboard({ adminPreview = false }) {
     let unsubPrograms = null;
     let unsubSessA = null;
     let unsubSessB = null;
+    let unsubNutrition = null;
+    let unsubNutritionLogs = null;
     let programLoadVersion = 0;
 
     (async () => {
@@ -1005,6 +1056,8 @@ export default function ClientDashboard({ adminPreview = false }) {
         setClientId(null);
         setClientProfile(null);
         setNutritionSummary(null);
+        setDashboardNutritionMealKeys(null);
+        setNutritionMealHabits({});
         setProgrammes([]);
         setSessionsRaw([]);
         setHasPremiumOwned(false);
@@ -1018,23 +1071,55 @@ export default function ClientDashboard({ adminPreview = false }) {
       setClientProfile(clientData);
       runClientDataAccessDiagnostic(user, { source: "ClientDashboard", clientId: cId });
 
-      try {
-        const nutritionSnap = await getDocs(collection(db, "clients", cId, "nutrition_assessments"));
-        const nutritionRows = nutritionSnap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((row) => row?.clientShare?.enabled)
-          .sort((a, b) => (toMillis(b.updatedAt || b.createdAt) || 0) - (toMillis(a.updatedAt || a.createdAt) || 0));
-        const latestNutrition = nutritionRows[0] || null;
-        setNutritionSummary(latestNutrition ? {
-          objective: latestNutrition.inputs?.objectif || latestNutrition.inputs?.objective || "Plan nutrition",
-          kcal: latestNutrition.computed?.kcalTarget || latestNutrition.ration?.selected?.computed?.totals?.day?.kcal || null,
-          sharedCount: nutritionRows.length,
-          sharedAt: latestNutrition.clientShare?.sharedAt || latestNutrition.updatedAt || latestNutrition.createdAt || null,
-        } : null);
-      } catch (nutritionError) {
-        console.warn("[ClientDashboard] nutrition summary unavailable", nutritionError);
-        setNutritionSummary(null);
-      }
+      unsubNutrition = onSnapshot(
+        query(
+          collection(db, "clients", cId, "nutrition_assessments"),
+          where("clientShare.enabled", "==", true)
+        ),
+        (nutritionSnap) => {
+          const nutritionRows = nutritionSnap.docs
+            .map((d) => ({ id: d.id, ...d.data() }))
+            .filter((row) => row?.clientShare?.enabled)
+            .sort((a, b) => (
+              toMillis(b.clientShare?.sharedAt || b.updatedAt || b.createdAt) || 0
+            ) - (
+              toMillis(a.clientShare?.sharedAt || a.updatedAt || a.createdAt) || 0
+            ));
+          const latestNutrition = nutritionRows[0] || null;
+          setDashboardNutritionMealKeys(null);
+          const snapshotMenuDays = latestNutrition?.clientShare?.snapshot?.menuDays || [];
+          const snapshotMealKeys = snapshotMenuDays
+            .flatMap((day) => day?.meals || [])
+            .map((meal) => meal?.mealKey || meal?.key || "")
+            .filter(Boolean);
+          const rationLines = latestNutrition?.ration?.selected?.lines || latestNutrition?.ration?.lines || [];
+          const rationMealKeys = rationLines.flatMap((line) =>
+            Object.entries(line?.meals || {})
+              .filter(([, quantity]) => Number(quantity) > 0)
+              .map(([mealKey]) => mealKey)
+          );
+          setNutritionSummary(latestNutrition ? {
+            id: latestNutrition.id,
+            objective: latestNutrition.inputs?.objectif || latestNutrition.inputs?.objective || "Plan nutrition",
+            kcal: latestNutrition.computed?.kcalTarget || latestNutrition.ration?.selected?.computed?.totals?.day?.kcal || null,
+            sharedCount: nutritionRows.length,
+            sharedAt: latestNutrition.clientShare?.sharedAt || latestNutrition.updatedAt || latestNutrition.createdAt || null,
+            mealKeys: [...new Set([...snapshotMealKeys, ...rationMealKeys])],
+            menuDays: snapshotMenuDays,
+            rationMealKeys: [...new Set(rationMealKeys)],
+          } : null);
+        },
+        (nutritionError) => {
+          console.warn("[ClientDashboard] nutrition summary unavailable", nutritionError);
+          setNutritionSummary(null);
+        }
+      );
+
+      unsubNutritionLogs = onSnapshot(
+        query(collection(db, "clients", cId, "nutrition_daily_logs"), orderBy("dateKey", "desc"), limit(7)),
+        (snapshot) => setNutritionMealHabits(inferNutritionMealHabits(snapshot.docs.map((item) => item.data()))),
+        () => setNutritionMealHabits({})
+      );
 
       // ✅ sessions (calendar) EN LIVE : deux listeners + merge
       const mergeSessions = (a = [], b = []) => {
@@ -1244,17 +1329,28 @@ export default function ClientDashboard({ adminPreview = false }) {
             const doneForProgress = totalPrevues > 0 ? Math.min(done, totalPrevues) : done;
             const percent = totalPrevues > 0 ? Math.min(100, Math.round((doneForProgress / totalPrevues) * 100)) : 0;
 
-	            const nextIndex = getNextSessionIndexAfterLatest({
-	              totalPrevues: templateTotal,
-	              finishedIdx,
-	              latestSessionRecord,
-	            });
-
             const latestPct = Number(latestSessionRecord?.pourcentageTermine);
             const latestSessionIndex = getSessionIndex(latestSessionRecord);
             const latestIsValidated = isSessionValidatedRecord(latestSessionRecord);
+            const latestSessionDefinition = Number.isFinite(latestSessionIndex)
+              ? latestSessionRecord?.resumeState?.sessionDraft || p.sessions?.[latestSessionIndex]
+              : null;
+            const latestMainWorkoutCompleted = hasReachedMainWorkoutCompletion(
+              latestSessionRecord,
+              latestSessionDefinition
+            );
+            const defaultNextIndex = getNextSessionIndexAfterLatest({
+              totalPrevues: templateTotal,
+              finishedIdx,
+              latestSessionRecord,
+            });
+            const nextIndex =
+              latestMainWorkoutCompleted && Number.isFinite(latestSessionIndex) && templateTotal > 0
+                ? (latestSessionIndex + 1) % templateTotal
+                : defaultNextIndex;
             const hasResumePoint =
               !latestIsValidated &&
+              !latestMainWorkoutCompleted &&
               Number.isFinite(latestPct) &&
               latestPct > 0 &&
               latestPct < 90 &&
@@ -1367,6 +1463,8 @@ export default function ClientDashboard({ adminPreview = false }) {
       if (unsubPrograms) unsubPrograms();
       if (unsubSessA) unsubSessA();
       if (unsubSessB) unsubSessB();
+      if (unsubNutrition) unsubNutrition();
+      if (unsubNutritionLogs) unsubNutritionLogs();
     };
   }, [user, i18n.language, previewMode]);
 
@@ -1493,6 +1591,7 @@ export default function ClientDashboard({ adminPreview = false }) {
   /* ------------------ Navigation ------------------ */
   const navigateToProgram = (p) => {
     if (!clientId) return;
+    if (p?.id) markDashboardItemSeen(`program:${clientId}:${p.id}:${p._assignedAtMs || p._createdAtMs || 0}`);
     const href = isAutoProgramme(p)
       ? `/auto-program-preview/${clientId}/${p.id}`
       : `/clients/${clientId}/programmes/${p.id}`;
@@ -1518,6 +1617,7 @@ export default function ClientDashboard({ adminPreview = false }) {
       return;
     }
     if (!clientId || !(p?._total >= 1)) return;
+    if (p?.id) markDashboardItemSeen(`program:${clientId}:${p.id}:${p._assignedAtMs || p._createdAtMs || 0}`);
     const resumeSessionIndex = Number.isFinite(Number(p?._resumeSessionIndex))
       ? Number(p._resumeSessionIndex)
       : Number(p?._nextIndex) || 0;
@@ -1549,6 +1649,7 @@ export default function ClientDashboard({ adminPreview = false }) {
       return;
     }
     if (!clientId || !(p?._total >= 1)) return;
+    if (p?.id) markDashboardItemSeen(`program:${clientId}:${p.id}:${p._assignedAtMs || p._createdAtMs || 0}`);
     const nextSessionIndex = Number.isFinite(Number(p?._freshNextSessionIndex))
       ? Number(p._freshNextSessionIndex)
       : Number.isFinite(Number(p?._nextIndex))
@@ -1682,7 +1783,8 @@ export default function ClientDashboard({ adminPreview = false }) {
       notifyPreviewReadOnly();
       return;
     }
-    const { programmeId, sessionIndex, startDateTime } = newSession;
+    if (sessionCreateSaving) return;
+    const { programmeId, sessionIndex, startDateTime, recurrence } = newSession;
     if (!programmeId || sessionIndex == null || !startDateTime) return;
 
     const prog = programmes.find(p => p.id === programmeId);
@@ -1693,24 +1795,83 @@ export default function ClientDashboard({ adminPreview = false }) {
     const title = `${programmeName} — ${rawName}`;
 
     const start = new Date(startDateTime);
-    const end   = new Date(start.getTime() + 60 * 60000);
+    const recurrenceDates = expandRecurringDates(start, recurrence);
+    if (recurrenceDates.length === 0) {
+      toast({
+        status: 'error',
+        title: t('calendar.recurrence.invalid_title', 'Récurrence invalide'),
+        description: t('calendar.recurrence.invalid_end', 'Choisissez une fin postérieure au premier rendez-vous.'),
+      });
+      return;
+    }
 
-    // ✅ IMPORTANT : on stocke aussi sessionIndex (sinon pas d'étoiles possibles)
-    await addDoc(collection(db, 'sessions'), {
-      clientId: user.uid,
-      clientDocId: clientId,
-      programmeId,
-      sessionIndex,
-      title,
-      start: Timestamp.fromDate(start),
-      end:   Timestamp.fromDate(end),
-      createdAt: Timestamp.now(),
-      visibility: 'client',
-      status: 'à venir'
-    });
+    const existingKeys = new Set(
+      sessionsRaw.map((event) => {
+        const eventStart = event?.start?.toDate?.() || event?.start;
+        const eventStartMs = eventStart instanceof Date ? eventStart.getTime() : new Date(eventStart || 0).getTime();
+        return `${event.programmeId || ''}|${Number(event.sessionIndex)}|${eventStartMs}`;
+      })
+    );
+    const recurrenceGroupId = recurrenceDates.length > 1 ? createRecurrenceGroupId() : '';
+    const occurrencesToCreate = recurrenceDates
+      .map((date, recurrenceIndex) => ({ date, recurrenceIndex }))
+      .filter(
+        ({ date }) => !existingKeys.has(`${programmeId}|${Number(sessionIndex)}|${date.getTime()}`)
+      );
 
-    setAddOpen(false);
-    setNewSession({ programmeId: '', sessionIndex: null, startDateTime: '' });
+    setSessionCreateSaving(true);
+    try {
+      await runLimited(
+        occurrencesToCreate,
+        async ({ date: recurrenceDate, recurrenceIndex }) => {
+          const end = new Date(recurrenceDate.getTime() + 60 * 60000);
+          await addDoc(collection(db, 'sessions'), {
+            clientId: user.uid,
+            clientDocId: clientId,
+            programmeId,
+            sessionIndex,
+            title,
+            start: Timestamp.fromDate(recurrenceDate),
+            end: Timestamp.fromDate(end),
+            createdAt: Timestamp.now(),
+            visibility: 'client',
+            status: 'à venir',
+            ...(recurrenceGroupId
+              ? {
+                  recurrenceGroupId,
+                  recurrenceFrequency: recurrence?.frequency || 'none',
+                  recurrenceIndex,
+                  recurrenceCount: recurrenceDates.length,
+                }
+              : {}),
+          });
+        },
+        4
+      );
+
+      toast({
+        status: occurrencesToCreate.length > 0 ? 'success' : 'info',
+        description: occurrencesToCreate.length > 0
+          ? t('calendar.recurrence.created', '{{count}} rendez-vous ont été ajoutés au calendrier.', { count: occurrencesToCreate.length })
+          : t('calendar.recurrence.all_duplicates', 'Tous ces rendez-vous sont déjà présents dans le calendrier.'),
+      });
+      setAddOpen(false);
+      setNewSession({
+        programmeId: '',
+        sessionIndex: null,
+        startDateTime: '',
+        recurrence: createDefaultRecurrence(),
+      });
+    } catch (error) {
+      console.error('[client dashboard] recurring session creation failed', error);
+      toast({
+        status: 'error',
+        title: t('calendar.recurrence.save_error_title', 'Séances non ajoutées'),
+        description: t('calendar.recurrence.save_error_description', 'La série n’a pas pu être enregistrée. Vérifiez votre connexion puis réessayez.'),
+      });
+    } finally {
+      setSessionCreateSaving(false);
+    }
   };
 
   const handleValidate = async () => {
@@ -2093,6 +2254,25 @@ export default function ClientDashboard({ adminPreview = false }) {
     })[0];
   }, [programmes]);
 
+  const recentDashboardCutoffMs = dayClock.getTime() - 7 * 24 * 60 * 60 * 1000;
+  const focusProgrammeSeenKey = focusProgramme?.id && clientId
+    ? `program:${clientId}:${focusProgramme.id}:${focusProgramme._assignedAtMs || focusProgramme._createdAtMs || 0}`
+    : "";
+  const nutritionFollowUpSeenKey = nutritionSummary?.id && clientId
+    ? `nutrition:${clientId}:${nutritionSummary.id}:${toMillis(nutritionSummary.sharedAt) || 0}`
+    : "";
+  const focusProgrammeIsNew = Boolean(
+    focusProgramme &&
+    Number(focusProgramme._done || 0) === 0 &&
+    (focusProgramme._assignedAtMs || focusProgramme._createdAtMs || 0) >= recentDashboardCutoffMs &&
+    !hasSeenDashboardItem(focusProgrammeSeenKey)
+  );
+  const nutritionFollowUpIsNew = Boolean(
+    nutritionSummary?.sharedAt &&
+    (toMillis(nutritionSummary.sharedAt) || 0) >= recentDashboardCutoffMs &&
+    !hasSeenDashboardItem(nutritionFollowUpSeenKey)
+  );
+
   const focusSessionLabel = focusProgramme
     ? (focusProgramme._hasResumePoint
         ? focusProgramme._resumeSessionLabel || getProgrammeSessionTitle(focusProgramme, focusProgramme._resumeSessionIndex, t)
@@ -2168,21 +2348,15 @@ export default function ClientDashboard({ adminPreview = false }) {
     : hasSportPrograms
       ? MdOutlinePlayCircle
       : MdOutlineRestaurantMenu;
-  const hasLowProgressResume =
-    Boolean(focusProgramme?._hasResumePoint) &&
-    Number.isFinite(Number(focusProgramme?._resumePct)) &&
-    Number(focusProgramme._resumePct) < 50;
   const primaryTodayTitle = sportDataPending
     ? t("common.loading", "Chargement")
     : allProgramsCompleted
       ? t("auto.Clientdashboard.nouveau_cycle", "Nouveau cycle")
       : hasSportPrograms
-        ? (hasLowProgressResume
-            ? t("auto.Clientdashboard.lancer_la_seance", "Lancer la séance")
-            : focusProgramme?._hasResumePoint
+        ? (focusProgramme?._hasResumePoint
             ? t("auto.Clientdashboard.reprendre", "Reprendre")
             : Number(focusProgramme?._done || 0) > 0
-              ? t("auto.Clientdashboard.seance_suivante", "Séance suivante")
+              ? t("auto.Clientdashboard.lancer_la_seance", "Lancer la séance")
               : t("auto.Clientdashboard.lancer_la_seance", "Lancer la séance"))
         : t("auto.Clientdashboard.ouvrir_la_nutrition", "Ouvrir la nutrition");
   const primaryTodayHelper = sportDataPending
@@ -2192,27 +2366,139 @@ export default function ClientDashboard({ adminPreview = false }) {
       : hasSportPrograms
         ? (focusProgramme
             ? `${getProgrammeDisplayName(focusProgramme)} · ${
-                hasLowProgressResume
-                  ? focusProgramme._freshNextSessionLabel || getProgrammeSessionTitle(focusProgramme, focusProgramme._freshNextSessionIndex, t)
-                  : focusProgramme._hasResumePoint
+                focusProgramme._hasResumePoint
                   ? focusProgramme._resumeSessionLabel || getProgrammeSessionTitle(focusProgramme, focusProgramme._resumeSessionIndex, t)
                   : focusProgramme._nextSessionLabel || getProgrammeSessionTitle(focusProgramme, focusProgramme._nextIndex, t)
               }`
             : t("auto.Clientdashboard.choisir_un_programme", "Choisir un programme"))
         : nutritionHeroHelper;
-  const primaryTodayDurationLabel =
-    !sportDataPending && hasSportPrograms && focusProgramme ? formatProgramActiveWeeks(focusProgramme, t) : "";
-  const primaryTodayWeekLabel =
-    !sportDataPending && hasSportPrograms && focusProgramme
-      ? formatProgramWeekProgress(focusProgramme, t, { includeInitialWeek: true })
-      : "";
   const canStartFreshNextSession =
     Boolean(focusProgramme?._hasResumePoint) &&
     Number.isFinite(Number(focusProgramme?._freshNextSessionIndex)) &&
     Number(focusProgramme._freshNextSessionIndex) !== Number(focusProgramme?._resumeSessionIndex);
-  const canResumePreviousLowProgressSession =
-    canStartFreshNextSession &&
-    hasLowProgressResume;
+  const focusProgrammeProgress = Math.max(
+    0,
+    Math.min(100, Number(focusProgramme?._visualPercent ?? focusProgramme?._percent) || 0)
+  );
+  const focusProgrammeTotalWeeks = focusProgramme ? readProgramActiveWeeks(focusProgramme) : 0;
+  const focusProgrammeSessionsPerWeek = focusProgramme ? getProgramSessionsPerWeek(focusProgramme) : 0;
+  const focusProgrammeCompletedWeeks = focusProgrammeSessionsPerWeek
+    ? Math.min(focusProgrammeTotalWeeks, Math.floor((Number(focusProgramme?._done) || 0) / focusProgrammeSessionsPerWeek))
+    : 0;
+  const focusProgrammeMinimumRestDays = focusProgramme ? getProgramMinimumRestDays(focusProgramme) : 0;
+  const isProgrammeRestDay = focusProgrammeMinimumRestDays > 0 && isProgramRestDay(focusProgramme, dayClock);
+  const dayCue = useMemo(() => {
+    const nowMinutes = dayClock.getHours() * 60 + dayClock.getMinutes();
+    const locale = i18n.language || "fr";
+    const formatCueTime = (minutes) => {
+      const date = new Date(dayClock);
+      date.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
+      return date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+    };
+
+    const configuredMealMoments = new Set(
+      Array.isArray(dashboardNutritionMealKeys)
+        ? dashboardNutritionMealKeys
+        : nutritionMealKeysForDate(
+            nutritionSummary?.menuDays || [],
+            nutritionSummary?.rationMealKeys || nutritionSummary?.mealKeys || [],
+            dayClock
+          )
+    );
+    const usesMeal = (key) => configuredMealMoments.has(key);
+    const mealSlots = hasNutritionFollowUp
+      ? [
+          usesMeal("breakfast") ? { key: "breakfast", minutes: nutritionMealHabits.breakfast || 8 * 60, label: t("auto.Clientdashboard.repas_petit_dejeuner", "Petit-déjeuner") } : null,
+          usesMeal("morningSnack") ? { key: "morningSnack", minutes: nutritionMealHabits.morningSnack || 10 * 60, label: t("auto.Clientdashboard.repas_collation", "Collation") } : null,
+          usesMeal("lunch") ? { key: "lunch", minutes: nutritionMealHabits.lunch || 12 * 60 + 30, label: t("auto.Clientdashboard.repas_dejeuner", "Déjeuner") } : null,
+          usesMeal("afternoonSnack") ? { key: "afternoonSnack", minutes: nutritionMealHabits.afternoonSnack || 16 * 60 + 30, label: t("auto.Clientdashboard.repas_collation", "Collation") } : null,
+          usesMeal("dinner") ? { key: "dinner", minutes: nutritionMealHabits.dinner || 19 * 60 + 30, label: t("auto.Clientdashboard.repas_diner", "Dîner") } : null,
+          usesMeal("eveningSnack") ? { key: "eveningSnack", minutes: nutritionMealHabits.eveningSnack || 22 * 60, label: t("auto.Clientdashboard.repas_collation", "Collation") } : null,
+        ].filter(Boolean)
+      : [];
+
+    const completedWorkoutMinutes = sessions
+      .filter((session) => session?.status === "validée" && session?.start)
+      .map((session) => session.start instanceof Date ? session.start : new Date(session.start))
+      .filter((date) => !Number.isNaN(date.getTime()))
+      .sort((a, b) => b.getTime() - a.getTime())
+      .slice(0, 8)
+      .map((date) => date.getHours() * 60 + date.getMinutes())
+      .sort((a, b) => a - b);
+    const habitualWorkoutMinutes = completedWorkoutMinutes.length >= 3
+      ? completedWorkoutMinutes[Math.floor(completedWorkoutMinutes.length / 2)]
+      : null;
+
+    const candidates = mealSlots
+      .filter((meal) => meal.minutes - nowMinutes >= -75)
+      .map((meal) => ({ ...meal, type: "meal", delta: meal.minutes - nowMinutes }));
+
+    if (todayOverview.upcoming?._start) {
+      const sessionMinutes = todayOverview.upcoming._start.getHours() * 60 + todayOverview.upcoming._start.getMinutes();
+      if (sessionMinutes - nowMinutes >= -90) {
+        candidates.push({
+          type: "workout",
+          minutes: sessionMinutes,
+          delta: sessionMinutes - nowMinutes,
+          planned: true,
+        });
+      }
+    } else if (hasSportPrograms && habitualWorkoutMinutes != null && habitualWorkoutMinutes - nowMinutes >= -60) {
+      candidates.push({
+        type: "workout",
+        minutes: habitualWorkoutMinutes,
+        delta: habitualWorkoutMinutes - nowMinutes,
+        planned: false,
+      });
+    }
+
+    const currentCandidates = candidates
+      .filter((candidate) => Math.abs(candidate.delta) <= (candidate.type === "meal" ? 75 : 60))
+      .sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta));
+    const nextCandidate = currentCandidates[0] || candidates
+      .filter((candidate) => candidate.delta >= 0)
+      .sort((a, b) => a.delta - b.delta)[0];
+
+    if (!nextCandidate) {
+      return {
+        type: "neutral",
+        eyebrow: t("auto.Clientdashboard.au_fil_de_ta_journee", "Au fil de ta journée"),
+      };
+    }
+
+    const time = formatCueTime(nextCandidate.minutes);
+    const isCurrent = currentCandidates.includes(nextCandidate);
+    if (nextCandidate.type === "workout") {
+      return {
+        type: "workout",
+        eyebrow: nextCandidate.planned
+          ? t("auto.Clientdashboard.seance_a_heure", "Séance à {{time}}", { time })
+          : t("auto.Clientdashboard.rythme_habituel_heure", "Ton rythme · vers {{time}}", { time }),
+      };
+    }
+
+    return {
+      type: "meal",
+      mealKey: nextCandidate.key,
+      meal: nextCandidate.label,
+      eyebrow: isCurrent
+        ? t("auto.Clientdashboard.repas_maintenant", "Maintenant · {{meal}}", { meal: nextCandidate.label })
+        : t("auto.Clientdashboard.prochain_repas_heure", "{{meal}} · {{time}}", { meal: nextCandidate.label, time }),
+    };
+  }, [
+    dayClock,
+    dashboardNutritionMealKeys,
+    hasNutritionFollowUp,
+    hasSportPrograms,
+    i18n.language,
+    nutritionMealHabits,
+    nutritionSummary?.mealKeys,
+    nutritionSummary?.menuDays,
+    nutritionSummary?.rationMealKeys,
+    sessions,
+    t,
+    todayOverview.upcoming,
+  ]);
   const handlePrimaryTodayAction = () => {
     if (allProgramsCompleted) {
       navigate('/programmes-premium');
@@ -2223,7 +2509,79 @@ export default function ClientDashboard({ adminPreview = false }) {
       else navigate('/mes-programmes');
       return;
     }
+    markDashboardItemSeen(nutritionFollowUpSeenKey);
     navigate('/nutrition');
+  };
+  const mobileRecoveryToday = todayOverview.validated > 0 && hasSportPrograms;
+  const mobileRestDay = !mobileRecoveryToday && isProgrammeRestDay;
+  const mobileRecoveryMode = mobileRecoveryToday || mobileRestDay;
+  const mobileMealCue = !mobileRecoveryMode && dayCue.type === "meal";
+  const heroMotivationalText = mobileRestDay
+    ? t("auto.Clientdashboard.journee_repos_message", "Aujourd’hui, priorité à la récupération et à la nutrition. On reprend demain.")
+    : todayOverview.validated > 0 && hasSportPrograms
+      ? trainingTodayText
+      : mobileMealCue
+        ? nutritionEncouragementText
+        : motivationalText;
+  const mobileNewProgramCue = !mobileRecoveryMode && !mobileMealCue && focusProgrammeIsNew;
+  const mobileMealActionLabel = t(
+    "auto.Clientdashboard.renseigner_repas",
+    "Renseigner {{meal}}",
+    { meal: String(dayCue.meal || t("clientNutritionJournal.mealToday", "le repas")).toLocaleLowerCase(i18n.language || "fr") }
+  );
+  const mobilePrimaryTodayTitle = mobileRecoveryToday
+    ? t("auto.Clientdashboard.recuperation_du_jour", "Récupération")
+    : mobileRestDay
+      ? t("auto.Clientdashboard.journee_de_repos", "Journée de repos")
+    : mobileMealCue
+      ? mobileMealActionLabel
+      : mobileNewProgramCue
+        ? t("nav.new_program", "Nouveau programme")
+        : primaryTodayTitle;
+  const mobilePrimaryButtonLabel = mobileRecoveryMode
+    ? hasNutritionFollowUp
+      ? t("auto.Clientdashboard.ouvrir_journal_nutritionnel", "Ouvrir le journal nutritionnel")
+      : mobileRecoveryToday
+        ? t("auto.Clientdashboard.voir_mes_statistiques", "Voir mes statistiques")
+        : t("auto.Clientdashboard.voir_mon_programme", "Voir mon programme")
+    : mobileMealCue
+      ? mobileMealActionLabel
+        : mobileNewProgramCue
+          ? t("client_dash.start", "Démarrer")
+          : focusProgramme?._hasResumePoint
+            ? t("auto.Clientdashboard.reprendre_la_seance_progression", "Reprendre la séance · {{percent}} %", {
+                percent: Math.round(Number(focusProgramme?._resumePct) || 0),
+              })
+            : primaryTodayTitle;
+  const mobilePrimaryTodayHelper = mobileRecoveryToday
+    ? t("auto.Clientdashboard.seance_terminee_courte", "Bravo pour cette séance. Ton corps progresse aussi quand il récupère.")
+    : mobileRestDay
+      ? t("auto.Clientdashboard.journee_repos_courte", "Récupère aujourd’hui pour mieux repartir demain.")
+    : mobileMealCue
+      ? t("clientNutritionJournal.pageSubtitle", "Note simplement ce que tu as réellement mangé aujourd’hui.")
+      : primaryTodayHelper;
+  const mobilePrimaryTodayIcon = mobileRecoveryMode ? MdOutlineSelfImprovement : mobileMealCue ? MdOutlineRestaurantMenu : primaryTodayIcon;
+  const handleMobilePrimaryTodayAction = () => {
+    if (mobileRecoveryMode) {
+      if (hasNutritionFollowUp) {
+        markDashboardItemSeen(nutritionFollowUpSeenKey);
+        navigate('/nutrition/journal');
+      } else if (mobileRecoveryToday) {
+        navigate('/statistiques');
+      } else {
+        navigate('/mes-programmes');
+      }
+      return;
+    }
+    if (mobileMealCue) {
+      markDashboardItemSeen(nutritionFollowUpSeenKey);
+      setQuickMealOpenRequest((request) => ({
+        id: Number(request?.id || 0) + 1,
+        mealKey: dayCue.mealKey || "",
+      }));
+      return;
+    }
+    handlePrimaryTodayAction();
   };
   const ClientStatTile = ({ label, value, helper, icon, accent = activeBlue, action = null }) => (
     <Box
@@ -2332,15 +2690,24 @@ export default function ClientDashboard({ adminPreview = false }) {
     </Box>
   );
 
-  const DashboardAction = ({ icon, title, helper, onClick, variant = "solid", isDisabled = false }) => {
+  const DashboardAction = ({
+    icon,
+    title,
+    helper,
+    onClick,
+    variant = "solid",
+    isDisabled = false,
+    secondaryLabel = "",
+    onSecondaryClick,
+  }) => {
     const isSolid = variant === "solid";
     const solidBg = modeValue("#0F172A", "#111827");
     const solidHoverBg = modeValue("#1E293B", "#1F2937");
     const solidBorder = modeValue("rgba(15,23,42,0.82)", "rgba(255,255,255,0.14)");
-    return (
+    const mainAction = (
       <Button
-        h="100%"
-        minH="92px"
+        h={secondaryLabel ? "68px" : "100%"}
+        minH={secondaryLabel ? "68px" : "92px"}
         w="full"
         justifyContent="flex-start"
         alignItems="center"
@@ -2383,6 +2750,24 @@ export default function ClientDashboard({ adminPreview = false }) {
           ) : null}
         </Box>
       </Button>
+    );
+    if (!secondaryLabel) return mainAction;
+    return (
+      <VStack spacing={1.5} align="stretch" h="full">
+        {mainAction}
+        <Button
+          size="xs"
+          h="28px"
+          borderRadius="10px"
+          variant="outline"
+          leftIcon={<Icon as={MdOutlineFitnessCenter} boxSize="14px" />}
+          onClick={onSecondaryClick}
+          isDisabled={isDisabled}
+          fontWeight="800"
+        >
+          {secondaryLabel}
+        </Button>
+      </VStack>
     );
   };
 
@@ -2577,70 +2962,48 @@ export default function ClientDashboard({ adminPreview = false }) {
                       {t('client_dash.hello_name', { name: firstName || user.displayName || t('client_dash.client') })} 👋
                     </Heading>
                     <Text
+                      display="block"
                       mt={{ base: 1.5, md: 1.5 }}
                       mx={{ base: "auto", md: 0 }}
-                      fontSize={{ base: 'sm', md: 'md' }}
+                      fontSize={{ base: 'xs', md: 'md' }}
                       color={mutedText}
                       fontWeight="550"
                       lineHeight="1.35"
                       maxW="760px"
+                      noOfLines={{ base: 2, md: 3 }}
                     >
-                      {motivationalText}
+                      {heroMotivationalText}
                     </Text>
 
-                    <Box display={{ base: "block", md: "none" }} mt={4}>
+                    <Box display={{ base: "block", md: "none" }} mt={2.5}>
                       <Box
                         color={mobileHeroText}
                         px={{ base: 0, sm: 2 }}
                       >
-                        <VStack spacing={1.5} textAlign="center">
+                        <VStack spacing={1} textAlign="center">
                           <Box minW={0}>
                             <HStack spacing={2.5} justify="center">
                               <Box w="28px" h="1px" bg={modeValue("rgba(59,130,246,0.38)", "rgba(147,197,253,0.46)")} />
                               <Text fontSize="xs" fontWeight="900" textTransform="uppercase" color={mobileHeroMuted}>
-                                {t("calendar.today", "Aujourd'hui")}
+                                {mobileRecoveryMode
+                                  ? t("auto.Clientdashboard.recuperation", "Récupération")
+                                  : mobileNewProgramCue
+                                    ? t("nav.new_program", "Nouveau programme")
+                                    : dayCue.eyebrow}
                               </Text>
                               <Box w="28px" h="1px" bg={modeValue("rgba(59,130,246,0.38)", "rgba(147,197,253,0.46)")} />
                             </HStack>
                             <Heading mt={1} size="md" lineHeight="1.08" noOfLines={2}>
-                              {primaryTodayTitle}
+                              {mobilePrimaryTodayTitle}
                             </Heading>
-                            <Text mt={1.5} fontSize="sm" color={mobileHeroMuted} fontWeight="650" noOfLines={2}>
-                              {primaryTodayHelper}
+                            <Text mt={1} fontSize="xs" color={mobileHeroMuted} fontWeight="650" noOfLines={2}>
+                              {mobilePrimaryTodayHelper}
                             </Text>
-                            {(primaryTodayDurationLabel || primaryTodayWeekLabel) && (
-                              <HStack mt={2.5} spacing={2} flexWrap="wrap" justify="center">
-                                {primaryTodayDurationLabel ? (
-                                  <Badge
-                                    bg={modeValue("rgba(59,130,246,0.10)", "whiteAlpha.220")}
-                                    color={mobileHeroText}
-                                    borderRadius="full"
-                                    px={2.5}
-                                    py={1}
-                                    textTransform="none"
-                                  >
-                                    {getProgramActiveWeeksLabel(t)} : {primaryTodayDurationLabel}
-                                  </Badge>
-                                ) : null}
-                                {primaryTodayWeekLabel ? (
-                                  <Badge
-                                    bg={modeValue("rgba(59,130,246,0.10)", "whiteAlpha.220")}
-                                    color={mobileHeroText}
-                                    borderRadius="full"
-                                    px={2.5}
-                                    py={1}
-                                    textTransform="none"
-                                  >
-                                    {primaryTodayWeekLabel}
-                                  </Badge>
-                                ) : null}
-                              </HStack>
-                            )}
                           </Box>
                         </VStack>
 
-                        <Stack mt={4} spacing={2}>
-                          {canResumePreviousLowProgressSession ? (
+                        <Stack mt={3} spacing={2}>
+                          {!mobileRecoveryMode && !mobileMealCue && focusProgramme?._hasResumePoint ? (
                             <>
                               <Button
                                 w="full"
@@ -2649,32 +3012,37 @@ export default function ClientDashboard({ adminPreview = false }) {
                                 bg={modeValue("#0F172A", "#F8FAFC")}
                                 color={modeValue("white", "#0F172A")}
                                 fontWeight="900"
-                                leftIcon={<Icon as={MdOutlineFitnessCenter} />}
-                                onClick={() => startUpcomingSession(focusProgramme)}
-                                isDisabled={!focusProgramme._total}
+                                leftIcon={<Icon as={primaryTodayIcon} />}
+                                onClick={handlePrimaryTodayAction}
+                                isDisabled={sportDataPending}
                                 boxShadow={modeValue("none", "0 10px 28px rgba(0,0,0,0.28)")}
                                 _hover={{ bg: modeValue("#1E293B", "#E2E8F0") }}
                                 _active={{ bg: modeValue("#020617", "#CBD5E1") }}
                               >
-                                {t("auto.Clientdashboard.lancer_la_seance", "Lancer la séance")}
+                                {t("auto.Clientdashboard.reprendre_la_seance_progression", "Reprendre la séance · {{percent}} %", {
+                                  percent: Math.round(Number(focusProgramme?._resumePct) || 0),
+                                })}
                               </Button>
-                              <Button
-                                w="full"
-                                h="42px"
-                                borderRadius="14px"
-                                variant="outline"
-                                borderColor={modeValue("rgba(15,23,42,0.14)", "whiteAlpha.420")}
-                                color={mobileHeroText}
-                                bg={modeValue("rgba(255,255,255,0.72)", "whiteAlpha.120")}
-                                fontWeight="850"
-                                leftIcon={<Icon as={primaryTodayIcon} />}
-                                onClick={handlePrimaryTodayAction}
-                                isDisabled={sportDataPending || (!allProgramsCompleted && hasSportPrograms && !focusProgramme && !programmes.length)}
-                                _hover={{ bg: modeValue("white", "whiteAlpha.220") }}
-                                _active={{ bg: modeValue("rgba(255,255,255,0.86)", "whiteAlpha.260") }}
-                              >
-                                {t("auto.Clientdashboard.reprendre_la_seance", "Reprendre la séance")}
-                              </Button>
+                              {canStartFreshNextSession ? (
+                                <Button
+                                  w="full"
+                                  h="38px"
+                                  borderRadius="13px"
+                                  variant="outline"
+                                  borderColor={modeValue("rgba(15,23,42,0.14)", "whiteAlpha.420")}
+                                  color={mobileHeroText}
+                                  bg={modeValue("rgba(255,255,255,0.72)", "whiteAlpha.120")}
+                                  fontSize="sm"
+                                  fontWeight="800"
+                                  leftIcon={<Icon as={MdOutlineFitnessCenter} />}
+                                  onClick={() => startUpcomingSession(focusProgramme)}
+                                  isDisabled={!focusProgramme._total}
+                                  _hover={{ bg: modeValue("white", "whiteAlpha.220") }}
+                                  _active={{ bg: modeValue("rgba(255,255,255,0.86)", "whiteAlpha.260") }}
+                                >
+                                  {t("auto.Clientdashboard.commencer_nouvelle_seance", "Commencer la séance suivante")}
+                                </Button>
+                              ) : null}
                             </>
                           ) : (
                             <Button
@@ -2684,59 +3052,94 @@ export default function ClientDashboard({ adminPreview = false }) {
                               bg={modeValue("#0F172A", "#F8FAFC")}
                               color={modeValue("white", "#0F172A")}
                               fontWeight="900"
-                              leftIcon={<Icon as={primaryTodayIcon} />}
-                              onClick={handlePrimaryTodayAction}
+                              leftIcon={<Icon as={mobilePrimaryTodayIcon} />}
+                              onClick={handleMobilePrimaryTodayAction}
                               isDisabled={sportDataPending || (!allProgramsCompleted && hasSportPrograms && !focusProgramme && !programmes.length)}
                               boxShadow={modeValue("none", "0 10px 28px rgba(0,0,0,0.28)")}
                               _hover={{ bg: modeValue("#1E293B", "#E2E8F0") }}
                               _active={{ bg: modeValue("#020617", "#CBD5E1") }}
                             >
-                              {primaryTodayTitle}
+                              {mobilePrimaryButtonLabel}
                             </Button>
                           )}
+                          {!mobileRecoveryMode && mobileMealCue && hasSportPrograms && focusProgramme ? (
+                            <Button
+                              w="full"
+                              h="42px"
+                              borderRadius="14px"
+                              variant="outline"
+                              borderColor={modeValue("rgba(15,23,42,0.14)", "whiteAlpha.420")}
+                              color={mobileHeroText}
+                              bg={modeValue("rgba(255,255,255,0.72)", "whiteAlpha.120")}
+                              fontWeight="850"
+                              leftIcon={<Icon as={primaryTodayIcon} />}
+                              onClick={handlePrimaryTodayAction}
+                              _hover={{ bg: modeValue("white", "whiteAlpha.220") }}
+                              _active={{ bg: modeValue("rgba(255,255,255,0.86)", "whiteAlpha.260") }}
+                            >
+                              {focusProgramme?._hasResumePoint
+                                ? t("auto.Clientdashboard.reprendre_la_seance_progression", "Reprendre la séance · {{percent}} %", {
+                                    percent: Math.round(Number(focusProgramme?._resumePct) || 0),
+                                  })
+                                : primaryTodayTitle}
+                            </Button>
+                          ) : null}
                         </Stack>
 
-                        <SimpleGrid columns={3} spacing={2.5} mt={4} textAlign="center">
-                          <Box minW={0}>
-                            <Text fontSize="xs" color={mobileHeroMuted} fontWeight="800">
-                              {t("auto.Clientdashboard.progression", "Progression")}
-                            </Text>
-                            <Text mt={1} fontSize="lg" fontWeight="900" lineHeight="1">
-                              {sportDataPending ? "..." : hasSportPrograms ? `${motivationStats.percentAll}%` : t("auto.Clientdashboard.actif_status", "Actif")}
-                            </Text>
+                        {hasSportPrograms && focusProgramme ? (
+                          <Box
+                            as="button"
+                            type="button"
+                            w="full"
+                            mt={2.5}
+                            px={3}
+                            py={2}
+                            borderRadius="14px"
+                            border="1px solid"
+                            borderColor={modeValue("rgba(15,23,42,0.10)", "whiteAlpha.260")}
+                            bg={modeValue("rgba(255,255,255,0.56)", "whiteAlpha.080")}
+                            textAlign="left"
+                            onClick={() => navigate('/mes-programmes')}
+                            aria-label={t("auto.Clientdashboard.progression_programme_actif", "Progression du programme actif")}
+                          >
+                            <HStack justify="space-between" spacing={3}>
+                              <Text fontSize="xs" color={mobileHeroMuted} fontWeight="850" noOfLines={1}>
+                                {t("auto.Clientdashboard.progression_programme_actif", "Progression du programme actif")}
+                              </Text>
+                              <Text fontSize="xs" fontWeight="900" flexShrink={0}>
+                                {sportDataPending ? "..." : `${Math.round(focusProgrammeProgress)}%`}
+                              </Text>
+                            </HStack>
+                            <Progress
+                              mt={1.5}
+                              value={sportDataPending ? 12 : focusProgrammeProgress}
+                              size="xs"
+                              borderRadius="full"
+                              isIndeterminate={sportDataPending}
+                              bg={progressTrackBg}
+                              sx={brandProgressSx}
+                            />
+                            <HStack mt={1} justify="space-between" spacing={2} align="baseline">
+                              <Text fontSize="11px" color={mobileHeroMuted} fontWeight="700">
+                                {sportDataPending
+                                  ? t("auto.Clientdashboard.recuperation_de_tes_programmes", "Récupération de tes programmes...")
+                                  : t("auto.Clientdashboard.seances_completees_count", "{{done}}/{{total}} séances complétées", {
+                                      done: focusProgramme._done || 0,
+                                      total: focusProgramme._total || 0,
+                                    })}
+                              </Text>
+                              {!sportDataPending && focusProgrammeTotalWeeks > 0 ? (
+                                <Text fontSize="11px" color={mobileHeroMuted} fontWeight="700" textAlign="right" flexShrink={0}>
+                                  {t("auto.Clientdashboard.semaines_terminees_count", "{{done}}/{{total}} semaines terminées", {
+                                    done: focusProgrammeCompletedWeeks,
+                                    total: focusProgrammeTotalWeeks,
+                                  })}
+                                </Text>
+                              ) : null}
+                            </HStack>
                           </Box>
-                          <Box minW={0}>
-                            <Text fontSize="xs" color={mobileHeroMuted} fontWeight="800">
-                              {t("auto.Clientdashboard.planifiees", "Planifiées")}
-                            </Text>
-                            <Text mt={1} fontSize="lg" fontWeight="900" lineHeight="1">
-                              {sportDataPending ? "..." : hasSportPrograms ? todayOverview.planned : "OK"}
-                            </Text>
-                          </Box>
-                          <Box minW={0}>
-                            <Text fontSize="xs" color={mobileHeroMuted} fontWeight="800">
-                              {hasSportPrograms ? t("auto.Clientdashboard.restant", "Restant") : t("nutrition.title", "Nutrition")}
-                            </Text>
-                            <Text mt={1} fontSize="lg" fontWeight="900" lineHeight="1">
-                              {sportDataPending ? "..." : hasSportPrograms ? remainingSessions : (nutritionSummary?.kcal ? Math.round(Number(nutritionSummary.kcal)) : "OK")}
-                            </Text>
-                          </Box>
-                        </SimpleGrid>
+                        ) : null}
                       </Box>
-
-                      <Button
-                        mt={3}
-                        w="full"
-                        h="48px"
-                        borderRadius="16px"
-                        variant="outline"
-                        leftIcon={<Icon as={MdOutlineCalendarMonth} />}
-                        onClick={hasSportPrograms ? () => setAddOpen(true) : handleOpenCalendarLinkModal}
-                        isLoading={!hasSportPrograms && calendarLinkLoading}
-                        fontWeight="850"
-                      >
-                        {hasSportPrograms ? t("auto.Clientdashboard.planifier", "Planifier") : t("calendar.title", "Calendrier")}
-                      </Button>
                     </Box>
 
                   </Box>
@@ -2744,36 +3147,49 @@ export default function ClientDashboard({ adminPreview = false }) {
 
                 <SimpleGrid display={{ base: "none", md: "grid" }} columns={{ base: 1, sm: 2, lg: hasMixedFollowUp ? 3 : 2 }} spacing={2} mt={3} w="full" alignItems="stretch">
                       <DashboardAction
-                        icon={allProgramsCompleted ? MdOutlineStars : hasSportPrograms ? MdOutlinePlayCircle : MdOutlineRestaurantMenu}
-                        title={
-                          sportDataPending
-                            ? t("common.loading", "Chargement")
-                            : allProgramsCompleted
-                            ? t("auto.Clientdashboard.nouveau_cycle", "Nouveau cycle")
-                            : hasSportPrograms
-                            ? (focusProgramme?._hasResumePoint ? t("auto.Clientdashboard.reprendre", "Reprendre") : Number(focusProgramme?._done || 0) > 0 ? t("auto.Clientdashboard.seance_suivante", "Séance suivante") : t("auto.Clientdashboard.lancer_la_seance", "Lancer la séance"))
-                            : t("auto.Clientdashboard.ouvrir_la_nutrition", "Ouvrir la nutrition")
-                        }
-                        helper={
-                          sportDataPending
-                            ? t("auto.Clientdashboard.synchronisation_du_suivi", "Synchronisation du suivi")
-                            : allProgramsCompleted
-                            ? t("auto.Clientdashboard.choisir_la_suite", "Choisir la suite")
-                            : hasSportPrograms
-                            ? (focusProgramme ? getProgrammeDisplayName(focusProgramme) : t("auto.Clientdashboard.choisir_un_programme", "Choisir un programme"))
-                            : t("auto.Clientdashboard.plan_menu_et_courses", "Plan, menu et courses")
-                        }
-                        variant={focusProgramme?._hasResumePoint ? "outline" : "solid"}
-                        onClick={() => allProgramsCompleted ? navigate('/programmes-premium') : hasSportPrograms ? (focusProgramme ? startNextSession(focusProgramme) : navigate('/mes-programmes')) : navigate('/nutrition')}
+                        icon={mobilePrimaryTodayIcon}
+                        title={mobilePrimaryButtonLabel}
+                        helper={mobilePrimaryTodayHelper}
+                        variant="solid"
+                        onClick={handleMobilePrimaryTodayAction}
                         isDisabled={sportDataPending || (!allProgramsCompleted && hasSportPrograms && !focusProgramme && !programmes.length)}
+                        secondaryLabel={!mobileRecoveryMode && !mobileMealCue && focusProgramme?._hasResumePoint && canStartFreshNextSession
+                          ? t("auto.Clientdashboard.commencer_nouvelle_seance", "Commencer la séance suivante")
+                          : ""}
+                        onSecondaryClick={!mobileRecoveryMode && !mobileMealCue && focusProgramme?._hasResumePoint && canStartFreshNextSession
+                          ? () => startUpcomingSession(focusProgramme)
+                          : undefined}
                       />
                       {hasMixedFollowUp ? (
                         <DashboardAction
-                          icon={MdOutlineRestaurantMenu}
-                          title={t("nutrition.title", "Nutrition")}
-                          helper={nutritionHeroHelper}
+                          icon={mobileMealCue ? primaryTodayIcon : mobileRecoveryMode ? (mobileRecoveryToday ? MdOutlineInsights : MdOutlineFitnessCenter) : MdOutlineRestaurantMenu}
+                          title={mobileMealCue
+                            ? (focusProgramme?._hasResumePoint
+                                ? t("auto.Clientdashboard.reprendre_la_seance_progression", "Reprendre la séance · {{percent}} %", {
+                                    percent: Math.round(Number(focusProgramme?._resumePct) || 0),
+                                  })
+                                : primaryTodayTitle)
+                            : mobileRecoveryMode
+                              ? (mobileRecoveryToday
+                                  ? t("auto.Clientdashboard.voir_mes_statistiques", "Voir mes statistiques")
+                                  : t("auto.Clientdashboard.voir_mon_programme", "Voir mon programme"))
+                              : t("nutrition.title", "Nutrition")}
+                          helper={mobileMealCue
+                            ? primaryTodayHelper
+                            : mobileRecoveryMode
+                              ? getProgrammeDisplayName(focusProgramme)
+                              : nutritionHeroHelper}
                           variant="outline"
-                          onClick={() => navigate('/nutrition')}
+                          onClick={() => {
+                            if (mobileMealCue) {
+                              handlePrimaryTodayAction();
+                            } else if (mobileRecoveryMode) {
+                              navigate(mobileRecoveryToday ? '/statistiques' : '/mes-programmes');
+                            } else {
+                              markDashboardItemSeen(nutritionFollowUpSeenKey);
+                              navigate('/nutrition');
+                            }
+                          }}
                           isDisabled={sportDataPending}
                         />
                       ) : null}
@@ -2908,9 +3324,21 @@ export default function ClientDashboard({ adminPreview = false }) {
           <ClientNutritionSharedSection
             clientId={clientId}
             variant="compact"
-            onOpenNutrition={(panelKey) =>
-              navigate(panelKey ? `/nutrition?tab=${encodeURIComponent(panelKey)}` : '/nutrition')
-            }
+            isNew={nutritionFollowUpIsNew}
+            onOpenNutrition={(panelKey) => {
+              markDashboardItemSeen(nutritionFollowUpSeenKey);
+              navigate(panelKey ? `/nutrition?tab=${encodeURIComponent(panelKey)}` : '/nutrition');
+            }}
+            onOpenJournal={(target = {}) => {
+              markDashboardItemSeen(nutritionFollowUpSeenKey);
+              const params = new URLSearchParams();
+              if (target?.dateKey) params.set("date", target.dateKey);
+              if (target?.focus) params.set("focus", target.focus);
+              const queryString = params.toString();
+              navigate(`/nutrition/journal${queryString ? `?${queryString}` : ""}${target?.focus ? `#${target.focus}` : ""}`);
+            }}
+            quickMealOpenRequest={quickMealOpenRequest}
+            onMealKeysChange={setDashboardNutritionMealKeys}
           />
         </React.Suspense>
       ) : null}
@@ -3582,25 +4010,99 @@ export default function ClientDashboard({ adminPreview = false }) {
         >
           {loadingPremium ? (
             <HStack><Spinner size="sm" /><Text fontSize="sm">{t('common.loading')}</Text></HStack>
-          ) : premiumPrograms[0] ? (
-            <Flex align="center" justify="space-between" gap={3}>
-              <Box minW={0}>
-                <Text fontWeight="900" noOfLines={1}>
-                  {trProgramName(premiumPrograms[0], i18n.resolvedLanguage || i18n.language, t('premium.card_title'))}
-                </Text>
-                <Text mt={1} fontSize="sm" color={mutedText} noOfLines={2}>
-                  {trProgramDesc(premiumPrograms[0], i18n.resolvedLanguage || i18n.language, t('premium.default_desc'))}
-                </Text>
-              </Box>
-              <Button
-                size="sm"
-                borderRadius="14px"
-                flexShrink={0}
-                onClick={() => freeAvailable ? handleClaimFree(premiumPrograms[0]) : openPremDetails(premiumPrograms[0])}
-              >
-                {freeAvailable ? t('premium.claim_free', "Obtenir") : t('actions.view_details', "Voir")}
-              </Button>
-            </Flex>
+          ) : premiumPrograms.length ? (
+            <Box
+              role="region"
+              aria-label={t('premium.title')}
+              overflowX="auto"
+              overflowY="hidden"
+              mx={-1}
+              px={1}
+              pb={2}
+              sx={{
+                scrollSnapType: 'x mandatory',
+                WebkitOverflowScrolling: 'touch',
+                scrollbarWidth: 'none',
+                '&::-webkit-scrollbar': { display: 'none' },
+              }}
+            >
+              <HStack align="stretch" spacing={3} minW="max-content">
+                {premiumPrograms.slice(0, 8).map((program) => {
+                  const title = trProgramName(program, i18n.resolvedLanguage || i18n.language, t('premium.card_title'));
+                  const desc = trProgramDesc(program, i18n.resolvedLanguage || i18n.language, t('premium.default_desc'));
+                  const objective = trValue(program, "objectif", i18n.resolvedLanguage || i18n.language) || program.objectif;
+                  const level = trValue(program, "niveauSportif", i18n.resolvedLanguage || i18n.language) || program.niveauSportif;
+                  const GoalIcon = getPremiumGoalIcon(program);
+                  const price = Number(program?.isPromo && program?.promoPriceEUR ? program.promoPriceEUR : program?.priceEUR);
+                  const priceLabel = Number.isFinite(price) ? `${price.toFixed(2).replace('.', ',')} €` : null;
+
+                  return (
+                    <Box
+                      key={program.id}
+                      minW="min(78vw, 292px)"
+                      maxW="min(78vw, 292px)"
+                      p={3.5}
+                      border="1px solid"
+                      borderColor={borderColor}
+                      borderRadius="20px"
+                      bg={modeValue("rgba(255,255,255,0.82)", "rgba(255,255,255,0.035)")}
+                      display="flex"
+                      flexDirection="column"
+                      scrollSnapAlign="start"
+                      boxShadow={modeValue("0 8px 22px rgba(15,23,42,0.05)", "none")}
+                    >
+                      <HStack justify="space-between" align="flex-start" spacing={3}>
+                        <Circle size="40px" bg={`${violetAccent}18`} color={violetAccent} flexShrink={0}>
+                          <Icon as={GoalIcon} boxSize="20px" />
+                        </Circle>
+                        {freeAvailable ? (
+                          <Badge colorScheme="green" borderRadius="full" px={2.5} py={1}>
+                            {t('premium.free_badge')}
+                          </Badge>
+                        ) : priceLabel ? (
+                          <Text fontSize="sm" fontWeight="900" whiteSpace="nowrap">{priceLabel}</Text>
+                        ) : null}
+                      </HStack>
+
+                      <HStack spacing={1.5} mt={3} minH="22px" overflow="hidden">
+                        {objective ? <Badge colorScheme="purple" textTransform="none" noOfLines={1}>{objective}</Badge> : null}
+                        {level ? <Badge variant="subtle" textTransform="none" noOfLines={1}>{level}</Badge> : null}
+                      </HStack>
+
+                      <Text mt={2.5} fontWeight="900" fontSize="md" lineHeight="1.2" noOfLines={2}>
+                        {title}
+                      </Text>
+                      <Text mt={1.5} fontSize="sm" color={mutedText} lineHeight="1.45" noOfLines={3}>
+                        {desc}
+                      </Text>
+
+                      <Box mt="auto" pt={3}>
+                        <SimpleGrid columns={2} spacing={2}>
+                          <Button
+                            minW={0}
+                            size="sm"
+                            variant="outline"
+                            borderRadius="14px"
+                            onClick={() => openPremDetails(program)}
+                          >
+                            {t('actions.view_details', "Voir")}
+                          </Button>
+                          <Button
+                            minW={0}
+                            size="sm"
+                            borderRadius="14px"
+                            colorScheme={freeAvailable ? "green" : undefined}
+                            onClick={() => freeAvailable ? handleClaimFree(program) : handleBuyPremium(program)}
+                          >
+                            {freeAvailable ? t('premium.claim_free', "Obtenir") : t('actions.buy_now', "Acheter")}
+                          </Button>
+                        </SimpleGrid>
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </HStack>
+            </Box>
           ) : (
             <Text fontSize="sm" color={mutedText}>{t("premium.emptyText", "Les programmes premium apparaîtront ici dès qu'ils seront actifs.")}</Text>
           )}
@@ -3763,6 +4265,7 @@ export default function ClientDashboard({ adminPreview = false }) {
 
       {/* CALENDRIER */}
       <ClientCardShell
+        data-tour="client-calendar"
         title={t('calendar.title')}
         subtitle={
           showSportSections
@@ -3895,11 +4398,24 @@ export default function ClientDashboard({ adminPreview = false }) {
                   onChange={e=>setNewSession(prev=>({...prev,startDateTime:e.target.value}))}
                 />
               </FormControl>
+              <CalendarRecurrenceFields
+                value={newSession.recurrence}
+                onChange={(recurrence) => setNewSession((prev) => ({ ...prev, recurrence }))}
+                startDateTime={newSession.startDateTime}
+                t={t}
+              />
             </VStack>
           </ModalBody>
           <ModalFooter>
             <Button variant="ghost" mr={3} onClick={()=>setAddOpen(false)}>{t('actions.close')}</Button>
-            <Button onClick={handleAddSession}>{t('actions.add')}</Button>
+            <Button
+              onClick={handleAddSession}
+              isLoading={sessionCreateSaving}
+              loadingText={t('common.saving', 'Enregistrement…')}
+              isDisabled={expandRecurringDates(newSession.startDateTime, newSession.recurrence).length === 0}
+            >
+              {t('actions.add')}
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

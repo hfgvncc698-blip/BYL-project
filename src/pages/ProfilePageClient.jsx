@@ -620,6 +620,7 @@ export default function ProfilePageClient() {
       />
       <VStack maxW="1120px" mx="auto" spacing={6} align="stretch" position="relative" zIndex={1}>
         <Box
+          data-tour="client-profile-summary"
           bg={surfaceBgStrong}
           borderRadius="30px"
           p={{ base: 4, md: 5 }}
@@ -708,7 +709,7 @@ export default function ProfilePageClient() {
           </Flex>
         </Box>
 
-        <SimpleGrid columns={{ base: 1, xl: 12 }} spacing={6}>
+        <SimpleGrid data-tour="client-profile-form" columns={{ base: 1, xl: 12 }} spacing={6}>
           <Box gridColumn={{ base: "span 1", xl: "span 4" }}>
             <VStack spacing={6} align="stretch">
               <SectionCard

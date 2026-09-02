@@ -104,8 +104,11 @@ async function scoreClientSnapshot(snap, user, options = {}) {
     }
 
     try {
+      const nutritionConstraints = user?.role === "particulier"
+        ? [where("clientShare.enabled", "==", true), limit(options.nutritionLimit || 6)]
+        : [limit(options.nutritionLimit || 6)];
       const nutritionSnap = await getDocs(
-        query(collection(db, "clients", snap.id, "nutrition_assessments"), limit(options.nutritionLimit || 6))
+        query(collection(db, "clients", snap.id, "nutrition_assessments"), ...nutritionConstraints)
       );
       score += nutritionSnap.size * 5;
     } catch {

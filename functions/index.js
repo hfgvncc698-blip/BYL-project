@@ -1860,6 +1860,299 @@ async function sendProgramLifecycleEmail({ programRef, program, clientId, progra
   }
 }
 
+function messagingEmailEnabled(profile = {}) {
+  if (profile?.emailDelivery?.suspended === true) return false;
+  if (profile?.settings?.emailNotificationsEnabled === false) return false;
+  if (profile?.emailPreferences?.allAutomatic === false) return false;
+  return profile?.emailPreferences?.messaging !== false;
+}
+
+function messagingEmailCopy(lng, senderName) {
+  const language = resolveLng(lng || "fr");
+  const name = safeTrim(senderName) || "BoostYourLife";
+  const copies = {
+    fr: {
+      subject: `Nouveau message de ${name}`,
+      title: "Vous avez reçu un nouveau message",
+      intro: `${name} vous a écrit sur BoostYourLife. Connectez-vous pour consulter et répondre au message.`,
+      cta: "Lire le message",
+    },
+    en: {
+      subject: `New message from ${name}`,
+      title: "You received a new message",
+      intro: `${name} sent you a message on BoostYourLife. Sign in to read it and reply.`,
+      cta: "Read the message",
+    },
+    es: {
+      subject: `Nuevo mensaje de ${name}`,
+      title: "Has recibido un nuevo mensaje",
+      intro: `${name} te ha escrito en BoostYourLife. Inicia sesión para leer y responder.`,
+      cta: "Leer el mensaje",
+    },
+    de: {
+      subject: `Neue Nachricht von ${name}`,
+      title: "Du hast eine neue Nachricht erhalten",
+      intro: `${name} hat dir auf BoostYourLife geschrieben. Melde dich an, um die Nachricht zu lesen und zu antworten.`,
+      cta: "Nachricht lesen",
+    },
+    it: {
+      subject: `Nuovo messaggio da ${name}`,
+      title: "Hai ricevuto un nuovo messaggio",
+      intro: `${name} ti ha scritto su BoostYourLife. Accedi per leggere e rispondere.`,
+      cta: "Leggi il messaggio",
+    },
+    ru: {
+      subject: `Новое сообщение от ${name}`,
+      title: "Вы получили новое сообщение",
+      intro: `${name} написал(а) вам в BoostYourLife. Войдите, чтобы прочитать сообщение и ответить.`,
+      cta: "Прочитать сообщение",
+    },
+    ar: {
+      subject: `رسالة جديدة من ${name}`,
+      title: "لديك رسالة جديدة",
+      intro: `أرسل إليك ${name} رسالة على BoostYourLife. سجّل الدخول لقراءتها والرد عليها.`,
+      cta: "قراءة الرسالة",
+    },
+  };
+  return copies[language] || copies.fr;
+}
+
+const MESSAGING_EMAIL_MAX_ATTEMPTS = 3;
+const MESSAGING_EMAIL_ACTIVE_WINDOW_MS = 5 * 60 * 1000;
+const MESSAGING_EMAIL_PROCESSING_STALE_MS = 10 * 60 * 1000;
+
+async function claimMessagingEmail(messageRef, conversationRef, recipientUid, messageId) {
+  return db.runTransaction(async (transaction) => {
+    const [snapshot, conversationSnapshot] = await Promise.all([
+      transaction.get(messageRef),
+      transaction.get(conversationRef),
+    ]);
+    if (!snapshot.exists || !conversationSnapshot.exists) return { claimed: false, reason: "missing-document", attempts: 0 };
+
+    const notification = snapshot.data()?.emailNotification || {};
+    const attempts = Math.max(0, Number(notification.attempts) || 0);
+    const status = safeTrim(notification.status).toLowerCase();
+    if (["sent", "skipped", "bounced"].includes(status) || attempts >= MESSAGING_EMAIL_MAX_ATTEMPTS) {
+      return { claimed: false, reason: status || "attempt-limit", attempts };
+    }
+    if (status === "processing" && Date.now() - valueToMillis(notification.claimedAt) < MESSAGING_EMAIL_PROCESSING_STALE_MS) {
+      return { claimed: false, reason: "already-processing", attempts };
+    }
+
+    const conversation = conversationSnapshot.data() || {};
+    const nowMs = Date.now();
+    const lastSentAt = valueToMillis(conversation?.emailNotifiedAtBy?.[recipientUid]);
+    const recipientReadAt = valueToMillis(conversation?.readAtBy?.[recipientUid]);
+    if (lastSentAt && lastSentAt > recipientReadAt) {
+      transaction.set(messageRef, {
+        emailNotification: {
+          status: "skipped",
+          reason: "unread-sequence-already-notified",
+          attempts,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+      }, { merge: true });
+      return { claimed: false, reason: "unread-sequence-already-notified", attempts };
+    }
+    if (recipientReadAt && nowMs - recipientReadAt < MESSAGING_EMAIL_ACTIVE_WINDOW_MS) {
+      transaction.set(messageRef, {
+        emailNotification: {
+          status: "skipped",
+          reason: "recipient-recently-active",
+          attempts,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+      }, { merge: true });
+      return { claimed: false, reason: "recipient-recently-active", attempts };
+    }
+
+    const processingAt = valueToMillis(conversation?.emailProcessingAtBy?.[recipientUid]);
+    const processingMessageId = safeTrim(conversation?.emailProcessingMessageBy?.[recipientUid]);
+    if (
+      processingMessageId &&
+      processingMessageId !== messageId &&
+      nowMs - processingAt < MESSAGING_EMAIL_PROCESSING_STALE_MS
+    ) {
+      transaction.set(messageRef, {
+        emailNotification: {
+          status: "skipped",
+          reason: "recipient-email-in-progress",
+          attempts,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+      }, { merge: true });
+      return { claimed: false, reason: "recipient-email-in-progress", attempts };
+    }
+
+    const nextAttempts = attempts + 1;
+    transaction.set(messageRef, {
+      emailNotification: {
+        status: "processing",
+        attempts: nextAttempts,
+        claimedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+    }, { merge: true });
+    transaction.update(conversationRef, {
+      [`emailProcessingAtBy.${recipientUid}`]: admin.firestore.FieldValue.serverTimestamp(),
+      [`emailProcessingMessageBy.${recipientUid}`]: messageId,
+    });
+    return { claimed: true, reason: "claimed", attempts: nextAttempts };
+  });
+}
+
+/* =======================================================================
+ * onConversationMessageCreated (TRIGGER Firestore)
+ * ======================================================================= */
+exports.onConversationMessageCreated = onDocumentCreated(
+  {
+    region: "europe-west1",
+    document: "conversations/{conversationId}/messages/{messageId}",
+    retry: true,
+    secrets: [SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, APP_BASE_URL],
+  },
+  async (event) => {
+    const message = event.data?.data?.() || null;
+    if (!message || message.type !== "text") return;
+
+    const conversationId = event.params.conversationId;
+    const messageId = event.params.messageId;
+    const conversationRef = db.doc(`conversations/${conversationId}`);
+    const conversationSnap = await conversationRef.get();
+    if (!conversationSnap.exists) return;
+    const conversation = conversationSnap.data() || {};
+    const participants = Array.isArray(conversation.participantUids)
+      ? [...new Set(conversation.participantUids.map(String).filter(Boolean))]
+      : [];
+    const senderUid = safeTrim(message.senderUid);
+    const recipientUid = participants.find((uid) => uid !== senderUid) || "";
+    if (!senderUid || !recipientUid || participants.length !== 2) return;
+
+    const recipientRef = db.doc(`users/${recipientUid}`);
+    const [recipientSnap, senderSnap] = await Promise.all([
+      recipientRef.get(),
+      db.doc(`users/${senderUid}`).get(),
+    ]);
+    const recipientProfile = recipientSnap.exists ? recipientSnap.data() || {} : {};
+    if (!messagingEmailEnabled(recipientProfile)) {
+      await event.data.ref.set({
+        emailNotification: {
+          status: "skipped",
+          reason: "disabled-by-recipient",
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+      }, { merge: true });
+      return;
+    }
+
+    let recipientEmail = safeTrim(recipientProfile.email).toLowerCase();
+    if (!recipientEmail) {
+      try {
+        recipientEmail = safeTrim((await getAuth().getUser(recipientUid)).email).toLowerCase();
+      } catch (_) {
+        await event.data.ref.set({
+          emailNotification: {
+            status: "skipped",
+            reason: "recipient-email-missing",
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+        }, { merge: true });
+        return;
+      }
+    }
+    if (!recipientEmail) return;
+    const claim = await claimMessagingEmail(event.data.ref, conversationRef, recipientUid, messageId);
+    if (!claim.claimed) {
+      console.info("Messaging email skipped", { conversationId, messageId, recipientUid, reason: claim.reason });
+      if (claim.reason === "already-processing") {
+        throw new Error("Messaging email is still processing; retry later.");
+      }
+      return;
+    }
+
+    const senderProfile = senderSnap.exists ? senderSnap.data() || {} : {};
+    const senderName = normalizeSpaces(
+      `${safeTrim(senderProfile.firstName || senderProfile.prenom)} ${safeTrim(senderProfile.lastName || senderProfile.nom)}`
+    ) || safeTrim(senderProfile.displayName)
+      || (senderUid === conversation.clientUid ? safeTrim(conversation.clientName) : safeTrim(conversation.professionalName))
+      || "BoostYourLife";
+    const lng = getClientLngFromAny(recipientProfile);
+    const copy = messagingEmailCopy(lng, senderName);
+    const url = `${getBaseUrlFromSecret()}/messages?conversation=${encodeURIComponent(conversationId)}`;
+
+    try {
+      const info = await sendLifecycleEmail({
+        to: recipientEmail,
+        ...copy,
+        detail: senderName,
+        url,
+        lng,
+      });
+      await event.data.ref.set({
+        emailNotification: {
+          status: "sent",
+          attempts: claim.attempts,
+          sentAt: admin.firestore.FieldValue.serverTimestamp(),
+          trackingEventId: info?.trackingEventId || null,
+          messageId: info?.messageId || null,
+        },
+      }, { merge: true });
+      await conversationRef.update({
+        [`emailNotifiedAtBy.${recipientUid}`]: admin.firestore.FieldValue.serverTimestamp(),
+        [`emailProcessingAtBy.${recipientUid}`]: admin.firestore.FieldValue.delete(),
+        [`emailProcessingMessageBy.${recipientUid}`]: admin.firestore.FieldValue.delete(),
+      });
+      console.info("Messaging email sent", { conversationId, messageId, recipientUid, attempt: claim.attempts });
+      await recordEmailEvent({
+        conversationId,
+        messagingMessageId: messageId,
+        recipientUid,
+        to: recipientEmail,
+        type: "messaging",
+        subject: copy.subject,
+        detail: senderName,
+        messageId: info?.messageId || null,
+        ...emailDeliveryEvent(info, recipientEmail),
+      });
+    } catch (error) {
+      const bounced = recipientSnap.exists
+        ? await suspendAutomaticEmailDelivery(recipientRef, error, error?.trackingEventId || null)
+        : false;
+      await event.data.ref.set({
+        emailNotification: {
+          status: bounced ? "bounced" : "failed",
+          attempts: claim.attempts,
+          failedAt: admin.firestore.FieldValue.serverTimestamp(),
+          error: safeTrim(error?.message || error).slice(0, 500),
+        },
+      }, { merge: true });
+      await conversationRef.update({
+        [`emailProcessingAtBy.${recipientUid}`]: admin.firestore.FieldValue.delete(),
+        [`emailProcessingMessageBy.${recipientUid}`]: admin.firestore.FieldValue.delete(),
+      }).catch(() => null);
+      await recordEmailEvent({
+        conversationId,
+        messagingMessageId: messageId,
+        recipientUid,
+        to: recipientEmail,
+        type: "messaging",
+        subject: copy.subject,
+        detail: senderName,
+        status: bounced ? "bounced" : "failed",
+        id: error?.trackingEventId || null,
+        error: safeTrim(error?.message || error).slice(0, 500),
+      });
+      console.error("Messaging email failed", {
+        conversationId,
+        messageId,
+        recipientUid,
+        attempt: claim.attempts,
+        error: safeTrim(error?.message || error),
+      });
+      if (!bounced && claim.attempts < MESSAGING_EMAIL_MAX_ATTEMPTS) throw error;
+    }
+  }
+);
+
 /* =======================================================================
  * 1) sendPasswordSetupEmail (COACH -> CLIENT)
  * ======================================================================= */

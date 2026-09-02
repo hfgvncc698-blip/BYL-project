@@ -680,7 +680,7 @@ export default function ProgramsPage() {
 
   return (
     <Box data-tour-page="coach-programs" minH="100vh" bg={pageBg} px={{ base: 3, md: 5 }} py={{ base: 4, md: 7 }} pb={{ base: 28, md: 7 }}>
-      <AppSurface bg={theme.surfaceGlow} p={{ base: 4, md: 5 }} mb={6}>
+      <AppSurface data-tour="programs-create" bg={theme.surfaceGlow} p={{ base: 4, md: 5 }} mb={6}>
         <Flex align="flex-start" gap={3}>
           <PageBackButton fallbackTo="/coach-dashboard" />
           <AppSectionHeader
@@ -706,7 +706,7 @@ export default function ProgramsPage() {
         </Flex>
       </AppSurface>
 
-      <SimpleGrid display={{ base: "grid", md: "none" }} columns={3} spacing={2} mb={4}>
+      <SimpleGrid data-tour="programs-summary" display={{ base: "grid", md: "none" }} columns={3} spacing={2} mb={4}>
         {[
           {
             label: t("auto.Clients.total", "Total"),
@@ -956,6 +956,7 @@ export default function ProgramsPage() {
       </Modal>
 
       <Box
+        data-tour="programs-list"
         bg={panelBg}
         p={{ base: 3, md: 5 }}
         borderRadius="22px"
@@ -965,6 +966,7 @@ export default function ProgramsPage() {
         backdropFilter="blur(16px)"
       >
         <HStack
+          data-tour="programs-search"
           mb={{ base: 4, md: 5 }}
           spacing={3}
           justify="space-between"

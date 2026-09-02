@@ -130,24 +130,25 @@ export function hasPlanModule(accessOrUser, module) {
   if (accessOrUser.role === "admin") return true;
 
   const modules = getPlanModules(accessOrUser);
+  const packageKey = accessOrUser.packageKey || accessOrUser.proAccess?.packageKey;
   if (Array.isArray(modules) && (modules.includes(module) || modules.includes("club"))) return true;
   if (modules?.[module] || modules?.club) return true;
 
   if (module === "nutrition") {
     return Boolean(
-      accessOrUser.nutritionAccess ||
+        accessOrUser.nutritionAccess ||
         accessOrUser.hasNutritionAccess ||
         accessOrUser.features?.nutrition ||
-        ["nutrition", "complete", "club"].includes(accessOrUser.packageKey)
+        ["nutrition", "complete", "club"].includes(packageKey)
     );
   }
 
   if (module === "sport") {
     return Boolean(
-      accessOrUser.sportAccess ||
+        accessOrUser.sportAccess ||
         accessOrUser.hasSportAccess ||
         accessOrUser.features?.sport ||
-        ["sport", "complete", "club"].includes(accessOrUser.packageKey)
+        ["sport", "complete", "club"].includes(packageKey)
     );
   }
 

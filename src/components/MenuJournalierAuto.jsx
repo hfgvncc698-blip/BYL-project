@@ -3579,6 +3579,10 @@ export default function MenuJournalierAuto({
             role,
             qty: info.qtyDisplay,
             unit: info.unitDisplay,
+            kcal: t.kcal,
+            p: t.p,
+            f: t.f,
+            c: t.c,
             sourceLabel: prettySlotSourceLabel(slot),
             sourceOrder: orderNonMainSlot(slot),
           });

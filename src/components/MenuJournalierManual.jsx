@@ -1048,7 +1048,7 @@ export default function MenuJournalierManual({
           dayF += f;
           dayCarbs += carbs;
 
-          preview[mk].push({ text: ciqualName(row), grams: r0(grams) });
+          preview[mk].push({ text: ciqualName(row), grams: r0(grams), kcal, p, f, c: carbs });
         }
       }
 

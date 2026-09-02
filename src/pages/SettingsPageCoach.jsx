@@ -395,7 +395,7 @@ export default function SettingsPageCoach() {
           </Flex>
         </AppSurface>
 
-        <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={{ base: 2.5, md: 3 }}>
+        <SimpleGrid data-tour="settings-summary" columns={{ base: 1, sm: 3 }} spacing={{ base: 2.5, md: 3 }}>
           <MetricTile
             label={t("auto.SettingsPageCoach.langue_active", "Langue active")}
             helper={t("auto.SettingsPageCoach.preference_enregistree", "Préférence enregistrée")}
@@ -568,7 +568,7 @@ export default function SettingsPageCoach() {
             )}
           </SurfaceCard>
 
-          <SurfaceCard p={{ base: 5, md: 6 }}>
+          <SurfaceCard data-tour="settings-security" p={{ base: 5, md: 6 }}>
             <HStack spacing={3} mb={4}>
               <Circle size="42px" bg="rgba(59,130,246,0.10)" color="#3B82F6">
                 <Icon as={MdOutlineLock} boxSize="20px" />

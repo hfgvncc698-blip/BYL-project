@@ -3,11 +3,163 @@ import path from "node:path";
 import assert from "node:assert/strict";
 import { getLegalPageCopy } from "../src/pages/legalPageCopy.js";
 import { isSessionValidatedRecord } from "../src/utils/sessionCompletion.js";
+import { getProgramMinimumRestDays, isProgramRestDay } from "../src/utils/programDuration.js";
+import { inferNutritionMealHabits, nutritionMealKeysForDate, nutritionMealMoment, selectTimeRelevantMeal } from "../src/utils/nutritionMealTiming.js";
+import { findNextClientHabit, findNextWorkoutRhythm, findUpcomingCoachHabit } from "../src/utils/coachScheduleHabits.js";
+import { expandRecurringDates } from "../src/utils/calendarRecurrence.js";
 
 const root = process.cwd();
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 
 const checks = [];
+
+check("nutrition dashboard follows the local meal time", () => {
+  const at = (hour, minute = 0) => new Date(2026, 8, 1, hour, minute);
+  const mainMeals = [
+    { key: "petit_dej" },
+    { key: "dejeuner" },
+    { key: "diner" },
+  ];
+  assert.equal(nutritionMealMoment(at(4), mainMeals), "breakfast");
+  assert.equal(nutritionMealMoment(at(10, 59), mainMeals), "breakfast");
+  assert.equal(nutritionMealMoment(at(12, 30), mainMeals), "lunch");
+  assert.equal(nutritionMealMoment(at(16), mainMeals), "lunch");
+  assert.equal(nutritionMealMoment(at(23, 30), mainMeals), "dinner");
+
+  const mealsWithSnacks = [
+    { key: "petit_dej" },
+    { key: "collation_1" },
+    { key: "dejeuner" },
+    { key: "collation_2" },
+    { key: "diner" },
+    { key: "collation_3" },
+  ];
+  assert.equal(selectTimeRelevantMeal(mealsWithSnacks, at(9))?.key, "collation_1");
+  assert.equal(selectTimeRelevantMeal(mealsWithSnacks, at(16))?.key, "collation_2");
+  assert.equal(selectTimeRelevantMeal(mealsWithSnacks, at(23, 30))?.key, "collation_3");
+
+  const mondayWithoutSnack = { meals: [
+    { mealKey: "petit_dej", items: [{ name: "Flocons" }] },
+    { mealKey: "dejeuner", items: [{ name: "Riz" }] },
+    { mealKey: "diner", items: [{ name: "Poisson" }] },
+  ] };
+  const tuesdayWithSnack = { meals: [
+    { mealKey: "petit_dej", items: [{ name: "Pain" }] },
+    { mealKey: "collation_2", items: [{ name: "Fruit" }] },
+    { mealKey: "diner", items: [{ name: "Soupe" }] },
+  ] };
+  assert.deepEqual(
+    nutritionMealKeysForDate([mondayWithoutSnack, tuesdayWithSnack], [], new Date(2026, 8, 7, 16)),
+    ["breakfast", "lunch", "dinner"]
+  );
+  assert.deepEqual(
+    nutritionMealKeysForDate([mondayWithoutSnack, tuesdayWithSnack], [], new Date(2026, 8, 8, 16)),
+    ["breakfast", "afternoonSnack", "dinner"]
+  );
+
+  const breakfastLogs = [0, 1, 2, 3, 4].map((day) => ({
+    entries: [{
+      mealKey: "petit_dej",
+      source: "plan",
+      eaten: true,
+      eatenAtIso: new Date(2026, 8, day + 1, 11, day).toISOString(),
+    }],
+  }));
+  const habits = inferNutritionMealHabits(breakfastLogs);
+  assert.equal(habits.breakfast, 11 * 60 + 2);
+  assert.equal(nutritionMealMoment(at(10, 59), mainMeals, habits), "breakfast");
+});
+
+check("desktop and mobile client headers share the same priority action", () => {
+  const dashboard = read("src/components/Clientdashboard.jsx");
+  const dailyJournal = read("src/components/ClientNutritionDailyJournal.jsx");
+  const desktopActions = dashboard.match(/<SimpleGrid display=\{\{ base: "none", md: "grid" \}\}[\s\S]*?<\/SimpleGrid>/)?.[0] || "";
+  assert.ok(desktopActions.includes("title={mobilePrimaryButtonLabel}"), "Desktop must reuse the mobile priority label");
+  assert.ok(desktopActions.includes("onClick={handleMobilePrimaryTodayAction}"), "Desktop must reuse the mobile priority action");
+  assert.ok(desktopActions.includes("canStartFreshNextSession"), "Desktop must only offer the next session when it really exists");
+  assert.ok(
+    dashboard.includes("mealKey: dayCue.mealKey") &&
+      dashboard.includes("setQuickMealOpenRequest((request) => ({") &&
+      dashboard.includes("onMealKeysChange={setDashboardNutritionMealKeys}") &&
+      dailyJournal.includes("handledQuickMealRequestRef.current = requestId") &&
+      dailyJournal.includes("canonicalNutritionMealKey(meal) === requestedMealKey") &&
+      dailyJournal.includes("onMealKeysChange([...new Set(") &&
+      dailyJournal.includes("quickMealModal.onOpen()"),
+    "The header meal action must open the same quick-meal dialog as the nutrition card"
+  );
+});
+
+check("three-session programs keep a rest day between workouts", () => {
+  const program = {
+    nomProgramme: "Prise de masse — 3x/Sem",
+    _lastSessionMs: new Date(2026, 8, 7, 16).getTime(),
+  };
+  assert.equal(getProgramMinimumRestDays(program), 1);
+  assert.equal(isProgramRestDay(program, new Date(2026, 8, 8, 10)), true);
+  assert.equal(isProgramRestDay(program, new Date(2026, 8, 9, 10)), false);
+});
+
+check("coach and client calendars learn stable workout rhythms", () => {
+  const completedCoachEvents = [11, 18, 25].map((day) => ({
+    clientId: "client-1",
+    clientName: "Susan",
+    start: new Date(2026, 7, day, 16),
+    status: "validée",
+  }));
+  const monday = new Date(2026, 7, 31, 12).getTime();
+  const upcoming = findUpcomingCoachHabit(completedCoachEvents, { nowMs: monday, horizonHours: 36 });
+  assert.equal(upcoming?.clientName, "Susan");
+  assert.equal(upcoming?.target.getDay(), 2);
+  assert.equal(upcoming?.target.getHours(), 16);
+
+  const nextCoachHabit = findNextClientHabit(completedCoachEvents, {
+    clientId: "client-1",
+    currentStart: new Date(2026, 8, 1, 16),
+    nowMs: new Date(2026, 8, 1, 17).getTime(),
+  });
+  assert.equal(nextCoachHabit?.target.getDate(), 8);
+
+  const clientRhythm = findNextWorkoutRhythm(
+    [new Date(2026, 7, 28, 18), new Date(2026, 7, 30, 18)],
+    { currentStart: new Date(2026, 8, 1, 18), sessionsPerWeek: 3 }
+  );
+  assert.equal(clientRhythm?.spacingDays, 2);
+  assert.equal(clientRhythm?.target.getDate(), 3);
+  assert.equal(clientRhythm?.target.getHours(), 18);
+});
+
+check("coach and client calendars create bounded recurring series", () => {
+  const weekly = expandRecurringDates(new Date(2026, 8, 7, 16, 30), {
+    frequency: "weekly",
+    endMode: "count",
+    count: 6,
+  });
+  assert.equal(weekly.length, 6);
+  assert.ok(weekly.every((date) => date.getDay() === 1 && date.getHours() === 16 && date.getMinutes() === 30));
+
+  const monthEnd = expandRecurringDates(new Date(2026, 0, 31, 9), {
+    frequency: "monthly",
+    endMode: "count",
+    count: 3,
+  });
+  assert.equal(monthEnd[1].getDate(), 28);
+  assert.equal(monthEnd[2].getDate(), 31);
+
+  const until = expandRecurringDates(new Date(2026, 8, 7, 16), {
+    frequency: "weekly",
+    endMode: "until",
+    until: "2026-10-12",
+  });
+  assert.equal(until.length, 6);
+  assert.equal(until.at(-1).getDate(), 12);
+
+  const bounded = expandRecurringDates(new Date(2026, 0, 1, 8), {
+    frequency: "daily",
+    endMode: "count",
+    count: 500,
+  });
+  assert.equal(bounded.length, 100);
+});
 
 function check(name, fn) {
   checks.push({ name, fn });
@@ -40,9 +192,147 @@ check("critical app routes are registered", () => {
     'path="/activate-account"',
     'path="/reset-password"',
     'path="/verify-email"',
+    'path="/messages"',
     'path="/clients/:clientId/nutrition/:assessmentId/ration"',
     'path="/programmes/:id/session/:sessionIndex/play"',
   ].forEach((route) => assert.ok(app.includes(route), `Missing route ${route}`));
+});
+
+check("messaging stays unified and keeps its dashboard launcher", () => {
+  const app = read("src/App.jsx");
+  const navbar = read("src/components/Navbar.jsx");
+  const messaging = read("src/utils/messaging.js");
+  const thread = read("src/components/messaging/MessagingThread.jsx");
+  const messagingPage = read("src/pages/MessagingPage.jsx");
+  const contacts = read("src/components/messaging/useMessagingContacts.js");
+  const rules = read("firestore.rules");
+
+  assert.ok(
+    messaging.includes("conversationIdForClient") && messaging.includes("professionalUid") && messaging.includes("`${client}__${professional}`"),
+    "Each client-professional pair must map to one conversation regardless of coaching or nutrition"
+  );
+  assert.ok(
+    messagingPage.includes("messagingRole.clientSubtitle") &&
+      messagingPage.includes("messagingRole.professionalSubtitle") &&
+      messagingPage.includes("isClient"),
+    "Messaging guidance must match the client or professional role"
+  );
+  assert.ok(
+    messagingPage.includes('display={{ base: selectedContact ? "none" : "block", md: "block" }}') &&
+      messagingPage.includes('selectedContact ? "calc(100dvh - 64px)"') &&
+      messagingPage.includes('onBack={() => setSearchParams({})}') &&
+      !messagingPage.includes('(isClient && contacts.length === 1 ? contacts[0] : null)') &&
+      app.includes('location.pathname === "/messages" && new URLSearchParams(location.search).has("conversation")') &&
+      app.includes("!isFocusedMessagingRoute"),
+    "A selected mobile conversation must replace the messaging card and bottom navigation"
+  );
+  assert.ok(
+    app.includes('path="/messages"') &&
+      navbar.includes('messaging: "/messages"') &&
+      app.includes("<DashboardMessagingBubble />"),
+    "Messaging must remain available from both the dashboard launcher and the menu"
+  );
+  const bubble = read("src/components/messaging/DashboardMessagingBubble.jsx");
+  assert.ok(
+    bubble.includes('icon={<Icon as={open ? CloseIcon : MdOutlineChat}') &&
+      bubble.includes('messaging.openFull') &&
+      !bubble.includes('ExternalLinkIcon') &&
+      bubble.includes('<Text fontWeight="900">{t("messaging.title")}</Text>') &&
+      bubble.includes('document.addEventListener("pointerdown", closeOnOutsidePress, true)') &&
+      bubble.includes('panelRef.current?.contains(event.target)') &&
+      bubble.includes('launcherRef.current?.contains(event.target)') &&
+      bubble.includes('display={{ base: "inline-flex", md: "none" }}') &&
+      bubble.includes('display={{ base: open ? "none" : "block", md: "block" }}') &&
+      bubble.includes('<HStack mb={3} spacing={2} align="center">') &&
+      bubble.includes('aria-label={t("common.back", "Retour")}') &&
+      bubble.includes('icon={<ArrowBackIcon boxSize="18px" />}') &&
+      bubble.includes('setDirectoryOpen(false)') &&
+      bubble.includes('onClick={() => setOpen((value) => !value)}'),
+    "The bubble keeps explicit close controls and lets professionals return from the contact directory"
+  );
+  assert.ok(
+    thread.includes('type: "text"') &&
+      thread.includes("MAX_MESSAGE_LENGTH = 4000") &&
+      thread.includes("writeBatch(db)") &&
+      thread.includes("batch.set(conversationRef") &&
+      thread.includes("batch.set(messageRef") &&
+      thread.includes("await batch.commit()") &&
+      thread.includes("endBefore(cursor)") &&
+      thread.includes("loadOlderMessages") &&
+      thread.includes('messaging.loadPrevious') &&
+      !thread.includes('[contact?.conversation, conversationId, loadErrorLabel, pageSize, user?.uid]') &&
+      thread.includes('readAtBy?.[recipientUid]') &&
+      thread.includes('✓✓ ${t("messaging.read")}'),
+    "Messaging must save atomically, paginate older history and expose real read receipts"
+  );
+  assert.ok(
+    contacts.includes('onSnapshot(') &&
+      contacts.includes('doc(db, "conversations", contact.id)') &&
+      bubble.includes('bg="red.500"') &&
+      bubble.includes('messaging.unread') &&
+      bubble.includes('MESSAGING_NOTIFICATION_STORAGE_PREFIX') &&
+      bubble.includes('window.localStorage.setItem(') &&
+      bubble.includes('activity > previousActivity') &&
+      bubble.includes('duration: 1800') &&
+      navbar.includes('link.to === ROUTES.messaging && messagingUnreadCount'),
+    "Unread messages must update live, notify only on new activity and remain visible on the launcher and navigation menu"
+  );
+  assert.ok(
+    messaging.includes('export const clientAccountUid = (client = {}, fallback = "") =>\n  client?.authUid\n  || client?.accountUid\n  || client?.linkedUserId\n  || client?.userId\n  || client?.uid') &&
+      rules.includes("conversationClientUidMatches(data.clientId, data.clientUid)") &&
+      rules.includes("conversationProfessionalMatches(data.clientId, data.professionalUid)") &&
+      rules.includes("data.participantUids.size() == 2"),
+    "Conversation identities must match the linked client and assigned professional without widening membership"
+  );
+  assert.ok(
+    rules.includes("match /conversations/{conversationId}") &&
+      rules.includes("existsAfter(/databases/$(database)/documents/conversations/$(conversationId))") &&
+      rules.includes("getAfter(/databases/$(database)/documents/conversations/$(conversationId)).data") &&
+      rules.includes("validConversationCreate(conversationId, request.resource.data)") &&
+      rules.includes('data.participantUids.size() == 2') &&
+      rules.includes('data.readAtBy.keys().hasOnly([request.auth.uid])') &&
+      rules.includes('newData.readAtBy.diff(oldData.readAtBy).affectedKeys().hasOnly([request.auth.uid])') &&
+      rules.includes('request.resource.data.keys().hasOnly(["text", "senderUid", "createdAt", "createdAtIso", "type"])') &&
+      rules.includes("request.resource.data.senderUid == request.auth.uid") &&
+      rules.includes("allow update, delete: if false"),
+    "Conversation access and immutable message authorship must be enforced by Firestore"
+  );
+
+  const emailPreferenceCard = read("src/components/EmailNotificationPreferenceCard.jsx");
+  const clientProfileRoute = read("backend/routes/clientProfile.js");
+  const cloudFunctions = read("functions/index.js");
+  assert.ok(
+    emailPreferenceCard.includes('settings.email.messaging_label') &&
+      emailPreferenceCard.includes('messagingEnabled') &&
+      clientProfileRoute.includes('"emailPreferences.messaging"') &&
+      cloudFunctions.includes("exports.onConversationMessageCreated") &&
+      cloudFunctions.includes("messagingEmailEnabled") &&
+      cloudFunctions.includes("claimMessagingEmail") &&
+      cloudFunctions.includes("retry: true") &&
+      cloudFunctions.includes("MESSAGING_EMAIL_MAX_ATTEMPTS = 3") &&
+      cloudFunctions.includes("MESSAGING_EMAIL_ACTIVE_WINDOW_MS") &&
+      cloudFunctions.includes("lastSentAt > recipientReadAt") &&
+      cloudFunctions.includes("unread-sequence-already-notified") &&
+      cloudFunctions.includes("recipient-recently-active") &&
+      cloudFunctions.includes("detail: senderName") &&
+      !cloudFunctions.includes("detail: message.text"),
+    "Messaging emails must be optional, deduplicated and avoid exposing message contents"
+  );
+  assert.ok(
+    messaging.includes("[contact.coachUid || contact.id, contact]") &&
+      read("src/components/ClientNutritionDailyJournal.jsx").includes('borderTopWidth="1px"') &&
+      !read("src/components/ClientNutritionDailyJournal.jsx").includes("borderYWidth"),
+    "Professionals with identical names must stay distinct and nutrition cards must use valid Chakra props"
+  );
+});
+
+check("latest program cards never force a cramped three-column layout", () => {
+  const dashboard = read("src/components/CoachDashboard.jsx");
+  assert.ok(
+    dashboard.includes('columns={{ base: 1, lg: 2, "2xl": 1 }}') &&
+      dashboard.includes('flexWrap="wrap"'),
+    "The side widget must use one column and wrap its actions when space is constrained"
+  );
 });
 
 check("slow loads and render failures never leave an empty application root", () => {
@@ -442,12 +732,72 @@ check("contact form uses the shared API base", () => {
   assert.ok(!contact.includes('fetch(`${API_BASE}/contact`'), "Contact form still calls a raw /contact URL");
 });
 
-check("nutrition assessments are writable by assigned coaches", () => {
+check("nutrition access respects packages, client sharing and assigned coaches", () => {
   const rules = read("firestore.rules");
+  const app = read("src/App.jsx");
+  const assessmentEditor = read("src/components/NutritionAssessmentEditor.jsx");
+  const rationPage = read("src/components/NutritionRationPage.jsx");
+  const foodSurvey = read("src/components/FoodSurvey.jsx");
+  const menuPage = read("src/components/MenuJournalierFromRation.jsx");
+  const clientShared = read("src/components/ClientNutritionSharedSection.jsx");
+  const clientDashboard = read("src/components/Clientdashboard.jsx");
   const nutritionBlock = rules.match(/match \/nutrition_assessments\/\{document=\*\*\} \{[\s\S]*?\n\s{6}\}/)?.[0] || "";
   assert.ok(nutritionBlock.includes("allow create, update, delete"), "Nutrition write rules are missing");
-  assert.ok(nutritionBlock.includes("hasCoachAccess()"), "Nutrition writes must allow active coaches");
+  assert.ok(nutritionBlock.includes("hasNutritionAccess()"), "Nutrition writes must require nutrition access");
   assert.ok(nutritionBlock.includes("canAccessClient("), "Nutrition writes must be scoped to accessible clients");
+  assert.ok(nutritionBlock.includes("clientShare.enabled == true"), "Clients must only read explicitly shared assessments");
+  assert.ok(app.includes("if (!hasPlanModule(user, module))"), "Module routes must reject packages without the requested module");
+  [assessmentEditor, rationPage, foodSurvey, menuPage].forEach((source) => {
+    assert.ok(source.includes("hasPlanModule"), "Every coach nutrition editor must enforce the nutrition package");
+  });
+  assert.ok(
+    clientShared.includes('where("clientShare.enabled", "==", true)') &&
+      clientDashboard.includes('where("clientShare.enabled", "==", true)'),
+    "Client assessment queries must only request shared documents"
+  );
+});
+
+check("nutrition daily logs are client-owned and coach-readable", () => {
+  const rules = read("firestore.rules");
+  const block = rules.match(/match \/nutrition_daily_logs\/\{dateKey\} \{[\s\S]*?\n\s{6}\}/)?.[0] || "";
+  assert.ok(block.includes("hasNutritionAccess()") && block.includes("canAccessClient("), "Daily nutrition logs must be visible to an assigned coach with nutrition access");
+  assert.ok(block.includes("clientIsOwnProfile("), "Clients must be able to maintain their own daily log");
+  assert.ok(block.includes("request.resource.data.dateKey == dateKey"), "Daily log writes must stay scoped to their date document");
+});
+
+check("nutrition feedback and coach history remain available without hiding assessments", () => {
+  const rules = read("firestore.rules");
+  const dashboard = read("src/components/CoachDashboard.jsx");
+  const journal = read("src/components/ClientNutritionDailyJournal.jsx");
+  const feedbackBlock = rules.match(/match \/nutrition_feedback\/\{document=\*\*\} \{[\s\S]*?\n\s{6}\}/)?.[0] || "";
+  assert.ok(feedbackBlock.includes("hasNutritionAccess()") && feedbackBlock.includes("canAccessClient("), "Nutrition feedback must be readable by the assigned nutrition coach");
+  assert.ok(feedbackBlock.includes('type == "client"') && feedbackBlock.includes('type == "coach"'), "Feedback authorship must be separated between client and coach");
+  assert.ok(dashboard.includes('.catch(() => ({ docs: [] }))'), "A feedback read failure must not hide nutrition assessments");
+  assert.ok(
+    journal.includes("[historyRangeDays, setHistoryRangeDays] = useState(30)") &&
+      journal.includes("<option value={7}>") &&
+      journal.includes("<option value={30}>") &&
+      journal.includes("<option value={90}>"),
+    "Coach nutrition history must expose 7, 30 and 90 day periods"
+  );
+});
+
+check("coach daily nutrition feedback is scoped, readable and acknowledged safely", () => {
+  const rules = read("firestore.rules");
+  const journal = read("src/components/ClientNutritionDailyJournal.jsx");
+  const feedbackBlock = rules.match(/match \/nutrition_feedback\/\{document=\*\*\} \{[\s\S]*?\n\s{6}\}/)?.[0] || "";
+  assert.ok(journal.includes("coach_daily__${dateKey}"), "Coach feedback must use one stable document per client day");
+  assert.ok(journal.includes('type: "coach"') && journal.includes("clientReadAt: null"), "Sending a coach reply must make it unread for the client");
+  assert.ok(journal.includes("summarizeNutritionWeek") && journal.includes("nutritionLogStatus"), "Both journals must expose weekly context and day status");
+  assert.ok(
+    feedbackBlock.includes('affectedKeys().hasOnly(["clientReadAt", "clientReadAtIso"])'),
+    "Clients may only acknowledge coach feedback, not edit its content"
+  );
+  const clientShared = read("src/components/ClientNutritionSharedSection.jsx");
+  assert.ok(
+    clientShared.includes("unreadCoachFeedbackCount") && clientShared.includes("viewCoachFeedback"),
+    "Unread coach feedback must be visible and actionable from the compact client nutrition card"
+  );
 });
 
 check("stripe diagnostics are admin-only and do not expose key fragments", () => {
@@ -891,7 +1241,8 @@ check("email notifications can be disabled by clients, coaches and clubs", () =>
 
   const clientProfileApi = read("backend/routes/clientProfile.js");
   assert.ok(
-    clientProfileApi.includes('"emailPreferences.allAutomatic": enabled'),
+    clientProfileApi.includes('update["emailPreferences.allAutomatic"] = req.body.enabled') &&
+      clientProfileApi.includes('update["emailPreferences.messaging"] = req.body.messagingEnabled'),
     "Preference must control all automatic emails"
   );
   assert.ok(
@@ -945,6 +1296,13 @@ check("nutrition workflow uses the requested default modes", () => {
 
 check("program active weeks are editable and saved independently", () => {
   const builder = read("src/components/ProgramBuilder.jsx");
+  const durationUtils = read("src/utils/programDuration.js");
+  const weekProgressConsumers = [
+    read("src/components/Clientdashboard.jsx"),
+    read("src/components/ClientView.jsx"),
+    read("src/components/CoachDashboard.jsx"),
+    read("src/pages/MyPrograms.jsx"),
+  ];
   assert.ok(
     builder.includes("const [programActiveWeeksInput, setProgramActiveWeeksInput]") &&
       builder.includes('if (rawValue === "") return'),
@@ -970,6 +1328,11 @@ check("program active weeks are editable and saved independently", () => {
     builder.includes("!hasModifications && !activeWeeksDirty") &&
       builder.includes("Aucune nouvelle modification à enregistrer."),
     "Already-saved programs must not rewrite the full document"
+  );
+  assert.ok(
+    durationUtils.includes("Math.ceil(validatedCount / sessionsPerWeek)") &&
+      weekProgressConsumers.every((source) => source.includes("formatProgramWeekProgress")),
+    "Every client, coach and admin program view must share the current-week calculation"
   );
 });
 
@@ -1168,6 +1531,67 @@ check("footer navigation preserves the selected language", () => {
       );
     }
   }
+});
+
+check("guided tutorials match the current screens and keep targets bright", () => {
+  const tutorial = read("src/components/GuidedTutorial.jsx");
+  const currentScreens = [
+    read("src/components/CoachDashboard.jsx"),
+    read("src/components/ProgramsPage.jsx"),
+    read("src/components/Clientdashboard.jsx"),
+    read("src/pages/MyPrograms.jsx"),
+    read("src/pages/ClientNutritionPage.jsx"),
+    read("src/components/ClientNutritionSharedSection.jsx"),
+    read("src/components/ClientNutritionDailyJournal.jsx"),
+    read("src/pages/StatisticsPageCoach.jsx"),
+    read("src/pages/StatisticsPageClient.jsx"),
+    read("src/pages/ProfilePageCoach.jsx"),
+    read("src/pages/ProfilePageClient.jsx"),
+    read("src/pages/SettingsPageCoach.jsx"),
+    read("src/pages/SettingsPageClient.jsx"),
+    read("src/components/TutorialSettingsPanel.jsx"),
+  ].join("\n");
+  [
+    "coach-today",
+    "coach-upcoming-summary",
+    "coach-copilot",
+    "coach-radar",
+    "programs-search",
+    "client-programs-card",
+    "client-premium-card",
+    "client-upcoming-card",
+    "client-calendar",
+    "client-programs-summary",
+    "client-programs-empty",
+    "client-programs-list",
+    "client-nutrition-journal",
+    "client-nutrition-summary",
+    "client-nutrition-tabs",
+    "client-nutrition-empty",
+    "client-stats-kpis",
+    "client-stats-comparison",
+    "client-stats-measures",
+    "client-profile-summary",
+    "client-profile-form",
+    "settings-summary",
+    "tutorial-settings",
+    "settings-security",
+  ].forEach((target) => {
+    assert.ok(
+      tutorial.includes(`[data-tour='${target}']`) &&
+        currentScreens.includes(`data-tour="${target}"`),
+      `Tutorial target ${target} must exist on its current screen`
+    );
+  });
+  assert.ok(
+    !tutorial.includes("[data-tour='coach-shortcuts']") &&
+      !tutorial.includes("[data-tour='coach-upcoming']") &&
+      tutorial.includes("Math.min(window.innerHeight - 12, rect.bottom)") &&
+      tutorial.includes('bg="transparent"') &&
+      tutorial.includes("attempts < 12") &&
+      tutorial.includes("setMissingSelectors"),
+    "Tutorial spotlights must retry lazy targets, fit the viewport and leave the selected area unobscured"
+  );
 });
 
 let passed = 0;

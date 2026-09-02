@@ -79,13 +79,28 @@ assert.equal(
     now: "2026-08-20T10:00:00.000Z",
   }),
   "Semaine 1/4",
-  "a displayed week is validated only after every weekly session is completed"
+  "the first completed cycle remains displayed as week one"
 );
 
 assert.equal(
   formatProgramWeekProgress({ ...fourWeekProgram, sessionsEffectuees: fourWeekProgram.sessionsEffectuees.slice(0, 4) }),
-  "Semaine 0/4",
-  "a partial week must not be presented as validated"
+  "Semaine 1/4",
+  "a partial cycle must display the week currently in progress"
+);
+
+assert.equal(
+  formatProgramWeekProgress({
+    activeWeeks: 4,
+    sessionsPerWeek: 3,
+    sessions: Array.from({ length: 12 }, (_, index) => ({ id: `three-weekly-${index + 1}` })),
+    sessionsEffectuees: Array.from({ length: 7 }, (_, index) => ({
+      sessionIndex: index % 3,
+      status: "completed",
+      completedAt: "2026-08-31T10:00:00.000Z",
+    })),
+  }),
+  "Semaine 3/4",
+  "seven completed sessions at three sessions per week must display week three"
 );
 
 console.log("Program display metric priority: OK");

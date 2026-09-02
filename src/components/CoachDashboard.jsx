@@ -95,6 +95,13 @@ import {
   findLatestSessionResumeState,
 } from "../utils/sessionResume";
 import { readPageDataCache, runLimited, writePageDataCache } from "../utils/pageDataCache";
+import { findUpcomingCoachHabit } from "../utils/coachScheduleHabits";
+import {
+  createDefaultRecurrence,
+  createRecurrenceGroupId,
+  expandRecurringDates,
+} from "../utils/calendarRecurrence";
+import CalendarRecurrenceFields from "./calendar/CalendarRecurrenceFields.jsx";
 import {
   applySportProgressionToSession,
   formatDuration,
@@ -2229,19 +2236,23 @@ end && now < end;
     nutritionKind: "suivi",
     nutritionDurationMin: 30,
     nutritionNotes: "",
+	    recurrence: createDefaultRecurrence(),
 	  });
   const [sessionCreateSaving, setSessionCreateSaving] = useState(false);
   const openNutritionAppointmentForClient = useCallback(
     (clientId) => {
-      setNewSession((prev) => ({
-        ...prev,
+      setNewSession({
         type: "nutrition",
         clientId,
         programmeId: "",
         sessionIndex: null,
+        startDateTime: "",
+        status: "à venir",
         nutritionKind: "suivi",
-        nutritionDurationMin: Number(prev.nutritionDurationMin) || 30,
-      }));
+        nutritionDurationMin: 30,
+        nutritionNotes: "",
+        recurrence: createDefaultRecurrence(),
+      });
       addSessionModal.onOpen();
     },
     [addSessionModal]
@@ -2374,6 +2385,7 @@ useState(() => initialDashboardCache?.assignedClientsMap || {});
   const [mobileCalendarWeekOffset, setMobileCalendarWeekOffset] = useState(0);
   const [mobileCalendarSelectedDayKey, setMobileCalendarSelectedDayKey] = useState(() => formatLocalDateKey(new Date()));
   const [mobileCalendarDayExpanded, setMobileCalendarDayExpanded] = useState(false);
+  const [mobileScheduleView, setMobileScheduleView] = useState("today");
 
   const [selectedAssignedBaseProgramId,
 setSelectedAssignedBaseProgramId] = useState(null);
@@ -2873,8 +2885,14 @@ useState(false);
         ttlMs: DASHBOARD_NUTRITION_CACHE_TTL_MS,
       });
       if (cachedNutrition) {
-        setNutritionRows(cachedNutrition.rows || []);
+        const cachedRows = cachedNutrition.rows || [];
+        setNutritionRows(cachedRows);
         setNutritionFeedbackRows(cachedNutrition.feedbackRows || []);
+        writePageDataCache(`byl:nutrition-page:v1:${effectiveCoachUid}`, {
+          rows: cachedRows,
+          clientCount: clientIds.length,
+          partial: false,
+        });
         nutritionLoadKeyRef.current = nutritionLoadKey;
         return;
       }
@@ -2895,7 +2913,9 @@ useState(false);
         const feedbackSnaps = await runLimited(
           nutritionClientIds,
           async (clientId) => {
-            const snap = await getDocs(query(collection(db, "clients", clientId, "nutrition_feedback"), orderBy("createdAt", "desc"), limit(5)));
+            const snap = await getDocs(
+              query(collection(db, "clients", clientId, "nutrition_feedback"), orderBy("createdAt", "desc"), limit(5))
+            ).catch(() => ({ docs: [] }));
             return snap.docs.map((docSnap) => ({ docSnap, clientId }));
           },
           6
@@ -2966,8 +2986,24 @@ useState(false);
   }, [adminCoachId, coachContext, isAdmin, user]);
 
   const nutritionOnlyDashboard = hasNutritionCalendarAccess && !hasSportAccess;
+  const openEmptySessionModal = useCallback(() => {
+    setNewSession({
+      type: nutritionOnlyDashboard ? "nutrition" : "sport",
+      clientId: "",
+      programmeId: "",
+      sessionIndex: null,
+      startDateTime: "",
+      status: "à venir",
+      nutritionKind: "suivi",
+      nutritionDurationMin: 30,
+      nutritionNotes: "",
+      recurrence: createDefaultRecurrence(),
+    });
+    addSessionModal.onOpen();
+  }, [addSessionModal, nutritionOnlyDashboard]);
   const canSubmitNewSession = useMemo(() => {
     if (!selectedNewSessionClient || !newSession.startDateTime) return false;
+    if (expandRecurringDates(newSession.startDateTime, newSession.recurrence).length === 0) return false;
     if (newSession.type === "nutrition") return hasNutritionCalendarAccess;
     const sessionIndex = Number(newSession.sessionIndex);
     return Boolean(
@@ -2980,6 +3016,7 @@ useState(false);
     newSession.sessionIndex,
     newSession.startDateTime,
     newSession.type,
+    newSession.recurrence,
     selectedNewSessionClient,
     selectedNewSessionProgramme,
     selectedNewSessionSessions,
@@ -3442,24 +3479,24 @@ selectedEvent.programmeId) ||
   }, [clients, openAssignedProgramForClient,
 prettyAssignedProgramName, selectedEvent, eventModal]);
 
-  const handleStartSelectedEventSession = useCallback(() => {
-    if (!selectedEvent?.clientId) return;
+  const startEventSession = useCallback((event) => {
+    if (!event?.clientId) return;
 
-    const client = clients.find((c) => c.id === selectedEvent.clientId);
+    const client = clients.find((c) => c.id === event.clientId);
     if (!client) return;
 
     const assignedProg =
-      (client.programmesAssignes || []).find((p) => p.id === selectedEvent.programmeId) ||
+      (client.programmesAssignes || []).find((p) => p.id === event.programmeId) ||
       (client.programmesAssignes || []).find(
-        (p) => (p.programId || p.programID || p.baseId || null) === selectedEvent.baseProgrammeId
+        (p) => (p.programId || p.programID || p.baseId || null) === event.baseProgrammeId
       ) ||
       (client.programmesAssignes || []).find(
-        (p) => (p.programId || p.programID || p.baseId || null) === selectedEvent.programmeId
+        (p) => (p.programId || p.programID || p.baseId || null) === event.programmeId
       );
 
     if (!assignedProg?.id) return;
 
-    const sessionIndex = getSessionIndex(selectedEvent);
+    const sessionIndex = getSessionIndex(event);
     const sessionToPlay = Number.isFinite(sessionIndex)
       ? sessionIndex
       : Number.isFinite(Number(assignedProg?._nextIndex))
@@ -3469,7 +3506,7 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
     eventModal.onClose();
     navigate(withAdminCoach(`/clients/${client.id}/programmes/${assignedProg.id}/session/${sessionToPlay}/play`), {
       state: {
-        calendarEventId: selectedEvent._sourceId || "",
+        calendarEventId: event._sourceId || "",
         exerciseIndex: 0,
         resumeExerciseIndex: 0,
         currentSet: 1,
@@ -3478,7 +3515,11 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
         resumePct: null,
       },
     });
-  }, [clients, eventModal, navigate, selectedEvent, withAdminCoach]);
+  }, [clients, eventModal, navigate, withAdminCoach]);
+
+  const handleStartSelectedEventSession = useCallback(() => {
+    startEventSession(selectedEvent);
+  }, [selectedEvent, startEventSession]);
 
   const refreshCachedSessionWidgets = useCallback(
     async (cachedDashboardData, loadSeq) => {
@@ -4721,6 +4762,14 @@ effectiveCoachUid]);
         });
         return;
       }
+      const recurrenceDates = expandRecurringDates(start, newSession.recurrence);
+      if (recurrenceDates.length === 0) {
+        notify(toast, "saveError", {
+          title: t("calendar.recurrence.invalid_title", "Récurrence invalide"),
+          description: t("calendar.recurrence.invalid_end", "Choisissez une fin postérieure au premier rendez-vous."),
+        });
+        return;
+      }
 
       let requestPayload;
       if (newSession.type === "nutrition") {
@@ -4777,14 +4826,41 @@ effectiveCoachUid]);
       }
 
       const controller = new AbortController();
-      const timeoutId = window.setTimeout(() => controller.abort(), 15000);
+      const timeoutId = window.setTimeout(() => controller.abort(), 45000);
       setSessionCreateSaving(true);
       try {
-        const result = await apiFetch("/coach-sessions", {
-          method: "POST",
-          body: JSON.stringify(requestPayload),
-          signal: controller.signal,
-        });
+        const recurrenceGroupId = recurrenceDates.length > 1 ? createRecurrenceGroupId() : "";
+        const results = await runLimited(
+          recurrenceDates,
+          async (recurrenceDate, recurrenceIndex) => {
+            try {
+              const result = await apiFetch("/coach-sessions", {
+                method: "POST",
+                body: JSON.stringify({
+                  ...requestPayload,
+                  startDateTime: recurrenceDate.toISOString(),
+                  recurrenceGroupId,
+                  recurrenceFrequency: newSession.recurrence?.frequency || "none",
+                  recurrenceIndex,
+                  recurrenceCount: recurrenceDates.length,
+                }),
+                signal: controller.signal,
+              });
+              return { result };
+            } catch (error) {
+              return { error };
+            }
+          },
+          4
+        );
+        const failures = results.filter((entry) => entry?.error);
+        if (failures.length > 0) {
+          const partialError = failures[0].error || new Error("recurrence-partial-failure");
+          partialError.createdCount = results.filter((entry) => entry?.result && !entry.result.duplicate).length;
+          partialError.requestedCount = results.length;
+          throw partialError;
+        }
+        const duplicates = results.filter((entry) => entry?.result?.duplicate).length;
         setNewSession({
         type: nutritionOnlyDashboard ? "nutrition" : "sport",
           clientId: "",
@@ -4795,9 +4871,10 @@ effectiveCoachUid]);
           nutritionKind: "suivi",
           nutritionDurationMin: 30,
           nutritionNotes: "",
+          recurrence: createDefaultRecurrence(),
         });
         addSessionModal.onClose();
-        notify(toast, result?.duplicate ? "info" : "sessionPlanned", result?.duplicate
+        notify(toast, duplicates === results.length ? "info" : "sessionPlanned", duplicates === results.length
           ? {
               title: t("dashboard.session_already_planned_title", "Séance déjà planifiée"),
               description: t(
@@ -4805,13 +4882,31 @@ effectiveCoachUid]);
                 "Ce rendez-vous existait déjà : aucun doublon n’a été créé."
               ),
             }
-          : undefined);
+          : recurrenceDates.length > 1
+            ? {
+                description: t("calendar.recurrence.created", "{{count}} rendez-vous ont été ajoutés au calendrier.", {
+                  count: recurrenceDates.length - duplicates,
+                }),
+              }
+            : undefined);
         void refreshDashboardData().catch((refreshError) => {
           console.warn("[coach dashboard] refresh after session creation failed", refreshError);
         });
       } catch (error) {
         const timedOut = error?.name === "AbortError";
         console.error("[coach dashboard] session creation failed", error);
+        if (Number(error?.createdCount) > 0) {
+          toast({
+            status: "warning",
+            title: t("calendar.recurrence.partial_title", "Série partiellement créée"),
+            description: t("calendar.recurrence.partial_description", "{{created}} rendez-vous sur {{total}} ont été créés. Vous pouvez réessayer sans générer de doublons.", {
+              created: error.createdCount,
+              total: error.requestedCount,
+            }),
+          });
+          void refreshDashboardData().catch(() => {});
+          return;
+        }
         notify(toast, "saveError", {
           title: timedOut
             ? t("dashboard.add_session_errors.timeout_title", "Enregistrement trop long")
@@ -5365,7 +5460,7 @@ modeValue("rgba(255,255,255,0.95)",
         navigate(withAdminCoach("/nutrition-coach?new=1"), { replace: true });
         return;
       }
-      addSessionModal.onOpen();
+      openEmptySessionModal();
     }
 
     currentParams.delete("quickAction");
@@ -5379,6 +5474,7 @@ modeValue("rgba(255,255,255,0.95)",
     location.search,
     navigate,
     nutritionOnlyDashboard,
+    openEmptySessionModal,
     withAdminCoach,
   ]);
 
@@ -5921,6 +6017,128 @@ to);
   const nextUpcomingSessions = useMemo(() => {
     return allUpcomingSessions.slice(0, 3);
   }, [allUpcomingSessions]);
+
+  const recurringCoachHabit = useMemo(() => {
+    const habit = findUpcomingCoachHabit(sessions, { nowMs: now, horizonHours: 36 });
+    if (!habit) return null;
+    const matchingEvent = sessions.find((session) => {
+      if (!(session?.start instanceof Date) || session.clientId !== habit.clientId) return false;
+      return Math.abs(session.start.getTime() - habit.target.getTime()) <= 60 * 60 * 1000 && session.status !== "manquée";
+    });
+    const client = clients.find((item) => item.id === habit.clientId);
+    return {
+      ...habit,
+      clientName: habit.clientName || getClientFullName(client) || t("dashboard.client", "Client"),
+      matchingEvent: matchingEvent || null,
+    };
+  }, [clients, now, sessions, t]);
+
+  const coachHeaderContext = useMemo(() => {
+    if (todayOverview.loading) {
+      return { message: greetingSubtitle };
+    }
+
+    if (todayOverview.planned > 0) {
+      return {
+        message: t(
+          "dashboard.coach_header_sessions_remaining",
+          todayOverview.planned === 1
+            ? "Il reste 1 séance à accompagner aujourd’hui."
+            : "Il reste {{count}} séances à accompagner aujourd’hui.",
+          { count: todayOverview.planned }
+        ),
+      };
+    }
+
+    const nextSession = nextUpcomingSessions[0];
+    if (todayOverview.validated > 0 && nextSession) {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const isTomorrow = formatLocalDateKey(nextSession.start) === formatLocalDateKey(tomorrow);
+      const sessionDate = isTomorrow
+        ? t("dashboard.coach_header_tomorrow", "demain")
+        : nextSession.start.toLocaleDateString(i18n.language || "fr", {
+            weekday: "long",
+            day: "numeric",
+            month: "short",
+          });
+      const sessionTime = nextSession.start.toLocaleTimeString(i18n.language || "fr", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      return {
+        message: t(
+          "dashboard.coach_header_day_done_next",
+          "La journée est à jour. Prochain rendez-vous {{date}} à {{time}} avec {{client}}.",
+          {
+            date: sessionDate,
+            time: sessionTime,
+            client: nextSession._clientName || t("dashboard.client", "Client"),
+          }
+        ),
+      };
+    }
+
+    if (todayOverview.validated > 0) {
+      return {
+        message: t(
+          "dashboard.coach_header_sessions_validated",
+          todayOverview.validated === 1
+            ? "1 séance validée aujourd’hui. Tout est à jour."
+            : "{{count}} séances validées aujourd’hui. Tout est à jour.",
+          { count: todayOverview.validated }
+        ),
+      };
+    }
+
+    if (hasNutritionCalendarAccess && nutritionDashboardStats.drafts > 0) {
+      return {
+        message: t(
+          "dashboard.coach_header_nutrition_pending",
+          nutritionDashboardStats.drafts === 1
+            ? "1 suivi nutrition attend d’être finalisé."
+            : "{{count}} suivis nutrition attendent d’être finalisés.",
+          { count: nutritionDashboardStats.drafts }
+        ),
+      };
+    }
+
+    if (nextSession) {
+      const sessionDate = nextSession.start.toLocaleDateString(i18n.language || "fr", {
+        weekday: "long",
+        day: "numeric",
+        month: "short",
+      });
+      const sessionTime = nextSession.start.toLocaleTimeString(i18n.language || "fr", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      return {
+        message: t(
+          "dashboard.coach_header_day_done_next",
+          "La journée est à jour. Prochain rendez-vous {{date}} à {{time}} avec {{client}}.",
+          { date: sessionDate, time: sessionTime, client: nextSession._clientName || t("dashboard.client", "Client") }
+        ),
+      };
+    }
+
+    return {
+      message: t(
+        "auto.CoachDashboard.journee_a_jour_planifier",
+        "La journée est à jour. Profitez-en pour préparer la suite."
+      ),
+    };
+  }, [
+    greetingSubtitle,
+    hasNutritionCalendarAccess,
+    i18n.language,
+    nextUpcomingSessions,
+    nutritionDashboardStats.drafts,
+    t,
+    todayOverview.loading,
+    todayOverview.planned,
+    todayOverview.validated,
+  ]);
 
   const openMobileCalendarForDate = useCallback((dateValue) => {
     const targetDate = dateValue instanceof Date ? new Date(dateValue) : new Date(dateValue || Date.now());
@@ -7429,19 +7647,33 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
       boxShadow={modeValue("0 8px 24px rgba(15,23,42,0.045)", "0 10px 28px rgba(0,0,0,0.22)")}
       scrollSnapAlign="start"
       position="relative"
+      role={titleRoute ? "link" : undefined}
+      tabIndex={titleRoute ? 0 : undefined}
+      cursor={titleRoute ? "pointer" : "default"}
+      onPointerEnter={() => titleRoute && warmDashboardDestination(titleRoute)}
+      onFocus={() => titleRoute && warmDashboardDestination(titleRoute)}
+      onClick={() => titleRoute && navigate(withAdminCoach(titleRoute))}
+      onKeyDown={(event) => {
+        if (titleRoute && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          navigate(withAdminCoach(titleRoute));
+        }
+      }}
     >
       {titleRoute ? (
-        <AppNavigationArrow
-          to={withAdminCoach(titleRoute)}
-          label={title}
+        <Flex
+          aria-hidden="true"
           position="absolute"
           top={{ base: 3, md: 3.5 }}
           right={{ base: 3, md: 3.5 }}
           zIndex={2}
-          onPointerEnter={() => warmDashboardDestination(titleRoute)}
-          onFocus={() => warmDashboardDestination(titleRoute)}
-          onClick={(event) => event.stopPropagation()}
-        />
+          w="32px"
+          h="32px"
+          align="center"
+          justify="center"
+        >
+          <ChevronRightIcon boxSize="18px" />
+        </Flex>
       ) : null}
       <Flex direction="column" h="100%">
         <HStack align="center" spacing={3} pr={titleRoute ? 6 : 0}>
@@ -7461,22 +7693,15 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
           </Flex>
           <Box minW={0} flex="1">
             <Heading
-              as={titleRoute ? Link : "h2"}
-              to={titleRoute ? withAdminCoach(titleRoute) : undefined}
+              as="h2"
               size="md"
               color={textColor}
               fontWeight="900"
               lineHeight="1.15"
               noOfLines={2}
-              cursor={titleRoute ? "pointer" : "default"}
-              textDecoration="none"
-              onPointerEnter={() => titleRoute && warmDashboardDestination(titleRoute)}
-              onFocus={() => titleRoute && warmDashboardDestination(titleRoute)}
-              onClick={(event) => event.stopPropagation()}
+              cursor="inherit"
               transition="none"
               sx={{ WebkitTapHighlightColor: "transparent" }}
-              _hover={titleRoute ? { color: textColor, textDecoration: "none" } : undefined}
-              _active={titleRoute ? { color: textColor } : undefined}
             >
               {title}
             </Heading>
@@ -7758,7 +7983,89 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
       }}
     >
       <VStack align="stretch" spacing={2} h="100%" minH={0}>
-        {nextUpcomingSessions.length === 0 ? (
+        {nextUpcomingSessions.length === 0 && recurringCoachHabit ? (
+          <Flex minH="132px" flex="1" direction="column" justify="center" gap={3}>
+            <Box
+              w="100%"
+              p={3}
+              borderRadius="16px"
+              bg={surfaceSoft}
+              border="1px solid"
+              borderColor={borderColor}
+            >
+              <HStack spacing={2} align="center">
+                <Box
+                  as="button"
+                  type="button"
+                  flex="1"
+                  minW={0}
+                  textAlign="left"
+                  cursor="pointer"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    navigate(withAdminCoach(`/clients/${recurringCoachHabit.clientId}`));
+                  }}
+                >
+                  <Text fontSize="11px" color={warningOrange} fontWeight="900" textTransform="uppercase">
+                    {t("dashboard.coach_habit_detected", "Habitude repérée")}
+                  </Text>
+                  <Text mt={1} fontSize="sm" color={textColor} fontWeight="900" noOfLines={1}>
+                    {recurringCoachHabit.clientName}
+                  </Text>
+                  <Text mt={0.5} fontSize="xs" color={mutedText} noOfLines={1}>
+                    {recurringCoachHabit.target.toLocaleDateString(i18n.language || "fr", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "short",
+                    })} · {recurringCoachHabit.target.toLocaleTimeString(i18n.language || "fr", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </Text>
+                </Box>
+                <IconButton
+                  aria-label={t("dashboard.coach_habit_plan", "Planifier {{client}} · {{time}}", {
+                    client: recurringCoachHabit.clientName,
+                    time: recurringCoachHabit.target.toLocaleTimeString(i18n.language || "fr", { hour: "2-digit", minute: "2-digit" }),
+                  })}
+                  icon={<ChevronRightIcon boxSize="20px" />}
+                  size="sm"
+                  variant="ghost"
+                  color={activeBlue}
+                  borderRadius="full"
+                  flexShrink={0}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setNewSession((prev) => ({
+                      ...prev,
+                      type: "sport",
+                      clientId: recurringCoachHabit.clientId,
+                      programmeId: "",
+                      sessionIndex: null,
+                      startDateTime: recurringCoachHabit.matchingEvent
+                        ? ""
+                        : toDateTimeLocalValue(recurringCoachHabit.target),
+                      status: "à venir",
+                    }));
+                    addSessionModal.onOpen();
+                  }}
+                />
+              </HStack>
+            </Box>
+            <Button
+              size="sm"
+              borderRadius="full"
+              leftIcon={<AddIcon />}
+              {...shortcutPrimaryButtonProps}
+              onClick={(event) => {
+                event.stopPropagation();
+                openEmptySessionModal();
+              }}
+            >
+              {t("dashboard.add_session", "Ajouter une séance")}
+            </Button>
+          </Flex>
+        ) : nextUpcomingSessions.length === 0 ? (
           <Flex minH="132px" flex="1" align="center" justify="center" direction="column" gap={3}>
             <Text fontSize="sm" color={mutedText} fontWeight="400" textAlign="center">
               {nutritionOnlyDashboard
@@ -7776,7 +8083,7 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
                   openNutritionAppointmentForClient("");
                   return;
                 }
-                addSessionModal.onOpen();
+                openEmptySessionModal();
               }}
             >
               {nutritionOnlyDashboard
@@ -7866,7 +8173,7 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
                   openNutritionAppointmentForClient("");
                   return;
                 }
-                addSessionModal.onOpen();
+                openEmptySessionModal();
               }}
               _hover={{
                 bg: modeValue("rgba(59,130,246,0.10)", "rgba(96,165,250,0.14)"),
@@ -8162,9 +8469,8 @@ objectFit: "contain" }}
                      </Heading>
                      <Text mt={{ base: 0.5, md: 1 }} color={mutedText} fontSize={{ base: "sm", md: "md" }} maxW="760px"
 noOfLines={2}>
-                       {greetingSubtitle}
-
-                </Text>
+                       {coachHeaderContext.message}
+                     </Text>
               </Box>
             </Flex>
             {!isMobileDashboard && (
@@ -8234,128 +8540,248 @@ noOfLines={2}>
         </Box>
 
         <Box display={{ base: "block", md: "none" }} mb={2.5}>
-          <SimpleGrid columns={2} spacing={2.5}>
-            <Box
-              as="button"
-              type="button"
-              bg={surfaceBgStrong}
-              border="1px solid"
-              borderColor={borderColor}
-              borderRadius="24px"
-              p={3.5}
-              boxShadow={glassShadow}
-              cursor="pointer"
-              minH="184px"
-              display="flex"
-              flexDirection="column"
-              textAlign="left"
-              onClick={() => openMobileCalendarForDate(new Date())}
-            >
-              <HStack justify="space-between" align="flex-start" spacing={1.5}>
-                <Circle size="30px" bg="rgba(59,130,246,0.14)" color={activeBlue} flexShrink={0}>
-                  <Icon as={MdToday} boxSize="15px" />
-                </Circle>
-                <Box minW={0} flex="1">
-                  <Text fontSize="11px" color={subtleText} fontWeight="900" textTransform="uppercase" noOfLines={1}>
-                    {t("dashboard.mobile.today", "Aujourd'hui")}
-                  </Text>
-                  <Heading fontSize="md" mt={1} lineHeight="1.15" noOfLines={2}>
-                    {t("dashboard.mobile.sessions_today", "Séances du jour")}
-                  </Heading>
-                </Box>
-                <Text fontSize="2xl" fontWeight="950" lineHeight="1" flexShrink={0} textAlign="right">
-                  {todayOverview.loading ? "…" : todaySessionCount}
-                </Text>
-              </HStack>
-              <VStack mt={3} spacing={1.5} align="stretch">
-                <HStack justify="space-between" spacing={2}>
-                  <Text fontSize="xs" color={mutedText}>{t("dashboard.mobile.validated", "Validées")}</Text>
-                  <Text fontSize="sm" color={textColor} fontWeight="900">{todayOverview.validated}</Text>
-                </HStack>
-                <HStack justify="space-between" spacing={2}>
-                  <Text fontSize="xs" color={mutedText}>{t("dashboard.mobile.planned", "Planifiées")}</Text>
-                  <Text fontSize="sm" color={textColor} fontWeight="900">{todayOverview.planned}</Text>
-                </HStack>
-              </VStack>
-              <HStack mt="auto" pt={3} borderTop="1px solid" borderColor={borderColor} spacing={1} color={activeBlue} fontSize="xs" fontWeight="900" lineHeight="1">
-                <Text noOfLines={1}>{t("dashboard.mobile.open_today", "Voir aujourd'hui")}</Text>
-                <Icon as={ChevronRightIcon} boxSize="15px" />
-              </HStack>
-            </Box>
+          <Box
+            bg={surfaceBgStrong}
+            border="1px solid"
+            borderColor={borderColor}
+            borderRadius="24px"
+            p={3.5}
+            boxShadow={glassShadow}
+          >
+            <HStack p={1} spacing={1} bg={surfaceSoft} borderRadius="16px">
+              {["today", "upcoming"].map((view) => {
+                const isActive = mobileScheduleView === view;
+                const isToday = view === "today";
+                return (
+                  <Button
+                    key={view}
+                    size="sm"
+                    flex="1"
+                    h="38px"
+                    px={2}
+                    borderRadius="12px"
+                    bg={isActive ? modeValue("white", "rgba(255,255,255,0.10)") : "transparent"}
+                    color={isActive ? textColor : mutedText}
+                    boxShadow={isActive ? modeValue("0 2px 8px rgba(15,23,42,0.08)", "0 2px 10px rgba(0,0,0,0.22)") : "none"}
+                    _hover={{ bg: isActive ? undefined : modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)") }}
+                    onClick={() => setMobileScheduleView(view)}
+                  >
+                    <HStack spacing={1.5}>
+                      <Text>{isToday ? t("dashboard.mobile.today", "Aujourd'hui") : t("dashboard.mobile.upcoming", "À venir")}</Text>
+                      <Text color={isActive ? activeBlue : subtleText} fontWeight="950">
+                        {isToday ? (todayOverview.loading ? "…" : todaySessionCount) : allUpcomingSessions.length}
+                      </Text>
+                    </HStack>
+                  </Button>
+                );
+              })}
+            </HStack>
 
-            <Box
-              as="button"
-              type="button"
-              bg={surfaceBgStrong}
-              border="1px solid"
-              borderColor={borderColor}
-              borderRadius="24px"
-              p={3.5}
-              boxShadow={glassShadow}
-              cursor="pointer"
-              minH="184px"
-              display="flex"
-              flexDirection="column"
-              textAlign="left"
-              onClick={() => openMobileCalendarForDate(nextUpcomingSessions[0]?.start || new Date())}
-            >
-              <HStack justify="space-between" align="flex-start" spacing={1.5}>
-                <Circle
-                  size="30px"
-                  bg="rgba(245,158,11,0.14)"
-                  color={warningOrange}
-                  flexShrink={0}
-                >
-                  <Icon as={CalendarIcon} boxSize="15px" />
-                </Circle>
-                <Box minW={0} flex="1">
-                  <Text fontSize="11px" color={subtleText} fontWeight="900" textTransform="uppercase" noOfLines={1}>
-                    {t("dashboard.mobile.upcoming", "À venir")}
-                  </Text>
-                  <Heading fontSize="md" mt={1} lineHeight="1.15" noOfLines={2}>
-                    {t("dashboard.mobile.upcoming_sessions", "Séances à venir")}
-                  </Heading>
-                </Box>
-                <Text fontSize="2xl" fontWeight="950" lineHeight="1" flexShrink={0} textAlign="right">
-                  {allUpcomingSessions.length}
-                </Text>
-              </HStack>
-              {nextUpcomingSessions[0] ? (
-                <Box mt={3} minW={0}>
-                  <Text fontSize="xs" color={textColor} fontWeight="850" noOfLines={1}>
-                    {nextUpcomingSessions[0]._clientName || t("dashboard.client", "Client")}
-                  </Text>
-                  <Text mt={1} fontSize="xs" color={mutedText} noOfLines={1}>
-                    {nextUpcomingSessions[0].start.toLocaleDateString(i18n.language || "fr")} · {nextUpcomingSessions[0].start.toLocaleTimeString(i18n.language || "fr", { hour: "2-digit", minute: "2-digit" })}
-                  </Text>
-                </Box>
-              ) : (
-                <Text mt={3} fontSize="xs" color={mutedText} noOfLines={2}>
-                  {t("dashboard.mobile.ready_to_plan", "Tout est libre pour planifier le prochain point.")}
-                </Text>
-              )}
-              <HStack
-                mt="auto"
-                pt={3}
-                borderTop="1px solid"
-                borderColor={borderColor}
-                spacing={1}
-                color={activeBlue}
-                fontSize="xs"
-                fontWeight="900"
-                lineHeight="1"
+            <HStack mt={4} mb={3} spacing={3}>
+              <Circle
+                size="38px"
+                bg={mobileScheduleView === "today" ? "rgba(59,130,246,0.14)" : "rgba(245,158,11,0.14)"}
+                color={mobileScheduleView === "today" ? activeBlue : warningOrange}
+                flexShrink={0}
               >
-                <Text noOfLines={1}>
-                  {allUpcomingSessions.length > 1
-                      ? t("dashboard.mobile.open_events", "Voir les créneaux")
-                      : nextUpcomingSessions[0]
-                        ? t("dashboard.mobile.open_event", "Ouvrir le créneau")
-                        : t("dashboard.mobile.open_planning", "Planning")}
-                </Text>
-                <Icon as={ChevronRightIcon} boxSize="15px" />
-              </HStack>
-            </Box>
-          </SimpleGrid>
+                <Icon as={mobileScheduleView === "today" ? MdToday : CalendarIcon} boxSize="18px" />
+              </Circle>
+              <Heading fontSize="lg" lineHeight="1.15">
+                {mobileScheduleView === "today"
+                  ? t("dashboard.mobile.sessions_today", "Séances du jour")
+                  : t("dashboard.mobile.upcoming_sessions", "Séances à venir")}
+              </Heading>
+            </HStack>
+
+            {mobileScheduleView === "today" ? (
+              <VStack align="stretch" spacing={2}>
+                {todayOverview.plannedEvents.length > 0 ? (
+                  todayOverview.plannedEvents.slice(0, 3).map((event) => {
+                    const isNutritionAppointment = event.eventType === "nutrition_appointment";
+                    return (
+                      <Box
+                        key={event.id || event._sourceId}
+                        as="button"
+                        type="button"
+                        w="100%"
+                        p={3}
+                        borderRadius="16px"
+                        bg={surfaceSoft}
+                        border="1px solid"
+                        borderColor={borderColor}
+                        textAlign="left"
+                        onClick={() => {
+                          if (!isNutritionAppointment) {
+                            startEventSession(event);
+                            return;
+                          }
+                          setSelectedEvent(event);
+                          eventModal.onOpen();
+                        }}
+                      >
+                        <HStack spacing={3} align="center">
+                          <Text minW="44px" color={activeBlue} fontSize="sm" fontWeight="950">
+                            {event.start.toLocaleTimeString(i18n.language || "fr", { hour: "2-digit", minute: "2-digit" })}
+                          </Text>
+                          <Box flex="1" minW={0}>
+                            <Text color={textColor} fontSize="sm" fontWeight="900" noOfLines={1}>
+                              {event._clientName || t("dashboard.client", "Client")}
+                            </Text>
+                            <Text color={mutedText} fontSize="xs" noOfLines={1}>
+                              {event._sessionTitle || event.title || (isNutritionAppointment
+                                ? t("dashboard.nutrition_appointment", "Rendez-vous nutrition")
+                                : t("form.session", "Séance"))}
+                            </Text>
+                          </Box>
+                          <HStack spacing={0.5} color={activeBlue} fontSize="xs" fontWeight="900">
+                            <Text>{isNutritionAppointment
+                              ? t("dashboard.coach_mobile_open", "Ouvrir")
+                              : t("dashboard.coach_mobile_start", "Démarrer")}</Text>
+                            <Icon as={ChevronRightIcon} boxSize="15px" />
+                          </HStack>
+                        </HStack>
+                      </Box>
+                    );
+                  })
+                ) : (
+                  <Text py={3} color={mutedText} fontSize="sm" textAlign="center">
+                    {t("dashboard.coach_mobile_no_sessions_left", "Aucune séance restante aujourd'hui.")}
+                  </Text>
+                )}
+                <Box pt={2}>
+                  <HStack mb={1.5} justify="space-between" spacing={3}>
+                    <Text fontSize="xs" color={mutedText} fontWeight="800">
+                      {t("dashboard.daily_progress", "Progression du jour")}
+                    </Text>
+                    <Text fontSize="xs" color={textColor} fontWeight="950">
+                      {todayOverview.loading ? "…" : `${todayCompletionPercent}%`}
+                    </Text>
+                  </HStack>
+                  <Box h="7px" borderRadius="full" bg={modeValue("rgba(59,130,246,0.10)", "rgba(147,197,253,0.12)")} overflow="hidden">
+                    <Box
+                      h="full"
+                      w={`${todayOverview.loading ? 0 : todayCompletionPercent}%`}
+                      minW={todayCompletionPercent > 0 ? "7px" : 0}
+                      borderRadius="full"
+                      bgGradient="linear(to-r, #2563EB, #38BDF8)"
+                      transition="width 0.25s ease"
+                    />
+                  </Box>
+                </Box>
+                <Flex pt={2} align="center" justify="space-between" gap={2}>
+                  <HStack spacing={1.5}>
+                    <Text px={2.5} py={1} borderRadius="full" bg={modeValue("rgba(16,185,129,0.09)", "rgba(16,185,129,0.13)")} color={activeGreen} fontSize="xs" fontWeight="900">
+                      {todayOverview.validated} {t("dashboard.mobile.validated", "Validées")}
+                    </Text>
+                    <Text px={2.5} py={1} borderRadius="full" bg={modeValue("rgba(59,130,246,0.09)", "rgba(59,130,246,0.13)")} color={activeBlue} fontSize="xs" fontWeight="900">
+                      {todayOverview.planned} {t("dashboard.mobile.planned", "Planifiées")}
+                    </Text>
+                  </HStack>
+                  <Button size="xs" variant="ghost" color={activeBlue} rightIcon={<ChevronRightIcon />} onClick={() => openMobileCalendarForDate(new Date())}>
+                    {t("dashboard.mobile.open_today", "Voir aujourd'hui")}
+                  </Button>
+                </Flex>
+              </VStack>
+            ) : (
+              <VStack align="stretch" spacing={2}>
+                {nextUpcomingSessions.length > 0 ? (
+                  nextUpcomingSessions.map((event) => (
+                    <Box
+                      key={event.id || event._sourceId}
+                      as="button"
+                      type="button"
+                      w="100%"
+                      p={3}
+                      borderRadius="16px"
+                      bg={surfaceSoft}
+                      border="1px solid"
+                      borderColor={borderColor}
+                      textAlign="left"
+                      onClick={() => {
+                        setSelectedEvent(event);
+                        eventModal.onOpen();
+                      }}
+                    >
+                      <HStack spacing={3} align="center">
+                        <Box minW="58px">
+                          <Text color={warningOrange} fontSize="xs" fontWeight="950" textTransform="uppercase">
+                            {event.start.toLocaleDateString(i18n.language || "fr", { weekday: "short", day: "numeric" })}
+                          </Text>
+                          <Text color={mutedText} fontSize="xs">
+                            {event.start.toLocaleTimeString(i18n.language || "fr", { hour: "2-digit", minute: "2-digit" })}
+                          </Text>
+                        </Box>
+                        <Box flex="1" minW={0}>
+                          <Text color={textColor} fontSize="sm" fontWeight="900" noOfLines={1}>
+                            {event._clientName || t("dashboard.client", "Client")}
+                          </Text>
+                          <Text color={mutedText} fontSize="xs" noOfLines={1}>
+                            {event._sessionTitle || event.title || t("form.session", "Séance")}
+                          </Text>
+                        </Box>
+                        <Icon as={ChevronRightIcon} color={activeBlue} boxSize="16px" />
+                      </HStack>
+                    </Box>
+                  ))
+                ) : recurringCoachHabit ? (
+                  <Box
+                    as="button"
+                    type="button"
+                    w="100%"
+                    p={3}
+                    borderRadius="16px"
+                    bg={surfaceSoft}
+                    border="1px solid"
+                    borderColor={borderColor}
+                    textAlign="left"
+                    onClick={() => {
+                      if (recurringCoachHabit.matchingEvent) {
+                        setSelectedEvent(recurringCoachHabit.matchingEvent);
+                        eventModal.onOpen();
+                        return;
+                      }
+                      setNewSession((prev) => ({
+                        ...prev,
+                        type: "sport",
+                        clientId: recurringCoachHabit.clientId,
+                        programmeId: "",
+                        sessionIndex: null,
+                        startDateTime: toDateTimeLocalValue(recurringCoachHabit.target),
+                        status: "à venir",
+                      }));
+                      addSessionModal.onOpen();
+                    }}
+                  >
+                    <HStack justify="space-between" spacing={2} align="center">
+                      <Box flex="1" minW={0}>
+                        <Text fontSize="11px" color={warningOrange} fontWeight="900" textTransform="uppercase">
+                          {t("dashboard.coach_habit_detected", "Habitude repérée")}
+                        </Text>
+                        <Text mt={1} fontSize="sm" color={textColor} fontWeight="900" noOfLines={1}>
+                          {recurringCoachHabit.clientName} · {recurringCoachHabit.target.toLocaleTimeString(i18n.language || "fr", { hour: "2-digit", minute: "2-digit" })}
+                        </Text>
+                      </Box>
+                      <Icon as={ChevronRightIcon} color={activeBlue} boxSize="18px" flexShrink={0} />
+                    </HStack>
+                  </Box>
+                ) : (
+                  <Text py={3} fontSize="sm" color={mutedText} textAlign="center">
+                    {t("dashboard.mobile.ready_to_plan", "Tout est libre pour planifier le prochain point.")}
+                  </Text>
+                )}
+                <Button
+                  mt={1}
+                  size="sm"
+                  variant="ghost"
+                  color={activeBlue}
+                  rightIcon={<ChevronRightIcon />}
+                  onClick={() => openMobileCalendarForDate(nextUpcomingSessions[0]?.start || recurringCoachHabit?.target || new Date())}
+                >
+                  {t("dashboard.mobile.open_planning", "Planning")}
+                </Button>
+              </VStack>
+            )}
+          </Box>
         </Box>
 
         {!isMobileDashboard && (
@@ -8409,7 +8835,7 @@ noOfLines={2}>
         </Box>
 
 
-        <Box order={1} mb={2.5}>
+        <Box data-tour="coach-quick-access" order={1} mb={2.5}>
           <Box
             display={{ base: "none", md: "block", lg: "none" }}
             overflowX="auto"
@@ -9754,7 +10180,7 @@ subtitle={t("dashboard.cards.latest_programs_subtitle", "Accès rapide aux plus 
                       <Text color={mutedText}
 >{t("dashboard.no_program_available", "Aucun programme disponible.")}</Text>
                     ) : (
-                      <SimpleGrid columns={{ base: 1, lg: 2, "2xl": 3 }} spacing={2.5}>
+                      <SimpleGrid columns={{ base: 1, lg: 2, "2xl": 1 }} spacing={2.5}>
                       {
                       latestPrograms.slice(0, isMobileDashboard ? 3 : latestPrograms.length).map((p) => {
                         const createdAtMs = getProgramCreatedAtMs(p);
@@ -9776,6 +10202,7 @@ subtitle={t("dashboard.cards.latest_programs_subtitle", "Accès rapide aux plus 
                             position="relative"
                             display="flex"
                             flexDirection="column"
+                            overflow="hidden"
                             onClick={(e) => e.stopPropagation()}
 
                            _hover={{
@@ -9825,6 +10252,7 @@ color={subtleText} noOfLines={1}>
                                 direction="row"
                                 align="center"
                                 justify="space-between"
+                                flexWrap="wrap"
                                 gap={2}
                               >
                                 <Button
@@ -9833,6 +10261,8 @@ color={subtleText} noOfLines={1}>
                                   size={isMobileDashboard ? "sm" : "xs"}
                                   h={isMobileDashboard ? "40px" : undefined}
                                   minW={0}
+                                  maxW="100%"
+                                  flex="1 1 132px"
                                   px={isMobileDashboard ? 3 : 2.5}
                                   borderRadius="full"
                                   bg={modeValue("rgba(37,99,235,0.10)", "rgba(59,130,246,0.18)")}
@@ -9856,6 +10286,9 @@ color={subtleText} noOfLines={1}>
                                   spacing={1.5}
                                   w="auto"
                                   ml="auto"
+                                  flex="0 1 auto"
+                                  flexWrap="wrap"
+                                  justify="flex-end"
                                 >
                                   {isMobileDashboard ? (
                                     <>
@@ -9985,7 +10418,7 @@ alignItems="stretch">
                     _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      addSessionModal.onOpen();
+                      openEmptySessionModal();
                     }}
                   />
                   <Box display={{ base: "none", md: "block" }}>
@@ -10016,7 +10449,7 @@ alignItems="stretch">
                           _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
                           onClick={(e) => {
                             e.stopPropagation();
-                            addSessionModal.onOpen();
+                            openEmptySessionModal();
                           }}
                         >
                           {t("exerciseCard.add", "Ajouter")}
@@ -11518,7 +11951,7 @@ onClose={choiceModal.onClose} isCentered>
                     }}
                     onClick={() => {
                       choiceModal.onClose();
-                      addSessionModal.onOpen();
+                      openEmptySessionModal();
                     }}
                     leftIcon={<Icon as={MdOutlineSchedule} />}
                   >
@@ -11633,7 +12066,7 @@ borderRadius="22px" border="1px solid" borderColor={borderColor}>
 	             <ModalBody>
 	               <VStack spacing={2.5}>
                   {hasSportAccess && hasNutritionCalendarAccess ? (
-                    <FormControl isRequired>
+              <FormControl isRequired>
                       <FormLabel>{t("auto.CoachDashboard.type_de_rendez_vous", "Type de rendez-vous")}</FormLabel>
                       <Select
                         value={newSession.type}
@@ -11810,6 +12243,19 @@ FormLabel>
 ({ ...prev, startDateTime: e.target.value }))}
                 />
               </FormControl>
+
+              <CalendarRecurrenceFields
+                value={newSession.recurrence}
+                onChange={(recurrence) => setNewSession((prev) => ({ ...prev, recurrence }))}
+                startDateTime={newSession.startDateTime}
+                t={t}
+                inputProps={{
+                  borderRadius: "16px",
+                  bg: modeValue("rgba(15,23,42,0.03)", "rgba(255,255,255,0.04)"),
+                  borderColor,
+                  color: textColor,
+                }}
+              />
 
 	              {newSession.type === "nutrition" ? (
                   <FormControl>

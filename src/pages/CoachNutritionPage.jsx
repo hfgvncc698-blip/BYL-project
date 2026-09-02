@@ -8,7 +8,6 @@ import {
   Box,
   Button,
   Flex,
-  Heading,
   HStack,
   IconButton,
   Input,
@@ -420,32 +419,23 @@ export default function CoachNutritionPage() {
           </Flex>
         </AppSurface>
 
-        <SimpleGrid data-tour="nutrition-stats" columns={{ base: 1, sm: 3 }} spacing={{ base: 2, md: 4 }} mb={4}>
-          <AppSurface variant="tile" p={{ base: 3, md: 4 }}>
-            <Flex align="center" justify="space-between" gap={{ base: 2, md: 4 }} h="100%">
-              <Stack spacing={1} minW={0} justify="center">
-                <Heading as="h2" size="md" color={theme.textColor} fontWeight="900" lineHeight="1.15" noOfLines={2}>{t("nutritionCoach.stats.patients", "PATIENTS")}</Heading>
-                <Text fontSize="xs" color={theme.subtleText} fontWeight="400" lineHeight="1.25" noOfLines={2}>{clientQuota.hint}</Text>
-              </Stack>
-              <AppMetricValue flexShrink={0} fontSize={{ base: "2xl", md: "32px" }}>{clientQuota.value}</AppMetricValue>
+        <SimpleGrid data-tour="nutrition-stats" columns={3} spacing={{ base: 1.5, md: 4 }} mb={4}>
+          <AppSurface variant="tile" p={{ base: 2, md: 3 }}>
+            <Flex align="center" justify="space-between" gap={1.5} h="100%">
+              <Text minW={0} textAlign="start" fontSize={{ base: "9px", md: "xs" }} color={theme.subtleText} fontWeight="900" textTransform="uppercase" lineHeight="1.15">{t("nutritionCoach.stats.mobilePatients", "Patients")}</Text>
+              <AppMetricValue flexShrink={0} textAlign="end" fontSize={{ base: "xl", md: "28px" }} lineHeight="1">{clientQuota.value}</AppMetricValue>
             </Flex>
           </AppSurface>
-          <AppSurface variant="tile" p={{ base: 3, md: 4 }}>
-            <Flex align="center" justify="space-between" gap={{ base: 2, md: 4 }} h="100%">
-              <Stack spacing={1} minW={0} justify="center">
-                <Heading as="h2" size="md" color={theme.textColor} fontWeight="900" lineHeight="1.15" noOfLines={2}>{t("nutritionCoach.stats.assessments", "BILANS")}</Heading>
-                <Text fontSize="xs" color={theme.subtleText} fontWeight="400" lineHeight="1.25" noOfLines={2}>{t("nutritionCoach.stats.assessmentsHint", "historique nutrition disponible")}</Text>
-              </Stack>
-              <AppMetricValue flexShrink={0} fontSize={{ base: "2xl", md: "32px" }}>{stats.totalAssessments}</AppMetricValue>
+          <AppSurface variant="tile" p={{ base: 2, md: 3 }}>
+            <Flex align="center" justify="space-between" gap={1.5} h="100%">
+              <Text minW={0} textAlign="start" fontSize={{ base: "9px", md: "xs" }} color={theme.subtleText} fontWeight="900" textTransform="uppercase" lineHeight="1.15">{t("nutritionCoach.stats.mobileAssessments", "Bilans")}</Text>
+              <AppMetricValue flexShrink={0} textAlign="end" fontSize={{ base: "xl", md: "28px" }} lineHeight="1">{stats.totalAssessments}</AppMetricValue>
             </Flex>
           </AppSurface>
-          <AppSurface variant="tile" p={{ base: 3, md: 4 }}>
-            <Flex align="center" justify="space-between" gap={{ base: 2, md: 4 }} h="100%">
-              <Stack spacing={1} minW={0} justify="center">
-                <Heading as="h2" size="md" color={theme.textColor} fontWeight="900" lineHeight="1.15" noOfLines={2}>{t("nutritionCoach.stats.sharedFollowup", "PARTAGÉS / À SUIVRE")}</Heading>
-                <Text fontSize="xs" color={theme.subtleText} fontWeight="400" lineHeight="1.25" noOfLines={2}>{t("nutritionCoach.stats.sharedFollowupHint", "partagés côté patient / dossiers en cours")}</Text>
-              </Stack>
-              <AppMetricValue flexShrink={0} fontSize={{ base: "2xl", md: "32px" }}>{stats.shared} / {stats.inProgress}</AppMetricValue>
+          <AppSurface variant="tile" p={{ base: 2, md: 3 }}>
+            <Flex align="center" justify="space-between" gap={1.5} h="100%">
+              <Text minW={0} textAlign="start" fontSize={{ base: "9px", md: "xs" }} color={theme.subtleText} fontWeight="900" textTransform="uppercase" lineHeight="1.15">{t("nutritionCoach.stats.mobileFollowup", "Partagés / suivi")}</Text>
+              <AppMetricValue flexShrink={0} textAlign="end" fontSize={{ base: "lg", md: "28px" }} lineHeight="1">{stats.shared}/{stats.inProgress}</AppMetricValue>
             </Flex>
           </AppSurface>
         </SimpleGrid>

@@ -56,6 +56,7 @@ const DEFAULT_PREFERENCES = {
   programCompleted: true,
   inactivity: true,
   nutritionAssigned: true,
+  messaging: true,
   subscription: true,
 };
 
@@ -66,6 +67,7 @@ const PREFERENCE_LABELS = [
   ["programCompleted", "Programme terminé", "Quand toutes les séances sont terminées."],
   ["inactivity", "Rappel d’inactivité", "Quand un programme n’a pas encore été démarré."],
   ["nutritionAssigned", "Suivi nutrition", "Quand un suivi nutrition est partagé."],
+  ["messaging", "E-mails de messagerie", "Lorsqu’un nouveau message privé est reçu."],
   ["subscription", "Abonnement et essai", "Activation d’abonnement, rappels d’essai à J-3/J-1 et incident de paiement."],
 ];
 

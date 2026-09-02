@@ -19,7 +19,7 @@ import {
 } from "@chakra-ui/react";
 import { CheckIcon, DownloadIcon } from "@chakra-ui/icons";
 import { MdOutlineRestaurantMenu } from "react-icons/md";
-import { collection, doc, getDoc, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, doc, getDoc, onSnapshot, query, where } from "firebase/firestore";
 import { useLocation } from "react-router-dom";
 import { db } from "../firebaseConfig";
 import {
@@ -45,8 +45,10 @@ import {
   sortRationRowsForMeal,
 } from "../utils/rationMenu";
 import { translateNutritionFoodName, translateNutritionObjective } from "../utils/nutritionFoodI18n";
+import { manualRationNutritionPer100 } from "../utils/manualRationNutrition";
 import { useNutritionTheme } from "../styles/nutritionTheme";
 import AppLoading from "./ui/AppLoading";
+import ClientNutritionDailyJournal from "./ClientNutritionDailyJournal.jsx";
 import i18n from "../i18n/index";
 
 const r0 = (value) => Math.round(rationMenuNum(value));
@@ -519,39 +521,6 @@ const translateMealLabel = (mealKey = "") => {
   return i18n.t(`auto.ClientNutritionSharedSection.meals.${key}`, MENU_MEAL_LABEL[key] || mealKey || "");
 };
 
-const MEAL_REFERENCE_HOURS = {
-  petit_dej: 8,
-  collation_1: 10.5,
-  dejeuner: 13,
-  collation_2: 16.5,
-  diner: 19.5,
-  collation_3: 22,
-};
-
-const getRelevantMealKey = (rationByMeal = {}, hour = 12) => {
-  const availableMeals = MENU_MEALS_ORDER.filter((mealKey) => rationByMeal[mealKey]?.length);
-  if (!availableMeals.length) return "";
-
-  const expectedMeal =
-    hour < 5 ? "collation_3"
-      : hour < 10 ? "petit_dej"
-        : hour < 12 ? "collation_1"
-          : hour < 15 ? "dejeuner"
-            : hour < 18 ? "collation_2"
-              : hour < 22 ? "diner"
-                : "collation_3";
-
-  if (availableMeals.includes(expectedMeal)) return expectedMeal;
-
-  return availableMeals.reduce((closestMeal, mealKey) => {
-    const distance = Math.abs(MEAL_REFERENCE_HOURS[mealKey] - hour);
-    const circularDistance = Math.min(distance, 24 - distance);
-    const closestDistance = Math.abs(MEAL_REFERENCE_HOURS[closestMeal] - hour);
-    const closestCircularDistance = Math.min(closestDistance, 24 - closestDistance);
-    return circularDistance < closestCircularDistance ? mealKey : closestMeal;
-  }, availableMeals[0]);
-};
-
 const translateMenuMealLabel = (meal = {}) => {
   const raw = typeof meal === "string" ? meal : meal?.mealKey || meal?.key || meal?.label || "";
   const key = mealKeyAliases[labelKey(raw)] || raw;
@@ -852,7 +821,13 @@ export default function ClientNutritionSharedSection({
   clientId,
   variant = "full",
   onOpenNutrition,
+  onOpenJournal,
+  quickMealOpenRequest = 0,
+  onMealKeysChange,
   clientName: clientNameProp = "",
+  isNew = false,
+  initialJournalDateKey = "",
+  focusCoachFeedback = false,
 }) {
   const theme = useNutritionTheme();
   const panelProps = {
@@ -878,20 +853,8 @@ export default function ClientNutritionSharedSection({
   const [exportingPdf, setExportingPdf] = useState(false);
   const [coachProfile, setCoachProfile] = useState(null);
   const [pdfLogoDataUrl, setPdfLogoDataUrl] = useState(null);
-  const [currentHour, setCurrentHour] = useState(() => {
-    const now = new Date();
-    return now.getHours() + now.getMinutes() / 60;
-  });
-
-  useEffect(() => {
-    const refreshCurrentHour = () => {
-      const now = new Date();
-      setCurrentHour(now.getHours() + now.getMinutes() / 60);
-    };
-    const intervalId = window.setInterval(refreshCurrentHour, 5 * 60 * 1000);
-    return () => window.clearInterval(intervalId);
-  }, []);
-
+  const [unreadCoachFeedbackCount, setUnreadCoachFeedbackCount] = useState(0);
+  const [unreadCoachFeedbackDateKey, setUnreadCoachFeedbackDateKey] = useState("");
   useEffect(() => {
     if (!clientId) {
       setLoading(false);
@@ -899,7 +862,7 @@ export default function ClientNutritionSharedSection({
     }
 
     const colRef = collection(db, "clients", clientId, "nutrition_assessments");
-    const q = query(colRef, orderBy("updatedAt", "desc"));
+    const q = query(colRef, where("clientShare.enabled", "==", true));
     const unsub = onSnapshot(
       q,
       (snap) => {
@@ -908,6 +871,10 @@ export default function ClientNutritionSharedSection({
           .filter((row) => {
             const sections = row?.clientShare?.sections || {};
             return row?.clientShare?.enabled && Object.values(sections).some(Boolean);
+          })
+          .sort((a, b) => {
+            const toMillis = (value) => value?.toMillis?.() || value?.toDate?.()?.getTime?.() || new Date(value || 0).getTime() || 0;
+            return toMillis(b?.clientShare?.sharedAt || b?.updatedAt || b?.createdAt) - toMillis(a?.clientShare?.sharedAt || a?.updatedAt || a?.createdAt);
           });
         setAssessments(rows);
         setSelectedAssessmentId((previous) =>
@@ -919,6 +886,29 @@ export default function ClientNutritionSharedSection({
     );
     return () => unsub();
   }, [clientId]);
+
+  useEffect(() => {
+    if (!clientId || variant !== "compact") {
+      setUnreadCoachFeedbackCount(0);
+      setUnreadCoachFeedbackDateKey("");
+      return undefined;
+    }
+    const feedbackQuery = query(
+      collection(db, "clients", clientId, "nutrition_feedback"),
+      where("type", "==", "coach")
+    );
+    return onSnapshot(feedbackQuery, (snapshot) => {
+      const unreadFeedback = snapshot.docs
+        .map((item) => item.data())
+        .filter((feedback) => feedback?.comment && feedback?.dateKey && !feedback?.clientReadAt)
+        .sort((a, b) => String(b.dateKey).localeCompare(String(a.dateKey)));
+      setUnreadCoachFeedbackCount(unreadFeedback.length);
+      setUnreadCoachFeedbackDateKey(unreadFeedback[0]?.dateKey || "");
+    }, () => {
+      setUnreadCoachFeedbackCount(0);
+      setUnreadCoachFeedbackDateKey("");
+    });
+  }, [clientId, variant]);
 
   const latest = assessments.find((row) => row.id === selectedAssessmentId) || assessments[0] || null;
   const sections = latest?.clientShare?.sections || {};
@@ -963,14 +953,63 @@ export default function ClientNutritionSharedSection({
     });
     return grouped;
   }, [rationRows]);
-  const relevantMealKey = useMemo(
-    () => (sections.ration ? getRelevantMealKey(rationByMeal, currentHour) : ""),
-    [currentHour, rationByMeal, sections.ration]
+  const manualRationFoodOptions = useMemo(
+    () =>
+      rationLines
+        .map((line) => {
+          const sourceLabel = line?.resolvedLabel || line?.label || line?.key || "";
+          const nutritionPer100 = manualRationNutritionPer100(sourceLabel);
+          if (!sourceLabel || !nutritionPer100) return null;
+          const sourceUnit = line?.unit || "g";
+          const mealQuantities = Object.fromEntries(
+            Object.entries(line?.meals || {}).map(([mealKey, quantity]) => [
+              mealKey,
+              sourceUnit === "unité" ? rationMenuNum(quantity) * 60 : rationMenuNum(quantity),
+            ])
+          );
+          return {
+            key: line?.key || sourceLabel,
+            label: translateNutritionFoodName(sourceLabel, i18n.resolvedLanguage || i18n.language || "fr"),
+            sourceLabel,
+            group: line?.group || "",
+            unit: sourceUnit === "unité" ? "g" : sourceUnit,
+            meals: mealQuantities,
+            nutritionPer100,
+          };
+        })
+        .filter(Boolean)
+        .reduce((options, option) => {
+          const existing = options.find((candidate) => candidate.sourceLabel === option.sourceLabel);
+          if (!existing) return [...options, option];
+          Object.entries(option.meals || {}).forEach(([mealKey, quantity]) => {
+            existing.meals[mealKey] = rationMenuNum(existing.meals[mealKey]) + rationMenuNum(quantity);
+          });
+          return options;
+        }, []),
+    [rationLines]
   );
-  const relevantMealRows = relevantMealKey ? rationByMeal[relevantMealKey] || [] : [];
   const menuDays = latest?.clientShare?.snapshot?.menuDays || [];
+  const journalDays = useMemo(() => {
+    if (menuDays.some((day) => day?.meals?.some((meal) => meal?.items?.length))) return menuDays;
+    const meals = MENU_MEALS_ORDER.map((mealKey) => ({
+      mealKey,
+      label: translateMealLabel(mealKey),
+      items: (rationByMeal[mealKey] || []).map((row) => ({
+        name: row.label,
+        qty: row.qty,
+        unit: row.unit,
+      })),
+    })).filter((meal) => meal.items.length);
+    return meals.length
+      ? [{ label: i18n.t("auto.ClientNutritionSharedSection.ration_quotidienne", "Ration quotidienne"), totals: rationTotals, meals }]
+      : [];
+  }, [menuDays, rationByMeal, rationTotals]);
   const recipes = latest?.clientShare?.snapshot?.recipes || [];
   const shoppingList = latest?.clientShare?.snapshot?.shoppingList || [];
+  const shoppingListPeriod = firstNonEmpty(
+    latest?.clientShare?.snapshot?.shoppingListPeriod,
+    i18n.t("auto.ClientNutritionSharedSection.shopping_list_period_default", "1 semaine")
+  );
   const adviceSheets = latest?.clientShare?.snapshot?.adviceSheets || [];
   const patientNote = latest?.clientShare?.snapshot?.patientNote?.text || "";
   const selectedMenuDay = menuDays[Math.min(selectedMenuDayIndex, Math.max(0, menuDays.length - 1))] || menuDays[0] || null;
@@ -1082,7 +1121,7 @@ export default function ClientNutritionSharedSection({
           title: i18n.t("auto.ClientNutritionSharedSection.courses", "Courses"),
           eyebrow: i18n.t("auto.ClientNutritionSharedSection.liste_de_courses", "Liste de courses"),
           value: i18n.t("auto.ClientNutritionSharedSection.aliment_count", "{{count}} aliment(s)", { count: shoppingList.reduce((sum, section) => sum + (section.items?.length || 0), 0) }),
-          helper: i18n.t("auto.ClientNutritionSharedSection.click_courses", "Clique pour voir les achats regroupés."),
+          helper: i18n.t("auto.ClientNutritionSharedSection.shopping_list_period_helper", "Prévue pour {{period}}. Clique pour voir les achats regroupés.", { period: shoppingListPeriod }),
           accent: "#14B8A6",
           bg: "rgba(20,184,166,0.10)",
         }
@@ -1118,6 +1157,7 @@ export default function ClientNutritionSharedSection({
     menuDays.length,
     recipes.length,
     shoppingList,
+    shoppingListPeriod,
     adviceSheets.length,
   ]);
 
@@ -1210,9 +1250,26 @@ export default function ClientNutritionSharedSection({
   if (loading) return <AppLoading label={i18n.t("auto.ClientNutritionSharedSection.chargement_du_suivi_nutrition", "Chargement du suivi nutrition...")} minH="180px" />;
   if (!latest) {
     return (
-      <Box {...panelProps} p={{ base: 4, md: 5 }}>
+      <Box data-tour="client-nutrition-empty" {...panelProps} p={{ base: 4, md: 5 }}>
         <Heading size="sm">{i18n.t("auto.ClientNutritionSharedSection.aucun_suivi_nutrition_partage", "Aucun suivi nutrition partagé")}</Heading>
         <Text color={theme.mutedText} mt={2}>{i18n.t("auto.ClientNutritionSharedSection.ton_coach_n_a_pas_encore_partage_de_menu_recette_o", "Ton coach n’a pas encore partagé de menu, recette ou liste de courses sur cette fiche client.")}</Text>
+      </Box>
+    );
+  }
+
+  if (variant === "journal") {
+    return (
+      <Box p={{ base: 4, md: 5 }} position="relative" {...panelProps}>
+        <ClientNutritionDailyJournal
+          clientId={clientId}
+          assessmentId={latest?.id || ""}
+          menuDays={journalDays}
+          fallbackTotals={rationTotals}
+          targetKcal={needs?.kcalTarget || rationTotals.kcal}
+          rationFoodOptions={manualRationFoodOptions}
+          initialDateKey={initialJournalDateKey}
+          focusCoachFeedback={focusCoachFeedback}
+        />
       </Box>
     );
   }
@@ -1222,7 +1279,7 @@ export default function ClientNutritionSharedSection({
     return (
       <Box mb={5} p={{ base: 4, md: 4 }} position="relative" {...panelProps}>
         <Stack spacing={2.5}>
-          <HStack justify="space-between" align="center" gap={3} flexWrap="nowrap">
+          <HStack justify="space-between" align={{ base: "stretch", md: "center" }} gap={3} flexDirection={{ base: "column", md: "row" }}>
             <HStack spacing={3} align="center" minW={0}>
               <Box
                 display="flex"
@@ -1237,28 +1294,55 @@ export default function ClientNutritionSharedSection({
               >
                 <Icon as={MdOutlineRestaurantMenu} boxSize="22px" />
               </Box>
-              <Heading size="md" lineHeight="1.15" noOfLines={1}>{i18n.t("auto.ClientNutritionSharedSection.suivi_nutrition", "Suivi nutrition")}</Heading>
+              <Box minW={0}>
+                <HStack spacing={2} flexWrap="wrap">
+                  <Heading size="md" lineHeight="1.15" noOfLines={1}>{i18n.t("auto.ClientNutritionSharedSection.suivi_nutrition", "Suivi nutrition")}</Heading>
+                  {isNew ? (
+                    <Badge colorScheme="green" borderRadius="full" px={2.5} py={1} flexShrink={0}>
+                      {i18n.t("nav.new", "Nouveau")}
+                    </Badge>
+                  ) : null}
+                  {unreadCoachFeedbackCount ? (
+                    <Badge
+                      as="button"
+                      type="button"
+                      colorScheme="blue"
+                      borderRadius="full"
+                      px={2.5}
+                      py={1}
+                      flexShrink={0}
+                      cursor="pointer"
+                      onClick={() => onOpenJournal?.({ focus: "coach-feedback", dateKey: unreadCoachFeedbackDateKey })}
+                    >
+                      {i18n.t("clientNutritionJournal.unreadCoachFeedback", { count: unreadCoachFeedbackCount })}
+                    </Badge>
+                  ) : null}
+                </HStack>
+                {isNew ? (
+                  <Text mt={1} fontSize="xs" color={theme.mutedText} fontWeight="700">
+                    {i18n.t("nav.new_nutrition_followup", "Nouveau suivi diététique")}
+                  </Text>
+                ) : null}
+              </Box>
             </HStack>
-            <Button
-              h="40px"
-              w={{ base: "108px", md: "auto" }}
-              minW={{ base: "108px", md: "112px" }}
-              px={4}
-              flexShrink={0}
-              borderRadius="full"
-              variant="outline"
-              borderColor={theme.borderColor}
-              color={theme.textColor}
-              fontFamily="inherit"
-              fontSize="sm"
-              fontWeight="800"
-              letterSpacing="-0.01em"
-              lineHeight="1"
-              boxShadow="none"
-              onClick={() => onOpenNutrition?.()}
-            >
-              {i18n.t("programs.open", "Ouvrir")}
-            </Button>
+            <HStack spacing={2}>
+              <Button size="sm" flex={{ base: 1, md: "initial" }} borderRadius="full" variant="outline" onClick={() => onOpenNutrition?.()}>
+                {i18n.t("clientNutritionJournal.viewPlan", "Voir mon plan")}
+              </Button>
+              <Button
+                size="sm"
+                flex={{ base: 1, md: "initial" }}
+                borderRadius="full"
+                colorScheme="blue"
+                onClick={() => onOpenJournal?.(unreadCoachFeedbackCount
+                  ? { focus: "coach-feedback", dateKey: unreadCoachFeedbackDateKey }
+                  : undefined)}
+              >
+                {unreadCoachFeedbackCount
+                  ? i18n.t("clientNutritionJournal.viewCoachFeedback", "Voir le retour")
+                  : i18n.t("clientNutritionJournal.todayJournal", "Journal du jour")}
+              </Button>
+            </HStack>
           </HStack>
           <Text fontSize="sm" color={theme.mutedText} lineHeight="1.45">
             {sharedDate
@@ -1268,72 +1352,18 @@ export default function ClientNutritionSharedSection({
           </Text>
         </Stack>
 
-        <SimpleGrid
-          data-tour="client-nutrition-summary"
-          display={{ base: "grid", md: "none" }}
-          columns={{ base: 1, sm: 2 }}
-          spacing={2.5}
-          mt={4}
-        >
-          <Box {...tileProps} p={3} minW={0}>
-            <Text fontSize="xs" fontWeight="900" color={theme.subtleText}>{i18n.t("auto.ClientNutritionSharedSection.objectif", "OBJECTIF")}</Text>
-            <Text mt={1} fontWeight="900" fontSize="sm" noOfLines={2}>{translatedObjective || i18n.t("auto.ClientNutritionSharedSection.suivi_nutrition", "Suivi nutrition")}</Text>
-          </Box>
-          <Box {...tileProps} p={3} minW={0}>
-            {relevantMealKey ? (
-              <>
-                <Text fontSize="xs" fontWeight="900" color={theme.subtleText}>{i18n.t("auto.ClientNutritionSharedSection.repas_du_moment", "REPAS DU MOMENT")}</Text>
-                <Text mt={1} fontWeight="900" fontSize="sm">{translateMealLabel(relevantMealKey)}</Text>
-                <Wrap spacing={1.5} mt={2}>
-                  {relevantMealRows.map((row, index) => (
-                    <Tag key={`${relevantMealKey}-${row.label}-${index}`} size="sm" borderRadius="full" variant="subtle" colorScheme="blue">
-                      <TagLabel>{translateFoodLabel(row.label)} · {r0(row.qty)} {row.unit}</TagLabel>
-                    </Tag>
-                  ))}
-                </Wrap>
-              </>
-            ) : (
-              <>
-                <Text fontSize="xs" fontWeight="900" color={theme.subtleText}>{i18n.t("auto.ClientNutritionSharedSection.repere_jour", "REPÈRE JOUR")}</Text>
-                <Text mt={1} fontWeight="900" fontSize="sm">{needs?.kcalTarget ? `${r0(needs.kcalTarget)} kcal` : i18n.t("auto.ClientNutritionSharedSection.a_ajuster", "À ajuster")}</Text>
-                <Text mt={1} fontSize="xs" lineHeight="1.45" color={theme.mutedText}>
-                  P {needs?.protG?.min ? `${r0(needs.protG.min)}–${r0(needs.protG.max)} g` : "—"} • L {needs?.lipG?.min ? `${r0(needs.lipG.min)}–${r0(needs.lipG.max)} g` : "—"} • G {needs?.glucG?.min ? `${r0(needs.glucG.min)}–${r0(needs.glucG.max)} g` : "—"}
-                </Text>
-              </>
-            )}
-          </Box>
-        </SimpleGrid>
-
-        <SimpleGrid display={{ base: "none", md: "grid" }} columns={2} spacing={3} mt={3}>
-          <Box {...tileProps} p={3.5}>
-            <Text fontSize="xs" fontWeight="900" color={theme.subtleText}>{i18n.t("auto.ClientNutritionSharedSection.objectif", "OBJECTIF")}</Text>
-            <Text mt={1} fontWeight="900" noOfLines={1}>{translatedObjective || i18n.t("auto.ClientNutritionSharedSection.suivi_nutrition", "Suivi nutrition")}</Text>
-            <Text fontSize="sm" color={theme.mutedText} noOfLines={1}>{translatedDiet.join(", ") || i18n.t("auto.ClientNutritionSharedSection.aucun_regime_specifique", "Aucun régime spécifique")}</Text>
-          </Box>
-          <Box {...tileProps} p={3.5}>
-            {relevantMealKey ? (
-              <>
-                <Text fontSize="xs" fontWeight="900" color={theme.subtleText}>{i18n.t("auto.ClientNutritionSharedSection.repas_du_moment", "REPAS DU MOMENT")}</Text>
-                <Text mt={1} fontWeight="900">{translateMealLabel(relevantMealKey)}</Text>
-                <Wrap spacing={1.5} mt={2}>
-                  {relevantMealRows.map((row, index) => (
-                    <Tag key={`${relevantMealKey}-${row.label}-${index}`} size="sm" borderRadius="full" variant="subtle" colorScheme="blue">
-                      <TagLabel>{translateFoodLabel(row.label)} · {r0(row.qty)} {row.unit}</TagLabel>
-                    </Tag>
-                  ))}
-                </Wrap>
-              </>
-            ) : (
-              <>
-                <Text fontSize="xs" fontWeight="900" color={theme.subtleText}>{i18n.t("auto.ClientNutritionSharedSection.repere_jour", "REPÈRE JOUR")}</Text>
-                <Text mt={1} fontWeight="900">{needs?.kcalTarget ? `${r0(needs.kcalTarget)} kcal` : i18n.t("auto.ClientNutritionSharedSection.a_ajuster", "À ajuster")}</Text>
-                <Text fontSize="sm" color={theme.mutedText}>
-                  P {needs?.protG?.min ? `${r0(needs.protG.min)}–${r0(needs.protG.max)} g` : "—"} • L {needs?.lipG?.min ? `${r0(needs.lipG.min)}–${r0(needs.lipG.max)} g` : "—"} • G {needs?.glucG?.min ? `${r0(needs.glucG.min)}–${r0(needs.glucG.max)} g` : "—"}
-                </Text>
-              </>
-            )}
-          </Box>
-        </SimpleGrid>
+        <ClientNutritionDailyJournal
+          clientId={clientId}
+          assessmentId={latest?.id || ""}
+          menuDays={journalDays}
+          fallbackTotals={rationTotals}
+          targetKcal={needs?.kcalTarget || rationTotals.kcal}
+          rationFoodOptions={manualRationFoodOptions}
+          variant="compact"
+          onOpenFull={() => onOpenJournal?.()}
+          quickMealOpenRequest={quickMealOpenRequest}
+          onMealKeysChange={onMealKeysChange}
+        />
       </Box>
     );
   }
@@ -1378,8 +1408,8 @@ export default function ClientNutritionSharedSection({
         </Box>
       ) : null}
 
-      <HStack justify="space-between" align="start" gap={3} flexWrap="nowrap" mb={{ base: 3, md: 4 }}>
-        <Box minW={0} pr={{ base: "54px", md: "64px" }}>
+      <HStack justify="space-between" align="start" gap={3} flexDirection={{ base: "column", md: "row" }} mb={{ base: 3, md: 4 }}>
+        <Box minW={0} pr={{ base: 0, md: "220px" }}>
           <Text fontSize="xs" fontWeight="900" letterSpacing="0.12em" color={theme.subtleText}>{i18n.t("auto.ClientNutritionSharedSection.suivi_nutrition_2", "SUIVI NUTRITION")}</Text>
           <Heading size="md" mt={1}>{i18n.t("auto.ClientNutritionSharedSection.ton_plan_nutrition", "Ton plan nutrition")}</Heading>
           <Text fontSize="sm" color={theme.mutedText} mt={1}>
@@ -1388,7 +1418,17 @@ export default function ClientNutritionSharedSection({
               : i18n.t("auto.ClientNutritionSharedSection.last_update", "Dernière mise à jour partagée par ton professionnel.")}
           </Text>
         </Box>
-        <HStack spacing={2} align="center" position="absolute" top={{ base: 4, md: 5 }} right={{ base: 4, md: 5 }}>
+        <HStack spacing={2} align="center" w={{ base: "full", md: "auto" }} position={{ base: "static", md: "absolute" }} top={{ md: 5 }} right={{ md: 5 }}>
+          <Button
+            size="sm"
+            leftIcon={<Icon as={MdOutlineRestaurantMenu} />}
+            borderRadius="full"
+            colorScheme="blue"
+            flex={{ base: 1, md: "initial" }}
+            onClick={() => onOpenJournal?.()}
+          >
+            Mon journal
+          </Button>
           <Tooltip label={i18n.t("auto.ClientNutritionSharedSection.telecharger_le_plan_nutrition_en_pdf", "Télécharger le plan nutrition en PDF")}>
             <IconButton
               aria-label={i18n.t("auto.ClientNutritionSharedSection.telecharger_le_plan_nutrition", "Télécharger le plan nutrition")}
@@ -1460,7 +1500,7 @@ export default function ClientNutritionSharedSection({
       </Box>
 
       {activePanel === "summary" && sections.summary ? (
-        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={3}>
+        <SimpleGrid data-tour="client-nutrition-summary" columns={{ base: 1, md: 3 }} spacing={3}>
           <Box {...tileProps} p={4}>
             <Text fontSize="xs" fontWeight="900" color={theme.subtleText}>{i18n.t("auto.ClientNutritionSharedSection.objectif", "OBJECTIF")}</Text>
             <Text mt={1} fontWeight="900" fontSize="lg">{translatedObjective || i18n.t("auto.ClientNutritionSharedSection.suivi_nutrition", "Suivi nutrition")}</Text>
@@ -1698,6 +1738,11 @@ export default function ClientNutritionSharedSection({
 
       {activePanel === "shoppingList" && sections.shoppingList ? (
         <Stack spacing={3}>
+          <HStack spacing={2} flexWrap="wrap">
+            <Badge colorScheme="green" borderRadius="full" px={3} py={1}>
+              {i18n.t("auto.ClientNutritionSharedSection.shopping_list_period_badge", "Courses pour {{period}}", { period: shoppingListPeriod })}
+            </Badge>
+          </HStack>
           {shoppingList.some((section) => section.items?.length) ? (
             shoppingList.map((section) =>
               section.items?.length ? (

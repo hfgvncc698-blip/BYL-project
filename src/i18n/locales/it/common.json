@@ -1,5 +1,34 @@
 {
   "brand": "BoostYourLife.allenatore",
+  "messaging": {
+    "title": "Messaggi", "subtitle": "Parla con il tuo professionista o con le persone che segui in un unico spazio.", "open": "Apri messaggi", "conversation": "Conversazione", "privateConversation": "Conversazione privata", "loadError": "Impossibile caricare i messaggi.", "unlinkedAccount": "L’account di questa persona non è ancora collegato.", "sendError": "Impossibile inviare il messaggio.", "emptyTitle": "Inizia la conversazione", "emptyBody": "Scrivi il primo messaggio per iniziare.", "sending": "Invio…", "placeholder": "Scrivi un messaggio…", "send": "Invia", "myProfessional": "Il mio professionista", "professional": "Professionista", "noContactsTitle": "Nessuna conversazione disponibile", "noContactsBody": "Le persone collegate al tuo spazio appariranno qui.", "new": "Nuovo", "newMessage": "Nuovo messaggio", "sent": "Inviato", "read": "Letto", "startConversation": "Inizia una conversazione", "clientOrPatient": "Cliente o paziente", "openAll": "Apri tutti i messaggi", "search": "Cerca un cliente o paziente…", "selectTitle": "Seleziona una conversazione", "selectBody": "Scegli una persona per iniziare o continuare la conversazione."
+  },
+  "messagingRole": {
+    "clientSubtitle": "Parla facilmente con i professionisti che ti seguono.",
+    "professionalSubtitle": "Parla facilmente con i tuoi clienti e pazienti."
+  },
+  "coachNutritionJournal": {
+    "title": "Diario alimentare", "compactSubtitle": "Riepilogo dell’ultima giornata registrata.", "openJournal": "Apri il diario", "followUpPercent": "{{value}}% monitorato", "planConsumedPercent": "{{value}}% del piano consumato", "loggedDaysCount": "{{count}} giorni registrati", "loggedDaysCount_one": "{{count}} giorno registrato", "loggedDaysCount_other": "{{count}} giorni registrati", "loading": "Caricamento…", "loggedDay": "Giornata registrata", "calories": "Calorie",
+    "consumedRemaining": "{{consumed}} kcal consumate · {{remaining}} kcal rimanenti", "consumedOnly": "{{consumed}} kcal consumate", "macroShort": { "protein": "P", "fat": "G", "carbs": "C" }, "lastReflection": "Ultime sensazioni:", "empty": "Nessuna giornata è stata ancora registrata.",
+    "fullTitle": "Diario alimentare effettivo", "fullSubtitle": "Consulta le giornate registrate nel periodo scelto.", "historyPeriod": "Periodo della cronologia", "lastDays": "Ultimi {{count}} giorni", "consumed": "CONSUMATO", "proteins": "PROTEINE", "fats": "GRASSI", "carbs": "CARBOIDRATI", "energyReference": "Obiettivo energetico", "mealDetails": "DETTAGLIO DEI PASTI",
+    "eaten": "Mangiato", "notEaten": "Non mangiato", "clientAddition": "Aggiunto dal cliente", "declaredQuantity": "quantità dichiarata", "planned": "previsto", "plannedQuantity": "previsto: {{quantity}} {{unit}}", "unavailable": "Il dettaglio degli alimenti non è disponibile per questa giornata.",
+    "clientFeedback": "SENSAZIONI DEL CLIENTE", "hunger": "Fame", "energy": "Energia", "digestion": "Digestione", "notProvided": "Non indicato", "other": "Altro", "pageTitle": "Diario alimentare del cliente", "pageSubtitle": "Consulta le giornate registrate, i pasti consumati, le quantità e le sensazioni.",
+    "coachFeedback": "FEEDBACK DEL PROFESSIONISTA", "coachFeedbackHelp": "Questo messaggio apparirà in questa giornata del diario del paziente.", "coachFeedbackPlaceholder": "Scrivi un feedback breve, concreto e motivante…", "sendFeedback": "Invia al paziente", "updateFeedback": "Aggiorna", "feedbackSaved": "Feedback inviato al paziente", "feedbackSaveError": "Impossibile salvare il feedback", "sent": "Inviato", "notRead": "Non letto", "readByClient": "Letto dal paziente",
+    "reflection": { "hungerLow": "Poca fame", "hungerComfortable": "Ben sazio/a", "hungerHigh": "Ancora fame", "energyLow": "Bassa", "energyOk": "Buona", "energyHigh": "Molto buona", "digestionGood": "Buona", "digestionHeavy": "Pesante", "digestionDiscomfort": "Fastidio" }
+  },
+  "clientNutritionJournal": {
+    "openNutrition": "Apri nutrizione",
+    "saveError": "Impossibile salvare il diario", "tryAgain": "Riprova tra qualche istante.", "genericFood": "Alimento", "today": "Oggi", "checkedCount": "{{eaten}}/{{total}} alimenti selezionati", "saving": "Salvataggio…", "upToDate": "Aggiornato", "toComplete": "Da completare",
+    "fullJournal": "Diario completo", "viewMealNamed": "Vedi {{meal}}", "viewMeal": "Vedi il pasto", "allEaten": "Ho mangiato tutto", "mealToday": "Pasto di oggi", "addFood": "Aggiungi un alimento", "mealInstructions": "Seleziona gli alimenti e modifica le quantità se necessario.", "addition": "Aggiunto", "rationQuickChoices": "Scelte rapide dal tuo piano", "rationQuickChoicesHelp": "Calorie e macronutrienti provengono dal piano preparato dal tuo professionista.", "orSearchSpecificFood": "Oppure cerca un alimento specifico", "fromManualRation": "Valori del piano manuale",
+    "consumedQuantityAria": "Quantità consumata di {{food}}", "willAddToMeal": "L’alimento verrà aggiunto a {{meal}}.", "thisMeal": "questo pasto", "searchFood": "Cerca un alimento", "searchPlaceholder": "Es. mela cruda, pasta cotta…", "clearSearch": "Cancella la ricerca", "selectedFood": "Alimento selezionato", "quantityGrams": "Quantità (g)",
+    "addSomethingElse": "Aggiungi altro", "back": "Indietro", "addToMeal": "Aggiungi al pasto", "todayJournal": "Diario di oggi", "journalInstructions": "Seleziona ciò che hai mangiato e modifica solo se necessario.", "previousDay": "Giorno precedente", "nextDay": "Giorno successivo", "dailyTarget": "Obiettivo del giorno", "journalLoading": "Caricamento del diario…",
+    "checked": "{{eaten}}/{{total}} selezionati", "checkAll": "Seleziona tutto", "noDetailedMeal": "Il piano di oggi non contiene un pasto dettagliato.", "noDetailedMealHelp": "Puoi comunque aggiungere qui sotto ciò che hai mangiato.", "ateSomethingElse": "Hai mangiato qualcos’altro?", "addSimple": "Aggiungi semplicemente l’alimento e la quantità consumata.",
+    "modalSubtitle": "Cerca un alimento: calorie e macronutrienti saranno calcolati automaticamente.", "foodConsumed": "Alimento consumato", "ciqualLoading": "Caricamento della banca dati alimentare…", "ciqualReference": "Riferimento CIQUAL {{code}}", "change": "Cambia", "meal": "Pasto", "forThisQuantity": "Per questa quantità:", "cancel": "Annulla", "addToJournal": "Aggiungi al diario",
+    "myFeedback": "Come mi sento", "notePlaceholder": "Una nota per il mio professionista…", "saveFeedback": "Salva le mie sensazioni", "pageLoading": "Caricamento del diario alimentare…", "pageTitle": "Diario alimentare", "pageSubtitle": "Annota semplicemente ciò che hai mangiato davvero oggi.", "noLinkedTitle": "Nessuna scheda cliente collegata",
+    "editWhatIAte": "Modifica ciò che ho mangiato", "followedMyPlan": "Ho seguito il mio piano", "weeklySummary": "La mia settimana", "weeklySummarySubtitle": "Un riepilogo semplice del tuo monitoraggio nutrizionale.", "loggedDays": "Giorni registrati", "completeDays": "Giorni completi", "averageFollowUp": "Monitoraggio medio", "feedbackDays": "Giorni con sensazioni", "coachFeedback": "Feedback del mio professionista", "newFeedback": "Nuovo", "dayStatus": { "complete": "Giornata completa", "partial": "Registrata in parte", "empty": "Non registrata" },
+    "unreadCoachFeedback": "{{count}} feedback non letto", "unreadCoachFeedback_one": "{{count}} feedback non letto", "unreadCoachFeedback_other": "{{count}} feedback non letti", "viewCoachFeedback": "Vedi feedback",
+    "meals": { "breakfast": "Colazione", "lunch": "Pranzo", "snack": "Spuntino", "dinner": "Cena", "other": "Altro" }
+  },
   "nav": {
     "home": "Casa",
     "dashboard": "Cruscotto",
@@ -1244,6 +1273,13 @@
       "status_disabled": "Disattivate",
       "saving": "Salvataggio…",
       "automatic_only": "E-mail automatiche",
+      "all_automatic": "Tutte le e-mail automatiche",
+      "messaging_label": "E-mail dei messaggi",
+      "messaging_hint": "Quando arriva un nuovo messaggio",
+      "messaging_toggle": "Attiva o disattiva le e-mail dei messaggi",
+      "messaging_saved": "Preferenza dei messaggi salvata",
+      "messaging_enabled": "Riceverai un’e-mail quando arriva un nuovo messaggio.",
+      "messaging_disabled": "I nuovi messaggi non genereranno più un’e-mail.",
       "toggle_label": "Attiva o disattiva le notifiche automatiche via e-mail",
       "enabled_title": "Notifiche attivate",
       "disabled_title": "Notifiche disattivate",
@@ -2274,10 +2310,8 @@
     "legacyHistoryDetailsUnavailable": "Sessione completata. La versione precedente del player non registrava ancora carichi e ripetizioni.",
     "currentSessionHistory": "Serie in corso",
     "pendingSessionValidation": "Provvisoria fino alla convalida della sessione.",
-    "inProgress": "In corso",
     "completedSetsAppearHere": "Le serie completate appariranno qui.",
     "pendingValidation": "In attesa",
-    "setN": "Serie {{n}}",
     "setRecorded": "Registrata",
     "rmTab": "RM",
     "rmEstimates": "Stime RM",
@@ -2602,7 +2636,10 @@
       "assessments": "BILANCIO",
       "assessmentsHint": "storia nutrizionale disponibile",
       "sharedFollowup": "CONDIVISO / DA SEGUIRE",
-      "sharedFollowupHint": "condivisi dal lato paziente/file correnti"
+      "sharedFollowupHint": "condivisi dal lato paziente/file correnti",
+      "mobilePatients": "Pazienti",
+      "mobileAssessments": "Valutazioni",
+      "mobileFollowup": "Condivisi / seguito"
     },
     "empty": "Nessun record nutrizionale rilevato al momento.",
     "searchPlaceholder": "Cerca per paziente, obiettivo o data…",
@@ -3608,6 +3645,9 @@
       "suivi_client": "FOLLOW-UP DEL CLIENTE",
       "bilans_enquete_alimentaire_ration_et_menu_journali": "Valutazioni, indagine alimentare, razione e menù giornaliero in un unico posto.",
       "creer_un_bilan_nutrition": "Crea un rapporto nutrizionale",
+      "nutrition_access_required": "Questa funzione richiede l’accesso a Nutrizione.",
+      "creation_impossible": "Impossibile creare",
+      "impossible_de_creer_le_bilan": "Non è stato possibile creare la valutazione nutrizionale.",
       "admin_uniquement_pour_le_moment_ouverture_aux_pros": "(Solo amministratore per il momento: aperto ai professionisti dopo la convalida.)",
       "chargement": "Caricamento...",
       "aucun_bilan_nutrition_pour_ce_client": "Nessuna valutazione nutrizionale per questo cliente.",
@@ -3698,6 +3738,10 @@
       "click_repas": "Tocca per vedere i pasti.",
       "click_recettes": "Tocca per vedere le ricette proposte.",
       "click_courses": "Tocca per vedere la spesa raggruppata.",
+      "shopping_list_period_default": "1 settimana",
+      "shopping_list_period_helper": "Prevista per {{period}}. Quantità sommate e alimenti ordinati per reparto.",
+      "shopping_list_period_badge": "Spesa per {{period}}",
+      "energy_consumed_remaining": "{{consumed}} kcal consumate · {{remaining}} kcal rimanenti",
       "click_conseils": "Tocca per vedere i consigli personalizzati.",
       "preparation": "Preparazione",
       "liste_de_courses": "Lista della spesa",
@@ -3841,6 +3885,15 @@
       "encouragement_nutrition_kcal": "Ogni pasto conta — il riferimento di oggi: {{kcal}} kcal.",
       "encouragement_nutrition": "Ogni piccola scelta sostiene i tuoi progressi.",
       "encouragement_mixed": "Nutri la tua energia, inizia l’allenamento — oggi fai un passo avanti per te.",
+      "repas_petit_dejeuner": "Colazione",
+      "repas_dejeuner": "Pranzo",
+      "repas_collation": "Spuntino",
+      "repas_diner": "Cena",
+      "au_fil_de_ta_journee": "Nel corso della giornata",
+      "seance_a_heure": "Allenamento alle {{time}}",
+      "rythme_habituel_heure": "Il tuo ritmo · verso le {{time}}",
+      "repas_maintenant": "Ora · {{meal}}",
+      "prochain_repas_heure": "{{meal}} · {{time}}",
       "seance_prevue_aujourd_hui": "{{session}} alle {{time}} — il tuo appuntamento di oggi.",
       "objectif_du_jour_reprendre": "Riprendi {{session}} — conosci già la strada.",
       "seance_du_jour_terminee": "Allenamento completato — ora recupera.",
@@ -3849,9 +3902,13 @@
       "programmes": "Programmi",
       "progression": "Progressione",
       "progression_globale": "Progressione globale",
+      "progression_des_programmes": "Progressione dei programmi",
       "recuperation_de_tes_programmes": "Recupero dei tuoi programmi...",
       "reprendre": "Riprendi",
       "reprendre_la_seance": "Riprendi la sessione",
+      "reprendre_la_seance_progression": "Riprendi la sessione · {{percent}}%",
+      "reprendre_progression": "Riprendi · {{percent}}%",
+      "lancer_la_seance_suivante": "Inizia la sessione successiva",
       "restant": "Rimanente",
       "revoir_tes_cycles": "Rivedi i tuoi cicli",
       "seances_a_faire": "sessioni da fare",
@@ -4210,6 +4267,10 @@
       "liste_de_courses": "Lista della spesa",
       "shopping_list_week": "Lista della spesa · settimana",
       "shopping_list_week_help": "Quantità raggruppate per l’intero menu settimanale.",
+      "shopping_list_period_label": "Periodo coperto",
+      "shopping_list_period_placeholder": "Es. 7 giorni o dal 2 all’8 settembre",
+      "shopping_list_period_help": "Questo periodo sarà visibile al cliente e nell’elenco condiviso.",
+      "shopping_list_period_days": "{{count}} giorni",
       "aucune_liste_de_courses_exploitable_pour_le_moment": "Nessuna lista della spesa utilizzabile al momento.",
       "etape_suivante": "Prossimo passo",
       "validation_du_suivi_client": "Convalida del percorso cliente",
@@ -6076,6 +6137,362 @@
       "clubCalendar": "Calendario",
       "clubSettings": "Impostazioni club",
       "createPro": "Crea un pro"
+    },
+    "actions": {
+      "finish": "Finisci",
+      "next": "Avanti"
+    },
+    "tours": {
+      "coachDashboard": {
+        "label": "Cruscotto dell'allenatore",
+        "steps": {
+          "0": {
+            "title": "La tua base di controllo",
+            "text": "Questa pagina raccoglie l'attività del coach: clienti, programmi, appuntamenti, monitoraggio settimanale, alimentazione e priorità. Questo è il tuo punto di partenza quotidiano."
+          },
+          "1": {
+            "title": "Accesso rapido",
+            "text": "Le carte Clienti, Nutrizione e Programmi riportano il volume attuale e un pulsante + per creare immediatamente l'articolo corretto. Il titolo di ciascuna scheda apre la sezione completa."
+          },
+          "2": {
+            "title": "Cosa sta succedendo oggi",
+            "text": "Questa carta separa le sessioni già convalidate da quelle ancora programmate oggi. Tocca una sessione per aprirne i dettagli e scegliere l'azione appropriata."
+          },
+          "3": {
+            "title": "La prossima scadenza",
+            "text": "Questo riepilogo visualizza gli appuntamenti o le sessioni successive. Apre direttamente il primo evento da elaborare e ritorna al calendario quando non è previsto alcuno slot."
+          },
+          "4": {
+            "title": "Allenatore del copilota",
+            "text": "Il Copilota riunisce le decisioni proposte basate sul recente monitoraggio. Hai sempre il controllo: consulta il contesto, adatta la proposta, contrassegnala come elaborata o rinviala."
+          },
+          "5": {
+            "title": "Radar prioritario",
+            "text": "Il Radar evidenzia dolore, cali di regolarità e altri segnali utili. Gli avvisi possono essere aperti, temporaneamente nascosti o ripristinati."
+          },
+          "6": {
+            "title": "Calendario degli allenatori",
+            "text": "Il calendario centralizza sessioni e appuntamenti sportivi. Puoi aggiungere una sessione, spostare un evento e aprirne i dettagli."
+          },
+          "7": {
+            "title": "Sincronizza il tuo calendario",
+            "text": "Il pulsante Connetti genera un collegamento di iscrizione al calendario da incollare in Apple Calendar, Google Calendar o Outlook per trovare le tue sessioni al di fuori di BYL."
+          },
+          "8": {
+            "title": "Accesso alla nutrizione",
+            "text": "Se la tua offerta include la nutrizione, questa scheda apre le valutazioni, le razioni, i menu e i contenuti condivisi con i tuoi pazienti."
+          }
+        }
+      },
+      "coachClients": {
+        "label": "Clienti",
+        "steps": {
+          "0": {
+            "title": "I file dei tuoi clienti",
+            "text": "Qui troverai i file dei clienti, le loro informazioni utili e i programmi associati."
+          },
+          "1": {
+            "title": "Aggiungi una persona",
+            "text": "Il nuovo client apre la creazione della cartella. Fornisci almeno l'identità e le informazioni di contatto, quindi completa gli obiettivi e i dati utili dal modulo."
+          },
+          "2": {
+            "title": "Attivo, inattivo e tutto",
+            "text": "Questi filtri ti consentono di passare dai clienti attivi a quelli inattivi. Un cliente attivo ha avuto un'interazione recente nel periodo monitorato."
+          },
+          "3": {
+            "title": "Esempio di scheda cliente",
+            "text": "Questa riga demo non è registrata. Viene utilizzato solo per mostrare il nome, i programmi, l'ultima sessione, lo stato attivo e l'avanzamento."
+          },
+          "4": {
+            "title": "Modifica un record",
+            "text": "Modifica apre il profilo cliente per correggere informazioni, obiettivi, livello, misurazioni o dati di contatto."
+          },
+          "5": {
+            "title": "Assegnare un programma",
+            "text": "Assegna consente di assegnare un programma esistente al client. Apparirà quindi nel suo spazio e nel tuo tracciamento."
+          }
+        }
+      },
+      "coachPrograms": {
+        "label": "Programma di costruzione",
+        "steps": {
+          "0": {
+            "title": "Crea un programma",
+            "text": "Il builder viene utilizzato per creare un programma completo prima di assegnarlo a un client. Si lavora a sinistra con la sponda, poi a destra sulle sedute."
+          },
+          "1": {
+            "title": "Nome e scopo",
+            "text": "Inizia nominando il programma e specificando l'obiettivo. Questi campi semplificano la ricerca, l'assegnazione e la lettura sul lato client."
+          },
+          "2": {
+            "title": "Organizzare le sessioni",
+            "text": "Ogni scheda rappresenta una sessione. Puoi aggiungere, rinominare, eliminare o riordinare le sessioni in base al numero di visite settimanali."
+          },
+          "3": {
+            "title": "Strutturare la sessione",
+            "text": "Le sezioni separano riscaldamento, sessione principale, bonus e defaticamento. È più leggibile per il cliente e più facile da modificare."
+          },
+          "4": {
+            "title": "Aggiungi e modifica gli esercizi",
+            "text": "Ogni esercizio contiene i suoi parametri: serie, ripetizioni, carico, riposo, tempo e note. L'allenatore può modificarli senza toccare la forma originale."
+          },
+          "5": {
+            "title": "Leggi un esercizio",
+            "text": "Questa riga dimostrativa mostra come leggere un esercizio: il nome, i valori del lavoro, le istruzioni e le azioni di modifica."
+          },
+          "6": {
+            "title": "Salva",
+            "text": "Salvare il programma quando la struttura è pronta. Potrai quindi assegnarlo dalla pagina Clienti o modificarlo successivamente."
+          }
+        }
+      },
+      "coachProgramList": {
+        "label": "Pagina dei programmi",
+        "steps": {
+          "0": {
+            "title": "Tutti i tuoi programmi",
+            "text": "Questa pagina centralizza tutti i programmi registrati e indica quanti sono già assegnati. Viene utilizzato per creare, trovare e riutilizzare i tuoi modelli."
+          },
+          "1": {
+            "title": "Creare un nuovo programma",
+            "text": "Il nuovo programma offre la creazione manuale nel builder o la creazione guidata quando la tua offerta lo consente. Gli sportelli mobili distinguono poi tra i modelli assegnati e quelli ancora da assegnare."
+          },
+          "2": {
+            "title": "Trova rapidamente un programma",
+            "text": "La ricerca istantanea viene filtrata per nome o scopo. È utile quando la tua libreria contiene molti modelli."
+          },
+          "3": {
+            "title": "Apri, assegna e riutilizza",
+            "text": "Ogni riga o scheda visualizza la durata, il numero di sessioni e i clienti assegnati. Visualizza apre il contenuto, Assegna sceglie un client, Duplica crea un nuovo database ed Elimina rimuove il modello."
+          }
+        }
+      },
+      "coachNutrition": {
+        "label": "Allenatore nutrizionale",
+        "steps": {
+          "0": {
+            "title": "Area nutrizione",
+            "text": "Questa pagina riunisce i resoconti nutrizionali e il loro stato: bozza, in corso, validati o condivisi lato cliente."
+          },
+          "1": {
+            "title": "Crea un bilancio",
+            "text": "Crea un nuovo report per iniziare a raccogliere informazioni, preparare un piano alimentare, un menu e elementi da condividere."
+          },
+          "2": {
+            "title": "Visione d'insieme della nutrizione",
+            "text": "Questi contatori indicano quanti clienti vengono seguiti, quante segnalazioni esistono e quante sono già condivise o ancora da elaborare."
+          },
+          "3": {
+            "title": "Elenco dei bilanci",
+            "text": "Ogni riga corrisponde ad un resoconto nutrizionale. Lo stato indica se è bozza, in corso, impegnato o condiviso lato client."
+          },
+          "4": {
+            "title": "Apri il livello corretto",
+            "text": "L'apertura del file consente di visualizzare l'intero file cliente. Aprendo il report si accede direttamente al questionario, al piano alimentare, al menù e alla condivisione."
+          }
+        }
+      },
+      "coachStats": {
+        "label": "Statistiche degli allenatori",
+        "steps": {
+          "0": {
+            "title": "Leggi le statistiche",
+            "text": "Questa pagina trasforma la tua attività di monitoraggio in indicatori leggibili. Le cifre sono adattate ai moduli sportivi e nutrizionali inclusi nella vostra offerta."
+          },
+          "1": {
+            "title": "Principali indicatori",
+            "text": "Queste schede riepilogano clienti, programmi, attività recenti e rapporti nutrizionali. Sono cliccabili e aprono direttamente l'elenco corrispondente."
+          },
+          "2": {
+            "title": "Attività e regolarità",
+            "text": "Elenchi e grafici consentono di identificare i clienti attivi, la fidelizzazione e il volume di sessioni effettuate nel corso dei mesi."
+          }
+        }
+      },
+      "coachProfile": {
+        "label": "Profilo dell'allenatore",
+        "steps": {
+          "0": {
+            "title": "Il tuo profilo da allenatore",
+            "text": "Questa pagina riunisce la tua identità professionale, i tuoi dati di contatto, il tuo logo e l'indirizzo utilizzato per connetterti."
+          },
+          "1": {
+            "title": "Controlla il profilo a colpo d'occhio",
+            "text": "Il banner indica subito se l'identità e il contatto sono completi e se l'indirizzo di connessione è sincronizzato."
+          },
+          "2": {
+            "title": "Aggiorna le tue informazioni",
+            "text": "Modifica i campi necessari quindi salva. Il logo e le informazioni professionali vengono riutilizzati in spazi e documenti visibili ai tuoi clienti."
+          }
+        }
+      },
+      "clubDashboard": {
+        "label": "Club del cruscotto",
+        "steps": {
+          "0": {
+            "title": "Lo spazio responsabile del tuo club",
+            "text": "Questa pagina consente di gestire una struttura completa: professionisti collegati, clienti seguiti, programmi creati, attività recente e limiti dell'offerta del club."
+          },
+          "1": {
+            "title": "Panoramica",
+            "text": "Lo striscione richiama il ruolo dello spazio del club. Da qui puoi passare alla visualizzazione pro, gestire l'offerta o andare direttamente alle sezioni utili della pagina."
+          },
+          "2": {
+            "title": "Indicatori di struttura",
+            "text": "Queste carte consolidano l'attività dell'intero club: numero di professionisti attivi, volume di clienti seguiti, programmi realizzati e ultima attività rilevata."
+          },
+          "3": {
+            "title": "Comprendere il viaggio",
+            "text": "In quest'area viene spiegato come funziona: il club crea un professionista, il professionista attiva il proprio account, lavora nel proprio spazio, poi il club supervisiona l'attività complessiva."
+          },
+          "4": {
+            "title": "Crea un account professionale",
+            "text": "Il manager fornisce le informazioni del professionista. L'account viene creato lato autenticazione, legato all'iscrizione al club, poi viene generato un link di attivazione."
+          },
+          "5": {
+            "title": "Collegamento di attivazione",
+            "text": "Dopo la creazione, questo blocco visualizza il collegamento da inviare al professionista. Il professionista lo utilizza per definire la sua password e accedere al suo spazio personale."
+          },
+          "6": {
+            "title": "Squadra del club",
+            "text": "La tabella elenca i professionisti associati, i loro clienti, i loro programmi e il loro stato. Un clic seleziona un professionista per visualizzare la sua attività recente."
+          },
+          "7": {
+            "title": "Accesso alle informazioni",
+            "text": "Questa parte fornisce i dettagli del professionista selezionato, dei suoi clienti recenti, dei suoi programmi recenti, dei suoi resoconti nutrizionali e delle statistiche consolidate del club senza uscire dall'ambito del club."
+          }
+        }
+      },
+      "clientDashboard": {
+        "label": "Cruscotto cliente",
+        "steps": {
+          "0": {
+            "title": "Il tuo spazio personale",
+            "text": "Questa pagina indica immediatamente cosa fare dopo: sessione da riprendere, progressi generali, prossimi appuntamenti e accesso ai programmi o alla nutrizione."
+          },
+          "1": {
+            "title": "Programmi attivi",
+            "text": "In quest'area vengono visualizzati i programmi in corso, il loro avanzamento, l'ultima sessione e i pulsanti per aprire il programma o avviarlo direttamente."
+          },
+          "2": {
+            "title": "Nuovi programmi",
+            "text": "Il cliente può acquistare un programma premium individualmente, recuperare un'offerta disponibile o richiedere un programma su misura in base al proprio abbonamento."
+          },
+          "3": {
+            "title": "Pianificazione del cliente",
+            "text": "Le prossime date ti permettono di trovare le sessioni programmate e aggiungere uno slot al calendario personale."
+          },
+          "4": {
+            "title": "Calendario dettagliato",
+            "text": "Sul grande schermo, il calendario permette di passare da mese a settimana, giorno o agenda. È possibile aprire una sessione per visualizzarne lo stato e le informazioni."
+          }
+        }
+      },
+      "clientPrograms": {
+        "label": "I miei programmi",
+        "steps": {
+          "0": {
+            "title": "I tuoi programmi",
+            "text": "Questa pagina riunisce tutti i tuoi programmi attivi e completati con i loro progressi effettivi."
+          },
+          "1": {
+            "title": "Nessun programma al momento",
+            "text": "Quando ti viene assegnato un programma, apparirà qui con il suo avanzamento e il pulsante per avviare la sessione successiva."
+          },
+          "2": {
+            "title": "Leggi la tua situazione",
+            "text": "I contatori distinguono tra i programmi in corso, quelli da riavviare e quelli completati. La settimana visualizzata corrisponde alla settimana effettivamente iniziata."
+          },
+          "3": {
+            "title": "Continua nel posto giusto",
+            "text": "Visualizza apre i dettagli del programma. Avvia avvia la sessione successiva, Riprendi torna all'ultimo esercizio non completato e Ripeti avvia un ciclo completato."
+          }
+        }
+      },
+      "clientProfile": {
+        "label": "Profilo del cliente",
+        "steps": {
+          "0": {
+            "title": "Le tue informazioni",
+            "text": "Il profilo riunisce le informazioni utilizzate dal tuo coach per personalizzare il monitoraggio."
+          },
+          "1": {
+            "title": "Benchmark personali",
+            "text": "Il banner riassume la completezza del profilo, le principali misure e le tue preferenze di unità e lingua."
+          },
+          "2": {
+            "title": "Mantieni i dati aggiornati",
+            "text": "Aggiorna identità, contatto, obiettivo, livello e misurazioni, quindi salva. Queste modifiche alimentano le visualizzazioni di monitoraggio del coach."
+          }
+        }
+      },
+      "clientNutrition": {
+        "label": "Nutrizione del cliente",
+        "steps": {
+          "0": {
+            "title": "La tua alimentazione",
+            "text": "Questa pagina riunisce gli elementi condivisi dal coach: valutazione, obiettivo, piano alimentare, menù, ricette, lista della spesa e consigli."
+          },
+          "1": {
+            "title": "Tieni il diario quotidiano",
+            "text": "Controlla gli alimenti effettivamente consumati, modificane la quantità e aggiungi un alimento inatteso con la ricerca CIQUAL. Il diario funziona con un menù o direttamente con il piano alimentare condiviso, poi trasmette le tue sensazioni al coach."
+          },
+          "2": {
+            "title": "Riepilogo condiviso",
+            "text": "Le schede riassuntive riportano i principali parametri di riferimento: calorie, contesto, abitudini, piano alimentare e numero di giorni di menù proposto."
+          },
+          "3": {
+            "title": "In attesa della prima condivisione",
+            "text": "Se non è ancora disponibile alcun contenuto, quest’area te lo segnala. Il menu, il piano alimentare e il diario appariranno qui non appena il professionista avrà condiviso il percorso nutrizionale."
+          },
+          "4": {
+            "title": "Naviga nei contenuti",
+            "text": "Le schede permettono di spostarsi da una parte all'altra: piano alimentare, menù, ricette, spesa e consigli dettagliati."
+          }
+        }
+      },
+      "clientStats": {
+        "label": "Statistiche sui clienti",
+        "steps": {
+          "0": {
+            "title": "I tuoi progressi",
+            "text": "Questa pagina riunisce i progressi sportivi, la frequenza recente e l'evoluzione delle misurazioni corporee."
+          },
+          "1": {
+            "title": "Le cifre essenziali",
+            "text": "I tre indicatori mostrano il numero di programmi, la percentuale complessiva completata e le sessioni completate negli ultimi sette giorni."
+          },
+          "2": {
+            "title": "Confronta due occorrenze",
+            "text": "Scegli un programma e una sessione ripetuta per confrontare carichi, ripetizioni, difficoltà e altri valori effettivamente registrati."
+          },
+          "3": {
+            "title": "Tieni traccia delle misurazioni del corpo",
+            "text": "Aggiungi una misura, scegli le unità desiderate e consulta le curve non appena sono disponibili almeno due letture."
+          }
+        }
+      },
+      "settings": {
+        "label": "Impostazioni e tutorial",
+        "steps": {
+          "0": {
+            "title": "Le tue impostazioni",
+            "text": "Questa pagina centralizza la lingua, le preferenze dell'account, l'abbonamento, la sicurezza e l'accesso alla guida guidata."
+          },
+          "1": {
+            "title": "Stato dell'account",
+            "text": "Gli indicatori superiori riepilogano la lingua attiva, il tipo di account e l'accesso disponibile."
+          },
+          "2": {
+            "title": "Rilanciare l'aiuto specifico",
+            "text": "Da quest'area è possibile tornare direttamente a una parte specifica del tutorial senza ripetere l'intero corso."
+          },
+          "3": {
+            "title": "Sicurezza e accesso",
+            "text": "La sezione Sicurezza consente di inviare un collegamento per la reimpostazione della password. Le modifiche sensibili restano confermate via e-mail."
+          }
+        }
+      }
     }
   },
   "clubDashboard": {

@@ -9,10 +9,12 @@ import PageBackButton from "../components/ui/PageBackButton";
 import { AppSectionHeader, AppSurface } from "../components/ui/AppPrimitives";
 import ClientNutritionSharedSection from "../components/ClientNutritionSharedSection.jsx";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 
 export default function ClientNutritionPage() {
   const { t } = useTranslation("common");
   const { user } = useAuth();
+  const navigate = useNavigate();
   const theme = useNutritionTheme();
   const pageBg = useColorModeValue("#F5F8FF", "#070B14");
   const panelTopBorder = useColorModeValue("#2563EB", "#7CB7FF");
@@ -83,10 +85,11 @@ export default function ClientNutritionPage() {
           <ClientNutritionSharedSection
             clientId={clientId}
             variant="full"
+            onOpenJournal={() => navigate("/nutrition/journal")}
             clientName={[clientData?.firstName || clientData?.prenom, clientData?.lastName || clientData?.nom].filter(Boolean).join(" ")}
           />
         ) : (
-          <Box {...panelProps} p={5}>
+          <Box data-tour="client-nutrition-empty" {...panelProps} p={5}>
             <Heading size="sm">{t("clientNutrition.noLinkedTitle", "Aucun dossier client relié")}</Heading>
             <Text color={theme.mutedText} mt={2}>
               {t("clientNutrition.noLinkedBody", "Ton compte n’est pas encore relié à une fiche client nutrition.")}

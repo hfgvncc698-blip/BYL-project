@@ -58,6 +58,51 @@ service cloud.firestore {
       );
     }
 
+    function hasNutritionAccess() {
+      let user = currentUser();
+      return isAdmin() || (
+        hasCoachAccess() && (
+          user.subscriptionStatus == "trialing" ||
+          (
+            user.keys().hasAny(["modules"]) &&
+            user.modules is list &&
+            ("nutrition" in user.modules || "club" in user.modules)
+          ) ||
+          (
+            user.keys().hasAny(["proAccess"]) &&
+            user.proAccess is map &&
+            user.proAccess.keys().hasAny(["modules"]) &&
+            user.proAccess.modules is list &&
+            ("nutrition" in user.proAccess.modules || "club" in user.proAccess.modules)
+          ) ||
+          (
+            user.keys().hasAny(["packageKey"]) &&
+            user.packageKey in ["nutrition", "complete", "club"]
+          ) ||
+          (
+            user.keys().hasAny(["proAccess"]) &&
+            user.proAccess is map &&
+            user.proAccess.keys().hasAny(["packageKey"]) &&
+            user.proAccess.packageKey in ["nutrition", "complete", "club"]
+          ) ||
+          (
+            user.keys().hasAny(["nutritionAccess"]) &&
+            user.nutritionAccess == true
+          ) ||
+          (
+            user.keys().hasAny(["hasNutritionAccess"]) &&
+            user.hasNutritionAccess == true
+          ) ||
+          (
+            user.keys().hasAny(["features"]) &&
+            user.features is map &&
+            user.features.keys().hasAny(["nutrition"]) &&
+            user.features.nutrition == true
+          )
+        )
+      );
+    }
+
     function isClubOwner(clubId) {
       return signedIn() && (
         isAdmin() ||
@@ -117,6 +162,129 @@ service cloud.firestore {
 
     function canAccessClient(clientId, data) {
       return isAdmin() || clientIsOwnProfile(clientId, data) || coachOwnsRecord(data);
+    }
+
+    function canAccessConversation(clientId) {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/clients/$(clientId)) &&
+        canAccessClient(
+          clientId,
+          get(/databases/$(database)/documents/clients/$(clientId)).data
+        );
+    }
+
+    function canReadConversation(data) {
+      return data.clientId is string &&
+        data.participantUids is list &&
+        canAccessConversation(data.clientId) &&
+        (isAdmin() || request.auth.uid in data.participantUids);
+    }
+
+    function conversationClientUidMatches(clientId, clientUid) {
+      let client = get(/databases/$(database)/documents/clients/$(clientId)).data;
+      return clientUid is string && (
+        clientId == clientUid ||
+        (client.keys().hasAny(["authUid"]) && client.authUid == clientUid) ||
+        (client.keys().hasAny(["accountUid"]) && client.accountUid == clientUid) ||
+        (client.keys().hasAny(["linkedUserId"]) && client.linkedUserId == clientUid) ||
+        (client.keys().hasAny(["userId"]) && client.userId == clientUid) ||
+        (client.keys().hasAny(["uid"]) && client.uid == clientUid)
+      );
+    }
+
+    function conversationProfessionalMatches(clientId, professionalUid) {
+      let client = get(/databases/$(database)/documents/clients/$(clientId)).data;
+      return professionalUid is string && (
+        (client.keys().hasAny(["createdBy"]) && client.createdBy == professionalUid) ||
+        (client.keys().hasAny(["coachId"]) && client.coachId == professionalUid) ||
+        (client.keys().hasAny(["coachUid"]) && client.coachUid == professionalUid) ||
+        (client.keys().hasAny(["ownerUid"]) && client.ownerUid == professionalUid) ||
+        (client.keys().hasAny(["assignedBy"]) && client.assignedBy == professionalUid) ||
+        (client.keys().hasAny(["coachIds"]) && client.coachIds is list && professionalUid in client.coachIds) ||
+        (client.keys().hasAny(["professionalIds"]) && client.professionalIds is list && professionalUid in client.professionalIds) ||
+        (client.keys().hasAny(["nutritionCoachIds"]) && client.nutritionCoachIds is list && professionalUid in client.nutritionCoachIds)
+      );
+    }
+
+    function validConversationCreate(conversationId, data) {
+      return data.keys().hasOnly([
+          "clientId", "clientUid", "coachUid", "professionalUid", "participantUids",
+          "clientName", "professionalName", "lastMessage", "lastMessageAt",
+          "lastMessageAtIso", "lastSenderUid", "updatedAt", "readAtBy"
+        ]) &&
+        data.keys().hasAll([
+          "clientId", "clientUid", "professionalUid", "participantUids", "lastMessage",
+          "lastMessageAt", "lastMessageAtIso", "lastSenderUid", "updatedAt", "readAtBy"
+        ]) &&
+        data.clientId is string &&
+        data.clientUid is string &&
+        data.professionalUid is string &&
+        data.clientUid != data.professionalUid &&
+        conversationId == data.clientId + "__" + data.professionalUid &&
+        data.participantUids is list &&
+        data.participantUids.size() == 2 &&
+        data.clientUid in data.participantUids &&
+        data.professionalUid in data.participantUids &&
+        request.auth.uid in data.participantUids &&
+        conversationClientUidMatches(data.clientId, data.clientUid) &&
+        conversationProfessionalMatches(data.clientId, data.professionalUid) &&
+        (!data.keys().hasAny(["coachUid"]) || data.coachUid == data.professionalUid) &&
+        data.lastSenderUid == request.auth.uid &&
+        data.lastMessage is string &&
+        data.lastMessage.size() <= 180 &&
+        data.lastMessageAt == request.time &&
+        data.updatedAt == request.time &&
+        data.lastMessageAtIso is string &&
+        data.readAtBy is map &&
+        data.readAtBy.keys().hasOnly([request.auth.uid]) &&
+        data.readAtBy[request.auth.uid] == request.time;
+    }
+
+    function requesterOnlyChangedOwnReadReceipt(oldData, newData) {
+      return !newData.diff(oldData).affectedKeys().hasAny(["readAtBy"]) || (
+        newData.readAtBy is map &&
+        newData.readAtBy[request.auth.uid] == request.time &&
+        (
+          (
+            oldData.keys().hasAny(["readAtBy"]) &&
+            oldData.readAtBy is map &&
+            newData.readAtBy.diff(oldData.readAtBy).affectedKeys().hasOnly([request.auth.uid])
+          ) ||
+          (
+            !oldData.keys().hasAny(["readAtBy"]) &&
+            newData.readAtBy.keys().hasOnly([request.auth.uid])
+          )
+        )
+      );
+    }
+
+    function validConversationUpdate(oldData, newData) {
+      let changed = newData.diff(oldData).affectedKeys();
+      return canReadConversation(oldData) &&
+        newData.clientId == oldData.clientId &&
+        newData.clientUid == oldData.clientUid &&
+        newData.professionalUid == oldData.professionalUid &&
+        (!newData.keys().hasAny(["coachUid"]) || newData.coachUid == newData.professionalUid) &&
+        newData.participantUids == oldData.participantUids &&
+        newData.participantUids is list &&
+        newData.participantUids.size() == 2 &&
+        changed.hasOnly([
+          "coachUid", "clientName", "professionalName", "lastMessage", "lastMessageAt",
+          "lastMessageAtIso", "lastSenderUid", "updatedAt", "readAtBy"
+        ]) &&
+        requesterOnlyChangedOwnReadReceipt(oldData, newData) &&
+        (
+          !changed.hasAny(["lastMessage", "lastMessageAt", "lastMessageAtIso", "lastSenderUid"]) ||
+          (
+            newData.lastSenderUid == request.auth.uid &&
+            newData.lastMessage is string &&
+            newData.lastMessage.size() <= 180 &&
+            newData.lastMessageAt == request.time &&
+            newData.updatedAt == request.time &&
+            newData.lastMessageAtIso is string &&
+            changed.hasAll(["lastMessage", "lastMessageAt", "lastMessageAtIso", "lastSenderUid", "updatedAt"])
+          )
+        );
     }
 
     function clientSecurityFieldsUnchanged() {
@@ -435,6 +603,36 @@ service cloud.firestore {
       }
     }
 
+    match /conversations/{conversationId} {
+      allow read: if canReadConversation(resource.data);
+      allow create: if signedIn() &&
+        canAccessConversation(request.resource.data.clientId) &&
+        validConversationCreate(conversationId, request.resource.data);
+      allow update: if signedIn() && validConversationUpdate(resource.data, request.resource.data);
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        allow read: if exists(/databases/$(database)/documents/conversations/$(conversationId)) &&
+          canReadConversation(
+            get(/databases/$(database)/documents/conversations/$(conversationId)).data
+          );
+        allow create: if existsAfter(/databases/$(database)/documents/conversations/$(conversationId)) &&
+          canReadConversation(
+            getAfter(/databases/$(database)/documents/conversations/$(conversationId)).data
+          ) &&
+          request.resource.data.keys().hasOnly(["text", "senderUid", "createdAt", "createdAtIso", "type"]) &&
+          request.resource.data.keys().hasAll(["text", "senderUid", "createdAt", "createdAtIso", "type"]) &&
+          request.resource.data.senderUid == request.auth.uid &&
+          request.resource.data.type == "text" &&
+          request.resource.data.text is string &&
+          request.resource.data.text.size() > 0 &&
+          request.resource.data.text.size() <= 4000 &&
+          request.resource.data.createdAt == request.time &&
+          request.resource.data.createdAtIso is string;
+        allow update, delete: if false;
+      }
+    }
+
     match /clients/{clientId} {
       allow read: if canAccessClient(clientId, resource.data);
       allow create: if canCreateClient(clientId, request.resource.data);
@@ -462,12 +660,24 @@ service cloud.firestore {
       }
 
       match /nutrition_assessments/{document=**} {
-        allow read: if canAccessClient(
-          clientId,
-          get(/databases/$(database)/documents/clients/$(clientId)).data
+        allow read: if isAdmin() || (
+          hasNutritionAccess() &&
+          canAccessClient(
+            clientId,
+            get(/databases/$(database)/documents/clients/$(clientId)).data
+          )
+        ) || (
+          clientIsOwnProfile(
+            clientId,
+            get(/databases/$(database)/documents/clients/$(clientId)).data
+          ) &&
+          resource.data.keys().hasAny(["clientShare"]) &&
+          resource.data.clientShare is map &&
+          resource.data.clientShare.keys().hasAny(["enabled"]) &&
+          resource.data.clientShare.enabled == true
         );
         allow create, update, delete: if isAdmin() || (
-          hasCoachAccess() &&
+          hasNutritionAccess() &&
           canAccessClient(
             clientId,
             get(/databases/$(database)/documents/clients/$(clientId)).data
@@ -476,7 +686,72 @@ service cloud.firestore {
       }
 
       match /nutrition_feedback/{document=**} {
-        allow read, write: if isAdmin() || clientIsOwnProfile(
+        allow read: if isAdmin() || clientIsOwnProfile(
+          clientId,
+          get(/databases/$(database)/documents/clients/$(clientId)).data
+        ) || (
+          hasNutritionAccess() &&
+          canAccessClient(
+            clientId,
+            get(/databases/$(database)/documents/clients/$(clientId)).data
+          )
+        );
+        allow create: if isAdmin() || (
+          clientIsOwnProfile(
+            clientId,
+            get(/databases/$(database)/documents/clients/$(clientId)).data
+          ) &&
+          request.resource.data.type == "client"
+        ) || (
+          hasNutritionAccess() &&
+          canAccessClient(
+            clientId,
+            get(/databases/$(database)/documents/clients/$(clientId)).data
+          ) &&
+          request.resource.data.type == "coach"
+        );
+        allow update, delete: if isAdmin() || (
+          clientIsOwnProfile(
+            clientId,
+            get(/databases/$(database)/documents/clients/$(clientId)).data
+          ) &&
+          resource.data.type == "client" &&
+          request.resource.data.type == "client"
+        ) || (
+          clientIsOwnProfile(
+            clientId,
+            get(/databases/$(database)/documents/clients/$(clientId)).data
+          ) &&
+          resource.data.type == "coach" &&
+          request.resource.data.type == "coach" &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(["clientReadAt", "clientReadAtIso"])
+        ) || (
+          hasNutritionAccess() &&
+          canAccessClient(
+            clientId,
+            get(/databases/$(database)/documents/clients/$(clientId)).data
+          )
+        );
+      }
+
+      match /nutrition_daily_logs/{dateKey} {
+        allow read: if isAdmin() || clientIsOwnProfile(
+          clientId,
+          get(/databases/$(database)/documents/clients/$(clientId)).data
+        ) || (
+          hasNutritionAccess() &&
+          canAccessClient(
+            clientId,
+            get(/databases/$(database)/documents/clients/$(clientId)).data
+          )
+        );
+        allow create, update: if (
+          isAdmin() || clientIsOwnProfile(
+            clientId,
+            get(/databases/$(database)/documents/clients/$(clientId)).data
+          )
+        ) && request.resource.data.clientId == clientId && request.resource.data.dateKey == dateKey;
+        allow delete: if isAdmin() || clientIsOwnProfile(
           clientId,
           get(/databases/$(database)/documents/clients/$(clientId)).data
         );

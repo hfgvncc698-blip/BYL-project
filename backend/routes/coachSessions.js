@@ -118,6 +118,13 @@ router.post("/", requireFirebaseAuth, async (req, res) => {
     }
 
     const status = normalizeStatus(req.body?.status);
+    const recurrenceGroupId = cleanText(req.body?.recurrenceGroupId, 180);
+    const requestedRecurrenceFrequency = cleanText(req.body?.recurrenceFrequency, 20).toLowerCase();
+    const recurrenceFrequency = ["daily", "weekly", "monthly", "yearly"].includes(requestedRecurrenceFrequency)
+      ? requestedRecurrenceFrequency
+      : "none";
+    const recurrenceIndex = Math.max(0, Math.min(99, Number(req.body?.recurrenceIndex) || 0));
+    const recurrenceCount = Math.max(1, Math.min(100, Number(req.body?.recurrenceCount) || 1));
     let programmeId = "";
     let sessionIndex = null;
     let title = "";
@@ -202,6 +209,14 @@ router.post("/", requireFirebaseAuth, async (req, res) => {
         createdAt: now,
         updatedAt: now,
       };
+      if (recurrenceGroupId && recurrenceCount > 1) {
+        Object.assign(rootPayload, {
+          recurrenceGroupId,
+          recurrenceFrequency,
+          recurrenceIndex,
+          recurrenceCount,
+        });
+      }
       if (type === "nutrition") {
         Object.assign(rootPayload, {
           type: "nutrition_appointment",
@@ -270,6 +285,14 @@ router.post("/", requireFirebaseAuth, async (req, res) => {
         durationMin: type === "nutrition" ? durationMin : null,
         updatedAt: now,
       };
+      if (recurrenceGroupId && recurrenceCount > 1) {
+        Object.assign(calendarPayload, {
+          recurrenceGroupId,
+          recurrenceFrequency,
+          recurrenceIndex,
+          recurrenceCount,
+        });
+      }
       if (!duplicateSession) calendarPayload.createdAt = now;
 
       if (duplicateSession) transaction.set(calendarRef, calendarPayload, { merge: true });

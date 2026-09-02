@@ -652,7 +652,7 @@ export default function StatisticsPageCoach() {
         </Card>
 
       {/* KPIs */}
-      <SimpleGrid columns={{ base: 2, md: 2, lg: 4 }} spacing={{ base: 3, md: 5 }}>
+      <SimpleGrid data-tour="coach-stats-kpis" columns={{ base: 2, md: 2, lg: 4 }} spacing={{ base: 3, md: 5 }}>
         <StatTile
           icon={MdPeople}
           label={nutritionOnlyStats ? "Total patients" : mixedStats ? "Total clients/patients" : t("stats.totalClients", "Total clients")}
@@ -757,7 +757,7 @@ export default function StatisticsPageCoach() {
       )}
 
       {/* Clients actifs (liste) */}
-      {!nutritionOnlyStats && <Card glow="rgba(59, 130, 246, 0.1)">
+      {!nutritionOnlyStats && <Card data-tour="coach-stats-activity" glow="rgba(59, 130, 246, 0.1)">
         <HStack mb={4} spacing={2}>
           <Box bg={theme.surfaceSoft} color={theme.accentBlue} borderRadius="full" p={2} display="inline-flex">
             <Icon as={MdPeople} />

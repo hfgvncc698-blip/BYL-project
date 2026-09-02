@@ -41,19 +41,31 @@ const TOURS = {
         text: "Cette page réunit l'activité coach : clients, programmes, rendez-vous, suivi de la semaine, nutrition et priorités. C'est votre point de départ quotidien.",
       },
       {
-        selector: "[data-tour='coach-shortcuts']",
-        title: "Créer et planifier",
-        text: "Les raccourcis servent à créer un client, créer un programme ou planifier une séance. Planifier ajoute l'événement au calendrier du client.",
+        selector: "[data-tour='coach-quick-access']",
+        title: "Accès rapides",
+        text: "Les cartes Clients, Nutrition et Programmes donnent le volume actuel et un bouton + pour créer immédiatement le bon élément. Le titre de chaque carte ouvre la rubrique complète.",
       },
       {
-        selector: "[data-tour='coach-upcoming']",
-        title: "Prochains rendez-vous",
-        text: "Cette zone affiche les séances à venir. Un clic ouvre le détail : vous pouvez démarrer la séance, modifier son statut ou la supprimer.",
+        selector: "[data-tour='coach-today']",
+        title: "Ce qui se passe aujourd’hui",
+        text: "Cette carte sépare les séances déjà validées de celles encore planifiées aujourd’hui. Touchez une séance pour ouvrir son détail et choisir l’action adaptée.",
       },
       {
-        selector: "[data-tour='coach-week']",
-        title: "Suivi de la semaine",
-        text: "Le pourcentage compare les séances prévues et validées. C'est utile pour repérer vite si la charge de suivi est à jour.",
+        selector: "[data-tour='coach-upcoming-summary']",
+        title: "La prochaine échéance",
+        text: "Cette synthèse affiche les prochains rendez-vous ou séances. Elle ouvre directement le premier événement à traiter et renvoie au calendrier lorsqu’aucun créneau n’est prévu.",
+      },
+      {
+        selector: "[data-tour='coach-copilot']",
+        title: "Copilote Coach",
+        text: "Le Copilote rassemble les décisions proposées à partir des suivis récents. Vous gardez toujours la main : consultez le contexte, adaptez la proposition, marquez-la comme traitée ou reportez-la.",
+        skipIfMissing: true,
+      },
+      {
+        selector: "[data-tour='coach-radar']",
+        title: "Radar des priorités",
+        text: "Le Radar met en avant les douleurs, baisses de régularité et autres signaux utiles. Les alertes peuvent être ouvertes, masquées temporairement ou restaurées.",
+        skipIfMissing: true,
       },
       {
         selector: "[data-tour='coach-calendar']",
@@ -66,15 +78,10 @@ const TOURS = {
         text: "Le bouton Connecter génère un lien d'abonnement calendrier à coller dans Apple Calendar, Google Agenda ou Outlook pour retrouver vos séances hors de BYL.",
       },
       {
-        selector: "[data-tour='coach-nutrition-card']",
-        title: "Nutrition",
-        text: "Si votre accès l'autorise, cette carte mène vers les bilans nutrition, les rations, menus et partages visibles côté client.",
+        selector: "[data-tour='coach-nutrition-quick-card']",
+        title: "Accès nutrition",
+        text: "Si votre offre comprend la nutrition, cette carte ouvre les bilans, rations, menus et contenus partagés avec vos patients.",
         skipIfMissing: true,
-      },
-      {
-        selector: "[data-tour='coach-relaunch']",
-        title: "Clients à relancer",
-        text: "Cette carte repère les clients inactifs ou sans interaction récente pour vous aider à prioriser les relances.",
       },
     ],
   },
@@ -88,6 +95,11 @@ const TOURS = {
         title: "Vos dossiers clients",
         text: "C'est ici que vous retrouvez les fiches clients, leurs informations utiles et les programmes associés.",
         demoClients: true,
+      },
+      {
+        selector: "[data-tour='clients-new-client']",
+        title: "Ajouter une personne",
+        text: "Nouveau client ouvre la création du dossier. Renseignez au minimum l’identité et le contact, puis complétez les objectifs et les données utiles depuis la fiche.",
       },
       {
         selector: "[data-tour='clients-filters']",
@@ -172,7 +184,22 @@ const TOURS = {
       {
         selector: "[data-tour-page='coach-programs']",
         title: "Tous vos programmes",
-        text: "Cette page sert à retrouver vos programmes enregistrés, les ouvrir, les dupliquer ou les supprimer avant de les assigner aux clients.",
+        text: "Cette page centralise tous les programmes enregistrés et indique combien sont déjà assignés. Elle sert à créer, retrouver et réutiliser vos modèles.",
+      },
+      {
+        selector: "[data-tour='programs-create']",
+        title: "Créer un nouveau programme",
+        text: "Nouveau programme propose une création manuelle dans le builder ou une création guidée lorsque votre offre l’autorise. Les compteurs mobiles distinguent ensuite les modèles assignés et ceux encore à attribuer.",
+      },
+      {
+        selector: "[data-tour='programs-search']",
+        title: "Retrouver rapidement un programme",
+        text: "La recherche filtre instantanément par nom ou objectif. Elle est utile lorsque votre bibliothèque contient de nombreux modèles.",
+      },
+      {
+        selector: "[data-tour='programs-list']",
+        title: "Ouvrir, assigner et réutiliser",
+        text: "Chaque ligne ou carte affiche la durée, le nombre de séances et de clients assignés. Voir ouvre le contenu, Assigner choisit un client, Dupliquer crée une nouvelle base et Supprimer retire le modèle.",
       },
     ],
   },
@@ -217,7 +244,18 @@ const TOURS = {
       {
         selector: "[data-tour-page='coach-stats']",
         title: "Lire les statistiques",
-        text: "Les statistiques donnent une vue synthétique de l'activité : clients suivis, séances réalisées, progression et signaux à surveiller.",
+        text: "Cette page transforme l’activité de vos suivis en indicateurs lisibles. Les chiffres sont adaptés aux modules sport et nutrition compris dans votre offre.",
+      },
+      {
+        selector: "[data-tour='coach-stats-kpis']",
+        title: "Indicateurs principaux",
+        text: "Ces cartes résument clients, programmes, activité récente et bilans nutrition. Elles sont cliquables et ouvrent directement la liste correspondante.",
+      },
+      {
+        selector: "[data-tour='coach-stats-activity']",
+        title: "Activité et régularité",
+        text: "Les listes et graphiques permettent d’identifier les clients actifs, la rétention et le volume de séances réalisé au fil des mois.",
+        skipIfMissing: true,
       },
     ],
   },
@@ -229,7 +267,17 @@ const TOURS = {
       {
         selector: "[data-tour-page='coach-profile']",
         title: "Votre profil coach",
-        text: "Complétez votre identité, vos coordonnées et votre logo. Ces informations renforcent la cohérence de votre espace professionnel.",
+        text: "Cette page regroupe votre identité professionnelle, vos coordonnées, votre logo et l’adresse utilisée pour vous connecter.",
+      },
+      {
+        selector: "[data-tour='coach-profile-summary']",
+        title: "Vérifier le profil en un coup d’œil",
+        text: "Le bandeau indique immédiatement si l’identité et le contact sont complets et si l’adresse de connexion est synchronisée.",
+      },
+      {
+        selector: "[data-tour='coach-profile-form']",
+        title: "Mettre vos informations à jour",
+        text: "Modifiez les champs nécessaires puis enregistrez. Le logo et les informations professionnelles sont réutilisés dans les espaces et documents visibles par vos clients.",
       },
     ],
   },
@@ -289,7 +337,7 @@ const TOURS = {
       {
         selector: "[data-tour-page='client-dashboard']",
         title: "Votre espace personnel",
-        text: "Vous y retrouvez les séances à faire, les prochaines dates, les programmes actifs, la nutrition partagée et les raccourcis pour reprendre au bon endroit.",
+        text: "Cette page indique immédiatement quoi faire ensuite : séance à reprendre, progression globale, rendez-vous à venir et accès aux programmes ou à la nutrition.",
       },
       {
         selector: "[data-tour='client-programs-card']",
@@ -306,6 +354,12 @@ const TOURS = {
         title: "Planning client",
         text: "Les prochaines dates permettent de retrouver les séances programmées et d'ajouter un créneau au calendrier personnel.",
       },
+      {
+        selector: "[data-tour='client-calendar']",
+        title: "Calendrier détaillé",
+        text: "Sur grand écran, le calendrier permet de passer du mois à la semaine, au jour ou à l’agenda. Une séance peut être ouverte pour consulter son statut et ses informations.",
+        skipIfMissing: true,
+      },
     ],
   },
   clientPrograms: {
@@ -314,9 +368,27 @@ const TOURS = {
     label: "Mes programmes",
     steps: [
       {
-        selector: "[data-tour-page='client-programs'], [data-tour-page='client-dashboard']",
+        selector: "[data-tour-page='client-programs']",
         title: "Vos programmes",
-        text: "Choisissez un programme, ouvrez une séance, puis suivez les consignes exercice par exercice.",
+        text: "Cette page rassemble tous vos programmes actifs et terminés avec leur progression réelle.",
+      },
+      {
+        selector: "[data-tour='client-programs-empty']",
+        title: "Aucun programme pour le moment",
+        text: "Lorsqu’un programme vous sera attribué, il apparaîtra ici avec sa progression et le bouton permettant de commencer la prochaine séance.",
+        skipIfMissing: true,
+      },
+      {
+        selector: "[data-tour='client-programs-summary']",
+        title: "Lire votre situation",
+        text: "Les compteurs distinguent les programmes en cours, ceux à relancer et ceux terminés. La semaine affichée correspond à la semaine réellement entamée.",
+        skipIfMissing: true,
+      },
+      {
+        selector: "[data-tour='client-programs-list']",
+        title: "Continuer au bon endroit",
+        text: "Voir ouvre le détail du programme. Démarrer lance la prochaine séance, Reprendre revient au dernier exercice non terminé et Refaire recommence un cycle achevé.",
+        skipIfMissing: true,
       },
     ],
   },
@@ -328,7 +400,17 @@ const TOURS = {
       {
         selector: "[data-tour-page='client-profile'], [data-tour-page='client-dashboard']",
         title: "Vos informations",
-        text: "Le profil aide à ajuster vos objectifs, votre niveau, vos mensurations et les repères utiles pour le suivi.",
+        text: "Le profil rassemble les informations utilisées par votre coach pour personnaliser le suivi.",
+      },
+      {
+        selector: "[data-tour='client-profile-summary']",
+        title: "Repères personnels",
+        text: "Le bandeau résume la complétude du profil, les mesures principales et vos préférences d’unités et de langue.",
+      },
+      {
+        selector: "[data-tour='client-profile-form']",
+        title: "Garder les données à jour",
+        text: "Mettez à jour identité, contact, objectif, niveau et mensurations puis enregistrez. Ces changements alimentent les vues de suivi du coach.",
       },
     ],
   },
@@ -343,9 +425,22 @@ const TOURS = {
         text: "Cette page regroupe les éléments partagés par le coach : bilan, objectif, ration, menu, recettes, liste de courses et conseils.",
       },
       {
+        selector: "[data-tour='client-nutrition-journal']",
+        title: "Tenir le journal du jour",
+        text: "Cochez les aliments réellement consommés, ajustez leur quantité et ajoutez un aliment imprévu avec la recherche CIQUAL. Le journal fonctionne avec un menu ou directement avec la ration partagée, puis transmet votre ressenti au coach.",
+        skipIfMissing: true,
+      },
+      {
         selector: "[data-tour='client-nutrition-summary']",
         title: "Résumé partagé",
         text: "Les cartes de résumé donnent les repères clés : calories, contexte, habitudes, ration et nombre de jours de menu proposés.",
+        skipIfMissing: true,
+      },
+      {
+        selector: "[data-tour='client-nutrition-empty']",
+        title: "En attente du premier partage",
+        text: "Si aucun contenu n’est encore disponible, cette zone vous l’indique. Le menu, la ration et le journal apparaîtront ici dès que votre professionnel aura partagé le suivi.",
+        skipIfMissing: true,
       },
       {
         selector: "[data-tour='client-nutrition-tabs']",
@@ -363,7 +458,23 @@ const TOURS = {
       {
         selector: "[data-tour-page='client-stats']",
         title: "Votre progression",
-        text: "Cette page permet de suivre vos séances, vos régularités et les repères de progression disponibles dans votre espace.",
+        text: "Cette page réunit progression sportive, fréquence récente et évolution des mesures corporelles.",
+      },
+      {
+        selector: "[data-tour='client-stats-kpis']",
+        title: "Les chiffres essentiels",
+        text: "Les trois indicateurs montrent le nombre de programmes, le pourcentage global terminé et les séances réalisées sur les sept derniers jours.",
+      },
+      {
+        selector: "[data-tour='client-stats-comparison']",
+        title: "Comparer deux occurrences",
+        text: "Choisissez un programme et une séance répétée pour comparer charges, répétitions, difficulté et autres valeurs réellement enregistrées.",
+        skipIfMissing: true,
+      },
+      {
+        selector: "[data-tour='client-stats-measures']",
+        title: "Suivre les mesures corporelles",
+        text: "Ajoutez une mesure, choisissez les unités souhaitées et consultez les courbes dès qu’au moins deux relevés sont disponibles.",
       },
     ],
   },
@@ -375,12 +486,23 @@ const TOURS = {
       {
         selector: "[data-tour-page='settings']",
         title: "Vos réglages",
-        text: "Cette page centralise la langue, le compte, la sécurité et l'accès au didacticiel.",
+        text: "Cette page centralise la langue, les préférences du compte, l’abonnement, la sécurité et l’accès aux aides guidées.",
+      },
+      {
+        selector: "[data-tour='settings-summary']",
+        title: "État du compte",
+        text: "Les indicateurs du haut résument la langue active, le type de compte et les accès disponibles.",
       },
       {
         selector: "[data-tour='tutorial-settings']",
         title: "Relancer une aide précise",
         text: "Depuis cette zone, vous pouvez revenir directement sur une partie précise du didacticiel sans refaire tout le parcours.",
+      },
+      {
+        selector: "[data-tour='settings-security']",
+        title: "Sécurité et accès",
+        text: "La section Sécurité permet d’envoyer un lien de réinitialisation du mot de passe. Les changements sensibles restent confirmés par e-mail.",
+        skipIfMissing: true,
       },
     ],
   },
@@ -405,17 +527,17 @@ function buildContextualTour(tourId, tour, user) {
           text: tr("guidedTutorial.context.coachDashboard.nutrition.overview.text", "Cette page réunit vos patients, les rendez-vous nutrition, les suivis à traiter, les bilans et les priorités du jour."),
         },
         {
-          selector: "[data-tour='coach-shortcuts']",
+          selector: "[data-tour='coach-nutrition-quick-card']",
           title: tr("guidedTutorial.context.coachDashboard.nutrition.shortcut.title", "Créer un suivi"),
           text: tr("guidedTutorial.context.coachDashboard.nutrition.shortcut.text", "Le raccourci principal ouvre la création d'un suivi nutrition. Vous gardez l'accès rapide aux patients et aux bilans sans passer par les modules sport."),
         },
         {
-          selector: "[data-tour='coach-upcoming']",
+          selector: "[data-tour='coach-upcoming-summary']",
           title: tr("guidedTutorial.context.coachDashboard.nutrition.upcoming.title", "Prochains rendez-vous"),
           text: tr("guidedTutorial.context.coachDashboard.nutrition.upcoming.text", "Cette zone affiche les rendez-vous nutrition à venir. Un clic permet d'ouvrir le détail et de garder le planning à jour."),
         },
         {
-          selector: "[data-tour='coach-week']",
+          selector: "[data-tour='coach-today']",
           title: tr("guidedTutorial.context.coachDashboard.nutrition.activity.title", "Activité nutrition"),
           text: tr("guidedTutorial.context.coachDashboard.nutrition.activity.text", "Les indicateurs résument les patients suivis, les bilans créés, les partages envoyés et les suivis à finaliser."),
         },
@@ -431,15 +553,16 @@ function buildContextualTour(tourId, tour, user) {
           skipIfMissing: true,
         },
         {
-          selector: "[data-tour='coach-nutrition-card']",
+          selector: "[data-tour='coach-nutrition-quick-card']",
           title: tr("guidedTutorial.context.coachDashboard.nutrition.space.title", "Espace nutrition"),
           text: tr("guidedTutorial.context.coachDashboard.nutrition.space.text", "Cette carte mène vers les bilans, rations, menus et documents partagés avec vos patients."),
           skipIfMissing: true,
         },
         {
-          selector: "[data-tour='coach-relaunch']",
-          title: tr("guidedTutorial.context.coachDashboard.nutrition.relaunch.title", "Patients à relancer"),
-          text: tr("guidedTutorial.context.coachDashboard.nutrition.relaunch.text", "Cette carte repère les patients sans interaction récente pour prioriser vos relances nutrition."),
+          selector: "[data-tour='coach-radar']",
+          title: tr("guidedTutorial.context.coachDashboard.nutrition.relaunch.title", "Suivis à prioriser"),
+          text: tr("guidedTutorial.context.coachDashboard.nutrition.relaunch.text", "Le Radar met en avant les patients sans interaction récente et les suivis qui nécessitent une attention particulière."),
+          skipIfMissing: true,
         },
       ],
     };
@@ -477,6 +600,21 @@ function buildContextualTour(tourId, tour, user) {
       },
     ],
   };
+}
+
+function buildLocalizedTour(tourId, user) {
+  const source = TOURS[tourId];
+  if (!source) return null;
+  const localized = {
+    ...source,
+    label: i18n.t(`guidedTutorial.tours.${tourId}.label`, source.label),
+    steps: (source.steps || []).map((step, index) => ({
+      ...step,
+      title: i18n.t(`guidedTutorial.tours.${tourId}.steps.${index}.title`, step.title),
+      text: i18n.t(`guidedTutorial.tours.${tourId}.steps.${index}.text`, step.text),
+    })),
+  };
+  return buildContextualTour(tourId, localized, user);
 }
 
 const ROUTE_TOURS = {
@@ -541,7 +679,11 @@ function getRouteTour(pathname) {
 
 function resolveElement(selector) {
   if (!selector || typeof document === "undefined") return null;
-  return document.querySelector(selector);
+  const elements = Array.from(document.querySelectorAll(selector));
+  return elements.find((element) => {
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  }) || elements[0] || null;
 }
 
 function getTourRole({ effectiveRole, user }) {
@@ -627,18 +769,18 @@ export default function GuidedTutorial() {
   const [activeTourId, setActiveTourId] = React.useState(null);
   const [stepIndex, setStepIndex] = React.useState(0);
   const [targetRect, setTargetRect] = React.useState(null);
+  const [missingSelectors, setMissingSelectors] = React.useState(() => new Set());
   const migratedSeenRef = React.useRef(new Set());
 
   const role = getTourRole({ effectiveRole, user });
   const baseTour = React.useMemo(
-    () => (activeTourId ? buildContextualTour(activeTourId, TOURS[activeTourId], user) : null),
+    () => (activeTourId ? buildLocalizedTour(activeTourId, user) : null),
     [activeTourId, user]
   );
   const activeSteps = React.useMemo(() => {
     if (!baseTour) return [];
-    if (typeof document === "undefined") return baseTour.steps || [];
-    return (baseTour.steps || []).filter((step) => !step.skipIfMissing || !!resolveElement(step.selector));
-  }, [activeTourId, baseTour]);
+    return (baseTour.steps || []).filter((step) => !missingSelectors.has(step.selector));
+  }, [baseTour, missingSelectors]);
   const activeTour = baseTour ? { ...baseTour, steps: activeSteps } : null;
   const activeStep = activeSteps[stepIndex] || null;
   const isActive = !!activeTour && !!activeStep;
@@ -648,7 +790,7 @@ export default function GuidedTutorial() {
   const muted = useColorModeValue("gray.600", "rgba(255,255,255,0.68)");
   const startTour = React.useCallback(
     (tourId, { force = false } = {}) => {
-      const tour = buildContextualTour(tourId, TOURS[tourId], user);
+      const tour = buildLocalizedTour(tourId, user);
       if (!user || !canUseTour(tour, role)) return false;
 
       if (!force && isTourAlreadySeen(user, role, tourId)) {
@@ -659,6 +801,7 @@ export default function GuidedTutorial() {
       const open = () => {
         setActiveTourId(tourId);
         setStepIndex(0);
+        setMissingSelectors(new Set());
         if (!force) {
           persistTourSeen(user, role, tourId).catch((error) => {
             console.warn("GuidedTutorial seen persistence failed:", error);
@@ -685,7 +828,7 @@ export default function GuidedTutorial() {
     if (typeof window === "undefined") return;
 
     Object.keys(TOURS).forEach((tourId) => {
-      const tour = buildContextualTour(tourId, TOURS[tourId], user);
+      const tour = buildLocalizedTour(tourId, user);
       if (!canUseTour(tour, role)) return;
 
       const migrationKey = `${user.uid || "anonymous"}:${role}:${tourId}`;
@@ -736,20 +879,38 @@ export default function GuidedTutorial() {
     if (!activeStep) return undefined;
 
     let raf = 0;
+    let retryTimer = 0;
+    let attempts = 0;
     const updateRect = () => {
       const el = resolveElement(activeStep.selector);
       if (!el) {
         setTargetRect(null);
+        if (attempts < 12) {
+          attempts += 1;
+          retryTimer = window.setTimeout(updateRect, 140);
+        } else if (activeStep.skipIfMissing) {
+          setMissingSelectors((current) => {
+            if (current.has(activeStep.selector)) return current;
+            const next = new Set(current);
+            next.add(activeStep.selector);
+            return next;
+          });
+        }
         return;
       }
+      attempts = 0;
       el.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
       window.setTimeout(() => {
         const rect = el.getBoundingClientRect();
+        const top = Math.max(12, rect.top);
+        const left = Math.max(12, rect.left);
+        const right = Math.min(window.innerWidth - 12, rect.right);
+        const bottom = Math.min(window.innerHeight - 12, rect.bottom);
         setTargetRect({
-          top: rect.top,
-          left: rect.left,
-          width: rect.width,
-          height: rect.height,
+          top,
+          left,
+          width: Math.max(40, right - left),
+          height: Math.max(40, bottom - top),
         });
       }, 180);
     };
@@ -764,6 +925,7 @@ export default function GuidedTutorial() {
     window.addEventListener("scroll", schedule, true);
     return () => {
       window.cancelAnimationFrame(raf);
+      window.clearTimeout(retryTimer);
       window.removeEventListener("resize", schedule);
       window.removeEventListener("scroll", schedule, true);
     };
@@ -799,6 +961,7 @@ export default function GuidedTutorial() {
     setActiveTourId(null);
     setStepIndex(0);
     setTargetRect(null);
+    setMissingSelectors(new Set());
   };
 
   const skip = () => {
@@ -829,12 +992,14 @@ export default function GuidedTutorial() {
 
   const spotlight = targetRect
     ? {
-        top: Math.max(10, targetRect.top - 10),
-        left: Math.max(10, targetRect.left - 10),
-        width: targetRect.width + 20,
-        height: targetRect.height + 20,
+        top: Math.max(8, targetRect.top - 8),
+        left: Math.max(8, targetRect.left - 8),
+        width: Math.min(window.innerWidth - 16, targetRect.width + 16),
+        height: Math.min(window.innerHeight - 16, targetRect.height + 16),
       }
     : null;
+
+  const tutorialCardWidth = Math.min(360, window.innerWidth - 32);
 
   const cardPosition = spotlight
     ? {
@@ -842,7 +1007,10 @@ export default function GuidedTutorial() {
           spotlight.top + spotlight.height + 18 < window.innerHeight - 220
             ? spotlight.top + spotlight.height + 18
             : Math.max(18, spotlight.top - 238),
-        left: Math.min(Math.max(16, spotlight.left), window.innerWidth - 390),
+        left: Math.min(
+          Math.max(16, spotlight.left),
+          Math.max(16, window.innerWidth - tutorialCardWidth - 16)
+        ),
       }
     : {
         top: "50%",
@@ -854,21 +1022,27 @@ export default function GuidedTutorial() {
     <>
       {isActive && (
         <Box position="fixed" inset={0} zIndex={3000} pointerEvents="none">
-          <Box position="absolute" inset={0} bg="rgba(15,23,42,0.68)" />
-
-          {spotlight && (
-            <Box
-              position="absolute"
-              top={`${spotlight.top}px`}
-              left={`${spotlight.left}px`}
-              w={`${spotlight.width}px`}
-              h={`${spotlight.height}px`}
-              borderRadius="18px"
-              border="3px solid"
-              borderColor="white"
-              boxShadow="0 0 0 9999px rgba(15,23,42,0.68), 0 0 0 8px rgba(59,130,246,0.35), 0 18px 54px rgba(0,0,0,0.30)"
-              bg="rgba(255,255,255,0.08)"
-            />
+          {spotlight ? (
+            <>
+              <Box position="absolute" top={0} left={0} right={0} h={`${spotlight.top}px`} bg="rgba(15,23,42,0.56)" />
+              <Box position="absolute" top={`${spotlight.top + spotlight.height}px`} left={0} right={0} bottom={0} bg="rgba(15,23,42,0.56)" />
+              <Box position="absolute" top={`${spotlight.top}px`} left={0} w={`${spotlight.left}px`} h={`${spotlight.height}px`} bg="rgba(15,23,42,0.56)" />
+              <Box position="absolute" top={`${spotlight.top}px`} left={`${spotlight.left + spotlight.width}px`} right={0} h={`${spotlight.height}px`} bg="rgba(15,23,42,0.56)" />
+              <Box
+                position="absolute"
+                top={`${spotlight.top}px`}
+                left={`${spotlight.left}px`}
+                w={`${spotlight.width}px`}
+                h={`${spotlight.height}px`}
+                borderRadius="18px"
+                border="3px solid"
+                borderColor="white"
+                boxShadow="0 0 0 7px rgba(59,130,246,0.48), 0 18px 54px rgba(0,0,0,0.24)"
+                bg="transparent"
+              />
+            </>
+          ) : (
+            <Box position="absolute" inset={0} bg="rgba(15,23,42,0.56)" />
           )}
 
           <Box
@@ -883,6 +1057,8 @@ export default function GuidedTutorial() {
             borderRadius="20px"
             boxShadow="0 24px 70px rgba(0,0,0,0.32)"
             p={4}
+            maxH="calc(100dvh - 24px)"
+            overflowY="auto"
           >
             <HStack justify="space-between" align="start" spacing={3}>
               <Box minW={0}>
@@ -928,7 +1104,9 @@ export default function GuidedTutorial() {
                   borderRadius="14px"
                   onClick={next}
                 >
-                  {stepIndex >= activeTour.steps.length - 1 ? "Terminer" : "Suivant"}
+                  {stepIndex >= activeTour.steps.length - 1
+                    ? i18n.t("guidedTutorial.actions.finish", "Terminer")
+                    : i18n.t("guidedTutorial.actions.next", "Suivant")}
                 </Button>
               </HStack>
             </VStack>

@@ -57,6 +57,7 @@ import NutritionWorkflowBar from "./nutrition/NutritionWorkflowBar.jsx";
 import i18n from "../i18n/index";
 import { navigateWithDomFallback } from "../utils/navigationFallback";
 import { translateNutritionObjective } from "../utils/nutritionFoodI18n";
+import { hasPlanModule } from "../utils/proPlanAccess";
 
 /* ========================= Helpers ========================= */
 const num = (v) => {
@@ -454,10 +455,10 @@ export default function FoodSurvey() {
   const user = authCtx.user || authCtx.userData || null;
   const effectiveRole = authCtx.effectiveRole || user?.effectiveRole || null;
 
-  const isAdmin = useMemo(() => {
-    const role = user?.role || user?.userRole || effectiveRole || "";
-    return role === "admin";
-  }, [user, effectiveRole]);
+  const canManageNutrition = useMemo(
+    () => hasPlanModule({ ...user, role: user?.role || user?.userRole || effectiveRole }, "nutrition"),
+    [effectiveRole, user]
+  );
 
   const assessmentRef = useMemo(() => {
     if (!clientId || !assessmentId) return null;
@@ -703,7 +704,7 @@ export default function FoodSurvey() {
 
   const goBack = () => navigateWithFallback(`/clients/${clientId}/nutrition/${assessmentId}`);
 
-  if (!isAdmin) {
+  if (!canManageNutrition) {
     return (
       <Box p={6}>
         <Heading size="md">{i18n.t("auto.FoodSurvey.acces_refuse", "Accès refusé")}</Heading>

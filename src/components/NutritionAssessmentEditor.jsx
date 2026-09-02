@@ -56,6 +56,7 @@ import NutritionWorkflowBar from "./nutrition/NutritionWorkflowBar.jsx";
 import PageBackButton from "./ui/PageBackButton.jsx";
 import i18n from "../i18n/index";
 import { navigateWithDomFallback } from "../utils/navigationFallback";
+import { hasPlanModule } from "../utils/proPlanAccess";
 
 /* ------------------------ Units helpers ------------------------ */
 const round1 = (n) => (Number.isFinite(n) ? Math.round(n * 10) / 10 : n);
@@ -420,10 +421,10 @@ export default function NutritionAssessmentEditor() {
   const user = authCtx.user || authCtx.userData || null;
   const effectiveRole = authCtx.effectiveRole || user?.effectiveRole || null;
 
-  const isAdmin = useMemo(() => {
-    const role = user?.role || user?.userRole || effectiveRole || "";
-    return role === "admin";
-  }, [user, effectiveRole]);
+  const canManageNutrition = useMemo(
+    () => hasPlanModule({ ...user, role: user?.role || user?.userRole || effectiveRole }, "nutrition"),
+    [effectiveRole, user]
+  );
 
   const [loading, setLoading] = useState(true);
   const [docData, setDocData] = useState(null);
@@ -683,27 +684,27 @@ export default function NutritionAssessmentEditor() {
 
   const getMissingFields = (f) => {
     const missing = [];
-    if (!f) return ["Bilan"];
+    if (!f) return [i18n.t("auto.NutritionAssessmentEditor.missing_bilan", "Bilan")];
 
-    if (isBlank(f.prenom)) missing.push("Prénom");
-    if (isBlank(f.nom)) missing.push("Nom");
-    if (isBlank(f.sexe)) missing.push("Sexe");
-    if (isBlank(f.dateNaissance)) missing.push("Date de naissance");
-    if (isBlank(f.objectif)) missing.push("Objectif");
+    if (isBlank(f.prenom)) missing.push(i18n.t("auto.NutritionAssessmentEditor.missing_prenom", "Prénom"));
+    if (isBlank(f.nom)) missing.push(i18n.t("auto.NutritionAssessmentEditor.missing_nom", "Nom"));
+    if (isBlank(f.sexe)) missing.push(i18n.t("auto.NutritionAssessmentEditor.missing_sexe", "Sexe"));
+    if (isBlank(f.dateNaissance)) missing.push(i18n.t("auto.NutritionAssessmentEditor.missing_date_naissance", "Date de naissance"));
+    if (isBlank(f.objectif)) missing.push(i18n.t("auto.NutritionAssessmentEditor.missing_objectif", "Objectif"));
 
     const taille = toNumber(f?.taille?.value);
     const poids = toNumber(f?.poids?.value);
 
-    if (!Number.isFinite(taille) || taille <= 0) missing.push("Taille");
-    if (!Number.isFinite(poids) || poids <= 0) missing.push("Poids");
+    if (!Number.isFinite(taille) || taille <= 0) missing.push(i18n.t("auto.NutritionAssessmentEditor.missing_taille", "Taille"));
+    if (!Number.isFinite(poids) || poids <= 0) missing.push(i18n.t("auto.NutritionAssessmentEditor.missing_poids", "Poids"));
 
     const nap = toNumber(f?.nap?.value);
-    if (!Number.isFinite(nap) || nap <= 0) missing.push("NAP");
+    if (!Number.isFinite(nap) || nap <= 0) missing.push(i18n.t("auto.NutritionAssessmentEditor.missing_nap", "NAP"));
 
     return missing;
   };
 
-  const missingFields = useMemo(() => getMissingFields(form), [form]);
+  const missingFields = getMissingFields(form);
   const isComplete = missingFields.length === 0;
 
   const isValidated = isComplete;
@@ -718,7 +719,7 @@ export default function NutritionAssessmentEditor() {
 
   const saveAssessment = useCallback(
     async ({ silent = false } = {}) => {
-      if (!isAdmin || !clientId || !assessmentId || !form) return false;
+      if (!canManageNutrition || !clientId || !assessmentId || !form) return false;
 
       const assessmentRef = doc(db, "clients", clientId, "nutrition_assessments", assessmentId);
       const clientRef = doc(db, "clients", clientId);
@@ -798,11 +799,11 @@ export default function NutritionAssessmentEditor() {
         throw e;
       }
     },
-    [assessmentId, clientId, computedBMI, docData?.computed, form, isAdmin, isComplete, toast]
+    [assessmentId, canManageNutrition, clientId, computedBMI, docData?.computed, form, isComplete, toast]
   );
 
   useEffect(() => {
-    if (!isAdmin || !form || loading) return undefined;
+    if (!canManageNutrition || !form || loading) return undefined;
     const hash = JSON.stringify({ form, computedBMI, isComplete });
     if (!lastSavedHashRef.current) {
       lastSavedHashRef.current = hash;
@@ -820,10 +821,10 @@ export default function NutritionAssessmentEditor() {
     }, 1800);
 
     return () => window.clearTimeout(timer);
-  }, [computedBMI, form, isAdmin, isComplete, loading, saveAssessment]);
+  }, [canManageNutrition, computedBMI, form, isComplete, loading, saveAssessment]);
 
   const onSaveAndNext = async () => {
-    if (!isAdmin) return;
+    if (!canManageNutrition) return;
     try {
       await saveAssessment({ silent: true });
       navigate(`/clients/${clientId}/nutrition/${assessmentId}/food-survey`);
@@ -869,7 +870,7 @@ export default function NutritionAssessmentEditor() {
     boxShadow: "0 14px 34px rgba(15, 23, 42, 0.06)",
   };
 
-  if (!isAdmin) {
+  if (!canManageNutrition) {
     return (
       <Box p={6}>
         <Heading size="md">{i18n.t("auto.NutritionAssessmentEditor.acces_refuse", "Accès refusé")}</Heading>
@@ -917,7 +918,7 @@ export default function NutritionAssessmentEditor() {
   };
 
   const isPathoSelected = (name) => pathologies.includes(name);
-  const clientName = [form.prenom, form.nom].filter(Boolean).join(" ") || "Nom à compléter";
+  const clientName = [form.prenom, form.nom].filter(Boolean).join(" ") || i18n.t("auto.NutritionAssessmentEditor.nom_a_completer", "Nom à compléter");
   const clientAge = form.dateNaissance ? Math.max(0, new Date().getFullYear() - new Date(form.dateNaissance).getFullYear()) : null;
   const clientAgeText = clientAge !== null
     ? i18n.t("auto.NutritionAssessmentEditor.age_years", "{{age}} ans", { age: clientAge })

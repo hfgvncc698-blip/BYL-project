@@ -1,5 +1,34 @@
 {
   "brand": "BoostYourLife.coach",
+  "messaging": {
+    "title": "Messages", "subtitle": "Chat with your professional or the people you support in one place.", "open": "Open messages", "conversation": "Conversation", "privateConversation": "Private conversation", "loadError": "Messages could not be loaded.", "unlinkedAccount": "This person’s account is not linked yet.", "sendError": "The message could not be sent.", "emptyTitle": "Start the conversation", "emptyBody": "Write the first message to begin this conversation.", "sending": "Sending…", "placeholder": "Write a message…", "send": "Send", "myProfessional": "My professional", "professional": "Professional", "noContactsTitle": "No conversations available", "noContactsBody": "People linked to your account will appear here.", "new": "New", "newMessage": "New message", "sent": "Sent", "read": "Read", "startConversation": "Start a conversation", "clientOrPatient": "Client or patient", "openAll": "Open all messages", "search": "Search for a client or patient…", "selectTitle": "Select a conversation", "selectBody": "Choose someone to start or continue the conversation."
+  },
+  "messagingRole": {
+    "clientSubtitle": "Chat easily with the professionals supporting you.",
+    "professionalSubtitle": "Chat easily with your clients and patients."
+  },
+  "coachNutritionJournal": {
+    "title": "Food journal", "compactSubtitle": "Summary of the latest logged day.", "openJournal": "Open journal", "followUpPercent": "{{value}}% tracked", "planConsumedPercent": "{{value}}% of the plan eaten", "loggedDaysCount": "{{count}} days logged", "loggedDaysCount_one": "{{count}} day logged", "loggedDaysCount_other": "{{count}} days logged", "loading": "Loading…", "loggedDay": "Logged day", "calories": "Calories",
+    "consumedRemaining": "{{consumed}} kcal consumed · {{remaining}} kcal remaining", "consumedOnly": "{{consumed}} kcal consumed", "macroShort": { "protein": "P", "fat": "F", "carbs": "C" }, "lastReflection": "Latest feedback:", "empty": "No day has been logged yet.",
+    "fullTitle": "Actual food journal", "fullSubtitle": "Review the days logged during the selected period.", "historyPeriod": "History period", "lastDays": "Last {{count}} days", "consumed": "CONSUMED", "proteins": "PROTEIN", "fats": "FAT", "carbs": "CARBS", "energyReference": "Energy target", "mealDetails": "MEAL DETAILS",
+    "eaten": "Eaten", "notEaten": "Not eaten", "clientAddition": "Added by client", "declaredQuantity": "reported quantity", "planned": "planned", "plannedQuantity": "planned {{quantity}} {{unit}}", "unavailable": "Food details are not available for this day.",
+    "clientFeedback": "CLIENT FEEDBACK", "hunger": "Hunger", "energy": "Energy", "digestion": "Digestion", "notProvided": "Not provided", "other": "Other", "pageTitle": "Client food journal", "pageSubtitle": "Review logged days, meals eaten, quantities and feedback.",
+    "coachFeedback": "PROFESSIONAL FEEDBACK", "coachFeedbackHelp": "This message will appear on this day in the patient’s journal.", "coachFeedbackPlaceholder": "Write a short, specific and encouraging note…", "sendFeedback": "Send to patient", "updateFeedback": "Update", "feedbackSaved": "Feedback sent to the patient", "feedbackSaveError": "The feedback could not be saved", "sent": "Sent", "notRead": "Unread", "readByClient": "Read by patient",
+    "reflection": { "hungerLow": "Not very hungry", "hungerComfortable": "Comfortably full", "hungerHigh": "Still hungry", "energyLow": "Low", "energyOk": "Good", "energyHigh": "Very good", "digestionGood": "Good", "digestionHeavy": "Heavy", "digestionDiscomfort": "Discomfort" }
+  },
+  "clientNutritionJournal": {
+    "openNutrition": "Open nutrition",
+    "saveError": "The journal could not be saved", "tryAgain": "Please try again in a moment.", "genericFood": "Food", "today": "Today", "checkedCount": "{{eaten}}/{{total}} foods checked", "saving": "Saving…", "upToDate": "Up to date", "toComplete": "To complete",
+    "fullJournal": "Full journal", "viewMealNamed": "View {{meal}}", "viewMeal": "View meal", "allEaten": "I ate everything", "mealToday": "Today’s meal", "addFood": "Add a food", "mealInstructions": "Check the foods and adjust the quantities if needed.", "addition": "Added", "rationQuickChoices": "Quick choices from your plan", "rationQuickChoicesHelp": "Calories and macros come from the plan prepared by your professional.", "orSearchSpecificFood": "Or search for a specific food", "fromManualRation": "Values from the manual plan",
+    "consumedQuantityAria": "Quantity consumed of {{food}}", "willAddToMeal": "The food will be added to {{meal}}.", "thisMeal": "this meal", "searchFood": "Search for a food", "searchPlaceholder": "E.g. raw apple, cooked pasta…", "clearSearch": "Clear search", "selectedFood": "Selected food", "quantityGrams": "Quantity (g)",
+    "addSomethingElse": "Add something else", "back": "Back", "addToMeal": "Add to meal", "todayJournal": "Today’s journal", "journalInstructions": "Check what you ate, then adjust only if needed.", "previousDay": "Previous day", "nextDay": "Next day", "dailyTarget": "Daily target", "journalLoading": "Loading journal…",
+    "checked": "{{eaten}}/{{total}} checked", "checkAll": "Check all", "noDetailedMeal": "There is no detailed meal in today’s plan.", "noDetailedMealHelp": "You can still add what you ate below.", "ateSomethingElse": "Did you eat something else?", "addSimple": "Simply add the food and the quantity consumed.",
+    "modalSubtitle": "Search for a food: calories and macronutrients will be calculated automatically.", "foodConsumed": "Food consumed", "ciqualLoading": "Loading the food database…", "ciqualReference": "CIQUAL reference {{code}}", "change": "Change", "meal": "Meal", "forThisQuantity": "For this quantity:", "cancel": "Cancel", "addToJournal": "Add to journal",
+    "myFeedback": "How I feel", "notePlaceholder": "A note for my nutrition professional…", "saveFeedback": "Save my feedback", "pageLoading": "Loading your food journal…", "pageTitle": "Food journal", "pageSubtitle": "Simply record what you actually ate today.", "noLinkedTitle": "No linked client record",
+    "editWhatIAte": "Edit what I ate", "followedMyPlan": "I followed my plan", "weeklySummary": "My week", "weeklySummarySubtitle": "A simple summary of your nutrition tracking.", "loggedDays": "Days logged", "completeDays": "Complete days", "averageFollowUp": "Average tracking", "feedbackDays": "Days with feedback", "coachFeedback": "Feedback from my nutrition professional", "newFeedback": "New", "dayStatus": { "complete": "Complete day", "partial": "Partially logged", "empty": "Not logged" },
+    "unreadCoachFeedback": "{{count}} unread feedback", "unreadCoachFeedback_one": "{{count}} unread feedback", "unreadCoachFeedback_other": "{{count}} unread feedback items", "viewCoachFeedback": "View feedback",
+    "meals": { "breakfast": "Breakfast", "lunch": "Lunch", "snack": "Snack", "dinner": "Dinner", "other": "Other" }
+  },
   "nav": {
     "home": "Home",
     "dashboard": "Dashboard",
@@ -1244,6 +1273,13 @@
       "status_disabled": "Disabled",
       "saving": "Saving…",
       "automatic_only": "Automatic emails",
+      "all_automatic": "All automatic emails",
+      "messaging_label": "Message emails",
+      "messaging_hint": "When a new message arrives",
+      "messaging_toggle": "Enable or disable message emails",
+      "messaging_saved": "Messaging preference saved",
+      "messaging_enabled": "You will receive an email when a new message arrives.",
+      "messaging_disabled": "New messages will no longer trigger an email.",
       "toggle_label": "Enable or disable automatic email notifications",
       "enabled_title": "Notifications enabled",
       "disabled_title": "Notifications disabled",
@@ -2280,10 +2316,8 @@
     "legacyHistoryDetailsUnavailable": "Workout completed. Loads and repetitions were not yet recorded by the previous player version.",
     "currentSessionHistory": "Current set",
     "pendingSessionValidation": "Provisional until the session is validated.",
-    "inProgress": "In progress",
     "completedSetsAppearHere": "Completed sets will appear here.",
     "pendingValidation": "Pending",
-    "setN": "Set {{n}}",
     "setRecorded": "Recorded",
     "rmTab": "RM",
     "rmEstimates": "RM estimates",
@@ -2608,7 +2642,10 @@
       "assessments": "BALANCE SHEET",
       "assessmentsHint": "nutrition history available",
       "sharedFollowup": "SHARED / TO FOLLOW",
-      "sharedFollowupHint": "shared on the patient side / current files"
+      "sharedFollowupHint": "shared on the patient side / current files",
+      "mobilePatients": "Patients",
+      "mobileAssessments": "Assessments",
+      "mobileFollowup": "Shared / follow-up"
     },
     "empty": "No nutrition records detected at the moment.",
     "searchPlaceholder": "Search by patient, objective or date…",
@@ -3614,6 +3651,9 @@
       "suivi_client": "CUSTOMER FOLLOW-UP",
       "bilans_enquete_alimentaire_ration_et_menu_journali": "Assessments, food survey, ration and daily menu in one place.",
       "creer_un_bilan_nutrition": "Create a nutrition report",
+      "nutrition_access_required": "This feature requires Nutrition access.",
+      "creation_impossible": "Unable to create",
+      "impossible_de_creer_le_bilan": "The nutrition assessment could not be created.",
       "admin_uniquement_pour_le_moment_ouverture_aux_pros": "(Admin only for the moment — open to pros after validation.)",
       "chargement": "Loading...",
       "aucun_bilan_nutrition_pour_ce_client": "No nutrition assessment for this client.",
@@ -3704,6 +3744,10 @@
       "click_repas": "Tap to view the meals.",
       "click_recettes": "Tap to view the suggested recipes.",
       "click_courses": "Tap to view grouped shopping items.",
+      "shopping_list_period_default": "1 week",
+      "shopping_list_period_helper": "Planned for {{period}}. Quantities are totalled and foods sorted by aisle.",
+      "shopping_list_period_badge": "Shopping for {{period}}",
+      "energy_consumed_remaining": "{{consumed}} kcal consumed · {{remaining}} kcal remaining",
       "click_conseils": "Tap to view personalized advice.",
       "preparation": "Preparation",
       "liste_de_courses": "Shopping list",
@@ -3770,6 +3814,15 @@
       "encouragement_nutrition_kcal": "Every meal counts — today’s target: {{kcal}} kcal.",
       "encouragement_nutrition": "Every small choice supports your progress.",
       "encouragement_mixed": "Fuel your energy, start your workout — today, you move forward for yourself.",
+      "repas_petit_dejeuner": "Breakfast",
+      "repas_dejeuner": "Lunch",
+      "repas_collation": "Snack",
+      "repas_diner": "Dinner",
+      "au_fil_de_ta_journee": "As your day unfolds",
+      "seance_a_heure": "Workout at {{time}}",
+      "rythme_habituel_heure": "Your rhythm · around {{time}}",
+      "repas_maintenant": "Now · {{meal}}",
+      "prochain_repas_heure": "{{meal}} · {{time}}",
       "seance_prevue_aujourd_hui": "{{session}} at {{time}} — today’s appointment.",
       "objectif_du_jour_reprendre": "Resume {{session}} — you already know the way.",
       "seance_du_jour_terminee": "Workout complete — time to recover.",
@@ -3777,6 +3830,9 @@
       "objectif_du_jour_planifier": "Plan your next workout to keep the momentum.",
       "reprendre": "Resume",
       "reprendre_la_seance": "Resume session",
+      "reprendre_la_seance_progression": "Resume session · {{percent}}%",
+      "reprendre_progression": "Resume · {{percent}}%",
+      "lancer_la_seance_suivante": "Start the next session",
       "lancer_la_seance": "Start session",
       "synchronisation_du_suivi": "Syncing follow-up",
       "choisir_la_suite": "Choose what comes next",
@@ -3798,6 +3854,7 @@
       "preparer_les_achats": "Prepare shopping",
       "cycle_termine": "Cycle complete",
       "progression_globale": "Overall progress",
+      "progression_des_programmes": "Program progress",
       "plan_nutrition": "Nutrition plan",
       "actif_status": "Active",
       "recuperation_de_tes_programmes": "Retrieving your programs...",
@@ -4216,6 +4273,10 @@
       "liste_de_courses": "Shopping list",
       "shopping_list_week": "Weekly shopping list",
       "shopping_list_week_help": "Quantities combined for the entire weekly menu.",
+      "shopping_list_period_label": "Covered period",
+      "shopping_list_period_placeholder": "E.g. 7 days or September 2–8",
+      "shopping_list_period_help": "This period will be visible to the client and in the shared list.",
+      "shopping_list_period_days": "{{count}} days",
       "aucune_liste_de_courses_exploitable_pour_le_moment": "No usable shopping list at the moment.",
       "etape_suivante": "Next step",
       "validation_du_suivi_client": "Client follow-up validation",
@@ -6082,6 +6143,362 @@
       "clubCalendar": "Calendar",
       "clubSettings": "Club settings",
       "createPro": "Create a pro"
+    },
+    "actions": {
+      "finish": "Finish",
+      "next": "Next"
+    },
+    "tours": {
+      "coachDashboard": {
+        "label": "Coach dashboard",
+        "steps": {
+          "0": {
+            "title": "Your control base",
+            "text": "This page brings together coach activity: clients, programs, appointments, weekly monitoring, nutrition and priorities. This is your daily starting point."
+          },
+          "1": {
+            "title": "Quick access",
+            "text": "The Clients, Nutrition and Programs cards give the current volume and a + button to immediately create the correct item. The title of each card opens the complete section."
+          },
+          "2": {
+            "title": "What is happening today",
+            "text": "This card separates sessions already validated from those still planned today. Touch a session to open its details and choose the appropriate action."
+          },
+          "3": {
+            "title": "The next deadline",
+            "text": "This summary displays the next appointments or sessions. It directly opens the first event to be processed and returns to the calendar when no slot is planned."
+          },
+          "4": {
+            "title": "Co-pilot Coach",
+            "text": "The Copilot brings together the proposed decisions based on recent monitoring. You always have control: consult the context, adapt the proposal, mark it as processed or postpone it."
+          },
+          "5": {
+            "title": "Priority radar",
+            "text": "The Radar highlights pain, drops in regularity and other useful signals. Alerts can be opened, temporarily hidden, or restored."
+          },
+          "6": {
+            "title": "Coach calendar",
+            "text": "The calendar centralizes sports sessions and appointments. You can add a session, move an event and open its details."
+          },
+          "7": {
+            "title": "Synchronize your calendar",
+            "text": "The Connect button generates a calendar subscription link to paste into Apple Calendar, Google Calendar or Outlook to find your sessions outside of BYL."
+          },
+          "8": {
+            "title": "Nutrition access",
+            "text": "If your offer includes nutrition, this card opens the assessments, rations, menus and content shared with your patients."
+          }
+        }
+      },
+      "coachClients": {
+        "label": "Clients",
+        "steps": {
+          "0": {
+            "title": "Your client files",
+            "text": "This is where you will find client files, their useful information and associated programs."
+          },
+          "1": {
+            "title": "Add a person",
+            "text": "New client opens folder creation. Provide at least the identity and contact information, then complete the objectives and useful data from the form."
+          },
+          "2": {
+            "title": "Active, inactive and all",
+            "text": "These filters allow you to move from active to inactive clients. An active client has had a recent interaction in the tracked period."
+          },
+          "3": {
+            "title": "Example of client file",
+            "text": "This demo line is not recorded. It is only used to show the name, programs, last session, active status and progress."
+          },
+          "4": {
+            "title": "Edit a record",
+            "text": "Edit opens the client profile to correct information, goals, level, measurements or contact data."
+          },
+          "5": {
+            "title": "Assign a program",
+            "text": "Assign allows you to assign an existing program to the client. It will then appear in its space and in your tracking."
+          }
+        }
+      },
+      "coachPrograms": {
+        "label": "Builder program",
+        "steps": {
+          "0": {
+            "title": "Create a program",
+            "text": "The builder is used to build a complete program before assigning it to a client. You work on the left with the bank, then on the right on the sessions."
+          },
+          "1": {
+            "title": "Name and purpose",
+            "text": "Start by naming the program and specifying the objective. These fields make it easy to search, assign, and read on the client side."
+          },
+          "2": {
+            "title": "Organize the sessions",
+            "text": "Each tab represents a session. You can add, rename, delete or reorder sessions according to the number of visits per week."
+          },
+          "3": {
+            "title": "Structuring the session",
+            "text": "The sections separate warm-up, main session, bonus and cool down. It’s more readable for the client and easier to modify."
+          },
+          "4": {
+            "title": "Add and adjust exercises",
+            "text": "Each exercise contains its parameters: sets, repetitions, load, rest, tempo and notes. The coach can modify them without touching the original form."
+          },
+          "5": {
+            "title": "Read an exercise",
+            "text": "This demonstration line shows how to read an exercise: the name, work values, instructions and modification actions."
+          },
+          "6": {
+            "title": "Save",
+            "text": "Save the program when the structure is ready. You can then assign it from the Clients page or modify it later."
+          }
+        }
+      },
+      "coachProgramList": {
+        "label": "Programs page",
+        "steps": {
+          "0": {
+            "title": "All your programs",
+            "text": "This page centralizes all recorded programs and indicates how many are already assigned. It is used to create, find and reuse your models."
+          },
+          "1": {
+            "title": "Create a new program",
+            "text": "New program offers manual creation in the builder or guided creation when your offer allows it. The mobile counters then distinguish between assigned models and those yet to be assigned."
+          },
+          "2": {
+            "title": "Quickly find a program",
+            "text": "Search instantly filters by name or purpose. It is useful when your library contains many models."
+          },
+          "3": {
+            "title": "Open, assign and reuse",
+            "text": "Each line or card displays the duration, number of sessions and assigned clients. View opens the content, Assign chooses a client, Duplicate creates a new database and Delete removes the model."
+          }
+        }
+      },
+      "coachNutrition": {
+        "label": "Nutrition coach",
+        "steps": {
+          "0": {
+            "title": "Nutrition area",
+            "text": "This page brings together the nutrition reports and their status: draft, in progress, validated or shared on the client side."
+          },
+          "1": {
+            "title": "Create a balance sheet",
+            "text": "Create a new report to start collecting information, prepare a meal plan, a menu and items to share."
+          },
+          "2": {
+            "title": "Overall view of nutrition",
+            "text": "These counters indicate how many clients are followed, how many reports exist, and how many are already shared or still to be processed."
+          },
+          "3": {
+            "title": "List of balance sheets",
+            "text": "Each line corresponds to a nutrition report. The status indicates whether it is draft, in progress, committed, or shared on the client side."
+          },
+          "4": {
+            "title": "Open the correct level",
+            "text": "Opening the file allows you to see the entire client file. Opening the report leads directly to the questionnaire, the meal plan, the menu and the sharing."
+          }
+        }
+      },
+      "coachStats": {
+        "label": "Coach statistics",
+        "steps": {
+          "0": {
+            "title": "Read the statistics",
+            "text": "This page transforms your tracking activity into readable indicators. The figures are adapted to the sport and nutrition modules included in your offer."
+          },
+          "1": {
+            "title": "Main indicators",
+            "text": "These cards summarize clients, programs, recent activity and nutrition reports. They are clickable and directly open the corresponding list."
+          },
+          "2": {
+            "title": "Activity and regularity",
+            "text": "Lists and graphs allow you to identify active clients, retention and the volume of sessions carried out over the months."
+          }
+        }
+      },
+      "coachProfile": {
+        "label": "Coach profile",
+        "steps": {
+          "0": {
+            "title": "Your coach profile",
+            "text": "This page brings together your professional identity, your contact details, your logo and the address used to connect."
+          },
+          "1": {
+            "title": "Check profile at a glance",
+            "text": "The banner immediately indicates whether the identity and contact are complete and whether the connection address is synchronized."
+          },
+          "2": {
+            "title": "Update your information",
+            "text": "Edit the necessary fields then save. The logo and professional information are reused in spaces and documents visible to your clients."
+          }
+        }
+      },
+      "clubDashboard": {
+        "label": "Dashboard club",
+        "steps": {
+          "0": {
+            "title": "Your club responsible space",
+            "text": "This page is used to manage a complete structure: attached professionals, clients followed, programs created, recent activity and limits of the club offer."
+          },
+          "1": {
+            "title": "Overview",
+            "text": "The banner recalls the role of the club space. From here, you can switch to pro view, manage the offer or go directly to the useful sections of the page."
+          },
+          "2": {
+            "title": "Structure indicators",
+            "text": "These cards consolidate the activity of the entire club: number of active pros, volume of clients followed, programs created and last activity detected."
+          },
+          "3": {
+            "title": "Understanding the journey",
+            "text": "This area explains how it works: the club creates a pro, the pro activates their account, works in their own space, then the club supervises the overall activity."
+          },
+          "4": {
+            "title": "Create a pro account",
+            "text": "The manager provides the professional's information. The account is created on the authentication side, linked to the club subscription, then an activation link is generated."
+          },
+          "5": {
+            "title": "Activation link",
+            "text": "After creation, this block displays the link to send to the pro. The professional uses it to define his password and access his personal space."
+          },
+          "6": {
+            "title": "Club team",
+            "text": "The table lists the associated pros, their clients, their programs and their status. One click selects a pro to view their recent activity."
+          },
+          "7": {
+            "title": "Access to information",
+            "text": "This part gives details of the selected pro, his recent clients, his recent programs, his nutrition reports and the club's consolidated statistics without leaving the club scope."
+          }
+        }
+      },
+      "clientDashboard": {
+        "label": "Client Dashboard",
+        "steps": {
+          "0": {
+            "title": "Your personal space",
+            "text": "This page immediately indicates what to do next: session to resume, overall progress, upcoming appointments and access to programs or nutrition."
+          },
+          "1": {
+            "title": "Active programs",
+            "text": "This area displays the current programs, their progress, the last session and the buttons to open the program or start directly."
+          },
+          "2": {
+            "title": "New programs",
+            "text": "The client can purchase a premium program individually, retrieve an available offer, or request a tailor-made program according to their subscription."
+          },
+          "3": {
+            "title": "Client planning",
+            "text": "The next dates allow you to find the scheduled sessions and add a slot to the personal calendar."
+          },
+          "4": {
+            "title": "Detailed calendar",
+            "text": "On the big screen, the calendar allows you to switch from month to week, day or agenda. A session can be opened to view its status and information."
+          }
+        }
+      },
+      "clientPrograms": {
+        "label": "My programs",
+        "steps": {
+          "0": {
+            "title": "Your programs",
+            "text": "This page brings together all your active and completed programs with their actual progress."
+          },
+          "1": {
+            "title": "No program at the moment",
+            "text": "When a program is assigned to you, it will appear here with its progress and the button to start the next session."
+          },
+          "2": {
+            "title": "Read your situation",
+            "text": "The counters distinguish between programs in progress, those to be restarted and those completed. The week displayed corresponds to the week actually started."
+          },
+          "3": {
+            "title": "Continue to the right place",
+            "text": "View opens the program details. Start starts the next session, Resume goes back to the last unfinished exercise, and Redo starts a completed cycle."
+          }
+        }
+      },
+      "clientProfile": {
+        "label": "Client profile",
+        "steps": {
+          "0": {
+            "title": "Your information",
+            "text": "The profile brings together the information used by your coach to personalize monitoring."
+          },
+          "1": {
+            "title": "Personal benchmarks",
+            "text": "The banner summarizes the completeness of the profile, the main measurements and your unit and language preferences."
+          },
+          "2": {
+            "title": "Keep data up to date",
+            "text": "Update identity, contact, objective, level and measurements then save. These changes feed into the coach's tracking views."
+          }
+        }
+      },
+      "clientNutrition": {
+        "label": "Client nutrition",
+        "steps": {
+          "0": {
+            "title": "Your nutrition",
+            "text": "This page brings together the elements shared by the coach: assessment, objective, meal plan, menu, recipes, shopping list and advice."
+          },
+          "1": {
+            "title": "Keep the daily diary",
+            "text": "Check the foods actually consumed, adjust their quantity and add an unexpected food with the CIQUAL search. The diary works with a menu or directly with the shared meal plan, then transmits your feelings to the coach."
+          },
+          "2": {
+            "title": "Shared summary",
+            "text": "The summary cards give the key benchmarks: calories, context, habits, meal plan and number of days of menu offered."
+          },
+          "3": {
+            "title": "Waiting for the first share",
+            "text": "If no content is yet available, this area tells you so. The menu, meal plan and diary will appear here as soon as your professional has shared the follow-up."
+          },
+          "4": {
+            "title": "Navigate content",
+            "text": "The tabs allow you to move from one part to another: meal plan, menu, recipes, shopping and detailed advice."
+          }
+        }
+      },
+      "clientStats": {
+        "label": "Client statistics",
+        "steps": {
+          "0": {
+            "title": "Your progress",
+            "text": "This page brings together sporting progress, recent frequency and evolution of body measurements."
+          },
+          "1": {
+            "title": "The essential figures",
+            "text": "The three indicators show the number of programs, overall percentage completed and sessions completed over the last seven days."
+          },
+          "2": {
+            "title": "Compare two occurrences",
+            "text": "Choose a program and a repeated session to compare loads, repetitions, difficulty and other values actually recorded."
+          },
+          "3": {
+            "title": "Track body measurements",
+            "text": "Add a measurement, choose the desired units and consult the curves as soon as at least two readings are available."
+          }
+        }
+      },
+      "settings": {
+        "label": "Settings and tutorial",
+        "steps": {
+          "0": {
+            "title": "Your settings",
+            "text": "This page centralizes language, account preferences, subscription, security and access to guided help."
+          },
+          "1": {
+            "title": "Account Status",
+            "text": "The top indicators summarize the active language, account type and available access."
+          },
+          "2": {
+            "title": "Relaunch specific help",
+            "text": "From this area, you can return directly to a specific part of the tutorial without repeating the entire course."
+          },
+          "3": {
+            "title": "Security and access",
+            "text": "The Security section allows you to send a password reset link. Sensitive changes remain confirmed by e-mail."
+          }
+        }
+      }
     }
   },
   "clubDashboard": {

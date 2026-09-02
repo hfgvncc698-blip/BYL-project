@@ -5,7 +5,6 @@ import {
   Box,
   Button,
   HStack,
-  Heading,
   Text,
   Table,
   Thead,
@@ -25,8 +24,9 @@ import {
   SimpleGrid,
   Stack,
 } from "@chakra-ui/react";
-import { AddIcon } from "@chakra-ui/icons";
+import { AddIcon, DeleteIcon } from "@chakra-ui/icons";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   collection,
   deleteDoc,
@@ -40,8 +40,10 @@ import { createNutritionAssessmentDraft } from "../utils/nutritionPrefill";
 import { useAuth } from "../AuthContext.jsx";
 import { useNutritionTheme } from "../styles/nutritionTheme";
 import AppLoading from "./ui/AppLoading";
+import { CoachNutritionDailySummary } from "./ClientNutritionDailyJournal.jsx";
 import { notify } from "../utils/notify";
 import i18n from "../i18n/index";
+import { hasPlanModule } from "../utils/proPlanAccess";
 
 function formatDate(ts) {
   try {
@@ -71,28 +73,46 @@ function hasNutritionWork(assessment) {
   return hasMenu || hasRation;
 }
 
-function getAssessmentStatus(assessment) {
-  if (hasSharedSections(assessment)) return { label: "Partagé", colorScheme: "green" };
-  if (assessment?.status === "final" || assessment?.validated || assessment?.inputs?.nutritionValidated) {
-    return { label: "Validé", colorScheme: "blue" };
-  }
-  if (hasNutritionWork(assessment)) return { label: "En cours", colorScheme: "orange" };
-  return { label: "Draft", colorScheme: "yellow" };
+function assessmentNutritionTargets(assessment) {
+  const day =
+    assessment?.ration?.selected?.computed?.totals?.day ||
+    assessment?.ration?.selected?.computed?.day ||
+    {};
+  const number = (value) => {
+    const parsed = Number(String(value ?? "").replace(",", "."));
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+  };
+  return {
+    kcal: number(day?.kcal),
+    p: number(day?.prot || day?.p),
+    f: number(day?.lip || day?.f),
+    c: number(day?.glu || day?.c || day?.carbs),
+  };
 }
 
-export default function ClientNutritionSection({ clientId, isAdminOnly = false }) {
+function getAssessmentStatus(assessment, t) {
+  if (hasSharedSections(assessment)) return { label: t("nutritionCoach.status.shared", "Partagé"), key: "shared", colorScheme: "green" };
+  if (assessment?.status === "final" || assessment?.validated || assessment?.inputs?.nutritionValidated) {
+    return { label: t("nutritionCoach.status.validated", "Validé"), key: "validated", colorScheme: "blue" };
+  }
+  if (hasNutritionWork(assessment)) return { label: t("nutritionCoach.status.inProgress", "En cours"), key: "inProgress", colorScheme: "orange" };
+  return { label: t("nutritionCoach.status.draft", "Draft"), key: "draft", colorScheme: "yellow" };
+}
+
+export default function ClientNutritionSection({ clientId, requiresNutritionAccess = false }) {
   const toast = useToast();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const theme = useNutritionTheme();
 
   // ✅ AuthContext expose "user" (profil Firestore normalisé). Pas de userData.
-  const { user } = useAuth();
+  const { user, hasCoachAccess } = useAuth();
 
   // ✅ admin check basé sur le rôle Firestore normalisé
-  const isAdmin = useMemo(() => {
-    const role = (user?.role || "").toLowerCase();
-    return role === "admin";
-  }, [user]);
+  const canManageNutrition = useMemo(
+    () => user?.role === "admin" || (hasCoachAccess && hasPlanModule(user, "nutrition")),
+    [hasCoachAccess, user]
+  );
 
   const [loading, setLoading] = useState(true);
   const [assessments, setAssessments] = useState([]);
@@ -116,19 +136,23 @@ export default function ClientNutritionSection({ clientId, isAdminOnly = false }
     return () => unsub();
   }, [clientId]);
 
-  const canUse = !isAdminOnly || isAdmin;
+  const canUse = !requiresNutritionAccess || canManageNutrition;
   const sharedCount = useMemo(() => assessments.filter((a) => hasSharedSections(a)).length, [assessments]);
+  const assessmentTargetsById = useMemo(
+    () => Object.fromEntries(assessments.map((assessment) => [assessment.id, assessmentNutritionTargets(assessment)])),
+    [assessments]
+  );
   const statusSummary = useMemo(() => {
-    if (assessments.some((a) => hasSharedSections(a))) return "Partagé";
-    if (assessments.some((a) => getAssessmentStatus(a).label === "Validé")) return "Validé";
-    if (assessments.some((a) => getAssessmentStatus(a).label === "En cours")) return "En cours";
-    return "Draft";
-  }, [assessments]);
+    if (assessments.some((a) => hasSharedSections(a))) return t("nutritionCoach.status.shared", "Partagé");
+    if (assessments.some((a) => getAssessmentStatus(a, t).key === "validated")) return t("nutritionCoach.status.validated", "Validé");
+    if (assessments.some((a) => getAssessmentStatus(a, t).key === "inProgress")) return t("nutritionCoach.status.inProgress", "En cours");
+    return t("nutritionCoach.status.draft", "Draft");
+  }, [assessments, t]);
 
   const onCreate = async () => {
     if (!canUse) {
       notify(toast, "accessReserved", {
-        description: "Cette fonctionnalité est disponible uniquement pour l’admin pour le moment.",
+        description: t("auto.ClientNutritionSection.nutrition_access_required", "Cette fonctionnalité nécessite l’accès Nutrition."),
       });
       return;
     }
@@ -142,8 +166,8 @@ export default function ClientNutritionSection({ clientId, isAdminOnly = false }
       navigate(`/clients/${clientId}/nutrition/${assessmentId}`);
     } catch (e) {
       notify(toast, "saveError", {
-        title: "Création impossible",
-        description: e?.message || "Impossible de créer le bilan.",
+        title: t("auto.ClientNutritionSection.creation_impossible", "Création impossible"),
+        description: e?.message || t("auto.ClientNutritionSection.impossible_de_creer_le_bilan", "Impossible de créer le bilan."),
       });
     }
   };
@@ -160,13 +184,13 @@ export default function ClientNutritionSection({ clientId, isAdminOnly = false }
         doc(db, "clients", clientId, "nutrition_assessments", assessmentId)
       );
       notify(toast, "saveSuccess", {
-        title: "Bilan supprimé",
-        description: "La liste nutrition est à jour.",
+        title: t("nutritionCoach.toasts.deleted.title", "Bilan supprimé"),
+        description: t("nutritionCoach.toasts.deleted.description", "Le suivi nutrition a bien été supprimé."),
       });
     } catch (e) {
       notify(toast, "saveError", {
-        title: "Suppression impossible",
-        description: e?.message || "Suppression impossible.",
+        title: t("nutritionCoach.toasts.deleteError.title", "Suppression impossible"),
+        description: e?.message || t("nutritionCoach.toasts.deleteError.description", "Le bilan n’a pas pu être supprimé."),
       });
     } finally {
       setDeletingId("");
@@ -175,25 +199,33 @@ export default function ClientNutritionSection({ clientId, isAdminOnly = false }
   };
 
   return (
-    <Box mt={8} p={{ base: 4, md: 5 }} {...theme.cardProps}>
-      <HStack justify="space-between" mb={4} align="start" gap={3} flexWrap="wrap">
+    <Box>
+      <HStack justify="space-between" mb={5} align="center" gap={4} flexWrap="wrap">
         <Box>
           <Text fontSize="xs" fontWeight="800" letterSpacing="0.12em" color={theme.subtleText}>{i18n.t("auto.ClientNutritionSection.suivi_client", "SUIVI CLIENT")}</Text>
-          <Heading size="md" mt={1}>{i18n.t("nutrition.title", "Nutrition")}</Heading>
           <Text fontSize="sm" color={theme.mutedText} mt={1}>{i18n.t("auto.ClientNutritionSection.bilans_enquete_alimentaire_ration_et_menu_journali", "Bilans, enquête alimentaire, ration et menu journalier au même endroit.")}</Text>
         </Box>
         <Button
           leftIcon={<AddIcon />}
           {...theme.primaryButtonProps}
           w={{ base: "full", md: "auto" }}
+          h="44px"
+          px={5}
+          borderRadius="full"
           onClick={onCreate}
           isDisabled={!canUse}
         >{i18n.t("auto.ClientNutritionSection.creer_un_bilan_nutrition", "Créer un bilan nutrition")}</Button>
       </HStack>
 
       {!canUse && (
-        <Text fontSize="sm" opacity={0.7} mb={3}>{i18n.t("auto.ClientNutritionSection.admin_uniquement_pour_le_moment_ouverture_aux_pros", "(Admin uniquement pour le moment — ouverture aux pros après validation.)")}</Text>
+        <Text fontSize="sm" opacity={0.7} mb={3}>{t("auto.ClientNutritionSection.nutrition_access_required", "Cette fonctionnalité nécessite l’accès Nutrition.")}</Text>
       )}
+
+      <CoachNutritionDailySummary
+        clientId={clientId}
+        assessmentTargetsById={assessmentTargetsById}
+        onOpenJournal={() => navigate(`/clients/${clientId}/nutrition-journal`)}
+      />
 
       {loading ? (
         <AppLoading label={i18n.t("auto.ClientNutritionSection.chargement", "Chargement...")} minH="220px" />
@@ -203,41 +235,81 @@ export default function ClientNutritionSection({ clientId, isAdminOnly = false }
         </Box>
       ) : (
         <>
-          <SimpleGrid columns={{ base: 3, md: 3 }} spacing={{ base: 2, md: 3 }} mb={4}>
-            <Box {...theme.tileProps} p={4}>
-              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={theme.subtleText}>BILANS</Text>
-              <Text fontSize="2xl" fontWeight="900">{assessments.length}</Text>
-              <Text fontSize="sm" color={theme.mutedText}>{i18n.t("auto.ClientNutritionSection.dossier_s_nutrition", "dossier(s) nutrition")}</Text>
+          <SimpleGrid
+            columns={{ base: 1, sm: 3 }}
+            mb={4}
+            borderWidth="1px"
+            borderColor={theme.borderColor}
+            borderRadius="18px"
+            overflow="hidden"
+            bg={theme.surfaceSoft}
+          >
+            <Box px={4} py={3} borderRightWidth={{ base: 0, sm: "1px" }} borderBottomWidth={{ base: "1px", sm: 0 }} borderColor={theme.borderColor}>
+              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={theme.subtleText}>{t("nutritionCoach.stats.assessments", "BILANS")}</Text>
+              <HStack align="baseline" spacing={2} mt={1}>
+                <Text fontSize="xl" fontWeight="900">{assessments.length}</Text>
+                <Text fontSize="xs" color={theme.mutedText}>{i18n.t("auto.ClientNutritionSection.dossier_s_nutrition", "dossier(s) nutrition")}</Text>
+              </HStack>
             </Box>
-            <Box {...theme.tileProps} p={4}>
+            <Box px={4} py={3} borderRightWidth={{ base: 0, sm: "1px" }} borderBottomWidth={{ base: "1px", sm: 0 }} borderColor={theme.borderColor}>
               <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={theme.subtleText}>{i18n.t("auto.ClientNutritionSection.partages", "PARTAGÉS")}</Text>
-              <Text fontSize="2xl" fontWeight="900">{sharedCount}</Text>
-              <Text fontSize="sm" color={theme.mutedText}>{i18n.t("auto.ClientNutritionSection.visible_s_cote_client", "visible(s) côté client")}</Text>
+              <HStack align="baseline" spacing={2} mt={1}>
+                <Text fontSize="xl" fontWeight="900">{sharedCount}</Text>
+                <Text fontSize="xs" color={theme.mutedText}>{i18n.t("auto.ClientNutritionSection.visible_s_cote_client", "visible(s) côté client")}</Text>
+              </HStack>
             </Box>
-            <Box {...theme.tileProps} p={4}>
-              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={theme.subtleText}>STATUT</Text>
-              <Text fontSize="2xl" fontWeight="900">{statusSummary}</Text>
-              <Text fontSize="sm" color={theme.mutedText}>{i18n.t("auto.ClientNutritionSection.avancement_global", "avancement global")}</Text>
+            <Box px={4} py={3}>
+              <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={theme.subtleText}>{i18n.t("nutritionCoach.table.status", "Statut").toUpperCase()}</Text>
+              <HStack align="baseline" spacing={2} mt={1}>
+                <Text fontSize="lg" fontWeight="900">{statusSummary}</Text>
+                <Text fontSize="xs" color={theme.mutedText}>{i18n.t("auto.ClientNutritionSection.avancement_global", "avancement global")}</Text>
+              </HStack>
             </Box>
           </SimpleGrid>
 
           <Stack spacing={3} display={{ base: "flex", md: "none" }}>
             {assessments.map((a) => {
-              const status = getAssessmentStatus(a);
+              const status = getAssessmentStatus(a, t);
               const shared = hasSharedSections(a);
-              const objective = a?.inputs?.objectif || a?.inputs?.objective || "Bilan nutrition";
+              const objective = a?.inputs?.objectif || a?.inputs?.objective || t("nutritionCoach.defaultObjective", "Bilan nutrition");
               return (
                 <Box key={a.id} {...theme.tileProps} p={3}>
                   <HStack justify="space-between" align="start" gap={3}>
                     <Box minW={0}>
-                      <Text fontWeight="900">{formatDate(a.updatedAt || a.createdAt) || "Bilan nutrition"}</Text>
+                      <Text fontWeight="900">{formatDate(a.updatedAt || a.createdAt) || t("nutritionCoach.defaultObjective", "Bilan nutrition")}</Text>
                       <Text fontSize="sm" color={theme.mutedText} noOfLines={2}>{objective}</Text>
                       <HStack mt={2} spacing={2} flexWrap="wrap">
                         <Badge colorScheme={status.colorScheme} borderRadius="full" px={2}>{status.label}</Badge>
-                        <Badge colorScheme={shared ? "green" : "gray"} borderRadius="full" px={2}>{shared ? "Client" : "Interne"}</Badge>
+                        <Badge colorScheme={shared ? "green" : "gray"} borderRadius="full" px={2}>{shared ? t("nutritionCoach.share.patient", "Patient") : t("nutritionCoach.share.internal", "Interne")}</Badge>
                       </HStack>
                     </Box>
-                    <Button size="sm" borderRadius="12px" onClick={() => onOpen(a.id)}>{i18n.t("programs.open", "Ouvrir")}</Button>
+                    <HStack spacing={2} flexShrink={0}>
+                      <Button
+                        {...theme.primaryButtonProps}
+                        size="sm"
+                        h="38px"
+                        px={4}
+                        borderRadius="full"
+                        onClick={() => onOpen(a.id)}
+                      >
+                        {i18n.t("programs.open", "Ouvrir")}
+                      </Button>
+                      <IconButton
+                        size="sm"
+                        boxSize="38px"
+                        minW="38px"
+                        aria-label={i18n.t("programs.delete", "Supprimer")}
+                        variant="outline"
+                        borderColor="rgba(239,68,68,0.28)"
+                        color="#EF4444"
+                        bg="transparent"
+                        borderRadius="full"
+                        icon={<DeleteIcon boxSize="15px" />}
+                        _hover={{ bg: "rgba(239,68,68,0.10)", borderColor: "rgba(239,68,68,0.45)" }}
+                        onClick={() => setDeleteTarget(a)}
+                        isDisabled={!canUse}
+                      />
+                    </HStack>
                   </HStack>
                 </Box>
               );
@@ -257,9 +329,9 @@ export default function ClientNutritionSection({ clientId, isAdminOnly = false }
               </Thead>
               <Tbody>
                 {assessments.map((a) => {
-                  const status = getAssessmentStatus(a);
+                  const status = getAssessmentStatus(a, t);
                   const shared = hasSharedSections(a);
-                  const objective = a?.inputs?.objectif || a?.inputs?.objective || "Bilan nutrition";
+                  const objective = a?.inputs?.objectif || a?.inputs?.objective || t("nutritionCoach.defaultObjective", "Bilan nutrition");
                   return (
                   <Tr key={a.id}>
                     <Td>{formatDate(a.updatedAt || a.createdAt)}</Td>
@@ -271,19 +343,33 @@ export default function ClientNutritionSection({ clientId, isAdminOnly = false }
                     <Td>{objective}</Td>
                     <Td>
                       <Badge colorScheme={shared ? "green" : "gray"} borderRadius="full" px={2}>
-                        {shared ? "Client" : "Interne"}
+                        {shared ? t("nutritionCoach.share.patient", "Patient") : t("nutritionCoach.share.internal", "Interne")}
                       </Badge>
                     </Td>
                     <Td isNumeric>
                       <HStack justify="flex-end">
-                        <Button size="sm" borderRadius="12px" onClick={() => onOpen(a.id)}>{i18n.t("programs.open", "Ouvrir")}</Button>
+                        <Button
+                          {...theme.primaryButtonProps}
+                          size="sm"
+                          h="38px"
+                          px={4}
+                          borderRadius="full"
+                          onClick={() => onOpen(a.id)}
+                        >
+                          {i18n.t("programs.open", "Ouvrir")}
+                        </Button>
                         <IconButton
                           size="sm"
+                          boxSize="38px"
+                          minW="38px"
                           aria-label={i18n.t("programs.delete", "Supprimer")}
-                          bg="rgba(239,68,68,0.14)"
+                          variant="outline"
+                          borderColor="rgba(239,68,68,0.28)"
                           color="#EF4444"
-                          borderRadius="12px"
-                          icon={<span style={{ fontWeight: 700 }}>{i18n.t("auto.ClientNutritionSection.text", "×")}</span>}
+                          bg="transparent"
+                          borderRadius="full"
+                          icon={<DeleteIcon boxSize="15px" />}
+                          _hover={{ bg: "rgba(239,68,68,0.10)", borderColor: "rgba(239,68,68,0.45)" }}
                           onClick={() => setDeleteTarget(a)}
                           isDisabled={!canUse}
                         />

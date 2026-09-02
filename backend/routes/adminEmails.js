@@ -15,6 +15,7 @@ const DEFAULT_PREFERENCES = Object.freeze({
   programCompleted: true,
   inactivity: true,
   nutritionAssigned: true,
+  messaging: true,
   subscription: true,
 });
 
@@ -236,6 +237,7 @@ function automaticPreferenceKey(type) {
   if (type === "programCompleted") return "programCompleted";
   if (type === "inactivity") return "inactivity";
   if (type === "nutritionAssigned") return "nutritionAssigned";
+  if (type === "messaging") return "messaging";
   if (["subscriptionWelcome", "paymentIssue", "trialReminder", "trialReminder1", "trialReminder3"].includes(type)) {
     return "subscription";
   }

@@ -77,6 +77,26 @@ export function getProgramPlannedSessionTotal(program = {}) {
   return Math.max(templateTotal, activeTotal);
 }
 
+export function getProgramMinimumRestDays(program = {}) {
+  const sessionsPerWeek = getProgramSessionsPerWeek(program);
+  return sessionsPerWeek > 0 ? Math.max(0, Math.floor(7 / sessionsPerWeek) - 1) : 0;
+}
+
+export function isProgramRestDay(program = {}, date = new Date()) {
+  if (!program || program?._hasResumePoint) return false;
+  const minimumRestDays = getProgramMinimumRestDays(program);
+  const lastSessionMs = programDateToMillis(
+    program?._lastSessionMs || program?.lastSessionAt || program?.lastCompletedAt
+  );
+  if (!minimumRestDays || !lastSessionMs) return false;
+
+  const last = new Date(lastSessionMs);
+  const todayUtc = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  const lastUtc = Date.UTC(last.getFullYear(), last.getMonth(), last.getDate());
+  const daysSinceLastSession = Math.round((todayUtc - lastUtc) / (24 * 60 * 60 * 1000));
+  return daysSinceLastSession > 0 && daysSinceLastSession <= minimumRestDays;
+}
+
 export function getProgramValidatedSessionCount(program = {}) {
   const sessionsEffectuees = Array.isArray(program?.sessionsEffectuees)
     ? program.sessionsEffectuees
@@ -146,15 +166,17 @@ export function getProgramStartMillis(program = {}) {
   return 0;
 }
 
-export function getProgramCurrentWeek(program = {}) {
+export function getProgramCurrentWeek(program = {}, options = {}) {
   const totalWeeks = readProgramActiveWeeks(program);
   if (!totalWeeks) return 0;
   const sessionsPerWeek = getProgramSessionsPerWeek(program);
   if (!sessionsPerWeek) return 0;
   const validatedCount = getProgramValidatedSessionCount(program);
-  // Une semaine n'est acquise qu'une fois toutes ses séances validées. La date
-  // d'attribution ne doit jamais faire avancer ce compteur à elle seule.
-  return Math.min(totalWeeks, Math.floor(validatedCount / sessionsPerWeek));
+  // Le badge indique la semaine dans laquelle se trouve la cliente, et non le
+  // nombre de semaines entièrement achevées. Ainsi, la 7e séance d'un rythme
+  // de 3 séances/semaine appartient bien à la semaine 3.
+  if (validatedCount <= 0) return options.includeInitialWeek ? 1 : 0;
+  return Math.min(totalWeeks, Math.max(1, Math.ceil(validatedCount / sessionsPerWeek)));
 }
 
 export function formatProgramWeekProgress(program = {}, t = null, options = {}) {

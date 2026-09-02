@@ -8,6 +8,7 @@ import {
   Icon,
   Switch,
   Text,
+  VStack,
   useToast,
 } from "@chakra-ui/react";
 import { MdOutlineEmail } from "react-icons/md";
@@ -24,6 +25,10 @@ function notificationsEnabled(user) {
   );
 }
 
+function messagingNotificationsEnabled(user) {
+  return user?.emailPreferences?.messaging !== false;
+}
+
 export default function EmailNotificationPreferenceCard({
   surfaceProps = {},
   textColor = "inherit",
@@ -36,6 +41,7 @@ export default function EmailNotificationPreferenceCard({
   const { t } = useTranslation("common");
   const toast = useToast();
   const [enabled, setEnabled] = useState(() => notificationsEnabled(user));
+  const [messagingEnabled, setMessagingEnabled] = useState(() => messagingNotificationsEnabled(user));
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -47,6 +53,7 @@ export default function EmailNotificationPreferenceCard({
     })
       .then((data) => {
         if (typeof data?.enabled === "boolean") setEnabled(data.enabled);
+        if (typeof data?.messagingEnabled === "boolean") setMessagingEnabled(data.messagingEnabled);
       })
       .catch(() => {
         // La valeur du profil déjà chargée reste un repli valide.
@@ -112,6 +119,45 @@ export default function EmailNotificationPreferenceCard({
     }
   };
 
+  const handleMessagingChange = async (event) => {
+    if (!user?.uid || saving) return;
+    const nextEnabled = event.target.checked;
+    const previous = messagingEnabled;
+    setMessagingEnabled(nextEnabled);
+    setSaving(true);
+
+    const controller = new AbortController();
+    const timeoutId = globalThis.setTimeout(() => controller.abort(), SAVE_TIMEOUT_MS);
+    try {
+      await apiFetch("/client-profile/email-preferences", {
+        method: "PUT",
+        body: JSON.stringify({ messagingEnabled: nextEnabled }),
+        signal: controller.signal,
+      });
+      toast({
+        title: t("settings.email.messaging_saved", "Préférence de messagerie enregistrée"),
+        description: nextEnabled
+          ? t("settings.email.messaging_enabled", "Vous recevrez un e-mail lors d’un nouveau message.")
+          : t("settings.email.messaging_disabled", "Les nouveaux messages ne déclencheront plus d’e-mail."),
+        status: "success",
+        duration: 3500,
+        isClosable: true,
+      });
+    } catch (error) {
+      setMessagingEnabled(previous);
+      toast({
+        title: t("settings.email.save_error_title", "Préférence non enregistrée"),
+        description: error?.message || t("settings.email.save_error_description", "Réessayez dans quelques instants."),
+        status: "error",
+        duration: 4500,
+        isClosable: true,
+      });
+    } finally {
+      globalThis.clearTimeout(timeoutId);
+      setSaving(false);
+    }
+  };
+
   return (
     <Box {...surfaceProps} p={{ base: 5, md: 6 }}>
       <Flex
@@ -148,42 +194,73 @@ export default function EmailNotificationPreferenceCard({
           </Box>
         </HStack>
 
-        <Flex
-          bg={softBg}
-          border="1px solid"
-          borderColor={borderColor}
-          borderRadius="20px"
-          px={4}
-          py={3}
-          align="center"
-          justify="space-between"
-          gap={4}
-          minW={{ sm: "190px" }}
-        >
-          <Box>
-            <Text fontWeight="800" color={textColor}>
-              {enabled
-                ? t("settings.email.status_enabled", "Activées")
-                : t("settings.email.status_disabled", "Désactivées")}
-            </Text>
-            <Text fontSize="xs" color={mutedText}>
-              {saving
-                ? t("settings.email.saving", "Enregistrement…")
-                : t("settings.email.automatic_only", "E-mails automatiques")}
-            </Text>
-          </Box>
-          <Switch
-            colorScheme="blue"
-            size="lg"
-            isChecked={enabled}
-            isDisabled={saving}
-            onChange={handleChange}
-            aria-label={t(
-              "settings.email.toggle_label",
-              "Activer ou désactiver les notifications automatiques par e-mail"
-            )}
-          />
-        </Flex>
+        <VStack align="stretch" spacing={2} minW={{ sm: "250px" }}>
+          <Flex
+            bg={softBg}
+            border="1px solid"
+            borderColor={borderColor}
+            borderRadius="18px"
+            px={4}
+            py={3}
+            align="center"
+            justify="space-between"
+            gap={4}
+          >
+            <Box>
+              <Text fontWeight="800" color={textColor}>
+                {t("settings.email.all_automatic", "Tous les e-mails automatiques")}
+              </Text>
+              <Text fontSize="xs" color={mutedText}>
+                {saving
+                  ? t("settings.email.saving", "Enregistrement…")
+                  : enabled
+                    ? t("settings.email.status_enabled", "Activés")
+                    : t("settings.email.status_disabled", "Désactivés")}
+              </Text>
+            </Box>
+            <Switch
+              colorScheme="blue"
+              size="lg"
+              isChecked={enabled}
+              isDisabled={saving}
+              onChange={handleChange}
+              aria-label={t(
+                "settings.email.toggle_label",
+                "Activer ou désactiver les notifications automatiques par e-mail"
+              )}
+            />
+          </Flex>
+
+          <Flex
+            bg={softBg}
+            border="1px solid"
+            borderColor={borderColor}
+            borderRadius="18px"
+            px={4}
+            py={3}
+            align="center"
+            justify="space-between"
+            gap={4}
+            opacity={enabled ? 1 : 0.58}
+          >
+            <Box>
+              <Text fontWeight="800" color={textColor}>
+                {t("settings.email.messaging_label", "E-mails de messagerie")}
+              </Text>
+              <Text fontSize="xs" color={mutedText}>
+                {t("settings.email.messaging_hint", "Lors d’un nouveau message")}
+              </Text>
+            </Box>
+            <Switch
+              colorScheme="blue"
+              size="lg"
+              isChecked={messagingEnabled}
+              isDisabled={saving || !enabled}
+              onChange={handleMessagingChange}
+              aria-label={t("settings.email.messaging_toggle", "Activer ou désactiver les e-mails de messagerie")}
+            />
+          </Flex>
+        </VStack>
       </Flex>
     </Box>
   );

@@ -50,7 +50,7 @@ import AppLoading from "./ui/AppLoading";
 import { notify } from "../utils/notify";
 import { generateValidatedAiNutritionPlan } from "../utils/nutritionAiService";
 import { getClientNutritionFeedbackHistory } from "../utils/nutritionFeedbackService";
-import { canUseCustomBranding } from "../utils/proPlanAccess";
+import { canUseCustomBranding, hasPlanModule } from "../utils/proPlanAccess";
 
 import RationManualEditor from "./RationManualEditor.jsx";
 import RationAutoGenerator from "./RationAutoGenerator.jsx";
@@ -484,10 +484,10 @@ export default function NutritionRationPage() {
   const user = authCtx.user || authCtx.userData || null;
   const effectiveRole = authCtx.effectiveRole || user?.effectiveRole || null;
 
-  const isAdmin = useMemo(() => {
-    const role = user?.role || user?.userRole || effectiveRole || "";
-    return role === "admin";
-  }, [user, effectiveRole]);
+  const canManageNutrition = useMemo(
+    () => hasPlanModule({ ...user, role: user?.role || user?.userRole || effectiveRole }, "nutrition"),
+    [effectiveRole, user]
+  );
 
   const assessmentRef = useMemo(() => {
     if (!clientId || !assessmentId) return null;
@@ -1101,7 +1101,7 @@ export default function NutritionRationPage() {
   
 
   /* ========================= guards ========================= */
-  if (!isAdmin) {
+  if (!canManageNutrition) {
     return (
       <Box p={6}>
         <Heading size="md">{i18n.t("auto.NutritionRationPage.acces_refuse", "Accès refusé")}</Heading>
@@ -1146,7 +1146,9 @@ export default function NutritionRationPage() {
                         {i18n.t("auto.NutritionRationPage.bilan_non_valide", "BILAN NON VALIDÉ")}
                       </Badge>
                     ) : mode === "auto" && autoSafety.blockAutoGeneration ? (
-                      <Badge colorScheme="red">REVUE CLINIQUE INDISPENSABLE</Badge>
+                      <Badge colorScheme="red">
+                        {i18n.t("auto.NutritionRationPage.revue_clinique_indispensable", "REVUE CLINIQUE INDISPENSABLE")}
+                      </Badge>
                     ) : rationNeedsAdjustment ? (
                       <Badge colorScheme="orange">
                         {i18n.t("auto.NutritionRationPage.ration_a_ajuster", "RATION À AJUSTER")}

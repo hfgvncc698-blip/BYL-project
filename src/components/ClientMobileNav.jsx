@@ -65,7 +65,7 @@ export default function ClientMobileNav() {
     >
       <SimpleGrid columns={4} spacing={1}>
         {items.map((item) => {
-          const isActive = location.pathname === item.path;
+          const isActive = location.pathname === item.path || (item.path === "/nutrition" && location.pathname.startsWith("/nutrition/"));
           return (
             <Button
               key={item.path}

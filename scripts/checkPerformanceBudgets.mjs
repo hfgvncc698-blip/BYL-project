@@ -29,7 +29,7 @@ const budgets = [
   { prefix: "Clientdashboard", maxGzipKiB: 35 },
   { prefix: "Clients", maxGzipKiB: 15 },
   { prefix: "ProgramsPage", maxGzipKiB: 10 },
-  { prefix: "SessionPlayer", maxGzipKiB: 36.5 },
+  { prefix: "SessionPlayer", maxGzipKiB: 37.1 },
 ];
 
 const failures = [];

@@ -514,6 +514,7 @@ export default function ProfilePageCoach() {
 
       <Box maxW="1180px" mx="auto" position="relative" zIndex={1}>
         <Box
+          data-tour="coach-profile-summary"
           bg={surfaceBgStrong}
           border="1px solid"
           borderColor={borderColor}
@@ -631,7 +632,7 @@ export default function ProfilePageCoach() {
           </Flex>
         </Box>
 
-        <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={6}>
+        <SimpleGrid data-tour="coach-profile-form" columns={{ base: 1, xl: 2 }} spacing={6}>
           <SectionCard
             title={t("profile.coach.sections.identity", "Informations du coach")}
             subtitle={t("profile.coach.sections.identitySub", "Nom, prénom, e-mail et téléphone utilisés dans votre espace pro.")}

@@ -154,7 +154,11 @@ export async function runClientDataAccessDiagnostic(user, context = {}) {
     attempts.push(
       await attempt(
         "clients/{resolved}/nutrition_assessments",
-        () => getDocs(query(collection(db, "clients", resolvedClientId, "nutrition_assessments"), limit(50))),
+        () => getDocs(query(
+          collection(db, "clients", resolvedClientId, "nutrition_assessments"),
+          ...(user?.role === "particulier" ? [where("clientShare.enabled", "==", true)] : []),
+          limit(50)
+        )),
         summarizeQuery
       )
     );

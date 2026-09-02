@@ -522,6 +522,7 @@ router.get("/email-preferences", requireFirebaseAuth, async (req, res) => {
       enabled:
         user.settings?.emailNotificationsEnabled !== false &&
         user.emailPreferences?.allAutomatic !== false,
+      messagingEnabled: user.emailPreferences?.messaging !== false,
     });
   } catch (error) {
     console.error("[client-profile] email preference read failed:", error);
@@ -531,8 +532,10 @@ router.get("/email-preferences", requireFirebaseAuth, async (req, res) => {
 
 router.put("/email-preferences", requireFirebaseAuth, async (req, res) => {
   try {
-    if (typeof req.body?.enabled !== "boolean") {
-      return res.status(400).json({ error: "enabled-boolean-required" });
+    const hasGlobalPreference = typeof req.body?.enabled === "boolean";
+    const hasMessagingPreference = typeof req.body?.messagingEnabled === "boolean";
+    if (!hasGlobalPreference && !hasMessagingPreference) {
+      return res.status(400).json({ error: "email-preference-boolean-required" });
     }
 
     const db = admin.firestore();
@@ -542,23 +545,33 @@ router.put("/email-preferences", requireFirebaseAuth, async (req, res) => {
       return res.status(404).json({ error: "user-profile-not-found" });
     }
 
-    const enabled = req.body.enabled;
     const clientSnap = await findLinkedClient(db, req.auth, userSnap.data() || {});
     const now = admin.firestore.FieldValue.serverTimestamp();
     const batch = db.batch();
     const update = {
-      "emailPreferences.allAutomatic": enabled,
-      "settings.emailNotificationsEnabled": enabled,
       emailPreferencesUpdatedAt: now,
       emailPreferencesUpdatedBy: req.auth.uid,
     };
+    if (hasGlobalPreference) {
+      update["emailPreferences.allAutomatic"] = req.body.enabled;
+      update["settings.emailNotificationsEnabled"] = req.body.enabled;
+    }
+    if (hasMessagingPreference) {
+      update["emailPreferences.messaging"] = req.body.messagingEnabled;
+    }
     batch.update(userRef, update);
     if (clientSnap) batch.update(clientSnap.ref, update);
     await batch.commit();
 
     return res.json({
       ok: true,
-      enabled,
+      enabled: hasGlobalPreference
+        ? req.body.enabled
+        : userSnap.data()?.settings?.emailNotificationsEnabled !== false &&
+          userSnap.data()?.emailPreferences?.allAutomatic !== false,
+      messagingEnabled: hasMessagingPreference
+        ? req.body.messagingEnabled
+        : userSnap.data()?.emailPreferences?.messaging !== false,
       linkedClientId: clientSnap?.id || null,
     });
   } catch (error) {

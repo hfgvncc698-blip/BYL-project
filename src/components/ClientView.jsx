@@ -6,6 +6,7 @@ import {
   Grid,
   SimpleGrid,
   Text,
+  Stack,
   VStack,
   HStack,
   Table,
@@ -70,6 +71,7 @@ import {
   getProgramValidatedSessionCount,
 } from "../utils/programDuration";
 import { resolveClientSnapshotFromIdentifier } from "../utils/clientResolver";
+import { hasPlanModule } from "../utils/proPlanAccess";
 
 const SessionComparator = lazy(() => import("./SessionComparator"));
 const ClientNutritionSection = lazy(() => import("./ClientNutritionSection"));
@@ -87,6 +89,7 @@ const warmProgramRoute = (clientId, programmeId) => {
 const SUBCOL_PROGRAMMES = "programmes";
 const SUBCOL_SESSIONS_DONE = "sessionsEffectuees";
 const FIELD_DONE_DATE = "dateEffectuee";
+const ASSIGNED_PROGRAMS_VISIBLE_COUNT = 5;
 const SUBCOL_DIFFICULTE_NOTES = "difficulté_notes";
 
 const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
@@ -589,13 +592,14 @@ function buildAssignedProgramFromBase({
 }
 
 export default function ClientView() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user, hasCoachAccess } = useAuth();
   const { t } = useTranslation();
   const { clientId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const toast = useToast();
+  const canManageNutrition = isAdmin || (hasCoachAccess && hasPlanModule(user, "nutrition"));
 
   const initialCachedClientView = clientViewMemoryCache.get(clientId) || {};
   const [client, setClient] = useState(() => location.state?.prefetchedClient || initialCachedClientView.client || null);
@@ -1430,21 +1434,48 @@ export default function ClientView() {
       <Box
         layerStyle="glassPanel"
         bg={{ base: theme.surfaceGlow, md: panelBg }}
-        p={{ base: 5, md: 6 }}
+        p={{ base: 4, md: 6 }}
         mb={5}
       >
-        <Flex mb={4} align={{ base: "stretch", md: "center" }} justify="space-between" direction={{ base: "column", md: "row" }} gap={3}>
+        <Flex display={{ base: "flex", md: "none" }} mb={4} align="center" justify="space-between" gap={3}>
+          <PageBackButton label={t("common.back", "Retour")} onClick={() => navigate(-1)} />
+          <Button size="sm" variant="outline" borderRadius="full" onClick={editClient.onOpen}>
+            {t("clientView.editClient", "Modifier client")}
+          </Button>
+        </Flex>
+
+        <Flex display={{ base: "none", md: "flex" }} mb={4} align="center" justify="space-between" gap={3}>
           <PageBackButton label={t("common.back", "Retour")} onClick={() => navigate(-1)} />
           <Button size="sm" onClick={editClient.onOpen}>
             {t("clientView.editClient", "Modifier client")}
           </Button>
         </Flex>
 
-        <Text fontSize={{ base: "2xl", md: "3xl" }} fontWeight="900" letterSpacing="0" lineHeight="1.1">
+        <Text fontSize={{ base: "2xl", md: "3xl" }} fontWeight="900" letterSpacing="0" lineHeight="1.1" noOfLines={2}>
           {client?.prenom} {client?.nom}
         </Text>
 
-        <Wrap mt={3} spacing="10px">
+        <Stack display={{ base: "flex", md: "none" }} mt={4} spacing={0} divider={<Divider borderColor={panelBorder} />}>
+          {[
+            [t("profile.labels.email", "Email"), client?.email || "—"],
+            [t("profile.labels.phone", "Téléphone"), client?.telephone || "—"],
+            [t("clientCreation.birthDate", "Date de naissance"), client?.dateNaissance || "—"],
+            [t("clientCreation.level", "Niveau"), client?.niveauSportif || "—"],
+            ...(client?.objectifs ? [[t("autoQ.goal", "Objectif"), client.objectifs]] : []),
+            ...(client?.sexe ? [[t("clientCreation.gender", "Sexe"), client.sexe]] : []),
+          ].map(([label, value]) => (
+            <Flex key={label} py={2.5} align="flex-start" justify="space-between" gap={4}>
+              <Text flexShrink={0} fontSize="xs" color={muted} fontWeight="800">
+                {label}
+              </Text>
+              <Text minW={0} textAlign="right" fontSize="sm" fontWeight="800" overflowWrap="anywhere">
+                {value}
+              </Text>
+            </Flex>
+          ))}
+        </Stack>
+
+        <Wrap display={{ base: "none", md: "flex" }} mt={3} spacing="10px">
           <WrapItem>
             <Badge px={3} py={1.5} borderRadius="full" bg={accentSoft} color="textPrimary">
               {t("profile.labels.email", "Email")}: {client?.email || "—"}
@@ -1587,9 +1618,20 @@ export default function ClientView() {
         </Flex>
 
         {/* Desktop */}
-        <Box display={{ base: "none", md: "block" }} overflowX="auto" w="100%">
+        <Box
+          display={{ base: "none", md: "block" }}
+          overflowX="auto"
+          overflowY={sortedProgrammes.length > ASSIGNED_PROGRAMS_VISIBLE_COUNT ? "auto" : "visible"}
+          maxH={sortedProgrammes.length > ASSIGNED_PROGRAMS_VISIBLE_COUNT ? "450px" : "none"}
+          w="100%"
+          sx={{
+            scrollbarWidth: "thin",
+            "&::-webkit-scrollbar": { width: "7px", height: "7px" },
+            "&::-webkit-scrollbar-thumb": { bg: panelBorder, borderRadius: "full" },
+          }}
+        >
           <Table variant="simple" size="md" w="100%">
-            <Thead bg={subtlePanelBg}>
+            <Thead bg={subtlePanelBg} position="sticky" top={0} zIndex={1}>
               <Tr>
                 <Th>{t("dashboard.col_name", "Nom")}</Th>
                 <Th>{t("clientView.lastActivity", "Dernière activité")}</Th>
@@ -1717,7 +1759,17 @@ export default function ClientView() {
         </Box>
 
         {/* Mobile cartes */}
-        <Box display={{ base: "block", md: "none" }}>
+        <Box
+          display={{ base: "block", md: "none" }}
+          overflowY={sortedProgrammes.length > ASSIGNED_PROGRAMS_VISIBLE_COUNT ? "auto" : "visible"}
+          maxH={sortedProgrammes.length > ASSIGNED_PROGRAMS_VISIBLE_COUNT ? "1260px" : "none"}
+          pr={sortedProgrammes.length > ASSIGNED_PROGRAMS_VISIBLE_COUNT ? 1 : 0}
+          sx={{
+            scrollbarWidth: "thin",
+            "&::-webkit-scrollbar": { width: "5px" },
+            "&::-webkit-scrollbar-thumb": { bg: panelBorder, borderRadius: "full" },
+          }}
+        >
           <VStack spacing={3} align="stretch">
             {sortedProgrammes.map((p) => {
               const totalPrevues = getProgramPlannedSessionTotal(p);
@@ -1927,7 +1979,7 @@ export default function ClientView() {
         </>
       )}
 
-      {isAdmin && (
+      {canManageNutrition && (
         <Box bg={panelBg} border="1px solid" borderColor={panelBorder} mb={6} p={{ base: 4, md: 6 }} borderRadius="24px" boxShadow={shadow} backdropFilter="blur(16px)">
           <Text fontWeight="bold" mb={3}>
             {t("nutrition.title", "Nutrition")}
@@ -1941,7 +1993,7 @@ export default function ClientView() {
             }
           >
             <Suspense fallback={<Spinner size="sm" />}>
-              <ClientNutritionSection clientId={clientId} client={client} isAdminOnly />
+              <ClientNutritionSection clientId={clientId} client={client} requiresNutritionAccess />
             </Suspense>
           </SafeBoundary>
         </Box>

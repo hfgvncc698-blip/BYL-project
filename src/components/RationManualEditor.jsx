@@ -30,6 +30,7 @@ import {
 } from "../utils/nutritionContext";
 import { useNutritionTheme } from "../styles/nutritionTheme";
 import i18n from "../i18n/index";
+import { manualRationDefaultQuantity, manualRationMacrosPer100 } from "../utils/manualRationNutrition";
 
 /* ================= Utils ================= */
 const num = (v) => {
@@ -206,88 +207,6 @@ const CIQUAL_REF_BY_LABEL = {
   Miel: { alim_code: 31008 },
   "Chocolat noir": { alim_code: 31005 },
   "Chocolat au lait": { alim_code: 31004 },
-};
-
-const LOCAL_MACROS_PER100_BY_LABEL = {
-  "Lait 1/2 écrémé": { prot: 3.3, glu: 4.9, lip: 1.6 },
-  "Lait végétal": { prot: 1.0, glu: 3.0, lip: 2.0 },
-  Fromage: { prot: 24.0, glu: 1.0, lip: 28.0 },
-  "Yaourt nature": { prot: 4.0, glu: 5.0, lip: 3.0 },
-
-  "Viande moyenne": { prot: 20.0, glu: 0.0, lip: 12.0 },
-  "Viande maigre": { prot: 22.0, glu: 0.0, lip: 5.0 },
-  "Poissons gras": { prot: 20.0, glu: 0.0, lip: 13.0 },
-  "Poissons blanc": { prot: 20.0, glu: 0.0, lip: 2.0 },
-  Oeufs: { prot: 13.0, glu: 1.0, lip: 10.0 },
-
-  "Féculents crus": { prot: 7.0, glu: 75.0, lip: 1.0 },
-  "Féculents cuits": { prot: 2.5, glu: 28.0, lip: 0.3 },
-  Légumineuse: { prot: 9.0, glu: 18.0, lip: 1.5 },
-  "Pain blanc": { prot: 8.5, glu: 55.0, lip: 1.5 },
-  "Pain complet": { prot: 9.0, glu: 45.0, lip: 2.5 },
-
-  Légumes: { prot: 2.0, glu: 5.0, lip: 0.2 },
-  Fruits: { prot: 0.5, glu: 12.0, lip: 0.2 },
-
-  Beurre: { prot: 0.5, glu: 0.5, lip: 81.0 },
-  Huile: { prot: 0.0, glu: 0.0, lip: 100.0 },
-  Margarine: { prot: 0.0, glu: 0.0, lip: 80.0 },
-  "Crème fraîche": { prot: 2.0, glu: 3.0, lip: 30.0 },
-
-  Sucre: { prot: 0.0, glu: 100.0, lip: 0.0 },
-
-  Biscuits: { prot: 6.0, glu: 65.0, lip: 20.0 },
-  Gâteaux: { prot: 6.0, glu: 55.0, lip: 18.0 },
-  Confiture: { prot: 0.3, glu: 60.0, lip: 0.1 },
-  Miel: { prot: 0.3, glu: 82.0, lip: 0.0 },
-  "Chocolat noir": { prot: 7.0, glu: 30.0, lip: 42.0 },
-  "Chocolat au lait": { prot: 7.0, glu: 55.0, lip: 30.0 },
-
-  Isolate: { prot: 85.0, glu: 3.0, lip: 3.0 },
-  Hydrolisate: { prot: 85.0, glu: 3.0, lip: 3.0 },
-  "100% whey": { prot: 75.0, glu: 8.0, lip: 6.0 },
-  "Whey vegan": { prot: 75.0, glu: 8.0, lip: 6.0 },
-
-  Soda: { prot: 0.0, glu: 10.6, lip: 0.0 },
-  "Jus de fruits": { prot: 0.5, glu: 10.0, lip: 0.0 },
-  Alcool: { prot: 0.0, glu: 0.0, lip: 0.0 },
-};
-
-const DEFAULT_QTY_BY_LABEL = {
-  "Lait 1/2 écrémé": { qty: 125, unit: "ml" },
-  "Lait végétal": { qty: 150, unit: "ml" },
-  Fromage: { qty: 30, unit: "g" },
-  "Yaourt nature": { qty: 125, unit: "g" },
-  "Viande moyenne": { qty: 100, unit: "g" },
-  "Viande maigre": { qty: 100, unit: "g" },
-  "Poissons gras": { qty: 120, unit: "g" },
-  "Poissons blanc": { qty: 120, unit: "g" },
-  Oeufs: { qty: 2, unit: "unité" },
-  "Féculents crus": { qty: 60, unit: "g" },
-  "Féculents cuits": { qty: 180, unit: "g" },
-  Légumineuse: { qty: 110, unit: "g" },
-  "Pain blanc": { qty: 60, unit: "g" },
-  "Pain complet": { qty: 60, unit: "g" },
-  Légumes: { qty: 200, unit: "g" },
-  Fruits: { qty: 150, unit: "g" },
-  Beurre: { qty: 10, unit: "g" },
-  Huile: { qty: 10, unit: "g" },
-  Margarine: { qty: 10, unit: "g" },
-  "Crème fraîche": { qty: 15, unit: "g" },
-  Sucre: { qty: 10, unit: "g" },
-  Biscuits: { qty: 30, unit: "g" },
-  Gâteaux: { qty: 50, unit: "g" },
-  Confiture: { qty: 20, unit: "g" },
-  Miel: { qty: 15, unit: "g" },
-  "Chocolat noir": { qty: 20, unit: "g" },
-  "Chocolat au lait": { qty: 20, unit: "g" },
-  Isolate: { qty: 30, unit: "g" },
-  Hydrolisate: { qty: 30, unit: "g" },
-  "100% whey": { qty: 30, unit: "g" },
-  "Whey vegan": { qty: 30, unit: "g" },
-  Soda: { qty: 250, unit: "ml" },
-  "Jus de fruits": { qty: 250, unit: "ml" },
-  Alcool: { qty: 150, unit: "ml" },
 };
 
 const MICRO_DEFS = [
@@ -752,7 +671,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
 
   const quickOptionsForFood = useCallback((food, unit) => {
     const effectiveUnit = unit || food.defaultUnit || "g";
-    const preset = DEFAULT_QTY_BY_LABEL?.[food.name] || null;
+    const preset = manualRationDefaultQuantity(food.name);
     let baseQty = preset?.qty ?? (effectiveUnit === "ml" ? 150 : effectiveUnit === "g" ? 100 : 1);
     const baseUnit = preset?.unit || food.defaultUnit || effectiveUnit;
 
@@ -774,7 +693,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
 
   /* ---------- Macros locales ---------- */
   const getLocalMacrosPer100 = (label) => {
-    const m = LOCAL_MACROS_PER100_BY_LABEL?.[label];
+    const m = manualRationMacrosPer100(label);
     if (!m) return { prot: 0, glu: 0, lip: 0 };
     return { prot: num(m.prot), glu: num(m.glu), lip: num(m.lip) };
   };

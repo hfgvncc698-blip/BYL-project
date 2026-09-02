@@ -464,7 +464,7 @@ export default function StatisticsPageClient() {
           </Flex>
         </AppSurface>
 
-        <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={{ base: 2.5, md: 3 }}>
+        <SimpleGrid data-tour="client-stats-kpis" columns={{ base: 1, sm: 3 }} spacing={{ base: 2.5, md: 3 }}>
           <MiniStatCard
             labelText={label("kpis.totalPrograms", "Total programmes")}
             value={statsLoading ? "..." : nf0.format(totalProg)}
@@ -483,7 +483,7 @@ export default function StatisticsPageClient() {
         </SimpleGrid>
 
         {statsLoading ? (
-          <SurfaceCard p={{ base: 4, md: 6 }}>
+          <SurfaceCard data-tour="client-stats-comparison" p={{ base: 4, md: 6 }}>
             <Skeleton h="28px" w="220px" borderRadius="full" mb={3} />
             <Skeleton h="18px" w="80%" borderRadius="full" />
           </SurfaceCard>
@@ -517,7 +517,7 @@ export default function StatisticsPageClient() {
         )}
 
         <SimpleGrid columns={{ base: 1, xl: 3 }} spacing={6}>
-          <SurfaceCard p={{ base: 4, md: 6 }} gridColumn={{ xl: "span 2" }}>
+          <SurfaceCard data-tour="client-stats-measures" p={{ base: 4, md: 6 }} gridColumn={{ xl: "span 2" }}>
             <Flex justify="space-between" align={{ base: "stretch", md: "center" }} direction={{ base: "column", md: "row" }} gap={4} mb={5}>
               <Box>
                 <HStack spacing={3}>
