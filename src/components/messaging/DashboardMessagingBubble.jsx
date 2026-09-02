@@ -39,7 +39,7 @@ export default function DashboardMessagingBubble() {
   const toast = useToast();
   const theme = useAppTheme();
   const { user } = useAuth();
-  const { contacts, loading, unreadCount, isClient } = useMessagingContacts();
+  const { contacts, loading, unreadCount, isClient, hideConversation } = useMessagingContacts();
   const [open, setOpen] = useState(false);
   const [selectedContact, setSelectedContact] = useState(null);
   const [directoryOpen, setDirectoryOpen] = useState(false);
@@ -51,13 +51,12 @@ export default function DashboardMessagingBubble() {
   const shadow = useColorModeValue("0 22px 70px rgba(15,23,42,0.24)", "0 22px 70px rgba(0,0,0,0.52)");
 
   useEffect(() => {
-    if (isClient && contacts.length === 1) setSelectedContact(contacts[0]);
     if (selectedContact) {
       const refreshedContact = contacts.find((contact) => contact.id === selectedContact.id);
       if (!refreshedContact) setSelectedContact(null);
       else if (refreshedContact !== selectedContact) setSelectedContact(refreshedContact);
     }
-  }, [contacts, isClient, selectedContact]);
+  }, [contacts, selectedContact]);
 
   useEffect(() => {
     const storageKey = `${MESSAGING_NOTIFICATION_STORAGE_PREFIX}${user?.uid || "anonymous"}`;
@@ -193,7 +192,7 @@ export default function DashboardMessagingBubble() {
               <MessagingThread
                 contact={selectedContact}
                 compact
-                onBack={!isClient ? () => setSelectedContact(null) : undefined}
+                onBack={() => setSelectedContact(null)}
               />
             ) : (
               <Box h="full" overflowY="auto" p={3}>
@@ -244,6 +243,7 @@ export default function DashboardMessagingBubble() {
                     setSelectedContact(contact);
                     setDirectoryOpen(false);
                   }}
+                  onDelete={hideConversation}
                 />
               </Box>
             )}

@@ -285,8 +285,9 @@ check("messaging stays unified and keeps its dashboard launcher", () => {
       contactList.includes("AlertDialog") &&
       contactList.includes('messaging.deleteConversationTitle') &&
       contactList.includes('common.cancel') &&
-      messagingPage.includes("hiddenAtBy.${user.uid}") &&
+      contacts.includes("hiddenAtBy.${user.uid}") &&
       contacts.includes("conversation?.hiddenAtBy?.[user?.uid]") &&
+      bubble.includes("onDelete={hideConversation}") &&
       thread.includes("contact?.hiddenAtMillis") &&
       thread.includes("batch.update(conversationRef") &&
       !thread.includes("deleteField") &&

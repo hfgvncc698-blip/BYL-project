@@ -10,6 +10,7 @@ import {
   Badge,
   Box,
   Button,
+  Flex,
   HStack,
   IconButton,
   Text,
@@ -105,30 +106,36 @@ export default function MessagingContactList({ contacts, selectedId = "", onSele
         return (
           <Box key={contact.id} position="relative" overflow="hidden" borderRadius="16px">
             {canDelete ? (
-              <IconButton
+              <Flex
                 position="absolute"
                 insetEnd={0}
-                top={{ base: 0, md: "50%" }}
-                bottom={{ base: 0, md: "auto" }}
-                transform={{ base: "none", md: "translateY(-50%)" }}
+                top={0}
+                bottom={0}
                 display={{ base: isOpen ? "inline-flex" : "none", md: "inline-flex" }}
-                w={{ base: `${SWIPE_WIDTH}px`, md: "36px" }}
-                h={{ base: "full", md: "36px" }}
-                minH={{ base: "full", md: "36px" }}
-                me={{ base: 0, md: 2 }}
-                borderRadius={{ base: 0, md: "full" }}
-                colorScheme="red"
-                variant={{ base: "solid", md: "ghost" }}
+                align="center"
+                justify="center"
+                w={{ base: `${SWIPE_WIDTH}px`, md: "48px" }}
+                bg={{ base: "rgba(229,62,62,0.12)", md: "transparent" }}
                 zIndex={3}
-                aria-label={t("messaging.deleteConversationAria")}
-                title={t("messaging.deleteConversation")}
-                icon={<DeleteIcon />}
-                isLoading={deletingId === contact.id}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setPendingDelete(contact);
-                }}
-              />
+              >
+                <IconButton
+                  w={{ base: "42px", md: "36px" }}
+                  h={{ base: "42px", md: "36px" }}
+                  minW={{ base: "42px", md: "36px" }}
+                  borderRadius="full"
+                  colorScheme="red"
+                  variant={{ base: "solid", md: "ghost" }}
+                  boxShadow={{ base: "0 8px 18px rgba(229,62,62,0.28)", md: "none" }}
+                  aria-label={t("messaging.deleteConversationAria")}
+                  title={t("messaging.deleteConversation")}
+                  icon={<DeleteIcon boxSize="16px" />}
+                  isLoading={deletingId === contact.id}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setPendingDelete(contact);
+                  }}
+                />
+              </Flex>
             ) : null}
             <Box
               as="button"

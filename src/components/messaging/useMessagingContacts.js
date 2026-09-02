@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
 import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { db } from "../../firebaseConfig";
@@ -117,10 +117,23 @@ export default function useMessagingContacts() {
     };
   }).sort((a, b) => (b.lastActivityAt || 0) - (a.lastActivityAt || 0) || a.title.localeCompare(b.title)), [contacts, conversationById, user?.uid]);
 
+  const hideConversation = async (contact) => {
+    if (!contact?.conversation || !contact?.id || !user?.uid) return;
+    try {
+      await updateDoc(doc(db, "conversations", contact.id), {
+        [`hiddenAtBy.${user.uid}`]: serverTimestamp(),
+        [`readAtBy.${user.uid}`]: serverTimestamp(),
+      });
+    } catch {
+      throw new Error(t("messaging.deleteConversationError"));
+    }
+  };
+
   return {
     contacts: enrichedContacts,
     loading,
     unreadCount: enrichedContacts.filter((contact) => contact.unread).length,
     isClient,
+    hideConversation,
   };
 }

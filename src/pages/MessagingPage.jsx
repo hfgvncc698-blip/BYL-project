@@ -13,7 +13,6 @@ import {
 } from "@chakra-ui/react";
 import { SearchIcon } from "@chakra-ui/icons";
 import { AddIcon } from "@chakra-ui/icons";
-import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import MessagingContactList from "../components/messaging/MessagingContactList";
@@ -22,17 +21,14 @@ import useMessagingContacts from "../components/messaging/useMessagingContacts";
 import PageBackButton from "../components/ui/PageBackButton";
 import { AppSurface } from "../components/ui/AppPrimitives";
 import { useAppTheme } from "../styles/appTheme";
-import { useAuth } from "../AuthContext";
-import { db } from "../firebaseConfig";
 
 const normalize = (value) => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 export default function MessagingPage() {
   const { t } = useTranslation();
   const theme = useAppTheme();
-  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { contacts, loading, isClient } = useMessagingContacts();
+  const { contacts, loading, isClient, hideConversation } = useMessagingContacts();
   const [search, setSearch] = useState("");
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const selectedId = searchParams.get("conversation") || "";
@@ -43,17 +39,9 @@ export default function MessagingPage() {
   const filteredContacts = visibleContacts.filter((contact) => normalize([contact.title, contact.email].join(" ")).includes(normalize(search)));
 
   const selectContact = (contact) => setSearchParams({ conversation: contact.id });
-  const hideConversation = async (contact) => {
-    if (!contact?.conversation || !contact?.id || !user?.uid) return;
-    try {
-      await updateDoc(doc(db, "conversations", contact.id), {
-        [`hiddenAtBy.${user.uid}`]: serverTimestamp(),
-        [`readAtBy.${user.uid}`]: serverTimestamp(),
-      });
-      setSearchParams({});
-    } catch {
-      throw new Error(t("messaging.deleteConversationError"));
-    }
+  const removeConversation = async (contact) => {
+    await hideConversation(contact);
+    setSearchParams({});
   };
 
   return (
@@ -122,7 +110,7 @@ export default function MessagingPage() {
                   contacts={filteredContacts}
                   selectedId={selectedContact?.id}
                   onSelect={selectContact}
-                  onDelete={hideConversation}
+                  onDelete={removeConversation}
                 />
               )}
             </Box>
