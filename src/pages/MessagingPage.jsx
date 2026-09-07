@@ -7,7 +7,7 @@ import {
   Input,
   InputGroup,
   InputLeftElement,
-  Button,
+  IconButton,
   Spinner,
   Text,
 } from "@chakra-ui/react";
@@ -87,23 +87,22 @@ export default function MessagingPage() {
               p={3}
             >
               {!isClient ? (
-                <>
-                  <Button
-                    w="full"
-                    mb={3}
-                    variant={directoryOpen ? "solid" : "outline"}
-                    colorScheme={directoryOpen ? "blue" : undefined}
-                    borderRadius="full"
-                    leftIcon={<AddIcon boxSize="10px" />}
-                    onClick={() => setDirectoryOpen((value) => !value)}
-                  >
-                    {t("messaging.startConversation")}
-                  </Button>
-                  <InputGroup mb={3}>
+                <HStack mb={3} spacing={2}>
+                  <InputGroup flex="1" minW={0}>
                     <InputLeftElement pointerEvents="none"><SearchIcon color={theme.mutedText} /></InputLeftElement>
                     <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("messaging.search")} borderRadius="full" />
                   </InputGroup>
-                </>
+                  <IconButton
+                    flexShrink={0}
+                    borderRadius="full"
+                    variant={directoryOpen ? "solid" : "outline"}
+                    colorScheme={directoryOpen ? "blue" : undefined}
+                    aria-label={t("messaging.startConversation")}
+                    title={t("messaging.startConversation")}
+                    icon={<AddIcon boxSize="12px" />}
+                    onClick={() => setDirectoryOpen((value) => !value)}
+                  />
+                </HStack>
               ) : null}
               {loading ? <Flex py={10} justify="center"><Spinner size="sm" /></Flex> : (
                 <MessagingContactList

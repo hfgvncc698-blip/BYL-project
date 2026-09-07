@@ -1072,6 +1072,26 @@ function addDays(date, days) {
   return new Date(date.getTime() + Number(days || 0) * 24 * 60 * 60 * 1000);
 }
 
+function nextParisMorningEligibility(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  // Minuit UTC du prochain jour civil à Paris est toujours antérieur au
+  // traitement quotidien de 09:00, y compris lors des changements d'heure.
+  return new Date(Date.UTC(
+    Number(values.year),
+    Number(values.month) - 1,
+    Number(values.day) + 1,
+    0,
+    0,
+    0
+  ));
+}
+
 function readActiveWeeks(program = {}) {
   const raw =
     program.activeWeeks ??
@@ -1732,17 +1752,28 @@ function countProgramSessions(program = {}) {
     : Array.isArray(program.seances)
     ? program.seances
     : [];
-  return sessions.length;
-}
+  const templateTotal = sessions.length || Math.max(0, Math.round(Number(
+    program.totalSessions ?? program.nbSeances ?? program.sessionCount ?? 0
+  ) || 0));
+  if (!templateTotal) return 0;
 
-function getProgramAssignedDate(program = {}) {
-  return (
-    toDate(program.assignedAt) ||
-    toDate(program.assigned_at) ||
-    toDate(program.createdAt) ||
-    toDate(program.created_at) ||
-    new Date()
+  const name = `${program.nomProgramme || ""} ${program.name || ""} ${program.title || ""}`;
+  const nameMatch = name.match(/(\d+)\s*(?:x|fois|séances?|seances?)\s*(?:\/|par)?\s*(?:sem|semaine|week)/i);
+  const namedFrequency = Number(nameMatch?.[1] || 0);
+  const storedFrequency = Number(
+    program.sessionsPerWeek ??
+    program.seancesParSemaine ??
+    program.nbSeancesSemaine ??
+    program.nbSeancesParSemaine ??
+    program.sessions_per_week ??
+    0
   );
+  const sessionsPerWeek = Math.max(1, Math.round(
+    (Number.isFinite(namedFrequency) && namedFrequency > 0 ? namedFrequency : 0) ||
+    (Number.isFinite(storedFrequency) && storedFrequency > 0 ? storedFrequency : 0) ||
+    templateTotal
+  ));
+  return Math.max(templateTotal, readActiveWeeks(program) * sessionsPerWeek);
 }
 
 async function hasStartedProgram(programRef) {
@@ -1797,13 +1828,16 @@ async function getCompletedSessionCount(programRef, program = {}) {
   if (!total) return 0;
   const doneSnap = await programRef.collection("sessionsEffectuees").get();
   if (doneSnap.empty) return 0;
-  const indexes = new Set();
+  let completed = 0;
   doneSnap.forEach((docSnap) => {
     const data = docSnap.data() || {};
     const index = completedSessionIndex(data, total);
-    if (index !== null) indexes.add(index);
+    // Chaque document représente une exécution réelle. Les indices 0..N de
+    // la semaine type se répètent à chaque semaine du programme et ne doivent
+    // donc pas être dédupliqués entre les cycles.
+    if (index !== null) completed += 1;
   });
-  return indexes.size;
+  return completed;
 }
 
 async function sendProgramLifecycleEmail({ programRef, program, clientId, programmeId, kind, dueExtra = {} }) {
@@ -2890,33 +2924,20 @@ exports.onProgramSessionCompleted = onDocumentWritten(
       if (completed < totalSessions) return;
 
       const activeWeeks = readActiveWeeks(program);
-      const dueAt = addDays(getProgramAssignedDate(program), activeWeeks * 7);
+      const dueAt = nextParisMorningEligibility();
       const duePayload = {
         completedAt: admin.firestore.FieldValue.serverTimestamp(),
         completionEmailDueAt: admin.firestore.Timestamp.fromDate(dueAt),
       };
-
-      if (dueAt.getTime() > Date.now()) {
-        await programRef.set(
-          {
-            ...duePayload,
-            activeWeeks,
-            durationWeeks: activeWeeks,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          },
-          { merge: true }
-        );
-        return;
-      }
-
-      await sendProgramLifecycleEmail({
-        programRef,
-        program,
-        clientId,
-        programmeId,
-        kind: "programCompleted",
-        dueExtra: duePayload,
-      });
+      await programRef.set(
+        {
+          ...duePayload,
+          activeWeeks,
+          durationWeeks: activeWeeks,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
     } catch (err) {
       console.error("[onProgramSessionCompleted] FAILED", { clientId, programmeId }, err);
     }

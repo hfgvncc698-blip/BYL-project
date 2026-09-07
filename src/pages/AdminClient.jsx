@@ -397,6 +397,10 @@ export default function AdminClient() {
   const [unifiedProfile, setUnifiedProfile] = useState(null);
   const [analyticsVisit, setAnalyticsVisit] = useState(null);
   const [programs, setPrograms] = useState([]); // programmes liés (clients/{id}/programmes)
+  const [premiumCatalog, setPremiumCatalog] = useState([]);
+  const [premiumProgramId, setPremiumProgramId] = useState("");
+  const [premiumBusy, setPremiumBusy] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
   const [error, setError] = useState("");
 
   // --- Stripe local state (admin) ---
@@ -490,7 +494,31 @@ export default function AdminClient() {
     return () => {
       mounted = false;
     };
-  }, [id]);
+  }, [id, reloadTick]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const response = await fetch(`${getApiBase()}/payments/premium-programs`, {
+          headers: { ...(await getAuthHeaders()) },
+          credentials: "include",
+        });
+        const data = await readJsonResponse(response);
+        if (!response.ok) throw new Error(data?.error || "premium-catalog-error");
+        const rows = Array.isArray(data?.programs) ? data.programs : [];
+        if (!mounted) return;
+        setPremiumCatalog(rows);
+        setPremiumProgramId((current) => current || rows[0]?.id || "");
+      } catch (e) {
+        if (mounted) setPremiumCatalog([]);
+        console.warn("[AdminClient] premium catalog unavailable:", e?.message || e);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -610,6 +638,37 @@ export default function AdminClient() {
     [analyticsVisit, clientData, latestCompletedSessionAt, userData]
   );
   const lastVisitLocation = formatLocation(analyticsVisit || userData?.location || clientData?.location);
+
+  const assignPremiumProgram = async () => {
+    if (!premiumProgramId) return;
+    setPremiumBusy(true);
+    try {
+      const response = await fetch(`${getApiBase()}/payments/admin/assign-premium`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(await getAuthHeaders()) },
+        credentials: "include",
+        body: JSON.stringify({
+          uid: userData?.id || linkedUserByEmail?.id || "",
+          clientId: clientData?.id || id,
+          programId: premiumProgramId,
+        }),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) throw new Error(data?.error || "premium-assignment-error");
+      toast({
+        title: data.alreadyExists ? "Programme déjà attribué" : "Programme premium attribué",
+        description: data.alreadyExists ? "Le client possède déjà ce programme." : "Il est maintenant disponible dans son espace client.",
+        status: data.alreadyExists ? "info" : "success",
+        duration: 4500,
+        isClosable: true,
+      });
+      setReloadTick((tick) => tick + 1);
+    } catch (e) {
+      toast({ title: "Attribuer un programme premium", description: e.message || "Erreur", status: "error", duration: 6000, isClosable: true });
+    } finally {
+      setPremiumBusy(false);
+    }
+  };
 
   // =========================
   // Stripe Admin handlers
@@ -1295,6 +1354,37 @@ export default function AdminClient() {
 
           {/* Programmes */}
           <TabPanel px={0}>
+            <Card mb={5} bg={cardBg} borderRadius="2xl" shadow="sm" border="1px solid" borderColor={borderCol}>
+              <CardHeader>
+                <Heading size="md">Attribuer un programme premium</Heading>
+                <Text color={muted} fontSize="sm">Ajoute directement un programme du catalogue dans l’espace client, sans paiement.</Text>
+              </CardHeader>
+              <CardBody>
+                <HStack align="end" flexWrap={{ base: "wrap", md: "nowrap" }}>
+                  <FormControl flex="1" minW={{ base: "100%", md: "280px" }}>
+                    <FormLabel>Programme</FormLabel>
+                    <Select value={premiumProgramId} onChange={(e) => setPremiumProgramId(e.target.value)} isDisabled={!premiumCatalog.length}>
+                      {!premiumCatalog.length ? <option value="">Aucun programme premium actif</option> : null}
+                      {premiumCatalog.map((program) => (
+                        <option key={program.id} value={program.id}>
+                          {program.nomProgramme || program.name || program.title || program.objectif || program.id}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <Button
+                    leftIcon={<Icon as={MdPlaylistAdd} />}
+                    onClick={assignPremiumProgram}
+                    isLoading={premiumBusy}
+                    isDisabled={!premiumProgramId}
+                    minW={{ base: "100%", md: "220px" }}
+                  >
+                    Attribuer au client
+                  </Button>
+                </HStack>
+              </CardBody>
+            </Card>
+
             <Card bg={cardBg} borderRadius="2xl" shadow="sm" border="1px solid" borderColor={borderCol}>
               <CardHeader>
                 <HStack justify="space-between" align="center" flexWrap="wrap" gap={2}>

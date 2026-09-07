@@ -1022,6 +1022,7 @@ const getProgramCreatedAtMs = (program = {}) => {
 
 const resolveCoachAccessContext = (rawCoach = {}) => {
   const coach = rawCoach || {};
+  if (coach.manualEntitlements === true) return coach;
   const trialEndMs = toMillis(coach.trialEndsAt || coach.trialEnd);
   const hasActiveTrial =
     coach.role === "coach" &&

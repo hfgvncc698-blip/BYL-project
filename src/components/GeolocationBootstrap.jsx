@@ -16,7 +16,10 @@ export default function GeolocationBootstrap() {
     // ✅ On demande la géoloc uniquement si consentement analytics = true
     enabled: analyticsOn,
 
-    watch: false,
+    // Garde la position à jour quand l'utilisateur change réellement de lieu
+    // (voyage, sortie de veille, changement de réseau) au lieu de figer la
+    // première mesure de la session.
+    watch: true,
 
     // ✅ Ecrit users/{uid}.location seulement si connecté + analytics
     saveUserLocation: analyticsOn && !!user?.uid,

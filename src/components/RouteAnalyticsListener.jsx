@@ -11,9 +11,12 @@ function getGeoFromStorage() {
       city: localStorage.getItem("BYL_CITY") || null,
       lat: localStorage.getItem("BYL_LAT") || null,
       lng: localStorage.getItem("BYL_LNG") || null,
+      accuracy: localStorage.getItem("BYL_GEO_ACCURACY") || null,
+      capturedAt: localStorage.getItem("BYL_GEO_UPDATED_AT") || null,
+      source: localStorage.getItem("BYL_GEO_SOURCE") || null,
     };
   } catch {
-    return { country: null, city: null, lat: null, lng: null };
+    return { country: null, city: null, lat: null, lng: null, accuracy: null, capturedAt: null, source: null };
   }
 }
 
@@ -89,6 +92,7 @@ export default function RouteAnalyticsListener({ isAnalyticsOn = true, consentLo
       ct || "",
       lat || "",
       lng || "",
+      Math.floor(Number(geo.capturedAt || 0) / (5 * 60 * 1000)),
     ].join("|");
 
     if (lastKeyRef.current === key) return;
@@ -111,6 +115,9 @@ export default function RouteAnalyticsListener({ isAnalyticsOn = true, consentLo
           city: finalCity,
           lat: finalLat,
           lng: finalLng,
+          accuracy: readyGeo.accuracy ?? geo.accuracy,
+          geoCapturedAt: readyGeo.capturedAt ?? geo.capturedAt,
+          geoSource: readyGeo.source ?? geo.source,
           roleEffectif: roleEff,
           analyticsAllowed: !!isAnalyticsOn,
         });

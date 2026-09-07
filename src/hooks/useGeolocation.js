@@ -3,6 +3,22 @@ import { useState, useEffect, useRef } from "react";
 import { resolveCityCountry } from "../utils/geocoding";
 
 export const GEO_PERMISSION_DECISION_KEY = "BYL_GEO_PERMISSION_DECISION_V1";
+const GEO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const GEO_MOVEMENT_THRESHOLD_METERS = 250;
+
+const distanceMeters = (a, b) => {
+  if (!a || !b) return Infinity;
+  const toRad = (value) => (Number(value) * Math.PI) / 180;
+  const earthRadius = 6371e3;
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const deltaLat = toRad(Number(b.lat) - Number(a.lat));
+  const deltaLng = toRad(Number(b.lng) - Number(a.lng));
+  const h = Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+  const clamped = Math.min(1, Math.max(0, h));
+  return earthRadius * 2 * Math.atan2(Math.sqrt(clamped), Math.sqrt(1 - clamped));
+};
 
 const readStoredGeoDecision = () => {
   try {
@@ -49,6 +65,7 @@ export default function useGeolocation({
 
   const watchIdRef = useRef(null);
   const autoRequestAttemptedRef = useRef(false);
+  const lastPublishedGeoRef = useRef(null);
   const [browserPermission, setBrowserPermission] = useState(() =>
     typeof navigator !== "undefined" && navigator.permissions?.query ? "checking" : "unsupported"
   );
@@ -78,7 +95,7 @@ export default function useGeolocation({
 
   const clearCachedGeo = () => {
     try {
-      ["BYL_COUNTRY", "BYL_CITY", "BYL_LAT", "BYL_LNG", "BYL_GEO_UPDATED_AT"].forEach((key) => {
+      ["BYL_COUNTRY", "BYL_CITY", "BYL_LAT", "BYL_LNG", "BYL_GEO_ACCURACY", "BYL_GEO_SOURCE", "BYL_GEO_UPDATED_AT"].forEach((key) => {
         localStorage.removeItem(key);
       });
     } catch {
@@ -87,7 +104,7 @@ export default function useGeolocation({
   };
 
   // Helper: écrit localStorage + déclenche event pour RouteAnalyticsListener
-  const writeGeoToStorageAndNotify = ({ country, city, lat, lng }) => {
+  const writeGeoToStorageAndNotify = ({ country, city, lat, lng, accuracy, timestamp, source = "browser" }) => {
     let changed = false;
     try {
       const prevC = localStorage.getItem("BYL_COUNTRY");
@@ -111,7 +128,11 @@ export default function useGeolocation({
         localStorage.setItem("BYL_LNG", String(lng));
         changed = true;
       }
-      localStorage.setItem("BYL_GEO_UPDATED_AT", String(Date.now()));
+      if (Number.isFinite(Number(accuracy))) {
+        localStorage.setItem("BYL_GEO_ACCURACY", String(accuracy));
+      }
+      localStorage.setItem("BYL_GEO_SOURCE", source);
+      localStorage.setItem("BYL_GEO_UPDATED_AT", String(timestamp || Date.now()));
     } catch {
       // ignore
     }
@@ -199,7 +220,7 @@ export default function useGeolocation({
       return;
     }
 
-    if (autoRequestAttemptedRef.current) return;
+    if (autoRequestAttemptedRef.current && !watch) return;
     autoRequestAttemptedRef.current = true;
     // Ne jamais envoyer l'ancien lieu pendant que la nouvelle position est en
     // cours d'acquisition. L'analytics attendra BYL_GEO_READY ou utilisera son
@@ -229,15 +250,25 @@ export default function useGeolocation({
 
       // L'écriture Firestore se fait côté backend via /api/analytics/pageview.
       if (saveAnalytics) {
+        const lastPublished = lastPublishedGeoRef.current;
+        const elapsed = Date.now() - Number(lastPublished?.publishedAt || 0);
+        if (
+          lastPublished &&
+          elapsed < GEO_REFRESH_INTERVAL_MS &&
+          distanceMeters(lastPublished, base) < GEO_MOVEMENT_THRESHOLD_METERS
+        ) {
+          return;
+        }
+        lastPublishedGeoRef.current = { ...base, publishedAt: Date.now() };
         try {
           let cityCountry = await resolveCityCountry(base.lat, base.lng);
           if (!cityCountry) cityCountry = { city: null, country: null };
 
           // ✅ localStorage pour RouteAnalyticsListener + event
-          writeGeoToStorageAndNotify({ ...cityCountry, lat: base.lat, lng: base.lng });
+          writeGeoToStorageAndNotify({ ...cityCountry, ...base });
         } catch (err) {
           console.error("Failed to save analytics geo:", err);
-          writeGeoToStorageAndNotify({ country: null, city: null, lat: base.lat, lng: base.lng });
+          writeGeoToStorageAndNotify({ country: null, city: null, ...base });
         }
       }
     };
@@ -278,6 +309,7 @@ export default function useGeolocation({
     return () => {
       if (watch && watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
       }
     };
   }, [enabled, uid, watch, saveUserLocation, saveAnalytics, reuseCachedPosition, browserPermission, JSON.stringify(options ?? {})]);
@@ -313,10 +345,10 @@ export default function useGeolocation({
             let cityCountry = await resolveCityCountry(base.lat, base.lng);
             if (!cityCountry) cityCountry = { city: null, country: null };
 
-            writeGeoToStorageAndNotify({ ...cityCountry, lat: base.lat, lng: base.lng });
+            writeGeoToStorageAndNotify({ ...cityCountry, ...base });
           } catch (err) {
             console.error("Failed to refresh analytics geo:", err);
-            writeGeoToStorageAndNotify({ country: null, city: null, lat: base.lat, lng: base.lng });
+            writeGeoToStorageAndNotify({ country: null, city: null, ...base });
           }
         }
       },

@@ -650,9 +650,9 @@ function normalizePremiumSessions(sessions) {
 /* ============================================================
    Copier un programme premium vers clients/{uid}/programmes
 ============================================================ */
-async function copyPremiumProgramToClient({ firebaseUid, programmeId, session }) {
-  if (!firebaseUid || !programmeId)
-    throw new Error("uid/programmeId requis");
+async function copyPremiumProgramToClient({ firebaseUid, clientId, programmeId, session }) {
+  if ((!firebaseUid && !clientId) || !programmeId)
+    throw new Error("uid ou clientId, et programmeId requis");
 
   const db = admin.firestore();
   const srcRef = db.collection("programmes").doc(programmeId);
@@ -662,14 +662,15 @@ async function copyPremiumProgramToClient({ firebaseUid, programmeId, session })
   const p = srcSnap.data() || {};
   if (p.isActive === false) throw new Error("programme inactif");
 
-  const clientRef = await resolveClientRefForPremiumPurchase(firebaseUid);
+  const clientRef = clientId
+    ? db.collection("clients").doc(String(clientId))
+    : await resolveClientRefForPremiumPurchase(firebaseUid);
+  const assignedTo = firebaseUid || clientRef.id;
   const clientSnap = await clientRef.get();
   if (!clientSnap.exists) {
     await clientRef.set(
       {
-        uid: firebaseUid,
-        linkedUserId: firebaseUid,
-        accountUid: firebaseUid,
+        ...(firebaseUid ? { uid: firebaseUid, linkedUserId: firebaseUid, accountUid: firebaseUid } : {}),
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },
@@ -677,7 +678,7 @@ async function copyPremiumProgramToClient({ firebaseUid, programmeId, session })
     );
   } else {
     const clientData = clientSnap.data() || {};
-    if (clientData.accountUid !== firebaseUid && clientData.linkedUserId !== firebaseUid && clientRef.id !== firebaseUid) {
+    if (firebaseUid && clientData.accountUid !== firebaseUid && clientData.linkedUserId !== firebaseUid && clientRef.id !== firebaseUid) {
       await clientRef.set(
         {
           accountUid: firebaseUid,
@@ -730,7 +731,7 @@ async function copyPremiumProgramToClient({ firebaseUid, programmeId, session })
 
   const base = {
     sourceProgrammeId: programmeId,
-    assignedTo: firebaseUid,
+    assignedTo,
     assignedAt: admin.firestore.FieldValue.serverTimestamp(),
     source: "premium-paid",
     origine: "premium",
@@ -1140,6 +1141,12 @@ router.post("/admin/set-trial", requireAdminKey, async (req, res) => {
     }
 
     await upsertUserSubscription(String(uid), {
+      ...(isTrialActive && u.manualEntitlements !== true
+        ? getServerProPlanAccess(
+            u.packageKey === "club" || u.accountType === "club_owner" ? "club" : "complete",
+            u.packageKey === "club" || u.accountType === "club_owner" ? "network" : "unlimited"
+          )
+        : {}),
       subscriptionStatus: isTrialActive ? "trialing" : (u.subscriptionStatus || "canceled"),
       trialStart,
       trialEnd: isTrialActive ? trialEndDate : null,
@@ -1186,8 +1193,16 @@ router.post("/admin/set-access", requireAdminKey, async (req, res) => {
     const fallbackTrialEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
     const normalizedStatus = safeStatus;
     const trialEnd = normalizedStatus === "trialing" ? existingTrialEnd || fallbackTrialEnd : null;
+    const shouldProvisionTrialAccess = normalizedStatus === "trialing" && current.manualEntitlements !== true;
+    const trialAccess = shouldProvisionTrialAccess
+      ? getServerProPlanAccess(
+          current.packageKey === "club" || current.accountType === "club_owner" ? "club" : "complete",
+          current.packageKey === "club" || current.accountType === "club_owner" ? "network" : "unlimited"
+        )
+      : {};
 
     await upsertUserSubscription(String(uid), {
+      ...trialAccess,
       subscriptionStatus: normalizedStatus,
       trialStatus: normalizedStatus === "trialing" ? "running" : "none",
       trialStart: normalizedStatus === "trialing" ? current.trialStart || current.trialStartedAt || now : null,
@@ -1201,6 +1216,106 @@ router.post("/admin/set-access", requireAdminKey, async (req, res) => {
     return res.json({ ok: true, status: normalizedStatus, trialEnd });
   } catch (e) {
     console.error("[ADMIN set-access] error:", e);
+    return res.status(500).json({ error: e.message || "server-error" });
+  }
+});
+
+/* ============================================================
+   ADMIN 4.bis) Régler les droits et quotas indépendamment du prix Stripe
+   POST /api/payments/admin/set-entitlements
+============================================================ */
+router.post("/admin/set-entitlements", requireAdminKey, async (req, res) => {
+  try {
+    const { uid, packageKey, clientLimit, proLimit, storageLimitGb } = req.body || {};
+    if (!uid) return res.status(400).json({ error: "uid required" });
+
+    const safePackageKey = normalizeProPackageKey(packageKey);
+    const defaultTier = safePackageKey === "club" ? "network" : "unlimited";
+    const baseAccess = getServerProPlanAccess(safePackageKey, defaultTier);
+    const parseLimit = (value, field, { allowZero = true } = {}) => {
+      if (value === null || value === "" || value === undefined) return null;
+      const parsed = Number(value);
+      if (!Number.isInteger(parsed) || parsed < (allowZero ? 0 : 1)) {
+        const error = new Error(`${field} invalid`);
+        error.status = 400;
+        throw error;
+      }
+      return parsed;
+    };
+    const safeClientLimit = parseLimit(clientLimit, "clientLimit");
+    const safeProLimit = parseLimit(proLimit, "proLimit");
+    const safeStorageLimitGb = parseLimit(storageLimitGb, "storageLimitGb", { allowZero: false });
+    const modules = [...baseAccess.modules];
+    const workspaceAccess = {
+      client: true,
+      coach: true,
+      club: safePackageKey === "club",
+    };
+    const proAccess = {
+      ...baseAccess.proAccess,
+      clientLimit: safeClientLimit,
+      proLimit: safeProLimit,
+      modules,
+    };
+
+    const db = admin.firestore();
+    const userRef = db.collection("users").doc(String(uid));
+    const snap = await userRef.get();
+    if (!snap.exists) return res.status(404).json({ error: "user not found" });
+    const current = snap.data() || {};
+    const clubIdentityPatch = safePackageKey === "club"
+      ? {
+          accountType: "club_owner",
+          clubRole: "owner",
+          clubId: current.clubId || String(uid),
+        }
+      : {};
+
+    await userRef.set({
+      ...clubIdentityPatch,
+      packageKey: safePackageKey,
+      packageTier: defaultTier,
+      modules,
+      clientLimit: safeClientLimit,
+      proLimit: safeProLimit,
+      storageLimitGb: safeStorageLimitGb,
+      workspaceAccess,
+      proAccess,
+      manualEntitlements: true,
+      manualEntitlementsUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    return res.json({
+      ok: true,
+      packageKey: safePackageKey,
+      modules,
+      clientLimit: safeClientLimit,
+      proLimit: safeProLimit,
+      storageLimitGb: safeStorageLimitGb,
+      workspaceAccess,
+    });
+  } catch (e) {
+    console.error("[ADMIN set-entitlements] error:", e);
+    return res.status(e?.status || 500).json({ error: e.message || "server-error" });
+  }
+});
+
+router.post("/admin/assign-premium", requireAdminKey, async (req, res) => {
+  try {
+    const { uid, clientId, programId } = req.body || {};
+    if ((!uid && !clientId) || !programId) {
+      return res.status(400).json({ error: "uid/clientId and programId required" });
+    }
+    const assignment = await copyPremiumProgramToClient({
+      firebaseUid: uid ? String(uid) : "",
+      clientId: clientId ? String(clientId) : "",
+      programmeId: String(programId),
+      session: { id: "manual", amount_total: 0, currency: "eur" },
+    });
+    return res.json({ ok: true, ...assignment });
+  } catch (e) {
+    console.error("[ADMIN assign-premium] error:", e);
     return res.status(500).json({ error: e.message || "server-error" });
   }
 });
@@ -1311,6 +1426,7 @@ function firestoreBillingSummary(user, email, reason = null) {
           currentPeriodStart: user.trialStartedAt || user.trialStart || null,
           currentPeriodEnd: user.nextInvoiceAt || user.trialEndsAt || user.trialEnd || null,
           price: null,
+          metadata: {},
           quantity: 1,
         }
       : status
@@ -1398,6 +1514,7 @@ router.get("/admin/billing-summary", requireAdminKey, async (req, res) => {
               ? new Date(subscription.current_period_end * 1000)
               : null,
             price: subscriptionPrice ? serializeStripePrice(subscriptionPrice) : null,
+            metadata: subscription.metadata || {},
             quantity: Number(subscriptionItem?.quantity || 1),
           }
         : null,

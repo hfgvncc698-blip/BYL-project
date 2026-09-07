@@ -16,7 +16,7 @@ import {
   useColorModeValue,
   useToast,
 } from "@chakra-ui/react";
-import { AddIcon, ArrowBackIcon, CloseIcon, SearchIcon } from "@chakra-ui/icons";
+import { AddIcon, CloseIcon, SearchIcon } from "@chakra-ui/icons";
 import { MdOutlineChat } from "react-icons/md";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -176,15 +176,32 @@ export default function DashboardMessagingBubble() {
                 {unreadCount ? <Badge colorScheme="blue" borderRadius="full">{unreadCount}</Badge> : null}
               </HStack>
             </Button>
-            <IconButton
-              display={{ base: "inline-flex", md: "none" }}
-              size="sm"
-              variant="ghost"
-              borderRadius="full"
-              aria-label={t("common.close")}
-              icon={<CloseIcon boxSize="12px" />}
-              onClick={() => setOpen(false)}
-            />
+            <HStack spacing={1}>
+              {!isClient && !selectedContact ? (
+                <IconButton
+                  size="sm"
+                  borderRadius="full"
+                  variant={directoryOpen ? "solid" : "outline"}
+                  colorScheme={directoryOpen ? "blue" : undefined}
+                  aria-label={t("messaging.startConversation")}
+                  title={t("messaging.startConversation")}
+                  icon={<AddIcon boxSize="11px" />}
+                  onClick={() => {
+                    setDirectoryOpen((value) => !value);
+                    setSearch("");
+                  }}
+                />
+              ) : null}
+              <IconButton
+                display={{ base: "inline-flex", md: "none" }}
+                size="sm"
+                variant="ghost"
+                borderRadius="full"
+                aria-label={t("common.close")}
+                icon={<CloseIcon boxSize="12px" />}
+                onClick={() => setOpen(false)}
+              />
+            </HStack>
           </HStack>
 
           <Box flex="1" minH={0} overflow="hidden">
@@ -197,44 +214,15 @@ export default function DashboardMessagingBubble() {
             ) : (
               <Box h="full" overflowY="auto" p={3}>
                 {!isClient ? (
-                  <>
-                    {directoryOpen ? (
-                      <HStack mb={3} spacing={2} align="center">
-                        <IconButton
-                          flexShrink={0}
-                          size="md"
-                          variant="outline"
-                          borderRadius="full"
-                          aria-label={t("common.back", "Retour")}
-                          icon={<ArrowBackIcon boxSize="18px" />}
-                          onClick={() => {
-                            setDirectoryOpen(false);
-                            setSearch("");
-                          }}
-                        />
-                        <InputGroup flex="1" minW={0}>
-                          <InputLeftElement pointerEvents="none"><SearchIcon color={theme.mutedText} /></InputLeftElement>
-                          <Input
-                            value={search}
-                            onChange={(event) => setSearch(event.target.value)}
-                            placeholder={t("messaging.search")}
-                            borderRadius="full"
-                          />
-                        </InputGroup>
-                      </HStack>
-                    ) : (
-                      <Button
-                        w="full"
-                        mb={3}
-                        variant="outline"
-                        borderRadius="full"
-                        leftIcon={<AddIcon boxSize="10px" />}
-                        onClick={() => setDirectoryOpen(true)}
-                      >
-                        {t("messaging.startConversation")}
-                      </Button>
-                    )}
-                  </>
+                  <InputGroup mb={3}>
+                    <InputLeftElement pointerEvents="none"><SearchIcon color={theme.mutedText} /></InputLeftElement>
+                    <Input
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder={t("messaging.search")}
+                      borderRadius="full"
+                    />
+                  </InputGroup>
                 ) : null}
                 <MessagingContactList
                   contacts={visibleContacts}

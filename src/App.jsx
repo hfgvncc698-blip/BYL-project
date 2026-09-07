@@ -520,7 +520,10 @@ function ClubRoute({ children }) {
   if (isAdmin) return children;
   if (user.role !== "coach") return <Navigate to="/" replace />;
   if (!hasCoachAccess) return <Navigate to="/plans/professionnel" replace />;
-  if (user.accountType !== "club_owner" && user.clubRole !== "owner") {
+  const hasClubWorkspace = user.manualEntitlements === true
+    ? user.workspaceAccess?.club === true
+    : user.accountType === "club_owner" || user.clubRole === "owner";
+  if (!hasClubWorkspace) {
     return <Navigate to="/coach-dashboard" replace />;
   }
   return children;

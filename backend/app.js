@@ -177,6 +177,9 @@ app.use('/api/admin-users', adminUserRoutes);
 const coachSessionRoutes = require('./routes/coachSessions');
 app.use('/api/coach-sessions', coachSessionRoutes);
 
+const messagingRoutes = require('./routes/messaging');
+app.use('/api/messaging', messagingRoutes);
+
 // ====================== Healthcheck ======================
 const { db } = require('./utils/db');
 const withRetry = require('./utils/withRetry');

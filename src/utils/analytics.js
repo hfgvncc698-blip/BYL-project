@@ -61,6 +61,9 @@ export async function trackPageView({
   roleEffectif,
   lat,
   lng,
+  accuracy,
+  geoCapturedAt,
+  geoSource,
   analyticsAllowed = true,
 }) {
   const authUser = auth.currentUser;
@@ -79,6 +82,9 @@ export async function trackPageView({
     analyticsAllowed: analyticsAllowed !== false,
     lat: includeCoords ? cleanLat : null,
     lng: includeCoords ? cleanLng : null,
+    accuracy: includeCoords && Number.isFinite(Number(accuracy)) ? Number(accuracy) : null,
+    geoCapturedAt: includeCoords && Number.isFinite(Number(geoCapturedAt)) ? Number(geoCapturedAt) : null,
+    geoSource: includeCoords ? String(geoSource || "browser").slice(0, 40) : null,
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
   };
 

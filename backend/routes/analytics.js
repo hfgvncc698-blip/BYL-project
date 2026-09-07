@@ -871,6 +871,12 @@ router.post("/pageview", async (req, res) => {
     const hasUsableCoords = rawLat != null && rawLng != null && !isNullIsland(rawLat, rawLng);
     const lat = hasUsableCoords ? rawLat : null;
     const lng = hasUsableCoords ? rawLng : null;
+    const accuracy = cleanCoordinate(req.body?.accuracy, 0, 100000);
+    const geoCapturedAtMs = Number(req.body?.geoCapturedAt);
+    const geoCapturedAt = Number.isFinite(geoCapturedAtMs) && geoCapturedAtMs > 0
+      ? new Date(geoCapturedAtMs)
+      : null;
+    const geoSource = cleanText(req.body?.geoSource, 40, hasUsableCoords ? "browser" : "network");
     const reverseGeo = await reverseGeocode({ lat, lng });
     const countrySource =
       reverseGeo?.country ||
@@ -923,6 +929,9 @@ router.post("/pageview", async (req, res) => {
           ...(hasGeoLabel ? { country, city } : {}),
           ...(lat != null ? { lat } : {}),
           ...(lng != null ? { lng } : {}),
+          ...(accuracy != null ? { accuracy } : {}),
+          source: geoSource,
+          ...(geoCapturedAt ? { capturedAt: geoCapturedAt } : {}),
           updatedAt: FieldValue.serverTimestamp(),
         };
       }
@@ -1223,6 +1232,9 @@ router.post("/pageview", async (req, res) => {
       city,
       lat,
       lng,
+      accuracy,
+      geoCapturedAt,
+      geoSource,
       timeZone: visitorTimeZone,
       analyticsAllowed,
       seenAt: FieldValue.serverTimestamp(),

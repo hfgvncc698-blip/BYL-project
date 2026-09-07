@@ -206,6 +206,7 @@ check("messaging stays unified and keeps its dashboard launcher", () => {
   const messagingPage = read("src/pages/MessagingPage.jsx");
   const contacts = read("src/components/messaging/useMessagingContacts.js");
   const contactList = read("src/components/messaging/MessagingContactList.jsx");
+  const messagingRoute = read("backend/routes/messaging.js");
   const rules = read("firestore.rules");
 
   assert.ok(
@@ -244,20 +245,24 @@ check("messaging stays unified and keeps its dashboard launcher", () => {
       bubble.includes('launcherRef.current?.contains(event.target)') &&
       bubble.includes('display={{ base: "inline-flex", md: "none" }}') &&
       bubble.includes('display={{ base: open ? "none" : "block", md: "block" }}') &&
-      bubble.includes('<HStack mb={3} spacing={2} align="center">') &&
-      bubble.includes('aria-label={t("common.back", "Retour")}') &&
-      bubble.includes('icon={<ArrowBackIcon boxSize="18px" />}') &&
-      bubble.includes('setDirectoryOpen(false)') &&
+      bubble.includes('aria-label={t("messaging.startConversation")}') &&
+      bubble.includes('icon={<AddIcon boxSize="11px" />}') &&
+      bubble.includes('<InputGroup mb={3}>') &&
+      messagingPage.includes('<HStack mb={3} spacing={2}>') &&
+      messagingPage.includes('icon={<AddIcon boxSize="12px" />}') &&
       bubble.includes('onClick={() => setOpen((value) => !value)}'),
-    "The bubble keeps explicit close controls and lets professionals return from the contact directory"
+    "The full page and bubble keep compact new-conversation controls beside their primary content"
   );
   assert.ok(
-    thread.includes('type: "text"') &&
+    messagingRoute.includes('type: "text"') &&
       thread.includes("MAX_MESSAGE_LENGTH = 4000") &&
-      thread.includes("writeBatch(db)") &&
-      thread.includes("batch.set(conversationRef") &&
-      thread.includes("batch.set(messageRef") &&
-      thread.includes("await batch.commit()") &&
+      thread.includes('/messaging/send') &&
+      thread.includes("getAuthHeaders()") &&
+      messagingRoute.includes('router.post("/send", requireFirebaseAuth') &&
+      messagingRoute.includes("const batch = db.batch()") &&
+      messagingRoute.includes("batch.set(conversationRef") &&
+      messagingRoute.includes("batch.set(messageRef") &&
+      messagingRoute.includes("await batch.commit()") &&
       thread.includes("endBefore(cursor)") &&
       thread.includes("loadOlderMessages") &&
       thread.includes('messaging.loadPrevious') &&
@@ -289,7 +294,7 @@ check("messaging stays unified and keeps its dashboard launcher", () => {
       contacts.includes("conversation?.hiddenAtBy?.[user?.uid]") &&
       bubble.includes("onDelete={hideConversation}") &&
       thread.includes("contact?.hiddenAtMillis") &&
-      thread.includes("batch.update(conversationRef") &&
+      contacts.includes('updateDoc(doc(db, "conversations", contact.id)') &&
       !thread.includes("deleteField") &&
       rules.includes('newData.hiddenAtBy.diff(oldData.hiddenAtBy).affectedKeys().hasOnly([request.auth.uid])'),
     "Mobile conversations must support a private swipe-to-remove action without deleting the other participant's history"
@@ -1214,9 +1219,10 @@ check("admin email history is lazy and automatic sends are deduplicated", () => 
   );
   assert.ok(
     functionsIndex.includes("function completedSessionIndex") &&
-      functionsIndex.includes("if (index !== null) indexes.add(index)") &&
-      functionsIndex.includes("return indexes.size"),
-    "Program completion must count only unique, validated session indexes"
+      functionsIndex.includes("readActiveWeeks(program) * sessionsPerWeek") &&
+      functionsIndex.includes("if (index !== null) completed += 1") &&
+      functionsIndex.includes("return completed"),
+    "Program completion must count validated executions across every active week"
   );
   const completedSessionHelperSource = functionsIndex.match(
     /(function completedSessionIndex[\s\S]*?\n})\n\nasync function getCompletedSessionCount/
@@ -1246,6 +1252,22 @@ check("admin email history is lazy and automatic sends are deduplicated", () => 
     functionsIndex.includes("const completedSessions = await getCompletedSessionCount(docSnap.ref, program)") &&
       functionsIndex.includes("completionEmailDueAt: admin.firestore.FieldValue.delete()"),
     "Scheduled completion emails must revalidate every session before sending"
+  );
+  const completionTriggerSource = functionsIndex.match(
+    /exports\.onProgramSessionCompleted[\s\S]*?\/\* =======================================================================\n \* 7\)/
+  )?.[0] || "";
+  assert.ok(
+    completionTriggerSource.includes("nextParisMorningEligibility()") &&
+      completionTriggerSource.includes("completionEmailDueAt") &&
+      !completionTriggerSource.includes("sendProgramLifecycleEmail({"),
+    "Completing a program must queue its email for the next morning instead of sending immediately"
+  );
+  assert.ok(
+    coachPage.includes("subscriptionAccessFor(userData, stripeInfo)") &&
+      coachPage.includes('quotaFromMetadata(metadata, "clientLimit"') &&
+      coachPage.includes('quotaFromMetadata(metadata, "proLimit"') &&
+      coachPage.includes('"storageLimitGb"'),
+    "Admin entitlement fields must start from the subscribed client, professional and storage quotas"
   );
 });
 

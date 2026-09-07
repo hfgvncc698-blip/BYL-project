@@ -23,12 +23,13 @@ import {
   query,
   serverTimestamp,
   setDoc,
-  writeBatch,
 } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
 import { db } from "../../firebaseConfig";
 import { useAuth } from "../../AuthContext";
 import { conversationIdForClient, personName, toMessageMillis } from "../../utils/messaging";
+import { getApiBase } from "../../utils/apiBase";
+import { getAuthHeaders } from "../../utils/authHeaders";
 import { useAppTheme } from "../../styles/appTheme";
 
 const MAX_MESSAGE_LENGTH = 4000;
@@ -47,7 +48,7 @@ export default function MessagingThread({ contact, compact = false, onBack }) {
   const [hasOlder, setHasOlder] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
-  const bottomRef = useRef(null);
+  const messagesPaneRef = useRef(null);
   const historyCursorRef = useRef(null);
   const historyLoadedRef = useRef(false);
   const conversationId = conversationIdForClient(contact?.clientId, contact?.coachUid);
@@ -133,7 +134,12 @@ export default function MessagingThread({ contact, compact = false, onBack }) {
   }, [conversationId, latestMessageId, user?.uid]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: messages.length > 1 ? "smooth" : "auto", block: "end" });
+    const pane = messagesPaneRef.current;
+    if (!pane) return;
+    pane.scrollTo({
+      top: pane.scrollHeight,
+      behavior: messages.length > 1 ? "smooth" : "auto",
+    });
   }, [latestMessageId]);
 
   const groupedMessages = useMemo(() => messages.map((message) => ({
@@ -156,47 +162,33 @@ export default function MessagingThread({ contact, compact = false, onBack }) {
     }
     setSending(true);
     setError("");
-    const nowIso = new Date().toISOString();
-    const participantUids = [...new Set([...(contact.participantUids || []), contact.clientUid, contact.coachUid, user.uid].filter(Boolean))];
     try {
-      const batch = writeBatch(db);
-      const conversationRef = doc(db, "conversations", conversationId);
-      const messageRef = doc(collection(db, "conversations", conversationId, "messages"));
-      const conversationData = {
-        clientId: contact.clientId,
-        clientUid: contact.clientUid,
-        coachUid: contact.coachUid,
-        professionalUid: contact.coachUid,
-        participantUids,
-        clientName: contact.clientName || (user.uid === contact.clientUid ? personName(user) : contact.title),
-        professionalName: contact.professionalName || (user.uid === contact.coachUid ? personName(user) : contact.title),
-        lastMessage: text.slice(0, 180),
-        lastMessageAt: serverTimestamp(),
-        lastMessageAtIso: nowIso,
-        lastSenderUid: user.uid,
-        updatedAt: serverTimestamp(),
-      };
-      if (contact.conversation || contact.hiddenAtMillis) {
-        batch.update(conversationRef, {
-          ...conversationData,
-          [`readAtBy.${user.uid}`]: serverTimestamp(),
-        });
-      } else {
-        batch.set(conversationRef, {
-          ...conversationData,
-          readAtBy: { [user.uid]: serverTimestamp() },
-        });
-      }
-      batch.set(messageRef, {
-        text,
-        senderUid: user.uid,
-        createdAt: serverTimestamp(),
-        createdAtIso: nowIso,
-        type: "text",
+      const response = await fetch(`${getApiBase()}/messaging/send`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(await getAuthHeaders()),
+        },
+        body: JSON.stringify({
+          text,
+          clientId: contact.clientId,
+          clientUid: contact.clientUid,
+          professionalUid: contact.coachUid,
+          clientName: contact.clientName || (user.uid === contact.clientUid ? personName(user) : contact.title),
+          professionalName: contact.professionalName || (user.uid === contact.coachUid ? personName(user) : contact.title),
+        }),
       });
-      await batch.commit();
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.message?.id) {
+        throw new Error(payload?.error || `message-send-${response.status}`);
+      }
+      setLiveMessages((current) => {
+        if (current.some((message) => message.id === payload.message.id)) return current;
+        return [...current, payload.message];
+      });
       setDraft("");
-    } catch {
+    } catch (sendError) {
+      console.error("[messaging] send failed", sendError);
       setError(t("messaging.sendError"));
     } finally {
       setSending(false);
@@ -215,6 +207,7 @@ export default function MessagingThread({ contact, compact = false, onBack }) {
       </HStack>
 
       <VStack
+        ref={messagesPaneRef}
         flex="1"
         minH={0}
         overflowY="auto"
@@ -275,7 +268,6 @@ export default function MessagingThread({ contact, compact = false, onBack }) {
             </Flex>
           );
         })}
-        <Box ref={bottomRef} />
       </VStack>
 
       <Box p={3} borderTop="1px solid" borderColor={theme.borderColor}>
@@ -298,7 +290,18 @@ export default function MessagingThread({ contact, compact = false, onBack }) {
             rows={1}
             borderRadius="16px"
           />
-          <Button colorScheme="blue" borderRadius="full" px={5} isLoading={sending} isDisabled={!draft.trim()} onClick={sendMessage}>
+          <Button
+            type="button"
+            colorScheme="blue"
+            borderRadius="full"
+            px={5}
+            isLoading={sending}
+            isDisabled={!draft.trim()}
+            onClick={(event) => {
+              event.preventDefault();
+              void sendMessage();
+            }}
+          >
             {t("messaging.send")}
           </Button>
         </HStack>

@@ -255,7 +255,7 @@ const normalizeUserDoc = (uid, data, fb) => {
         modules: [...ADMIN_PRO_ACCESS.modules],
       }
     : null;
-  const trialAccess = isActiveCoachTrial
+  const trialAccess = isActiveCoachTrial && data?.manualEntitlements !== true
     ? {
         ...(isClubTrial ? FULL_CLUB_TRIAL_ACCESS : FULL_PRO_TRIAL_ACCESS),
         modules: [...(isClubTrial ? FULL_CLUB_TRIAL_ACCESS.modules : FULL_PRO_TRIAL_ACCESS.modules)],
@@ -297,6 +297,9 @@ const normalizeUserDoc = (uid, data, fb) => {
     proLimit: adminAccess ? adminAccess.proLimit : trialAccess ? trialAccess.proLimit : data?.proLimit ?? null,
     modules: adminAccess ? adminAccess.modules : trialAccess ? trialAccess.modules : data?.modules ?? [],
     proAccess: adminAccess ?? trialAccess ?? data?.proAccess ?? null,
+    workspaceAccess: data?.workspaceAccess ?? null,
+    manualEntitlements: data?.manualEntitlements === true,
+    storageLimitGb: data?.storageLimitGb ?? null,
 
     trialStartedAt: toDate(data?.trialStartedAt),
     trialEndsAt,

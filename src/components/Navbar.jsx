@@ -162,7 +162,9 @@ export default function Navbar() {
   const isClient = user?.role === "particulier";
   const isClubOwner =
     user?.role === "coach" &&
-    (user?.accountType === "club_owner" || user?.clubRole === "owner");
+    (user?.manualEntitlements === true
+      ? user?.workspaceAccess?.club === true
+      : user?.accountType === "club_owner" || user?.clubRole === "owner");
   const isClubContext =
     (user?.role === "coach" || user?.role === "admin") &&
     (isClubOwner || location.pathname.startsWith(ROUTES.clubDashboard));

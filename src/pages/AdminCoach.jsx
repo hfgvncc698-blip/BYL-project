@@ -70,6 +70,7 @@ import AppLoading from "../components/ui/AppLoading";
 import { useAppTheme } from "../styles/appTheme";
 import { getAuthHeaders } from "../utils/authHeaders";
 import { getApiBase } from "../utils/apiBase";
+import { getProPlanAccess } from "../utils/proPlanAccess";
 import i18n from "../i18n/index";
 
 const AdminClientEmailPanel = lazy(() => import("../components/admin/AdminClientEmailPanel"));
@@ -181,6 +182,43 @@ function getAccessMeta(user) {
     return { status: "canceled", color: "red", label: "Accès annulé", paidActive: false };
   }
   return { status: status || "free", color: "gray", label: "Free", paidActive: false };
+}
+
+function quotaFromMetadata(metadata, key, fallback) {
+  if (!metadata || !Object.prototype.hasOwnProperty.call(metadata, key)) return fallback;
+  const raw = String(metadata[key] ?? "").trim().toLowerCase();
+  if (!raw || ["null", "unlimited", "illimite", "illimité"].includes(raw)) return null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.round(parsed) : fallback;
+}
+
+function subscriptionAccessFor(user = {}, stripeInfo = null) {
+  const priceMetadata = stripeInfo?.subscription?.price?.metadata || {};
+  const subscriptionMetadata = stripeInfo?.subscription?.metadata || {};
+  const metadata = { ...priceMetadata, ...subscriptionMetadata };
+  const isUnconfiguredTrial =
+    String(user.subscriptionStatus || "").toLowerCase() === "trialing" &&
+    !user.packageKey &&
+    !user.proAccess?.packageKey &&
+    !metadata.packageKey;
+  const packageKey = metadata.packageKey || user.packageKey || user.proAccess?.packageKey || "complete";
+  const packageTier = metadata.packageTier || user.packageTier || user.proAccess?.packageTier || (isUnconfiguredTrial ? "unlimited" : undefined);
+  const plan = getProPlanAccess(packageKey, packageTier);
+  return {
+    ...plan,
+    clientLimit: quotaFromMetadata(metadata, "clientLimit", plan.clientLimit),
+    proLimit: quotaFromMetadata(metadata, "proLimit", plan.proLimit),
+    storageLimitGb: quotaFromMetadata(
+      metadata,
+      "storageLimitGb",
+      user.subscriptionStorageLimitGb ?? user.proAccess?.storageLimitGb ?? user.storageLimitGb ?? null
+    ),
+    sourceLabel: stripeInfo?.subscription?.price
+      ? "abonnement Stripe"
+      : isUnconfiguredTrial
+        ? "essai complet"
+        : "offre enregistrée",
+  };
 }
 
 function invoiceStatusLabel(status) {
@@ -308,6 +346,10 @@ export default function AdminCoach() {
   const [sendEmail, setSendEmail] = useState("yes");
   const [trialEndInput, setTrialEndInput] = useState("");
   const [accessStatus, setAccessStatus] = useState("free");
+  const [accessPackage, setAccessPackage] = useState("complete");
+  const [clientLimitInput, setClientLimitInput] = useState("");
+  const [proLimitInput, setProLimitInput] = useState("1");
+  const [storageLimitGbInput, setStorageLimitGbInput] = useState("");
   const [invoiceActionBusy, setInvoiceActionBusy] = useState("");
 
   const [busy, setBusy] = useState({
@@ -319,13 +361,31 @@ export default function AdminCoach() {
     editTrial: false,
     resetPassword: false,
     setAccess: false,
+    setEntitlements: false,
   });
 
   useEffect(() => {
     if (!userData) return;
+    const subscribed = subscriptionAccessFor(userData, stripeInfo);
+    const manual = userData.manualEntitlements === true;
     setAccessStatus(userData.subscriptionStatus || (userData.hasActiveSubscription ? "active" : "free"));
     setTrialEndInput(toDatetimeLocal(userData.trialEndsAt || userData.trialEnd));
-  }, [userData]);
+    setAccessPackage(manual
+      ? (userData.packageKey || userData.proAccess?.packageKey || subscribed.packageKey)
+      : subscribed.packageKey);
+    const currentClientLimit = manual
+      ? (userData.clientLimit ?? userData.proAccess?.clientLimit)
+      : subscribed.clientLimit;
+    const currentProLimit = manual
+      ? (userData.proLimit ?? userData.proAccess?.proLimit)
+      : subscribed.proLimit;
+    const currentStorageLimit = manual
+      ? userData.storageLimitGb
+      : subscribed.storageLimitGb;
+    setClientLimitInput(currentClientLimit == null ? "" : String(currentClientLimit));
+    setProLimitInput(currentProLimit == null ? "" : String(currentProLimit));
+    setStorageLimitGbInput(currentStorageLimit == null ? "" : String(currentStorageLimit));
+  }, [stripeInfo, userData]);
 
   useEffect(() => {
     let mounted = true;
@@ -447,6 +507,10 @@ export default function AdminCoach() {
     if (!userData) return null;
     return getAccessMeta(userData);
   }, [userData]);
+  const subscribedAccess = useMemo(
+    () => subscriptionAccessFor(userData || {}, stripeInfo),
+    [stripeInfo, userData]
+  );
 
   const lastActivityValue = useMemo(
     () =>
@@ -791,6 +855,51 @@ export default function AdminCoach() {
     }
   };
 
+  const updateEntitlements = async () => {
+    setBusy((s) => ({ ...s, setEntitlements: true }));
+    try {
+      const parseOptionalInteger = (value, label) => {
+        if (String(value).trim() === "") return null;
+        const parsed = Number(value);
+        if (!Number.isInteger(parsed) || parsed < 0) throw new Error(`${label} doit être un entier positif`);
+        return parsed;
+      };
+      const clientLimit = parseOptionalInteger(clientLimitInput, "La limite clients");
+      const proLimit = parseOptionalInteger(proLimitInput, "La limite coachs");
+      const storageLimitGb = String(storageLimitGbInput).trim() === ""
+        ? null
+        : parseOptionalInteger(storageLimitGbInput, "Le quota de stockage");
+      if (storageLimitGb === 0) throw new Error("Le quota de stockage doit être supérieur à zéro");
+
+      const response = await fetch(`${getApiBase()}/payments/admin/set-entitlements`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(await getAuthHeaders()) },
+        credentials: "include",
+        body: JSON.stringify({
+          uid: userData?.id || id,
+          packageKey: accessPackage,
+          clientLimit,
+          proLimit,
+          storageLimitGb,
+        }),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) throw new Error(data?.error || "entitlements-error");
+      toast({
+        title: "Accès et quotas mis à jour",
+        description: `Modules : ${(data.modules || []).join(" + ")} • Clients : ${data.clientLimit ?? "illimité"}`,
+        status: "success",
+        duration: 4500,
+        isClosable: true,
+      });
+      setReloadTick((tick) => tick + 1);
+    } catch (e) {
+      toast({ title: "Modifier les accès", description: e.message || "Erreur", status: "error", duration: 6000, isClosable: true });
+    } finally {
+      setBusy((s) => ({ ...s, setEntitlements: false }));
+    }
+  };
+
   const sendResetPassword = async () => {
     setBusy((s) => ({ ...s, resetPassword: true }));
     try {
@@ -1033,6 +1142,7 @@ export default function AdminCoach() {
                 )}
               </CardBody>
             </Card>
+
           </TabPanel>
 
           {/* Programmes */}
@@ -1092,6 +1202,7 @@ export default function AdminCoach() {
                 )}
               </CardBody>
             </Card>
+
           </TabPanel>
 
           {/* Actions */}
@@ -1140,6 +1251,49 @@ export default function AdminCoach() {
                     <Button leftIcon={<Icon as={MdDelete} />} colorScheme="red" variant="outline" onClick={deleteCoach} isLoading={busy.deleteCoach}>{i18n.t("auto.AdminCoach.supprimer_le_compte_coach", "Supprimer le compte coach")}</Button>
                   </VStack>
                 </SimpleGrid>
+              </CardBody>
+            </Card>
+
+            <Card mt={5} bg={cardBg} borderRadius="2xl" shadow="sm" border="1px solid" borderColor={borderCol}>
+              <CardHeader>
+                <Heading size="md">Espaces, modules et quotas</Heading>
+                <Text color={muted} fontSize="sm">
+                  Réglages manuels prioritaires sur l’offre facturée, y compris pendant une période d’essai.
+                </Text>
+              </CardHeader>
+              <CardBody>
+                <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} spacing={4}>
+                  <FormControl>
+                    <FormLabel>Accès professionnel</FormLabel>
+                    <Select value={accessPackage} onChange={(e) => setAccessPackage(e.target.value)}>
+                      <option value="sport">Espace coach — Sport</option>
+                      <option value="nutrition">Espace coach — Nutrition</option>
+                      <option value="complete">Espace coach — Sport + Nutrition</option>
+                      <option value="club">Espace club — Sport + Nutrition</option>
+                    </Select>
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel>Nombre maximal de clients</FormLabel>
+                    <Input type="number" min="0" step="1" value={clientLimitInput} onChange={(e) => setClientLimitInput(e.target.value)} placeholder="Illimité" />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel>Nombre maximal de coachs / contacts</FormLabel>
+                    <Input type="number" min="0" step="1" value={proLimitInput} onChange={(e) => setProLimitInput(e.target.value)} placeholder="Illimité" />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel>Quota de stockage (Go)</FormLabel>
+                    <Input type="number" min="1" step="1" value={storageLimitGbInput} onChange={(e) => setStorageLimitGbInput(e.target.value)} placeholder="Illimité" />
+                  </FormControl>
+                </SimpleGrid>
+                <Text mt={3} fontSize="sm" color={muted}>
+                  Valeurs reprises depuis {subscribedAccess.sourceLabel} : {subscribedAccess.clientLimit ?? "clients illimités"}
+                  {subscribedAccess.clientLimit == null ? "" : " clients"} • {subscribedAccess.proLimit ?? "contacts illimités"}
+                  {subscribedAccess.proLimit == null ? "" : " coach(s) / contact(s)"} • {subscribedAccess.storageLimitGb ?? "stockage illimité"}
+                  {subscribedAccess.storageLimitGb == null ? "" : " Go de stockage"}. Les valeurs restent modifiables manuellement ; un champ vide signifie illimité.
+                </Text>
+                <Button mt={4} width="100%" leftIcon={<Icon as={MdManageAccounts} />} onClick={updateEntitlements} isLoading={busy.setEntitlements}>
+                  Appliquer les accès et quotas
+                </Button>
               </CardBody>
             </Card>
           </TabPanel>
