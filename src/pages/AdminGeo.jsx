@@ -43,7 +43,7 @@ import { useNavigate } from "react-router-dom";
 
 // ====== Carte 2D (Leaflet)
 import "leaflet/dist/leaflet.css";
-import { MapContainer, TileLayer, CircleMarker, Tooltip, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import { collection, doc, getDoc, getDocs, limit, orderBy, query } from "firebase/firestore";
 
 import AppLoading from "../components/ui/AppLoading";
@@ -184,6 +184,52 @@ function pickPersonName(data = {}, fallback = "") {
 
 function isNullIsland(lat, lng) {
   return lat === 0 && lng === 0;
+}
+
+function distanceKm(a, b) {
+  const toRadians = (value) => (Number(value) * Math.PI) / 180;
+  const earthRadiusKm = 6371;
+  const dLat = toRadians(b.lat - a.lat);
+  const dLon = toRadians(b.lon - a.lon);
+  const lat1 = toRadians(a.lat);
+  const lat2 = toRadians(b.lat);
+  const sinLat = Math.sin(dLat / 2);
+  const sinLon = Math.sin(dLon / 2);
+  const h = sinLat * sinLat + Math.cos(lat1) * Math.cos(lat2) * sinLon * sinLon;
+  return 2 * earthRadiusKm * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+function clusterGeoPoints(points, radiusKm) {
+  if (!radiusKm) return points.map((point) => ({ ...point, members: [point], isCluster: false }));
+  const groups = [];
+  [...points]
+    .sort((a, b) => Number(b.value || 0) - Number(a.value || 0))
+    .forEach((point) => {
+      const group = groups.find((candidate) => distanceKm(candidate, point) <= radiusKm);
+      if (!group) {
+        groups.push({ ...point, members: [point] });
+        return;
+      }
+      group.members.push(point);
+      const totalWeight = group.members.reduce((sum, member) => sum + Math.max(1, Number(member.value || 0)), 0);
+      group.lat = group.members.reduce((sum, member) => sum + member.lat * Math.max(1, Number(member.value || 0)), 0) / totalWeight;
+      group.lon = group.members.reduce((sum, member) => sum + member.lon * Math.max(1, Number(member.value || 0)), 0) / totalWeight;
+      group.value = group.members.reduce((sum, member) => sum + Number(member.value || 0), 0);
+    });
+  return groups.map((group) => ({
+    ...group,
+    clusterId: group.members.map((member) => member.geoId).sort().join("|"),
+    isCluster: group.members.length > 1,
+  }));
+}
+
+function normalizedRole(role) {
+  const value = String(role || "").toLowerCase();
+  if (["client", "user", "particulier", "patient"].includes(value)) return "client";
+  if (value.includes("coach")) return "coach";
+  if (value.includes("club") || value.includes("salle")) return "club";
+  if (value.includes("admin")) return "admin";
+  return "unknown";
 }
 
 async function loadAdminGeoFromFirestore() {
@@ -383,6 +429,29 @@ function FitToMarkers({ points }) {
   return null;
 }
 
+function MapZoomListener({ onZoomChange }) {
+  const map = useMapEvents({
+    zoomend: () => onZoomChange(map.getZoom()),
+  });
+  useEffect(() => {
+    onZoomChange(map.getZoom());
+  }, [map, onZoomChange]);
+  return null;
+}
+
+function MapFocusController({ target, markerRefs }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!target || typeof target.lat !== "number" || typeof target.lon !== "number") return undefined;
+    map.flyTo([target.lat, target.lon], Math.max(13, map.getZoom()), { animate: true, duration: 0.45 });
+    const timer = window.setTimeout(() => {
+      markerRefs.current.get(target.geoId)?.openPopup();
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [map, markerRefs, target]);
+  return null;
+}
+
 // KPI card
 function StatCard({ title, value, help }) {
   const theme = useAppTheme();
@@ -429,6 +498,9 @@ export default function AdminGeo() {
   // global daily docs (analytics_daily), source de vérité pour les compteurs globaux.
   const [globalDaily, setGlobalDaily] = useState([]);
   const [recentVisitors, setRecentVisitors] = useState([]);
+  const [mapVisitors, setMapVisitors] = useState({});
+  const [visitorHistories, setVisitorHistories] = useState({});
+  const [expandedVisitorId, setExpandedVisitorId] = useState("");
   const [lastLoadedAt, setLastLoadedAt] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [localPageviewDay, setLocalPageviewDay] = useState(getLocalPageviewDay);
@@ -438,6 +510,14 @@ export default function AdminGeo() {
 
   const [minVal, setMinVal] = useState(1);
   const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [personSearch, setPersonSearch] = useState("");
+  const [mergeRadiusKm, setMergeRadiusKm] = useState(2);
+  const [mapZoom, setMapZoom] = useState(2);
+  const [mapFocus, setMapFocus] = useState(null);
+  const mapRef = useRef(null);
+  const markerRefs = useRef(new Map());
+  const visitorLoadKeysRef = useRef(new Set());
 
   const [enriching, setEnriching] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -475,15 +555,29 @@ export default function AdminGeo() {
       bg: theme.surfaceSoft,
       borderColor: theme.borderColor,
     },
+    ".leaflet-tooltip.geo-cluster-count": {
+      bg: "transparent",
+      border: 0,
+      boxShadow: "none",
+      color: "white",
+      fontWeight: 800,
+      fontSize: "12px",
+    },
   };
 
   const todayKey = useMemo(() => fmtDay(new Date()), []);
+  const handleMapZoomChange = useCallback((zoom) => setMapZoom(zoom), []);
 
   useEffect(() => {
     const handler = () => setLocalPageviewDay(getLocalPageviewDay());
     window.addEventListener("BYL_PAGEVIEW_MARKED", handler);
     return () => window.removeEventListener("BYL_PAGEVIEW_MARKED", handler);
   }, []);
+
+  useEffect(() => {
+    setVisitorHistories({});
+    setExpandedVisitorId("");
+  }, [windowKey]);
 
   // Load analytics via backend Admin SDK, with Firestore fallback if prod backend is behind.
   useEffect(() => {
@@ -538,6 +632,74 @@ export default function AdminGeo() {
       if (!silent) setRefreshing(false);
     }
   }, [user?.uid, isAdmin]);
+
+  const loadMapVisitors = useCallback(async (point) => {
+    if (!point?.geoId || !user?.uid || !isAdmin) return;
+    const cacheKey = `${windowKey}:${point.geoId}`;
+    if (visitorLoadKeysRef.current.has(cacheKey)) return;
+    visitorLoadKeysRef.current.add(cacheKey);
+    setMapVisitors((current) => ({
+      ...current,
+      [cacheKey]: { ...(current[cacheKey] || {}), loading: true, error: "" },
+    }));
+    try {
+      const response = await fetch(
+        `${getApiBase()}/analytics/admin/geo/${encodeURIComponent(point.geoId)}/visitors?window=${encodeURIComponent(windowKey)}`,
+        {
+          headers: { ...(await getAuthHeaders()) },
+          credentials: "include",
+          cache: "no-store",
+        }
+      );
+      const data = await readJsonResponse(response);
+      if (!response.ok) throw new Error(data?.error || `geo-visitors-${response.status}`);
+      setMapVisitors((current) => ({
+        ...current,
+        [cacheKey]: { loading: false, error: "", visitors: Array.isArray(data.visitors) ? data.visitors : [] },
+      }));
+      return Array.isArray(data.visitors) ? data.visitors : [];
+    } catch (error) {
+      setMapVisitors((current) => ({
+        ...current,
+        [cacheKey]: { loading: false, error: error?.message || "geo-visitors-failed", visitors: [] },
+      }));
+      return [];
+    } finally {
+      visitorLoadKeysRef.current.delete(cacheKey);
+    }
+  }, [isAdmin, user?.uid, windowKey]);
+
+  const loadVisitorHistory = useCallback(async (visitor) => {
+    if (!visitor?.uid || !user?.uid || !isAdmin) return;
+    setExpandedVisitorId((current) => current === visitor.visitorId ? "" : visitor.visitorId);
+    if (visitorHistories[visitor.uid]?.history || visitorHistories[visitor.uid]?.loading) return;
+    setVisitorHistories((current) => ({
+      ...current,
+      [visitor.uid]: { loading: true, error: "", history: null },
+    }));
+    const days = windowKey === "today" ? 1 : windowKey === "7d" ? 7 : windowKey === "30d" ? 30 : 120;
+    try {
+      const response = await fetch(
+        `${getApiBase()}/analytics/admin/visitor/${encodeURIComponent(visitor.uid)}?days=${days}`,
+        {
+          headers: { ...(await getAuthHeaders()) },
+          credentials: "include",
+          cache: "no-store",
+        }
+      );
+      const data = await readJsonResponse(response);
+      if (!response.ok) throw new Error(data?.error || `visitor-history-${response.status}`);
+      setVisitorHistories((current) => ({
+        ...current,
+        [visitor.uid]: { loading: false, error: "", history: data.history || null },
+      }));
+    } catch (error) {
+      setVisitorHistories((current) => ({
+        ...current,
+        [visitor.uid]: { loading: false, error: error?.message || "visitor-history-failed", history: null },
+      }));
+    }
+  }, [isAdmin, user?.uid, visitorHistories, windowKey]);
 
   useEffect(() => {
     if (authLoading || !user?.uid || !isAdmin) return undefined;
@@ -696,10 +858,66 @@ export default function AdminGeo() {
       .sort((a, b) => (b.value || 0) - (a.value || 0));
   }, [cities, minVal, search]);
 
-  const mapPoints = useMemo(
-    () => filtered.filter((c) => typeof c.lat === "number" && typeof c.lon === "number"),
-    [filtered]
+  const peopleFilterActive = roleFilter !== "all" || Boolean(personSearch.trim());
+  const visitorMatchesFilters = useCallback((visitor) => {
+    if (roleFilter !== "all" && normalizedRole(visitor?.role) !== roleFilter) return false;
+    const needle = personSearch.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (!needle) return true;
+    const haystack = `${visitor?.personName || ""} ${visitor?.email || ""}`
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    return haystack.includes(needle);
+  }, [personSearch, roleFilter]);
+
+  useEffect(() => {
+    if (!peopleFilterActive) return;
+    filtered.slice(0, 50).forEach((point) => {
+      const cacheKey = `${windowKey}:${point.geoId}`;
+      if (!mapVisitors[cacheKey]) loadMapVisitors(point);
+    });
+  }, [filtered, loadMapVisitors, mapVisitors, peopleFilterActive, windowKey]);
+
+  const visibleCities = useMemo(() => {
+    if (!peopleFilterActive) return filtered;
+    return filtered.filter((point) => {
+      const state = mapVisitors[`${windowKey}:${point.geoId}`];
+      if (!state || state.loading) return true;
+      return (state.visitors || []).some(visitorMatchesFilters);
+    });
+  }, [filtered, mapVisitors, peopleFilterActive, visitorMatchesFilters, windowKey]);
+  const displayedRecentVisitors = useMemo(
+    () => recentVisitors.filter(visitorMatchesFilters),
+    [recentVisitors, visitorMatchesFilters]
   );
+
+  const peopleFilterLoading = peopleFilterActive && filtered.some((point) => {
+    const state = mapVisitors[`${windowKey}:${point.geoId}`];
+    return !state || state.loading;
+  });
+
+  const mapPoints = useMemo(
+    () => visibleCities.filter((c) => typeof c.lat === "number" && typeof c.lon === "number"),
+    [visibleCities]
+  );
+
+  const visualClusterRadiusKm = useMemo(() => {
+    if (mapZoom <= 4) return 700;
+    if (mapZoom <= 6) return 250;
+    if (mapZoom <= 8) return 75;
+    if (mapZoom <= 10) return 15;
+    if (mapZoom <= 12) return mergeRadiusKm;
+    return 0;
+  }, [mapZoom, mergeRadiusKm]);
+  const renderedMapPoints = useMemo(
+    () => clusterGeoPoints(mapPoints, visualClusterRadiusKm),
+    [mapPoints, visualClusterRadiusKm]
+  );
+  const focusCityOnMap = useCallback((city) => {
+    if (typeof city?.lat !== "number" || typeof city?.lon !== "number") return;
+    loadMapVisitors(city);
+    setMapFocus({ ...city, requestId: Date.now() });
+  }, [loadMapVisitors]);
 
   // Dernière visite active aujourd’hui par ville (selon métrique)
   const lastVisitByGeoIdToday = useMemo(() => {
@@ -960,8 +1178,49 @@ export default function AdminGeo() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              <Button onClick={() => { setSearch(""); setMinVal(1); }}>{i18n.t("exerciseBank.reset", "Réinitialiser")}</Button>
+              <Button onClick={() => {
+                setSearch("");
+                setPersonSearch("");
+                setRoleFilter("all");
+                setMergeRadiusKm(2);
+                setMinVal(1);
+              }}>{i18n.t("exerciseBank.reset", "Réinitialiser")}</Button>
             </HStack>
+
+            <SimpleGrid columns={{ base: 1, md: 3 }} spacing={3} mt={3}>
+              <FormControl>
+                <FormLabel fontSize="sm" mb={1}>Rôle</FormLabel>
+                <Select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
+                  <option value="all">Tous les rôles</option>
+                  <option value="client">Clients / patients</option>
+                  <option value="coach">Coachs</option>
+                  <option value="club">Clubs / salles</option>
+                  <option value="admin">Administrateurs</option>
+                </Select>
+              </FormControl>
+              <FormControl>
+                <FormLabel fontSize="sm" mb={1}>Personne</FormLabel>
+                <Input
+                  placeholder="Nom ou e-mail"
+                  value={personSearch}
+                  onChange={(event) => setPersonSearch(event.target.value)}
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel fontSize="sm" mb={1}>Regrouper les positions proches</FormLabel>
+                <Select value={mergeRadiusKm} onChange={(event) => setMergeRadiusKm(Number(event.target.value))}>
+                  <option value={1}>Rayon de 1 km</option>
+                  <option value={2}>Rayon de 2 km</option>
+                  <option value={5}>Rayon de 5 km</option>
+                </Select>
+              </FormControl>
+            </SimpleGrid>
+            {peopleFilterLoading && (
+              <HStack mt={3} spacing={2}>
+                <Progress size="xs" isIndeterminate flex="1" />
+                <Text fontSize="xs" color={theme.mutedText}>Application du filtre aux différentes zones…</Text>
+              </HStack>
+            )}
 
             <FormControl display="flex" alignItems="center" mt={4}>
               <FormLabel htmlFor="auto-enrich" mb="0">{i18n.t("auto.AdminGeo.auto_geocoder_a_l_ouverture", "Auto-géocoder à l’ouverture")}</FormLabel>
@@ -992,7 +1251,7 @@ export default function AdminGeo() {
                     MAJ {formatDateTime(lastLoadedAt)}
                   </Tag>
                 )}
-                <Tag>{recentVisitors.length} {i18n.t("auto.AdminGeo.visiteur_s", "visiteur(s)")}</Tag>
+                <Tag>{displayedRecentVisitors.length} {i18n.t("auto.AdminGeo.visiteur_s", "visiteur(s)")}</Tag>
               </HStack>
             </HStack>
             <HStack flexWrap="wrap" gap={2}>
@@ -1006,6 +1265,8 @@ export default function AdminGeo() {
                   {i18n.t("auto.AdminGeo.recherche_ville_ou_pays_iso2", "Recherche ville ou pays (ISO2)")}: {search.trim()}
                 </Tag>
               ) : null}
+              {roleFilter !== "all" ? <Tag colorScheme="orange">Rôle : {roleFilter}</Tag> : null}
+              {personSearch.trim() ? <Tag colorScheme="cyan">Personne : {personSearch.trim()}</Tag> : null}
             </HStack>
           </Stack>
         </CardHeader>
@@ -1021,7 +1282,7 @@ export default function AdminGeo() {
                 </Tr>
               </Thead>
               <Tbody>
-                {recentVisitors.map((visit, index) => {
+                {displayedRecentVisitors.map((visit, index) => {
                   const place = formatVisitPlace(visit);
                   return (
                     <Tr key={`${visit.visitorId || visit.uid || visit.id || "visit"}-${visit.lastSeenAt || visit.firstSeenAt || index}`}>
@@ -1039,7 +1300,7 @@ export default function AdminGeo() {
                     </Tr>
                   );
                 })}
-                {recentVisitors.length === 0 && (
+                {displayedRecentVisitors.length === 0 && (
                   <Tr>
                     <Td colSpan={4} color={theme.mutedText}>{i18n.t("auto.AdminGeo.aucune_visite_enregistree_aujourd_hui", "Aucune visite enregistrée aujourd’hui.")}</Td>
                   </Tr>
@@ -1070,6 +1331,7 @@ export default function AdminGeo() {
           {enriching && <Progress value={progress} size="sm" mb={3} />}
             <Box w="100%" h={{ base: "420px", md: "560px" }} borderRadius="lg" overflow="hidden">
               <MapContainer
+                ref={mapRef}
                 style={{ width: "100%", height: "100%" }}
                 center={[20, 0]}
                 zoom={2}
@@ -1082,9 +1344,45 @@ export default function AdminGeo() {
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 />
                 <FitToMarkers points={mapPoints} />
-                {mapPoints.map((c) => {
+                <MapZoomListener onZoomChange={handleMapZoomChange} />
+                <MapFocusController target={mapFocus} markerRefs={markerRefs} />
+                {renderedMapPoints.map((c) => {
                   const v = Math.max(1, c.value || 0);
-                  const r = Math.max(4, Math.sqrt(v) * 2.2);
+                  const r = c.isCluster ? Math.max(13, Math.sqrt(v) * 3) : Math.max(5, Math.sqrt(v) * 2.2);
+
+                  if (c.isCluster) {
+                    return (
+                      <CircleMarker
+                        key={`cluster:${c.clusterId}`}
+                        center={[c.lat, c.lon]}
+                        radius={r}
+                        pathOptions={{
+                          color: theme.primary,
+                          weight: 2,
+                          fillColor: bubbleFill,
+                          fillOpacity: 0.9,
+                        }}
+                        eventHandlers={{
+                          click: () => {
+                            const currentZoom = mapRef.current?.getZoom() || mapZoom;
+                            mapRef.current?.flyTo(
+                              [c.lat, c.lon],
+                              Math.min(13, currentZoom + 3),
+                              { animate: true, duration: 0.45 }
+                            );
+                          },
+                        }}
+                      >
+                        <Tooltip permanent direction="center" className="geo-cluster-count" opacity={1}>
+                          {c.value}
+                        </Tooltip>
+                        <Tooltip direction="top" offset={[0, -r]}>
+                          <strong>{c.members.length} zones proches</strong> — {c.value} {metric === "pv" ? "visites" : "visiteurs uniques"}
+                          <br />Cliquez pour zoomer et les séparer.
+                        </Tooltip>
+                      </CircleMarker>
+                    );
+                  }
 
                   const label =
                     metric === "pv"
@@ -1095,10 +1393,16 @@ export default function AdminGeo() {
 
                   const last = lastVisitByGeoIdToday[c.geoId];
                   const lastLabel = formatDateTime(last?.lastSeenAt) || (last ? `${pad2(last.lastHour)}h` : "—");
+                  const visitorState = mapVisitors[`${windowKey}:${c.geoId}`] || {};
+                  const displayedVisitors = (visitorState.visitors || []).filter(visitorMatchesFilters);
 
                   return (
                     <CircleMarker
                       key={c.geoId}
+                      ref={(layer) => {
+                        if (layer) markerRefs.current.set(c.geoId, layer);
+                        else markerRefs.current.delete(c.geoId);
+                      }}
                       center={[c.lat, c.lon]}
                       radius={r}
                       pathOptions={{
@@ -1107,12 +1411,81 @@ export default function AdminGeo() {
                         fillColor: bubbleFill,
                         fillOpacity: 0.75,
                       }}
+                      eventHandlers={{ click: () => loadMapVisitors(c) }}
                     >
                       <Tooltip direction="top" offset={[0, -2]}>
                         <strong>{c.city}</strong> ({c.country}) — {label}
                         <br />
                         <span style={{ opacity: 0.85 }}>{i18n.t("auto.AdminGeo.derniere_visite", "Dernière visite :")}{lastLabel}</span>
                       </Tooltip>
+                      <Popup minWidth={280} maxWidth={340}>
+                        <Box minW="250px">
+                          <Text fontWeight="800">{c.city} ({c.country})</Text>
+                          <Text fontSize="xs" color="gray.600" mb={2}>{label}</Text>
+                          {visitorState.loading ? (
+                            <HStack py={2}><Progress size="xs" isIndeterminate flex="1" /><Text fontSize="xs">Chargement…</Text></HStack>
+                          ) : visitorState.error ? (
+                            <Text fontSize="sm" color="red.500">Impossible de charger les personnes.</Text>
+                          ) : displayedVisitors.length ? (
+                            <VStack align="stretch" spacing={2} maxH="240px" overflowY="auto">
+                              {displayedVisitors.map((visitor) => {
+                                const historyState = visitor.uid ? visitorHistories[visitor.uid] || {} : {};
+                                const isExpanded = expandedVisitorId === visitor.visitorId;
+                                return (
+                                <Box key={visitor.visitorId} pb={2} borderBottom="1px solid" borderColor="gray.200">
+                                  <HStack justify="space-between" align="start">
+                                    <Text fontWeight="700" fontSize="sm">{visitor.personName || "Visiteur anonyme"}</Text>
+                                    <Badge colorScheme="blue" fontSize="10px">{visitor.role || "—"}</Badge>
+                                  </HStack>
+                                  {visitor.email ? <Text fontSize="xs" color="gray.600">{visitor.email}</Text> : null}
+                                  <Text fontSize="xs" color="gray.500">
+                                    Dernière connexion : {formatDateTime(visitor.lastSeenAt || visitor.firstSeenAt) || "—"}
+                                  </Text>
+                                  {visitor.uid && (
+                                    <Button
+                                      mt={1}
+                                      size="xs"
+                                      variant="ghost"
+                                      px={0}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        loadVisitorHistory(visitor);
+                                      }}
+                                    >
+                                      {isExpanded ? "Masquer l’historique" : "Voir l’historique"}
+                                    </Button>
+                                  )}
+                                  {isExpanded && (
+                                    <Box mt={1} p={2} bg="gray.50" borderRadius="md">
+                                      {historyState.loading ? (
+                                        <Progress size="xs" isIndeterminate />
+                                      ) : historyState.error ? (
+                                        <Text fontSize="xs" color="red.500">Historique indisponible.</Text>
+                                      ) : historyState.history ? (
+                                        <Stack spacing={1}>
+                                          <Text fontSize="xs" fontWeight="700">
+                                            {historyState.history.daysVisited} jour(s) de connexion • {historyState.history.citiesVisited} ville(s)
+                                          </Text>
+                                          {(historyState.history.locations || []).slice(0, 6).map((location) => (
+                                            <HStack key={location.geoId} justify="space-between" fontSize="xs">
+                                              <Text>{location.city}, {location.country}</Text>
+                                              <Text color="gray.500">{location.daysVisited} j.</Text>
+                                            </HStack>
+                                          ))}
+                                        </Stack>
+                                      ) : (
+                                        <Text fontSize="xs" color="gray.500">Aucun déplacement antérieur disponible.</Text>
+                                      )}
+                                    </Box>
+                                  )}
+                                </Box>
+                              );})}
+                            </VStack>
+                          ) : (
+                            <Text fontSize="sm" color="gray.600">Aucune personne identifiée pour cette période.</Text>
+                          )}
+                        </Box>
+                      </Popup>
                     </CircleMarker>
                   );
                 })}
@@ -1127,7 +1500,7 @@ export default function AdminGeo() {
           <HStack justify="space-between" align="center">
             <Heading size="md">{i18n.t("auto.AdminGeo.top_villes", "Top villes")}</Heading>
             <Tag>
-              {metricLabelUi} • {windowLabel}
+              {metricLabelUi} • {windowLabel} • {visibleCities.length} ville(s)
             </Tag>
           </HStack>
         </CardHeader>
@@ -1148,11 +1521,21 @@ export default function AdminGeo() {
               </Tr>
             </Thead>
             <Tbody>
-              {filtered.slice(0, 50).map((c) => {
+              {visibleCities.slice(0, 50).map((c) => {
                 const last = lastVisitByGeoIdToday[c.geoId];
                 const lastLabel = formatDateTime(last?.lastSeenAt) || (last ? `${pad2(last.lastHour)}h` : "");
                 return (
-                  <Tr key={c.geoId}>
+                  <Tr
+                    key={c.geoId}
+                    cursor={typeof c.lat === "number" && typeof c.lon === "number" ? "pointer" : "default"}
+                    _hover={typeof c.lat === "number" && typeof c.lon === "number" ? { bg: "blue.50" } : undefined}
+                    tabIndex={typeof c.lat === "number" && typeof c.lon === "number" ? 0 : undefined}
+                    onClick={() => focusCityOnMap(c)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") focusCityOnMap(c);
+                    }}
+                    aria-label={`Afficher ${c.city} sur la carte`}
+                  >
                     <Td>{c.city}</Td>
                     <Td>{c.country}</Td>
                     <Td isNumeric>{c.value}</Td>
@@ -1178,7 +1561,7 @@ export default function AdminGeo() {
                   </Tr>
                 );
               })}
-              {filtered.length === 0 && (
+              {visibleCities.length === 0 && (
                 <Tr><Td colSpan={5} color="gray.500">{i18n.t("programView.noData", "Aucune donnée.")}</Td></Tr>
               )}
             </Tbody>

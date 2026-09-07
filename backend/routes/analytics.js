@@ -712,6 +712,151 @@ router.get("/admin/geo", requireAnalyticsAdmin, async (_req, res) => {
   }
 });
 
+router.get("/admin/geo/:geoId/visitors", requireAnalyticsAdmin, async (req, res) => {
+  try {
+    res.set("Cache-Control", "no-store");
+    const geoId = cleanText(req.params.geoId, 120, "");
+    const windowKey = ["today", "7d", "30d", "all"].includes(String(req.query.window || ""))
+      ? String(req.query.window)
+      : "today";
+    if (!geoId || !/^[A-Z]{2}(?:__|-)[a-z0-9-]+$/.test(geoId)) {
+      return res.status(400).json({ error: "invalid-geo-id" });
+    }
+
+    const db = admin.firestore();
+    const dayCount = windowKey === "today" ? 1 : windowKey === "7d" ? 7 : windowKey === "30d" ? 30 : 120;
+    const dayKeys = recentDayKeys(dayCount);
+    const [dailySnapshots, legacyDailySnapshots] = await Promise.all([
+      Promise.all(dayKeys.map((day) => db
+        .collection("analytics_geo_daily")
+        .doc(`${day}__${geoId}`)
+        .collection("visitors")
+        .limit(250)
+        .get()
+        .catch(() => ({ docs: [] })))),
+      // Les premiers compteurs géographiques ne créaient pas toujours leur
+      // sous-collection. Les visites journalières conservent néanmoins la ville.
+      Promise.all(dayKeys.slice(0, 30).map((day) => db
+        .collection("analytics_daily")
+        .doc(day)
+        .collection("visitors")
+        .limit(500)
+        .get()
+        .catch(() => ({ docs: [] })))),
+    ]);
+    const allTimeSnapshot = windowKey === "all"
+      ? await db.collection("analytics_geo").doc(geoId).collection("visitors_all").limit(500).get()
+        .catch(() => ({ docs: [] }))
+      : { docs: [] };
+
+    const byVisitor = new Map();
+    const mergeVisitor = (docSnap, source) => {
+      const data = docSnap.data() || {};
+      const visitorId = cleanText(data.visitorId || docSnap.id, 180, docSnap.id);
+      const uid = visitorId.startsWith("uid:") ? visitorId.slice(4) : "";
+      const candidate = {
+        visitorId,
+        uid,
+        role: cleanText(data.role, 40, "unknown"),
+        firstSeenAt: toIso(data.firstSeenAt),
+        lastSeenAt: toIso(data.lastSeenAt || data.firstSeenAt),
+        pathLast: cleanText(data.pathLast || data.pathFirst, 180, ""),
+        source,
+      };
+      const previous = byVisitor.get(visitorId);
+      if (!previous) {
+        byVisitor.set(visitorId, candidate);
+        return;
+      }
+      const previousLast = Date.parse(previous.lastSeenAt || "") || 0;
+      const candidateLast = Date.parse(candidate.lastSeenAt || "") || 0;
+      byVisitor.set(visitorId, {
+        ...previous,
+        ...(candidateLast >= previousLast ? candidate : {}),
+        firstSeenAt:
+          [previous.firstSeenAt, candidate.firstSeenAt]
+            .filter(Boolean)
+            .sort()[0] || null,
+      });
+    };
+    allTimeSnapshot.docs.forEach((docSnap) => mergeVisitor(docSnap, "all-time"));
+    dailySnapshots.forEach((snapshot) => snapshot.docs.forEach((docSnap) => mergeVisitor(docSnap, "daily")));
+    const requestedGeoKey = geoId.replace(/[^a-z0-9]/gi, "").toLowerCase();
+    legacyDailySnapshots.forEach((snapshot) => snapshot.docs.forEach((docSnap) => {
+      const data = docSnap.data() || {};
+      const country = cleanText(data.country, 2, "UN").toUpperCase();
+      const city = cleanText(data.city, 120, "unknown");
+      const visitorGeoKey = `${country}${slug(city)}`.replace(/[^a-z0-9]/gi, "").toLowerCase();
+      if (visitorGeoKey === requestedGeoKey) mergeVisitor(docSnap, "daily-legacy");
+    }));
+
+    // La carte « aujourd’hui » peut aussi être alimentée par la dernière
+    // position enregistrée sur les profils (compatibilité avec l’historique).
+    const selectedDays = new Set(dayKeys);
+    await Promise.all([
+      { name: "users", defaultRole: "user" },
+      { name: "coachs", defaultRole: "coach" },
+    ].map(async ({ name, defaultRole }) => {
+      const snapshot = await db.collection(name).get().catch(() => ({ docs: [] }));
+      snapshot.docs.forEach((docSnap) => {
+        const data = docSnap.data() || {};
+        const lastVisitValue = pickLastVisitValue(data);
+        const lastVisitDate = toDate(lastVisitValue);
+        if (!lastVisitDate || !selectedDays.has(fmtDay(lastVisitDate))) return;
+        const location = normalizeLocation(data);
+        const profileGeoKey = `${location.country}${slug(location.city)}`
+          .replace(/[^a-z0-9]/gi, "")
+          .toLowerCase();
+        if (profileGeoKey !== requestedGeoKey) return;
+        const uid = data.uid || data.linkedUserId || docSnap.id;
+        const visitorId = `uid:${uid}`;
+        const previous = byVisitor.get(visitorId) || {};
+        byVisitor.set(visitorId, {
+          ...previous,
+          visitorId,
+          uid,
+          role: cleanText(data.role || defaultRole, 40, defaultRole),
+          personName: pickPersonName(data, docSnap.id),
+          email: cleanText(data.email || data.emailLower, 320, ""),
+          firstSeenAt: previous.firstSeenAt || toIso(lastVisitValue),
+          lastSeenAt: toIso(lastVisitValue),
+          pathLast: cleanText(data.lastVisitedPath, 180, previous.pathLast || ""),
+          source: name,
+        });
+      });
+    }));
+
+    const rows = [...byVisitor.values()];
+    const users = new Map();
+    await Promise.all(
+      [...new Set(rows.map((row) => row.uid).filter(Boolean))].slice(0, 500).map(async (uid) => {
+        const snapshot = await db.collection("users").doc(uid).get().catch(() => null);
+        if (!snapshot?.exists) return;
+        const data = snapshot.data() || {};
+        users.set(uid, {
+          personName: pickPersonName(data, uid),
+          email: cleanText(data.email || data.emailLower, 320, ""),
+          role: cleanText(data.role, 40, "unknown"),
+        });
+      })
+    );
+
+    const visitors = rows
+      .map((row) => ({
+        ...row,
+        personName: users.get(row.uid)?.personName || row.personName || (row.uid ? row.uid : "Visiteur anonyme"),
+        email: users.get(row.uid)?.email || row.email || "",
+        role: users.get(row.uid)?.role || row.role,
+      }))
+      .sort((a, b) => String(b.lastSeenAt || "").localeCompare(String(a.lastSeenAt || "")));
+
+    return res.json({ ok: true, geoId, window: windowKey, visitors });
+  } catch (error) {
+    console.error("[analytics/admin/geo/visitors] error:", error);
+    return res.status(500).json({ error: "analytics-geo-visitors-failed" });
+  }
+});
+
 router.get("/admin/visitor/:uid", requireAnalyticsAdmin, async (req, res) => {
   try {
     res.set("Cache-Control", "no-store");
@@ -726,9 +871,16 @@ router.get("/admin/visitor/:uid", requireAnalyticsAdmin, async (req, res) => {
       ref: db.collection("analytics_daily").doc(day).collection("visitors").doc(visitorId),
     }));
 
-    const snapshots = await Promise.all(
-      refs.map(({ day, ref }) => ref.get().then((snap) => ({ day, ref, snap })).catch(() => null))
-    );
+    const [snapshots, geoHistorySnapshot] = await Promise.all([
+      Promise.all(
+        refs.map(({ day, ref }) => ref.get().then((snap) => ({ day, ref, snap })).catch(() => null))
+      ),
+      db.collectionGroup("visitors")
+        .where("visitorId", "==", visitorId)
+        .limit(500)
+        .get()
+        .catch(() => ({ docs: [] })),
+    ]);
 
     let latest = null;
     snapshots.forEach((entry) => {
@@ -745,6 +897,49 @@ router.get("/admin/visitor/:uid", requireAnalyticsAdmin, async (req, res) => {
     if (!latest) {
       return res.json({ ok: true, found: false, uid, visitorId });
     }
+
+    const selectedDays = new Set(refs.map(({ day }) => day));
+    const historyByCity = new Map();
+    const visitedDays = new Set();
+    geoHistorySnapshot.docs.forEach((docSnap) => {
+      if (!docSnap.ref.path.startsWith("analytics_geo_daily/")) return;
+      const parentGeoDailyId = docSnap.ref.parent.parent?.id || "";
+      const day = parentGeoDailyId.slice(0, 10);
+      if (!selectedDays.has(day)) return;
+      const data = docSnap.data() || {};
+      const country = cleanText(data.country, 2, "UN").toUpperCase();
+      const city = cleanText(data.city, 120, "unknown");
+      if (country === "UN" || city.toLowerCase() === "unknown") return;
+      visitedDays.add(day);
+      const key = `${country}__${slug(city)}`;
+      const seenAt = toIso(data.lastSeenAt || data.firstSeenAt);
+      const previous = historyByCity.get(key) || {
+        geoId: key,
+        country,
+        city,
+        daysVisited: new Set(),
+        firstSeenAt: null,
+        lastSeenAt: null,
+      };
+      previous.daysVisited.add(day);
+      const knownDates = [previous.firstSeenAt, toIso(data.firstSeenAt), seenAt].filter(Boolean).sort();
+      previous.firstSeenAt = knownDates[0] || previous.firstSeenAt;
+      previous.lastSeenAt = [previous.lastSeenAt, seenAt].filter(Boolean).sort().at(-1) || previous.lastSeenAt;
+      historyByCity.set(key, previous);
+    });
+
+    const locationHistory = [...historyByCity.values()]
+      .map((entry) => ({
+        ...entry,
+        daysVisited: entry.daysVisited.size,
+      }))
+      .sort((a, b) => String(b.lastSeenAt || "").localeCompare(String(a.lastSeenAt || "")));
+    const historySummary = {
+      periodDays: days,
+      daysVisited: visitedDays.size,
+      citiesVisited: locationHistory.length,
+      locations: locationHistory,
+    };
 
     const userSnap = await db.collection("users").doc(uid).get().catch(() => null);
     const userData = userSnap?.exists ? userSnap.data() || {} : {};
@@ -785,6 +980,27 @@ router.get("/admin/visitor/:uid", requireAnalyticsAdmin, async (req, res) => {
       }
     }
 
+    if (country !== "UN" && city.toLowerCase() !== "unknown") {
+      visitedDays.add(latest.day);
+      const currentGeoId = `${country}__${slug(city)}`;
+      const currentLocation = locationHistory.find((entry) => entry.geoId === currentGeoId);
+      if (currentLocation) {
+        currentLocation.daysVisited = Math.max(1, currentLocation.daysVisited || 0);
+        currentLocation.lastSeenAt = [currentLocation.lastSeenAt, latest.seenIso].filter(Boolean).sort().at(-1);
+      } else {
+        locationHistory.unshift({
+          geoId: currentGeoId,
+          country,
+          city,
+          daysVisited: 1,
+          firstSeenAt: toIso(latest.data.firstSeenAt) || latest.seenIso,
+          lastSeenAt: latest.seenIso,
+        });
+      }
+      historySummary.daysVisited = visitedDays.size;
+      historySummary.citiesVisited = locationHistory.length;
+    }
+
     return res.json({
       ok: true,
       found: true,
@@ -805,6 +1021,7 @@ router.get("/admin/visitor/:uid", requireAnalyticsAdmin, async (req, res) => {
         personName: pickPersonName(userData, uid),
         email: userData.email || "",
       },
+      history: historySummary,
     });
   } catch (error) {
     console.error("[analytics/admin/visitor] error:", error);

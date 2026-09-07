@@ -408,6 +408,41 @@ check("geolocation permission is requested at most once automatically", () => {
   );
 });
 
+check("admin geo markers reveal the visitors connected from each area", () => {
+  const adminGeo = read("src/pages/AdminGeo.jsx");
+  const analyticsRoutes = read("backend/routes/analytics.js");
+
+  assert.ok(
+    adminGeo.includes("const loadMapVisitors = useCallback") &&
+      adminGeo.includes("eventHandlers={{ click: () => loadMapVisitors(c) }}") &&
+      adminGeo.includes("<Popup minWidth={280} maxWidth={340}>") &&
+      adminGeo.includes("displayedVisitors.map"),
+    "Every map marker must open a popup listing the people associated with that area"
+  );
+  assert.ok(
+      adminGeo.includes("function clusterGeoPoints") &&
+      adminGeo.includes("visualClusterRadiusKm") &&
+      adminGeo.includes('className="geo-cluster-count"') &&
+      adminGeo.includes("mapRef.current?.flyTo"),
+    "Nearby positions must merge and low-zoom clusters must split when the admin zooms in"
+  );
+  assert.ok(
+    adminGeo.includes('value={roleFilter}') &&
+      adminGeo.includes('value={personSearch}') &&
+      adminGeo.includes('value={mergeRadiusKm}') &&
+      adminGeo.includes("focusCityOnMap(c)"),
+    "Role, person and proximity filters must coexist with clickable city rows"
+  );
+  assert.ok(
+    analyticsRoutes.includes('router.get("/admin/geo/:geoId/visitors"') &&
+      analyticsRoutes.includes("requireAnalyticsAdmin") &&
+      analyticsRoutes.includes("visitors_all") &&
+      analyticsRoutes.includes('db.collectionGroup("visitors")') &&
+      analyticsRoutes.includes("locationHistory"),
+    "Visitor identities and their city-level history must be served by authenticated analytics endpoints"
+  );
+});
+
 check("navigation preloads stay bounded and reuse warm page data", () => {
   const app = read("src/App.jsx");
   const dashboard = read("src/components/CoachDashboard.jsx");
