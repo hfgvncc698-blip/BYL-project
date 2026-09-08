@@ -1158,6 +1158,7 @@ export const AuthProvider = ({ children }) => {
     if (!uid) return;
     const userRef = doc(db, "users", uid);
     const now = Date.now();
+    const selectedAccess = FULL_PRO_TRIAL_ACCESS;
     await setDoc(
       userRef,
       {
@@ -1168,6 +1169,18 @@ export const AuthProvider = ({ children }) => {
           new Date(now + TRIAL_DAYS * 24 * 60 * 60 * 1000)
         ),
         trialStatus: "running",
+
+        // Persister les droits de l'essai dans Firestore. L'interface sait les
+        // déduire, mais les anciennes versions et les autres services lisent
+        // directement ces champs.
+        onboardingPackage: selectedAccess.packageKey,
+        onboardingPackageTier: selectedAccess.packageTier,
+        packageKey: selectedAccess.packageKey,
+        packageTier: selectedAccess.packageTier,
+        clientLimit: selectedAccess.clientLimit,
+        proLimit: selectedAccess.proLimit,
+        modules: selectedAccess.modules,
+        proAccess: selectedAccess,
 
         // ✅ IMPORTANT : un trial n'est PAS un abonnement payant
         hasActiveSubscription: false,

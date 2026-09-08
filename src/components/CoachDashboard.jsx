@@ -63,6 +63,7 @@ import { useNavigate, Link, useLocation } from "react-router-dom";
 import {
   collection,
   getDocs,
+  getDocsFromCache,
   addDoc,
   setDoc,
   updateDoc,
@@ -258,6 +259,7 @@ const DASHBOARD_DATA_CACHE_VERSION = 7;
 const DASHBOARD_DATA_CACHE_TTL_MS = 15 * 60 * 1000;
 const DASHBOARD_DATA_STALE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const DASHBOARD_DATA_CACHE_CLIENT_LIMIT = 120;
+const DASHBOARD_DETAIL_CLIENT_LIMIT = 24;
 const DASHBOARD_DATA_CACHE_PROGRAM_LIMIT = 8;
 const DASHBOARD_DATA_CACHE_SESSION_LIMIT = 28;
 const DASHBOARD_NUTRITION_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -380,6 +382,29 @@ const hasSportProgramHint = (client = {}) =>
   (Array.isArray(client.programmes) && client.programmes.filter(Boolean).length > 0) ||
   (Array.isArray(client.programmeIds) && client.programmeIds.filter(Boolean).length > 0) ||
   Boolean(client.currentProgramme || client.currentProgramId || client.programmeId);
+const buildQuickDashboardClients = (rawClients = []) => {
+  const deduped = dedupeClientsForDashboard(rawClients);
+  const quickClients = deduped
+    .map((client) => {
+      const quickActivityMs = Math.max(
+        toMillis(client.lastCoachInteractionAt),
+        toMillis(client.lastCoachSessionAt),
+        toMillis(client.lastActivityAt),
+        toMillis(client.updatedAt),
+        toMillis(client.createdAt)
+      );
+      return {
+        ...client,
+        programmesAssignes: buildQuickAssignedProgramPlaceholders(client),
+        _lastCoachInteractionMs: quickActivityMs,
+        _lastInteractionMs: quickActivityMs,
+        _quickLoading: true,
+      };
+    })
+    .filter((client) => client._lastCoachInteractionMs > 0)
+    .sort((a, b) => (b._lastCoachInteractionMs || 0) - (a._lastCoachInteractionMs || 0));
+  return quickClients.length ? quickClients : deduped;
+};
 const compactDashboardEvent = (event = {}) => ({
   ...event,
   start: event.start instanceof Date ? event.start.toISOString() : event.start || null,
@@ -394,23 +419,20 @@ const reviveDashboardPayload = (data = {}) => ({
   ...data,
   sessions: (data.sessions || []).map(reviveDashboardEvent),
 });
-const compactDashboardPayload = ({ clients = [], programmesBase = [], sessions = [], assignedCounts = {}, assignedClientsMap = {} }) => ({
+const compactDashboardPayload = ({ clients = [], programmesBase = [], sessions = [], assignedCounts = {}, assignedClientsMap = {}, partial = false }) => ({
   clients: clients.slice(0, DASHBOARD_DATA_CACHE_CLIENT_LIMIT).map(compactDashboardClient),
   programmesBase: programmesBase.slice(0, 220).map(compactDashboardProgram),
   sessions: sessions.map(compactDashboardEvent),
   assignedCounts,
   assignedClientsMap,
+  partial: partial === true,
 });
 const readDashboardDataCacheEntryByKey = (key, { allowStale = false } = {}) => {
   const isUsableDashboardCache = (data = {}) => {
     const clients = Array.isArray(data.clients) ? data.clients : [];
     const sessions = Array.isArray(data.sessions) ? data.sessions : [];
     const programmesBase = Array.isArray(data.programmesBase) ? data.programmesBase : [];
-    const looksLikeQuickOnlyCache =
-      sessions.length === 0 &&
-      clients.length > 0 &&
-      clients.every((client) => client?._quickLoading === true);
-    return (clients.length > 0 || sessions.length > 0 || programmesBase.length > 0) && !looksLikeQuickOnlyCache;
+    return clients.length > 0 || sessions.length > 0 || programmesBase.length > 0;
   };
   let payload = dashboardDataMemoryCache.get(key) || null;
   if (!payload && typeof window !== "undefined") {
@@ -434,7 +456,7 @@ const readDashboardDataCacheEntryByKey = (key, { allowStale = false } = {}) => {
     data,
     savedAt,
     ageMs,
-    isStale: ageMs >= DASHBOARD_DATA_CACHE_TTL_MS,
+    isStale: data.partial === true || ageMs >= DASHBOARD_DATA_CACHE_TTL_MS,
   };
 };
 const readDashboardDataCacheEntry = (coachUid, clubId, options) =>
@@ -1456,7 +1478,6 @@ const getCalendarEventColor = (event = {}, fallback = "#2563EB") => {
   if (endMs > 0 && endMs <= Date.now()) return "#DC2626";
   return fallback;
 };
-const DIFFICULTY_NOTE_COLLECTIONS = ["difficulté_notes", "difficulte_notes"];
 const getSessionDifficultyRating = (session = {}) =>
   normRating(
     session?.difficultyRating ??
@@ -1529,24 +1550,6 @@ const findDifficultyNoteForCompletion = (notes = [], completion = {}) => {
       return b.createdAtMs - a.createdAtMs;
     });
   return candidates[0] || null;
-};
-const loadProgramDifficultyNotes = async (clientId, programId) => {
-  if (!clientId || !programId) return [];
-  for (const collectionName of DIFFICULTY_NOTE_COLLECTIONS) {
-    try {
-      const snap = await getDocs(collection(db, "clients", clientId, "programmes", programId, collectionName));
-      if (!snap.empty) {
-        return snap.docs.map((noteDoc) => ({
-          id: noteDoc.id,
-          _collection: collectionName,
-          ...noteDoc.data(),
-        }));
-      }
-    } catch (error) {
-      console.warn("[coach dashboard] difficulty notes load failed", collectionName, error);
-    }
-  }
-  return [];
 };
 const isAutoProgramme = (p) => {
    const o = String(p?.origine || "").toLowerCase();
@@ -2370,6 +2373,39 @@ useState(() => initialDashboardCache?.assignedClientsMap || {});
   );
   const nutritionLoadKeyRef = useRef("");
   const dashboardLoadSeqRef = useRef(0);
+  useEffect(() => {
+    if (initialDashboardCache || !effectiveCoachUid) return undefined;
+    let alive = true;
+    const cachedQueries = [
+      query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(500)),
+      query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(500)),
+      query(collection(db, "clients"), where("coachIds", "array-contains", effectiveCoachUid), limit(500)),
+    ];
+    Promise.all([
+      getDocsFromCache(query(collection(db, "programmes"), where("createdBy", "==", effectiveCoachUid), limit(200)))
+        .catch(() => ({ docs: [] })),
+      ...cachedQueries.map((cachedQuery) => getDocsFromCache(cachedQuery).catch(() => ({ docs: [] }))),
+    ]).then(([programmesSnapshot, ...clientSnapshots]) => {
+      if (!alive) return;
+      const cachedClientMap = new Map();
+      clientSnapshots.forEach((snapshot) => {
+        snapshot.docs.forEach((documentSnapshot) => {
+          cachedClientMap.set(documentSnapshot.id, { id: documentSnapshot.id, ...documentSnapshot.data() });
+        });
+      });
+      const cachedClients = buildQuickDashboardClients([...cachedClientMap.values()]);
+      const cachedProgrammes = programmesSnapshot.docs.map((documentSnapshot) => ({
+        id: documentSnapshot.id,
+        ...documentSnapshot.data(),
+      }));
+      if (cachedClients.length) setClients(cachedClients);
+      if (cachedProgrammes.length) setProgrammesBase(cachedProgrammes);
+      if (cachedClients.length || cachedProgrammes.length) setLoadingData(false);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [effectiveCoachUid, initialDashboardCache]);
   const [dismissedRadarIds, setDismissedRadarIds] = useState([]);
   const [radarCollapsed, setRadarCollapsed] = useState(false);
   const [dashboardWidgetPrefs, setDashboardWidgetPrefs] = useState(DEFAULT_DASHBOARD_WIDGET_PREFS);
@@ -2953,10 +2989,14 @@ useState(false);
       }
     };
 
-    const cancelLoad = scheduleIdleTask(loadNutritionRows, 250);
+    let cancelIdleLoad;
+    const delayId = window.setTimeout(() => {
+      cancelIdleLoad = scheduleIdleTask(loadNutritionRows, 700);
+    }, 1200);
     return () => {
       alive = false;
-      cancelLoad();
+      window.clearTimeout(delayId);
+      cancelIdleLoad?.();
     };
   }, [clients, effectiveCoachUid, effectiveClubId, hasNutritionCalendarAccess]);
 
@@ -3648,6 +3688,7 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
      dashboardLoadSeqRef.current = loadSeq;
      const isLatestLoad = () => dashboardLoadSeqRef.current === loadSeq;
      let hasCachedDashboardData = false;
+     let cachedDashboardDataForRefresh = null;
      if (!force) {
        const cachedDashboardEntry = readDashboardDataCacheEntry(
          effectiveCoachUid,
@@ -3655,6 +3696,7 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
          { allowStale: true }
        );
        const cachedDashboardData = cachedDashboardEntry?.data || null;
+       cachedDashboardDataForRefresh = cachedDashboardData;
        if (cachedDashboardEntry) {
          hasCachedDashboardData = true;
          if (isLatestLoad()) hydrateDashboardData(cachedDashboardData);
@@ -3684,19 +3726,40 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
          query(collection(db, "sessions"), where("ownerId", "==", effectiveCoachUid)),
        ];
        const programmesSnapPromise = getDocs(progsQ);
+       const primaryClientSnapPromise = getDocs(
+         query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(500))
+       );
+       if (!backgroundRefresh) {
+         void primaryClientSnapPromise.then((primarySnapshot) => {
+           if (!isLatestLoad() || primarySnapshot.empty) return;
+           const primaryClients = buildQuickDashboardClients(
+             primarySnapshot.docs.map((documentSnapshot) => ({
+               id: documentSnapshot.id,
+               ...documentSnapshot.data(),
+             }))
+           );
+           if (!primaryClients.length) return;
+           setClients(primaryClients);
+           setLoadingData(false);
+         }).catch(() => {});
+       }
        const clientSnapsPromise = Promise.all([
-          getDocs(query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(500))),
+          primaryClientSnapPromise,
           getDocs(query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(500))).catch(() => ({ docs: [] })),
           getDocs(query(collection(db, "clients"), where("coachIds", "array-contains", effectiveCoachUid), limit(500))).catch(() => ({ docs: [] })),
        ]);
-       const sessionSnapsPromise = Promise.all(
-         sessionQueries.map((sessionQuery) =>
-           getDocs(sessionQuery).catch((sessionQueryError) => {
-             console.warn("[coach dashboard] sessions query failed", sessionQueryError);
-             return { docs: [] };
-           })
-         )
-       );
+       // Les centaines de séances ne doivent pas concurrencer les données qui
+       // permettent le premier affichage visible du dashboard.
+       const sessionSnapsPromise = Promise.all([programmesSnapPromise, primaryClientSnapPromise])
+         .catch(() => [])
+         .then(() => Promise.all(
+           sessionQueries.map((sessionQuery) =>
+             getDocs(sessionQuery).catch((sessionQueryError) => {
+               console.warn("[coach dashboard] sessions query failed", sessionQueryError);
+               return { docs: [] };
+             })
+           )
+         ));
        const [pSnap, clientSnaps] = await Promise.all([programmesSnapPromise, clientSnapsPromise]);
        const progs = pSnap.docs.map((d) => ({ id: d.id, ...d.data()
 }));
@@ -3708,26 +3771,8 @@ toMillis(a.createdAt));
           snap.docs.forEach((d) => mergedClientMap.set(d.id, { id: d.id, ...d.data() }));
        });
        let mergedClients = [...mergedClientMap.values()];
-       const quickClients = dedupeClientsForDashboard(mergedClients)
-         .map((client) => {
-           const quickActivityMs = Math.max(
-             toMillis(client.lastCoachInteractionAt),
-             toMillis(client.lastCoachSessionAt),
-             toMillis(client.lastActivityAt),
-             toMillis(client.updatedAt),
-             toMillis(client.createdAt)
-           );
-           return {
-             ...client,
-             programmesAssignes: buildQuickAssignedProgramPlaceholders(client),
-             _lastCoachInteractionMs: quickActivityMs,
-             _lastInteractionMs: quickActivityMs,
-             _quickLoading: true,
-           };
-         })
-         .filter((client) => client._lastCoachInteractionMs > 0)
-         .sort((a, b) => (b._lastCoachInteractionMs || 0) - (a._lastCoachInteractionMs || 0));
-       const quickDashboardClients = quickClients.length ? quickClients : dedupeClientsForDashboard(mergedClients);
+       const quickClients = buildQuickDashboardClients(mergedClients);
+       const quickDashboardClients = quickClients;
        const quickCounts = {};
        const quickAssignedMap = {};
        quickDashboardClients.forEach((client) => {
@@ -3745,6 +3790,14 @@ toMillis(a.createdAt));
              fallbackName: prettyAssignedProgramName(programme),
            });
          });
+       });
+       writeDashboardDataCache(effectiveCoachUid, effectiveClubId, {
+         clients: quickDashboardClients,
+         programmesBase: progs,
+         sessions: cachedDashboardDataForRefresh?.sessions || [],
+         assignedCounts: quickCounts,
+         assignedClientsMap: quickAssignedMap,
+         partial: true,
        });
        if (!backgroundRefresh && isLatestLoad()) {
          setClients(quickDashboardClients);
@@ -3887,15 +3940,17 @@ toMillis(a.createdAt));
         scheduleIdleTask(resolve, 650);
       });
       if (!isLatestLoad()) return;
-      const clientsWithProgs = await runLimited(
-        quickDashboardClients.slice(0, DASHBOARD_DATA_CACHE_CLIENT_LIMIT),
+      const detailedClients = await runLimited(
+        quickDashboardClients.slice(0, DASHBOARD_DETAIL_CLIENT_LIMIT),
         async (client) => {
+          if (!isLatestLoad()) return client;
           const subSnap = await getDocs(collection(db, "clients",
 client.id, "programmes"));
           let latestAssignMs = 0;
           const progsWithSessions = await runLimited(
             subSnap.docs,
-            async (d) => {
+             async (d) => {
+              if (!isLatestLoad()) return { id: d.id, ...d.data() };
               const prog = d.data();
               const totalPrevues = getTotalSessionsFromProgrammeDoc(prog);
                 const assignMs =
@@ -3969,10 +4024,9 @@ d.id, "sessionsEffectuees")
                   ? getSessionActivityMs(latestCompletedRecord)
                   : 0;
                 const lastCompletedTitle = latestCompletedRecord ? getSessionDisplayTitle(prog, latestCompletedRecord, t) : "";
-                const hasValidatedSession = sessionsEffectuees.some(isSessionValidatedRecord);
-                const difficultyNotes = hasValidatedSession
-                  ? await loadProgramDifficultyNotes(client.id, d.id)
-                  : [];
+                // Les notes détaillées sont chargées sur la fiche du programme.
+                // Le dashboard utilise déjà la difficulté portée par les séances.
+                const difficultyNotes = [];
                 const difficultyMap = buildDifficultyMapFromNotes(difficultyNotes);
                 return {
                    id: d.id,
@@ -4020,6 +4074,10 @@ d.id, "sessionsEffectuees")
 progsWithSessions, _lastInteractionMs, _latestAssignMs: latestAssignMs, _lastClientUpdateMs: lastClientUpdate, _clientListActivityMs: latestCompletedSessionMs };
          },
          6
+      );
+      const detailedClientsById = new Map(detailedClients.map((client) => [client.id, client]));
+      const clientsWithProgs = quickDashboardClients.map(
+        (client) => detailedClientsById.get(client.id) || client
       );
       const dashboardClients = dedupeClientsForDashboard(clientsWithProgs);
       const counts = {};
@@ -4600,8 +4658,10 @@ plannedEvt._sessionTitle,
 effectiveCoachUid]);
   const refreshDashboardData = useCallback(() => fetchData({ force: true }), [fetchData]);
   useEffect(() => {
-
      fetchData();
+     return () => {
+       dashboardLoadSeqRef.current += 1;
+     };
   }, [fetchData]);
   const getClubAppointmentIdFromEvent = useCallback((event) => {
     if (!event) return "";

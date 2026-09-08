@@ -504,6 +504,29 @@ check("navigation preloads stay bounded and reuse warm page data", () => {
   );
 });
 
+check("coach dashboard paints cached clients before expensive enrichment", () => {
+  const dashboard = read("src/components/CoachDashboard.jsx");
+  assert.ok(
+    dashboard.includes("getDocsFromCache") &&
+      dashboard.includes("buildQuickDashboardClients") &&
+      dashboard.includes("partial: true") &&
+      dashboard.includes("data.partial === true"),
+    "The dashboard must hydrate a lightweight partial cache while refreshing it in the background"
+  );
+  assert.ok(
+    dashboard.includes("DASHBOARD_DETAIL_CLIENT_LIMIT = 24") &&
+      dashboard.includes("primaryClientSnapPromise.then") &&
+      dashboard.includes("setLoadingData(false)"),
+    "The first client query must release the loading state without waiting for every client detail"
+  );
+  assert.ok(
+    dashboard.includes("Promise.all([programmesSnapPromise, primaryClientSnapPromise])") &&
+      dashboard.includes("}, 1200);") &&
+      dashboard.includes("dashboardLoadSeqRef.current += 1"),
+    "Session, nutrition and abandoned dashboard work must not compete with the first visible render"
+  );
+});
+
 check("sport PDFs include localized exercise notes", () => {
   const programView = read("src/components/ProgramView.jsx");
   const autoPreview = read("src/components/AutoProgramPreview.jsx");
@@ -1605,6 +1628,21 @@ check("footer navigation preserves the selected language", () => {
       );
     }
   }
+});
+
+check("coach trials persist sport and nutrition entitlements", () => {
+  const authContext = read("src/AuthContext.jsx");
+  const startTrial = authContext.slice(
+    authContext.indexOf("const startCoachTrialIfNeeded"),
+    authContext.indexOf("// Reset password")
+  );
+
+  assert.ok(
+    startTrial.includes("const selectedAccess = FULL_PRO_TRIAL_ACCESS") &&
+      startTrial.includes("modules: selectedAccess.modules") &&
+      startTrial.includes("proAccess: selectedAccess"),
+    "Starting a coach trial must persist the complete sport and nutrition access"
+  );
 });
 
 check("guided tutorials match the current screens and keep targets bright", () => {
