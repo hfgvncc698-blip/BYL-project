@@ -39,7 +39,7 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { getApiBase } from "./utils/apiBase";
-import { getProPlanAccess } from "./utils/proPlanAccess";
+import { getProPlanAccess, isActiveCoachTrial } from "./utils/proPlanAccess";
 import i18n, { ensureLanguageLoaded } from "./i18n";
 import { getFunctions, httpsCallable } from "firebase/functions";
 
@@ -242,12 +242,12 @@ const normalizeUserDoc = (uid, data, fb) => {
   const rawRole = data?.role ?? "particulier"; // "admin" | "coach" | "particulier"
   const role = rawRole;
   const isAdminUser = role === "admin";
-  const trialEndsAt = toDate(data?.trialEndsAt);
-  const isActiveCoachTrial =
-    role === "coach" &&
-    data?.subscriptionStatus === "trialing" &&
-    safeTime(trialEndsAt) &&
-    safeTime(trialEndsAt) > Date.now();
+  const trialEndsAt = toDate(data?.trialEndsAt || data?.trialEnd);
+  const hasActiveCoachTrial = isActiveCoachTrial({
+    ...data,
+    role,
+    trialEndsAt,
+  });
   const isClubTrial = isClubAccount;
   const adminAccess = isAdminUser
     ? {
@@ -255,7 +255,7 @@ const normalizeUserDoc = (uid, data, fb) => {
         modules: [...ADMIN_PRO_ACCESS.modules],
       }
     : null;
-  const trialAccess = isActiveCoachTrial && data?.manualEntitlements !== true
+  const trialAccess = hasActiveCoachTrial
     ? {
         ...(isClubTrial ? FULL_CLUB_TRIAL_ACCESS : FULL_PRO_TRIAL_ACCESS),
         modules: [...(isClubTrial ? FULL_CLUB_TRIAL_ACCESS.modules : FULL_PRO_TRIAL_ACCESS.modules)],
@@ -537,11 +537,7 @@ export const AuthProvider = ({ children }) => {
     const endsAtMs = safeTime(user.trialEndsAt);
     const now = Date.now();
 
-    return (
-      user.subscriptionStatus === "trialing" &&
-      !!endsAtMs &&
-      endsAtMs > now
-    );
+    return isActiveCoachTrial(user, now) && !!endsAtMs;
   }, [user]);
 
   // accès coach = abonnement payant OU trial actif

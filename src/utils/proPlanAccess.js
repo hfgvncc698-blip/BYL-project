@@ -125,9 +125,31 @@ export function getPlanModules(accessOrUser) {
   return accessOrUser?.proAccess?.modules || accessOrUser?.modules || [];
 }
 
+const accessDateToMillis = (value) => {
+  if (!value) return 0;
+  if (typeof value?.toMillis === "function") return value.toMillis();
+  if (typeof value?.toDate === "function") return value.toDate().getTime();
+  const millis = value instanceof Date ? value.getTime() : new Date(value).getTime();
+  return Number.isFinite(millis) ? millis : 0;
+};
+
+export function isActiveCoachTrial(accessOrUser, now = Date.now()) {
+  return Boolean(
+    accessOrUser?.role === "coach" &&
+      accessOrUser?.subscriptionStatus === "trialing" &&
+      accessDateToMillis(accessOrUser?.trialEndsAt || accessOrUser?.trialEnd) > now
+  );
+}
+
 export function hasPlanModule(accessOrUser, module) {
   if (!accessOrUser || !module) return false;
   if (accessOrUser.role === "admin") return true;
+  if (
+    isActiveCoachTrial(accessOrUser) &&
+    (module === "sport" || module === "nutrition")
+  ) {
+    return true;
+  }
 
   const modules = getPlanModules(accessOrUser);
   const packageKey = accessOrUser.packageKey || accessOrUser.proAccess?.packageKey;

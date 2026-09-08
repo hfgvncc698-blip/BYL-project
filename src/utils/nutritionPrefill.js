@@ -256,30 +256,35 @@ async function createEmailClient(profile = {}, createdByUid, clubId = null) {
         `/clubs/client-lookup?email=${encodeURIComponent(email)}`
       ).catch(() => null);
       if (lookup?.authExists && lookup?.canLink) {
-        const linked = await apiFetch("/clubs/link-existing-client", {
-          method: "POST",
-          body: JSON.stringify({
-            email,
-            firstName: profile.prenom || profile.firstName || "",
-            lastName: profile.nom || profile.lastName || "",
-            telephone: profile.telephone || profile.phone || "",
-            langue: profile.langue || profile.language || profile.lang || "fr",
-            objectifs: profile.objectif || profile.objective || "",
-            clubId: clubId || null,
-          }),
-        });
-        if (linked?.clientId) {
-          return { clientId: linked.clientId, status: "existing" };
-        }
+        return linkExistingEmailClient(profile, createdByUid, clubId);
       }
-
-      const existing = await findExistingClientByIdentity(profile);
-      if (existing?.clientId) {
-        return ensureExistingClientLinked(existing.clientId, profile, createdByUid, clubId);
-      }
+      if (lookup?.canLink === false) throw new Error(existingClientScopeMessage);
     }
     throw error;
   }
+}
+
+const existingClientScopeMessage =
+  "Ce compte appartient déjà à un autre espace. Un administrateur doit valider son transfert.";
+
+async function linkExistingEmailClient(profile = {}, createdByUid, clubId = null) {
+  const email = normalizeEmail(profile.email);
+  const linked = await apiFetch("/clubs/link-existing-client", {
+    method: "POST",
+    body: JSON.stringify({
+      email,
+      firstName: profile.prenom || profile.firstName || "",
+      lastName: profile.nom || profile.lastName || "",
+      telephone: profile.telephone || profile.phone || "",
+      dateNaissance: profile.dateNaissance || profile.birthDate || "",
+      langue: profile.langue || profile.language || profile.lang || "fr",
+      objectifs: profile.objectif || profile.objective || "",
+      ownerUid: createdByUid || undefined,
+      clubId: clubId || null,
+    }),
+  });
+  if (!linked?.clientId) throw new Error("Le compte client n’a pas pu être rattaché.");
+  return { clientId: linked.clientId, status: "existing" };
 }
 
 async function createOfflineClient(profile = {}, createdByUid, clubId = null) {
@@ -298,27 +303,23 @@ async function createOfflineClient(profile = {}, createdByUid, clubId = null) {
 }
 
 export async function createOrResolveNutritionClient({ profile = {}, createdByUid, clubId = null }) {
-  const existing = await findExistingClientByIdentity(profile);
-  if (existing?.clientId) {
-    const email = normalizeEmail(profile.email);
-    if (email) {
-      const lookup = await apiFetch(
-        `/clubs/client-lookup?email=${encodeURIComponent(email)}`
-      ).catch(() => null);
-      if (lookup?.exists && lookup?.canLink === false) {
-        throw new Error(
-          "Ce compte appartient déjà à un autre espace. Un administrateur doit valider son transfert."
-        );
-      }
-      if (lookup && lookup.authExists === false) {
-        return createEmailClient(profile, createdByUid, clubId);
-      }
+  const email = normalizeEmail(profile.email);
+  if (email) {
+    const lookup = await apiFetch(
+      `/clubs/client-lookup?email=${encodeURIComponent(email)}`
+    );
+    if (lookup?.exists && lookup?.canLink === false) {
+      throw new Error(existingClientScopeMessage);
     }
-    return ensureExistingClientLinked(existing.clientId, profile, createdByUid, clubId);
+    if (lookup?.authExists && lookup?.canLink) {
+      return linkExistingEmailClient(profile, createdByUid, clubId);
+    }
+    return createEmailClient(profile, createdByUid, clubId);
   }
 
-  if (normalizeEmail(profile.email)) {
-    return createEmailClient(profile, createdByUid, clubId);
+  const existing = await findExistingClientByIdentity(profile);
+  if (existing?.clientId) {
+    return ensureExistingClientLinked(existing.clientId, profile, createdByUid, clubId);
   }
 
   return createOfflineClient(profile, createdByUid, clubId);

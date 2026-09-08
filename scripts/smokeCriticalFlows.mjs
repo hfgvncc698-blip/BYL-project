@@ -7,6 +7,7 @@ import { getProgramMinimumRestDays, isProgramRestDay } from "../src/utils/progra
 import { inferNutritionMealHabits, nutritionMealKeysForDate, nutritionMealMoment, selectTimeRelevantMeal } from "../src/utils/nutritionMealTiming.js";
 import { findNextClientHabit, findNextWorkoutRhythm, findUpcomingCoachHabit } from "../src/utils/coachScheduleHabits.js";
 import { expandRecurringDates } from "../src/utils/calendarRecurrence.js";
+import { hasPlanModule, isActiveCoachTrial } from "../src/utils/proPlanAccess.js";
 
 const root = process.cwd();
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
@@ -776,6 +777,24 @@ check("coach invitations and self-registration stay distinct", () => {
       clientProfile.includes("data.accountUid === auth.uid") &&
       authContext.includes('where("accountUid", "==", firebaseUser.uid)'),
     "Duplicate legacy client profiles must resolve to the account-linked profile"
+  );
+});
+
+check("nutrition and sport client creation use coach-safe backend identity lookup", () => {
+  const nutritionPrefill = read("src/utils/nutritionPrefill.js");
+  const clientCreation = read("src/components/ClientCreation.jsx");
+
+  assert.ok(
+    nutritionPrefill.includes("/clubs/client-lookup?email=") &&
+      nutritionPrefill.includes('apiFetch("/clubs/link-existing-client"') &&
+      nutritionPrefill.indexOf("if (email) {") < nutritionPrefill.indexOf("findExistingClientByIdentity(profile)"),
+    "Nutrition creation with an email must resolve identity through the authorized backend before any Firestore scan"
+  );
+  assert.ok(
+    clientCreation.includes("/clubs/client-lookup?email=") &&
+      clientCreation.includes('apiFetch("/clubs/clients"') &&
+      clientCreation.includes('apiFetch("/clubs/link-existing-client"'),
+    "Sport client creation must use the same authorized backend workflow"
   );
 });
 
@@ -1657,6 +1676,42 @@ check("coach trials persist sport and nutrition entitlements", () => {
       startTrial.includes("proAccess: selectedAccess"),
     "Starting a coach trial must persist the complete sport and nutrition access"
   );
+});
+
+check("every active coach trial can open every nutrition workflow", () => {
+  const activeTrial = {
+    role: "coach",
+    subscriptionStatus: "trialing",
+    trialEndsAt: new Date(Date.now() + 60_000),
+    manualEntitlements: true,
+    modules: ["sport"],
+    packageKey: "sport",
+  };
+  const expiredTrial = {
+    ...activeTrial,
+    trialEndsAt: new Date(Date.now() - 60_000),
+  };
+  const app = read("src/App.jsx");
+
+  assert.equal(isActiveCoachTrial(activeTrial), true, "The active trial must be recognized");
+  assert.equal(hasPlanModule(activeTrial, "nutrition"), true, "An active trial must include Nutrition even when old manual entitlements are incomplete");
+  assert.equal(hasPlanModule(activeTrial, "sport"), true, "An active trial must include Coach/Sport");
+  assert.equal(isActiveCoachTrial(expiredTrial), false, "An expired trial must stay closed");
+  [
+    'path="/nutrition-coach"',
+    'path="/clients/:clientId/nutrition-journal"',
+    'path="/clients/:clientId/nutrition/:assessmentId"',
+    'path="/clients/:clientId/nutrition/:assessmentId/food-survey"',
+    'path="/clients/:clientId/nutrition/:assessmentId/ration"',
+    'path="/clients/:clientId/nutrition/:assessmentId/menu"',
+  ].forEach((route) => {
+    const routeIndex = app.indexOf(route);
+    assert.ok(routeIndex >= 0, `${route} must exist`);
+    assert.ok(
+      app.slice(routeIndex, routeIndex + 260).includes('<ModuleRoute module="nutrition">'),
+      `${route} must use the shared Nutrition access guard`
+    );
+  });
 });
 
 check("guided tutorials match the current screens and keep targets bright", () => {

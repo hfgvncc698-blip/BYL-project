@@ -80,7 +80,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { resolveStorageUrl } from "../utils/storageUrls";
-import { canUseGuidedProgram, getProPlanAccess, hasPlanModule } from "../utils/proPlanAccess";
+import { canUseGuidedProgram, getProPlanAccess, hasPlanModule, isActiveCoachTrial } from "../utils/proPlanAccess";
 import { apiFetch } from "../utils/api";
 import {
   formatProgramActiveWeeks,
@@ -1044,12 +1044,7 @@ const getProgramCreatedAtMs = (program = {}) => {
 
 const resolveCoachAccessContext = (rawCoach = {}) => {
   const coach = rawCoach || {};
-  if (coach.manualEntitlements === true) return coach;
-  const trialEndMs = toMillis(coach.trialEndsAt || coach.trialEnd);
-  const hasActiveTrial =
-    coach.role === "coach" &&
-    coach.subscriptionStatus === "trialing" &&
-    trialEndMs > Date.now();
+  const hasActiveTrial = isActiveCoachTrial(coach);
 
   if (!hasActiveTrial) return coach;
 
