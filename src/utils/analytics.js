@@ -38,6 +38,7 @@ function getAnonVisitorId() {
 }
 
 function cleanCoordinate(value, min, max) {
+  if (value == null || value === "") return null;
   const n = Number(value);
   if (!Number.isFinite(n) || n < min || n > max) return null;
   return n;

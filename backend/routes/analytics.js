@@ -98,17 +98,6 @@ function toIso(value) {
   return Number.isFinite(date.getTime()) ? date.toISOString() : null;
 }
 
-function toDate(value) {
-  if (!value) return null;
-  const date =
-    typeof value.toDate === "function"
-      ? value.toDate()
-      : value instanceof Date
-        ? value
-        : new Date(value);
-  return Number.isFinite(date.getTime()) ? date : null;
-}
-
 function pickPersonName(data = {}, fallback = "") {
   return (
     `${data.firstName || ""} ${data.lastName || ""}`.trim() ||
@@ -195,6 +184,7 @@ function anonVisitorIdFromRequest(req) {
 }
 
 function cleanCoordinate(value, min, max) {
+  if (value == null || value === "") return null;
   const n = Number(value);
   return Number.isFinite(n) && n >= min && n <= max ? n : null;
 }
@@ -369,36 +359,6 @@ async function countSubcollection(ref, name) {
   }
 }
 
-function pickLastVisitValue(data = {}) {
-  return (
-    data.lastVisitAt ||
-    data.lastSeenAt ||
-    data.lastActivityAt ||
-    data.lastActiveAt ||
-    data.location?.updatedAt ||
-    null
-  );
-}
-
-function normalizeLocation(data = {}) {
-  const location = data.location || {};
-  const lat = typeof location.lat === "number" ? location.lat : null;
-  const lng =
-    typeof location.lng === "number"
-      ? location.lng
-      : typeof location.lon === "number"
-        ? location.lon
-        : null;
-  const country = cleanText(location.country || location.countryCode || location.country_code, 2, "UN").toUpperCase();
-  const city = cleanText(location.city || location.town || location.village, 120, "unknown");
-  return {
-    country,
-    city,
-    lat: lat != null && lng != null && !isNullIsland(lat, lng) ? lat : null,
-    lng: lat != null && lng != null && !isNullIsland(lat, lng) ? lng : null,
-  };
-}
-
 router.get("/admin/geo", requireAnalyticsAdmin, async (_req, res) => {
   try {
     res.set("Cache-Control", "no-store");
@@ -507,6 +467,9 @@ router.get("/admin/geo", requireAnalyticsAdmin, async (_req, res) => {
         city: cleanText(x.city, 120, "unknown"),
         lat: typeof x.lat === "number" ? x.lat : null,
         lng: typeof x.lng === "number" ? x.lng : null,
+        accuracy: typeof x.accuracy === "number" ? x.accuracy : null,
+        geoCapturedAt: toIso(x.geoCapturedAt),
+        geoSource: cleanText(x.geoSource, 40, "network"),
         timeZone: cleanText(x.timeZone, 80, ""),
         firstSeenAt: toIso(x.firstSeenAt),
         lastSeenAt: toIso(x.lastSeenAt || x.firstSeenAt),
@@ -536,6 +499,9 @@ router.get("/admin/geo", requireAnalyticsAdmin, async (_req, res) => {
         city: cleanText(x.city, 120, "unknown"),
         lat: typeof x.lat === "number" ? x.lat : null,
         lng: typeof x.lng === "number" ? x.lng : null,
+        accuracy: typeof x.accuracy === "number" ? x.accuracy : null,
+        geoCapturedAt: toIso(x.geoCapturedAt),
+        geoSource: cleanText(x.geoSource, 40, "network"),
         timeZone: cleanText(x.timeZone, 80, ""),
         firstSeenAt: toIso(x.seenAt),
         lastSeenAt: toIso(x.seenAt),
@@ -552,23 +518,16 @@ router.get("/admin/geo", requireAnalyticsAdmin, async (_req, res) => {
           name: pickPersonName(data, uid),
           email: data.email || "",
           role: data.role || "",
-          location: data.location || null,
         });
       })
     );
     const recentVisitorsFromAnalytics = (await Promise.all(
       recentVisitorsBase.map(async (visit) => {
         const person = visitorUsers.get(visit.uid);
-        const lat = visit.lat != null ? visit.lat : (typeof person?.location?.lat === "number" ? person.location.lat : null);
-        const lng = visit.lng != null ? visit.lng : (typeof person?.location?.lng === "number" ? person.location.lng : null);
-        let country =
-          visit.country !== "UN"
-            ? visit.country
-            : cleanText(person?.location?.country, 2, visit.country).toUpperCase();
-        let city =
-          visit.city.toLowerCase() !== "unknown"
-            ? visit.city
-            : cleanText(person?.location?.city, 120, visit.city);
+        const lat = visit.lat;
+        const lng = visit.lng;
+        let country = visit.country;
+        let city = visit.city;
 
         if (
           lat != null &&
@@ -603,6 +562,7 @@ router.get("/admin/geo", requireAnalyticsAdmin, async (_req, res) => {
           city,
           lat,
           lng,
+          geolocated: lat != null && lng != null,
         };
       })
     ))
@@ -622,16 +582,10 @@ router.get("/admin/geo", requireAnalyticsAdmin, async (_req, res) => {
     const recentVisitEvents = (await Promise.all(
       recentVisitEventsBase.map(async (visit) => {
         const person = visitorUsers.get(visit.uid);
-        let country =
-          visit.country !== "UN"
-            ? visit.country
-            : cleanText(person?.location?.country, 2, visit.country).toUpperCase();
-        let city =
-          visit.city.toLowerCase() !== "unknown"
-            ? visit.city
-            : cleanText(person?.location?.city, 120, visit.city);
-        const lat = visit.lat != null ? visit.lat : (typeof person?.location?.lat === "number" ? person.location.lat : null);
-        const lng = visit.lng != null ? visit.lng : (typeof person?.location?.lng === "number" ? person.location.lng : null);
+        let country = visit.country;
+        let city = visit.city;
+        const lat = visit.lat;
+        const lng = visit.lng;
 
         if (
           lat != null &&
@@ -654,45 +608,11 @@ router.get("/admin/geo", requireAnalyticsAdmin, async (_req, res) => {
           city,
           lat,
           lng,
+          geolocated: lat != null && lng != null,
         };
       })
     ))
       .sort((a, b) => String(b.lastSeenAt || "").localeCompare(String(a.lastSeenAt || "")));
-
-    const accountCollections = [
-      { name: "users", defaultRole: "user" },
-      { name: "coachs", defaultRole: "coach" },
-    ];
-    await Promise.all(
-      accountCollections.map(async ({ name, defaultRole }) => {
-        const snap = await db.collection(name).get().catch(() => ({ docs: [] }));
-        snap.docs.forEach((docSnap) => {
-          const data = docSnap.data() || {};
-          const lastVisitValue = pickLastVisitValue(data);
-          const lastVisitDate = toDate(lastVisitValue);
-          if (!lastVisitDate || fmtDay(lastVisitDate) !== today) return;
-          const location = normalizeLocation(data);
-          const uid = data.uid || data.linkedUserId || (name === "users" || name === "coachs" ? docSnap.id : "");
-          upsertRecent({
-            id: `${name}:${docSnap.id}`,
-            visitorId: uid ? `uid:${uid}` : `${name}:${docSnap.id}`,
-            uid,
-            role: cleanText(data.role || defaultRole, 40, defaultRole),
-            pathFirst: "",
-            pathLast: cleanText(data.lastVisitedPath, 180, ""),
-            country: location.country,
-            city: location.city,
-            lat: location.lat,
-            lng: location.lng,
-            firstSeenAt: toIso(lastVisitValue),
-            lastSeenAt: toIso(lastVisitValue),
-            personName: pickPersonName(data, docSnap.id),
-            email: data.email || data.emailLower || "",
-            source: name,
-          });
-        });
-      })
-    );
 
     const recentVisitors = (recentVisitEvents.length > 0 ? recentVisitEvents : [...recentByKey.values()])
       .sort((a, b) => String(b.lastSeenAt || "").localeCompare(String(a.lastSeenAt || "")));
@@ -788,42 +708,6 @@ router.get("/admin/geo/:geoId/visitors", requireAnalyticsAdmin, async (req, res)
       const city = cleanText(data.city, 120, "unknown");
       const visitorGeoKey = `${country}${slug(city)}`.replace(/[^a-z0-9]/gi, "").toLowerCase();
       if (visitorGeoKey === requestedGeoKey) mergeVisitor(docSnap, "daily-legacy");
-    }));
-
-    // La carte « aujourd’hui » peut aussi être alimentée par la dernière
-    // position enregistrée sur les profils (compatibilité avec l’historique).
-    const selectedDays = new Set(dayKeys);
-    await Promise.all([
-      { name: "users", defaultRole: "user" },
-      { name: "coachs", defaultRole: "coach" },
-    ].map(async ({ name, defaultRole }) => {
-      const snapshot = await db.collection(name).get().catch(() => ({ docs: [] }));
-      snapshot.docs.forEach((docSnap) => {
-        const data = docSnap.data() || {};
-        const lastVisitValue = pickLastVisitValue(data);
-        const lastVisitDate = toDate(lastVisitValue);
-        if (!lastVisitDate || !selectedDays.has(fmtDay(lastVisitDate))) return;
-        const location = normalizeLocation(data);
-        const profileGeoKey = `${location.country}${slug(location.city)}`
-          .replace(/[^a-z0-9]/gi, "")
-          .toLowerCase();
-        if (profileGeoKey !== requestedGeoKey) return;
-        const uid = data.uid || data.linkedUserId || docSnap.id;
-        const visitorId = `uid:${uid}`;
-        const previous = byVisitor.get(visitorId) || {};
-        byVisitor.set(visitorId, {
-          ...previous,
-          visitorId,
-          uid,
-          role: cleanText(data.role || defaultRole, 40, defaultRole),
-          personName: pickPersonName(data, docSnap.id),
-          email: cleanText(data.email || data.emailLower, 320, ""),
-          firstSeenAt: previous.firstSeenAt || toIso(lastVisitValue),
-          lastSeenAt: toIso(lastVisitValue),
-          pathLast: cleanText(data.lastVisitedPath, 180, previous.pathLast || ""),
-          source: name,
-        });
-      });
     }));
 
     const rows = [...byVisitor.values()];
@@ -1286,6 +1170,9 @@ router.post("/pageview", async (req, res) => {
           role,
           lat,
           lng,
+          accuracy,
+          geoCapturedAt,
+          geoSource,
           timeZone: visitorTimeZone,
         });
         tx.set(dailyRef, { uniqueVisitors: FieldValue.increment(1) }, { merge: true });
@@ -1298,6 +1185,9 @@ router.post("/pageview", async (req, res) => {
           role,
           lat,
           lng,
+          accuracy,
+          geoCapturedAt,
+          geoSource,
           timeZone: visitorTimeZone,
         }, { merge: true });
       }

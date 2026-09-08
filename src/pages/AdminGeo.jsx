@@ -333,6 +333,9 @@ async function loadAdminGeoFromFirestore() {
       city: cleanText(x.city, 120, "unknown"),
       lat: typeof x.lat === "number" ? x.lat : null,
       lng: typeof x.lng === "number" ? x.lng : null,
+      accuracy: typeof x.accuracy === "number" ? x.accuracy : null,
+      geoCapturedAt: toIso(x.geoCapturedAt),
+      geoSource: cleanText(x.geoSource, 40, "network"),
       timeZone: cleanText(x.timeZone, 80, ""),
       firstSeenAt: toIso(x.firstSeenAt),
       lastSeenAt: toIso(x.lastSeenAt || x.firstSeenAt),
@@ -356,6 +359,9 @@ async function loadAdminGeoFromFirestore() {
       city: cleanText(x.city, 120, "unknown"),
       lat: typeof x.lat === "number" ? x.lat : null,
       lng: typeof x.lng === "number" ? x.lng : null,
+      accuracy: typeof x.accuracy === "number" ? x.accuracy : null,
+      geoCapturedAt: toIso(x.geoCapturedAt),
+      geoSource: cleanText(x.geoSource, 40, "network"),
       timeZone: cleanText(x.timeZone, 80, ""),
       firstSeenAt: toIso(x.seenAt),
       lastSeenAt: toIso(x.seenAt),
@@ -375,7 +381,6 @@ async function loadAdminGeoFromFirestore() {
           name: pickPersonName(data, uid),
           email: data.email || "",
           role: data.role || "",
-          location: data.location || null,
         });
       } catch {
         // Visitors remain visible even if user enrichment fails.
@@ -390,10 +395,7 @@ async function loadAdminGeoFromFirestore() {
       personName: person?.name || (event.uid ? event.uid : "Visiteur anonyme"),
       email: person?.email || "",
       role: person?.role || event.role,
-      country: event.country !== "UN" ? event.country : cleanText(person?.location?.country, 2, event.country).toUpperCase(),
-      city: event.city.toLowerCase() !== "unknown" ? event.city : cleanText(person?.location?.city, 120, event.city),
-      lat: event.lat != null ? event.lat : (typeof person?.location?.lat === "number" ? person.location.lat : null),
-      lng: event.lng != null ? event.lng : (typeof person?.location?.lng === "number" ? person.location.lng : null),
+      geolocated: event.lat != null && event.lng != null,
     };
   }).sort((a, b) => String(b.lastSeenAt || "").localeCompare(String(a.lastSeenAt || "")));
 
@@ -1292,7 +1294,14 @@ export default function AdminGeo() {
                           {visit.email || visit.uid || visit.visitorId || "—"}
                         </Text>
                       </Td>
-                      <Td>{place || "—"}</Td>
+                      <Td>
+                        <Text>{place || "Position non disponible"}</Text>
+                        {visit.geolocated && Number.isFinite(Number(visit.accuracy)) ? (
+                          <Text fontSize="xs" color={theme.mutedText}>
+                            Précision ≈ {Math.round(Number(visit.accuracy))} m
+                          </Text>
+                        ) : null}
+                      </Td>
                       <Td>{formatDateTime(visit.lastSeenAt || visit.firstSeenAt) || "—"}</Td>
                       <Td maxW="260px">
                         <Text noOfLines={1}>{visit.pathLast || visit.pathFirst || "—"}</Text>

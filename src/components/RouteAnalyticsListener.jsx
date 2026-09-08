@@ -3,9 +3,14 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "../AuthContext";
 import { trackPageView } from "../utils/analytics";
+import { GEO_PAGE_LOAD_ID, GEO_PAGE_LOAD_STORAGE_KEY } from "../utils/geolocationSession";
 
 function getGeoFromStorage() {
   try {
+    const pageLoadId = localStorage.getItem(GEO_PAGE_LOAD_STORAGE_KEY) || null;
+    if (pageLoadId !== GEO_PAGE_LOAD_ID) {
+      return { country: null, city: null, lat: null, lng: null, accuracy: null, capturedAt: null, source: null, pageLoadId };
+    }
     return {
       country: localStorage.getItem("BYL_COUNTRY") || null,
       city: localStorage.getItem("BYL_CITY") || null,
@@ -14,16 +19,22 @@ function getGeoFromStorage() {
       accuracy: localStorage.getItem("BYL_GEO_ACCURACY") || null,
       capturedAt: localStorage.getItem("BYL_GEO_UPDATED_AT") || null,
       source: localStorage.getItem("BYL_GEO_SOURCE") || null,
+      pageLoadId,
     };
   } catch {
-    return { country: null, city: null, lat: null, lng: null, accuracy: null, capturedAt: null, source: null };
+    return { country: null, city: null, lat: null, lng: null, accuracy: null, capturedAt: null, source: null, pageLoadId: null };
   }
 }
 
 function hasUsableGeo(geo) {
   const lat = Number(geo?.lat);
   const lng = Number(geo?.lng);
-  return Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0);
+  return (
+    geo?.pageLoadId === GEO_PAGE_LOAD_ID &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    !(lat === 0 && lng === 0)
+  );
 }
 
 function waitForGeoReady(timeoutMs = 2500) {

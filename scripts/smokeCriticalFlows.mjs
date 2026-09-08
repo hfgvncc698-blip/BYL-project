@@ -376,14 +376,9 @@ check("slow loads and render failures never leave an empty application root", ()
   );
 });
 
-check("geolocation permission is requested at most once automatically", () => {
+check("each app opening requests a fresh geolocation without reusing a saved place", () => {
   const geolocation = read("src/hooks/useGeolocation.js");
-  const deniedGuardIndex = geolocation.indexOf(
-    'if (storedDecision === "denied" || browserPermission === "denied")'
-  );
-  const automaticRequestIndex = geolocation.indexOf(
-    "navigator.geolocation.getCurrentPosition(success, fail, geoOptions)"
-  );
+  const routeAnalytics = read("src/components/RouteAnalyticsListener.jsx");
 
   assert.ok(
     geolocation.includes('GEO_PERMISSION_DECISION_KEY = "BYL_GEO_PERMISSION_DECISION_V1"') &&
@@ -392,19 +387,38 @@ check("geolocation permission is requested at most once automatically", () => {
     "Geolocation consent decisions must survive page reloads"
   );
   assert.ok(
-    geolocation.includes('storedDecision === "granted" && browserPermission !== "granted"') &&
-      geolocation.includes("autoRequestAttemptedRef.current"),
-    "Expired one-time iPhone permissions must not open another automatic prompt"
+    geolocation.includes('if (browserPermission === "denied")') &&
+      !geolocation.includes('storedDecision === "granted" && browserPermission !== "granted"'),
+    "Only a current browser refusal may prevent a fresh geolocation request"
   );
   assert.ok(
     geolocation.includes("const clearCachedGeo") &&
       geolocation.includes("maximumAge: 0") &&
-      geolocation.includes("clearCachedGeo();\n\n    const success"),
+      geolocation.includes('clearCachedGeo();\n\n    if (browserPermission === "checking") return;') &&
+      geolocation.includes("navigator.geolocation.watchPosition"),
     "Every app opening must discard stale coordinates before acquiring a genuinely current position"
   );
   assert.ok(
-    deniedGuardIndex >= 0 && automaticRequestIndex > deniedGuardIndex,
-    "A saved refusal must be checked before any automatic browser permission request"
+    geolocation.includes("GEO_PAGE_LOAD_STORAGE_KEY") &&
+      routeAnalytics.includes("pageLoadId !== GEO_PAGE_LOAD_ID"),
+    "Analytics must only use coordinates captured during the current page load"
+  );
+});
+
+check("admin geo never presents a saved profile position as the current visit", () => {
+  const adminGeo = read("src/pages/AdminGeo.jsx");
+  const analyticsRoutes = read("backend/routes/analytics.js");
+
+  assert.ok(
+    !adminGeo.includes('event.lat != null ? event.lat : (typeof person?.location?.lat') &&
+      !analyticsRoutes.includes('visit.lat != null ? visit.lat : (typeof person?.location?.lat') &&
+      !analyticsRoutes.includes("normalizeLocation(data)"),
+    "Missing event coordinates must remain missing instead of falling back to a profile"
+  );
+  assert.ok(
+    adminGeo.includes('place || "Position non disponible"') &&
+      analyticsRoutes.includes("geolocated: lat != null && lng != null"),
+    "The admin must clearly identify visits whose current location was unavailable"
   );
 });
 

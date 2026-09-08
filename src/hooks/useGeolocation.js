@@ -1,6 +1,7 @@
 // src/hooks/useGeolocation.js
 import { useState, useEffect, useRef } from "react";
 import { resolveCityCountry } from "../utils/geocoding";
+import { GEO_PAGE_LOAD_ID, GEO_PAGE_LOAD_STORAGE_KEY } from "../utils/geolocationSession";
 
 export const GEO_PERMISSION_DECISION_KEY = "BYL_GEO_PERMISSION_DECISION_V1";
 const GEO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
@@ -55,7 +56,6 @@ export default function useGeolocation({
   options,
   saveUserLocation = false,
   saveAnalytics = false,
-  reuseCachedPosition = true,
 } = {}) {
   const [state, setState] = useState({
     status: "idle", // idle | requesting | granted | denied | unsupported
@@ -75,27 +75,9 @@ export default function useGeolocation({
     Number.isFinite(lng) &&
     !(lat === 0 && lng === 0);
 
-  const readCachedGeo = () => {
-    try {
-      const lat = Number(localStorage.getItem("BYL_LAT"));
-      const lng = Number(localStorage.getItem("BYL_LNG"));
-      if (!isUsablePosition(lat, lng)) return null;
-      return {
-        country: localStorage.getItem("BYL_COUNTRY") || null,
-        city: localStorage.getItem("BYL_CITY") || null,
-        lat,
-        lng,
-        timestamp: Number(localStorage.getItem("BYL_GEO_UPDATED_AT")) || Date.now(),
-        source: "cache",
-      };
-    } catch {
-      return null;
-    }
-  };
-
   const clearCachedGeo = () => {
     try {
-      ["BYL_COUNTRY", "BYL_CITY", "BYL_LAT", "BYL_LNG", "BYL_GEO_ACCURACY", "BYL_GEO_SOURCE", "BYL_GEO_UPDATED_AT"].forEach((key) => {
+      ["BYL_COUNTRY", "BYL_CITY", "BYL_LAT", "BYL_LNG", "BYL_GEO_ACCURACY", "BYL_GEO_SOURCE", "BYL_GEO_UPDATED_AT", GEO_PAGE_LOAD_STORAGE_KEY].forEach((key) => {
         localStorage.removeItem(key);
       });
     } catch {
@@ -133,6 +115,7 @@ export default function useGeolocation({
       }
       localStorage.setItem("BYL_GEO_SOURCE", source);
       localStorage.setItem("BYL_GEO_UPDATED_AT", String(timestamp || Date.now()));
+      localStorage.setItem(GEO_PAGE_LOAD_STORAGE_KEY, GEO_PAGE_LOAD_ID);
     } catch {
       // ignore
     }
@@ -184,15 +167,18 @@ export default function useGeolocation({
       return;
     }
 
+    // Invalide immédiatement toute coordonnée issue d'un chargement précédent,
+    // y compris pendant que l'API Permissions répond encore.
+    clearCachedGeo();
+
     if (browserPermission === "checking") return;
 
-    let storedDecision = readStoredGeoDecision();
+    const storedDecision = readStoredGeoDecision();
     if (browserPermission === "granted" && storedDecision === "denied") {
-      storedDecision = "granted";
       writeStoredGeoDecision("granted");
     }
-    if (storedDecision === "denied" || browserPermission === "denied") {
-      if (browserPermission === "denied") writeStoredGeoDecision("denied");
+    if (browserPermission === "denied") {
+      writeStoredGeoDecision("denied");
       clearCachedGeo();
       setState({
         status: "denied",
@@ -202,30 +188,10 @@ export default function useGeolocation({
       return;
     }
 
-    const cached = reuseCachedPosition ? readCachedGeo() : null;
-    if (cached && !storedDecision) {
-      // Migration des utilisateurs ayant déjà accepté avant l'ajout du choix
-      // persistant. La coordonnée historique n'est toutefois plus considérée
-      // comme leur position actuelle.
-      storedDecision = "granted";
-      writeStoredGeoDecision("granted");
-    }
-
-    // Une autorisation "une seule fois" peut redevenir `prompt` sur iPhone.
-    // Dans ce cas on efface l'ancien lieu et on ne sollicite pas à nouveau
-    // l'utilisateur automatiquement.
-    if (storedDecision === "granted" && browserPermission !== "granted") {
-      clearCachedGeo();
-      setState({ status: "idle", position: null, error: null });
-      return;
-    }
-
     if (autoRequestAttemptedRef.current && !watch) return;
     autoRequestAttemptedRef.current = true;
-    // Ne jamais envoyer l'ancien lieu pendant que la nouvelle position est en
-    // cours d'acquisition. L'analytics attendra BYL_GEO_READY ou utilisera son
-    // fallback approximatif après son délai normal.
-    clearCachedGeo();
+    // Chaque montage correspond à une nouvelle ouverture du site : le
+    // navigateur doit fournir une position fraîche ou refuser explicitement.
 
     const success = async (pos) => {
       const base = {
@@ -312,7 +278,7 @@ export default function useGeolocation({
         watchIdRef.current = null;
       }
     };
-  }, [enabled, uid, watch, saveUserLocation, saveAnalytics, reuseCachedPosition, browserPermission, JSON.stringify(options ?? {})]);
+  }, [enabled, uid, watch, saveUserLocation, saveAnalytics, browserPermission, JSON.stringify(options ?? {})]);
 
   const refresh = async () => {
     if (!("geolocation" in navigator)) return;
