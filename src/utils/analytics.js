@@ -1,5 +1,6 @@
 import { getApiBase } from "./apiBase";
 import { auth } from "../firebaseConfig";
+import { getAuthHeaders } from "./authHeaders";
 
 const API_BASE = getApiBase();
 
@@ -89,18 +90,18 @@ export async function trackPageView({
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
   };
 
-  try {
-    const headers = { "Content-Type": "application/json" };
-    try {
-      const tokenSource = typeof user?.getIdToken === "function" ? user : authUser;
-      if (typeof tokenSource?.getIdToken === "function") {
-        const token = await tokenSource.getIdToken();
-        if (token) headers.Authorization = `Bearer ${token}`;
-      }
-    } catch {
-      // The event remains useful as anonymous analytics if the token is unavailable.
+  const headers = { "Content-Type": "application/json" };
+  if (uid) {
+    const authHeaders = await getAuthHeaders({ timeoutMs: 5000 }).catch(() => ({}));
+    if (!authHeaders.Authorization) {
+      const authError = new Error("analytics-auth-not-ready");
+      authError.code = "analytics-auth-not-ready";
+      throw authError;
     }
+    Object.assign(headers, authHeaders);
+  }
 
+  try {
     const response = await fetch(`${API_BASE}/analytics/pageview`, {
       method: "POST",
       headers,
@@ -129,9 +130,11 @@ export async function trackPageView({
     } else if (import.meta?.env?.DEV) {
       console.warn("Analytics pageview not recorded:", response.status, data);
     }
+    return { ok: response.ok && data?.ok !== false, data };
   } catch (error) {
     if (import.meta?.env?.DEV) console.warn("Analytics pageview request failed:", error);
     // Analytics is best-effort: local/dev backends can be offline without affecting the app.
+    return { ok: false, error };
   }
 }
 

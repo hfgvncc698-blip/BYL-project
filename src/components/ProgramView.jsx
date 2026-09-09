@@ -3138,7 +3138,11 @@ export default function ProgramView() {
     }
 
     try {
-      const freshSource = await findExerciseDocFromFirestore(resolvedExercise);
+      const freshSource = await settleWithTimeout(
+        findExerciseDocFromFirestore(resolvedExercise),
+        3500,
+        null
+      );
       const replacementBase = freshSource
         ? resolveExerciseForDisplay({ ...resolvedExercise, ...freshSource }, "modal-fresh", i18n.language || "fr")
         : resolvedExercise;
@@ -3155,15 +3159,14 @@ export default function ProgramView() {
       }
 
       const variants = safeArray(pickFirst(replacementBase, ["variantes"]));
-      const resolvedVariants = await Promise.all(
-        variants.map(async (variant, index) => {
+      const resolvedVariants = variants
+        .map((variant, index) => {
           const label = getVariantOptionLabel(variant);
           if (!label) return null;
-          const resolvedVariant = await findExerciseVariantDoc(variant, replacementBase);
-          if (!resolvedVariant) return null;
+          const resolvedVariant = variant && typeof variant === "object" ? variant : null;
           return { index, variant, label, resolvedVariant };
         })
-      );
+        .filter(Boolean);
       setReplacementVariants(resolvedVariants.filter(Boolean));
     } catch (e) {
       console.error(e);
@@ -3193,7 +3196,11 @@ export default function ProgramView() {
       const variants = safeArray(pickFirst(selExo, ["variantes"]));
       const selectedVariant = option?.variant ?? variants[Number(variantIndexValue)] ?? variantIndexValue;
       const selectedVariantLabel = getVariantOptionLabel(selectedVariant);
-      const replacementSource = option?.resolvedVariant ?? await findExerciseVariantDoc(selectedVariant, selExo);
+      const replacementSource = option?.resolvedVariant ?? await settleWithTimeout(
+        findExerciseVariantDoc(selectedVariant, selExo),
+        6000,
+        null
+      );
       if (!replacementSource) {
         notify(toast, "programMissing", {
           title: t("autoPreview.variantNotFound", "Variante introuvable"),

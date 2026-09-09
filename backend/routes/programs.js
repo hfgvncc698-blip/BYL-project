@@ -99,6 +99,178 @@ function objectifToParamsKey(obj = "") {
   return k.replace(/\s+/g, "_");
 }
 
+const TEMPLATE_SYNC_FIELDS = [
+  "nomProgramme",
+  "name",
+  "objectif",
+  "objectifUI",
+  "activeWeeks",
+  "durationWeeks",
+  "displayUnits",
+  "sessions",
+  "seances",
+  "options",
+  "auto_suivi",
+  "autoProgression",
+  "progressionStrategy",
+  "progressionModel",
+];
+
+function buildProgressionPlan(activeWeeks, strategyValue) {
+  const weeks = Math.max(1, Math.min(52, Math.round(Number(activeWeeks) || 4)));
+  const strategy = ["secure", "linear", "undulating"].includes(strategyValue)
+    ? strategyValue
+    : "linear";
+  return Array.from({ length: weeks }, (_, index) => {
+    const week = index + 1;
+    if (strategy === "linear") {
+      return {
+        week,
+        phase: week === 1 ? "base" : "progression",
+        loadDeltaPct: Math.min(10, index * 2.5),
+        volumeDeltaPct: week <= 2 ? 0 : Math.min(10, (week - 2) * 5),
+        recoveryDeltaPct: 0,
+      };
+    }
+    if (strategy === "undulating") {
+      const cycle = index % 3;
+      if (cycle === 0) return { week, phase: "volume", loadDeltaPct: 0, volumeDeltaPct: 8, recoveryDeltaPct: 0 };
+      if (cycle === 1) return { week, phase: "intensity", loadDeltaPct: 5, volumeDeltaPct: -5, recoveryDeltaPct: 5 };
+      return { week, phase: "consolidation", loadDeltaPct: 2.5, volumeDeltaPct: 0, recoveryDeltaPct: 0 };
+    }
+    if (weeks >= 4 && week === weeks) {
+      return { week, phase: "deload", loadDeltaPct: -8, volumeDeltaPct: -15, recoveryDeltaPct: 10 };
+    }
+    if (week === 1) return { week, phase: "adaptation", loadDeltaPct: 0, volumeDeltaPct: 0, recoveryDeltaPct: 0 };
+    if (week === 2) return { week, phase: "progression", loadDeltaPct: 2.5, volumeDeltaPct: 0, recoveryDeltaPct: 0 };
+    return { week, phase: "overload", loadDeltaPct: 5, volumeDeltaPct: 5, recoveryDeltaPct: 5 };
+  });
+}
+
+function canEditTemplate(req, requester = {}, template = {}) {
+  const role = String(requester.role || "").toLowerCase();
+  const isAdmin = role === "admin" && req.auth?.token?.email_verified === true;
+  if (isAdmin) return true;
+  if (!hasActiveProfessionalAccess(requester, req.auth?.token || {})) return false;
+  const uid = req.auth.uid;
+  const ownerIds = [
+    template.createdBy,
+    template.coachId,
+    template.coachUid,
+    template.ownerId,
+    template.ownerUid,
+  ].filter(Boolean);
+  const sameClub = Boolean(
+    requester.clubId &&
+      (template.clubId === requester.clubId ||
+        (Array.isArray(template.clubIds) && template.clubIds.includes(requester.clubId)))
+  );
+  return ownerIds.includes(uid) || sameClub;
+}
+
+function assignedProgramSyncPatch(template = {}, programId) {
+  const patch = {};
+  TEMPLATE_SYNC_FIELDS.forEach((field) => {
+    if (template[field] !== undefined) patch[field] = template[field];
+  });
+  const sessions = Array.isArray(template.sessions)
+    ? template.sessions
+    : Array.isArray(template.seances)
+      ? template.seances
+      : [];
+  patch.sessions = sessions;
+  patch.seances = sessions;
+  patch.totalSessions = sessions.length;
+  patch.nbSeances = sessions.length;
+  const progressionStrategy = ["secure", "linear", "undulating"].includes(template.progressionStrategy)
+    ? template.progressionStrategy
+    : "linear";
+  const progressionPlan = buildProgressionPlan(
+    template.activeWeeks || template.durationWeeks,
+    progressionStrategy
+  );
+  patch.progressionStrategy = progressionStrategy;
+  patch.progressionTemplate = {
+    strategy: progressionStrategy,
+    generatedOnAssign: true,
+    mode: "template",
+  };
+  patch.progressionPlan = progressionPlan;
+  patch.progression = { strategy: progressionStrategy, mode: "assigned", plan: progressionPlan };
+  patch.templateRevision = Number(template._rev || Date.now());
+  patch.templateSyncedAt = admin.firestore.FieldValue.serverTimestamp();
+  patch.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+  patch.fromTemplateId = programId;
+  patch.templateId = programId;
+  return patch;
+}
+
+async function findAssignedProgramDocs(db, programId, requester = {}) {
+  try {
+    const snapshots = await Promise.all(
+      ["programId", "fromTemplateId", "templateId"].map((field) =>
+        db.collectionGroup("programmes").where(field, "==", programId).limit(1000).get()
+      )
+    );
+    const byPath = new Map();
+    snapshots.forEach((snapshot) => {
+      snapshot.docs.forEach((docSnap) => byPath.set(docSnap.ref.path, docSnap));
+    });
+    return [...byPath.values()].filter((docSnap) => {
+      const clientRef = docSnap.ref.parent.parent;
+      return Boolean(clientRef && clientRef.parent?.id === "clients");
+    });
+  } catch (error) {
+    if (Number(error?.code) !== 9 && !String(error?.message || "").includes("COLLECTION_GROUP")) {
+      throw error;
+    }
+    console.warn("[PROGRAM SYNC] collection-group index unavailable; using scoped fallback");
+  }
+
+  const role = String(requester.role || "").toLowerCase();
+  let clientDocs = [];
+  if (role === "admin") {
+    clientDocs = (await db.collection("clients").limit(1000).get()).docs;
+  } else {
+    const uid = String(requester.uid || "");
+    const clientQueries = [
+      db.collection("clients").where("createdBy", "==", uid).limit(500),
+      db.collection("clients").where("coachId", "==", uid).limit(500),
+      db.collection("clients").where("coachIds", "array-contains", uid).limit(500),
+    ];
+    if (requester.clubId) {
+      clientQueries.push(
+        db.collection("clients").where("clubId", "==", requester.clubId).limit(500),
+        db.collection("clients").where("clubIds", "array-contains", requester.clubId).limit(500)
+      );
+    }
+    const snapshots = await Promise.all(clientQueries.map((clientQuery) => clientQuery.get()));
+    const clientByPath = new Map();
+    snapshots.forEach((snapshot) => {
+      snapshot.docs.forEach((docSnap) => clientByPath.set(docSnap.ref.path, docSnap));
+    });
+    clientDocs = [...clientByPath.values()];
+  }
+
+  const assignedByPath = new Map();
+  for (let offset = 0; offset < clientDocs.length; offset += 25) {
+    const snapshots = await Promise.all(
+      clientDocs.slice(offset, offset + 25).map((clientDoc) =>
+        clientDoc.ref.collection("programmes").limit(150).get()
+      )
+    );
+    snapshots.forEach((snapshot) => {
+      snapshot.docs.forEach((docSnap) => {
+        const data = docSnap.data() || {};
+        if ([data.programId, data.fromTemplateId, data.templateId].includes(programId)) {
+          assignedByPath.set(docSnap.ref.path, docSnap);
+        }
+      });
+    });
+  }
+  return [...assignedByPath.values()];
+}
+
 /**
  * POST /api/programs/generate
  */
@@ -191,5 +363,52 @@ router.post("/generate", requireFirebaseAuth, async (req, res) => {
     return res.status(500).json({ error: "Erreur côté serveur lors de la génération." });
   }
 });
+
+/**
+ * POST /api/programs/:programId/sync-assignments
+ * Propage le modèle enregistré vers toutes ses copies client sans toucher aux
+ * séances effectuées, qui vivent dans une sous-collection indépendante.
+ */
+router.post("/:programId/sync-assignments", requireFirebaseAuth, async (req, res) => {
+  try {
+    const programId = String(req.params.programId || "").trim();
+    if (!programId) return res.status(400).json({ error: "programId-required" });
+
+    const db = admin.firestore();
+    const [requesterSnap, templateSnap] = await Promise.all([
+      db.collection("users").doc(req.auth.uid).get(),
+      db.collection("programmes").doc(programId).get(),
+    ]);
+    if (!requesterSnap.exists) return res.status(404).json({ error: "user-not-found" });
+    if (!templateSnap.exists) return res.status(404).json({ error: "program-not-found" });
+
+    const requester = requesterSnap.data() || {};
+    const template = templateSnap.data() || {};
+    if (!canEditTemplate(req, requester, template)) {
+      return res.status(403).json({ error: "program-sync-forbidden" });
+    }
+
+    const assignedDocs = await findAssignedProgramDocs(db, programId, {
+      ...requester,
+      uid: req.auth.uid,
+    });
+    const patch = assignedProgramSyncPatch(template, programId);
+
+    for (let offset = 0; offset < assignedDocs.length; offset += 350) {
+      const batch = db.batch();
+      assignedDocs.slice(offset, offset + 350).forEach((docSnap) => {
+        batch.set(docSnap.ref, patch, { merge: true });
+      });
+      await batch.commit();
+    }
+
+    return res.json({ ok: true, syncedAssignments: assignedDocs.length });
+  } catch (error) {
+    console.error("[PROGRAM SYNC] error:", error);
+    return res.status(500).json({ error: error?.message || "program-sync-failed" });
+  }
+});
+
+router._test = { assignedProgramSyncPatch, buildProgressionPlan, findAssignedProgramDocs };
 
 module.exports = router;

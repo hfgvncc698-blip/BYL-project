@@ -421,6 +421,29 @@ check("admin geo never presents a saved profile position as the current visit", 
       analyticsRoutes.includes("geolocated: lat != null && lng != null"),
     "The admin must clearly identify visits whose current location was unavailable"
   );
+  assert.ok(
+    adminGeo.includes("function mergeCanonicalCities") &&
+      adminGeo.includes("function mergeCanonicalPeriods") &&
+      adminGeo.includes("`${safeCountry}-${slug(safeCity)}`") &&
+      analyticsRoutes.includes("legacyGeoId"),
+    "Legacy and current geo identifiers must merge into one city with one visitor list"
+  );
+});
+
+check("authenticated geo visits wait for Firebase identity", () => {
+  const analytics = read("src/utils/analytics.js");
+  const routeAnalytics = read("src/components/RouteAnalyticsListener.jsx");
+
+  assert.ok(
+    analytics.includes("getAuthHeaders({ timeoutMs: 5000 })") &&
+      analytics.includes('authError.code = "analytics-auth-not-ready"'),
+    "A known user must never be downgraded to an anonymous analytics visit while auth restores"
+  );
+  assert.ok(
+    routeAnalytics.includes('e?.code === "analytics-auth-not-ready"') &&
+      routeAnalytics.includes("authRetryCountRef.current < 3"),
+    "Geo tracking must retry a bounded number of times when Firebase identity is not ready"
+  );
 });
 
 check("admin geo markers reveal the visitors connected from each area", () => {

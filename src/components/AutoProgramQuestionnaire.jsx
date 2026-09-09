@@ -519,6 +519,7 @@ export default function AutoProgramQuestionnaire() {
         {
           method: "POST",
           body: JSON.stringify(payload),
+          timeoutMs: 90000,
         },
         { feature: "program-generate" }
       );

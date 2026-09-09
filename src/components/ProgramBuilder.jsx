@@ -63,6 +63,9 @@ import {
   addDoc,
   collection,
   getDocs,
+  query,
+  where,
+  limit,
   serverTimestamp,
   arrayUnion,
   deleteField,
@@ -96,6 +99,7 @@ import {
   selectLatestExercisePerformance,
 } from "../utils/playerBuilderSync";
 import { applyValidatedSnapshotToAssignedExercise } from "../utils/playerProgramSync";
+import { apiFetch } from "../utils/api";
 import PageBackButton from "./ui/PageBackButton";
 
 /* ------------------ utils ------------------ */
@@ -109,6 +113,7 @@ function useDebouncedCallback(callback, deps, delay) {
 }
 
 const PROGRAM_SAVE_TIMEOUT_MS = 5000;
+const PROGRAM_SYNC_TIMEOUT_MS = 12000;
 const MOBILE_EXERCISE_AUTO_SCROLLER_OPTIONS = {
   startFromPercentage: 0.18,
   maxScrollAtPercentage: 0.035,
@@ -131,6 +136,17 @@ function saveWithTimeout(request, timeoutMs = PROGRAM_SAVE_TIMEOUT_MS) {
   });
 
   return Promise.race([request, timeout]).finally(() => clearTimeout(timeoutId));
+}
+
+async function syncAssignedPrograms(programId) {
+  if (!programId) return { ok: true, syncedAssignments: 0 };
+  return saveWithTimeout(
+    apiFetch(`/programs/${encodeURIComponent(programId)}/sync-assignments`, {
+      method: "POST",
+      timeoutMs: PROGRAM_SYNC_TIMEOUT_MS,
+    }),
+    PROGRAM_SYNC_TIMEOUT_MS
+  );
 }
 
 function useRafCallback(fn) {
@@ -3223,6 +3239,48 @@ export default function ProgramBuilder({
   const [completionHistory, setCompletionHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const assignModal = useDisclosure();
+  const loadAssignableClients = useCallback(async () => {
+    const effectiveCoachUid = isAdminCoachMode ? adminCoachId : user?.uid;
+    setLoadingClients(true);
+    try {
+      let snapshots = [];
+      if (user?.role === "admin" && !isAdminCoachMode) {
+        snapshots = [
+          await saveWithTimeout(
+            getDocs(query(collection(db, "clients"), limit(500))),
+            7000
+          ),
+        ];
+      } else if (effectiveCoachUid) {
+        const clientQueries = [
+          query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(250)),
+          query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(250)),
+          query(
+            collection(db, "clients"),
+            where("coachIds", "array-contains", effectiveCoachUid),
+            limit(250)
+          ),
+        ];
+        snapshots = await saveWithTimeout(
+          Promise.all(clientQueries.map((clientQuery) => getDocs(clientQuery).catch(() => ({ docs: [] })))),
+          7000
+        );
+      }
+
+      const clientsById = new Map();
+      snapshots.forEach((snapshot) => {
+        snapshot.docs.forEach((clientDoc) => {
+          clientsById.set(clientDoc.id, { id: clientDoc.id, ...clientDoc.data() });
+        });
+      });
+      setClients([...clientsById.values()]);
+    } catch (error) {
+      console.error("[program-builder] clients load failed", error);
+      setClients([]);
+    } finally {
+      setLoadingClients(false);
+    }
+  }, [adminCoachId, isAdminCoachMode, user?.role, user?.uid]);
   const addClientModal = useDisclosure();
   const autoProgressionImpactModal = useDisclosure();
   const isFirstLoad = useRef(true);
@@ -3416,24 +3474,26 @@ export default function ProgramBuilder({
       try {
         setActiveWeeksSaving(true);
         const saveRequest = updateDoc(programDocRef, {
-          activeWeeks: nextWeeks,
-          durationWeeks: nextWeeks,
-          ...(isAssignedClientProgram
-            ? buildAssignedProgressionUpdate(
-                progressionStrategy,
-                buildProgressionPlan(nextWeeks, progressionStrategy)
-              )
-            : {}),
-          updatedAt: serverTimestamp(),
-          _rev: Date.now(),
-        });
+            activeWeeks: nextWeeks,
+            durationWeeks: nextWeeks,
+            ...(isAssignedClientProgram
+              ? buildAssignedProgressionUpdate(
+                  progressionStrategy,
+                  buildProgressionPlan(nextWeeks, progressionStrategy)
+                )
+              : {}),
+            updatedAt: serverTimestamp(),
+            _rev: Date.now(),
+          });
+        await saveWithTimeout(saveRequest);
+        if (!isAssignedClientProgram && programId) {
+          await syncAssignedPrograms(programId);
+        }
         setProgramActiveWeeks(nextWeeks);
         setProgramActiveWeeksInput(String(nextWeeks));
         setActiveWeeksDirty(false);
-        setActiveWeeksSaving(false);
         ignoreSnapsUntilRef.current = Date.now() + 1500;
         if (!hasModifications) setIsSaved(true);
-        await saveRequest;
       } catch (error) {
         console.error("[program-builder] active weeks save failed", error);
         setIsSaved(false);
@@ -3459,6 +3519,7 @@ export default function ProgramBuilder({
       isCoach,
       programActiveWeeks,
       programDocRef,
+      programId,
       progressionStrategy,
       t,
       toast,
@@ -3467,12 +3528,8 @@ export default function ProgramBuilder({
   );
 
   useEffect(() => {
-    setLoadingClients(true);
-    getDocs(collection(db, "clients")).then((snaps) => {
-      setClients(snaps.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setLoadingClients(false);
-    });
-  }, []);
+    loadAssignableClients();
+  }, [loadAssignableClients]);
 
   const filtered = useMemo(() => {
     const q = deferredSearch.trim().toLowerCase();
@@ -3651,6 +3708,7 @@ export default function ProgramBuilder({
           await saveWithTimeout(
             updateDoc(programDocRef, {
               nomProgramme: finalName,
+              name: finalName,
               objectif: programmeGoal || "",
               ...(objectifUI ? { objectifUI } : {}),
               activeWeeks: sanitizeActiveWeeks(programActiveWeeks),
@@ -3665,10 +3723,20 @@ export default function ProgramBuilder({
                 distance: distanceUnit,
               }),
               sessions: sessionsToSave,
+              ...(isAssignedClientProgram
+                ? {
+                    seances: structuredClone(sessionsToSave),
+                    totalSessions: sessionsToSave.length,
+                    nbSeances: sessionsToSave.length,
+                  }
+                : {}),
               updatedAt: serverTimestamp(),
               _rev: Date.now(),
             })
           );
+          if (!isAssignedClientProgram && programId) {
+            await syncAssignedPrograms(programId);
+          }
 
           setIsSaved(true);
           setHasModifications(false);
@@ -3689,6 +3757,7 @@ export default function ProgramBuilder({
       progressionStrategy,
       progressionPlan,
       isAssignedClientProgram,
+      programId,
       autoProgressionEnabled,
       sessions,
       programOptions,
@@ -3706,24 +3775,38 @@ export default function ProgramBuilder({
   /* --------- Créer / Enregistrer --------- */
   const saveProgramme = useCallback(async () => {
     if (programId && programDocRef && !hasModifications && !activeWeeksDirty) {
-      setSaving(false);
-      toast({
-        title: t("programBuilder.toasts.alreadySavedTitle", "Programme déjà enregistré"),
-        description: t(
-          "programBuilder.toasts.alreadySavedDesc",
-          "Aucune nouvelle modification à enregistrer."
-        ),
-        status: "success",
-        duration: 1400,
-        position: "bottom",
-      });
-      setTimeout(() => {
-        if (returnToAfterSave) {
-          navigate(returnToAfterSave, { replace: true });
-        } else {
-          navigate(-1);
-        }
-      }, 300);
+      try {
+        setSaving(true);
+        const syncResult = !isAssignedClientProgram
+          ? await syncAssignedPrograms(programId)
+          : { syncedAssignments: 0 };
+        toast({
+          title: t("programBuilder.toasts.alreadySavedTitle", "Programme déjà enregistré"),
+          description: syncResult.syncedAssignments > 0
+            ? `${syncResult.syncedAssignments} programmation${syncResult.syncedAssignments > 1 ? "s" : ""} client ${syncResult.syncedAssignments > 1 ? "ont" : "a"} été resynchronisée${syncResult.syncedAssignments > 1 ? "s" : ""}.`
+            : t(
+                "programBuilder.toasts.alreadySavedDesc",
+                "Aucune nouvelle modification à enregistrer."
+              ),
+          status: "success",
+          duration: 1600,
+          position: "bottom",
+        });
+        setTimeout(() => {
+          if (returnToAfterSave) navigate(returnToAfterSave, { replace: true });
+          else navigate(-1);
+        }, 500);
+      } catch (error) {
+        toast({
+          title: t("programBuilder.toasts.errorTitle", "Erreur"),
+          description: error?.message || "La synchronisation des clients a échoué.",
+          status: "error",
+          duration: 3000,
+          position: "bottom",
+        });
+      } finally {
+        setSaving(false);
+      }
       return;
     }
 
@@ -3754,6 +3837,7 @@ export default function ProgramBuilder({
       if (!programId && !clientId) {
         const payload = {
           nomProgramme: finalName,
+          name: finalName,
           objectif: programmeGoal || "",
           ...(objectifUI ? { objectifUI } : {}),
           activeWeeks: sanitizeActiveWeeks(programActiveWeeks),
@@ -3800,6 +3884,7 @@ export default function ProgramBuilder({
         await saveWithTimeout(
           updateDoc(programDocRef, {
             nomProgramme: finalName,
+            name: finalName,
             objectif: programmeGoal || "",
             ...(objectifUI ? { objectifUI } : {}),
             activeWeeks: sanitizeActiveWeeks(programActiveWeeks),
@@ -3814,20 +3899,29 @@ export default function ProgramBuilder({
               distance: distanceUnit,
             }),
             sessions: sessionsToSave,
+            ...(isAssignedClientProgram
+              ? {
+                  seances: structuredClone(sessionsToSave),
+                  totalSessions: sessionsToSave.length,
+                  nbSeances: sessionsToSave.length,
+                }
+              : {}),
             updatedAt: serverTimestamp(),
             _rev: Date.now(),
           })
         );
+        const syncResult = !isAssignedClientProgram && programId
+          ? await syncAssignedPrograms(programId)
+          : { syncedAssignments: 0 };
 
         setIsSaved(true);
         setHasModifications(false);
 
         toast({
           title: t("programBuilder.toasts.savedTitle", "Modifications enregistrées"),
-          description: t(
-            "programBuilder.toasts.savedDesc",
-            "Ton programme a bien été sauvegardé."
-          ),
+          description: syncResult.syncedAssignments > 0
+            ? `Programme sauvegardé et mis à jour pour ${syncResult.syncedAssignments} client${syncResult.syncedAssignments > 1 ? "s" : ""}.`
+            : t("programBuilder.toasts.savedDesc", "Ton programme a bien été sauvegardé."),
           status: "success",
           duration: 1800,
           position: "bottom",
@@ -5365,9 +5459,7 @@ export default function ProgramBuilder({
             isOpen={addClientModal.isOpen}
             onClose={() => {
               addClientModal.onClose();
-              getDocs(collection(db, "clients")).then((snaps) =>
-                setClients(snaps.docs.map((d) => ({ id: d.id, ...d.data() })))
-              );
+              loadAssignableClients();
             }}
             isCentered
           >

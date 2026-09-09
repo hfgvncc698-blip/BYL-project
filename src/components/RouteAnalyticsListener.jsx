@@ -66,6 +66,12 @@ export default function RouteAnalyticsListener({ isAnalyticsOn = true, consentLo
   // Empêche les doublons exacts, mais laisse passer une nouvelle visite quand la géoloc arrive.
   const lastKeyRef = useRef(null);
   const inFlightRef = useRef(false);
+  const authRetryCountRef = useRef(0);
+  const authRetryTimerRef = useRef(null);
+
+  useEffect(() => () => {
+    if (authRetryTimerRef.current) clearTimeout(authRetryTimerRef.current);
+  }, []);
 
   // ✅ écoute l’event déclenché par useGeolocation quand BYL_COUNTRY/BYL_CITY sont écrits
   useEffect(() => {
@@ -119,7 +125,7 @@ export default function RouteAnalyticsListener({ isAnalyticsOn = true, consentLo
         const finalLat = isAnalyticsOn ? readyGeo.lat ?? lat : null;
         const finalLng = isAnalyticsOn ? readyGeo.lng ?? lng : null;
 
-        await trackPageView({
+        const result = await trackPageView({
           user,
           path: `${location.pathname}${location.search || ""}`,
           country: finalCountry,
@@ -132,7 +138,13 @@ export default function RouteAnalyticsListener({ isAnalyticsOn = true, consentLo
           roleEffectif: roleEff,
           analyticsAllowed: !!isAnalyticsOn,
         });
+        if (result?.ok) authRetryCountRef.current = 0;
       } catch (e) {
+        if (e?.code === "analytics-auth-not-ready" && authRetryCountRef.current < 3) {
+          authRetryCountRef.current += 1;
+          lastKeyRef.current = null;
+          authRetryTimerRef.current = setTimeout(() => setGeoTick((tick) => tick + 1), 1200);
+        }
         if (import.meta?.env?.DEV) console.warn("trackPageView error:", e);
       } finally {
         inFlightRef.current = false;

@@ -3,6 +3,36 @@
   "fieldOverrides": [
     {
       "collectionGroup": "programmes",
+      "fieldPath": "programId",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "programmes",
+      "fieldPath": "fromTemplateId",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "programmes",
+      "fieldPath": "templateId",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "programmes",
       "fieldPath": "completionEmailDueAt",
       "indexes": [
         {

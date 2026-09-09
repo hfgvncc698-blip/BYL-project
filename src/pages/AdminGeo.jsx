@@ -162,7 +162,61 @@ function slug(value) {
 function makeGeoId(country, city) {
   const safeCountry = cleanText(country, 2, "UN").toUpperCase();
   const safeCity = cleanText(city, 120, "unknown");
-  return `${safeCountry}__${slug(safeCity)}`;
+  return `${safeCountry}-${slug(safeCity)}`;
+}
+
+function latestIso(...values) {
+  return values
+    .filter(Boolean)
+    .sort((a, b) => (Date.parse(b) || 0) - (Date.parse(a) || 0))[0] || null;
+}
+
+function mergeCanonicalCities(rows = []) {
+  const byGeoId = new Map();
+  rows.forEach((row) => {
+    const geoId = makeGeoId(row.country, row.city);
+    const previous = byGeoId.get(geoId);
+    if (!previous) {
+      byGeoId.set(geoId, { ...row, id: geoId, geoId });
+      return;
+    }
+    const rowIsNewer = (Date.parse(row.lastSeenAt || row.updatedAt || "") || 0) >=
+      (Date.parse(previous.lastSeenAt || previous.updatedAt || "") || 0);
+    byGeoId.set(geoId, {
+      ...previous,
+      ...(rowIsNewer ? { lat: row.lat ?? previous.lat, lon: row.lon ?? previous.lon } : {}),
+      pv: Number(previous.pv || 0) + Number(row.pv || 0),
+      usersAllTime: Math.max(Number(previous.usersAllTime || 0), Number(row.usersAllTime || 0)),
+      lastSeenAt: latestIso(previous.lastSeenAt, row.lastSeenAt),
+      updatedAt: latestIso(previous.updatedAt, row.updatedAt),
+    });
+  });
+  return [...byGeoId.values()];
+}
+
+function mergeCanonicalPeriods(rows = [], periodFields = []) {
+  const byPeriod = new Map();
+  rows.forEach((row) => {
+    const geoId = makeGeoId(row.country, row.city);
+    const period = periodFields.map((field) => row[field] ?? "").join(":");
+    const key = `${period}:${geoId}`;
+    const previous = byPeriod.get(key);
+    if (!previous) {
+      byPeriod.set(key, { ...row, geoId });
+      return;
+    }
+    byPeriod.set(key, {
+      ...previous,
+      pv: Number(previous.pv || 0) + Number(row.pv || 0),
+      uniqueVisitors: Math.max(
+        Number(previous.uniqueVisitors || 0),
+        Number(row.uniqueVisitors || 0)
+      ),
+      lastSeenAt: latestIso(previous.lastSeenAt, row.lastSeenAt),
+      updatedAt: latestIso(previous.updatedAt, row.updatedAt),
+    });
+  });
+  return [...byPeriod.values()];
 }
 
 function isKnownGeo(country, city) {
@@ -624,9 +678,9 @@ export default function AdminGeo() {
     if (!silent) setRefreshing(true);
     try {
       const data = await loadAdminGeoData();
-      setCitiesBase(Array.isArray(data.citiesBase) ? data.citiesBase : []);
-      setGeoDaily(Array.isArray(data.geoDaily) ? data.geoDaily : []);
-      setGeoHourly(Array.isArray(data.geoHourly) ? data.geoHourly : []);
+      setCitiesBase(mergeCanonicalCities(Array.isArray(data.citiesBase) ? data.citiesBase : []));
+      setGeoDaily(mergeCanonicalPeriods(Array.isArray(data.geoDaily) ? data.geoDaily : [], ["day"]));
+      setGeoHourly(mergeCanonicalPeriods(Array.isArray(data.geoHourly) ? data.geoHourly : [], ["day", "hour"]));
       setGlobalDaily(Array.isArray(data.globalDaily) ? data.globalDaily : []);
       setRecentVisitors(Array.isArray(data.recentVisitors) ? data.recentVisitors : []);
       setLastLoadedAt(new Date());

@@ -664,10 +664,17 @@ router.get("/admin/geo/:geoId/visitors", requireAnalyticsAdmin, async (req, res)
         .get()
         .catch(() => ({ docs: [] })))),
     ]);
-    const allTimeSnapshot = windowKey === "all"
-      ? await db.collection("analytics_geo").doc(geoId).collection("visitors_all").limit(500).get()
-        .catch(() => ({ docs: [] }))
-      : { docs: [] };
+    const legacyGeoId = geoId.includes("-")
+      ? geoId.replace(/^([A-Z]{2})-/, "$1__")
+      : geoId.replace(/^([A-Z]{2})__/, "$1-");
+    const allTimeSnapshots = windowKey === "all"
+      ? await Promise.all(
+          [...new Set([geoId, legacyGeoId])].map((candidateGeoId) =>
+            db.collection("analytics_geo").doc(candidateGeoId).collection("visitors_all").limit(500).get()
+              .catch(() => ({ docs: [] }))
+          )
+        )
+      : [];
 
     const byVisitor = new Map();
     const mergeVisitor = (docSnap, source) => {
@@ -699,7 +706,9 @@ router.get("/admin/geo/:geoId/visitors", requireAnalyticsAdmin, async (req, res)
             .sort()[0] || null,
       });
     };
-    allTimeSnapshot.docs.forEach((docSnap) => mergeVisitor(docSnap, "all-time"));
+    allTimeSnapshots.forEach((snapshot) => {
+      snapshot.docs.forEach((docSnap) => mergeVisitor(docSnap, "all-time"));
+    });
     dailySnapshots.forEach((snapshot) => snapshot.docs.forEach((docSnap) => mergeVisitor(docSnap, "daily")));
     const requestedGeoKey = geoId.replace(/[^a-z0-9]/gi, "").toLowerCase();
     legacyDailySnapshots.forEach((snapshot) => snapshot.docs.forEach((docSnap) => {
