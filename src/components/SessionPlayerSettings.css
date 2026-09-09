@@ -1,0 +1,46 @@
+/* Bound the dialog, not its content. The body is the only scrollable region;
+   header/footer remain reachable even on short screens or with enlarged text. */
+.chakra-modal__content.player-settings-dialog {
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  min-height: 0;
+  margin-block: 0;
+  overflow: hidden;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+.player-settings-dialog > .chakra-modal__header {
+  flex-shrink: 0;
+  padding-inline-end: 3.5rem;
+}
+
+.player-settings-dialog > .chakra-modal__close-btn {
+  top: calc(env(safe-area-inset-top, 0px) + 0.5rem);
+  inset-inline-end: calc(env(safe-area-inset-right, 0px) + 0.75rem);
+}
+
+.player-settings-dialog > .player-settings-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.player-settings-dialog > .chakra-modal__footer {
+  flex-shrink: 0;
+}
+
+@media (min-width: 48em) {
+  .chakra-modal__content.player-settings-dialog {
+    height: auto;
+    max-height: calc(100vh - 3rem);
+    max-height: calc(100dvh - 3rem);
+    margin-block: 1.5rem;
+  }
+}

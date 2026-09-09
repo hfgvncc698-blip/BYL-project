@@ -1,5 +1,5 @@
 // src/components/ProgramsPage.jsx
-import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   Box,
   Table,
@@ -43,19 +43,18 @@ import AppLoading from "./ui/AppLoading";
 import {
   collection,
   getDocs,
-  getDocsFromCache,
   deleteDoc,
   doc,
   getDoc,
   setDoc,
-  updateDoc,
-  arrayUnion,
   serverTimestamp,
   query,
   where,
   limit,
 } from "firebase/firestore";
 import { db } from "../firebase";
+import { confirmOperation } from "../utils/confirmedOperation";
+import { createProgramAssignmentOperation } from "../utils/programWriteOperations";
 import { useAuth } from "../AuthContext";
 import { useTranslation } from "react-i18next";
 import { notify } from "../utils/notify";
@@ -63,10 +62,12 @@ import { useAppTheme } from "../styles/appTheme";
 import { canUseGuidedProgram } from "../utils/proPlanAccess";
 import { formatProgramActiveWeeks, getProgramActiveWeeksLabel } from "../utils/programDuration";
 import PageBackButton from "./ui/PageBackButton";
+import PageLoadingStatus from "./ui/PageLoadingStatus";
+import { usePageLoading } from "../hooks/usePageLoading";
 import { AppSectionHeader, AppSurface } from "./ui/AppPrimitives.jsx";
 import {
-  deferPageTask,
   readPageDataCacheEntry,
+  restorePageDataCacheEntry,
   runLimited,
   writePageDataCache,
 } from "../utils/pageDataCache";
@@ -173,6 +174,7 @@ const getClientDisplayName = (client) =>
   "Client";
 
 export default function ProgramsPage() {
+  const { begin: beginPageLoad, state: pageLoadState, fresh: forceFresh } = usePageLoading();
   const { t, i18n } = useTranslation("common");
   const theme = useAppTheme();
   const locale = i18n.language || "fr-FR";
@@ -211,8 +213,8 @@ export default function ProgramsPage() {
 	    [effectiveCoachUid]
 	  );
   const initialProgramsPageCacheEntry = useMemo(
-    () => readPageDataCacheEntry(programsPageCacheKey, { ttlMs: PROGRAMS_PAGE_CACHE_TTL_MS }),
-    [programsPageCacheKey]
+    () => forceFresh ? null : readPageDataCacheEntry(programsPageCacheKey, { ttlMs: PROGRAMS_PAGE_CACHE_TTL_MS }),
+    [forceFresh, programsPageCacheKey]
   );
   const initialProgramsPageCache = initialProgramsPageCacheEntry?.data || null;
 
@@ -225,6 +227,7 @@ export default function ProgramsPage() {
   const [loading, setLoading] = useState(() => !initialProgramsPageCache);
 
   useLayoutEffect(() => {
+    if (forceFresh) return;
     const entry = readPageDataCacheEntry(programsPageCacheKey, {
       ttlMs: PROGRAMS_PAGE_CACHE_TTL_MS,
     });
@@ -234,7 +237,7 @@ export default function ProgramsPage() {
     setAssignedCounts(entry.data.assignedCounts || {});
     setAssignedClientsMap(entry.data.assignedClientsMap || {});
     setLoading(false);
-  }, [programsPageCacheKey]);
+  }, [forceFresh, programsPageCacheKey]);
 
   const choiceModal = useDisclosure();
   const confirmModal = useDisclosure();
@@ -246,6 +249,8 @@ export default function ProgramsPage() {
   const [selectedProgramForAssign, setSelectedProgramForAssign] = useState(null);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [assigningClient, setAssigningClient] = useState(false);
+  const assignmentOperationRef = useRef(null);
+  const assignmentBusyRef = useRef(false);
   const [duplicatingProgramId, setDuplicatingProgramId] = useState(null);
   const [programSearch, setProgramSearch] = useState("");
 
@@ -380,10 +385,12 @@ export default function ProgramsPage() {
 
 	  const fetchData = useCallback(async ({ force = false } = {}) => {
 	    if (!effectiveCoachUid) return;
+        const load = beginPageLoad();
 	    try {
-	      const cachedEntry = force
+	      const cachedEntry = force || forceFresh
 	        ? null
-	        : readPageDataCacheEntry(programsPageCacheKey, { ttlMs: PROGRAMS_PAGE_CACHE_TTL_MS });
+	        : await restorePageDataCacheEntry(programsPageCacheKey, { ttlMs: PROGRAMS_PAGE_CACHE_TTL_MS });
+          if (!load.current()) return;
 	      const cached = cachedEntry?.data || null;
 	      if (cached) {
 	        setProgrammes(cached.programmes || []);
@@ -391,33 +398,24 @@ export default function ProgramsPage() {
 	        setAssignedCounts(cached.assignedCounts || {});
 	        setAssignedClientsMap(cached.assignedClientsMap || {});
 	        setLoading(false);
-	        if (!cachedEntry.isStale && !cached.partial) return;
+            load.cache({ programs: cached.programmes?.length || 0, clients: cached.clients?.length || 0 });
 	      } else {
 	        setLoading(true);
       }
 
       const progQ = query(collection(db, "programmes"), where("createdBy", "==", effectiveCoachUid), limit(200));
-      const serverProgramsPromise = getDocs(progQ);
-      if (!cached) {
-        const localProgramsSnap = await getDocsFromCache(progQ).catch(() => null);
-        if (localProgramsSnap && !localProgramsSnap.empty) {
-          const localPrograms = localProgramsSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
-          localPrograms.sort((a, b) => getMillis(b) - getMillis(a));
-          setProgrammes(localPrograms);
-          setLoading(false);
-        }
-      }
-      const pSnap = await serverProgramsPromise;
-      let progs = pSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
-      progs.sort((a, b) => getMillis(b) - getMillis(a));
-      setProgrammes(progs);
-      setLoading(false);
-
-      const clientSnaps = await Promise.all([
+      const [pSnap, clientSnaps] = await Promise.all([getDocs(progQ), Promise.all([
         getDocs(query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(200))),
         getDocs(query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(200))).catch(() => ({ docs: [] })),
         getDocs(query(collection(db, "clients"), where("coachIds", "array-contains", effectiveCoachUid), limit(200))).catch(() => ({ docs: [] })),
-      ]);
+      ])]);
+      if (!load.current()) return;
+      const progs = pSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
+      progs.sort((a, b) => getMillis(b) - getMillis(a));
+      if (!cached) {
+        setProgrammes(progs);
+        setLoading(false);
+      }
       const clientsById = new Map();
       clientSnaps.forEach((snap) => {
         snap.docs.forEach((d) => clientsById.set(d.id, { id: d.id, ...d.data() }));
@@ -425,7 +423,7 @@ export default function ProgramsPage() {
       const clientList = [...clientsById.values()].sort((a, b) =>
         getClientDisplayName(a).localeCompare(getClientDisplayName(b), "fr", { sensitivity: "base" })
       );
-      setClients(clientList);
+      if (!cached) setClients(clientList);
 	      const initialPayload = {
 	        programmes: progs,
 	        clients: clientList,
@@ -433,14 +431,7 @@ export default function ProgramsPage() {
 	        assignedClientsMap: cached?.assignedClientsMap || {},
 	        partial: true,
 	      };
-	      writePageDataCache(programsPageCacheKey, initialPayload);
-
-      await new Promise((resolve) => {
-        const cancel = deferPageTask(() => {
-          cancel?.();
-          resolve();
-        }, 450);
-      });
+	      if (!cached) writePageDataCache(programsPageCacheKey, initialPayload);
 
       const counts = {};
       const map = {};
@@ -468,8 +459,11 @@ export default function ProgramsPage() {
             fallbackName: prettyProgramName(prog),
           });
         });
-      }, 7);
+      }, 12);
 
+      if (!load.current()) return;
+      setProgrammes(progs);
+      setClients(clientList);
       setAssignedCounts(counts);
       setAssignedClientsMap(map);
 	      const nextPayload = {
@@ -480,15 +474,18 @@ export default function ProgramsPage() {
 	        partial: false,
 	      };
 	      writePageDataCache(programsPageCacheKey, nextPayload);
+          load.ready({ programs: progs.length, clients: clientList.length });
     } catch (err) {
+      if (!load.current()) return;
+      load.error();
       console.error("Erreur chargement programmes:", err);
       notify(toast, "dataLoadError", {
         title: t("settings.toasts.update_error", "Erreur de chargement"),
       });
     } finally {
-      setLoading(false);
+      if (load.current()) setLoading(false);
     }
-	  }, [toast, effectiveCoachUid, programsPageCacheKey, t, prettyProgramName]);
+	  }, [beginPageLoad, forceFresh, toast, effectiveCoachUid, programsPageCacheKey, t, prettyProgramName]);
 
   useEffect(() => {
     if (!authLoading && effectiveCoachUid) fetchData();
@@ -612,49 +609,41 @@ export default function ProgramsPage() {
   );
 
   const handleAssignClient = async () => {
-    if (!selectedProgramForAssign?.id || !selectedClientId || !effectiveCoachUid) return;
-
+    if (!selectedProgramForAssign?.id || !selectedClientId || !effectiveCoachUid || assignmentBusyRef.current) return;
+    assignmentBusyRef.current = true;
     setAssigningClient(true);
     try {
-      const tplRef = doc(db, "programmes", selectedProgramForAssign.id);
-      const tplSnap = await getDoc(tplRef);
-      if (!tplSnap.exists()) {
-        notify(toast, "programMissing", {
-          title: t("programs.not_found", "Programme introuvable"),
-        });
-        return;
-      }
+      await confirmOperation(assignmentOperationRef, `${effectiveCoachUid}:${selectedClientId}:${selectedProgramForAssign.id}`, () =>
+        createProgramAssignmentOperation({
+          db, clientId: selectedClientId, programId: selectedProgramForAssign.id, coachId: effectiveCoachUid,
+          loadProgram: async (transaction) => {
+            const tplRef = doc(db, "programmes", selectedProgramForAssign.id);
+            const tplSnap = await transaction.get(tplRef);
+            if (!tplSnap.exists()) throw new Error(t("programs.not_found", "Programme introuvable"));
 
-      const tpl = tplSnap.data() || {};
-      const instRef = doc(collection(db, "clients", selectedClientId, "programmes"));
-      const totalSessions = getSessionCount(tpl);
-      const activeWeeks = Math.max(1, Math.min(52, Math.round(Number(tpl.activeWeeks ?? tpl.durationWeeks ?? 4) || 4)));
+            const tpl = tplSnap.data() || {};
+            const totalSessions = getSessionCount(tpl);
+            const activeWeeks = Math.max(1, Math.min(52, Math.round(Number(tpl.activeWeeks ?? tpl.durationWeeks ?? 4) || 4)));
 
-      await setDoc(instRef, {
-        programId: selectedProgramForAssign.id,
-        ...tpl,
-        id: instRef.id,
-        fromTemplateId: selectedProgramForAssign.id,
-        coachId: effectiveCoachUid,
-        createdBy: effectiveCoachUid,
-        assignedBy: effectiveCoachUid,
-        assignedAt: serverTimestamp(),
-        activeWeeks,
-        durationWeeks: activeWeeks,
-        totalSessions: typeof totalSessions === "number" ? totalSessions : null,
-        progress: 0,
-        status: "active",
-        statut: "en cours",
-        origine: "coach-assign",
-      });
-
-      await updateDoc(doc(db, "clients", selectedClientId), {
-        currentProgramme: instRef.id,
-        programmes: arrayUnion(instRef.id),
-        lastAssignedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        coachIds: arrayUnion(effectiveCoachUid),
-      });
+            return {
+              programId: selectedProgramForAssign.id,
+              ...tpl,
+              fromTemplateId: selectedProgramForAssign.id,
+              coachId: effectiveCoachUid,
+              createdBy: effectiveCoachUid,
+              assignedBy: effectiveCoachUid,
+              assignedAt: serverTimestamp(),
+              activeWeeks,
+              durationWeeks: activeWeeks,
+              totalSessions: typeof totalSessions === "number" ? totalSessions : null,
+              progress: 0,
+              status: "active",
+              statut: "en cours",
+              origine: "coach-assign",
+            };
+          },
+        })
+      );
 
       notify(toast, "programAssigned", {
         title: t("clientsList.assignModal.successTitle", "Programme assigné"),
@@ -662,14 +651,16 @@ export default function ProgramsPage() {
       });
 
       closeAssignClientModal();
-      await fetchData();
+      void fetchData();
     } catch (err) {
       console.error("Assign program to client error:", err);
       notify(toast, "programAssignError", {
-        title: t("clientsList.assignModal.errorTitle", "Erreur"),
-        description: t("clientsList.assignModal.errorDesc", "Impossible d’assigner le programme."),
+        ...(err?.code === "write-previous-confirmed" ? { status: "info" } : {}),
+        title: err?.code === "write-previous-confirmed" ? "Opération précédente confirmée" : t("clientsList.assignModal.errorTitle", "Erreur"),
+        description: err?.message || t("clientsList.assignModal.errorDesc", "Impossible d’assigner le programme."),
       });
     } finally {
+      assignmentBusyRef.current = false;
       setAssigningClient(false);
     }
   };
@@ -680,6 +671,7 @@ export default function ProgramsPage() {
 
   return (
     <Box data-tour-page="coach-programs" minH="100vh" bg={pageBg} px={{ base: 3, md: 5 }} py={{ base: 4, md: 7 }} pb={{ base: 28, md: 7 }}>
+      <PageLoadingStatus state={pageLoadState} />
       <AppSurface data-tour="programs-create" bg={theme.surfaceGlow} p={{ base: 4, md: 5 }} mb={6}>
         <Flex align="flex-start" gap={3}>
           <PageBackButton fallbackTo="/coach-dashboard" />

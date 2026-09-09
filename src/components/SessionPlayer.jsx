@@ -1,5 +1,6 @@
 // src/components/SessionPlayer.jsx
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import "./SessionPlayerSettings.css";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import {
   doc,
@@ -6710,14 +6711,14 @@ export default function SessionPlayer() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Modal isOpen={settingsModalOpen} onClose={closeSettingsModal} isCentered size={isMobile ? "full" : "lg"}>
+      <Modal isOpen={settingsModalOpen} onClose={closeSettingsModal} isCentered={!isMobile} size={{ base: "full", md: "lg" }} scrollBehavior="inside">
         <ModalOverlay />
-        <ModalContent borderRadius={{ base: "0", md: "2xl" }}>
+        <ModalContent className="player-settings-dialog" borderRadius={{ base: "0", md: "2xl" }}>
           <ModalHeader>
             {t("sessionPlayer.playerSettings", "Réglages du player")}
           </ModalHeader>
           <ModalCloseButton />
-          <ModalBody pb={5}>
+          <ModalBody className="player-settings-body" pb={5}>
             <VStack align="stretch" spacing={5}>
               <Box>
                 <Text fontSize="sm" fontWeight="900" mb={2}>
@@ -6807,10 +6808,10 @@ export default function SessionPlayer() {
                   borderRadius="16px"
                 >
                   <Box minW={0}>
-                    <Text fontSize="sm" fontWeight="800" noOfLines={1}>
+                    <Text fontSize="sm" fontWeight="800">
                       {t("sessionPlayer.autoFlow", "Enchaînement auto")}
                     </Text>
-                    <Text fontSize="xs" color={textMute} noOfLines={2}>
+                    <Text fontSize="xs" color={textMute}>
                       {t(
                         "sessionPlayer.autoFlowSettingsHelp",
                         "Lance automatiquement la série suivante après le repos."
@@ -6857,7 +6858,7 @@ export default function SessionPlayer() {
                       <Text fontSize="sm" fontWeight="800">
                         {t("sessionPlayer.sounds", "Signaux sonores")}
                       </Text>
-                      <Text fontSize="xs" color={textMute} noOfLines={2}>
+                      <Text fontSize="xs" color={textMute}>
                         {t(
                           "sessionPlayer.soundsHelp",
                           "Distingue le début de l’effort, le repos et la fin de séance."
@@ -6893,7 +6894,7 @@ export default function SessionPlayer() {
                           </Badge>
                         )}
                       </HStack>
-                      <Text fontSize="xs" color={textMute} noOfLines={2}>
+                      <Text fontSize="xs" color={textMute}>
                         {vibrationAvailability.supported
                           ? t(
                               "sessionPlayer.vibrationsHelp",
@@ -6955,11 +6956,13 @@ export default function SessionPlayer() {
                         borderColor={border}
                         borderRadius="16px"
                       >
-                        <Text fontSize="sm" fontWeight="800" noOfLines={1}>
+                        <Text fontSize="sm" fontWeight="800" minW={0} overflowWrap="anywhere">
                           {optionLabel}
                         </Text>
                         <Switch
                           size="sm"
+                          flexShrink={0}
+                          aria-label={optionLabel}
                           colorScheme="blue"
                           isChecked={checked}
                           isDisabled={option.required}

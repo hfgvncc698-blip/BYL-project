@@ -1,5 +1,5 @@
  
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Alert,
   AlertDescription,
@@ -24,6 +24,7 @@ import {
 } from "@chakra-ui/react";
 import { createNutritionAssessmentFromProfile } from "../utils/nutritionPrefill";
 import { apiFetch } from "../utils/api";
+import { waitForNutritionOperation } from "../utils/nutritionLoading.js";
 import { notify } from "../utils/notify";
 import i18n from "../i18n/index";
 
@@ -75,10 +76,12 @@ const objectiveDisplayLabel = (objective = "") => {
   return key ? i18n.t(`auto.nutritionObjectives.${key}`, objective) : objective;
 };
 
-export default function NutritionQuickCreateModal({ isOpen, onClose, user, clientLimit = null, navigate, toast }) {
+export default function NutritionQuickCreateModal({ isOpen, onClose, user, ownerUid, clientLimit = null, navigate, toast }) {
   const [form, setForm] = useState(INITIAL_STATE);
   const [loading, setLoading] = useState(false);
   const [createError, setCreateError] = useState("");
+  const creationRef = useRef(null);
+  const [confirmationPending, setConfirmationPending] = useState(false);
   const limitModal = useDisclosure();
   const [limitUsage, setLimitUsage] = useState({ used: 0, limit: clientLimit });
   const formId = "nutrition-quick-create-form";
@@ -86,10 +89,19 @@ export default function NutritionQuickCreateModal({ isOpen, onClose, user, clien
   const hasEmail = useMemo(() => String(form.email || "").trim().length > 0, [form.email]);
 
   const setField = (key, value) => {
+    if (creationRef.current) return;
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const resetAndClose = (options = {}) => {
+    if (creationRef.current && !options?.skipRouteCleanup) {
+      // Closing after a timeout hides the modal but keeps this operation and
+      // its form intact for the next opening. It does not cancel the write.
+      if (!loading) onClose?.();
+      return;
+    }
+    creationRef.current = null;
+    setConfirmationPending(false);
     setForm(INITIAL_STATE);
     setCreateError("");
     onClose?.(options);
@@ -127,21 +139,36 @@ export default function NutritionQuickCreateModal({ isOpen, onClose, user, clien
 
     setLoading(true);
     try {
-      const hasCapacity = await ensureClientCapacity();
-      if (!hasCapacity) return;
-      const { clientId, assessmentId, clientStatus, emailSent } = await createNutritionAssessmentFromProfile({
-        profile: {
-          ...form,
-          heightCm: form.heightCm ? Number(String(form.heightCm).replace(",", ".")) : null,
-          weightKg: form.weightKg ? Number(String(form.weightKg).replace(",", ".")) : null,
-        },
-        createdByUid: user?.uid,
-        clubId: user?.clubId || null,
-      });
+      if (!creationRef.current) {
+        creationRef.current = (async () => {
+          if (!user?.uid) throw new Error("Session introuvable. Recharge la page puis réessaie.");
+          // Email creation/linking already enforces the owner's capacity on the
+          // server. Keep the preflight for the direct offline Firestore path.
+          if (!hasEmail && !await ensureClientCapacity()) return null;
+          return createNutritionAssessmentFromProfile({
+            profile: {
+              ...form,
+              heightCm: form.heightCm ? Number(String(form.heightCm).replace(",", ".")) : null,
+              weightKg: form.weightKg ? Number(String(form.weightKg).replace(",", ".")) : null,
+            },
+            createdByUid: ownerUid || user?.uid,
+            clubId: ownerUid && ownerUid !== user?.uid ? null : user?.clubId || null,
+          });
+        })();
+      }
+      const result = await waitForNutritionOperation(creationRef.current);
+      if (!result) {
+        creationRef.current = null;
+        setConfirmationPending(false);
+        return;
+      }
+      const { clientId, assessmentId, clientStatus, emailSent, emailPending } = result;
 
       const description =
         clientStatus === "existing"
           ? "Le dossier existant a été repris avec son historique nutrition."
+          : hasEmail && emailPending
+          ? "Le suivi est créé. L’envoi de l’e-mail d’accès se poursuit en arrière-plan."
           : hasEmail && emailSent
           ? "Le client a été créé et son e-mail d’accès a bien été envoyé."
           : hasEmail
@@ -149,7 +176,7 @@ export default function NutritionQuickCreateModal({ isOpen, onClose, user, clien
           : "Une fiche hors-ligne a été créée. Tu pourras ajouter l’accès patient plus tard.";
 
       notify(toast, "nutritionDraftCreated", {
-        status: hasEmail && clientStatus !== "existing" && !emailSent ? "warning" : "success",
+        status: hasEmail && clientStatus !== "existing" && !emailSent && !emailPending ? "warning" : "success",
         title: "Suivi nutrition créé",
         description,
       });
@@ -157,10 +184,23 @@ export default function NutritionQuickCreateModal({ isOpen, onClose, user, clien
       resetAndClose({ skipRouteCleanup: true });
       navigate(`/clients/${clientId}/nutrition/${assessmentId}`);
     } catch (error) {
-      const message = error?.message || "Le suivi nutrition n’a pas pu être créé.";
+      if (error?.code === "nutrition-confirmation-timeout") {
+        setConfirmationPending(true);
+      } else {
+        creationRef.current = null;
+        setConfirmationPending(false);
+      }
+      if (error?.data?.error === 'client-limit-reached' && error.data.capacity) {
+        setLimitUsage(error.data.capacity);
+        limitModal.onOpen();
+      }
+      const message = error?.data?.error === 'client-limit-reached'
+        ? "La limite de clients de cet espace est atteinte."
+        : error?.message || "Le suivi nutrition n’a pas pu être créé.";
       setCreateError(message);
       notify(toast, "saveError", {
-        title: "Création impossible",
+        status: error?.code === "nutrition-confirmation-timeout" ? "warning" : "error",
+        title: error?.code === "nutrition-confirmation-timeout" ? "Confirmation en attente" : "Création impossible",
         description: message,
       });
     } finally {
@@ -174,13 +214,15 @@ export default function NutritionQuickCreateModal({ isOpen, onClose, user, clien
         <ModalOverlay />
         <ModalContent borderRadius="24px">
           <ModalHeader>{i18n.t("nav.new_nutrition_followup", "Nouveau suivi diététique")}</ModalHeader>
-          <ModalCloseButton />
+          <ModalCloseButton isDisabled={loading} />
           <ModalBody>
             <VStack id={formId} as="form" spacing={4} align="stretch" onSubmit={handleSubmit}>
+            <VStack as="fieldset" disabled={loading || confirmationPending} spacing={4} align="stretch" border={0} p={0} minW={0}>
               <Text fontSize="sm" color="gray.500">{i18n.t("auto.NutritionQuickCreateModal.commence_un_bilan_nutrition_meme_si_le_client_n_a_", "Commence un bilan nutrition même si le client n’a pas encore de fiche complète. Si l’email existe déjà, le dernier historique sera repris automatiquement.")}</Text>
+              <Text fontSize="sm" color="gray.500">Utilisez l’adresse du client, différente de celle du compte coach. Sans e-mail, le suivi reste disponible dans votre espace.</Text>
 
               {createError ? (
-                <Alert status="error" borderRadius="14px">
+                <Alert status={confirmationPending ? "warning" : "error"} borderRadius="14px">
                   <AlertIcon />
                   <AlertDescription>{createError}</AlertDescription>
                 </Alert>
@@ -281,10 +323,11 @@ export default function NutritionQuickCreateModal({ isOpen, onClose, user, clien
               </FormControl>
             </SimpleGrid>
             </VStack>
+            </VStack>
           </ModalBody>
           <ModalFooter>
             <HStack spacing={3}>
-              <Button variant="outline" onClick={resetAndClose} isDisabled={loading}>{i18n.t("exerciseCard.cancel", "Annuler")}</Button>
+              <Button variant="outline" onClick={resetAndClose} isDisabled={loading}>{confirmationPending ? "Fermer" : i18n.t("exerciseCard.cancel", "Annuler")}</Button>
               <Button
                 colorScheme="blue"
                 type="submit"
@@ -292,7 +335,7 @@ export default function NutritionQuickCreateModal({ isOpen, onClose, user, clien
                 isLoading={loading}
                 loadingText={i18n.t("common.creating", "Création...")}
               >
-                {i18n.t("auto.NutritionQuickCreateModal.creer_le_suivi", "Créer le suivi")}
+                {confirmationPending ? "Vérifier la création" : i18n.t("auto.NutritionQuickCreateModal.creer_le_suivi", "Créer le suivi")}
               </Button>
             </HStack>
           </ModalFooter>

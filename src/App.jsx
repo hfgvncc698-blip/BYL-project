@@ -19,6 +19,7 @@ import { Footer } from "./components/Footer";
 import LanguageRouteSync from "./components/LanguageRouteSync.jsx";
 import AppLoading from "./components/ui/AppLoading.jsx";
 import { hasPlanModule } from "./utils/proPlanAccess.js";
+import { canSpeculativelyPreload } from "./utils/preloadPolicy.js";
 
 import { ConsentProvider, useConsent } from "./consent/ConsentContext.jsx";
 
@@ -195,9 +196,6 @@ function internalRoutePathFromTarget(target) {
  */
 function RouteIntentPreloader() {
   React.useEffect(() => {
-    const connection = window.navigator?.connection;
-    const avoidSpeculation =
-      connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType || "");
     let hoverTimer = 0;
     let pendingPath = null;
 
@@ -207,14 +205,14 @@ function RouteIntentPreloader() {
     };
 
     const preloadAfterShortIntent = (event) => {
-      if (avoidSpeculation) return;
+      if (!canSpeculativelyPreload(window.navigator?.connection, document.visibilityState)) return;
       const path = internalRoutePathFromTarget(event.target);
       if (!path || path === pendingPath) return;
 
       window.clearTimeout(hoverTimer);
       pendingPath = path;
       hoverTimer = window.setTimeout(() => {
-        preloadRouteForPath(path);
+        if (canSpeculativelyPreload(window.navigator?.connection, document.visibilityState)) preloadRouteForPath(path);
         pendingPath = null;
       }, 60);
     };
@@ -315,8 +313,7 @@ const MessagingPage = lazyFrom(routeLoaders, "MessagingPage");
 
 function schedulePreload(keys, delay = 250) {
   if (typeof window === "undefined" || !keys.length) return undefined;
-  const connection = window.navigator?.connection;
-  if (connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType || "")) {
+  if (!canSpeculativelyPreload(window.navigator?.connection, document.visibilityState)) {
     return undefined;
   }
 
@@ -335,6 +332,7 @@ function schedulePreload(keys, delay = 250) {
   // après l'ouverture de chaque page.
   const runNext = () => {
     if (cancelled || currentIndex >= uniqueKeys.length) return;
+    if (!canSpeculativelyPreload(window.navigator?.connection, document.visibilityState)) return;
     const key = uniqueKeys[currentIndex];
     currentIndex += 1;
     const loader = routeLoaders[key] || backgroundLoaders[key];

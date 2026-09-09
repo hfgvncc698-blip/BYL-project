@@ -16,6 +16,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { apiFetch } from "./api";
+import { nutritionIdentityError } from "./nutritionLoading.js";
 
 const normalizeList = (value) =>
   Array.isArray(value)
@@ -125,8 +126,7 @@ function buildNutritionClientPayload(profile = {}, createdByUid, existingClient 
   };
 }
 
-async function findExistingClientByIdentity(profile = {}) {
-  const email = normalizeEmail(profile.email);
+async function findExistingClientByIdentity(profile = {}, createdByUid) {
   const firstName = cleanText(profile.prenom || profile.firstName);
   const lastName = cleanText(profile.nom || profile.lastName);
   const normalizedFirstName = normalizeIdentityText(firstName);
@@ -142,76 +142,18 @@ async function findExistingClientByIdentity(profile = {}) {
     return normalizePhone(data.telephone || data.phone) === phone;
   };
 
-  if (email) {
-    const attempts = [
-      query(collection(db, "clients"), where("emailLower", "==", email), limit(1)),
-      query(collection(db, "clients"), where("email", "==", email), limit(1)),
-      query(collection(db, "clients"), where("email", "==", cleanText(profile.email)), limit(1)),
-    ];
-    for (const q of attempts) {
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        return {
-          clientId: snap.docs[0].id,
-          client: snap.docs[0].data(),
-        };
-      }
-    }
-    try {
-      const scanSnap = await getDocs(query(collection(db, "clients"), limit(1000)));
-      const match = scanSnap.docs.find((docSnap) => normalizeEmail(docSnap.data()?.email) === email);
-      if (match) {
-        return {
-          clientId: match.id,
-          client: match.data(),
-        };
-      }
-    } catch {
-      // Fallback de compatibilité pour les anciens dossiers sans emailLower.
-    }
-  }
-
-  if (firstName && lastName) {
-    if (phone) {
-      try {
-        const scanSnap = await getDocs(query(collection(db, "clients"), limit(1000)));
-        const match = scanSnap.docs.find((docSnap) => {
-          const data = docSnap.data() || {};
-          return sameName(data) && samePhone(data);
-        });
-        if (match) {
-          return {
-            clientId: match.id,
-            client: match.data(),
-          };
-        }
-      } catch {
-        // Si le scan échoue, on tente la requête prénom/nom historique ci-dessous.
-      }
-    }
-
-    if (email) return null;
-
-    try {
-      const qByName = query(
-        collection(db, "clients"),
-        where("prenom", "==", firstName),
-        where("nom", "==", lastName),
-        limit(1)
-      );
-      const snap = await getDocs(qByName);
-      if (!snap.empty) {
-        return {
-          clientId: snap.docs[0].id,
-          client: snap.docs[0].data(),
-        };
-      }
-    } catch {
-      return null;
-    }
-  }
-
-  return null;
+  // Names alone cannot identify a person. Read only this coach's scope, never
+  // a global query that Firestore must reject for an ordinary coach.
+  if (!createdByUid || !firstName || !lastName || !phone) return null;
+  const snapshots = await Promise.all([
+    getDocs(query(collection(db, "clients"), where("createdBy", "==", createdByUid))),
+    getDocs(query(collection(db, "clients"), where("coachId", "==", createdByUid))),
+    getDocs(query(collection(db, "clients"), where("coachIds", "array-contains", createdByUid))),
+  ]);
+  const match = snapshots.flatMap((snap) => snap.docs).find((snap) =>
+    sameName(snap.data()) && samePhone(snap.data())
+  );
+  return match ? { clientId: match.id, client: match.data() } : null;
 }
 
 async function ensureExistingClientLinked(clientId, profile = {}, createdByUid, clubId = null) {
@@ -239,12 +181,14 @@ async function createEmailClient(profile = {}, createdByUid, clubId = null) {
         ownerUid: createdByUid || undefined,
         clubId: clubId || null,
         units: payload.settings?.units || { height: "cm", weight: "kg" },
+        deferActivationEmail: true,
       }),
     });
     return {
       clientId: created.clientId,
       status: "created_email",
       emailSent: created.emailSent === true,
+      emailPending: created.emailDelivery === "pending",
       emailWarning: created.emailWarning || "",
     };
   } catch (error) {
@@ -258,14 +202,12 @@ async function createEmailClient(profile = {}, createdByUid, clubId = null) {
       if (lookup?.authExists && lookup?.canLink) {
         return linkExistingEmailClient(profile, createdByUid, clubId);
       }
-      if (lookup?.canLink === false) throw new Error(existingClientScopeMessage);
+      const identityError = nutritionIdentityError(lookup);
+      if (identityError) throw identityError;
     }
     throw error;
   }
 }
-
-const existingClientScopeMessage =
-  "Ce compte appartient déjà à un autre espace. Un administrateur doit valider son transfert.";
 
 async function linkExistingEmailClient(profile = {}, createdByUid, clubId = null) {
   const email = normalizeEmail(profile.email);
@@ -308,16 +250,15 @@ export async function createOrResolveNutritionClient({ profile = {}, createdByUi
     const lookup = await apiFetch(
       `/clubs/client-lookup?email=${encodeURIComponent(email)}`
     );
-    if (lookup?.exists && lookup?.canLink === false) {
-      throw new Error(existingClientScopeMessage);
-    }
+    const identityError = nutritionIdentityError(lookup);
+    if (identityError) throw identityError;
     if (lookup?.authExists && lookup?.canLink) {
       return linkExistingEmailClient(profile, createdByUid, clubId);
     }
     return createEmailClient(profile, createdByUid, clubId);
   }
 
-  const existing = await findExistingClientByIdentity(profile);
+  const existing = await findExistingClientByIdentity(profile, createdByUid);
   if (existing?.clientId) {
     return ensureExistingClientLinked(existing.clientId, profile, createdByUid, clubId);
   }
@@ -443,13 +384,12 @@ export async function getClientNutritionPrefill(clientId) {
   if (!clientId) throw new Error("Missing clientId");
 
   const clientRef = doc(db, "clients", clientId);
-  const clientSnap = await getDoc(clientRef);
-  const client = clientSnap.exists() ? clientSnap.data() : null;
-
   // Dernière measurement
   const measRef = collection(db, "clients", clientId, "measurements");
   const q = query(measRef, orderBy("timestamp", "desc"), limit(1));
-  const measSnap = await getDocs(q);
+  const [clientSnap, measSnap] = await Promise.all([getDoc(clientRef), getDocs(q)]);
+  if (!clientSnap.exists()) throw new Error("La fiche client est introuvable. Rechargez la liste des clients.");
+  const client = clientSnap.data();
   const lastMeasurement = measSnap.docs?.[0]?.data() || null;
 
   // Units par défaut (si tu veux respecter settings.units)
@@ -506,14 +446,16 @@ export async function getClientNutritionPrefill(clientId) {
  * Retourne { assessmentId }
  */
 export async function createNutritionAssessmentDraft({ clientId, createdByUid, clubId = null }) {
-  const { prefill, client } = await getClientNutritionPrefill(clientId);
+  const existingRef = collection(db, "clients", clientId, "nutrition_assessments");
+  const existingQuery = query(existingRef, orderBy("updatedAt", "desc"), limit(1));
+  const [{ prefill, client }, existingSnap] = await Promise.all([
+    getClientNutritionPrefill(clientId),
+    getDocs(existingQuery),
+  ]);
   let previousSummary = null;
   let previousAssessment = null;
 
   try {
-    const existingRef = collection(db, "clients", clientId, "nutrition_assessments");
-    const existingQuery = query(existingRef, orderBy("updatedAt", "desc"), limit(1));
-    const existingSnap = await getDocs(existingQuery);
     if (!existingSnap.empty) {
       previousAssessment = {
         id: existingSnap.docs[0].id,
@@ -596,6 +538,7 @@ export async function createNutritionAssessmentFromProfile({ profile = {}, creat
     assessmentId,
     clientStatus: status,
     emailSent: clientResult.emailSent,
+    emailPending: clientResult.emailPending,
     emailWarning: clientResult.emailWarning || "",
   };
 }

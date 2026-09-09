@@ -1,49 +1,8 @@
-// routes/stripePortal.js
-const express = require("express");
-const Stripe = require("stripe");
-const admin = require('../firebaseAdmin');
-const {
-  requireFirebaseAuth,
-  requireSelfOrAdmin,
-} = require("../utils/firebaseAuth");
-
+// Legacy aliases share the same access checks and trusted return URL as billing.
+const express = require('express');
+const { requireFirebaseAuth, requireSelfOrAdmin } = require('../utils/firebaseAuth');
+const { createStripePortalSession } = require('./payments');
 const router = express.Router();
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
-
-async function createPortalSession(req, res) {
-  try {
-    const { userId } = req.body;
-    if (!userId) return res.status(400).json({ error: "userId manquant" });
-
-    const snap = await admin.firestore().collection("users").doc(userId).get();
-    if (!snap.exists) return res.status(404).json({ error: "user introuvable" });
-
-    const user = snap.data();
-    if (!user.stripeCustomerId) {
-      return res.status(400).json({ error: "stripeCustomerId manquant" });
-    }
-
-    const returnUrl =
-      (process.env.FRONTEND_BASE_URL || "http://localhost:5173") + "/settings-coach";
-
-    const session = await stripe.billingPortal.sessions.create({
-      customer: user.stripeCustomerId,
-      return_url: returnUrl,
-    });
-
-    res.json({ url: session.url });
-  } catch (err) {
-    console.error("[STRIPE PORTAL] error:", err);
-    res.status(500).json({ error: "Erreur serveur" });
-  }
-}
-
-router.post("/session", requireFirebaseAuth, requireSelfOrAdmin, createPortalSession);
-router.post(
-  "/create-stripe-portal-session",
-  requireFirebaseAuth,
-  requireSelfOrAdmin,
-  createPortalSession
-);
-
+router.post('/session', requireFirebaseAuth, requireSelfOrAdmin, createStripePortalSession);
+router.post('/create-stripe-portal-session', requireFirebaseAuth, requireSelfOrAdmin, createStripePortalSession);
 module.exports = router;

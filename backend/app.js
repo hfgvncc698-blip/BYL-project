@@ -162,6 +162,7 @@ app.use('/api/clubs', clubRoutes);
 
 // Programmes
 const programRoutes = require('./routes/programs');
+app.use('/api/programs', require('./routes/coachProgramRead'));
 app.use('/api/programs', programRoutes);
 
 // Admin search

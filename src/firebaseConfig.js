@@ -7,6 +7,7 @@ import {
   persistentMultipleTabManager,
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+import { trimPersistedPageCaches } from "./utils/persistedPageCache.js";
 import {
   initializeAppCheck,
   ReCaptchaEnterpriseProvider,
@@ -24,6 +25,10 @@ const firebaseConfig = {
   measurementId: "G-2X9GZWE2B0",
 };
 
+// Recover space before Firebase starts its multi-tab coordination writes.
+if (typeof window !== "undefined") {
+  try { trimPersistedPageCaches(window.localStorage); } catch { /* storage disabled */ }
+}
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 // App Check becomes active as soon as the reCAPTCHA Enterprise site key is

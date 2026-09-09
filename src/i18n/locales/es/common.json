@@ -1202,6 +1202,30 @@
     "backHome": "⟵ Volver a la página de inicio"
   },
   "payment": {
+    "return": {
+      "confirmed": "Pago confirmado",
+      "verifying": "Verificando el pago…",
+      "unconfirmed": "Pago no confirmado",
+      "verifyingDescription": "Estamos verificando el resultado con el proveedor de pagos.",
+      "missing": "Este enlace no contiene ninguna referencia de pago. No se puede confirmar ningún pago desde esta página.",
+      "login": "Inicia sesión con la cuenta utilizada para esta compra para verificar el pago.",
+      "pending": "El pago todavía no está confirmado. Puede estar pendiente, cancelado o rechazado. Comprueba su estado antes de realizar otra compra.",
+      "processing": "Tu pago está confirmado. Estamos preparando tu programa; puedes volver a verificarlo sin pagar de nuevo.",
+      "error": "No se ha podido completar la verificación o la preparación. Inténtalo de nuevo sin realizar otro pago. Si el problema persiste, contacta con soporte.",
+      "inactive": "Esta compra está confirmada, pero la suscripción no está activa actualmente. Consulta tu facturación.",
+      "profile": "Tu pago está confirmado. Estamos actualizando tu acceso.",
+      "ready": "Tu espacio está listo. Te redirigiremos en un momento.",
+      "retry": "Verificar de nuevo",
+      "open": "Abrir mi espacio",
+      "leave": "Volver a mi espacio"
+    },
+    "legacy": {
+      "title": "Elegir un plan",
+      "description": "Este enlace está desactualizado y no inicia ningún pago. Consulta las ofertas disponibles a continuación.",
+      "pro": "Planes para profesionales",
+      "programs": "Programas Premium",
+      "custom": "Programa a medida"
+    },
     "checkout": {
       "title": "Pago del programa",
       "subtitle": "Valida tu compra para desbloquear el programa <b>{{productId}}</b>.",
@@ -1354,6 +1378,8 @@
       }
     },
     "register": {
+      "googleDetailsRequired": "Para registrarte con Google, completa tus datos personales y acepta las condiciones anteriores. No necesitas introducir un correo electrónico ni una contraseña.",
+      "googleRegistrationRequired": "Para crear una nueva cuenta con Google, elige «Registrarse» para seleccionar tu tipo de cuenta y aceptar las condiciones.",
       "title": "Registro",
       "firstName": "nombre",
       "lastName": "Nombre",

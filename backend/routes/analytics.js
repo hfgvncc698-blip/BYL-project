@@ -1,6 +1,7 @@
 const express = require("express");
 const admin = require('../firebaseAdmin');
 const crypto = require("crypto");
+const { geoVisitEventId, isGeoVisitRegression } = require("../utils/geoVisitEvent");
 const { getBearerToken, getUserRole, safeSecretEqual } = require("../utils/firebaseAuth");
 
 const router = express.Router();
@@ -1114,6 +1115,13 @@ router.post("/pageview", async (req, res) => {
     }
 
     const dailyRef = db.collection("analytics_daily").doc(day);
+    const visitEventId = geoVisitEventId(visitorId, req.body?.visitId);
+    const visitEventRef = visitEventId ? dailyRef.collection("events").doc(visitEventId) : dailyRef.collection("events").doc();
+    const visitEvent = {
+      visitorId, uid: uid || null, role, path, country, city, lat, lng,
+      accuracy, geoCapturedAt, geoSource, timeZone: visitorTimeZone, analyticsAllowed,
+      geoId: hasGeoLabel ? geoId : null,
+    };
     const dailyVisitorRef = dailyRef.collection("visitors").doc(visitorId);
     const geoRef = hasGeoLabel ? db.collection("analytics_geo").doc(geoId) : null;
     const geoAllVisitorRef = geoRef ? geoRef.collection("visitors_all").doc(visitorId) : null;
@@ -1123,11 +1131,16 @@ router.post("/pageview", async (req, res) => {
     const geoHourlyRef = hasGeoLabel ? db.collection("analytics_geo_hourly").doc(`${day}__${hourKey}__${geoId}`) : null;
     const geoHourlyVisitorRef = geoHourlyRef ? geoHourlyRef.collection("visitors").doc(visitorId) : null;
 
-    await db.runTransaction(async (tx) => {
-      const [dailySnap, dailyVisitorSnap] = await Promise.all([
+    const acceptedVisit = await db.runTransaction(async (tx) => {
+      const [dailySnap, dailyVisitorSnap, visitEventSnap] = await Promise.all([
         tx.get(dailyRef),
         tx.get(dailyVisitorRef),
+        tx.get(visitEventRef),
       ]);
+      const previousEvent = visitEventSnap.exists ? visitEventSnap.data() : null;
+      if (previousEvent && isGeoVisitRegression(previousEvent, visitEvent)) return false;
+      const newVisit = !visitEventSnap.exists;
+      const newGeoVisit = hasGeoLabel && previousEvent?.geoId !== geoId;
 
       const [
         geoSnap,
@@ -1160,11 +1173,23 @@ router.post("/pageview", async (req, res) => {
           updatedAt: FieldValue.serverTimestamp(),
         });
       }
-      tx.set(dailyRef, {
+      tx.set(visitEventRef, {
+        ...visitEvent,
+        ...(newVisit ? { seenAt: FieldValue.serverTimestamp(), createdAt: FieldValue.serverTimestamp() } : {}),
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+      if (newVisit) tx.set(dailyRef, {
         pageviews: FieldValue.increment(1),
         byPage: { [safeKey(path)]: FieldValue.increment(1) },
         byCountry: { [safeKey(country)]: FieldValue.increment(1) },
         byRole: { [safeKey(role)]: FieldValue.increment(1) },
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+      else if (previousEvent.country !== country) tx.set(dailyRef, {
+        byCountry: {
+          [safeKey(previousEvent.country || "UN")]: FieldValue.increment(-1),
+          [safeKey(country)]: FieldValue.increment(1),
+        },
         updatedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
       if (!dailyVisitorSnap.exists) {
@@ -1201,7 +1226,7 @@ router.post("/pageview", async (req, res) => {
         }, { merge: true });
       }
 
-      if (!hasGeoLabel) return;
+      if (!hasGeoLabel) return true;
 
       if (!geoSnap.exists) {
         tx.set(geoRef, {
@@ -1217,7 +1242,7 @@ router.post("/pageview", async (req, res) => {
         });
       }
       tx.set(geoRef, {
-        pv: FieldValue.increment(1),
+        pv: FieldValue.increment(newGeoVisit ? 1 : 0),
         ...(lat != null ? { lat } : {}),
         ...(lng != null ? { lon: lng } : {}),
         lastSeenAt: FieldValue.serverTimestamp(),
@@ -1252,7 +1277,7 @@ router.post("/pageview", async (req, res) => {
         });
       }
       tx.set(geoDailyRef, {
-        pv: FieldValue.increment(1),
+        pv: FieldValue.increment(newGeoVisit ? 1 : 0),
         ...(lat != null ? { lat } : {}),
         ...(lng != null ? { lon: lng } : {}),
         lastSeenAt: FieldValue.serverTimestamp(),
@@ -1303,7 +1328,7 @@ router.post("/pageview", async (req, res) => {
         });
       }
       tx.set(geoHourlyRef, {
-        pv: FieldValue.increment(1),
+        pv: FieldValue.increment(newGeoVisit ? 1 : 0),
         ...(lat != null ? { lat } : {}),
         ...(lng != null ? { lon: lng } : {}),
         lastSeenAt: FieldValue.serverTimestamp(),
@@ -1336,28 +1361,10 @@ router.post("/pageview", async (req, res) => {
           timeZone: visitorTimeZone,
         }, { merge: true });
       }
+      return true;
     });
 
-    await updateUserLastVisit();
-    await dailyRef.collection("events").add({
-      visitorId,
-      uid: uid || null,
-      role,
-      path,
-      country,
-      city,
-      lat,
-      lng,
-      accuracy,
-      geoCapturedAt,
-      geoSource,
-      timeZone: visitorTimeZone,
-      analyticsAllowed,
-      seenAt: FieldValue.serverTimestamp(),
-      createdAt: FieldValue.serverTimestamp(),
-    }).catch((eventError) => {
-      console.warn("[analytics/pageview] visit event write failed:", eventError?.message || eventError);
-    });
+    if (acceptedVisit) await updateUserLastVisit();
 
     return res.json({
       ok: true,

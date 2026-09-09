@@ -984,6 +984,7 @@ export default function ClientDashboard({ adminPreview = false }) {
   useEffect(() => {
     if (!user) return;
 
+    let active = true;
     // 1) Premium: chargement indépendant
     (async () => {
       setLoadingPremium(true);
@@ -992,21 +993,23 @@ export default function ClientDashboard({ adminPreview = false }) {
         try {
           const qs = new URLSearchParams({ uid: user.uid, email: user.email || "" }).toString();
           const eligibility = await apiFetch(`/payments/free-eligibility?${qs}`);
+          if (!active) return;
           setPremiumEligibility(eligibility?.ok ? eligibility : { freeAvailable: false, claimed: true });
         } catch (eligibilityError) {
           console.warn('[ClientDashboard] premium eligibility unavailable', eligibilityError);
+          if (!active) return;
           setPremiumEligibility({ freeAvailable: false, claimed: true });
         }
 
-        if (!previewMode) {
-          try {
-            await apiFetch('/payments/recover-premium-purchases', {
+        if (!previewMode && active) {
+          // Recovery updates the live program listener. The catalog does not
+          // depend on it and must not wait for a payment-provider round trip.
+          void apiFetch('/payments/recover-premium-purchases', {
               method: 'POST',
               body: JSON.stringify({ firebaseUid: user.uid }),
-            });
-          } catch (recoverError) {
+            }).catch((recoverError) => {
             console.warn('[ClientDashboard] premium recovery unavailable', recoverError);
-          }
+            });
         }
 
         let catalog = [];
@@ -1031,12 +1034,12 @@ export default function ClientDashboard({ adminPreview = false }) {
           .filter(p => (p?.isActive ?? true))
           .sort((a, b) => (a?.featuredRank ?? 999) - (b?.featuredRank ?? 999));
 
-        setPremiumPrograms(rows);
+        if (active) setPremiumPrograms(rows);
       } catch (e) {
         console.error('[ClientDashboard] premium fetch error', e);
-        setPremiumPrograms([]);
+        if (active) setPremiumPrograms([]);
       } finally {
-        setLoadingPremium(false);
+        if (active) setLoadingPremium(false);
       }
     })();
 
@@ -1052,6 +1055,7 @@ export default function ClientDashboard({ adminPreview = false }) {
       setLoading(true);
 
       const clientDoc = await resolveClientRef(user);
+      if (!active) return;
       if (!clientDoc) {
         setClientId(null);
         setClientProfile(null);
@@ -1244,9 +1248,11 @@ export default function ClientDashboard({ adminPreview = false }) {
         ));
         setLoading(false);
 
+        try {
         const items = await runLimited(
           snap.docs,
           async d => {
+            if (!active || loadVersion !== programLoadVersion) return null;
             const p = { id: d.id, ...d.data() };
 
             const rawAssignTs =
@@ -1261,9 +1267,11 @@ export default function ClientDashboard({ adminPreview = false }) {
               toMillis(p.created_date) ||
               0;
 
-            const sessDoneSnap = await getDocs(
-              collection(db, 'clients', cId, 'programmes', d.id, 'sessionsEffectuees')
-            );
+            const [sessDoneSnap, coachDisplay, difficultyMap] = await Promise.all([
+              getDocs(collection(db, 'clients', cId, 'programmes', d.id, 'sessionsEffectuees')),
+              resolveCoachDisplay(p, user, clientData),
+              fetchDifficultyMap({ cId, programmeId: d.id }),
+            ]);
 
             let lastSessionMs = 0;
             let lastCompletedIdx = null;
@@ -1391,10 +1399,6 @@ export default function ClientDashboard({ adminPreview = false }) {
               : percent;
 
             const nomProgramme = getProgrammeDisplayName(p);
-            const coachDisplay = await resolveCoachDisplay(p, user, clientData);
-
-            // ✅ difficulty map (sessionIndex -> rating)
-            const difficultyMap = await fetchDifficultyMap({ cId, programmeId: d.id });
 
             // ✅ NOTE table "Mes programmes": note dernière séance terminée (sinon dernière note)
             const rating = pickProgrammeRatingFromMap({
@@ -1442,7 +1446,7 @@ export default function ClientDashboard({ adminPreview = false }) {
           4
         );
 
-        if (loadVersion !== programLoadVersion) return;
+        if (!active || loadVersion !== programLoadVersion) return;
         const ownsPremium = items.some(p =>
           (p.origine && String(p.origine).toLowerCase().includes('premium')) ||
           p.isPremiumOnly === true
@@ -1452,21 +1456,33 @@ export default function ClientDashboard({ adminPreview = false }) {
         const sorted = items.sort((a, b) => (b._lastOrAssignedMs || 0) - (a._lastOrAssignedMs || 0));
         setProgrammes(sorted);
         setLoading(false);
+        } catch (error) {
+          // Keep the base program cards usable if optional enrichment fails.
+          console.warn('[ClientDashboard] program details unavailable', error);
+          if (active && loadVersion === programLoadVersion) setLoading(false);
+        }
       }, () => {
         programLoadVersion += 1;
         setProgrammes([]);
         setLoading(false);
       });
-    })();
+    })().catch((error) => {
+      console.warn('[ClientDashboard] client load failed', error);
+      if (active) setLoading(false);
+    });
 
     return () => {
+      active = false;
+      programLoadVersion += 1;
       if (unsubPrograms) unsubPrograms();
       if (unsubSessA) unsubSessA();
       if (unsubSessB) unsubSessB();
       if (unsubNutrition) unsubNutrition();
       if (unsubNutritionLogs) unsubNutritionLogs();
     };
-  }, [user, i18n.language, previewMode]);
+  // Profile snapshots replace the user object even when identity is unchanged.
+  // Only identity/language changes need to rebuild all these live listeners.
+  }, [user?.uid, user?.linkedClientId, user?.email, user?.role, i18n.language, previewMode]);
 
   /* ====== Auto ajout au calendrier quand séance validée ====== */
   const programmeIdsKey = useMemo(() => programmes.map(p => p.id).sort().join(','), [programmes]);

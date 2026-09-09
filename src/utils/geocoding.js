@@ -8,7 +8,8 @@ export async function resolveCityCountry(lat, lng) {
   const KEY = import.meta.env.VITE_GEOCODING_KEY;
 
   if (!URL || !KEY) return null;
-
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 4000);
   try {
     const params = new URLSearchParams({
       key: KEY,
@@ -18,7 +19,7 @@ export async function resolveCityCountry(lat, lng) {
       limit: "1",
     });
 
-    const res = await fetch(`${URL}?${params.toString()}`);
+    const res = await fetch(`${URL}?${params.toString()}`, { signal: controller.signal });
     if (!res.ok) throw new Error(`reverse geocoding failed (${res.status})`);
 
     const data = await res.json();
@@ -45,6 +46,7 @@ export async function resolveCityCountry(lat, lng) {
   } catch (e) {
     console.warn("resolveCityCountry error:", e);
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
-

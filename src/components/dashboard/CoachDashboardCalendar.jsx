@@ -23,7 +23,8 @@ localizer.startOfWeek = () => 1;
 const dragAndDropFactory = resolveDragAndDropFactory(withDragAndDrop);
 const DnDCalendar = dragAndDropFactory ? dragAndDropFactory(Calendar) : Calendar;
 
-export default function CoachDashboardCalendar({ calendarCulture = "fr", ...props }) {
+export default function CoachDashboardCalendar({ calendarCulture = "fr", onReady, ...props }) {
+  React.useEffect(() => { onReady?.(); }, [onReady]);
   React.useEffect(() => {
     moment.locale(calendarCulture || "fr");
   }, [calendarCulture]);

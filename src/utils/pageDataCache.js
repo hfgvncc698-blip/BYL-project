@@ -1,4 +1,10 @@
+import { writePageCacheValue } from "./persistedPageCache.js";
+import { readDashboardSnapshot, writeDashboardSnapshot } from "./dashboardSnapshotCache.js";
+
 const memoryCache = new Map();
+const pendingWrites = new Map();
+const pendingRestores = new Map();
+let writeScheduled = false;
 
 export const DEFAULT_PAGE_DATA_CACHE_TTL_MS = 10 * 60 * 1000;
 export const DEFAULT_PAGE_DATA_STALE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -13,6 +19,26 @@ const defer = (callback) => {
   }
   window.setTimeout(callback, 250);
 };
+
+function scheduleCacheWrites() {
+  if (writeScheduled || typeof window === "undefined") return;
+  writeScheduled = true;
+  defer(() => {
+    writeScheduled = false;
+    // Serialize only the latest value for a key, and yield between entries.
+    // Dashboard hydration can update the same large cache several times.
+    const first = pendingWrites.entries().next().value;
+    if (!first) return;
+    const [key, payload] = first;
+    pendingWrites.delete(key);
+    try {
+      writePageCacheValue(window.localStorage, key, payload);
+    } catch (_) {}
+    // Persist complete server results asynchronously, outside Firebase's quota.
+    if (payload.data?.partial !== true) void writeDashboardSnapshot(key, payload);
+    if (pendingWrites.size) scheduleCacheWrites();
+  });
+}
 
 export function readPageDataCacheEntry(
   key,
@@ -60,18 +86,35 @@ export function readPageDataCache(
   return entry.data || null;
 }
 
+export async function restorePageDataCacheEntry(key, options = {}) {
+  if (!key) return null;
+  const present = readPageDataCacheEntry(key, options);
+  if (present && !present.data?.partial) return present;
+  let pending = pendingRestores.get(key);
+  if (!pending) {
+    pending = readDashboardSnapshot(key).catch(() => null).finally(() => pendingRestores.delete(key));
+    pendingRestores.set(key, pending);
+  }
+  const restored = await pending;
+  const current = memoryCache.get(key);
+  if (restored && (!current || current.data?.partial || current.savedAt < restored.savedAt)) memoryCache.set(key, restored);
+  // Keep the original timestamp; restoring must never renew freshness.
+  return readPageDataCacheEntry(key, options);
+}
+
 export function writePageDataCache(key, data) {
   if (!key) return;
+  // A progressive refresh must not replace a complete, still-usable snapshot
+  // with placeholder counters while someone navigates between pages.
+  const current = readPageDataCacheEntry(key);
+  if (data?.partial && current && !current.data?.partial) return;
   const payload = { savedAt: now(), data };
   memoryCache.set(key, payload);
 
   if (typeof window === "undefined") return;
 
-  defer(() => {
-    try {
-      window.localStorage.setItem(key, JSON.stringify(payload));
-    } catch (_) {}
-  });
+  pendingWrites.set(key, payload);
+  scheduleCacheWrites();
 }
 
 export function updatePageDataCache(key, updater) {

@@ -54,6 +54,8 @@ import { getAuthHeaders } from "../utils/authHeaders";
 import { useAuth } from "../AuthContext";
 import { db } from "../firebase";
 import i18n from "../i18n/index";
+import { createGeoMapAutoFit, getGeoVisitorLoadBatch, isValidMapPoint } from "../utils/geoMapViewport";
+import { getVisitLocationDisplay } from "../utils/geoVisitDisplay";
 
 /* ------------------------------------ utils ------------------------------------ */
 async function readJsonResponse(response) {
@@ -122,18 +124,6 @@ function formatDateTime(value) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
-}
-
-function formatVisitPlace(visit = {}) {
-  const city = String(visit.city || "").trim();
-  const country = String(visit.country || "").trim().toUpperCase();
-  const label = [
-    city && city.toLowerCase() !== "unknown" ? city : "",
-    country && country !== "UN" ? country : "",
-  ]
-    .filter(Boolean)
-    .join(", ");
-  return label;
 }
 
 function getLocalPageviewDay() {
@@ -472,23 +462,24 @@ async function loadAdminGeoData() {
 }
 
 // Fit map to markers
-function FitToMarkers({ points }) {
+function FitToMarkers({ points, requestKey, pending }) {
   const map = useMap();
+  const fitOnce = useMemo(
+    () => createGeoMapAutoFit((positions, options) => map.fitBounds(positions, options)),
+    [map]
+  );
   useEffect(() => {
-    if (!points.length) return;
-    const bounds = points.reduce(
-      (acc, p) => acc.extend([p.lat, p.lon]),
-      window.L.latLngBounds([points[0].lat, points[0].lon])
-    );
-    map.fitBounds(bounds.pad(0.2), { animate: true });
-  }, [points, map]);
+    fitOnce(points, requestKey, pending);
+  }, [points, requestKey, pending, fitOnce]);
   return null;
 }
 
 function MapZoomListener({ onZoomChange }) {
-  const map = useMapEvents({
-    zoomend: () => onZoomChange(map.getZoom()),
-  });
+  // Keep the listener attached during synchronous fitBounds calls on rerender.
+  const handlers = useMemo(() => ({
+    zoomend: (event) => onZoomChange(event.target.getZoom()),
+  }), [onZoomChange]);
+  const map = useMapEvents(handlers);
   useEffect(() => {
     onZoomChange(map.getZoom());
   }, [map, onZoomChange]);
@@ -571,6 +562,7 @@ export default function AdminGeo() {
   const [mergeRadiusKm, setMergeRadiusKm] = useState(2);
   const [mapZoom, setMapZoom] = useState(2);
   const [mapFocus, setMapFocus] = useState(null);
+  const [mapRecenterRequest, setMapRecenterRequest] = useState(0);
   const mapRef = useRef(null);
   const markerRefs = useRef(new Map());
   const visitorLoadKeysRef = useRef(new Set());
@@ -759,10 +751,20 @@ export default function AdminGeo() {
 
   useEffect(() => {
     if (authLoading || !user?.uid || !isAdmin) return undefined;
+    let refreshTimer;
+    const onLocalVisitSaved = () => {
+      window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => reloadAnalytics({ silent: true }).catch(() => {}), 300);
+    };
+    window.addEventListener("BYL_PAGEVIEW_MARKED", onLocalVisitSaved);
     const id = window.setInterval(() => {
       reloadAnalytics({ silent: true }).catch(() => {});
     }, 15000);
-    return () => window.clearInterval(id);
+    return () => {
+      window.clearInterval(id);
+      window.clearTimeout(refreshTimer);
+      window.removeEventListener("BYL_PAGEVIEW_MARKED", onLocalVisitSaved);
+    };
   }, [authLoading, user?.uid, isAdmin, reloadAnalytics]);
 
   // Compute day set for selected window
@@ -928,10 +930,7 @@ export default function AdminGeo() {
 
   useEffect(() => {
     if (!peopleFilterActive) return;
-    filtered.slice(0, 50).forEach((point) => {
-      const cacheKey = `${windowKey}:${point.geoId}`;
-      if (!mapVisitors[cacheKey]) loadMapVisitors(point);
-    });
+    getGeoVisitorLoadBatch(filtered, mapVisitors, windowKey).forEach(loadMapVisitors);
   }, [filtered, loadMapVisitors, mapVisitors, peopleFilterActive, windowKey]);
 
   const visibleCities = useMemo(() => {
@@ -953,9 +952,12 @@ export default function AdminGeo() {
   });
 
   const mapPoints = useMemo(
-    () => visibleCities.filter((c) => typeof c.lat === "number" && typeof c.lon === "number"),
+    () => visibleCities.filter(isValidMapPoint),
     [visibleCities]
   );
+  const mapFitRequestKey = JSON.stringify([
+    windowKey, metric, minVal, search.trim(), roleFilter, personSearch.trim(), mapRecenterRequest,
+  ]);
 
   const visualClusterRadiusKm = useMemo(() => {
     if (mapZoom <= 4) return 700;
@@ -1307,23 +1309,18 @@ export default function AdminGeo() {
                     MAJ {formatDateTime(lastLoadedAt)}
                   </Tag>
                 )}
-                <Tag>{displayedRecentVisitors.length} {i18n.t("auto.AdminGeo.visiteur_s", "visiteur(s)")}</Tag>
+                <Tag>{displayedRecentVisitors.length} visites enregistrées</Tag>
               </HStack>
             </HStack>
             <HStack flexWrap="wrap" gap={2}>
-              <Tag variant="subtle" colorScheme="blue">{metricLabelUi}</Tag>
-              <Tag variant="subtle" colorScheme="purple">{windowLabel}</Tag>
-              <Tag variant="subtle" colorScheme="gray">
-                {i18n.t("auto.AdminGeo.filtre", "Filtre ≥")}{minVal}
-              </Tag>
-              {search.trim() ? (
-                <Tag variant="subtle" colorScheme="teal">
-                  {i18n.t("auto.AdminGeo.recherche_ville_ou_pays_iso2", "Recherche ville ou pays (ISO2)")}: {search.trim()}
-                </Tag>
-              ) : null}
+              <Tag variant="subtle" colorScheme="purple">Aujourd’hui</Tag>
               {roleFilter !== "all" ? <Tag colorScheme="orange">Rôle : {roleFilter}</Tag> : null}
               {personSearch.trim() ? <Tag colorScheme="cyan">Personne : {personSearch.trim()}</Tag> : null}
             </HStack>
+            <Text fontSize="xs" color={theme.mutedText}>
+              Une ligne correspond à une visite, pas à une personne distincte. La position peut manquer
+              si la localisation est refusée, indisponible ou pas encore reçue au moment de la visite.
+            </Text>
           </Stack>
         </CardHeader>
         <CardBody overflowY="auto" p={0}>
@@ -1339,7 +1336,7 @@ export default function AdminGeo() {
               </Thead>
               <Tbody>
                 {displayedRecentVisitors.map((visit, index) => {
-                  const place = formatVisitPlace(visit);
+                  const place = getVisitLocationDisplay(visit);
                   return (
                     <Tr key={`${visit.visitorId || visit.uid || visit.id || "visit"}-${visit.lastSeenAt || visit.firstSeenAt || index}`}>
                       <Td maxW="260px">
@@ -1349,10 +1346,10 @@ export default function AdminGeo() {
                         </Text>
                       </Td>
                       <Td>
-                        <Text>{place || "Position non disponible"}</Text>
-                        {visit.geolocated && Number.isFinite(Number(visit.accuracy)) ? (
+                        <Text>{place.label}</Text>
+                        {place.detail ? (
                           <Text fontSize="xs" color={theme.mutedText}>
-                            Précision ≈ {Math.round(Number(visit.accuracy))} m
+                            {place.detail}
                           </Text>
                         ) : null}
                       </Td>
@@ -1377,9 +1374,16 @@ export default function AdminGeo() {
       {/* ------------------------------ Carte 2D ------------------------------ */}
       <Card>
         <CardHeader>
-          <HStack justify="space-between" align="center">
+          <HStack justify="space-between" align="center" flexWrap="wrap" gap={2}>
             <Heading size="md">{i18n.t("auto.AdminGeo.carte", "Carte —")}{metricLabelUi} ({windowLabel})
             </Heading>
+            <HStack flexWrap="wrap" gap={2}>
+            <Button
+              size="sm"
+              variant="outline"
+              isDisabled={!mapPoints.length}
+              onClick={() => setMapRecenterRequest((value) => value + 1)}
+            >Recentrer la carte</Button>
             <Button
               size="sm"
               {...theme.primaryButtonProps}
@@ -1387,6 +1391,7 @@ export default function AdminGeo() {
               isLoading={enriching}
               loadingText={i18n.t("auto.AdminGeo.enrichissement", "Enrichissement…")}
             >{i18n.t("auto.AdminGeo.enrichir_coordonnees_admin", "Enrichir coordonnées (admin)")}</Button>
+            </HStack>
           </HStack>
         </CardHeader>
 
@@ -1406,7 +1411,7 @@ export default function AdminGeo() {
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 />
-                <FitToMarkers points={mapPoints} />
+                <FitToMarkers points={mapPoints} requestKey={mapFitRequestKey} pending={peopleFilterLoading} />
                 <MapZoomListener onZoomChange={handleMapZoomChange} />
                 <MapFocusController target={mapFocus} markerRefs={markerRefs} />
                 {renderedMapPoints.map((c) => {
@@ -1417,6 +1422,7 @@ export default function AdminGeo() {
                     return (
                       <CircleMarker
                         key={`cluster:${c.clusterId}`}
+                        bubblingMouseEvents={false}
                         center={[c.lat, c.lon]}
                         radius={r}
                         pathOptions={{
@@ -1437,11 +1443,9 @@ export default function AdminGeo() {
                         }}
                       >
                         <Tooltip permanent direction="center" className="geo-cluster-count" opacity={1}>
-                          {c.value}
-                        </Tooltip>
-                        <Tooltip direction="top" offset={[0, -r]}>
-                          <strong>{c.members.length} zones proches</strong> — {c.value} {metric === "pv" ? "visites" : "visiteurs uniques"}
-                          <br />Cliquez pour zoomer et les séparer.
+                          <span title={`${c.members.length} zones proches — cliquez pour zoomer et les séparer.`}>
+                            {c.value}
+                          </span>
                         </Tooltip>
                       </CircleMarker>
                     );
@@ -1462,6 +1466,7 @@ export default function AdminGeo() {
                   return (
                     <CircleMarker
                       key={c.geoId}
+                      bubblingMouseEvents={false}
                       ref={(layer) => {
                         if (layer) markerRefs.current.set(c.geoId, layer);
                         else markerRefs.current.delete(c.geoId);

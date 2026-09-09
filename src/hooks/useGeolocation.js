@@ -76,6 +76,7 @@ export default function useGeolocation({
     !(lat === 0 && lng === 0);
 
   const clearCachedGeo = () => {
+    lastPublishedGeoRef.current = null;
     try {
       ["BYL_COUNTRY", "BYL_CITY", "BYL_LAT", "BYL_LNG", "BYL_GEO_ACCURACY", "BYL_GEO_SOURCE", "BYL_GEO_UPDATED_AT", GEO_PAGE_LOAD_STORAGE_KEY].forEach((key) => {
         localStorage.removeItem(key);
@@ -93,6 +94,8 @@ export default function useGeolocation({
       const prevCity = localStorage.getItem("BYL_CITY");
       const prevLat = localStorage.getItem("BYL_LAT");
       const prevLng = localStorage.getItem("BYL_LNG");
+      if (!country) localStorage.removeItem("BYL_COUNTRY");
+      if (!city) localStorage.removeItem("BYL_CITY");
 
       if (country && prevC !== country) {
         localStorage.setItem("BYL_COUNTRY", country);
@@ -156,6 +159,7 @@ export default function useGeolocation({
   }, [enabled]);
 
   useEffect(() => {
+    if (!enabled || !saveAnalytics) clearCachedGeo();
     if (!enabled) return;
 
     if (!("geolocation" in navigator)) {
@@ -167,9 +171,16 @@ export default function useGeolocation({
       return;
     }
 
-    // Invalide immédiatement toute coordonnée issue d'un chargement précédent,
-    // y compris pendant que l'API Permissions répond encore.
-    clearCachedGeo();
+    // Une nouvelle ouverture ne doit jamais recycler une ancienne position.
+    // En revanche, les changements d'identité ou de permission de cette même
+    // ouverture ne doivent pas effacer une mesure qui vient d'être obtenue.
+    try {
+      if (localStorage.getItem(GEO_PAGE_LOAD_STORAGE_KEY) !== GEO_PAGE_LOAD_ID) {
+        clearCachedGeo();
+      }
+    } catch {
+      clearCachedGeo();
+    }
 
     if (browserPermission === "checking") return;
 
@@ -177,7 +188,10 @@ export default function useGeolocation({
     if (browserPermission === "granted" && storedDecision === "denied") {
       writeStoredGeoDecision("granted");
     }
-    if (browserPermission === "denied") {
+    if (
+      browserPermission === "denied" ||
+      (storedDecision === "denied" && browserPermission !== "granted")
+    ) {
       writeStoredGeoDecision("denied");
       clearCachedGeo();
       setState({
@@ -193,7 +207,12 @@ export default function useGeolocation({
     // Chaque montage correspond à une nouvelle ouverture du site : le
     // navigateur doit fournir une position fraîche ou refuser explicitement.
 
+    let active = true;
+    let requestDenied = false;
+    let latestPositionRequest = 0;
+
     const success = async (pos) => {
+      if (!active || requestDenied) return;
       const base = {
         lat: Number(pos.coords.latitude),
         lng: Number(pos.coords.longitude),
@@ -210,6 +229,7 @@ export default function useGeolocation({
         });
         return;
       }
+      const positionRequest = ++latestPositionRequest;
 
       writeStoredGeoDecision("granted");
       setState({ status: "granted", position: base, error: null });
@@ -220,26 +240,33 @@ export default function useGeolocation({
         const elapsed = Date.now() - Number(lastPublished?.publishedAt || 0);
         if (
           lastPublished &&
+          lastPublished.geocoded &&
           elapsed < GEO_REFRESH_INTERVAL_MS &&
           distanceMeters(lastPublished, base) < GEO_MOVEMENT_THRESHOLD_METERS
         ) {
           return;
         }
-        lastPublishedGeoRef.current = { ...base, publishedAt: Date.now() };
+        // Publish the actual measurement before any network lookup of its city.
+        writeGeoToStorageAndNotify({ country: null, city: null, ...base });
+        lastPublishedGeoRef.current = { ...base, publishedAt: Date.now(), geocoded: false };
         try {
           let cityCountry = await resolveCityCountry(base.lat, base.lng);
           if (!cityCountry) cityCountry = { city: null, country: null };
+          if (!active || requestDenied || positionRequest !== latestPositionRequest) return;
 
           // ✅ localStorage pour RouteAnalyticsListener + event
-          writeGeoToStorageAndNotify({ ...cityCountry, ...base });
+          if (cityCountry.city || cityCountry.country) writeGeoToStorageAndNotify({ ...cityCountry, ...base });
+          lastPublishedGeoRef.current = { ...base, publishedAt: Date.now(), geocoded: true };
         } catch (err) {
+          if (!active || requestDenied || positionRequest !== latestPositionRequest) return;
           console.error("Failed to save analytics geo:", err);
-          writeGeoToStorageAndNotify({ country: null, city: null, ...base });
+          lastPublishedGeoRef.current = { ...base, publishedAt: Date.now(), geocoded: true };
         }
       }
     };
 
     const fail = (err) => {
+      if (!active) return;
       const readable =
         err?.code === 1
           ? "Permission denied"
@@ -249,7 +276,11 @@ export default function useGeolocation({
           ? "Timeout"
           : err?.message || "Unknown geolocation error";
 
-      if (err?.code === 1) writeStoredGeoDecision("denied");
+      if (err?.code === 1) {
+        requestDenied = true;
+        writeStoredGeoDecision("denied");
+        clearCachedGeo();
+      }
       setState({ status: err?.code === 1 ? "denied" : "idle", position: null, error: new Error(readable) });
     };
 
@@ -273,6 +304,8 @@ export default function useGeolocation({
     }
 
     return () => {
+      active = false;
+      autoRequestAttemptedRef.current = false;
       if (watch && watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;

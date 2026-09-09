@@ -1145,23 +1145,21 @@ export default function AdminDashboard() {
         }
 
         const coachDocs = await initialReads.coaches;
-        let coachAuthStatuses = {};
-        try {
-          const response = await apiFetch("/admin-users/email-verification-statuses", {
+        // Auth badges enrich the page; they must not hold up every client,
+        // program and statistic when the authentication service is slow.
+        const coachAuthStatusesPromise = apiFetch("/admin-users/email-verification-statuses", {
             method: "POST",
             body: JSON.stringify({ uids: coachDocs.docs.map((coachDoc) => coachDoc.id) }),
-          });
-          coachAuthStatuses = response.statuses || {};
-        } catch (error) {
+          }).then(response => response.statuses || {}).catch(error => {
           console.warn(
             "admin email verification statuses unavailable:",
             error?.message || error
           );
-        }
+          return {};
+        });
         const coachList = [];
         coachDocs.forEach((d) => {
           const data = d.data() || {};
-          const authStatus = coachAuthStatuses[d.id] || {};
           const visitFallback = visitByUid.get(d.id) || {};
           const lastVisitValue = lastVisitAfterCreation(
             data.createdAt,
@@ -1178,13 +1176,11 @@ export default function AdminDashboard() {
             name: `${data.firstName || ""} ${data.lastName || ""}`.trim() || d.id,
             email: data.email || "",
             emailVerified:
-              typeof authStatus.emailVerified === "boolean"
-                ? authStatus.emailVerified
-                : typeof data.emailVerified === "boolean"
+              typeof data.emailVerified === "boolean"
                 ? data.emailVerified
                 : null,
             emailVerificationRequired: data.emailVerificationRequired === true,
-            authProviderIds: authStatus.providerIds || [],
+            authProviderIds: [],
             createdAt: toIso(data.createdAt),
             createdAtMs: toMillis(data.createdAt),
             trialEndsAt: toIso(data.trialEndsAt || data.trialEnd),
@@ -1578,8 +1574,22 @@ export default function AdminDashboard() {
           })
           .sort((a, b) => (b.lastActivityMs || b.createdAtMs || 0) - (a.lastActivityMs || a.createdAtMs || 0));
 
+        if (!mounted) return;
         setCoaches(coachRows);
         setClubRows(clubRowsNext);
+        void coachAuthStatusesPromise.then(statuses => {
+          if (!mounted) return;
+          const enrich = coach => {
+            const status = statuses[coach.id];
+            return status ? {
+              ...coach,
+              emailVerified: typeof status.emailVerified === "boolean" ? status.emailVerified : coach.emailVerified,
+              authProviderIds: status.providerIds || [],
+            } : coach;
+          };
+          setCoaches(rows => rows.map(enrich));
+          setClubRows(rows => rows.map(club => ({ ...club, coaches: club.coaches.map(enrich) })));
+        });
 
         setTotalPrograms(progCountSnap.data().count || 0);
         setTotalClients(mergedClients.length || (clientsCountSnap.data().count || 0) + clientsComptes.length);

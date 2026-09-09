@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { getVisitLocationDisplay } from "../src/utils/geoVisitDisplay.js";
 import { getLegalPageCopy } from "../src/pages/legalPageCopy.js";
 import { isSessionValidatedRecord } from "../src/utils/sessionCompletion.js";
 import { getProgramMinimumRestDays, isProgramRestDay } from "../src/utils/programDuration.js";
@@ -13,6 +15,22 @@ const root = process.cwd();
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 
 const checks = [];
+
+check("global loading keeps optional work off the critical path", () => {
+  const client = read("src/components/Clientdashboard.jsx");
+  const admin = read("src/components/AdminDashboard.jsx");
+  const club = read("src/pages/ClubDashboard.jsx");
+  const auth = read("src/AuthContext.jsx");
+  assert.match(client, /\[sessDoneSnap, coachDisplay, difficultyMap\] = await Promise\.all/);
+  assert.match(client, /if \(!active\) return;/);
+  assert.match(client, /user\?\.uid, user\?\.linkedClientId, user\?\.email, user\?\.role, i18n.language, previewMode/);
+  assert.match(client, /void apiFetch\('\/payments\/recover-premium-purchases'/);
+  assert.match(admin, /const coachAuthStatusesPromise = apiFetch/);
+  assert.match(admin, /void coachAuthStatusesPromise.then/);
+  assert.match(club, /version !== summaryLoadVersion.current/);
+  assert.match(auth, /import\("firebase\/functions"\)/);
+  assert.doesNotMatch(auth, /import \{[^\n]+\} from "firebase\/functions"/);
+});
 
 check("nutrition dashboard follows the local meal time", () => {
   const at = (hour, minute = 0) => new Date(2026, 8, 1, hour, minute);
@@ -388,14 +406,15 @@ check("each app opening requests a fresh geolocation without reusing a saved pla
     "Geolocation consent decisions must survive page reloads"
   );
   assert.ok(
-    geolocation.includes('if (browserPermission === "denied")') &&
+    geolocation.includes('browserPermission === "denied"') &&
+      geolocation.includes('storedDecision === "denied" && browserPermission !== "granted"') &&
       !geolocation.includes('storedDecision === "granted" && browserPermission !== "granted"'),
-    "Only a current browser refusal may prevent a fresh geolocation request"
+    "Respect a remembered refusal unless the browser explicitly reports a new grant"
   );
   assert.ok(
     geolocation.includes("const clearCachedGeo") &&
       geolocation.includes("maximumAge: 0") &&
-      geolocation.includes('clearCachedGeo();\n\n    if (browserPermission === "checking") return;') &&
+      geolocation.includes('localStorage.getItem(GEO_PAGE_LOAD_STORAGE_KEY) !== GEO_PAGE_LOAD_ID') &&
       geolocation.includes("navigator.geolocation.watchPosition"),
     "Every app opening must discard stale coordinates before acquiring a genuinely current position"
   );
@@ -404,6 +423,7 @@ check("each app opening requests a fresh geolocation without reusing a saved pla
       routeAnalytics.includes("pageLoadId !== GEO_PAGE_LOAD_ID"),
     "Analytics must only use coordinates captured during the current page load"
   );
+  execFileSync(process.execPath, ["scripts/testGeolocationSessionLifecycle.mjs"], { cwd: root, encoding: "utf8" });
 });
 
 check("admin geo never presents a saved profile position as the current visit", () => {
@@ -417,10 +437,12 @@ check("admin geo never presents a saved profile position as the current visit", 
     "Missing event coordinates must remain missing instead of falling back to a profile"
   );
   assert.ok(
-    adminGeo.includes('place || "Position non disponible"') &&
+    adminGeo.includes('getVisitLocationDisplay(visit)') &&
       analyticsRoutes.includes("geolocated: lat != null && lng != null"),
     "The admin must clearly identify visits whose current location was unavailable"
   );
+  assert.equal(getVisitLocationDisplay({ country: "UN", city: "unknown" }).label, "Position non disponible");
+  assert.equal(getVisitLocationDisplay({ lat: 43.5, lng: 7 }).label, "43.5000, 7.0000");
   assert.ok(
     adminGeo.includes("function mergeCanonicalCities") &&
       adminGeo.includes("function mergeCanonicalPeriods") &&
@@ -428,6 +450,15 @@ check("admin geo never presents a saved profile position as the current visit", 
       analyticsRoutes.includes("legacyGeoId"),
     "Legacy and current geo identifiers must merge into one city with one visitor list"
   );
+});
+
+check("admin geo preserves manual zoom through polling and popup loading", () => {
+  execFileSync(process.execPath, ["scripts/testAdminGeoInteraction.mjs"], { cwd: root, encoding: "utf8" });
+});
+
+check("late GPS completes the original visit without a duplicate or lost position", () => {
+  execFileSync(process.execPath, ["scripts/testGeoVisitTracking.mjs"], { cwd: root, encoding: "utf8" });
+  execFileSync(process.execPath, ["scripts/testGeoVisitEnrichment.cjs"], { cwd: root, encoding: "utf8" });
 });
 
 check("authenticated geo visits wait for Firebase identity", () => {
@@ -521,16 +552,16 @@ check("navigation preloads stay bounded and reuse warm page data", () => {
     "Expired page data must remain available instantly while the network refreshes it"
   );
   assert.ok(
-    clients.includes("getDocsFromCache") &&
-      programs.includes("getDocsFromCache") &&
-      clients.includes("serverClientSnapsPromise") &&
-      programs.includes("serverProgramsPromise"),
-    "Client and program lists must read Firestore persistence before waiting for the server"
+    clients.includes("await restorePageDataCacheEntry") &&
+      programs.includes("await restorePageDataCacheEntry") &&
+      clients.includes("load.cache(") && programs.includes("load.cache(") &&
+      !programs.includes("getDocsFromCache"),
+    "Lists must restore full saved snapshots without duplicating the large Firestore program cache read"
   );
   assert.ok(
     dashboard.includes("warmDashboardDestination") &&
       dashboard.includes("partial: true") &&
-      programs.includes("!cachedEntry.isStale && !cached.partial"),
+      programs.includes("if (cached)") && programs.includes("load.ready("),
     "Dashboard destinations must warm their code and accept partial data without blocking"
   );
   assert.ok(
@@ -545,23 +576,23 @@ check("navigation preloads stay bounded and reuse warm page data", () => {
 check("coach dashboard paints cached clients before expensive enrichment", () => {
   const dashboard = read("src/components/CoachDashboard.jsx");
   assert.ok(
-    dashboard.includes("getDocsFromCache") &&
+    dashboard.includes("readDashboardSnapshot") &&
       dashboard.includes("buildQuickDashboardClients") &&
       dashboard.includes("partial: true") &&
       dashboard.includes("data.partial === true"),
     "The dashboard must hydrate a lightweight partial cache while refreshing it in the background"
   );
   assert.ok(
-    dashboard.includes("DASHBOARD_DETAIL_CLIENT_LIMIT = 24") &&
+    dashboard.includes("createDashboardReadPool(24)") &&
       dashboard.includes("primaryClientSnapPromise.then") &&
       dashboard.includes("setLoadingData(false)"),
     "The first client query must release the loading state without waiting for every client detail"
   );
   assert.ok(
-    dashboard.includes("Promise.all([programmesSnapPromise, primaryClientSnapPromise])") &&
-      dashboard.includes("}, 1200);") &&
+    dashboard.includes("const sessionSnapsPromise = primaryClientSnapPromise") &&
+      dashboard.includes("nutritionClientIdsKey") &&
       dashboard.includes("dashboardLoadSeqRef.current += 1"),
-    "Session, nutrition and abandoned dashboard work must not compete with the first visible render"
+    "Dashboard work must stay bounded and nutrition must survive client detail updates"
   );
 });
 
@@ -840,7 +871,7 @@ check("nutrition and sport client creation use coach-safe backend identity looku
   assert.ok(
     nutritionPrefill.includes("/clubs/client-lookup?email=") &&
       nutritionPrefill.includes('apiFetch("/clubs/link-existing-client"') &&
-      nutritionPrefill.indexOf("if (email) {") < nutritionPrefill.indexOf("findExistingClientByIdentity(profile)"),
+      nutritionPrefill.indexOf("if (email) {") < nutritionPrefill.indexOf("findExistingClientByIdentity(profile, createdByUid)"),
     "Nutrition creation with an email must resolve identity through the authorized backend before any Firestore scan"
   );
   assert.ok(
@@ -1114,9 +1145,11 @@ check("client account creation and identity resolution are fail-safe", () => {
     "Coach views must canonicalize account UIDs to the linked client document before loading progress"
   );
   assert.ok(
-    paymentSuccess.includes("resolveClientSnapshotForUser") &&
-      paymentSuccess.includes("collection(db, \"clients\", clientSnap.id, \"programmes\")"),
-    "Program checkout must resolve the real client document before reading generated programs"
+    paymentSuccess.includes('apiFetch("/payments/finalize-session"') &&
+      paymentSuccess.includes("classifyPaymentReturn") &&
+      paymentSuccess.includes("state.destination") &&
+      !paymentSuccess.includes('navigate("/auto-program-preview")'),
+    "Program checkout must use the verified server delivery destination, not guess a client/program or claim unpaid success"
   );
   assert.ok(
     firestoreRules.includes("function safeSelfUserCreate") &&
@@ -1564,18 +1597,17 @@ check("coach session planning is atomic, bounded and duplicate-safe", () => {
   assert.ok(dashboard.includes("sessionCreateSaving"), "The add button must expose a saving state");
   assert.ok(dashboard.includes("controller.abort()"), "Session creation must have a finite timeout");
   assert.ok(
-    dashboard.includes("refreshCachedSessionWidgets(cachedDashboardData, loadSeq)"),
+    dashboard.includes("const sessionSnapsPromise = primaryClientSnapPromise"),
     "Cached dashboard returns must revalidate session widgets in the background"
   );
   assert.ok(
     dashboard.includes("if (isLatestLoad()) setLoadingData(false);") &&
-      dashboard.includes("refreshCachedSessionWidgets(cachedDashboardData, loadSeq)") &&
-      !dashboard.includes("usedCachedDashboardData = true") &&
-      !dashboard.includes("shouldCompleteFullLoad = true"),
-    "A valid dashboard cache must avoid repeating the expensive client/program/session N+1 load"
+      dashboard.includes('markDashboardTiming("coreCache", "ready"') &&
+      !dashboard.includes("if (!cachedDashboardEntry.isStale)"),
+    "A snapshot must display immediately and still revalidate cross-device changes"
   );
   assert.ok(
-    dashboard.includes("mapRootSessionToQuickDashboardEvent"),
+    dashboard.includes("const sessionSnaps = await sessionSnapsPromise"),
     "Cached session refreshes must rebuild dashboard calendar events"
   );
   assert.ok(
@@ -1583,21 +1615,20 @@ check("coach session planning is atomic, bounded and duplicate-safe", () => {
     "Past unvalidated calendar sessions must use the missed color"
   );
   assert.ok(
-    dashboard.includes("cachedPlannedBySourceId") &&
-      dashboard.includes("normRating(cachedEvent.difficultyRating)"),
-    "Quick session refreshes must preserve cached difficulty colors"
+    dashboard.includes("difficultyRating: getSessionDifficultyRating(s)") &&
+      dashboard.includes("difficultyRating: match.difficultyRating ?? null"),
+    "Full refreshes must rebuild difficulty colors from root and completed sessions"
   );
   assert.ok(
     dashboard.includes(
-      "if (mergedEvents.length === 0 && (cachedDashboardData?.sessions || []).length > 0)"
+      "if (!backgroundRefresh && isLatestLoad() && quickEvents.length) setSessions(quickEvents)"
     ),
     "An empty quick refresh must not erase reliable cached dashboard widgets"
   );
   assert.ok(
-    dashboard.includes("preservedPlannedEvents") &&
-      dashboard.includes("refreshedSourceIds") &&
-      dashboard.includes("...preservedPlannedEvents"),
-    "Quick session refreshes must retain cached planned sessions that are not present in a partial refresh"
+    dashboard.includes("const backgroundRefresh = silent || hasCachedDashboardData") &&
+      dashboard.includes('t("dashboard.refresh_failed"'),
+    "The saved snapshot must remain visible through partial reads and refresh failures"
   );
   assert.ok(
     dashboard.includes("const reviveDashboardPayload") &&
@@ -1826,6 +1857,29 @@ check("guided tutorials match the current screens and keep targets bright", () =
       tutorial.includes("setMissingSelectors"),
     "Tutorial spotlights must retry lazy targets, fit the viewport and leave the selected area unobscured"
   );
+});
+
+check("action loading preserves write confirmation and client synchronization", () => {
+  const builder = read("src/components/ProgramBuilder.jsx");
+  const dashboard = read("src/components/CoachDashboard.jsx");
+  const nutrition = read("src/components/NutritionQuickCreateModal.jsx");
+  assert.match(builder, /if \(savingRef.current\) return;/);
+  assert.match(builder, /localEditTimeRef.current === savedEditTime/);
+  assert.equal((builder.match(/localEditTimeRef.current !== savedEditTime/g) || []).length, 2);
+  assert.match(builder, /localEditTimeRef.current !== created.editVersion/);
+  assert.match(builder, /createProgramCreationOperation/);
+  assert.equal((builder.match(/await syncAssignedPrograms\(programId\)/g) || []).length, 4, 'including the independent active-weeks save');
+  assert.ok(!builder.includes('}, 1200)') && !builder.includes('}, 500)'), 'no artificial navigation delay after confirmed save');
+  assert.match(dashboard, /fetchData\(\{ force: true, silent: true \}\)/);
+  assert.match(dashboard, /mergeConfirmedCalendarEvents\(previous, results.map/);
+  assert.match(nutrition, /if \(!hasEmail && !await ensureClientCapacity\(\)\)/);
+  assert.match(nutrition, /error\?\.data\?\.error === 'client-limit-reached'/);
+  for (const file of ['ProgramView', 'AutoProgramPreview']) {
+    const source = read(`src/components/${file}.jsx`);
+    assert.match(source, /useProgrammeDocument\(\{/);
+    assert.ok(!source.includes('await readProgramme('));
+    assert.match(source, /const canEdit = Boolean\(progRef\)/);
+  }
 });
 
 let passed = 0;

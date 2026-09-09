@@ -23,7 +23,9 @@ import {
   getProgramActiveWeeksLabel,
   getProgramPlannedSessionTotal,
 } from "../utils/programDuration";
-import { readPageDataCache, runLimited, writePageDataCache } from "../utils/pageDataCache";
+import { restorePageDataCacheEntry, runLimited, writePageDataCache } from "../utils/pageDataCache";
+import PageLoadingStatus from "../components/ui/PageLoadingStatus";
+import { usePageLoading } from "../hooks/usePageLoading";
 import { isSessionValidatedRecord } from "../utils/sessionCompletion";
 
 const MY_PROGRAMS_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -194,6 +196,7 @@ function prepareVisiblePrograms(programs) {
 
 /* --------------- Component --------------- */
 export default function MyPrograms() {
+  const { begin: beginPageLoad, state: pageLoadState, fresh: forceFresh } = usePageLoading();
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -263,15 +266,18 @@ export default function MyPrograms() {
     if (!user) return;
 
     const run = async () => {
+      const load = beginPageLoad();
       const cacheKey = `byl:my-programs:v1:${user.uid}:${user.role || "client"}:${i18n.language || "fr"}`;
-      const cached = readPageDataCache(cacheKey, {
+      const cachedEntry = forceFresh ? null : await restorePageDataCacheEntry(cacheKey, {
         ttlMs: MY_PROGRAMS_CACHE_TTL_MS,
-        allowStale: true,
       });
+      if (!load.current()) return;
+      const cached = cachedEntry?.data;
       if (cached) {
         setRows(cached.rows || []);
         setClientId(cached.clientId || null);
         setLoading(false);
+        load.cache({ programs: cached.rows?.length || 0 });
       } else {
         setLoading(true);
       }
@@ -285,6 +291,7 @@ export default function MyPrograms() {
             limit(100)
           );
           const snap = await getDocs(qProgs);
+          if (!load.current()) return;
 
           const list = snap.docs.map((d) => {
             const data = d.data();
@@ -321,6 +328,7 @@ export default function MyPrograms() {
           setRows(list);
           setClientId(null);
           writePageDataCache(cacheKey, { rows: list, clientId: null });
+          load.ready({ programs: list.length });
           return;
         }
 
@@ -334,12 +342,14 @@ export default function MyPrograms() {
 
         // 1) dossier client réel, en compatibilité avec les anciens chemins.
         const clientSnap = await resolveClientSnapshotForUser(user, { logPrefix: "MyPrograms" });
+        if (!load.current()) return;
         const cId = clientSnap?.id || null;
-        if (!cId) { setRows([]); setClientId(null); return; }
+        if (!cId) { setRows([]); setClientId(null); load.ready({ programs: 0 }); return; }
         setClientId(cId);
 
         // 2) programmes assignés
         const assignedSnap = await getDocs(collection(db, "clients", cId, "programmes"));
+        if (!load.current()) return;
 
         const baseRows = assignedSnap.docs.map((p) => {
           const data = p.data();
@@ -382,12 +392,15 @@ export default function MyPrograms() {
           };
         });
 
-        setRows(prepareVisiblePrograms(baseRows));
-        setLoading(false);
-        writePageDataCache(cacheKey, {
-          rows: prepareVisiblePrograms(baseRows),
-          clientId: cId,
-        });
+        if (!cached) {
+          setRows(prepareVisiblePrograms(baseRows));
+          setLoading(false);
+          writePageDataCache(cacheKey, {
+            rows: prepareVisiblePrograms(baseRows),
+            clientId: cId,
+            partial: true,
+          });
+        }
 
         const result = await runLimited(assignedSnap.docs, async (p) => {
           const data = p.data();
@@ -513,19 +526,23 @@ export default function MyPrograms() {
           };
         }, 6);
 
+        if (!load.current()) return;
         const nextRows = prepareVisiblePrograms(result);
         setRows(nextRows);
         writePageDataCache(cacheKey, { rows: nextRows, clientId: cId });
+        load.ready({ programs: nextRows.length });
       } catch (err) {
+        if (!load.current()) return;
+        load.error();
         console.error("Erreur fetch programmes:", err);
         if (!cached) setRows([]);
       } finally {
-        setLoading(false);
+        if (load.current()) setLoading(false);
       }
     };
 
     run();
-  }, [user, t, i18n.language]);
+  }, [beginPageLoad, forceFresh, user, t, i18n.language]);
 
   /* ------------------ Navigation (mêmes routes que ClientDashboard) ------------------ */
   const goToProgram = (p) => {
@@ -630,6 +647,7 @@ export default function MyPrograms() {
   if (rows.length === 0) {
     return (
       <Box data-tour-page="client-programs" p={{ base: 4, md: 6 }} bg={pageBg} minH="100vh" position="relative">
+        <PageLoadingStatus state={pageLoadState} />
         <AppSurface data-tour="client-programs-empty" p={{ base: 4, md: 5 }}>
           <Flex align="flex-start" gap={3}>
             <PageBackButton />
@@ -642,6 +660,7 @@ export default function MyPrograms() {
 
   return (
     <Box data-tour-page="client-programs" p={{ base: 3, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
+      <PageLoadingStatus state={pageLoadState} />
       <VStack maxW="1120px" mx="auto" spacing={{ base: 3.5, md: 6 }} align="stretch" position="relative" zIndex={1}>
       <AppSurface p={{ base: 4, md: 5 }}>
         <Flex align="flex-start" gap={3}>

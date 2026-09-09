@@ -1,6 +1,8 @@
 // src/components/CoachDashboard.jsx
 import React, { useState, useEffect, useMemo, useCallback, useRef } from
 "react";
+import { useDashboardTiming } from "../hooks/useDashboardTiming.js";
+import { createDashboardReadPool } from "../utils/coachDashboardLoading.js";
 import {
   Box,
   Heading,
@@ -63,20 +65,19 @@ import { useNavigate, Link, useLocation } from "react-router-dom";
 import {
   collection,
   getDocs,
-  getDocsFromCache,
   addDoc,
   setDoc,
   updateDoc,
   deleteDoc,
   doc,
   getDoc,
+  getDocFromCache,
   serverTimestamp,
   Timestamp,
   query,
   where,
   limit,
   orderBy,
-  arrayUnion,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { resolveStorageUrl } from "../utils/storageUrls";
@@ -96,6 +97,11 @@ import {
   findLatestSessionResumeState,
 } from "../utils/sessionResume";
 import { readPageDataCache, runLimited, writePageDataCache } from "../utils/pageDataCache";
+import { readDashboardTemplates } from "../utils/dashboardTemplates";
+import { mergeConfirmedCalendarEvents } from "../utils/confirmedCalendarEvent";
+import { confirmOperation } from "../utils/confirmedOperation";
+import { createProgramAssignmentOperation } from "../utils/programWriteOperations";
+import { readDashboardSnapshot, writeDashboardSnapshot } from "../utils/dashboardSnapshotCache.js";
 import { findUpcomingCoachHabit } from "../utils/coachScheduleHabits";
 import {
   createDefaultRecurrence,
@@ -255,105 +261,29 @@ const scheduleIdleTask = (callback, timeout = 700) => {
   };
 };
 
-const DASHBOARD_DATA_CACHE_VERSION = 7;
+const DASHBOARD_DATA_CACHE_VERSION = 9;
 const DASHBOARD_DATA_CACHE_TTL_MS = 15 * 60 * 1000;
 const DASHBOARD_DATA_STALE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const DASHBOARD_DATA_CACHE_CLIENT_LIMIT = 120;
-const DASHBOARD_DETAIL_CLIENT_LIMIT = 24;
-const DASHBOARD_DATA_CACHE_PROGRAM_LIMIT = 8;
-const DASHBOARD_DATA_CACHE_SESSION_LIMIT = 28;
 const DASHBOARD_NUTRITION_CACHE_TTL_MS = 10 * 60 * 1000;
 const dashboardDataMemoryCache = new Map();
+const rememberDashboardData = (key, entry) => {
+  dashboardDataMemoryCache.delete(key);
+  dashboardDataMemoryCache.set(key, entry);
+  // Admin previews must not retain complete programs for every visited coach.
+  while (dashboardDataMemoryCache.size > 2) {
+    dashboardDataMemoryCache.delete(dashboardDataMemoryCache.keys().next().value);
+  }
+};
 const DASHBOARD_DATA_LAST_CACHE_KEY = `byl:coach-dashboard:data:${DASHBOARD_DATA_CACHE_VERSION}:last`;
 const getDashboardDataCacheKey = (coachUid = "", clubId = "") =>
   `byl:coach-dashboard:data:${DASHBOARD_DATA_CACHE_VERSION}:${coachUid || "coach"}:${clubId || "solo"}`;
 const getDashboardNutritionCacheKey = (coachUid = "", clubId = "") =>
-  `byl:coach-dashboard:nutrition:v1:${coachUid || "coach"}:${clubId || "solo"}`;
+  `byl:coach-dashboard:nutrition:v2:${coachUid || "coach"}:${clubId || "solo"}`;
 const reviveDashboardDate = (value) => {
   if (!value) return value;
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? value : date;
 };
-const compactDashboardSessionRecord = (record = {}) => ({
-  id: record.id || "",
-  sessionIndex: record.sessionIndex ?? record.index ?? null,
-  index: record.index ?? record.sessionIndex ?? null,
-  status: record.status || "",
-  isPartial: record.isPartial === true,
-  pourcentageTermine: record.pourcentageTermine ?? null,
-  validatedAt: record.validatedAt || record.completedAt || record.dateEffectuee || record.finishedAt || null,
-  completedAt: record.completedAt || record.validatedAt || null,
-  dateEffectuee: record.dateEffectuee || null,
-  finishedAt: record.finishedAt || null,
-  date: record.date || null,
-  createdAt: record.createdAt || null,
-  updatedAt: record.updatedAt || null,
-  calendarEventId: record.calendarEventId || "",
-  plannedEventId: record.plannedEventId || "",
-  coachVisible: record.coachVisible,
-  visibility: record.visibility || "",
-  difficultyRating: record.difficultyRating ?? record.rating ?? null,
-  rating: record.rating ?? record.difficultyRating ?? null,
-  difficultyAt: record.difficultyAt || null,
-  ratingAt: record.ratingAt || null,
-  runId: record.runId || record.id || "",
-  lastExerciseIndex: record.lastExerciseIndex ?? null,
-  lastSet: record.lastSet ?? null,
-});
-const compactDashboardProgramSession = (session = {}) => ({
-  titre: session.titre || "",
-  title: session.title || "",
-  nom: session.nom || "",
-  name: session.name || "",
-  label: session.label || "",
-});
-const compactDashboardProgram = (program = {}) => {
-  const sessions = Array.isArray(program.sessions)
-    ? program.sessions.map(compactDashboardProgramSession)
-    : undefined;
-  const compact = {
-    ...program,
-    sessions,
-    seances: Array.isArray(program.seances)
-      ? program.seances.map(compactDashboardProgramSession)
-      : undefined,
-    sessionsEffectuees: (Array.isArray(program.sessionsEffectuees) ? program.sessionsEffectuees : [])
-      .slice(-DASHBOARD_DATA_CACHE_SESSION_LIMIT)
-      .map(compactDashboardSessionRecord),
-    difficultyNotes: (Array.isArray(program.difficultyNotes) ? program.difficultyNotes : [])
-      .slice(-DASHBOARD_DATA_CACHE_SESSION_LIMIT)
-      .map((note) => ({
-        id: note.id || "",
-        sessionIndex: note.sessionIndex ?? note.index ?? null,
-        rating: note.rating ?? null,
-        completionId: note.completionId || note.runId || "",
-        runId: note.runId || note.completionId || "",
-        createdAt: note.createdAt || null,
-        updatedAt: note.updatedAt || null,
-        date: note.date || null,
-      })),
-    difficultyMap: program.difficultyMap || {},
-  };
-  [
-    "exercises",
-    "exercices",
-    "exerciseBank",
-    "generatedProgram",
-    "generationPayload",
-    "questionnaire",
-    "rawPayload",
-  ].forEach((key) => delete compact[key]);
-  ["weeks", "semaines"].forEach((key) => {
-    if (Array.isArray(compact[key])) delete compact[key];
-  });
-  return compact;
-};
-const compactDashboardClient = (client = {}) => ({
-  ...client,
-  programmesAssignes: (Array.isArray(client.programmesAssignes) ? client.programmesAssignes : [])
-    .slice(0, DASHBOARD_DATA_CACHE_PROGRAM_LIMIT)
-    .map(compactDashboardProgram),
-});
 const buildQuickAssignedProgramPlaceholders = (client = {}) => {
   if (Array.isArray(client.programmesAssignes) && client.programmesAssignes.length) {
     return client.programmesAssignes;
@@ -405,11 +335,6 @@ const buildQuickDashboardClients = (rawClients = []) => {
     .sort((a, b) => (b._lastCoachInteractionMs || 0) - (a._lastCoachInteractionMs || 0));
   return quickClients.length ? quickClients : deduped;
 };
-const compactDashboardEvent = (event = {}) => ({
-  ...event,
-  start: event.start instanceof Date ? event.start.toISOString() : event.start || null,
-  end: event.end instanceof Date ? event.end.toISOString() : event.end || null,
-});
 const reviveDashboardEvent = (event = {}) => ({
   ...event,
   start: reviveDashboardDate(event.start),
@@ -418,14 +343,6 @@ const reviveDashboardEvent = (event = {}) => ({
 const reviveDashboardPayload = (data = {}) => ({
   ...data,
   sessions: (data.sessions || []).map(reviveDashboardEvent),
-});
-const compactDashboardPayload = ({ clients = [], programmesBase = [], sessions = [], assignedCounts = {}, assignedClientsMap = {}, partial = false }) => ({
-  clients: clients.slice(0, DASHBOARD_DATA_CACHE_CLIENT_LIMIT).map(compactDashboardClient),
-  programmesBase: programmesBase.slice(0, 220).map(compactDashboardProgram),
-  sessions: sessions.map(compactDashboardEvent),
-  assignedCounts,
-  assignedClientsMap,
-  partial: partial === true,
 });
 const readDashboardDataCacheEntryByKey = (key, { allowStale = false } = {}) => {
   const isUsableDashboardCache = (data = {}) => {
@@ -451,7 +368,7 @@ const readDashboardDataCacheEntryByKey = (key, { allowStale = false } = {}) => {
   if (!savedAt || ageMs > maxAgeMs) return null;
   const data = reviveDashboardPayload(payload.data);
   if (!isUsableDashboardCache(data)) return null;
-  dashboardDataMemoryCache.set(key, { savedAt, data });
+  rememberDashboardData(key, { savedAt, data });
   return {
     data,
     savedAt,
@@ -463,11 +380,11 @@ const readDashboardDataCacheEntry = (coachUid, clubId, options) =>
   readDashboardDataCacheEntryByKey(getDashboardDataCacheKey(coachUid, clubId), options);
 const readDashboardDataCache = (coachUid, clubId, options) =>
   readDashboardDataCacheEntry(coachUid, clubId, options)?.data || null;
-const readLastDashboardDataCache = (options) => {
+const readLastDashboardDataCache = (coachUid, clubId, options) => {
   if (typeof window === "undefined") return null;
   try {
     const lastKey = window.localStorage.getItem(DASHBOARD_DATA_LAST_CACHE_KEY);
-    if (!lastKey) return null;
+    if (!coachUid || lastKey !== getDashboardDataCacheKey(coachUid, clubId)) return null;
     return readDashboardDataCacheEntryByKey(lastKey, options)?.data || null;
   } catch {
     return null;
@@ -475,22 +392,15 @@ const readLastDashboardDataCache = (options) => {
 };
 const writeDashboardDataCache = (coachUid, clubId, payload) => {
   const key = getDashboardDataCacheKey(coachUid, clubId);
-  const data = compactDashboardPayload(payload || {});
   const savedAt = Date.now();
-  dashboardDataMemoryCache.set(key, { savedAt, data });
+  // Keep complete programs in memory/IndexedDB: actions must never reuse a
+  // display-only program with its exercises or older sessions stripped out.
+  if (!payload.partial || !dashboardDataMemoryCache.has(key)) {
+    rememberDashboardData(key, { savedAt, data: payload });
+  }
   if (typeof window === "undefined") return;
   scheduleIdleTask(() => {
-    try {
-      window.localStorage.setItem(
-        key,
-        JSON.stringify({
-          version: DASHBOARD_DATA_CACHE_VERSION,
-          savedAt,
-          data,
-        })
-      );
-      window.localStorage.setItem(DASHBOARD_DATA_LAST_CACHE_KEY, key);
-    } catch {}
+    if (!payload.partial) void writeDashboardSnapshot(key, { savedAt, data: payload });
   }, 900);
 };
 const getMonthKey = (date = new Date()) =>
@@ -1715,96 +1625,6 @@ const mapSessionStatusToCalendarStatus = (status) => {
    }
    return "planned";
 };
-const mapRootSessionToQuickDashboardEvent = (session = {}, t) => {
-  const start =
-    session.start?.toDate?.() ||
-    (typeof session.start === "string" ? new Date(session.start) : null) ||
-    (typeof session.start === "number" ? new Date(session.start) : null);
-  if (!start || Number.isNaN(start.getTime())) return null;
-  const end =
-    session.end?.toDate?.() ||
-    (typeof session.end === "string" ? new Date(session.end) : null) ||
-    (typeof session.end === "number" ? new Date(session.end) : null) ||
-    new Date(start.getTime() + FORCE_SESSION_DURATION_MIN * 60000);
-  const eventType = String(session.type || session.eventType || "").trim();
-  const isNutritionAppointment = eventType === "nutrition_appointment";
-  const isClubAppointment = eventType === "club_appointment";
-  const rawStatus = String(session.status || "").trim().toLowerCase();
-  const isRootValidated =
-    rawStatus === "validée" ||
-    rawStatus === "validee" ||
-    rawStatus === "done" ||
-    Boolean(session.validatedAt) ||
-    Boolean(session.completedAt);
-  const titleSessionIndex = inferSessionIndexFromText(
-    `${session.sessionTitle || ""} ${session.title || ""}`
-  );
-  const explicitSessionIndex = getSessionIndex(session);
-  const sessionIndex = Number.isFinite(titleSessionIndex)
-    ? titleSessionIndex
-    : Number.isFinite(explicitSessionIndex)
-      ? explicitSessionIndex
-      : null;
-  const clientName = String(session.clientName || "").trim();
-  const storedSessionTitle = String(session.title || session.sessionTitle || "").trim();
-  const titlePieces = [];
-  if (clientName) titlePieces.push(clientName);
-  if (isNutritionAppointment) titlePieces.push("Nutrition");
-  else if (isClubAppointment) titlePieces.push("Club");
-  else if (session.programTitle || session.programmeName || session.programName) {
-    titlePieces.push(session.programTitle || session.programmeName || session.programName);
-  }
-  if (storedSessionTitle) titlePieces.push(storedSessionTitle);
-  return {
-    id: `planned__${session.id}`,
-    title: titlePieces.join(" - ") || t("dashboard.session_planned", "Séance planifiée"),
-    start,
-    end,
-    status: isRootValidated ? "validée" : session.status || "à venir",
-    visibility: session.visibility || "coach",
-    clientId: session.clientId,
-    programmeId: session.programmeId || session.programId || session.programID || "",
-    baseProgrammeId: session.baseProgrammeId || "",
-    sessionIndex,
-    eventType: isNutritionAppointment
-      ? "nutrition_appointment"
-      : isClubAppointment
-        ? "club_appointment"
-        : "sport_session",
-    appointmentKind: session.appointmentKind || "",
-    durationMin: Number.isFinite(Number(session.durationMin)) ? Number(session.durationMin) : null,
-    clubAppointmentId: session.clubAppointmentId || "",
-    _kind: "planned",
-    _clientName: clientName,
-    _programmeName: session.programTitle || session.programmeName || session.programName || "",
-    _sessionTitle: storedSessionTitle,
-    _sourceId: session.id,
-    _updatedMs: Math.max(toMillis(session.updatedAt), toMillis(session.createdAt), 0),
-    _rootCoachValidated: isRootValidated,
-    difficultyRating: getSessionDifficultyRating(session),
-    difficultyAtMs: getSessionDifficultyAtMs(session),
-  };
-};
-const dedupePlannedDashboardEvents = (events = []) => {
-  const byUniqueSession = new Map();
-  events.forEach((event) => {
-    const key = [
-      event.clientId || "",
-      event.programmeId || "",
-      event.baseProgrammeId || "",
-      Number.isFinite(Number(event.sessionIndex)) ? Number(event.sessionIndex) : "x",
-      event.start?.getFullYear?.(),
-      event.start?.getMonth?.(),
-      event.start?.getDate?.(),
-      normalizeLooseText(event._sessionTitle || event.title || ""),
-    ].join("__");
-    const previous = byUniqueSession.get(key);
-    if (!previous || (event._updatedMs || 0) >= (previous._updatedMs || 0)) {
-      byUniqueSession.set(key, event);
-    }
-  });
-  return Array.from(byUniqueSession.values());
-};
 const isSessionValidatedRecord = (session) => {
   const status = String(session?.status || "").trim().toLowerCase();
   if (!session || session?.isPartial === true || status === "en_cours" || status === "in_progress") {
@@ -2069,6 +1889,10 @@ export default function CoachDashboard() {
   const isAdmin = user?.role === "admin";
   const navigate = useNavigate();
   const location = useLocation();
+  const dashboardPerfEnabled = import.meta.env.DEV && new URLSearchParams(location.search).has("dashboardPerf");
+  const dashboardPerfFresh = dashboardPerfEnabled && new URLSearchParams(location.search).has("fresh");
+  const { timing: dashboardTiming, mark: markDashboardTiming } = useDashboardTiming(dashboardPerfEnabled);
+  const markCalendarReady = useCallback(() => markDashboardTiming("calendar"), [markDashboardTiming]);
   const params = new URLSearchParams(location.search);
   const adminCoachId = params.get("adminCoachId") || "";
   const adminClubId = isAdmin ? params.get("adminClubId") || params.get("clubId") || "" : "";
@@ -2211,7 +2035,7 @@ end && now < end;
   const initialDashboardCache = useMemo(
     () =>
       readDashboardDataCache(effectiveCoachUid, effectiveClubId, { allowStale: true }) ||
-      readLastDashboardDataCache({ allowStale: true }),
+      readLastDashboardDataCache(effectiveCoachUid, effectiveClubId, { allowStale: true }),
     [effectiveClubId, effectiveCoachUid]
   );
   const [clients, setClients] = useState(() => initialDashboardCache?.clients || []);
@@ -2220,6 +2044,10 @@ end && now < end;
   const [clubGoalPeriod, setClubGoalPeriod] = useState("month");
   const [clubGoalTargets, setClubGoalTargets] = useState(null);
   const [loadingData, setLoadingData] = useState(() => !initialDashboardCache);
+  const [assignmentSaving, setAssignmentSaving] = useState(false);
+  const assignmentSavingRef = useRef(false);
+  const assignmentOperationRef = useRef(null);
+  const [dashboardFromCache, setDashboardFromCache] = useState(false);
   const [selectedClient, setSelectedClient] = useState("");
   const [clientToDelete, setClientToDelete] = useState(null);
   const [selectedProgramme, setSelectedProgramme] = useState("");
@@ -2366,51 +2194,21 @@ useState(() => initialDashboardCache?.assignedClientsMap || {});
   const [nutritionFeedbackRows, setNutritionFeedbackRows] = useState(
     () => initialNutritionDashboardCache?.feedbackRows || []
   );
-  const nutritionLoadKeyRef = useRef("");
   const dashboardLoadSeqRef = useRef(0);
-  useEffect(() => {
-    if (initialDashboardCache || !effectiveCoachUid) return undefined;
-    let alive = true;
-    const cachedQueries = [
-      query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(500)),
-      query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(500)),
-      query(collection(db, "clients"), where("coachIds", "array-contains", effectiveCoachUid), limit(500)),
-    ];
-    Promise.all([
-      getDocsFromCache(query(collection(db, "programmes"), where("createdBy", "==", effectiveCoachUid), limit(200)))
-        .catch(() => ({ docs: [] })),
-      ...cachedQueries.map((cachedQuery) => getDocsFromCache(cachedQuery).catch(() => ({ docs: [] }))),
-    ]).then(([programmesSnapshot, ...clientSnapshots]) => {
-      if (!alive) return;
-      const cachedClientMap = new Map();
-      clientSnapshots.forEach((snapshot) => {
-        snapshot.docs.forEach((documentSnapshot) => {
-          cachedClientMap.set(documentSnapshot.id, { id: documentSnapshot.id, ...documentSnapshot.data() });
-        });
-      });
-      const cachedClients = buildQuickDashboardClients([...cachedClientMap.values()]);
-      const cachedProgrammes = programmesSnapshot.docs.map((documentSnapshot) => ({
-        id: documentSnapshot.id,
-        ...documentSnapshot.data(),
-      }));
-      if (cachedClients.length) setClients(cachedClients);
-      if (cachedProgrammes.length) setProgrammesBase(cachedProgrammes);
-      if (cachedClients.length || cachedProgrammes.length) setLoadingData(false);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [effectiveCoachUid, initialDashboardCache]);
   const [dismissedRadarIds, setDismissedRadarIds] = useState([]);
   const [radarCollapsed, setRadarCollapsed] = useState(false);
   const [dashboardWidgetPrefs, setDashboardWidgetPrefs] = useState(DEFAULT_DASHBOARD_WIDGET_PREFS);
   const [dashboardWidgetPrefsReady, setDashboardWidgetPrefsReady] = useState(false);
+  const dashboardPrefsOwnerRef = useRef(null);
   const [copilotMemory, setCopilotMemory] = useState(DEFAULT_COPILOT_MEMORY);
   const [copilotMemoryRules, setCopilotMemoryRules] = useState(DEFAULT_COPILOT_MEMORY_RULES);
   const [copilotMemoryRulesDraft, setCopilotMemoryRulesDraft] = useState(DEFAULT_COPILOT_MEMORY_RULES);
   const [copilotHistory, setCopilotHistory] = useState([]);
   const [copilotSuppressions, setCopilotSuppressions] = useState([]);
   const [copilotReady, setCopilotReady] = useState(false);
+  useEffect(() => {
+    markDashboardTiming("preferences", dashboardWidgetPrefsReady ? "ready" : "loading");
+  }, [dashboardWidgetPrefsReady, markDashboardTiming]);
   const [copilotSaving, setCopilotSaving] = useState(false);
   const [birthdayMessageClient, setBirthdayMessageClient] = useState(null);
   const [birthdayMessageDraft, setBirthdayMessageDraft] = useState("");
@@ -2471,6 +2269,7 @@ useState(false);
       return;
     }
     let alive = true;
+    dashboardPrefsOwnerRef.current = null;
     setDashboardWidgetPrefsReady(false);
 
     const readLocalPrefs = () => {
@@ -2495,6 +2294,9 @@ useState(false);
 
     (async () => {
       const localPrefs = readLocalPrefs();
+      setDashboardWidgetPrefs(localPrefs);
+      setRadarCollapsed(localPrefs.radar.collapsed);
+      markDashboardTiming("preferencesCache", "ready");
       try {
         const snap = await getDoc(doc(db, "users", effectiveCoachUid));
         const data = snap.exists() ? snap.data() || {} : {};
@@ -2516,17 +2318,20 @@ useState(false);
         setDashboardWidgetPrefs(localPrefs);
         setRadarCollapsed(localPrefs.radar.collapsed);
       } finally {
-        if (alive) setDashboardWidgetPrefsReady(true);
+        if (alive) {
+          dashboardPrefsOwnerRef.current = effectiveCoachUid;
+          setDashboardWidgetPrefsReady(true);
+        }
       }
     })();
 
     return () => {
       alive = false;
     };
-  }, [effectiveCoachUid]);
+  }, [effectiveCoachUid, markDashboardTiming]);
 
   useEffect(() => {
-    if (!effectiveCoachUid || !dashboardWidgetPrefsReady) return;
+    if (!effectiveCoachUid || !dashboardWidgetPrefsReady || dashboardPrefsOwnerRef.current !== effectiveCoachUid) return;
     const normalized = normalizeDashboardWidgetPrefs(dashboardWidgetPrefs);
     try {
       localStorage.setItem(
@@ -2561,35 +2366,55 @@ useState(false);
     }
     let alive = true;
     setCopilotReady(false);
+    markDashboardTiming("copilot", "loading");
+    let serverSettled = false;
+    let previewShown = false;
+    let failed = false;
+    const applyCopilotProfile = (data = {}) => {
+      const settings = data.settings || {};
+      const memory = normalizeCopilotMemoryText(settings.coachCopilotMemory || DEFAULT_COPILOT_MEMORY);
+      const rules = normalizeCopilotMemoryRules(settings.coachCopilotMemoryRules);
+      setCopilotMemory(memory);
+      setCopilotMemoryRules(rules);
+      setCopilotMemoryRulesDraft(rules);
+      setCopilotHistory(normalizeCopilotHistory(settings.coachCopilotHistory));
+      setCopilotSuppressions(normalizeCopilotSuppressions(settings.coachCopilotSuppressions));
+    };
+    void getDocFromCache(doc(db, "users", effectiveCoachUid)).then(snap => {
+      if (!alive || serverSettled || !snap.exists()) return;
+      applyCopilotProfile(snap.data());
+      previewShown = true;
+      setCopilotReady(true);
+      markDashboardTiming("copilotCache", "ready");
+    }).catch(() => {});
     (async () => {
       try {
         const snap = await getDoc(doc(db, "users", effectiveCoachUid));
+        serverSettled = true;
         const data = snap.exists() ? snap.data() || {} : {};
-        const settings = data.settings || {};
-        const memory = normalizeCopilotMemoryText(settings.coachCopilotMemory || DEFAULT_COPILOT_MEMORY);
-        const rules = normalizeCopilotMemoryRules(settings.coachCopilotMemoryRules);
         if (!alive) return;
-        setCopilotMemory(memory);
-        setCopilotMemoryRules(rules);
-        setCopilotMemoryRulesDraft(rules);
-        setCopilotHistory(normalizeCopilotHistory(settings.coachCopilotHistory));
-        setCopilotSuppressions(normalizeCopilotSuppressions(settings.coachCopilotSuppressions));
+        applyCopilotProfile(data);
       } catch (error) {
+        failed = true;
         console.warn("[coach copilot] settings read failed", error);
-        if (!alive) return;
+        if (!alive || previewShown) return;
         setCopilotMemory(DEFAULT_COPILOT_MEMORY);
         setCopilotMemoryRules(DEFAULT_COPILOT_MEMORY_RULES);
         setCopilotMemoryRulesDraft(DEFAULT_COPILOT_MEMORY_RULES);
         setCopilotHistory([]);
         setCopilotSuppressions([]);
       } finally {
-        if (alive) setCopilotReady(true);
+        serverSettled = true;
+        if (alive) {
+          setCopilotReady(true);
+          markDashboardTiming("copilot", failed ? "error" : "ready");
+        }
       }
     })();
     return () => {
       alive = false;
     };
-  }, [effectiveCoachUid]);
+  }, [effectiveCoachUid, markDashboardTiming]);
 
   const saveCopilotSettings = useCallback(
     async ({ memory = copilotMemory, rules = copilotMemoryRules, history = copilotHistory, suppressions = copilotSuppressions } = {}) => {
@@ -2895,28 +2720,34 @@ useState(false);
     setCalendarConnectionChecked(true);
   }, [effectiveCoachUid]);
 
+  const nutritionClientIdsKey = useMemo(
+    () => JSON.stringify([...new Set(clients.map(client => client.id).filter(Boolean))].sort()),
+    [clients]
+  );
   useEffect(() => {
     let alive = true;
+    markDashboardTiming("nutrition", "loading");
     const loadNutritionRows = async () => {
       if (!effectiveCoachUid || !hasNutritionCalendarAccess) {
+        markDashboardTiming("nutrition", "ready", { skipped: true });
         setNutritionRows([]);
         setNutritionFeedbackRows([]);
         return;
       }
 
-      const clientIds = Array.from(new Set(clients.map((client) => client.id).filter(Boolean))).sort();
+      const clientIds = JSON.parse(nutritionClientIdsKey);
       if (clientIds.length === 0) {
-        nutritionLoadKeyRef.current = "";
+        markDashboardTiming("nutrition", "ready", { clients: 0 });
         setNutritionRows([]);
         setNutritionFeedbackRows([]);
         return;
       }
       const nutritionCacheKey = getDashboardNutritionCacheKey(effectiveCoachUid, effectiveClubId);
-      const nutritionLoadKey = `${effectiveCoachUid || ""}:${effectiveClubId || ""}:${clientIds.join("|")}`;
-      const cachedNutrition = readPageDataCache(nutritionCacheKey, {
+      const cachedNutrition = !dashboardPerfFresh && (readPageDataCache(nutritionCacheKey, {
         ttlMs: DASHBOARD_NUTRITION_CACHE_TTL_MS,
-      });
-      if (cachedNutrition) {
+      }) || (await readDashboardSnapshot(nutritionCacheKey))?.data);
+      if (!alive) return;
+      if (cachedNutrition && cachedNutrition.clientIdsKey === nutritionClientIdsKey) {
         const cachedRows = cachedNutrition.rows || [];
         setNutritionRows(cachedRows);
         setNutritionFeedbackRows(cachedNutrition.feedbackRows || []);
@@ -2925,35 +2756,31 @@ useState(false);
           clientCount: clientIds.length,
           partial: false,
         });
-        nutritionLoadKeyRef.current = nutritionLoadKey;
-        return;
+        markDashboardTiming("nutritionCache", "ready", { clients: clientIds.length, assessments: cachedRows.length });
       }
-      if (nutritionLoadKeyRef.current === nutritionLoadKey) return;
-      nutritionLoadKeyRef.current = nutritionLoadKey;
+      markDashboardTiming("nutrition", "loading", { clients: clientIds.length });
 
       try {
-        const nutritionSnaps = await runLimited(
+        const nutritionResults = await runLimited(
           clientIds,
           async (clientId) => {
+            if (!alive) return { assessments: [], feedback: [] };
             const snap = await getDocs(collection(db, "clients", clientId, "nutrition_assessments"));
-            return snap.docs.map((docSnap) => ({ docSnap, clientId }));
-          },
-          8
-        );
-        const nutritionDocs = nutritionSnaps.flat();
-        const nutritionClientIds = Array.from(new Set(nutritionDocs.map(({ clientId }) => clientId).filter(Boolean)));
-        const feedbackSnaps = await runLimited(
-          nutritionClientIds,
-          async (clientId) => {
-            const snap = await getDocs(
+            // Read this patient's feedback as soon as their assessments arrive,
+            // without waiting for every other patient's request to finish.
+            const feedback = alive && !snap.empty ? await getDocs(
               query(collection(db, "clients", clientId, "nutrition_feedback"), orderBy("createdAt", "desc"), limit(5))
-            ).catch(() => ({ docs: [] }));
-            return snap.docs.map((docSnap) => ({ docSnap, clientId }));
+            ).catch(() => ({ docs: [] })) : { docs: [] };
+            return {
+              assessments: snap.docs.map((docSnap) => ({ docSnap, clientId })),
+              feedback: feedback.docs.map((docSnap) => ({ docSnap, clientId })),
+            };
           },
-          6
+          12
         );
-        const feedbackDocs = feedbackSnaps.flat();
         if (!alive) return;
+        const nutritionDocs = nutritionResults.flatMap(result => result.assessments);
+        const feedbackDocs = nutritionResults.flatMap(result => result.feedback);
         const nextRows = nutritionDocs.map(({ docSnap, clientId }) => ({
             id: docSnap.id,
             clientId,
@@ -2966,17 +2793,27 @@ useState(false);
           }));
         setNutritionRows(nextRows);
         setNutritionFeedbackRows(nextFeedbackRows);
+        markDashboardTiming("nutrition", "ready", { clients: clientIds.length, assessments: nextRows.length, feedback: nextFeedbackRows.length });
         writePageDataCache(nutritionCacheKey, {
+          clientIdsKey: nutritionClientIdsKey,
           rows: nextRows,
           feedbackRows: nextFeedbackRows,
         });
+        const nutritionSnapshotSavedAt = Date.now();
+        scheduleIdleTask(() => {
+          void writeDashboardSnapshot(nutritionCacheKey, {
+            savedAt: nutritionSnapshotSavedAt,
+            data: { clientIdsKey: nutritionClientIdsKey, rows: nextRows, feedbackRows: nextFeedbackRows },
+          });
+        }, 900);
         writePageDataCache(`byl:nutrition-page:v1:${effectiveCoachUid}`, {
           rows: nextRows,
           clientCount: clientIds.length,
           partial: false,
         });
       } catch {
-        nutritionLoadKeyRef.current = "";
+        if (!alive) return;
+        markDashboardTiming("nutrition", "error");
         if (alive && !cachedNutrition) {
           setNutritionRows([]);
           setNutritionFeedbackRows([]);
@@ -2987,13 +2824,13 @@ useState(false);
     let cancelIdleLoad;
     const delayId = window.setTimeout(() => {
       cancelIdleLoad = scheduleIdleTask(loadNutritionRows, 700);
-    }, 1200);
+    }, 100);
     return () => {
       alive = false;
       window.clearTimeout(delayId);
       cancelIdleLoad?.();
     };
-  }, [clients, effectiveCoachUid, effectiveClubId, hasNutritionCalendarAccess]);
+  }, [nutritionClientIdsKey, effectiveCoachUid, effectiveClubId, hasNutritionCalendarAccess, dashboardPerfFresh, markDashboardTiming]);
 
 	  const nutritionDashboardStats = useMemo(() => {
     const distinctClients = new Set(nutritionRows.map((row) => row.clientId).filter(Boolean)).size;
@@ -3172,14 +3009,14 @@ p.nomProgramme.trim() : "";
       const fallbackName = prettyProgramNameBase(baseProg);
       if (isAutoProgramme(baseProg)) {
         navigate(withAdminCoach(`/auto-program-preview/${baseProg.id}`), {
-          state: { programmeName: fallbackName, from:
+          state: { prefetchedProgram: baseProg, programmeName: fallbackName, from:
 "coachDashboard" },
         });
         return false;
       }
       navigate(withAdminCoach(`/programmes/${baseProg.id}`), {
 
-          state: { programmeName: fallbackName, from:
+          state: { prefetchedProgram: baseProg, programmeName: fallbackName, from:
 "coachDashboard" },
         });
      },
@@ -3557,153 +3394,43 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
     startEventSession(selectedEvent);
   }, [selectedEvent, startEventSession]);
 
-  const refreshCachedSessionWidgets = useCallback(
-    async (cachedDashboardData, loadSeq) => {
-      const sessionQueries = [
-        query(collection(db, "sessions"), where("coachId", "==", effectiveCoachUid)),
-        query(collection(db, "sessions"), where("createdBy", "==", effectiveCoachUid)),
-        query(collection(db, "sessions"), where("ownerId", "==", effectiveCoachUid)),
-      ];
-      const sessionSnaps = await Promise.all(
-        sessionQueries.map((sessionQuery) =>
-          getDocs(sessionQuery).catch((sessionQueryError) => {
-            console.warn("[coach dashboard] cached session refresh query failed", sessionQueryError);
-            return null;
-          })
-        )
-      );
-      if (dashboardLoadSeqRef.current !== loadSeq) return;
-      const successfulSnaps = sessionSnaps.filter(Boolean);
-      if (successfulSnaps.length === 0) return;
-
-      const rootSessionsById = new Map();
-      successfulSnaps.forEach((snap) => {
-        snap.docs.forEach((sessionDoc) => {
-          rootSessionsById.set(sessionDoc.id, { id: sessionDoc.id, ...sessionDoc.data() });
-        });
-      });
-      const cachedClients = Array.isArray(cachedDashboardData?.clients)
-        ? cachedDashboardData.clients
-        : [];
-      const clientIdSet = new Set(cachedClients.map((client) => client.id).filter(Boolean));
-      const cachedPlannedEvents = (cachedDashboardData?.sessions || []).filter(
-        (event) => event?._kind === "planned" && !String(event?.id || "").startsWith("club__")
-      );
-      const cachedPlannedBySourceId = new Map(
-        cachedPlannedEvents
-          .filter((event) => event?._sourceId)
-          .map((event) => [event._sourceId, event])
-      );
-      const findCachedPlannedEvent = (event) => {
-        const exact = cachedPlannedBySourceId.get(event?._sourceId);
-        if (exact) return exact;
-        return cachedPlannedEvents.find((candidate) => {
-          if (candidate.clientId !== event.clientId) return false;
-          if (!sameCalendarDay(candidate.start, event.start)) return false;
-          if (event.eventType === "nutrition_appointment") {
-            return (
-              candidate.eventType === "nutrition_appointment" &&
-              candidate.appointmentKind === event.appointmentKind &&
-              Math.abs((candidate.start?.getTime?.() || 0) - (event.start?.getTime?.() || 0)) < 60_000
-            );
-          }
-          return (
-            sameProgramFamily(candidate, event) &&
-            Number(candidate.sessionIndex) === Number(event.sessionIndex)
-          );
-        });
-      };
-      const refreshedRootEvents = dedupePlannedDashboardEvents(
-        Array.from(rootSessionsById.values())
-          .filter((session) => clientIdSet.has(session.clientId))
-          .filter((session) => {
-            const visibility = session.visibility || "coach";
-            if (visibility !== "coach" && visibility !== "both") return false;
-            const sessionCoachId = session.coachId || session.createdBy || session.ownerId || "";
-            return !sessionCoachId || sessionCoachId === effectiveCoachUid;
-          })
-          .map((session) => mapRootSessionToQuickDashboardEvent(session, t))
-          .filter(Boolean)
-          .map((event) => {
-            const cachedEvent = findCachedPlannedEvent(event);
-            if (!cachedEvent) return event;
-            return {
-              ...cachedEvent,
-              ...event,
-              title: cachedEvent.title || event.title,
-              baseProgrammeId: event.baseProgrammeId || cachedEvent.baseProgrammeId || "",
-              _programmeName: cachedEvent._programmeName || event._programmeName || "",
-              _sessionTitle: cachedEvent._sessionTitle || event._sessionTitle || "",
-              difficultyRating:
-                normRating(event.difficultyRating) ??
-                normRating(cachedEvent.difficultyRating) ??
-                null,
-              difficultyAtMs: Math.max(
-                Number(event.difficultyAtMs || 0),
-                Number(cachedEvent.difficultyAtMs || 0)
-              ),
-            };
-          })
-      );
-
-      const cachedEvents = cachedDashboardData?.sessions || [];
-      const refreshedSourceIds = new Set(
-        refreshedRootEvents.map((event) => event?._sourceId).filter(Boolean)
-      );
-      const preservedPlannedEvents = cachedEvents.filter(
-        (event) =>
-          event?._kind === "planned" &&
-          (!event?._sourceId || !refreshedSourceIds.has(event._sourceId))
-      );
-      const preservedOtherEvents = cachedEvents.filter(
-        (event) => event?._kind !== "planned"
-      );
-      const mergedEvents = [
-        ...dedupePlannedDashboardEvents([
-          ...preservedPlannedEvents,
-          ...refreshedRootEvents,
-        ]),
-        ...preservedOtherEvents,
-      ].sort(
-        (a, b) => (a.start?.getTime?.() || 0) - (b.start?.getTime?.() || 0)
-      );
-      // Une requête rapide vide ne doit jamais effacer les dernières valeurs
-      // fiables affichées. La revalidation complète qui suit fera autorité.
-      if (mergedEvents.length === 0 && (cachedDashboardData?.sessions || []).length > 0) {
-        return;
-      }
-      setSessions(mergedEvents);
-    },
-    [effectiveCoachUid, t]
-  );
 
   const fetchData = useCallback(async ({ force = false, silent = false } = {}) => {
      if (!effectiveCoachUid) return;
+     force = force || dashboardPerfFresh;
+     markDashboardTiming("core", "loading");
      const loadSeq = dashboardLoadSeqRef.current + 1;
      dashboardLoadSeqRef.current = loadSeq;
      const isLatestLoad = () => dashboardLoadSeqRef.current === loadSeq;
      let hasCachedDashboardData = false;
      let cachedDashboardDataForRefresh = null;
      if (!force) {
-       const cachedDashboardEntry = readDashboardDataCacheEntry(
+       let cachedDashboardEntry = readDashboardDataCacheEntry(
          effectiveCoachUid,
          effectiveClubId,
          { allowStale: true }
        );
+       if (!cachedDashboardEntry || cachedDashboardEntry.data.partial) {
+         const key = getDashboardDataCacheKey(effectiveCoachUid, effectiveClubId);
+         const snapshot = await readDashboardSnapshot(key);
+         if (!isLatestLoad()) return;
+         if (snapshot) {
+           rememberDashboardData(key, snapshot);
+           cachedDashboardEntry = readDashboardDataCacheEntry(effectiveCoachUid, effectiveClubId, { allowStale: true });
+         }
+       }
        const cachedDashboardData = cachedDashboardEntry?.data || null;
        cachedDashboardDataForRefresh = cachedDashboardData;
        if (cachedDashboardEntry) {
          hasCachedDashboardData = true;
+         setDashboardFromCache(true);
          if (isLatestLoad()) hydrateDashboardData(cachedDashboardData);
-         void refreshCachedSessionWidgets(cachedDashboardData, loadSeq).catch((sessionRefreshError) => {
-           console.warn("[coach dashboard] cached session widgets refresh failed", sessionRefreshError);
-         });
-         // Le cache est complet et encore valide. Relancer ici les lectures
-         // clients -> programmes -> séances créait un important N+1 à chaque
-         // retour sur le dashboard. Les séances racines sont rafraîchies juste
-         // au-dessus ; les mutations explicites utilisent force=true.
+         // Show the saved snapshot immediately, but revalidate every opening:
+         // clients may have changed their sessions on another device.
          if (isLatestLoad()) setLoadingData(false);
-         if (!cachedDashboardEntry.isStale) return;
+         if (!cachedDashboardData.partial) {
+           markDashboardTiming("coreCache", "ready", { clients: cachedDashboardData.clients.length, programs: cachedDashboardData.programmesBase.length, sessions: cachedDashboardData.sessions.length, savedAt: cachedDashboardEntry.savedAt });
+         }
        }
        if (!silent && !hasCachedDashboardData && isLatestLoad()) setLoadingData(true);
      }
@@ -3720,10 +3447,20 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
          query(collection(db, "sessions"), where("createdBy", "==", effectiveCoachUid)),
          query(collection(db, "sessions"), where("ownerId", "==", effectiveCoachUid)),
        ];
-       const programmesSnapPromise = getDocs(progsQ);
        const primaryClientSnapPromise = getDocs(
          query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(500))
        );
+       const programmesSnapPromise = readDashboardTemplates(effectiveCoachUid, {
+         request: apiFetch,
+         fallback: () => getDocs(progsQ),
+         cachedPrograms: dashboardPerfFresh ? [] : (cachedDashboardDataForRefresh || readDashboardDataCacheEntry(effectiveCoachUid, effectiveClubId, { allowStale: true })?.data)?.programmesBase || [],
+       });
+       // It runs in parallel; observe early failures until the awaited join.
+       void programmesSnapPromise.catch(() => {});
+       if (dashboardPerfEnabled) {
+         void programmesSnapPromise.then(snap => markDashboardTiming("templates", "ready", { documents: snap.size, jsonCharacters: JSON.stringify(snap.docs.map(d => d.data())).length, transport: snap.transport || 'firestore', changed: snap.changed })).catch(() => {});
+         void primaryClientSnapPromise.then(snap => markDashboardTiming("clientQuery", "ready", { documents: snap.size, jsonCharacters: JSON.stringify(snap.docs.map(d => d.data())).length })).catch(() => {});
+       }
        if (!backgroundRefresh) {
          void primaryClientSnapPromise.then((primarySnapshot) => {
            if (!isLatestLoad() || primarySnapshot.empty) return;
@@ -3745,7 +3482,7 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
        ]);
        // Les centaines de séances ne doivent pas concurrencer les données qui
        // permettent le premier affichage visible du dashboard.
-       const sessionSnapsPromise = Promise.all([programmesSnapPromise, primaryClientSnapPromise])
+       const sessionSnapsPromise = primaryClientSnapPromise
          .catch(() => [])
          .then(() => Promise.all(
            sessionQueries.map((sessionQuery) =>
@@ -3755,19 +3492,148 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
              })
            )
          ));
-       const [pSnap, clientSnaps] = await Promise.all([programmesSnapPromise, clientSnapsPromise]);
-       const progs = pSnap.docs.map((d) => ({ id: d.id, ...d.data()
-}));
-       progs.sort((a, b) => toMillis(b.createdAt) -
-toMillis(a.createdAt));
-       if (!backgroundRefresh && isLatestLoad()) setProgrammesBase(progs);
+       const clientSnaps = await clientSnapsPromise;
        const mergedClientMap = new Map();
        clientSnaps.forEach((snap) => {
           snap.docs.forEach((d) => mergedClientMap.set(d.id, { id: d.id, ...d.data() }));
        });
        let mergedClients = [...mergedClientMap.values()];
        const quickClients = buildQuickDashboardClients(mergedClients);
-       const quickDashboardClients = quickClients;
+      const quickDashboardClients = quickClients;
+       markDashboardTiming("roots", "ready", { clients: quickClients.length });
+      // Start every client read before waiting for the large program templates.
+      const detailReadPool = createDashboardReadPool(24);
+      const detailedClientsPromise = Promise.all(quickDashboardClients.map(async (client) => {
+          if (!isLatestLoad()) return client;
+          const subSnap = await detailReadPool.run(() => isLatestLoad() ? getDocs(collection(db, "clients", client.id, "programmes")) : { docs: [] });
+          let latestAssignMs = 0;
+          const progsWithSessions = await Promise.all(subSnap.docs.map(async (d) => {
+              if (!isLatestLoad()) return { id: d.id, ...d.data() };
+              const prog = d.data();
+              const totalPrevues = getTotalSessionsFromProgrammeDoc(prog);
+                const assignMs =
+                toMillis(prog.assignedAt) ||
+
+                     toMillis(prog.dateAssignation) ||
+                     toMillis(prog.dateAffectation) ||
+                     toMillis(prog.createdAt) ||
+                     0;
+                   if (isCoachAssignedProgramme(prog, effectiveCoachUid) && assignMs > latestAssignMs) latestAssignMs =
+assignMs;
+                const sessSnap = await detailReadPool.run(() => isLatestLoad() ? getDocs(
+                  collection(db, "clients", client.id, "programmes", d.id, "sessionsEffectuees")
+                ) : { docs: [] });
+                const sessionsEffectuees = sessSnap.docs.map((docu) => ({ id: docu.id, ...docu.data() }));
+                const latestSessionRecord = getLatestSessionRecord(sessionsEffectuees);
+                const latestCompletedRecord = getLatestCompletedSessionRecord(sessionsEffectuees);
+                const finishedIdx = new Set();
+                let done = 0;
+                sessionsEffectuees.forEach((s) => {
+                  if (isSessionValidatedRecord(s)) {
+                    done += 1;
+                    const idx = getSessionIndex(s);
+                    if (Number.isFinite(idx)) finishedIdx.add(idx);
+                  }
+                });
+                const percent = totalPrevues > 0 ? Math.min(100, Math.round((done / totalPrevues) * 100)) : 0;
+	                const nextIndex = getNextSessionIndexAfterLatest({
+	                  totalPrevues,
+	                  finishedIdx,
+	                  latestCompletedRecord,
+	                });
+                const latestPct = Number(latestSessionRecord?.pourcentageTermine);
+                const latestSessionIndex = getSessionIndex(latestSessionRecord);
+                const latestIsValidated = isSessionValidatedRecord(latestSessionRecord);
+                const hasResumePoint =
+                  !latestIsValidated &&
+                  Number.isFinite(latestPct) &&
+                  latestPct > 0 &&
+                  latestPct < 90 &&
+                  Number.isFinite(latestSessionIndex);
+                const resumeSessionIndex = hasResumePoint ? latestSessionIndex : nextIndex;
+                const resumeSession = Array.isArray(prog.sessions) ? prog.sessions[resumeSessionIndex] : null;
+                const resumeExerciseCount = getSessionExerciseCount(resumeSession);
+                const storedResumeExerciseIndex = Number(latestSessionRecord?.lastExerciseIndex);
+                const storedResumeSet = Number(latestSessionRecord?.lastSet);
+                const resumeExerciseIndex =
+                  hasResumePoint && resumeExerciseCount > 0 && Number.isFinite(storedResumeExerciseIndex)
+                    ? Math.min(resumeExerciseCount - 1, Math.max(0, storedResumeExerciseIndex))
+                    : hasResumePoint && resumeExerciseCount > 0
+                    ? Math.min(
+                        resumeExerciseCount - 1,
+                        Math.max(0, Math.ceil((latestPct / 100) * resumeExerciseCount) - 1)
+                      )
+                    : 0;
+                const resumeSet =
+                  hasResumePoint && Number.isFinite(storedResumeSet)
+                    ? Math.max(1, storedResumeSet)
+                    : 1;
+                const partialSessionFraction =
+                  hasResumePoint && !finishedIdx.has(latestSessionIndex)
+                    ? Math.max(0, Math.min(0.99, latestPct / 100))
+                    : 0;
+                const visualPercent =
+                  totalPrevues > 0
+                    ? Math.min(100, Math.round(((done + partialSessionFraction) / totalPrevues) * 100))
+                    : percent;
+                const lastSessionMs = getSessionActivityMs(latestSessionRecord);
+                const lastCompletedSessionMs = isSessionValidatedRecord(latestCompletedRecord)
+                  ? getSessionActivityMs(latestCompletedRecord)
+                  : 0;
+                const lastCompletedTitle = latestCompletedRecord ? getSessionDisplayTitle(prog, latestCompletedRecord, t) : "";
+                // Les notes détaillées sont chargées sur la fiche du programme.
+                // Le dashboard utilise déjà la difficulté portée par les séances.
+                const difficultyNotes = [];
+                const difficultyMap = buildDifficultyMapFromNotes(difficultyNotes);
+                return {
+                   id: d.id,
+                   ...prog,
+                   sessionsEffectuees,
+                   _done: done,
+                   _total: totalPrevues,
+                   _percent: percent,
+                   _visualPercent: visualPercent,
+                   _nextIndex: nextIndex,
+                   _resumeSessionIndex: resumeSessionIndex,
+                   _resumeExerciseIndex: resumeExerciseIndex,
+                   _resumeSet: resumeSet,
+                   _resumePct: hasResumePoint ? Math.max(1, Math.min(99, Math.round(latestPct))) : null,
+                   _hasResumePoint: hasResumePoint,
+                   _assignedAtMs: assignMs,
+                   _createdAtMs: toMillis(prog.createdAt) || 0,
+                   _lastSessionMs: lastSessionMs,
+                   _lastCompletedSessionMs: lastCompletedSessionMs,
+                   _lastCompletedTitle: lastCompletedTitle,
+                   difficultyNotes,
+                   difficultyMap,
+                };
+             }));
+          let latestSessionMs = 0;
+          let latestCompletedSessionMs = 0;
+          progsWithSessions.forEach((p) => {
+             (p.sessionsEffectuees || []).forEach((s) => {
+                const ms = getSessionActivityMs(s);
+                if (ms > latestSessionMs) latestSessionMs = ms;
+             });
+             latestCompletedSessionMs = Math.max(latestCompletedSessionMs, Number(p._lastCompletedSessionMs || 0));
+          });
+          const lastClientUpdate = Math.max(
+
+                 toMillis(client.updatedAt),
+                 toMillis(client.lastActivityAt),
+                 toMillis(client.createdAt)
+            );
+
+            const _lastInteractionMs = Math.max(latestSessionMs, latestAssignMs, lastClientUpdate);
+            return { ...client, programmesAssignes:
+progsWithSessions, _lastInteractionMs, _latestAssignMs: latestAssignMs, _lastClientUpdateMs: lastClientUpdate, _clientListActivityMs: latestCompletedSessionMs };
+         })).then(value => ({ value }), error => ({ error }));
+       const pSnap = await programmesSnapPromise;
+       const progs = pSnap.docs.map((d) => ({ id: d.id, ...d.data()
+}));
+       progs.sort((a, b) => toMillis(b.createdAt) -
+toMillis(a.createdAt));
+       if (!backgroundRefresh && isLatestLoad()) setProgrammesBase(progs);
        const quickCounts = {};
        const quickAssignedMap = {};
        quickDashboardClients.forEach((client) => {
@@ -3929,147 +3795,11 @@ toMillis(a.createdAt));
       } catch (quickCalendarError) {
         console.warn("[coach dashboard] quick calendar hydration failed", quickCalendarError);
       }
-      // Les widgets essentiels sont peints avec les données racines. Le détail
-      // coûteux client -> programmes -> séances attend une fenêtre inactive.
-      await new Promise((resolve) => {
-        scheduleIdleTask(resolve, 650);
-      });
+      const detailResult = await detailedClientsPromise;
       if (!isLatestLoad()) return;
-      const detailedClients = await runLimited(
-        quickDashboardClients.slice(0, DASHBOARD_DETAIL_CLIENT_LIMIT),
-        async (client) => {
-          if (!isLatestLoad()) return client;
-          const subSnap = await getDocs(collection(db, "clients",
-client.id, "programmes"));
-          let latestAssignMs = 0;
-          const progsWithSessions = await runLimited(
-            subSnap.docs,
-             async (d) => {
-              if (!isLatestLoad()) return { id: d.id, ...d.data() };
-              const prog = d.data();
-              const totalPrevues = getTotalSessionsFromProgrammeDoc(prog);
-                const assignMs =
-                toMillis(prog.assignedAt) ||
-
-                     toMillis(prog.dateAssignation) ||
-                     toMillis(prog.dateAffectation) ||
-                     toMillis(prog.createdAt) ||
-                     0;
-                   if (isCoachAssignedProgramme(prog, effectiveCoachUid) && assignMs > latestAssignMs) latestAssignMs =
-assignMs;
-                const sessSnap = await getDocs(
-                   collection(db, "clients", client.id, "programmes",
-d.id, "sessionsEffectuees")
-                );
-                const sessionsEffectuees = sessSnap.docs.map((docu) => ({ id: docu.id, ...docu.data() }));
-                const latestSessionRecord = getLatestSessionRecord(sessionsEffectuees);
-                const latestCompletedRecord = getLatestCompletedSessionRecord(sessionsEffectuees);
-                const finishedIdx = new Set();
-                let done = 0;
-                sessionsEffectuees.forEach((s) => {
-                  if (isSessionValidatedRecord(s)) {
-                    done += 1;
-                    const idx = getSessionIndex(s);
-                    if (Number.isFinite(idx)) finishedIdx.add(idx);
-                  }
-                });
-                const percent = totalPrevues > 0 ? Math.min(100, Math.round((done / totalPrevues) * 100)) : 0;
-	                const nextIndex = getNextSessionIndexAfterLatest({
-	                  totalPrevues,
-	                  finishedIdx,
-	                  latestCompletedRecord,
-	                });
-                const latestPct = Number(latestSessionRecord?.pourcentageTermine);
-                const latestSessionIndex = getSessionIndex(latestSessionRecord);
-                const latestIsValidated = isSessionValidatedRecord(latestSessionRecord);
-                const hasResumePoint =
-                  !latestIsValidated &&
-                  Number.isFinite(latestPct) &&
-                  latestPct > 0 &&
-                  latestPct < 90 &&
-                  Number.isFinite(latestSessionIndex);
-                const resumeSessionIndex = hasResumePoint ? latestSessionIndex : nextIndex;
-                const resumeSession = Array.isArray(prog.sessions) ? prog.sessions[resumeSessionIndex] : null;
-                const resumeExerciseCount = getSessionExerciseCount(resumeSession);
-                const storedResumeExerciseIndex = Number(latestSessionRecord?.lastExerciseIndex);
-                const storedResumeSet = Number(latestSessionRecord?.lastSet);
-                const resumeExerciseIndex =
-                  hasResumePoint && resumeExerciseCount > 0 && Number.isFinite(storedResumeExerciseIndex)
-                    ? Math.min(resumeExerciseCount - 1, Math.max(0, storedResumeExerciseIndex))
-                    : hasResumePoint && resumeExerciseCount > 0
-                    ? Math.min(
-                        resumeExerciseCount - 1,
-                        Math.max(0, Math.ceil((latestPct / 100) * resumeExerciseCount) - 1)
-                      )
-                    : 0;
-                const resumeSet =
-                  hasResumePoint && Number.isFinite(storedResumeSet)
-                    ? Math.max(1, storedResumeSet)
-                    : 1;
-                const partialSessionFraction =
-                  hasResumePoint && !finishedIdx.has(latestSessionIndex)
-                    ? Math.max(0, Math.min(0.99, latestPct / 100))
-                    : 0;
-                const visualPercent =
-                  totalPrevues > 0
-                    ? Math.min(100, Math.round(((done + partialSessionFraction) / totalPrevues) * 100))
-                    : percent;
-                const lastSessionMs = getSessionActivityMs(latestSessionRecord);
-                const lastCompletedSessionMs = isSessionValidatedRecord(latestCompletedRecord)
-                  ? getSessionActivityMs(latestCompletedRecord)
-                  : 0;
-                const lastCompletedTitle = latestCompletedRecord ? getSessionDisplayTitle(prog, latestCompletedRecord, t) : "";
-                // Les notes détaillées sont chargées sur la fiche du programme.
-                // Le dashboard utilise déjà la difficulté portée par les séances.
-                const difficultyNotes = [];
-                const difficultyMap = buildDifficultyMapFromNotes(difficultyNotes);
-                return {
-                   id: d.id,
-                   ...prog,
-                   sessionsEffectuees,
-                   _done: done,
-                   _total: totalPrevues,
-                   _percent: percent,
-                   _visualPercent: visualPercent,
-                   _nextIndex: nextIndex,
-                   _resumeSessionIndex: resumeSessionIndex,
-                   _resumeExerciseIndex: resumeExerciseIndex,
-                   _resumeSet: resumeSet,
-                   _resumePct: hasResumePoint ? Math.max(1, Math.min(99, Math.round(latestPct))) : null,
-                   _hasResumePoint: hasResumePoint,
-                   _assignedAtMs: assignMs,
-                   _createdAtMs: toMillis(prog.createdAt) || 0,
-                   _lastSessionMs: lastSessionMs,
-                   _lastCompletedSessionMs: lastCompletedSessionMs,
-                   _lastCompletedTitle: lastCompletedTitle,
-                   difficultyNotes,
-                   difficultyMap,
-                };
-             },
-             4
-          );
-          let latestSessionMs = 0;
-          let latestCompletedSessionMs = 0;
-          progsWithSessions.forEach((p) => {
-             (p.sessionsEffectuees || []).forEach((s) => {
-                const ms = getSessionActivityMs(s);
-                if (ms > latestSessionMs) latestSessionMs = ms;
-             });
-             latestCompletedSessionMs = Math.max(latestCompletedSessionMs, Number(p._lastCompletedSessionMs || 0));
-          });
-          const lastClientUpdate = Math.max(
-
-                 toMillis(client.updatedAt),
-                 toMillis(client.lastActivityAt),
-                 toMillis(client.createdAt)
-            );
-
-            const _lastInteractionMs = Math.max(latestSessionMs, latestAssignMs, lastClientUpdate);
-            return { ...client, programmesAssignes:
-progsWithSessions, _lastInteractionMs, _latestAssignMs: latestAssignMs, _lastClientUpdateMs: lastClientUpdate, _clientListActivityMs: latestCompletedSessionMs };
-         },
-         6
-      );
+      if (detailResult.error) throw detailResult.error;
+      const detailedClients = detailResult.value;
+      markDashboardTiming("details", "ready", { ...detailReadPool.stats });
       const detailedClientsById = new Map(detailedClients.map((client) => [client.id, client]));
       const clientsWithProgs = quickDashboardClients.map(
         (client) => detailedClientsById.get(client.id) || client
@@ -4587,6 +4317,7 @@ plannedEvt._sessionTitle,
         setClients(clientsForCoachDashboard);
         setSessions(merged);
       }
+      if (!isLatestLoad()) return;
       const dashboardPayload = {
         clients: clientsForCoachDashboard,
         programmesBase: progs,
@@ -4594,6 +4325,7 @@ plannedEvt._sessionTitle,
         assignedCounts: counts,
         assignedClientsMap: map,
       };
+      if (isLatestLoad()) markDashboardTiming("core", "ready", { clients: clientsForCoachDashboard.length, detailedClients: detailedClients.length, programs: progs.length, sessions: merged.length, snapshotChars: dashboardPerfEnabled ? JSON.stringify(dashboardPayload).length : undefined });
       writeDashboardDataCache(effectiveCoachUid, effectiveClubId, dashboardPayload);
       // Les deux destinations les plus fréquentes peuvent réutiliser ce que le
       // dashboard vient déjà de charger, sans nouvelle attente réseau.
@@ -4644,14 +4376,15 @@ plannedEvt._sessionTitle,
         partial: true,
       });
     } catch (error) {
+      if (isLatestLoad()) markDashboardTiming("core", "error");
       console.error(error);
       if (!backgroundRefresh && isLatestLoad()) notify(toast, "dataLoadError");
     } finally {
       if (isLatestLoad()) setLoadingData(false);
     }
-  }, [effectiveClubId, hydrateDashboardData, prettyAssignedProgramName, prettyProgramNameBase, refreshCachedSessionWidgets, t, toast,
-effectiveCoachUid]);
-  const refreshDashboardData = useCallback(() => fetchData({ force: true }), [fetchData]);
+  }, [effectiveClubId, hydrateDashboardData, prettyAssignedProgramName, prettyProgramNameBase, t, toast,
+effectiveCoachUid, dashboardPerfFresh, dashboardPerfEnabled, markDashboardTiming]);
+  const refreshDashboardData = useCallback(() => fetchData({ force: true, silent: true }), [fetchData]);
   useEffect(() => {
      fetchData();
      return () => {
@@ -4684,69 +4417,71 @@ effectiveCoachUid]);
 
   const assignProgramToClient = async (clientId, programmeId) => {
      if (!clientId || !programmeId) return null;
-     const baseSnap = await getDoc(doc(db, "programmes", programmeId));
-     if (!baseSnap.exists()) throw new Error("Programme introuvable");
-     const baseData = baseSnap.data() || {};
-     const activeWeeks = Math.max(1, Math.min(52, Math.round(Number(baseData.activeWeeks ?? baseData.durationWeeks ?? 4) || 4)));
-     const totalSessions = getTotalSessionsFromProgrammeDoc(baseData);
-     const assignedRef = await addDoc(collection(db, "clients", clientId, "programmes"), {
-       programId: baseSnap.id,
-       ...baseData,
-       id: "",
-       fromTemplateId: baseSnap.id,
-       activeWeeks,
-       durationWeeks: activeWeeks,
-       assignedAt: serverTimestamp(),
-       origine: "coach-assign",
-       coachId: effectiveCoachUid,
-       createdBy: effectiveCoachUid,
-       assignedBy: effectiveCoachUid,
-       totalSessions: typeof totalSessions === "number" ? totalSessions : null,
-       progress: 0,
-       status: "active",
-       statut: "en cours",
-     });
-     await updateDoc(assignedRef, { id: assignedRef.id });
-     await updateDoc(doc(db, "clients", clientId), {
-       currentProgramme: assignedRef.id,
-       programmes: arrayUnion(assignedRef.id),
-       lastAssignedAt: serverTimestamp(),
-       updatedAt: serverTimestamp(),
-       coachIds: arrayUnion(effectiveCoachUid),
-     });
-     return assignedRef.id;
+     return confirmOperation(assignmentOperationRef, `${effectiveCoachUid}:${clientId}:${programmeId}`, () =>
+       createProgramAssignmentOperation({
+         db, clientId, programId: programmeId, coachId: effectiveCoachUid,
+         loadProgram: async (transaction) => {
+           const baseSnap = await transaction.get(doc(db, "programmes", programmeId));
+           if (!baseSnap.exists()) throw new Error("Programme introuvable");
+           const baseData = baseSnap.data() || {};
+           const activeWeeks = Math.max(1, Math.min(52, Math.round(Number(baseData.activeWeeks ?? baseData.durationWeeks ?? 4) || 4)));
+           const totalSessions = getTotalSessionsFromProgrammeDoc(baseData);
+           return {
+             programId: baseSnap.id,
+             ...baseData,
+             id: "",
+             fromTemplateId: baseSnap.id,
+             activeWeeks,
+             durationWeeks: activeWeeks,
+             assignedAt: serverTimestamp(),
+             origine: "coach-assign",
+             coachId: effectiveCoachUid,
+             createdBy: effectiveCoachUid,
+             assignedBy: effectiveCoachUid,
+             totalSessions: typeof totalSessions === "number" ? totalSessions : null,
+             progress: 0,
+             status: "active",
+             statut: "en cours",
+           };
+         },
+       })
+     );
   };
 
   const handleAssign = async () => {
-     if (!selectedClient || !selectedProgramme) return;
-     setLoadingData(true);
+     if (!selectedClient || !selectedProgramme || assignmentSavingRef.current) return;
+     assignmentSavingRef.current = true;
+     setAssignmentSaving(true);
      try {
        await assignProgramToClient(selectedClient, selectedProgramme);
        notify(toast, "programAssigned");
        assignModal.onClose();
        setSelectedProgramme("");
-       await refreshDashboardData();
+       void refreshDashboardData();
      } catch (error) {
        console.error(error);
-       notify(toast, "programAssignError");
+       notify(toast, "programAssignError", { description: error?.message, ...(error?.code === "write-previous-confirmed" ? { status: "info", title: "Opération précédente confirmée" } : {}) });
      } finally {
-       setLoadingData(false);
+       assignmentSavingRef.current = false;
+       setAssignmentSaving(false);
      }
   };
 
   const handleAssignFromAssignedModal = async () => {
-     if (!selectedAssignedClientId || !selectedAssignedBaseProgramId) return;
-     setLoadingData(true);
+     if (!selectedAssignedClientId || !selectedAssignedBaseProgramId || assignmentSavingRef.current) return;
+     assignmentSavingRef.current = true;
+     setAssignmentSaving(true);
      try {
        await assignProgramToClient(selectedAssignedClientId, selectedAssignedBaseProgramId);
        notify(toast, "programAssigned");
        setSelectedAssignedClientId("");
-       await refreshDashboardData();
+       void refreshDashboardData();
      } catch (error) {
        console.error(error);
-       notify(toast, "programAssignError");
+       notify(toast, "programAssignError", { description: error?.message, ...(error?.code === "write-previous-confirmed" ? { status: "info", title: "Opération précédente confirmée" } : {}) });
      } finally {
-       setLoadingData(false);
+       assignmentSavingRef.current = false;
+       setAssignmentSaving(false);
      }
   };
   const handleDeleteClient = async () => {
@@ -4909,6 +4644,7 @@ effectiveCoachUid]);
           },
           4
         );
+        setSessions(previous => mergeConfirmedCalendarEvents(previous, results.map(entry => entry?.result), effectiveCoachUid));
         const failures = results.filter((entry) => entry?.error);
         if (failures.length > 0) {
           const partialError = failures[0].error || new Error("recurrence-partial-failure");
@@ -8324,6 +8060,9 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
   const showRecentClientsWidget = isDashboardWidgetVisible("recentClients");
   const showLatestProgramsWidget = !nutritionOnlyDashboard && isDashboardWidgetVisible("latestPrograms");
   const showCalendarWidget = isDashboardWidgetVisible("calendar");
+  useEffect(() => {
+    if (!showCalendarWidget) markDashboardTiming("calendar", "ready", { skipped: true });
+  }, [showCalendarWidget, markDashboardTiming]);
   const showPopularProgramsWidget = !nutritionOnlyDashboard && isDashboardWidgetVisible("popularPrograms");
   const showRecentActionsWidget = isDashboardWidgetVisible("recentActions");
   const showPrimaryWidgetRow = showRecentClientsWidget || showLatestProgramsWidget;
@@ -8334,6 +8073,14 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
   return (
     <Box data-tour-page="coach-dashboard" minH="100vh" bg={pageBg} color={textColor}
 position="relative" overflow="hidden">
+      {dashboardPerfEnabled && <Box as="output" data-testid="coach-dashboard-timing" display="block" position="relative" zIndex={1} p={2} fontSize="xs" whiteSpace="pre-wrap">{JSON.stringify(dashboardTiming)}</Box>}
+      {dashboardFromCache && (dashboardTiming.core?.status === "loading" || dashboardTiming.nutrition?.status === "loading" || dashboardTiming.core?.status === "error" || dashboardTiming.nutrition?.status === "error") && (
+        <Text role="status" fontSize="xs" color="gray.500">
+          {dashboardTiming.core?.status === "error" || dashboardTiming.nutrition?.status === "error"
+            ? t("dashboard.refresh_failed", "Actualisation impossible. Les dernières données enregistrées restent affichées.")
+            : t("dashboard.refreshing_saved_data", "Données enregistrées affichées · Actualisation en cours…")}
+        </Text>
+      )}
       <Box
          position="absolute"
          top="-140px"
@@ -9027,6 +8774,7 @@ noOfLines={2}>
               <Tooltip label={t("dashboard.copilot.memory_title", "Mémoire coach")} hasArrow>
                 <IconButton
                   aria-label={t("dashboard.copilot.memory_title", "Mémoire coach")}
+                  isDisabled={dashboardTiming.copilot?.status === "loading"}
                   icon={<Icon as={MdOutlineLibraryBooks} boxSize="17px" />}
                   size="sm"
                   minW="36px"
@@ -9036,6 +8784,7 @@ noOfLines={2}>
                   borderColor={borderColor}
                   onClick={() => {
                     setCopilotMemoryRulesDraft(copilotMemoryRules);
+                    if (dashboardTiming.copilot?.status === "loading") return;
                     copilotMemoryModal.onOpen();
                   }}
                 />
@@ -9050,6 +8799,7 @@ noOfLines={2}>
                   borderRadius="full"
                   variant="outline"
                   borderColor={borderColor}
+                  isDisabled={dashboardTiming.copilot?.status === "loading"}
                   onClick={copilotHistoryModal.onOpen}
                 />
               </Tooltip>
@@ -10885,6 +10635,7 @@ modeValue("rgba(59,130,246,0.06)",
                      }
                    >
 	                   <CoachDashboardCalendar
+                        onReady={markCalendarReady}
                         calendarCulture={calendarCulture}
                         formats={calendarFormats}
 	                      events={sessions}
@@ -11562,6 +11313,7 @@ setSelectedProgramme(e.target.value)}
                 _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
                 borderRadius="16px"
                 onClick={handleAssign}
+                isLoading={assignmentSaving}
             >
                {t("common.assign", "Assigner")}
             </Button>
@@ -11694,7 +11446,7 @@ c.assignedProgramId,
                 </FormControl>
                 <Button
                   borderRadius="16px"
-                  isLoading={loadingData}
+                  isLoading={assignmentSaving}
                   isDisabled={!selectedAssignedClientId || !selectedAssignedBaseProgramId}
                   onClick={handleAssignFromAssignedModal}
                 >

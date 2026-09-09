@@ -25,6 +25,7 @@ const { defineSecret } = require("firebase-functions/params");
 const nodemailer = require("nodemailer");
 const crypto = require("crypto");
 const ical = require("ical-generator").default;
+const { createSessionNotificationHandler, isPermanentRecipientFailure } = require("./lib/sessionNotification");
 
 initializeApp();
 const db = getFirestore();
@@ -1462,9 +1463,14 @@ async function primeEmailTrackingEvent(eventId, to, subject) {
   }, { merge: true });
 }
 
-async function sendTrackedTemplateEmail({ to, subject, text, html }) {
-  const trackingEventId = createEmailTrackingId();
-  await primeEmailTrackingEvent(trackingEventId, to, subject);
+async function sendTrackedTemplateEmail({ to, subject, text, html, trackingId, messageId }) {
+  const trackingEventId = trackingId || createEmailTrackingId();
+  try {
+    await primeEmailTrackingEvent(trackingEventId, to, subject);
+  } catch (error) {
+    error.deliveryAttempted = false;
+    throw error;
+  }
   try {
     const transporter = getTransporterFromSecrets();
     const info = await transporter.sendMail({
@@ -1474,6 +1480,7 @@ async function sendTrackedTemplateEmail({ to, subject, text, html }) {
       text,
       html: withEmailTrackingPixel(html, trackingEventId),
       replyTo: SMTP_USER.value(),
+      ...(messageId ? { messageId } : {}),
     });
     return { ...info, trackingEventId };
   } catch (error) {
@@ -1633,6 +1640,7 @@ function applyAutomaticTemplate(profile, kind, defaults) {
 }
 
 function automaticEmailPreferenceKey(kind) {
+  if (kind === "sessionScheduled") return "sessionScheduled";
   if (kind === "welcome") return "welcome";
   if (["programCompleted"].includes(kind)) return "programCompleted";
   if (["inactivity"].includes(kind)) return "inactivity";
@@ -1696,9 +1704,7 @@ async function recordEmailEvent(event) {
 }
 
 function isPermanentEmailFailure(error) {
-  const code = Number(error?.responseCode || 0);
-  const message = String(error?.response || error?.message || "").toLowerCase();
-  return code >= 500 || /mailbox unavailable|user unknown|unknown user|invalid recipient|recipient address rejected|no such user/.test(message);
+  return isPermanentRecipientFailure(error);
 }
 
 async function suspendAutomaticEmailDelivery(ref, error, eventId = null) {
@@ -2609,6 +2615,29 @@ exports.optimizeNutritionPlanWithAI = onCall(
       return { ok: false, error: "Optimisation IA échouée." };
     }
   }
+);
+
+// Calendar confirmations are sent after the committed write, never in the
+// request path. Replayed/out-of-order events are guarded by durable receipts.
+exports.onCoachSessionScheduled = onDocumentWritten(
+  {
+    region: "europe-west1",
+    document: "sessions/{sessionId}",
+    retry: true,
+    timeoutSeconds: 60,
+    secrets: [SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, APP_BASE_URL],
+  },
+  createSessionNotificationHandler({
+    db,
+    isEnabled: isAutomaticEmailEnabled,
+    getLanguage: getClientLngFromDoc,
+    timestamp: () => admin.firestore.FieldValue.serverTimestamp(),
+    record: recordEmailEvent,
+    send: async ({ id, to, ...copy }) => {
+      const template = buildLifecycleTemplate({ ...copy, url: `${getBaseUrlFromSecret()}/user-dashboard` });
+      return sendTrackedTemplateEmail({ to, ...template, trackingId: id, messageId: `<${id}@boostyourlife.coach>` });
+    },
+  })
 );
 
 /* =======================================================================

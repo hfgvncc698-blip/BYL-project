@@ -46,6 +46,9 @@ function getMailTransporter() {
     port,
     secure,
     auth: { user, pass },
+    connectionTimeout: 5000,
+    greetingTimeout: 5000,
+    socketTimeout: 8000,
   });
 }
 
@@ -183,6 +186,7 @@ async function sendFirebaseActivationFallback(email, lang = "fr") {
   const endpoint = `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${encodeURIComponent(apiKey)}`;
   const response = await fetch(endpoint, {
     method: "POST",
+    signal: AbortSignal.timeout(8000),
     headers: {
       "Content-Type": "application/json",
       "X-Firebase-Locale": locale,
@@ -997,6 +1001,13 @@ router.get("/summary", requireFirebaseAuth, assertClubOwner, async (req, res) =>
   }
 });
 
+function clientCountsTowardCapacity(client, owner, ownerUid) {
+  if (!client) return false;
+  if (owner?.clubId) return client.clubId === owner.clubId;
+  return client.createdBy === ownerUid || client.coachId === ownerUid ||
+    (Array.isArray(client.coachIds) && client.coachIds.includes(ownerUid));
+}
+
 async function getClientCapacityForOwner(owner, ownerUid) {
   if (owner?.clubId) {
       const clubSnap = await db.collection("clubs").doc(owner.clubId).get();
@@ -1250,7 +1261,7 @@ router.post("/clients", requireFirebaseAuth, async (req, res) => {
     ) {
       return res.status(403).json({ error: "existing-client-scope-forbidden" });
     }
-    if (!existingClientDoc) {
+    if (!clientCountsTowardCapacity(existingClientDoc?.data?.(), owner, ownerUid)) {
       const capacity = await getClientCapacityForOwner(owner, ownerUid);
       if (!capacity.allowed && capacity.limit != null) {
         return res.status(409).json({ error: "client-limit-reached", capacity });
@@ -1309,6 +1320,7 @@ router.post("/clients", requireFirebaseAuth, async (req, res) => {
       accountCreationSource: "coach-created",
       passwordSetupRequired: true,
       passwordSetupEmailAttemptedAt: now,
+      passwordSetupEmailDelivery: "pending",
       settings: {
         defaultLanguage: langCode,
         langCode,
@@ -1344,6 +1356,8 @@ router.post("/clients", requireFirebaseAuth, async (req, res) => {
       source: existingClient.source || "coach-created",
       accountCreationSource: existingClient.accountCreationSource || "coach-created",
       passwordSetupRequired: true,
+      passwordSetupEmailAttemptedAt: now,
+      passwordSetupEmailDelivery: "pending",
       createdBy: existingClient.createdBy || ownerUid,
       coachId: existingClient.coachId || ownerUid,
       coachIds: existingClientDoc
@@ -1381,6 +1395,18 @@ router.post("/clients", requireFirebaseAuth, async (req, res) => {
       throw writeError;
     }
 
+    // The account is committed. SMTP must not hold up creation of the nutrition
+    // assessment. Persist pending delivery so an interrupted send is traceable
+    // and can be retried via the existing activation action.
+    createdAuthUid = "";
+    if (req.body?.deferActivationEmail === true) {
+      res.status(201).json({
+        ok: true, clientId: clientRef.id, uid, ownerUid,
+        activatedExistingClient: Boolean(existingClientDoc),
+        emailAttempted: true, emailSent: false, emailDelivery: "pending", emailWarning: null,
+      });
+    }
+
     let emailSent = false;
     let emailWarning = "";
     try {
@@ -1402,10 +1428,12 @@ router.post("/clients", requireFirebaseAuth, async (req, res) => {
     const emailResultPatch = emailSent
       ? {
           passwordSetupEmailSentAt: admin.firestore.FieldValue.serverTimestamp(),
+          passwordSetupEmailDelivery: "sent",
           passwordSetupEmailLastError: admin.firestore.FieldValue.delete(),
         }
       : {
           passwordSetupEmailLastError: emailWarning || "activation-email-not-sent",
+          passwordSetupEmailDelivery: "failed",
         };
     await Promise.all([
       userRef.set(emailResultPatch, { merge: true }),
@@ -1415,6 +1443,7 @@ router.post("/clients", requireFirebaseAuth, async (req, res) => {
     });
 
     createdAuthUid = "";
+    if (res.headersSent) return;
     return res.status(201).json({
       ok: true,
       clientId: clientRef.id,
@@ -1431,6 +1460,7 @@ router.post("/clients", requireFirebaseAuth, async (req, res) => {
       await admin.auth().deleteUser(createdAuthUid).catch(() => {});
     }
     console.error("[clubs] create client failed:", error);
+    if (res.headersSent) return;
     const status = Number(error?.statusCode) || 500;
     return res.status(status).json({ error: error?.message || "club-create-client-failed" });
   }
@@ -1554,7 +1584,7 @@ router.post("/link-existing-client", requireFirebaseAuth, async (req, res) => {
     ) {
       return res.status(403).json({ error: "existing-client-scope-forbidden" });
     }
-    if (!clientSnap?.exists) {
+    if (!clientCountsTowardCapacity(clientSnap?.data?.(), owner, ownerUid)) {
       const capacity = await getClientCapacityForOwner(owner, ownerUid);
       if (!capacity.allowed && capacity.limit != null) {
         return res.status(409).json({ error: "client-limit-reached", capacity });
@@ -2045,6 +2075,7 @@ router.patch("/coaches/:uid", requireFirebaseAuth, assertClubOwner, async (req, 
 });
 
 router.post("/coaches", requireFirebaseAuth, assertClubOwner, async (req, res) => {
+  let createdAuthUid = "";
   try {
     const firstName = cleanText(req.body?.firstName, 80);
     const lastName = cleanText(req.body?.lastName, 80);
@@ -2055,6 +2086,7 @@ router.post("/coaches", requireFirebaseAuth, assertClubOwner, async (req, res) =
     if (!firstName || !lastName || !email) {
       return res.status(400).json({ error: "firstName-lastName-email-required" });
     }
+    if (!isValidEmail(email)) return res.status(400).json({ error: "valid-email-required" });
 
     const { members } = await getClubScope(req.clubId);
     const currentPros = members.filter((member) => member.role !== "owner" && member.status !== "deleted").length;
@@ -2072,32 +2104,33 @@ router.post("/coaches", requireFirebaseAuth, assertClubOwner, async (req, res) =
     }
 
     let authUser = null;
-    let createdAuth = false;
     try {
       authUser = await admin.auth().getUserByEmail(email);
     } catch (error) {
       if (error?.code !== "auth/user-not-found") throw error;
     }
 
-    if (!authUser) {
-      authUser = await admin.auth().createUser({
-        email,
-        password: randomPassword(),
-        displayName: `${firstName} ${lastName}`.trim(),
-        emailVerified: false,
+    // Creation must never convert or move an existing person's account. A
+    // transfer needs a separate consented workflow, not a password-reset link.
+    if (authUser) {
+      return res.status(409).json({
+        error: "existing-account-requires-invitation",
+        message: "Cette adresse possède déjà un compte. Aucun accès n’a été modifié. Son rattachement doit être validé par un administrateur avec l’accord du titulaire.",
       });
-      createdAuth = true;
     }
+    authUser = await admin.auth().createUser({
+      email,
+      password: randomPassword(),
+      displayName: `${firstName} ${lastName}`.trim(),
+      emailVerified: false,
+    });
+    createdAuthUid = authUser.uid;
 
     const uid = authUser.uid;
     const now = admin.firestore.FieldValue.serverTimestamp();
-    const existingUserSnap = await db.collection("users").doc(uid).get().catch(() => null);
-    const existingUserRole = String(existingUserSnap?.data?.()?.role || "").toLowerCase();
-    if (existingUserRole && !["particulier", "coach"].includes(existingUserRole)) {
-      return res.status(409).json({ error: "existing-account-role-is-protected" });
-    }
     const userPayload = {
       email,
+      emailLower: email,
       firstName,
       lastName,
       role: "coach",
@@ -2125,12 +2158,18 @@ router.post("/coaches", requireFirebaseAuth, assertClubOwner, async (req, res) =
       accessViaClub: true,
       subscriptionStatus: "club_active",
       hasActiveSubscription: false,
+      accountCreationSource: "club-created",
+      passwordSetupRequired: true,
+      passwordSetupEmailDelivery: "pending",
+      passwordSetupEmailAttemptedAt: now,
       updatedAt: now,
-      ...(createdAuth ? { createdAt: now } : {}),
+      createdAt: now,
     };
 
-    await db.collection("users").doc(uid).set(userPayload, { merge: true });
-    await db.collection("clubs").doc(req.clubId).collection("members").doc(uid).set(
+    const userRef = db.collection("users").doc(uid);
+    const batch = db.batch();
+    batch.set(userRef, userPayload);
+    batch.set(db.collection("clubs").doc(req.clubId).collection("members").doc(uid),
       {
         uid,
         email,
@@ -2143,11 +2182,13 @@ router.post("/coaches", requireFirebaseAuth, assertClubOwner, async (req, res) =
         createdBy: req.auth.uid,
         createdAt: now,
         updatedAt: now,
-      },
-      { merge: true }
+      }
     );
+    await batch.commit();
+    // Both documents are committed. Delivery/logging failure must not delete
+    // a usable account; the recipient can request another activation email.
+    createdAuthUid = "";
 
-    let resetLink = "";
     let emailSent = false;
     try {
       const coachLang = langCodeFromAny(req.body?.preferredLang || req.body?.langue || req.clubUser?.preferredLang || req.clubUser?.settings?.defaultLanguage || "fr");
@@ -2160,19 +2201,28 @@ router.post("/coaches", requireFirebaseAuth, assertClubOwner, async (req, res) =
         clientName: [firstName, lastName].filter(Boolean).join(" "),
       });
       emailSent = activationResult.sent === true;
-      resetLink = activationResult.activationLink || "";
     } catch (error) {
       console.warn("[clubs] activation email failed:", error?.message || error);
     }
+    await userRef.set({
+      passwordSetupEmailDelivery: emailSent ? "sent" : "failed",
+      ...(emailSent
+        ? { passwordSetupEmailSentAt: admin.firestore.FieldValue.serverTimestamp() }
+        : { passwordSetupEmailLastError: "activation-email-not-sent" }),
+    }, { merge: true }).catch(() => {});
 
     return res.json({
       ok: true,
-      coach: { uid, email, firstName, lastName, specialty, createdAuth },
-      resetLink,
+      coach: { uid, email, firstName, lastName, specialty, createdAuth: true },
       emailSent,
-      emailDelivery: emailSent ? "activation-email-sent" : "activation-link-generated",
+      emailDelivery: emailSent ? "activation-email-sent" : "not-sent",
     });
   } catch (error) {
+    if (createdAuthUid) {
+      await admin.auth().deleteUser(createdAuthUid).catch((rollbackError) => {
+        console.error("[clubs] professional auth rollback failed:", rollbackError?.message || rollbackError);
+      });
+    }
     console.error("[clubs] create coach failed:", error);
     return res.status(500).json({ error: error?.message || "club-create-coach-failed" });
   }

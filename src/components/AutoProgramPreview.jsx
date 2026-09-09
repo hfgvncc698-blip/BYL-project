@@ -61,6 +61,8 @@ import { canUseCustomBranding } from "../utils/proPlanAccess";
 import { isUnmodifiedAutomaticProgramTitle } from "../utils/programPdfTitle";
 import { settleWithTimeout } from "../utils/asyncTimeout";
 import { apiFetch } from "../utils/api";
+import PageLoadingStatus from "./ui/PageLoadingStatus";
+import { useProgrammeDocument } from "../hooks/useProgrammeDocument";
 import { db } from "../firebaseConfig";
 import {
   getStorage,
@@ -72,7 +74,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  onSnapshot,
   updateDoc,
   collection,
   query,
@@ -1800,23 +1801,6 @@ const PDF_I18N = {
   },
 };
 
-/* ---------------- Firestore read ---------------- */
-async function readProgramme(clientId, programId) {
-  if (clientId && programId) {
-    const assignedRef = doc(db, "clients", clientId, "programmes", programId);
-    const assignedSnap = await getDoc(assignedRef);
-    if (assignedSnap.exists()) return { id: programId, data: assignedSnap.data(), ref: assignedRef };
-  }
-
-  const id = programId || clientId;
-  if (id) {
-    const baseRef = doc(db, "programmes", id);
-    const baseSnap = await getDoc(baseRef);
-    if (baseSnap.exists()) return { id, data: baseSnap.data(), ref: baseRef };
-  }
-  return null;
-}
-
 /* ---------------- Logos ---------------- */
 const LEGACY_BYL_LOCAL = "/logo-byl.png";
 
@@ -2332,9 +2316,7 @@ export default function AutoProgramPreview() {
     return `${path}${path.includes("?") ? "&" : "?"}adminCoachId=${encodeURIComponent(adminCoachId)}`;
   };
 
-  const [prog, setProg] = useState(null);
-  const [progRef, setProgRef] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { prog, progRef, loading, error: programLoadError, loadState } = useProgrammeDocument({ clientId, programId, prefetchedProgram: location.state?.prefetchedProgram });
   const [tabIndex, setTabIndex] = useState(0);
 
   const [selExo, setSelExo] = useState(null);
@@ -2373,7 +2355,7 @@ export default function AutoProgramPreview() {
   const locale = useMemo(() => getLocaleFromLang(i18n.language || pdfLang || "fr"), [i18n.language, pdfLang]);
   const pdfLocale = useMemo(() => getLocaleFromLang(pdfLang), [pdfLang]);
 
-  const canEdit = user?.role === "coach" || user?.role === "admin";
+  const canEdit = Boolean(progRef) && (user?.role === "coach" || user?.role === "admin");
   const viewerIsCoach = user?.role === "coach" || user?.role === "admin";
 
   const [autoFollow, setAutoFollow] = useState(false);
@@ -2388,39 +2370,16 @@ export default function AutoProgramPreview() {
   const sectionIconColor = theme.textColor;
 
   useEffect(() => {
-    let unsub;
-    (async () => {
-      setLoading(true);
-      const hit = await readProgramme(clientId, programId);
-      if (!hit && !clientId && programId) {
-        try {
-          const resolved = await apiFetch(`/clubs/resolve-program-link?programId=${encodeURIComponent(programId)}`);
-          if (resolved?.path) {
-            navigate(withAdminCoach(resolved.path), { replace: true });
-            return;
-          }
-        } catch (_) {
-          // Keep the not-found state when no assigned programme can be resolved.
-        }
+    if (loading || prog || programLoadError || clientId || !programId) return undefined;
+    let active = true;
+    apiFetch(`/clubs/resolve-program-link?programId=${encodeURIComponent(programId)}`).then(resolved => {
+      if (active && resolved?.path) {
+        const path = adminCoachId ? `${resolved.path}${resolved.path.includes('?') ? '&' : '?'}adminCoachId=${encodeURIComponent(adminCoachId)}` : resolved.path;
+        navigate(path, { replace: true });
       }
-      if (!hit) {
-        setProg(null);
-        setProgRef(null);
-        setLoading(false);
-        return;
-      }
-      setProgRef(hit.ref);
-      unsub = onSnapshot(
-        hit.ref,
-        (snap) => {
-          setProg(snap.exists() ? { id: hit.id, ...snap.data() } : null);
-          setLoading(false);
-        },
-        () => setLoading(false)
-      );
-    })();
-    return () => unsub && unsub();
-  }, [clientId, programId]);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [clientId, programId, loading, prog, programLoadError, adminCoachId, navigate]);
 
   const sessions = useMemo(() => (Array.isArray(prog?.sessions) ? prog.sessions : []), [prog]);
   const displayUnits = useMemo(() => readDisplayUnits(prog || {}), [prog]);
@@ -3151,9 +3110,10 @@ export default function AutoProgramPreview() {
         <Box {...theme.cardProps} p={6} maxW="5xl" mx="auto">
           <HStack mb={4}>
             <PageBackButton label={t("auto.AutoProgramPreview.back", "Retour")} onClick={() => navigate(-1)} />
-            <Heading size="md">{t("autoPreview.notFound", "Programme introuvable")}</Heading>
+            <Heading size="md">{programLoadError ? t("dashboard.refresh_failed_title", "Chargement impossible") : t("autoPreview.notFound", "Programme introuvable")}</Heading>
           </HStack>
           <Text opacity={0.8}>{t("autoPreview.notFoundHint", "Vérifie l’URL ou les droits d’accès.")}</Text>
+          {programLoadError && <Button mt={3} onClick={() => window.location.reload()}>{t("common.retry", "Réessayer")}</Button>}
         </Box>
       </Box>
     );
@@ -3185,6 +3145,7 @@ export default function AutoProgramPreview() {
 
   return (
     <Box bg={bg} minH="100vh" p={{ base: 3, md: 6 }}>
+      <PageLoadingStatus state={loadState} />
       <Box {...theme.cardProps} p={{ base: 4, md: 6 }} maxW="7xl" mx="auto">
         <TopBar
           programmeName={programmeTitleDisplay}

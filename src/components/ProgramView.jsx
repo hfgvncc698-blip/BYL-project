@@ -56,6 +56,8 @@ import {
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../AuthContext";
 import AppLoading from "./ui/AppLoading";
+import PageLoadingStatus from "./ui/PageLoadingStatus";
+import { useProgrammeDocument } from "../hooks/useProgrammeDocument";
 import PageBackButton from "./ui/PageBackButton";
 import { notify } from "../utils/notify";
 import { localizeExercise } from "../utils/exerciseI18n";
@@ -80,7 +82,6 @@ import {
 } from "firebase/storage";
 import {
   doc,
-  getDocFromCache,
   getDoc,
   getDocs,
   onSnapshot,
@@ -99,7 +100,6 @@ const storageDataUrlCache = new Map();
 const genericImageDataUrlCache = new Map();
 const firestoreExerciseCache = new Map();
 const firestoreExercisePromiseCache = new Map();
-const programmeSnapshotCache = new Map();
 
 /* ---------------- utils ---------------- */
 const norm = (s = "") =>
@@ -1886,48 +1886,6 @@ const PDF_I18N = {
   },
 };
 
-/* ---------------- Firestore read ---------------- */
-async function readProgramme(clientId, programId) {
-  if (clientId && programId) {
-    const p = doc(db, "clients", clientId, "programmes", programId);
-    const snap = await getDoc(p);
-    if (snap.exists()) return { id: programId, data: snap.data(), ref: p };
-  }
-
-  const id = programId || clientId;
-  if (id) {
-    const p = doc(db, "programmes", id);
-    const snap = await getDoc(p);
-    if (snap.exists()) return { id, data: snap.data(), ref: p };
-  }
-  return null;
-}
-
-function getProgrammeCacheKey(clientId, programId) {
-  return clientId && programId
-    ? `client:${clientId}:${programId}`
-    : `base:${programId || clientId || ""}`;
-}
-
-async function readProgrammeFromCache(clientId, programId) {
-  const candidates = [];
-  if (clientId && programId) {
-    candidates.push({ id: programId, ref: doc(db, "clients", clientId, "programmes", programId) });
-  }
-  const id = programId || clientId;
-  if (id) candidates.push({ id, ref: doc(db, "programmes", id) });
-
-  for (const candidate of candidates) {
-    try {
-      const snap = await getDocFromCache(candidate.ref);
-      if (snap.exists()) return { ...candidate, data: snap.data() };
-    } catch {
-      // No local Firestore entry yet.
-    }
-  }
-  return null;
-}
-
 /* ---------------- Logos ---------------- */
 const LEGACY_BYL_LOCAL = "/logo-byl.png";
 
@@ -2501,14 +2459,8 @@ export default function ProgramView() {
   const validPrefetchedProgram = prefetchedProgram && String(prefetchedProgram.id || "") === String(programId || "")
     ? prefetchedProgram
     : null;
-  const [prog, setProg] = useState(() => validPrefetchedProgram);
-  const [progRef, setProgRef] = useState(() =>
-    validPrefetchedProgram && clientId && programId
-      ? doc(db, "clients", clientId, "programmes", programId)
-      : null
-  );
+  const { prog, progRef, loading, error: programLoadError, loadState } = useProgrammeDocument({ clientId, programId, prefetchedProgram: validPrefetchedProgram });
   const [completionHistory, setCompletionHistory] = useState([]);
-  const [loading, setLoading] = useState(() => !validPrefetchedProgram);
   const [tabIndex, setTabIndex] = useState(0);
 
   const [selExo, setSelExo] = useState(null);
@@ -2551,7 +2503,7 @@ export default function ProgramView() {
   const locale = useMemo(() => getLocaleFromLang(i18n.language || pdfLang || "fr"), [i18n.language, pdfLang]);
   const pdfLocale = useMemo(() => getLocaleFromLang(pdfLang), [pdfLang]);
 
-  const canEdit = user?.role === "coach" || user?.role === "admin";
+  const canEdit = Boolean(progRef) && (user?.role === "coach" || user?.role === "admin");
   const viewerIsCoach = user?.role === "coach" || user?.role === "admin";
 
   const [autoFollow, setAutoFollow] = useState(false);
@@ -2582,46 +2534,6 @@ export default function ProgramView() {
       }
     })();
   }, [clientId]);
-
-  useEffect(() => {
-    let unsub;
-    (async () => {
-      const cacheKey = getProgrammeCacheKey(clientId, programId);
-      const cachedHit = programmeSnapshotCache.get(cacheKey) || await readProgrammeFromCache(clientId, programId);
-      if (cachedHit) {
-        setProgRef(cachedHit.ref);
-        setProg({ id: cachedHit.id, ...cachedHit.data });
-        setLoading(false);
-      } else if (!validPrefetchedProgram) {
-        setLoading(true);
-      }
-      const hit = validPrefetchedProgram && clientId && programId
-        ? {
-            id: programId,
-            data: validPrefetchedProgram,
-            ref: doc(db, "clients", clientId, "programmes", programId),
-          }
-        : await readProgramme(clientId, programId);
-      if (!hit) {
-        setProg(null);
-        setProgRef(null);
-        setLoading(false);
-        return;
-      }
-      setProgRef(hit.ref);
-      unsub = onSnapshot(
-        hit.ref,
-        (snap) => {
-          const data = snap.exists() ? snap.data() : null;
-          if (data) programmeSnapshotCache.set(cacheKey, { ...hit, data });
-          setProg(data ? { id: hit.id, ...data } : null);
-          setLoading(false);
-        },
-        () => setLoading(false)
-      );
-    })();
-    return () => unsub && unsub();
-  }, [clientId, programId, validPrefetchedProgram]);
 
   useEffect(() => {
     if (!clientId || !programId) {
@@ -3515,9 +3427,10 @@ export default function ProgramView() {
         <Box {...theme.cardProps} p={6} maxW="5xl" mx="auto">
           <HStack mb={4}>
             <PageBackButton label={t("auto.ProgramView.back", "Retour")} onClick={() => navigate(-1)} />
-            <Heading size="md">{t("autoPreview.notFound", "Programme introuvable")}</Heading>
+            <Heading size="md">{programLoadError ? t("dashboard.refresh_failed_title", "Chargement impossible") : t("autoPreview.notFound", "Programme introuvable")}</Heading>
           </HStack>
           <Text opacity={0.8}>{t("autoPreview.notFoundHint", "Vérifie l’URL ou les droits d’accès.")}</Text>
+          {programLoadError && <Button mt={3} onClick={() => window.location.reload()}>{t("common.retry", "Réessayer")}</Button>}
         </Box>
       </Box>
     );
@@ -3525,6 +3438,7 @@ export default function ProgramView() {
 
   return (
     <Box bg={bg} minH="100vh" p={{ base: 3, md: 6 }}>
+      <PageLoadingStatus state={loadState} />
       <Box {...theme.cardProps} p={{ base: 4, md: 6 }} maxW="7xl" mx="auto">
         <TopBar
           programmeName={programmeTitleDisplay}

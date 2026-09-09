@@ -1,5 +1,5 @@
 // src/pages/Clients.jsx
-import React, { useEffect, useLayoutEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   Box,
   Flex,
@@ -51,21 +51,22 @@ import {
   collection,
   getDocs,
   getDocsFromCache,
-  getDoc,
-  updateDoc,
   doc,
   serverTimestamp,
-  arrayUnion,
   query,
   where,
   orderBy,
   limit,
   deleteDoc,
-  setDoc,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { FiTrash2 } from "react-icons/fi";
 import PageBackButton from "./ui/PageBackButton";
+import PageLoadingStatus from "./ui/PageLoadingStatus";
+import { usePageLoading } from "../hooks/usePageLoading";
+import { createDashboardReadPool } from "../utils/coachDashboardLoading";
+import { confirmOperation } from "../utils/confirmedOperation";
+import { createProgramAssignmentOperation } from "../utils/programWriteOperations";
 import { AppMetricValue, AppSectionHeader, AppSurface } from "./ui/AppPrimitives.jsx";
 import { apiFetch } from "../utils/api";
 import { notify } from "../utils/notify";
@@ -76,9 +77,8 @@ import {
   getProgramValidatedSessionCount,
 } from "../utils/programDuration";
 import {
-  deferPageTask,
   readPageDataCacheEntry,
-  runLimited,
+  restorePageDataCacheEntry,
   updatePageDataCache,
   writePageDataCache,
 } from "../utils/pageDataCache";
@@ -343,13 +343,13 @@ const LANGS = [
  * - nb programmes
  * - ✅ _lastInteractionMs (même logique CoachDashboard)
  */
-async function buildClientComputedStats(client) {
+async function buildClientComputedStats(client, readPool) {
   const clientId = client.id;
 
   const since7 = new Date();
   since7.setDate(since7.getDate() - 7);
 
-  const progSnap = await getDocs(collection(db, "clients", clientId, SUBCOLL_PROGRAMMES));
+  const progSnap = await readPool.run(() => getDocs(collection(db, "clients", clientId, SUBCOLL_PROGRAMMES)));
   const nbProg = progSnap.size;
 
   let totalSessions = 0;
@@ -362,7 +362,7 @@ async function buildClientComputedStats(client) {
     const totalProgSessions = getProgramPlannedSessionTotal(progData);
 
     const sessEffCol = collection(db, "clients", clientId, SUBCOLL_PROGRAMMES, d.id, SUBCOLL_SESSIONS_DONE);
-    const sessEffSnap = await getDocs(sessEffCol);
+    const sessEffSnap = await readPool.run(() => getDocs(sessEffCol));
 
     const sessionsEffectuees = [];
     let programmeSessions7j = 0;
@@ -402,11 +402,7 @@ async function buildClientComputedStats(client) {
       doneForProg,
       programmeSessions7j,
       programmeLatestDoneMs,
-      programme: {
-        id: d.id,
-        ...progData,
-        sessionsEffectuees,
-      },
+      programme: { id: d.id, ...progData, sessionsEffectuees },
     };
   }));
 
@@ -437,6 +433,7 @@ async function buildClientComputedStats(client) {
 }
 
 const Clients = () => {
+  const { begin: beginPageLoad, state: pageLoadState, fresh: forceFresh } = usePageLoading();
   const { t, i18n } = useTranslation();
   const { user, isAdmin } = useAuth();
   const isMobileClientsLayout = useBreakpointValue(
@@ -489,11 +486,11 @@ const Clients = () => {
   const canUseDashboardOverview = !nutritionMode;
   const initialClientsPageCacheEntry = useMemo(
     () =>
-      readPageDataCacheEntry(clientsPageCacheKey, { ttlMs: CLIENTS_PAGE_CACHE_TTL_MS }) ||
+      forceFresh ? null : readPageDataCacheEntry(clientsPageCacheKey, { ttlMs: CLIENTS_PAGE_CACHE_TTL_MS }) ||
       (canUseDashboardOverview
         ? readPageDataCacheEntry(clientsOverviewCacheKey, { ttlMs: CLIENTS_PAGE_CACHE_TTL_MS })
         : null),
-    [canUseDashboardOverview, clientsOverviewCacheKey, clientsPageCacheKey]
+    [forceFresh, canUseDashboardOverview, clientsOverviewCacheKey, clientsPageCacheKey]
   );
   const initialClientsPageCache = initialClientsPageCacheEntry?.data || null;
   const initialVisibleClients = useMemo(
@@ -508,6 +505,31 @@ const Clients = () => {
   const [selectedClient, setSelectedClient] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProgramme, setSelectedProgramme] = useState("");
+  const assignmentOperationRef = useRef(null);
+  const assignmentBusyRef = useRef(false);
+  const [assigningProgram, setAssigningProgram] = useState(false);
+  const [assignProgramsLoading, setAssignProgramsLoading] = useState(false);
+  const [assignProgramsError, setAssignProgramsError] = useState(false);
+
+  // Templates are only needed when assigning, not to display client metrics.
+  // The assignment itself still reads the full, current template before saving.
+  useEffect(() => {
+    if (!isModalOpen || !effectiveCoachUid) return;
+    let alive = true;
+    setAssignProgramsLoading(true);
+    setAssignProgramsError(false);
+    getDocs(query(collection(db, "programmes"), where("createdBy", "==", effectiveCoachUid), orderBy("createdAt", "desc"), limit(200)))
+      .catch(() => getDocs(query(collection(db, "programmes"), where("createdBy", "==", effectiveCoachUid), limit(200))))
+      .then(snapshot => {
+        if (!alive) return;
+        const templates = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        templates.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+        setProgrammes(templates);
+      })
+      .catch(() => { if (alive) setAssignProgramsError(true); })
+      .finally(() => { if (alive) setAssignProgramsLoading(false); });
+    return () => { alive = false; };
+  }, [effectiveCoachUid, isModalOpen]);
 
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -573,13 +595,14 @@ const Clients = () => {
   }, [activeCutoffMs, filter, sportView]);
 
   useLayoutEffect(() => {
+    if (forceFresh) return;
     const entry =
       readPageDataCacheEntry(clientsPageCacheKey, { ttlMs: CLIENTS_PAGE_CACHE_TTL_MS }) ||
       (canUseDashboardOverview
         ? readPageDataCacheEntry(clientsOverviewCacheKey, { ttlMs: CLIENTS_PAGE_CACHE_TTL_MS })
         : null);
     if (entry) hydrateClientsPagePayload(entry.data);
-  }, [canUseDashboardOverview, clientsOverviewCacheKey, clientsPageCacheKey, hydrateClientsPagePayload]);
+  }, [forceFresh, canUseDashboardOverview, clientsOverviewCacheKey, clientsPageCacheKey, hydrateClientsPagePayload]);
 
 	  const fetchData = useCallback(async () => {
     if (!effectiveCoachUid) {
@@ -587,18 +610,22 @@ const Clients = () => {
       setLoading(false);
       return;
     }
-	    const cachedEntry = readPageDataCacheEntry(clientsPageCacheKey, {
+        const load = beginPageLoad();
+	    const cachedEntry = forceFresh ? null : await restorePageDataCacheEntry(clientsPageCacheKey, {
         ttlMs: CLIENTS_PAGE_CACHE_TTL_MS,
       });
+        if (!load.current()) return;
 	    if (cachedEntry) {
 	      hydrateClientsPagePayload(cachedEntry.data);
-        if (!cachedEntry.isStale && !cachedEntry.data?.partial) return;
 	    }
-      const dashboardOverviewEntry = !cachedEntry && canUseDashboardOverview
-        ? readPageDataCacheEntry(clientsOverviewCacheKey, { ttlMs: CLIENTS_PAGE_CACHE_TTL_MS })
+      const dashboardOverviewEntry = !forceFresh && !cachedEntry && canUseDashboardOverview
+        ? await restorePageDataCacheEntry(clientsOverviewCacheKey, { ttlMs: CLIENTS_PAGE_CACHE_TTL_MS })
         : null;
+      if (!load.current()) return;
+      const hasCache = !!(cachedEntry || dashboardOverviewEntry);
       if (dashboardOverviewEntry) hydrateClientsPagePayload(dashboardOverviewEntry.data);
       else if (!cachedEntry) setLoading(true);
+      if (hasCache) load.cache({ clients: (cachedEntry || dashboardOverviewEntry).data.clients?.length || 0 });
 
     const getCachedNutritionCount = (client) => {
       const candidates = [
@@ -644,6 +671,7 @@ const Clients = () => {
     };
 
     try {
+      const readPool = createDashboardReadPool(24);
       const clientQueries = [
         query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(150)),
         query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(150)),
@@ -652,11 +680,12 @@ const Clients = () => {
       const serverClientSnapsPromise = Promise.all(
         clientQueries.map((clientQuery) => getDocs(clientQuery).catch(() => ({ docs: [] })))
       );
-      if (!cachedEntry && !dashboardOverviewEntry) {
+      if (!hasCache && !forceFresh) {
         const localClientSnaps = await Promise.all(
           clientQueries.map((clientQuery) => getDocsFromCache(clientQuery).catch(() => ({ docs: [] })))
         );
         const localClientById = new Map();
+        if (!load.current()) return;
         localClientSnaps.forEach((snap) => {
           snap.docs.forEach((d) => localClientById.set(d.id, { id: d.id, ...d.data() }));
         });
@@ -666,6 +695,7 @@ const Clients = () => {
         }
       }
       const clientSnaps = await serverClientSnapsPromise;
+      if (!load.current()) return;
       const clientById = new Map();
       clientSnaps.forEach((snap) => {
         snap.docs.forEach((d) => clientById.set(d.id, { id: d.id, ...d.data() }));
@@ -682,36 +712,17 @@ const Clients = () => {
         quickLastInteractions[client.id] = getCachedClientActivityMs(client);
         quickNutritionLast[client.id] = getCachedNutritionActivityMs(client);
       });
-      setProgrammeCountMap(quickProgrammeCounts);
-      setNutritionAssessmentCountMap(quickNutritionCounts);
-      setLastInteractionMap(quickLastInteractions);
-      setNutritionLastFollowMap(quickNutritionLast);
-      setClients(applyQuickFilter(list));
-      setLoading(false);
-
-      let progs = [];
-      try {
-        const pQ = query(
-          collection(db, "programmes"),
-          where("createdBy", "==", effectiveCoachUid),
-          orderBy("createdAt", "desc"),
-          limit(200)
-        );
-        const pSnap = await getDocs(pQ);
-        progs = pSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      } catch (e) {
-        const pSnap = await getDocs(
-          query(collection(db, "programmes"), where("createdBy", "==", effectiveCoachUid), limit(200))
-        );
-        progs = pSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        progs.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+      if (!hasCache) {
+        setProgrammeCountMap(quickProgrammeCounts);
+        setNutritionAssessmentCountMap(quickNutritionCounts);
+        setLastInteractionMap(quickLastInteractions);
+        setNutritionLastFollowMap(quickNutritionLast);
+        setClients(applyQuickFilter(list));
+        setLoading(false);
       }
 
-      progs.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
-      setProgrammes(progs);
-
       const initialSportList = list.filter((c) => getCachedSportProgramCount(c) > 0);
-      if (initialSportList.length) {
+      if (!hasCache && !nutritionMode && sportView && initialSportList.length) {
         const initialList =
           filter === "active"
             ? initialSportList.filter((c) => getCachedClientActivityMs(c) >= activeCutoffMs)
@@ -731,15 +742,7 @@ const Clients = () => {
       const nutritionCountEntries = {};
       const nutritionLastEntries = {};
 
-      // La liste et les actions sont déjà disponibles. On laisse le navigateur
-      // peindre et répondre aux interactions avant le calcul détaillé par client.
-      await new Promise((resolve) => {
-        deferPageTask(resolve, 650);
-      });
-
-      const enriched = await runLimited(
-        list,
-        async (c) => {
+      const enriched = await Promise.all(list.map(async (c) => {
           const computed = nutritionMode
             ? {
                 progress: { percent: 0, completed: 0, total: 0 },
@@ -748,11 +751,11 @@ const Clients = () => {
                 programmeCount: getCachedSportProgramCount(c),
                 _lastInteractionMs: getCachedClientActivityMs(c),
               }
-            : await buildClientComputedStats(c);
+            : await buildClientComputedStats(c, readPool);
           let latestNutritionMs = 0;
           if (nutritionMode || getCachedNutritionCount(c) > 0 || c?.hasNutritionFollowup || c?.nutritionFollowup) {
             try {
-              const nutritionSnap = await getDocs(collection(db, "clients", c.id, "nutrition_assessments"));
+              const nutritionSnap = await readPool.run(() => getDocs(collection(db, "clients", c.id, "nutrition_assessments")));
               nutritionCountEntries[c.id] = nutritionSnap.size;
               nutritionSnap.forEach((assessmentDoc) => {
                 const data = assessmentDoc.data() || {};
@@ -781,21 +784,13 @@ const Clients = () => {
           interactionEntries[c.id] = computed._lastInteractionMs || 0;
           nutritionLastEntries[c.id] = latestNutritionMs || 0;
 
-          const cached = c?.lastSession?.toDate?.() ?? null;
-          if (!cached && computed.lastSessionDate) {
-            try {
-              await updateDoc(doc(db, "clients", c.id), { lastSession: computed.lastSessionDate });
-            } catch (_) {}
-          }
-
           return {
             ...c,
             programmesAssignes: computed.programmesAssignes || c.programmesAssignes || [],
             _lastInteractionMs: computed._lastInteractionMs || 0,
           };
-        },
-        nutritionMode ? 5 : 6
-      );
+        }));
+      if (!load.current()) return;
 
       setProgressMap(progressEntries);
       setSessionsPerWeekMap(perWeekEntries);
@@ -826,8 +821,10 @@ const Clients = () => {
 
 	      setClients(filtered);
         const nextPayload = {
-	        clients: filtered,
-	        programmes: progs,
+            // Keep full programs in the live rows for fast profile navigation,
+            // but persist only the list's metrics, not another copy of every exercise.
+	        clients: filtered.map(client => ({ ...client, programmesAssignes: undefined })),
+	        programmes: [],
 	        progressMap: progressEntries,
         sessionsPerWeekMap: perWeekEntries,
         lastSessionMap: Object.fromEntries(
@@ -844,14 +841,17 @@ const Clients = () => {
 	      };
 	      writePageDataCache(clientsPageCacheKey, nextPayload);
         if (canUseDashboardOverview) {
-          writePageDataCache(clientsOverviewCacheKey, { ...nextPayload, partial: false });
+          writePageDataCache(clientsOverviewCacheKey, { ...nextPayload, clients: enriched.map(client => ({ ...client, programmesAssignes: undefined })), partial: false });
         }
+        load.ready({ clients: filtered.length, assignedPrograms: Object.values(countEntries).reduce((sum, count) => sum + count, 0), reads: readPool.stats.completed });
     } catch (err) {
+      if (!load.current()) return;
+      load.error();
       console.error(err);
     } finally {
-      setLoading(false);
+      if (load.current()) setLoading(false);
     }
-	  }, [effectiveCoachUid, clientsPageCacheKey, clientsOverviewCacheKey, canUseDashboardOverview, filter, activeCutoffMs, nutritionMode, nutritionOnly, sportView, hydrateClientsPagePayload]);
+	  }, [beginPageLoad, forceFresh, effectiveCoachUid, clientsPageCacheKey, clientsOverviewCacheKey, canUseDashboardOverview, filter, activeCutoffMs, nutritionMode, nutritionOnly, sportView, hydrateClientsPagePayload]);
 
   useEffect(() => {
     fetchData();
@@ -877,40 +877,31 @@ const Clients = () => {
   };
 
   const handleAssign = async () => {
-    if (!selectedClient || !selectedProgramme) return;
-
+    if (!selectedClient || !selectedProgramme || assignmentBusyRef.current) return;
+    assignmentBusyRef.current = true;
+    setAssigningProgram(true);
     try {
-      const tplRef = doc(db, "programmes", selectedProgramme);
-      const tplSnap = await getDoc(tplRef);
-      if (!tplSnap.exists()) throw new Error("Programme introuvable.");
-      const tpl = tplSnap.data();
-
-      const instRef = doc(collection(db, "clients", selectedClient, SUBCOLL_PROGRAMMES));
-      const totalSessions = getTotalSessionsFromProgrammeDoc(tpl);
-
-      await setDoc(instRef, {
-        programId: selectedProgramme,
-        ...tpl,
-        id: instRef.id,
-        fromTemplateId: selectedProgramme,
-        coachId: effectiveCoachUid,
-        createdBy: effectiveCoachUid,
-        assignedBy: effectiveCoachUid,
-        assignedAt: serverTimestamp(),
-        totalSessions: typeof totalSessions === "number" ? totalSessions : null,
-        progress: 0,
-        status: "active",
-        origine: "coach-assign",
-      });
-
-      await updateDoc(doc(db, "clients", selectedClient), {
-        currentProgramme: instRef.id,
-        updatedAt: serverTimestamp(),
-        coachIds: arrayUnion(effectiveCoachUid),
-      });
+      await confirmOperation(assignmentOperationRef, `${effectiveCoachUid}:${selectedClient}:${selectedProgramme}`, () =>
+        createProgramAssignmentOperation({
+          db, clientId: selectedClient, programId: selectedProgramme, coachId: effectiveCoachUid,
+          loadProgram: async (transaction) => {
+            const tplRef = doc(db, "programmes", selectedProgramme);
+            const tplSnap = await transaction.get(tplRef);
+            if (!tplSnap.exists()) throw new Error("Programme introuvable.");
+            const tpl = tplSnap.data();
+            const totalSessions = getTotalSessionsFromProgrammeDoc(tpl);
+            return {
+              ...tpl, coachId: effectiveCoachUid, createdBy: effectiveCoachUid,
+              assignedBy: effectiveCoachUid, assignedAt: serverTimestamp(),
+              totalSessions: typeof totalSessions === "number" ? totalSessions : null,
+              progress: 0, status: "active", origine: "coach-assign",
+            };
+          },
+        })
+      );
 
       setIsModalOpen(false);
-      await fetchData();
+      void fetchData();
 
       notify(toast, "programAssigned", {
         title: t("clientsList.assignModal.successTitle", "Programme assigné"),
@@ -919,9 +910,13 @@ const Clients = () => {
     } catch (err) {
       console.error("Assign error:", err);
       notify(toast, "programAssignError", {
-        title: t("clientsList.assignModal.errorTitle", "Erreur"),
-        description: t("clientsList.assignModal.errorDesc", "Impossible d’assigner le programme."),
+        ...(err?.code === "write-previous-confirmed" ? { status: "info" } : {}),
+        title: err?.code === "write-previous-confirmed" ? "Opération précédente confirmée" : t("clientsList.assignModal.errorTitle", "Erreur"),
+        description: err?.message || t("clientsList.assignModal.errorDesc", "Impossible d’assigner le programme."),
       });
+    } finally {
+      assignmentBusyRef.current = false;
+      setAssigningProgram(false);
     }
   };
 
@@ -935,8 +930,8 @@ const Clients = () => {
 	    await deleteDoc(doc(db, "clients", deleteTarget));
 	    const nextClients = clients.filter((c) => c.id !== deleteTarget);
 	    const nextPayload = {
-	      clients: nextClients,
-	      programmes,
+	      clients: nextClients.map(client => ({ ...client, programmesAssignes: undefined })),
+	      programmes: [],
 	      progressMap,
 	      sessionsPerWeekMap,
 	      lastSessionMap: Object.fromEntries(
@@ -1167,6 +1162,7 @@ const Clients = () => {
 
   return (
     <Box data-tour-page="coach-clients" bg={bg} minH="100vh" pb={{ base: 28, md: 0 }}>
+      <PageLoadingStatus state={pageLoadState} />
       <Container maxW="7xl" py={{ base: 4, md: 10 }} px={{ base: 3, md: 6 }}>
         {loading && (
           <Progress
@@ -1325,8 +1321,7 @@ const Clients = () => {
               variant="simple"
               colorScheme="gray"
               width="100%"
-              tableLayout="fixed"
-              sx={{ "& th, & td": { px: 2 } }}
+              sx={{ tableLayout: "fixed", "& th, & td": { px: 2 } }}
             >
               <Thead bg={tableHeadBg}>
                 <Tr>
@@ -1612,6 +1607,8 @@ const Clients = () => {
             <ModalHeader>{t("clientsList.assignModal.title", "Assigner un programme")}</ModalHeader>
             <ModalCloseButton />
             <ModalBody>
+              {assignProgramsLoading && <Text role="status" fontSize="sm" mb={2}>{t("common.loading", "Chargement...")}</Text>}
+              {assignProgramsError && <Alert status="error" mb={2}><AlertIcon />{t("settings.toasts.update_error", "Erreur de chargement")}</Alert>}
               <Select
                 placeholder={t("clientsList.assignModal.placeholder", "Sélectionnez un programme")}
                 value={selectedProgramme}
@@ -1625,7 +1622,7 @@ const Clients = () => {
               </Select>
             </ModalBody>
             <ModalFooter>
-              <Button mr={3} onClick={handleAssign} isDisabled={!selectedProgramme}>
+              <Button mr={3} onClick={handleAssign} isLoading={assigningProgram} isDisabled={!selectedProgramme || assignProgramsLoading || assignProgramsError}>
                 {t("common.confirm", "Confirmer")}
               </Button>
               <Button variant="ghost" onClick={() => setIsModalOpen(false)}>

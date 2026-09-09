@@ -31,6 +31,7 @@ function hasUsableGeo(geo) {
   const lng = Number(geo?.lng);
   return (
     geo?.pageLoadId === GEO_PAGE_LOAD_ID &&
+    geo?.lat != null && geo?.lat !== "" && geo?.lng != null && geo?.lng !== "" &&
     Number.isFinite(lat) &&
     Number.isFinite(lng) &&
     !(lat === 0 && lng === 0)
@@ -68,6 +69,11 @@ export default function RouteAnalyticsListener({ isAnalyticsOn = true, consentLo
   const inFlightRef = useRef(false);
   const authRetryCountRef = useRef(0);
   const authRetryTimerRef = useRef(null);
+  const visitRef = useRef(null);
+  const navigationKey = `${location.key || ""}:${location.pathname}${location.search || ""}`;
+  if (visitRef.current?.navigationKey !== navigationKey) {
+    visitRef.current = { navigationKey, id: `${GEO_PAGE_LOAD_ID}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` };
+  }
 
   useEffect(() => () => {
     if (authRetryTimerRef.current) clearTimeout(authRetryTimerRef.current);
@@ -100,6 +106,7 @@ export default function RouteAnalyticsListener({ isAnalyticsOn = true, consentLo
 
     // Signature unique: si la geo change (unknown -> Cannes), la key change => on re-track (voulu)
     const key = [
+      navigationKey,
       location.pathname,
       location.search || "",
       uid,
@@ -115,7 +122,14 @@ export default function RouteAnalyticsListener({ isAnalyticsOn = true, consentLo
     if (lastKeyRef.current === key) return;
 
     lastKeyRef.current = key;
+    // A later GPS measurement is a new observation, not a rewrite of an old place.
+    const capturedAt = Number(geo.capturedAt || 0);
+    if (capturedAt && visitRef.current.capturedAt && capturedAt !== visitRef.current.capturedAt) {
+      visitRef.current.id = `${GEO_PAGE_LOAD_ID}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+    if (capturedAt) visitRef.current.capturedAt = capturedAt;
     inFlightRef.current = true;
+    const visitId = visitRef.current.id;
 
     (async () => {
       try {
@@ -126,6 +140,7 @@ export default function RouteAnalyticsListener({ isAnalyticsOn = true, consentLo
         const finalLng = isAnalyticsOn ? readyGeo.lng ?? lng : null;
 
         const result = await trackPageView({
+          visitId,
           user,
           path: `${location.pathname}${location.search || ""}`,
           country: finalCountry,
@@ -153,6 +168,8 @@ export default function RouteAnalyticsListener({ isAnalyticsOn = true, consentLo
   }, [
     location.pathname,
     location.search,
+    location.key,
+    navigationKey,
     isAnalyticsOn,
     consentLoaded,
     country,

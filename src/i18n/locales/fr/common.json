@@ -1202,6 +1202,30 @@
     "backHome": "⟵ Retour à l’accueil"
   },
   "payment": {
+    "return": {
+      "confirmed": "Paiement confirmé",
+      "verifying": "Vérification du paiement…",
+      "unconfirmed": "Paiement non confirmé",
+      "verifyingDescription": "Nous vérifions le résultat auprès du serveur de paiement.",
+      "missing": "Ce lien ne contient aucune référence de paiement. Aucun paiement ne peut être confirmé depuis cette page.",
+      "login": "Connectez-vous avec le compte utilisé pour cet achat afin de vérifier le paiement.",
+      "pending": "Le paiement n’est pas encore confirmé. Il peut être en attente, avoir été annulé ou refusé. Vérifiez son état avant de recommencer un achat.",
+      "processing": "Votre paiement est confirmé. La préparation de votre programme est en cours ; vous pouvez relancer la vérification sans repayer.",
+      "error": "La vérification ou la préparation n’a pas abouti. Réessayez sans effectuer un nouveau paiement. Si le problème persiste, contactez le support.",
+      "inactive": "Cet achat est confirmé, mais l’abonnement n’est actuellement pas actif. Consultez votre facturation.",
+      "profile": "Votre paiement est confirmé. La mise à jour de votre accès est en cours.",
+      "ready": "Votre espace est prêt. Vous allez être redirigé.",
+      "retry": "Vérifier à nouveau",
+      "open": "Ouvrir mon espace",
+      "leave": "Revenir à mon espace"
+    },
+    "legacy": {
+      "title": "Choisir une offre",
+      "description": "Ce lien est ancien et ne lance aucun paiement. Retrouvez les offres disponibles ci-dessous.",
+      "pro": "Offres professionnelles",
+      "programs": "Programmes Premium",
+      "custom": "Programme sur mesure"
+    },
     "checkout": {
       "title": "Paiement du programme",
       "subtitle": "Validez votre achat pour débloquer le programme <b>{{productId}}</b>.",
@@ -1354,6 +1378,8 @@
       }
     },
     "register": {
+      "googleDetailsRequired": "Pour Google aussi, renseigne ton identité et accepte les conditions ci-dessus. L’e-mail et le mot de passe ne sont pas nécessaires.",
+      "googleRegistrationRequired": "Pour créer un nouveau compte Google, utilise « Inscription » afin de choisir ton espace et d’accepter les conditions.",
       "title": "Inscription",
       "firstName": "Prénom",
       "lastName": "Nom",

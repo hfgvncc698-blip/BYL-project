@@ -4,12 +4,8 @@ import { Box, Heading, Text, Button, useToast } from "@chakra-ui/react";
 import { useAuth } from "../AuthContext";
 import { useAppTheme } from "../styles/appTheme";
 import { notify } from "../utils/notify";
-import { getAuthHeaders } from "../utils/authHeaders";
-
-// ✅ base API centralisée
-import { getApiBase } from "../utils/apiBase";
+import { apiFetch } from "../utils/api";
 import i18n from "../i18n/index";
-const API_BASE = getApiBase();
 
 export default function AccountBilling() {
   const { user } = useAuth();
@@ -28,20 +24,16 @@ export default function AccountBilling() {
     }
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/stripe-portal/create-stripe-portal-session`, {
+      const data = await apiFetch('/payments/create-stripe-portal-session', {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(await getAuthHeaders()) },
-        credentials: "include", // important si tu utilises des cookies de session
-        body: JSON.stringify({ userId: user.uid }),
+        body: JSON.stringify({ userId: user.uid, returnUrl: `${window.location.origin}/account/billing` }),
       });
-
-      const data = await response.json().catch(() => null);
-      if (response.ok && data?.url) {
+      if (data?.url) {
         window.location.href = data.url; // Redirection réelle Stripe
       } else {
         notify(toast, "saveError", {
           title: "Erreur Stripe",
-          description: data?.error || `HTTP ${response.status}`,
+          description: data?.error || "Le portail de facturation est indisponible.",
         });
       }
     } catch (e) {

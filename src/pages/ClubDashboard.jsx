@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   AlertIcon,
@@ -367,6 +367,7 @@ export default function ClubDashboard() {
   const [auditRepairCoach, setAuditRepairCoach] = useState({});
   const [error, setError] = useState("");
   const [summary, setSummary] = useState(null);
+  const summaryLoadVersion = useRef(0);
   const loadedClubId = summary?.club?.id && summary.club.id !== "admin-club-preview" ? summary.club.id : "";
   const actionClubId = adminClubId || loadedClubId || user?.clubId || "";
   useEffect(() => {
@@ -1011,24 +1012,29 @@ export default function ClubDashboard() {
   );
 
   const loadSummary = useCallback(async () => {
+    const version = ++summaryLoadVersion.current;
     setError("");
-    setLoading(true);
     try {
       const data = await apiFetch(withAdminClub("/clubs/summary"));
+      if (version !== summaryLoadVersion.current) return;
       setSummary(data);
       setIdentityForm({
         name: data?.club?.name || "",
         logoUrl: data?.club?.logoUrl || "",
       });
     } catch (err) {
-      setError(friendlyError(err));
+      if (version === summaryLoadVersion.current) setError(friendlyError(err));
     } finally {
-      setLoading(false);
+      if (version === summaryLoadVersion.current) setLoading(false);
     }
-  }, [withAdminClub]);
+  }, [withAdminClub, user?.uid, user?.clubId]);
 
   useEffect(() => {
+    // Blank only when changing identity/club, not after every saved action.
+    setSummary(null);
+    setLoading(true);
     loadSummary();
+    return () => { summaryLoadVersion.current += 1; };
   }, [loadSummary]);
 
   useEffect(() => {
@@ -1314,22 +1320,24 @@ export default function ClubDashboard() {
         method: "POST",
         body: JSON.stringify(form),
       });
-      setInviteLink(data.resetLink || "");
+      setInviteLink("");
       setForm({ firstName: "", lastName: "", email: "", proType: "sport" });
       const emailMessage = data.emailSent
         ? "Un email d’activation vient d’être envoyé automatiquement."
-        : "Le compte est créé. Le lien d’activation reste disponible à copier.";
+        : "Le compte est créé, mais l’e-mail d’activation n’a pas pu partir. Le professionnel peut utiliser « Mot de passe oublié » sur la page de connexion pour recevoir son lien personnel.";
       toast({
         title: t("auto.ClubDashboard.pro_ajoute_au_club", "Pro ajouté au club"),
         description: emailMessage,
-        status: "success",
+        status: data.emailSent ? "success" : "warning",
         duration: 4000,
         isClosable: true,
       });
       if (data.emailSent) inviteProModal.onClose();
       await loadSummary();
     } catch (err) {
-      setError(friendlyError(err) || "Création du pro impossible.");
+      setError(err?.data?.error === "existing-account-requires-invitation"
+        ? "Cette adresse possède déjà un compte. Aucun accès n’a été modifié. Un administrateur doit valider son rattachement avec l’accord du titulaire."
+        : friendlyError(err) || "Création du pro impossible.");
     } finally {
       setSaving(false);
     }

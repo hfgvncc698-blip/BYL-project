@@ -36,7 +36,9 @@ async function resolveGenerationScope(req, requestedClientId, requestedCreatorId
     return { error: "verified-admin-required", status: 403 };
   }
   const isCoach = hasActiveProfessionalAccess(requester, req.auth?.token || {});
-  if (role === "coach" && !isCoach) {
+  // Individual purchases are fulfilled from a verified Stripe receipt by the
+  // payments service, never from this direct professional generation endpoint.
+  if (!isAdmin && !isCoach) {
     return { error: "professional-access-required", status: 403 };
   }
   const ownClientId = String(requester.linkedClientId || req.auth.uid);
@@ -271,6 +273,37 @@ async function findAssignedProgramDocs(db, programId, requester = {}) {
   return [...assignedByPath.values()];
 }
 
+async function syncAssignedProgramDocs(db, programId, assignedDocs, authorizeTemplate) {
+  let syncedAssignments = 0;
+  const templateRef = db.collection("programmes").doc(programId);
+  // Small transactions keep full exercise documents below the write-size limit.
+  // Reading the template in the same transaction forces a retry if another save
+  // changes it, so an older request cannot restore an older client revision.
+  for (let offset = 0; offset < assignedDocs.length; offset += 4) {
+    const refs = assignedDocs.slice(offset, offset + 4).map(snapshot => snapshot.ref);
+    const committedCount = await db.runTransaction(async transaction => {
+      const [templateSnap, ...currentAssignments] = await Promise.all([
+        transaction.get(templateRef),
+        ...refs.map(ref => transaction.get(ref)),
+      ]);
+      if (!templateSnap.exists) throw Object.assign(new Error("program-not-found"), { status: 404 });
+      const template = templateSnap.data() || {};
+      if (!authorizeTemplate(template)) throw Object.assign(new Error("program-sync-forbidden"), { status: 403 });
+      const patch = assignedProgramSyncPatch(template, programId);
+      let written = 0;
+      currentAssignments.forEach((snapshot, index) => {
+        const assigned = snapshot.exists ? snapshot.data() || {} : null;
+        if (!assigned || ![assigned.programId, assigned.fromTemplateId, assigned.templateId].includes(programId)) return;
+        transaction.set(refs[index], patch, { merge: true });
+        written++;
+      });
+      return written;
+    });
+    syncedAssignments += committedCount;
+  }
+  return syncedAssignments;
+}
+
 /**
  * POST /api/programs/generate
  */
@@ -392,23 +425,16 @@ router.post("/:programId/sync-assignments", requireFirebaseAuth, async (req, res
       ...requester,
       uid: req.auth.uid,
     });
-    const patch = assignedProgramSyncPatch(template, programId);
-
-    for (let offset = 0; offset < assignedDocs.length; offset += 350) {
-      const batch = db.batch();
-      assignedDocs.slice(offset, offset + 350).forEach((docSnap) => {
-        batch.set(docSnap.ref, patch, { merge: true });
-      });
-      await batch.commit();
-    }
-
-    return res.json({ ok: true, syncedAssignments: assignedDocs.length });
+    const syncedAssignments = await syncAssignedProgramDocs(
+      db, programId, assignedDocs, latestTemplate => canEditTemplate(req, requester, latestTemplate)
+    );
+    return res.json({ ok: true, syncedAssignments });
   } catch (error) {
     console.error("[PROGRAM SYNC] error:", error);
-    return res.status(500).json({ error: error?.message || "program-sync-failed" });
+    return res.status(error?.status || 500).json({ error: error?.message || "program-sync-failed" });
   }
 });
 
-router._test = { assignedProgramSyncPatch, buildProgressionPlan, findAssignedProgramDocs };
+router._test = { assignedProgramSyncPatch, buildProgressionPlan, findAssignedProgramDocs, syncAssignedProgramDocs, resolveGenerationScope };
 
 module.exports = router;

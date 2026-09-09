@@ -43,11 +43,13 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { useAuth } from "../AuthContext.jsx";
 import NutritionQuickCreateModal from "../components/NutritionQuickCreateModal.jsx";
 import PageBackButton from "../components/ui/PageBackButton.jsx";
+import PageLoadingStatus from "../components/ui/PageLoadingStatus.jsx";
+import { usePageLoading } from "../hooks/usePageLoading.js";
 import { AppMetricValue, AppSectionHeader, AppSurface } from "../components/ui/AppPrimitives.jsx";
 import { useTranslation } from "react-i18next";
 import {
-  deferPageTask,
   readPageDataCacheEntry,
+  restorePageDataCacheEntry,
   runLimited,
   updatePageDataCache,
   writePageDataCache,
@@ -118,6 +120,7 @@ const getAssessmentMs = (assessment) => {
 };
 
 export default function CoachNutritionPage() {
+  const { begin: beginPageLoad, state: pageLoadState, fresh: forceFresh } = usePageLoading();
   const { t, i18n } = useTranslation("common");
   const theme = useNutritionTheme();
   const panelProps = {
@@ -145,8 +148,8 @@ export default function CoachNutritionPage() {
 	    [effectiveCoachUid]
 	  );
   const initialNutritionPageCacheEntry = useMemo(
-    () => readPageDataCacheEntry(nutritionPageCacheKey, { ttlMs: NUTRITION_PAGE_CACHE_TTL_MS }),
-    [nutritionPageCacheKey]
+    () => forceFresh ? null : readPageDataCacheEntry(nutritionPageCacheKey, { ttlMs: NUTRITION_PAGE_CACHE_TTL_MS }),
+    [forceFresh, nutritionPageCacheKey]
   );
   const initialNutritionPageCache = initialNutritionPageCacheEntry?.data || null;
   const withAdminCoach = useCallback(
@@ -168,6 +171,7 @@ export default function CoachNutritionPage() {
   const [nutritionSearch, setNutritionSearch] = useState("");
 
   useLayoutEffect(() => {
+    if (forceFresh) return;
     const entry = readPageDataCacheEntry(nutritionPageCacheKey, {
       ttlMs: NUTRITION_PAGE_CACHE_TTL_MS,
     });
@@ -175,7 +179,7 @@ export default function CoachNutritionPage() {
     setRows(entry.data.rows || []);
     setClientCount(Number(entry.data.clientCount || 0) || 0);
     setLoading(false);
-  }, [nutritionPageCacheKey]);
+  }, [forceFresh, nutritionPageCacheKey]);
   const clientLimit =
     typeof user?.proAccess?.clientLimit === "number"
       ? user.proAccess.clientLimit
@@ -188,14 +192,17 @@ export default function CoachNutritionPage() {
       setRows([]);
       return;
     }
-    const cachedEntry = readPageDataCacheEntry(nutritionPageCacheKey, {
+    const load = beginPageLoad();
+    try {
+    const cachedEntry = forceFresh ? null : await restorePageDataCacheEntry(nutritionPageCacheKey, {
       ttlMs: NUTRITION_PAGE_CACHE_TTL_MS,
     });
+    if (!load.current()) return;
 	    if (cachedEntry) {
 	      setRows(cachedEntry.data.rows || []);
 	      setClientCount(Number(cachedEntry.data.clientCount || 0) || 0);
 	      setLoading(false);
-	      if (!cachedEntry.isStale && !cachedEntry.data?.partial) return;
+          load.cache({ assessments: cachedEntry.data.rows?.length || 0 });
 	    }
 
     const clientQueries = [
@@ -204,10 +211,16 @@ export default function CoachNutritionPage() {
       query(collection(db, "clients"), where("coachIds", "array-contains", effectiveCoachUid), limit(500)),
     ];
     const clientSnaps = await Promise.all(
-      clientQueries.map((clientQuery) =>
-        getDocs(clientQuery).catch(() => ({ docs: [] }))
+      clientQueries.map((clientQuery, index) =>
+        getDocs(clientQuery).catch(error => {
+          // Legacy ownership branches may be unavailable to some coaches;
+          // the primary authorized query must still succeed.
+          if (index > 0 && String(error?.code || "").includes("permission-denied")) return { docs: [] };
+          throw error;
+        })
       )
     );
+    if (!load.current()) return;
     const clientsById = new Map();
     clientSnaps.forEach((clientSnap) => {
       clientSnap.docs.forEach((clientDoc) => {
@@ -217,7 +230,7 @@ export default function CoachNutritionPage() {
       });
     });
     const clientList = Array.from(clientsById.values());
-    setClientCount(clientList.length);
+    if (!cachedEntry) setClientCount(clientList.length);
 
     const toRows = (groups) =>
       groups
@@ -239,34 +252,25 @@ export default function CoachNutritionPage() {
     const priorityIds = new Set(priorityClients.map((client) => client.id));
     const remainingClients = clientList.filter((client) => !priorityIds.has(client.id));
 
-    const priorityGroups = await runLimited(priorityClients, fetchAssessmentGroup, 7);
-    const priorityRows = toRows(priorityGroups);
-    if (priorityRows.length) {
-      setRows(priorityRows);
-      setLoading(false);
-      writePageDataCache(nutritionPageCacheKey, {
-        rows: priorityRows,
-        clientCount: clientList.length,
-        partial: true,
-      });
-      await new Promise((resolve) => {
-        const cancel = deferPageTask(() => {
-          cancel?.();
-          resolve();
-        }, 650);
-      });
-    }
-
-    const remainingGroups = await runLimited(remainingClients, fetchAssessmentGroup, 5);
-	    const nextRows = toRows([...priorityGroups, ...remainingGroups]);
+    // One bounded queue: known follow-ups first, without delaying other clients.
+    const groups = await runLimited([...priorityClients, ...remainingClients], fetchAssessmentGroup, 12);
+    if (!load.current()) return;
+	    const nextRows = toRows(groups);
 	    setRows(nextRows);
+        setClientCount(clientList.length);
 	    const nextPayload = {
 	      rows: nextRows,
 	      clientCount: clientList.length,
 	      partial: false,
 	    };
 	    writePageDataCache(nutritionPageCacheKey, nextPayload);
-	  }, [effectiveCoachUid, nutritionPageCacheKey]);
+        load.ready({ assessments: nextRows.length, clients: clientList.length });
+    } catch (error) {
+      if (!load.current()) return;
+      load.error();
+      throw error;
+    }
+	  }, [beginPageLoad, forceFresh, effectiveCoachUid, nutritionPageCacheKey]);
 
   const handleDelete = useCallback(
 	    async (clientId, assessmentId) => {
@@ -332,7 +336,6 @@ export default function CoachNutritionPage() {
       .catch((error) => {
         console.error("[CoachNutritionPage] nutrition rows load failed", error);
         if (alive) {
-          setRows([]);
           setLoadError(error);
         }
       })
@@ -350,7 +353,6 @@ export default function CoachNutritionPage() {
     loadRows()
       .catch((error) => {
         console.error("[CoachNutritionPage] nutrition rows reload failed", error);
-        setRows([]);
         setLoadError(error);
       })
       .finally(() => setLoading(false));
@@ -397,6 +399,7 @@ export default function CoachNutritionPage() {
 
   return (
     <Box data-tour-page="coach-nutrition" minH="100vh" bg={theme.pageBg} color={theme.textColor} p={{ base: 3, md: 6 }} pb={{ base: 28, md: 6 }}>
+      <PageLoadingStatus state={pageLoadState} />
       <Box maxW="7xl" mx="auto">
         <AppSurface p={{ base: 4, md: 5 }} mb={4}>
           <Flex align="flex-start" gap={3}>
@@ -608,6 +611,7 @@ export default function CoachNutritionPage() {
         isOpen={createModal.isOpen}
         onClose={handleCloseCreateModal}
         user={user}
+        ownerUid={effectiveCoachUid}
         clientLimit={clientLimit}
         navigate={navigate}
         toast={toast}

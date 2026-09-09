@@ -126,6 +126,10 @@ service cloud.firestore {
       return signedIn() &&
         currentUser().keys().hasAny(["clubId"]) &&
         data.keys().hasAny(["clubId"]) &&
+        currentUser().clubId is string &&
+        currentUser().clubId.size() > 0 &&
+        data.clubId is string &&
+        data.clubId.size() > 0 &&
         currentUser().clubId == data.clubId;
     }
 
@@ -135,16 +139,22 @@ service cloud.firestore {
         request.auth.uid in data[field];
     }
 
-    function clientIsOwnProfile(clientId, data) {
-      return isOwnUser(clientId) ||
+    function clientHasAuthIdentity(data) {
+      return signedIn() && (
         (data.keys().hasAny(["uid"]) && data.uid == request.auth.uid) ||
         (data.keys().hasAny(["userId"]) && data.userId == request.auth.uid) ||
         (data.keys().hasAny(["linkedUserId"]) && data.linkedUserId == request.auth.uid) ||
         (data.keys().hasAny(["accountUid"]) && data.accountUid == request.auth.uid) ||
+        (data.keys().hasAny(["authUid"]) && data.authUid == request.auth.uid)
+      );
+    }
+
+    function clientIsOwnProfile(clientId, data) {
+      return signedIn() && (isOwnUser(clientId) || clientHasAuthIdentity(data) ||
         (
           currentUser().keys().hasAny(["linkedClientId"]) &&
           currentUser().linkedClientId == clientId
-        );
+        ));
     }
 
     function coachOwnsRecord(data) {
@@ -340,7 +350,10 @@ service cloud.firestore {
         "hasActiveSubscription",
         "subscriptionStatus",
         "stripeCustomerId",
-        "stripeSubscriptionId"
+        "stripeSubscriptionId",
+        "deliveryMode",
+        "abonnementActif",
+        "dernierProgrammeGenere"
       ]);
     }
 
@@ -365,7 +378,10 @@ service cloud.firestore {
           "isAdmin",
           "admin",
           "stripeCustomerId",
-          "stripeSubscriptionId"
+          "stripeSubscriptionId",
+          "deliveryMode",
+          "abonnementActif",
+          "dernierProgrammeGenere"
         ]) &&
         (!data.keys().hasAny(["hasActiveSubscription"]) || data.hasActiveSubscription != true);
     }
@@ -453,6 +469,7 @@ service cloud.firestore {
         "subscriptionStatus",
         "stripeCustomerId",
         "stripeSubscriptionId",
+        "stripeSubscriptionCreatedAt",
         "trialStartedAt",
         "trialEndsAt",
         "linkedClientId",
@@ -558,14 +575,28 @@ service cloud.firestore {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(["role"]);
     }
 
+    function safeInitialClientLink(uid, data) {
+      return !data.keys().hasAny(["linkedClientId"]) ||
+        data.linkedClientId == null || data.linkedClientId == "" ||
+        data.linkedClientId == uid || (
+          data.linkedClientId is string &&
+          data.linkedClientId.matches("^[^/]+$") &&
+          exists(/databases/$(database)/documents/clients/$(data.linkedClientId)) &&
+          clientHasAuthIdentity(get(/databases/$(database)/documents/clients/$(data.linkedClientId)).data)
+        );
+    }
+
     function safeSelfUserCreate(uid, data) {
       return isOwnUser(uid) &&
+        safeInitialClientLink(uid, data) &&
         data.role in ["particulier", "coach"] &&
         (!data.keys().hasAny(["hasActiveSubscription"]) || data.hasActiveSubscription != true) &&
         (!data.keys().hasAny(["isAdmin"]) || data.isAdmin != true) &&
         (!data.keys().hasAny(["admin"]) || data.admin != true) &&
         (!data.keys().hasAny(["stripeCustomerId"]) || data.stripeCustomerId == null) &&
         (!data.keys().hasAny(["stripeSubscriptionId"]) || data.stripeSubscriptionId == null) &&
+        !data.keys().hasAny(["stripeSubscriptionCreatedAt"]) &&
+        (!data.keys().hasAny(["hasPurchasedCustomProgram"]) || data.hasPurchasedCustomProgram != true) &&
         (
           (
             data.role == "particulier" &&
@@ -605,7 +636,7 @@ service cloud.firestore {
         request.resource.data.role == "particulier" &&
         request.resource.data.linkedClientId == uid &&
         request.resource.data.hasActiveSubscription != true &&
-        !request.resource.data.keys().hasAny(["stripeCustomerId", "stripeSubscriptionId"]) &&
+        !request.resource.data.keys().hasAny(["stripeCustomerId", "stripeSubscriptionId", "stripeSubscriptionCreatedAt"]) &&
         !(
           request.resource.data.keys().hasAny(["subscriptionStatus"]) &&
           request.resource.data.subscriptionStatus in ["active", "trialing"]
@@ -793,9 +824,17 @@ service cloud.firestore {
     }
 
     match /programmes/{programId} {
-      allow read: if canAccessProgram(resource.data);
+      // A creator may check its new random ID in a create-only transaction.
+      // This exception never exposes existing documents or broadens queries.
+      allow get: if canAccessProgram(resource.data) || (
+        !exists(/databases/$(database)/documents/programmes/$(programId)) && hasCoachAccess()
+      );
+      allow list: if canAccessProgram(resource.data);
       allow create: if canCreateProgram(request.resource.data);
-      allow update: if canAccessProgram(resource.data) && canAccessProgram(request.resource.data);
+      // Public/assigned read access must never grant template editing rights.
+      allow update: if isAdmin() || (
+        coachOwnsRecord(resource.data) && coachOwnsRecord(request.resource.data)
+      );
       allow delete: if isAdmin() || coachOwnsRecord(resource.data);
 
       match /{subCollection}/{document=**} {

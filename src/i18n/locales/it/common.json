@@ -1202,6 +1202,30 @@
     "backHome": "⟵ Ritorna alla home page"
   },
   "payment": {
+    "return": {
+      "confirmed": "Pagamento confermato",
+      "verifying": "Verifica del pagamento…",
+      "unconfirmed": "Pagamento non confermato",
+      "verifyingDescription": "Stiamo verificando l’esito con il fornitore di servizi di pagamento.",
+      "missing": "Questo link non contiene alcun riferimento di pagamento. Non è possibile confermare un pagamento da questa pagina.",
+      "login": "Accedi con l’account utilizzato per questo acquisto per verificare il pagamento.",
+      "pending": "Il pagamento non è ancora confermato. Potrebbe essere in sospeso, annullato o rifiutato. Verifica il suo stato prima di effettuare un altro acquisto.",
+      "processing": "Il pagamento è confermato. Stiamo preparando il tuo programma; puoi ripetere la verifica senza pagare di nuovo.",
+      "error": "Non è stato possibile completare la verifica o la preparazione. Riprova senza effettuare un nuovo pagamento. Se il problema persiste, contatta l’assistenza.",
+      "inactive": "Questo acquisto è confermato, ma l’abbonamento non è attualmente attivo. Consulta i dati di fatturazione.",
+      "profile": "Il pagamento è confermato. Stiamo aggiornando il tuo accesso.",
+      "ready": "Il tuo spazio è pronto. Stai per essere reindirizzato.",
+      "retry": "Verifica di nuovo",
+      "open": "Apri il mio spazio",
+      "leave": "Torna al mio spazio"
+    },
+    "legacy": {
+      "title": "Scegli un’offerta",
+      "description": "Questo link è obsoleto e non avvia alcun pagamento. Scopri le offerte disponibili qui sotto.",
+      "pro": "Offerte per professionisti",
+      "programs": "Programmi Premium",
+      "custom": "Programma su misura"
+    },
     "checkout": {
       "title": "Pagamento del programma",
       "subtitle": "Convalida il tuo acquisto per sbloccare il programma <b>{{productId}}</b>.",
@@ -1354,6 +1378,8 @@
       }
     },
     "register": {
+      "googleDetailsRequired": "Anche per registrarti con Google, inserisci i tuoi dati personali e accetta le condizioni qui sopra. Non è necessario inserire e-mail e password.",
+      "googleRegistrationRequired": "Per creare un nuovo account con Google, scegli «Registrati» per selezionare il tipo di account e accettare le condizioni.",
       "title": "Registrazione",
       "firstName": "Nome",
       "lastName": "Nome",

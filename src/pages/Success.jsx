@@ -1,285 +1,112 @@
-// src/pages/Success.jsx
+// Payment status comes only from the authenticated server finalization response.
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  Box,
-  Heading,
-  Text,
-  VStack,
-  Icon,
-  Button,
-  Fade,
-  Spinner,
-  Badge,
-  useColorModeValue,
-} from "@chakra-ui/react";
-import { CheckCircleIcon } from "@chakra-ui/icons";
+import { Box, Heading, Text, VStack, Icon, Button, Spinner, useColorModeValue } from "@chakra-ui/react";
+import { CheckCircleIcon, WarningIcon, InfoIcon } from "@chakra-ui/icons";
 import { useAuth } from "../AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
-import { db } from "../firebaseConfig";
-import { doc, onSnapshot, collection, getDocs } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
-
 import { apiFetch } from "../utils/api";
-import { resolveClientSnapshotForUser } from "../utils/clientResolver";
+import { classifyPaymentReturn } from "../utils/paymentReturn";
 
 export default function Success() {
-  const { user } = useAuth();
+  const { user, loading: authLoading, hasCoachAccess } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation("common");
-
-  const [verifying, setVerifying] = useState(true);
-  const [paid, setPaid] = useState(false);
-  const [premiumRedirectPath, setPremiumRedirectPath] = useState("");
-
-  const searchParams = useMemo(
-    () => new URLSearchParams(location.search),
-    [location.search]
-  );
-  const action =
-    searchParams.get("action") ||
-    (location.pathname.includes("programmes-premium") ? "premium" : "") ||
-    (location.pathname.includes("questionnaire") ? "program" : "");
-  const role = searchParams.get("role") || "coach";
-  const sessionId = searchParams.get("session_id");
-  const isPremium = action === "premium";
-
+  const sessionId = useMemo(() => new URLSearchParams(location.search).get("session_id"), [location.search]);
+  const [state, setState] = useState({ phase: "verifying", paid: false });
+  const [attempt, setAttempt] = useState(0);
+  const [retryKey, setRetryKey] = useState(0);
+  const [profileWaitExpired, setProfileWaitExpired] = useState(false);
   const cardBg = useColorModeValue("gray.100", "gray.700");
 
-  // 1) Forcer la finalisation + vérifier la session
   useEffect(() => {
+    if (authLoading) return;
+    if (!sessionId) { setState({ phase: "missing", paid: false }); return; }
+    if (!user?.uid) { setState({ phase: "login", paid: false }); return; }
+    const controller = new AbortController();
     let cancelled = false;
-
-    async function run() {
-      try {
-        if (sessionId) {
-          // a) Forcer la MAJ Firestore depuis Stripe
-          const finalizeResult = await apiFetch("/payments/finalize-session", {
-            method: "POST",
-            body: JSON.stringify({ session_id: sessionId }),
-          });
-          if (!cancelled && action === "premium" && finalizeResult?.ok) {
-            const viewerPath =
-              finalizeResult.viewerUrl ||
-              (finalizeResult.clientId && finalizeResult.programAssignmentId
-                ? `/clients/${finalizeResult.clientId}/programmes/${finalizeResult.programAssignmentId}`
-                : "");
-            if (viewerPath) setPremiumRedirectPath(viewerPath);
-          }
-
-          // b) Vérifier la session (feedback rapide)
-          const data = await apiFetch(`/payments/session?session_id=${encodeURIComponent(sessionId)}`);
-          const isPaid =
-            data?.payment_status === "paid" || data?.status === "complete";
-          if (!cancelled) setPaid(Boolean(isPaid));
-
-          if (!cancelled && action === "premium" && isPaid && finalizeResult?.ok) {
-            const viewerPath =
-              finalizeResult.viewerUrl ||
-              (finalizeResult.clientId && finalizeResult.programAssignmentId
-                ? `/clients/${finalizeResult.clientId}/programmes/${finalizeResult.programAssignmentId}`
-                : "");
-            navigate(viewerPath || "/mes-programmes", { replace: true });
-            return;
-          }
-        }
-
-        // c) Reconcile (sécurité)
-        if (user?.uid) {
-          await apiFetch("/payments/reconcile", {
-            method: "POST",
-            body: JSON.stringify({ uid: user.uid }),
-          });
-        }
-      } catch {
-        // silencieux: l'écoute Firestore prend le relais
-      } finally {
-        if (!cancelled) setVerifying(false);
+    let poll;
+    const timeout = setTimeout(() => controller.abort(), 45000);
+    setState(previous => ({ phase: "verifying", receipt: sessionId, uid: user.uid, paid: previous.receipt === sessionId && previous.uid === user.uid && previous.paid }));
+    void apiFetch("/payments/finalize-session", {
+      method: "POST",
+      signal: controller.signal,
+      body: JSON.stringify({ session_id: sessionId }),
+    }).then(result => {
+      if (cancelled) return;
+      const next = classifyPaymentReturn(result);
+      setState({ ...next, receipt: sessionId, uid: user.uid });
+      if (next.phase === "processing" && attempt < 9) {
+        poll = setTimeout(() => setAttempt(value => value + 1), 2000);
       }
-    }
+    }).catch(error => {
+      if (cancelled) return;
+      setState(previous => error.status === 409 && error.data?.reason === "payment-not-confirmed"
+        ? { phase: "pending", paid: false, receipt: sessionId, uid: user.uid }
+        : { ...previous, phase: "error" });
+    }).finally(() => clearTimeout(timeout));
+    return () => { cancelled = true; clearTimeout(timeout); clearTimeout(poll); controller.abort(); };
+  }, [authLoading, user?.uid, sessionId, attempt, retryKey]);
 
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, [action, navigate, sessionId, user?.uid]);
-
-  // 2) Écoute temps réel Firestore pour déclencher la redirection
+  // Wait for AuthContext's live profile before entering a protected pro route.
+  // Do not redirect a paid customer back to the paywall on a stale auth snapshot.
+  const waitingProfile = state.phase === "confirmed" && state.type === "subscription" && !hasCoachAccess;
   useEffect(() => {
-    if (!user?.uid) return;
-    const ref = doc(db, "users", user.uid);
+    if (state.phase === "confirmed" && !waitingProfile && state.destination) {
+      navigate(state.destination, { replace: true });
+    }
+  }, [navigate, state, waitingProfile]);
+  useEffect(() => {
+    setProfileWaitExpired(false);
+    if (!waitingProfile) return;
+    const timeout = setTimeout(() => setProfileWaitExpired(true), 10000);
+    return () => clearTimeout(timeout);
+  }, [waitingProfile, retryKey]);
 
-    const unsub = onSnapshot(ref, (snap) => {
-      const u = snap.data() || {};
-      const trialEndAny = u.trialEnd || u.trialEndsAt;
-      const trialEndDate = trialEndAny?.toDate
-        ? trialEndAny.toDate()
-        : trialEndAny
-        ? new Date(trialEndAny)
-        : null;
-      const trialActive =
-        u.subscriptionStatus === "trialing" &&
-        trialEndDate &&
-        trialEndDate.getTime() > Date.now();
-      const isActive =
-        u.hasActiveSubscription === true ||
-        u.subscriptionStatus === "active" ||
-        trialActive;
-
-      if (isPremium && paid) {
-        navigate(premiumRedirectPath || "/mes-programmes", { replace: true });
-        return;
-      }
-
-      if (isActive) {
-        const redirectPath =
-          action === "program"
-            ? "/auto-program-preview"
-            : role === "coach"
-            ? "/coach-dashboard"
-            : "/user-dashboard";
-
-        // Si achat 'program', attendre que le programme apparaisse
-        if (action === "program") {
-          (async () => {
-            const clientSnap = await resolveClientSnapshotForUser(user, {
-              logPrefix: "PaymentSuccess",
-            });
-            if (!clientSnap?.id) {
-              navigate("/auto-program-preview");
-              return;
-            }
-            const snapProgs = await getDocs(
-              collection(db, "clients", clientSnap.id, "programmes")
-            );
-            const all = snapProgs.docs.map((d) => ({ id: d.id, ...d.data() }));
-            const latest = all
-              .sort(
-                (a, b) =>
-                  new Date(b.createdAt || b.created_at || 0) -
-                  new Date(a.createdAt || a.created_at || 0)
-              )[0];
-            if (latest)
-              navigate("/auto-program-preview", {
-                state: { programId: latest.id, fromCreation: true, from: "checkout" },
-              });
-            else navigate("/auto-program-preview"); // fallback
-          })();
-        } else {
-          navigate(redirectPath);
-        }
-      }
-    });
-
-    return () => unsub();
-  }, [user?.uid, navigate, action, role, isPremium, paid, premiumRedirectPath]);
-
-  const isProgram = action === "program" || isPremium;
-
-  // Titres traduits avec fallbacks
-  const title = isProgram
-    ? paid
-      ? t(
-          "payment.success.program_paid_creating",
-          "Paiement confirmé, création de ton programme…"
-        )
-      : t(
-          "payment.success.program_valid_creating",
-          "Paiement validé, création de ton programme…"
-        )
-    : paid
-    ? t("payment.success.paid", "Paiement confirmé !")
-    : t("payment.success.valid", "Paiement validé !");
-
-  const redirectHint = isProgram
-    ? isPremium
-      ? t(
-          "payment.success.redirect_to_programs",
-          "Ton programme est ajouté à ton espace. Tu vas être redirigé·e vers le viewer."
-        )
-      : t(
-        "payment.success.redirect_when_ready",
-        "Tu seras redirigé·e dès que le programme est prêt."
-      )
-    : t(
-        "payment.success.redirect_to_dashboard",
-        "Tu vas être redirigé·e vers ton tableau de bord."
-      );
-
-  const badgeText = verifying
-    ? t("payment.success.finalizing", "Finalisation en cours…")
-    : paid
-    ? t("payment.success.confirmed", "Paiement confirmé")
-    : t("payment.success.checked", "Paiement vérifié");
-
-  const goNowLabel = t("payment.success.go_now", "Aller maintenant");
-  const waitingHint = t(
-    "payment.success.please_wait",
-    "Merci de patienter quelques secondes…"
-  );
-
+  const retry = () => { setAttempt(0); setRetryKey(value => value + 1); };
+  const busy = state.phase === "verifying" ||
+    (state.phase === "processing" && attempt < 9) ||
+    (waitingProfile && !profileWaitExpired);
+  const error = ["error", "missing", "inactive"].includes(state.phase);
+  const title = state.paid
+    ? t("payment.return.confirmed", "Paiement confirmé")
+    : state.phase === "verifying"
+    ? t("payment.return.verifying", "Vérification du paiement…")
+    : t("payment.return.unconfirmed", "Paiement non confirmé");
+  const messages = {
+    verifying: t("payment.return.verifyingDescription", "Nous vérifions le résultat auprès du serveur de paiement."),
+    missing: t("payment.return.missing", "Ce lien ne contient aucune référence de paiement. Aucun paiement ne peut être confirmé depuis cette page."),
+    login: t("payment.return.login", "Connectez-vous avec le compte utilisé pour cet achat afin de vérifier le paiement."),
+    pending: t("payment.return.pending", "Le paiement n’est pas encore confirmé. Il peut être en attente, avoir été annulé ou refusé. Vérifiez son état avant de recommencer un achat."),
+    processing: t("payment.return.processing", "Votre paiement est confirmé. La préparation de votre programme est en cours ; vous pouvez relancer la vérification sans repayer."),
+    error: t("payment.return.error", "La vérification ou la préparation n’a pas abouti. Réessayez sans effectuer un nouveau paiement. Si le problème persiste, contactez le support."),
+    inactive: t("payment.return.inactive", "Cet achat est confirmé, mais l’abonnement n’est actuellement pas actif. Consultez votre facturation."),
+    confirmed: waitingProfile
+      ? t("payment.return.profile", "Votre paiement est confirmé. La mise à jour de votre accès est en cours.")
+      : t("payment.return.ready", "Votre espace est prêt. Vous allez être redirigé."),
+  };
   return (
-    <Box
-      minH="calc(100vh - 160px)"
-      display="flex"
-      alignItems="center"
-      justifyContent="center"
-      px={4}
-    >
-      <Fade in={true}>
-        <Box
-          bg={cardBg}
-          borderRadius="2xl"
-          px={{ base: 6, md: 10 }}
-          py={{ base: 8, md: 10 }}
-          boxShadow="lg"
-          textAlign="center"
-          maxW="520px"
-          w="full"
-        >
-          <VStack spacing={4}>
-            <Icon
-              as={CheckCircleIcon}
-              w={12}
-              h={12}
-              color={paid ? "green.400" : "yellow.400"}
-            />
-            <Heading size="md">{title}</Heading>
-
-            <VStack spacing={1}>
-              <Text fontSize="sm" opacity={0.85}>
-                {redirectHint}
-              </Text>
-              {sessionId && (
-                <Badge
-                  colorScheme={verifying ? "yellow" : paid ? "green" : "gray"}
-                >
-                  {badgeText}
-                </Badge>
-              )}
-            </VStack>
-
-            <VStack spacing={2} pt={2}>
-              <Spinner thickness="3px" speed="0.7s" />
-              <Text fontSize="xs" opacity={0.6}>
-                {waitingHint}
-              </Text>
-            </VStack>
-
-            {!isProgram && (
-              <Button
-                onClick={() =>
-                  navigate(role === "coach" ? "/coach-dashboard" : "/user-dashboard")
-                }
-                variant="ghost"
-                size="sm"
-              >
-                {goNowLabel}
-              </Button>
-            )}
-          </VStack>
-        </Box>
-      </Fade>
+    <Box minH="calc(100vh - 160px)" display="flex" alignItems="center" justifyContent="center" px={4}>
+      <Box bg={cardBg} borderRadius="2xl" px={{ base: 6, md: 10 }} py={{ base: 8, md: 10 }} maxW="520px" w="full">
+        <VStack spacing={5} textAlign="center" aria-live="polite">
+          <Icon as={state.paid ? CheckCircleIcon : error ? WarningIcon : InfoIcon} boxSize={10} color={state.paid ? "green.400" : error ? "orange.400" : "blue.400"} />
+          <Heading size="md">{title}</Heading>
+          <Text>{messages[state.phase]}</Text>
+          {busy && <Spinner aria-label={t("payment.return.verifying", "Vérification du paiement…")} />}
+          {state.phase === "login" ? (
+            <Button onClick={() => navigate("/login?next=" + encodeURIComponent(location.pathname + location.search))}>{t("auth.login.submit", "Se connecter")}</Button>
+          ) : sessionId && !busy && state.phase !== "inactive" ? (
+            <Button onClick={retry}>{t("payment.return.retry", "Vérifier à nouveau")}</Button>
+          ) : null}
+          {state.destination && !waitingProfile && (
+            <Button onClick={() => navigate(state.destination)}>{t("payment.return.open", "Ouvrir mon espace")}</Button>
+          )}
+          <Button variant="ghost" onClick={() => navigate(user?.role === "coach" || user?.role === "admin" ? "/coach-dashboard" : "/mes-programmes")}>
+            {t("payment.return.leave", "Revenir à mon espace")}
+          </Button>
+        </VStack>
+      </Box>
     </Box>
   );
 }

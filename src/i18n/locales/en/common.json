@@ -1202,6 +1202,30 @@
     "backHome": "⟵ Return to homepage"
   },
   "payment": {
+    "return": {
+      "confirmed": "Payment confirmed",
+      "verifying": "Checking your payment…",
+      "unconfirmed": "Payment not confirmed",
+      "verifyingDescription": "We are checking the payment result with the payment provider.",
+      "missing": "This link does not contain a payment reference. No payment can be confirmed from this page.",
+      "login": "Sign in with the account used for this purchase to check the payment.",
+      "pending": "Your payment has not been confirmed yet. It may be pending, cancelled or declined. Check its status before making another purchase.",
+      "processing": "Your payment is confirmed. Your program is being prepared; you can check again without paying again.",
+      "error": "We could not complete the check or prepare your program. Try again without making another payment. If the problem persists, contact support.",
+      "inactive": "This purchase is confirmed, but the subscription is not currently active. Check your billing details.",
+      "profile": "Your payment is confirmed. Your account access is being updated.",
+      "ready": "Your account is ready. You will be redirected shortly.",
+      "retry": "Check again",
+      "open": "Open my account",
+      "leave": "Return to my account"
+    },
+    "legacy": {
+      "title": "Choose a plan",
+      "description": "This link is outdated and will not initiate a payment. Browse the available offers below.",
+      "pro": "Professional plans",
+      "programs": "Premium programs",
+      "custom": "Custom program"
+    },
     "checkout": {
       "title": "Program payment",
       "subtitle": "Validate your purchase to unlock the <b>{{productId}}</b> program.",
@@ -1354,6 +1378,8 @@
       }
     },
     "register": {
+      "googleDetailsRequired": "To sign up with Google, enter your personal details and accept the terms above. You do not need to enter an email address or password.",
+      "googleRegistrationRequired": "To create a new account with Google, choose “Sign up” to select your account type and accept the terms.",
       "title": "Registration",
       "firstName": "First name",
       "lastName": "Name",

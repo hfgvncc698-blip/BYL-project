@@ -97,6 +97,9 @@ async function runMonthlyPrograms() {
       for (const doc of clientsSnap.docs) {
         const data = doc.data();
         const clientId = doc.id;
+        // New paid subscriptions are delivered exactly once per paid invoice.
+        // Keep the historical 30-day worker only for legacy subscriptions.
+        if (data.deliveryMode === 'stripe-invoice') continue;
         const hasStripeSub = !!data.stripeSubscriptionId || !!data.stripeCustomerId;
         if (!hasStripeSub) continue;
 
@@ -157,4 +160,3 @@ setInterval(() => {
 }, 1000);
 
 console.log('[CRON] worker started (ticker) TZ=' + (process.env.TZ || TZ));
-

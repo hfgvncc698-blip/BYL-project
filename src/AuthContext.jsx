@@ -22,6 +22,7 @@ import {
   deleteUser,
   reload,
   sendEmailVerification,
+  getAdditionalUserInfo,
 } from "firebase/auth";
 import {
   doc,
@@ -41,7 +42,6 @@ import {
 import { getApiBase } from "./utils/apiBase";
 import { getProPlanAccess, isActiveCoachTrial } from "./utils/proPlanAccess";
 import i18n, { ensureLanguageLoaded } from "./i18n";
-import { getFunctions, httpsCallable } from "firebase/functions";
 
 const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
@@ -213,11 +213,10 @@ function queueWelcomeEmail(fbUser, data = {}) {
   ) {
     return;
   }
-  const sendWelcomeEmail = httpsCallable(
-    getFunctions(undefined, "europe-west1"),
-    "sendWelcomeEmail"
-  );
-  void sendWelcomeEmail({
+  // Most visits never send an email: don't download Functions on every page.
+  void import("firebase/functions").then(({ getFunctions, httpsCallable }) => httpsCallable(
+    getFunctions(undefined, "europe-west1"), "sendWelcomeEmail"
+  )({
     email: fbUser.email,
     firstName: data.firstName || data.prenom || fbUser.displayName || "",
     role: data.role || "particulier",
@@ -227,7 +226,7 @@ function queueWelcomeEmail(fbUser, data = {}) {
       data.settings?.defaultLanguage ||
       i18n.language ||
       "fr",
-  }).catch((error) => {
+  })).catch((error) => {
     console.warn("[auth] welcome email skipped:", error?.message || error);
   });
 }
@@ -463,6 +462,159 @@ async function syncVerifiedEmailAccount(fbUser, initialData = {}) {
   return updatedSnap.data() || { ...initialData, ...patch };
 }
 
+async function createRegistrationProfile(fbUser, { firstName, lastName, role = "particulier", birthDate, consent = {} }) {
+  const email = normalizeEmail(fbUser.email);
+  const birthday = new Date(birthDate);
+  const adultDate = new Date();
+  adultDate.setFullYear(adultDate.getFullYear() - 18);
+  if (!email || !String(firstName || "").trim() || !String(lastName || "").trim() ||
+      !["coach", "particulier"].includes(role) || !Number.isFinite(birthday.getTime()) ||
+      birthday > adultDate || consent.ageVerified !== true || consent.cguAccepted !== true ||
+      consent.cgvAccepted !== true ||
+      ((consent.accountType === "club_owner" || consent.onboardingPackage === "club") && !String(consent.clubName || "").trim())) {
+    throw new Error("registration-details-required");
+  }
+  const userRef = doc(db, "users", fbUser.uid);
+
+  const isClubOwner =
+    role === "coach" &&
+    (consent?.accountType === "club_owner" || consent?.onboardingPackage === "club");
+  const clubId = isClubOwner ? fbUser.uid : consent?.clubId || null;
+  const clubName =
+    consent?.clubName ||
+    (isClubOwner ? `${firstName || "Club"} ${lastName || ""}`.trim() : "");
+
+  const base = {
+    email,
+    emailVerified: false,
+    emailVerificationRequired: true,
+    firstName: firstName || "Utilisateur",
+    lastName: lastName || "",
+    role,
+    accountType: isClubOwner ? "club_owner" : consent?.accountType || "",
+    clubId,
+    clubRole: isClubOwner ? "owner" : consent?.clubRole || "",
+    clubName,
+    birthDate: birthDate || "",
+    accountCreationSource: "self-registration",
+    passwordSetupRequired: false,
+    preferredLang: langCodeFromAny(
+      consent?.preferredLanguage || navigator.language || "fr"
+    ),
+    ageVerified: !!consent?.ageVerified,
+    cguAccepted: !!consent?.cguAccepted,
+    cgvAccepted: !!consent?.cgvAccepted,
+    acceptedAt: consent?.acceptedAt || new Date().toISOString(),
+    cguVersion: consent?.cguVersion || "v1.0",
+    cgvVersion: consent?.cgvVersion || "v1.0",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+
+  let trialPart = {};
+  if (role === "coach") {
+    const requestedPackageKey = consent?.onboardingPackage || "";
+    const requestedPackageTier = consent?.onboardingPackageTier || "";
+    const selectedAccess = isClubOwner ? FULL_CLUB_TRIAL_ACCESS : FULL_PRO_TRIAL_ACCESS;
+    const requestedTrialDays = Number(consent?.trialDays || TRIAL_DAYS);
+    const trialDays =
+      Number.isFinite(requestedTrialDays) && requestedTrialDays > 0
+        ? Math.min(Math.round(requestedTrialDays), 30)
+        : TRIAL_DAYS;
+    trialPart = {
+      subscriptionStatus: "pending_verification",
+      trialStatus: "pending_verification",
+      trialDays,
+      requestedPackageKey,
+      requestedPackageTier,
+      onboardingPackage: selectedAccess.packageKey,
+      onboardingPackageTier: selectedAccess.packageTier,
+      packageKey: selectedAccess.packageKey,
+      packageTier: selectedAccess.packageTier,
+      clientLimit: selectedAccess.clientLimit,
+      proLimit: selectedAccess.proLimit,
+      modules: selectedAccess.modules,
+      proAccess: selectedAccess,
+
+      // ✅ IMPORTANT : un trial n'est PAS un abonnement payant
+      hasActiveSubscription: false,
+
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
+    };
+  } else {
+    trialPart = {
+      hasActiveSubscription: false,
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
+      subscriptionStatus: "free",
+    };
+  }
+
+  const registrationBatch = writeBatch(db);
+  registrationBatch.set(userRef, { ...base, ...trialPart }, { merge: true });
+
+  if (role !== "coach") {
+    registrationBatch.set(
+      doc(db, "clients", fbUser.uid),
+      {
+        uid: fbUser.uid,
+        authUid: fbUser.uid,
+        linkedUserId: fbUser.uid,
+        accountUid: fbUser.uid,
+        email: normalizeEmail(email),
+        emailLower: normalizeEmail(email),
+        firstName: firstName || "Utilisateur",
+        lastName: lastName || "",
+        prenom: firstName || "Utilisateur",
+        nom: lastName || "",
+        role: "particulier",
+        source: "self-registration",
+        accountCreationSource: "self-registration",
+        passwordSetupRequired: false,
+        preferredLang: base.preferredLang,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
+
+  if (isClubOwner) {
+    const clubRef = doc(db, "clubs", clubId);
+    registrationBatch.set(
+      clubRef,
+      {
+        name: clubName || `${firstName || "Club"} ${lastName || ""}`.trim(),
+        ownerUid: fbUser.uid,
+        ownerEmail: email,
+        planTier: trialPart.packageTier || "network",
+        trialDays: trialPart.trialDays || 30,
+        status: "pending_verification",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+    registrationBatch.set(
+      doc(db, "clubs", clubId, "members", fbUser.uid),
+      {
+        uid: fbUser.uid,
+        email,
+        firstName: firstName || "Responsable",
+        lastName: lastName || "",
+        role: "owner",
+        status: "active",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
+  await registrationBatch.commit();
+  return { ...base, ...trialPart };
+}
+
 /* ----------------- Provider ----------------- */
 export const AuthProvider = ({ children }) => {
   // Affiche immédiatement le dernier profil validé, puis on le resynchronise
@@ -471,6 +623,7 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const unsubUserRef = useRef(null); // pour nettoyer l’ancienne souscription
+  const registrationInProgressRef = useRef(false);
 
   /** viewAs = "admin" | "coach" | null (null = auto) */
   const [viewAs, _setViewAs] = useState(() => {
@@ -624,6 +777,7 @@ export const AuthProvider = ({ children }) => {
                 }
               } else {
                 // création minimale si le doc manque
+                if (registrationInProgressRef.current) return;
                 const seed = await seedUserDocFromClient(firebaseUser);
                 await setDoc(userRef, seed, { merge: true });
               }
@@ -771,24 +925,38 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Connexion Google
-  const loginWithGoogle = async (callback) => {
+  const loginWithGoogle = async (callback, registration = null) => {
+    if (registrationInProgressRef.current) throw new Error("registration-in-progress");
+    registrationInProgressRef.current = true;
     setError(null);
     setLoading(true);
+    let newGoogleUser = null;
+    let profileCommitted = false;
     try {
       const provider = new GoogleAuthProvider();
-      const { user: fbUser } = await signInWithPopup(auth, provider);
+      const credential = await signInWithPopup(auth, provider);
+      const fbUser = credential.user;
+      if (getAdditionalUserInfo(credential)?.isNewUser) newGoogleUser = fbUser;
       const userRef = doc(db, "users", fbUser.uid);
       const userDoc = await getDoc(userRef);
       if (!userDoc.exists()) {
-        await setDoc(
-          userRef,
-          await seedUserDocFromClient(fbUser, "google"),
-          { merge: true }
-        );
+        if (registration) {
+          await createRegistrationProfile(fbUser, registration);
+        } else if (newGoogleUser) {
+          // The login button must not bypass registration identity/consent.
+          throw new Error("registration-details-required");
+        } else {
+          await setDoc(userRef, await seedUserDocFromClient(fbUser, "google"), { merge: true });
+        }
       }
+      profileCommitted = true;
       if (callback) {
         const snap = await getDoc(userRef);
-        const data = snap.data() || {};
+        let data = snap.data() || {};
+        if (fbUser.emailVerified === true && data.emailVerificationRequired === true) {
+          await fbUser.getIdToken(true);
+          data = await syncVerifiedEmailAccount(fbUser, data);
+        }
         await syncAccountLanguage(data);
         const normalized = normalizeUserDoc(fbUser.uid, data, fbUser);
         setUser(normalized);
@@ -821,12 +989,21 @@ export const AuthProvider = ({ children }) => {
           data.clubId;
         const callbackRole = clubAccessOk ? "coach" : data.role || "particulier";
 
-        callback(callbackRole, !!data.hasActiveSubscription || !!trialOk || !!clubAccessOk, data);
+        callback(callbackRole, !!data.hasActiveSubscription || !!trialOk || !!clubAccessOk, normalized);
       }
     } catch (err) {
       console.error(err);
-      setError("Connexion Google échouée.");
+      if (newGoogleUser && !profileCommitted) {
+        await deleteUser(newGoogleUser).catch((cleanupError) => {
+          console.warn("[register] Google orphan auth cleanup skipped:", cleanupError?.message || cleanupError);
+        });
+      }
+      setError(err?.message === "registration-details-required"
+        ? i18n.t("auth.register.googleRegistrationRequired", "Pour créer un nouveau compte Google, utilise « Inscription » afin de choisir ton espace et d’accepter les conditions.")
+        : "Connexion Google échouée.");
+      if (registration) throw err;
     } finally {
+      registrationInProgressRef.current = false;
       setLoading(false);
     }
   };
@@ -901,194 +1078,44 @@ export const AuthProvider = ({ children }) => {
     birthDate,
     consent
   ) => {
+    if (registrationInProgressRef.current) throw new Error("registration-in-progress");
+    registrationInProgressRef.current = true;
     setError(null);
     setLoading(true);
     let createdUser = null;
     try {
-      const { user: fbUser } = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
+      const { user: fbUser } = await createUserWithEmailAndPassword(auth, normalizeEmail(email), password);
       createdUser = fbUser;
-
-      // Facultatif: displayName côté Firebase Auth
       try {
-        await updateProfile(fbUser, {
-          displayName: `${firstName || ""} ${lastName || ""}`.trim(),
-        });
+        await updateProfile(fbUser, { displayName: `${firstName || ""} ${lastName || ""}`.trim() });
       } catch {}
-
-      const userRef = doc(db, "users", fbUser.uid);
-
-      const isClubOwner =
-        role === "coach" &&
-        (consent?.accountType === "club_owner" || consent?.onboardingPackage === "club");
-      const clubId = isClubOwner ? fbUser.uid : consent?.clubId || null;
-      const clubName =
-        consent?.clubName ||
-        (isClubOwner ? `${firstName || "Club"} ${lastName || ""}`.trim() : "");
-
-      const base = {
-        email,
-        emailVerified: false,
-        emailVerificationRequired: true,
-        firstName: firstName || "Utilisateur",
-        lastName: lastName || "",
-        role,
-        accountType: isClubOwner ? "club_owner" : consent?.accountType || "",
-        clubId,
-        clubRole: isClubOwner ? "owner" : consent?.clubRole || "",
-        clubName,
-        birthDate: birthDate || "",
-        accountCreationSource: "self-registration",
-        passwordSetupRequired: false,
-        preferredLang: langCodeFromAny(
-          consent?.preferredLanguage || navigator.language || "fr"
-        ),
-        ageVerified: !!consent?.ageVerified,
-        cguAccepted: !!consent?.cguAccepted,
-        cgvAccepted: !!consent?.cgvAccepted,
-        acceptedAt: consent?.acceptedAt || new Date().toISOString(),
-        cguVersion: consent?.cguVersion || "v1.0",
-        cgvVersion: consent?.cgvVersion || "v1.0",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
-
-      let trialPart = {};
-      if (role === "coach") {
-        const requestedPackageKey = consent?.onboardingPackage || "";
-        const requestedPackageTier = consent?.onboardingPackageTier || "";
-        const selectedAccess = isClubOwner ? FULL_CLUB_TRIAL_ACCESS : FULL_PRO_TRIAL_ACCESS;
-        const requestedTrialDays = Number(consent?.trialDays || TRIAL_DAYS);
-        const trialDays =
-          Number.isFinite(requestedTrialDays) && requestedTrialDays > 0
-            ? Math.min(Math.round(requestedTrialDays), 30)
-            : TRIAL_DAYS;
-        trialPart = {
-          subscriptionStatus: "pending_verification",
-          trialStatus: "pending_verification",
-          trialDays,
-          requestedPackageKey,
-          requestedPackageTier,
-          onboardingPackage: selectedAccess.packageKey,
-          onboardingPackageTier: selectedAccess.packageTier,
-          packageKey: selectedAccess.packageKey,
-          packageTier: selectedAccess.packageTier,
-          clientLimit: selectedAccess.clientLimit,
-          proLimit: selectedAccess.proLimit,
-          modules: selectedAccess.modules,
-          proAccess: selectedAccess,
-
-          // ✅ IMPORTANT : un trial n'est PAS un abonnement payant
-          hasActiveSubscription: false,
-
-          stripeCustomerId: null,
-          stripeSubscriptionId: null,
-        };
-      } else {
-        trialPart = {
-          hasActiveSubscription: false,
-          stripeCustomerId: null,
-          stripeSubscriptionId: null,
-          subscriptionStatus: "free",
-        };
-      }
-
-      const registrationBatch = writeBatch(db);
-      registrationBatch.set(userRef, { ...base, ...trialPart }, { merge: true });
-
-      if (role !== "coach") {
-        registrationBatch.set(
-          doc(db, "clients", fbUser.uid),
-          {
-            uid: fbUser.uid,
-            authUid: fbUser.uid,
-            linkedUserId: fbUser.uid,
-            accountUid: fbUser.uid,
-            email: normalizeEmail(email),
-            emailLower: normalizeEmail(email),
-            firstName: firstName || "Utilisateur",
-            lastName: lastName || "",
-            prenom: firstName || "Utilisateur",
-            nom: lastName || "",
-            role: "particulier",
-            source: "self-registration",
-            accountCreationSource: "self-registration",
-            passwordSetupRequired: false,
-            preferredLang: base.preferredLang,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
-      }
-
-      if (isClubOwner) {
-        const clubRef = doc(db, "clubs", clubId);
-        registrationBatch.set(
-          clubRef,
-          {
-            name: clubName || `${firstName || "Club"} ${lastName || ""}`.trim(),
-            ownerUid: fbUser.uid,
-            ownerEmail: email,
-            planTier: trialPart.packageTier || "network",
-            trialDays: trialPart.trialDays || 30,
-            status: "pending_verification",
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
-        registrationBatch.set(
-          doc(db, "clubs", clubId, "members", fbUser.uid),
-          {
-            uid: fbUser.uid,
-            email,
-            firstName: firstName || "Responsable",
-            lastName: lastName || "",
-            role: "owner",
-            status: "active",
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
-      }
-      await registrationBatch.commit();
+      const profile = await createRegistrationProfile(fbUser, { firstName, lastName, role, birthDate, consent });
+      // Never delete a committed account because email delivery failed.
+      createdUser = null;
       try {
-        auth.languageCode = base.preferredLang;
+        auth.languageCode = profile.preferredLang;
         await sendEmailVerification(fbUser, {
-          url: verificationReturnUrl(base.preferredLang),
+          url: verificationReturnUrl(profile.preferredLang),
           handleCodeInApp: false,
         });
-        await setDoc(
-          userRef,
+        await setDoc(doc(db, "users", fbUser.uid),
           { emailVerificationSentAt: serverTimestamp(), updatedAt: serverTimestamp() },
-          { merge: true }
-        );
+          { merge: true });
       } catch (verificationError) {
-        console.warn(
-          "[register] verification email will need to be resent:",
-          verificationError?.message || verificationError
-        );
+        console.warn("[register] verification email will need to be resent:", verificationError?.message || verificationError);
       }
-      // le onSnapshot remplira `user`
       return { emailVerificationRequired: true };
     } catch (err) {
       console.error(err);
       if (createdUser) {
         await deleteUser(createdUser).catch((cleanupError) => {
-          console.warn(
-            "[register] orphan auth cleanup skipped:",
-            cleanupError?.message || cleanupError
-          );
+          console.warn("[register] orphan auth cleanup skipped:", cleanupError?.message || cleanupError);
         });
       }
       setError("Inscription échouée.");
       throw err;
     } finally {
+      registrationInProgressRef.current = false;
       setLoading(false);
     }
   };

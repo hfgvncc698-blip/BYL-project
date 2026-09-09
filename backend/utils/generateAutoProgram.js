@@ -4156,6 +4156,7 @@ async function generateAutoProgram({
 /* ------------------- GENERATION + SAUVEGARDE ------------------- */
 async function generateAndSaveAutoProgram({
   clientId,
+  assignedProgramId,
   sexe,
   niveau,
   nbSeances,
@@ -4175,6 +4176,14 @@ async function generateAndSaveAutoProgram({
   generationSeed,
 	}) {
   const db = admin.firestore();
+  const assignedRef = clientId && assignedProgramId
+    ? db.collection("clients").doc(clientId).collection("programmes").doc(assignedProgramId)
+    : null;
+  if (assignedProgramId && !assignedRef) throw new Error("assigned-program-requires-client");
+  if (assignedRef) {
+    const existing = await assignedRef.get();
+    if (existing.exists) return { ...existing.data(), id: existing.id };
+  }
 
   // 1) Objectif UI (stockage)
   const objectifUIRaw = objectifOriginal || objectifUI || objectifUi || objectif || "";
@@ -4260,7 +4269,17 @@ async function generateAndSaveAutoProgram({
   };
 
   let docRef;
-  if (clientId) {
+  if (assignedRef) {
+    try {
+      await assignedRef.create(data);
+    } catch (error) {
+      if (error?.code !== 6 && error?.code !== "already-exists") throw error;
+      const existing = await assignedRef.get();
+      if (!existing.exists) throw error;
+      return { ...existing.data(), id: existing.id };
+    }
+    docRef = assignedRef;
+  } else if (clientId) {
     docRef = await db.collection("clients").doc(clientId).collection("programmes").add(data);
   } else {
     docRef = await db.collection("programmes").add(data);

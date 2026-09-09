@@ -44,6 +44,7 @@ import { CoachNutritionDailySummary } from "./ClientNutritionDailyJournal.jsx";
 import { notify } from "../utils/notify";
 import i18n from "../i18n/index";
 import { hasPlanModule } from "../utils/proPlanAccess";
+import { waitForNutritionOperation } from "../utils/nutritionLoading.js";
 
 const nutritionAssessmentMemoryCache = new Map();
 
@@ -131,6 +132,9 @@ export default function ClientNutritionSection({
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deletingId, setDeletingId] = useState("");
   const cancelDeleteRef = useRef(null);
+  const draftCreationRef = useRef(null);
+  const [creating, setCreating] = useState(false);
+  const [confirmationPending, setConfirmationPending] = useState(false);
 
   useEffect(() => {
     if (!clientId) return;
@@ -177,25 +181,35 @@ export default function ClientNutritionSection({
   }, [assessments, t]);
 
   const onCreate = async () => {
+    if (creating) return;
     if (!canUse) {
       notify(toast, "accessReserved", {
         description: t("auto.ClientNutritionSection.nutrition_access_required", "Cette fonctionnalité nécessite l’accès Nutrition."),
       });
       return;
     }
+    setCreating(true);
     try {
-      const { assessmentId } = await createNutritionAssessmentDraft({
+      if (!draftCreationRef.current) draftCreationRef.current = createNutritionAssessmentDraft({
         clientId,
         createdByUid: user?.uid,
         clubId: user?.clubId || null,
       });
+      const { assessmentId } = await waitForNutritionOperation(draftCreationRef.current);
+      draftCreationRef.current = null;
+      setConfirmationPending(false);
       notify(toast, "nutritionDraftCreated");
       navigate(`/clients/${clientId}/nutrition/${assessmentId}`);
     } catch (e) {
+      if (e?.code === "nutrition-confirmation-timeout") setConfirmationPending(true);
+      else { draftCreationRef.current = null; setConfirmationPending(false); }
       notify(toast, "saveError", {
-        title: t("auto.ClientNutritionSection.creation_impossible", "Création impossible"),
+        status: e?.code === "nutrition-confirmation-timeout" ? "warning" : "error",
+        title: e?.code === "nutrition-confirmation-timeout" ? "Confirmation en attente" : t("auto.ClientNutritionSection.creation_impossible", "Création impossible"),
         description: e?.message || t("auto.ClientNutritionSection.impossible_de_creer_le_bilan", "Impossible de créer le bilan."),
       });
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -240,8 +254,9 @@ export default function ClientNutritionSection({
           px={5}
           borderRadius="full"
           onClick={onCreate}
+          isLoading={creating}
           isDisabled={!canUse}
-        >{i18n.t("auto.ClientNutritionSection.creer_un_bilan_nutrition", "Créer un bilan nutrition")}</Button>
+        >{confirmationPending ? "Vérifier la création" : i18n.t("auto.ClientNutritionSection.creer_un_bilan_nutrition", "Créer un bilan nutrition")}</Button>
       </HStack>
 
       {!canUse && (

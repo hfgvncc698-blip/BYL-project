@@ -12,6 +12,12 @@ const {
 } = require("../utils/firebaseAuth");
 const { recordEmailEvent } = require("../utils/emailEvents");
 const { sendBrandedPasswordReset } = require("../utils/brandedEmail");
+const { randomUUID } = require("node:crypto");
+const {
+  isCheckoutPaymentConfirmed,
+  normalizePaidProgramOptions,
+  createPaidProgramDelivery,
+} = require("../utils/paidProgramOrders");
 
 /* ============================================================
    FRONTEND base (URLs de retour Stripe)
@@ -347,7 +353,7 @@ async function getUserByUidOrEmail(uid, email) {
     const db = admin.firestore();
     if (uid) {
       const snap = await db.collection("users").doc(uid).get();
-      if (snap.exists) return { id: snap.id, ...snap.data() };
+      return snap.exists ? { ...snap.data(), id: snap.id } : null;
     }
     if (email) {
       const q = await db
@@ -456,7 +462,7 @@ async function assertStripeSessionOwnerOrAdmin(req, res, session) {
   const authEmail = String(req.auth?.email || "").trim().toLowerCase();
 
   if (sessionUid && sessionUid === req.auth?.uid) return true;
-  if (sessionEmail && authEmail && sessionEmail === authEmail) return true;
+  if (!sessionUid && req.auth?.token?.email_verified === true && sessionEmail && authEmail && sessionEmail === authEmail) return true;
 
   res.status(403).json({ error: "forbidden" });
   return false;
@@ -483,8 +489,12 @@ async function markTrialUsed(uid) {
 async function upsertUserSubscription(uid, data) {
   if (!uid) return;
   const userRef = admin.firestore().collection("users").doc(uid);
-  const currentSnap = await userRef.get().catch(() => null);
-  const currentRole = String(currentSnap?.data?.()?.role || "").toLowerCase();
+  const currentSnap = await userRef.get();
+  await userRef.set(subscriptionUserPatch(currentSnap.data() || {}, data), { merge: true });
+}
+
+function subscriptionUserPatch(current, data) {
+  const currentRole = String(current.role || "").toLowerCase();
   const incomingRole = String(data?.role || "").toLowerCase();
   const rolePatch = (() => {
     if (!incomingRole) return {};
@@ -498,8 +508,7 @@ async function upsertUserSubscription(uid, data) {
   const trialStart = data.trialStart ?? data.trialStartedAt ?? null;
   const trialEnd = data.trialEnd ?? data.trialEndsAt ?? null;
 
-  await userRef.set(
-    {
+  return {
       ...subscriptionData,
       ...rolePatch,
       trialStart,
@@ -511,9 +520,7 @@ async function upsertUserSubscription(uid, data) {
         trialEnd
       ),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
+    };
 }
 
 const DISTANCE_RE = /^\s*(\d+(?:[.,]\d+)?)\s*(m|metre|metres|mètre|mètres|km|kilometre|kilometres|kilomètre|kilomètres)\s*$/i;
@@ -661,6 +668,7 @@ async function copyPremiumProgramToClient({ firebaseUid, clientId, programmeId, 
 
   const p = srcSnap.data() || {};
   if (p.isActive === false) throw new Error("programme inactif");
+  if (p.origine !== 'premium' && p.isPremiumOnly !== true) throw new Error('not-a-premium-program');
 
   const clientRef = clientId
     ? db.collection("clients").doc(String(clientId))
@@ -1064,27 +1072,14 @@ router.post("/admin/cancel-subscription", requireAdminKey, async (req, res) => {
     const updated = await ensureStripe().subscriptions.update(subId, {
       cancel_at_period_end: !!atPeriodEnd,
     });
-
-    const status = updated.status;
-    const trialStart = updated.trial_start ? new Date(updated.trial_start * 1000) : null;
-    const trialEnd = updated.trial_end ? new Date(updated.trial_end * 1000) : null;
-    const nextEnd = updated.current_period_end ? new Date(updated.current_period_end * 1000) : null;
-
-    await upsertUserSubscription(String(uid), {
-      stripeCustomerId: customerId,
-      stripeSubscriptionId: updated.id,
-      subscriptionStatus: status,
-      trialStart,
-      trialEnd,
-      nextInvoiceAt: nextEnd,
-      trialStatus: status === "trialing" ? "running" : (status === "canceled" ? "ended" : "none"),
-    });
+    const observed = await loadSubscriptionForSync(updated.id);
+    const synced = await syncSubscriptionToUser(String(uid), observed.subscription, observed.subscription.metadata, observed);
 
     return res.json({
       ok: true,
       subscriptionId: updated.id,
       cancel_at_period_end: updated.cancel_at_period_end,
-      status,
+      status: synced.status,
     });
   } catch (e) {
     console.error("[ADMIN cancel-subscription] error:", e);
@@ -1724,11 +1719,7 @@ router.post("/admin/invoice-action", requireAdminKey, async (req, res) => {
 /* ============================================================
    0) Portail client Stripe (Billing Portal)
 ============================================================ */
-router.post(
-  "/create-stripe-portal-session",
-  requireFirebaseAuth,
-  requireSelfOrAdmin,
-  async (req, res) => {
+async function createStripePortalSession(req, res) {
   try {
     const { userId, email, returnUrl } = req.body || {};
     if (!userId && !email) {
@@ -1778,8 +1769,8 @@ router.post(
     }
     return res.status(500).json({ error: e.message || "server-error" });
   }
-  }
-);
+}
+router.post('/create-stripe-portal-session', requireFirebaseAuth, requireSelfOrAdmin, createStripePortalSession);
 
 /* ============================================================
    1) Sauvegarde prefs auto-program (optionnel) + ALIAS
@@ -1935,9 +1926,7 @@ router.post("/recover-premium-purchases", requireFirebaseAuth, requireSelfOrAdmi
         const metadata = session.metadata || {};
         const isPremium = String(metadata.audience || "").toLowerCase() === "premium";
         const matchesUser = String(metadata.firebaseUid || "").trim() === firebaseUid;
-        const isPaid =
-          session.mode === "payment" &&
-          (session.payment_status === "paid" || session.status === "complete");
+        const isPaid = session.mode === "payment" && isCheckoutPaymentConfirmed(session);
 
         if (isPremium && matchesUser && isPaid && metadata.programmeId) {
           const assignment = await copyPremiumProgramToClient({
@@ -2028,6 +2017,16 @@ router.post("/create-checkout-session", requireFirebaseAuth, requireSelfOrAdmin,
     }
 
     const audience = guessAudience();
+    if (!['payment', 'subscription'].includes(mode) ||
+        (audience === 'pro' && mode !== 'subscription') ||
+        (audience === 'premium' && mode !== 'payment')) {
+      return res.status(400).json({ error: 'invalid-checkout-mode' });
+    }
+    // Freeze the paid questionnaire on our own backend, not in Stripe metadata:
+    // preferences may include injury information and must not travel to Stripe.
+    const programOptions = ['custom', 'particulier'].includes(audience)
+      ? normalizePaidProgramOptions(options)
+      : null;
     const yearly = String(plan || "").toLowerCase() === "yearly";
     const normalizedPackageKey =
       audience === "pro" ? normalizeProPackageKey(packageKey) : "";
@@ -2147,19 +2146,15 @@ router.post("/create-checkout-session", requireFirebaseAuth, requireSelfOrAdmin,
     } else if (audience === "particulier") {
       chosenPriceId = PRICE_PARTICULIER_MONTHLY;
     } else if (audience === "premium") {
-      chosenPriceId = PRICE_PREMIUM_FALLBACK;
-      if (overridePriceId && programId) {
-        const programSnap = await admin.firestore().collection("programmes").doc(programId).get().catch(() => null);
-        const program = programSnap?.exists ? programSnap.data() || {} : {};
-        const allowedPremiumPrices = [
-          program.stripePriceId,
-          program.priceId,
-          PRICE_PREMIUM_FALLBACK,
-        ].filter(Boolean);
-        if (!allowedPremiumPrices.includes(overridePriceId)) {
-          return res.status(400).json({ error: "invalid-priceId" });
-        }
-        chosenPriceId = overridePriceId;
+      if (!programId || String(programId).includes('/')) return res.status(400).json({ error: 'invalid-programId' });
+      const programSnap = await admin.firestore().collection('programmes').doc(programId).get();
+      const program = programSnap.data() || {};
+      if (!programSnap.exists || program.isActive === false || (program.origine !== 'premium' && program.isPremiumOnly !== true)) {
+        return res.status(400).json({ error: 'premium-program-unavailable' });
+      }
+      chosenPriceId = program.stripePriceId || program.priceId || PRICE_PREMIUM_FALLBACK;
+      if (overridePriceId && overridePriceId !== chosenPriceId) {
+        return res.status(400).json({ error: 'invalid-priceId' });
       }
     }
 
@@ -2201,6 +2196,13 @@ router.post("/create-checkout-session", requireFirebaseAuth, requireSelfOrAdmin,
       discounts.push({ coupon: COUPON_FIRST_MONTH_10 });
     }
 
+    let programRequestId = '';
+    if (programOptions) {
+      programRequestId = randomUUID();
+      await admin.firestore().collection('checkout_program_requests').doc(programRequestId).create({
+        uid: firebaseUid, options: programOptions, createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
     const metadata = {
       firebaseUid: firebaseUid || "",
       flow: "questionnaire",
@@ -2208,6 +2210,8 @@ router.post("/create-checkout-session", requireFirebaseAuth, requireSelfOrAdmin,
       type: String(type || ""),
       plan: plan || "",
       programmeId: programId || "",
+      programRequestId,
+      programDeliveryMode: programOptions && mode === 'subscription' ? 'stripe-invoice' : '',
       niveau: String(options?.niveau || ""),
       frequence: String(options?.frequence || ""),
       objectif: String(options?.objectif || ""),
@@ -2287,6 +2291,129 @@ router.post("/create-checkout-session", requireFirebaseAuth, requireSelfOrAdmin,
 });
 
 /* ============================================================
+   Single fulfillment path for browser return and signed webhook.
+============================================================ */
+async function fulfillCheckoutSession(session) {
+  if (!isCheckoutPaymentConfirmed(session)) {
+    return { ok: false, paymentConfirmed: false, reason: 'payment-not-confirmed', paymentStatus: session.payment_status || 'unpaid' };
+  }
+  let uid = String(session.metadata?.firebaseUid || '').trim();
+  if (!uid) {
+    const email = normalizeEmail(session.customer_email || session.customer_details?.email);
+    if (email) {
+      const users = await admin.firestore().collection('users').where('email', '==', email).limit(1).get();
+      uid = users.docs[0]?.id || '';
+    }
+  }
+  if (!uid) throw new Error('paid-session-user-not-found');
+  const audience = String(session.metadata?.audience || '').toLowerCase();
+  let subscription = null;
+  if (session.mode === 'subscription') {
+    const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
+    if (!subscriptionId) throw new Error('paid-session-subscription-missing');
+    const observed = await loadSubscriptionForSync(subscriptionId);
+    subscription = observed.subscription;
+    const synced = await syncSubscriptionToUser(uid, subscription, session.metadata, observed);
+    if (audience === 'pro') {
+      return { ok: true, paymentConfirmed: true, type: 'subscription', status: synced.status, viewerUrl: '/coach-dashboard' };
+    }
+  }
+  if (session.mode === 'payment' && audience === 'premium' && session.metadata?.programmeId) {
+    const assignment = await copyPremiumProgramToClient({ firebaseUid: uid, programmeId: session.metadata.programmeId, session });
+    return { ok: true, paymentConfirmed: true, type: 'premium-onetime', ...assignment, programAssignmentId: assignment.id };
+  }
+  if (!['custom', 'particulier'].includes(audience)) throw new Error('unsupported-paid-session');
+  const receiptId = subscription ? `initial_${subscription.id}` : session.id;
+  const result = await deliverPaidProgram({ ...session, metadata: { ...session.metadata, firebaseUid: uid } }, uid, receiptId);
+  return { ok: true, paymentConfirmed: true, type: subscription ? 'subscription-program' : 'custom-onetime', ...result };
+}
+
+async function deliverPaidProgram(session, uid, receiptId) {
+  const deliver = createPaidProgramDelivery({
+    db: admin.firestore(), FieldValue: admin.firestore.FieldValue,
+    resolveClientRef: resolveClientRefForPremiumPurchase,
+    generateProgram: args => require('../utils/generateAutoProgram').generateAndSaveAutoProgram(args),
+  });
+  return deliver({ session, uid, receiptId });
+}
+
+// Reserve an observation BEFORE the external read. A slow older response must
+// not overwrite a newer response already committed by another server instance.
+async function loadSubscriptionForSync(subscriptionId) {
+  if (!/^sub_[A-Za-z0-9_]+$/.test(subscriptionId || '')) throw new Error('invalid-subscription-id');
+  const ref = admin.firestore().collection('stripe_subscription_sync').doc(subscriptionId);
+  const revision = await admin.firestore().runTransaction(async transaction => {
+    const current = (await transaction.get(ref)).data() || {};
+    const next = Number(current.requestedRevision || 0) + 1;
+    transaction.set(ref, { requestedRevision: next }, { merge: true });
+    return next;
+  });
+  const subscription = await ensureStripe().subscriptions.retrieve(subscriptionId);
+  if (subscription.id !== subscriptionId) throw new Error('subscription-id-mismatch');
+  return { subscription, ref, revision };
+}
+
+async function syncSubscriptionToUser(uid, subscription, metadata = subscription.metadata || {}, observation) {
+  if (!observation?.ref || !observation.revision) throw new Error('subscription-observation-required');
+  const trialStart = subscription.trial_start ? new Date(subscription.trial_start * 1000) : null;
+  const trialEnd = subscription.trial_end ? new Date(subscription.trial_end * 1000) : null;
+  const periodEnd = subscription.current_period_end || subscription.items?.data?.[0]?.current_period_end;
+  const db = admin.firestore();
+  const userRef = db.collection('users').doc(uid);
+  const observed = (await userRef.get()).data() || {};
+  const incomingCreated = Number(subscription.created || 0);
+  let observedCreated = Number(observed.stripeSubscriptionCreatedAt || 0);
+  const different = observed.stripeSubscriptionId && observed.stripeSubscriptionId !== subscription.id;
+  if (different && ['active', 'trialing'].includes(subscription.status)) {
+    if (!observedCreated) {
+      const previous = await ensureStripe().subscriptions.retrieve(observed.stripeSubscriptionId);
+      observedCreated = Number(previous.created || 0);
+    }
+  }
+  const clientRef = metadata.audience === 'particulier' ? await resolveClientRefForPremiumPurchase(uid) : null;
+  const data = {
+    stripeCustomerId: typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id,
+    stripeSubscriptionId: subscription.id,
+    stripeSubscriptionCreatedAt: incomingCreated,
+    subscriptionStatus: subscription.status,
+    trialStart, trialEnd,
+    nextInvoiceAt: periodEnd ? new Date(periodEnd * 1000) : null,
+    trialStatus: subscription.status === 'trialing' ? 'running' : subscription.status === 'canceled' ? 'ended' : 'none',
+    ...(metadata.audience ? { role: metadata.audience === 'pro' ? 'coach' : 'particulier', planType: metadata.productType || metadata.audience } : {}),
+    ...(metadata.audience === 'pro' ? metadataProAccess(metadata) : {}),
+    ...(trialStart ? { appTrialUsed: true } : {}),
+  };
+  // User access and the client/cron projection change atomically. A delayed
+  // cancellation of a superseded subscription must not revoke its replacement.
+  return db.runTransaction(async transaction => {
+    const current = (await transaction.get(userRef)).data() || {};
+    const lastObservation = (await transaction.get(observation.ref)).data() || {};
+    if (Number(lastObservation.appliedRevision || 0) >= observation.revision) {
+      return { applied: false, status: current.subscriptionStatus };
+    }
+    const currentId = current.stripeSubscriptionId;
+    if (currentId && currentId !== subscription.id) {
+      const currentCreated = Number(current.stripeSubscriptionCreatedAt || (currentId === observed.stripeSubscriptionId ? observedCreated : 0));
+      const activeReplacement = ['active', 'trialing'].includes(subscription.status);
+      const newer = incomingCreated > 0 && currentCreated > 0 && incomingCreated > currentCreated;
+      // Stripe creation timestamps have one-second precision: equal or absent
+      // timestamps cannot prove replacement, so preserve the current binding.
+      if (!activeReplacement || !newer) return { applied: false, status: current.subscriptionStatus };
+    }
+    if (currentId === subscription.id && ['canceled', 'incomplete_expired'].includes(current.subscriptionStatus) &&
+        subscription.status !== current.subscriptionStatus) return { applied: false, status: current.subscriptionStatus };
+    transaction.set(userRef, subscriptionUserPatch(current, data), { merge: true });
+    transaction.set(observation.ref, { appliedRevision: observation.revision, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    if (clientRef) transaction.set(clientRef, {
+      abonnementActif: subscription.status === 'active',
+      ...(metadata.programDeliveryMode === 'stripe-invoice' ? { deliveryMode: 'stripe-invoice' } : {}),
+      stripeCustomerId: data.stripeCustomerId, stripeSubscriptionId: subscription.id,
+    }, { merge: true });
+    return { applied: true, status: subscription.status };
+  });
+}
+
+/* ============================================================
    2.bis) Lire une session (debug)
 ============================================================ */
 router.get("/session", requireFirebaseAuth, async (req, res) => {
@@ -2315,97 +2442,8 @@ router.post("/finalize-session", requireFirebaseAuth, async (req, res) => {
     });
     if (!(await assertStripeSessionOwnerOrAdmin(req, res, s))) return;
 
-    let firebaseUid = (s.metadata?.firebaseUid || "").trim();
-    const email = (s.customer_email || "").trim().toLowerCase();
-    if (!firebaseUid && email) {
-      const q = await admin.firestore().collection("users").where("email", "==", email).limit(1).get();
-      if (!q.empty) firebaseUid = q.docs[0].id;
-    }
-    if (!firebaseUid) return res.json({ ok: false, reason: "no-uid" });
-
-    const audience = (s.metadata?.audience || "").toLowerCase();
-
-    if (s.mode === "subscription" && s.subscription) {
-      const sub =
-        typeof s.subscription === "string"
-          ? await ensureStripe().subscriptions.retrieve(s.subscription)
-          : s.subscription;
-
-      const status = sub.status;
-      const trialStart = sub.trial_start ? new Date(sub.trial_start * 1000) : null;
-      const trialEnd = sub.trial_end ? new Date(sub.trial_end * 1000) : null;
-      const nextEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
-
-      const role = audience === "pro" ? "coach" : "particulier";
-
-      await upsertUserSubscription(firebaseUid, {
-        stripeCustomerId: sub.customer,
-        stripeSubscriptionId: sub.id,
-        subscriptionStatus: status,
-        trialStart,
-        trialEnd,
-        nextInvoiceAt: nextEnd,
-        role,
-        planType: s.metadata?.productType || audience,
-        ...(audience === "pro" ? metadataProAccess(s.metadata) : {}),
-      });
-
-      if (trialStart) await markTrialUsed(firebaseUid);
-
-      return res.json({ ok: true, type: "subscription", status });
-    }
-
-    if (s.mode === "payment") {
-      const db = admin.firestore();
-
-      if (audience === "premium" && s.metadata?.programmeId) {
-        try {
-          const assignment = await copyPremiumProgramToClient({
-            firebaseUid,
-            programmeId: s.metadata.programmeId,
-            session: s,
-          });
-          return res.json({
-            ok: true,
-            type: "premium-onetime",
-            programAssignmentId: assignment?.id || null,
-            clientId: assignment?.clientId || null,
-            viewerUrl: assignment?.viewerUrl || null,
-            alreadyExists: Boolean(assignment?.alreadyExists),
-          });
-        } catch (e) {
-          console.error("[FINALIZE] copy premium error:", e);
-          return res.status(500).json({ ok: false, error: e.message || "premium-copy-failed" });
-        }
-      }
-
-      await db.collection("users").doc(firebaseUid).set(
-        {
-          hasPurchasedCustomProgram: true,
-          lastCustomProgramOrderAt: admin.firestore.FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      );
-
-      await db.collection("custom_program_orders").add({
-        uid: firebaseUid,
-        sessionId: s.id,
-        amount_total: s.amount_total,
-        currency: s.currency,
-        options: {
-          niveau: s.metadata?.niveau || "",
-          frequence: s.metadata?.frequence || "",
-          objectif: s.metadata?.objectif || "",
-          nbSeances: s.metadata?.nbSeances || "",
-        },
-        status: "paid",
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      return res.json({ ok: true, type: "custom-onetime" });
-    }
-
-    return res.json({ ok: false, reason: "unknown-mode" });
+    const result = await fulfillCheckoutSession(s);
+    return res.status(result.deliveryPending ? 202 : result.paymentConfirmed ? 200 : 409).json(result);
   } catch (e) {
     console.error("[FINALIZE] error:", e);
     return res.status(500).json({ error: e.message });
@@ -2418,7 +2456,7 @@ router.post("/finalize-session", requireFirebaseAuth, async (req, res) => {
 async function handleReconcile(req, res) {
   try {
     const { uid, email } = req.body || {};
-    let userDoc = await getUserByUidOrEmail(uid, email);
+    const userDoc = await getUserByUidOrEmail(uid, email);
     if (!userDoc) return res.status(404).json({ error: "user not found" });
 
     let customerId = userDoc.stripeCustomerId;
@@ -2430,51 +2468,21 @@ async function handleReconcile(req, res) {
       customerId = list.data?.[0]?.id || null;
     }
 
-    if (!customerId) {
-      await upsertUserSubscription(userDoc.id, {
-        subscriptionStatus: "canceled",
-        hasActiveSubscription: false,
-      });
-      return res.json({ ok: true, status: "canceled" });
+    let subscriptionId = userDoc.stripeSubscriptionId;
+    if (!subscriptionId && customerId) {
+      const subs = await ensureStripe().subscriptions.list({ customer: customerId, status: 'all', limit: 10 });
+      subscriptionId = subs.data?.find(sub => ['active', 'trialing'].includes(sub.status))?.id || subs.data?.[0]?.id;
     }
-
-    const subs = await ensureStripe().subscriptions.list({
-      customer: customerId,
-      status: "all",
-      limit: 1,
-    });
-    const sub = subs.data?.[0] || null;
-
-    if (!sub) {
-      await upsertUserSubscription(userDoc.id, {
-        stripeCustomerId: customerId,
-        subscriptionStatus: "canceled",
-        hasActiveSubscription: false,
-      });
-      return res.json({ ok: true, status: "canceled" });
+    if (!subscriptionId) {
+      // An empty list is not evidence to revoke access: a concurrent Checkout
+      // may have attached a subscription since our initial profile read.
+      const latest = (await admin.firestore().collection('users').doc(userDoc.id).get()).data() || {};
+      subscriptionId = latest.stripeSubscriptionId;
+      if (!subscriptionId) return res.json({ ok: true, reconciled: false, status: latest.subscriptionStatus || 'free' });
     }
-
-    const status = sub.status;
-    const trialStart = sub.trial_start ? new Date(sub.trial_start * 1000) : null;
-    const trialEnd = sub.trial_end ? new Date(sub.trial_end * 1000) : null;
-    const nextEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
-
-    await upsertUserSubscription(userDoc.id, {
-      stripeCustomerId: sub.customer,
-      stripeSubscriptionId: sub.id,
-      subscriptionStatus: status,
-      trialStart,
-      trialEnd,
-      nextInvoiceAt: nextEnd,
-      trialStatus:
-        status === "trialing"
-          ? "running"
-          : status === "canceled"
-          ? "ended"
-          : "none",
-    });
-
-    return res.json({ ok: true, status });
+    const observed = await loadSubscriptionForSync(subscriptionId);
+    const synced = await syncSubscriptionToUser(userDoc.id, observed.subscription, observed.subscription.metadata, observed);
+    return res.json({ ok: true, status: synced.status });
   } catch (e) {
     console.error("[RECONCILE] error:", e);
     if (e?.message === "NO_STRIPE_KEY") {
@@ -2513,185 +2521,65 @@ const webhookHandler = async (req, res) => {
   }
 
   try {
-    await admin
-      .firestore()
-      .collection("stripe_events")
-      .doc(event.id)
-      .set(
-        {
-          id: event.id,
-          type: event.type,
-          receivedAt: admin.firestore.FieldValue.serverTimestamp(),
-          live: event.livemode,
-        },
-        { merge: true }
-      );
-  } catch (_) {}
-
-  const type = event.type;
-
-  if (type === "checkout.session.completed") {
-    const session = event.data.object;
-
-    let firebaseUid = (session.metadata?.firebaseUid || "").trim();
-    const email = (session.customer_email || "").trim().toLowerCase();
-    if (!firebaseUid && email) {
-      try {
-        const users = await admin
-          .firestore()
-          .collection("users")
-          .where("email", "==", email)
-          .limit(1)
-          .get();
-        if (!users.empty) firebaseUid = users.docs[0].id;
-      } catch (e) {
-        console.error("[WEBHOOK] uid by email error:", e);
-      }
-    }
-
-    if (!firebaseUid) {
-      console.error("[WEBHOOK] no uid");
-      return res.status(200).send("no-uid");
-    }
-
-    const audience = (session.metadata?.audience || "").toLowerCase();
-
-    if (session.mode === "subscription" && session.subscription) {
-      try {
-        const sub = await ensureStripe().subscriptions.retrieve(session.subscription);
-        const status = sub.status;
-        const trialStart = sub.trial_start ? new Date(sub.trial_start * 1000) : null;
-        const trialEnd = sub.trial_end ? new Date(sub.trial_end * 1000) : null;
-        const nextEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
-
-        const role = audience === "pro" ? "coach" : "particulier";
-
-        await upsertUserSubscription(firebaseUid, {
-          stripeCustomerId: sub.customer,
-          stripeSubscriptionId: sub.id,
-          subscriptionStatus: status,
-          trialStart,
-          trialEnd,
-          nextInvoiceAt: nextEnd,
-          role,
-          planType: session.metadata?.productType || audience,
-          ...(audience === "pro" ? metadataProAccess(session.metadata) : {}),
-        });
-
-        if (trialStart) await markTrialUsed(firebaseUid);
-      } catch (e) {
-        console.error("[WEBHOOK] read subscription error:", e);
-      }
-      return res.status(200).send("ok-sub");
-    }
-
-    if (session.mode === "payment") {
-      try {
-        if (audience === "premium" && session.metadata?.programmeId) {
-          await copyPremiumProgramToClient({
-            firebaseUid,
-            programmeId: session.metadata.programmeId,
-            session,
-          });
-          return res.status(200).send("ok-premium");
-        }
-
-        const db = admin.firestore();
-        await db.collection("users").doc(firebaseUid).set(
-          {
-            hasPurchasedCustomProgram: true,
-            lastCustomProgramOrderAt: admin.firestore.FieldValue.serverTimestamp(),
-          },
-          { merge: true }
-        );
-
-        await db.collection("custom_program_orders").add({
-          uid: firebaseUid,
-          sessionId: session.id,
-          amount_total: session.amount_total,
-          currency: session.currency,
-          options: {
-            niveau: session.metadata?.niveau || "",
-            frequence: session.metadata?.frequence || "",
-            objectif: session.metadata?.objectif || "",
-            nbSeances: session.metadata?.nbSeances || "",
-          },
-          status: "paid",
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-      } catch (e) {
-        console.error("[WEBHOOK] create order error:", e);
-      }
-      return res.status(200).send("ok-onetime");
-    }
-
-    return res.status(200).send("ok");
-  }
-
-  if (
-    type === "customer.subscription.updated" ||
-    type === "customer.subscription.deleted" ||
-    type === "invoice.paid" ||
-    type === "invoice.payment_failed"
-  ) {
-    const obj = event.data.object;
-    let subscription = obj;
-
-    if (obj.subscription && typeof obj.subscription === "string") {
-      try {
-        subscription = await ensureStripe().subscriptions.retrieve(obj.subscription);
-      } catch (_) {}
-    }
-
-    const status = subscription.status;
-    const customerId = subscription.customer;
-
-    try {
-      let uid = null;
-      const users = await admin
-        .firestore()
-        .collection("users")
-        .where("stripeCustomerId", "==", customerId)
-        .limit(1)
-        .get();
-
-      if (!users.empty) uid = users.docs[0].id;
-      else if (subscription.metadata?.firebaseUid) uid = subscription.metadata.firebaseUid;
-
-      if (uid) {
-        const trialStart = subscription.trial_start ? new Date(subscription.trial_start * 1000) : null;
-        const trialEnd = subscription.trial_end ? new Date(subscription.trial_end * 1000) : null;
-        const nextEnd = subscription.current_period_end ? new Date(subscription.current_period_end * 1000) : null;
-
-        await upsertUserSubscription(uid, {
-          stripeCustomerId: customerId,
-          stripeSubscriptionId: subscription.id,
-          subscriptionStatus: status,
-          trialStart,
-          trialEnd,
-          nextInvoiceAt: nextEnd,
-          trialStatus:
-            status === "trialing"
-              ? "running"
-              : status === "canceled"
-              ? "ended"
-              : "none",
-          ...(subscription.metadata?.audience === "pro"
-            ? metadataProAccess(subscription.metadata)
-            : {}),
-        });
-
-        if (trialStart) await markTrialUsed(uid);
+    const type = event.type;
+    const eventRef = admin.firestore().collection('stripe_events').doc(event.id);
+    await eventRef.set({ id: event.id, type, live: event.livemode, receivedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    if (type === 'checkout.session.completed' || type === 'checkout.session.async_payment_succeeded') {
+      // Retrieve current authoritative payment state. An old delayed event must
+      // never grant access based only on the word "completed".
+      const session = await ensureStripe().checkout.sessions.retrieve(event.data.object.id);
+      const result = await fulfillCheckoutSession(session);
+      if (result.deliveryPending) return res.status(503).json({ error: 'delivery-in-progress' });
+      await eventRef.set({ status: result.paymentConfirmed ? 'processed' : 'awaiting-payment', processedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    } else if (type === 'checkout.session.async_payment_failed') {
+      // Record failure, but never revoke a receipt subsequently confirmed paid.
+      const session = await ensureStripe().checkout.sessions.retrieve(event.data.object.id);
+      if (isCheckoutPaymentConfirmed(session)) {
+        const result = await fulfillCheckoutSession(session);
+        if (result.deliveryPending) return res.status(503).json({ error: 'delivery-in-progress' });
+        await eventRef.set({ status: 'processed' }, { merge: true });
       } else {
-        console.warn("[WEBHOOK] user not found for customer", customerId);
+        await eventRef.set({ status: 'payment-failed' }, { merge: true });
       }
-    } catch (e) {
-      console.error("[WEBHOOK] sync sub error:", e);
+    } else if (['customer.subscription.updated', 'customer.subscription.deleted', 'invoice.paid', 'invoice.payment_failed'].includes(type)) {
+      const object = event.data.object;
+      // Both pre-Basil and current Invoice layouts; standalone invoices must
+      // not be mistaken for subscriptions (invoice.status is not sub.status).
+      const rawId = type.startsWith('customer.subscription.')
+        ? object.id
+        : object.subscription || object.parent?.subscription_details?.subscription;
+      const subscriptionId = typeof rawId === 'string' ? rawId : rawId?.id;
+      if (subscriptionId) {
+        const observed = await loadSubscriptionForSync(subscriptionId);
+        const subscription = observed.subscription;
+        const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id;
+        const users = await admin.firestore().collection('users').where('stripeCustomerId', '==', customerId).limit(1).get();
+        const uid = users.docs[0]?.id || subscription.metadata?.firebaseUid;
+        if (!uid) throw new Error('subscription-user-not-found');
+        await syncSubscriptionToUser(uid, subscription, subscription.metadata, observed);
+        if (type === 'invoice.paid' && subscription.metadata?.audience === 'particulier' &&
+            subscription.metadata?.programDeliveryMode === 'stripe-invoice') {
+          const invoice = await ensureStripe().invoices.retrieve(object.id);
+          if (invoice.status !== 'paid') throw new Error('invoice-payment-not-confirmed');
+          if (['subscription_create', 'subscription_cycle'].includes(invoice.billing_reason)) {
+            const receiptId = invoice.billing_reason === 'subscription_create' ? `initial_${subscription.id}` : invoice.id;
+            const result = await deliverPaidProgram({
+              id: invoice.id, mode: 'subscription', status: 'complete', payment_status: 'paid',
+              amount_total: invoice.amount_paid, currency: invoice.currency,
+              metadata: { ...subscription.metadata, firebaseUid: uid },
+            }, uid, receiptId);
+            if (result.deliveryPending) return res.status(503).json({ error: 'delivery-in-progress' });
+          }
+        }
+      }
+      await eventRef.set({ status: 'processed', processedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
     }
     return res.json({ received: true });
+  } catch (error) {
+    console.error('[WEBHOOK] fulfillment failed:', error?.message || error);
+    // Stripe must retry when persistence, lookup, or delivery failed.
+    return res.status(500).json({ error: 'webhook-processing-failed' });
   }
-
-  return res.json({ received: true });
 };
 
 /* ============================================================
@@ -2825,3 +2713,4 @@ router.get("/_diag/echo", requireAdminKey, (req, res) => {
 ============================================================ */
 module.exports = router;
 module.exports.webhookHandler = webhookHandler;
+module.exports.createStripePortalSession = createStripePortalSession;

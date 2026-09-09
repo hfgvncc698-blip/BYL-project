@@ -66,6 +66,7 @@ export async function trackPageView({
   accuracy,
   geoCapturedAt,
   geoSource,
+  visitId,
   analyticsAllowed = true,
 }) {
   const authUser = auth.currentUser;
@@ -75,6 +76,7 @@ export async function trackPageView({
   const cleanLng = cleanCoordinate(lng, -180, 180);
   const includeCoords = hasUsableCoords(cleanLat, cleanLng);
   const payload = {
+    visitId: visitId || null,
     path: path || "/",
     country: country || null,
     city: city || null,

@@ -1202,6 +1202,30 @@
     "backHome": "⟵ Zurück zur Startseite"
   },
   "payment": {
+    "return": {
+      "confirmed": "Zahlung bestätigt",
+      "verifying": "Zahlung wird geprüft…",
+      "unconfirmed": "Zahlung nicht bestätigt",
+      "verifyingDescription": "Wir prüfen das Zahlungsergebnis beim Zahlungsanbieter.",
+      "missing": "Dieser Link enthält keine Zahlungsreferenz. Über diese Seite kann keine Zahlung bestätigt werden.",
+      "login": "Melde dich mit dem Konto an, das du für diesen Kauf verwendet hast, um die Zahlung zu prüfen.",
+      "pending": "Deine Zahlung wurde noch nicht bestätigt. Sie kann ausstehen, storniert oder abgelehnt worden sein. Prüfe ihren Status, bevor du erneut etwas kaufst.",
+      "processing": "Deine Zahlung ist bestätigt. Dein Programm wird vorbereitet. Du kannst den Status erneut prüfen, ohne noch einmal zu bezahlen.",
+      "error": "Die Prüfung oder Vorbereitung konnte nicht abgeschlossen werden. Versuche es erneut, ohne eine weitere Zahlung vorzunehmen. Wenn das Problem weiterhin besteht, kontaktiere den Support.",
+      "inactive": "Dieser Kauf ist bestätigt, aber das Abonnement ist derzeit nicht aktiv. Prüfe deine Abrechnungsdetails.",
+      "profile": "Deine Zahlung ist bestätigt. Dein Zugang wird aktualisiert.",
+      "ready": "Dein Bereich ist bereit. Du wirst gleich weitergeleitet.",
+      "retry": "Erneut prüfen",
+      "open": "Meinen Bereich öffnen",
+      "leave": "Zurück zu meinem Bereich"
+    },
+    "legacy": {
+      "title": "Tarif auswählen",
+      "description": "Dieser Link ist veraltet und löst keine Zahlung aus. Die verfügbaren Angebote findest du unten.",
+      "pro": "Tarife für Fachkräfte",
+      "programs": "Premium-Programme",
+      "custom": "Individuelles Programm"
+    },
     "checkout": {
       "title": "Programmzahlung",
       "subtitle": "Bestätigen Sie Ihren Kauf, um das Programm <b>{{productId}}</b> freizuschalten.",
@@ -1354,6 +1378,8 @@
       }
     },
     "register": {
+      "googleDetailsRequired": "Auch für die Anmeldung mit Google musst du deine persönlichen Angaben eintragen und die Bedingungen oben akzeptieren. E-Mail-Adresse und Passwort musst du nicht eingeben.",
+      "googleRegistrationRequired": "Um ein neues Konto mit Google zu erstellen, wähle „Registrieren“, lege deinen Kontotyp fest und akzeptiere die Bedingungen.",
       "title": "Registrierung",
       "firstName": "Vorname",
       "lastName": "Name",

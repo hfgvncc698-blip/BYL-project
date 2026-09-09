@@ -12,6 +12,7 @@ const DEFAULT_PREFERENCES = Object.freeze({
   allAutomatic: true,
   welcome: true,
   programAssigned: true,
+  sessionScheduled: true,
   programCompleted: true,
   inactivity: true,
   nutritionAssigned: true,
@@ -22,6 +23,7 @@ const DEFAULT_PREFERENCES = Object.freeze({
 const DEFAULT_TEMPLATES = Object.freeze({
   welcome: { label: "Bienvenue", subject: "Bienvenue sur BoostYourLife", message: "Bienvenue ! Ton espace BoostYourLife est prêt." },
   programAssigned: { label: "Nouveau programme", subject: "Ton nouveau programme est disponible", message: "Un nouveau programme vient d’être ajouté à ton espace." },
+  sessionScheduled: { label: "Rendez-vous", subject: "Votre rendez-vous BoostYourLife", message: "Votre calendrier a été mis à jour. Consultez votre espace pour retrouver le rendez-vous." },
   premiumPurchase: { label: "Programme premium", subject: "Ton programme premium est prêt", message: "Merci pour ton achat. Ton programme premium est disponible dans ton espace." },
   programCompleted: { label: "Programme terminé", subject: "Programme terminé, bravo !", message: "Bravo, tu as terminé ton programme." },
   inactivity: { label: "Rappel d’inactivité", subject: "Ton programme t’attend", message: "Ton programme est disponible, mais aucune séance n’a encore été lancée." },
@@ -106,7 +108,9 @@ function emailHtml(message, eventId = "", title = "BoostYourLife", lang = "fr") 
 function isPermanentSmtpFailure(error) {
   const code = Number(error?.responseCode || 0);
   const message = String(error?.response || error?.message || "").toLowerCase();
-  return code >= 500 || /mailbox unavailable|user unknown|unknown user|invalid recipient|recipient address rejected|no such user/.test(message);
+  // Authentication/configuration failures concern the sender, not this client.
+  if ([530, 534, 535].includes(code)) return false;
+  return [550, 551, 553].includes(code) || /mailbox unavailable|user unknown|unknown user|invalid recipient|recipient address rejected|no such user/.test(message);
 }
 
 function profileDelivery(profile) {
@@ -234,6 +238,7 @@ function readPreferences(profile) {
 }
 
 function automaticPreferenceKey(type) {
+  if (type === "sessionScheduled") return "sessionScheduled";
   if (type === "programCompleted") return "programCompleted";
   if (type === "inactivity") return "inactivity";
   if (type === "nutritionAssigned") return "nutritionAssigned";

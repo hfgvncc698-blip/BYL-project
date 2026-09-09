@@ -39,7 +39,7 @@ function calcAge(birthDateStr) {
 
 const Register = () => {
   const { t } = useTranslation("common");
-  const { registerWithEmail, loginWithGoogle } = useAuth();
+  const { registerWithEmail, loginWithGoogle, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -110,21 +110,37 @@ const Register = () => {
     return String(raw).split("-")[0]; // ex: "fr-FR" => "fr"
   }, []);
 
-  const canSubmit =
+  const canSubmitIdentity =
     firstName &&
     lastName &&
     (role !== "club" || clubName) &&
     birthDate &&
-    email &&
-    confirmEmail &&
-    password &&
-    confirmPassword &&
     isAdult &&
     isAdultChecked &&
     acceptTermsChecked;
 
+  const canSubmit =
+    canSubmitIdentity &&
+    email &&
+    confirmEmail &&
+    password &&
+    confirmPassword;
+
+  const registrationDetails = () => ({
+    firstName, lastName, role: firestoreRole, birthDate,
+    consent: {
+      ageVerified: true, cguAccepted: true, cgvAccepted: true,
+      acceptedAt: new Date().toISOString(), cguVersion: "v1.0", cgvVersion: "v1.0",
+      preferredLanguage: activeLang, trialDays,
+      onboardingPackage: requestedPackage, onboardingPackageTier: requestedPackageTier,
+      accountType, clubRole: role === "club" ? "owner" : "",
+      clubName: role === "club" ? clubName : "",
+    },
+  });
+
   const handleRegister = async (e) => {
     if (e) e.preventDefault();
+    if (authLoading) return;
 
     if (email !== confirmEmail) return setErrorMessage(t("auth.register.errors.emailsMismatch"));
     if (password !== confirmPassword) return setErrorMessage(t("auth.register.errors.passwordsMismatch"));
@@ -142,27 +158,34 @@ const Register = () => {
         lastName,
         firestoreRole,
         birthDate,
-        {
-          ageVerified: true,
-          cguAccepted: true,
-          cgvAccepted: true,
-          acceptedAt: new Date().toISOString(),
-          cguVersion: "v1.0",
-          cgvVersion: "v1.0",
-          // ✅ utile si ton AuthContext le stocke en Firestore
-          preferredLanguage: activeLang,
-          trialDays,
-          onboardingPackage: requestedPackage,
-          onboardingPackageTier: requestedPackageTier,
-          accountType,
-          clubRole: role === "club" ? "owner" : "",
-          clubName: role === "club" ? clubName : "",
-        }
+        registrationDetails().consent
       );
 
       const verificationParams = new URLSearchParams({ pending: "1", lang: activeLang });
       if (redirect) verificationParams.set("next", redirect);
       navigate(`/verify-email?${verificationParams.toString()}`, { replace: true });
+    } catch (err) {
+      console.error(err);
+      setErrorMessage(t("auth.register.errors.failed"));
+    }
+  };
+
+  const handleGoogleRegister = async () => {
+    if (authLoading || !canSubmitIdentity) return;
+    setErrorMessage("");
+    try {
+      await loginWithGoogle((accountRole, _hasAccess, profile) => {
+        if (profile?.emailVerificationRequired && !profile.emailVerified) {
+          const verificationParams = new URLSearchParams({ pending: "1", lang: activeLang });
+          if (redirect) verificationParams.set("next", redirect);
+          navigate(`/verify-email?${verificationParams.toString()}`, { replace: true });
+          return;
+        }
+        const safeRedirect = redirect?.startsWith("/") && !redirect.startsWith("//") ? redirect : null;
+        const destination = profile?.accountType === "club_owner" || profile?.clubRole === "owner"
+          ? "/club-dashboard" : accountRole === "coach" ? "/coach-dashboard" : "/user-dashboard";
+        navigate(safeRedirect || destination, { replace: true });
+      }, registrationDetails());
     } catch (err) {
       console.error(err);
       setErrorMessage(t("auth.register.errors.failed"));
@@ -392,7 +415,8 @@ const Register = () => {
             color="white"
             _hover={{ bg: canSubmit ? "gray.600" : "gray.400" }}
             type="submit"
-            isDisabled={!canSubmit}
+            isDisabled={!canSubmit || authLoading}
+            isLoading={authLoading}
           >
             {t("auth.register.signUp")}
           </Button>
@@ -405,12 +429,19 @@ const Register = () => {
             bg="white"
             color="black"
             _hover={{ bg: "gray.200" }}
-            onClick={() => loginWithGoogle()}
+            onClick={handleGoogleRegister}
+            isDisabled={!canSubmitIdentity || authLoading}
+            isLoading={authLoading}
             borderWidth="1px"
             borderColor="gray.300"
           >
             {t("auth.register.signUpWithGoogle")}
           </Button>
+          {!canSubmitIdentity && (
+            <Text fontSize="sm" color="gray.500">
+              {t("auth.register.googleDetailsRequired", "Pour Google aussi, renseigne ton identité et accepte les conditions ci-dessus. L’e-mail et le mot de passe ne sont pas nécessaires.")}
+            </Text>
+          )}
 
           <Text textAlign="center">
             {t("auth.register.haveAccount")}{" "}

@@ -1,0 +1,28 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const source = readFileSync(new URL('../src/components/SessionPlayer.jsx', import.meta.url), 'utf8');
+const css = readFileSync(new URL('../src/components/SessionPlayerSettings.css', import.meta.url), 'utf8');
+const start = source.indexOf('<Modal isOpen={settingsModalOpen}');
+assert.ok(start >= 0);
+const settings = source.slice(start, source.indexOf('</Modal>', start));
+assert.match(source, /import "\.\/SessionPlayerSettings\.css"/);
+assert.match(settings, /scrollBehavior="inside"/);
+assert.match(settings, /isCentered=\{!isMobile\}/);
+assert.match(settings, /size=\{\{ base: "full", md: "lg" \}\}/);
+assert.match(settings, /<ModalContent className="player-settings-dialog"/);
+assert.match(settings, /<ModalBody className="player-settings-body"/);
+assert.ok(settings.indexOf('</ModalBody>') < settings.indexOf('<ModalFooter>'), 'close button stays outside the scrolling body');
+assert.match(settings, /<ModalCloseButton/);
+assert.match(settings, /onClick=\{closeSettingsModal\}/);
+assert.ok(!settings.includes('noOfLines='), 'all settings descriptions and parameter labels remain readable');
+assert.match(settings, /aria-label=\{optionLabel\}/);
+assert.match(css, /height: 100vh;\s*height: 100dvh;/, 'dynamic viewport and legacy fallback');
+assert.match(css, /max-height: 100vh;\s*max-height: 100dvh;/);
+assert.match(css, /min-height: 0;/, 'override Chakra full-screen min-height, which would defeat max-height');
+for (const edge of ['top', 'bottom', 'left', 'right']) assert.ok(css.includes(`safe-area-inset-${edge}`));
+assert.match(css, /\.player-settings-dialog > \.player-settings-body \{[^}]*min-height: 0;[^}]*overflow-y: auto;[^}]*overscroll-behavior-y: contain;/);
+for (const part of ['header', 'footer']) assert.match(css, new RegExp(`\\.player-settings-dialog > \\.chakra-modal__${part} \\{[^}]*flex-shrink: 0;`));
+assert.match(css, /@media \(min-width: 48em\)/);
+assert.match(css, /max-height: calc\(100dvh - 3rem\);/);
+console.log('Player settings layout guards OK: bounded mobile/desktop height, internal scrolling, fixed header/footer, safe areas and readable text.');

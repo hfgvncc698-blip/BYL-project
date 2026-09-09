@@ -35,6 +35,23 @@ const budgets = [
 const failures = [];
 const measured = [];
 
+// A small entry chunk can still eagerly import hundreds of KiB. Check the
+// complete initial dependency set from Vite's HTML, not only individual chunks.
+const entryHtml = readFileSync(path.resolve("dist/index.html"), "utf8");
+const initialAssets = [...new Set(
+  [...entryHtml.matchAll(/(?:src|href)="(\/assets\/[^"]+\.js)"/g)]
+    .map(match => path.basename(match[1]))
+)];
+if (!initialAssets.length) failures.push("aucun script initial détecté");
+const initialGzipKiB = initialAssets.reduce((sum, name) => sum + gzipKiB(name), 0);
+measured.push(`initial total (${initialAssets.length} fichiers): ${initialGzipKiB.toFixed(1)} KiB / 520 KiB`);
+if (initialGzipKiB > 520) failures.push(`initial total: ${initialGzipKiB.toFixed(1)} KiB > 520 KiB`);
+for (const prefix of ["vendor-firebase-functions", "vendor-firebase-storage", "react-pdf.browser", "reactBigCalendarDnd"]) {
+  if (initialAssets.some(name => name.startsWith(`${prefix}-`))) {
+    failures.push(`${prefix} doit rester chargé à la demande`);
+  }
+}
+
 for (const budget of budgets) {
   const assetName = findAsset(budget.prefix, { exclude: budget.exclude || [] });
   if (!assetName) {

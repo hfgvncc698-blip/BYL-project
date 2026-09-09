@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const express = require("express");
 const admin = require("../firebaseAdmin");
 const { requireFirebaseAuth, hasActiveProfessionalAccess } = require("../utils/firebaseAuth");
+const { serializeConfirmedSession } = require("../utils/confirmedCalendarSession");
 
 const router = express.Router();
 const db = admin.firestore();
@@ -195,7 +196,9 @@ router.post("/", requireFirebaseAuth, async (req, res) => {
 
     let sessionId = deterministicSessionId;
     let created = false;
+    let confirmedSession;
     await db.runTransaction(async (transaction) => {
+      created = false;
       const rootPayload = {
         clientId,
         clientName,
@@ -255,6 +258,7 @@ router.post("/", requireFirebaseAuth, async (req, res) => {
         );
       });
       const duplicateSession = existing.exists ? existing : matchingLegacySession;
+      confirmedSession = duplicateSession ? duplicateSession.data() : rootPayload;
       if (duplicateSession) {
         sessionId = duplicateSession.id;
       } else {
@@ -267,30 +271,33 @@ router.post("/", requireFirebaseAuth, async (req, res) => {
         .doc(clientId)
         .collection("calendarEvents")
         .doc(sessionId);
+      const confirmedNutrition = (confirmedSession.eventType || confirmedSession.type) === "nutrition_appointment";
+      const confirmedStart = confirmedSession.start || startTimestamp;
+      const confirmedEnd = confirmedSession.end || endTimestamp;
       const calendarPayload = {
-        title: type === "nutrition" ? title : `${title} - ${description}`,
-        start: startTimestamp,
-        end: endTimestamp,
-        startAt: startTimestamp,
-        endAt: endTimestamp,
-        status: calendarStatus(status),
-        description: description || (type === "nutrition" ? "Rendez-vous nutrition" : ""),
+        title: confirmedNutrition ? confirmedSession.title : `${confirmedSession.title || title} - ${description}`,
+        start: confirmedStart,
+        end: confirmedEnd,
+        startAt: confirmedStart,
+        endAt: confirmedEnd,
+        status: calendarStatus(confirmedSession.status),
+        description: confirmedSession.description || description || (confirmedNutrition ? "Rendez-vous nutrition" : ""),
         location: "",
         deepLink,
-        programId: programmeId,
+        programId: confirmedSession.programmeId || confirmedSession.programId || programmeId,
         sessionId,
-        sessionIndex,
-        eventType,
-        appointmentKind,
-        durationMin: type === "nutrition" ? durationMin : null,
+        sessionIndex: confirmedSession.sessionIndex ?? sessionIndex,
+        eventType: confirmedNutrition ? "nutrition_appointment" : "sport_session",
+        appointmentKind: confirmedSession.appointmentKind || appointmentKind,
+        durationMin: confirmedNutrition ? confirmedSession.durationMin ?? durationMin : null,
         updatedAt: now,
       };
-      if (recurrenceGroupId && recurrenceCount > 1) {
+      if (confirmedSession.recurrenceGroupId && confirmedSession.recurrenceCount > 1) {
         Object.assign(calendarPayload, {
-          recurrenceGroupId,
-          recurrenceFrequency,
-          recurrenceIndex,
-          recurrenceCount,
+          recurrenceGroupId: confirmedSession.recurrenceGroupId,
+          recurrenceFrequency: confirmedSession.recurrenceFrequency,
+          recurrenceIndex: confirmedSession.recurrenceIndex,
+          recurrenceCount: confirmedSession.recurrenceCount,
         });
       }
       if (!duplicateSession) calendarPayload.createdAt = now;
@@ -304,6 +311,7 @@ router.post("/", requireFirebaseAuth, async (req, res) => {
       id: sessionId,
       created,
       duplicate: !created,
+      session: serializeConfirmedSession(sessionId, confirmedSession),
     });
   } catch (error) {
     console.error("[coach-sessions] create failed:", error);

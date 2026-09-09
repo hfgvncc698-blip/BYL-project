@@ -1,6 +1,6 @@
 // src/pages/StatisticsPageCoach.jsx
 import React, { useEffect, useState, useMemo } from "react";
-import { collection, getDocs, query, where, limit } from "firebase/firestore";
+import { collection, getDocs, getCountFromServer, query, where, limit } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { db } from "../firebaseConfig";
 import { useAuth } from "../AuthContext";
@@ -38,7 +38,10 @@ import AppLoading from "../components/ui/AppLoading";
 import { AppMetricTile, AppSectionHeader, AppSurface } from "../components/ui/AppPrimitives.jsx";
 import { useAppTheme } from "../styles/appTheme";
 import { hasPlanModule } from "../utils/proPlanAccess";
-import { readPageDataCacheEntry, runLimited, writePageDataCache } from "../utils/pageDataCache";
+import { restorePageDataCacheEntry, runLimited, writePageDataCache } from "../utils/pageDataCache";
+import { createDashboardReadPool } from "../utils/coachDashboardLoading";
+import PageLoadingStatus from "../components/ui/PageLoadingStatus";
+import { usePageLoading } from "../hooks/usePageLoading";
 import { isSessionValidatedRecord } from "../utils/sessionCompletion";
 
 const COACH_STATS_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -330,6 +333,7 @@ function ActiveClientCard({ client, locale, t, onOpen }) {
 
 /* ---------------- Page ---------------- */
 export default function StatisticsPageCoach() {
+  const { begin: beginPageLoad, state: pageLoadState, fresh: forceFresh } = usePageLoading();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation("common");
@@ -369,9 +373,11 @@ export default function StatisticsPageCoach() {
   useEffect(() => {
     (async () => {
       if (!user?.uid) return;
+      const load = beginPageLoad();
 
-      const cacheKey = `byl:coach-stats:v1:${user.uid}:${locale}:${hasNutritionAccess ? "nutrition" : "sport"}`;
-      const cachedEntry = readPageDataCacheEntry(cacheKey, { ttlMs: COACH_STATS_CACHE_TTL_MS });
+      const cacheKey = `byl:coach-stats:v1:${user.uid}:${locale}:${hasNutritionAccess ? (nutritionOnlyStats ? "nutrition-only" : "nutrition") : "sport"}`;
+      const cachedEntry = forceFresh ? null : await restorePageDataCacheEntry(cacheKey, { ttlMs: COACH_STATS_CACHE_TTL_MS });
+      if (!load.current()) return;
       const cached = cachedEntry?.data || null;
       if (cached) {
         setTotalClients(cached.totalClients || 0);
@@ -390,12 +396,16 @@ export default function StatisticsPageCoach() {
         });
         setActiveClientList(cached.activeClientList || []);
         setLoading(false);
-        if (!cachedEntry.isStale) return;
+        load.cache({ clients: cached.totalClients || 0, programs: cached.totalPrograms || 0 });
       } else {
         setLoading(true);
       }
 
       try {
+        const readPool = createDashboardReadPool(24);
+        // Only the count is displayed here; downloading every exercise is unnecessary.
+        const programsCountResult = getCountFromServer(query(collection(db, "programmes"), where("createdBy", "==", user.uid), limit(500)))
+          .then(snapshot => ({ count: snapshot.data().count }), error => ({ error }));
         // -----------------
         // 1) Clients du coach : même périmètre que la page Clients et le dashboard
         // -----------------
@@ -404,6 +414,7 @@ export default function StatisticsPageCoach() {
           getDocs(query(collection(db, "clients"), where("coachId", "==", user.uid), limit(500))).catch(() => ({ docs: [] })),
           getDocs(query(collection(db, "clients"), where("coachIds", "array-contains", user.uid), limit(500))).catch(() => ({ docs: [] })),
         ]);
+        if (!load.current()) return;
         const clientsById = new Map();
         clientSnaps.forEach((snap) => {
           snap.docs.forEach((d) => clientsById.set(d.id, { id: d.id, ...d.data() }));
@@ -413,10 +424,8 @@ export default function StatisticsPageCoach() {
         // -----------------
         // 2) Enrichissement: programmes assignés + sessionsEffectuees + _lastInteractionMs (même logique)
         // -----------------
-        const clientsWithMeta = await runLimited(
-          mergedClients,
-          async (client) => {
-            const subSnap = await getDocs(collection(db, "clients", client.id, "programmes"));
+        const clientsWithMeta = await Promise.all(mergedClients.map(async (client) => {
+            const subSnap = await readPool.run(() => getDocs(collection(db, "clients", client.id, "programmes")));
 
             let latestAssignMs = 0;
 
@@ -433,9 +442,9 @@ export default function StatisticsPageCoach() {
 
                 if (assignMs > latestAssignMs) latestAssignMs = assignMs;
 
-                const sessSnap = await getDocs(
+                const sessSnap = await readPool.run(() => getDocs(
                   collection(db, "clients", client.id, "programmes", d.id, "sessionsEffectuees")
-                );
+                ));
                 const sessionsEffectuees = sessSnap.docs.map((docu) => ({ id: docu.id, ...docu.data() }));
 
                 return { id: d.id, ...prog, sessionsEffectuees };
@@ -467,9 +476,8 @@ export default function StatisticsPageCoach() {
               _lastInteractionMs,
               _clientListActivityMs: latestSessionMs,
             };
-          },
-          6
-        );
+          }));
+        if (!load.current()) return;
 
         clientsWithMeta.sort((a, b) => (b._lastInteractionMs || 0) - (a._lastInteractionMs || 0));
 
@@ -510,10 +518,13 @@ export default function StatisticsPageCoach() {
                 if (clientRecent) nutritionRecent += 1;
               } catch (_) {}
             },
-            5
+            12
           );
         }
 
+        const programsCount = await programsCountResult;
+        if (!load.current()) return;
+        if (programsCount.error) throw programsCount.error;
         setNutritionStats({
           patients: nutritionOnlyStats ? clientsWithMeta.length : nutritionClientIds.size,
           assessments: nutritionAssessments,
@@ -543,7 +554,8 @@ export default function StatisticsPageCoach() {
         setRetentionRate(totalC ? Math.round((active30 / totalC) * 100) : 0);
 
         // liste cartes
-        setActiveClientList(active30List);
+        const activeCards = active30List.map(client => ({ ...client, programmesAssignes: undefined }));
+        setActiveClientList(activeCards);
 
         // -----------------
         // 4) Répartition objectifs (on garde tes champs actuels)
@@ -558,9 +570,7 @@ export default function StatisticsPageCoach() {
         // -----------------
         // 5) Programmes base du coach
         // -----------------
-        const qProgs = query(collection(db, "programmes"), where("createdBy", "==", user.uid), limit(500));
-        const progSnap = await getDocs(qProgs);
-        setTotalPrograms(progSnap.size);
+        setTotalPrograms(programsCount.count);
 
         // -----------------
         // 6) Sessions par mois (6 derniers) — on réutilise sessionsEffectuees déjà chargées (plus fiable + moins de reads)
@@ -593,7 +603,7 @@ export default function StatisticsPageCoach() {
         setMonthlySessions(nextMonthlySessions);
         writePageDataCache(cacheKey, {
           totalClients: totalC,
-          totalPrograms: progSnap.size,
+          totalPrograms: programsCount.count,
           activeClients: active30,
           inactiveClients: inactive,
           retentionRate: totalC ? Math.round((active30 / totalC) * 100) : 0,
@@ -606,15 +616,18 @@ export default function StatisticsPageCoach() {
             drafts: nutritionDrafts,
             recent: nutritionRecent,
           },
-          activeClientList: active30List,
+          activeClientList: activeCards,
         });
+        load.ready({ clients: totalC, programs: programsCount.count });
       } catch (e) {
+        if (!load.current()) return;
+        load.error();
         console.error(e);
       } finally {
-        setLoading(false);
+        if (load.current()) setLoading(false);
       }
     })();
-  }, [user?.uid, locale, hasNutritionAccess, nutritionOnlyStats]);
+  }, [beginPageLoad, forceFresh, user?.uid, locale, hasNutritionAccess, nutritionOnlyStats]);
 
   const activePreview = useMemo(() => activeClientList.slice(0, 8), [activeClientList]);
 
@@ -639,6 +652,7 @@ export default function StatisticsPageCoach() {
 
   return (
     <Box data-tour-page="coach-stats" p={{ base: 3, md: 8 }} pb={{ base: 28, md: 8 }} bg={pageBg} color={textColor} minH="calc(100vh - 112px)">
+      <PageLoadingStatus state={pageLoadState} />
       <VStack align="stretch" spacing={{ base: 4, md: 6 }} maxW="1680px" mx="auto">
         <Card glow="rgba(16, 185, 129, 0.12)" p={{ base: 5, md: 7 }}>
           <AppSectionHeader

@@ -432,9 +432,15 @@ export default function NutritionAssessmentEditor() {
 
   const didPrefillRef = useRef(false);
   const lastSavedHashRef = useRef("");
+  const hasForm = Boolean(form);
 
   useEffect(() => {
     if (!clientId || !assessmentId) return;
+    setLoading(true);
+    setForm(null);
+    setDocData(null);
+    didPrefillRef.current = false;
+    lastSavedHashRef.current = "";
     const ref = doc(db, "clients", clientId, "nutrition_assessments", assessmentId);
     const unsub = onSnapshot(
       ref,
@@ -451,8 +457,9 @@ export default function NutritionAssessmentEditor() {
 
   useEffect(() => {
     if (!clientId) return;
-    if (!form) return;
+    if (!hasForm) return;
     if (didPrefillRef.current) return;
+    let cancelled = false;
 
     (async () => {
       try {
@@ -472,73 +479,79 @@ export default function NutritionAssessmentEditor() {
           latestMeasure = msnap.docs[0]?.data() || null;
         } catch {}
 
-        const next = { ...(form || {}) };
+        if (cancelled) return;
+        // Merge into the latest form, not the form captured before network reads.
+        // A value typed while loading must always take precedence over prefill.
+        setForm((currentForm) => {
+          if (!currentForm) return currentForm;
+          const next = { ...currentForm };
 
-        const patchIfEmpty = (path, v) => {
-          if (v === undefined || v === null) return;
-          const parts = path.split(".");
-          let cur = next;
-          for (let i = 0; i < parts.length - 1; i++) {
-            cur[parts[i]] = { ...(cur[parts[i]] || {}) };
-            cur = cur[parts[i]];
+          const patchIfEmpty = (path, v) => {
+            if (v === undefined || v === null) return;
+            const parts = path.split(".");
+            let cur = next;
+            for (let i = 0; i < parts.length - 1; i++) {
+              cur[parts[i]] = { ...(cur[parts[i]] || {}) };
+              cur = cur[parts[i]];
+            }
+            const k = parts[parts.length - 1];
+            const curVal = cur[k];
+
+            const isEmpty =
+              curVal === undefined ||
+              curVal === null ||
+              curVal === "" ||
+              (typeof curVal === "object" &&
+                curVal &&
+                "value" in curVal &&
+                (curVal.value === undefined || curVal.value === null || curVal.value === ""));
+
+            if (isEmpty) cur[k] = v;
+          };
+
+          patchIfEmpty("prenom", u?.firstName || "");
+          patchIfEmpty("nom", u?.lastName || "");
+          patchIfEmpty("email", u?.email || "");
+          patchIfEmpty("telephone", u?.phone || "");
+          patchIfEmpty("sexe", u?.sexe || u?.gender || "");
+          patchIfEmpty("dateNaissance", u?.birthDate || u?.dateNaissance || "");
+
+          patchIfEmpty("objectif", u?.objectifs || u?.objectif || "");
+          patchIfEmpty("niveauSportif", u?.niveauSportif || u?.sportLevel || "");
+          patchIfEmpty("notes", u?.notes || "");
+          if (!next?.nap) patchIfEmpty("nap", { label: "Normal", value: 1.4 });
+
+          const poidsRaw = latestMeasure?.poids ?? u?.weightKg ?? u?.poids ?? null;
+          const tailleRaw = latestMeasure?.taille ?? u?.heightCm ?? u?.taille ?? null;
+
+          if (poidsRaw !== null && poidsRaw !== undefined) {
+            patchIfEmpty("poids", { unit: "kg", value: toNumber(poidsRaw) });
           }
-          const k = parts[parts.length - 1];
-          const curVal = cur[k];
+          if (tailleRaw !== null && tailleRaw !== undefined) {
+            patchIfEmpty("taille", { unit: "cm", value: toNumber(tailleRaw) });
+          }
 
-          const isEmpty =
-            curVal === undefined ||
-            curVal === null ||
-            curVal === "" ||
-            (typeof curVal === "object" &&
-              curVal &&
-              "value" in curVal &&
-              (curVal.value === undefined || curVal.value === null || curVal.value === ""));
+          patchIfEmpty("body.fatMassPct", toNumber(latestMeasure?.fatMass ?? u?.fatMass));
+          patchIfEmpty("body.muscleMassKg", toNumber(latestMeasure?.muscleMass ?? u?.muscleMass));
+          patchIfEmpty("body.waterMassPct", toNumber(latestMeasure?.waterMass ?? u?.waterMass));
+          patchIfEmpty("body.boneMassKg", toNumber(latestMeasure?.boneMass ?? u?.boneMass));
+          patchIfEmpty("body.metabolicAge", toNumber(latestMeasure?.metabolicAge ?? u?.metabolicAge));
+          patchIfEmpty("body.visceralFatScore", toNumber(latestMeasure?.visceralFatScore ?? u?.visceralFatScore));
 
-          if (isEmpty) cur[k] = v;
-        };
+          if (!Array.isArray(next.regimes)) next.regimes = [];
+          next.medical = { ...(next.medical || {}) };
+          if (!Array.isArray(next.medical.pathologies)) next.medical.pathologies = [];
+          if (!next.medical.details) next.medical.details = {};
 
-        patchIfEmpty("prenom", u?.firstName || "");
-        patchIfEmpty("nom", u?.lastName || "");
-        patchIfEmpty("email", u?.email || "");
-        patchIfEmpty("telephone", u?.phone || "");
-        patchIfEmpty("sexe", u?.sexe || u?.gender || "");
-        patchIfEmpty("dateNaissance", u?.birthDate || u?.dateNaissance || "");
-
-        patchIfEmpty("objectif", u?.objectifs || u?.objectif || "");
-        patchIfEmpty("niveauSportif", u?.niveauSportif || u?.sportLevel || "");
-        patchIfEmpty("notes", u?.notes || "");
-        if (!next?.nap) patchIfEmpty("nap", { label: "Normal", value: 1.4 });
-
-        const poidsRaw = latestMeasure?.poids ?? u?.weightKg ?? u?.poids ?? null;
-        const tailleRaw = latestMeasure?.taille ?? u?.heightCm ?? u?.taille ?? null;
-
-        if (poidsRaw !== null && poidsRaw !== undefined) {
-          patchIfEmpty("poids", { unit: "kg", value: toNumber(poidsRaw) });
-        }
-        if (tailleRaw !== null && tailleRaw !== undefined) {
-          patchIfEmpty("taille", { unit: "cm", value: toNumber(tailleRaw) });
-        }
-
-        patchIfEmpty("body.fatMassPct", toNumber(latestMeasure?.fatMass ?? u?.fatMass));
-        patchIfEmpty("body.muscleMassKg", toNumber(latestMeasure?.muscleMass ?? u?.muscleMass));
-        patchIfEmpty("body.waterMassPct", toNumber(latestMeasure?.waterMass ?? u?.waterMass));
-        patchIfEmpty("body.boneMassKg", toNumber(latestMeasure?.boneMass ?? u?.boneMass));
-        patchIfEmpty("body.metabolicAge", toNumber(latestMeasure?.metabolicAge ?? u?.metabolicAge));
-        patchIfEmpty("body.visceralFatScore", toNumber(latestMeasure?.visceralFatScore ?? u?.visceralFatScore));
-
-        if (!Array.isArray(next.regimes)) next.regimes = [];
-        if (!next.medical) next.medical = {};
-        if (!Array.isArray(next.medical.pathologies)) next.medical.pathologies = [];
-        if (!next.medical.details) next.medical.details = {};
-
+          return next;
+        });
         didPrefillRef.current = true;
-        setForm(next);
       } catch {
-        didPrefillRef.current = true;
+        if (!cancelled) didPrefillRef.current = true;
       }
     })();
-     
-  }, [clientId, form]);
+    return () => { cancelled = true; };
+  }, [clientId, assessmentId, hasForm]);
 
   const setField = (path, value) => {
     setForm((prev) => {
