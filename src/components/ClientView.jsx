@@ -1,5 +1,5 @@
 // src/components/ClientView.jsx
-import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -50,6 +50,7 @@ import {
   deleteDoc,
   onSnapshot,
   getDocs,
+  getDocsFromCache,
   getDoc,
   query,
   where,
@@ -404,6 +405,28 @@ async function resolveProgrammeDisplayNameFromClientDoc(data, programmeId) {
   return prettyProgramNameBase(data) || programmeId || "Programme";
 }
 
+function normalizePrefetchedProgrammes(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(Boolean)
+    .map((programme, index) => {
+      const id = programme.id || programme.programmeId || programme.programId || `programme-${index}`;
+      const resolvedName =
+        String(programme?.nomProgramme || programme?.name || "").trim() ||
+        prettyProgramNameBase(programme) ||
+        id;
+      return {
+        ...programme,
+        id,
+        nomProgramme: resolvedName,
+        name: String(programme?.name || "").trim() || resolvedName,
+        sessionsEffectuees: Array.isArray(programme?.sessionsEffectuees)
+          ? programme.sessionsEffectuees
+          : [],
+      };
+    });
+}
+
 /* ---------------- Tri des programmes ---------------- */
 function getLastDoneDateFromProgramme(prog) {
   const last = (prog?.sessionsEffectuees || [])
@@ -603,9 +626,18 @@ export default function ClientView() {
 
   const initialCachedClientView = clientViewMemoryCache.get(clientId) || {};
   const [client, setClient] = useState(() => location.state?.prefetchedClient || initialCachedClientView.client || null);
-  const [programmes, setProgrammes] = useState(() => initialCachedClientView.programmes || []);
+  const [programmes, setProgrammes] = useState(() =>
+    normalizePrefetchedProgrammes(
+      location.state?.prefetchedProgrammes ||
+        location.state?.prefetchedClient?.programmesAssignes ||
+        initialCachedClientView.programmes ||
+        []
+    )
+  );
   const [measures, setMeasures] = useState(() => initialCachedClientView.measures || []);
   const [secondaryContentReady, setSecondaryContentReady] = useState(false);
+  const [programmeDetailsReady, setProgrammeDetailsReady] = useState(false);
+  const programmesLoadSeqRef = useRef(0);
 
   const addMeas = useDisclosure();
   const editClient = useDisclosure();
@@ -748,34 +780,80 @@ export default function ClientView() {
 
   /* ----- Programmes + sessionsEffectuees + dernière note difficulté ----- */
   const reloadProgrammes = async () => {
-    const progSnap = await getDocs(collection(db, "clients", clientId, SUBCOL_PROGRAMMES));
+    const loadSeq = programmesLoadSeqRef.current + 1;
+    programmesLoadSeqRef.current = loadSeq;
+    const requestedClientId = clientId;
+    const programmesRef = collection(db, "clients", requestedClientId, SUBCOL_PROGRAMMES);
+    setProgrammeDetailsReady(false);
 
-    // Paint the programme cards immediately; detailed histories and ratings
-    // continue loading without holding the whole client page hostage.
-    const quickProgrammes = progSnap.docs.map((d) => {
+    const paintQuickProgrammes = (progSnap) => {
+      const cachedRows = normalizePrefetchedProgrammes(
+        clientViewMemoryCache.get(requestedClientId)?.programmes ||
+          location.state?.prefetchedProgrammes ||
+          location.state?.prefetchedClient?.programmesAssignes ||
+          []
+      );
+      const cachedById = new Map(cachedRows.map((programme) => [programme.id, programme]));
+
+      const quickProgrammes = progSnap.docs.map((d) => {
         const data = d.data() || {};
+        const cached = cachedById.get(d.id) || {};
         const resolvedName = String(data?.nomProgramme || data?.name || "").trim() || prettyProgramNameBase(data) || d.id;
         return {
+          ...cached,
           id: d.id,
           ...data,
           nomProgramme: resolvedName,
           name: String(data?.name || "").trim() || resolvedName,
-          sessionsEffectuees: [],
+          sessionsEffectuees: Array.isArray(cached.sessionsEffectuees)
+            ? cached.sessionsEffectuees
+            : [],
         };
       });
-    setProgrammes(quickProgrammes);
-    clientViewMemoryCache.set(clientId, {
-      ...(clientViewMemoryCache.get(clientId) || {}),
-      programmes: quickProgrammes,
-    });
+
+      if (loadSeq !== programmesLoadSeqRef.current) return;
+      setProgrammes(quickProgrammes);
+      clientViewMemoryCache.set(requestedClientId, {
+        ...(clientViewMemoryCache.get(requestedClientId) || {}),
+        programmes: quickProgrammes,
+      });
+    };
+
+    // Firestore peut mettre plusieurs secondes à établir sa première connexion.
+    // Le cache local (ou les données transmises par le tableau de bord) permet
+    // d'afficher la fiche immédiatement pendant l'actualisation réseau.
+    try {
+      const cacheSnap = await getDocsFromCache(programmesRef);
+      if (!cacheSnap.empty) paintQuickProgrammes(cacheSnap);
+    } catch (_) {
+      // Aucun cache disponible sur une première visite.
+    }
+
+    let progSnap;
+    try {
+      progSnap = await getDocs(programmesRef);
+    } catch (_) {
+      if (loadSeq === programmesLoadSeqRef.current) setProgrammeDetailsReady(true);
+      return;
+    }
+
+    // Paint the programme cards immediately; detailed histories and ratings
+    // continue loading without holding the whole client page hostage.
+    paintQuickProgrammes(progSnap);
 
     const progs = await Promise.all(
       progSnap.docs.map(async (d) => {
         const data = d.data();
 
-        const sessSnap = await getDocs(
-          collection(db, "clients", clientId, SUBCOL_PROGRAMMES, d.id, SUBCOL_SESSIONS_DONE)
-        );
+        const [sessSnap, notesSnap, resolvedName] = await Promise.all([
+          getDocs(
+            collection(db, "clients", requestedClientId, SUBCOL_PROGRAMMES, d.id, SUBCOL_SESSIONS_DONE)
+          ).catch(() => ({ docs: [] })),
+          getDocs(
+            collection(db, "clients", requestedClientId, SUBCOL_PROGRAMMES, d.id, SUBCOL_DIFFICULTE_NOTES)
+          ).catch(() => ({ docs: [] })),
+          resolveProgrammeDisplayNameFromClientDoc(data, d.id),
+        ]);
         const sessionsEffectuees = sessSnap.docs.map((docu) => ({
           id: docu.id,
           ...docu.data(),
@@ -786,10 +864,6 @@ export default function ClientView() {
         let lastRatingDate = null;
 
         try {
-          const notesSnap = await getDocs(
-            collection(db, "clients", clientId, SUBCOL_PROGRAMMES, d.id, SUBCOL_DIFFICULTE_NOTES)
-          );
-
           const notes = notesSnap.docs
             .map((x) => {
               const r = x.data() || {};
@@ -831,8 +905,6 @@ export default function ClientView() {
           // silencieux
         }
 
-        const resolvedName = await resolveProgrammeDisplayNameFromClientDoc(data, d.id);
-
         return {
           id: d.id,
           ...data,
@@ -842,20 +914,23 @@ export default function ClientView() {
           __lastRating: lastRating,
           __lastRatingSessionIndex: lastRatingSessionIndex,
           __lastRatingDate: lastRatingDate,
+          __detailsLoaded: true,
         };
       })
     );
 
+    if (loadSeq !== programmesLoadSeqRef.current) return;
     setProgrammes(progs);
-    clientViewMemoryCache.set(clientId, {
-      ...(clientViewMemoryCache.get(clientId) || {}),
+    clientViewMemoryCache.set(requestedClientId, {
+      ...(clientViewMemoryCache.get(requestedClientId) || {}),
       programmes: progs,
     });
+    setProgrammeDetailsReady(true);
   };
 
   useEffect(() => {
     if (!clientId) return;
-    reloadProgrammes();
+    void reloadProgrammes();
   }, [clientId]);
 
   const sortedProgrammes = useMemo(() => {
@@ -1930,7 +2005,7 @@ export default function ClientView() {
             <Text fontWeight="bold" mb={3}>
               {t("clientView.compareSession", "Comparer des séances")}
             </Text>
-            {secondaryContentReady && (
+            {secondaryContentReady && programmeDetailsReady && (
               <SafeBoundary>
                 <Suspense fallback={<Spinner size="sm" />}>
                   <SessionComparator
@@ -1993,7 +2068,12 @@ export default function ClientView() {
             }
           >
             <Suspense fallback={<Spinner size="sm" />}>
-              <ClientNutritionSection clientId={clientId} client={client} requiresNutritionAccess />
+              <ClientNutritionSection
+                clientId={clientId}
+                client={client}
+                prefetchedAssessments={location.state?.prefetchedNutritionAssessments}
+                requiresNutritionAccess
+              />
             </Suspense>
           </SafeBoundary>
         </Box>

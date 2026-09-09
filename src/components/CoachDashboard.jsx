@@ -9708,6 +9708,7 @@ activeSportMs > 0 &&
                     const followKind = getDashboardFollowKind(c);
                     const nutritionEntry = latestNutritionByClient.get(c.id) || null;
                     const nutritionRow = nutritionEntry?.row || null;
+                    const nutritionAssessmentsForCard = nutritionRows.filter((row) => row?.clientId === c.id);
                     const hasSportProgram = programmesForCard.length > 0;
                     const isNutritionOnlyPatient = Boolean(nutritionRow && !hasSportProgram);
                     const nutritionSections = nutritionRow?.clientShare?.sections || {};
@@ -9752,6 +9753,11 @@ activeSportMs > 0 &&
                       >
                         <AppNavigationArrow
                           to={withAdminCoach(`/clients/${c.id}`)}
+                          state={{
+                            prefetchedClient: clientForCardActions,
+                            prefetchedProgrammes: programmesForCard,
+                            prefetchedNutritionAssessments: nutritionAssessmentsForCard,
+                          }}
                           label={`${t("nav.profile", "Profil")} — ${`${c.prenom || ""} ${c.nom || ""}`.trim()}`}
                           position="absolute"
                           top={3.5}

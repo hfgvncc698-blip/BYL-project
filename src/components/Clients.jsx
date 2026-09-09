@@ -402,6 +402,11 @@ async function buildClientComputedStats(client) {
       doneForProg,
       programmeSessions7j,
       programmeLatestDoneMs,
+      programme: {
+        id: d.id,
+        ...progData,
+        sessionsEffectuees,
+      },
     };
   }));
 
@@ -426,6 +431,7 @@ async function buildClientComputedStats(client) {
     sessionsPerWeek: sessions7j,
     lastSessionDate,
     programmeCount: nbProg,
+    programmesAssignes: computedProgrammes.map((item) => item.programme),
     _lastInteractionMs: _lastInteractionMs || 0,
   };
 }
@@ -782,7 +788,11 @@ const Clients = () => {
             } catch (_) {}
           }
 
-          return { ...c, _lastInteractionMs: computed._lastInteractionMs || 0 };
+          return {
+            ...c,
+            programmesAssignes: computed.programmesAssignes || c.programmesAssignes || [],
+            _lastInteractionMs: computed._lastInteractionMs || 0,
+          };
         },
         nutritionMode ? 5 : 6
       );

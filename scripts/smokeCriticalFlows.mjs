@@ -565,6 +565,36 @@ check("coach dashboard paints cached clients before expensive enrichment", () =>
   );
 });
 
+check("client profiles hydrate before their background refresh", () => {
+  const clientView = read("src/components/ClientView.jsx");
+  const clientNutrition = read("src/components/ClientNutritionSection.jsx");
+  const clients = read("src/components/Clients.jsx");
+  const dashboard = read("src/components/CoachDashboard.jsx");
+
+  assert.ok(
+    clientView.includes("location.state?.prefetchedProgrammes") &&
+      clientView.includes("location.state?.prefetchedClient?.programmesAssignes") &&
+      clientView.includes("getDocsFromCache(programmesRef)"),
+    "Client profiles must paint prefetched or persisted programs before waiting for Firestore"
+  );
+  assert.ok(
+    dashboard.includes("prefetchedProgrammes: programmesForCard") &&
+      dashboard.includes("prefetchedNutritionAssessments: nutritionAssessmentsForCard") &&
+      clients.includes("programmesAssignes: computedProgrammes.map"),
+    "Coach entry points must pass already-loaded program and nutrition data into client profiles"
+  );
+  assert.ok(
+    clientView.includes("const [sessSnap, notesSnap, resolvedName] = await Promise.all") &&
+      clientView.includes("secondaryContentReady && programmeDetailsReady"),
+    "Detailed histories must load concurrently without competing with the first profile paint"
+  );
+  assert.ok(
+    clientNutrition.includes("nutritionAssessmentMemoryCache") &&
+      clientNutrition.includes("hasPrefetchedAssessments"),
+    "Nutrition summaries must reuse warm data instead of returning to a blocking loader"
+  );
+});
+
 check("sport PDFs include localized exercise notes", () => {
   const programView = read("src/components/ProgramView.jsx");
   const autoPreview = read("src/components/AutoProgramPreview.jsx");

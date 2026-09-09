@@ -45,6 +45,8 @@ import { notify } from "../utils/notify";
 import i18n from "../i18n/index";
 import { hasPlanModule } from "../utils/proPlanAccess";
 
+const nutritionAssessmentMemoryCache = new Map();
+
 function formatDate(ts) {
   try {
     if (!ts) return "";
@@ -99,7 +101,11 @@ function getAssessmentStatus(assessment, t) {
   return { label: t("nutritionCoach.status.draft", "Draft"), key: "draft", colorScheme: "yellow" };
 }
 
-export default function ClientNutritionSection({ clientId, requiresNutritionAccess = false }) {
+export default function ClientNutritionSection({
+  clientId,
+  prefetchedAssessments = null,
+  requiresNutritionAccess = false,
+}) {
   const toast = useToast();
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -114,14 +120,31 @@ export default function ClientNutritionSection({ clientId, requiresNutritionAcce
     [hasCoachAccess, user]
   );
 
-  const [loading, setLoading] = useState(true);
-  const [assessments, setAssessments] = useState([]);
+  const cachedAssessments = nutritionAssessmentMemoryCache.get(clientId);
+  const hasPrefetchedAssessments = Array.isArray(prefetchedAssessments);
+  const [loading, setLoading] = useState(
+    () => !hasPrefetchedAssessments && !Array.isArray(cachedAssessments)
+  );
+  const [assessments, setAssessments] = useState(() =>
+    hasPrefetchedAssessments ? prefetchedAssessments : cachedAssessments || []
+  );
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deletingId, setDeletingId] = useState("");
   const cancelDeleteRef = useRef(null);
 
   useEffect(() => {
     if (!clientId) return;
+    const warmAssessments = Array.isArray(prefetchedAssessments)
+      ? prefetchedAssessments
+      : nutritionAssessmentMemoryCache.get(clientId);
+    if (Array.isArray(warmAssessments)) {
+      setAssessments(warmAssessments);
+      setLoading(false);
+    } else {
+      setAssessments([]);
+      setLoading(true);
+    }
+    const loadingFallback = window.setTimeout(() => setLoading(false), 6000);
     const colRef = collection(db, "clients", clientId, "nutrition_assessments");
     const q = query(colRef, orderBy("updatedAt", "desc"));
     const unsub = onSnapshot(
@@ -129,12 +152,16 @@ export default function ClientNutritionSection({ clientId, requiresNutritionAcce
       (snap) => {
         const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setAssessments(rows);
+        nutritionAssessmentMemoryCache.set(clientId, rows);
         setLoading(false);
       },
       () => setLoading(false)
     );
-    return () => unsub();
-  }, [clientId]);
+    return () => {
+      window.clearTimeout(loadingFallback);
+      unsub();
+    };
+  }, [clientId, prefetchedAssessments]);
 
   const canUse = !requiresNutritionAccess || canManageNutrition;
   const sharedCount = useMemo(() => assessments.filter((a) => hasSharedSections(a)).length, [assessments]);
