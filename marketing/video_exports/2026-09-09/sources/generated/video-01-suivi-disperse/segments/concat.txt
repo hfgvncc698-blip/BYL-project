@@ -1,0 +1,7 @@
+file '/Users/tommarie/Projects/BYL-project/marketing/video_exports/2026-09-09/sources/generated/video-01-suivi-disperse/segments/01.mp4'
+file '/Users/tommarie/Projects/BYL-project/marketing/video_exports/2026-09-09/sources/generated/video-01-suivi-disperse/segments/02.mp4'
+file '/Users/tommarie/Projects/BYL-project/marketing/video_exports/2026-09-09/sources/generated/video-01-suivi-disperse/segments/03.mp4'
+file '/Users/tommarie/Projects/BYL-project/marketing/video_exports/2026-09-09/sources/generated/video-01-suivi-disperse/segments/04.mp4'
+file '/Users/tommarie/Projects/BYL-project/marketing/video_exports/2026-09-09/sources/generated/video-01-suivi-disperse/segments/05.mp4'
+file '/Users/tommarie/Projects/BYL-project/marketing/video_exports/2026-09-09/sources/generated/video-01-suivi-disperse/segments/06.mp4'
+file '/Users/tommarie/Projects/BYL-project/marketing/video_exports/2026-09-09/sources/generated/video-01-suivi-disperse/segments/07.mp4'

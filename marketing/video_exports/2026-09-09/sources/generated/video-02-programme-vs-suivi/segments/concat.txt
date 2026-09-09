@@ -1,0 +1,6 @@
+file '/Users/tommarie/Projects/BYL-project/marketing/video_exports/2026-09-09/sources/generated/video-02-programme-vs-suivi/segments/01.mp4'
+file '/Users/tommarie/Projects/BYL-project/marketing/video_exports/2026-09-09/sources/generated/video-02-programme-vs-suivi/segments/02.mp4'
+file '/Users/tommarie/Projects/BYL-project/marketing/video_exports/2026-09-09/sources/generated/video-02-programme-vs-suivi/segments/03.mp4'
+file '/Users/tommarie/Projects/BYL-project/marketing/video_exports/2026-09-09/sources/generated/video-02-programme-vs-suivi/segments/04.mp4'
+file '/Users/tommarie/Projects/BYL-project/marketing/video_exports/2026-09-09/sources/generated/video-02-programme-vs-suivi/segments/05.mp4'
+file '/Users/tommarie/Projects/BYL-project/marketing/video_exports/2026-09-09/sources/generated/video-02-programme-vs-suivi/segments/06.mp4'

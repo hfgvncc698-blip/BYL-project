@@ -1,0 +1,32 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 2
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Hook,Arial,74,&H00FFFFFF,&H000000FF,&H00122B45,&H8007192E,-1,0,0,0,100,100,0,0,3,2,0,8,80,80,210,1
+Style: Label,Arial,50,&H00FFFFFF,&H000000FF,&H00122B45,&H8007192E,-1,0,0,0,100,100,0,0,3,1,0,8,100,100,350,1
+Style: Count,Arial,72,&H0056C7FF,&H000000FF,&H00122B45,&H8007192E,-1,0,0,0,100,100,0,0,3,2,0,9,80,80,215,1
+Style: Sub,Arial,49,&H00FFFFFF,&H000000FF,&H00112233,&HC007192E,-1,0,0,0,100,100,0,0,3,2,0,2,95,95,300,1
+Style: CTA,Arial,65,&H00FFFFFF,&H000000FF,&H00122B45,&H0007192E,-1,0,0,0,100,100,0,0,1,0,0,5,70,70,400,1
+Style: Small,Arial,34,&H00FFFFFF,&H000000FF,&H00122B45,&H0007192E,0,0,0,0,100,100,0,0,1,0,0,8,80,80,120,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:03.00,Hook,,0,0,0,,Le parcours d’un programme
+Dialogue: 0,0:00:00.00,0:00:03.00,Count,,0,0,0,,1 / 3
+Dialogue: 0,0:00:03.00,0:00:10.00,Label,,0,0,0,,1. CRÉER\NProgramme • Séances
+Dialogue: 0,0:00:10.00,0:00:17.00,Label,,0,0,0,,2. ASSIGNER\NProgramme → Client
+Dialogue: 0,0:00:17.00,0:00:24.00,Label,,0,0,0,,3. SUIVRE\NSéances • Validations • Progression
+Dialogue: 0,0:00:24.00,0:00:27.00,Label,,0,0,0,,CRÉER  →  ASSIGNER  →  SUIVRE
+Dialogue: 0,0:00:27.00,0:00:31.00,CTA,,0,0,0,,Essai Pro complet • 14 jours\NSans carte bancaire\NBoostYourLife.coach
+Dialogue: 0,0:00:00.00,0:00:03.00,Sub,,0,0,0,,Voici le parcours d’un programme\Ndans BYL, en trois étapes.
+Dialogue: 0,0:00:03.00,0:00:10.00,Sub,,0,0,0,,Première étape : créez votre programme\Net structurez ses séances.
+Dialogue: 0,0:00:10.00,0:00:17.00,Sub,,0,0,0,,Deuxième étape : choisissez le client\Net assignez-lui ce programme.
+Dialogue: 0,0:00:17.00,0:00:24.00,Sub,,0,0,0,,Troisième étape : consultez les séances et les validations\Nqui mettent la progression à jour.
+Dialogue: 0,0:00:24.00,0:00:27.00,Sub,,0,0,0,,Créer. Assigner. Suivre.\NLe parcours reste relié.
+Dialogue: 0,0:00:27.00,0:00:31.00,Sub,,0,0,0,,Essayez l’espace Pro complet pendant 14 jours,\Nsans carte bancaire.
+Dialogue: 0,0:00:05.00,0:00:27.00,Small,,0,0,0,,Aperçu officiel statique • aucune interaction simulée

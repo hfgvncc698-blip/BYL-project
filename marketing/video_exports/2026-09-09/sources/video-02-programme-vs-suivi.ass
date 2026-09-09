@@ -1,0 +1,30 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 2
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Hook,Arial,80,&H00FFFFFF,&H000000FF,&H00122B45,&H8007192E,-1,0,0,0,100,100,0,0,3,2,0,8,80,80,210,1
+Style: Label,Arial,44,&H00FFFFFF,&H000000FF,&H00122B45,&H8007192E,-1,0,0,0,100,100,0,0,3,1,0,8,100,100,350,1
+Style: Sub,Arial,49,&H00FFFFFF,&H000000FF,&H00112233,&HC007192E,-1,0,0,0,100,100,0,0,3,2,0,2,95,95,300,1
+Style: CTA,Arial,68,&H00FFFFFF,&H000000FF,&H00122B45,&H0007192E,-1,0,0,0,100,100,0,0,1,0,0,5,80,80,400,1
+Style: Small,Arial,34,&H00FFFFFF,&H000000FF,&H00122B45,&H0007192E,0,0,0,0,100,100,0,0,1,0,0,8,80,80,120,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:02.30,Hook,,0,0,0,,Un programme ≠ un suivi
+Dialogue: 0,0:00:02.30,0:00:06.00,Hook,,0,0,0,,PRÉVOIR
+Dialogue: 0,0:00:06.00,0:00:11.00,Label,,0,0,0,,PLANIFIER  →  VALIDER  →  SUIVRE
+Dialogue: 0,0:00:11.00,0:00:15.00,Label,,0,0,0,,DOCUMENT  ≠  CONTINUITÉ
+Dialogue: 0,0:00:15.00,0:00:21.00,Label,,0,0,0,,PROGRAMME + CLIENT + SÉANCES
+Dialogue: 0,0:00:21.00,0:00:25.00,CTA,,0,0,0,,Découvrez l’espace Pro\N14 jours • sans carte\NBoostYourLife.coach
+Dialogue: 0,0:00:00.00,0:00:02.30,Sub,,0,0,0,,Un programme n’est pas un suivi.
+Dialogue: 0,0:00:02.30,0:00:06.00,Sub,,0,0,0,,Le programme indique\Nce qui est prévu.
+Dialogue: 0,0:00:06.00,0:00:11.00,Sub,,0,0,0,,Le suivi montre quand la séance a lieu,\Nsi elle est validée et comment le parcours avance.
+Dialogue: 0,0:00:11.00,0:00:15.00,Sub,,0,0,0,,Sans ces informations, vous avez un document.\NPas encore une continuité.
+Dialogue: 0,0:00:15.00,0:00:21.00,Sub,,0,0,0,,Dans BYL, le programme reste relié\Nau client et à ses séances.
+Dialogue: 0,0:00:21.00,0:00:25.00,Sub,,0,0,0,,Découvrez l’espace Pro pendant 14 jours,\Nsans carte bancaire.
+Dialogue: 0,0:00:06.00,0:00:21.00,Small,,0,0,0,,Aperçu officiel statique • prototype

@@ -1,0 +1,6 @@
+file '/Users/tommarie/Projects/BYL-project/marketing/video_exports/2026-09-09/sources/generated/video-03-creer-assigner-suivre/segments/01.mp4'
+file '/Users/tommarie/Projects/BYL-project/marketing/video_exports/2026-09-09/sources/generated/video-03-creer-assigner-suivre/segments/02.mp4'
+file '/Users/tommarie/Projects/BYL-project/marketing/video_exports/2026-09-09/sources/generated/video-03-creer-assigner-suivre/segments/03.mp4'
+file '/Users/tommarie/Projects/BYL-project/marketing/video_exports/2026-09-09/sources/generated/video-03-creer-assigner-suivre/segments/04.mp4'
+file '/Users/tommarie/Projects/BYL-project/marketing/video_exports/2026-09-09/sources/generated/video-03-creer-assigner-suivre/segments/05.mp4'
+file '/Users/tommarie/Projects/BYL-project/marketing/video_exports/2026-09-09/sources/generated/video-03-creer-assigner-suivre/segments/06.mp4'
