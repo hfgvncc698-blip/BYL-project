@@ -109,6 +109,7 @@ import {
   expandRecurringDates,
 } from "../utils/calendarRecurrence";
 import CalendarRecurrenceFields from "./calendar/CalendarRecurrenceFields.jsx";
+import CalendarClientPicker from "./calendar/CalendarClientPicker.jsx";
 import {
   applySportProgressionToSession,
   formatDuration,
@@ -2873,7 +2874,7 @@ useState(false);
       recurrence: createDefaultRecurrence(),
     });
     addSessionModal.onOpen();
-  }, [addSessionModal, nutritionOnlyDashboard]);
+  }, [addSessionModal.onOpen, nutritionOnlyDashboard]);
   const canSubmitNewSession = useMemo(() => {
     if (!selectedNewSessionClient || !newSession.startDateTime) return false;
     if (expandRecurringDates(newSession.startDateTime, newSession.recurrence).length === 0) return false;
@@ -5240,10 +5241,19 @@ modeValue("rgba(255,255,255,0.95)",
       transform: "translateY(0)",
     },
   };
+  const handledQuickActionRef = useRef(null);
   useEffect(() => {
     const currentParams = new URLSearchParams(location.search);
     const quickAction = currentParams.get("quickAction");
-    if (!quickAction) return;
+    if (!quickAction) {
+      handledQuickActionRef.current = null;
+      return;
+    }
+    const requestKey = `${location.key}:${location.pathname}:${location.search}`;
+    // Opening changes disclosure state before router.replace commits. Consume
+    // the request first so that intervening renders cannot reopen/reset it.
+    if (handledQuickActionRef.current === requestKey) return;
+    handledQuickActionRef.current = requestKey;
 
     if (quickAction === "client") {
       clientModal.onOpen();
@@ -5259,8 +5269,8 @@ modeValue("rgba(255,255,255,0.95)",
     const nextSearch = currentParams.toString();
     navigate(`${location.pathname}${nextSearch ? `?${nextSearch}` : ""}${location.hash || ""}`, { replace: true });
   }, [
-    addSessionModal,
-    clientModal,
+    clientModal.onOpen,
+    location.key,
     location.hash,
     location.pathname,
     location.search,
@@ -7890,7 +7900,7 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
             flex="1"
             minH={0}
             overflowY="auto"
-            overscrollBehavior="contain"
+            overscrollBehavior={{ base: "auto", md: "contain" }}
             pr={allUpcomingSessions.length > 3 ? 1 : 0}
             sx={{
               scrollbarWidth: "thin",
@@ -8072,13 +8082,11 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
 
   return (
     <Box data-tour-page="coach-dashboard" minH="100vh" bg={pageBg} color={textColor}
-position="relative" overflow="hidden">
+position="relative" overflow="clip">
       {dashboardPerfEnabled && <Box as="output" data-testid="coach-dashboard-timing" display="block" position="relative" zIndex={1} p={2} fontSize="xs" whiteSpace="pre-wrap">{JSON.stringify(dashboardTiming)}</Box>}
-      {dashboardFromCache && (dashboardTiming.core?.status === "loading" || dashboardTiming.nutrition?.status === "loading" || dashboardTiming.core?.status === "error" || dashboardTiming.nutrition?.status === "error") && (
+      {dashboardFromCache && (dashboardTiming.core?.status === "error" || dashboardTiming.nutrition?.status === "error") && (
         <Text role="status" fontSize="xs" color="gray.500">
-          {dashboardTiming.core?.status === "error" || dashboardTiming.nutrition?.status === "error"
-            ? t("dashboard.refresh_failed", "Actualisation impossible. Les dernières données enregistrées restent affichées.")
-            : t("dashboard.refreshing_saved_data", "Données enregistrées affichées · Actualisation en cours…")}
+          {t("dashboard.refresh_failed", "Actualisation impossible. Les dernières données enregistrées restent affichées.")}
         </Text>
       )}
       <Box
@@ -11870,10 +11878,10 @@ onClose={choiceModal.onClose} isCentered>
        </Modal>
        <Modal isOpen={addSessionModal.isOpen}
 onClose={addSessionModal.onClose}
-isCentered>
+scrollBehavior="inside" isCentered={!isMobileDashboard}>
          <ModalOverlay />
          <ModalContent bg={surfaceBgStrong} color={textColor}
-borderRadius="22px" border="1px solid" borderColor={borderColor}>
+borderRadius="22px" border="1px solid" borderColor={borderColor} maxH="calc(100dvh - 24px)" my={{ base: 3, md: 16 }}>
            <ModalHeader>{nutritionOnlyDashboard ? "Ajouter un rendez-vous" : t("dashboard.add_session", "Ajouter une séance")}</ModalHeader>
            <ModalCloseButton />
 
@@ -11919,25 +11927,11 @@ borderRadius="22px" border="1px solid" borderColor={borderColor}>
 	                 <FormControl isRequired>
 	                   <FormLabel>{nutritionOnlyDashboard ? "Patient" : t("form.client", "Client")}</
 	FormLabel>
-                   <Select
-                     placeholder={nutritionOnlyDashboard ? "Choisir un patient" : t("form.select_client", "Choisir un client")}
-                  value={newSession.clientId}
-                  borderRadius="16px"
-                  bg={modeValue("rgba(15,23,42,0.03)",
-"rgba(255,255,255,0.04)")}
-                  borderColor={borderColor}
-                  color={textColor}
-	                  onChange={(e) => setNewSession((prev) =>
-	({ ...prev, clientId: e.target.value, programmeId: "", sessionIndex: null }))}
-	                >
-
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}
-style={{ color: "black" }}>
-                      {c.prenom} {c.nom}
-                    </option>
-                  ))}
-                </Select>
+                     <CalendarClientPicker
+                       clients={clients} value={newSession.clientId} t={t}
+                       placeholder={nutritionOnlyDashboard ? "Choisir un patient" : t("form.select_client", "Choisir un client")}
+                       onChange={(clientId) => setNewSession(prev => ({ ...prev, clientId, programmeId: "", sessionIndex: null }))}
+                     />
               </FormControl>
                 {newSession.type !== "nutrition" && (
                   <FormControl isRequired>

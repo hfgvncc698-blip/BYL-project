@@ -503,9 +503,9 @@ function MapFocusController({ target, markerRefs }) {
 function StatCard({ title, value, help }) {
   const theme = useAppTheme();
   return (
-    <Stat {...theme.tileProps} p={4}>
+    <Stat {...theme.tileProps} p={{ base: 3, md: 4 }} minW={0} overflowWrap="anywhere">
       <StatLabel color={theme.mutedText}>{title}</StatLabel>
-      <StatNumber color={theme.textColor}>{value}</StatNumber>
+      <StatNumber color={theme.textColor} fontSize={{ base: "xl", md: "2xl" }}>{value}</StatNumber>
       {help && <StatHelpText color={theme.mutedText}>{help}</StatHelpText>}
     </Stat>
   );
@@ -580,6 +580,7 @@ export default function AdminGeo() {
   const bubbleStroke = theme.primary;
   const adminPageSx = {
     ".chakra-card": {
+      minWidth: 0,
       bg: theme.surfaceBg,
       border: "1px solid",
       borderColor: theme.borderColor,
@@ -1104,7 +1105,7 @@ export default function AdminGeo() {
 
   return (
     <Box p={{ base: 4, md: 8 }} bg={theme.pageBg} color={theme.textColor} minH="calc(100vh - 112px)" sx={adminPageSx}>
-      <VStack align="stretch" spacing={6} maxW="1680px" mx="auto">
+      <VStack align="stretch" spacing={{ base: 4, md: 6 }} maxW="1440px" mx="auto" minW={0}>
       <HStack justify="space-between" align="center" flexWrap="wrap" gap={3}>
         <Button
           variant="outline"
@@ -1157,7 +1158,7 @@ export default function AdminGeo() {
         </Alert>
       )}
 
-      <SimpleGrid columns={{ base: 1, md: 2, xl: 6 }} spacing={4}>
+      <SimpleGrid columns={{ base: 2, lg: 4 }} spacing={{ base: 3, md: 4 }} minW={0}>
         <StatCard
           title={`${metricLabelUi} (${windowLabel})`}
           value={globalKpiTotal}
@@ -1175,7 +1176,10 @@ export default function AdminGeo() {
           help={`${kpi.topCityCountry ? `${kpi.topCityCountry} • ` : ""}${kpi.topCityValue} ${metric === "pv" ? "visites" : (windowKey === "all" ? "uniques (toujours)" : "visiteurs uniques")}`}
         />
 
-        <Card bg={cardBg} borderRadius="xl" shadow="sm">
+      </SimpleGrid>
+
+        <Card bg={cardBg} borderRadius="xl" shadow="sm" minW={0} sx={{ '.chakra-badge': { whiteSpace: 'normal', overflowWrap: 'anywhere' } }}>
+          <CardHeader pb={0}><Heading size="md">Filtres et affichage</Heading></CardHeader>
           <CardBody>
             <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
               <Box>
@@ -1230,7 +1234,7 @@ export default function AdminGeo() {
               </Slider>
             </HStack>
 
-            <HStack mt={3}>
+            <Stack direction={{ base: "column", sm: "row" }} mt={3}>
               <Input
                 placeholder={i18n.t("auto.AdminGeo.recherche_ville_ou_pays_iso2", "Recherche ville ou pays (ISO2)")}
                 value={search}
@@ -1243,7 +1247,7 @@ export default function AdminGeo() {
                 setMergeRadiusKm(2);
                 setMinVal(1);
               }}>{i18n.t("exerciseBank.reset", "Réinitialiser")}</Button>
-            </HStack>
+            </Stack>
 
             <SimpleGrid columns={{ base: 1, md: 3 }} spacing={3} mt={3}>
               <FormControl>
@@ -1296,7 +1300,6 @@ export default function AdminGeo() {
             </Box>
           </CardBody>
         </Card>
-      </SimpleGrid>
 
       <Card maxH={{ base: "430px", md: "460px" }} display="flex" flexDirection="column">
         <CardHeader>
@@ -1324,7 +1327,23 @@ export default function AdminGeo() {
           </Stack>
         </CardHeader>
         <CardBody overflowY="auto" p={0}>
-          <Box overflowX="auto" px={{ base: 3, md: 4 }} pb={4}>
+          <Stack display={{ base: "flex", lg: "none" }} px={4} pb={4} spacing={3}>
+            {displayedRecentVisitors.map((visit, index) => {
+              const place = getVisitLocationDisplay(visit);
+              return (
+                <Box key={visit.id || `${visit.visitorId}-${index}`} borderWidth="1px" borderRadius="lg" p={3} overflowWrap="anywhere">
+                  <Text fontWeight="700">{visit.personName || "Visiteur anonyme"}</Text>
+                  <Text fontSize="xs" color={theme.mutedText}>{visit.email || visit.uid || "—"}</Text>
+                  <Text mt={2} fontWeight="600">{place.label}</Text>
+                  {place.detail && <Text fontSize="xs" color={theme.mutedText}>{place.detail}</Text>}
+                  <Text fontSize="sm" mt={2}>{formatDateTime(visit.lastSeenAt || visit.firstSeenAt) || "—"}</Text>
+                  <Text fontSize="xs" color={theme.mutedText}>{String(visit.pathLast || visit.pathFirst || "—").split(/[?#]/)[0]}</Text>
+                </Box>
+              );
+            })}
+            {!displayedRecentVisitors.length && <Text>Aucune visite enregistrée aujourd’hui.</Text>}
+          </Stack>
+          <Box display={{ base: "none", lg: "block" }} overflowX="auto" px={{ base: 3, md: 4 }} pb={4}>
             <Table size="sm" variant="simple" minW="760px">
               <Thead position="sticky" top={0} zIndex={1} bg={cardBg}>
                 <Tr>
@@ -1355,7 +1374,7 @@ export default function AdminGeo() {
                       </Td>
                       <Td>{formatDateTime(visit.lastSeenAt || visit.firstSeenAt) || "—"}</Td>
                       <Td maxW="260px">
-                        <Text noOfLines={1}>{visit.pathLast || visit.pathFirst || "—"}</Text>
+                        <Text noOfLines={1}>{String(visit.pathLast || visit.pathFirst || "—").split(/[?#]/)[0]}</Text>
                       </Td>
                     </Tr>
                   );
@@ -1397,7 +1416,7 @@ export default function AdminGeo() {
 
         <CardBody>
           {enriching && <Progress value={progress} size="sm" mb={3} />}
-            <Box w="100%" h={{ base: "420px", md: "560px" }} borderRadius="lg" overflow="hidden">
+            <Box w="100%" h={{ base: "340px", md: "480px" }} borderRadius="lg" overflow="hidden">
               <MapContainer
                 ref={mapRef}
                 style={{ width: "100%", height: "100%" }}
@@ -1565,15 +1584,32 @@ export default function AdminGeo() {
       {/* Tableau Top villes */}
       <Card>
         <CardHeader>
-          <HStack justify="space-between" align="center">
+          <Stack direction={{ base: "column", md: "row" }} justify="space-between" align={{ base: "start", md: "center" }} spacing={3}>
             <Heading size="md">{i18n.t("auto.AdminGeo.top_villes", "Top villes")}</Heading>
             <Tag>
               {metricLabelUi} • {windowLabel} • {visibleCities.length} ville(s)
             </Tag>
-          </HStack>
+          </Stack>
         </CardHeader>
 
         <CardBody>
+          <SimpleGrid display={{ base: "grid", lg: "none" }} columns={{ base: 1, md: 2 }} spacing={3}>
+            {visibleCities.slice(0, 50).map((c) => {
+              const last = lastVisitByGeoIdToday[c.geoId];
+              const hasCoords = isValidMapPoint(c);
+              return (
+                <Box key={c.geoId} borderWidth="1px" borderRadius="lg" p={4} minW={0} overflowWrap="anywhere">
+                  <HStack justify="space-between"><Text fontWeight="700" dir="auto">{c.city}</Text><Tag flexShrink={0}>{c.country}</Tag></HStack>
+                  <Text mt={2}><Text as="span" fontWeight="700">{c.value}</Text> {metricLabelUi.toLowerCase()}</Text>
+                  <Text fontSize="sm" color={theme.mutedText} mt={2}>Dernière visite : {formatDateTime(last?.lastSeenAt) || "—"}</Text>
+                  <Text fontSize="sm" color={theme.mutedText}>{hasCoords ? `${c.lat.toFixed(4)}, ${c.lon.toFixed(4)}` : "Coordonnées à compléter"}</Text>
+                  <Button size="sm" variant="outline" mt={3} w="full" isDisabled={!hasCoords} onClick={() => focusCityOnMap(c)}>Voir sur la carte</Button>
+                </Box>
+              );
+            })}
+            {!visibleCities.length && <Text>Aucune donnée.</Text>}
+          </SimpleGrid>
+          <Box display={{ base: "none", lg: "block" }} overflowX="auto">
           <Table size="sm" variant="striped">
             <Thead>
               <Tr>
@@ -1634,13 +1670,18 @@ export default function AdminGeo() {
               )}
             </Tbody>
           </Table>
+          </Box>
 
-          <Stack spacing={1} mt={3}>
+          <Text fontSize="sm" color={theme.mutedText} mt={4}>Cliquez sur une ville pour la situer sur la carte. Les dernières visites indiquées correspondent à aujourd’hui. Jusqu’à 50 villes sont affichées.</Text>
+          <Box as="details" mt={3} fontSize="sm" color={theme.mutedText}>
+          <Box as="summary" cursor="pointer">Comprendre les données</Box>
+          <Stack spacing={2} mt={3} overflowWrap="anywhere">
             <Text color="gray.500" fontSize="sm">{i18n.t("auto.AdminGeo.l_enrichissement_ecrit", "L’enrichissement écrit")}<code>{i18n.t("auto.AdminGeo.lat", "lat")}</code>/<code>{i18n.t("auto.AdminGeo.lon", "lon")}</code>{i18n.t("auto.AdminGeo.dans", "dans")}<code>{i18n.t("auto.AdminGeo.analytics_geo", "analytics_geo")}</code>{i18n.t("auto.AdminGeo.une_fois_pour_toutes", "(une fois pour toutes).")}</Text>
             <Text color="gray.500" fontSize="sm">{i18n.t("auto.AdminGeo.aujourd_hui_7j_30j_utilisent", "Aujourd’hui/7j/30j utilisent")}<code>{i18n.t("auto.AdminGeo.analytics_geo_daily", "analytics_geo_daily")}</code>{i18n.t("auto.AdminGeo.pv", "(PV +")}<code>{i18n.t("auto.AdminGeo.uniquevisitors", "uniqueVisitors")}</code>{i18n.t("auto.AdminGeo.par_ville_et_par_jour", "par ville et par jour).")}</Text>
             <Text color="gray.500" fontSize="sm">{i18n.t("auto.AdminGeo.toujours_utilise", "Toujours utilise")}<code>{i18n.t("auto.AdminGeo.analytics_geo_pv", "analytics_geo.pv")}</code>{i18n.t("auto.AdminGeo.et", "et")}<code>{i18n.t("auto.AdminGeo.analytics_geo_users", "analytics_geo.users")}</code>{i18n.t("auto.AdminGeo.uniques_all_time_par_ville", "(uniques all-time par ville).")}</Text>
             <Text color="gray.500" fontSize="sm">{i18n.t("auto.AdminGeo.heures_aujourd_hui_utilisent", "Heures (aujourd’hui) utilisent")}<code>{i18n.t("auto.AdminGeo.analytics_geo_hourly", "analytics_geo_hourly")}</code>{i18n.t("auto.AdminGeo.pv", "(PV +")}<code>{i18n.t("auto.AdminGeo.uniquevisitors", "uniqueVisitors")}</code>{i18n.t("auto.AdminGeo.par_ville_et_par_heure", "par ville et par heure).")}</Text>
           </Stack>
+          </Box>
         </CardBody>
       </Card>
       </VStack>

@@ -23,6 +23,7 @@ import {
   ModalOverlay,
   Select,
   SimpleGrid,
+  Stack,
   Switch,
   Table,
   Tbody,
@@ -126,7 +127,7 @@ async function readJsonResponse(response) {
   }
 }
 
-export default function AdminClientEmailPanel({ clientId, profileId, audience = "client" }) {
+export default function AdminClientEmailPanel({ clientId, profileId, audience = "client", onPasswordReset, passwordResetBusy = false }) {
   const resolvedProfileId = profileId || clientId;
   const recipientLabel = audience === "club" ? "club" : audience === "coach" ? "coach" : "client";
   const recipientArticle = audience === "club" ? "du club" : audience === "coach" ? "du coach" : "du client";
@@ -392,9 +393,10 @@ export default function AdminClientEmailPanel({ clientId, profileId, audience = 
     }
   };
 
-  const send = async () => {
-    const cleanSubject = subject.trim();
-    const cleanMessage = message.trim();
+  const send = async ({ type = "manual", subject: selectedSubject = subject, message: selectedMessage = message } = {}) => {
+    if (sendBusy) return;
+    const cleanSubject = selectedSubject.trim();
+    const cleanMessage = selectedMessage.trim();
     if (!target || !cleanSubject || !cleanMessage) return;
     if (!window.confirm(`Envoyer cet e-mail à ${target} ?`)) return;
 
@@ -405,12 +407,14 @@ export default function AdminClientEmailPanel({ clientId, profileId, audience = 
         method: "POST",
         headers: { "Content-Type": "application/json", ...(await getAuthHeaders()) },
         credentials: "include",
-        body: JSON.stringify({ subject: cleanSubject, message: cleanMessage, idempotencyKey }),
+        body: JSON.stringify({ type, subject: cleanSubject, message: cleanMessage, idempotencyKey }),
       });
       const data = await readJsonResponse(response);
       if (!response.ok) throw new Error(data?.error || "manual-email-error");
-      setSubject("");
-      setMessage("");
+      if (type === "manual") {
+        setSubject("");
+        setMessage("");
+      }
       toast({
         title: "E-mail envoyé",
         description: data?.email || target,
@@ -436,7 +440,7 @@ export default function AdminClientEmailPanel({ clientId, profileId, audience = 
   };
 
   const filteredHistory = history.filter((event) => {
-    if (historyFilter === "automatic") return !["manual", "test"].includes(event.type) && event.source !== "admin-retry";
+    if (historyFilter === "automatic") return !["manual", "test"].includes(event.type) && !String(event.source || "").startsWith("admin");
     if (historyFilter === "manual") return ["manual", "test"].includes(event.type) || String(event.source || "").startsWith("admin");
     if (historyFilter === "opened") return Boolean(event.firstOpenedAt || event.openedAt);
     if (historyFilter === "unopened") return event.status === "sent" && !event.firstOpenedAt && !event.openedAt;
@@ -584,7 +588,7 @@ export default function AdminClientEmailPanel({ clientId, profileId, audience = 
                 <Button
                   leftIcon={<Icon as={MdEmail} />}
                   {...theme.primaryButtonProps}
-                  onClick={send}
+                  onClick={() => send()}
                   isLoading={sendBusy}
                   isDisabled={!target || delivery?.suspended || !subject.trim() || !message.trim()}
                 >
@@ -648,7 +652,7 @@ export default function AdminClientEmailPanel({ clientId, profileId, audience = 
 
         <Card>
           <CardHeader>
-            <Heading size="md">Modèles automatiques</Heading>
+            <Heading size="md">Modèles d’e-mail</Heading>
             <Text color={muted} fontSize="sm">Modifications propres à ce {recipientLabel}, avec restauration du texte d’origine.</Text>
           </CardHeader>
           <CardBody>
@@ -661,8 +665,25 @@ export default function AdminClientEmailPanel({ clientId, profileId, audience = 
                     .map(([key, template]) => (
                     <option key={key} value={key}>{template.label || emailTypeLabel(key)}</option>
                   ))}
+                  {onPasswordReset && <option value="passwordReset">Réinitialisation du mot de passe</option>}
                 </Select>
               </FormControl>
+              {templateType === "passwordReset" ? (
+                <Box>
+                  <Text mb={3} color={muted}>Un lien personnel et sécurisé sera généré à l’envoi pour {target || "ce destinataire"}. Aucun lien n’est enregistré dans un modèle. Le mot de passe reste inchangé tant que le destinataire ne le modifie pas.</Text>
+                  <Button {...theme.primaryButtonProps} whiteSpace="normal" height="auto" minH="44px" py={2}
+                    isLoading={passwordResetBusy} isDisabled={!target || passwordResetBusy || !onPasswordReset}
+                    onClick={async () => {
+                      if (!window.confirm(`Envoyer un lien de réinitialisation du mot de passe à ${target} ?`)) return;
+                      await onPasswordReset();
+                      await load({ silent: true });
+                    }}>
+                    Envoyer le lien de réinitialisation
+                  </Button>
+                  <Text fontSize="sm" color={muted} mt={3}>Cet e-mail de sécurité utilise un contenu dédié : il ne se modifie pas et ne s’envoie pas en test à une autre personne.</Text>
+                </Box>
+              ) : (
+              <>
               <FormControl>
                 <FormLabel>Objet</FormLabel>
                 <Input value={templateSubject} onChange={(event) => setTemplateSubject(event.target.value)} maxLength={180} />
@@ -672,6 +693,13 @@ export default function AdminClientEmailPanel({ clientId, profileId, audience = 
                 <Textarea value={templateMessage} onChange={(event) => setTemplateMessage(event.target.value)} minH="160px" maxLength={12000} />
               </FormControl>
               <HStack flexWrap="wrap">
+                <Button
+                  {...theme.primaryButtonProps}
+                  leftIcon={<Icon as={MdSend} />}
+                  onClick={() => send({ type: templateType, subject: templateSubject, message: templateMessage })}
+                  isLoading={sendBusy}
+                  isDisabled={!target || !templateSubject.trim() || !templateMessage.trim() || delivery.suspended}
+                >Envoyer au {recipientLabel}</Button>
                 <Button
                   leftIcon={<Icon as={MdVisibility} />}
                   variant="outline"
@@ -702,6 +730,15 @@ export default function AdminClientEmailPanel({ clientId, profileId, audience = 
                   Restaurer l’origine
                 </Button>
               </HStack>
+              <Stack spacing={1} fontSize="sm" color={muted}>
+                <Text><strong>Envoyer au {recipientLabel}</strong> : envoie immédiatement le texte affiché, après confirmation.</Text>
+                <Text><strong>Prévisualiser</strong> : affiche le rendu de l’e-mail à l’écran, sans rien envoyer.</Text>
+                <Text><strong>Tester</strong> : envoie un exemplaire uniquement à l’administrateur{testEmail ? ` (${testEmail})` : ""}, pas au {recipientLabel}.</Text>
+                <Text><strong>Enregistrer le modèle</strong> : conserve ce texte pour les prochains envois automatiques de ce type à ce {recipientLabel}, sans envoyer d’e-mail maintenant.</Text>
+                <Text><strong>Restaurer l’origine</strong> : remet le modèle par défaut pour ce {recipientLabel}.</Text>
+              </Stack>
+              </>
+              )}
             </VStack>
           </CardBody>
         </Card>

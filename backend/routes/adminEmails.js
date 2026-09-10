@@ -669,6 +669,10 @@ router.patch("/client/:id/preferences", async (req, res) => {
 
 router.post("/client/:id/send", async (req, res) => {
   const profileId = cleanText(req.params.id, 500);
+  const type = cleanText(req.body?.type || "manual", 80);
+  if (type !== "manual" && !Object.prototype.hasOwnProperty.call(DEFAULT_TEMPLATES, type)) {
+    return res.status(400).json({ error: "email-template-not-found" });
+  }
   const subject = cleanText(req.body?.subject, 180);
   const message = cleanText(req.body?.message, 12000);
   const requestKey = cleanText(req.body?.idempotencyKey, 200);
@@ -691,7 +695,8 @@ router.post("/client/:id/send", async (req, res) => {
         clientId: profile.client?.id || null,
         userId: profile.user?.id || null,
         to: profile.email,
-        type: "manual",
+        type,
+        templateType: type === "manual" ? null : type,
         subject,
         message,
         status: "sending",
@@ -724,7 +729,7 @@ router.post("/client/:id/send", async (req, res) => {
         accepted,
         messageId: info?.messageId || null,
       });
-      await writeAudit(req, profile, "email.sent", { eventId: eventRef.id, type: "manual", subject });
+      await writeAudit(req, profile, "email.sent", { eventId: eventRef.id, type, subject });
       return res.json({ ok: true, id: eventRef.id, email: profile.email, messageId: info?.messageId || null });
     } catch (error) {
       const bounced = await suspendForBounce(profile, error, eventRef.id);

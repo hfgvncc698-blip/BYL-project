@@ -1325,7 +1325,7 @@ check("admin email history is lazy and automatic sends are deduplicated", () => 
   );
   assert.ok(
     coachPage.includes('lazy(() => import("../components/admin/AdminClientEmailPanel"))') &&
-      coachPage.includes('<AdminClientEmailPanel profileId={id} audience={emailAudience} />'),
+      coachPage.includes('<AdminClientEmailPanel profileId={id} audience={emailAudience} onPasswordReset={sendResetPassword}'),
     "Coach and club-owner profiles must expose the shared email management panel"
   );
   assert.ok(
@@ -1365,10 +1365,13 @@ check("admin email history is lazy and automatic sends are deduplicated", () => 
     "Legacy password reset markers and first-login welcome emails must appear in admin history"
   );
   assert.ok(emailPanel.includes('["welcome", "Bienvenue"'), "Welcome email must be listed in admin preferences");
+  assert.ok(emailPanel.includes('send({ type: templateType, subject: templateSubject, message: templateMessage })'), "Template send must use the current edited content");
+  assert.ok(emailPanel.includes('await onPasswordReset()') && page.includes('onPasswordReset={sendPasswordReset}'), "Email panel must expose the secure password-reset flow");
+  execFileSync(process.execPath, ["scripts/testAdminTemplateSend.cjs"], { cwd: root, stdio: "pipe" });
   [
     "Prochains e-mails prévus",
     "Éligible à partir du",
-    "Modèles automatiques",
+    "Modèles d’e-mail",
     "Journal administrateur",
     "Échecs et rebonds",
     "Envoyer un test",

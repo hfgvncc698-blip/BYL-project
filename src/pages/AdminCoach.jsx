@@ -1555,7 +1555,7 @@ export default function AdminCoach() {
           {/* E-mails */}
           <TabPanel px={0}>
             <Suspense fallback={<AppLoading label="Chargement des e-mails..." />}>
-              <AdminClientEmailPanel profileId={id} audience={emailAudience} />
+              <AdminClientEmailPanel profileId={id} audience={emailAudience} onPasswordReset={sendResetPassword} passwordResetBusy={busy.resetPassword} />
             </Suspense>
           </TabPanel>
 

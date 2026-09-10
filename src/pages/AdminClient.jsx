@@ -1739,7 +1739,7 @@ export default function AdminClient() {
           {/* E-mails */}
           <TabPanel px={0}>
             <Suspense fallback={<AppLoading label="Chargement des e-mails..." />}>
-              <AdminClientEmailPanel clientId={id} />
+              <AdminClientEmailPanel clientId={id} onPasswordReset={sendPasswordReset} passwordResetBusy={dangerLoading.passwordReset} />
             </Suspense>
           </TabPanel>
 
