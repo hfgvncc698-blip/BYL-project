@@ -36,17 +36,6 @@ export default function ProgramBuilderPage() {
   const [selectedExercises, setSelectedExercises] = useState([]);
   const [replaceIndex, setReplaceIndex] = useState(null);
 
-  useLayoutEffect(() => {
-    const root = document.getElementById("root");
-    if (!root) return undefined;
-
-    const previousOverflow = root.style.overflow;
-    root.style.overflow = "hidden";
-    return () => {
-      root.style.overflow = previousOverflow;
-    };
-  }, []);
-
   return (
     <Flex
       data-tour-page="program-builder"
@@ -60,6 +49,7 @@ export default function ProgramBuilderPage() {
         flex="0 0 auto"
         w={`${SIDEBAR_W}px`}
         minW={`${SIDEBAR_MIN}px`}
+        display={{ base: "none", lg: "block" }}
         h="100%"
         overflow="hidden"
         borderRight="1px solid"
@@ -80,6 +70,7 @@ export default function ProgramBuilderPage() {
         data-builder-scroll-container="true"
         flex="1 1 0"
         minW={0}
+        minH={0}
         h="100%"
         overflowY="auto"
         overflowX="hidden"

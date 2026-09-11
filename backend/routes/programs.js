@@ -279,7 +279,7 @@ async function syncAssignedProgramDocs(db, programId, assignedDocs, authorizeTem
   // Small transactions keep full exercise documents below the write-size limit.
   // Reading the template in the same transaction forces a retry if another save
   // changes it, so an older request cannot restore an older client revision.
-  for (let offset = 0; offset < assignedDocs.length; offset += 4) {
+  const syncChunk = async (offset) => {
     const refs = assignedDocs.slice(offset, offset + 4).map(snapshot => snapshot.ref);
     const committedCount = await db.runTransaction(async transaction => {
       const [templateSnap, ...currentAssignments] = await Promise.all([
@@ -299,7 +299,19 @@ async function syncAssignedProgramDocs(db, programId, assignedDocs, authorizeTem
       });
       return written;
     });
-    syncedAssignments += committedCount;
+    return committedCount;
+  };
+  // Disjoint groups can commit concurrently without increasing transaction size.
+  // Wait for the whole wave, including on failure, before returning to the caller.
+  for (let offset = 0; offset < assignedDocs.length; offset += 12) {
+    const results = await Promise.allSettled(
+      [offset, offset + 4, offset + 8]
+        .filter(start => start < assignedDocs.length)
+        .map(syncChunk)
+    );
+    const failure = results.find(result => result.status === "rejected");
+    if (failure) throw failure.reason;
+    syncedAssignments += results.reduce((sum, result) => sum + result.value, 0);
   }
   return syncedAssignments;
 }

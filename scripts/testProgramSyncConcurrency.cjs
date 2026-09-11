@@ -53,6 +53,34 @@ const assignments = [{ ref: ref('clients/client/programmes/assigned') }];
   documents.get('programmes/template').createdBy = 'other-coach';
   await assert.rejects(syncAssignedProgramDocs(db, 'template', assignments, authorize), { status: 403 });
 
+  documents.get('programmes/template').createdBy = 'coach';
+  const manyAssignments = Array.from({ length: 29 }, (_, index) => {
+    const path = `clients/client-${index}/programmes/assigned`;
+    documents.set(path, { fromTemplateId: 'template' });
+    return { ref: ref(path) };
+  });
+  let active = 0, peak = 0, largestChunk = 0;
+  const parallelDb = { ...db, async runTransaction(work) {
+    active++; peak = Math.max(peak, active);
+    try {
+      await new Promise(resolve => setImmediate(resolve));
+      return await db.runTransaction(transaction => {
+        let writes = 0;
+        return work({ ...transaction, set(target, patch, options) {
+          largestChunk = Math.max(largestChunk, ++writes);
+          transaction.set(target, patch, options);
+        } });
+      });
+    } finally { active--; }
+  } };
+  assert.equal(await syncAssignedProgramDocs(parallelDb, 'template', manyAssignments, authorize), 29);
+  assert.equal(peak, 3, 'sync overlaps at most three disjoint transactions');
+  assert.equal(largestChunk, 4, 'transaction size remains bounded');
+  assert.equal(active, 0, 'all writes are confirmed before success');
+  documents.get('programmes/template').createdBy = 'other-coach';
+  await assert.rejects(syncAssignedProgramDocs(parallelDb, 'template', manyAssignments, authorize), { status: 403 });
+  assert.equal(active, 0, 'failed waves are fully settled before returning');
+
   const original = admin.firestore;
   admin.firestore = Object.assign(() => db, { FieldValue: original.FieldValue });
   try {

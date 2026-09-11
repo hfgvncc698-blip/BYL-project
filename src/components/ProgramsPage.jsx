@@ -42,7 +42,7 @@ import { useNavigate, Link, useLocation } from "react-router-dom";
 import AppLoading from "./ui/AppLoading";
 import {
   collection,
-  getDocs,
+  getDocs as firestoreGetDocs,
   deleteDoc,
   doc,
   getDoc,
@@ -53,6 +53,8 @@ import {
   limit,
 } from "firebase/firestore";
 import { db } from "../firebase";
+import { programReadDeadline } from "../utils/programReadDeadline";
+const getDocs = (ref) => programReadDeadline(firestoreGetDocs(ref));
 import { confirmOperation } from "../utils/confirmedOperation";
 import { createProgramAssignmentOperation } from "../utils/programWriteOperations";
 import { useAuth } from "../AuthContext";
@@ -353,13 +355,13 @@ export default function ProgramsPage() {
 
       if (isAutoProgramme(baseProg)) {
         navigate(withAdminCoach(`/auto-program-preview/${baseProg.id}`), {
-          state: { programmeName: fallbackName, from: "programsPage" },
+          state: { prefetchedProgram: baseProg, programmeName: fallbackName, from: "programsPage" },
         });
         return;
       }
 
       navigate(withAdminCoach(`/programmes/${baseProg.id}`), {
-        state: { programmeName: fallbackName, from: "programsPage" },
+        state: { prefetchedProgram: baseProg, programmeName: fallbackName, from: "programsPage" },
       });
     },
     [navigate, prettyProgramName, withAdminCoach]
@@ -672,6 +674,9 @@ export default function ProgramsPage() {
   return (
     <Box data-tour-page="coach-programs" minH="100vh" bg={pageBg} px={{ base: 3, md: 5 }} py={{ base: 4, md: 7 }} pb={{ base: 28, md: 7 }}>
       <PageLoadingStatus state={pageLoadState} />
+      {pageLoadState.status === "error" && (
+        <Button mb={3} onClick={() => fetchData()}>{t("common.retry", "Réessayer")}</Button>
+      )}
       <AppSurface data-tour="programs-create" bg={theme.surfaceGlow} p={{ base: 4, md: 5 }} mb={6}>
         <Flex align="flex-start" gap={3}>
           <PageBackButton fallbackTo="/coach-dashboard" />
@@ -955,7 +960,7 @@ export default function ProgramsPage() {
         border="1px solid"
         borderColor={borderColor}
         boxShadow={softShadow}
-        backdropFilter="blur(16px)"
+        // Avoid a full-list live blur during scrolling on older Safari/GPU devices.
       >
         <HStack
           data-tour="programs-search"
@@ -1153,7 +1158,6 @@ export default function ProgramsPage() {
                     borderRadius="24px"
                     p={4}
                     boxShadow={softShadow}
-                    backdropFilter="blur(14px)"
                   >
                     <Text fontWeight="900" fontSize="lg" lineHeight="1.2">
                       {prettyProgramName(p)}

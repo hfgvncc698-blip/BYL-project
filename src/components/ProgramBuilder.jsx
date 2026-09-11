@@ -3,7 +3,6 @@ import React, {
   useState,
   useEffect,
   useRef,
-  useLayoutEffect,
   useMemo,
   useCallback,
   useTransition,
@@ -1707,26 +1706,6 @@ function deepEqual(a, b) {
   }
 }
 
-/* === Hook: hauteur du header pour mobile === */
-function useHeaderHeight() {
-  const [h, setH] = useState(56);
-  useLayoutEffect(() => {
-    const measure = () => {
-      const el = document.querySelector("header, nav");
-      const hh = el ? Math.max(48, Math.round(el.getBoundingClientRect().height)) : 56;
-      setH(hh);
-    };
-    measure();
-    window.addEventListener("resize", measure);
-    window.addEventListener("orientationchange", measure);
-    return () => {
-      window.removeEventListener("resize", measure);
-      window.removeEventListener("orientationchange", measure);
-    };
-  }, []);
-  return h;
-}
-
 /* ---------- update helpers ---------- */
 function updateExerciseAt(setSessions, sIdx, listKey, eIdx, updater) {
   setSessions((prev) => {
@@ -3337,10 +3316,10 @@ export default function ProgramBuilder({
   );
 
   /* --------- Firestore sync --------- */
-  useEffect(() => {
-    if (!programDocRef) return;
-
-    const unsub = onSnapshot(programDocRef, (snap) => {
+  // Keep the subscription stable while using current edits in its callback.
+  // Re-subscribing on every keystroke/session change replays cached snapshots.
+  const programSnapshotHandlerRef = useRef(null);
+  programSnapshotHandlerRef.current = (snap) => {
       if (!snap.exists()) return;
 
       const now = Date.now();
@@ -3449,28 +3428,11 @@ export default function ProgramBuilder({
         setHasModifications(false);
         isFirstLoad.current = false;
       }
-    });
-
-    return () => unsub();
-  }, [
-    programDocRef,
-    hasModifications,
-    saving,
-    activeWeeksDirty,
-    activeWeeksSaving,
-    autoProgressionEnabled,
-    programmeGoal,
-    objectifUI,
-    programName,
-    programActiveWeeks,
-    progressionStrategy,
-    sessions,
-    programOptions,
-    weightUnit,
-    speedUnit,
-    distanceUnit,
-    t,
-  ]);
+  };
+  useEffect(() => {
+    if (!programDocRef) return undefined;
+    return onSnapshot(programDocRef, (snap) => programSnapshotHandlerRef.current(snap));
+  }, [programDocRef]);
 
   useDebouncedCallback(
     async () => {
@@ -4003,20 +3965,23 @@ export default function ProgramBuilder({
     assignmentBusyRef.current = true;
     setAssigningProgram(true);
     let autoLoadCount = 0;
+    // Reuse this read across transaction retries; the template stays transactional.
+    let historyPromise;
     try {
       await confirmOperation(assignmentOperationRef, `${createdByForSave}:${selectedClient.id}:${programId}`, () =>
         createProgramAssignmentOperation({
           db, clientId: selectedClient.id, programId, coachId: createdByForSave, updateTemplate: true,
           loadProgram: async (transaction) => {
-            const templateSnap = await transaction.get(doc(db, "programmes", programId));
+            historyPromise ||= loadClientCompletionHistory(selectedClient.id).catch((e) => {
+              console.warn("load selected client history before assignment error:", e);
+              return [];
+            });
+            const [templateSnap, selectedClientHistory] = await Promise.all([
+              transaction.get(doc(db, "programmes", programId)),
+              historyPromise,
+            ]);
             if (!templateSnap.exists()) throw new Error("Programme introuvable.");
             const template = templateSnap.data();
-            let selectedClientHistory = [];
-            try {
-              selectedClientHistory = await loadClientCompletionHistory(selectedClient.id);
-            } catch (e) {
-              console.warn("load selected client history before assignment error:", e);
-            }
 
             const { sessions: sessionsToAssign, appliedCount } = applyHistoryLoadsToSessions(
               template.sessions || template.seances || [],
@@ -4373,7 +4338,6 @@ export default function ProgramBuilder({
   );
 
   /* ---------------- Render ---------------- */
-  const headerH = useHeaderHeight();
   const currentSess = sessions[activeTab] || {};
 
   const visibleList = useMemo(() => {
@@ -4703,21 +4667,17 @@ export default function ProgramBuilder({
       backgroundImage={pageAccentBg}
       sx={{
         "@media (max-width: 768px)": {
-          position: "fixed",
-          top: `${headerH}px`,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          width: "100vw",
-          maxWidth: "100vw",
+          position: "relative",
+          width: "100%",
+          maxWidth: "100%",
           gridColumn: "1 / -1",
           gridArea: "1 / 1 / -1 / -1",
           overflowX: "hidden",
-          overflowY: "auto",
+          overflowY: "visible",
         },
       }}
-      w={{ base: "100vw", md: "100%" }}
-      maxW={{ base: "100vw", md: "100%" }}
+      w="100%"
+      maxW="100%"
       gridColumn={{ base: "1 / -1", md: "auto" }}
       gridArea={{ base: "1 / 1 / auto / -1", md: "auto" }}
     >

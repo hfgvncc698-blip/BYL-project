@@ -142,6 +142,7 @@ export async function runLimited(items, worker, concurrency = 6) {
   const limit = Math.max(1, Math.min(Number(concurrency) || 1, list.length || 1));
   const results = new Array(list.length);
   let index = 0;
+  let sliceStarted = Date.now();
 
   await Promise.all(
     Array.from({ length: limit }, async () => {
@@ -149,6 +150,12 @@ export async function runLimited(items, worker, concurrency = 6) {
         const currentIndex = index;
         index += 1;
         results[currentIndex] = await worker(list[currentIndex], currentIndex);
+        // Cached reads can resolve in a long microtask chain, starving clicks
+        // and paints. Give the browser a task boundary between work batches.
+        if (typeof window !== "undefined" && Date.now() - sliceStarted >= 8) {
+          await new Promise(resolve => window.setTimeout(resolve, 0));
+          sliceStarted = Date.now();
+        }
       }
     })
   );

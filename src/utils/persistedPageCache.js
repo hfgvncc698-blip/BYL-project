@@ -36,13 +36,17 @@ export function trimPersistedPageCaches(storage, incomingChars = 0) {
       const value = storage.getItem(key) || "";
       const size = key.length + value.length;
       if (!managedKey(key)) { otherChars += size; continue; }
-      let savedAt = 0;
-      try { savedAt = Number(JSON.parse(value)?.savedAt || 0); } catch { /* cache pointer */ }
-      entries.push({ key, size, savedAt });
+      entries.push({ key, size, value, savedAt: 0 });
       cacheChars += size;
     }
     // Conservative UTF-16 budget, leaving space below the usual 5 MiB quota.
     const budget = Math.min(PAGE_CACHE_CHAR_BUDGET, Math.max(0, 2_000_000 - otherChars));
+    // The common case needs no eviction. Avoid parsing every cached dashboard
+    // and program tree on every write while the user is interacting.
+    if (cacheChars + incomingChars <= budget && entries.every(entry => entry.size <= PAGE_CACHE_ENTRY_CHAR_LIMIT)) return true;
+    for (const entry of entries) {
+      try { entry.savedAt = Number(JSON.parse(entry.value)?.savedAt || 0); } catch { /* cache pointer */ }
+    }
     entries.sort((a, b) => a.savedAt - b.savedAt);
     for (const entry of entries) {
       if (entry.size <= PAGE_CACHE_ENTRY_CHAR_LIMIT && cacheChars + incomingChars <= budget) continue;

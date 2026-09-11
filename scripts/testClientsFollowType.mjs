@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 const source = await readFile(new URL("../src/components/Clients.jsx", import.meta.url), "utf8");
-const fn = source.match(/const isNutritionRow = \(client\) =>[\s\S]*?\n  \);/)[0];
+const fn = source.match(/const isNutritionRow = \(client\) =>[\s\S]*?\n {2}\);/)[0];
 const context = { nutritionMode: false, programmeCountMap: { sport: 2, mixed: 1 }, nutritionAssessmentCountMap: { nutrition: 3, mixed: 2 } };
 vm.createContext(context);
 vm.runInContext(`${fn}\nglobalThis.classify = isNutritionRow;`, context);
