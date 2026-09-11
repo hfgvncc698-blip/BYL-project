@@ -753,7 +753,10 @@ const Clients = () => {
               }
             : await buildClientComputedStats(c, readPool);
           let latestNutritionMs = 0;
-          if (nutritionMode || getCachedNutritionCount(c) > 0 || c?.hasNutritionFollowup || c?.nutritionFollowup) {
+          // Older nutrition clients can have assessments without any count or
+          // flag on their client document. Always check the actual collection.
+          // Reads remain bounded by the shared pool, not launched unbounded.
+          {
             try {
               const nutritionSnap = await readPool.run(() => getDocs(collection(db, "clients", c.id, "nutrition_assessments")));
               nutritionCountEntries[c.id] = nutritionSnap.size;
@@ -772,9 +775,6 @@ const Clients = () => {
               nutritionCountEntries[c.id] = quickNutritionCounts[c.id] || 0;
               latestNutritionMs = quickNutritionLast[c.id] || 0;
             }
-          } else {
-            nutritionCountEntries[c.id] = quickNutritionCounts[c.id] || 0;
-            latestNutritionMs = quickNutritionLast[c.id] || 0;
           }
 
           progressEntries[c.id] = computed.progress;
@@ -1123,8 +1123,8 @@ const Clients = () => {
         inactive: t("clientsList.filters.inactive"),
         all: t("clientsList.filters.all"),
       };
-  const statusText = (isActive) =>
-    nutritionMode
+  const statusText = (isActive, forNutrition = nutritionMode) =>
+    forNutrition
       ? isActive
         ? t("clientsList.status.nutritionActive", "Suivi récent")
         : t("clientsList.status.nutritionInactive", "À relancer")
@@ -1147,11 +1147,17 @@ const Clients = () => {
     if (nbProg > 0) {
       return { label: t("clientsList.followKinds.sport", "Client sport"), colorScheme: "blue" };
     }
-    if (nutritionCount > 0 || nutritionMode) {
+    if (nutritionCount > 0 || nutritionMode || client.hasNutritionFollowup || client.nutritionFollowup) {
       return { label: t("clientsList.followKinds.nutrition", "Patient nutrition"), colorScheme: "teal" };
     }
     return { label: t("clientsList.followKinds.toProgram", "À programmer"), colorScheme: "orange" };
   };
+  const isNutritionRow = (client) => nutritionMode || (
+    !Number(programmeCountMap[client.id] || 0) && (
+      Number(nutritionAssessmentCountMap[client.id] || 0) > 0 ||
+      !!client.hasNutritionFollowup || !!client.nutritionFollowup
+    )
+  );
   const buildClientsPath = (nextFilter) => {
     const nextParams = new URLSearchParams();
     if (mixedNutritionView) nextParams.set("view", "nutrition");
@@ -1180,7 +1186,7 @@ const Clients = () => {
               flex="1"
               title={nutritionMode ? t("clientsList.headingPatients", "Mes patients") : t("clientsList.heading")}
               subtitle={nutritionMode ? t("clientsList.nutritionSubtitle", "Gérez vos patients, leurs coordonnées et leurs suivis nutrition depuis un seul espace.") : t(
-                "clientsList.sportOnlySubtitle",
+                "clientFollowList.subtitle",
                 "Gérez vos clients sportifs, leur activité récente et leurs programmes depuis un seul espace."
               )}
               headingAs="h1"
@@ -1326,17 +1332,18 @@ const Clients = () => {
               <Thead bg={tableHeadBg}>
                 <Tr>
                   <Th w={nutritionMode ? "25%" : "24%"}>{nutritionMode ? "Patient" : t("clientsList.table.client")}</Th>
-                  {!nutritionMode && <Th w="8%">{t("clientsList.table.programs")}</Th>}
-                  <Th w={nutritionMode ? "15%" : "12%"}>{nutritionMode ? "Dernier suivi" : t("clientsList.table.lastSession")}</Th>
-                  <Th w={nutritionMode ? "14%" : "10%"}>{nutritionMode ? "Statut nutrition" : t("clientsList.table.activity")}</Th>
-                  {!nutritionMode && <Th w="21%">{t("clientsList.table.progress")}</Th>}
+                  {!nutritionMode && <Th w="8%">{t("clientFollowList.follow")}</Th>}
+                  <Th w={nutritionMode ? "15%" : "12%"}>{t("clientFollowList.last")}</Th>
+                  <Th w={nutritionMode ? "14%" : "10%"}>{t("clientFollowList.status")}</Th>
+                  {!nutritionMode && <Th w="21%">{t("clientFollowList.details")}</Th>}
                   <Th w={nutritionMode ? "46%" : "25%"} isNumeric>{t("clientsList.table.action")}</Th>
                 </Tr>
               </Thead>
               <Tbody>
                 {filteredClients.map((c) => {
-                  const last = nutritionMode ? nutritionLastFollowDate(c) : c.__tourDemo ? new Date() : lastSessionMap[c.id] || c.lastSession?.toDate?.() || null;
-                  const isActive = c.__tourDemo ? true : isActiveByInteraction(c.id);
+                  const rowNutrition = isNutritionRow(c);
+                  const last = rowNutrition ? nutritionLastFollowDate(c) : c.__tourDemo ? new Date() : lastSessionMap[c.id] || c.lastSession?.toDate?.() || null;
+                  const isActive = c.__tourDemo ? true : rowNutrition ? !!last && last.getTime() >= activeCutoffMs : isActiveByInteraction(c.id);
                   const progStat = c.__tourDemo ? { percent: 67, completed: 4, total: 6 } : progressMap[c.id] || { percent: 0, completed: 0, total: 0 };
                   const perWeek = c.__tourDemo ? 2 : sessionsPerWeekMap[c.id] ?? 0;
                   const nbProg = c.__tourDemo ? 2 : programmeCountMap[c.id] ?? 0;
@@ -1369,8 +1376,9 @@ const Clients = () => {
                       {!nutritionMode && (
                       <Td>
                         <Badge px={2.5} py={1} borderRadius="full" bg={statBg} color={headColor}>
-                          {nbProg}
+                          {rowNutrition ? Number(nutritionAssessmentCountMap[c.id] || 0) : nbProg}
                         </Badge>
+                        <Text fontSize="xs" color={muted}>{rowNutrition ? t("nutritionCoach.stats.assessments", "Bilans") : t("clientsList.table.programs")}</Text>
                       </Td>
                       )}
 
@@ -1379,7 +1387,7 @@ const Clients = () => {
                       <Td>
                         <Tooltip
                           label={
-                            nutritionMode
+                            rowNutrition
                               ? isActive
                                 ? t("clientsList.tooltip.nutritionRecent", "Interaction nutrition récente")
                                 : t("clientsList.tooltip.nutritionNone", "Aucune interaction nutrition récente")
@@ -1390,13 +1398,14 @@ const Clients = () => {
                           hasArrow
                         >
                           <Badge colorScheme={isActive ? "green" : "orange"} px={2.5} py={1} borderRadius="full">
-                            {statusText(isActive)}
+                            {statusText(isActive, rowNutrition)}
                           </Badge>
                         </Tooltip>
                       </Td>
 
                       {!nutritionMode && (
                       <Td>
+                        {rowNutrition ? <Text fontSize="sm" color={muted}>{t("clientFollowList.nutritionDetails")}</Text> : (
                         <Box minW={0} w="100%">
                           <HStack justify="space-between" mb={1}>
                             <Text fontSize="sm" color={muted}>
@@ -1414,6 +1423,7 @@ const Clients = () => {
                             {t("clientsList.progress.perWeek", { n: perWeek })}
                           </Text>
                         </Box>
+                        )}
                       </Td>
                       )}
 
@@ -1427,7 +1437,7 @@ const Clients = () => {
                           >
                             {t("common.edit", "Edit")}
                           </Button>
-                          {!nutritionMode && (
+                          {!rowNutrition && (
                           <Button
                             data-tour={c.__tourDemo ? "clients-demo-assign" : undefined}
                             size="sm"
@@ -1459,8 +1469,9 @@ const Clients = () => {
           <Box>
             <VStack spacing={3} align="stretch">
               {filteredClients.map((c) => {
-                const last = nutritionMode ? nutritionLastFollowDate(c) : c.__tourDemo ? new Date() : lastSessionMap[c.id] || c.lastSession?.toDate?.() || null;
-                const isActive = c.__tourDemo ? true : isActiveByInteraction(c.id);
+                const rowNutrition = isNutritionRow(c);
+                const last = rowNutrition ? nutritionLastFollowDate(c) : c.__tourDemo ? new Date() : lastSessionMap[c.id] || c.lastSession?.toDate?.() || null;
+                const isActive = c.__tourDemo ? true : rowNutrition ? !!last && last.getTime() >= activeCutoffMs : isActiveByInteraction(c.id);
                 const progStat = c.__tourDemo ? { percent: 67, completed: 4, total: 6 } : progressMap[c.id] || { percent: 0, completed: 0, total: 0 };
                 const perWeek = c.__tourDemo ? 2 : sessionsPerWeekMap[c.id] ?? 0;
                 const nbProg = c.__tourDemo ? 2 : programmeCountMap[c.id] ?? 0;
@@ -1500,7 +1511,7 @@ const Clients = () => {
                         </Text>
                       </Box>
                       <Badge colorScheme={isActive ? "green" : "orange"} px={2.5} py={1} borderRadius="full" flexShrink={0}>
-                        {statusText(isActive)}
+                        {statusText(isActive, rowNutrition)}
                       </Badge>
                     </HStack>
 
@@ -1513,10 +1524,10 @@ const Clients = () => {
                     <SimpleGrid columns={3} spacing={2} mt={3}>
                       <Box bg={theme.surfaceSoft} border="1px solid" borderColor={borderColor} borderRadius="16px" p={2.5}>
                         <Text fontSize="10px" color={muted} fontWeight="900" textTransform="uppercase" noOfLines={1}>
-                          {nutritionMode ? t("nutritionCoach.stats.assessments", "Bilans") : t("auto.CoachMobileNav.programmes", "Programmes")}
+                          {rowNutrition ? t("nutritionCoach.stats.assessments", "Bilans") : t("auto.CoachMobileNav.programmes", "Programmes")}
                         </Text>
                         <Text mt={1} fontSize="xl" fontWeight="950" lineHeight="1">
-                          {nutritionMode ? nutritionCount : nbProg}
+                          {rowNutrition ? nutritionCount : nbProg}
                         </Text>
                       </Box>
                       <Box bg={theme.surfaceSoft} border="1px solid" borderColor={borderColor} borderRadius="16px" p={2.5}>
@@ -1529,15 +1540,15 @@ const Clients = () => {
                       </Box>
                       <Box bg={theme.surfaceSoft} border="1px solid" borderColor={borderColor} borderRadius="16px" p={2.5}>
                         <Text fontSize="10px" color={muted} fontWeight="900" textTransform="uppercase" noOfLines={1}>
-                          {nutritionMode ? t("dashboard.mobile.today", "Aujourd'hui") : t("clientView.percentCompleted", "% terminé")}
+                          {rowNutrition ? t("clientFollowList.status") : t("clientView.percentCompleted", "% terminé")}
                         </Text>
-                        <Text mt={1} fontSize="xl" fontWeight="950" lineHeight="1">
-                          {nutritionMode ? (isActive ? "OK" : "!") : `${progStat.percent}%`}
+                        <Text mt={1} fontSize={rowNutrition ? "sm" : "xl"} fontWeight="950" lineHeight="1.3">
+                          {rowNutrition ? statusText(isActive, true) : `${progStat.percent}%`}
                         </Text>
                       </Box>
                     </SimpleGrid>
 
-                    {!nutritionMode && (
+                    {!rowNutrition && (
                       <Box mt={3}>
                         <HStack justify="space-between" mb={1}>
                           <Text fontSize="sm" color={muted}>
@@ -1581,7 +1592,7 @@ const Clients = () => {
                       >
                         {t("common.edit", "Edit")}
                       </Button>
-                      {!nutritionMode && (
+                      {!rowNutrition && (
                         <Button
                           data-tour={c.__tourDemo ? "clients-demo-assign" : undefined}
                           size="sm"

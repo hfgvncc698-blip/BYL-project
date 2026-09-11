@@ -59,7 +59,7 @@ import {
   useDisclosure,
   useToast,
 } from "@chakra-ui/react";
-import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { Link as RouterLink, useNavigate, useLocation } from "react-router-dom";
 import {
   collection,
   collectionGroup,
@@ -284,8 +284,20 @@ function VisitCell({ value, location }) {
   );
 }
 
-function MobileAdminRow({ title, subtitle, badges, createdAt, lastVisit, lastVisitLocation, onClick }) {
+function ClientPreviewButton({ onClick, ...props }) {
+  const label = i18n.t("adminClientNavigation.preview");
   return (
+    <Tooltip label={label} hasArrow>
+      <IconButton aria-label={label} icon={<Text as="span" aria-hidden="true" fontSize="20px">ⓘ</Text>}
+        variant="ghost" size="sm" minW="32px" h="32px" borderRadius="full" flexShrink={0}
+        onClick={(event) => { event.stopPropagation(); onClick(); }} {...props} />
+    </Tooltip>
+  );
+}
+
+function MobileAdminRow({ title, subtitle, badges, createdAt, lastVisit, lastVisitLocation, onClick, onPreview }) {
+  return (
+    <Box position="relative">
     <Box
       as="button"
       type="button"
@@ -302,7 +314,7 @@ function MobileAdminRow({ title, subtitle, badges, createdAt, lastVisit, lastVis
       onClick={onClick}
     >
       <VStack align="stretch" spacing={3}>
-        <Box>
+        <Box pe={onPreview ? 8 : 0}>
           <Text fontWeight="800" fontSize="md" noOfLines={2}>
             {title || "—"}
           </Text>
@@ -328,6 +340,8 @@ function MobileAdminRow({ title, subtitle, badges, createdAt, lastVisit, lastVis
           </Box>
         </SimpleGrid>
       </VStack>
+    </Box>
+    {onPreview && <ClientPreviewButton position="absolute" top={3} insetEnd={3} onClick={onPreview} />}
     </Box>
   );
 }
@@ -927,6 +941,8 @@ export default function AdminDashboard() {
   const toast = useToast();
 
   const navigate = useNavigate();
+  const location = useLocation();
+  const openClientProfile = (row) => navigate(`/admin/client/${encodeURIComponent(row.id)}`);
   const theme = useAppTheme();
   const tableStickyBg = theme.surfaceBgStrong;
   const rowHoverBg = theme.surfaceSoft;
@@ -2290,6 +2306,11 @@ export default function AdminDashboard() {
     }
   };
 
+  useEffect(() => {
+    const clientId = new URLSearchParams(location.search).get("clientPreview");
+    if (clientId) openClientDrawer({ id: clientId });
+  }, [location.key]);
+
   const openCoachDrawer = async ({ id }) => {
     if (!id) return;
 
@@ -2627,7 +2648,7 @@ export default function AdminDashboard() {
       title: "Clients",
       color: "blue",
       rows: recentRegistrations.clients,
-      open: openClientDrawer,
+      open: openClientProfile,
       secondary: (row) => row.email || compactId(row.id),
       detail: (row) =>
         row.coach && row.coach !== "—"
@@ -2762,10 +2783,12 @@ export default function AdminDashboard() {
             {displayedSearchResults.length > 0 && (
               <VStack align="stretch" spacing={2} maxH="320px" overflowY="auto">
                 {displayedSearchResults.slice(0, 8).map((r) => (
+                  <Box key={`quick-${r.source}-${r.id}`} display="flex" alignItems="center" gap={2}>
                   <Box
-                    key={`quick-${r.source}-${r.id}`}
                     as="button"
                     type="button"
+                    w="100%"
+                    minW={0}
                     textAlign="left"
                     p={3}
                     borderWidth="1px"
@@ -2777,7 +2800,7 @@ export default function AdminDashboard() {
                         ? openCoachDrawer({ id: r.id })
                         : r.kind === "club"
                         ? focusClub(r)
-                        : openClientDrawer(r)
+                        : openClientProfile(r)
                     }
 	                  >
                     <HStack justify="space-between" align="start" gap={3}>
@@ -2793,6 +2816,8 @@ export default function AdminDashboard() {
 	                        {r.kind === "coach" ? "Coach" : r.kind === "club" ? "Club" : "Client"}
 	                      </Badge>
                     </HStack>
+                  </Box>
+                  {r.kind !== "coach" && r.kind !== "club" && <ClientPreviewButton onClick={() => openClientDrawer(r)} />}
                   </Box>
                 ))}
               </VStack>
@@ -3273,7 +3298,7 @@ export default function AdminDashboard() {
 	                              size="sm"
 	                              variant="outline"
 	                              justifyContent="flex-start"
-	                              onClick={() => openClientDrawer(client)}
+	                              onClick={() => openClientProfile(client)}
 	                            >
 	                              <Box textAlign="left" minW={0}>
 	                                <Text noOfLines={1}>{client.name || client.email || client.id}</Text>
@@ -3447,7 +3472,7 @@ export default function AdminDashboard() {
         <CardHeader>
           <HStack justify="space-between" gap={3} flexWrap="wrap">
             <Heading size="md">{i18n.t("dashboard.stats_total_clients", "Clients")}</Heading>
-            <Text fontSize="sm" color="gray.500">{i18n.t("auto.AdminDashboard.clique_sur_une_ligne_pour_voir_le_detail_programme", "(Clique sur une ligne pour voir le détail + programmes)")}</Text>
+            <Text fontSize="sm" color="gray.500">{i18n.t("adminClientNavigation.hint")}</Text>
           </HStack>
         </CardHeader>
         <CardBody>
@@ -3470,7 +3495,8 @@ export default function AdminDashboard() {
                 createdAt={c.createdAt}
                 lastVisit={c.lastVisit}
                 lastVisitLocation={c.lastVisitLocation}
-                onClick={() => openClientDrawer(c)}
+                onClick={() => openClientProfile(c)}
+                onPreview={() => openClientDrawer(c)}
                 badges={
                   <>
                     <WrapItem>
@@ -3515,10 +3541,13 @@ export default function AdminDashboard() {
                   <Tr
                     key={`${c.type}-${c.id}`}
                     _hover={{ bg: rowHoverBg, cursor: "pointer" }}
-                    onClick={() => openClientDrawer(c)}
+                    onClick={() => openClientProfile(c)}
                   >
                     <Td maxW={{ base: "180px", md: "260px" }}>
-                      <Text noOfLines={1}>{c.name}</Text>
+                      <HStack spacing={2}>
+                        <Button variant="link" whiteSpace="normal" textAlign="start" onClick={(event) => { event.stopPropagation(); openClientProfile(c); }}>{c.name}</Button>
+                        <ClientPreviewButton onClick={() => openClientDrawer(c)} />
+                      </HStack>
                     </Td>
                     <Td maxW={{ base: "180px", md: "260px" }}>
                       <Text noOfLines={1}>{c.email || "—"}</Text>

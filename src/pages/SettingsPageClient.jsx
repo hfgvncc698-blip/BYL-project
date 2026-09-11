@@ -42,6 +42,7 @@ import PageBackButton from "../components/ui/PageBackButton";
 import { AppSectionHeader, AppSurface } from "../components/ui/AppPrimitives";
 import TutorialSettingsPanel from "../components/TutorialSettingsPanel";
 import EmailNotificationPreferenceCard from "../components/EmailNotificationPreferenceCard";
+import LocationPreferenceCard from "../components/LocationPreferenceCard";
 import { notify } from "../utils/notify";
 import { useAppTheme } from "../styles/appTheme";
 import { ensureLanguageLoaded } from "../i18n";
@@ -275,6 +276,8 @@ export default function SettingsPageClient() {
               </Select>
             </FormControl>
           </SurfaceCard>
+
+          <LocationPreferenceCard surfaceProps={{ bg: cardBg, borderWidth: "1px", borderColor: borderStrong, borderRadius: "22px", p: { base: 5, md: 7 }, boxShadow: glassShadow }} mutedText={mutedText} />
 
           <EmailNotificationPreferenceCard
             surfaceProps={{

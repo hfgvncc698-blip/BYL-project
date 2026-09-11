@@ -1125,6 +1125,7 @@ export default function AdminClient() {
             </Box>
 
             <HStack flexWrap="wrap" gap={2}>
+              <Button variant="outline" onClick={() => navigate(`/admin?clientPreview=${encodeURIComponent(id)}`)}>{i18n.t("adminClientNavigation.notes")}</Button>
               <Button variant="outline" rightIcon={<Icon as={MdOpenInNew} />} onClick={() => navigate(`/clients/${clientData?.id || userData?.linkedClientId || id}?adminMode=1`)}>{i18n.t("auto.AdminClient.ouvrir_fiche_en_vue_coach", "Ouvrir fiche en vue coach")}</Button>
               <Button
                 variant="outline"

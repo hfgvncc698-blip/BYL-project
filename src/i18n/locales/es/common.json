@@ -1,4 +1,27 @@
 {
+  "clientFollowList": {"subtitle":"Gestiona tus clientes de deporte y nutrición, sus seguimientos y contactos en un solo lugar.","follow":"Seguimiento","last":"Última interacción","status":"Estado","details":"Detalles","nutritionDetails":"Seguimiento nutricional: abre la ficha para consultar evaluaciones y objetivos."},
+  "adminClientNavigation": {"preview":"Vista rápida","hint":"Haz clic en un cliente para abrir su perfil de administración.","notes":"Notas internas y vista previa"},
+  "locationPrivacy": {
+    "title": "Privacidad y ubicación",
+    "description": "Elige si el sitio puede recopilar tu ubicación actual durante tus visitas.",
+    "toggle": "Permitir la recopilación de mi ubicación",
+    "off": "Desactivada en la aplicación",
+    "unsupported": "No disponible en este navegador",
+    "consent": "Pendiente del consentimiento para estadísticas de uso",
+    "granted": "Permitida por el navegador",
+    "blocked": "Bloqueada por el navegador",
+    "unknown": "Comprueba el permiso en el navegador",
+    "saveError": "Tu navegador no ha podido guardar esta elección.",
+    "scope": "Esta elección se guarda para este navegador y dispositivo. Desactivarla detiene la recopilación sin eliminar las visitas ya registradas.",
+    "browserSettings": "Para restablecer el acceso, permite la ubicación en los ajustes del navegador para este sitio.",
+    "analyticsHelp": "La recopilación también requiere tu consentimiento para estadísticas de uso, gestionado en las preferencias de cookies.",
+    "temporary": "El navegador puede pedirte permiso, especialmente si la autorización anterior era temporal.",
+    "reminderTitle": "¿Permitir el acceso a tu ubicación?",
+    "reminderBody": "Antes rechazaste el acceso a tu ubicación. Puedes continuar sin activarlo.",
+    "retryHelp": "Puedes volver a intentarlo. Si el navegador bloquea la solicitud, cambia el permiso de ubicación en los ajustes de este sitio.",
+    "retry": "Reintentar",
+    "later": "Ahora no"
+  },
   "brand": "BoostYourLife.entrenador",
   "messaging": {
     "deleteConversationTitle": "¿Eliminar esta conversación?", "deleteConversationBody": "Solo se eliminará de tus mensajes. La otra persona conservará su historial.",

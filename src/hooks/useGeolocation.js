@@ -50,11 +50,9 @@ const writeStoredGeoDecision = (decision) => {
  * })
  */
 export default function useGeolocation({
-  uid = null,
   enabled = true,
   watch = false,
   options,
-  saveUserLocation = false,
   saveAnalytics = false,
 } = {}) {
   const [state, setState] = useState({
@@ -66,9 +64,16 @@ export default function useGeolocation({
   const watchIdRef = useRef(null);
   const autoRequestAttemptedRef = useRef(false);
   const lastPublishedGeoRef = useRef(null);
+  const [retryAttempt, setRetryAttempt] = useState(0);
   const [browserPermission, setBrowserPermission] = useState(() =>
     typeof navigator !== "undefined" && navigator.permissions?.query ? "checking" : "unsupported"
   );
+  // Accepting the native prompt must not cancel and restart the request that
+  // opened it. Identity changes are likewise unrelated to the GPS subscription.
+  const permissionAccess = browserPermission === "checking" ? "checking" :
+    browserPermission === "denied" ||
+    (readStoredGeoDecision() === "denied" && browserPermission !== "granted")
+      ? "denied" : "available";
 
   const isUsablePosition = (lat, lng) =>
     Number.isFinite(lat) &&
@@ -147,10 +152,15 @@ export default function useGeolocation({
       .then((status) => {
         if (cancelled) return;
         permissionStatus = status;
-        setBrowserPermission(status.state || "prompt");
-        status.onchange = () => setBrowserPermission(status.state || "prompt");
+        const syncPermission = () => {
+          if (cancelled) return;
+          if (status.state === "granted") writeStoredGeoDecision("granted");
+          setBrowserPermission(status.state || "prompt");
+        };
+        syncPermission();
+        status.onchange = syncPermission;
       })
-      .catch(() => setBrowserPermission("unsupported"));
+      .catch(() => { if (!cancelled) setBrowserPermission("unsupported"); });
 
     return () => {
       cancelled = true;
@@ -182,16 +192,9 @@ export default function useGeolocation({
       clearCachedGeo();
     }
 
-    if (browserPermission === "checking") return;
+    if (permissionAccess === "checking") return;
 
-    const storedDecision = readStoredGeoDecision();
-    if (browserPermission === "granted" && storedDecision === "denied") {
-      writeStoredGeoDecision("granted");
-    }
-    if (
-      browserPermission === "denied" ||
-      (storedDecision === "denied" && browserPermission !== "granted")
-    ) {
+    if (permissionAccess === "denied") {
       writeStoredGeoDecision("denied");
       clearCachedGeo();
       setState({
@@ -311,7 +314,15 @@ export default function useGeolocation({
         watchIdRef.current = null;
       }
     };
-  }, [enabled, uid, watch, saveUserLocation, saveAnalytics, browserPermission, JSON.stringify(options ?? {})]);
+  }, [enabled, watch, saveAnalytics, permissionAccess, retryAttempt, JSON.stringify(options ?? {})]);
+
+  // Only a deliberate user action may override the site's remembered refusal.
+  // A browser-level block cannot be overridden: its site settings must change.
+  const retryPermission = () => {
+    if (!enabled || browserPermission === "denied") return;
+    try { localStorage.removeItem(GEO_PERMISSION_DECISION_KEY); } catch { /* optional storage */ }
+    setRetryAttempt((attempt) => attempt + 1);
+  };
 
   const refresh = async () => {
     if (!("geolocation" in navigator)) return;
@@ -359,5 +370,5 @@ export default function useGeolocation({
     );
   };
 
-  return { ...state, refresh };
+  return { ...state, refresh, retryPermission, permissionBlocked: browserPermission === "denied" };
 }

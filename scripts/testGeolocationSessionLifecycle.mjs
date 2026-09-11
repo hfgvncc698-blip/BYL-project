@@ -39,8 +39,8 @@ function createHarness({ permission = "granted", permissionsSupported = true, st
     navigator: {
       ...(permissionsSupported ? { permissions: { query: async () => permissionStatus } } : {}),
       geolocation: {
-        watchPosition(success, fail) {
-          watches.push({ success, fail });
+        watchPosition(success, fail, options) {
+          watches.push({ success, fail, options });
           return watches.length - 1;
         },
         getCurrentPosition(success, fail) { watches.push({ success, fail }); },
@@ -103,6 +103,42 @@ async function test(name, run) {
   console.log(`PASS ${name}`);
 }
 
+await test("only an explicit retry restarts a previously refused request", async () => {
+  const h = createHarness({ permission: "prompt", stored: { [DECISION_KEY]: "denied" } });
+  await h.start();
+  assert.equal(h.watches.length, 0);
+  h.render().retryPermission();
+  h.render();
+  assert.equal(h.watches.length, 1);
+  await h.publish();
+  h.changePermission("granted");
+  assert.equal(h.watches.length, 1);
+  assert.equal(h.storage.get(DECISION_KEY), "granted");
+});
+
+await test("retry cannot bypass a browser-level denial", async () => {
+  const h = createHarness({ permission: "denied", stored: { [DECISION_KEY]: "denied" } });
+  await h.start();
+  assert.equal(h.render().permissionBlocked, true);
+  h.render().retryPermission();
+  h.render();
+  assert.equal(h.watches.length, 0);
+  assert.equal(h.storage.get(DECISION_KEY), "denied");
+  h.changePermission("granted");
+  assert.equal(h.watches.length, 1, "changing browser settings resumes location");
+});
+
+await test("retry supports browsers without Permissions API and respects consent", async () => {
+  const h = createHarness({ permissionsSupported: false, stored: { [DECISION_KEY]: "denied" } });
+  await h.start();
+  h.render({ enabled: false }).retryPermission();
+  h.render();
+  assert.equal(h.watches.length, 0);
+  h.render({ enabled: true }).retryPermission();
+  h.render();
+  assert.equal(h.watches.length, 1);
+});
+
 await test("a new page immediately discards coordinates from an older opening", async () => {
   const h = createHarness({ stored: { [PAGE_LOAD_KEY]: "old-page", BYL_LAT: "44", BYL_LNG: "8" } });
   h.render();
@@ -120,6 +156,8 @@ await test("authentication resolving preserves fresh same-page coordinates", asy
   await h.start();
   await h.publish();
   h.render({ uid: "authenticated-user", saveUserLocation: true });
+  assert.equal(h.watches.length, 1, "authentication must not request permission again");
+  assert.equal(h.watches[0].cleared, undefined);
   await h.publish();
   assert.equal(h.storage.get("BYL_LAT"), "43.552");
   assert.equal(h.storage.get(PAGE_LOAD_KEY), pageLoadId);
@@ -131,10 +169,42 @@ await test("prompt becoming granted preserves a position already received", asyn
   await h.start();
   await h.publish();
   h.changePermission("granted");
+  assert.equal(h.watches.length, 1, "accepting permission must retain the original request");
+  assert.equal(h.watches[0].cleared, undefined);
   await h.publish();
   assert.equal(h.storage.get("BYL_LAT"), "43.552");
   assert.equal(h.storage.get(PAGE_LOAD_KEY), pageLoadId);
   assert.equal(h.events.length, 1);
+});
+
+await test("accepting permission before the GPS callback keeps that callback active", async () => {
+  const h = createHarness({ permission: "prompt" });
+  await h.start();
+  const original = h.watches[0];
+  h.changePermission("granted");
+  await original.success(sample);
+  assert.equal(h.watches.length, 1);
+  assert.equal(h.storage.get("BYL_LAT"), "43.552");
+  assert.equal(h.storage.get(DECISION_KEY), "granted");
+});
+
+await test("remembering a grant still requests fresh coordinates at each opening", async () => {
+  for (let opening = 0; opening < 2; opening += 1) {
+    const h = createHarness({ stored: { [DECISION_KEY]: "granted" } });
+    await h.start();
+    assert.equal(h.watches.length, 1);
+    assert.equal(h.watches[0].options.maximumAge, 0);
+    await h.publish();
+    assert.equal(h.storage.get(DECISION_KEY), "granted");
+  }
+});
+
+await test("without Permissions API, identity changes do not restart GPS either", async () => {
+  const h = createHarness({ permissionsSupported: false });
+  await h.start();
+  h.render({ uid: "authenticated-user", saveUserLocation: true });
+  assert.equal(h.watches.length, 1);
+  assert.equal(h.watches[0].cleared, undefined);
 });
 
 await test("permission revocation clears coordinates and invalidates old callbacks", async () => {
@@ -189,7 +259,7 @@ await test("late geocoding cannot republish a position after permission is denie
   assert.equal(h.events.length, 1, "no new notification after refusal");
 });
 
-await test("cancelled geocoding does not suppress a replacement same-location request", async () => {
+await test("identity changes preserve in-flight geocoding and newer measurements", async () => {
   const completions = [];
   const h = createHarness({ geocode: () => new Promise((resolve) => completions.push(resolve)) });
   await h.start();

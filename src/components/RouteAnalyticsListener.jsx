@@ -139,17 +139,21 @@ export default function RouteAnalyticsListener({ isAnalyticsOn = true, consentLo
         const finalLat = isAnalyticsOn ? readyGeo.lat ?? lat : null;
         const finalLng = isAnalyticsOn ? readyGeo.lng ?? lng : null;
 
+        // Re-check after waiting for GPS: a settings change may have revoked
+        // collection while this visit was in flight. Never send captured fallbacks.
+        let locationDisabled = false;
+        try { locationDisabled = localStorage.getItem("BYL_LOCATION_ENABLED_V1") === "false"; } catch { /* optional storage */ }
         const result = await trackPageView({
           visitId,
           user,
           path: `${location.pathname}${location.search || ""}`,
-          country: finalCountry,
-          city: finalCity,
-          lat: finalLat,
-          lng: finalLng,
-          accuracy: readyGeo.accuracy ?? geo.accuracy,
-          geoCapturedAt: readyGeo.capturedAt ?? geo.capturedAt,
-          geoSource: readyGeo.source ?? geo.source,
+          country: locationDisabled ? null : finalCountry,
+          city: locationDisabled ? null : finalCity,
+          lat: locationDisabled ? null : finalLat,
+          lng: locationDisabled ? null : finalLng,
+          accuracy: locationDisabled ? null : readyGeo.accuracy ?? geo.accuracy,
+          geoCapturedAt: locationDisabled ? null : readyGeo.capturedAt ?? geo.capturedAt,
+          geoSource: locationDisabled ? null : readyGeo.source ?? geo.source,
           roleEffectif: roleEff,
           analyticsAllowed: !!isAnalyticsOn,
         });

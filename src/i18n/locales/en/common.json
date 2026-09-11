@@ -1,4 +1,27 @@
 {
+  "clientFollowList": {"subtitle":"Manage your sport and nutrition clients, their follow-ups and contact details in one place.","follow":"Follow-up","last":"Last interaction","status":"Status","details":"Details","nutritionDetails":"Nutrition follow-up: open the client profile for assessments and goals."},
+  "adminClientNavigation": {"preview":"Quick preview","hint":"Click a client to open their admin profile.","notes":"Internal notes and preview"},
+  "locationPrivacy": {
+    "title": "Privacy and location",
+    "description": "Choose whether the site can collect your current location during your visits.",
+    "toggle": "Allow collection of my location",
+    "off": "Disabled in the app",
+    "unsupported": "Unavailable in this browser",
+    "consent": "Awaiting analytics consent",
+    "granted": "Allowed by the browser",
+    "blocked": "Blocked by the browser",
+    "unknown": "Check permission in your browser",
+    "saveError": "Your browser could not save this choice.",
+    "scope": "This choice is saved for this browser and device. Turning it off stops collection without deleting previously recorded visits.",
+    "browserSettings": "To restore access, allow location in your browser’s settings for this site.",
+    "analyticsHelp": "Collection also requires analytics consent, managed in cookie preferences.",
+    "temporary": "Your browser may ask for permission, especially if its previous permission was temporary.",
+    "reminderTitle": "Allow your location?",
+    "reminderBody": "You previously declined location access. You can continue without enabling it.",
+    "retryHelp": "You can try again. If your browser blocks the request, change location permission in the settings for this site.",
+    "retry": "Try again",
+    "later": "Not now"
+  },
   "brand": "BoostYourLife.coach",
   "messaging": {
     "deleteConversationTitle": "Remove this conversation?", "deleteConversationBody": "It will only be removed from your messages. The other person will keep their history.",

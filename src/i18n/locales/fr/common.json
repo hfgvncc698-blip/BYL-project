@@ -1,4 +1,27 @@
 {
+  "clientFollowList": {"subtitle":"Gérez vos clients sport et nutrition, leurs suivis et leurs coordonnées depuis un seul espace.","follow":"Suivi","last":"Dernière interaction","status":"Statut","details":"Détails","nutritionDetails":"Suivi nutrition : consultez la fiche pour retrouver les bilans et les objectifs."},
+  "adminClientNavigation": {"preview":"Aperçu rapide","hint":"Cliquez sur un client pour ouvrir son profil admin.","notes":"Notes internes et aperçu"},
+  "locationPrivacy": {
+    "title": "Confidentialité et localisation",
+    "description": "Choisissez si le site peut recueillir votre position actuelle lors de vos visites.",
+    "toggle": "Autoriser la collecte de ma localisation",
+    "off": "Désactivée dans l’application",
+    "unsupported": "Indisponible dans ce navigateur",
+    "consent": "En attente du consentement de mesure d’audience",
+    "granted": "Autorisée par le navigateur",
+    "blocked": "Bloquée par le navigateur",
+    "unknown": "Autorisation à vérifier dans le navigateur",
+    "saveError": "Votre navigateur n’a pas pu enregistrer ce choix.",
+    "scope": "Ce choix est enregistré pour ce navigateur et cet appareil. Le désactiver arrête la collecte sans supprimer les visites déjà enregistrées.",
+    "browserSettings": "Pour réactiver l’accès, autorisez la localisation dans les réglages de ce site dans votre navigateur.",
+    "analyticsHelp": "La collecte nécessite aussi votre consentement de mesure d’audience, géré dans les préférences de cookies.",
+    "temporary": "Le navigateur peut demander votre accord, notamment si son autorisation précédente était temporaire.",
+    "reminderTitle": "Autoriser votre localisation ?",
+    "reminderBody": "Vous aviez refusé la localisation. Vous pouvez continuer sans l’activer.",
+    "retryHelp": "Vous pouvez réessayer. Si le navigateur bloque la demande, modifiez l’autorisation de localisation dans les réglages de ce site.",
+    "retry": "Réessayer",
+    "later": "Pas maintenant"
+  },
   "brand": "BoostYourLife.coach",
   "messaging": {
     "deleteConversationTitle": "Supprimer cette conversation ?", "deleteConversationBody": "Elle sera retirée uniquement de votre messagerie. L’autre personne conservera son historique.",

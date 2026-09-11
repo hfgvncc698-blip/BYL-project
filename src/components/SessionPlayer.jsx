@@ -1,6 +1,7 @@
 // src/components/SessionPlayer.jsx
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import "./SessionPlayerSettings.css";
+import { withPlayerDeadline } from "../utils/playerRequestDeadline";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import {
   doc,
@@ -2615,6 +2616,8 @@ export default function SessionPlayer() {
   const [flat, setFlat] = useState([]);
   const [mapIdx, setMapIdx] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [programLoadError, setProgramLoadError] = useState("");
+  const [programLoadAttempt, setProgramLoadAttempt] = useState(0);
 
   const [exIndex, setExIndex] = useState(0);
   const [currentSet, setCurrentSet] = useState(1);
@@ -3701,6 +3704,8 @@ export default function SessionPlayer() {
       const rootCalendarPatch = (sourceData = {}) => ({
         title: fullTitle,
         status: "validée",
+        validated: true,
+        isPartial: false,
         start: Timestamp.fromDate(startDate),
         end: Timestamp.fromDate(endDate),
         visibility: "both",
@@ -3802,7 +3807,6 @@ export default function SessionPlayer() {
           clientName,
         });
         await linkCompletionToCalendarEvent(eventId);
-
         return eventId;
       }
 
@@ -4050,6 +4054,20 @@ export default function SessionPlayer() {
     });
   };
 
+  const confirmCalendarCompletion = async (options) => {
+    if (!isCoachContext || !clientId || !programId) return true;
+    try {
+      const eventId = await withPlayerDeadline(upsertCoachCalendarEvent(options));
+      if (!eventId) throw new Error("calendar-sync-failed");
+      return true;
+    } catch {
+      setCompletionSubmitting(false);
+      completionSubmitActionRef.current = "";
+      toast({ status: "error", title: "Agenda non synchronisé", description: "La séance est enregistrée, mais la mise à jour de l’agenda n’est pas confirmée. Réessayez depuis cette fenêtre." });
+      return false;
+    }
+  };
+
   const handleSubmitRating = async () => {
     if (completionSubmitting) return;
     setCompletionSubmitting(true);
@@ -4073,19 +4091,20 @@ export default function SessionPlayer() {
       readProgressionStrategy(programData)
     );
     const completionResult = clientId && programId
-      ? await saveSessionCompletion(100, {
+      ? await withPlayerDeadline(saveSessionCompletion(100, {
           exerciseIndex: Math.max(0, flat.length - 1),
           currentSet: totalSetsRef.current,
           exerciseTimings,
           difficultyRating: rating,
           deferSecondarySync: true,
-        })
+        })).catch(() => ({ saved: false }))
       : { saved: true, secondarySyncPromise: null };
     if (!completionResult?.saved) {
       showCompletionSaveError();
       return;
     }
     celebrateConfirmedPersonalRecords(completionResult);
+    if (!(await confirmCalendarCompletion({ ratingOverride: rating }))) return;
     const ratingSavePromise = clientId && programId
       ? addDoc(
           collection(db, "clients", clientId, "programmes", programId, "difficulté_notes"),
@@ -4096,10 +4115,7 @@ export default function SessionPlayer() {
       ? Promise.resolve(completionResult.secondarySyncPromise)
           .then(() => applyAutoProgressionAfterRating(feedbackPayload))
       : Promise.resolve();
-    const calendarPromise = clientId && programId
-      ? upsertCoachCalendarEvent({ ratingOverride: rating })
-      : Promise.resolve();
-    void Promise.allSettled([ratingSavePromise, progressionPromise, calendarPromise]);
+    void Promise.allSettled([ratingSavePromise, progressionPromise]);
     await showScheduleSuggestionOrLeave();
   };
 
@@ -4110,23 +4126,23 @@ export default function SessionPlayer() {
     recordCurrentExerciseTiming();
     const exerciseTimings = buildExerciseTimingSnapshot({ includeCurrent: false });
     const completionResult = clientId && programId
-      ? await saveSessionCompletion(100, {
+      ? await withPlayerDeadline(saveSessionCompletion(100, {
           exerciseIndex: Math.max(0, flat.length - 1),
           currentSet: totalSetsRef.current,
           exerciseTimings,
           clearDifficulty: true,
           deferSecondarySync: true,
-        })
+        })).catch(() => ({ saved: false }))
       : { saved: true, secondarySyncPromise: null };
     if (!completionResult?.saved) {
       showCompletionSaveError();
       return;
     }
     celebrateConfirmedPersonalRecords(completionResult);
+    if (!(await confirmCalendarCompletion({ ratingOverride: null, clearDifficulty: true }))) return;
     if (clientId && programId) {
       void Promise.allSettled([
         Promise.resolve(completionResult.secondarySyncPromise),
-        upsertCoachCalendarEvent({ ratingOverride: null, clearDifficulty: true }),
       ]);
     }
     await showScheduleSuggestionOrLeave();
@@ -4461,8 +4477,20 @@ export default function SessionPlayer() {
   /* ---------------------- Live load programme ---------------------- */
 
   useEffect(() => {
-    if (!programDocRef) return;
+    setProgramLoadError("");
+    if (!programDocRef) {
+      setLoading(false);
+      setProgramLoadError("Le programme demandé est introuvable.");
+      return;
+    }
+    setLoading(true);
+    const timer = setTimeout(() => {
+      setLoading(false);
+      setProgramLoadError("Le programme met trop longtemps à répondre. Vérifiez votre connexion puis réessayez.");
+    }, 15000);
     const unsub = onSnapshot(programDocRef, (snap) => {
+      clearTimeout(timer);
+      setProgramLoadError("");
       setLoading(false);
       if (!snap.exists()) {
         setProgramData(null);
@@ -4484,9 +4512,15 @@ export default function SessionPlayer() {
         setFlat([]);
         setMapIdx([]);
       }
+    }, (error) => {
+      clearTimeout(timer);
+      setLoading(false);
+      setProgramLoadError(error.code === "permission-denied"
+        ? "Votre compte n’a pas accès à ce programme."
+        : "Impossible de charger le programme. Vérifiez votre connexion puis réessayez.");
     });
-    return () => unsub();
-  }, [programDocRef, sessionIndex]);
+    return () => { clearTimeout(timer); unsub(); };
+  }, [programDocRef, sessionIndex, programLoadAttempt]);
 
   /* ---------------------- Load client exercise history ---------------------- */
 
@@ -5652,6 +5686,14 @@ export default function SessionPlayer() {
     [exIndex, performanceDraftRevision]
   );
 
+  if (programLoadError) return (
+    <VStack p={8} spacing={4} role="alert">
+      <Heading size="md">Chargement du player interrompu</Heading>
+      <Text>{programLoadError}</Text>
+      <Button onClick={() => setProgramLoadAttempt(attempt => attempt + 1)}>Réessayer</Button>
+      <Button variant="ghost" onClick={() => navigate(-1)}>Retour</Button>
+    </VStack>
+  );
   if (loading) return <AppLoading label={t("common.loading", "Chargement...")} />;
   if (!flat.length) return <Text p={6}>{t("sessionPlayer.empty", "Séance introuvable ou vide.")}</Text>;
 

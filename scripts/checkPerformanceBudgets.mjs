@@ -29,7 +29,8 @@ const budgets = [
   { prefix: "Clientdashboard", maxGzipKiB: 35 },
   { prefix: "Clients", maxGzipKiB: 15 },
   { prefix: "ProgramsPage", maxGzipKiB: 10 },
-  { prefix: "SessionPlayer", maxGzipKiB: 37.1 },
+  // Includes bounded loading/retry UI and confirmation of calendar writes.
+  { prefix: "SessionPlayer", maxGzipKiB: 38 },
 ];
 
 const failures = [];

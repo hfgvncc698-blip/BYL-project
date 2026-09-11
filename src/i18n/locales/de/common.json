@@ -1,4 +1,27 @@
 {
+  "clientFollowList": {"subtitle":"Verwalten Sie Sport- und Ernährungskunden, ihre Betreuung und Kontaktdaten an einem Ort.","follow":"Betreuung","last":"Letzte Interaktion","status":"Status","details":"Details","nutritionDetails":"Ernährungsbetreuung: Beurteilungen und Ziele finden Sie im Kundenprofil."},
+  "adminClientNavigation": {"preview":"Schnellansicht","hint":"Klicken Sie auf einen Kunden, um sein Admin-Profil zu öffnen.","notes":"Interne Notizen und Vorschau"},
+  "locationPrivacy": {
+    "title": "Datenschutz und Standort",
+    "description": "Wählen Sie, ob die Website bei Ihren Besuchen Ihren aktuellen Standort erfassen darf.",
+    "toggle": "Erfassung meines Standorts erlauben",
+    "off": "In der App deaktiviert",
+    "unsupported": "In diesem Browser nicht verfügbar",
+    "consent": "Einwilligung zur Reichweitenmessung ausstehend",
+    "granted": "Vom Browser erlaubt",
+    "blocked": "Vom Browser blockiert",
+    "unknown": "Berechtigung im Browser prüfen",
+    "saveError": "Ihr Browser konnte diese Auswahl nicht speichern.",
+    "scope": "Diese Auswahl wird für diesen Browser und dieses Gerät gespeichert. Das Deaktivieren beendet die Erfassung, ohne bereits erfasste Besuche zu löschen.",
+    "browserSettings": "Um den Zugriff wieder zu aktivieren, erlauben Sie den Standort in den Browser-Einstellungen für diese Website.",
+    "analyticsHelp": "Die Erfassung erfordert auch Ihre Einwilligung zur Reichweitenmessung in den Cookie-Einstellungen.",
+    "temporary": "Der Browser kann erneut um Erlaubnis bitten, insbesondere wenn die vorherige Berechtigung zeitlich begrenzt war.",
+    "reminderTitle": "Standortzugriff erlauben?",
+    "reminderBody": "Sie haben den Standortzugriff zuvor abgelehnt. Sie können ohne Aktivierung fortfahren.",
+    "retryHelp": "Sie können es erneut versuchen. Wenn der Browser die Anfrage blockiert, ändern Sie die Standortberechtigung in den Einstellungen dieser Website.",
+    "retry": "Erneut versuchen",
+    "later": "Nicht jetzt"
+  },
   "brand": "BoostYourLife.coach",
   "messaging": {
     "deleteConversationTitle": "Diese Unterhaltung entfernen?", "deleteConversationBody": "Sie wird nur aus deinen Nachrichten entfernt. Die andere Person behält ihren Verlauf.",

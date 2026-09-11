@@ -65,6 +65,7 @@ import { useNavigate, Link, useLocation } from "react-router-dom";
 import {
   collection,
   getDocs,
+  onSnapshot,
   addDoc,
   setDoc,
   updateDoc,
@@ -4386,6 +4387,48 @@ plannedEvt._sessionTitle,
   }, [effectiveClubId, hydrateDashboardData, prettyAssignedProgramName, prettyProgramNameBase, t, toast,
 effectiveCoachUid, dashboardPerfFresh, dashboardPerfEnabled, markDashboardTiming]);
   const refreshDashboardData = useCallback(() => fetchData({ force: true, silent: true }), [fetchData]);
+  useEffect(() => {
+    if (!effectiveCoachUid) return;
+    let stopped = false, busy = false, pending = false;
+    let timer;
+    const refresh = async () => {
+      if (stopped) return;
+      if (busy) { pending = true; return; }
+      if (document.visibilityState === "hidden") { pending = true; return; }
+      busy = true;
+      pending = false;
+      try { await refreshDashboardData(); }
+      finally {
+        busy = false;
+        if (pending && !stopped && document.visibilityState !== "hidden") schedule();
+      }
+    };
+    const schedule = () => {
+      if (stopped) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => { void refresh().catch(console.error); }, 750);
+    };
+    // Observe only the current coach's events; all three legacy ownership
+    // fields are also used by fetchData. Coalesce notifications across queries.
+    const unsubscribers = ["coachId", "createdBy", "ownerId"].map(field => {
+      let initialized = false;
+      return onSnapshot(query(collection(db, "sessions"), where(field, "==", effectiveCoachUid)), snapshot => {
+        if (!initialized) { initialized = true; return; }
+        if (snapshot.docChanges().length) schedule();
+      }, error => console.warn("[calendar] live updates unavailable", error.code));
+    });
+    window.addEventListener("focus", schedule);
+    window.addEventListener("online", schedule);
+    document.addEventListener("visibilitychange", schedule);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+      unsubscribers.forEach(unsubscribe => unsubscribe());
+      window.removeEventListener("focus", schedule);
+      window.removeEventListener("online", schedule);
+      document.removeEventListener("visibilitychange", schedule);
+    };
+  }, [effectiveCoachUid, refreshDashboardData]);
   useEffect(() => {
      fetchData();
      return () => {
@@ -9556,7 +9599,17 @@ activeSportMs > 0 &&
                                 minW={0}
                                 flex={{ base: 1, md: "0 1 220px", lg: "0 0 270px" }}
                               >
-                                 <Text
+                                 <ChakraLink
+                                   as={Link}
+                                   to={withAdminCoach(`/clients/${c.id}`)}
+                                   state={{
+                                     prefetchedClient: clientForCardActions,
+                                     prefetchedProgrammes: programmesForCard,
+                                     prefetchedNutritionAssessments: nutritionAssessmentsForCard,
+                                   }}
+                                   onClick={(event) => event.stopPropagation()}
+                                   _hover={{ textDecoration: "underline" }}
+                                   _focusVisible={{ outline: "2px solid", outlineColor: "blue.400", outlineOffset: "2px" }}
                                    color={textColor}
                                    fontWeight="800"
                                    fontSize="md"
@@ -9565,7 +9618,7 @@ activeSportMs > 0 &&
                                    title={`${c.prenom || ""} ${c.nom || ""}`.trim()}
                                  >
                                    {c.prenom} {c.nom}
-                                 </Text>
+                                 </ChakraLink>
                                  {isNutritionOnlyPatient ? (
                                    <>
                                      <Text fontSize="xs" color={mutedText} noOfLines={1}>

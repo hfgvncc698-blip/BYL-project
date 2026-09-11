@@ -407,7 +407,7 @@ check("each app opening requests a fresh geolocation without reusing a saved pla
   );
   assert.ok(
     geolocation.includes('browserPermission === "denied"') &&
-      geolocation.includes('storedDecision === "denied" && browserPermission !== "granted"') &&
+      geolocation.includes('readStoredGeoDecision() === "denied" && browserPermission !== "granted"') &&
       !geolocation.includes('storedDecision === "granted" && browserPermission !== "granted"'),
     "Respect a remembered refusal unless the browser explicitly reports a new grant"
   );
@@ -742,14 +742,19 @@ check("dashboard resume keeps the exact unfinished player position", () => {
   );
 });
 
-check("session completion modal only waits for the critical save", () => {
+check("session completion confirms the workout and calendar before leaving", () => {
   const player = read("src/components/SessionPlayer.jsx");
   assert.ok(
     player.includes("deferSecondarySync: true") &&
       player.includes("secondarySyncPromise") &&
       player.includes("Promise.allSettled") &&
       player.includes("isLoading={completionSubmitting"),
-    "The completion modal must confirm the workout first and defer calendar and progression sync"
+    "The completion modal must confirm the workout and defer noncritical progression sync"
+  );
+  assert.ok(
+    player.includes('if (!(await confirmCalendarCompletion({ ratingOverride: rating }))) return;') &&
+      player.includes('if (!(await confirmCalendarCompletion({ ratingOverride: null, clearDifficulty: true }))) return;'),
+    "Both completion actions must await calendar confirmation before leaving"
   );
   assert.ok(
     player.includes("if (!completionResult?.saved)") &&

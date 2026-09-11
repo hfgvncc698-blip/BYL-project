@@ -1,4 +1,27 @@
 {
+  "clientFollowList": {"subtitle":"Gestisci i clienti sport e nutrizione, i loro percorsi e i contatti in un unico spazio.","follow":"Percorso","last":"Ultima interazione","status":"Stato","details":"Dettagli","nutritionDetails":"Percorso nutrizionale: apri la scheda per consultare bilanci e obiettivi."},
+  "adminClientNavigation": {"preview":"Anteprima rapida","hint":"Seleziona un cliente per aprire il suo profilo amministratore.","notes":"Note interne e anteprima"},
+  "locationPrivacy": {
+    "title": "Privacy e posizione",
+    "description": "Scegli se il sito può raccogliere la tua posizione attuale durante le visite.",
+    "toggle": "Consenti la raccolta della mia posizione",
+    "off": "Disattivata nell’app",
+    "unsupported": "Non disponibile in questo browser",
+    "consent": "In attesa del consenso alle statistiche di utilizzo",
+    "granted": "Consentita dal browser",
+    "blocked": "Bloccata dal browser",
+    "unknown": "Verifica l’autorizzazione nel browser",
+    "saveError": "Il browser non ha potuto salvare questa scelta.",
+    "scope": "Questa scelta viene salvata per questo browser e dispositivo. Disattivarla interrompe la raccolta senza eliminare le visite già registrate.",
+    "browserSettings": "Per riattivare l’accesso, consenti la posizione nelle impostazioni del browser per questo sito.",
+    "analyticsHelp": "La raccolta richiede anche il consenso alle statistiche di utilizzo, gestito nelle preferenze dei cookie.",
+    "temporary": "Il browser può chiedere il consenso, soprattutto se l’autorizzazione precedente era temporanea.",
+    "reminderTitle": "Consentire l’accesso alla posizione?",
+    "reminderBody": "In precedenza hai rifiutato l’accesso alla posizione. Puoi continuare senza attivarlo.",
+    "retryHelp": "Puoi riprovare. Se il browser blocca la richiesta, modifica l’autorizzazione alla posizione nelle impostazioni di questo sito.",
+    "retry": "Riprova",
+    "later": "Non ora"
+  },
   "brand": "BoostYourLife.allenatore",
   "messaging": {
     "deleteConversationTitle": "Rimuovere questa conversazione?", "deleteConversationBody": "Verrà rimossa solo dai tuoi messaggi. L’altra persona conserverà la propria cronologia.",
