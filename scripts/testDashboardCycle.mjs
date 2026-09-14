@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {dashboardCycle} from '../src/utils/dashboardCycle.js';
+import {dashboardCycleLabels} from '../src/i18n/dashboardCycle.js';
+const programs=[{id:'old',_total:8,_done:2,_hasResumePoint:true},{id:'current',_total:3,_done:1},{id:'future',_total:12,_done:0}];
+const profile={currentProgramme:'old',trainingPlan:{cycles:[{programId:'old',closedAt:'2026-01-01'},{programId:'current'},{programId:'future'}]}};
+assert.equal(dashboardCycle(profile,programs).program.id,'current');
+assert.equal(dashboardCycle({...profile,sportFollowView:'programs'},programs),null);
+assert.equal(dashboardCycle({},programs),null);
+assert.equal(dashboardCycle(profile,programs.map(p=>p.id==='current'?{...p,_done:3}:p)).state,'transition');
+assert.equal(dashboardCycle(profile,programs.map(p=>p.id==='current'?{...p,status:'draft'}:p)).program,null);
+assert.equal(dashboardCycle({...profile,trainingPlan:{cycles:[{draftProgramId:'draft'}]}},programs).state,'waiting');
+assert.equal(dashboardCycle({...profile,trainingPlan:{cycles:[{closedAt:'2026-01-01'}]}},programs).state,'finished');
+const advanced={...profile,trainingPlan:{cycles:profile.trainingPlan.cycles.map((c,i)=>i===1?{...c,closedAt:'2026-09-14'}:c)}};
+assert.equal(dashboardCycle(advanced,programs).program.id,'future');
+for(const lang of ['fr','en','es','it','de','ru','ar'])assert.equal(dashboardCycleLabels(lang).filter(Boolean).length,6);
+console.log('Dashboard cycles: coach preference, authoritative cycle, draft/waiting, short cycle completion, successor and seven languages OK.');

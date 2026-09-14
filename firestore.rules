@@ -329,6 +329,10 @@ service cloud.firestore {
 
     function clientSecurityFieldsUnchanged() {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        "subscriptionCycle",
+        "subscriptionAccessUntil",
+        "trainingPlan",
+        "sportFollowView",
         "createdBy",
         "coachId",
         "coachUid",
@@ -359,6 +363,7 @@ service cloud.firestore {
 
     function safeSelfClientCreate(clientId, data) {
       return clientIsOwnProfile(clientId, data) &&
+        !data.keys().hasAny(["subscriptionCycle", "subscriptionAccessUntil"]) &&
         (!data.keys().hasAny(["uid"]) || data.uid == request.auth.uid) &&
         (!data.keys().hasAny(["authUid"]) || data.authUid == request.auth.uid) &&
         (!data.keys().hasAny(["userId"]) || data.userId == request.auth.uid) &&

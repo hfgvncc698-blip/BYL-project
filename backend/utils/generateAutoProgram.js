@@ -4155,6 +4155,7 @@ async function generateAutoProgram({
 
 /* ------------------- GENERATION + SAUVEGARDE ------------------- */
 async function generateAndSaveAutoProgram({
+  prepareOnly = false,
   clientId,
   assignedProgramId,
   sexe,
@@ -4268,6 +4269,7 @@ async function generateAndSaveAutoProgram({
     origine: "auto",
   };
 
+  if (prepareOnly) return data;
   let docRef;
   if (assignedRef) {
     try {

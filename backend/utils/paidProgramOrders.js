@@ -37,7 +37,7 @@ function paidProgramId(sessionId) {
 
 // Only server-verified Stripe receipts may reach this helper. No public endpoint
 // accepts assignedProgramId or a caller-provided delivery/credit state.
-function createPaidProgramDelivery({ db, FieldValue, generateProgram, resolveClientRef, now = Date.now }) {
+function createPaidProgramDelivery({ db, FieldValue, generateProgram, resolveClientRef, fulfillSubscription, now = Date.now }) {
   return async function deliver({ session, uid, receiptId = session?.id }) {
     if (!isCheckoutPaymentConfirmed(session) || !/^(?:cs_|in_)[A-Za-z0-9_]+$/.test(session?.id || '') ||
         !/^(?:cs_|in_|initial_sub_)[A-Za-z0-9_]+$/.test(receiptId || '') || !uid || session.metadata?.firebaseUid !== uid) {
@@ -49,7 +49,7 @@ function createPaidProgramDelivery({ db, FieldValue, generateProgram, resolveCli
     const previousOrder = previous.data() || {};
     if (previous.exists && (previousOrder.uid !== uid || (previousOrder.receiptId || previousOrder.sessionId) !== receiptId)) throw new Error('order-owner-mismatch');
     if (previousOrder.deliveryStatus === 'delivered') {
-      return { clientId: previousOrder.clientId, programAssignmentId: programId, viewerUrl: previousOrder.viewerUrl, alreadyExists: true };
+      return { clientId: previousOrder.clientId, programAssignmentId: previousOrder.programAssignmentId !== undefined ? previousOrder.programAssignmentId : programId, viewerUrl: previousOrder.viewerUrl, alreadyExists: true };
     }
     // Once reserved, retries retain the same client and questionnaire even if
     // profile lookup preferences or the original pending form later change.
@@ -96,15 +96,17 @@ function createPaidProgramDelivery({ db, FieldValue, generateProgram, resolveCli
       }, { merge: true });
       return { claimed: true };
     });
-    const result = { clientId: clientRef.id, programAssignmentId: programId, viewerUrl: `/clients/${clientRef.id}/programmes/${programId}` };
+    let result = { clientId: clientRef.id, programAssignmentId: programId, viewerUrl: `/clients/${clientRef.id}/programmes/${programId}` };
     if (claim.pending) return { deliveryPending: true, retryAfterMs: 2000 };
-    if (claim.alreadyExists) return { clientId: claim.clientId, programAssignmentId: programId, viewerUrl: claim.viewerUrl, alreadyExists: true };
+    if (claim.alreadyExists) return { clientId: claim.clientId, programAssignmentId: claim.programAssignmentId !== undefined ? claim.programAssignmentId : programId, viewerUrl: claim.viewerUrl, alreadyExists: true };
     try {
-      await generateProgram({
+      const cyclic = session.mode === 'subscription' && session.metadata?.audience === 'particulier' && fulfillSubscription;
+      if (cyclic) result = await fulfillSubscription({clientRef,options,uid});
+      else await generateProgram({
         ...options, objectifParamsKey: options.objectif, clientId: clientRef.id,
         createdBy: 'stripe-paid-program', assignedProgramId: programId, generationSeed: receiptId,
       });
-      if (session.mode === 'subscription' && session.metadata?.programDeliveryMode !== 'stripe-invoice') {
+      if (!cyclic && session.mode === 'subscription' && session.metadata?.programDeliveryMode !== 'stripe-invoice') {
         await clientRef.set({
           nbSeancesAbonnement: options.nbSeances, niveauSportif: options.niveau, sexe: options.sexe,
           dernierProgrammeGenere: new Date(now()),

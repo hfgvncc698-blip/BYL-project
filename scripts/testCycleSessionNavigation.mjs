@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import { syncCycleDurations, nextCycleSession, cycleTimeline } from '../src/utils/trainingCycles.js';
+const plan = { start: '2026-09-11', cycles: [{ id: 'a', weeks: 1, programId: 'p' }, { id: 'b', weeks: 3 }] };
+const synced = syncCycleDurations(plan, [{ id: 'p', activeWeeks: 3 }]);
+assert.equal(synced.cycles[0].weeks, 3);
+assert.equal(cycleTimeline(synced)[1].start, '2026-10-02');
+assert.equal(plan.cycles[0].weeks, 1);
+assert.equal(syncCycleDurations(plan, [{ id: 'p' }]).cycles[0].weeks, 1);
+assert.equal(syncCycleDurations({ ...plan, cycles: [{ ...plan.cycles[0], closedAt: 'yesterday' }] }, [{ id: 'p', activeWeeks: 3 }]).cycles[0].weeks, 1);
+const program = { sessions: [{}, {}], activeWeeks: 3, __detailsLoaded: true, sessionsEffectuees: [] };
+assert.equal(nextCycleSession(program), 0);
+assert.equal(nextCycleSession({ ...program, __detailsLoaded: false }), null);
+assert.equal(nextCycleSession({ ...program, sessionsEffectuees: [{ status: 'completed', sessionIndex: 0, completedAt: '2026-09-11' }] }), 1);
+assert.equal(nextCycleSession({ ...program, sessionsEffectuees: [{ status: 'completed', sessionIndex: 1, completedAt: '2026-09-11' }, { status: 'completed', sessionIndex: 0, completedAt: '2026-09-10' }] }), 0);
+assert.equal(nextCycleSession({ ...program, sessionsEffectuees: [{ status: 'in_progress', sessionIndex: 0 }] }), 0);
+assert.equal(nextCycleSession({ ...program, sessionsEffectuees: Array.from({ length: 6 }, () => ({ status: 'completed', sessionIndex: 1 })) }), null);
+console.log('Cycle duration and next-session tests passed');

@@ -1,4 +1,6 @@
 {
+  "builderSavePending": "Server confirmation is taking longer than expected. Saving is still in progress: do not save again and keep this page open.",
+  "builderSyncPending": "The program is saved. Updates to client programs are not yet confirmed. Use Save again to retry synchronization.",
   "clientFollowList": {"subtitle":"Manage your sport and nutrition clients, their follow-ups and contact details in one place.","follow":"Follow-up","last":"Last interaction","status":"Status","details":"Details","nutritionDetails":"Nutrition follow-up: open the client profile for assessments and goals."},
   "adminClientNavigation": {"preview":"Quick preview","hint":"Click a client to open their admin profile.","notes":"Internal notes and preview"},
   "locationPrivacy": {

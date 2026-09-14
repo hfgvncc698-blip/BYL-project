@@ -106,6 +106,7 @@ export default function ClientNutritionSection({
   clientId,
   prefetchedAssessments = null,
   requiresNutritionAccess = false,
+  onAssessmentCount,
 }) {
   const toast = useToast();
   const navigate = useNavigate();
@@ -135,6 +136,9 @@ export default function ClientNutritionSection({
   const draftCreationRef = useRef(null);
   const [creating, setCreating] = useState(false);
   const [confirmationPending, setConfirmationPending] = useState(false);
+  useEffect(() => {
+    if (!loading) onAssessmentCount?.({ clientId, count: assessments.length });
+  }, [clientId, assessments.length, loading, onAssessmentCount]);
 
   useEffect(() => {
     if (!clientId) return;

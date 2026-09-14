@@ -3,7 +3,7 @@ import { Box, Button, Icon, SimpleGrid, Text, useColorModeValue } from "@chakra-
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
-  MdOutlineChecklist,
+  MdOutlineHome,
   MdOutlineFitnessCenter,
   MdOutlineInsights,
   MdOutlineRestaurantMenu,
@@ -35,7 +35,7 @@ export default function ClientMobileNav() {
   );
 
   const items = [
-    { label: t("auto.Clientdashboard.accueil", "Accueil"), icon: MdOutlineChecklist, path: "/user-dashboard" },
+    { label: t("auto.Clientdashboard.accueil", "Accueil"), icon: MdOutlineHome, path: "/user-dashboard" },
     { label: t("auto.Clientdashboard.programmes", "Programmes"), icon: MdOutlineFitnessCenter, path: "/mes-programmes" },
     { label: t("nutrition.title", "Nutrition"), icon: MdOutlineRestaurantMenu, path: "/nutrition" },
     { label: t("auto.Clientdashboard.stats", "Stats"), icon: MdOutlineInsights, path: "/statistiques" },

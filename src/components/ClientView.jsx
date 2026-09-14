@@ -58,7 +58,12 @@ import {
   serverTimestamp,
   arrayUnion,
   arrayRemove,
+  runTransaction,
 } from "firebase/firestore";
+import AssignmentPlacement from './client/AssignmentPlacement';
+import SportViewPreference from './client/SportViewPreference';
+import { cycleAssignmentPatch, cycleAssignmentError, recommendedCyclePlacement } from '../utils/cycleAssignment';
+import { continuingCyclePlan, displayedCyclePlan, suggestedCycles } from '../utils/trainingCycles';
 import { FiEye, FiXCircle, FiCopy } from "react-icons/fi";
 import AppLoading from "./ui/AppLoading";
 import PageBackButton from "./ui/PageBackButton";
@@ -76,7 +81,10 @@ import { hasPlanModule } from "../utils/proPlanAccess";
 
 const SessionComparator = lazy(() => import("./SessionComparator"));
 const ClientNutritionSection = lazy(() => import("./ClientNutritionSection"));
+import { calculateEntryBmi, latestEntryValue } from '../utils/measurementEntry';
+import RightDisclosureSummary from './ui/RightDisclosureSummary';
 const ClientMeasurementCharts = lazy(() => import("./client/ClientMeasurementCharts"));
+const TrainingCycles = lazy(() => import("./client/TrainingCycles"));
 const clientViewMemoryCache = new Map();
 const warmedProgramRoutes = new Set();
 
@@ -626,6 +634,7 @@ export default function ClientView() {
 
   const initialCachedClientView = clientViewMemoryCache.get(clientId) || {};
   const [client, setClient] = useState(() => location.state?.prefetchedClient || initialCachedClientView.client || null);
+  const programsOnly = client?.sportFollowView === 'programs';
   const [programmes, setProgrammes] = useState(() =>
     normalizePrefetchedProgrammes(
       location.state?.prefetchedProgrammes ||
@@ -637,6 +646,8 @@ export default function ClientView() {
   const [measures, setMeasures] = useState(() => initialCachedClientView.measures || []);
   const [secondaryContentReady, setSecondaryContentReady] = useState(false);
   const [programmeDetailsReady, setProgrammeDetailsReady] = useState(false);
+  const [nutritionSummary, setNutritionSummary] = useState(null);
+  const isNutritionOnlyClient = programmes.length === 0 && !!(client?.hasNutritionFollowup || client?.nutritionFollowup || (nutritionSummary?.clientId === clientId && nutritionSummary.count > 0));
   const programmesLoadSeqRef = useRef(0);
 
   const addMeas = useDisclosure();
@@ -649,6 +660,9 @@ export default function ClientView() {
   const [isUnassigning, setIsUnassigning] = useState(false);
 
   const assignProg = useDisclosure();
+  const [assignmentPlacement, setAssignmentPlacement] = useState('auto');
+  useEffect(() => setAssignmentPlacement('auto'), [assignProg.isOpen, clientId, programsOnly]);
+  const assignmentLock = useRef(false);
   const [baseProgrammes, setBaseProgrammes] = useState([]);
   const [loadingBaseProgrammes, setLoadingBaseProgrammes] = useState(false);
   const [assigning, setAssigning] = useState(false);
@@ -691,6 +705,8 @@ export default function ClientView() {
     visceralFatScore: "",
   });
 
+  const [savingMeasure, setSavingMeasure] = useState(false);
+  const savingMeasureRef = useRef(false);
   const [editData, setEditData] = useState({});
   const [isSavingClient, setIsSavingClient] = useState(false);
 
@@ -979,23 +995,26 @@ export default function ClientView() {
 
   /* ------------------ Handlers ------------------ */
   const handleAdd = async () => {
-    await addDoc(collection(db, "clients", clientId, "measurements"), {
-      ...newMeas,
-      timestamp: serverTimestamp(),
-    });
-    setNewMeas({
-      date: todayLocalDate(),
-      taille: "",
-      poids: "",
-      bmi: "",
-      fatMass: "",
-      muscleMass: "",
-      waterMass: "",
-      boneMass: "",
-      metabolicAge: "",
-      visceralFatScore: "",
-    });
-    addMeas.onClose();
+    if (savingMeasureRef.current || !newMeas.date) return;
+    savingMeasureRef.current = true;
+    setSavingMeasure(true);
+    try {
+      const numeric = {};
+      for (const field of ['taille','poids','fatMass','muscleMass','waterMass','boneMass','metabolicAge','visceralFatScore']) {
+        const raw = newMeas[field];
+        numeric[field] = raw === '' || raw == null ? null : Number(String(raw).replace(',','.'));
+        if (numeric[field] != null && (!Number.isFinite(numeric[field]) || numeric[field] < 0)) throw new Error(t('common.invalidValue','Valeur invalide'));
+      }
+      await addDoc(collection(db, "clients", clientId, "measurements"), {
+        date:newMeas.date, ...numeric, bmi:calculateEntryBmi(numeric.taille,numeric.poids), timestamp:serverTimestamp(),
+      });
+      addMeas.onClose();
+    } catch(error) {
+      toast({status:'error',title:t('common.error','Erreur'),description:error.message});
+    } finally {
+      savingMeasureRef.current=false;
+      setSavingMeasure(false);
+    }
   };
 
   const handleEdit = async ({ forceEmail = false } = {}) => {
@@ -1284,7 +1303,7 @@ export default function ClientView() {
   }, [assignProg.isOpen, assignmentCoachUid]);
 
   const handleAssignProgramme = async () => {
-    if (!clientId) return;
+    if (!clientId || assignmentLock.current || (assignmentPlacement !== 'separate' && !programmeDetailsReady)) return;
     const baseId = assignForm.baseProgrammeId;
     if (!baseId) {
       notify(toast, "programAssignMissing", {
@@ -1295,6 +1314,7 @@ export default function ClientView() {
     }
 
     try {
+      assignmentLock.current = true;
       setAssigning(true);
 
       const baseSnap = await getDoc(doc(db, "programmes", baseId));
@@ -1341,9 +1361,11 @@ export default function ClientView() {
         assigned_at: serverTimestamp(),
         created_at: serverTimestamp(),
         clientId,
+        excludeFromCyclePlanning: assignmentPlacement === 'separate',
         clientNom: fullName,
         sessions: clonedSessions,
-        seances: safeDeepClone(clonedSessions),
+        ...(base.cycleType ? { cycleType: base.cycleType } : {}),
+        ...(base.cyclePreparation ? { cyclePreparation: base.cyclePreparation } : {}),
         objectif: base?.objectif || base?.objectifUI || "",
         objectifUI: base?.objectifUI || "",
         activeWeeks,
@@ -1356,13 +1378,18 @@ export default function ClientView() {
         clubId: client?.clubId || base?.clubId || "",
       };
 
-      const newRef = await addDoc(
-        collection(db, "clients", clientId, SUBCOL_PROGRAMMES),
-        clientProgPayload
-      );
-
-      await updateDoc(doc(db, "clients", clientId, SUBCOL_PROGRAMMES, newRef.id), {
-        id: newRef.id,
+      const newRef = doc(collection(db, "clients", clientId, SUBCOL_PROGRAMMES));
+      const now = new Date();
+      const suggestion = { start: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`, cycles: suggestedCycles(() => crypto.randomUUID()), revision: 0 };
+      const proposedPlan = displayedCyclePlan(client.trainingPlan, continuingCyclePlan(client, programmes, suggestion));
+      await runTransaction(db, async transaction => {
+        const clientRef = doc(db, 'clients', clientId);
+        const current = await transaction.get(clientRef);
+        if (!current.exists()) throw new Error('client-missing');
+        const choice = assignmentPlacement === 'auto' ? recommendedCyclePlacement({ ...client, trainingPlan: proposedPlan }) : assignmentPlacement;
+        const patch = cycleAssignmentPatch(current.data(), newRef.id, choice, proposedPlan, client.trainingPlan?.revision || 0, { ...base, templateId: baseId });
+        transaction.set(newRef, { ...clientProgPayload, id: newRef.id });
+        transaction.update(clientRef, { ...patch, programmes: arrayUnion(newRef.id), updatedAt: serverTimestamp() });
       });
 
       try {
@@ -1379,15 +1406,17 @@ export default function ClientView() {
 
       assignProg.onClose();
       setAssignForm({ baseProgrammeId: "", customName: "" });
+      setAssignmentPlacement('auto');
 
       await reloadProgrammes();
     } catch (e) {
       console.error("[ClientView] assign error:", e);
       notify(toast, "programAssignError", {
         title: t("errors.saveFailed", "Échec de l’enregistrement"),
-        description: t("errors.tryAgain", "Réessaie dans quelques secondes."),
+        description: cycleAssignmentError(e, i18n.resolvedLanguage || i18n.language) || t("errors.tryAgain", "Réessaie dans quelques secondes."),
       });
     } finally {
+      assignmentLock.current = false;
       setAssigning(false);
     }
   };
@@ -1432,32 +1461,17 @@ export default function ClientView() {
     });
   });
 
-  const r = measures[measures.length - 1] || {};
-  const latest = {
-    taille: r.taille ?? (client?.taille ? parseFloat(client.taille) : null),
-    poids: r.poids ?? (client?.poids ? parseFloat(client.poids) : null),
-    fatMass: r.fatMass,
-    muscleMass: r.muscleMass,
-    waterMass: r.waterMass,
-    boneMass: r.boneMass,
-    metabolicAge: r.metabolicAge,
-    visceralFatScore: r.visceralFatScore,
+  const openNewMeasure = () => {
+    const read = (source, field) => {
+      const raw = source?.[field] ?? source?.[field === 'taille' ? 'height' : 'weight'];
+      return raw == null || raw === '' ? null : Number(String(raw).replace(',','.'));
+    };
+    setNewMeas({date:todayLocalDate(), taille:latestEntryValue(measures,client,null,read,'taille')??'',
+      poids:latestEntryValue(measures,client,null,read,'poids')??'',
+      bmi:'',fatMass:'',muscleMass:'',waterMass:'',boneMass:'',metabolicAge:'',visceralFatScore:''});
+    addMeas.onOpen();
   };
-
-  if (latest.taille && latest.poids) {
-    latest.bmi = +(latest.poids / (latest.taille / 100) ** 2).toFixed(1);
-  }
-
-  useEffect(() => {
-    if (!addMeas.isOpen) return;
-    setNewMeas((prev) => ({
-      ...prev,
-      date: prev.date || todayLocalDate(),
-      taille: prev.taille || latest.taille || "",
-      poids: prev.poids || latest.poids || "",
-      bmi: prev.bmi || latest.bmi || "",
-    }));
-  }, [addMeas.isOpen, latest.taille, latest.poids, latest.bmi]);
+  const entryBmi = calculateEntryBmi(newMeas.taille,newMeas.poids);
 
   const theme = useAppTheme();
   const pageBg = theme.pageBg;
@@ -1469,31 +1483,13 @@ export default function ClientView() {
   const panelBg = theme.surfaceBg;
   const panelBorder = theme.borderColor;
   const subtlePanelBg = theme.surfaceSoft;
+  const tableHeaderBg = useColorModeValue("#edf2f7", "#1a2232");
   const accentSoft = useColorModeValue("rgba(59,130,246,0.08)", "rgba(59,130,246,0.12)");
   const shadow = useColorModeValue(
     "0 22px 70px rgba(15,23,42,0.08)",
     "0 22px 70px rgba(0,0,0,0.28)"
   );
 
-  const displayHeight = (cm) => {
-    if (cm == null || cm === "") return "—";
-    if (heightUnit === "cm") return cm;
-    const { ft, inch } = cmToFtIn(cm);
-    return `${ft}′${inch}″`;
-  };
-
-  const displayWeight = (kg) => {
-    if (kg == null || kg === "") return "—";
-    return weightUnit === "kg" ? kg : kgToLbs(kg);
-  };
-
-  const visceralLabel = (v) => {
-    if (v == null || v === "") return "—";
-    const n = +v;
-    if (n <= 12) return `${n} (normal)`;
-    if (n <= 20) return `${n} (moyen)`;
-    return `${n} (surplus)`;
-  };
 
   const comparatorKey = useMemo(
     () => (sortedProgrammes || []).map((p) => p.id).join("|") || "empty",
@@ -1530,6 +1526,8 @@ export default function ClientView() {
           {client?.prenom} {client?.nom}
         </Text>
 
+        <Box mt={3}>
+        <Text fontSize="sm">{t("clientFollowList.details", "Détails")}</Text>
         <Stack display={{ base: "flex", md: "none" }} mt={4} spacing={0} divider={<Divider borderColor={panelBorder} />}>
           {[
             [t("profile.labels.email", "Email"), client?.email || "—"],
@@ -1586,6 +1584,7 @@ export default function ClientView() {
             </WrapItem>
           )}
         </Wrap>
+        </Box>
       </Box>
 
       {client?.notes && (
@@ -1606,6 +1605,16 @@ export default function ClientView() {
         </Box>
       )}
 
+      <Box mb={4} display={isNutritionOnlyClient ? 'none' : undefined}>
+      <Text color={muted} fontSize="sm" mb={3}>{t('clientView.globalProgress', 'Progression globale')}</Text>
+      <Progress
+        value={percentDone}
+        size="sm"
+        borderRadius="full"
+        mb={4}
+        aria-label={t('clientView.globalProgress', 'Progression globale')}
+        sx={{ '& > div': { background: 'linear-gradient(90deg, #2563ff, #00b5e2)' } }}
+      />
       <Grid templateColumns={{ base: "1fr 1fr", md: "repeat(4,1fr)" }} gap={{ base: 2, md: 3 }} mb={3}>
         <Box bg={panelBg} border="1px solid" borderColor={panelBorder} p={{ base: 3, md: 4 }} borderRadius="22px" boxShadow={shadow} backdropFilter="blur(14px)" textAlign="center">
           <Text fontSize={{ base: "xs", md: "sm" }} color={muted} fontWeight="800" noOfLines={1}>
@@ -1648,8 +1657,13 @@ export default function ClientView() {
           )}
         </Box>
       </Grid>
+      </Box>
 
-      <Box
+      {(isAdmin || hasCoachAccess) && client && !isNutritionOnlyClient && <SportViewPreference key={clientId} clientId={clientId} value={programsOnly ? 'programs' : 'cycles'} />}
+      {(isAdmin || hasCoachAccess) && client && !isNutritionOnlyClient && !programsOnly && <Suspense fallback={null}>
+        <TrainingCycles key={clientId} clientId={clientId} client={client} programmes={programmes} programmesReady={programmeDetailsReady} coachId={assignmentCoachUid || user?.uid} />
+      </Suspense>}
+      {!(isAdmin || hasCoachAccess) && <Box
         bg={panelBg}
         border="1px solid"
         borderColor={panelBorder}
@@ -1666,10 +1680,11 @@ export default function ClientView() {
           </Text>
         </Flex>
         <Progress value={percentDone} size="sm" borderRadius="full" />
-      </Box>
-
+      </Box>}
       {/* Programmes */}
       <Box
+        display={isNutritionOnlyClient ? 'none' : undefined}
+        as={programsOnly ? 'section' : 'details'}
         bg={panelBg}
         border="1px solid"
         borderColor={panelBorder}
@@ -1680,9 +1695,10 @@ export default function ClientView() {
         backdropFilter="blur(16px)"
         w="100%"
       >
-        <Flex justify="space-between" align={{ base: "stretch", md: "center" }} mb={4} direction={{ base: "column", md: "row" }} gap={2}>
-          <Text fontWeight="900" fontSize={{ base: "xl", md: "md" }}>{t("clientView.assignedPrograms", "Programmes assignés")}</Text>
-          <HStack spacing={2} wrap="wrap" w={{ base: "full", md: "auto" }}>
+        {!programsOnly && <RightDisclosureSummary py={0} fontWeight="bold">{t("clientView.assignedPrograms", "Programmes assignés")} ({programmes.length})</RightDisclosureSummary>}
+        <Flex justify="space-between" align={{ base: "stretch", md: "center" }} mt={programsOnly ? 0 : 4} mb={4} direction={{ base: "column", md: "row" }} gap={2}>
+          {programsOnly && <Text as="h2" fontWeight="900" fontSize={{ base: "xl", md: "md" }}>{t("clientView.assignedPrograms", "Programmes assignés")} ({programmes.length})</Text>}
+          <HStack spacing={2} wrap="wrap" w={{ base: "full", md: "auto" }} ms="auto">
             <Button size="sm" variant="outline" borderRadius="full" flex={{ base: 1, md: "initial" }} onClick={assignProg.onOpen}>
               {t("clientView.assignProgram", "Assigner un programme")}
             </Button>
@@ -1706,7 +1722,7 @@ export default function ClientView() {
           }}
         >
           <Table variant="simple" size="md" w="100%">
-            <Thead bg={subtlePanelBg} position="sticky" top={0} zIndex={1}>
+            <Thead bg={tableHeaderBg} position="sticky" top={0} zIndex={2} sx={{ "& th": { bg: tableHeaderBg } }}>
               <Tr>
                 <Th>{t("dashboard.col_name", "Nom")}</Th>
                 <Th>{t("clientView.lastActivity", "Dernière activité")}</Th>
@@ -1988,7 +2004,7 @@ export default function ClientView() {
       </Box>
 
       {/* Comparateur */}
-      {sortedProgrammes.length > 0 && (
+      {!(isAdmin || hasCoachAccess) && sortedProgrammes.length > 0 && (
         <>
           <Box
             display={{ base: "none", md: "block" }}
@@ -2055,10 +2071,10 @@ export default function ClientView() {
       )}
 
       {canManageNutrition && (
-        <Box bg={panelBg} border="1px solid" borderColor={panelBorder} mb={6} p={{ base: 4, md: 6 }} borderRadius="24px" boxShadow={shadow} backdropFilter="blur(16px)">
-          <Text fontWeight="bold" mb={3}>
+        <Box as={isNutritionOnlyClient ? 'section' : 'details'} bg={panelBg} border="1px solid" borderColor={panelBorder} mb={6} p={{ base: 4, md: 6 }} borderRadius="24px" boxShadow={shadow} backdropFilter="blur(16px)">
+          <Box as={isNutritionOnlyClient ? 'h2' : RightDisclosureSummary} py={0} fontWeight="bold" mb={3}>
             {t("nutrition.title", "Nutrition")}
-          </Text>
+          </Box>
           <SafeBoundary
             fallback={
               <Box p={4} border="1px solid" borderColor="red.200" borderRadius="md">
@@ -2069,6 +2085,7 @@ export default function ClientView() {
           >
             <Suspense fallback={<Spinner size="sm" />}>
               <ClientNutritionSection
+                onAssessmentCount={setNutritionSummary}
                 clientId={clientId}
                 client={client}
                 prefetchedAssessments={location.state?.prefetchedNutritionAssessments}
@@ -2080,7 +2097,8 @@ export default function ClientView() {
       )}
 
       {/* Mesures + graphes */}
-      <Box bg={panelBg} border="1px solid" borderColor={panelBorder} mb={6} p={4} borderRadius="24px" boxShadow={shadow} backdropFilter="blur(16px)">
+      <Box as="details" bg={panelBg} border="1px solid" borderColor={panelBorder} mb={6} p={4} borderRadius="24px" boxShadow={shadow} backdropFilter="blur(16px)">
+        <RightDisclosureSummary fontWeight="bold" mb={3}>{t("stats.bodyComp", "Composition corporelle")}</RightDisclosureSummary>
         <Flex
           justify="space-between"
           align={{ base: "stretch", md: "center" }}
@@ -2088,7 +2106,6 @@ export default function ClientView() {
           gap={3}
           mb={4}
         >
-          <Text fontWeight="bold">{t("stats.bodyComp", "Composition corporelle")}</Text>
 
           <Wrap spacing="10px" justify={{ base: "flex-start", md: "flex-end" }}>
             <WrapItem>
@@ -2126,7 +2143,7 @@ export default function ClientView() {
             </WrapItem>
 
             <WrapItem display={{ base: "none", md: "inline-flex" }}>
-              <Button size="sm" colorScheme="blue" onClick={addMeas.onOpen}>
+              <Button size="sm" colorScheme="blue" onClick={openNewMeasure}>
                 {t("stats.addMeasure", "Ajouter mesure")}
               </Button>
             </WrapItem>
@@ -2134,53 +2151,18 @@ export default function ClientView() {
         </Flex>
 
         <Box display={{ base: "block", md: "none" }} mb={3}>
-          <Button w="full" size="md" colorScheme="blue" onClick={addMeas.onOpen}>
+          <Button w="full" size="md" colorScheme="blue" onClick={openNewMeasure}>
             {t("stats.addMeasure", "Ajouter mesure")}
           </Button>
         </Box>
 
-        <Grid templateColumns={{ base: "1fr 1fr", sm: "repeat(4,1fr)" }} gap={3} mb={6}>
-          <Box bg={subtlePanelBg} p={3} borderRadius="20px" textAlign="center">
-            <Text fontSize="sm" color={muted}>
-              {heightLabel}
-            </Text>
-            <Text fontSize="xl" fontWeight="bold">
-              {displayHeight(latest.taille)}
-            </Text>
-          </Box>
-
-          <Box bg={subtlePanelBg} p={3} borderRadius="20px" textAlign="center">
-            <Text fontSize="sm" color={muted}>
-              {weightLabel}
-            </Text>
-            <Text fontSize="xl" fontWeight="bold">
-              {displayWeight(latest.poids)}
-            </Text>
-          </Box>
-
-          <Box bg={subtlePanelBg} p={3} borderRadius="20px" textAlign="center">
-            <Text fontSize="sm" color={muted}>
-              {t("stats.fields.bmi", "IMC")}
-            </Text>
-            <Text fontSize="xl" fontWeight="bold">
-              {latest.bmi ?? "—"}
-            </Text>
-          </Box>
-
-          <Box bg={subtlePanelBg} p={3} borderRadius="20px" textAlign="center">
-            <Text fontSize="sm" color={muted}>
-              {t("stats.fields.visceralFat", "Graisse viscérale")}
-            </Text>
-            <Text fontSize="xl" fontWeight="bold">
-              {visceralLabel(latest.visceralFatScore)}
-            </Text>
-          </Box>
-        </Grid>
-
         {secondaryContentReady && (
           <Suspense fallback={null}>
             <ClientMeasurementCharts
+              key={clientId}
               measures={measures}
+              profile={client}
+              heightUnit={heightUnit}
               weightUnit={weightUnit}
               subtlePanelBg={subtlePanelBg}
               panelBorder={panelBorder}
@@ -2265,6 +2247,7 @@ export default function ClientView() {
                 />
               </FormControl>
 
+              <AssignmentPlacement client={client} value={assignmentPlacement} onChange={setAssignmentPlacement} disabled={assigning || !programmeDetailsReady} />
               <Text fontSize="sm" color={muted}>
                 {t(
                   "clientView.assignInfo",
@@ -2281,7 +2264,7 @@ export default function ClientView() {
               colorScheme="blue"
               onClick={handleAssignProgramme}
               isLoading={assigning}
-              isDisabled={loadingBaseProgrammes}
+              isDisabled={loadingBaseProgrammes || (assignmentPlacement !== 'separate' && !programmeDetailsReady)}
             >
               {t("clientView.assign", "Assigner")}
             </Button>
@@ -2290,9 +2273,9 @@ export default function ClientView() {
       </Modal>
 
       {/* Modal nouvelle mesure */}
-      <Modal isOpen={addMeas.isOpen} onClose={addMeas.onClose} isCentered>
+      <Modal isOpen={addMeas.isOpen} onClose={savingMeasure ? () => {} : addMeas.onClose} isCentered scrollBehavior="inside">
         <ModalOverlay />
-        <ModalContent maxW={{ base: "100vw", md: "95vw" }} maxH={{ base: "100dvh", md: "90vh" }} borderRadius={{ base: 0, md: "24px" }}>
+        <ModalContent maxW="xl" mx={3} maxH="90dvh" borderRadius="24px">
           <ModalHeader>{t("stats.modal.title", "Nouvelle mesure")}</ModalHeader>
           <ModalCloseButton />
           <ModalBody overflowY="auto">
@@ -2400,8 +2383,8 @@ export default function ClientView() {
                   <FormLabel>{t("stats.fields.bmi", "IMC")}</FormLabel>
                   <Input
                     type="number"
-                    value={newMeas.bmi ?? ""}
-                    onChange={(e) => setNewMeas((p) => ({ ...p, bmi: e.target.value }))}
+                    value={entryBmi ?? ""}
+                    isReadOnly
                   />
                 </FormControl>
 
@@ -2415,7 +2398,7 @@ export default function ClientView() {
                 </FormControl>
 
                 <FormControl>
-                  <FormLabel>{`${t("stats.fields.muscle", "Masse musculaire")} (${weightUnit})`}</FormLabel>
+                  <FormLabel>{`${t("stats.fields.muscle", "Masse musculaire").replace(/\s*\(.*?\)/, "")} (${weightUnit})`}</FormLabel>
                   <Input
                     type="number"
                     value={
@@ -2445,7 +2428,7 @@ export default function ClientView() {
                 </FormControl>
 
                 <FormControl>
-                  <FormLabel>{`${t("stats.fields.bone", "Masse osseuse")} (${weightUnit})`}</FormLabel>
+                  <FormLabel>{`${t("stats.fields.bone", "Masse osseuse").replace(/\s*\(.*?\)/, "")} (${weightUnit})`}</FormLabel>
                   <Input
                     type="number"
                     value={
@@ -2488,10 +2471,10 @@ export default function ClientView() {
             </VStack>
           </ModalBody>
           <ModalFooter justifyContent="space-between">
-            <Button variant="ghost" onClick={addMeas.onClose}>
+            <Button variant="outline" borderRadius="full" isDisabled={savingMeasure} onClick={addMeas.onClose}>
               {t("common.cancel", "Annuler")}
             </Button>
-            <Button colorScheme="blue" onClick={handleAdd}>
+            <Button colorScheme="blue" borderRadius="full" isLoading={savingMeasure} isDisabled={!newMeas.date} onClick={handleAdd}>
               {t("stats.addMeasure", "Ajouter mesure")}
             </Button>
           </ModalFooter>

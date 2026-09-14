@@ -50,6 +50,7 @@ import {
   MdOutlinePowerSettingsNew,
   MdOutlineSettings,
   MdOutlineSpaceDashboard,
+  MdOutlineHome,
   MdOutlineLightMode,
   MdOutlineInsights,
   MdOutlineRestaurant,
@@ -228,7 +229,7 @@ export default function Navbar() {
   };
 
   const coachLinks = [
-    { label: nav("nav.dashboard", "Tableau de bord"), to: ROUTES.coachDashboard, icon: MdOutlineSpaceDashboard },
+    { label: nav("nav.dashboard", "Tableau de bord"), to: ROUTES.coachDashboard, icon: MdOutlineHome },
     { label: nav("messaging.title", "Messagerie"), to: ROUTES.messaging, icon: MdOutlineChat },
     { label: isNutritionOnlyCoach ? nav("nav.my_patients", "Mes patients") : nav("nav.my_clients", "Mes clients"), to: ROUTES.coachClients, icon: MdOutlinePeopleAlt },
     { label: nav("nav.my_patients", "Mes patients"), to: `${ROUTES.coachClients}?view=nutrition`, icon: MdOutlineRestaurant, mixedOnly: true },

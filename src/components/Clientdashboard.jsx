@@ -8,7 +8,9 @@ import {
   VStack, Progress, Image, Badge, useToast, Divider, Link as ChakraLink,
   SimpleGrid, Icon, Tooltip, Circle, Stack, useBreakpointValue,
 } from '@chakra-ui/react';
-import { AddIcon } from '@chakra-ui/icons';
+import { AddIcon, ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
+import { dashboardWeek } from '../utils/dashboardWeek';
+import { dashboardWeekLabels } from '../i18n/dashboardWeek';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   collection, getDocs, query, where, onSnapshot, orderBy, limit,
@@ -16,6 +18,9 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useAuth } from '../AuthContext';
+import { dashboardCycle } from '../utils/dashboardCycle';
+import { dashboardCycleLabels } from '../i18n/dashboardCycle';
+import { subscriptionCycleMessage } from '../i18n/subscriptionCycle';
 import { useTranslation } from 'react-i18next';
 import { getCalendarCulture, getCalendarFormats } from '../utils/calendarLocale';
 import { FaStar, FaRegStar } from "react-icons/fa";
@@ -767,6 +772,12 @@ export default function ClientDashboard({ adminPreview = false }) {
 
   const [clientId, setClientId] = useState(null);
   const [clientProfile, setClientProfile] = useState(null);
+  useEffect(() => {
+    if (!clientId || previewMode) return;
+    return onSnapshot(doc(db,'clients',clientId), snapshot => {
+      if (snapshot.exists()) setClientProfile(snapshot.data());
+    }, () => {});
+  }, [clientId, previewMode]);
   const [nutritionSummary, setNutritionSummary] = useState(null);
   const [nutritionMealHabits, setNutritionMealHabits] = useState({});
   const [programmes, setProgrammes] = useState([]);
@@ -775,6 +786,7 @@ export default function ClientDashboard({ adminPreview = false }) {
   const [loading, setLoading] = useState(true);
   const [loadingPremium, setLoadingPremium] = useState(true);
   const [dayClock, setDayClock] = useState(() => new Date());
+  const [calendarWeekOffset, setCalendarWeekOffset] = useState(0);
   const [quickMealOpenRequest, setQuickMealOpenRequest] = useState({ id: 0, mealKey: "" });
   const [dashboardNutritionMealKeys, setDashboardNutritionMealKeys] = useState(null);
   const [dashboardSeenRevision, setDashboardSeenRevision] = useState(0);
@@ -2048,7 +2060,11 @@ export default function ClientDashboard({ adminPreview = false }) {
   };
 
   const sportDataPending = loading && programmes.length === 0;
-  const hasSportPrograms = programmes.length > 0 || sportDataPending;
+  const cycleHome = dashboardCycle(clientProfile, programmes);
+  const cycleCopy = dashboardCycleLabels(i18n.language);
+  const cycleBlocked = Boolean(cycleHome && cycleHome.state !== 'active');
+  const cycleMessage = subscriptionCycleMessage(clientProfile,i18n.language) || (cycleHome?.state === 'waiting' ? cycleCopy[1] : cycleHome?.state === 'transition' ? cycleCopy[2] : cycleCopy[3]);
+  const hasSportPrograms = programmes.length > 0 || sportDataPending || Boolean(cycleHome);
   const showSportSections = programmes.length > 0;
   const hasNutritionFollowUp = Boolean(
     nutritionSummary ||
@@ -2184,9 +2200,17 @@ export default function ClientDashboard({ adminPreview = false }) {
       .sort((a, b) => a._start.getTime() - b._start.getTime());
   }, [sessions]);
 
+  const weekLabels = dashboardWeekLabels(i18n.language);
+  const selectedWeek = useMemo(() => dashboardWeek(dayClock,calendarWeekOffset),[dayClock,calendarWeekOffset]);
+  const weekSessions = useMemo(() => sessions.map(session=>({...session,_start:new Date(session.start)}))
+    .filter(session=>session._start>=selectedWeek.start && session._start<selectedWeek.end)
+    .sort((a,b)=>a._start-b._start),[sessions,selectedWeek]);
+  const weekDateFormat = new Intl.DateTimeFormat(i18n.language || 'fr',{day:'numeric',month:'short',year:'numeric'});
+  const weekLastDay = new Date(selectedWeek.end);
+  weekLastDay.setDate(weekLastDay.getDate()-1);
+  const weekRangeLabel = `${weekDateFormat.format(selectedWeek.start)} – ${weekDateFormat.format(weekLastDay)}`;
   const mobileCalendarDays = useMemo(() => {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
+    const start = selectedWeek.start;
 
     return Array.from({ length: 7 }, (_, index) => {
       const day = new Date(start);
@@ -2207,7 +2231,7 @@ export default function ClientDashboard({ adminPreview = false }) {
         done: daySessions.filter((session) => session.status === 'validée').length,
       };
     });
-  }, [sessions]);
+  }, [sessions,selectedWeek]);
 
   const remainingSessions = Math.max(0, motivationStats.totalAll - motivationStats.doneAll);
   const minCycleStartMs = programmes.reduce((min, p) => {
@@ -2224,7 +2248,7 @@ export default function ClientDashboard({ adminPreview = false }) {
     programmes.length > 0 &&
     motivationStats.totalAll > 0 &&
     motivationStats.percentAll >= 100;
-  const allProgramsCompleted = completedPreview || (allProgramsDone && cycleDurationDays >= 28);
+  const allProgramsCompleted = completedPreview || (cycleHome ? cycleHome.state === 'finished' : allProgramsDone && cycleDurationDays >= 28);
 
   const isProgrammeCompleted = (p) =>
     (Number(p?._total) || 0) > 0 && (Number(p?._done) || 0) >= (Number(p?._total) || 0);
@@ -2258,6 +2282,10 @@ export default function ClientDashboard({ adminPreview = false }) {
   }, [programmes]);
 
   const focusProgramme = useMemo(() => {
+    const context = dashboardCycle(clientProfile, programmes);
+    if (context) return context.program;
+    const explicitProgram = programmes.find(p => p.id === clientProfile?.currentProgramme && p.status !== 'draft');
+    if (explicitProgram) return explicitProgram;
     if (!programmes.length) return null;
     return [...programmes].sort((a, b) => {
       if (a?._hasResumePoint && !b?._hasResumePoint) return -1;
@@ -2268,7 +2296,7 @@ export default function ClientDashboard({ adminPreview = false }) {
       if (bOpen === 0 && aOpen > 0) return -1;
       return (b._lastOrAssignedMs || 0) - (a._lastOrAssignedMs || 0);
     })[0];
-  }, [programmes]);
+  }, [programmes, clientProfile]);
 
   const recentDashboardCutoffMs = dayClock.getTime() - 7 * 24 * 60 * 60 * 1000;
   const focusProgrammeSeenKey = focusProgramme?.id && clientId
@@ -2321,7 +2349,7 @@ export default function ClientDashboard({ adminPreview = false }) {
     "auto.Clientdashboard.encouragement_mixed",
     "Nourris ton énergie, lance ta séance — aujourd’hui, tu avances pour toi."
   );
-  const trainingTodayText = allProgramsCompleted
+  const trainingTodayText = cycleBlocked ? cycleMessage : allProgramsCompleted
     ? t("auto.Clientdashboard.bravo_tous_tes_programmes_sont_termines", "Bravo, cycle terminé — prêt pour la suite ?")
     : todayOverview.upcoming
       ? t("auto.Clientdashboard.seance_prevue_aujourd_hui", "{{session}} à {{time}} — ton rendez-vous du jour.", {
@@ -2341,7 +2369,7 @@ export default function ClientDashboard({ adminPreview = false }) {
             : t("auto.Clientdashboard.objectif_du_jour_planifier", "Planifie ta prochaine séance pour garder le rythme.");
   const motivationalText = sportDataPending
     ? t("auto.Clientdashboard.chargement_de_tes_programmes_et_de_ton_suivi", "Chargement de tes programmes et de ton suivi...")
-    : hasMixedFollowUp
+    : cycleBlocked ? cycleMessage : hasMixedFollowUp
       ? mixedEncouragementText
       : hasSportPrograms
         ? trainingTodayText
@@ -2366,7 +2394,7 @@ export default function ClientDashboard({ adminPreview = false }) {
       : MdOutlineRestaurantMenu;
   const primaryTodayTitle = sportDataPending
     ? t("common.loading", "Chargement")
-    : allProgramsCompleted
+    : cycleBlocked ? (cycleHome.state==='finished'?cycleCopy[5]:cycleCopy[0]) : allProgramsCompleted
       ? t("auto.Clientdashboard.nouveau_cycle", "Nouveau cycle")
       : hasSportPrograms
         ? (focusProgramme?._hasResumePoint
@@ -2377,7 +2405,7 @@ export default function ClientDashboard({ adminPreview = false }) {
         : t("auto.Clientdashboard.ouvrir_la_nutrition", "Ouvrir la nutrition");
   const primaryTodayHelper = sportDataPending
     ? t("auto.Clientdashboard.synchronisation_du_suivi", "Synchronisation du suivi")
-    : allProgramsCompleted
+    : cycleBlocked ? cycleMessage : allProgramsCompleted
       ? t("auto.Clientdashboard.choisir_la_suite", "Choisir la suite")
       : hasSportPrograms
         ? (focusProgramme
@@ -2516,6 +2544,10 @@ export default function ClientDashboard({ adminPreview = false }) {
     todayOverview.upcoming,
   ]);
   const handlePrimaryTodayAction = () => {
+    if (cycleBlocked) {
+      navigate(cycleHome.state==='finished'?'/statistiques':'/mes-programmes');
+      return;
+    }
     if (allProgramsCompleted) {
       navigate('/programmes-premium');
       return;
@@ -2528,10 +2560,10 @@ export default function ClientDashboard({ adminPreview = false }) {
     markDashboardItemSeen(nutritionFollowUpSeenKey);
     navigate('/nutrition');
   };
-  const mobileRecoveryToday = todayOverview.validated > 0 && hasSportPrograms;
-  const mobileRestDay = !mobileRecoveryToday && isProgrammeRestDay;
+  const mobileRecoveryToday = !cycleBlocked && todayOverview.validated > 0 && hasSportPrograms;
+  const mobileRestDay = !cycleBlocked && !mobileRecoveryToday && isProgrammeRestDay;
   const mobileRecoveryMode = mobileRecoveryToday || mobileRestDay;
-  const mobileMealCue = !mobileRecoveryMode && dayCue.type === "meal";
+  const mobileMealCue = !cycleBlocked && !mobileRecoveryMode && dayCue.type === "meal";
   const heroMotivationalText = mobileRestDay
     ? t("auto.Clientdashboard.journee_repos_message", "Aujourd’hui, priorité à la récupération et à la nutrition. On reprend demain.")
     : todayOverview.validated > 0 && hasSportPrograms
@@ -2552,7 +2584,7 @@ export default function ClientDashboard({ adminPreview = false }) {
     : mobileMealCue
       ? mobileMealActionLabel
       : mobileNewProgramCue
-        ? t("nav.new_program", "Nouveau programme")
+        ? (cycleHome ? cycleCopy[4] : t("nav.new_program", "Nouveau programme"))
         : primaryTodayTitle;
   const mobilePrimaryButtonLabel = mobileRecoveryMode
     ? hasNutritionFollowUp
@@ -3004,7 +3036,7 @@ export default function ClientDashboard({ adminPreview = false }) {
                                 {mobileRecoveryMode
                                   ? t("auto.Clientdashboard.recuperation", "Récupération")
                                   : mobileNewProgramCue
-                                    ? t("nav.new_program", "Nouveau programme")
+                                    ? (cycleHome ? cycleCopy[4] : t("nav.new_program", "Nouveau programme"))
                                     : dayCue.eyebrow}
                               </Text>
                               <Box w="28px" h="1px" bg={modeValue("rgba(59,130,246,0.38)", "rgba(147,197,253,0.46)")} />
@@ -3070,7 +3102,7 @@ export default function ClientDashboard({ adminPreview = false }) {
                               fontWeight="900"
                               leftIcon={<Icon as={mobilePrimaryTodayIcon} />}
                               onClick={handleMobilePrimaryTodayAction}
-                              isDisabled={sportDataPending || (!allProgramsCompleted && hasSportPrograms && !focusProgramme && !programmes.length)}
+                              isDisabled={sportDataPending || (!cycleHome && !allProgramsCompleted && hasSportPrograms && !focusProgramme && !programmes.length)}
                               boxShadow={modeValue("none", "0 10px 28px rgba(0,0,0,0.28)")}
                               _hover={{ bg: modeValue("#1E293B", "#E2E8F0") }}
                               _active={{ bg: modeValue("#020617", "#CBD5E1") }}
@@ -3168,7 +3200,7 @@ export default function ClientDashboard({ adminPreview = false }) {
                         helper={mobilePrimaryTodayHelper}
                         variant="solid"
                         onClick={handleMobilePrimaryTodayAction}
-                        isDisabled={sportDataPending || (!allProgramsCompleted && hasSportPrograms && !focusProgramme && !programmes.length)}
+                        isDisabled={sportDataPending || (!cycleHome && !allProgramsCompleted && hasSportPrograms && !focusProgramme && !programmes.length)}
                         secondaryLabel={!mobileRecoveryMode && !mobileMealCue && focusProgramme?._hasResumePoint && canStartFreshNextSession
                           ? t("auto.Clientdashboard.commencer_nouvelle_seance", "Commencer la séance suivante")
                           : ""}
@@ -3690,7 +3722,6 @@ export default function ClientDashboard({ adminPreview = false }) {
       <Box display={{ base: "block", md: "none" }} mb={5}>
         <ClientCardShell
           title={t("calendar.title", "Calendrier")}
-          subtitle={upcomingSessions.length ? nextSessionLabel : t("auto.Clientdashboard.aucune_seance_planifiee", "Aucune séance planifiée")}
           icon={MdOutlineCalendarMonth}
           accent={activeBlue}
           action={
@@ -3699,8 +3730,16 @@ export default function ClientDashboard({ adminPreview = false }) {
             </Button>
           }
         >
+          <Flex justify="space-between" align="center" gap={2} flexWrap="wrap" mb={3}>
+            <Text fontSize="sm" color={mutedText} flex="1 1 160px" aria-live="polite">{weekRangeLabel}</Text>
+            <HStack spacing={1} flexShrink={0}>
+            <Button size="sm" variant="outline" borderRadius="full" minW="36px" px={0} aria-label={weekLabels[0]} onClick={()=>setCalendarWeekOffset(v=>v-1)}><ChevronLeftIcon boxSize={5}/></Button>
+            <Button size="sm" variant="outline" borderRadius="full" onClick={()=>setCalendarWeekOffset(0)} isDisabled={calendarWeekOffset===0}>{weekLabels[2]}</Button>
+            <Button size="sm" variant="outline" borderRadius="full" minW="36px" px={0} aria-label={weekLabels[1]} onClick={()=>setCalendarWeekOffset(v=>v+1)}><ChevronRightIcon boxSize={5}/></Button>
+            </HStack>
+          </Flex>
           <SimpleGrid columns={7} spacing={1.5} mb={4}>
-            {mobileCalendarDays.map((day, index) => {
+            {mobileCalendarDays.map((day) => {
               const hasActivity = day.planned > 0 || day.done > 0;
               return (
                 <Box
@@ -3710,7 +3749,8 @@ export default function ClientDashboard({ adminPreview = false }) {
                   borderRadius="14px"
                   py={2}
                   px={1}
-                  bg={index === 0 ? `${activeBlue}12` : hasActivity ? `${activeBlue}0D` : modeValue("rgba(255,255,255,0.52)", "rgba(255,255,255,0.035)")}
+                  aria-current={day.key === formatLocalDateKey(dayClock) ? "date" : undefined}
+                  bg={day.key === formatLocalDateKey(dayClock) ? `${activeBlue}12` : hasActivity ? `${activeBlue}0D` : modeValue("rgba(255,255,255,0.52)", "rgba(255,255,255,0.035)")}
                   textAlign="center"
                   minW={0}
                 >
@@ -3731,7 +3771,7 @@ export default function ClientDashboard({ adminPreview = false }) {
           </SimpleGrid>
 
           <VStack align="stretch" spacing={2.5}>
-            {upcomingSessions.slice(0, 3).map((session) => (
+            {weekSessions.map((session) => (
               <Box
                 key={session.id}
                 as="button"
@@ -3748,7 +3788,7 @@ export default function ClientDashboard({ adminPreview = false }) {
               >
                 <HStack justify="space-between" spacing={3}>
                   <Box minW={0}>
-                    <Text fontWeight="850" noOfLines={1}>{session.title}</Text>
+                    <Text fontWeight="850" noOfLines={1}>{session.status === "validée" ? "✓ " : ""}{session.title}</Text>
                     <Text mt={1} fontSize="sm" color={mutedText}>
                       {session._start.toLocaleString(i18n.language || 'fr', {
                         weekday: 'short',
@@ -3765,15 +3805,15 @@ export default function ClientDashboard({ adminPreview = false }) {
                 </HStack>
               </Box>
             ))}
-            {!upcomingSessions.length && (
+            {!weekSessions.length && (
               <HStack spacing={3} align="flex-start">
                 <Circle size="34px" bg={`${warmAccent}18`} color={warmAccent} flexShrink={0}>
                   <Icon as={MdOutlineSchedule} boxSize="18px" />
                 </Circle>
                 <Box>
-                  <Text fontWeight="850">{t("auto.Clientdashboard.a_planifier", "À planifier")}</Text>
+                  <Text fontWeight="850">{weekLabels[3]}</Text>
                   <Text mt={1} fontSize="sm" color={mutedText}>
-                    {t("auto.Clientdashboard.aucun_creneau_prevu_pour_le_moment_tu_peux_ajouter", "Aucun créneau prévu pour le moment. Tu peux ajouter une séance directement depuis ici.")}
+                    {weekRangeLabel}
                   </Text>
                 </Box>
               </HStack>

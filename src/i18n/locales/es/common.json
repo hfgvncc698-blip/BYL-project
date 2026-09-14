@@ -1,4 +1,6 @@
 {
+  "builderSavePending": "La confirmación del servidor está tardando más de lo previsto. El guardado sigue en curso: no vuelvas a guardar y mantén esta página abierta.",
+  "builderSyncPending": "El programa está guardado. La actualización de los programas de clientes aún no está confirmada. Pulsa Guardar para reintentar la sincronización.",
   "clientFollowList": {"subtitle":"Gestiona tus clientes de deporte y nutrición, sus seguimientos y contactos en un solo lugar.","follow":"Seguimiento","last":"Última interacción","status":"Estado","details":"Detalles","nutritionDetails":"Seguimiento nutricional: abre la ficha para consultar evaluaciones y objetivos."},
   "adminClientNavigation": {"preview":"Vista rápida","hint":"Haz clic en un cliente para abrir su perfil de administración.","notes":"Notas internas y vista previa"},
   "locationPrivacy": {

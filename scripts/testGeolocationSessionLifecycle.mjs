@@ -199,6 +199,17 @@ await test("remembering a grant still requests fresh coordinates at each opening
   }
 });
 
+await test("expired browser grants never reprompt automatically after reload", async () => {
+  for (const permissionsSupported of [true, false]) {
+    const h = createHarness({ permission: 'prompt', permissionsSupported, stored: { [DECISION_KEY]: 'granted' } });
+    const state = await h.start();
+    assert.equal(h.watches.length, 0);
+    state.retryPermission();
+    h.render();
+    assert.equal(h.watches.length, 1, 'an explicit user request may prompt');
+  }
+});
+
 await test("without Permissions API, identity changes do not restart GPS either", async () => {
   const h = createHarness({ permissionsSupported: false });
   await h.start();

@@ -102,6 +102,7 @@ import { readDashboardTemplates } from "../utils/dashboardTemplates";
 import { mergeConfirmedCalendarEvents } from "../utils/confirmedCalendarEvent";
 import { confirmOperation } from "../utils/confirmedOperation";
 import { createProgramAssignmentOperation } from "../utils/programWriteOperations";
+import AssignmentPlacement from './client/AssignmentPlacement';
 import { readDashboardSnapshot, writeDashboardSnapshot } from "../utils/dashboardSnapshotCache.js";
 import { findUpcomingCoachHabit } from "../utils/coachScheduleHabits";
 import {
@@ -2051,9 +2052,11 @@ end && now < end;
   const assignmentOperationRef = useRef(null);
   const [dashboardFromCache, setDashboardFromCache] = useState(false);
   const [selectedClient, setSelectedClient] = useState("");
+  const [assignmentPlacement, setAssignmentPlacement] = useState('auto');
   const [clientToDelete, setClientToDelete] = useState(null);
   const [selectedProgramme, setSelectedProgramme] = useState("");
   const [selectedAssignedClientId, setSelectedAssignedClientId] = useState("");
+  useEffect(() => setAssignmentPlacement('auto'), [selectedClient, selectedAssignedClientId, assignModal.isOpen, assignedToModal.isOpen]);
   const [programToDelete, setProgramToDelete] = useState(null);
 	  const [newSession, setNewSession] = useState({
     type: "sport",
@@ -4461,9 +4464,10 @@ effectiveCoachUid, dashboardPerfFresh, dashboardPerfEnabled, markDashboardTiming
 
   const assignProgramToClient = async (clientId, programmeId) => {
      if (!clientId || !programmeId) return null;
-     return confirmOperation(assignmentOperationRef, `${effectiveCoachUid}:${clientId}:${programmeId}`, () =>
+     return confirmOperation(assignmentOperationRef, `${effectiveCoachUid}:${clientId}:${programmeId}:${assignmentPlacement}`, () =>
        createProgramAssignmentOperation({
          db, clientId, programId: programmeId, coachId: effectiveCoachUid,
+         placement: assignmentPlacement,
          loadProgram: async (transaction) => {
            const baseSnap = await transaction.get(doc(db, "programmes", programmeId));
            if (!baseSnap.exists()) throw new Error("Programme introuvable");
@@ -9427,8 +9431,11 @@ overflow="auto">
                       }
                     });
 
+                    const currentCycleProgramId = c.sportFollowView !== 'programs'
+                      ? c.trainingPlan?.cycles?.find(cycle => !cycle.closedAt)?.programId
+                      : null;
                     const primaryProgramForCard =
-                      lastCompletedAssignedProg || programmesForCard?.[0] || c.programmesAssignes?.[0] || null;
+                      programmesForCard.find(prog => prog.id === currentCycleProgramId) || lastCompletedAssignedProg || programmesForCard?.[0] || c.programmesAssignes?.[0] || null;
                     const primaryProgramNameForCard = primaryProgramForCard
                       ? prettyAssignedProgramName(primaryProgramForCard)
                       : "";
@@ -9497,7 +9504,7 @@ prettyAssignedProgramName(c.programmesAssignes[0])
                         ? storedNextIndex
                         : 0;
                     const nextSessionTitle =
-                      isProgramExpired
+                      isProgramCompleted
                         ? t("dashboard.program_completed_next", "Toutes les séances validées")
                         : getProgrammeSessionTitle(programForNextSession, nextSessionIndex, t);
 
@@ -9674,7 +9681,7 @@ activeSportMs > 0 &&
                                          {lastCompletedSessionLabel}
                                        </Text>
                                        <Text fontSize="xs" color={mutedText} noOfLines={1}>
-                                         {isProgramExpired
+                                         {isProgramCompleted
                                            ? t("dashboard.program_completed_hint", "Toutes les séances prévues sont validées.")
                                            : `${t("dashboard.next_label", "Suivante")} : ${nextSessionTitle}`}
                                        </Text>
@@ -9762,7 +9769,7 @@ activeSportMs > 0 &&
                                     <HStack spacing={1.5} minW={0}>
                                       <ChevronRightIcon boxSize={5} color={mutedText} flexShrink={0} />
                                       <Text fontSize="xs" color={mutedText} noOfLines={1}>
-                                        {isProgramExpired
+                                        {isProgramCompleted
                                           ? t("dashboard.program_completed_hint", "Toutes les séances prévues sont validées.")
                                           : `${t("dashboard.next_label", "Suivante")} : ${nextSessionTitle}`}
                                       </Text>
@@ -9994,27 +10001,26 @@ bg={modeValue("rgba(15,23,42,0.06)",
                                   size="sm"
                                   w="100%"
                                   gridColumn={{ base: "1 / -1", md: "auto" }}
-                                  aria-label={isProgramExpired ? t("dashboard.program_completed_cta", "Séances terminées") : t("dashboard.banner.start_now", "Démarrer la séance")}
-                                  title={isProgramExpired ? t("dashboard.program_completed_cta", "Séances terminées") : t("dashboard.banner.start_now", "Démarrer la séance")}
+                                  aria-label={isProgramCompleted ? t("clientView.viewProfile", "Voir la fiche client") : t("dashboard.banner.start_now", "Démarrer la séance")}
+                                  title={isProgramCompleted ? t("clientView.viewProfile", "Voir la fiche client") : t("dashboard.banner.start_now", "Démarrer la séance")}
                                   bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
                                   color="white"
                                   _hover={{ bg: modeValue("#1F2937", "rgba(255,255,255,0.22)") }}
                                   _active={{ bg: modeValue("#374151", "rgba(255,255,255,0.28)") }}
                                   borderRadius="16px"
-                                  isDisabled={isProgramExpired}
                                   leftIcon={
-                                    !isProgramExpired ? (
+                                    !isProgramCompleted ? (
                                       <Icon as={MdPlayArrow} boxSize="18px" color="white" />
                                     ) : undefined
                                   }
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    if (isProgramExpired) return;
+                                    if (isProgramCompleted) { navigate(withAdminCoach(`/clients/${c.id}#training-cycles`)); return; }
                                     startNextSessionForClient(clientForCardActions, "next");
                                   }}
                                 >
-                                  {isProgramExpired
-                                    ? t("dashboard.program_completed_cta", "Séances terminées")
+                                  {isProgramCompleted
+                                    ? t("clientView.viewProfile", "Voir la fiche client")
                                     : t("dashboard.banner.start_now", "Démarrer la séance")}
                                 </Button>
                               )}
@@ -11364,7 +11370,8 @@ setSelectedProgramme(e.target.value)}
                  ))}
                </Select>
              </FormControl>
-           </ModalBody>
+           <AssignmentPlacement clientId={selectedClient} value={assignmentPlacement} onChange={setAssignmentPlacement} disabled={assignmentSaving} />
+          </ModalBody>
            <ModalFooter>
              <Button
 
@@ -11515,6 +11522,7 @@ c.assignedProgramId,
                 </Button>
               </VStack>
             </Box>
+          <AssignmentPlacement clientId={selectedAssignedClientId} value={assignmentPlacement} onChange={setAssignmentPlacement} disabled={assignmentSaving} />
           </ModalBody>
           <ModalFooter>
             <Button

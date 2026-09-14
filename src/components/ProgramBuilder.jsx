@@ -69,7 +69,10 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { confirmOperation } from "../utils/confirmedOperation";
+import { awaitWriteConfirmation } from "../utils/awaitWriteConfirmation";
+import { createCycleValidationOperation, cycleValidationLabels } from '../utils/validateCycleDraft';
 import { createProgramAssignmentOperation, createProgramCreationOperation } from "../utils/programWriteOperations";
+import AssignmentPlacement from './client/AssignmentPlacement';
 import {
   MdSettings,
   MdContentCopy,
@@ -922,6 +925,7 @@ function withChargeOptionEnabled(ex = {}) {
 }
 
 function applyHistoryLoadToExercise(ex = {}, completionHistory = [], t) {
+  if (ex.cyclePrescription) return { exercise: ex, appliedCount: 0 };
   const historyItems = buildExerciseHistoryItemsFromCompletions(completionHistory, ex, t);
   if (!historyItems.length) return { exercise: ex, appliedCount: 0 };
 
@@ -2260,6 +2264,7 @@ const ExerciseCardRow = memo(
               <Text fontSize="lg" fontWeight="bold" isTruncated>
                 {ex.nom}
               </Text>
+              {ex.cycleVariation?.proposed && <Badge colorScheme="blue">{({ fr: 'Nouvel exercice', en: 'New exercise', es: 'Nuevo ejercicio', it: 'Nuovo esercizio', de: 'Neue Übung', ru: 'Новое упражнение', ar: 'تمرين جديد' })[(i18n.resolvedLanguage || i18n.language || 'fr').split('-')[0]] || 'New exercise'}</Badge>}
             </VStack>
           </Flex>
 
@@ -2553,7 +2558,7 @@ const ExerciseCardRow = memo(
             if (isDistance) value = displayDistance;
             const historyLoadSuggestion =
               isWeight && showClientHistory && Number(ex["Charge (kg)"] || 0) <= 0
-                ? suggestHistoryLoadForReps(historyItems, ex["Répétitions"])
+                ? (ex.cyclePrescription?.suggestedKg > 0 && ex.cyclePrescription.targetReps === Number(ex["Répétitions"]) ? { chargeKg: ex.cyclePrescription.suggestedKg } : suggestHistoryLoadForReps(historyItems, ex["Répétitions"]))
                 : null;
             const suggestedDisplayWeight = historyLoadSuggestion
               ? weightUnit === "kg"
@@ -2930,6 +2935,13 @@ const ExerciseCardRow = memo(
   (prev, next) => {
     return (
       prev.ex === next.ex &&
+      prev.cardBg === next.cardBg &&
+      prev.border === next.border &&
+      prev.subBg === next.subBg &&
+      prev.textMute === next.textMute &&
+      prev.hoverRow === next.hoverRow &&
+      prev.strongShadow === next.strongShadow &&
+      prev.t === next.t &&
       prev.index === next.index &&
       prev.expanded === next.expanded &&
       prev.replaceIndex === next.replaceIndex &&
@@ -2982,6 +2994,18 @@ export default function ProgramBuilder({
   const sessionEditPlaceholder = useColorModeValue("gray.500", "gray.400");
 
   const toast = useToast();
+  const awaitSaved = useCallback((request) => awaitWriteConfirmation(request, () => {
+    toast({ description: t("builderSavePending"), status: "info", duration: 8000, position: "bottom" });
+  }), [toast, t]);
+  const syncSavedProgram = useCallback(async (id) => {
+    try {
+      return await syncAssignedPrograms(id);
+    } catch (error) {
+      console.warn("[program-builder] saved, assignment sync unconfirmed", error);
+      toast({ description: t("builderSyncPending"), status: "warning", duration: 8000, position: "bottom" });
+      return { syncedAssignments: 0, pending: true };
+    }
+  }, [toast, t]);
   const { programId: routeId, clientId } = useParams();
   const navigate = useNavigate();
   const isAssignedClientProgram = Boolean(clientId);
@@ -3021,6 +3045,13 @@ export default function ProgramBuilder({
   const [, startTransition] = useTransition();
 
   const [programName, setProgramName] = useState("");
+  const [preparedClientId, setPreparedClientId] = useState(null);
+  const [validatingCycle, setValidatingCycle] = useState(false);
+  const [preparedAlreadyValidated, setPreparedAlreadyValidated] = useState(false);
+  const cycleValidationOperation = useRef(null);
+  const loadedTemplateRevision = useRef(0);
+  const validationText = cycleValidationLabels[(i18n.resolvedLanguage || i18n.language || 'fr').split('-')[0]] || cycleValidationLabels.fr;
+  const historyClientId = clientId || preparedClientId;
   const [programmeGoal, setProgrammeGoal] = useState("");
   const [objectifUI, setObjectifUI] = useState("");
   const [programActiveWeeks, setProgramActiveWeeks] = useState(4);
@@ -3220,6 +3251,8 @@ export default function ProgramBuilder({
   const deferredSearch = useDeferredValue(searchTerm);
   const [loadingClients, setLoadingClients] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
+  const [assignmentPlacement, setAssignmentPlacement] = useState('auto');
+  useEffect(() => setAssignmentPlacement('auto'), [selectedClient?.id]);
   const [completionHistory, setCompletionHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const assignModal = useDisclosure();
@@ -3327,6 +3360,9 @@ export default function ProgramBuilder({
       if (hasModifications || saving || activeWeeksDirty || activeWeeksSaving) return;
 
       const data = snap.data();
+      setPreparedClientId(data.preparedForClientId || null);
+      setPreparedAlreadyValidated(Boolean(data.validatedCycleAssignmentId));
+      loadedTemplateRevision.current = data._rev || 0;
 
       const rawSessions =
         Array.isArray(data.sessions) && data.sessions.length
@@ -3452,9 +3488,9 @@ export default function ProgramBuilder({
             updatedAt: serverTimestamp(),
             _rev: Date.now(),
           });
-        await saveWithTimeout(saveRequest);
+        await awaitSaved(saveRequest);
         if (!isAssignedClientProgram && programId) {
-          await syncAssignedPrograms(programId);
+          await syncSavedProgram(programId);
         }
         setProgramActiveWeeks(nextWeeks);
         setProgramActiveWeeksInput(String(nextWeeks));
@@ -3511,7 +3547,7 @@ export default function ProgramBuilder({
     let unsubscribeHistory = () => {};
 
     async function loadClientExerciseHistory() {
-      if (!isAssignedClientProgram || !clientId || !programId) {
+      if (!historyClientId || !programId) {
         setCompletionHistory([]);
         setHistoryLoading(false);
         return;
@@ -3520,8 +3556,8 @@ export default function ProgramBuilder({
       setHistoryLoading(true);
       try {
         const stopHistorySubscription = await subscribeClientCompletionHistory(
-          clientId,
-          programId,
+          historyClientId,
+          isAssignedClientProgram ? programId : null,
           (rows) => {
             if (cancelled) return;
             setCompletionHistory(rows);
@@ -3548,7 +3584,7 @@ export default function ProgramBuilder({
       cancelled = true;
       unsubscribeHistory();
     };
-  }, [isAssignedClientProgram, clientId, programId]);
+  }, [isAssignedClientProgram, historyClientId, programId]);
 
   useEffect(() => {
     if (!isAssignedClientProgram || !programId || historyLoading || isFirstLoad.current) return;
@@ -3650,6 +3686,7 @@ export default function ProgramBuilder({
       if (hasModifications && !saving && !savingRef.current && programDocRef && !isFirstLoad.current) {
         savingRef.current = true;
         const savedEditTime = localEditTimeRef.current;
+        const savedRevision = Date.now();
         try {
           setSaving(true);
 
@@ -3674,7 +3711,7 @@ export default function ProgramBuilder({
             return s;
           });
 
-          await saveWithTimeout(
+          await awaitSaved(
             updateDoc(programDocRef, {
               nomProgramme: finalName,
               name: finalName,
@@ -3694,17 +3731,18 @@ export default function ProgramBuilder({
               sessions: sessionsToSave,
               ...(isAssignedClientProgram
                 ? {
-                    seances: structuredClone(sessionsToSave),
+                    seances: deleteField(),
                     totalSessions: sessionsToSave.length,
                     nbSeances: sessionsToSave.length,
                   }
                 : {}),
               updatedAt: serverTimestamp(),
-              _rev: Date.now(),
+              _rev: savedRevision,
             })
           );
+          loadedTemplateRevision.current = savedRevision;
           if (!isAssignedClientProgram && programId) {
-            await syncAssignedPrograms(programId);
+            await syncSavedProgram(programId);
           }
 
           if (localEditTimeRef.current === savedEditTime) {
@@ -3749,13 +3787,15 @@ export default function ProgramBuilder({
     if (savingRef.current) return;
     savingRef.current = true;
     const savedEditTime = localEditTimeRef.current;
+    const savedRevision = Date.now();
     if (programId && programDocRef && !hasModifications && !activeWeeksDirty) {
       try {
         setSaving(true);
         const syncResult = !isAssignedClientProgram
-          ? await syncAssignedPrograms(programId)
+          ? await syncSavedProgram(programId)
           : { syncedAssignments: 0 };
         if (localEditTimeRef.current !== savedEditTime) return;
+        if (syncResult.pending) return;
         toast({
           title: t("programBuilder.toasts.alreadySavedTitle", "Programme déjà enregistré"),
           description: syncResult.syncedAssignments > 0
@@ -3860,7 +3900,7 @@ export default function ProgramBuilder({
       }
 
       if (programDocRef) {
-        await saveWithTimeout(
+        await awaitSaved(
           updateDoc(programDocRef, {
             nomProgramme: finalName,
             name: finalName,
@@ -3880,23 +3920,25 @@ export default function ProgramBuilder({
             sessions: sessionsToSave,
             ...(isAssignedClientProgram
               ? {
-                  seances: structuredClone(sessionsToSave),
+                  seances: deleteField(),
                   totalSessions: sessionsToSave.length,
                   nbSeances: sessionsToSave.length,
                 }
               : {}),
             updatedAt: serverTimestamp(),
-            _rev: Date.now(),
+            _rev: savedRevision,
           })
         );
+        loadedTemplateRevision.current = savedRevision;
         const syncResult = !isAssignedClientProgram && programId
-          ? await syncAssignedPrograms(programId)
+          ? await syncSavedProgram(programId)
           : { syncedAssignments: 0 };
 
         if (localEditTimeRef.current !== savedEditTime) return;
         setIsSaved(true);
         setHasModifications(false);
 
+        if (syncResult.pending) return;
         toast({
           title: t("programBuilder.toasts.savedTitle", "Modifications enregistrées"),
           description: syncResult.syncedAssignments > 0
@@ -3956,6 +3998,39 @@ export default function ProgramBuilder({
     toast,
   ]);
 
+  async function validateForPreparedClient() {
+    if (!preparedClientId || !programId || savingRef.current || assignmentBusyRef.current) return;
+    savingRef.current = true;
+    setValidatingCycle(true);
+    try {
+      const sessionsToSave = applyAutoSessionNumbering(sessions, t).map(session => {
+        const next = structuredClone(session);
+        for (const key of next.useSections ? sectionDefs.map(section => section.key) : ['exercises']) next[key] = (next[key] || []).map(serializeExerciseForSave);
+        return next;
+      });
+      const weeks = sanitizeActiveWeeks(programActiveWeeksInput);
+      const payload = {
+        name: programName, nomProgramme: programName, sessions: sessionsToSave,
+        objectif: programmeGoal || '', objectifUI: objectifUI || '', activeWeeks: weeks, durationWeeks: weeks,
+        totalSessions: sessionsToSave.length, nbSeances: sessionsToSave.length,
+        displayUnits: sanitizeDisplayUnits({ weight: weightUnit, speed: speedUnit, distance: distanceUnit }),
+        ...buildAssignedProgressionUpdate(progressionStrategy, buildProgressionPlan(weeks, progressionStrategy)),
+        ...buildAutoFollowUpdate(autoProgressionEnabled, programOptions || {}),
+        _rev: Date.now(),
+      };
+      await confirmOperation(cycleValidationOperation, `${programId}:${preparedClientId}:${localEditTimeRef.current}`, () => createCycleValidationOperation({ db, programId, clientId: preparedClientId, payload, expectedRevision: loadedTemplateRevision.current }));
+      setHasModifications(false);
+      setIsSaved(true);
+      toast({ status: 'success', title: validationText[2] });
+      navigate(`/clients/${preparedClientId}#training-cycles`);
+    } catch {
+      toast({ status: 'error', title: validationText[3], duration: 6000 });
+    } finally {
+      savingRef.current = false;
+      setValidatingCycle(false);
+    }
+  }
+
   const handleAssign = useCallback(async () => {
     if (!selectedClient || !programId || assignmentBusyRef.current) return;
     if (savingRef.current || hasModifications || activeWeeksDirty) {
@@ -3968,20 +4043,19 @@ export default function ProgramBuilder({
     // Reuse this read across transaction retries; the template stays transactional.
     let historyPromise;
     try {
-      await confirmOperation(assignmentOperationRef, `${createdByForSave}:${selectedClient.id}:${programId}`, () =>
+      await confirmOperation(assignmentOperationRef, `${createdByForSave}:${selectedClient.id}:${programId}:${assignmentPlacement}`, () =>
         createProgramAssignmentOperation({
           db, clientId: selectedClient.id, programId, coachId: createdByForSave, updateTemplate: true,
+          placement: assignmentPlacement,
           loadProgram: async (transaction) => {
-            historyPromise ||= loadClientCompletionHistory(selectedClient.id).catch((e) => {
+            const templateSnap = await transaction.get(doc(db, "programmes", programId));
+            if (!templateSnap.exists()) throw new Error("Programme introuvable.");
+            const template = templateSnap.data();
+            historyPromise ||= template.cyclePreparation ? Promise.resolve([]) : loadClientCompletionHistory(selectedClient.id).catch((e) => {
               console.warn("load selected client history before assignment error:", e);
               return [];
             });
-            const [templateSnap, selectedClientHistory] = await Promise.all([
-              transaction.get(doc(db, "programmes", programId)),
-              historyPromise,
-            ]);
-            if (!templateSnap.exists()) throw new Error("Programme introuvable.");
-            const template = templateSnap.data();
+            const selectedClientHistory = await historyPromise;
 
             const { sessions: sessionsToAssign, appliedCount } = applyHistoryLoadsToSessions(
               template.sessions || template.seances || [],
@@ -4006,7 +4080,6 @@ export default function ProgramBuilder({
               clientId: selectedClient.id,
               clientNom: selectedClient.fullName || selectedClient.name || selectedClient.email || "",
               sessions: sessionsToAssign,
-              seances: structuredClone(sessionsToAssign),
               objectif: template.objectif || template.objectifUI || "",
               objectifUI: template.objectifUI || "",
               activeWeeks: assignedWeeks,
@@ -4051,6 +4124,7 @@ export default function ProgramBuilder({
     }
   }, [
     selectedClient,
+    assignmentPlacement,
     programId,
     hasModifications,
     activeWeeksDirty,
@@ -4464,14 +4538,14 @@ export default function ProgramBuilder({
   const historyLanguage = i18n.language || i18n.resolvedLanguage || "fr";
   const exerciseHistoryByKey = useMemo(() => {
     const map = new Map();
-    if (!isAssignedClientProgram) return map;
+    if (!historyClientId) return map;
 
     visibleList.forEach((ex, index) => {
       const key = ex?.id || `${index}`;
       map.set(key, buildExerciseHistoryItemsFromCompletions(completionHistory, ex, t));
     });
     return map;
-  }, [completionHistory, isAssignedClientProgram, t, visibleList]);
+  }, [completionHistory, historyClientId, t, visibleList]);
 
   const totalTime = useMemo(() => getTotalTime(sessions[activeTab] || {}), [sessions, activeTab]);
 
@@ -4547,7 +4621,7 @@ export default function ProgramBuilder({
             weightStep={weightStep}
             speedStep={speedStep}
             dragHandleProps={drProv.dragHandleProps}
-            showClientHistory={isAssignedClientProgram}
+            showClientHistory={Boolean(historyClientId)}
             historyItems={exerciseHistoryByKey.get(ex?.id || `${eIdx}`) || []}
             historyLoading={historyLoading}
             historyLanguage={historyLanguage}
@@ -4681,7 +4755,7 @@ export default function ProgramBuilder({
       gridColumn={{ base: "1 / -1", md: "auto" }}
       gridArea={{ base: "1 / 1 / auto / -1", md: "auto" }}
     >
-      <Flex direction="column" minH="100%" w="100%" maxW="100%">
+      <Flex as="fieldset" disabled={validatingCycle} border={0} p={0} m={0} minW={0} direction="column" minH="100%" w="100%" maxW="100%">
         <Box
           as="main"
           data-builder-main-scroll="true"
@@ -4932,6 +5006,7 @@ export default function ProgramBuilder({
                 )}
               </HStack>
 
+              {isCoach && preparedClientId && !preparedAlreadyValidated && !isAssignedClientProgram && <Button onClick={validateForPreparedClient} isLoading={validatingCycle} isDisabled={saving || assignmentBusyRef.current} size={ctaSize} borderRadius="full" whiteSpace="normal">{validationText[0]}</Button>}
               {isCoach && (
                 <Button
                   data-tour="builder-save"
@@ -4945,7 +5020,7 @@ export default function ProgramBuilder({
                   flex="0 0 auto"
                   boxShadow="none"
                 >
-                  {ctaLabel}
+                  {preparedClientId && !preparedAlreadyValidated && !isAssignedClientProgram ? validationText[1] : ctaLabel}
                 </Button>
               )}
             </Flex>
@@ -5413,7 +5488,8 @@ export default function ProgramBuilder({
                     )}
                   </List>
                 )}
-              </ModalBody>
+              <AssignmentPlacement clientId={selectedClient?.id} value={assignmentPlacement} onChange={setAssignmentPlacement} disabled={assigningProgram} />
+          </ModalBody>
               <ModalFooter justifyContent="space-between">
                 <Button leftIcon={<MdPersonAdd />} variant="ghost" onClick={addClientModal.onOpen}>
                   {t("programBuilder.modals.addClient", "Ajouter un client")}

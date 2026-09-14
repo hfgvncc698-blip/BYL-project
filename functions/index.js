@@ -13,6 +13,7 @@
 // =======================================================
 
 const admin = require("firebase-admin");
+const { advanceCompletedTrainingCycle } = require('./trainingCycleCompletion');
 const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore } = require("firebase-admin/firestore");
@@ -2919,6 +2920,38 @@ exports.onUserSubscriptionLifecycle = onDocumentWritten(
 /* =======================================================================
  * 6) onProgramSessionCompleted (TRIGGER Firestore)
  * ======================================================================= */
+exports.onTrainingCycleSessionValidated = onDocumentWritten(
+  {
+    region: "europe-west1",
+    document: "clients/{clientId}/programmes/{programmeId}/sessionsEffectuees/{sessionDoneId}",
+    retry: true,
+  },
+  async event => {
+    if (!event.data?.after?.exists) return;
+    await advanceCompletedTrainingCycle(db, event.params.clientId, event.params.programmeId, countProgramSessions);
+  }
+);
+
+// Also reconcile a newly linked plan with sessions that were already completed.
+exports.onTrainingPlanUpdated = onDocumentWritten(
+  { region: "europe-west1", document: "clients/{clientId}", retry: true },
+  async event => {
+    if (!event.data?.after?.exists) return;
+    const after = event.data.after.data() || {};
+    const before = event.data.before?.exists ? event.data.before.data() || {} : {};
+    if (after.trainingPlan?.revision === before.trainingPlan?.revision && after.sportFollowView === before.sportFollowView) return;
+    const programmeId = after.trainingPlan?.cycles?.find(cycle => !cycle.closedAt)?.programId;
+    if (programmeId) await advanceCompletedTrainingCycle(db, event.params.clientId, programmeId, countProgramSessions);
+    else if (after.subscriptionCycle?.enabled && after.sportFollowView !== 'programs') {
+      const jobRef = db.collection('subscription_cycle_jobs').doc(event.params.clientId);
+      await db.runTransaction(async transaction => {
+        const job = (await transaction.get(jobRef)).data() || {};
+        if (!(job.leaseUntil > Date.now())) transaction.set(jobRef, {status:'pending',leaseUntil:0,updatedAt:admin.firestore.FieldValue.serverTimestamp()}, {merge:true});
+      });
+    }
+  }
+);
+
 exports.onProgramSessionCompleted = onDocumentWritten(
   {
     region: "europe-west1",

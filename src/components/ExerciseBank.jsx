@@ -19,6 +19,7 @@ import {
   HStack,
   useColorModeValue,
   Drawer,
+  Portal,
   DrawerOverlay,
   DrawerContent,
   DrawerHeader,
@@ -1119,7 +1120,7 @@ export default function ExerciseBank({
   const auth = getAuth();
   const currentUser = auth.currentUser;
 
-  const isMobile = useBreakpointValue({ base: true, md: false }, { ssr: false });
+  const isMobile = useBreakpointValue({ base: true, lg: false }, { ssr: false });
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { pathname } = useLocation();
   const isBuilder = pathname.includes("/program-builder");
@@ -2243,15 +2244,15 @@ export default function ExerciseBank({
   if (isBuilder && isMobile) {
     return (
       <>
-        <IconButton
+        <Portal><IconButton
           aria-label={i18n.t("auto.ExerciseBank.exercise_bank", "Exercise bank")}
           icon={<MdOutlineMenuBook size={26} />}
           isRound
           size="lg"
           position="fixed"
-          bottom="22px"
+          bottom="calc(24px + env(safe-area-inset-bottom, 0px))"
           right="20px"
-          zIndex={1500}
+          zIndex="sticky"
           bg={fabBg}
           color="white"
           _hover={{ bg: fabHoverBg }}
@@ -2262,7 +2263,7 @@ export default function ExerciseBank({
             onOpen();
           }}
           type="button"
-        />
+        /></Portal>
 
         <Drawer
           placement="left"

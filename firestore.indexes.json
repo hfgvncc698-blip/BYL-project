@@ -1,5 +1,5 @@
 {
-  "indexes": [],
+  "indexes": [{"collectionGroup":"subscription_cycle_jobs","queryScope":"COLLECTION","fields":[{"fieldPath":"status","order":"ASCENDING"},{"fieldPath":"leaseUntil","order":"ASCENDING"}]}],
   "fieldOverrides": [
     {
       "collectionGroup": "programmes",

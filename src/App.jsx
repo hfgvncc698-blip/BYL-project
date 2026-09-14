@@ -281,6 +281,7 @@ const ClientDashboard = lazyFrom(routeLoaders, "ClientDashboard");
 const AdminDashboard = lazyFrom(routeLoaders, "AdminDashboard");
 const ProfilePageClient = lazyFrom(routeLoaders, "ProfilePageClient");
 const MyPrograms = lazyFrom(routeLoaders, "MyPrograms");
+const ClientJourneyPage = lazy(() => import('./components/client/ClientJourneyPage.jsx'));
 const Statistics = lazyFrom(routeLoaders, "Statistics");
 const SettingsPageClient = lazyFrom(routeLoaders, "SettingsPageClient");
 const ClientNutritionPage = lazyFrom(routeLoaders, "ClientNutritionPage");
@@ -880,7 +881,7 @@ function AppContent() {
             path="/mes-programmes"
             element={
               <ClientOnlyRoute>
-                <MyPrograms />
+                <ClientJourneyPage view="program"><MyPrograms /></ClientJourneyPage>
               </ClientOnlyRoute>
             }
           />

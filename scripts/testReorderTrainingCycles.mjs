@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { reorderTrainingCycles } from '../src/utils/reorderTrainingCycles.js';
+const cycles = [{ id: 'done', closedAt: '2026-09-01' }, { id: 'a', programId: 'program-a' }, { id: 'b', weeks: 3 }, { id: 'c' }];
+const reordered = reorderTrainingCycles(cycles, 1, 3);
+assert.deepEqual(reordered.map(c => c.id), ['done', 'b', 'c', 'a']);
+assert.equal(reordered[3], cycles[1]);
+assert.deepEqual(reorderTrainingCycles(reordered, 3, 1), cycles);
+assert.equal(reorderTrainingCycles(cycles, 3, 0), cycles);
+assert.equal(reorderTrainingCycles(cycles, 0, 2), cycles);
+assert.equal(reorderTrainingCycles(cycles, 1, 1), cycles);
+assert.equal(reorderTrainingCycles(cycles, 1, 6), cycles);
+assert.deepEqual(cycles.map(c => c.id), ['done', 'a', 'b', 'c']);
+console.log('Cycle reordering: both directions, completed-cycle protection, immutable draft and preserved links passed.');
+const source = await readFile(new URL('../src/components/client/TrainingCycles.jsx', import.meta.url), 'utf8');
+assert.match(source, /<Draggable\b[^>]*\bdisableInteractiveElementBlocking\b/, 'the cycle button must explicitly allow mouse and touch drag initiation');
+assert.match(source, /<Button\s+\{\.\.\.drag\.dragHandleProps\}/, 'the entire cycle button remains the drag handle');

@@ -1,4 +1,6 @@
 {
+  "builderSavePending": "La conferma del server sta richiedendo più tempo del previsto. Il salvataggio è ancora in corso: non ripeterlo e lascia aperta questa pagina.",
+  "builderSyncPending": "Il programma è salvato. L’aggiornamento dei programmi dei clienti non è ancora confermato. Premi Salva per riprovare la sincronizzazione.",
   "clientFollowList": {"subtitle":"Gestisci i clienti sport e nutrizione, i loro percorsi e i contatti in un unico spazio.","follow":"Percorso","last":"Ultima interazione","status":"Stato","details":"Dettagli","nutritionDetails":"Percorso nutrizionale: apri la scheda per consultare bilanci e obiettivi."},
   "adminClientNavigation": {"preview":"Anteprima rapida","hint":"Seleziona un cliente per aprire il suo profilo amministratore.","notes":"Note interne e anteprima"},
   "locationPrivacy": {

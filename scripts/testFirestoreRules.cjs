@@ -70,6 +70,14 @@ async function test(name, run) { await run(); passed++; console.log(`PASS ${name
     await test('same club coach can update club client', () => assertSucceeds(patch(dbFor('club-a'), 'clients/club-client', { notes: 'updated' })));
     await test('client retains access to own dossier', () => assertSucceeds(read(dbFor('patient'), 'clients/owned-client')));
     await test('client can update own ordinary profile fields', () => assertSucceeds(patch(dbFor('patient'), 'clients/owned-client', { notes: 'own update' })));
+    await test('owner coach can plan training cycles', () => assertSucceeds(patch(dbFor('coach-a'), 'clients/owned-client', { trainingPlan: { start: '2026-09-11', cycles: [], revision: 1 } })));
+    await test('client cannot edit coach cycle planning', () => assertFails(patch(dbFor('patient'), 'clients/owned-client', { trainingPlan: { cycles: [] } })));
+    await test('client cannot enable automatic subscription cycles', () => assertFails(patch(dbFor('patient'), 'clients/owned-client', { subscriptionCycle: {enabled:true} })));
+    await test('client cannot extend subscription cycle access', () => assertFails(patch(dbFor('patient'), 'clients/owned-client', { subscriptionAccessUntil: '2099-01-01' })));
+    await test('owner coach can select sport follow view', () => assertSucceeds(patch(dbFor('coach-a'), 'clients/owned-client', { sportFollowView: 'programs' })));
+    await test('client cannot change coach sport follow view', () => assertFails(patch(dbFor('patient'), 'clients/owned-client', { sportFollowView: 'cycles' })));
+    await test('foreign coach cannot change sport follow view', () => assertFails(patch(dbFor('coach-b'), 'clients/owned-client', { sportFollowView: 'cycles' })));
+    await test('foreign coach cannot edit cycle planning', () => assertFails(patch(dbFor('coach-b'), 'clients/owned-client', { trainingPlan: { cycles: [] } })));
     await test('anonymous client read refused', () => assertFails(read(anon, 'clients/owned-client')));
     await test('anonymous public program read remains allowed', () => assertSucceeds(read(anon, 'programmes/public')));
     await test('anonymous public program modification refused', () => assertFails(patch(anon, 'programmes/public')));
@@ -108,7 +116,7 @@ async function test(name, run) { await run(); passed++; console.log(`PASS ${name
     });
     await test('coach can still provision a safe client user profile', () => assertSucceeds(setDoc(doc(dbFor('coach-a'), 'users/coach-provisioned'), { role: 'particulier', linkedClientId: 'coach-provisioned', hasActiveSubscription: false })));
     await test('coach cannot seed a server subscription ordering field', () => assertFails(setDoc(doc(dbFor('coach-a'), 'users/coach-fake-created'), { role: 'particulier', linkedClientId: 'coach-fake-created', hasActiveSubscription: false, stripeSubscriptionCreatedAt: 1 })));
-    for (const collection of ['checkout_program_requests', 'stripe_subscription_sync', 'session_email_deliveries']) {
+    for (const collection of ['checkout_program_requests', 'stripe_subscription_sync', 'session_email_deliveries', 'subscription_cycle_jobs']) {
       await test(`client cannot read or forge private server records in ${collection}`, async () => {
         await assertFails(read(dbFor('patient'), `${collection}/private`));
         await assertFails(patch(dbFor('patient'), `${collection}/private`, { forged: true }));

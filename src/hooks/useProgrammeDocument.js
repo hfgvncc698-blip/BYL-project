@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, getDocFromServer } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useAuth } from '../AuthContext';
 import { subscribeToProgram } from '../utils/programSubscription';
@@ -28,11 +28,36 @@ export function useProgrammeDocument({ clientId, programId, prefetchedProgram })
       setError(failure); setLoading(false); setProgRef(null); load.error();
       if (failure?.code === 'permission-denied' || failure?.code === 'unauthenticated') setProg(null);
     };
-    const timeout = setTimeout(() => fail(new Error('program-load-timeout')), 10000);
+    let active = true;
+    let serverReceived = false;
+    // If the live stream stalls, try an independent server read without
+    // discarding the local cache or restarting every Firestore connection.
+    const timeout = setTimeout(async () => {
+      let deadline;
+      try {
+        const hit = await Promise.race([
+          (async () => {
+            for (const candidate of candidates) {
+              const snapshot = await getDocFromServer(candidate.ref);
+              if (snapshot.exists()) return { ...candidate, data: snapshot.data() };
+            }
+            return null;
+          })(),
+          new Promise((_, reject) => { deadline = setTimeout(() => reject(new Error('program-load-timeout')), 6000); }),
+        ]);
+        if (!active || serverReceived || !load.current()) return;
+        serverReceived = true;
+        setProg(hit ? { ...hit.data, id: hit.id } : null);
+        setProgRef(hit?.ref || null); setLoading(false); setError(null);
+        lastPhase = 'ready'; load.ready();
+      } catch (failure) {
+        if (active && !serverReceived) fail(failure);
+      } finally { clearTimeout(deadline); }
+    }, 4000);
     const stop = subscribeToProgram({ candidates, subscribe: onSnapshot,
       onValue(hit, cached) {
-        if (!load.current() || (fresh && cached)) return;
-        if (!cached) clearTimeout(timeout);
+        if (!load.current() || ((fresh || serverReceived) && cached)) return;
+        if (!cached) { serverReceived = true; clearTimeout(timeout); }
         setProg(hit ? { ...hit.data, id: hit.id } : null);
         // Cached data may be read, but edits must use a server-confirmed document.
         setProgRef(!cached && hit ? hit.ref : null);
@@ -45,7 +70,7 @@ export function useProgrammeDocument({ clientId, programId, prefetchedProgram })
         }
       }, onError: fail,
     });
-    return () => { clearTimeout(timeout); stop(); };
+    return () => { active = false; clearTimeout(timeout); stop(); };
   }, [clientId, programId, user?.uid, initial, fresh, begin]);
   return { prog, progRef, loading, error, loadState };
 }

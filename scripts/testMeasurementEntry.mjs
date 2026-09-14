@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import { calculateEntryBmi, latestEntryValue, convertEntryUnit } from '../src/utils/measurementEntry.js';
+assert.equal(calculateEntryBmi(190,88),24.4);
+assert.equal(calculateEntryBmi(190,90),24.9);
+assert.equal(calculateEntryBmi('190','88,5'),24.5);
+assert.equal(calculateEntryBmi('',88),null);
+assert.equal(calculateEntryBmi(0,88),null);
+assert.equal(calculateEntryBmi(190,-1),null);
+const inches=convertEntryUnit(190,'cm','in','height');
+const pounds=convertEntryUnit(88,'kg','lb','weight');
+assert.equal(calculateEntryBmi(inches,pounds,'in','lb'),24.4);
+assert.ok(Math.abs(convertEntryUnit(pounds,'lb','kg','weight')-88)<0.001);
+const read=(source,field)=>source?.[field]??null;
+assert.equal(latestEntryValue([{poids:80},{poids:88},{poids:null}],{poids:70},{poids:65},read,'poids'),88);
+assert.equal(latestEntryValue([],{taille:190},{taille:180},read,'taille'),190);
+assert.equal(latestEntryValue([],{}, {taille:180},read,'taille'),180);
+assert.equal(latestEntryValue([],{}, {},read,'taille'),null);
+console.log('Measurement entry: prefill precedence, live BMI, blanks, decimal input and unit conversions OK.');

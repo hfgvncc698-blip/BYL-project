@@ -4,10 +4,10 @@ import {
   Box, Heading, SimpleGrid, Text, Grid, Button, HStack, Modal, ModalOverlay,
   ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, FormControl,
   FormLabel, Input, VStack, useDisclosure, useColorModeValue, Divider, Skeleton, useToast, Select, Badge, Circle,
-  Icon, Flex, Progress
+  Icon, Flex, Menu, MenuButton, MenuList, MenuOptionGroup, MenuItemOption, Portal
 } from "@chakra-ui/react";
 import {
-  collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, limit
+  collection, query, getDocs, addDoc, serverTimestamp, orderBy, limit, doc, onSnapshot
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useTranslation } from "react-i18next";
@@ -15,16 +15,22 @@ import AppLoading from "../components/ui/AppLoading";
 import PageBackButton from "../components/ui/PageBackButton";
 import { AppSectionHeader, AppSurface } from "../components/ui/AppPrimitives";
 import { resolveClientSnapshotForUser } from "../utils/clientResolver";
-import { isSessionValidatedRecord } from "../utils/sessionCompletion";
+import { selectJourneyProgram } from '../utils/clientJourney';
+import { clientStatsLabels } from '../i18n/clientStats';
+import { ChevronDownIcon } from '@chakra-ui/icons';
+import { calculateEntryBmi, latestEntryValue, convertEntryUnit } from '../utils/measurementEntry';
+import MeasurementHelp from '../components/stats/MeasurementHelp';
+import FeetInchesInput from '../components/stats/FeetInchesInput';
+import MeasurementUnitMenu from '../components/stats/MeasurementUnitMenu';
+import { formatFeetInches } from '../utils/imperialHeight';
+import { measurementLabel } from '../utils/measurementLabel';
 import {
   MdOutlineMonitorWeight,
-  MdOutlineShowChart,
-  MdOutlineStraighten,
-  MdOutlineTimeline,
 } from "react-icons/md";
 
 const BodyMeasureChart = lazy(() => import("../components/stats/BodyMeasureChart.jsx"));
-const SessionComparator = lazy(() => import("../components/SessionComparator.jsx"));
+const ClientCurrentProgress = lazy(() => import('../components/client/ClientCurrentProgress.jsx'));
+const ClientJourneyHistory = lazy(() => import('../components/client/ClientJourneyHistory.jsx'));
 
 /* ---------- helpers ---------- */
 const CM_PER_IN = 2.54;
@@ -36,14 +42,6 @@ const fromKg = (kg, unit) => (kg == null ? null : unit === "lb" ? +(kg * LB_PER_
 const toCm = (v, unit) => (v == null || v === "" ? null : unit === "in" ? Number(v) * CM_PER_IN : Number(v));
 const fromCm = (cm, unit) => (cm == null ? null : unit === "in" ? +(cm / CM_PER_IN).toFixed(1) : +cm.toFixed(0));
 
-function getTotalSessionsFromProgrammeDoc(p) {
-  if (!p) return 0;
-  if (Array.isArray(p.sessions)) return p.sessions.length;
-  if (Array.isArray(p.seances)) return p.seances.length;
-  if (typeof p.totalSessions === "number") return p.totalSessions;
-  if (typeof p.nbSeances === "number") return p.nbSeances;
-  return 0;
-}
 
 /* champs mesurés (clé i18n + champ Firestore) */
 const FIELDS = [
@@ -55,6 +53,7 @@ const FIELDS = [
   { k: "water", field: "waterMass" },      // %
   { k: "bone", field: "boneMass" },        // kg
   { k: "metabolicAge", field: "metabolicAge" }, // années
+  { k: "visceralFat", field: "visceralFatScore" }, // score, not a percentage
 ];
 
 const FIELD_ALIASES = {
@@ -65,6 +64,7 @@ const FIELD_ALIASES = {
   waterMass: ["waterMass", "waterMassPct", "bodyWater", "bodyWaterPct", "eau", "eauPct", "body.waterMassPct"],
   boneMass: ["boneMass", "boneMassKg", "masseOsseuse", "masseOsseuseKg", "body.boneMassKg"],
   metabolicAge: ["metabolicAge", "ageMetabolique", "body.metabolicAge"],
+  visceralFatScore: ['visceralFatScore','visceralFat','graisseViscerale','body.visceralFatScore'],
 };
 
 function readPath(source, path) {
@@ -102,20 +102,11 @@ function normalizeMeasurementDoc(measure) {
   parsed.waterMass = getMeasurementValue(parsed, "waterMass");
   parsed.boneMass = getMeasurementValue(parsed, "boneMass");
   parsed.metabolicAge = getMeasurementValue(parsed, "metabolicAge");
+  parsed.visceralFatScore = getMeasurementValue(parsed, 'visceralFatScore');
   if (tailleCm && poidsKg) {
     parsed.bmi = Number((poidsKg / (tailleCm / 100) ** 2).toFixed(1));
   }
   return parsed;
-}
-
-function toMillisSafe(value) {
-  if (!value) return 0;
-  if (typeof value.toDate === "function") return value.toDate().getTime();
-  if (typeof value.seconds === "number") return value.seconds * 1000;
-  if (value instanceof Date) return value.getTime();
-  if (typeof value === "number") return value > 1e12 ? value : value * 1000;
-  if (typeof value === "string") return Date.parse(value) || 0;
-  return 0;
 }
 
 async function getDocsSafe(q, label) {
@@ -136,12 +127,12 @@ export default function StatisticsPageClient() {
 
   const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(true);
-  const [progressLoading, setProgressLoading] = useState(true);
   const [clientId, setClientId] = useState(null);
 
-  const [totalProg, setTotalProg] = useState(0);
-  const [percentDone, setPercentDone] = useState(0);
-  const [sessWeek, setSessWeek] = useState(0);
+  const [clientProfile, setClientProfile] = useState(null);
+  const [showAllMeasures,setShowAllMeasures] = useState(false);
+  const [chartFields,setChartFields] = useState(null);
+  const statsLabels=clientStatsLabels(i18n.language);
   const [programmes, setProgrammes] = useState([]);
 
   const [measures, setMeasures] = useState([]);
@@ -162,6 +153,7 @@ export default function StatisticsPageClient() {
     waterMass: "",
     boneMass: "",
     metabolicAge: "",
+    visceralFatScore: "",
   });
 
   // UI colors
@@ -207,12 +199,8 @@ export default function StatisticsPageClient() {
         if (!clientDoc) {
           setClientId(null);
           setProgrammes([]);
-          setTotalProg(0);
-          setPercentDone(0);
-          setSessWeek(0);
           setMeasures([]);
           setStatsLoading(false);
-          setProgressLoading(false);
           setLoading(false);
           return;
         }
@@ -221,18 +209,11 @@ export default function StatisticsPageClient() {
         setClientId(cid);
         setLoading(false);
         setStatsLoading(true);
-        setProgressLoading(true);
 
         // 2) Données de base en parallèle, sans requête composite fragile.
-        const weekAgo = Date.now() - 7 * 86400000;
-        const sessionIds = Array.from(new Set([cid, user.uid].filter(Boolean)));
-        const [progSnap, sessionSnaps, measSnap] = await Promise.all([
+        setClientProfile(clientDoc.data());
+        const [progSnap, measSnap] = await Promise.all([
           getDocsSafe(query(collection(db, "clients", cid, "programmes"), limit(100)), "programmes"),
-          Promise.all(
-            sessionIds.map((id) =>
-              getDocsSafe(query(collection(db, "sessions"), where("clientId", "==", id), limit(200)), `sessions:${id}`)
-            )
-          ),
           getDocsSafe(query(collection(db, "clients", cid, "measurements"), orderBy("date", "desc"), limit(80)), "measurements:ordered")
             .then((snap) => snap || getDocsSafe(query(collection(db, "clients", cid, "measurements"), limit(80)), "measurements")),
         ]);
@@ -240,17 +221,7 @@ export default function StatisticsPageClient() {
 
         const progs = progSnap?.docs?.map((d) => ({ id: d.id, ...d.data() })) || [];
         setProgrammes(progs);
-        setTotalProg(progs.length);
 
-        const sessionsById = new Map();
-        sessionSnaps
-          .filter(Boolean)
-          .forEach((snap) => {
-            snap.docs.forEach((docSnap) => sessionsById.set(docSnap.id, docSnap.data()));
-          });
-        const sessions = Array.from(sessionsById.values())
-          .filter((s) => toMillisSafe(s?.start) >= weekAgo);
-        setSessWeek(sessions.length);
 
         const arr = (measSnap?.docs || [])
           .map((d) => ({ id: d.id, ...d.data() }))
@@ -259,43 +230,17 @@ export default function StatisticsPageClient() {
         setMeasures(arr);
         setStatsLoading(false);
 
-        // 3) progression : calcul secondaire, pour ne pas bloquer l'affichage initial.
-        const totalPlanned = progs.reduce((sum, p) => sum + getTotalSessionsFromProgrammeDoc(p), 0);
-        let totalDone = 0;
-        const progressRows = await Promise.allSettled(
-          progs.map(async (p) => {
-            const planned = getTotalSessionsFromProgrammeDoc(p);
-            const effSnap = await getDocsSafe(
-              query(collection(db, "clients", cid, "programmes", p.id, "sessionsEffectuees"), limit(200)),
-              `sessionsEffectuees:${p.id}`
-            );
-            const eff = effSnap?.docs?.map((d) => d.data()) || [];
-            const doneCount = eff.filter(isSessionValidatedRecord).length;
-            return Math.min(doneCount, planned || doneCount);
-          })
-        );
-        progressRows.forEach((row) => {
-          if (row.status === "fulfilled") totalDone += row.value || 0;
-        });
-        if (cancelled) return;
-        setPercentDone(totalPlanned ? Math.round((totalDone / totalPlanned) * 100) : 0);
-        setProgressLoading(false);
       } catch (e) {
         if (cancelled) return;
         console.warn("[StatisticsPageClient] load failed", e);
         setProgrammes([]);
-        setTotalProg(0);
-        setPercentDone(0);
-        setSessWeek(0);
         setMeasures([]);
         setStatsLoading(false);
-        setProgressLoading(false);
         setLoading(false);
       } finally {
         if (!cancelled) {
           setLoading(false);
           setStatsLoading(false);
-          setProgressLoading(false);
         }
       }
     })();
@@ -305,15 +250,24 @@ export default function StatisticsPageClient() {
     };
   }, [user]);
 
+  useEffect(()=>{
+    if(!clientId)return;
+    const stopProfile=onSnapshot(doc(db,'clients',clientId),snapshot=>setClientProfile(snapshot.data()),()=>{});
+    const stopPrograms=onSnapshot(collection(db,'clients',clientId,'programmes'),snapshot=>setProgrammes(snapshot.docs.map(d=>({...d.data(),id:d.id}))),()=>{});
+    return ()=>{stopProfile();stopPrograms();};
+  },[clientId]);
+  const currentProgram=selectJourneyProgram(clientProfile,programmes);
+
   const latestMeasure = useMemo(() => measures[measures.length - 1] || {}, [measures]);
 
   /* -------- UI helpers -------- */
   const label = (key, fb) => t(`stats.${key}`, fb);
+  const fieldLabel = key => measurementLabel(label(`fields.${key}`), key, heightUnit==='in'?'ft/in':'cm', weightUnit);
 
   const latestDisplay = (field) => {
     if (field === "taille") {
       const value = getMeasurementValue(latestMeasure, field);
-      return value != null ? nf0.format(fromCm(value, heightUnit)) : "—";
+      return value != null ? (heightUnit==='in'?formatFeetInches(value/2.54):nf0.format(value)) : "—";
     }
     if (field === "poids") {
       const value = getMeasurementValue(latestMeasure, field);
@@ -348,14 +302,19 @@ export default function StatisticsPageClient() {
     [measures, heightUnit, weightUnit]
   );
 
-  const measurementCompletion = useMemo(
-    () => FIELDS.filter(({ field }) => (field === "bmi" ? latestMeasure.bmi != null : getMeasurementValue(latestMeasure, field) != null)).length,
-    [latestMeasure]
-  );
 
   /* -------- add measure -------- */
+  const entryBmi=calculateEntryBmi(newMeas.taille,newMeas.poids,heightUnit,weightUnit);
+  const openNewMeasure=()=>{
+    const height=latestEntryValue(measures,clientProfile,user,getMeasurementValue,'taille');
+    const weight=latestEntryValue(measures,clientProfile,user,getMeasurementValue,'poids');
+    setNewMeas({date:today,taille:fromCm(height,heightUnit)??'',poids:fromKg(weight,weightUnit)??'',fatMass:'',muscleMass:'',waterMass:'',boneMass:'',metabolicAge:'',visceralFatScore:''});
+    addMeas.onOpen();
+  };
+  const changeHeightUnit=unit=>{setNewMeas(p=>({...p,taille:convertEntryUnit(p.taille,heightUnit,unit,'height')}));setHeightUnit(unit);};
+  const changeWeightUnit=unit=>{setNewMeas(p=>({...p,poids:convertEntryUnit(p.poids,weightUnit,unit,'weight')}));setWeightUnit(unit);};
   const handleAdd = async () => {
-    if (!clientId || !user?.uid) return;
+    if (!clientId || !user?.uid || saving || !newMeas.date) return;
     setSaving(true);
     try {
       // convertir vers métrique pour la base
@@ -363,6 +322,8 @@ export default function StatisticsPageClient() {
         date: newMeas.date,
         taille: toCm(newMeas.taille, heightUnit),
         poids: toKg(newMeas.poids, weightUnit),
+        bmi: entryBmi,
+        visceralFatScore: newMeas.visceralFatScore === '' ? null : Number(newMeas.visceralFatScore),
         fatMass: newMeas.fatMass === "" ? null : Number(newMeas.fatMass),
         muscleMass: newMeas.muscleMass === "" ? null : Number(newMeas.muscleMass),
         waterMass: newMeas.waterMass === "" ? null : Number(newMeas.waterMass),
@@ -389,7 +350,7 @@ export default function StatisticsPageClient() {
 
       addMeas.onClose();
       setNewMeas((prev) => ({ ...prev, date: today, taille: "", poids: "" }));
-      toast({ status: "success", description: t("settings.toasts.lang_updated", "Langue mise à jour.") /* reuse ok */ });
+      toast({ status: "success", description: t("profile.actions.saved", "Modifications enregistrées") });
     } catch (e) {
       toast({ status: "error", description: t("settings.toasts.update_error", "Erreur de mise à jour.") });
     } finally {
@@ -417,37 +378,6 @@ export default function StatisticsPageClient() {
     </Box>
   );
 
-  const MiniStatCard = ({ labelText, value, helper }) => (
-    <AppSurface
-      variant="tile"
-      p={{ base: 3.5, md: 4 }}
-      bg={cardBg}
-      borderRadius="18px"
-      border="1px solid"
-      borderColor={borderCol}
-      minH="92px"
-    >
-      <HStack justify="space-between" align="center" gap={4}>
-        <Box minW={0}>
-          <Text
-            fontSize="sm"
-            color={textMuted}
-            fontWeight="900"
-            lineHeight="1.2"
-            noOfLines={1}
-          >
-            {labelText}
-          </Text>
-          <Text mt={1} fontSize="xs" color={subtleText} noOfLines={2}>
-            {helper}
-          </Text>
-        </Box>
-        <Text fontSize={{ base: "2xl", md: "3xl" }} fontWeight="950" letterSpacing="-0.04em" color={accent} flexShrink={0}>
-          {value}
-        </Text>
-      </HStack>
-    </AppSurface>
-  );
 
   return (
     <Box data-tour-page="client-stats" p={{ base: 3, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
@@ -458,66 +388,20 @@ export default function StatisticsPageClient() {
             <AppSectionHeader
               flex="1"
               title={label("title", "Statistiques")}
-              subtitle={label("subtitle", "Suis ta progression globale, tes mesures corporelles et compare tes séances pour visualiser les progrès.")}
+              subtitle={statsLabels.subtitle}
               headingAs="h1"
             />
           </Flex>
         </AppSurface>
 
-        <SimpleGrid data-tour="client-stats-kpis" columns={{ base: 1, sm: 3 }} spacing={{ base: 2.5, md: 3 }}>
-          <MiniStatCard
-            labelText={label("kpis.totalPrograms", "Total programmes")}
-            value={statsLoading ? "..." : nf0.format(totalProg)}
-            helper={t("auto.StatisticsPageClient.programmes_disponibles_dans_ton_espace", "programmes disponibles dans ton espace")}
-          />
-          <MiniStatCard
-            labelText={label("kpis.percentDone", "% terminé")}
-            value={progressLoading ? "..." : `${nf0.format(percentDone)}%`}
-            helper={t("auto.StatisticsPageClient.base_sur_les_seances_validees", "basé sur les séances validées")}
-          />
-          <MiniStatCard
-            labelText={label("kpis.sessionsPerWeek", "Séances / sem.")}
-            value={statsLoading ? "..." : nf0.format(sessWeek)}
-            helper={t("auto.StatisticsPageClient.sur_les_7_derniers_jours", "sur les 7 derniers jours")}
-          />
-        </SimpleGrid>
+        <Suspense fallback={<Skeleton height="100px"/>}>
+          <ClientCurrentProgress clientId={clientId} program={currentProgram}/>
+          <ClientJourneyHistory clientId={clientId} programmes={programmes} currentProgramId={currentProgram?.id}/>
+        </Suspense>
 
-        {statsLoading ? (
-          <SurfaceCard data-tour="client-stats-comparison" p={{ base: 4, md: 6 }}>
-            <Skeleton h="28px" w="220px" borderRadius="full" mb={3} />
-            <Skeleton h="18px" w="80%" borderRadius="full" />
-          </SurfaceCard>
-        ) : programmes.length > 0 && clientId ? (
-          <SurfaceCard p={{ base: 4, md: 6 }}>
-            <Flex justify="space-between" align={{ base: "stretch", md: "center" }} direction={{ base: "column", md: "row" }} gap={4} mb={4}>
-              <HStack spacing={3} align="flex-start">
-                <Circle size="42px" bg="rgba(59,130,246,0.10)" color={activeBlue}>
-                  <Icon as={MdOutlineTimeline} boxSize="20px" />
-                </Circle>
-                <Box>
-                  <Heading size="md" color={accent}>{label("compareSession", "Comparer une séance")}</Heading>
-                  <Text mt={1} color={textMuted}>{t("auto.StatisticsPageClient.visualise_les_ecarts_entre_deux_occurrences_d_une_", "Visualise les écarts entre deux occurrences d’une même séance sans quitter la page.")}</Text>
-                </Box>
-              </HStack>
-            </Flex>
-            <Suspense fallback={<Skeleton h="220px" borderRadius="24px" />}>
-              <SessionComparator clientId={clientId} programmes={programmes} embedded />
-            </Suspense>
-          </SurfaceCard>
-        ) : (
-          <SurfaceCard p={{ base: 4, md: 6 }}>
-            <HStack spacing={3} mb={2}>
-              <Circle size="42px" bg="rgba(59,130,246,0.10)" color={activeBlue}>
-                <Icon as={MdOutlineTimeline} boxSize="20px" />
-              </Circle>
-              <Heading size="md" color={accent}>{label("compareSession", "Comparer une séance")}</Heading>
-            </HStack>
-            <Text color={textMuted}>{label("noPrograms", "Aucun programme trouvé pour l’instant.")}</Text>
-          </SurfaceCard>
-        )}
 
-        <SimpleGrid columns={{ base: 1, xl: 3 }} spacing={6}>
-          <SurfaceCard data-tour="client-stats-measures" p={{ base: 4, md: 6 }} gridColumn={{ xl: "span 2" }}>
+        <SimpleGrid columns={1} spacing={6}>
+          <SurfaceCard data-tour="client-stats-measures" p={{ base: 4, md: 6 }}>
             <Flex justify="space-between" align={{ base: "stretch", md: "center" }} direction={{ base: "column", md: "row" }} gap={4} mb={5}>
               <Box>
                 <HStack spacing={3}>
@@ -531,12 +415,12 @@ export default function StatisticsPageClient() {
                 </HStack>
               </Box>
 
-              <HStack spacing={{ base: 2, md: 3 }} align="end" flexWrap="nowrap" w={{ base: "full", md: "auto" }}>
+              <HStack spacing={{ base: 2, md: 3 }} align="end" flexWrap="wrap" w={{ base: "full", md: "auto" }}>
                 <FormControl w={{ base: "72px", md: "auto" }} minW={{ base: "72px", md: "92px" }} flexShrink={0}>
                   <FormLabel fontSize="xs" mb={1} color={subtleText}>{label("units.height", "Taille")}</FormLabel>
                   <Select size="sm" value={heightUnit} onChange={(e) => setHeightUnit(e.target.value)} borderRadius="full" bg={subCardBg}>
                     <option value="cm">{t("units.cm", "cm")}</option>
-                    <option value="in">{t("auto.StatisticsPageClient.in", "in")}</option>
+                    <option value="in">ft/in</option>
                   </Select>
                 </FormControl>
                 <FormControl w={{ base: "72px", md: "auto" }} minW={{ base: "72px", md: "92px" }} flexShrink={0}>
@@ -547,7 +431,7 @@ export default function StatisticsPageClient() {
                   </Select>
                 </FormControl>
                 <Button
-                  onClick={addMeas.onOpen}
+                  onClick={openNewMeasure}
                   bg={primaryButtonBg}
                   color={primaryButtonColor}
                   _hover={{ bg: primaryButtonHoverBg }}
@@ -565,8 +449,8 @@ export default function StatisticsPageClient() {
               </HStack>
             </Flex>
 
-            <SimpleGrid columns={{ base: 2, md: 4 }} spacing={{ base: 2.5, md: 4 }} mb={5}>
-              {FIELDS.map(({ k, field }) => (
+            <SimpleGrid columns={{ base: 1, sm: 2, xl: showAllMeasures?4:3 }} spacing={{ base: 2.5, md: 4 }} mb={5}>
+              {FIELDS.filter(({field})=>showAllMeasures || ['poids','fatMass','muscleMass'].includes(field)).map(({ k, field }) => (
                 <Box
                   key={field}
                   bg={subCardBg}
@@ -576,13 +460,16 @@ export default function StatisticsPageClient() {
                   borderColor={borderCol}
                   boxShadow="inset 0 1px 0 rgba(255,255,255,0.22)"
                 >
-                  <Text fontSize="sm" color={textMuted}>{label(`fields.${k}`)}</Text>
-                  <Text mt={2} fontSize={{ base: "xl", md: "2xl" }} fontWeight="800" letterSpacing="0" color={accent}>
-                    {latestDisplay(field)}
-                  </Text>
+                  <Flex align="center" justify="space-between" gap={3} direction="row" dir="ltr" minH="40px">
+                    <Text flex="1" minW={0} fontSize="sm" color={textMuted} textAlign="left" dir={i18n.dir()} overflowWrap="anywhere">{fieldLabel(k)}</Text>
+                    <Text flexShrink={0} textAlign="right" fontSize={{ base: "2xl", md: "3xl" }} fontWeight="800" letterSpacing="0" color={accent} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {latestDisplay(field)}
+                    </Text>
+                  </Flex>
                 </Box>
               ))}
             </SimpleGrid>
+            <Flex justify="flex-end"><Button variant="outline" size="sm" borderRadius="full" aria-expanded={showAllMeasures} onClick={()=>setShowAllMeasures(v=>!v)}>{showAllMeasures?statsLabels.less:statsLabels.more}</Button></Flex>
 
             <Divider my={5} borderColor={borderCol} />
 
@@ -593,8 +480,21 @@ export default function StatisticsPageClient() {
                 ))}
               </SimpleGrid>
             ) : charts.length > 0 ? (
-              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                {charts.map(({ k, field, data }) => (
+              <Box>
+                <Flex justify="flex-end" mb={4}>
+                  <Menu closeOnSelect={false} placement="bottom-end">
+                    <MenuButton as={Button} variant="outline" size="sm" borderRadius="full" rightIcon={<ChevronDownIcon/>}>
+                      {statsLabels.chart} ({(chartFields ?? [charts.some(item=>item.field==='poids')?'poids':charts[0].field]).filter(field=>charts.some(c=>c.field===field)).length})
+                    </MenuButton>
+                    <Portal><MenuList borderRadius="18px" p={2} minW="260px" maxW="calc(100vw - 32px)" maxH="360px" overflowY="auto" boxShadow={glassShadow} zIndex={1400}>
+                      <MenuOptionGroup type="checkbox" value={chartFields ?? [charts.some(item=>item.field==='poids')?'poids':charts[0].field]} onChange={value=>setChartFields(Array.isArray(value)?value:[])}>
+                        {charts.map(c=><MenuItemOption key={c.field} value={c.field} borderRadius="10px" py={3} fontSize="sm">{fieldLabel(c.k)}</MenuItemOption>)}
+                      </MenuOptionGroup>
+                    </MenuList></Portal>
+                  </Menu>
+                </Flex>
+                <SimpleGrid columns={{base:1,md:2}} spacing={4}>
+                {charts.filter(c=>(chartFields ?? [charts.some(item=>item.field==='poids')?'poids':charts[0].field]).includes(c.field)).map(({ k, field, data }) => (
                   <Box
                     key={field}
                     bg={subCardBg}
@@ -616,16 +516,18 @@ export default function StatisticsPageClient() {
                       filter="blur(26px)"
                     />
                     <HStack justify="space-between" mb={3} position="relative" zIndex={1}>
-                      <Text fontSize="sm" color={textMuted} fontWeight="600">{label(`fields.${k}`)}</Text>
+                      <Text fontSize="sm" color={textMuted} fontWeight="600">{fieldLabel(k)}</Text>
                       <Badge borderRadius="full" bg="rgba(59,130,246,0.10)" color={activeBlue}>
                         {data.length}{t("auto.StatisticsPageClient.points", "points")}</Badge>
                     </HStack>
                     <Suspense fallback={<Skeleton h="170px" borderRadius="18px" />}>
-                      <BodyMeasureChart data={data} borderColor={borderCol} strokeColor={activeBlue} />
+                      <BodyMeasureChart data={data} borderColor={borderCol} strokeColor={activeBlue} locale={i18n.language} valueLabel={fieldLabel(k)} valueFormatter={field==='taille' && heightUnit==='in'?formatFeetInches:undefined} />
                     </Suspense>
+                    <MeasurementHelp metric={k} profile={clientProfile} data={data} valueFormatter={field==='taille' && heightUnit==='in'?formatFeetInches:undefined} />
                   </Box>
                 ))}
-              </SimpleGrid>
+                </SimpleGrid>
+              </Box>
             ) : (
               <Box
                 bg={subCardBg}
@@ -640,82 +542,13 @@ export default function StatisticsPageClient() {
             )}
           </SurfaceCard>
 
-          <VStack spacing={6} align="stretch">
-            <SurfaceCard p={5}>
-              <HStack spacing={3} mb={4}>
-                <Circle size="40px" bg="rgba(59,130,246,0.10)" color={activeBlue}>
-                  <Icon as={MdOutlineStraighten} boxSize="18px" />
-                </Circle>
-                <Box>
-                  <Heading size="sm" color={accent}>{t("auto.StatisticsPageClient.vue_rapide", "Vue rapide")}</Heading>
-                  <Text fontSize="sm" color={textMuted}>{t("auto.StatisticsPageClient.ce_que_racontent_tes_dernieres_mesures", "Ce que racontent tes dernières mesures.")}</Text>
-                </Box>
-              </HStack>
-              <VStack spacing={4} align="stretch">
-                <Box>
-                  <HStack justify="space-between" mb={1}>
-                    <Text fontSize="sm" color={textMuted}>{t("auto.StatisticsPageClient.mesures_renseignees", "Mesures renseignées")}</Text>
-                    <Text fontSize="sm" color={subtleText}>{statsLoading ? "..." : `${measurementCompletion}/${FIELDS.length}`}</Text>
-                  </HStack>
-                  <Progress value={statsLoading ? 20 : (measurementCompletion / FIELDS.length) * 100} isIndeterminate={statsLoading} borderRadius="full" size="sm" colorScheme="blue" />
-                </Box>
-                <Box
-                  bg={subCardBg}
-                  border="1px solid"
-                  borderColor={borderCol}
-                  borderRadius="20px"
-                  p={4}
-                >
-                  <Text fontSize="sm" color={textMuted}>{t("auto.StatisticsPageClient.dernier_poids", "Dernier poids")}</Text>
-                  <Text mt={1} fontSize="2xl" fontWeight="800" color={accent}>{latestDisplay("poids")}</Text>
-                </Box>
-                <Box
-                  bg={subCardBg}
-                  border="1px solid"
-                  borderColor={borderCol}
-                  borderRadius="20px"
-                  p={4}
-                >
-                  <Text fontSize="sm" color={textMuted}>{t("auto.StatisticsPageClient.derniere_mise_a_jour", "Dernière mise à jour")}</Text>
-                  <Text mt={1} fontSize="lg" fontWeight="700" color={accent}>
-                    {latestMeasure.date || "Aucune mesure"}
-                  </Text>
-                </Box>
-              </VStack>
-            </SurfaceCard>
-
-            <SurfaceCard p={5}>
-              <HStack spacing={3} mb={4}>
-                <Circle size="40px" bg="rgba(14,165,233,0.10)" color={activeMint}>
-                  <Icon as={MdOutlineShowChart} boxSize="18px" />
-                </Circle>
-                <Box>
-                  <Heading size="sm" color={accent}>{t("auto.StatisticsPageClient.reperes_utiles", "Repères utiles")}</Heading>
-                  <Text fontSize="sm" color={textMuted}>{t("auto.StatisticsPageClient.resume_simple_de_ta_dynamique_actuelle", "Résumé simple de ta dynamique actuelle.")}</Text>
-                </Box>
-              </HStack>
-              <VStack spacing={4} align="stretch">
-                <Box>
-                  <Text fontSize="sm" color={textMuted}>{t("clientView.globalProgress", "Progression globale")}</Text>
-                  <Text mt={1} fontSize="2xl" fontWeight="800" color={accent}>{progressLoading ? "..." : `${percentDone}%`}</Text>
-                  <Text fontSize="sm" color={subtleText}>{t("auto.StatisticsPageClient.seances_validees_sur_l_ensemble_de_tes_programmes", "séances validées sur l’ensemble de tes programmes")}</Text>
-                </Box>
-                <Divider borderColor={borderCol} />
-                <Box>
-                  <Text fontSize="sm" color={textMuted}>{t("auto.StatisticsPageClient.rythme_recent", "Rythme récent")}</Text>
-                  <Text mt={1} fontSize="2xl" fontWeight="800" color={accent}>{sessWeek}</Text>
-                  <Text fontSize="sm" color={subtleText}>{t("auto.StatisticsPageClient.seance", "séance")}{sessWeek > 1 ? "s" : ""}{t("auto.StatisticsPageClient.realisee", "réalisée")}{sessWeek > 1 ? "s" : ""}{t("auto.StatisticsPageClient.cette_semaine", "cette semaine")}</Text>
-                </Box>
-              </VStack>
-            </SurfaceCard>
-          </VStack>
         </SimpleGrid>
       </VStack>
 
       {/* Modal ajout mesure */}
-      <Modal isOpen={addMeas.isOpen} onClose={addMeas.onClose} isCentered>
+      <Modal isOpen={addMeas.isOpen} onClose={addMeas.onClose} isCentered scrollBehavior="inside">
         <ModalOverlay />
-        <ModalContent borderRadius="22px" bg={cardBg} border="1px solid" borderColor={borderStrong} boxShadow={glassShadow}>
+        <ModalContent maxH="90dvh" mx={3} borderRadius="22px" bg={cardBg} border="1px solid" borderColor={borderStrong} boxShadow={glassShadow}>
           <ModalHeader>{label("modal.title", "Nouvelle mesure")}</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
@@ -726,38 +559,32 @@ export default function StatisticsPageClient() {
                   onChange={(e) => setNewMeas((p) => ({ ...p, date: e.target.value }))} />
               </FormControl>
 
-              <Grid templateColumns="repeat(2,1fr)" gap={4} w="100%">
+              <Grid templateColumns={{base:'1fr',sm:'repeat(2,minmax(0,1fr))'}} gap={4} w="100%">
                 {/* Taille + unité */}
                 <FormControl>
-                  <FormLabel>{label("fields.height", "Taille")}</FormLabel>
-                  <HStack>
-                    <Input type="number" value={newMeas.taille ?? ""}
-                      onChange={(e) => setNewMeas((p) => ({ ...p, taille: e.target.value }))} />
-                    <Select w="32" value={heightUnit} onChange={(e) => setHeightUnit(e.target.value)}>
-                      <option value="cm">{t("units.cm", "cm")}</option>
-                      <option value="in">{t("auto.StatisticsPageClient.in", "in")}</option>
-                    </Select>
-                  </HStack>
+                  <Flex align="center" justify="space-between" gap={2} mb={2} minH="28px">
+                    <FormLabel mb={0} mr={0} minW={0}>{label('units.height', 'Taille')}</FormLabel>
+                    <MeasurementUnitMenu label={label('units.height','Taille')} value={heightUnit} onChange={changeHeightUnit} options={[{value:'cm',label:'cm'},{value:'in',label:'ft/in'}]} />
+                  </Flex>
+                  {heightUnit==='in' ? <FeetInchesInput label={fieldLabel('height')} value={newMeas.taille} onChange={value=>setNewMeas(p=>({...p,taille:value}))}/> : <Input type="number" value={newMeas.taille ?? ""}
+                    onChange={(e) => setNewMeas((p) => ({ ...p, taille: e.target.value }))} />}
                 </FormControl>
 
                 {/* Poids + unité */}
                 <FormControl>
-                  <FormLabel>{label("fields.weight", "Poids")}</FormLabel>
-                  <HStack>
-                    <Input type="number" value={newMeas.poids ?? ""}
-                      onChange={(e) => setNewMeas((p) => ({ ...p, poids: e.target.value }))} />
-                    <Select w="32" value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)}>
-                      <option value="kg">{t("units.kg", "kg")}</option>
-                      <option value="lb">{t("auto.StatisticsPageClient.lb", "lb")}</option>
-                    </Select>
-                  </HStack>
+                  <Flex align="center" justify="space-between" gap={2} mb={2} minH="28px">
+                    <FormLabel mb={0} mr={0} minW={0}>{label('units.weight', 'Poids')}</FormLabel>
+                    <MeasurementUnitMenu label={label('units.weight','Poids')} value={weightUnit} onChange={changeWeightUnit} options={[{value:'kg',label:'kg'},{value:'lb',label:'lb'}]} />
+                  </Flex>
+                  <Input type="number" value={newMeas.poids ?? ""}
+                    onChange={(e) => setNewMeas((p) => ({ ...p, poids: e.target.value }))} />
                 </FormControl>
 
                 {/* autres champs (sans unités) */}
                 {FIELDS.filter(f => !["taille","poids"].includes(f.field)).map(({ k, field }) => (
                   <FormControl key={field}>
                     <FormLabel>{label(`fields.${k}`)}</FormLabel>
-                    <Input type="number" value={newMeas[field] ?? ""}
+                    <Input type="number" min={0} step="any" isReadOnly={field==='bmi'} value={field==='bmi'?(entryBmi??''):(newMeas[field] ?? "")}
                       onChange={(e) => setNewMeas((p) => ({ ...p, [field]: e.target.value }))} />
                   </FormControl>
                 ))}
@@ -771,6 +598,7 @@ export default function StatisticsPageClient() {
             <Button
               onClick={handleAdd}
               isLoading={saving}
+              isDisabled={!newMeas.date}
               bg={primaryButtonBg}
               color={primaryButtonColor}
               _hover={{ bg: primaryButtonHoverBg }}

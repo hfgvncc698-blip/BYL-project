@@ -2329,10 +2329,15 @@ async function fulfillCheckoutSession(session) {
 }
 
 async function deliverPaidProgram(session, uid, receiptId) {
+  const generateProgram = args => require('../utils/generateAutoProgram').generateAndSaveAutoProgram(args);
+  const subscriptionCycles = require('../utils/subscriptionCycles').createSubscriptionCycles({
+    db:admin.firestore(),FieldValue:admin.firestore.FieldValue,generateProgram,
+  });
   const deliver = createPaidProgramDelivery({
     db: admin.firestore(), FieldValue: admin.firestore.FieldValue,
     resolveClientRef: resolveClientRefForPremiumPurchase,
-    generateProgram: args => require('../utils/generateAutoProgram').generateAndSaveAutoProgram(args),
+    generateProgram,
+    fulfillSubscription: subscriptionCycles.enroll,
   });
   return deliver({ session, uid, receiptId });
 }
@@ -2406,6 +2411,7 @@ async function syncSubscriptionToUser(uid, subscription, metadata = subscription
     transaction.set(observation.ref, { appliedRevision: observation.revision, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
     if (clientRef) transaction.set(clientRef, {
       abonnementActif: subscription.status === 'active',
+      subscriptionAccessUntil: periodEnd ? new Date(periodEnd * 1000) : null,
       ...(metadata.programDeliveryMode === 'stripe-invoice' ? { deliveryMode: 'stripe-invoice' } : {}),
       stripeCustomerId: data.stripeCustomerId, stripeSubscriptionId: subscription.id,
     }, { merge: true });

@@ -1,4 +1,6 @@
 {
+  "builderSavePending": "La confirmation serveur prend plus de temps que prévu. La sauvegarde reste en cours : ne relance pas l’enregistrement et garde cette page ouverte.",
+  "builderSyncPending": "Le programme est enregistré. La mise à jour des programmes clients n’est pas encore confirmée. Réessaie avec Enregistrer pour vérifier la synchronisation.",
   "clientFollowList": {"subtitle":"Gérez vos clients sport et nutrition, leurs suivis et leurs coordonnées depuis un seul espace.","follow":"Suivi","last":"Dernière interaction","status":"Statut","details":"Détails","nutritionDetails":"Suivi nutrition : consultez la fiche pour retrouver les bilans et les objectifs."},
   "adminClientNavigation": {"preview":"Aperçu rapide","hint":"Cliquez sur un client pour ouvrir son profil admin.","notes":"Notes internes et aperçu"},
   "locationPrivacy": {

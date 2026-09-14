@@ -23,7 +23,7 @@ import {
   MdOutlineRestaurantMenu,
   MdOutlineNoteAdd,
   MdAutoAwesome,
-  MdOutlineSpaceDashboard,
+  MdOutlineHome,
 } from "react-icons/md";
 import { AddIcon } from "@chakra-ui/icons";
 import { useAuth } from "../AuthContext";
@@ -100,7 +100,7 @@ export default function CoachMobileNav() {
   );
 
   const items = [
-    { label: t("auto.CoachMobileNav.accueil", "Accueil"), icon: MdOutlineSpaceDashboard, path: "/coach-dashboard" },
+    { label: t("auto.CoachMobileNav.accueil", "Accueil"), icon: MdOutlineHome, path: "/coach-dashboard" },
     {
       label: nutritionOnly
         ? t("auto.CoachMobileNav.patients", "Patients")

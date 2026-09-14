@@ -47,12 +47,11 @@ export default function ProgramBuilderPage() {
       <Box
         as="aside"
         flex="0 0 auto"
-        w={`${SIDEBAR_W}px`}
-        minW={`${SIDEBAR_MIN}px`}
-        display={{ base: "none", lg: "block" }}
+        w={{ base: 0, lg: `${SIDEBAR_W}px` }}
+        minW={{ base: 0, lg: `${SIDEBAR_MIN}px` }}
         h="100%"
         overflow="hidden"
-        borderRight="1px solid"
+        borderRight={{ base: 'none', lg: '1px solid' }}
         borderColor={divider}
       >
         <Box h="100%" overflowY="auto" px={3} pt={3}>

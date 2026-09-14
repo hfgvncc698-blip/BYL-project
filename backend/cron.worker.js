@@ -12,6 +12,20 @@ if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.cert(
 const { db, FieldValue } = require('./utils/db');
 const withRetry = require('./utils/withRetry');
 const { generateAndSaveAutoProgram } = require('./utils/generateAutoProgram');
+const subscriptionCycles = require('./utils/subscriptionCycles').createSubscriptionCycles({db,FieldValue,generateProgram:generateAndSaveAutoProgram});
+let cycleWorkerBusy=false;
+let nextCyclePoll=0;
+async function runSubscriptionCycles() {
+  if(cycleWorkerBusy || Date.now()<nextCyclePoll)return;
+  cycleWorkerBusy=true; nextCyclePoll=Date.now()+5000;
+  try {
+    const jobs=await db.collection('subscription_cycle_jobs').where('status','==','pending').where('leaseUntil','<=',Date.now()).orderBy('leaseUntil').limit(20).get();
+    for(const job of jobs.docs) {
+      if(Number(job.data().leaseUntil)>Date.now())continue;
+      try {await subscriptionCycles.process(job.id);} catch(error) {console.error('[CYCLE]',job.id,error.message);}
+    }
+  } finally {cycleWorkerBusy=false;}
+}
 
 const TZ = process.env.CRON_TZ || 'Europe/Paris';
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -97,6 +111,7 @@ async function runMonthlyPrograms() {
       for (const doc of clientsSnap.docs) {
         const data = doc.data();
         const clientId = doc.id;
+        if (data.subscriptionCycle?.enabled) continue;
         // New paid subscriptions are delivered exactly once per paid invoice.
         // Keep the historical 30-day worker only for legacy subscriptions.
         if (data.deliveryMode === 'stripe-invoice') continue;
@@ -157,6 +172,7 @@ setInterval(() => {
   // exécutions
   runTrialGuard().catch(() => {});
   runMonthlyPrograms().catch(() => {});
+  runSubscriptionCycles().catch(error => console.error('[CYCLE-WORKER]',error.message));
 }, 1000);
 
 console.log('[CRON] worker started (ticker) TZ=' + (process.env.TZ || TZ));

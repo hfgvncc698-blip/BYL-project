@@ -67,6 +67,7 @@ import { usePageLoading } from "../hooks/usePageLoading";
 import { createDashboardReadPool } from "../utils/coachDashboardLoading";
 import { confirmOperation } from "../utils/confirmedOperation";
 import { createProgramAssignmentOperation } from "../utils/programWriteOperations";
+import AssignmentPlacement from './client/AssignmentPlacement';
 import { AppMetricValue, AppSectionHeader, AppSurface } from "./ui/AppPrimitives.jsx";
 import { apiFetch } from "../utils/api";
 import { notify } from "../utils/notify";
@@ -503,6 +504,8 @@ const Clients = () => {
   const [loading, setLoading] = useState(() => !initialClientsPageCache);
 
   const [selectedClient, setSelectedClient] = useState(null);
+  const [assignmentPlacement, setAssignmentPlacement] = useState('auto');
+  useEffect(() => setAssignmentPlacement('auto'), [selectedClient]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProgramme, setSelectedProgramme] = useState("");
   const assignmentOperationRef = useRef(null);
@@ -881,9 +884,10 @@ const Clients = () => {
     assignmentBusyRef.current = true;
     setAssigningProgram(true);
     try {
-      await confirmOperation(assignmentOperationRef, `${effectiveCoachUid}:${selectedClient}:${selectedProgramme}`, () =>
+      await confirmOperation(assignmentOperationRef, `${effectiveCoachUid}:${selectedClient}:${selectedProgramme}:${assignmentPlacement}`, () =>
         createProgramAssignmentOperation({
           db, clientId: selectedClient, programId: selectedProgramme, coachId: effectiveCoachUid,
+          placement: assignmentPlacement,
           loadProgram: async (transaction) => {
             const tplRef = doc(db, "programmes", selectedProgramme);
             const tplSnap = await transaction.get(tplRef);
@@ -1631,7 +1635,8 @@ const Clients = () => {
                   </option>
                 ))}
               </Select>
-            </ModalBody>
+            <AssignmentPlacement clientId={selectedClient} value={assignmentPlacement} onChange={setAssignmentPlacement} disabled={assigningProgram} />
+          </ModalBody>
             <ModalFooter>
               <Button mr={3} onClick={handleAssign} isLoading={assigningProgram} isDisabled={!selectedProgramme || assignProgramsLoading || assignProgramsError}>
                 {t("common.confirm", "Confirmer")}

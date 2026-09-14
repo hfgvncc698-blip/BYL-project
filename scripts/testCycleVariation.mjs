@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import { varyCycleExercises } from '../src/utils/cycleVariation.js';
+const ex = (id, nom) => ({ id, nom, materiel: ['Haltères'], groupe_musculaire: 'Pectoraux', niveau: 'Tous niveaux', 'Répétitions': 10, 'Séries': 3, 'Charge (kg)': 30 });
+const source = [{ exercises: [ex('a','Repère'), ex('b','Développé'), ex('c','Autre')] }];
+const bank = [{ ...ex('b','Développé'), variantes: ['Variante'] }, { ...ex('v','Variante'), image_homme: 'new-image' }];
+const result = varyCycleExercises(source, bank, 'hypertrophy');
+assert.equal(result[0].exercises[0].id, 'a');
+assert.equal(result[0].exercises[1].id, 'v');
+assert.equal(result[0].exercises[1]['Charge (kg)'], 0);
+assert.equal(result[0].exercises[1].image_homme, 'new-image');
+assert.equal(result[0].exercises[2].id, 'c');
+assert.equal(source[0].exercises[1].id, 'b');
+assert.deepEqual(varyCycleExercises(source, bank, 'recovery'), source);
+assert.deepEqual(varyCycleExercises(source, bank.map(e => ({ ...e, materiel: ['Barre'] })), 'strength'), source);
+assert.deepEqual(varyCycleExercises(source, [], 'hypertrophy'), source);
+assert.deepEqual(varyCycleExercises(source, bank.map(e => ({ ...e, niveau: 'Avancé' })), 'strength'), source);
+console.log('Cycle variations: reference preserved, bounded variety, compatible equipment, fresh identity, no transferred loads, recovery unchanged OK');

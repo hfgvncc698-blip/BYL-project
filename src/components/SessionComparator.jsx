@@ -407,7 +407,7 @@ function collectAllTrackedFieldsForExercise(occList, exIdx) {
 }
 
 /* ==================== Component ==================== */
-export default function SessionComparator({ clientId, programmes, embedded = false }) {
+export default function SessionComparator({ clientId, programmes, embedded = false, initialSessionIndex = null, initialRunId = null }) {
   const cardBg = useColorModeValue("rgba(255,255,255,0.78)", "rgba(15,23,42,0.78)");
   const border = useColorModeValue("rgba(15,23,42,0.08)", "rgba(255,255,255,0.10)");
   const muted = useColorModeValue("gray.600", "gray.300");
@@ -422,7 +422,7 @@ export default function SessionComparator({ clientId, programmes, embedded = fal
 
   const [loading, setLoading] = useState(false);
   const [progId, setProgId] = useState(() => programmes?.[0]?.id || "");
-  const [sessionIndex, setSessionIndex] = useState(0);
+  const [sessionIndex, setSessionIndex] = useState(initialSessionIndex ?? 0);
   const [completionRecords, setCompletionRecords] = useState([]);
   const [occList, setOccList] = useState([]);
   const [occAIdx, setOccAIdx] = useState(1);
@@ -505,6 +505,7 @@ export default function SessionComparator({ clientId, programmes, embedded = fal
         // À l'ouverture, afficher directement une séance réellement comparable
         // au lieu de rester sur la séance 1 lorsqu'elle n'a été faite qu'une fois.
         setSessionIndex((currentIndex) => {
+          if (Number.isInteger(initialSessionIndex) && programSessions[initialSessionIndex]) return initialSessionIndex;
           const countFor = (index) =>
             mergedRecords.filter(
               (record) =>
@@ -524,7 +525,7 @@ export default function SessionComparator({ clientId, programmes, embedded = fal
         setLoading(false);
       }
     })();
-  }, [clientId, progId, programSessions]);
+  }, [clientId, progId, programSessions, initialSessionIndex]);
 
   useEffect(() => {
     if (!completionRecords.length) {
@@ -539,9 +540,11 @@ export default function SessionComparator({ clientId, programmes, embedded = fal
       exIdToIdx
     );
     setOccList(runs);
-    setOccBIdx(0);
-    setOccAIdx(runs.length > 1 ? 1 : 0);
-  }, [completionRecords, sessionIndex, exIdToIdx]);
+    const selectedRun = initialRunId ? runs.findIndex(run => run.runId === initialRunId) : -1;
+    const current = selectedRun >= 0 ? selectedRun : 0;
+    setOccBIdx(current);
+    setOccAIdx(current + 1 < runs.length ? current + 1 : Math.max(0, current - 1));
+  }, [completionRecords, sessionIndex, exIdToIdx, initialRunId]);
 
   const occurrenceCounts = useMemo(() => {
     const counts = new Map();

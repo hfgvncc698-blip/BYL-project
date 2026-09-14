@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { confirmOperation } from '../src/utils/confirmedOperation.js';
+import { cycleAssignmentPatch, recommendedCyclePlacement } from '../src/utils/cycleAssignment.js';
+import { continuingCyclePlan, suggestedCycles, displayedCyclePlan } from '../src/utils/trainingCycles.js';
+import { webcrypto } from 'node:crypto';
 
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 const holder = { current: null };
@@ -39,6 +42,7 @@ const ref = (...parts) => parts.length === 1
   ? { path: `${parts[0].path}/new-${++nextId}`, id: `new-${nextId}` }
   : { path: parts.slice(1).join('/'), id: parts.at(-1) };
 const context = vm.createContext({
+  cycleAssignmentPatch, recommendedCyclePlacement, continuingCyclePlan, suggestedCycles, displayedCyclePlan, crypto: webcrypto,
   doc: ref, collection: ref, arrayUnion: (...items) => items, serverTimestamp: () => 'timestamp',
   runTransaction: async (_db, work) => {
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -62,16 +66,18 @@ const context = vm.createContext({
     throw new Error('transaction-retry-exhausted');
   },
 });
-vm.runInContext(readFileSync(new URL('../src/utils/programWriteOperations.js', import.meta.url), 'utf8').replace(/^import .*;\n/m, '').replace(/export /g, ''), context);
+vm.runInContext(readFileSync(new URL('../src/utils/programWriteOperations.js', import.meta.url), 'utf8').replace(/^import .*;\n/gm, '').replace(/export /g, ''), context);
 let loads = 0;
 const assignment = context.createProgramAssignmentOperation({ db: {}, clientId: 'client', programId: 'template', coachId: 'coach', updateTemplate: true,
-  loadProgram: async () => { loads++; return { sessions: [{ title: 'Full exercise data', instructions: 'Complete' }], progress: 0 }; },
+  loadProgram: async () => { loads++; return { sessions: [{ title: 'Full exercise data', instructions: 'Complete' }], seances: [{ title: 'Redundant copy' }], progress: 0 }; },
 });
 failCommit = true;
 await assert.rejects(assignment(), /commit-failed/);
 assert.equal(documents.size, 2, 'failure commits no assignment or metadata');
 failCommit = false;
 const assignedId = await assignment();
+assert.equal(documents.get(`clients/client/programmes/${assignedId}`).seances, undefined, 'no duplicate session payload');
+assert.equal(documents.get(`clients/client/programmes/${assignedId}`).sessions[0].instructions, 'Complete');
 assert.equal(documents.get('clients/client').currentProgramme, assignedId);
 assert.equal(documents.get('programmes/template').assignedTo, 'client');
 documents.get(`clients/client/programmes/${assignedId}`).progress = 75;
@@ -100,3 +106,21 @@ assert.equal(transactionRetries, 1, 'changing the source before assignment commi
 assert.equal(documents.get(`clients/client/programmes/${concurrentId}`)._rev, 2);
 assert.deepEqual(documents.get(`clients/client/programmes/${concurrentId}`).sessions, ['revision 2']);
 console.log('Confirmed program writes OK: bounded confirmation, same-promise retries, stable IDs, atomic failure, concurrent template updates, full exercises and preservation of newer edits/progress.');
+
+documents.set('clients/cycles', {});
+const makeCycleAssignment = (placement = 'auto') => context.createProgramAssignmentOperation({ db: {}, clientId: 'cycles', programId: 'template', coachId: 'coach', placement, loadProgram: async () => ({ name: 'Hypertrophie', activeWeeks: 4, sessions: [{}] }) });
+const first = await makeCycleAssignment()();
+assert.equal(documents.get('clients/cycles').currentProgramme, first);
+assert.equal(documents.get('clients/cycles').trainingPlan.cycles[0].programId, first);
+const second = await makeCycleAssignment()();
+assert.equal(documents.get('clients/cycles').currentProgramme, first, 'next assignment preserves current programme');
+assert.equal(documents.get('clients/cycles').trainingPlan.cycles[1].programId, second);
+await assert.rejects(makeCycleAssignment()(), /next-cycle-unavailable/, 'occupied next cycle is never overwritten');
+const separate = await makeCycleAssignment('separate')();
+assert.equal(documents.get(`clients/cycles/programmes/${separate}`).excludeFromCyclePlanning, true);
+assert.equal(documents.get('clients/cycles').currentProgramme, first);
+documents.get('clients/cycles').trainingPlan.cycles[0].closedAt = '2026-09-13';
+const replacement = await makeCycleAssignment('current')();
+assert.equal(documents.get('clients/cycles').trainingPlan.cycles[0].programId, first, 'closed cycle unchanged');
+assert.equal(documents.get('clients/cycles').trainingPlan.cycles[1].programId, replacement, 'current means first unclosed cycle');
+console.log('Shared assignment placements: first, next, occupied, separate and closed cycles OK');

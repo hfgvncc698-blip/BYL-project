@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Box, Flex, Heading, Text, Switch, FormControl, FormLabel, Badge, useToast } from "@chakra-ui/react";
+import { Box, Flex, Heading, Text, Switch, FormControl, FormLabel, Badge, Button, useToast } from "@chakra-ui/react";
 import { useAuth } from "../AuthContext";
 import { useConsent } from "../consent/ConsentContext";
 import useLocationPreference from "../hooks/useLocationPreference";
@@ -43,6 +43,7 @@ export default function LocationPreferenceCard({ surfaceProps = {}, mutedText })
           }} />
       </FormControl>
       <Flex mt={3}><Badge whiteSpace="normal">{label}</Badge></Flex>
+      {enabled && analyticsOn && permission !== 'granted' && permission !== 'denied' && permission !== 'unsupported' && <Button mt={3} size="sm" onClick={() => window.dispatchEvent(new Event('BYL_GEO_REQUEST'))}>{t('retry')}</Button>}
       <Text id="location-preference-help" color={mutedText} fontSize="sm" mt={3}>
         {t("scope")}
         {permission === "denied" && ` ${t("browserSettings")}`}

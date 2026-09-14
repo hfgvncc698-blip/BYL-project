@@ -57,6 +57,7 @@ import { programReadDeadline } from "../utils/programReadDeadline";
 const getDocs = (ref) => programReadDeadline(firestoreGetDocs(ref));
 import { confirmOperation } from "../utils/confirmedOperation";
 import { createProgramAssignmentOperation } from "../utils/programWriteOperations";
+import AssignmentPlacement from './client/AssignmentPlacement';
 import { useAuth } from "../AuthContext";
 import { useTranslation } from "react-i18next";
 import { notify } from "../utils/notify";
@@ -74,6 +75,7 @@ import {
   writePageDataCache,
 } from "../utils/pageDataCache";
 import { buildDuplicatedProgramPayload } from "../utils/programDuplication";
+import { isClientProgram, asReusableTemplate, libraryLabels, libraryDraftLabels, programClientName, resolvePreparedClient } from '../utils/programLibrary';
 
 /* -------- helpers -------- */
 const PROGRAMS_PAGE_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -170,10 +172,7 @@ const getCachedAssignedProgramCount = (client) => {
 };
 
 const getClientDisplayName = (client) =>
-  `${client?.prenom || client?.firstName || ""} ${client?.nom || client?.lastName || ""}`.trim() ||
-  client?.displayName ||
-  client?.email ||
-  "Client";
+  programClientName(client) || 'Client';
 
 export default function ProgramsPage() {
   const { begin: beginPageLoad, state: pageLoadState, fresh: forceFresh } = usePageLoading();
@@ -250,11 +249,16 @@ export default function ProgramsPage() {
   const [selectedAssignedBaseProgramId, setSelectedAssignedBaseProgramId] = useState(null);
   const [selectedProgramForAssign, setSelectedProgramForAssign] = useState(null);
   const [selectedClientId, setSelectedClientId] = useState("");
+  const [assignmentPlacement, setAssignmentPlacement] = useState('auto');
+  useEffect(() => setAssignmentPlacement('auto'), [selectedClientId]);
   const [assigningClient, setAssigningClient] = useState(false);
   const assignmentOperationRef = useRef(null);
   const assignmentBusyRef = useRef(false);
   const [duplicatingProgramId, setDuplicatingProgramId] = useState(null);
   const [programSearch, setProgramSearch] = useState("");
+  const [libraryFilter, setLibraryFilter] = useState('templates');
+  const libraryText = libraryLabels[(i18n.resolvedLanguage || i18n.language || 'fr').split('-')[0]] || libraryLabels.fr;
+  const draftLabel = libraryDraftLabels[(i18n.resolvedLanguage || i18n.language || 'fr').split('-')[0]] || libraryDraftLabels.fr;
 
   const pageBg = theme.pageBg;
   const cardBg = theme.surfaceBg;
@@ -337,16 +341,16 @@ export default function ProgramsPage() {
 
   const filteredProgrammes = useMemo(() => {
     const queryText = normalizeSearchText(programSearch);
-    if (!queryText) return programmes;
-
     return programmes.filter((program) => {
+      if (libraryFilter === 'templates' && isClientProgram(program)) return false;
+      if (libraryFilter === 'clients' && !isClientProgram(program)) return false;
       const goal = program?.objectifUI || program?.objectif || "";
       const searchableText = normalizeSearchText(
-        `${prettyProgramName(program)} ${prettyGoal(goal)} ${prettifyKey(goal)}`
+        `${prettyProgramName(program)} ${prettyGoal(goal)} ${prettifyKey(goal)} ${program.preparedForClientName || ''}`
       );
       return searchableText.includes(queryText);
     });
-  }, [prettyGoal, prettyProgramName, programSearch, programmes]);
+  }, [prettyGoal, prettyProgramName, programSearch, programmes, libraryFilter]);
 
   const openBaseProgram = useCallback(
     (baseProg) => {
@@ -425,6 +429,13 @@ export default function ProgramsPage() {
       const clientList = [...clientsById.values()].sort((a, b) =>
         getClientDisplayName(a).localeCompare(getClientDisplayName(b), "fr", { sensitivity: "base" })
       );
+      for (const program of progs) {
+        const owner = resolvePreparedClient(program, clientList);
+        if (owner) {
+          program.preparedForClientName = programClientName(owner);
+          program.preparedForClientId = owner.id;
+        }
+      }
       if (!cached) setClients(clientList);
 	      const initialPayload = {
 	        programmes: progs,
@@ -504,13 +515,13 @@ export default function ProgramsPage() {
   }, [selectedAssignedBaseProgramId, assignedClientsMap]);
 
   const programSummary = useMemo(() => {
-    const assignedPrograms = programmes.filter((program) => (assignedCounts[program.id] || 0) > 0).length;
+    const assignedPrograms = filteredProgrammes.filter((program) => (assignedCounts[program.id] || 0) > 0).length;
     return {
-      total: programmes.length,
+      total: filteredProgrammes.length,
       assigned: assignedPrograms,
-      unassigned: Math.max(0, programmes.length - assignedPrograms),
+      unassigned: Math.max(0, filteredProgrammes.length - assignedPrograms),
     };
-  }, [assignedCounts, programmes]);
+  }, [assignedCounts, filteredProgrammes]);
 
 	  const handleDelete = async (id) => {
 	    try {
@@ -544,7 +555,7 @@ export default function ProgramsPage() {
     }
   };
 
-  const handleDuplicate = async (progId) => {
+  const handleDuplicate = async (progId, saveAsTemplate = false) => {
     if (!progId || duplicatingProgramId) return;
 
     setDuplicatingProgramId(progId);
@@ -559,13 +570,11 @@ export default function ProgramsPage() {
       const data = snap.data();
 
       const baseName = prettyProgramName(data);
-      const newName = `${baseName} ${t("programBuilder.copySuffix", "(copie)")}`;
+      const newName = saveAsTemplate ? libraryText[4] : `${baseName} ${t("programBuilder.copySuffix", "(copie)")}`;
       const newRef = doc(collection(db, "programmes"));
       const timestamp = serverTimestamp();
 
-      await setDoc(
-        newRef,
-        buildDuplicatedProgramPayload(data, {
+      const duplicate = buildDuplicatedProgramPayload(data, {
           newProgramId: newRef.id,
           sourceProgramId: progId,
           newName,
@@ -573,8 +582,9 @@ export default function ProgramsPage() {
           createdBy: effectiveCoachUid || user?.uid || data.createdBy || null,
           clubId: data.clubId || user?.clubId || null,
           clubName: data.clubName || user?.clubName || null,
-        })
-      );
+        });
+      await setDoc(newRef, saveAsTemplate ? asReusableTemplate(duplicate) : duplicate);
+      if (saveAsTemplate) setLibraryFilter('templates');
 
       notify(toast, "programDuplicated", {
         title: t("programs.duplicatedTitle", "Programme dupliqué"),
@@ -615,9 +625,10 @@ export default function ProgramsPage() {
     assignmentBusyRef.current = true;
     setAssigningClient(true);
     try {
-      await confirmOperation(assignmentOperationRef, `${effectiveCoachUid}:${selectedClientId}:${selectedProgramForAssign.id}`, () =>
+      await confirmOperation(assignmentOperationRef, `${effectiveCoachUid}:${selectedClientId}:${selectedProgramForAssign.id}:${assignmentPlacement}`, () =>
         createProgramAssignmentOperation({
           db, clientId: selectedClientId, programId: selectedProgramForAssign.id, coachId: effectiveCoachUid,
+          placement: assignmentPlacement,
           loadProgram: async (transaction) => {
             const tplRef = doc(db, "programmes", selectedProgramForAssign.id);
             const tplSnap = await transaction.get(tplRef);
@@ -935,6 +946,7 @@ export default function ProgramsPage() {
                 ))}
               </Select>
             </VStack>
+          <AssignmentPlacement clientId={selectedClientId} value={assignmentPlacement} onChange={setAssignmentPlacement} disabled={assigningClient} />
           </ModalBody>
           <ModalFooter>
             <Button variant="ghost" mr={3} borderRadius="lg" onClick={closeAssignClientModal}>
@@ -1000,6 +1012,11 @@ export default function ProgramsPage() {
               </InputRightElement>
             )}
           </InputGroup>
+          <Select value={libraryFilter} onChange={event => setLibraryFilter(event.target.value)} aria-label={libraryText[5]} maxW={{ base: 'full', sm: '230px' }} borderRadius="full">
+            <option value="templates">{libraryText[0]}</option>
+            <option value="clients">{libraryText[1]}</option>
+            <option value="all">{libraryText[2]}</option>
+          </Select>
 
           {programSearch && (
             <Text fontSize="sm" color={textMuted} whiteSpace="nowrap">
@@ -1037,6 +1054,7 @@ export default function ProgramsPage() {
                       <Td>
                         <Stack spacing={0}>
                           <Text fontWeight="semibold">{prettyProgramName(p)}</Text>
+                          {isClientProgram(p) && <Text fontSize="xs" color={textMuted}>{libraryText[1]}{p.preparedForClientName ? ` · ${p.preparedForClientName}` : ''}</Text>}
                           {goalForSubtitle && (
                             <Text fontSize="sm" color={textMuted}>
                               {prettyGoal(goalForSubtitle)}
@@ -1070,8 +1088,7 @@ export default function ProgramsPage() {
                           }}
                           title={nbAssigned > 0 ? t("dashboard.see_assigned_list", "Voir la liste") : ""}
                         >
-                          {nbAssigned}{" "}
-                          {nbAssigned > 1 ? t("dashboard.clients", "clients") : t("dashboard.client", "client")}
+                          {isClientProgram(p) && nbAssigned === 0 ? draftLabel : `${nbAssigned} ${nbAssigned > 1 ? t("dashboard.clients", "clients") : t("dashboard.client", "client")}`}
                         </Badge>
                       </Td>
 
@@ -1096,6 +1113,7 @@ export default function ProgramsPage() {
                             {t("common.assign", "Assigner")}
                           </Button>
 
+                          {isClientProgram(p) && <Button size="sm" variant="outline" borderRadius="full" isLoading={duplicatingProgramId === p.id} onClick={() => handleDuplicate(p.id, true)}>{libraryText[3]}</Button>}
                           <IconButton
                             aria-label={t("common.duplicate", "Dupliquer")}
                             icon={<CopyIcon />}
@@ -1162,6 +1180,7 @@ export default function ProgramsPage() {
                     <Text fontWeight="900" fontSize="lg" lineHeight="1.2">
                       {prettyProgramName(p)}
                     </Text>
+                    {isClientProgram(p) && <Text fontSize="xs" color={textMuted}>{libraryText[1]}{p.preparedForClientName ? ` · ${p.preparedForClientName}` : ''}</Text>}
 
                     {goalForSubtitle && (
                       <Text fontSize="sm" color={textMuted} mt={0.5} mb={2}>
@@ -1195,8 +1214,7 @@ export default function ProgramsPage() {
                         }}
                         title={nbAssigned > 0 ? t("dashboard.see_assigned_list", "Voir la liste") : ""}
                       >
-                        {nbAssigned}{" "}
-                        {nbAssigned > 1 ? t("dashboard.clients", "clients") : t("dashboard.client", "client")}
+                        {isClientProgram(p) && nbAssigned === 0 ? draftLabel : `${nbAssigned} ${nbAssigned > 1 ? t("dashboard.clients", "clients") : t("dashboard.client", "client")}`}
                       </Badge>
 
                       <Badge variant="subtle" colorScheme="gray" borderRadius="full">
@@ -1217,6 +1235,7 @@ export default function ProgramsPage() {
                         }}
                       />
 
+                      {isClientProgram(p) && <Button size="sm" variant="outline" borderRadius="full" isLoading={duplicatingProgramId === p.id} onClick={() => handleDuplicate(p.id, true)}>{libraryText[3]}</Button>}
                       <IconButton
                         aria-label={t("common.duplicate", "Dupliquer")}
                         icon={<CopyIcon />}

@@ -821,6 +821,8 @@ const EditableMetric = ({ label, isTime = false, value, onChange, step = 1, comp
 
   const [text, setText] = useState(isTime ? toClockMMSS(value) : String(value ?? 0));
   const isEditingRef = useRef(false);
+  const editCommitRef = useRef(null);
+  const commitValue = (next) => (editCommitRef.current || onChange)(next);
 
   useEffect(() => {
     // A set can become "custom" (or the timer can advance) while the athlete
@@ -836,13 +838,13 @@ const EditableMetric = ({ label, isTime = false, value, onChange, step = 1, comp
     const n = Number(normalized);
     const sane = isFinite(n) && n >= 0 ? n : 0;
     setText(String(sane));
-    onChange(sane);
+    commitValue(sane);
   };
 
   const commitTime = () => {
     const s = toSeconds(text);
     setText(toClockMMSS(s));
-    onChange(s);
+    commitValue(s);
   };
 
   const onEnter = (e) => {
@@ -874,10 +876,12 @@ const EditableMetric = ({ label, isTime = false, value, onChange, step = 1, comp
             onChange={(e) => setText(e.target.value)}
             onFocus={() => {
               isEditingRef.current = true;
+              editCommitRef.current = onChange;
             }}
             onBlur={() => {
               isEditingRef.current = false;
               commitTime();
+              editCommitRef.current = null;
             }}
             onKeyDown={onEnter}
             textAlign="center"
@@ -891,13 +895,22 @@ const EditableMetric = ({ label, isTime = false, value, onChange, step = 1, comp
         ) : (
           <Input
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value;
+              setText(next);
+              const normalized = normalizeDecimalText(next);
+              if (normalized !== "" && Number.isFinite(Number(normalized)) && Number(normalized) >= 0) {
+                commitValue(Number(normalized));
+              }
+            }}
             onFocus={() => {
               isEditingRef.current = true;
+              editCommitRef.current = onChange;
             }}
             onBlur={() => {
               isEditingRef.current = false;
               commitNumber();
+              editCommitRef.current = null;
             }}
             onKeyDown={onEnter}
             textAlign="center"
@@ -3983,6 +3996,10 @@ export default function SessionPlayer() {
   };
 
   const showScheduleSuggestionOrLeave = async () => {
+    if (!isCoachContext && location.state?.clientJourney) {
+      leaveCompletedSession();
+      return;
+    }
     const suggestion = await buildScheduleSuggestionAfterCompletion();
     if (!suggestion) {
       leaveCompletedSession();
@@ -4038,7 +4055,9 @@ export default function SessionPlayer() {
   const leaveCompletedSession = () => {
     onClose();
     clearPlayerResumeSnapshot({ resetElapsedState: true });
-    navigate(-1);
+    if (!isCoachContext && location.state?.clientJourney) {
+      navigate('/user-dashboard', { replace: true, state: { completedJourneyProgramId: programId } });
+    } else navigate(-1);
   };
 
   const showCompletionSaveError = () => {
@@ -5077,15 +5096,22 @@ export default function SessionPlayer() {
       },
     };
     performanceDraftsRef.current.set(key, nextDraft);
-    if (phase === "rest" && performedSetsRef.current.has(key) && flat[exIndex]) {
+    if (performedSetsRef.current.has(key) && flat[exIndex]) {
+      const recorded = performedSetsRef.current.get(key).set;
+      const corrected = buildExercisePerformanceSet(
+        flat[exIndex], Math.max(0, currentSet - 1), nextDraft.values
+      );
+      // A late weight correction must not reset the measured rest duration.
+      if (field !== "Repos (min:sec)" && recorded?.restSec != null) {
+        corrected.restSec = recorded.restSec;
+        if (recorded.values?.["Repos (min:sec)"]) {
+          corrected.values["Repos (min:sec)"] = recorded.values["Repos (min:sec)"];
+        }
+      }
       performedSetsRef.current.set(key, {
         exerciseIndex: exIndex,
         setIndex: currentSet,
-        set: buildExercisePerformanceSet(
-          flat[exIndex],
-          Math.max(0, currentSet - 1),
-          nextDraft.values
-        ),
+        set: { ...recorded, ...corrected },
       });
     }
     refreshPerformanceDrafts((revision) => revision + 1);

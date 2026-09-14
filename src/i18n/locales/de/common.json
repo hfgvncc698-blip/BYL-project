@@ -1,4 +1,6 @@
 {
+  "builderSavePending": "Die Serverbestätigung dauert länger als erwartet. Der Speichervorgang läuft weiter: Bitte nicht erneut speichern und diese Seite geöffnet lassen.",
+  "builderSyncPending": "Das Programm ist gespeichert. Die Aktualisierung der Kundenprogramme ist noch nicht bestätigt. Mit Speichern kannst du die Synchronisierung erneut versuchen.",
   "clientFollowList": {"subtitle":"Verwalten Sie Sport- und Ernährungskunden, ihre Betreuung und Kontaktdaten an einem Ort.","follow":"Betreuung","last":"Letzte Interaktion","status":"Status","details":"Details","nutritionDetails":"Ernährungsbetreuung: Beurteilungen und Ziele finden Sie im Kundenprofil."},
   "adminClientNavigation": {"preview":"Schnellansicht","hint":"Klicken Sie auf einen Kunden, um sein Admin-Profil zu öffnen.","notes":"Interne Notizen und Vorschau"},
   "locationPrivacy": {
