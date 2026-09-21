@@ -229,6 +229,7 @@ preflight() {
 
   run_step npm run lint
   run_step npm run test:smoke
+  run_step npm run test:release-regressions
   run_step npm run test:deploy
   run_step npm run test:footer-i18n
   run_step npm run test:sport-engine

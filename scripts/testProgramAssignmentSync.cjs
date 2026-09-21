@@ -16,7 +16,7 @@ const patch = assignedProgramSyncPatch(
 );
 
 assert.deepEqual(patch.sessions, sessions);
-assert.deepEqual(patch.seances, sessions);
+assert.ok(patch.seances.isEqual(require('../backend/firebaseAdmin').firestore.FieldValue.delete()), 'legacy duplicate is deleted');
 assert.equal(patch.totalSessions, 1);
 assert.equal(patch.nbSeances, 1);
 assert.equal(patch.fromTemplateId, "base-program-1");

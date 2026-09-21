@@ -1,5 +1,6 @@
 // utils/generateAutoProgram.js
 const admin = require('../firebaseAdmin');
+const {assertProgramSize} = require('./programDocumentSize.cjs');
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -4269,6 +4270,7 @@ async function generateAndSaveAutoProgram({
     origine: "auto",
   };
 
+  assertProgramSize(data);
   if (prepareOnly) return data;
   let docRef;
   if (assignedRef) {

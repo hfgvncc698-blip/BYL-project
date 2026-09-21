@@ -21,7 +21,7 @@ let clock=Date.now();
 const generatorModule={exports:{}};
 vm.runInNewContext(fs.readFileSync(path.join(root,'backend/utils/generateAutoProgram.js'),'utf8'),{
   module:generatorModule,exports:generatorModule.exports,__dirname:path.join(root,'backend/utils'),
-  require:name=>{if(name==='../firebaseAdmin')return localAdmin;if(['node:fs','node:path'].includes(name))return require(name);throw new Error(`Unexpected dependency: ${name}`);},
+  require:name=>{if(name==='../firebaseAdmin')return localAdmin;if(name==='./programDocumentSize.cjs')return require('../backend/utils/programDocumentSize.cjs');if(['node:fs','node:path'].includes(name))return require(name);throw new Error(`Unexpected dependency: ${name}`);},
   console:{log(){},warn(){},error:console.error},process:{env:{}},Buffer,Date,Math,Set,Map,
 });
 const functionSource=fs.readFileSync(path.join(root,'functions/index.js'),'utf8');

@@ -1,5 +1,6 @@
 // routes/programs.js
 const express = require("express");
+const {assertProgramSize, mergedProgramData} = require('../utils/programDocumentSize.cjs');
 const router = express.Router();
 const admin = require("../firebaseAdmin");
 const { generateAndSaveAutoProgram } = require("../utils/generateAutoProgram");
@@ -181,7 +182,7 @@ function assignedProgramSyncPatch(template = {}, programId) {
       ? template.seances
       : [];
   patch.sessions = sessions;
-  patch.seances = sessions;
+  patch.seances = admin.firestore.FieldValue.delete();
   patch.totalSessions = sessions.length;
   patch.nbSeances = sessions.length;
   const progressionStrategy = ["secure", "linear", "undulating"].includes(template.progressionStrategy)
@@ -294,6 +295,7 @@ async function syncAssignedProgramDocs(db, programId, assignedDocs, authorizeTem
       currentAssignments.forEach((snapshot, index) => {
         const assigned = snapshot.exists ? snapshot.data() || {} : null;
         if (!assigned || ![assigned.programId, assigned.fromTemplateId, assigned.templateId].includes(programId)) return;
+        assertProgramSize(mergedProgramData(assigned, patch), refs[index].path);
         transaction.set(refs[index], patch, { merge: true });
         written++;
       });

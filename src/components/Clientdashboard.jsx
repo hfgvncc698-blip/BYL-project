@@ -8,7 +8,7 @@ import {
   VStack, Progress, Image, Badge, useToast, Divider, Link as ChakraLink,
   SimpleGrid, Icon, Tooltip, Circle, Stack, useBreakpointValue,
 } from '@chakra-ui/react';
-import { AddIcon, ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
+import { AddIcon } from '@chakra-ui/icons';
 import { dashboardWeek } from '../utils/dashboardWeek';
 import { dashboardWeekLabels } from '../i18n/dashboardWeek';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -787,6 +787,7 @@ export default function ClientDashboard({ adminPreview = false }) {
   const [loadingPremium, setLoadingPremium] = useState(true);
   const [dayClock, setDayClock] = useState(() => new Date());
   const [calendarWeekOffset, setCalendarWeekOffset] = useState(0);
+  const [calendarSelectedDayKey, setCalendarSelectedDayKey] = useState(null);
   const [quickMealOpenRequest, setQuickMealOpenRequest] = useState({ id: 0, mealKey: "" });
   const [dashboardNutritionMealKeys, setDashboardNutritionMealKeys] = useState(null);
   const [dashboardSeenRevision, setDashboardSeenRevision] = useState(0);
@@ -2205,10 +2206,6 @@ export default function ClientDashboard({ adminPreview = false }) {
   const weekSessions = useMemo(() => sessions.map(session=>({...session,_start:new Date(session.start)}))
     .filter(session=>session._start>=selectedWeek.start && session._start<selectedWeek.end)
     .sort((a,b)=>a._start-b._start),[sessions,selectedWeek]);
-  const weekDateFormat = new Intl.DateTimeFormat(i18n.language || 'fr',{day:'numeric',month:'short',year:'numeric'});
-  const weekLastDay = new Date(selectedWeek.end);
-  weekLastDay.setDate(weekLastDay.getDate()-1);
-  const weekRangeLabel = `${weekDateFormat.format(selectedWeek.start)} – ${weekDateFormat.format(weekLastDay)}`;
   const mobileCalendarDays = useMemo(() => {
     const start = selectedWeek.start;
 
@@ -2232,6 +2229,11 @@ export default function ClientDashboard({ adminPreview = false }) {
       };
     });
   }, [sessions,selectedWeek]);
+
+  const mobileSelectedDay = mobileCalendarDays.find(day => day.key === calendarSelectedDayKey)
+    || mobileCalendarDays.find(day => day.key === formatLocalDateKey(dayClock))
+    || mobileCalendarDays[0];
+  const mobileDaySessions = weekSessions.filter(session => formatLocalDateKey(session._start) === mobileSelectedDay?.key);
 
   const remainingSessions = Math.max(0, motivationStats.totalAll - motivationStats.doneAll);
   const minCycleStartMs = programmes.reduce((min, p) => {
@@ -3730,27 +3732,36 @@ export default function ClientDashboard({ adminPreview = false }) {
             </Button>
           }
         >
-          <Flex justify="space-between" align="center" gap={2} flexWrap="wrap" mb={3}>
-            <Text fontSize="sm" color={mutedText} flex="1 1 160px" aria-live="polite">{weekRangeLabel}</Text>
-            <HStack spacing={1} flexShrink={0}>
-            <Button size="sm" variant="outline" borderRadius="full" minW="36px" px={0} aria-label={weekLabels[0]} onClick={()=>setCalendarWeekOffset(v=>v-1)}><ChevronLeftIcon boxSize={5}/></Button>
-            <Button size="sm" variant="outline" borderRadius="full" onClick={()=>setCalendarWeekOffset(0)} isDisabled={calendarWeekOffset===0}>{weekLabels[2]}</Button>
-            <Button size="sm" variant="outline" borderRadius="full" minW="36px" px={0} aria-label={weekLabels[1]} onClick={()=>setCalendarWeekOffset(v=>v+1)}><ChevronRightIcon boxSize={5}/></Button>
-            </HStack>
-          </Flex>
+          <HStack justify="space-between" mb={3} spacing={2}>
+            <Button size="sm" variant="outline" borderRadius="14px" borderColor={borderColor} onClick={()=>{setCalendarWeekOffset(v=>v-1);setCalendarSelectedDayKey(null);}}>{t('calendar.previous','Précédent')}</Button>
+            <Box textAlign="center" minW={0} aria-live="polite">
+              <Text fontSize="xs" color={subtleText} fontWeight="900" textTransform="uppercase" noOfLines={1}>{calendarWeekOffset===0?t('calendar.this_week','Cette semaine'):t('calendar.week','Semaine')}</Text>
+              <Text fontSize="sm" fontWeight="850">{mobileCalendarDays[0]?.date.toLocaleDateString(i18n.language||'fr',{day:'2-digit',month:'short'})} – {mobileCalendarDays[6]?.date.toLocaleDateString(i18n.language||'fr',{day:'2-digit',month:'short'})}</Text>
+            </Box>
+            <Button size="sm" variant="outline" borderRadius="14px" borderColor={borderColor} onClick={()=>{setCalendarWeekOffset(v=>v+1);setCalendarSelectedDayKey(null);}}>{t('calendar.next','Suivant')}</Button>
+          </HStack>
           <SimpleGrid columns={7} spacing={1.5} mb={4}>
             {mobileCalendarDays.map((day) => {
               const hasActivity = day.planned > 0 || day.done > 0;
+              const isSelectedDay = day.key === mobileSelectedDay?.key;
               return (
                 <Box
                   key={day.key}
+                  as="button"
+                  type="button"
+                  aria-pressed={isSelectedDay}
+                  onClick={()=>setCalendarSelectedDayKey(day.key)}
                   border="1px solid"
-                  borderColor={hasActivity ? `${activeBlue}55` : borderColor}
+                  borderColor={isSelectedDay ? activeBlue : hasActivity ? `${activeBlue}55` : borderColor}
                   borderRadius="14px"
                   py={2}
                   px={1}
                   aria-current={day.key === formatLocalDateKey(dayClock) ? "date" : undefined}
-                  bg={day.key === formatLocalDateKey(dayClock) ? `${activeBlue}12` : hasActivity ? `${activeBlue}0D` : modeValue("rgba(255,255,255,0.52)", "rgba(255,255,255,0.035)")}
+                  bg={isSelectedDay ? `${activeBlue}14` : hasActivity ? `${activeBlue}0D` : modeValue("rgba(255,255,255,0.52)", "rgba(255,255,255,0.035)")}
+                  boxShadow={isSelectedDay ? `0 0 0 1px ${activeBlue}44` : 'none'}
+                  cursor="pointer"
+                  transition="all 0.18s ease"
+                  _hover={{borderColor:activeBlue,transform:'translateY(-1px)'}}
                   textAlign="center"
                   minW={0}
                 >
@@ -3769,9 +3780,16 @@ export default function ClientDashboard({ adminPreview = false }) {
               );
             })}
           </SimpleGrid>
-
+          <HStack justify="space-between" align="center" mb={2.5} spacing={3}>
+            <Box minW={0}>
+              <Text fontSize="xs" color={subtleText} fontWeight="900" textTransform="uppercase">{t('calendar.day','Jour')}</Text>
+              <Text fontSize="md" fontWeight="900" noOfLines={1}>{mobileSelectedDay?.date.toLocaleDateString(i18n.language||'fr',{weekday:'long',day:'2-digit',month:'long'})}</Text>
+            </Box>
+            <Badge borderRadius="full" px={2.5} py={1} colorScheme={mobileDaySessions.length?'blue':'gray'}>{t('dashboard.calendar_events_count',{count:mobileDaySessions.length})}</Badge>
+          </HStack>
+          {calendarWeekOffset!==0&&<Button size="sm" variant="outline" borderRadius="14px" mb={3} onClick={()=>{setCalendarWeekOffset(0);setCalendarSelectedDayKey(null);}}>{weekLabels[2]}</Button>}
           <VStack align="stretch" spacing={2.5}>
-            {weekSessions.map((session) => (
+            {mobileDaySessions.map((session) => (
               <Box
                 key={session.id}
                 as="button"
@@ -3805,15 +3823,15 @@ export default function ClientDashboard({ adminPreview = false }) {
                 </HStack>
               </Box>
             ))}
-            {!weekSessions.length && (
+            {!mobileDaySessions.length && (
               <HStack spacing={3} align="flex-start">
                 <Circle size="34px" bg={`${warmAccent}18`} color={warmAccent} flexShrink={0}>
                   <Icon as={MdOutlineSchedule} boxSize="18px" />
                 </Circle>
                 <Box>
-                  <Text fontWeight="850">{weekLabels[3]}</Text>
+                  <Text fontWeight="850">{t('auto.Clientdashboard.a_planifier','À planifier')}</Text>
                   <Text mt={1} fontSize="sm" color={mutedText}>
-                    {weekRangeLabel}
+                    {t('dashboard.mobile.no_session_for_day','Aucune séance sur cette journée')}
                   </Text>
                 </Box>
               </HStack>

@@ -170,6 +170,15 @@ async function test(name, run) { await run(); passed++; console.log(`PASS ${name
       await assertFails(assign());
       assert.deepEqual((await read(db, 'programmes/private')).data().assignedClientIds, ['owned-client']);
     });
+    await test('statistics measurement mirrors save atomically with client permissions',async()=>{
+      const db=dbFor('patient');
+      const batch=writeBatch(db);
+      const metric={date:'2026-09-21',poids:70,clientId:'owned-client',userId:'patient'};
+      batch.set(doc(db,'clients/owned-client/measurements/stats-check'),metric);
+      batch.set(doc(db,'users/patient/measurements/stats-check'),metric);
+      await assertSucceeds(batch.commit());
+      assert.equal((await read(db,'clients/owned-client/measurements/stats-check')).data().poids,70);
+    });
     console.log(`Firestore emulator security regression: ${passed} passed; no production resource used.`);
   } finally { await env.cleanup(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

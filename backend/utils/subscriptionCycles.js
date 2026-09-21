@@ -1,4 +1,5 @@
 const {createHash,randomUUID}=require('node:crypto');
+const {assertProgramSize}=require('./programDocumentSize.cjs');
 const hash=value=>createHash('sha256').update(String(value)).digest('hex').slice(0,32);
 const ROTATION=[['hypertrophy',4],['recovery',1],['strength',3],['recovery',1]];
 const GOALS={general:'endurance',endurance:'endurance',hypertrophy:'prise_de_masse',strength:'force',recovery:'endurance'};
@@ -117,7 +118,11 @@ function createSubscriptionCycles({db,FieldValue,generateProgram,now=Date.now}) 
         if(!automatic(fresh)||!entitled(fresh,now()))throw new Error('subscription-not-active');
         if((fresh.trainingPlan?.revision||0)!==revision || JSON.stringify(fresh.trainingPlan?.cycles)!==JSON.stringify(client.trainingPlan.cycles))throw new Error('cycle-plan-changed');
         if(ps.exists && ps.data().subscriptionCycleId!==cycle.id)throw new Error('cycle-id-conflict');
-        if(!ps.exists)tx.create(programRef,{sessions,nomProgramme:cycle.name||cycle.nom||titles[Object.keys(NAMES).indexOf(cycle.type)],cycleType:cycle.type,activeWeeks:cycle.weeks,durationWeeks:cycle.weeks,nbSeances:sessions.length,totalSessions:sessions.length,clientId,origine:'auto',createdBy:'subscription-cycle',subscriptionCycleId:cycle.id,objectif:GOALS[cycle.type],niveauSportif:generated.niveauSportif||options.niveau,sexe:options.sexe,trainingLocation:options.trainingLocation||'gym',equipmentAccess:options.equipmentAccess||'full',injuryProfile:options.injuryProfile||'none',sourceProgramId:previous?.programId||null,status:'active',assignedAt:FieldValue.serverTimestamp(),createdAt:FieldValue.serverTimestamp()});
+        if(!ps.exists){
+          const program={sessions,nomProgramme:cycle.name||cycle.nom||titles[Object.keys(NAMES).indexOf(cycle.type)],cycleType:cycle.type,activeWeeks:cycle.weeks,durationWeeks:cycle.weeks,nbSeances:sessions.length,totalSessions:sessions.length,clientId,origine:'auto',createdBy:'subscription-cycle',subscriptionCycleId:cycle.id,objectif:GOALS[cycle.type],niveauSportif:generated.niveauSportif||options.niveau,sexe:options.sexe,trainingLocation:options.trainingLocation||'gym',equipmentAccess:options.equipmentAccess||'full',injuryProfile:options.injuryProfile||'none',sourceProgramId:previous?.programId||null,status:'active',assignedAt:FieldValue.serverTimestamp(),createdAt:FieldValue.serverTimestamp()};
+          assertProgramSize(program,programRef.path);
+          tx.create(programRef,program);
+        }
         tx.set(clientRef,{currentProgramme:programId,trainingPlan:{...plan,revision:revision+1,updatedAt:new Date(now()).toISOString(),cycles:plan.cycles.map(c=>c.id===cycle.id?{...c,programId}:c)},updatedAt:FieldValue.serverTimestamp()},{merge:true});
         tx.set(jobRef,{status:'idle',leaseUntil:0,error:null,updatedAt:FieldValue.serverTimestamp()},{merge:true});
       });

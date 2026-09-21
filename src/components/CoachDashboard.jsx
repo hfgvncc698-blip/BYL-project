@@ -1,4 +1,5 @@
 // src/components/CoachDashboard.jsx
+import {currentCoachProgram} from '../utils/currentCoachProgram';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from
 "react";
 import { useDashboardTiming } from "../hooks/useDashboardTiming.js";
@@ -264,7 +265,7 @@ const scheduleIdleTask = (callback, timeout = 700) => {
   };
 };
 
-const DASHBOARD_DATA_CACHE_VERSION = 9;
+const DASHBOARD_DATA_CACHE_VERSION = 10;
 const DASHBOARD_DATA_CACHE_TTL_MS = 15 * 60 * 1000;
 const DASHBOARD_DATA_STALE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const DASHBOARD_NUTRITION_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -3194,7 +3195,7 @@ sessionIndex = null }) => {
     const subSnap = await getDocs(collection(db, "clients", client.id, "programmes"));
     const assignedPrograms = await Promise.all(
       subSnap.docs.map(async (d) => {
-        const prog = { id: d.id, ...d.data() };
+        const prog = { ...d.data(), id: d.id };
         const sessSnap = await getDocs(collection(db, "clients", client.id, "programmes", d.id, "sessionsEffectuees"));
         const sessionsEffectuees = sessSnap.docs.map((docu) => ({ id: docu.id, ...docu.data() }));
         const hint = clientProgramHints.get(d.id) || {};
@@ -3591,8 +3592,8 @@ assignMs;
                 const difficultyNotes = [];
                 const difficultyMap = buildDifficultyMapFromNotes(difficultyNotes);
                 return {
-                   id: d.id,
                    ...prog,
+                   id: d.id,
                    sessionsEffectuees,
                    _done: done,
                    _total: totalPrevues,
@@ -9411,7 +9412,6 @@ overflow="auto">
                       });
                       const clientForCardActions = { ...c, programmesAssignes: programmesForCard };
                       let lastCompletedMs = 0;
-                      let lastCompletedAssignedProg = null;
                       let lastCompletedTitle = "";
 
                     programmesForCard.forEach((prog) =>
@@ -9423,7 +9423,6 @@ overflow="auto">
                       const progCompletedMs = Math.max(sessionCompletedMs, coachProgressMs);
                       if (progCompletedMs > lastCompletedMs) {
                         lastCompletedMs = progCompletedMs;
-                        lastCompletedAssignedProg = prog;
                         lastCompletedTitle =
                           coachProgressMs >= sessionCompletedMs
                             ? prog?._coachLatestProgressTitle || prog?._lastCompletedTitle || ""
@@ -9431,11 +9430,8 @@ overflow="auto">
                       }
                     });
 
-                    const currentCycleProgramId = c.sportFollowView !== 'programs'
-                      ? c.trainingPlan?.cycles?.find(cycle => !cycle.closedAt)?.programId
-                      : null;
                     const primaryProgramForCard =
-                      programmesForCard.find(prog => prog.id === currentCycleProgramId) || lastCompletedAssignedProg || programmesForCard?.[0] || c.programmesAssignes?.[0] || null;
+                      currentCoachProgram(c, programmesForCard);
                     const primaryProgramNameForCard = primaryProgramForCard
                       ? prettyAssignedProgramName(primaryProgramForCard)
                       : "";

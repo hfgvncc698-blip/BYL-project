@@ -1187,7 +1187,6 @@ check("session completion is consistent across client views", () => {
   [
     "src/components/Clientdashboard.jsx",
     "src/pages/MyPrograms.jsx",
-    "src/pages/StatisticsPageClient.jsx",
     "src/pages/StatisticsPageCoach.jsx",
   ].forEach((file) => {
     assert.ok(
@@ -1196,6 +1195,11 @@ check("session completion is consistent across client views", () => {
       `${file} must use the shared completion rule`
     );
   });
+  const stats = read('src/pages/StatisticsPageClient.jsx');
+  assert.ok(stats.includes('<ClientCurrentProgress') && stats.includes('<ClientJourneyHistory'), 'statistics delegates completion to shared history components');
+  assert.ok(read('src/components/client/ClientCurrentProgress.jsx').includes('journeyProgress(program,records)'));
+  assert.ok(read('src/components/client/ClientJourneyHistory.jsx').includes('journeyProgress(program,records)'));
+  assert.ok(read('src/utils/clientJourney.js').includes('isSessionValidatedRecord(record)'));
 });
 
 check("cloud functions source has a single toDate helper", () => {
@@ -1226,6 +1230,7 @@ check("deferred dashboard widgets cannot crash the whole dashboard", () => {
 
 check("recent-client progress only counts the displayed program", () => {
   const dashboard = read("src/components/CoachDashboard.jsx");
+  assert.ok(dashboard.includes('currentCoachProgram(c, programmesForCard)'), 'card must resolve the current programme, not the last completed one');
   assert.ok(
     dashboard.includes("getValidatedSessionCountForProgram(primaryProgramForCard)") &&
       dashboard.includes("getProgramActiveSessionTotal(primaryProgramForCard)"),
@@ -1876,7 +1881,7 @@ check("action loading preserves write confirmation and client synchronization", 
   assert.equal((builder.match(/localEditTimeRef.current !== savedEditTime/g) || []).length, 2);
   assert.match(builder, /localEditTimeRef.current !== created.editVersion/);
   assert.match(builder, /createProgramCreationOperation/);
-  assert.equal((builder.match(/await syncAssignedPrograms\(programId\)/g) || []).length, 4, 'including the independent active-weeks save');
+  assert.equal((builder.match(/await syncSavedProgram\(programId\)/g) || []).length, 4, 'including the independent active-weeks save');
   assert.ok(!builder.includes('}, 1200)') && !builder.includes('}, 500)'), 'no artificial navigation delay after confirmed save');
   assert.match(dashboard, /fetchData\(\{ force: true, silent: true \}\)/);
   assert.match(dashboard, /mergeConfirmedCalendarEvents\(previous, results.map/);

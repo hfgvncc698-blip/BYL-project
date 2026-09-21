@@ -5,6 +5,7 @@ import { confirmOperation } from '../src/utils/confirmedOperation.js';
 import { cycleAssignmentPatch, recommendedCyclePlacement } from '../src/utils/cycleAssignment.js';
 import { continuingCyclePlan, suggestedCycles, displayedCyclePlan } from '../src/utils/trainingCycles.js';
 import { webcrypto } from 'node:crypto';
+import limits from '../backend/utils/programDocumentSize.cjs';
 
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 const holder = { current: null };
@@ -42,6 +43,7 @@ const ref = (...parts) => parts.length === 1
   ? { path: `${parts[0].path}/new-${++nextId}`, id: `new-${nextId}` }
   : { path: parts.slice(1).join('/'), id: parts.at(-1) };
 const context = vm.createContext({
+  assertProgramSize: limits.assertProgramSize,
   cycleAssignmentPatch, recommendedCyclePlacement, continuingCyclePlan, suggestedCycles, displayedCyclePlan, crypto: webcrypto,
   doc: ref, collection: ref, arrayUnion: (...items) => items, serverTimestamp: () => 'timestamp',
   runTransaction: async (_db, work) => {

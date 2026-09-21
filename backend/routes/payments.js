@@ -771,6 +771,7 @@ async function copyPremiumProgramToClient({ firebaseUid, clientId, programmeId, 
   };
 
   try {
+    require('../utils/programDocumentSize.cjs').assertProgramSize(base, assignRef.path);
     await assignRef.create(base);
   } catch (error) {
     if (error?.code === 6 || String(error?.message || "").toLowerCase().includes("already exists")) {

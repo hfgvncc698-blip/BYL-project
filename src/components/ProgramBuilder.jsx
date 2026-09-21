@@ -58,7 +58,6 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   doc,
   onSnapshot,
-  updateDoc,
   collection,
   getDocs,
   query,
@@ -68,6 +67,7 @@ import {
   deleteField,
 } from "firebase/firestore";
 import { db } from "../firebase";
+import { updateProgramDoc as updateDoc } from '../utils/safeProgramWrite';
 import { confirmOperation } from "../utils/confirmedOperation";
 import { awaitWriteConfirmation } from "../utils/awaitWriteConfirmation";
 import { createCycleValidationOperation, cycleValidationLabels } from '../utils/validateCycleDraft';

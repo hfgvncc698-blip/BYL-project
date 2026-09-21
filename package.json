@@ -23,6 +23,7 @@
     "plan:firestore-identity-migration": "node scripts/planFirestoreIdentityMigration.cjs",
     "test:smoke": "node scripts/smokeCriticalFlows.mjs",
     "test:deploy": "node scripts/testDeployContract.mjs",
+    "test:release-regressions": "node scripts/testCurrentCoachProgram.mjs && node scripts/testStatisticsSave.mjs && node scripts/testProgramDocumentSize.mjs && node scripts/testConfirmedProgramWrites.mjs && node scripts/testCycleValidationJourney.mjs && node scripts/testClientMobileCalendar.mjs",
     "test:security-rules": "firebase emulators:exec --config firebase.rules-test.json --project demo-byl-security --only firestore \"node scripts/testFirestoreRules.cjs\"",
     "test:emulator-fixes": "firebase emulators:exec --config firebase.rules-test.json --project demo-byl-security --only firestore \"node scripts/testEmulatorFixes.mjs\"",
     "test:session-notifications": "node scripts/testSessionNotifications.cjs",

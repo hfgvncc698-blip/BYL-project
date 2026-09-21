@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useState, useEffect, useMemo } from "react";
+import React, { Suspense, lazy, useState, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "../AuthContext";
 import {
   Box, Heading, SimpleGrid, Text, Grid, Button, HStack, Modal, ModalOverlay,
@@ -7,7 +7,7 @@ import {
   Icon, Flex, Menu, MenuButton, MenuList, MenuOptionGroup, MenuItemOption, Portal
 } from "@chakra-ui/react";
 import {
-  collection, query, getDocs, addDoc, serverTimestamp, orderBy, limit, doc, onSnapshot
+  collection, query, getDocs, writeBatch, serverTimestamp, orderBy, limit, doc, onSnapshot
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useTranslation } from "react-i18next";
@@ -123,10 +123,13 @@ export default function StatisticsPageClient() {
   const { t, i18n } = useTranslation("common");
   const toast = useToast();
 
-  const today = new Date().toISOString().split("T")[0];
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 
   const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [loadError,setLoadError] = useState(false);
+  const [loadAttempt,setLoadAttempt] = useState(0);
   const [clientId, setClientId] = useState(null);
 
   const [clientProfile, setClientProfile] = useState(null);
@@ -138,6 +141,7 @@ export default function StatisticsPageClient() {
   const [measures, setMeasures] = useState([]);
   const addMeas = useDisclosure();
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   // unités UI
   const [weightUnit, setWeightUnit] = useState("kg"); // "kg" | "lb"
@@ -186,12 +190,18 @@ export default function StatisticsPageClient() {
 
   /* -------- load -------- */
   useEffect(() => {
-    if (!user) return;
+    if (!user) {setLoading(false);setClientId(null);setClientProfile(null);setProgrammes([]);setMeasures([]);return;}
     let cancelled = false;
+    setLoadError(false);
+    const timeout=setTimeout(()=>{if(!cancelled){cancelled=true;setLoadError(true);setLoading(false);setStatsLoading(false);}},15000);
 
     (async () => {
       try {
         setLoading(true);
+        setClientId(null);
+        setClientProfile(null);
+        setProgrammes([]);
+        setMeasures([]);
 
         // 1) Résolution robuste du document client, alignée avec "Mes programmes".
         const clientDoc = await resolveClientSnapshotForUser(user, { logPrefix: "StatisticsPageClient" });
@@ -219,6 +229,7 @@ export default function StatisticsPageClient() {
         ]);
         if (cancelled) return;
 
+        if(!progSnap || !measSnap) setLoadError(true);
         const progs = progSnap?.docs?.map((d) => ({ id: d.id, ...d.data() })) || [];
         setProgrammes(progs);
 
@@ -233,11 +244,13 @@ export default function StatisticsPageClient() {
       } catch (e) {
         if (cancelled) return;
         console.warn("[StatisticsPageClient] load failed", e);
+        setLoadError(true);
         setProgrammes([]);
         setMeasures([]);
         setStatsLoading(false);
         setLoading(false);
       } finally {
+        clearTimeout(timeout);
         if (!cancelled) {
           setLoading(false);
           setStatsLoading(false);
@@ -246,14 +259,15 @@ export default function StatisticsPageClient() {
     })();
 
     return () => {
+      clearTimeout(timeout);
       cancelled = true;
     };
-  }, [user]);
+  }, [user,loadAttempt]);
 
   useEffect(()=>{
     if(!clientId)return;
-    const stopProfile=onSnapshot(doc(db,'clients',clientId),snapshot=>setClientProfile(snapshot.data()),()=>{});
-    const stopPrograms=onSnapshot(collection(db,'clients',clientId,'programmes'),snapshot=>setProgrammes(snapshot.docs.map(d=>({...d.data(),id:d.id}))),()=>{});
+    const stopProfile=onSnapshot(doc(db,'clients',clientId),snapshot=>setClientProfile(snapshot.data()),()=>setLoadError(true));
+    const stopPrograms=onSnapshot(collection(db,'clients',clientId,'programmes'),snapshot=>setProgrammes(snapshot.docs.map(d=>({...d.data(),id:d.id}))),()=>setLoadError(true));
     return ()=>{stopProfile();stopPrograms();};
   },[clientId]);
   const currentProgram=selectJourneyProgram(clientProfile,programmes);
@@ -314,7 +328,8 @@ export default function StatisticsPageClient() {
   const changeHeightUnit=unit=>{setNewMeas(p=>({...p,taille:convertEntryUnit(p.taille,heightUnit,unit,'height')}));setHeightUnit(unit);};
   const changeWeightUnit=unit=>{setNewMeas(p=>({...p,poids:convertEntryUnit(p.poids,weightUnit,unit,'weight')}));setWeightUnit(unit);};
   const handleAdd = async () => {
-    if (!clientId || !user?.uid || saving || !newMeas.date) return;
+    if (!clientId || !user?.uid || savingRef.current || !newMeas.date) return;
+    savingRef.current = true;
     setSaving(true);
     try {
       // convertir vers métrique pour la base
@@ -334,19 +349,15 @@ export default function StatisticsPageClient() {
         timestamp: serverTimestamp(),
       };
 
-      await Promise.all([
-        addDoc(collection(db, "clients", clientId, "measurements"), metric),
-        addDoc(collection(db, "users", user.uid, "measurements"), metric),
-        addDoc(collection(db, "measurements"), metric),
-      ]);
+      if(Object.entries(metric).some(([key,value])=>key!=='timestamp'&&typeof value==='number'&&(!Number.isFinite(value)||value<0))) throw new Error('invalid-measurement');
+      const ref = doc(collection(db, 'clients', clientId, 'measurements'));
+      const batch = writeBatch(db);
+      batch.set(ref,metric);
+      batch.set(doc(db,'users',user.uid,'measurements',ref.id),metric);
+      await batch.commit();
 
       // refresh
-      const measSnap = await getDocs(collection(db, "clients", clientId, "measurements"));
-      const arr = measSnap.docs
-        .map((d) => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-        .map(normalizeMeasurementDoc);
-      setMeasures(arr);
+      setMeasures(previous=>[...previous,normalizeMeasurementDoc({...metric,id:ref.id})].sort((a,b)=>String(a.date).localeCompare(String(b.date))));
 
       addMeas.onClose();
       setNewMeas((prev) => ({ ...prev, date: today, taille: "", poids: "" }));
@@ -354,6 +365,7 @@ export default function StatisticsPageClient() {
     } catch (e) {
       toast({ status: "error", description: t("settings.toasts.update_error", "Erreur de mise à jour.") });
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
@@ -395,8 +407,20 @@ export default function StatisticsPageClient() {
         </AppSurface>
 
         <Suspense fallback={<Skeleton height="100px"/>}>
-          <ClientCurrentProgress clientId={clientId} program={currentProgram}/>
-          <ClientJourneyHistory clientId={clientId} programmes={programmes} currentProgramId={currentProgram?.id}/>
+          {loadError&&<Box role="alert"><Text>{t('settings.toasts.update_error','Erreur de mise à jour.')}</Text><Button onClick={()=>setLoadAttempt(value=>value+1)}>{t('common.retry','Réessayer')}</Button></Box>}
+          <Box data-tour="client-stats-kpis">
+            <Box data-tour="client-stats-skips">
+              <ClientCurrentProgress clientId={clientId} program={currentProgram}/>
+            </Box>
+          </Box>
+
+          <Box data-tour="client-stats-comparison">
+            <ClientJourneyHistory
+              clientId={clientId}
+              programmes={programmes}
+              currentProgramId={currentProgram?.id}
+            />
+          </Box>
         </Suspense>
 
 

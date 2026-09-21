@@ -1,6 +1,7 @@
 // src/components/SessionPlayer.jsx
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import "./SessionPlayerSettings.css";
+import { updateProgramDoc, assertProgramSize } from '../utils/safeProgramWrite';
 import { withPlayerDeadline } from "../utils/playerRequestDeadline";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import {
@@ -3030,12 +3031,6 @@ export default function SessionPlayer() {
     } = auditDetails;
     const clientAt = Timestamp.fromDate(new Date());
     const runId = randomId(10);
-    const batch = writeBatch(db);
-
-    batch.update(programDocRef, {
-      [edit.sessionField]: edit.sessions,
-      updatedAt: serverTimestamp(),
-    });
 
     let auditRef = null;
     let auditData = null;
@@ -3076,10 +3071,12 @@ export default function SessionPlayer() {
         clientAt,
         updatedAt: serverTimestamp(),
       };
-      batch.set(auditRef, auditData);
     }
 
-    await batch.commit();
+    await updateProgramDoc(programDocRef, {
+      [edit.sessionField]: edit.sessions,
+      updatedAt: serverTimestamp(),
+    },auditRef?{ref:auditRef,data:auditData}:undefined);
 
   }
 
@@ -3531,7 +3528,7 @@ export default function SessionPlayer() {
             ? applyTimingCalibrationToSessions(result.sessions, calibrationResult.profile)
             : result.sessions;
           if (!result.updatedCount && !calibrationResult.accepted) return;
-          transaction.update(programDocRef, {
+          const syncPatch = {
             [result.sessionsField]: calibratedSessions,
             ...(calibrationResult.accepted
               ? { timingCalibration: calibrationResult.profile }
@@ -3540,7 +3537,9 @@ export default function SessionPlayer() {
             lastPlayerSyncCompletionId: completionDocId,
             lastPlayerSyncActorRole: isCoachContext ? "coach" : "client",
             updatedAt: serverTimestamp(),
-          });
+          };
+          assertProgramSize({...latestProgramSnap.data(),...syncPatch},programDocRef.path);
+          transaction.update(programDocRef,syncPatch);
           });
         }
 
@@ -3922,7 +3921,7 @@ export default function SessionPlayer() {
 
       sessionsCopy[sessionIndex] = nextSession;
 
-      await updateDoc(programDocRef, {
+      await updateProgramDoc(programDocRef, {
         sessions: sessionsCopy,
         lastAutoProgression: {
           sessionIndex,

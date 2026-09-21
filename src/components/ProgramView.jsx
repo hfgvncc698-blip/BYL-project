@@ -85,12 +85,12 @@ import {
   getDoc,
   getDocs,
   onSnapshot,
-  updateDoc,
   collection,
   query,
   where,
   limit,
 } from "firebase/firestore";
+import { updateProgramDoc as updateDoc } from '../utils/safeProgramWrite';
 
 const storage = getStorage();
 

@@ -2,6 +2,7 @@ import { getProgramPlannedSessionTotal, getProgramValidatedSessionCount, readPro
 import { isSessionValidatedRecord } from './sessionCompletion.js';
 import { adaptCycleSessions } from './cyclePrescription.js';
 import { initialCyclePreparation } from './initialCyclePreparation.js';
+import limits from './programDocumentSize.js';
 
 export function syncCycleDurations(plan, programmes) {
   return { ...plan, cycles: plan.cycles.map(cycle => {
@@ -117,7 +118,10 @@ export async function writeCyclePlan(transaction, clientRef, next, extra) {
     }
   }
   const extraWrite = extra ? await extra(transaction) : null;
-  if (extraWrite) transaction.set(extraWrite.ref, extraWrite.data);
+  if (extraWrite) {
+    limits.assertProgramSize(extraWrite.data, extraWrite.ref.path);
+    transaction.set(extraWrite.ref, extraWrite.data);
+  }
   const oldActive = previous?.cycles?.find(c => !c.closedAt);
   const newActive = next.cycles.find(c => !c.closedAt);
   const closedCurrent = oldActive && next.cycles.find(c => c.id === oldActive.id)?.closedAt;

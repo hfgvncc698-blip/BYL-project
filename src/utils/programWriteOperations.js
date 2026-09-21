@@ -1,6 +1,7 @@
 import { doc, collection, runTransaction, arrayUnion, serverTimestamp } from "firebase/firestore";
 import { cycleAssignmentPatch, recommendedCyclePlacement } from './cycleAssignment.js';
 import { continuingCyclePlan, suggestedCycles, displayedCyclePlan } from './trainingCycles.js';
+import {assertProgramSize} from './safeProgramWrite.js';
 
 export function createProgramAssignmentOperation({ db, clientId, programId, coachId, loadProgram, updateTemplate = false, placement }) {
   const assignedRef = doc(collection(db, "clients", clientId, "programmes"));
@@ -31,13 +32,15 @@ export function createProgramAssignmentOperation({ db, clientId, programId, coac
       cyclePatch = cycleAssignmentPatch(client, assignedRef.id, choice, proposed, client.trainingPlan?.revision || 0, { ...program, templateId: programId });
       program.excludeFromCyclePlanning = choice === 'separate';
     }
-    transaction.set(assignedRef, {
+    const assignment = {
       ...program,
       id: assignedRef.id,
       programId,
       fromTemplateId: programId,
       templateId: programId,
-    });
+    };
+    assertProgramSize(assignment, assignedRef.path);
+    transaction.set(assignedRef, assignment);
     transaction.update(doc(db, "clients", clientId), {
       ...cyclePatch,
       programmes: arrayUnion(assignedRef.id),
@@ -58,6 +61,7 @@ export function createProgramAssignmentOperation({ db, clientId, programId, coac
 
 export function createProgramCreationOperation({ db, payload, editVersion }) {
   const programRef = doc(collection(db, "programmes"));
+  assertProgramSize(payload, programRef.path);
   return async () => runTransaction(db, async transaction => {
     const existing = await transaction.get(programRef);
     if (!existing.exists()) transaction.set(programRef, payload);

@@ -46,13 +46,13 @@ import {
   deleteDoc,
   doc,
   getDoc,
-  setDoc,
   serverTimestamp,
   query,
   where,
   limit,
 } from "firebase/firestore";
 import { db } from "../firebase";
+import { setProgramDoc as setDoc } from '../utils/safeProgramWrite';
 import { programReadDeadline } from "../utils/programReadDeadline";
 const getDocs = (ref) => programReadDeadline(firestoreGetDocs(ref));
 import { confirmOperation } from "../utils/confirmedOperation";

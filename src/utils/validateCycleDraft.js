@@ -1,5 +1,6 @@
 import { doc, collection, runTransaction, arrayUnion, serverTimestamp } from 'firebase/firestore';
 import { cycleAssignmentPatch } from './cycleAssignment.js';
+import {assertProgramSize} from './safeProgramWrite.js';
 
 export async function confirmCycleDraft(transaction, { templateRef, clientRef, assignedRef, assignedRefForId, payload, expectedRevision }) {
   const templateSnap = await transaction.get(templateRef);
@@ -24,7 +25,10 @@ export async function confirmCycleDraft(transaction, { templateRef, clientRef, a
   const patch = cycleAssignmentPatch(client, assignedRef.id, 'next', client.trainingPlan, client.trainingPlan.revision || 0, program);
   // Duration shown in the timeline matches the programme being validated.
   patch.trainingPlan.cycles = patch.trainingPlan.cycles.map(c => c.id === target.id ? { ...c, weeks: payload.activeWeeks } : c);
-  transaction.set(assignedRef, { ...program, id: assignedRef.id, clientId: clientRef.id, excludeFromCyclePlanning: false, assignedAt: serverTimestamp(), createdAt: serverTimestamp() });
+  const assignment = { ...program, id: assignedRef.id, clientId: clientRef.id, excludeFromCyclePlanning: false, assignedAt: serverTimestamp(), createdAt: serverTimestamp() };
+  assertProgramSize(assignment, assignedRef.path);
+  assertProgramSize({...template, ...payload, validatedCycleAssignmentId: assignedRef.id}, templateRef.path);
+  transaction.set(assignedRef, assignment);
   transaction.update(templateRef, { ...payload, validatedCycleAssignmentId: assignedRef.id, updatedAt: serverTimestamp() });
   transaction.update(clientRef, { ...patch, programmes: arrayUnion(assignedRef.id), updatedAt: serverTimestamp() });
   return assignedRef.id;

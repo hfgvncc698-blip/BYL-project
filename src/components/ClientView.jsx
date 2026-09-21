@@ -1,4 +1,5 @@
 // src/components/ClientView.jsx
+import {assertProgramSize} from '../utils/safeProgramWrite';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
@@ -1199,7 +1200,6 @@ export default function ClientView() {
         nomProgramme: newName,
         name: newName,
         sessions: clonedRootSessions,
-        seances: safeDeepClone(clonedRootSessions),
         createdAt: serverTimestamp(),
         duplicatedAt: serverTimestamp(),
         duplicatedFrom: programmeId,
@@ -1207,13 +1207,12 @@ export default function ClientView() {
         source: "duplicate",
       };
 
-      const newBaseRef = await addDoc(collection(db, "programmes"), rootPayload);
+      delete rootPayload.seances;
+      assertProgramSize(rootPayload);
+      const newBaseRef = doc(collection(db, "programmes"));
       const newBaseId = newBaseRef.id;
 
       // important : réécrire le champ interne id avec le NOUVEL ID
-      await updateDoc(doc(db, "programmes", newBaseId), {
-        id: newBaseId,
-      });
 
       // 2) créer la nouvelle assignation client qui pointe vers CE nouveau programme
       const fullName = `${client?.prenom || ""} ${client?.nom || ""}`.trim() || null;
@@ -1233,23 +1232,22 @@ export default function ClientView() {
         clientNom: fullName,
       });
 
-      const newAssignedRef = await addDoc(
-        collection(db, "clients", clientId, SUBCOL_PROGRAMMES),
-        {
+      const newAssignedRef = doc(collection(db, "clients", clientId, SUBCOL_PROGRAMMES));
+      const duplicateAssignment = {
           ...assignedPayload,
           duplicatedFrom: programmeId,
           duplicatedFromProgramId: linkedBaseId || null,
           duplicatedAt: serverTimestamp(),
-        }
-      );
+        };
+      delete duplicateAssignment.seances;
+      assertProgramSize({...rootPayload,id:newBaseId},newBaseRef.path);
+      assertProgramSize({...duplicateAssignment,id:newAssignedRef.id},newAssignedRef.path);
+      await runTransaction(db,async transaction=>{
+        transaction.set(newBaseRef,{...rootPayload,id:newBaseId});
+        transaction.set(newAssignedRef,{...duplicateAssignment,id:newAssignedRef.id});
+      });
 
       // pareil ici : le champ interne id doit matcher le nouveau doc client
-      await updateDoc(
-        doc(db, "clients", clientId, SUBCOL_PROGRAMMES, newAssignedRef.id),
-        {
-          id: newAssignedRef.id,
-        }
-      );
 
       notify(toast, "programDuplicated", {
         title: t("common.duplicate", "Dupliquer"),
@@ -1388,7 +1386,10 @@ export default function ClientView() {
         if (!current.exists()) throw new Error('client-missing');
         const choice = assignmentPlacement === 'auto' ? recommendedCyclePlacement({ ...client, trainingPlan: proposedPlan }) : assignmentPlacement;
         const patch = cycleAssignmentPatch(current.data(), newRef.id, choice, proposedPlan, client.trainingPlan?.revision || 0, { ...base, templateId: baseId });
-        transaction.set(newRef, { ...clientProgPayload, id: newRef.id });
+        const assignment={...clientProgPayload,id:newRef.id};
+        if(Array.isArray(assignment.sessions))delete assignment.seances;
+        assertProgramSize(assignment,newRef.path);
+        transaction.set(newRef, assignment);
         transaction.update(clientRef, { ...patch, programmes: arrayUnion(newRef.id), updatedAt: serverTimestamp() });
       });
 

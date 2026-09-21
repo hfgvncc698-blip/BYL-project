@@ -14,7 +14,8 @@ import {
   FormControl,
   FormLabel,
 } from "@chakra-ui/react";
-import { collection, getDocs, setDoc, doc } from "firebase/firestore";
+import { collection, getDocs, doc } from "firebase/firestore";
+import { setProgramDoc as setDoc } from '../utils/safeProgramWrite';
 import { db } from "../firebaseConfig";
 import { v4 as uuidv4 } from "uuid";
 import { useNavigate } from "react-router-dom";
