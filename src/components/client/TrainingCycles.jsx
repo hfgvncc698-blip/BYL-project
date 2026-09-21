@@ -1,4 +1,5 @@
 import RightDisclosureSummary from '../ui/RightDisclosureSummary';
+import { reconcileStartedCycle } from '../../utils/reconcileStartedCycle';
 import React, { useEffect, useRef, useState } from 'react';
 import { Box, Button as ThemeButton, Flex, Heading, Text, Stack, Select, Input, Badge, Progress, SimpleGrid, FormControl, FormLabel, useToast, useColorModeValue } from '@chakra-ui/react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
@@ -38,7 +39,7 @@ export default function TrainingCycles({ clientId, client, programmes, programme
   const secondaryButtonHover = useColorModeValue('gray.200', 'whiteAlpha.200');
   const [suggestion] = useState(() => ({ start: today(), cycles: suggestedCycles(newId), revision: 0 }));
   const continuation = programmesReady ? continuingCyclePlan(client, programmes, suggestion) : suggestion;
-  const stored = displayedCyclePlan(client.trainingPlan, continuation);
+  const stored = reconcileStartedCycle(displayedCyclePlan(client.trainingPlan, continuation), programmes);
   const isSuggested = !client.trainingPlan?.revision && !client.trainingPlan?.cycles?.length;
   const saved = { ...stored, cycles: stored.cycles.map(cycle => ({ ...cycle, programId: cycle.programId || (cycle.draftProgramId ? programmes.find(p => !p.excludeFromCyclePlanning && [p.fromTemplateId, p.templateId, p.programId].includes(cycle.draftProgramId))?.id : '') || '' })) };
   const [draft, setDraft] = useState(null);

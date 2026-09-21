@@ -1,5 +1,6 @@
 import { isSessionValidatedRecord } from './sessionCompletion.js';
 import { getProgramPlannedSessionTotal } from './programDuration.js';
+import { reconcileStartedCycle } from './reconcileStartedCycle.js';
 
 export const journeyTime = value => {
   const result = value?.toMillis?.() ?? (value?.seconds != null ? value.seconds * 1000 : Date.parse(value));
@@ -17,7 +18,7 @@ export const isJourneyValidated = record => isSessionValidatedRecord(record) && 
 export function selectJourneyProgram(profile, programs) {
   const available = programs.filter(p => p.status !== 'draft');
   if (profile?.sportFollowView !== 'programs' && profile?.trainingPlan?.cycles?.length) {
-    const current = profile.trainingPlan.cycles.find(c => !c.closedAt);
+    const current = reconcileStartedCycle(profile.trainingPlan, available).cycles.find(c => !c.closedAt);
     return available.find(p => p.id === current?.programId) || null;
   }
   return available.find(p => p.id === profile?.currentProgramme) || [...available].sort((a,b) =>

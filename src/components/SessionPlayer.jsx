@@ -6315,26 +6315,6 @@ export default function SessionPlayer() {
                 </Box>
               </Box>
 
-              <Box order={{ base: 3, lg: 2 }} display={{ base: "block", lg: "none" }} w="full" minW={0}>
-                {displayExercise?.contraintes && (
-                  <ListCard
-                    title={t("sessionPlayer.constraints", "Contraintes")}
-                    icon={<WarningTwoIcon color={warningIconColor} />}
-                    accent="yellow"
-                    items={toArray(displayExercise.contraintes)}
-                  />
-                )}
-
-                {displayExercise?.consignes && (
-                  <ListCard
-                    title={t("sessionPlayer.cues", "Consignes")}
-                    icon={<InfoOutlineIcon color={infoIconColor} />}
-                    accent="blue"
-                    items={toArray(displayExercise.consignes)}
-                  />
-                )}
-              </Box>
-
               <Box
                 order={{ base: 4, lg: 3 }}
                 position={{ base: "static", lg: "sticky" }}
@@ -6590,6 +6570,24 @@ export default function SessionPlayer() {
                     />
                   </VStack>
                 </Box>
+              </Box>
+              <Box order={5} display={{ base: "block", lg: "none" }} w="full" minW={0}>
+                {displayExercise?.contraintes && (
+                  <ListCard
+                    title={t("sessionPlayer.constraints", "Contraintes")}
+                    icon={<WarningTwoIcon color={warningIconColor} />}
+                    accent="yellow"
+                    items={toArray(displayExercise.contraintes)}
+                  />
+                )}
+                {displayExercise?.consignes && (
+                  <ListCard
+                    title={t("sessionPlayer.cues", "Consignes")}
+                    icon={<InfoOutlineIcon color={infoIconColor} />}
+                    accent="blue"
+                    items={toArray(displayExercise.consignes)}
+                  />
+                )}
               </Box>
             </Grid>
           </motion.div>

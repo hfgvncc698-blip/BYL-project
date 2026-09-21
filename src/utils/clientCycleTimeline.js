@@ -1,6 +1,7 @@
 import {readProgramActiveWeeks} from './programDuration.js';
 import {selectJourneyProgram} from './clientJourney.js';
 import {initialCyclePreparation} from './initialCyclePreparation.js';
+import {reconcileStartedCycle} from './reconcileStartedCycle.js';
 const time=value=>value?.toMillis?.()||(value?.seconds?value.seconds*1000:Date.parse(value))||0;
 function inferredType(program) {
   if(program.cycleType)return program.cycleType;
@@ -16,7 +17,7 @@ function inferredType(program) {
 // the active programme. Unlinked programmes are available, not promised next steps.
 export function clientCycleTimeline(profile,programs=[]) {
   if(profile?.sportFollowView==='programs')return [];
-  const cycles=initialCyclePreparation(profile?.trainingPlan)?.cycles||[];
+  const cycles=reconcileStartedCycle(initialCyclePreparation(profile?.trainingPlan),programs)?.cycles||[];
   const activeId=cycles.find(c=>!c.closedAt)?.id;
   const linked=cycles.flatMap(cycle=>{
     const program=programs.find(p=>p.id===cycle.programId && p.status!=='draft' && !p.excludeFromCyclePlanning);
