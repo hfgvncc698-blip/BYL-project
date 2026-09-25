@@ -407,9 +407,9 @@ check("each app opening requests a fresh geolocation without reusing a saved pla
   );
   assert.ok(
     geolocation.includes('browserPermission === "denied"') &&
-      geolocation.includes('readStoredGeoDecision() === "denied" && browserPermission !== "granted"') &&
-      !geolocation.includes('storedDecision === "granted" && browserPermission !== "granted"'),
-    "Respect a remembered refusal unless the browser explicitly reports a new grant"
+      !geolocation.includes('readStoredGeoDecision() === "denied"') &&
+      geolocation.includes('browserPermission === "denied" ? "denied" : "available"'),
+    "Only a browser-level denial may block a fresh geolocation request"
   );
   assert.ok(
     geolocation.includes("const clearCachedGeo") &&

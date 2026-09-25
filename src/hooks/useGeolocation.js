@@ -329,8 +329,8 @@ export default function useGeolocation({
     };
   }, [enabled, watch, saveAnalytics, permissionAccess, retryAttempt, JSON.stringify(options ?? {})]);
 
-  // Only a deliberate user action may override the site's remembered refusal.
-  // A browser-level block cannot be overridden: its site settings must change.
+  // A manual retry can restart a stalled request. A browser-level block must
+  // be changed in the browser's site settings before it can succeed.
   const retryPermission = () => {
     if (!enabled || browserPermission === "denied") return;
     try { localStorage.removeItem(GEO_PERMISSION_DECISION_KEY); } catch { /* optional storage */ }
