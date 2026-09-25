@@ -64,7 +64,7 @@ while IFS= read -r -d '' file; do
     node_modules/*|.env|serviceAccountKey.json|firebase-service-account.json|*.log) continue ;;
   esac
   [[ -f "backend/$rel" ]] || fail "Fichier backend supplémentaire en ligne : $rel ; aucune publication."
-done < <(find "$API" -type f -print0)
+done < <(find "$API" -path "$API/node_modules" -prune -o -type f -print0)
 
 echo "Base vérifiée. Application des 10 fichiers admin/GPS et tests..."
 git -C "$SOURCE" diff --binary "$BASE" "$FIX" -- "${files[@]}" | git apply --check
