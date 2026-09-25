@@ -66,6 +66,7 @@ export async function trackPageView({
   accuracy,
   geoCapturedAt,
   geoSource,
+  geoStatus,
   visitId,
   analyticsAllowed = true,
 }) {
@@ -89,6 +90,7 @@ export async function trackPageView({
     accuracy: includeCoords && Number.isFinite(Number(accuracy)) ? Number(accuracy) : null,
     geoCapturedAt: includeCoords && Number.isFinite(Number(geoCapturedAt)) ? Number(geoCapturedAt) : null,
     geoSource: includeCoords ? String(geoSource || "browser").slice(0, 40) : null,
+    geoStatus: includeCoords ? "granted" : String(geoStatus || "pending").slice(0, 30),
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
   };
 
