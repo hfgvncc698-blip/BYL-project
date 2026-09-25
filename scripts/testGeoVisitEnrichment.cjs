@@ -50,6 +50,7 @@ async function send({ visitId = 'opening-one', visitorId = 'uid:one', lat = null
     uid: visitorId, role: 'coach', path: '/coach-dashboard', country, city, lat, lng,
     accuracy: lat === null ? null : 15, geoCapturedAt: captured ? new Date(captured) : null,
     geoSource: lat === null ? 'network' : 'browser', analyticsAllowed: true,
+    geoStatus: lat === null ? 'pending' : 'granted', hasUsableCoords: lat !== null && lng !== null,
     geoId: `${country}-${city}`, hasGeoLabel: country !== 'UN' && city !== 'unknown', safeKey: value => value,
   });
   await vm.runInContext(`(async () => {${transactionCode}})()`, context);
@@ -83,6 +84,9 @@ const day = () => stored.get('analytics_daily/2026-09-09');
   assert.equal(stored.get('analytics_geo/FR-Cannes').pv, 1, 'replay does not inflate city visits');
   await send({ visitId: 'opening-two' });
   assert.equal(events().length, 2, 'a genuine new opening remains separate');
+  const storedVisitor = stored.get('analytics_daily/2026-09-09/visitors/uid:one');
+  assert.equal(storedVisitor.lat, 43.5, 'a missing new GPS fix keeps the last known location in the visitor summary');
+  assert.equal(storedVisitor.geoStatus, 'pending', 'the new visit still records the missing fix');
   await send({ visitorId: 'uid:two' });
   assert.equal(events().length, 3, 'another user cannot overwrite this visit');
   await send({ visitId: null });

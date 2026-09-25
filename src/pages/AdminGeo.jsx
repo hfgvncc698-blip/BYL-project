@@ -380,6 +380,7 @@ async function loadAdminGeoFromFirestore() {
       accuracy: typeof x.accuracy === "number" ? x.accuracy : null,
       geoCapturedAt: toIso(x.geoCapturedAt),
       geoSource: cleanText(x.geoSource, 40, "network"),
+      geoStatus: cleanText(x.geoStatus, 30, "unknown"),
       timeZone: cleanText(x.timeZone, 80, ""),
       firstSeenAt: toIso(x.firstSeenAt),
       lastSeenAt: toIso(x.lastSeenAt || x.firstSeenAt),
@@ -406,6 +407,7 @@ async function loadAdminGeoFromFirestore() {
       accuracy: typeof x.accuracy === "number" ? x.accuracy : null,
       geoCapturedAt: toIso(x.geoCapturedAt),
       geoSource: cleanText(x.geoSource, 40, "network"),
+      geoStatus: cleanText(x.geoStatus, 30, "unknown"),
       timeZone: cleanText(x.timeZone, 80, ""),
       firstSeenAt: toIso(x.seenAt),
       lastSeenAt: toIso(x.seenAt),
@@ -956,6 +958,21 @@ export default function AdminGeo() {
     () => visibleCities.filter(isValidMapPoint),
     [visibleCities]
   );
+  // A GPS fix remains visible even when reverse geocoding could not name its city.
+  const unnamedGpsPoints = useMemo(() => {
+    if (windowKey !== "today") return [];
+    const latest = new Map();
+    displayedRecentVisitors.forEach((visit) => {
+      if (isKnownGeo(visit.country, visit.city) ||
+          !Number.isFinite(visit.lat) || !Number.isFinite(visit.lng) ||
+          isNullIsland(visit.lat, visit.lng)) return;
+      const visitDate = toDate(visit.lastSeenAt || visit.firstSeenAt);
+      if (!visitDate || fmtDay(visitDate) !== todayKey) return;
+      const key = visit.visitorId || visit.uid || visit.id;
+      if (!latest.has(key)) latest.set(key, visit);
+    });
+    return [...latest.values()];
+  }, [displayedRecentVisitors, windowKey, todayKey]);
   const mapFitRequestKey = JSON.stringify([
     windowKey, metric, minVal, search.trim(), roleFilter, personSearch.trim(), mapRecenterRequest,
   ]);
@@ -1400,7 +1417,7 @@ export default function AdminGeo() {
             <Button
               size="sm"
               variant="outline"
-              isDisabled={!mapPoints.length}
+              isDisabled={!mapPoints.length && !unnamedGpsPoints.length}
               onClick={() => setMapRecenterRequest((value) => value + 1)}
             >Recentrer la carte</Button>
             <Button
@@ -1430,9 +1447,20 @@ export default function AdminGeo() {
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 />
-                <FitToMarkers points={mapPoints} requestKey={mapFitRequestKey} pending={peopleFilterLoading} />
+                <FitToMarkers points={[...mapPoints, ...unnamedGpsPoints.map((v) => ({ lat: v.lat, lon: v.lng }))]} requestKey={mapFitRequestKey} pending={peopleFilterLoading} />
                 <MapZoomListener onZoomChange={handleMapZoomChange} />
                 <MapFocusController target={mapFocus} markerRefs={markerRefs} />
+                {unnamedGpsPoints.map((visit) => (
+                  <CircleMarker key={`gps:${visit.visitorId || visit.id}`} center={[visit.lat, visit.lng]}
+                    radius={13} pathOptions={{ color: "#b45309", weight: 3, fillColor: "#f59e0b", fillOpacity: 0.9 }}>
+                    <Tooltip>{visit.personName || "Visiteur anonyme"} — GPS reçu, ville inconnue</Tooltip>
+                    <Popup>
+                      <strong>{visit.personName || "Visiteur anonyme"}</strong><br />
+                      {visit.lat.toFixed(4)}, {visit.lng.toFixed(4)}<br />
+                      Ville non déterminée — {formatDateTime(visit.lastSeenAt || visit.firstSeenAt)}
+                    </Popup>
+                  </CircleMarker>
+                ))}
                 {renderedMapPoints.map((c) => {
                   const v = Math.max(1, c.value || 0);
                   const r = c.isCluster ? Math.max(13, Math.sqrt(v) * 3) : Math.max(5, Math.sqrt(v) * 2.2);

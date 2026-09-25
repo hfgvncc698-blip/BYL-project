@@ -63,21 +63,25 @@ assert.deepEqual(getGeoVisitorLoadBatch(manyCities, inFlightCache, "today"), [ma
 assert.equal(getGeoVisitorLoadBatch(manyCities, inFlightCache, "7d").length, 6,
   "in-flight results from another period cannot hide pending cities");
 
-assert.deepEqual(getVisitLocationDisplay(), { label: "Position non disponible", detail: "" });
+assert.deepEqual(getVisitLocationDisplay(), { label: "Position non disponible", detail: "Cause inconnue : cette visite ne fournit aucun diagnostic." });
 assert.deepEqual(getVisitLocationDisplay({ city: "unknown", country: "un", lat: null, lng: null, accuracy: null }),
-  { label: "Position non disponible", detail: "" });
+  { label: "Position non disponible", detail: "Cause inconnue : cette visite ne fournit aucun diagnostic." });
 assert.deepEqual(getVisitLocationDisplay({ city: "Cannes", country: "fr", lat: 43.5, lng: 7, accuracy: 17.2 }),
   { label: "Cannes, FR", detail: "Précision ≈ 17 m" });
 assert.deepEqual(getVisitLocationDisplay({ city: "unknown", country: "UN", lat: 43.5, lng: 7, accuracy: null }),
   { label: "43.5000, 7.0000", detail: "Coordonnées reçues, ville non déterminée." });
 assert.equal(getVisitLocationDisplay({ city: "Cannes", country: "FR", lat: 43.5, lng: 7, accuracy: null }).detail, "",
   "missing accuracy must not be displayed as 0m");
-assert.equal(getVisitLocationDisplay({ country: "FR" }).detail, "Localisation approximative : pays uniquement.");
+assert.equal(getVisitLocationDisplay({ country: "FR" }).detail, "Localisation approximative : pays uniquement. Cause inconnue : cette visite ne fournit aucun diagnostic.");
+assert.match(getVisitLocationDisplay({ geoStatus: "denied" }).detail, /refusé/);
+assert.match(getVisitLocationDisplay({ geoStatus: "timeout" }).detail, /délai/);
+assert.match(getVisitLocationDisplay({ geoStatus: "pending", lastKnownLocation: { lat: 43.5, lng: 7 } }).detail, /visite antérieure/);
 assert.equal(getVisitLocationDisplay({ lat: 91, lng: 7 }).label, "Position non disponible");
 assert.equal(getVisitLocationDisplay({ lat: 0, lng: 0 }).label, "Position non disponible");
 
 const source = readFileSync(new URL("../src/pages/AdminGeo.jsx", import.meta.url), "utf8");
-assert.match(source, /<FitToMarkers points=\{mapPoints\} requestKey=\{mapFitRequestKey\}/);
+assert.match(source, /<FitToMarkers points=\{\[\.\.\.mapPoints, \.\.\.unnamedGpsPoints/);
+assert.match(source, /key=\{`gps:\$\{visit\.visitorId/);
 assert.doesNotMatch(source, /window\.L/);
 assert.match(source, /const map = useMapEvents\(handlers\)/, "zoom listener remains subscribed during synchronous fits");
 assert.match(source, /zoomend: \(event\) => onZoomChange\(event.target.getZoom\(\)\)/);

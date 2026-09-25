@@ -21,15 +21,6 @@ const distanceMeters = (a, b) => {
   return earthRadius * 2 * Math.atan2(Math.sqrt(clamped), Math.sqrt(1 - clamped));
 };
 
-const readStoredGeoDecision = () => {
-  try {
-    const value = localStorage.getItem(GEO_PERMISSION_DECISION_KEY);
-    return value === "granted" || value === "denied" ? value : null;
-  } catch {
-    return null;
-  }
-};
-
 const writeStoredGeoDecision = (decision) => {
   if (decision !== "granted" && decision !== "denied") return;
   try {
@@ -79,10 +70,10 @@ export default function useGeolocation({
   }, [enabled, browserPermission]);
   // Accepting the native prompt must not cancel and restart the request that
   // opened it. Identity changes are likewise unrelated to the GPS subscription.
+  // The browser owns the permission. A stored decision must never suppress a
+  // fresh request: Safari may grant access for only one visit.
   const permissionAccess = browserPermission === "checking" ? "checking" :
-    browserPermission === "denied" ||
-    (readStoredGeoDecision() === "denied" && browserPermission !== "granted")
-      ? "denied" : !retryAttempt && readStoredGeoDecision() === "granted" && browserPermission !== "granted" ? "paused" : "available";
+    browserPermission === "denied" ? "denied" : "available";
 
   const isUsablePosition = (lat, lng) =>
     Number.isFinite(lat) &&
@@ -98,6 +89,14 @@ export default function useGeolocation({
     } catch {
       // ignore
     }
+  };
+
+  const publishGeoStatus = (status, notify = true) => {
+    try {
+      localStorage.setItem("BYL_GEO_STATUS", status);
+      localStorage.setItem(GEO_PAGE_LOAD_STORAGE_KEY, GEO_PAGE_LOAD_ID);
+      if (notify) window.dispatchEvent(new Event("BYL_GEO_READY"));
+    } catch { /* storage is optional */ }
   };
 
   // Helper: écrit localStorage + déclenche event pour RouteAnalyticsListener
@@ -182,6 +181,7 @@ export default function useGeolocation({
     if (!enabled) return;
 
     if (!("geolocation" in navigator)) {
+      publishGeoStatus("unsupported");
       setState({
         status: "unsupported",
         position: null,
@@ -200,19 +200,14 @@ export default function useGeolocation({
     } catch {
       clearCachedGeo();
     }
+    if (saveAnalytics) publishGeoStatus("pending", false);
 
     if (permissionAccess === "checking") return;
-
-    // A remembered site choice cannot turn a temporary browser grant into a
-    // permanent one. Do not trigger a new native prompt on every reload.
-    if (permissionAccess === "paused") {
-      setState({ status: "idle", position: null, error: null });
-      return;
-    }
 
     if (permissionAccess === "denied") {
       writeStoredGeoDecision("denied");
       clearCachedGeo();
+      publishGeoStatus("denied");
       setState({
         status: "denied",
         position: null,
@@ -251,6 +246,7 @@ export default function useGeolocation({
       const positionRequest = ++latestPositionRequest;
 
       writeStoredGeoDecision("granted");
+      publishGeoStatus("granted", false);
       setState({ status: "granted", position: base, error: null });
 
       // L'écriture Firestore se fait côté backend via /api/analytics/pageview.
@@ -300,6 +296,7 @@ export default function useGeolocation({
         writeStoredGeoDecision("denied");
         clearCachedGeo();
       }
+      publishGeoStatus(err?.code === 1 ? "denied" : err?.code === 2 ? "unavailable" : err?.code === 3 ? "timeout" : "error");
       setState({ status: err?.code === 1 ? "denied" : "idle", position: null, error: new Error(readable) });
     };
 
