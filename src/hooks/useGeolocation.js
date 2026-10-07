@@ -51,6 +51,7 @@ const writeStoredGeoDecision = (decision) => {
  */
 export default function useGeolocation({
   enabled = true,
+  disabledReason = "disabled",
   watch = false,
   options,
   saveAnalytics = false,
@@ -83,6 +84,25 @@ export default function useGeolocation({
     browserPermission === "denied" ||
     (readStoredGeoDecision() === "denied" && browserPermission !== "granted")
       ? "denied" : !retryAttempt && readStoredGeoDecision() === "granted" && browserPermission !== "granted" ? "paused" : "available";
+
+  useEffect(() => {
+    // Record observable evidence, never infer a click on the native prompt.
+    const status = !enabled ? disabledReason
+      : permissionAccess === 'checking' ? 'checking'
+      : browserPermission === 'denied' ? 'browser_denied'
+      : state.requestFailed ? 'permission_error'
+      : permissionAccess === 'denied' ? 'remembered_denied'
+      : state.error?.message === 'Timeout' ? 'timeout'
+      : state.error?.message === 'Position unavailable' ? 'unavailable'
+      : state.status === 'denied' ? (permissionAccess === 'denied' ? 'remembered_denied' : 'permission_error')
+      : state.status === 'granted' ? 'granted'
+      : permissionAccess === 'paused' ? 'renewal_required'
+      : state.status === 'idle' ? 'prompt' : state.status;
+    try {
+      sessionStorage.setItem('BYL_GEO_STATUS', status);
+      window.dispatchEvent(new Event('BYL_GEO_STATUS_CHANGED'));
+    } catch { /* optional storage */ }
+  }, [enabled, disabledReason, state.status, state.error, state.requestFailed, browserPermission, permissionAccess]);
 
   const isUsablePosition = (lat, lng) =>
     Number.isFinite(lat) &&
@@ -242,7 +262,7 @@ export default function useGeolocation({
 
       if (!isUsablePosition(base.lat, base.lng)) {
         setState({
-          status: "denied",
+          status: "unavailable",
           position: null,
           error: new Error("Position géographique invalide"),
         });
@@ -300,7 +320,7 @@ export default function useGeolocation({
         writeStoredGeoDecision("denied");
         clearCachedGeo();
       }
-      setState({ status: err?.code === 1 ? "denied" : "idle", position: null, error: new Error(readable) });
+      setState({ status: err?.code === 1 ? "denied" : "idle", position: null, error: new Error(readable), requestFailed: err?.code === 1 });
     };
 
     const geoOptions = {

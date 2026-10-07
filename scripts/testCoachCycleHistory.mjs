@@ -32,3 +32,9 @@ const many = Array.from({ length: 22 }, (_, i) => ({ id: `past-${i}`, state: 'pa
 assert.equal(cycleDisplayNumbers(many, plan.cycles).get('cycle'), 23);
 assert.equal(cycleDisplayNumbers([], plan.cycles).get('cycle'), 1);
 console.log('Continuous numbering includes history and preserves the programme order.');
+
+const emptyPlan = { start: '2026-10-01', cycles: [{ id: 'empty', type: 'recovery' }] };
+const legacy = programs.filter(p => ['older', 'previous', 'current'].includes(p.id));
+const oldHistory = coachCycleHistory({}, legacy, emptyPlan);
+assert.equal(oldHistory.filter(c => c.state === 'past').length, 3);
+assert.equal(cycleDisplayNumbers(oldHistory, emptyPlan.cycles).get('empty'), 4);

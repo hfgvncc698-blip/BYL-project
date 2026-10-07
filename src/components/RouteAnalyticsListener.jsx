@@ -84,9 +84,11 @@ export default function RouteAnalyticsListener({ isAnalyticsOn = true, consentLo
     const handler = () => setGeoTick((t) => t + 1);
     window.addEventListener("BYL_GEO_READY", handler);
     window.addEventListener("BYL_CONSENT_UPDATED", handler);
+    window.addEventListener("BYL_GEO_STATUS_CHANGED", handler);
     return () => {
       window.removeEventListener("BYL_GEO_READY", handler);
       window.removeEventListener("BYL_CONSENT_UPDATED", handler);
+      window.removeEventListener("BYL_GEO_STATUS_CHANGED", handler);
     };
   }, []);
 
@@ -96,6 +98,8 @@ export default function RouteAnalyticsListener({ isAnalyticsOn = true, consentLo
     if (!isAnalyticsOn && !hasAuthenticatedUser) return;
 
     const geo = getGeoFromStorage();
+    let geoStatus = "unknown";
+    try { geoStatus = sessionStorage.getItem("BYL_GEO_STATUS") || "unknown"; } catch { /* optional storage */ }
     const cc = isAnalyticsOn ? country ?? geo.country : null;
     const ct = isAnalyticsOn ? city ?? geo.city : null;
     const lat = isAnalyticsOn ? geo.lat : null;
@@ -107,6 +111,7 @@ export default function RouteAnalyticsListener({ isAnalyticsOn = true, consentLo
     // Signature unique: si la geo change (unknown -> Cannes), la key change => on re-track (voulu)
     const key = [
       navigationKey,
+      geoStatus,
       location.pathname,
       location.search || "",
       uid,
@@ -154,6 +159,7 @@ export default function RouteAnalyticsListener({ isAnalyticsOn = true, consentLo
           accuracy: locationDisabled ? null : readyGeo.accuracy ?? geo.accuracy,
           geoCapturedAt: locationDisabled ? null : readyGeo.capturedAt ?? geo.capturedAt,
           geoSource: locationDisabled ? null : readyGeo.source ?? geo.source,
+          geoStatus: locationDisabled ? "disabled" : geoStatus,
           roleEffectif: roleEff,
           analyticsAllowed: !!isAnalyticsOn,
         });

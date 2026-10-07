@@ -19,7 +19,7 @@
     "analyticsHelp": "La collecte nécessite aussi votre consentement de mesure d’audience, géré dans les préférences de cookies.",
     "temporary": "Le navigateur peut demander votre accord, notamment si son autorisation précédente était temporaire.",
     "reminderTitle": "Autoriser votre localisation ?",
-    "reminderBody": "Vous aviez refusé la localisation. Vous pouvez continuer sans l’activer.",
+    "reminderBody": "L’accès à votre localisation n’est pas autorisé actuellement. Vous pouvez continuer sans l’activer.",
     "retryHelp": "Vous pouvez réessayer. Si le navigateur bloque la demande, modifiez l’autorisation de localisation dans les réglages de ce site.",
     "retry": "Réessayer",
     "later": "Pas maintenant"

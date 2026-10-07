@@ -30,12 +30,15 @@ function createHarness({ permission = "granted", permissionsSupported = true, st
     console, Date, Number, Math, JSON, Infinity, Error, Event,
     GEO_PAGE_LOAD_ID: pageLoadId,
     GEO_PAGE_LOAD_STORAGE_KEY: PAGE_LOAD_KEY,
+    sessionStorage: {
+      setItem: (key, value) => storage.set(key, String(value)),
+    },
     localStorage: {
       getItem: (key) => storage.get(key) ?? null,
       setItem: (key, value) => storage.set(key, String(value)),
       removeItem: (key) => storage.delete(key),
     },
-    window: { dispatchEvent: (event) => events.push(event.type) },
+    window: { dispatchEvent: (event) => event.type === "BYL_GEO_READY" && events.push(event.type) },
     navigator: {
       ...(permissionsSupported ? { permissions: { query: async () => permissionStatus } } : {}),
       geolocation: {
@@ -337,3 +340,13 @@ for (const option of ["saveAnalytics", "enabled"]) {
 }
 
 console.log(`${passed} geolocation lifecycle checks passed.`);
+
+await test("diagnostics distinguish blocked permission from remembered failure", async () => {
+  const blocked = createHarness({ permission: 'denied' });
+  await blocked.start();
+  assert.equal(blocked.storage.get('BYL_GEO_STATUS'), 'browser_denied');
+  const remembered = createHarness({ permission: 'prompt', stored: { [DECISION_KEY]: 'denied' } });
+  await remembered.start();
+  assert.equal(remembered.storage.get('BYL_GEO_STATUS'), 'remembered_denied');
+  assert.equal(remembered.watches.length, 0);
+});

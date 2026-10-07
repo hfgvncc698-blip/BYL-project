@@ -26,6 +26,7 @@ export default function GeolocationBootstrap() {
   const { status, retryPermission, permissionBlocked } = useGeolocation({
     // ✅ On demande la géoloc uniquement si consentement analytics = true
     enabled: locationOn,
+    disabledReason: locationPreference === false ? "disabled" : "analytics_disabled",
 
     // Garde la position à jour quand l'utilisateur change réellement de lieu
     // (voyage, sortie de veille, changement de réseau) au lieu de figer la

@@ -5006,11 +5006,12 @@ export default function ProgramBuilder({
                 )}
               </HStack>
 
-              {isCoach && preparedClientId && !preparedAlreadyValidated && !isAssignedClientProgram && <Button onClick={validateForPreparedClient} isLoading={validatingCycle} isDisabled={saving || assignmentBusyRef.current} size={ctaSize} borderRadius="full" whiteSpace="normal">{validationText[0]}</Button>}
+              {isCoach && preparedClientId && !preparedAlreadyValidated && !isAssignedClientProgram && <Button colorScheme="blue" onClick={validateForPreparedClient} isLoading={validatingCycle} isDisabled={saving || assignmentBusyRef.current} size={ctaSize} borderRadius="full" whiteSpace="normal">{validationText[0]}</Button>}
               {isCoach && (
                 <Button
                   data-tour="builder-save"
-                  colorScheme="blue"
+                  variant={preparedClientId && !preparedAlreadyValidated && !isAssignedClientProgram ? "outline" : "solid"}
+                  colorScheme={preparedClientId && !preparedAlreadyValidated && !isAssignedClientProgram ? "gray" : "blue"}
                   onClick={saveProgramme}
                   isLoading={saving}
                   size={ctaSize}

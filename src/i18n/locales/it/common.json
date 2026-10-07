@@ -19,7 +19,7 @@
     "analyticsHelp": "La raccolta richiede anche il consenso alle statistiche di utilizzo, gestito nelle preferenze dei cookie.",
     "temporary": "Il browser può chiedere il consenso, soprattutto se l’autorizzazione precedente era temporanea.",
     "reminderTitle": "Consentire l’accesso alla posizione?",
-    "reminderBody": "In precedenza hai rifiutato l’accesso alla posizione. Puoi continuare senza attivarlo.",
+    "reminderBody": "L’accesso alla posizione non è attualmente autorizzato. Puoi continuare senza attivarlo.",
     "retryHelp": "Puoi riprovare. Se il browser blocca la richiesta, modifica l’autorizzazione alla posizione nelle impostazioni di questo sito.",
     "retry": "Riprova",
     "later": "Non ora"

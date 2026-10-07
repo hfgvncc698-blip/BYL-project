@@ -4,6 +4,8 @@ const crypto = require("crypto");
 const { geoVisitEventId, isGeoVisitRegression } = require("../utils/geoVisitEvent");
 const { getBearerToken, getUserRole, safeSecretEqual } = require("../utils/firebaseAuth");
 
+const { formatGeoAddress } = require("../utils/geoAddress");
+
 const router = express.Router();
 
 const WINDOW_MS = 60 * 1000;
@@ -208,7 +210,7 @@ function pickCity(components = {}) {
   );
 }
 
-async function reverseGeocode({ lat, lng }) {
+async function reverseGeocode({ lat, lng, detailed = false }) {
   if (lat == null || lng == null) return null;
 
   const openCageKey = process.env.OPENCAGE_API_KEY || process.env.VITE_GEOCODING_KEY;
@@ -237,7 +239,7 @@ async function reverseGeocode({ lat, lng }) {
         const components = data?.results?.[0]?.components || {};
         const city = pickCity(components);
         const country = components.country_code ? String(components.country_code).toUpperCase() : null;
-        if (city || country) return { city, country, provider: "opencage" };
+        if (city || country) return { city, country, address: detailed ? formatGeoAddress(components) : null, provider: "opencage" };
       }
     } catch {
       // fallback Nominatim below
@@ -253,7 +255,7 @@ async function reverseGeocode({ lat, lng }) {
       format: "jsonv2",
       lat: String(lat),
       lon: String(lng),
-      zoom: "10",
+      zoom: detailed ? "18" : "10",
       addressdetails: "1",
       accept_language: "fr",
     });
@@ -270,7 +272,7 @@ async function reverseGeocode({ lat, lng }) {
     const city = pickCity(address);
     const country = address.country_code ? String(address.country_code).toUpperCase() : null;
     if (!city && !country) return null;
-    return { city, country, provider: "nominatim" };
+    return { city, country, address: detailed ? formatGeoAddress(address) : null, provider: "nominatim" };
   } catch {
     return null;
   } finally {
@@ -360,6 +362,29 @@ async function countSubcollection(ref, name) {
   }
 }
 
+// Resolve only positions explicitly opened by an admin, not every visit on page load.
+const addressCache = new Map();
+let addressQueue = Promise.resolve();
+router.post("/admin/geo/address", requireAnalyticsAdmin, async (req, res) => {
+  const lat = cleanCoordinate(req.body?.lat, -90, 90);
+  const lng = cleanCoordinate(req.body?.lng, -180, 180);
+  if (lat == null || lng == null || isNullIsland(lat, lng)) return res.status(400).json({ error: 'invalid-coordinates' });
+  const key = `${lat},${lng}`;
+  let entry = addressCache.get(key);
+  if (!entry || entry.expires < Date.now()) {
+    const promise = addressQueue.then(() => reverseGeocode({ lat, lng, detailed: true }));
+    addressQueue = promise.catch(() => null).then(() => new Promise(resolve => setTimeout(resolve, 1100)));
+    entry = { promise, expires: Date.now() + 60 * 60 * 1000 };
+    if (addressCache.size >= 500) addressCache.delete(addressCache.keys().next().value);
+    addressCache.set(key, entry);
+  }
+  try {
+    const result = await entry.promise;
+    res.set('Cache-Control', 'private, no-store');
+    return res.json({ address: result?.address || null });
+  } catch { return res.status(503).json({ error: 'address-unavailable' }); }
+});
+
 router.get("/admin/geo", requireAnalyticsAdmin, async (_req, res) => {
   try {
     res.set("Cache-Control", "no-store");
@@ -444,21 +469,25 @@ router.get("/admin/geo", requireAnalyticsAdmin, async (_req, res) => {
       };
     }));
 
-    const todayVisitorSnap = await db
-      .collection("analytics_daily")
-      .doc(today)
-      .collection("visitors")
-      .limit(120)
-      .get()
-      .catch(() => ({ docs: [] }));
+    const windowKey = _req.query.window || "today";
+    const count = windowKey === "7d" ? 7 : windowKey === "30d" ? 30 : 1;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - count + 1);
+    const firstDay = fmtDay(startDate);
+    const days = [...new Set([today, ...globalDailySnap.docs.map(d => d.id)])]
+      .filter(day => /^\d{4}-\d{2}-\d{2}$/.test(day) && day <= today && (windowKey === "all" || day >= firstDay));
+    const loadVisits = async (name, field) => ({ docs: (await Promise.all(days.map(day =>
+      db.collection("analytics_daily").doc(day).collection(name).orderBy(field, "desc").limit(120).get()
+    ))).flatMap(snap => snap.docs) });
+    const todayVisitorSnap = await loadVisits("visitors", "lastSeenAt");
     const recentVisitorRefs = new Map();
     const recentVisitorsBase = todayVisitorSnap.docs.map((docSnap) => {
-      recentVisitorRefs.set(docSnap.id, docSnap.ref);
+      recentVisitorRefs.set(docSnap.ref.path, docSnap.ref);
       const x = docSnap.data() || {};
       const visitorId = x.visitorId || docSnap.id;
       const uid = String(visitorId || "").startsWith("uid:") ? String(visitorId).slice(4) : "";
       return {
-        id: docSnap.id,
+        id: docSnap.ref.path,
         visitorId,
         uid,
         role: cleanText(x.role, 40, "unknown"),
@@ -471,25 +500,19 @@ router.get("/admin/geo", requireAnalyticsAdmin, async (_req, res) => {
         accuracy: typeof x.accuracy === "number" ? x.accuracy : null,
         geoCapturedAt: toIso(x.geoCapturedAt),
         geoSource: cleanText(x.geoSource, 40, "network"),
+        geoStatus: cleanText(x.geoStatus, 40, "unknown"),
         timeZone: cleanText(x.timeZone, 80, ""),
         firstSeenAt: toIso(x.firstSeenAt),
         lastSeenAt: toIso(x.lastSeenAt || x.firstSeenAt),
       };
     });
-    const todayVisitEventSnap = await db
-      .collection("analytics_daily")
-      .doc(today)
-      .collection("events")
-      .orderBy("seenAt", "desc")
-      .limit(120)
-      .get()
-      .catch(() => ({ docs: [] }));
+    const todayVisitEventSnap = await loadVisits("events", "seenAt");
     const recentVisitEventsBase = todayVisitEventSnap.docs.map((docSnap) => {
       const x = docSnap.data() || {};
       const visitorId = x.visitorId || "";
       const uid = cleanText(x.uid, 120, "") || (String(visitorId).startsWith("uid:") ? String(visitorId).slice(4) : "");
       return {
-        id: `event:${docSnap.id}`,
+        id: `event:${docSnap.ref.path}`,
         eventId: docSnap.id,
         visitorId,
         uid,
@@ -503,6 +526,7 @@ router.get("/admin/geo", requireAnalyticsAdmin, async (_req, res) => {
         accuracy: typeof x.accuracy === "number" ? x.accuracy : null,
         geoCapturedAt: toIso(x.geoCapturedAt),
         geoSource: cleanText(x.geoSource, 40, "network"),
+        geoStatus: cleanText(x.geoStatus, 40, "unknown"),
         timeZone: cleanText(x.timeZone, 80, ""),
         firstSeenAt: toIso(x.seenAt),
         lastSeenAt: toIso(x.seenAt),
@@ -517,6 +541,7 @@ router.get("/admin/geo", requireAnalyticsAdmin, async (_req, res) => {
         const data = snap.data() || {};
         visitorUsers.set(uid, {
           name: pickPersonName(data, uid),
+          knownLocation: data.location ? { ...data.location, capturedAt: toIso(data.location.capturedAt || data.location.updatedAt) } : null,
           email: data.email || "",
           role: data.role || "",
         });
@@ -556,6 +581,7 @@ router.get("/admin/geo", requireAnalyticsAdmin, async (_req, res) => {
 
         return {
           ...visit,
+          knownLocation: person?.knownLocation || null,
           personName: person?.name || (visit.uid ? visit.uid : "Visiteur anonyme"),
           email: person?.email || "",
           role: person?.role || visit.role,
@@ -602,6 +628,7 @@ router.get("/admin/geo", requireAnalyticsAdmin, async (_req, res) => {
 
         return {
           ...visit,
+          knownLocation: person?.knownLocation || null,
           personName: person?.name || (visit.uid ? visit.uid : "Visiteur anonyme"),
           email: person?.email || "",
           role: person?.role || visit.role,
@@ -615,7 +642,7 @@ router.get("/admin/geo", requireAnalyticsAdmin, async (_req, res) => {
     ))
       .sort((a, b) => String(b.lastSeenAt || "").localeCompare(String(a.lastSeenAt || "")));
 
-    const recentVisitors = (recentVisitEvents.length > 0 ? recentVisitEvents : [...recentByKey.values()])
+    const recentVisitors = [...recentVisitEvents, ...recentVisitorsFromAnalytics.filter(visit => !recentVisitEvents.some(event => event.visitorId === visit.visitorId && event.lastSeenAt?.slice(0, 10) === visit.lastSeenAt?.slice(0, 10))) ]
       .sort((a, b) => String(b.lastSeenAt || "").localeCompare(String(a.lastSeenAt || "")));
 
     return res.json({
@@ -1119,7 +1146,7 @@ router.post("/pageview", async (req, res) => {
     const visitEventRef = visitEventId ? dailyRef.collection("events").doc(visitEventId) : dailyRef.collection("events").doc();
     const visitEvent = {
       visitorId, uid: uid || null, role, path, country, city, lat, lng,
-      accuracy, geoCapturedAt, geoSource, timeZone: visitorTimeZone, analyticsAllowed,
+      accuracy, geoCapturedAt, geoSource, geoStatus: cleanText(req.body?.geoStatus, 40, "unknown"), timeZone: visitorTimeZone, analyticsAllowed,
       geoId: hasGeoLabel ? geoId : null,
     };
     const dailyVisitorRef = dailyRef.collection("visitors").doc(visitorId);

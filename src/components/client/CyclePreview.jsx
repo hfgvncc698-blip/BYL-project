@@ -1,31 +1,37 @@
 import RightDisclosureSummary from '../ui/RightDisclosureSummary';
 import React from 'react';
-import { Box, Text, Stack } from '@chakra-ui/react';
+import { Badge, Box, Text, Stack } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 
+const frequencyLabels = { fr: 'séance(s) / semaine', en: 'session(s) / week', es: 'sesión(es) / semana', it: 'sessioni / settimana', de: 'Einheiten / Woche', ru: 'тренировок / неделю', ar: 'حصص / أسبوع' };
+const restLabels = { fr: 'Repos', en: 'Rest', es: 'Descanso', it: 'Recupero', de: 'Pause', ru: 'Отдых', ar: 'الراحة' };
 const messages = {
-  fr: ['Programme prévisionnel', 'Base :', 'La proposition évolue avec les résultats enregistrés, jusqu’à l’ouverture du brouillon. Les modifications du coach ne sont jamais remplacées.', 'Voir les séances proposées', 'Séance'],
-  en: ['Projected programme', 'Based on:', 'The suggestion evolves with recorded results until the draft is opened. Coach edits are never replaced.', 'View suggested sessions', 'Session'],
-  es: ['Programa provisional', 'Base:', 'La propuesta evoluciona con los resultados hasta abrir el borrador. Nunca se sustituyen los cambios del entrenador.', 'Ver sesiones propuestas', 'Sesión'],
-  it: ['Programma previsionale', 'Base:', 'La proposta evolve con i risultati fino all’apertura della bozza. Le modifiche del coach non vengono sostituite.', 'Vedi sessioni proposte', 'Sessione'],
-  de: ['Vorläufiges Programm', 'Grundlage:', 'Der Vorschlag entwickelt sich mit den Ergebnissen bis zum Öffnen des Entwurfs. Änderungen des Coaches werden nie ersetzt.', 'Vorgeschlagene Einheiten ansehen', 'Einheit'],
-  ru: ['Предварительная программа', 'Основа:', 'Предложение обновляется по результатам до открытия черновика. Изменения тренера не заменяются.', 'Посмотреть предложенные тренировки', 'Тренировка'],
-  ar: ['برنامج مبدئي', 'الأساس:', 'يتطور الاقتراح مع النتائج المسجلة حتى فتح المسودة. لا تُستبدل تعديلات المدرب مطلقاً.', 'عرض الحصص المقترحة', 'الحصة'],
+  fr: ['Programme prévisionnel', 'Base :', 'Nouvel exercice', 'Voir les séances proposées', 'Séance'],
+  en: ['Projected programme', 'Based on:', 'New exercise', 'View suggested sessions', 'Session'],
+  es: ['Programa provisional', 'Base:', 'Nuevo ejercicio', 'Ver sesiones propuestas', 'Sesión'],
+  it: ['Programma previsionale', 'Base:', 'Nuovo esercizio', 'Vedi sessioni proposte', 'Sessione'],
+  de: ['Vorläufiges Programm', 'Grundlage:', 'Neue Übung', 'Vorgeschlagene Einheiten ansehen', 'Einheit'],
+  ru: ['Предварительная программа', 'Основа:', 'Новое упражнение', 'Посмотреть предложенные тренировки', 'Тренировка'],
+  ar: ['برنامج مبدئي', 'الأساس:', 'تمرين جديد', 'عرض الحصص المقترحة', 'الحصة'],
 };
 export default function CyclePreview({ preview }) {
   const { i18n } = useTranslation();
-  const [title, based, hint, view, sessionLabel] = messages[(i18n.resolvedLanguage || i18n.language || 'fr').split('-')[0]] || messages.fr;
+  const language = (i18n.resolvedLanguage || i18n.language || 'fr').split('-')[0];
+  const restLabel = restLabels[(i18n.resolvedLanguage || i18n.language || 'fr').split('-')[0]] || restLabels.fr;
+  const [title, based, newExercise, view, sessionLabel] = messages[(i18n.resolvedLanguage || i18n.language || 'fr').split('-')[0]] || messages.fr;
   return <Box>
     <Text fontWeight="semibold" fontSize="sm">{title}</Text>
     <Text fontSize="sm">{based} {preview.sourceName}</Text>
-    <Text fontSize="xs" mt={1}>{hint}</Text>
+    <Text fontSize="sm" fontWeight="medium">{preview.sessions.length} {frequencyLabels[language] || frequencyLabels.fr}</Text>
     <Box as="details" mt={3}>
       <RightDisclosureSummary py={0} fontSize="sm" fontWeight="semibold">{view}</RightDisclosureSummary>
       <Stack spacing={3} mt={2}>
         {preview.sessions.map((session, index) => <Box key={index} borderWidth="1px" borderRadius="lg" p={3}>
           <Text fontWeight="semibold" fontSize="sm">{session.name || `${sessionLabel} ${index + 1}`}</Text>
           {(session.useSections ? ['echauffement', 'corps', 'bonus', 'retourCalme'] : ['exercises', 'corps']).flatMap(key => session[key] || []).map((exercise, n) => <Text fontSize="sm" mt={1} key={n}>
-            {exercise.nom || exercise.name || '—'}{exercise['Répétitions'] ? ` · ${exercise['Séries'] || '—'} × ${exercise['Répétitions']}` : ''}{exercise['Charge (kg)'] > 0 ? ` · ${exercise['Charge (kg)']} kg` : ''}
+            {exercise.translations?.[language]?.nom || exercise.translations?.[language]?.name || exercise.nom || exercise.name || '—'}{exercise['Répétitions'] ? ` · ${exercise['Séries'] || '—'} × ${exercise['Répétitions']}` : ''}{exercise['Charge (kg)'] > 0 ? ` · ${exercise['Charge (kg)']} kg` : ''}
+            {exercise['Repos (min:sec)'] > 0 ? ` · ${restLabel} ${exercise['Repos (min:sec)']} s` : ''}
+            {exercise.cycleVariation?.proposed && <Badge ml={2} colorScheme="purple" fontSize="2xs" textTransform="none">{newExercise}</Badge>}
           </Text>)}
         </Box>)}
       </Stack>

@@ -44,11 +44,11 @@ export function createCycleValidationOperation({ db, programId, clientId, payloa
 }
 
 export const cycleValidationLabels = {
-  fr: ['Valider pour ce client', 'Enregistrer le brouillon', 'Programme validé et assigné', 'Validation impossible. Vérifiez la connexion ou rechargez le programme si la programmation a changé.'],
-  en: ['Validate for this client', 'Save draft', 'Programme validated and assigned', 'Could not validate. Check the connection or reload if the plan has changed.'],
-  es: ['Validar para este cliente', 'Guardar borrador', 'Programa validado y asignado', 'No se pudo validar. Comprueba la conexión o recarga si el plan ha cambiado.'],
-  it: ['Conferma per questo cliente', 'Salva bozza', 'Programma confermato e assegnato', 'Conferma non riuscita. Verifica la connessione o ricarica se il piano è cambiato.'],
-  de: ['Für diesen Kunden bestätigen', 'Entwurf speichern', 'Programm bestätigt und zugewiesen', 'Bestätigung fehlgeschlagen. Verbindung prüfen oder bei geändertem Plan neu laden.'],
-  ru: ['Подтвердить для клиента', 'Сохранить черновик', 'Программа подтверждена и назначена', 'Не удалось подтвердить. Проверьте соединение или обновите страницу, если план изменился.'],
-  ar: ['اعتماد لهذا العميل', 'حفظ المسودة', 'تم اعتماد البرنامج وإسناده', 'تعذر الاعتماد. تحقق من الاتصال أو أعد التحميل إذا تغيّرت الخطة.'],
+  fr: ['Ajouter à ce cycle', 'Enregistrer le brouillon', 'Programme validé et assigné', 'Validation impossible. Vérifiez la connexion ou rechargez le programme si la programmation a changé.'],
+  en: ['Add to this cycle', 'Save draft', 'Programme validated and assigned', 'Could not validate. Check the connection or reload if the plan has changed.'],
+  es: ['Añadir a este ciclo', 'Guardar borrador', 'Programa validado y asignado', 'No se pudo validar. Comprueba la conexión o recarga si el plan ha cambiado.'],
+  it: ['Aggiungi a questo ciclo', 'Salva bozza', 'Programma confermato e assegnato', 'Conferma non riuscita. Verifica la connessione o ricarica se il piano è cambiato.'],
+  de: ['Zu diesem Zyklus hinzufügen', 'Entwurf speichern', 'Programm bestätigt und zugewiesen', 'Bestätigung fehlgeschlagen. Verbindung prüfen oder bei geändertem Plan neu laden.'],
+  ru: ['Добавить в этот цикл', 'Сохранить черновик', 'Программа подтверждена и назначена', 'Не удалось подтвердить. Проверьте соединение или обновите страницу, если план изменился.'],
+  ar: ['إضافة إلى هذه الدورة', 'حفظ المسودة', 'تم اعتماد البرنامج وإسناده', 'تعذر الاعتماد. تحقق من الاتصال أو أعد التحميل إذا تغيّرت الخطة.'],
 };

@@ -267,3 +267,23 @@ const nextSessionLabels = {
 };
 for (const [language, values] of Object.entries(nextSessionLabels)) Object.assign(cycleTranslations[language], { startNextSession: values[0], durationFromProgram: values[1] });
 for (const [language, values] of Object.entries(sessionLabels)) Object.assign(cycleTranslations[language], Object.fromEntries(['partial', 'todo', 'compare', 'noResults', 'outsideDates'].map((key, index) => [key, values[index]])));
+
+const simpleWorkflowLabels = {
+  en: ['Resume draft', 'Customise this programme', 'Adjust the sessions, then add the programme to this cycle in one click.'],
+  es: ['Retomar el borrador', 'Personalizar este programa', 'Ajusta las sesiones y añade el programa a este ciclo con un clic.'],
+  it: ['Riprendi la bozza', 'Personalizza questo programma', 'Modifica le sessioni, poi aggiungi il programma al ciclo con un clic.'],
+  de: ['Entwurf fortsetzen', 'Programm anpassen', 'Passe die Einheiten an und füge das Programm mit einem Klick zum Zyklus hinzu.'],
+  ru: ['Продолжить черновик', 'Настроить программу', 'Настройте тренировки и добавьте программу в этот цикл одним нажатием.'],
+  ar: ['متابعة المسودة', 'تخصيص هذا البرنامج', 'عدّل الحصص ثم أضف البرنامج إلى هذه الدورة بنقرة واحدة.'],
+};
+for (const [language, values] of Object.entries(simpleWorkflowLabels)) Object.assign(cycleTranslations[language], Object.fromEntries(['resumeCycleDraft', 'editCycleProposal', 'cycleWorkflow'].map((key, index) => [key, values[index]])));
+
+const variantStatusLabels = {
+  en: ['Loading compatible variations…', 'Exercise library unavailable: variations are not included in this preview.'],
+  es: ['Cargando variantes compatibles…', 'Biblioteca de ejercicios no disponible: las variantes no se incluyen en esta vista previa.'],
+  it: ['Caricamento delle varianti compatibili…', 'Libreria esercizi non disponibile: le varianti non sono incluse in questa anteprima.'],
+  de: ['Kompatible Varianten werden geladen…', 'Übungsbibliothek nicht verfügbar: Diese Vorschau enthält keine Varianten.'],
+  ru: ['Загрузка подходящих вариантов…', 'Библиотека упражнений недоступна: варианты не включены в этот предварительный просмотр.'],
+  ar: ['جارٍ تحميل البدائل المناسبة…', 'مكتبة التمارين غير متاحة: لا تتضمن هذه المعاينة بدائل للتمارين.'],
+};
+for (const [language, values] of Object.entries(variantStatusLabels)) Object.assign(cycleTranslations[language], { variantsLoading: values[0], variantsUnavailable: values[1] });

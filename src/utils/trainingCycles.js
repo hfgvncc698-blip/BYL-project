@@ -30,7 +30,7 @@ export const CYCLE_TYPES = ['general', 'endurance', 'hypertrophy', 'strength', '
 
 export function inferCycleType(program = {}) {
   if (CYCLE_TYPES.includes(program.cycleType)) return program.cycleType;
-  const name = String(program.nomProgramme || program.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const name = String([program.nomProgramme, program.name, program.objectifUI, program.objectif].filter(Boolean).join(' ')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   if (/recuper|deload|de-load|recovery/.test(name)) return 'recovery';
   if (/endurance/.test(name)) return 'endurance';
   if (/hypertroph|masse|muscl/.test(name)) return 'hypertrophy';
@@ -40,9 +40,14 @@ export function inferCycleType(program = {}) {
 }
 
 export function continuingCyclePlan(client, programmes, suggestion) {
-  const unfinished = programmes.filter(p => !p.excludeFromCyclePlanning && p.__detailsLoaded && getProgramPlannedSessionTotal(p) > getProgramValidatedSessionCount(p));
+  const eligible = programmes.filter(p => p.status !== 'draft' && p.__detailsLoaded);
   const currentId = typeof client.currentProgramme === 'string' ? client.currentProgramme : client.currentProgramme?.id;
-  const current = unfinished.find(p => p.id === currentId) || (unfinished.length === 1 ? unfinished[0] : null);
+  const time = p => p.assignedAt?.toMillis?.() || p.assignedAt?.seconds * 1000 || Date.parse(p.assignedAt || p.createdAt) || p._assignedAtMs || 0;
+  const ordered = [...eligible].sort((a, b) => time(b) - time(a));
+  const latest = ordered.length === 1 || (ordered[0] && time(ordered[0]) > time(ordered[1])) ? ordered[0] : null;
+  const explicit = eligible.find(p => p.id === currentId);
+  const candidate = explicit && getProgramPlannedSessionTotal(explicit) > getProgramValidatedSessionCount(explicit) ? explicit : latest;
+  const current = candidate && getProgramPlannedSessionTotal(candidate) > getProgramValidatedSessionCount(candidate) ? candidate : null;
   if (!current) return suggestion;
   const inferred = inferCycleType(current);
   const type = inferred === 'endurance' && !current.cycleType ? 'general' : inferred;
@@ -71,9 +76,21 @@ export function formatCycleDate(value, locale = 'fr-FR') {
     : '—';
 }
 
-export function displayedCyclePlan(stored, suggestion) {
+export function displayedCyclePlan(stored, suggestion, programmes = null) {
   // Never replace a coach's saved plan, including an intentionally empty one.
-  if (stored && (stored.revision > 0 || stored.cycles?.length)) return initialCyclePreparation(stored);
+  if (stored && (stored.revision > 0 || stored.cycles?.length)) {
+    // Reconnect an empty legacy plan to the latest assigned programme, preserving
+    // every explicit programme/draft link and the coach's future sequence.
+    if (stored.cycles?.length && !stored.cycles.some(c => c.draftProgramId || c.closedAt || (c.programId && (!programmes || programmes.some(p => p.id === c.programId)))) && suggestion.cycles?.[0]?.programId) {
+      const first = { ...stored.cycles[0], programId: suggestion.cycles[0].programId,
+        type: stored.cycles[0].typeSource === 'coach' ? stored.cycles[0].type : suggestion.cycles[0].type,
+        weeks: suggestion.cycles[0].weeks };
+      const following = stored.cycles.slice(1);
+      if (following[0]?.type === first.type && following[0].typeSource !== 'coach') following.shift();
+      return { ...stored, start: suggestion.start, cycles: [first, ...following] };
+    }
+    return initialCyclePreparation(stored);
+  }
   return { ...suggestion, start: stored?.start || suggestion.start, revision: stored?.revision || 0 };
 }
 
@@ -156,6 +173,6 @@ export function cycleDraft(source, cycle, name, coachId, history = []) {
     activeWeeks: cycle.weeks, durationWeeks: cycle.weeks, cycleType: cycle.type,
     createdBy: coachId, coachId, origin: 'coach', status: 'draft',
     visibility: 'private', isActive: true, origine: 'manual', source: 'manual', isPremiumOnly: false,
-    cycleDraft: true, totalSessions: sessions.length, nbSeances: sessions.length,
+    cycleDraft: true, totalSessions: adapted.sessions.length, nbSeances: adapted.sessions.length,
   };
 }

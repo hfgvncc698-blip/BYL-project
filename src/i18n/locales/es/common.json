@@ -19,7 +19,7 @@
     "analyticsHelp": "La recopilación también requiere tu consentimiento para estadísticas de uso, gestionado en las preferencias de cookies.",
     "temporary": "El navegador puede pedirte permiso, especialmente si la autorización anterior era temporal.",
     "reminderTitle": "¿Permitir el acceso a tu ubicación?",
-    "reminderBody": "Antes rechazaste el acceso a tu ubicación. Puedes continuar sin activarlo.",
+    "reminderBody": "El acceso a tu ubicación no está autorizado actualmente. Puedes continuar sin activarlo.",
     "retryHelp": "Puedes volver a intentarlo. Si el navegador bloquea la solicitud, cambia el permiso de ubicación en los ajustes de este sitio.",
     "retry": "Reintentar",
     "later": "Ahora no"

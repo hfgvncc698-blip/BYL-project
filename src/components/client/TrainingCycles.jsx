@@ -11,9 +11,10 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { db } from '../../firebaseConfig';
 import { CYCLE_TYPES, cycleTimeline, suggestedCycles, continuingCyclePlan, displayedCyclePlan, writeCyclePlan, cycleDraft, formatCycleDate, syncCycleDurations, nextCycleSession } from '../../utils/trainingCycles';
+import CyclePreview from './CyclePreview';
 import CycleSessionList from './CycleSessionList';
 import CyclePreparationNotice from './CyclePreparationNotice';
-import { cycleSourceId } from '../../utils/cyclePreviews';
+import { cycleSourceId, buildCyclePreviews } from '../../utils/cyclePreviews';
 import { varyCycleExercises } from '../../utils/cycleVariation';
 import { programClientName } from '../../utils/programLibrary';
 import { getProgramPlannedSessionTotal, getProgramValidatedSessionCount } from '../../utils/programDuration';
@@ -39,9 +40,20 @@ export default function TrainingCycles({ clientId, client, programmes, programme
   const secondaryButtonHover = useColorModeValue('gray.200', 'whiteAlpha.200');
   const [suggestion] = useState(() => ({ start: today(), cycles: suggestedCycles(newId), revision: 0 }));
   const continuation = programmesReady ? continuingCyclePlan(client, programmes, suggestion) : suggestion;
-  const stored = reconcileStartedCycle(displayedCyclePlan(client.trainingPlan, continuation), programmes);
+  const stored = reconcileStartedCycle(displayedCyclePlan(client.trainingPlan, continuation, programmesReady ? programmes : null), programmes);
   const isSuggested = !client.trainingPlan?.revision && !client.trainingPlan?.cycles?.length;
   const saved = { ...stored, cycles: stored.cycles.map(cycle => ({ ...cycle, programId: cycle.programId || (cycle.draftProgramId ? programmes.find(p => !p.excludeFromCyclePlanning && [p.fromTemplateId, p.templateId, p.programId].includes(cycle.draftProgramId))?.id : '') || '' })) };
+  const [exerciseBank, setExerciseBank] = useState([]);
+  const [bankReady, setBankReady] = useState(false);
+  const [bankError, setBankError] = useState(false);
+  useEffect(() => {
+    if (!programmesReady) return;
+    let active = true;
+    getDocsFromServer(collection(db, 'training')).then(snapshot => {
+      if (active) { setExerciseBank(snapshot.docs.map(row => ({ ...row.data(), id: row.data().id || row.id }))); setBankError(false); setBankReady(true); }
+    }).catch(() => { if (active) setBankError(true); });
+    return () => { active = false; };
+  }, [programmesReady]);
   const [draft, setDraft] = useState(null);
   const [selected, setSelected] = useState(null);
   const [programChoice, setProgramChoice] = useState({});
@@ -57,14 +69,11 @@ export default function TrainingCycles({ clientId, client, programmes, programme
   const stripRef = useCenteredCycle(active?.id, JSON.stringify([clientId, !!draft, [...displayNumbers.keys()]]));
   useEffect(() => { setSelected(null); }, [clientId]);
   const program = programmes.find(item => item.id === active?.programId);
-  const preview = programmesReady && active && programmes.some(item => {
-    const sessions = item.sessions || item.seances;
-    return item.id === cycleSourceId(plan, active.id) && item.__detailsLoaded && Array.isArray(sessions) && sessions.length > 0;
-  });
+  const preview = programmesReady && active ? buildCyclePreviews(plan, programmes, active.id, exerciseBank)[active.id] : null;
   const nextSession = nextCycleSession(program);
   const total = program ? getProgramPlannedSessionTotal(program) : 0;
   const completed = program?.__detailsLoaded ? getProgramValidatedSessionCount(program) : null;
-  const previousProgram = plan.cycles.slice(0, plan.cycles.findIndex(c => c.id === active?.id)).reverse().find(c => c.programId)?.programId;
+  const previousProgram = active ? cycleSourceId(plan, active.id, programmes) : null;
   const eligiblePrograms = programmes.filter(p => !plan.cycles.some(c => c.id !== active?.id && c.programId === p.id));
   const selectedProgram = eligiblePrograms.find(p => p.id === programChoice[active?.id]) || (eligiblePrograms.length === 1 ? eligiblePrograms[0] : null);
   const finished = program?.__detailsLoaded && getProgramPlannedSessionTotal(program) > 0 && getProgramValidatedSessionCount(program) >= getProgramPlannedSessionTotal(program);
@@ -96,7 +105,15 @@ export default function TrainingCycles({ clientId, client, programmes, programme
     busyRef.current = true;
     setBusy(true); setError('');
     try {
-      await runTransaction(db, transaction => writeCyclePlan(transaction, doc(db, 'clients', clientId), next, extra));
+      await runTransaction(db, transaction => writeCyclePlan(transaction, doc(db, 'clients', clientId), next, async tx => {
+        const extraWrite = extra ? await extra(tx) : null;
+        const linked = await Promise.all(next.cycles.filter(c => c.programId).map(c =>
+          tx.get(doc(db, 'clients', clientId, 'programmes', c.programId))));
+        if (linked.some(snap => !snap.exists())) throw new Error('missing-program');
+        linked.filter(snap => snap.data().excludeFromCyclePlanning).forEach(snap =>
+          tx.update(snap.ref, { excludeFromCyclePlanning: false }));
+        return extraWrite;
+      }));
       setDraft(null);
       toast({ status: 'success', title: tx('saved', 'Programmation enregistrée') });
       return true;
@@ -118,12 +135,12 @@ export default function TrainingCycles({ clientId, client, programmes, programme
           if (!draftSnap.exists() || !clientSnap.data()?.trainingPlan?.cycles?.some(c => c.id === cycle.id && c.draftProgramId === cycle.draftProgramId)) throw new Error('conflict');
           transaction.update(draftRef, { libraryKind: 'client', preparedForClientId: clientId, preparedForClientName: programClientName(client), preparedForCycleId: cycle.id });
         });
-        navigate(`/exercise-bank/program-builder/${cycle.draftProgramId}`, { state: { returnTo: `/clients/${clientId}` } });
+        navigate(`/exercise-bank/program-builder/${cycle.draftProgramId}`, { state: { returnTo: `/clients/${clientId}#training-cycles` } });
       } catch { setError(tx('conflict', 'La programmation a changé sur un autre appareil. Annulez vos modifications puis réessayez.')); }
       finally { busyRef.current = false; setBusy(false); }
       return;
     }
-    const sourceId = cycleSourceId(plan, cycle.id);
+    const sourceId = cycleSourceId(plan, cycle.id, programmes);
     if (!sourceId) { setError(tx('sourceRequired', 'Associez d’abord un programme au cycle précédent pour reprendre ses exercices.')); return; }
     const id = newId();
     const next = { ...plan, cycles: plan.cycles.map(c => c.id === cycle.id ? { ...c, draftProgramId: id } : c) };
@@ -141,14 +158,14 @@ export default function TrainingCycles({ clientId, client, programmes, programme
       });
       const { history, bank } = await historyPromise;
       const sourceData = source.data();
-      const varied = varyCycleExercises(sourceData.sessions || sourceData.seances || [], bank, cycle.type);
+      const varied = varyCycleExercises(sourceData.sessions || sourceData.seances || [], bank, cycle.type, history);
       return { ref: doc(db, 'programmes', id), data: {
         ...cycleDraft({ ...sourceData, sessions: varied }, cycle, `${typeLabel(cycle.type)} · ${programClientName(client)}`, coachId, history),
         libraryKind: 'client', preparedForClientId: clientId,
         preparedForClientName: programClientName(client), preparedForCycleId: cycle.id,
       } };
     });
-    if (ok) navigate(`/exercise-bank/program-builder/${id}`, { state: { returnTo: `/clients/${clientId}` } });
+    if (ok) navigate(`/exercise-bank/program-builder/${id}`, { state: { returnTo: `/clients/${clientId}#training-cycles` } });
   }
 
   const currentCycleId = timeline.find(c => !c.closedAt)?.id;
@@ -225,9 +242,11 @@ export default function TrainingCycles({ clientId, client, programmes, programme
         </Box>
         {!program && !active.closedAt && programmesReady && (active.draftProgramId || previousProgram) && <Flex ml="auto" align="center" gap={1} maxW="100%">
           <CyclePreparationNotice compact />
-          <Button variant="solid" isLoading={busy} onClick={() => prepare(active)}>{active.draftProgramId ? tx('finishDraft', 'Finaliser le programme') : tx('prepareCycle', 'Préparer ce cycle')}</Button>
+          <Button variant="solid" isLoading={busy} onClick={() => prepare(active)}>{active.draftProgramId ? tx('resumeCycleDraft', 'Reprendre le brouillon') : tx('editCycleProposal', 'Personnaliser ce programme')}</Button>
         </Flex>}
       </Flex>
+      {!program && !active.closedAt && (active.draftProgramId || previousProgram) && <Text fontSize="xs" color={muted}>{tx('cycleWorkflow', 'Ajustez les séances, puis ajoutez le programme à ce cycle en un clic.')}</Text>}
+      {preview && <><CyclePreview preview={preview} />{!bankReady && !bankError && <Text fontSize="xs">{tx('variantsLoading', 'Chargement des variantes compatibles…')}</Text>}{bankError && <Text fontSize="xs">{tx('variantsUnavailable', 'Banque d’exercices indisponible : les variantes ne sont pas incluses dans cet aperçu.')}</Text>}</>}
       {program && <Box>
         <Heading size="md" mb={3}>{program.nomProgramme || program.name}</Heading>
         <Flex justify="space-between" gap={3} fontSize="sm"><Text color={muted}>{tx('completedSessions', 'Séances réalisées')}</Text><Text fontWeight="bold">{completed == null ? '—' : completed} / {total}</Text></Flex>
@@ -242,7 +261,8 @@ export default function TrainingCycles({ clientId, client, programmes, programme
         {eligiblePrograms.length > 0 ? <>
           <FormControl><FormLabel>{tx('program', 'Programme assigné')}</FormLabel><Select value={selectedProgram?.id || ''} onChange={e => setProgramChoice({ ...programChoice, [active.id]: e.target.value })}><option value="">—</option>{eligiblePrograms.map(p => <option key={p.id} value={p.id}>{p.nomProgramme || p.name || p.id}</option>)}</Select></FormControl>
           <Flex mt={3} justify="flex-end"><Button variant="solid" isDisabled={!selectedProgram} isLoading={busy} onClick={linkProgram}>{tx('useProgram', 'Utiliser ce programme')}</Button></Flex>
-        </> : <Flex justify="flex-end"><Button variant={active.draftProgramId || previousProgram ? 'outline' : 'solid'} onClick={() => navigate('/programmes')}>{tx('findProgram', 'Choisir ou créer un programme')}</Button></Flex>}
+        </> : null}
+        <Flex mt={3} justify="flex-end"><Button variant={active.draftProgramId || previousProgram ? 'outline' : 'solid'} onClick={() => navigate('/programmes')}>{tx('findProgram', 'Choisir ou créer un programme')}</Button></Flex>
         </Box>
       </Box></>}
       {finished && <Box p={3} borderWidth="1px" borderColor="green.300" borderRadius="lg"><Text fontWeight="bold">✓ {tx('milestone', 'Objectif du cycle atteint')}</Text>{!active.closedAt && !active.historical && <Text mt={1} fontSize="sm">{tx('autoTransition', 'Toutes les séances sont validées. Le passage au cycle suivant se synchronise automatiquement.')}</Text>}</Box>}

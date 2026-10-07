@@ -32,3 +32,6 @@ assert.equal(JSON.stringify({ plan, programmes }), before);
 assert.deepEqual(buildCyclePreviews(plan, []), {}, 'do not fabricate exercises without a source');
 assert.deepEqual(Object.keys(buildCyclePreviews(plan, programmes, 'c')), ['c']);
 console.log('Cycle previews: future phases, recovery baseline, repeated actual success, no speculative compounding, preserved drafts OK');
+
+const historyOnly = { start: '2026-10-01', cycles: [{ id: 'unlinked', type: 'recovery', weeks: 1 }] };
+assert.equal(cycleSourceId(historyOnly, 'unlinked', [{ id: 'previous', assignedAt: '2026-09-01' }]), 'previous');

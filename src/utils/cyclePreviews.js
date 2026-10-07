@@ -1,28 +1,30 @@
+import { varyCycleExercises } from './cycleVariation.js';
+import { coachCycleHistory } from './coachCycleHistory.js';
 import { adaptCycleSessions } from './cyclePrescription.js';
 
 // Recovery is not the new working-load baseline for the next training cycle.
-export function cycleSourceId(plan, cycleId) {
+export function cycleSourceId(plan, cycleId, programmes = []) {
   const index = plan.cycles.findIndex(c => c.id === cycleId);
   if (index < 0) return null;
   const cycle = plan.cycles[index];
   if (cycle.programId) return cycle.programId;
-  const previous = plan.cycles.slice(0, index).reverse().filter(c => c.programId);
+  const previous = [...coachCycleHistory({}, programmes, plan).filter(c => c.state === 'past'), ...plan.cycles.slice(0, index)].reverse().filter(c => c.programId);
   return (cycle.type !== 'recovery' ? previous.find(c => c.type !== 'recovery') : previous[0])?.programId || previous[0]?.programId || null;
 }
 
 // Lightweight derived projections: no six-month duplication in Firestore, no writes on viewing.
 // Assigned programmes and saved drafts always take precedence over these suggestions.
-export function buildCyclePreviews(plan, programmes, selectedId = null) {
+export function buildCyclePreviews(plan, programmes, selectedId = null, bank = []) {
   const previews = {};
   for (const cycle of plan.cycles) {
     if (selectedId && cycle.id !== selectedId) continue;
     if (cycle.closedAt || cycle.programId || cycle.draftProgramId) continue;
-    const sourceId = cycleSourceId(plan, cycle.id);
+    const sourceId = cycleSourceId(plan, cycle.id, programmes);
     const source = programmes.find(p => p.id === sourceId && p.__detailsLoaded);
     const sessions = source?.sessions || source?.seances;
     if (!Array.isArray(sessions) || !sessions.length) continue;
     previews[cycle.id] = {
-      ...adaptCycleSessions(sessions, cycle.type, source.sessionsEffectuees || []),
+      ...adaptCycleSessions(varyCycleExercises(sessions, bank, cycle.type, source.sessionsEffectuees || []), cycle.type, source.sessionsEffectuees || []),
       sourceId, sourceName: source.nomProgramme || source.name || '', weeks: cycle.weeks,
     };
   }

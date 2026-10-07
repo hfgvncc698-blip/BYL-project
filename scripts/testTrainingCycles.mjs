@@ -73,3 +73,15 @@ const keys = [...(component + sessionComponent).matchAll(/tx\('([^']+)'/g)].map(
 for (const language of ['en','es','it','de','ru','ar']) for (const key of keys) assert.ok(cycleTranslations[language][key], `${language}.${key}`);
 assert.ok(readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8').includes('"trainingPlan"'));
 console.log('Training cycles: 26-week plan, dates, validation, isolated draft copies and six translations plus French fallbacks OK.');
+
+const oldComplete = { ...running, id: 'completed', activeWeeks: 1, assignedAt: '2026-09-01' };
+const recovery = { ...running, id: 'recovery', name: 'Récupération', sessionsEffectuees: [], assignedAt: '2026-10-01', activeWeeks: 1, excludeFromCyclePlanning: true };
+const recovered = continuingCyclePlan({ currentProgramme: oldComplete.id }, [running, oldComplete, recovery], plan);
+assert.equal(recovered.cycles[0].programId, 'recovery', 'resume latest assignment instead of old unfinished work');
+const orphanPlan = { ...plan, revision: 2, cycles: [plan.cycles[0], { ...plan.cycles[1], programId: 'deleted' }, plan.cycles[2]] };
+const reconciled = displayedCyclePlan(orphanPlan, recovered, [running, oldComplete, recovery]);
+assert.equal(reconciled.cycles[0].programId, 'recovery');
+assert.equal(reconciled.cycles[0].type, 'recovery');
+assert.equal(reconciled.cycles[1].type, 'strength', 'do not duplicate the recovery phase');
+assert.equal(orphanPlan.cycles[1].programId, 'deleted', 'read reconciliation does not mutate saved data');
+assert.equal(displayedCyclePlan(orphanPlan, recovered, [{ id: 'deleted' }]), orphanPlan, 'valid coach links remain authoritative');

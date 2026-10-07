@@ -1,3 +1,4 @@
+import VisitAddress from '../components/admin/VisitAddress';
 // src/pages/AdminGeo.jsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -43,7 +44,7 @@ import { useNavigate } from "react-router-dom";
 
 // ====== Carte 2D (Leaflet)
 import "leaflet/dist/leaflet.css";
-import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Circle, Popup, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import { collection, doc, getDoc, getDocs, limit, orderBy, query } from "firebase/firestore";
 
 import AppLoading from "../components/ui/AppLoading";
@@ -54,7 +55,7 @@ import { getAuthHeaders } from "../utils/authHeaders";
 import { useAuth } from "../AuthContext";
 import { db } from "../firebase";
 import i18n from "../i18n/index";
-import { createGeoMapAutoFit, getGeoVisitorLoadBatch, isValidMapPoint } from "../utils/geoMapViewport";
+import { clusterGeoPoints, visitorVisitHistory, visitMapPoints, createGeoMapAutoFit, getGeoVisitorLoadBatch, isValidMapPoint } from "../utils/geoMapViewport";
 import { getVisitLocationDisplay } from "../utils/geoVisitDisplay";
 
 /* ------------------------------------ utils ------------------------------------ */
@@ -230,43 +231,6 @@ function isNullIsland(lat, lng) {
   return lat === 0 && lng === 0;
 }
 
-function distanceKm(a, b) {
-  const toRadians = (value) => (Number(value) * Math.PI) / 180;
-  const earthRadiusKm = 6371;
-  const dLat = toRadians(b.lat - a.lat);
-  const dLon = toRadians(b.lon - a.lon);
-  const lat1 = toRadians(a.lat);
-  const lat2 = toRadians(b.lat);
-  const sinLat = Math.sin(dLat / 2);
-  const sinLon = Math.sin(dLon / 2);
-  const h = sinLat * sinLat + Math.cos(lat1) * Math.cos(lat2) * sinLon * sinLon;
-  return 2 * earthRadiusKm * Math.asin(Math.min(1, Math.sqrt(h)));
-}
-
-function clusterGeoPoints(points, radiusKm) {
-  if (!radiusKm) return points.map((point) => ({ ...point, members: [point], isCluster: false }));
-  const groups = [];
-  [...points]
-    .sort((a, b) => Number(b.value || 0) - Number(a.value || 0))
-    .forEach((point) => {
-      const group = groups.find((candidate) => distanceKm(candidate, point) <= radiusKm);
-      if (!group) {
-        groups.push({ ...point, members: [point] });
-        return;
-      }
-      group.members.push(point);
-      const totalWeight = group.members.reduce((sum, member) => sum + Math.max(1, Number(member.value || 0)), 0);
-      group.lat = group.members.reduce((sum, member) => sum + member.lat * Math.max(1, Number(member.value || 0)), 0) / totalWeight;
-      group.lon = group.members.reduce((sum, member) => sum + member.lon * Math.max(1, Number(member.value || 0)), 0) / totalWeight;
-      group.value = group.members.reduce((sum, member) => sum + Number(member.value || 0), 0);
-    });
-  return groups.map((group) => ({
-    ...group,
-    clusterId: group.members.map((member) => member.geoId).sort().join("|"),
-    isCluster: group.members.length > 1,
-  }));
-}
-
 function normalizedRole(role) {
   const value = String(role || "").toLowerCase();
   if (["client", "user", "particulier", "patient"].includes(value)) return "client";
@@ -276,22 +240,19 @@ function normalizedRole(role) {
   return "unknown";
 }
 
-async function loadAdminGeoFromFirestore() {
+async function loadAdminGeoFromFirestore(windowKey) {
+  const dailyDocs = await getDocs(collection(db, "analytics_daily"));
+  const daySet = windowKey === "all" ? null : new Set(lastNDays(windowKey === "7d" ? 7 : windowKey === "30d" ? 30 : 1));
+  const days = [...new Set([fmtDay(new Date()), ...dailyDocs.docs.map(d => d.id)])].filter(day => /^\d{4}-\d{2}-\d{2}$/.test(day) && (!daySet || daySet.has(day)));
+  const loadVisits = async (name, field) => ({ docs: (await Promise.all(days.map(day => getDocs(query(collection(db, "analytics_daily", day, name), orderBy(field, "desc"), limit(120)))))).flatMap(snap => snap.docs) });
   const today = fmtDay(new Date());
   const [geoSnap, dailySnap, hourlySnap, globalDailySnap, todayEventsSnap, todayVisitorsSnap] = await Promise.all([
     getDocs(collection(db, "analytics_geo")),
     getDocs(collection(db, "analytics_geo_daily")),
     getDocs(collection(db, "analytics_geo_hourly")),
     getDocs(collection(db, "analytics_daily")),
-    getDocs(query(
-      collection(db, "analytics_daily", today, "events"),
-      orderBy("seenAt", "desc"),
-      limit(120)
-    )).catch(() => ({ docs: [] })),
-    getDocs(query(
-      collection(db, "analytics_daily", today, "visitors"),
-      limit(120)
-    )).catch(() => ({ docs: [] })),
+    loadVisits("events", "seenAt"),
+    loadVisits("visitors", "lastSeenAt"),
   ]);
 
   const citiesBase = geoSnap.docs.map((docSnap) => {
@@ -380,6 +341,7 @@ async function loadAdminGeoFromFirestore() {
       accuracy: typeof x.accuracy === "number" ? x.accuracy : null,
       geoCapturedAt: toIso(x.geoCapturedAt),
       geoSource: cleanText(x.geoSource, 40, "network"),
+      geoStatus: cleanText(x.geoStatus, 40, "unknown"),
       timeZone: cleanText(x.timeZone, 80, ""),
       firstSeenAt: toIso(x.firstSeenAt),
       lastSeenAt: toIso(x.lastSeenAt || x.firstSeenAt),
@@ -392,7 +354,7 @@ async function loadAdminGeoFromFirestore() {
     const visitorId = x.visitorId || "";
     const uid = cleanText(x.uid, 120, "") || (String(visitorId).startsWith("uid:") ? String(visitorId).slice(4) : "");
     return {
-      id: `event:${docSnap.id}`,
+      id: `event:${docSnap.ref.path}`,
       eventId: docSnap.id,
       visitorId,
       uid,
@@ -406,6 +368,7 @@ async function loadAdminGeoFromFirestore() {
       accuracy: typeof x.accuracy === "number" ? x.accuracy : null,
       geoCapturedAt: toIso(x.geoCapturedAt),
       geoSource: cleanText(x.geoSource, 40, "network"),
+      geoStatus: cleanText(x.geoStatus, 40, "unknown"),
       timeZone: cleanText(x.timeZone, 80, ""),
       firstSeenAt: toIso(x.seenAt),
       lastSeenAt: toIso(x.seenAt),
@@ -413,7 +376,7 @@ async function loadAdminGeoFromFirestore() {
     };
   });
 
-  const recentBase = events.length > 0 ? events : visitorRows;
+  const recentBase = [...events, ...visitorRows.filter(visit => !events.some(event => event.visitorId === visit.visitorId && event.lastSeenAt?.slice(0, 10) === visit.lastSeenAt?.slice(0, 10)))];
   const usersById = new Map();
   await Promise.all(
     [...new Set(recentBase.map((event) => event.uid).filter(Boolean))].map(async (uid) => {
@@ -423,6 +386,7 @@ async function loadAdminGeoFromFirestore() {
         const data = snap.data() || {};
         usersById.set(uid, {
           name: pickPersonName(data, uid),
+          knownLocation: data.location ? { ...data.location, capturedAt: toIso(data.location.capturedAt || data.location.updatedAt) } : null,
           email: data.email || "",
           role: data.role || "",
         });
@@ -436,7 +400,8 @@ async function loadAdminGeoFromFirestore() {
     const person = usersById.get(event.uid);
     return {
       ...event,
-      personName: person?.name || (event.uid ? event.uid : "Visiteur anonyme"),
+      knownLocation: person?.knownLocation || null,
+          personName: person?.name || (event.uid ? event.uid : "Visiteur anonyme"),
       email: person?.email || "",
       role: person?.role || event.role,
       geolocated: event.lat != null && event.lng != null,
@@ -446,8 +411,8 @@ async function loadAdminGeoFromFirestore() {
   return { ok: true, today, citiesBase, geoDaily, geoHourly, globalDaily, recentVisitors };
 }
 
-async function loadAdminGeoData() {
-  const response = await fetch(`${getApiBase()}/analytics/admin/geo`, {
+async function loadAdminGeoData(windowKey) {
+  const response = await fetch(`${getApiBase()}/analytics/admin/geo?window=${encodeURIComponent(windowKey)}`, {
     headers: { ...(await getAuthHeaders({ forceRefresh: true })) },
     credentials: "include",
     cache: "no-store",
@@ -455,7 +420,7 @@ async function loadAdminGeoData() {
   const data = await readJsonResponse(response);
   if (response.ok) return { ...data, source: "api" };
   if (response.status === 404) {
-    const fallbackData = await loadAdminGeoFromFirestore();
+    const fallbackData = await loadAdminGeoFromFirestore(windowKey);
     return { ...fallbackData, source: "firestore-fallback" };
   }
   throw new Error(data?.error || `analytics-admin-geo-failed-${response.status}`);
@@ -546,8 +511,6 @@ export default function AdminGeo() {
   const [globalDaily, setGlobalDaily] = useState([]);
   const [recentVisitors, setRecentVisitors] = useState([]);
   const [mapVisitors, setMapVisitors] = useState({});
-  const [visitorHistories, setVisitorHistories] = useState({});
-  const [expandedVisitorId, setExpandedVisitorId] = useState("");
   const [lastLoadedAt, setLastLoadedAt] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [localPageviewDay, setLocalPageviewDay] = useState(getLocalPageviewDay);
@@ -560,6 +523,11 @@ export default function AdminGeo() {
   const [roleFilter, setRoleFilter] = useState("all");
   const [personSearch, setPersonSearch] = useState("");
   const [mergeRadiusKm, setMergeRadiusKm] = useState(2);
+  const [openPointId, setOpenPointId] = useState(null);
+  const [expandedHistory, setExpandedHistory] = useState(null);
+  const [historyLimit, setHistoryLimit] = useState(20);
+  const [peopleLimit, setPeopleLimit] = useState(10);
+  const [visitLimit, setVisitLimit] = useState(50);
   const [mapZoom, setMapZoom] = useState(2);
   const [mapFocus, setMapFocus] = useState(null);
   const [mapRecenterRequest, setMapRecenterRequest] = useState(0);
@@ -576,8 +544,6 @@ export default function AdminGeo() {
 
   const theme = useAppTheme();
   const cardBg = theme.surfaceBg;
-  const bubbleFill = theme.accentBlue;
-  const bubbleStroke = theme.primary;
   const adminPageSx = {
     ".chakra-card": {
       minWidth: 0,
@@ -623,10 +589,7 @@ export default function AdminGeo() {
     return () => window.removeEventListener("BYL_PAGEVIEW_MARKED", handler);
   }, []);
 
-  useEffect(() => {
-    setVisitorHistories({});
-    setExpandedVisitorId("");
-  }, [windowKey]);
+  useEffect(() => { setMapFocus(null); setOpenPointId(null); setExpandedHistory(null); setVisitLimit(50); }, [windowKey, roleFilter, personSearch, search]);
 
   // Load analytics via backend Admin SDK, with Firestore fallback if prod backend is behind.
   useEffect(() => {
@@ -640,7 +603,7 @@ export default function AdminGeo() {
         if (!user?.uid || !isAdmin) {
           throw new Error("admin-session-required");
         }
-        const data = await loadAdminGeoData();
+        const data = await loadAdminGeoData(windowKey);
 
         if (mounted) {
           setCitiesBase(Array.isArray(data.citiesBase) ? data.citiesBase : []);
@@ -664,13 +627,13 @@ export default function AdminGeo() {
     })();
 
     return () => { mounted = false; };
-  }, [toast, authLoading, user?.uid, isAdmin]);
+  }, [toast, authLoading, user?.uid, isAdmin, windowKey]);
 
   const reloadAnalytics = useCallback(async ({ silent = false } = {}) => {
     if (!user?.uid || !isAdmin) throw new Error("admin-session-required");
     if (!silent) setRefreshing(true);
     try {
-      const data = await loadAdminGeoData();
+      const data = await loadAdminGeoData(windowKey);
       setCitiesBase(mergeCanonicalCities(Array.isArray(data.citiesBase) ? data.citiesBase : []));
       setGeoDaily(mergeCanonicalPeriods(Array.isArray(data.geoDaily) ? data.geoDaily : [], ["day"]));
       setGeoHourly(mergeCanonicalPeriods(Array.isArray(data.geoHourly) ? data.geoHourly : [], ["day", "hour"]));
@@ -680,7 +643,7 @@ export default function AdminGeo() {
     } finally {
       if (!silent) setRefreshing(false);
     }
-  }, [user?.uid, isAdmin]);
+  }, [user?.uid, isAdmin, windowKey]);
 
   const loadMapVisitors = useCallback(async (point) => {
     if (!point?.geoId || !user?.uid || !isAdmin) return;
@@ -717,38 +680,6 @@ export default function AdminGeo() {
       visitorLoadKeysRef.current.delete(cacheKey);
     }
   }, [isAdmin, user?.uid, windowKey]);
-
-  const loadVisitorHistory = useCallback(async (visitor) => {
-    if (!visitor?.uid || !user?.uid || !isAdmin) return;
-    setExpandedVisitorId((current) => current === visitor.visitorId ? "" : visitor.visitorId);
-    if (visitorHistories[visitor.uid]?.history || visitorHistories[visitor.uid]?.loading) return;
-    setVisitorHistories((current) => ({
-      ...current,
-      [visitor.uid]: { loading: true, error: "", history: null },
-    }));
-    const days = windowKey === "today" ? 1 : windowKey === "7d" ? 7 : windowKey === "30d" ? 30 : 120;
-    try {
-      const response = await fetch(
-        `${getApiBase()}/analytics/admin/visitor/${encodeURIComponent(visitor.uid)}?days=${days}`,
-        {
-          headers: { ...(await getAuthHeaders()) },
-          credentials: "include",
-          cache: "no-store",
-        }
-      );
-      const data = await readJsonResponse(response);
-      if (!response.ok) throw new Error(data?.error || `visitor-history-${response.status}`);
-      setVisitorHistories((current) => ({
-        ...current,
-        [visitor.uid]: { loading: false, error: "", history: data.history || null },
-      }));
-    } catch (error) {
-      setVisitorHistories((current) => ({
-        ...current,
-        [visitor.uid]: { loading: false, error: error?.message || "visitor-history-failed", history: null },
-      }));
-    }
-  }, [isAdmin, user?.uid, visitorHistories, windowKey]);
 
   useEffect(() => {
     if (authLoading || !user?.uid || !isAdmin) return undefined;
@@ -952,10 +883,11 @@ export default function AdminGeo() {
     return !state || state.loading;
   });
 
-  const mapPoints = useMemo(
-    () => visibleCities.filter(isValidMapPoint),
-    [visibleCities]
-  );
+  const measuredPoints = useMemo(() => visitMapPoints(displayedRecentVisitors.filter(visit => {
+    const place = `${visit.city || ''} ${visit.country || ''}`.toLowerCase();
+    return !search.trim() || place.includes(search.trim().toLowerCase());
+  })), [displayedRecentVisitors, search]);
+  const mapBoundsPoints = measuredPoints;
   const mapFitRequestKey = JSON.stringify([
     windowKey, metric, minVal, search.trim(), roleFilter, personSearch.trim(), mapRecenterRequest,
   ]);
@@ -969,21 +901,20 @@ export default function AdminGeo() {
     return 0;
   }, [mapZoom, mergeRadiusKm]);
   const renderedMapPoints = useMemo(
-    () => clusterGeoPoints(mapPoints, visualClusterRadiusKm),
-    [mapPoints, visualClusterRadiusKm]
+    () => clusterGeoPoints(measuredPoints, visualClusterRadiusKm),
+    [measuredPoints, visualClusterRadiusKm]
   );
   const focusCityOnMap = useCallback((city) => {
-    if (typeof city?.lat !== "number" || typeof city?.lon !== "number") return;
-    loadMapVisitors(city);
-    setMapFocus({ ...city, requestId: Date.now() });
-  }, [loadMapVisitors]);
+    const point = measuredPoints.find(p => makeGeoId(p.country, p.city) === city.geoId);
+    if (point) setMapFocus({ ...point, visit: point, requestId: Date.now() });
+  }, [measuredPoints]);
 
   // Dernière visite active aujourd’hui par ville (selon métrique)
-  const lastVisitByGeoIdToday = useMemo(() => {
+  const lastVisitByGeoId = useMemo(() => {
     const out = {}; // geoId -> { lastHour, lastValue, lastSeenAt }
     geoHourly.forEach((h) => {
       if (!h.geoId || !h.day || h.hour == null) return;
-      if (h.day !== todayKey) return;
+      if (daySet && !daySet.has(h.day)) return;
 
       const val = metric === "pv" ? (h.pv || 0) : (h.uniqueVisitors || 0);
       if (val <= 0) return;
@@ -1001,7 +932,7 @@ export default function AdminGeo() {
     });
 
     geoDaily.forEach((d) => {
-      if (!d.geoId || d.day !== todayKey) return;
+      if (!d.geoId || (daySet && !daySet.has(d.day))) return;
       const val = metric === "pv" ? (d.pv || 0) : (d.uniqueVisitors || 0);
       const seenMs = toDate(d.lastSeenAt || d.updatedAt)?.getTime() || 0;
       if (!seenMs) return;
@@ -1016,7 +947,7 @@ export default function AdminGeo() {
       }
     });
     return out;
-  }, [geoDaily, geoHourly, todayKey, metric]);
+  }, [geoDaily, geoHourly, daySet, metric]);
 
   // Eligible for geocoding
   const eligibleToGeocode = (c) =>
@@ -1183,7 +1114,7 @@ export default function AdminGeo() {
           <CardBody>
             <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
               <Box>
-                <Text fontSize="sm" color={theme.mutedText} mb={1}>{i18n.t("auto.AdminGeo.metrique", "Métrique")}</Text>
+                <Text fontSize="sm" color={theme.mutedText} mb={1}>{"Statistiques par ville"}</Text>
                 <Select
                   value={metric}
                   onChange={(e) => { setMetric(e.target.value); setMinVal(1); }}
@@ -1305,7 +1236,7 @@ export default function AdminGeo() {
         <CardHeader>
           <Stack spacing={3}>
             <HStack justify="space-between" align="center" flexWrap="wrap" gap={3}>
-              <Heading size="md">{i18n.t("auto.AdminGeo.dernieres_visites_aujourd_hui", "Dernières visites aujourd’hui")}</Heading>
+              <Heading size="md">Dernières visites · {windowLabel}</Heading>
               <HStack flexWrap="wrap">
                 {lastLoadedAt && (
                   <Tag variant="subtle" colorScheme="gray">
@@ -1316,32 +1247,34 @@ export default function AdminGeo() {
               </HStack>
             </HStack>
             <HStack flexWrap="wrap" gap={2}>
-              <Tag variant="subtle" colorScheme="purple">Aujourd’hui</Tag>
+              <Tag variant="subtle" colorScheme="purple">{windowLabel}</Tag>
               {roleFilter !== "all" ? <Tag colorScheme="orange">Rôle : {roleFilter}</Tag> : null}
               {personSearch.trim() ? <Tag colorScheme="cyan">Personne : {personSearch.trim()}</Tag> : null}
             </HStack>
             <Text fontSize="xs" color={theme.mutedText}>
               Une ligne correspond à une visite, pas à une personne distincte. La position peut manquer
-              si la localisation est refusée, indisponible ou pas encore reçue au moment de la visite.
+              si la localisation est refusée, indisponible ou pas encore reçue au moment de la visite. Jusqu’à 120 visites par jour sont affichées, de la plus récente à la plus ancienne.
             </Text>
           </Stack>
         </CardHeader>
         <CardBody overflowY="auto" p={0}>
+          {displayedRecentVisitors.length > visitLimit && <Button m={3} size="sm" onClick={() => setVisitLimit(n => n + 50)}>Afficher 50 visites supplémentaires ({visitLimit} / {displayedRecentVisitors.length})</Button>}
           <Stack display={{ base: "flex", lg: "none" }} px={4} pb={4} spacing={3}>
-            {displayedRecentVisitors.map((visit, index) => {
+            {displayedRecentVisitors.slice(0, visitLimit).map((visit, index) => {
               const place = getVisitLocationDisplay(visit);
               return (
-                <Box key={visit.id || `${visit.visitorId}-${index}`} borderWidth="1px" borderRadius="lg" p={3} overflowWrap="anywhere">
+                <Box key={`${visit.id || visit.visitorId}-${index}`} borderWidth="1px" borderRadius="lg" p={3} overflowWrap="anywhere">
                   <Text fontWeight="700">{visit.personName || "Visiteur anonyme"}</Text>
                   <Text fontSize="xs" color={theme.mutedText}>{visit.email || visit.uid || "—"}</Text>
                   <Text mt={2} fontWeight="600">{place.label}</Text>
                   {place.detail && <Text fontSize="xs" color={theme.mutedText}>{place.detail}</Text>}
+                  {Number.isFinite(visit.lat) && Number.isFinite(visit.lng) && !(visit.lat === 0 && visit.lng === 0) && <Button size="xs" mt={1} onClick={() => { setMapFocus({ lat: visit.lat, lon: visit.lng, visit, requestId: Date.now() }); mapRef.current?.getContainer().scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Voir le point relevé</Button>}
                   <Text fontSize="sm" mt={2}>{formatDateTime(visit.lastSeenAt || visit.firstSeenAt) || "—"}</Text>
                   <Text fontSize="xs" color={theme.mutedText}>{String(visit.pathLast || visit.pathFirst || "—").split(/[?#]/)[0]}</Text>
                 </Box>
               );
             })}
-            {!displayedRecentVisitors.length && <Text>Aucune visite enregistrée aujourd’hui.</Text>}
+            {!displayedRecentVisitors.length && <Text>Aucune visite enregistrée sur cette période.</Text>}
           </Stack>
           <Box display={{ base: "none", lg: "block" }} overflowX="auto" px={{ base: 3, md: 4 }} pb={4}>
             <Table size="sm" variant="simple" minW="760px">
@@ -1354,10 +1287,10 @@ export default function AdminGeo() {
                 </Tr>
               </Thead>
               <Tbody>
-                {displayedRecentVisitors.map((visit, index) => {
+                {displayedRecentVisitors.slice(0, visitLimit).map((visit, index) => {
                   const place = getVisitLocationDisplay(visit);
                   return (
-                    <Tr key={`${visit.visitorId || visit.uid || visit.id || "visit"}-${visit.lastSeenAt || visit.firstSeenAt || index}`}>
+                    <Tr key={`${visit.visitorId || visit.uid || visit.id || "visit"}-${visit.lastSeenAt || visit.firstSeenAt || ""}-${index}`}>
                       <Td maxW="260px">
                         <Text fontWeight="700" noOfLines={1}>{visit.personName || "Visiteur anonyme"}</Text>
                         <Text fontSize="xs" color={theme.mutedText} noOfLines={1}>
@@ -1366,6 +1299,7 @@ export default function AdminGeo() {
                       </Td>
                       <Td>
                         <Text>{place.label}</Text>
+                        {Number.isFinite(visit.lat) && Number.isFinite(visit.lng) && !(visit.lat === 0 && visit.lng === 0) && <Button size="xs" mt={1} onClick={() => { setMapFocus({ lat: visit.lat, lon: visit.lng, visit, requestId: Date.now() }); mapRef.current?.getContainer().scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>Voir le point relevé</Button>}
                         {place.detail ? (
                           <Text fontSize="xs" color={theme.mutedText}>
                             {place.detail}
@@ -1381,7 +1315,7 @@ export default function AdminGeo() {
                 })}
                 {displayedRecentVisitors.length === 0 && (
                   <Tr>
-                    <Td colSpan={4} color={theme.mutedText}>{i18n.t("auto.AdminGeo.aucune_visite_enregistree_aujourd_hui", "Aucune visite enregistrée aujourd’hui.")}</Td>
+                    <Td colSpan={4} color={theme.mutedText}>Aucune visite enregistrée sur cette période.</Td>
                   </Tr>
                 )}
               </Tbody>
@@ -1394,28 +1328,23 @@ export default function AdminGeo() {
       <Card>
         <CardHeader>
           <HStack justify="space-between" align="center" flexWrap="wrap" gap={2}>
-            <Heading size="md">{i18n.t("auto.AdminGeo.carte", "Carte —")}{metricLabelUi} ({windowLabel})
+            <Heading size="md">{i18n.t("auto.AdminGeo.carte", "Carte —")}Positions enregistrées ({windowLabel})
             </Heading>
             <HStack flexWrap="wrap" gap={2}>
             <Button
               size="sm"
               variant="outline"
-              isDisabled={!mapPoints.length}
+              isDisabled={!mapBoundsPoints.length}
               onClick={() => setMapRecenterRequest((value) => value + 1)}
             >Recentrer la carte</Button>
-            <Button
-              size="sm"
-              {...theme.primaryButtonProps}
-              onClick={() => enrichMissingCoords("manual")}
-              isLoading={enriching}
-              loadingText={i18n.t("auto.AdminGeo.enrichissement", "Enrichissement…")}
-            >{i18n.t("auto.AdminGeo.enrichir_coordonnees_admin", "Enrichir coordonnées (admin)")}</Button>
+
             </HStack>
           </HStack>
         </CardHeader>
 
         <CardBody>
           {enriching && <Progress value={progress} size="sm" mb={3} />}
+            <Text fontSize="sm" mb={3}>Une seule carte : les positions enregistrées. Dézoomez pour les regrouper, zoomez pour les séparer. Le nombre indique les personnes distinctes dans le groupe. Cliquez pour consulter les visites datées et leur précision. Une position ne prouve pas une utilisation active du site.</Text>
             <Box w="100%" h={{ base: "340px", md: "480px" }} borderRadius="lg" overflow="hidden">
               <MapContainer
                 ref={mapRef}
@@ -1430,151 +1359,48 @@ export default function AdminGeo() {
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 />
-                <FitToMarkers points={mapPoints} requestKey={mapFitRequestKey} pending={peopleFilterLoading} />
+                <FitToMarkers points={mapBoundsPoints} requestKey={mapFitRequestKey} pending={false} />
                 <MapZoomListener onZoomChange={handleMapZoomChange} />
                 <MapFocusController target={mapFocus} markerRefs={markerRefs} />
-                {renderedMapPoints.map((c) => {
-                  const v = Math.max(1, c.value || 0);
-                  const r = c.isCluster ? Math.max(13, Math.sqrt(v) * 3) : Math.max(5, Math.sqrt(v) * 2.2);
-
-                  if (c.isCluster) {
-                    return (
-                      <CircleMarker
-                        key={`cluster:${c.clusterId}`}
-                        bubblingMouseEvents={false}
-                        center={[c.lat, c.lon]}
-                        radius={r}
-                        pathOptions={{
-                          color: theme.primary,
-                          weight: 2,
-                          fillColor: bubbleFill,
-                          fillOpacity: 0.9,
-                        }}
-                        eventHandlers={{
-                          click: () => {
-                            const currentZoom = mapRef.current?.getZoom() || mapZoom;
-                            mapRef.current?.flyTo(
-                              [c.lat, c.lon],
-                              Math.min(13, currentZoom + 3),
-                              { animate: true, duration: 0.45 }
-                            );
-                          },
-                        }}
-                      >
-                        <Tooltip permanent direction="center" className="geo-cluster-count" opacity={1}>
-                          <span title={`${c.members.length} zones proches — cliquez pour zoomer et les séparer.`}>
-                            {c.value}
-                          </span>
-                        </Tooltip>
-                      </CircleMarker>
-                    );
-                  }
-
-                  const label =
-                    metric === "pv"
-                      ? `${c.value} visites`
-                      : (windowKey === "all"
-                          ? `${c.value} uniques (toujours)`
-                          : `${c.value} visiteurs uniques`);
-
-                  const last = lastVisitByGeoIdToday[c.geoId];
-                  const lastLabel = formatDateTime(last?.lastSeenAt) || (last ? `${pad2(last.lastHour)}h` : "—");
-                  const visitorState = mapVisitors[`${windowKey}:${c.geoId}`] || {};
-                  const displayedVisitors = (visitorState.visitors || []).filter(visitorMatchesFilters);
-
-                  return (
-                    <CircleMarker
-                      key={c.geoId}
-                      bubblingMouseEvents={false}
-                      ref={(layer) => {
-                        if (layer) markerRefs.current.set(c.geoId, layer);
-                        else markerRefs.current.delete(c.geoId);
-                      }}
-                      center={[c.lat, c.lon]}
-                      radius={r}
-                      pathOptions={{
-                        color: bubbleStroke,
-                        weight: 1,
-                        fillColor: bubbleFill,
-                        fillOpacity: 0.75,
-                      }}
-                      eventHandlers={{ click: () => loadMapVisitors(c) }}
-                    >
-                      <Tooltip direction="top" offset={[0, -2]}>
-                        <strong>{c.city}</strong> ({c.country}) — {label}
-                        <br />
-                        <span style={{ opacity: 0.85 }}>{i18n.t("auto.AdminGeo.derniere_visite", "Dernière visite :")}{lastLabel}</span>
-                      </Tooltip>
-                      <Popup minWidth={280} maxWidth={340}>
-                        <Box minW="250px">
-                          <Text fontWeight="800">{c.city} ({c.country})</Text>
-                          <Text fontSize="xs" color="gray.600" mb={2}>{label}</Text>
-                          {visitorState.loading ? (
-                            <HStack py={2}><Progress size="xs" isIndeterminate flex="1" /><Text fontSize="xs">Chargement…</Text></HStack>
-                          ) : visitorState.error ? (
-                            <Text fontSize="sm" color="red.500">Impossible de charger les personnes.</Text>
-                          ) : displayedVisitors.length ? (
-                            <VStack align="stretch" spacing={2} maxH="240px" overflowY="auto">
-                              {displayedVisitors.map((visitor) => {
-                                const historyState = visitor.uid ? visitorHistories[visitor.uid] || {} : {};
-                                const isExpanded = expandedVisitorId === visitor.visitorId;
-                                return (
-                                <Box key={visitor.visitorId} pb={2} borderBottom="1px solid" borderColor="gray.200">
-                                  <HStack justify="space-between" align="start">
-                                    <Text fontWeight="700" fontSize="sm">{visitor.personName || "Visiteur anonyme"}</Text>
-                                    <Badge colorScheme="blue" fontSize="10px">{visitor.role || "—"}</Badge>
-                                  </HStack>
-                                  {visitor.email ? <Text fontSize="xs" color="gray.600">{visitor.email}</Text> : null}
-                                  <Text fontSize="xs" color="gray.500">
-                                    Dernière connexion : {formatDateTime(visitor.lastSeenAt || visitor.firstSeenAt) || "—"}
-                                  </Text>
-                                  {visitor.uid && (
-                                    <Button
-                                      mt={1}
-                                      size="xs"
-                                      variant="ghost"
-                                      px={0}
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        loadVisitorHistory(visitor);
-                                      }}
-                                    >
-                                      {isExpanded ? "Masquer l’historique" : "Voir l’historique"}
-                                    </Button>
-                                  )}
-                                  {isExpanded && (
-                                    <Box mt={1} p={2} bg="gray.50" borderRadius="md">
-                                      {historyState.loading ? (
-                                        <Progress size="xs" isIndeterminate />
-                                      ) : historyState.error ? (
-                                        <Text fontSize="xs" color="red.500">Historique indisponible.</Text>
-                                      ) : historyState.history ? (
-                                        <Stack spacing={1}>
-                                          <Text fontSize="xs" fontWeight="700">
-                                            {historyState.history.daysVisited} jour(s) de connexion • {historyState.history.citiesVisited} ville(s)
-                                          </Text>
-                                          {(historyState.history.locations || []).slice(0, 6).map((location) => (
-                                            <HStack key={location.geoId} justify="space-between" fontSize="xs">
-                                              <Text>{location.city}, {location.country}</Text>
-                                              <Text color="gray.500">{location.daysVisited} j.</Text>
-                                            </HStack>
-                                          ))}
-                                        </Stack>
-                                      ) : (
-                                        <Text fontSize="xs" color="gray.500">Aucun déplacement antérieur disponible.</Text>
-                                      )}
-                                    </Box>
-                                  )}
-                                </Box>
-                              );})}
-                            </VStack>
-                          ) : (
-                            <Text fontSize="sm" color="gray.600">Aucune personne identifiée pour cette période.</Text>
-                          )}
-                        </Box>
-                      </Popup>
-                    </CircleMarker>
-                  );
+                {mapFocus?.visit && Number.isFinite(mapFocus.visit.accuracy) && mapFocus.visit.accuracy > 0 &&
+                  <Circle center={[mapFocus.lat, mapFocus.lon]} radius={mapFocus.visit.accuracy} pathOptions={{ color: '#805ad5', fillOpacity: 0.1 }} />}
+                {renderedMapPoints.map(point => {
+                  const people = new Map(point.members.map(member => [member.uid || member.visitorId || member.id, member]));
+                  return <CircleMarker key={point.clusterId} center={[point.lat, point.lon]} radius={point.isCluster ? 16 : 8}
+                    bubblingMouseEvents={false}
+                    eventHandlers={{ popupopen: () => { setOpenPointId(point.clusterId); setExpandedHistory(null); setHistoryLimit(20); setPeopleLimit(10); } }}
+                    pathOptions={{ color: '#6b46c1', fillColor: '#805ad5', fillOpacity: 0.95, weight: 2 }}>
+                    {point.isCluster ? <Tooltip permanent direction="center" className="geo-cluster-count" opacity={1}>{people.size}</Tooltip>
+                      : <Tooltip>{point.personName || 'Visiteur'} · Position enregistrée</Tooltip>}
+                    <Popup minWidth={280} maxWidth={360}>
+                      {openPointId === point.clusterId && <Box color="gray.800">
+                        <Text fontWeight="bold">{point.isCluster ? `${people.size} personne(s) · ${point.members.length} position(s)` : 'Position enregistrée'}</Text>
+                        {point.isCluster && <Button size="xs" my={2} onClick={() => mapRef.current?.fitBounds(point.members.map(member => [member.lat, member.lon]), { maxZoom: 18, padding: [35, 35] })}>Séparer les positions</Button>}
+                        <Stack spacing={3} maxH="300px" overflowY="auto">
+                          {[...people.values()].slice(0, peopleLimit).map(person => <Box key={person.uid || person.visitorId || person.id} borderTopWidth="1px" pt={2}>
+                            <Text fontWeight="bold">{person.personName || 'Visiteur anonyme'}</Text>
+                            <Text fontSize="xs">{person.email}</Text>
+                            <Text fontSize="sm">{getVisitLocationDisplay(person).label}</Text>
+                            <VisitAddress visit={person} />
+                            <Text fontSize="xs">Position mesurée : {formatDateTime(person.geoCapturedAt || person.lastSeenAt)}</Text>
+                            <Box as="details" mt={2} onToggle={event => { const id = person.uid || person.visitorId || person.id; if (event.currentTarget.open) { setExpandedHistory(id); setHistoryLimit(20); } else setExpandedHistory(current => current === id ? null : current); }}>
+                              <Box as="summary" cursor="pointer" fontWeight="bold" fontSize="sm">Visites enregistrées · {windowLabel}</Box>
+                              <Text fontSize="xs" my={2}>De la plus récente à la plus ancienne, parmi les visites chargées (120 maximum par jour). Une position reçue peut être enregistrée sans clic.</Text>
+                              {expandedHistory === (person.uid || person.visitorId || person.id) && visitorVisitHistory(recentVisitors, person).slice(0, historyLimit).map((visit, index) => <Box key={`${visit.id}-${index}`} py={2} borderTopWidth="1px">
+                                <Text fontSize="sm" fontWeight="bold">{formatDateTime(visit.lastSeenAt || visit.firstSeenAt)}</Text>
+                                <Text fontSize="sm">{getVisitLocationDisplay(visit).label}</Text>
+                                <Text fontSize="xs">{getVisitLocationDisplay(visit).detail}</Text>
+                                <Text fontSize="xs" overflowWrap="anywhere">Page : {String(visit.pathLast || visit.pathFirst || '—').split(/[?#]/)[0]}</Text>
+                                {isValidMapPoint({ lat: visit.lat, lon: visit.lng }) && <Button size="xs" mt={1} onClick={() => setMapFocus({ lat: visit.lat, lon: visit.lng, visit, requestId: Date.now() })}>Voir cette position</Button>}
+                              </Box>)}
+                              {expandedHistory === (person.uid || person.visitorId || person.id) && visitorVisitHistory(recentVisitors, person).length > historyLimit && <Button size="xs" onClick={() => setHistoryLimit(n => n + 20)}>Afficher 20 visites supplémentaires</Button>}
+                            </Box>
+                          </Box>)}
+                          {people.size > peopleLimit && <Button size="xs" onClick={() => setPeopleLimit(n => n + 10)}>Afficher plus de personnes</Button>}
+                        </Stack>
+                      </Box>}
+                    </Popup>
+                  </CircleMarker>;
                 })}
               </MapContainer>
             </Box>
@@ -1586,6 +1412,13 @@ export default function AdminGeo() {
         <CardHeader>
           <Stack direction={{ base: "column", md: "row" }} justify="space-between" align={{ base: "start", md: "center" }} spacing={3}>
             <Heading size="md">{i18n.t("auto.AdminGeo.top_villes", "Top villes")}</Heading>
+            <Button
+              size="sm"
+              {...theme.primaryButtonProps}
+              onClick={() => enrichMissingCoords("manual")}
+              isLoading={enriching}
+              loadingText={i18n.t("auto.AdminGeo.enrichissement", "Enrichissement…")}
+            >Compléter les villes</Button>
             <Tag>
               {metricLabelUi} • {windowLabel} • {visibleCities.length} ville(s)
             </Tag>
@@ -1595,14 +1428,14 @@ export default function AdminGeo() {
         <CardBody>
           <SimpleGrid display={{ base: "grid", lg: "none" }} columns={{ base: 1, md: 2 }} spacing={3}>
             {visibleCities.slice(0, 50).map((c) => {
-              const last = lastVisitByGeoIdToday[c.geoId];
-              const hasCoords = isValidMapPoint(c);
+              const last = lastVisitByGeoId[c.geoId];
+              const hasCoords = measuredPoints.some(p => makeGeoId(p.country, p.city) === c.geoId);
               return (
                 <Box key={c.geoId} borderWidth="1px" borderRadius="lg" p={4} minW={0} overflowWrap="anywhere">
                   <HStack justify="space-between"><Text fontWeight="700" dir="auto">{c.city}</Text><Tag flexShrink={0}>{c.country}</Tag></HStack>
                   <Text mt={2}><Text as="span" fontWeight="700">{c.value}</Text> {metricLabelUi.toLowerCase()}</Text>
                   <Text fontSize="sm" color={theme.mutedText} mt={2}>Dernière visite : {formatDateTime(last?.lastSeenAt) || "—"}</Text>
-                  <Text fontSize="sm" color={theme.mutedText}>{hasCoords ? `${c.lat.toFixed(4)}, ${c.lon.toFixed(4)}` : "Coordonnées à compléter"}</Text>
+                  <Text fontSize="sm" color={theme.mutedText}>{isValidMapPoint(c) ? `${c.lat.toFixed(4)}, ${c.lon.toFixed(4)}` : "Coordonnées à compléter"}</Text>
                   <Button size="sm" variant="outline" mt={3} w="full" isDisabled={!hasCoords} onClick={() => focusCityOnMap(c)}>Voir sur la carte</Button>
                 </Box>
               );
@@ -1626,19 +1459,20 @@ export default function AdminGeo() {
             </Thead>
             <Tbody>
               {visibleCities.slice(0, 50).map((c) => {
-                const last = lastVisitByGeoIdToday[c.geoId];
+                const last = lastVisitByGeoId[c.geoId];
                 const lastLabel = formatDateTime(last?.lastSeenAt) || (last ? `${pad2(last.lastHour)}h` : "");
+                const hasPoint = measuredPoints.some(p => makeGeoId(p.country, p.city) === c.geoId);
                 return (
                   <Tr
                     key={c.geoId}
-                    cursor={typeof c.lat === "number" && typeof c.lon === "number" ? "pointer" : "default"}
-                    _hover={typeof c.lat === "number" && typeof c.lon === "number" ? { bg: "blue.50" } : undefined}
-                    tabIndex={typeof c.lat === "number" && typeof c.lon === "number" ? 0 : undefined}
+                    cursor={hasPoint ? "pointer" : "default"}
+                    _hover={hasPoint ? { bg: "blue.50" } : undefined}
+                    tabIndex={hasPoint ? 0 : undefined}
                     onClick={() => focusCityOnMap(c)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") focusCityOnMap(c);
                     }}
-                    aria-label={`Afficher ${c.city} sur la carte`}
+                    aria-label={hasPoint ? `Afficher ${c.city} sur la carte` : `${c.city} : aucune position enregistrée sur cette période`}
                   >
                     <Td>{c.city}</Td>
                     <Td>{c.country}</Td>
@@ -1672,7 +1506,7 @@ export default function AdminGeo() {
           </Table>
           </Box>
 
-          <Text fontSize="sm" color={theme.mutedText} mt={4}>Cliquez sur une ville pour la situer sur la carte. Les dernières visites indiquées correspondent à aujourd’hui. Jusqu’à 50 villes sont affichées.</Text>
+          <Text fontSize="sm" color={theme.mutedText} mt={4}>Cliquez sur une ville pour la situer sur la carte. Les dernières visites indiquées correspondent à la période sélectionnée. Jusqu’à 50 villes sont affichées.</Text>
           <Box as="details" mt={3} fontSize="sm" color={theme.mutedText}>
           <Box as="summary" cursor="pointer">Comprendre les données</Box>
           <Stack spacing={2} mt={3} overflowWrap="anywhere">

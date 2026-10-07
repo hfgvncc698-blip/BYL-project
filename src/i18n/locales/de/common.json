@@ -19,7 +19,7 @@
     "analyticsHelp": "Die Erfassung erfordert auch Ihre Einwilligung zur Reichweitenmessung in den Cookie-Einstellungen.",
     "temporary": "Der Browser kann erneut um Erlaubnis bitten, insbesondere wenn die vorherige Berechtigung zeitlich begrenzt war.",
     "reminderTitle": "Standortzugriff erlauben?",
-    "reminderBody": "Sie haben den Standortzugriff zuvor abgelehnt. Sie können ohne Aktivierung fortfahren.",
+    "reminderBody": "Der Standortzugriff ist derzeit nicht erlaubt. Sie können ohne Aktivierung fortfahren.",
     "retryHelp": "Sie können es erneut versuchen. Wenn der Browser die Anfrage blockiert, ändern Sie die Standortberechtigung in den Einstellungen dieser Website.",
     "retry": "Erneut versuchen",
     "later": "Nicht jetzt"

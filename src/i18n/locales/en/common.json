@@ -19,7 +19,7 @@
     "analyticsHelp": "Collection also requires analytics consent, managed in cookie preferences.",
     "temporary": "Your browser may ask for permission, especially if its previous permission was temporary.",
     "reminderTitle": "Allow your location?",
-    "reminderBody": "You previously declined location access. You can continue without enabling it.",
+    "reminderBody": "Location access is not currently allowed. You can continue without enabling it.",
     "retryHelp": "You can try again. If your browser blocks the request, change location permission in the settings for this site.",
     "retry": "Try again",
     "later": "Not now"

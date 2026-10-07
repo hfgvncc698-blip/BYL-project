@@ -27,7 +27,7 @@ export function clientCycleTimeline(profile,programs=[]) {
   });
   const currentId=cycles.length?cycles.find(c=>c.id===activeId)?.programId:selectJourneyProgram(profile,programs)?.id;
   const current=programs.find(p=>p.id===currentId);
-  const currentTime=time(current?.assignedAt||current?.createdAt);
+  const currentTime=time(current?.assignedAt||current?.createdAt) || time(profile?.trainingPlan?.start);
   const referenced=new Set(cycles.flatMap(c=>[c.programId,c.draftProgramId]).filter(Boolean));
   const extra=programs.filter(p=>!referenced.has(p.id)&&p.status!=='draft'&&!p.excludeFromCyclePlanning).map(program=>({
     id:`history:${program.id}`,type:inferredType(program),name:'',weeks:readProgramActiveWeeks(program),program,

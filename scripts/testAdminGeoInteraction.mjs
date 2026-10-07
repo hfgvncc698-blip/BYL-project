@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { createGeoMapAutoFit, getGeoVisitorLoadBatch, isValidMapPoint } from "../src/utils/geoMapViewport.js";
+import { clusterGeoPoints, visitorVisitHistory, visitMapPoints, createGeoMapAutoFit, getGeoVisitorLoadBatch, isValidMapPoint } from "../src/utils/geoMapViewport.js";
 import { getVisitLocationDisplay } from "../src/utils/geoVisitDisplay.js";
 
 const points = [{ geoId: "city-a", lat: 43.5, lon: 7 }, { geoId: "city-b", lat: 21.5, lon: 39 }];
@@ -63,26 +63,54 @@ assert.deepEqual(getGeoVisitorLoadBatch(manyCities, inFlightCache, "today"), [ma
 assert.equal(getGeoVisitorLoadBatch(manyCities, inFlightCache, "7d").length, 6,
   "in-flight results from another period cannot hide pending cities");
 
-assert.deepEqual(getVisitLocationDisplay(), { label: "Position non disponible", detail: "" });
+assert.deepEqual(getVisitLocationDisplay(), { label: "Position non disponible", detail: "Motif non enregistré pour cette visite ; un refus ne peut pas être déduit." });
 assert.deepEqual(getVisitLocationDisplay({ city: "unknown", country: "un", lat: null, lng: null, accuracy: null }),
-  { label: "Position non disponible", detail: "" });
+  { label: "Position non disponible", detail: "Motif non enregistré pour cette visite ; un refus ne peut pas être déduit." });
 assert.deepEqual(getVisitLocationDisplay({ city: "Cannes", country: "fr", lat: 43.5, lng: 7, accuracy: 17.2 }),
-  { label: "Cannes, FR", detail: "Précision ≈ 17 m" });
+  { label: "Cannes, FR", detail: "Coordonnées : 43.5000, 7.0000. Précision ≈ 17 m" });
 assert.deepEqual(getVisitLocationDisplay({ city: "unknown", country: "UN", lat: 43.5, lng: 7, accuracy: null }),
   { label: "43.5000, 7.0000", detail: "Coordonnées reçues, ville non déterminée." });
-assert.equal(getVisitLocationDisplay({ city: "Cannes", country: "FR", lat: 43.5, lng: 7, accuracy: null }).detail, "",
+assert.equal(getVisitLocationDisplay({ city: "Cannes", country: "FR", lat: 43.5, lng: 7, accuracy: null }).detail, "Coordonnées : 43.5000, 7.0000.",
   "missing accuracy must not be displayed as 0m");
-assert.equal(getVisitLocationDisplay({ country: "FR" }).detail, "Localisation approximative : pays uniquement.");
+assert.equal(getVisitLocationDisplay({ country: "FR" }).detail, "Localisation approximative : pays uniquement. Motif non enregistré pour cette visite ; un refus ne peut pas être déduit.");
 assert.equal(getVisitLocationDisplay({ lat: 91, lng: 7 }).label, "Position non disponible");
 assert.equal(getVisitLocationDisplay({ lat: 0, lng: 0 }).label, "Position non disponible");
 
 const source = readFileSync(new URL("../src/pages/AdminGeo.jsx", import.meta.url), "utf8");
-assert.match(source, /<FitToMarkers points=\{mapPoints\} requestKey=\{mapFitRequestKey\}/);
+assert.match(source, /<FitToMarkers points=\{mapBoundsPoints\} requestKey=\{mapFitRequestKey\}/);
 assert.doesNotMatch(source, /window\.L/);
 assert.match(source, /const map = useMapEvents\(handlers\)/, "zoom listener remains subscribed during synchronous fits");
 assert.match(source, /zoomend: \(event\) => onZoomChange\(event.target.getZoom\(\)\)/);
 assert.match(source, /setMapRecenterRequest\(\(value\) => value \+ 1\)/);
 assert.match(source, /getVisitLocationDisplay\(visit\)/);
 assert.match(source, /visites enregistrées/);
-assert.equal((source.match(/bubblingMouseEvents=\{false\}/g) || []).length, 2);
+assert.equal((source.match(/bubblingMouseEvents=\{false\}/g) || []).length, 1);
 console.log("Admin Geo: viewport polling/zoom, explicit recenter, filters, empty/invalid points, location labels and accuracy regressions OK.");
+
+assert.match(getVisitLocationDisplay({ geoStatus: 'denied' }).detail, /impossible de savoir/);
+assert.match(getVisitLocationDisplay({ geoStatus: 'disabled' }).detail, /préférences/);
+assert.match(getVisitLocationDisplay({ geoStatus: 'timeout' }).detail, /Délai dépassé/);
+assert.match(getVisitLocationDisplay({ knownLocation: { city: 'Jeddah', country: 'SA' } }).detail, /ne confirme pas le lieu/);
+
+const travel = visitMapPoints([
+  { id: 'first', uid: 'traveller', city: 'Zanzibar', lat: -6.16, lng: 39.19, lastSeenAt: '2026-10-01' },
+  { id: 'second', uid: 'traveller', city: 'unknown', lat: -6.86, lng: 39.21, lastSeenAt: '2026-10-05' },
+  { id: 'duplicate', uid: 'traveller', lat: -6.16, lng: 39.19, lastSeenAt: '2026-10-02' },
+  { id: 'label-only', city: 'Zanzibar' },
+  { id: 'invalid', lat: 91, lng: 39 },
+]);
+assert.equal(travel.length, 2, 'keep both actual places, including coordinates without a city');
+assert.equal(travel[0].id, 'duplicate', 'latest measurement at each place');
+assert.equal(travel[1].lon, 39.21);
+assert.match(getVisitLocationDisplay({ city: 'Zanzibar' }).detail, /aucune coordonnée enregistrée/);
+assert.match(getVisitLocationDisplay({ geoStatus: 'browser_denied' }).detail, /aucun clic/);
+assert.match(getVisitLocationDisplay({ geoStatus: 'remembered_denied' }).detail, /Aucune nouvelle demande/);
+
+const history = [{ id: 'old', uid: 'a', lastSeenAt: '2026-09-01', pathLast: '/old' }, { id: 'new', uid: 'a', lastSeenAt: '2026-10-01' }, { id: 'other', uid: 'b', lastSeenAt: '2026-10-02' }];
+assert.deepEqual(visitorVisitHistory(history, { uid: 'a' }).map(v => v.id), ['new', 'old']);
+assert.equal(history[0].id, 'old', 'history does not mutate source');
+const nearby = [{ pointId: 'a', uid: 'same', lat: 21.5, lon: 39.1 }, { pointId: 'b', uid: 'same', lat: 21.501, lon: 39.101 }];
+assert.equal(clusterGeoPoints(nearby, 2).length, 1, 'nearby positions group when zoomed out');
+assert.equal(clusterGeoPoints(nearby, 0).length, 2, 'zoom separates exact positions');
+assert.equal(clusterGeoPoints([nearby[0], { ...nearby[0], pointId: 'other', uid: 'other' }], 0)[0].members.length, 2, 'coincident people remain accessible in one popup');
+assert.doesNotMatch(source, /jour\(s\) de connexion/);

@@ -44,6 +44,7 @@ const db = {
 async function send({ visitId = 'opening-one', visitorId = 'uid:one', lat = null, lng = null, city = 'unknown', country = 'UN', captured = 0 } = {}) {
   clock += 1000;
   const context = vm.createContext({
+    cleanText: (value, max, fallback) => String(value || fallback).slice(0, max),
     db, req: { body: { visitId } }, geoVisitEventId, isGeoVisitRegression,
     FieldValue: { serverTimestamp: () => clock, increment: n => ({ increment: n }) },
     day: '2026-09-09', hour: 12, visitorTimeZone: 'Europe/Paris', visitorId,
