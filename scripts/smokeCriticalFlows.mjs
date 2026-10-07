@@ -482,17 +482,18 @@ check("admin geo markers reveal the visitors connected from each area", () => {
   const analyticsRoutes = read("backend/routes/analytics.js");
 
   assert.ok(
-    adminGeo.includes("const loadMapVisitors = useCallback") &&
-      adminGeo.includes("eventHandlers={{ click: () => loadMapVisitors(c) }}") &&
-      adminGeo.includes("<Popup minWidth={280} maxWidth={340}>") &&
-      adminGeo.includes("displayedVisitors.map"),
+    adminGeo.includes("popupopen: () => { setOpenPointId(point.clusterId)") &&
+      adminGeo.includes("<Popup minWidth={280} maxWidth={360}>") &&
+      adminGeo.includes("openPointId === point.clusterId") &&
+      adminGeo.includes("[...people.values()].slice(0, peopleLimit).map") &&
+      adminGeo.includes("visitorVisitHistory(recentVisitors, person)"),
     "Every map marker must open a popup listing the people associated with that area"
   );
   assert.ok(
-      adminGeo.includes("function clusterGeoPoints") &&
+      adminGeo.includes("clusterGeoPoints(measuredPoints, visualClusterRadiusKm)") &&
       adminGeo.includes("visualClusterRadiusKm") &&
       adminGeo.includes('className="geo-cluster-count"') &&
-      adminGeo.includes("mapRef.current?.flyTo"),
+      adminGeo.includes("mapRef.current?.fitBounds(point.members.map"),
     "Nearby positions must merge and low-zoom clusters must split when the admin zooms in"
   );
   assert.ok(
