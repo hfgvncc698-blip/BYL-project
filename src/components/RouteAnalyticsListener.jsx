@@ -9,7 +9,7 @@ function getGeoFromStorage() {
   try {
     const pageLoadId = localStorage.getItem(GEO_PAGE_LOAD_STORAGE_KEY) || null;
     if (pageLoadId !== GEO_PAGE_LOAD_ID) {
-      return { country: null, city: null, lat: null, lng: null, accuracy: null, capturedAt: null, source: null, pageLoadId };
+      return { country: null, city: null, lat: null, lng: null, accuracy: null, capturedAt: null, source: null, geoStatus: "pending", pageLoadId };
     }
     return {
       country: localStorage.getItem("BYL_COUNTRY") || null,
@@ -19,10 +19,11 @@ function getGeoFromStorage() {
       accuracy: localStorage.getItem("BYL_GEO_ACCURACY") || null,
       capturedAt: localStorage.getItem("BYL_GEO_UPDATED_AT") || null,
       source: localStorage.getItem("BYL_GEO_SOURCE") || null,
+      geoStatus: localStorage.getItem("BYL_GEO_STATUS") || "pending",
       pageLoadId,
     };
   } catch {
-    return { country: null, city: null, lat: null, lng: null, accuracy: null, capturedAt: null, source: null, pageLoadId: null };
+    return { country: null, city: null, lat: null, lng: null, accuracy: null, capturedAt: null, source: null, geoStatus: "pending", pageLoadId: null };
   }
 }
 
@@ -121,6 +122,7 @@ export default function RouteAnalyticsListener({ isAnalyticsOn = true, consentLo
       ct || "",
       lat || "",
       lng || "",
+      geo.geoStatus || "",
       Math.floor(Number(geo.capturedAt || 0) / (5 * 60 * 1000)),
     ].join("|");
 

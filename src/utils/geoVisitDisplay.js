@@ -9,7 +9,6 @@ export function getVisitLocationDisplay(visit = {}) {
   const coordinates = hasCoordinates ? `${visit.lat.toFixed(4)}, ${visit.lng.toFixed(4)}` : "";
   const accuracy = hasCoordinates && Number.isFinite(visit.accuracy) && visit.accuracy >= 0
     ? `Précision ≈ ${Math.round(visit.accuracy)} m` : "";
-
   const known = visit.knownLocation;
   const knownLabel = known ? [known.city, known.country].filter(value => value && !['unknown', 'UN'].includes(value)).join(', ') : '';
   const knownDate = known?.capturedAt ? new Date(known.capturedAt) : null;
@@ -34,6 +33,9 @@ export function getVisitLocationDisplay(visit = {}) {
         renewal_required: 'L’autorisation précédente a expiré. Aucune nouvelle demande n’a été lancée ; la personne doit la renouveler.',
         granted: 'Autorisation accordée, mais aucune coordonnée exploitable n’a été enregistrée pour cette visite.',
         prompt: 'Autorisation pas encore accordée. Aucun refus confirmé pour cette visite.',
+        pending: 'Position pas encore reçue au moment de la visite.',
+        'consent-off': 'Statistiques désactivées pour cette visite.',
+        error: 'Erreur de géolocalisation non précisée par le navigateur.',
         requesting: 'Position pas encore reçue au moment de la visite.',
         timeout: 'Délai dépassé lors de la recherche de position.',
         unavailable: 'Le navigateur n’a pas pu déterminer la position.',

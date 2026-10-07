@@ -544,6 +544,10 @@ router.get("/admin/geo", requireAnalyticsAdmin, async (_req, res) => {
           knownLocation: data.location ? { ...data.location, capturedAt: toIso(data.location.capturedAt || data.location.updatedAt) } : null,
           email: data.email || "",
           role: data.role || "",
+          lastKnownLocation: data.location && typeof data.location.lat === "number" && typeof data.location.lng === "number"
+            ? { lat: data.location.lat, lng: data.location.lng, city: data.location.city || null,
+                country: data.location.country || null, updatedAt: toIso(data.location.updatedAt) }
+            : null,
         });
       })
     );
@@ -585,6 +589,7 @@ router.get("/admin/geo", requireAnalyticsAdmin, async (_req, res) => {
           personName: person?.name || (visit.uid ? visit.uid : "Visiteur anonyme"),
           email: person?.email || "",
           role: person?.role || visit.role,
+          lastKnownLocation: person?.lastKnownLocation || null,
           country,
           city,
           lat,
@@ -632,6 +637,7 @@ router.get("/admin/geo", requireAnalyticsAdmin, async (_req, res) => {
           personName: person?.name || (visit.uid ? visit.uid : "Visiteur anonyme"),
           email: person?.email || "",
           role: person?.role || visit.role,
+          lastKnownLocation: person?.lastKnownLocation || null,
           country,
           city,
           lat,
@@ -1015,6 +1021,9 @@ router.post("/pageview", async (req, res) => {
       ? new Date(geoCapturedAtMs)
       : null;
     const geoSource = cleanText(req.body?.geoSource, 40, hasUsableCoords ? "browser" : "network");
+    const allowedGeoStatuses = new Set(["granted", "denied", "unavailable", "timeout", "unsupported", "pending", "disabled", "consent-off", "error", "analytics_disabled", "browser_denied", "remembered_denied", "permission_error", "checking", "renewal_required", "prompt", "requesting"]);
+    const requestedGeoStatus = cleanText(req.body?.geoStatus, 30, "unknown");
+    const geoStatus = hasUsableCoords ? "granted" : allowedGeoStatuses.has(requestedGeoStatus) ? requestedGeoStatus : "unknown";
     const reverseGeo = await reverseGeocode({ lat, lng });
     const countrySource =
       reverseGeo?.country ||
@@ -1146,7 +1155,7 @@ router.post("/pageview", async (req, res) => {
     const visitEventRef = visitEventId ? dailyRef.collection("events").doc(visitEventId) : dailyRef.collection("events").doc();
     const visitEvent = {
       visitorId, uid: uid || null, role, path, country, city, lat, lng,
-      accuracy, geoCapturedAt, geoSource, geoStatus: cleanText(req.body?.geoStatus, 40, "unknown"), timeZone: visitorTimeZone, analyticsAllowed,
+      accuracy, geoCapturedAt, geoSource, geoStatus, timeZone: visitorTimeZone, analyticsAllowed,
       geoId: hasGeoLabel ? geoId : null,
     };
     const dailyVisitorRef = dailyRef.collection("visitors").doc(visitorId);
@@ -1234,6 +1243,7 @@ router.post("/pageview", async (req, res) => {
           accuracy,
           geoCapturedAt,
           geoSource,
+          geoStatus,
           timeZone: visitorTimeZone,
         });
         tx.set(dailyRef, { uniqueVisitors: FieldValue.increment(1) }, { merge: true });
@@ -1241,14 +1251,10 @@ router.post("/pageview", async (req, res) => {
         tx.set(dailyVisitorRef, {
           lastSeenAt: FieldValue.serverTimestamp(),
           pathLast: path,
-          country,
-          city,
+          ...(hasGeoLabel ? { country, city } : {}),
           role,
-          lat,
-          lng,
-          accuracy,
-          geoCapturedAt,
-          geoSource,
+          ...(hasUsableCoords ? { lat, lng, accuracy, geoCapturedAt, geoSource } : {}),
+          geoStatus,
           timeZone: visitorTimeZone,
         }, { merge: true });
       }
