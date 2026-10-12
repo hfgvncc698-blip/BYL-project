@@ -52,6 +52,8 @@ import {
   rationMenuNum,
 } from "../utils/rationMenu";
 
+import { evaluateMenuQuality, includesMenuContent } from "../utils/nutritionShare";
+
 import MenuJournalierManual from "./MenuJournalierManual.jsx";
 import MenuJournalierAuto from "./MenuJournalierAuto.jsx";
 import NutritionAdviceSheetsPanel from "./NutritionAdviceSheetsPanel.jsx";
@@ -1062,53 +1064,14 @@ export default function MenuJournalierFromRation() {
     navigateWithFallback(`/clients/${clientId}/nutrition/${assessmentId}/ration`);
   }, [assessmentId, clientId, navigateWithFallback]);
 
-  const menuEnergyQuality = useMemo(() => {
-    const targetKcal = rationMenuNum(targets?.ration?.kcal);
-    const days = Array.isArray(menuPdfData?.days) ? menuPdfData.days : [];
-    const reviewedDays = days.map((day) => ({
-      kcal: rationMenuNum(day?.totals?.kcal),
-      p: rationMenuNum(day?.totals?.p),
-      f: rationMenuNum(day?.totals?.f),
-      c: rationMenuNum(day?.totals?.c),
-      label: day?.label || i18n.t("auto.MenuJournalierFromRation.jour", "Jour"),
-    }));
-    const macroTargets = {
-      p: rationMenuNum(targets?.ration?.p),
-      f: rationMenuNum(targets?.ration?.f),
-      c: rationMenuNum(targets?.ration?.c),
-    };
-    const invalidDays = targetKcal > 0
-      ? reviewedDays.filter(({ kcal, p, f, c }) => {
-          const energyInvalid = !(kcal > 0) || Math.abs(kcal - targetKcal) / targetKcal > 0.15;
-          const macrosInvalid = [[p, macroTargets.p], [f, macroTargets.f], [c, macroTargets.c]].some(
-            ([value, target]) => target > 0 && Math.abs(value - target) / target > 0.25
-          );
-          return energyInvalid || macrosInvalid;
-        })
-      : reviewedDays;
-    return {
-      targetKcal,
-      invalidDays,
-      ready: targetKcal > 0 && reviewedDays.length > 0 && invalidDays.length === 0,
-    };
-  }, [menuPdfData?.days, targets?.ration?.c, targets?.ration?.f, targets?.ration?.kcal, targets?.ration?.p]);
+  const menuEnergyQuality = useMemo(
+    () => evaluateMenuQuality(menuPdfData?.days || [], targets?.ration || {}),
+    [menuPdfData?.days, targets?.ration]
+  );
   const menuReadyToShare = ciqualOk && rationHasAnyQty && menuEnergyQuality.ready;
 
   const openShareModal = useCallback(async () => {
     if (!assessmentRef || blocked) return;
-    if (!menuReadyToShare) {
-      toast({
-        title: i18n.t("auto.MenuJournalierFromRation.menu_a_corriger", "Menu à corriger avant partage"),
-        description: i18n.t(
-          "auto.MenuJournalierFromRation.ecarts_energetiques_a_corriger",
-          "Chaque journée doit être générée, rester à ±15 % de la cible énergétique et conserver des macronutriments cohérents."
-        ),
-        status: "warning",
-        duration: 3500,
-        isClosable: true,
-      });
-      return;
-    }
     setPreparingShare(true);
     try {
       await persistMenuDraft();
@@ -1133,10 +1096,15 @@ export default function MenuJournalierFromRation() {
             ...emptyShareSections(),
             ...previous,
           }
-        : allShareSections()
+        : {
+            ...allShareSections(),
+            menu: menuReadyToShare && !menuIsStale,
+            recipes: menuReadyToShare && !menuIsStale,
+            shoppingList: menuReadyToShare && !menuIsStale,
+          }
     );
     setShareModalOpen(true);
-  }, [assessmentRef, blocked, docData?.clientShare?.sections, docData?.nutritionPatientNote, menuReadyToShare, persistMenuDraft, toast]);
+  }, [assessmentRef, blocked, docData?.clientShare?.sections, docData?.nutritionPatientNote, menuReadyToShare, menuIsStale, persistMenuDraft, toast]);
 
   const ciqualByCode = useMemo(() => {
     const map = new Map();
@@ -1324,10 +1292,17 @@ export default function MenuJournalierFromRation() {
         });
         return;
       }
-      if (share && menuIsStale) {
+      if (share && includesMenuContent(sections) && menuIsStale) {
         notify(toast, "saveError", {
           title: i18n.t("auto.MenuJournalierFromRation.menus_a_regenerer", "Menus à régénérer"),
           description: i18n.t("auto.MenuJournalierFromRation.ration_changee_regenerer_avant_partage", "La ration a changé depuis la dernière génération. Régénère les menus avant de les partager."),
+        });
+        return;
+      }
+      if (share && includesMenuContent(sections) && !menuReadyToShare) {
+        notify(toast, "saveError", {
+          title: i18n.t("auto.MenuJournalierFromRation.menu_a_corriger", "Menu à corriger avant partage"),
+          description: i18n.t("auto.MenuJournalierFromRation.ecarts_energetiques_a_corriger", "Chaque journée doit être générée, rester à ±15 % de la cible énergétique et conserver des macronutriments cohérents."),
         });
         return;
       }
@@ -1461,6 +1436,7 @@ export default function MenuJournalierFromRation() {
       docData?.nutritionAdviceSheets,
       menuPdfData?.view,
       menuIsStale,
+      menuReadyToShare,
       menuSourceFingerprint,
       professionalReviewConfirmed,
       professionalValidationNote,
@@ -2112,7 +2088,7 @@ export default function MenuJournalierFromRation() {
               {...nutritionTheme.primaryButtonProps}
               onClick={openShareModal}
               data-testid="nutrition-menu-validate-share"
-              isDisabled={blocked || !menuReadyToShare}
+              isDisabled={blocked}
               isLoading={preparingShare || savingShare}
               loadingText={i18n.t("auto.MenuJournalierFromRation.preparation", "Préparation")}
             >{i18n.t("auto.MenuJournalierFromRation.valider_partager", "Valider / partager")}</Button>
@@ -2152,12 +2128,21 @@ export default function MenuJournalierFromRation() {
             </HStack>
 
             <Stack spacing={3} mt={5}>
-              {menuIsStale ? (
+              {includesMenuContent(shareSelection) && menuIsStale ? (
                 <Alert status="error" borderRadius="md" alignItems="flex-start">
                   <AlertIcon mt={0.5} />
                   <Box>
                     <AlertTitle>{i18n.t("auto.MenuJournalierFromRation.menus_obsoletes", "Menus obsolètes")}</AlertTitle>
                     <AlertDescription>{i18n.t("auto.MenuJournalierFromRation.partage_indisponible_jusqu_a_regeneration", "La ration a été modifiée. Le partage restera indisponible jusqu’à la régénération des menus.")}</AlertDescription>
+                  </Box>
+                </Alert>
+              ) : null}
+              {includesMenuContent(shareSelection) && !menuReadyToShare ? (
+                <Alert status="warning" borderRadius="md" alignItems="flex-start">
+                  <AlertIcon mt={0.5} />
+                  <Box>
+                    <AlertTitle>{i18n.t("auto.MenuJournalierFromRation.menu_a_corriger", "Menu à corriger avant partage")}</AlertTitle>
+                    <AlertDescription>{i18n.t("auto.MenuJournalierFromRation.ecarts_energetiques_a_corriger", "Chaque journée doit être générée, rester à ±15 % de la cible énergétique et conserver des macronutriments cohérents.")}</AlertDescription>
                   </Box>
                 </Alert>
               ) : null}
@@ -2267,7 +2252,7 @@ export default function MenuJournalierFromRation() {
               onClick={() => saveMenuAndShare({ share: true })}
               data-testid="nutrition-share-save-public"
               isLoading={savingShare}
-              isDisabled={savingShare || menuIsStale || !professionalReviewConfirmed}
+              isDisabled={savingShare || (includesMenuContent(shareSelection) && (menuIsStale || !menuReadyToShare)) || !professionalReviewConfirmed}
               w={{ base: "100%", sm: "auto" }}
             >{i18n.t("auto.MenuJournalierFromRation.sauvegarder_partager", "Sauvegarder & partager")}</Button>
           </ModalFooter>
