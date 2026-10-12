@@ -360,11 +360,12 @@ check("messaging stays unified and keeps its dashboard launcher", () => {
     "Messaging emails must be optional, deduplicated and avoid exposing message contents"
   );
   assert.ok(
-    messaging.includes("[contact.coachUid || contact.id, contact]") &&
+    messaging.includes("[contact.id, contact]") &&
       read("src/components/ClientNutritionDailyJournal.jsx").includes('borderTopWidth="1px"') &&
       !read("src/components/ClientNutritionDailyJournal.jsx").includes("borderYWidth"),
     "Professionals with identical names must stay distinct and nutrition cards must use valid Chakra props"
   );
+  execFileSync(process.execPath, ["scripts/testMessagingMultipleProfessionals.cjs"], { cwd: root, stdio: "pipe" });
 });
 
 check("latest program cards never force a cramped three-column layout", () => {
@@ -1625,9 +1626,10 @@ check("coach session planning is atomic, bounded and duplicate-safe", () => {
     "Cached session refreshes must rebuild dashboard calendar events"
   );
   assert.ok(
-    dashboard.includes('if (endMs > 0 && endMs <= Date.now()) return "#DC2626"'),
-    "Past unvalidated calendar sessions must use the missed color"
+    dashboard.includes('calendarEventAppearance('),
+    "Calendar sessions must use shared coach colors and validation markers"
   );
+  execFileSync(process.execPath, ["scripts/testCalendarEventAppearance.mjs"], { cwd: root, stdio: "pipe" });
   assert.ok(
     dashboard.includes("difficultyRating: getSessionDifficultyRating(s)") &&
       dashboard.includes("difficultyRating: match.difficultyRating ?? null"),

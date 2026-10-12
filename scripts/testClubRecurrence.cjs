@@ -1,0 +1,11 @@
+const assert = require('node:assert/strict');
+const { expandClubRecurrence: expand } = require('../backend/utils/clubRecurrence');
+const rule = (frequency,until) => ({frequency,until,timeZone:'Europe/Paris'});
+assert.equal(expand('2026-10-08T08:00:00Z',rule('daily','2026-10-10')).length,3);
+assert.deepEqual(expand('2026-10-18T08:00:00Z',rule('weekly','2026-11-01')).map(d=>d.toISOString()),['2026-10-18T08:00:00.000Z','2026-10-25T09:00:00.000Z','2026-11-01T09:00:00.000Z']);
+assert.deepEqual(expand('2026-01-31T09:00:00Z',rule('monthly','2026-04-30')).map(d=>d.toISOString().slice(0,10)),['2026-01-31','2026-03-31']);
+assert.throws(()=>expand('2026-10-08T08:00:00Z',rule('daily','2026-10-07')));
+assert.throws(()=>expand('2026-10-08T08:00:00Z',rule('daily','2028-10-08')));
+assert.throws(()=>expand('2026-03-28T01:30:00Z',rule('daily','2026-03-29')));
+assert.throws(()=>expand('2026-10-08T08:00:00Z',rule('daily','2026-99-99')));
+console.log('Recurrence tests passed: inclusive end, DST, month ends, limits and invalid dates.');

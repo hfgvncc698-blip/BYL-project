@@ -1,4 +1,5 @@
 import { collection, getDoc, getDocs, limit, query, where, doc } from "firebase/firestore";
+import { apiFetch } from "./api";
 import { db } from "../firebaseConfig";
 import { resolveClientSnapshotForUser } from "./clientResolver";
 
@@ -177,7 +178,7 @@ export const conversationUnreadFor = (conversation, uid) => {
 
 const contactFromClient = (client, { currentUid = "", coachUid = "", clientUid = "", title = "", contactEmail, relationshipLabel = "" } = {}) => {
   const resolvedClientUid = clientAccountUid(client, clientUid);
-  const resolvedCoachUid = clientCoachUid(client, coachUid);
+  const resolvedCoachUid = coachUid || clientCoachUid(client);
   const clientName = personName(client, client?.email || "");
   return {
     id: conversationIdForClient(client.id, resolvedCoachUid),
@@ -216,8 +217,10 @@ export async function loadClientMessagingContacts(user, professionalFallback) {
   ));
   const snapshot = directSnapshots.find((item) => item?.exists?.())
     || await resolveClientSnapshotForUser(user, { logPrefix: "Messaging" });
-  if (!snapshot?.exists?.()) return [];
-  const client = { id: snapshot.id, ...snapshot.data() };
+  const directory = await apiFetch("/messaging/client-records").catch(() => null);
+  const records = new Map((directory?.records || []).map(record => [record.id, record]));
+  if (snapshot?.exists?.()) records.set(snapshot.id, { id: snapshot.id, ...snapshot.data() });
+  const allContacts = await Promise.all([...records.values()].map(async client => {
   const [programmesSnapshot, nutritionSnapshot] = await Promise.all([
     getDocsWithoutBlockingUi(query(collection(db, "clients", client.id, "programmes"), limit(100))),
     getDocsWithoutBlockingUi(query(
@@ -269,8 +272,9 @@ export async function loadClientMessagingContacts(user, professionalFallback) {
       contactEmail: profiles[index]?.email || related?.createdByEmail || related?.coachEmail || "",
     });
   });
-  const namedContacts = contacts.filter((contact) => contact.title && contact.title !== professionalFallback);
-  return [...new Map(namedContacts.map((contact) => [contact.coachUid || contact.id, contact])).values()];
+  return contacts;
+  }));
+  return [...new Map(allContacts.flat().map(contact => [contact.id, contact])).values()];
 }
 
 export async function loadCoachMessagingContacts({ currentUid, effectiveCoachUid, isAdmin = false }) {

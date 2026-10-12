@@ -1,3 +1,22 @@
+import SessionCancellationRequests from '../components/dashboard/SessionCancellationRequests';
+import TutorialSettingsPanel from '../components/TutorialSettingsPanel';
+const ClubClientImport = React.lazy(() => import("../components/dashboard/ClubClientImport"));
+import useClubUnreadCount from '../components/messaging/useClubUnreadCount';
+import { eventLastPacks } from "../utils/lastPackSession.mjs";
+import StableCalendar from "../components/calendar/StableCalendar";
+import ClubCalendarConnect from "../components/dashboard/ClubCalendarConnect";
+import ClubAppointmentDialog from '../components/dashboard/ClubAppointmentDialog';
+import { clubText, clubLocale } from "../i18n/clubText";
+import { ClubSubscriptionPlans, ClubPaymentTasks } from "../components/dashboard/ClubSubscriptions";
+import CalendarValidationMark from "../components/calendar/CalendarValidationMark";
+import { calendarEventAppearance } from "../utils/calendarEventAppearance.mjs";
+import ClubPlanningDownload from "../components/dashboard/ClubPlanningDownload";
+import FormerClubClients from "../components/dashboard/FormerClubClients";
+import useSessionDraft from "../hooks/useSessionDraft";
+import ClubRegistrationSettings from "../components/dashboard/ClubRegistrationSettings";
+import ClubCalendarSlotHint from "../components/dashboard/ClubCalendarSlotHint";
+import ClubCalendarEventPreview from "../components/dashboard/ClubCalendarEventPreview";
+import ClubGroupFields from "../components/dashboard/ClubGroupFields";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
@@ -22,6 +41,7 @@ import {
   ModalHeader,
   ModalOverlay,
   Progress,
+  Portal,
   Select,
   SimpleGrid,
   Stack,
@@ -41,6 +61,8 @@ import {
   Menu,
   MenuButton,
   MenuList,
+  MenuItem,
+  MenuDivider,
   MenuOptionGroup,
   MenuItemOption,
 } from "@chakra-ui/react";
@@ -48,7 +70,7 @@ import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { doc, setDoc, updateDoc } from "firebase/firestore";
 import { AddIcon, ArrowBackIcon, ChevronDownIcon, CloseIcon, DeleteIcon, TimeIcon } from "@chakra-ui/icons";
-import { Calendar, momentLocalizer } from "react-big-calendar";
+import { momentLocalizer } from "react-big-calendar";
 import dragAndDropAddon from "react-big-calendar/lib/addons/dragAndDrop";
 import moment from "moment";
 import "moment/locale/fr";
@@ -61,31 +83,55 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 import { apiFetch } from "../utils/api";
 import { db } from "../firebaseConfig";
-import { resolveStorageUrl } from "../utils/storageUrls";
+
 import i18n, { ensureLanguageLoaded } from "../i18n/index";
-import { getCalendarCulture } from "../utils/calendarLocale";
+import { clubCoachKey, clubCoachColors } from "../utils/clubCalendarColors.mjs";
+import { getCalendarCulture, getCalendarFormats, getCalendarAgendaMessages } from "../utils/calendarLocale";
 import { useAppTheme } from "../styles/appTheme";
 import AppLoading from "../components/ui/AppLoading";
+import ClubActivityTrend from "../components/dashboard/ClubActivityTrend";
+import ClubLogo from "../components/dashboard/ClubLogo";
+import ClubMobileCalendar from "../components/dashboard/ClubMobileCalendar";
+import ClubMessagingPanel from "../components/messaging/ClubMessagingPanel";
 import EmailNotificationPreferenceCard from "../components/EmailNotificationPreferenceCard";
 import { useAuth } from "../AuthContext";
-import { MdLanguage, MdOutlineCreditCard, MdOutlineLock } from "react-icons/md";
+import { MdLanguage, MdOutlineCreditCard, MdOutlineLock, MdOutlineChat, MdFilterList } from "react-icons/md";
 import { resolveDragAndDropFactory } from "../utils/reactBigCalendarDnd";
 
+// Keep month boundaries and week views aligned with the coach calendar in every language.
+["fr", "en", "de", "it", "es", "ru", "ar"].forEach((locale) => {
+  moment.updateLocale(locale, { week: { dow: 1, doy: 4 } });
+});
 moment.locale("fr");
 const localizer = momentLocalizer(moment);
+localizer.startOfWeek = () => 1;
 const withDragAndDrop = resolveDragAndDropFactory(dragAndDropAddon);
-const DnDCalendar = withDragAndDrop ? withDragAndDrop(Calendar) : Calendar;
+const DnDCalendar = withDragAndDrop ? withDragAndDrop(StableCalendar) : StableCalendar;
+const formatCalendarTime = date => {
+  const locale = i18n.language || i18n.resolvedLanguage || "fr";
+  if (locale.startsWith("fr")) return `${date.getHours()} h${date.getMinutes() ? ` ${String(date.getMinutes()).padStart(2, "0")}` : ""}`;
+  return new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit", hour12: locale.startsWith("en") }).format(date);
+};
+const formatCalendarSlotTime = date => new Intl.DateTimeFormat(i18n.language || i18n.resolvedLanguage || "fr", { hour: "2-digit", minute: "2-digit" }).format(date);
+const formatCalendarTimeRange = ({ start, end }) => `${formatCalendarTime(start)} – ${formatCalendarTime(end)}`;
 const calendarFormats = {
+  timeGutterFormat: formatCalendarTime,
+  eventTimeRangeFormat: formatCalendarTimeRange,
+  agendaTimeFormat: formatCalendarTime,
+  agendaTimeRangeFormat: formatCalendarTimeRange,
+  eventTimeRangeStartFormat: ({ start }) => `${formatCalendarTime(start)} –`,
+  eventTimeRangeEndFormat: ({ end }) => `– ${formatCalendarTime(end)}`,
+
   monthHeaderFormat: (date) =>
-    new Intl.DateTimeFormat(i18n.resolvedLanguage || i18n.language || "fr-FR", { month: "long", year: "numeric" }).format(date),
+    new Intl.DateTimeFormat(i18n.language || i18n.resolvedLanguage || "fr-FR", { month: "long", year: "numeric" }).format(date),
   weekdayFormat: (date) =>
-    new Intl.DateTimeFormat(i18n.resolvedLanguage || i18n.language || "fr-FR", { weekday: "short" }).format(date).replace(".", ""),
+    new Intl.DateTimeFormat(i18n.language || i18n.resolvedLanguage || "fr-FR", { weekday: "short" }).format(date).replace(".", ""),
   dayHeaderFormat: (date) =>
-    new Intl.DateTimeFormat(i18n.resolvedLanguage || i18n.language || "fr-FR", { weekday: "long", day: "2-digit", month: "long" }).format(date),
+    new Intl.DateTimeFormat(i18n.language || i18n.resolvedLanguage || "fr-FR", { weekday: "long", day: "2-digit", month: "long" }).format(date),
   dayRangeHeaderFormat: ({ start, end }) =>
-    `${new Intl.DateTimeFormat(i18n.resolvedLanguage || i18n.language || "fr-FR", { day: "2-digit", month: "short" }).format(start)} - ${new Intl.DateTimeFormat(i18n.resolvedLanguage || i18n.language || "fr-FR", { day: "2-digit", month: "short", year: "numeric" }).format(end)}`,
+    `${new Intl.DateTimeFormat(i18n.language || i18n.resolvedLanguage || "fr-FR", { day: "2-digit", month: "short" }).format(start)} - ${new Intl.DateTimeFormat(i18n.language || i18n.resolvedLanguage || "fr-FR", { day: "2-digit", month: "short", year: "numeric" }).format(end)}`,
   agendaHeaderFormat: ({ start, end }) =>
-    `${new Intl.DateTimeFormat(i18n.resolvedLanguage || i18n.language || "fr-FR", { day: "2-digit", month: "short" }).format(start)} - ${new Intl.DateTimeFormat(i18n.resolvedLanguage || i18n.language || "fr-FR", { day: "2-digit", month: "short", year: "numeric" }).format(end)}`,
+    `${new Intl.DateTimeFormat(i18n.language || i18n.resolvedLanguage || "fr-FR", { day: "2-digit", month: "short" }).format(start)} - ${new Intl.DateTimeFormat(i18n.language || i18n.resolvedLanguage || "fr-FR", { day: "2-digit", month: "short", year: "numeric" }).format(end)}`,
 };
 const NUTRITION_APPOINTMENT_TYPES = [
   { value: "bilan", label: "Bilan nutrition" },
@@ -100,15 +146,16 @@ function displayName(person) {
 }
 
 function displayCoachName(value) {
-  if (!value || value === "Pro") return i18n.t("clubDashboard.filters.unknownPro", "Référent non identifié");
+  if(value==="Non attribué")return clubText("Non attribué");
+  if (!value || value === "Pro") return i18n.t("clubDashboard.filters.unknownPro", clubText("Référent non identifié"));
   return value;
 }
 
 function formatDate(value) {
-  if (!value) return i18n.t("clubDashboard.empty.noActivity", "Aucune activité");
+  if (!value) return i18n.t("clubDashboard.empty.noActivity", clubText("Aucune activité"));
   const date = value?.toDate ? value.toDate() : new Date(value);
-  if (!Number.isFinite(date.getTime())) return i18n.t("clubDashboard.empty.noActivity", "Aucune activité");
-  return new Intl.DateTimeFormat(i18n.resolvedLanguage || i18n.language || "fr-FR", {
+  if (!Number.isFinite(date.getTime())) return i18n.t("clubDashboard.empty.noActivity", clubText("Aucune activité"));
+  return new Intl.DateTimeFormat(i18n.language || i18n.resolvedLanguage || "fr-FR", {
     day: "2-digit",
     month: "short",
     hour: "2-digit",
@@ -117,10 +164,10 @@ function formatDate(value) {
 }
 
 function formatShortDateTime(value) {
-  if (!value) return i18n.t("clubDashboard.empty.noDate", "Aucune date");
+  if (!value) return i18n.t("clubDashboard.empty.noDate", clubText("Aucune date"));
   const date = value?.toDate ? value.toDate() : new Date(value);
-  if (!Number.isFinite(date.getTime())) return i18n.t("clubDashboard.empty.noDate", "Aucune date");
-  return new Intl.DateTimeFormat(i18n.resolvedLanguage || i18n.language || "fr-FR", {
+  if (!Number.isFinite(date.getTime())) return i18n.t("clubDashboard.empty.noDate", clubText("Aucune date"));
+  return new Intl.DateTimeFormat(i18n.language || i18n.resolvedLanguage || "fr-FR", {
     weekday: "short",
     day: "2-digit",
     month: "short",
@@ -129,15 +176,7 @@ function formatShortDateTime(value) {
   }).format(date);
 }
 
-function formatTime(value) {
-  if (!value) return "";
-  const date = value?.toDate ? value.toDate() : new Date(value);
-  if (!Number.isFinite(date.getTime())) return "";
-  return new Intl.DateTimeFormat(i18n.resolvedLanguage || i18n.language || "fr-FR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
+
 
 function toDateTimeLocalValue(value) {
   const date = value instanceof Date ? value : new Date(value);
@@ -162,7 +201,7 @@ function getSessionLabel(session, index) {
 }
 
 function formatFullDate(value = new Date()) {
-  return new Intl.DateTimeFormat(i18n.resolvedLanguage || i18n.language || "fr-FR", {
+  return new Intl.DateTimeFormat(i18n.language || i18n.resolvedLanguage || "fr-FR", {
     weekday: "long",
     day: "2-digit",
     month: "long",
@@ -170,12 +209,7 @@ function formatFullDate(value = new Date()) {
   }).format(value);
 }
 
-function getGreeting() {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Bonjour";
-  if (hour < 18) return "Bon après-midi";
-  return "Bonsoir";
-}
+
 
 function getMonthKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -221,12 +255,12 @@ function getPeriodStart(period, now = Date.now()) {
 function friendlyError(error) {
   const message = error?.message || "";
   if (error?.status === 404 || /not found/i.test(message)) {
-    return "Le module Club n’est pas encore chargé côté API. Si le serveur backend tourne depuis avant l’ajout de cette page, il faut le redémarrer puis rafraîchir.";
+    return clubText("Le module Club n’est pas encore chargé côté API. Si le serveur backend tourne depuis avant l’ajout de cette page, il faut le redémarrer puis rafraîchir.");
   }
   if (error?.status === 403) {
-    return "Action refusée pour ce club. Vérifie que le club cible est bien sélectionné, puis réessaie depuis le dashboard club.";
+    return clubText("Action refusée pour ce club. Vérifie que le club cible est bien sélectionné, puis réessaie depuis le dashboard club.");
   }
-  return message || "Impossible de charger le dashboard club.";
+  return message || clubText("Impossible de charger le dashboard club.");
 }
 
 function fileToDataUrl(file) {
@@ -256,9 +290,9 @@ const CLUB_SECTIONS = {
   "/club-dashboard/programmes": "activity",
   "/club-dashboard/nutrition": "activity",
   "/club-dashboard/statistiques": "activity",
-  "/club-dashboard/alertes": "alerts",
+  "/club-dashboard/alertes": "bulk",
   "/club-dashboard/journal": "log",
-  "/club-dashboard/audit": "audit",
+  "/club-dashboard/audit": "bulk",
   "/club-dashboard/objectifs": "goals",
   "/club-dashboard/exports": "exports",
   "/club-dashboard/actions-groupees": "bulk",
@@ -286,9 +320,7 @@ const PRO_TYPES = {
   complete: ["clubDashboard.proTypes.complete", "Coach + nutrition"],
 };
 const CLUB_TOOLS = [
-  { key: "alerts", path: "/club-dashboard/alertes", labelKey: "clubDashboard.tools.alerts", fallback: "Alertes" },
   { key: "log", path: "/club-dashboard/journal", labelKey: "clubDashboard.tools.log", fallback: "Journal" },
-  { key: "audit", path: "/club-dashboard/audit", labelKey: "clubDashboard.tools.audit", fallback: "Audit données" },
   { key: "goals", path: "/club-dashboard/objectifs", labelKey: "clubDashboard.tools.goals", fallback: "Objectifs" },
   { key: "exports", path: "/club-dashboard/exports", labelKey: "clubDashboard.tools.exports", fallback: "Exports" },
   { key: "bulk", path: "/club-dashboard/actions-groupees", labelKey: "clubDashboard.tools.bulk", fallback: "Actions groupées" },
@@ -312,13 +344,31 @@ export default function ClubDashboard() {
   const { t, i18n: translationI18n } = useTranslation("common");
   const { user, resetPassword, isAdmin } = useAuth();
   const calendarCulture = useMemo(
-    () => getCalendarCulture(translationI18n.resolvedLanguage || translationI18n.language || "fr"),
+    () => getCalendarCulture(translationI18n.language || translationI18n.resolvedLanguage || "fr"),
     [translationI18n.resolvedLanguage, translationI18n.language]
   );
   useEffect(() => {
     moment.locale(calendarCulture);
   }, [calendarCulture]);
-  const theme = useAppTheme();
+  const clubMessaging = useDisclosure();
+  const baseTheme = useAppTheme();
+  // Match the coach workspace surfaces without changing other application pages.
+  const clubSurface = useColorModeValue("rgba(255,255,255,0.95)", "rgba(11,16,27,0.95)");
+  const clubSoft = useColorModeValue("rgba(248,250,252,0.95)", "rgba(255,255,255,0.03)");
+  const clubShadow = useColorModeValue("0 20px 50px rgba(15,23,42,0.08)", "0 20px 60px rgba(0,0,0,0.35)");
+  const clubHero = useColorModeValue(
+    "linear-gradient(112deg, rgba(255,255,255,0.98) 0%, rgba(239,246,255,0.98) 58%, rgba(224,242,254,0.92) 100%)",
+    "linear-gradient(112deg, rgba(15,23,42,0.98) 0%, rgba(17,36,68,0.96) 58%, rgba(12,45,67,0.94) 100%)"
+  );
+  const theme = {
+    ...baseTheme,
+    surfaceBg: clubSurface,
+    surfaceSoft: clubSoft,
+    glassShadow: clubShadow,
+    cardProps: { ...baseTheme.cardProps, bg: clubSurface, borderRadius: "24px", boxShadow: clubShadow },
+    tileProps: { ...baseTheme.tileProps, bg: clubSoft, borderRadius: "16px" },
+    inputProps: { ...baseTheme.inputProps, bg: clubSoft },
+  };
   const toast = useToast();
   const calendarToolbarBg = useColorModeValue("rgba(15,23,42,0.03)", "rgba(255,255,255,0.08)");
   const calendarPanelBg = useColorModeValue("rgba(15,23,42,0.01)", "rgba(2,6,23,0.34)");
@@ -328,10 +378,7 @@ export default function ClubDashboard() {
   const calendarActiveBg = useColorModeValue("rgba(59,130,246,0.10)", "rgba(96,165,250,0.24)");
   const calendarMutedBg = useColorModeValue("rgba(15,23,42,0.015)", "rgba(255,255,255,0.035)");
   const calendarTodayBg = useColorModeValue("rgba(59,130,246,0.06)", "rgba(96,165,250,0.18)");
-  const setupEmptyBg = useColorModeValue(
-    "linear-gradient(135deg, rgba(239,246,255,0.98), rgba(240,253,250,0.86))",
-    "linear-gradient(135deg, rgba(15,23,42,0.96), rgba(8,47,73,0.52))"
-  );
+  
   const location = useLocation();
   const navigate = useNavigate();
   const adminClubId = useMemo(() => {
@@ -362,6 +409,15 @@ export default function ClubDashboard() {
   const [isAddAppointmentModalOpen, setIsAddAppointmentModalOpen] = useState(false);
   const [proLimitModalDismissed, setProLimitModalDismissed] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [cancellationCount,setCancellationCount]=useState(0);
+  const [paymentDueCount, setPaymentDueCount] = useState(0);
+  useEffect(() => {
+    if (isAdmin) return;
+    let active = true;
+    const load = () => {apiFetch("/clubs/payment-dues").then(data => { if (active) setPaymentDueCount(data.dues.length); }).catch(() => {});apiFetch("/coach-sessions/cancellation-requests").then(data=>{if(active)setCancellationCount(data.requests.length);}).catch(()=>{});};
+    load(); const timer = setInterval(load, 60000); window.addEventListener("focus", load);
+    return () => { active = false; clearInterval(timer); window.removeEventListener("focus", load); };
+  }, [isAdmin]);
   const [saving, setSaving] = useState(false);
   const [actionSaving, setActionSaving] = useState("");
   const [auditRepairCoach, setAuditRepairCoach] = useState({});
@@ -370,6 +426,7 @@ export default function ClubDashboard() {
   const summaryLoadVersion = useRef(0);
   const loadedClubId = summary?.club?.id && summary.club.id !== "admin-club-preview" ? summary.club.id : "";
   const actionClubId = adminClubId || loadedClubId || user?.clubId || "";
+  const clubUnreadCount = useClubUnreadCount(actionClubId);
   useEffect(() => {
     if (!isAdmin || !loadedClubId || loadedClubId === "admin-club-preview" || typeof window === "undefined") return;
     window.localStorage.setItem(ADMIN_CLUB_STORAGE_KEY, loadedClubId);
@@ -384,6 +441,13 @@ export default function ClubDashboard() {
   const [selectedCoachUid, setSelectedCoachUid] = useState("");
   const [activityCoachFilter, setActivityCoachFilter] = useState([]);
   const [calendarCoachFilter, setCalendarCoachFilter] = useState([]);
+  const [calendarDate, setCalendarDate] = useState(new Date());
+  const [calendarView, setCalendarView] = useState("week");
+  const [calendarCourseSearch, setCalendarCourseSearch] = useState("");
+  const [calendarCoachSearch, setCalendarCoachSearch] = useState("");
+  const [groupClients, setGroupClients] = useState([]);
+  const [groupClientsLoading, setGroupClientsLoading] = useState(false);
+  const [groupClientsError, setGroupClientsError] = useState("");
   const [logPeriod, setLogPeriod] = useState("week");
   const [statsPeriod, setStatsPeriod] = useState("month");
   const [goalPeriod, setGoalPeriod] = useState("month");
@@ -402,16 +466,30 @@ export default function ClubDashboard() {
   const [stripeLoading, setStripeLoading] = useState(false);
   const [sendingReset, setSendingReset] = useState(false);
   const [logoFile, setLogoFile] = useState(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState("");
+  useEffect(() => {
+    if (!logoFile) {
+      setLogoPreviewUrl("");
+      return undefined;
+    }
+    const url = URL.createObjectURL(logoFile);
+    setLogoPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [logoFile]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedLang, setSelectedLang] = useState(
     user?.settings?.defaultLanguage || user?.preferredLang || "fr"
   );
+  const [clubNameDraft, setClubNameDraft] = useSessionDraft(user?.uid ? `club-name:${user.uid}:${adminClubId || ''}` : null, null);
   const [identityForm, setIdentityForm] = useState({
     name: "",
     logoUrl: "",
   });
-  const [resolvedClubLogoUrl, setResolvedClubLogoUrl] = useState("");
-  const [clubLogoAspectRatio, setClubLogoAspectRatio] = useState(null);
+  
+  
+  useEffect(() => {
+    if (clubNameDraft !== null) setIdentityForm(current => ({ ...current, name: clubNameDraft }));
+  }, [clubNameDraft, summary?.club?.name]);
   const [appointmentForm, setAppointmentForm] = useState({
     coachUid: "",
     clientId: "",
@@ -419,12 +497,36 @@ export default function ClubDashboard() {
     programId: "",
     sessionIndex: "",
     appointmentKind: "suivi",
+    capacity: 10, participantIds: [],
     durationMin: 60,
     title: "",
     startsAt: "",
     note: "",
   });
   const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [appointmentDetailLoading, setAppointmentDetailLoading] = useState(false);
+  const [appointmentDetailError, setAppointmentDetailError] = useState("");
+  const appointmentDetailRequest = useRef(null);
+  useEffect(() => {
+    if (!appointmentDetailModal.isOpen) appointmentDetailRequest.current = null;
+  }, [appointmentDetailModal.isOpen]);
+  const needsGroupClients = appointmentForm.type === "group" || selectedAppointment?.type === "group" || (summary?.appointments || summary?.upcomingAppointments || []).length > 0;
+  useEffect(() => {
+    if (!needsGroupClients) return;
+    let active = true;
+    setGroupClientsLoading(true);
+    setGroupClientsError("");
+    const load = () => apiFetch(withAdminClub("/clubs/group-class-clients")).then(data => {
+      if (active) { setGroupClients(data.clients || []); setGroupClientsError(""); }
+    }).catch(() => {
+      if (active) setGroupClientsError(t("clubDashboard.group.loadError", "Impossible de charger les participants."));
+    }).finally(() => { if (active) setGroupClientsLoading(false); });
+    load();
+    const timer = setInterval(load, 60000);
+    window.addEventListener('focus', load);
+    return () => { active = false; clearInterval(timer); window.removeEventListener('focus', load); };
+  }, [needsGroupClients, summary, withAdminClub, t, appointmentDetailModal.isOpen]);
+
   const [appointmentEditForm, setAppointmentEditForm] = useState({
     title: "",
     startsAt: "",
@@ -468,7 +570,7 @@ export default function ClubDashboard() {
   const analysablePros = useMemo(() => {
     const map = new Map();
     const put = (uid, name, base = {}) => {
-      if (!uid && !name) return;
+      if ((!uid && !name) || name === 'Non attribué') return;
       const isUnknown = !name || name === "Pro";
       const key = isUnknown ? "__unknown__" : uid || `name:${name}`;
       const existing = map.get(key) || {};
@@ -501,7 +603,7 @@ export default function ClubDashboard() {
       }))
       .sort((a, b) => (b.clientCount + b.programCount + b.nutritionCount + b.sessionCount) - (a.clientCount + a.programCount + a.nutritionCount + a.sessionCount));
   }, [clubClients, clubNutrition, clubPrograms, clubSessions, coaches, t]);
-  const teamPros = analysablePros;
+  const teamPros = analysablePros.filter(pro => ![summary?.club?.ownerUid, summary?.club?.ownerId].filter(Boolean).includes(pro.realUid));
   const selectedCoach = selectedCoachUid ? teamPros.find((coach) => coach.uid === selectedCoachUid) || null : null;
   const selectedActivityCoaches = useMemo(
     () => analysablePros.filter((coach) => activeCoachFilterSet.has(coach.uid)),
@@ -515,9 +617,54 @@ export default function ClubDashboard() {
     () => new Set(selectedActivityCoaches.map((coach) => coach.name).filter(Boolean)),
     [selectedActivityCoaches]
   );
+  const directoryClients = activeView === 'clients' ? (summary?.clientDirectory || clubClients) : clubClients;
+  const clientState = client => {
+    const state = client.membershipAccess || 'active';
+    const reason = client.membershipReason;
+    const disabled = ['inactive', 'expired', 'left'].includes(state);
+    return { disabled, color: reason === 'unpaid' || client.hasUnpaid ? 'red' : reason === 'contract_end' ? 'orange' : state === 'active' ? 'green' : 'gray',
+      label: reason === 'unpaid' || client.hasUnpaid ? `${disabled ? clubText("Désactivé · ") : ''}${clubText('Impayé')}` : reason === 'contract_end' ? clubText("Fin de contrat") : state === 'left' ? clubText("Ancien membre") : state === 'inactive' ? (reason === 'other' ? clubText("Désactivé · autre motif") : clubText("Désactivé")) : state === 'expired' ? clubText("Contrat terminé") : state === 'suspended' ? clubText("Cours suspendus") : state === 'scheduled' ? clubText("À venir") : clubText("Actif") };
+  };
+  const [clientStatusFilter, setClientStatusFilter] = useState('all');
   const scopedClients = activeCoachFilterSet.size
-    ? clubClients.filter((client) => selectedActivityRealUids.has(client.coachUid) || (!client.coachUid && selectedActivityNames.has(client.coachName)))
-    : clubClients;
+    ? directoryClients.filter((client) => selectedActivityRealUids.has(client.coachUid) || (!client.coachUid && selectedActivityNames.has(client.coachName)))
+    : directoryClients;
+  const [expandedClientCards, setExpandedClientCards] = useState({});
+  const [importClientsOpen, setImportClientsOpen] = useState(false);
+  const [clientSearch, setClientSearch] = useState("");
+  const [activitySearches, setActivitySearches] = useState({ programs: "", nutrition: "", stats: "" });
+  const activitySearch = activitySearches[activeView] || "";
+  const normalizeSearch = (value) => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().trim();
+  const clientSearchTerms = normalizeSearch(clientSearch).split(/\s+/).filter(Boolean);
+  const [clientSort, setClientSort] = useState("firstName");
+  const clientCollator = new Intl.Collator(clubLocale(), { sensitivity: "base", numeric: true });
+  const searchedClients = scopedClients.filter((client) => {
+    const text = normalizeSearch([client.name, client.email, client.coachName].filter(Boolean).join(" "));
+    const state = client.membershipAccess || 'active';
+    const matchesStatus = activeView !== 'clients' || clientStatusFilter === 'all'
+      || (clientStatusFilter === 'disabled' && ['inactive', 'expired', 'left'].includes(state))
+      || (clientStatusFilter === 'unpaid' && (client.membershipReason === 'unpaid' || client.hasUnpaid))
+      || (clientStatusFilter === 'contract_end' && (client.membershipReason === 'contract_end' || state === 'expired'))
+      || state === clientStatusFilter;
+    return matchesStatus && clientSearchTerms.every((term) => text.includes(term));
+  }).sort((a, b) => {
+    if (clientSort === 'activity') {
+      const time = value => { const n = new Date(value || 0).getTime(); return Number.isFinite(n) ? n : 0; };
+      const difference = time(b.activityAt) - time(a.activityAt);
+      if (difference) return difference;
+    }
+    const first = client => client.firstName || client.prenom || client.name || '';
+    const last = client => client.lastName || client.nom || client.name || '';
+    const primary = clientSort === 'lastName' ? last : first;
+    const secondary = clientSort === 'lastName' ? first : last;
+    return clientCollator.compare(primary(a), primary(b)) || clientCollator.compare(secondary(a), secondary(b)) || String(a.id).localeCompare(String(b.id));
+  });
+  const [teamSearch, setTeamSearch] = useState("");
+  const teamSearchTerms = normalizeSearch(teamSearch).split(/\s+/).filter(Boolean);
+  const searchedTeamPros = teamPros.filter((coach) => {
+    const text = normalizeSearch([displayName(coach), coach.email].filter(Boolean).join(" "));
+    return teamSearchTerms.every((term) => text.includes(term));
+  });
   const scopedPrograms = activeCoachFilterSet.size
     ? clubPrograms.filter((program) => selectedActivityRealUids.has(program.coachUid) || (!program.coachUid && selectedActivityNames.has(program.coachName)))
     : clubPrograms;
@@ -527,17 +674,23 @@ export default function ClubDashboard() {
   const scopedSessions = activeCoachFilterSet.size
     ? clubSessions.filter((session) => selectedActivityRealUids.has(session.coachUid) || (!session.coachUid && selectedActivityNames.has(session.coachName)))
     : clubSessions;
-  const scopedNutritionClientCount = useMemo(
-    () => new Set(scopedNutrition.map((assessment) => assessment.clientId || assessment.clientName).filter(Boolean)).size,
-    [scopedNutrition]
+  const activitySearchTerms = normalizeSearch(activitySearch).split(/\s+/).filter(Boolean);
+  const matchesActivitySearch = (values) => {
+    const text = normalizeSearch(values.filter(Boolean).join(" "));
+    return activitySearchTerms.every((term) => text.includes(term));
+  };
+  const searchedPrograms = scopedPrograms.filter((program) =>
+    matchesActivitySearch([program.title, program.clientName, program.coachName])
   );
-  const proLimitLabel = limits.proLimit ? `${stats.proCount || 0} / ${limits.proLimit}` : `${stats.proCount || 0}`;
-  const clientLimitLabel = limits.clientLimit ? `${stats.clientCount || 0} / ${limits.clientLimit}` : `${stats.clientCount || 0} / illimité`;
-  const [showGuide, setShowGuide] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return window.localStorage.getItem("club_dashboard_guide_hidden") !== "1";
-  });
+  const searchedNutrition = scopedNutrition.filter((assessment) =>
+    matchesActivitySearch([assessment.objective, assessment.clientName, assessment.coachName, assessment.status])
+  );
   const [now, setNow] = useState(Date.now());
+  const calendarScrollTime = useMemo(() => {
+    const time = new Date(now);
+    time.setHours(Math.max(0, time.getHours() - 1), 0, 0, 0);
+    return time;
+  }, [now]);
   const currentGoalMonth = useMemo(() => getMonthKey(new Date(now)), [now]);
   const currentGoalPeriodKey = useMemo(() => getGoalPeriodKey(goalPeriod, new Date(now)), [goalPeriod, now]);
   useEffect(() => {
@@ -565,9 +718,9 @@ export default function ClubDashboard() {
     return date.getTime();
   }, []);
   const todayEnd = todayStart + 24 * 60 * 60 * 1000;
-  const todayClientCount = clubClients.filter((client) => Number(client.activityAt || 0) >= todayStart).length;
-  const todayProgramCount = clubPrograms.filter((program) => Number(program.activityAt || 0) >= todayStart).length;
-  const todayNutritionCount = clubNutrition.filter((assessment) => Number(assessment.activityAt || 0) >= todayStart).length;
+  
+  
+  
   const statsPeriodStart = useMemo(() => getPeriodStart(statsPeriod, now), [now, statsPeriod]);
   const goalPeriodStart = useMemo(() => getPeriodStart(goalPeriod, now), [goalPeriod, now]);
   const goalPeriodClients = useMemo(() => clubClients.filter((client) => Number(client.activityAt || 0) >= goalPeriodStart), [clubClients, goalPeriodStart]);
@@ -580,8 +733,8 @@ export default function ClubDashboard() {
   const periodSessions = useMemo(() => scopedSessions.filter((session) => Number(session.activityAt || 0) >= statsPeriodStart), [scopedSessions, statsPeriodStart]);
   const activityViewCounts = {
     clients: scopedClients.length,
-    programs: scopedPrograms.length,
-    nutrition: scopedNutrition.length,
+    programs: searchedPrograms.length,
+    nutrition: searchedNutrition.length,
     stats: periodClients.length + periodPrograms.length + periodNutrition.length + periodSessions.length,
   };
   const activeActivityCount = activityViewCounts[activeView] || 0;
@@ -600,19 +753,17 @@ export default function ClubDashboard() {
         .sort((a, b) => b.score - a.score || (b.clientCount || 0) - (a.clientCount || 0)),
     [activeCoachFilterSet, analysablePros, periodClients, periodNutrition, periodPrograms, periodSessions]
   );
-  const topCoaches = useMemo(
-    () => [...analysablePros].sort((a, b) => (b.clientCount || 0) - (a.clientCount || 0)).slice(0, 3),
-    [analysablePros]
+  const searchedCoachComparisonRows = coachComparisonRows.filter((coach) =>
+    matchesActivitySearch([displayName(coach), coach.email])
   );
-  const leaderCoach = topCoaches[0];
   const proUsage = limits.proLimit ? Math.round(((stats.proCount || 0) / limits.proLimit) * 100) : null;
   const clientUsage = limits.clientLimit ? Math.round(((stats.clientCount || 0) / limits.clientLimit) * 100) : null;
   const proLimitReached = Boolean(limits.proLimit && (stats.proCount || 0) >= limits.proLimit);
   const activeClubPackageTier = limits.packageTier || user?.packageTier || user?.proAccess?.packageTier || "";
   const isNetworkClubPack = activeClubPackageTier === "network";
   const proLimitUpgradeMessage = isNetworkClubPack
-    ? "Vous êtes au maximum du pack Réseau. Pour ajouter plus de pros, contactez-nous sur contact@boostyourlife.coach."
-    : "Passez à l’offre Club supérieure pour ajouter un nouveau pro.";
+    ? clubText("Vous êtes au maximum du pack Réseau. Pour ajouter plus de pros, contactez-nous sur contact@boostyourlife.coach.")
+    : clubText("Passez à l’offre Club supérieure pour ajouter un nouveau pro.");
   const trialEndMs = user?.trialEndsAt ? getTrialEndMs(user) : null;
   const isClubTrial = user?.subscriptionStatus === "trialing" && trialEndMs && now < trialEndMs;
   const trialRemaining = useMemo(() => {
@@ -625,13 +776,13 @@ export default function ClubDashboard() {
     };
   }, [isClubTrial, now, trialEndMs]);
   const pageKind = useMemo(() => {
-    if (location.pathname === "/club-dashboard/create") return "create";
+    if (location.pathname === "/club-dashboard/create") return "dashboard";
     if (location.pathname === "/club-dashboard/team") return "team";
     if (location.pathname === "/club-dashboard/calendrier") return "calendar";
     if (location.pathname === "/club-dashboard/settings") return "settings";
-    if (location.pathname === "/club-dashboard/alertes") return "alerts";
+    if (location.pathname === "/club-dashboard/alertes") return "bulk";
     if (location.pathname === "/club-dashboard/journal") return "log";
-    if (location.pathname === "/club-dashboard/audit") return "audit";
+    if (location.pathname === "/club-dashboard/audit") return "bulk";
     if (location.pathname === "/club-dashboard/objectifs") return "goals";
     if (location.pathname === "/club-dashboard/exports") return "exports";
     if (location.pathname === "/club-dashboard/actions-groupees") return "bulk";
@@ -644,25 +795,35 @@ export default function ClubDashboard() {
     if (section === "settings") return "settings";
     return "dashboard";
   }, [location.pathname, location.search]);
+  useEffect(() => {
+    if (["/club-dashboard/alertes", "/club-dashboard/audit"].includes(location.pathname)) {
+      navigate({ pathname: "/club-dashboard/actions-groupees", search: location.search, hash: location.hash }, { replace: true });
+    }
+  }, [location.pathname, location.search, location.hash, navigate]);
   const showDashboard = pageKind === "dashboard";
-  const showCreate = pageKind === "dashboard" || pageKind === "create";
-  const showTeam = pageKind === "dashboard" || pageKind === "team";
+
+  const showTeam = pageKind === "team";
   const showActivity = pageKind === "activity";
   const showSettings = pageKind === "settings";
   const showCalendar = pageKind === "calendar";
-  const showAlerts = pageKind === "alerts";
   const showLog = pageKind === "log";
-  const showAudit = pageKind === "audit";
   const showGoals = pageKind === "goals";
   const showExports = pageKind === "exports";
   const showBulk = pageKind === "bulk";
-  const showClubTool = showAlerts || showLog || showAudit || showGoals || showExports || showBulk;
-  const showGuideBlock = showGuide && showDashboard;
+  useEffect(() => {
+    if (loading || !showBulk) return;
+    const id = location.hash.slice(1);
+    if (!["priority-programs", "priority-nutrition", "priority-referents", "priority-payments", "priority-cancellations"].includes(id)) return;
+    const frame = requestAnimationFrame(() => {
+      const section = document.getElementById(id);
+      section?.focus({ preventScroll: true });
+      section?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [loading, showBulk, location.hash]);
+  const showClubTool = showLog || showGoals || showExports || showBulk;
+  
   const goBackToClubDashboard = () => navigate(withAdminClub("/club-dashboard"));
-  const clubViews = useMemo(
-    () => CLUB_VIEWS.map((view) => ({ ...view, label: t(view.labelKey, view.fallback) })),
-    [t]
-  );
   const getActivityMeta = useCallback(
     (view) => {
       const meta = ACTIVITY_PAGE_META[view];
@@ -672,7 +833,7 @@ export default function ClubDashboard() {
           t("clubDashboard.activity.default.subtitle", "Consultez les clients, programmes, bilans nutrition et statistiques consolidés."),
         ];
       }
-      return [t(meta[0], meta[1]), t(meta[2], meta[3])];
+      return [clubText(meta[1]), clubText(meta[3])];
     },
     [t]
   );
@@ -690,14 +851,62 @@ export default function ClubDashboard() {
     team: [t("clubDashboard.pages.team.title", "Pros du club"), t("clubDashboard.pages.team.subtitle", "Gérez les comptes rattachés, les statuts et les accès de chaque intervenant.")],
     activity: activeActivityMeta,
     calendar: [t("clubDashboard.pages.calendar.title", "Calendrier club"), t("clubDashboard.pages.calendar.subtitle", "Visualisez les rendez-vous de l’équipe et ajoutez des évènements aux pros.")],
-    alerts: [t("clubDashboard.pages.alerts.title", "Alertes club"), t("clubDashboard.pages.alerts.subtitle", "Priorisez les points qui demandent une action sur les clients, pros, programmes et bilans.")],
     log: [t("clubDashboard.pages.log.title", "Journal d’activité"), t("clubDashboard.pages.log.subtitle", "Comprenez qui a créé ou modifié quoi dans le périmètre club récent.")],
-    audit: [t("clubDashboard.pages.audit.title", "Audit données club"), t("clubDashboard.pages.audit.subtitle", "Repérez les dossiers incomplets, référents incertains et zones à nettoyer.")],
     goals: [t("clubDashboard.pages.goals.title", "Objectifs mensuels"), t("clubDashboard.pages.goals.subtitle", "Fixez des repères par pro et comparez l’activité du mois.")],
     exports: [t("clubDashboard.pages.exports.title", "Exports club"), t("clubDashboard.pages.exports.subtitle", "Téléchargez les vues clients, programmes, nutrition et statistiques pour analyse externe.")],
     bulk: [t("clubDashboard.pages.bulk.title", "Actions groupées"), t("clubDashboard.pages.bulk.subtitle", "Retrouvez les cohortes utiles pour agir plus vite sans perdre le contexte.")],
     settings: [t("clubDashboard.pages.settings.title", "Réglages club"), t("clubDashboard.pages.settings.subtitle", "Gérez le nom et le logo utilisés dans les espaces pros rattachés.")],
   }[pageKind] || [t("clubDashboard.pages.default.title", "Espace club"), t("clubDashboard.pages.default.subtitle", "Pilotez votre structure.")];
+  const calendarCoaches = useMemo(() => {
+    const entries = new Map(coaches.map(coach => [coach.uid, displayName(coach)]));
+    clubAppointments.forEach(appointment => {
+      const key = clubCoachKey(appointment);
+      if (!entries.has(key)) entries.set(key, displayCoachName(appointment.coachName));
+    });
+    return [...entries].sort(([a], [b]) => a.localeCompare(b));
+  }, [coaches, clubAppointments]);
+  const coachColors = useMemo(() => clubCoachColors(calendarCoaches.map(([uid]) => uid)), [calendarCoaches]);
+  const calendarEventStyle = useCallback(event => ({ style: {
+    backgroundColor: calendarEventAppearance(event).backgroundColor,
+    color: "white", borderRadius: 8, border: "none",
+  } }), []);
+  const coachLegend = calendarCoaches.length > 0 && (
+    <Flex gap={3} flexWrap="wrap">
+      {calendarCoaches.map(([uid, name]) => (
+        <HStack key={uid} spacing={2} fontSize="sm">
+          <Circle size="10px" flexShrink={0} bg={coachColors.get(uid)} />
+          <Text>{name}</Text>
+        </HStack>
+      ))}
+    </Flex>
+  );
+  const calendarCoachSelector = (
+    <HStack spacing={2} flexWrap="wrap">
+      <Menu closeOnSelect={false}>
+        <MenuButton as={Button} size="sm" variant="outline" leftIcon={<Icon as={MdFilterList} />} rightIcon={<ChevronDownIcon />}>
+          {calendarCourseSearch ? t("clubDashboard.filters.active", "Filtres actifs") : calendarCoachFilter.length ? t("clubDashboard.filters.selectedPros", "{{count}} pro(s) sélectionné(s)", { count: calendarCoachFilter.length }) : t("clubDashboard.filters.allPros", "Tout le club")}
+        </MenuButton>
+        <MenuList p={3} maxW="320px">
+          <Input mb={3} size="sm" type="search" value={calendarCourseSearch}
+            onChange={event => setCalendarCourseSearch(event.target.value)}
+            placeholder={t("clubDashboard.filters.courseSearch", "Rechercher un cours")}
+            aria-label={t("clubDashboard.filters.courseSearch", "Rechercher un cours")} />
+          <Input mb={2} size="sm" type="search" value={calendarCoachSearch}
+            onChange={event => setCalendarCoachSearch(event.target.value)}
+            placeholder={t("clubDashboard.team.searchPlaceholder", "Rechercher un professionnel")}
+            aria-label={t("clubDashboard.team.searchPlaceholder", "Rechercher un professionnel")} />
+          <Box maxH="240px" overflowY="auto">
+            <MenuOptionGroup type="checkbox" value={calendarCoachFilter} onChange={value => setCalendarCoachFilter(Array.isArray(value) ? value : [])}>
+              {calendarCoaches.filter(([, name]) => normalizeSearch(name).includes(normalizeSearch(calendarCoachSearch))).map(([uid, name]) =>
+                <MenuItemOption key={uid} value={uid}>{name}</MenuItemOption>)}
+            </MenuOptionGroup>
+          </Box>
+        </MenuList>
+      </Menu>
+      {(calendarCoachFilter.length > 0 || calendarCourseSearch) && <Button size="sm" variant="ghost" onClick={() => { setCalendarCoachFilter([]); setCalendarCourseSearch(""); setCalendarCoachSearch(""); }}>{t("auto.ClubDashboard.voir_tout_le_club", "Voir tout le club")}</Button>}
+    </HStack>
+  );
+  const planningDownload = <ClubPlanningDownload appointments={clubAppointments} coaches={calendarCoaches} clubName={summary?.club?.name} clubLogoUrl={summary?.club?.logoUrl || "/logo-byl.png"} calendarDate={calendarDate} selectedCoaches={calendarCoachFilter} />;
   const calendarEvents = useMemo(
     () =>
       clubAppointments.map((appointment) => {
@@ -705,23 +914,49 @@ export default function ClubDashboard() {
         const end = new Date(start.getTime() + (Number(appointment.durationMin || 60) || 60) * 60000);
         return {
           ...appointment,
+          lastSessionPacks: eventLastPacks(groupClients.flatMap(client => (client.packs || []).map(pack => ({...pack,clientName:client.name}))), appointment),
           start,
           end,
-          status: appointment.status || "à venir",
-          title: `${appointment.title}${appointment.clientName ? ` · ${appointment.clientName}` : ` · ${appointment.coachName}`}`,
+          status: appointment.type === "group" && (!appointment.status || appointment.status === "à venir") && end.getTime() <= now ? "validée" : appointment.status || "à venir",
+          title: appointment.type === "group" ? appointment.title : `${appointment.type === "group" ? t("clubDashboard.group.title", "Cours collectif") + " · " : ""}${appointment.title}${appointment.type === "group" ? ` (${appointment.participantIds?.length || 0}/${appointment.capacity})` : ""}${appointment.clientName ? ` · ${appointment.clientName}` : ""} · ${calendarCoaches.find(([uid]) => uid === clubCoachKey(appointment))?.[1] || displayCoachName(appointment.coachName)} · ${appointment.status || t("clubDashboard.mobile.planned", "Planifié")}`,
         };
       }),
-    [clubAppointments]
+    [clubAppointments, calendarCoaches, t, now, groupClients]
   );
+  const openCalendarDetailRef = useRef(null);
+  const calendarPointerStart = useRef(null);
+  const calendarSlotHintRef = useRef(null);
+  const previewCalendarSelection = range => {
+    if (range.end.getTime() - range.start.getTime() > 180 * 60000) return false;
+    calendarSlotHintRef.current?.select(range);
+    return true;
+  };
+  const calendarPointerHandlers = {
+    onMouseDownCapture: e => {
+      const id = e.target.closest('[data-club-event-id]')?.dataset.clubEventId;
+      calendarPointerStart.current = id && !e.target.closest('.rbc-addons-dnd-resize-ns-anchor, .rbc-addons-dnd-resize-ew-anchor') ? { id, x: e.clientX, y: e.clientY } : null;
+    },
+    onMouseUpCapture: e => {
+      const start = calendarPointerStart.current;
+      calendarPointerStart.current = null;
+      if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) < 5) {
+        const event = calendarEvents.find(item => item.id === start.id);
+        if (event) openCalendarDetailRef.current?.(event);
+      }
+    },
+  };
+  const calendarComponents = useMemo(() => ({
+    event: ({ event }) => <><Text pr="18px" noOfLines={1}>{event.title}</Text><CalendarValidationMark event={event} /></>,
+    eventWrapper: props => <ClubCalendarEventPreview {...props} clients={groupClients} loading={groupClientsLoading} error={groupClientsError} onSelect={event => openCalendarDetailRef.current?.(event)} />,
+  }), [groupClients, groupClientsLoading, groupClientsError]);
   const filteredCalendarEvents = useMemo(() => {
-    if (calendarCoachFilter.length === 0) return calendarEvents;
     const selected = new Set(calendarCoachFilter);
-    return calendarEvents.filter((event) => selected.has(event.coachUid));
-  }, [calendarCoachFilter, calendarEvents]);
+    return calendarEvents.filter(event => (!selected.size || selected.has(event.coachUid)) && (!calendarCourseSearch || (event.type === "group" && normalizeSearch(event.title).includes(normalizeSearch(calendarCourseSearch)))));
+  }, [calendarCoachFilter, calendarCourseSearch, calendarEvents]);
   const upcomingFilteredAppointments = useMemo(
     () =>
       filteredCalendarEvents
-        .filter((event) => event.start.getTime() >= now)
+        .filter((event) => event.start.getTime() >= now && !["validée", "validee", "done", "completed", "manquée", "manquee", "missed", "annulée", "annulee", "cancelled", "canceled"].includes(String(event.status || "").toLowerCase()))
         .sort((a, b) => a.start.getTime() - b.start.getTime())
         .slice(0, 6),
     [filteredCalendarEvents, now]
@@ -754,8 +989,7 @@ export default function ClubDashboard() {
         status === "annulée" ||
         status === "annulee" ||
         status === "cancelled" ||
-        status === "canceled" ||
-        event.end.getTime() <= now
+        status === "canceled"
       );
     };
     const done = todayAppointments.filter(isHandled).length;
@@ -769,36 +1003,7 @@ export default function ClubDashboard() {
     };
   }, [now, todayAppointments]
   );
-  const recentActivityItems = useMemo(
-    () =>
-      [
-        ...clubClients.map((client) => ({
-          id: `client:${client.id}`,
-          title: client.name,
-          type: "Client",
-          coachName: client.coachName,
-          activityAt: Number(client.activityAt || 0),
-        })),
-        ...clubPrograms.map((program) => ({
-          id: `program:${program.id}`,
-          title: program.title,
-          type: "Programme",
-          coachName: program.coachName,
-          activityAt: Number(program.activityAt || 0),
-        })),
-        ...clubNutrition.map((assessment) => ({
-          id: `nutrition:${assessment.clientId}:${assessment.id}`,
-          title: assessment.objective,
-          type: "Nutrition",
-          coachName: assessment.coachName,
-          activityAt: Number(assessment.activityAt || 0),
-        })),
-      ]
-        .filter((item) => item.activityAt > 0)
-        .sort((a, b) => b.activityAt - a.activityAt)
-        .slice(0, 5),
-    [clubClients, clubNutrition, clubPrograms]
-  );
+  
   const fullActivityLog = useMemo(
     () =>
       [
@@ -857,16 +1062,13 @@ export default function ClubDashboard() {
       .sort((a, b) => b[0] - a[0])
       .map(([day, items]) => ({ day, items }));
   }, [filteredActivityLog]);
-  const clientsWithoutProgram = useMemo(
-    () => clubClients.filter((client) => Number(client.programCount || 0) === 0).slice(0, 4),
-    [clubClients]
-  );
+  
   const allClientsWithoutProgram = useMemo(
     () => clubClients.filter((client) => Number(client.programCount || 0) === 0),
     [clubClients]
   );
   const nutritionDrafts = useMemo(
-    () => clubNutrition.filter((assessment) => !["Partagé", "Validé"].includes(assessment.status)),
+    () => clubNutrition.filter((assessment) => ![clubText("Partagé"), clubText("Validé")].includes(assessment.status)),
     [clubNutrition]
   );
   const unknownReferentItems = useMemo(
@@ -893,91 +1095,14 @@ export default function ClubDashboard() {
       .filter((coach) => coach.status !== "disabled" && coach.lastActivity > 0 && coach.lastActivity < threshold)
       .slice(0, 3);
   }, [coaches, now]);
-  const dashboardPriorities = useMemo(() => {
-    const items = [];
-    if (proLimitReached) {
-      items.push({
-        title: "Capacité pros atteinte",
-        detail: proLimitUpgradeMessage,
-        action: "Voir l’équipe",
-        onClick: () => openClubSection("team"),
-        tone: "red",
-      });
-    } else if (limits.proLimit && proUsage >= 75) {
-      items.push({
-        title: "Capacité pros bientôt limite",
-        detail: `${stats.proCount || 0} compte(s) utilisé(s) sur ${limits.proLimit}.`,
-        action: "Gérer",
-        onClick: () => openClubSection("team"),
-        tone: "orange",
-      });
-    }
-    if (clientsWithoutProgram.length > 0) {
-      items.push({
-        title: `${clientsWithoutProgram.length} client(s) sans programme`,
-        detail: "À vérifier pour éviter les suivis vides côté client.",
-        action: "Clients",
-        onClick: () => openClubView("clients"),
-        tone: "orange",
-      });
-    }
-    if (todayAppointments.length > 0) {
-      items.push({
-        title: `${todayAppointments.length} rendez-vous aujourd’hui`,
-        detail: "Gardez un oeil sur les points planifiés avec l’équipe.",
-        action: "Calendrier",
-        onClick: () => openClubSection("calendar"),
-        tone: "blue",
-      });
-    }
-    if (inactiveCoaches.length > 0) {
-      items.push({
-        title: `${inactiveCoaches.length} pro(s) peu actif(s)`,
-        detail: "Aucune activité récente détectée sur les 14 derniers jours.",
-        action: "Équipe",
-        onClick: () => openClubSection("team"),
-        tone: "yellow",
-      });
-    }
-    if (!teamPros.length) {
-      items.push({
-        title: "Aucun pro rattaché",
-        detail: "Créez le premier compte pour lancer le suivi club.",
-        action: "Créer",
-        onClick: () => openCreateCoachSection(),
-        tone: "green",
-      });
-    }
-    if (!items.length) {
-      items.push({
-        title: "Tout est à jour",
-        detail: "Aucune alerte forte détectée sur le périmètre club.",
-        action: "Statistiques",
-        onClick: () => openClubView("stats"),
-        tone: "green",
-      });
-    }
-    return items.slice(0, 4);
-  }, [clientsWithoutProgram.length, inactiveCoaches.length, limits.proLimit, proLimitReached, proLimitUpgradeMessage, proUsage, stats.proCount, teamPros.length, todayAppointments.length]);
+  
   const clubAlerts = useMemo(() => {
     const alerts = [];
     if (proLimitReached) alerts.push({ tone: "red", title: t("clubDashboard.alerts.proLimit.title", "Capacité pros atteinte"), detail: proLimitUpgradeMessage, action: t("clubDashboard.actions.viewTeam", "Voir l’équipe"), onClick: () => openClubSection("team") });
     if (limits.proLimit && proUsage >= 75 && !proLimitReached) alerts.push({ tone: "orange", title: t("clubDashboard.alerts.proLimitSoon.title", "Capacité pros bientôt limite"), detail: `${stats.proCount || 0}/${limits.proLimit}`, action: t("auto.ClubDashboard.gerer", "Gérer"), onClick: () => openClubSection("team") });
-    if (allClientsWithoutProgram.length) alerts.push({ tone: "orange", title: t("clubDashboard.alerts.clientsWithoutProgram.title", "{{count}} client(s) sans programme", { count: allClientsWithoutProgram.length }), detail: t("clubDashboard.alerts.clientsWithoutProgram.detail", "Ces dossiers peuvent être ouverts puis assignés à un programme."), action: t("auto.ClubDashboard.clients_du_club", "Clients du club"), onClick: () => openClubView("clients") });
-    if (nutritionDrafts.length) alerts.push({ tone: "purple", title: t("clubDashboard.alerts.nutritionDrafts.title", "{{count}} bilan(s) nutrition à finaliser", { count: nutritionDrafts.length }), detail: t("clubDashboard.alerts.nutritionDrafts.detail", "Certains bilans ne sont pas encore partagés ou validés."), action: t("clubDashboard.views.nutrition", "Nutrition"), onClick: () => openClubView("nutrition") });
     if (inactiveCoaches.length) alerts.push({ tone: "yellow", title: t("clubDashboard.alerts.inactivePros.title", "{{count}} pro(s) peu actif(s)", { count: inactiveCoaches.length }), detail: t("clubDashboard.alerts.inactivePros.detail", "Aucune activité récente détectée sur 14 jours."), action: t("clubDashboard.actions.viewTeam", "Voir l’équipe"), onClick: () => openClubSection("team") });
-    if (unknownReferentItems.length) alerts.push({ tone: "blue", title: t("clubDashboard.alerts.unknownReferents.title", "{{count}} donnée(s) à référent incertain", { count: unknownReferentItems.length }), detail: t("clubDashboard.alerts.unknownReferents.detail", "À contrôler dans l’audit pour éviter les ambiguïtés entre comptes."), action: t("clubDashboard.tools.audit", "Audit données"), onClick: () => navigate(withAdminClub("/club-dashboard/audit")) });
     return alerts;
-  }, [allClientsWithoutProgram.length, inactiveCoaches.length, limits.proLimit, navigate, nutritionDrafts.length, proLimitReached, proLimitUpgradeMessage, proUsage, stats.proCount, t, unknownReferentItems.length, withAdminClub]);
-  const auditFindings = useMemo(() => {
-    const findings = [];
-    if (unknownReferentItems.length) findings.push({ tone: "orange", title: t("clubDashboard.audit.unknown.title", "Référents à clarifier"), count: unknownReferentItems.length, detail: t("clubDashboard.audit.unknown.detail", "Des clients, programmes ou bilans sont rattachés au club mais leur référent n’est pas parfaitement résolu.") });
-    if (allClientsWithoutProgram.length) findings.push({ tone: "yellow", title: t("clubDashboard.audit.noProgram.title", "Clients sans programme"), count: allClientsWithoutProgram.length, detail: t("clubDashboard.audit.noProgram.detail", "Ces clients sont bien dans le club mais n’ont pas encore de programme assigné.") });
-    if (nutritionDrafts.length) findings.push({ tone: "purple", title: t("clubDashboard.audit.nutritionDraft.title", "Bilans nutrition non finalisés"), count: nutritionDrafts.length, detail: t("clubDashboard.audit.nutritionDraft.detail", "Ces suivis existent mais ne sont ni validés ni partagés.") });
-    if (!coaches.length && analysablePros.length) findings.push({ tone: "blue", title: t("clubDashboard.audit.ownerData.title", "Données responsable détectées"), count: analysablePros.length, detail: t("clubDashboard.audit.ownerData.detail", "Le club contient des données de référent mais aucun pro invité. C’est possible pour un compte responsable, mais à confirmer.") });
-    if (!findings.length) findings.push({ tone: "green", title: t("clubDashboard.audit.clean.title", "Périmètre cohérent"), count: 0, detail: t("clubDashboard.audit.clean.detail", "Aucune anomalie forte détectée dans les données club récentes.") });
-    return findings;
-  }, [allClientsWithoutProgram.length, analysablePros.length, coaches.length, nutritionDrafts.length, t, unknownReferentItems.length]);
+  }, [inactiveCoaches.length, limits.proLimit, proLimitReached, proLimitUpgradeMessage, proUsage, stats.proCount, t]);
   const goalRows = useMemo(
     () =>
       analysablePros.map((coach) => {
@@ -1003,13 +1128,7 @@ export default function ClubDashboard() {
       }),
     [analysablePros, goalPeriodClients, goalPeriodNutrition, goalPeriodPrograms, goalPeriodSessions, goalTargets, t]
   );
-  const dashboardCoachRows = useMemo(
-    () =>
-      [...coaches]
-        .sort((a, b) => (b.clientCount || 0) + (b.programCount || 0) - ((a.clientCount || 0) + (a.programCount || 0)))
-        .slice(0, 4),
-    [coaches]
-  );
+  
 
   const loadSummary = useCallback(async () => {
     const version = ++summaryLoadVersion.current;
@@ -1037,37 +1156,20 @@ export default function ClubDashboard() {
     return () => { summaryLoadVersion.current += 1; };
   }, [loadSummary]);
 
-  useEffect(() => {
-    let alive = true;
-    setClubLogoAspectRatio(null);
-    (async () => {
-      const url = await resolveStorageUrl(identityForm.logoUrl || summary?.club?.logoUrl || "");
-      if (alive) setResolvedClubLogoUrl(url || "");
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [identityForm.logoUrl, summary?.club?.logoUrl]);
-
-  const clubLogoFrameSize = useMemo(() => {
-    const ratio = Number(clubLogoAspectRatio || 1);
-    if (ratio >= 2.2) return { w: { base: "104px", md: "148px" }, h: { base: "58px", md: "74px" }, radius: { base: "18px", md: "22px" } };
-    if (ratio >= 1.35) return { w: { base: "86px", md: "118px" }, h: { base: "58px", md: "74px" }, radius: { base: "18px", md: "22px" } };
-    if (ratio <= 0.58) return { w: { base: "58px", md: "74px" }, h: { base: "78px", md: "96px" }, radius: { base: "18px", md: "22px" } };
-    if (ratio <= 0.82) return { w: { base: "58px", md: "74px" }, h: { base: "68px", md: "88px" }, radius: { base: "18px", md: "22px" } };
-    return { w: { base: "58px", md: "74px" }, h: { base: "58px", md: "74px" }, radius: { base: "18px", md: "22px" } };
-  }, [clubLogoAspectRatio]);
+  
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const section = params.get("section");
     const view = params.get("view");
     const pathView = VIEW_BY_PATH[location.pathname];
-    const pathSection = CLUB_SECTIONS[location.pathname];
     if (pathView) setActiveView(pathView);
     else if (CLUB_VIEWS.some((item) => item.key === view)) setActiveView(view);
-    const nextSection = pathSection || section;
-    if (nextSection) setTimeout(() => scrollToSection(`club-${nextSection}`), 150);
+    // Only explicit dashboard section links should scroll past the page header.
+    if (location.pathname === "/club-dashboard" && section) {
+      const timer = setTimeout(() => scrollToSection(`club-${section}`), 150);
+      return () => clearTimeout(timer);
+    }
   }, [location.pathname, location.search]);
 
   const openClubSection = (section) => {
@@ -1076,9 +1178,9 @@ export default function ClubDashboard() {
       team: "/club-dashboard/team",
       activity: "/club-dashboard/clients",
       calendar: "/club-dashboard/calendrier",
-      alerts: "/club-dashboard/alertes",
+      alerts: "/club-dashboard/actions-groupees",
       log: "/club-dashboard/journal",
-      audit: "/club-dashboard/audit",
+      audit: "/club-dashboard/actions-groupees",
       goals: "/club-dashboard/objectifs",
       exports: "/club-dashboard/exports",
       bulk: "/club-dashboard/actions-groupees",
@@ -1086,7 +1188,6 @@ export default function ClubDashboard() {
       settings: "/club-dashboard/settings",
     };
     navigate(withAdminClub(routes[section] || "/club-dashboard"));
-    setTimeout(() => scrollToSection(`club-${section}`), 120);
   };
 
   const openClubView = (view) => {
@@ -1098,7 +1199,6 @@ export default function ClubDashboard() {
       stats: "/club-dashboard/statistiques",
     };
     navigate(withAdminClub(routes[view] || `/club-dashboard?section=activity&view=${view}`));
-    setTimeout(() => scrollToSection("club-activity"), 120);
   };
 
   const openClientAsReferent = (client) => {
@@ -1112,18 +1212,11 @@ export default function ClubDashboard() {
     navigate(`/clients/${client.id}${params.toString() ? `?${params.toString()}` : ""}`);
   };
 
-  const toggleGuide = (nextValue) => {
-    setShowGuide(nextValue);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("club_dashboard_guide_hidden", nextValue ? "0" : "1");
-    }
-  };
+  
 
   const openCoachDetail = (coach) => {
     if (!coach?.uid) return;
     setSelectedCoachUid(coach.uid);
-    setActivityCoachFilter([coach.uid]);
-    setTimeout(() => scrollToSection("club-coach-detail"), 120);
   };
 
   const planAppointmentForCoach = (coach) => {
@@ -1136,6 +1229,10 @@ export default function ClubDashboard() {
   const openCalendarAppointmentModal = useCallback(() => {
     setAppointmentForm((current) => ({
       ...current,
+      type: "sport",
+      recurrenceFrequency: "none",
+      recurrenceUntil: "",
+      participantIds: [],
       coachUid: selectedCalendarCoachUid || current.coachUid || "",
       clientId: "",
       programId: "",
@@ -1143,6 +1240,20 @@ export default function ClubDashboard() {
     }));
     setIsAddAppointmentModalOpen(true);
   }, [selectedCalendarCoachUid]);
+
+  const openSelectedCalendarSlot = ({ start, end, action }) => {
+    if (!["week", "day"].includes(calendarView)) return;
+    const durationMin = action === "select"
+      ? Math.max(15, Math.min(180, Math.round((end.getTime() - start.getTime()) / 60000)))
+      : 60;
+    setAppointmentForm({
+      coachUid: selectedCalendarCoachUid, clientId: "", type: "sport", title: "",
+      startsAt: toDateTimeLocalValue(start), durationMin, note: "",
+      programId: "", sessionIndex: "", appointmentKind: "suivi",
+      capacity: 10, participantIds: [], recurrenceFrequency: "none", recurrenceUntil: "",
+    });
+    setIsAddAppointmentModalOpen(true);
+  };
 
   const closeCalendarAppointmentModal = useCallback((event) => {
     event?.preventDefault?.();
@@ -1161,11 +1272,7 @@ export default function ClubDashboard() {
     navigate(`${location.pathname}${nextSearch ? `?${nextSearch}` : ""}${location.hash || ""}`, { replace: true });
   }, [location.hash, location.pathname, location.search, navigate, openCalendarAppointmentModal]);
 
-  const toggleCalendarCoach = (uid) => {
-    setCalendarCoachFilter((current) =>
-      current.includes(uid) ? current.filter((item) => item !== uid) : [...current, uid]
-    );
-  };
+
 
   const openCreateCoachSection = () => {
     if (proLimitReached) {
@@ -1173,11 +1280,7 @@ export default function ClubDashboard() {
       proLimitModal.onOpen();
       return;
     }
-    if (pageKind === "dashboard") {
-      inviteProModal.onOpen();
-      return;
-    }
-    openClubSection("create");
+    inviteProModal.onOpen();
   };
 
   useEffect(() => {
@@ -1233,7 +1336,7 @@ export default function ClubDashboard() {
     } catch (err) {
       toast({
         title: t("auto.ClubDashboard.langue_non_enregistree", "Langue non enregistrée"),
-        description: err?.message || "Réessayez dans quelques instants.",
+        description: err?.message || clubText("Réessayez dans quelques instants."),
         status: "error",
         duration: 4500,
         isClosable: true,
@@ -1267,12 +1370,12 @@ export default function ClubDashboard() {
       if (data?.url) {
         window.location.href = data.url;
       } else {
-        throw new Error("URL Stripe manquante.");
+        throw new Error(clubText("URL Stripe manquante."));
       }
     } catch (err) {
       toast({
         title: t("auto.ClubDashboard.stripe_indisponible", "Stripe indisponible"),
-        description: err?.message || "Impossible d’ouvrir le portail pour le moment.",
+        description: err?.message || clubText("Impossible d’ouvrir le portail pour le moment."),
         status: "error",
         duration: 4500,
         isClosable: true,
@@ -1323,8 +1426,8 @@ export default function ClubDashboard() {
       setInviteLink("");
       setForm({ firstName: "", lastName: "", email: "", proType: "sport" });
       const emailMessage = data.emailSent
-        ? "Un email d’activation vient d’être envoyé automatiquement."
-        : "Le compte est créé, mais l’e-mail d’activation n’a pas pu partir. Le professionnel peut utiliser « Mot de passe oublié » sur la page de connexion pour recevoir son lien personnel.";
+        ? clubText("Un email d’activation vient d’être envoyé automatiquement.")
+        : clubText("Le compte est créé, mais l’e-mail d’activation n’a pas pu partir. Le professionnel peut utiliser « Mot de passe oublié » sur la page de connexion pour recevoir son lien personnel.");
       toast({
         title: t("auto.ClubDashboard.pro_ajoute_au_club", "Pro ajouté au club"),
         description: emailMessage,
@@ -1336,8 +1439,8 @@ export default function ClubDashboard() {
       await loadSummary();
     } catch (err) {
       setError(err?.data?.error === "existing-account-requires-invitation"
-        ? "Cette adresse possède déjà un compte. Aucun accès n’a été modifié. Un administrateur doit valider son rattachement avec l’accord du titulaire."
-        : friendlyError(err) || "Création du pro impossible.");
+        ? clubText("Cette adresse possède déjà un compte. Aucun accès n’a été modifié. Un administrateur doit valider son rattachement avec l’accord du titulaire.")
+        : friendlyError(err) || clubText("Création du pro impossible."));
     } finally {
       setSaving(false);
     }
@@ -1378,15 +1481,32 @@ export default function ClubDashboard() {
         duration: 4000,
         isClosable: true,
       });
+      setClubNameDraft(null);
       setLogoFile(null);
       setUploadProgress(0);
       await loadSummary();
     } catch (err) {
-      setError(friendlyError(err) || "Mise à jour du club impossible.");
+      setError(friendlyError(err) || clubText("Mise à jour du club impossible."));
     } finally {
       setIdentitySaving(false);
     }
   };
+
+  useEffect(() => {
+    if (loading) return;
+    const params = new URLSearchParams(location.search);
+    const action = params.get("quickAction");
+    const legacyCreate = location.pathname === "/club-dashboard/create";
+    if (!legacyCreate && action !== "pro" && action !== "plan") return;
+    if (legacyCreate || action === "pro") {
+      if (proLimitReached) proLimitModal.onOpen();
+      else inviteProModal.onOpen();
+    } else {
+      openCalendarAppointmentModal();
+    }
+    params.delete("quickAction");
+    navigate(`${legacyCreate ? "/club-dashboard" : location.pathname}${params.size ? `?${params}` : ""}`, { replace: true });
+  }, [loading, location.pathname, location.search, navigate, proLimitReached, proLimitModal.onOpen, inviteProModal.onOpen, openCalendarAppointmentModal]);
 
   const createAppointment = async (event) => {
     event.preventDefault();
@@ -1399,16 +1519,18 @@ export default function ClubDashboard() {
         toast({ title: t("clubDashboard.calendar.selectProgramSession", "Sélectionnez un programme et une séance."), status: "warning", duration: 3000, isClosable: true });
         return;
       }
-      const nutritionLabel = NUTRITION_APPOINTMENT_TYPES.find((item) => item.value === appointmentForm.appointmentKind)?.label || t("clubDashboard.calendar.nutritionAppointment", "Rendez-vous nutrition");
+      const nutritionLabel = clubText(NUTRITION_APPOINTMENT_TYPES.find((item) => item.value === appointmentForm.appointmentKind)?.label) || t("clubDashboard.calendar.nutritionAppointment", "Rendez-vous nutrition");
       const internalLabel = t("clubDashboard.calendar.internalEvent", "Évènement interne");
       const payload = {
         ...appointmentForm,
-        clientId: appointmentForm.type === "internal" ? "" : appointmentForm.clientId,
+        startsAt: new Date(appointmentForm.startsAt).toISOString(),
+        recurrence: { frequency: appointmentForm.recurrenceFrequency || "none", until: appointmentForm.recurrenceUntil, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+        clientId: ["internal", "group"].includes(appointmentForm.type) ? "" : appointmentForm.clientId,
         programId: appointmentForm.type === "sport" ? appointmentForm.programId : "",
         sessionIndex: appointmentForm.type === "sport" ? appointmentForm.sessionIndex : "",
         appointmentKind: appointmentForm.type === "internal" ? "internal" : appointmentForm.appointmentKind,
         title:
-          appointmentForm.title ||
+          appointmentForm.type === "group" ? appointmentForm.title.trim() : appointmentForm.title ||
           (appointmentForm.type === "internal"
             ? internalLabel
             : appointmentForm.type === "nutrition"
@@ -1416,49 +1538,86 @@ export default function ClubDashboard() {
             : selectedSession
               ? getSessionLabel(selectedSession, Number(appointmentForm.sessionIndex))
               : t("auto.ClubDashboard.bilan_seance_point_suivi", "Bilan, séance, point suivi...")),
-        sessionTitle: selectedSession ? getSessionLabel(selectedSession, Number(appointmentForm.sessionIndex)) : "",
-        programTitle: selectedProgram?.title || "",
+        sessionTitle: appointmentForm.type === "sport" && selectedSession ? getSessionLabel(selectedSession, Number(appointmentForm.sessionIndex)) : "",
+        programTitle: appointmentForm.type === "sport" ? selectedProgram?.title || "" : "",
       };
-      await apiFetch(withAdminClub("/clubs/appointments"), {
+      const creation = await apiFetch(withAdminClub("/clubs/appointments"), {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      toast({ title: t("auto.ClubDashboard.rendez_vous_ajoute_au_calendrier_club", "Rendez-vous ajouté au calendrier club"), status: "success", duration: 3500, isClosable: true });
-      setAppointmentForm({ coachUid: "", clientId: "", type: "sport", programId: "", sessionIndex: "", appointmentKind: "suivi", durationMin: 60, title: "", startsAt: "", note: "" });
+      toast({ title: creation.createdCount ? t("clubDashboard.recurrence.created", { defaultValue: "{{count}} séances ajoutées au calendrier", count: creation.createdCount }) : t("auto.ClubDashboard.rendez_vous_ajoute_au_calendrier_club", "Rendez-vous ajouté au calendrier club"), status: "success", duration: 3500, isClosable: true });
+      setAppointmentForm({ coachUid: "", clientId: "", type: "sport", capacity: 10, participantIds: [], programId: "", sessionIndex: "", appointmentKind: "suivi", durationMin: 60, title: "", startsAt: "", note: "" });
       setIsAddAppointmentModalOpen(false);
       await loadSummary();
     } catch (err) {
-      setError(friendlyError(err) || "Création du rendez-vous impossible.");
+      setError(friendlyError(err) || clubText("Création du rendez-vous impossible."));
+      toast({ title: err?.data?.error || friendlyError(err) || clubText("Création du rendez-vous impossible."), status: "error", isClosable: true });
     } finally {
       setActionSaving("");
     }
   };
 
-  const openAppointmentDetail = (appointment) => {
-    setSelectedAppointment(appointment);
-    setAppointmentEditForm({
-      title: appointment?.title?.split(" · ")?.[0] || appointment?.title || "",
-      startsAt: toDateTimeLocalValue(appointment?.start),
-      durationMin: Number(appointment?.durationMin || 60) || 60,
-      status: appointment?.status || "à venir",
-      note: appointment?.note || "",
-    });
+  const appointmentFormFor = appointment => ({
+        notifyParticipants: false,
+        title: appointment.title || "",
+        startsAt: toDateTimeLocalValue(appointment.start),
+        durationMin: Number(appointment.durationMin || 60) || 60,
+        status: appointment.status || "à venir",
+        note: appointment.note || "",
+        registrationMode: appointment.registrationMode || "inherit",
+        waitlistIds: appointment.waitlistIds || [],
+        capacity: appointment.capacity || 10, participantIds: appointment.participantIds || [], coachUid: appointment.coachUid || "",
+      });
+
+  const openAppointmentDetail = async (previousAppointment) => {
+    if (!previousAppointment?.id || appointmentDetailRequest.current?.id === previousAppointment.id) return;
+    const request = { id: previousAppointment.id };
+    appointmentDetailRequest.current = request;
+    setSelectedAppointment(previousAppointment);
+    setAppointmentEditForm(appointmentFormFor({ ...previousAppointment, start: previousAppointment.start || new Date(previousAppointment.startsAt) }));
+    setAppointmentDetailError("");
+    setAppointmentDetailLoading(true);
     appointmentDetailModal.onOpen();
+    try {
+      const data = await apiFetch(withAdminClub(`/clubs/appointments/${encodeURIComponent(previousAppointment.id)}`));
+      if (appointmentDetailRequest.current !== request) return;
+      const fresh = data.appointment;
+      if (!fresh) throw new Error(clubText("Ce rendez-vous n’est plus disponible."));
+      const appointment = { ...fresh, difficultyRating: fresh.difficultyRating ?? previousAppointment.difficultyRating, start: new Date(fresh.startsAt) };
+      setSelectedAppointment(appointment);
+      setAppointmentEditForm(appointmentFormFor(appointment));
+    } catch (err) {
+      if (appointmentDetailRequest.current === request) setAppointmentDetailError(friendlyError(err) || clubText("Impossible d’actualiser le rendez-vous."));
+    } finally {
+      if (appointmentDetailRequest.current === request) setAppointmentDetailLoading(false);
+    }
   };
+
+  openCalendarDetailRef.current = openAppointmentDetail;
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const id = params.get('appointment');
+    if (loading || !actionClubId || !id) return;
+    openCalendarDetailRef.current({id});
+    params.delete('appointment');
+    navigate({pathname:location.pathname, search:params.toString()}, {replace:true});
+  }, [loading, actionClubId, location.pathname, location.search, navigate]);
 
   const updateAppointment = async (appointment, patch, { close = false, refresh = true } = {}) => {
     if (!appointment?.id) return;
     setActionSaving(`appointment:${appointment.id}`);
     setError("");
     try {
-      await apiFetch(withAdminClub(`/clubs/appointments/${appointment.id}`), {
+      const result = await apiFetch(withAdminClub(`/clubs/appointments/${appointment.id}`), {
         method: "PATCH",
         body: JSON.stringify(patch),
       });
+      if (patch.notifyParticipants) toast({status:result.emailDelivery?.failed ? 'warning':'info', title:clubText('Inscription enregistrée'), description:t('calendar.email_delivery_result', '{{sent}} envoyé(s) · {{skipped}} non envoyé(s) (préférences ou adresse) · {{failed}} échec(s)', {sent:result.emailDelivery?.sent || 0, skipped:result.emailDelivery?.skipped || 0, failed:result.emailDelivery?.failed || 0})});
       if (close) appointmentDetailModal.onClose();
       if (refresh) await loadSummary();
     } catch (err) {
-      setError(friendlyError(err) || "Mise à jour du rendez-vous impossible.");
+      setError(friendlyError(err) || clubText("Mise à jour du rendez-vous impossible."));
+      toast({ title: err?.data?.error || friendlyError(err) || clubText("Mise à jour du rendez-vous impossible."), status: "error", isClosable: true });
       if (refresh) await loadSummary();
     } finally {
       setActionSaving("");
@@ -1470,11 +1629,13 @@ export default function ClubDashboard() {
     await updateAppointment(
       selectedAppointment,
       {
+        notifyParticipants: appointmentEditForm.notifyParticipants === true,
         title: appointmentEditForm.title,
         startsAt: appointmentEditForm.startsAt,
         durationMin: appointmentEditForm.durationMin,
         status: appointmentEditForm.status,
         note: appointmentEditForm.note,
+        ...(selectedAppointment.type === "group" ? { registrationMode: appointmentEditForm.registrationMode || "inherit", capacity: appointmentEditForm.capacity, participantIds: appointmentEditForm.participantIds, waitlistIds: appointmentEditForm.waitlistIds, expectedReservations: { participantIds: selectedAppointment.participantIds || [], waitlistIds: selectedAppointment.waitlistIds || [] }, coachUid: appointmentEditForm.coachUid } : {}),
       },
       { close: true }
     );
@@ -1491,7 +1652,7 @@ export default function ClubDashboard() {
       appointmentDetailModal.onClose();
       await loadSummary();
     } catch (err) {
-      setError(friendlyError(err) || "Suppression du rendez-vous impossible.");
+      setError(friendlyError(err) || clubText("Suppression du rendez-vous impossible."));
     } finally {
       setActionSaving("");
     }
@@ -1667,14 +1828,14 @@ export default function ClubDashboard() {
         body: JSON.stringify(patch),
       });
       toast({
-        title: patch.status === "disabled" ? "Pro suspendu" : "Pro mis à jour",
+        title: patch.status === "disabled" ? clubText("Pro suspendu") : clubText("Pro mis à jour"),
         status: "success",
         duration: 3000,
         isClosable: true,
       });
       await loadSummary();
     } catch (err) {
-      setError(friendlyError(err) || "Mise à jour du pro impossible.");
+      setError(friendlyError(err) || clubText("Mise à jour du pro impossible."));
     } finally {
       setActionSaving("");
     }
@@ -1682,7 +1843,7 @@ export default function ClubDashboard() {
 
   const deleteCoach = async (coach) => {
     if (!coach?.uid) return;
-    const ok = window.confirm(`Supprimer ${displayName(coach)} du club ? Son compte sera désactivé et retiré des listes club.`);
+    const ok = window.confirm(clubText("Supprimer {{name}} du club ? Son compte sera désactivé et retiré des listes club.", {name:displayName(coach)}));
     if (!ok) return;
     setActionSaving(`${coach.uid}:delete`);
     setError("");
@@ -1692,7 +1853,7 @@ export default function ClubDashboard() {
       toast({ title: t("auto.ClubDashboard.pro_supprime_du_club", "Pro supprimé du club"), status: "success", duration: 3500, isClosable: true });
       await loadSummary();
     } catch (err) {
-      setError(friendlyError(err) || "Suppression du pro impossible.");
+      setError(friendlyError(err) || clubText("Suppression du pro impossible."));
     } finally {
       setActionSaving("");
     }
@@ -1701,9 +1862,35 @@ export default function ClubDashboard() {
   if (loading) return <AppLoading label={t("auto.ClubDashboard.chargement_de_l_espace_club", "Chargement de l’espace club...")} />;
 
   return (
-    <Box data-tour-page="club-dashboard" bg={theme.pageBg} minH="100vh" py={{ base: 4, md: 10 }} px={{ base: 3, md: 6 }}>
-      <Container maxW="container.xl">
-        <VStack align="stretch" spacing={6}>
+    <Box data-tour-page="club-dashboard" bg={theme.pageBg} color={theme.textColor} minH="100vh" position="relative" overflow="clip"
+      py={{ base: 3, md: 3.5, xl: 4 }} px={{ base: 2.5, md: 3.5, xl: 4.5 }}
+      sx={{ "& .chakra-button": { borderRadius: "14px" }, "& th": { color: theme.mutedText }, "& .chakra-heading": { letterSpacing: "-0.025em" } }}>
+      <ClubCalendarSlotHint ref={calendarSlotHintRef} formatTime={formatCalendarSlotTime} disabled={isAddAppointmentModalOpen || appointmentDetailModal.isOpen || !["week", "day"].includes(calendarView)} />
+      <Box aria-hidden="true" position="absolute" top="-140px" right="-100px" w="420px" h="420px" borderRadius="full" bg="rgba(59,130,246,0.10)" filter="blur(90px)" pointerEvents="none" />
+      <Portal>
+        <IconButton data-tour="club-messaging"
+          position="fixed" zIndex={1350} right={{ base: 4, md: 6 }} bottom={{ base: "calc(92px + env(safe-area-inset-bottom, 0px))", md: 5 }}
+          w="56px" h="56px" borderRadius="full" bg="#257CFF" color="white"
+          boxShadow="0 14px 32px rgba(37,124,255,0.38)" _hover={{ bg: "blue.600" }}
+          aria-label={t("clubMessaging.title")} icon={<><Icon as={MdOutlineChat} boxSize="24px" />{clubUnreadCount > 0 && <Badge position="absolute" top="-4px" right="-4px" bg="red.500" color="white" borderRadius="full" minW="22px" h="22px" display="flex" alignItems="center" justifyContent="center" fontWeight="900" border="2px solid" borderColor={theme.surfaceBgStrong}>{clubUnreadCount > 99 ? "99+" : clubUnreadCount}</Badge>}</>}
+          onClick={clubMessaging.onOpen}
+        />
+      </Portal>
+      <Modal isOpen={clubMessaging.isOpen} onClose={clubMessaging.onClose} scrollBehavior="inside" blockScrollOnMount={false}>
+        <ModalContent position="fixed" right={{ base: 2, md: 6 }} bottom={{ base: "12px", md: "88px" }}
+          m={0} w={{ base: "calc(100vw - 16px)", md: "420px" }} maxW="420px"
+          h="600px" maxH="calc(100dvh - 100px)" borderRadius="24px" overflow="hidden"
+          bg={theme.surfaceBgStrong} color={theme.textColor} boxShadow="0 22px 70px rgba(15,23,42,0.24)">
+          <ModalHeader fontSize="md" pr={12} borderBottomWidth="1px">{t("clubMessaging.title")}</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody p={0} display="flex" flexDirection="column" overflow="hidden">
+            <ClubMessagingPanel embedded clubId={actionClubId} onOpenAppointment={appointment => { clubMessaging.onClose(); openAppointmentDetail(appointment); }} />
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+      {importClientsOpen && <React.Suspense fallback={null}><ClubClientImport coaches={coaches} onClose={() => setImportClientsOpen(false)} onImported={loadSummary} /></React.Suspense>}
+      <Container maxW="1680px" px={0} position="relative">
+        <VStack align="stretch" spacing={{ base: 3, md: 4 }}>
           {isClubTrial && (
             <Box
               borderRadius="20px"
@@ -1741,384 +1928,141 @@ export default function ClubDashboard() {
           )}
 
           {!showDashboard && (
-            <Box {...theme.cardProps} p={{ base: 5, md: 7 }}>
-              <Button
-                size="sm"
-                variant="outline"
-                leftIcon={<ArrowBackIcon />}
-                onClick={goBackToClubDashboard}
-                mb={4}
-                alignSelf="flex-start"
-              >{t("programView.back", "Retour")}</Button>
-              <Stack direction={{ base: "column", sm: "row" }} align={{ base: "start", sm: "center" }} justify="space-between" gap={4} mb={3}>
-                <Badge colorScheme="orange" borderRadius="full" px={3} py={1}>{t("auto.ClubDashboard.espace_club", "Espace Club")}</Badge>
-              </Stack>
-              <Heading size="lg">{pageMeta[0]}</Heading>
-              <Text color={theme.mutedText} mt={2} maxW="760px">
-                {pageMeta[1]}
-              </Text>
-            </Box>
-          )}
-
-          {showDashboard && (
-          <Box {...theme.cardProps} id="club-overview" data-tour="club-hero" p={{ base: 4, md: 8 }}>
-            <Stack direction={{ base: "column", lg: "row" }} justify="space-between" gap={6} align={{ base: "stretch", lg: "center" }}>
-              <HStack flex="1" minW={0} spacing={{ base: 3, md: 4 }} align="flex-start">
-                <Flex
-                  w={clubLogoFrameSize.w}
-                  h={clubLogoFrameSize.h}
-                  borderRadius={clubLogoFrameSize.radius}
-                  bg={theme.surfaceBg}
-                  border="1px solid"
-                  borderColor={theme.borderColor}
-                  boxShadow={theme.glassShadow}
-                  overflow="hidden"
-                  align="center"
-                  justify="center"
-                  flexShrink={0}
-                >
-                  <Box
-                    as="img"
-                    src={resolvedClubLogoUrl || "/logo-byl.png"}
-                    alt={resolvedClubLogoUrl ? t("clubDashboard.logo.clubAlt", "Logo du club") : "BoostYourLife.coach"}
-                    w="100%"
-                    h="100%"
-                    maxW="92%"
-                    maxH="92%"
-                    objectFit="contain"
-                    onLoad={(event) => {
-                      const img = event.currentTarget;
-                      if (img.naturalWidth && img.naturalHeight) {
-                        setClubLogoAspectRatio(img.naturalWidth / img.naturalHeight);
-                      }
-                    }}
-                  />
+            <Stack direction="row" align={{ base: "flex-start", md: "center" }}
+              spacing={{ base: 3, md: 4 }} {...theme.cardProps} p={{ base: 4, md: 5 }}>
+              <Button size="sm" variant="outline" aria-label={t("programView.back", "Retour")}
+                w={{ base: "36px", md: "auto" }} minW="36px" h="36px" px={{ base: 0, md: 3 }}
+                borderRadius="full" gap={2} mt={{ base: 0.5, md: 0 }}
+                onClick={goBackToClubDashboard} flexShrink={0}>
+                <ArrowBackIcon boxSize="16px" />
+                <Text as="span" display={{ base: "none", md: "inline" }}>{t("programView.back", "Retour")}</Text>
+              </Button>
+              <Flex flex="1" minW={0} direction={{ base: "column", lg: "row" }} gap={{ base: 2, lg: 6 }} align={{ base: "start", lg: "center" }} justify="space-between">
+                  <Heading fontSize={{ base: "22px", md: "30px" }} lineHeight="1.2" letterSpacing="-0.025em" flexShrink={0}>{pageMeta[0]}</Heading>
+                  <Text color={theme.mutedText} maxW={{ lg: "55%" }} fontSize={{ base: "13px", md: "sm" }} lineHeight="1.5">{pageMeta[1]}</Text>
                 </Flex>
-                <Box minW={0}>
-                  <HStack spacing={2} flexWrap="wrap" mb={3}>
-                    <Badge colorScheme="orange" borderRadius="full" px={3} py={1}>{t("auto.ClubDashboard.espace_club", "Espace Club")}</Badge>
-                    {isClubTrial && (
-                      <Badge colorScheme={trialRemaining?.days <= 5 ? "orange" : "blue"} borderRadius="full" px={3} py={1}>{t("auto.ClubDashboard.essai_j", "Essai J-")}{trialRemaining?.days ?? 0}
-                      </Badge>
-                    )}
-                  </HStack>
-                  <Heading size={{ base: "md", md: "lg" }} lineHeight="1.05">{summary?.club?.name || t("clubDashboard.pages.dashboard.title", "Dashboard club")}</Heading>
-                  <Text color={theme.subtleText} fontSize="sm" fontWeight="800" mt={{ base: 2, md: 3 }} textTransform="capitalize">
-                    {formatFullDate(new Date())}
-                  </Text>
-                  <Text fontSize={{ base: "md", md: "xl" }} fontWeight="900" mt={{ base: 2, md: 3 }}>
-                    {getGreeting()}{t("auto.ClubDashboard.voici_le_cockpit_du_club", ", voici le cockpit du club.")}</Text>
-                  <Text color={theme.mutedText} mt={2} maxW="760px" fontSize={{ base: "sm", md: "md" }}>{t("auto.ClubDashboard.priorites_equipe_clients_programmes_et_procha", "Priorités, équipe, clients, programmes et prochains rendez-vous au même endroit.")}</Text>
-                </Box>
-              </HStack>
-              <HStack display={{ base: "none", md: "flex" }} align={{ base: "stretch", sm: "center" }} justify={{ base: "stretch", lg: "end" }} spacing={3} flexWrap="wrap">
-                <Button {...theme.primaryButtonProps} leftIcon={<AddIcon />} onClick={openCreateCoachSection}>{t("auto.ClubDashboard.inviter_un_pro", "Inviter un pro")}</Button>
-                <Button variant="outline" borderRadius="16px" onClick={openCalendarAppointmentModal}>{t("auto.ClubDashboard.planifier_un_rdv", "Planifier un RDV")}</Button>
-                <Button variant="outline" borderRadius="16px" onClick={() => openClubSection("settings")}>{t("settings.title", "Réglages")}</Button>
-                <Badge colorScheme={proLimitReached ? "red" : "green"} borderRadius="full" px={3} py={1} alignSelf="center">
-                  {proLimitReached ? t("dashboard.client_quota_full", "Limite atteinte") : t("clubDashboard.status.operational", "Opérationnel")}
-                </Badge>
-              </HStack>
             </Stack>
+          )}
 
-            <SimpleGrid data-tour="club-stats" columns={{ base: 2, md: 3, xl: 6 }} spacing={{ base: 2.5, md: 3 }} mt={{ base: 4, md: 6 }}>
-              <Box {...theme.tileProps} p={{ base: 3, md: 4 }}>
-                <Text color={theme.mutedText} fontSize="sm">{t("dashboard.banner.today_label", "Aujourd’hui")}</Text>
-                <Text fontSize="2xl" fontWeight="900">{todayClientCount + todayProgramCount + todayNutritionCount}</Text>
-                <Text color={theme.mutedText} fontSize="sm" noOfLines={{ base: 2, md: 3 }}>
-                  {todayClientCount} {t("auto.ClubDashboard.client_s", "client(s),")} {todayProgramCount} {t("auto.ClubDashboard.programme_s", "programme(s),")} {todayNutritionCount} {t("auto.ClubDashboard.bilan_s", "bilan(s)")}</Text>
-              </Box>
-              <Box {...theme.tileProps} p={{ base: 3, md: 4 }}>
-                <Text color={theme.mutedText} fontSize="sm">{t("auto.ClubDashboard.pros_actifs", "Pros actifs")}</Text>
-                <Text fontSize="2xl" fontWeight="900">{proLimitLabel}</Text>
-                <Text color={theme.mutedText} fontSize="sm">{stats.activeCoachCount || 0} {t("auto.ClubDashboard.actif_s", "actif(s)")}</Text>
-                <Progress value={proUsage ?? 0} size="xs" borderRadius="full" colorScheme={proLimitReached ? "red" : "blue"} bg={theme.surfaceSoft} mt={3} />
-              </Box>
-              <Box {...theme.tileProps} p={{ base: 3, md: 4 }}>
-                <Text color={theme.mutedText} fontSize="sm">{t("auto.ClubDashboard.clients_suivis", "Clients suivis")}</Text>
-                <Text fontSize="2xl" fontWeight="900">{clientLimitLabel}</Text>
-                <Text color={theme.mutedText} fontSize="sm" noOfLines={{ base: 2, md: 3 }}>
-                  {clientUsage !== null
-                    ? t("clubDashboard.capacity.usedPercent", "{{percent}}% de capacité utilisée", { percent: clientUsage })
-                    : t("dashboard.client_quota_unlimited", "Capacité illimitée")}
-                </Text>
-                <Progress value={clientUsage ?? 0} size="xs" borderRadius="full" colorScheme={clientUsage >= 90 ? "red" : "green"} bg={theme.surfaceSoft} mt={3} />
-              </Box>
-              <Box {...theme.tileProps} p={{ base: 3, md: 4 }}>
-                <Text color={theme.mutedText} fontSize="sm">{t("clientsList.table.programs", "Programmes")}</Text>
-                <Text fontSize="2xl" fontWeight="900">{stats.programCount || 0}</Text>
-                <Text color={theme.mutedText} fontSize="sm" noOfLines={1}>{t("auto.ClubDashboard.crees_par_l_equipe", "Créés par l’équipe")}</Text>
-              </Box>
-              <Box {...theme.tileProps} p={{ base: 3, md: 4 }}>
-                <Text color={theme.mutedText} fontSize="sm">{t("auto.ClubDashboard.rendez_vous", "Rendez-vous")}</Text>
-                <Text fontSize="2xl" fontWeight="900">{upcomingFilteredAppointments.length}</Text>
-                <Text color={theme.mutedText} fontSize="sm">{todayAppointments.length} {t("auto.ClubDashboard.aujourd_hui", "aujourd’hui")}</Text>
-              </Box>
-              <Box {...theme.tileProps} p={{ base: 3, md: 4 }}>
-                <Text color={theme.mutedText} fontSize="sm">{t("auto.ClubDashboard.leader_actuel", "Leader actuel")}</Text>
-                <Text fontSize="lg" fontWeight="900" noOfLines={1}>{leaderCoach ? displayName(leaderCoach) : t("clubDashboard.empty.noPro", "Aucun pro")}</Text>
-                <Text color={theme.mutedText} fontSize="sm">
-                  {leaderCoach
-                    ? t("clubDashboard.leader.clientsFollowed", "{{count}} client(s) suivis par le plus actif", { count: leaderCoach.clientCount || 0 })
-                    : t("clubDashboard.empty.createProToStart", "Créez un pro pour démarrer")}
-                </Text>
-              </Box>
-            </SimpleGrid>
-
-            <Box {...theme.tileProps} mt={4} p={{ base: 4, md: 5 }}>
-              <Stack direction={{ base: "column", lg: "row" }} spacing={{ base: 4, lg: 6 }} align={{ base: "stretch", lg: "center" }} justify="space-between">
-                <HStack spacing={3} align="start" flex="1" minW={0}>
-                  <Circle size="42px" bg={theme.surfaceSoft} color={theme.textColor} flexShrink={0}>
-                    <TimeIcon />
-                  </Circle>
-                  <Box minW={0}>
-                    <Text fontWeight="900">{t("clubDashboard.todaySchedule.title", "Suivi des rendez-vous du jour")}</Text>
-                    <Text color={theme.mutedText} fontSize="sm" noOfLines={{ base: 2, md: 1 }}>
-                      {todayAppointmentSummary.next
-                        ? t("clubDashboard.todaySchedule.next", "Prochain : {{title}} à {{time}}", {
-                            title: todayAppointmentSummary.next.title,
-                            time: formatTime(todayAppointmentSummary.next.start),
-                          })
-                        : todayAppointmentSummary.total
-                          ? t("clubDashboard.todaySchedule.doneForToday", "Tous les rendez-vous du jour sont passés.")
-                          : t("clubDashboard.todaySchedule.empty", "Aucun rendez-vous planifié aujourd’hui.")}
-                    </Text>
-                  </Box>
-                </HStack>
-                <Box minW={{ base: "100%", lg: "320px" }}>
-                  <HStack justify="space-between" mb={2}>
-                    <Text fontSize="sm" color={theme.mutedText}>
-                      {t("clubDashboard.todaySchedule.progressLabel", "Progression journée")}
-                    </Text>
-                    <Text fontWeight="900">
-                      {todayAppointmentSummary.done}/{todayAppointmentSummary.total}
-                    </Text>
+          {showDashboard && (
+            <>
+              {!isAdmin && summary && (summary.clientDirectory || clubClients).length === 0 && <Box {...theme.cardProps} p={4}>
+                <Heading size="sm">{clubText('Vous avez déjà des clients ?')}</Heading>
+                <Text mt={2} fontSize="sm">{clubText('Importez votre fichier Excel ou CSV pour démarrer sans ressaisie.')}</Text>
+                <Button mt={3} onClick={() => setImportClientsOpen(true)}>{clubText('Importer mes clients')}</Button>
+              </Box>}
+              <Box {...theme.cardProps} id="club-overview" data-tour="club-hero" bgImage={clubHero} p={{ base: 4, md: 6 }}>
+                <Flex align="center" justify="space-between" gap={3} wrap="wrap" mb={4}>
+                  <HStack spacing={{ base: 3, md: 4 }} minW={0}>
+                    <ClubLogo
+                      src={summary?.club?.logoUrl}
+                      alt={t("auto.ClubDashboard.logo_du_club", "Logo du club")}
+                      boxSize={{ base: "52px", md: "68px" }}
+                      flexShrink={0}
+                      borderRadius="16px"
+                      p={2}
+                    />
+                    <Box minW={0}>
+                      <Heading size={{ base: "md", md: "lg" }}>{t("nav.dashboard", "Tableau de bord")}</Heading>
+                      <Text mt={1} color={theme.mutedText} fontSize="sm">{formatFullDate(new Date())}</Text>
+                    </Box>
                   </HStack>
-                  <Progress
-                    value={todayAppointmentSummary.progress}
+                  <Button
                     size="sm"
+                    variant="outline"
                     borderRadius="full"
-                    colorScheme={todayAppointmentSummary.total ? "green" : "gray"}
-                    bg={theme.surfaceSoft}
-                  />
-                </Box>
-              </Stack>
-            </Box>
-
-            <SimpleGrid display={{ base: "none", md: "grid" }} columns={{ base: 2, md: 4 }} spacing={3} mt={6}>
-              {[
-                [t("clubDashboard.actions.createPro", "Créer un pro"), "create"],
-                [t("clubDashboard.actions.viewTeam", "Voir l’équipe"), "team"],
-                [t("clubDashboard.actions.calendar", "Calendrier"), "calendar"],
-                [t("clubDashboard.actions.clientsPrograms", "Clients & programmes"), "activity"],
-              ].map(([label, target]) => (
-                <Button
-                  key={target}
-                  variant="outline"
-                  onClick={() => {
-                    if (target === "create") {
-                      openCreateCoachSection();
-                      return;
-                    }
-                    openClubSection(target);
-                  }}
-                >
-                  {label}
-                </Button>
-              ))}
-            </SimpleGrid>
-          </Box>
-          )}
-
-          {showDashboard && isClubSetupEmpty && (
-            <Box
-              {...theme.cardProps}
-              p={{ base: 4, md: 6 }}
-              borderColor={theme.accentBlue}
-              bg={setupEmptyBg}
-            >
-              <Stack direction={{ base: "column", lg: "row" }} justify="space-between" align={{ base: "stretch", lg: "center" }} gap={5}>
-                <Box maxW="720px">
-                  <Badge colorScheme="blue" borderRadius="full" px={3} py={1} mb={3}>
-                    {t("clubDashboard.setup.badge", "Configuration")}
-                  </Badge>
-                  <Heading size="md">{t("clubDashboard.setup.emptyTitle", "Ce club est prêt, il reste à le lancer")}</Heading>
-                  <Text color={theme.mutedText} mt={2} fontSize={{ base: "sm", md: "md" }}>
-                    {t("clubDashboard.setup.emptyDetail", "Aucun pro, client, programme ou rendez-vous n’est encore rattaché. Le plus efficace est d’ajouter le premier intervenant, puis de relier ses clients au club.")}
-                  </Text>
-                </Box>
-                <HStack display={{ base: "none", md: "flex" }} justify={{ base: "stretch", lg: "end" }} flexWrap="wrap">
-                  <Button {...theme.primaryButtonProps} leftIcon={<AddIcon />} onClick={openCreateCoachSection}>
-                    {t("auto.ClubDashboard.inviter_un_pro", "Inviter un pro")}
+                    minH="40px"
+                    px={3}
+                    textTransform="uppercase"
+                    onClick={() => navigate(withAdminClub("/club-dashboard/actions-groupees"))}
+                  >
+                    {t("clubDashboard.bulk.total", "{{count}} à traiter", { count: allClientsWithoutProgram.length + nutritionDrafts.length + unknownReferentItems.length + clubAlerts.length + paymentDueCount + cancellationCount })}
                   </Button>
-                  <Button variant="outline" borderRadius="16px" onClick={() => openClubSection("settings")}>
-                    {t("clubDashboard.setup.identity", "Identité du club")}
-                  </Button>
-                </HStack>
-              </Stack>
-              <SimpleGrid columns={{ base: 1, md: 3 }} spacing={3} mt={5}>
-                {[
-                  ["01", t("clubDashboard.setup.stepPro", "Créer le premier pro"), t("clubDashboard.setup.stepProDetail", "Le compte portera les clients, programmes et rendez-vous du club.")],
-                  ["02", t("clubDashboard.setup.stepBrand", "Vérifier l’identité"), t("clubDashboard.setup.stepBrandDetail", "Nom, logo et langue serviront de base aux espaces partagés.")],
-                  ["03", t("clubDashboard.setup.stepFollow", "Planifier le premier point"), t("clubDashboard.setup.stepFollowDetail", "Le calendrier devient utile dès qu’un rendez-vous est posé.")],
-                ].map(([number, title, detail]) => (
-                  <Box key={number} {...theme.tileProps} p={{ base: 3, md: 4 }}>
-                    <HStack spacing={3} align="start">
-                      <Circle size="34px" bg="rgba(59,130,246,0.12)" color={theme.accentBlue} fontWeight="900" flexShrink={0}>
-                        {number}
-                      </Circle>
-                      <Box>
-                        <Text fontWeight="900">{title}</Text>
-                        <Text color={theme.mutedText} fontSize="sm" mt={1}>{detail}</Text>
-                      </Box>
+                </Flex>
+                <Stack direction={{ base: "column", md: "row" }} spacing={5} align={{ base: "stretch", md: "center" }}>
+                  <Box flex="1" minW={0}>
+                    <Text fontWeight="700">{t("clubDashboard.todaySchedule.title", "Suivi des rendez-vous du jour")}</Text>
+                    <Text mt={1} fontSize="sm" color={theme.mutedText}>{todayAppointmentSummary.total
+                      ? t("clubDashboard.todaySchedule.remaining", "{{count}} rendez-vous restant(s)", { count: todayAppointmentSummary.total - todayAppointmentSummary.done })
+                      : t("clubDashboard.todaySchedule.empty", "Aucun rendez-vous planifié aujourd’hui.")}</Text>
+                  </Box>
+                  <Box flex="1" minW={0}>
+                    <HStack justify="space-between" mb={2} fontSize="sm">
+                      <Text>{t("clubDashboard.todaySchedule.progressLabel", "Progression journée")}</Text>
+                      <Text fontWeight="800">{todayAppointmentSummary.total ? `${todayAppointmentSummary.done} / ${todayAppointmentSummary.total}` : "—"}</Text>
                     </HStack>
+                    <Progress aria-label={t("clubDashboard.todaySchedule.progressLabel", "Progression journée")} value={todayAppointmentSummary.progress} size="sm" colorScheme="blue" borderRadius="full" bg={theme.surfaceSoft} />
                   </Box>
-                ))}
-              </SimpleGrid>
-            </Box>
-          )}
-
-          {showGuideBlock && (
-            <Box {...theme.cardProps} id="club-guide" data-tour="club-guide" p={{ base: 5, md: 6 }} display={{ base: "none", md: "block" }}>
-              <Stack direction={{ base: "column", lg: "row" }} justify="space-between" gap={5} align={{ base: "stretch", lg: "center" }}>
-                <Box maxW="680px">
-                  <Badge colorScheme="gray" borderRadius="full" px={3} py={1} mb={3}>{t("clubDashboard.guide.badge", "Guide")}</Badge>
-                  <Heading size="md">{t("auto.ClubDashboard.fonctionnement_global", "Fonctionnement global")}</Heading>
-                  <Text color={theme.mutedText} fontSize="sm" mt={1}>{t("auto.ClubDashboard.une_aide_de_demarrage_masquable_quand_le_parc", "Une aide de démarrage, masquable quand le parcours est compris.")}</Text>
-                </Box>
-                <Button {...theme.primaryButtonProps} onClick={() => toggleGuide(false)}>{t("clubDashboard.actions.understood", "J’ai compris")}</Button>
-              </Stack>
-              <SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} spacing={3} mt={5}>
-                {[
-                  ["1", t("clubDashboard.guide.proTitle", "Le club crée le pro"), t("clubDashboard.guide.proDetail", "Prénom, nom, email et spécialité. L’accès est rattaché à l’abonnement du club.")],
-                  ["2", t("clubDashboard.guide.activationTitle", "Le pro active son accès"), t("clubDashboard.guide.activationDetail", "Le lien d’activation permet au pro de définir son mot de passe et d’entrer dans son espace.")],
-                  ["3", t("clubDashboard.guide.separateTitle", "Chaque pro travaille séparément"), t("clubDashboard.guide.separateDetail", "Clients, patients, programmes et suivis restent gérés dans l’interface habituelle du pro.")],
-                  ["4", t("clubDashboard.guide.supervisionTitle", "Le club supervise"), t("clubDashboard.guide.supervisionDetail", "Le dashboard consolide l’équipe, les capacités, les rendez-vous et les activités récentes.")],
-                  ["5", t("clubDashboard.guide.limitsTitle", "Les limites sont appliquées"), t("clubDashboard.guide.limitsDetail", "La création est bloquée quand les limites de l’offre club sont atteintes.")],
-                  ["6", t("clubDashboard.guide.identityTitle", "L’identité descend du club"), t("clubDashboard.guide.identityDetail", "Logo, nom et préférences servent de base aux documents et espaces partagés.")],
-                ].map(([number, title, copy]) => (
-                  <Box key={title} {...theme.tileProps} p={4}>
-                    <HStack spacing={3} align="start">
-                      <Circle size="30px" bg={theme.surfaceSoft} color={theme.textColor} fontWeight="900" flexShrink={0}>
-                        {number}
-                      </Circle>
-                      <Box minW={0}>
-                        <Text fontWeight="900" mb={1}>{title}</Text>
-                        <Text fontSize="sm" color={theme.mutedText}>{copy}</Text>
-                      </Box>
-                    </HStack>
-                  </Box>
-                ))}
-              </SimpleGrid>
-            </Box>
-          )}
-
-          {showDashboard && (
-            <Box {...theme.cardProps} data-tour="club-tools-dashboard" p={{ base: 5, md: 6 }} display={{ base: "none", md: "block" }}>
-              <Stack direction={{ base: "column", lg: "row" }} justify="space-between" gap={4} align={{ base: "stretch", lg: "center" }}>
-                <Box maxW="680px">
-                  <Heading size="md">{t("clubDashboard.tools.title", "Pilotage club")}</Heading>
-                  <Text color={theme.mutedText} fontSize="sm" mt={1}>
-                    {t("clubDashboard.tools.subtitle", "Toutes les pages d’exploitation utiles restent dans le périmètre club et ne modifient rien sans action explicite.")}
-                  </Text>
-                </Box>
-                <SimpleGrid columns={{ base: 1, sm: 2, lg: 3, xl: 6 }} spacing={3} flex="1" minW={{ lg: "520px" }}>
-                  {CLUB_TOOLS.map((tool) => (
-                    <Button
-                      key={tool.key}
-                      data-club-tool={tool.key}
-                      variant="outline"
-                      minH="44px"
-                      whiteSpace="normal"
-                      onClick={() => navigate(withAdminClub(tool.path))}
-                    >
-                      {t(tool.labelKey, tool.fallback)}
-                    </Button>
-                  ))}
-                </SimpleGrid>
-              </Stack>
-            </Box>
-          )}
-
-          {showDashboard && (
-            <SimpleGrid columns={{ base: 1, xl: 3 }} spacing={6}>
-              <Box {...theme.cardProps} p={{ base: 5, md: 6 }}>
-                <Stack direction={{ base: "column", md: "row" }} justify="space-between" gap={3} mb={4}>
-                  <Box>
-                    <Heading size="md">{t("auto.ClubDashboard.priorites", "Priorités")}</Heading>
-                    <Text color={theme.mutedText} fontSize="sm" mt={1}>{t("auto.ClubDashboard.les_points_qui_meritent_une_action_rapide", "Les points qui méritent une action rapide.")}</Text>
-                  </Box>
-                  <Button size="sm" variant="outline" onClick={() => openClubView("stats")}>{t("auto.ClubDashboard.voir_les_stats", "Voir les stats")}</Button>
                 </Stack>
-                <VStack align="stretch" spacing={3}>
-                  {dashboardPriorities.map((item) => (
-                    <Box key={item.title} {...theme.tileProps} p={4}>
-                      <HStack justify="space-between" align="start" gap={3}>
-                        <Box minW={0}>
-                          <Badge colorScheme={item.tone} borderRadius="full" mb={2}>{t("auto.ClubDashboard.a_traiter", "À traiter")}</Badge>
-                          <Text fontWeight="900">{item.title}</Text>
-                          <Text color={theme.mutedText} fontSize="sm" mt={1}>{item.detail}</Text>
-                        </Box>
-                        <Button size="sm" variant="outline" onClick={item.onClick}>
-                          {item.action}
-                        </Button>
-                      </HStack>
-                    </Box>
-                  ))}
-                </VStack>
               </Box>
-
-              <Box {...theme.cardProps} id="club-dashboard-calendar" data-tour="club-dashboard-calendar" p={{ base: 5, md: 6 }} gridColumn={{ xl: "span 2" }}>
-                <Stack direction={{ base: "column", md: "row" }} justify="space-between" gap={3} mb={4}>
-                  <Box>
-                    <Heading size="md">{t("auto.ClubDashboard.calendrier_de_l_equipe", "Calendrier de l’équipe")}</Heading>
-                    <Text color={theme.mutedText} fontSize="sm" mt={1}>{t("auto.ClubDashboard.une_vue_directe_des_rendez_vous_club_comme_da", "Une vue directe des rendez-vous club, comme dans l’espace coach.")}</Text>
+              <Box display="grid" gridTemplateColumns={{ base: "minmax(0, 1fr)", lg: "minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr)" }} gap={3} alignItems="stretch">
+                <Box {...theme.cardProps} p={4} minW={0} borderTopWidth="3px" borderTopColor="blue.400">
+                  <Heading size="sm" mb={3}>{t("clubDashboard.clarity.next", "Prochain rendez-vous")}</Heading>
+                  {(todayAppointmentSummary.next || upcomingFilteredAppointments[0]) ? (() => {
+                    const event = todayAppointmentSummary.next || upcomingFilteredAppointments[0];
+                    return <>
+                      <Text fontSize="lg" fontWeight="800">{event.start.toLocaleTimeString(calendarCulture, { hour: "2-digit", minute: "2-digit" })}</Text>
+                      <Text fontSize="sm" color={theme.mutedText}>{event.start.toLocaleDateString(calendarCulture, { weekday: "long", day: "numeric", month: "long" })}</Text>
+                      <Text mt={3} fontWeight="700">{event.title}</Text>
+                      <Flex justify="flex-end" mt={4}><Button size="sm" {...theme.primaryButtonProps} onClick={() => openAppointmentDetail(event)}>{t("programs.open", "Ouvrir")}</Button></Flex>
+                    </>;
+                  })() : <>
+                    <Text color={theme.mutedText} fontSize="sm">{t("clubDashboard.clarity.noUpcoming", "Aucun rendez-vous à venir.")}</Text>
+                    <Button mt={4} size="sm" variant="outline" onClick={openCalendarAppointmentModal}>{t("nav.new_appointment", "Nouveau rendez-vous")}</Button>
+                  </>}
+                </Box>
+                <Box minW={0}>
+                  <Text fontSize="sm" fontWeight="700" mb={2}>{t("clubDashboard.clarity.overview", "Le club en chiffres")}</Text>
+                  <SimpleGrid columns={2} spacing={3}>
+                    {[
+                      [t("auto.ClubDashboard.pros_actifs", "Pros actifs"), stats.activeCoachCount || 0, "/club-dashboard/team"],
+                      [t("auto.ClubDashboard.clients_suivis", "Clients suivis"), clubClients.length, "/club-dashboard/clients"],
+                      [t("dashboard.stats_total_programs", "Programmes"), clubPrograms.length, "/club-dashboard/programmes"],
+                      [t("nav.nutrition", "Nutrition"), clubNutrition.length, "/club-dashboard/nutrition"],
+                    ].map(([label, value, route]) => (
+                      <HStack as="button" type="button" onClick={() => navigate(withAdminClub(route))} key={label} {...theme.cardProps} minH="88px" p={4} justify="space-between" gap={2} textAlign="start" _hover={{ borderColor: "blue.400" }}>
+                        <Text fontWeight="700" fontSize="sm">{label}</Text>
+                        <Text fontSize="2xl" fontWeight="900" textAlign="right" flexShrink={0}>{value}</Text>
+                      </HStack>
+                    ))}
+                  </SimpleGrid>
+                </Box>
+                  <Box {...theme.cardProps} p={4} minW={0}>
+                    <Text fontWeight="700" mb={2}>{t("auto.ClubDashboard.priorites", "Priorités")}</Text>
+                    {isClubSetupEmpty ? <>
+                      <Text fontSize="sm" color={theme.mutedText}>{t("clubDashboard.setup.emptyDetail", "Ajoutez votre premier professionnel pour démarrer le suivi du club.")}</Text>
+                      <Button mt={3} size="sm" {...theme.primaryButtonProps} onClick={openCreateCoachSection}>{t("clubDashboard.setup.stepPro", "Créer le premier pro")}</Button>
+                    </> : <>
+                      <VStack align="stretch" spacing={2}>
+                        {[
+                          [t("auto.ClubDashboard.clients_sans_programme", "Clients sans programme"), allClientsWithoutProgram.length, "priority-programs"],
+                          [t("clubDashboard.alerts.nutritionDrafts.short", "Bilans nutrition à finaliser"), nutritionDrafts.length, "priority-nutrition"],
+                          [t("clubDashboard.tools.audit", "Vérifier les référents"), unknownReferentItems.length, "priority-referents"],
+                          [clubText("Règlements à vérifier"), paymentDueCount, "priority-payments"],
+                          [clubText("Annulations à examiner"), cancellationCount, "priority-cancellations"],
+                        ].filter(([, count]) => count > 0).map(([label, count, target]) => <Button as={RouterLink} to={withAdminClub("/club-dashboard/actions-groupees")+"#"+target} key={target} variant="ghost" size="sm" w="full" h="auto" minH="36px" py={2} px={2} justifyContent="space-between" gap={3} textAlign="left" whiteSpace="normal" fontWeight="normal"><Text as="span">{label}</Text><Text as="span" fontWeight="700">{count}</Text></Button>)}
+                        {!(allClientsWithoutProgram.length + nutritionDrafts.length + unknownReferentItems.length + paymentDueCount + cancellationCount) && <Text color={theme.mutedText} fontSize="sm">{t("clubDashboard.bulk.empty", "Rien à traiter ici.")}</Text>}
+                      </VStack>
+                      <Flex justify="flex-end" mt={3}><Button size="sm" variant="outline" onClick={() => navigate(withAdminClub("/club-dashboard/actions-groupees"))}>{t("clubDashboard.pages.bulk.title", "À traiter")}</Button></Flex>
+                    </>}
                   </Box>
-                  <HStack>
-                    <Button size="sm" leftIcon={<AddIcon />} {...theme.primaryButtonProps} onClick={openCalendarAppointmentModal}>{t("exerciseCard.add", "Ajouter")}</Button>
-                    <Button size="sm" variant="outline" as={RouterLink} to={withAdminClub("/club-dashboard/calendrier")}>{t("programs.open", "Ouvrir")}</Button>
-                  </HStack>
-                </Stack>
-                <VStack display={{ base: "flex", md: "none" }} align="stretch" spacing={3}>
-                  {upcomingFilteredAppointments.length ? (
-                    upcomingFilteredAppointments.slice(0, 4).map((event) => {
-                      const normalized = String(event?.status || "").toLowerCase();
-                      const isDone =
-                        normalized === "validée" ||
-                        normalized === "validee" ||
-                        normalized === "done" ||
-                        normalized === "completed";
-                      return (
-                        <Box
-                          key={event.id || `${event.title}:${event.startsAt}`}
-                          {...theme.tileProps}
-                          p={4}
-                          borderColor={isDone ? "green.200" : theme.borderColor}
-                          onClick={() => openAppointmentDetail(event)}
-                          cursor="pointer"
-                        >
-                          <HStack justify="space-between" align="start" gap={3}>
-                            <Box minW={0}>
-                              <Text fontWeight="900" noOfLines={1}>{event.clientName || event.coachName || event.title}</Text>
-                              <Text color={theme.mutedText} fontSize="sm" noOfLines={1}>{event.title}</Text>
-                              <Text color={theme.mutedText} fontSize="xs" mt={1}>{formatShortDateTime(event.start)}</Text>
-                            </Box>
-                            <Badge colorScheme={isDone ? "green" : "blue"} borderRadius="full">
-                              {isDone ? t("calendar.validated", "Validé") : t("clubDashboard.mobile.planned", "Planifié")}
-                            </Badge>
-                          </HStack>
-                        </Box>
-                      );
-                    })
-                  ) : (
-                    <Box {...theme.tileProps} p={4}>
-                      <Text fontWeight="900">{t("clubDashboard.todaySchedule.empty", "Aucun rendez-vous planifié aujourd’hui.")}</Text>
-                      <Text color={theme.mutedText} fontSize="sm" mt={1}>
-                        {t("clubDashboard.setup.stepFollowDetail", "Le calendrier devient utile dès qu’un rendez-vous est posé.")}
-                      </Text>
-                    </Box>
-                  )}
-                </VStack>
+              </Box>
+              <Box {...theme.cardProps} id="club-dashboard-calendar" {...calendarPointerHandlers} data-tour="club-dashboard-calendar" p={{ base: 4, md: 5 }}>
+                <Flex justify="space-between" align="center" gap={3} mb={3} flexWrap="wrap">
+                  <Heading size="md">{t("auto.ClubDashboard.calendrier_de_l_equipe", "Calendrier de l’équipe")}</Heading>
+                  <HStack spacing={2} flexWrap="wrap" justify="flex-end" marginLeft="auto">
+                    {calendarCoachSelector}
+                    <ClubCalendarConnect clubId={actionClubId}/>
+                    <Button size="sm" variant="outline" as={RouterLink} to={withAdminClub("/club-dashboard/calendrier")}>
+                      {t("programs.open", "Ouvrir")}
+                    </Button>
+                                      <Button size="sm" leftIcon={<AddIcon />} {...theme.primaryButtonProps} onClick={openCalendarAppointmentModal}>{t("exerciseCard.add", "Ajouter")}</Button>
+</HStack>
+                </Flex>
+                <Flex justify="space-between" align="center" flexWrap="wrap" gap={3} mb={3}>
+                  {coachLegend}
+                </Flex>
+                <ClubMobileCalendar events={filteredCalendarEvents} colors={coachColors} onSelectEvent={openAppointmentDetail} />
                 <Box
                   display={{ base: "none", md: "block" }}
                   sx={{
@@ -2173,6 +2117,11 @@ export default function ClubDashboard() {
                       borderColor: calendarGridBorder,
                       color: calendarButtonColor,
                     },
+                    ".rbc-time-view .rbc-event, .rbc-time-view .rbc-addons-dnd-resizable": { display: "flex", flexDirection: "column", overflow: "hidden" },
+                    ".rbc-time-view .rbc-addons-dnd-resizable": { height: "100%", minHeight: 0 },
+                    ".rbc-time-view .rbc-event .rbc-event-content": { order: 0, flex: "0 0 auto", fontWeight: 800, fontSize: "13px", lineHeight: "16px", minHeight: "16px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
+                    ".rbc-time-view .rbc-event .rbc-event-label": { order: 1, flex: "0 1 auto", fontSize: "10px", lineHeight: "12px", opacity: 0.85, minHeight: 0, overflow: "hidden" },
+                    ".rbc-time-view .rbc-event": { padding: "2px 5px" },
                     ".rbc-event": {
                       borderRadius: "12px",
                       padding: "4px 8px",
@@ -2182,9 +2131,24 @@ export default function ClubDashboard() {
                   }}
                 >
                   <DnDCalendar
+                    key={calendarCulture}
+                    date={calendarDate}
+                    onNavigate={setCalendarDate}
+                    view={calendarView}
+                    onView={setCalendarView}
+                    selectable={["week", "day"].includes(calendarView) && !isTouchDevice() ? "ignoreEvents" : false}
+                    step={15}
+                    timeslots={4}
+                    onSelecting={previewCalendarSelection}
+                    slotPropGetter={date => ({ "data-club-slot-time": date.getTime() })}
+                    onSelectSlot={openSelectedCalendarSlot}
+                    scrollToTime={calendarScrollTime}
                     localizer={localizer}
                     culture={calendarCulture}
-                    formats={calendarFormats}
+                    formats={{ ...calendarFormats, ...getCalendarFormats(calendarCulture) }}
+                    components={calendarComponents}
+                    componentIdentity={calendarComponents}
+                    tooltipAccessor={() => null}
                     events={filteredCalendarEvents}
                     startAccessor="start"
                     endAccessor="end"
@@ -2195,28 +2159,12 @@ export default function ClubDashboard() {
                     onSelectEvent={openAppointmentDetail}
                     onEventDrop={isTouchDevice() ? undefined : moveAppointment}
                     onEventResize={isTouchDevice() ? undefined : moveAppointment}
-                    draggableAccessor={(event) => !isTouchDevice() && event?.status !== "validée"}
-                    resizableAccessor={(event) => !isTouchDevice() && event?.status !== "validée"}
-                    eventPropGetter={(event) => {
-                      const normalized = String(event?.status || "").toLowerCase();
-                      const bg =
-                        normalized === "validée" || normalized === "validee" || normalized === "done"
-                          ? "#16A34A"
-                          : normalized === "annulée" || normalized === "annulee" || normalized === "cancelled" || normalized === "canceled"
-                          ? "#64748B"
-                          : normalized === "manquée" || normalized === "manquee"
-                          ? "#DC2626"
-                          : "#1D4ED8";
-                      return {
-                        style: {
-                        backgroundColor: bg,
-                        color: "white",
-                        borderRadius: 12,
-                        border: "none",
-                      },
-                      };
-                    }}
+                    draggableAccessor={(event) => !isTouchDevice() && (event?.type === "group" || event?.status !== "validée")}
+                    resizableAccessor={(event) => !isTouchDevice() && (event?.type === "group" || event?.status !== "validée")}
+                    eventPropGetter={calendarEventStyle}
+                    dayLayoutAlgorithm="no-overlap"
                     messages={{
+                      ...getCalendarAgendaMessages(calendarCulture),
                       today: t("calendar.today", "Aujourd’hui"),
                       previous: t("calendar.previous", "Précédent"),
                       next: t("calendar.next", "Suivant"),
@@ -2231,124 +2179,12 @@ export default function ClubDashboard() {
                 </Box>
               </Box>
 
-              <Box {...theme.cardProps} p={{ base: 5, md: 6 }}>
-                <Stack direction={{ base: "column", md: "row" }} justify="space-between" gap={3} mb={4}>
-                  <Box>
-                    <Heading size="md">{t("auto.ClubDashboard.equipe", "Équipe")}</Heading>
-                    <Text color={theme.mutedText} fontSize="sm" mt={1}>{t("auto.ClubDashboard.repartition_rapide_des_pros_actifs", "Répartition rapide des pros actifs.")}</Text>
-                  </Box>
-                  <Button size="sm" variant="outline" onClick={() => openClubSection("team")}>{t("auto.ClubDashboard.gerer", "Gérer")}</Button>
-                </Stack>
-                <VStack align="stretch" spacing={3}>
-                  {dashboardCoachRows.map((coach) => (
-                    <Box key={coach.uid} {...theme.tileProps} p={3}>
-                      <HStack justify="space-between" align="start" gap={3}>
-                        <Box minW={0}>
-                          <Text fontWeight="900" noOfLines={1}>{displayName(coach)}</Text>
-                          <Text color={theme.mutedText} fontSize="xs" noOfLines={1}>
-                            {proTypeLabel(coach.proType)} · {coach.status === "disabled" ? t("common.suspended", "Suspendu") : t("common.active", "Actif")}
-                          </Text>
-                        </Box>
-                        <Badge borderRadius="full">
-                          {coach.clientCount || 0} {t("auto.ClubDashboard.client_s_2", "client(s)")}</Badge>
-                      </HStack>
-                      <HStack mt={3} spacing={2} flexWrap="wrap">
-                        <Badge colorScheme="blue">{coach.programCount || 0} {t("clientsList.badge.programsShort", "prog.")}</Badge>
-                        <Badge colorScheme={coach.status === "disabled" ? "red" : "green"}>
-                          {coach.status === "disabled" ? "Suspendu" : "Actif"}
-                        </Badge>
-                      </HStack>
-                    </Box>
-                  ))}
-                  {dashboardCoachRows.length === 0 && (
-                    <Text color={theme.mutedText}>{t("auto.ClubDashboard.aucun_pro_pour_le_moment_invitez_le_premier_i", "Aucun pro pour le moment. Invitez le premier intervenant du club.")}</Text>
-                  )}
-                </VStack>
-              </Box>
-            </SimpleGrid>
-          )}
-
-          {showDashboard && (
-            <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6}>
-              <Box {...theme.cardProps} p={{ base: 5, md: 6 }}>
-                <Stack direction={{ base: "column", md: "row" }} justify="space-between" gap={3} mb={4}>
-                  <Box>
-                    <Heading size="md">{t("auto.ClubDashboard.activite_recente", "Activité récente")}</Heading>
-                    <Text color={theme.mutedText} fontSize="sm" mt={1}>{t("auto.ClubDashboard.derniers_mouvements_sur_le_perimetre_club", "Derniers mouvements sur le périmètre club.")}</Text>
-                  </Box>
-                  <Button size="sm" variant="outline" onClick={() => openClubView("clients")}>{t("auto.ClubDashboard.explorer", "Explorer")}</Button>
-                </Stack>
-                <VStack align="stretch" spacing={3}>
-                  {recentActivityItems.map((item) => (
-                    <HStack key={item.id} justify="space-between" align="start" {...theme.tileProps} p={3}>
-                      <Box minW={0}>
-                        <HStack spacing={2} mb={1}>
-                          <Badge borderRadius="full">{item.type}</Badge>
-                          <Text color={theme.mutedText} fontSize="xs">{formatDate(item.activityAt)}</Text>
-                        </HStack>
-                        <Text fontWeight="900" noOfLines={1}>{item.title}</Text>
-                      </Box>
-                      <Badge colorScheme="blue" borderRadius="full">{item.coachName}</Badge>
-                    </HStack>
-                  ))}
-                  {recentActivityItems.length === 0 && (
-                    <Text color={theme.mutedText}>{t("auto.ClubDashboard.aucune_activite_recente_detectee_pour_le_mome", "Aucune activité récente détectée pour le moment.")}</Text>
-                  )}
-                </VStack>
-              </Box>
-
-              <Box {...theme.cardProps} p={{ base: 5, md: 6 }} display={{ base: "none", md: "block" }}>
-                <Heading size="md" mb={4}>{t("auto.ClubDashboard.actions_rapides", "Actions rapides")}</Heading>
-                <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={3}>
-                  <Button variant="outline" onClick={openCreateCoachSection}>{t("auto.ClubDashboard.inviter_un_pro", "Inviter un pro")}</Button>
-                  <Button variant="outline" onClick={openCalendarAppointmentModal}>{t("auto.ClubDashboard.planifier_un_rdv", "Planifier un RDV")}</Button>
-                  <Button variant="outline" onClick={() => openClubView("clients")}>{t("auto.ClubDashboard.clients_du_club", "Clients du club")}</Button>
-                  <Button variant="outline" onClick={() => openClubView("stats")}>{t("coachStats.title", "Statistiques")}</Button>
-                  <Button variant="outline" onClick={() => openClubSection("alerts")}>{t("clubDashboard.tools.alerts", "Alertes")}</Button>
-                  <Button variant="outline" onClick={() => openClubSection("audit")}>{t("clubDashboard.tools.audit", "Audit données")}</Button>
-                </SimpleGrid>
-                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3} mt={4}>
-                  <Box {...theme.tileProps} p={4}>
-                    <Text fontWeight="900">{t("auto.ClubDashboard.clients_sans_programme", "Clients sans programme")}</Text>
-                    <Text color={theme.mutedText} fontSize="sm" mt={1}>
-                      {clientsWithoutProgram.length
-                        ? `${clientsWithoutProgram.length} client(s) à vérifier en priorité.`
-                        : "Aucun client sans programme dans les données récentes."}
-                    </Text>
-                  </Box>
-                  <Box {...theme.tileProps} p={4}>
-                    <Text fontWeight="900">{t("auto.ClubDashboard.capacite_clients", "Capacité clients")}</Text>
-                    <Text color={theme.mutedText} fontSize="sm" mt={1}>
-                      {clientUsage !== null ? `${clientUsage}% utilisé sur l’offre actuelle.` : "Aucune limite client renseignée."}
-                    </Text>
-                  </Box>
-                </SimpleGrid>
-              </Box>
-            </SimpleGrid>
+            </>
           )}
 
           {showSettings && (
-            <VStack align="stretch" spacing={6}>
-              <Box {...theme.cardProps} p={{ base: 5, md: 6 }}>
-                <Stack direction={{ base: "column", md: "row" }} justify="space-between" gap={4} align={{ base: "stretch", md: "center" }}>
-                  <Box>
-                    <Heading size="md">{t("auto.ClubDashboard.fonctionnement_global", "Fonctionnement global")}</Heading>
-                    <Text color={theme.mutedText} fontSize="sm" mt={1}>
-                      {t("clubDashboard.settings.guideHint", "Le guide peut être réaffiché sur le dashboard si un membre de l’équipe a besoin de revoir le fonctionnement club.")}
-                    </Text>
-                  </Box>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      toggleGuide(true);
-                      navigate(withAdminClub("/club-dashboard"));
-                      setTimeout(() => scrollToSection("club-guide"), 120);
-                    }}
-                  >
-                    {t("clubDashboard.actions.showGuide", "Afficher le guide")}
-                  </Button>
-                </Stack>
-              </Box>
+            <VStack align="stretch" spacing={{ base: 3, md: 4 }}>
+              <TutorialSettingsPanel role="club" />
               <Box {...theme.cardProps} id="club-settings" data-tour="club-settings" p={{ base: 5, md: 6 }}>
                 <Stack direction={{ base: "column", lg: "row" }} gap={5} justify="space-between">
                   <Box flex="1">
@@ -2362,7 +2198,7 @@ export default function ClubDashboard() {
                         <Input
                           {...theme.inputProps}
                           value={identityForm.name}
-                          onChange={(e) => setIdentityForm((current) => ({ ...current, name: e.target.value }))}
+                          onChange={(e) => { setClubNameDraft(e.target.value); setIdentityForm((current) => ({ ...current, name: e.target.value })); }}
                         />
                       </FormControl>
                       <FormControl>
@@ -2374,14 +2210,21 @@ export default function ClubDashboard() {
                           pt={2}
                           onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
                         />
-                        <Text color={theme.mutedText} fontSize="sm" mt={2}>
+                        <HStack mt={3} spacing={3}>
+                          <ClubLogo
+                            src={logoPreviewUrl || identityForm.logoUrl}
+                            alt={t("auto.ClubDashboard.logo_du_club", "Logo du club")}
+                            boxSize="64px" borderRadius="12px" p={2}
+                          />
+                        <Text color={theme.mutedText} fontSize="sm">
                           {logoFile
                             ? logoFile.name
                             : identityForm.logoUrl
                             ? t("auto.ClubDashboard.logo_existant_enregistre", "Logo existant enregistré")
-                            : t("auto.ClubDashboard.aucun_logo_ajoute", "Aucun logo ajouté pour le moment")}
+                            : t("clubDashboard.defaultLogo", "Logo BYL utilisé par défaut")}
                           {uploadProgress > 0 ? ` · Upload ${uploadProgress}%` : ""}
                         </Text>
+                        </HStack>
                       </FormControl>
                       <Button type="submit" {...theme.primaryButtonProps} isLoading={identitySaving}>{t("auto.ClubDashboard.enregistrer_l_identite_club", "Enregistrer l’identité club")}</Button>
                     </VStack>
@@ -2389,6 +2232,8 @@ export default function ClubDashboard() {
                 </Stack>
               </Box>
 
+              {!isAdmin && <ClubSubscriptionPlans />}
+              <ClubRegistrationSettings club={summary?.club} url={withAdminClub("/clubs/")} onSaved={loadSummary} theme={theme} />
               <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={6}>
                 <Box {...theme.cardProps} p={{ base: 5, md: 6 }}>
                   <HStack spacing={3} mb={4} align="flex-start">
@@ -2415,6 +2260,7 @@ export default function ClubDashboard() {
                 </Box>
 
                 <EmailNotificationPreferenceCard
+                  compact
                   surfaceProps={theme.cardProps}
                   textColor={theme.textColor}
                   mutedText={theme.mutedText}
@@ -2483,56 +2329,27 @@ export default function ClubDashboard() {
           )}
 
           {error && (
-            <Alert status={error.includes("pas encore chargé") ? "warning" : "error"} borderRadius="16px">
+            <Alert status={error.includes(clubText("pas encore chargé")) ? "warning" : "error"} borderRadius="16px">
               <AlertIcon />
               {error}
             </Alert>
           )}
 
           {showClubTool && (
-            <VStack align="stretch" spacing={6}>
-              <Box {...theme.cardProps} p={{ base: 5, md: 6 }}>
-                <Stack direction={{ base: "column", lg: "row" }} justify="space-between" gap={4} align={{ base: "stretch", lg: "center" }}>
-                  <Box>
-                    <Heading size="md">{t("clubDashboard.tools.title", "Pilotage club")}</Heading>
-                    <Text color={theme.mutedText} fontSize="sm" mt={1}>
-                      {t("clubDashboard.tools.subtitle", "Toutes les pages d’exploitation utiles restent dans le périmètre club et ne modifient rien sans action explicite.")}
-                    </Text>
-                  </Box>
-                  <HStack flexWrap="wrap" justify={{ base: "start", lg: "end" }}>
-                    {CLUB_TOOLS.map((tool) => (
-                      <Button
-                        key={tool.key}
-                        size="sm"
-                        variant={pageKind === tool.key ? "solid" : "outline"}
-                        {...(pageKind === tool.key ? theme.primaryButtonProps : {})}
-                        onClick={() => navigate(withAdminClub(tool.path))}
-                      >
-                        {t(tool.labelKey, tool.fallback)}
-                      </Button>
-                    ))}
-                  </HStack>
-                </Stack>
-              </Box>
-
-              {showAlerts && (
-                <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4}>
-                  {clubAlerts.map((alert) => (
-                    <Box key={alert.title} {...theme.cardProps} p={{ base: 5, md: 6 }}>
-                      <Badge colorScheme={alert.tone} borderRadius="full" px={3} py={1} mb={3}>{t("clubDashboard.tools.alert", "Alerte")}</Badge>
-                      <Heading size="sm">{alert.title}</Heading>
-                      <Text color={theme.mutedText} mt={2}>{alert.detail}</Text>
-                      <Button size="sm" variant="outline" mt={4} onClick={alert.onClick}>{alert.action}</Button>
-                    </Box>
+            <VStack align="stretch" spacing={{ base: 3, md: 4 }}>
+              <Box {...theme.cardProps} p={3}>
+                <Text fontWeight="700" fontSize="sm" mb={2}>{t("clubDashboard.tools.management", "Gestion")}</Text>
+                <HStack as="nav" aria-label={t("clubDashboard.tools.management", "Gestion")} flexWrap="wrap" spacing={2}>
+                  {[...CLUB_TOOLS].sort((a, b) => (a.key === "bulk" ? -1 : b.key === "bulk" ? 1 : 0)).map((tool) => (
+                    <Button as={RouterLink} to={withAdminClub(tool.path)} key={tool.key} size="sm"
+                      aria-current={pageKind === tool.key ? "page" : undefined}
+                      variant={pageKind === tool.key ? "solid" : "ghost"}
+                      {...(pageKind === tool.key ? theme.primaryButtonProps : {})}>
+                      {t(tool.labelKey, tool.fallback)}
+                    </Button>
                   ))}
-                  {clubAlerts.length === 0 && (
-                    <Box {...theme.cardProps} p={6}>
-                      <Heading size="sm">{t("clubDashboard.alerts.empty.title", "Aucune alerte forte")}</Heading>
-                      <Text color={theme.mutedText} mt={2}>{t("clubDashboard.alerts.empty.detail", "Le périmètre club récent semble propre.")}</Text>
-                    </Box>
-                  )}
-                </SimpleGrid>
-              )}
+                </HStack>
+              </Box>
 
               {showLog && (
                 <Box {...theme.cardProps} p={{ base: 5, md: 6 }}>
@@ -2607,148 +2424,6 @@ export default function ClubDashboard() {
                 </Box>
               )}
 
-              {showAudit && (
-                <VStack align="stretch" spacing={4}>
-                  <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} spacing={4}>
-                    {[
-                      {
-                        title: t("clubDashboard.audit.actions.createPro.title", "Créer le pro manquant"),
-                        detail: t("clubDashboard.audit.actions.createPro.detail", "Ajoutez un compte pro officiel si les données viennent d’un intervenant non rattaché."),
-                        action: t("clubDashboard.actions.createPro", "Créer un pro"),
-                        onClick: openCreateCoachSection,
-                      },
-                      {
-                        title: t("clubDashboard.audit.actions.assignPrograms.title", "Clients sans programme"),
-                        detail: t("clubDashboard.audit.actions.assignPrograms.detail", "{{count}} dossier(s) à ouvrir pour assigner un programme.", { count: allClientsWithoutProgram.length }),
-                        action: t("auto.ClubDashboard.clients_du_club", "Clients du club"),
-                        onClick: () => openClubView("clients"),
-                      },
-                      {
-                        title: t("clubDashboard.audit.actions.bulk.title", "Traiter par cohorte"),
-                        detail: t("clubDashboard.audit.actions.bulk.detail", "Retrouvez les groupes prêts à traiter dans les actions groupées."),
-                        action: t("clubDashboard.tools.bulk", "Actions groupées"),
-                        onClick: () => navigate(withAdminClub("/club-dashboard/actions-groupees")),
-                      },
-                      {
-                        title: t("clubDashboard.audit.actions.team.title", "Contrôler l’équipe"),
-                        detail: t("clubDashboard.audit.actions.team.detail", "Vérifiez les référents détectés et les comptes réellement rattachés."),
-                        action: t("clubDashboard.actions.viewTeam", "Voir l’équipe"),
-                        onClick: () => openClubSection("team"),
-                      },
-                    ].map((action) => (
-                      <Box key={action.title} {...theme.tileProps} p={4}>
-                        <Text fontWeight="900">{action.title}</Text>
-                        <Text color={theme.mutedText} fontSize="sm" mt={1}>{action.detail}</Text>
-                        <Button size="sm" variant="outline" mt={4} onClick={action.onClick}>{action.action}</Button>
-                      </Box>
-                    ))}
-                  </SimpleGrid>
-                  <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4}>
-                    {auditFindings.map((finding) => (
-                      <Box key={finding.title} {...theme.cardProps} p={{ base: 5, md: 6 }}>
-                        <Badge colorScheme={finding.tone} borderRadius="full" px={3} py={1} mb={3}>
-                          {finding.count} {t("clubDashboard.audit.items", "élément(s)")}
-                        </Badge>
-                        <Heading size="sm">{finding.title}</Heading>
-                        <Text color={theme.mutedText} mt={2}>{finding.detail}</Text>
-                      </Box>
-                    ))}
-                  </SimpleGrid>
-                  {allClientsWithoutProgram.length > 0 && (
-                    <Box {...theme.cardProps} p={{ base: 5, md: 6 }}>
-                      <Stack direction={{ base: "column", md: "row" }} justify="space-between" gap={4} align={{ base: "stretch", md: "center" }}>
-                        <Box>
-                          <Heading size="sm">{t("clubDashboard.audit.noProgramQueue", "Clients à équiper")}</Heading>
-                          <Text color={theme.mutedText} fontSize="sm" mt={1}>
-                            {t("clubDashboard.audit.noProgramQueueHelp", "{{count}} client(s) n’ont pas encore de programme assigné.", { count: allClientsWithoutProgram.length })}
-                          </Text>
-                        </Box>
-                        <HStack flexWrap="wrap">
-                          {allClientsWithoutProgram.slice(0, 4).map((client) => (
-                            <Button key={client.id} size="sm" variant="outline" onClick={() => navigate(`/clients/${client.id}`)}>
-                              {client.name || client.email || client.id}
-                            </Button>
-                          ))}
-                          <Button size="sm" {...theme.primaryButtonProps} onClick={() => openClubView("clients")}>
-                            {t("clubDashboard.audit.openAllClients", "Voir tous les clients")}
-                          </Button>
-                        </HStack>
-                      </Stack>
-                    </Box>
-                  )}
-                  <Box {...theme.cardProps} p={{ base: 5, md: 6 }} overflowX="auto">
-                    <Stack direction={{ base: "column", md: "row" }} justify="space-between" align={{ base: "stretch", md: "center" }} mb={4} gap={3}>
-                      <Box>
-                        <Heading size="sm">{t("clubDashboard.audit.details", "Détails à contrôler")}</Heading>
-                        <Text color={theme.mutedText} fontSize="sm" mt={1}>
-                          {t("clubDashboard.audit.detailsHelp", "Ouvrez le dossier ou rattachez directement le bon pro quand l’élément est réparable.")}
-                        </Text>
-                      </Box>
-                      <Badge borderRadius="full" px={3} py={1}>{unknownReferentItems.length} {t("clubDashboard.audit.items", "élément(s)")}</Badge>
-                    </Stack>
-                    {unknownReferentItems.length === 0 ? (
-                      <Text color={theme.mutedText}>{t("clubDashboard.audit.noUnknownReferents", "Aucun référent incertain à corriger.")}</Text>
-                    ) : (
-                      <Table size="sm">
-                        <Thead>
-                          <Tr>
-                            <Th>{t("clubDashboard.audit.kind", "Type")}</Th>
-                            <Th>{t("clubDashboard.audit.item", "Élément")}</Th>
-                            <Th>{t("auto.ClubDashboard.pro", "Pro")}</Th>
-                            <Th>{t("clientView.lastActivity", "Dernière activité")}</Th>
-                            <Th>{t("nutritionCoach.table.actions", "Actions")}</Th>
-                          </Tr>
-                        </Thead>
-                        <Tbody>
-                          {unknownReferentItems.slice(0, 30).map((item) => {
-                            const key = `${item.kind}:${item.id}`;
-                            return (
-                              <Tr key={key}>
-                                <Td>{item.kind}</Td>
-                                <Td>
-                                  <Text fontWeight="800">{item.name || item.title || item.objective || item.clientName || item.id}</Text>
-                                  {item.clientName && <Text color={theme.mutedText} fontSize="xs">{item.clientName}</Text>}
-                                </Td>
-                                <Td>{displayCoachName(item.coachName)}</Td>
-                                <Td>{formatDate(item.activityAt)}</Td>
-                                <Td minW="300px">
-                                  <HStack spacing={2} align="center">
-                                    <Select
-                                      size="sm"
-                                      maxW="180px"
-                                      value={auditRepairCoach[key] || ""}
-                                      onChange={(event) => setAuditRepairCoach((current) => ({ ...current, [key]: event.target.value }))}
-                                      isDisabled={!coaches.length}
-                                    >
-                                      <option value="">{t("clubDashboard.audit.choosePro", "Choisir un pro")}</option>
-                                      {coaches.map((coach) => (
-                                        <option key={coach.uid} value={coach.uid}>{displayName(coach)}</option>
-                                      ))}
-                                    </Select>
-                                    <Button size="sm" variant="outline" onClick={() => openAuditItem(item)}>
-                                      {t("programs.open", "Ouvrir")}
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      {...theme.primaryButtonProps}
-                                      isDisabled={!coaches.length || !auditRepairCoach[key]}
-                                      isLoading={actionSaving === `audit:${key}`}
-                                      onClick={() => repairAuditReferent(item)}
-                                    >
-                                      {t("clubDashboard.audit.repair", "Corriger")}
-                                    </Button>
-                                  </HStack>
-                                </Td>
-                              </Tr>
-                            );
-                          })}
-                        </Tbody>
-                      </Table>
-                    )}
-                  </Box>
-                </VStack>
-              )}
-
               {showGoals && (
                 <Box {...theme.cardProps} p={{ base: 5, md: 6 }} overflowX="auto">
                   <Flex justify="space-between" gap={4} align={{ base: "flex-start", md: "center" }} direction={{ base: "column", md: "row" }} mb={4}>
@@ -2792,8 +2467,7 @@ export default function ClubDashboard() {
                           <Td>
                             <Text fontWeight="900">{displayName(row)}</Text>
                             <Text color={theme.mutedText} fontSize="xs">
-                              {t("clubDashboard.goals.currentPeriod", "Période")} : {row.periodClientCount || 0} client(s) · {row.periodProgramCount || 0} prog. · {row.periodNutritionCount || 0} nutrition · {row.periodSessionCount || 0} séance(s)
-                            </Text>
+                              {t("clubDashboard.goals.currentPeriod", "Période")} : {row.periodClientCount || 0} {clubText("client(s) ·")} {row.periodProgramCount || 0} {clubText("prog. ·")} {row.periodNutritionCount || 0} {clubText("nutrition ·")} {row.periodSessionCount || 0} {clubText("séance(s)")} </Text>
                           </Td>
                           {["clients", "programs", "nutrition", "sessions"].map((key) => (
                             <Td key={key}>
@@ -2845,7 +2519,9 @@ export default function ClubDashboard() {
               )}
 
               {showBulk && (
-                <VStack align="stretch" spacing={4}>
+                <VStack data-tour="club-management" align="stretch" spacing={4}>
+                  {!isAdmin && <Box id="priority-cancellations" tabIndex={-1} scrollMarginTop="100px"><SessionCancellationRequests onCount={setCancellationCount}/></Box>}
+                  {!isAdmin && <Box id="priority-payments" tabIndex={-1} scrollMarginTop="100px"><ClubPaymentTasks onCount={setPaymentDueCount} /></Box>}
                   <Box {...theme.cardProps} p={{ base: 5, md: 6 }}>
                     <Stack direction={{ base: "column", lg: "row" }} justify="space-between" gap={4} align={{ base: "stretch", lg: "center" }}>
                       <Box maxW="720px">
@@ -2855,13 +2531,27 @@ export default function ClubDashboard() {
                         </Text>
                       </Box>
                       <Badge alignSelf={{ base: "flex-start", lg: "center" }} borderRadius="full" px={3} py={1}>
-                        {t("clubDashboard.bulk.total", "{{count}} à traiter", { count: allClientsWithoutProgram.length + nutritionDrafts.length + unknownReferentItems.length })}
+                        {t("clubDashboard.bulk.total", "{{count}} à traiter", { count: allClientsWithoutProgram.length + nutritionDrafts.length + unknownReferentItems.length + clubAlerts.length + paymentDueCount + cancellationCount })}
                       </Badge>
                     </Stack>
                   </Box>
-                  <SimpleGrid columns={{ base: 1, xl: 3 }} spacing={4}>
+              {clubAlerts.length > 0 && (
+                <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4}>
+                  {clubAlerts.map((alert) => (
+                    <Box key={alert.title} {...theme.cardProps} p={{ base: 5, md: 6 }}>
+                      <Badge colorScheme={alert.tone} borderRadius="full" px={3} py={1} mb={3}>{t("clubDashboard.pages.bulk.title", "À traiter")}</Badge>
+                      <Heading size="sm">{alert.title}</Heading>
+                      <Text color={theme.mutedText} mt={2}>{alert.detail}</Text>
+                      <Button size="sm" variant="outline" mt={4} onClick={alert.onClick}>{alert.action}</Button>
+                    </Box>
+                  ))}
+                </SimpleGrid>
+              )}
+
+                  <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4}>
                     {[
                       {
+                        id: "priority-programs",
                         title: t("auto.ClubDashboard.clients_sans_programme", "Clients sans programme"),
                         detail: t("clubDashboard.bulk.noProgramDetail", "Ces clients existent dans le club mais n’ont aucun programme assigné. Le but est d’ouvrir leur dossier puis d’ajouter ou assigner un programme."),
                         items: allClientsWithoutProgram,
@@ -2870,6 +2560,7 @@ export default function ClubDashboard() {
                         itemAction: (item) => openClientAsReferent(item),
                       },
                       {
+                        id: "priority-nutrition",
                         title: t("clubDashboard.alerts.nutritionDrafts.short", "Bilans nutrition à finaliser"),
                         detail: t("clubDashboard.bulk.nutritionDetail", "Ces bilans sont en brouillon ou non partagés. Le but est de les ouvrir, corriger si besoin, puis les valider ou les partager."),
                         items: nutritionDrafts,
@@ -2877,25 +2568,17 @@ export default function ClubDashboard() {
                         onMainAction: () => openClubView("nutrition"),
                         itemAction: (item) => navigate(`/clients/${item.clientId}/nutrition/${item.id}`),
                       },
-                      {
-                        title: t("clubDashboard.alerts.unknownReferents.short", "Référents à clarifier"),
-                        detail: t("clubDashboard.bulk.referentDetail", "Ces éléments sont dans le périmètre club mais le pro responsable n’est pas fiable. Le but est de les rattacher depuis l’audit."),
-                        items: unknownReferentItems,
-                        actionLabel: t("clubDashboard.bulk.openAudit", "Corriger dans l’audit"),
-                        onMainAction: () => navigate(withAdminClub("/club-dashboard/audit")),
-                        itemAction: null,
-                      },
-                    ].map(({ title, detail, items, actionLabel, onMainAction, itemAction }) => (
-                      <Box key={title} {...theme.cardProps} p={{ base: 5, md: 6 }}>
+                    ].map(({ id, title, detail, items, actionLabel, onMainAction, itemAction }) => (
+                      <Box id={id} tabIndex={-1} scrollMarginTop="100px" key={title} {...theme.cardProps} p={{ base: 5, md: 6 }}>
                         <HStack justify="space-between" mb={3}>
                           <Heading size="sm">{title}</Heading>
-                          <Badge borderRadius="full">{items.length}</Badge>
+                          <Text fontSize="2xl" fontWeight="900" flexShrink={0} textAlign="right">{items.length}</Text>
                         </HStack>
-                        <Text color={theme.mutedText} fontSize="sm" minH={{ xl: "72px" }}>{detail}</Text>
-                        <Button mt={4} size="sm" {...theme.primaryButtonProps} onClick={onMainAction}>
+                        <Text color={theme.mutedText} fontSize="sm" >{detail}</Text>
+                        {items.length > 0 && <Button mt={4} size="sm" {...theme.primaryButtonProps} onClick={onMainAction}>
                           {actionLabel}
-                        </Button>
-                        <VStack align="stretch" spacing={3} mt={5}>
+                        </Button>}
+                        <VStack align="stretch" spacing={3} mt={3}>
                           {items.slice(0, 5).map((item) => (
                             <HStack key={`${title}:${item.id}`} justify="space-between" {...theme.tileProps} p={3} gap={3}>
                               <Box minW={0}>
@@ -2906,44 +2589,100 @@ export default function ClubDashboard() {
                             </HStack>
                           ))}
                           {items.length === 0 && <Text color={theme.mutedText}>{t("clubDashboard.bulk.empty", "Rien à traiter ici.")}</Text>}
-                        </VStack>
+                </VStack>
                       </Box>
                     ))}
                   </SimpleGrid>
+                          <Box id="priority-referents" tabIndex={-1} scrollMarginTop="100px" {...theme.cardProps} p={{ base: 5, md: 6 }} overflowX="auto">
+                    <Stack direction={{ base: "column", md: "row" }} justify="space-between" align={{ base: "stretch", md: "center" }} mb={4} gap={3}>
+                      <Box>
+                        <Heading size="sm">{t("clubDashboard.alerts.unknownReferents.short", "Référents à clarifier")}</Heading>
+                        <Text color={theme.mutedText} fontSize="sm" mt={1}>
+                          {t("clubDashboard.audit.detailsHelp", "Ouvrez le dossier ou rattachez directement le bon pro quand l’élément est réparable.")}
+                        </Text>
+                      </Box>
+                      <Badge borderRadius="full" px={3} py={1}>{unknownReferentItems.length} {t("clubDashboard.audit.items", "élément(s)")}</Badge>
+                    </Stack>
+                    {unknownReferentItems.length === 0 ? (
+                      <Text color={theme.mutedText}>{t("clubDashboard.audit.noUnknownReferents", "Aucun référent incertain à corriger.")}</Text>
+                    ) : (
+                      <Table size="sm">
+                        <Thead>
+                          <Tr>
+                            <Th>{t("clubDashboard.audit.kind", "Type")}</Th>
+                            <Th>{t("clubDashboard.audit.item", "Élément")}</Th>
+                            <Th>{t("auto.ClubDashboard.pro", "Pro")}</Th>
+                            <Th>{t("clientView.lastActivity", "Dernière activité")}</Th>
+                            <Th>{t("nutritionCoach.table.actions", "Actions")}</Th>
+                          </Tr>
+                        </Thead>
+                        <Tbody>
+                          {unknownReferentItems.map((item) => {
+                            const key = `${item.kind}:${item.id}`;
+                            return (
+                              <Tr key={key}>
+                                <Td>{item.kind}</Td>
+                                <Td>
+                                  <Text fontWeight="800">{item.name || item.title || item.objective || item.clientName || item.id}</Text>
+                                  {item.clientName && <Text color={theme.mutedText} fontSize="xs">{item.clientName}</Text>}
+                                </Td>
+                                <Td>{displayCoachName(item.coachName)}</Td>
+                                <Td>{formatDate(item.activityAt)}</Td>
+                                <Td minW="300px">
+                                  <HStack spacing={2} align="center">
+                                    <Select
+                                      size="sm"
+                                      maxW="180px"
+                                      value={auditRepairCoach[key] || ""}
+                                      onChange={(event) => setAuditRepairCoach((current) => ({ ...current, [key]: event.target.value }))}
+                                      isDisabled={!coaches.length}
+                                    >
+                                      <option value="">{t("clubDashboard.audit.choosePro", "Choisir un pro")}</option>
+                                      {coaches.map((coach) => (
+                                        <option key={coach.uid} value={coach.uid}>{displayName(coach)}</option>
+                                      ))}
+                                    </Select>
+                                    <Button size="sm" variant="outline" onClick={() => openAuditItem(item)}>
+                                      {t("programs.open", "Ouvrir")}
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      {...theme.primaryButtonProps}
+                                      isDisabled={!coaches.length || !auditRepairCoach[key]}
+                                      isLoading={actionSaving === `audit:${key}`}
+                                      onClick={() => repairAuditReferent(item)}
+                                    >
+                                      {t("clubDashboard.audit.repair", "Corriger")}
+                                    </Button>
+                                  </HStack>
+                                </Td>
+                              </Tr>
+                            );
+                          })}
+                        </Tbody>
+                      </Table>
+                    )}
+                  </Box>
                 </VStack>
               )}
             </VStack>
           )}
 
           {showCalendar && (
-            <Box {...theme.cardProps} id="club-calendar" data-tour="club-calendar" p={{ base: 5, md: 6 }}>
+            <Box {...theme.cardProps} id="club-calendar" {...calendarPointerHandlers} data-tour="club-calendar" p={{ base: 5, md: 6 }}>
               <Stack direction={{ base: "column", md: "row" }} justify="space-between" gap={4} mb={4}>
-                <Box>
-                  <Heading size="md">{t("auto.ClubDashboard.calendrier_club", "Calendrier club")}</Heading>
-                  <Text color={theme.mutedText} mt={1}>{t("auto.ClubDashboard.vue_agenda_des_rendez_vous_de_l_equipe_proche", "Vue agenda des rendez-vous de l’équipe, proche de l’espace coach.")}</Text>
-                </Box>
-                <Button leftIcon={<AddIcon />} {...theme.primaryButtonProps} onClick={openCalendarAppointmentModal}>{t("exerciseCard.add", "Ajouter")}</Button>
+                <HStack flexWrap="wrap" justify="flex-end" w="full">
+                {planningDownload}
+                <ClubCalendarConnect clubId={actionClubId}/>
+                <Button size="sm" leftIcon={<AddIcon />} {...theme.primaryButtonProps} onClick={openCalendarAppointmentModal}>{t("exerciseCard.add", "Ajouter")}</Button>
+                </HStack>
               </Stack>
-              <Stack direction={{ base: "column", md: "row" }} gap={2} mb={4} flexWrap="wrap">
-                <Button
-                  size="sm"
-                  variant={calendarCoachFilter.length === 0 ? "solid" : "outline"}
-                  {...(calendarCoachFilter.length === 0 ? theme.primaryButtonProps : {})}
-                  onClick={() => setCalendarCoachFilter([])}
-                >{t("auto.ClubDashboard.tout_le_monde", "Tout le monde")}</Button>
-                  {analysablePros.map((coach) => (
-                    <Button
-                      key={coach.uid}
-                    size="sm"
-                    variant={calendarCoachFilter.includes(coach.uid) ? "solid" : "outline"}
-                    {...(calendarCoachFilter.includes(coach.uid) ? theme.primaryButtonProps : {})}
-                    onClick={() => toggleCalendarCoach(coach.uid)}
-                  >
-                    {displayName(coach)}
-                  </Button>
-                ))}
-              </Stack>
-              <Box
+              <Flex justify="space-between" align="center" flexWrap="wrap" gap={3} mb={3}>
+                {coachLegend}
+                <Box marginInlineStart="auto">{calendarCoachSelector}</Box>
+              </Flex>
+              <ClubMobileCalendar events={filteredCalendarEvents} colors={coachColors} onSelectEvent={openAppointmentDetail} />
+              <Box display={{ base: "none", md: "block" }}
                 sx={{
                   ".rbc-calendar": { background: "transparent", color: "inherit", borderRadius: "18px", overflow: "hidden" },
                   ".rbc-toolbar": {
@@ -2996,7 +2735,12 @@ export default function ClubDashboard() {
                     borderColor: calendarGridBorder,
                     color: calendarButtonColor,
                   },
-                  ".rbc-event": {
+                  ".rbc-time-view .rbc-event, .rbc-time-view .rbc-addons-dnd-resizable": { display: "flex", flexDirection: "column", overflow: "hidden" },
+                    ".rbc-time-view .rbc-addons-dnd-resizable": { height: "100%", minHeight: 0 },
+                    ".rbc-time-view .rbc-event .rbc-event-content": { order: 0, flex: "0 0 auto", fontWeight: 800, fontSize: "13px", lineHeight: "16px", minHeight: "16px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
+                    ".rbc-time-view .rbc-event .rbc-event-label": { order: 1, flex: "0 1 auto", fontSize: "10px", lineHeight: "12px", opacity: 0.85, minHeight: 0, overflow: "hidden" },
+                    ".rbc-time-view .rbc-event": { padding: "2px 5px" },
+                    ".rbc-event": {
                     borderRadius: "12px",
                     padding: "4px 8px",
                     border: "none",
@@ -3005,9 +2749,24 @@ export default function ClubDashboard() {
                 }}
               >
                   <DnDCalendar
+                    key={calendarCulture}
+                    date={calendarDate}
+                    onNavigate={setCalendarDate}
+                    view={calendarView}
+                    onView={setCalendarView}
+                    selectable={["week", "day"].includes(calendarView) && !isTouchDevice() ? "ignoreEvents" : false}
+                    step={15}
+                    timeslots={4}
+                    onSelecting={previewCalendarSelection}
+                    slotPropGetter={date => ({ "data-club-slot-time": date.getTime() })}
+                    onSelectSlot={openSelectedCalendarSlot}
+                  scrollToTime={calendarScrollTime}
                   localizer={localizer}
                   culture={calendarCulture}
-                  formats={calendarFormats}
+                  formats={{ ...calendarFormats, ...getCalendarFormats(calendarCulture) }}
+                  components={calendarComponents}
+                    componentIdentity={calendarComponents}
+                  tooltipAccessor={() => null}
                   events={filteredCalendarEvents}
                   startAccessor="start"
                   endAccessor="end"
@@ -3018,28 +2777,12 @@ export default function ClubDashboard() {
                   onSelectEvent={openAppointmentDetail}
                   onEventDrop={isTouchDevice() ? undefined : moveAppointment}
                   onEventResize={isTouchDevice() ? undefined : moveAppointment}
-                  draggableAccessor={(event) => !isTouchDevice() && event?.status !== "validée"}
-                  resizableAccessor={(event) => !isTouchDevice() && event?.status !== "validée"}
-                  eventPropGetter={(event) => {
-                    const normalized = String(event?.status || "").toLowerCase();
-                    const bg =
-                      normalized === "validée" || normalized === "validee" || normalized === "done"
-                        ? "#16A34A"
-                        : normalized === "annulée" || normalized === "annulee" || normalized === "cancelled" || normalized === "canceled"
-                        ? "#64748B"
-                        : normalized === "manquée" || normalized === "manquee"
-                        ? "#DC2626"
-                        : "#1D4ED8";
-                    return {
-                      style: {
-                        backgroundColor: bg,
-                        color: "white",
-                        borderRadius: 12,
-                        border: "none",
-                      },
-                    };
-                  }}
+                  draggableAccessor={(event) => !isTouchDevice() && (event?.type === "group" || event?.status !== "validée")}
+                  resizableAccessor={(event) => !isTouchDevice() && (event?.type === "group" || event?.status !== "validée")}
+                  eventPropGetter={calendarEventStyle}
+                  dayLayoutAlgorithm="no-overlap"
                   messages={{
+                      ...getCalendarAgendaMessages(calendarCulture),
                     today: t("calendar.today", "Aujourd’hui"),
                     previous: t("calendar.previous", "Précédent"),
                     next: t("calendar.next", "Suivant"),
@@ -3055,71 +2798,29 @@ export default function ClubDashboard() {
             </Box>
           )}
 
-          {(showCreate || showTeam) && (
+          {showTeam && (
           <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6}>
-            {showCreate && (
-            <Box {...theme.cardProps} id="club-create" data-tour="club-create" p={{ base: 5, md: 6 }}>
-              <Heading size="md" mb={2}>{t("auto.ClubDashboard.ajouter_un_pro_au_club", "Ajouter un pro au club")}</Heading>
-              <Text color={theme.mutedText} fontSize="sm" mb={4}>{t("auto.ClubDashboard.ce_formulaire_cree_un_compte_pro_independant_", "Ce formulaire crée un compte pro indépendant, mais payé et contrôlé par l’abonnement du club.")}</Text>
-              <Box as="form" onSubmit={createCoach}>
-                <VStack align="stretch" spacing={4}>
-                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-                    <FormControl isRequired>
-                      <FormLabel>{t("clientCreation.firstName", "Prénom")}</FormLabel>
-                      <Input {...theme.inputProps} value={form.firstName} onChange={(e) => updateForm("firstName", e.target.value)} />
-                    </FormControl>
-                    <FormControl isRequired>
-                      <FormLabel>{t("contact.fields.name.label", "Nom")}</FormLabel>
-                      <Input {...theme.inputProps} value={form.lastName} onChange={(e) => updateForm("lastName", e.target.value)} />
-                    </FormControl>
-                  </SimpleGrid>
-                  <FormControl isRequired>
-                    <FormLabel>{t("auto.ClubDashboard.email_professionnel", "Email professionnel")}</FormLabel>
-                    <Input {...theme.inputProps} type="email" value={form.email} onChange={(e) => updateForm("email", e.target.value)} />
-                  </FormControl>
-                  <FormControl>
-                    <FormLabel>{t("auto.ClubDashboard.acces_metier", "Accès métier")}</FormLabel>
-                    <Select {...theme.inputProps} value={form.proType} onChange={(e) => updateForm("proType", e.target.value)}>
-                      <option value="sport">{t("auto.ClubDashboard.coach_sportif", "Coach sportif")}</option>
-                      <option value="nutrition">{t("auto.ClubDashboard.dieteticien_nutrition", "Diététicien / nutrition")}</option>
-                      <option value="complete">{t("auto.ClubDashboard.coach_nutrition", "Coach + nutrition")}</option>
-                    </Select>
-                  </FormControl>
-                  {proLimitReached && (
-                    <Alert status="warning" borderRadius="16px">
-                      <AlertIcon />{t("auto.ClubDashboard.capacite_maximale_atteinte", "Capacité maximale atteinte :")}{proLimitUpgradeMessage}
-                    </Alert>
-                  )}
-                  <Button type="submit" {...theme.primaryButtonProps} isLoading={saving} isDisabled={proLimitReached}>{t("auto.ClubDashboard.creer_le_compte_pro", "Créer le compte pro")}</Button>
-                </VStack>
-              </Box>
-
-              {inviteLink && (
-                <Alert data-tour="club-invite" status="info" mt={5} borderRadius="16px" alignItems="start">
-                  <AlertIcon mt={1} />
-                  <Box>
-                    <Text fontWeight="800">{t("auto.ClubDashboard.lien_d_activation_du_pro", "Lien d’activation du pro")}</Text>
-                    <Text fontSize="sm" color={theme.mutedText} wordBreak="break-all" mt={1}>
-                      {inviteLink}
-                    </Text>
-                    <Button size="sm" mt={3} onClick={copyInvite}>{t("auto.ClubDashboard.copier_le_lien", "Copier le lien")}</Button>
-                  </Box>
-                </Alert>
-              )}
-            </Box>
-            )}
-
             {showTeam && (
             <Box
               {...theme.cardProps}
               id="club-team"
               data-tour="club-team"
               p={{ base: 5, md: 6, xl: 7 }}
-              gridColumn={{ lg: showCreate ? "auto" : "1 / -1" }}
+              gridColumn="1 / -1"
             >
               <Heading size="md" mb={4}>{t("auto.ClubDashboard.pros_du_club", "Pros du club")}</Heading>
-              {teamPros.length === 0 ? (
-                <Text color={theme.mutedText}>{t("auto.ClubDashboard.aucun_pro_rattache_pour_le_moment_creez_le_pr", "Aucun pro rattaché pour le moment. Créez le premier compte pour démarrer le suivi club.")}</Text>
+              <Input
+                type="search"
+                value={teamSearch}
+                onChange={(event) => setTeamSearch(event.target.value)}
+                placeholder={t("clubDashboard.team.searchPlaceholder", "Rechercher un professionnel")}
+                aria-label={t("clubDashboard.team.searchPlaceholder", "Rechercher un professionnel")}
+                mb={4}
+              />
+              {searchedTeamPros.length === 0 ? (
+                <Text color={theme.mutedText}>{teamSearch.trim()
+                  ? t("clubDashboard.team.searchEmpty", "Aucun professionnel ne correspond à votre recherche.")
+                  : t("auto.ClubDashboard.aucun_pro_rattache_pour_le_moment_creez_le_pr", "Aucun pro rattaché pour le moment. Créez le premier compte pour démarrer le suivi club.")}</Text>
               ) : (
                 <Box overflowX={{ base: "auto", lg: "visible" }}>
                   <Table size={{ base: "sm", lg: "md" }} sx={{ tableLayout: { lg: "fixed" } }}>
@@ -3133,7 +2834,7 @@ export default function ClubDashboard() {
                       </Tr>
                     </Thead>
                     <Tbody>
-                      {teamPros.map((coach) => (
+                      {searchedTeamPros.map((coach) => (
                         <Tr
                           key={coach.uid}
                           cursor="pointer"
@@ -3161,7 +2862,7 @@ export default function ClubDashboard() {
                           <Td>{coach.programCount || 0}</Td>
                           <Td>
                             <Badge colorScheme={!coach.isManagedMember ? "orange" : coach.status === "disabled" ? "red" : "green"}>
-                              {!coach.isManagedMember ? t("clubDashboard.team.toAttach", "À rattacher") : coach.status === "disabled" ? "Suspendu" : "Actif"}
+                              {!coach.isManagedMember ? t("clubDashboard.team.toAttach", "À rattacher") : coach.status === "disabled" ? clubText("Suspendu") : clubText("Actif")}
                             </Badge>
                           </Td>
                           <Td>
@@ -3177,7 +2878,7 @@ export default function ClubDashboard() {
                                     })
                                   }
                                 >
-                                  {coach.status === "disabled" ? "Réactiver" : "Suspendre"}
+                                  {coach.status === "disabled" ? clubText("Réactiver") : clubText("Suspendre")}
                                 </Button>
                               )}
                               <Button size="xs" variant="ghost" onClick={() => openCoachDetail(coach)}>{t("auto.ClubDashboard.detail", "Détail")}</Button>
@@ -3186,7 +2887,7 @@ export default function ClubDashboard() {
                                   size="xs"
                                   colorScheme="red"
                                   variant="ghost"
-                                  aria-label={`Supprimer ${displayName(coach)} du club`}
+                                  aria-label={clubText("Supprimer {{name}} du club", {name:displayName(coach)})}
                                   icon={<DeleteIcon />}
                                   isLoading={actionSaving === `${coach.uid}:delete`}
                                   onClick={() => deleteCoach(coach)}
@@ -3205,113 +2906,72 @@ export default function ClubDashboard() {
           </SimpleGrid>
           )}
 
-          {showTeam && selectedCoach && (
-            <Box {...theme.cardProps} id="club-coach-detail" data-tour="club-coach-detail" p={{ base: 5, md: 6 }}>
-              <Stack direction={{ base: "column", lg: "row" }} justify="space-between" gap={4}>
-                <Box>
-                  <Badge colorScheme={!selectedCoach.isManagedMember ? "orange" : selectedCoach.status === "disabled" ? "red" : "green"} borderRadius="full" px={3} py={1}>
-                    {!selectedCoach.isManagedMember ? t("clubDashboard.team.detectedReferent", "Référent détecté") : selectedCoach.status === "disabled" ? "Suspendu" : "Actif"}
-                  </Badge>
-                  <Heading size="md" mt={3}>{displayName(selectedCoach)}</Heading>
-                  <Text color={theme.mutedText}>{selectedCoach.email || t("clubDashboard.team.noMemberEmail", "Compte pro non rattaché")}</Text>
-                  <Text color={theme.mutedText} fontSize="sm" mt={2}>
-                    {proTypeLabel(selectedCoach.proType)}
-                    {selectedCoach.isManagedMember ? ` ${t("auto.ClubDashboard.cree_le", "· créé le")} ${formatDate(selectedCoach.createdAt)}` : ` · ${t("clubDashboard.team.detectedFromData", "détecté via les données club")}`}
-                  </Text>
-                </Box>
-                <HStack flexWrap="wrap">
-                  {selectedCoach.isManagedMember && (
-                    <Button variant="outline" onClick={() => planAppointmentForCoach(selectedCoach)}>{t("auto.ClubDashboard.planifier_un_rdv", "Planifier un RDV")}</Button>
-                  )}
-                  <Button variant="outline" onClick={() => openClubView("clients")}>{t("auto.ClubDashboard.voir_ses_clients", "Voir ses clients")}</Button>
-                  {selectedCoach.isManagedMember && (
-                    <>
-                      <Button
-                        variant="outline"
-                        isLoading={actionSaving.includes(selectedCoach.uid)}
-                        onClick={() =>
-                          updateCoach(selectedCoach, {
-                            status: selectedCoach.status === "disabled" ? "active" : "disabled",
-                          })
-                        }
-                      >
-                        {selectedCoach.status === "disabled" ? "Réactiver" : "Suspendre"}
-                      </Button>
-                      <IconButton
-                        colorScheme="red"
-                        variant="outline"
-                        aria-label={`Supprimer ${displayName(selectedCoach)} du club`}
-                        icon={<DeleteIcon />}
-                        isLoading={actionSaving === `${selectedCoach.uid}:delete`}
-                        onClick={() => deleteCoach(selectedCoach)}
-                      />
-                    </>
-                  )}
-                </HStack>
-              </Stack>
-              <SimpleGrid columns={{ base: 1, md: 3 }} spacing={3} mt={5}>
-                <Box {...theme.tileProps} p={4}>
-                  <Text color={theme.mutedText} fontSize="sm">{t("auto.ClubDashboard.clients_suivis", "Clients suivis")}</Text>
-                  <Text fontSize="2xl" fontWeight="900">{selectedCoach.clientCount || 0}</Text>
-                </Box>
-                <Box {...theme.tileProps} p={4}>
-                  <Text color={theme.mutedText} fontSize="sm">{t("auto.ClubDashboard.programmes_crees", "Programmes créés")}</Text>
-                  <Text fontSize="2xl" fontWeight="900">{selectedCoach.programCount || 0}</Text>
-                </Box>
-                <Box {...theme.tileProps} p={4}>
-                  <Text color={theme.mutedText} fontSize="sm">{t("auto.ClubDashboard.acces_metier", "Accès métier")}</Text>
-                  <Text fontSize="lg" fontWeight="900">{proTypeLabel(selectedCoach.proType)}</Text>
-                </Box>
-              </SimpleGrid>
-            </Box>
-          )}
-
           {showActivity && (
-          <Box {...theme.cardProps} id="club-activity" data-tour="club-activity" p={{ base: 5, md: 6 }}>
-            <Stack direction={{ base: "column", lg: "row" }} justify="space-between" gap={5} mb={5}>
-              <Box>
-                <Heading size="md">{t("clubDashboard.activity.workspace.title", "Vue consolidée")}</Heading>
-                <Text color={theme.mutedText} mt={1}>
-                  {t("clubDashboard.activity.workspace.subtitle", "Filtrez par référent, comparez les données et ouvrez les dossiers sans passer par la fiche équipe.")}
-                </Text>
-              </Box>
-              <HStack flexWrap="wrap">
-                {clubViews.map((view) => (
-                  <Button
-                    key={view.key}
-                    variant={activeView === view.key ? "solid" : "outline"}
-                    {...(activeView === view.key ? theme.primaryButtonProps : {})}
-                    onClick={() => openClubView(view.key)}
-                  >
-                    {view.label}
-                    <Badge
-                      ml={2}
-                      borderRadius="full"
-                      colorScheme={activeView === view.key ? "whiteAlpha" : "blue"}
-                      bg={activeView === view.key ? "whiteAlpha.300" : undefined}
-                    >
-                      {activityViewCounts[view.key] || 0}
-                    </Badge>
-                  </Button>
-                ))}
-              </HStack>
-            </Stack>
-
-            <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={4} mb={5}>
-              <Box {...theme.tileProps} p={4}>
-                <Text fontWeight="900" mb={2}>{t("clubDashboard.filters.pros", "Pros à analyser")}</Text>
-                <Text color={theme.mutedText} fontSize="sm">
-                  {activityCoachFilter.length
-                    ? t("clubDashboard.filters.selectedPros", "{{count}} pro(s) sélectionné(s)", { count: activityCoachFilter.length })
-                    : t("clubDashboard.filters.allPros", "Tout le club")}
-                </Text>
-                <HStack mt={4} spacing={2} flexWrap="wrap">
-                  <Menu closeOnSelect={false}>
-                    <MenuButton as={Button} size="sm" variant="outline" rightIcon={<ChevronDownIcon />}>
+          <Box {...theme.cardProps} id="club-activity" data-tour="club-activity" p={{ base: 4, md: 5 }}>
+            <Box>
+                  <HStack justify="space-between" align="center" mb={4} gap={3} flexWrap="wrap">
+                    <Heading size="sm">{t(CLUB_VIEWS.find((view) => view.key === activeView)?.labelKey, CLUB_VIEWS.find((view) => view.key === activeView)?.fallback)}</Heading>
+                    <HStack spacing={2} ml="auto" flexWrap="wrap" justify="flex-end">
+                      {activeView === "clients" && !isAdmin && <Button data-tour="club-client-import" size="sm" variant="outline" onClick={() => setImportClientsOpen(true)}>{clubText("Importer mes clients")}</Button>}
+                      {activeView !== "stats" && <Badge borderRadius="full" px={3} py={1}>{t("clubDashboard.activity.visibleCount", "{{count}} affiché(s)", { count: activeView === "clients" ? searchedClients.length : activeActivityCount })}</Badge>}
+                    </HStack>
+                  </HStack>
+                  <Stack direction={activeView === "clients" ? "row" : { base: "column", md: "row" }} spacing={3} mb={4} align={{ base: "stretch", md: "center" }}>
+                  <Input
+                    type="search"
+                    value={activeView === "clients" ? clientSearch : activitySearch}
+                    onChange={(event) => activeView === "clients"
+                      ? setClientSearch(event.target.value)
+                      : setActivitySearches((current) => ({ ...current, [activeView]: event.target.value }))}
+                    placeholder={activeView === "clients" ? t("clientsList.searchPlaceholder", "Rechercher un client") : t(`clubDashboard.search.${activeView}`)}
+                    aria-label={activeView === "clients" ? t("clientsList.searchPlaceholder", "Rechercher un client") : t(`clubDashboard.search.${activeView}`)}
+                    flex={activeView === "clients" ? 1 : { base: "none", md: 1 }}
+                    h="46px"
+                    minH="46px"
+                    px={4}
+                    fontSize="16px"
+                    minW={0}
+                  />
+                  {activeView === "stats" && (
+                      <SimpleGrid columns={3} spacing={2}>
+                        {[
+                          ["day", t("clubDashboard.periods.day", "Journalier")],
+                          ["month", t("clubDashboard.periods.month", "Mensuel")],
+                          ["year", t("clubDashboard.periods.year", "Annuel")],
+                        ].map(([period, label]) => (
+                          <Button
+                            key={period}
+                            size="sm"
+                            aria-pressed={statsPeriod === period}
+                            variant={statsPeriod === period ? "solid" : "outline"}
+                            {...(statsPeriod === period ? theme.primaryButtonProps : {})}
+                            onClick={() => setStatsPeriod(period)}
+                          >
+                            {label}
+                          </Button>
+                        ))}
+                      </SimpleGrid>
+                  )}
+                  <Menu closeOnSelect={false} placement="bottom-end" strategy="fixed" boundary="clippingParents" gutter={8}>
+                    {activeView === "clients" ? <MenuButton as={IconButton} aria-label={clubText("Filtres")} title={clubText("Filtres")} icon={<Icon as={MdFilterList} boxSize="20px" />} variant="outline" w="44px" minW="44px" h="46px" flexShrink={0} colorScheme={activityCoachFilter.length || clientStatusFilter !== "all" || clientSort !== "firstName" ? "blue" : undefined} /> : <MenuButton as={Button} size="sm" variant="outline" rightIcon={<ChevronDownIcon />}>
                       {t("clubDashboard.filters.choosePros", "Choisir un ou plusieurs pros")}
-                    </MenuButton>
-                    <MenuList minW="260px">
-                      <MenuOptionGroup
+                    </MenuButton>}
+                    <Portal>
+                    <MenuList minW={0} w="320px" maxW="calc(100vw - 24px)" maxH={{ base: "min(35dvh, 280px)", md: "min(50vh, 420px)" }} zIndex={1500} overflowY="auto" overscrollBehavior="contain" sx={{ "& [role^=menuitem]": { whiteSpace: "normal", overflowWrap: "anywhere" } }}>
+                      {activeView === "clients" && <>
+                        <MenuOptionGroup title={clubText("Trier par")} type="radio" value={clientSort} onChange={setClientSort}>
+                          <MenuItemOption value="firstName">{clubText("Prénom (A–Z)")}</MenuItemOption>
+                          <MenuItemOption value="lastName">{clubText("Nom (A–Z)")}</MenuItemOption>
+                          <MenuItemOption value="activity">{t("clientView.lastActivity", "Dernière activité")}</MenuItemOption>
+                        </MenuOptionGroup><MenuDivider />
+                      </>}
+                      {activeView === "clients" && !isAdmin && <>
+                        <MenuOptionGroup title={clubText("État du client")} type="radio" value={clientStatusFilter} onChange={setClientStatusFilter}>
+                          {[["all", clubText("Tous les états")], ["active", clubText("Clients actifs")], ["disabled", clubText("Clients désactivés / anciens")], ["unpaid", clubText("Impayés")], ["contract_end", clubText("Fins de contrat")], ["left", clubText("Anciens membres")], ["suspended", clubText("Accès aux cours suspendu")], ["scheduled", clubText("Entrées à venir")]].map(([value, label]) => <MenuItemOption key={value} value={value}>{label}</MenuItemOption>)}
+                        </MenuOptionGroup>
+                        <MenuDivider />
+                      </>}
+                      <MenuOptionGroup title={activeView === "clients" ? clubText("Professionnels") : undefined}
                         type="checkbox"
                         value={activityCoachFilter}
                         onChange={(value) => setActivityCoachFilter(Array.isArray(value) ? value : [value].filter(Boolean))}
@@ -3322,135 +2982,64 @@ export default function ClubDashboard() {
                           </MenuItemOption>
                         ))}
                       </MenuOptionGroup>
+                      {activeView === "clients" && <>
+                        <MenuDivider />
+                        <MenuItem onClick={() => { setActivityCoachFilter([]); setClientStatusFilter("all"); setClientSort("firstName"); }}>{clubText("Réinitialiser les filtres")}</MenuItem>
+                      </>}
                     </MenuList>
+                    </Portal>
                   </Menu>
-                  <Button size="sm" variant="ghost" onClick={() => setActivityCoachFilter([])}>
-                    {t("auto.ClubDashboard.voir_tout_le_club", "Voir tout le club")}
-                  </Button>
-                </HStack>
-                {selectedActivityCoaches.length > 0 && (
-                  <HStack mt={3} spacing={2} flexWrap="wrap">
-                    {selectedActivityCoaches.map((coach) => (
-                      <Badge key={coach.uid} borderRadius="full" colorScheme="blue">
-                        {displayName(coach)}
-                      </Badge>
-                    ))}
-                  </HStack>
-                )}
-              </Box>
-
-              <Box {...theme.tileProps} p={4}>
-                <Text fontWeight="900" mb={3}>{t("dashboard.recent_clients", "Clients récents")}</Text>
-                <VStack align="stretch" spacing={2}>
-                  {scopedClients.slice(0, 5).map((client) => (
-                    <HStack key={client.id} justify="space-between" align="start">
-                      <Box minW={0}>
-                        <Text fontWeight="800" fontSize="sm" noOfLines={1}>{client.name}</Text>
-                        <Text color={theme.mutedText} fontSize="xs">{formatDate(client.activityAt)}</Text>
-                      </Box>
-                      <Badge>{client.coachName}</Badge>
+                    {activeView !== "clients" && activityCoachFilter.length > 0 && (
+                      <Button size="sm" variant="ghost" onClick={() => setActivityCoachFilter([])}>
+                        {t("auto.ClubDashboard.voir_tout_le_club", "Voir tout le club")}
+                      </Button>
+                    )}
+                  </Stack>
+                  {activeView !== "clients" && selectedActivityCoaches.length > 0 && (
+                    <HStack spacing={2} mb={4} flexWrap="wrap">
+                      {selectedActivityCoaches.map((coach) => (
+                        <Badge key={coach.uid} borderRadius="full">{displayName(coach)}</Badge>
+                      ))}
                     </HStack>
-                  ))}
-                  {scopedClients.length === 0 && (
-                    <Text color={theme.mutedText} fontSize="sm">{t("auto.ClubDashboard.aucun_client_recent", "Aucun client récent.")}</Text>
                   )}
-                </VStack>
-              </Box>
-
-              <Box {...theme.tileProps} p={4}>
-                <Text fontWeight="900" mb={3}>{t("auto.ClubDashboard.programmes_recents", "Programmes récents")}</Text>
-                <VStack align="stretch" spacing={2}>
-                  {scopedPrograms.slice(0, 5).map((program) => (
-                    <HStack key={program.id} justify="space-between" align="start">
-                      <Box minW={0}>
-                        <Text fontWeight="800" fontSize="sm" noOfLines={1}>{program.title}</Text>
-                        <Text color={theme.mutedText} fontSize="xs">{formatDate(program.activityAt)}</Text>
-                      </Box>
-                      <Badge>{program.coachName}</Badge>
-                    </HStack>
-                  ))}
-                  {scopedPrograms.length === 0 && (
-                    <Text color={theme.mutedText} fontSize="sm">{t("auto.ClubDashboard.aucun_programme_recent", "Aucun programme récent.")}</Text>
-                  )}
-                </VStack>
-              </Box>
-            </SimpleGrid>
-
-            <SimpleGrid columns={{ base: 1, sm: 2, xl: 5 }} spacing={4} mb={5}>
-              {[
-                {
-                  key: "clients",
-                  label: t("clubDashboard.activity.metrics.clients", "Clients"),
-                  value: scopedClients.length,
-                  helper: activeCoachFilterSet.size
-                    ? t("clubDashboard.activity.metrics.filtered", "Dans le filtre sélectionné")
-                    : t("clubDashboard.activity.metrics.wholeClub", "Sur tout le club"),
-                },
-                {
-                  key: "programs",
-                  label: t("clubDashboard.activity.metrics.programs", "Programmes"),
-                  value: scopedPrograms.length,
-                  helper: t("clubDashboard.activity.metrics.programsHelp", "Créés ou assignés par les pros affichés"),
-                },
-                {
-                  key: "nutrition",
-                  label: t("clubDashboard.activity.metrics.nutrition", "Suivis nutrition"),
-                  value: scopedNutrition.length,
-                  helper: t("clubDashboard.activity.metrics.nutritionClients", "{{count}} client(s) avec un suivi nutrition", { count: scopedNutritionClientCount }),
-                },
-                {
-                  key: "sessions",
-                  label: t("clubDashboard.activity.metrics.sessions", "Séances réalisées"),
-                  value: scopedSessions.length,
-                  helper: t("clubDashboard.activity.metrics.sessionsHelp", "Sessions validées ou terminées avec un client"),
-                },
-                {
-                  key: "stats",
-                  label: t("clubDashboard.activity.metrics.periodActivity", "Activité période"),
-                  value: periodClients.length + periodPrograms.length + periodNutrition.length + periodSessions.length,
-                  helper: t("clubDashboard.activity.metrics.periodHelp", "Selon la période statistiques active"),
-                },
-              ].map((metric) => {
-                const isActiveMetric = activeView === metric.key;
-                return (
-                  <Box
-                    key={metric.key}
-                    {...theme.tileProps}
-                    p={4}
-                    borderColor={isActiveMetric ? "blue.400" : theme.borderColor}
-                    boxShadow={isActiveMetric ? "0 18px 36px rgba(17, 58, 99, 0.12)" : theme.tileProps.boxShadow}
-                  >
-                    <HStack justify="space-between" align="start" gap={3}>
-                      <Box minW={0}>
-                        <Text color={theme.mutedText} fontSize="sm">{metric.label}</Text>
-                        <Text fontSize="2xl" fontWeight="900">{metric.value}</Text>
-                      </Box>
-                      {isActiveMetric && (
-                        <Badge borderRadius="full" colorScheme="blue">
-                          {t("clubDashboard.activity.metrics.active", "Actif")}
-                        </Badge>
-                      )}
-                    </HStack>
-                    <Text color={theme.mutedText} fontSize="sm" mt={1}>{metric.helper}</Text>
-                  </Box>
-                );
-              })}
-            </SimpleGrid>
-
-            <Box {...theme.tileProps} p={{ base: 4, md: 5 }} overflowX="auto">
               {activeView === "clients" && (
                 <>
-                  <HStack justify="space-between" align="center" mb={4} gap={3} flexWrap="wrap">
-                    <Heading size="sm">{t("auto.ClubDashboard.clients_du_club", "Clients du club")}</Heading>
-                    <Badge borderRadius="full" px={3} py={1}>{t("clubDashboard.activity.visibleCount", "{{count}} affiché(s)", { count: activeActivityCount })}</Badge>
-                  </HStack>
-                  {scopedClients.length === 0 ? (
-                    <Text color={theme.mutedText}>{t("auto.ClubDashboard.aucun_client_dans_ce_perimetre", "Aucun client dans ce périmètre.")}</Text>
+                  {searchedClients.length === 0 ? (
+                    <Text color={theme.mutedText}>{clientSearch.trim() ? t("clientsList.searchEmpty", "Aucun client ne correspond à votre recherche.") : t("auto.ClubDashboard.aucun_client_dans_ce_perimetre", "Aucun client dans ce périmètre.")}</Text>
                   ) : (
+                    <>
+                    <Stack key={`${clientSort}:${clientSearch}:${clientStatusFilter}:${activityCoachFilter.join(",")}`} display={{ base: "flex", md: "none" }} spacing={2} maxH="440px" overflowY="auto" overflowX="hidden" tabIndex={0} role="region" aria-label={t("auto.CoachMobileNav.clients", "Clients")} pr={1} sx={{ scrollbarGutter: "stable" }}>
+                      {searchedClients.map(client => {
+                        const state = clientState(client);
+                        const expanded = !!expandedClientCards[client.id];
+                        const fields = [
+                          [t("auto.ClubDashboard.pro_referent", "Pro référent"), displayCoachName(client.coachName)],
+                          [t("clientView.lastActivity", "Dernière activité"), formatDate(client.activityAt)],
+                          [t("clientsList.table.programs", "Programmes"), client.membershipAccess === 'left' ? '—' : client.programCount || 0],
+                          [t("clientsList.table.progress", "Progression"), client.membershipAccess === 'left' ? '—' : `${Number.isFinite(Number(client.completionPercent)) ? Math.round(Number(client.completionPercent)) : 0}%`],
+                        ];
+                        return <Box key={client.id} borderWidth="1px" borderColor={theme.borderColor} borderRadius="14px" p={3} minW={0} flexShrink={0} bg={theme.surfaceBgStrong}>
+                          <Button variant="ghost" w="full" h="auto" p={0} justifyContent="space-between" whiteSpace="normal" aria-expanded={expanded} onClick={() => setExpandedClientCards(current => ({...current, [client.id]: !current[client.id]}))} rightIcon={<ChevronDownIcon transform={expanded ? "rotate(180deg)" : undefined} />}><Box flex="1" textAlign="left" minW={0}><Flex justify="space-between" align="start" gap={2} flexWrap="wrap">
+                            <Text fontSize="sm" fontWeight="800" overflowWrap="anywhere" color={state.disabled ? 'gray.500' : undefined} textDecoration={state.disabled ? 'line-through' : undefined}>{client.name}</Text>
+                            {!isAdmin && <Badge colorScheme={state.color} flexShrink={0}>{state.label}</Badge>}
+                          </Flex><Text fontSize="xs" fontWeight="normal" color={theme.mutedText} mt={1} overflowWrap="anywhere">{displayCoachName(client.coachName)}</Text></Box></Button>
+                          {expanded && <>
+                          <Text mt={1} fontSize="xs" color={theme.mutedText} overflowWrap="anywhere">{client.email}</Text>
+                          {!isAdmin && client.leftAt && <Text fontSize="xs" mt={1} color={theme.mutedText}>{clubText("Depuis le")} {new Date(client.leftAt).toLocaleDateString(clubLocale())}</Text>}
+                          <SimpleGrid columns={2} columnGap={3} rowGap={1} mt={2}>
+                            {fields.map(([label, value]) => <Box key={label} minW={0}><Text fontSize="xs" color={theme.mutedText}>{label}</Text><Text fontSize="xs" fontWeight="600" overflowWrap="anywhere">{value}</Text></Box>)}
+                          </SimpleGrid>
+                          <Flex justify="flex-end" mt={2}><Button size="xs" variant="outline" maxW="full" whiteSpace="normal" h="auto" minH="32px" py={1} onClick={() => openClientAsReferent(client)}>{t("programs.open", "Ouvrir")}</Button></Flex>
+                          </>}
+                        </Box>;
+                      })}
+                    </Stack>
+                    <Box display={{ base: "none", md: "block" }} overflowX="auto">
                     <Table size="sm">
                       <Thead>
                         <Tr>
                           <Th>{t("clientsList.table.client", "Client")}</Th>
+                          {!isAdmin && <Th>{clubText("État")}</Th>}
                           <Th>{t("auto.ClubDashboard.pro_referent", "Pro référent")}</Th>
                           <Th>{t("clientsList.table.programs", "Programmes")}</Th>
                           <Th>{t("clientsList.table.progress", "Progression")}</Th>
@@ -3459,36 +3048,40 @@ export default function ClubDashboard() {
                         </Tr>
                       </Thead>
                       <Tbody>
-                        {scopedClients.slice(0, 20).map((client) => (
+                        {searchedClients.map((client) => (
                           <Tr key={client.id}>
                             <Td>
-                              <Text fontWeight="800">{client.name}</Text>
+                              <Text fontWeight="800" color={clientState(client).disabled ? 'gray.500' : undefined} textDecoration={clientState(client).disabled ? 'line-through' : undefined}>{client.name}</Text>
                               <Text fontSize="xs" color={theme.mutedText}>{client.email}</Text>
                             </Td>
-                            <Td>{client.coachName}</Td>
-                            <Td>{client.programCount || 0}</Td>
-                            <Td>{Number.isFinite(Number(client.completionPercent)) ? `${Math.round(Number(client.completionPercent))}%` : "0%"}</Td>
+                            {!isAdmin && <Td>
+                              <Badge whiteSpace="nowrap" colorScheme={clientState(client).color}>{clientState(client).label}</Badge>
+                              {client.leftAt ? <Text fontSize="xs" color={theme.mutedText}>{clubText("Depuis le")} {new Date(client.leftAt).toLocaleDateString(clubLocale())}</Text> : null}
+                            </Td>}
+                            <Td>{displayCoachName(client.coachName)}</Td>
+                            <Td>{client.membershipAccess === 'left' ? '—' : client.programCount || 0}</Td>
+                            <Td>{client.membershipAccess === 'left' ? '—' : Number.isFinite(Number(client.completionPercent)) ? `${Math.round(Number(client.completionPercent))}%` : "0%"}</Td>
                             <Td>{formatDate(client.activityAt)}</Td>
                             <Td>
-                              <Button size="xs" variant="outline" onClick={() => openClientAsReferent(client)}>{t("auto.ClubDashboard.ouvrir_assigner", "Ouvrir / assigner")}</Button>
+                              <Button size="sm" onClick={() => openClientAsReferent(client)}>{clubText("Ouvrir la fiche client")}</Button>
                             </Td>
                           </Tr>
                         ))}
                       </Tbody>
                     </Table>
+                    </Box>
+                    </>
                   )}
+                  <FormerClubClients urlFor={withAdminClub} onChanged={loadSummary} onAdministration={openClientAsReferent} />
                 </>
               )}
 
               {activeView === "programs" && (
                 <>
-                  <HStack justify="space-between" align="center" mb={4} gap={3} flexWrap="wrap">
-                    <Heading size="sm">{t("auto.ClubDashboard.programmes_du_club", "Programmes du club")}</Heading>
-                    <Badge borderRadius="full" px={3} py={1}>{t("clubDashboard.activity.visibleCount", "{{count}} affiché(s)", { count: activeActivityCount })}</Badge>
-                  </HStack>
-                  {scopedPrograms.length === 0 ? (
-                    <Text color={theme.mutedText}>{t("auto.ClubDashboard.aucun_programme_dans_ce_perimetre", "Aucun programme dans ce périmètre.")}</Text>
+                  {searchedPrograms.length === 0 ? (
+                    <Text color={theme.mutedText}>{activitySearch.trim() ? t("clubDashboard.search.empty") : t("auto.ClubDashboard.aucun_programme_dans_ce_perimetre", "Aucun programme dans ce périmètre.")}</Text>
                   ) : (
+                    <Box overflowX="auto">
                     <Table size="sm">
                       <Thead>
                         <Tr>
@@ -3500,10 +3093,10 @@ export default function ClubDashboard() {
                         </Tr>
                       </Thead>
                       <Tbody>
-                        {scopedPrograms.slice(0, 20).map((program) => (
+                        {searchedPrograms.map((program) => (
                           <Tr key={program.id}>
                             <Td fontWeight="800">{program.title}</Td>
-                            <Td>{program.clientName || "Bibliothèque pro"}</Td>
+                            <Td>{program.clientName || clubText("Bibliothèque pro")}</Td>
                             <Td>{program.coachName}</Td>
                             <Td>{formatDate(program.activityAt)}</Td>
                             <Td>
@@ -3523,19 +3116,17 @@ export default function ClubDashboard() {
                         ))}
                       </Tbody>
                     </Table>
+                    </Box>
                   )}
                 </>
               )}
 
               {activeView === "nutrition" && (
                 <>
-                  <HStack justify="space-between" align="center" mb={4} gap={3} flexWrap="wrap">
-                    <Heading size="sm">{t("auto.ClubDashboard.nutrition_du_club", "Nutrition du club")}</Heading>
-                    <Badge borderRadius="full" px={3} py={1}>{t("clubDashboard.activity.visibleCount", "{{count}} affiché(s)", { count: activeActivityCount })}</Badge>
-                  </HStack>
-                  {scopedNutrition.length === 0 ? (
-                    <Text color={theme.mutedText}>{t("auto.ClubDashboard.aucun_bilan_nutrition_trouve_dans_ce_perimetr", "Aucun bilan nutrition trouvé dans ce périmètre.")}</Text>
+                  {searchedNutrition.length === 0 ? (
+                    <Text color={theme.mutedText}>{activitySearch.trim() ? t("clubDashboard.search.empty") : t("auto.ClubDashboard.aucun_bilan_nutrition_trouve_dans_ce_perimetr", "Aucun bilan nutrition trouvé dans ce périmètre.")}</Text>
                   ) : (
+                    <Box overflowX="auto">
                     <Table size="sm">
                       <Thead>
                         <Tr>
@@ -3547,7 +3138,7 @@ export default function ClubDashboard() {
                         </Tr>
                       </Thead>
                       <Tbody>
-                        {scopedNutrition.slice(0, 20).map((assessment) => (
+                        {searchedNutrition.map((assessment) => (
                           <Tr key={`${assessment.clientId}:${assessment.id}`}>
                             <Td>
                               <Text fontWeight="800">{assessment.objective}</Text>
@@ -3563,36 +3154,40 @@ export default function ClubDashboard() {
                         ))}
                       </Tbody>
                     </Table>
+                    </Box>
                   )}
                 </>
               )}
 
               {activeView === "stats" && (
                 <>
-                  <HStack justify="space-between" align="center" mb={4} gap={3} flexWrap="wrap">
-                    <Heading size="sm">{t("auto.ClubDashboard.statistiques_club", "Statistiques club")}</Heading>
-                    <Badge borderRadius="full" px={3} py={1}>{t("clubDashboard.activity.visibleCount", "{{count}} affiché(s)", { count: activeActivityCount })}</Badge>
-                  </HStack>
-                  <SimpleGrid columns={{ base: 1, md: 2, xl: 5 }} spacing={4}>
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
                     {[
-                      [t("clubDashboard.stats.periodActivity", "Activité période"), periodClients.length + periodPrograms.length + periodNutrition.length + periodSessions.length, `${periodClients.length} client(s), ${periodPrograms.length} programme(s), ${periodNutrition.length} bilan(s), ${periodSessions.length} séance(s)`],
-                      [t("auto.ClubDashboard.pros_actifs", "Pros actifs"), stats.activeCoachCount || 0, `${stats.proCount || 0} pro(s) rattaché(s) au total`],
-                      [t("auto.ClubDashboard.clients_suivis", "Clients suivis"), scopedClients.length, clientUsage !== null ? `${clientUsage}% de la capacité utilisée` : "Tous pros confondus"],
+                      [t("clubDashboard.stats.periodActivity", "Activité période"), periodClients.length + periodPrograms.length + periodNutrition.length + periodSessions.length, clubText("{{clients}} clients, {{programs}} programmes, {{nutrition}} bilans, {{sessions}} séances", {clients:periodClients.length, programs:periodPrograms.length, nutrition:periodNutrition.length, sessions:periodSessions.length})],
+                      ...(!activeCoachFilterSet.size ? [[t("auto.ClubDashboard.pros_actifs", "Pros actifs"), stats.activeCoachCount || 0, `${stats.proCount || 0} pro(s) rattaché(s) au total`]] : []),
+                      [t("auto.ClubDashboard.clients_suivis", "Clients suivis"), scopedClients.length, activeCoachFilterSet.size ? selectedActivityCoaches.map(displayName).join(", ") : clientUsage !== null ? clubText("{{count}}% de la capacité utilisée", {count:clientUsage}) : clubText("Tous pros confondus")],
                       [t("clientsList.table.programs", "Programmes"), scopedPrograms.length, t("clubDashboard.stats.programsHelp", "Créés ou assignés par l’équipe du club")],
+                      [t("nav.nutrition", "Nutrition"), scopedNutrition.length, t("clubDashboard.trend.nutritionHelp")],
                       [t("clubDashboard.stats.sessionsPlayed", "Séances réalisées"), scopedSessions.length, t("clubDashboard.stats.sessionsPlayedHelp", "Sessions validées ou terminées avec un client")],
                     ].map(([label, value, helper]) => (
                       <Box key={label} {...theme.tileProps} p={4}>
-                        <Text color={theme.mutedText} fontSize="sm">{label}</Text>
-                        <Text fontSize="2xl" fontWeight="900">{value}</Text>
-                        <Text color={theme.mutedText} fontSize="sm">{helper}</Text>
+                        <HStack justify="space-between" gap={4}>
+                          <Box minW={0}>
+                            <Text fontWeight="700">{label}</Text>
+                            <Text color={theme.mutedText} fontSize="sm" mt={1}>{helper}</Text>
+                          </Box>
+                          <Text fontSize="2xl" fontWeight="900" flexShrink={0} textAlign="right">{value}</Text>
+                        </HStack>
                       </Box>
                     ))}
                   </SimpleGrid>
-                  <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4} mt={4}>
-                    <Box {...theme.tileProps} p={4}>
+                  <ClubActivityTrend clients={scopedClients} programs={scopedPrograms}
+                    nutrition={scopedNutrition} sessions={scopedSessions}
+                    period={statsPeriod} now={now} theme={theme} />
+                    <Box {...theme.tileProps} p={4} mt={4}>
                       <Text fontWeight="900" mb={3}>{t("clubDashboard.stats.comparePros", "Comparer les pros")}</Text>
                       <VStack align="stretch" spacing={2}>
-                        {coachComparisonRows.map((coach) => (
+                        {searchedCoachComparisonRows.map((coach) => (
                           <Box key={coach.uid} borderBottom="1px solid" borderColor={theme.borderColor} pb={2}>
                             <HStack justify="space-between" gap={3}>
                             <Box minW={0}>
@@ -3606,39 +3201,16 @@ export default function ClubDashboard() {
                             </Badge>
                             </HStack>
                             <SimpleGrid columns={{ base: 2, md: 4 }} spacing={2} mt={2}>
-                              <Text fontSize="xs" color={theme.mutedText}>{coach.periodClientCount} client(s)</Text>
+                              <Text fontSize="xs" color={theme.mutedText}>{coach.periodClientCount} {clubText("client(s)")}</Text>
                               <Text fontSize="xs" color={theme.mutedText}>{coach.periodProgramCount} {t("clubDashboard.stats.programsShort", "prog. créés")}</Text>
-                              <Text fontSize="xs" color={theme.mutedText}>{coach.periodNutritionCount} nutrition</Text>
+                              <Text fontSize="xs" color={theme.mutedText}>{coach.periodNutritionCount} {t("clubDashboard.views.nutrition")}</Text>
                               <Text fontSize="xs" color={theme.mutedText}>{coach.periodSessionCount} {t("clubDashboard.stats.sessionsShort", "séance(s)")}</Text>
                             </SimpleGrid>
                           </Box>
                         ))}
-                        {coachComparisonRows.length === 0 && <Text color={theme.mutedText}>{t("auto.ClubDashboard.aucun_pro_pour_le_moment", "Aucun pro pour le moment.")}</Text>}
+                        {searchedCoachComparisonRows.length === 0 && <Text color={theme.mutedText}>{activitySearch.trim() ? t("clubDashboard.search.empty") : t("auto.ClubDashboard.aucun_pro_pour_le_moment", "Aucun pro pour le moment.")}</Text>}
                       </VStack>
                     </Box>
-                    <Box {...theme.tileProps} p={4}>
-                      <Text fontWeight="900" mb={3}>{t("auto.ClubDashboard.periodes_a_analyser", "Périodes à analyser")}</Text>
-                      <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={2}>
-                        {[
-                          ["day", t("clubDashboard.periods.day", "Journalier")],
-                          ["month", t("clubDashboard.periods.month", "Mensuel")],
-                          ["year", t("clubDashboard.periods.year", "Annuel")],
-                        ].map(([period, label]) => (
-                          <Button
-                            key={period}
-                            variant={statsPeriod === period ? "solid" : "outline"}
-                            {...(statsPeriod === period ? theme.primaryButtonProps : {})}
-                            onClick={() => setStatsPeriod(period)}
-                          >
-                            {label}
-                          </Button>
-                        ))}
-                      </SimpleGrid>
-                      <Text color={theme.mutedText} mt={3} fontSize="sm">
-                        {t("clubDashboard.stats.periodHelp", "Les chiffres se recalculent selon la période et le filtre pro sélectionnés.")}
-                      </Text>
-                    </Box>
-                  </SimpleGrid>
                 </>
               )}
             </Box>
@@ -3646,6 +3218,73 @@ export default function ClubDashboard() {
           )}
         </VStack>
       </Container>
+      <Modal isOpen={Boolean(showTeam && selectedCoach)} onClose={() => setSelectedCoachUid("")} isCentered size="md" scrollBehavior="inside">
+        <ModalOverlay />
+        <ModalContent borderRadius="22px" mx={4} maxH="85dvh">
+          <ModalHeader pr={12}>{selectedCoach && displayName(selectedCoach)}</ModalHeader>
+          <ModalCloseButton />
+          {selectedCoach && (
+            <ModalBody pb={6}>
+              <VStack align="stretch" spacing={4}>
+                <Box>
+                  <HStack flexWrap="wrap" mb={2}>
+                    <Badge colorScheme={!selectedCoach.isManagedMember ? "orange" : selectedCoach.status === "disabled" ? "red" : "green"} borderRadius="full">
+                      {!selectedCoach.isManagedMember ? t("clubDashboard.team.detectedReferent", "Référent détecté") : selectedCoach.status === "disabled" ? t("common.suspended", "Suspendu") : t("common.active", "Actif")}
+                    </Badge>
+                    <Text fontSize="sm" color={theme.mutedText}>{proTypeLabel(selectedCoach.proType)}</Text>
+                  </HStack>
+                  <Text fontSize="sm" color={theme.mutedText} overflowWrap="anywhere">
+                    {selectedCoach.email || t("clubDashboard.team.noMemberEmail", "Compte pro non rattaché")}
+                  </Text>
+                </Box>
+                <SimpleGrid columns={2} spacing={3}>
+                  <HStack {...theme.tileProps} p={4} justify="space-between" gap={3} gridColumn="1 / -1">
+                    <Box>
+                      <Text fontSize="lg" fontWeight="700">{t("auto.ClubDashboard.clients_suivis", "Clients suivis")}</Text>
+                      <Text fontSize="sm" color={theme.mutedText} mt={1}>
+                        {selectedCoach.proType === "complete"
+                          ? t("footer.resourcesSportNutrition", "Sport et nutrition")
+                          : selectedCoach.proType === "nutrition" ? t("nav.nutrition", "Nutrition") : t("common.sport", "Sport")}
+                      </Text>
+                    </Box>
+                    <Text fontSize="3xl" fontWeight="800">{selectedCoach.clientCount || 0}</Text>
+                  </HStack>
+                  {[
+                    [t("auto.ClubDashboard.programmes_crees", "Programmes créés"), selectedCoach.programCount || 0],
+                    ...(["nutrition", "complete"].includes(selectedCoach.proType) || selectedCoach.nutritionCount > 0
+                      ? [[t("nav.nutrition", "Nutrition"), selectedCoach.nutritionCount || 0]]
+                      : []),
+                  ].map(([label, value]) => (
+                    <HStack key={label} {...theme.tileProps} p={3} justify="space-between" gap={2}>
+                      <Text fontSize="sm">{label}</Text>
+                      <Text fontSize="xl" fontWeight="800">{value}</Text>
+                    </HStack>
+                  ))}
+                </SimpleGrid>
+                <Button {...theme.primaryButtonProps} onClick={() => {
+                  setActivityCoachFilter([selectedCoach.uid]);
+                  setSelectedCoachUid("");
+                  openClubView("clients");
+                }}>{t("auto.ClubDashboard.voir_ses_clients", "Voir ses clients")}</Button>
+                <Button variant="outline" onClick={() => {
+                  setActivityCoachFilter([selectedCoach.uid]);
+                  setActivitySearches((previous) => ({ ...previous, stats: "" }));
+                  setSelectedCoachUid("");
+                  openClubView("stats");
+                }}>{clubText("Voir ses statistiques")}</Button>
+                {selectedCoach.isManagedMember && (
+                  <>
+                    <Button variant="outline" onClick={() => {
+                      planAppointmentForCoach(selectedCoach);
+                      setSelectedCoachUid("");
+                    }}>{t("auto.ClubDashboard.planifier_un_rdv", "Planifier un RDV")}</Button>
+                  </>
+                )}
+              </VStack>
+            </ModalBody>
+          )}
+        </ModalContent>
+      </Modal>
       <Modal isOpen={proLimitModal.isOpen} onClose={closeProLimitModal} isCentered>
         <ModalOverlay />
         <ModalContent borderRadius="24px">
@@ -3670,7 +3309,7 @@ export default function ClubDashboard() {
                 navigate("/plans/professionnel");
               }}
             >
-              {isNetworkClubPack ? "Contacter BYL" : "Voir les packs"}
+              {isNetworkClubPack ? clubText("Contacter BYL") : clubText("Voir les packs")}
             </Button>
           </ModalFooter>
         </ModalContent>
@@ -3726,109 +3365,8 @@ export default function ClubDashboard() {
           </Box>
         </ModalContent>
       </Modal>
-      <Modal isOpen={appointmentDetailModal.isOpen} onClose={appointmentDetailModal.onClose} isCentered size="lg">
-        <ModalOverlay />
-        <ModalContent borderRadius="22px">
-          <ModalHeader>{t("clubDashboard.calendar.eventDetails", "Rendez-vous club")}</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <VStack align="stretch" spacing={4}>
-              <Box {...theme.tileProps} p={4}>
-                <HStack justify="space-between" gap={3} align="start">
-                  <Box minW={0}>
-                    <Text fontWeight="900" noOfLines={2}>{selectedAppointment?.title || t("auto.ClubDashboard.rendez_vous", "Rendez-vous")}</Text>
-                    <Text color={theme.mutedText} fontSize="sm" mt={1}>
-                      {formatShortDateTime(selectedAppointment?.start)} · {selectedAppointment?.durationMin || 60} min
-                    </Text>
-                    <Text color={theme.mutedText} fontSize="sm" mt={1}>
-                      {selectedAppointment?.coachName || t("clubDashboard.empty.noPro", "Aucun pro")}
-                      {selectedAppointment?.clientName ? ` · ${selectedAppointment.clientName}` : ""}
-                    </Text>
-                  </Box>
-                  <Badge borderRadius="full" colorScheme={selectedAppointment?.status === "validée" ? "green" : selectedAppointment?.status === "annulée" ? "gray" : selectedAppointment?.status === "manquée" ? "red" : "blue"}>
-                    {selectedAppointment?.status || t("status.upcoming", "À venir")}
-                  </Badge>
-                </HStack>
-              </Box>
-
-              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-                <FormControl>
-                  <FormLabel>{t("auto.ClubDashboard.titre", "Titre")}</FormLabel>
-                  <Input {...theme.inputProps} value={appointmentEditForm.title} onChange={(e) => setAppointmentEditForm((current) => ({ ...current, title: e.target.value }))} />
-                </FormControl>
-                <FormControl>
-                  <FormLabel>{t("nutritionCoach.table.status", "Statut")}</FormLabel>
-                  <Select {...theme.inputProps} value={appointmentEditForm.status} onChange={(e) => setAppointmentEditForm((current) => ({ ...current, status: e.target.value }))}>
-                    <option value="à venir">{t("status.upcoming", "À venir")}</option>
-                    <option value="validée">{t("status.validated", "Validée")}</option>
-                    <option value="manquée">{t("status.missed", "Manquée")}</option>
-                    <option value="annulée">{t("common.cancelled", "Annulée")}</option>
-                  </Select>
-                </FormControl>
-                <FormControl>
-                  <FormLabel>{t("form.datetime", "Date et heure")}</FormLabel>
-                  <Input {...theme.inputProps} type="datetime-local" value={appointmentEditForm.startsAt} onChange={(e) => setAppointmentEditForm((current) => ({ ...current, startsAt: e.target.value }))} />
-                </FormControl>
-                <FormControl>
-                  <FormLabel>{t("labels.duration", "Durée")}</FormLabel>
-                  <Select {...theme.inputProps} value={appointmentEditForm.durationMin} onChange={(e) => setAppointmentEditForm((current) => ({ ...current, durationMin: Number(e.target.value) }))}>
-                    {APPOINTMENT_DURATIONS.map((minutes) => (
-                      <option key={minutes} value={minutes}>
-                        {minutes === 60 ? "1 heure" : `${minutes} minutes`}
-                      </option>
-                    ))}
-                  </Select>
-                </FormControl>
-              </SimpleGrid>
-              <FormControl>
-                <FormLabel>{t("auto.ClubDashboard.note_interne", "Note interne")}</FormLabel>
-                <Textarea {...theme.inputProps} value={appointmentEditForm.note} rows={3} onChange={(e) => setAppointmentEditForm((current) => ({ ...current, note: e.target.value }))} />
-              </FormControl>
-
-              <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={2}>
-                <Button
-                  colorScheme="green"
-                  variant="outline"
-                  isLoading={actionSaving === `appointment:${selectedAppointment?.id}`}
-                  onClick={() => updateAppointment(selectedAppointment, { status: "validée" }, { close: true })}
-                >
-                  {t("common.validate", "Valider")}
-                </Button>
-                <Button
-                  variant="outline"
-                  isLoading={actionSaving === `appointment:${selectedAppointment?.id}`}
-                  onClick={() => updateAppointment(selectedAppointment, { status: "annulée" }, { close: true })}
-                >
-                  {t("common.cancel", "Annuler")}
-                </Button>
-                <Button
-                  colorScheme="red"
-                  variant="outline"
-                  isLoading={actionSaving === `appointment:${selectedAppointment?.id}`}
-                  onClick={() => updateAppointment(selectedAppointment, { status: "manquée" }, { close: true })}
-                >
-                  {t("common.missed", "Manquée")}
-                </Button>
-                <Button
-                  colorScheme="red"
-                  variant="ghost"
-                  isLoading={actionSaving === `appointment:${selectedAppointment?.id}:delete`}
-                  onClick={deleteAppointment}
-                >
-                  {t("common.delete", "Supprimer")}
-                </Button>
-              </SimpleGrid>
-            </VStack>
-          </ModalBody>
-          <ModalFooter gap={3}>
-            <Button variant="ghost" onClick={appointmentDetailModal.onClose}>{t("exerciseCard.cancel", "Fermer")}</Button>
-            <Button {...theme.primaryButtonProps} isLoading={actionSaving === `appointment:${selectedAppointment?.id}`} onClick={saveAppointmentEdit}>
-              {t("programBuilder.cta.saveShort", "Enregistrer")}
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-      <Modal isOpen={isAddAppointmentModalOpen} onClose={closeCalendarAppointmentModal} isCentered>
+      <ClubAppointmentDialog {...{appointmentDetailModal, appointmentDetailLoading, appointmentDetailError, appointmentDetailRequest, openAppointmentDetail, selectedAppointment, theme, formatShortDateTime, appointmentEditForm, setAppointmentEditForm, coaches, displayName, groupClients, groupClientsLoading, groupClientsError, actionSaving, deleteAppointment, saveAppointmentEdit}}/>
+      <Modal isOpen={isAddAppointmentModalOpen} onClose={closeCalendarAppointmentModal} isCentered scrollBehavior="inside">
         <ModalOverlay />
         <ModalContent borderRadius="22px" mx={{ base: 3, md: 0 }}>
           <ModalHeader>{t("auto.ClubDashboard.ajouter_un_evenement_club", "Ajouter un évènement club")}</ModalHeader>
@@ -3849,7 +3387,7 @@ export default function ClubDashboard() {
             aria-label={t("exerciseCard.cancel", "Fermer")}
             onClick={closeCalendarAppointmentModal}
           />
-          <Box as="form" onSubmit={createAppointment}>
+          <Box as="form" onSubmit={createAppointment} display="flex" flexDirection="column" minH={0} overflow="hidden">
             <ModalBody>
               <VStack align="stretch" spacing={4}>
                 <FormControl isRequired>
@@ -3877,6 +3415,7 @@ export default function ClubDashboard() {
 	                      setAppointmentForm((current) => ({
 	                        ...current,
 	                        type: nextType,
+                            capacity: current.capacity || 10, participantIds: current.participantIds || [],
 	                        clientId: nextType === "internal" ? "" : current.clientId,
 	                        programId: "",
 	                        sessionIndex: "",
@@ -3889,9 +3428,10 @@ export default function ClubDashboard() {
 	                    <option value="sport">{t("auto.CoachDashboard.sport", "Sport")}</option>
 	                    <option value="nutrition">{t("nutrition.title", "Nutrition")}</option>
 	                    <option value="internal">{t("clubDashboard.calendar.internalEvent", "Évènement interne")}</option>
+                    <option value="group">{t("clubDashboard.group.title", "Cours collectif")}</option>
 	                  </Select>
 	                </FormControl>
-	                {appointmentForm.type !== "internal" && (
+	                {!["internal", "group"].includes(appointmentForm.type) && (
 	                <FormControl>
 	                  <FormLabel>{t("clubDashboard.calendar.client", "Client concerné")}</FormLabel>
 	                  <Select
@@ -3916,6 +3456,7 @@ export default function ClubDashboard() {
 	                  </Text>
 	                </FormControl>
 	                )}
+                {appointmentForm.type === "group" && <ClubGroupFields manageParticipants={false} value={appointmentForm} onChange={setAppointmentForm} clients={groupClients} loading={groupClientsLoading} error={groupClientsError} />}
                 {appointmentForm.clientId && appointmentForm.type === "sport" && (
                   <>
                     <FormControl isRequired>
@@ -3968,12 +3509,12 @@ export default function ClubDashboard() {
                       onChange={(e) => {
                         const nextKind = e.target.value;
                         const label = NUTRITION_APPOINTMENT_TYPES.find((item) => item.value === nextKind)?.label || "";
-                        setAppointmentForm((current) => ({ ...current, appointmentKind: nextKind, title: label }));
+                        setAppointmentForm((current) => ({ ...current, appointmentKind: nextKind, title: clubText(label) }));
                       }}
                     >
                       {NUTRITION_APPOINTMENT_TYPES.map((item) => (
                         <option key={item.value} value={item.value}>
-                          {item.label}
+                          {clubText(item.label)}
                         </option>
                       ))}
                     </Select>
@@ -3983,6 +3524,7 @@ export default function ClubDashboard() {
                   <FormLabel>{t("auto.ClubDashboard.titre", "Titre")}</FormLabel>
                   <Input
                     {...theme.inputProps}
+                    required={appointmentForm.type === "group"}
                     value={appointmentForm.title}
                     onChange={(e) => setAppointmentForm((current) => ({ ...current, title: e.target.value }))}
                     placeholder={t("auto.ClubDashboard.bilan_seance_point_suivi", "Bilan, séance, point suivi...")}
@@ -3995,9 +3537,9 @@ export default function ClubDashboard() {
                     value={appointmentForm.durationMin}
                     onChange={(e) => setAppointmentForm((current) => ({ ...current, durationMin: Number(e.target.value) }))}
                   >
-                    {APPOINTMENT_DURATIONS.map((minutes) => (
+                    {[...new Set([...APPOINTMENT_DURATIONS, appointmentForm.durationMin])].sort((a, b) => a - b).map((minutes) => (
                       <option key={minutes} value={minutes}>
-                        {minutes === 60 ? "1 heure" : `${minutes} minutes`}
+                        {clubText("{{count}} minutes", {count:minutes})}
                       </option>
                     ))}
                   </Select>
@@ -4011,6 +3553,24 @@ export default function ClubDashboard() {
                     onChange={(e) => setAppointmentForm((current) => ({ ...current, startsAt: e.target.value }))}
                   />
                 </FormControl>
+                  <Box>
+                    <FormControl>
+                      <FormLabel>{t("clubDashboard.recurrence.label", "Répétition")}</FormLabel>
+                      <Select value={appointmentForm.recurrenceFrequency || "none"} onChange={e => setAppointmentForm(current => ({ ...current, recurrenceFrequency: e.target.value }))}>
+                        <option value="none">{t("clubDashboard.recurrence.none", "Ne pas répéter")}</option>
+                        <option value="daily">{t("clubDashboard.recurrence.daily", "Chaque jour")}</option>
+                        <option value="weekly">{t("clubDashboard.recurrence.weekly", "Chaque semaine")}</option>
+                        <option value="monthly">{t("clubDashboard.recurrence.monthly", "Chaque mois")}</option>
+                      </Select>
+                    </FormControl>
+                    {appointmentForm.recurrenceFrequency && appointmentForm.recurrenceFrequency !== "none" && <>
+                      <FormControl isRequired mt={3}>
+                        <FormLabel>{t("clubDashboard.recurrence.until", "Jusqu’au (inclus)")}</FormLabel>
+                        <Input type="date" min={appointmentForm.startsAt?.slice(0,10)} value={appointmentForm.recurrenceUntil || ""} onChange={e => setAppointmentForm(current => ({ ...current, recurrenceUntil: e.target.value }))} />
+                      </FormControl>
+                      <Text mt={2} fontSize="xs" color={theme.mutedText}>{appointmentForm.type === "group" ? clubText("Inscriptions indépendantes pour chaque séance.") : clubText("Même horaire et même client. Chaque rendez-vous reste modifiable séparément.")} {appointmentForm.clientId && !["group", "internal"].includes(appointmentForm.type) ? clubText("166 rendez-vous maximum par série.") : clubText("Un an maximum.")}</Text>
+                    </>}
+                  </Box>
                 <FormControl>
                   <FormLabel>{t("auto.ClubDashboard.note_interne", "Note interne")}</FormLabel>
                   <Textarea

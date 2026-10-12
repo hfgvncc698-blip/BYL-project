@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import { canMoveCoachCalendarEvent, coachCalendarMoveRequest } from '../src/utils/coachCalendarMove.mjs';
+const start = new Date('2099-10-09T18:00:00Z'), end = new Date('2099-10-09T19:00:00Z');
+const group = {_kind:'club_appointment',type:'group',coachUid:'coach',_sourceId:'course',status:'à venir',start,end};
+assert.equal(canMoveCoachCalendarEvent(group,'coach'),true);
+assert.equal(canMoveCoachCalendarEvent(group,'other'),false);
+assert.equal(canMoveCoachCalendarEvent({...group,status:'validée'},'coach'),false);
+assert.equal(canMoveCoachCalendarEvent({...group,status:'annulée'},'coach'),false);
+assert.equal(canMoveCoachCalendarEvent(group,'coach',end.getTime()+1),false);
+assert.deepEqual(coachCalendarMoveRequest(group,start,end),{path:'/clubs/appointments/course',body:{startsAt:start.toISOString(),durationMin:60}});
+const individual = {_kind:'planned',_sourceId:'session',status:'à venir'};
+assert.equal(canMoveCoachCalendarEvent(individual,'coach'),true);
+assert.equal(coachCalendarMoveRequest(individual,start,end).body.notifyClient,false);
+console.log('Coach drag/drop: own upcoming group classes, completed/cancelled restrictions and correct API routes passed.');

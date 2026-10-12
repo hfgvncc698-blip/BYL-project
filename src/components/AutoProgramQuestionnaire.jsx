@@ -1,3 +1,4 @@
+import useSessionDraft from "../hooks/useSessionDraft";
 // src/components/AutoProgramQuestionnaire.jsx
 import React, { useMemo, useState } from "react";
 import {
@@ -115,17 +116,18 @@ export default function AutoProgramQuestionnaire() {
   // Cas spécial : un coach sans accès (trial fini / pas payé) => on l’envoie au plan PRO (pas aux prix client)
   const isProButNoAccess = Boolean(isCoachUI && !isAdmin && !hasCoachAccess);
 
+  const draftScope = `auto-questionnaire:${user?.uid || "anonymous"}:${adminCoachId || ""}:`;
   // ⚠️ On stocke la valeur UI (visible)
-  const [sexe, setSexe] = useState(""); // "male" | "female"
-  const [niveau, setNiveau] = useState(""); // "beginner" | "intermediate" | "advanced"
-  const [nbSeances, setNbSeances] = useState(""); // number (1..7) ou ""
-  const [objectif, setObjectif] = useState(""); // UI key: "perte_de_poids" | "force" | ...
-  const [step, setStep] = useState(1);
-  const [sessionDurationMin, setSessionDurationMin] = useState(60);
-  const [trainingLocation, setTrainingLocation] = useState("gym");
-  const [equipmentAccess, setEquipmentAccess] = useState("full");
-  const [injuryArea, setInjuryArea] = useState("none");
-  const [injuryType, setInjuryType] = useState("pain");
+  const [sexe, setSexe] = useSessionDraft(draftScope + "sexe", ""); // "male" | "female"
+  const [niveau, setNiveau] = useSessionDraft(draftScope + "niveau", ""); // "beginner" | "intermediate" | "advanced"
+  const [nbSeances, setNbSeances] = useSessionDraft(draftScope + "nbSeances", ""); // number (1..7) ou ""
+  const [objectif, setObjectif] = useSessionDraft(draftScope + "objectif", ""); // UI key: "perte_de_poids" | "force" | ...
+  const [step, setStep] = useSessionDraft(draftScope + "step", 1);
+  const [sessionDurationMin, setSessionDurationMin] = useSessionDraft(draftScope + "sessionDurationMin", 60);
+  const [trainingLocation, setTrainingLocation] = useSessionDraft(draftScope + "trainingLocation", "gym");
+  const [equipmentAccess, setEquipmentAccess] = useSessionDraft(draftScope + "equipmentAccess", "full");
+  const [injuryArea, setInjuryArea] = useSessionDraft(draftScope + "injuryArea", "none");
+  const [injuryType, setInjuryType] = useSessionDraft(draftScope + "injuryType", "pain");
 
   const [loading, setLoading] = useState(false);
 

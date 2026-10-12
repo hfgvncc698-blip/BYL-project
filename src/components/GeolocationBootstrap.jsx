@@ -1,5 +1,5 @@
 // src/components/GeolocationBootstrap.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Box, Button, Flex, Text, useColorModeValue } from "@chakra-ui/react";
 import useGeolocation, { GEO_PERMISSION_DECISION_KEY } from "../hooks/useGeolocation";
 import { useAuth } from "../AuthContext";
@@ -7,23 +7,25 @@ import { useConsent } from "../consent/ConsentContext";
 import useLocationPreference from "../hooks/useLocationPreference";
 import { useTranslation } from "react-i18next";
 
-// Lifetime of this document, not each route or authentication render.
-let reminderDismissed = false;
-let refusedBeforeOpening = false;
-try { refusedBeforeOpening = localStorage.getItem(GEO_PERMISSION_DECISION_KEY) === "denied"; } catch { /* optional storage */ }
+const wasRefused = () => {
+  try { return localStorage.getItem(GEO_PERMISSION_DECISION_KEY) === "denied"; }
+  catch { return false; }
+};
 
 export default function GeolocationBootstrap() {
   const { t } = useTranslation("common", { keyPrefix: "locationPrivacy" });
-  const { effectiveRole, isAdmin } = useAuth();
+  const { effectiveRole, isAdmin, user } = useAuth();
   const { prefs } = useConsent();
   const [locationPreference] = useLocationPreference();
-  const [dismissed, setDismissed] = useState(reminderDismissed);
+  const [dismissed, setDismissed] = useState(false);
+  const [showReactivationHelp, setShowReactivationHelp] = useState(false);
+  const previousUid = useRef(user?.uid || null);
   const background = useColorModeValue("white", "gray.800");
 
   const analyticsOn = !!prefs?.analytics || isAdmin || effectiveRole === "admin";
   const locationOn = analyticsOn && locationPreference !== false;
 
-  const { status, retryPermission, permissionBlocked } = useGeolocation({
+  const { status, retryPermission, permissionBlocked, permissionRenewalRequired } = useGeolocation({
     // ✅ On demande la géoloc uniquement si consentement analytics = true
     enabled: locationOn,
     disabledReason: locationPreference === false ? "disabled" : "analytics_disabled",
@@ -37,10 +39,19 @@ export default function GeolocationBootstrap() {
     saveAnalytics: locationOn,
   });
 
-  if (!locationOn || dismissed || !refusedBeforeOpening || status !== "denied") return null;
+  useEffect(() => {
+    const uid = user?.uid || null;
+    if (previousUid.current === uid) return;
+    previousUid.current = uid;
+    setDismissed(false);
+    setShowReactivationHelp(false);
+    const refused = wasRefused();
+    if (uid && refused) window.dispatchEvent(new Event('BYL_GEO_REQUEST'));
+  }, [user?.uid]);
+
+  if (!locationOn || dismissed || (status !== "denied" && !permissionRenewalRequired)) return null;
 
   const dismiss = () => {
-    reminderDismissed = true;
     setDismissed(true);
   };
 
@@ -53,8 +64,17 @@ export default function GeolocationBootstrap() {
       <Text fontSize="sm" mt={2}>
         {t("reminderBody")} {t(permissionBlocked ? "browserSettings" : "retryHelp")}
       </Text>
+      {permissionBlocked && showReactivationHelp && (
+        <Box id="location-reactivation-help" mt={3} p={3} borderWidth="1px" borderRadius="md">
+          <Text fontSize="sm">{t("reactivateSteps")}</Text>
+        </Box>
+      )}
       <Flex gap={2} mt={3} wrap="wrap">
-        {!permissionBlocked && <Button minH="44px" onClick={() => { retryPermission(); dismiss(); }}>{t("retry")}</Button>}
+        {permissionBlocked && (
+          <Button minH="44px" aria-expanded={showReactivationHelp} aria-controls="location-reactivation-help"
+            onClick={() => setShowReactivationHelp((visible) => !visible)}>{t("reactivateHelp")}</Button>
+        )}
+        {!permissionBlocked && <Button minH="44px" onClick={() => { retryPermission(); }}>{t("activate")}</Button>}
         <Button minH="44px" variant="ghost" onClick={dismiss}>{t("later")}</Button>
       </Flex>
     </Box>

@@ -1,0 +1,10 @@
+const assert=require('node:assert/strict');
+const vm=require('node:vm');
+const fs=require('node:fs');
+const records={club:{authUid:'client',coachId:'club-coach'},external:{linkedUserId:'client',coachId:'external-coach'},unrelated:{authUid:'other',coachId:'private-coach'}};
+const snap=id=>({id,exists:!!records[id],data:()=>records[id]});
+let handler;
+const context={router:{get:(_path,_auth,fn)=>handler=fn},requireFirebaseAuth:()=>{},clientAccountUids:(id,c)=>new Set([id,c.authUid,c.linkedUserId]),clientProfessionalUids:c=>new Set([c.coachId]),db:{collection:()=>({doc:id=>({get:async()=>snap(id)}),where:(field,_op,uid)=>({get:async()=>({docs:Object.keys(records).filter(id=>records[id][field]===uid).map(snap)})})})}};
+const source=fs.readFileSync('backend/routes/messaging.js','utf8');
+vm.createContext(context);vm.runInContext(source.slice(source.indexOf('router.get("/client-records"'),source.indexOf('router.post("/send"')),context);
+(async()=>{let result;await handler({auth:{uid:'client'}},{json:r=>result=r,status:()=>{throw Error('unexpected failure')}});assert.deepEqual(Array.from(result.records,r=>r.id).sort(),['club','external']);assert.equal(result.records.some(r=>r.professionalIds.includes('private-coach')),false);console.log('Client directory: multiple linked records included; unrelated account excluded.');})().catch(e=>{console.error(e);process.exit(1)});

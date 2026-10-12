@@ -1,37 +1,9 @@
-import React from "react";
-import {
-  Box,
-  Button,
-  Icon,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalHeader,
-  ModalOverlay,
-  SimpleGrid,
-  Text,
-  useColorModeValue,
-  useDisclosure,
-} from "@chakra-ui/react";
+import { Box, Button, Icon, SimpleGrid, Text, useColorModeValue } from "@chakra-ui/react";
 import { AddIcon } from "@chakra-ui/icons";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import {
-  MdOutlineGroups,
-  MdOutlineHome,
-  MdOutlineRestaurantMenu,
-  MdOutlineCalendarMonth,
-  MdOutlineFitnessCenter,
-  MdOutlinePeopleAlt,
-} from "react-icons/md";
-import { CLUB_MOBILE_NAV_PREFIXES } from "./mobileNavPaths.js";
-
-export { CLUB_MOBILE_NAV_PREFIXES };
-
-const ROUTE_PRELOADS = {
-  "/club-dashboard": () => import("../pages/ClubDashboard.jsx"),
-};
+import { MdOutlineHome, MdOutlineCalendarMonth, MdOutlineNoteAdd, MdOutlinePeopleAlt } from "react-icons/md";
+export { CLUB_MOBILE_NAV_PREFIXES } from "./mobileNavPaths.js";
 
 function preserveClubQuery(path, search) {
   const current = new URLSearchParams(search || "");
@@ -50,177 +22,35 @@ function preserveClubQuery(path, search) {
 }
 
 export default function ClubMobileNav() {
-  const { t } = useTranslation("common");
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
-  const actionModal = useDisclosure();
-
-  const activeBlue = useColorModeValue("#2563EB", "#7CB7FF");
-  const activeBlueDark = useColorModeValue("#1D4ED8", "#9BC7FF");
-  const textColor = useColorModeValue("#0F172A", "white");
-  const borderColor = useColorModeValue("rgba(37,99,235,0.20)", "rgba(124,183,255,0.22)");
   const bg = useColorModeValue("rgba(255,255,255,0.94)", "rgba(8,13,26,0.94)");
-  const ghostHover = useColorModeValue("rgba(37,99,235,0.08)", "rgba(124,183,255,0.12)");
-  const shadow = useColorModeValue(
-    "0 18px 44px rgba(15,23,42,0.16)",
-    "0 18px 44px rgba(0,0,0,0.44)"
-  );
-  const modalBg = useColorModeValue("white", "rgba(11,16,27,0.98)");
-  const modalBorder = useColorModeValue("rgba(15,23,42,0.10)", "rgba(255,255,255,0.12)");
+  const text = useColorModeValue("#0F172A", "white");
+  const border = useColorModeValue("rgba(15,23,42,0.12)", "rgba(255,255,255,0.12)");
+  const active = useColorModeValue("#0F172A", "rgba(255,255,255,0.14)");
+  const activeHover = useColorModeValue("#1E293B", "rgba(255,255,255,0.20)");
+  const ghostHover = useColorModeValue("rgba(15,23,42,0.06)", "rgba(255,255,255,0.08)");
+  const shadow = useColorModeValue("0 18px 44px rgba(15,23,42,0.16)", "0 18px 44px rgba(0,0,0,0.44)");
   const fabBorder = useColorModeValue("rgba(255,255,255,0.95)", "rgba(147,197,253,0.36)");
-  const fabShadow = useColorModeValue(
-    "0 16px 32px rgba(37,99,235,0.34)",
-    "0 18px 34px rgba(0,0,0,0.48)"
-  );
-
-  const goTo = (path) => {
-    const target = preserveClubQuery(path, location.search);
-    if (typeof window !== "undefined") {
-      const targetUrl = new URL(target, window.location.origin);
-      const currentUrl = new URL(`${location.pathname}${location.search}${location.hash}`, window.location.origin);
-      if (
-        targetUrl.pathname === currentUrl.pathname &&
-        targetUrl.search === currentUrl.search &&
-        targetUrl.hash === currentUrl.hash
-      ) {
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        document.scrollingElement?.scrollTo?.({ top: 0, behavior: "smooth" });
-        document.getElementById("root")?.scrollTo?.({ top: 0, behavior: "smooth" });
-        return;
-      }
-    }
-    navigate(target);
-  };
-
-  const goAction = (path) => {
-    actionModal.onClose();
-    goTo(path);
-  };
-  const preloadPath = React.useCallback((path = "") => {
-    const pathname = String(path).split("?")[0].split("#")[0];
-    const key = Object.keys(ROUTE_PRELOADS).find((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-    ROUTE_PRELOADS[key]?.().catch(() => {});
-  }, []);
-
+  const fabShadow = useColorModeValue("0 16px 32px rgba(37,99,235,0.34)", "0 18px 34px rgba(0,0,0,0.48)");
+  const actionGradient = "linear-gradient(90deg, #1F5EFF 0%, #257CFF 52%, #00B8FF 100%)";
   const items = [
-    { label: t("auto.CoachMobileNav.accueil", "Accueil"), icon: MdOutlineHome, path: "/club-dashboard" },
-    { label: t("auto.ClubDashboard.equipe", "Équipe"), icon: MdOutlineGroups, path: "/club-dashboard/team" },
-    { label: t("nav.new", "Nouveau"), icon: AddIcon, action: actionModal.onOpen },
-    { label: t("nutrition.title", "Nutrition"), icon: MdOutlineRestaurantMenu, path: "/club-dashboard/nutrition" },
-    { label: t("clubDashboard.actions.calendar", "Calendrier"), icon: MdOutlineCalendarMonth, path: "/club-dashboard/calendrier" },
+    {label:t("auto.Clientdashboard.accueil", "Accueil"), icon:MdOutlineHome, path:"/club-dashboard"},
+    {label:t("clubDashboard.actions.calendar", "Calendrier"), icon:MdOutlineCalendarMonth, path:"/club-dashboard/calendrier"},
+    {label:t("nav.new", "Nouveau"), icon:AddIcon},
+    {label:t("clubDashboard.tools.management", "Gestion"), icon:MdOutlineNoteAdd, path:"/club-dashboard/actions-groupees"},
+    {label:t("auto.CoachMobileNav.clients", "Clients"), icon:MdOutlinePeopleAlt, path:"/club-dashboard/clients"},
   ];
-
-  const actions = [
-    {
-      label: t("auto.ClubDashboard.inviter_un_pro", "Inviter un pro"),
-      icon: MdOutlineGroups,
-      path: "/club-dashboard/create",
-    },
-    {
-      label: t("auto.ClubDashboard.planifier_un_rdv", "Planifier un RDV"),
-      icon: MdOutlineCalendarMonth,
-      path: "/club-dashboard/calendrier?action=new-appointment",
-    },
-    {
-      label: t("auto.ClubDashboard.clients_du_club", "Clients du club"),
-      icon: MdOutlinePeopleAlt,
-      path: "/club-dashboard/clients",
-    },
-    {
-      label: t("clientsList.table.programs", "Programmes"),
-      icon: MdOutlineFitnessCenter,
-      path: "/club-dashboard/programmes",
-    },
-  ];
-
-  React.useEffect(() => {
-    if (!actionModal.isOpen) return;
-    actions.map((action) => action.path).filter(Boolean).forEach(preloadPath);
-  }, [actionModal.isOpen, actions, preloadPath]);
-
-  return (
-    <>
-      <Box
-        display={{ base: "block", md: "none" }}
-        position="fixed"
-        left={3}
-        right={3}
-        bottom={3}
-        zIndex={1200}
-        bg={bg}
-        border="1px solid"
-        borderColor={borderColor}
-        borderRadius="24px"
-        boxShadow={shadow}
-        backdropFilter="blur(18px)"
-        px={2}
-        py={2}
-        data-testid="club-mobile-nav"
-      >
-        <SimpleGrid columns={5} spacing={1}>
-          {items.map((item) => {
-            const itemPath = item.path?.split("?")[0].split("#")[0];
-            const isAction = typeof item.action === "function";
-            const isActive = !isAction && location.pathname === itemPath;
-            return (
-              <Button
-                key={item.path || item.label}
-                variant={isActive ? "solid" : "ghost"}
-                size="sm"
-                h={isAction ? "60px" : "54px"}
-                borderRadius={isAction ? "20px" : "18px"}
-                px={1}
-                flexDirection="column"
-                gap={1}
-                bg={isActive || isAction ? activeBlue : "transparent"}
-                color={isActive || isAction ? "white" : textColor}
-                boxShadow={isAction ? fabShadow : "none"}
-                border={isAction ? "1px solid" : "0"}
-                borderColor={isAction ? fabBorder : "transparent"}
-                _hover={{ bg: isActive || isAction ? activeBlueDark : ghostHover }}
-                onMouseEnter={() => !isAction && preloadPath(item.path)}
-                onTouchStart={() => !isAction && preloadPath(item.path)}
-                onPointerDown={() => !isAction && preloadPath(item.path)}
-                onFocus={() => !isAction && preloadPath(item.path)}
-                onClick={isAction ? item.action : () => goTo(item.path)}
-              >
-                <Icon as={item.icon} boxSize={isAction ? "24px" : "18px"} />
-                <Text as="span" fontSize={isAction ? "10px" : "9px"} fontWeight="850" lineHeight="1" noOfLines={1}>
-                  {item.label}
-                </Text>
-              </Button>
-            );
-          })}
-        </SimpleGrid>
-      </Box>
-
-      <Modal isOpen={actionModal.isOpen} onClose={actionModal.onClose} isCentered size="xs">
-        <ModalOverlay />
-        <ModalContent borderRadius="24px" bg={modalBg} border="1px solid" borderColor={modalBorder}>
-          <ModalHeader>{t("nav.new", "Nouveau")}</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody pb={5}>
-            <SimpleGrid columns={1} spacing={3}>
-              {actions.map((action) => (
-                <Button
-                  key={action.path}
-                  variant="outline"
-                  minH="54px"
-                  justifyContent="flex-start"
-                  leftIcon={<Icon as={action.icon} boxSize="20px" />}
-                  onMouseEnter={() => preloadPath(action.path)}
-                  onTouchStart={() => preloadPath(action.path)}
-                  onPointerDown={() => preloadPath(action.path)}
-                  onFocus={() => preloadPath(action.path)}
-                  onClick={() => goAction(action.path)}
-                >
-                  {action.label}
-                </Button>
-              ))}
-            </SimpleGrid>
-          </ModalBody>
-        </ModalContent>
-      </Modal>
-    </>
-  );
+  return <Box data-tour="club-mobile-nav" as="nav" aria-label={t("nav.menu", "Menu")} display={{base:"block", md:"none"}} position="fixed" left={3} right={3} bottom={3} zIndex={1200} bg={bg} border="1px solid" borderColor={border} borderRadius="24px" boxShadow={shadow} backdropFilter="blur(18px)" p={2} data-testid="club-mobile-nav">
+    <SimpleGrid columns={5} spacing={1}>{items.map(item => {
+      const selected = item.path === location.pathname || (item.path === '/club-dashboard/actions-groupees' && ['journal','audit','alertes','exports','objectifs'].some(path => location.pathname === `/club-dashboard/${path}`));
+      return <Button key={item.label} aria-label={item.label} aria-current={selected ? 'page' : undefined} variant={selected ? "solid" : "ghost"} size="sm" h={item.path ? "54px" : "60px"} minW={0} px={1} borderRadius={item.path ? "18px" : "20px"} flexDirection="column" gap={1} bg={!item.path ? actionGradient : selected ? active : 'transparent'} boxShadow={!item.path ? fabShadow : 'none'} border={!item.path ? '1px solid' : '0'} borderColor={!item.path ? fabBorder : 'transparent'} color={selected || !item.path ? 'white' : text} _hover={{bg: !item.path ? actionGradient : selected ? activeHover : ghostHover, filter: !item.path ? 'brightness(1.08)' : 'none'}} onClick={() => {
+        if (!item.path) { window.dispatchEvent(new Event('club-open-new')); return; }
+        const target = preserveClubQuery(item.path, location.search);
+        if (`${location.pathname}${location.search}` === target) window.scrollTo({top:0, behavior:'smooth'});
+        else navigate(target);
+      }}><Icon as={item.icon} boxSize={item.path ? '18px' : '24px'} /><Text as="span" fontSize={item.path ? "9px" : "10px"} fontWeight="850" lineHeight="1" noOfLines={1}>{item.label}</Text></Button>;
+    })}</SimpleGrid>
+  </Box>;
 }

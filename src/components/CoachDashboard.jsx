@@ -1,3 +1,13 @@
+import { canMoveCoachCalendarEvent, coachCalendarMoveRequest } from "../utils/coachCalendarMove.mjs";
+import { dedupeCalendarCompletions } from "../utils/dedupeCalendarCompletions.mjs";
+import { coachSessionCalendarStatus } from "../utils/coachSessionCalendarStatus.mjs";
+import { coachFollowupActivity, needsCoachFollowup } from "../utils/coachFollowupActivity.mjs";
+import { clubText } from "../i18n/clubText";
+import CoachClubEventWrapper from "./dashboard/CoachClubEventWrapper";
+import { isPendingCoachEvent, isScheduledCoachEvent, upcomingCoachSessions } from "../utils/coachUpcomingSessions.mjs";
+import CalendarValidationMark, { useCalendarClock } from "./calendar/CalendarValidationMark";
+import { coachEventAppearance, coachEventColors, calendarEventValidated, calendarEventCancelled } from "../utils/calendarEventAppearance.mjs";
+import ClubLogo from "./dashboard/ClubLogo";
 // src/components/CoachDashboard.jsx
 import {currentCoachProgram} from '../utils/currentCoachProgram';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from
@@ -6,6 +16,7 @@ import { useDashboardTiming } from "../hooks/useDashboardTiming.js";
 import { createDashboardReadPool } from "../utils/coachDashboardLoading.js";
 import {
   Box,
+  Checkbox,
   Heading,
   Text,
   Button,
@@ -49,6 +60,7 @@ import {
   DeleteIcon,
   CopyIcon,
   CheckCircleIcon,
+  StarIcon,
   CalendarIcon,
   TimeIcon,
   AddIcon,
@@ -137,7 +149,77 @@ import {
   MdTune,
   MdPlayArrow,
 } from "react-icons/md";
+const CardShell = ({ title, titleRoute, subtitle, action, children, icon,
+minH, stackHeaderOnMobile = false, surfaceBg, borderColor, glassShadow,
+modeValue, activeBlue, withAdminCoach, textColor, warmDashboardDestination, subtleText, ...boxProps }) => (
+     <Box
+       bg={surfaceBg}
+       border="1px solid"
+       borderColor={borderColor}
+       borderRadius={{ base: "20px", md: "22px" }}
+       p={{ base: 3, md: 4 }}
+       boxShadow={glassShadow}
+       backdropFilter="blur(14px)"
+       h="auto"
+       minH={minH}
+       display="flex"
+       flexDirection="column"
+       {...boxProps}
+     >
+       <Flex
+         justify="space-between"
+         mb={2.5}
+         align={{ base: stackHeaderOnMobile ? "stretch" : "center", sm: "center" }}
+         direction={{ base: stackHeaderOnMobile ? "column" : "row", sm: "row" }}
+         gap={stackHeaderOnMobile ? 2.5 : 2}
+       >
+          <HStack spacing={2} align="center" minW={0} w={{ base: stackHeaderOnMobile ? "full" : "auto", sm: "auto" }}>
+            {icon ? (
+              <Circle
+                size="40px"
+                bg={modeValue("rgba(59,130,246,0.10)",
+"rgba(59,130,246,0.16)")}
+                color={activeBlue}
+              >
+                <Icon as={icon} boxSize="20px" />
+              </Circle>
+            ) : null}
+            <Box minW={0}>
+              <Heading
+                as={titleRoute ? Link : "h2"}
+                to={titleRoute ? withAdminCoach(titleRoute) : undefined}
+                size="md"
+                color={textColor}
+                letterSpacing="-0.02em"
+                cursor={titleRoute ? "pointer" : undefined}
+                textDecoration="none"
+                onPointerEnter={() => titleRoute && warmDashboardDestination(titleRoute)}
+                onFocus={() => titleRoute && warmDashboardDestination(titleRoute)}
+                onClick={titleRoute ? (event) => event.stopPropagation() : undefined}
+                _hover={titleRoute ? { color: textColor, textDecoration: "none" } : undefined}
+              >
+
+               {title}
+             </Heading>
+             {subtitle ? (
+               <Text fontSize="sm" color={subtleText} mt={1}>
+                  {subtitle}
+               </Text>
+             ) : null}
+           </Box>
+        </HStack>
+        <Box w={{ base: stackHeaderOnMobile ? "full" : "auto", sm: "auto" }}>
+          {action}
+        </Box>
+      </Flex>
+      <Box flex="1" display="flex" flexDirection="column" minH={0}>
+        {children}
+      </Box>
+    </Box>
+  );
+
 const CoachDashboardCalendar = React.lazy(() => import("./dashboard/CoachDashboardCalendar.jsx"));
+const CoachClubAppointment = React.lazy(() => import("./dashboard/CoachClubAppointment.jsx"));
 const ClientCreation = React.lazy(() => import("./ClientCreation"));
 const warmDashboardDestination = (route = "") => {
   if (route.startsWith("/clients")) {
@@ -311,11 +393,6 @@ const buildQuickAssignedProgramPlaceholders = (client = {}) => {
     _quickPlaceholder: true,
   }));
 };
-const hasSportProgramHint = (client = {}) =>
-  (Array.isArray(client.programmesAssignes) && client.programmesAssignes.length > 0) ||
-  (Array.isArray(client.programmes) && client.programmes.filter(Boolean).length > 0) ||
-  (Array.isArray(client.programmeIds) && client.programmeIds.filter(Boolean).length > 0) ||
-  Boolean(client.currentProgramme || client.currentProgramId || client.programmeId);
 const buildQuickDashboardClients = (rawClients = []) => {
   const deduped = dedupeClientsForDashboard(rawClients);
   const quickClients = deduped
@@ -429,16 +506,6 @@ const toDateTimeLocalValue = (value) => {
   if (Number.isNaN(date.getTime())) return "";
   const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
   return offsetDate.toISOString().slice(0, 16);
-};
-const toJsDate = (value) => {
-  if (!value) return null;
-  const date =
-    typeof value?.toDate === "function"
-      ? value.toDate()
-      : value instanceof Date
-        ? value
-        : new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
 };
 /* ---------- Utils ---------- */
 function getTotalSessionsFromProgrammeDoc(p) {
@@ -1357,36 +1424,8 @@ const ratingColorScheme = (rating) => {
    if (r === 4) return "orange";
    return "red";
 };
-const getDifficultyCalendarVisual = (rating) => {
-  const r = normRating(rating);
-  if (r === 1) return { bg: "#0891B2", colorScheme: "cyan" };
-  if (r === 2) return { bg: "#0D9488", colorScheme: "teal" };
-  if (r === 3) return { bg: "#7C3AED", colorScheme: "purple" };
-  if (r === 4) return { bg: "#EA580C", colorScheme: "orange" };
-  if (r === 5) return { bg: "#E11D48", colorScheme: "red" };
-  return null;
-};
-const getCalendarEventColor = (event = {}, fallback = "#2563EB") => {
-  const status = String(event?.status || "").trim().toLowerCase();
-  const isMissed =
-    status === "manquée" ||
-    status === "manquee" ||
-    status === "missed" ||
-    status === "cancelled" ||
-    status === "canceled";
-  if (isMissed) return "#DC2626";
-  if (event?.eventType === "nutrition_appointment") return "#9333EA";
-  if (event?.eventType === "club_appointment") return "#CA8A04";
+const getCalendarEventColor = (event = {}) => coachEventAppearance(event).backgroundColor;
 
-  const difficultyVisual = getDifficultyCalendarVisual(event?.difficultyRating);
-  if (difficultyVisual) return difficultyVisual.bg;
-
-  if (event?._kind === "completed") return "#16A34A";
-  if (status === "validée" || status === "validee" || status === "done" || status === "completed") return "#22C55E";
-  const endMs = getEventEndMs(event);
-  if (endMs > 0 && endMs <= Date.now()) return "#DC2626";
-  return fallback;
-};
 const getSessionDifficultyRating = (session = {}) =>
   normRating(
     session?.difficultyRating ??
@@ -1496,7 +1535,6 @@ const sameProgramFamily = (a, b) => {
 const isStrictSameSession = (plannedEvt, completedEvt) => {
    if (!plannedEvt || !completedEvt) return false;
    if (plannedEvt.clientId !== completedEvt.clientId) return false;
-   if (!sameProgramFamily(plannedEvt, completedEvt)) return false;
    if (
      completedEvt.calendarEventId &&
      plannedEvt._sourceId &&
@@ -1504,6 +1542,7 @@ const isStrictSameSession = (plannedEvt, completedEvt) => {
    ) {
      return true;
    }
+   if (!sameProgramFamily(plannedEvt, completedEvt)) return false;
    const pIdx =
      plannedEvt.sessionIndex !== null &&
      plannedEvt.sessionIndex !== undefined &&
@@ -1829,59 +1868,12 @@ async function upsertClientCalendarEvent({
     { merge: true }
   );
 }
-async function updateClientCalendarEvent({
-  clientId,
-  eventId,
-  status,
-  start,
-  end,
-  title,
-  description,
-  location,
-  deepLink,
-  programId,
-  sessionId,
-  sessionIndex,
-  eventType,
-  appointmentKind,
-  durationMin,
-}) {
-  if (!clientId || !eventId) return;
-  const payload = {
-    updatedAt: serverTimestamp(),
-  };
-  if (status !== undefined) payload.status = mapSessionStatusToCalendarStatus(status);
-  if (title !== undefined) payload.title = title || "Séance BoostYourLife";
-  if (description !== undefined) payload.description = description || "";
-  if (location !== undefined) payload.location = location || "";
-  if (deepLink !== undefined) payload.deepLink = deepLink || "";
-  if (programId !== undefined) payload.programId = programId || "";
-  if (sessionId !== undefined) payload.sessionId = sessionId || "";
-  if (eventType !== undefined) payload.eventType = eventType || "sport_session";
-  if (appointmentKind !== undefined) payload.appointmentKind = appointmentKind || "";
-  if (durationMin !== undefined) {
-    payload.durationMin = Number.isFinite(Number(durationMin)) ? Number(durationMin) : null;
-  }
-  if (sessionIndex !== undefined) {
-    payload.sessionIndex = Number.isFinite(Number(sessionIndex)) ? Number(sessionIndex) : null;
-  }
-  if (start) {
-    const safeStart = start instanceof Date ? start : new Date(start);
-    payload.start = Timestamp.fromDate(safeStart);
-    payload.startAt = Timestamp.fromDate(safeStart);
-  }
-  if (end) {
-    const safeEnd = end instanceof Date ? end : new Date(end);
-    payload.end = Timestamp.fromDate(safeEnd);
-    payload.endAt = Timestamp.fromDate(safeEnd);
-  }
-  await updateDoc(doc(db, `clients/${clientId}/calendarEvents/${eventId}`), payload);
-}
 async function deleteClientCalendarEvent({ clientId, eventId }) {
   if (!clientId || !eventId) return;
   await deleteDoc(doc(db, `clients/${clientId}/calendarEvents/${eventId}`));
 }
 export default function CoachDashboard() {
+  useCalendarClock();
   const { t } = useTranslation();
   const isMobileDashboard = useBreakpointValue({ base: true, md: false }, { ssr: false }) ?? true;
   const calendarCulture = useMemo(
@@ -1968,12 +1960,11 @@ export default function CoachDashboard() {
     [colorMode]
   );
   const toast = useToast();
-  const { firstName, logoUrl, clubLogoUrl, primaryColor, clubPrimaryColor } = coachContext;
+  const { firstName, logoUrl, clubLogoUrl } = coachContext;
   const [resolvedLogoUrl, setResolvedLogoUrl] = useState(null);
   const [logoAspectRatio, setLogoAspectRatio] = useState(null);
   const hasClubBranding = Boolean(effectiveClubId && clubLogoUrl);
   const effectiveLogoUrl = hasClubBranding ? clubLogoUrl : logoUrl;
-  const effectivePrimaryColor = hasClubBranding && clubPrimaryColor ? clubPrimaryColor : primaryColor;
   const logoFrameSize = useMemo(() => {
     const ratio = Number(logoAspectRatio || 1);
     if (ratio >= 2.2) return { w: { base: "92px", md: "128px" }, h: { base: "52px", md: "68px" }, radius: { base: "16px", md: "20px" } };
@@ -2135,6 +2126,18 @@ end && now < end;
   const [radarAdjustmentReviewItem, setRadarAdjustmentReviewItem] = useState(null);
   const [radarAdjustmentApplying, setRadarAdjustmentApplying] = useState(false);
   const [eventEditOpen, setEventEditOpen] = useState(false);
+  const [sessionEmailRequested, setSessionEmailRequested] = useState(false);
+  const [editEmailRequested, setEditEmailRequested] = useState(false);
+  const [pendingCalendarMove, setPendingCalendarMove] = useState(null);
+  const [moveEmailRequested, setMoveEmailRequested] = useState(false);
+  const [calendarMoveSaving, setCalendarMoveSaving] = useState(false);
+  useEffect(() => { if (addSessionModal.isOpen) setSessionEmailRequested(false); }, [addSessionModal.isOpen]);
+  useEffect(() => { if (eventEditOpen) setEditEmailRequested(false); }, [eventEditOpen]);
+  const [eventStatusDraft, setEventStatusDraft] = useState("à venir");
+  const [eventStatusSaving, setEventStatusSaving] = useState(false);
+  useEffect(() => {
+    setEventStatusDraft(selectedEvent?.status || "à venir");
+  }, [selectedEvent]);
   const [eventEditSaving, setEventEditSaving] = useState(false);
   const [eventEditDraft, setEventEditDraft] = useState({
     type: "sport",
@@ -2865,13 +2868,13 @@ useState(false);
   }, [adminCoachId, coachContext, isAdmin, user]);
 
   const nutritionOnlyDashboard = hasNutritionCalendarAccess && !hasSportAccess;
-  const openEmptySessionModal = useCallback(() => {
+  const openEmptySessionModal = useCallback((start) => {
     setNewSession({
       type: nutritionOnlyDashboard ? "nutrition" : "sport",
       clientId: "",
       programmeId: "",
       sessionIndex: null,
-      startDateTime: "",
+      startDateTime: start instanceof Date ? toDateTimeLocalValue(start) : "",
       status: "à venir",
       nutritionKind: "suivi",
       nutritionDurationMin: 30,
@@ -3054,6 +3057,7 @@ sessionIndex = null }) => {
      [navigate, withAdminCoach]
   );
   const enrichAssignedProgram = useCallback((prog, sessionsEffectuees = []) => {
+    sessionsEffectuees = dedupeCalendarCompletions(sessionsEffectuees);
     const totalPrevues = getTotalSessionsFromProgrammeDoc(prog);
     const latestSessionRecord = getLatestSessionRecord(sessionsEffectuees);
     const latestCompletedRecord = getLatestCompletedSessionRecord(sessionsEffectuees);
@@ -3197,7 +3201,7 @@ sessionIndex = null }) => {
       subSnap.docs.map(async (d) => {
         const prog = { ...d.data(), id: d.id };
         const sessSnap = await getDocs(collection(db, "clients", client.id, "programmes", d.id, "sessionsEffectuees"));
-        const sessionsEffectuees = sessSnap.docs.map((docu) => ({ id: docu.id, ...docu.data() }));
+        const sessionsEffectuees = dedupeCalendarCompletions(sessSnap.docs.map((docu) => ({ id: docu.id, ...docu.data() })));
         const hint = clientProgramHints.get(d.id) || {};
         return {
           ...enrichAssignedProgram(prog, sessionsEffectuees),
@@ -3529,7 +3533,7 @@ assignMs;
                 const sessSnap = await detailReadPool.run(() => isLatestLoad() ? getDocs(
                   collection(db, "clients", client.id, "programmes", d.id, "sessionsEffectuees")
                 ) : { docs: [] });
-                const sessionsEffectuees = sessSnap.docs.map((docu) => ({ id: docu.id, ...docu.data() }));
+                const sessionsEffectuees = dedupeCalendarCompletions(sessSnap.docs.map((docu) => ({ id: docu.id, ...docu.data() })));
                 const latestSessionRecord = getLatestSessionRecord(sessionsEffectuees);
                 const latestCompletedRecord = getLatestCompletedSessionRecord(sessionsEffectuees);
                 const finishedIdx = new Set();
@@ -3745,13 +3749,8 @@ toMillis(a.createdAt));
             const eventType = String(s.type || s.eventType || "").trim();
             const isNutritionAppointment = eventType === "nutrition_appointment";
             const isClubAppointment = eventType === "club_appointment";
-            const rawStatus = String(s.status || "").trim().toLowerCase();
-            const isRootValidated =
-              rawStatus === "validée" ||
-              rawStatus === "validee" ||
-              rawStatus === "done" ||
-              Boolean(s.validatedAt) ||
-              Boolean(s.completedAt);
+            const storedCalendarStatus = coachSessionCalendarStatus(s);
+            const isRootValidated = storedCalendarStatus === "validée";
             const titleSessionIndex = inferSessionIndexFromText(`${s.sessionTitle || ""} ${s.title || ""}`);
             const explicitSessionIndex = getSessionIndex(s);
             const sessionIndex = Number.isFinite(titleSessionIndex)
@@ -3774,7 +3773,7 @@ toMillis(a.createdAt));
               title: titlePieces.join(" - ") || t("dashboard.session_planned", "Séance planifiée"),
               start,
               end,
-              status: isRootValidated ? "validée" : s.status || "à venir",
+              status: storedCalendarStatus,
               visibility: s.visibility || "coach",
               clientId: s.clientId,
               programmeId: s.programmeId || s.programId || s.programID || "",
@@ -3938,23 +3937,8 @@ prettyAssignedProgramName(resolvedAssignedProg) : "";
 	          else if (isClubAppointment) titlePieces.push("Club");
 	          else if (programmeName) titlePieces.push(programmeName);
 	          if (sessionTitle) titlePieces.push(sessionTitle);
-          const rawStatus = String(s.status || "").trim().toLowerCase();
-          const validationDate =
-            toJsDate(s.validatedAt) ||
-            toJsDate(s.completedAt) ||
-            null;
-          const isRootValidated =
-            rawStatus === "validée" ||
-            rawStatus === "validee" ||
-            rawStatus === "done" ||
-            Boolean(s.validatedAt) ||
-            Boolean(s.completedAt);
-          const rootCoachValidated =
-            isRootValidated &&
-            (
-              start.getTime() <= Date.now() ||
-              (validationDate && sameCalendarDay(start, validationDate))
-            );
+          const storedCalendarStatus = coachSessionCalendarStatus(s);
+          const rootCoachValidated = storedCalendarStatus === "validée";
 
            return {
               id: `planned__${s.id}`,
@@ -3962,7 +3946,7 @@ prettyAssignedProgramName(resolvedAssignedProg) : "";
 t("dashboard.session_planned", "Séance planifiée"),
               start,
               end,
-              status: rootCoachValidated ? "validée" : "à venir",
+              status: storedCalendarStatus,
               visibility: s.visibility || "coach",
               clientId: s.clientId,
               programmeId: resolvedProgrammeId,
@@ -4001,7 +3985,7 @@ toMillis(s.createdAt), 0),
            const baseProgrammeId = prog.programId || prog.programID
 || prog.baseId || null;
            const programmeName = prettyAssignedProgramName(prog);
-           (prog.sessionsEffectuees || []).forEach((sEff) => {
+           dedupeCalendarCompletions(prog.sessionsEffectuees || []).forEach((sEff) => {
               if (!isSessionValidatedRecord(sEff)) return;
               const d = getCompletedDate(sEff);
               if (!d) return;
@@ -4088,6 +4072,16 @@ Number(ev.sessionIndex) : "x",
               where("coachUid", "==", effectiveCoachUid)
             )
           );
+          // Private notes come only from club documents readable by this coach.
+          for (const appointmentDoc of clubAppointmentSnap.docs) {
+            const appointment = appointmentDoc.data() || {};
+            for (const event of plannedEvents) {
+              if (event.clubAppointmentId === appointmentDoc.id ||
+                  (appointment.linkedSessionId && event._sourceId === appointment.linkedSessionId)) {
+                event._note = appointment.note || "";
+              }
+            }
+          }
           const plannedSourceIds = new Set(plannedEventsRaw.map((ev) => ev._sourceId).filter(Boolean));
           const plannedAppointmentIds = new Set(plannedEventsRaw.map((ev) => ev.clubAppointmentId).filter(Boolean));
           clubAppointmentEvents = clubAppointmentSnap.docs
@@ -4121,6 +4115,12 @@ Number(ev.sessionIndex) : "x",
               if (sessionTitle) titlePieces.push(sessionTitle);
               return {
                 id: `club__${appointmentDoc.id}`,
+                type: data.type,
+                participantIds: data.participantIds || [],
+                waitlistIds: data.waitlistIds || [],
+                capacity: data.capacity,
+                coachName: data.coachName,
+                coachUid: data.coachUid || effectiveCoachUid,
                 title: titlePieces.join(" - ") || data.title || "Rendez-vous",
                 start,
                 end: new Date(start.getTime() + durationMin * 60000),
@@ -4678,6 +4678,7 @@ effectiveCoachUid, dashboardPerfFresh, dashboardPerfEnabled, markDashboardTiming
                 method: "POST",
                 body: JSON.stringify({
                   ...requestPayload,
+                  notifyClient: sessionEmailRequested,
                   startDateTime: recurrenceDate.toISOString(),
                   recurrenceGroupId,
                   recurrenceFrequency: newSession.recurrence?.frequency || "none",
@@ -4778,7 +4779,6 @@ effectiveCoachUid, dashboardPerfFresh, dashboardPerfEnabled, markDashboardTiming
      }
      const sourceId = selectedEvent._sourceId ||
 selectedEvent.id.replace("planned__", "");
-     const clientId = selectedEvent.clientId;
 
     if (selectedEvent?._kind === "club_appointment") {
       try {
@@ -4791,25 +4791,15 @@ selectedEvent.id.replace("planned__", "");
       return;
     }
 
-    await updateDoc(doc(db, "sessions", sourceId), {
-      status,
-
-      updatedAt: serverTimestamp(),
+    await apiFetch(`/coach-sessions/${encodeURIComponent(sourceId)}/status`, {
+      method: "PATCH", body: JSON.stringify({ status }),
     });
-    try {
-      await updateClientCalendarEvent({
-        clientId,
-        eventId: sourceId,
-        status,
-      });
-    } catch (err) {
-      console.error("[calendarEvents] update status failed", err);
-    }
-    try {
-      await syncClubAppointmentFromEvent(selectedEvent, { status });
-    } catch (err) {
-      console.error("[club appointments] update status failed", err);
-    }
+    const nextSessions = sessions.map(event => event._sourceId === sourceId ? { ...event, status } : event);
+    setSessions(nextSessions);
+    setSelectedEvent(event => event ? { ...event, status } : event);
+    writeDashboardDataCache(effectiveCoachUid, effectiveClubId, {
+      clients, programmesBase, sessions: nextSessions, assignedCounts, assignedClientsMap,
+    });
     eventModal.onClose();
     refreshDashboardData();
   };
@@ -4881,7 +4871,10 @@ selectedEvent.id.replace("planned__", "");
     const end = new Date(start.getTime() + durationMin * 60000);
 
     let rootPayload = {
+      noNotify: !editEmailRequested,
       clientId: nextClient.id,
+      clientDocId: nextClient.id,
+      userId: nextClient.accountUid || nextClient.linkedUserId || nextClient.uid || "",
       clientName: getClientFullName(nextClient),
       start: Timestamp.fromDate(start),
       end: Timestamp.fromDate(end),
@@ -5120,9 +5113,9 @@ selectedEvent.id.replace("planned__", "");
 	     refreshDashboardData();
 	  };
 
-  const handleMoveCalendarEvent = async ({ event, start, end }) => {
+  const handleMoveCalendarEvent = async ({ event, start, end }, notifyClient = false) => {
     if (isTouchDevice()) return;
-    if (!event || event._kind !== "planned" || event.status === "validée") {
+    if (!canMoveCoachCalendarEvent(event, effectiveCoachUid)) {
       notify(toast, "sessionReadonly", {
         title: t("dashboard.readonly_completed", "Cette séance est déjà validée et ne peut plus être modifiée ici."),
       });
@@ -5130,42 +5123,28 @@ selectedEvent.id.replace("planned__", "");
     }
 
     const sourceId = event._sourceId || String(event.id || "").replace("planned__", "");
-    if (!sourceId || !event.clientId) return;
+    if (!sourceId || (event._kind !== "club_appointment" && !event.clientId)) return;
 
     const safeStart = start instanceof Date ? start : new Date(start);
     const safeEnd = end instanceof Date ? end : new Date(end);
     if (Number.isNaN(safeStart.getTime()) || Number.isNaN(safeEnd.getTime())) return;
 
     try {
-      await updateDoc(doc(db, "sessions", sourceId), {
-        start: Timestamp.fromDate(safeStart),
-        end: Timestamp.fromDate(safeEnd),
-        updatedAt: serverTimestamp(),
-      });
+      const moveRequest = coachCalendarMoveRequest(event, safeStart, safeEnd, notifyClient);
+      await apiFetch(moveRequest.path, { method: "PATCH", body: JSON.stringify(moveRequest.body) });
 
-      await updateClientCalendarEvent({
-        clientId: event.clientId,
-        eventId: sourceId,
-        start: safeStart,
-        end: safeEnd,
+      const nextSessions = sessions.map(item => item._sourceId === sourceId
+        ? { ...item, start: safeStart, end: safeEnd, durationMin: Math.round((safeEnd - safeStart) / 60000) } : item);
+      setSessions(nextSessions);
+      setSelectedEvent(item => item?._sourceId === sourceId ? { ...item, start: safeStart, end: safeEnd, durationMin: Math.round((safeEnd - safeStart) / 60000) } : item);
+      writeDashboardDataCache(effectiveCoachUid, effectiveClubId, {
+        clients, programmesBase, sessions: nextSessions, assignedCounts, assignedClientsMap,
       });
-      await syncClubAppointmentFromEvent(event, {
-        start: safeStart,
-        durationMin: Math.max(15, Math.round((safeEnd.getTime() - safeStart.getTime()) / 60000) || Number(event.durationMin || FORCE_SESSION_DURATION_MIN)),
-      });
-
-      setSessions((prev) =>
-        prev.map((item) =>
-          item.id === event.id
-            ? { ...item, start: safeStart, end: safeEnd }
-            : item
-        )
-      );
     } catch (error) {
       console.error("[calendar] move failed", error);
       notify(toast, "saveError", {
         title: t("dashboard.calendar_move_error", "Déplacement impossible"),
-        description: "La séance n'a pas pu être déplacée.",
+        description: clubText(error.data?.error || "La séance n’a pas pu être déplacée."),
       });
       refreshDashboardData();
     }
@@ -5393,7 +5372,6 @@ modeValue("rgba(255,255,255,0.95)",
   const stats = useMemo(() => {
     const nutritionClientIds = new Set(nutritionRows.map((row) => row.clientId).filter(Boolean));
     const nutritionClients = clients.filter((client) => nutritionClientIds.has(client.id));
-    const sportClients = clients.filter(hasSportProgramHint);
     const mixedDashboard = hasNutritionCalendarAccess && hasSportAccess;
     const totalClients = clients.length;
     const totalPrograms = programmesBase.length;
@@ -5451,13 +5429,13 @@ modeValue("rgba(255,255,255,0.95)",
            route: "/clients?filter=active",
         },
         {
-           label: t("dashboard.stats_sport_clients", "Clients sportifs"),
-           value: sportClients.length,
-           hint: t("dashboard.stats_sport_clients_hint", "Avec programme sportif"),
+           label: t("clientsList.heading", "Mes clients"),
+           value: totalClients,
+           hint: t("dashboard.stats_active_30_hint", "{{count}} client(s) accompagnés", { count: totalClients }),
            icon: MdOutlinePeopleAlt,
            accent: activeBlue,
            glow: "rgba(59,130,246,0.22)",
-           route: "/clients?view=sport",
+           route: "/clients",
         },
         {
            label: t("dashboard.stats_nutrition_patients", "Patients nutrition"),
@@ -5578,7 +5556,7 @@ modeValue("rgba(255,255,255,0.95)",
 Date && s.start >= from && s.start
 <= to);
      const plannedEvents = todayEvents
-       .filter((s) => s._kind === "planned" && s.status !== "validée" && s.status !== "manquée")
+       .filter(isPendingCoachEvent)
        .sort((a, b) => a.start - b.start);
      const validatedEvents = todayEvents
        .filter((s) => s.status === "validée" || s._kind === "completed")
@@ -5612,7 +5590,7 @@ Date && s.start >= from && s.start
 Date && s.start >= from && s.start <
 to);
 
-    const plannedEvents = weekEvents.filter((s) => s._kind === "planned");
+    const plannedEvents = weekEvents.filter(isScheduledCoachEvent);
     const planned = plannedEvents.length;
     const validated = plannedEvents.filter((s) => s.status === "validée").length;
     const rate = planned > 0 ? Math.min(100, Math.round((validated
@@ -5677,16 +5655,12 @@ to);
   }, [clients, clubGoalPeriod, clubGoalTargets, nutritionRows, programmesBase, sessions, t]);
   
   const inactiveClients = useMemo(() => {
-    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
     const nowMs = Date.now();
     return [...clients]
       .filter((c) => (c.programmesAssignes || []).length > 0)
-      .filter((c) => {
-         const ms = Number(c._lastCoachInteractionMs || 0);
-         return !ms || nowMs - ms > THIRTY_DAYS_MS;
-      })
+      .filter((c) => needsCoachFollowup(c, effectiveCoachUid, nowMs))
       .slice(0, 4);
-  }, [clients]);
+  }, [clients, effectiveCoachUid]);
   const nutritionActivityByClient = useMemo(() => {
     const map = new Map();
     nutritionRows.forEach((row) => {
@@ -5849,20 +5823,7 @@ to);
     [activeBlue, modeValue, nutritionActivityByClient, t, warningOrange]
   );
 
-  const allUpcomingSessions = useMemo(() => {
-    const afterTodayMs = endOfToday().getTime();
-
-    return [...sessions]
-      .filter(
-        (session) =>
-          session?._kind === "planned" &&
-          session?.start instanceof Date &&
-          session.start.getTime() > afterTodayMs &&
-          session.status !== "validée" &&
-          session.status !== "manquée"
-      )
-      .sort((a, b) => a.start - b.start);
-  }, [sessions]);
+  const allUpcomingSessions = useMemo(() => upcomingCoachSessions(sessions, now), [sessions, now]);
 
   const nextUpcomingSessions = useMemo(() => {
     return allUpcomingSessions.slice(0, 3);
@@ -6097,7 +6058,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
           ? event.start.getTime()
           : Math.max(toMillis(event.start), toMillis(event.startsAt), toMillis(event.updatedAt), 0);
       if (eventMs && nowMs - eventMs > 14 * DAY_MS) return;
-      const clientName = getClientFullName(client) || event._clientName || t("dashboard.client", "Client");
+      const clientName = getClientFullName(client) || event.type === "group" ? (event._sessionTitle || event.title) : event._clientName || t("dashboard.client", "Client");
       const missedProgram = (client.programmesAssignes || []).find((programme) => programme.id === event.programmeId) || null;
       const missedProgramName = missedProgram ? prettyAssignedProgramName(missedProgram) : event._programmeName || "";
       const missedSessionTitle = event._sessionTitle || event.title || "";
@@ -6359,8 +6320,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
         }
       });
 
-      const lastCoachMs = Number(client._lastCoachInteractionMs || client._lastInteractionMs || 0);
-      if (programmes.length > 0 && (!lastCoachMs || nowMs - lastCoachMs > 30 * DAY_MS)) {
+      const lastCoachMs = coachFollowupActivity(client, effectiveCoachUid);
+      if (programmes.length > 0 && needsCoachFollowup(client, effectiveCoachUid, nowMs)) {
         items.push({
           id: `inactive__${client.id}`,
           clientId: client.id,
@@ -6618,7 +6579,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
         if (existing) return existing;
 
         const title = getClientFullName(client) || client.email || t("dashboard.client", "Client");
-        const lastCoachMs = Number(client._lastCoachInteractionMs || 0);
+        const lastCoachMs = coachFollowupActivity(client, effectiveCoachUid);
         return {
           id: `inactive__${client.id}`,
           clientId: client.id,
@@ -6637,7 +6598,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
           primaryLabel: t("dashboard.copilot.actions.copy_message", "Copier relance"),
         };
       }),
-    [copilotQueueItems, inactiveClients, t]
+    [copilotQueueItems, inactiveClients, t, effectiveCoachUid]
   );
 
   const copilotWeeklySummary = useMemo(() => {
@@ -7135,11 +7096,11 @@ month;
         if (event?._programmeName) fullLine.push(event._programmeName);
         if (event?._sessionTitle) fullLine.push(event._sessionTitle);
         const label = compactLine.join(" - ") || fullLine.join(" - ") || event.title;
-        const visibleLabel = r ? `${label} · ${r}/5` : label;
-        const tooltipLabel = `${fullLine.join(" - ") || event.title || ""}${r ? ` · ${t("sessionPlayer.rateTitle", "Difficulté")} ${r}/5` : ""}`;
+        const visibleLabel = label;
         return (
-           <Tooltip label={tooltipLabel} hasArrow placement="top">
-             <Box minW={0} w="full" overflow="hidden" title={tooltipLabel}>
+           <>
+             <Box minW={0} w="full" overflow="hidden" pr="18px">
+               <CalendarValidationMark event={event} />
                <Text
                  fontSize={{ base: "xs", md: "sm" }}
                  noOfLines={1}
@@ -7150,12 +7111,26 @@ month;
                >
                 {visibleLabel}
 	               </Text>
+               {r && <HStack spacing="2px" role="img" aria-label={`${t("sessionPlayer.rateTitle", "Difficulté")} : ${r}/5`}>
+                 {[1, 2, 3, 4, 5].map(star => <StarIcon key={star} boxSize="10px" color={star <= Math.round(r) ? "yellow.300" : "whiteAlpha.500"} />)}
+               </HStack>}
              </Box>
-           </Tooltip>
+           </>
         );
      },
      [t]
   );
+
+  const openCalendarEvent = useCallback(event => {
+    setSelectedEvent(event);
+    eventModal.onOpen();
+  }, [eventModal.onOpen]);
+  const CalendarEventWrapper = useCallback(props => (
+    <CoachClubEventWrapper {...props} clubId={effectiveClubId} onSelect={openCalendarEvent} />
+  ), [openCalendarEvent,effectiveClubId]);
+  const calendarComponents = useMemo(() => ({
+    event: CalendarEvent, eventWrapper: CalendarEventWrapper,
+  }), [CalendarEvent, CalendarEventWrapper]);
 
   const StatTile = ({ label, value, hint, icon, accent, featured =
 false, onClick, onPointerEnter, onPointerDown, onFocus, clickable = false }) => (
@@ -7231,73 +7206,6 @@ position="relative" zIndex={1} h="100%">
             {value}
           </Text>
       </HStack>
-    </Box>
-  );
-const CardShell = ({ title, titleRoute, subtitle, action, children, icon,
-minH, stackHeaderOnMobile = false, ...boxProps }) => (
-     <Box
-       bg={surfaceBg}
-       border="1px solid"
-       borderColor={borderColor}
-       borderRadius={{ base: "20px", md: "22px" }}
-       p={{ base: 3, md: 4 }}
-       boxShadow={glassShadow}
-       backdropFilter="blur(14px)"
-       h="auto"
-       minH={minH}
-       display="flex"
-       flexDirection="column"
-       {...boxProps}
-     >
-       <Flex
-         justify="space-between"
-         mb={2.5}
-         align={{ base: stackHeaderOnMobile ? "stretch" : "center", sm: "center" }}
-         direction={{ base: stackHeaderOnMobile ? "column" : "row", sm: "row" }}
-         gap={stackHeaderOnMobile ? 2.5 : 2}
-       >
-          <HStack spacing={2} align="center" minW={0} w={{ base: stackHeaderOnMobile ? "full" : "auto", sm: "auto" }}>
-            {icon ? (
-              <Circle
-                size="40px"
-                bg={modeValue("rgba(59,130,246,0.10)",
-"rgba(59,130,246,0.16)")}
-                color={activeBlue}
-              >
-                <Icon as={icon} boxSize="20px" />
-              </Circle>
-            ) : null}
-            <Box minW={0}>
-              <Heading
-                as={titleRoute ? Link : "h2"}
-                to={titleRoute ? withAdminCoach(titleRoute) : undefined}
-                size="md"
-                color={textColor}
-                letterSpacing="-0.02em"
-                cursor={titleRoute ? "pointer" : undefined}
-                textDecoration="none"
-                onPointerEnter={() => titleRoute && warmDashboardDestination(titleRoute)}
-                onFocus={() => titleRoute && warmDashboardDestination(titleRoute)}
-                onClick={titleRoute ? (event) => event.stopPropagation() : undefined}
-                _hover={titleRoute ? { color: textColor, textDecoration: "none" } : undefined}
-              >
-
-               {title}
-             </Heading>
-             {subtitle ? (
-               <Text fontSize="sm" color={subtleText} mt={1}>
-                  {subtitle}
-               </Text>
-             ) : null}
-           </Box>
-        </HStack>
-        <Box w={{ base: stackHeaderOnMobile ? "full" : "auto", sm: "auto" }}>
-          {action}
-        </Box>
-      </Flex>
-      <Box flex="1" display="flex" flexDirection="column" minH={0}>
-        {children}
-      </Box>
     </Box>
   );
   const renderDashboardWidgetAction = (widgetId, extraAction = null) => (
@@ -7667,7 +7575,7 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
 
     const renderTodaySession = (event, index, accent) => {
       const sessionLabel = event?._sessionTitle || event?.title || t("form.session", "Séance");
-      const clientLabel = event?._clientName || t("dashboard.client", "Client");
+      const clientLabel = event?.type === "group" ? sessionLabel : event?._clientName || t("dashboard.client", "Client");
       const timeLabel = event?.start instanceof Date
         ? event.start.toLocaleTimeString(i18n.language || "fr", { hour: "2-digit", minute: "2-digit" })
         : "—";
@@ -7701,7 +7609,7 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
                 {clientLabel}
               </Text>
               <Text fontSize="11px" fontWeight="400" color={subtleText} noOfLines={1}>
-                {sessionLabel}
+                {event?.type === "group" ? clubText("Cours collectifs") : sessionLabel}
               </Text>
             </Box>
           </HStack>
@@ -7982,10 +7890,10 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
                 }}
               >
                 <Text fontWeight="850" fontSize="sm" noOfLines={1}>
-                  {evt._clientName || t("dashboard.client", "Client")}
+                  {evt.type === "group" ? (evt._sessionTitle || evt.title) : evt._clientName || t("dashboard.client", "Client")}
                 </Text>
                 <Text fontSize="sm" color={mutedText} fontWeight="400" noOfLines={1}>
-                  {evt._sessionTitle ||
+                  {evt.type === "group" ? clubText("Cours collectifs") : evt._sessionTitle ||
                     evt.title ||
                     (nutritionOnlyDashboard
                       ? t("dashboard.nutrition_appointment", "Rendez-vous nutrition")
@@ -8170,6 +8078,7 @@ position="relative" overflow="clip">
          pt={{ base: 3, md: 3.5, xl: 4 }}
          pb={{ base: 3, md: 3.5, xl: 4 }}
       >
+
          {isAdmin && adminCoachId && (
            <HStack mb={2.5} justify="space-between" align="center" flexWrap="wrap" gap={2}>
              <Button
@@ -8291,27 +8200,19 @@ position="relative" overflow="clip">
                      )}
                      flexShrink={0}
                  >
-                     {resolvedLogoUrl ? (
-                       <img
-                         src={resolvedLogoUrl}
-                         alt={t("greeting.logo_alt", { name: firstName
-|| "BYL" })}
-                         onLoad={(event) => {
-                           const img = event.currentTarget;
-                           if (img.naturalWidth && img.naturalHeight) {
-                             setLogoAspectRatio(img.naturalWidth / img.naturalHeight);
-                           }
-                         }}
-                      style={{ width: "100%", height: "100%", maxWidth: "92%", maxHeight: "92%",
-objectFit: "contain" }}
-                   />
-	                ) : (
-	                   <img
-	                     src="/logo-byl.png"
-	                     alt="BoostYourLife.coach"
-	                     style={{ width: "82%", height: "82%", objectFit: "contain" }}
-	                   />
-	                )}
+                    <ClubLogo
+                      src={resolvedLogoUrl}
+                      alt={t("greeting.logo_alt", { name: firstName || "BYL" })}
+                      w="100%" h="100%" border="none" borderRadius="inherit" p={2}
+                      imageProps={{
+                        onLoad: (event) => {
+                          const img = event.currentTarget;
+                          if (img.naturalWidth && img.naturalHeight) {
+                            setLogoAspectRatio(img.naturalWidth / img.naturalHeight);
+                          }
+                        },
+                      }}
+                    />
               </Flex>
               <Box minW={0}>
 <Heading
@@ -8484,10 +8385,10 @@ noOfLines={2}>
                           </Text>
                           <Box flex="1" minW={0}>
                             <Text color={textColor} fontSize="sm" fontWeight="900" noOfLines={1}>
-                              {event._clientName || t("dashboard.client", "Client")}
+                              {event.type === "group" ? (event._sessionTitle || event.title) : event._clientName || t("dashboard.client", "Client")}
                             </Text>
                             <Text color={mutedText} fontSize="xs" noOfLines={1}>
-                              {event._sessionTitle || event.title || (isNutritionAppointment
+                              {event.type === "group" ? clubText("Cours collectifs") : event._sessionTitle || event.title || (isNutritionAppointment
                                 ? t("dashboard.nutrition_appointment", "Rendez-vous nutrition")
                                 : t("form.session", "Séance"))}
                             </Text>
@@ -8572,10 +8473,10 @@ noOfLines={2}>
                         </Box>
                         <Box flex="1" minW={0}>
                           <Text color={textColor} fontSize="sm" fontWeight="900" noOfLines={1}>
-                            {event._clientName || t("dashboard.client", "Client")}
+                            {event.type === "group" ? (event._sessionTitle || event.title) : event._clientName || t("dashboard.client", "Client")}
                           </Text>
                           <Text color={mutedText} fontSize="xs" noOfLines={1}>
-                            {event._sessionTitle || event.title || t("form.session", "Séance")}
+                            {event.type === "group" ? clubText("Cours collectifs") : event._sessionTitle || event.title || t("form.session", "Séance")}
                           </Text>
                         </Box>
                         <Icon as={ChevronRightIcon} color={activeBlue} boxSize="16px" />
@@ -8818,6 +8719,7 @@ noOfLines={2}>
 
         {showCopilotWidget && (
         <CardShell
+                  {...{ surfaceBg, borderColor, glassShadow, modeValue, activeBlue, withAdminCoach, textColor, warmDashboardDestination, subtleText }}
           data-tour="coach-copilot"
           title={t("dashboard.copilot.title", "Copilote Coach")}
           subtitle={t("dashboard.copilot.subtitle", "Décisions à valider, résumé de la semaine et mémoire de coaching.")}
@@ -9114,6 +9016,7 @@ noOfLines={2}>
 
         {showRadarWidget && (
         <CardShell
+                  {...{ surfaceBg, borderColor, glassShadow, modeValue, activeBlue, withAdminCoach, textColor, warmDashboardDestination, subtleText }}
           data-tour="coach-radar"
           title={t("dashboard.radar.title", "Radar Coach")}
           subtitle={t("dashboard.radar.subtitle", "Les signaux qui méritent ton attention maintenant.")}
@@ -9356,6 +9259,7 @@ alignItems="stretch" mb={2.5}>
            <Box gridColumn={{ base: "auto", "2xl": nutritionOnlyDashboard || !showLatestProgramsWidget ? "span 12" : "span 8" }}
 h="100%">
              <CardShell
+                  {...{ surfaceBg, borderColor, glassShadow, modeValue, activeBlue, withAdminCoach, textColor, warmDashboardDestination, subtleText }}
                title={nutritionOnlyDashboard ? t("dashboard.recent_patients", "Patients récents") : t("dashboard.recent_clients", "Clients récents")}
                titleRoute="/clients"
                h="100%"
@@ -10038,6 +9942,7 @@ bg={modeValue("rgba(15,23,42,0.06)",
 h="100%">
             <VStack spacing={2.5} align="stretch" h="100%">
               <CardShell
+                  {...{ surfaceBg, borderColor, glassShadow, modeValue, activeBlue, withAdminCoach, textColor, warmDashboardDestination, subtleText }}
                 display="flex"
                 flexDirection="column"
                 title={t("dashboard.cards.latest_programs_title",
@@ -10270,6 +10175,7 @@ alignItems="stretch">
           {showCalendarWidget && (
           <Box gridColumn={{ base: "auto", xl: showSideWidgetColumn ? "span 9" : "span 12" }}>
             <CardShell
+                  {...{ surfaceBg, borderColor, glassShadow, modeValue, activeBlue, withAdminCoach, textColor, warmDashboardDestination, subtleText }}
               id="coach-calendar-card"
               data-tour="coach-calendar"
               title={t("dashboard.calendar", "Calendrier")}
@@ -10281,6 +10187,17 @@ alignItems="stretch">
               icon={CalendarIcon}
               action={
                 <HStack spacing={2}>
+                  <Tooltip label={t("dashboard.connect_calendar", "Connecter le calendrier")}>
+                    <IconButton
+                      display={{ base: "inline-flex", md: "none" }}
+                      aria-label={t("dashboard.connect_calendar", "Connecter le calendrier")}
+                      icon={<Icon as={MdOutlineLink} />}
+                      size="sm"
+                      variant="outline"
+                      borderRadius="14px"
+                      onClick={e => { e.stopPropagation(); handleOpenCalendarLinkModal(); }}
+                    />
+                  </Tooltip>
                   <IconButton
                     display={{ base: "inline-flex", md: "none" }}
                     aria-label={t("exerciseCard.add", "Ajouter")}
@@ -10299,21 +10216,11 @@ alignItems="stretch">
                   <Box display={{ base: "none", md: "block" }}>
                     {renderDashboardWidgetAction("calendar",
                       <HStack spacing={2}>
-                        {calendarConnectionChecked && calendarConnectedOnce ? (
-                          <Button
-                            data-tour="coach-calendar-sync"
-                            size="sm"
-                            borderRadius="14px"
-                            variant="outline"
-                            leftIcon={<Icon as={MdOutlineLink} />}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenCalendarLinkModal();
-                            }}
-                          >
-                            {t("auto.CoachDashboard.voir_le_lien_calendrier", "Voir le lien")}
-                          </Button>
-                        ) : null}
+                          <Tooltip label={calendarConnectionChecked && calendarConnectedOnce ? t("auto.CoachDashboard.voir_le_lien_calendrier", "Voir le lien") : t("dashboard.connect_calendar", "Connecter le calendrier")}>
+                            <IconButton data-tour="coach-calendar-sync" size="sm" borderRadius="14px" variant="outline"
+                              aria-label={calendarConnectionChecked && calendarConnectedOnce ? t("auto.CoachDashboard.voir_le_lien_calendrier", "Voir le lien") : t("dashboard.connect_calendar", "Connecter le calendrier")} icon={<Icon as={MdOutlineLink} />}
+                              onClick={e => { e.stopPropagation(); handleOpenCalendarLinkModal(); }} />
+                          </Tooltip>
                         <Button
                           size="sm"
                           leftIcon={<AddIcon />}
@@ -10447,12 +10354,7 @@ alignItems="stretch">
 	                  {mobileCalendarVisibleDaySessions.map((event) => {
                     const status = String(event.status || "").trim().toLowerCase();
                     const endMs = getEventEndMs(event);
-                    const isDone =
-                      event._kind === "completed" ||
-                      status === "validée" ||
-                      status === "validee" ||
-                      status === "done" ||
-                      status === "completed";
+                    const isDone = calendarEventValidated(event);
                     const isMissed =
                       status === "manquée" ||
                       status === "manquee" ||
@@ -10461,13 +10363,15 @@ alignItems="stretch">
                       status === "canceled";
 	                    const isPastUnvalidated = !isDone && !isMissed && endMs > 0 && endMs <= Date.now();
 	                    const rating = normRating(event.difficultyRating);
-	                    const eventTone = getCalendarEventColor(event, activeBlue);
-	                    const statusMeta = isDone
+	                    const eventTone = getCalendarEventColor(event);
+	                    const statusMeta = calendarEventCancelled(event)
+                          ? { label: t("common.cancelled", "Annulée"), colorScheme: "gray", tone: eventTone }
+                          : isDone
 	                      ? { label: t("status.validated", "Validée"), colorScheme: rating ? ratingColorScheme(rating) : "green", tone: eventTone }
 	                      : isMissed
 	                        ? { label: t("status.missed", "Manquée"), colorScheme: "red", tone: dangerRed }
 	                        : isPastUnvalidated
-	                          ? { label: t("status.missed", "Manquée"), colorScheme: "red", tone: dangerRed }
+	                          ? { label: t("status.to_validate", "À valider"), colorScheme: "gray", tone: eventTone }
 	                          : { label: t("status.upcoming", "À venir"), colorScheme: "blue", tone: eventTone };
                     const noteLabel = rating
                       ? t("dashboard.calendar_rated", "Notée {{rating}}/5", { rating })
@@ -10478,11 +10382,12 @@ alignItems="stretch">
                     return (
                       <Box
                         key={event.id}
+                        position="relative"
                         as="button"
                         type="button"
 	                        textAlign="left"
 	                        border="1px solid"
-	                        borderColor={isPastUnvalidated ? `${dangerRed}66` : isDone ? `${eventTone}66` : borderColor}
+	                        borderColor={`${eventTone}66`}
 	                        borderRadius="18px"
 	                        p={3}
 	                        bg={modeValue(`${eventTone}0D`, `${eventTone}18`)}
@@ -10493,11 +10398,12 @@ alignItems="stretch">
                         transition="all 0.2s ease"
                         _hover={{ borderColor: activeBlue, transform: "translateY(-1px)" }}
                       >
-                        <HStack justify="space-between" align="flex-start" spacing={3}>
+                        <CalendarValidationMark event={event} />
+                        <HStack justify="space-between" align="flex-start" spacing={3} pr="16px">
                           <Box minW={0} flex="1">
                             <HStack spacing={2} mb={1} wrap="wrap">
                               <Text fontWeight="850" noOfLines={1}>
-                                {event._clientName || t("dashboard.client", "Client")}
+                                {event.type === "group" ? (event._sessionTitle || event.title) : event._clientName || t("dashboard.client", "Client")}
                               </Text>
                               <Badge colorScheme={statusMeta.colorScheme} borderRadius="full" px={2} py={0.5}>
                                 {statusMeta.label}
@@ -10697,17 +10603,27 @@ modeValue("rgba(59,130,246,0.06)",
                        </Flex>
                      }
                    >
+                     <>
+                     <Flex gap={4} wrap="wrap" mb={3} aria-label={t("calendar.title", "Calendrier")}>
+                       {Object.entries(coachEventColors).map(([kind, color]) => <HStack key={kind} spacing={2}>
+                         <Box w={3} h={3} borderRadius="full" bg={color}/>
+                         <Text fontSize="sm">{clubText(({individual:'Coaching individuel',group:'Cours collectifs',nutrition:'Nutrition',internal:'Interne'})[kind])}</Text>
+                       </HStack>)}
+                     </Flex>
 	                   <CoachDashboardCalendar
                         onReady={markCalendarReady}
+                        selectable="ignoreEvents"
+                        onSelectSlot={({ start }) => openEmptySessionModal(start)}
                         calendarCulture={calendarCulture}
                         formats={calendarFormats}
 	                      events={sessions}
 
                   startAccessor="start"
                   endAccessor="end"
-                  components={{ event: CalendarEvent }}
+                  tooltipAccessor={() => null}
+                  components={calendarComponents}
 	                  eventPropGetter={(evt) => {
-	                    const bg = getCalendarEventColor(evt, effectivePrimaryColor || activeBlue);
+	                    const bg = getCalendarEventColor(evt);
 
                     return {
                        style: {
@@ -10722,11 +10638,12 @@ modeValue("rgba(59,130,246,0.06)",
 	                       setSelectedEvent(evt);
 	                       eventModal.onOpen();
 	                    }}
-	                      onEventDrop={isTouchDevice() ? undefined : handleMoveCalendarEvent}
-	                      onEventResize={isTouchDevice() ? undefined : handleMoveCalendarEvent}
+	                      onEventDrop={isTouchDevice() ? undefined : move => { setMoveEmailRequested(false); setPendingCalendarMove(move); }}
+	                      onEventResize={isTouchDevice() ? undefined : move => { setMoveEmailRequested(false); setPendingCalendarMove(move); }}
 	                      resizable={!isTouchDevice()}
-	                      draggableAccessor={(event) =>
-	                        !isTouchDevice() && event?._kind === "planned" && event?.status !== "validée"
+	                      resizableAccessor={event => !isTouchDevice() && canMoveCoachCalendarEvent(event, effectiveCoachUid)}
+                      draggableAccessor={(event) =>
+	                        !isTouchDevice() && canMoveCoachCalendarEvent(event, effectiveCoachUid)
 	                      }
 	                    views={["month", "week", "day", "agenda"]}
                     style={{ height: 620, borderRadius: 12 }}
@@ -10742,6 +10659,7 @@ modeValue("rgba(59,130,246,0.06)",
 count: total, defaultValue: `+${total}` }),
                     }}
                  />
+                   </>
                    </React.Suspense>
                  </DeferredWidgetBoundary>
               </Box>
@@ -10758,6 +10676,7 @@ count: total, defaultValue: `+${total}` }),
             <VStack spacing={2.5} align="stretch">
               {showPopularProgramsWidget && (
               <CardShell
+                  {...{ surfaceBg, borderColor, glassShadow, modeValue, activeBlue, withAdminCoach, textColor, warmDashboardDestination, subtleText }}
 
                 title={t("dashboard.cards.popular_programs_title", "Programmes les plus assignés")}
 
@@ -10850,6 +10769,7 @@ setSelectedAssignedBaseProgramId(p.id);
 
               {showRecentActionsWidget && (
               <CardShell
+                  {...{ surfaceBg, borderColor, glassShadow, modeValue, activeBlue, withAdminCoach, textColor, warmDashboardDestination, subtleText }}
                 title={t("dashboard.cards.recent_actions_title", "Actions récentes")}
 
 subtitle={t("dashboard.cards.recent_actions_subtitle", "Les dernières validations et mouvements importants.")}
@@ -12163,7 +12083,8 @@ FormLabel>
                 )}
              </VStack>
            </ModalBody>
-           <ModalFooter>
+           <ModalFooter gap={4} flexWrap="wrap" justifyContent="space-between">
+             <Checkbox isChecked={sessionEmailRequested} onChange={e => setSessionEmailRequested(e.target.checked)}>{clubText('Envoyer un e-mail au client')}</Checkbox>
              <Button
                 bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
                 color="white"
@@ -12180,54 +12101,36 @@ FormLabel>
            </ModalFooter>
          </ModalContent>
        </Modal>
-       <Modal isOpen={eventModal.isOpen}
-onClose={eventModal.onClose} isCentered>
+       {eventModal.isOpen && selectedEvent?.type === "group" && selectedEvent?._kind === "club_appointment" && <React.Suspense fallback={<Spinner/>}><CoachClubAppointment event={selectedEvent} isOpen onClose={eventModal.onClose} onSaved={refreshDashboardData}/></React.Suspense>}
+       <Modal isOpen={eventModal.isOpen && !(selectedEvent?.type === "group" && selectedEvent?._kind === "club_appointment")}
+onClose={eventModal.onClose} isCentered scrollBehavior="inside" size="lg">
          <ModalOverlay />
          <ModalContent bg={surfaceBgStrong} color={textColor}
 borderRadius="22px" border="1px solid" borderColor={borderColor}>
-           <ModalHeader>
-             <VStack align="stretch" spacing={2}>
-                <HStack justify="space-between" align="center"
-minW={0}>
-                  <Text noOfLines={1} minW={0}>
-                    {selectedEvent?.title ||
-t("dashboard.edit_session", "Détails séance")}
-                  </Text>
-                  {normRating(selectedEvent?.difficultyRating) && (
-
-                  <Badge
-
-colorScheme={ratingColorScheme(selectedEvent?.difficultyRating)}
-
-                      variant="solid"
-                      flexShrink={0}
-                      borderRadius="full"
-                      px={3}
-                      py={1}
-                  >
-                       {t("sessionPlayer.rateTitle", "Difficulté")} :
-{normRating(selectedEvent?.difficultyRating)}/5
-                     </Badge>
-                  )}
+           <ModalHeader>{clubText("Détails de la séance")}</ModalHeader>
+           <ModalCloseButton />
+           <ModalBody pb={5}>
+             <Box bg={surfaceSoft} border="1px solid" borderColor={borderColor} borderRadius="18px" p={4} mb={4}>
+               <HStack align="start" justify="space-between" spacing={3}>
+                 <Box minW={0}>
+                   <Text fontWeight="900" overflowWrap="anywhere">{selectedEvent?._clientName || selectedEvent?.title}</Text>
+                   <Text color={mutedText} fontSize="sm" mt={1}>
+                     {selectedEvent?.start && new Intl.DateTimeFormat(i18n.language, {dateStyle:"medium",timeStyle:"short"}).format(new Date(selectedEvent.start))}
+                     {selectedEvent?.end && <> – {new Intl.DateTimeFormat(i18n.language, {hour:"2-digit",minute:"2-digit"}).format(new Date(selectedEvent.end))}</>}
+                   </Text>
+                   <Text color={mutedText} fontSize="sm" mt={1}>{clubText(selectedEvent?.eventType === "nutrition_appointment" ? "Nutrition" : "Coaching individuel")}</Text>
+                 </Box>
+                 <Badge borderRadius="full" flexShrink={0} colorScheme={selectedEvent?.status === "manquée" ? "red" : calendarEventValidated(selectedEvent || {}) ? "green" : "blue"}>
+                   {t(calendarEventValidated(selectedEvent || {}) ? "status.validated" : selectedEvent?.status === "manquée" ? "status.missed" : "status.upcoming")}
+                 </Badge>
                </HStack>
-               {selectedEvent?._programmeName && (
-                  <Text fontSize="sm" color={mutedText}
-noOfLines={1}>
-                     {t("form.program", "Programme")} :
-{selectedEvent._programmeName}
-                  </Text>
-               )}
-               {selectedEvent?._sessionTitle && (
-                  <Text fontSize="sm" color={mutedText}
-noOfLines={1}>
-                     {t("form.session", "Séance")} :
-{selectedEvent._sessionTitle}
-                  </Text>
-               )}
-            </VStack>
-          </ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
+               <SimpleGrid columns={{base:1,sm:2}} spacing={3} mt={4}>
+                 {selectedEvent?._programmeName && <Box><Text fontSize="xs" color={mutedText}>{t("form.program", "Programme")}</Text><Text fontSize="sm" fontWeight="600">{selectedEvent._programmeName}</Text></Box>}
+                 {selectedEvent?._sessionTitle && <Box><Text fontSize="xs" color={mutedText}>{t("form.session", "Séance")}</Text><Text fontSize="sm" fontWeight="600">{selectedEvent._sessionTitle}</Text></Box>}
+               </SimpleGrid>
+               {(selectedEvent?._note || selectedEvent?.notes || selectedEvent?.description) && <Box mt={3}><Text fontSize="xs" color={mutedText}>{t("auto.ClubDashboard.note_interne", "Note interne")}</Text><Text fontSize="sm" whiteSpace="pre-wrap">{selectedEvent._note || selectedEvent.notes || selectedEvent.description}</Text></Box>}
+               {normRating(selectedEvent?.difficultyRating) && <Badge mt={3} colorScheme={ratingColorScheme(selectedEvent.difficultyRating)}>{t("sessionPlayer.rateTitle", "Difficulté")} : {normRating(selectedEvent.difficultyRating)}/5</Badge>}
+             </Box>
             {selectedEvent?._kind === "completed" && (
                <Box mb={2.5}>
                   <Badge colorScheme="green" borderRadius="full"
@@ -12275,8 +12178,8 @@ px={3} py={1}>
                   <Divider mt={3} borderColor={borderColor} />
                </Box>
 	            )}
-	            <VStack spacing={2.5}>
-              {selectedEvent?.eventType !== "nutrition_appointment" && (
+	            <SimpleGrid columns={{base:1,sm:2}} spacing={3}>
+              {selectedEvent?.eventType !== "nutrition_appointment" && selectedEvent?.type !== "group" && (
 	                <Button
 	                  w="full"
 	                  bg={modeValue("#111827", "rgba(255,255,255,0.16)")}
@@ -12289,7 +12192,7 @@ px={3} py={1}>
 	                  {t("client_dash.start_session", "Démarrer la séance")}
 	                </Button>
               )}
-              {selectedEvent?.eventType !== "nutrition_appointment" && (
+              {selectedEvent?.eventType !== "nutrition_appointment" && selectedEvent?.type !== "group" && (
                <Button
                   w="full"
                   variant="outline"
@@ -12307,16 +12210,14 @@ modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")
               </Button>
               )}
 
-              <Button
-                w="full"
-                bg="rgba(16,185,129,0.18)"
-                color={activeGreen}
-                _hover={{ bg: "rgba(16,185,129,0.26)" }}
-                borderRadius="16px"
-                onClick={() => handleUpdateStatus("validée")}
-              >
-                {t("common.validate", "Valider")}
-              </Button>
+              {!eventEditOpen && selectedEvent?._kind !== "completed" && <FormControl isDisabled={eventStatusSaving}>
+                <FormLabel>{t("nutritionCoach.table.status", "Statut")}</FormLabel>
+                  <Select value={eventStatusDraft} onChange={e => setEventStatusDraft(e.target.value)} borderRadius="14px">
+                    <option value="à venir">{t("status.upcoming", "À venir")}</option>
+                    <option value="validée">{t("status.validated", "Validée")}</option>
+                    <option value="manquée">{t("status.missed", "Manquée")}</option>
+                  </Select>
+              </FormControl>}
               {selectedEvent?._kind !== "completed" && (
                 <Button
                   w="full"
@@ -12325,6 +12226,7 @@ modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")
                   color={textColor}
                   _hover={{ bg: modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)") }}
                   borderRadius="16px"
+                  alignSelf="end"
                   onClick={openEventEdit}
                 >
                   {selectedEvent?.eventType === "nutrition_appointment" ? "Modifier le rendez-vous" : "Modifier la séance"}
@@ -12332,6 +12234,7 @@ modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")
               )}
               {eventEditOpen && selectedEvent?._kind !== "completed" && (
                 <Box
+                  gridColumn="1 / -1"
                   w="full"
                   p={3}
                   borderRadius="18px"
@@ -12504,6 +12407,7 @@ modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")
                         onChange={(e) => setEventEditDraft((prev) => ({ ...prev, notes: e.target.value }))}
                       />
                     </FormControl>
+                    <Checkbox isChecked={editEmailRequested} onChange={e => setEditEmailRequested(e.target.checked)}>{clubText('Envoyer un e-mail au client')}</Checkbox>
                     <HStack justify="flex-end">
                       <Button variant="ghost" borderRadius="14px" isDisabled={eventEditSaving} onClick={() => setEventEditOpen(false)}>{t("exerciseCard.cancel", "Annuler")}</Button>
                       <Button
@@ -12519,32 +12423,45 @@ modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")
                   </VStack>
                 </Box>
               )}
-              <Button
-                w="full"
-                bg="rgba(239,68,68,0.18)"
-                color={dangerRed}
-                _hover={{ bg: "rgba(239,68,68,0.26)" }}
-                borderRadius="16px"
-                onClick={() => handleUpdateStatus("manquée")}
-              >
-                {t("common.missed", "Manquée")}
-              </Button>
-
-               <Button
-                 variant="outline"
-                 w="full"
-                 borderColor={borderStrong}
-                 color={textColor}
-                 _hover={{ bg:
-modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")
-}}
-                 borderRadius="16px"
-                 onClick={handleDeleteEvent}
-               >
-                 {t("common.delete", "Supprimer")}
-               </Button>
-            </VStack>
+            </SimpleGrid>
           </ModalBody>
+          <ModalFooter pt={0} justifyContent="space-between">
+            <Tooltip label={t("common.delete", "Supprimer")}>
+              <IconButton aria-label={t("common.delete", "Supprimer")} icon={<DeleteIcon />} variant="ghost" colorScheme="red" size="sm" onClick={handleDeleteEvent} />
+            </Tooltip>
+            <HStack spacing={2}>
+              {!eventEditOpen && selectedEvent?._kind !== "completed" && (
+                  <Button flexShrink={0} isLoading={eventStatusSaving} isDisabled={eventStatusDraft === (selectedEvent?.status || "à venir")} onClick={async () => {
+                    setEventStatusSaving(true);
+                    try { await handleUpdateStatus(eventStatusDraft); }
+                    catch (error) { notify(toast, "saveError", {title:t("common.error", "Erreur"), description:clubText(error.data?.error || "Enregistrement impossible.")}); }
+                    finally { setEventStatusSaving(false); }
+                  }}>{t("programBuilder.cta.saveShort", "Enregistrer")}</Button>
+              )}
+            <Button variant="ghost" onClick={eventModal.onClose}>{t("clubDashboard.calendar.closeDetails", "Fermer")}</Button>
+            </HStack>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+      <Modal isOpen={!!pendingCalendarMove} onClose={() => { if (!calendarMoveSaving) setPendingCalendarMove(null); }} isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>{clubText('Confirmer le déplacement')}</ModalHeader>
+          <ModalCloseButton isDisabled={calendarMoveSaving} />
+          <ModalBody>
+            <Text mb={3}>{pendingCalendarMove?.event?.title}</Text>
+            <Text mb={4}>{pendingCalendarMove && new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(pendingCalendarMove.start))}</Text>
+            {pendingCalendarMove?.event?._kind !== "club_appointment" && <><Checkbox isChecked={moveEmailRequested} isDisabled={calendarMoveSaving} onChange={e => setMoveEmailRequested(e.target.checked)}>{clubText('Envoyer un e-mail au client')}</Checkbox>
+            <Text mt={2} fontSize="sm">{clubText('Les préférences e-mail du client restent respectées.')}</Text></>}
+          </ModalBody>
+          <ModalFooter gap={3}>
+            <Button variant="ghost" isDisabled={calendarMoveSaving} onClick={() => setPendingCalendarMove(null)}>{t('common.cancel', 'Annuler')}</Button>
+            <Button isLoading={calendarMoveSaving} onClick={async () => {
+              setCalendarMoveSaving(true);
+              try { await handleMoveCalendarEvent(pendingCalendarMove, moveEmailRequested); setPendingCalendarMove(null); }
+              finally { setCalendarMoveSaving(false); }
+            }}>{t('common.save', 'Enregistrer')}</Button>
+          </ModalFooter>
         </ModalContent>
       </Modal>
       <Modal isOpen={upcomingSessionsModal.isOpen} onClose={upcomingSessionsModal.onClose} size="xl" isCentered>
@@ -12573,10 +12490,10 @@ modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")
                     }}
                   >
                     <Text fontWeight="800" fontSize="sm" noOfLines={1}>
-                      {evt._clientName || t("dashboard.client", "Client")}
+                      {evt.type === "group" ? (evt._sessionTitle || evt.title) : evt._clientName || t("dashboard.client", "Client")}
                     </Text>
                     <Text fontSize="sm" color={mutedText} noOfLines={1}>
-                      {evt._sessionTitle || evt.title || t("form.session", "Séance")}
+                      {evt.type === "group" ? clubText("Cours collectifs") : evt._sessionTitle || evt.title || t("form.session", "Séance")}
                     </Text>
                     <Text fontSize="xs" color={subtleText} mt={1}>
                       {evt.start.toLocaleDateString()} · {evt.start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}

@@ -1,3 +1,5 @@
+import useSessionDraft, { clearSessionDrafts } from "../hooks/useSessionDraft";
+import { useNavigationSave } from "../hooks/useNavigationSave";
 // src/components/ProgramBuilder.jsx
 import React, {
   useState,
@@ -107,9 +109,19 @@ import PageBackButton from "./ui/PageBackButton";
 /* ------------------ utils ------------------ */
 function useDebouncedCallback(callback, deps, delay) {
   const timeout = useRef();
+  const running = useRef(null);
+  const latest = useRef(callback);
+  latest.current = callback;
+  const run = async () => {
+    clearTimeout(timeout.current);
+    if (running.current) { await running.current; await new Promise(resolve => setTimeout(resolve, 0)); }
+    const request = Promise.resolve().then(() => latest.current());
+    running.current = request;
+    try { await request; } finally { if (running.current === request) running.current = null; }
+  };
+  useNavigationSave(run);
   useEffect(() => {
-    if (timeout.current) clearTimeout(timeout.current);
-    timeout.current = setTimeout(callback, delay);
+    timeout.current = setTimeout(() => { run().catch(error => console.error('Autosave failed', error)); }, delay);
     return () => clearTimeout(timeout.current);
   }, [...(deps || []), delay]);
 }
@@ -3044,7 +3056,9 @@ export default function ProgramBuilder({
   const programDocRef = useProgramDocRef(programId);
   const [, startTransition] = useTransition();
 
-  const [programName, setProgramName] = useState("");
+  const draftScope = `program-builder:${user?.uid || 'anonymous'}:${adminCoachId || ''}:new:`;
+  const draftKey = field => isNewRoute && !programId ? draftScope + field : null;
+  const [programName, setProgramName] = useSessionDraft(draftKey('name'), "");
   const [preparedClientId, setPreparedClientId] = useState(null);
   const [validatingCycle, setValidatingCycle] = useState(false);
   const [preparedAlreadyValidated, setPreparedAlreadyValidated] = useState(false);
@@ -3052,18 +3066,18 @@ export default function ProgramBuilder({
   const loadedTemplateRevision = useRef(0);
   const validationText = cycleValidationLabels[(i18n.resolvedLanguage || i18n.language || 'fr').split('-')[0]] || cycleValidationLabels.fr;
   const historyClientId = clientId || preparedClientId;
-  const [programmeGoal, setProgrammeGoal] = useState("");
-  const [objectifUI, setObjectifUI] = useState("");
-  const [programActiveWeeks, setProgramActiveWeeks] = useState(4);
-  const [programActiveWeeksInput, setProgramActiveWeeksInput] = useState("4");
+  const [programmeGoal, setProgrammeGoal] = useSessionDraft(draftKey("programmeGoal"), "");
+  const [objectifUI, setObjectifUI] = useSessionDraft(draftKey("objectifUI"), "");
+  const [programActiveWeeks, setProgramActiveWeeks] = useSessionDraft(draftKey("programActiveWeeks"), 4);
+  const [programActiveWeeksInput, setProgramActiveWeeksInput] = useSessionDraft(draftKey("programActiveWeeksInput"), "4");
   const [activeWeeksDirty, setActiveWeeksDirty] = useState(false);
   const [activeWeeksSaving, setActiveWeeksSaving] = useState(false);
-  const [progressionStrategy, setProgressionStrategy] = useState("linear");
+  const [progressionStrategy, setProgressionStrategy] = useSessionDraft(draftKey("progressionStrategy"), "linear");
 
-  const [autoProgressionEnabled, setAutoProgressionEnabled] = useState(true);
-  const [programOptions, setProgramOptions] = useState({});
+  const [autoProgressionEnabled, setAutoProgressionEnabled] = useSessionDraft(draftKey("autoProgressionEnabled"), true);
+  const [programOptions, setProgramOptions] = useSessionDraft(draftKey("programOptions"), {});
 
-  const [sessions, setSessions] = useState(() => [
+  const [sessions, setSessions] = useSessionDraft(draftKey("sessions"), () => [
     {
       name: t("programBuilder.sessionN", "Séance {{n}}", { n: 1 }),
       useSections: true,
@@ -3074,7 +3088,7 @@ export default function ProgramBuilder({
     },
   ]);
 
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useSessionDraft(draftKey("activeTab"), 0);
   const [currentSection, setCurrentSection] = useState("corps");
   const [editIndex, setEditIndex] = useState(null);
   const [expandedIndex, setExpandedIndex] = useState(null);
@@ -3510,6 +3524,7 @@ export default function ProgramBuilder({
           duration: 3500,
           position: "bottom",
         });
+        throw error;
       } finally {
         setActiveWeeksSaving(false);
       }
@@ -3753,6 +3768,7 @@ export default function ProgramBuilder({
         } catch (error) {
           console.error("[program-builder] autosave failed", error);
           setIsSaved(false);
+          throw error;
         } finally {
           savingRef.current = false;
           setSaving(false);
@@ -3895,6 +3911,7 @@ export default function ProgramBuilder({
           position: "bottom",
         });
 
+        clearSessionDrafts(draftScope);
         navigate(HOME_PATH, { replace: true });
         return;
       }

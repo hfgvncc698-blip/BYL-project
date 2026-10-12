@@ -1,20 +1,32 @@
+import {followupColor} from '../utils/followupColor';
+import LastPackSessionBadge from "./calendar/LastPackSessionBadge";
+import { eventPackProgress, eventLastPacks } from "../utils/lastPackSession.mjs";
+import CalendarDifficulty from "./calendar/CalendarDifficulty";
+import ClubCalendarEventPreview from "./dashboard/ClubCalendarEventPreview";
+import { ClientSessionPacks } from './dashboard/ClubSessionPacks';
+import { clubText } from '../i18n/clubText';
+import CalendarValidationMark, { useCalendarClock } from "./calendar/CalendarValidationMark";
+import { calendarEventAppearance } from "../utils/calendarEventAppearance.mjs";
+import ClientMemberships from "./dashboard/ClientMemberships";
+import useClientClubClasses from "./dashboard/useClientClubClasses";
+import ClubLogo from "./dashboard/ClubLogo";
 // src/components/ClientDashboard.jsx
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box, Heading, Text, Button, Flex, HStack, useColorModeValue,
   Spinner, Table, Thead, Tbody, Tr, Th, Td,
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton,
-  ModalBody, ModalFooter, FormControl, FormLabel, Select, Input,
-  VStack, Progress, Image, Badge, useToast, Divider, Link as ChakraLink,
-  SimpleGrid, Icon, Tooltip, Circle, Stack, useBreakpointValue,
+  ModalBody, ModalFooter, FormControl, FormLabel, Select, Input, Checkbox,
+  VStack, Progress, Badge, useToast, Divider, Link as ChakraLink,
+  SimpleGrid, Icon, IconButton, Tooltip, Circle, Stack, useBreakpointValue,
 } from '@chakra-ui/react';
-import { AddIcon } from '@chakra-ui/icons';
+import { AddIcon, DeleteIcon } from '@chakra-ui/icons';
 import { dashboardWeek } from '../utils/dashboardWeek';
 import { dashboardWeekLabels } from '../i18n/dashboardWeek';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   collection, getDocs, query, where, onSnapshot, orderBy, limit,
-  doc, addDoc, updateDoc, deleteDoc, Timestamp, getDoc
+  doc, addDoc, updateDoc, Timestamp, getDoc
 } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useAuth } from '../AuthContext';
@@ -74,7 +86,70 @@ import {
   expandRecurringDates,
 } from '../utils/calendarRecurrence';
 import CalendarRecurrenceFields from './calendar/CalendarRecurrenceFields.jsx';
+const ClientCancellationForm = lazy(() => import('./dashboard/ClientCancellationForm'));
+const ClientCancellationUpdates = lazy(() => import('./dashboard/ClientCancellationUpdates'));
 const ClientNutritionSharedSection = React.lazy(() => import("./ClientNutritionSharedSection.jsx"));
+  const ClientCardShell = ({ title, subtitle, action, icon, children, minH, activeBlue, surfaceBgStrong, borderColor, glassShadow, modeValue, subtleText, textColor, accent = activeBlue, ...boxProps }) => (
+    <Box
+      bg={surfaceBgStrong}
+      border="1px solid"
+      borderColor={borderColor}
+      borderRadius={{ base: "20px", md: "22px" }}
+      p={{ base: 3, md: 4 }}
+      boxShadow={glassShadow}
+      backdropFilter="blur(14px)"
+      minH={minH}
+      position="relative"
+      overflow="hidden"
+      {...boxProps}
+    >
+      <Flex justify="space-between" align="flex-start" gap={4} mb={4} position="relative" zIndex={1}>
+        <HStack spacing={3} align="flex-start">
+          {icon ? (
+            <Circle size="40px" bg={modeValue("rgba(59,130,246,0.10)", "rgba(59,130,246,0.16)")} color={accent} flexShrink={0}>
+              <Icon as={icon} boxSize="20px" />
+            </Circle>
+          ) : null}
+          <Box>
+            <Heading size="md" letterSpacing="-0.02em" fontWeight="900">
+              {title}
+            </Heading>
+            {subtitle ? (
+              <Text mt={1} fontSize="sm" color={subtleText}>
+                {subtitle}
+              </Text>
+            ) : null}
+          </Box>
+        </HStack>
+        {React.isValidElement(action)
+          ? React.cloneElement(action, {
+              h: "40px",
+              w: { base: "112px", md: "auto" },
+              minW: "112px",
+              px: 4,
+              borderRadius: "full",
+              variant: "outline",
+              bg: modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.08)"),
+              borderColor,
+              color: textColor,
+              fontFamily: "inherit",
+              fontSize: "sm",
+              fontWeight: "800",
+              letterSpacing: "-0.01em",
+              lineHeight: "1",
+              boxShadow: "none",
+              _hover: {
+                bg: modeValue("rgba(15,23,42,0.08)", "rgba(255,255,255,0.13)"),
+                borderColor,
+              },
+            })
+          : action}
+      </Flex>
+      <Box position="relative" zIndex={1}>{children}</Box>
+    </Box>
+  );
+
+
 const ClientDashboardCalendar = React.lazy(() => import("./dashboard/ClientDashboardCalendar.jsx"));
 const API_BASE = getApiBase();
 
@@ -639,7 +714,17 @@ function PremiumDetailsModal({ isOpen, onClose, program, loadingDetails, onBuy, 
 }
 
 /* ============================== COMPONENT ============================== */
+function ProgrammeAuthor({ name, dossierId }) {
+  const color = followupColor(dossierId);
+  const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('');
+  return <HStack mt={2} spacing={1.5} display="inline-flex" maxW="100%" borderRadius="full" bg={`${color}0D`} pl={0.5} pr={2} py={0.5}>
+    <Circle size="18px" bg={color} color="white" fontSize="8px" fontWeight="800" flexShrink={0} aria-hidden="true">{initials}</Circle>
+    <Text fontSize="xs" fontWeight="600" noOfLines={1}>{name}</Text>
+  </HStack>;
+}
+
 export default function ClientDashboard({ adminPreview = false }) {
+  useCalendarClock();
   const { t, i18n } = useTranslation();
   const calendarCulture = useMemo(
     () => getCalendarCulture(i18n.resolvedLanguage || i18n.language || "fr"),
@@ -651,6 +736,8 @@ export default function ClientDashboard({ adminPreview = false }) {
   const previewMode = Boolean(adminPreview && isAdmin && previewClientIdParam);
   const [previewUser, setPreviewUser] = useState(null);
   const user = previewMode ? previewUser : authenticatedUser;
+  const clubClasses = useClientClubClasses(authenticatedUser?.uid, !previewMode);
+  const [clubClassFilter, setClubClassFilter] = useState("all");
   const colorMode = useColorModeValue("light", "dark");
   const modeValue = useCallback(
     (lightValue, darkValue) => (colorMode === "light" ? lightValue : darkValue),
@@ -825,10 +912,14 @@ export default function ClientDashboard({ adminPreview = false }) {
     recurrence: createDefaultRecurrence(),
   });
   const [sessionCreateSaving, setSessionCreateSaving] = useState(false);
+  const [sessionPackGroups,setSessionPackGroups] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isEventOpen, setEventOpen] = useState(false);
   const [isRescheduleOpen, setRescheduleOpen] = useState(false);
   const [rescheduleDateTime, setRescheduleDateTime] = useState('');
+  const [rescheduleDuration, setRescheduleDuration] = useState(60 * 60000);
+  const [calendarSaving, setCalendarSaving] = useState(false);
+  const [eventStatus, setEventStatus] = useState('à venir');
 
   const [isCalendarModalOpen, setCalendarModalOpen] = useState(false);
   const [calendarSubscriptionUrl, setCalendarSubscriptionUrl] = useState('');
@@ -1060,6 +1151,7 @@ export default function ClientDashboard({ adminPreview = false }) {
     let unsubPrograms = null;
     let unsubSessA = null;
     let unsubSessB = null;
+    let unsubSessUser = null;
     let unsubNutrition = null;
     let unsubNutritionLogs = null;
     let programLoadVersion = 0;
@@ -1082,12 +1174,17 @@ export default function ClientDashboard({ adminPreview = false }) {
         return;
       }
 
+      const followupData = previewMode ? {followups:[{id:clientDoc.id}]} : await apiFetch('/clubs/my-followups');
+      if(!active)return;
+      const hiddenDossierIds=new Set(followupData.followups.filter(f=>f.hidden).map(f=>f.id));
+      const dossierIds = [...new Set([clientDoc.id,...followupData.followups.map(f=>f.id)])].filter(id=>!hiddenDossierIds.has(id));
       const cId = clientDoc.id;
       const clientData = clientDoc.data?.() || {};
       setClientId(cId);
       setClientProfile(clientData);
       runClientDataAccessDiagnostic(user, { source: "ClientDashboard", clientId: cId });
 
+      if(!hiddenDossierIds.has(cId)){
       unsubNutrition = onSnapshot(
         query(
           collection(db, "clients", cId, "nutrition_assessments"),
@@ -1138,12 +1235,14 @@ export default function ClientDashboard({ adminPreview = false }) {
         () => setNutritionMealHabits({})
       );
 
+      } else {setNutritionSummary(null);setDashboardNutritionMealKeys(null);setNutritionMealHabits({});}
+
       // ✅ sessions (calendar) EN LIVE : deux listeners + merge
-      const mergeSessions = (a = [], b = []) => {
+      const mergeSessions = (a = [], b = [], c = []) => {
         const map = new Map();
-        [...a, ...b].forEach(s => map.set(s.id, s));
+        [...a, ...b, ...c].forEach(s => map.set(s.id, s));
         return Array.from(map.values())
-          .filter(s => (!s.visibility || s.visibility === 'client' || s.visibility === 'both'))
+          .filter(s => !hiddenDossierIds.has(s.clientDocId||s.clientId) && !s.supersededBy && (!s.visibility || s.visibility === 'client' || s.visibility === 'both'))
           .map(s => {
             const start = s.start?.toDate ? s.start.toDate() : new Date(s.start);
             const end   = s.end?.toDate ? s.end.toDate()   : new Date(s.end);
@@ -1157,10 +1256,17 @@ export default function ClientDashboard({ adminPreview = false }) {
 
             return {
               id: s.id,
+              clientDocId: s.clientDocId || s.clientId,
               title: s.title,
               start,
               end,
               status: s.status,
+              difficultyRating: s.difficultyRating ?? s.rating ?? null,
+              validated: s.validated === true || Boolean(s.validatedAt) || Boolean(s.completedAt),
+              managedByCoach: Boolean(s.coachUid || s.coachId || s.clubId || s.clubAppointmentId || s.coachIds?.length || [s.createdBy, s.ownerUid, s.assignedBy].some(uid => uid && uid !== user.uid)),
+              coachUid: s.coachUid || s.coachId,
+              coachName: s.coachName,
+              clubId:s.clubId,clubAppointmentId:s.clubAppointmentId,
               visibility: s.visibility || 'client',
               dedupeKey: s.dedupeKey,
               programmeId: s.programmeId || s.programId || s.programID || null,
@@ -1171,42 +1277,55 @@ export default function ClientDashboard({ adminPreview = false }) {
 
       let cacheA = [];
       let cacheB = [];
+      let cacheUser = [];
       const qA = query(collection(db, 'sessions'), where('clientId', '==', user.uid));
       // Assigned/offline client documents are linked through `clientDocId`.
       // Querying `clientId == cId` cannot be authorized for a distinct auth UID
       // and caused a permanent rejected listener on the client dashboard.
-      const qB = query(collection(db, 'sessions'), where('clientDocId', '==', cId));
+
 
       unsubSessA = onSnapshot(
         qA,
         (snap) => {
           cacheA = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          setSessionsRaw(mergeSessions(cacheA, cacheB));
+          setSessionsRaw(mergeSessions(cacheA, cacheB, cacheUser));
         },
         () => {
           cacheA = [];
-          setSessionsRaw(mergeSessions(cacheA, cacheB));
+          setSessionsRaw(mergeSessions(cacheA, cacheB, cacheUser));
         }
       );
 
-      unsubSessB = onSnapshot(
-        qB,
-        (snap) => {
-          cacheB = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          setSessionsRaw(mergeSessions(cacheA, cacheB));
+      const sessionCaches = new Map();
+      const sessionUnsubs = dossierIds.map(id=>onSnapshot(query(collection(db,'sessions'),where('clientDocId','==',id)),snap=>{
+        sessionCaches.set(id,snap.docs.map(d=>({id:d.id,...d.data()})));cacheB=[...sessionCaches.values()].flat();setSessionsRaw(mergeSessions(cacheA,cacheB,cacheUser));
+      },()=>{}));
+      unsubSessB=()=>sessionUnsubs.forEach(unsubscribe=>unsubscribe());
+
+      // Appointments belong to the person, even when another follow-up dossier
+      // is selected. The userId query is authorized by canAccessSession.
+      unsubSessUser = onSnapshot(
+        query(collection(db, 'sessions'), where('userId', '==', user.uid)),
+        snap => {
+          cacheUser = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          setSessionsRaw(mergeSessions(cacheA, cacheB, cacheUser));
         },
         () => {
-          cacheB = [];
-          setSessionsRaw(mergeSessions(cacheA, cacheB));
+          cacheUser = [];
+          setSessionsRaw(mergeSessions(cacheA, cacheB, cacheUser));
         }
       );
 
       // ✅ programmes (mes programmes)
+      const programCaches = new Map();
+      const publishPrograms=(id,items)=>{programCaches.set(id,items);const all=[...programCaches.values()].flat();setProgrammes(all.sort((a,b)=>(b._lastOrAssignedMs||0)-(a._lastOrAssignedMs||0)));setHasPremiumOwned(all.some(p=>p.isPremiumOnly||String(p.origine||'').includes('premium')));};
+      const programUnsubs = dossierIds.map(cId=>{
+      let programLoadVersion=0;
       const progCol = collection(db, 'clients', cId, 'programmes');
-      unsubPrograms = onSnapshot(progCol, async (snap) => {
+      return onSnapshot(progCol, async (snap) => {
         const loadVersion = ++programLoadVersion;
         const quickItems = snap.docs.map((d) => {
-          const p = { id: d.id, ...d.data() };
+          const p = { id: d.id, ...d.data(), clientDocId:cId };
           const assignedAtMs = toMillis(
             p.assignedAt || p.dateAssignation || p.dateAffectation ||
             p.createdAt || p.createdOn || p.created_date
@@ -1254,11 +1373,8 @@ export default function ClientDashboard({ adminPreview = false }) {
         const quickSorted = [...quickItems].sort(
           (a, b) => (b._lastOrAssignedMs || 0) - (a._lastOrAssignedMs || 0)
         );
-        setProgrammes(quickSorted);
-        setHasPremiumOwned(quickItems.some(p =>
-          (p.origine && String(p.origine).toLowerCase().includes('premium')) ||
-          p.isPremiumOnly === true
-        ));
+        publishPrograms(cId,quickSorted);
+
         setLoading(false);
 
         try {
@@ -1266,7 +1382,7 @@ export default function ClientDashboard({ adminPreview = false }) {
           snap.docs,
           async d => {
             if (!active || loadVersion !== programLoadVersion) return null;
-            const p = { id: d.id, ...d.data() };
+            const p = { id: d.id, ...d.data(), clientDocId:cId };
 
             const rawAssignTs =
               p.assignedAt || p.dateAssignation || p.dateAffectation ||
@@ -1460,14 +1576,11 @@ export default function ClientDashboard({ adminPreview = false }) {
         );
 
         if (!active || loadVersion !== programLoadVersion) return;
-        const ownsPremium = items.some(p =>
-          (p.origine && String(p.origine).toLowerCase().includes('premium')) ||
-          p.isPremiumOnly === true
-        );
-        setHasPremiumOwned(ownsPremium);
+
+
 
         const sorted = items.sort((a, b) => (b._lastOrAssignedMs || 0) - (a._lastOrAssignedMs || 0));
-        setProgrammes(sorted);
+        publishPrograms(cId,sorted);
         setLoading(false);
         } catch (error) {
           // Keep the base program cards usable if optional enrichment fails.
@@ -1476,9 +1589,11 @@ export default function ClientDashboard({ adminPreview = false }) {
         }
       }, () => {
         programLoadVersion += 1;
-        setProgrammes([]);
+        publishPrograms(cId,[]);
         setLoading(false);
       });
+      });
+      unsubPrograms=()=>programUnsubs.forEach(unsubscribe=>unsubscribe());
     })().catch((error) => {
       console.warn('[ClientDashboard] client load failed', error);
       if (active) setLoading(false);
@@ -1490,6 +1605,7 @@ export default function ClientDashboard({ adminPreview = false }) {
       if (unsubPrograms) unsubPrograms();
       if (unsubSessA) unsubSessA();
       if (unsubSessB) unsubSessB();
+      if (unsubSessUser) unsubSessUser();
       if (unsubNutrition) unsubNutrition();
       if (unsubNutritionLogs) unsubNutritionLogs();
     };
@@ -1498,7 +1614,7 @@ export default function ClientDashboard({ adminPreview = false }) {
   }, [user?.uid, user?.linkedClientId, user?.email, user?.role, i18n.language, previewMode]);
 
   /* ====== Auto ajout au calendrier quand séance validée ====== */
-  const programmeIdsKey = useMemo(() => programmes.map(p => p.id).sort().join(','), [programmes]);
+  const programmeIdsKey = useMemo(() => programmes.map(p => `${p.clientDocId}:${p.id}`).sort().join(','), [programmes]);
 
   useEffect(() => {
     if (previewMode || !clientId || programmes.length === 0 || !user?.uid) return;
@@ -1524,7 +1640,7 @@ export default function ClientDashboard({ adminPreview = false }) {
       });
 
     const unsubs = programmes.map(p => {
-      const colRef = collection(db, 'clients', clientId, 'programmes', p.id, 'sessionsEffectuees');
+      const colRef = collection(db, 'clients', p.clientDocId||clientId, 'programmes', p.id, 'sessionsEffectuees');
 
       return onSnapshot(colRef, async (snap) => {
         try {
@@ -1536,6 +1652,8 @@ export default function ClientDashboard({ adminPreview = false }) {
             const s = change.doc.data();
 
             if (!isSessionValidatedRecord(s)) continue;
+            // The player already linked this completion to its planned event.
+            if (s.calendarEventId) continue;
 
             const startDate =
               s.dateEffectuee?.toDate?.() ||
@@ -1572,7 +1690,7 @@ export default function ClientDashboard({ adminPreview = false }) {
             try {
               const newRef = await addDoc(collection(db, 'sessions'), {
                 clientId: user.uid,
-                clientDocId: clientId,
+                clientDocId: p.clientDocId||clientId,
                 programmeId: p.id,
                 sessionIndex: idx,
                 title,
@@ -1622,19 +1740,20 @@ export default function ClientDashboard({ adminPreview = false }) {
     if (!clientId) return;
     if (p?.id) markDashboardItemSeen(`program:${clientId}:${p.id}:${p._assignedAtMs || p._createdAtMs || 0}`);
     const href = isAutoProgramme(p)
-      ? `/auto-program-preview/${clientId}/${p.id}`
-      : `/clients/${clientId}/programmes/${p.id}`;
+      ? `/auto-program-preview/${p.clientDocId||clientId}/${p.id}`
+      : `/clients/${p.clientDocId||clientId}/programmes/${p.id}`;
     navigate(href);
   };
   const navigateToProgramSession = (p, sessionIndex) => {
     if (!clientId || !p) return;
     const safeIndex = Number.isFinite(Number(sessionIndex)) ? Number(sessionIndex) : 0;
     const href = isAutoProgramme(p)
-      ? `/auto-program-preview/${clientId}/${p.id}`
-      : `/clients/${clientId}/programmes/${p.id}`;
+      ? `/auto-program-preview/${p.clientDocId||clientId}/${p.id}`
+      : `/clients/${p.clientDocId||clientId}/programmes/${p.id}`;
     navigate(href, { state: { sessionIndex: safeIndex } });
   };
   const navigateToCalendarSession = (event) => {
+    if (event?._clubClass) { clubClasses.open(event); return; }
     if (!event?.programmeId) return;
     const prog = programmes.find((p) => p.id === event.programmeId);
     if (!prog) return;
@@ -1658,7 +1777,7 @@ export default function ClientDashboard({ adminPreview = false }) {
       : 1;
 
     navigate(
-      `/clients/${clientId}/programmes/${p.id}/session/${resumeSessionIndex}/play`,
+      `/clients/${p.clientDocId||clientId}/programmes/${p.id}/session/${resumeSessionIndex}/play`,
       {
         state: {
           exerciseIndex: resumeExerciseIndex,
@@ -1686,7 +1805,7 @@ export default function ClientDashboard({ adminPreview = false }) {
       : 0;
 
     navigate(
-      `/clients/${clientId}/programmes/${p.id}/session/${nextSessionIndex}/play`,
+      `/clients/${p.clientDocId||clientId}/programmes/${p.id}/session/${nextSessionIndex}/play`,
       {
         state: {
           exerciseIndex: 0,
@@ -1707,7 +1826,7 @@ export default function ClientDashboard({ adminPreview = false }) {
     }
     if (!clientId || !(p?._total >= 1)) return;
     navigate(
-      `/clients/${clientId}/programmes/${p.id}/session/0/play`,
+      `/clients/${p.clientDocId||clientId}/programmes/${p.id}/session/0/play`,
       {
         state: {
           exerciseIndex: 0,
@@ -1856,7 +1975,7 @@ export default function ClientDashboard({ adminPreview = false }) {
           const end = new Date(recurrenceDate.getTime() + 60 * 60000);
           await addDoc(collection(db, 'sessions'), {
             clientId: user.uid,
-            clientDocId: clientId,
+            clientDocId: prog?.clientDocId || clientId,
             programmeId,
             sessionIndex,
             title,
@@ -1903,67 +2022,50 @@ export default function ClientDashboard({ adminPreview = false }) {
     }
   };
 
-  const handleValidate = async () => {
-    if (previewMode) {
-      notifyPreviewReadOnly();
-      return;
-    }
-    if (!selectedEvent) return;
-    await updateDoc(doc(db, 'sessions', selectedEvent.id), { status: 'validée' });
-    setEventOpen(false);
+  const canEditPersonalEvent = event => !!event && !previewMode && !event._clubClass && !event.managedByCoach;
+  const canMovePersonalEvent = event => canEditPersonalEvent(event) && !event.validated && !['validée', 'manquée', 'annulée'].includes(event.status);
+  const saveCalendarChange = async action => {
+    if (calendarSaving) return;
+    setCalendarSaving(true);
+    try { await action(); setEventOpen(false); setRescheduleOpen(false); }
+    catch (error) {
+      console.error('[client calendar] save failed', error);
+      toast({ status: 'error', title: t('common.error', 'Erreur'), description: t('calendar.save_error', 'La modification n’a pas pu être enregistrée. Réessayez.') });
+    } finally { setCalendarSaving(false); }
   };
-  const handleMissed = async () => {
-    if (previewMode) {
-      notifyPreviewReadOnly();
-      return;
-    }
-    if (!selectedEvent) return;
-    await updateDoc(doc(db, 'sessions', selectedEvent.id), { status: 'manquée' });
-    setEventOpen(false);
+  const saveEventStatus = () => {
+    if (!canEditPersonalEvent(selectedEvent)) return;
+    return saveCalendarChange(() => updateDoc(doc(db, 'sessions', selectedEvent.id), { status: eventStatus }));
   };
-  const handleDelete = async () => {
-    if (previewMode) {
-      notifyPreviewReadOnly();
-      return;
-    }
-    if (!selectedEvent) return;
-    await deleteDoc(doc(db, 'sessions', selectedEvent.id));
-    setEventOpen(false);
-  };
-
-  const moveEvent = async ({ event, start, end }) => {
-    if (previewMode) {
-      notifyPreviewReadOnly();
-      return;
-    }
-    if (isTouchDevice()) return;
-    await updateDoc(doc(db, 'sessions', event.id), {
-      start: Timestamp.fromDate(start),
-      end:   Timestamp.fromDate(end)
+  const handleDelete = () => {
+    if (!canEditPersonalEvent(selectedEvent)) return;
+    const id = selectedEvent.id;
+    return saveCalendarChange(async () => {
+      await apiFetch(`/coach-sessions/${encodeURIComponent(id)}/personal`, { method: 'DELETE' });
+      setSessionsRaw(current => current.filter(event => event.id !== id));
     });
   };
-
-  const openReschedule = () => {
-    if (!selectedEvent) return;
-    const iso = formatDateTimeLocalValue(selectedEvent.start);
-    setRescheduleDateTime(iso);
+  const moveEvent = ({ event, start, end }) => {
+    if (!canMovePersonalEvent(event) || isTouchDevice()) return;
+    setSelectedEvent(event);
+    setRescheduleDateTime(formatDateTimeLocalValue(start));
+    setRescheduleDuration(end - start);
     setRescheduleOpen(true);
   };
-  const confirmReschedule = async () => {
-    if (previewMode) {
-      notifyPreviewReadOnly();
-      return;
-    }
-    if (!rescheduleDateTime || !selectedEvent) return;
+  const openReschedule = () => {
+    if (!canMovePersonalEvent(selectedEvent)) return;
+    setRescheduleDateTime(formatDateTimeLocalValue(selectedEvent.start));
+    setRescheduleDuration(selectedEvent.end - selectedEvent.start);
+    setRescheduleOpen(true);
+  };
+  const confirmReschedule = () => {
+    if (!rescheduleDateTime || !canMovePersonalEvent(selectedEvent)) return;
     const start = new Date(rescheduleDateTime);
-    const constDuration = (selectedEvent.end - selectedEvent.start);
-    const end   = new Date(start.getTime() + constDuration);
-    await updateDoc(doc(db, 'sessions', selectedEvent.id), {
-      start: Timestamp.fromDate(start),
-      end:   Timestamp.fromDate(end)
-    });
-    setRescheduleOpen(false);
-    setEventOpen(false);
+    if (!Number.isFinite(start.getTime()) || rescheduleDuration <= 0) return;
+    const end = new Date(start.getTime() + rescheduleDuration);
+    return saveCalendarChange(() => updateDoc(doc(db, 'sessions', selectedEvent.id), {
+      start: Timestamp.fromDate(start), end: Timestamp.fromDate(end)
+    }));
   };
 
   const pageBg = modeValue("#F5F8FF", "#070B14");
@@ -1988,41 +2090,67 @@ export default function ClientDashboard({ adminPreview = false }) {
   const mobileHeroText = modeValue("#111827", "white");
   const mobileHeroMuted = modeValue("rgba(17,24,39,0.68)", "rgba(255,255,255,0.80)");
 
-  // ⭐ map programmeId -> difficultyMap (sessionIndex -> {rating,...})
-  const difficultyByProgramme = useMemo(() => {
-    const m = {};
-    programmes.forEach(p => {
-      m[p.id] = p?._difficultyMap || {};
-    });
-    return m;
-  }, [programmes]);
-
-  // ⭐ sessions enrichies avec difficultyRating (pour calendrier)
   const sessions = useMemo(() => {
     return (sessionsRaw || []).map(ev => {
       const pid = ev.programmeId || null;
-      const idx = (typeof ev.sessionIndex === "number")
-        ? ev.sessionIndex
-        : Number.isFinite(Number(ev.sessionIndex))
-        ? Number(ev.sessionIndex)
-        : null;
+      // A programme's last rating belongs to another occurrence, not this appointment.
+      const completed = ['validée', 'done', 'completed'].includes(ev.status);
+      const rating = completed ? normRating(ev.difficultyRating) : null;
 
-      const rating = (pid && idx != null && difficultyByProgramme?.[pid]?.[idx]?.rating)
-        ? difficultyByProgramme[pid][idx].rating
-        : null;
-
-      return { ...ev, difficultyRating: rating };
+      const matchingPrograms = programmes.filter(program => program.id === pid);
+      const program = matchingPrograms.length === 1 ? matchingPrograms[0] : matchingPrograms.find(program => program.clientDocId === ev.clientDocId);
+      // Personal planning used to inherit the selected dossier instead of the program's.
+      const programmeDossierId = program?.clientDocId || ev.clientDocId;
+      return { ...ev,
+        clientDocId: !ev.managedByCoach ? programmeDossierId : ev.clientDocId,
+        followupColorKey: programmeDossierId,
+        coachUid: ev.coachUid || program?.coachId || program?.coachUid,
+        difficultyRating: rating,
+      };
     });
-  }, [sessionsRaw, difficultyByProgramme]);
+  }, [sessionsRaw, programmes]);
+
+  const planningSessions = useMemo(() => [
+    ...sessions,
+    ...clubClasses.events.filter(event => clubClassFilter === 'all' || ['registered', 'waiting'].includes(event.mine)),
+  ].map(event => ({...event,packProgress:eventPackProgress(sessionPackGroups.filter(group=>!event.clubId||group.clubId===event.clubId).flatMap(group=>group.packs),event,[...sessions,...clubClasses.events]),lastSessionPacks:eventLastPacks(sessionPackGroups.filter(group => !event.clubId || group.clubId===event.clubId).flatMap(group=>group.packs),event)})), [sessions, clubClasses.events, clubClassFilter,sessionPackGroups]);
+  const clubClassFilterButtons = clubClasses.events.length > 0 && (
+    <Box mb={3}>
+      <HStack spacing={2} flexWrap="wrap" role="group" aria-label={clubText("Affichage des cours collectifs")}>
+        <Text fontSize="sm" fontWeight="semibold">{clubText("Cours collectifs")}</Text>
+        {[['all', clubText('Voir tout')], ['mine', clubText('Mes inscriptions')]].map(([value, label]) => (
+          <Button key={value} size="sm" borderRadius="14px" variant={clubClassFilter === value ? 'solid' : 'outline'}
+            aria-pressed={clubClassFilter === value} onClick={() => setClubClassFilter(value)}>{label}</Button>
+        ))}
+      </HStack>
+      {clubClassFilter === 'mine' && <Text fontSize="xs" mt={1}>{clubText("Inscriptions confirmées et liste d’attente.")}</Text>}
+    </Box>
+  );
+  const [cancelExpanded,setCancelExpanded]=useState(false);
+  useEffect(()=>{setCancelExpanded(false);},[selectedEvent?.id,isEventOpen]);
+  const [cancelPolicy,setCancelPolicy]=useState(null),[cancelReason,setCancelReason]=useState(''),[cancelBusy,setCancelBusy]=useState(false),[cancelError,setCancelError]=useState('');
+  useEffect(()=>{let live=true;setCancelPolicy(null);setCancelReason('');setCancelError('');
+    if(selectedEvent?.clubId&&selectedEvent?.clubAppointmentId) apiFetch(`/coach-sessions/${selectedEvent.id}/cancellation-policy`).then(p=>{if(live)setCancelPolicy(p);}).catch(e=>{if(live)setCancelError(clubText(e.data?.error||'Chargement impossible.'));});
+    return()=>{live=false;};
+  },[selectedEvent?.id]);
+  const cancelAssignedSession=async()=>{setCancelBusy(true);setCancelError('');try{await apiFetch(`/coach-sessions/${selectedEvent.id}/client-cancel`,{method:'POST',body:JSON.stringify({reason:cancelReason})});setEventOpen(false);window.dispatchEvent(new Event('client-cancellation-updated'));toast({status:'info',title:clubText('Demande transmise'),description:clubText('Votre motif a été envoyé au club et au coach. Il est en attente de validation. Vous retrouverez leur décision dans Mes annulations.'),duration:10000,isClosable:true});}catch(e){setCancelError(clubText(e.data?.error||'Annulation impossible.'));}finally{setCancelBusy(false);}};
+  const openPlanningEvent = event => { if (event._clubClass) clubClasses.open(event); else { setSelectedEvent(event); setEventStatus(event.status || 'à venir'); setEventOpen(true); } };
+
+  const openPlanningEventRef = React.useRef(openPlanningEvent);
+  openPlanningEventRef.current = openPlanningEvent;
+  const ClientEventWrapper = useCallback(props => <ClubCalendarEventPreview {...props} clients={[]}
+    onSelect={event => openPlanningEventRef.current(event)} actionLabel={clubText('Voir la séance')}
+    details={<Text fontSize="sm">{props.event._clubClass ? clubText('Cours collectifs') : clubText('Séance')}</Text>} />, [t]);
 
   const CalendarEvent = useCallback(({ event }) => {
     const r = normRating(event?.difficultyRating);
     const showStars = event?.status === "validée" && !!r;
 
     return (
-      <HStack spacing={1} align="center" minW={0}>
+      <HStack spacing={1} align="center" minW={0} pr="18px">
+        <CalendarValidationMark event={event} />
         <Text fontSize="sm" noOfLines={1} minW={0} flex="1">
-          {event.title}
+          {event.title}{event.packProgress && <Text as="span" display="block" fontSize="xs">{t("calendar.pack_session", {number:event.packProgress.number,total:event.packProgress.total})}</Text>}
         </Text>
         {showStars && (
           <Tooltip label={`${t("sessionPlayer.rateTitle", "Difficulté")} : ${r}/5`} hasArrow placement="top">
@@ -2034,19 +2162,11 @@ export default function ClientDashboard({ adminPreview = false }) {
       </HStack>
     );
   }, [t]);
+  const calendarComponents = useMemo(() => ({ event: CalendarEvent, eventWrapper: ClientEventWrapper }), [CalendarEvent, ClientEventWrapper]);
 
+  const eventColor = event => calendarEventAppearance(event, primaryColor || '#3182CE', Date.now(), (event.followupColorKey || event.clientDocId) ? followupColor(event.followupColorKey || event.clientDocId) : undefined).backgroundColor;
   const eventPropGetter = (event) => {
-    let bg = primaryColor || '#3182CE';
-    if (event.status === 'validée') bg = '#38A169';
-    else if (event.status === 'manquée') bg = '#E53E3E';
-
-    // ✅ Couleur basée sur la difficulté si noté
-    const r = normRating(event?.difficultyRating);
-    if (event.status === 'validée' && r) {
-      if (r <= 2) bg = '#2C7A7B';
-      else if (r === 3) bg = '#2B6CB0';
-      else bg = '#C05621';
-    }
+    const bg = eventColor(event);
 
     return {
       style: {
@@ -2203,9 +2323,9 @@ export default function ClientDashboard({ adminPreview = false }) {
 
   const weekLabels = dashboardWeekLabels(i18n.language);
   const selectedWeek = useMemo(() => dashboardWeek(dayClock,calendarWeekOffset),[dayClock,calendarWeekOffset]);
-  const weekSessions = useMemo(() => sessions.map(session=>({...session,_start:new Date(session.start)}))
+  const weekSessions = useMemo(() => planningSessions.map(session=>({...session,_start:new Date(session.start)}))
     .filter(session=>session._start>=selectedWeek.start && session._start<selectedWeek.end)
-    .sort((a,b)=>a._start-b._start),[sessions,selectedWeek]);
+    .sort((a,b)=>a._start-b._start),[planningSessions,selectedWeek]);
   const mobileCalendarDays = useMemo(() => {
     const start = selectedWeek.start;
 
@@ -2215,7 +2335,7 @@ export default function ClientDashboard({ adminPreview = false }) {
       const next = new Date(day);
       next.setDate(day.getDate() + 1);
 
-      const daySessions = sessions.filter((session) => {
+      const daySessions = planningSessions.filter((session) => {
         if (!session?.start) return false;
         const date = session.start instanceof Date ? session.start : new Date(session.start);
         return date >= day && date < next;
@@ -2228,7 +2348,7 @@ export default function ClientDashboard({ adminPreview = false }) {
         done: daySessions.filter((session) => session.status === 'validée').length,
       };
     });
-  }, [sessions,selectedWeek]);
+  }, [planningSessions,selectedWeek]);
 
   const mobileSelectedDay = mobileCalendarDays.find(day => day.key === calendarSelectedDayKey)
     || mobileCalendarDays.find(day => day.key === formatLocalDateKey(dayClock))
@@ -2301,6 +2421,12 @@ export default function ClientDashboard({ adminPreview = false }) {
   }, [programmes, clientProfile]);
 
   const recentDashboardCutoffMs = dayClock.getTime() - 7 * 24 * 60 * 60 * 1000;
+  const activeSessionPacks = sessionPackGroups.flatMap(group => (group.packs || [])
+    .filter(pack => pack.state === 'active')
+    .map(pack => ({ ...pack, dossierId: group.clientId })));
+  const packSessionsRemaining = activeSessionPacks.reduce((sum, pack) => sum + Math.max(0, Number(pack.remaining) || 0), 0);
+  const focusCoachingPacks = activeSessionPacks.filter(pack => pack.type === 'individual' && pack.dossierId === (focusProgramme?.clientDocId || clientId));
+
   const focusProgrammeSeenKey = focusProgramme?.id && clientId
     ? `program:${clientId}:${focusProgramme.id}:${focusProgramme._assignedAtMs || focusProgramme._createdAtMs || 0}`
     : "";
@@ -2680,66 +2806,6 @@ export default function ClientDashboard({ adminPreview = false }) {
     </Box>
   );
 
-  const ClientCardShell = ({ title, subtitle, action, icon, children, minH, accent = activeBlue, ...boxProps }) => (
-    <Box
-      bg={surfaceBgStrong}
-      border="1px solid"
-      borderColor={borderColor}
-      borderRadius={{ base: "20px", md: "22px" }}
-      p={{ base: 3, md: 4 }}
-      boxShadow={glassShadow}
-      backdropFilter="blur(14px)"
-      minH={minH}
-      position="relative"
-      overflow="hidden"
-      {...boxProps}
-    >
-      <Flex justify="space-between" align="flex-start" gap={4} mb={4} position="relative" zIndex={1}>
-        <HStack spacing={3} align="flex-start">
-          {icon ? (
-            <Circle size="40px" bg={modeValue("rgba(59,130,246,0.10)", "rgba(59,130,246,0.16)")} color={accent} flexShrink={0}>
-              <Icon as={icon} boxSize="20px" />
-            </Circle>
-          ) : null}
-          <Box>
-            <Heading size="md" letterSpacing="-0.02em" fontWeight="900">
-              {title}
-            </Heading>
-            {subtitle ? (
-              <Text mt={1} fontSize="sm" color={subtleText}>
-                {subtitle}
-              </Text>
-            ) : null}
-          </Box>
-        </HStack>
-        {React.isValidElement(action)
-          ? React.cloneElement(action, {
-              h: "40px",
-              w: { base: "112px", md: "auto" },
-              minW: "112px",
-              px: 4,
-              borderRadius: "full",
-              variant: "outline",
-              bg: modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.08)"),
-              borderColor,
-              color: textColor,
-              fontFamily: "inherit",
-              fontSize: "sm",
-              fontWeight: "800",
-              letterSpacing: "-0.01em",
-              lineHeight: "1",
-              boxShadow: "none",
-              _hover: {
-                bg: modeValue("rgba(15,23,42,0.08)", "rgba(255,255,255,0.13)"),
-                borderColor,
-              },
-            })
-          : action}
-      </Flex>
-      <Box position="relative" zIndex={1}>{children}</Box>
-    </Box>
-  );
-
   const DashboardAction = ({
     icon,
     title,
@@ -2902,6 +2968,7 @@ export default function ClientDashboard({ adminPreview = false }) {
       }}
       sx={{ "& [role='button']": { cursor: "pointer" } }}
     >
+      {!previewMode && <><ClientMemberships key={authenticatedUser?.uid} noticeOnly /></>}
       {previewMode ? (
         <Flex
           position="sticky"
@@ -2921,9 +2988,9 @@ export default function ClientDashboard({ adminPreview = false }) {
           boxShadow="0 12px 30px rgba(15,23,42,0.12)"
         >
           <Box>
-            <Text fontWeight="900">Aperçu de l’espace client</Text>
+            <Text fontWeight="900">{clubText("Aperçu de l’espace client")}</Text>
             <Text fontSize="sm" color={modeValue("orange.800", "orange.100")}>
-              Lecture seule — aucune action ne sera enregistrée.
+              {clubText("Lecture seule — aucune action ne sera enregistrée.")}
             </Text>
           </Box>
           <HStack spacing={2} flexShrink={0} flexWrap="wrap">
@@ -2934,7 +3001,7 @@ export default function ClientDashboard({ adminPreview = false }) {
                 routerNavigate(`/clients/${previewClientIdParam}?adminMode=1`)
               }
             >
-              Modifier le dossier
+              {clubText("Modifier le dossier")}
             </Button>
             <Button
               size="sm"
@@ -2943,7 +3010,7 @@ export default function ClientDashboard({ adminPreview = false }) {
                 routerNavigate(`/admin/client/${previewClientIdParam}`)
               }
             >
-              Quitter l’aperçu
+              {clubText("Quitter l’aperçu")}
             </Button>
           </HStack>
         </Flex>
@@ -3000,11 +3067,10 @@ export default function ClientDashboard({ adminPreview = false }) {
                   )}
                   flexShrink={0}
                 >
-                  <Image
-                    src={resolvedLogoUrl || "/logo-byl.png"}
+                  <ClubLogo
+                    src={resolvedLogoUrl}
                     alt={t('client_dash.logo_alt')}
-                    boxSize="88%"
-                    objectFit="contain"
+                    w="100%" h="100%" border="none" borderRadius="inherit" p={1.5}
                   />
                 </Flex>
                   <Box minW={0} w="full">
@@ -3369,6 +3435,8 @@ export default function ClientDashboard({ adminPreview = false }) {
           </Box>
       </Box>
 
+      {!previewMode && <Suspense fallback={null}><ClientCancellationUpdates key={`cancellations:${authenticatedUser?.uid}`}/></Suspense>}
+      {!previewMode && <><ClientSessionPacks compact showLink={false} key={`packs:${authenticatedUser?.uid}`} onGroups={setSessionPackGroups} /></>}
       {user && hasNutritionFollowUp ? (
         <React.Suspense fallback={<Box minH="220px" />}>
           <ClientNutritionSharedSection
@@ -3395,6 +3463,7 @@ export default function ClientDashboard({ adminPreview = false }) {
 
       <Box display={{ base: "none", md: "none" }} mb={5}>
         <ClientCardShell
+          {...{ activeBlue, surfaceBgStrong, borderColor, glassShadow, modeValue, subtleText, textColor }}
           title={t("sessionPlayer.shortcuts", "Raccourcis")}
           subtitle={t("auto.Clientdashboard.les_actions_utiles_sans_chercher", "Les actions utiles sans chercher.")}
           icon={MdOutlineChecklist}
@@ -3472,7 +3541,7 @@ export default function ClientDashboard({ adminPreview = false }) {
         <ClientStatTile
           label={t("dashboard.cards.upcoming_title", "Séances à venir")}
           value={upcomingSessions.length}
-          helper={upcomingSessions.length ? 'déjà planifiées dans ton calendrier' : 'aucune séance planifiée'}
+          helper={clubText(upcomingSessions.length ? 'déjà planifiées dans ton calendrier' : 'aucune séance planifiée')}
           icon={MdOutlineCalendarMonth}
           accent={warmAccent}
           action={
@@ -3498,7 +3567,7 @@ export default function ClientDashboard({ adminPreview = false }) {
         <ClientStatTile
           label={t("auto.Clientdashboard.ressenti_moyen", "Ressenti moyen")}
           value={averageRating ? `${averageRating}/5` : '—'}
-          helper={averageRating ? 'sur tes dernières notes de difficulté' : 'pas encore assez de retours'}
+          helper={clubText(averageRating ? 'sur tes dernières notes de difficulté' : 'pas encore assez de retours')}
           icon={MdOutlineStars}
           accent={violetAccent}
         />
@@ -3507,6 +3576,7 @@ export default function ClientDashboard({ adminPreview = false }) {
       <SimpleGrid display={{ base: "none", md: showSportSections ? "grid" : "none" }} columns={{ base: 1, lg: 12 }} spacing={5} mb={5}>
         <Box gridColumn={{ base: 'span 1', lg: 'span 4' }}>
           <ClientCardShell
+          {...{ activeBlue, surfaceBgStrong, borderColor, glassShadow, modeValue, subtleText, textColor }}
             title={t("auto.Clientdashboard.rythme_actuel", "Rythme actuel")}
             subtitle={t("auto.Clientdashboard.ce_qui_compte_vraiment_cette_semaine", "Ce qui compte vraiment cette semaine.")}
             icon={MdOutlineInsights}
@@ -3523,14 +3593,14 @@ export default function ClientDashboard({ adminPreview = false }) {
             <MetricLine
               label={t("auto.Clientdashboard.regularite", "Régularité")}
               value={motivationStats.streak > 0 ? `${motivationStats.streak}j` : '—'}
-              helper={motivationStats.streak > 0 ? "série en cours" : "à relancer tranquillement"}
+              helper={clubText(motivationStats.streak > 0 ? "série en cours" : "à relancer tranquillement")}
               icon={MdOutlineTrendingUp}
               accent={activeBlue}
             />
             <MetricLine
               label={t("auto.Clientdashboard.ressenti", "Ressenti")}
               value={averageRating ? `${averageRating}/5` : '—'}
-              helper={averageRating ? "difficulté moyenne" : "pas encore assez de notes"}
+              helper={clubText(averageRating ? "difficulté moyenne" : "pas encore assez de notes")}
               icon={MdOutlineStars}
               accent={violetAccent}
             />
@@ -3539,8 +3609,9 @@ export default function ClientDashboard({ adminPreview = false }) {
 
         <Box gridColumn={{ base: 'span 1', lg: 'span 8' }}>
           <ClientCardShell
-            title={allProgramsCompleted ? "Objectif atteint" : "Prochaine meilleure action"}
-            subtitle={allProgramsCompleted ? "Le cycle est terminé, on passe au bilan puis à la suite." : "Une seule décision claire pour continuer."}
+          {...{ activeBlue, surfaceBgStrong, borderColor, glassShadow, modeValue, subtleText, textColor }}
+            title={clubText(allProgramsCompleted ? "Objectif atteint" : "Prochaine meilleure action")}
+            subtitle={clubText(allProgramsCompleted ? "Le cycle est terminé, on passe au bilan puis à la suite." : "Une seule décision claire pour continuer.")}
             icon={allProgramsCompleted ? MdOutlineStars : MdOutlineFitnessCenter}
             minH="100%"
             accent={violetAccent}
@@ -3579,9 +3650,10 @@ export default function ClientDashboard({ adminPreview = false }) {
                   <Text fontSize="lg" fontWeight="800" letterSpacing="0">
                     {getProgrammeDisplayName(focusProgramme)}
                   </Text>
-                  <Text mt={1} fontSize="sm" color={mutedText}>
-                    {t("auto.Clientdashboard.par", "Par")} {getProgrammeAuthorLabel(focusProgramme)}
-                  </Text>
+                  <ProgrammeAuthor name={getProgrammeAuthorLabel(focusProgramme)} dossierId={focusProgramme.clientDocId} />
+                  {focusCoachingPacks.map(pack => <Text key={pack.id} mt={2} fontSize="sm" color={pack.remaining === 1 ? 'orange.500' : mutedText}>
+                    {pack.name} · {clubText('Séances restantes : {{remaining}}',{remaining:pack.remaining})}
+                  </Text>)}
                   <HStack mt={4} spacing={3} flexWrap="wrap">
                     <Badge px={3} py={1.5} borderRadius="full" variant="subtle">
                       {focusProgramme._done}/{focusProgramme._total}{t("auto.Clientdashboard.seances", "séances")}</Badge>
@@ -3627,7 +3699,7 @@ export default function ClientDashboard({ adminPreview = false }) {
                       onClick={() => startNextSession(focusProgramme)}
                       isDisabled={!focusProgramme._total}
                     >
-                      {focusProgramme._hasResumePoint ? "Reprendre au bon endroit" : "Reprendre"}
+                      {clubText(focusProgramme._hasResumePoint ? "Reprendre au bon endroit" : "Reprendre")}
                     </Button>
                   </Stack>
                 </Box>
@@ -3642,36 +3714,37 @@ export default function ClientDashboard({ adminPreview = false }) {
       <SimpleGrid display={{ base: "none", md: showSportSections ? "grid" : "none" }} columns={{ base: 1, lg: 12 }} spacing={5} mb={5}>
         <Box gridColumn={{ base: 'span 1', lg: 'span 8' }}>
           <ClientCardShell
-            title={allProgramsCompleted ? "Après la réussite" : "Actions utiles"}
-            subtitle={allProgramsCompleted ? "Des suites logiques plutôt qu'une séance de plus." : "Des raccourcis concrets, sans surcharge."}
+          {...{ activeBlue, surfaceBgStrong, borderColor, glassShadow, modeValue, subtleText, textColor }}
+            title={allProgramsCompleted ? clubText("Après la réussite") : clubText("Actions utiles")}
+            subtitle={allProgramsCompleted ? clubText("Des suites logiques plutôt qu'une séance de plus.") : clubText("Des raccourcis concrets, sans surcharge.")}
             icon={MdOutlineChecklist}
             minH="100%"
             accent={activeBlue}
           >
             <ActionLine
-              label={allProgramsCompleted ? "Bilan" : "Prochaine séance"}
-              value={allProgramsCompleted ? "Analyser le cycle terminé" : (motivationStats.upcoming?.title || 'À planifier')}
-              helper={allProgramsCompleted ? "Progression, régularité et ressenti." : nextSessionLabel}
+              label={allProgramsCompleted ? clubText("Bilan") : clubText("Prochaine séance")}
+              value={allProgramsCompleted ? clubText("Analyser le cycle terminé") : (motivationStats.upcoming?.title || clubText("À planifier"))}
+              helper={allProgramsCompleted ? clubText("Progression, régularité et ressenti.") : nextSessionLabel}
               icon={allProgramsCompleted ? MdOutlineInsights : MdOutlineCalendarMonth}
-              buttonLabel={allProgramsCompleted ? "Ouvrir" : motivationStats.upcoming ? "Ouvrir" : "Planifier"}
+              buttonLabel={allProgramsCompleted ? clubText("Ouvrir") : motivationStats.upcoming ? clubText("Ouvrir") : clubText("Planifier")}
               onClick={allProgramsCompleted ? () => navigate('/statistiques') : motivationStats.upcoming ? () => navigateToCalendarSession(motivationStats.upcoming) : () => setAddOpen(true)}
               accent={activeBlue}
             />
             <ActionLine
-              label={allProgramsCompleted ? "Suite" : "Objectif immédiat"}
-              value={allProgramsCompleted ? "Choisir un nouveau programme" : `${remainingSessions} séance${remainingSessions > 1 ? 's' : ''} restante${remainingSessions > 1 ? 's' : ''}`}
-              helper={allProgramsCompleted ? "Relancer avec un objectif plus précis." : "Sur l'ensemble de tes programmes actifs."}
+              label={allProgramsCompleted ? clubText("Suite") : clubText("Objectif immédiat")}
+              value={allProgramsCompleted ? clubText("Choisir un nouveau programme") : clubText('Séances restantes : {{remaining}}',{remaining:remainingSessions})}
+              helper={allProgramsCompleted ? clubText("Relancer avec un objectif plus précis.") : clubText("Sur l'ensemble de tes programmes actifs.")}
               icon={allProgramsCompleted ? MdOutlineFitnessCenter : MdOutlineFlag}
-              buttonLabel={allProgramsCompleted ? "Choisir" : "Voir"}
+              buttonLabel={allProgramsCompleted ? clubText("Choisir") : clubText("Voir")}
               onClick={() => navigate(allProgramsCompleted ? '/programmes-premium' : '/mes-programmes')}
               accent={violetAccent}
             />
             <ActionLine
-              label={allProgramsCompleted ? "Entretien" : "Élan actuel"}
-              value={allProgramsCompleted ? "Garder le rythme" : (motivationStats.streak > 0 ? `${motivationStats.streak} jour${motivationStats.streak > 1 ? 's' : ''}` : 'À relancer')}
-              helper={allProgramsCompleted ? "Planifier une séance libre ou un rappel." : motivationStats.streak > 0 ? 'Continue sur ce rythme.' : 'Une séance suffit pour repartir.'}
+              label={allProgramsCompleted ? clubText("Entretien") : clubText("Élan actuel")}
+              value={allProgramsCompleted ? clubText("Garder le rythme") : (motivationStats.streak > 0 ? clubText('Jours consécutifs : {{count}}',{count:motivationStats.streak}) : clubText("À relancer"))}
+              helper={allProgramsCompleted ? clubText("Planifier une séance libre ou un rappel.") : motivationStats.streak > 0 ? clubText("Continue sur ce rythme.") : clubText("Une séance suffit pour repartir.")}
               icon={MdOutlineTrendingUp}
-              buttonLabel={allProgramsCompleted ? "Planifier" : "Stats"}
+              buttonLabel={allProgramsCompleted ? clubText("Planifier") : clubText("Stats")}
               onClick={allProgramsCompleted ? () => setAddOpen(true) : () => navigate('/statistiques')}
               accent={activeBlue}
             />
@@ -3680,6 +3753,7 @@ export default function ClientDashboard({ adminPreview = false }) {
 
         <Box gridColumn={{ base: 'span 1', lg: 'span 4' }}>
           <ClientCardShell
+          {...{ activeBlue, surfaceBgStrong, borderColor, glassShadow, modeValue, subtleText, textColor }}
             data-tour="client-upcoming-card"
             title={t("auto.Clientdashboard.prochaines_dates", "Prochaines dates")}
             subtitle={t("auto.Clientdashboard.un_apercu_simple_de_ce_qui_arrive", "Un aperçu simple de ce qui arrive.")}
@@ -3699,7 +3773,7 @@ export default function ClientDashboard({ adminPreview = false }) {
                   cursor="pointer"
                   transition="all 0.2s ease"
                   _hover={{ borderColor: textColor, transform: 'translateY(-1px)' }}
-                  onClick={() => navigateToCalendarSession(session)}
+                  onClick={() => openPlanningEvent(session)}
                 >
                   <Text fontWeight="700" noOfLines={1}>{session.title}</Text>
                   <Text mt={1} fontSize="sm" color={mutedText}>
@@ -3723,6 +3797,7 @@ export default function ClientDashboard({ adminPreview = false }) {
 
       <Box display={{ base: "block", md: "none" }} mb={5}>
         <ClientCardShell
+          {...{ activeBlue, surfaceBgStrong, borderColor, glassShadow, modeValue, subtleText, textColor }}
           title={t("calendar.title", "Calendrier")}
           icon={MdOutlineCalendarMonth}
           accent={activeBlue}
@@ -3732,6 +3807,7 @@ export default function ClientDashboard({ adminPreview = false }) {
             </Button>
           }
         >
+          {clubClassFilterButtons}
           <HStack justify="space-between" mb={3} spacing={2}>
             <Button size="sm" variant="outline" borderRadius="14px" borderColor={borderColor} onClick={()=>{setCalendarWeekOffset(v=>v-1);setCalendarSelectedDayKey(null);}}>{t('calendar.previous','Précédent')}</Button>
             <Box textAlign="center" minW={0} aria-live="polite">
@@ -3792,6 +3868,8 @@ export default function ClientDashboard({ adminPreview = false }) {
             {mobileDaySessions.map((session) => (
               <Box
                 key={session.id}
+                position="relative"
+                
                 as="button"
                 type="button"
                 textAlign="left"
@@ -3799,14 +3877,18 @@ export default function ClientDashboard({ adminPreview = false }) {
                 borderColor={borderColor}
                 borderRadius="18px"
                 p={3}
-                bg={modeValue("rgba(255,255,255,0.64)", "rgba(255,255,255,0.035)")}
-                onClick={() => navigateToCalendarSession(session)}
+                borderLeftWidth="4px"
+                borderLeftColor={session.lastSessionPacks?.length && !calendarEventAppearance(session).cancelled ? "orange.400" : eventColor(session)}
+                bg={`${eventColor(session)}18`}
+                onClick={() => openPlanningEvent(session)}
                 transition="all 0.2s ease"
                 _hover={{ borderColor: activeBlue, transform: "translateY(-1px)" }}
               >
-                <HStack justify="space-between" spacing={3}>
+                <CalendarValidationMark event={session} />
+                <HStack justify="space-between" spacing={3} pr="16px">
                   <Box minW={0}>
-                    <Text fontWeight="850" noOfLines={1}>{session.status === "validée" ? "✓ " : ""}{session.title}</Text>
+                    <Text fontWeight="850" noOfLines={1}>{session.title}</Text>
+                    {!!session.lastSessionPacks?.length && <Box mt={2}><LastPackSessionBadge/></Box>}
                     <Text mt={1} fontSize="sm" color={mutedText}>
                       {session._start.toLocaleString(i18n.language || 'fr', {
                         weekday: 'short',
@@ -3843,6 +3925,7 @@ export default function ClientDashboard({ adminPreview = false }) {
       {/* MES PROGRAMMES */}
       {hasSportPrograms ? (
       <ClientCardShell
+          {...{ activeBlue, surfaceBgStrong, borderColor, glassShadow, modeValue, subtleText, textColor }}
         data-tour="client-programs-card"
         title={t('client_dash.my_programs')}
         subtitle={t("auto.Clientdashboard.tes_programmes_actifs_leur_progression_et_l_acces_", "Tes programmes actifs, leur progression et l'accès direct à la prochaine séance.")}
@@ -3861,6 +3944,9 @@ export default function ClientDashboard({ adminPreview = false }) {
             </Badge>
             <Badge px={3} py={1.5} borderRadius="full" variant="subtle">
               {motivationStats.percentAll}{t("auto.Clientdashboard.complete", "% complété")}</Badge>
+            {activeSessionPacks.length > 0 && <Badge px={3} py={1.5} borderRadius="full" colorScheme={packSessionsRemaining === 1 ? 'orange' : 'teal'} textTransform="none">
+              {clubText('Séances restantes en packs : {{remaining}}',{remaining:packSessionsRemaining})}
+            </Badge>}
           </HStack>
         </Flex>
 
@@ -3893,13 +3979,13 @@ export default function ClientDashboard({ adminPreview = false }) {
                       <Td>
                         <ChakraLink
                           as={Link}
-                          to={isAutoProgramme(p) ? `/auto-program-preview/${clientId}/${p.id}` : `/clients/${clientId}/programmes/${p.id}`}
+                          to={isAutoProgramme(p) ? `/auto-program-preview/${p.clientDocId||clientId}/${p.id}` : `/clients/${p.clientDocId||clientId}/programmes/${p.id}`}
                           color={textColor}
                         >
                           {getProgrammeDisplayName(p)}
                         </ChakraLink>
                       </Td>
-                      <Td>{getProgrammeAuthorLabel(p)}</Td>
+                      <Td><ProgrammeAuthor name={getProgrammeAuthorLabel(p)} dossierId={p.clientDocId} /></Td>
 
                       <Td>
                         <Tooltip
@@ -3995,15 +4081,13 @@ export default function ClientDashboard({ adminPreview = false }) {
                           <Text fontWeight="900" fontSize="md" pr="10px" noOfLines={2}>
                             <ChakraLink
                               as={Link}
-                              to={isAutoProgramme(p) ? `/auto-program-preview/${clientId}/${p.id}` : `/clients/${clientId}/programmes/${p.id}`}
+                              to={isAutoProgramme(p) ? `/auto-program-preview/${p.clientDocId||clientId}/${p.id}` : `/clients/${p.clientDocId||clientId}/programmes/${p.id}`}
                               color={textColor}
                             >
                               {getProgrammeDisplayName(p)}
                             </ChakraLink>
                           </Text>
-                          <Text mt={1} fontSize="xs" color={subtleText} fontWeight="800" noOfLines={1}>
-                            {t("auto.Clientdashboard.par", "Par")} {getProgrammeAuthorLabel(p)}
-                          </Text>
+                          <ProgrammeAuthor name={getProgrammeAuthorLabel(p)} dossierId={p.clientDocId} />
                         </Box>
                       </HStack>
                       <Box flexShrink={0}>
@@ -4072,6 +4156,7 @@ export default function ClientDashboard({ adminPreview = false }) {
 
       <Box display={{ base: "block", md: "none" }} mb={6}>
         <ClientCardShell
+          {...{ activeBlue, surfaceBgStrong, borderColor, glassShadow, modeValue, subtleText, textColor }}
           title={freeAvailable ? t("premium.free_badge", "Offert") : t("auto.Clientdashboard.inspiration", "Inspiration")}
           subtitle={freeAvailable ? t("auto.Clientdashboard.1_programme_offert_disponible", "1 programme offert disponible") : t("premium.subtitle")}
           icon={MdOutlineStars}
@@ -4185,6 +4270,7 @@ export default function ClientDashboard({ adminPreview = false }) {
 
       {/* PROGRAMMES PREMIUM */}
       <ClientCardShell
+          {...{ activeBlue, surfaceBgStrong, borderColor, glassShadow, modeValue, subtleText, textColor }}
         data-tour="client-premium-card"
         title={t('premium.title')}
         subtitle={t('premium.subtitle')}
@@ -4337,8 +4423,10 @@ export default function ClientDashboard({ adminPreview = false }) {
         )}
       </ClientCardShell>
 
+      {clubClasses.error && <Text role="alert" color="red.500">{clubClasses.error}</Text>}
       {/* CALENDRIER */}
       <ClientCardShell
+          {...{ activeBlue, surfaceBgStrong, borderColor, glassShadow, modeValue, subtleText, textColor }}
         data-tour="client-calendar"
         title={t('calendar.title')}
         subtitle={
@@ -4397,17 +4485,24 @@ export default function ClientDashboard({ adminPreview = false }) {
           '.rbc-agenda-table td, .rbc-agenda-table th': { borderColor }
         }}
       >
+        {clubClassFilterButtons}
         <DeferredViewport minHeight={620}>
           <React.Suspense fallback={<Box minH="620px" />}>
             <ClientDashboardCalendar
               culture={calendarCulture}
               formats={calendarFormats}
-              events={sessions}
+              events={planningSessions}
               startAccessor="start"
               endAccessor="end"
-              selectable
-              onSelectEvent={(evt)=>{ setSelectedEvent(evt); setEventOpen(true); }}
-              components={{ event: CalendarEvent }}
+              selectable="ignoreEvents"
+              onSelectSlot={({ start }) => {
+                if (previewMode) { notifyPreviewReadOnly(); return; }
+                setNewSession(prev => ({ ...prev, startDateTime: formatDateTimeLocalValue(start) }));
+                setAddOpen(true);
+              }}
+              onSelectEvent={openPlanningEvent}
+              tooltipAccessor={() => null}
+              components={calendarComponents}
               onEventDrop={isTouchDevice() ? undefined : moveEvent}
               resizable={!isTouchDevice()}
               onEventResize={isTouchDevice() ? undefined : moveEvent}
@@ -4424,7 +4519,8 @@ export default function ClientDashboard({ adminPreview = false }) {
                 showMore: (total) => t('calendar.show_more', { count: total, defaultValue: `+${total}` }),
               }}
               eventPropGetter={eventPropGetter}
-              draggableAccessor={() => !isTouchDevice()}
+              draggableAccessor={event => canMovePersonalEvent(event) && !isTouchDevice()}
+              resizableAccessor={event => canMovePersonalEvent(event) && !isTouchDevice()}
             />
           </React.Suspense>
         </DeferredViewport>
@@ -4494,21 +4590,39 @@ export default function ClientDashboard({ adminPreview = false }) {
         </ModalContent>
       </Modal>
 
+      {clubClasses.modal}
       {/* EVENT ACTIONS */}
-      <Modal isOpen={isEventOpen} onClose={()=>setEventOpen(false)} isCentered>
+      <Modal isOpen={isEventOpen} onClose={()=>setEventOpen(false)} isCentered size="lg">
         <ModalOverlay/>
         <ModalContent>
-          <ModalHeader>{t('calendar.session_title')}</ModalHeader>
-          <ModalCloseButton/>
+          <ModalHeader>{clubText('Détails de la séance')}</ModalHeader><ModalCloseButton/>
           <ModalBody>
-            <VStack spacing={3}>
-              <Button colorScheme="green" w="full" onClick={handleValidate}>{t('calendar.validate')}</Button>
-              <Button colorScheme="red" w="full" onClick={handleMissed}>{t('calendar.missed')}</Button>
-              <Divider />
-              <Button variant="outline" w="full" onClick={openReschedule}>{t('calendar.move')}</Button>
-              <Button variant="outline" w="full" onClick={handleDelete}>{t('actions.delete')}</Button>
-            </VStack>
+            <Box borderWidth="1px" borderRadius="xl" p={4} mb={4}>
+              <HStack justify="space-between"><Text fontWeight="bold">{selectedEvent?.title}</Text>
+                <Badge>{t(({ 'validée': 'status.validated', 'manquée': 'status.missed', 'annulée':'common.cancelled', 'cancelled':'common.cancelled' })[selectedEvent?.status] || 'status.upcoming')}</Badge></HStack>
+              <Text mt={2}>{selectedEvent?.start?.toLocaleDateString(calendarCulture)} · {selectedEvent?.start?.toLocaleTimeString(calendarCulture, {hour:'2-digit', minute:'2-digit'})} – {selectedEvent?.end?.toLocaleTimeString(calendarCulture, {hour:'2-digit', minute:'2-digit'})}</Text>
+              {selectedEvent?.coachName && <Text mt={1}>{selectedEvent.coachName}</Text>}
+              {selectedEvent?.packProgress && <Text mt={2} fontWeight="bold">{t("calendar.pack_session", {number:selectedEvent.packProgress.number,total:selectedEvent.packProgress.total})}</Text>}
+              <CalendarDifficulty rating={selectedEvent?.difficultyRating}/>
+            </Box>
+            {selectedEvent?.programmeId && <SimpleGrid columns={2} spacing={3} mb={3}>
+              <Button variant="outline" bg="white" color="gray.900" _hover={{bg:'gray.50'}} whiteSpace="normal" onClick={() => navigateToCalendarSession(selectedEvent)}>{clubText('Voir la séance')}</Button>
+              {!['annulée','cancelled'].includes(selectedEvent?.status) && <Button bg="#111827" color="white" _hover={{bg:'#1F2937'}} whiteSpace="normal" onClick={()=>navigate(`/clients/${selectedEvent.clientDocId||clientId}/programmes/${selectedEvent.programmeId}/session/${selectedEvent.sessionIndex??0}/play`,{state:{calendarEventId:selectedEvent.id}})}>{t('client_dash.start_session','Démarrer la séance')}</Button>}
+            </SimpleGrid>}
+
+            {(selectedEvent?.excuseDecision || (cancelPolicy && cancelExpanded)) && <Suspense fallback={null}><ClientCancellationForm decision={selectedEvent?.excuseDecision} cancelPolicy={cancelPolicy} cancelExpanded={cancelExpanded} calendarCulture={calendarCulture} cancelReason={cancelReason} setCancelReason={setCancelReason} cancelBusy={cancelBusy} cancelAssignedSession={cancelAssignedSession}/></Suspense>}{cancelError&&<Text role="alert" color="red.500">{cancelError}</Text>}
+            {canEditPersonalEvent(selectedEvent) && <HStack align="end" spacing={3}>
+              <FormControl><FormLabel>{clubText('Statut')}</FormLabel><Select value={eventStatus} onChange={e => setEventStatus(e.target.value)}>
+                <option value="à venir">{t('status.upcoming')}</option><option value="validée">{t('status.validated')}</option><option value="manquée">{t('status.missed')}</option>
+              </Select></FormControl>
+              <Button variant="outline" onClick={openReschedule} isDisabled={!canMovePersonalEvent(selectedEvent)}>{t('calendar.move')}</Button>
+            </HStack>}
           </ModalBody>
+          <ModalFooter justifyContent="space-between">
+            {cancelPolicy ? <Checkbox isChecked={cancelExpanded} isDisabled={cancelBusy} onChange={e=>setCancelExpanded(e.target.checked)} aria-controls="client-cancellation-form">{clubText("Annuler la séance")}</Checkbox> : canEditPersonalEvent(selectedEvent) ? <IconButton icon={<DeleteIcon/>} aria-label={t('actions.delete')} variant="ghost" onClick={handleDelete} isDisabled={calendarSaving}/> : <Box/>}
+            <HStack>{canEditPersonalEvent(selectedEvent) && <Button onClick={saveEventStatus} isLoading={calendarSaving} isDisabled={eventStatus === selectedEvent?.status}>{clubText('Enregistrer')}</Button>}
+              <Button variant="ghost" onClick={()=>setEventOpen(false)}>{t('actions.close')}</Button></HStack>
+          </ModalFooter>
         </ModalContent>
       </Modal>
 
@@ -4530,7 +4644,7 @@ export default function ClientDashboard({ adminPreview = false }) {
           </ModalBody>
           <ModalFooter>
             <Button variant="ghost" mr={3} onClick={()=>setRescheduleOpen(false)}>{t('actions.close')}</Button>
-            <Button onClick={confirmReschedule}>{t('actions.confirm')}</Button>
+            <Button onClick={confirmReschedule} isLoading={calendarSaving} isDisabled={!rescheduleDateTime}>{t('actions.confirm')}</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

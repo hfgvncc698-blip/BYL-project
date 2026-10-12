@@ -1,0 +1,15 @@
+import React, {useCallback,useEffect,useState} from 'react';
+import {Box,Heading,Text,Stack,HStack,Button,Badge} from '@chakra-ui/react';
+import {useTranslation} from 'react-i18next';
+import {apiFetch} from '../../utils/api';
+import {clubText,clubLocale} from '../../i18n/clubText';
+
+export default function SessionCancellationRequests({onCount,history=false,onBack}){
+ useTranslation();
+ const [requests,setRequests]=useState([]),[error,setError]=useState(''),[busy,setBusy]=useState('');
+ const load=useCallback(async()=>{const result=await apiFetch('/coach-sessions/cancellation-requests'+(history?'?history=true':''));setRequests(result.requests);onCount?.(result.requests.filter(r=>r.decision==='pending').length);setError('');},[onCount,history]);
+ useEffect(()=>{const refresh=()=>load().catch(()=>setError(clubText('Chargement impossible.')));refresh();const timer=setInterval(refresh,30000);window.addEventListener('focus',refresh);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh);};},[load]);
+ const review=async(r,decision)=>{setBusy(r.id);setError('');try{await apiFetch(`/coach-sessions/${encodeURIComponent(r.id)}/cancellation-review`,{method:'POST',body:JSON.stringify({decision,version:r.version})});await load();window.dispatchEvent(new Event('cancellation-reviewed'));}catch(e){setError(clubText(e?.data?.error||'Enregistrement impossible.'));await load().catch(()=>{});}finally{setBusy('');}};
+ if(!history&&!requests.length&&!error)return null;
+ return <Box borderWidth="1px" borderRadius="2xl" bg="chakra-body-bg" p={{base:3,md:5}} position="relative"><HStack justify="space-between" mb={3}>{onBack&&<Button size="sm" variant="ghost" onClick={onBack}>{clubText('Retour')}</Button>}<Heading size="sm">{clubText(history?'Annulations':'Annulations à examiner')}</Heading><Badge colorScheme="orange">{requests.filter(r=>r.decision==='pending').length}</Badge></HStack>{error&&<Text role="alert" color="red.500">{error}</Text>}<Stack maxH={history?undefined:"420px"} overflowY="auto">{requests.map(r=><Box key={r.id} borderWidth="1px" borderRadius="lg" p={3}><Text fontWeight="bold">{r.clientName} · {r.title}</Text><Text fontSize="sm">{new Date(r.startsAt).toLocaleString(clubLocale())}</Text><Text whiteSpace="pre-wrap" overflowWrap="anywhere" mt={2}>{r.reason}</Text><Text fontSize="xs" mt={2}>{clubText('Le club et le coach reçoivent cette demande. La première décision est partagée ; le cours reste annulé.')}</Text>{r.decision==='pending'?<HStack mt={3} justify="flex-end" flexWrap="wrap"><Button size="sm" variant="outline" isDisabled={!!busy} onClick={()=>review(r,'rejected')}>{clubText('Refuser la justification')}</Button><Button size="sm" isDisabled={!!busy} onClick={()=>review(r,'accepted')}>{clubText('Accepter la justification')}</Button></HStack>:<Box mt={3}><Badge colorScheme={r.decision==='accepted'?'green':'red'}>{clubText(r.decision==='accepted'?'Justification acceptée':'Justification refusée')}</Badge>{r.reviewedAt&&<Text fontSize="xs">{clubText('Décision reçue le {{date}}',{date:new Date(r.reviewedAt).toLocaleString(clubLocale())})}</Text>}</Box>}</Box>)}</Stack></Box>;
+}

@@ -1,3 +1,4 @@
+import { CoachClientSessionPacks } from './dashboard/ClubSessionPacks';
 // src/components/ClientView.jsx
 import {assertProgramSize} from '../utils/safeProgramWrite';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
@@ -623,7 +624,7 @@ function buildAssignedProgramFromBase({
   };
 }
 
-export default function ClientView() {
+function GlobalClientView({ onBack } = {}) {
   const { isAdmin, user, hasCoachAccess } = useAuth();
   const { t } = useTranslation();
   const { clientId } = useParams();
@@ -1510,14 +1511,14 @@ export default function ClientView() {
         mb={5}
       >
         <Flex display={{ base: "flex", md: "none" }} mb={4} align="center" justify="space-between" gap={3}>
-          <PageBackButton label={t("common.back", "Retour")} onClick={() => navigate(-1)} />
+          <PageBackButton label={onBack ? "Retour à la gestion du client" : t("common.back", "Retour")} onClick={onBack || (() => navigate(-1))} />
           <Button size="sm" variant="outline" borderRadius="full" onClick={editClient.onOpen}>
             {t("clientView.editClient", "Modifier client")}
           </Button>
         </Flex>
 
         <Flex display={{ base: "none", md: "flex" }} mb={4} align="center" justify="space-between" gap={3}>
-          <PageBackButton label={t("common.back", "Retour")} onClick={() => navigate(-1)} />
+          <PageBackButton label={onBack ? "Retour à la gestion du client" : t("common.back", "Retour")} onClick={onBack || (() => navigate(-1))} />
           <Button size="sm" onClick={editClient.onOpen}>
             {t("clientView.editClient", "Modifier client")}
           </Button>
@@ -1660,6 +1661,7 @@ export default function ClientView() {
       </Grid>
       </Box>
 
+      {hasCoachAccess && client && user?.clubId && (client.coachUid || client.coachId) === user?.uid && <CoachClientSessionPacks clientId={clientId}/> }
       {(isAdmin || hasCoachAccess) && client && !isNutritionOnlyClient && <SportViewPreference key={clientId} clientId={clientId} value={programsOnly ? 'programs' : 'cycles'} />}
       {(isAdmin || hasCoachAccess) && client && !isNutritionOnlyClient && !programsOnly && <Suspense fallback={null}>
         <TrainingCycles key={clientId} clientId={clientId} client={client} programmes={programmes} programmesReady={programmeDetailsReady} coachId={assignmentCoachUid || user?.uid} />
@@ -2716,4 +2718,34 @@ export default function ClientView() {
       </Modal>
     </Box>
   );
+}
+
+
+const ClubAdministrationView = lazy(() => import('./dashboard/ClubClientAdministration'));
+const identityUrl = path => path;
+
+// The club owner enters through administration; coaches keep their usual client view.
+export default function ClientView() {
+  const { user } = useAuth();
+  const { clientId } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const theme = useAppTheme();
+  const isClubOwner = user?.role === 'coach' && user?.clubId && (user?.accountType === 'club_owner' || user?.clubRole === 'owner');
+  const params = new URLSearchParams(location.search);
+  const globalView = params.get('view') === 'global';
+  const switchView = view => {
+    const next = new URLSearchParams(location.search);
+    if (view) next.set('view', view); else next.delete('view');
+    navigate({ pathname: location.pathname, search: next.toString() });
+  };
+  if (!isClubOwner) return <GlobalClientView />;
+  if (globalView) return <GlobalClientView onBack={() => switchView(null)} />;
+  return <Box bg={theme.pageBg} color={theme.textColor} minH="100vh" p={{ base: 3, md: 6 }}>
+    <Box maxW="1200px" mx="auto" bg={theme.surfaceBgStrong} borderRadius="2xl">
+      <Suspense fallback={<AppLoading label="Chargement de la fiche client…" />}>
+        <ClubAdministrationView key={`${user.uid}:${user.clubId}:${clientId}`} embedded client={{ id: clientId }} clubId={user.clubId} urlFor={identityUrl} onClose={() => navigate('/club-dashboard/clients')} onOpenGlobal={() => switchView('global')} />
+      </Suspense>
+    </Box>
+  </Box>;
 }

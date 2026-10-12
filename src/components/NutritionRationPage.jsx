@@ -1,3 +1,4 @@
+import { useNavigationSave } from "../hooks/useNavigationSave";
  
 // src/components/NutritionRationPage.jsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -693,14 +694,14 @@ export default function NutritionRationPage() {
   const queueChildState = useCallback((kind, next) => {
     const timers = childStateTimersRef.current;
     if (timers[kind]) window.clearTimeout(timers[kind]);
-    timers[kind] = window.setTimeout(() => {
+    {
       if (kind === "pro") {
         setProState((prev) => (samePayload(prev, next) ? prev : next));
       } else {
         setAutoState((prev) => (samePayload(prev, next) ? prev : next));
       }
       timers[kind] = null;
-    }, 120);
+    }
   }, []);
 
   const buildRationPayload = useCallback(() => {
@@ -729,6 +730,8 @@ export default function NutritionRationPage() {
 
     return payload;
   }, [mode, proState, autoState, autoSafety]);
+
+  useNavigationSave(() => updateDoc(assessmentRef, buildRationPayload()), !!assessmentRef && !!docData && !blocked);
 
   const changeMode = useCallback(
     (nextMode) => {

@@ -1,3 +1,4 @@
+import { useNavigationSave } from "../hooks/useNavigationSave";
  
 // src/components/FoodSurvey.jsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -702,6 +703,11 @@ export default function FoodSurvey() {
     return () => window.clearTimeout(timer);
   }, [assessmentRef, blocked, ciqualState, docData, excelState, mode, surveyMeta]);
 
+  useNavigationSave(() => updateDoc(assessmentRef, {
+    foodSurvey: { mode, excel: mode === 'excel' ? excelState : docData?.foodSurvey?.excel || null, ciqual: mode === 'ciqual' ? ciqualState : docData?.foodSurvey?.ciqual || null, meta: surveyMeta },
+    'clientShare.noNotify': true, updatedAt: serverTimestamp(),
+  }), !!assessmentRef && !!docData && !blocked && canManageNutrition);
+
   const goBack = () => navigateWithFallback(`/clients/${clientId}/nutrition/${assessmentId}`);
 
   if (!canManageNutrition) {
@@ -788,14 +794,14 @@ export default function FoodSurvey() {
   const queueChildState = (kind, next) => {
     const timers = childStateTimersRef.current;
     if (timers[kind]) window.clearTimeout(timers[kind]);
-    timers[kind] = window.setTimeout(() => {
+    {
       if (kind === "excel") {
         setExcelState((prev) => (samePayload(prev, next) ? prev : next));
       } else {
         setCiqualState((prev) => (samePayload(prev, next) ? prev : next));
       }
       timers[kind] = null;
-    }, 120);
+    }
   };
 
   const syncInsights = (setter) => (next) => {

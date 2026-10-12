@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {needsCoachFollowup,coachFollowupActivity} from '../src/utils/coachFollowupActivity.mjs';
+const now=Date.parse('2026-10-09T16:00:00Z'),old=now-45*86400000;
+assert.equal(needsCoachFollowup({_lastCoachInteractionMs:old},'morgan',now),true);
+assert.equal(needsCoachFollowup({createdAt:old,followupStartedAtByCoach:{morgan:now}},'morgan',now),false);
+assert.equal(needsCoachFollowup({createdAt:old,followupStartedAtByCoach:{alex:now}},'morgan',now),true);
+assert.equal(needsCoachFollowup({_lastCoachInteractionMs:old,_latestAssignMs:now},'morgan',now),false);
+assert.equal(needsCoachFollowup({createdAt:{seconds:now/1000}},'morgan',now),false);
+assert.equal(needsCoachFollowup({},'morgan',now),false);
+assert.equal(needsCoachFollowup({_latestAssignMs:now},'morgan',now+31*86400000),true);
+assert.equal(coachFollowupActivity({createdAt:old,_latestAssignMs:now},'morgan'),now);
+console.log('Coach follow-up: recent takeover, assignment, missing history, old inactivity and coach isolation passed.');

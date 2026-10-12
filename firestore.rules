@@ -437,23 +437,17 @@ service cloud.firestore {
         );
     }
 
+    function sessionBelongsToClient(data) {
+      return signedIn() && (
+        data.get("clientId", "") == request.auth.uid ||
+        data.get("userId", "") == request.auth.uid ||
+        data.get("clientDocId", "") == request.auth.uid ||
+        (data.get("clientDocId", "") is string && data.get("clientDocId", "") != "" &&
+          data.get("clientDocId", "") == currentUser().get("linkedClientId", ""))
+      );
+    }
     function canAccessSession(data) {
-      return isAdmin() ||
-        coachOwnsRecord(data) ||
-        (
-          signedIn() &&
-          (
-            (data.keys().hasAny(["clientId"]) && data.clientId == request.auth.uid) ||
-            (data.keys().hasAny(["clientDocId"]) && (
-              data.clientDocId == request.auth.uid ||
-              (
-                currentUser().keys().hasAny(["linkedClientId"]) &&
-                data.clientDocId == currentUser().linkedClientId
-              )
-            )) ||
-            (data.keys().hasAny(["userId"]) && data.userId == request.auth.uid)
-          )
-        );
+      return sessionBelongsToClient(data) || isAdmin() || coachOwnsRecord(data);
     }
 
     function publicProgram(data) {
@@ -852,11 +846,24 @@ service cloud.firestore {
       }
     }
 
+    // Clients may maintain personal plans, never appointments assigned by a professional.
+    function personalSession(data) {
+      return sessionBelongsToClient(data) &&
+        data.get("coachId", "") in ["", null] &&
+        data.get("coachUid", "") in ["", null] &&
+        data.get("clubId", "") in ["", null] &&
+        data.get("clubAppointmentId", "") in ["", null] &&
+        data.get("ownerUid", "") in ["", null, request.auth.uid] &&
+        data.get("createdBy", "") in ["", null, request.auth.uid] &&
+        data.get("assignedBy", "") in ["", null, request.auth.uid] &&
+        data.get("coachIds", []).size() == 0;
+    }
     match /sessions/{sessionId} {
       allow read: if canAccessSession(resource.data);
-      allow create: if canAccessSession(request.resource.data);
-      allow update: if canAccessSession(resource.data) && canAccessSession(request.resource.data);
-      allow delete: if isAdmin() || coachOwnsRecord(resource.data);
+      allow create: if personalSession(request.resource.data) || isAdmin() || coachOwnsRecord(request.resource.data);
+      allow update: if (personalSession(resource.data) && personalSession(request.resource.data)) ||
+        isAdmin() || (coachOwnsRecord(resource.data) && canAccessSession(request.resource.data));
+      allow delete: if personalSession(resource.data) || isAdmin() || coachOwnsRecord(resource.data);
     }
 
     match /coachDashboardSummaries/{summaryId} {
@@ -923,6 +930,15 @@ service cloud.firestore {
         );
         allow read: if isClubOwner(clubId) || (isCoach() && currentUser().clubId == clubId);
         allow update, delete: if isClubOwner(clubId);
+      }
+
+      // Confidential administration is served only by owner-authorized API routes.
+      // Neither coaches nor clients (nor direct owner SDK writes) can access it.
+      match /subscriptionPlans/{document=**} {
+        allow read, write: if false;
+      }
+      match /privateClients/{document=**} {
+        allow read, write: if false;
       }
 
       match /appointments/{appointmentId} {

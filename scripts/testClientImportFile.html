@@ -1,0 +1,32 @@
+<!doctype html><meta charset="utf-8"><title>Client import parser regression tests</title><pre id="results">Running…</pre><script type="module">
+import {readClientFile,parseCSV} from '/src/utils/clientImportFile.js';
+import {zipSync,strToU8} from '/node_modules/fflate/esm/browser.js';
+const output=[];
+const ns='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+const relns='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+const text=(tag,v)=>`<${tag}>${v}</${tag}>`;
+async function check(name,{prefix='',rprefix='r',target='worksheets/sheet1.xml',formula=false,external=false}={}){
+const p=prefix?prefix+':':'';
+const files={
+'xl/workbook.xml':`<${p}workbook xmlns${prefix?':'+prefix:''}="${ns}" xmlns:${rprefix}="${relns}"><${p}sheets><${p}sheet name="Clients" sheetId="1" ${rprefix}:id="rId1"/></${p}sheets></${p}workbook>`,
+'xl/_rels/workbook.xml.rels':`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Target="${target}" ${external?'TargetMode="External"':''}/></Relationships>`,
+'xl/worksheets/sheet1.xml':`<${p}worksheet xmlns${prefix?':'+prefix:''}="${ns}"><${p}sheetData><${p}row r="1"><${p}c r="A1" t="inlineStr"><${p}is><${p}t>Prénom</${p}t></${p}is></${p}c><${p}c r="B1" t="s"><${p}v>0</${p}v></${p}c></${p}row><${p}row r="2"><${p}c r="A2" t="inlineStr"><${p}is><${p}t>Élodie</${p}t></${p}is></${p}c><${p}c r="B2" t="s">${formula?`<${p}f>1+1</${p}f>`:''}<${p}v>1</${p}v></${p}c></${p}row></${p}sheetData></${p}worksheet>`,
+'xl/sharedStrings.xml':`<${p}sst xmlns${prefix?':'+prefix:''}="${ns}"><${p}si><${p}t>Nom</${p}t></${p}si><${p}si><${p}t>Martin</${p}t></${p}si></${p}sst>`};
+const bytes=zipSync(Object.fromEntries(Object.entries(files).map(([k,v])=>[k,strToU8(v)])));
+try{const result=await readClientFile(new File([bytes],'clients.xlsx'));if(formula||external)throw Error('Unsafe workbook accepted');if(JSON.stringify(result.rows)!==JSON.stringify([['Élodie','Martin']])||result.headers.join(',')!=='Prénom,Nom')throw Error(JSON.stringify(result));output.push('PASS '+name);}catch(e){if((formula&&e.message.includes('formules'))||(external&&e.message.includes('invalide')))output.push('PASS '+name);else throw e;}
+}
+try{
+const numbers=zipSync({'Index/Document.iwa':strToU8('fixture')});
+try { await readClientFile(new File([numbers],'renamed.xlsx')); throw Error('Numbers accepted as Excel'); }
+catch(e) { if(!e.message.includes('format Numbers'))throw e; output.push('PASS Renamed Numbers file detected'); }
+await check('Default Excel namespaces');
+await check('Alternate relationship prefix',{rprefix:'ns1'});
+await check('Prefixed spreadsheet XML',{prefix:'x',rprefix:'ns2'});
+await check('Absolute package path',{target:'/xl/worksheets/sheet1.xml'});
+await check('Relative package path',{target:'../xl/worksheets/./sheet1.xml'});
+await check('Formulas rejected',{formula:true});
+await check('External relationship rejected',{target:'https://example.com/sheet.xml',external:true});
+if(parseCSV('Prénom;Nom\nÉlodie;Martin').rows[0][0]!=='Élodie')throw Error('CSV');output.push('PASS CSV');
+}catch(e){output.push('FAIL '+e.stack);}
+document.querySelector('#results').textContent=output.join('\n');
+</script>

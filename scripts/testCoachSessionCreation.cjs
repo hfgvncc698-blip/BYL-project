@@ -4,7 +4,7 @@ const admin = require('../backend/firebaseAdmin');
 const original = admin.firestore;
 const documents = new Map([
   ['users/coach', { role: 'coach', subscriptionStatus: 'active' }],
-  ['clients/client', { createdBy: 'coach', prenom: 'Test', nom: 'Client' }],
+  ['clients/client', { createdBy: 'coach', prenom: 'Test', nom: 'Client', accountUid: 'client-auth' }],
   ['clients/client/programmes/assigned', { nomProgramme: 'Test program', sessions: [{ title: 'Test session' }] }],
 ]);
 const snapshot = path => ({ id: path.split('/').at(-1), exists: documents.has(path), data: () => documents.get(path) });
@@ -46,6 +46,10 @@ function invoke(body = {}) {
     commit(); await created.done;
     assert.equal(created.result.statusCode, 201);
     const first = created.result.body;
+    assert.equal(documents.get(`sessions/${first.id}`).clientDocId, 'client');
+    assert.equal(documents.get(`sessions/${first.id}`).userId, 'client-auth');
+    assert.equal(documents.get(`sessions/${first.id}`).clientId, 'client', 'keep coach dossier identity');
+    assert.equal(documents.get(`sessions/${first.id}`).noNotify, true);
     assert.equal(first.session.id, first.id);
     assert.equal(first.session.start, '2026-09-10T10:00:00.000Z');
     assert.ok(documents.has(`clients/client/calendarEvents/${first.id}`));

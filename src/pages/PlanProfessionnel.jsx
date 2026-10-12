@@ -1,3 +1,4 @@
+import {clubText} from '../i18n/clubText';
 // src/pages/PlanProfessionnel.jsx
 import React, { useMemo, useState } from "react";
 import {
@@ -584,15 +585,16 @@ export default function PlanProfessionnel() {
       <Container maxW="container.xl">
         <Box {...theme.cardProps} p={{ base: 5, md: 8 }}>
           <VStack spacing={3} mb={8} textAlign="center">
-            <Badge colorScheme="green" borderRadius="full" px={3} py={1}>{t("auto.PlanProfessionnel.essai_14_jours_acces_complet", "Essai 14 jours · accès complet")}</Badge>
+            <Badge colorScheme={isAuthed&&isCoach&&!hasCoachAccess?"orange":"green"} borderRadius="full" px={3} py={1}>{isAuthed&&isCoach&&!hasCoachAccess?clubText("Accès à réactiver"):t("auto.PlanProfessionnel.essai_14_jours_acces_complet", "Essai 14 jours · accès complet")}</Badge>
             <Heading>{t("auto.PlanProfessionnel.plans_professionnels", "Plans professionnels")}</Heading>
+            {isAuthed&&isCoach&&!hasCoachAccess&&<Alert status="warning" borderRadius="md"><AlertIcon/>{clubText("Votre accès professionnel est inactif. Choisissez une offre pour retrouver votre espace.")}</Alert>}
             <Text color={pageDescColor} maxW="780px">{t("auto.PlanProfessionnel.choisissez_le_module_adapte_a_votre_activite_", "Choisissez le module adapté à votre activité, puis ajustez la capacité selon votre volume de suivi.")}</Text>
 
             <HStack spacing={3} pt={2} justify="center" flexWrap="wrap">
               {!isAuthed ? (
                 <Button {...theme.primaryButtonProps} onClick={() => startRegister("complete", "monthly")}>{t("auto.PlanProfessionnel.demarrer_l_essai_complet", "Démarrer l’essai complet")}</Button>
               ) : hasCoachAccess || trialActive ? (
-                <Button {...theme.primaryButtonProps} onClick={() => navigate("/coach-dashboard")}>{t("auto.PlanProfessionnel.acceder_a_mon_espace", "Accéder à mon espace")}</Button>
+                <Button {...theme.primaryButtonProps} onClick={() => navigate(user?.accountType === "club_owner" || user?.clubRole === "owner" ? "/club-dashboard" : "/coach-dashboard")}>{t("auto.PlanProfessionnel.acceder_a_mon_espace", "Accéder à mon espace")}</Button>
               ) : (
                 <Button
                   {...theme.primaryButtonProps}

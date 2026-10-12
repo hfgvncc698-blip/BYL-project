@@ -213,7 +213,7 @@ export default function CoachMobileNav() {
 
   return (
     <>
-      <Box
+      <Box data-tour="coach-mobile-nav"
         display={{ base: "block", md: "none" }}
         position="fixed"
         left={3}

@@ -27,6 +27,14 @@ async function runSubscriptionCycles() {
   } finally {cycleWorkerBusy=false;}
 }
 
+const clubMemberships = require('./utils/clubMemberships').createClubMemberships(db);
+let expiryBusy = false, nextExpiryPoll = 0;
+async function runMembershipExpiry() {
+  if (expiryBusy || Date.now() < nextExpiryPoll) return;
+  expiryBusy = true; nextExpiryPoll = Date.now() + 60000;
+  try { await clubMemberships.expireAll(); } finally { expiryBusy = false; }
+}
+
 const TZ = process.env.CRON_TZ || 'Europe/Paris';
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -169,6 +177,7 @@ setInterval(() => {
   if (driftMs > 2000) {
     console.log(`[CRON] wake/lag detected (${Math.round(driftMs)}ms)`);
   }
+  runMembershipExpiry().catch(error => console.error('[MEMBERSHIP-EXPIRY]', error.message));
   // exécutions
   runTrialGuard().catch(() => {});
   runMonthlyPrograms().catch(() => {});

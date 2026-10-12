@@ -34,6 +34,20 @@ function fixture({ profile = {}, failure = null, mailGate, failAcknowledgement =
 let passes = 0;
 async function test(name, run) { await run(); passes++; console.log(`PASS ${name}`); }
 (async () => {
+  await test('explicit email choice applies per edit and does not relabel updates as creation', async () => {
+    const before = session({ noNotify: true });
+    const after = session({ noNotify: false, start: new Date(clock + 172800000), end: new Date(clock + 176400000) });
+    assert.equal(sessionNotificationChange(before, after).kind, 'updated');
+    assert.equal(sessionNotificationChange(before, { ...before, noNotify: false }), null);
+    const s = fixture();
+    await s.handler(s.event(session(), { ...after, noNotify: true }));
+    assert.equal(s.sent.length, 0);
+    await s.handler(s.event(before, after, 'chosen-update'));
+    assert.equal(s.sent.length, 1);
+    const stale = fixture();
+    await stale.handler(stale.event(before, after, 'stale', { ...after, noNotify: true }));
+    assert.equal(stale.sent.length, 0);
+  });
   await test('deployed function wiring uses post-commit trigger with retries', () => {
     const source = fs.readFileSync(path.join(__dirname, '../functions/index.js'), 'utf8');
     assert.match(source, /exports\.onCoachSessionScheduled = onDocumentWritten\([\s\S]*?document: "sessions\/\{sessionId\}"[\s\S]*?retry: true/);
@@ -58,7 +72,7 @@ async function test(name, run) { await run(); passes++; console.log(`PASS ${name
   for (const after of [session({ status: 'cancelled' }), null]) await test(`cancellation ${after ? 'status' : 'deletion'} is notified`, async () => {
     const s = fixture(); await s.handler(s.event(session(), after)); assert.equal(s.sent[0].subject, 'Rendez-vous annulé');
   });
-  for (const change of [{ notes: 'different secret' }, { title: 'different clinical detail' }, { updatedAt: new Date() }, { status: 'validée' }, { visibility: 'coach' }]) await test(`non-schedule change is not mailed: ${Object.keys(change).join()}`, async () => {
+  for (const change of [{ clientDocId: 'client', userId: 'client-auth' }, { notes: 'different secret' }, { title: 'different clinical detail' }, { updatedAt: new Date() }, { status: 'validée' }, { visibility: 'coach' }]) await test(`non-schedule change is not mailed: ${Object.keys(change).join()}`, async () => {
     const s = fixture(); await s.handler(s.event(session(), session(change))); assert.equal(s.sent.length, 0);
   });
   for (const value of [session({ noNotify: true }), session({ visibility: 'coach' }), session({ start: new Date(clock - 100000), end: new Date(clock - 1000) }), session({ status: 'validée' }), session({ end: new Date(clock - 1000) })]) await test('historical/private/completed/invalid session is skipped', async () => {
@@ -66,6 +80,26 @@ async function test(name, run) { await run(); passes++; console.log(`PASS ${name
   });
   for (const profile of [{ email: '' }, { coachId: 'other' }, { settings: { emailNotificationsEnabled: false } }, { emailPreferences: { allAutomatic: false } }, { emailPreferences: { sessionScheduled: false } }, { emailDelivery: { suspended: true } }]) await test(`recipient guard ${JSON.stringify(profile)}`, async () => {
     const s = fixture({ profile }); await s.handler(s.event(null, session())); assert.equal(s.sent.length, 0);
+  });
+  for (const identity of ['accountUid', 'linkedUserId', 'uid']) {
+    for (const preference of [{ settings: { emailNotificationsEnabled: false } }, { emailPreferences: { allAutomatic: false } }]) {
+      await test(`account opt-out applies to another dossier via ${identity}`, async () => {
+        const s = fixture({ profile: { [identity]: 'account', emailPreferences: { allAutomatic: true } } });
+        s.records.set('users/account', preference);
+        await s.handler(s.event(null, session(), 'created'));
+        await s.handler(s.event(session(), session({ start: new Date(clock + 172800000), end: new Date(clock + 176400000) }), 'updated'));
+        await s.handler(s.event(session(), session({ status: 'annulée' }), 'cancelled'));
+        assert.equal(s.sent.length, 0);
+      });
+    }
+  }
+  await test('account re-enabled permits future appointment mail', async () => {
+    const s = fixture({ profile: { accountUid: 'account' } });
+    s.records.set('users/account', { emailPreferences: { allAutomatic: false } });
+    await s.handler(s.event(null, session(), 'blocked'));
+    s.records.set('users/account', { emailPreferences: { allAutomatic: true } });
+    await s.handler(s.event(null, session(), 'enabled'));
+    assert.equal(s.sent.length, 1);
   });
   await test('transient SMTP rejection is retried and then marked sent', async () => {
     const s = fixture({ failure: Object.assign(new Error('try again'), { responseCode: 421 }) }), e = s.event(null, session());

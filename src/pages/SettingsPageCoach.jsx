@@ -1,3 +1,5 @@
+import ClubDeparture from '../components/dashboard/ClubDeparture';
+import useSessionDraft from "../hooks/useSessionDraft";
 // src/pages/SettingsPageCoach.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -97,7 +99,8 @@ export default function SettingsPageCoach() {
   const [navbarBrandName, setNavbarBrandName] = useState(
     user?.settings?.navbarBrandName || ""
   );
-  const navbarBrandDirtyRef = useRef(false);
+  const [brandDraft, setBrandDraft] = useSessionDraft(user?.uid ? `navbar-brand:${user.uid}` : null, null);
+  const navbarBrandDirtyRef = useRef(brandDraft !== null);
   const navbarBrandInputRef = useRef(null);
 
   useEffect(() => {
@@ -106,13 +109,22 @@ export default function SettingsPageCoach() {
   }, [i18n.language]);
 
   useEffect(() => {
+    if (user?.clubId && user?.clubRole !== "owner") {
+      if (navbarBrandInputRef.current) navbarBrandInputRef.current.value = user.clubName || "";
+      return;
+    }
+    if (brandDraft !== null && navbarBrandDirtyRef.current) {
+      setNavbarBrandName(brandDraft);
+      if (navbarBrandInputRef.current) navbarBrandInputRef.current.value = brandDraft;
+      return;
+    }
     if (navbarBrandDirtyRef.current || savingNavbarBrand) return;
     const nextName = user?.settings?.navbarBrandName || "";
     setNavbarBrandName(nextName);
     if (navbarBrandInputRef.current) {
       navbarBrandInputRef.current.value = nextName;
     }
-  }, [savingNavbarBrand, user?.settings?.navbarBrandName]);
+  }, [brandDraft, savingNavbarBrand, user?.settings?.navbarBrandName, user?.clubId, user?.clubRole, user?.clubName]);
 
   const subStatus = user?.subscriptionStatus || "canceled";
   const hasStripeCustomer = Boolean(user?.stripeCustomerId || user?.stripe?.customerId);
@@ -261,6 +273,7 @@ export default function SettingsPageCoach() {
         navbarBrandInputRef.current.value = cleanName;
       }
       navbarBrandDirtyRef.current = false;
+      setBrandDraft(null);
       notify(toast, "settingsSaved", {
         description: "Nom affiché dans la navigation mis à jour.",
       });
@@ -472,11 +485,11 @@ export default function SettingsPageCoach() {
               <Box minW={0}>
                 <HStack spacing={2} wrap="wrap">
                   <Heading as="h2" size="md" color={textColor}>{t("auto.SettingsPageCoach.nom_dans_la_navigation", "Nom dans la navigation")}</Heading>
-                  <Badge borderRadius="full" colorScheme={navbarBrandAllowed ? "green" : "gray"}>
+                  {!isClubMember && <Badge borderRadius="full" colorScheme={navbarBrandAllowed ? "green" : "gray"}>
                     {navbarBrandAllowed
                       ? t("auto.SettingsPageCoach.inclus", "Inclus")
                       : t("auto.SettingsPageCoach.palier_superieur", "Palier supérieur")}
-                  </Badge>
+                  </Badge>}
                 </HStack>
                 <Text mt={1} color={mutedText}>
                   {isClubMember
@@ -491,9 +504,11 @@ export default function SettingsPageCoach() {
                 <FormLabel mb="1" color={subtleText}>{t("auto.SettingsPageCoach.nom_affiche", "Nom affiché")}</FormLabel>
                 <Input
                   ref={navbarBrandInputRef}
-                  defaultValue={navbarBrandName}
-                  onChange={() => {
+                  key={isClubMember ? user?.clubName : "personal-brand"}
+                  defaultValue={isClubMember ? user?.clubName || "" : navbarBrandName}
+                  onChange={(event) => {
                     navbarBrandDirtyRef.current = true;
+                    setBrandDraft(event.target.value);
                   }}
                   maxLength={48}
                   placeholder="BoostYourLife.coach"
@@ -546,6 +561,7 @@ export default function SettingsPageCoach() {
               <Box bg={subCardBg} border="1px solid" borderColor={borderColor} borderRadius="22px" p={4}>
                 <Text fontWeight="800" color={textColor}>{t("auto.SettingsPageCoach.abonnement_gere_par_le_club", "Abonnement géré par le club")}</Text>
                 <Text mt={1} color={mutedText} fontSize="sm">{t("auto.SettingsPageCoach.les_factures_le_portail_stripe_le_logo_du_clu", "Les factures, le portail Stripe, le logo du club et les capacités sont administrés par le responsable de la structure.")}</Text>
+                <ClubDeparture />
               </Box>
             ) : (
               <Flex direction={{ base: "column", sm: "row" }} justify="space-between" align={{ base: "stretch", sm: "center" }} gap={3}>

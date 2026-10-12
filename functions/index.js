@@ -3531,6 +3531,27 @@ exports.ensureCalendarSubscription = onCall(
  * Stockage :
  * coachCalendarSubscriptions/{coachId}
  * ======================================================================= */
+exports.ensureClubCalendarSubscription = onCall({ region: "europe-west1" }, async request => {
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Connexion requise.");
+  const user = await requireProfessionalCaller(request);
+  const clubId = safeTrim(request.data?.clubId || user.clubId);
+  if (!clubId || clubId.includes("/") || user.clubId !== clubId ||
+      !(user.accountType === "club_owner" || user.clubRole === "owner")) {
+    throw new HttpsError("permission-denied", "Accès responsable du club requis.");
+  }
+  const ref = db.doc(`clubs/${clubId}/private/calendar`);
+  const timezone = normalizeCalendarTimezone(request.data?.timezone);
+  const token = await db.runTransaction(async tx => {
+    const snap = await tx.get(ref);
+    const token = safeTrim(snap.data()?.token) || crypto.randomBytes(24).toString("hex");
+    tx.set(ref, { token, enabled: true, ownerUid: request.auth.uid, timezone,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    return token;
+  });
+  await upsertCalendarTokenIndex({ token, kind: "club", ownerId: clubId, sourcePath: ref.path, timezone });
+  return { ok: true, url: buildCalendarUrlFromToken(token) };
+});
+
 exports.ensureCoachCalendarSubscription = onCall(
   { region: "europe-west1" },
   async (request) => {
@@ -3636,6 +3657,33 @@ exports.calendarFeed = onRequest(
       const indexedTokenSnap = await calendarTokenRef(token).get();
       const indexedToken = indexedTokenSnap.exists ? indexedTokenSnap.data() || {} : null;
       const indexedTokenEnabled = indexedToken ? indexedToken.enabled !== false : false;
+
+      if (indexedToken?.kind === "club") {
+        const clubId = safeTrim(indexedToken.ownerId);
+        if (!indexedTokenEnabled || !clubId || clubId.includes("/")) {
+          res.status(404).send("Invalid or disabled token"); return;
+        }
+        const subscription = (await db.doc(`clubs/${clubId}/private/calendar`).get()).data();
+        const owner = subscription?.ownerUid ? await getRequesterProfile(subscription.ownerUid) : null;
+        if (!subscription || subscription.enabled === false || subscription.token !== token ||
+            !owner || !hasProfessionalAccess(owner) || owner.clubId !== clubId ||
+            !(owner.accountType === "club_owner" || owner.clubRole === "owner")) {
+          res.status(404).send("Invalid or disabled token"); return;
+        }
+        const calendar = ical({ name: "BoostYourLife — Club", timezone: normalizeCalendarTimezone(subscription.timezone) });
+        const appointments = await db.collection("clubs").doc(clubId).collection("appointments").get();
+        for (const appointment of appointments.docs) {
+          const row = appointment.data(), start = toDate(row.startsAt || row.start);
+          if (!start || !Number.isFinite(start.getTime())) continue;
+          const end = new Date(start.getTime() + (Number(row.durationMin) || 60) * 60000);
+          if (end <= start) continue;
+          calendar.createEvent({ id: `byl-club-${clubId}-${appointment.id}@boostyourlife.app`,
+            start, end, summary: safeTrim(row.title) || "Rendez-vous",
+            status: ["annulée", "cancelled", "canceled"].includes(row.status) ? "CANCELLED" : "CONFIRMED" });
+        }
+        res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+        res.status(200).send(calendar.toString()); return;
+      }
 
       /* ---------------------------------------------------
        * 1) Token client

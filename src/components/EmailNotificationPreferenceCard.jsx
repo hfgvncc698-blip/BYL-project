@@ -31,6 +31,7 @@ function messagingNotificationsEnabled(user) {
 
 export default function EmailNotificationPreferenceCard({
   surfaceProps = {},
+  compact = false,
   textColor = "inherit",
   mutedText = "gray.500",
   borderColor = "gray.200",
@@ -161,8 +162,8 @@ export default function EmailNotificationPreferenceCard({
   return (
     <Box {...surfaceProps} p={{ base: 5, md: 6 }}>
       <Flex
-        direction={{ base: "column", sm: "row" }}
-        align={{ base: "stretch", sm: "center" }}
+        direction={compact ? "column" : { base: "column", sm: "row" }}
+        align={compact ? "stretch" : { base: "stretch", sm: "center" }}
         justify="space-between"
         gap={5}
       >
@@ -194,7 +195,7 @@ export default function EmailNotificationPreferenceCard({
           </Box>
         </HStack>
 
-        <VStack align="stretch" spacing={2} minW={{ sm: "250px" }}>
+        <VStack align="stretch" spacing={2} minW={compact ? 0 : { sm: "250px" }}>
           <Flex
             bg={softBg}
             border="1px solid"

@@ -1,3 +1,5 @@
+import {clubText} from '../../i18n/clubText';
+import {cancellationPreview} from '../../utils/cancellationPreview.mjs';
 import { useEffect, useMemo, useState } from "react";
 import { doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
 import { useLocation } from "react-router-dom";
@@ -13,7 +15,7 @@ import {
 } from "../../utils/messaging";
 
 export default function useMessagingContacts() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, effectiveRole, isAdmin } = useAuth();
   const location = useLocation();
   const [contacts, setContacts] = useState([]);
@@ -110,12 +112,13 @@ export default function useMessagingContacts() {
     const isHidden = Boolean(conversation && hiddenAtMillis && lastActivityAt <= hiddenAtMillis);
     return {
       ...contact,
+      lastMessage: isHidden ? "" : cancellationPreview(conversation,clubText),
       conversation: isHidden ? null : conversation,
       hiddenAtMillis,
       unread: isHidden ? false : conversationUnreadFor(conversation, user?.uid),
       lastActivityAt: isHidden ? 0 : lastActivityAt,
     };
-  }).sort((a, b) => (b.lastActivityAt || 0) - (a.lastActivityAt || 0) || a.title.localeCompare(b.title)), [contacts, conversationById, user?.uid]);
+  }).sort((a, b) => (b.lastActivityAt || 0) - (a.lastActivityAt || 0) || a.title.localeCompare(b.title)), [contacts, conversationById, user?.uid, i18n.language]);
 
   const hideConversation = async (contact) => {
     if (!contact?.conversation || !contact?.id || !user?.uid) return;

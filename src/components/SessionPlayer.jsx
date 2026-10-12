@@ -1,3 +1,4 @@
+import { apiFetch } from "../utils/api";
 // src/components/SessionPlayer.jsx
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import "./SessionPlayerSettings.css";
@@ -2786,14 +2787,14 @@ export default function SessionPlayer() {
     clearElapsedTimerState(legacySessionTimerStorageKey);
   }, [legacySessionTimerStorageKey]);
 
-  const completionDocIdRef = useRef(randomId(12));
+  const completionDocIdRef = useRef(plannedCalendarEventId ? `calendar_${plannedCalendarEventId}` : randomId(12));
   const completionStartedAtRef = useRef(new Date());
   const exerciseTimingRef = useRef(new Map());
   const exerciseTimingStartedAtRef = useRef(Date.now());
   const activeTimingExerciseIndexRef = useRef(0);
 
   useEffect(() => {
-    completionDocIdRef.current = randomId(12);
+    completionDocIdRef.current = plannedCalendarEventId ? `calendar_${plannedCalendarEventId}` : randomId(12);
     completionStartedAtRef.current = new Date();
     exerciseTimingRef.current = new Map();
     exerciseTimingStartedAtRef.current = Date.now();
@@ -2827,7 +2828,7 @@ export default function SessionPlayer() {
     setPainArea("");
     setCompletionSubmitting(false);
     completionSubmitActionRef.current = "";
-  }, [clientId, programId, sessionIndex, sessionResumeStorageKey, sessionTimerStorageKey]);
+  }, [clientId, programId, sessionIndex, sessionResumeStorageKey, sessionTimerStorageKey, plannedCalendarEventId]);
 
   useEffect(() => {
     const resumeKey = sessionResumeStorageKey;
@@ -2855,7 +2856,7 @@ export default function SessionPlayer() {
         );
         const discardStoredResume = location?.state?.discardStoredResume === true;
         if (latest?.id && !discardStoredResume) {
-          completionDocIdRef.current = latest.id;
+          if (!plannedCalendarEventId) completionDocIdRef.current = latest.id;
           const startedAt = latest.startedAt?.toDate?.() || new Date(latest.startedAt || 0);
           if (!Number.isNaN(startedAt.getTime())) completionStartedAtRef.current = startedAt;
         }
@@ -3617,46 +3618,14 @@ export default function SessionPlayer() {
     return Math.max(600, Math.min(total || 0, 3 * 3600)) || 3600;
   };
 
-  async function syncLinkedCalendarsAfterValidation({ sessionId, sessionData, startDate, endDate, title, clientName }) {
-    if (!sessionId || !sessionData) return;
-    const batch = writeBatch(db);
-    if (clientId) {
-      batch.set(
-        doc(db, "clients", clientId, "calendarEvents", sessionId),
-        {
-          title: title || sessionData.title || "Séance validée",
-          start: Timestamp.fromDate(startDate),
-          end: Timestamp.fromDate(endDate),
-          startAt: Timestamp.fromDate(startDate),
-          endAt: Timestamp.fromDate(endDate),
-          status: "done",
-          eventType: sessionData.eventType || sessionData.type || "sport_session",
-          sessionId,
-          programId: sessionData.programId || sessionData.programmeId || programId || "",
-          sessionIndex: Number.isFinite(Number(sessionData.sessionIndex)) ? Number(sessionData.sessionIndex) : sessionIndex,
-          description: sessionData.description || sessionData.programTitle || "",
-          durationMin: Math.max(15, Math.round((endDate.getTime() - startDate.getTime()) / 60000) || Number(sessionData.durationMin || 60)),
-          updatedAt: serverTimestamp(),
-          createdAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-    }
-    if (sessionData.clubId && sessionData.clubAppointmentId) {
-      batch.set(
-        doc(db, "clubs", sessionData.clubId, "appointments", sessionData.clubAppointmentId),
-        {
-          status: "validée",
-          title: sessionData.sessionTitle || sessionData.title || title || "Séance validée",
-          startsAt: Timestamp.fromDate(startDate),
-          durationMin: Math.max(15, Math.round((endDate.getTime() - startDate.getTime()) / 60000) || Number(sessionData.durationMin || 60)),
-          clientName: clientName || sessionData.clientName || "",
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-    }
-    await batch.commit();
+  async function syncLinkedCalendarsAfterValidation({ sessionId }) {
+    if (!sessionId) throw new Error("calendar-session-required");
+    // Club clients' calendars are protected: synchronize through the authorized
+    // server transaction, not a browser batch that can leave completion half-saved.
+    await apiFetch(`/coach-sessions/${encodeURIComponent(sessionId)}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "validée", syncCompletion: true }),
+    });
   }
 
   async function upsertCoachCalendarEvent({ ratingOverride, clearDifficulty = false } = {}) {
@@ -3718,6 +3687,7 @@ export default function SessionPlayer() {
         status: "validée",
         validated: true,
         isPartial: false,
+        noNotify: true,
         start: Timestamp.fromDate(startDate),
         end: Timestamp.fromDate(endDate),
         visibility: "both",

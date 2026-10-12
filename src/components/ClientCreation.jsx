@@ -1,3 +1,4 @@
+import { clubText } from "../i18n/clubText";
 // src/components/ClientCreation.jsx
 import React, { useState } from "react";
 import {
@@ -153,10 +154,10 @@ const ClientCreation = ({
     } catch (error) {
       console.error("Client capacity check failed:", error);
       notify(toast, "saveError", {
-        title: t("errors.update_error") || "Création impossible",
+        title: t("errors.update_error") || clubText("Création impossible"),
         description:
           error?.message ||
-          "Impossible de vérifier la limite de clients pour le moment. Réessayez dans quelques secondes.",
+          clubText("Impossible de vérifier la limite de clients pour le moment. Réessayez dans quelques secondes."),
       });
     }
     return false;
@@ -276,7 +277,7 @@ const ClientCreation = ({
       onMergeClose(); onCreated?.(); onClose?.();
     } catch (error) {
       notify(toast, "saveError", {
-        title: t("errors.update_error") || "Fusion impossible",
+        title: t("errors.update_error") || clubText("Fusion impossible"),
         description: error.message,
       });
     }
@@ -322,11 +323,18 @@ const ClientCreation = ({
       try {
         const existing = existingLookup || (await lookupExistingClient());
         if (existing?.exists && existing?.authExists !== false) {
+          if (existing.canStartFollowup) {
+            const followup = await apiFetch('/clubs/independent-followups', { method: 'POST', body: JSON.stringify({ email }) });
+            notify(toast, 'clientLinked', { title: clubText('Nouveau suivi indépendant'), description: clubText('Le suivi est créé. Le client peut le consulter avec son compte habituel.') });
+            if (followup.emailWarning) toast({ status: 'warning', title: clubText('Suivi créé, e-mail non envoyé'), description: clubText('Le suivi reste accessible dans l’espace client.') });
+            setClient(initialClientState); setExistingLookup(null);
+            onCreated?.(); onClose?.(); setLoading(false); return;
+          }
           if (!existing.canLink) {
             notify(toast, "saveError", {
-              title: "Compte existant non rattachable",
+              title: clubText("Compte existant non rattachable"),
               description:
-                "Ce compte appartient déjà à un autre espace ou à un profil professionnel. Un administrateur doit valider son transfert.",
+                clubText("Ce compte appartient déjà à un autre espace ou à un profil professionnel. Un administrateur doit valider son transfert."),
             });
             setLoading(false);
             return;
@@ -335,11 +343,12 @@ const ClientCreation = ({
           const linked = await linkExistingAccount(email);
 
           notify(toast, "clientLinked", {
-            title: "Client existant rattaché",
+            title: clubText("Client existant rattaché"),
             description: linked?.hasPrograms
-              ? "Le coach verra aussi les programmes déjà présents sur cette fiche."
-              : "Le compte existant est maintenant visible dans la liste clients.",
+              ? clubText("Le coach verra aussi les programmes déjà présents sur cette fiche.")
+              : clubText("Le compte existant est maintenant visible dans la liste clients."),
           });
+          if (linked?.emailWarning) toast({ status: "warning", title: clubText("Client rattaché, e-mail non envoyé"), description: clubText("Le message de bienvenue n’a pas pu être envoyé.") });
           setClient(initialClientState);
           setExistingLookup(null);
           onCreated?.(); onClose?.();
@@ -361,10 +370,10 @@ const ClientCreation = ({
           ) {
             const linked = await linkExistingAccount(email);
             notify(toast, "clientLinked", {
-              title: "Client existant rattaché",
+              title: clubText("Client existant rattaché"),
               description: linked?.hasPrograms
-                ? "Le compte existant a été rattaché au coach avec ses programmes."
-                : "Le compte existant a été rattaché au coach.",
+                ? clubText("Le compte existant a été rattaché au coach avec ses programmes.")
+                : clubText("Le compte existant a été rattaché au coach."),
             });
             setClient(initialClientState);
             setExistingLookup(null);
@@ -380,9 +389,9 @@ const ClientCreation = ({
         } else {
           notify(toast, "clientCreated", {
             status: "warning",
-            title: "Client créé, e-mail non envoyé",
+            title: clubText("Client créé, e-mail non envoyé"),
             description:
-              "Le compte est bien créé, mais l’e-mail d’accès n’a pas pu partir. Ouvre la fiche client puis utilise « Renvoyer l’accès ».",
+              clubText("Le compte est bien créé, mais l’e-mail d’accès n’a pas pu partir. Ouvre la fiche client puis utilise « Renvoyer l’accès »."),
             duration: 7000,
           });
         }
@@ -393,8 +402,8 @@ const ClientCreation = ({
       } catch (error) {
         console.error("Client creation failed:", error);
         notify(toast, "saveError", {
-          title: t("errors.update_error") || "Création impossible",
-          description: error?.message || "Le client n'a pas pu être créé pour le moment.",
+          title: t("errors.update_error") || clubText("Création impossible"),
+          description: error?.message || clubText("Le client n'a pas pu être créé pour le moment."),
         });
       } finally {
         setLoading(false);
@@ -405,10 +414,10 @@ const ClientCreation = ({
     // --- Méthode téléphone : désactivée tant que Firebase SMS n'est pas branché ---
     if (client.loginMethod === "phone") {
       notify(toast, "phoneLoginUnavailable", {
-        title: t("clientCreation.phoneLoginUnavailableTitle") || "Connexion téléphone indisponible",
+        title: t("clientCreation.phoneLoginUnavailableTitle") || clubText("Connexion téléphone indisponible"),
         description:
           t("clientCreation.phoneLoginUnavailableDescription") ||
-          "La connexion par téléphone nécessite une validation SMS Firebase complète. Pour l’instant, créez l’accès client par email pour garder un parcours sécurisé.",
+          clubText("La connexion par téléphone nécessite une validation SMS Firebase complète. Pour l’instant, créez l’accès client par email pour garder un parcours sécurisé."),
       });
       setLoading(false);
       return;
@@ -444,7 +453,7 @@ const ClientCreation = ({
       onCreated?.(); onClose?.();
     } catch (error) {
       notify(toast, "saveError", {
-        title: t("errors.update_error") || "Création impossible",
+        title: t("errors.update_error") || clubText("Création impossible"),
         description: error.message,
       });
     } finally {
@@ -472,13 +481,13 @@ const ClientCreation = ({
       <form onSubmit={handleSubmit}>
         <VStack spacing={5} align="stretch">
           <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-            <FormControl isRequired>
+            <FormControl isRequired={!existingLookup?.canStartFollowup}>
               <FormLabel>{t("clientCreation.firstName")}</FormLabel>
-              <Input name="prenom" placeholder={t("clientCreation.firstName")} value={client.prenom} onChange={handleChange} required />
+              <Input name="prenom" placeholder={t("clientCreation.firstName")} value={client.prenom} onChange={handleChange} required={!existingLookup?.canStartFollowup} />
             </FormControl>
-            <FormControl isRequired>
+            <FormControl isRequired={!existingLookup?.canStartFollowup}>
               <FormLabel>{t("clientCreation.lastName")}</FormLabel>
-              <Input name="nom" placeholder={t("clientCreation.lastName")} value={client.nom} onChange={handleChange} required />
+              <Input name="nom" placeholder={t("clientCreation.lastName")} value={client.nom} onChange={handleChange} required={!existingLookup?.canStartFollowup} />
             </FormControl>
           </SimpleGrid>
 
@@ -493,31 +502,29 @@ const ClientCreation = ({
               onBlur={lookupExistingClient}
             />
             <Text mt={2} fontSize="xs" color={fieldHint}>
-              {t("clientCreation.emailAccessHint", "L’accès sécurisé du client sera envoyé uniquement par e-mail.")}
+              {existingLookup?.canStartFollowup ? clubText("Le client recevra un e-mail d’information. Son mot de passe reste inchangé.") : t("clientCreation.emailAccessHint", "L’accès sécurisé du client sera envoyé uniquement par e-mail.")}
             </Text>
             {lookupLoading && (
-              <Text mt={2} fontSize="xs" color={fieldHint}>
-                Vérification du compte existant...
-              </Text>
+              <Text mt={2} fontSize="xs" color={fieldHint}>{clubText("Vérification du compte existant...")}</Text>
             )}
             {existingLookup?.exists && (
-              <Alert mt={3} status={existingLookup.canLink ? "info" : "warning"} borderRadius="lg">
+              <Alert mt={3} status={existingLookup.canLink || existingLookup.canStartFollowup ? "info" : "warning"} borderRadius="lg">
                 <AlertIcon />
                 <Box>
                   <HStack spacing={2} flexWrap="wrap">
                     <Text fontWeight="800">
-                      {existingLookup.canLink ? "Compte client existant trouvé" : "Email déjà utilisé"}
+                      {existingLookup.canLink || existingLookup.canStartFollowup ? clubText("Compte client existant trouvé") : clubText("Email déjà utilisé")}
                     </Text>
                     {existingLookup.hasPrograms && (
                       <Badge colorScheme="blue">
-                        {existingLookup.client?.programCount || 0} programme(s)
+                        {clubText("{{count}} programme(s)", { count: existingLookup.client?.programCount || 0 })}
                       </Badge>
                     )}
                   </HStack>
                   <Text fontSize="sm">
-                    {existingLookup.canLink
-                      ? "À la validation, cette fiche sera rattachée au coach sans créer de doublon."
-                      : "Cet email appartient déjà à un compte pro/admin et ne peut pas être ajouté comme client."}
+                    {existingLookup.canStartFollowup ? clubText("Ce client a déjà un compte. Un nouveau dossier indépendant sera créé, sans modifier ses autres suivis.") : existingLookup.canLink
+                      ? (clubId ? clubText("À la validation, cette fiche sera rattachée à votre club, sans créer de doublon.") : clubText("À la validation, cette fiche sera rattachée à votre compte professionnel, sans créer de doublon."))
+                      : clubText("Cet email appartient déjà à un compte pro/admin et ne peut pas être ajouté comme client.")}
                   </Text>
                 </Box>
               </Alert>
@@ -540,9 +547,9 @@ const ClientCreation = ({
               <FormLabel>{t("clientCreation.birthDate", "Date de naissance")}</FormLabel>
               <Input type="date" name="dateNaissance" value={client.dateNaissance} onChange={handleChange} />
             </FormControl>
-            <FormControl isRequired>
+            <FormControl isRequired={!existingLookup?.canStartFollowup}>
               <FormLabel>{t("clientCreation.gender")}</FormLabel>
-              <Select name="sexe" value={client.sexe} onChange={handleChange} required>
+              <Select name="sexe" value={client.sexe} onChange={handleChange} required={!existingLookup?.canStartFollowup}>
                 <option value="">{t("clientCreation.gender")}</option>
                 <option value="Homme">{t("clientCreation.genderMale")}</option>
                 <option value="Femme">{t("clientCreation.genderFemale")}</option>
@@ -584,16 +591,16 @@ const ClientCreation = ({
           </FormControl>
 
           <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-            <FormControl isRequired>
+            <FormControl isRequired={!existingLookup?.canStartFollowup}>
               <FormLabel>{t("auto.ClientCreation.niveau_sportif", "Niveau sportif")}</FormLabel>
-              <Select name="niveauSportif" value={client.niveauSportif} onChange={handleChange} required>
+              <Select name="niveauSportif" value={client.niveauSportif} onChange={handleChange} required={!existingLookup?.canStartFollowup}>
                 {levelOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
               </Select>
             </FormControl>
 
-            <FormControl isRequired>
+            <FormControl isRequired={!existingLookup?.canStartFollowup}>
               <FormLabel>{t("auto.ClientCreation.objectif_principal", "Objectif principal")}</FormLabel>
-              <Select name="objectifs" value={client.objectifs} onChange={handleChange} required>
+              <Select name="objectifs" value={client.objectifs} onChange={handleChange} required={!existingLookup?.canStartFollowup}>
                 {objectiveOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
               </Select>
             </FormControl>
@@ -628,7 +635,7 @@ const ClientCreation = ({
           <Divider borderColor="borderSubtle" />
 
           <Button type="submit" w="full" isLoading={loading}>
-            {t("clientCreation.save")}
+            {existingLookup?.canStartFollowup ? clubText("Créer le suivi indépendant") : t("clientCreation.save")}
           </Button>
         </VStack>
       </form>
@@ -683,8 +690,8 @@ const ClientCreation = ({
             </Text>
             <Text mt={3} color={fieldHint}>
               {limitUsage.clubManaged
-                ? limitUsage.upgradeMessage || "La capacité est partagée par tout le club. Demandez au responsable de passer au pack supérieur, ou contactez contact@boostyourlife.coach si vous êtes déjà au maximum."
-                : "Passez au palier supérieur pour ajouter de nouveaux clients et débloquer plus de capacité."}
+                ? limitUsage.upgradeMessage || clubText("La capacité est partagée par tout le club. Demandez au responsable de passer au pack supérieur, ou contactez contact@boostyourlife.coach si vous êtes déjà au maximum.")
+                : clubText("Passez au palier supérieur pour ajouter de nouveaux clients et débloquer plus de capacité.")}
             </Text>
           </ModalBody>
           <ModalFooter>
@@ -695,7 +702,7 @@ const ClientCreation = ({
                 navigate(limitUsage.packageTier === "network" ? "/contact" : "/plans/professionnel");
               }}
             >
-              {limitUsage.packageTier === "network" ? "Contacter BYL" : "Améliorer le pack"}
+              {limitUsage.packageTier === "network" ? clubText("Contacter BYL") : clubText("Améliorer le pack")}
             </Button>
           </ModalFooter>
         </ModalContent>

@@ -1,3 +1,4 @@
+import { useNavigationSave } from "../hooks/useNavigationSave";
 // src/components/MenuJournalierAuto.jsx
  
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -3867,7 +3868,7 @@ export default function MenuJournalierAuto({
   );
 
   // ---------- Auto-save ----------
-  const persistAutoMenu = useCallback(async ({ silent = true } = {}) => {
+  const persistAutoMenu = useCallback(async ({ silent = true, throwOnError = false } = {}) => {
     if (!assessmentRef) {
       if (!silent) {
         toast({
@@ -3907,6 +3908,7 @@ export default function MenuJournalierAuto({
 
       if (!silent) toast({ title: i18n.t("programBuilder.status.saved", "Sauvegardé"), status: "success", duration: 1200, isClosable: true });
     } catch (e) {
+      if (throwOnError) throw e;
       if (!silent) {
         toast({
           title: i18n.t("auto.MenuJournalierAuto.erreur_sauvegarde", "Erreur sauvegarde"),
@@ -3922,6 +3924,8 @@ export default function MenuJournalierAuto({
       if (!silent) setSaving(false);
     }
   }, [assessmentRef, blocked, daysCount, generationNonce, mappingByDay, menuSourceFingerprint, rolesByDay, toast]);
+
+  useNavigationSave(() => persistAutoMenu({ silent: true, throwOnError: true }), !!assessmentRef && !!docData && !blocked);
 
   useEffect(() => {
     if (!assessmentRef || blocked || !docData) return undefined;

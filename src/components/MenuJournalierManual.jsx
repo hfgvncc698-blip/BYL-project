@@ -1,3 +1,4 @@
+import { useNavigationSave } from "../hooks/useNavigationSave";
 // src/components/MenuJournalierManual.jsx
  
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1116,7 +1117,7 @@ export default function MenuJournalierManual({
   );
 
   /* ================= Auto-save ================= */
-  const persistManualMenu = useCallback(async ({ silent = true } = {}) => {
+  const persistManualMenu = useCallback(async ({ silent = true, throwOnError = false } = {}) => {
     if (!assessmentRef) {
       if (!silent) {
         toast({
@@ -1145,22 +1146,17 @@ export default function MenuJournalierManual({
     if (!silent) setSaving(true);
     try {
       await updateDoc(assessmentRef, {
-        ration: {
-          ...(docData?.ration || {}),
-          manualMenu: {
-            ...(docData?.ration?.manualMenu || {}),
-            daysCount,
-            mappingByDay: mappingByDay || {},
-            sourceFingerprint: menuSourceFingerprint || null,
-            updatedAt: serverTimestamp(),
-          },
-          ciqualMapping: mappingByDay?.["1"] || docData?.ration?.ciqualMapping || {},
-        },
+        "ration.manualMenu.daysCount": daysCount,
+        "ration.manualMenu.mappingByDay": mappingByDay || {},
+        "ration.manualMenu.sourceFingerprint": menuSourceFingerprint || null,
+        "ration.manualMenu.updatedAt": serverTimestamp(),
+        "ration.ciqualMapping": mappingByDay?.["1"] || docData?.ration?.ciqualMapping || {},
         updatedAt: serverTimestamp(),
       });
 
       if (!silent) toast({ title: i18n.t("programBuilder.status.saved", "Sauvegardé"), status: "success", duration: 1200, isClosable: true });
     } catch (e) {
+      if (throwOnError) throw e;
       if (!silent) {
         toast({
           title: i18n.t("auto.MenuJournalierManual.erreur_sauvegarde", "Erreur sauvegarde"),
@@ -1176,6 +1172,8 @@ export default function MenuJournalierManual({
       if (!silent) setSaving(false);
     }
   }, [assessmentRef, blocked, daysCount, docData?.ration, mappingByDay, menuSourceFingerprint, toast]);
+
+  useNavigationSave(() => persistManualMenu({ silent: true, throwOnError: true }), !!assessmentRef && !!docData && !blocked);
 
   useEffect(() => {
     if (!assessmentRef || blocked || !docData) return undefined;

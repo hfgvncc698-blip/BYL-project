@@ -101,7 +101,7 @@ export default function Login() {
           if (targetAfterLogin) verificationParams.set("next", targetAfterLogin);
           navigate(`/verify-email?${verificationParams.toString()}`, { replace: true });
         } else if (targetAfterLogin) {
-          navigate(targetAfterLogin, { replace: true });
+          navigate(targetAfterLogin === "/plans/professionnel" && hasActiveSubscription ? routeAfterAuth(role, profile) : targetAfterLogin, { replace: true });
         } else if ((proIntent || role === "coach") && !hasActiveSubscription) {
           navigate("/plans/professionnel", { replace: true });
         } else {
@@ -122,7 +122,7 @@ export default function Login() {
       setAuthLoading(true);
       await loginWithGoogle((role, hasActiveSubscription, profile) => {
         if (targetAfterLogin) {
-          navigate(targetAfterLogin, { replace: true });
+          navigate(targetAfterLogin === "/plans/professionnel" && hasActiveSubscription ? routeAfterAuth(role, profile) : targetAfterLogin, { replace: true });
         } else if ((proIntent || role === "coach") && !hasActiveSubscription) {
           navigate("/plans/professionnel", { replace: true });
         } else {

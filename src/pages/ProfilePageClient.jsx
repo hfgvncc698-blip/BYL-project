@@ -1,6 +1,14 @@
+import ClientClubSubscriptions from '../components/dashboard/ClientClubSubscriptions';
+import { clubText } from '../i18n/clubText';
+import { useSearchParams } from 'react-router-dom';
+import ClientMemberships from '../components/dashboard/ClientMemberships';
+import ClientFollowups from '../components/dashboard/ClientFollowups';
+import { ClientSessionPacks } from '../components/dashboard/ClubSessionPacks';
+import useSessionDraft from "../hooks/useSessionDraft";
 // src/pages/ProfilePageClient.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  Tabs, TabList, Tab, TabPanels, TabPanel,
   Box,
   Heading,
   FormControl,
@@ -15,8 +23,6 @@ import {
   VStack,
   useColorModeValue,
   SimpleGrid,
-  Badge,
-  Divider,
   Circle,
   Icon,
   Textarea,
@@ -163,6 +169,8 @@ function SectionCard({ title, subtitle, icon, accent, children, cardBg, borderCo
 }
 
 export default function ProfilePageClient() {
+  const [profileParams, setProfileParams] = useSearchParams();
+  const tabTrackBg = useColorModeValue('blackAlpha.50', 'whiteAlpha.100');
   const { t, i18n } = useTranslation("common");
   const { user } = useAuth();
   const auth = getAuth();
@@ -194,6 +202,23 @@ export default function ProfilePageClient() {
   });
 
   const [initialEmail, setInitialEmail] = useState("");
+  const [profileDraft, setProfileDraft] = useSessionDraft(user?.uid ? `profile:${user.uid}` : null, null);
+  const restoredDraftRef = useRef(false);
+  const draftTouchedRef = useRef(false);
+  useEffect(() => {
+    if (isLoading || restoredDraftRef.current) return;
+    restoredDraftRef.current = true;
+    if (!profileDraft) return;
+    setForm(profileDraft.form);
+    setHeightUnit(profileDraft.heightUnit); setWeightUnit(profileDraft.weightUnit);
+    setHeightCm(profileDraft.heightCm); setHeightFt(profileDraft.heightFt); setHeightIn(profileDraft.heightIn);
+    setLangCode(profileDraft.langCode);
+  }, [isLoading, profileDraft]);
+  useEffect(() => {
+    if (isLoading || !draftTouchedRef.current) return;
+    setProfileDraft({ form, heightUnit, weightUnit, heightCm, heightFt, heightIn, langCode });
+  }, [form, heightUnit, weightUnit, heightCm, heightFt, heightIn, langCode, isLoading, setProfileDraft]);
+
   const pageBg = useColorModeValue("#F5F7FB", "#070B14");
   const surfaceBg = useColorModeValue("rgba(255,255,255,0.85)", "rgba(15,21,35,0.86)");
   const surfaceBgStrong = useColorModeValue("rgba(255,255,255,0.95)", "rgba(11,16,27,0.95)");
@@ -313,12 +338,7 @@ export default function ProfilePageClient() {
           }
 
           // langue (accepte code, label, ou settings.langCode)
-          const loadedCode =
-            c?.settings?.langCode ||
-            codeFromAny(c?.langue) ||
-            codeFromAny(i18n.language);
-          setLangCode(loadedCode);
-          applyLanguage(loadedCode);
+          setLangCode(codeFromAny(i18n.language));
 
           setForm((prev) => ({
             ...prev,
@@ -336,7 +356,7 @@ export default function ProfilePageClient() {
         } else {
           const next = codeFromAny(i18n.language);
           setLangCode(next);
-          applyLanguage(next);
+
         }
       } catch (error) {
         console.error("[PROFILE] load error", error);
@@ -532,6 +552,8 @@ export default function ProfilePageClient() {
           ),
         });
       }
+      draftTouchedRef.current = false;
+      setProfileDraft(null);
     } catch (error) {
       console.error("[PROFILE] handleSubmit error", error);
       let msg =
@@ -592,6 +614,7 @@ export default function ProfilePageClient() {
     heightUnit === "cm"
       ? (heightCm ? `${heightCm} cm` : "—")
       : (heightFt || heightIn ? `${heightFt || 0} ft ${heightIn || 0} in` : "—");
+  const levelLabel = form.niveauSportif ? t(({Débutant:'clientCreation.levels.beginner',Intermédiaire:'clientCreation.levels.intermediate',Confirmé:'clientCreation.levels.advanced'})[form.niveauSportif] || '', {defaultValue:form.niveauSportif}) : clubText('Niveau non renseigné');
   const displayedWeight = form.poids ? `${form.poids} ${weightUnit}` : "—";
 
   return (
@@ -683,8 +706,8 @@ export default function ProfilePageClient() {
               />
               <StatMini
                 label={t("nutritionCoach.table.objective", "Objectif")}
-                value={form.objectifs || "—"}
-                helper={form.niveauSportif || "Niveau non défini"}
+                value={form.objectifs ? t(({ 'Perte de poids':'clientCreation.objectives.loss', 'Prise de masse':'clientCreation.objectives.gain', Force:'clientCreation.objectives.strength', Endurance:'clientCreation.objectives.endurance', 'Remise au sport':'clientCreation.objectives.restart', Postural:'clientCreation.objectives.posture' })[form.objectifs] || '', {defaultValue:form.objectifs}) : '—'}
+                helper={levelLabel}
                 icon={MdOutlineTrackChanges}
                 accent={activeGreen}
                 surfaceBg={surfaceBg}
@@ -709,78 +732,28 @@ export default function ProfilePageClient() {
           </Flex>
         </Box>
 
+        <Tabs w="100%" index={profileParams.get('tab') === 'suivi' ? 1 : 0} onChange={index => setProfileParams(current => { const next = new URLSearchParams(current); if (index) next.set('tab', 'suivi'); else next.delete('tab'); return next; }, { replace: true })} variant="unstyled" isLazy>
+          <TabList gap={1} p={1} bg={tabTrackBg} borderRadius="full" aria-label={clubText("Rubriques du profil")}>
+            <Tab flex="1" borderRadius="full" minH="40px" fontSize="xs" fontWeight="600" color={mutedText} _selected={{bg:cardBg,color:textColor,boxShadow:"sm"}}>{clubText("Mes informations")}</Tab>
+            <Tab flex="1" borderRadius="full" minH="40px" fontSize="xs" fontWeight="600" color={mutedText} _selected={{bg:cardBg,color:textColor,boxShadow:"sm"}}>{clubText("Mon suivi")}</Tab>
+          </TabList>
+          <TabPanels>
+            <TabPanel px={0} pt={6}>
         <SimpleGrid data-tour="client-profile-form" columns={{ base: 1, xl: 12 }} spacing={6}>
-          <Box gridColumn={{ base: "span 1", xl: "span 4" }}>
-            <VStack spacing={6} align="stretch">
-              <SectionCard
-                title={t("auto.ProfilePageClient.vue_rapide", "Vue rapide")}
-                subtitle={t("auto.ProfilePageClient.les_reperes_personnels_les_plus_utiles_au_quotidie", "Les repères personnels les plus utiles au quotidien.")}
-                icon={MdOutlinePerson}
-                accent={activeBlue}
-                cardBg={cardBg}
-                borderColor={borderColor}
-                glassShadow={glassShadow}
-                subtleText={subtleText}
-              >
-                <VStack align="stretch" spacing={3}>
-                  <Box border="1px solid" borderColor={borderColor} borderRadius="18px" p={3.5}>
-                    <Text fontSize="xs" color={subtleText} mb={1}>{t("profile.coach.stats.identity", "Identité")}</Text>
-                    <Text fontWeight="800">{`${form.firstName || "—"} ${form.lastName || ""}`.trim() || "—"}</Text>
-                    <Text mt={1} fontSize="sm" color={mutedText}>{form.email || "—"}</Text>
-                  </Box>
-                  <Box border="1px solid" borderColor={borderColor} borderRadius="18px" p={3.5}>
-                    <Text fontSize="xs" color={subtleText} mb={1}>{t("auto.ProfilePageClient.mesure_actuelle", "Mesure actuelle")}</Text>
-                    <Text fontWeight="800">{displayedWeight}</Text>
-                    <Text mt={1} fontSize="sm" color={mutedText}>{t("auto.ProfilePageClient.taille", "Taille :")}{displayedHeight}</Text>
-                  </Box>
-                  <Box border="1px solid" borderColor={borderColor} borderRadius="18px" p={3.5}>
-                    <Text fontSize="xs" color={subtleText} mb={1}>{t("contact.title", "Contact")}</Text>
-                    <Text fontWeight="800">{form.phone || "Numéro non renseigné"}</Text>
-                    <Text mt={1} fontSize="sm" color={mutedText}>
-                      {form.dateNaissance || "Date de naissance non renseignée"}
-                    </Text>
-                  </Box>
-                </VStack>
-              </SectionCard>
-
-              <SectionCard
-                title={t("settings.sections.preferences", "Préférences")}
-                subtitle={t("auto.ProfilePageClient.unites_langue_et_contexte_d_entrainement", "Unités, langue et contexte d'entraînement.")}
-                icon={MdOutlineLanguage}
-                accent={activePurple}
-                cardBg={cardBg}
-                borderColor={borderColor}
-                glassShadow={glassShadow}
-                subtleText={subtleText}
-              >
-                <VStack align="stretch" spacing={3}>
-                  <HStack justify="space-between">
-                    <Text color={mutedText}>{t("clientCreation.language", "Langue")}</Text>
-                    <Badge variant="subtle">{labelFromCode(langCode)}</Badge>
-                  </HStack>
-                  <Divider borderColor={borderColor} />
-                  <HStack justify="space-between">
-                    <Text color={mutedText}>{t("auto.ProfilePageClient.unites", "Unités")}</Text>
-                    <Badge variant="subtle">{heightUnit} / {weightUnit}</Badge>
-                  </HStack>
-                  <Divider borderColor={borderColor} />
-                  <HStack justify="space-between">
-                    <Text color={mutedText}>{t("clientCreation.level", "Niveau")}</Text>
-                    <Badge variant="subtle">{form.niveauSportif || "—"}</Badge>
-                  </HStack>
-                  <Divider borderColor={borderColor} />
-                  <HStack justify="space-between">
-                    <Text color={mutedText}>{t("clientCreation.gender", "Sexe")}</Text>
-                    <Badge variant="subtle">{form.sexe || "—"}</Badge>
-                  </HStack>
-                </VStack>
-              </SectionCard>
-            </VStack>
+          <Box gridColumn="1 / -1" bg={cardBg} borderWidth="1px" borderColor={borderColor} borderRadius="22px" p={4}>
+            <Text fontWeight="700">{clubText("Vue rapide et préférences")}</Text>
+            <Text fontSize="xs" color={mutedText} mt={1}>{clubText("Ce résumé reflète les champs ci-dessous. Modifiez-les puis enregistrez votre profil.")}</Text>
+            <SimpleGrid columns={{base:1, md:3}} spacing={3} mt={3} fontSize="sm">
+              <Box><Text fontWeight="600">{form.firstName} {form.lastName}</Text><Text color={mutedText}>{form.email}</Text></Box>
+              <Box><Text>{displayedWeight} · {displayedHeight}</Text><Text color={mutedText}>{form.phone || clubText('Téléphone non renseigné')}</Text></Box>
+              <Box><Text>{labelFromCode(langCode)} · {heightUnit} / {weightUnit}</Text><Text color={mutedText}>{levelLabel}</Text></Box>
+            </SimpleGrid>
           </Box>
 
-          <Box gridColumn={{ base: "span 1", xl: "span 8" }}>
+          <Box gridColumn="1 / -1">
             <Box
               as="form"
+              onChangeCapture={() => { draftTouchedRef.current = true; }}
               onSubmit={handleSubmit}
               bg={cardBg}
               borderRadius="22px"
@@ -1061,6 +1034,18 @@ export default function ProfilePageClient() {
             </Box>
           </Box>
         </SimpleGrid>
+            </TabPanel>
+            <TabPanel px={0} pt={6}>
+              <Stack spacing={6}>
+                <Box><Heading size="md">{clubText("Mon suivi")}</Heading><Text mt={2} color={mutedText}>{clubText("Retrouvez vos clubs, vos professionnels et le solde de vos packs de séances.")}</Text></Box>
+                <ClientMemberships />
+                <ClientClubSubscriptions />
+                <ClientFollowups settings />
+                <ClientSessionPacks />
+              </Stack>
+            </TabPanel>
+          </TabPanels>
+        </Tabs>
       </VStack>
     </Box>
   );

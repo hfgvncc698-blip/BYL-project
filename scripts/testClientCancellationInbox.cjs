@@ -1,0 +1,16 @@
+const assert=require('node:assert/strict');
+const {createClientSessionCancellation}=require('../backend/utils/clientSessionCancellation');
+const data={clients:{c:{linkedUserId:'u'},other:{linkedUserId:'stranger'},direct:{}},sessionCancellationRequests:{a:{clientId:'c',title:'Private session',decision:'pending',reason:'Reason',createdAt:1},b:{clientId:'c',title:'Reviewed',decision:'accepted',reason:'Reason',createdAt:2,reviewedAt:4,reviewedBy:'private-coach-id'},c:{clientId:'other',reason:'Private'},d:{clientId:'direct',decision:'rejected',createdAt:3}}};
+const snap=(id,value)=>({id,exists:!!value,data:()=>value});
+const db={collection:name=>({doc:id=>({name,id,get:async()=>snap(id,data[name]?.[id])}),where:(field,operator,value)=>{assert.equal(operator,'==');return {get:async()=>({docs:Object.entries(data[name]||{}).filter(([,d])=>d[field]===value).map(([id,d])=>snap(id,d))})};}})};
+db.runTransaction=async fn=>{const writes=[];const result=await fn({get:r=>r.get(),set:(r,patch)=>writes.push(()=>Object.assign(data[r.name][r.id],patch))});writes.forEach(write=>write());return result;};
+(async()=>{const service=createClientSessionCancellation(db);const mine=await service.mine('u');assert.deepEqual(mine.requests.map(r=>r.id),['b','a']);assert.equal(mine.requests[0].decision,'accepted');assert.equal(mine.requests[0].reviewedBy,undefined);assert.deepEqual((await service.mine('unknown')).requests,[]);assert.deepEqual((await service.mine('direct')).requests.map(r=>r.id),['d']);assert.deepEqual((await service.mine('stranger')).requests.map(r=>r.id),['c']);data.users={coach:{role:'coach',clubId:'club'},owner:{role:'coach',accountType:'club_owner',clubId:'club'},outsider:{role:'coach',clubId:'other'}};
+Object.assign(data.sessionCancellationRequests.a,{coachId:'coach',clubId:'club'});Object.assign(data.sessionCancellationRequests.b,{coachId:'coach',clubId:'club'});
+assert.deepEqual((await service.list('coach')).requests.map(r=>r.id),['a']);assert.deepEqual((await service.list('coach',true)).requests.map(r=>r.id),['b','a']);assert.deepEqual((await service.list('outsider',true)).requests,[]);assert.equal((await service.list('owner',true)).requests.length,2);
+await assert.rejects(service.dismiss('stranger','b'),e=>e.status===403);
+await assert.rejects(service.dismiss('u','a'),e=>e.status===400);
+await service.dismiss('u','b');assert.deepEqual((await service.mine('u')).requests.map(r=>r.id),['a']);
+assert.equal(data.sessionCancellationRequests.b.decision,'accepted');assert.equal((await service.list('coach',true)).requests.length,2);
+await service.dismiss('u','b');assert.deepEqual((await service.mine('u')).requests.map(r=>r.id),['a']);
+data.sessionCancellationRequests.b.reviewedAt=5;assert.equal((await service.mine('u')).requests[0].id,'b');
+console.log('Client cancellation inbox: linked identity, direct identity, ordering and cross-client isolation passed.');})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -10,7 +10,7 @@ const pendingClientResolve = new Map();
 const clientResolveCacheEpoch = new Map();
 
 const getClientResolveCacheKey = (user) =>
-  user?.uid ? `${user.uid}:${normalizeEmail(user.email)}` : "";
+  user?.uid ? `${user.uid}:${normalizeEmail(user.email)}:${user.linkedClientId || ""}` : "";
 
 const getLocalClientResolveKey = (user) =>
   user?.uid ? `byl:client-resolve:${getClientResolveCacheKey(user)}` : "";

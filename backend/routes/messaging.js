@@ -3,6 +3,7 @@ const admin = require("../firebaseAdmin");
 const { getUserRole, requireFirebaseAuth } = require("../utils/firebaseAuth");
 
 const router = express.Router();
+router.use("/club", require("./clubMessaging"));
 const db = admin.firestore();
 
 const clean = (value, maxLength = 180) => String(value || "").trim().slice(0, maxLength);
@@ -27,6 +28,22 @@ const clientProfessionalUids = (client = {}) => new Set([
   client.ownerUid,
   client.assignedBy,
 ].filter(Boolean).map(String));
+
+// Only records linked to the authenticated account; never match by email.
+router.get("/client-records", requireFirebaseAuth, async (req, res) => {
+  try {
+    const uid = req.auth.uid;
+    const direct = await db.collection("clients").doc(uid).get();
+    const results = await Promise.all(["authUid", "accountUid", "linkedUserId", "userId", "uid"].map(field => db.collection("clients").where(field, "==", uid).get()));
+    const records = new Map();
+    for (const snap of [direct, ...results.flatMap(result => result.docs)]) {
+      if (!snap.exists || !clientAccountUids(snap.id, snap.data()).has(uid)) continue;
+      const data = snap.data();
+      records.set(snap.id, { id: snap.id, authUid: uid, professionalIds: [...clientProfessionalUids(data)], coachName: data.coachName || "" });
+    }
+    res.json({ records: [...records.values()] });
+  } catch (error) { res.status(500).json({ error: "messaging-contacts-unavailable" }); }
+});
 
 router.post("/send", requireFirebaseAuth, async (req, res) => {
   try {

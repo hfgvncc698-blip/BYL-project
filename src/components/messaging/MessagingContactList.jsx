@@ -174,11 +174,11 @@ export default function MessagingContactList({ contacts, selectedId = "", onSele
                 <Box minW={0} flex="1">
                   <HStack justify="space-between" gap={2}>
                     <Text fontWeight="900" noOfLines={1}>{contact.title}</Text>
-                    {contact.unread ? <Badge colorScheme="blue" borderRadius="full">{t("messaging.new")}</Badge> : null}
+                    {contact.unread ? <Badge bg="red.500" color="white" borderRadius="full">{t("messaging.new")}</Badge> : null}
                   </HStack>
-                  <Text mt={0.5} fontSize="xs" color={theme.mutedText} noOfLines={1}>
-                    {contact.conversation?.lastMessage || contact.email || contact.relationshipLabel || t("messaging.clientOrPatient")}
-                  </Text>
+                  {(!contact.clubContact || contact.lastMessage) && <Text mt={0.5} fontSize="xs" color={theme.mutedText} noOfLines={1}>
+                    {contact.lastMessage || contact.conversation?.lastMessage || contact.email || contact.relationshipLabel || t("messaging.clientOrPatient")}
+                  </Text>}
                 </Box>
               </HStack>
             </Box>

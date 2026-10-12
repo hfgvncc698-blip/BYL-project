@@ -1,3 +1,4 @@
+import { downloadPdfFile } from "../utils/downloadPdfFile";
 // src/components/ProgramView.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -3324,19 +3325,7 @@ export default function ProgramView() {
 
       const base = normalizeForFilename(programmePdfTitleDisplay || L.fileProgram) || normalizeForFilename(L.fileProgram) || "programme";
       const clientBase = normalizeForFilename(clientName || L.fileClient) || normalizeForFilename(L.fileClient) || "client";
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${base}-${clientBase}-BYL-${pdfLang}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
-      notify(toast, "pdfReady", {
-        title: t("autoPreview.pdfReady", "PDF téléchargé"),
-        status: "success",
-        duration: 3000,
-      });
+      await downloadPdfFile(blob, `${base}-${clientBase}-BYL-${pdfLang}.pdf`);
     } catch (e) {
       console.error(e);
       notify(toast, "pdfError", {

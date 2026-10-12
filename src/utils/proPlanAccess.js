@@ -141,6 +141,16 @@ export function isActiveCoachTrial(accessOrUser, now = Date.now()) {
   );
 }
 
+// Shared by login callbacks and route guards: a trial grants workspace access,
+// without pretending it is a paid subscription.
+export function hasProfessionalWorkspaceAccess(user, now = Date.now()) {
+  if(user?.role==='admin')return true;
+  if(user?.role!=='coach'||(user.emailVerificationRequired&&!user.emailVerified))return false;
+  if(user.subscriptionStatus==='trialing')return isActiveCoachTrial(user,now);
+  if(['canceled','cancelled','expired','unpaid','past_due','incomplete','incomplete_expired','paused','club_deleted'].includes(user.subscriptionStatus))return false;
+  return user.hasActiveSubscription===true||['active','club_active'].includes(user.subscriptionStatus);
+}
+
 export function hasPlanModule(accessOrUser, module) {
   if (!accessOrUser || !module) return false;
   if (accessOrUser.role === "admin") return true;
@@ -190,6 +200,7 @@ export function canUseNavbarBranding(access) {
 export function canUseGuidedProgram(access) {
   const resolved = resolvePlanAccess(access);
   if (!resolved) return true;
+  if (resolved.packageKey === "club") return true;
   if (!["sport", "complete"].includes(resolved.packageKey)) return false;
   return resolved.packageTier !== "solo";
 }

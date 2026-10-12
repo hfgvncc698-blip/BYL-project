@@ -40,7 +40,7 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { getApiBase } from "./utils/apiBase";
-import { getProPlanAccess, isActiveCoachTrial } from "./utils/proPlanAccess";
+import { getProPlanAccess, isActiveCoachTrial, hasProfessionalWorkspaceAccess } from "./utils/proPlanAccess";
 import i18n, { ensureLanguageLoaded } from "./i18n";
 
 const AuthContext = createContext();
@@ -674,6 +674,17 @@ export const AuthProvider = ({ children }) => {
   const requiresEmailVerification = user?.emailVerificationRequired === true;
   const isEmailVerified = !requiresEmailVerification || user?.emailVerified === true;
 
+  const [accessNow,setAccessNow]=useState(Date.now);
+  useEffect(()=>{
+    const refresh=()=>setAccessNow(Date.now());
+    refresh();
+    const end=safeTime(user?.trialEndsAt);
+    const expiry=user?.subscriptionStatus==='trialing'&&end>Date.now()?setTimeout(refresh,Math.min(end-Date.now()+20,2147483647)):null;
+    const timer=setInterval(refresh,30000);
+    window.addEventListener('focus',refresh);
+    return()=>{clearInterval(timer);if(expiry)clearTimeout(expiry);window.removeEventListener('focus',refresh);};
+  },[user?.uid,user?.subscriptionStatus,user?.trialEndsAt]);
+
   /* ----------------- ✅ TRIAL + ACCÈS PRO (FIX) ----------------- */
   const isTrialActive = useMemo(() => {
     if (!user) return false;
@@ -688,28 +699,13 @@ export const AuthProvider = ({ children }) => {
 
     // accepte trialing + endsAt futur
     const endsAtMs = safeTime(user.trialEndsAt);
-    const now = Date.now();
+    const now = accessNow;
 
     return isActiveCoachTrial(user, now) && !!endsAtMs;
-  }, [user]);
+  }, [user,accessNow]);
 
   // accès coach = abonnement payant OU trial actif
-  const hasCoachAccess = useMemo(() => {
-    if (!user) return false;
-    if (user.role !== "coach" && user.role !== "admin") return false;
-
-    // admin a accès
-    if (user.role === "admin") return true;
-
-    if (!isEmailVerified) return false;
-
-    return (
-      user.hasActiveSubscription === true ||
-      user.subscriptionStatus === "active" ||
-      user.subscriptionStatus === "club_active" ||
-      isTrialActive === true
-    );
-  }, [user, isTrialActive, isEmailVerified]);
+  const hasCoachAccess = useMemo(() => hasProfessionalWorkspaceAccess(user,accessNow), [user,accessNow]);
 
   /* -- Compat : ancien flag showAdminView/toggleAdminView (mappés sur viewAs) -- */
   const showAdminView = isAdmin && effectiveRole === "admin";
@@ -894,26 +890,7 @@ export const AuthProvider = ({ children }) => {
         });
         queueWelcomeEmail(fbUser, data);
 
-        // ✅ callback historique mais inclut l'accès trial
-        const endsAt = toDate(data.trialEndsAt);
-        const endsAtMs = safeTime(endsAt);
-        const trialOk =
-          data.role === "coach" &&
-          data.subscriptionStatus === "trialing" &&
-          endsAtMs &&
-          endsAtMs > Date.now();
-        const clubAccessOk =
-          data.subscriptionStatus === "club_active" &&
-          data.accountType === "club_member" &&
-          data.clubId;
-        const callbackRole = clubAccessOk ? "coach" : data.role || "particulier";
-
-        callback(
-          callbackRole,
-          (!normalized.emailVerificationRequired || normalized.emailVerified) &&
-            (!!data.hasActiveSubscription || !!trialOk || !!clubAccessOk),
-          normalized
-        );
+        callback(normalized.role, hasProfessionalWorkspaceAccess(normalized), normalized);
       }
     } catch (err) {
       console.error(err);
@@ -976,20 +953,7 @@ export const AuthProvider = ({ children }) => {
         });
         queueWelcomeEmail(fbUser, data);
 
-        const endsAt = toDate(data.trialEndsAt);
-        const endsAtMs = safeTime(endsAt);
-        const trialOk =
-          data.role === "coach" &&
-          data.subscriptionStatus === "trialing" &&
-          endsAtMs &&
-          endsAtMs > Date.now();
-        const clubAccessOk =
-          data.subscriptionStatus === "club_active" &&
-          data.accountType === "club_member" &&
-          data.clubId;
-        const callbackRole = clubAccessOk ? "coach" : data.role || "particulier";
-
-        callback(callbackRole, !!data.hasActiveSubscription || !!trialOk || !!clubAccessOk, normalized);
+        callback(normalized.role, hasProfessionalWorkspaceAccess(normalized), normalized);
       }
     } catch (err) {
       console.error(err);
@@ -1050,15 +1014,8 @@ export const AuthProvider = ({ children }) => {
         });
         queueWelcomeEmail(fbUser, data);
 
-        const endsAt = toDate(data.trialEndsAt);
-        const endsAtMs = safeTime(endsAt);
-        const trialOk =
-          data.role === "coach" &&
-          data.subscriptionStatus === "trialing" &&
-          endsAtMs &&
-          endsAtMs > Date.now();
-
-        callback(data.role || "particulier", !!data.hasActiveSubscription || !!trialOk);
+        const normalized=normalizeUserDoc(fbUser.uid,data,fbUser);
+        callback(normalized.role,hasProfessionalWorkspaceAccess(normalized),normalized);
       }
     } catch (err) {
       console.error(err);

@@ -1,3 +1,6 @@
+import { useTranslation } from 'react-i18next';
+import { clubText } from '../i18n/clubText';
+import { CLUB_TOUR_PAGES, reviseTutorial, tutorialDevice } from '../utils/tutorialVariants';
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
@@ -11,6 +14,7 @@ import {
   Text,
   VStack,
   useColorModeValue,
+  useMediaQuery,
 } from "@chakra-ui/react";
 import {
   MdArrowBack,
@@ -27,7 +31,7 @@ const START_EVENT = "byl:start-tour";
 const CLIENTS_DEMO_EVENT = "byl:clients-demo";
 const BUILDER_DEMO_EVENT = "byl:builder-demo";
 const PENDING_TOUR_KEY = "byl_pending_spotlight_tour";
-const TUTORIAL_SEEN_VERSION = 1;
+const TUTORIAL_SEEN_VERSION = 2;
 
 const TOURS = {
   coachDashboard: {
@@ -602,8 +606,9 @@ function buildContextualTour(tourId, tour, user) {
   };
 }
 
-function buildLocalizedTour(tourId, user) {
-  const source = TOURS[tourId];
+function buildLocalizedTour(tourId, user, device=tutorialDevice()) {
+  const page=CLUB_TOUR_PAGES[tourId];
+  const source = page ? {role:'club',route:page[0],label:clubText(page[1]),steps:[]} : TOURS[tourId];
   if (!source) return null;
   const localized = {
     ...source,
@@ -614,7 +619,9 @@ function buildLocalizedTour(tourId, user) {
       text: i18n.t(`guidedTutorial.tours.${tourId}.steps.${index}.text`, step.text),
     })),
   };
-  return buildContextualTour(tourId, localized, user);
+  const contextual=buildContextualTour(tourId, localized, user);
+  const contentRole=contextual.role==='both'?(user?.role==='particulier'?'client':'coach'):contextual.role;
+  return {...reviseTutorial(tourId, {...contextual,role:contentRole}, device, key=>i18n.t(key), text=>text==='Navigation'?i18n.t('nav.menu','Menu'):clubText(text)),role:contextual.role};
 }
 
 const ROUTE_TOURS = {
@@ -643,7 +650,7 @@ export function startGuidedTutorial(tourId) {
 }
 
 export function getGuidedTutorialRoute(tourId, role = "coach") {
-  const tour = TOURS[tourId];
+  const tour = CLUB_TOUR_PAGES[tourId] ? {route:CLUB_TOUR_PAGES[tourId][0]} : TOURS[tourId];
   if (!tour) return null;
   return tourId === "settings" && role === "coach" ? "/settings-coach" : tour.route;
 }
@@ -669,11 +676,13 @@ export const CLIENT_TUTORIAL_SHORTCUTS = [
 ];
 
 export const CLUB_TUTORIAL_SHORTCUTS = [
+  ...Object.entries(CLUB_TOUR_PAGES).map(([id,page])=>({id,labelKey:`guidedTutorial.v2.labels.${id}`,fallback:page[1]})),
   { id: "clubDashboard", labelKey: "guidedTutorial.shortcuts.clubDashboard", fallback: "Dashboard club" },
 ];
 
 function getRouteTour(pathname) {
-  if (pathname?.startsWith("/club-dashboard")) return "clubDashboard";
+  const page=Object.entries(CLUB_TOUR_PAGES).find(([,data])=>data[0]===pathname);
+  if(page)return page[0];
   return ROUTE_TOURS[pathname];
 }
 
@@ -683,7 +692,7 @@ function resolveElement(selector) {
   return elements.find((element) => {
     const rect = element.getBoundingClientRect();
     return rect.width > 0 && rect.height > 0;
-  }) || elements[0] || null;
+  }) || null;
 }
 
 function getTourRole({ effectiveRole, user }) {
@@ -699,14 +708,14 @@ function canUseTour(tour, role) {
 }
 
 function getSeenKey(role, tourId) {
-  return `${role}_${tourId}`;
+  return `${role}_${tourId}_${tutorialDevice()}_v${TUTORIAL_SEEN_VERSION}`;
 }
 
 function getLocalSeenKeys(user, role, tourId) {
   const uid = user?.uid || "anonymous";
   return [
-    `${SEEN_PREFIX}_${uid}_${role}_${tourId}`,
-    `${SEEN_PREFIX}_${role}_${tourId}`,
+    `${SEEN_PREFIX}_${uid}_${getSeenKey(role,tourId)}`,
+    
   ];
 }
 
@@ -714,8 +723,7 @@ function isSeenInProfile(user, role, tourId) {
   const settings = user?.settings || {};
   const key = getSeenKey(role, tourId);
   return Boolean(
-    settings.tutorialsSeen?.[role]?.[tourId] ||
-      settings.tutorialsSeenKeys?.[key]
+    settings.tutorialsSeenKeys?.[key]
   );
 }
 
@@ -763,6 +771,9 @@ async function persistTourSeen(user, role, tourId) {
 }
 
 export default function GuidedTutorial() {
+  const {i18n:language}=useTranslation();
+  const [mobile]=useMediaQuery('(max-width: 767px)');
+  const device=mobile?'mobile':'desktop';
   const { user, effectiveRole } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -771,11 +782,20 @@ export default function GuidedTutorial() {
   const [targetRect, setTargetRect] = React.useState(null);
   const [missingSelectors, setMissingSelectors] = React.useState(() => new Set());
   const migratedSeenRef = React.useRef(new Set());
+  const cardRef=React.useRef(null);
+  React.useEffect(()=>{
+    if(!activeTourId)return;
+    const previous=document.activeElement;
+    const timer=window.setTimeout(()=>cardRef.current?.focus(),0);
+    const escape=e=>{if(e.key==="Escape"){e.stopPropagation();setActiveTourId(null);}};
+    window.addEventListener("keydown",escape);
+    return()=>{window.clearTimeout(timer);window.removeEventListener("keydown",escape);if(previous?.isConnected)previous.focus?.();};
+  },[activeTourId]);
 
   const role = getTourRole({ effectiveRole, user });
   const baseTour = React.useMemo(
-    () => (activeTourId ? buildLocalizedTour(activeTourId, user) : null),
-    [activeTourId, user]
+    () => (activeTourId ? buildLocalizedTour(activeTourId, user, device) : null),
+    [activeTourId, user, device, language.language]
   );
   const activeSteps = React.useMemo(() => {
     if (!baseTour) return [];
@@ -785,6 +805,7 @@ export default function GuidedTutorial() {
   const activeStep = activeSteps[stepIndex] || null;
   const isActive = !!activeTour && !!activeStep;
 
+  React.useEffect(()=>{setActiveTourId(null);setStepIndex(0);setTargetRect(null);},[location.pathname,device]);
   const cardBg = useColorModeValue("white", "#0F172A");
   const cardBorder = useColorModeValue("rgba(15,23,42,0.12)", "rgba(255,255,255,0.16)");
   const muted = useColorModeValue("gray.600", "rgba(255,255,255,0.68)");
@@ -820,7 +841,7 @@ export default function GuidedTutorial() {
 
       return true;
     },
-    [location.pathname, navigate, role, user]
+    [location.pathname, navigate, role, user, device]
   );
 
   React.useEffect(() => {
@@ -831,7 +852,7 @@ export default function GuidedTutorial() {
       const tour = buildLocalizedTour(tourId, user);
       if (!canUseTour(tour, role)) return;
 
-      const migrationKey = `${user.uid || "anonymous"}:${role}:${tourId}`;
+      const migrationKey = `${user.uid || "anonymous"}:${getSeenKey(role,tourId)}`;
       if (migratedSeenRef.current.has(migrationKey)) return;
 
       if (!isTourAlreadySeen(user, role, tourId)) return;
@@ -845,7 +866,7 @@ export default function GuidedTutorial() {
         });
       }
     });
-  }, [role, user]);
+  }, [role, user, device]);
 
   React.useEffect(() => {
     if (!user || !role) return;
@@ -880,7 +901,9 @@ export default function GuidedTutorial() {
 
     let raf = 0;
     let retryTimer = 0;
+    let measureTimer=0;
     let attempts = 0;
+    let scrolled=false;
     const updateRect = () => {
       const el = resolveElement(activeStep.selector);
       if (!el) {
@@ -899,8 +922,9 @@ export default function GuidedTutorial() {
         return;
       }
       attempts = 0;
-      el.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
-      window.setTimeout(() => {
+      if(!scrolled){scrolled=true;el.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });}
+      window.clearTimeout(measureTimer);
+      measureTimer=window.setTimeout(() => {
         const rect = el.getBoundingClientRect();
         const top = Math.max(12, rect.top);
         const left = Math.max(12, rect.left);
@@ -926,6 +950,7 @@ export default function GuidedTutorial() {
     return () => {
       window.cancelAnimationFrame(raf);
       window.clearTimeout(retryTimer);
+      window.clearTimeout(measureTimer);
       window.removeEventListener("resize", schedule);
       window.removeEventListener("scroll", schedule, true);
     };
@@ -1001,7 +1026,7 @@ export default function GuidedTutorial() {
 
   const tutorialCardWidth = Math.min(360, window.innerWidth - 32);
 
-  const cardPosition = spotlight
+  const cardPosition = mobile ? {left:"16px", ...(spotlight && spotlight.top > window.innerHeight/2 ? {top:"16px"} : {bottom:"calc(92px + env(safe-area-inset-bottom))"})} : spotlight
     ? {
         top:
           spotlight.top + spotlight.height + 18 < window.innerHeight - 220
@@ -1048,16 +1073,22 @@ export default function GuidedTutorial() {
           <Box
             position="absolute"
             pointerEvents="auto"
+            ref={cardRef}
+            role="dialog"
+            aria-label={activeTour.label}
+            tabIndex={-1}
             w={{ base: "calc(100vw - 32px)", md: "360px" }}
             maxW="calc(100vw - 32px)"
             {...cardPosition}
+            top={typeof cardPosition.top === "number" ? `${cardPosition.top}px` : cardPosition.top}
+            left={typeof cardPosition.left === "number" ? `${cardPosition.left}px` : cardPosition.left}
             bg={cardBg}
             border="1px solid"
             borderColor={cardBorder}
             borderRadius="20px"
             boxShadow="0 24px 70px rgba(0,0,0,0.32)"
             p={4}
-            maxH="calc(100dvh - 24px)"
+            maxH={mobile ? "min(50dvh, 400px)" : typeof cardPosition.top === "number" ? `${Math.max(160,window.innerHeight-cardPosition.top-16)}px` : "calc(100dvh - 32px)"}
             overflowY="auto"
           >
             <HStack justify="space-between" align="start" spacing={3}>
@@ -1085,7 +1116,7 @@ export default function GuidedTutorial() {
               <Text color={muted} lineHeight="1.6">
                 {activeStep.text}
               </Text>
-              <HStack justify="space-between" pt={1}>
+              <HStack justify="space-between" pt={1} flexWrap="wrap">
                 <HStack spacing={2}>
                   <Button variant="ghost" borderRadius="14px" onClick={skip}>{i18n.t("auto.GuidedTutorial.passer", "Passer")}</Button>
                   <Button

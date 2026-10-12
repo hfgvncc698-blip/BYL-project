@@ -14,7 +14,7 @@ function isPermanentRecipientFailure(error) {
 }
 
 function appointmentState(data) {
-  if (!data || !clean(data.clientId) || data.visibility !== 'both' || data.noNotify === true) return null;
+  if (!data || !clean(data.clientId) || data.visibility !== 'both') return null;
   const start = valueMs(data.start || data.startAt), end = valueMs(data.end || data.endAt);
   if (!start || end <= start || (!planned(data.status) && !cancelled(data.status))) return null;
   // No health information or private coach notes is copied into e-mail receipts.
@@ -22,6 +22,7 @@ function appointmentState(data) {
 }
 
 function sessionNotificationChange(before, after) {
+  if (after?.noNotify === true || (!after && before?.noNotify === true)) return null;
   const previous = appointmentState(before), next = appointmentState(after);
   if (!next && !(previous && !after)) return null;
   const state = next || { ...previous, cancelled: true };
@@ -67,6 +68,7 @@ function createSessionNotificationHandler({ db, send, isEnabled, getLanguage, ti
     if (!sessionId || sessionId.includes('/') || change.clientId.includes('/')) return;
     const sessionRef = db.doc(`sessions/${sessionId}`);
     const current = await sessionRef.get();
+    if (current.exists && current.data()?.noNotify === true) return;
     // Firestore events may arrive out of order. Do not send an obsolete schedule.
     if (JSON.stringify(appointmentState(current.exists ? current.data() : null)) !== JSON.stringify(appointmentState(after))) return;
     const clientRef = db.doc(`clients/${change.clientId}`);
@@ -75,6 +77,13 @@ function createSessionNotificationHandler({ db, send, isEnabled, getLanguage, ti
     const client = clientSnap.data() || {};
     const to = clean(client.email).toLowerCase();
     if (!to || !canNotifyForClient(after || before, client) || !isEnabled(client, 'sessionScheduled')) return;
+    // The account preference applies across all follow-up dossiers, including
+    // club records that were not the selected dossier when the switch changed.
+    const accountUid = clean(client.accountUid || client.linkedUserId || client.uid || change.clientId);
+    if (accountUid && !accountUid.includes('/')) {
+      const account = await db.doc(`users/${accountUid}`).get();
+      if (account.exists && !isEnabled(account.data() || {}, 'sessionScheduled')) return;
+    }
     const stateKey = JSON.stringify({ sessionId, ...change });
     // Include the source event/version: moving A->B->A must notify A again.
     const eventKey = clean(event.id) || clean(event.time) || stateKey;

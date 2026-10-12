@@ -231,6 +231,8 @@ export default function SettingsPageClient() {
           </Flex>
         </AppSurface>
 
+
+
         <SimpleGrid data-tour="settings-summary" columns={{ base: 1, sm: 3 }} spacing={{ base: 2.5, md: 3 }}>
           <MetricTile
             label={t("auto.SettingsPageClient.langue_active", "Langue active")}

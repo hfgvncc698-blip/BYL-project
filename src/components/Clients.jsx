@@ -1,5 +1,6 @@
+const ClubReferents = lazy(() => import("./dashboard/ClubReferents"));
 // src/pages/Clients.jsx
-import React, { useEffect, useLayoutEffect, useMemo, useState, useCallback, useRef } from "react";
+import React, { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   Box,
   Flex,
@@ -46,6 +47,7 @@ import {
 import { AddIcon, SearchIcon } from "@chakra-ui/icons";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useLocation, Link } from "react-router-dom";
+import { clubText } from "../i18n/clubText";
 import { useAuth } from "../AuthContext";
 import {
   collection,
@@ -454,7 +456,7 @@ const Clients = () => {
   const hasSportAccess = hasPlanModule(user, "sport");
   const nutritionOnly = hasNutritionAccess && !hasSportAccess;
   const mixedNutritionView = hasNutritionAccess && hasSportAccess && listView === "nutrition";
-  const sportView = hasSportAccess && listView === "sport";
+  const sportView = hasSportAccess && listView === "sport" && filter === "with-program";
   const nutritionMode = nutritionOnly || mixedNutritionView;
   const activeCutoffMs = useMemo(
     () => Date.now() - DAYS_ACTIVE_CUTOFF * 24 * 60 * 60 * 1000,
@@ -499,6 +501,7 @@ const Clients = () => {
     [activeCutoffMs, filter, initialClientsPageCache, sportView]
   );
 
+  const [clientScope, setClientScope] = useState("mine");
   const [clients, setClients] = useState(() => initialVisibleClients);
   const [programmes, setProgrammes] = useState(() => initialClientsPageCache?.programmes || []);
   const [loading, setLoading] = useState(() => !initialClientsPageCache);
@@ -1217,6 +1220,11 @@ const Clients = () => {
           </Flex>
         </AppSurface>
 
+        {user?.clubId && <HStack mb={5} spacing={2} role="group">
+          <Button variant={clientScope === "mine" ? "solid" : "outline"} onClick={() => setClientScope("mine")}>{nutritionMode ? t("clientsList.headingPatients", "Mes patients") : t("clientsList.heading")}</Button>
+          <Button variant={clientScope === "club" ? "solid" : "outline"} onClick={() => setClientScope("club")}>{user?.clubName?.trim() ? clubText(nutritionMode ? 'Annuaire des patients · {{clubName}}' : 'Annuaire des clients · {{clubName}}', { clubName: user.clubName.trim() }) : clubText(nutritionMode ? 'Annuaire des patients du club' : 'Annuaire des clients du club')}</Button>
+        </HStack>}
+        {user?.clubId && clientScope === "club" ? <Suspense fallback={null}><ClubReferents onAssigned={() => fetchData()} /></Suspense> : <>
         <SimpleGrid
           columns={{ base: 1, sm: 3 }}
           spacing={{ base: 2, md: 4 }}
@@ -1616,6 +1624,7 @@ const Clients = () => {
           )}
         </Box>
 
+        </>}
         <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} isCentered>
           <ModalOverlay />
           <ModalContent>

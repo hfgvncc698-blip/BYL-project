@@ -46,7 +46,7 @@ export default function ClientMobileNav() {
   }, []);
 
   return (
-    <Box
+    <Box data-tour="client-mobile-nav"
       display={{ base: "block", md: "none" }}
       position="fixed"
       left={3}

@@ -7,6 +7,32 @@ const { serializeConfirmedSession } = require("../utils/confirmedCalendarSession
 const router = express.Router();
 const db = admin.firestore();
 
+const deletePersonalSession = require('../utils/deletePersonalSession').createDeletePersonalSession(db);
+router.delete('/:id/personal', requireFirebaseAuth, async (req, res) => {
+  try { res.json(await deletePersonalSession(req.auth.uid, req.params.id)); }
+  catch (error) { res.status(error.status || 500).json({ error: error.status ? error.message : 'Suppression impossible. Réessayez.' }); }
+});
+
+const clientCancellation = require('../utils/clientSessionCancellation').createClientSessionCancellation(db);
+router.post('/:id/cancellation-dismiss', requireFirebaseAuth, async(req,res)=>{
+ try {res.json(await clientCancellation.dismiss(req.auth.uid,req.params.id));} catch(e){res.status(e.status||500).json({error:e.status?e.message:'Enregistrement impossible.'});}
+});
+router.get('/my-cancellations', requireFirebaseAuth, async(req,res)=>{
+ try {res.json(await clientCancellation.mine(req.auth.uid));} catch(e){res.status(e.status||500).json({error:e.status?e.message:'Chargement impossible.'});}
+});
+router.get('/cancellation-requests', requireFirebaseAuth, async(req,res)=>{
+ try {res.json(await clientCancellation.list(req.auth.uid,req.query.history==='true'));} catch(e){res.status(e.status||500).json({error:e.status?e.message:'Chargement impossible.'});}
+});
+router.post('/:id/cancellation-review', requireFirebaseAuth, async(req,res)=>{
+ try {res.json(await clientCancellation.review(req.auth.uid,req.params.id,req.body));} catch(e){res.status(e.status||500).json({error:e.status?e.message:'Enregistrement impossible.'});}
+});
+router.get('/:id/cancellation-policy', requireFirebaseAuth, async(req,res)=>{
+ try {res.json(await clientCancellation.policy(req.auth.uid,req.params.id));} catch(e){res.status(e.status||500).json({error:e.status?e.message:'Chargement impossible.'});}
+});
+router.post('/:id/client-cancel', requireFirebaseAuth, async(req,res)=>{
+ try {res.json(await clientCancellation.cancel(req.auth.uid,req.params.id,req.body.reason));} catch(e){res.status(e.status||500).json({error:e.status?e.message:'Annulation impossible.'});}
+});
+
 const cleanText = (value, maxLength = 240) =>
   String(value ?? "").trim().slice(0, maxLength);
 
@@ -200,7 +226,10 @@ router.post("/", requireFirebaseAuth, async (req, res) => {
     await db.runTransaction(async (transaction) => {
       created = false;
       const rootPayload = {
+        noNotify: req.body?.notifyClient !== true,
         clientId,
+        clientDocId: clientId,
+        userId: cleanText(client.accountUid || client.linkedUserId || client.uid, 180),
         clientName,
         title,
         start: startTimestamp,
@@ -321,5 +350,84 @@ router.post("/", requireFirebaseAuth, async (req, res) => {
     });
   }
 });
+
+// Move all representations together; a failed write must not leave calendars apart.
+async function updateSessionCalendar(req, res) {
+  const fail = (status, message) => { throw Object.assign(new Error(message), { status }); };
+  try {
+    const id = cleanText(req.params.sessionId, 180);
+    const statusOnly = req.path.endsWith('/status');
+    const status = req.body?.status;
+    if (statusOnly && !['à venir', 'validée', 'manquée'].includes(status)) return res.status(400).json({ error: 'Statut invalide.' });
+    const start = new Date(req.body?.start);
+    const end = new Date(req.body?.end);
+    if (!id || id.includes('/') || (!statusOnly && (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end <= start || end - start > 180 * 60000))) {
+      return res.status(400).json({ error: 'Horaire invalide.' });
+    }
+    await db.runTransaction(async transaction => {
+      const sessionRef = db.collection('sessions').doc(id);
+      const [userSnap, sessionSnap] = await Promise.all([
+        transaction.get(db.collection('users').doc(req.auth.uid)), transaction.get(sessionRef),
+      ]);
+      const user = userSnap.data() || {};
+      const adminRequester = isAdminRole(user.role || req.auth.token?.role) && req.auth.token?.email_verified === true;
+      if (!adminRequester && !hasActiveProfessionalAccess(user, req.auth.token || {})) fail(403, 'Accès professionnel requis.');
+      if (!sessionSnap.exists) fail(404, 'Cette séance n’est plus disponible.');
+      const session = sessionSnap.data();
+      const coachId = session.coachId || session.ownerId || session.createdBy;
+      if (!adminRequester && (coachId !== req.auth.uid || (session.clubId && session.clubId !== user.clubId))) fail(403, 'Vous ne pouvez pas déplacer cette séance.');
+      if (!statusOnly && (['validée', 'validee', 'done', 'completed'].includes(session.status) || session.completedAt || session.validatedAt)) fail(409, 'Cette séance est déjà validée.');
+      const clientId = session.clientDocId || session.clientId;
+      if (!clientId || clientId.includes('/')) fail(400, 'Client introuvable.');
+      const clientRef = db.collection('clients').doc(clientId);
+      const clientSnap = await transaction.get(clientRef);
+      if (!clientSnap.exists || (!adminRequester && !clientBelongsToCoach(clientSnap.data(), user, req.auth.uid))) fail(403, 'Accès au client refusé.');
+      const clubId = session.clubId || clientSnap.data().clubId;
+      if (!adminRequester && clubId) {
+        const member = await transaction.get(db.collection('clubs').doc(clubId).collection('members').doc(req.auth.uid));
+        if (user.disabledByClub || user.clubId !== clubId || member.data()?.status !== 'active') fail(403, 'Accès au club refusé.');
+      }
+      let appointmentRef;
+      if (session.clubId && session.clubAppointmentId) {
+        appointmentRef = db.collection('clubs').doc(session.clubId).collection('appointments').doc(session.clubAppointmentId);
+        const appointmentSnap = await transaction.get(appointmentRef);
+        if (!appointmentSnap.exists || appointmentSnap.data().linkedSessionId !== id) fail(409, 'Le rendez-vous associé a changé.');
+      }
+      if (statusOnly) {
+        const updatedAt = admin.firestore.FieldValue.serverTimestamp();
+        transaction.set(sessionRef, { status, updatedAt, noNotify: true }, { merge: true });
+        transaction.set(clientRef.collection('calendarEvents').doc(id), {
+          status: calendarStatus(status), updatedAt, sessionId: id, coachId,
+          start: session.start, end: session.end, startAt: session.start, endAt: session.end,
+          title: session.title || 'Séance', eventType: session.eventType || 'sport_session',
+          programId: session.programId || session.programmeId || '',
+          ...(Number.isInteger(session.sessionIndex) ? { sessionIndex: session.sessionIndex } : {}),
+        }, { merge: true });
+        if (appointmentRef) transaction.set(appointmentRef, {
+          status, updatedAt,
+          ...(req.body.syncCompletion === true && status === 'validée' && session.completedAt
+            ? { startsAt: session.start, durationMin: (session.end.toMillis() - session.start.toMillis()) / 60000 }
+            : {}),
+        }, { merge: true });
+        return;
+      }
+      const durationMin = (end - start) / 60000;
+      const dates = { noNotify: req.body?.notifyClient !== true, start: admin.firestore.Timestamp.fromDate(start), end: admin.firestore.Timestamp.fromDate(end), durationMin, updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+      transaction.set(sessionRef, dates, { merge: true });
+      transaction.set(clientRef.collection('calendarEvents').doc(id), {
+        ...dates, startAt: dates.start, endAt: dates.end, sessionId: id, coachId,
+        title: session.title || 'Séance', status: calendarStatus(session.status),
+        eventType: session.eventType || 'sport_session',
+      }, { merge: true });
+      if (appointmentRef) transaction.set(appointmentRef, { startsAt: dates.start, durationMin, updatedAt: dates.updatedAt }, { merge: true });
+    });
+    return res.json({ ok: true });
+  } catch (error) {
+    if (!error.status) console.error('[coach sessions] move failed', error);
+    return res.status(error.status || 500).json({ error: error.status ? error.message : 'La séance n’a pas pu être déplacée.' });
+  }
+}
+router.patch('/:sessionId/schedule', requireFirebaseAuth, updateSessionCalendar);
+router.patch('/:sessionId/status', requireFirebaseAuth, updateSessionCalendar);
 
 module.exports = router;

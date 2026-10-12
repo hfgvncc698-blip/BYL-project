@@ -42,7 +42,7 @@ cleanup();
 assert.equal(listeners.size, 0);
 console.log("Location preference: persistence, cache purge, explicit retry, cross-tab subscription and cleanup OK.");
 
-const expectedKeys = ["title", "description", "toggle", "off", "unsupported", "consent", "granted", "blocked", "unknown", "saveError", "scope", "browserSettings", "analyticsHelp", "temporary", "reminderTitle", "reminderBody", "retryHelp", "retry", "later"].sort();
+const expectedKeys = ["title", "description", "toggle", "off", "unsupported", "consent", "granted", "blocked", "unknown", "saveError", "scope", "browserSettings", "analyticsHelp", "temporary", "reminderTitle", "reminderBody", "retryHelp", "retry", "later", "reactivateHelp", "reactivateSteps", "activate"].sort();
 for (const language of ["fr", "en", "de", "it", "es", "ru", "ar"]) {
   const resource = JSON.parse(await readFile(new URL(`../src/i18n/locales/${language}/common.json`, import.meta.url), "utf8"));
   assert.deepEqual(Object.keys(resource.locationPrivacy).sort(), expectedKeys, language);
@@ -52,4 +52,4 @@ for (const page of ["SettingsPageClient", "SettingsPageCoach"]) {
   const content = await readFile(new URL(`../src/pages/${page}.jsx`, import.meta.url), "utf8");
   assert.ok(content.includes("<LocationPreferenceCard"), page);
 }
-console.log("Shared client/coach location settings and all 19 translations in seven languages OK.");
+console.log("Shared client/coach location settings and all 22 translations in seven languages OK.");

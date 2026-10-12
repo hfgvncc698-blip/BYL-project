@@ -1,3 +1,4 @@
+import { useSavedNavigation } from "../../hooks/useNavigationSave";
  
 import { ArrowBackIcon } from "@chakra-ui/icons";
 import { Badge, Box, HStack, IconButton, SimpleGrid, Text, useColorModeValue } from "@chakra-ui/react";
@@ -51,16 +52,13 @@ export default function NutritionWorkflowBar({
   canNavigate = true,
   onBack,
 }) {
+  const { leave, leaving } = useSavedNavigation();
   const navigationEnabled = Boolean(canNavigate && clientId && assessmentId);
   const handleStepClick = (event, target) => {
     if (!navigationEnabled || !navigate) return;
 
     event.preventDefault();
-    try {
-      navigate(target);
-    } catch {
-      window.location.assign(target);
-    }
+    leave(() => navigate(target));
   };
   const activeIndex = Math.max(0, STEPS.findIndex((step) => step.key === activeStep));
   const theme = useNutritionTheme();
@@ -102,7 +100,9 @@ export default function NutritionWorkflowBar({
             <IconButton
               aria-label={i18n.t("programView.back", "Retour")}
               icon={<ArrowBackIcon boxSize={{ base: 4, md: 5 }} />}
-              onClick={onBack}
+              type="button"
+              isLoading={leaving}
+              onClick={() => leave(onBack)}
               variant="outline"
               borderRadius="full"
               size={{ base: "sm", md: "md" }}

@@ -8,8 +8,8 @@
     "node": "22"
   },
   "scripts": {
-    "test": "node scripts/testCalendarContract.cjs",
-    "test:calendar": "node scripts/testCalendarContract.cjs",
+    "test": "node scripts/testCalendarContract.cjs && node scripts/testClubCalendar.cjs",
+    "test:calendar": "node scripts/testCalendarContract.cjs && node scripts/testClubCalendar.cjs",
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",
     "start": "npm run shell",

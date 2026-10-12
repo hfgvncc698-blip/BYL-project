@@ -40,10 +40,10 @@ function hasActiveProfessionalAccess(user = {}, authToken = {}) {
   ) {
     return false;
   }
-  if (user.hasActiveSubscription === true) return true;
   const status = String(user.subscriptionStatus || "").trim().toLowerCase();
-  if (status === "active" || status === "club_active") return true;
-  return status === "trialing" && valueToMillis(user.trialEndsAt || user.trialEnd) > Date.now();
+  if (status === "trialing") return valueToMillis(user.trialEndsAt || user.trialEnd) > Date.now();
+  if (['canceled','cancelled','expired','unpaid','past_due','incomplete','incomplete_expired','paused','club_deleted'].includes(status)) return false;
+  return user.hasActiveSubscription === true || status === "active" || status === "club_active";
 }
 
 async function requireFirebaseAuth(req, res, next) {

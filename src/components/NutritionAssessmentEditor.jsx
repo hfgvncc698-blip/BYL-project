@@ -1,3 +1,4 @@
+import { useNavigationSave } from "../hooks/useNavigationSave";
 // src/components/NutritionAssessmentEditor.jsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -835,6 +836,8 @@ export default function NutritionAssessmentEditor() {
 
     return () => window.clearTimeout(timer);
   }, [canManageNutrition, computedBMI, form, isComplete, loading, saveAssessment]);
+
+  useNavigationSave(() => saveAssessment({ silent: true }), canManageNutrition && !!form && !loading);
 
   const onSaveAndNext = async () => {
     if (!canManageNutrition) return;

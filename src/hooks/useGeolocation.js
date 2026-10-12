@@ -69,12 +69,16 @@ export default function useGeolocation({
     window.addEventListener?.('BYL_GEO_REQUEST', request);
     return () => window.removeEventListener?.('BYL_GEO_REQUEST', request);
   }, [enabled, browserPermission]);
-  // Accepting the native prompt must not cancel and restart the request that
-  // opened it. Identity changes are likewise unrelated to the GPS subscription.
-  // The browser owns the permission. A stored decision must never suppress a
-  // fresh request: Safari may grant access for only one visit.
+  // A persisted browser grant is automatic. An expired/unknown permission must
+  // not reopen the native prompt after a remembered grant. A prior refusal
+  // is requested again on a new visit when the browser permits prompting.
+  // Keep an in-flight first request alive while its success updates storage.
+  let storedDecision = null;
+  try { storedDecision = localStorage.getItem(GEO_PERMISSION_DECISION_KEY); } catch { /* optional storage */ }
   const permissionAccess = browserPermission === "checking" ? "checking" :
-    browserPermission === "denied" ? "denied" : "available";
+    browserPermission === "denied" ? "denied" :
+    browserPermission === "granted" ? "available" :
+    storedDecision === "granted" && !autoRequestAttemptedRef.current ? "paused" : "available";
 
   useEffect(() => {
     // Record observable evidence, never infer a click on the native prompt.
@@ -223,6 +227,12 @@ export default function useGeolocation({
     if (saveAnalytics) publishGeoStatus("pending", false);
 
     if (permissionAccess === "checking") return;
+    if (permissionAccess === "paused") {
+      clearCachedGeo();
+      publishGeoStatus("renewal_required");
+      setState({status:"idle",position:null,error:null});
+      return;
+    }
 
     if (permissionAccess === "denied") {
       writeStoredGeoDecision("denied");
@@ -358,7 +368,7 @@ export default function useGeolocation({
   };
 
   const refresh = async () => {
-    if (!("geolocation" in navigator)) return;
+    if (!enabled || permissionAccess !== "available" || !("geolocation" in navigator)) return;
 
     navigator.geolocation.getCurrentPosition(
       async (p) => {
@@ -403,5 +413,5 @@ export default function useGeolocation({
     );
   };
 
-  return { ...state, refresh, retryPermission, permissionBlocked: browserPermission === "denied" };
+  return { ...state, refresh, retryPermission, permissionBlocked: browserPermission === "denied", permissionRenewalRequired: permissionAccess === "paused" };
 }

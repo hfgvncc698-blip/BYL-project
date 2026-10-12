@@ -1,7 +1,7 @@
 // src/App.jsx
 import React, { Suspense, lazy } from "react";
 import {
-  Box,
+  Box, Button, Flex,
 } from "@chakra-ui/react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -9,13 +9,13 @@ import { useTranslation } from "react-i18next";
 import "./i18n";
 
 import { AuthProvider, useAuth } from "./AuthContext";
-import Navbar from "./components/Navbar";
+const Navbar = lazy(() => import("./components/Navbar"));
 import {
   CLIENT_MOBILE_NAV_PATHS,
   CLUB_MOBILE_NAV_PREFIXES,
   COACH_MOBILE_NAV_PREFIXES,
 } from "./components/mobileNavPaths.js";
-import { Footer } from "./components/Footer";
+const Footer = lazy(() => import("./components/Footer").then(module => ({ default: module.Footer })));
 import LanguageRouteSync from "./components/LanguageRouteSync.jsx";
 import AppLoading from "./components/ui/AppLoading.jsx";
 import { hasPlanModule } from "./utils/proPlanAccess.js";
@@ -277,6 +277,7 @@ const Register = lazyFrom(routeLoaders, "Register");
 const ActivateAccount = lazyFrom(routeLoaders, "ActivateAccount");
 const CoachDashboard = lazyFrom(routeLoaders, "CoachDashboard");
 const ClubDashboard = lazyFrom(routeLoaders, "ClubDashboard");
+const ClientPacksPage = lazy(() => import("./pages/ClientPacksPage.jsx"));
 const ClientDashboard = lazyFrom(routeLoaders, "ClientDashboard");
 const AdminDashboard = lazyFrom(routeLoaders, "AdminDashboard");
 const ProfilePageClient = lazyFrom(routeLoaders, "ProfilePageClient");
@@ -657,7 +658,7 @@ function AppContent() {
   );
 
   const { prefs, loaded: consentLoaded } = useConsent();
-  const { user, effectiveRole, isAdmin } = useAuth();
+  const { user, effectiveRole, isAdmin, loading: authLoading, hasCoachAccess, logout } = useAuth();
   const preloadModulesKey = Array.isArray(user?.modules) ? user.modules.join("|") : "";
   const preloadProModulesKey = Array.isArray(user?.proAccess?.modules) ? user.proAccess.modules.join("|") : "";
   const analyticsOn = !!prefs?.analytics || isAdmin || effectiveRole === "admin";
@@ -687,7 +688,7 @@ function AppContent() {
     !isFocusedMessagingRoute &&
     COACH_MOBILE_NAV_PREFIXES.some((prefix) => location.pathname === prefix || location.pathname.startsWith(`${prefix}/`));
   const showClubMobileNav =
-    (user?.role === "club" || user?.role === "admin") &&
+    (user?.role === "club" || user?.role === "admin" || (user?.role === "coach" && (user?.manualEntitlements === true ? user?.workspaceAccess?.club === true : user?.accountType === "club_owner" || user?.clubRole === "owner"))) &&
     !isSessionPlayerRoute &&
     CLUB_MOBILE_NAV_PREFIXES.some((prefix) => location.pathname === prefix || location.pathname.startsWith(`${prefix}/`));
   const showBottomMobileNav = showClientMobileNav || showCoachMobileNav || showClubMobileNav;
@@ -740,6 +741,15 @@ function AppContent() {
     user?.uid,
   ]);
 
+  // Enforce the paywall above every route, including direct URLs and shared tools.
+  // Waiting for the fresh profile avoids granting access from a cached login.
+  if(authLoading && user?.role==='coach')return <AppLoading label={t('common.loading_space','Chargement de votre espace...')}/>;
+  if(user?.role==='coach'&&!isAdmin&&!hasCoachAccess&&!needsEmailVerification(user)){
+    const billingPaths=['/plans/professionnel','/success','/cancel','/payment-success','/payment-cancel'];
+    if(!billingPaths.includes(location.pathname)&&!/^\/checkout\/[^/]+$/.test(location.pathname))return <Navigate to="/plans/professionnel" replace/>;
+    return <><Flex as="header" justify="flex-end" p={3}><Button variant="ghost" onClick={()=>logout()}>{t('nav.logout','Se déconnecter')}</Button></Flex><Box as="main" flex="1"><Suspense fallback={<AppLoading label={t('common.loading_page','Chargement de la page...')}/>}><Routes><Route path="/plans/professionnel" element={<PlanProfessionnel/>}/><Route path="/checkout/:productId" element={<Checkout/>}/><Route path="/success" element={<Success/>}/><Route path="/payment-success" element={<Success/>}/><Route path="/cancel" element={<Cancel/>}/><Route path="/payment-cancel" element={<Cancel/>}/></Routes></Suspense></Box></>;
+  }
+
   return (
     <>
       <RouteIntentPreloader />
@@ -754,7 +764,7 @@ function AppContent() {
         </IdleMount>
       )}
 
-      {!isSessionPlayerRoute && !isAccountActivationRoute && <Navbar />}
+      {!isSessionPlayerRoute && !isAccountActivationRoute && <Suspense fallback={<Box h="68px" />}><Navbar /></Suspense>}
       {user && !isAccountActivationRoute && (
         <IdleMount delay={1200}>
           <LazyBackground>
@@ -850,6 +860,9 @@ function AppContent() {
                 <ClubDashboard />
               </ClubRoute>
             }
+          />
+          <Route
+            path="/mes-packs" element={<ClientOnlyRoute><ClientPacksPage /></ClientOnlyRoute>}
           />
           <Route
             path="/user-dashboard"
@@ -1210,7 +1223,7 @@ function AppContent() {
         </LazyBackground>
       ) : null}
 
-      {showFooter && <Footer />}
+      {showFooter && <Suspense fallback={null}><Footer /></Suspense>}
 
       <LazyBackground>
         <CookieConsentBanner />

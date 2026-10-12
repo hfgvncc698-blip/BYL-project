@@ -8,6 +8,7 @@ function firestore() {
 }
 
 firestore.FieldValue = firestoreAdmin.FieldValue;
+firestore.FieldPath = firestoreAdmin.FieldPath;
 firestore.Timestamp = firestoreAdmin.Timestamp;
 
 function auth() {

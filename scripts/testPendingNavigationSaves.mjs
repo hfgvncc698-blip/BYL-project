@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import { registerNavigationSave, flushNavigationSaves } from '../src/utils/pendingNavigationSaves.js';
+let release;
+const calls = [];
+const first = registerNavigationSave(async () => { calls.push('saving'); await new Promise(resolve => { release = resolve; }); calls.push('saved'); });
+const second = registerNavigationSave(async () => calls.push('child saved'));
+const pending = flushNavigationSaves();
+assert.equal(flushNavigationSaves(), pending);
+assert.deepEqual(calls, ['saving']);
+release(); await pending;
+assert.deepEqual(calls, ['saving','saved','child saved']);
+first(); second();
+const failed = registerNavigationSave(async () => { throw new Error('offline'); });
+await assert.rejects(flushNavigationSaves(), /offline/);
+failed();
+await flushNavigationSaves();
+console.log('Navigation: waits for saves, deduplicates double clicks, rejects on failure, unregisters editors.');

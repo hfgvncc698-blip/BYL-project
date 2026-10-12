@@ -13,6 +13,7 @@ import {
   MenuItem,
   useColorMode,
   useDisclosure,
+  useToast,
   Modal,
   ModalOverlay,
   ModalContent,
@@ -123,6 +124,7 @@ const NAV_ROUTE_PRELOADS = {
   [ROUTES.messaging]: () => import("../pages/MessagingPage.jsx"),
 };
 
+const NutritionQuickCreateModal = React.lazy(() => import("./NutritionQuickCreateModal.jsx"));
 const DEFAULT_BRAND_LABEL = "BoostYourLife.coach";
 
 export default function Navbar() {
@@ -148,6 +150,8 @@ export default function Navbar() {
   const { markManualChoice } = useAutoRevertColorMode();
 
   const choiceModal = useDisclosure();
+  const nutritionModal = useDisclosure();
+  const toast = useToast();
   const clientModal = useDisclosure();
   const mobileNav = useDisclosure();
 
@@ -169,6 +173,10 @@ export default function Navbar() {
   const isClubContext =
     (user?.role === "coach" || user?.role === "admin") &&
     (isClubOwner || location.pathname.startsWith(ROUTES.clubDashboard));
+  const accountMenuName = isClubOwner
+    ? user?.clubName?.trim() || nav("nav.club_dashboard", "Dashboard club")
+    : displayFullName;
+  const accountMenuLabel = isClubOwner ? accountMenuName : displayFirstName || nav("greeting.coach", "Compte");
   const navbarBrandAllowed = canUseNavbarBranding(
     user?.proAccess || {
       packageKey: user?.packageKey,
@@ -189,7 +197,9 @@ export default function Navbar() {
   const isMixedCoach = showCoachUI && hasNutritionAccess && hasSportAccess;
   const customNavbarName = user?.settings?.navbarBrandName?.trim?.();
   const brandLabel =
-    navbarBrandAllowed && customNavbarName
+    (isClubContext || user?.clubId) && user?.clubName?.trim()
+      ? user.clubName.trim()
+      : navbarBrandAllowed && customNavbarName
       ? customNavbarName
       : DEFAULT_BRAND_LABEL;
   const adminCoachId = new URLSearchParams(location.search).get("adminCoachId") || "";
@@ -249,16 +259,18 @@ export default function Navbar() {
     { label: nav("nav.statistics", "Statistiques"), to: ROUTES.clientStats, icon: MdOutlineInsights },
   ];
 
+  const messagingClubId = (isAdmin ? new URLSearchParams(location.search).get("adminClubId") || new URLSearchParams(location.search).get("clubId") : "") || user?.clubId || "";
+  const clubMessagingTo = `${ROUTES.messaging}?mode=club${messagingClubId ? `&clubId=${encodeURIComponent(messagingClubId)}` : ""}`;
   const clubLinks = [
-    { label: nav("nav.club_dashboard", "Dashboard club"), to: ROUTES.clubDashboard, icon: MdOutlineSpaceDashboard },
-    { label: nav("nav.create_pro", "Créer un pro"), to: `${ROUTES.clubDashboard}/create`, icon: MdOutlinePerson },
-    { label: nav("nav.club_pros", "Pros du club"), to: `${ROUTES.clubDashboard}/team`, icon: MdOutlinePeopleAlt },
-    { label: nav("nav.club_calendar", "Calendrier club"), to: `${ROUTES.clubDashboard}/calendrier`, icon: MdOutlineCalendarMonth },
-    { label: nav("nav.club_clients", "Clients du club"), to: `${ROUTES.clubDashboard}/clients`, icon: MdOutlinePeopleAlt },
-    { label: nav("nav.club_programs", "Programmes du club"), to: `${ROUTES.clubDashboard}/programmes`, icon: MdOutlineLibraryBooks },
-    { label: nav("nav.club_nutrition", "Nutrition du club"), to: `${ROUTES.clubDashboard}/nutrition`, icon: MdOutlineRestaurant },
-    { label: nav("nav.club_statistics", "Statistiques club"), to: `${ROUTES.clubDashboard}/statistiques`, icon: MdOutlineInsights },
-    { label: nav("nav.club_settings", "Réglages club"), to: `${ROUTES.clubDashboard}/settings`, icon: MdOutlineSettings },
+    { label: nav("nav.dashboard", "Tableau de bord"), to: ROUTES.clubDashboard, icon: MdOutlineSpaceDashboard },
+    { label: nav("messaging.title", "Messagerie"), to: clubMessagingTo, icon: MdOutlineChat },
+    { label: nav("clubDashboard.tools.management", "Gestion"), to: `${ROUTES.clubDashboard}/actions-groupees`, icon: MdOutlineNoteAdd },
+    { label: nav("auto.ClubDashboard.equipe", "Équipe"), to: `${ROUTES.clubDashboard}/team`, icon: MdOutlinePeopleAlt },
+    { label: nav("calendar.title", "Calendrier"), to: `${ROUTES.clubDashboard}/calendrier`, icon: MdOutlineCalendarMonth },
+    { label: nav("clientsList.stats.clients", "Clients"), to: `${ROUTES.clubDashboard}/clients`, icon: MdOutlinePeopleAlt },
+    { label: nav("nav.programs", "Programmes"), to: `${ROUTES.clubDashboard}/programmes`, icon: MdOutlineLibraryBooks },
+    { label: nav("nav.nutrition", "Nutrition"), to: `${ROUTES.clubDashboard}/nutrition`, icon: MdOutlineRestaurant },
+    { label: nav("nav.statistics", "Statistiques"), to: `${ROUTES.clubDashboard}/statistiques`, icon: MdOutlineInsights },
   ];
 
   const linksToShow = (isClubContext ? clubLinks : showCoachUI ? coachLinks : clientLinks).filter((link) => {
@@ -363,6 +375,8 @@ export default function Navbar() {
 
   const isCurrentRoute = (to) => {
     const [targetPath, targetSearch = ""] = to.split("?");
+    if (targetPath === `${ROUTES.clubDashboard}/actions-groupees` &&
+        ["actions-groupees", "alertes", "journal", "audit", "objectifs", "exports"].some(path => location.pathname === `${ROUTES.clubDashboard}/${path}`)) return true;
     if (location.pathname !== targetPath) return false;
     if (!targetSearch) {
       if (targetPath === ROUTES.coachClients && new URLSearchParams(location.search).get("view") === "nutrition") {
@@ -416,6 +430,13 @@ export default function Navbar() {
     }
   );
 
+  React.useEffect(() => {
+    if (!isClubOwner) return;
+    const open = () => choiceModal.onOpen();
+    window.addEventListener('club-open-new', open);
+    return () => window.removeEventListener('club-open-new', open);
+  }, [isClubOwner, choiceModal.onOpen]);
+
   const QuickCoachActions = ({ compact = false, onAfterClick }) => (
     <HStack spacing={2} flexWrap="wrap">
       <Button
@@ -448,6 +469,7 @@ export default function Navbar() {
   return (
     <>
       <Flex
+        data-tour="main-navigation"
         as="nav"
         position={isCoachDashboard ? "fixed" : "sticky"}
         top={0}
@@ -507,7 +529,7 @@ export default function Navbar() {
             )}
 
             <HStack spacing={3} flexShrink={0}>
-                {showCoachUI && !isClubContext && <QuickCoachActions compact />}
+                {showCoachUI && <QuickCoachActions compact />}
 
                 {isClient && (
                   <Button
@@ -560,7 +582,7 @@ export default function Navbar() {
                   ) : (
                     <Avatar
                       size="sm"
-                      name={displayFullName}
+                      name={accountMenuName}
                       bg={avatarBg}
                       color={avatarColor}
                     />
@@ -568,7 +590,7 @@ export default function Navbar() {
                   <Text display={{ base: "none", xl: "block" }} maxW="120px" noOfLines={1} fontWeight="800">
                     {useDashboardMenuTrigger
                       ? nav("nav.menu", "Menu")
-                      : displayFirstName || nav("greeting.coach", "Compte")}
+                      : accountMenuLabel}
                   </Text>
                 </HStack>
               </MenuButton>
@@ -600,7 +622,7 @@ export default function Navbar() {
                         color={menuMuted}
                         fontWeight="800"
                       >
-                        {isClubContext ? "Espace Club" : "Navigation"}
+                        {isClubContext ? nav("nav.club_space", "Espace Club") : "Navigation"}
                       </Text>
                     </Box>
 
@@ -852,6 +874,7 @@ export default function Navbar() {
 
         {!isDesktop && !isAuthPage && (
           <HStack spacing={2}>
+            {isClubOwner && <Box display={location.pathname === "/club-dashboard" || location.pathname.startsWith("/club-dashboard/") ? { base: "none", md: "block" } : "block"}><QuickCoachActions compact /></Box>}
             {user ? (
               <IconButton
                 aria-label={nav("nav.open_menu", "Ouvrir le menu")}
@@ -921,11 +944,11 @@ export default function Navbar() {
           >
             <VStack align="start" spacing={1} pr={10}>
               <Text fontSize="lg" fontWeight="900" letterSpacing="-0.02em">
-                {isClubContext ? "Menu Club" : nav("nav.menu", "Menu")}
+                {isClubContext ? nav("nav.club_menu", "Menu Club") : nav("nav.menu", "Menu")}
               </Text>
               <Text fontSize="sm" color={menuMuted}>
                 {isClubContext
-                  ? "Pilotage de la structure"
+                  ? nav("nav.club_management_subtitle", "Pilotage de la structure")
                   : isNutritionOnlyCoach
                     ? "Espace nutrition"
                     : displayFirstName || displayFullName}
@@ -993,7 +1016,7 @@ export default function Navbar() {
                     color={menuMuted}
                     fontWeight="800"
                   >
-                    {isClubContext ? "Espace Club" : "Navigation"}
+                    {isClubContext ? nav("nav.club_space", "Espace Club") : "Navigation"}
                   </Text>
 
                   {linksToShow.map((link) => (
@@ -1239,20 +1262,23 @@ export default function Navbar() {
       </Drawer>
 
       {showCoachUI && clientModal.isOpen && (
-        <Modal isOpen={clientModal.isOpen} onClose={clientModal.onClose} isCentered>
+        <Modal isOpen={clientModal.isOpen} onClose={clientModal.onClose} isCentered scrollBehavior="inside" size="xl">
           <ModalOverlay />
           <ModalContent borderRadius="24px">
-            <ModalHeader>{nav("nav.new_client", "Nouveau client")}</ModalHeader>
+            <ModalHeader>{nav("nav.new_client", "Nouveau client")}{isClubOwner && <Text fontSize="sm" fontWeight="normal" mt={1}>{user.clubName}</Text>}</ModalHeader>
             <ModalCloseButton />
             <ModalBody>
               <React.Suspense fallback={<Box minH="180px" />}>
-                <ClientCreation onClose={clientModal.onClose} ownerUid={adminCoachId} />
+                <ClientCreation onClose={clientModal.onClose} ownerUid={isClubOwner ? user.uid : adminCoachId} clubId={isClubOwner ? user.clubId : undefined} clubName={isClubOwner ? user.clubName : undefined} />
               </React.Suspense>
             </ModalBody>
           </ModalContent>
         </Modal>
       )}
 
+      {nutritionModal.isOpen && <React.Suspense fallback={<Box />}>
+        <NutritionQuickCreateModal isOpen onClose={nutritionModal.onClose} user={user} ownerUid={user?.uid} clientLimit={user?.clientLimit} navigate={navigate} toast={toast} />
+      </React.Suspense>}
       <Modal isOpen={choiceModal.isOpen} onClose={choiceModal.onClose} isCentered>
         <ModalOverlay />
         <ModalContent
@@ -1270,7 +1296,43 @@ export default function Navbar() {
           <ModalCloseButton />
           <ModalBody>
             <VStack spacing={4} py={4}>
-              {showCoachUI && (
+              {isClubOwner && (
+                <>
+                  {[
+                    [nav("nav.new_appointment", "Nouveau rendez-vous"), MdOutlineCalendarMonth, () => navigate(`${ROUTES.clubDashboard}?quickAction=plan`)],
+                    [nav("nav.new_client", "Nouveau client"), MdOutlinePeopleAlt, () => { loadClientCreation().catch(() => {}); clientModal.onOpen(); }],
+                    [nav("nav.create_pro", "Créer un pro"), MdOutlinePerson, () => navigate(`${ROUTES.clubDashboard}?quickAction=pro`)],
+                    [nav("nav.new_program_manual", "Nouveau programme manuel"), MdOutlineFitnessCenter, () => navigate(ROUTES.coachBuilderNew)],
+                    ...(hasSportAccess ? [[nav("nav.new_program_guided", "Nouveau programme guidé"), MdAutoAwesome, () => navigate(ROUTES.autoQuestionnaire)]] : []),
+                    [nav("nav.new_nutrition_followup", "Nouveau suivi diététique"), MdOutlineNoteAdd, nutritionModal.onOpen],
+                  ].map(([label, ActionIcon, action]) => (
+                    <Button
+                      key={label}
+                      w="full"
+                      variant="outline"
+                      borderRadius="16px"
+                      leftIcon={<Icon as={ActionIcon} />}
+                      borderColor={modalActionBorder}
+                      bg={modalActionBg}
+                      transition="all 0.18s ease"
+                      _hover={{
+                        bg: modalActionHoverBg,
+                        borderColor: modalActionHoverBorder,
+                        transform: "translateY(-1px)",
+                        boxShadow: modalActionHoverShadow,
+                      }}
+                      onClick={() => {
+                        choiceModal.onClose();
+                        mobileNav.onClose();
+                        action();
+                      }}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </>
+              )}
+              {showCoachUI && !isClubOwner && (
                 <>
                   {(hasSportAccess || hasNutritionAccess || isAdmin) && (
                     <Button

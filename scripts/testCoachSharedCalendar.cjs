@@ -1,0 +1,25 @@
+const assert=require('node:assert/strict');
+const {assertAssignedGroupCoach,canChangeRegistrationMode}=require('../backend/utils/clubAppointmentAccess');
+(async()=>{
+ assert.equal(canChangeRegistrationMode(true,'club','self'),false);
+ assert.equal(canChangeRegistrationMode(true,'self','inherit'),false);
+ assert.equal(canChangeRegistrationMode(true,'club',undefined),true);
+ assert.equal(canChangeRegistrationMode(true,'club','club'),true);
+ assert.equal(canChangeRegistrationMode(false,'club','self'),true);
+ const rows={'users/morgan':{role:'coach',clubId:'club'},'clubs/club/members/morgan':{status:'active'},'clubs/club/appointments/course':{type:'group',coachUid:'morgan'}};
+ const ref=path=>({get:async()=>({data:()=>rows[path]}),doc:id=>ref(path+'/'+id),collection:id=>ref(path+'/'+id)});
+ const db={collection:ref};
+ await assertAssignedGroupCoach(db,'morgan','club','course');
+ await assert.rejects(assertAssignedGroupCoach(db,'alex','club','course'),e=>e.status===403);
+ await assert.rejects(assertAssignedGroupCoach(db,'morgan','other','course'),e=>e.status===403);
+ rows['clubs/club/members/morgan'].status='disabled';
+ await assert.rejects(assertAssignedGroupCoach(db,'morgan','club','course'),e=>e.status===403);
+ rows['clubs/club/members/morgan'].status='active';rows['clubs/club/appointments/course'].coachUid='alex';
+ await assert.rejects(assertAssignedGroupCoach(db,'morgan','club','course',{get:r=>r.get()}),e=>e.status===403);
+ const {upcomingCoachSessions,isPendingCoachEvent}=await import('../src/utils/coachUpcomingSessions.mjs');
+ const now=Date.parse('2026-10-09T16:00:00Z'),event={id:'club',_kind:'club_appointment',status:'à venir',start:new Date('2026-10-09T17:30:00Z')};
+ const events=[event,{...event,id:'tomorrow',_kind:'planned',start:new Date(now+86400000)},{...event,id:'cancelled',status:'annulée'},{...event,id:'done',status:'validée'},{...event,id:'missed',status:'manquée'},{...event,id:'past',start:new Date(now-60000)},{...event,id:'completed',_kind:'completed'}];
+ assert.deepEqual(upcomingCoachSessions(events,now).map(e=>e.id),['tomorrow']);
+ assert.ok(isPendingCoachEvent(event));assert.equal(isPendingCoachEvent(events[2]),false);
+ console.log('Coach shared calendar: assigned-course authorization, revoked membership/reassignment, today excluded from upcoming, tomorrow included, completed/cancelled/missed exclusions passed.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

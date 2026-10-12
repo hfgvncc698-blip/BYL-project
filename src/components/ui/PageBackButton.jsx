@@ -1,3 +1,4 @@
+import { useSavedNavigation } from "../../hooks/useNavigationSave";
 import { IconButton } from "@chakra-ui/react";
 import { ArrowBackIcon } from "@chakra-ui/icons";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -5,6 +6,7 @@ import { useAppTheme } from "../../styles/appTheme";
 
 export default function PageBackButton({ fallbackTo = "/user-dashboard", label = "Retour", onClick, ...props }) {
   const navigate = useNavigate();
+  const { leave, leaving } = useSavedNavigation();
   const location = useLocation();
   const theme = useAppTheme();
   const hasHistory = typeof window !== "undefined" && window.history.length > 1;
@@ -14,8 +16,7 @@ export default function PageBackButton({ fallbackTo = "/user-dashboard", label =
   const goBack = () => {
     if (disabled) return;
     if (onClick) {
-      onClick();
-      return;
+      return onClick();
     }
     if (hasHistory) {
       navigate(-1);
@@ -28,7 +29,9 @@ export default function PageBackButton({ fallbackTo = "/user-dashboard", label =
     <IconButton
       icon={<ArrowBackIcon />}
       aria-label={label}
-      onClick={goBack}
+      type="button"
+      isLoading={leaving}
+      onClick={() => leave(goBack)}
       variant="outline"
       w="36px"
       minW="36px"

@@ -1,3 +1,7 @@
+import CancellationMessage from './CancellationMessage';
+import {clubText} from '../../i18n/clubText';
+import useSuggestedMessage from '../../hooks/useSuggestedMessage';
+import useSessionDraft from "../../hooks/useSessionDraft";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Avatar,
@@ -36,13 +40,14 @@ const MAX_MESSAGE_LENGTH = 4000;
 const FULL_PAGE_SIZE = 100;
 const COMPACT_PAGE_SIZE = 40;
 
-export default function MessagingThread({ contact, compact = false, onBack }) {
+export default function MessagingThread({ contact, compact = false, onBack, suggestedDraft, onDraftApplied }) {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const theme = useAppTheme();
   const [liveMessages, setLiveMessages] = useState([]);
   const [olderMessages, setOlderMessages] = useState([]);
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useSessionDraft(user?.uid && contact?.clientId && contact?.coachUid ? `message:${user.uid}:${contact.clientId}:${contact.coachUid}` : null, "");
+  useSuggestedMessage(suggestedDraft, setDraft, onDraftApplied);
   const [loading, setLoading] = useState(true);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [hasOlder, setHasOlder] = useState(false);
@@ -251,7 +256,7 @@ export default function MessagingThread({ contact, compact = false, onBack }) {
                 border={mine ? "none" : "1px solid"}
                 borderColor={theme.borderColor}
               >
-                <Text fontSize="sm" whiteSpace="pre-wrap" overflowWrap="anywhere">{message.text}</Text>
+                {message.type==='cancellation'&&message.cancellation ? <CancellationMessage request={message.cancellation} canReview={user?.uid===contact?.coachUid}/> : <Text fontSize="sm" whiteSpace="pre-wrap" overflowWrap="anywhere">{message.type==='cancellation-decision'?`${clubText(message.decision==='accepted'?'Justification acceptée':'Justification refusée')} · ${message.sessionTitle}`:message.text}</Text>}
                 <HStack mt={1} justify="flex-end" spacing={1} opacity={0.76}>
                   <Text fontSize="10px">
                     {message.createdAtMillis
@@ -277,9 +282,9 @@ export default function MessagingThread({ contact, compact = false, onBack }) {
             value={draft}
             onChange={(event) => setDraft(event.target.value.slice(0, MAX_MESSAGE_LENGTH))}
             onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
+              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) {
                 event.preventDefault();
-                void sendMessage();
+                if (!event.repeat) void sendMessage();
               }
             }}
             placeholder={t("messaging.placeholder")}

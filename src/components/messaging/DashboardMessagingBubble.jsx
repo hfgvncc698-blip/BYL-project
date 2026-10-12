@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import useMemberClubContacts from './useMemberClubContacts';
+const ClubThread = lazy(() => import('./ClubMessagingPanel').then(module => ({default:module.ClubThread})));
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   Badge,
   Box,
@@ -39,7 +41,10 @@ export default function DashboardMessagingBubble() {
   const toast = useToast();
   const theme = useAppTheme();
   const { user } = useAuth();
-  const { contacts, loading, unreadCount, isClient, hideConversation } = useMessagingContacts();
+  const { contacts: professionalContacts, loading, isClient, hideConversation } = useMessagingContacts();
+  const { contacts: clubContacts } = useMemberClubContacts();
+  const contacts = useMemo(() => [...professionalContacts, ...clubContacts].sort((a, b) => (b.lastActivityAt || 0) - (a.lastActivityAt || 0)), [professionalContacts, clubContacts]);
+  const unreadCount = contacts.filter(contact => contact.unread).length;
   const [open, setOpen] = useState(false);
   const [selectedContact, setSelectedContact] = useState(null);
   const [directoryOpen, setDirectoryOpen] = useState(false);
@@ -133,7 +138,7 @@ export default function DashboardMessagingBubble() {
 
   const visibleContacts = (isClient || directoryOpen
     ? contacts
-    : contacts.filter((contact) => contact.conversation))
+    : contacts.filter((contact) => contact.conversation || contact.clubContact))
     .filter((contact) => normalizeSearch([contact.title, contact.email].join(" ")).includes(normalizeSearch(search)))
     .slice(0, 8);
 
@@ -173,7 +178,7 @@ export default function DashboardMessagingBubble() {
               <HStack spacing={2}>
                 <Icon as={MdOutlineChat} boxSize="20px" color="#257CFF" />
                 <Text fontWeight="900">{t("messaging.title")}</Text>
-                {unreadCount ? <Badge colorScheme="blue" borderRadius="full">{unreadCount}</Badge> : null}
+                {unreadCount ? <Badge bg="red.500" color="white" borderRadius="full">{unreadCount}</Badge> : null}
               </HStack>
             </Button>
             <HStack spacing={1}>
@@ -206,7 +211,7 @@ export default function DashboardMessagingBubble() {
 
           <Box flex="1" minH={0} overflow="hidden">
             {loading ? <Flex h="full" align="center" justify="center"><Spinner size="sm" /></Flex> : selectedContact ? (
-              <MessagingThread
+              selectedContact.clubContact ? <Suspense fallback={<Spinner />}><ClubThread key={selectedContact.id} contact={selectedContact} preview={false} ownerView={false} onBack={() => setSelectedContact(null)} t={t} /></Suspense> : <MessagingThread
                 contact={selectedContact}
                 compact
                 onBack={() => setSelectedContact(null)}

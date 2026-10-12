@@ -1,3 +1,4 @@
+import { useNavigationSave } from "../hooks/useNavigationSave";
  
 // src/components/MenuJournalierFromRation.jsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1054,6 +1055,8 @@ export default function MenuJournalierFromRation() {
     setPatientNote(String(savedNote.text || ""));
     setSharePatientNote(Boolean(savedNote.shared));
   }, [docData?.nutritionPatientNote?.shared, docData?.nutritionPatientNote?.text]);
+
+  useNavigationSave(persistMenuDraft, !!assessmentRef && !!docData && !blocked);
 
   const goBack = useCallback(() => {
     navigateWithFallback(`/clients/${clientId}/nutrition/${assessmentId}/ration`);

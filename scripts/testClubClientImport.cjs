@@ -1,0 +1,43 @@
+const assert=require('node:assert/strict');
+const {validateRow,duplicateCandidates,createClubClientImport}=require('../backend/utils/clubClientImport');
+const {calculatePacks}=require('../backend/utils/clubSessionPacks');
+const records=new Map(Object.entries({'users/owner':{role:'coach',accountType:'club_owner',clubId:'club'},'users/stranger':{role:'coach',clubId:'club'},'clubs/club':{ownerUid:'owner',clientLimit:10}}));
+const snapshot=path=>({id:path.split('/').at(-1),ref:ref(path),exists:records.has(path),data:()=>records.get(path)});
+function ref(path,filters=[]){return {path,id:path.split('/').at(-1),doc:id=>ref(path+'/'+id),collection:id=>ref(path+'/'+id),where:(key,op,value)=>ref(path,[...filters,[key,op,value]]),get:async()=>{
+ if(path.split('/').length%2===0)return snapshot(path);
+ const docs=[...records.keys()].filter(k=>k.startsWith(path+'/')&&k.split('/').length===path.split('/').length+1&&filters.every(([key,op,v])=>op==='array-contains'?records.get(k)[key]?.includes(v):records.get(k)[key]===v)).map(snapshot);return {docs,size:docs.length};
+},listCollections:async()=>[...new Set([...records.keys()].filter(k=>k.startsWith(path+'/')).map(k=>k.slice(path.length+1).split('/')[0]))].map(k=>ref(path+'/'+k))};}
+const db={collection:ref,runTransaction:async callback=>{const writes=[];const result=await callback({get:r=>{assert.equal(writes.length,0,'reads before writes');return r.get();},set:(r,data,options)=>writes.push(()=>records.set(r.path,options?.merge?{...records.get(r.path),...data}:data)),delete:r=>writes.push(()=>records.delete(r.path))});writes.forEach(w=>w());return result;}};
+const row={firstName:'Léa',lastName:'Martin',email:'lea@example.test',packName:'Reprise',quantity:10,remaining:7,packType:'individual',packStart:'2026-01-01',subscriptionName:'Annuel salle',subscriptionStart:'2026-01-01',subscriptionEnd:'2026-12-31'};
+(async()=>{
+ assert.equal(validateRow({...row,email:'LEA@EXAMPLE.TEST'}).email,'lea@example.test');
+ for(const bad of [{firstName:''},{remaining:11},{remaining:''},{quantity:1.5},{birthDate:'2026-02-30'},{phone:'abc'},{coachUid:'../x'},{subscriptionEnd:'2025-01-01'},{subscriptionStart:''},{subscriptionName:''}])assert.throws(()=>validateRow({...row,...bad}));
+ assert.equal(duplicateCandidates(row,[{data:()=>({firstName:'Lea',lastName:'Martin'})}]).length,1);
+ const service=createClubClientImport(db);
+ await assert.rejects(service.preview('stranger',{rows:[row]}),{status:403});
+ let preview=await service.preview('owner',{rows:[row,row,{...row,firstName:''}]});
+ assert.deepEqual(preview.rows.map(r=>r.status),['new','duplicate-file','invalid']);
+ const input={batchId:'batch',index:0,row,fileName:'test.csv'};
+ const created=await service.commitRow('owner',input);assert.equal(created.status,'created');
+ assert.deepEqual(await service.commitRow('owner',input),created,'retry is idempotent');
+ assert.equal((await service.commitRow('owner',{...input,index:1})).status,'skipped');
+ const packPath=`clubs/club/privateClients/${created.clientId}/sessionPacks/import-batch-0`;
+ const subPath=`clubs/club/privateClients/${created.clientId}/subscriptions/import-batch-0`;
+ assert.equal(records.get(subPath).name,'Annuel salle');
+ assert.equal(records.get(subPath).importedOpening,true);
+ const pack=records.get(packPath);assert.equal(pack.openingUsed,3);
+ const totals=calculatePacks([{id:'p',...pack}],[],Date.now());assert.equal(totals.packs[0].remaining,7);assert.equal(totals.packs[0].used,3);assert.equal(totals.packs[0].history.length,0);
+ records.set(`sessions/event`,{clientId:created.clientId});await assert.rejects(service.undo('owner','batch'),{status:409});records.delete('sessions/event');
+ records.set(`clients/${created.clientId}`, Object.fromEntries(Object.entries(records.get(`clients/${created.clientId}`)).reverse()));
+ await service.undo('owner','batch');assert.equal(records.has(`clients/${created.clientId}`),false);assert.equal(records.has(packPath),false);assert.equal(records.has(subPath),false);
+ await assert.rejects(service.commitRow('owner',input),{status:409});
+ const again=await service.commitRow('owner',{...input,batchId:'another'});
+ records.set(`clients/${again.clientId}`,{...records.get(`clients/${again.clientId}`),notes:'used'});
+ await assert.rejects(service.undo('owner','another'),{status:409});
+ const noPack={firstName:'Lea',lastName:'Martin',email:'lea@example.test',phone:'+33123456789'};
+ await service.commitRow('owner',{batchId:'update',index:0,row:noPack,updateId:again.clientId});
+ assert.equal(records.get(`clients/${again.clientId}`).phone,noPack.phone);
+ await service.undo('owner','update');assert.equal(records.get(`clients/${again.clientId}`).phone,undefined);
+ records.set('clubs/club',{ownerUid:'owner',clientLimit:1});await assert.rejects(service.commitRow('owner',{batchId:'limit',index:0,row:{firstName:'New',lastName:'Person'}}),{status:409});
+ console.log('Client import: validation, owner isolation, duplicates, retries, balances, capacity, update and guarded rollback passed. No real data written.');
+})();

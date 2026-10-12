@@ -106,7 +106,7 @@ async function test(name, run) {
   console.log(`PASS ${name}`);
 }
 
-await test("a previous refusal is retried on a new visit when the browser permits prompting", async () => {
+await test("a previous refusal is requested again on a new visit", async () => {
   const h = createHarness({ permission: "prompt", stored: { [DECISION_KEY]: "denied" } });
   await h.start();
   assert.equal(h.watches.length, 1);
@@ -199,10 +199,14 @@ await test("remembering a grant still requests fresh coordinates at each opening
   }
 });
 
-await test("a temporary browser grant can be requested again on reload", async () => {
+await test("a temporary grant does not reopen the prompt on reload", async () => {
   for (const permissionsSupported of [true, false]) {
     const h = createHarness({ permission: 'prompt', permissionsSupported, stored: { [DECISION_KEY]: 'granted' } });
     await h.start();
+    assert.equal(h.watches.length, 0);
+    assert.equal(h.render().permissionRenewalRequired, true);
+    h.render().retryPermission(); h.render();
+    assert.equal(h.render().permissionRenewalRequired, false);
     assert.equal(h.watches.length, 1);
   }
 });
@@ -226,10 +230,10 @@ await test("permission revocation clears coordinates and invalidates old callbac
   await oldWatch.success(sample);
   assert.equal(h.storage.has("BYL_LAT"), false);
   h.changePermission("prompt");
-  assert.equal(h.watches.length, 2, "a newly available browser permission retries location");
+  assert.equal(h.watches.length, 2, "browser permitting prompting after a refusal retries location");
 });
 
-await test("remembered refusal does not block a new prompt without Permissions API", async () => {
+await test("remembered refusal retries on opening without Permissions API", async () => {
   const h = createHarness({ permissionsSupported: false, stored: { [DECISION_KEY]: "denied" } });
   await h.start();
   assert.equal(h.watches.length, 1);
@@ -341,6 +345,6 @@ await test("diagnostics distinguish blocked permission from a renewed request", 
   assert.equal(blocked.storage.get('BYL_GEO_STATUS'), 'browser_denied');
   const remembered = createHarness({ permission: 'prompt', stored: { [DECISION_KEY]: 'denied' } });
   await remembered.start();
-  assert.ok(['pending', 'requesting'].includes(remembered.storage.get('BYL_GEO_STATUS')));
+  assert.ok(['pending','requesting'].includes(remembered.storage.get('BYL_GEO_STATUS')));
   assert.equal(remembered.watches.length, 1);
 });

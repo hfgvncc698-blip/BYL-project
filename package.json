@@ -22,8 +22,9 @@
     "audit:security-state": "node scripts/auditSecurityState.cjs",
     "plan:firestore-identity-migration": "node scripts/planFirestoreIdentityMigration.cjs",
     "test:smoke": "node scripts/smokeCriticalFlows.mjs",
+    "test:club-messaging": "node scripts/testClubMessaging.cjs",
     "test:deploy": "node scripts/testDeployContract.mjs",
-    "test:release-regressions": "node scripts/testCurrentCoachProgram.mjs && node scripts/testStatisticsSave.mjs && node scripts/testProgramDocumentSize.mjs && node scripts/testConfirmedProgramWrites.mjs && node scripts/testCycleValidationJourney.mjs && node scripts/testClientMobileCalendar.mjs",
+    "test:release-regressions": "node scripts/testCurrentCoachProgram.mjs && node scripts/testStatisticsSave.mjs && node scripts/testProgramDocumentSize.mjs && node scripts/testConfirmedProgramWrites.mjs && node scripts/testCycleValidationJourney.mjs && node scripts/testClientMobileCalendar.mjs && node scripts/testClubMessaging.cjs",
     "test:security-rules": "firebase emulators:exec --config firebase.rules-test.json --project demo-byl-security --only firestore \"node scripts/testFirestoreRules.cjs\"",
     "test:emulator-fixes": "firebase emulators:exec --config firebase.rules-test.json --project demo-byl-security --only firestore \"node scripts/testEmulatorFixes.mjs\"",
     "test:session-notifications": "node scripts/testSessionNotifications.cjs",
@@ -55,7 +56,8 @@
     "test:exercise-search": "node scripts/testExerciseSearchRanking.mjs",
     "perf:check": "node scripts/checkPerformanceBudgets.mjs",
     "audit:sport-engine:samples": "node scripts/auditSportEngineSamples.cjs",
-    "audit:public-pages": "node scripts/auditPublicPages.mjs"
+    "audit:public-pages": "node scripts/auditPublicPages.mjs",
+    "test:club": "node scripts/testClubSubscriptions.cjs && node scripts/testClubMemberships.cjs && node scripts/testClubClassBooking.cjs && node scripts/testClubWelcomeEmails.cjs && node scripts/testClubPaymentCurrencies.cjs && node scripts/testClubClientNames.cjs && node scripts/testClubTranslations.cjs && node scripts/testClubAppointmentSeries.cjs && node scripts/testClubAppointmentStatus.cjs && node scripts/testClubGroupClass.cjs && node scripts/testClubRecurrence.cjs && node scripts/testClubPlanningPdf.mjs && node scripts/testClubMoney.mjs && node scripts/testClubSessionPacks.cjs && node scripts/testClubReferents.cjs && node scripts/testClubDeparture.cjs && node scripts/testIndependentFollowups.cjs && node scripts/testCoachSharedCalendar.cjs && node scripts/testCoachFollowupActivity.mjs"
   },
   "dependencies": {
     "@chakra-ui/icons": "^2.2.4",
@@ -78,6 +80,7 @@
     "d3-geo": "^3.1.1",
     "d3-scale": "^4.0.2",
     "express": "^5.1.0",
+    "fflate": "^0.8.3",
     "firebase": "^12.12.0",
     "firebase-admin": "^14.2.0",
     "framer-motion": "^12.10.2",
@@ -88,6 +91,7 @@
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "leaflet": "^1.9.4",
+    "libphonenumber-js": "^1.13.15",
     "maxmind": "^5.0.0",
     "moment": "^2.30.1",
     "react": "^18.3.1",
@@ -126,8 +130,8 @@
     "uuid": "^11.1.1"
   },
   "devDependencies": {
-    "@firebase/rules-unit-testing": "^5.0.2",
     "@eslint/js": "^9.39.5",
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^6.0.5",

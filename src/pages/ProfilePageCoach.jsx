@@ -1,3 +1,4 @@
+import ClubLogo from "../components/dashboard/ClubLogo";
 // src/pages/ProfilePageCoach.jsx
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -836,7 +837,7 @@ export default function ProfilePageCoach() {
                     flexShrink={0}
                     p={3}
                   >
-                    <Image src="/logo-byl.png" alt="BoostYourLife.coach" w="100%" h="100%" objectFit="contain" />
+                    <ClubLogo alt="BoostYourLife.coach" w="100%" h="100%" border="none" bg="transparent" />
                   </Box>
                   <VStack align="stretch" spacing={2} flex="1" w="full">
                     <Badge alignSelf="flex-start" px={3} py={1.5} borderRadius="full" bg="rgba(15,23,42,0.08)" color={textColor} fontWeight="800">

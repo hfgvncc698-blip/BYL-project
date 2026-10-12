@@ -1,0 +1,15 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const source = fs.readFileSync('backend/routes/clubs.js', 'utf8');
+const start = source.indexOf('function fullName(');
+const end = source.indexOf('\nfunction nutritionStatus', start);
+const fullName = vm.runInNewContext(`(${source.slice(start, end)})`);
+assert.equal(fullName({ prenom: 'Tom', nom: 'Marie' }, 'email@example.com'), 'Tom Marie');
+assert.equal(fullName({ firstName: 'Tom', lastName: 'Marie' }), 'Tom Marie');
+assert.equal(fullName({ firstName: ' ', prenom: 'Tom', lastName: '', nom: 'Marie' }), 'Tom Marie');
+assert.equal(fullName({ firstName: 'Tom', nom: 'Marie' }), 'Tom Marie');
+assert.equal(fullName({ name: 'Test Client' }), 'Test Client');
+assert.equal(fullName({}, 'email@example.com'), 'email@example.com');
+assert.equal(fullName({ accountType: 'club_owner', clubName: 'Club', firstName: 'Owner' }), 'Club');
+console.log('Club client names: French/English aliases, whitespace, mixed fields and fallbacks passed.');

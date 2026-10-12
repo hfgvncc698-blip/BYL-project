@@ -1,0 +1,26 @@
+const fs = require('fs'), vm = require('vm'), assert = require('assert/strict');
+const source = fs.readFileSync('backend/routes/clubs.js','utf8');
+let stored = {}, mails = [], fail = false;
+const ref = {set:async patch=>Object.assign(stored,patch)};
+const collection = {doc:()=>({...ref,collection:()=>collection})};
+const ctx = {crypto:require("node:crypto"),...require('../backend/utils/clubEmailCopy'),langCodeFromAny:()=> 'fr', escapeHtml:s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])), db:{collection:()=>collection,runTransaction:async fn=>fn({get:async()=>({data:()=>stored}),set:(_,patch)=>Object.assign(stored,patch)})},getMailTransporter:()=>({sendMail:async mail=>{if(fail)throw Error('test');mails.push(mail);return {messageId:'fake'};}}),publicFrontendBaseUrl:()=> 'https://boostyourlife.coach',recordEmailEvent:async()=>{},process:{env:{SMTP_USER:'example@example.com'}},console:{warn:()=>{}}};
+vm.createContext(ctx);
+const copy = source.slice(source.indexOf('const ACTIVATION_EMAIL_COPY ='),source.indexOf('async function generateClientActivationLink'));
+vm.runInContext(copy + source.slice(source.indexOf('function buildActivationEmail'),source.indexOf('async function sendTrackedActivationEmail')) + source.slice(source.indexOf('async function sendClubWelcome'),source.indexOf('router.post("/link-existing-client"')),ctx);
+(async()=>{
+const input={email:'lea@example.invalid',uid:'u',clientId:'c',clubId:'club',clubName:'Réseau BYL',initiatedBy:'owner'};
+await ctx.sendClubWelcome(input);assert.equal(mails.length,1);assert.ok(!mails[0].text.includes('resetPassword'));assert.ok(mails[0].text.includes('mot de passe habituels'));
+await ctx.sendClubWelcome(input);assert.equal(mails.length,1);
+stored={welcomeEmailStatus:'pending',welcomeEmailAttemptedAt:Date.now()};await ctx.sendClubWelcome(input);assert.equal(mails.length,1);
+stored.welcomeEmailAttemptedAt=Date.now()-31*60000;await ctx.sendClubWelcome(input);assert.equal(mails.length,2);
+stored={};fail=true;await ctx.sendClubWelcome(input);assert.equal(stored.welcomeEmailStatus,'failed');fail=false;await ctx.sendClubWelcome(input);assert.equal(stored.welcomeEmailStatus,'sent');
+fs.mkdirSync('tmp/email-previews',{recursive:true});
+const activation=ctx.buildActivationEmail('fr',{clientName:'Léa',coachName:'Réseau BYL',activationLink:'https://boostyourlife.coach/activate-account?EXEMPLE',welcome:true});
+const welcome=mails[0];
+fs.writeFileSync('tmp/email-previews/nouveau-compte.html',activation.html);
+fs.writeFileSync('tmp/email-previews/compte-existant.html',welcome.html);
+const escape=ctx.escapeHtml;
+fs.writeFileSync('tmp/email-previews/apercu.html',`<!doctype html><html lang="fr"><meta charset="utf-8"><title>Aperçu des e-mails de bienvenue</title><style>body{margin:0;padding:28px;background:#edf1f7;font-family:Arial;color:#17213a}h1{font-size:26px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:24px}iframe{border:1px solid #dce2ec;border-radius:16px;width:100%;height:760px;background:white}h2{font-size:19px}p{line-height:1.5}</style><h1>E-mails de bienvenue</h1><p>Aperçus avec Léa et Réseau BYL. Liens d’exemple ; aucun e-mail envoyé.</p><div class="grid"><section><h2>Nouveau compte</h2><p>Objet : ${escape(activation.subject)}</p><iframe src="nouveau-compte.html" title="Nouveau compte"></iframe></section><section><h2>Compte existant</h2><p>Objet : ${escape(welcome.subject)}</p><iframe src="compte-existant.html" title="Compte existant"></iframe></section></div></html>`);
+console.log(JSON.stringify({newAccount:activation.text,existingAccount:welcome.text}));
+console.log('Tests: delivery, deduplication, SMTP failure and retry passed; no real email sent.');
+})();

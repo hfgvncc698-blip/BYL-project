@@ -1,9 +1,23 @@
 {
   "builderSavePending": "La confirmation serveur prend plus de temps que prévu. La sauvegarde reste en cours : ne relance pas l’enregistrement et garde cette page ouverte.",
   "builderSyncPending": "Le programme est enregistré. La mise à jour des programmes clients n’est pas encore confirmée. Réessaie avec Enregistrer pour vérifier la synchronisation.",
-  "clientFollowList": {"subtitle":"Gérez vos clients sport et nutrition, leurs suivis et leurs coordonnées depuis un seul espace.","follow":"Suivi","last":"Dernière interaction","status":"Statut","details":"Détails","nutritionDetails":"Suivi nutrition : consultez la fiche pour retrouver les bilans et les objectifs."},
-  "adminClientNavigation": {"preview":"Aperçu rapide","hint":"Cliquez sur un client pour ouvrir son profil admin.","notes":"Notes internes et aperçu"},
+  "clientFollowList": {
+    "subtitle": "Gérez vos clients sport et nutrition, leurs suivis et leurs coordonnées depuis un seul espace.",
+    "follow": "Suivi",
+    "last": "Dernière interaction",
+    "status": "Statut",
+    "details": "Détails",
+    "nutritionDetails": "Suivi nutrition : consultez la fiche pour retrouver les bilans et les objectifs."
+  },
+  "adminClientNavigation": {
+    "preview": "Aperçu rapide",
+    "hint": "Cliquez sur un client pour ouvrir son profil admin.",
+    "notes": "Notes internes et aperçu"
+  },
   "locationPrivacy": {
+    "activate": "Activer la localisation",
+    "reactivateHelp": "Comment réactiver ?",
+    "reactivateSteps": "Ouvrez les permissions de ce site dans votre navigateur, autorisez la localisation, puis rechargez la page. Si elle reste bloquée, vérifiez aussi les autorisations de localisation de votre navigateur dans les réglages de votre appareil.",
     "title": "Confidentialité et localisation",
     "description": "Choisissez si le site peut recueillir votre position actuelle lors de vos visites.",
     "toggle": "Autoriser la collecte de ma localisation",
@@ -26,34 +40,198 @@
   },
   "brand": "BoostYourLife.coach",
   "messaging": {
-    "deleteConversationTitle": "Supprimer cette conversation ?", "deleteConversationBody": "Elle sera retirée uniquement de votre messagerie. L’autre personne conservera son historique.",
-    "title": "Messagerie", "subtitle": "Échange simplement avec ton professionnel ou les personnes que tu accompagnes.", "open": "Ouvrir la messagerie", "conversation": "Conversation", "privateConversation": "Conversation privée", "loadError": "Impossible de charger les messages.", "unlinkedAccount": "Le compte de cette personne n’est pas encore relié.", "sendError": "Le message n’a pas pu être envoyé.", "emptyTitle": "Commencez la conversation", "emptyBody": "Écrivez un premier message pour démarrer cet échange.", "sending": "Envoi…", "placeholder": "Écrire un message…", "send": "Envoyer", "myProfessional": "Mon professionnel", "professional": "Professionnel", "noContactsTitle": "Aucune conversation disponible", "noContactsBody": "Les personnes reliées à votre espace apparaîtront ici.", "new": "Nouveau", "newMessage": "Nouveau message", "sent": "Envoyé", "read": "Lu", "startConversation": "Démarrer une conversation", "clientOrPatient": "Client ou patient", "openAll": "Ouvrir toute la messagerie", "search": "Rechercher un client ou un patient…", "selectTitle": "Sélectionnez une conversation", "selectBody": "Choisissez une personne pour commencer ou reprendre l’échange.", "deleteConversation": "Supprimer de ma messagerie", "deleteConversationAria": "Supprimer cette conversation de ma messagerie", "deleteConversationError": "La conversation n’a pas pu être supprimée."
+    "deleteConversationTitle": "Supprimer cette conversation ?",
+    "deleteConversationBody": "Elle sera retirée uniquement de votre messagerie. L’autre personne conservera son historique.",
+    "title": "Messagerie",
+    "subtitle": "Échange simplement avec ton professionnel ou les personnes que tu accompagnes.",
+    "open": "Ouvrir la messagerie",
+    "conversation": "Conversation",
+    "privateConversation": "Conversation privée",
+    "loadError": "Impossible de charger les messages.",
+    "unlinkedAccount": "Le compte de cette personne n’est pas encore relié.",
+    "sendError": "Le message n’a pas pu être envoyé.",
+    "emptyTitle": "Commencez la conversation",
+    "emptyBody": "Écrivez un premier message pour démarrer cet échange.",
+    "sending": "Envoi…",
+    "placeholder": "Écrire un message…",
+    "send": "Envoyer",
+    "myProfessional": "Mon professionnel",
+    "professional": "Professionnel",
+    "noContactsTitle": "Aucune conversation disponible",
+    "noContactsBody": "Les personnes reliées à votre espace apparaîtront ici.",
+    "new": "Nouveau",
+    "newMessage": "Nouveau message",
+    "sent": "Envoyé",
+    "read": "Lu",
+    "startConversation": "Démarrer une conversation",
+    "clientOrPatient": "Client ou patient",
+    "openAll": "Ouvrir toute la messagerie",
+    "search": "Rechercher un client ou un patient…",
+    "selectTitle": "Sélectionnez une conversation",
+    "selectBody": "Choisissez une personne pour commencer ou reprendre l’échange.",
+    "deleteConversation": "Supprimer de ma messagerie",
+    "deleteConversationAria": "Supprimer cette conversation de ma messagerie",
+    "deleteConversationError": "La conversation n’a pas pu être supprimée."
   },
   "messagingRole": {
     "clientSubtitle": "Échange simplement avec les professionnels qui t’accompagnent.",
     "professionalSubtitle": "Échange simplement avec tes clients et tes patients."
   },
   "coachNutritionJournal": {
-    "title": "Journal alimentaire", "compactSubtitle": "Résumé de la dernière journée renseignée.", "openJournal": "Ouvrir le journal", "followUpPercent": "{{value}}% suivi", "planConsumedPercent": "{{value}}% du plan consommé", "loggedDaysCount": "{{count}} jours renseignés", "loggedDaysCount_one": "{{count}} jour renseigné", "loggedDaysCount_other": "{{count}} jours renseignés", "loading": "Chargement…", "loggedDay": "Journée renseignée", "calories": "Calories",
-    "consumedRemaining": "{{consumed}} kcal consommées · {{remaining}} kcal restantes", "consumedOnly": "{{consumed}} kcal consommées", "macroShort": { "protein": "P", "fat": "L", "carbs": "G" }, "lastReflection": "Dernier ressenti :", "empty": "Aucune journée renseignée pour le moment.",
-    "fullTitle": "Journal alimentaire réel", "fullSubtitle": "Consultez les journées renseignées sur la période choisie.", "historyPeriod": "Période de l’historique", "lastDays": "{{count}} derniers jours", "consumed": "CONSOMMÉ", "proteins": "PROTÉINES", "fats": "LIPIDES", "carbs": "GLUCIDES", "energyReference": "Repère énergétique", "mealDetails": "DÉTAIL DES REPAS",
-    "eaten": "Mangé", "notEaten": "Non mangé", "clientAddition": "Ajout client", "declaredQuantity": "quantité déclarée", "planned": "prévu", "plannedQuantity": "prévu {{quantity}} {{unit}}", "unavailable": "Le détail des aliments n’est pas disponible pour cette journée.",
-    "clientFeedback": "RESSENTI DU CLIENT", "hunger": "Faim", "energy": "Énergie", "digestion": "Digestion", "notProvided": "Non renseigné", "other": "Autre", "pageTitle": "Journal alimentaire du client", "pageSubtitle": "Consulte les journées renseignées, les repas consommés, les quantités et les ressentis.",
-    "coachFeedback": "RETOUR DU PROFESSIONNEL", "coachFeedbackHelp": "Ce message sera visible sur cette journée dans le journal du patient.", "coachFeedbackPlaceholder": "Écris un retour court, concret et encourageant…", "sendFeedback": "Envoyer au patient", "updateFeedback": "Mettre à jour", "feedbackSaved": "Retour envoyé au patient", "feedbackSaveError": "Le retour n’a pas pu être enregistré", "sent": "Envoyé", "notRead": "Non lu", "readByClient": "Lu par le patient",
-    "reflection": { "hungerLow": "Peu faim", "hungerComfortable": "Bien rassasié(e)", "hungerHigh": "Encore faim", "energyLow": "Basse", "energyOk": "Correcte", "energyHigh": "Très bonne", "digestionGood": "Bonne", "digestionHeavy": "Lourde", "digestionDiscomfort": "Inconfort" }
+    "title": "Journal alimentaire",
+    "compactSubtitle": "Résumé de la dernière journée renseignée.",
+    "openJournal": "Ouvrir le journal",
+    "followUpPercent": "{{value}}% suivi",
+    "planConsumedPercent": "{{value}}% du plan consommé",
+    "loggedDaysCount": "{{count}} jours renseignés",
+    "loggedDaysCount_one": "{{count}} jour renseigné",
+    "loggedDaysCount_other": "{{count}} jours renseignés",
+    "loading": "Chargement…",
+    "loggedDay": "Journée renseignée",
+    "calories": "Calories",
+    "consumedRemaining": "{{consumed}} kcal consommées · {{remaining}} kcal restantes",
+    "consumedOnly": "{{consumed}} kcal consommées",
+    "macroShort": {
+      "protein": "P",
+      "fat": "L",
+      "carbs": "G"
+    },
+    "lastReflection": "Dernier ressenti :",
+    "empty": "Aucune journée renseignée pour le moment.",
+    "fullTitle": "Journal alimentaire réel",
+    "fullSubtitle": "Consultez les journées renseignées sur la période choisie.",
+    "historyPeriod": "Période de l’historique",
+    "lastDays": "{{count}} derniers jours",
+    "consumed": "CONSOMMÉ",
+    "proteins": "PROTÉINES",
+    "fats": "LIPIDES",
+    "carbs": "GLUCIDES",
+    "energyReference": "Repère énergétique",
+    "mealDetails": "DÉTAIL DES REPAS",
+    "eaten": "Mangé",
+    "notEaten": "Non mangé",
+    "clientAddition": "Ajout client",
+    "declaredQuantity": "quantité déclarée",
+    "planned": "prévu",
+    "plannedQuantity": "prévu {{quantity}} {{unit}}",
+    "unavailable": "Le détail des aliments n’est pas disponible pour cette journée.",
+    "clientFeedback": "RESSENTI DU CLIENT",
+    "hunger": "Faim",
+    "energy": "Énergie",
+    "digestion": "Digestion",
+    "notProvided": "Non renseigné",
+    "other": "Autre",
+    "pageTitle": "Journal alimentaire du client",
+    "pageSubtitle": "Consulte les journées renseignées, les repas consommés, les quantités et les ressentis.",
+    "coachFeedback": "RETOUR DU PROFESSIONNEL",
+    "coachFeedbackHelp": "Ce message sera visible sur cette journée dans le journal du patient.",
+    "coachFeedbackPlaceholder": "Écris un retour court, concret et encourageant…",
+    "sendFeedback": "Envoyer au patient",
+    "updateFeedback": "Mettre à jour",
+    "feedbackSaved": "Retour envoyé au patient",
+    "feedbackSaveError": "Le retour n’a pas pu être enregistré",
+    "sent": "Envoyé",
+    "notRead": "Non lu",
+    "readByClient": "Lu par le patient",
+    "reflection": {
+      "hungerLow": "Peu faim",
+      "hungerComfortable": "Bien rassasié(e)",
+      "hungerHigh": "Encore faim",
+      "energyLow": "Basse",
+      "energyOk": "Correcte",
+      "energyHigh": "Très bonne",
+      "digestionGood": "Bonne",
+      "digestionHeavy": "Lourde",
+      "digestionDiscomfort": "Inconfort"
+    }
   },
   "clientNutritionJournal": {
     "openNutrition": "Ouvrir nutrition",
-    "saveError": "Le journal n’a pas pu être enregistré", "tryAgain": "Réessaie dans un instant.", "genericFood": "Aliment", "today": "Aujourd’hui", "checkedCount": "{{eaten}}/{{total}} aliments cochés", "saving": "Enregistrement…", "upToDate": "À jour", "toComplete": "À compléter",
-    "fullJournal": "Journal complet", "viewMealNamed": "Voir {{meal}}", "viewMeal": "Voir le repas", "allEaten": "J’ai tout mangé", "mealToday": "Repas du jour", "addFood": "Ajouter un aliment", "mealInstructions": "Coche les aliments et ajuste les quantités si nécessaire.", "addition": "Ajout", "rationQuickChoices": "Choix rapides de ta ration", "rationQuickChoicesHelp": "Calories et macronutriments repris de la ration préparée par ton professionnel.", "orSearchSpecificFood": "Ou rechercher un aliment précis", "fromManualRation": "Valeurs issues de la ration manuelle",
-    "consumedQuantityAria": "Quantité consommée de {{food}}", "willAddToMeal": "L’aliment sera ajouté à {{meal}}.", "thisMeal": "ce repas", "searchFood": "Rechercher un aliment", "searchPlaceholder": "Ex. pomme crue, pâtes cuites…", "clearSearch": "Effacer la recherche", "selectedFood": "Aliment sélectionné", "quantityGrams": "Quantité (g)",
-    "addSomethingElse": "Ajouter autre chose", "back": "Retour", "addToMeal": "Ajouter au repas", "todayJournal": "Journal du jour", "journalInstructions": "Coche ce que tu as mangé, puis ajuste seulement si nécessaire.", "previousDay": "Jour précédent", "nextDay": "Jour suivant", "dailyTarget": "Objectif du jour", "journalLoading": "Chargement du journal…",
-    "checked": "{{eaten}}/{{total}} cochés", "checkAll": "Tout cocher", "noDetailedMeal": "Aucun repas détaillé dans le plan de ce jour.", "noDetailedMealHelp": "Tu peux tout de même ajouter ce que tu as mangé ci-dessous.", "ateSomethingElse": "Tu as mangé autre chose ?", "addSimple": "Ajoute simplement l’aliment et la quantité consommée.",
-    "modalSubtitle": "Recherche un aliment : les calories et macronutriments seront calculés automatiquement.", "foodConsumed": "Aliment consommé", "ciqualLoading": "Chargement de la base alimentaire…", "ciqualReference": "Référence CIQUAL {{code}}", "change": "Changer", "meal": "Repas", "forThisQuantity": "Pour cette quantité :", "cancel": "Annuler", "addToJournal": "Ajouter au journal",
-    "myFeedback": "Mon ressenti", "notePlaceholder": "Une remarque pour mon professionnel…", "saveFeedback": "Enregistrer mon ressenti", "pageLoading": "Chargement de ton journal alimentaire…", "pageTitle": "Journal alimentaire", "pageSubtitle": "Note simplement ce que tu as réellement mangé aujourd’hui.", "noLinkedTitle": "Aucun dossier client relié",
-    "editWhatIAte": "Modifier ce que j’ai mangé", "followedMyPlan": "J’ai suivi mon plan", "weeklySummary": "Ma semaine", "weeklySummarySubtitle": "Un résumé simple de ton suivi nutritionnel.", "loggedDays": "Jours renseignés", "completeDays": "Jours complets", "averageFollowUp": "Suivi moyen", "feedbackDays": "Jours avec ressenti", "coachFeedback": "Retour du professionnel", "newFeedback": "Nouveau", "dayStatus": { "complete": "Journée complète", "partial": "Partiellement renseignée", "empty": "Non renseignée" },
-    "unreadCoachFeedback": "{{count}} retour non lu", "unreadCoachFeedback_one": "{{count}} retour non lu", "unreadCoachFeedback_other": "{{count}} retours non lus", "viewCoachFeedback": "Voir le retour",
-    "meals": { "breakfast": "Petit-déjeuner", "lunch": "Déjeuner", "snack": "Collation", "dinner": "Dîner", "other": "Autre" }
+    "saveError": "Le journal n’a pas pu être enregistré",
+    "tryAgain": "Réessaie dans un instant.",
+    "genericFood": "Aliment",
+    "today": "Aujourd’hui",
+    "checkedCount": "{{eaten}}/{{total}} aliments cochés",
+    "saving": "Enregistrement…",
+    "upToDate": "À jour",
+    "toComplete": "À compléter",
+    "fullJournal": "Journal complet",
+    "viewMealNamed": "Voir {{meal}}",
+    "viewMeal": "Voir le repas",
+    "allEaten": "J’ai tout mangé",
+    "mealToday": "Repas du jour",
+    "addFood": "Ajouter un aliment",
+    "mealInstructions": "Coche les aliments et ajuste les quantités si nécessaire.",
+    "addition": "Ajout",
+    "rationQuickChoices": "Choix rapides de ta ration",
+    "rationQuickChoicesHelp": "Calories et macronutriments repris de la ration préparée par ton professionnel.",
+    "orSearchSpecificFood": "Ou rechercher un aliment précis",
+    "fromManualRation": "Valeurs issues de la ration manuelle",
+    "consumedQuantityAria": "Quantité consommée de {{food}}",
+    "willAddToMeal": "L’aliment sera ajouté à {{meal}}.",
+    "thisMeal": "ce repas",
+    "searchFood": "Rechercher un aliment",
+    "searchPlaceholder": "Ex. pomme crue, pâtes cuites…",
+    "clearSearch": "Effacer la recherche",
+    "selectedFood": "Aliment sélectionné",
+    "quantityGrams": "Quantité (g)",
+    "addSomethingElse": "Ajouter autre chose",
+    "back": "Retour",
+    "addToMeal": "Ajouter au repas",
+    "todayJournal": "Journal du jour",
+    "journalInstructions": "Coche ce que tu as mangé, puis ajuste seulement si nécessaire.",
+    "previousDay": "Jour précédent",
+    "nextDay": "Jour suivant",
+    "dailyTarget": "Objectif du jour",
+    "journalLoading": "Chargement du journal…",
+    "checked": "{{eaten}}/{{total}} cochés",
+    "checkAll": "Tout cocher",
+    "noDetailedMeal": "Aucun repas détaillé dans le plan de ce jour.",
+    "noDetailedMealHelp": "Tu peux tout de même ajouter ce que tu as mangé ci-dessous.",
+    "ateSomethingElse": "Tu as mangé autre chose ?",
+    "addSimple": "Ajoute simplement l’aliment et la quantité consommée.",
+    "modalSubtitle": "Recherche un aliment : les calories et macronutriments seront calculés automatiquement.",
+    "foodConsumed": "Aliment consommé",
+    "ciqualLoading": "Chargement de la base alimentaire…",
+    "ciqualReference": "Référence CIQUAL {{code}}",
+    "change": "Changer",
+    "meal": "Repas",
+    "forThisQuantity": "Pour cette quantité :",
+    "cancel": "Annuler",
+    "addToJournal": "Ajouter au journal",
+    "myFeedback": "Mon ressenti",
+    "notePlaceholder": "Une remarque pour mon professionnel…",
+    "saveFeedback": "Enregistrer mon ressenti",
+    "pageLoading": "Chargement de ton journal alimentaire…",
+    "pageTitle": "Journal alimentaire",
+    "pageSubtitle": "Note simplement ce que tu as réellement mangé aujourd’hui.",
+    "noLinkedTitle": "Aucun dossier client relié",
+    "editWhatIAte": "Modifier ce que j’ai mangé",
+    "followedMyPlan": "J’ai suivi mon plan",
+    "weeklySummary": "Ma semaine",
+    "weeklySummarySubtitle": "Un résumé simple de ton suivi nutritionnel.",
+    "loggedDays": "Jours renseignés",
+    "completeDays": "Jours complets",
+    "averageFollowUp": "Suivi moyen",
+    "feedbackDays": "Jours avec ressenti",
+    "coachFeedback": "Retour du professionnel",
+    "newFeedback": "Nouveau",
+    "dayStatus": {
+      "complete": "Journée complète",
+      "partial": "Partiellement renseignée",
+      "empty": "Non renseignée"
+    },
+    "unreadCoachFeedback": "{{count}} retour non lu",
+    "unreadCoachFeedback_one": "{{count}} retour non lu",
+    "unreadCoachFeedback_other": "{{count}} retours non lus",
+    "viewCoachFeedback": "Voir le retour",
+    "meals": {
+      "breakfast": "Petit-déjeuner",
+      "lunch": "Déjeuner",
+      "snack": "Collation",
+      "dinner": "Dîner",
+      "other": "Autre"
+    }
   },
   "nav": {
     "home": "Accueil",
@@ -100,7 +278,10 @@
     "club_statistics": "Statistiques club",
     "club_settings": "Réglages club",
     "dark_mode": "Mode nuit",
-    "light_mode": "Mode jour"
+    "light_mode": "Mode jour",
+    "club_menu": "Menu Club",
+    "club_management_subtitle": "Pilotage de la structure",
+    "club_space": "Espace Club"
   },
   "actions": {
     "buy_now": "Acheter",
@@ -153,7 +334,8 @@
     "done": "Terminé",
     "see_more": "Voir plus ({{count}})",
     "see_more_other": "Voir plus ({{count}})",
-    "see_less": "Voir moins"
+    "see_less": "Voir moins",
+    "sport": "Sport"
   },
   "form": {
     "program": "Programme",
@@ -801,6 +983,7 @@
     }
   },
   "calendar": {
+    "pack_session": "Séance n° {{number}} sur {{total}}",
     "title": "Calendrier",
     "add_session": "Ajouter une séance",
     "program": "Programme",
@@ -826,7 +1009,12 @@
     "loading": "Chargement du calendrier...",
     "load_error": "Le calendrier est temporairement indisponible.",
     "no_events_in_range": "Aucun rendez-vous sur cette période.",
-    "show_more": "+ {{count}} de plus"
+    "show_more": "+ {{count}} de plus",
+    "last_pack_session": "Dernière séance du pack",
+    "last_pack_reserved": "Votre dernière séance est réservée",
+    "last_pack_title": "Il vous reste une séance",
+    "last_pack_message": "Il vous reste 1 séance dans votre pack de {{quantity}} séances.",
+    "last_pack_ack": "OK, j’ai compris"
   },
   "time": {
     "days_short": "j",
@@ -1861,6 +2049,7 @@
     "assign": "Assigner"
   },
   "clientsList": {
+    "searchEmpty": "Aucun client ne correspond à votre recherche.",
     "heading": "Mes Clients",
     "filters": {
       "active": "Actifs (dernier {{days}} j)",
@@ -6554,6 +6743,11 @@
         }
       },
       "clubDashboard": {
+        "clarity": {
+          "next": "Prochain rendez-vous",
+          "noUpcoming": "Aucun rendez-vous à venir.",
+          "overview": "Le club en chiffres"
+        },
         "label": "Dashboard club",
         "steps": {
           "0": {
@@ -6720,6 +6914,58 @@
           }
         }
       }
+    },
+    "v2": {
+      "club": {
+        "mobile": "Utilisez Accueil, Calendrier, Gestion et Clients en bas de l’écran. Le + central ouvre les actions Nouveau.",
+        "desktop": "Le menu en haut ouvre les rubriques du club. Nouveau permet d’ajouter un client, un professionnel ou un rendez-vous."
+      },
+      "client": {
+        "mobile": "La barre du bas donne accès à l’accueil, aux programmes, à la nutrition et aux statistiques. Le menu du haut contient votre profil et vos réglages.",
+        "desktop": "Ouvrez le menu en haut pour retrouver vos programmes, votre nutrition, vos statistiques et votre profil."
+      },
+      "coach": {
+        "mobile": "La barre du bas ouvre vos rubriques disponibles. Le + central propose les créations adaptées à votre offre. Retrouvez les autres pages dans le menu du haut.",
+        "desktop": "Le menu du haut donne accès aux dossiers, programmes, suivis nutrition et statistiques disponibles dans votre offre. Nouveau rassemble les actions de création."
+      },
+      "calendar": {
+        "mobile": "Choisissez un jour dans la bande de dates, puis touchez une carte pour ouvrir le rendez-vous. Les flèches permettent de changer de semaine.",
+        "desktop": "Changez de vue avec Mois, Semaine, Jour ou Agenda. Cliquez sur un événement pour consulter ses détails et les actions disponibles."
+      },
+      "clients": {
+        "mobile": "Recherchez un client et ouvrez les filtres avec le petit bouton à droite. Faites défiler les cartes et touchez la flèche d’une carte pour voir ses détails.",
+        "desktop": "Le tableau affiche tous les clients. Utilisez la recherche et les filtres, puis Ouvrir la fiche client pour gérer le dossier."
+      },
+      "team": {
+        "mobile": "Recherchez un professionnel et ouvrez Détail. Sa fiche donne accès à ses clients, à ses statistiques et à la planification d’un rendez-vous.",
+        "desktop": "Chaque ligne présente un professionnel. Détail ouvre ses indicateurs et les raccourcis vers ses clients et ses statistiques."
+      },
+      "statistics": {
+        "mobile": "Choisissez la période et les professionnels à suivre. Faites défiler les indicateurs et le graphique pour lire leur activité.",
+        "desktop": "Filtrez par période et par professionnel pour comparer les indicateurs et l’évolution de l’activité. Voir tout le club rétablit la vue globale."
+      },
+      "settings": {
+        "mobile": "Faites défiler les réglages du club et ouvrez la rubrique à modifier. Les didacticiels peuvent être relancés depuis cette page.",
+        "desktop": "Retrouvez ici les réglages du club et les didacticiels. Relancez uniquement le guide de la rubrique dont vous avez besoin."
+      },
+      "overview": "Le bandeau résume les rendez-vous du jour. Plus bas, les priorités donnent accès aux dossiers à traiter.",
+      "import": "Importez un fichier Excel ou CSV, associez ses colonnes et vérifiez l’aperçu avant de confirmer. Packs et abonnements ont des champs distincts. L’envoi des invitations reste séparé.",
+      "messages": "La bulle ouvre les conversations du club. La pastille rouge indique les messages non lus. Ouvrez une conversation pour lire et répondre.",
+      "builder": {
+        "mobile": "Sur téléphone, commencez par l’identité du programme, puis parcourez les séances et leurs exercices. Enregistrez avant de quitter le builder."
+      },
+      "labels": {
+        "clubClients": "Clients",
+        "clubTeam": "Pros du club",
+        "clubCalendar": "Calendrier",
+        "clubStatistics": "Statistiques",
+        "clubSettings": "Réglages",
+        "clubManagement": "Gestion"
+      },
+      "management": {
+        "mobile": "Parcourez les dossiers à traiter et ouvrez celui qui demande une action. Vérifiez les informations avant de confirmer une modification.",
+        "desktop": "Cette page rassemble les dossiers à compléter et les règlements à vérifier. Ouvrez le dossier concerné pour traiter chaque situation."
+      }
     }
   },
   "clubDashboard": {
@@ -6771,6 +7017,8 @@
         "subtitle": "Ajoutez un coach, un diététicien ou un profil hybride dans l’abonnement du club."
       },
       "team": {
+        "searchPlaceholder": "Rechercher un professionnel",
+        "searchEmpty": "Aucun professionnel ne correspond à votre recherche.",
         "title": "Pros du club",
         "subtitle": "Gérez les comptes rattachés, les statuts et les accès de chaque intervenant."
       },
@@ -6787,8 +7035,8 @@
         "subtitle": "Comprenez qui a créé ou modifié quoi dans le périmètre club récent."
       },
       "audit": {
-        "title": "Audit données club",
-        "subtitle": "Repérez les dossiers incomplets, référents incertains et zones à nettoyer."
+        "title": "Vérifier les référents",
+        "subtitle": "Vérifiez quel professionnel est responsable de chaque dossier signalé."
       },
       "goals": {
         "title": "Objectifs mensuels",
@@ -6800,7 +7048,7 @@
       },
       "bulk": {
         "title": "À traiter",
-        "subtitle": "Retrouvez les dossiers qui demandent une action concrète côté club."
+        "subtitle": "Les dossiers à compléter pour assurer le suivi des clients."
       },
       "settings": {
         "title": "Réglages club",
@@ -6837,13 +7085,17 @@
       "selectedPros": "{{count}} pro(s) sélectionné(s)",
       "allPros": "Tout le club",
       "choosePros": "Choisir un ou plusieurs pros",
-      "unknownPro": "Référent non identifié"
+      "unknownPro": "Référent non identifié",
+      "active": "Filtres actifs",
+      "courseSearch": "Rechercher un cours"
     },
     "team": {
       "detectedReferent": "Référent détecté",
       "toAttach": "À rattacher",
       "noMemberEmail": "Compte pro non rattaché",
-      "detectedFromData": "détecté via les données club"
+      "detectedFromData": "détecté via les données club",
+      "searchPlaceholder": "Rechercher un professionnel",
+      "searchEmpty": "Aucun professionnel ne correspond à votre recherche."
     },
     "stats": {
       "periodActivity": "Activité période",
@@ -6882,14 +7134,14 @@
       "items": "élément(s)",
       "kind": "Type",
       "item": "Élément",
-      "details": "Détails à contrôler",
-      "detailsHelp": "Ouvrez le dossier ou rattachez directement le bon pro quand l’élément est réparable.",
+      "details": "Dossiers à vérifier",
+      "detailsHelp": "Ouvrez le dossier pour vérifier son contenu, puis choisissez le professionnel responsable et cliquez sur « Corriger ».",
       "choosePro": "Choisir un pro",
       "repair": "Corriger",
       "repairSaved": "Référent mis à jour",
       "repairFailed": "Correction impossible.",
       "selectProFirst": "Sélectionnez un pro à rattacher",
-      "noUnknownReferents": "Aucun référent incertain à corriger.",
+      "noUnknownReferents": "Aucun dossier avec un référent incertain dans les données chargées.",
       "noProgramQueue": "Clients à équiper",
       "noProgramQueueHelp": "{{count}} client(s) n’ont pas encore de programme assigné.",
       "openAllClients": "Voir tous les clients",
@@ -6940,14 +7192,18 @@
       "selectProgramSession": "Sélectionnez un programme et une séance.",
       "nutritionAppointment": "Rendez-vous nutrition",
       "eventDetails": "Rendez-vous club",
-      "internalEvent": "Évènement interne"
+      "internalEvent": "Évènement interne",
+      "markUpcoming": "Remettre à venir",
+      "deleteAppointment": "Supprimer du calendrier",
+      "closeDetails": "Fermer"
     },
     "tools": {
+      "management": "Gestion",
       "title": "Pilotage club",
       "subtitle": "Toutes les pages d’exploitation utiles restent dans le périmètre club et ne modifient rien sans action explicite.",
       "alerts": "Alertes",
       "log": "Journal",
-      "audit": "Audit données",
+      "audit": "Vérifier les référents",
       "goals": "Objectifs",
       "exports": "Exports",
       "bulk": "À traiter",
@@ -6966,16 +7222,16 @@
       "currentPeriod": "Période"
     },
     "bulk": {
-      "empty": "Rien à traiter ici.",
-      "explainTitle": "À quoi sert cette page ?",
-      "explainText": "Elle regroupe les dossiers qui demandent une action simple : assigner un programme, finaliser un bilan nutrition ou rattacher le bon pro. Rien n’est modifié automatiquement.",
+      "empty": "Aucun dossier à traiter dans cette catégorie.",
+      "explainTitle": "Votre liste de tâches",
+      "explainText": "Choisissez une catégorie, puis ouvrez le dossier concerné pour le compléter. Les compteurs indiquent combien de dossiers restent à vérifier.",
       "total": "{{count}} à traiter",
-      "noProgramDetail": "Ces clients existent dans le club mais n’ont aucun programme assigné. Le but est d’ouvrir leur dossier puis d’ajouter ou assigner un programme.",
-      "nutritionDetail": "Ces bilans sont en brouillon ou non partagés. Le but est de les ouvrir, corriger si besoin, puis les valider ou les partager.",
-      "referentDetail": "Ces éléments sont dans le périmètre club mais le pro responsable n’est pas fiable. Le but est de les rattacher depuis l’audit.",
-      "openClients": "Traiter les clients",
-      "openNutrition": "Traiter la nutrition",
-      "openAudit": "Corriger dans l’audit"
+      "noProgramDetail": "Ouvrez le dossier du client pour lui attribuer un programme si son accompagnement le nécessite.",
+      "nutritionDetail": "Ouvrez les bilans en brouillon ou non partagés pour les compléter, les valider ou les partager.",
+      "referentDetail": "Vérifiez les dossiers dont le professionnel responsable est manquant ou ambigu.",
+      "openClients": "Voir les clients",
+      "openNutrition": "Voir les bilans",
+      "openAudit": "Vérifier les référents"
     },
     "programs": {
       "library": "Bibliothèque pro"
@@ -7014,6 +7270,7 @@
       "nutrition": "Nutrition"
     },
     "todaySchedule": {
+      "remaining": "{{count}} rendez-vous restant(s)",
       "title": "Suivi des rendez-vous du jour",
       "next": "Prochain : {{title}} à {{time}}",
       "doneForToday": "Tous les rendez-vous du jour sont passés.",
@@ -7046,6 +7303,63 @@
       "limitsDetail": "La création est bloquée quand les limites de l’offre club sont atteintes.",
       "identityTitle": "L’identité descend du club",
       "identityDetail": "Logo, nom et préférences servent de base aux documents et espaces partagés."
+    },
+    "search": {
+      "programs": "Rechercher un programme, un client ou un pro",
+      "nutrition": "Rechercher un suivi, un client ou un pro",
+      "stats": "Rechercher un pro dans la comparaison",
+      "empty": "Aucun résultat ne correspond à votre recherche."
+    },
+    "trend": {
+      "title": "Évolution de l’activité",
+      "day": "14 derniers jours · par jour",
+      "month": "12 derniers mois · par mois",
+      "year": "5 dernières années · par année",
+      "empty": "Aucune activité disponible sur cette période.",
+      "scope": "Dossiers récents disponibles, regroupés par date de dernière activité. Cet extrait ne représente pas un historique complet. La période en cours est partielle.",
+      "nutritionHelp": "Bilans nutrition dans le périmètre sélectionné"
+    },
+    "defaultLogo": "Logo BYL utilisé par défaut",
+    "group": {
+      "title": "Cours collectif",
+      "capacity": "Nombre de places",
+      "participants": "Participants",
+      "overCapacity": "Retirez des participants ou augmentez le nombre de places.",
+      "loadError": "Impossible de charger les participants.",
+      "registerLater": "Créez le cours, puis ouvrez une séance dans le calendrier pour inscrire ses participants. Chaque séance dispose de 5 places en liste d’attente.",
+      "waitingCount": "Liste d’attente : {{count}} / 5 · La première personne est inscrite automatiquement lorsqu’une place se libère.",
+      "waiting": "En attente"
+    },
+    "recurrence": {
+      "created": "{{count}} séances ajoutées au calendrier",
+      "label": "Répétition",
+      "none": "Ne pas répéter",
+      "daily": "Chaque jour",
+      "weekly": "Chaque semaine",
+      "monthly": "Chaque mois",
+      "until": "Jusqu’au (inclus)"
+    },
+    "clarity": {
+      "next": "Prochain rendez-vous",
+      "noUpcoming": "Aucun rendez-vous à venir.",
+      "overview": "Le club en chiffres"
     }
+  },
+  "clubMessaging": {
+    "menu": "Messagerie du club",
+    "search": "Rechercher un contact…",
+    "title": "Discussions du club",
+    "coach": "Coaches",
+    "client": "Clients",
+    "privacy": "Les échanges coach–client restent privés.",
+    "empty": "Aucun contact disponible dans cette liste.",
+    "unlinked": "Compte client non lié",
+    "unread": "Nouveau",
+    "start": "Sélectionnez un contact pour commencer.",
+    "error": "Impossible de charger ou d’envoyer les messages. Réessayez.",
+    "retry": "Réessayer",
+    "older": "Messages précédents",
+    "preview": "Aperçu administrateur : lecture seule.",
+    "noMessages": "Aucun message pour le moment."
   }
 }

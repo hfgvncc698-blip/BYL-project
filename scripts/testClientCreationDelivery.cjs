@@ -51,6 +51,7 @@ function scenario({ defer = true, failCommit = false } = {}) {
     method, (url, ...handlers) => routes.set(`${method} ${url}`, handlers.at(-1)),
   ]));
   const dependencies = {
+    ...Object.fromEntries(['clubEmailCopy', 'clubSubscriptions', 'clubClientAdministration', 'clubMemberships', 'clubClassBooking', 'clubAppointmentStatus', 'clubRecurrence', 'clubGroupClass'].map(name => [`../utils/${name}`, require(`../backend/utils/${name}`)])),
     crypto: require('node:crypto'),
     express: { Router: () => router },
     '../firebaseAdmin': { firestore, auth: () => auth },

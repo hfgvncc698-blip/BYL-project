@@ -1,3 +1,6 @@
+import useMemberClubContacts from '../components/messaging/useMemberClubContacts';
+import { clubText } from '../i18n/clubText';
+import ClubMessagingPanel, { ClubThread } from '../components/messaging/ClubMessagingPanel';
 import { useState } from "react";
 import {
   Box,
@@ -13,7 +16,7 @@ import {
 } from "@chakra-ui/react";
 import { SearchIcon } from "@chakra-ui/icons";
 import { AddIcon } from "@chakra-ui/icons";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import MessagingContactList from "../components/messaging/MessagingContactList";
 import MessagingThread from "../components/messaging/MessagingThread";
@@ -25,20 +28,32 @@ import { useAppTheme } from "../styles/appTheme";
 const normalize = (value) => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 export default function MessagingPage() {
+  const [params] = useSearchParams();
+  return params.get('mode') === 'club' ? <ClubMessagingPanel /> : <ProfessionalMessagingPage />;
+}
+function ProfessionalMessagingPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const packRequest = location.state?.packRequest;
+  const suggestedMessage = location.state?.suggestedMessage;
+  const clearPackRequest = () => navigate(location.pathname + location.search, {replace:true, state:{...location.state, packRequest:null, suggestedMessage:null}});
+
   const { t } = useTranslation();
+  const { contacts: clubContacts, error: clubError } = useMemberClubContacts();
   const theme = useAppTheme();
   const [searchParams, setSearchParams] = useSearchParams();
   const { contacts, loading, isClient, hideConversation } = useMessagingContacts();
   const [search, setSearch] = useState("");
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const selectedId = searchParams.get("conversation") || "";
-  const selectedContact = contacts.find((contact) => contact.id === selectedId) || null;
-  const visibleContacts = isClient || directoryOpen
-    ? contacts
-    : contacts.filter((contact) => contact.conversation);
+  const allContacts = [...clubContacts, ...contacts];
+  const selectedContact = allContacts.find((contact) => contact.id === selectedId) || null;
+  const visibleContacts = isClient || directoryOpen || search.trim()
+    ? allContacts
+    : allContacts.filter((contact) => contact.clubContact || contact.conversation);
   const filteredContacts = visibleContacts.filter((contact) => normalize([contact.title, contact.email].join(" ")).includes(normalize(search)));
 
-  const selectContact = (contact) => setSearchParams({ conversation: contact.id });
+  const selectContact = (contact) => setSearchParams({ conversation: contact.id }, {state:location.state});
   const removeConversation = async (contact) => {
     await hideConversation(contact);
     setSearchParams({});
@@ -68,6 +83,10 @@ export default function MessagingPage() {
           </HStack>
         </AppSurface>
 
+        {packRequest && <Box mb={4} p={4} borderWidth="1px" borderRadius="xl" bg={theme.surfaceBgStrong}>
+          <Text fontWeight="700">{clubText('Demande de pack · {{name}}',{name:packRequest.name})}</Text>
+          <Text fontSize="sm">{clubText("Choisissez le club ou le professionnel à contacter. Le message sera préparé pour relecture avant envoi.")}</Text>
+        </Box>}
         <AppSurface
           p={0}
           overflow="hidden"
@@ -90,7 +109,7 @@ export default function MessagingPage() {
                 <HStack mb={3} spacing={2}>
                   <InputGroup flex="1" minW={0}>
                     <InputLeftElement pointerEvents="none"><SearchIcon color={theme.mutedText} /></InputLeftElement>
-                    <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("messaging.search")} borderRadius="full" />
+                    <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("clubMessaging.search")} borderRadius="full" />
                   </InputGroup>
                   <IconButton
                     flexShrink={0}
@@ -104,6 +123,7 @@ export default function MessagingPage() {
                   />
                 </HStack>
               ) : null}
+              {clubError && <Text role="alert" fontSize="sm">{t("clubMessaging.error")}</Text>}
               {loading ? <Flex py={10} justify="center"><Spinner size="sm" /></Flex> : (
                 <MessagingContactList
                   contacts={filteredContacts}
@@ -116,7 +136,9 @@ export default function MessagingPage() {
 
             <Box display={{ base: selectedContact ? "block" : "none", md: "block" }} flex="1" minW={0}>
               {selectedContact ? (
-                <MessagingThread contact={selectedContact} onBack={() => setSearchParams({})} />
+                selectedContact.clubContact
+                  ? <ClubThread suggestedClassRequest={suggestedMessage?.conversation === selectedContact.id ? suggestedMessage.classRequest : null} suggestedDraft={suggestedMessage?.conversation === selectedContact.id ? suggestedMessage.text : packRequest?.text} onDraftApplied={clearPackRequest} key={selectedContact.id} contact={selectedContact} preview={false} ownerView={false} onBack={() => setSearchParams({})} t={t} />
+                  : <MessagingThread suggestedDraft={suggestedMessage?.conversation === selectedContact.id ? suggestedMessage.text : packRequest?.text} onDraftApplied={clearPackRequest} contact={selectedContact} onBack={() => setSearchParams({})} />
               ) : (
                 <Flex h="full" align="center" justify="center" textAlign="center" px={6}>
                   <Box>

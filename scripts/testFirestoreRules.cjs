@@ -16,7 +16,7 @@ async function test(name, run) { await run(); passed++; console.log(`PASS ${name
 (async () => {
   // Use the ESM SDK consistently with the actual browser operation module.
   const { initializeTestEnvironment, assertSucceeds, assertFails } = await import('@firebase/rules-unit-testing');
-  const { doc, getDoc, setDoc, updateDoc, writeBatch, Timestamp } = await import('firebase/firestore');
+  const { doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch, Timestamp } = await import('firebase/firestore');
   const [emulatorHost, port] = host.split(':');
   const env = await initializeTestEnvironment({ projectId, firestore: { host: emulatorHost, port: Number(port), rules: fs.readFileSync(path.join(__dirname, '../firestore.rules'), 'utf8') } });
   const { createProgramCreationOperation, createProgramAssignmentOperation } = await import('../src/utils/programWriteOperations.js');
@@ -25,6 +25,10 @@ async function test(name, run) { await run(); passed++; console.log(`PASS ${name
     await env.withSecurityRulesDisabled(async context => {
       const db = context.firestore();
       const fixtures = {
+        'sessions/unlinked-null': {clientId:'other', clientDocId:null, userId:null},
+        'sessions/pro-planned': {clientId:'patient', coachId:'coach-a', createdBy:'coach-a', start:1, end:2, status:'à venir'},
+        'sessions/club-planned': {clientId:'patient', clubId:'club-one', start:1, end:2},
+        'sessions/personal': {clientId:'patient', createdBy:'patient', start:1, end:2},
         'users/coach-a': coach(null), 'users/coach-b': coach(null),
         'users/empty-a': coach(''), 'users/club-a': coach('club-one'), 'users/club-b': coach('club-one'),
         'users/club-other': coach('club-two'),
@@ -59,6 +63,18 @@ async function test(name, run) { await run(); passed++; console.log(`PASS ${name
     const anon = env.unauthenticatedContext().firestore();
     const read = (db, key) => getDoc(doc(db, key));
     const patch = (db, key, value = { title: 'Edited' }) => updateDoc(doc(db, key), value);
+
+    await test('nullable links do not expose unrelated sessions', () => assertFails(read(dbFor('assigned-reader'), 'sessions/unlinked-null')));
+    await test('client can consult professional appointments', () => assertSucceeds(read(dbFor('patient'), 'sessions/pro-planned')));
+    await test('client cannot move professional appointments', () => assertFails(patch(dbFor('patient'), 'sessions/pro-planned', {start:3, end:4})));
+    await test('client cannot change assigned appointment status', () => assertFails(patch(dbFor('patient'), 'sessions/pro-planned', {status:'validée'})));
+    await test('client cannot remove professional ownership', () => assertFails(patch(dbFor('patient'), 'sessions/pro-planned', {coachId:null, createdBy:'patient'})));
+    await test('client cannot delete professional appointments', () => assertFails(deleteDoc(doc(dbFor('patient'), 'sessions/pro-planned'))));
+    await test('client cannot move club appointments', () => assertFails(patch(dbFor('patient'), 'sessions/club-planned', {start:3})));
+    await test('professional retains appointment editing', () => assertSucceeds(patch(dbFor('coach-a'), 'sessions/pro-planned', {start:3, end:4})));
+    await test('client can move a personal session', () => assertSucceeds(patch(dbFor('patient'), 'sessions/personal', {start:3, end:4})));
+    await test('client cannot assign a professional to a personal session', () => assertFails(patch(dbFor('patient'), 'sessions/personal', {coachId:'coach-a'})));
+    await test('client can delete a personal session', () => assertSucceeds(deleteDoc(doc(dbFor('patient'), 'sessions/personal'))));
 
     await test('independent coach cannot read another null-club client', () => assertFails(read(dbFor('coach-a'), 'clients/foreign')));
     await test('independent coach cannot update another null-club client', () => assertFails(patch(dbFor('coach-a'), 'clients/foreign')));
