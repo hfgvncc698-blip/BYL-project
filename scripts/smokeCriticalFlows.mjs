@@ -396,7 +396,7 @@ check("slow loads and render failures never leave an empty application root", ()
   );
 });
 
-check("each app opening requests a fresh geolocation without reusing a saved place", () => {
+check("geolocation respects permission renewal and never reuses a saved place", () => {
   const geolocation = read("src/hooks/useGeolocation.js");
   const routeAnalytics = read("src/components/RouteAnalyticsListener.jsx");
 
@@ -406,12 +406,9 @@ check("each app opening requests a fresh geolocation without reusing a saved pla
       geolocation.includes('writeStoredGeoDecision("denied")'),
     "Geolocation consent decisions must survive page reloads"
   );
-  assert.ok(
-    geolocation.includes('browserPermission === "denied"') &&
-      !geolocation.includes('readStoredGeoDecision() === "denied"') &&
-      geolocation.includes('browserPermission === "denied" ? "denied" : "available"'),
-    "Only a browser-level denial may block a fresh geolocation request"
-  );
+  // Permission behavior is exercised by testGeolocationSessionLifecycle below:
+  // browser denial blocks requests, while an expired temporary grant waits for
+  // explicit renewal. Do not tie this contract to the ternary's source spelling.
   assert.ok(
     geolocation.includes("const clearCachedGeo") &&
       geolocation.includes("maximumAge: 0") &&
@@ -1216,7 +1213,8 @@ check("deferred dashboard widgets cannot crash the whole dashboard", () => {
   const boundary = read("src/components/ui/DeferredWidgetBoundary.jsx");
   assert.ok(
     calendar.includes("resolveDragAndDropFactory(withDragAndDrop)") &&
-      calendar.includes("dragAndDropFactory ? dragAndDropFactory(Calendar) : Calendar") &&
+      calendar.includes('import StableCalendar from "../calendar/StableCalendar"') &&
+      calendar.includes("dragAndDropFactory ? dragAndDropFactory(StableCalendar) : StableCalendar") &&
       calendarInterop.includes("current.default") &&
       calendarInterop.includes('current["module.exports"]') &&
       calendarInterop.includes('typeof current === "function" ? current : null'),
@@ -1626,7 +1624,8 @@ check("coach session planning is atomic, bounded and duplicate-safe", () => {
     "Cached session refreshes must rebuild dashboard calendar events"
   );
   assert.ok(
-    dashboard.includes('calendarEventAppearance('),
+    dashboard.includes('coachEventAppearance(event).backgroundColor') &&
+      read('src/utils/calendarEventAppearance.mjs').includes('return calendarEventAppearance(event, undefined, now, coachEventColors[coachEventCategory(event)])'),
     "Calendar sessions must use shared coach colors and validation markers"
   );
   execFileSync(process.execPath, ["scripts/testCalendarEventAppearance.mjs"], { cwd: root, stdio: "pipe" });
