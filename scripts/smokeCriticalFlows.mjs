@@ -481,11 +481,25 @@ check("admin geo markers reveal the visitors connected from each area", () => {
 
   assert.ok(
     adminGeo.includes("popupopen: () => { setOpenPointId(point.clusterId)") &&
-      adminGeo.includes("<Popup minWidth={280} maxWidth={360}>") &&
-      adminGeo.includes("openPointId === point.clusterId") &&
+      /!isMobileMap\s*&&\s*<Popup\b/.test(adminGeo) &&
+      adminGeo.includes("openPointId === point.clusterId && renderPointDetails(point)"),
+    "Desktop markers must open a popup with the selected area's details"
+  );
+  assert.ok(
+    /click:\s*\(\)\s*=>\s*\{\s*if\s*\(isMobileMap\)\s*\{\s*setMobilePoint\(point\)/.test(adminGeo) &&
+      adminGeo.includes("isMobileMap && mobilePoint &&") &&
+      adminGeo.includes('aria-label="Détails des positions sélectionnées"') &&
+      adminGeo.includes("renderPointDetails(mobilePoint, true)") &&
+      adminGeo.includes('maxH={mobile ? "none" : "280px"}') &&
+      adminGeo.includes('overflowY={mobile ? "visible" : "auto"}'),
+    "Mobile markers must open readable details outside the map without a nested scroll limit"
+  );
+  assert.ok(
+    adminGeo.includes("const renderPointDetails = (point, mobile = false)") &&
+      adminGeo.includes("new Map(point.members.map") &&
       adminGeo.includes("[...people.values()].slice(0, peopleLimit).map") &&
       adminGeo.includes("visitorVisitHistory(recentVisitors, person)"),
-    "Every map marker must open a popup listing the people associated with that area"
+    "Both layouts must list the selected area's people and their visit history"
   );
   assert.ok(
       adminGeo.includes("clusterGeoPoints(measuredPoints, visualClusterRadiusKm)") &&
