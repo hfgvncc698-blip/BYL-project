@@ -199,16 +199,29 @@ await test("remembering a grant still requests fresh coordinates at each opening
   }
 });
 
-await test("a temporary grant does not reopen the prompt on reload", async () => {
+await test("an ambiguous Safari permission does not suppress a remembered grant", async () => {
   for (const permissionsSupported of [true, false]) {
     const h = createHarness({ permission: 'prompt', permissionsSupported, stored: { [DECISION_KEY]: 'granted' } });
     await h.start();
-    assert.equal(h.watches.length, 0);
-    assert.equal(h.render().permissionRenewalRequired, true);
-    h.render().retryPermission(); h.render();
+    assert.equal(h.watches.length, 1, 'native geolocation must be consulted even after a remembered acceptance');
     assert.equal(h.render().permissionRenewalRequired, false);
-    assert.equal(h.watches.length, 1);
+    await h.publish();
+    h.render();
+    assert.equal(h.storage.get('BYL_LAT'), '43.552');
+    assert.equal(h.watches.length, 1, 'success must not restart the native request');
   }
+});
+
+await test("an actual refusal after a remembered grant is not retried on reload", async () => {
+  const first = createHarness({ permission: 'prompt', stored: { [DECISION_KEY]: 'granted' } });
+  await first.start();
+  first.fail(1);
+  first.render();
+  const reload = createHarness({ permission: 'prompt', stored: Object.fromEntries(first.storage) });
+  await reload.start();
+  assert.equal(reload.watches.length, 0);
+  reload.render({ sessionKey: 'user:login-2' });
+  assert.equal(reload.watches.length, 1);
 });
 
 await test("without Permissions API, identity changes do not restart GPS either", async () => {

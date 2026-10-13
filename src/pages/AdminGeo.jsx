@@ -39,6 +39,7 @@ import {
   Icon,
   Alert,
   AlertIcon,
+  useBreakpointValue,
 } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
 
@@ -524,6 +525,9 @@ export default function AdminGeo() {
   const [personSearch, setPersonSearch] = useState("");
   const [mergeRadiusKm, setMergeRadiusKm] = useState(2);
   const [openPointId, setOpenPointId] = useState(null);
+  const isMobileMap = useBreakpointValue({ base: true, md: false });
+  const [mobilePoint, setMobilePoint] = useState(null);
+  const mobileDetailsRef = useRef(null);
   const [expandedHistory, setExpandedHistory] = useState(null);
   const [historyLimit, setHistoryLimit] = useState(20);
   const [peopleLimit, setPeopleLimit] = useState(10);
@@ -589,7 +593,7 @@ export default function AdminGeo() {
     return () => window.removeEventListener("BYL_PAGEVIEW_MARKED", handler);
   }, []);
 
-  useEffect(() => { setMapFocus(null); setOpenPointId(null); setExpandedHistory(null); setVisitLimit(50); }, [windowKey, roleFilter, personSearch, search]);
+  useEffect(() => { setMapFocus(null); setMobilePoint(null); setOpenPointId(null); setExpandedHistory(null); setVisitLimit(50); }, [windowKey, roleFilter, personSearch, search]);
 
   // Load analytics via backend Admin SDK, with Firestore fallback if prod backend is behind.
   useEffect(() => {
@@ -904,6 +908,14 @@ export default function AdminGeo() {
     () => clusterGeoPoints(measuredPoints, visualClusterRadiusKm),
     [measuredPoints, visualClusterRadiusKm]
   );
+  useEffect(() => {
+    if (isMobileMap && mapFocus?.visit) {
+      setMobilePoint({ isCluster: false, members: [{ ...mapFocus.visit, lat: mapFocus.lat, lng: mapFocus.lon }] });
+    }
+  }, [mapFocus, isMobileMap]);
+  useEffect(() => {
+    if (isMobileMap && mobilePoint) mobileDetailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [mobilePoint, isMobileMap]);
   const focusCityOnMap = useCallback((city) => {
     const point = measuredPoints.find(p => makeGeoId(p.country, p.city) === city.geoId);
     if (point) setMapFocus({ ...point, visit: point, requestId: Date.now() });
@@ -1029,6 +1041,36 @@ export default function AdminGeo() {
     if (metric !== "uv") return "Visites";
     return windowKey === "all" ? "Visiteurs uniques (toujours)" : "Visiteurs uniques";
   }, [metric, windowKey]);
+
+  const renderPointDetails = (point, mobile = false) => {
+    const people = new Map(point.members.map(member => [member.uid || member.visitorId || member.id, member]));
+    return (<Box color={mobile ? theme.textColor : "gray.800"} fontSize="sm" lineHeight="1.6" overflowWrap="anywhere" sx={{ "p": { margin: 0 }, "button": { whiteSpace: "normal", height: "auto", minHeight: mobile ? "44px" : "32px", py: 2 }, "summary": { minHeight: "44px", py: 2 } }}>
+                        <Text fontWeight="bold">{point.isCluster ? `${people.size} personne(s) · ${point.members.length} position(s)` : 'Position enregistrée'}</Text>
+                        {point.isCluster && <Button size="sm" my={2} onClick={() => mapRef.current?.fitBounds(point.members.map(member => [member.lat, member.lon]), { maxZoom: 18, padding: [35, 35] })}>Séparer les positions</Button>}
+                        <Stack spacing={4} mt={3} maxH={mobile ? "none" : "280px"} overflowY={mobile ? "visible" : "auto"}>
+                          {[...people.values()].slice(0, peopleLimit).map(person => <Box key={person.uid || person.visitorId || person.id} borderTopWidth="1px" pt={2}>
+                            <Text fontWeight="bold">{person.personName || 'Visiteur anonyme'}</Text>
+                            <Text fontSize="sm">{person.email}</Text>
+                            <Text fontSize="sm">{getVisitLocationDisplay(person).label}</Text>
+                            <VisitAddress visit={person} />
+                            <Text fontSize="sm">Position mesurée : {formatDateTime(person.geoCapturedAt || person.lastSeenAt)}</Text>
+                            <Box as="details" mt={2} onToggle={event => { const id = person.uid || person.visitorId || person.id; if (event.currentTarget.open) { setExpandedHistory(id); setHistoryLimit(20); } else setExpandedHistory(current => current === id ? null : current); }}>
+                              <Box as="summary" cursor="pointer" fontWeight="bold" fontSize="sm">Visites enregistrées · {windowLabel}</Box>
+                              <Text fontSize="sm" my={2}>De la plus récente à la plus ancienne, parmi les visites chargées (120 maximum par jour). Une position reçue peut être enregistrée sans clic.</Text>
+                              {expandedHistory === (person.uid || person.visitorId || person.id) && visitorVisitHistory(recentVisitors, person).slice(0, historyLimit).map((visit, index) => <Box key={`${visit.id}-${index}`} py={2} borderTopWidth="1px">
+                                <Text fontSize="sm" fontWeight="bold">{formatDateTime(visit.lastSeenAt || visit.firstSeenAt)}</Text>
+                                <Text fontSize="sm">{getVisitLocationDisplay(visit).label}</Text>
+                                <Text fontSize="sm">{getVisitLocationDisplay(visit).detail}</Text>
+                                <Text fontSize="sm" overflowWrap="anywhere">Page : {String(visit.pathLast || visit.pathFirst || '—').split(/[?#]/)[0]}</Text>
+                                {isValidMapPoint({ lat: visit.lat, lon: visit.lng }) && <Button size="sm" mt={1} onClick={() => setMapFocus({ lat: visit.lat, lon: visit.lng, visit, requestId: Date.now() })}>Voir cette position</Button>}
+                              </Box>)}
+                              {expandedHistory === (person.uid || person.visitorId || person.id) && visitorVisitHistory(recentVisitors, person).length > historyLimit && <Button size="sm" onClick={() => setHistoryLimit(n => n + 20)}>Afficher 20 visites supplémentaires</Button>}
+                            </Box>
+                          </Box>)}
+                          {people.size > peopleLimit && <Button size="sm" onClick={() => setPeopleLimit(n => n + 10)}>Afficher plus de personnes</Button>}
+                        </Stack>
+                      </Box>);
+  };
 
   if (loading) {
     return <AppLoading label={i18n.t("auto.AdminGeo.chargement_de_la_geographie", "Chargement de la géographie...")} />;
@@ -1326,9 +1368,9 @@ export default function AdminGeo() {
 
       {/* ------------------------------ Carte 2D ------------------------------ */}
       <Card>
-        <CardHeader>
+        <CardHeader p={{ base: 4, md: 6 }}>
           <HStack justify="space-between" align="center" flexWrap="wrap" gap={2}>
-            <Heading size="md">{i18n.t("auto.AdminGeo.carte", "Carte —")}Positions enregistrées ({windowLabel})
+            <Heading size="md" fontSize={{ base: "lg", md: "xl" }}>{i18n.t("auto.AdminGeo.carte", "Carte —")} Positions enregistrées ({windowLabel})
             </Heading>
             <HStack flexWrap="wrap" gap={2}>
             <Button
@@ -1342,9 +1384,9 @@ export default function AdminGeo() {
           </HStack>
         </CardHeader>
 
-        <CardBody>
+        <CardBody p={{ base: 3, md: 6 }}>
           {enriching && <Progress value={progress} size="sm" mb={3} />}
-            <Text fontSize="sm" mb={3}>Une seule carte : les positions enregistrées. Dézoomez pour les regrouper, zoomez pour les séparer. Le nombre indique les personnes distinctes dans le groupe. Cliquez pour consulter les visites datées et leur précision. Une position ne prouve pas une utilisation active du site.</Text>
+            <Text fontSize="sm" mb={3}>Touchez un point pour consulter les visites{isMobileMap ? " sous la carte" : ""}. Le nombre indique les personnes distinctes regroupées.</Text>
             <Box w="100%" h={{ base: "340px", md: "480px" }} borderRadius="lg" overflow="hidden">
               <MapContainer
                 ref={mapRef}
@@ -1368,42 +1410,24 @@ export default function AdminGeo() {
                   const people = new Map(point.members.map(member => [member.uid || member.visitorId || member.id, member]));
                   return <CircleMarker key={point.clusterId} center={[point.lat, point.lon]} radius={point.isCluster ? 16 : 8}
                     bubblingMouseEvents={false}
-                    eventHandlers={{ popupopen: () => { setOpenPointId(point.clusterId); setExpandedHistory(null); setHistoryLimit(20); setPeopleLimit(10); } }}
+                    eventHandlers={{ click: () => { if (isMobileMap) { setMobilePoint(point); setExpandedHistory(null); setHistoryLimit(20); setPeopleLimit(10); } }, popupopen: () => { setOpenPointId(point.clusterId); setExpandedHistory(null); setHistoryLimit(20); setPeopleLimit(10); } }}
                     pathOptions={{ color: '#6b46c1', fillColor: '#805ad5', fillOpacity: 0.95, weight: 2 }}>
                     {point.isCluster ? <Tooltip permanent direction="center" className="geo-cluster-count" opacity={1}>{people.size}</Tooltip>
                       : <Tooltip>{point.personName || 'Visiteur'} · Position enregistrée</Tooltip>}
-                    <Popup minWidth={280} maxWidth={360}>
-                      {openPointId === point.clusterId && <Box color="gray.800">
-                        <Text fontWeight="bold">{point.isCluster ? `${people.size} personne(s) · ${point.members.length} position(s)` : 'Position enregistrée'}</Text>
-                        {point.isCluster && <Button size="xs" my={2} onClick={() => mapRef.current?.fitBounds(point.members.map(member => [member.lat, member.lon]), { maxZoom: 18, padding: [35, 35] })}>Séparer les positions</Button>}
-                        <Stack spacing={3} maxH="300px" overflowY="auto">
-                          {[...people.values()].slice(0, peopleLimit).map(person => <Box key={person.uid || person.visitorId || person.id} borderTopWidth="1px" pt={2}>
-                            <Text fontWeight="bold">{person.personName || 'Visiteur anonyme'}</Text>
-                            <Text fontSize="xs">{person.email}</Text>
-                            <Text fontSize="sm">{getVisitLocationDisplay(person).label}</Text>
-                            <VisitAddress visit={person} />
-                            <Text fontSize="xs">Position mesurée : {formatDateTime(person.geoCapturedAt || person.lastSeenAt)}</Text>
-                            <Box as="details" mt={2} onToggle={event => { const id = person.uid || person.visitorId || person.id; if (event.currentTarget.open) { setExpandedHistory(id); setHistoryLimit(20); } else setExpandedHistory(current => current === id ? null : current); }}>
-                              <Box as="summary" cursor="pointer" fontWeight="bold" fontSize="sm">Visites enregistrées · {windowLabel}</Box>
-                              <Text fontSize="xs" my={2}>De la plus récente à la plus ancienne, parmi les visites chargées (120 maximum par jour). Une position reçue peut être enregistrée sans clic.</Text>
-                              {expandedHistory === (person.uid || person.visitorId || person.id) && visitorVisitHistory(recentVisitors, person).slice(0, historyLimit).map((visit, index) => <Box key={`${visit.id}-${index}`} py={2} borderTopWidth="1px">
-                                <Text fontSize="sm" fontWeight="bold">{formatDateTime(visit.lastSeenAt || visit.firstSeenAt)}</Text>
-                                <Text fontSize="sm">{getVisitLocationDisplay(visit).label}</Text>
-                                <Text fontSize="xs">{getVisitLocationDisplay(visit).detail}</Text>
-                                <Text fontSize="xs" overflowWrap="anywhere">Page : {String(visit.pathLast || visit.pathFirst || '—').split(/[?#]/)[0]}</Text>
-                                {isValidMapPoint({ lat: visit.lat, lon: visit.lng }) && <Button size="xs" mt={1} onClick={() => setMapFocus({ lat: visit.lat, lon: visit.lng, visit, requestId: Date.now() })}>Voir cette position</Button>}
-                              </Box>)}
-                              {expandedHistory === (person.uid || person.visitorId || person.id) && visitorVisitHistory(recentVisitors, person).length > historyLimit && <Button size="xs" onClick={() => setHistoryLimit(n => n + 20)}>Afficher 20 visites supplémentaires</Button>}
-                            </Box>
-                          </Box>)}
-                          {people.size > peopleLimit && <Button size="xs" onClick={() => setPeopleLimit(n => n + 10)}>Afficher plus de personnes</Button>}
-                        </Stack>
-                      </Box>}
-                    </Popup>
+                    {!isMobileMap && <Popup minWidth={240} maxWidth={360}>
+                      {openPointId === point.clusterId && renderPointDetails(point)}
+                    </Popup>}
                   </CircleMarker>;
                 })}
               </MapContainer>
             </Box>
+            {isMobileMap && mobilePoint && <Box ref={mobileDetailsRef} scrollMarginTop="90px" mt={4} p={4} borderWidth="1px" borderRadius="lg" bg={theme.pageBg} role="region" aria-label="Détails des positions sélectionnées">
+              <HStack justify="space-between" align="start" mb={3}>
+                <Heading size="sm">Détails des positions</Heading>
+                <Button size="sm" minH="44px" variant="outline" onClick={() => setMobilePoint(null)}>Fermer</Button>
+              </HStack>
+              {renderPointDetails(mobilePoint, true)}
+            </Box>}
         </CardBody>
       </Card>
 

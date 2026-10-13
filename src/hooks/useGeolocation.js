@@ -71,16 +71,14 @@ export default function useGeolocation({
     window.addEventListener?.('BYL_GEO_REQUEST', request);
     return () => window.removeEventListener?.('BYL_GEO_REQUEST', request);
   }, [enabled, browserPermission]);
-  // A persisted browser grant is automatic. An expired/unknown permission must
-  // not reopen the native prompt after a remembered grant. A prior refusal
-  // is requested again only on a new login when the browser permits prompting.
-  // Keep an in-flight first request alive while its success updates storage.
+  // A remembered grant is not the browser's current permission state. WebKit
+  // can report "prompt" until Geolocation has actually been used on this page.
+  // Let the native API reuse its grant; only a confirmed denial blocks access.
   let storedDecision = null;
   try { storedDecision = localStorage.getItem(GEO_PERMISSION_DECISION_KEY); } catch { /* optional storage */ }
   const permissionAccess = browserPermission === "checking" ? "checking" :
     browserPermission === "denied" ? "denied" :
-    browserPermission === "granted" ? "available" :
-    storedDecision === "granted" && !autoRequestAttemptedRef.current ? "paused" : "available";
+    "available";
 
   useEffect(() => {
     // Record observable evidence, never infer a click on the native prompt.
@@ -93,7 +91,6 @@ export default function useGeolocation({
       : state.error?.message === 'Position unavailable' ? 'unavailable'
       : state.status === 'denied' ? (permissionAccess === 'denied' ? 'remembered_denied' : 'permission_error')
       : state.status === 'granted' ? 'granted'
-      : permissionAccess === 'paused' ? 'renewal_required'
       : state.status === 'idle' ? 'prompt' : state.status;
     try {
       sessionStorage.setItem('BYL_GEO_STATUS', status);
@@ -229,13 +226,6 @@ export default function useGeolocation({
     if (saveAnalytics) publishGeoStatus("pending", false);
 
     if (permissionAccess === "checking") return;
-    if (permissionAccess === "paused") {
-      clearCachedGeo();
-      publishGeoStatus("renewal_required");
-      setState({status:"idle",position:null,error:null});
-      return;
-    }
-
     if (permissionAccess === "denied") {
       writeStoredGeoDecision("denied");
       try { localStorage.setItem(GEO_REFUSED_SESSION_KEY, sessionKey); } catch { /* optional storage */ }
@@ -431,5 +421,5 @@ export default function useGeolocation({
     );
   };
 
-  return { ...state, refresh, retryPermission, permissionBlocked: browserPermission === "denied", permissionRenewalRequired: permissionAccess === "paused" };
+  return { ...state, refresh, retryPermission, permissionBlocked: browserPermission === "denied", permissionRenewalRequired: false };
 }

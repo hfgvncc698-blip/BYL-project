@@ -30,7 +30,7 @@ export function getVisitLocationDisplay(visit = {}) {
         remembered_denied: 'Un précédent accès refusé est mémorisé par le site. Aucune nouvelle demande de localisation n’a été lancée lors de cette ouverture.',
         permission_error: 'Une demande a été lancée ; le navigateur a répondu « accès non autorisé ». Cette réponse ne permet pas de confirmer un clic sur « Refuser ».',
         checking: 'Vérification de la permission du navigateur en cours ; aucun résultat reçu.',
-        renewal_required: 'L’autorisation précédente a expiré. Aucune nouvelle demande n’a été lancée ; la personne doit la renouveler.',
+        renewal_required: 'Ancien diagnostic : une acceptation était mémorisée, mais le site a suspendu la demande car l’autorisation actuelle n’était pas confirmée. Cela ne prouve ni une expiration ni un refus.',
         granted: 'Autorisation accordée, mais aucune coordonnée exploitable n’a été enregistrée pour cette visite.',
         prompt: 'Autorisation pas encore accordée. Aucun refus confirmé pour cette visite.',
         pending: 'Position pas encore reçue au moment de la visite.',

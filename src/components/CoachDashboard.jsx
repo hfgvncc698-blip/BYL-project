@@ -10398,8 +10398,7 @@ alignItems="stretch">
                         transition="all 0.2s ease"
                         _hover={{ borderColor: activeBlue, transform: "translateY(-1px)" }}
                       >
-                        <CalendarValidationMark event={event} />
-                        <HStack justify="space-between" align="flex-start" spacing={3} pr="16px">
+                        <HStack justify="space-between" align="flex-start" spacing={3}>
                           <Box minW={0} flex="1">
                             <HStack spacing={2} mb={1} wrap="wrap">
                               <Text fontWeight="850" noOfLines={1}>
@@ -10425,7 +10424,7 @@ alignItems="stretch">
                             </Text>
                           </Box>
                           <Circle size="34px" bg={`${statusMeta.tone}18`} color={statusMeta.tone} flexShrink={0}>
-                            <Icon as={isDone ? CheckCircleIcon : MdOutlineSchedule} boxSize="18px" />
+                            <Icon as={isDone ? CheckCircleIcon : MdOutlineSchedule} boxSize="18px" aria-hidden="true" />
                           </Circle>
                         </HStack>
                       </Box>
