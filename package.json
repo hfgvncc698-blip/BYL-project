@@ -36,7 +36,7 @@
     "test:player-program-sync": "node scripts/testPlayerProgramSync.mjs",
     "test:session-timing-calibration": "node scripts/testSessionTimingCalibration.mjs",
     "test:session-resume": "node scripts/testSessionResume.mjs",
-    "test:nutrition": "node scripts/auditNutritionMatrix.mjs && node scripts/auditNutritionTranslations.mjs && node scripts/testNutritionShare.mjs",
+    "test:nutrition": "node scripts/auditNutritionMatrix.mjs && node scripts/auditNutritionTranslations.mjs && node scripts/testNutritionShare.mjs && node scripts/testRationPdfLanguages.mjs",
     "test:nutrition-creation": "node scripts/testNutritionLoading.mjs && node scripts/testClientCreationDelivery.cjs",
     "test:loading": "node --experimental-vm-modules scripts/testGlobalLoading.mjs",
     "test:coach-loading": "node scripts/testCoachDashboardLoading.mjs",

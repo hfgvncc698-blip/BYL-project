@@ -237,7 +237,7 @@ function UnifiedSurveyFooter({ needs, summary, mode, sticky = true, mt = 4, titl
   const chipBg = nutritionTheme.surfaceSoft;
   const progressTrackBg = useColorModeValue("gray.100", "whiteAlpha.100");
 
-  const kcal = needs?.dej ? round0(needs.dej) : needs?.kcalTarget ? round0(needs.kcalTarget) : null;
+  const kcal = needs?.kcalTarget ? round0(needs.kcalTarget) : needs?.dej ? round0(needs.dej) : null;
   const observedKcal = summary?.kcal != null ? round0(summary.kcal) : null;
   const statusBadges = Array.isArray(summary?.statuses) ? summary.statuses : [];
   const macroStatusByLabel = Object.fromEntries(

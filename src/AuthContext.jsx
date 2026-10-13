@@ -312,6 +312,8 @@ const normalizeUserDoc = (uid, data, fb) => {
     logoUrl: data?.logoUrl ?? null,
     primaryColor: data?.primaryColor ?? null,
     settings: data?.settings ?? {},
+    // Firebase Auth is authoritative, even if an old profile is recreated.
+    authCreatedAt: fb?.metadata?.creationTime || null,
   };
 };
 

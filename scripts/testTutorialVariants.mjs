@@ -1,6 +1,24 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {CLUB_TOUR_PAGES,reviseTutorial} from '../src/utils/tutorialVariants.js';
+import { canAutoStartTutorial, TUTORIAL_NEW_ACCOUNT_SINCE } from '../src/utils/tutorialEligibility.js';
+
+const rollout = Date.parse(TUTORIAL_NEW_ACCOUNT_SINCE);
+for (const role of ['coach', 'particulier', 'admin', 'club']) {
+  const existing = { uid: 'existing-account', role, authCreatedAt: new Date(rollout - 1).toISOString() };
+  assert.equal(canAutoStartTutorial(existing), false, 'Existing accounts never see automatic tours, even without seen markers');
+  assert.equal(canAutoStartTutorial(JSON.parse(JSON.stringify(existing))), false, 'Reloading a cached profile does not make it new');
+  const newcomer = { uid: 'new-account', role, authCreatedAt: new Date(rollout).toISOString() };
+  assert.equal(canAutoStartTutorial(newcomer), true);
+  assert.equal(canAutoStartTutorial(newcomer, true), false, 'Wait for authenticated profile restoration');
+}
+for (const user of [null, {}, { uid: 'legacy' }, { uid: 'legacy', authCreatedAt: 'invalid' }]) {
+  assert.equal(canAutoStartTutorial(user), false, 'Missing creation metadata must never interrupt an existing user');
+}
+const tutorialSource = fs.readFileSync('src/components/GuidedTutorial.jsx', 'utf8');
+assert.ok(tutorialSource.includes('if (!force && !canAutoStartTutorial(user, loading)) return false;'));
+assert.ok(tutorialSource.includes('startTour(tourId, { force: true })'), 'Manual replay remains available');
+assert.ok(tutorialSource.includes('settings.tutorialsSeen?.[role]?.[tourId]'), 'A seen tour stays seen across devices and versions');
 const languages=['fr','en','de','es','it','ru','ar'];
 const catalogs=languages.map(l=>JSON.parse(fs.readFileSync(`src/i18n/locales/${l}/common.json`)).guidedTutorial.v2);
 const t=key=>{const path=key.replace('guidedTutorial.v2.','').split('.');for(const catalog of catalogs)assert.equal(typeof path.reduce((v,k)=>v?.[k],catalog),'string',key);return path.reduce((v,k)=>v[k],catalogs[0]);};

@@ -1,3 +1,4 @@
+import { buildRationMeals } from "../utils/rationMenu";
 import { useNavigationSave } from "../hooks/useNavigationSave";
  
 // src/components/MenuJournalierFromRation.jsx
@@ -52,7 +53,7 @@ import {
   rationMenuNum,
 } from "../utils/rationMenu";
 
-import { evaluateMenuQuality, includesMenuContent } from "../utils/nutritionShare";
+import { evaluateMenuQuality, includesMenuContent, availableShareSections, filterShareSelection } from "../utils/nutritionShare";
 
 import MenuJournalierManual from "./MenuJournalierManual.jsx";
 import MenuJournalierAuto from "./MenuJournalierAuto.jsx";
@@ -161,7 +162,7 @@ const ciqualName = (row) =>
   firstNonEmpty(row?.alim_nom_fr, row?.alim_nom, row?.name, row?.nom, row?.designation, row?.designation_fr, "");
 
 const menuPdfStyles = StyleSheet.create({
-  page: { paddingTop: 104, paddingLeft: 38, paddingRight: 38, paddingBottom: 58, fontSize: 10, color: "#0B1B3A", backgroundColor: "#F8FBFF" },
+  page: { fontFamily: "BYL Nutrition Sans", paddingTop: 104, paddingLeft: 38, paddingRight: 38, paddingBottom: 58, fontSize: 10, color: "#0B1B3A", backgroundColor: "#F8FBFF" },
   header: {
     position: "absolute",
     top: 24,
@@ -269,14 +270,20 @@ const pdfListText = (items, fallback = i18n.t("auto.MenuJournalierFromRation.auc
   return clean.length ? clean.join(", ") : fallback;
 };
 
+const rationFoodLabel = (label) => {
+  const key = String(label || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  return i18n.t(`auto.RationSpontaneeExcel.labels.${key}`, translateNutritionFoodName(label, i18n.resolvedLanguage || i18n.language || "fr"));
+};
+
 const menuMealLabel = (mealKey) => {
   if (mealKey === "petit_dej") return i18n.t("auto.MenuJournalierFromRation.petit_dejeuner", "Petit-déjeuner");
   if (mealKey === "dejeuner") return i18n.t("auto.MenuJournalierFromRation.dejeuner", "Déjeuner");
   if (mealKey === "diner") return i18n.t("auto.MenuJournalierFromRation.diner", "Dîner");
-  return i18n.t("auto.MenuJournalierFromRation.collation", "Collation");
+  return `${i18n.t("auto.MenuJournalierFromRation.collation", "Collation")} ${mealKey.split("_").at(-1)}`;
 };
 
 function MenuPdfDoc({
+  RationMealsPdf,
   clientName,
   coachName,
   title,
@@ -293,7 +300,7 @@ function MenuPdfDoc({
   adviceSheets,
   patientNote,
 }) {
-  const dateStr = date?.toLocaleDateString ? date.toLocaleDateString("fr-FR") : "";
+  const dateStr = date?.toLocaleDateString ? date.toLocaleDateString(i18n.resolvedLanguage || i18n.language || "fr") : "";
   const selectedSections = { ...emptyShareSections(), ...(sections || {}) };
   const hasDays = Array.isArray(days) && days.some((day) => day.meals.some((meal) => meal.items.length));
   const printableRecipes = Array.isArray(recipes) ? recipes : [];
@@ -332,12 +339,12 @@ function MenuPdfDoc({
         {selectedSections.foodSurvey ? (
           <>
             <PdfText style={menuPdfStyles.sectionTitle}>{i18n.t("auto.MenuJournalierFromRation.ration_spontanee_habitudes_alimentaires", "Ration spontanée / habitudes alimentaires")}</PdfText>
-            <View style={menuPdfStyles.fullCard} wrap={false}>
-              <PdfText style={menuPdfStyles.infoValue}>{i18n.t("auto.MenuJournalierFromRation.mode_label", "Mode :")} {foodSurvey?.modeLabel || "—"}</PdfText>
-              <PdfText style={menuPdfStyles.mutedLine}>{i18n.t("auto.MenuJournalierFromRation.reference_label", "Référence :")} {foodSurvey?.referenceLabel || i18n.t("auto.MenuJournalierFromRation.non_renseignee", "Non renseignée")}</PdfText>
-              <PdfText style={menuPdfStyles.mutedLine}>{i18n.t("auto.MenuJournalierFromRation.reperes_label", "Repères :")} {pdfListText(foodSurvey?.behaviorFlags, i18n.t("auto.MenuJournalierFromRation.aucun_repere_renseigne", "Aucun repère renseigné"))}</PdfText>
-              {foodSurvey?.note ? <PdfText style={menuPdfStyles.mutedLine}>{i18n.t("auto.MenuJournalierFromRation.note_label", "Note :")} {foodSurvey.note}</PdfText> : null}
-            </View>
+            <RationMealsPdf
+              meals={foodSurvey?.meals || []}
+              mealLabel={menuMealLabel}
+              foodLabel={rationFoodLabel}
+              locale={i18n.resolvedLanguage || i18n.language || "fr"}
+            />
           </>
         ) : null}
 
@@ -347,18 +354,15 @@ function MenuPdfDoc({
             <View style={menuPdfStyles.infoGrid}>
               <PdfInfoCard label={i18n.t("auto.MenuJournalierFromRation.source", "Source")} value={ration?.sourceLabel} />
               <PdfInfoCard label={i18n.t("auto.MenuJournalierFromRation.energie", "Énergie")} value={ration?.kcal ? `${r0(ration.kcal)} kcal` : i18n.t("auto.MenuJournalierFromRation.ration_a_relire", "Ration à relire")} />
-              <PdfInfoCard label={i18n.t("auto.MenuJournalierFromRation.repas_de_reference", "Repas de référence")} value={`${ration?.coveredMeals || 0} repas`} />
+              <PdfInfoCard label={i18n.t("auto.MenuJournalierFromRation.repas_de_reference", "Repas de référence")} value={String(ration?.coveredMeals || 0)} />
               <PdfInfoCard label={i18n.t("auto.MenuJournalierFromRation.macros", "Macros")} value={ration?.macroLine || "—"} />
             </View>
-            {ration?.items?.length ? (
-              <View style={menuPdfStyles.fullCard} wrap={false}>
-                {ration.items.slice(0, 18).map((item, idx) => (
-                  <PdfText key={`ration_${idx}`} style={menuPdfStyles.itemLine}>
-                    • {[item.mealLabel, item.label || item.resolvedLabel || item.key].filter(Boolean).join(" · ")} {item.qty ? `(${r0(item.qty)} ${item.unit || "g"})` : ""}
-                  </PdfText>
-                ))}
-              </View>
-            ) : null}
+            <RationMealsPdf
+              meals={ration?.meals || []}
+              mealLabel={menuMealLabel}
+              foodLabel={rationFoodLabel}
+              locale={i18n.resolvedLanguage || i18n.language || "fr"}
+            />
           </>
         ) : null}
 
@@ -1070,8 +1074,19 @@ export default function MenuJournalierFromRation() {
   );
   const menuReadyToShare = ciqualOk && rationHasAnyQty && menuEnergyQuality.ready;
 
+  const availableSections = useMemo(() => availableShareSections({
+    assessmentReady: !blocked,
+    rationReady: rationHasAnyQty && rationMenuNum(targets?.ration?.kcal) > 0,
+    menuReady: menuReadyToShare && !menuIsStale,
+  }), [blocked, rationHasAnyQty, targets?.ration?.kcal, menuReadyToShare, menuIsStale]);
+  const effectiveShareSelection = useMemo(
+    () => filterShareSelection(shareSelection, availableSections),
+    [shareSelection, availableSections]
+  );
+  const availableSectionKeys = SHARE_SECTION_KEYS.filter((key) => availableSections[key]);
+
   const openShareModal = useCallback(async () => {
-    if (!assessmentRef || blocked) return;
+    if (!assessmentRef || !docData || !canManageNutrition) return;
     setPreparingShare(true);
     try {
       await persistMenuDraft();
@@ -1090,21 +1105,12 @@ export default function MenuJournalierFromRation() {
     setProfessionalReviewConfirmed(false);
     setProfessionalValidationNote("");
     setSharePatientNote(Boolean(savedNote?.shared && String(savedNote?.text || "").trim()));
-    setShareSelection(
-      previous && typeof previous === "object"
-        ? {
-            ...emptyShareSections(),
-            ...previous,
-          }
-        : {
-            ...allShareSections(),
-            menu: menuReadyToShare && !menuIsStale,
-            recipes: menuReadyToShare && !menuIsStale,
-            shoppingList: menuReadyToShare && !menuIsStale,
-          }
-    );
+    setShareSelection(filterShareSelection(
+      previous && typeof previous === "object" ? previous : allShareSections(),
+      availableSections
+    ));
     setShareModalOpen(true);
-  }, [assessmentRef, blocked, docData?.clientShare?.sections, docData?.nutritionPatientNote, menuReadyToShare, menuIsStale, persistMenuDraft, toast]);
+  }, [assessmentRef, canManageNutrition, docData, availableSections, persistMenuDraft, toast]);
 
   const ciqualByCode = useMemo(() => {
     const map = new Map();
@@ -1279,8 +1285,8 @@ export default function MenuJournalierFromRation() {
 
   const saveMenuAndShare = useCallback(
     async ({ share }) => {
-      if (!assessmentRef || blocked) return;
-      const sections = share ? { ...emptyShareSections(), ...shareSelection } : emptyShareSections();
+      if (!assessmentRef || !docData || !canManageNutrition) return;
+      const sections = share ? effectiveShareSelection : emptyShareSections();
       const cleanPatientNote = String(patientNote || "").trim();
       const hasSharedPatientNote = !!share && !!sharePatientNote && cleanPatientNote.length > 0;
       const hasSharedSection = SHARE_SECTION_KEYS.some((key) => !!sections[key]) || hasSharedPatientNote;
@@ -1452,7 +1458,9 @@ export default function MenuJournalierFromRation() {
       selectedAdviceSheetIds,
       selectedAdviceSheets,
       sharePatientNote,
-      shareSelection,
+      effectiveShareSelection,
+      canManageNutrition,
+      docData,
       toast,
       coachPdfName,
       user?.avatarUrl,
@@ -1463,7 +1471,7 @@ export default function MenuJournalierFromRation() {
   );
 
   const handleDownloadPDF = useCallback(async () => {
-    const selectedForPdf = { ...emptyShareSections(), ...shareSelection };
+    const selectedForPdf = effectiveShareSelection;
     const cleanPatientNote = String(patientNote || "").trim();
     const includePatientNote = !!sharePatientNote && cleanPatientNote.length > 0;
     const hasSelectedPdfContent = SHARE_SECTION_KEYS.some((key) => !!selectedForPdf[key]) || includePatientNote;
@@ -1480,13 +1488,12 @@ export default function MenuJournalierFromRation() {
     try {
       const now = new Date();
       const foodSurvey = docData?.foodSurvey || {};
-      const foodSurveyMeta = foodSurvey?.meta || {};
-      const behaviorFlags = Object.entries(foodSurveyMeta?.behaviorFlags || {})
-        .filter(([, enabled]) => !!enabled)
-        .map(([key]) => String(key).replace(/_/g, " "));
       const rationTotals = targets?.ration || {};
+      const { default: RationMealsPdf } = await import("./nutrition/RationMealsPdf");
+      const { buildFoodSurveyMeals } = await import("../utils/foodSurveyPresentation");
       const blob = await pdf(
         <MenuPdfDoc
+          RationMealsPdf={RationMealsPdf}
           clientName={patientName}
           coachName={coachPdfName}
           title={i18n.t("auto.MenuJournalierFromRation.suivi_nutrition", "Suivi nutrition")}
@@ -1501,15 +1508,7 @@ export default function MenuJournalierFromRation() {
             diet: activeDiet,
             pathologies,
           }}
-          foodSurvey={{
-            modeLabel:
-              foodSurvey?.mode === "ciqual"
-                ? i18n.t("auto.MenuJournalierFromRation.mode_detaille", "Mode détaillé")
-                : i18n.t("auto.MenuJournalierFromRation.mode_simplifie", "Mode simplifié"),
-            referenceLabel: foodSurveyMeta?.referenceDay || i18n.t("auto.MenuJournalierFromRation.journee_type_veille", "Journée type / veille"),
-            behaviorFlags,
-            note: foodSurveyMeta?.note || "",
-          }}
+          foodSurvey={{ meals: buildFoodSurveyMeals(foodSurvey, ciqualData) }}
           ration={{
             sourceLabel,
             kcal: rationTotals?.kcal,
@@ -1519,7 +1518,7 @@ export default function MenuJournalierFromRation() {
               rationTotals?.f ? `L ${r0(rationTotals.f)} g` : "",
               rationTotals?.c ? `G ${r0(rationTotals.c)} g` : "",
             ].filter(Boolean).join(" • "),
-            items: rationItems,
+            meals: buildRationMeals(docData),
           }}
           recipes={selectedForPdf.recipes ? aiRecipes : []}
           shoppingList={selectedForPdf.shoppingList ? aiShoppingList : []}
@@ -1562,8 +1561,10 @@ export default function MenuJournalierFromRation() {
     rationItems,
     selectedAdviceSheets,
     sharePatientNote,
-    shareSelection,
+    effectiveShareSelection,
     sourceLabel,
+    ciqualData,
+    docData,
     targets?.ration,
     toast,
     translatedObjectiveRaw,
@@ -2088,7 +2089,7 @@ export default function MenuJournalierFromRation() {
               {...nutritionTheme.primaryButtonProps}
               onClick={openShareModal}
               data-testid="nutrition-menu-validate-share"
-              isDisabled={blocked}
+              isDisabled={!assessmentRef || !docData || !canManageNutrition}
               isLoading={preparingShare || savingShare}
               loadingText={i18n.t("auto.MenuJournalierFromRation.preparation", "Préparation")}
             >{i18n.t("auto.MenuJournalierFromRation.valider_partager", "Valider / partager")}</Button>
@@ -2121,14 +2122,14 @@ export default function MenuJournalierFromRation() {
                 onClick={handleDownloadPDF}
                 isLoading={exportingPdf}
                 isDisabled={
-                  !SHARE_SECTION_KEYS.some((key) => !!shareSelection[key]) &&
+                  !SHARE_SECTION_KEYS.some((key) => !!effectiveShareSelection[key]) &&
                   !(sharePatientNote && patientNote.trim())
                 }
               />
             </HStack>
 
             <Stack spacing={3} mt={5}>
-              {includesMenuContent(shareSelection) && menuIsStale ? (
+              {menuIsStale ? (
                 <Alert status="error" borderRadius="md" alignItems="flex-start">
                   <AlertIcon mt={0.5} />
                   <Box>
@@ -2137,7 +2138,7 @@ export default function MenuJournalierFromRation() {
                   </Box>
                 </Alert>
               ) : null}
-              {includesMenuContent(shareSelection) && !menuReadyToShare ? (
+              {!menuReadyToShare && !menuIsStale ? (
                 <Alert status="warning" borderRadius="md" alignItems="flex-start">
                   <AlertIcon mt={0.5} />
                   <Box>
@@ -2162,45 +2163,50 @@ export default function MenuJournalierFromRation() {
                 </Alert>
               ) : null}
               <Checkbox
-                isChecked={SHARE_SECTION_KEYS.every((key) => !!shareSelection[key]) && (!patientNote.trim() || !!sharePatientNote)}
+                isChecked={availableSectionKeys.every((key) => !!effectiveShareSelection[key]) && (!patientNote.trim() || !!sharePatientNote)}
                 isIndeterminate={
-                  (SHARE_SECTION_KEYS.some((key) => !!shareSelection[key]) || !!sharePatientNote) &&
-                  !(SHARE_SECTION_KEYS.every((key) => !!shareSelection[key]) && (!patientNote.trim() || !!sharePatientNote))
+                  (SHARE_SECTION_KEYS.some((key) => !!effectiveShareSelection[key]) || !!sharePatientNote) &&
+                  !(availableSectionKeys.every((key) => !!effectiveShareSelection[key]) && (!patientNote.trim() || !!sharePatientNote))
                 }
                 onChange={(e) => {
-                  setShareSelection(e.target.checked ? allShareSections() : emptyShareSections());
+                  setShareSelection(e.target.checked ? { ...availableSections } : emptyShareSections());
                   setSharePatientNote(e.target.checked && !!patientNote.trim());
                 }}
               >{i18n.t("auto.MenuJournalierFromRation.tout_partager", "Tout partager")}</Checkbox>
               <Divider />
               <Checkbox
-                isChecked={!!shareSelection.summary}
+                isChecked={!!effectiveShareSelection.summary}
+                isDisabled={!availableSections.summary}
                 onChange={(e) => setShareSelection((prev) => ({ ...prev, summary: e.target.checked }))}
               >{i18n.t("auto.MenuJournalierFromRation.resume_du_bilan_et_objectifs", "Résumé du bilan et objectifs")}</Checkbox>
               <Checkbox
-                isChecked={!!shareSelection.foodSurvey}
+                isChecked={!!effectiveShareSelection.foodSurvey}
                 onChange={(e) => setShareSelection((prev) => ({ ...prev, foodSurvey: e.target.checked }))}
               >{i18n.t("auto.MenuJournalierFromRation.ration_spontanee_habitudes_alimentaires", "Ration spontanée / habitudes alimentaires")}</Checkbox>
               <Checkbox
-                isChecked={!!shareSelection.ration}
+                isChecked={!!effectiveShareSelection.ration}
+                isDisabled={!availableSections.ration}
                 onChange={(e) => setShareSelection((prev) => ({ ...prev, ration: e.target.checked }))}
               >{i18n.t("auto.MenuJournalierFromRation.ration_alimentaire_construite", "Ration alimentaire construite")}</Checkbox>
               <Checkbox
-                isChecked={!!shareSelection.menu}
+                isChecked={!!effectiveShareSelection.menu}
+                isDisabled={!availableSections.menu}
                 onChange={(e) => setShareSelection((prev) => ({ ...prev, menu: e.target.checked }))}
               >{i18n.t("auto.MenuJournalierFromRation.menu_journalier", "Menu journalier")}</Checkbox>
               <Checkbox
-                isChecked={!!shareSelection.recipes}
+                isChecked={!!effectiveShareSelection.recipes}
+                isDisabled={!availableSections.recipes}
                 onChange={(e) => setShareSelection((prev) => ({ ...prev, recipes: e.target.checked }))}
               >
                 {i18n.t("auto.MenuJournalierFromRation.recettes_jour_par_jour_count", "Recettes jour par jour ({{count}})", { count: aiRecipes.length })}
               </Checkbox>
               <Checkbox
-                isChecked={!!shareSelection.shoppingList}
+                isChecked={!!effectiveShareSelection.shoppingList}
+                isDisabled={!availableSections.shoppingList}
                 onChange={(e) => setShareSelection((prev) => ({ ...prev, shoppingList: e.target.checked }))}
               >{i18n.t("auto.MenuJournalierFromRation.liste_de_courses", "Liste de courses")}</Checkbox>
               <Checkbox
-                isChecked={!!shareSelection.adviceSheets}
+                isChecked={!!effectiveShareSelection.adviceSheets}
                 onChange={(e) => setShareSelection((prev) => ({ ...prev, adviceSheets: e.target.checked }))}
               >
                 {i18n.t("auto.MenuJournalierFromRation.fiches_conseils_selectionnees_count", "Fiches conseils sélectionnées ({{count}})", { count: selectedAdviceSheetIds.length })}
@@ -2252,7 +2258,7 @@ export default function MenuJournalierFromRation() {
               onClick={() => saveMenuAndShare({ share: true })}
               data-testid="nutrition-share-save-public"
               isLoading={savingShare}
-              isDisabled={savingShare || (includesMenuContent(shareSelection) && (menuIsStale || !menuReadyToShare)) || !professionalReviewConfirmed}
+              isDisabled={savingShare || (includesMenuContent(effectiveShareSelection) && (menuIsStale || !menuReadyToShare)) || !professionalReviewConfirmed}
               w={{ base: "100%", sm: "auto" }}
             >{i18n.t("auto.MenuJournalierFromRation.sauvegarder_partager", "Sauvegarder & partager")}</Button>
           </ModalFooter>

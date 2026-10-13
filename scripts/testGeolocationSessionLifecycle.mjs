@@ -20,7 +20,7 @@ const sample = {
 function createHarness({ permission = "granted", permissionsSupported = true, stored = {}, geocode = async () => null } = {}) {
   let cursor = 0;
   let pendingEffects = [];
-  let props = { enabled: true, watch: true, saveAnalytics: true, uid: null };
+  let props = { enabled: true, watch: true, saveAnalytics: true, uid: null, sessionKey: "user:login-1" };
   const slots = [];
   const storage = new Map(Object.entries(stored));
   const events = [];
@@ -106,7 +106,7 @@ async function test(name, run) {
   console.log(`PASS ${name}`);
 }
 
-await test("a previous refusal is requested again on a new visit", async () => {
+await test("a previous refusal is requested again on a new login", async () => {
   const h = createHarness({ permission: "prompt", stored: { [DECISION_KEY]: "denied" } });
   await h.start();
   assert.equal(h.watches.length, 1);
@@ -230,7 +230,9 @@ await test("permission revocation clears coordinates and invalidates old callbac
   await oldWatch.success(sample);
   assert.equal(h.storage.has("BYL_LAT"), false);
   h.changePermission("prompt");
-  assert.equal(h.watches.length, 2, "browser permitting prompting after a refusal retries location");
+  assert.equal(h.watches.length, 1, "permission changes must not retry a refusal in the same login");
+  h.render({ sessionKey: "user:next-login" });
+  assert.equal(h.watches.length, 2, "a new login can retry when the browser permits prompting");
 });
 
 await test("remembered refusal retries on opening without Permissions API", async () => {
@@ -337,7 +339,6 @@ for (const option of ["saveAnalytics", "enabled"]) {
   });
 }
 
-console.log(`${passed} geolocation lifecycle checks passed.`);
 
 await test("diagnostics distinguish blocked permission from a renewed request", async () => {
   const blocked = createHarness({ permission: 'denied' });
@@ -348,3 +349,59 @@ await test("diagnostics distinguish blocked permission from a renewed request", 
   assert.ok(['pending','requesting'].includes(remembered.storage.get('BYL_GEO_STATUS')));
   assert.equal(remembered.watches.length, 1);
 });
+
+await test("a refusal survives reloads and retries only at a new login", async () => {
+  for (const permissionsSupported of [true, false]) {
+    const first = createHarness({ permission: "prompt", permissionsSupported });
+    first.render({ sessionKey: "user:login-1" });
+    await first.start();
+    first.fail(1);
+    first.render();
+    const reload = createHarness({ permission: "prompt", permissionsSupported, stored: Object.fromEntries(first.storage) });
+    reload.render({ sessionKey: "user:login-1" });
+    await reload.start();
+    assert.equal(reload.watches.length, 0, "reload must not reopen the native prompt");
+    reload.render({ sessionKey: "user:login-2" });
+    assert.equal(reload.watches.length, 1, "new authentication retries once");
+  }
+});
+
+await test("a persisted grant overrides the refusal marker without a new prompt", async () => {
+  const h = createHarness({ stored: { [DECISION_KEY]: "denied", BYL_GEO_REFUSED_SESSION_V1: "user:login-1" } });
+  await h.start();
+  assert.equal(h.watches.length, 1);
+  await h.publish();
+  assert.equal(h.storage.get(DECISION_KEY), "granted");
+});
+
+await test("blocked browsers never receive a native request, even at a new login", async () => {
+  const h = createHarness({ permission: "denied" });
+  await h.start();
+  h.render({ sessionKey: "user:next-login" });
+  assert.equal(h.watches.length, 0);
+  assert.equal(h.render().permissionBlocked, true);
+});
+
+await test("browser-block help is shown once per login, including after a reload", async () => {
+  const source = (await readFile(new URL("../src/utils/geolocationSession.js", import.meta.url), "utf8"))
+    .replace(/export /g, "");
+  const stored = new Map();
+  const context = vm.createContext({ Date, Math, localStorage: {
+    getItem: key => stored.get(key), setItem: (key, value) => stored.set(key, value),
+  } });
+  const claim = () => vm.runInContext(`${source}; claimGeolocationHelp`, vm.createContext({ Date, Math, localStorage: context.localStorage }));
+  assert.equal(claim()("user:login-1"), true);
+  assert.equal(claim()("user:login-1"), false);
+  assert.equal(claim()("user:login-2"), true);
+});
+
+await test("logging out after refusing does not reopen the native prompt", async () => {
+  const h = createHarness({ permission: "prompt" });
+  await h.start();
+  h.fail(1);
+  h.render({ sessionKey: "anonymous" });
+  assert.equal(h.watches.length, 1);
+  h.render({ sessionKey: "user:login-2" });
+  assert.equal(h.watches.length, 2);
+});
+console.log(`${passed} geolocation lifecycle checks passed.`);

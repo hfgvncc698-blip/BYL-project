@@ -496,3 +496,33 @@ export function isSignificantRationMenuItem(item = {}) {
   if (label === "eau" || label.includes("eau minerale") || label.includes("eau minérale") || label.includes("eau de source")) return false;
   return true;
 }
+
+
+export function buildRationMeals(assessment) {
+  const ration = assessment?.ration || {};
+  const selected = ration.selected ?? ration.selection ?? ration.current ?? ration.selectedRation
+    ?? (ration.mode === 'auto' ? ration.auto : ration.pro) ?? ration.pro ?? ration.auto ?? assessment?.rationAuto;
+  const state = selected?.selected || selected;
+  const computed = state?.computed || selected?.computed || {};
+  const totals = computed.totals?.perMeal || computed.perMeal || {};
+  const byMeal = Object.fromEntries(Object.entries(totals).map(([key, value]) => [normalizeMenuMealKey(key) || key, value]));
+  const lines = extractRationLines(assessment);
+  return MENU_MEALS_ORDER.map(key => {
+    const items = lines.filter(line => rationMenuNum(line.meals?.[key]) > 0).map(line => ({
+      label: line.resolvedLabel || line.label || line.key,
+      qty: rationMenuNum(line.meals[key]),
+      unit: line.unit || 'g',
+    }));
+    const rawKcal = byMeal[key]?.kcal;
+    // Missing computed data is unknown, never a fabricated zero or an even
+    // allocation of the daily total across meals.
+    const kcal = rawKcal != null && rawKcal !== '' && Number.isFinite(Number(String(rawKcal).replace(',', '.')))
+      ? rationMenuNum(rawKcal) : null;
+    const macros = Object.fromEntries(['prot', 'lip', 'glu'].map((macro, index) => {
+      const raw = byMeal[key]?.[macro] ?? byMeal[key]?.[['p', 'f', 'c'][index]];
+      const value = raw == null || raw === '' ? null : Number(String(raw).replace(',', '.'));
+      return [macro, value != null && Number.isFinite(value) ? value : null];
+    }));
+    return { key, items, kcal, macros };
+  }).filter(meal => meal.items.length);
+}

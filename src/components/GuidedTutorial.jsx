@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { clubText } from '../i18n/clubText';
 import { CLUB_TOUR_PAGES, reviseTutorial, tutorialDevice } from '../utils/tutorialVariants';
+import { canAutoStartTutorial } from '../utils/tutorialEligibility';
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
@@ -723,7 +724,7 @@ function isSeenInProfile(user, role, tourId) {
   const settings = user?.settings || {};
   const key = getSeenKey(role, tourId);
   return Boolean(
-    settings.tutorialsSeenKeys?.[key]
+    settings.tutorialsSeen?.[role]?.[tourId] || settings.tutorialsSeenKeys?.[key]
   );
 }
 
@@ -774,7 +775,7 @@ export default function GuidedTutorial() {
   const {i18n:language}=useTranslation();
   const [mobile]=useMediaQuery('(max-width: 767px)');
   const device=mobile?'mobile':'desktop';
-  const { user, effectiveRole } = useAuth();
+  const { user, effectiveRole, loading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [activeTourId, setActiveTourId] = React.useState(null);
@@ -813,6 +814,7 @@ export default function GuidedTutorial() {
     (tourId, { force = false } = {}) => {
       const tour = buildLocalizedTour(tourId, user);
       if (!user || !canUseTour(tour, role)) return false;
+      if (!force && !canAutoStartTutorial(user, loading)) return false;
 
       if (!force && isTourAlreadySeen(user, role, tourId)) {
         cacheTourSeen(user, role, tourId);
@@ -841,7 +843,7 @@ export default function GuidedTutorial() {
 
       return true;
     },
-    [location.pathname, navigate, role, user, device]
+    [location.pathname, navigate, role, user, device, loading]
   );
 
   React.useEffect(() => {
@@ -869,12 +871,12 @@ export default function GuidedTutorial() {
   }, [role, user, device]);
 
   React.useEffect(() => {
-    if (!user || !role) return;
+    if (!role || !canAutoStartTutorial(user, loading)) return;
     const tourId = getRouteTour(location.pathname);
     if (!tourId) return;
     const timer = window.setTimeout(() => startTour(tourId), 650);
     return () => window.clearTimeout(timer);
-  }, [location.pathname, role, startTour, user]);
+  }, [location.pathname, role, startTour, user, loading]);
 
   React.useEffect(() => {
     const onStart = (event) => {

@@ -18,3 +18,19 @@ export function evaluateMenuQuality(days = [], targets = {}) {
 export function includesMenuContent(sections = {}) {
   return Boolean(sections.menu || sections.recipes || sections.shoppingList);
 }
+
+export function availableShareSections({ assessmentReady, rationReady, menuReady }) {
+  return {
+    summary: !!assessmentReady,
+    foodSurvey: true,
+    ration: !!assessmentReady && !!rationReady,
+    menu: !!assessmentReady && !!rationReady && !!menuReady,
+    recipes: !!assessmentReady && !!rationReady && !!menuReady,
+    shoppingList: !!assessmentReady && !!rationReady && !!menuReady,
+    adviceSheets: true,
+  };
+}
+
+export function filterShareSelection(selection, available) {
+  return Object.fromEntries(Object.keys(available).map(key => [key, !!selection?.[key] && !!available[key]]));
+}

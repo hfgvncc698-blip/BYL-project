@@ -4,6 +4,7 @@ import { resolveCityCountry } from "../utils/geocoding";
 import { GEO_PAGE_LOAD_ID, GEO_PAGE_LOAD_STORAGE_KEY } from "../utils/geolocationSession";
 
 export const GEO_PERMISSION_DECISION_KEY = "BYL_GEO_PERMISSION_DECISION_V1";
+const GEO_REFUSED_SESSION_KEY = "BYL_GEO_REFUSED_SESSION_V1";
 const GEO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const GEO_MOVEMENT_THRESHOLD_METERS = 250;
 
@@ -42,6 +43,7 @@ const writeStoredGeoDecision = (decision) => {
  */
 export default function useGeolocation({
   enabled = true,
+  sessionKey = "anonymous",
   disabledReason = "disabled",
   watch = false,
   options,
@@ -63,7 +65,7 @@ export default function useGeolocation({
   useEffect(() => {
     const request = () => {
       if (!enabled || browserPermission === 'denied') return;
-      try { localStorage.removeItem(GEO_PERMISSION_DECISION_KEY); } catch { /* optional storage */ }
+      try { localStorage.removeItem(GEO_PERMISSION_DECISION_KEY); localStorage.removeItem(GEO_REFUSED_SESSION_KEY); } catch { /* optional storage */ }
       setRetryAttempt(value => value + 1);
     };
     window.addEventListener?.('BYL_GEO_REQUEST', request);
@@ -71,7 +73,7 @@ export default function useGeolocation({
   }, [enabled, browserPermission]);
   // A persisted browser grant is automatic. An expired/unknown permission must
   // not reopen the native prompt after a remembered grant. A prior refusal
-  // is requested again on a new visit when the browser permits prompting.
+  // is requested again only on a new login when the browser permits prompting.
   // Keep an in-flight first request alive while its success updates storage.
   let storedDecision = null;
   try { storedDecision = localStorage.getItem(GEO_PERMISSION_DECISION_KEY); } catch { /* optional storage */ }
@@ -236,6 +238,7 @@ export default function useGeolocation({
 
     if (permissionAccess === "denied") {
       writeStoredGeoDecision("denied");
+      try { localStorage.setItem(GEO_REFUSED_SESSION_KEY, sessionKey); } catch { /* optional storage */ }
       clearCachedGeo();
       publishGeoStatus("browser_denied");
       setState({
@@ -243,6 +246,17 @@ export default function useGeolocation({
         position: null,
         error: new Error("Permission denied"),
       });
+      return;
+    }
+
+    // A reload or route remount is not a new login. Only an explicit retry
+    // or a new authentication session may ask again after a refusal.
+    let refusedThisSession = false;
+    try { refusedThisSession = localStorage.getItem(GEO_REFUSED_SESSION_KEY) === sessionKey; } catch { /* optional storage */ }
+    if (browserPermission !== "granted" && (refusedThisSession || (sessionKey === "anonymous" && storedDecision === "denied"))) {
+      clearCachedGeo();
+      publishGeoStatus("remembered_denied");
+      setState({ status: "denied", position: null, error: null });
       return;
     }
 
@@ -324,6 +338,7 @@ export default function useGeolocation({
       if (err?.code === 1) {
         requestDenied = true;
         writeStoredGeoDecision("denied");
+        try { localStorage.setItem(GEO_REFUSED_SESSION_KEY, sessionKey); } catch { /* optional storage */ }
         clearCachedGeo();
       }
       publishGeoStatus(err?.code === 1 ? "permission_error" : err?.code === 2 ? "unavailable" : err?.code === 3 ? "timeout" : "error");
@@ -357,13 +372,13 @@ export default function useGeolocation({
         watchIdRef.current = null;
       }
     };
-  }, [enabled, watch, saveAnalytics, permissionAccess, retryAttempt, JSON.stringify(options ?? {})]);
+  }, [enabled, sessionKey, watch, saveAnalytics, permissionAccess, retryAttempt, JSON.stringify(options ?? {})]);
 
   // A manual retry can restart a stalled request. A browser-level block must
   // be changed in the browser's site settings before it can succeed.
   const retryPermission = () => {
     if (!enabled || browserPermission === "denied") return;
-    try { localStorage.removeItem(GEO_PERMISSION_DECISION_KEY); } catch { /* optional storage */ }
+    try { localStorage.removeItem(GEO_PERMISSION_DECISION_KEY); localStorage.removeItem(GEO_REFUSED_SESSION_KEY); } catch { /* optional storage */ }
     setRetryAttempt((attempt) => attempt + 1);
   };
 
@@ -406,7 +421,10 @@ export default function useGeolocation({
         }
       },
       (err) => {
-        if (err?.code === 1) writeStoredGeoDecision("denied");
+        if (err?.code === 1) {
+          writeStoredGeoDecision("denied");
+          try { localStorage.setItem(GEO_REFUSED_SESSION_KEY, sessionKey); } catch { /* optional storage */ }
+        }
         setState({ status: "denied", position: null, error: err });
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }

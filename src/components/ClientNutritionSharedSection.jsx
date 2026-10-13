@@ -1,3 +1,4 @@
+import { buildRationMeals } from "../utils/rationMenu";
  
 // src/components/ClientNutritionSharedSection.jsx
 import { useEffect, useMemo, useState } from "react";
@@ -99,7 +100,7 @@ const getPersonName = (...sources) => {
 };
 
 const clientPdfStyles = StyleSheet.create({
-  page: { paddingTop: 104, paddingLeft: 38, paddingRight: 38, paddingBottom: 58, fontSize: 10, color: "#0B1B3A", backgroundColor: "#F8FBFF" },
+  page: { fontFamily: "BYL Nutrition Sans", paddingTop: 104, paddingLeft: 38, paddingRight: 38, paddingBottom: 58, fontSize: 10, color: "#0B1B3A", backgroundColor: "#F8FBFF" },
   header: {
     position: "absolute",
     top: 24,
@@ -662,6 +663,7 @@ const groupRowsByMeal = (rows = []) => {
 };
 
 function ClientNutritionPdfDoc({
+  RationMealsPdf,
   title,
   sharedDate,
   coachName,
@@ -669,7 +671,7 @@ function ClientNutritionPdfDoc({
   logoDataUrl,
   sections,
   rationTotals,
-  rationByMeal,
+  rationMeals,
   menuDays,
   adviceSheets,
 }) {
@@ -701,19 +703,7 @@ function ClientNutritionPdfDoc({
               <PdfText style={clientPdfStyles.value}>
                 {rationTotals.kcal ? `${r0(rationTotals.kcal)} kcal` : i18n.t("auto.ClientNutritionSharedSection.ration_partagee", "Ration partagée")}{i18n.t("auto.ClientNutritionSharedSection.prot", "• Prot")}{r0(rationTotals.p)}{i18n.t("auto.ClientNutritionSharedSection.g_lipides", "g • Lipides")}{r0(rationTotals.f)}{i18n.t("auto.ClientNutritionSharedSection.g_glucides", "g • Glucides")}{r0(rationTotals.c)}{i18n.t("auto.ClientNutritionSharedSection.g", "g")}</PdfText>
             </View>
-            {MENU_MEALS_ORDER.map((mealKey) =>
-              rationByMeal[mealKey]?.length ? (
-                <View key={mealKey} style={clientPdfStyles.card} wrap={false}>
-                  <PdfText style={clientPdfStyles.value}>{translateMealLabel(mealKey)}</PdfText>
-                  {rationByMeal[mealKey].map((row, idx) => (
-                    <PdfText key={`${mealKey}-${idx}`} style={[clientPdfStyles.line, { marginTop: idx === 0 ? 6 : 0 }]}>
-                      • {row.group ? `${translateFoodLabel(row.group)} - ` : ""}{translateFoodLabel(row.label)}{" "}
-                      <PdfText style={clientPdfStyles.muted}>({r0(row.qty)} {row.unit})</PdfText>
-                    </PdfText>
-                  ))}
-                </View>
-              ) : null
-            )}
+            <RationMealsPdf meals={rationMeals} mealLabel={translateMealLabel} foodLabel={translateFoodLabel} locale={dateLocale()} />
           </View>
         ) : null}
 
@@ -928,6 +918,7 @@ export default function ClientNutritionSharedSection({
   const translatedDiet = useMemo(() => diet.map(translateDietLabel).filter(Boolean), [diet]);
   const translatedPathologies = useMemo(() => pathologies.map(translatePathologyLabel).filter(Boolean), [pathologies]);
   const rationLines = useMemo(() => extractRationLines(latest), [latest]);
+  const rationMeals = useMemo(() => buildRationMeals(latest), [latest]);
   const rationTotals = useMemo(() => getDayTotals(latest), [latest]);
   const foodSurveyRows = useMemo(() => extractFoodSurveyRows(latest), [latest]);
   const foodSurveyByMeal = useMemo(() => groupRowsByMeal(foodSurveyRows), [foodSurveyRows]);
@@ -1220,8 +1211,10 @@ export default function ClientNutritionSharedSection({
     if (!latest) return;
     setExportingPdf(true);
     try {
+      const { default: RationMealsPdf } = await import("./nutrition/RationMealsPdf");
       const blob = await pdf(
         <ClientNutritionPdfDoc
+          RationMealsPdf={RationMealsPdf}
           title={i18n.t("auto.ClientNutritionSharedSection.plan_nutrition", "Plan nutrition")}
           sharedDate={sharedDate}
           coachName={coachName}
@@ -1229,7 +1222,7 @@ export default function ClientNutritionSharedSection({
           logoDataUrl={pdfLogoDataUrl}
           sections={sections}
           rationTotals={rationTotals}
-          rationByMeal={rationByMeal}
+          rationMeals={rationMeals}
           menuDays={menuDays}
           adviceSheets={adviceSheets}
         />
@@ -1538,7 +1531,13 @@ export default function ClientNutritionSharedSection({
             MENU_MEALS_ORDER.map((mealKey) =>
               foodSurveyByMeal[mealKey]?.length ? (
                 <Box key={mealKey} {...tileProps} p={4}>
-                  <Text fontWeight="900" mb={2}>{translateMealLabel(mealKey)}</Text>
+                  <HStack justify="space-between" mb={3}>
+                  <Text fontWeight="900">{translateMealLabel(mealKey)}</Text>
+                  <Badge colorScheme="blue" px={3} py={1} borderRadius="full">
+                    {rationMeals.find((meal) => meal.key === mealKey)?.kcal != null
+                      ? r0(rationMeals.find((meal) => meal.key === mealKey).kcal) : "—"} kcal
+                  </Badge>
+                </HStack>
                   <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2}>
                     {foodSurveyByMeal[mealKey].map((row, idx) => (
                       <Text key={`${mealKey}-${row.label}-${idx}`} fontSize="sm">
@@ -1577,12 +1576,18 @@ export default function ClientNutritionSharedSection({
           {MENU_MEALS_ORDER.map((mealKey) =>
             rationByMeal[mealKey]?.length ? (
               <Box key={mealKey} {...tileProps} p={4}>
-                <Text fontWeight="900" mb={2}>{translateMealLabel(mealKey)}</Text>
+                <HStack justify="space-between" mb={3}>
+                  <Text fontWeight="900">{translateMealLabel(mealKey)}</Text>
+                  <Badge colorScheme="blue" px={3} py={1} borderRadius="full">
+                    {rationMeals.find((meal) => meal.key === mealKey)?.kcal != null
+                      ? r0(rationMeals.find((meal) => meal.key === mealKey).kcal) : "—"} kcal
+                  </Badge>
+                </HStack>
                 <SimpleGrid columns={{ base: 1, md: 2 }} spacing={2}>
                   {rationByMeal[mealKey].map((row, idx) => (
                     <Text key={`${mealKey}-${row.label}-${idx}`} fontSize="sm">
                       • {row.group ? `${translateFoodLabel(row.group)} — ` : ""}{translateFoodLabel(row.label)}{" "}
-                      <Text as="span" color={theme.mutedText}>({r0(row.qty)} {row.unit})</Text>
+                      <Text as="span" fontWeight="800">{new Intl.NumberFormat(dateLocale(), { maximumFractionDigits: 2 }).format(row.qty)} {row.unit}</Text>
                     </Text>
                   ))}
                 </SimpleGrid>
