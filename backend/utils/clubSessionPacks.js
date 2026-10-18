@@ -1,3 +1,4 @@
+const currencyDigits = require('./clubCurrencyDigits.json');
 const { createClubClientAdministration, collectiveAttendance, eventFor } = require('./clubClientAdministration');
 const { clubAppointmentStatus } = require('./clubAppointmentStatus');
 const fail=(message,status=400)=>{throw Object.assign(new Error(message),{status});};
@@ -5,8 +6,16 @@ const millis=v=>v?.toMillis?v.toMillis():typeof v==='string'?Date.parse(v):Numbe
 const day=v=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Paris',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(v));
 const normalized=v=>String(v||'').normalize('NFKC').trim().toLocaleLowerCase('fr');
 const validDate=v=>typeof v==='string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && Number.isFinite(Date.parse(v)) && new Date(v).toISOString().slice(0,10)===v;
-function validatePack(input, importedQuantity){
-if(!/^[a-zA-Z0-9_-]{1,80}$/.test(input.id||'') || (!Number.isInteger(input.quantity) || input.quantity<1 || input.quantity>1000 || (![10,20,30,40,50].includes(input.quantity) && input.quantity!==importedQuantity)) || !['individual','group'].includes(input.type) || typeof input.name!=='string' || !input.name.trim() || String(input.name).length>100 || typeof input.courseTitle!=='string' || input.courseTitle.length>120 || !validDate(input.start) || (input.end && (!validDate(input.end)||input.end<input.start)))fail('Pack invalide.');
+function packPrice(input, previous={}) {
+ const amountCents=input.amountCents===undefined?(previous.amountCents??null):input.amountCents;
+ const currency=input.currency??previous.currency??'EUR';
+ const unitScale=input.unitScale??previous.unitScale??10**currencyDigits[currency];
+ if(!Object.hasOwn(currencyDigits,currency)||unitScale!==10**currencyDigits[currency]||
+    (amountCents!==null&&(!Number.isSafeInteger(amountCents)||amountCents<0||amountCents>100000000)))fail('Prix ou devise invalide.');
+ return {amountCents,currency,unitScale};
+}
+function validatePack(input){
+if(!/^[a-zA-Z0-9_-]{1,80}$/.test(input.id||'') || (!Number.isInteger(input.quantity) || input.quantity<1 || input.quantity>1000) || !['individual','group','nutrition'].includes(input.type) || typeof input.name!=='string' || !input.name.trim() || String(input.name).length>100 || typeof input.courseTitle!=='string' || input.courseTitle.length>120 || !validDate(input.start) || (input.end && (!validDate(input.end)||input.end<input.start)))fail('Pack invalide.');
 }
 // Derived from attendance, never incremented: retries and concurrent readers cannot double-charge.
 function calculatePacks(packs,events,now=Date.now()) {
@@ -15,9 +24,9 @@ function calculatePacks(packs,events,now=Date.now()) {
  const uncovered=[];
  const unique=[...new Map(events.map(e=>[e.id,e])).values()].sort((a,b)=>a.startsAt-b.startsAt||a.id.localeCompare(b.id));
  for(const event of unique){
-  if(!event.startsAt || event.startsAt>now || !['sport','group'].includes(event.type) || ['annulée','annulee','cancelled','Supprimé du calendrier'].includes(event.status))continue;
+  if(!event.startsAt || event.startsAt>now || !['sport','nutrition','group'].includes(event.type) || ['annulée','annulee','cancelled','Supprimé du calendrier'].includes(event.status))continue;
   if(!['present','absent'].includes(event.attendance))continue;
-  const date=day(event.startsAt),type=event.type==='group'?'group':'individual';
+  const date=day(event.startsAt),type=event.type==='group'?'group':event.type==='nutrition'?'nutrition':'individual';
   const matching=ordered.filter(p=>p.type===type && date>=p.start && (!p.end||date<=p.end) && (!p.courseTitle||normalized(p.courseTitle)===normalized(event.title)));
   if(!matching.length)continue;
   const pack=matching.find(p=>p.remaining>0 && (!p.openingBalanceAt || event.startsAt>=p.openingBalanceAt));
@@ -28,8 +37,8 @@ function calculatePacks(packs,events,now=Date.now()) {
  }
  // Future confirmed places and waiting-list entries reserve credits without consuming attendance.
  for(const p of result)p.available=p.remaining;
- for(const event of unique.filter(e=>e.reserved && !['annulée','annulee','cancelled'].includes(e.status))){
-  const date=day(event.startsAt),type=event.type==='group'?'group':'individual';
+ for(const event of unique.filter(e=>['sport','nutrition','group'].includes(e.type) && e.reserved && !['annulée','annulee','cancelled'].includes(e.status))){
+  const date=day(event.startsAt),type=event.type==='group'?'group':event.type==='nutrition'?'nutrition':'individual';
   const pack=ordered.find(p=>p.type===type&&p.available>0&&date>=p.start&&(!p.end||date<=p.end)&&(!p.courseTitle||normalized(p.courseTitle)===normalized(event.title)));
   if(pack){pack.reserved++;pack.available--;if(!event.waitlisted)pack.confirmedReservations++;pack.reservationEventIds.push(event.id);if(event.linkedSessionId)pack.reservationEventIds.push(event.linkedSessionId);}
  }
@@ -45,7 +54,7 @@ function createClubSessionPacks(db){
    const d=e.data(),report=reportMap.get(e.id)||{};
    const status=clubAppointmentStatus(d);
    const attendance=collectiveAttendance(d,clientId,report);
-   const effectiveAttendance=d.type==='sport' && attendance==='unknown' ? (status==='validée'?'present':status==='manquée'?'absent':'unknown') : attendance;
+   const effectiveAttendance=['sport','nutrition'].includes(d.type) && attendance==='unknown' ? (status==='validée'?'present':status==='manquée'?'absent':'unknown') : attendance;
    return {id:e.id,linkedSessionId:d.linkedSessionId,waitlisted:(d.waitlistIds||[]).includes(clientId),title:d.title||'',type:d.type,startsAt:millis(d.startsAt),status,attendance:effectiveAttendance,reserved: !(d.waitlistIds?.includes(clientId)&&millis(d.startsAt)+(Number(d.durationMin)||60)*60000<=Date.now()) && (eventFor(d,clientId)||(report.wasParticipant&&report.reservationUpdatedAt>=(report.cancellationDeadline??millis(d.startsAt))&&['removed_by_club','withdrawn_by_client'].includes(report.reservation)))&&!['present','absent','excused'].includes(effectiveAttendance)&&!['annulée','manquée'].includes(status),excuse:report.excuse||'',excuseDecision:report.excuseDecision||'pending'};
   });
   return {courseTitles:[...new Set(events.docs.filter(e=>e.data().type==='group').map(e=>e.data().title).filter(Boolean))].sort(),archivedPacks:packs.docs.filter(d=>d.data().deleted).map(d=>({id:d.id,...d.data()})),...calculatePacks(packs.docs.map(d=>({id:d.id,...d.data()})),history),absences:history.filter(e=>e.startsAt<=Date.now() && (['absent','excused'].includes(e.attendance)||e.excuse)).map(({id,title,startsAt,attendance,excuse,excuseDecision})=>({id,title,startsAt,attendance,excuse,excuseDecision}))};
@@ -55,7 +64,7 @@ function createClubSessionPacks(db){
    const club=db.collection('clubs').doc(clubId),ref=club.collection('privateClients').doc(clientId);
    const get=r=>reader?reader.get(r):r.get();
    const [raw,all]=await Promise.all([get(ref.collection('sessionPacks')),get(club.collection('appointments'))]);
-   const type=event.type==='group'?'group':'individual';
+   const type=event.type==='group'?'group':event.type==='nutrition'?'nutrition':'individual';
    const managed=raw.docs.some(d=>d.data().type===type);
    if(!managed)return {allowed:true,managed:false};
    const events={docs:all.docs.filter(d=>d.id!==event.id)};
@@ -109,13 +118,14 @@ function createClubSessionPacks(db){
   async get(uid,clientId,clubId){const s=await administration.scope(uid,clientId,clubId);return read(s.ref,s.clubId,clientId);},
   async grant(uid,clientId,input,clubId){
    validatePack(input);
+   const price=packPrice(input);
    await db.runTransaction(async tx=>{
     const s=await administration.scope(uid,clientId,clubId,tx);
     if(s.former)fail('Réactivez d’abord l’adhésion au club.');
     const ref=s.ref.collection('sessionPacks').doc(input.id),old=await tx.get(ref);
     if(old.exists)return;
     tx.set(ref.collection('changes').doc('0'),{at:Date.now(),by:uid,action:'created',after:input});
-    tx.set(ref,{name:input.name.trim(),quantity:input.quantity,type:input.type,courseTitle:input.type==='group'?input.courseTitle.trim():'',start:input.start,end:input.end||'',createdAt:Date.now(),createdBy:uid,cancelled:false});
+    tx.set(ref,{...price,name:input.name.trim(),quantity:input.quantity,type:input.type,courseTitle:input.type==='group'?input.courseTitle.trim():'',start:input.start,end:input.end||'',createdAt:Date.now(),createdBy:uid,cancelled:false});
    });return {ok:true};
   },
   async update(uid,clientId,id,input,clubId){
@@ -124,11 +134,12 @@ function createClubSessionPacks(db){
     const s=await administration.scope(uid,clientId,clubId,tx);
     const ref=s.ref.collection('sessionPacks').doc(id),snap=await tx.get(ref),old=snap.data();
     if(!old||old.deleted)fail('Pack introuvable.',404);
-    validatePack({...input,id},old.importBatchId?old.quantity:undefined);
+    validatePack({...input,id},old.quantity);
+    const price=packPrice(input,old);
     if(input.quantity<(old.openingUsed||0))fail('Pack invalide.');
     if((old.version||0)!==input.version)fail('Ce pack a été modifié. Rechargez la fiche.',409);
-    tx.set(ref.collection('changes').doc(String((old.version||0)+1)),{at:Date.now(),by:uid,action:'updated',before:old,after:{name:input.name,quantity:input.quantity,type:input.type,courseTitle:input.courseTitle,start:input.start,end:input.end}});
-    tx.set(ref,{name:input.name.trim(),quantity:input.quantity,type:input.type,courseTitle:input.type==='group'?input.courseTitle.trim():'',start:input.start,end:input.end||'',version:(old.version||0)+1,updatedAt:Date.now(),updatedBy:uid},{merge:true});
+    tx.set(ref.collection('changes').doc(String((old.version||0)+1)),{at:Date.now(),by:uid,action:'updated',before:old,after:{...price,name:input.name,quantity:input.quantity,type:input.type,courseTitle:input.courseTitle,start:input.start,end:input.end}});
+    tx.set(ref,{...price,name:input.name.trim(),quantity:input.quantity,type:input.type,courseTitle:input.type==='group'?input.courseTitle.trim():'',start:input.start,end:input.end||'',version:(old.version||0)+1,updatedAt:Date.now(),updatedBy:uid},{merge:true});
    });return {ok:true};
   },
   async remove(uid,clientId,id,input,clubId){

@@ -1,3 +1,4 @@
+import { hydrationReferenceText } from "../utils/nutritionHydration";
 import { buildRationMeals } from "../utils/rationMenu";
 import { useNavigationSave } from "../hooks/useNavigationSave";
  
@@ -333,6 +334,7 @@ function MenuPdfDoc({
               <PdfInfoCard label={i18n.t("auto.MenuJournalierFromRation.regimes", "Régime(s)")} value={pdfListText(summary?.diet, i18n.t("auto.MenuJournalierFromRation.aucun_regime_specifique", "Aucun régime spécifique"))} />
               <PdfInfoCard label={i18n.t("auto.MenuJournalierFromRation.contexte_clinique", "Contexte clinique")} value={pdfListText(summary?.pathologies, i18n.t("auto.MenuJournalierFromRation.aucune_pathologie", "Aucune pathologie"))} />
             </View>
+            {summary?.hydration ? <PdfText style={menuPdfStyles.infoValue}>{summary.hydration}</PdfText> : null}
           </>
         ) : null}
 
@@ -1504,6 +1506,7 @@ export default function MenuJournalierFromRation() {
           sections={selectedForPdf}
           summary={{
             clientSummary,
+            hydration: hydrationReferenceText(inputs?.poids, i18n),
             objective: translatedObjectiveRaw,
             diet: activeDiet,
             pathologies,
@@ -1550,6 +1553,7 @@ export default function MenuJournalierFromRation() {
     aiRecipes,
     aiShoppingList,
     clientSummary,
+    inputs,
     coachPdfName,
     coveredMealsCount,
     docData?.foodSurvey,
@@ -1605,8 +1609,8 @@ export default function MenuJournalierFromRation() {
 
         <Box {...sectionCardProps} overflow="hidden">
           <Box bg={panelBg} px={{ base: 4, md: 5 }} py={{ base: 4, md: 5 }}>
-            <HStack justify="space-between" align={{ base: "stretch", md: "center" }} gap={4} flexDirection={{ base: "column", lg: "row" }}>
-              <HStack spacing={3} flexWrap="wrap" align="center">
+            <HStack justify="space-between" align="start" gap={3}>
+              <HStack spacing={3} flexWrap="wrap" align="center" flex="1" minW={0}>
                 <Box>
                   <HStack spacing={2} flexWrap="wrap">
                     <Heading size={{ base: "sm", md: "md" }}>{i18n.t("auto.MenuJournalierFromRation.menu_journalier", "Menu journalier")}</Heading>
@@ -1620,55 +1624,19 @@ export default function MenuJournalierFromRation() {
                 </Box>
               </HStack>
 
-              <HStack spacing={2} flexWrap="nowrap" justify={{ base: "stretch", lg: "flex-end" }} w={{ base: "100%", lg: "auto" }}>
-                <HStack
-                  spacing={2}
-                  borderWidth="1px"
-                  borderColor={borderCol}
-                  borderRadius="full"
-                  bg={nutritionTheme.surfaceSoft}
-                  p={1}
-                  w={{ base: "auto", md: "auto" }}
-                  flex={{ base: "1", md: "0 0 auto" }}
-                >
-                  <Text display={{ base: "none", md: "block" }} px={3} fontSize="xs" fontWeight="900" letterSpacing="0.08em" color={textMuted}>
-                    {i18n.t("auto.MenuJournalierFromRation.mode_de_travail", "MODE")}
-                  </Text>
-                    <Button
-                      flex="1"
-                      h={{ base: "40px", md: "38px" }}
-                      minW={{ base: 0, md: "96px" }}
-                      borderRadius="full"
-                      variant={activeTab === 0 ? "solid" : "ghost"}
-                      colorScheme="blue"
-                      onClick={() => changeActiveTab(0)}
-                      isDisabled={blocked}
-                    >{i18n.t("auto.MenuJournalierFromRation.manuel", "Manuel")}</Button>
-                    <Button
-                      flex="1"
-                      h={{ base: "40px", md: "38px" }}
-                      minW={{ base: 0, md: "96px" }}
-                      borderRadius="full"
-                      variant={activeTab === 1 ? "solid" : "ghost"}
-                      colorScheme="blue"
-                      onClick={() => changeActiveTab(1)}
-                      isDisabled={blocked}
-                    >{i18n.t("auto.MenuJournalierFromRation.auto", "Auto")}</Button>
-                </HStack>
-
+              {ciqualError ? (
                 <IconButton
                   variant="outline"
                   borderRadius="full"
                   size="md"
-                  flex={{ base: "0 0 auto", md: "0 0 auto" }}
-                  ml={{ base: "auto", md: 0 }}
+                  flexShrink={0}
                   icon={<RepeatIcon />}
                   aria-label={i18n.t("auto.MenuJournalierFromRation.actualiser", "Actualiser")}
                   title={i18n.t("auto.MenuJournalierFromRation.actualiser", "Actualiser")}
                   onClick={loadCiqual}
                   isLoading={ciqualLoading}
                 />
-              </HStack>
+              ) : null}
             </HStack>
 
             <SimpleGrid display={{ base: "none", md: "grid" }} columns={{ md: 1, lg: 3 }} spacing={2.5} mt={4}>
@@ -1831,6 +1799,32 @@ export default function MenuJournalierFromRation() {
         </Box>
 
         <Box {...sectionCardProps} p={{ base: 4, md: 5 }}>
+          <HStack role="group" aria-label={i18n.t("auto.MenuJournalierFromRation.mode_de_travail", "MODE DE TRAVAIL")}
+            bg={nutritionTheme.surfaceSoft} borderWidth="1px" borderColor={borderCol} borderRadius="full" p={1} spacing={1} w="100%" mb={4}>
+            {[1, 0].map((option) => (
+              <Button key={option} variant="ghost" borderRadius="full" flex="1 1 0" minW={0}
+                minH="48px" h="auto" py={3} px={{ base: 2, md: 4 }} fontSize={{ base: "sm", md: "md" }} whiteSpace="normal"
+                aria-pressed={activeTab === option} isDisabled={blocked}
+                bg={activeTab === option ? "#111827" : "transparent"}
+                color={activeTab === option ? "white" : textMuted}
+                boxShadow={activeTab === option ? "sm" : "none"}
+                borderWidth="1px" borderColor="transparent"
+                _hover={{ bg: activeTab === option ? "#1f2937" : "blackAlpha.50" }}
+                _active={{ bg: activeTab === option ? "#111827" : "blackAlpha.100" }}
+                _dark={{
+                  bg: activeTab === option ? "white" : "transparent",
+                  color: activeTab === option ? "#111827" : "gray.300",
+                  _hover: { bg: activeTab === option ? "gray.100" : "whiteAlpha.100" },
+                  _active: { bg: activeTab === option ? "gray.200" : "whiteAlpha.200" },
+                }}
+                _focusVisible={{ outline: "2px solid", outlineColor: "blue.400", outlineOffset: "2px" }}
+                onClick={() => changeActiveTab(option)}>
+                {option === 1
+                  ? i18n.t("auto.NutritionRationPage.mode_auto", "Mode auto")
+                  : i18n.t("auto.NutritionRationPage.mode_manuel", "Mode manuel")}
+              </Button>
+            ))}
+          </HStack>
           <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>{i18n.t("auto.MenuJournalierFromRation.menu_a_relire", "MENU À RELIRE")}</Text>
           <Heading size="sm" mt={1}>{i18n.t("auto.MenuJournalierFromRation.construction_du_menu", "Construction du menu")}</Heading>
           <Text fontSize="sm" color={textMuted} mt={1} mb={4}>

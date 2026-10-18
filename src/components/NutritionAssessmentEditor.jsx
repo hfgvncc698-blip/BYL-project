@@ -1,3 +1,4 @@
+import { hydrationReference } from "../utils/nutritionHydration";
 import { useNavigationSave } from "../hooks/useNavigationSave";
 // src/components/NutritionAssessmentEditor.jsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -102,7 +103,7 @@ const weightToKg = (poids) => {
   return v;
 };
 
-const litersToGallons = (liters) => (Number.isFinite(liters) ? liters * 0.264172 : null);
+
 
 
 
@@ -234,6 +235,20 @@ const normalize = (s = "") =>
   stripDiacritics(String(s).toLowerCase()).trim().replace(/\s+/g, " ");
 
 /* ------------------------ MultiSelectTags (open by arrow + no free choice) ------------------------ */
+// Keep the decimal separator while editing; the form still stores a number.
+function WaterQuantityInput({ value, onChange, ...props }) {
+  const [draft, setDraft] = useState(null);
+  return <Input {...props} type="text" inputMode="decimal" value={draft ?? value ?? ""}
+    onFocus={() => setDraft(String(value ?? ""))}
+    onChange={(event) => {
+      const raw = event.target.value;
+      if (!/^\d*(?:[.,]\d*)?$/.test(raw)) return;
+      setDraft(raw);
+      onChange(raw === "" ? null : toNumber(raw));
+    }}
+    onBlur={() => setDraft(null)} />;
+}
+
 function MultiSelectTags({
   options = [],
   value = [],
@@ -667,21 +682,7 @@ export default function NutritionAssessmentEditor() {
     };
   }, [form?.poids, form?.poidsCible]);
 
-  const recommendedWaterIntake = useMemo(() => {
-    const currentKg = weightToKg(form?.poids);
-    if (!Number.isFinite(currentKg)) return null;
-
-    const liters = {
-      min: Math.round(currentKg * 0.03 * 10) / 10,
-      max: Math.round(currentKg * 0.04 * 10) / 10,
-    };
-    const gallons = {
-      min: Math.round(litersToGallons(liters.min) * 100) / 100,
-      max: Math.round(litersToGallons(liters.max) * 100) / 100,
-    };
-
-    return { liters, gallons };
-  }, [form?.poids]);
+  const recommendedWaterIntake = useMemo(() => hydrationReference(form?.poids), [form?.poids]);
 
   const recommendedWaterText = useMemo(() => {
     if (!recommendedWaterIntake) return "";
@@ -1388,10 +1389,9 @@ export default function NutritionAssessmentEditor() {
             <FormControl>
               <FormLabel>{i18n.t("auto.NutritionAssessmentEditor.eau_par_jour", "Eau par jour")}</FormLabel>
               <HStack>
-                <Input
-                  inputMode="decimal"
+                <WaterQuantityInput
                   value={form?.eauParJour?.value ?? ""}
-                  onChange={(e) => setField("eauParJour", { ...(form.eauParJour || {}), value: toNumber(e.target.value) })}
+                  onChange={(value) => setField("eauParJour", { ...(form.eauParJour || {}), value })}
                   bg={subtleBg}
                 />
                 <Select w={{ base: "104px", md: "130px" }} value={form?.eauParJour?.unit || "L"} onChange={(e) => setField("eauParJour", { ...(form.eauParJour || {}), unit: e.target.value })} bg={subtleBg}>

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { apiFetch } from '../../utils/api';
 import { clubText } from '../../i18n/clubText';
 
-export default function ClubReferents({ clientId, onAssigned }) {
+export default function ClubReferents({ clientId, onAssigned, compact=false }) {
   useTranslation();
   const [data, setData] = useState(null);
   const [search, setSearch] = useState('');
@@ -31,9 +31,9 @@ export default function ClubReferents({ clientId, onAssigned }) {
     {clientId ? <Heading size="sm" mb={3}>{clubText('Suivi du client')}</Heading> :
       <Flex gap={3} align="center" mb={4}><Input aria-label={clubText('Rechercher un client')} value={search} onChange={e => setSearch(e.target.value)} placeholder={clubText('Rechercher un client')} /><Badge flexShrink={0}>{clients.length}</Badge></Flex>}
     <Stack spacing={3}>
-      {clients.map(c => <Box key={c.id} borderWidth="1px" borderRadius="xl" p={4}>
+      {clients.map(c => <Box key={c.id} borderWidth={compact?"0":"1px"} borderRadius="xl" p={compact?0:4}>
         <Flex gap={4} justify="space-between" align="center" flexWrap="wrap">
-          <Box flex="1" minW="180px"><Text fontWeight="bold">{c.name}</Text><Text fontSize="sm" opacity={0.75}>{clubText('Suivi par')} : {data.coaches.find(p => p.id === c.referentId)?.name || clubText('Non attribué')}</Text>
+          <Box flex="1" minW="180px">{!compact && <Text fontWeight="bold">{c.name}</Text>}<Text fontSize="sm" opacity={0.75}>{clubText('Suivi par')} : {data.coaches.find(p => p.id === c.referentId)?.name || clubText('Non attribué')}</Text>
             {clientId && <Text fontSize="xs">{clubText('Inscrit par')} : {clubText(c.registeredByName || 'Non renseigné')}</Text>}
           </Box>
           <Box marginInlineStart="auto">

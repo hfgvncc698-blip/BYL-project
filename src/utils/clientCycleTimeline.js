@@ -15,13 +15,19 @@ function inferredType(program) {
 }
 // Reconstruct the visible history without writing an execution order or changing
 // the active programme. Unlinked programmes are available, not promised next steps.
-export function clientCycleTimeline(profile,programs=[]) {
-  if(profile?.sportFollowView==='programs')return [];
+export function clientCycleTimeline(profile,programs=[],{includeIndependent=false}={}) {
+  if(profile?.sportFollowView==='programs'){
+    if(!includeIndependent)return [];
+    profile={...profile,trainingPlan:null};
+  }
   const cycles=reconcileStartedCycle(initialCyclePreparation(profile?.trainingPlan),programs)?.cycles||[];
   const activeId=cycles.find(c=>!c.closedAt)?.id;
   const linked=cycles.flatMap(cycle=>{
     const program=programs.find(p=>p.id===cycle.programId && p.status!=='draft' && !p.excludeFromCyclePlanning);
-    if(!program)return [];
+    if(!program){
+      if(profile?.subscriptionCycle?.enabled && !cycle.closedAt && !cycle.programId && !cycle.draftProgramId)return [{id:cycle.id,type:cycle.type,name:cycle.name||cycle.nom||'',weeks:cycle.weeks,program:null,state:cycle.id===activeId?'current':'upcoming'}];
+      return [];
+    }
     return [{id:cycle.id,type:cycle.type==='custom'?inferredType(program):cycle.type,name:cycle.name||cycle.nom||'',weeks:cycle.weeks,program,
       state:cycle.closedAt?'completed':cycle.id===activeId?'current':'upcoming'}];
   });

@@ -14,9 +14,19 @@ export function getVisitLocationDisplay(visit = {}) {
   const knownDate = known?.capturedAt ? new Date(known.capturedAt) : null;
   const knownDateLabel = knownDate && Number.isFinite(knownDate.getTime()) ? knownDate.toLocaleString('fr-FR') : 'date non enregistrée';
 
+  const missingReason = {
+    permission_error: "accès non autorisé",
+    browser_denied: "permission bloquée",
+    remembered_denied: "refus mémorisé",
+    timeout: "délai dépassé",
+    unavailable: "position introuvable",
+    disabled: "localisation désactivée",
+    analytics_disabled: "statistiques désactivées",
+    unsupported: "navigateur non compatible",
+  }[visit.geoStatus];
   return {
     label: hasCity ? [city, hasCountry ? country : ""].filter(Boolean).join(", ")
-      : coordinates || (hasCountry ? country : "Position non disponible"),
+      : coordinates || (hasCountry ? country : `Position non disponible${missingReason ? ` — ${missingReason}` : ""}`),
     detail: [
       !hasCity && hasCoordinates ? "Coordonnées reçues, ville non déterminée." : "",
       hasCity && !hasCoordinates ? "Ville connue, mais aucune coordonnée enregistrée : impossible de placer un point précis pour cette visite." : "",

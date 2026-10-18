@@ -1,10 +1,13 @@
+import {clubText} from '../../i18n/clubText';
+import {useTranslation} from 'react-i18next';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../AuthContext';
 import { api } from './clubMessagingApi';
 
 // Shared by the full inbox and dashboard: club replies use the same read state.
-export default function useMemberClubContacts() {
+export default function useMemberClubContacts({includeOwners=false}={}) {
   const { user } = useAuth();
+  const {i18n}=useTranslation();
   const [state, setState] = useState({ contacts: [], error: false });
   useEffect(() => {
     setState({ contacts: [], error: false });
@@ -19,8 +22,8 @@ export default function useMemberClubContacts() {
       try {
         const result = await api('contacts', null, controller.signal);
         if (!controller.signal.aborted) setState({
-          contacts: result.ownerView ? [] : result.contacts.map(contact => ({
-            ...contact, id: `club:${contact.id}`, clubContact: true,
+          contacts: result.ownerView&&!includeOwners ? [] : result.contacts.map(contact => ({
+            ...contact, ownerView:result.ownerView, lastMessage:clubText(contact.lastMessage), id: `club:${contact.id}`, clubContact: true,
             lastActivityAt: contact.lastMessageAt || 0,
           })), error: false,
         });
@@ -39,6 +42,6 @@ export default function useMemberClubContacts() {
       window.removeEventListener('focus', refresh);
       window.removeEventListener('club-messages-read', refresh);
     };
-  }, [user?.uid]);
+  }, [user?.uid,i18n.language,includeOwners]);
   return state;
 }

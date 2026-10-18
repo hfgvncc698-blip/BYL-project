@@ -1,3 +1,5 @@
+import CancellationMessage from './CancellationMessage';
+import ClubTerminationModal from '../dashboard/ClubTerminationModal';
 import { clubText } from '../../i18n/clubText';
 import useSuggestedMessage from '../../hooks/useSuggestedMessage';
 import useSessionDraft from "../../hooks/useSessionDraft";
@@ -16,6 +18,7 @@ const target = contact => ({ clubId: contact.clubId, kind: contact.kind, targetI
 
 export function ClubThread({ contact, preview, ownerView, onBack, t, suggestedDraft, suggestedClassRequest, onDraftApplied, onOpenAppointment }) {
   const [messages, setMessages] = useState([]);
+  const [termination,setTermination]=useState(null);
   const { user } = useAuth();
   const [draft, setDraft] = useSessionDraft(user?.uid ? `club-message:${user.uid}:${contact.clubId}:${contact.kind}:${contact.targetId}` : null, '');
   const navigate = useNavigate();
@@ -49,8 +52,9 @@ export function ClubThread({ contact, preview, ownerView, onBack, t, suggestedDr
         if (!controller.signal.aborted) { setLoading(false); timer = setTimeout(refresh, 10000); }
       }
     };
-    refresh();
-    return () => { controller.abort(); clearTimeout(timer); };
+    const reviewed=()=>{clearTimeout(timer);refresh();};
+    refresh();window.addEventListener('cancellation-reviewed',reviewed);
+    return () => { controller.abort(); clearTimeout(timer);window.removeEventListener('cancellation-reviewed',reviewed); };
   }, [params, preview, merge]);
   useEffect(() => { bottom.current?.scrollIntoView({ block: 'nearest' }); }, [messages.at(-1)?.id]);
   async function older() {
@@ -69,13 +73,16 @@ export function ClubThread({ contact, preview, ownerView, onBack, t, suggestedDr
     } catch { setError(true); } finally { setSending(false); }
   }
   return <Flex direction="column" h="full" minH={0}>
+    {termination&&<ClubTerminationModal club={{id:termination.clubId,name:contact.title}} memberUid={termination.memberUid} ownerView={ownerView} onClose={()=>setTermination(null)}/>}
     <Flex p={4} gap={3} align="center"><IconButton size="sm" variant="ghost" borderRadius="full" aria-label={t('common.back', 'Retour')} icon={<ArrowBackIcon />} onClick={onBack} /><Heading size="sm">{contact.title}</Heading></Flex>
     {preview && <Text px={4} fontSize="sm">{t('clubMessaging.preview')}</Text>}
     <Stack flex={1} minH={0} overflowY="auto" p={4} spacing={3}>
       {more && <Button size="sm" isLoading={olderBusy} onClick={older}>{t('clubMessaging.older')}</Button>}
       {loading ? <Spinner /> : !error && !messages.length && <Text>{t('clubMessaging.noMessages')}</Text>}
       {messages.map(message => <Box key={message.id} alignSelf={message.side === (ownerView ? 'club' : 'member') ? 'flex-end' : 'flex-start'} bg={message.side === (ownerView ? 'club' : 'member') ? 'blue.100' : 'gray.100'} color="gray.900" borderRadius="xl" p={3} maxW="85%">
-        <Text whiteSpace="pre-wrap" overflowWrap="anywhere">{message.text}</Text><Text fontSize="xs" opacity={0.7}>{new Date(message.createdAtIso).toLocaleString()}</Text>
+        <Text whiteSpace="pre-wrap" overflowWrap="anywhere" hidden={!!message.cancellation}>{message.terminationRequest?.label?`${clubText(message.terminationRequest.label)}\n${message.terminationRequest.clientName}${message.terminationRequest.end?' · '+message.terminationRequest.end:''}\n${message.terminationRequest.body}`:message.type==='cancellation-decision'?`${clubText(message.decision==='accepted'?'Justification acceptée':'Justification refusée')} · ${message.sessionTitle}${message.reviewNote?`\n${message.reviewNote}`:''}`:message.text}</Text><Text fontSize="xs" opacity={0.7}>{new Date(message.createdAtIso).toLocaleString()}</Text>
+        {message.cancellation&&<CancellationMessage request={message.cancellation} canReview={ownerView&&!preview}/>}
+        {message.terminationRequest&&<Button mt={2} size="sm" isDisabled={preview} onClick={()=>setTermination(message.terminationRequest)}>{clubText('Voir la demande de résiliation')}</Button>}
         {ownerView && message.classRequest?.classId && <Button mt={2} size="sm" onClick={() => onOpenAppointment ? onOpenAppointment({id:message.classRequest.classId}) : navigate(`/club-dashboard?appointment=${encodeURIComponent(message.classRequest.classId)}`)}>{clubText('Voir le cours et les inscriptions')}</Button>}
       </Box>)}<div ref={bottom} />
     </Stack>
@@ -94,7 +101,7 @@ export default function ClubMessagingPanel({ embedded = false, clubId: requested
   const [category, setCategory] = useState('coach');
   const [composing, setComposing] = useState(false);
   const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState(()=>params.get('conversation')); 
   const [retry, setRetry] = useState(0);
   useEffect(() => {
     const controller = new AbortController(); let timer;
@@ -117,7 +124,7 @@ export default function ClubMessagingPanel({ embedded = false, clubId: requested
         {composing && data?.ownerView && <Flex gap={2} mb={3}>{['coach', 'client'].map(kind => <Button key={kind} size="sm" aria-pressed={category === kind} variant={category === kind ? 'solid' : 'outline'} onClick={() => { setCategory(kind); }}>{t(`clubMessaging.${kind}`)} ({data.contacts.filter(c => c.kind === kind).length}){data.contacts.some(c=>c.kind===kind&&c.unread)&&<Badge ml={2} bg="red.500" color="white" borderRadius="full">{data.contacts.filter(c=>c.kind===kind&&c.unread).length}</Badge>}</Button>)}</Flex>}
         {composing && <Input mb={3} aria-label={t('clubMessaging.search')} placeholder={t('clubMessaging.search')} value={search} onChange={e => setSearch(e.target.value)} />}
         {!contacts.length && <Text fontSize="sm">{composing ? t('clubMessaging.empty') : t('clubMessaging.noMessages')}</Text>}
-        <Stack>{contacts.map(c => <Button key={c.id} h="auto" py={3} whiteSpace="normal" justifyContent="flex-start" variant={selected === c.id ? 'solid' : 'ghost'} isDisabled={!c.peerUid} onClick={() => { setSelected(c.id); setComposing(false); setSearch(''); }}><Box textAlign="start"><Text>{c.title || c.email}</Text>{c.unread && <Badge bg="red.500" color="white">{t('clubMessaging.unread')}</Badge>}<Text fontSize="xs" fontWeight="normal" noOfLines={1}>{c.peerUid ? c.lastMessage : t('clubMessaging.unlinked')}</Text></Box></Button>)}</Stack>
+        <Stack>{contacts.map(c => <Button key={c.id} h="auto" py={3} whiteSpace="normal" justifyContent="flex-start" variant={selected === c.id ? 'solid' : 'ghost'} isDisabled={!c.peerUid} onClick={() => { setSelected(c.id); setComposing(false); setSearch(''); }}><Box textAlign="start"><Text>{c.title || c.email}</Text>{c.unread && <Badge bg="red.500" color="white">{t('clubMessaging.unread')}</Badge>}<Text fontSize="xs" fontWeight="normal" noOfLines={1}>{c.peerUid ? clubText(c.lastMessage) : t('clubMessaging.unlinked')}</Text></Box></Button>)}</Stack>
       </Box><Box flex={1} minW={0} display={embedded ? (contact ? 'block' : 'none') : { base: contact ? 'block' : 'none', md: 'block' }}>{contact ? <ClubThread onOpenAppointment={onOpenAppointment} key={contact.id} contact={contact} preview={data.preview} ownerView={data.ownerView} onBack={() => setSelected(null)} t={t} /> : <Flex h="full" p={6} align="center" justify="center"><Text>{t('messaging.selectTitle')}</Text></Flex>}</Box>
     </Flex></AppSurface>}</Box>
   </Box>;

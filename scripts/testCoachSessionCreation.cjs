@@ -49,7 +49,7 @@ function invoke(body = {}) {
     assert.equal(documents.get(`sessions/${first.id}`).clientDocId, 'client');
     assert.equal(documents.get(`sessions/${first.id}`).userId, 'client-auth');
     assert.equal(documents.get(`sessions/${first.id}`).clientId, 'client', 'keep coach dossier identity');
-    assert.equal(documents.get(`sessions/${first.id}`).noNotify, true);
+    assert.equal(documents.get(`sessions/${first.id}`).noNotify, false);
     assert.equal(first.session.id, first.id);
     assert.equal(first.session.start, '2026-09-10T10:00:00.000Z');
     assert.ok(documents.has(`clients/client/calendarEvents/${first.id}`));

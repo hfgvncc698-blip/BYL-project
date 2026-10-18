@@ -5,7 +5,7 @@ const key=s=>{let h=2166136261;for(const c of s)h=Math.imul(h^c.charCodeAt(0),16
 for(const lang of ['fr','en','de','es','it','ru','ar']){
  const raw=JSON.parse(fs.readFileSync(`src/i18n/locales/${lang}/${lang==='fr'?'clubRecent':'common'}.json`));const d=lang==='fr'?raw:raw.clubRecent;
  const t=s=>{assert.ok(d[key(s)],`${lang}: ${s}`);return d[key(s)];};
- for(const label of ['Accepter la justification','Refuser la justification','En attente de validation'])t(label);
+ for(const label of ['Motif du refus (facultatif)','Cette explication sera envoyée au client avec votre décision.','Confirmer le refus','Le motif du refus doit contenir au maximum 2 000 caractères.','Accepter la justification','Refuser la justification','En attente de validation'])t(label);
  const conversation={lastMessageAtIso:'date',lastMessage:'French fallback',lastMessageMeta:{kind:'cancellation',at:'date',title:'Client title'}};
  assert.equal(cancellationPreview(conversation,t),`${t('Annulations')} · Client title`);
  for(const decision of ['accepted','rejected'])assert.equal(cancellationPreview({...conversation,lastMessageMeta:{kind:'cancellation-decision',at:'date',decision}},t),t(decision==='accepted'?'Justification acceptée':'Justification refusée'));

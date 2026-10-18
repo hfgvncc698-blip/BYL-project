@@ -36,14 +36,23 @@ const db={collection:coll,runTransaction:fn=>{const run=queue.then(async()=>{con
  assert.equal(calculatePacks([pilates],[{...event,type:'group',title:'PILATES'}],now).packs[0].used,1);
  assert.equal(calculatePacks([pilates],[{...event,type:'group',title:'HIIT'}],now).packs[0].used,0);
  assert.equal(calculatePacks([{...pack,end:'2020-01-02'}],[event],now).packs[0].used,0);
+ const nutritionPack={...pack,type:'nutrition'};
+ assert.equal(calculatePacks([nutritionPack],[{...event,type:'nutrition'}],now).packs[0].used,1);
+ assert.equal(calculatePacks([nutritionPack],[event],now).packs[0].used,0);
+ assert.equal(calculatePacks([pack],[{...event,type:'nutrition'}],now).packs[0].used,0);
  const service=createClubSessionPacks(db);
- const input={...pack,id:'individual'};
+ const input={...pack,id:'individual',amountCents:55000,currency:'EUR',unitScale:100};
  await service.grant('owner','client',input);
  await service.grant('owner','client',input);
  assert.equal((await service.get('owner','client')).packs.length,1);
+ assert.equal((await service.mine('account')).groups[0].packs[0].amountCents,55000);
+ await assert.rejects(service.grant('owner','client',{...input,id:'bad-price',amountCents:-1}),/Prix/);
+ await assert.rejects(service.grant('owner','client',{...input,id:'bad-scale',unitScale:1000}),/Prix/);
  await assert.rejects(service.grant('other','client',{...input,id:'foreign'}),e=>e.status===403);
  await assert.rejects(service.grant('coach','client',{...input,id:'coach'}),e=>e.status===403);
- await assert.rejects(service.grant('owner','client',{...input,id:'bad',quantity:11}),/Pack/);
+ await service.grant('owner','client',{...input,id:'custom-quantity',quantity:11});
+ await service.remove('owner','client','custom-quantity',{version:0});
+ for(const quantity of [0,-1,1.5,1001]) await assert.rejects(service.grant('owner','client',{...input,id:'bad',quantity}),/Pack/);
  data.set('clubs/club/appointments/e',{title:'Coaching',type:'sport',clientId:'client',startsAt:start,status:'validée'});
  assert.equal((await service.get('owner','client')).packs[0].used,1,'Validated individual coaching consumes a session');
  data.set('clubs/club/privateClients/client/eventReports/e',{attendance:'absent',version:0});
@@ -53,8 +62,16 @@ const db={collection:coll,runTransaction:fn=>{const run=queue.then(async()=>{con
  assert.equal((await service.get('owner','client')).packs[0].used,1,'Justification alone does not refund');
  await assert.rejects(service.justify('stranger','client','club','e',{excuse:'Fake'}),e=>e.status===403);
  const admin=createClubClientAdministration(db);
+ const {collectiveAttendance}=require('../backend/utils/clubClientAdministration');
+ for(const type of ['sport','group']){
+  assert.equal(collectiveAttendance({type,startsAt:start,status:'annulée'},'client',{excuse:'Reason',excuseDecision:'rejected',attendance:'excused',attendanceOverride:'excused'}),'absent');
+  assert.equal(collectiveAttendance({type,startsAt:start,status:'annulée'},'client',{excuse:'Reason',excuseDecision:'accepted',attendance:'absent',attendanceOverride:'absent'}),'excused');
+ }
+
  await admin.report('owner','client','e',{attendance:'absent',excuseDecision:'rejected',response:'unknown',note:'',version:1});
  assert.equal((await service.mine('account')).groups[0].absences[0].excuseDecision,'rejected');
+ await assert.rejects(admin.report('owner','client','e',{attendance:'present',excuseDecision:'rejected',response:'unknown',note:'',version:2}),/décision/);
+
  await service.justify('account','client','club','e',{excuse:'Transport annulé'});
  await assert.rejects(admin.report('owner','client','e',{attendance:'excused',response:'unknown',note:'',version:3}),/limite/);
  assert.equal((await service.get('owner','client')).packs[0].used,1,'Late absence remains charged');
@@ -62,6 +79,7 @@ const db={collection:coll,runTransaction:fn=>{const run=queue.then(async()=>{con
  assert.equal((await service.mine('stranger')).groups.length,0);
  await assert.rejects(service.cancel('owner','client','individual'),/utilisé/);
  await service.grant('owner','client',{...pilates,id:'group'});
+ assert.equal((await service.get('owner','client')).packs.find(p=>p.id==='group').amountCents,null);
  data.set('clubs/club/appointments/g',{title:'Pilates',type:'group',participantIds:['client'],waitlistIds:[],startsAt:start,durationMin:60,status:'à venir'});
  assert.equal((await service.get('owner','client')).packs.find(p=>p.id==='group').used,1);
  await assert.rejects(admin.report('owner','client','g',{attendance:'excused',response:'unknown',note:'',version:0}),/limite/);
@@ -76,7 +94,7 @@ const db={collection:coll,runTransaction:fn=>{const run=queue.then(async()=>{con
  await service.grant('owner','client',editable);
  await service.update('owner','client','editable',{...editable,name:'Updated',quantity:20,version:0});
  let edited=(await service.get('owner','client')).packs.find(p=>p.id==='editable');
- assert.equal(edited.quantity,20);assert.equal(edited.version,1);assert.equal(edited.name,'Updated');
+ assert.equal(edited.quantity,20);assert.equal(edited.version,1);assert.equal(edited.name,'Updated');assert.equal(edited.amountCents,55000);
  await assert.rejects(service.update('owner','client','editable',{...editable,version:0}),e=>e.status===409);
  await assert.rejects(service.remove('owner','client','editable',{version:0}),e=>e.status===409);
  await assert.rejects(service.update('other','client','editable',{...editable,version:1}),e=>e.status===403);

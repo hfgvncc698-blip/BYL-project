@@ -18,7 +18,6 @@ export default function SportViewPreference({ clientId, value }) {
   const { i18n } = useTranslation();
   const labels = messages[(i18n.resolvedLanguage || i18n.language || 'fr').split('-')[0]] || messages.fr;
   const background = useColorModeValue('blackAlpha.50', 'whiteAlpha.100');
-  const selectedBackground = useColorModeValue('white', 'gray.700');
   const muted = useColorModeValue('gray.600', 'gray.300');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
@@ -33,7 +32,7 @@ export default function SportViewPreference({ clientId, value }) {
   return <Box mb={3}>
     <Flex justify="flex-end">
       <Flex role="group" aria-label={labels[0]} aria-busy={busy} bg={background} borderRadius="full" p={1} gap={1} w="100%" maxW="100%">
-        {['cycles', 'programs'].map((mode, index) => <Button key={mode} size="sm" variant="ghost" borderRadius="full" flex="1 1 0" minW={0} minH="40px" h="auto" py={2} px={{ base: 3, md: 4 }} fontSize="xs" whiteSpace="normal" aria-pressed={value === mode} isDisabled={busy} bg={value === mode ? selectedBackground : 'transparent'} color={value === mode ? 'inherit' : muted} boxShadow={value === mode ? 'sm' : 'none'} onClick={() => save(mode)}>{labels[index + 1]}</Button>)}
+        {['cycles', 'programs'].map((mode, index) => <Button key={mode} size="sm" variant="ghost" borderRadius="full" flex="1 1 0" minW={0} minH="40px" h="auto" py={2} px={{ base: 3, md: 4 }} fontSize="xs" whiteSpace="normal" aria-pressed={value === mode} isDisabled={busy} bg={value === mode ? '#111827' : 'transparent'} color={value === mode ? 'white' : muted} _hover={{ bg: value === mode ? '#1f2937' : 'blackAlpha.50' }} _active={{ bg: value === mode ? '#111827' : 'blackAlpha.100' }} _dark={{ bg: value === mode ? 'white' : 'transparent', color: value === mode ? '#111827' : 'gray.300', _hover: { bg: value === mode ? 'gray.100' : 'whiteAlpha.100' }, _active: { bg: value === mode ? 'gray.200' : 'whiteAlpha.200' } }} _focusVisible={{ outline: '2px solid', outlineColor: 'blue.400', outlineOffset: '2px' }} boxShadow={value === mode ? 'sm' : 'none'} onClick={() => save(mode)}>{labels[index + 1]}</Button>)}
       </Flex>
     </Flex>
     {error && <Text role="alert" color="red.500" mt={2}>{labels[4]}</Text>}

@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const src=readFileSync('src/utils/clubClientSummary.js','utf8');
+const {summarizeClubClient}=await import(`data:text/javascript;base64,${Buffer.from(src).toString('base64')}`);
+const event=(id,attendance='present',startsAt=1)=>({id,startsAt,report:{attendance}});
+const admin={payments:[{id:'m',dueCents:50000,paidCents:20000,dueDate:'2026-01-01',currency:'EUR'}],events:[event('a'),event('a'),event('b'),event('abs','absent'),event('future','present',999)]};
+const billing={dues:[{id:'s',amountCents:100000,paidCents:10000,unitScale:1000,currency:'EUR',dueDate:'2026-01-02',status:'partial'},{id:'d',amountCents:50,currency:'JPY',unitScale:1,status:'paid',dueDate:'2026-03-01'}]};
+const result=summarizeClubClient(admin,billing,{packs:[{openingUsed:3,history:[{id:'a',attendance:'present'},{id:'abs',attendance:'absent'}]}]},'2026-02-01',100);
+assert.deepEqual(result.sessions,{total:2,inPack:1,outside:1});
+assert.deepEqual(result.totals.EUR,{received:210000,due:390000,upcoming:0});
+assert.deepEqual(result.totals.JPY,{received:50000,due:0,upcoming:0});
+assert.equal(result.imported,3);
+assert.equal(result.payments.length,3);
+assert.deepEqual(summarizeClubClient({}, {}, {}, '2026-02-01').sessions,{total:0,inPack:0,outside:0});
+console.log('Club summary checks passed: mixed scales, currencies, partial payments, attendance and deduplication');

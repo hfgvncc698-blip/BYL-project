@@ -1,3 +1,5 @@
+import { createRationSaver } from "../utils/rationSave";
+import { waitForNutritionOperation } from "../utils/nutritionLoading";
 import { useNavigationSave } from "../hooks/useNavigationSave";
  
 // src/components/NutritionRationPage.jsx
@@ -731,7 +733,13 @@ export default function NutritionRationPage() {
     return payload;
   }, [mode, proState, autoState, autoSafety]);
 
-  useNavigationSave(() => updateDoc(assessmentRef, buildRationPayload()), !!assessmentRef && !!docData && !blocked);
+  const rationSaver = useMemo(() => createRationSaver(payload => updateDoc(assessmentRef, payload)), [assessmentRef]);
+  const saveRation = useCallback(() => {
+    const key = JSON.stringify(cleanForFirestore({ mode, proState, autoState, autoSafety }));
+    return rationSaver(buildRationPayload(), key);
+  }, [rationSaver, buildRationPayload, mode, proState, autoState, autoSafety]);
+  useNavigationSave(() => waitForNutritionOperation(saveRation()), !!assessmentRef && !!docData && !blocked);
+  const savingNextRef = useRef(false);
 
   const changeMode = useCallback(
     (nextMode) => {
@@ -761,14 +769,14 @@ export default function NutritionRationPage() {
 
     const timer = window.setTimeout(() => {
       rationAutosaveHashRef.current = hash;
-      updateDoc(assessmentRef, payload).catch((e) => {
+      rationSaver(payload, hash).catch((e) => {
         console.error("Ration autosave failed:", e);
         rationAutosaveHashRef.current = "";
       });
     }, 4000);
 
     return () => window.clearTimeout(timer);
-  }, [assessmentRef, autoSafety, autoState, blocked, buildRationPayload, docData, mode, proState]);
+  }, [assessmentRef, autoSafety, autoState, blocked, buildRationPayload, docData, mode, proState, rationSaver]);
 
   const runNutritionAiOptimization = useCallback(async () => {
     if (!assessmentRef || blocked || !docData) return;
@@ -806,10 +814,11 @@ export default function NutritionRationPage() {
   }, [assessmentRef, autoState, blocked, clientId, computed, docData, inputs, mode, proState]);
 
   const onSaveAndNext = useCallback(async () => {
-    if (!assessmentRef || blocked) return;
+    if (!assessmentRef || blocked || savingNextRef.current) return;
+    savingNextRef.current = true;
     setSavingNext(true);
     try {
-      await updateDoc(assessmentRef, buildRationPayload());
+      await waitForNutritionOperation(saveRation());
       runNutritionAiOptimization().catch((e) => {
         console.error("Nutrition AI optimization failed:", e);
       });
@@ -818,12 +827,15 @@ export default function NutritionRationPage() {
     } catch (e) {
       notify(toast, "saveError", {
         title: i18n.t("auto.NutritionRationPage.sauvegarde_impossible", "Sauvegarde impossible"),
-        description: e?.message || i18n.t("auto.NutritionRationPage.sauvegarde_impossible", "Sauvegarde impossible"),
+        description: e?.code === "nutrition-confirmation-timeout"
+          ? i18n.t("auto.NutritionRationPage.save_confirmation_pending", "La confirmation du serveur tarde. Vos modifications sont conservées sur cette page. Réessayez pour vérifier la sauvegarde en cours.")
+          : e?.message || i18n.t("auto.NutritionRationPage.sauvegarde_impossible", "Sauvegarde impossible"),
       });
     } finally {
+      savingNextRef.current = false;
       setSavingNext(false);
     }
-  }, [assessmentRef, blocked, buildRationPayload, toast, clientId, assessmentId, runNutritionAiOptimization, navigateWithFallback]);
+  }, [assessmentRef, blocked, saveRation, toast, clientId, assessmentId, runNutritionAiOptimization, navigateWithFallback]);
 
   /* ========================= Selected ration + grouping ========================= */
   const selectedRation = useMemo(() => (mode === "auto" ? autoState : proState), [mode, autoState, proState]);
@@ -1164,40 +1176,7 @@ export default function NutritionRationPage() {
                   <Text mt={2} fontSize="sm" color={textMuted} maxW="760px">{i18n.t("auto.NutritionRationPage.cette_etape_sert_a_construire_la_ration_cible_a_pa", "Cette étape sert à construire la ration cible à partir du contexte clinique, des besoins estimés et du mode de travail choisi.")}</Text>
                 </Box>
 
-                <Box
-                  borderWidth="1px"
-                  borderColor={borderCol}
-                  borderRadius="lg"
-                  bg={softBg}
-                  p={2}
-                  minW={{ base: "100%", md: "340px" }}
-                >
-                  <Text px={2} mb={2} fontSize="xs" fontWeight="900" letterSpacing="0.08em" color={textMuted}>
-                    {i18n.t("auto.NutritionRationPage.mode_de_construction", "MODE DE CONSTRUCTION")}
-                  </Text>
-                  <HStack spacing={2}>
-                    <Button
-                      flex="1"
-                      h="42px"
-                      variant={mode === "auto" ? "solid" : "ghost"}
-                      {...(mode === "auto" ? nutritionTheme.primaryButtonProps : {})}
-                      onClick={() => changeMode("auto")}
-                      isDisabled={blocked}
-                    >
-                      {i18n.t("auto.NutritionRationPage.mode_auto", "Mode auto")}
-                    </Button>
-                    <Button
-                      flex="1"
-                      h="42px"
-                      variant={mode === "pro" ? "solid" : "ghost"}
-                      {...(mode === "pro" ? nutritionTheme.primaryButtonProps : {})}
-                      onClick={() => changeMode("pro")}
-                      isDisabled={blocked}
-                    >
-                      {i18n.t("auto.NutritionRationPage.mode_manuel", "Mode manuel")}
-                    </Button>
-                  </HStack>
-                </Box>
+
               </HStack>
 
               {autoSafety.requiresProfessionalReview ? (
@@ -1341,13 +1320,10 @@ export default function NutritionRationPage() {
         >
           <Stack
             spacing={{ base: 4, lg: 3, xl: 4 }}
-            position="static"
-            sx={{
-              "@media screen and (min-width: 62em) and (min-height: 900px)": {
-                position: "sticky",
-                top: "88px",
-              },
-            }}
+            position={{ base: "static", lg: "sticky" }}
+            top={{ lg: "88px" }}
+            maxH={{ lg: "calc(100dvh - 104px)" }}
+            overflowY={{ lg: "auto" }}
             order={{ base: 1, lg: 1 }}
           >
         <Box {...sectionCardProps} p={{ base: 4, lg: 4, xl: 5 }} order={0}>
@@ -1384,7 +1360,7 @@ export default function NutritionRationPage() {
           </SimpleGrid>
         </Box>
 
-        <Box {...sectionCardProps} p={{ base: 4, lg: 4, xl: 5 }} order={{ base: 2, lg: 1 }}>
+        <Box {...sectionCardProps} p={{ base: 4, lg: 4, xl: 5 }} order={{ base: 2, lg: -1 }}>
           <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>{i18n.t("auto.NutritionRationPage.reperes_cliniques", "REPÈRES CLINIQUES")}</Text>
           <Heading size="sm" mt={1}>{i18n.t("auto.NutritionRationPage.cadre_clinique_et_energetique", "Cadre clinique et énergétique")}</Heading>
           <Text fontSize="sm" color={textMuted} mt={1}>{i18n.t("auto.NutritionRationPage.ce_cadre_donne_les_reperes_utiles_avant_de_constru", "Ce cadre donne les repères utiles avant de construire ou d’ajuster la ration.")}</Text>
@@ -1423,40 +1399,40 @@ export default function NutritionRationPage() {
             </Box>
           )}
 
-          <SimpleGrid columns={{ base: 1, sm: 2, lg: 1 }} spacing={4} mt={4}>
+          <SimpleGrid columns={2} spacing={2} mt={3}>
             <Card bg={softBg} border="1px solid" borderColor={borderCol}>
-              <CardBody>
+              <CardBody p={3}>
                 <Text fontSize="sm" color={textMuted}>{i18n.t("auto.NutritionRationPage.mb_kcal_j", "MB (kcal/j)")}</Text>
-                <Text fontSize="2xl" fontWeight="800">
+                <Text fontSize="xl" fontWeight="800">
                   {needs.mb ? r0(needs.mb) : "—"}
                 </Text>
               </CardBody>
             </Card>
 
             <Card bg={softBg} border="1px solid" borderColor={borderCol}>
-              <CardBody>
+              <CardBody p={3}>
                 <Text fontSize="sm" color={textMuted}>
                   NAP
                 </Text>
-                <Text fontSize="2xl" fontWeight="800">
+                <Text fontSize="xl" fontWeight="800">
                   {needs.nap ? r1(needs.nap) : "—"}
                 </Text>
               </CardBody>
             </Card>
 
-            <Card bg={softBg} border="1px solid" borderColor={borderCol}>
-              <CardBody>
+            <Card gridColumn="1 / -1" bg={softBg} border="1px solid" borderColor={borderCol}>
+              <CardBody p={3}>
                 <Text fontSize="sm" color={textMuted}>{i18n.t("auto.NutritionRationPage.dej_kcal_j", "DEJ (kcal/j)")}</Text>
-                <Text fontSize="2xl" fontWeight="800">
+                <Text fontSize="xl" fontWeight="800">
                   {needs.dej ? r0(needs.dej) : "—"}
                 </Text>
               </CardBody>
             </Card>
 
-            <Card bg={softBg} border="1px solid" borderColor={borderCol}>
-              <CardBody>
+            <Card gridColumn="1 / -1" bg={softBg} border="1px solid" borderColor={borderCol}>
+              <CardBody p={3}>
                 <Text fontSize="sm" color={textMuted}>{i18n.t("auto.NutritionRationPage.cible_kcal", "Cible kcal")}</Text>
-                <Text fontSize="2xl" fontWeight="900">
+                <Text fontSize="xl" fontWeight="900">
                   {needs.kcalTarget ? r0(needs.kcalTarget) : kcalIndicatif ? r0(kcalIndicatif) : "—"}
                 </Text>
                 <Text fontSize="sm" color={textMuted}>
@@ -1473,7 +1449,33 @@ export default function NutritionRationPage() {
 
           </Stack>
 
-        <Box {...sectionCardProps} p={{ base: 4, md: 5 }} order={{ base: 2, lg: 0 }} minW={0} maxW="100%" overflow="hidden">
+        <Box {...sectionCardProps} p={{ base: 4, md: 5 }} order={{ base: 2, lg: 0 }} minW={0} maxW="100%" overflow="visible">
+          <HStack role="group" aria-label={i18n.t("auto.NutritionRationPage.mode_de_construction", "MODE DE CONSTRUCTION")}
+            bg={softBg} borderWidth="1px" borderColor={borderCol} borderRadius="full" p={1} spacing={1} w="100%" mb={4}>
+            {["auto", "pro"].map((option) => (
+              <Button key={option} variant="ghost" borderRadius="full" flex="1 1 0" minW={0}
+                minH="48px" h="auto" py={3} px={{ base: 2, md: 4 }} fontSize={{ base: "sm", md: "md" }} whiteSpace="normal"
+                aria-pressed={mode === option} isDisabled={blocked}
+                bg={mode === option ? "#111827" : "transparent"}
+                color={mode === option ? "white" : textMuted}
+                boxShadow={mode === option ? "sm" : "none"}
+                borderWidth="1px" borderColor="transparent"
+                _hover={{ bg: mode === option ? "#1f2937" : "blackAlpha.50" }}
+                _active={{ bg: mode === option ? "#111827" : "blackAlpha.100" }}
+                _dark={{
+                  bg: mode === option ? "white" : "transparent",
+                  color: mode === option ? "#111827" : "gray.300",
+                  _hover: { bg: mode === option ? "gray.100" : "whiteAlpha.100" },
+                  _active: { bg: mode === option ? "gray.200" : "whiteAlpha.200" },
+                }}
+                _focusVisible={{ outline: "2px solid", outlineColor: "blue.400", outlineOffset: "2px" }}
+                onClick={() => changeMode(option)}>
+                {option === "auto"
+                  ? i18n.t("auto.NutritionRationPage.mode_auto", "Mode auto")
+                  : i18n.t("auto.NutritionRationPage.mode_manuel", "Mode manuel")}
+              </Button>
+            ))}
+          </HStack>
           <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" color={textMuted}>{i18n.t("auto.NutritionRationPage.construction_label", "CONSTRUCTION")}</Text>
           <Heading size="sm" mt={1}>{i18n.t("auto.NutritionRationPage.construction_de_la_ration", "Construction de la ration")}</Heading>
           <Text fontSize="sm" color={textMuted} mt={1} mb={4}>

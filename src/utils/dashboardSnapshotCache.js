@@ -5,7 +5,7 @@ const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const ENTRY_LIMIT = 24_000_000;
 const DECODED_LIMIT = 40_000_000;
 const TOTAL_LIMIT = 32_000_000;
-const validKey = key => /^(?:byl:coach-dashboard:(?:data:9|nutrition:v2):[^:]+:[^:]+|byl:(?:programs-page|clients-overview|nutrition-page):v1:[^:]+|byl:clients-page:v3:[^:]+:[^:]*:[^:]+:[^:]+:[^:]+|byl:(?:coach-stats|my-programs):v1:[^:]+:[^:]+:[^:]+)$/.test(key);
+const validKey = key => /^(?:byl:coach-dashboard:(?:data:10|nutrition:v2):[^:]+:[^:]+|byl:(?:programs-page|clients-overview|nutrition-page):v1:[^:]+|byl:clients-page:v3:[^:]+:[^:]*:[^:]+:[^:]+:[^:]+|byl:(?:coach-stats:v1|my-programs:v3):[^:]+:[^:]+:[^:]+)$/.test(key);
 let opening;
 
 function openCache() {

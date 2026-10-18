@@ -1,6 +1,6 @@
 import LastPackSessionBadge from "../calendar/LastPackSessionBadge";
 import CalendarValidationMark from "../calendar/CalendarValidationMark";
-import { calendarEventAppearance } from "../../utils/calendarEventAppearance.mjs";
+import { calendarEventAppearance, calendarEventStatusKey } from "../../utils/calendarEventAppearance.mjs";
 import { useMemo, useState } from 'react';
 import { Badge, Box, Button, Circle, HStack, SimpleGrid, Stack, Text } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
@@ -61,7 +61,7 @@ export default function ClubMobileCalendar({ events, colors, onSelectEvent }) {
         <CalendarValidationMark event={event} /><HStack align="start"><Circle size="10px" mt={1} flexShrink={0} bg={calendarEventAppearance(event).backgroundColor} /><Box minW={0}>
           <Text fontWeight="700" overflowWrap="anywhere">{event.title}</Text>
           <Text fontSize="sm" color={theme.mutedText}>{event.start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })} – {event.end.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</Text>
-          <Badge mt={1}>{event.status}</Badge>
+          <Badge mt={1}>{t(calendarEventStatusKey(event))}</Badge>
           {!!event.lastSessionPacks?.length && <Box mt={2}><LastPackSessionBadge/>{event.lastSessionPacks.map((pack,index)=><Text key={`${pack.id}:${index}`} fontSize="xs">{pack.clientName ? `${pack.clientName} · ` : ""}{pack.name}</Text>)}</Box>}
         </Box></HStack>
       </Box>)}

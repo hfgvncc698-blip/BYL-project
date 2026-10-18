@@ -1,3 +1,5 @@
+import NutritionMicroPanel from "./NutritionMicroPanel";
+import { computeMicronutrientTargets } from "../utils/nutritionContext";
 import { useNavigationSave } from "../hooks/useNavigationSave";
 // src/components/MenuJournalierManual.jsx
  
@@ -542,6 +544,13 @@ export default function MenuJournalierManual({
   const [dayIndex, setDayIndex] = useState(1);
 
   const [mode, setMode] = useState("planning");
+  const detailRef = useRef(null);
+  const pendingDetailScroll = useRef(false);
+  useEffect(() => {
+    if (mode !== "edit" || !pendingDetailScroll.current) return;
+    pendingDetailScroll.current = false;
+    detailRef.current?.scrollIntoView({ block: "start", behavior: "instant" });
+  }, [mode, dayIndex]);
   const [weekStart, setWeekStart] = useState(1);
 
   const [mappingByDay, setMappingByDay] = useState({});
@@ -1214,10 +1223,7 @@ export default function MenuJournalierManual({
     });
   };
 
-  const toggleMicro = (k) => {
-    if (k === "calcium" || k === "fibres") return;
-    setSelectedMicros((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]));
-  };
+
 
   /* ================= Guards ================= */
   if (loadingDoc) {
@@ -1378,56 +1384,15 @@ export default function MenuJournalierManual({
             <TargetsBar />
           </Box>
 
-          <HStack mt={4} spacing={2} flexWrap="wrap">
-            <Button
-              size="sm"
-              variant="outline"
-              leftIcon={showMicros ? <ViewOffIcon /> : <ViewIcon />}
-              onClick={() => setShowMicros((v) => !v)}
-            >
-              {showMicros ? "Masquer les micros" : "Afficher les micros"}
-            </Button>
-            <Text fontSize="sm" color={textMuted}>{i18n.t("auto.MenuJournalierManual.la_recherche_ciqual_n_apparait_qu_en_mode_edition_", "La recherche CIQUAL n’apparaît qu’en mode édition pour garder un planning plus lisible.")}</Text>
-          </HStack>
-
-          <Collapse in={showMicros} animateOpacity>
-            <Divider my={4} />
-            <Text fontSize="sm" color={textMuted}>{i18n.t("auto.MenuJournalierManual.micros_affiches_et_suivis_sur_le_jour_courant", "Micros affichés et suivis sur le jour courant.")}</Text>
-
-            <Wrap spacing={2} mt={3}>
-              {Object.keys(MICRO_LABEL).map((k) => {
-                const active = selectedMicros.includes(k);
-                return (
-                  <WrapItem key={k}>
-                    <Tag
-                      cursor="pointer"
-                      variant={active ? "solid" : "subtle"}
-                      colorScheme={active ? "purple" : "gray"}
-                      onClick={() => toggleMicro(k)}
-                    >
-                      <TagLabel fontWeight="900">{MICRO_LABEL[k]}</TagLabel>
-                    </Tag>
-                  </WrapItem>
-                );
-              })}
-            </Wrap>
-
-            <Wrap mt={3} spacing={2}>
-              {selectedMicros.map((k) => {
-                const v = totals?.day?.micros?.[k] || 0;
-                const unit = MICRO_UNIT[k] || "mg";
-                return (
-                  <WrapItem key={`day_${k}`}>
-                    <Tag size="sm" variant="subtle" colorScheme="purple">
-                      <TagLabel fontWeight="900">
-                        {MICRO_LABEL[k]}: {unit === "g" ? r1(v) : r0(v)} {unit}
-                      </TagLabel>
-                    </Tag>
-                  </WrapItem>
-                );
-              })}
-            </Wrap>
-          </Collapse>
+          <Box mt={4}>
+            <NutritionMicroPanel ready={ciqualOk} disabled={blocked} required={["calcium", "fibres"]}
+              options={Object.keys(MICRO_LABEL).map(key => ({ key, label: MICRO_LABEL[key] }))}
+              selected={selectedMicros} onSelect={setSelectedMicros}
+              onRecommend={() => setSelectedMicros([...new Set(["calcium", "fibres", ...preferredMicros.filter(key => MICRO_LABEL[key])])])}
+              detailsOpen={showMicros} onDetailsChange={setShowMicros}
+              items={selectedMicros.map(key => ({ key, label: MICRO_LABEL[key], value: r1(totals?.day?.micros?.[key] || 0), unit: MICRO_UNIT[key] || "mg", target: computeMicronutrientTargets({ inputs: docData?.inputs || docData || {} })[key] }))}
+            />
+          </Box>
         </CardBody>
       </Card>
 
@@ -1491,10 +1456,10 @@ export default function MenuJournalierManual({
                     cursor="pointer"
                     _hover={{ transform: "translateY(-1px)", boxShadow: "lg" }}
                     onClick={() => {
+                      pendingDetailScroll.current = true;
                       setDayIndex(d);
                       setMode("edit");
                       setOpenCardKey("");
-                      window?.scrollTo?.({ top: 0, behavior: "smooth" });
                     }}
                   >
                     <CardBody color={planningText}>
@@ -1554,12 +1519,9 @@ export default function MenuJournalierManual({
         </Card>
       ) : (
         /* ========================= EDITION (jour) ========================= */
-        <Box>
-          {/* Sticky bar */}
+        <Box ref={detailRef} scrollMarginTop="100px">
+          {/* Day controls */}
           <Box
-            position="sticky"
-            top={{ base: "8px", md: "10px" }}
-            zIndex={50}
             mb={4}
             bg={stickyBg}
             backdropFilter="blur(8px)"

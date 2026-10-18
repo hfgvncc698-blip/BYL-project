@@ -197,6 +197,8 @@ async function syncAccountLanguage(data = {}) {
 
 function queueWelcomeEmail(fbUser, data = {}) {
   if (!fbUser?.uid || !fbUser?.email) return;
+  // Signing in while finishing activation must not send welcome before it completes.
+  if (data.passwordSetupRequired === true) return;
   if (data.emailVerificationRequired === true && fbUser.emailVerified !== true) return;
   const authCreatedAtMs = Date.parse(fbUser.metadata?.creationTime || "");
   const isRecentlyCreatedAccount =

@@ -41,7 +41,7 @@ function scenario({ paid = true, owner = 'user', failWrite = false, eventType = 
   const runTransaction = callback => {
     const result = tail.then(async () => {
       const staged = [];
-      const value = await callback({ get: async target => snapshot(target.path), set: (target, data) => staged.push([target.path, data]) });
+      const value = await callback({ get: async target => snapshot(target.path), set: (target, data) => staged.push([target.path, data]), create: (target, data) => {if(docs.has(target.path))throw new Error("already exists"); staged.push([target.path,data]);} });
       if (failWrite && staged.some(([key]) => !key.startsWith('stripe_events/'))) throw new Error('audit atomic commit failure');
       for (const [key, data] of staged) await write(key, data);
       return value;
@@ -60,7 +60,7 @@ function scenario({ paid = true, owner = 'user', failWrite = false, eventType = 
     prices: { retrieve: async id => ({ id, tax_behavior: 'exclusive' }) },
     billingPortal: { sessions: { create: async params => { calls.push(params); return { url: 'https://billing.stripe.com/p/session/fixture' }; } } },
     promotionCodes: { list: async () => ({ data: [] }) },
-    subscriptions: { retrieve: async id => ({ id, created: 100, customer: 'cus_fixture', status: 'active', metadata: { ...session.metadata } }), list: async () => ({ data: [] }) },
+    subscriptions: { retrieve: async id => ({ id, created: 100, customer: 'cus_fixture', status: 'active', current_period_end: Math.floor(Date.now()/1000)+2592000, metadata: { ...session.metadata } }), list: async () => ({ data: [] }) },
     invoices: { retrieve: async () => eventObject },
   };
   if (realSignature) stripe.webhooks = require('../backend/node_modules/stripe')('sk_test_fixture').webhooks;
@@ -72,16 +72,17 @@ function scenario({ paid = true, owner = 'user', failWrite = false, eventType = 
     for (const tier of ['SOLO', 'GROWTH', 'UNLIMITED', 'STUDIO', 'CLUB', 'NETWORK']) env[`STRIPE_PRICE_PRO_${pack}_${tier}_${billing}`] = `price_${pack.toLowerCase()}_${tier.toLowerCase()}_${billing.toLowerCase()}`;
   }
   let generated = 0;
-  const dependencies = { 'node:crypto': require('node:crypto'), '../utils/paidProgramOrders': require('../backend/utils/paidProgramOrders'), '../utils/generateAutoProgram': { generateAndSaveAutoProgram: async options => {
+  const dependencies = { '../utils/subscriptionCycles': require('../backend/utils/subscriptionCycles'), '../utils/programDocumentSize.cjs': require('../backend/utils/programDocumentSize.cjs'), 'node:crypto': require('node:crypto'), '../utils/paidProgramOrders': require('../backend/utils/paidProgramOrders'), '../utils/generateAutoProgram': { generateAndSaveAutoProgram: async options => {
     generated++;
     if (generateGate) await generateGate;
     if (failGeneration) { failGeneration = false; throw new Error('audit generation failure'); }
+    if(options.prepareOnly)return {...options,sessions:[{sessionName:'Fixture',exercises:[]}]};
     const target = ref(`clients/${options.clientId}/programmes/${options.assignedProgramId}`);
     if (!docs.has(target.path)) await target.create({ ...options, sessions: [{ name: 'Generated fixture' }] });
     return { id: target.id };
   } }, express: { Router: () => router }, stripe: () => stripe, '../firebaseAdmin': admin, '../utils/firebaseAuth': authModule.exports, '../utils/emailEvents': { recordEmailEvent: async () => { throw new Error('Unexpected email'); } }, '../utils/brandedEmail': { sendBrandedPasswordReset: async () => { throw new Error('Unexpected email'); } } };
   const paymentModule = { exports: {} };
-  vm.runInNewContext(source, { require: name => { assert.ok(name in dependencies, `Unexpected dependency ${name}`); return dependencies[name]; }, module: paymentModule, process: { env }, console: { error() {}, warn() {} }, URL, Buffer, Date, setTimeout, clearTimeout });
+  vm.runInNewContext(source, { require: name => { assert.ok(name in dependencies, `Unexpected dependency ${name}`); return dependencies[name]; }, module: paymentModule, process: { env }, console: { error: (...args) => { if(process.env.PAYMENT_AUDIT_DEBUG) console.error(...args); }, warn() {} }, URL, Buffer, Date, setTimeout, clearTimeout });
   async function invoke(route, body = {}, { uid = 'user', webhook = false, signature = 'valid-fixture' } = {}) {
     const result = { status: 200 };
     const res = { status(code) { result.status = code; return this; }, json(body) { result.body = body; return this; }, send(body) { result.body = body; return this; } };
@@ -168,7 +169,8 @@ async function check(name, test) {
     const gate = new Promise(resolve => { release = resolve; });
     const s = scenario({ generateGate: gate });
     const first = s.invoke('post /finalize-session', { session_id: 'cs_fixture' });
-    while (s.generated === 0) await new Promise(resolve => setImmediate(resolve));
+    for(let attempts=0;s.generated===0&&attempts<1000;attempts++)await new Promise(resolve=>setTimeout(resolve,1));
+    assert.ok(s.generated>0,'generation must start');
     const overlapping = await s.invoke('', {}, { webhook: true });
     assert.equal(overlapping.status, 503, 'in-flight webhook must retry, not falsely acknowledge completed delivery');
     const browserRetry = await s.invoke('post /finalize-session', { session_id: 'cs_fixture' });
@@ -205,10 +207,10 @@ async function check(name, test) {
     const s = scenario({ eventType: 'checkout.session.async_payment_failed' }); await s.invoke('', {}, { webhook: true });
     assert.equal(s.docs.get('stripe_events/evt_fixture').status, 'processed'); assert.equal(s.generated, 1);
   });
-  await check('Personal subscription initial checkout delivers a program and configures monthly renewal', async () => {
+  await check('Personal subscription initial checkout delivers a program and configures training cycles', async () => {
     const s = scenario(); s.session.mode = 'subscription'; s.session.subscription = 'sub_fixture'; s.session.metadata.audience = 'particulier';
     const result = await s.invoke('post /finalize-session', { session_id: 'cs_fixture' }); assert.equal(result.status, 200); assert.match(result.body.viewerUrl, /^\/clients\/user\/programmes\//);
-    assert.equal(s.docs.get('clients/user').abonnementActif, true); assert.equal(s.docs.get('clients/user').nbSeancesAbonnement, 3);
+    assert.equal(s.docs.get('clients/user').abonnementActif, true); assert.equal(s.docs.get('clients/user').subscriptionCycle.options.nbSeances, 3);
   });
   await check('Checkout freezes preferences privately and refuses missing questionnaire before Stripe', async () => {
     const s = scenario();
@@ -253,18 +255,19 @@ async function check(name, test) {
     assert.equal(s.generated, 1); assert.equal(s.docs.get('clients/user').deliveryMode, 'stripe-invoice');
     s.setEvent('invoice.paid', { ...invoice, id: 'in_cycle2', billing_reason: 'subscription_cycle' });
     assert.equal((await completeInvoice()).status, 200); assert.equal((await completeInvoice()).status, 200);
-    assert.equal(s.generated, 2, 'exactly one program per paid billing cycle');
+    assert.equal(s.generated, 1, 'billing renewal preserves the current training cycle');
     const programs = [...s.docs.entries()].filter(([key]) => /^clients\/[^/]+\/programmes\//.test(key));
-    assert.equal(programs.length, 2);
+    assert.equal(programs.length, 1);
     for (const [, program] of programs) { assert.deepEqual(program.injuryProfile, injuryProfile); assert.equal(program.equipmentAccess, 'minimal'); assert.equal(program.trainingLocation, 'home'); }
     s.setEvent('invoice.paid', { ...invoice, id: 'in_adjustment', billing_reason: 'subscription_update' });
-    assert.equal((await completeInvoice()).status, 200); assert.equal(s.generated, 2, 'proration is not a monthly program purchase');
+    assert.equal((await completeInvoice()).status, 200); assert.equal(s.generated, 1, 'proration does not replace the current training cycle');
   });
   await check('Initial invoice and Checkout also deduplicate when truly concurrent', async () => {
     let release; const gate = new Promise(resolve => { release = resolve; }); const s = scenario({ generateGate: gate });
     s.session.mode = 'subscription'; s.session.subscription = 'sub_fixture'; s.session.metadata.audience = 'particulier'; s.session.metadata.programDeliveryMode = 'stripe-invoice';
     const checkout = s.invoke('post /finalize-session', { session_id: 'cs_fixture' });
-    while (s.generated === 0) await new Promise(resolve => setImmediate(resolve));
+    for(let attempts=0;s.generated===0&&attempts<1000;attempts++)await new Promise(resolve=>setTimeout(resolve,1));
+    assert.ok(s.generated>0,'generation must start');
     s.setEvent('invoice.paid', { id: 'in_initial', subscription: 'sub_fixture', status: 'paid', billing_reason: 'subscription_create', amount_paid: 3999, currency: 'eur' });
     assert.equal((await s.invoke('', {}, { webhook: true })).status, 503);
     release(); assert.equal((await checkout).status, 200); assert.equal((await s.invoke('', {}, { webhook: true })).status, 200); assert.equal(s.generated, 1);
@@ -282,7 +285,7 @@ async function check(name, test) {
   for (const audience of ['pro', 'particulier']) await check(`Late old subscription cancellation cannot revoke newer ${audience} subscription or client mirror`, async () => {
     const s = scenario({ role: audience === 'pro' ? 'coach' : 'particulier' });
     s.session.mode = 'subscription'; s.session.subscription = 'sub_new'; s.session.metadata.audience = audience;
-    s.stripe.subscriptions.retrieve = async id => ({ id, created: id === 'sub_new' ? 200 : 100, customer: 'cus_fixture', status: id === 'sub_new' ? 'active' : 'canceled', metadata: { ...s.session.metadata } });
+    s.stripe.subscriptions.retrieve = async id => ({ id, created: id === 'sub_new' ? 200 : 100, customer: 'cus_fixture', status: id === 'sub_new' ? 'active' : 'canceled', current_period_end: Math.floor(Date.now()/1000)+2592000, metadata: { ...s.session.metadata } });
     assert.equal((await s.invoke('post /finalize-session', { session_id: s.session.id })).status, 200);
     const before = JSON.stringify(s.docs.get('clients/user'));
     s.setEvent('customer.subscription.deleted', { id: 'sub_old' });
@@ -304,7 +307,7 @@ async function check(name, test) {
   });
   await check('Paid old invoice may deliver its owed program without overwriting current subscription or legacy cron preferences', async () => {
     const s = scenario(); s.session.metadata.audience = 'particulier'; s.session.metadata.programDeliveryMode = 'stripe-invoice';
-    s.stripe.subscriptions.retrieve = async id => ({ id, created: id === 'sub_new' ? 200 : 100, customer: 'cus_fixture', status: id === 'sub_new' ? 'active' : 'canceled', metadata: { ...s.session.metadata } });
+    s.stripe.subscriptions.retrieve = async id => ({ id, created: id === 'sub_new' ? 200 : 100, customer: 'cus_fixture', status: id === 'sub_new' ? 'active' : 'canceled', current_period_end: Math.floor(Date.now()/1000)+2592000, metadata: { ...s.session.metadata } });
     s.setEvent('customer.subscription.updated', { id: 'sub_new' }); assert.equal((await s.invoke('', {}, { webhook: true })).status, 200);
     s.docs.set('clients/user', { ...s.docs.get('clients/user'), nbSeancesAbonnement: 5, niveauSportif: 'advanced', sexe: 'other', dernierProgrammeGenere: 'legacy-time' });
     s.setEvent('invoice.paid', { id: 'in_old_paid', subscription: 'sub_old', status: 'paid', billing_reason: 'subscription_cycle', amount_paid: 3999, currency: 'eur' });

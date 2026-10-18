@@ -1,3 +1,4 @@
+import NutritionMicroCards from "./NutritionMicroCards";
 import { useNavigationSave } from "../hooks/useNavigationSave";
  
 // src/components/FoodSurvey.jsx
@@ -428,16 +429,9 @@ function UnifiedSurveyFooter({ needs, summary, mode, sticky = true, mt = 4, titl
         </HStack>
 
         <Collapse in={showDetails} animateOpacity>
-          <Wrap spacing={2} pt={1}>
-            {microItems.map((item) => (
-              <WrapItem key={`${item.label}-${item.value}`}>
-                <Badge bg={chipBg} color="inherit" borderRadius="full" px={3} py={1} fontWeight="700">
-                  {item.label} {item.value}{item.unit ? ` ${item.unit}` : ""}
-                  {item.targetValue != null ? ` / ${item.targetValue}${item.targetUnit ? ` ${item.targetUnit}` : ""}` : ""}
-                </Badge>
-              </WrapItem>
-            ))}
-          </Wrap>
+          <Box pt={1}>
+            <NutritionMicroCards items={microItems} />
+          </Box>
         </Collapse>
       </Stack>
     </Box>
@@ -819,6 +813,7 @@ export default function FoodSurvey() {
           onBack={goBack}
         />
 
+
         <Grid
           templateColumns={{
             base: "1fr",
@@ -859,48 +854,10 @@ export default function FoodSurvey() {
                   </Text>
                 </Box>
 
-                <Box borderWidth="1px" borderColor={borderCol} borderRadius="18px" bg={selectedCardBg} p={3}>
-                  <Grid templateColumns={{ base: "1fr", md: "minmax(0, 1fr) minmax(320px, 420px)" }} gap={3} alignItems="center">
-                    <Box minW={0}>
-                      <Text fontSize="xs" fontWeight="900" letterSpacing="0.08em" color={subtleText}>
-                        {i18n.t("auto.FoodSurvey.methode_de_saisie", "MÉTHODE DE SAISIE")}
-                      </Text>
-                      <Text fontSize="sm" color={subtleText} mt={1}>
-                        {i18n.t("auto.FoodSurvey.choisir_comment_saisir", "Choisissez le niveau de détail avant de remplir la journée.")}
-                      </Text>
-                    </Box>
-                    <SimpleGrid columns={2} spacing={2}>
-                    <Button
-                      borderRadius="16px"
-                      variant={mode === "excel" ? "solid" : "outline"}
-                      {...(mode === "excel" ? nutritionTheme.primaryButtonProps : {})}
-                      onClick={() => changeMode("excel")}
-                      isDisabled={blocked}
-                      whiteSpace="normal"
-                      h="auto"
-                      py={3}
-                    >
-                      {i18n.t("auto.FoodSurvey.mode_simplifie_short", "Mode simplifié")}
-                    </Button>
-                    <Button
-                      borderRadius="16px"
-                      variant={mode === "ciqual" ? "solid" : "outline"}
-                      {...(mode === "ciqual" ? nutritionTheme.primaryButtonProps : {})}
-                      onClick={() => changeMode("ciqual")}
-                      isDisabled={blocked}
-                      whiteSpace="normal"
-                      h="auto"
-                      py={3}
-                    >
-                      {i18n.t("auto.FoodSurvey.mode_detaille", "Mode détaillé")}
-                    </Button>
-                    </SimpleGrid>
-                  </Grid>
-                </Box>
 
                 <Box borderWidth="1px" borderColor={borderCol} borderRadius="18px" bg={selectedCardBg} p={3}>
-                  <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={2}>
-                    {focusCards.slice(0, 2).map((card) => (
+                  <SimpleGrid columns={1} spacing={2}>
+                    {focusCards.slice(0, 1).map((card) => (
                       <Box
                         key={card.label}
                         bg={card.bg}
@@ -1050,6 +1007,40 @@ export default function FoodSurvey() {
               mt={3}
             />
           </Box>
+
+        <Box mb={4}>
+          <HStack role="group" aria-label={i18n.t("auto.FoodSurvey.methode_de_saisie", "MÉTHODE DE SAISIE")}
+            bg={softBg} borderWidth="1px" borderColor={borderCol} borderRadius="full" p={1} spacing={1} w="100%">
+            {["excel", "ciqual"].map((option) => (
+              <Button key={option} variant="ghost" borderRadius="full" flex="1 1 0" minW={0}
+                minH="48px" h="auto" py={3} px={{ base: 2, md: 4 }} fontSize={{ base: "sm", md: "md" }} whiteSpace="normal"
+                aria-pressed={mode === option} isDisabled={blocked}
+                bg={mode === option ? "#111827" : "transparent"}
+                color={mode === option ? "white" : subtleText}
+                boxShadow={mode === option ? "sm" : "none"}
+                borderWidth="1px" borderColor="transparent"
+                _hover={{ bg: mode === option ? "#1f2937" : "blackAlpha.50" }}
+                _active={{ bg: mode === option ? "#111827" : "blackAlpha.100" }}
+                _dark={{
+                  bg: mode === option ? "white" : "transparent",
+                  color: mode === option ? "#111827" : "gray.300",
+                  _hover: { bg: mode === option ? "gray.100" : "whiteAlpha.100" },
+                  _active: { bg: mode === option ? "gray.200" : "whiteAlpha.200" },
+                }}
+                _focusVisible={{ outline: "2px solid", outlineColor: "blue.400", outlineOffset: "2px" }}
+                onClick={() => changeMode(option)}>
+                {option === "excel"
+                  ? i18n.t("auto.FoodSurvey.mode_simplifie_short", "Mode simplifié")
+                  : i18n.t("auto.FoodSurvey.mode_detaille", "Mode détaillé")}
+              </Button>
+            ))}
+          </HStack>
+          <Text fontSize="sm" color={subtleText} mt={2} aria-live="polite">
+            {mode === "ciqual"
+              ? i18n.t("auto.FoodSurvey.analyse_fine_aliment_par_aliment", "Analyse fine aliment par aliment.")
+              : i18n.t("auto.FoodSurvey.vue_rapide_grandes_familles", "Vue rapide par grandes familles alimentaires.")}
+          </Text>
+        </Box>
 
           {mode === "excel" ? (
             <Box>

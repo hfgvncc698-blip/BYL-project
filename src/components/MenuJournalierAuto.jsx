@@ -1,3 +1,5 @@
+import NutritionMicroPanel from "./NutritionMicroPanel";
+import { balanceMenuChoices } from "../utils/balanceMenuChoices";
 import { useNavigationSave } from "../hooks/useNavigationSave";
 // src/components/MenuJournalierAuto.jsx
  
@@ -10,7 +12,6 @@ import {
   Button,
   Card,
   CardBody,
-  Divider,
   Heading,
   HStack,
   IconButton,
@@ -24,15 +25,12 @@ import {
   Wrap,
   WrapItem,
   useToast,
-  Collapse,
   useColorModeValue,
   useBreakpointValue,
 } from "@chakra-ui/react";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
-  ViewIcon,
-  ViewOffIcon,
   RepeatIcon,
   CheckIcon,
 } from "@chakra-ui/icons";
@@ -440,13 +438,6 @@ const formatMicro = (k, v) => {
   if (!n) return `0 ${unit}`;
   return `${unit === "g" ? r1(n) : r0(n)} ${unit}`;
 };
-const formatMicroTargetValue = (target) => {
-  if (!target || target.value == null) return "";
-  const unit = target.unit || "mg";
-  const value = unit === "g" || num(target.value) < 10 ? r1(target.value) : r0(target.value);
-  return `${value} ${unit}`;
-};
-
 /* ================= Label cleanup ================= */
 const splitKeyToParts = (key = "") => {
   const raw = String(key || "");
@@ -2265,6 +2256,7 @@ const pickCiqualForRole = ({
   clinicalOptions = {},
   daySeed,
   avoidCodes = [],
+  onCandidates,
   lastWhiteBias, // { avoid: "poulet" | "dinde" | "" }
 }) => {
   const sourceLabel = cleanMenuLabel(firstNonEmpty(slot?.resolvedLabel, slot?.label, slot?.shortKey, slot?.key));
@@ -3110,6 +3102,7 @@ const pickCiqualForRole = ({
     const topN = ranked.slice(0, Math.min(isSnackCerealChoice ? 60 : 20, ranked.length));
     const compatibleTopN = topN.filter((x) => isCodeCompatibleWithSlot(x.code) && !avoidSet.has(String(x.code || "").trim()));
     const rankedChoices = compatibleTopN.length ? compatibleTopN : topN;
+    onCandidates?.(rankedChoices.filter(x => isCodeCompatibleWithSlot(x.code)).map(x => x.code));
     const weighted = rankedChoices.map((x, i) => ({
       code: x.code,
       w: isSnackCerealChoice
@@ -3121,6 +3114,7 @@ const pickCiqualForRole = ({
   }
 
   const fallbackPool = poolCodes.filter((code) => isCodeCompatibleWithSlot(code) && !avoidSet.has(String(code || "").trim()));
+  onCandidates?.(fallbackPool.length ? fallbackPool : poolCodes.filter(isCodeCompatibleWithSlot));
   const fallbackPick = pickOne(fallbackPool.length ? fallbackPool : poolCodes.filter((code) => isCodeCompatibleWithSlot(code)), rng) || null;
   return isCodeCompatibleWithSlot(fallbackPick) ? fallbackPick : null;
 };
@@ -3181,6 +3175,20 @@ export default function MenuJournalierAuto({
   const [daysCount, setDaysCount] = useState(7);
   const [dayIndex, setDayIndex] = useState(1);
   const [mode, setMode] = useState("planning"); // planning | edit
+  const detailRef = useRef(null);
+  const detailMealRefs = useRef({});
+  const pendingDetailScroll = useRef(null);
+  useEffect(() => {
+    if (mode !== "edit" || pendingDetailScroll.current === null) return;
+    const target = detailMealRefs.current[pendingDetailScroll.current] || detailRef.current;
+    pendingDetailScroll.current = null;
+    target?.scrollIntoView({ block: "start", behavior: "instant" });
+  }, [mode, dayIndex]);
+  const openDayDetail = (day, meal = "") => {
+    pendingDetailScroll.current = meal;
+    setDayIndex(day);
+    setMode("edit");
+  };
   const [planningDisplay, setPlanningDisplay] = useState("day"); // day | week
   const [planningDayIndex, setPlanningDayIndex] = useState(1);
   const [weekStart, setWeekStart] = useState(1);
@@ -3355,10 +3363,7 @@ export default function MenuJournalierAuto({
     return computeMicronutrientTargets({ inputs, objectiveRaw });
   }, [docData]);
 
-  const toggleMicro = (k) => {
-    if (k === "calcium" || k === "fibres") return;
-    setSelectedMicros((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]));
-  };
+
 
   const rationByMeal = useMemo(() => {
     const byMeal = {};
@@ -3661,6 +3666,21 @@ export default function MenuJournalierAuto({
       .slice(0, 2);
   }, []);
 
+  const balanceGeneratedDay = useCallback((dayMap, candidateCodes) => {
+    const candidates = {};
+    for (const meal of MEALS_ORDER) {
+      for (const slot of mealSlotsForMenu(meal, rationLinesByMealStatic[meal] || [])) {
+        const codes = [...new Set([dayMap[slot.key], ...(candidateCodes[slot.key] || [])].filter(Boolean))];
+        const grams = displayQtyForSlot(slot).gramsForCalc;
+        candidates[slot.key] = codes.map(code => ({
+          code,
+          ...computeFoodTotals({ [slot.key]: code }, slot.key, grams, []),
+        }));
+      }
+    }
+    return balanceMenuChoices(dayMap, candidates, targets?.ration);
+  }, [rationLinesByMealStatic, computeFoodTotals, targets?.ration]);
+
   // ---------- Auto generation ----------
   const generateAllDays = useCallback(() => {
     if (!ciqualOk) {
@@ -3698,7 +3718,8 @@ export default function MenuJournalierAuto({
       for (let d = 1; d <= daysCount; d++) {
         const dk = String(d);
         const daySeed = `D${d}:${seed}`;
-        const dayMap = {};
+        let dayMap = {};
+      const candidateCodes = {};
         const dayRolesLocal = { ...(nextRolesByDay[dk] || {}) };
 
         for (const mk of MEALS_ORDER) {
@@ -3714,6 +3735,7 @@ export default function MenuJournalierAuto({
             const role = mk === "dejeuner" || mk === "diner" ? dayRolesLocal[slot.key] || "accompagnement" : "";
 
             const chosen = pickCiqualForRole({
+            onCandidates: (codes) => { candidateCodes[slot.key] = codes; },
               slot,
               mealKey: mk,
               role,
@@ -3746,6 +3768,7 @@ export default function MenuJournalierAuto({
           }
         }
 
+        dayMap = balanceGeneratedDay(dayMap, candidateCodes);
         nextMappingByDay[dk] = dayMap;
         nextRolesByDay[dk] = dayRolesLocal;
       }
@@ -3791,7 +3814,7 @@ export default function MenuJournalierAuto({
     } finally {
       setGenerating(false);
     }
-  }, [assessmentRef, blocked, ciqualOk, rationItems.length, rationFingerprint, daysCount, docData, rationLinesByMealStatic, ciqualByCode, colIndex, pools, menuDisplayContext, toast]);
+  }, [assessmentRef, blocked, ciqualOk, rationItems.length, rationFingerprint, daysCount, docData, rationLinesByMealStatic, ciqualByCode, colIndex, pools, menuDisplayContext, toast, balanceGeneratedDay]);
 
   const regenerateDay = useCallback(
     (d) => {
@@ -3803,7 +3826,8 @@ export default function MenuJournalierAuto({
 
       const dk = String(d);
       const daySeed = `D${d}:${seed}`;
-      const dayMap = {};
+      let dayMap = {};
+      const candidateCodes = {};
       const dayRolesLocal = {};
 
       const lastWhite = { dejeuner: "", diner: "" };
@@ -3821,6 +3845,7 @@ export default function MenuJournalierAuto({
           const role = mk === "dejeuner" || mk === "diner" ? dayRolesLocal[slot.key] || "accompagnement" : "";
 
           const chosen = pickCiqualForRole({
+            onCandidates: (codes) => { candidateCodes[slot.key] = codes; },
             slot,
             mealKey: mk,
             role,
@@ -3853,6 +3878,7 @@ export default function MenuJournalierAuto({
         }
       }
 
+      dayMap = balanceGeneratedDay(dayMap, candidateCodes);
       setMappingByDay((prev) => ({ ...(prev || {}), [dk]: dayMap }));
       setRolesByDay((prev) => ({ ...(prev || {}), [dk]: dayRolesLocal }));
       setGenerationNonce(nextNonce);
@@ -3864,7 +3890,7 @@ export default function MenuJournalierAuto({
         isClosable: true,
       });
     },
-    [ciqualOk, docData, daysCount, rationLinesByMealStatic, ciqualByCode, colIndex, pools, menuDisplayContext, toast]
+    [ciqualOk, docData, daysCount, rationLinesByMealStatic, ciqualByCode, colIndex, pools, menuDisplayContext, toast, balanceGeneratedDay]
   );
 
   // ---------- Auto-save ----------
@@ -4044,11 +4070,7 @@ export default function MenuJournalierAuto({
   return (
     <Box p={{ base: 0, md: 5 }} maxW="1200px" mx="auto">
       {/* HEADER */}
-      <Box
-        position={mode === "edit" ? "sticky" : "static"}
-        top={mode === "edit" ? { base: "8px", md: "10px" } : undefined}
-        zIndex={mode === "edit" ? 20 : undefined}
-      >
+      <Box>
         <Card bg={panelBg} border="1px solid" borderColor={borderCol} rounded={{ base: "xl", md: "2xl" }} mb={4}>
           <CardBody px={{ base: 3, md: 5 }} py={mode === "edit" ? 3 : { base: 3, md: 5 }}>
             <VStack align="stretch" spacing={{ base: 3, md: 4 }}>
@@ -4101,8 +4123,8 @@ export default function MenuJournalierAuto({
               </HStack>
 
               {mode !== "edit" ? (
-              <SimpleGrid columns={{ base: 1, md: 3 }} spacing={{ base: 2, md: 3 }}>
-                <Box bg={subtleCard} border="1px solid" borderColor={borderCol} rounded="xl" p={{ base: 3, md: 3 }} gridColumn={{ base: "1 / -1", lg: "auto" }}>
+              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={{ base: 2, md: 3 }}>
+                <Box bg={subtleCard} border="1px solid" borderColor={borderCol} rounded="xl" p={{ base: 3, md: 3 }}>
                   <Text fontSize="xs" textTransform="uppercase" opacity={0.65} fontWeight="900">{i18n.t("auto.MenuJournalierAuto.etat", "État")}</Text>
                   <Wrap mt={2} spacing={2}>
                     <WrapItem>
@@ -4187,21 +4209,6 @@ export default function MenuJournalierAuto({
                   </Wrap>
                 </Box>
 
-                <Box bg={subtleCard} border="1px solid" borderColor={borderCol} rounded="xl" p={{ base: 3, md: 3 }}>
-                  <Text fontSize="xs" textTransform="uppercase" opacity={0.65} fontWeight="900">{i18n.t("auto.MenuJournalierAuto.controles", "Contrôles")}</Text>
-                  <Button
-                    mt={2}
-                    size="sm"
-                    w={{ base: "100%", md: "auto" }}
-                    variant="outline"
-                    leftIcon={showMicros ? <ViewOffIcon /> : <ViewIcon />}
-                    onClick={() => setShowMicros((v) => !v)}
-                  >
-                    {showMicros
-                      ? i18n.t("auto.MenuJournalierAuto.masquer_les_micros", "Masquer les micros")
-                      : i18n.t("auto.MenuJournalierAuto.afficher_les_micros", "Afficher les micros")}
-                  </Button>
-                </Box>
               </SimpleGrid>
               ) : null}
 
@@ -4220,43 +4227,13 @@ export default function MenuJournalierAuto({
                 </Alert>
               ) : null}
 
-            <Collapse in={showMicros} animateOpacity>
-              <Divider my={4} />
-              <Text fontSize="sm" opacity={0.75} mb={2}>{i18n.t("auto.MenuJournalierAuto.micros_affiches_et_suivis_sur_le_jour_courant", "Micros affichés et suivis sur le jour courant")}</Text>
-              <Wrap spacing={2}>
-                {Object.keys(MICRO_LABEL).map((k) => {
-                  const active = selectedMicros.includes(k);
-                  return (
-                    <WrapItem key={k}>
-                      <Tag
-                        cursor="pointer"
-                        variant={active ? "solid" : "subtle"}
-                        colorScheme={active ? "purple" : "gray"}
-                        onClick={() => toggleMicro(k)}
-                      >
-                        <TagLabel fontWeight="900">{MICRO_LABEL[k]}</TagLabel>
-                      </Tag>
-                    </WrapItem>
-                  );
-                })}
-              </Wrap>
-
-              <Wrap mt={3} spacing={2}>
-                {selectedMicros.map((k) => {
-                  const targetDisplay = formatMicroTargetValue(microTargets?.[k]);
-                  return (
-                    <WrapItem key={`header_${k}`}>
-                      <Tag size="sm" variant="subtle" colorScheme="purple">
-                        <TagLabel fontWeight="900">
-                          {MICRO_LABEL[k]}: {formatMicro(k, totals?.day?.micros?.[k] || 0)}
-                          {targetDisplay ? ` / ${targetDisplay}` : ""}
-                        </TagLabel>
-                      </Tag>
-                    </WrapItem>
-                  );
-                })}
-              </Wrap>
-            </Collapse>
+            <NutritionMicroPanel ready={ciqualOk} disabled={blocked} required={["calcium", "fibres"]}
+              options={Object.keys(MICRO_LABEL).map(key => ({ key, label: MICRO_LABEL[key] }))}
+              selected={selectedMicros} onSelect={setSelectedMicros}
+              onRecommend={() => setSelectedMicros(["calcium", "fibres", ...preferredMicros.filter(key => MICRO_LABEL[key] && key !== "calcium" && key !== "fibres")])}
+              detailsOpen={showMicros} onDetailsChange={setShowMicros}
+              items={selectedMicros.map(key => ({ key, label: MICRO_LABEL[key], value: formatMicro(key, totals?.day?.micros?.[key] || 0), target: microTargets?.[key] }))}
+            />
             </VStack>
           </CardBody>
         </Card>
@@ -4349,11 +4326,7 @@ export default function MenuJournalierAuto({
                     cursor="pointer"
                     overflow="hidden"
                     _hover={{ transform: "translateY(-1px)", boxShadow: "lg" }}
-                    onClick={() => {
-                      setDayIndex(d);
-                      setMode("edit");
-                      window?.scrollTo?.({ top: 0, behavior: "smooth" });
-                    }}
+                    onClick={() => openDayDetail(d)}
                   >
                     <Box
                       px={3}
@@ -4417,7 +4390,7 @@ export default function MenuJournalierAuto({
                         const summaryItems = showFullDay ? items : compactMealSummary(mk, items);
 
                         return (
-                          <Box key={mk} p={2.5} bg={planningMealBg} border="1px solid" borderColor={borderCol} rounded="lg">
+                          <Box key={mk} onClick={event => { event.stopPropagation(); openDayDetail(d, mk); }} p={2.5} bg={planningMealBg} border="1px solid" borderColor={borderCol} rounded="lg">
                             <HStack align="center" spacing={2} mb={1}>
                               <Text fontWeight="900" fontSize="sm">
                                 {getMealLabel(mk)}
@@ -4476,7 +4449,7 @@ export default function MenuJournalierAuto({
           </CardBody>
         </Card>
       ) : (
-        <Box>
+        <Box ref={detailRef} scrollMarginTop="100px">
           <Card bg={panelBg} border="1px solid" borderColor={borderCol} rounded="2xl" mb={4}>
             <CardBody py={3}>
               <HStack spacing={2} flexWrap="wrap">
@@ -4551,7 +4524,7 @@ export default function MenuJournalierAuto({
               else items.sort((a, b) => (a.sourceOrder || 999) - (b.sourceOrder || 999));
 
               return (
-                <Card key={mealKey} bg={panelBg} border="1px solid" borderColor={borderCol} rounded="2xl" overflow="hidden">
+                <Card key={mealKey} ref={node => { detailMealRefs.current[mealKey] = node; }} scrollMarginTop="100px" bg={panelBg} border="1px solid" borderColor={borderCol} rounded="2xl" overflow="hidden">
                   <Box
                     px={{ base: 4, md: 5 }}
                     py={4}

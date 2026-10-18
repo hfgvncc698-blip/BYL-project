@@ -580,4 +580,20 @@ router.put("/email-preferences", requireFirebaseAuth, async (req, res) => {
   }
 });
 
+// Last observed device settings only: this does not grant geolocation permission.
+router.put("/location-settings", requireFirebaseAuth, async (req, res) => {
+  const { preference, analyticsEnabled, browserPermission } = req.body || {};
+  if (![true, false, null].includes(preference) || typeof analyticsEnabled !== "boolean" ||
+      !["granted", "denied", "prompt", "unknown", "unsupported"].includes(browserPermission)) {
+    return res.status(400).json({ error: "invalid-location-settings" });
+  }
+  try {
+    await admin.firestore().collection("users").doc(req.auth.uid).update({
+      locationSettings: { preference, analyticsEnabled, browserPermission,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp() },
+    });
+    return res.json({ ok: true });
+  } catch { return res.status(500).json({ error: "location-settings-save-failed" }); }
+});
+
 module.exports = router;

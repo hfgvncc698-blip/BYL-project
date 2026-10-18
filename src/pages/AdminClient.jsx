@@ -55,10 +55,12 @@ import {
   MdVisibility,
 } from "react-icons/md";
 import AppLoading from "../components/ui/AppLoading";
+import AdminClientLocationSettings from "../components/admin/AdminClientLocationSettings";
 import { useAppTheme } from "../styles/appTheme";
 import { getAuthHeaders } from "../utils/authHeaders";
 import { getApiBase } from "../utils/apiBase";
 import i18n from "../i18n/index";
+import { getVisitLocationDisplay } from "../utils/geoVisitDisplay";
 
 const AdminClientEmailPanel = lazy(() => import("../components/admin/AdminClientEmailPanel"));
 
@@ -82,11 +84,7 @@ const lastVisitAfterCreation = (createdAt, ...values) => {
   return null;
 };
 
-function formatLocation(location) {
-  const city = String(location?.city || "").trim();
-  const country = String(location?.country || "").trim().toUpperCase();
-  return [city, country].filter(Boolean).join(", ") || "—";
-}
+
 
 function moneyMinor(value, currency = "eur") {
   const amount = Number(value || 0) / 100;
@@ -637,7 +635,11 @@ export default function AdminClient() {
       ),
     [analyticsVisit, clientData, latestCompletedSessionAt, userData]
   );
-  const lastVisitLocation = formatLocation(analyticsVisit || userData?.location || clientData?.location);
+  const profileLocation = userData?.location || clientData?.location;
+  const visitPlace = getVisitLocationDisplay(analyticsVisit && toMillis(analyticsVisit.lastSeenAt) === toMillis(lastVisitValue)
+    ? analyticsVisit
+    : { knownLocation: profileLocation ? { ...profileLocation, capturedAt: toMillis(profileLocation.capturedAt || profileLocation.updatedAt) } : null });
+  const lastVisitLocation = visitPlace.label;
 
   const assignPremiumProgram = async () => {
     if (!premiumProgramId) return;
@@ -1160,9 +1162,10 @@ export default function AdminClient() {
               <Text fontSize="sm" color={muted}>{i18n.t("auto.ClubDashboard.derniere_visite", "Dernière visite")}</Text>
               <Text fontWeight="700">{toLocale(lastVisitValue)}</Text>
               {lastVisitLocation !== "—" && (
-                <Text fontSize="sm" color={muted} noOfLines={1}>
-                  {lastVisitLocation}
-                </Text>
+                <Box>
+                  <Text fontSize="sm">{lastVisitLocation}</Text>
+                  <Text fontSize="xs" color={muted}>{visitPlace.detail}</Text>
+                </Box>
               )}
             </Box>
 
@@ -1249,6 +1252,7 @@ export default function AdminClient() {
               </Box>
             </SimpleGrid>
           )}
+          <AdminClientLocationSettings uid={userData?.id || linkedUserByEmail?.id || (kind === "Compte" ? id : null)} />
           {unifiedProfile?.coachIds?.length > 0 && (
             <Wrap mt={4} spacing={2}>
               {unifiedProfile.coachIds.map((coachId) => (
@@ -1303,7 +1307,7 @@ export default function AdminClient() {
                           <Th>{i18n.t("auto.ClubDashboard.derniere_visite", "Dernière visite")}</Th>
                           <Td>
                             <Text>{toLocale(lastVisitValue)}</Text>
-                            {lastVisitLocation !== "—" && <Text fontSize="xs" color={muted}>{lastVisitLocation}</Text>}
+                            {lastVisitLocation !== "—" && <Box><Text fontSize="xs">{lastVisitLocation}</Text><Text fontSize="xs" color={muted}>{visitPlace.detail}</Text></Box>}
                           </Td>
                         </Tr>
                       </Tbody>
@@ -1342,7 +1346,7 @@ export default function AdminClient() {
                           <Th>{i18n.t("auto.ClubDashboard.derniere_visite", "Dernière visite")}</Th>
                           <Td>
                             <Text>{toLocale(lastVisitValue)}</Text>
-                            {lastVisitLocation !== "—" && <Text fontSize="xs" color={muted}>{lastVisitLocation}</Text>}
+                            {lastVisitLocation !== "—" && <Box><Text fontSize="xs">{lastVisitLocation}</Text><Text fontSize="xs" color={muted}>{visitPlace.detail}</Text></Box>}
                           </Td>
                         </Tr>
                       </Tbody>

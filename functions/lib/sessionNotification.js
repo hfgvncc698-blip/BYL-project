@@ -75,6 +75,10 @@ function createSessionNotificationHandler({ db, send, isEnabled, getLanguage, ti
     const clientSnap = await clientRef.get();
     if (!clientSnap.exists) return;
     const client = clientSnap.data() || {};
+    const source=after||before;
+    const actor=clean(source.updatedBy||source.createdBy);
+    const clientAccounts=[change.clientId,client.uid,client.accountUid,client.authUid,client.linkedUserId,client.userId].filter(Boolean);
+    if(actor && clientAccounts.includes(actor))return;
     const to = clean(client.email).toLowerCase();
     if (!to || !canNotifyForClient(after || before, client) || !isEnabled(client, 'sessionScheduled')) return;
     // The account preference applies across all follow-up dossiers, including

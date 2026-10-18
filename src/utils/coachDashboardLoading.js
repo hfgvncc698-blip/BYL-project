@@ -30,3 +30,14 @@ export function createDashboardReadPool(concurrency = 12) {
     },
   };
 }
+
+// Preserve row order while removing completed rows excluded by the active filter.
+export function mergeCompletedClientRows(previous, completedIds, visible) {
+  const updates = new Map(visible.map(client => [client.id, client]));
+  const previousIds = new Set(previous.map(client => client.id));
+  return [
+    ...previous.filter(client => !completedIds.has(client.id) || updates.has(client.id))
+      .map(client => updates.get(client.id) || client),
+    ...visible.filter(client => !previousIds.has(client.id)),
+  ];
+}

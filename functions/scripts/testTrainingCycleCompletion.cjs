@@ -20,8 +20,10 @@ function fixture({ completed = 4, next = true, mode = 'cycles' } = {}) {
   assert.equal(isValidated({ isPartial: true, completedAt: 'today' }), false);
   assert.equal(isValidated({ status: 'in_progress', completionPct: 100 }), false);
   assert.equal(isValidated({ completionPct: 90 }), false);
+  assert.equal(isValidated({status:'validée',isPartial:false,pourcentageTermine:2}),true,'explicit completion counts even at 2%');
   const run = f => advanceCompletedTrainingCycle(f.db, 'c', 'p', p => p.total, () => '2026-09-14');
   const f = fixture();
+  f.rows[3]={id:3,data:()=>({status:"validée",isPartial:false,pourcentageTermine:2})};
   assert.equal(await run(f), true);
   assert.equal(f.client.currentProgramme, 'n');
   assert.equal(f.client.trainingPlan.revision, 3);

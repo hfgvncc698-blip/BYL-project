@@ -1,4 +1,5 @@
-import ClientClubSubscriptions from '../components/dashboard/ClientClubSubscriptions';
+import ClientCoachingPacks from '../components/offers/ClientCoachingPacks';
+import ClientClubSubscriptions, {useClientClubSubscriptions} from '../components/dashboard/ClientClubSubscriptions';
 import { clubText } from '../i18n/clubText';
 import { useSearchParams } from 'react-router-dom';
 import ClientMemberships from '../components/dashboard/ClientMemberships';
@@ -169,6 +170,9 @@ function SectionCard({ title, subtitle, icon, accent, children, cardBg, borderCo
 }
 
 export default function ProfilePageClient() {
+  const [hiddenFollowupIds,setHiddenFollowupIds]=useState([]);
+  const allClubSubscriptions = useClientClubSubscriptions();
+  const clubSubscriptions = {...allClubSubscriptions,groups:allClubSubscriptions.groups?.filter(g=>!hiddenFollowupIds.includes(g.clientId))};
   const [profileParams, setProfileParams] = useSearchParams();
   const tabTrackBg = useColorModeValue('blackAlpha.50', 'whiteAlpha.100');
   const { t, i18n } = useTranslation("common");
@@ -1038,10 +1042,11 @@ export default function ProfilePageClient() {
             <TabPanel px={0} pt={6}>
               <Stack spacing={6}>
                 <Box><Heading size="md">{clubText("Mon suivi")}</Heading><Text mt={2} color={mutedText}>{clubText("Retrouvez vos clubs, vos professionnels et le solde de vos packs de séances.")}</Text></Box>
-                <ClientMemberships />
-                <ClientClubSubscriptions />
-                <ClientFollowups settings />
-                <ClientSessionPacks />
+                <ClientFollowups settings compact onVisibilityChange={setHiddenFollowupIds} />
+                <ClientMemberships additionalClubs={[...new Map((clubSubscriptions.groups||[]).filter(g=>g.contracts.some(c=>['club','club_group'].includes(c.service))).map(g=>[g.clubId,{id:g.clubId,name:g.clubName}])).values()]} renderClubContent={club=><ClientClubSubscriptions data={clubSubscriptions} accessOnly clubId={club.id} embedded/>} />
+                <ClientCoachingPacks hiddenFollowupIds={hiddenFollowupIds} />
+                <ClientClubSubscriptions data={clubSubscriptions} />
+                <ClientSessionPacks hiddenFollowupIds={hiddenFollowupIds} />
               </Stack>
             </TabPanel>
           </TabPanels>

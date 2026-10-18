@@ -1,3 +1,7 @@
+import BookingCredits from './offers/BookingCredits';
+import OfferRenewalAlerts from './offers/OfferRenewalAlerts';
+import { MdOutlinePayments } from 'react-icons/md';
+import OfferPaymentPreview from './offers/OfferPaymentPreview';
 import { canMoveCoachCalendarEvent, coachCalendarMoveRequest } from "../utils/coachCalendarMove.mjs";
 import { dedupeCalendarCompletions } from "../utils/dedupeCalendarCompletions.mjs";
 import { coachSessionCalendarStatus } from "../utils/coachSessionCalendarStatus.mjs";
@@ -6,7 +10,7 @@ import { clubText } from "../i18n/clubText";
 import CoachClubEventWrapper from "./dashboard/CoachClubEventWrapper";
 import { isPendingCoachEvent, isScheduledCoachEvent, upcomingCoachSessions } from "../utils/coachUpcomingSessions.mjs";
 import CalendarValidationMark, { useCalendarClock } from "./calendar/CalendarValidationMark";
-import { coachEventAppearance, coachEventColors, calendarEventValidated, calendarEventCancelled } from "../utils/calendarEventAppearance.mjs";
+import { coachEventAppearance, coachEventDisplayState, coachEventFormStatus, coachEventColors, calendarEventValidated } from "../utils/calendarEventAppearance.mjs";
 import ClubLogo from "./dashboard/ClubLogo";
 // src/components/CoachDashboard.jsx
 import {currentCoachProgram} from '../utils/currentCoachProgram';
@@ -1532,6 +1536,30 @@ const sameProgramFamily = (a, b) => {
    if (aBase && bProg && aBase === bProg) return true;
    return false;
 };
+const dedupePlannedDashboardEvents = (events) => {
+      const plannedByUnique = new Map();
+      events.forEach((ev) => {
+        const key = [
+          ev.clientId || "",
+          ev.programmeId || "",
+          ev.baseProgrammeId || "",
+          Number.isFinite(Number(ev.sessionIndex)) ?
+Number(ev.sessionIndex) : "x",
+          ev.start?.getFullYear?.(),
+          ev.start?.getMonth?.(),
+          ev.start?.getDate?.(),
+          normalizeLooseText(ev._sessionTitle || ev.title || ""),
+        ].join("__");
+        const prev = plannedByUnique.get(key);
+        if (!prev || (ev._updatedMs || 0) >= (prev._updatedMs ||
+0)) {
+
+          plannedByUnique.set(key, ev);
+        }
+      });
+      return Array.from(plannedByUnique.values());
+};
+
 const isStrictSameSession = (plannedEvt, completedEvt) => {
    if (!plannedEvt || !completedEvt) return false;
    if (plannedEvt.clientId !== completedEvt.clientId) return false;
@@ -2126,18 +2154,30 @@ end && now < end;
   const [radarAdjustmentReviewItem, setRadarAdjustmentReviewItem] = useState(null);
   const [radarAdjustmentApplying, setRadarAdjustmentApplying] = useState(false);
   const [eventEditOpen, setEventEditOpen] = useState(false);
-  const [sessionEmailRequested, setSessionEmailRequested] = useState(false);
-  const [editEmailRequested, setEditEmailRequested] = useState(false);
+  const [sessionCreditMode,setSessionCreditMode]=useState('auto');
+  const [editCreditMode,setEditCreditMode]=useState('auto');
+  const [sessionEmailRequested, setSessionEmailRequested] = useState(true);
+  const [editEmailRequested, setEditEmailRequested] = useState(true);
   const [pendingCalendarMove, setPendingCalendarMove] = useState(null);
-  const [moveEmailRequested, setMoveEmailRequested] = useState(false);
+  const [moveEmailRequested, setMoveEmailRequested] = useState(true);
   const [calendarMoveSaving, setCalendarMoveSaving] = useState(false);
-  useEffect(() => { if (addSessionModal.isOpen) setSessionEmailRequested(false); }, [addSessionModal.isOpen]);
-  useEffect(() => { if (eventEditOpen) setEditEmailRequested(false); }, [eventEditOpen]);
+  useEffect(() => { if (addSessionModal.isOpen) {setSessionEmailRequested(true);setSessionCreditMode('auto');} }, [addSessionModal.isOpen]);
+  useEffect(() => { if (eventEditOpen) {setEditEmailRequested(true);setEditCreditMode(selectedEvent?.creditMode||'auto');} }, [eventEditOpen]);
   const [eventStatusDraft, setEventStatusDraft] = useState("à venir");
   const [eventStatusSaving, setEventStatusSaving] = useState(false);
   useEffect(() => {
-    setEventStatusDraft(selectedEvent?.status || "à venir");
+    setEventStatusDraft(coachEventFormStatus(selectedEvent || {}));
   }, [selectedEvent]);
+  const [cancellationDetail, setCancellationDetail] = useState(null);
+  useEffect(() => {
+    setCancellationDetail(null);
+    if (!eventModal.isOpen || !selectedEvent?.excuseDecision) return;
+    let active = true;
+    apiFetch('/coach-sessions/cancellation-requests?history=true').then(data => {
+      if (active) setCancellationDetail((data.requests || []).find(item => item.id === selectedEvent._sourceId) || null);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [eventModal.isOpen, selectedEvent?._sourceId, selectedEvent?.excuseDecision]);
   const [eventEditSaving, setEventEditSaving] = useState(false);
   const [eventEditDraft, setEventEditDraft] = useState({
     type: "sport",
@@ -3412,6 +3452,17 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
      const loadSeq = dashboardLoadSeqRef.current + 1;
      dashboardLoadSeqRef.current = loadSeq;
      const isLatestLoad = () => dashboardLoadSeqRef.current === loadSeq;
+     // Fetch the client roots during IndexedDB restoration instead of after it.
+       const primaryClientSnapPromise = getDocs(
+         query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(500))
+       );
+       const clientSnapsPromise = Promise.all([
+          primaryClientSnapPromise,
+          getDocs(query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(500))).catch(() => ({ docs: [] })),
+          getDocs(query(collection(db, "clients"), where("coachIds", "array-contains", effectiveCoachUid), limit(500))).catch(() => ({ docs: [] })),
+       ]);
+     // The cache can resolve later than a rejected network request.
+     void clientSnapsPromise.catch(() => {});
      let hasCachedDashboardData = false;
      let cachedDashboardDataForRefresh = null;
      if (!force) {
@@ -3457,9 +3508,6 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
          query(collection(db, "sessions"), where("createdBy", "==", effectiveCoachUid)),
          query(collection(db, "sessions"), where("ownerId", "==", effectiveCoachUid)),
        ];
-       const primaryClientSnapPromise = getDocs(
-         query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(500))
-       );
        const programmesSnapPromise = readDashboardTemplates(effectiveCoachUid, {
          request: apiFetch,
          fallback: () => getDocs(progsQ),
@@ -3485,23 +3533,12 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
            setLoadingData(false);
          }).catch(() => {});
        }
-       const clientSnapsPromise = Promise.all([
-          primaryClientSnapPromise,
-          getDocs(query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(500))).catch(() => ({ docs: [] })),
-          getDocs(query(collection(db, "clients"), where("coachIds", "array-contains", effectiveCoachUid), limit(500))).catch(() => ({ docs: [] })),
-       ]);
-       // Les centaines de séances ne doivent pas concurrencer les données qui
-       // permettent le premier affichage visible du dashboard.
-       const sessionSnapsPromise = primaryClientSnapPromise
-         .catch(() => [])
-         .then(() => Promise.all(
-           sessionQueries.map((sessionQuery) =>
-             getDocs(sessionQuery).catch((sessionQueryError) => {
-               console.warn("[coach dashboard] sessions query failed", sessionQueryError);
-               return { docs: [] };
-             })
-           )
-         ));
+       const sessionSnapsPromise = Promise.all(
+         sessionQueries.map(sessionQuery => getDocs(sessionQuery).catch(error => {
+           console.warn("[coach dashboard] sessions query failed", error);
+           return { docs: [] };
+         }))
+       );
        const clientSnaps = await clientSnapsPromise;
        const mergedClientMap = new Map();
        clientSnaps.forEach((snap) => {
@@ -3511,6 +3548,113 @@ prettyAssignedProgramName, selectedEvent, eventModal]);
        const quickClients = buildQuickDashboardClients(mergedClients);
       const quickDashboardClients = quickClients;
        markDashboardTiming("roots", "ready", { clients: quickClients.length });
+      // Calendar roots are independent of template downloads and client histories.
+      const quickCalendarPromise = (async () => {
+      let quickEvents = [];
+      try {
+        const quickSessionSnaps = await sessionSnapsPromise;
+        const quickRootSessionsById = new Map();
+        quickSessionSnaps.forEach((snap) => {
+          snap.docs.forEach((d) => {
+            quickRootSessionsById.set(d.id, { id: d.id, ...d.data() });
+          });
+        });
+        const quickClientIdSet = new Set(
+          (quickClients.length ? quickClients : dedupeClientsForDashboard(mergedClients))
+            .map((client) => client.id)
+            .filter(Boolean)
+        );
+        quickEvents = Array.from(quickRootSessionsById.values())
+          .filter((s) => quickClientIdSet.has(s.clientId))
+          .filter((s) => {
+            const visibility = s.visibility || "coach";
+            if (visibility !== "coach" && visibility !== "both") return false;
+            const sessionCoachId = s.coachId || s.createdBy || s.ownerId || "";
+            if (sessionCoachId && sessionCoachId !== effectiveCoachUid) return false;
+            return true;
+          })
+          .map((s) => {
+            const start =
+              s.start?.toDate?.() ||
+              (typeof s.start === "string" ? new Date(s.start) : null) ||
+              (typeof s.start === "number" ? new Date(s.start) : null);
+            if (!start || Number.isNaN(start.getTime())) return null;
+            const end =
+              s.end?.toDate?.() ||
+              (typeof s.end === "string" ? new Date(s.end) : null) ||
+              (typeof s.end === "number" ? new Date(s.end) : null) ||
+              new Date(start.getTime() + FORCE_SESSION_DURATION_MIN * 60000);
+            const eventType = String(s.type || s.eventType || "").trim();
+            const isNutritionAppointment = eventType === "nutrition_appointment";
+            const isClubAppointment = eventType === "club_appointment";
+            const storedCalendarStatus = coachSessionCalendarStatus(s);
+            const isRootValidated = storedCalendarStatus === "validée";
+            const titleSessionIndex = inferSessionIndexFromText(`${s.sessionTitle || ""} ${s.title || ""}`);
+            const explicitSessionIndex = getSessionIndex(s);
+            const sessionIndex = Number.isFinite(titleSessionIndex)
+              ? titleSessionIndex
+              : Number.isFinite(explicitSessionIndex)
+                ? explicitSessionIndex
+                : null;
+            const clientName = String(s.clientName || "").trim();
+            const storedSessionTitle = String(s.title || s.sessionTitle || "").trim();
+            const titlePieces = [];
+            if (clientName) titlePieces.push(clientName);
+            if (isNutritionAppointment) titlePieces.push("Nutrition");
+            else if (isClubAppointment) titlePieces.push("Club");
+            else if (s.programTitle || s.programmeName || s.programName) {
+              titlePieces.push(s.programTitle || s.programmeName || s.programName);
+            }
+            if (storedSessionTitle) titlePieces.push(storedSessionTitle);
+            return {
+              id: `planned__${s.id}`,
+              title: titlePieces.join(" - ") || t("dashboard.session_planned", "Séance planifiée"),
+              start,
+              end,
+              status: storedCalendarStatus,
+              excuseDecision: s.excuseDecision || null,
+              cancellationReason: s.cancellationReason || "",
+              excuseReviewNote: s.excuseReviewNote || "",
+              visibility: s.visibility || "coach",
+              clientId: s.clientId,
+              programmeId: s.programmeId || s.programId || s.programID || "",
+              baseProgrammeId: s.baseProgrammeId || "",
+              sessionIndex,
+              eventType: isNutritionAppointment ? "nutrition_appointment" : isClubAppointment ? "club_appointment" : "sport_session",
+              appointmentKind: s.appointmentKind || "",
+              durationMin: Number.isFinite(Number(s.durationMin)) ? Number(s.durationMin) : null,
+              clubAppointmentId: s.clubAppointmentId || "",
+              creditMode:s.creditMode||"auto",
+              _kind: "planned",
+              _clientName: clientName,
+              _programmeName: s.programTitle || s.programmeName || s.programName || "",
+              _sessionTitle: storedSessionTitle,
+              _sourceId: s.id,
+              _updatedMs: Math.max(toMillis(s.updatedAt), toMillis(s.createdAt), 0),
+              _rootCoachValidated: isRootValidated,
+              difficultyRating: getSessionDifficultyRating(s),
+              difficultyAtMs: getSessionDifficultyAtMs(s),
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) => (a.start?.getTime?.() || 0) - (b.start?.getTime?.() || 0));
+        quickEvents = dedupePlannedDashboardEvents(quickEvents);
+        if (isLatestLoad()) {
+          setSessions(previous => [
+            // Keep independent club appointments and historical completions until
+            // enrichment finishes; replace root planning with the fresh response.
+            ...previous.filter(event =>
+              (event._kind !== "planned" || event.clubAppointmentId) &&
+              !quickEvents.some(fresh => fresh.id === event.id || isStrictSameSession(fresh, event))
+            ),
+            ...quickEvents,
+          ]);
+          markDashboardTiming("calendarRoots", "ready", { sessions: quickEvents.length });
+        }
+      } catch (quickCalendarError) {
+        console.warn("[coach dashboard] quick calendar hydration failed", quickCalendarError);
+      }
+      })();
       // Start every client read before waiting for the large program templates.
       const detailReadPool = createDashboardReadPool(24);
       const detailedClientsPromise = Promise.all(quickDashboardClients.map(async (client) => {
@@ -3712,94 +3856,7 @@ toMillis(a.createdAt));
          nutritionLastFollowMap: {},
          partial: true,
        });
-      let quickEvents = [];
-      try {
-        const quickSessionSnaps = await sessionSnapsPromise;
-        const quickRootSessionsById = new Map();
-        quickSessionSnaps.forEach((snap) => {
-          snap.docs.forEach((d) => {
-            quickRootSessionsById.set(d.id, { id: d.id, ...d.data() });
-          });
-        });
-        const quickClientIdSet = new Set(
-          (quickClients.length ? quickClients : dedupeClientsForDashboard(mergedClients))
-            .map((client) => client.id)
-            .filter(Boolean)
-        );
-        quickEvents = Array.from(quickRootSessionsById.values())
-          .filter((s) => quickClientIdSet.has(s.clientId))
-          .filter((s) => {
-            const visibility = s.visibility || "coach";
-            if (visibility !== "coach" && visibility !== "both") return false;
-            const sessionCoachId = s.coachId || s.createdBy || s.ownerId || "";
-            if (sessionCoachId && sessionCoachId !== effectiveCoachUid) return false;
-            return true;
-          })
-          .map((s) => {
-            const start =
-              s.start?.toDate?.() ||
-              (typeof s.start === "string" ? new Date(s.start) : null) ||
-              (typeof s.start === "number" ? new Date(s.start) : null);
-            if (!start || Number.isNaN(start.getTime())) return null;
-            const end =
-              s.end?.toDate?.() ||
-              (typeof s.end === "string" ? new Date(s.end) : null) ||
-              (typeof s.end === "number" ? new Date(s.end) : null) ||
-              new Date(start.getTime() + FORCE_SESSION_DURATION_MIN * 60000);
-            const eventType = String(s.type || s.eventType || "").trim();
-            const isNutritionAppointment = eventType === "nutrition_appointment";
-            const isClubAppointment = eventType === "club_appointment";
-            const storedCalendarStatus = coachSessionCalendarStatus(s);
-            const isRootValidated = storedCalendarStatus === "validée";
-            const titleSessionIndex = inferSessionIndexFromText(`${s.sessionTitle || ""} ${s.title || ""}`);
-            const explicitSessionIndex = getSessionIndex(s);
-            const sessionIndex = Number.isFinite(titleSessionIndex)
-              ? titleSessionIndex
-              : Number.isFinite(explicitSessionIndex)
-                ? explicitSessionIndex
-                : null;
-            const clientName = String(s.clientName || "").trim();
-            const storedSessionTitle = String(s.title || s.sessionTitle || "").trim();
-            const titlePieces = [];
-            if (clientName) titlePieces.push(clientName);
-            if (isNutritionAppointment) titlePieces.push("Nutrition");
-            else if (isClubAppointment) titlePieces.push("Club");
-            else if (s.programTitle || s.programmeName || s.programName) {
-              titlePieces.push(s.programTitle || s.programmeName || s.programName);
-            }
-            if (storedSessionTitle) titlePieces.push(storedSessionTitle);
-            return {
-              id: `planned__${s.id}`,
-              title: titlePieces.join(" - ") || t("dashboard.session_planned", "Séance planifiée"),
-              start,
-              end,
-              status: storedCalendarStatus,
-              visibility: s.visibility || "coach",
-              clientId: s.clientId,
-              programmeId: s.programmeId || s.programId || s.programID || "",
-              baseProgrammeId: s.baseProgrammeId || "",
-              sessionIndex,
-              eventType: isNutritionAppointment ? "nutrition_appointment" : isClubAppointment ? "club_appointment" : "sport_session",
-              appointmentKind: s.appointmentKind || "",
-              durationMin: Number.isFinite(Number(s.durationMin)) ? Number(s.durationMin) : null,
-              clubAppointmentId: s.clubAppointmentId || "",
-              _kind: "planned",
-              _clientName: clientName,
-              _programmeName: s.programTitle || s.programmeName || s.programName || "",
-              _sessionTitle: storedSessionTitle,
-              _sourceId: s.id,
-              _updatedMs: Math.max(toMillis(s.updatedAt), toMillis(s.createdAt), 0),
-              _rootCoachValidated: isRootValidated,
-              difficultyRating: getSessionDifficultyRating(s),
-              difficultyAtMs: getSessionDifficultyAtMs(s),
-            };
-          })
-          .filter(Boolean)
-          .sort((a, b) => (a.start?.getTime?.() || 0) - (b.start?.getTime?.() || 0));
-        if (!backgroundRefresh && isLatestLoad() && quickEvents.length) setSessions(quickEvents);
-      } catch (quickCalendarError) {
-        console.warn("[coach dashboard] quick calendar hydration failed", quickCalendarError);
-      }
+      await quickCalendarPromise;
       const detailResult = await detailedClientsPromise;
       if (!isLatestLoad()) return;
       if (detailResult.error) throw detailResult.error;
@@ -3947,6 +4004,9 @@ t("dashboard.session_planned", "Séance planifiée"),
               start,
               end,
               status: storedCalendarStatus,
+              excuseDecision: s.excuseDecision || null,
+              cancellationReason: s.cancellationReason || "",
+              excuseReviewNote: s.excuseReviewNote || "",
               visibility: s.visibility || "coach",
               clientId: s.clientId,
               programmeId: resolvedProgrammeId,
@@ -3956,6 +4016,7 @@ t("dashboard.session_planned", "Séance planifiée"),
               appointmentKind: s.appointmentKind || "",
               durationMin: Number.isFinite(Number(s.durationMin)) ? Number(s.durationMin) : null,
               clubAppointmentId: s.clubAppointmentId || "",
+              creditMode:s.creditMode||"auto",
 	              _kind: "planned",
               _clientName: clientName,
               _programmeName: programmeName || "",
@@ -4041,27 +4102,7 @@ t("dashboard.session_completed", "Séance effectuée"),
           });
         });
       });
-      const plannedByUnique = new Map();
-      plannedEventsRaw.forEach((ev) => {
-        const key = [
-          ev.clientId || "",
-          ev.programmeId || "",
-          ev.baseProgrammeId || "",
-          Number.isFinite(Number(ev.sessionIndex)) ?
-Number(ev.sessionIndex) : "x",
-          ev.start?.getFullYear?.(),
-          ev.start?.getMonth?.(),
-          ev.start?.getDate?.(),
-          normalizeLooseText(ev._sessionTitle || ev.title || ""),
-        ].join("__");
-        const prev = plannedByUnique.get(key);
-        if (!prev || (ev._updatedMs || 0) >= (prev._updatedMs ||
-0)) {
-
-          plannedByUnique.set(key, ev);
-        }
-      });
-      const plannedEvents = Array.from(plannedByUnique.values());
+      const plannedEvents = dedupePlannedDashboardEvents(plannedEventsRaw);
       let clubAppointmentEvents = [];
       const coachClubId = effectiveClubId;
       if (coachClubId && effectiveCoachUid) {
@@ -4679,6 +4720,7 @@ effectiveCoachUid, dashboardPerfFresh, dashboardPerfEnabled, markDashboardTiming
                 body: JSON.stringify({
                   ...requestPayload,
                   notifyClient: sessionEmailRequested,
+                  creditMode:sessionCreditMode,
                   startDateTime: recurrenceDate.toISOString(),
                   recurrenceGroupId,
                   recurrenceFrequency: newSession.recurrence?.frequency || "none",
@@ -4758,7 +4800,7 @@ effectiveCoachUid, dashboardPerfFresh, dashboardPerfEnabled, markDashboardTiming
                 "dashboard.add_session_errors.timeout_description",
                 "Le serveur n’a pas répondu à temps. Réessayez : la protection anti-doublon évitera une double séance."
               )
-            : t(
+            : error?.data?.error && error.data.error!=="session-create-failed" ? error.data.error : t(
                 "dashboard.add_session_errors.save_description",
                 "La séance n’a pas été enregistrée. Vérifiez votre connexion puis réessayez."
               ),
@@ -4872,6 +4914,7 @@ selectedEvent.id.replace("planned__", "");
 
     let rootPayload = {
       noNotify: !editEmailRequested,
+      updatedBy: user.uid,
       clientId: nextClient.id,
       clientDocId: nextClient.id,
       userId: nextClient.accountUid || nextClient.linkedUserId || nextClient.uid || "",
@@ -4961,6 +5004,9 @@ selectedEvent.id.replace("planned__", "");
 
     setEventEditSaving(true);
     try {
+      const savePromise = !effectiveClubId
+        ? apiFetch(`/coach-sessions/${sourceId}/edit`,{method:'PATCH',body:JSON.stringify({...rootPayload,start:start.toISOString(),end:end.toISOString(),notifyClient:editEmailRequested,creditMode:editCreditMode,updatedAt:undefined})})
+        : (async()=>{
       const calendarWritePromise = previousClientId && previousClientId !== nextClient.id
         ? (async () => {
             try {
@@ -4980,11 +5026,12 @@ selectedEvent.id.replace("planned__", "");
         }).catch((clubAppointmentError) => {
           console.warn("[club appointments] edit sync failed", clubAppointmentError);
         });
-      const savePromise = Promise.all([
+      return Promise.all([
         updateDoc(doc(db, "sessions", sourceId), rootPayload),
         calendarWritePromise,
         clubSyncPromise,
       ]);
+      })();
       const saveAck = await Promise.race([
         savePromise.then(() => ({ confirmed: true })).catch((error) => ({ error })),
         new Promise((resolve) => window.setTimeout(() => resolve({ pending: true }), 1800)),
@@ -4995,6 +5042,7 @@ selectedEvent.id.replace("planned__", "");
           ? {
               ...prev,
               clientId: nextClient.id,
+              creditMode:editCreditMode,
               _clientName: getClientFullName(nextClient),
               programmeId: rootPayload.programmeId || "",
               sessionIndex: rootPayload.sessionIndex ?? null,
@@ -5016,6 +5064,7 @@ selectedEvent.id.replace("planned__", "");
           ? {
               ...event,
               clientId: nextClient.id,
+              creditMode:editCreditMode,
               _clientName: getClientFullName(nextClient),
               programmeId: rootPayload.programmeId || "",
               sessionIndex: rootPayload.sessionIndex ?? null,
@@ -5064,7 +5113,7 @@ selectedEvent.id.replace("planned__", "");
       console.error("[calendar] edit failed", error);
       notify(toast, "saveError", {
         title: "Modification impossible",
-        description: "L'évènement n'a pas pu être modifié.",
+        description: error.data?.error || "L'évènement n'a pas pu être modifié.",
       });
     } finally {
       setEventEditSaving(false);
@@ -5090,6 +5139,11 @@ selectedEvent.id.replace("planned__", "");
        }
        eventModal.onClose();
        refreshDashboardData();
+       return;
+     }
+     if(!effectiveClubId){
+       try{await apiFetch(`/coach-sessions/${sourceId}/cancel`,{method:'PATCH',body:JSON.stringify({notifyClient:true})});eventModal.onClose();refreshDashboardData();}
+       catch(e){notify(toast,'saveError',{title:'Annulation impossible',description:e.data?.error||'Réessayez.'});}
        return;
      }
      await deleteDoc(doc(db, "sessions", sourceId));
@@ -5447,14 +5501,13 @@ modeValue("rgba(255,255,255,0.95)",
            route: "/clients?view=nutrition",
         },
         {
-           label: t("dashboard.stats_nutrition_to_finalize", "Suivis à finaliser"),
-           value: nutritionDashboardStats.drafts,
-           hint: t("dashboard.stats_nutrition_total_hint", "{{count}} suivi(s) nutrition", {
-             count: nutritionDashboardStats.assessments,
-           }),
-           icon: MdOutlineNoteAlt,
-           accent: nutritionDashboardStats.drafts > 0 ? warningOrange : activeGreen,
-           route: "/nutrition-coach",
+           label: t("nav.offers_payments", "Offres et paiements"),
+           value: null,
+           navigationArrow: true,
+           hint: t("dashboard.offers_payments_hint", "Packs, abonnements et règlements"),
+           icon: MdOutlinePayments,
+           accent: activeBlue,
+           route: "/coach/offers",
         },
       ];
     }
@@ -7096,7 +7149,9 @@ month;
         if (event?._programmeName) fullLine.push(event._programmeName);
         if (event?._sessionTitle) fullLine.push(event._sessionTitle);
         const label = compactLine.join(" - ") || fullLine.join(" - ") || event.title;
-        const visibleLabel = label;
+        const displayState = coachEventDisplayState(event);
+        const stateKey = { cancelled: 'common.cancelled', missed: 'status.missed', pending: 'status.cancellation_pending', review: 'status.to_validate' }[displayState];
+        const visibleLabel = stateKey ? `${label} · ${t(stateKey)}` : label;
         return (
            <>
              <Box minW={0} w="full" overflow="hidden" pr="18px">
@@ -7133,7 +7188,7 @@ month;
   }), [CalendarEvent, CalendarEventWrapper]);
 
   const StatTile = ({ label, value, hint, icon, accent, featured =
-false, onClick, onPointerEnter, onPointerDown, onFocus, clickable = false }) => (
+false, onClick, onPointerEnter, onPointerDown, onFocus, clickable = false, navigationArrow = false }) => (
     <Box
 
       position="relative"
@@ -7149,6 +7204,9 @@ false, onClick, onPointerEnter, onPointerDown, onFocus, clickable = false }) => 
 "80px", md: "104px" }}
       cursor={clickable ? "pointer" : "default"}
       transition="all 0.2s ease"
+      role={navigationArrow ? "link" : undefined}
+      tabIndex={navigationArrow ? 0 : undefined}
+      onKeyDown={event=>{if(navigationArrow&&event.target===event.currentTarget&&(event.key==='Enter'||event.key===' ')){event.preventDefault();onClick?.(event);}}}
       onClick={onClick}
       onPointerEnter={onPointerEnter}
       onPointerDown={onPointerDown}
@@ -7193,7 +7251,7 @@ position="relative" zIndex={1} h="100%">
             )}
           </Flex>
 
-          <Text
+          {navigationArrow ? <AppNavigationArrow label={label} onClick={event=>{event.stopPropagation();onClick?.(event);}} flexShrink={0}/> : <Text
             ml="auto"
             flexShrink={0}
             fontSize={featured ? { base: "4xl", md: "5xl" } : "24px"}
@@ -7204,7 +7262,7 @@ position="relative" zIndex={1} h="100%">
             textAlign="right"
           >
             {value}
-          </Text>
+          </Text>}
       </HStack>
     </Box>
   );
@@ -7412,26 +7470,21 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
       onFocus={() => titleRoute && warmDashboardDestination(titleRoute)}
       onClick={() => titleRoute && navigate(withAdminCoach(titleRoute))}
       onKeyDown={(event) => {
-        if (titleRoute && (event.key === "Enter" || event.key === " ")) {
+        if (event.target === event.currentTarget && titleRoute && (event.key === "Enter" || event.key === " ")) {
           event.preventDefault();
           navigate(withAdminCoach(titleRoute));
         }
       }}
     >
       {titleRoute ? (
-        <Flex
-          aria-hidden="true"
+        <AppNavigationArrow
+          label={title}
+          onClick={event=>{event.stopPropagation();navigate(withAdminCoach(titleRoute));}}
           position="absolute"
-          top={{ base: 3, md: 3.5 }}
-          right={{ base: 3, md: 3.5 }}
+          top={{base:3,md:3.5}}
+          right={{base:3,md:3.5}}
           zIndex={2}
-          w="32px"
-          h="32px"
-          align="center"
-          justify="center"
-        >
-          <ChevronRightIcon boxSize="18px" />
-        </Flex>
+        />
       ) : null}
       <Flex direction="column" h="100%">
         <HStack align="center" spacing={3} pr={titleRoute ? 6 : 0}>
@@ -7633,6 +7686,7 @@ spacing={2} mb={summaryLayout ? 2.5 : featured ? 3.5 : 3}>
         disableHover
         {...props}
       >
+        <OfferPaymentPreview uid={effectiveCoachUid} compact/>{!effectiveClubId&&<OfferRenewalAlerts uid={effectiveCoachUid}/>}
         {detailed ? (
           <VStack align="stretch" spacing={3} h="full" minH={0} overflow="hidden">
             <Box minH={0}>
@@ -8567,6 +8621,7 @@ noOfLines={2}>
             >
                <StatTile
                   label={s.label}
+                  navigationArrow={s.navigationArrow}
                   value={s.value}
                   hint={s.hint}
                   icon={s.icon}
@@ -8656,6 +8711,7 @@ noOfLines={2}>
                 >
                   <StatTile
                     label={stat.label}
+                    navigationArrow={stat.navigationArrow}
                     value={stat.value}
                     hint={stat.hint}
                     icon={stat.icon}
@@ -10364,7 +10420,12 @@ alignItems="stretch">
 	                    const isPastUnvalidated = !isDone && !isMissed && endMs > 0 && endMs <= Date.now();
 	                    const rating = normRating(event.difficultyRating);
 	                    const eventTone = getCalendarEventColor(event);
-	                    const statusMeta = calendarEventCancelled(event)
+	                    const displayState = coachEventDisplayState(event);
+                    const statusMeta = displayState === 'pending'
+                          ? { label: t('status.cancellation_pending'), colorScheme: 'orange', tone: eventTone }
+                          : displayState === 'missed'
+                          ? { label: t('status.missed'), colorScheme: 'red', tone: eventTone }
+                          : displayState === 'cancelled' 
                           ? { label: t("common.cancelled", "Annulée"), colorScheme: "gray", tone: eventTone }
                           : isDone
 	                      ? { label: t("status.validated", "Validée"), colorScheme: rating ? ratingColorScheme(rating) : "green", tone: eventTone }
@@ -10619,7 +10680,7 @@ modeValue("rgba(59,130,246,0.06)",
 
                   startAccessor="start"
                   endAccessor="end"
-                  tooltipAccessor={() => null}
+                  tooltipAccessor={event => `${event.title} · ${t(({ cancelled: 'common.cancelled', missed: 'status.missed', pending: 'status.cancellation_pending', review: 'status.to_validate', validated: 'status.validated', upcoming: 'status.upcoming' })[coachEventDisplayState(event)])}`}
                   components={calendarComponents}
 	                  eventPropGetter={(evt) => {
 	                    const bg = getCalendarEventColor(evt);
@@ -10637,8 +10698,8 @@ modeValue("rgba(59,130,246,0.06)",
 	                       setSelectedEvent(evt);
 	                       eventModal.onOpen();
 	                    }}
-	                      onEventDrop={isTouchDevice() ? undefined : move => { setMoveEmailRequested(false); setPendingCalendarMove(move); }}
-	                      onEventResize={isTouchDevice() ? undefined : move => { setMoveEmailRequested(false); setPendingCalendarMove(move); }}
+	                      onEventDrop={isTouchDevice() ? undefined : move => { setMoveEmailRequested(true); setPendingCalendarMove(move); }}
+	                      onEventResize={isTouchDevice() ? undefined : move => { setMoveEmailRequested(true); setPendingCalendarMove(move); }}
 	                      resizable={!isTouchDevice()}
 	                      resizableAccessor={event => !isTouchDevice() && canMoveCoachCalendarEvent(event, effectiveCoachUid)}
                       draggableAccessor={(event) =>
@@ -12080,6 +12141,7 @@ FormLabel>
                   </Select>
 	                </FormControl>
                 )}
+             {!effectiveClubId&&<BookingCredits clientId={newSession.clientId} date={newSession.startDateTime} type={newSession.type} mode={sessionCreditMode} onChange={setSessionCreditMode}/>}
              </VStack>
            </ModalBody>
            <ModalFooter gap={4} flexWrap="wrap" justifyContent="space-between">
@@ -12119,10 +12181,15 @@ borderRadius="22px" border="1px solid" borderColor={borderColor}>
                    </Text>
                    <Text color={mutedText} fontSize="sm" mt={1}>{clubText(selectedEvent?.eventType === "nutrition_appointment" ? "Nutrition" : "Coaching individuel")}</Text>
                  </Box>
-                 <Badge borderRadius="full" flexShrink={0} colorScheme={selectedEvent?.status === "manquée" ? "red" : calendarEventValidated(selectedEvent || {}) ? "green" : "blue"}>
-                   {t(calendarEventValidated(selectedEvent || {}) ? "status.validated" : selectedEvent?.status === "manquée" ? "status.missed" : "status.upcoming")}
+                 <Badge borderRadius="full" flexShrink={0} colorScheme={({cancelled:'gray',missed:'red',pending:'orange',review:'orange',validated:'green',upcoming:'blue'})[coachEventDisplayState(selectedEvent || {})]}>
+                   {t(({cancelled:'common.cancelled',missed:'status.missed',pending:'status.cancellation_pending',review:'status.to_validate',validated:'status.validated',upcoming:'status.upcoming'})[coachEventDisplayState(selectedEvent || {})])}
                  </Badge>
                </HStack>
+               {coachEventDisplayState(selectedEvent || {}) === 'cancelled' && <Box mt={3}>
+                 {selectedEvent?.excuseDecision && <Text fontWeight="700">{t(`status.cancellation_${cancellationDetail?.decision || selectedEvent.excuseDecision}`)}</Text>}
+                 <Text fontSize="sm" mt={2} whiteSpace="pre-wrap">{t('status.cancellation_reason')}: {cancellationDetail?.reason || selectedEvent?.cancellationReason || t('status.reason_unavailable')}</Text>
+                 {(cancellationDetail?.reviewNote || selectedEvent?.excuseReviewNote) && <Text fontSize="sm" mt={2} whiteSpace="pre-wrap">{t('status.review_reason')}: {cancellationDetail?.reviewNote || selectedEvent.excuseReviewNote}</Text>}
+               </Box>}
                <SimpleGrid columns={{base:1,sm:2}} spacing={3} mt={4}>
                  {selectedEvent?._programmeName && <Box><Text fontSize="xs" color={mutedText}>{t("form.program", "Programme")}</Text><Text fontSize="sm" fontWeight="600">{selectedEvent._programmeName}</Text></Box>}
                  {selectedEvent?._sessionTitle && <Box><Text fontSize="xs" color={mutedText}>{t("form.session", "Séance")}</Text><Text fontSize="sm" fontWeight="600">{selectedEvent._sessionTitle}</Text></Box>}
@@ -12211,7 +12278,9 @@ modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")
 
               {!eventEditOpen && selectedEvent?._kind !== "completed" && <FormControl isDisabled={eventStatusSaving}>
                 <FormLabel>{t("nutritionCoach.table.status", "Statut")}</FormLabel>
-                  <Select value={eventStatusDraft} onChange={e => setEventStatusDraft(e.target.value)} borderRadius="14px">
+                  <Select isDisabled={coachEventDisplayState(selectedEvent || {}) === "cancelled"} value={eventStatusDraft} onChange={e => setEventStatusDraft(e.target.value)} borderRadius="14px">
+                    {eventStatusDraft === 'annulée' && <option value="annulée">{t('common.cancelled')}</option>}
+                    {eventStatusDraft === 'review' && <option value="review" disabled>{t('status.to_validate')}</option>}
                     <option value="à venir">{t("status.upcoming", "À venir")}</option>
                     <option value="validée">{t("status.validated", "Validée")}</option>
                     <option value="manquée">{t("status.missed", "Manquée")}</option>
@@ -12406,6 +12475,7 @@ modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")
                         onChange={(e) => setEventEditDraft((prev) => ({ ...prev, notes: e.target.value }))}
                       />
                     </FormControl>
+                    {!effectiveClubId&&<BookingCredits clientId={eventEditDraft.clientId} date={eventEditDraft.startDateTime} type={eventEditDraft.type} mode={editCreditMode} onChange={setEditCreditMode} exclude={selectedEvent?._sourceId}/>}
                     <Checkbox isChecked={editEmailRequested} onChange={e => setEditEmailRequested(e.target.checked)}>{clubText('Envoyer un e-mail au client')}</Checkbox>
                     <HStack justify="flex-end">
                       <Button variant="ghost" borderRadius="14px" isDisabled={eventEditSaving} onClick={() => setEventEditOpen(false)}>{t("exerciseCard.cancel", "Annuler")}</Button>
@@ -12430,7 +12500,7 @@ modeValue("rgba(15,23,42,0.04)", "rgba(255,255,255,0.05)")
             </Tooltip>
             <HStack spacing={2}>
               {!eventEditOpen && selectedEvent?._kind !== "completed" && (
-                  <Button flexShrink={0} isLoading={eventStatusSaving} isDisabled={eventStatusDraft === (selectedEvent?.status || "à venir")} onClick={async () => {
+                  <Button flexShrink={0} isLoading={eventStatusSaving} isDisabled={eventStatusDraft === coachEventFormStatus(selectedEvent || {}) || !["à venir", "validée", "manquée"].includes(eventStatusDraft)} onClick={async () => {
                     setEventStatusSaving(true);
                     try { await handleUpdateStatus(eventStatusDraft); }
                     catch (error) { notify(toast, "saveError", {title:t("common.error", "Erreur"), description:clubText(error.data?.error || "Enregistrement impossible.")}); }

@@ -376,6 +376,17 @@ export default function StatisticsPageCoach() {
       const load = beginPageLoad();
 
       const cacheKey = `byl:coach-stats:v1:${user.uid}:${locale}:${hasNutritionAccess ? (nutritionOnlyStats ? "nutrition-only" : "nutrition") : "sport"}`;
+        const programsCountResult = getCountFromServer(query(collection(db, "programmes"), where("createdBy", "==", user.uid), limit(500)))
+          .then(snapshot => ({ count: snapshot.data().count }), error => ({ error }));
+        // -----------------
+        // 1) Clients du coach : même périmètre que la page Clients et le dashboard
+        // -----------------
+        const clientSnapsPromise = Promise.all([
+          getDocs(query(collection(db, "clients"), where("createdBy", "==", user.uid), limit(500))),
+          getDocs(query(collection(db, "clients"), where("coachId", "==", user.uid), limit(500))).catch(() => ({ docs: [] })),
+          getDocs(query(collection(db, "clients"), where("coachIds", "array-contains", user.uid), limit(500))).catch(() => ({ docs: [] })),
+        ]);
+      void clientSnapsPromise.catch(() => {});
       const cachedEntry = forceFresh ? null : await restorePageDataCacheEntry(cacheKey, { ttlMs: COACH_STATS_CACHE_TTL_MS });
       if (!load.current()) return;
       const cached = cachedEntry?.data || null;
@@ -404,16 +415,7 @@ export default function StatisticsPageCoach() {
       try {
         const readPool = createDashboardReadPool(24);
         // Only the count is displayed here; downloading every exercise is unnecessary.
-        const programsCountResult = getCountFromServer(query(collection(db, "programmes"), where("createdBy", "==", user.uid), limit(500)))
-          .then(snapshot => ({ count: snapshot.data().count }), error => ({ error }));
-        // -----------------
-        // 1) Clients du coach : même périmètre que la page Clients et le dashboard
-        // -----------------
-        const clientSnaps = await Promise.all([
-          getDocs(query(collection(db, "clients"), where("createdBy", "==", user.uid), limit(500))),
-          getDocs(query(collection(db, "clients"), where("coachId", "==", user.uid), limit(500))).catch(() => ({ docs: [] })),
-          getDocs(query(collection(db, "clients"), where("coachIds", "array-contains", user.uid), limit(500))).catch(() => ({ docs: [] })),
-        ]);
+        const clientSnaps = await clientSnapsPromise;
         if (!load.current()) return;
         const clientsById = new Map();
         clientSnaps.forEach((snap) => {

@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const src=readFileSync(new URL('../src/utils/coachOfferSchedule.js',import.meta.url),'utf8');
+const {offerSchedule,offerExpiry}=await import(`data:text/javascript;base64,${Buffer.from(src).toString('base64')}`);
+const c={start:'2026-10-14',end:'2026-12-31',paymentDay:1,price:180,type:'recurring',prorata:true};
+assert.deepEqual(offerSchedule(c).map(r=>[r.date,r.amount]),[['2026-10-14',10452],['2026-11-01',18000],['2026-12-01',18000]]);
+assert.equal(offerSchedule({...c,prorata:false})[0].amount,18000);
+assert.equal(offerSchedule({...c,start:'2026-10-01'})[0].amount,18000);
+assert.deepEqual(offerSchedule({...c,start:'2028-01-31',end:'2028-03-31',paymentDay:31}).map(r=>r.date),['2028-01-31','2028-02-29','2028-03-31']);
+assert.equal(offerSchedule({...c,price:100},1)[0].amount,58);
+assert.equal(offerSchedule({...c,price:100},1000)[0].amount,58065);
+assert.equal(offerSchedule({...c,type:'pack'}).length,1);
+assert.equal(offerSchedule({...c,end:'2026-01-01'}).length,0);
+assert.equal(offerSchedule({...c,end:'2026-10-14'})[0].days,1);
+console.log('9 schedule checks passed');
+
+assert.equal(offerExpiry("2028-01-31",1),"2028-02-29");
+assert.equal(offerExpiry("2026-01-31",1),"2026-02-28");
+assert.equal(offerExpiry("2026-10-14",6),"2027-04-14");
+assert.equal(offerExpiry("2026-10-14",0),null);

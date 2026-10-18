@@ -52,6 +52,14 @@ async function test(name, run) { await run(); passes++; console.log(`PASS ${name
     const source = fs.readFileSync(path.join(__dirname, '../functions/index.js'), 'utf8');
     assert.match(source, /exports\.onCoachSessionScheduled = onDocumentWritten\([\s\S]*?document: "sessions\/\{sessionId\}"[\s\S]*?retry: true/);
   });
+  await test('client-authored bookings and changes never mail that client', async()=>{
+    const f=fixture({profile:{accountUid:'account'}});
+    await f.handler(f.event(null,session({createdBy:'account'}),'self-create'));
+    await f.handler(f.event(session(),session({updatedBy:'account',start:new Date(clock+172800000),end:new Date(clock+176400000)}),'self-edit'));
+    assert.equal(f.sent.length,0);
+    await f.handler(f.event(session({createdBy:'account'}),session({createdBy:'account',updatedBy:'coach',start:new Date(clock+172800000),end:new Date(clock+176400000)}),'coach-edit'));
+    assert.equal(f.sent.length,1);
+  });
   await test('planned creation sends a confirmation once on replay', async () => {
     const s = fixture(), e = s.event(null, session()); await s.handler(e); await s.handler(e);
     assert.equal(s.sent.length, 1); assert.equal(s.sent[0].subject, 'Rendez-vous confirmé');

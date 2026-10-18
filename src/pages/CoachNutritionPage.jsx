@@ -194,6 +194,23 @@ export default function CoachNutritionPage() {
     }
     const load = beginPageLoad();
     try {
+    const clientQueries = [
+      query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(500)),
+      query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(500)),
+      query(collection(db, "clients"), where("coachIds", "array-contains", effectiveCoachUid), limit(500)),
+    ];
+    const clientSnapsPromise = Promise.all(
+      clientQueries.map((clientQuery, index) =>
+        getDocs(clientQuery).catch(error => {
+          // Legacy ownership branches may be unavailable to some coaches;
+          // the primary authorized query must still succeed.
+          if (index > 0 && String(error?.code || "").includes("permission-denied")) return { docs: [] };
+          throw error;
+        })
+      )
+    );
+    void clientSnapsPromise.catch(() => {});
+
     const cachedEntry = forceFresh ? null : await restorePageDataCacheEntry(nutritionPageCacheKey, {
       ttlMs: NUTRITION_PAGE_CACHE_TTL_MS,
     });
@@ -205,21 +222,7 @@ export default function CoachNutritionPage() {
           load.cache({ assessments: cachedEntry.data.rows?.length || 0 });
 	    }
 
-    const clientQueries = [
-      query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(500)),
-      query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(500)),
-      query(collection(db, "clients"), where("coachIds", "array-contains", effectiveCoachUid), limit(500)),
-    ];
-    const clientSnaps = await Promise.all(
-      clientQueries.map((clientQuery, index) =>
-        getDocs(clientQuery).catch(error => {
-          // Legacy ownership branches may be unavailable to some coaches;
-          // the primary authorized query must still succeed.
-          if (index > 0 && String(error?.code || "").includes("permission-denied")) return { docs: [] };
-          throw error;
-        })
-      )
-    );
+    const clientSnaps = await clientSnapsPromise;
     if (!load.current()) return;
     const clientsById = new Map();
     clientSnaps.forEach((clientSnap) => {

@@ -39,13 +39,13 @@ export default function ClientCycleTimeline({profile,programs,clientId,...props}
   const muted=useColorModeValue('gray.600','gray.400');
   const activeBg=useColorModeValue('#111827','#e2e8f0');
   const activeText=useColorModeValue('white','#111827');
-  const rows=clientCycleTimeline(profile,programs);
+  const rows=clientCycleTimeline(profile,programs,{includeIndependent:true});
   const copy=cycleTimelineCopy[String(i18n.language||'fr').split('-')[0]]||cycleTimelineCopy.fr;
   const selected=rows.find(c=>c.id===selection)||rows.find(c=>c.state==='current')||rows[0];
   const currentCycle=rows.find(c=>c.state==='current');
   const stripRef=useCenteredCycle(selected?.id,JSON.stringify([clientId,rows.map(c=>c.id)]));
   useEffect(()=>{setSelection(null);setReservedHeight({card:0,results:0});},[clientId]);
-  const {records,loading,error,retry}=useJourneyRecords(clientId,selected?.program.id);
+  const {records,loading,error,retry}=useJourneyRecords(clientId,selected?.program?.id);
   const progress=journeyProgress(selected?.program,records);
   const labels=journeyLabels(i18n.language);
   const history=historyCopy[String(i18n.language||'fr').split('-')[0]]||historyCopy.fr;
@@ -63,11 +63,11 @@ export default function ClientCycleTimeline({profile,programs,clientId,...props}
       </Button>)}
     </Flex>
     <Flex align="center" justify="space-between" gap={2} wrap="wrap" pt={1}>
-      <Box flex="1" minW="120px"><Text fontSize="sm" fontWeight="semibold">{journeyName(selected.program)}</Text><Text fontSize="xs" color={muted}>{state(selected)}</Text></Box>
-      <Button size="sm" variant="outline" borderRadius="full" onClick={()=>navigate(`/clients/${clientId}/programmes/${selected.program.id}`)}>{copy[5]}</Button>
+      <Box flex="1" minW="120px"><Text fontSize="sm" fontWeight="semibold">{journeyName(selected.program)||title(selected)}</Text><Text fontSize="xs" color={muted}>{state(selected)}</Text></Box>
+      {selected.program && <Button size="sm" variant="outline" borderRadius="full" onClick={()=>navigate(`/clients/${clientId}/programmes/${selected.program.id}`)}>{copy[5]}</Button>}
     </Flex>
     <Box ref={resultsRef} overflowAnchor="none" minH={loading?`${reservedHeight.results}px`:undefined}>
-    {loading?<Text role="status" color={muted}>…</Text>:error?<Box role="alert" mt={3}><Text>{labels.error}</Text><Button size="sm" variant="outline" onClick={retry}>{labels.retry}</Button></Box>:<>
+    {!selected.program?<Text color={muted} mt={3}>{t('myPrograms.preparing','Le détail des séances sera disponible lorsque ce programme sera préparé.')}</Text>:loading?<Text role="status" color={muted}>…</Text>:error?<Box role="alert" mt={3}><Text>{labels.error}</Text><Button size="sm" variant="outline" onClick={retry}>{labels.retry}</Button></Box>:<>
       <Text fontSize="xs" color={muted} mt={1}>{labels.done} · {progress.done} / {progress.total}</Text>
       <Box borderTopWidth="1px" mt={4} pt={4}>
         <ClientWeekSessions key={selected.id} embedded clientId={clientId} program={selected.program} records={records} currentWeek={Math.floor(progress.done/Math.max(1,getProgramSessionsPerWeek(selected.program)))+1}/>

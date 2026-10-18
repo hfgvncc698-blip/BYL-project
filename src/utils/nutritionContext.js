@@ -1031,6 +1031,22 @@ export function computeMicronutrientTargets({
     cholesterol: { value: pathologyFlags.hyperchol ? 200 : 300, unit: "mg", label: "Cholestérol" },
   };
 
+  // Adult adequate intakes: EFSA DRV summary, tables 5 and 7 (2017).
+  // https://www.efsa.europa.eu/sites/default/files/assets/DRV_Summary_tables_jan_17.pdf
+  const isPregnant = objectiveProfile.isPreg1 || objectiveProfile.isPreg2 || objectiveProfile.isPreg3;
+  const adultReferences = {
+    iode: { value: isPregnant || objectiveProfile.isLact ? 200 : 150, unit: "µg", label: "Iode" },
+    selenium: { value: objectiveProfile.isLact ? 85 : 70, unit: "µg", label: "Sélénium" },
+    manganese: { value: 3, unit: "mg", label: "Manganèse" },
+    phosphore: { value: 550, unit: "mg", label: "Phosphore" },
+    cuivre: { value: isPregnant || objectiveProfile.isLact ? 1.5 : isMale ? 1.6 : 1.3, unit: "mg", label: "Cuivre" },
+  };
+  for (const [key, reference] of Object.entries(adultReferences)) {
+    targets[key] = { ...reference, requiresClinicalReview: parseAgeYears(inputs) < 18 || pathologyFlags.renal };
+  }
+  // Zinc depends on dietary phytate intake, which this assessment does not capture.
+  targets.zinc = { unit: "mg", label: "Zinc", requiresClinicalReview: true };
+
   if (objectiveProfile.isPreg1 || objectiveProfile.isPreg2 || objectiveProfile.isPreg3) {
     targets.calcium.value = 1000;
     targets.fer.value = 16;

@@ -1,0 +1,11 @@
+const express=require('express');
+const admin=require('../firebaseAdmin');
+const {requireFirebaseAuth}=require('../utils/firebaseAuth');
+const service=require('../utils/coachOffers').createCoachOffers(admin.firestore(),require('../utils/coachOfferMail').sendReminder);
+const router=express.Router();
+const route=fn=>async(req,res)=>{try{res.json(await fn(req));}catch(e){if(!e.status)console.error('[coach offers]',e);res.status(e.status||500).json({error:e.status?e.message:'Enregistrement impossible. Réessayez.'});}};
+router.get('/booking',requireFirebaseAuth,route(req=>service.booking(req.auth.uid,req.auth.token,req.query)));
+router.get('/mine',requireFirebaseAuth,route(req=>service.mine(req.auth.uid)));
+router.get('/',requireFirebaseAuth,route(req=>service.get(req.auth.uid,req.auth.token)));
+router.post('/',requireFirebaseAuth,route(req=>service.change(req.auth.uid,req.auth.token,req.body)));
+module.exports=router;

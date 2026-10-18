@@ -52,7 +52,7 @@ const fmtLocale = (d, locale = "fr-FR") =>
     : "—";
 
 /* ----------------- Helpers sessions ----------------- */
-function pickSessionTitle(s, sessionsArr) {
+function pickSessionTitle(s, sessionsArr, t) {
   const direct = s?.sessionName || s?.nomSeance || s?.title || s?.name || s?.nom || null;
   if (direct) return String(direct);
 
@@ -67,7 +67,7 @@ function pickSessionTitle(s, sessionsArr) {
     const fromArray = sessionsArr[idx]?.title || sessionsArr[idx]?.name || sessionsArr[idx]?.nom;
     if (fromArray) return String(fromArray);
   }
-  if (idx != null) return `Séance ${idx + 1}`;
+  if (idx != null) return t('client_dash.session_n',{n:idx+1});
   return null;
 }
 
@@ -114,19 +114,18 @@ const normalizeNameForCompare = (s = "") =>
     .trim()
     .toLowerCase();
 
-function buildDefaultProgramName({ objectifUI, objectif, nbSeances }, prettyGoalFn) {
+function buildDefaultProgramName({ objectifUI, objectif, nbSeances }, prettyGoalFn, t) {
   const n = Number(nbSeances) || 1;
   const goalLabel =
     (typeof prettyGoalFn === "function" && (objectifUI || objectif) ? prettyGoalFn(objectifUI || objectif) : "") ||
     capitalizeFirst(prettifyKey(objectifUI || objectif || ""));
-  if (!goalLabel) return `Programme — ${n}x/Sem`;
-  return `${goalLabel} — ${n}x/Sem`;
+  return t("myPrograms.defaultName",{goal:goalLabel||t("programs.new_program"),count:n});
 }
 
-function isLegacyAutoName(existingName, { objectifUI, objectif, nbSeances }, prettyGoalFn) {
+function isLegacyAutoName(existingName, { objectifUI, objectif, nbSeances }, prettyGoalFn, t) {
   const n = Number(nbSeances) || 1;
   const candidateNew = normalizeNameForCompare(
-    buildDefaultProgramName({ objectifUI, objectif, nbSeances: n }, prettyGoalFn)
+    buildDefaultProgramName({ objectifUI, objectif, nbSeances: n }, prettyGoalFn, t)
   );
 
   const oldA = normalizeNameForCompare(`${objectif || ""} — ${n}x/Sem`);
@@ -146,40 +145,7 @@ function isLegacyAutoName(existingName, { objectifUI, objectif, nbSeances }, pre
 }
 
 function prepareVisiblePrograms(programs) {
-  const visiblePrograms = [];
-  const premiumPurchaseIndex = new Map();
-  programs.forEach((program) => {
-    const checkoutSessionId = String(program?.stripe?.checkoutSessionId || "").trim();
-    const sourceProgrammeId = String(program?.sourceProgrammeId || "").trim();
-    const isPremiumAssigned =
-      program?.origine === "premium" ||
-      program?.source === "premium-paid" ||
-      program?.isPremiumOnly === true;
-    const duplicateKey =
-      checkoutSessionId && checkoutSessionId !== "manual"
-        ? `stripe:${checkoutSessionId}`
-        : isPremiumAssigned && sourceProgrammeId
-        ? `premium-source:${sourceProgrammeId}`
-        : null;
-
-    if (!duplicateKey) {
-      visiblePrograms.push(program);
-      return;
-    }
-
-    const existingIndex = premiumPurchaseIndex.get(duplicateKey);
-    if (existingIndex === undefined) {
-      premiumPurchaseIndex.set(duplicateKey, visiblePrograms.length);
-      visiblePrograms.push(program);
-      return;
-    }
-
-    const existing = visiblePrograms[existingIndex];
-    const existingScore = (existing._lastSessionMs || 0) + (existing._createdAtMs || 0);
-    const nextScore = (program._lastSessionMs || 0) + (program._createdAtMs || 0);
-    if (nextScore > existingScore) visiblePrograms[existingIndex] = program;
-  });
-
+  const visiblePrograms = [...programs];
   return visiblePrograms.sort((a, b) => {
     const aLast = a._lastSessionMs || 0;
     const bLast = b._lastSessionMs || 0;
@@ -195,7 +161,7 @@ function prepareVisiblePrograms(programs) {
 }
 
 /* --------------- Component --------------- */
-export default function MyPrograms() {
+export default function MyPrograms({embedded=false}) {
   const { begin: beginPageLoad, state: pageLoadState, fresh: forceFresh } = usePageLoading();
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
@@ -253,10 +219,10 @@ export default function MyPrograms() {
     const objectifUI = p.objectifUI || "";
     const nbSeances = getTotalSessionsFromProgrammeDoc(p) || p.nbSeances || 1;
 
-    const defaultName = buildDefaultProgramName({ objectifUI, objectif, nbSeances }, prettyGoal);
+    const defaultName = buildDefaultProgramName({ objectifUI, objectif, nbSeances }, prettyGoal, t);
 
     // si c’est un vieux auto-name => on remplace par nom “joli”
-    if (rawName && isLegacyAutoName(rawName, { objectifUI, objectif, nbSeances }, prettyGoal)) return defaultName;
+    if (rawName && isLegacyAutoName(rawName, { objectifUI, objectif, nbSeances }, prettyGoal, t)) return defaultName;
     if (rawName) return rawName;
 
     return defaultName || (objectifUI ? prettyGoal(objectifUI) : objectif ? prettyGoal(objectif) : t("programs.new_program"));
@@ -267,7 +233,12 @@ export default function MyPrograms() {
 
     const run = async () => {
       const load = beginPageLoad();
-      const cacheKey = `byl:my-programs:v1:${user.uid}:${user.role || "client"}:${i18n.language || "fr"}`;
+      const cacheKey = `byl:my-programs:v3:${user.uid}:${user.role || "client"}:${i18n.language || "fr"}`;
+      const clientContextPromise = user.role === "coach" ? null : Promise.all([
+        resolveClientSnapshotForUser(user, { logPrefix: "MyPrograms" }),
+        apiFetch('/clubs/my-followups'),
+      ]);
+      void clientContextPromise?.catch(() => {});
       const cachedEntry = forceFresh ? null : await restorePageDataCacheEntry(cacheKey, {
         ttlMs: MY_PROGRAMS_CACHE_TTL_MS,
       });
@@ -341,17 +312,23 @@ export default function MyPrograms() {
         });
 
         // 1) dossier client réel, en compatibilité avec les anciens chemins.
-        const clientSnap = await resolveClientSnapshotForUser(user, { logPrefix: "MyPrograms" });
+        const [clientSnap, followupData] = await clientContextPromise;
         if (!load.current()) return;
         const cId = clientSnap?.id || null;
         if (!cId) { setRows([]); setClientId(null); load.ready({ programs: 0 }); return; }
         setClientId(cId);
 
         // 2) programmes assignés
-        const assignedSnap = await getDocs(collection(db, "clients", cId, "programmes"));
+        const hidden = new Set((followupData.followups || []).filter(f=>f.hidden).map(f=>f.id));
+        const dossierIds = [...new Set([cId,...(followupData.followups || []).map(f=>f.id)])].filter(id=>!hidden.has(id));
+        const dossiers = await Promise.all(dossierIds.map(async id=>{
+          const snapshot=await getDocs(collection(db,'clients',id,'programmes'));
+          return snapshot.docs.filter(p=>p.data().status!=='draft').map(p=>({id:p.id,clientDocId:id,data:()=>({...p.data(),clientDocId:id})}));
+        }));
+        const assignedSnap = {docs:dossiers.flat()};
         if (!load.current()) return;
 
-        const baseRows = assignedSnap.docs.map((p) => {
+        const baseRows = assignedSnap.docs.filter(p=>p.data().status!=='draft').map((p) => {
           const data = p.data();
           const baseId = data.programId || p.id;
           const sessions = Array.isArray(data.sessions) ? data.sessions : [];
@@ -424,7 +401,7 @@ export default function MyPrograms() {
 
           // 3) sessionsEffectuees
           const seSnap = await getDocs(
-            collection(db, "clients", cId, "programmes", p.id, "sessionsEffectuees")
+            collection(db, "clients", p.clientDocId, "programmes", p.id, "sessionsEffectuees")
           ).catch((error) => {
             console.warn("[MyPrograms] sessionsEffectuees unavailable", p.id, error);
             return null;
@@ -459,7 +436,7 @@ export default function MyPrograms() {
               const ms = dt.getTime();
               if (ms > lastSessionMs) lastSessionMs = ms;
               if (!lastDone || dt > lastDone.date) {
-                lastDone = { date: dt, label: pickSessionTitle(s, sessions) };
+                lastDone = { date: dt, label: pickSessionTitle(s, sessions, t) };
               }
               if (ms > latestSessionMs) {
                 latestSessionMs = ms;
@@ -552,8 +529,8 @@ export default function MyPrograms() {
     }
     if (!clientId) return;
     const href = isAutoProgramme(p)
-      ? `/auto-program-preview/${clientId}/${p.id}`
-      : `/clients/${clientId}/programmes/${p.id}`;
+      ? `/auto-program-preview/${p.clientDocId||clientId}/${p.id}`
+      : `/clients/${p.clientDocId||clientId}/programmes/${p.id}`;
     navigate(href);
   };
 
@@ -574,7 +551,7 @@ export default function MyPrograms() {
       : typeof p._nextIndex === "number"
       ? p._nextIndex
       : 0;
-    navigate(`/clients/${clientId}/programmes/${p.id}/session/${idx}/play`, {
+    navigate(`/clients/${p.clientDocId||clientId}/programmes/${p.id}/session/${idx}/play`, {
       state: replay
         ? {
             exerciseIndex: 0,
@@ -659,10 +636,10 @@ export default function MyPrograms() {
   }
 
   return (
-    <Box data-tour-page="client-programs" p={{ base: 3, md: 6 }} bg={pageBg} minH="100vh" position="relative" overflow="hidden">
+    <Box data-tour-page="client-programs" p={embedded?0:{ base: 3, md: 6 }} bg={embedded?undefined:pageBg} minH={embedded?undefined:"100vh"} position="relative" overflow="hidden">
       <PageLoadingStatus state={pageLoadState} />
       <VStack maxW="1120px" mx="auto" spacing={{ base: 3.5, md: 6 }} align="stretch" position="relative" zIndex={1}>
-      <AppSurface p={{ base: 4, md: 5 }}>
+      {!embedded && (<AppSurface p={{ base: 4, md: 5 }}>
         <Flex align="flex-start" gap={3}>
           <PageBackButton />
           <AppSectionHeader
@@ -672,7 +649,7 @@ export default function MyPrograms() {
             headingAs="h1"
           />
         </Flex>
-      </AppSurface>
+      </AppSurface>)}
 
       <SimpleGrid data-tour="client-programs-summary" columns={{ base: 2, md: 4 }} spacing={{ base: 2, md: 3 }}>
         <MiniStat label={t("clientsList.table.programs", "Programmes")} value={summary.total} helper={t("auto.MyPrograms.actifs_dans_votre_espace", "actifs dans votre espace")} />
@@ -688,7 +665,7 @@ export default function MyPrograms() {
               const completed = isProgramCompleted(p);
               return (
             <Box
-              key={p.id}
+              key={`${p.clientDocId||clientId}:${p.id}`}
               p={4}
               bg={cardBg}
               borderRadius="24px"
@@ -758,7 +735,7 @@ export default function MyPrograms() {
                   borderRadius="full"
                   onClick={() => startSession(p, { replay: completed })}
                 >
-                  {completed ? "Refaire" : p._hasResumePoint ? "Reprendre" : t("client_dash.start")}
+                  {completed ? t("myPrograms.replay") : p._hasResumePoint ? t("myPrograms.resume") : t("client_dash.start")}
                 </Button>
               </HStack>
               </Box>
@@ -786,7 +763,7 @@ export default function MyPrograms() {
               {rows.map((p) => {
                 const completed = isProgramCompleted(p);
                 return (
-                <Tr key={p.id} _hover={{ bg: hoverBg }}>
+                <Tr key={`${p.clientDocId||clientId}:${p.id}`} _hover={{ bg: hoverBg }}>
                   <Td color={textColor}>{p.nomProgramme}</Td>
 
                   {user?.role !== "coach" && (
@@ -836,7 +813,7 @@ export default function MyPrograms() {
                         {t("client_dash.view_program")}
                       </Button>
                       <Button size="sm" borderRadius="full" onClick={() => startSession(p, { replay: completed })}>
-                        {completed ? "Refaire" : p._hasResumePoint ? "Reprendre" : t("client_dash.start_session")}
+                        {completed ? t("myPrograms.replay") : p._hasResumePoint ? t("myPrograms.resume") : t("client_dash.start_session")}
                       </Button>
                     </HStack>
                   </Td>

@@ -1,3 +1,4 @@
+import { hydrationReferenceText } from "../utils/nutritionHydration";
 import { buildRationMeals } from "../utils/rationMenu";
  
 // src/components/ClientNutritionSharedSection.jsx
@@ -672,6 +673,7 @@ function ClientNutritionPdfDoc({
   sections,
   rationTotals,
   rationMeals,
+  hydration,
   menuDays,
   adviceSheets,
 }) {
@@ -695,6 +697,12 @@ function ClientNutritionPdfDoc({
             <PdfText style={clientPdfStyles.date}>{dateStr}</PdfText>
           </View>
         </View>
+
+        {sections.summary && hydration ? (
+          <View style={clientPdfStyles.card} wrap={false}>
+            <PdfText style={clientPdfStyles.value}>{hydration}</PdfText>
+          </View>
+        ) : null}
 
         {sections.ration ? (
           <View>
@@ -1223,6 +1231,7 @@ export default function ClientNutritionSharedSection({
           sections={sections}
           rationTotals={rationTotals}
           rationMeals={rationMeals}
+          hydration={hydrationReferenceText(inputs?.poids, i18n)}
           menuDays={menuDays}
           adviceSheets={adviceSheets}
         />
@@ -1513,6 +1522,11 @@ export default function ClientNutritionSharedSection({
             <Text mt={1} fontWeight="900" fontSize="lg">{pathologies.length || diet.length || i18n.t("auto.ClientNutritionSharedSection.standard", "Standard")}</Text>
             <Text fontSize="sm" color={theme.mutedText}>{[...translatedDiet, ...translatedPathologies].slice(0, 3).join(", ") || i18n.t("auto.ClientNutritionSharedSection.aucune_contrainte_partagee", "Aucune contrainte partagée")}</Text>
           </Box>
+          {hydrationReferenceText(inputs?.poids, i18n) ? (
+            <Box {...tileProps} p={4} gridColumn="1 / -1">
+              <Text fontWeight="700">{hydrationReferenceText(inputs?.poids, i18n)}</Text>
+            </Box>
+          ) : null}
         </SimpleGrid>
       ) : null}
 

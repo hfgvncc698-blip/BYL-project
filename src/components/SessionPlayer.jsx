@@ -3404,7 +3404,8 @@ export default function SessionPlayer() {
         t("sessionPlayer.sessionN", "Séance {{n}}", { n: sessionIndex + 1 });
 
       const safePct = Math.max(0, Math.min(100, Number(pourcentage) || 0));
-      const isPartial = Boolean(meta.partial) && safePct < 90;
+      // Only the explicit completion flow validates a session, regardless of progress.
+      const isPartial = Boolean(meta.partial);
       const lastExerciseIndex = Number.isFinite(Number(meta.exerciseIndex))
         ? Math.max(0, Number(meta.exerciseIndex))
         : null;

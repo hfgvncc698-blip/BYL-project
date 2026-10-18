@@ -1,3 +1,5 @@
+import NutritionMicroPanel from "./NutritionMicroPanel";
+import { quickOptionsForFood, quickOptionLabel } from "../utils/rationPortions";
 import { MEALS, EXCEL_GROUPS, LOCAL_MACROS_PER100_BY_LABEL, ALCOHOL_KCAL_PER_ML, LOCAL_UNIT_GRAMS } from "../utils/foodSurveyCatalog";
  
 // src/components/RationSpontaneeExcel.jsx
@@ -6,7 +8,6 @@ import {
   Box,
   Badge,
   Button,
-  Checkbox,
   Collapse,
   Divider,
   HStack,
@@ -14,9 +15,7 @@ import {
   Input,
   Select,
   SimpleGrid,
-  Stack,
   Text,
-  Tooltip,
   VStack,
   Wrap,
   WrapItem,
@@ -254,42 +253,6 @@ const progressFromRange = (value, range) => {
   return clampPercent((num(value) / ceiling) * 100);
 };
 
-const quickOptionsForFood = (food, unit) => {
-  const name = normalize(food?.name || "");
-  const category = normalize(food?.category || "");
-
-  if (unit === "ml") return [100, 200];
-  if (unit === "unité") return [1, 2];
-  if (unit === "portion") return [0.5, 1];
-
-  if (
-    name.includes("huile") ||
-    name.includes("beurre") ||
-    name.includes("margarine") ||
-    name.includes("sucre") ||
-    name.includes("confiture") ||
-    name.includes("miel")
-  ) {
-    return [5, 10];
-  }
-
-  if (name.includes("fromage")) return [15, 30];
-  if (category.includes("legumes")) return [100, 200];
-  if (category.includes("fruits")) return [100, 150];
-  if (category.includes("vpo")) return [50, 100];
-  if (category.includes("feculents")) return [30, 100];
-  if (category.includes("produits laitiers")) return [100, 125];
-  if (category.includes("produits sucres")) return [15, 30];
-
-  return [30, 100];
-};
-
-const quickOptionLabel = (value, unit) => {
-  if (unit === "portion") return `+${round1(value)} portion`;
-  if (unit === "unité") return `+${round1(value)}`;
-  return `+${round1(value)} ${unit}`;
-};
-
 function buildRecommendedMicroKeys(context = {}) {
   const needs = context?.needs || {};
   const path = needs?.pathologyFlags || {};
@@ -521,7 +484,6 @@ export default function RationSpontaneeExcel({
   const mountedRef = useRef(false);
   const autoMicrosInitRef = useRef(false);
   const [showAllGuidance, setShowAllGuidance] = useState(false);
-  const [showMicroChooser, setShowMicroChooser] = useState(false);
 
   const nutritionTheme = useNutritionTheme();
   const panelBg = nutritionTheme.surfaceBgStrong;
@@ -708,9 +670,7 @@ export default function RationSpontaneeExcel({
     setOpenCats(next);
   };
 
-  const toggleMicro = (key) => {
-    setSelectedMicros((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
+
 
   const applyRecommendedMicros = () => {
     setSelectedMicros((prev) => {
@@ -871,10 +831,6 @@ export default function RationSpontaneeExcel({
   const completedCategoryCount = useMemo(() => {
     return Object.values(categoryStats).filter((stat) => stat.filledItems > 0).length;
   }, [categoryStats]);
-  const recommendedMicroList = useMemo(
-    () => MICRO_DEFS.filter((m) => recommendedMicroSet.has(m.key)),
-    [recommendedMicroSet]
-  );
   const microTargets = useMemo(
     () =>
       computeMicronutrientTargets({
@@ -1021,6 +977,7 @@ export default function RationSpontaneeExcel({
         const target = microTargets?.[micro.key];
         return {
           key: micro.key,
+          target,
           label: micro.label,
           value: micro.unit === "g" ? fmt1Plain(rawValue) : fmt0Plain(rawValue),
           unit: micro.unit,
@@ -1291,7 +1248,7 @@ export default function RationSpontaneeExcel({
           </Badge>
         </HStack>
 
-        <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={3}>
+        <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={3}>
           <Box borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={softBg} p={3}>
             <Text fontSize="xs" fontWeight="900" opacity={0.65} textTransform="uppercase">{i18n.t("auto.RationSpontaneeExcel.dossier", "Dossier")}</Text>
             <Text mt={1} fontWeight="900" noOfLines={1}>
@@ -1353,60 +1310,16 @@ export default function RationSpontaneeExcel({
             </Text>
           </Box>
 
-          <Box borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={softBg} p={3} minW={0}>
-            <Stack spacing={3}>
-              <Box>
-                <Text fontSize="xs" fontWeight="900" opacity={0.65} textTransform="uppercase">{i18n.t("auto.RationSpontaneeExcel.micronutriments_conseilles", "Micronutriments conseillés")}</Text>
-                <Text mt={1} fontSize="sm" opacity={0.72}>{i18n.t("auto.RationSpontaneeExcel.calcium_et_fibres_sont_toujours_suivis_au_minimum", "Calcium et fibres sont toujours suivis au minimum.")}</Text>
-              </Box>
-              <SimpleGrid columns={{ base: 1, sm: 2, lg: 1, xl: 2 }} spacing={2}>
-                <Tooltip
-                  label={i18n.t("auto.RationSpontaneeExcel.preselect_help", "Sélectionne automatiquement les micronutriments recommandés selon le bilan et le contexte clinique. Tu peux ensuite modifier la sélection.")}
-                  hasArrow
-                >
-                  <Button size="xs" variant="outline" onClick={applyRecommendedMicros} isDisabled={blocked}>
-                    {i18n.t("auto.RationSpontaneeExcel.precocher_recommandes", "Précocher les recommandés")}
-                  </Button>
-                </Tooltip>
-                <Button size="xs" variant="outline" onClick={() => setShowMicroChooser((v) => !v)}>
-                  {showMicroChooser ? "Masquer" : `Personnaliser (${selectedMicroList.length})`}
-                </Button>
-              </SimpleGrid>
-            </Stack>
-            <Wrap spacing={2} mt={3}>
-              {recommendedMicroList.map((micro) => (
-                <WrapItem key={micro.key}>
-                  <Badge
-                    colorScheme={selectedMicros?.[micro.key] ? "green" : "gray"}
-                    variant="subtle"
-                    px={2}
-                    py={1}
-                    borderRadius="full"
-                  >
-                    {micro.label}
-                  </Badge>
-                </WrapItem>
-              ))}
-            </Wrap>
-            <Collapse in={showMicroChooser} animateOpacity>
-              <Box mt={3} borderWidth="1px" borderColor={borderColor} borderRadius="lg" bg={panelBg} p={3}>
-                <Wrap spacing={3}>
-                  {MICRO_DEFS.map((m) => (
-                    <WrapItem key={m.key}>
-                      <Checkbox
-                        isChecked={!!selectedMicros?.[m.key]}
-                        onChange={() => toggleMicro(m.key)}
-                        isDisabled={blocked || m.key === "calcium" || m.key === "fibres"}
-                      >
-                        {m.label}
-                      </Checkbox>
-                    </WrapItem>
-                  ))}
-                </Wrap>
-              </Box>
-            </Collapse>
-          </Box>
         </SimpleGrid>
+        <Box mt={3}>
+          <NutritionMicroPanel ready={ciqualOk} disabled={blocked} required={["calcium", "fibres"]}
+            options={MICRO_DEFS.map(micro => ({ key: micro.key, label: micro.label }))}
+            selected={selectedMicroList.map(micro => micro.key)}
+            onSelect={keys => setSelectedMicros(Object.fromEntries(keys.map(key => [key, true])))}
+            onRecommend={applyRecommendedMicros}
+            items={selectedMicroList.map(micro => ({ key: micro.key, label: micro.label, value: fmt1Plain(totals.day.micros?.[micro.key] || 0), unit: micro.unit, target: microTargets?.[micro.key] }))}
+          />
+        </Box>
 
         <Box mt={3} borderWidth="1px" borderColor={borderColor} borderRadius="xl" bg={softBg} p={3}>
           <HStack justify="space-between" align="center" gap={3} flexWrap="wrap" mb={2}>

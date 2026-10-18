@@ -1,12 +1,12 @@
+import CalendarCancellationDetails from './calendar/CalendarCancellationDetails';
 import {followupColor} from '../utils/followupColor';
 import LastPackSessionBadge from "./calendar/LastPackSessionBadge";
 import { eventPackProgress, eventLastPacks } from "../utils/lastPackSession.mjs";
 import CalendarDifficulty from "./calendar/CalendarDifficulty";
 import ClubCalendarEventPreview from "./dashboard/ClubCalendarEventPreview";
-import { ClientSessionPacks } from './dashboard/ClubSessionPacks';
 import { clubText } from '../i18n/clubText';
 import CalendarValidationMark, { useCalendarClock } from "./calendar/CalendarValidationMark";
-import { calendarEventAppearance } from "../utils/calendarEventAppearance.mjs";
+import { calendarEventAppearance, calendarEventStatusKey, coachEventFormStatus, calendarEventStatusColor } from "../utils/calendarEventAppearance.mjs";
 import ClientMemberships from "./dashboard/ClientMemberships";
 import useClientClubClasses from "./dashboard/useClientClubClasses";
 import ClubLogo from "./dashboard/ClubLogo";
@@ -85,7 +85,9 @@ import {
   createRecurrenceGroupId,
   expandRecurringDates,
 } from '../utils/calendarRecurrence';
-import CalendarRecurrenceFields from './calendar/CalendarRecurrenceFields.jsx';
+const ClientAddSessionModal = lazy(() => import('./dashboard/ClientAddSessionModal'));
+import { ClientSessionPacks } from './dashboard/ClubSessionPacks';
+const CalendarStatusSelect = lazy(() => import('./calendar/CalendarStatusSelect'));
 const ClientCancellationForm = lazy(() => import('./dashboard/ClientCancellationForm'));
 const ClientCancellationUpdates = lazy(() => import('./dashboard/ClientCancellationUpdates'));
 const ClientNutritionSharedSection = React.lazy(() => import("./ClientNutritionSharedSection.jsx"));
@@ -1266,7 +1268,7 @@ export default function ClientDashboard({ adminPreview = false }) {
               managedByCoach: Boolean(s.coachUid || s.coachId || s.clubId || s.clubAppointmentId || s.coachIds?.length || [s.createdBy, s.ownerUid, s.assignedBy].some(uid => uid && uid !== user.uid)),
               coachUid: s.coachUid || s.coachId,
               coachName: s.coachName,
-              clubId:s.clubId,clubAppointmentId:s.clubAppointmentId,
+              clubId:s.clubId,clubAppointmentId:s.clubAppointmentId,excuseDecision:s.excuseDecision, cancellationReason:s.cancellationReason, excuseReviewNote:s.excuseReviewNote, excuseReviewedAt:s.excuseReviewedAt,
               visibility: s.visibility || 'client',
               dedupeKey: s.dedupeKey,
               programmeId: s.programmeId || s.programId || s.programID || null,
@@ -1698,6 +1700,8 @@ export default function ClientDashboard({ adminPreview = false }) {
                 end: Timestamp.fromDate(endDate),
                 createdAt: Timestamp.now(),
                 visibility: 'client',
+                noNotify: true,
+                updatedBy: user.uid,
                 status: 'validée',
                 source: 'auto-complete',
                 dedupeKey: canonicalDedupeKey,
@@ -1716,6 +1720,8 @@ export default function ClientDashboard({ adminPreview = false }) {
                     end: endDate,
                     status: 'validée',
                     visibility: 'client',
+                noNotify: true,
+                updatedBy: user.uid,
                     programmeId: p.id,
                     sessionIndex: idx,
                     dedupeKey: canonicalDedupeKey,
@@ -1983,6 +1989,8 @@ export default function ClientDashboard({ adminPreview = false }) {
             end: Timestamp.fromDate(end),
             createdAt: Timestamp.now(),
             visibility: 'client',
+                noNotify: true,
+                updatedBy: user.uid,
             status: 'à venir',
             ...(recurrenceGroupId
               ? {
@@ -2035,7 +2043,7 @@ export default function ClientDashboard({ adminPreview = false }) {
   };
   const saveEventStatus = () => {
     if (!canEditPersonalEvent(selectedEvent)) return;
-    return saveCalendarChange(() => updateDoc(doc(db, 'sessions', selectedEvent.id), { status: eventStatus }));
+    return saveCalendarChange(() => updateDoc(doc(db, 'sessions', selectedEvent.id), { status: eventStatus, noNotify:true, updatedBy:user.uid }));
   };
   const handleDelete = () => {
     if (!canEditPersonalEvent(selectedEvent)) return;
@@ -2064,7 +2072,7 @@ export default function ClientDashboard({ adminPreview = false }) {
     if (!Number.isFinite(start.getTime()) || rescheduleDuration <= 0) return;
     const end = new Date(start.getTime() + rescheduleDuration);
     return saveCalendarChange(() => updateDoc(doc(db, 'sessions', selectedEvent.id), {
-      start: Timestamp.fromDate(start), end: Timestamp.fromDate(end)
+      start: Timestamp.fromDate(start), end: Timestamp.fromDate(end), noNotify:true, updatedBy:user.uid
     }));
   };
 
@@ -2130,15 +2138,15 @@ export default function ClientDashboard({ adminPreview = false }) {
   useEffect(()=>{setCancelExpanded(false);},[selectedEvent?.id,isEventOpen]);
   const [cancelPolicy,setCancelPolicy]=useState(null),[cancelReason,setCancelReason]=useState(''),[cancelBusy,setCancelBusy]=useState(false),[cancelError,setCancelError]=useState('');
   useEffect(()=>{let live=true;setCancelPolicy(null);setCancelReason('');setCancelError('');
-    if(selectedEvent?.clubId&&selectedEvent?.clubAppointmentId) apiFetch(`/coach-sessions/${selectedEvent.id}/cancellation-policy`).then(p=>{if(live)setCancelPolicy(p);}).catch(e=>{if(live)setCancelError(clubText(e.data?.error||'Chargement impossible.'));});
+    if(selectedEvent?.managedByCoach) apiFetch(`/coach-sessions/${selectedEvent.id}/cancellation-policy`).then(p=>{if(live)setCancelPolicy(p);}).catch(e=>{if(live)setCancelError(clubText(e.data?.error||'Chargement impossible.'));});
     return()=>{live=false;};
   },[selectedEvent?.id]);
-  const cancelAssignedSession=async()=>{setCancelBusy(true);setCancelError('');try{await apiFetch(`/coach-sessions/${selectedEvent.id}/client-cancel`,{method:'POST',body:JSON.stringify({reason:cancelReason})});setEventOpen(false);window.dispatchEvent(new Event('client-cancellation-updated'));toast({status:'info',title:clubText('Demande transmise'),description:clubText('Votre motif a été envoyé au club et au coach. Il est en attente de validation. Vous retrouverez leur décision dans Mes annulations.'),duration:10000,isClosable:true});}catch(e){setCancelError(clubText(e.data?.error||'Annulation impossible.'));}finally{setCancelBusy(false);}};
-  const openPlanningEvent = event => { if (event._clubClass) clubClasses.open(event); else { setSelectedEvent(event); setEventStatus(event.status || 'à venir'); setEventOpen(true); } };
+  const cancelAssignedSession=async()=>{setCancelBusy(true);setCancelError('');try{await apiFetch(`/coach-sessions/${selectedEvent.id}/client-cancel`,{method:'POST',body:JSON.stringify({reason:cancelReason})});setEventOpen(false);window.dispatchEvent(new Event('client-cancellation-updated'));toast({status:'info',title:clubText('Demande transmise'),description:cancelPolicy?.pro?(cancelPolicy.canCancel?'Séance annulée. Le crédit est libéré.':'Justification transmise au coach. Le crédit sera libéré si elle est acceptée.'):clubText('Votre motif a été envoyé au club et au coach. Il est en attente de validation. Vous retrouverez leur décision dans Mes annulations.'),duration:10000,isClosable:true});}catch(e){setCancelError(clubText(e.data?.error||'Annulation impossible.'));}finally{setCancelBusy(false);}};
+  const openPlanningEvent = event => { if (event._clubClass) clubClasses.open(event); else { setSelectedEvent(event); setEventStatus(coachEventFormStatus(event)); setEventOpen(true); } };
 
   const openPlanningEventRef = React.useRef(openPlanningEvent);
   openPlanningEventRef.current = openPlanningEvent;
-  const ClientEventWrapper = useCallback(props => <ClubCalendarEventPreview {...props} clients={[]}
+  const ClientEventWrapper = useCallback(props => <ClubCalendarEventPreview {...props} audience="client" clients={[]}
     onSelect={event => openPlanningEventRef.current(event)} actionLabel={clubText('Voir la séance')}
     details={<Text fontSize="sm">{props.event._clubClass ? clubText('Cours collectifs') : clubText('Séance')}</Text>} />, [t]);
 
@@ -3436,7 +3444,7 @@ export default function ClientDashboard({ adminPreview = false }) {
       </Box>
 
       {!previewMode && <Suspense fallback={null}><ClientCancellationUpdates key={`cancellations:${authenticatedUser?.uid}`}/></Suspense>}
-      {!previewMode && <><ClientSessionPacks compact showLink={false} key={`packs:${authenticatedUser?.uid}`} onGroups={setSessionPackGroups} /></>}
+      {!previewMode && <ClientSessionPacks compact showLink={false} key={`packs:${authenticatedUser?.uid}`} onGroups={setSessionPackGroups} />}
       {user && hasNutritionFollowUp ? (
         <React.Suspense fallback={<Box minH="220px" />}>
           <ClientNutritionSharedSection
@@ -3888,6 +3896,7 @@ export default function ClientDashboard({ adminPreview = false }) {
                 <HStack justify="space-between" spacing={3} pr="16px">
                   <Box minW={0}>
                     <Text fontWeight="850" noOfLines={1}>{session.title}</Text>
+                    <Badge mt={1}>{t(calendarEventStatusKey(session))}</Badge>
                     {!!session.lastSessionPacks?.length && <Box mt={2}><LastPackSessionBadge/></Box>}
                     <Text mt={1} fontSize="sm" color={mutedText}>
                       {session._start.toLocaleString(i18n.language || 'fr', {
@@ -4529,66 +4538,7 @@ export default function ClientDashboard({ adminPreview = false }) {
       </Box>
 
       {/* ADD SESSION */}
-      <Modal isOpen={isAddOpen} onClose={()=>setAddOpen(false)} isCentered>
-        <ModalOverlay/>
-        <ModalContent>
-          <ModalHeader>{t('calendar.add_session')}</ModalHeader>
-          <ModalCloseButton/>
-          <ModalBody>
-            <VStack spacing={4}>
-              <FormControl isRequired>
-                <FormLabel>{t('calendar.program')}</FormLabel>
-                <Select
-                  placeholder={t('calendar.select_program')}
-                  value={newSession.programmeId}
-                  onChange={e=>setNewSession(prev=>({...prev,programmeId:e.target.value,sessionIndex:null}))}
-                >
-                  {programmes.map(p=><option key={p.id} value={p.id}>{getProgrammeDisplayName(p)}</option>)}
-                </Select>
-              </FormControl>
-              {newSession.programmeId && (
-                <FormControl isRequired>
-                  <FormLabel>{t('calendar.session')}</FormLabel>
-                  <Select
-                    placeholder={t('calendar.select_session')}
-                    value={newSession.sessionIndex ?? ''}
-                    onChange={e=>setNewSession(prev=>({...prev,sessionIndex: Number(e.target.value)}))}
-                  >
-                    {programmes.find(p=>p.id===newSession.programmeId)?.sessions?.map((s,i)=>
-                      <option key={i} value={i}>{s.title || s.name || t('client_dash.session_n', { n: i+1 })}</option>
-                    )}
-                  </Select>
-                </FormControl>
-              )}
-              <FormControl isRequired>
-                <FormLabel>{t('calendar.start_datetime')}</FormLabel>
-                <Input
-                  type="datetime-local"
-                  value={newSession.startDateTime}
-                  onChange={e=>setNewSession(prev=>({...prev,startDateTime:e.target.value}))}
-                />
-              </FormControl>
-              <CalendarRecurrenceFields
-                value={newSession.recurrence}
-                onChange={(recurrence) => setNewSession((prev) => ({ ...prev, recurrence }))}
-                startDateTime={newSession.startDateTime}
-                t={t}
-              />
-            </VStack>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={()=>setAddOpen(false)}>{t('actions.close')}</Button>
-            <Button
-              onClick={handleAddSession}
-              isLoading={sessionCreateSaving}
-              loadingText={t('common.saving', 'Enregistrement…')}
-              isDisabled={expandRecurringDates(newSession.startDateTime, newSession.recurrence).length === 0}
-            >
-              {t('actions.add')}
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      {isAddOpen && <Suspense fallback={null}><ClientAddSessionModal onClose={()=>setAddOpen(false)} newSession={newSession} setNewSession={setNewSession} programmes={programmes} getProgrammeDisplayName={getProgrammeDisplayName} handleAddSession={handleAddSession} sessionCreateSaving={sessionCreateSaving}/></Suspense>}
 
       {clubClasses.modal}
       {/* EVENT ACTIONS */}
@@ -4599,11 +4549,12 @@ export default function ClientDashboard({ adminPreview = false }) {
           <ModalBody>
             <Box borderWidth="1px" borderRadius="xl" p={4} mb={4}>
               <HStack justify="space-between"><Text fontWeight="bold">{selectedEvent?.title}</Text>
-                <Badge>{t(({ 'validée': 'status.validated', 'manquée': 'status.missed', 'annulée':'common.cancelled', 'cancelled':'common.cancelled' })[selectedEvent?.status] || 'status.upcoming')}</Badge></HStack>
+                <Badge colorScheme={calendarEventStatusColor(selectedEvent || {})}>{t(calendarEventStatusKey(selectedEvent || {}))}</Badge></HStack>
               <Text mt={2}>{selectedEvent?.start?.toLocaleDateString(calendarCulture)} · {selectedEvent?.start?.toLocaleTimeString(calendarCulture, {hour:'2-digit', minute:'2-digit'})} – {selectedEvent?.end?.toLocaleTimeString(calendarCulture, {hour:'2-digit', minute:'2-digit'})}</Text>
               {selectedEvent?.coachName && <Text mt={1}>{selectedEvent.coachName}</Text>}
               {selectedEvent?.packProgress && <Text mt={2} fontWeight="bold">{t("calendar.pack_session", {number:selectedEvent.packProgress.number,total:selectedEvent.packProgress.total})}</Text>}
               <CalendarDifficulty rating={selectedEvent?.difficultyRating}/>
+              <CalendarCancellationDetails event={selectedEvent || {}} audience="client"/>
             </Box>
             {selectedEvent?.programmeId && <SimpleGrid columns={2} spacing={3} mb={3}>
               <Button variant="outline" bg="white" color="gray.900" _hover={{bg:'gray.50'}} whiteSpace="normal" onClick={() => navigateToCalendarSession(selectedEvent)}>{clubText('Voir la séance')}</Button>
@@ -4612,15 +4563,13 @@ export default function ClientDashboard({ adminPreview = false }) {
 
             {(selectedEvent?.excuseDecision || (cancelPolicy && cancelExpanded)) && <Suspense fallback={null}><ClientCancellationForm decision={selectedEvent?.excuseDecision} cancelPolicy={cancelPolicy} cancelExpanded={cancelExpanded} calendarCulture={calendarCulture} cancelReason={cancelReason} setCancelReason={setCancelReason} cancelBusy={cancelBusy} cancelAssignedSession={cancelAssignedSession}/></Suspense>}{cancelError&&<Text role="alert" color="red.500">{cancelError}</Text>}
             {canEditPersonalEvent(selectedEvent) && <HStack align="end" spacing={3}>
-              <FormControl><FormLabel>{clubText('Statut')}</FormLabel><Select value={eventStatus} onChange={e => setEventStatus(e.target.value)}>
-                <option value="à venir">{t('status.upcoming')}</option><option value="validée">{t('status.validated')}</option><option value="manquée">{t('status.missed')}</option>
-              </Select></FormControl>
+              <FormControl><FormLabel>{clubText('Statut')}</FormLabel><Suspense fallback={null}><CalendarStatusSelect event={selectedEvent} value={eventStatus} onChange={setEventStatus}/></Suspense></FormControl>
               <Button variant="outline" onClick={openReschedule} isDisabled={!canMovePersonalEvent(selectedEvent)}>{t('calendar.move')}</Button>
             </HStack>}
           </ModalBody>
           <ModalFooter justifyContent="space-between">
             {cancelPolicy ? <Checkbox isChecked={cancelExpanded} isDisabled={cancelBusy} onChange={e=>setCancelExpanded(e.target.checked)} aria-controls="client-cancellation-form">{clubText("Annuler la séance")}</Checkbox> : canEditPersonalEvent(selectedEvent) ? <IconButton icon={<DeleteIcon/>} aria-label={t('actions.delete')} variant="ghost" onClick={handleDelete} isDisabled={calendarSaving}/> : <Box/>}
-            <HStack>{canEditPersonalEvent(selectedEvent) && <Button onClick={saveEventStatus} isLoading={calendarSaving} isDisabled={eventStatus === selectedEvent?.status}>{clubText('Enregistrer')}</Button>}
+            <HStack>{canEditPersonalEvent(selectedEvent) && <Button onClick={saveEventStatus} isLoading={calendarSaving} isDisabled={eventStatus === coachEventFormStatus(selectedEvent || {}) || !["à venir","validée","manquée"].includes(eventStatus)}>{clubText('Enregistrer')}</Button>}
               <Button variant="ghost" onClick={()=>setEventOpen(false)}>{t('actions.close')}</Button></HStack>
           </ModalFooter>
         </ModalContent>

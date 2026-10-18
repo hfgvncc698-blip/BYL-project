@@ -52,6 +52,8 @@ function eventFor(event, clientId) {
   return event.clientId === clientId || event.participantIds?.includes(clientId) || event.waitlistIds?.includes(clientId);
 }
 function collectiveAttendance(event, clientId, report = {}, now = Date.now()) {
+  if (report.excuse && report.excuseDecision === 'rejected') return 'absent';
+  if (report.excuse && report.excuseDecision === 'accepted') return 'excused';
   if (event.type !== 'group') return report.attendance || 'unknown';
   const start = millis(event.startsAt);
   const status = clubAppointmentStatus(event, now);
@@ -157,8 +159,10 @@ function createClubClientAdministration(db) {
         const clubSettings=(await tx.get(db.collection('clubs').doc(s.clubId))).data()?.groupRegistration||{};
         const deadline=millis(event.data().startsAt)-(Number(clubSettings.cancelMinutes)||0)*60000;
         if(input.attendance==='excused'&&Date.now()>=deadline&&previous.data()?.attendance!=='excused')error('Après la limite d’annulation, la séance reste décomptée.');
+        const decision = previous.data()?.excuse ? (input.excuseDecision || previous.data().excuseDecision) : '';
+        if ((decision === 'rejected' && input.attendance !== 'absent') || (decision === 'accepted' && input.attendance !== 'excused')) error('La présence doit correspondre à la décision sur la justification.');
         const attendanceOverride = event.data().type === 'group' ? input.attendance : null;
-        const attendance = event.data().type === 'group' ? collectiveAttendance(event.data(), clientId, {...previous.data(),attendanceOverride}) : input.attendance;
+        const attendance = event.data().type === 'group' ? collectiveAttendance(event.data(), clientId, {...previous.data(),excuseDecision:decision,attendanceOverride}) : input.attendance;
         const excuseDecision = previous.data()?.excuse ? (attendance === 'excused' ? 'accepted' : input.excuseDecision === 'rejected' && attendance === 'absent' ? 'rejected' : previous.data().excuseDecision || 'pending') : '';
         tx.set(ref, { ...previous.data(), excuseDecision, ...(attendanceOverride !== null ? {attendanceOverride} : {}), response: input.response, attendance, note: text(input.note, 1000), version: (previous.data()?.version || 0) + 1, updatedAt: Date.now(), updatedBy: uid, source: 'club', eventSnapshot: { title: event.data().title || 'Rendez-vous', startsAt: millis(event.data().startsAt), type: event.data().type || '', coachName: event.data().coachName || '' }, audit: [...(previous.data()?.audit || []), { at: Date.now(), by: uid, response: input.response, attendance: input.attendance }].slice(-100) });
       });

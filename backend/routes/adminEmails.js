@@ -229,9 +229,11 @@ async function resolveProfile(id) {
 
 function readPreferences(profile) {
   const stored = {
-    ...(profile.user?.emailPreferences || {}),
     ...(profile.client?.emailPreferences || {}),
+    ...(profile.user?.emailPreferences || {}),
   };
+  if (profile.user?.settings?.emailNotificationsEnabled === false ||
+      (!profile.user && profile.client?.settings?.emailNotificationsEnabled === false)) stored.allAutomatic = false;
   return Object.fromEntries(
     Object.entries(DEFAULT_PREFERENCES).map(([key, fallback]) => [key, asBool(stored[key], fallback)])
   );
@@ -652,6 +654,7 @@ router.patch("/client/:id/preferences", async (req, res) => {
     });
     const payload = {
       emailPreferences: next,
+      settings: { emailNotificationsEnabled: next.allAutomatic },
       emailPreferencesUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
       emailPreferencesUpdatedBy: req.auth?.uid || "admin",
     };

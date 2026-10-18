@@ -1,3 +1,7 @@
+import MealSelectionMenu from "./nutrition/MealSelectionMenu";
+import { initialRationMeals, recommendedRationMeals, selectedMealDistribution } from "../utils/rationMealSelection";
+import NutritionMicroPanel from "./NutritionMicroPanel";
+import { microTargetKeyFromNutrient, prettyMicroNutrient, targetForMicroNutrient } from "../utils/rationMicroTargets";
 // src/components/RationAutoGenerator.jsx
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import i18n from "../i18n/index";
@@ -12,7 +16,6 @@ import {
   Heading,
   SimpleGrid,
   Select,
-  Stack,
   Text,
   VStack,
   useColorModeValue,
@@ -20,8 +23,6 @@ import {
   Wrap,
   WrapItem,
   Collapse,
-  Checkbox,
-  Spinner,
 } from "@chakra-ui/react";
 import {
   computeMicronutrientTargets,
@@ -744,6 +745,7 @@ function resolveFamilyLabel(mealKey, slotDef, reg, path = {}) {
 function getResolvedLabelForSlot(st, slotDefById, reg, path) {
   if (!st?.label) return "";
   const def = slotDefById[makeSlotId(st.mealKey, st.slotKey)];
+  if (def?.disabled) return "";
   if (!def) return st.label || "";
   if (isFamilySelection(st.label, st.group)) {
     return resolveFamilyLabel(st.mealKey, def, reg, path);
@@ -754,6 +756,7 @@ function getResolvedLabelForSlot(st, slotDefById, reg, path) {
 function applyCapsToSlots(slots, caps, slotDefById, reg, path) {
   let next = { ...slots };
   for (const [id, st] of Object.entries(next)) {
+    if (slotDefById[id]?.disabled) { next[id] = { ...st, multiplier: 0 }; continue; }
     const resolvedLabel = getResolvedLabelForSlot(st, slotDefById, reg, path);
     const max = caps?.labelMaxMult?.[resolvedLabel];
     if (max === undefined) continue;
@@ -896,11 +899,7 @@ function findCiqualRowForLabel(label, rows, byCode) {
   });
 }
 
-const prettyNutrient = (k) =>
-  String(k || "")
-    .replace(/_100g$/i, "")
-    .replace(/_/g, " ")
-    .toUpperCase();
+const prettyNutrient = prettyMicroNutrient;
 
 const isEnergyLikeNutrientKey = (key = "") => {
   const normalized = normalize(String(key || "").replace(/_/g, " "));
@@ -952,45 +951,6 @@ function pickDefaultMicroKeys(allKeys) {
   }
   return Array.from(new Set(picked)).slice(0, 10);
 }
-
-const microTargetKeyFromNutrient = (key = "") => {
-  const normalized = normalize(String(key || "").replace(/_/g, " "));
-  if (normalized.includes("calcium")) return "calcium";
-  if (isFiberNutrientKey(key)) return "fibres";
-  if (normalized.includes("sodium") || normalized.includes("sel")) return "sodium";
-  if (normalized.includes("potassium")) return "potassium";
-  if (normalized.includes("magnesium")) return "magnesium";
-  if (normalized.includes("fer") || normalized.includes("iron")) return "fer";
-  if (normalized.includes("vitamine a")) return "vitA";
-  if (normalized.includes("vitamine b1")) return "vitB1";
-  if (normalized.includes("vitamine b2")) return "vitB2";
-  if (normalized.includes("vitamine b6")) return "vitB6";
-  if (normalized.includes("vitamine b9") || normalized.includes("folate")) return "vitB9";
-  if (normalized.includes("vitamine b12")) return "vitB12";
-  if (normalized.includes("vitamine c") || normalized.includes("ascorb")) return "vitC";
-  if (normalized.includes("vitamine d")) return "vitD";
-  if (normalized.includes("vitamine e")) return "vitE";
-  if (normalized.includes("vitamine k")) return "vitK";
-  if (normalized.split(/\s+/).includes("lactose")) return "lactose";
-  if (normalized.includes("cholesterol")) return "cholesterol";
-  return "";
-};
-
-const formatMicroTargetHint = (target) => {
-  if (!target) return "";
-  if (target.direction === "review" || target.requiresClinicalReview) {
-    return i18n.t("auto.RationAutoGenerator.a_individualiser", "à individualiser");
-  }
-
-  const value = r1(target.value);
-  const unit = String(target.unit || "").trim();
-  const formattedValue = `${value}${unit ? ` ${unit}` : ""}`;
-  if (target.direction === "max") return `maximum ${formattedValue}`;
-  if (target.direction === "info") {
-    return i18n.t("auto.RationAutoGenerator.repere_value", "repère {{value}}", { value: formattedValue });
-  }
-  return `cible ≥ ${formattedValue}`;
-};
 
 function pickRecommendedMicroKeys(allKeys, context = {}, objectiveRaw = "") {
   const keys = allKeys || [];
@@ -1251,13 +1211,13 @@ function capsForContext(reg, path) {
 }
 
 /* ==================== logique auto ==================== */
-function getTargetMealKcalDistribution(hasMorningSnack, hasAfternoonSnack, hasNightSnack, path = {}) {
+function getTargetMealKcalDistribution(hasMorningSnack, hasAfternoonSnack, hasNightSnack, path = {}, selectedMeals) {
   void path;
-  return getRationMealEnergyDistribution({
+  return selectedMealDistribution(getRationMealEnergyDistribution({
     hasMorningSnack,
     hasAfternoonSnack,
     hasNightSnack,
-  });
+  }), selectedMeals);
 }
 
 function getDefaultMultiplierForSelectedLabel({
@@ -1378,7 +1338,8 @@ function getMealEnergyTarget(mealKey, kcalTarget, snackFlags, path) {
     snackFlags.beforeLunch,
     snackFlags.afterLunch,
     snackFlags.afterDinner,
-    path
+    path,
+    snackFlags.selectedMeals
   );
   return num(kcalTarget) * num(ratios?.[mealKey] || 0);
 }
@@ -1753,6 +1714,8 @@ export default function RationAutoGenerator(props) {
 
   const initialState = useMemo(() => value ?? initialStateProp ?? null, [value, initialStateProp]);
 
+  const redistributeRequested = useRef(false);
+
   const context = useMemo(() => {
     if (contextProp) return contextProp;
     const inputs = inputsProp || {};
@@ -1827,13 +1790,27 @@ export default function RationAutoGenerator(props) {
     };
   }, [fallbackPercents, kcalTarget, macroTargets]);
 
+  const reg = useMemo(() => parseRegimes(context?.inputs || {}), [context]);
+  const path = useMemo(() => parsePathologies(context?.inputs || {}), [context]);
+  const [selectedMeals, setSelectedMeals] = useState(() => initialRationMeals(initialState, kcalTarget, usesRestrictiveDigestivePattern(path)));
+  const manualMealSelection = useRef(initialState?.mealSelectionManual === true);
+  const previousMealContext = useRef(`${kcalTarget}:${usesRestrictiveDigestivePattern(path)}`);
+  useEffect(() => {
+    const key = `${kcalTarget}:${usesRestrictiveDigestivePattern(path)}`;
+    if (previousMealContext.current === key) return;
+    previousMealContext.current = key;
+    if (!manualMealSelection.current) {
+      setSelectedMeals(recommendedRationMeals(kcalTarget, usesRestrictiveDigestivePattern(path)));
+    }
+  }, [kcalTarget, path]);
+
   const allSlotDefs = useMemo(() => {
     const defs = [];
     MEAL_KEYS.forEach((m) => {
-      SLOTS_BY_MEAL[m.key]?.forEach((s) => defs.push({ ...s, mealKey: m.key }));
+      SLOTS_BY_MEAL[m.key]?.forEach((s) => defs.push({ ...s, mealKey: m.key, disabled: !selectedMeals.includes(m.key) }));
     });
     return defs;
-  }, []);
+  }, [selectedMeals]);
 
   const slotDefById = useMemo(() => {
     const map = {};
@@ -1841,25 +1818,14 @@ export default function RationAutoGenerator(props) {
     return map;
   }, [allSlotDefs]);
 
-  const reg = useMemo(() => parseRegimes(context?.inputs || {}), [context]);
-  const path = useMemo(() => parsePathologies(context?.inputs || {}), [context]);
   const caps = useMemo(() => capsForContext(reg, path), [reg, path]);
 
-  const [forcedSnacks, setForcedSnacks] = useState({
-    collation_matin: false,
-    collation_apm: false,
-    collation_soir: false,
-  });
-
-  const snackFlags = useMemo(() => {
-    const k = kcalTarget || kcalIndicatif || 0;
-    const digestiveMode = usesRestrictiveDigestivePattern(path);
-    return {
-      beforeLunch: digestiveMode || forcedSnacks.collation_matin || k >= SNACK_BEFORE_LUNCH_MIN_KCAL,
-      afterLunch: digestiveMode || forcedSnacks.collation_apm || k >= SNACK_AFTER_LUNCH_MIN_KCAL,
-      afterDinner: digestiveMode || forcedSnacks.collation_soir || k >= SNACK_AFTER_DINNER_MIN_KCAL,
-    };
-  }, [kcalTarget, kcalIndicatif, forcedSnacks, path]);
+  const snackFlags = useMemo(() => ({
+    beforeLunch: selectedMeals.includes("collation_matin"),
+    afterLunch: selectedMeals.includes("collation_apm"),
+    afterDinner: selectedMeals.includes("collation_soir"),
+    selectedMeals,
+  }), [selectedMeals]);
 
   const enforceFromageCap = useCallback((draftSlots) => {
     const next = { ...draftSlots };
@@ -2420,7 +2386,8 @@ export default function RationAutoGenerator(props) {
   useEffect(() => {
     setSlots((prev) => {
       if (!prev || Object.keys(prev).length === 0) return prev;
-      return normalizeSlotsToFamilyDefaults(applyCompositionRules(prev));
+      const normalized = normalizeSlotsToFamilyDefaults(applyCompositionRules(prev));
+      return JSON.stringify(prev) === JSON.stringify(normalized) ? prev : normalized;
     });
   }, [applyCompositionRules, normalizeSlotsToFamilyDefaults]);
 
@@ -2467,6 +2434,7 @@ export default function RationAutoGenerator(props) {
       if (!(kcalTarget > 0)) return baseSlots;
 
       let activeMealKeys = MEAL_KEYS.filter((m) => {
+        if (!snackFlags.selectedMeals.includes(m.key)) return false;
         if (m.key === "collation_matin") return snackFlags.beforeLunch;
         if (m.key === "collation_apm") return snackFlags.afterLunch;
         if (m.key === "collation_soir") return snackFlags.afterDinner;
@@ -2597,6 +2565,7 @@ export default function RationAutoGenerator(props) {
       const preferredMealKey = changedSlot.mealKey;
 
       let activeMealKeys = MEAL_KEYS.filter((meal) => {
+        if (!snackFlags.selectedMeals.includes(meal.key)) return false;
         if (meal.key === "collation_matin") return snackFlags.beforeLunch;
         if (meal.key === "collation_apm") return snackFlags.afterLunch;
         if (meal.key === "collation_soir") return snackFlags.afterDinner;
@@ -2698,7 +2667,8 @@ export default function RationAutoGenerator(props) {
         snackFlags.beforeLunch,
         snackFlags.afterLunch,
         snackFlags.afterDinner,
-        path
+        path,
+        snackFlags.selectedMeals
       );
 
       const mealTargetKcal = {};
@@ -2719,6 +2689,7 @@ export default function RationAutoGenerator(props) {
       };
 
       let activeMealKeys = MEAL_KEYS.filter((m) => {
+        if (!snackFlags.selectedMeals.includes(m.key)) return false;
         if (m.key === "collation_matin") return snackFlags.beforeLunch;
         if (m.key === "collation_apm") return snackFlags.afterLunch;
         if (m.key === "collation_soir") return snackFlags.afterDinner;
@@ -2980,10 +2951,8 @@ export default function RationAutoGenerator(props) {
 
   const [ciqual, setCiqual] = useState([]);
   const [byCode, setByCode] = useState({});
-  const [ciqualLoading, setCiqualLoading] = useState(false);
-  const [nutrientsOpen, setNutrientsOpen] = useState(false);
+  const [_ciqualLoading, setCiqualLoading] = useState(false);
   const [selectedNutrients, setSelectedNutrients] = useState(() => initialState?.selectedNutrients || {});
-  const [showMicroDetails, setShowMicroDetails] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -3087,14 +3056,15 @@ export default function RationAutoGenerator(props) {
   }, [slots, selectedKeys, byCode, ciqual, ciqualOk, slotDefById, reg, path, caps]);
 
   useEffect(() => {
-    if (autoInitDone.current) return;
+    if (autoInitDone.current && !redistributeRequested.current) return;
     if (blocked) return;
     if (!(kcalIndicatif > 0)) return;
 
     autoInitDone.current = true;
     const hasSaved = initialState?.slots && Object.keys(initialState.slots).length > 0;
 
-    if (!hasSaved) {
+    if (!hasSaved || redistributeRequested.current) {
+      redistributeRequested.current = false;
       let next = buildDefaultSlots();
       let totals = computeTotals(next);
 
@@ -3128,8 +3098,12 @@ export default function RationAutoGenerator(props) {
         next = adjustSlotsForTarget(next);
       }
 
+      next = adjustSlotsForTarget(next);
       next = sanitizeSlotsHard(next, slotDefById, reg, path, caps, computeTotals);
-      setSlots(normalizeSlotsToFamilyDefaults(next));
+      setSlots(previous => {
+        const normalized = normalizeSlotsToFamilyDefaults(next);
+        return JSON.stringify(previous) === JSON.stringify(normalized) ? previous : normalized;
+      });
     }
   }, [
     blocked,
@@ -3213,7 +3187,10 @@ export default function RationAutoGenerator(props) {
           ? regen
           : safeRegen;
 
-      setSlots(normalizeSlotsToFamilyDefaults(best));
+      setSlots(previous => {
+        const normalized = normalizeSlotsToFamilyDefaults(best);
+        return JSON.stringify(previous) === JSON.stringify(normalized) ? previous : normalized;
+      });
 
       setTimeout(() => {
         autoTuneRef.current = false;
@@ -3232,7 +3209,10 @@ export default function RationAutoGenerator(props) {
         reg,
         path
       );
-      setSlots(normalizeSlotsToFamilyDefaults(next));
+      setSlots(previous => {
+        const normalized = normalizeSlotsToFamilyDefaults(next);
+        return JSON.stringify(previous) === JSON.stringify(normalized) ? previous : normalized;
+      });
       setTimeout(() => {
         autoTuneRef.current = false;
       }, 0);
@@ -3310,6 +3290,8 @@ export default function RationAutoGenerator(props) {
 
     onChange?.({
       version: 24,
+      selectedMeals,
+      mealSelectionManual: manualMealSelection.current,
       slots: normalizedSlots,
       items: normalizedItems,
       poolBudgets,
@@ -3341,6 +3323,7 @@ export default function RationAutoGenerator(props) {
     });
   }, [
     slots,
+    selectedMeals,
     poolBudgets,
     selectedNutrients,
     onChange,
@@ -3436,61 +3419,6 @@ export default function RationAutoGenerator(props) {
     });
   };
 
-  const addSnack = (mealKey) => {
-    setForcedSnacks((prev) => ({ ...prev, [mealKey]: true }));
-    setSlots((prev) => {
-      let next = { ...prev };
-      const defs = SLOTS_BY_MEAL[mealKey] || [];
-
-      defs.forEach((s) => {
-        const slotId = makeSlotId(mealKey, s.slotKey);
-        const label = s.group;
-        const multiplier = deriveMealAutoPattern(
-          mealKey,
-          s.slotKey,
-          label,
-          s.group,
-          reg,
-          path,
-          objectiveRaw,
-          {
-            beforeLunch: mealKey === "collation_matin" ? true : snackFlags.beforeLunch,
-            afterLunch: mealKey === "collation_apm" ? true : snackFlags.afterLunch,
-            afterDinner: mealKey === "collation_soir" ? true : snackFlags.afterDinner,
-          },
-          slotDefById
-        );
-
-        next[slotId] = {
-          mealKey,
-          slotKey: s.slotKey,
-          group: s.group,
-          label,
-          multiplier,
-        };
-      });
-
-      next = applyCapsToSlots(next, caps, slotDefById, reg, path);
-      next = rebalanceMealToTarget(
-        next,
-        mealKey,
-        kcalTarget,
-        {
-          beforeLunch: mealKey === "collation_matin" ? true : snackFlags.beforeLunch,
-          afterLunch: mealKey === "collation_apm" ? true : snackFlags.afterLunch,
-          afterDinner: mealKey === "collation_soir" ? true : snackFlags.afterDinner,
-        },
-        caps,
-        slotDefById,
-        reg,
-        path
-      );
-
-      next = applyCompositionRules(next, prev);
-      next = sanitizeSlotsHard(next, slotDefById, reg, path, caps, computeTotals);
-      return normalizeSlotsToFamilyDefaults(next);
-    });
-  };
 
   const adviceItems = useMemo(() => {
     const items = [];
@@ -3537,8 +3465,7 @@ export default function RationAutoGenerator(props) {
     <SimpleGrid columns={1} spacing={4} mb={4}>
       <Card bg={panelBg} border="1px solid" borderColor={border}>
         <CardBody>
-          <HStack justify="space-between" align="start" gap={3} flexWrap="wrap">
-            <Box>
+            <Box p={4} bg={bgSoft2} borderRadius="lg">
               <Text fontSize="sm" color={muted}>{i18n.t("auto.RationAutoGenerator.totaux_jour", "Totaux jour")}</Text>
               <HStack mt={2} align="baseline" gap={3} flexWrap="wrap">
                 <Text fontSize="2xl" fontWeight="900">
@@ -3549,146 +3476,38 @@ export default function RationAutoGenerator(props) {
               </HStack>
             </Box>
 
-            <Box textAlign={{ base: "left", md: "right" }}>
-              <Text fontSize="xs" color={muted} fontWeight="800" textTransform="uppercase">{i18n.t("auto.RationAutoGenerator.cibles_macros", "Cibles macros")}</Text>
-              <Text fontWeight="900">
-                P {r0(macroTargets.protG)} {i18n.t("auto.RationAutoGenerator.g", "g")} • L {r0(macroTargets.lipG)} {i18n.t("auto.RationAutoGenerator.g", "g")} • G {r0(macroTargets.gluG)} {i18n.t("auto.RationAutoGenerator.g", "g")}</Text>
-              <Text fontSize="xs" opacity={0.75}>{i18n.t("auto.RationAutoGenerator.reperes_bilan_p", "Repères bilan : P")}{formatGramRange(context?.needs?.protG, macroTargets.protG)} (
-                {formatPctRange(context?.needs?.pctRanges?.protPctMin, context?.needs?.pctRanges?.protPctMax, ranges.prot)}{i18n.t("auto.RationAutoGenerator.l", ") • L")}{" "}
-                {formatGramRange(context?.needs?.lipG, macroTargets.lipG)} (
-                {formatPctRange(context?.needs?.pctRanges?.lipPctMin, context?.needs?.pctRanges?.lipPctMax, ranges.lip)}{i18n.t("auto.RationAutoGenerator.g_2", ") • G")}{" "}
-                {formatGramRange(context?.needs?.glucG, macroTargets.gluG)} (
-                {formatPctRange(context?.needs?.pctRanges?.gluPctMin, context?.needs?.pctRanges?.gluPctMax, ranges.glu)})
-              </Text>
-            </Box>
-          </HStack>
-
-          <Wrap mt={4} spacing={2}>
-            <WrapItem>
-              <Badge colorScheme={macroColorScheme(dayPct.prot, ranges.prot)} variant="subtle" border="1px solid" borderColor={border}>
-                P {r0(computedByMeal.day.prot)} {i18n.t("auto.RationAutoGenerator.g", "g")} • {r0(dayPct.prot)}%
-              </Badge>
-            </WrapItem>
-            <WrapItem>
-              <Badge colorScheme={macroColorScheme(dayPct.lip, ranges.lip)} variant="subtle" border="1px solid" borderColor={border}>
-                L {r0(computedByMeal.day.lip)} {i18n.t("auto.RationAutoGenerator.g", "g")} • {r0(dayPct.lip)}%
-              </Badge>
-            </WrapItem>
-            <WrapItem>
-              <Badge colorScheme={macroColorScheme(dayPct.glu, ranges.glu)} variant="subtle" border="1px solid" borderColor={border}>
-                G {r0(computedByMeal.day.glu)} {i18n.t("auto.RationAutoGenerator.g", "g")} • {r0(dayPct.glu)}%
-              </Badge>
-            </WrapItem>
-          </Wrap>
+          <SimpleGrid mt={3} columns={{ base: 1, md: 3 }} spacing={3}>
+            {[
+              { key: "prot", label: i18n.t("auto.NutritionRationPage.proteines", "Protéines"), target: macroTargets.protG, gramRange: context?.needs?.protG },
+              { key: "lip", label: i18n.t("auto.NutritionRationPage.lipides", "Lipides"), target: macroTargets.lipG, gramRange: context?.needs?.lipG },
+              { key: "glu", label: i18n.t("auto.NutritionRationPage.glucides", "Glucides"), target: macroTargets.gluG, gramRange: context?.needs?.glucG },
+            ].map(({ key, label, target, gramRange }) => (
+              <Box key={key} minW={0} p={3} bg={bgSoft2} borderWidth="1px" borderColor={border} borderRadius="lg">
+                <Text fontWeight="800" fontSize="sm">{label}</Text>
+                <Badge mt={2} colorScheme={macroColorScheme(dayPct[key], ranges[key])} variant="subtle" whiteSpace="normal" textTransform="none" fontSize="md" borderRadius="md" px={2} py={1}>
+                  {i18n.t("auto.RationAutoGenerator.actual_macro", "Ration : {{grams}} g · {{percent}} %", { grams: r0(computedByMeal.day[key]), percent: r0(dayPct[key]) })}
+                </Badge>
+                <Text mt={3} fontSize="sm" fontWeight="700">
+                  {i18n.t("auto.RationAutoGenerator.target_macro", "Cible : {{grams}} g", { grams: r0(target) })}
+                </Text>
+                <Text mt={1} fontSize="xs" color={muted}>
+                  {i18n.t("auto.RationAutoGenerator.recommended_macro", "Plage : {{grams}} · {{percent}}", {
+                    grams: formatGramRange(gramRange, target),
+                    percent: formatPctRange(context?.needs?.pctRanges?.[`${key}PctMin`], context?.needs?.pctRanges?.[`${key}PctMax`], ranges[key]),
+                  })}
+                </Text>
+              </Box>
+            ))}
+          </SimpleGrid>
 
           <Divider my={3} />
 
-          <Box bg={bgSoft2} border="1px solid" borderColor={border} p={3} rounded="lg">
-            <Stack spacing={3}>
-              <HStack spacing={2} justify="space-between" align="center">
-                <Text fontWeight="900">{i18n.t("auto.RationAutoGenerator.micronutriments", "Micronutriments")}</Text>
-                <Badge colorScheme={ciqualOk ? "green" : "yellow"}>
-                  {ciqualOk
-                    ? i18n.t("auto.RationAutoGenerator.donnees_pretes", "Données prêtes")
-                    : i18n.t("auto.RationAutoGenerator.donnees_en_cours", "Données...")}
-                </Badge>
-              </HStack>
-
-              <SimpleGrid columns={{ base: 2, sm: 4 }} spacing={2}>
-                <Button size="xs" onClick={() => setNutrientsOpen((v) => !v)}>
-                  {nutrientsOpen
-                    ? i18n.t("auto.RationAutoGenerator.fermer", "Fermer")
-                    : i18n.t("auto.RationAutoGenerator.choisir", "Choisir")}
-                </Button>
-                <Button size="xs" variant="outline" onClick={applyRecommendedNutrients}>{i18n.t("auto.RationAutoGenerator.precocher", "Précocher")}</Button>
-                <Button
-                  size="xs"
-                  variant="outline"
-                  onClick={() => {
-                    const next = {};
-                    allNutrientKeys.forEach((k) => (next[k] = true));
-                    setSelectedNutrients(next);
-                  }}
-                >{i18n.t("auto.RationAutoGenerator.tout_cocher", "Tout cocher")}</Button>
-                <Button size="xs" variant="outline" onClick={() => setSelectedNutrients({})}>{i18n.t("auto.RationAutoGenerator.tout_decocher", "Tout décocher")}</Button>
-              </SimpleGrid>
-            </Stack>
-
-            {ciqualLoading && (
-              <HStack mt={2} spacing={2}>
-                <Spinner size="sm" />
-                <Text fontSize="sm" opacity={0.75}>{i18n.t("auto.RationAutoGenerator.chargement_des_donnees", "Chargement des données…")}</Text>
-              </HStack>
-            )}
-
-            <Text fontSize="sm" opacity={0.75} mt={2}>
-              {selectedKeys.length
-                ? i18n.t("auto.RationAutoGenerator.nutriments_selectionnes_count", "{{count}} nutriment(s) sélectionné(s)", { count: selectedKeys.length })
-                : i18n.t("auto.RationAutoGenerator.aucun_nutriment_selectionne", "Aucun nutriment sélectionné (par défaut on en pré-sélectionne quelques-uns si disponible).")}
-            </Text>
-
-            <Collapse in={nutrientsOpen} animateOpacity>
-              <Box
-                mt={3}
-                maxH={{ base: "200px", md: "260px" }}
-                overflowY="auto"
-                bg={panelBg}
-                p={3}
-                rounded="md"
-                border="1px solid"
-                borderColor={border}
-              >
-                <SimpleGrid columns={{ base: 2, sm: 3, md: 4 }} spacing={2}>
-                  {allNutrientKeys.map((k) => (
-                    <Checkbox
-                      key={k}
-                      isChecked={!!selectedNutrients[k]}
-                      onChange={() => setSelectedNutrients((p) => ({ ...p, [k]: !p[k] }))}
-                    >
-                      <Text fontSize="sm" noOfLines={1} title={prettyNutrient(k)}>
-                        {prettyNutrient(k)}
-                      </Text>
-                    </Checkbox>
-                  ))}
-                </SimpleGrid>
-              </Box>
-            </Collapse>
-
-            <HStack mt={3} justify="space-between" align="center" flexWrap="wrap">
-              <Text fontSize="sm" opacity={0.75}>
-                {Object.keys(microsTotals || {}).length
-                  ? i18n.t("auto.RationAutoGenerator.micros_calcules_totaux_jour", "Micros calculés (totaux jour)")
-                  : i18n.t("auto.RationAutoGenerator.micros_non_affiches", "Micros non affichés (sélection vide ou données absentes).")}
-              </Text>
-              <Button size="xs" variant="outline" onClick={() => setShowMicroDetails((v) => !v)}>
-                {showMicroDetails
-                  ? i18n.t("auto.RationAutoGenerator.masquer", "Masquer")
-                  : i18n.t("auto.RationAutoGenerator.details", "Détails")}
-              </Button>
-            </HStack>
-
-            <Collapse in={showMicroDetails} animateOpacity>
-              <Box mt={3}>
-                {Object.keys(microsTotals || {}).length === 0 ? (
-                  <Text fontSize="sm" opacity={0.7}>{i18n.t("auto.RationAutoGenerator.selectionne_des_nutriments_pour_afficher_les_micro", "Sélectionne des nutriments pour afficher les micros.")}</Text>
-                ) : (
-                  <Wrap spacing={2}>
-                    {Object.entries(microsTotals).map(([k, v]) => {
-                      const targetKey = microTargetKeyFromNutrient(k);
-                      const targetHint = formatMicroTargetHint(micronutrientTargets[targetKey]);
-                      return (
-                        <WrapItem key={k}>
-                          <Badge colorScheme="purple" variant="subtle" px={3} py={1} borderRadius="md">
-                            {prettyNutrient(k)} : {r1(v)}{targetHint ? ` • ${targetHint}` : ""}
-                          </Badge>
-                        </WrapItem>
-                      );
-                    })}
-                  </Wrap>
-                )}
-              </Box>
-            </Collapse>
-          </Box>
+          <NutritionMicroPanel ready={ciqualOk}
+            options={allNutrientKeys.map(key => ({ key, label: prettyNutrient(key) }))}
+            selected={selectedKeys} onSelect={keys => setSelectedNutrients(Object.fromEntries(keys.map(key => [key, true])))}
+            onRecommend={applyRecommendedNutrients}
+            items={Object.entries(microsTotals).map(([key, value]) => ({ key, label: prettyNutrient(key), value: r1(value), target: targetForMicroNutrient(key, micronutrientTargets, macroTargets) }))}
+          />
         </CardBody>
       </Card>
     </SimpleGrid>
@@ -4077,8 +3896,13 @@ export default function RationAutoGenerator(props) {
 
   return (
     <Box>
-      <HStack justify="space-between" mb={3} flexWrap="wrap" gap={2}>
+      <HStack justify="space-between" align="center" mb={3} flexWrap="wrap" gap={2}>
         <Heading size="md">{i18n.t("auto.RationAutoGenerator.ration_auto", "Ration auto")}</Heading>
+        <MealSelectionMenu inline value={selectedMeals} disabled={blocked} onApply={meals => {
+          manualMealSelection.current = true;
+          redistributeRequested.current = true;
+          setSelectedMeals([...meals]);
+        }} />
       </HStack>
 
       {headerCards}
@@ -4117,26 +3941,9 @@ export default function RationAutoGenerator(props) {
       </HStack>
 
       <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4}>
-        {MEAL_KEYS.map((m) => {
-          const isCollation = m.key.startsWith("collation");
-          const snackKey =
-            m.key === "collation_matin" ? "beforeLunch" : m.key === "collation_apm" ? "afterLunch" : "afterDinner";
-          const isEnabled = !isCollation || snackFlags[snackKey];
-
-          if (isEnabled) {
-            return <Box key={m.key}>{renderMeal(m.key, m.label)}</Box>;
-          }
-
-          return (
-            <Box key={m.key} p={6} bg={softBg} border="1px solid" borderColor={border} rounded="lg" textAlign="center">
-              <Text fontWeight="bold" fontSize="lg" mb={2}>
-                {translateAutoLabel(m.label)}
-              </Text>
-              <Text fontSize="sm" opacity={0.7} mb={4}>{i18n.t("auto.RationAutoGenerator.non_obligatoire_kcal_trop_bas", "Non obligatoire (kcal trop bas)")}</Text>
-              <Button colorScheme="blue" size="md" onClick={() => addSnack(m.key)}>{i18n.t("auto.RationAutoGenerator.ajouter_cette_collation", "Ajouter cette collation")}</Button>
-            </Box>
-          );
-        })}
+        {MEAL_KEYS.filter(m => selectedMeals.includes(m.key)).map(m => (
+          <Box key={m.key}>{renderMeal(m.key, m.label)}</Box>
+        ))}
       </SimpleGrid>
     </Box>
   );

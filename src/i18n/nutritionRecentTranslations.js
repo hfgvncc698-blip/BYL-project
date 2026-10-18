@@ -173,5 +173,47 @@ const nutritionRecentTranslations = {
   },
 };
 
+const macroComparisonLabels = {
+  fr: ["Ration : {{grams}} g · {{percent}} %", "Cible : {{grams}} g", "Plage : {{grams}} · {{percent}}"],
+  en: ["Actual: {{grams}} g · {{percent}} %", "Target: {{grams}} g", "Range: {{grams}} · {{percent}}"],
+  es: ["Ración: {{grams}} g · {{percent}} %", "Objetivo: {{grams}} g", "Rango: {{grams}} · {{percent}}"],
+  de: ["Ist: {{grams}} g · {{percent}} %", "Ziel: {{grams}} g", "Bereich: {{grams}} · {{percent}}"],
+  it: ["Razione: {{grams}} g · {{percent}} %", "Obiettivo: {{grams}} g", "Intervallo: {{grams}} · {{percent}}"],
+  ru: ["Рацион: {{grams}} г · {{percent}} %", "Цель: {{grams}} г", "Диапазон: {{grams}} · {{percent}}"],
+  ar: ["الحصة: {{grams}} غ · {{percent}} %", "الهدف: {{grams}} غ", "النطاق: {{grams}} · {{percent}}"],
+};
+for (const [language, [actual_macro, target_macro, recommended_macro]] of Object.entries(macroComparisonLabels)) {
+  nutritionRecentTranslations[language].auto.RationAutoGenerator = {
+    ...nutritionRecentTranslations[language].auto.RationAutoGenerator,
+    actual_macro, target_macro, recommended_macro,
+  };
+}
+
+const microTargetLabels = {
+  fr: ["Cible non définie", "Cible : {{value}}", "Maximum : {{value}}"],
+  en: ["Target not defined", "Target: {{value}}", "Maximum: {{value}}"],
+  es: ["Objetivo no definido", "Objetivo: {{value}}", "Máximo: {{value}}"],
+  de: ["Ziel nicht festgelegt", "Ziel: {{value}}", "Maximum: {{value}}"],
+  it: ["Obiettivo non definito", "Obiettivo: {{value}}", "Massimo: {{value}}"],
+  ru: ["Цель не задана", "Цель: {{value}}", "Максимум: {{value}}"],
+  ar: ["الهدف غير محدد", "الهدف: {{value}}", "الحد الأقصى: {{value}}"],
+};
+for (const [language, [no_micro_target, micro_target, micro_max]] of Object.entries(microTargetLabels)) {
+  Object.assign(nutritionRecentTranslations[language].auto.RationAutoGenerator, { no_micro_target, micro_target, micro_max });
+}
+
+const rationSavePending = {
+  fr: "La confirmation du serveur tarde. Vos modifications sont conservées sur cette page. Réessayez pour vérifier la sauvegarde en cours.",
+  en: "Server confirmation is taking longer than expected. Your changes remain on this page. Retry to check the pending save.",
+  es: "La confirmación del servidor tarda. Los cambios se conservan en esta página. Reintenta para comprobar el guardado pendiente.",
+  it: "La conferma del server tarda. Le modifiche restano su questa pagina. Riprova per verificare il salvataggio in corso.",
+  de: "Die Serverbestätigung dauert länger. Deine Änderungen bleiben auf dieser Seite erhalten. Versuche es erneut, um den laufenden Speichervorgang zu prüfen.",
+  ru: "Подтверждение сервера задерживается. Изменения остаются на этой странице. Повторите попытку, чтобы проверить сохранение.",
+  ar: "تأخر تأكيد الخادم. تبقى تعديلاتك في هذه الصفحة. أعد المحاولة للتحقق من الحفظ الجاري.",
+};
+for (const [language, message] of Object.entries(rationSavePending)) {
+  nutritionRecentTranslations[language].auto.NutritionRationPage.save_confirmation_pending = message;
+}
+
 export const NUTRITION_RECENT_TRANSLATION_LANGUAGES = Object.keys(nutritionRecentTranslations);
 export default nutritionRecentTranslations;

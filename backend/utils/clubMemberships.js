@@ -91,6 +91,12 @@ function createClubMemberships(db) {
         const linked = await records(uid, tx);
         const affected = linked.filter(s => clubsOf(s.data()).includes(clubId));
         const previous = await tx.get(archive);
+        if(!expiredOnly){
+          const subscriptions=await Promise.all(affected.map(s=>tx.get(club.collection('privateClients').doc(s.id).collection('subscriptions'))));
+          const termination=await tx.get(club.collection('terminationRequests').doc(uid));
+          const day=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Paris',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+          if(subscriptions.some(rows=>rows.docs.some(s=>(s.data().format??'subscription')==='subscription'&&s.data().end>=day))||['pending','accepted','end_of_term'].includes(termination.data()?.status))fail('Une demande de résiliation auprès du club est nécessaire.');
+        }
         let expiredAt = null;
         if (expiredOnly) {
           if (!affected.length) return;

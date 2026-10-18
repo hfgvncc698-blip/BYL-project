@@ -66,7 +66,7 @@ import { FiTrash2 } from "react-icons/fi";
 import PageBackButton from "./ui/PageBackButton";
 import PageLoadingStatus from "./ui/PageLoadingStatus";
 import { usePageLoading } from "../hooks/usePageLoading";
-import { createDashboardReadPool } from "../utils/coachDashboardLoading";
+import { createDashboardReadPool, mergeCompletedClientRows } from "../utils/coachDashboardLoading";
 import { confirmOperation } from "../utils/confirmedOperation";
 import { createProgramAssignmentOperation } from "../utils/programWriteOperations";
 import AssignmentPlacement from './client/AssignmentPlacement';
@@ -617,6 +617,16 @@ const Clients = () => {
       return;
     }
         const load = beginPageLoad();
+      // Start remote reads while persistent snapshots are being restored.
+      const clientQueries = [
+        query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(150)),
+        query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(150)),
+        query(collection(db, "clients"), where("coachIds", "array-contains", effectiveCoachUid), limit(150)),
+      ];
+      const serverClientSnapsPromise = Promise.all(
+        clientQueries.map((clientQuery) => getDocs(clientQuery).catch(() => ({ docs: [] })))
+      );
+
 	    const cachedEntry = forceFresh ? null : await restorePageDataCacheEntry(clientsPageCacheKey, {
         ttlMs: CLIENTS_PAGE_CACHE_TTL_MS,
       });
@@ -678,14 +688,6 @@ const Clients = () => {
 
     try {
       const readPool = createDashboardReadPool(24);
-      const clientQueries = [
-        query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(150)),
-        query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(150)),
-        query(collection(db, "clients"), where("coachIds", "array-contains", effectiveCoachUid), limit(150)),
-      ];
-      const serverClientSnapsPromise = Promise.all(
-        clientQueries.map((clientQuery) => getDocs(clientQuery).catch(() => ({ docs: [] })))
-      );
       if (!hasCache && !forceFresh) {
         const localClientSnaps = await Promise.all(
           clientQueries.map((clientQuery) => getDocsFromCache(clientQuery).catch(() => ({ docs: [] })))
@@ -748,16 +750,49 @@ const Clients = () => {
       const nutritionCountEntries = {};
       const nutritionLastEntries = {};
 
+      const filterEnrichedClients = (items) => {
+      let filtered = nutritionMode
+        ? nutritionOnly
+          ? items
+          : items.filter((c) => (nutritionCountEntries[c.id] || 0) > 0)
+        : sportView
+          ? items.filter((c) => (countEntries[c.id] || 0) > 0)
+          : items;
+      if (filter === "active") {
+        filtered = filtered.filter((c) => {
+          const ms = nutritionMode ? nutritionLastEntries[c.id] || c._lastInteractionMs : c._lastInteractionMs;
+          return (Number(ms || 0) || 0) >= activeCutoffMs;
+        });
+      } else if (filter === "inactive") {
+        filtered = filtered.filter((c) => {
+          const ms = nutritionMode ? nutritionLastEntries[c.id] || c._lastInteractionMs : c._lastInteractionMs;
+          return !((Number(ms || 0) || 0) >= activeCutoffMs);
+        });
+      }
+
+        return filtered;
+      };
+      const completedClients = new Map();
+      let lastPublishedAt = -Infinity;
+      const publishCompletedClients = () => {
+        if (!load.current() || performance.now() - lastPublishedAt < 100) return;
+        lastPublishedAt = performance.now();
+        // Merge only finished rows; retain cached details for clients still loading.
+        const visible = filterEnrichedClients([...completedClients.values()]);
+        const completedIds = new Set(completedClients.keys());
+        setClients(previous => mergeCompletedClientRows(previous, completedIds, visible));
+        setProgressMap(previous => ({ ...previous, ...progressEntries }));
+        setSessionsPerWeekMap(previous => ({ ...previous, ...perWeekEntries }));
+        setLastSessionMap(previous => ({ ...previous, ...lastEntries }));
+        setProgrammeCountMap(previous => ({ ...previous, ...countEntries }));
+        setLastInteractionMap(previous => ({ ...previous, ...interactionEntries }));
+        setNutritionAssessmentCountMap(previous => ({ ...previous, ...nutritionCountEntries }));
+        setNutritionLastFollowMap(previous => ({ ...previous, ...nutritionLastEntries }));
+      };
+
       const enriched = await Promise.all(list.map(async (c) => {
-          const computed = nutritionMode
-            ? {
-                progress: { percent: 0, completed: 0, total: 0 },
-                sessionsPerWeek: 0,
-                lastSessionDate: c?.lastSession?.toDate?.() || null,
-                programmeCount: getCachedSportProgramCount(c),
-                _lastInteractionMs: getCachedClientActivityMs(c),
-              }
-            : await buildClientComputedStats(c, readPool);
+          if (!load.current()) return c;
+          const nutritionPromise = (async () => {
           let latestNutritionMs = 0;
           // Older nutrition clients can have assessments without any count or
           // flag on their client document. Always check the actual collection.
@@ -783,6 +818,19 @@ const Clients = () => {
             }
           }
 
+            return latestNutritionMs;
+          })();
+          const computed = nutritionMode
+            ? {
+                progress: { percent: 0, completed: 0, total: 0 },
+                sessionsPerWeek: 0,
+                lastSessionDate: c?.lastSession?.toDate?.() || null,
+                programmeCount: getCachedSportProgramCount(c),
+                _lastInteractionMs: getCachedClientActivityMs(c),
+              }
+            : await buildClientComputedStats(c, readPool);
+          const latestNutritionMs = await nutritionPromise;
+
           progressEntries[c.id] = computed.progress;
           perWeekEntries[c.id] = computed.sessionsPerWeek;
           lastEntries[c.id] = computed.lastSessionDate || null;
@@ -790,11 +838,14 @@ const Clients = () => {
           interactionEntries[c.id] = computed._lastInteractionMs || 0;
           nutritionLastEntries[c.id] = latestNutritionMs || 0;
 
-          return {
+          const enrichedClient = {
             ...c,
             programmesAssignes: computed.programmesAssignes || c.programmesAssignes || [],
             _lastInteractionMs: computed._lastInteractionMs || 0,
           };
+          completedClients.set(c.id, enrichedClient);
+          publishCompletedClients();
+          return enrichedClient;
         }));
       if (!load.current()) return;
 
@@ -806,24 +857,7 @@ const Clients = () => {
       setNutritionAssessmentCountMap(nutritionCountEntries);
       setNutritionLastFollowMap(nutritionLastEntries);
 
-      let filtered = nutritionMode
-        ? nutritionOnly
-          ? enriched
-          : enriched.filter((c) => (nutritionCountEntries[c.id] || 0) > 0)
-        : sportView
-          ? enriched.filter((c) => (countEntries[c.id] || 0) > 0)
-          : enriched;
-      if (filter === "active") {
-        filtered = filtered.filter((c) => {
-          const ms = nutritionMode ? nutritionLastEntries[c.id] || c._lastInteractionMs : c._lastInteractionMs;
-          return (Number(ms || 0) || 0) >= activeCutoffMs;
-        });
-      } else if (filter === "inactive") {
-        filtered = filtered.filter((c) => {
-          const ms = nutritionMode ? nutritionLastEntries[c.id] || c._lastInteractionMs : c._lastInteractionMs;
-          return !((Number(ms || 0) || 0) >= activeCutoffMs);
-        });
-      }
+      const filtered = filterEnrichedClients(enriched);
 
 	      setClients(filtered);
         const nextPayload = {

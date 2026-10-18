@@ -4,8 +4,21 @@ const crypto = require('crypto');
 const { createClubClientAdministration } = require('./clubClientAdministration');
 const staleEmail = data => data.emailState === 'sending' && Date.now() - (data.checkedAt || 0) >= 30 * 60000;
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), { status }); };
+const descriptionOf = value => { if(value!==undefined && (typeof value!=='string'||value.length>2000)) fail('Description invalide (2 000 caractères maximum).'); return (value||'').trim(); };
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone:'Europe/Paris',year:'numeric',month:'2-digit',day:'2-digit' }).format(new Date());
 const validDate = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0,10) === value;
+function offerDetails(input, previous={}) {
+ const format=input.format??previous.format??'subscription';
+ const service=input.service??previous.service??'coaching';
+ const quantity=format==='single'?1:(input.quantity??previous.quantity??10);
+ const validityMonths=input.validityMonths??previous.validityMonths??6;
+ if(!['subscription','pack','single'].includes(format)||!['coaching','nutrition','group','club','club_group'].includes(service)||!Number.isInteger(quantity)||quantity<1||quantity>1000||!Number.isInteger(validityMonths)||validityMonths<1||validityMonths>60)fail('Format, accompagnement ou validité invalide.');
+ if(format!=='subscription'&&input.frequency!=='once')fail('Une séance ou un pack se règle en paiement unique.');
+ const defaultProrata=input.defaultProrata??previous.defaultProrata??false;
+ if(typeof defaultProrata!=='boolean')fail('Prorata invalide.');
+ if(format!=='subscription'&&['club','club_group'].includes(service))fail('L’accès au club nécessite un abonnement.');
+ return {format,service,quantity,validityMonths,defaultProrata:format==='subscription'&&input.frequency==='monthly'&&defaultProrata};
+}
 function cycleDate(start, offset, day) {
  const d=new Date(start+'T12:00:00Z'),month=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+offset,1,12));
  month.setUTCDate(Math.min(day,new Date(Date.UTC(month.getUTCFullYear(),month.getUTCMonth()+1,0)).getUTCDate()));
@@ -33,6 +46,17 @@ function discountOptions(input,plan){
  return {baseAmountCents:plan.amountCents,amountCents:plan.amountCents-reduction,discount:{type:discount.type,value:discount.value}};
 }
 function installments(contract) {
+ const locked=contract.lockedDues||[];
+ const ids=new Set(locked.map(d=>`${contract.id}_${d.scheduleSourceDate||d.dueDate}`));
+ const generated=generatedInstallments(contract).filter(d=>!ids.has(d.id)).map(d=>{
+   if(contract.frequency!=='monthly'||!contract.futurePaymentDay||d.dueDate<contract.paymentDayEffectiveFrom||d.dueDate===(contract.firstPaymentDate||contract.start))return d;
+   const dueDate=cycleDate(d.dueDate,0,contract.futurePaymentDay);
+   return {...d,scheduleSourceDate:d.dueDate,dueDate,id:`${contract.id}_${dueDate}`};
+ });
+ return [...locked,...generated.filter(d=>d.dueDate<=contract.end)].sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
+}
+function generatedInstallments(contract) {
+ if(contract.end<contract.start)return [];
  if(contract.importedOpening)return [];
  if(contract.scheduleVersion===2 && contract.frequency==='monthly'){
   const same=cycleDate(contract.start,0,contract.paymentDay),offset=same>contract.start?0:1;
@@ -46,7 +70,7 @@ function installments(contract) {
   for(let i=offset;i<120;i++){const date=cycleDate(contract.start,i,contract.paymentDay);if(date>contract.end)break;rows.push(row(date,contract.amountCents));}
   return rows;
  }
- if(contract.scheduleVersion===2)return installments({...contract,scheduleVersion:1,start:contract.firstPaymentDate});
+ if(contract.scheduleVersion===2)return generatedInstallments({...contract,scheduleVersion:1,start:contract.firstPaymentDate});
 
   const rows = [], start = new Date(`${contract.start}T12:00:00Z`), step = contract.frequency === 'yearly' ? 12 : contract.frequency === 'monthly' ? 1 : 0;
   for (let i=0;i<120;i++) {
@@ -62,6 +86,27 @@ function installments(contract) {
 }
 function createClubSubscriptions(db, sendEmail) {
   const administration = createClubClientAdministration(db);
+  async function inUsePlans(club,reader,details=false) {
+    const get=ref=>reader?reader.get(ref):ref.get();
+    const clients=await get(club.collection('privateClients')),active=new Map();
+    for(const client of clients.docs){
+      const ref=club.collection('privateClients').doc(client.id);
+      const [contracts,packs]=await Promise.all([get(ref.collection('subscriptions')),get(ref.collection('sessionPacks'))]);
+      let clientName='';
+      const add=(planId,end)=>{
+        if(!active.has(planId))active.set(planId,[]);
+        const rows=active.get(planId),existing=rows.find(row=>row.clientId===client.id);
+        if(existing){existing.end=(!existing.end||!end)?'':existing.end>end?existing.end:end;}
+        else rows.push({clientId:client.id,clientName,end:end||''});
+      };
+      if(details){const record=await get(db.collection('clients').doc(client.id));const c=record.data()||{};clientName=c.displayName||[c.prenom||c.firstName,c.nom||c.lastName].filter(Boolean).join(' ')||c.name||'Client sans nom';}
+      for(const doc of contracts.docs){const c=doc.data();if(c.planId&&(!c.end||c.end>=today())&&!['cancelled','ended'].includes(c.status))add(c.planId,c.end);}
+      // A pack may have been extended independently of its original contract.
+      for(const doc of packs.docs){const p=doc.data();if(p.planId&&!p.deleted&&!p.cancelled&&(!p.end||p.end>=today()))add(p.planId,p.end);}
+    }
+    return active;
+  }
+
   async function owner(uid) {
     const u=(await db.collection('users').doc(uid).get()).data();
     if (!u?.clubId || u.role !== 'coach' || !(u.accountType==='club_owner' || u.clubRole==='owner')) fail('Réservé au responsable du club.',403);
@@ -71,7 +116,7 @@ function createClubSubscriptions(db, sendEmail) {
   async function read(s) {
     const [contracts,checks]=await Promise.all([s.ref.collection('subscriptions').get(),s.ref.collection('paymentChecks').get()]);
     const statuses=new Map(checks.docs.map(d=>[d.id,{...d.data(),...(staleEmail(d.data()) ? {emailState:'failed'} : {})}]));
-    return { contracts:contracts.docs.map(d=>({id:d.id,...d.data()})), dues:contracts.docs.flatMap(d=>installments({id:d.id,...d.data()})).map(row=>({...row,...statuses.get(row.id), id:row.id})).sort((a,b)=>a.dueDate.localeCompare(b.dueDate)) };
+    return { supportsReminderChoice:true, contracts:contracts.docs.map(d=>({id:d.id,...d.data()})), dues:contracts.docs.flatMap(d=>installments({id:d.id,...d.data()})).map(row=>({...row,...statuses.get(row.id), id:row.id})).sort((a,b)=>a.dueDate.localeCompare(b.dueDate)) };
   }
   return {
     async mine(uid) {
@@ -84,15 +129,15 @@ function createClubSubscriptions(db, sendEmail) {
           const clubRef=db.collection('clubs').doc(clubId),club=await clubRef.get();if(!club.exists)continue;
           const ref=clubRef.collection('privateClients').doc(record.id),[billing,privateDoc]=await Promise.all([read({ref}),ref.get()]);
           // Explicit public projection: no confidential notes, internal references or staff identifiers.
-          const contracts=billing.contracts.map(c=>({id:c.id,name:c.name,start:c.start,end:c.end,importedOpening:!!c.importedOpening,...(!c.importedOpening?{amountCents:c.amountCents,currency:c.currency||'EUR',unitScale:c.unitScale??100,frequency:c.frequency}:{} )}));
+          const contracts=billing.contracts.map(c=>({id:c.id,name:c.name,description:c.description||'',service:c.service||'coaching',baseAmountCents:c.baseAmountCents??c.amountCents,discount:c.discount||null,start:c.start,end:c.end,importedOpening:!!c.importedOpening,...(!c.importedOpening?{amountCents:c.amountCents,currency:c.currency||'EUR',unitScale:c.unitScale??100,frequency:c.frequency}:{} )}));
           const payments=billing.dues.filter(d=>['paid','partial'].includes(d.status)&&d.paidCents>0).map(d=>({id:d.id,contractId:d.contractId,label:d.label,amountCents:d.paidCents,dueCents:d.amountCents,currency:d.currency,unitScale:d.unitScale,paidDate:d.paidDate||'',validatedAt:d.checkedAt||null,status:d.status}));
           for(const p of privateDoc.data()?.payments||[]){if(p.paidCents>0)payments.push({id:`manual_${p.id}`,label:p.label,amountCents:p.paidCents,dueCents:p.dueCents,currency:p.currency||'EUR',unitScale:p.unitScale??100,paidDate:p.paidDate||'',status:p.paidCents>=p.dueCents?'paid':'partial'});}
-          if(contracts.length||payments.length)groups.push({clubId,clientId:record.id,clubName:club.data().name||club.data().nom||'Club',contracts,payments:payments.sort((a,b)=>b.paidDate.localeCompare(a.paidDate))});
+          if(contracts.length||payments.length)groups.push({clubId,clientId:record.id,clubName:club.data().name||club.data().nom||'Club',contracts,dues:billing.dues.map(d=>({id:d.id,contractId:d.contractId,label:d.label,date:d.dueDate,amount:d.amountCents,received:d.paidCents||0,currency:d.currency||'EUR',unitScale:d.unitScale??100,status:d.status||'pending',paidDate:d.paidDate||null,validatedAt:d.checkedAt||null})),payments:payments.sort((a,b)=>b.paidDate.localeCompare(a.paidDate))});
         }
       }
       return {groups};
     },
-    async catalog(uid) { const club=await owner(uid); const snap=await club.collection('subscriptionPlans').get(); return snap.docs.map(d=>({id:d.id,...d.data()})).filter(p=>!p.deleted); },
+    async catalog(uid) { const club=await owner(uid); const [snap,active]=await Promise.all([club.collection('subscriptionPlans').get(),inUsePlans(club,null,true)]); return snap.docs.map(d=>({id:d.id,...d.data(),deletionBlocked:active.has(d.id),activeHolders:active.get(d.id)||[]})).filter(p=>!p.deleted); },
     async addPlan(uid,input) {
       const club=await owner(uid);
       const name=String(input.name||'').trim();
@@ -102,7 +147,7 @@ function createClubSubscriptions(db, sendEmail) {
       if(input.unitScale!==undefined && unitScale!==10 ** currencyDigits[currency]) fail('Devise invalide.');
       if (!name || name.length>100 || !Number.isSafeInteger(input.amountCents) || input.amountCents<=0 || input.amountCents>100000000 || !['monthly','yearly','once'].includes(input.frequency)) fail('Nom, montant et périodicité valides requis.');
       const ref=club.collection('subscriptionPlans').doc(crypto.randomUUID());
-      await ref.set({name,currency,unitScale,amountCents:input.amountCents,frequency:input.frequency,createdAt:Date.now(),createdBy:uid});
+      await ref.set({...offerDetails(input),name,description:descriptionOf(input.description),currency,unitScale,amountCents:input.amountCents,frequency:input.frequency,createdAt:Date.now(),createdBy:uid});
       return {id:ref.id};
     },
     async updatePlan(uid,id,input) {
@@ -115,14 +160,17 @@ function createClubSubscriptions(db, sendEmail) {
         const previous=snapshot.data();
         if((input.version||0)!==(previous.version||0)) fail('Cette échéance a changé. Rechargez la liste.',409);
         let patch;
-        if(typeof input.archived==='boolean') patch={archived:input.archived};
+        if(typeof input.archived==='boolean') {
+          if(input.archived&&(await inUsePlans(club,tx)).has(id))fail('Cette offre est encore attribuée à un client actif. Attendez la fin de tous les abonnements et packs avant de la supprimer ou de l’archiver.',409);
+          patch={archived:input.archived};
+        }
         else {
           const name=String(input.name||'').trim(), currency=input.currency;
           if(!currencies.includes(currency)) fail('Devise invalide.');
       const unitScale=input.unitScale ?? 100;
       if(input.unitScale!==undefined && unitScale!==10 ** currencyDigits[currency]) fail('Devise invalide.');
           if(!name || name.length>100 || !Number.isSafeInteger(input.amountCents) || input.amountCents<=0 || input.amountCents>100000000 || !['monthly','yearly','once'].includes(input.frequency)) fail('Nom, montant et périodicité valides requis.');
-          patch={name,currency,unitScale,amountCents:input.amountCents,frequency:input.frequency};
+          patch={...offerDetails(input,previous),name,description:descriptionOf(input.description??previous.description),currency,unitScale,amountCents:input.amountCents,frequency:input.frequency};
         }
         tx.set(ref,{...patch,version:(previous.version||0)+1,updatedAt:Date.now(),updatedBy:uid},{merge:true});
       });
@@ -137,6 +185,7 @@ function createClubSubscriptions(db, sendEmail) {
         if(!snapshot.exists||snapshot.data().deleted) fail('Abonnement introuvable.',404);
         const previous=snapshot.data();
         if((input.version||0)!==(previous.version||0)) fail('Cette échéance a changé. Rechargez la liste.',409);
+        if((await inUsePlans(club,tx)).has(id))fail('Cette offre est encore attribuée à un client actif. Attendez la fin de tous les abonnements et packs avant de la supprimer.',409);
         // Keep the catalog record for history; assigned contracts retain their own snapshot.
         tx.set(ref,{deleted:true,archived:true,deletedAt:Date.now(),deletedBy:uid,version:(previous.version||0)+1},{merge:true});
       });
@@ -166,9 +215,43 @@ function createClubSubscriptions(db, sendEmail) {
         if (existing.docs.some(d=>d.id===ref.id)) return;
         if(plan.data().archived) fail('Abonnement archivé.');
         if(!currencies.includes(plan.data().currency || 'EUR')) fail('Devise invalide.');
-        if (existing.docs.some(d=>d.data().start<=input.end && d.data().end>=input.start)) fail('Un abonnement couvre déjà cette période.');
+        if (existing.docs.some(d=>(plan.data().format??'subscription')==='subscription' && (d.data().format??'subscription')==='subscription' && (d.data().service??'coaching')===(plan.data().service??'coaching') && d.data().start<=input.end && d.data().end>=input.start)) fail('Un abonnement couvre déjà cette période.');
+        const offer=plan.data();
+        if(['pack','single'].includes(offer.format)) {
+          const packRef=s.ref.collection('sessionPacks').doc(ref.id);
+          const pack={name:offer.name,description:offer.description||'',quantity:offer.format==='single'?1:offer.quantity,type:offer.service==='group'?'group':offer.service==='nutrition'?'nutrition':'individual',courseTitle:'',start:input.start,end:input.end,amountCents:discountOptions(input,offer).amountCents??offer.amountCents,currency:offer.currency,unitScale:offer.unitScale??100,planId:plan.id,contractId:ref.id,createdAt:Date.now(),createdBy:uid,cancelled:false};
+          tx.set(packRef,pack);
+          tx.set(packRef.collection('changes').doc('0'),{action:'created',at:Date.now(),by:uid,after:pack});
+        }
         tx.set(s.ref,{billingEnabled:true},{merge:true});
         tx.set(ref,{...plan.data(),...billingOptions(input,plan.data()),...discountOptions(input,plan.data()),planId:plan.id,start:input.start,end:input.end,assignedAt:Date.now(),assignedBy:uid});
+      });
+    },
+    async updateContract(uid,clientId,id,input,previewOnly=false) {
+      const scope=await dossier(uid,clientId);
+      if(!/^[a-zA-Z0-9_-]{1,160}$/.test(id||''))fail('Abonnement invalide.');
+      const ref=scope.ref.collection('subscriptions').doc(id);
+      return db.runTransaction(async tx=>{
+        const [snapshot,checks,others]=await Promise.all([tx.get(ref),tx.get(scope.ref.collection('paymentChecks')),tx.get(scope.ref.collection('subscriptions'))]);
+        if(!snapshot.exists)fail('Abonnement introuvable.',404);
+        const old=snapshot.data();
+        if(old.importedOpening||['pack','single'].includes(old.format))fail('Seuls les abonnements peuvent être modifiés ici.');
+        if((input.version||0)!==(old.version||0))fail('Cet abonnement a changé. Rechargez la fiche.',409);
+        const name=typeof input.name==='string'?input.name.trim():'';
+        if(!name||name.length>100||!Number.isSafeInteger(input.amountCents)||input.amountCents<=0||input.amountCents>100000000||!validDate(input.end)||input.end<old.start||Date.parse(input.end)-Date.parse(old.start)>366*86400000*5)fail('Nom, montant et fin de validité valides requis.');
+        if(others.docs.some(d=>d.id!==id&&(d.data().format??'subscription')==='subscription'&&(d.data().service??'coaching')===(old.service??'coaching')&&d.data().start<=input.end&&d.data().end>=old.start))fail('Un abonnement couvre déjà cette période.');
+        const checked=new Set(checks.docs.map(d=>d.id));
+        const nextMonth=cycleDate(today(),1,1);
+        const paymentDay=input.paymentDay??old.futurePaymentDay??old.paymentDay??Number(old.start.slice(8));
+        if(!Number.isInteger(paymentDay)||paymentDay<1||paymentDay>31)fail('Jour de paiement invalide.');
+        const changedDay=old.frequency==='monthly'&&paymentDay!==(old.futurePaymentDay??old.paymentDay??Number(old.start.slice(8)));
+        const lockedDues=installments({...old,id}).filter(d=>d.dueDate<=today()||checked.has(d.id)||(changedDay&&d.dueDate<nextMonth));
+        if(lockedDues.some(d=>d.dueDate>input.end))fail('La fin ne peut pas précéder une échéance déjà enregistrée.');
+        const patch={name,description:descriptionOf(input.description),amountCents:input.amountCents,...(input.amountCents!==old.amountCents?{baseAmountCents:input.amountCents,discount:null}:{}),end:input.end,lockedDues,...(changedDay?{futurePaymentDay:paymentDay,paymentDayEffectiveFrom:nextMonth}:{}),version:(old.version||0)+1,updatedAt:Date.now(),updatedBy:uid};
+        if(previewOnly)return {dues:installments({...old,...patch,id})};
+        tx.set(ref.collection('changes').doc(String(patch.version)),{at:Date.now(),by:uid,before:old,after:patch});
+        tx.set(ref,patch,{merge:true});
+        return {ok:true};
       });
     },
     async pending(uid) {
@@ -194,27 +277,39 @@ function createClubSubscriptions(db, sendEmail) {
       const paidDate=input.status==='unpaid'?(due.paidDate||''):(input.paidDate||today());
       if(!Number.isSafeInteger(paidCents)||paidCents<0||paidCents>due.amountCents||(input.status==='partial'&&(!paidCents||paidCents>=due.amountCents)))fail('Montants invalides.');
       if(input.status!=='unpaid'&&(!validDate(paidDate)||paidDate>today()))fail('Dates de règlement invalides.');
+      const wantsEmail=input.status==='unpaid' && input.sendReminder!==false;
+      if(input.sendReminder!==undefined && typeof input.sendReminder!=='boolean')fail('Décision de relance invalide.');
+      let message;
+      if(wantsEmail && input.message!==undefined){
+        const subject=typeof input.message?.subject==='string'?input.message.subject.trim():'';
+        const body=typeof input.message?.body==='string'?input.message.body.trim():'';
+        if(!subject || subject.length>200 || /[\r\n]/.test(subject) || !body || body.length>5000)fail('Message de relance invalide.');
+        message={subject,body};
+      }
       const recipient=s.client.data().email;
       const ref=s.ref.collection('paymentChecks').doc(id);
-      if(input.status==='unpaid' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient||''))fail('Le client doit avoir une adresse e-mail valide avant cette action.');
+      if(wantsEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient||''))fail('Le client doit avoir une adresse e-mail valide avant cette action.');
       let send=false, attemptVersion;
       await db.runTransaction(async tx=>{
         send=false;
+        const currentContract=await tx.get(s.ref.collection('subscriptions').doc(due.contractId));
+        const currentDue=currentContract.exists?installments({id:currentContract.id,...currentContract.data()}).find(d=>d.id===id):null;
+        if(!currentDue||currentDue.amountCents!==due.amountCents)fail('Cette échéance a changé. Rechargez la liste.',409);
         const previous=(await tx.get(ref)).data()||{};
         if((input.version || 0)!==(previous.version || 0))fail('Cette échéance a changé. Rechargez la liste.',409);
         if(previous.emailState==='sending' && !staleEmail(previous))fail('Un envoi est déjà en cours. Vérifiez son état avant de réessayer.',409);
         // A repeated decision cannot send the reminder again. A failed delivery can be retried explicitly.
-        if(previous.status===input.status && (previous.paidCents??paidCents)===paidCents && (previous.paidDate??paidDate)===paidDate && !(input.status==='unpaid' && (previous.emailState==='failed' || staleEmail(previous))))return;
+        if(previous.status===input.status && (previous.paidCents??paidCents)===paidCents && (previous.paidDate??paidDate)===paidDate && !(wantsEmail && previous.emailState!=='sent'))return;
         attemptVersion=(previous.version||0)+1;
-        send=input.status==='unpaid' && previous.emailState!=='sent';
+        send=wantsEmail && previous.emailState!=='sent';
         tx.set(ref.collection('history').doc(String(attemptVersion)),{at:Date.now(),by:uid,previous:{status:previous.status||'pending',paidCents:previous.paidCents||0,paidDate:previous.paidDate||''},next:{status:input.status,paidCents,paidDate}});
-        tx.set(ref,{status:input.status,paidCents,paidDate,checkedAt:Date.now(),checkedBy:uid,emailState:send?'sending':previous.emailState||'',version:(previous.version||0)+1},{merge:true});
+        tx.set(ref,{status:input.status,paidCents,paidDate,checkedAt:Date.now(),checkedBy:uid,emailState:send?'sending':previous.emailState||(input.status==='unpaid'?'skipped':''),...(send&&message?{reminderSubject:message.subject,reminderBody:message.body}:{}),version:(previous.version||0)+1},{merge:true});
       });
       const finish=patch=>db.runTransaction(async tx=>{const latest=(await tx.get(ref)).data();if(latest?.version===attemptVersion)tx.set(ref,patch,{merge:true});});
       if(send) {
         try {
           const club=(await db.collection('clubs').doc(s.clubId).get()).data();
-          await sendEmail({to:recipient,clubName:club?.name||'Votre club',clientName:s.clientName,due,language:s.client.data()?.preferredLang || s.client.data()?.langue || "fr"});
+          await sendEmail({to:recipient,clubName:club?.name||'Votre club',clientName:s.clientName,due,message,language:s.client.data()?.preferredLang || s.client.data()?.langue || "fr"});
           await finish({emailState:'sent',emailSentAt:Date.now()});
         }catch {
           await finish({emailState:'failed'});

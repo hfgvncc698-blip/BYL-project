@@ -234,6 +234,7 @@
     }
   },
   "nav": {
+    "offers_payments": "Offres et paiements",
     "home": "Accueil",
     "dashboard": "Tableau de bord",
     "programs": "Programmes",
@@ -392,6 +393,7 @@
     "cta_client": "Pour les particuliers"
   },
   "dashboard": {
+    "offers_payments_hint": "Packs, abonnements et règlements",
     "coach_title": "Tableau de bord coach",
     "client_title": "Mon tableau de bord",
     "recent_clients": "Clients récents",
@@ -1482,7 +1484,12 @@
     "preview": "Prévisualiser",
     "start_session": "Démarrer séance",
     "sessionsCount_one": "{{count}} séance",
-    "sessionsCount_other": "{{count}} séances"
+    "sessionsCount_other": "{{count}} séances",
+    "all": "Tous mes programmes",
+    "preparing": "Le détail des séances sera disponible lorsque ce programme sera préparé.",
+    "replay": "Refaire",
+    "resume": "Reprendre",
+    "defaultName": "{{goal}} — {{count}} séances/sem."
   },
   "profile_short": {
     "title": "Profil"
@@ -1880,7 +1887,7 @@
       "sub": {
         "title": "Abonnement 39,99 €/mois",
         "badge": "1er mois 29,99 €",
-        "subtitle": "nouveau programme personnalisé chaque mois",
+        "subtitle": "Un nouveau programme à la fin du précédent, à votre rythme",
         "cta": "Choisir l’abonnement"
       },
       "one": {
@@ -2822,6 +2829,13 @@
     "cta": "Découvrir la plateforme des coachs modernes"
   },
   "status": {
+    "cancellation_accepted": "Justification acceptée",
+    "cancellation_rejected": "Justification refusée",
+    "cancellation_reason": "Motif de l’annulation",
+    "reason_unavailable": "Motif non renseigné",
+    "review_reason": "Motif de la décision",
+    "to_validate": "À vérifier",
+    "cancellation_pending": "Annulation à examiner",
     "upcoming": "À venir",
     "validated": "Validée",
     "missed": "Manquée"
@@ -7207,7 +7221,8 @@
       "goals": "Objectifs",
       "exports": "Exports",
       "bulk": "À traiter",
-      "alert": "Alerte"
+      "alert": "Alerte",
+      "offers": "Offres"
     },
     "exports": {
       "downloadCsv": "Télécharger CSV"
@@ -7343,6 +7358,15 @@
       "next": "Prochain rendez-vous",
       "noUpcoming": "Aucun rendez-vous à venir.",
       "overview": "Le club en chiffres"
+    },
+    "offers": {
+      "subtitle": "Packs de séances et abonnements du club.",
+      "moved": "Retrouvez les packs et abonnements dans Gestion → Offres.",
+      "open": "Gérer les offres",
+      "packs": "Packs de séances",
+      "packHelp": "Choisissez un client pour créer ou modifier ses packs et consulter ses séances restantes.",
+      "client": "Choisir un client",
+      "followup": "Ouvrir le suivi clients"
     }
   },
   "clubMessaging": {
@@ -7361,5 +7385,18 @@
     "older": "Messages précédents",
     "preview": "Aperçu administrateur : lecture seule.",
     "noMessages": "Aucun message pour le moment."
+  },
+  "offerReminder": {
+    "subject": "Rappel de règlement · {{offer}}",
+    "body": "Bonjour {{client}},\n\nSauf erreur de ma part, le règlement de {{amount}} prévu le {{date}} pour « {{offer}} » n’a pas encore été reçu.\n\nPourriez-vous vérifier et me tenir informé(e) ? Si vous avez déjà effectué le règlement, merci de ne pas tenir compte de ce rappel et de me le signaler.\n\nMerci et à bientôt,",
+    "title": "Relancer le client",
+    "unpaid": "Paiement non reçu · {{client}}",
+    "preview": "Aperçu : « Envoyer » simule l’envoi. Aucun mail réel ne sera envoyé.",
+    "subjectLabel": "Objet",
+    "messageLabel": "Message",
+    "skipHint": "« Ne pas envoyer » enregistre uniquement le paiement comme non reçu. Vous pourrez contacter le client vous-même.",
+    "cancel": "Annuler",
+    "skip": "Ne pas envoyer",
+    "send": "Envoyer"
   }
 }

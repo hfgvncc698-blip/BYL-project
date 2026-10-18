@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict');
+const {emailSkipReason}=require('../functions/lib/messagingEmailPolicy.cjs');
+const now=Date.now(),day=86400000;
+const base={messageAt:now,now,previousMessageAt:now-day-1,readAt:now-day-2};
+assert.equal(emailSkipReason(base),null,'New unread message after a day is eligible');
+assert.equal(emailSkipReason({...base,previousMessageAt:now-day}), 'conversation-recently-active');
+assert.equal(emailSkipReason({...base,previousMessageAt:now-1000}), 'conversation-recently-active');
+assert.equal(emailSkipReason({...base,previousMessageAt:0,readAt:0}),null,'First conversation');
+assert.equal(emailSkipReason({...base,readAt:now}), 'already-read');
+assert.equal(emailSkipReason({...base,lastSentAt:now-1000}), 'unread-sequence-already-notified');
+assert.equal(emailSkipReason({...base,readAt:now-1000}), 'recipient-recently-active');
+assert.equal(emailSkipReason({...base,messageAt:0}), 'missing-message-date');
+assert.equal(emailSkipReason({...base,messageAt:new Date(now),readAt:{toMillis:()=>now}}),'already-read');
+console.log('Message email policy: 24-hour boundary, first contact, read-before-delivery, unread deduplication and Timestamp support passed. No e-mail sent.');

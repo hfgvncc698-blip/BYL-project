@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {clientClubOfferGroups} from '../src/utils/clientClubOfferGroups.mjs';
+const groups=[{clubId:'one',contracts:[{id:'gym',service:'club'},{id:'classes',service:'club_group'},{id:'coach',service:'coaching'}],dues:[{contractId:'gym'},{contractId:'classes'},{contractId:'coach'}],payments:[{contractId:'gym'},{contractId:'coach'},{id:'manual'}]}, {clubId:'two',contracts:[{id:'other-gym',service:'club'}],dues:[],payments:[]}];
+const before=JSON.stringify(groups);
+const access=clientClubOfferGroups(groups,{accessOnly:true,clubId:'one'});
+assert.deepEqual(access[0].contracts.map(c=>c.id),['gym','classes']);
+assert.equal(access.length,1);
+assert.deepEqual(access[0].dues.map(d=>d.contractId),['gym','classes']);
+assert.deepEqual(access[0].payments,[{contractId:'gym'}]);
+const other=clientClubOfferGroups(groups);
+assert.deepEqual(other[0].contracts.map(c=>c.id),['coach']);
+assert.deepEqual(other[0].payments,[{contractId:'coach'},{id:'manual'}]);
+assert.equal(other.length,1);
+assert.deepEqual(clientClubOfferGroups(groups,{accessOnly:true,clubId:'missing'}),[]);
+assert.equal(JSON.stringify(groups),before);
+console.log('Profile offers: club isolation, access categories, payment separation and source preservation passed.');

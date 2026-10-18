@@ -37,11 +37,18 @@ assert.ok(!readFileSync(new URL('../src/components/Clientdashboard.jsx',import.m
 assert.ok(readFileSync(new URL('../src/components/client/ClientJourneyPage.jsx',import.meta.url),'utf8').includes("view==='program' && <ClientCycleTimeline"));
 const page=readFileSync(new URL('../src/components/client/ClientJourneyPage.jsx',import.meta.url),'utf8');
 for(const label of ['progressHint','coach','nutrition','back'])assert.ok(!page.includes(`{labels.${label}}`),'programme page excludes unrelated shortcuts');
-assert.ok(page.includes('{labels.all}</RightDisclosureSummary>'),'other programmes remain accessible');
 assert.ok(page.includes('<PageBackButton label='),'shared back button remains accessible');
 assert.ok(page.includes('headingAs="h1"'),'page has a primary heading');
 assert.ok(page.indexOf('<AppSectionHeader')<page.indexOf('<ClientCycleTimeline'),'page heading precedes timeline');
 assert.ok(page.indexOf('<Box bg={paper} bgImage={gradient}')<page.indexOf('<ClientCycleTimeline'),'current programme precedes the combined timeline and results');
 assert.ok(!page.includes('<ClientWeekSessions'),'weekly sessions are embedded in the timeline, not duplicated');
-assert.ok(page.indexOf('<ClientCycleTimeline')<page.indexOf('{labels.all}</RightDisclosureSummary>'),'timeline precedes other programmes');
 console.log('Client timeline: assigned-only visibility, drafts and notes hidden, current/past/future states, independent mode, custom titles, waiting cycle and seven languages OK.');
+
+assert.ok(page.includes("myPrograms.all"));
+const subscription=clientCycleTimeline({subscriptionCycle:{enabled:true},trainingPlan:{cycles:[{id:'current',type:'strength',programId:'now',weeks:3},{id:'future',type:'recovery',weeks:1},{id:'private',type:'custom',draftProgramId:'draft',weeks:2}]}},programs);
+assert.deepEqual(subscription.map(c=>c.id),['current','future','history:next','history:past']);
+assert.equal(subscription.find(c=>c.id==='future').program,null);
+assert.equal(subscription.find(c=>c.id==='future').weeks,1);
+assert.equal(subscription.find(c=>c.id==='future').state,'upcoming');
+
+assert.ok(clientCycleTimeline({sportFollowView:'programs',currentProgramme:'now'},programs,{includeIndependent:true}).some(c=>c.program?.id==='now'));

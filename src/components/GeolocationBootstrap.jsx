@@ -7,6 +7,7 @@ import { claimGeolocationHelp } from "../utils/geolocationSession";
 import { useAuth } from "../AuthContext";
 import { useConsent } from "../consent/ConsentContext";
 import useLocationPreference from "../hooks/useLocationPreference";
+import useLocationSettingsReport from "../hooks/useLocationSettingsReport";
 import { useTranslation } from "react-i18next";
 
 export default function GeolocationBootstrap() {
@@ -22,6 +23,7 @@ export default function GeolocationBootstrap() {
   const background = useColorModeValue("white", "gray.800");
 
   const analyticsOn = !!prefs?.analytics || isAdmin || effectiveRole === "admin";
+  useLocationSettingsReport(loading ? null : user?.uid, locationPreference, analyticsOn);
   const locationOn = !loading && analyticsOn && locationPreference !== false;
 
   const { permissionBlocked } = useGeolocation({

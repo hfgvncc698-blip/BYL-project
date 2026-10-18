@@ -825,6 +825,21 @@ router.get("/admin/visitor/:uid", requireAnalyticsAdmin, async (req, res) => {
       return res.json({ ok: true, found: false, uid, visitorId });
     }
 
+    // Prefer the actual visit event over the daily aggregate (which can retain
+    // a location from an earlier visit). Never borrow profile coordinates.
+    const eventSnapshot = await db.collection("analytics_daily").doc(latest.day)
+      .collection("events").where("visitorId", "==", visitorId).get();
+    let latestEvent = null;
+    eventSnapshot.docs.forEach(snap => {
+      const data = snap.data() || {};
+      const seenIso = toIso(data.seenAt);
+      const seenMs = Date.parse(seenIso || "") || 0;
+      if (seenMs && (!latestEvent || seenMs > latestEvent.seenMs)) {
+        latestEvent = { day: latest.day, ref: snap.ref, data: { ...data, firstSeenAt: data.seenAt, pathFirst: data.path, pathLast: data.path }, seenIso, seenMs };
+      }
+    });
+    if (latestEvent) latest = latestEvent;
+
     const selectedDays = new Set(refs.map(({ day }) => day));
     const historyByCity = new Map();
     const visitedDays = new Set();
@@ -870,20 +885,10 @@ router.get("/admin/visitor/:uid", requireAnalyticsAdmin, async (req, res) => {
 
     const userSnap = await db.collection("users").doc(uid).get().catch(() => null);
     const userData = userSnap?.exists ? userSnap.data() || {} : {};
-    const lat =
-      typeof latest.data.lat === "number"
-        ? latest.data.lat
-        : typeof userData?.location?.lat === "number"
-          ? userData.location.lat
-          : null;
-    const lng =
-      typeof latest.data.lng === "number"
-        ? latest.data.lng
-        : typeof userData?.location?.lng === "number"
-          ? userData.location.lng
-          : null;
-    let country = cleanText(latest.data.country, 2, userData?.location?.country || "UN").toUpperCase();
-    let city = cleanText(latest.data.city, 120, userData?.location?.city || "unknown");
+    const lat = typeof latest.data.lat === "number" ? latest.data.lat : null;
+    const lng = typeof latest.data.lng === "number" ? latest.data.lng : null;
+    let country = cleanText(latest.data.country, 2, "UN").toUpperCase();
+    let city = cleanText(latest.data.city, 120, "unknown");
 
     if (
       lat != null &&
@@ -945,6 +950,9 @@ router.get("/admin/visitor/:uid", requireAnalyticsAdmin, async (req, res) => {
         country: country === "UN" ? "" : country,
         lat,
         lng,
+        geoStatus: cleanText(latest.data.geoStatus, 40, "unknown"),
+        accuracy: typeof latest.data.accuracy === "number" ? latest.data.accuracy : null,
+        knownLocation: userData.location ? { ...userData.location, capturedAt: toIso(userData.location.capturedAt || userData.location.updatedAt) } : null,
         personName: pickPersonName(userData, uid),
         email: userData.email || "",
       },

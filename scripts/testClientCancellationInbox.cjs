@@ -10,6 +10,8 @@ assert.deepEqual((await service.list('coach')).requests.map(r=>r.id),['a']);asse
 await assert.rejects(service.dismiss('stranger','b'),e=>e.status===403);
 await assert.rejects(service.dismiss('u','a'),e=>e.status===400);
 await service.dismiss('u','b');assert.deepEqual((await service.mine('u')).requests.map(r=>r.id),['a']);
+assert.deepEqual((await service.mine('u',true)).requests.map(r=>r.id),['b','a']);
+assert.deepEqual((await service.mine('unknown',true)).requests,[]);
 assert.equal(data.sessionCancellationRequests.b.decision,'accepted');assert.equal((await service.list('coach',true)).requests.length,2);
 await service.dismiss('u','b');assert.deepEqual((await service.mine('u')).requests.map(r=>r.id),['a']);
 data.sessionCancellationRequests.b.reviewedAt=5;assert.equal((await service.mine('u')).requests[0].id,'b');

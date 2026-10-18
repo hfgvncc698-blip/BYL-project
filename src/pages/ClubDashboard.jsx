@@ -9,7 +9,7 @@ import ClubAppointmentDialog from '../components/dashboard/ClubAppointmentDialog
 import { clubText, clubLocale } from "../i18n/clubText";
 import { ClubSubscriptionPlans, ClubPaymentTasks } from "../components/dashboard/ClubSubscriptions";
 import CalendarValidationMark from "../components/calendar/CalendarValidationMark";
-import { calendarEventAppearance } from "../utils/calendarEventAppearance.mjs";
+import { calendarEventAppearance, calendarEventStatusKey } from "../utils/calendarEventAppearance.mjs";
 import ClubPlanningDownload from "../components/dashboard/ClubPlanningDownload";
 import FormerClubClients from "../components/dashboard/FormerClubClients";
 import useSessionDraft from "../hooks/useSessionDraft";
@@ -45,6 +45,7 @@ import {
   Select,
   SimpleGrid,
   Stack,
+  Tabs, Tab, TabList, TabPanels, TabPanel,
   Table,
   Tbody,
   Td,
@@ -320,6 +321,7 @@ const PRO_TYPES = {
   complete: ["clubDashboard.proTypes.complete", "Coach + nutrition"],
 };
 const CLUB_TOOLS = [
+  { key: "offers", path: "/club-dashboard/offres", labelKey: "clubDashboard.tools.offers", fallback: "Offres" },
   { key: "log", path: "/club-dashboard/journal", labelKey: "clubDashboard.tools.log", fallback: "Journal" },
   { key: "goals", path: "/club-dashboard/objectifs", labelKey: "clubDashboard.tools.goals", fallback: "Objectifs" },
   { key: "exports", path: "/club-dashboard/exports", labelKey: "clubDashboard.tools.exports", fallback: "Exports" },
@@ -350,7 +352,7 @@ export default function ClubDashboard() {
   useEffect(() => {
     moment.locale(calendarCulture);
   }, [calendarCulture]);
-  const clubMessaging = useDisclosure();
+  const clubMessaging = useDisclosure({defaultIsOpen:new URLSearchParams(window.location.search).has('conversation')});
   const baseTheme = useAppTheme();
   // Match the coach workspace surfaces without changing other application pages.
   const clubSurface = useColorModeValue("rgba(255,255,255,0.95)", "rgba(11,16,27,0.95)");
@@ -637,28 +639,30 @@ export default function ClubDashboard() {
   const normalizeSearch = (value) => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().trim();
   const clientSearchTerms = normalizeSearch(clientSearch).split(/\s+/).filter(Boolean);
   const [clientSort, setClientSort] = useState("firstName");
+  const [nutritionSort,setNutritionSort]=useState("activity");
+  const [nutritionStatusFilter,setNutritionStatusFilter]=useState("all");
   const clientCollator = new Intl.Collator(clubLocale(), { sensitivity: "base", numeric: true });
-  const searchedClients = scopedClients.filter((client) => {
-    const text = normalizeSearch([client.name, client.email, client.coachName].filter(Boolean).join(" "));
+  const matchesClientStatus = client => {
     const state = client.membershipAccess || 'active';
-    const matchesStatus = activeView !== 'clients' || clientStatusFilter === 'all'
+    return clientStatusFilter === 'all'
       || (clientStatusFilter === 'disabled' && ['inactive', 'expired', 'left'].includes(state))
       || (clientStatusFilter === 'unpaid' && (client.membershipReason === 'unpaid' || client.hasUnpaid))
       || (clientStatusFilter === 'contract_end' && (client.membershipReason === 'contract_end' || state === 'expired'))
       || state === clientStatusFilter;
-    return matchesStatus && clientSearchTerms.every((term) => text.includes(term));
-  }).sort((a, b) => {
-    if (clientSort === 'activity') {
+  };
+  const compareClients = (a,b,sort=clientSort) => {
+    if (sort === 'activity') {
       const time = value => { const n = new Date(value || 0).getTime(); return Number.isFinite(n) ? n : 0; };
       const difference = time(b.activityAt) - time(a.activityAt);
       if (difference) return difference;
     }
     const first = client => client.firstName || client.prenom || client.name || '';
     const last = client => client.lastName || client.nom || client.name || '';
-    const primary = clientSort === 'lastName' ? last : first;
-    const secondary = clientSort === 'lastName' ? first : last;
+    const primary = sort === 'lastName' ? last : first;
+    const secondary = sort === 'lastName' ? first : last;
     return clientCollator.compare(primary(a), primary(b)) || clientCollator.compare(secondary(a), secondary(b)) || String(a.id).localeCompare(String(b.id));
-  });
+  };
+  const searchedClients = scopedClients.filter(client=>matchesClientStatus(client)&&clientSearchTerms.every(term=>normalizeSearch([client.name,client.email,client.coachName].filter(Boolean).join(' ')).includes(term))).sort(compareClients);
   const [teamSearch, setTeamSearch] = useState("");
   const teamSearchTerms = normalizeSearch(teamSearch).split(/\s+/).filter(Boolean);
   const searchedTeamPros = teamPros.filter((coach) => {
@@ -682,9 +686,12 @@ export default function ClubDashboard() {
   const searchedPrograms = scopedPrograms.filter((program) =>
     matchesActivitySearch([program.title, program.clientName, program.coachName])
   );
-  const searchedNutrition = scopedNutrition.filter((assessment) =>
-    matchesActivitySearch([assessment.objective, assessment.clientName, assessment.coachName, assessment.status])
-  );
+  const nutritionClients = new Map(directoryClients.map(client=>[client.id,client]));
+  const nutritionIdentity = assessment => ({...nutritionClients.get(assessment.clientId),id:assessment.clientId,name:nutritionClients.get(assessment.clientId)?.name||assessment.clientName,activityAt:assessment.activityAt});
+  const searchedNutrition = scopedNutrition.filter(assessment =>
+    matchesActivitySearch([assessment.objective,assessment.clientName,assessment.coachName,assessment.status]) &&
+    (nutritionStatusFilter==='all'||assessment.status===nutritionStatusFilter)
+  ).sort((a,b)=>compareClients(nutritionIdentity(a),nutritionIdentity(b),nutritionSort)||String(a.id).localeCompare(String(b.id)));
   const [now, setNow] = useState(Date.now());
   const calendarScrollTime = useMemo(() => {
     const time = new Date(now);
@@ -779,6 +786,7 @@ export default function ClubDashboard() {
     if (location.pathname === "/club-dashboard/create") return "dashboard";
     if (location.pathname === "/club-dashboard/team") return "team";
     if (location.pathname === "/club-dashboard/calendrier") return "calendar";
+    if (location.pathname === "/club-dashboard/offres") return "offers";
     if (location.pathname === "/club-dashboard/settings") return "settings";
     if (location.pathname === "/club-dashboard/alertes") return "bulk";
     if (location.pathname === "/club-dashboard/journal") return "log";
@@ -804,6 +812,7 @@ export default function ClubDashboard() {
 
   const showTeam = pageKind === "team";
   const showActivity = pageKind === "activity";
+  const showOffers = pageKind === "offers";
   const showSettings = pageKind === "settings";
   const showCalendar = pageKind === "calendar";
   const showLog = pageKind === "log";
@@ -821,7 +830,7 @@ export default function ClubDashboard() {
     });
     return () => cancelAnimationFrame(frame);
   }, [loading, showBulk, location.hash]);
-  const showClubTool = showLog || showGoals || showExports || showBulk;
+  const showClubTool = showLog || showGoals || showExports || showBulk || showOffers;
   
   const goBackToClubDashboard = () => navigate(withAdminClub("/club-dashboard"));
   const getActivityMeta = useCallback(
@@ -854,7 +863,8 @@ export default function ClubDashboard() {
     log: [t("clubDashboard.pages.log.title", "Journal d’activité"), t("clubDashboard.pages.log.subtitle", "Comprenez qui a créé ou modifié quoi dans le périmètre club récent.")],
     goals: [t("clubDashboard.pages.goals.title", "Objectifs mensuels"), t("clubDashboard.pages.goals.subtitle", "Fixez des repères par pro et comparez l’activité du mois.")],
     exports: [t("clubDashboard.pages.exports.title", "Exports club"), t("clubDashboard.pages.exports.subtitle", "Téléchargez les vues clients, programmes, nutrition et statistiques pour analyse externe.")],
-    bulk: [t("clubDashboard.pages.bulk.title", "Actions groupées"), t("clubDashboard.pages.bulk.subtitle", "Retrouvez les cohortes utiles pour agir plus vite sans perdre le contexte.")],
+    bulk: [t("clubDashboard.tools.management", "Gestion"), t("clubDashboard.pages.bulk.subtitle", "Retrouvez les cohortes utiles pour agir plus vite sans perdre le contexte.")],
+    offers: [t("clubDashboard.tools.management", "Gestion"), t("clubDashboard.offers.subtitle", "Packs de séances et abonnements du club.")],
     settings: [t("clubDashboard.pages.settings.title", "Réglages club"), t("clubDashboard.pages.settings.subtitle", "Gérez le nom et le logo utilisés dans les espaces pros rattachés.")],
   }[pageKind] || [t("clubDashboard.pages.default.title", "Espace club"), t("clubDashboard.pages.default.subtitle", "Pilotez votre structure.")];
   const calendarCoaches = useMemo(() => {
@@ -918,7 +928,7 @@ export default function ClubDashboard() {
           start,
           end,
           status: appointment.type === "group" && (!appointment.status || appointment.status === "à venir") && end.getTime() <= now ? "validée" : appointment.status || "à venir",
-          title: appointment.type === "group" ? appointment.title : `${appointment.type === "group" ? t("clubDashboard.group.title", "Cours collectif") + " · " : ""}${appointment.title}${appointment.type === "group" ? ` (${appointment.participantIds?.length || 0}/${appointment.capacity})` : ""}${appointment.clientName ? ` · ${appointment.clientName}` : ""} · ${calendarCoaches.find(([uid]) => uid === clubCoachKey(appointment))?.[1] || displayCoachName(appointment.coachName)} · ${appointment.status || t("clubDashboard.mobile.planned", "Planifié")}`,
+          title: appointment.type === "group" ? appointment.title : `${appointment.type === "group" ? t("clubDashboard.group.title", "Cours collectif") + " · " : ""}${appointment.title}${appointment.type === "group" ? ` (${appointment.participantIds?.length || 0}/${appointment.capacity})` : ""}${appointment.clientName ? ` · ${appointment.clientName}` : ""} · ${calendarCoaches.find(([uid]) => uid === clubCoachKey(appointment))?.[1] || displayCoachName(appointment.coachName)} · ${t(calendarEventStatusKey(appointment))}`,
         };
       }),
     [clubAppointments, calendarCoaches, t, now, groupClients]
@@ -1036,7 +1046,7 @@ export default function ClubDashboard() {
           type: t("clubDashboard.log.types.nutrition", "Nutrition"),
           owner: displayCoachName(assessment.coachName),
           at: Number(assessment.activityAt || 0),
-          detail: `${assessment.clientName} · ${assessment.status}`,
+          detail: `${assessment.clientName} · ${clubText(assessment.status)}`,
           action: () => navigate(`/clients/${assessment.clientId}/nutrition/${assessment.id}`),
         })),
       ]
@@ -1068,7 +1078,7 @@ export default function ClubDashboard() {
     [clubClients]
   );
   const nutritionDrafts = useMemo(
-    () => clubNutrition.filter((assessment) => ![clubText("Partagé"), clubText("Validé")].includes(assessment.status)),
+    () => clubNutrition.filter((assessment) => !['Partagé', 'Validé'].includes(assessment.status)),
     [clubNutrition]
   );
   const unknownReferentItems = useMemo(
@@ -1931,15 +1941,15 @@ export default function ClubDashboard() {
             <Stack direction="row" align={{ base: "flex-start", md: "center" }}
               spacing={{ base: 3, md: 4 }} {...theme.cardProps} p={{ base: 4, md: 5 }}>
               <Button size="sm" variant="outline" aria-label={t("programView.back", "Retour")}
-                w={{ base: "36px", md: "auto" }} minW="36px" h="36px" px={{ base: 0, md: 3 }}
+                w={showClubTool ? "36px" : { base: "36px", md: "auto" }} minW="36px" h="36px" px={{ base: 0, md: 3 }}
                 borderRadius="full" gap={2} mt={{ base: 0.5, md: 0 }}
                 onClick={goBackToClubDashboard} flexShrink={0}>
                 <ArrowBackIcon boxSize="16px" />
-                <Text as="span" display={{ base: "none", md: "inline" }}>{t("programView.back", "Retour")}</Text>
+                <Text as="span" display={showClubTool ? "none" : { base: "none", md: "inline" }}>{t("programView.back", "Retour")}</Text>
               </Button>
-              <Flex flex="1" minW={0} direction={{ base: "column", lg: "row" }} gap={{ base: 2, lg: 6 }} align={{ base: "start", lg: "center" }} justify="space-between">
-                  <Heading fontSize={{ base: "22px", md: "30px" }} lineHeight="1.2" letterSpacing="-0.025em" flexShrink={0}>{pageMeta[0]}</Heading>
-                  <Text color={theme.mutedText} maxW={{ lg: "55%" }} fontSize={{ base: "13px", md: "sm" }} lineHeight="1.5">{pageMeta[1]}</Text>
+              <Flex flex="1" minW={0} direction={showClubTool ? "column" : { base: "column", lg: "row" }} gap={showClubTool ? 1 : { base: 2, lg: 6 }} align={showClubTool ? "start" : { base: "start", lg: "center" }} justify="space-between">
+                  <Heading fontSize={showClubTool ? {base:"20px",md:"24px"} : { base: "22px", md: "30px" }} lineHeight="1.2" letterSpacing="-0.025em" flexShrink={0}>{pageMeta[0]}</Heading>
+                  <Text color={theme.mutedText} maxW={showClubTool ? "full" : { lg: "55%" }} fontSize={{ base: "13px", md: "sm" }} lineHeight="1.5">{pageMeta[1]}</Text>
                 </Flex>
             </Stack>
           )}
@@ -2232,8 +2242,6 @@ export default function ClubDashboard() {
                 </Stack>
               </Box>
 
-              {!isAdmin && <ClubSubscriptionPlans />}
-              <ClubRegistrationSettings club={summary?.club} url={withAdminClub("/clubs/")} onSaved={loadSummary} theme={theme} />
               <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={6}>
                 <Box {...theme.cardProps} p={{ base: 5, md: 6 }}>
                   <HStack spacing={3} mb={4} align="flex-start">
@@ -2337,11 +2345,10 @@ export default function ClubDashboard() {
 
           {showClubTool && (
             <VStack align="stretch" spacing={{ base: 3, md: 4 }}>
-              <Box {...theme.cardProps} p={3}>
-                <Text fontWeight="700" fontSize="sm" mb={2}>{t("clubDashboard.tools.management", "Gestion")}</Text>
-                <HStack as="nav" aria-label={t("clubDashboard.tools.management", "Gestion")} flexWrap="wrap" spacing={2}>
+              <Box overflowX="auto" pb={1}>
+                <HStack as="nav" aria-label={t("clubDashboard.tools.management", "Gestion")} w="max-content" maxW="none" spacing={1} bg={theme.surfaceBgStrong} borderWidth="1px" borderColor={theme.borderColor} borderRadius="full" p={1}>
                   {[...CLUB_TOOLS].sort((a, b) => (a.key === "bulk" ? -1 : b.key === "bulk" ? 1 : 0)).map((tool) => (
-                    <Button as={RouterLink} to={withAdminClub(tool.path)} key={tool.key} size="sm"
+                    <Button as={RouterLink} to={withAdminClub(tool.path)} key={tool.key} size="sm" borderRadius="full" px={{base:4,md:6}} h="40px"
                       aria-current={pageKind === tool.key ? "page" : undefined}
                       variant={pageKind === tool.key ? "solid" : "ghost"}
                       {...(pageKind === tool.key ? theme.primaryButtonProps : {})}>
@@ -2350,6 +2357,12 @@ export default function ClubDashboard() {
                   ))}
                 </HStack>
               </Box>
+
+              {showOffers && (
+                <Tabs variant="soft-rounded" isLazy><TabList gap={2} mb={5} flexWrap="wrap">{['Mes offres','Inscriptions aux cours collectifs'].map(label=><Tab key={label} _selected={{bg:'gray.900',color:'white'}}>{clubText(label)}</Tab>)}</TabList><TabPanels><TabPanel p={0}><Stack spacing={5}>
+                  {!isAdmin && <ClubSubscriptionPlans clients={summary?.clientDirectory || clubClients} />}
+                  </Stack></TabPanel><TabPanel p={0}><ClubRegistrationSettings club={summary?.club} url={withAdminClub("/clubs/")} onSaved={loadSummary} theme={theme} /></TabPanel></TabPanels></Tabs>
+              )}
 
               {showLog && (
                 <Box {...theme.cardProps} p={{ base: 5, md: 6 }}>
@@ -2519,14 +2532,14 @@ export default function ClubDashboard() {
               )}
 
               {showBulk && (
-                <VStack data-tour="club-management" align="stretch" spacing={4}>
+                <VStack data-tour="club-management" align="stretch" spacing={5}>
                   {!isAdmin && <Box id="priority-cancellations" tabIndex={-1} scrollMarginTop="100px"><SessionCancellationRequests onCount={setCancellationCount}/></Box>}
                   {!isAdmin && <Box id="priority-payments" tabIndex={-1} scrollMarginTop="100px"><ClubPaymentTasks onCount={setPaymentDueCount} /></Box>}
-                  <Box {...theme.cardProps} p={{ base: 5, md: 6 }}>
+                  <Box py={2} px={1}>
                     <Stack direction={{ base: "column", lg: "row" }} justify="space-between" gap={4} align={{ base: "stretch", lg: "center" }}>
                       <Box maxW="720px">
-                        <Heading size="md">{t("clubDashboard.bulk.explainTitle", "À quoi sert cette page ?")}</Heading>
-                        <Text color={theme.mutedText} mt={2}>
+                        <Heading size="sm">{t("clubDashboard.bulk.explainTitle", "À quoi sert cette page ?")}</Heading>
+                        <Text color={theme.mutedText} fontSize="sm" mt={1}>
                           {t("clubDashboard.bulk.explainText", "Elle regroupe les dossiers qui demandent une action simple : assigner un programme, finaliser un bilan nutrition ou rattacher le bon pro. Rien n’est modifié automatiquement.")}
                         </Text>
                       </Box>
@@ -2538,7 +2551,7 @@ export default function ClubDashboard() {
               {clubAlerts.length > 0 && (
                 <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4}>
                   {clubAlerts.map((alert) => (
-                    <Box key={alert.title} {...theme.cardProps} p={{ base: 5, md: 6 }}>
+                    <Box key={alert.title} {...theme.cardProps} p={4} borderTop="3px solid" borderTopColor={`${alert.tone}.400`}>
                       <Badge colorScheme={alert.tone} borderRadius="full" px={3} py={1} mb={3}>{t("clubDashboard.pages.bulk.title", "À traiter")}</Badge>
                       <Heading size="sm">{alert.title}</Heading>
                       <Text color={theme.mutedText} mt={2}>{alert.detail}</Text>
@@ -2552,6 +2565,7 @@ export default function ClubDashboard() {
                     {[
                       {
                         id: "priority-programs",
+                        accent: "blue.400",
                         title: t("auto.ClubDashboard.clients_sans_programme", "Clients sans programme"),
                         detail: t("clubDashboard.bulk.noProgramDetail", "Ces clients existent dans le club mais n’ont aucun programme assigné. Le but est d’ouvrir leur dossier puis d’ajouter ou assigner un programme."),
                         items: allClientsWithoutProgram,
@@ -2561,6 +2575,7 @@ export default function ClubDashboard() {
                       },
                       {
                         id: "priority-nutrition",
+                        accent: "teal.400",
                         title: t("clubDashboard.alerts.nutritionDrafts.short", "Bilans nutrition à finaliser"),
                         detail: t("clubDashboard.bulk.nutritionDetail", "Ces bilans sont en brouillon ou non partagés. Le but est de les ouvrir, corriger si besoin, puis les valider ou les partager."),
                         items: nutritionDrafts,
@@ -2568,19 +2583,19 @@ export default function ClubDashboard() {
                         onMainAction: () => openClubView("nutrition"),
                         itemAction: (item) => navigate(`/clients/${item.clientId}/nutrition/${item.id}`),
                       },
-                    ].map(({ id, title, detail, items, actionLabel, onMainAction, itemAction }) => (
-                      <Box id={id} tabIndex={-1} scrollMarginTop="100px" key={title} {...theme.cardProps} p={{ base: 5, md: 6 }}>
+                    ].map(({ id, accent, title, detail, items, actionLabel, onMainAction, itemAction }) => (
+                      <Box id={id} tabIndex={-1} scrollMarginTop="100px" key={title} {...theme.cardProps} p={{base:4,md:5}} borderTop="3px solid" borderTopColor={accent}>
                         <HStack justify="space-between" mb={3}>
                           <Heading size="sm">{title}</Heading>
-                          <Text fontSize="2xl" fontWeight="900" flexShrink={0} textAlign="right">{items.length}</Text>
+                          <Badge colorScheme={items.length ? "blue" : "gray"} borderRadius="full" px={3} py={1}>{items.length}</Badge>
                         </HStack>
                         <Text color={theme.mutedText} fontSize="sm" >{detail}</Text>
-                        {items.length > 0 && <Button mt={4} size="sm" {...theme.primaryButtonProps} onClick={onMainAction}>
+                        {items.length > 0 && <Flex justify="flex-end" mt={4}><Button size="sm" {...theme.primaryButtonProps} onClick={onMainAction}>
                           {actionLabel}
-                        </Button>}
-                        <VStack align="stretch" spacing={3} mt={3}>
+                        </Button></Flex>}
+                        <VStack align="stretch" spacing={0} mt={3}>
                           {items.slice(0, 5).map((item) => (
-                            <HStack key={`${title}:${item.id}`} justify="space-between" {...theme.tileProps} p={3} gap={3}>
+                            <HStack key={`${title}:${item.id}`} justify="space-between" w="full" py={3} borderTopWidth="1px" borderColor={theme.borderColor} gap={3}>
                               <Box minW={0}>
                                 <Text fontWeight="800" noOfLines={1}>{item.name || item.clientName || item.title || item.objective || item.id}</Text>
                                 <Text color={theme.mutedText} fontSize="xs" noOfLines={1}>{displayCoachName(item.coachName)}</Text>
@@ -2593,7 +2608,7 @@ export default function ClubDashboard() {
                       </Box>
                     ))}
                   </SimpleGrid>
-                          <Box id="priority-referents" tabIndex={-1} scrollMarginTop="100px" {...theme.cardProps} p={{ base: 5, md: 6 }} overflowX="auto">
+                          <Box id="priority-referents" tabIndex={-1} scrollMarginTop="100px" {...theme.cardProps} borderTop="3px solid" borderTopColor="purple.400" p={{ base: 4, md: 5 }} overflowX="auto">
                     <Stack direction={{ base: "column", md: "row" }} justify="space-between" align={{ base: "stretch", md: "center" }} mb={4} gap={3}>
                       <Box>
                         <Heading size="sm">{t("clubDashboard.alerts.unknownReferents.short", "Référents à clarifier")}</Heading>
@@ -2923,8 +2938,8 @@ export default function ClubDashboard() {
                     onChange={(event) => activeView === "clients"
                       ? setClientSearch(event.target.value)
                       : setActivitySearches((current) => ({ ...current, [activeView]: event.target.value }))}
-                    placeholder={activeView === "clients" ? t("clientsList.searchPlaceholder", "Rechercher un client") : t(`clubDashboard.search.${activeView}`)}
-                    aria-label={activeView === "clients" ? t("clientsList.searchPlaceholder", "Rechercher un client") : t(`clubDashboard.search.${activeView}`)}
+                    placeholder={activeView === "clients" ? t("clientsList.searchPlaceholder", "Rechercher un client") : activeView === "nutrition" ? clubText("Rechercher un bilan, un patient ou un professionnel") : t(`clubDashboard.search.${activeView}`)}
+                    aria-label={activeView === "clients" ? t("clientsList.searchPlaceholder", "Rechercher un client") : activeView === "nutrition" ? clubText("Rechercher un bilan, un patient ou un professionnel") : t(`clubDashboard.search.${activeView}`)}
                     flex={activeView === "clients" ? 1 : { base: "none", md: 1 }}
                     h="46px"
                     minH="46px"
@@ -2953,13 +2968,13 @@ export default function ClubDashboard() {
                       </SimpleGrid>
                   )}
                   <Menu closeOnSelect={false} placement="bottom-end" strategy="fixed" boundary="clippingParents" gutter={8}>
-                    {activeView === "clients" ? <MenuButton as={IconButton} aria-label={clubText("Filtres")} title={clubText("Filtres")} icon={<Icon as={MdFilterList} boxSize="20px" />} variant="outline" w="44px" minW="44px" h="46px" flexShrink={0} colorScheme={activityCoachFilter.length || clientStatusFilter !== "all" || clientSort !== "firstName" ? "blue" : undefined} /> : <MenuButton as={Button} size="sm" variant="outline" rightIcon={<ChevronDownIcon />}>
+                    {["clients","nutrition"].includes(activeView) ? <MenuButton as={IconButton} aria-label={clubText("Filtres")} title={clubText("Filtres")} icon={<Icon as={MdFilterList} boxSize="20px" />} variant="outline" w="44px" minW="44px" h="46px" flexShrink={0} colorScheme={activityCoachFilter.length || (activeView === "clients" && (clientStatusFilter !== "all" || clientSort !== "firstName")) || (activeView === "nutrition" && (nutritionStatusFilter !== "all" || nutritionSort !== "activity")) ? "blue" : undefined} /> : <MenuButton as={Button} size="sm" variant="outline" rightIcon={<ChevronDownIcon />}>
                       {t("clubDashboard.filters.choosePros", "Choisir un ou plusieurs pros")}
                     </MenuButton>}
                     <Portal>
                     <MenuList minW={0} w="320px" maxW="calc(100vw - 24px)" maxH={{ base: "min(35dvh, 280px)", md: "min(50vh, 420px)" }} zIndex={1500} overflowY="auto" overscrollBehavior="contain" sx={{ "& [role^=menuitem]": { whiteSpace: "normal", overflowWrap: "anywhere" } }}>
-                      {activeView === "clients" && <>
-                        <MenuOptionGroup title={clubText("Trier par")} type="radio" value={clientSort} onChange={setClientSort}>
+                      {["clients","nutrition"].includes(activeView) && <>
+                        <MenuOptionGroup title={clubText("Trier par")} type="radio" value={activeView==="nutrition"?nutritionSort:clientSort} onChange={activeView==="nutrition"?setNutritionSort:setClientSort}>
                           <MenuItemOption value="firstName">{clubText("Prénom (A–Z)")}</MenuItemOption>
                           <MenuItemOption value="lastName">{clubText("Nom (A–Z)")}</MenuItemOption>
                           <MenuItemOption value="activity">{t("clientView.lastActivity", "Dernière activité")}</MenuItemOption>
@@ -2971,7 +2986,8 @@ export default function ClubDashboard() {
                         </MenuOptionGroup>
                         <MenuDivider />
                       </>}
-                      <MenuOptionGroup title={activeView === "clients" ? clubText("Professionnels") : undefined}
+                      {activeView==="nutrition"&&<><MenuOptionGroup title={clubText('État du bilan')} type="radio" value={nutritionStatusFilter} onChange={setNutritionStatusFilter}>{[['all','Tous les bilans'],['Brouillon','Brouillons'],['En cours','En cours'],['Validé','Validés'],['Partagé','Partagés avec le patient']].map(([value,label])=><MenuItemOption key={value} value={value}>{clubText(label)}</MenuItemOption>)}</MenuOptionGroup><MenuDivider/></>}
+                      <MenuOptionGroup title={["clients","nutrition"].includes(activeView) ? clubText("Professionnels") : undefined}
                         type="checkbox"
                         value={activityCoachFilter}
                         onChange={(value) => setActivityCoachFilter(Array.isArray(value) ? value : [value].filter(Boolean))}
@@ -2982,14 +2998,14 @@ export default function ClubDashboard() {
                           </MenuItemOption>
                         ))}
                       </MenuOptionGroup>
-                      {activeView === "clients" && <>
+                      {["clients","nutrition"].includes(activeView) && <>
                         <MenuDivider />
-                        <MenuItem onClick={() => { setActivityCoachFilter([]); setClientStatusFilter("all"); setClientSort("firstName"); }}>{clubText("Réinitialiser les filtres")}</MenuItem>
+                        <MenuItem onClick={() => { setActivityCoachFilter([]); if(activeView==="nutrition"){setNutritionStatusFilter("all");setNutritionSort("activity");}else{setClientStatusFilter("all"); setClientSort("firstName");} }}>{clubText("Réinitialiser les filtres")}</MenuItem>
                       </>}
                     </MenuList>
                     </Portal>
                   </Menu>
-                    {activeView !== "clients" && activityCoachFilter.length > 0 && (
+                    {!["clients","nutrition"].includes(activeView) && activityCoachFilter.length > 0 && (
                       <Button size="sm" variant="ghost" onClick={() => setActivityCoachFilter([])}>
                         {t("auto.ClubDashboard.voir_tout_le_club", "Voir tout le club")}
                       </Button>
@@ -3051,7 +3067,7 @@ export default function ClubDashboard() {
                         {searchedClients.map((client) => (
                           <Tr key={client.id}>
                             <Td>
-                              <Text fontWeight="800" color={clientState(client).disabled ? 'gray.500' : undefined} textDecoration={clientState(client).disabled ? 'line-through' : undefined}>{client.name}</Text>
+                              <Button variant="link" h="auto" minW={0} textAlign="left" whiteSpace="normal" fontWeight="800" color={clientState(client).disabled ? 'gray.500' : 'inherit'} textDecoration={clientState(client).disabled ? 'line-through' : undefined} onClick={() => openClientAsReferent(client)}>{client.name}</Button>
                               <Text fontSize="xs" color={theme.mutedText}>{client.email}</Text>
                             </Td>
                             {!isAdmin && <Td>
@@ -3131,7 +3147,7 @@ export default function ClubDashboard() {
                       <Thead>
                         <Tr>
                           <Th>{t("auto.ClubDashboard.bilan", "Bilan")}</Th>
-                          <Th>{t("clientsList.table.client", "Client")}</Th>
+                          <Th>{clubText("Patient")}</Th>
                           <Th>{t("auto.ClubDashboard.pro", "Pro")}</Th>
                           <Th>{t("nutritionCoach.table.status", "Statut")}</Th>
                           <Th>{t("nutritionCoach.table.actions", "Actions")}</Th>
@@ -3146,7 +3162,7 @@ export default function ClubDashboard() {
                             </Td>
                             <Td>{assessment.clientName}</Td>
                             <Td>{assessment.coachName}</Td>
-                            <Td><Badge>{assessment.status}</Badge></Td>
+                            <Td><Badge>{clubText(assessment.status)}</Badge></Td>
                             <Td>
                               <Button size="xs" variant="outline" onClick={() => navigate(`/clients/${assessment.clientId}/nutrition/${assessment.id}`)}>{t("programs.open", "Ouvrir")}</Button>
                             </Td>

@@ -23,15 +23,41 @@ assert.equal(calendarEventValidated({...past,type:'group'},now),true);
 assert.equal(calendarEventValidated({...past,type:'group',status:'annulée'},now),false);
 assert.equal(calendarEventValidated({...past,type:'group',status:'manquée'},now),false);
 assert.equal(calendarEventValidated({...past,status:'validée'},now),true);
-assert.equal(appearance({...past,status:'validée'},undefined,now).backgroundColor,appearance(past,undefined,now).backgroundColor);
+assert.notEqual(appearance({...past,status:'validée'},undefined,now).backgroundColor,appearance(past,undefined,now).backgroundColor);
 assert.equal(calendarEventValidated({...past,validated:true},now),true);
 assert.equal(calendarEventValidated({...past,validated:true,status:'annulée'},now),false);
 console.log('Calendar appearance: stable coach colors, fading at end, independent validation and exclusions passed.');
 
 for(const status of ['annulée','annulee','ANNULÉ','cancelled','canceled']){
  const cancelled={...event,status};
- assert.equal(appearance(cancelled,undefined,now).backgroundColor,appearance(past,undefined,now).backgroundColor);
- assert.equal(appearance(cancelled,undefined,now,'#BE185D').backgroundColor,appearance(past,undefined,now,'#BE185D').backgroundColor);
+ assert.equal(appearance(cancelled,undefined,now).backgroundColor,'#64748B');
+ assert.equal(appearance(cancelled,undefined,now,'#BE185D').backgroundColor,'#64748B');
  assert.equal(appearance(cancelled,undefined,now).validated,false);
- assert.equal(appearance({...cancelled,end:new Date(now-1)},undefined,now).backgroundColor,appearance(past,undefined,now).backgroundColor);
+ assert.equal(appearance({...cancelled,end:new Date(now-1)},undefined,now).backgroundColor,'#64748B');
+}
+
+const { coachEventDisplayState, coachEventAppearance } = await import('../src/utils/calendarEventAppearance.mjs');
+assert.equal(coachEventDisplayState(past, now), 'review');
+assert.equal(coachEventDisplayState(event, now), 'upcoming');
+assert.equal(coachEventDisplayState({...past, excuseDecision:'pending'}, now), 'cancelled');
+assert.equal(coachEventDisplayState({...past, excuseDecision:'rejected'}, now), 'cancelled');
+assert.equal(coachEventDisplayState({...past, excuseDecision:'accepted'}, now), 'cancelled');
+assert.equal(coachEventDisplayState({...past, status:'validée', excuseDecision:'rejected'}, now), 'validated');
+assert.equal(coachEventAppearance({...past,status:'annulée'},now).backgroundColor, '#64748B');
+assert.equal(coachEventAppearance({...past,excuseDecision:'rejected'},now).backgroundColor, '#64748B');
+assert.notEqual(coachEventAppearance(past,now).backgroundColor, coachEventAppearance({...past,status:'validée'},now).backgroundColor);
+assert.equal(past.status, 'à venir', 'Display must not mutate persisted attendance');
+console.log('Coach display: elapsed, pending cancellation, accepted/rejected decisions and distinct colors passed.');
+
+const { coachEventFormStatus } = await import('../src/utils/calendarEventAppearance.mjs');
+for (const decision of ['pending','accepted','rejected']) {
+ assert.equal(coachEventFormStatus({...past,excuseDecision:decision},now),'annulée');
+}
+assert.equal(coachEventFormStatus({...past,status:'manquée'},now),'manquée');
+assert.equal(coachEventFormStatus(past,now),'review');
+assert.equal(coachEventFormStatus(event,now),'à venir');
+
+for (const status of ['annulée','manquée','à venir','validée']) {
+ const appointment = {...past,status};
+ if (status !== 'validée') assert.equal(appearance(appointment,undefined,now).backgroundColor,coachEventAppearance(appointment,now).backgroundColor);
 }

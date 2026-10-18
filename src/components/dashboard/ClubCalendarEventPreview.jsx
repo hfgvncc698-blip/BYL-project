@@ -1,3 +1,5 @@
+import CalendarCancellationDetails from '../calendar/CalendarCancellationDetails';
+import { calendarEventStatusKey } from '../../utils/calendarEventAppearance.mjs';
 import LastPackSessionBadge from "../calendar/LastPackSessionBadge";
 import { eventLastPacks } from "../../utils/lastPackSession.mjs";
 import CalendarDifficulty from "../calendar/CalendarDifficulty";
@@ -7,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import React, { useState, useRef, useEffect } from "react";
 import { Box, Button, Portal, Text, useColorModeValue } from "@chakra-ui/react";
 
-export default function ClubCalendarEventPreview({ event, children, clients = [], loading, error, onSelect, details, actionLabel }) {
+export default function ClubCalendarEventPreview({ event, children, clients = [], loading, error, onSelect, details, actionLabel, statusKey, onPreviewOpen, audience = 'professional', cancellationDetails = true }) {
   const { t, i18n } = useTranslation();
   const formatTime = date => new Intl.DateTimeFormat(i18n.language || i18n.resolvedLanguage || "fr", { hour: "numeric", minute: "2-digit" }).format(date);
   const [position, setPosition] = useState(null);
@@ -39,6 +41,7 @@ export default function ClubCalendarEventPreview({ event, children, clients = []
     keepOpen();
     const rect = (e.target.closest('.rbc-event') || e.currentTarget.querySelector('.rbc-event'))?.getBoundingClientRect();
     if (rect) {
+      onPreviewOpen?.();
       const above = rect.top - 16, below = window.innerHeight - rect.bottom - 16;
       const useAbove = above > below;
       const height = Math.min(620, Math.max(120, useAbove ? above : below), window.innerHeight - 16);
@@ -54,10 +57,11 @@ export default function ClubCalendarEventPreview({ event, children, clients = []
     {position && <Portal><Box ref={previewRef} role="tooltip" tabIndex={0} aria-label={event.title} position="fixed" left={position.left} top={position.top} bottom={position.bottom} zIndex="tooltip" w={position.width} maxH={position.height} overflowY="auto" overscrollBehavior="contain" pointerEvents="auto" onMouseEnter={keepOpen} onMouseLeave={closeSoon} onFocus={keepOpen} onBlur={closeSoon} onKeyDown={e => { e.stopPropagation(); if (e.key === 'Escape') setPosition(null); }} bg={bg} color={color} borderWidth="1px" borderRadius="xl" boxShadow="xl" p={3}>
       <Text fontWeight="bold">{event.title}{event.type === 'group' && <> · {event.participantIds?.length || 0}/{event.capacity}</>}</Text>
       <Text fontSize="sm">{formatTime(event.start)} – {formatTime(event.end)}</Text>
-      <Text fontSize="sm" mb={2}>{event.coachName && <>{event.coachName} · </>}{t(({ "validée": "status.validated", "manquée": "status.missed", "annulée": "common.cancelled" })[event.status] || "status.upcoming")}</Text>
+      <Text fontSize="sm" mb={2}>{event.coachName && <>{event.coachName} · </>}{t(statusKey || calendarEventStatusKey(event))}</Text>
       {lastPacks.map((pack,index) => <Box key={`${pack.id}:${index}`} my={2}><LastPackSessionBadge/><Text fontSize="xs">{pack.clientName ? `${pack.clientName} · ` : ''}{pack.name}</Text></Box>)}
       {event.packProgress && <Text fontSize="sm" fontWeight="bold">{t("calendar.pack_session", {number:event.packProgress.number,total:event.packProgress.total})} · {event.packProgress.name}</Text>}
       <CalendarDifficulty rating={event.difficultyRating} />
+      {cancellationDetails && <CalendarCancellationDetails event={event} audience={audience} />}
       {details || (event.type !== 'group' ? <>
         {event.clientName && <Text fontWeight="bold">{event.clientName}</Text>}
         {event.programTitle && <Text fontSize="sm">{event.programTitle}</Text>}

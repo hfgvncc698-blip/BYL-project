@@ -256,7 +256,7 @@ export default function MessagingThread({ contact, compact = false, onBack, sugg
                 border={mine ? "none" : "1px solid"}
                 borderColor={theme.borderColor}
               >
-                {message.type==='cancellation'&&message.cancellation ? <CancellationMessage request={message.cancellation} canReview={user?.uid===contact?.coachUid}/> : <Text fontSize="sm" whiteSpace="pre-wrap" overflowWrap="anywhere">{message.type==='cancellation-decision'?`${clubText(message.decision==='accepted'?'Justification acceptée':'Justification refusée')} · ${message.sessionTitle}`:message.text}</Text>}
+                {message.type==='cancellation'&&message.cancellation ? <CancellationMessage request={message.cancellation} canReview={user?.uid===contact?.coachUid}/> : <Text fontSize="sm" whiteSpace="pre-wrap" overflowWrap="anywhere">{message.type==='cancellation-decision'?`${clubText(message.decision==='accepted'?'Justification acceptée':'Justification refusée')} · ${message.sessionTitle}${message.reviewNote?`\n${message.reviewNote}`:''}`:message.text}</Text>}
                 <HStack mt={1} justify="flex-end" spacing={1} opacity={0.76}>
                   <Text fontSize="10px">
                     {message.createdAtMillis

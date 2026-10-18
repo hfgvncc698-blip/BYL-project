@@ -35,14 +35,14 @@ const normalizeSearch = (value) => String(value || "")
   .replace(/[\u0300-\u036f]/g, "")
   .toLowerCase();
 
-export default function DashboardMessagingBubble() {
+export default function DashboardMessagingBubble({notificationsOnly=false}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const toast = useToast();
   const theme = useAppTheme();
   const { user } = useAuth();
   const { contacts: professionalContacts, loading, isClient, hideConversation } = useMessagingContacts();
-  const { contacts: clubContacts } = useMemberClubContacts();
+  const { contacts: clubContacts } = useMemberClubContacts({includeOwners:true});
   const contacts = useMemo(() => [...professionalContacts, ...clubContacts].sort((a, b) => (b.lastActivityAt || 0) - (a.lastActivityAt || 0)), [professionalContacts, clubContacts]);
   const unreadCount = contacts.filter(contact => contact.unread).length;
   const [open, setOpen] = useState(false);
@@ -84,13 +84,12 @@ export default function DashboardMessagingBubble() {
       if (!activity) return;
       const previousActivity = notifiedActivities.get(contact.id);
       if (previousActivity === undefined) {
-        notifiedActivities.set(contact.id, activity);
+        notifiedActivities.set(contact.id, 0);
         hasChanges = true;
-        return;
       }
       if (
         contact.unread &&
-        activity > previousActivity &&
+        activity > (previousActivity||0) &&
         (!newlyReceived || activity > newlyReceived.lastActivityAt)
       ) newlyReceived = contact;
     });
@@ -142,6 +141,7 @@ export default function DashboardMessagingBubble() {
     .filter((contact) => normalizeSearch([contact.title, contact.email].join(" ")).includes(normalizeSearch(search)))
     .slice(0, 8);
 
+  if(notificationsOnly)return null;
   return (
     <Portal>
       {open ? (

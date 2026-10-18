@@ -18,6 +18,7 @@ for (const lang of languages) {
 }
 const files = fs.readdirSync('src/components/dashboard').filter(name => /^(Club|FormerClub).*\.jsx$/.test(name)).map(name => `src/components/dashboard/${name}`).concat('src/pages/ClubDashboard.jsx','src/components/ClientCreation.jsx','src/components/dashboard/useClientClubClasses.jsx','src/components/dashboard/ClientMemberships.jsx','src/components/dashboard/ClientFollowups.jsx','src/components/ClientDashboard.jsx','src/pages/ProfilePageClient.jsx','src/pages/MessagingPage.jsx');
 files.push('src/components/dashboard/ClientCancellationForm.jsx','src/components/dashboard/ClientClubSubscriptions.jsx','src/components/dashboard/ClientCancellationUpdates.jsx','src/components/dashboard/SessionCancellationRequests.jsx','src/components/messaging/CancellationMessage.jsx');
+files.push(...fs.readdirSync('src/components/offers').filter(name=>name.endsWith('.jsx')).map(name=>`src/components/offers/${name}`), 'src/pages/CoachOffersPage.jsx');
 const literalAlternatives=node=>node?.type==='StringLiteral'?[node.value]:node?.type==='ConditionalExpression'?[...literalAlternatives(node.consequent),...literalAlternatives(node.alternate)]:[];
 let calls=0;
 for(const file of files){const tree=parser.parse(fs.readFileSync(file,'utf8'),{sourceType:'module',plugins:['jsx']});function walk(node){if(!node||typeof node!=='object')return;if(node.type==='JSXText' && /[A-Za-zÀ-ÿ]/.test(node.value)) assert.ok(['OK'].includes(node.value.trim()), `${file}: hardcoded visible text ${node.value.trim()}`);if(node.type==='CallExpression'&&node.callee?.name==='clubText'&&node.arguments[0]){for(const text of literalAlternatives(node.arguments[0])){assert.ok(dictionaries.fr[key(text)],`${file}: untranslated ${text}`);calls++;}}for(const [k,v] of Object.entries(node))if(!['loc','extra'].includes(k))Array.isArray(v)?v.forEach(walk):walk(v);}walk(tree);}
@@ -55,3 +56,28 @@ console.log(`Full club catalogue: ${Object.keys(clubFrench).length} keys checked
 for (const match of fs.readFileSync('src/components/dashboard/ClubSessionPacks.jsx','utf8').matchAll(/<Field label="([^"]+)"/g)) {
  assert.ok(dictionaries.fr[key(match[1])], `Session pack field: ${match[1]}`);
 }
+
+// Dynamic menus and offer catalogue copy also require complete translations.
+for (const file of ['src/pages/CoachOffersPage.jsx', 'src/pages/ClubDashboard.jsx']) {
+ const tree = parser.parse(fs.readFileSync(file, 'utf8'), {sourceType:'module', plugins:['jsx']});
+ function check(node) {
+  if (!node || typeof node !== 'object') return;
+  if (node.type === 'VariableDeclarator' && node.id?.name === 'copy' && node.init?.type === 'ObjectExpression') {
+   for (const property of node.init.properties) {
+    assert.equal(property.value.type, 'StringLiteral', 'Catalogue copy must be translated at render time');
+    assert.ok(dictionaries.fr[key(property.value.value)], `${file}: missing dynamic copy ${property.value.value}`);
+   }
+  }
+  for (const [name,value] of Object.entries(node)) if (!['loc','extra'].includes(name)) Array.isArray(value) ? value.forEach(check) : check(value);
+ }
+ check(tree);
+}
+for (const text of ['Tous les bilans', 'Brouillons', 'Validés', 'Partagés avec le patient', 'Annulé · justification acceptée', 'Annulé · justification refusée', 'Annulé · justification en attente', 'Annulé · sans justification']) assert.ok(dictionaries.fr[key(text)], `Missing dynamic status: ${text}`);
+console.log('Offer components, dynamic catalogue copy and nutrition/cancellation statuses verified.');
+for (const match of fs.readFileSync('backend/utils/coachOffers.js','utf8').matchAll(/fail\('([^']+)'/g)) {
+ assert.ok(dictionaries.fr[key(match[1])], `Untranslated offer validation: ${match[1]}`);
+}
+for (const text of ['Aucun crédit disponible', 'Dernier crédit disponible', 'expire aujourd’hui', 'expire dans {{days}} jour(s)']) {
+ assert.ok(dictionaries.fr[key(text)], `Untranslated renewal: ${text}`);
+}
+console.log('Offer validation errors and renewal alerts verified.');

@@ -1,3 +1,4 @@
+import ClientOfferOverview from './offers/ClientOfferOverview';
 import { CoachClientSessionPacks } from './dashboard/ClubSessionPacks';
 // src/components/ClientView.jsx
 import {assertProgramSize} from '../utils/safeProgramWrite';
@@ -1661,6 +1662,7 @@ function GlobalClientView({ onBack } = {}) {
       </Grid>
       </Box>
 
+      {hasCoachAccess && client && <ClientOfferOverview uid={user?.uid} clientId={clientId} programmes={programmes}/>}
       {hasCoachAccess && client && user?.clubId && (client.coachUid || client.coachId) === user?.uid && <CoachClientSessionPacks clientId={clientId}/> }
       {(isAdmin || hasCoachAccess) && client && !isNutritionOnlyClient && <SportViewPreference key={clientId} clientId={clientId} value={programsOnly ? 'programs' : 'cycles'} />}
       {(isAdmin || hasCoachAccess) && client && !isNutritionOnlyClient && !programsOnly && <Suspense fallback={null}>

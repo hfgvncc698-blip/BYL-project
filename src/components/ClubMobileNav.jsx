@@ -44,7 +44,7 @@ export default function ClubMobileNav() {
   ];
   return <Box data-tour="club-mobile-nav" as="nav" aria-label={t("nav.menu", "Menu")} display={{base:"block", md:"none"}} position="fixed" left={3} right={3} bottom={3} zIndex={1200} bg={bg} border="1px solid" borderColor={border} borderRadius="24px" boxShadow={shadow} backdropFilter="blur(18px)" p={2} data-testid="club-mobile-nav">
     <SimpleGrid columns={5} spacing={1}>{items.map(item => {
-      const selected = item.path === location.pathname || (item.path === '/club-dashboard/actions-groupees' && ['journal','audit','alertes','exports','objectifs'].some(path => location.pathname === `/club-dashboard/${path}`));
+      const selected = item.path === location.pathname || (item.path === '/club-dashboard/actions-groupees' && ['offres','journal','audit','alertes','exports','objectifs'].some(path => location.pathname === `/club-dashboard/${path}`));
       return <Button key={item.label} aria-label={item.label} aria-current={selected ? 'page' : undefined} variant={selected ? "solid" : "ghost"} size="sm" h={item.path ? "54px" : "60px"} minW={0} px={1} borderRadius={item.path ? "18px" : "20px"} flexDirection="column" gap={1} bg={!item.path ? actionGradient : selected ? active : 'transparent'} boxShadow={!item.path ? fabShadow : 'none'} border={!item.path ? '1px solid' : '0'} borderColor={!item.path ? fabBorder : 'transparent'} color={selected || !item.path ? 'white' : text} _hover={{bg: !item.path ? actionGradient : selected ? activeHover : ghostHover, filter: !item.path ? 'brightness(1.08)' : 'none'}} onClick={() => {
         if (!item.path) { window.dispatchEvent(new Event('club-open-new')); return; }
         const target = preserveClubQuery(item.path, location.search);

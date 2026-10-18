@@ -1,3 +1,5 @@
+import { apiFetch } from "../utils/api";
+import { readDashboardTemplates } from "../utils/dashboardTemplates.js";
 // src/components/ProgramsPage.jsx
 import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
@@ -393,6 +395,13 @@ export default function ProgramsPage() {
 	    if (!effectiveCoachUid) return;
         const load = beginPageLoad();
 	    try {
+      const clientSnapsPromise = Promise.all([
+        getDocs(query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(200))),
+        getDocs(query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(200))).catch(() => ({ docs: [] })),
+        getDocs(query(collection(db, "clients"), where("coachIds", "array-contains", effectiveCoachUid), limit(200))).catch(() => ({ docs: [] })),
+      ]);
+      void clientSnapsPromise.catch(() => {});
+
 	      const cachedEntry = force || forceFresh
 	        ? null
 	        : await restorePageDataCacheEntry(programsPageCacheKey, { ttlMs: PROGRAMS_PAGE_CACHE_TTL_MS });
@@ -410,18 +419,20 @@ export default function ProgramsPage() {
       }
 
       const progQ = query(collection(db, "programmes"), where("createdBy", "==", effectiveCoachUid), limit(200));
-      const [pSnap, clientSnaps] = await Promise.all([getDocs(progQ), Promise.all([
-        getDocs(query(collection(db, "clients"), where("createdBy", "==", effectiveCoachUid), limit(200))),
-        getDocs(query(collection(db, "clients"), where("coachId", "==", effectiveCoachUid), limit(200))).catch(() => ({ docs: [] })),
-        getDocs(query(collection(db, "clients"), where("coachIds", "array-contains", effectiveCoachUid), limit(200))).catch(() => ({ docs: [] })),
-      ])]);
+      const [pSnap, clientSnaps] = await Promise.all([
+        readDashboardTemplates(effectiveCoachUid, {
+          request: apiFetch,
+          fallback: () => getDocs(progQ),
+          cachedPrograms: force || forceFresh ? [] : cached?.programmes || [],
+        }),
+        clientSnapsPromise,
+      ]);
       if (!load.current()) return;
       const progs = pSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
       progs.sort((a, b) => getMillis(b) - getMillis(a));
-      if (!cached) {
-        setProgrammes(progs);
-        setLoading(false);
-      }
+      // Fresh templates should not wait for every client's assignment history.
+      setProgrammes(progs);
+      setLoading(false);
       const clientsById = new Map();
       clientSnaps.forEach((snap) => {
         snap.docs.forEach((d) => clientsById.set(d.id, { id: d.id, ...d.data() }));
@@ -436,7 +447,7 @@ export default function ProgramsPage() {
           program.preparedForClientId = owner.id;
         }
       }
-      if (!cached) setClients(clientList);
+      setClients(clientList);
 	      const initialPayload = {
 	        programmes: progs,
 	        clients: clientList,

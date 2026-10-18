@@ -1,3 +1,4 @@
+const {emailSkipReason}=require('./lib/messagingEmailPolicy.cjs');
 // functions/index.js
 // =======================================================
 // BoostYourLife - Cloud Functions (Node 22 / v2)
@@ -1914,43 +1915,43 @@ function messagingEmailCopy(lng, senderName) {
   const copies = {
     fr: {
       subject: `Nouveau message de ${name}`,
-      title: "Vous avez reçu un nouveau message",
+      title: "Vous avez un nouveau message non lu",
       intro: `${name} vous a écrit sur BoostYourLife. Connectez-vous pour consulter et répondre au message.`,
       cta: "Lire le message",
     },
     en: {
       subject: `New message from ${name}`,
-      title: "You received a new message",
+      title: "You have a new unread message",
       intro: `${name} sent you a message on BoostYourLife. Sign in to read it and reply.`,
       cta: "Read the message",
     },
     es: {
       subject: `Nuevo mensaje de ${name}`,
-      title: "Has recibido un nuevo mensaje",
+      title: "Tienes un nuevo mensaje sin leer",
       intro: `${name} te ha escrito en BoostYourLife. Inicia sesión para leer y responder.`,
       cta: "Leer el mensaje",
     },
     de: {
       subject: `Neue Nachricht von ${name}`,
-      title: "Du hast eine neue Nachricht erhalten",
+      title: "Du hast eine neue ungelesene Nachricht",
       intro: `${name} hat dir auf BoostYourLife geschrieben. Melde dich an, um die Nachricht zu lesen und zu antworten.`,
       cta: "Nachricht lesen",
     },
     it: {
       subject: `Nuovo messaggio da ${name}`,
-      title: "Hai ricevuto un nuovo messaggio",
+      title: "Hai un nuovo messaggio non letto",
       intro: `${name} ti ha scritto su BoostYourLife. Accedi per leggere e rispondere.`,
       cta: "Leggi il messaggio",
     },
     ru: {
       subject: `Новое сообщение от ${name}`,
-      title: "Вы получили новое сообщение",
+      title: "У вас новое непрочитанное сообщение",
       intro: `${name} написал(а) вам в BoostYourLife. Войдите, чтобы прочитать сообщение и ответить.`,
       cta: "Прочитать сообщение",
     },
     ar: {
       subject: `رسالة جديدة من ${name}`,
-      title: "لديك رسالة جديدة",
+      title: "لديك رسالة جديدة غير مقروءة",
       intro: `أرسل إليك ${name} رسالة على BoostYourLife. سجّل الدخول لقراءتها والرد عليها.`,
       cta: "قراءة الرسالة",
     },
@@ -1959,10 +1960,9 @@ function messagingEmailCopy(lng, senderName) {
 }
 
 const MESSAGING_EMAIL_MAX_ATTEMPTS = 3;
-const MESSAGING_EMAIL_ACTIVE_WINDOW_MS = 5 * 60 * 1000;
 const MESSAGING_EMAIL_PROCESSING_STALE_MS = 10 * 60 * 1000;
 
-async function claimMessagingEmail(messageRef, conversationRef, recipientUid, messageId) {
+async function claimMessagingEmail(messageRef, conversationRef, recipientUid, messageId, messageAt, previousMessageAt, readSide) {
   return db.runTransaction(async (transaction) => {
     const [snapshot, conversationSnapshot] = await Promise.all([
       transaction.get(messageRef),
@@ -1983,28 +1983,11 @@ async function claimMessagingEmail(messageRef, conversationRef, recipientUid, me
     const conversation = conversationSnapshot.data() || {};
     const nowMs = Date.now();
     const lastSentAt = valueToMillis(conversation?.emailNotifiedAtBy?.[recipientUid]);
-    const recipientReadAt = valueToMillis(conversation?.readAtBy?.[recipientUid]);
-    if (lastSentAt && lastSentAt > recipientReadAt) {
-      transaction.set(messageRef, {
-        emailNotification: {
-          status: "skipped",
-          reason: "unread-sequence-already-notified",
-          attempts,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        },
-      }, { merge: true });
-      return { claimed: false, reason: "unread-sequence-already-notified", attempts };
-    }
-    if (recipientReadAt && nowMs - recipientReadAt < MESSAGING_EMAIL_ACTIVE_WINDOW_MS) {
-      transaction.set(messageRef, {
-        emailNotification: {
-          status: "skipped",
-          reason: "recipient-recently-active",
-          attempts,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        },
-      }, { merge: true });
-      return { claimed: false, reason: "recipient-recently-active", attempts };
+    const recipientReadAt = valueToMillis(readSide ? conversation?.readAt?.[readSide] : conversation?.readAtBy?.[recipientUid]);
+    const reason=emailSkipReason({messageAt,previousMessageAt,readAt:recipientReadAt,lastSentAt,now:nowMs});
+    if(reason){
+      transaction.set(messageRef,{emailNotification:{status:'skipped',reason,attempts,updatedAt:admin.firestore.FieldValue.serverTimestamp()}},{merge:true});
+      return {claimed:false,reason,attempts};
     }
 
     const processingAt = valueToMillis(conversation?.emailProcessingAtBy?.[recipientUid]);
@@ -2044,20 +2027,13 @@ async function claimMessagingEmail(messageRef, conversationRef, recipientUid, me
 /* =======================================================================
  * onConversationMessageCreated (TRIGGER Firestore)
  * ======================================================================= */
-exports.onConversationMessageCreated = onDocumentCreated(
-  {
-    region: "europe-west1",
-    document: "conversations/{conversationId}/messages/{messageId}",
-    retry: true,
-    secrets: [SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, APP_BASE_URL],
-  },
-  async (event) => {
+async function notifyConversationRecipient(event, context=null) {
     const message = event.data?.data?.() || null;
-    if (!message || message.type !== "text") return;
+    if (!message || !(["text","cancellation","cancellation-decision"].includes(message.type)||context)) return;
 
     const conversationId = event.params.conversationId;
     const messageId = event.params.messageId;
-    const conversationRef = db.doc(`conversations/${conversationId}`);
+    const conversationRef = db.doc(`${context?'clubConversations':'conversations'}/${conversationId}`);
     const conversationSnap = await conversationRef.get();
     if (!conversationSnap.exists) return;
     const conversation = conversationSnap.data() || {};
@@ -2065,9 +2041,13 @@ exports.onConversationMessageCreated = onDocumentCreated(
       ? [...new Set(conversation.participantUids.map(String).filter(Boolean))]
       : [];
     const senderUid = safeTrim(message.senderUid);
-    const recipientUid = participants.find((uid) => uid !== senderUid) || "";
-    if (!senderUid || !recipientUid || participants.length !== 2) return;
+    const recipientUid = context?.recipientUid || participants.find((uid) => uid !== senderUid) || "";
+    if (!senderUid || !recipientUid || (!context&&participants.length !== 2)) return;
 
+    const deliveryRef=context?event.data.ref.collection('emailRecipients').doc(recipientUid):event.data.ref;
+    if(context)await db.runTransaction(async tx=>{const snap=await tx.get(deliveryRef);if(!snap.exists)tx.set(deliveryRef,{emailNotification:{}});});
+    const previousMessages=await conversationRef.collection('messages').where('createdAtIso','<',message.createdAtIso).orderBy('createdAtIso','desc').limit(1).get();
+    const previousMessageAt=previousMessages.docs[0]?.data()?.createdAtIso;
     const recipientRef = db.doc(`users/${recipientUid}`);
     const [recipientSnap, senderSnap] = await Promise.all([
       recipientRef.get(),
@@ -2075,7 +2055,7 @@ exports.onConversationMessageCreated = onDocumentCreated(
     ]);
     const recipientProfile = recipientSnap.exists ? recipientSnap.data() || {} : {};
     if (!messagingEmailEnabled(recipientProfile)) {
-      await event.data.ref.set({
+      await deliveryRef.set({
         emailNotification: {
           status: "skipped",
           reason: "disabled-by-recipient",
@@ -2090,7 +2070,7 @@ exports.onConversationMessageCreated = onDocumentCreated(
       try {
         recipientEmail = safeTrim((await getAuth().getUser(recipientUid)).email).toLowerCase();
       } catch (_) {
-        await event.data.ref.set({
+        await deliveryRef.set({
           emailNotification: {
             status: "skipped",
             reason: "recipient-email-missing",
@@ -2101,7 +2081,7 @@ exports.onConversationMessageCreated = onDocumentCreated(
       }
     }
     if (!recipientEmail) return;
-    const claim = await claimMessagingEmail(event.data.ref, conversationRef, recipientUid, messageId);
+    const claim = await claimMessagingEmail(deliveryRef, conversationRef, recipientUid, messageId, message.createdAtIso, previousMessageAt, context?.readSide);
     if (!claim.claimed) {
       console.info("Messaging email skipped", { conversationId, messageId, recipientUid, reason: claim.reason });
       if (claim.reason === "already-processing") {
@@ -2111,14 +2091,16 @@ exports.onConversationMessageCreated = onDocumentCreated(
     }
 
     const senderProfile = senderSnap.exists ? senderSnap.data() || {} : {};
-    const senderName = normalizeSpaces(
+    const senderName = context?.senderName || normalizeSpaces(
       `${safeTrim(senderProfile.firstName || senderProfile.prenom)} ${safeTrim(senderProfile.lastName || senderProfile.nom)}`
     ) || safeTrim(senderProfile.displayName)
       || (senderUid === conversation.clientUid ? safeTrim(conversation.clientName) : safeTrim(conversation.professionalName))
       || "BoostYourLife";
     const lng = getClientLngFromAny(recipientProfile);
     const copy = messagingEmailCopy(lng, senderName);
-    const url = `${getBaseUrlFromSecret()}/messages?conversation=${encodeURIComponent(conversationId)}`;
+    const url = context?.readSide==='club'
+      ? `${getBaseUrlFromSecret()}/club-dashboard?conversation=${encodeURIComponent(conversationId)}`
+      : `${getBaseUrlFromSecret()}/messages?conversation=${encodeURIComponent(context?'club:'+conversationId:conversationId)}`;
 
     try {
       const info = await sendLifecycleEmail({
@@ -2128,7 +2110,7 @@ exports.onConversationMessageCreated = onDocumentCreated(
         url,
         lng,
       });
-      await event.data.ref.set({
+      await deliveryRef.set({
         emailNotification: {
           status: "sent",
           attempts: claim.attempts,
@@ -2158,7 +2140,7 @@ exports.onConversationMessageCreated = onDocumentCreated(
       const bounced = recipientSnap.exists
         ? await suspendAutomaticEmailDelivery(recipientRef, error, error?.trackingEventId || null)
         : false;
-      await event.data.ref.set({
+      await deliveryRef.set({
         emailNotification: {
           status: bounced ? "bounced" : "failed",
           attempts: claim.attempts,
@@ -2192,7 +2174,21 @@ exports.onConversationMessageCreated = onDocumentCreated(
       if (!bounced && claim.attempts < MESSAGING_EMAIL_MAX_ATTEMPTS) throw error;
     }
   }
-);
+const messageTriggerOptions={region:'europe-west1',retry:true,secrets:[SMTP_HOST,SMTP_PORT,SMTP_SECURE,SMTP_USER,SMTP_PASS,APP_BASE_URL]};
+exports.onConversationMessageCreated=onDocumentCreated({...messageTriggerOptions,document:'conversations/{conversationId}/messages/{messageId}'},event=>notifyConversationRecipient(event));
+exports.onClubConversationMessageCreated=onDocumentCreated({...messageTriggerOptions,document:'clubConversations/{conversationId}/messages/{messageId}'},async event=>{
+ const message=event.data?.data();if(!message?.senderUid||!['club','member'].includes(message.side))return;
+ const snap=await db.doc(`clubConversations/${event.params.conversationId}`).get();if(!snap.exists)return;
+ const conversation=snap.data();
+ const owners=await db.collection('users').where('clubId','==',conversation.clubId).get();
+ const activeOwners=owners.docs.filter(s=>{const u=s.data();return !u.deletedFromClub&&!u.disabledByClub&&!['deleted','inactive','removed','club_deleted'].includes(u.status)&&(u.accountType==='club_owner'||u.clubRole==='owner'||u.role==='club');});
+ const recipients=message.side==='member'?activeOwners.map(s=>s.id):[conversation.peerUid];
+ const club=await db.doc(`clubs/${conversation.clubId}`).get();
+ for(const recipientUid of [...new Set(recipients)].filter(uid=>uid&&uid!==message.senderUid)){
+  await notifyConversationRecipient(event,{recipientUid,readSide:message.side==='member'?'club':'member',senderName:message.side==='club'?(club.data()?.name||'Club'):null});
+ }
+});
+
 
 /* =======================================================================
  * 1) sendPasswordSetupEmail (COACH -> CLIENT)
@@ -2449,6 +2445,11 @@ exports.sendWelcomeEmail = onCall(
       nowMs - activationAtMs <= 2 * 60 * 60 * 1000;
     if (!isRecentAuthAccount && !isRecentActivation) {
       return { ok: true, skipped: true, reason: "historical-account" };
+    }
+
+    // Activation and authentication can race. Only activation-complete clears this flag.
+    if (user.passwordSetupRequired === true) {
+      return { ok: true, skipped: true, reason: "activation-pending" };
     }
 
     if (!isAutomaticEmailEnabled(user, "welcome")) {

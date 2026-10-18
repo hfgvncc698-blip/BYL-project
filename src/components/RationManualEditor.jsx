@@ -1,3 +1,8 @@
+import MealSelectionMenu from "./nutrition/MealSelectionMenu";
+import { initialRationMeals, canonicalRationMeal } from "../utils/rationMealSelection";
+import NutritionMicroPanel from "./NutritionMicroPanel";
+import { MEALS as ALL_MEALS, EXCEL_GROUPS, LOCAL_UNIT_GRAMS, ALCOHOL_KCAL_PER_ML } from "../utils/foodSurveyCatalog";
+import { quickOptionsForFood, quickOptionLabel as formatQuickQtyLabel } from "../utils/rationPortions";
  
 // src/components/RationManualEditor.jsx
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
@@ -5,7 +10,6 @@ import {
   Box,
   Badge,
   Button,
-  Checkbox,
   Collapse,
   Divider,
   HStack,
@@ -30,7 +34,22 @@ import {
 } from "../utils/nutritionContext";
 import { useNutritionTheme } from "../styles/nutritionTheme";
 import i18n from "../i18n/index";
-import { manualRationDefaultQuantity, manualRationMacrosPer100 } from "../utils/manualRationNutrition";
+import { manualRationMacrosPer100 } from "../utils/manualRationNutrition";
+
+const labelKey = (label = "") =>
+  normalize(label)
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+const translateSheetLabel = (label = "") => {
+  const key = labelKey(label);
+  if (!key) return label;
+  return i18n.t(`auto.RationSpontaneeExcel.labels.${key}`, label);
+};
+
+const translateMealLabel = (meal = {}) =>
+  i18n.t(`auto.RationSpontaneeExcel.meals.${meal.key}`, meal.label || "");
+
 
 /* ================= Utils ================= */
 const num = (v) => {
@@ -74,7 +93,6 @@ const makeId = (group, label) =>
 const kcalFromMacros = (p, c, f) => num(p) * 4 + num(c) * 4 + num(f) * 9;
 
 /* conversion simple: ml -> g (densité 1) */
-const LOCAL_UNIT_GRAMS = { Oeufs: 60 };
 const toGrams = (qty, unit, label) => {
   const q = num(qty);
   if (!q) return 0;
@@ -98,89 +116,6 @@ function sumObj(a, b) {
 
 const fmt0Plain = (v) => String(round0(v));
 const fmt1Plain = (v) => String(round1(v));
-
-/* ------------------ Meals (+ collation après dîner) ------------------ */
-const MEALS = [
-  { key: "petit_dej", label: "PETIT-DÉJEUNER" },
-  { key: "collation_1", label: "COLLATION" },
-  { key: "dejeuner", label: "DÉJEUNER" },
-  { key: "collation_2", label: "COLLATION" },
-  { key: "diner", label: "DÎNER" },
-  { key: "collation_3", label: "COLLATION" },
-];
-
-/* ------------------ Groupes + items ------------------ */
-const EXCEL_GROUPS = [
-  {
-    group: "Produits laitiers",
-    items: [
-      { label: "Lait 1/2 écrémé", defaultUnit: "ml" },
-      { label: "Lait végétal", defaultUnit: "ml" },
-      { label: "Fromage", defaultUnit: "g" },
-      { label: "Yaourt nature", defaultUnit: "g" },
-    ],
-  },
-  {
-    group: "VPO",
-    items: [
-      { label: "Viande moyenne", defaultUnit: "g" },
-      { label: "Viande maigre", defaultUnit: "g" },
-      { label: "Poissons gras", defaultUnit: "g" },
-      { label: "Poissons blanc", defaultUnit: "g" },
-      { label: "Oeufs", defaultUnit: "unité" },
-    ],
-  },
-  {
-    group: "Féculents / Pain",
-    items: [
-      { label: "Féculents crus", defaultUnit: "g" },
-      { label: "Féculents cuits", defaultUnit: "g" },
-      { label: "Légumineuse", defaultUnit: "g" },
-      { label: "Pain blanc", defaultUnit: "g" },
-      { label: "Pain complet", defaultUnit: "g" },
-    ],
-  },
-  { group: "Légumes", items: [{ label: "Légumes", defaultUnit: "g" }] },
-  { group: "Fruits", items: [{ label: "Fruits", defaultUnit: "g" }] },
-  {
-    group: "Matières grasses",
-    items: [
-      { label: "Beurre", defaultUnit: "g" },
-      { label: "Huile", defaultUnit: "g" },
-      { label: "Margarine", defaultUnit: "g" },
-      { label: "Crème fraîche", defaultUnit: "g" },
-    ],
-  },
-  { group: "Sucre", items: [{ label: "Sucre", defaultUnit: "g" }] },
-  {
-    group: "Produits sucrés",
-    items: [
-      { label: "Biscuits", defaultUnit: "g" },
-      { label: "Gâteaux", defaultUnit: "g" },
-      { label: "Confiture", defaultUnit: "g" },
-      { label: "Miel", defaultUnit: "g" },
-      { label: "Chocolat noir", defaultUnit: "g" },
-      { label: "Chocolat au lait", defaultUnit: "g" },
-    ],
-  },
-  {
-    group: "Protéines (shakes)",
-    items: [
-      { label: "Isolate", defaultUnit: "g" },
-      { label: "Hydrolisate", defaultUnit: "g" },
-      { label: "100% whey", defaultUnit: "g" },
-      { label: "Whey vegan", defaultUnit: "g" },
-    ],
-  },
-  {
-    group: "Boissons",
-    items: [
-      { label: "Soda", defaultUnit: "ml" },
-      { label: "Jus de fruits", defaultUnit: "ml" },
-      { label: "Alcool", defaultUnit: "ml" },
-    ],
-  },
-];
 
 /* ------------------ CIQUAL codes (micros uniquement) ------------------ */
 const CIQUAL_REF_BY_LABEL = {
@@ -286,23 +221,12 @@ const progressFromRange = (value, min, max) => {
 
 const hasRange = (range) => num(range?.min) > 0 && num(range?.max) > 0;
 
-const roundQuickQty = (value, unit) => {
-  const current = num(value);
-  if (!(current > 0)) return 0;
-  if (unit === "unité" || unit === "portion") return Math.max(1, Math.round(current));
-  const step = current >= 100 ? 10 : current >= 30 ? 5 : 1;
-  return Math.max(step, Math.round(current / step) * step);
-};
-
-const formatQuickQtyLabel = (value, unit) => {
-  const base = Number.isInteger(num(value)) ? String(round0(value)) : String(round1(value));
-  if (unit === "unité") return `${base}u`;
-  if (unit === "portion") return `${base}p`;
-  return `${base}${unit}`;
-};
-
 export default function RationManualEditor({ blocked, initialState, onChange, context }) {
+  const [selectedMeals, setSelectedMeals] = useState(() => initialRationMeals(initialState, context?.needs?.kcalTarget || context?.kcalIndicatif));
+  const MEALS = useMemo(() => ALL_MEALS.filter(meal => selectedMeals.includes(canonicalRationMeal(meal.key))), [selectedMeals]);
   const toast = useToast();
+  const desktopCategoryFlex = { md: "0 0 180px", xl: "0 0 240px", "2xl": "0 0 320px" };
+  const desktopControlWidth = { md: "62px", xl: "72px", "2xl": "90px" };
   const mountedRef = useRef(false);
   const fillingAreaRef = useRef(null);
   const mobileTrackerAnchorRef = useRef(null);
@@ -507,6 +431,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
     const savedTitle = initialState?.title ? String(initialState.title) : "";
     const defaultTitle = buildDefaultTitleFromCtxKey();
     const nextTitle = savedTitle || defaultTitle;
+    setSelectedMeals(initialRationMeals(initialState, context?.needs?.kcalTarget || context?.kcalIndicatif));
     setTitle(nextTitle);
     titleTouchedRef.current = false;
     setTitleTouched(false);
@@ -626,9 +551,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
     setOpenCats(next);
   };
 
-  const toggleMicro = (key) => {
-    setSelectedMicros((prev) => ({ ...(prev || {}), [key]: !prev?.[key] }));
-  };
+
 
   const setQty = (foodId, mealKey, val) => {
     setValues((prev) => {
@@ -662,34 +585,12 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
         ...cur,
         meals: {
           ...cur.meals,
-          [mealKey]: amount,
+          [mealKey]: round1(num(cur.meals?.[mealKey]) + amount),
         },
       };
       return next;
     });
   };
-
-  const quickOptionsForFood = useCallback((food, unit) => {
-    const effectiveUnit = unit || food.defaultUnit || "g";
-    const preset = manualRationDefaultQuantity(food.name);
-    let baseQty = preset?.qty ?? (effectiveUnit === "ml" ? 150 : effectiveUnit === "g" ? 100 : 1);
-    const baseUnit = preset?.unit || food.defaultUnit || effectiveUnit;
-
-    if (effectiveUnit !== baseUnit) {
-      if (effectiveUnit === "g" || effectiveUnit === "ml") {
-        baseQty = toGrams(baseQty, baseUnit, food.name);
-      } else if (effectiveUnit === "unité" || effectiveUnit === "portion") {
-        baseQty = 1;
-      }
-    }
-
-    const options =
-      effectiveUnit === "unité" || effectiveUnit === "portion"
-        ? [1, Math.max(1, roundQuickQty(baseQty, effectiveUnit))]
-        : [roundQuickQty(baseQty / 2, effectiveUnit), roundQuickQty(baseQty, effectiveUnit)];
-
-    return [...new Set(options.filter((value) => num(value) > 0))];
-  }, []);
 
   /* ---------- Macros locales ---------- */
   const getLocalMacrosPer100 = (label) => {
@@ -715,7 +616,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
       glu: mp100.glu * factor,
       lip: mp100.lip * factor,
     };
-    const kcal = kcalFromMacros(macros.prot, macros.glu, macros.lip);
+    const kcal = kcalFromMacros(macros.prot, macros.glu, macros.lip) + (food.name === "Alcool" && unit === "ml" ? qty * ALCOHOL_KCAL_PER_ML : 0);
 
     const micros = {};
     const row = food.ciqualCode ? ciqualByCode?.[num(food.ciqualCode)] : null;
@@ -757,7 +658,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
 
     return { perMeal, day };
      
-  }, [foods, values, selectedMicros, ciqualByCode]);
+  }, [foods, values, selectedMicros, ciqualByCode, MEALS]);
 
   const dayPct = useMemo(() => {
     const p = num(totals?.day?.prot) * 4;
@@ -794,6 +695,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
       });
 
       onChange?.({
+        selectedMeals,
         title,
         selectedMicros,
         values,
@@ -813,7 +715,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [title, selectedMicros, values, openCats, totals, dayPct, ctxSnapshot, onChange, foods]);
+  }, [title, selectedMicros, values, openCats, totals, dayPct, ctxSnapshot, onChange, foods, selectedMeals, MEALS]);
 
   const selectedMicroList = useMemo(
     () => MICRO_DEFS.filter((m) => !!selectedMicros?.[m.key]),
@@ -865,51 +767,67 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
     const st = values?.[food.id];
     const unit = st?.unit || food.defaultUnit;
     const quickOptions = quickOptionsForFood(food, unit);
+    const mealValues = st?.meals || {};
+    const filledMeals = MEALS.filter((meal) => num(mealValues?.[meal.key]) > 0).length;
+    const totalQty = MEALS.reduce((sum, meal) => sum + num(mealValues?.[meal.key]), 0);
+    const isFilled = filledMeals > 0;
 
     return (
-      <Box key={food.id} px={4} py={3} borderTopWidth="1px" borderColor={borderColor} bg={panelBg}>
+      <Box
+        key={food.id}
+        px={{ md: 3, xl: 4 }}
+        py={3}
+        borderTopWidth="1px"
+        borderColor={borderColor}
+        bg={isFilled ? softBg : panelBg}
+      >
         <HStack align="start" spacing={0}>
-          <Box flex="0 0 320px" pr={3}>
-            <Text fontWeight="700">{food.name}</Text>
-            <Text fontSize="xs" opacity={0.6}>{i18n.t("auto.RationManualEditor.unite_par_defaut", "Unité par défaut :")}{food.defaultUnit}
-            </Text>
+          <Box flex={desktopCategoryFlex} pr={{ md: 2, xl: 3 }}>
+            <HStack justify="space-between" align="start" spacing={2}>
+              <Box minW={0}>
+                <Text fontWeight="700">{translateSheetLabel(food.name)}</Text>
+                <Text fontSize="xs" opacity={0.6}>{i18n.t("auto.RationSpontaneeExcel.unite_par_defaut", "Unité par défaut :")}{food.defaultUnit}
+                </Text>
+              </Box>
+              {isFilled ? (
+                <Badge colorScheme="green" variant="subtle" borderRadius="full" px={2}>
+                  {filledMeals}{i18n.t("auto.RationSpontaneeExcel.repas", "repas •")}{round1(totalQty)} {unit}
+                </Badge>
+              ) : null}
+            </HStack>
           </Box>
 
           {MEALS.map((m) => (
-            <Box key={m.key} flex="1">
+            <Box key={m.key} flex="1" minW={0}>
               <VStack spacing={1.5}>
-                <HStack justify="center" spacing={2}>
-                  <Input
-                    width="90px"
-                    value={st?.meals?.[m.key] ?? 0}
-                    onChange={(e) => setQty(food.id, m.key, e.target.value)}
-                    isDisabled={blocked}
-                    inputMode="decimal"
-                  />
-                  <Select
-                    value={unit}
-                    onChange={(e) => setUnit(food.id, e.target.value)}
-                    isDisabled={blocked}
-                    width="90px"
-                  >
-                    <option value="g">{i18n.t("auto.RationManualEditor.g", "g")}</option>
-                    <option value="ml">{i18n.t("auto.RationManualEditor.ml", "ml")}</option>
-                    <option value="portion">{i18n.t("auto.RationManualEditor.portion", "portion")}</option>
-                    <option value="unité">{i18n.t("auto.RationManualEditor.unite", "unité")}</option>
-                  </Select>
-                </HStack>
-
+                <Input
+                  size="sm"
+                  width={desktopControlWidth}
+                  value={st?.meals?.[m.key] ?? 0}
+                  onChange={(e) => setQty(food.id, m.key, e.target.value)}
+                  isDisabled={blocked}
+                  inputMode="decimal"
+                />
+                <Select
+                  size="sm"
+                  value={unit}
+                  onChange={(e) => setUnit(food.id, e.target.value)}
+                  isDisabled={blocked}
+                  width={desktopControlWidth}
+                >
+                  <option value="g">{i18n.t("auto.RationSpontaneeExcel.g", "g")}</option>
+                  <option value="ml">{i18n.t("auto.RationSpontaneeExcel.ml", "ml")}</option>
+                  <option value="portion">{i18n.t("auto.RationSpontaneeExcel.portion", "portion")}</option>
+                  <option value="unité">{i18n.t("auto.RationSpontaneeExcel.unite", "unité")}</option>
+                </Select>
                 <Wrap spacing={1} justify="center">
                   {quickOptions.map((option) => (
                     <WrapItem key={`${food.id}-${m.key}-${option}`}>
                       <Button
                         size="xs"
-                        variant="outline"
-                        borderRadius="full"
+                        variant="ghost"
                         onClick={() => applyQuickQty(food.id, m.key, option)}
                         isDisabled={blocked}
-                        minW="unset"
-                        px={2}
                       >
                         {formatQuickQtyLabel(option, unit)}
                       </Button>
@@ -971,7 +889,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
             <Box key={m.key}>
               <HStack spacing={3}>
                 <Text fontSize="xs" fontWeight="800" opacity={0.7} minW="120px">
-                  {m.label}
+                  {translateMealLabel(m)}
                 </Text>
                 <Input
                   value={st?.meals?.[m.key] ?? 0}
@@ -1022,6 +940,15 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
       boxShadow="0 18px 40px rgba(15, 23, 42, 0.08)"
       backdropFilter="blur(16px)"
     >
+      <SimpleGrid columns={MEALS.length} spacing={2} mb={3}>
+        {MEALS.map((meal) => (
+          <Box key={meal.key} minW={0}>
+            <Text fontSize="10px" color={subtleText} overflowWrap="anywhere">{translateMealLabel(meal)}</Text>
+            <Text fontSize="sm" fontWeight="800">{fmt0Plain(totals.perMeal[meal.key].kcal)} kcal</Text>
+            <Text fontSize="10px">P {fmt0Plain(totals.perMeal[meal.key].prot)} · L {fmt0Plain(totals.perMeal[meal.key].lip)} · G {fmt0Plain(totals.perMeal[meal.key].glu)}</Text>
+          </Box>
+        ))}
+      </SimpleGrid>
       <VStack align="stretch" spacing={{ base: 1.5, md: 2 }}>
         <HStack justify="space-between" align="center" gap={3} flexWrap="wrap">
           <HStack spacing={2} flexWrap="wrap">
@@ -1174,6 +1101,13 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
   /* ========================= Render ========================= */
   return (
     <Box w="100%" maxW="100%" minW={0}>
+      <MealSelectionMenu value={selectedMeals} disabled={blocked} manual onApply={meals => {
+        setSelectedMeals(meals);
+        setValues(previous => Object.fromEntries(Object.entries(previous).map(([id, row]) => [id, {
+          ...row,
+          meals: Object.fromEntries(Object.entries(row.meals || {}).map(([key, qty]) => [key, meals.includes(canonicalRationMeal(key)) ? qty : 0])),
+        }])));
+      }} />
       <Box w="100%" maxW="100%" minW={0} overflow="hidden" borderWidth="1px" borderColor={borderColor} borderRadius="lg" bg={softBg} p={{ base: 3, md: 4 }} mb={4}>
         <HStack justify="space-between" align="start" flexWrap="wrap" gap={3}>
           <Box minW={0} maxW="100%">
@@ -1237,19 +1171,18 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
         </SimpleGrid>
       </Box>
 
-      {/* Micros */}
-      <Box w="100%" maxW="100%" minW={0} overflow="hidden" borderWidth="1px" borderColor={borderColor} borderRadius="lg" bg={panelBg} p={{ base: 3, md: 4 }} mb={4}>
-        <Text fontWeight="800" mb={2}>{i18n.t("auto.RationManualEditor.choisir_les_micros_a_afficher_calculer_ciqual", "Choisir les micros à afficher / calculer (CIQUAL)")}</Text>
-
-        <Wrap spacing={{ base: 2, md: 3 }} maxW="100%">
-          {MICRO_DEFS.map((m) => (
-            <WrapItem key={m.key}>
-              <Checkbox isChecked={!!selectedMicros?.[m.key]} onChange={() => toggleMicro(m.key)} isDisabled={blocked}>
-                {m.label}
-              </Checkbox>
-            </WrapItem>
-          ))}
-        </Wrap>
+      <Box mb={4}>
+        <NutritionMicroPanel ready={ciqualOk} disabled={blocked}
+          options={MICRO_DEFS.map(micro => ({ key: micro.key, label: micro.label }))}
+          selected={selectedMicroList.map(micro => micro.key)}
+          onSelect={keys => setSelectedMicros(Object.fromEntries(keys.map(key => [key, true])))}
+          onRecommend={() => setSelectedMicros(previous => ({ ...previous, calcium: true, fibres: true }))}
+          items={selectedMicroList.map(micro => ({
+            key: micro.key, label: micro.label,
+            value: fmt1Plain(totals.day.micros?.[micro.key] || 0), unit: micro.unit,
+            target: microTargets?.[micro.key],
+          }))}
+        />
       </Box>
 
       {/* Controls catégories */}
@@ -1258,19 +1191,19 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
         <Button size="sm" variant="outline" onClick={() => setAllCats(false)} isDisabled={blocked}>{i18n.t("auto.RationManualEditor.tout_fermer", "Tout fermer")}</Button>
       </HStack>
 
-      <Box ref={fillingAreaRef} w="100%" maxW="100%" minW={0} overflow="hidden">
+      <Box ref={fillingAreaRef} w="100%" maxW="100%" minW={0}>
         {/* Table / Cards */}
         <Box w="100%" maxW="100%" minW={0} borderWidth="1px" borderColor={borderColor} borderRadius="lg" overflow="hidden">
           {!isMobile && (
             <Box bg={softBg} borderBottomWidth="1px" borderColor={borderColor} px={4} py={2}>
               <HStack spacing={0} align="center">
-                <Box flex="0 0 320px">
+                <Box flex={desktopCategoryFlex}>
                   <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" opacity={0.7}>{i18n.t("auto.RationManualEditor.categorie", "CATÉGORIE")}</Text>
                 </Box>
                 {MEALS.map((m) => (
-                  <Box key={m.key} flex="1" textAlign="center">
-                    <Text fontSize="xs" fontWeight="800" letterSpacing="0.08em" opacity={0.7}>
-                      {m.label}
+                  <Box key={m.key} flex="1" minW={0} textAlign="center">
+                    <Text fontSize="xs" fontWeight="800" letterSpacing="0" opacity={0.7} overflowWrap="anywhere">
+                      {translateMealLabel(m)}
                     </Text>
                   </Box>
                 ))}
@@ -1293,7 +1226,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
                         onClick={() => setOpenCats((p) => ({ ...(p || {}), [cat.name]: !p?.[cat.name] }))}
                         isDisabled={blocked}
                       />
-                      <Text fontWeight="900">{cat.name}</Text>
+                      <Text fontWeight="900">{translateSheetLabel(cat.name)}</Text>
                       <Badge variant="subtle">{cat.items.length}</Badge>
                     </HStack>
                   </Box>
@@ -1333,7 +1266,7 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
                   return (
                     <Box key={m.key} w="100%" maxW="100%" minW={0} borderWidth="1px" borderColor={borderColor} borderRadius="lg" p={3} bg={panelBg}>
                       <Text fontSize="xs" fontWeight="900" opacity={0.7}>
-                        {m.label}
+                        {translateMealLabel(m)}
                       </Text>
                       <Text mt={1} fontWeight="900" lineHeight="1.25">
                         {fmt0Plain(t.kcal)} {i18n.t("auto.RationManualEditor.kcal", "kcal")}</Text>
@@ -1349,11 +1282,11 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
             ) : (
               <>
                 <HStack spacing={0} py={1}>
-                  <Box flex="0 0 320px">
+                  <Box flex={desktopCategoryFlex}>
                     <Text fontWeight="900">{i18n.t("auto.RationManualEditor.total_kcal", "TOTAL (kcal)")}</Text>
                   </Box>
                   {MEALS.map((m) => (
-                    <Box key={m.key} flex="1" textAlign="center">
+                    <Box key={m.key} flex="1" minW={0} textAlign="center">
                       <Text fontWeight="800">{fmt0Plain(totals.perMeal[m.key].kcal)}</Text>
                     </Box>
                   ))}
@@ -1362,11 +1295,11 @@ export default function RationManualEditor({ blocked, initialState, onChange, co
                 <Divider />
 
                 <HStack spacing={0} py={1}>
-                  <Box flex="0 0 320px">
+                  <Box flex={desktopCategoryFlex}>
                     <Text fontWeight="900">{i18n.t("auto.RationManualEditor.total_g_prot_lip_glu", "TOTAL (g) — Prot / Lip / Glu")}</Text>
                   </Box>
                   {MEALS.map((m) => (
-                    <Box key={m.key} flex="1" textAlign="center">
+                    <Box key={m.key} flex="1" minW={0} textAlign="center">
                       <Text fontWeight="800">
                         {fmt0Plain(totals.perMeal[m.key].prot)} / {fmt0Plain(totals.perMeal[m.key].lip)} /{" "}
                         {fmt0Plain(totals.perMeal[m.key].glu)}

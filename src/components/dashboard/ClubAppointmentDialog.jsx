@@ -1,3 +1,5 @@
+import CalendarCancellationDetails from '../calendar/CalendarCancellationDetails';
+import { calendarEventStatusKey, coachEventFormStatus, calendarEventStatusColor } from '../../utils/calendarEventAppearance.mjs';
 import CalendarDifficulty from "../calendar/CalendarDifficulty";
 import React from 'react';
 import { Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, Text, Box, Button, Checkbox, VStack, HStack, Badge, FormControl, FormLabel, Select, Input, SimpleGrid, Textarea, Tooltip, IconButton } from '@chakra-ui/react';
@@ -28,11 +30,12 @@ return (
                       {selectedAppointment?.clientName ? ` · ${selectedAppointment.clientName}` : ""}
                     </Text>
                   </Box>
-                  <Badge borderRadius="full" colorScheme={selectedAppointment?.status === "validée" ? "green" : selectedAppointment?.status === "annulée" ? "gray" : selectedAppointment?.status === "manquée" ? "red" : "blue"}>
-                    {t(({ "validée": "status.validated", "manquée": "status.missed", "annulée": "common.cancelled" })[selectedAppointment?.status] || "status.upcoming")}
+                  <Badge borderRadius="full" colorScheme={calendarEventStatusColor(selectedAppointment || {})}>
+                    {t(calendarEventStatusKey(selectedAppointment || {}))}
                   </Badge>
                 </HStack>
                 <CalendarDifficulty rating={selectedAppointment?.difficultyRating} />
+                <CalendarCancellationDetails event={selectedAppointment || {}}/>
               </Box>
 
               {selectedAppointment?.type === "group" && (
@@ -53,7 +56,8 @@ return (
                 </FormControl>
                 <FormControl>
                   <FormLabel>{t("nutritionCoach.table.status", "Statut")}</FormLabel>
-                  <Select {...theme.inputProps} value={appointmentEditForm.status} onChange={(e) => setAppointmentEditForm((current) => ({ ...current, status: e.target.value }))}>
+                  <Select {...theme.inputProps} isDisabled={!!selectedAppointment?.excuseDecision} value={appointmentEditForm.status === selectedAppointment?.status ? coachEventFormStatus(selectedAppointment || {}) : appointmentEditForm.status} onChange={(e) => setAppointmentEditForm((current) => ({ ...current, status: e.target.value }))}>
+                    {coachEventFormStatus(selectedAppointment || {}) === 'review' && <option value="review" disabled>{t('status.to_validate')}</option>}
                     <option value="à venir">{t("status.upcoming", "À venir")}</option>
                     <option value="validée">{t("status.validated", "Validée")}</option>
                     <option value="manquée">{t("status.missed", "Manquée")}</option>

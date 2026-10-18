@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {clientProfessionalOffers} from '../src/utils/clientProfessionalOffers.mjs';
+const first={id:'same-id',name:'Pack A',description:'Texte attribué',payments:[{date:'2026-11-05',amount:10000}]};
+const groups=[{coachId:'a',coachName:'Pro A',clientId:'one',contracts:[first]}, {coachId:'a',coachName:'Pro A',clientId:'two',contracts:[first,{id:'subscription',type:'recurring'}]}, {coachId:'b',coachName:'Pro B',contracts:[{id:'same-id',name:'Pack B'}]}, {coachId:'empty',contracts:[]}];
+const before=JSON.stringify(groups);
+const result=clientProfessionalOffers(groups);
+assert.equal(result.length,2);
+assert.equal(result[0].contracts.length,2);
+assert.equal(result[1].contracts[0].name,'Pack B');
+assert.equal(result[0].contracts[0].description,'Texte attribué');
+assert.deepEqual(result[0].contracts[0].payments,first.payments);
+assert.equal(JSON.stringify(groups),before);
+assert.deepEqual(clientProfessionalOffers(),[]);
+console.log('Professional profile cards: grouping, separate professionals, deduplication, original descriptions/payments and empty data passed.');

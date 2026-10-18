@@ -889,7 +889,7 @@ export default function AutoProgramQuestionnaire() {
 	                    <Badge colorScheme="green" mr={2}>
 	                      {t("autoQ.prices.sub.badge", "1er mois 29,99 €")}
 	                    </Badge>
-	                    {t("autoQ.prices.sub.subtitle", "nouveau programme personnalisé chaque mois")}
+	                    {t("autoQ.prices.sub.subtitle", "Un nouveau programme à la fin du précédent, à votre rythme")}
 	                  </>
 	                }
 	                cta={t("autoQ.prices.sub.cta", "Choisir l’abonnement")}

@@ -177,6 +177,7 @@ app.use('/api/admin-users', adminUserRoutes);
 
 const coachSessionRoutes = require('./routes/coachSessions');
 app.use('/api/coach-sessions', coachSessionRoutes);
+app.use('/api/coach-offers', require('./routes/coachOffers'));
 
 const messagingRoutes = require('./routes/messaging');
 app.use('/api/messaging', messagingRoutes);

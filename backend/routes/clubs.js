@@ -1,3 +1,4 @@
+const { batchedFieldReads } = require("../utils/batchedFieldReads");
 const { classEmailChanges, notifyClassParticipants, classEmailSubject } = require('../utils/clubClassEmail');
 const { emailCopy, normalizeLanguage } = require('../utils/clubEmailCopy');
 const { accessAt: clientAccessAt } = require('../utils/clubClientAdministration');
@@ -49,21 +50,21 @@ router.patch('/client-administration/:clientId/events/:eventId', requireFirebase
   catch (error) { res.status(error.status || 500).json({ error: error.status ? error.message : 'Enregistrement impossible.' }); }
 });
 
-const subscriptions = require('../utils/clubSubscriptions').createClubSubscriptions(db, async ({to,clubName,clientName,due,language}) => {
+const subscriptions = require('../utils/clubSubscriptions').createClubSubscriptions(db, async ({to,clubName,clientName,due,language,message}) => {
   const transporter = getMailTransporter();
   if (!transporter) throw new Error('SMTP indisponible');
   const locale = normalizeLanguage(langCodeFromAny(language));
   const amount = new Intl.NumberFormat(locale,{style:'currency',currency:due.currency || 'EUR',maximumFractionDigits:Math.max(new Intl.NumberFormat(locale,{style:'currency',currency:due.currency || 'EUR'}).resolvedOptions().maximumFractionDigits,Math.log10(due.unitScale ?? 100))}).format(due.amountCents/(due.unitScale ?? 100));
   const date = new Intl.DateTimeFormat(locale, {dateStyle:'long', timeZone:'Europe/Paris'}).format(new Date(`${due.dueDate}T12:00:00Z`));
   const copy = emailCopy(locale, {club:clubName, client:clientName, amount, label:due.label, date});
-  await transporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject:copy.paymentSubject, text:copy.paymentText });
+  await transporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject:message?.subject||copy.paymentSubject, text:message?.body||copy.paymentText });
 });
 const billingRoute = handler => async (req,res) => {
   try { res.json(await handler(req)); }
   catch(e) { res.status(e.status || 500).json({error:e.status ? e.message : 'Opération impossible. Réessayez.'}); }
 };
 router.get('/my-subscriptions', requireFirebaseAuth, billingRoute(req=>subscriptions.mine(req.auth.uid)));
-router.get('/subscription-plans', requireFirebaseAuth, billingRoute(async req=>({plans:await subscriptions.catalog(req.auth.uid)})));
+router.get('/subscription-plans', requireFirebaseAuth, billingRoute(async req=>({supportsActiveDeletion:true,plans:await subscriptions.catalog(req.auth.uid)})));
 router.post('/subscription-plans', requireFirebaseAuth, billingRoute(req=>subscriptions.addPlan(req.auth.uid,req.body)));
 router.patch('/subscription-plans/:id', requireFirebaseAuth, billingRoute(req=>subscriptions.updatePlan(req.auth.uid,req.params.id,req.body)));
 router.delete('/subscription-plans/:id', requireFirebaseAuth, billingRoute(req=>subscriptions.deletePlan(req.auth.uid,req.params.id,req.body)));
@@ -111,11 +112,18 @@ router.delete('/client-administration/:clientId/session-packs/:id', requireFireb
 router.post('/client-administration/:clientId/session-packs/:id/cancel', requireFirebaseAuth, billingRoute(req=>sessionPacks.cancel(req.auth.uid,req.params.clientId,req.params.id,requestedClubId(req))));
 router.get('/payment-dues', requireFirebaseAuth, billingRoute(async req=>({dues:await subscriptions.pending(req.auth.uid)})));
 router.get('/client-administration/:clientId/subscriptions', requireFirebaseAuth, billingRoute(req=>subscriptions.get(req.auth.uid,req.params.clientId)));
+router.post('/client-administration/:clientId/subscriptions/:id/preview', requireFirebaseAuth, billingRoute(req=>subscriptions.updateContract(req.auth.uid,req.params.clientId,req.params.id,req.body,true)));
+router.patch('/client-administration/:clientId/subscriptions/:id', requireFirebaseAuth, billingRoute(req=>subscriptions.updateContract(req.auth.uid,req.params.clientId,req.params.id,req.body)));
 router.post('/client-administration/:clientId/subscriptions/preview', requireFirebaseAuth, billingRoute(req=>subscriptions.preview(req.auth.uid,req.params.clientId,req.body)));
 router.post('/client-administration/:clientId/subscriptions', requireFirebaseAuth, billingRoute(async req=>{await subscriptions.assign(req.auth.uid,req.params.clientId,req.body);return {ok:true};}));
 router.post('/client-administration/:clientId/payment-checks/:id', requireFirebaseAuth, billingRoute(req=>subscriptions.check(req.auth.uid,req.params.clientId,req.params.id,req.body)));
 
 const memberships = require('../utils/clubMemberships').createClubMemberships(db);
+const termination = require('../utils/clubTermination').createClubTermination(db,()=>admin.firestore.FieldValue.serverTimestamp());
+router.get('/my-termination-requests', requireFirebaseAuth, billingRoute(req=>termination.history(req.auth.uid)));
+router.get('/termination/:clubId', requireFirebaseAuth, billingRoute(req=>termination.preview(req.auth.uid,req.params.clubId,req.query.memberUid||req.auth.uid)));
+router.post('/termination/:clubId', requireFirebaseAuth, billingRoute(req=>termination.request(req.auth.uid,req.params.clubId,req.body)));
+router.post('/termination/:clubId/:memberUid/decision', requireFirebaseAuth, billingRoute(req=>termination.decide(req.auth.uid,req.params.clubId,req.params.memberUid,req.body)));
 router.get('/my-memberships', requireFirebaseAuth, async (req, res) => {
   try { res.json(await memberships.list(req.auth.uid)); }
   catch (error) { res.status(error.status || 500).json({ error: error.message }); }
@@ -769,16 +777,8 @@ async function assertClubOwner(req, res, next) {
   }
 }
 
-async function getDocsByField(collectionName, field, values) {
-  const unique = [...new Set(values.filter(Boolean))];
-  const out = [];
-  for (let i = 0; i < unique.length; i += 10) {
-    const chunk = unique.slice(i, i + 10);
-    if (!chunk.length) continue;
-    const snap = await db.collection(collectionName).where(field, "in", chunk).limit(500).get();
-    snap.forEach((doc) => out.push({ id: doc.id, ...doc.data() }));
-  }
-  return out;
+function getDocsByField(collectionName, field, values) {
+  return batchedFieldReads(db, collectionName, field, values);
 }
 
 async function getClubScope(clubId) {
@@ -881,16 +881,16 @@ router.get("/summary", requireFirebaseAuth, assertClubOwner, async (req, res) =>
     const allCoachIds = [...new Set([ownerUid, ...proIds])].filter(Boolean);
 
     const currentGoalMonth = monthKey();
-    const [clubClientsSnap, clubProgramsSnap, appointmentsSnap, goalsSnap, clientsByCoach, programsByCoach] = await Promise.all([
+    const [clubClientsSnap, clubProgramsSnap, appointmentsSnap, goalsSnap, clientsByCoach, programsByCoach, otherClubClients] = await Promise.all([
       db.collection("clients").where("clubId", "==", req.clubId).limit(1000).get().catch(() => null),
       db.collection("programmes").where("clubId", "==", req.clubId).limit(1000).get().catch(() => null),
       db.collection("clubs").doc(req.clubId).collection("appointments").get().catch(() => null),
       db.collection("clubs").doc(req.clubId).collection("goals").doc(currentGoalMonth).get().catch(() => null),
       getDocsByField("clients", "createdBy", allCoachIds).catch(() => []),
       getDocsByField("programmes", "createdBy", allCoachIds).catch(() => []),
+      db.collection("clients").where("clubIds", "array-contains", req.clubId).get(),
     ]);
 
-    const otherClubClients = await db.collection("clients").where("clubIds", "array-contains", req.clubId).get();
     const clients = new Map();
     otherClubClients.forEach(doc => clients.set(doc.id, { id: doc.id, ...doc.data() }));
     clubClientsSnap?.forEach((doc) => clients.set(doc.id, { id: doc.id, ...doc.data() }));
@@ -1162,6 +1162,10 @@ router.get("/summary", requireFirebaseAuth, assertClubOwner, async (req, res) =>
         eventType: data.eventType || "",
         appointmentKind: data.appointmentKind || "",
         status: resolvedStatus,
+        excuseDecision: data.excuseDecision || null,
+        cancellationReason: data.cancellationReason || '',
+        excuseReviewNote: data.excuseReviewNote || '',
+        excuseReviewedAt: data.excuseReviewedAt || null,
         difficultyRating: linkedSession?.difficultyRating ?? linkedSession?.rating ?? data.difficultyRating ?? null,
         durationMin: Number(data.durationMin || 60) || 60,
         programId: data.programId || "",
@@ -2616,7 +2620,7 @@ router.post("/appointments", requireFirebaseAuth, assertClubOwner, async (req, r
     const dates = expandClubRecurrence(startsAtDate, req.body.recurrence);
     if (client && dates.length > 166) return res.status(400).json({ error: "Une série avec un client est limitée à 166 rendez-vous. Choisissez une date de fin plus proche." });
     await db.runTransaction(async batch=>{
-    if(client&&appointmentType==='sport'){
+    if(client&&['sport','nutrition'].includes(appointmentType)){
       const credit=await sessionPacks.credit(req.clubId,client.id,{...payload,id:appointmentRef.id},batch);
       if(credit.managed&&(!credit.allowed||credit.available<dates.length))throw Object.assign(new Error('Aucune séance disponible : le club doit attribuer un nouveau pack.'),{status:403});
       for(const date of dates)await sessionPacks.assertCredit(req.clubId,client.id,{...payload,id:appointmentRef.id,startsAt:date.getTime()},batch);

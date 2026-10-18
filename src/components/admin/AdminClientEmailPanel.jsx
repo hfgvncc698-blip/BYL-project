@@ -201,6 +201,14 @@ export default function AdminClientEmailPanel({ clientId, profileId, audience = 
   }, [resolvedProfileId]);
 
   useEffect(() => {
+    if (preferenceBusy || !resolvedProfileId) return;
+    const refresh = () => { if (!document.hidden) load({ silent: true }); };
+    const timer = setInterval(refresh, 15000);
+    window.addEventListener("focus", refresh);
+    return () => { clearInterval(timer); window.removeEventListener("focus", refresh); };
+  }, [resolvedProfileId, preferenceBusy]);
+
+  useEffect(() => {
     const template = templates?.[templateType] || {};
     setTemplateSubject(template.subject || "");
     setTemplateMessage(template.message || "");
@@ -507,7 +515,7 @@ export default function AdminClientEmailPanel({ clientId, profileId, audience = 
           <CardHeader>
             <Heading size="md">E-mails automatiques</Heading>
             <Text color={muted} fontSize="sm">
-              Tous les types restent actifs par défaut. Désactive seulement ceux qui ne sont pas utiles.
+              Réglages du compte client, synchronisés automatiquement toutes les 15 secondes. Les types sans choix explicite restent actifs par défaut.
             </Text>
           </CardHeader>
           <CardBody>

@@ -1,3 +1,5 @@
+import NutritionMicroPanel from "./NutritionMicroPanel";
+import { targetForMicroNutrient } from "../utils/rationMicroTargets";
  
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -9,7 +11,6 @@ import {
   Text,
   Input,
   Spinner,
-  Checkbox,
   SimpleGrid,
   useToast,
   IconButton,
@@ -135,28 +136,7 @@ const progressFromRange = (value, range) => {
   return clampPercent((num(value) / ceiling) * 100);
 };
 
-const NUTRIENT_PRESETS = {
-  essentials: [
-    "calcium_mg_100g",
-    "fer_mg_100g",
-    "sodium_mg_100g",
-    "potassium_mg_100g",
-    "fibres_alimentaires_g_100g",
-    "cholesterol_mg_100g",
-    "lactose_g_100g",
-  ],
-  vitamins: [
-    "vitamine_c_mg_100g",
-    "vitamine_b1_ou_thiamine_mg_100g",
-    "vitamine_b2_ou_riboflavine_mg_100g",
-    "vitamine_b6_mg_100g",
-    "vitamine_b9_ou_folates_totaux_g_100g",
-    "vitamine_b12_g_100g",
-    "vitamine_d_g_100g",
-    "alpha_tocopherol_vitamine_e_mg_100g",
-    "vitamine_k1_g_100g",
-  ],
-};
+
 
 const RECOMMENDED_NUTRIENT_ALIASES = {
   calcium: ["calcium_mg_100g"],
@@ -434,7 +414,6 @@ export default function CiqualFoodPicker({
 
   const [query, setQuery] = useState("");
   const [items, setItems] = useState(() => normalizeInitialItems(initialState?.items || []));
-  const [nutrientsOpen, setNutrientsOpen] = useState(false);
   const [selectedNutrients, setSelectedNutrients] = useState(
     initialState?.selectedNutrients || {}
   );
@@ -489,7 +468,6 @@ export default function CiqualFoodPicker({
   const selectedKeys = useMemo(() => {
     return Object.keys(selectedNutrients).filter((k) => selectedNutrients[k]);
   }, [selectedNutrients]);
-  const selectedPreview = useMemo(() => selectedKeys.slice(0, 8), [selectedKeys]);
   const recommendedMicroConcepts = useMemo(
     () => buildRecommendedMicroKeysFromNeeds(effectiveNeeds),
     [effectiveNeeds]
@@ -552,17 +530,6 @@ export default function CiqualFoodPicker({
 
   const removeItem = (itemId) => {
     setItems((prev) => prev.filter((x) => x.id !== itemId));
-  };
-
-  const applyPreset = (presetKeys = []) => {
-    const next = {};
-    presetKeys.forEach((key) => {
-      if (allNutrientKeys.includes(key)) next[key] = true;
-    });
-    requiredNutrientKeys.forEach((key) => {
-      next[key] = true;
-    });
-    setSelectedNutrients(next);
   };
 
   const applyRecommendedNutrients = () => {
@@ -773,6 +740,7 @@ export default function CiqualFoodPicker({
       microCount: selectedKeys.length,
       microItems: selectedKeys.map((key) => ({
         key,
+        target: targetForMicroNutrient(key, microTargets),
         label: translateNutrientLabel(key),
         value: fmt1Plain(totals.micros?.[key] || 0),
         unit: nutrientUnitFromKey(key),
@@ -824,7 +792,7 @@ export default function CiqualFoodPicker({
           <Badge colorScheme="purple" variant="subtle" px={3} py={1} borderRadius="full">{i18n.t("auto.CiqualFoodPicker.mode_detaille", "Mode détaillé")}</Badge>
         </HStack>
 
-        <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={3} mt={4}>
+        <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={3} mt={4}>
           <Box {...nutritionTheme.tileProps} p={4}>
             <Text fontSize="xs" fontWeight="900" letterSpacing="0.1em" color={nutritionTheme.subtleText}>
               DOSSIER
@@ -887,115 +855,15 @@ export default function CiqualFoodPicker({
             </Wrap>
           </Box>
 
-          <Box {...nutritionTheme.tileProps} p={4}>
-            <HStack justify="space-between" align="start" gap={3}>
-              <Box minW={0}>
-                <Text fontSize="xs" fontWeight="900" letterSpacing="0.1em" color={nutritionTheme.subtleText}>{i18n.t("auto.CiqualFoodPicker.micros_conseilles", "MICROS CONSEILLÉS")}</Text>
-                <Text fontSize="sm" color={nutritionTheme.mutedText} mt={2}>{i18n.t("auto.CiqualFoodPicker.calcium_et_fibres_restent_toujours_visibles_puis_l", "Calcium et fibres restent toujours visibles, puis les autres repères dépendent du contexte clinique.")}</Text>
-              </Box>
-              <Button size="xs" borderRadius="full" onClick={() => setNutrientsOpen((v) => !v)}>
-                {nutrientsOpen
-                  ? i18n.t("auto.CiqualFoodPicker.fermer", "Fermer")
-                  : i18n.t("auto.CiqualFoodPicker.choisir", "Choisir")}
-              </Button>
-            </HStack>
-
-            <Wrap spacing={2} mt={3}>
-              <WrapItem>
-                <Button size="xs" variant="outline" borderRadius="full" onClick={applyRecommendedNutrients} isDisabled={recommendedNutrientKeys.length === 0}>{i18n.t("auto.CiqualFoodPicker.precocher", "Précocher")}</Button>
-              </WrapItem>
-              <WrapItem>
-                <Button size="xs" variant="outline" borderRadius="full" onClick={() => applyPreset(NUTRIENT_PRESETS.essentials)}>{i18n.t("auto.CiqualFoodPicker.essentiels", "Essentiels")}</Button>
-              </WrapItem>
-              <WrapItem>
-                <Button size="xs" variant="outline" borderRadius="full" onClick={() => applyPreset(NUTRIENT_PRESETS.vitamins)}>{i18n.t("auto.CiqualFoodPicker.vitamines", "Vitamines")}</Button>
-              </WrapItem>
-              <WrapItem>
-                <Button
-                  size="xs"
-                  variant="outline"
-                  borderRadius="full"
-                  onClick={() => {
-                    const next = {};
-                    requiredNutrientKeys.forEach((key) => {
-                      next[key] = true;
-                    });
-                    setSelectedNutrients(next);
-                  }}
-                >{i18n.t("exerciseBank.reset", "Réinitialiser")}</Button>
-              </WrapItem>
-            </Wrap>
-
-            <Wrap spacing={2} mt={3}>
-              {recommendedNutrientKeys.slice(0, 7).map((key) => (
-                <WrapItem key={key}>
-                  <Badge colorScheme="green" variant="subtle" px={3} py={1} borderRadius="full">
-                    {translateNutrientLabel(key)}
-                  </Badge>
-                </WrapItem>
-              ))}
-              {recommendedNutrientKeys.length > 7 ? (
-                <WrapItem>
-                  <Badge variant="subtle" px={3} py={1} borderRadius="full">
-                    +{recommendedNutrientKeys.length - 7}
-                  </Badge>
-                </WrapItem>
-              ) : null}
-            </Wrap>
-
-            {selectedPreview.length > 0 ? (
-              <Wrap spacing={2} mt={3}>
-                {selectedPreview.map((key) => (
-                  <WrapItem key={key}>
-                    <Badge colorScheme="purple" variant="subtle" px={3} py={1} borderRadius="full">
-                      {translateNutrientLabel(key)}
-                    </Badge>
-                  </WrapItem>
-                ))}
-                {selectedKeys.length > selectedPreview.length ? (
-                  <WrapItem>
-                    <Badge variant="subtle" px={3} py={1} borderRadius="full">
-                      +{selectedKeys.length - selectedPreview.length}
-                    </Badge>
-                  </WrapItem>
-                ) : null}
-              </Wrap>
-            ) : null}
-
-            <Collapse in={nutrientsOpen}>
-              <Box
-                mt={3}
-                maxH="260px"
-                overflowY="auto"
-                bg={bgSoft}
-                p={3}
-                rounded="xl"
-                border="1px solid"
-                borderColor={border}
-              >
-                <SimpleGrid columns={{ base: 1, sm: 2, lg: 1, xl: 2 }} spacing={2}>
-                  {allNutrientKeys.map((k) => (
-                    <Checkbox
-                      key={k}
-                      isChecked={!!selectedNutrients[k]}
-                      isDisabled={requiredNutrientKeys.includes(k)}
-                      onChange={() =>
-                        setSelectedNutrients((p) => ({
-                          ...p,
-                          [k]: !p[k],
-                        }))
-                      }
-                    >
-                      <Text fontSize="sm" noOfLines={1} title={translateNutrientLabel(k)}>
-                        {translateNutrientLabel(k)}
-                      </Text>
-                    </Checkbox>
-                  ))}
-                </SimpleGrid>
-              </Box>
-            </Collapse>
-          </Box>
         </SimpleGrid>
+        <Box mt={3}>
+          <NutritionMicroPanel ready={allNutrientKeys.length > 0} required={requiredNutrientKeys}
+            options={allNutrientKeys.map(key => ({ key, label: translateNutrientLabel(key) }))}
+            selected={selectedKeys} onSelect={keys => setSelectedNutrients(Object.fromEntries(keys.map(key => [key, true])))}
+            onRecommend={applyRecommendedNutrients}
+            items={selectedKeys.map(key => ({ key, label: translateNutrientLabel(key), value: fmt1Plain(totals.micros?.[key] || 0), unit: nutrientUnitFromKey(key), target: targetForMicroNutrient(key, microTargets) }))}
+          />
+        </Box>
 
         <Box mt={4}>
           <HStack justify="space-between" align="center" gap={3} flexWrap="wrap">

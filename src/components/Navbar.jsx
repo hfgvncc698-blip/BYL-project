@@ -59,6 +59,7 @@ import {
   MdAutoAwesome,
   MdOutlineCalendarMonth,
   MdOutlineChat,
+  MdOutlinePayments,
 } from "react-icons/md";
 import { useAuth } from "../AuthContext";
 import { useTranslation } from "react-i18next";
@@ -80,6 +81,7 @@ const ROUTES = {
   clubDashboard: "/club-dashboard",
   coachDashboard: "/coach-dashboard",
   coachProfile: "/coach/profile",
+  coachOffers: "/coach/offers",
   coachSettings: "/settings-coach",
   coachPrograms: "/programmes",
   coachClients: "/clients",
@@ -108,6 +110,7 @@ const NAV_ROUTE_PRELOADS = {
   [ROUTES.admin]: () => import("./AdminDashboard.jsx"),
   [ROUTES.clubDashboard]: () => import("../pages/ClubDashboard.jsx"),
   [ROUTES.coachDashboard]: () => import("./CoachDashboard.jsx"),
+  [ROUTES.coachOffers]: () => import("../pages/CoachOffersPage.jsx"),
   [ROUTES.coachProfile]: () => import("../pages/ProfilePageCoach.jsx"),
   [ROUTES.coachSettings]: () => import("../pages/SettingsPageCoach.jsx"),
   [ROUTES.coachPrograms]: () => import("./ProgramsPage.jsx"),
@@ -247,6 +250,7 @@ export default function Navbar() {
     { label: nav("nav.all_programs", "Tous les programmes"), to: ROUTES.coachPrograms, icon: MdOutlineFitnessCenter },
     { label: nav("nav.exercise_bank", "Banque d'exercices"), to: ROUTES.exerciseBank, icon: MdOutlineLibraryBooks },
     { label: nav("nav.statistics", "Statistiques"), to: ROUTES.coachStats, icon: MdOutlineInsights },
+    { label: nav("nav.offers_payments", "Offres et paiements"), to: ROUTES.coachOffers, icon: MdOutlinePayments },
     { label: nav("nav.profile", "Profil"), to: ROUTES.coachProfile, icon: MdOutlinePerson },
   ];
 
@@ -376,7 +380,7 @@ export default function Navbar() {
   const isCurrentRoute = (to) => {
     const [targetPath, targetSearch = ""] = to.split("?");
     if (targetPath === `${ROUTES.clubDashboard}/actions-groupees` &&
-        ["actions-groupees", "alertes", "journal", "audit", "objectifs", "exports"].some(path => location.pathname === `${ROUTES.clubDashboard}/${path}`)) return true;
+        ["actions-groupees", "offres", "alertes", "journal", "audit", "objectifs", "exports"].some(path => location.pathname === `${ROUTES.clubDashboard}/${path}`)) return true;
     if (location.pathname !== targetPath) return false;
     if (!targetSearch) {
       if (targetPath === ROUTES.coachClients && new URLSearchParams(location.search).get("view") === "nutrition") {

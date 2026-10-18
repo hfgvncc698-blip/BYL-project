@@ -50,11 +50,13 @@ const routeLoaders = {
   Register: () => import("./pages/Register.jsx"),
   ActivateAccount: () => import("./pages/ActivateAccount.jsx"),
   CoachDashboard: () => import("./components/CoachDashboard.jsx"),
+  CoachOffersPage: () => import("./pages/CoachOffersPage.jsx"),
   ClubDashboard: () => import("./pages/ClubDashboard.jsx"),
   ClientDashboard: () => import("./components/Clientdashboard.jsx"),
   AdminDashboard: () => import("./components/AdminDashboard.jsx"),
   ProfilePageClient: () => import("./pages/ProfilePageClient.jsx"),
   MyPrograms: () => import("./pages/MyPrograms.jsx"),
+  ClientJourneyPage: () => Promise.all([import("./components/client/ClientJourneyPage.jsx"), import("./pages/MyPrograms.jsx")]).then(([journey]) => journey),
   Statistics: () => import("./pages/StatisticsPageClient.jsx"),
   SettingsPageClient: () => import("./pages/SettingsPageClient.jsx"),
   ClientNutritionPage: () => import("./pages/ClientNutritionPage.jsx"),
@@ -106,11 +108,12 @@ function routeLoaderKeyForPath(pathname = "/") {
     "/reset-password": "ActivateAccount",
     "/verify-email": "ActivateAccount",
     "/coach-dashboard": "CoachDashboard",
+    "/coach/offers": "CoachOffersPage",
     "/club-dashboard": "ClubDashboard",
     "/user-dashboard": "ClientDashboard",
     "/client-dashboard": "ClientDashboard",
     "/profile": "ProfilePageClient",
-    "/mes-programmes": "MyPrograms",
+    "/mes-programmes": "ClientJourneyPage",
     "/statistiques": "Statistics",
     "/settings": "SettingsPageClient",
     "/nutrition": "ClientNutritionPage",
@@ -276,13 +279,14 @@ const Login = lazyFrom(routeLoaders, "Login");
 const Register = lazyFrom(routeLoaders, "Register");
 const ActivateAccount = lazyFrom(routeLoaders, "ActivateAccount");
 const CoachDashboard = lazyFrom(routeLoaders, "CoachDashboard");
+const CoachOffersPage = lazyFrom(routeLoaders, "CoachOffersPage");
 const ClubDashboard = lazyFrom(routeLoaders, "ClubDashboard");
 const ClientPacksPage = lazy(() => import("./pages/ClientPacksPage.jsx"));
 const ClientDashboard = lazyFrom(routeLoaders, "ClientDashboard");
 const AdminDashboard = lazyFrom(routeLoaders, "AdminDashboard");
 const ProfilePageClient = lazyFrom(routeLoaders, "ProfilePageClient");
 const MyPrograms = lazyFrom(routeLoaders, "MyPrograms");
-const ClientJourneyPage = lazy(() => import('./components/client/ClientJourneyPage.jsx'));
+const ClientJourneyPage = lazyFrom(routeLoaders, "ClientJourneyPage");
 const Statistics = lazyFrom(routeLoaders, "Statistics");
 const SettingsPageClient = lazyFrom(routeLoaders, "SettingsPageClient");
 const ClientNutritionPage = lazyFrom(routeLoaders, "ClientNutritionPage");
@@ -396,7 +400,7 @@ function preloadKeysForContext({ pathname, user, effectiveRole, isAdmin }) {
     if (hasSport) keys.push("ProgramsPage");
     if (hasNutrition) keys.push("CoachNutritionPage");
   } else if (pathname.startsWith("/user-dashboard") || pathname.startsWith("/mes-programmes")) {
-    keys.push("MyPrograms", "ProgramView");
+    keys.push("ClientJourneyPage", "ProgramView");
     if (hasNutrition) keys.push("ClientNutritionPage");
   } else if (pathname.startsWith("/admin")) {
     keys.push("AdminGeo", "AdminEmails");
@@ -693,7 +697,7 @@ function AppContent() {
     CLUB_MOBILE_NAV_PREFIXES.some((prefix) => location.pathname === prefix || location.pathname.startsWith(`${prefix}/`));
   const showBottomMobileNav = showClientMobileNav || showCoachMobileNav || showClubMobileNav;
   const showDashboardMessaging = Boolean(user?.uid) && (
-    location.pathname === "/user-dashboard" || location.pathname === "/coach-dashboard"
+    location.pathname === "/user-dashboard" || location.pathname === "/coach-dashboard" || location.pathname.startsWith("/club-dashboard") || location.pathname === "/profile" || location.pathname === "/messages"
   );
   React.useEffect(() => {
     if (!("scrollRestoration" in window.history)) return undefined;
@@ -843,6 +847,8 @@ function AppContent() {
           <Route path="/activate-account" element={<ActivateAccount />} />
           <Route path="/reset-password" element={<ActivateAccount />} />
           <Route path="/verify-email" element={<ActivateAccount />} />
+
+          <Route path="/coach/offers" element={<CoachActiveRoute><CoachOffersPage /></CoachActiveRoute>} />
 
           {/* Dashboards */}
           <Route
@@ -1204,7 +1210,7 @@ function AppContent() {
 
       {showDashboardMessaging ? (
         <Suspense fallback={null}>
-          <DashboardMessagingBubble />
+          <DashboardMessagingBubble notificationsOnly={location.pathname !== "/user-dashboard" && location.pathname !== "/coach-dashboard"} />
         </Suspense>
       ) : null}
       {showClientMobileNav ? (

@@ -9,7 +9,7 @@ const openingLabel = minutes => minutes === 0 ? clubText("Dès la publication du
 const deadlineOptions = [0, 60, 180, 360, 480, 720];
 const deadlineLabel = minutes => minutes === 0 ? clubText("Jusqu’au début du cours") : minutes % 60 === 0 ? clubText("{{count}} h avant le cours", {count: minutes / 60}) : clubText("{{count}} min avant le cours", {count: minutes});
 
-export default function ClubRegistrationSettings({ club, url, onSaved, theme }) {
+export default function ClubRegistrationSettings({ club, url, onSaved, theme, embedded = false }) {
   useTranslation();
   const [value, setValue] = useState({ mode: 'club', signupMinutes: 0, cancelMinutes: 0, openingMinutes: 0 });
   const [draft, setDraft] = useSessionDraft(club?.id ? `club-registration:${club.id}` : null, null);
@@ -24,8 +24,8 @@ export default function ClubRegistrationSettings({ club, url, onSaved, theme }) 
     catch (error) { toast({ title: clubText(error?.data?.error) || clubText("Enregistrement impossible"), status: 'error' }); }
     finally { setSaving(false); }
   };
-  return <Box {...theme.cardProps} p={5}>
-    <Heading size="md" mb={2}>{clubText("Inscriptions aux cours collectifs")}</Heading>
+  return <Box {...(embedded ? {} : theme.cardProps)} p={embedded ? 0 : 5}>
+    {!embedded && <Heading size="md" mb={2}>{clubText("Inscriptions aux cours collectifs")}</Heading>}
     <Text mb={4}>{clubText("Les membres voient les cours dans leur planning. Choisissez qui gère les inscriptions.")}</Text>
     <Stack spacing={4}>
       <FormControl><FormLabel>{clubText("Mode d’inscription par défaut")}</FormLabel><Select value={value.mode} onChange={e => setDraft({ ...value, mode: e.target.value })}>
@@ -53,7 +53,7 @@ export default function ClubRegistrationSettings({ club, url, onSaved, theme }) 
         <Text fontSize="xs">{clubText("Exemple : avec 3 h avant le cours, les inscriptions ferment à 15 h pour un cours à 18 h. Après la clôture, le club peut toujours modifier les participants.")}</Text>
       </>}
       {invalidWindow && <Text role="alert" color="red.600">{clubText("L’ouverture doit précéder la clôture des inscriptions.")}</Text>}
-      <Button isDisabled={invalidWindow} alignSelf="start" {...theme.primaryButtonProps} isLoading={saving} onClick={save}>{clubText("Enregistrer les inscriptions")}</Button>
+      <Button isDisabled={invalidWindow} {...theme.primaryButtonProps} alignSelf="flex-end" isLoading={saving} onClick={save}>{clubText("Enregistrer les inscriptions")}</Button>
     </Stack>
   </Box>;
 }

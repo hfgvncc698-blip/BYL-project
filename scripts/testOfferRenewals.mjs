@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {offerRenewals} from '../src/utils/offerRenewals.js';
+const base={id:'p',type:'pack',clientName:'Client',state:'active',available:1};
+assert.equal(offerRenewals([base],'2026-10-14').length,1);
+assert.equal(offerRenewals([{...base,available:2}],'2026-10-14').length,0);
+assert.equal(offerRenewals([{...base,state:'cancelled'},{...base,state:'expired'},{...base,state:'scheduled'}],'2026-10-14').length,0);
+assert.equal(offerRenewals([{...base,type:'recurring',expiresAt:'2026-10-28',available:0}],'2026-10-14')[0].days,14);
+assert.equal(offerRenewals([{...base,type:'recurring',expiresAt:'2026-10-29'}],'2026-10-14').length,0);
+assert.equal(offerRenewals([{...base,type:'recurring',expiresAt:'2026-10-14'}],'2026-10-14')[0].days,0);
+console.log('Renewal alerts: last credit, exhaustion, expiry boundary, inactive contracts passed');

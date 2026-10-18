@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const url=s=>`data:text/javascript;base64,${Buffer.from(s).toString('base64')}`;
+const schedule=url(readFileSync('src/utils/coachOfferSchedule.js','utf8'));
+const source=readFileSync('src/utils/offerClientSummary.js','utf8').replace("'./coachOfferSchedule'",JSON.stringify(schedule));
+const {summarizeOfferClient}=await import(url(source));
+const base={start:'2026-10-01',end:'2026-10-01',quantity:10,remaining:6,type:'pack',price:100,currency:'EUR'};
+const contracts=[{...base,id:'a',clientId:'client'},{...base,id:'b',clientId:'client',currency:'USD',type:'single',quantity:1,remaining:0},{...base,id:'c',clientId:'other'}];
+const result=summarizeOfferClient(contracts,{'a:2026-10-01':{status:'paid'}},'client','2026-10-14',()=>100);
+assert.equal(result.contracts.length,2);
+assert.deepEqual(result.totals,{EUR:{received:10000,due:0,upcoming:0},USD:{received:0,due:10000,upcoming:0}});
+assert.equal(result.packSessions,4);assert.equal(result.standaloneSessions,1);
+assert.equal(result.payments.length,2);
+console.log('Client summary aggregation checks passed');
