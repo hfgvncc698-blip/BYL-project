@@ -8,6 +8,12 @@ const deployScript = fs.readFileSync(path.join(projectRoot, "deploy.sh"), "utf8"
 
 const checks = [
   {
+    description: "Firebase demande confirmation des retries en terminal sans forcer les deploiements automatiques",
+    valid: deployScript.includes('if [ -t 0 ] && [ "$ASSUME_YES" != true ]; then') &&
+      /run_step firebase deploy --only functions\s+else\s+run_step firebase deploy --non-interactive --only functions/.test(deployScript) &&
+      !/firebase deploy[^\n]*--force/.test(deployScript),
+  },
+  {
     description: "le contenu du webroot n'est plus efface avant une publication",
     valid: !/rm\s+-rf\s+["']?\\?\$REMOTE_WEBROOT["']?\/\*/.test(deployScript),
   },

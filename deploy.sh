@@ -264,7 +264,15 @@ firebase_deploy_if_requested() {
   fi
 
   if [ "$DEPLOY_FIREBASE_FUNCTIONS" = true ]; then
-    run_step firebase deploy --non-interactive --only functions
+    # Retry policies require Firebase's explicit confirmation on first deployment.
+    # Keep unattended runs fail-closed; never force function deletion or retries.
+    if [ -t 0 ] && [ "$ASSUME_YES" != true ]; then
+      echo "Firebase peut demander confirmation pour les nouvelles tentatives automatiques."
+      echo "Ces tentatives sont facturees. Refuse toute suppression de fonction inattendue."
+      run_step firebase deploy --only functions
+    else
+      run_step firebase deploy --non-interactive --only functions
+    fi
   fi
 }
 
