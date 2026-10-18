@@ -284,22 +284,7 @@ const CLUB_VIEWS = [
   { key: "stats", labelKey: "clubDashboard.views.stats", fallback: "Statistiques" },
 ];
 
-const CLUB_SECTIONS = {
-  "/club-dashboard/create": "create",
-  "/club-dashboard/team": "team",
-  "/club-dashboard/clients": "activity",
-  "/club-dashboard/programmes": "activity",
-  "/club-dashboard/nutrition": "activity",
-  "/club-dashboard/statistiques": "activity",
-  "/club-dashboard/alertes": "bulk",
-  "/club-dashboard/journal": "log",
-  "/club-dashboard/audit": "bulk",
-  "/club-dashboard/objectifs": "goals",
-  "/club-dashboard/exports": "exports",
-  "/club-dashboard/actions-groupees": "bulk",
-  "/club-dashboard/settings": "settings",
-  "/club-dashboard/calendrier": "calendar",
-};
+
 
 const VIEW_BY_PATH = {
   "/club-dashboard/clients": "clients",

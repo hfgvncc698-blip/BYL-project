@@ -1,7 +1,5 @@
 const assert = require('node:assert/strict');
-const { createClubMemberships, removeReservations, withoutClub } = require('../backend/utils/clubMemberships');
-const { createClubClassBooking } = require('../backend/utils/clubClassBooking');
-const { createClubMessaging } = require('../backend/utils/clubMessaging');
+const { createClubMemberships } = require('../backend/utils/clubMemberships');
 const now = Date.now();
 const data = new Map([
  ['users/u', { firstName: 'Camille', clubId: 'old', role: 'particulier' }],

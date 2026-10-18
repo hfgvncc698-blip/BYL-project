@@ -16,7 +16,7 @@ import {
   Box, Heading, Text, Button, Flex, HStack, useColorModeValue,
   Spinner, Table, Thead, Tbody, Tr, Th, Td,
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton,
-  ModalBody, ModalFooter, FormControl, FormLabel, Select, Input, Checkbox,
+  ModalBody, ModalFooter, FormControl, FormLabel, Input, Checkbox,
   VStack, Progress, Badge, useToast, Divider, Link as ChakraLink,
   SimpleGrid, Icon, IconButton, Tooltip, Circle, Stack, useBreakpointValue,
 } from '@chakra-ui/react';
@@ -1156,7 +1156,6 @@ export default function ClientDashboard({ adminPreview = false }) {
     let unsubSessUser = null;
     let unsubNutrition = null;
     let unsubNutritionLogs = null;
-    let programLoadVersion = 0;
 
     (async () => {
       setLoading(true);
@@ -1603,7 +1602,6 @@ export default function ClientDashboard({ adminPreview = false }) {
 
     return () => {
       active = false;
-      programLoadVersion += 1;
       if (unsubPrograms) unsubPrograms();
       if (unsubSessA) unsubSessA();
       if (unsubSessB) unsubSessB();

@@ -42,7 +42,7 @@ router.get("/client-records", requireFirebaseAuth, async (req, res) => {
       records.set(snap.id, { id: snap.id, authUid: uid, professionalIds: [...clientProfessionalUids(data)], coachName: data.coachName || "" });
     }
     res.json({ records: [...records.values()] });
-  } catch (error) { res.status(500).json({ error: "messaging-contacts-unavailable" }); }
+  } catch (_error) { res.status(500).json({ error: "messaging-contacts-unavailable" }); }
 });
 
 router.post("/send", requireFirebaseAuth, async (req, res) => {

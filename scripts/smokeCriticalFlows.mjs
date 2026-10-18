@@ -250,10 +250,22 @@ check("messaging stays unified and keeps its dashboard launcher", () => {
   assert.ok(
     app.includes('path="/messages"') &&
       navbar.includes('messaging: "/messages"') &&
-      app.includes("<DashboardMessagingBubble />"),
+      (/<DashboardMessagingBubble\b[^>]*\/>/.test(app)),
     "Messaging must remain available from both the dashboard launcher and the menu"
   );
   const bubble = read("src/components/messaging/DashboardMessagingBubble.jsx");
+  const notificationMode = app.match(/<DashboardMessagingBubble\s+notificationsOnly=\{([^}]+)\}/);
+  assert.ok(notificationMode, "The shared launcher must declare its notification-only mode");
+  const notificationsOnly = new Function("location", `return (${notificationMode[1]});`);
+  for (const pathname of ["/user-dashboard", "/coach-dashboard"]) {
+    assert.equal(notificationsOnly({ pathname }), false, `The launcher must be visible on ${pathname}`);
+  }
+  for (const pathname of ["/messages", "/profile", "/club-dashboard"]) {
+    assert.equal(notificationsOnly({ pathname }), true, `Background notifications must remain enabled on ${pathname}`);
+  }
+  assert.ok(bubble.indexOf('toast({') < bubble.indexOf('if(notificationsOnly)return null;'),
+    "Notification-only mode must hide the launcher without suppressing notifications");
+
   assert.ok(
     bubble.includes('icon={<Icon as={open ? CloseIcon : MdOutlineChat}') &&
       bubble.includes('messaging.openFull') &&
@@ -297,7 +309,7 @@ check("messaging stays unified and keeps its dashboard launcher", () => {
       bubble.includes('messaging.unread') &&
       bubble.includes('MESSAGING_NOTIFICATION_STORAGE_PREFIX') &&
       bubble.includes('window.localStorage.setItem(') &&
-      bubble.includes('activity > previousActivity') &&
+      bubble.includes('activity > (previousActivity||0)') &&
       bubble.includes('duration: 1800') &&
       navbar.includes('link.to === ROUTES.messaging && messagingUnreadCount'),
     "Unread messages must update live, notify only on new activity and remain visible on the launcher and navigation menu"
@@ -339,6 +351,7 @@ check("messaging stays unified and keeps its dashboard launcher", () => {
     "Conversation access and immutable message authorship must be enforced by Firestore"
   );
 
+  execFileSync(process.execPath, ["scripts/testMessagingEmailPolicy.cjs"], { cwd: root, stdio: "pipe" });
   const emailPreferenceCard = read("src/components/EmailNotificationPreferenceCard.jsx");
   const clientProfileRoute = read("backend/routes/clientProfile.js");
   const cloudFunctions = read("functions/index.js");
@@ -351,10 +364,8 @@ check("messaging stays unified and keeps its dashboard launcher", () => {
       cloudFunctions.includes("claimMessagingEmail") &&
       cloudFunctions.includes("retry: true") &&
       cloudFunctions.includes("MESSAGING_EMAIL_MAX_ATTEMPTS = 3") &&
-      cloudFunctions.includes("MESSAGING_EMAIL_ACTIVE_WINDOW_MS") &&
-      cloudFunctions.includes("lastSentAt > recipientReadAt") &&
-      cloudFunctions.includes("unread-sequence-already-notified") &&
-      cloudFunctions.includes("recipient-recently-active") &&
+      cloudFunctions.includes("require('./lib/messagingEmailPolicy.cjs')") &&
+      cloudFunctions.includes("emailSkipReason({messageAt,previousMessageAt,readAt:recipientReadAt,lastSentAt,now:nowMs})") &&
       cloudFunctions.includes("detail: senderName") &&
       !cloudFunctions.includes("detail: message.text"),
     "Messaging emails must be optional, deduplicated and avoid exposing message contents"
@@ -587,6 +598,7 @@ check("navigation preloads stay bounded and reuse warm page data", () => {
 });
 
 check("coach dashboard paints cached clients before expensive enrichment", () => {
+  execFileSync(process.execPath, ["scripts/testCoachDashboardLoading.mjs"], { cwd: root, stdio: "pipe" });
   const dashboard = read("src/components/CoachDashboard.jsx");
   assert.ok(
     dashboard.includes("readDashboardSnapshot") &&
@@ -602,7 +614,7 @@ check("coach dashboard paints cached clients before expensive enrichment", () =>
     "The first client query must release the loading state without waiting for every client detail"
   );
   assert.ok(
-    dashboard.includes("const sessionSnapsPromise = primaryClientSnapPromise") &&
+    dashboard.includes("const sessionSnapsPromise = Promise.all(") &&
       dashboard.includes("nutritionClientIdsKey") &&
       dashboard.includes("dashboardLoadSeqRef.current += 1"),
     "Dashboard work must stay bounded and nutrition must survive client detail updates"
@@ -1624,7 +1636,7 @@ check("coach session planning is atomic, bounded and duplicate-safe", () => {
   assert.ok(dashboard.includes("sessionCreateSaving"), "The add button must expose a saving state");
   assert.ok(dashboard.includes("controller.abort()"), "Session creation must have a finite timeout");
   assert.ok(
-    dashboard.includes("const sessionSnapsPromise = primaryClientSnapPromise"),
+    dashboard.includes("const sessionSnapsPromise = Promise.all("),
     "Cached dashboard returns must revalidate session widgets in the background"
   );
   assert.ok(
@@ -1639,7 +1651,7 @@ check("coach session planning is atomic, bounded and duplicate-safe", () => {
   );
   assert.ok(
     dashboard.includes('coachEventAppearance(event).backgroundColor') &&
-      read('src/utils/calendarEventAppearance.mjs').includes('return calendarEventAppearance(event, undefined, now, coachEventColors[coachEventCategory(event)])'),
+      read('src/utils/calendarEventAppearance.mjs').includes('calendarEventAppearance(event, undefined, now, coachEventColors[coachEventCategory(event)])'),
     "Calendar sessions must use shared coach colors and validation markers"
   );
   execFileSync(process.execPath, ["scripts/testCalendarEventAppearance.mjs"], { cwd: root, stdio: "pipe" });
@@ -1649,10 +1661,10 @@ check("coach session planning is atomic, bounded and duplicate-safe", () => {
     "Full refreshes must rebuild difficulty colors from root and completed sessions"
   );
   assert.ok(
-    dashboard.includes(
-      "if (!backgroundRefresh && isLatestLoad() && quickEvents.length) setSessions(quickEvents)"
-    ),
-    "An empty quick refresh must not erase reliable cached dashboard widgets"
+    dashboard.includes("setSessions(previous => [") &&
+      dashboard.includes('(event._kind !== "planned" || event.clubAppointmentId)') &&
+      dashboard.includes('!quickEvents.some(fresh => fresh.id === event.id || isStrictSameSession(fresh, event))'),
+    "Fresh planning must preserve independent club appointments and completed history without duplicates"
   );
   assert.ok(
     dashboard.includes("const backgroundRefresh = silent || hasCachedDashboardData") &&

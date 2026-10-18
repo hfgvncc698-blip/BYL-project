@@ -2539,7 +2539,7 @@ router.get("/group-class-clients", requireFirebaseAuth, assertClubOwner, async (
     }));
     const balances = await sessionPacks.directoryBalances(req.clubId, [...clients.keys()]);
     res.json({ clients: [...clients.values()].map(client => ({ ...client, packs: balances[client.id] || [] })) });
-  } catch (error) { res.status(500).json({ error: "Impossible de charger les clients du club." }); }
+  } catch (_error) { res.status(500).json({ error: "Impossible de charger les clients du club." }); }
 });
 
 async function validateGroupParticipants(ids, clubId, reader = ref => ref.get()) {

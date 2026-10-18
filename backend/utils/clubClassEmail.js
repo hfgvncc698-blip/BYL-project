@@ -34,7 +34,7 @@ async function notifyClassParticipants({ db, send, clubId, appointmentId, operat
       const copy = sessionEmailCopy({...change, start, end:start + appointment.durationMin * 60000}, String(account?.preferredLang || account?.langue || client.preferredLang || client.langue || 'fr').split('-')[0], account?.settings?.timezone || client.settings?.timezone || 'Europe/Paris');
       try {
         await send({to, copy, title:appointment.title, coachName:appointment.coachName});
-      } catch (error) {
+      } catch (_error) {
         result.failed++;
         await receipt.set({status:'failed', failedAt:Date.now()}, {merge:true}).catch(() => {});
         continue;
