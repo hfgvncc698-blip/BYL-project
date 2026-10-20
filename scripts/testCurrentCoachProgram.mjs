@@ -46,3 +46,31 @@ const inserted = reconcileStartedCycle(protectedPlan,assignedPrograms);
 assert.equal(inserted.cycles[1].programId,'new');
 assert.equal(inserted.cycles[2].draftProgramId,'prepared','preserve prepared future work');
 console.log('Coach/client cycle reconciliation: actual history, no mutation, idempotency and future plans OK');
+const linkedPlan = {...plan, cycles:plan.cycles.map(c => c.id === 'second' ? {...c,programId:'new',draftProgramId:'prepared',typeSource:'coach'} : c)};
+const linkedOriginal = structuredClone(linkedPlan);
+const linkedResult = reconcileStartedCycle(linkedPlan,assignedPrograms);
+assert.ok(linkedResult.cycles[0].closedAt,'completed cycle closes when following linked programme has started');
+assert.equal(linkedResult.cycles[1].id,'second');
+assert.equal(linkedResult.cycles[1].draftProgramId,'prepared');
+assert.equal(linkedResult.cycles.length,linkedPlan.cycles.length,'no duplicate cycle');
+assert.deepEqual(linkedPlan,linkedOriginal,'saved plan is not mutated');
+assert.deepEqual(reconcileStartedCycle(linkedResult,assignedPrograms),linkedResult);
+assert.equal(reconcileStartedCycle(linkedPlan,[assignedPrograms[0],{...assignedPrograms[1],sessionsEffectuees:[]}]),linkedPlan,'a future linked assignment alone does not advance');
+assert.equal(reconcileStartedCycle(linkedPlan,[{...assignedPrograms[0],sessionsEffectuees:[{completedAt:'2026-09-15'}]},assignedPrograms[1]]),linkedPlan,'unfinished current cycle remains current');
+assert.equal(reconcileStartedCycle(linkedPlan,[assignedPrograms[0],{...assignedPrograms[1],sessionsEffectuees:[{completedAt:'2026-08-01'}]}]),linkedPlan,'older activity does not advance');
+assert.equal(clientCycleTimeline({trainingPlan:linkedPlan},assignedPrograms).find(c=>c.state==='current').program.id,'new');
+console.log('Already-linked next cycle: actual progression, preserved coach plan, idempotency and future/older activity guards OK');
+const chainPrograms = [
+  {id:'a',sessions:[{}],activeWeeks:1,sessionsEffectuees:[{completedAt:'2026-10-01'}]},
+  {id:'b',sessions:[{}],activeWeeks:1,sessionsEffectuees:[{completedAt:'2026-10-03'}]},
+  {id:'c',sessions:[{},{}],activeWeeks:1,sessionsEffectuees:[{completedAt:'2026-10-05'}]},
+];
+const chainPlan = {revision:1,cycles:chainPrograms.map(p=>({id:p.id,programId:p.id,weeks:1,type:'custom'}))};
+const chainResult = reconcileStartedCycle(chainPlan,chainPrograms);
+assert.ok(chainResult.cycles[0].closedAt);
+assert.ok(chainResult.cycles[1].closedAt);
+assert.equal(chainResult.cycles.find(c=>!c.closedAt).id,'c','multiple completed cycles catch up to the actual current programme');
+assert.deepEqual(reconcileStartedCycle(chainResult,chainPrograms),chainResult);
+const partialNext = {...chainPrograms[1],sessionsEffectuees:[{completedAt:'2026-10-03',isPartial:true}]};
+assert.equal(reconcileStartedCycle(chainPlan,[chainPrograms[0],partialNext,chainPrograms[2]]),chainPlan,'partial session must not start next cycle');
+console.log('Multi-cycle catch-up and partial-validation guards OK');

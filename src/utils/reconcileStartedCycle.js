@@ -14,6 +14,17 @@ export function reconcileStartedCycle(plan, programs = []) {
   const current = programs.find(program => program.id === plan.cycles[index].programId);
   const total = current && getProgramPlannedSessionTotal(current);
   if (!total || getProgramValidatedSessionCount(current) < total) return plan;
+  // A following programme already linked by the coach used to be excluded
+  // by the legacy "unlinked programme" search below, leaving completed cycles open.
+  const followingProgram = programs.find(program => program.id === plan.cycles[index + 1]?.programId);
+  if (followingProgram && followingProgram.status !== 'draft' && !followingProgram.excludeFromCyclePlanning &&
+      getProgramValidatedSessionCount(followingProgram) > 0 && activity(followingProgram) > 0 &&
+      activity(followingProgram) >= activity(current)) {
+    const cycles = plan.cycles.map((cycle, position) => position === index
+      ? { ...cycle, closedAt: new Date(activity(current) || activity(followingProgram)).toISOString() }
+      : cycle);
+    return reconcileStartedCycle({ ...plan, cycles }, programs);
+  }
   const linked = new Set(plan.cycles.map(cycle => cycle.programId).filter(Boolean));
   const next = programs.filter(program => !linked.has(program.id) && program.status !== 'draft' && !program.excludeFromCyclePlanning &&
     assigned(program) > assigned(current) && activity(program) > 0 && activity(program) >= activity(current) &&

@@ -947,9 +947,43 @@ function GlobalClientView({ onBack } = {}) {
     setProgrammeDetailsReady(true);
   };
 
+  const reloadProgrammesRef = useRef(reloadProgrammes);
+  reloadProgrammesRef.current = reloadProgrammes;
   useEffect(() => {
     if (!clientId) return;
-    void reloadProgrammes();
+    let timer;
+    const histories = new Map();
+    const refresh = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        void reloadProgrammesRef.current().catch(error => console.error("[client programmes] refresh failed", error));
+      }, 100);
+    };
+    // Programme assignments and validations can change on another device while
+    // this page stays open. Keep both the cycle and its progress up to date.
+    const unsubscribe = onSnapshot(collection(db, "clients", clientId, SUBCOL_PROGRAMMES), snapshot => {
+      const ids = new Set(snapshot.docs.map(row => row.id));
+      for (const [id, stop] of histories) {
+        if (!ids.has(id)) { stop(); histories.delete(id); }
+      }
+      for (const id of ids) {
+        if (histories.has(id)) continue;
+        histories.set(id, onSnapshot(collection(db, "clients", clientId, SUBCOL_PROGRAMMES, id, SUBCOL_SESSIONS_DONE),
+          refresh, error => console.error("[client sessions] subscription failed", error)));
+      }
+      refresh();
+    }, error => {
+      console.error("[client programmes] subscription failed", error);
+      refresh();
+    });
+    window.addEventListener("focus", refresh);
+    return () => {
+      unsubscribe();
+      histories.forEach(stop => stop());
+      clearTimeout(timer);
+      window.removeEventListener("focus", refresh);
+      programmesLoadSeqRef.current += 1;
+    };
   }, [clientId]);
 
   const sortedProgrammes = useMemo(() => {
