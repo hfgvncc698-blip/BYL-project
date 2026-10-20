@@ -5142,8 +5142,8 @@ selectedEvent.id.replace("planned__", "");
        return;
      }
      if(!effectiveClubId){
-       try{await apiFetch(`/coach-sessions/${sourceId}/cancel`,{method:'PATCH',body:JSON.stringify({notifyClient:true})});eventModal.onClose();refreshDashboardData();}
-       catch(e){notify(toast,'saveError',{title:'Annulation impossible',description:e.data?.error||'Réessayez.'});}
+       try{await apiFetch(`/coach-sessions/${sourceId}`,{method:'DELETE'});eventModal.onClose();refreshDashboardData();}
+       catch(e){notify(toast,'saveError',{title:'Suppression impossible',description:e.data?.error||'Réessayez.'});}
        return;
      }
      await deleteDoc(doc(db, "sessions", sourceId));

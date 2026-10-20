@@ -463,6 +463,17 @@ async function updateSessionCalendar(req, res) {
     return res.status(error.status || 500).json({ error: error.status ? error.message : 'La séance n’a pas pu être déplacée.' });
   }
 }
+const deleteCoachSession = require('../utils/deleteCoachSession').createDeleteCoachSession({
+  db, isAdminRole, hasActiveProfessionalAccess, clientBelongsToCoach, prepareCoachCredit,
+});
+router.delete('/:sessionId', requireFirebaseAuth, async (req, res) => {
+  try { res.json(await deleteCoachSession(req.auth.uid, req.auth.token, req.params.sessionId)); }
+  catch (error) {
+    console.error('[coach-session delete]', error);
+    res.status(error.status || 500).json({ error: error.status ? error.message : 'Suppression impossible. Réessayez.' });
+  }
+});
+
 router.patch('/:sessionId/schedule', requireFirebaseAuth, updateSessionCalendar);
 router.patch('/:sessionId/cancel', requireFirebaseAuth, updateSessionCalendar);
 router.patch('/:sessionId/edit', requireFirebaseAuth, updateSessionCalendar);
